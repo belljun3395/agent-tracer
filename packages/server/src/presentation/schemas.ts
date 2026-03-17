@@ -114,7 +114,7 @@ export const ruleSchema = actionEventSchema.extend({
 /**
  * 캐노니컬 user.message 요청 스키마 (contractVersion "1").
  * - sessionId는 모든 호출자에게 필수.
- * - captureMode=derived 시 sourceEventId 필수.
+ * - source는 불투명 메타데이터로 취급 (서버가 source별 분기를 수행하지 않음).
  */
 export const userMessageSchema = z.object({
   taskId: z.string().min(1),
