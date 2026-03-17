@@ -12,7 +12,9 @@ coverage
 !.env.example
 .agents
 .ralph
-.claude/.current-task-id
+.claude/.current-task-id*
+.claude/.msg-count-*
+.codex/.current-task-id*
 .codex/.current-task-id
 .codex/hook-debug/
 .worktrees

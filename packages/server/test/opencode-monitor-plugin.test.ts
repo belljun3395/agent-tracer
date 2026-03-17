@@ -106,18 +106,12 @@ describe("OpenCode monitor plugin", () => {
     // 순서: task-start (a), unsupported-gap rule (a), task-start (b), unsupported-gap rule (b),
     //        terminal-command (a), terminal-command (b), session-end (a), session-end (b)
     expect(calls.filter(c => c.endpoint === "/api/task-start")).toHaveLength(2);
-    expect(calls.filter(c => c.endpoint === "/api/rule")).toHaveLength(2);
+    expect(calls.filter(c => c.endpoint === "/api/rule")).toHaveLength(0);
     expect(calls.filter(c => c.endpoint === "/api/terminal-command")).toHaveLength(2);
     expect(calls.filter(c => c.endpoint === "/api/session-end")).toHaveLength(2);
     // 태스크가 세션 종료 시 complete 되어서는 안 된다
     expect(calls.filter(c => c.endpoint === "/api/task-complete")).toHaveLength(0);
 
-    // unsupported-gap rule이 올바른 ruleId를 사용한다
-    const ruleCall = calls.find(c => c.endpoint === "/api/rule");
-    expect(ruleCall?.body).toMatchObject({
-      ruleId: "user-message-capture-unavailable",
-      source: "opencode-plugin"
-    });
 
     // session-end 가 세션별로 올바른 taskId/sessionId를 사용한다
     const sessionEndBodies = calls

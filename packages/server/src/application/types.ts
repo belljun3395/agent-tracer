@@ -203,3 +203,27 @@ export interface GenericEventInput {
   readonly filePaths?: readonly string[];
   readonly metadata?: Record<string, unknown>;
 }
+
+/**
+ * Claude Code 창(window) 단위 세션 보장 입력.
+ * cc_session_id 를 키로 task/session 을 자동 생성·재개한다.
+ */
+export interface CcSessionEnsureInput {
+  readonly ccSessionId: string;
+  readonly title: string;
+  readonly workspacePath?: string;
+  /** true 면 message_count 를 증가시키고 phase 를 반환한다. */
+  readonly bumpMessageCount?: boolean;
+}
+
+export interface CcSessionEnsureResult {
+  readonly taskId: string;
+  readonly sessionId: string;
+  readonly phase: "initial" | "follow_up";
+  readonly isNewTask: boolean;
+}
+
+export interface CcSessionEndInput {
+  readonly ccSessionId: string;
+  readonly summary?: string;
+}

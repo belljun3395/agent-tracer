@@ -31,7 +31,9 @@ import type {
   TaskTodoInput,
   TaskToolUsedInput,
   TaskUserMessageInput,
-  TaskVerifyInput
+  TaskVerifyInput,
+  CcSessionEnsureInput,
+  CcSessionEndInput
 } from "../application/types.js";
 import {
   taskStartSchema,
@@ -50,7 +52,9 @@ import {
   sessionEndSchema,
   questionSchema,
   todoSchema,
-  thoughtSchema
+  thoughtSchema,
+  ccSessionEnsureSchema,
+  ccSessionEndSchema
 } from "./schemas.js";
 
 export interface MonitoringHttpServer {
@@ -106,11 +110,6 @@ export function createMonitoringHttpServer(
       return;
     }
 
-    if (result === "running") {
-      response.status(409).json({ ok: false, error: "Cannot delete a running task" });
-      return;
-    }
-
     broadcast("task.deleted", { taskId: request.params.taskId });
     response.json({ ok: true });
   });
@@ -148,6 +147,19 @@ export function createMonitoringHttpServer(
     const payload = { task };
     broadcast("task.updated", payload);
     response.json(payload);
+  });
+
+  // Claude Code 창(window) 단위 세션 보장 — 파일 대신 DB로 격리 관리
+  app.post("/api/cc-session-ensure", (request, response) => {
+    const input = ccSessionEnsureSchema.parse(request.body) as CcSessionEnsureInput;
+    const result = service.ensureCcSession(input);
+    response.json(result);
+  });
+
+  app.post("/api/cc-session-end", (request, response) => {
+    const input = ccSessionEndSchema.parse(request.body) as CcSessionEndInput;
+    service.endCcSession(input);
+    response.json({ ok: true });
   });
 
   app.post("/api/task-start", (request, response) => {

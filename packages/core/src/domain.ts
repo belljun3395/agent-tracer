@@ -58,6 +58,8 @@ export interface MonitoringTask extends MonitoringTaskInput {
   readonly createdAt: string;
   readonly updatedAt: string;
   readonly lastSessionStartedAt?: string;
+  /** 이벤트를 생성한 CLI 소스 (예: claude-hook, opencode-plugin). */
+  readonly cliSource?: string;
 }
 
 /** 태스크 내 단일 에이전트 실행 세션. */

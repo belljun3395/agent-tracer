@@ -45,12 +45,12 @@ describe("MonitorDatabase", () => {
       expect(db.deleteTask("no-such-id")).toBe("not_found");
     });
 
-    it("실행 중인 태스크 → running", () => {
+    it("실행 중인 태스크도 강제 삭제 가능 → deleted", () => {
       db.upsertTask({
         id: "t1", title: "T", slug: "t", status: "running",
         createdAt: "2026-03-17T00:00:00.000Z", updatedAt: "2026-03-17T00:00:00.000Z"
       });
-      expect(db.deleteTask("t1")).toBe("running");
+      expect(db.deleteTask("t1")).toBe("deleted");
     });
 
     it("완료된 태스크 삭제 성공 → deleted", () => {

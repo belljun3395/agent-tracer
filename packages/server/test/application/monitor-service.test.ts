@@ -27,6 +27,14 @@ describe("MonitorService", () => {
       const result = service.startTask({ title: "T", taskId: "custom-id" });
       expect(result.task.id).toBe("custom-id");
     });
+
+    it("기존 태스크 재개 시 task.start 이벤트를 생성하지 않는다", () => {
+      const { task } = service.startTask({ title: "T" });
+      const resumed = service.startTask({ title: "T", taskId: task.id });
+      expect(resumed.task.id).toBe(task.id);
+      expect(resumed.sessionId).toBeDefined();
+      expect(resumed.events).toHaveLength(0);
+    });
   });
 
   describe("completeTask", () => {
@@ -60,9 +68,9 @@ describe("MonitorService", () => {
   });
 
   describe("deleteTask", () => {
-    it("실행 중인 태스크는 삭제할 수 없다 → running", () => {
+    it("실행 중인 태스크도 강제 삭제 가능 → deleted", () => {
       const { task } = service.startTask({ title: "T" });
-      expect(service.deleteTask(task.id)).toBe("running");
+      expect(service.deleteTask(task.id)).toBe("deleted");
     });
 
     it("완료된 태스크를 삭제한다 → deleted", () => {

@@ -43,7 +43,10 @@ import type {
   TaskTodoInput,
   TaskToolUsedInput,
   TaskUserMessageInput,
-  TaskVerifyInput
+  TaskVerifyInput,
+  CcSessionEnsureInput,
+  CcSessionEnsureResult,
+  CcSessionEndInput
 } from "./types.js";
 
 export interface MonitorServiceOptions {
@@ -127,22 +130,32 @@ export class MonitorService {
       ...(input.summary ? { summary: input.summary } : {})
     });
 
-    const event = this.recordGenericEvent({
-      taskId: task.id,
-      sessionId,
-      kind: "task.start",
-      title: input.title,
-      metadata: {
-        ...(input.metadata ?? {}),
-        ...(task.workspacePath ? { workspacePath: task.workspacePath } : {})
-      },
-      ...(input.summary ? { body: input.summary } : {})
-    });
+    // task.start 이벤트는 신규 태스크에만 생성한다.
+    // 기존 태스크의 세션 재개 시에는 이벤트를 생성하지 않아 User 레인 중복을 방지한다.
+    if (!existingTask) {
+      const event = this.recordGenericEvent({
+        taskId: task.id,
+        sessionId,
+        kind: "task.start",
+        title: input.title,
+        metadata: {
+          ...(input.metadata ?? {}),
+          ...(task.workspacePath ? { workspacePath: task.workspacePath } : {})
+        },
+        ...(input.summary ? { body: input.summary } : {})
+      });
+
+      return {
+        task,
+        ...(sessionId ? { sessionId } : {}),
+        events: [{ id: event.id, kind: event.kind }]
+      };
+    }
 
     return {
       task,
       ...(sessionId ? { sessionId } : {}),
-      events: [{ id: event.id, kind: event.kind }]
+      events: []
     };
   }
 
@@ -184,6 +197,25 @@ export class MonitorService {
       ?? (automaticSources.includes(input.source)
         ? undefined
         : this.database.findLatestSession(input.taskId)?.id);
+
+    // 첫 번째 사용자 메시지(phase=initial)이면:
+    // - generic 제목이면 user message 제목으로 자동 업데이트
+    // - cliSource가 없으면 input.source로 설정
+    if (input.phase === "initial") {
+      const updatedTitle = (input.title && isGenericTaskTitle(task.title))
+        ? input.title
+        : task.title;
+      const updatedCliSource = task.cliSource ?? input.source;
+      if (updatedTitle !== task.title || updatedCliSource !== task.cliSource) {
+        this.database.upsertTask({
+          ...task,
+          title: updatedTitle,
+          slug: createTaskSlug({ title: updatedTitle }),
+          cliSource: updatedCliSource,
+          updatedAt: new Date().toISOString()
+        });
+      }
+    }
 
     const event = this.recordGenericEvent({
       taskId: input.taskId,
@@ -232,6 +264,111 @@ export class MonitorService {
     this.database.updateSessionStatus(sessionId, "completed", input.summary, endedAt);
 
     return { sessionId, task };
+  }
+
+  /**
+   * Claude Code 창(window) 단위 세션을 보장한다.
+   * cc_session_id 로 기존 task/session 을 재사용하거나, 없으면 신규 생성한다.
+   * bumpMessageCount=true 면 message_count 를 증가시키고 phase 를 반환한다.
+   */
+  ensureCcSession(input: CcSessionEnsureInput): CcSessionEnsureResult {
+    const now = new Date().toISOString();
+    const workspacePath = input.workspacePath
+      ? normalizeWorkspacePath(input.workspacePath)
+      : undefined;
+
+    const existing = this.database.getCcSession(input.ccSessionId);
+
+    // 1. 활성 세션이 있으면 그대로 반환
+    if (existing?.monitor_session_id) {
+      const phase = this.#resolveCcPhase(existing);
+      if (input.bumpMessageCount) {
+        this.database.upsertCcSession({
+          ...existing,
+          message_count: existing.message_count + 1,
+          updated_at: now
+        });
+      }
+      return {
+        taskId: existing.task_id,
+        sessionId: existing.monitor_session_id,
+        phase,
+        isNewTask: false
+      };
+    }
+
+    // 2. 기존 task가 있지만 세션이 끊긴 경우 — 새 세션 재개
+    if (existing) {
+      const sessionId = crypto.randomUUID();
+      this.database.createSession({
+        id: sessionId,
+        taskId: existing.task_id,
+        status: "running",
+        startedAt: now
+      });
+      this.database.upsertTask({
+        ...this.database.getTask(existing.task_id)!,
+        status: "running",
+        lastSessionStartedAt: now,
+        updatedAt: now
+      });
+      const count = input.bumpMessageCount ? existing.message_count + 1 : existing.message_count;
+      this.database.upsertCcSession({
+        cc_session_id: input.ccSessionId,
+        task_id: existing.task_id,
+        monitor_session_id: sessionId,
+        message_count: count,
+        updated_at: now
+      });
+      return {
+        taskId: existing.task_id,
+        sessionId,
+        phase: existing.message_count === 0 ? "initial" : "follow_up",
+        isNewTask: false
+      };
+    }
+
+    // 3. 처음 보는 cc_session_id — 신규 task + session 생성
+    const result = this.startTask({
+      title: input.title,
+      ...(workspacePath ? { workspacePath } : {})
+    });
+    const taskId    = result.task.id;
+    const sessionId = result.sessionId!;
+    const count     = input.bumpMessageCount ? 1 : 0;
+    this.database.upsertCcSession({
+      cc_session_id: input.ccSessionId,
+      task_id: taskId,
+      monitor_session_id: sessionId,
+      message_count: count,
+      updated_at: now
+    });
+    return { taskId, sessionId, phase: "initial", isNewTask: true };
+  }
+
+  /**
+   * Claude Code 창 세션을 종료한다.
+   * monitor session 을 종료하고 cc_sessions 의 monitor_session_id 를 null 로 클리어한다.
+   */
+  endCcSession(input: CcSessionEndInput): void {
+    const now = new Date().toISOString();
+    const row = this.database.getCcSession(input.ccSessionId);
+    if (!row?.monitor_session_id) return;
+
+    try {
+      this.database.updateSessionStatus(row.monitor_session_id, "completed", input.summary, now);
+    } catch {
+      // session already ended — ignore
+    }
+    this.database.upsertCcSession({
+      ...row,
+      monitor_session_id: null,
+      updated_at: now
+    });
+  }
+
+  #resolveCcPhase(row: { message_count: number }): "initial" | "follow_up" {
+    return row.message_count === 0 ? "initial" : "follow_up";
   }
 
   /**
@@ -619,11 +756,11 @@ export class MonitorService {
   }
 
   /**
-   * 태스크를 삭제한다. 실행 중인 태스크는 삭제할 수 없다.
+   * 태스크를 삭제한다.
    * @param taskId 삭제할 태스크 ID
-   * @returns "deleted" | "not_found" | "running"
+   * @returns "deleted" | "not_found"
    */
-  deleteTask(taskId: string): "deleted" | "not_found" | "running" {
+  deleteTask(taskId: string): "deleted" | "not_found" {
     return this.database.deleteTask(taskId);
   }
 
@@ -914,4 +1051,10 @@ function normalizeTagSegment(value: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
+}
+
+
+/** Claude Code / OpenCode 등이 자동 생성하는 generic task 제목인지 판별한다. */
+function isGenericTaskTitle(title: string): boolean {
+  return /^(Claude Code|OpenCode)\s*[—–-]\s*/i.test(title);
 }

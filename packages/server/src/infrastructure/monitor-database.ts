@@ -35,6 +35,15 @@ interface TaskRow {
   created_at: string;
   updated_at: string;
   last_session_started_at: string | null;
+  cli_source: string | null;
+}
+
+interface CcSessionRow {
+  cc_session_id: string;
+  task_id: string;
+  monitor_session_id: string | null;
+  message_count: number;
+  updated_at: string;
 }
 
 interface SessionRow {
@@ -106,7 +115,8 @@ export class MonitorDatabase {
         status text not null,
         created_at text not null,
         updated_at text not null,
-        last_session_started_at text
+        last_session_started_at text,
+        cli_source text
       );
 
       create table if not exists task_sessions (
@@ -133,7 +143,21 @@ export class MonitorDatabase {
 
       create index if not exists idx_timeline_events_task_created
         on timeline_events(task_id, created_at);
+
+      create table if not exists cc_sessions (
+        cc_session_id text primary key,
+        task_id text not null references monitoring_tasks(id) on delete cascade,
+        monitor_session_id text,
+        message_count integer not null default 0,
+        updated_at text not null
+      );
     `);
+
+    // 점진적 마이그레이션: 기존 DB에 cli_source 컬럼이 없으면 추가
+    const cols = this.connection.pragma("table_info(monitoring_tasks)") as Array<{ name: string }>;
+    if (!cols.some((c) => c.name === "cli_source")) {
+      this.connection.exec("alter table monitoring_tasks add column cli_source text");
+    }
   }
 
   /**
@@ -145,9 +169,9 @@ export class MonitorDatabase {
     this.connection
       .prepare(`
         insert into monitoring_tasks (
-          id, title, slug, workspace_path, status, created_at, updated_at, last_session_started_at
+          id, title, slug, workspace_path, status, created_at, updated_at, last_session_started_at, cli_source
         ) values (
-          @id, @title, @slug, @workspacePath, @status, @createdAt, @updatedAt, @lastSessionStartedAt
+          @id, @title, @slug, @workspacePath, @status, @createdAt, @updatedAt, @lastSessionStartedAt, @cliSource
         )
         on conflict(id) do update set
           title = excluded.title,
@@ -155,7 +179,8 @@ export class MonitorDatabase {
           workspace_path = excluded.workspace_path,
           status = excluded.status,
           updated_at = excluded.updated_at,
-          last_session_started_at = excluded.last_session_started_at
+          last_session_started_at = excluded.last_session_started_at,
+          cli_source = coalesce(excluded.cli_source, monitoring_tasks.cli_source)
       `)
       .run({
         id: task.id,
@@ -165,7 +190,8 @@ export class MonitorDatabase {
         status: task.status,
         createdAt: task.createdAt,
         updatedAt: task.updatedAt,
-        lastSessionStartedAt: task.lastSessionStartedAt ?? null
+        lastSessionStartedAt: task.lastSessionStartedAt ?? null,
+        cliSource: task.cliSource ?? null
       });
 
     return this.getTask(task.id)!;
@@ -363,8 +389,8 @@ export class MonitorDatabase {
    * @param taskId 삭제할 태스크 ID
    * @returns "deleted" | "not_found" | "running"
    */
-  deleteTask(taskId: string): "deleted" | "not_found" | "running" {
-    return this.connection.transaction((): "deleted" | "not_found" | "running" => {
+  deleteTask(taskId: string): "deleted" | "not_found" {
+    return this.connection.transaction((): "deleted" | "not_found" => {
       const row = this.connection
         .prepare<{ taskId: string }, { status: string }>(
           "select status from monitoring_tasks where id = @taskId"
@@ -372,7 +398,6 @@ export class MonitorDatabase {
         .get({ taskId });
 
       if (!row) return "not_found";
-      if (row.status === "running") return "running";
 
       this.connection
         .prepare<{ taskId: string }>("delete from monitoring_tasks where id = @taskId")
@@ -392,6 +417,34 @@ export class MonitorDatabase {
       .run();
 
     return result.changes;
+  }
+
+  /**
+   * cc_sessions 레코드를 조회한다.
+   */
+  getCcSession(ccSessionId: string): CcSessionRow | null {
+    return this.connection
+      .prepare<{ ccSessionId: string }, CcSessionRow>(
+        "select * from cc_sessions where cc_session_id = @ccSessionId"
+      )
+      .get({ ccSessionId }) ?? null;
+  }
+
+  /**
+   * cc_sessions 레코드를 upsert한다.
+   */
+  upsertCcSession(row: CcSessionRow): void {
+    this.connection
+      .prepare<CcSessionRow>(`
+        insert into cc_sessions (cc_session_id, task_id, monitor_session_id, message_count, updated_at)
+        values (@cc_session_id, @task_id, @monitor_session_id, @message_count, @updated_at)
+        on conflict(cc_session_id) do update set
+          task_id = excluded.task_id,
+          monitor_session_id = excluded.monitor_session_id,
+          message_count = excluded.message_count,
+          updated_at = excluded.updated_at
+      `)
+      .run(row);
   }
 
   /**
@@ -445,7 +498,8 @@ function mapTaskRow(row: TaskRow): MonitoringTask {
     ...(row.workspace_path ? { workspacePath: row.workspace_path } : {}),
     ...(row.last_session_started_at
       ? { lastSessionStartedAt: row.last_session_started_at }
-      : {})
+      : {}),
+    ...(row.cli_source ? { cliSource: row.cli_source } : {})
   };
 }
 

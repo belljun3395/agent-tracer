@@ -7,12 +7,12 @@
 import type React from "react";
 import type { MonitoringTask, TaskDetailResponse } from "../types.js";
 import { formatRelativeTime } from "../lib/timeline.js";
+import { buildTaskDisplayTitle } from "../lib/insights.js";
 
 interface TaskListProps {
   readonly tasks: readonly MonitoringTask[];
   readonly selectedTaskId: string | null;
   readonly taskDetail: TaskDetailResponse | null;
-  readonly selectedTaskDisplayTitle: string | null;
   readonly selectedTaskQuestionCount?: number | undefined;
   readonly selectedTaskTodoCount?: number | undefined;
   readonly deletingTaskId: string | null;
@@ -30,7 +30,6 @@ export function TaskList({
   tasks,
   selectedTaskId,
   taskDetail,
-  selectedTaskDisplayTitle,
   selectedTaskQuestionCount,
   selectedTaskTodoCount,
   deletingTaskId,
@@ -78,11 +77,14 @@ export function TaskList({
                   <div className="task-item-meta">
                     <span className={`status-pill ${task.status}`}>{task.status}</span>
                     <span className="task-age">{formatRelativeTime(task.updatedAt)}</span>
+                    {task.cliSource && (
+                      <span className={`cli-tag cli-tag--${cliTagSlug(task.cliSource)}`}>
+                        {cliTagLabel(task.cliSource)}
+                      </span>
+                    )}
                   </div>
                   <div className="task-item-title">
-                    {task.id === taskDetail?.task.id && selectedTaskDisplayTitle
-                      ? selectedTaskDisplayTitle
-                      : task.title}
+                    {buildTaskDisplayTitle(task, [])}
                   </div>
                   <div className="task-item-path mono">{task.workspacePath ?? "—"}</div>
                   {task.id === selectedTaskId && task.id === taskDetail?.task.id && (
@@ -116,4 +118,16 @@ export function TaskList({
       </div>
     </aside>
   );
+}
+
+function cliTagSlug(source: string): string {
+  if (source === "claude-hook") return "claude";
+  if (source === "opencode-plugin") return "opencode";
+  return "other";
+}
+
+function cliTagLabel(source: string): string {
+  if (source === "claude-hook") return "Claude Code";
+  if (source === "opencode-plugin") return "OpenCode";
+  return source;
 }

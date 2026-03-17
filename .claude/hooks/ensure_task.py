@@ -1,39 +1,24 @@
 #!/usr/bin/env python3
 """PreToolUse hook: ensures a monitoring task and session are active.
 
-Behavior:
-  - No task file → create new task + session, write "taskId:sessionId"
-  - Task file with active sessionId ("taskId:sessionId") → return early (session running)
-  - Task file with cleared sessionId ("taskId:") → start a new session under the
-    existing task, update file to "taskId:newSessionId"
-
-Note: user_prompt.py (UserPromptSubmit hook) normally creates the task and session
-before this hook fires, and also logs the user.message event. This hook is a
-safety fallback for tool-only flows (subagents, non-interactive runs) where
-UserPromptSubmit may not fire.
-
-Silently skips if the monitor server is not running.
-
-File format while session is active: "taskId:sessionId"
-File format between turns (after session-end): "taskId:"
+Safety fallback for tool-only flows (subagents, non-interactive runs).
+Uses /api/cc-session-ensure — no files on disk.
 """
 
 import json
-import os
 import sys
-import urllib.error
+import os
 import urllib.request
 
-PROJECT_DIR = os.environ.get("CLAUDE_PROJECT_DIR", os.getcwd())
-TASK_FILE   = os.path.join(PROJECT_DIR, ".claude", ".current-task-id")
 API_BASE    = f"http://127.0.0.1:{os.environ.get('MONITOR_PORT', '3847')}"
+PROJECT_DIR = os.environ.get("CLAUDE_PROJECT_DIR", os.getcwd())
 
 
 def _post(path: str, body: dict) -> dict:
-    payload = json.dumps(body).encode()
+    data = json.dumps(body).encode()
     req = urllib.request.Request(
         f"{API_BASE}{path}",
-        data=payload,
+        data=data,
         headers={"Content-Type": "application/json"},
         method="POST",
     )
@@ -41,87 +26,25 @@ def _post(path: str, body: dict) -> dict:
         return json.loads(resp.read())
 
 
-
-
 def main() -> None:
-    # Consume stdin (required by Claude Code hook protocol)
     try:
-        sys.stdin.read()
+        raw = sys.stdin.read()
+        payload = json.loads(raw) if raw.strip() else {}
     except Exception:
-        pass
-
-    if os.path.exists(TASK_FILE):
-        try:
-            with open(TASK_FILE) as f:
-                raw = f.read().strip()
-            task_id, _, session_id = raw.partition(":")
-        except Exception:
-            return
-
-        if session_id:
-            return  # session already active for this turn
-
-        if not task_id:
-            return
-
-        # Task exists but no active session — start a new session under the same task.
-        try:
-            data = _post("/api/task-start", {
-                "taskId":        task_id,
-                "title":         f"Claude Code — {os.path.basename(PROJECT_DIR)}",
-                "workspacePath": PROJECT_DIR,
-            })
-            new_session_id = data.get("sessionId", "")
-            os.makedirs(os.path.dirname(TASK_FILE), exist_ok=True)
-            with open(TASK_FILE, "w") as f:
-                f.write(f"{task_id}:{new_session_id}")
-
-            # Planning snapshot for session continuity
-            _post("/api/save-context", {
-                "taskId":    task_id,
-                "sessionId": new_session_id,
-                "title":     f"Session resumed in {os.path.basename(PROJECT_DIR)}",
-                "body":      (
-                    f"Claude Code session resumed on existing work item.\n"
-                    f"Project: {os.path.basename(PROJECT_DIR)}\n"
-                    f"Path: {PROJECT_DIR}\n"
-                    f"Session: {new_session_id[:8]}…"
-                ),
-                "lane":      "planning",
-                "metadata":  {"workspacePath": PROJECT_DIR, "sessionKind": "continuation"},
-            })
-        except Exception:
-            pass
         return
 
-    # No task file — create a new task and session.
-    title = f"Claude Code — {os.path.basename(PROJECT_DIR)}"
+    cc_session_id = (payload.get("session_id") or "").strip()
+    if not cc_session_id:
+        return
+
     try:
-        data = _post("/api/task-start", {
-            "title":         title,
+        _post("/api/cc-session-ensure", {
+            "ccSessionId":   cc_session_id,
+            "title":         f"Claude Code — {os.path.basename(PROJECT_DIR)}",
             "workspacePath": PROJECT_DIR,
         })
-        task_id    = data["task"]["id"]
-        session_id = data.get("sessionId", "")
-        os.makedirs(os.path.dirname(TASK_FILE), exist_ok=True)
-        with open(TASK_FILE, "w") as f:
-            f.write(f"{task_id}:{session_id}")
-
-        _post("/api/save-context", {
-            "taskId":    task_id,
-            "sessionId": session_id,
-            "title":     f"Session started in {os.path.basename(PROJECT_DIR)}",
-            "body":      (
-                f"Claude Code session started.\n"
-                f"Project: {os.path.basename(PROJECT_DIR)}\n"
-                f"Path: {PROJECT_DIR}\n"
-                f"Session: {session_id[:8]}…"
-            ),
-            "lane":      "planning",
-            "metadata":  {"workspacePath": PROJECT_DIR},
-        })
     except Exception:
-        pass  # server not running — silent skip
+        pass  # monitor not running — silent skip
 
 
 main()

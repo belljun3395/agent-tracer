@@ -1,25 +1,15 @@
 #!/usr/bin/env python3
-"""PostToolUse hook: records Bash command events to Baden.
-
-Classifies commands as either:
-  - "rules"  lane: test / build / lint / typecheck / commit / push
-  - "implementation" lane: everything else
-
-Also emits a thought (planning lane) event from the Bash description field.
-"""
+"""PostToolUse hook: records Bash command events (implementation or rules lane)."""
 
 import json
 import os
 import sys
 import urllib.request
 
-PROJECT_DIR = os.environ.get("CLAUDE_PROJECT_DIR", os.getcwd())
-TASK_FILE   = os.path.join(PROJECT_DIR, ".claude", ".current-task-id")
 API_BASE    = f"http://127.0.0.1:{os.environ.get('MONITOR_PORT', '3847')}"
-
+PROJECT_DIR = os.environ.get("CLAUDE_PROJECT_DIR", os.getcwd())
 MAX_CMD_LEN = 500
 
-# Keywords that indicate verification / quality-check activity → "rules" lane
 RULES_PATTERNS = (
     "npm test", "npm run test", "npm run build", "npm run typecheck",
     "npm run lint", "npm run check", "pnpm test", "pnpm build",
@@ -37,25 +27,47 @@ def _lane(command: str) -> str:
     return "implementation"
 
 
-def main() -> None:
-    if not os.path.exists(TASK_FILE):
-        return
+def _post(path: str, body: dict) -> None:
+    req = urllib.request.Request(
+        f"{API_BASE}{path}",
+        data=json.dumps(body).encode(),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    urllib.request.urlopen(req, timeout=2)
 
+
+def _get_ids(cc_session_id: str) -> tuple[str, str]:
+    req = urllib.request.Request(
+        f"{API_BASE}/api/cc-session-ensure",
+        data=json.dumps({
+            "ccSessionId":   cc_session_id,
+            "title":         f"Claude Code — {os.path.basename(PROJECT_DIR)}",
+            "workspacePath": PROJECT_DIR,
+        }).encode(),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=2) as resp:
+        data = json.loads(resp.read())
+    return data["taskId"], data["sessionId"]
+
+
+def main() -> None:
     try:
-        event      = json.load(sys.stdin)
-        tool_input = event.get("tool_input", {})
-        command    = tool_input.get("command", "").strip()
-        desc       = tool_input.get("description", "").strip()
+        event         = json.load(sys.stdin)
+        tool_input    = event.get("tool_input", {})
+        command       = tool_input.get("command", "").strip()
+        desc          = tool_input.get("description", "").strip()
+        cc_session_id = (event.get("session_id") or "").strip()
     except Exception:
         return
 
-    if not command:
+    if not command or not cc_session_id:
         return
 
     try:
-        with open(TASK_FILE) as f:
-            raw = f.read().strip()
-        task_id, _, session_id = raw.partition(":")
+        task_id, session_id = _get_ids(cc_session_id)
     except Exception:
         return
 
@@ -63,48 +75,31 @@ def main() -> None:
     title = desc or command[:80]
     body  = command if not desc else f"{desc}\n\n$ {command[:300]}"
 
-    payload = json.dumps({
-        "taskId":    task_id,
-        "sessionId": session_id,
-        "command":   command[:MAX_CMD_LEN],
-        "title":     title,
-        "body":      body,
-        "lane":      lane,
-        "metadata":  {"description": desc},
-    }).encode()
-
     try:
-        req = urllib.request.Request(
-            f"{API_BASE}/api/terminal-command",
-            data=payload,
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
-        urllib.request.urlopen(req, timeout=2)
+        _post("/api/terminal-command", {
+            "taskId":    task_id,
+            "sessionId": session_id,
+            "command":   command[:MAX_CMD_LEN],
+            "title":     title,
+            "body":      body,
+            "lane":      lane,
+            "metadata":  {"description": desc},
+        })
     except Exception:
         pass
 
-    # If the command has a description, also emit a planning thought so
-    # the intent behind each action is visible in the Planning lane.
     if not desc:
         return
 
-    thought_payload = json.dumps({
-        "taskId":    task_id,
-        "sessionId": session_id,
-        "title":     desc,
-        "body":      f"Intent: {desc}\nAction: $ {command[:200]}",
-        "lane":      "planning",
-        "metadata":  {"command": command[:200]},
-    }).encode()
     try:
-        thought_req = urllib.request.Request(
-            f"{API_BASE}/api/save-context",
-            data=thought_payload,
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
-        urllib.request.urlopen(thought_req, timeout=2)
+        _post("/api/save-context", {
+            "taskId":    task_id,
+            "sessionId": session_id,
+            "title":     desc,
+            "body":      f"Intent: {desc}\nAction: $ {command[:200]}",
+            "lane":      "planning",
+            "metadata":  {"command": command[:200]},
+        })
     except Exception:
         pass
 

@@ -360,6 +360,20 @@ code {
 .task-signal-pill.questions { background: var(--user-bg);   color: var(--user);   border: 1px solid var(--user-border); }
 .task-signal-pill.todos     { background: var(--planning-bg); color: var(--planning); border: 1px solid var(--planning-border); }
 
+/* CLI source tag */
+.cli-tag {
+  display: inline-block;
+  font-size: 0.6rem;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 10px;
+  white-space: nowrap;
+  margin-left: auto;
+}
+.cli-tag--claude   { background: color-mix(in srgb, #d97706 12%, transparent); color: #d97706; border: 1px solid color-mix(in srgb, #d97706 30%, transparent); }
+.cli-tag--opencode { background: color-mix(in srgb, #6366f1 12%, transparent); color: #818cf8; border: 1px solid color-mix(in srgb, #818cf8 30%, transparent); }
+.cli-tag--other    { background: var(--bg-2); color: var(--text-2); border: 1px solid var(--border-1); }
+
 /* delete button */
 .delete-btn {
   flex-shrink: 0;
@@ -498,6 +512,8 @@ input[type="range"] { accent-color: var(--accent); }
   user-select: none;
 }
 .filter-chip:hover { border-color: var(--border-2); }
+.filter-chip.all-toggle { cursor: pointer; font-weight: 600; min-width: 2.8rem; justify-content: center; }
+.filter-chip.all-toggle.active { border-color: var(--border-2); background: var(--bg-2); color: var(--text-1); }
 .filter-chip input { display: none; }
 .filter-dot {
   width: 6px;

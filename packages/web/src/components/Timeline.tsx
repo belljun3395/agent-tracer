@@ -328,6 +328,17 @@ export function Timeline({
           <span className="toolbar-value">{zoom.toFixed(1)}×</span>
         </div>
         <div className="filters">
+          <button
+            className={`filter-chip all-toggle${activeLanes.length === TIMELINE_LANES.length ? " active" : ""}`}
+            type="button"
+            onClick={() => {
+              const allOn = activeLanes.length === TIMELINE_LANES.length;
+              const next = Object.fromEntries(TIMELINE_LANES.map((l) => [l, !allOn])) as Record<TimelineLane, boolean>;
+              setFilters(next);
+            }}
+          >
+            {activeLanes.length === TIMELINE_LANES.length ? "All" : `${activeLanes.length}/${TIMELINE_LANES.length}`}
+          </button>
           {TIMELINE_LANES.map((lane) => (
             <label
               key={lane}

@@ -53,14 +53,14 @@ describe("HTTP API", () => {
     expect(get.body.task.id).toBe(taskId);
   });
 
-  it("DELETE 실행 중인 태스크 → 409", async () => {
+  it("DELETE 실행 중인 태스크도 강제 삭제 → 200", async () => {
     const start = await request(app)
       .post("/api/task-start")
       .send({ title: "Running" });
     const taskId = start.body.task.id as string;
 
     const del = await request(app).delete(`/api/tasks/${taskId}`);
-    expect(del.status).toBe(409);
+    expect(del.status).toBe(200);
   });
 
   it("잘못된 요청 본문 → 400", async () => {

@@ -189,3 +189,15 @@ export const asyncLifecycleSchema = z.object({
   filePaths: z.array(z.string()).optional(),
   metadata: z.record(z.unknown()).optional()
 });
+
+export const ccSessionEnsureSchema = z.object({
+  ccSessionId: z.string().min(1),
+  title: z.string().min(1),
+  workspacePath: z.string().optional(),
+  bumpMessageCount: z.boolean().optional()
+});
+
+export const ccSessionEndSchema = z.object({
+  ccSessionId: z.string().min(1),
+  summary: z.string().optional()
+});
