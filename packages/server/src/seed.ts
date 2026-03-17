@@ -1,6 +1,6 @@
 import path from "node:path";
 
-import { MonitorService } from "../application/monitor-service.js";
+import { MonitorService } from "./application/monitor-service.js";
 
 const databasePath = path.resolve(process.cwd(), ".monitor", "monitor.sqlite");
 const rulesDir = path.resolve(process.cwd(), "rules");

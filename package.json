@@ -13,7 +13,7 @@
     "dev": "concurrently -k -n server,web \"npm run dev:server\" \"npm run dev:web\"",
     "dev:server": "NODE_OPTIONS=--conditions=development tsx watch packages/server/src/index.ts",
     "dev:web": "npm run dev --workspace @monitor/web -- --host 0.0.0.0",
-    "seed": "NODE_OPTIONS=--conditions=development tsx packages/server/src/infrastructure/seed.ts",
+    "seed": "NODE_OPTIONS=--conditions=development tsx packages/server/src/seed.ts",
     "start:server": "node packages/server/dist/index.js",
     "start:mcp": "node packages/mcp/dist/index.js"
   },
