@@ -76,7 +76,8 @@ const CLUSTER_STAGGER = NODE_WIDTH + 8; // px shift between stacked same-lane sa
 export function buildTimelineLayout(
   events: readonly TimelineEvent[],
   zoom: number,
-  nowMs: number = Date.now()
+  nowMs: number = Date.now(),
+  activeLanes: readonly TimelineLane[] = TIMELINE_LANES
 ): TimelineLayout {
   if (events.length === 0) {
     return {
@@ -103,7 +104,7 @@ export function buildTimelineLayout(
 
   // Base positions
   const rawItems = events.map((event) => {
-    const laneIndex = TIMELINE_LANES.indexOf(event.lane);
+    const laneIndex = activeLanes.indexOf(event.lane);
     const timePosition = (Date.parse(event.createdAt) - min) / span;
     return {
       event,

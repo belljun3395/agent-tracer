@@ -841,6 +841,8 @@ input[type="range"] { accent-color: var(--accent); }
   flex: 1;
   min-height: 0;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 .timeline-header {
   display: flex;

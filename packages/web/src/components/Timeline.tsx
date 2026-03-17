@@ -55,7 +55,7 @@ const laneDescriptions: Record<TimelineLane, string> = {
   rules:          "Tests, builds, lints, rule verifications"
 };
 
-const CANVAS_HEIGHT = RULER_HEIGHT + TIMELINE_LANES.length * LANE_HEIGHT;
+// CANVAS_HEIGHT is computed dynamically from active lanes in the component
 
 interface NodeBounds {
   readonly left: number;
@@ -97,10 +97,11 @@ function areNodeBoundsEqual(
 }
 
 function MiniMap({
-  items, canvasWidth
+  items, canvasWidth, activeLanes
 }: {
   readonly items: readonly TimelineItemLayout[];
   readonly canvasWidth: number;
+  readonly activeLanes: readonly TimelineLane[];
 }): React.JSX.Element {
   const W = 200;
   const H = 72;
@@ -109,9 +110,9 @@ function MiniMap({
   return (
     <div className="minimap">
       <svg width={W} height={H} xmlns="http://www.w3.org/2000/svg">
-        {TIMELINE_LANES.map((lane, laneIdx) => {
-          const y = (laneIdx / TIMELINE_LANES.length) * H;
-          const rowH = H / TIMELINE_LANES.length - 1;
+        {activeLanes.map((lane, laneIdx) => {
+          const y = (laneIdx / activeLanes.length) * H;
+          const rowH = H / activeLanes.length - 1;
           return (
             <g key={lane}>
               <rect x="0" y={y} width={W} height={rowH}
@@ -210,7 +211,8 @@ export function Timeline({
 }: TimelineProps): React.JSX.Element {
   const [zoom, setZoom] = useState(1.1);
   const [filters, setFilters] = useState<Record<TimelineLane, boolean>>({
-    user: true, exploration: true, planning: true, implementation: true, rules: true
+    user: true, exploration: true, planning: true, thoughts: true,
+    implementation: true, questions: true, todos: true, rules: true
   });
   const [isTimelineDragging, setIsTimelineDragging] = useState(false);
   const [nodeBounds, setNodeBounds] = useState<Record<string, NodeBounds>>({});
@@ -233,6 +235,13 @@ export function Timeline({
     return taskUpdatedAt ? Date.parse(taskUpdatedAt) : nowMs;
   }, [taskStatus, taskUpdatedAt, nowMs]);
 
+  const activeLanes = useMemo(
+    () => TIMELINE_LANES.filter((l) => filters[l]),
+    [filters]
+  );
+
+  const canvasHeight = RULER_HEIGHT + activeLanes.length * LANE_HEIGHT;
+
   const filteredTimeline = useMemo(
     () => filterTimelineEvents(timeline, {
       laneFilters: filters,
@@ -244,8 +253,8 @@ export function Timeline({
   );
 
   const timelineLayout = useMemo(
-    () => buildTimelineLayout(filteredTimeline, zoom, anchorMs),
-    [filteredTimeline, zoom, anchorMs]
+    () => buildTimelineLayout(filteredTimeline, zoom, anchorMs, activeLanes),
+    [filteredTimeline, zoom, anchorMs, activeLanes]
   );
   const timestampTicks = useMemo(
     () => buildTimestampTicks(filteredTimeline, timelineLayout, anchorMs),
@@ -542,13 +551,13 @@ export function Timeline({
             <div
               className="timeline-canvas"
               ref={timelineCanvasRef}
-              style={{ width: `${timelineLayout.width}px`, minHeight: `${CANVAS_HEIGHT}px` }}
+              style={{ width: `${timelineLayout.width}px`, minHeight: `${canvasHeight}px` }}
             >
 
               {/* SVG overlay: ruler + grid + connector arrows */}
               <svg
                 className="timeline-overlay"
-                style={{ width: timelineLayout.width, height: CANVAS_HEIGHT }}
+                style={{ width: timelineLayout.width, height: canvasHeight }}
                 xmlns="http://www.w3.org/2000/svg"
               >
                 <defs>
@@ -589,7 +598,7 @@ export function Timeline({
                     </text>
                     <line
                       x1={tick.x} y1={RULER_HEIGHT}
-                      x2={tick.x} y2={CANVAS_HEIGHT}
+                      x2={tick.x} y2={canvasHeight}
                       className="grid-line"
                     />
                   </g>
@@ -632,8 +641,8 @@ export function Timeline({
                 ))}
               </svg>
 
-              {/* lane rows */}
-              {TIMELINE_LANES.map((lane, index) => (
+              {/* lane rows — only visible (active) lanes */}
+              {activeLanes.map((lane, index) => (
                 <div
                   key={lane}
                   className="lane-row"
@@ -699,6 +708,7 @@ export function Timeline({
           <MiniMap
             items={timelineLayout.items}
             canvasWidth={timelineLayout.width}
+            activeLanes={activeLanes}
           />
         )}
       </div>
