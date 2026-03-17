@@ -7,9 +7,10 @@ Behavior:
   - Task file with cleared sessionId ("taskId:") → start a new session under the
     existing task, update file to "taskId:newSessionId"
 
-Raw user prompt capture is NOT available from Claude Code hook payloads.
-A rule event with ruleId="user-message-capture-unavailable" is emitted each
-time a new session starts so the gap is explicit in the timeline.
+Note: user_prompt.py (UserPromptSubmit hook) normally creates the task and session
+before this hook fires, and also logs the user.message event. This hook is a
+safety fallback for tool-only flows (subagents, non-interactive runs) where
+UserPromptSubmit may not fire.
 
 Silently skips if the monitor server is not running.
 
@@ -40,25 +41,6 @@ def _post(path: str, body: dict) -> dict:
         return json.loads(resp.read())
 
 
-def _emit_gap_rule(task_id: str, session_id: str) -> None:
-    """Raw prompt capture unavailable — record explicit gap signal."""
-    try:
-        _post("/api/rule", {
-            "taskId":    task_id,
-            "sessionId": session_id,
-            "action":    "user_message_capture_check",
-            "ruleId":    "user-message-capture-unavailable",
-            "severity":  "info",
-            "status":    "gap",
-            "source":    "claude-hook",
-            "title":     "Raw user prompt capture unavailable",
-            "body":      (
-                "Claude Code hook payloads do not expose raw user prompt text. "
-                "User messages cannot be captured as raw user.message events from this runtime."
-            ),
-        })
-    except Exception:
-        pass
 
 
 def main() -> None:
@@ -94,8 +76,6 @@ def main() -> None:
             with open(TASK_FILE, "w") as f:
                 f.write(f"{task_id}:{new_session_id}")
 
-            _emit_gap_rule(task_id, new_session_id)
-
             # Planning snapshot for session continuity
             _post("/api/save-context", {
                 "taskId":    task_id,
@@ -126,8 +106,6 @@ def main() -> None:
         os.makedirs(os.path.dirname(TASK_FILE), exist_ok=True)
         with open(TASK_FILE, "w") as f:
             f.write(f"{task_id}:{session_id}")
-
-        _emit_gap_rule(task_id, session_id)
 
         _post("/api/save-context", {
             "taskId":    task_id,

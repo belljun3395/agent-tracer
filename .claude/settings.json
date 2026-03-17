@@ -1,5 +1,15 @@
 {
   "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 .claude/hooks/user_prompt.py"
+          }
+        ]
+      }
+    ],
     "PreToolUse": [
       {
         "hooks": [
