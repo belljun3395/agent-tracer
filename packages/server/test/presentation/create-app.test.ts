@@ -375,3 +375,88 @@ describe("POST /api/thought — thought.logged", () => {
     expect(res.body.events[0].kind).toBe("thought.logged");
   });
 });
+
+describe("POST /api/runtime-session-ensure", () => {
+  let app: import("express").Express;
+  let closeServer: () => void;
+
+  beforeAll(() => {
+    const server = createMonitoringHttpServer({
+      databasePath: ":memory:",
+      rulesDir: "/nonexistent/rules"
+    });
+    app = server.app;
+    closeServer = () => server.server.close();
+  });
+
+  afterAll(() => closeServer());
+
+  it("creates task and session on first call", async () => {
+    const res = await request(app)
+      .post("/api/runtime-session-ensure")
+      .send({ runtimeSource: "test-adapter", runtimeSessionId: "sess-1", title: "Test Task" });
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ taskCreated: true, sessionCreated: true });
+    expect(res.body.taskId).toBeDefined();
+    expect(res.body.sessionId).toBeDefined();
+  });
+
+  it("is idempotent on repeated calls", async () => {
+    const first = await request(app)
+      .post("/api/runtime-session-ensure")
+      .send({ runtimeSource: "test-adapter", runtimeSessionId: "sess-2", title: "Test Task" });
+    const second = await request(app)
+      .post("/api/runtime-session-ensure")
+      .send({ runtimeSource: "test-adapter", runtimeSessionId: "sess-2", title: "Test Task" });
+    expect(second.body.taskId).toBe(first.body.taskId);
+    expect(second.body.sessionId).toBe(first.body.sessionId);
+    expect(second.body.taskCreated).toBe(false);
+    expect(second.body.sessionCreated).toBe(false);
+  });
+
+  it("reopens session after end", async () => {
+    const ensure1 = await request(app)
+      .post("/api/runtime-session-ensure")
+      .send({ runtimeSource: "test-adapter", runtimeSessionId: "sess-3", title: "Test Task" });
+    await request(app)
+      .post("/api/runtime-session-end")
+      .send({ runtimeSource: "test-adapter", runtimeSessionId: "sess-3" });
+    const ensure2 = await request(app)
+      .post("/api/runtime-session-ensure")
+      .send({ runtimeSource: "test-adapter", runtimeSessionId: "sess-3", title: "Test Task" });
+    expect(ensure2.body.taskId).toBe(ensure1.body.taskId);
+    expect(ensure2.body.sessionId).not.toBe(ensure1.body.sessionId);
+    expect(ensure2.body.taskCreated).toBe(false);
+    expect(ensure2.body.sessionCreated).toBe(true);
+  });
+});
+
+describe("POST /api/runtime-session-end", () => {
+  let app: import("express").Express;
+  let closeServer: () => void;
+
+  beforeAll(() => {
+    const server = createMonitoringHttpServer({
+      databasePath: ":memory:",
+      rulesDir: "/nonexistent/rules"
+    });
+    app = server.app;
+    closeServer = () => server.server.close();
+  });
+
+  afterAll(() => closeServer());
+
+  it("is idempotent (double end is harmless)", async () => {
+    await request(app)
+      .post("/api/runtime-session-ensure")
+      .send({ runtimeSource: "test-adapter", runtimeSessionId: "sess-end", title: "Test Task" });
+    const end1 = await request(app)
+      .post("/api/runtime-session-end")
+      .send({ runtimeSource: "test-adapter", runtimeSessionId: "sess-end" });
+    const end2 = await request(app)
+      .post("/api/runtime-session-end")
+      .send({ runtimeSource: "test-adapter", runtimeSessionId: "sess-end" });
+    expect(end1.status).toBe(200);
+    expect(end2.status).toBe(200);
+  });
+});

@@ -51,6 +51,15 @@ interface CcSessionRow {
   updated_at: string;
 }
 
+interface RuntimeSessionBindingRow {
+  runtime_source: string;
+  runtime_session_id: string;
+  task_id: string;
+  monitor_session_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 interface SessionRow {
   id: string;
   task_id: string;
@@ -159,6 +168,16 @@ export class MonitorDatabase {
         monitor_session_id text,
         message_count integer not null default 0,
         updated_at text not null
+      );
+
+      create table if not exists runtime_session_bindings (
+        runtime_source text not null,
+        runtime_session_id text not null,
+        task_id text not null references monitoring_tasks(id) on delete cascade,
+        monitor_session_id text,
+        created_at text not null,
+        updated_at text not null,
+        primary key (runtime_source, runtime_session_id)
       );
     `);
 
@@ -521,6 +540,33 @@ export class MonitorDatabase {
           task_id = excluded.task_id,
           monitor_session_id = excluded.monitor_session_id,
           message_count = excluded.message_count,
+          updated_at = excluded.updated_at
+      `)
+      .run(row);
+  }
+
+  /**
+   * runtime_session_bindings 레코드를 조회한다.
+   */
+  getRuntimeSessionBinding(runtimeSource: string, runtimeSessionId: string): RuntimeSessionBindingRow | null {
+    return this.connection
+      .prepare<{ runtimeSource: string; runtimeSessionId: string }, RuntimeSessionBindingRow>(
+        "select * from runtime_session_bindings where runtime_source = @runtimeSource and runtime_session_id = @runtimeSessionId"
+      )
+      .get({ runtimeSource, runtimeSessionId }) ?? null;
+  }
+
+  /**
+   * runtime_session_bindings 레코드를 upsert한다.
+   */
+  upsertRuntimeSessionBinding(row: RuntimeSessionBindingRow): void {
+    this.connection
+      .prepare<RuntimeSessionBindingRow>(`
+        insert into runtime_session_bindings (runtime_source, runtime_session_id, task_id, monitor_session_id, created_at, updated_at)
+        values (@runtime_source, @runtime_session_id, @task_id, @monitor_session_id, @created_at, @updated_at)
+        on conflict(runtime_source, runtime_session_id) do update set
+          task_id = excluded.task_id,
+          monitor_session_id = excluded.monitor_session_id,
           updated_at = excluded.updated_at
       `)
       .run(row);

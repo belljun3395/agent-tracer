@@ -47,7 +47,10 @@ import type {
   TaskVerifyInput,
   CcSessionEnsureInput,
   CcSessionEnsureResult,
-  CcSessionEndInput
+  CcSessionEndInput,
+  RuntimeSessionEnsureInput,
+  RuntimeSessionEnsureResult,
+  RuntimeSessionEndInput
 } from "./types.js";
 
 export interface MonitorServiceOptions {
@@ -414,6 +417,121 @@ export class MonitorService {
       monitor_session_id: null,
       updated_at: now
     });
+  }
+
+  /**
+   * 제너릭 런타임 세션을 보장한다.
+   * runtimeSource + runtimeSessionId 쌍으로 task/session을 자동 생성·재개한다.
+   */
+  ensureRuntimeSession(input: RuntimeSessionEnsureInput): RuntimeSessionEnsureResult {
+    const now = new Date().toISOString();
+
+    const binding = this.database.getRuntimeSessionBinding(input.runtimeSource, input.runtimeSessionId);
+
+    // 1. 활성 세션이 있으면 그대로 반환
+    if (binding?.monitor_session_id) {
+      return {
+        taskId: binding.task_id,
+        sessionId: binding.monitor_session_id,
+        taskCreated: false,
+        sessionCreated: false
+      };
+    }
+
+    // 2. 기존 task가 있지만 세션이 끊긴 경우 — 새 세션 재개
+    if (binding) {
+      const sessionId = crypto.randomUUID();
+      this.database.createSession({
+        id: sessionId,
+        taskId: binding.task_id,
+        status: "running",
+        startedAt: now
+      });
+      this.database.upsertTask({
+        ...this.database.getTask(binding.task_id)!,
+        status: "running",
+        lastSessionStartedAt: now,
+        updatedAt: now
+      });
+      this.database.upsertRuntimeSessionBinding({
+        ...binding,
+        monitor_session_id: sessionId,
+        updated_at: now
+      });
+      return {
+        taskId: binding.task_id,
+        sessionId,
+        taskCreated: false,
+        sessionCreated: true
+      };
+    }
+
+    // 3. 처음 보는 runtimeSource+runtimeSessionId — 신규 task + session 생성
+    const result = this.startTask({
+      title: input.title,
+      ...(input.workspacePath ? { workspacePath: input.workspacePath } : {})
+    });
+    const taskId = result.task.id;
+    const sessionId = result.sessionId!;
+    this.database.upsertRuntimeSessionBinding({
+      runtime_source: input.runtimeSource,
+      runtime_session_id: input.runtimeSessionId,
+      task_id: taskId,
+      monitor_session_id: sessionId,
+      created_at: now,
+      updated_at: now
+    });
+    return { taskId, sessionId, taskCreated: true, sessionCreated: true };
+  }
+
+  /**
+   * 제너릭 런타임 세션을 종료한다.
+   */
+  endRuntimeSession(input: RuntimeSessionEndInput): void {
+    const now = new Date().toISOString();
+    const binding = this.database.getRuntimeSessionBinding(input.runtimeSource, input.runtimeSessionId);
+
+    // no-op if no binding or session already closed
+    if (!binding?.monitor_session_id) return;
+
+    // End the monitor session
+    this.database.updateSessionStatus(binding.monitor_session_id, "completed", input.summary, now);
+
+    // Clear the binding
+    this.database.upsertRuntimeSessionBinding({
+      ...binding,
+      monitor_session_id: null,
+      updated_at: now
+    });
+
+    if (input.completeTask === true) {
+      try {
+        this.completeTask({
+          taskId: binding.task_id,
+          sessionId: binding.monitor_session_id,
+          summary: input.summary ?? "Runtime session ended"
+        });
+      } catch {
+        // task not found or already completed — ignore
+      }
+    } else {
+      // Background task auto-completion
+      const task = this.database.getTask(binding.task_id);
+      if (task?.taskKind === "background" && task.status === "running") {
+        const runningSessions = this.database.countRunningSessions(binding.task_id);
+        if (runningSessions === 0) {
+          try {
+            this.completeTask({
+              taskId: binding.task_id,
+              sessionId: binding.monitor_session_id,
+              summary: input.summary ?? "Background session completed"
+            });
+          } catch {
+            // ignore
+          }
+        }
+      }
+    }
   }
 
   #resolveCcPhase(row: { message_count: number }): "initial" | "follow_up" {

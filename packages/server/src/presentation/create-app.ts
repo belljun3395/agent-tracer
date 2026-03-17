@@ -56,7 +56,9 @@ import {
   todoSchema,
   thoughtSchema,
   ccSessionEnsureSchema,
-  ccSessionEndSchema
+  ccSessionEndSchema,
+  runtimeSessionEnsureSchema,
+  runtimeSessionEndSchema
 } from "./schemas.js";
 
 export interface MonitoringHttpServer {
@@ -162,6 +164,26 @@ export function createMonitoringHttpServer(
     const input = ccSessionEndSchema.parse(request.body) as CcSessionEndInput;
     service.endCcSession(input);
     response.json({ ok: true });
+  });
+
+  app.post("/api/runtime-session-ensure", (req, res) => {
+    const parsed = runtimeSessionEnsureSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.format() });
+      return;
+    }
+    const result = service.ensureRuntimeSession(parsed.data);
+    res.json(result);
+  });
+
+  app.post("/api/runtime-session-end", (req, res) => {
+    const parsed = runtimeSessionEndSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.format() });
+      return;
+    }
+    service.endRuntimeSession(parsed.data);
+    res.json({ ok: true });
   });
 
   app.post("/api/task-start", (request, response) => {
