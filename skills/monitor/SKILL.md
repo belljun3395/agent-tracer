@@ -36,6 +36,17 @@ description: MCP가 있는 모든 환경에서 Agent Tracer 모니터링 기록.
 - `monitor_tool_used` — 파일 수정, patch 적용 등 핵심 도구 사용
 - `monitor_rule` + `ruleId="user-message-capture-unavailable"` — raw 캡처 불가 환경에서 gap 명시
 
+**시맨틱 흐름 이벤트 (선택적, 고신호):**
+- `monitor_question` — 에이전트 질문 흐름 추적
+  - `questionId` 필수 (같은 질문의 단계 묶음)
+  - `questionPhase`: `asked` (user 레인) / `answered` (user 레인) / `concluded` (planning 레인)
+- `monitor_todo` — 태스크 내 항목 상태 전이 추적
+  - `todoId` 필수, `todoState`: `added` / `in_progress` / `completed` / `cancelled`
+  - 항상 `planning` 레인
+- `monitor_thought` — 요약 안전한 추론 스냅샷 (planning 레인)
+  - raw 체인오브소트 덤프 금지. `modelName` / `modelProvider` 옵션 첨부 가능
+  - `monitor_save_context`와 다름: thought는 AI 추론, context는 핸드오프 체크포인트
+
 ## 필수 리듬
 
 - 첫 탐색 전에 모니터링 시작
