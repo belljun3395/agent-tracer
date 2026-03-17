@@ -15,7 +15,8 @@
     "dev:web": "npm run dev --workspace @monitor/web -- --host 0.0.0.0",
     "seed": "NODE_OPTIONS=--conditions=development tsx packages/server/src/seed.ts",
     "start:server": "node packages/server/dist/index.js",
-    "start:mcp": "node packages/mcp/dist/index.js"
+    "start:mcp": "node packages/mcp/dist/index.js",
+    "setup:external": "node scripts/setup-external.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",
