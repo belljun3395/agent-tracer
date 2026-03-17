@@ -1,9 +1,20 @@
 #!/usr/bin/env python3
-"""PreToolUse hook: ensures a Baden monitoring task is active for this session.
+"""PreToolUse hook: ensures a monitoring task and session are active.
 
-Creates a new task via the Baden REST API on the first tool use of a session.
-The task ID + sessionId are stored in .claude/.current-task-id.
-Silently skips if the Baden server is not running.
+Behavior:
+  - No task file → create new task + session, write "taskId:sessionId"
+  - Task file with active sessionId ("taskId:sessionId") → return early (session running)
+  - Task file with cleared sessionId ("taskId:") → start a new session under the
+    existing task, update file to "taskId:newSessionId"
+
+Raw user prompt capture is NOT available from Claude Code hook payloads.
+A rule event with ruleId="user-message-capture-unavailable" is emitted each
+time a new session starts so the gap is explicit in the timeline.
+
+Silently skips if the monitor server is not running.
+
+File format while session is active: "taskId:sessionId"
+File format between turns (after session-end): "taskId:"
 """
 
 import json
@@ -17,6 +28,39 @@ TASK_FILE   = os.path.join(PROJECT_DIR, ".claude", ".current-task-id")
 API_BASE    = f"http://127.0.0.1:{os.environ.get('MONITOR_PORT', '3847')}"
 
 
+def _post(path: str, body: dict) -> dict:
+    payload = json.dumps(body).encode()
+    req = urllib.request.Request(
+        f"{API_BASE}{path}",
+        data=payload,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=2) as resp:
+        return json.loads(resp.read())
+
+
+def _emit_gap_rule(task_id: str, session_id: str) -> None:
+    """Raw prompt capture unavailable — record explicit gap signal."""
+    try:
+        _post("/api/rule", {
+            "taskId":    task_id,
+            "sessionId": session_id,
+            "action":    "user_message_capture_check",
+            "ruleId":    "user-message-capture-unavailable",
+            "severity":  "info",
+            "status":    "gap",
+            "source":    "claude-hook",
+            "title":     "Raw user prompt capture unavailable",
+            "body":      (
+                "Claude Code hook payloads do not expose raw user prompt text. "
+                "User messages cannot be captured as raw user.message events from this runtime."
+            ),
+        })
+    except Exception:
+        pass
+
+
 def main() -> None:
     # Consume stdin (required by Claude Code hook protocol)
     try:
@@ -25,45 +69,79 @@ def main() -> None:
         pass
 
     if os.path.exists(TASK_FILE):
-        return  # task already active
+        try:
+            with open(TASK_FILE) as f:
+                raw = f.read().strip()
+            task_id, _, session_id = raw.partition(":")
+        except Exception:
+            return
 
-    title = f"Claude Code — {os.path.basename(PROJECT_DIR)}"
-    payload = json.dumps({
-        "title": title,
-        "workspacePath": PROJECT_DIR,
-    }).encode()
+        if session_id:
+            return  # session already active for this turn
 
-    try:
-        req = urllib.request.Request(
-            f"{API_BASE}/api/task-start",
-            data=payload,
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
-        with urllib.request.urlopen(req, timeout=2) as resp:
-            data = json.loads(resp.read())
-            task_id    = data["task"]["id"]
-            session_id = data.get("sessionId", "")
+        if not task_id:
+            return
+
+        # Task exists but no active session — start a new session under the same task.
+        try:
+            data = _post("/api/task-start", {
+                "taskId":        task_id,
+                "title":         f"Claude Code — {os.path.basename(PROJECT_DIR)}",
+                "workspacePath": PROJECT_DIR,
+            })
+            new_session_id = data.get("sessionId", "")
             os.makedirs(os.path.dirname(TASK_FILE), exist_ok=True)
             with open(TASK_FILE, "w") as f:
-                f.write(f"{task_id}:{session_id}")
+                f.write(f"{task_id}:{new_session_id}")
 
-        # Emit a planning event to show session start.
-        thought_payload = json.dumps({
+            _emit_gap_rule(task_id, new_session_id)
+
+            # Planning snapshot for session continuity
+            _post("/api/save-context", {
+                "taskId":    task_id,
+                "sessionId": new_session_id,
+                "title":     f"Session resumed in {os.path.basename(PROJECT_DIR)}",
+                "body":      (
+                    f"Claude Code session resumed on existing work item.\n"
+                    f"Project: {os.path.basename(PROJECT_DIR)}\n"
+                    f"Path: {PROJECT_DIR}\n"
+                    f"Session: {new_session_id[:8]}…"
+                ),
+                "lane":      "planning",
+                "metadata":  {"workspacePath": PROJECT_DIR, "sessionKind": "continuation"},
+            })
+        except Exception:
+            pass
+        return
+
+    # No task file — create a new task and session.
+    title = f"Claude Code — {os.path.basename(PROJECT_DIR)}"
+    try:
+        data = _post("/api/task-start", {
+            "title":         title,
+            "workspacePath": PROJECT_DIR,
+        })
+        task_id    = data["task"]["id"]
+        session_id = data.get("sessionId", "")
+        os.makedirs(os.path.dirname(TASK_FILE), exist_ok=True)
+        with open(TASK_FILE, "w") as f:
+            f.write(f"{task_id}:{session_id}")
+
+        _emit_gap_rule(task_id, session_id)
+
+        _post("/api/save-context", {
             "taskId":    task_id,
             "sessionId": session_id,
             "title":     f"Session started in {os.path.basename(PROJECT_DIR)}",
-            "body":      f"Claude Code session started.\nProject: {os.path.basename(PROJECT_DIR)}\nPath: {PROJECT_DIR}\nSession: {session_id[:8]}…",
+            "body":      (
+                f"Claude Code session started.\n"
+                f"Project: {os.path.basename(PROJECT_DIR)}\n"
+                f"Path: {PROJECT_DIR}\n"
+                f"Session: {session_id[:8]}…"
+            ),
             "lane":      "planning",
             "metadata":  {"workspacePath": PROJECT_DIR},
-        }).encode()
-        thought_req = urllib.request.Request(
-            f"{API_BASE}/api/save-context",
-            data=thought_payload,
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
-        urllib.request.urlopen(thought_req, timeout=2)
+        })
     except Exception:
         pass  # server not running — silent skip
 

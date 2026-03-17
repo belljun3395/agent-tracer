@@ -1,8 +1,15 @@
 #!/usr/bin/env python3
-"""Stop hook: saves a context snapshot and marks the Baden task as completed.
+"""Stop hook: ends the current runtime session without closing the work item.
 
 Fires when the Claude Code agent loop ends (end of a session response).
-Removes .current-task-id so the next session starts a fresh task.
+Calls /api/session-end to mark only the session as completed; the task remains
+running so follow-up turns can continue on the same work item.
+
+The .current-task-id file is kept (with sessionId cleared) so the next
+PreToolUse turn can open a new session under the same task.
+
+File format while session is active: "taskId:sessionId"
+File format after session ends:      "taskId:"  (sessionId cleared)
 """
 
 import json
@@ -41,28 +48,24 @@ def main() -> None:
     except Exception:
         return
 
+    if not task_id:
+        return
+
     try:
-        _post("/api/save-context", {
+        _post("/api/session-end", {
             "taskId":    task_id,
-            "sessionId": session_id,
-            "title":     "Session ended",
-            "body":      "Claude Code session has ended. All pending work complete for this session.",
-            "lane":      "planning",
+            "sessionId": session_id or None,
+            "summary":   "Claude Code session ended",
             "metadata":  {},
         })
     except Exception:
         pass
 
+    # sessionId를 지워서 다음 PreToolUse 에서 새 세션을 시작하게 한다.
+    # taskId 는 유지하여 같은 작업 항목을 이어받을 수 있도록 한다.
     try:
-        _post("/api/task-complete", {
-            "taskId":    task_id,
-            "sessionId": session_id,
-        })
-    except Exception:
-        pass
-
-    try:
-        os.remove(TASK_FILE)
+        with open(TASK_FILE, "w") as f:
+            f.write(f"{task_id}:")
     except Exception:
         pass
 
