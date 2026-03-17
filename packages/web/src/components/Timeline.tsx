@@ -26,6 +26,7 @@ const laneLabels: Record<TimelineLane, string> = {
   user:           "User",
   questions:      "Questions",
   todos:          "Todos",
+  coordination:   "Coordination",
   background:     "Background",
   exploration:    "Exploration",
   planning:       "Planning",
@@ -37,7 +38,8 @@ const laneIcons: Record<TimelineLane, string> = {
   user:           "/icons/message.svg",
   questions:      "/icons/bell.svg",
   todos:          "/icons/check-circle.svg",
-  background:     "/icons/activity.svg",
+  coordination:   "/icons/activity.svg",
+  background:     "/icons/layers.svg",
   exploration:    "/icons/file.svg",
   planning:       "/icons/layers.svg",
   implementation: "/icons/tool.svg",
@@ -48,6 +50,7 @@ const laneDescriptions: Record<TimelineLane, string> = {
   user:           "User instructions & task boundaries",
   questions:      "Agent question flows (asked → answered → concluded)",
   todos:          "Task item lifecycle (added → in progress → done)",
+  coordination:   "MCP calls, skill usage, delegation, handoff, search, bookmark activity",
   background:     "Subagent and background lifecycle activity",
   exploration:    "File reads, searches, dependency checks",
   planning:       "Analysis, approach decisions, context checkpoints",
@@ -116,6 +119,7 @@ interface TimelineProps {
   readonly nowMs: number;
   readonly observabilityStats: {
     readonly actions: number;
+    readonly coordinationActivities: number;
     readonly exploredFiles: number;
     readonly compactions: number;
     readonly checks: number;
@@ -170,7 +174,7 @@ export function Timeline({
 }: TimelineProps): React.JSX.Element {
   const [zoom, setZoom] = useState(1.1);
   const [filters, setFilters] = useState<Record<TimelineLane, boolean>>({
-    user: true, exploration: true, planning: true, background: true,
+    user: true, exploration: true, planning: true, coordination: true, background: true,
     implementation: true, questions: true, todos: true, rules: true
   });
   const [isTimelineDragging, setIsTimelineDragging] = useState(false);
@@ -456,6 +460,7 @@ export function Timeline({
           </div>
           <div className="timeline-badges">
             <span className="summary-badge actions">{observabilityStats.actions} Actions</span>
+            <span className="summary-badge coordination">{observabilityStats.coordinationActivities} Coordination</span>
             <span className="summary-badge files">{observabilityStats.exploredFiles} Files</span>
             <span className="summary-badge compacts">{observabilityStats.compactions} Compact</span>
             <span className="summary-badge checks">{observabilityStats.checks} Check</span>
@@ -580,10 +585,12 @@ export function Timeline({
                     <path
                       d={c.path}
                       className={`connector-hitbox${selectedConnector?.connector.key === c.key ? " active" : ""}`}
+                      onClick={() => onSelectConnector(c.key)}
                     />
                     <path
                       d={c.path}
                       className={`connector ${c.lane} cross-lane${selectedConnector?.connector.key === c.key ? " active" : ""}`}
+                      onClick={() => onSelectConnector(c.key)}
                     />
                   </g>
                 ))}
@@ -593,11 +600,13 @@ export function Timeline({
                     <path
                       d={c.path}
                       className={`connector-hitbox${selectedConnector?.connector.key === c.key ? " active" : ""}`}
+                      onClick={() => onSelectConnector(c.key)}
                     />
                     <path
                       d={c.path}
                       className={`connector ${c.lane}${selectedConnector?.connector.key === c.key ? " active" : ""}`}
                       markerEnd={`url(#arrow-${c.lane})`}
+                      onClick={() => onSelectConnector(c.key)}
                     />
                   </g>
                 ))}
@@ -636,6 +645,28 @@ export function Timeline({
                   const todoState = typeof item.event.metadata["todoState"] === "string"
                     ? item.event.metadata["todoState"]
                     : undefined;
+                  const relationLabel = typeof item.event.metadata["relationLabel"] === "string"
+                    ? item.event.metadata["relationLabel"]
+                    : typeof item.event.metadata["relationType"] === "string"
+                      ? String(item.event.metadata["relationType"]).replace(/_/g, " ")
+                      : undefined;
+                  const activityType = typeof item.event.metadata["activityType"] === "string"
+                    ? item.event.metadata["activityType"]
+                    : undefined;
+                  const agentName = typeof item.event.metadata["agentName"] === "string"
+                    ? item.event.metadata["agentName"]
+                    : undefined;
+                  const skillName = typeof item.event.metadata["skillName"] === "string"
+                    ? item.event.metadata["skillName"]
+                    : undefined;
+                  const mcpTool = typeof item.event.metadata["mcpTool"] === "string"
+                    ? item.event.metadata["mcpTool"]
+                    : undefined;
+                  const workItemId = typeof item.event.metadata["workItemId"] === "string"
+                    ? item.event.metadata["workItemId"]
+                    : typeof item.event.metadata["todoId"] === "string"
+                      ? item.event.metadata["todoId"]
+                      : undefined;
 
                   return (
                 <button
@@ -660,6 +691,14 @@ export function Timeline({
                     <span className="event-lane-tag">{item.event.lane}</span>
                   </div>
                   <strong>{item.event.kind === "task.start" ? (taskTitle ?? item.event.title) : item.event.title}</strong>
+                  <div className="event-node-chips">
+                    {activityType && <span className="event-semantic-tag">{activityType.replace(/_/g, " ")}</span>}
+                    {relationLabel && <span className="event-semantic-tag subtle">{relationLabel}</span>}
+                    {agentName && <span className="event-semantic-tag subtle">{agentName}</span>}
+                    {skillName && <span className="event-semantic-tag subtle">skill:{skillName}</span>}
+                    {!skillName && mcpTool && <span className="event-semantic-tag subtle">mcp:{mcpTool}</span>}
+                    {workItemId && <span className="event-semantic-tag subtle">work:{workItemId}</span>}
+                  </div>
                   {item.event.kind === "question.logged" && questionPhase && (
                     <span className="event-semantic-tag">{questionPhase}</span>
                   )}

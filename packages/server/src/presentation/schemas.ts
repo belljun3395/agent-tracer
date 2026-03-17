@@ -44,7 +44,61 @@ export const taskErrorSchema = taskCompleteSchema.extend({
   errorMessage: z.string().min(1)
 });
 
-export const laneSchema = z.enum(["user", "exploration", "planning", "background", "implementation", "rules"]);
+export const laneSchema = z.enum([
+  "user",
+  "exploration",
+  "planning",
+  "background",
+  "implementation",
+  "rules",
+  "questions",
+  "todos",
+  "coordination"
+]);
+
+/**
+ * 카드 간 관계와 워크아이템 묶음을 표현하는 공통 스키마.
+ * 여러 이벤트가 같은 todo/plan/agent 흐름에 속하는지 드러내는 데 사용된다.
+ */
+export const traceRelationSchema = z.object({
+  parentEventId: z.string().min(1).optional(),
+  relatedEventIds: z.array(z.string().min(1)).optional(),
+  workItemId: z.string().min(1).optional(),
+  goalId: z.string().min(1).optional(),
+  planId: z.string().min(1).optional(),
+  handoffId: z.string().min(1).optional(),
+  relationType: z.enum([
+    "implements",
+    "revises",
+    "verifies",
+    "answers",
+    "delegates",
+    "returns",
+    "completes",
+    "blocks",
+    "caused_by",
+    "relates_to"
+  ]).optional(),
+  relationLabel: z.string().min(1).optional(),
+  relationExplanation: z.string().min(1).optional()
+});
+
+export const traceActivitySchema = traceRelationSchema.extend({
+  activityType: z.enum([
+    "agent_step",
+    "mcp_call",
+    "skill_use",
+    "delegation",
+    "handoff",
+    "bookmark",
+    "search"
+  ]).optional(),
+  agentName: z.string().min(1).optional(),
+  skillName: z.string().min(1).optional(),
+  skillPath: z.string().min(1).optional(),
+  mcpServer: z.string().min(1).optional(),
+  mcpTool: z.string().min(1).optional()
+});
 
 export const toolUsedSchema = z.object({
   taskId: z.string().min(1),
@@ -55,7 +109,7 @@ export const toolUsedSchema = z.object({
   lane: laneSchema.optional(),
   filePaths: z.array(z.string()).optional(),
   metadata: z.record(z.unknown()).optional()
-});
+}).merge(traceRelationSchema);
 
 export const terminalCommandSchema = z.object({
   taskId: z.string().min(1),
@@ -66,7 +120,7 @@ export const terminalCommandSchema = z.object({
   lane: laneSchema.optional(),
   filePaths: z.array(z.string()).optional(),
   metadata: z.record(z.unknown()).optional()
-});
+}).merge(traceRelationSchema);
 
 export const contextSavedSchema = z.object({
   taskId: z.string().min(1),
@@ -76,7 +130,7 @@ export const contextSavedSchema = z.object({
   lane: laneSchema.optional(),
   filePaths: z.array(z.string()).optional(),
   metadata: z.record(z.unknown()).optional()
-});
+}).merge(traceRelationSchema);
 
 export const exploreSchema = z.object({
   taskId: z.string().min(1),
@@ -87,7 +141,7 @@ export const exploreSchema = z.object({
   lane: laneSchema.optional(),
   filePaths: z.array(z.string()).optional(),
   metadata: z.record(z.unknown()).optional()
-});
+}).merge(traceRelationSchema);
 
 export const actionEventSchema = z.object({
   taskId: z.string().min(1),
@@ -97,7 +151,7 @@ export const actionEventSchema = z.object({
   body: z.string().optional(),
   filePaths: z.array(z.string()).optional(),
   metadata: z.record(z.unknown()).optional()
-});
+}).merge(traceRelationSchema);
 
 export const verifySchema = actionEventSchema.extend({
   result: z.string().min(1),
@@ -128,6 +182,14 @@ export const userMessageSchema = z.object({
   sourceEventId: z.string().optional(),
   metadata: z.record(z.unknown()).optional(),
   contractVersion: z.string().optional()
+}).superRefine((value, context) => {
+  if (value.captureMode === "derived" && !value.sourceEventId) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "sourceEventId is required when captureMode is 'derived'.",
+      path: ["sourceEventId"]
+    });
+  }
 });
 
 /** 세션-종료 요청 스키마. 태스크를 완료하지 않고 세션만 종료한다. */
@@ -150,7 +212,7 @@ export const questionSchema = z.object({
   modelName: z.string().optional(),
   modelProvider: z.string().optional(),
   metadata: z.record(z.unknown()).optional()
-});
+}).merge(traceRelationSchema);
 
 export const todoSchema = z.object({
   taskId: z.string().min(1),
@@ -161,7 +223,7 @@ export const todoSchema = z.object({
   title: z.string().min(1),
   body: z.string().optional(),
   metadata: z.record(z.unknown()).optional()
-});
+}).merge(traceRelationSchema);
 
 export const thoughtSchema = z.object({
   taskId: z.string().min(1),
@@ -171,7 +233,7 @@ export const thoughtSchema = z.object({
   modelName: z.string().optional(),
   modelProvider: z.string().optional(),
   metadata: z.record(z.unknown()).optional()
-});
+}).merge(traceRelationSchema);
 
 export const asyncLifecycleSchema = z.object({
   taskId: z.string().min(1),
@@ -187,6 +249,44 @@ export const asyncLifecycleSchema = z.object({
   durationMs: z.number().nonnegative().optional(),
   filePaths: z.array(z.string()).optional(),
   metadata: z.record(z.unknown()).optional()
+}).merge(traceRelationSchema);
+
+export const agentActivitySchema = z.object({
+  taskId: z.string().min(1),
+  sessionId: z.string().optional(),
+  activityType: z.enum([
+    "agent_step",
+    "mcp_call",
+    "skill_use",
+    "delegation",
+    "handoff",
+    "bookmark",
+    "search"
+  ]),
+  title: z.string().optional(),
+  body: z.string().optional(),
+  filePaths: z.array(z.string()).optional(),
+  metadata: z.record(z.unknown()).optional()
+}).merge(traceRelationSchema).extend({
+  agentName: z.string().min(1).optional(),
+  skillName: z.string().min(1).optional(),
+  skillPath: z.string().min(1).optional(),
+  mcpServer: z.string().min(1).optional(),
+  mcpTool: z.string().min(1).optional()
+});
+
+export const bookmarkSchema = z.object({
+  taskId: z.string().min(1),
+  eventId: z.string().min(1).optional(),
+  title: z.string().trim().min(1).optional(),
+  note: z.string().trim().min(1).optional(),
+  metadata: z.record(z.unknown()).optional()
+});
+
+export const searchSchema = z.object({
+  query: z.string().trim().min(1),
+  taskId: z.string().min(1).optional(),
+  limit: z.coerce.number().int().positive().max(100).optional()
 });
 
 export const ccSessionEnsureSchema = z.object({

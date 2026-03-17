@@ -82,6 +82,28 @@ describe("HTTP API", () => {
     expect(del.status).toBe(200);
   });
 
+  it("DELETE 부모 태스크 시 자식 태스크도 함께 삭제된다", async () => {
+    const parent = await request(app)
+      .post("/api/task-start")
+      .send({ title: "Parent For Cascade" });
+    const parentId = parent.body.task.id as string;
+
+    const child = await request(app)
+      .post("/api/task-start")
+      .send({
+        title: "Child For Cascade",
+        taskKind: "background",
+        parentTaskId: parentId
+      });
+    const childId = child.body.task.id as string;
+
+    const del = await request(app).delete(`/api/tasks/${parentId}`);
+    expect(del.status).toBe(200);
+
+    const childGet = await request(app).get(`/api/tasks/${childId}`);
+    expect(childGet.status).toBe(404);
+  });
+
   it("잘못된 요청 본문 → 400", async () => {
     const res = await request(app)
       .post("/api/task-start")
@@ -112,7 +134,7 @@ describe("HTTP API", () => {
       expect(res.body.events[0].kind).toBe("user.message");
     });
 
-    it("derived 페이로드에 sourceEventId 누락 → 200 (서버가 추론하지 않음)", async () => {
+    it("derived 페이로드에 sourceEventId 누락 → 400", async () => {
       const start = await request(app)
         .post("/api/task-start")
         .send({ title: "Derived Test" });
@@ -128,9 +150,8 @@ describe("HTTP API", () => {
           captureMode: "derived",
           source: "manual-mcp",
           title: "Derived without sourceEventId"
-          // sourceEventId 누락 — 스키마 레벨 검증 없음, 서비스 레이어에서 기록됨
         });
-      expect(res.status).toBe(200);
+      expect(res.status).toBe(400);
     });
 
     it("sessionId 누락 → 400 (sessionId는 모든 호출자에게 필수)", async () => {
@@ -458,5 +479,87 @@ describe("POST /api/runtime-session-end", () => {
       .send({ runtimeSource: "test-adapter", runtimeSessionId: "sess-end" });
     expect(end1.status).toBe(200);
     expect(end2.status).toBe(200);
+  });
+});
+
+describe("Agent activity, bookmarks, and search API", () => {
+  let app: import("express").Express;
+  let closeServer: () => void;
+
+  beforeAll(() => {
+    const server = createMonitoringHttpServer({
+      databasePath: ":memory:",
+      rulesDir: "/nonexistent/rules"
+    });
+    app = server.app;
+    closeServer = () => server.server.close();
+  });
+
+  afterAll(() => closeServer());
+
+  it("POST /api/agent-activity → coordination 이벤트를 기록한다", async () => {
+    const start = await request(app)
+      .post("/api/task-start")
+      .send({ title: "Agent Activity Test" });
+
+    const res = await request(app)
+      .post("/api/agent-activity")
+      .send({
+        taskId: start.body.task.id,
+        sessionId: start.body.sessionId,
+        activityType: "skill_use",
+        title: "Use codex-monitor",
+        skillName: "codex-monitor",
+        skillPath: "skills/codex-monitor/SKILL.md",
+        workItemId: "work-item-1",
+        relationType: "implements"
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.events[0].kind).toBe("agent.activity.logged");
+  });
+
+  it("bookmark CRUD와 검색을 지원한다", async () => {
+    const start = await request(app)
+      .post("/api/task-start")
+      .send({ title: "Bookmark Search Task" });
+    const taskId = start.body.task.id as string;
+    const sessionId = start.body.sessionId as string;
+
+    const todo = await request(app)
+      .post("/api/todo")
+      .send({
+        taskId,
+        sessionId,
+        todoId: "todo-bookmark-1",
+        todoState: "added",
+        title: "Track bookmarkable todo",
+        workItemId: "work-item-bookmark"
+      });
+    const eventId = todo.body.events[0].id as string;
+
+    const saved = await request(app)
+      .post("/api/bookmarks")
+      .send({
+        taskId,
+        eventId,
+        title: "Saved todo card",
+        note: "Pin this todo"
+      });
+
+    expect(saved.status).toBe(200);
+    expect(saved.body.bookmark.eventId).toBe(eventId);
+
+    const list = await request(app).get("/api/bookmarks");
+    expect(list.status).toBe(200);
+    expect(list.body.bookmarks).toHaveLength(1);
+
+    const search = await request(app).get("/api/search").query({ q: "todo" });
+    expect(search.status).toBe(200);
+    expect(search.body.bookmarks).toHaveLength(1);
+    expect(search.body.events.some((event: { eventId: string }) => event.eventId === eventId)).toBe(true);
+
+    const deleted = await request(app).delete(`/api/bookmarks/${saved.body.bookmark.id as string}`);
+    expect(deleted.status).toBe(200);
   });
 });

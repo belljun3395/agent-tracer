@@ -16,6 +16,7 @@ import {
   loadRulesIndex,
   normalizeWorkspacePath,
   tokenizeActionName,
+  type AgentActivityType,
   type MonitoringEventKind,
   type TimelineEvent,
   type TimelineLane,
@@ -23,10 +24,17 @@ import {
   type RulesIndex
 } from "@monitor/core";
 
-import { MonitorDatabase } from "../infrastructure/monitor-database.js";
+import {
+  MonitorDatabase,
+  type BookmarkRecord,
+  type SearchResults
+} from "../infrastructure/monitor-database.js";
 import type {
   GenericEventInput,
   TaskActionInput,
+  TaskAgentActivityInput,
+  TaskBookmarkDeleteInput,
+  TaskBookmarkInput,
   TaskCompletionInput,
   TaskContextSavedInput,
   TaskErrorInput,
@@ -45,12 +53,15 @@ import type {
   TaskToolUsedInput,
   TaskUserMessageInput,
   TaskVerifyInput,
+  TraceActivityInput,
+  TraceRelationInput,
   CcSessionEnsureInput,
   CcSessionEnsureResult,
   CcSessionEndInput,
   RuntimeSessionEnsureInput,
   RuntimeSessionEnsureResult,
-  RuntimeSessionEndInput
+  RuntimeSessionEndInput,
+  TaskSearchInput
 } from "./types.js";
 
 export interface MonitorServiceOptions {
@@ -226,6 +237,10 @@ export class MonitorService {
       throw new Error(`Task not found: ${input.taskId}`);
     }
 
+    if (input.captureMode === "derived" && !input.sourceEventId) {
+      throw new Error("sourceEventId is required when captureMode is 'derived'.");
+    }
+
     const sessionId = input.sessionId;
 
     // phase가 제공되지 않으면 태스크의 기존 raw user.message 이벤트 수로 derive.
@@ -334,7 +349,14 @@ export class MonitorService {
       throw new Error(`Task not found: ${input.taskId}`);
     }
 
-    const sessionId = input.sessionId ?? this.database.findLatestSession(input.taskId)?.id;
+    const sessionId = input.sessionId
+      ?? (() => {
+        if (this.database.countRunningSessions(input.taskId) > 1) {
+          throw new Error(`sessionId is required to end one of multiple running sessions for task: ${input.taskId}`);
+        }
+
+        return this.database.findLatestSession(input.taskId)?.id;
+      })();
 
     if (!sessionId) {
       throw new Error(`No active session for task: ${input.taskId}`);
@@ -644,10 +666,10 @@ export class MonitorService {
       taskId: input.taskId,
       kind: "tool.used",
       title: input.title ?? input.toolName,
-      metadata: {
+      metadata: buildTraceMetadata({
         ...(input.metadata ?? {}),
         toolName: input.toolName
-      },
+      }, input),
       toolName: input.toolName,
       ...(sessionId ? { sessionId } : {}),
       ...(input.body ? { body: input.body } : {}),
@@ -685,7 +707,7 @@ export class MonitorService {
       ...(input.body ? { body: input.body } : {}),
       ...(input.lane ? { lane: input.lane } : {}),
       ...(input.filePaths ? { filePaths: input.filePaths } : {}),
-      ...(input.metadata ? { metadata: input.metadata } : {})
+      metadata: buildTraceMetadata(input.metadata, input)
     });
   }
 
@@ -702,10 +724,10 @@ export class MonitorService {
       kind: "tool.used",
       lane: (input.lane as TimelineLane | undefined) ?? "exploration",
       title: input.title,
-      metadata: {
+      metadata: buildTraceMetadata({
         ...(input.metadata ?? {}),
         toolName: input.toolName
-      },
+      }, input),
       toolName: input.toolName,
       ...(sessionId ? { sessionId } : {}),
       ...(input.body ? { body: input.body } : {}),
@@ -726,10 +748,10 @@ export class MonitorService {
       kind: "plan.logged",
       lane: "planning",
       title: input.title ?? input.action,
-      metadata: {
+      metadata: buildTraceMetadata({
         ...(input.metadata ?? {}),
         action: input.action
-      },
+      }, input),
       actionName: input.action,
       ...(sessionId ? { sessionId } : {}),
       ...(input.body ? { body: input.body } : {}),
@@ -749,10 +771,10 @@ export class MonitorService {
       taskId: input.taskId,
       kind: "action.logged",
       title: input.title ?? input.action,
-      metadata: {
+      metadata: buildTraceMetadata({
         ...(input.metadata ?? {}),
         action: input.action
-      },
+      }, input),
       actionName: input.action,
       ...(sessionId ? { sessionId } : {}),
       ...(input.body ? { body: input.body } : {}),
@@ -774,12 +796,12 @@ export class MonitorService {
       lane: "rules",
       title: input.title ?? input.action,
       body: input.body ?? input.result,
-      metadata: {
+      metadata: buildTraceMetadata({
         ...(input.metadata ?? {}),
         action: input.action,
         result: input.result,
         verificationStatus: normalizeVerificationStatus(input.status ?? input.result)
-      },
+      }, input),
       actionName: input.action,
       ...(sessionId ? { sessionId } : {}),
       ...(input.filePaths ? { filePaths: input.filePaths } : {})
@@ -800,14 +822,14 @@ export class MonitorService {
       lane: "rules",
       title: input.title ?? input.action,
       body: input.body ?? `${input.ruleId} · ${input.status} · ${input.severity}`,
-      metadata: {
+      metadata: buildTraceMetadata({
         ...(input.metadata ?? {}),
         action: input.action,
         ruleId: input.ruleId,
         severity: input.severity,
         ruleStatus: input.status,
         ruleSource: input.source ?? "rule-guard"
-      },
+      }, input),
       actionName: input.action,
       ...(sessionId ? { sessionId } : {}),
       ...(input.filePaths ? { filePaths: input.filePaths } : {})
@@ -827,7 +849,7 @@ export class MonitorService {
       kind: "action.logged",
       lane: "background",
       title: input.title ?? `Async task ${input.asyncStatus}`,
-      metadata: {
+      metadata: buildTraceMetadata({
         ...(input.metadata ?? {}),
         asyncTaskId: input.asyncTaskId,
         asyncStatus: input.asyncStatus,
@@ -836,7 +858,7 @@ export class MonitorService {
         ...(input.category ? { asyncCategory: input.category } : {}),
         ...(input.parentSessionId ? { parentSessionId: input.parentSessionId } : {}),
         ...(typeof input.durationMs === "number" ? { asyncDurationMs: input.durationMs } : {})
-      },
+      }, input),
       actionName: `async_task_${input.asyncStatus}`,
       ...(sessionId ? { sessionId } : {}),
       ...(input.body || input.description ? { body: input.body ?? input.description } : {}),
@@ -863,14 +885,14 @@ export class MonitorService {
       title: input.title,
       ...(sessionId ? { sessionId } : {}),
       ...(input.body ? { body: input.body } : {}),
-      metadata: {
+      metadata: buildTraceMetadata({
         ...(input.metadata ?? {}),
         questionId: input.questionId,
         questionPhase: input.questionPhase,
         ...(typeof input.sequence === "number" ? { sequence: input.sequence } : {}),
         ...(input.modelName ? { modelName: input.modelName } : {}),
         ...(input.modelProvider ? { modelProvider: input.modelProvider } : {})
-      }
+      }, input)
     });
 
     return {
@@ -898,12 +920,12 @@ export class MonitorService {
       title: input.title,
       ...(sessionId ? { sessionId } : {}),
       ...(input.body ? { body: input.body } : {}),
-      metadata: {
+      metadata: buildTraceMetadata({
         ...(input.metadata ?? {}),
         todoId: input.todoId,
         todoState: input.todoState,
         ...(typeof input.sequence === "number" ? { sequence: input.sequence } : {})
-      }
+      }, input)
     });
 
     return {
@@ -932,11 +954,11 @@ export class MonitorService {
       title: input.title,
       ...(sessionId ? { sessionId } : {}),
       ...(input.body ? { body: input.body } : {}),
-      metadata: {
+      metadata: buildTraceMetadata({
         ...(input.metadata ?? {}),
         ...(input.modelName ? { modelName: input.modelName } : {}),
         ...(input.modelProvider ? { modelProvider: input.modelProvider } : {})
-      }
+      }, input)
     });
 
     return {
@@ -944,6 +966,26 @@ export class MonitorService {
       ...(sessionId ? { sessionId } : {}),
       events: [{ id: event.id, kind: event.kind }]
     };
+  }
+
+  /**
+   * coordination 레인의 에이전트 활동을 기록한다.
+   * MCP 호출, skill 사용, delegation, handoff, search, bookmark 같은
+   * 실행 보조 행위를 별도 레인에서 읽을 수 있도록 분리한다.
+   */
+  logAgentActivity(input: TaskAgentActivityInput): RecordedEventEnvelope {
+    const sessionId = input.sessionId ?? this.database.findLatestSession(input.taskId)?.id;
+
+    return this.recordWithDerivedFiles({
+      taskId: input.taskId,
+      kind: "agent.activity.logged",
+      lane: "coordination",
+      title: input.title ?? normalizeAgentActivityTitle(input.activityType),
+      metadata: buildTraceMetadata(input.metadata, input),
+      ...(sessionId ? { sessionId } : {}),
+      ...(input.body ? { body: input.body } : {}),
+      ...(input.filePaths ? { filePaths: input.filePaths } : {})
+    });
   }
 
   /**
@@ -978,6 +1020,48 @@ export class MonitorService {
    */
   getTaskTimeline(taskId: string) {
     return this.database.getTaskTimeline(taskId);
+  }
+
+  listBookmarks(taskId?: string): readonly BookmarkRecord[] {
+    return this.database.listBookmarks(taskId);
+  }
+
+  saveBookmark(input: TaskBookmarkInput): BookmarkRecord {
+    const task = this.database.getTask(input.taskId);
+    if (!task) {
+      throw new Error(`Task not found: ${input.taskId}`);
+    }
+
+    const event = input.eventId ? this.database.getEvent(input.eventId) : undefined;
+    if (input.eventId && !event) {
+      throw new Error(`Event not found: ${input.eventId}`);
+    }
+    if (event && event.taskId !== task.id) {
+      throw new Error(`Event ${event.id} does not belong to task ${task.id}`);
+    }
+
+    const existing = this.database.getBookmarkByTarget(task.id, event?.id);
+    const now = new Date().toISOString();
+
+    return this.database.upsertBookmark({
+      id: existing?.id ?? crypto.randomUUID(),
+      taskId: task.id,
+      ...(event ? { eventId: event.id } : {}),
+      kind: event ? "event" : "task",
+      title: input.title?.trim() || event?.title || task.title,
+      ...(input.note?.trim() ? { note: input.note.trim() } : {}),
+      ...(input.metadata ? { metadata: input.metadata } : {}),
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now
+    });
+  }
+
+  deleteBookmark(input: TaskBookmarkDeleteInput): "deleted" | "not_found" {
+    return this.database.deleteBookmark(input.bookmarkId);
+  }
+
+  search(input: TaskSearchInput): SearchResults {
+    return this.database.search(input.query, input.limit, input.taskId);
   }
 
   /**
@@ -1146,10 +1230,10 @@ export class MonitorService {
       kind: input.kind,
       lane: classification.lane,
       title: input.title,
-      metadata: {
+      metadata: buildTraceMetadata({
         ...(input.metadata ?? {}),
         filePaths: input.filePaths ?? []
-      },
+      }, input),
       classification: {
         ...classification,
         tags: [...new Set([...classification.tags, ...contextualTags])]
@@ -1243,6 +1327,22 @@ function deriveContextualTags(input: GenericEventInput): readonly string[] {
     tags.add(`category:${normalizeTagSegment(asyncCategory)}`);
   }
 
+  const activityType = extractMetadataString(metadata, "activityType");
+  if (activityType) {
+    tags.add("coordination");
+    tags.add(`activity:${normalizeTagSegment(activityType)}`);
+  }
+
+  const agentName = extractMetadataString(metadata, "agentName");
+  if (agentName) {
+    tags.add(`agent:${normalizeTagSegment(agentName)}`);
+  }
+
+  const skillName = extractMetadataString(metadata, "skillName");
+  if (skillName) {
+    tags.add(`skill:${normalizeTagSegment(skillName)}`);
+  }
+
   const ruleSource = extractMetadataString(metadata, "ruleSource");
   if (ruleSource) {
     tags.add(`source:${normalizeTagSegment(ruleSource)}`);
@@ -1272,6 +1372,18 @@ function deriveContextualTags(input: GenericEventInput): readonly string[] {
 
   const mcpTool = extractMetadataString(metadata, "mcpTool");
   if (mcpTool) tags.add(`mcp-tool:${normalizeTagSegment(mcpTool)}`);
+
+  const workItemId = extractMetadataString(metadata, "workItemId");
+  if (workItemId) tags.add(`work-item:${normalizeTagSegment(workItemId)}`);
+
+  const goalId = extractMetadataString(metadata, "goalId");
+  if (goalId) tags.add(`goal:${normalizeTagSegment(goalId)}`);
+
+  const planId = extractMetadataString(metadata, "planId");
+  if (planId) tags.add(`plan:${normalizeTagSegment(planId)}`);
+
+  const relationType = extractMetadataString(metadata, "relationType");
+  if (relationType) tags.add(`relation:${normalizeTagSegment(relationType)}`);
 
   if (extractMetadataBoolean(metadata, "compactEvent")) {
     tags.add("compact");
@@ -1320,6 +1432,51 @@ function extractMetadataStringArray(
   }
 
   return value.filter((entry): entry is string => typeof entry === "string");
+}
+
+function buildTraceMetadata(
+  metadata: Record<string, unknown> | undefined,
+  input: { readonly metadata?: Record<string, unknown> } & Partial<TraceActivityInput & TraceRelationInput>
+): Record<string, unknown> {
+  return {
+    ...(metadata ?? {}),
+    ...(input.parentEventId ? { parentEventId: input.parentEventId } : {}),
+    ...(input.relatedEventIds && input.relatedEventIds.length > 0
+      ? { relatedEventIds: [...input.relatedEventIds] }
+      : {}),
+    ...(input.workItemId ? { workItemId: input.workItemId } : {}),
+    ...(input.goalId ? { goalId: input.goalId } : {}),
+    ...(input.planId ? { planId: input.planId } : {}),
+    ...(input.handoffId ? { handoffId: input.handoffId } : {}),
+    ...(input.relationType ? { relationType: input.relationType } : {}),
+    ...(input.relationLabel ? { relationLabel: input.relationLabel } : {}),
+    ...(input.relationExplanation ? { relationExplanation: input.relationExplanation } : {}),
+    ...(input.activityType ? { activityType: input.activityType } : {}),
+    ...(input.agentName ? { agentName: input.agentName } : {}),
+    ...(input.skillName ? { skillName: input.skillName } : {}),
+    ...(input.skillPath ? { skillPath: input.skillPath } : {}),
+    ...(input.mcpServer ? { mcpServer: input.mcpServer } : {}),
+    ...(input.mcpTool ? { mcpTool: input.mcpTool } : {})
+  };
+}
+
+function normalizeAgentActivityTitle(activityType: AgentActivityType): string {
+  switch (activityType) {
+    case "agent_step":
+      return "Agent step";
+    case "mcp_call":
+      return "MCP call";
+    case "skill_use":
+      return "Skill use";
+    case "delegation":
+      return "Delegation";
+    case "handoff":
+      return "Handoff";
+    case "bookmark":
+      return "Bookmark";
+    case "search":
+      return "Search";
+  }
 }
 
 function normalizeTagSegment(value: string): string {

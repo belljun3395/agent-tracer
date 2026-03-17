@@ -65,6 +65,32 @@ describe("MonitorDatabase", () => {
       expect(db.deleteTask("t1")).toBe("deleted");
       expect(db.getTask("t1")).toBeUndefined();
     });
+
+    it("부모 태스크 삭제 시 자식/손자 태스크도 함께 삭제한다", () => {
+      const now = "2026-03-17T00:00:00.000Z";
+      db.upsertTask({
+        id: "parent", title: "Parent", slug: "parent", status: "running",
+        taskKind: "primary",
+        createdAt: now, updatedAt: now
+      });
+      db.upsertTask({
+        id: "child", title: "Child", slug: "child", status: "running",
+        taskKind: "background",
+        parentTaskId: "parent",
+        createdAt: now, updatedAt: now
+      });
+      db.upsertTask({
+        id: "grandchild", title: "Grandchild", slug: "grandchild", status: "running",
+        taskKind: "background",
+        parentTaskId: "child",
+        createdAt: now, updatedAt: now
+      });
+
+      expect(db.deleteTask("parent")).toBe("deleted");
+      expect(db.getTask("parent")).toBeUndefined();
+      expect(db.getTask("child")).toBeUndefined();
+      expect(db.getTask("grandchild")).toBeUndefined();
+    });
   });
 
   describe("getOverviewStats", () => {
@@ -87,6 +113,86 @@ describe("MonitorDatabase", () => {
       expect(stats.runningTasks).toBe(1);
       expect(stats.completedTasks).toBe(1);
       expect(stats.erroredTasks).toBe(1);
+    });
+  });
+
+  describe("bookmarks and search", () => {
+    it("북마크를 저장하고 다시 읽을 수 있다", () => {
+      const now = "2026-03-17T00:00:00.000Z";
+      db.upsertTask({
+        id: "task-bookmark",
+        title: "Bookmark Task",
+        slug: "bookmark-task",
+        status: "running",
+        taskKind: "primary",
+        createdAt: now,
+        updatedAt: now
+      });
+
+      db.appendEvent({
+        id: "event-bookmark",
+        taskId: "task-bookmark",
+        kind: "todo.logged",
+        lane: "todos",
+        title: "Bookmarkable todo",
+        metadata: { todoId: "todo-1" },
+        classification: { lane: "todos", tags: [], matches: [] },
+        createdAt: now
+      });
+
+      db.upsertBookmark({
+        id: "bookmark-1",
+        taskId: "task-bookmark",
+        eventId: "event-bookmark",
+        kind: "event",
+        title: "Saved todo",
+        createdAt: now,
+        updatedAt: now
+      });
+
+      const bookmarks = db.listBookmarks();
+      expect(bookmarks).toHaveLength(1);
+      expect(bookmarks[0]?.eventId).toBe("event-bookmark");
+      expect(bookmarks[0]?.eventTitle).toBe("Bookmarkable todo");
+    });
+
+    it("태스크, 이벤트, 북마크를 함께 검색한다", () => {
+      const now = "2026-03-17T00:00:00.000Z";
+      db.upsertTask({
+        id: "task-search",
+        title: "Search Target Task",
+        slug: "search-target-task",
+        status: "running",
+        taskKind: "primary",
+        createdAt: now,
+        updatedAt: now
+      });
+
+      db.appendEvent({
+        id: "event-search",
+        taskId: "task-search",
+        kind: "agent.activity.logged",
+        lane: "coordination",
+        title: "Search MCP call",
+        body: "monitor_agent_activity",
+        metadata: { activityType: "mcp_call" },
+        classification: { lane: "coordination", tags: [], matches: [] },
+        createdAt: now
+      });
+
+      db.upsertBookmark({
+        id: "bookmark-search",
+        taskId: "task-search",
+        kind: "task",
+        title: "Search bookmark",
+        createdAt: now,
+        updatedAt: now
+      });
+
+      const results = db.search("search");
+      expect(results.tasks.some((task) => task.taskId === "task-search")).toBe(true);
+      expect(results.events.some((event) => event.eventId === "event-search")).toBe(true);
+      expect(results.bookmarks.some((bookmark) => bookmark.bookmarkId === "bookmark-search")).toBe(true);
     });
   });
 });

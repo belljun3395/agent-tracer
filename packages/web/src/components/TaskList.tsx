@@ -6,12 +6,18 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type React from "react";
-import type { MonitoringTask, TaskDetailResponse } from "../types.js";
+import type {
+  BookmarkRecord,
+  MonitoringTask,
+  TaskDetailResponse
+} from "../types.js";
 import { formatRelativeTime } from "../lib/timeline.js";
 import { buildTaskDisplayTitle } from "../lib/insights.js";
 
 interface TaskListProps {
   readonly tasks: readonly MonitoringTask[];
+  readonly bookmarks: readonly BookmarkRecord[];
+  readonly selectedTaskBookmarkId: string | null;
   readonly selectedTaskId: string | null;
   readonly taskDetail: TaskDetailResponse | null;
   readonly selectedTaskDisplayTitle?: string | null;
@@ -23,6 +29,9 @@ interface TaskListProps {
   readonly isCollapsed?: boolean;
   readonly onToggleCollapse?: () => void;
   readonly onSelectTask: (taskId: string) => void;
+  readonly onSelectBookmark: (bookmark: BookmarkRecord) => void;
+  readonly onDeleteBookmark: (bookmarkId: string) => void;
+  readonly onSaveTaskBookmark: () => void;
   readonly onDeleteTask: (taskId: string) => void;
   readonly onRefresh: () => void;
 }
@@ -42,6 +51,8 @@ interface BuildTaskListRowsOptions {
  */
 export function TaskList({
   tasks,
+  bookmarks,
+  selectedTaskBookmarkId,
   selectedTaskId,
   taskDetail,
   selectedTaskDisplayTitle,
@@ -53,6 +64,9 @@ export function TaskList({
   isCollapsed = false,
   onToggleCollapse,
   onSelectTask,
+  onSelectBookmark,
+  onDeleteBookmark,
+  onSaveTaskBookmark,
   onDeleteTask,
   onRefresh
 }: TaskListProps): React.JSX.Element {
@@ -129,6 +143,74 @@ export function TaskList({
         <img src="/icons/refresh.svg" alt="" />
         Refresh Snapshot
       </button>
+
+      <button
+        className="ghost-button"
+        disabled={!selectedTaskId || selectedTaskBookmarkId !== null}
+        onClick={onSaveTaskBookmark}
+        type="button"
+      >
+        <img src="/icons/layers.svg" alt="" />
+        {selectedTaskBookmarkId ? "Saved Current Task" : "Save Current Task"}
+      </button>
+
+      <div className="task-list-section">
+        <div className="section-heading">
+          <span>Saved</span>
+          <span className="count-badge">{bookmarks.length}</span>
+        </div>
+
+        {bookmarks.length === 0 ? (
+          <div className="empty-card">
+            <p>No saved cards yet.</p>
+            <p className="muted small">Save the current task or a selected event to come back to it quickly.</p>
+          </div>
+        ) : (
+          <div className="task-items saved-items">
+            {bookmarks.map((bookmark) => (
+              <div
+                key={bookmark.id}
+                className={`task-item saved${bookmark.id === selectedTaskBookmarkId ? " active" : ""}`}
+              >
+                <button
+                  className="task-item-body"
+                  onClick={() => onSelectBookmark(bookmark)}
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    color: "inherit",
+                    cursor: "pointer",
+                    padding: 0,
+                    textAlign: "left",
+                    width: "100%"
+                  }}
+                  type="button"
+                >
+                  <div className="task-item-meta">
+                    <span className="status-pill completed">{bookmark.kind}</span>
+                    <span className="task-age">{formatRelativeTime(bookmark.updatedAt)}</span>
+                  </div>
+                  <div className="task-item-title">{bookmark.title}</div>
+                  <div className="task-item-path mono">
+                    {bookmark.eventTitle ?? bookmark.taskTitle ?? bookmark.taskId}
+                  </div>
+                </button>
+                <button
+                  className="delete-btn"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onDeleteBookmark(bookmark.id);
+                  }}
+                  title="Remove saved item"
+                  type="button"
+                >
+                  <img src="/icons/trash.svg" alt="Remove saved item" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       <div className="task-list-section">
         <div className="section-heading">

@@ -6,6 +6,7 @@ import {
   NODE_WIDTH,
   RULER_HEIGHT,
   TIMELINE_LANES,
+  buildTimelineRelations,
   buildTimelineConnectors,
   buildTimelineLayout,
   buildTimestampTicks,
@@ -144,6 +145,55 @@ describe("buildTimelineLayout", () => {
       path: "M 452 92 H 560",
       sourceEventId: "1",
       targetEventId: "2"
+    });
+  });
+
+  it("prefers explicit metadata relations over simple adjacency", () => {
+    const events = [
+      {
+        id: "1",
+        taskId: "task-1",
+        kind: "todo.logged",
+        lane: "todos" as const,
+        title: "Todo added",
+        metadata: { todoId: "todo-1" },
+        classification: { lane: "todos" as const, tags: [], matches: [] },
+        createdAt: "2026-03-16T09:00:00.000Z"
+      },
+      {
+        id: "2",
+        taskId: "task-1",
+        kind: "action.logged",
+        lane: "implementation" as const,
+        title: "Implement todo",
+        metadata: {
+          parentEventId: "1",
+          relationType: "implements",
+          relationLabel: "implements todo",
+          workItemId: "todo-1"
+        },
+        classification: { lane: "implementation" as const, tags: [], matches: [] },
+        createdAt: "2026-03-16T09:00:10.000Z"
+      }
+    ];
+
+    const relations = buildTimelineRelations(events);
+    expect(relations).toHaveLength(1);
+    expect(relations[0]).toMatchObject({
+      sourceEventId: "1",
+      targetEventId: "2",
+      relationType: "implements",
+      isExplicit: true
+    });
+
+    const layout = buildTimelineLayout(events, 1, Date.parse("2026-03-16T09:00:15.000Z"));
+    const connectors = buildTimelineConnectors(layout.items);
+    expect(connectors[0]).toMatchObject({
+      key: "1→2:implements",
+      relationType: "implements",
+      label: "implements todo",
+      isExplicit: true,
+      workItemId: "todo-1"
     });
   });
 });

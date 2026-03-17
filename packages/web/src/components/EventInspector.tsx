@@ -33,6 +33,7 @@ import {
 import { formatRelativeTime } from "../lib/timeline.js";
 import type { TimelineConnector } from "../lib/timeline.js";
 import type {
+  BookmarkRecord,
   OverviewResponse,
   TaskDetailResponse,
   TimelineEvent
@@ -61,12 +62,16 @@ interface EventInspectorProps {
   readonly selectedEvent: TimelineEvent | null;
   readonly selectedConnector: SelectedConnectorData | null;
   readonly selectedEventDisplayTitle: string | null;
+  readonly selectedTaskBookmark?: BookmarkRecord | null;
+  readonly selectedEventBookmark?: BookmarkRecord | null;
   readonly selectedTag: string | null;
   readonly selectedRuleId: string | null;
   readonly showRuleGapsOnly: boolean;
   readonly taskModelSummary?: ModelSummary | undefined;
   readonly isCollapsed?: boolean;
   readonly onToggleCollapse?: () => void;
+  readonly onCreateTaskBookmark: () => void;
+  readonly onCreateEventBookmark: () => void;
   readonly onSelectTag: (tag: string | null) => void;
   readonly onSelectRule: (ruleId: string | null) => void;
   readonly onToggleRuleGaps: () => void;
@@ -273,6 +278,35 @@ function DetailConnectorEvents({
             </div>
           ))}
         </div>
+      </div>
+    </div>
+  );
+}
+
+function DetailRelatedEvents({
+  events
+}: {
+  readonly events: readonly TimelineEvent[];
+}): React.JSX.Element {
+  return (
+    <div className="detail-card">
+      <div className="detail-card-head">Related Events</div>
+      <div className="detail-card-body">
+        {events.length === 0 ? (
+          <p className="muted small" style={{ margin: 0 }}>No related events linked from metadata.</p>
+        ) : (
+          <div className="match-list">
+            {events.map((event) => (
+              <div key={event.id} className="match-item">
+                <div className="match-header">
+                  <strong>{event.title}</strong>
+                  <span className="match-score">{event.lane}</span>
+                </div>
+                <p className="muted small" style={{ margin: 0 }}>{summarizeDetailText(event.body ?? event.kind)}</p>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -885,12 +919,16 @@ export function EventInspector({
   selectedEvent,
   selectedConnector,
   selectedEventDisplayTitle,
+  selectedTaskBookmark = null,
+  selectedEventBookmark = null,
   selectedTag,
   selectedRuleId,
   showRuleGapsOnly,
   taskModelSummary,
   isCollapsed = false,
   onToggleCollapse,
+  onCreateTaskBookmark,
+  onCreateEventBookmark,
   onSelectTag,
   onSelectRule,
   onToggleRuleGaps
@@ -937,6 +975,28 @@ export function EventInspector({
     () => buildTodoGroups(taskTimeline),
     [taskTimeline]
   );
+  const relatedEvents = useMemo(() => {
+    if (!selectedEvent) {
+      return [];
+    }
+
+    const relatedIds = new Set<string>();
+    const parentEventId = selectedEvent.metadata["parentEventId"];
+    if (typeof parentEventId === "string") {
+      relatedIds.add(parentEventId);
+    }
+
+    const relationIds = selectedEvent.metadata["relatedEventIds"];
+    if (Array.isArray(relationIds)) {
+      for (const value of relationIds) {
+        if (typeof value === "string") {
+          relatedIds.add(value);
+        }
+      }
+    }
+
+    return taskTimeline.filter((event) => relatedIds.has(event.id));
+  }, [selectedEvent, taskTimeline]);
 
   async function handleCopyExtraction(kind: "brief" | "process"): Promise<void> {
     const content = kind === "brief"
@@ -959,6 +1019,7 @@ export function EventInspector({
 
   const obsBadges = taskDetail ? [
     { key: "actions",    label: "Actions",    value: observabilityStats.actions,       cls: "actions" },
+    { key: "coordination", label: "Coordination", value: observabilityStats.coordinationActivities, cls: "coordination" },
     { key: "files",      label: "Files",      value: observabilityStats.exploredFiles, cls: "files" },
     { key: "compacts",   label: "Compact",    value: observabilityStats.compactions,   cls: "compacts" },
     { key: "checks",     label: "Check",      value: observabilityStats.checks,        cls: "checks" },
@@ -1005,8 +1066,18 @@ export function EventInspector({
                   : selectedEventDisplayTitle ?? "Select an event"}
               </h2>
               <div className="inspector-header-meta">
+                <button className="compact-focus-button" onClick={onCreateTaskBookmark} type="button">
+                  {selectedTaskBookmark ? "Task Saved" : "Save Task"}
+                </button>
+                {selectedEvent && (
+                  <button className="compact-focus-button" onClick={onCreateEventBookmark} type="button">
+                    {selectedEventBookmark ? "Card Saved" : "Save Card"}
+                  </button>
+                )}
                 {selectedConnector ? (
-                  <span className="event-kind-badge">transition · {selectedConnector.connector.cross ? "cross-lane" : "same-lane"}</span>
+                  <span className="event-kind-badge">
+                    {selectedConnector.connector.isExplicit ? "relation" : "transition"} · {selectedConnector.connector.cross ? "cross-lane" : "same-lane"}
+                  </span>
                 ) : selectedEvent ? (
                   <span className="event-kind-badge">{selectedEvent.kind} · {selectedEvent.lane}</span>
                 ) : null}
@@ -1020,18 +1091,22 @@ export function EventInspector({
                   label="Summary"
                   resizable
                   value={[
-                    `${selectedConnector.connector.cross ? "Lane transition" : "Same-lane progression"} from ${selectedConnector.source.lane} to ${selectedConnector.target.lane}.`,
+                    `${selectedConnector.connector.isExplicit ? "Explicit relation" : "Fallback sequence"} from ${selectedConnector.source.lane} to ${selectedConnector.target.lane}.`,
+                    selectedConnector.connector.label ? `Label: ${selectedConnector.connector.label}` : undefined,
+                    selectedConnector.connector.explanation,
                     `From: ${selectedConnector.source.title}`,
                     `To: ${selectedConnector.target.title}`
-                  ].join("\n")}
+                  ].filter((value): value is string => Boolean(value)).join("\n")}
                 />
                 <DetailConnectorIds connector={selectedConnector.connector} source={selectedConnector.source} target={selectedConnector.target} />
                 <DetailTags
                   title="Transition Tags"
                   values={[
+                    selectedConnector.connector.isExplicit ? "explicit" : "inferred",
                     selectedConnector.connector.cross ? "cross-lane" : "same-lane",
                     selectedConnector.source.lane,
-                    selectedConnector.target.lane
+                    selectedConnector.target.lane,
+                    selectedConnector.connector.relationType ?? "relates_to"
                   ]}
                 />
                 <DetailConnectorEvents source={selectedConnector.source} target={selectedConnector.target} />
@@ -1043,7 +1118,15 @@ export function EventInspector({
                     sourceEventId: selectedConnector.source.id,
                     targetEventId: selectedConnector.target.id,
                     sourceLane: selectedConnector.source.lane,
-                    targetLane: selectedConnector.target.lane
+                    targetLane: selectedConnector.target.lane,
+                    relationType: selectedConnector.connector.relationType,
+                    relationLabel: selectedConnector.connector.label,
+                    relationExplanation: selectedConnector.connector.explanation,
+                    isExplicit: selectedConnector.connector.isExplicit,
+                    workItemId: selectedConnector.connector.workItemId,
+                    goalId: selectedConnector.connector.goalId,
+                    planId: selectedConnector.connector.planId,
+                    handoffId: selectedConnector.connector.handoffId
                   }, null, 2)}
                 />
               </div>
@@ -1073,6 +1156,33 @@ export function EventInspector({
                   const group = tId ? todoGroups.find((g) => g.todoId === tId) : null;
                   return group ? <DetailTodoFlow group={group} /> : null;
                 })()}
+                {selectedEvent.lane === "coordination" && (
+                  <DetailSection
+                    label="Agent Activity"
+                    resizable
+                    value={[
+                      typeof selectedEvent.metadata["activityType"] === "string"
+                        ? `Activity: ${selectedEvent.metadata["activityType"]}`
+                        : undefined,
+                      typeof selectedEvent.metadata["agentName"] === "string"
+                        ? `Agent: ${selectedEvent.metadata["agentName"]}`
+                        : undefined,
+                      typeof selectedEvent.metadata["skillName"] === "string"
+                        ? `Skill: ${selectedEvent.metadata["skillName"]}`
+                        : undefined,
+                      typeof selectedEvent.metadata["skillPath"] === "string"
+                        ? `Skill path: ${selectedEvent.metadata["skillPath"]}`
+                        : undefined,
+                      typeof selectedEvent.metadata["mcpServer"] === "string"
+                        ? `MCP server: ${selectedEvent.metadata["mcpServer"]}`
+                        : undefined,
+                      typeof selectedEvent.metadata["mcpTool"] === "string"
+                        ? `MCP tool: ${selectedEvent.metadata["mcpTool"]}`
+                        : undefined
+                    ].filter((value): value is string => Boolean(value)).join("\n") || "No coordination metadata"}
+                  />
+                )}
+                {relatedEvents.length > 0 && <DetailRelatedEvents events={relatedEvents} />}
                 {selectedEvent.kind === "user.message" && <DetailCaptureInfo event={selectedEvent} />}
                 {(selectedEvent.metadata["modelName"] as string | undefined) && (
                   <DetailModelInfo

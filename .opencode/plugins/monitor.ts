@@ -95,7 +95,7 @@ function debugExitLog(message: string, payload?: Record<string, unknown>): void 
  * 도구명을 분석하여 적절한 모니터링 엔드포인트와 레인을 결정.
  * @param toolName OpenCode가 실행한 도구 이름
  */
-function classifyTool(toolName: string): { endpoint: string; lane?: string } {
+function classifyTool(toolName: string): { endpoint: string; lane?: string; activityType?: string } {
   const lower = toolName.toLowerCase();
 
   if (isTodoWriteTool(lower)) {
@@ -114,6 +114,18 @@ function classifyTool(toolName: string): { endpoint: string; lane?: string } {
     // test/build/lint 패턴이면 rules 레인
     const isVerification = /test|build|lint|vitest|pytest|tsc/.test(lower);
     return { endpoint: "/api/terminal-command", lane: isVerification ? "rules" : "implementation" };
+  }
+
+  if (/\bagent\b|dispatch|delegate|spawn/.test(lower)) {
+    return { endpoint: "/api/agent-activity", activityType: "delegation" };
+  }
+
+  if (/\bskill\b/.test(lower)) {
+    return { endpoint: "/api/agent-activity", activityType: "skill_use" };
+  }
+
+  if (/\bhandoff\b/.test(lower)) {
+    return { endpoint: "/api/agent-activity", activityType: "handoff" };
   }
 
   return { endpoint: "/api/tool-used", lane: "implementation" };
@@ -1322,7 +1334,7 @@ export function createMonitorHooks(workspacePath: string): Hooks {
         return;
       }
 
-      const { endpoint, lane } = classifyTool(toolName);
+      const { endpoint, lane, activityType } = classifyTool(toolName);
       const filePaths = extractFilePaths(input.args, output.metadata, output.title);
       const effectiveLane = state.taskKind === "background"
         ? "background"
@@ -1343,7 +1355,12 @@ export function createMonitorHooks(workspacePath: string): Hooks {
         ...(effectiveLane ? { lane: effectiveLane } : {})
       };
 
-      if (endpoint === "/api/explore") {
+      if (endpoint === "/api/agent-activity") {
+        await post(endpoint, {
+          ...body,
+          activityType: activityType ?? "agent_step",
+        });
+      } else if (endpoint === "/api/explore") {
         await post(endpoint, body);
       } else if (endpoint === "/api/terminal-command") {
         await post(endpoint, {

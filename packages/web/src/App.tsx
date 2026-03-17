@@ -14,9 +14,13 @@ import {
 } from "react";
 
 import {
+  createBookmark,
   createMonitorWebSocket,
+  deleteBookmark,
   deleteTask,
+  fetchBookmarks,
   fetchOverview,
+  fetchSearchResults,
   fetchTaskDetail,
   fetchTasks,
   updateTaskTitle
@@ -31,13 +35,16 @@ import {
   collectExploredFiles,
   filterTimelineEvents
 } from "./lib/insights.js";
+import { buildTimelineRelations } from "./lib/timeline.js";
 import { TopBar } from "./components/TopBar.js";
 import { TaskList } from "./components/TaskList.js";
 import { Timeline } from "./components/Timeline.js";
 import { EventInspector } from "./components/EventInspector.js";
 import type {
+  BookmarkRecord,
   MonitoringTask,
   OverviewResponse,
+  SearchResponse,
   TaskDetailResponse,
   TimelineEvent
 } from "./types.js";
@@ -46,11 +53,27 @@ function isConnectorKeyValid(
   key: string,
   events: readonly TimelineEvent[]
 ): boolean {
-  const [sourceId, targetId] = key.split("→");
-  if (!sourceId || !targetId) return false;
+  const parsed = parseConnectorKey(key);
+  if (!parsed) return false;
 
-  return events.some((event) => event.id === sourceId)
-    && events.some((event) => event.id === targetId);
+  return events.some((event) => event.id === parsed.sourceEventId)
+    && events.some((event) => event.id === parsed.targetEventId);
+}
+
+function parseConnectorKey(
+  key: string
+): { sourceEventId: string; targetEventId: string; relationType?: string } | null {
+  const [sourceEventId, targetPart] = key.split("→");
+  if (!sourceEventId || !targetPart) return null;
+
+  const [targetEventId, relationType] = targetPart.split(":");
+  if (!targetEventId) return null;
+
+  return {
+    sourceEventId,
+    targetEventId,
+    ...(relationType ? { relationType } : {})
+  };
 }
 
 const SIDEBAR_MIN_WIDTH = 240;
@@ -61,6 +84,7 @@ const SIDEBAR_WIDTH_STORAGE_KEY = "agent-tracer.sidebar-width";
 export function App(): React.JSX.Element {
   const [overview,        setOverview]        = useState<OverviewResponse | null>(null);
   const [tasks,           setTasks]           = useState<readonly MonitoringTask[]>([]);
+  const [bookmarks,       setBookmarks]       = useState<readonly BookmarkRecord[]>([]);
   const [selectedTaskId,  setSelectedTaskId]  = useState<string | null>(
     () => window.location.hash.slice(1) || null
   );
@@ -70,6 +94,9 @@ export function App(): React.JSX.Element {
   const [selectedRuleId, setSelectedRuleId] = useState<string | null>(null);
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [showRuleGapsOnly, setShowRuleGapsOnly] = useState(false);
+  const [searchQuery,      setSearchQuery]      = useState("");
+  const [searchResults,    setSearchResults]    = useState<SearchResponse | null>(null);
+  const [isSearching,      setIsSearching]      = useState(false);
   const [status,           setStatus]           = useState<"idle"|"loading"|"ready"|"error">("idle");
   const [errorMessage,     setErrorMessage]     = useState<string | null>(null);
   const [deletingTaskId,   setDeletingTaskId]   = useState<string | null>(null);
@@ -95,12 +122,18 @@ export function App(): React.JSX.Element {
     readonly startX: number;
     readonly startWidth: number;
   } | null>(null);
+  const selectedTaskIdRef = useRef<string | null>(selectedTaskId);
+  const socketRef = useRef<WebSocket | null>(null);
 
   const refreshOverview = useCallback(async (): Promise<void> => {
     setStatus((s) => (s === "ready" ? s : "loading"));
     setErrorMessage(null);
     try {
-      const [nextOverview, nextTasks] = await Promise.all([fetchOverview(), fetchTasks()]);
+      const [nextOverview, nextTasks, nextBookmarks] = await Promise.all([
+        fetchOverview(),
+        fetchTasks(),
+        fetchBookmarks()
+      ]);
       setOverview(nextOverview);
       setTasks((prev) => {
         const prevById = new Map(prev.map((t) => [t.id, t]));
@@ -112,6 +145,7 @@ export function App(): React.JSX.Element {
         const unchanged = merged.length === prev.length && merged.every((t, i) => t === prev[i]);
         return unchanged ? prev : merged;
       });
+      setBookmarks(nextBookmarks.bookmarks);
       setStatus("ready");
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : "Failed to load monitor data.");
@@ -194,6 +228,10 @@ export function App(): React.JSX.Element {
     return () => window.removeEventListener("hashchange", onHashChange);
   }, []);
 
+  useEffect(() => {
+    selectedTaskIdRef.current = selectedTaskId;
+  }, [selectedTaskId]);
+
   /* load task detail when selection changes */
   useEffect(() => {
     if (!selectedTaskId) return;
@@ -220,6 +258,7 @@ export function App(): React.JSX.Element {
 
     function connect(): void {
       const ws = createMonitorWebSocket();
+      socketRef.current = ws;
 
       ws.onopen = () => { setIsConnected(true); };
 
@@ -229,7 +268,7 @@ export function App(): React.JSX.Element {
         wsRefreshTimer.current = setTimeout(() => {
           wsRefreshTimer.current = null;
           void refreshOverview();
-          if (selectedTaskId) void refreshTaskDetail(selectedTaskId);
+          if (selectedTaskIdRef.current) void refreshTaskDetail(selectedTaskIdRef.current);
         }, 200);
       };
 
@@ -237,6 +276,9 @@ export function App(): React.JSX.Element {
 
       ws.onclose = () => {
         setIsConnected(false);
+        if (socketRef.current === ws) {
+          socketRef.current = null;
+        }
         if (!destroyed) timer = setTimeout(connect, 5000);
       };
     }
@@ -246,8 +288,14 @@ export function App(): React.JSX.Element {
     return () => {
       destroyed = true;
       if (timer !== null) clearTimeout(timer);
+      if (wsRefreshTimer.current !== null) {
+        clearTimeout(wsRefreshTimer.current);
+        wsRefreshTimer.current = null;
+      }
+      socketRef.current?.close();
+      socketRef.current = null;
     };
-  }, [refreshOverview, refreshTaskDetail, selectedTaskId]);
+  }, [refreshOverview, refreshTaskDetail]);
 
   const taskTimeline = taskDetail?.timeline ?? [];
 
@@ -300,9 +348,44 @@ export function App(): React.JSX.Element {
     [taskTimeline]
   );
 
+  useEffect(() => {
+    const normalizedQuery = searchQuery.trim();
+    if (!normalizedQuery) {
+      setSearchResults(null);
+      setIsSearching(false);
+      return;
+    }
+
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      setIsSearching(true);
+      void fetchSearchResults(normalizedQuery)
+        .then((result) => {
+          if (!cancelled) {
+            setSearchResults(result);
+          }
+        })
+        .catch((err) => {
+          if (!cancelled) {
+            setErrorMessage(err instanceof Error ? err.message : "Failed to search monitor data.");
+          }
+        })
+        .finally(() => {
+          if (!cancelled) {
+            setIsSearching(false);
+          }
+        });
+    }, 180);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [searchQuery]);
+
   const filteredTimeline = useMemo(
     () => filterTimelineEvents(taskTimeline, {
-      laneFilters: { user: true, questions: true, todos: true, background: true, exploration: true, planning: true, implementation: true, rules: true },
+      laneFilters: { user: true, questions: true, todos: true, background: true, coordination: true, exploration: true, planning: true, implementation: true, rules: true },
       selectedRuleId,
       selectedTag,
       showRuleGapsOnly
@@ -310,11 +393,71 @@ export function App(): React.JSX.Element {
     [selectedRuleId, selectedTag, showRuleGapsOnly, taskTimeline]
   );
 
-  const selectedEvent = filteredTimeline.find((e) => e.id === selectedEventId) ?? filteredTimeline[0] ?? null;
+  const selectedConnector = useMemo(() => {
+    if (!selectedConnectorKey) {
+      return null;
+    }
+
+    const parsed = parseConnectorKey(selectedConnectorKey);
+    if (!parsed) {
+      return null;
+    }
+
+    const source = taskTimeline.find((event) => event.id === parsed.sourceEventId);
+    const target = taskTimeline.find((event) => event.id === parsed.targetEventId);
+    if (!source || !target) {
+      return null;
+    }
+
+    const relation = buildTimelineRelations(taskTimeline).find((item) =>
+      item.sourceEventId === source.id
+      && item.targetEventId === target.id
+      && (item.relationType ?? undefined) === parsed.relationType
+    );
+
+    return {
+      connector: {
+        key: selectedConnectorKey,
+        path: "",
+        lane: target.lane,
+        cross: source.lane !== target.lane,
+        sourceEventId: source.id,
+        targetEventId: target.id,
+        sourceLane: source.lane,
+        targetLane: target.lane,
+        relationType: relation?.relationType ?? parsed.relationType,
+        label: relation?.label,
+        explanation: relation?.explanation,
+        isExplicit: relation?.isExplicit ?? parsed.relationType !== "sequence",
+        workItemId: relation?.workItemId,
+        goalId: relation?.goalId,
+        planId: relation?.planId,
+        handoffId: relation?.handoffId
+      },
+      source,
+      target
+    };
+  }, [selectedConnectorKey, taskTimeline]);
+
+  const selectedTaskBookmark = useMemo(
+    () => (
+      selectedTaskId
+        ? bookmarks.find((bookmark) => bookmark.taskId === selectedTaskId && !bookmark.eventId) ?? null
+        : null
+    ),
+    [bookmarks, selectedTaskId]
+  );
+
+  const selectedEvent = selectedConnector
+    ? null
+    : filteredTimeline.find((e) => e.id === selectedEventId) ?? filteredTimeline[0] ?? null;
   const selectedEventDisplayTitle = selectedEvent
     ? selectedEvent.kind === "task.start"
       ? selectedTaskDisplayTitle ?? selectedEvent.title
       : selectedEvent.title
+    : null;
+  const selectedEventBookmark = selectedEvent
+    ? bookmarks.find((bookmark) => bookmark.eventId === selectedEvent.id) ?? null
     : null;
 
   useEffect(() => {
@@ -324,6 +467,59 @@ export function App(): React.JSX.Element {
 
     setTaskTitleDraft(selectedTaskDisplayTitle ?? taskDetail?.task.title ?? "");
   }, [isEditingTaskTitle, selectedTaskDisplayTitle, taskDetail?.task.title]);
+
+  async function refreshBookmarksOnly(): Promise<void> {
+    const response = await fetchBookmarks();
+    setBookmarks(response.bookmarks);
+  }
+
+  async function handleCreateTaskBookmark(): Promise<void> {
+    if (!selectedTaskId) {
+      return;
+    }
+
+    await createBookmark({
+      taskId: selectedTaskId,
+      title: selectedTaskDisplayTitle ?? taskDetail?.task.title
+    });
+    await refreshBookmarksOnly();
+  }
+
+  async function handleCreateEventBookmark(): Promise<void> {
+    if (!selectedTaskId || !selectedEvent) {
+      return;
+    }
+
+    await createBookmark({
+      taskId: selectedTaskId,
+      eventId: selectedEvent.id,
+      title: selectedEvent.title
+    });
+    await refreshBookmarksOnly();
+  }
+
+  async function handleDeleteBookmark(bookmarkId: string): Promise<void> {
+    await deleteBookmark(bookmarkId);
+    await refreshBookmarksOnly();
+  }
+
+  function handleSelectBookmark(bookmark: BookmarkRecord): void {
+    setSelectedConnectorKey(null);
+    setSelectedTaskId(bookmark.taskId);
+    setSelectedEventId(bookmark.eventId ?? null);
+  }
+
+  function handleSelectSearchTask(taskId: string): void {
+    setSelectedConnectorKey(null);
+    setSelectedEventId(null);
+    setSelectedTaskId(taskId);
+  }
+
+  function handleSelectSearchEvent(taskId: string, eventId: string): void {
+    setSelectedConnectorKey(null);
+    setSelectedTaskId(taskId);
+    setSelectedEventId(eventId);
+  }
 
   async function handleDeleteTask(taskId: string): Promise<void> {
     setDeletingTaskId(taskId);
@@ -433,6 +629,25 @@ export function App(): React.JSX.Element {
       <TopBar
         overview={overview}
         isConnected={isConnected}
+        searchQuery={searchQuery}
+        searchResults={searchResults}
+        isSearching={isSearching}
+        onSearchQueryChange={setSearchQuery}
+        onSelectSearchTask={handleSelectSearchTask}
+        onSelectSearchEvent={handleSelectSearchEvent}
+        onSelectSearchBookmark={(bookmark) => {
+          const target = bookmarks.find((item) => item.id === bookmark.bookmarkId);
+          if (target) {
+            handleSelectBookmark(target);
+            return;
+          }
+
+          if (bookmark.eventId) {
+            handleSelectSearchEvent(bookmark.taskId, bookmark.eventId);
+          } else {
+            handleSelectSearchTask(bookmark.taskId);
+          }
+        }}
         onRefresh={() => void refreshOverview()}
       />
 
@@ -444,6 +659,8 @@ export function App(): React.JSX.Element {
         <div className="sidebar-slot">
           <TaskList
             tasks={tasks}
+            bookmarks={bookmarks}
+            selectedTaskBookmarkId={selectedTaskBookmark?.id ?? null}
             selectedTaskId={selectedTaskId}
             taskDetail={taskDetail}
             selectedTaskDisplayTitle={selectedTaskDisplayTitle}
@@ -455,6 +672,17 @@ export function App(): React.JSX.Element {
             isCollapsed={isSidebarCollapsed}
             onToggleCollapse={() => setIsSidebarCollapsed((v) => !v)}
             onSelectTask={(id) => setSelectedTaskId(id)}
+            onSelectBookmark={handleSelectBookmark}
+            onDeleteBookmark={(bookmarkId) => {
+              void handleDeleteBookmark(bookmarkId).catch((err) => {
+                setErrorMessage(err instanceof Error ? err.message : "Failed to delete bookmark.");
+              });
+            }}
+            onSaveTaskBookmark={() => {
+              void handleCreateTaskBookmark().catch((err) => {
+                setErrorMessage(err instanceof Error ? err.message : "Failed to save task bookmark.");
+              });
+            }}
             onDeleteTask={(id) => void handleDeleteTask(id)}
             onRefresh={() => void refreshOverview()}
           />
@@ -523,14 +751,26 @@ export function App(): React.JSX.Element {
           taskDetail={taskDetail}
           overview={overview}
           selectedEvent={selectedEvent}
-          selectedConnector={null}
+          selectedConnector={selectedConnector}
           selectedEventDisplayTitle={selectedEventDisplayTitle}
+          selectedTaskBookmark={selectedTaskBookmark}
+          selectedEventBookmark={selectedEventBookmark}
           selectedTag={selectedTag}
           selectedRuleId={selectedRuleId}
           showRuleGapsOnly={showRuleGapsOnly}
           taskModelSummary={modelSummary}
           isCollapsed={isInspectorCollapsed}
           onToggleCollapse={() => setIsInspectorCollapsed((v) => !v)}
+          onCreateTaskBookmark={() => {
+            void handleCreateTaskBookmark().catch((err) => {
+              setErrorMessage(err instanceof Error ? err.message : "Failed to save task bookmark.");
+            });
+          }}
+          onCreateEventBookmark={() => {
+            void handleCreateEventBookmark().catch((err) => {
+              setErrorMessage(err instanceof Error ? err.message : "Failed to save event bookmark.");
+            });
+          }}
           onSelectTag={(tag) => setSelectedTag(tag)}
           onSelectRule={(ruleId) => {
             setShowRuleGapsOnly(false);

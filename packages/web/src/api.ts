@@ -6,13 +6,19 @@
  */
 
 import type {
+  BookmarksResponse,
+  BookmarkRecord,
   MonitoringTask,
   OverviewResponse,
+  SearchResponse,
   TaskDetailResponse,
   TasksResponse
 } from "./types.js";
 
-const API_BASE = (import.meta.env.VITE_BADEN_BASE_URL as string | undefined)?.replace(/\/+$/g, "") ?? "";
+const API_BASE = (
+  (import.meta.env.VITE_MONITOR_BASE_URL as string | undefined)
+  ?? (import.meta.env.VITE_BADEN_BASE_URL as string | undefined)
+)?.replace(/\/+$/g, "") ?? "";
 
 async function getJson<T>(pathname: string): Promise<T> {
   const response = await fetch(`${API_BASE}${pathname}`);
@@ -35,6 +41,16 @@ async function patchJson<T>(pathname: string, body: unknown): Promise<T> {
     body: JSON.stringify(body)
   });
   if (!response.ok) throw new Error(`PATCH ${pathname}: ${response.status}`);
+  return await response.json() as Promise<T>;
+}
+
+async function postJson<T>(pathname: string, body: unknown): Promise<T> {
+  const response = await fetch(`${API_BASE}${pathname}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  });
+  if (!response.ok) throw new Error(`POST ${pathname}: ${response.status}`);
   return await response.json() as Promise<T>;
 }
 
@@ -79,6 +95,29 @@ export function fetchTaskDetail(taskId: string): Promise<TaskDetailResponse> {
   return getJson<TaskDetailResponse>(`/api/tasks/${taskId}`);
 }
 
+export function fetchBookmarks(taskId?: string): Promise<BookmarksResponse> {
+  const suffix = taskId ? `?taskId=${encodeURIComponent(taskId)}` : "";
+  return getJson<BookmarksResponse>(`/api/bookmarks${suffix}`);
+}
+
+export function fetchSearchResults(query: string, taskId?: string): Promise<SearchResponse> {
+  const params = new URLSearchParams({ q: query });
+  if (taskId) {
+    params.set("taskId", taskId);
+  }
+  return getJson<SearchResponse>(`/api/search?${params.toString()}`);
+}
+
+export async function createBookmark(input: {
+  taskId: string;
+  eventId?: string;
+  title?: string;
+  note?: string;
+}): Promise<BookmarkRecord> {
+  const payload = await postJson<{ bookmark: BookmarkRecord }>("/api/bookmarks", input);
+  return payload.bookmark;
+}
+
 /**
  * 태스크 제목을 업데이트함.
  * @param taskId - 수정할 태스크 ID
@@ -96,6 +135,10 @@ export async function updateTaskTitle(taskId: string, title: string): Promise<Mo
  */
 export async function deleteTask(taskId: string): Promise<void> {
   return deleteRequest(`/api/tasks/${taskId}`);
+}
+
+export async function deleteBookmark(bookmarkId: string): Promise<void> {
+  return deleteRequest(`/api/bookmarks/${bookmarkId}`);
 }
 
 /**

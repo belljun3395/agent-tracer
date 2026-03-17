@@ -5,7 +5,11 @@
  * 이벤트 좌표 계산, 연결선 경로 생성, 타임스탬프 눈금, 상대 시간 변환을 담당.
  */
 
-import type { TimelineEvent, TimelineLane } from "../types.js";
+import type {
+  TimelineEvent,
+  TimelineLane,
+  TimelineRelation
+} from "../types.js";
 
 /** 타임라인 캔버스에서 이벤트 노드 한 항목의 레이아웃 정보. */
 export interface TimelineItemLayout {
@@ -37,16 +41,27 @@ export interface TimelineConnector {
   readonly cross: boolean;
   readonly sourceEventId: string;
   readonly targetEventId: string;
+  readonly sourceLane: TimelineLane;
+  readonly targetLane: TimelineLane;
+  readonly relationType?: string;
+  readonly label?: string;
+  readonly explanation?: string;
+  readonly isExplicit: boolean;
+  readonly workItemId?: string;
+  readonly goalId?: string;
+  readonly planId?: string;
+  readonly handoffId?: string;
 }
 
 /** 타임라인에 표시되는 5개 레인 순서. */
 export const TIMELINE_LANES: readonly TimelineLane[] = [
   "user",
-  "exploration",
-  "planning",
-  "implementation",
   "questions",
   "todos",
+  "planning",
+  "coordination",
+  "exploration",
+  "implementation",
   "rules",
   "background"
 ];
@@ -243,6 +258,9 @@ export function buildTimelineConnectors(
   items: readonly TimelineItemLayout[],
   nodeBoundsById: Readonly<Record<string, TimelineNodeBounds>> = {}
 ): readonly TimelineConnector[] {
+  const relations = buildTimelineRelations(items.map((item) => item.event));
+  const itemById = new Map(items.map((item) => [item.event.id, item]));
+
   const sorted = [...items].sort((a, b) => {
     const dt = Date.parse(a.event.createdAt) - Date.parse(b.event.createdAt);
     if (dt !== 0) return dt;
@@ -254,62 +272,112 @@ export function buildTimelineConnectors(
     return a.left - b.left;
   });
 
-  const result: TimelineConnector[] = [];
+  const incomingExplicitTargets = new Set(relations.map((relation) => relation.targetEventId));
+  const fallbackRelations: TimelineRelation[] = [];
 
-  for (let i = 0; i < sorted.length - 1; i++) {
-    const item = sorted[i];
-    const next = sorted[i + 1];
-    if (!item || !next) continue;
-
-    const source = getTimelineNodeBounds(item, nodeBoundsById[item.event.id]);
-    const target = getTimelineNodeBounds(next, nodeBoundsById[next.event.id]);
-    const sameLane = item.event.lane === next.event.lane;
-
-    if (sameLane) {
-      const x1 = source.right;
-      const x2 = target.left;
-      if (x2 - x1 < 8) continue;
-
-      const y1 = source.centerY;
-      const y2 = target.centerY;
-      const path =
-        Math.abs(y2 - y1) < 2
-          ? `M ${roundCoordinate(x1)} ${roundCoordinate(y1)} H ${roundCoordinate(x2)}`
-          : `M ${roundCoordinate(x1)} ${roundCoordinate(y1)} H ${roundCoordinate((x1 + x2) / 2)} V ${roundCoordinate(y2)} H ${roundCoordinate(x2)}`;
-
-      result.push({
-        key: `${item.event.id}→${next.event.id}`,
-        path,
-        lane: item.event.lane,
-        cross: false,
-        sourceEventId: item.event.id,
-        targetEventId: next.event.id
-      });
+  for (let index = 0; index < sorted.length - 1; index += 1) {
+    const source = sorted[index];
+    const target = sorted[index + 1];
+    if (!source || !target || incomingExplicitTargets.has(target.event.id)) {
       continue;
     }
 
-    const movingDown = target.centerY >= source.centerY;
-    const startX = source.centerX;
-    const startY = movingDown ? source.bottom : source.top;
-    const endX = target.centerX;
-    const endY = movingDown ? target.top : target.bottom;
+    fallbackRelations.push({
+      sourceEventId: source.event.id,
+      targetEventId: target.event.id,
+      relationType: "relates_to",
+      label: "sequence",
+      explanation: "Fallback chronological flow.",
+      isExplicit: false
+    });
+  }
 
-    const path =
-      Math.abs(endX - startX) < 8
-        ? `M ${roundCoordinate(startX)} ${roundCoordinate(startY)} V ${roundCoordinate(endY)}`
-        : `M ${roundCoordinate(startX)} ${roundCoordinate(startY)} V ${roundCoordinate((startY + endY) / 2)} H ${roundCoordinate(endX)} V ${roundCoordinate(endY)}`;
+  const result: TimelineConnector[] = [];
+  for (const relation of [...relations, ...fallbackRelations]) {
+    const sourceItem = itemById.get(relation.sourceEventId);
+    const targetItem = itemById.get(relation.targetEventId);
+    if (!sourceItem || !targetItem) {
+      continue;
+    }
+
+    const pathInfo = buildConnectorPath(
+      sourceItem,
+      targetItem,
+      nodeBoundsById[sourceItem.event.id],
+      nodeBoundsById[targetItem.event.id]
+    );
+    if (!pathInfo) {
+      continue;
+    }
 
     result.push({
-      key: `${item.event.id}→${next.event.id}`,
-      path,
-      lane: item.event.lane,
-      cross: true,
-      sourceEventId: item.event.id,
-      targetEventId: next.event.id
+      key: `${relation.sourceEventId}→${relation.targetEventId}:${relation.relationType ?? (relation.isExplicit ? "explicit" : "sequence")}`,
+      path: pathInfo.path,
+      lane: targetItem.event.lane,
+      cross: pathInfo.cross,
+      sourceEventId: relation.sourceEventId,
+      targetEventId: relation.targetEventId,
+      sourceLane: sourceItem.event.lane,
+      targetLane: targetItem.event.lane,
+      relationType: relation.relationType,
+      label: relation.label,
+      explanation: relation.explanation,
+      isExplicit: relation.isExplicit,
+      workItemId: relation.workItemId,
+      goalId: relation.goalId,
+      planId: relation.planId,
+      handoffId: relation.handoffId
     });
   }
 
   return result;
+}
+
+export function buildTimelineRelations(
+  events: readonly TimelineEvent[]
+): readonly TimelineRelation[] {
+  const eventIds = new Set(events.map((event) => event.id));
+  const seen = new Set<string>();
+  const relations: TimelineRelation[] = [];
+
+  for (const event of events) {
+    const parentEventId = extractMetadataString(event.metadata, "parentEventId");
+    if (parentEventId && eventIds.has(parentEventId)) {
+      pushRelation(relations, seen, {
+        sourceEventId: parentEventId,
+        targetEventId: event.id,
+        relationType: extractMetadataString(event.metadata, "relationType"),
+        label: extractMetadataString(event.metadata, "relationLabel"),
+        explanation: extractMetadataString(event.metadata, "relationExplanation"),
+        isExplicit: true,
+        workItemId: extractMetadataString(event.metadata, "workItemId"),
+        goalId: extractMetadataString(event.metadata, "goalId"),
+        planId: extractMetadataString(event.metadata, "planId"),
+        handoffId: extractMetadataString(event.metadata, "handoffId")
+      });
+    }
+
+    for (const relatedEventId of extractMetadataStringArray(event.metadata, "relatedEventIds")) {
+      if (!eventIds.has(relatedEventId)) {
+        continue;
+      }
+
+      pushRelation(relations, seen, {
+        sourceEventId: relatedEventId,
+        targetEventId: event.id,
+        relationType: extractMetadataString(event.metadata, "relationType"),
+        label: extractMetadataString(event.metadata, "relationLabel"),
+        explanation: extractMetadataString(event.metadata, "relationExplanation"),
+        isExplicit: true,
+        workItemId: extractMetadataString(event.metadata, "workItemId"),
+        goalId: extractMetadataString(event.metadata, "goalId"),
+        planId: extractMetadataString(event.metadata, "planId"),
+        handoffId: extractMetadataString(event.metadata, "handoffId")
+      });
+    }
+  }
+
+  return relations;
 }
 
 /**
@@ -366,6 +434,81 @@ function getTimelineNodeBounds(
     centerX: left + width / 2,
     centerY: top + height / 2
   };
+}
+
+function buildConnectorPath(
+  sourceItem: TimelineItemLayout,
+  targetItem: TimelineItemLayout,
+  sourceBounds: TimelineNodeBounds | undefined,
+  targetBounds: TimelineNodeBounds | undefined
+): { readonly path: string; readonly cross: boolean } | null {
+  const source = getTimelineNodeBounds(sourceItem, sourceBounds);
+  const target = getTimelineNodeBounds(targetItem, targetBounds);
+  const sameLane = sourceItem.event.lane === targetItem.event.lane;
+
+  if (sameLane) {
+    const x1 = source.right;
+    const x2 = target.left;
+    if (x2 - x1 < 8) {
+      return null;
+    }
+
+    const y1 = source.centerY;
+    const y2 = target.centerY;
+    return {
+      cross: false,
+      path:
+        Math.abs(y2 - y1) < 2
+          ? `M ${roundCoordinate(x1)} ${roundCoordinate(y1)} H ${roundCoordinate(x2)}`
+          : `M ${roundCoordinate(x1)} ${roundCoordinate(y1)} H ${roundCoordinate((x1 + x2) / 2)} V ${roundCoordinate(y2)} H ${roundCoordinate(x2)}`
+    };
+  }
+
+  const movingDown = target.centerY >= source.centerY;
+  const startX = source.centerX;
+  const startY = movingDown ? source.bottom : source.top;
+  const endX = target.centerX;
+  const endY = movingDown ? target.top : target.bottom;
+
+  return {
+    cross: true,
+    path:
+      Math.abs(endX - startX) < 8
+        ? `M ${roundCoordinate(startX)} ${roundCoordinate(startY)} V ${roundCoordinate(endY)}`
+        : `M ${roundCoordinate(startX)} ${roundCoordinate(startY)} V ${roundCoordinate((startY + endY) / 2)} H ${roundCoordinate(endX)} V ${roundCoordinate(endY)}`
+  };
+}
+
+function pushRelation(
+  relations: TimelineRelation[],
+  seen: Set<string>,
+  relation: TimelineRelation
+): void {
+  const key = `${relation.sourceEventId}→${relation.targetEventId}:${relation.relationType ?? "relates_to"}`;
+  if (seen.has(key)) {
+    return;
+  }
+
+  seen.add(key);
+  relations.push(relation);
+}
+
+function extractMetadataString(
+  metadata: Record<string, unknown>,
+  key: string
+): string | undefined {
+  const value = metadata[key];
+  return typeof value === "string" ? value : undefined;
+}
+
+function extractMetadataStringArray(
+  metadata: Record<string, unknown>,
+  key: string
+): readonly string[] {
+  const value = metadata[key];
+  return Array.isArray(value)
+    ? value.filter((entry): entry is string => typeof entry === "string")
+    : [];
 }
 
 function roundCoordinate(value: number): number {

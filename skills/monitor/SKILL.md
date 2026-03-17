@@ -47,6 +47,16 @@ description: MCP가 있는 모든 환경에서 Agent Tracer 모니터링 기록.
   - raw 체인오브소트 덤프 금지. `modelName` / `modelProvider` 옵션 첨부 가능
   - `monitor_save_context`와 다름: thought는 AI 추론, context는 핸드오프 체크포인트
 
+**coordination 레인 이벤트 (선택적, 에이전트 지원 행위):**
+- `monitor_agent_activity` — MCP 호출, skill 사용, delegation, handoff 기록
+  - `activityType` 필수: `agent_step` | `mcp_call` | `skill_use` | `delegation` | `handoff` | `bookmark` | `search`
+  - `activityType="skill_use"` → Skill 도구 호출 직후, `skillName` / `skillPath` 첨부
+  - `activityType="delegation"` → Agent 도구로 서브에이전트 dispatch 직후, `agentName` 첨부
+  - `activityType="mcp_call"` → 외부 MCP 서버 호출 시, `mcpServer` / `mcpTool` 첨부
+  - `activityType="search"` → WebSearch/WebFetch로 외부 리소스를 적극적으로 조회할 때
+  - `activityType="handoff"` → 다른 에이전트·세션으로 작업을 넘길 때
+  - Claude Code / OpenCode 자동화 환경에서는 훅이 자동 기록하므로 중복 호출 불필요
+
 ## 필수 리듬
 
 - 첫 탐색 전에 모니터링 시작

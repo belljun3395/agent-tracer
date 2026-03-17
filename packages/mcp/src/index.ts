@@ -360,6 +360,51 @@ export function createMonitorMcpServer(client = new MonitorClient()): McpServer 
     async (input) => toToolResponse(await client.post("/api/thought", input))
   );
 
+  server.registerTool(
+    "monitor_agent_activity",
+    {
+      title: "Monitor Agent Activity",
+      description:
+        "Record coordination-lane activity such as MCP calls, skill usage, delegation, handoff, search, and bookmarks. " +
+        "Use this when you want the dashboard to explain how agent support actions shaped the work.",
+      inputSchema: {
+        taskId: z.string(),
+        sessionId: z.string().optional(),
+        activityType: z.enum(["agent_step", "mcp_call", "skill_use", "delegation", "handoff", "bookmark", "search"]),
+        title: z.string().optional(),
+        body: z.string().optional(),
+        agentName: z.string().optional(),
+        skillName: z.string().optional(),
+        skillPath: z.string().optional(),
+        mcpServer: z.string().optional(),
+        mcpTool: z.string().optional(),
+        parentEventId: z.string().optional(),
+        relatedEventIds: z.array(z.string()).optional(),
+        workItemId: z.string().optional(),
+        goalId: z.string().optional(),
+        planId: z.string().optional(),
+        handoffId: z.string().optional(),
+        relationType: z.enum([
+          "implements",
+          "revises",
+          "verifies",
+          "answers",
+          "delegates",
+          "returns",
+          "completes",
+          "blocks",
+          "caused_by",
+          "relates_to"
+        ]).optional(),
+        relationLabel: z.string().optional(),
+        relationExplanation: z.string().optional(),
+        filePaths: z.array(z.string()).optional(),
+        metadata: z.record(z.unknown()).optional()
+      }
+    },
+    async (input) => toToolResponse(await client.post("/api/agent-activity", input))
+  );
+
   // ─── Canonical User Message & Session End ────────────────────────────────────
   // monitor_user_message, monitor_session_end
 

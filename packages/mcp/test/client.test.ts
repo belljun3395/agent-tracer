@@ -168,4 +168,23 @@ describe("MCP tool registry — question/todo/thought tools", () => {
       expect.objectContaining({ method: "POST" })
     );
   });
+
+  it("monitor_agent_activity 가 /api/agent-activity 로 POST한다", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true, status: 200,
+      json: async () => ({ events: [{ id: "e1", kind: "agent.activity.logged" }] })
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const client = new MonitorClient("http://localhost:3847");
+    await client.post("/api/agent-activity", {
+      taskId: "t1",
+      activityType: "skill_use",
+      title: "Use codex-monitor",
+      skillName: "codex-monitor"
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3847/api/agent-activity",
+      expect.objectContaining({ method: "POST" })
+    );
+  });
 });

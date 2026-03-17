@@ -1,5 +1,14 @@
 /** 타임라인 이벤트가 속하는 레인. 대시보드에서 수직 구역으로 표시됨. */
-export type TimelineLane = "user" | "exploration" | "planning" | "implementation" | "rules" | "questions" | "todos" | "background";
+export type TimelineLane =
+  | "user"
+  | "exploration"
+  | "planning"
+  | "implementation"
+  | "rules"
+  | "questions"
+  | "todos"
+  | "background"
+  | "coordination";
 
 /**
  * 캐노니컬 user.message 메타데이터 계약 (contractVersion "1").
@@ -34,6 +43,7 @@ export type MonitoringEventKind =
   | "task.error"
   | "plan.logged"
   | "action.logged"
+  | "agent.activity.logged"
   | "verification.logged"
   | "rule.logged"
   | "tool.used"
@@ -117,6 +127,29 @@ export interface TimelineEvent {
   readonly createdAt: string;
 }
 
+/** 카드 간 관계를 설명하는 고수준 의미 레이블. */
+export type EventRelationType =
+  | "implements"
+  | "revises"
+  | "verifies"
+  | "answers"
+  | "delegates"
+  | "returns"
+  | "completes"
+  | "blocks"
+  | "caused_by"
+  | "relates_to";
+
+/** 에이전트 관측용 coordination 레인 활동 종류. */
+export type AgentActivityType =
+  | "agent_step"
+  | "mcp_call"
+  | "skill_use"
+  | "delegation"
+  | "handoff"
+  | "bookmark"
+  | "search";
+
 /** 워크스페이스 경로에서 중복 슬래시를 제거하고 끝의 슬래시를 정리. */
 export function normalizeWorkspacePath(path: string): string {
   const normalized = path.trim().replace(/\/+/g, "/");
@@ -144,6 +177,8 @@ export function defaultLaneForEventKind(kind: MonitoringEventKind): TimelineLane
       return "rules";
     case "action.logged":
       return "implementation";
+    case "agent.activity.logged":
+      return "coordination";
     case "plan.logged":
     case "context.saved":
       return "planning";
@@ -185,6 +220,21 @@ export type TodoState = "added" | "in_progress" | "completed" | "cancelled";
  *   todoState      — "added" | "in_progress" | "completed" | "cancelled"
  *   sequence       — 결정론적 순서
  *
+ * relation/activity 메타데이터 키:
+ *   parentEventId   — 현재 이벤트가 직접 이어받는 상위 이벤트 ID
+ *   relatedEventIds — 추가 연관 이벤트 ID 목록
+ *   workItemId      — todo/question을 넘어 작업 단위를 묶는 안정 ID
+ *   goalId          — 상위 목표 식별자
+ *   planId          — 계획 식별자
+ *   handoffId       — handoff/delegation 식별자
+ *   relationType    — 카드 간 관계 의미
+ *   relationLabel   — UI에 표시할 짧은 관계 레이블
+ *   relationExplanation — 관계를 설명하는 한 줄 설명
+ *   activityType    — coordination 레인 활동 유형
+ *   agentName       — 활동 주체 에이전트 이름
+ *   skillName       — 사용된 skill 이름
+ *   skillPath       — 사용된 skill 경로
+ *
  * model/MCP 공통 메타데이터 키 (모든 이벤트에 선택적으로 추가 가능):
  *   modelName      — AI 모델명 (예: "claude-opus-4-6")
  *   modelProvider  — AI 제공자 (예: "anthropic")
@@ -197,6 +247,19 @@ export const TRACE_METADATA_KEYS = {
   todoId: "todoId",
   todoState: "todoState",
   sequence: "sequence",
+  parentEventId: "parentEventId",
+  relatedEventIds: "relatedEventIds",
+  workItemId: "workItemId",
+  goalId: "goalId",
+  planId: "planId",
+  handoffId: "handoffId",
+  relationType: "relationType",
+  relationLabel: "relationLabel",
+  relationExplanation: "relationExplanation",
+  activityType: "activityType",
+  agentName: "agentName",
+  skillName: "skillName",
+  skillPath: "skillPath",
   modelName: "modelName",
   modelProvider: "modelProvider",
   mcpServer: "mcpServer",
@@ -221,6 +284,7 @@ export function normalizeLane(raw: string): TimelineLane {
     case "questions":
     case "todos":
     case "background":
+    case "coordination":
       return raw as TimelineLane;
     default:
       return "user";

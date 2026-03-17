@@ -4,87 +4,365 @@ import { MonitorService } from "./application/monitor-service.js";
 
 const databasePath = path.resolve(process.cwd(), ".monitor", "monitor.sqlite");
 const rulesDir = path.resolve(process.cwd(), "rules");
+const workspacePath = process.cwd();
 
 const service = new MonitorService({
   databasePath,
   rulesDir
 });
 
-const started = service.startTask({
-  title: "Build Monitor parity dashboard",
-  workspacePath: process.cwd(),
-  summary: "Seeded task for local Monitor demo."
-});
-
-const { sessionId } = started;
-
-service.logToolUsed({
-  taskId: started.task.id,
-  ...(sessionId ? { sessionId } : {}),
-  toolName: "write_file",
-  title: "Implement dashboard shell",
-  body: "Built counters, timeline lanes, and inspector drawer.",
-  filePaths: [
-    "packages/web/src/App.tsx",
-    "packages/web/src/styles.css"
-  ]
-});
-
-service.logPlan({
-  taskId: started.task.id,
-  ...(sessionId ? { sessionId } : {}),
-  action: "plan_rule_guard_overlay",
-  body: "Decided to visualize checks, violations, passes, and explored files."
-});
-
-service.logAction({
-  taskId: started.task.id,
-  ...(sessionId ? { sessionId } : {}),
-  action: "read_auth_logic",
-  body: "Inspected auth flows before wiring new guard events.",
-  filePaths: ["packages/server/src/application/monitor-service.ts", "packages/mcp/src/index.ts"]
-});
-
-service.logVerification({
-  taskId: started.task.id,
-  ...(sessionId ? { sessionId } : {}),
-  action: "run_test_dashboard_rules",
-  result: "PASS 12/12",
-  filePaths: ["packages/server/test/application/monitor-service.test.ts", "packages/web/src/App.tsx"]
-});
-
-service.logRule({
-  taskId: started.task.id,
-  ...(sessionId ? { sessionId } : {}),
-  action: "check_rule_guard",
-  ruleId: "c5-compliance",
-  severity: "high",
-  status: "violation",
-  body: "Rule Guard flagged a missing verification step."
-});
-
-service.logTerminalCommand({
-  taskId: started.task.id,
-  ...(sessionId ? { sessionId } : {}),
-  command: "npm run test",
-  filePaths: [
-    "packages/server/test/application/monitor-service.test.ts",
-    "packages/web/src/lib/timeline.test.ts"
-  ]
-});
-
-service.saveContext({
-  taskId: started.task.id,
-  ...(sessionId ? { sessionId } : {}),
-  title: "Context snapshot",
-  body: "Backend, MCP, and dashboard milestones are wired together.",
-  filePaths: ["docs/tasks/005-dashboard.md"]
-});
-
-service.completeTask({
-  taskId: started.task.id,
-  ...(sessionId ? { sessionId } : {}),
-  summary: "Seed data finished."
-});
+seedDashboardTask();
+seedCoordinationTask();
 
 console.log("Seeded Monitor demo data.");
+
+function seedDashboardTask(): void {
+  const started = service.startTask({
+    title: "Build Monitor parity dashboard",
+    workspacePath,
+    summary: "Seeded task for local Monitor demo."
+  });
+
+  const sessionId = requireSessionId(started, started.task.title);
+
+  service.logToolUsed({
+    taskId: started.task.id,
+    sessionId,
+    toolName: "write_file",
+    title: "Implement dashboard shell",
+    body: "Built counters, timeline lanes, and inspector drawer.",
+    filePaths: [
+      "packages/web/src/App.tsx",
+      "packages/web/src/styles.css"
+    ]
+  });
+
+  service.logPlan({
+    taskId: started.task.id,
+    sessionId,
+    action: "plan_rule_guard_overlay",
+    body: "Decided to visualize checks, violations, passes, and explored files."
+  });
+
+  service.logAction({
+    taskId: started.task.id,
+    sessionId,
+    action: "read_auth_logic",
+    body: "Inspected auth flows before wiring new guard events.",
+    filePaths: ["packages/server/src/application/monitor-service.ts", "packages/mcp/src/index.ts"]
+  });
+
+  service.logVerification({
+    taskId: started.task.id,
+    sessionId,
+    action: "run_test_dashboard_rules",
+    result: "PASS 12/12",
+    filePaths: ["packages/server/test/application/monitor-service.test.ts", "packages/web/src/App.tsx"]
+  });
+
+  service.logRule({
+    taskId: started.task.id,
+    sessionId,
+    action: "check_rule_guard",
+    ruleId: "c5-compliance",
+    severity: "high",
+    status: "violation",
+    body: "Rule Guard flagged a missing verification step."
+  });
+
+  service.logTerminalCommand({
+    taskId: started.task.id,
+    sessionId,
+    command: "npm run test",
+    filePaths: [
+      "packages/server/test/application/monitor-service.test.ts",
+      "packages/web/src/lib/timeline.test.ts"
+    ]
+  });
+
+  service.saveContext({
+    taskId: started.task.id,
+    sessionId,
+    title: "Context snapshot",
+    body: "Backend, MCP, and dashboard milestones are wired together.",
+    filePaths: ["docs/tasks/005-dashboard.md"]
+  });
+
+  service.completeTask({
+    taskId: started.task.id,
+    sessionId,
+    summary: "Seed data finished."
+  });
+}
+
+function seedCoordinationTask(): void {
+  const started = service.startTask({
+    title: "Trace coordination support flow",
+    workspacePath,
+    summary: "Seeded task that demonstrates how coordination activities explain a todo journey."
+  });
+
+  const sessionId = requireSessionId(started, started.task.title);
+  const taskId = started.task.id;
+  const workItemId = "todo:card-connection";
+  const goalId = "goal:coordination-demo";
+  const planId = "plan:coordination-journey";
+  const handoffId = "handoff:leibniz-server-review";
+
+  const userRequestId = firstEventId(
+    service.logUserMessage({
+      taskId,
+      sessionId,
+      messageId: "seed-coordination-flow-1",
+      captureMode: "raw",
+      source: "seed-script",
+      phase: "initial",
+      title: "Show a coordination-lane example",
+      body: "Need one todo-centric timeline that shows skill use, MCP calls, delegation, handoff, action, verify, search, and bookmark."
+    }),
+    "coordination user message"
+  );
+
+  const todoAddedId = firstEventId(
+    service.logTodo({
+      taskId,
+      sessionId,
+      todoId: workItemId,
+      todoState: "added",
+      sequence: 1,
+      title: "Add seeded coordination flow",
+      body: "Create one todo that can be traced from the user request to a follow-up bookmark.",
+      parentEventId: userRequestId,
+      workItemId,
+      goalId,
+      relationType: "caused_by",
+      relationLabel: "request created todo",
+      relationExplanation: "The user request directly created the todo for the coordination demo."
+    }),
+    "coordination todo added"
+  );
+
+  const skillUseId = firstEventId(
+    service.logAgentActivity({
+      taskId,
+      sessionId,
+      activityType: "skill_use",
+      title: "Loaded codex-monitor skill",
+      skillName: "codex-monitor",
+      skillPath: "skills/codex-monitor/SKILL.md",
+      parentEventId: todoAddedId,
+      workItemId,
+      goalId,
+      relationType: "implements",
+      relationLabel: "skill workflow loaded",
+      relationExplanation: "The codex-monitor workflow is loaded before the todo is carried out."
+    }),
+    "coordination skill use"
+  );
+
+  const mcpCallId = firstEventId(
+    service.logAgentActivity({
+      taskId,
+      sessionId,
+      activityType: "mcp_call",
+      title: "Called monitor_explore on monitor-server",
+      mcpServer: "monitor-server",
+      mcpTool: "monitor_explore",
+      parentEventId: skillUseId,
+      workItemId,
+      goalId,
+      relationType: "implements",
+      relationLabel: "repo inspection started",
+      relationExplanation: "The MCP exploration call gathers the context needed to shape the seeded example.",
+      filePaths: [
+        "packages/server/src/seed.ts",
+        "packages/web/src/components/EventInspector.tsx"
+      ]
+    }),
+    "coordination MCP call"
+  );
+
+  const delegationId = firstEventId(
+    service.logAgentActivity({
+      taskId,
+      sessionId,
+      activityType: "delegation",
+      title: "Delegated server package review to Leibniz",
+      agentName: "Leibniz",
+      parentEventId: todoAddedId,
+      workItemId,
+      goalId,
+      handoffId,
+      relationType: "delegates",
+      relationLabel: "server review delegated",
+      relationExplanation: "A focused server review is delegated in parallel to map the flow more quickly.",
+      filePaths: [
+        "packages/server/src/presentation/schemas.ts",
+        "packages/server/src/application/monitor-service.ts"
+      ]
+    }),
+    "coordination delegation"
+  );
+
+  const planEventId = firstEventId(
+    service.logPlan({
+      taskId,
+      sessionId,
+      action: "plan_seed_coordination_journey",
+      title: "Plan coordination seed journey",
+      body: "Map one todo through skill use, MCP exploration, delegation, implementation, verification, search, and bookmark.",
+      parentEventId: mcpCallId,
+      workItemId,
+      goalId,
+      planId,
+      relationType: "implements",
+      relationLabel: "seed plan drafted",
+      relationExplanation: "The plan turns exploration results into a concrete seed journey."
+    }),
+    "coordination plan"
+  );
+
+  const handoffEventId = firstEventId(
+    service.logAgentActivity({
+      taskId,
+      sessionId,
+      activityType: "handoff",
+      title: "Received findings from Leibniz",
+      agentName: "Leibniz",
+      relatedEventIds: [delegationId],
+      workItemId,
+      goalId,
+      handoffId,
+      relationType: "returns",
+      relationLabel: "delegation returned",
+      relationExplanation: "The delegated review returns findings that feed back into the main implementation plan.",
+      body: "Server metadata already carries relation fields, so the seed can focus on event wiring."
+    }),
+    "coordination handoff"
+  );
+
+  const actionId = firstEventId(
+    service.logAction({
+      taskId,
+      sessionId,
+      action: "seed_coordination_example",
+      title: "Seed coordination flow example",
+      body: "Added a todo-centric scenario so the timeline shows coordination cards, explicit connectors, and follow-up evidence.",
+      parentEventId: planEventId,
+      relatedEventIds: [handoffEventId],
+      workItemId,
+      goalId,
+      planId,
+      relationType: "implements",
+      relationLabel: "seed written",
+      relationExplanation: "The implementation applies both the plan and the returned handoff findings.",
+      filePaths: ["packages/server/src/seed.ts"]
+    }),
+    "coordination action"
+  );
+
+  const verifyId = firstEventId(
+    service.logVerification({
+      taskId,
+      sessionId,
+      action: "run_seed_for_coordination_demo",
+      title: "Verify seeded coordination flow",
+      body: "Confirmed the seeded task exposes coordination chips, connector explanations, and a bookmarkable follow-up event.",
+      result: "PASS coordination flow visible",
+      parentEventId: actionId,
+      workItemId,
+      goalId,
+      planId,
+      relationType: "verifies",
+      relationLabel: "seed verified",
+      relationExplanation: "Verification checks that the example produces the intended coordination narrative in the UI.",
+      filePaths: [
+        "packages/server/src/seed.ts",
+        "packages/web/src/components/Timeline.tsx",
+        "packages/web/src/components/EventInspector.tsx"
+      ]
+    }),
+    "coordination verification"
+  );
+
+  const searchId = firstEventId(
+    service.logAgentActivity({
+      taskId,
+      sessionId,
+      activityType: "search",
+      title: "Searched saved cards for relationType",
+      parentEventId: verifyId,
+      workItemId,
+      goalId,
+      relationType: "relates_to",
+      relationLabel: "follow-up search",
+      relationExplanation: "After verification, saved cards are searched to confirm the relation metadata stays discoverable."
+    }),
+    "coordination search"
+  );
+
+  const bookmarkEventId = firstEventId(
+    service.logAgentActivity({
+      taskId,
+      sessionId,
+      activityType: "bookmark",
+      title: "Saved task for follow-up",
+      parentEventId: searchId,
+      workItemId,
+      goalId,
+      relationType: "completes",
+      relationLabel: "follow-up saved",
+      relationExplanation: "The verified example is bookmarked so the team can return to this flow during future UI reviews."
+    }),
+    "coordination bookmark"
+  );
+
+  service.saveBookmark({
+    taskId,
+    eventId: bookmarkEventId,
+    title: "Saved task for follow-up",
+    note: "Use this bookmark to demo how a coordination event can become a saved follow-up."
+  });
+
+  firstEventId(
+    service.logTodo({
+      taskId,
+      sessionId,
+      todoId: workItemId,
+      todoState: "completed",
+      sequence: 2,
+      title: "Seeded coordination flow ready",
+      body: "The demo now shows one todo that can be traced from the user request to a saved follow-up.",
+      parentEventId: bookmarkEventId,
+      workItemId,
+      goalId,
+      relationType: "completes",
+      relationLabel: "todo completed",
+      relationExplanation: "The todo is completed only after the example is verified and bookmarked."
+    }),
+    "coordination todo completed"
+  );
+
+  service.completeTask({
+    taskId,
+    sessionId,
+    summary: "Seeded coordination flow finished."
+  });
+}
+
+function requireSessionId(started: { readonly sessionId?: string; readonly task: { readonly title: string } }, title: string): string {
+  if (!started.sessionId) {
+    throw new Error(`Seed session missing for ${title}.`);
+  }
+
+  return started.sessionId;
+}
+
+function firstEventId(envelope: { readonly events: readonly { readonly id: string }[] }, label: string): string {
+  const [event] = envelope.events;
+  if (!event) {
+    throw new Error(`Seed event missing for ${label}.`);
+  }
+
+  return event.id;
+}

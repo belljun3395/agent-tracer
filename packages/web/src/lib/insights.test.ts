@@ -199,6 +199,7 @@ describe("buildObservabilityStats", () => {
 
     expect(buildObservabilityStats(timeline, 3, 2)).toEqual({
       actions: 1,
+      coordinationActivities: 0,
       exploredFiles: 3,
       checks: 1,
       violations: 0,
@@ -474,6 +475,7 @@ describe("buildObservabilityStats - 엣지케이스", () => {
 
     expect(stats).toEqual({
       actions: 0,
+      coordinationActivities: 0,
       exploredFiles: 0,
       checks: 0,
       violations: 0,

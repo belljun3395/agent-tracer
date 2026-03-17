@@ -5,7 +5,12 @@
  * HTTP 요청 본문이 검증된 후 MonitorService 메서드에 전달되는 타입.
  */
 
-import type { MonitoringEventKind } from "@monitor/core";
+import type {
+  AgentActivityType,
+  EventRelationType,
+  MonitoringEventKind,
+  TimelineLane
+} from "@monitor/core";
 
 export interface TaskStartInput {
   readonly taskId?: string;
@@ -76,6 +81,33 @@ export interface TaskExploreInput {
   readonly metadata?: Record<string, unknown>;
 }
 
+/**
+ * 카드 간 인과 관계와 워크아이템 식별자를 전달하는 공통 trace 필드.
+ * UI는 이 값을 사용해 "무엇 다음에 무엇이 왔는가"가 아니라
+ * "왜 이어졌는가"를 재구성한다.
+ */
+export interface TraceRelationInput {
+  readonly parentEventId?: string;
+  readonly relatedEventIds?: readonly string[];
+  readonly workItemId?: string;
+  readonly goalId?: string;
+  readonly planId?: string;
+  readonly handoffId?: string;
+  readonly relationType?: EventRelationType;
+  readonly relationLabel?: string;
+  readonly relationExplanation?: string;
+}
+
+/** MCP/skill/delegation 같은 coordination 레인 활동을 표현하는 공통 필드. */
+export interface TraceActivityInput extends TraceRelationInput {
+  readonly activityType?: AgentActivityType;
+  readonly agentName?: string;
+  readonly skillName?: string;
+  readonly skillPath?: string;
+  readonly mcpServer?: string;
+  readonly mcpTool?: string;
+}
+
 interface TaskActionBaseInput {
   readonly taskId: string;
   readonly sessionId?: string;
@@ -86,16 +118,16 @@ interface TaskActionBaseInput {
   readonly metadata?: Record<string, unknown>;
 }
 
-export type TaskPlanInput = TaskActionBaseInput;
+export type TaskPlanInput = TaskActionBaseInput & TraceRelationInput;
 
-export type TaskActionInput = TaskActionBaseInput;
+export type TaskActionInput = TaskActionBaseInput & TraceRelationInput;
 
-export interface TaskVerifyInput extends TaskActionBaseInput {
+export interface TaskVerifyInput extends TaskActionBaseInput, TraceRelationInput {
   readonly result: string;
   readonly status?: string;
 }
 
-export interface TaskRuleInput extends TaskActionBaseInput {
+export interface TaskRuleInput extends TaskActionBaseInput, TraceRelationInput {
   readonly ruleId: string;
   readonly severity: string;
   readonly status: string;
@@ -114,6 +146,16 @@ export interface TaskAsyncLifecycleInput {
   readonly category?: string;
   readonly parentSessionId?: string;
   readonly durationMs?: number;
+  readonly filePaths?: readonly string[];
+  readonly metadata?: Record<string, unknown>;
+}
+
+export interface TaskAgentActivityInput extends TraceActivityInput {
+  readonly taskId: string;
+  readonly sessionId?: string;
+  readonly activityType: AgentActivityType;
+  readonly title?: string;
+  readonly body?: string;
   readonly filePaths?: readonly string[];
   readonly metadata?: Record<string, unknown>;
 }
@@ -169,7 +211,7 @@ export interface TaskSessionEndInput {
 }
 
 /** question.logged 이벤트 입력. questionPhase=concluded는 planning 레인으로 라우팅됨. */
-export interface TaskQuestionInput {
+export interface TaskQuestionInput extends TraceRelationInput {
   readonly taskId: string;
   readonly sessionId?: string;
   readonly questionId: string;
@@ -183,7 +225,7 @@ export interface TaskQuestionInput {
 }
 
 /** todo.logged 이벤트 입력. planning 레인으로 라우팅됨. */
-export interface TaskTodoInput {
+export interface TaskTodoInput extends TraceRelationInput {
   readonly taskId: string;
   readonly sessionId?: string;
   readonly todoId: string;
@@ -195,7 +237,7 @@ export interface TaskTodoInput {
 }
 
 /** thought.logged 이벤트 입력. 요약된 추론만 허용 (raw chain-of-thought 금지). planning 레인. */
-export interface TaskThoughtInput {
+export interface TaskThoughtInput extends TraceRelationInput {
   readonly taskId: string;
   readonly sessionId?: string;
   readonly title: string;
@@ -205,11 +247,11 @@ export interface TaskThoughtInput {
   readonly metadata?: Record<string, unknown>;
 }
 
-export interface GenericEventInput {
+export interface GenericEventInput extends TraceActivityInput {
   readonly taskId: string;
   readonly sessionId?: string;
   readonly kind: MonitoringEventKind;
-  readonly lane?: string;
+  readonly lane?: TimelineLane | string;
   readonly title: string;
   readonly body?: string;
   readonly command?: string;
@@ -217,6 +259,24 @@ export interface GenericEventInput {
   readonly actionName?: string;
   readonly filePaths?: readonly string[];
   readonly metadata?: Record<string, unknown>;
+}
+
+export interface TaskBookmarkInput {
+  readonly taskId: string;
+  readonly eventId?: string;
+  readonly title?: string;
+  readonly note?: string;
+  readonly metadata?: Record<string, unknown>;
+}
+
+export interface TaskBookmarkDeleteInput {
+  readonly bookmarkId: string;
+}
+
+export interface TaskSearchInput {
+  readonly query: string;
+  readonly taskId?: string;
+  readonly limit?: number;
 }
 
 /**

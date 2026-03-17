@@ -82,6 +82,93 @@ interface EventRow {
   created_at: string;
 }
 
+interface BookmarkRow {
+  id: string;
+  task_id: string;
+  event_id: string | null;
+  kind: "task" | "event";
+  title: string;
+  note: string | null;
+  metadata_json: string;
+  created_at: string;
+  updated_at: string;
+  task_title: string | null;
+  event_title: string | null;
+}
+
+interface SearchTaskRow {
+  id: string;
+  title: string;
+  workspace_path: string | null;
+  status: MonitoringTask["status"];
+  updated_at: string;
+}
+
+interface SearchEventRow {
+  event_id: string;
+  task_id: string;
+  task_title: string;
+  title: string;
+  body: string | null;
+  lane: TimelineLane;
+  kind: MonitoringEventKind;
+  created_at: string;
+}
+
+export interface BookmarkRecord {
+  readonly id: string;
+  readonly kind: "task" | "event";
+  readonly taskId: string;
+  readonly eventId?: string;
+  readonly title: string;
+  readonly note?: string;
+  readonly metadata: Record<string, unknown>;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+  readonly taskTitle?: string;
+  readonly eventTitle?: string;
+}
+
+export interface SearchTaskHit {
+  readonly id: string;
+  readonly taskId: string;
+  readonly title: string;
+  readonly workspacePath?: string;
+  readonly status: MonitoringTask["status"];
+  readonly updatedAt: string;
+}
+
+export interface SearchEventHit {
+  readonly id: string;
+  readonly eventId: string;
+  readonly taskId: string;
+  readonly taskTitle: string;
+  readonly title: string;
+  readonly snippet?: string;
+  readonly lane: TimelineLane;
+  readonly kind: MonitoringEventKind;
+  readonly createdAt: string;
+}
+
+export interface SearchBookmarkHit {
+  readonly id: string;
+  readonly bookmarkId: string;
+  readonly taskId: string;
+  readonly eventId?: string;
+  readonly kind: "task" | "event";
+  readonly title: string;
+  readonly note?: string;
+  readonly taskTitle?: string;
+  readonly eventTitle?: string;
+  readonly createdAt: string;
+}
+
+export interface SearchResults {
+  readonly tasks: readonly SearchTaskHit[];
+  readonly events: readonly SearchEventHit[];
+  readonly bookmarks: readonly SearchBookmarkHit[];
+}
+
 export interface OverviewStats {
   readonly totalTasks: number;
   readonly runningTasks: number;
@@ -128,7 +215,7 @@ export class MonitorDatabase {
         workspace_path text,
         status text not null,
         task_kind text not null default 'primary',
-        parent_task_id text references monitoring_tasks(id) on delete set null,
+        parent_task_id text references monitoring_tasks(id) on delete cascade,
         parent_session_id text,
         background_task_id text,
         created_at text not null,
@@ -179,6 +266,24 @@ export class MonitorDatabase {
         updated_at text not null,
         primary key (runtime_source, runtime_session_id)
       );
+
+      create table if not exists bookmarks (
+        id text primary key,
+        task_id text not null references monitoring_tasks(id) on delete cascade,
+        event_id text references timeline_events(id) on delete cascade,
+        kind text not null,
+        title text not null,
+        note text,
+        metadata_json text not null default '{}',
+        created_at text not null,
+        updated_at text not null
+      );
+
+      create index if not exists idx_bookmarks_task_created
+        on bookmarks(task_id, updated_at desc);
+
+      create index if not exists idx_bookmarks_event
+        on bookmarks(event_id);
     `);
 
     // 점진적 마이그레이션: 기존 DB에 cli_source 컬럼이 없으면 추가
@@ -495,6 +600,203 @@ export class MonitorDatabase {
     return row ? mapEventRow(row) : undefined;
   }
 
+  getBookmarkByTarget(taskId: string, eventId?: string): BookmarkRecord | undefined {
+    const row = this.connection
+      .prepare<{ taskId: string; eventId: string | null }, BookmarkRow>(`
+        select
+          b.*,
+          t.title as task_title,
+          e.title as event_title
+        from bookmarks b
+        join monitoring_tasks t on t.id = b.task_id
+        left join timeline_events e on e.id = b.event_id
+        where b.task_id = @taskId
+          and (
+            (@eventId is null and b.event_id is null)
+            or b.event_id = @eventId
+          )
+        limit 1
+      `)
+      .get({ taskId, eventId: eventId ?? null });
+
+    return row ? mapBookmarkRow(row) : undefined;
+  }
+
+  upsertBookmark(input: {
+    id: string;
+    taskId: string;
+    eventId?: string;
+    kind: "task" | "event";
+    title: string;
+    note?: string;
+    metadata?: Record<string, unknown>;
+    createdAt: string;
+    updatedAt: string;
+  }): BookmarkRecord {
+    this.connection
+      .prepare(`
+        insert into bookmarks (
+          id, task_id, event_id, kind, title, note, metadata_json, created_at, updated_at
+        ) values (
+          @id, @taskId, @eventId, @kind, @title, @note, @metadataJson, @createdAt, @updatedAt
+        )
+        on conflict(id) do update set
+          task_id = excluded.task_id,
+          event_id = excluded.event_id,
+          kind = excluded.kind,
+          title = excluded.title,
+          note = excluded.note,
+          metadata_json = excluded.metadata_json,
+          updated_at = excluded.updated_at
+      `)
+      .run({
+        id: input.id,
+        taskId: input.taskId,
+        eventId: input.eventId ?? null,
+        kind: input.kind,
+        title: input.title,
+        note: input.note ?? null,
+        metadataJson: JSON.stringify(input.metadata ?? {}),
+        createdAt: input.createdAt,
+        updatedAt: input.updatedAt
+      });
+
+    return this.listBookmarks(input.taskId).find((bookmark) => bookmark.id === input.id)!;
+  }
+
+  listBookmarks(taskId?: string): readonly BookmarkRecord[] {
+    const rows = taskId
+      ? this.connection
+        .prepare<{ taskId: string }, BookmarkRow>(`
+          select
+            b.*,
+            t.title as task_title,
+            e.title as event_title
+          from bookmarks b
+          join monitoring_tasks t on t.id = b.task_id
+          left join timeline_events e on e.id = b.event_id
+          where b.task_id = @taskId
+          order by datetime(b.updated_at) desc
+        `)
+        .all({ taskId })
+      : this.connection
+        .prepare<[], BookmarkRow>(`
+          select
+            b.*,
+            t.title as task_title,
+            e.title as event_title
+          from bookmarks b
+          join monitoring_tasks t on t.id = b.task_id
+          left join timeline_events e on e.id = b.event_id
+          order by datetime(b.updated_at) desc
+        `)
+        .all();
+
+    return rows.map(mapBookmarkRow);
+  }
+
+  deleteBookmark(bookmarkId: string): "deleted" | "not_found" {
+    const result = this.connection
+      .prepare<{ bookmarkId: string }>("delete from bookmarks where id = @bookmarkId")
+      .run({ bookmarkId });
+
+    return result.changes > 0 ? "deleted" : "not_found";
+  }
+
+  search(query: string, limit = 8, taskId?: string): SearchResults {
+    const pattern = `%${escapeLikePattern(query.trim().toLowerCase())}%`;
+    const safeLimit = Math.max(1, Math.min(50, limit));
+
+    const tasks = this.connection
+      .prepare<{ pattern: string; limit: number }, SearchTaskRow>(`
+        select id, title, workspace_path, status, updated_at
+        from monitoring_tasks
+        where lower(title) like @pattern escape '\\'
+           or lower(coalesce(workspace_path, '')) like @pattern escape '\\'
+        order by datetime(updated_at) desc
+        limit @limit
+      `)
+      .all({ pattern, limit: safeLimit })
+      .map((row) => ({
+        id: row.id,
+        taskId: row.id,
+        title: row.title,
+        status: row.status,
+        updatedAt: row.updated_at,
+        ...(row.workspace_path ? { workspacePath: row.workspace_path } : {})
+      }));
+
+    const events = this.connection
+      .prepare<{ pattern: string; limit: number; taskId: string | null }, SearchEventRow>(`
+        select
+          e.id as event_id,
+          e.task_id,
+          t.title as task_title,
+          e.title,
+          e.body,
+          e.lane,
+          e.kind,
+          e.created_at
+        from timeline_events e
+        join monitoring_tasks t on t.id = e.task_id
+        where (
+          lower(e.title) like @pattern escape '\\'
+          or lower(coalesce(e.body, '')) like @pattern escape '\\'
+          or lower(e.metadata_json) like @pattern escape '\\'
+        )
+          and (@taskId is null or e.task_id = @taskId)
+        order by datetime(e.created_at) desc
+        limit @limit
+      `)
+      .all({ pattern, limit: safeLimit, taskId: taskId ?? null })
+      .map((row) => ({
+        id: row.event_id,
+        eventId: row.event_id,
+        taskId: row.task_id,
+        taskTitle: row.task_title,
+        title: row.title,
+        lane: normalizeLane(row.lane),
+        kind: row.kind,
+        createdAt: row.created_at,
+        ...(row.body ? { snippet: row.body } : {})
+      }));
+
+    const bookmarks = this.connection
+      .prepare<{ pattern: string; limit: number; taskId: string | null }, BookmarkRow>(`
+        select
+          b.*,
+          t.title as task_title,
+          e.title as event_title
+        from bookmarks b
+        join monitoring_tasks t on t.id = b.task_id
+        left join timeline_events e on e.id = b.event_id
+        where (
+          lower(b.title) like @pattern escape '\\'
+          or lower(coalesce(b.note, '')) like @pattern escape '\\'
+          or lower(t.title) like @pattern escape '\\'
+          or lower(coalesce(e.title, '')) like @pattern escape '\\'
+        )
+          and (@taskId is null or b.task_id = @taskId)
+        order by datetime(b.updated_at) desc
+        limit @limit
+      `)
+      .all({ pattern, limit: safeLimit, taskId: taskId ?? null })
+      .map((row) => ({
+        id: row.id,
+        bookmarkId: row.id,
+        taskId: row.task_id,
+        kind: row.kind,
+        title: row.title,
+        createdAt: row.created_at,
+        ...(row.event_id ? { eventId: row.event_id } : {}),
+        ...(row.note ? { note: row.note } : {}),
+        ...(row.task_title ? { taskTitle: row.task_title } : {}),
+        ...(row.event_title ? { eventTitle: row.event_title } : {})
+      }));
+
+    return { tasks, events, bookmarks };
+  }
+
   /**
    * 태스크를 삭제한다. 실행 중인 태스크는 삭제할 수 없다.
    * @param taskId 삭제할 태스크 ID
@@ -510,9 +812,8 @@ export class MonitorDatabase {
 
       if (!row) return "not_found";
 
-      this.connection
-        .prepare<{ taskId: string }>("delete from monitoring_tasks where id = @taskId")
-        .run({ taskId });
+      const taskIds = [taskId, ...this.collectDescendantTaskIds(taskId)];
+      this.deleteTasksByIds(taskIds);
 
       return "deleted";
     })();
@@ -523,11 +824,77 @@ export class MonitorDatabase {
    * @returns 삭제된 태스크 수
    */
   deleteFinishedTasks(): number {
-    const result = this.connection
-      .prepare("delete from monitoring_tasks where status in ('completed', 'errored')")
-      .run();
+    const finishedTaskIds = this.connection
+      .prepare<[], { id: string }>(`
+        select id
+        from monitoring_tasks
+        where status in ('completed', 'errored')
+      `)
+      .all()
+      .map((row) => row.id);
 
-    return result.changes;
+    if (finishedTaskIds.length === 0) {
+      return 0;
+    }
+
+    const taskIdsToDelete = new Set<string>();
+    for (const finishedTaskId of finishedTaskIds) {
+      taskIdsToDelete.add(finishedTaskId);
+      for (const descendantId of this.collectDescendantTaskIds(finishedTaskId)) {
+        taskIdsToDelete.add(descendantId);
+      }
+    }
+
+    this.deleteTasksByIds([...taskIdsToDelete]);
+    return taskIdsToDelete.size;
+  }
+
+  private collectDescendantTaskIds(taskId: string): readonly string[] {
+    return this.connection
+      .prepare<{ taskId: string }, { id: string }>(`
+        with recursive task_tree(id) as (
+          select id
+          from monitoring_tasks
+          where id = @taskId
+
+          union all
+
+          select child.id
+          from monitoring_tasks child
+          join task_tree parent on child.parent_task_id = parent.id
+        )
+        select id
+        from task_tree
+        where id != @taskId
+      `)
+      .all({ taskId })
+      .map((row) => row.id);
+  }
+
+  private deleteTasksByIds(taskIds: readonly string[]): void {
+    if (taskIds.length === 0) {
+      return;
+    }
+
+    const placeholders = taskIds.map(() => "?").join(", ");
+    this.connection
+      .prepare(`delete from timeline_events where task_id in (${placeholders})`)
+      .run(...taskIds);
+    this.connection
+      .prepare(`delete from task_sessions where task_id in (${placeholders})`)
+      .run(...taskIds);
+    this.connection
+      .prepare(`delete from cc_sessions where task_id in (${placeholders})`)
+      .run(...taskIds);
+    this.connection
+      .prepare(`delete from runtime_session_bindings where task_id in (${placeholders})`)
+      .run(...taskIds);
+    this.connection
+      .prepare(`delete from bookmarks where task_id in (${placeholders})`)
+      .run(...taskIds);
+    this.connection
+      .prepare(`delete from monitoring_tasks where id in (${placeholders})`)
+      .run(...taskIds);
   }
 
   /**
@@ -669,4 +1036,24 @@ function mapEventRow(row: EventRow): TimelineEvent {
     ...(row.session_id ? { sessionId: row.session_id } : {}),
     ...(row.body ? { body: row.body } : {})
   };
+}
+
+function mapBookmarkRow(row: BookmarkRow): BookmarkRecord {
+  return {
+    id: row.id,
+    kind: row.kind,
+    taskId: row.task_id,
+    title: row.title,
+    metadata: JSON.parse(row.metadata_json) as Record<string, unknown>,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    ...(row.event_id ? { eventId: row.event_id } : {}),
+    ...(row.note ? { note: row.note } : {}),
+    ...(row.task_title ? { taskTitle: row.task_title } : {}),
+    ...(row.event_title ? { eventTitle: row.event_title } : {})
+  };
+}
+
+function escapeLikePattern(value: string): string {
+  return value.replace(/[\\%_]/g, "\\$&");
 }

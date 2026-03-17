@@ -10,6 +10,7 @@ const ruleLaneSchema = z.enum([
   "user",
   "exploration",
   "planning",
+  "coordination",
   "implementation",
   "rules",
   "file",
@@ -123,6 +124,7 @@ export function lanePriority(lane: TimelineLane): number {
     case "rules":          return 5;
     case "implementation": return 4;
     case "background":     return 4;
+    case "coordination":   return 4;
     case "exploration":    return 3;
     case "questions":      return 3;
     case "todos":          return 3;

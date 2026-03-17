@@ -9,6 +9,7 @@ import type { MonitoringTask, RulesIndex, TimelineEvent, TimelineLane } from "..
 
 export interface ObservabilityStats {
   readonly actions: number;
+  readonly coordinationActivities: number;
   readonly exploredFiles: number;
   readonly checks: number;
   readonly violations: number;
@@ -93,6 +94,7 @@ export function buildObservabilityStats(
   compactOccurrences = 0
 ): ObservabilityStats {
   let actions = 0;
+  let coordinationActivities = 0;
   let checks = 0;
   let violations = 0;
   let passes = 0;
@@ -100,6 +102,10 @@ export function buildObservabilityStats(
   for (const event of timeline) {
     if (event.kind === "action.logged") {
       actions += 1;
+    }
+
+    if (event.kind === "agent.activity.logged") {
+      coordinationActivities += 1;
     }
 
     if (event.kind === "verification.logged") {
@@ -119,6 +125,7 @@ export function buildObservabilityStats(
 
   return {
     actions,
+    coordinationActivities,
     exploredFiles,
     checks,
     violations,
@@ -536,16 +543,21 @@ function latestTimestamp(left: string, right: string): string {
 const TASK_EXTRACTION_LANES: readonly TimelineLane[] = [
   "exploration",
   "planning",
+  "coordination",
   "implementation",
   "rules"
 ];
 
 const TASK_EXTRACTION_LANE_TITLES: Readonly<Record<TimelineLane, string>> = {
   user: "User Context",
+  questions: "Track question flow",
+  todos: "Track todo progress",
   exploration: "Explore the codebase",
   planning: "Plan the approach",
+  coordination: "Coordinate tools and agents",
   implementation: "Implement the change",
-  rules: "Validate and enforce rules"
+  rules: "Validate and enforce rules",
+  background: "Observe background work"
 };
 
 function isCompactEvent(event: TimelineEvent): boolean {

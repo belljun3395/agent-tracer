@@ -78,6 +78,19 @@ describe("MonitorService", () => {
       service.completeTask({ taskId: task.id });
       expect(service.deleteTask(task.id)).toBe("deleted");
     });
+
+    it("부모 태스크를 삭제하면 자식 태스크도 함께 삭제된다", () => {
+      const { task: parent } = service.startTask({ title: "Parent" });
+      const { task: child } = service.startTask({
+        title: "Child",
+        taskKind: "background",
+        parentTaskId: parent.id
+      });
+
+      expect(service.deleteTask(parent.id)).toBe("deleted");
+      expect(service.getTask(parent.id)).toBeUndefined();
+      expect(service.getTask(child.id)).toBeUndefined();
+    });
   });
 
   describe("logUserMessage — 캐노니컬 user.message 계약", () => {
@@ -85,7 +98,7 @@ describe("MonitorService", () => {
       const { task, sessionId } = service.startTask({ title: "Work Item" });
       const input: TaskUserMessageInput = {
         taskId: task.id,
-        sessionId,
+        sessionId: sessionId!,
         messageId: "msg-1",
         captureMode: "raw",
         source: "manual-mcp",
@@ -104,7 +117,7 @@ describe("MonitorService", () => {
       const { task, sessionId } = service.startTask({ title: "Work Item" });
       const raw = service.logUserMessage({
         taskId: task.id,
-        sessionId,
+        sessionId: sessionId!,
         messageId: "msg-raw",
         captureMode: "raw",
         source: "manual-mcp",
@@ -114,7 +127,7 @@ describe("MonitorService", () => {
 
       const derived = service.logUserMessage({
         taskId: task.id,
-        sessionId,
+        sessionId: sessionId!,
         messageId: "msg-derived",
         captureMode: "derived",
         source: "manual-mcp",
@@ -128,14 +141,26 @@ describe("MonitorService", () => {
       expect(derivedEvent?.metadata.captureMode).toBe("derived");
     });
 
+    it("derived 메시지에 sourceEventId가 없으면 에러를 던진다", () => {
+      const { task, sessionId } = service.startTask({ title: "Work Item" });
+      expect(() => service.logUserMessage({
+        taskId: task.id,
+        sessionId: sessionId!,
+        messageId: "msg-derived-missing",
+        captureMode: "derived",
+        source: "manual-mcp",
+        title: "Derived without source"
+      })).toThrow(/sourceEventId/);
+    });
+
     it("여러 raw 메시지가 동일 태스크에 누적된다", () => {
       const { task, sessionId } = service.startTask({ title: "Work Item" });
       service.logUserMessage({
-        taskId: task.id, sessionId, messageId: "msg-1",
+        taskId: task.id, sessionId: sessionId!, messageId: "msg-1",
         captureMode: "raw", source: "manual-mcp", title: "First prompt"
       });
       service.logUserMessage({
-        taskId: task.id, sessionId, messageId: "msg-2",
+        taskId: task.id, sessionId: sessionId!, messageId: "msg-2",
         captureMode: "raw", source: "manual-mcp", phase: "follow_up", title: "Follow-up prompt"
       });
       const timeline = service.getTaskTimeline(task.id);
@@ -148,7 +173,7 @@ describe("MonitorService", () => {
       // sessionId는 모든 호출자에게 필수 — HTTP 레이어에서 400으로 거부됨 (create-app.test.ts 참고)
       const result = service.logUserMessage({
         taskId: task.id,
-        sessionId,
+        sessionId: sessionId!,
         messageId: "msg-x",
         captureMode: "raw",
         source: "opencode-plugin",
@@ -163,13 +188,13 @@ describe("MonitorService", () => {
         title: "Background child",
         taskKind: "background",
         parentTaskId: parent.id,
-        parentSessionId,
+        parentSessionId: parentSessionId!,
         backgroundTaskId: "bg_reminder_1"
       });
 
       const result = service.logUserMessage({
         taskId: parent.id,
-        sessionId: parentSessionId,
+        sessionId: parentSessionId!,
         messageId: "msg-reminder-1",
         captureMode: "raw",
         source: "manual-mcp",
@@ -218,7 +243,7 @@ describe("MonitorService", () => {
 
       service.logUserMessage({
         taskId: parent.id,
-        sessionId: parentSessionId,
+        sessionId: parentSessionId!,
         messageId: "msg-reminder-all",
         captureMode: "raw",
         source: "manual-mcp",
@@ -250,7 +275,7 @@ describe("MonitorService", () => {
 
       const result = service.logToolUsed({
         taskId: parent.id,
-        sessionId: parentSessionId,
+        sessionId: parentSessionId!,
         toolName: "background_output",
         title: "background_output",
         body: "Task not found: bg_tool_1"
@@ -281,7 +306,7 @@ describe("MonitorService", () => {
     it("세션 종료 후 같은 태스크에서 새 세션을 시작할 수 있다", () => {
       const { task, sessionId: firstSessionId } = service.startTask({ title: "Work Item" });
       service.logUserMessage({
-        taskId: task.id, sessionId: firstSessionId, messageId: "msg-1",
+        taskId: task.id, sessionId: firstSessionId!, messageId: "msg-1",
         captureMode: "raw", source: "manual-mcp", title: "First prompt"
       });
       service.endSession({ taskId: task.id, sessionId: firstSessionId });
@@ -292,7 +317,7 @@ describe("MonitorService", () => {
       expect(restart.sessionId).not.toBe(firstSessionId);
 
       service.logUserMessage({
-        taskId: task.id, sessionId: restart.sessionId, messageId: "msg-2",
+        taskId: task.id, sessionId: restart.sessionId!, messageId: "msg-2",
         captureMode: "raw", source: "manual-mcp", phase: "follow_up", title: "Follow-up"
       });
 
@@ -466,5 +491,62 @@ describe("logThought — thought.logged 계약", () => {
     const ev = timeline.find(e => e.id === result.events[0]!.id);
     expect(ev?.lane).toBe("planning");
     expect(ev?.metadata.modelName).toBe("claude-opus-4-6");
+  });
+});
+
+describe("agent activity, bookmarks, and search", () => {
+  let service: MonitorService;
+
+  beforeEach(() => {
+    service = new MonitorService({
+      databasePath: ":memory:",
+      rulesDir: "/nonexistent/rules"
+    });
+  });
+
+  it("agent.activity.logged 는 coordination 레인과 trace 메타데이터를 유지한다", () => {
+    const { task, sessionId } = service.startTask({ title: "Coordination Task" });
+    const result = service.logAgentActivity({
+      taskId: task.id,
+      sessionId,
+      activityType: "mcp_call",
+      title: "Call monitor tool",
+      agentName: "codex",
+      mcpServer: "monitor-server",
+      mcpTool: "monitor_agent_activity",
+      workItemId: "work-item-1",
+      relationType: "implements"
+    });
+
+    const timeline = service.getTaskTimeline(task.id);
+    const event = timeline.find((entry) => entry.id === result.events[0]?.id);
+    expect(event?.lane).toBe("coordination");
+    expect(event?.metadata.activityType).toBe("mcp_call");
+    expect(event?.classification.tags).toContain("coordination");
+    expect(event?.classification.tags).toContain("mcp:monitor-server");
+  });
+
+  it("북마크를 저장하고 검색 결과에 노출한다", () => {
+    const { task, sessionId } = service.startTask({ title: "Searchable Task" });
+    const todo = service.logTodo({
+      taskId: task.id,
+      sessionId,
+      todoId: "todo-1",
+      todoState: "added",
+      title: "Traceable todo"
+    });
+
+    const bookmark = service.saveBookmark({
+      taskId: task.id,
+      eventId: todo.events[0]?.id,
+      title: "Important todo"
+    });
+
+    expect(service.listBookmarks()).toHaveLength(1);
+    expect(bookmark.eventId).toBe(todo.events[0]?.id);
+
+    const results = service.search({ query: "todo" });
+    expect(results.bookmarks).toHaveLength(1);
+    expect(results.events.some((event) => event.eventId === todo.events[0]?.id)).toBe(true);
   });
 });

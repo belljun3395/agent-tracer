@@ -15,6 +15,9 @@ import { WebSocketServer } from "ws";
 import { MonitorService } from "../application/monitor-service.js";
 import type {
   TaskActionInput,
+  TaskAgentActivityInput,
+  TaskBookmarkDeleteInput,
+  TaskBookmarkInput,
   TaskLinkInput,
   TaskCompletionInput,
   TaskContextSavedInput,
@@ -33,6 +36,7 @@ import type {
   TaskToolUsedInput,
   TaskUserMessageInput,
   TaskVerifyInput,
+  TaskSearchInput,
   CcSessionEnsureInput,
   CcSessionEndInput,
   RuntimeSessionEnsureInput,
@@ -52,6 +56,9 @@ import {
   verifySchema,
   ruleSchema,
   asyncLifecycleSchema,
+  agentActivitySchema,
+  bookmarkSchema,
+  searchSchema,
   userMessageSchema,
   sessionEndSchema,
   questionSchema,
@@ -102,6 +109,13 @@ export function createMonitoringHttpServer(
     });
   });
 
+  app.get("/api/bookmarks", (request, response) => {
+    const taskId = typeof request.query.taskId === "string" ? request.query.taskId : undefined;
+    response.json({
+      bookmarks: service.listBookmarks(taskId)
+    });
+  });
+
   app.delete("/api/tasks/finished", (_request, response) => {
     const deleted = service.deleteFinishedTasks();
     broadcast("tasks.purged", {});
@@ -134,6 +148,21 @@ export function createMonitoringHttpServer(
       task,
       timeline: service.getTaskTimeline(task.id)
     });
+  });
+
+  app.get("/api/search", (request, response) => {
+    const parsed = searchSchema.safeParse({
+      query: request.query.q,
+      taskId: request.query.taskId,
+      limit: request.query.limit
+    });
+
+    if (!parsed.success) {
+      response.status(400).json({ error: parsed.error.format() });
+      return;
+    }
+
+    response.json(service.search(parsed.data as TaskSearchInput));
   });
 
   app.patch("/api/tasks/:taskId", (request, response) => {
@@ -215,6 +244,27 @@ export function createMonitoringHttpServer(
     response.json(result);
   });
 
+  app.post("/api/bookmarks", (request, response) => {
+    const bookmark = service.saveBookmark(bookmarkSchema.parse(request.body) as TaskBookmarkInput);
+    const payload = { bookmark };
+    broadcast("bookmark.saved", payload);
+    response.json(payload);
+  });
+
+  app.delete("/api/bookmarks/:bookmarkId", (request, response) => {
+    const result = service.deleteBookmark({
+      bookmarkId: request.params.bookmarkId
+    } as TaskBookmarkDeleteInput);
+
+    if (result === "not_found") {
+      response.status(404).json({ ok: false, error: "Bookmark not found" });
+      return;
+    }
+
+    broadcast("bookmark.deleted", { bookmarkId: request.params.bookmarkId });
+    response.json({ ok: true });
+  });
+
   app.post("/api/tool-used", (request, response) => {
     const result = service.logToolUsed(toolUsedSchema.parse(request.body) as TaskToolUsedInput);
     broadcast("task.event-recorded", result);
@@ -270,6 +320,14 @@ export function createMonitoringHttpServer(
   app.post("/api/async-task", (request, response) => {
     const result = service.logAsyncLifecycle(
       asyncLifecycleSchema.parse(request.body) as TaskAsyncLifecycleInput
+    );
+    broadcast("task.event-recorded", result);
+    response.json(result);
+  });
+
+  app.post("/api/agent-activity", (request, response) => {
+    const result = service.logAgentActivity(
+      agentActivitySchema.parse(request.body) as TaskAgentActivityInput
     );
     broadcast("task.event-recorded", result);
     response.json(result);
