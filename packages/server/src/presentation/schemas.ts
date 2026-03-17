@@ -214,5 +214,6 @@ export const ccSessionEnsureSchema = z.object({
 
 export const ccSessionEndSchema = z.object({
   ccSessionId: z.string().min(1),
-  summary: z.string().optional()
+  summary: z.string().optional(),
+  completeTask: z.boolean().optional()
 });

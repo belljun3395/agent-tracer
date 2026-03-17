@@ -241,4 +241,6 @@ export interface CcSessionEnsureResult {
 export interface CcSessionEndInput {
   readonly ccSessionId: string;
   readonly summary?: string;
+  /** true — task also transitions to "completed" on session end */
+  readonly completeTask?: boolean;
 }

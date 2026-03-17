@@ -41,8 +41,9 @@ def main() -> None:
 
     try:
         _post("/api/cc-session-end", {
-            "ccSessionId": cc_session_id,
-            "summary":     "Claude Code session ended",
+            "ccSessionId":  cc_session_id,
+            "summary":      "Claude Code session ended",
+            "completeTask": True,
         })
     except Exception:
         pass

@@ -388,11 +388,27 @@ export class MonitorService {
     const row = this.database.getCcSession(input.ccSessionId);
     if (!row?.monitor_session_id) return;
 
-    try {
-      this.database.updateSessionStatus(row.monitor_session_id, "completed", input.summary, now);
-    } catch {
-      // session already ended — ignore
+    if (input.completeTask) {
+      // Complete the task (also ends the session internally via finishTask).
+      // On the next UserPromptSubmit, cc-session-ensure will find the task in
+      // "completed" state with no active session and set it back to "running".
+      try {
+        this.completeTask({
+          taskId: row.task_id,
+          sessionId: row.monitor_session_id,
+          summary: input.summary ?? "Claude Code session completed"
+        });
+      } catch {
+        // task not found or already completed — fall through to session cleanup
+      }
+    } else {
+      try {
+        this.database.updateSessionStatus(row.monitor_session_id, "completed", input.summary, now);
+      } catch {
+        // session already ended — ignore
+      }
     }
+
     this.database.upsertCcSession({
       ...row,
       monitor_session_id: null,
