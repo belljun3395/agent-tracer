@@ -121,11 +121,27 @@ export function createMonitorHooks(workspacePath: string): Hooks {
   return {
     event: async ({ event }) => {
       if (event.type === "session.created") {
-        await ensureSessionState({
+        const state = await ensureSessionState({
           sessionId: event.properties.info.id,
           directory: event.properties.info.directory,
           title: event.properties.info.title
         });
+
+        // OpenCode 런타임은 raw 사용자 프롬프트를 훅 페이로드에 노출하지 않는다.
+        // unsupported-gap 규칙 이벤트를 기록하여 캡처 불가 상태를 명시적으로 표시.
+        if (state) {
+          await post("/api/rule", {
+            taskId: state.taskId,
+            sessionId: state.monitorSessionId,
+            action: "user_message_capture_check",
+            ruleId: "user-message-capture-unavailable",
+            severity: "info",
+            status: "gap",
+            source: "opencode-plugin",
+            title: "Raw user prompt capture unavailable",
+            body: "OpenCode hook payloads do not expose raw user prompt text. User messages cannot be captured as raw user.message events from this runtime."
+          });
+        }
         return;
       }
 
@@ -138,7 +154,9 @@ export function createMonitorHooks(workspacePath: string): Hooks {
 
       if (!state) return;
 
-      await post("/api/task-complete", {
+      // 세션만 종료 — 태스크는 running 상태를 유지한다.
+      // task-complete 는 명시적인 작업 완료 경로에서만 호출해야 한다.
+      await post("/api/session-end", {
         taskId: state.taskId,
         sessionId: state.monitorSessionId,
         summary: "OpenCode session ended",
