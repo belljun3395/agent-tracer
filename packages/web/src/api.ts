@@ -35,7 +35,7 @@ async function patchJson<T>(pathname: string, body: unknown): Promise<T> {
     body: JSON.stringify(body)
   });
   if (!response.ok) throw new Error(`PATCH ${pathname}: ${response.status}`);
-  return response.json() as Promise<T>;
+  return await response.json() as Promise<T>;
 }
 
 /**
@@ -54,7 +54,7 @@ async function deleteRequest(pathname: string): Promise<void> {
 async function deleteJson<T>(pathname: string): Promise<T> {
   const response = await fetch(`${API_BASE}${pathname}`, { method: "DELETE" });
   if (!response.ok) throw new Error(`DELETE ${pathname}: ${response.status}`);
-  return response.json() as Promise<T>;
+  return await response.json() as Promise<T>;
 }
 
 /**

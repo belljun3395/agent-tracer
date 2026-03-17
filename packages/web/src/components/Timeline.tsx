@@ -6,28 +6,21 @@
  */
 
 import type React from "react";
-import {
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-  type FormEvent as ReactFormEvent
-} from "react";
+import {type FormEvent as ReactFormEvent, useEffect, useLayoutEffect, useMemo, useRef, useState} from "react";
 
+import type {TimelineItemLayout, TimelineNodeBounds} from "../lib/timeline.js";
 import {
-  LANE_HEIGHT,
-  NODE_WIDTH,
-  RULER_HEIGHT,
-  TIMELINE_LANES,
   buildTimelineConnectors,
   buildTimelineLayout,
   buildTimestampTicks,
-  formatRelativeTime
+  formatRelativeTime,
+  LANE_HEIGHT,
+  NODE_WIDTH,
+  RULER_HEIGHT,
+  TIMELINE_LANES
 } from "../lib/timeline.js";
-import { filterTimelineEvents } from "../lib/insights.js";
-import type { TimelineItemLayout, TimelineNodeBounds } from "../lib/timeline.js";
-import type { TimelineEvent, TimelineLane } from "../types.js";
+import {filterTimelineEvents} from "../lib/insights.js";
+import type {TimelineEvent, TimelineLane} from "../types.js";
 
 const laneLabels: Record<TimelineLane, string> = {
   user:           "User",
@@ -323,8 +316,7 @@ export function Timeline({
 
     const rightPadding = Math.max(72, Math.round(el.clientWidth * 0.08));
     const maxScrollLeft = Math.max(0, el.scrollWidth - el.clientWidth);
-    const target = Math.max(0, Math.min(maxScrollLeft, timelineFocusRight - el.clientWidth + rightPadding));
-    el.scrollLeft = target;
+    el.scrollLeft = Math.max(0, Math.min(maxScrollLeft, timelineFocusRight - el.clientWidth + rightPadding));
   }, [timelineFocusRight, timelineLayout.items.length]);
 
   const selectedConnector = useMemo(() => {

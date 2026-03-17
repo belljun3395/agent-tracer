@@ -477,11 +477,7 @@ export function filterTimelineEvents(
       return false;
     }
 
-    if (options.showRuleGapsOnly && !eventHasRuleGap(event)) {
-      return false;
-    }
-
-    return true;
+    return !(options.showRuleGapsOnly && !eventHasRuleGap(event));
   });
 }
 

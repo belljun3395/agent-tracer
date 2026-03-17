@@ -11,7 +11,7 @@ import {
   normalizeLane,
   loadRulesIndex,
   tokenizeActionName
-} from "../src/index.js";
+} from "@badge/core";
 
 describe("normalizeWorkspacePath", () => {
   it("compresses duplicate separators and trims trailing slash", () => {
