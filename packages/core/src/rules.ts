@@ -122,7 +122,10 @@ export function lanePriority(lane: TimelineLane): number {
   switch (lane) {
     case "rules":          return 5;
     case "implementation": return 4;
+    case "background":     return 4;
     case "exploration":    return 3;
+    case "questions":      return 3;
+    case "todos":          return 3;
     case "planning":       return 2;
     case "user":           return 1;
   }

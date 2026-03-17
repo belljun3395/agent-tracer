@@ -44,11 +44,11 @@ export const TIMELINE_LANES: readonly TimelineLane[] = [
   "user",
   "exploration",
   "planning",
-  "thoughts",
   "implementation",
   "questions",
   "todos",
-  "rules"
+  "rules",
+  "background"
 ];
 
 /** 레인 한 행의 픽셀 높이. */

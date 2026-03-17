@@ -197,6 +197,22 @@ describe("MonitorService", () => {
     it("존재하지 않는 태스크 종료 시 에러를 던진다", () => {
       expect(() => service.endSession({ taskId: "no-such" })).toThrow();
     });
+
+    it("background 태스크는 마지막 세션 종료 시 completed로 전환된다", () => {
+      const { task: parent } = service.startTask({ title: "Parent" });
+      const { task, sessionId } = service.startTask({
+        title: "Background child",
+        taskKind: "background",
+        parentTaskId: parent.id
+      });
+
+      const endResult = service.endSession({ taskId: task.id, sessionId });
+      expect(endResult.task.status).toBe("completed");
+
+      const timeline = service.getTaskTimeline(task.id);
+      const completionEvent = timeline.find((event) => event.kind === "task.complete");
+      expect(completionEvent).toBeDefined();
+    });
   });
 });
 
@@ -290,7 +306,7 @@ describe("logThought — thought.logged 계약", () => {
     });
   });
 
-  it("thought 이벤트는 thoughts 레인으로 기록된다", () => {
+  it("thought 이벤트는 planning 레인으로 기록된다", () => {
     const { task, sessionId } = service.startTask({ title: "T" });
     const result = service.logThought({
       taskId: task.id, sessionId,
@@ -302,7 +318,7 @@ describe("logThought — thought.logged 계약", () => {
     expect(result.events[0]?.kind).toBe("thought.logged");
     const timeline = service.getTaskTimeline(task.id);
     const ev = timeline.find(e => e.id === result.events[0]!.id);
-    expect(ev?.lane).toBe("thoughts");
+    expect(ev?.lane).toBe("planning");
     expect(ev?.metadata.modelName).toBe("claude-opus-4-6");
   });
 });

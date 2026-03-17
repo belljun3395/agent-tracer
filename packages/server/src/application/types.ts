@@ -12,7 +12,19 @@ export interface TaskStartInput {
   readonly title: string;
   readonly workspacePath?: string;
   readonly summary?: string;
+  readonly taskKind?: "primary" | "background";
+  readonly parentTaskId?: string;
+  readonly parentSessionId?: string;
+  readonly backgroundTaskId?: string;
   readonly metadata?: Record<string, unknown>;
+}
+
+export interface TaskLinkInput {
+  readonly taskId: string;
+  readonly taskKind?: "primary" | "background";
+  readonly parentTaskId?: string;
+  readonly parentSessionId?: string;
+  readonly backgroundTaskId?: string;
 }
 
 export interface TaskRenameInput {
@@ -58,6 +70,7 @@ export interface TaskExploreInput {
   readonly toolName: string;
   readonly title: string;
   readonly body?: string;
+  readonly lane?: string;
   readonly filePaths?: readonly string[];
   readonly metadata?: Record<string, unknown>;
 }

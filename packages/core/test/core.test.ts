@@ -11,7 +11,7 @@ import {
   normalizeLane,
   loadRulesIndex,
   tokenizeActionName
-} from "@badge/core";
+} from "@monitor/core";
 
 describe("normalizeWorkspacePath", () => {
   it("compresses duplicate separators and trims trailing slash", () => {
@@ -145,6 +145,56 @@ describe("classifyEvent - 추가 케이스", () => {
       { version: 1, rules: [] }
     );
     expect(result.lane).toBe("rules");
+  });
+
+  it("user.message는 규칙 키워드가 있어도 user 레인을 유지한다", () => {
+    const result = classifyEvent(
+      {
+        kind: "user.message",
+        title: "Discuss opencode async background behavior",
+        body: "Need to review background lifecycle"
+      },
+      {
+        version: 1,
+        rules: [
+          {
+            id: "opencode-async",
+            title: "OpenCode Async Lifecycle",
+            lane: "implementation",
+            prefixes: [],
+            keywords: ["opencode", "async", "background"],
+            tags: ["opencode", "async"]
+          }
+        ]
+      }
+    );
+
+    expect(result.lane).toBe("user");
+    expect(result.matches[0]?.ruleId).toBe("opencode-async");
+  });
+
+  it("task.start도 규칙 키워드가 있어도 user 레인을 유지한다", () => {
+    const result = classifyEvent(
+      {
+        kind: "task.start",
+        title: "OpenCode background task"
+      },
+      {
+        version: 1,
+        rules: [
+          {
+            id: "opencode-async",
+            title: "OpenCode Async Lifecycle",
+            lane: "implementation",
+            prefixes: [],
+            keywords: ["opencode", "background"],
+            tags: ["opencode", "async"]
+          }
+        ]
+      }
+    );
+
+    expect(result.lane).toBe("user");
   });
 });
 

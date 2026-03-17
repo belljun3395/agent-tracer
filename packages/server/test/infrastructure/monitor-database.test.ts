@@ -20,6 +20,7 @@ describe("MonitorDatabase", () => {
         title: "Test Task",
         slug: "test-task",
         status: "running",
+        taskKind: "primary",
         createdAt: "2026-03-17T00:00:00.000Z",
         updatedAt: "2026-03-17T00:00:00.000Z"
       });
@@ -31,6 +32,7 @@ describe("MonitorDatabase", () => {
     it("기존 태스크를 업데이트(upsert)한다", () => {
       const base = {
         id: "task-1", title: "Old", slug: "old", status: "running" as const,
+        taskKind: "primary" as const,
         createdAt: "2026-03-17T00:00:00.000Z", updatedAt: "2026-03-17T00:00:00.000Z"
       };
       db.upsertTask(base);
@@ -48,6 +50,7 @@ describe("MonitorDatabase", () => {
     it("실행 중인 태스크도 강제 삭제 가능 → deleted", () => {
       db.upsertTask({
         id: "t1", title: "T", slug: "t", status: "running",
+        taskKind: "primary",
         createdAt: "2026-03-17T00:00:00.000Z", updatedAt: "2026-03-17T00:00:00.000Z"
       });
       expect(db.deleteTask("t1")).toBe("deleted");
@@ -56,6 +59,7 @@ describe("MonitorDatabase", () => {
     it("완료된 태스크 삭제 성공 → deleted", () => {
       db.upsertTask({
         id: "t1", title: "T", slug: "t", status: "completed",
+        taskKind: "primary",
         createdAt: "2026-03-17T00:00:00.000Z", updatedAt: "2026-03-17T00:00:00.000Z"
       });
       expect(db.deleteTask("t1")).toBe("deleted");
@@ -74,6 +78,7 @@ describe("MonitorDatabase", () => {
       for (const [id, status] of [["t1","running"],["t2","completed"],["t3","errored"]] as const) {
         db.upsertTask({
           id, title: id, slug: id, status,
+          taskKind: "primary",
           createdAt: "2026-03-17T00:00:00.000Z", updatedAt: "2026-03-17T00:00:00.000Z"
         });
       }

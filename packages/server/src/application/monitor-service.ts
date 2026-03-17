@@ -33,6 +33,7 @@ import type {
   TaskExploreInput,
   TaskAsyncLifecycleInput,
   TaskPlanInput,
+  TaskLinkInput,
   TaskQuestionInput,
   TaskRenameInput,
   TaskRuleInput,
@@ -111,14 +112,22 @@ export class MonitorService {
     const workspacePath = input.workspacePath
       ? normalizeWorkspacePath(input.workspacePath)
       : undefined;
+    const taskKind = input.taskKind ?? existingTask?.taskKind ?? "primary";
+    const parentTaskId = input.parentTaskId ?? existingTask?.parentTaskId;
+    const parentSessionId = input.parentSessionId ?? existingTask?.parentSessionId;
+    const backgroundTaskId = input.backgroundTaskId ?? existingTask?.backgroundTaskId;
     const task = this.database.upsertTask({
       id: taskId,
       title: input.title,
       slug: createTaskSlug({ title: input.title }),
       status: "running",
+      taskKind,
       createdAt: existingTask?.createdAt ?? startedAt,
       updatedAt: startedAt,
       lastSessionStartedAt: startedAt,
+      ...(parentTaskId ? { parentTaskId } : {}),
+      ...(parentSessionId ? { parentSessionId } : {}),
+      ...(backgroundTaskId ? { backgroundTaskId } : {}),
       ...(workspacePath ? { workspacePath } : {})
     });
 
@@ -140,6 +149,10 @@ export class MonitorService {
         title: input.title,
         metadata: {
           ...(input.metadata ?? {}),
+          taskKind: task.taskKind,
+          ...(task.parentTaskId ? { parentTaskId: task.parentTaskId } : {}),
+          ...(task.parentSessionId ? { parentSessionId: task.parentSessionId } : {}),
+          ...(task.backgroundTaskId ? { backgroundTaskId: task.backgroundTaskId } : {}),
           ...(task.workspacePath ? { workspacePath: task.workspacePath } : {})
         },
         ...(input.summary ? { body: input.summary } : {})
@@ -241,12 +254,6 @@ export class MonitorService {
     };
   }
 
-  /**
-   * 현재 런타임 세션을 종료한다. 태스크는 running 상태를 유지한다.
-   * 작업 항목을 닫으려면 completeTask 를 명시적으로 호출해야 한다.
-   * @param input 세션 종료 입력
-   * @returns 종료된 sessionId와 변경되지 않은 task
-   */
   endSession(input: TaskSessionEndInput): { sessionId: string; task: MonitoringTask } {
     const task = this.database.getTask(input.taskId);
 
@@ -262,6 +269,19 @@ export class MonitorService {
 
     const endedAt = new Date().toISOString();
     this.database.updateSessionStatus(sessionId, "completed", input.summary, endedAt);
+
+    if (task.taskKind === "background" && task.status === "running") {
+      const runningSessions = this.database.countRunningSessions(task.id);
+      if (runningSessions === 0) {
+        const completion = this.completeTask({
+          taskId: task.id,
+          sessionId,
+          summary: input.summary ?? "Background session completed",
+          ...(input.metadata ? { metadata: input.metadata } : {})
+        });
+        return { sessionId, task: completion.task };
+      }
+    }
 
     return { sessionId, task };
   }
@@ -450,7 +470,7 @@ export class MonitorService {
     return this.recordWithDerivedFiles({
       taskId: input.taskId,
       kind: "tool.used",
-      lane: "exploration",
+      lane: (input.lane as TimelineLane | undefined) ?? "exploration",
       title: input.title,
       metadata: {
         ...(input.metadata ?? {}),
@@ -575,7 +595,7 @@ export class MonitorService {
     return this.recordWithDerivedFiles({
       taskId: input.taskId,
       kind: "action.logged",
-      lane: "implementation",
+      lane: "background",
       title: input.title ?? `Async task ${input.asyncStatus}`,
       metadata: {
         ...(input.metadata ?? {}),
@@ -678,7 +698,7 @@ export class MonitorService {
     const event = this.recordGenericEvent({
       taskId: input.taskId,
       kind: "thought.logged",
-      lane: "thoughts",
+      lane: "planning",
       title: input.title,
       ...(sessionId ? { sessionId } : {}),
       ...(input.body ? { body: input.body } : {}),
@@ -753,6 +773,23 @@ export class MonitorService {
       slug: createTaskSlug({ title: nextTitle }),
       updatedAt: new Date().toISOString()
     });
+  }
+
+  linkTask(input: TaskLinkInput): MonitoringTask {
+    const task = this.database.updateTaskLink({
+      taskId: input.taskId,
+      ...(input.taskKind ? { taskKind: input.taskKind } : {}),
+      ...(input.parentTaskId ? { parentTaskId: input.parentTaskId } : {}),
+      ...(input.parentSessionId ? { parentSessionId: input.parentSessionId } : {}),
+      ...(input.backgroundTaskId ? { backgroundTaskId: input.backgroundTaskId } : {}),
+      updatedAt: new Date().toISOString()
+    });
+
+    if (!task) {
+      throw new Error(`Task not found: ${input.taskId}`);
+    }
+
+    return task;
   }
 
   /**

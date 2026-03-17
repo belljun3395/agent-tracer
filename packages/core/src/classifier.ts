@@ -62,11 +62,21 @@ export function classifyEvent(
       return lanePriority(right.lane ?? "user") - lanePriority(left.lane ?? "user");
     });
 
+  const canonicalLane = getCanonicalLane(input.kind);
+
   return {
-    lane: input.lane ?? matches.find((match) => match.lane)?.lane ?? defaultLaneForEventKind(input.kind),
+    lane: input.lane ?? canonicalLane ?? matches.find((match) => match.lane)?.lane ?? defaultLaneForEventKind(input.kind),
     tags: [...new Set(matches.flatMap((match) => match.tags))],
     matches
   };
+}
+
+function getCanonicalLane(kind: MonitoringEventKind): TimelineLane | undefined {
+  if (kind === "user.message" || kind === "task.start" || kind === "task.complete" || kind === "task.error") {
+    return defaultLaneForEventKind(kind);
+  }
+
+  return undefined;
 }
 
 function classifyRule(

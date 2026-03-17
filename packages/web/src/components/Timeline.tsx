@@ -26,7 +26,7 @@ const laneLabels: Record<TimelineLane, string> = {
   user:           "User",
   questions:      "Questions",
   todos:          "Todos",
-  thoughts:       "Thoughts",
+  background:     "Background",
   exploration:    "Exploration",
   planning:       "Planning",
   implementation: "Implementation",
@@ -37,7 +37,7 @@ const laneIcons: Record<TimelineLane, string> = {
   user:           "/icons/message.svg",
   questions:      "/icons/bell.svg",
   todos:          "/icons/check-circle.svg",
-  thoughts:       "/icons/thought.svg",
+  background:     "/icons/activity.svg",
   exploration:    "/icons/file.svg",
   planning:       "/icons/layers.svg",
   implementation: "/icons/tool.svg",
@@ -48,7 +48,7 @@ const laneDescriptions: Record<TimelineLane, string> = {
   user:           "User instructions & task boundaries",
   questions:      "Agent question flows (asked → answered → concluded)",
   todos:          "Task item lifecycle (added → in progress → done)",
-  thoughts:       "Summarized reasoning snapshots",
+  background:     "Subagent and background lifecycle activity",
   exploration:    "File reads, searches, dependency checks",
   planning:       "Analysis, approach decisions, context checkpoints",
   implementation: "Code edits, writes, file changes",
@@ -170,7 +170,7 @@ export function Timeline({
 }: TimelineProps): React.JSX.Element {
   const [zoom, setZoom] = useState(1.1);
   const [filters, setFilters] = useState<Record<TimelineLane, boolean>>({
-    user: true, exploration: true, planning: true, thoughts: true,
+    user: true, exploration: true, planning: true, background: true,
     implementation: true, questions: true, todos: true, rules: true
   });
   const [isTimelineDragging, setIsTimelineDragging] = useState(false);
@@ -294,7 +294,7 @@ export function Timeline({
     const rightPadding = Math.max(72, Math.round(el.clientWidth * 0.08));
     const maxScrollLeft = Math.max(0, el.scrollWidth - el.clientWidth);
     el.scrollLeft = Math.max(0, Math.min(maxScrollLeft, timelineFocusRight - el.clientWidth + rightPadding));
-  }, [timelineFocusRight, timelineLayout.items.length]);
+  }, [timelineFocusRight]);
 
   const selectedConnector = useMemo(() => {
     if (!selectedConnectorKey) return null;
@@ -412,7 +412,6 @@ export function Timeline({
               <form className="task-title-form" onSubmit={onSubmitTitle}>
                 <div className="task-title-form-row">
                   <input
-                    autoFocus
                     className="task-title-input"
                     disabled={isSavingTaskTitle}
                     onChange={(event) => onTitleDraftChange(event.target.value)}
@@ -530,6 +529,7 @@ export function Timeline({
                 style={{ width: timelineLayout.width, height: canvasHeight }}
                 xmlns="http://www.w3.org/2000/svg"
               >
+                <title>Timeline overlay</title>
                 <defs>
                   {TIMELINE_LANES.map((lane) => (
                     <marker
@@ -580,10 +580,6 @@ export function Timeline({
                     <path
                       d={c.path}
                       className={`connector-hitbox${selectedConnector?.connector.key === c.key ? " active" : ""}`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onSelectConnector(c.key);
-                      }}
                     />
                     <path
                       d={c.path}
@@ -597,10 +593,6 @@ export function Timeline({
                     <path
                       d={c.path}
                       className={`connector-hitbox${selectedConnector?.connector.key === c.key ? " active" : ""}`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onSelectConnector(c.key);
-                      }}
                     />
                     <path
                       d={c.path}
@@ -637,6 +629,15 @@ export function Timeline({
 
               {/* event nodes */}
               {timelineLayout.items.map((item) => (
+                (() => {
+                  const questionPhase = typeof item.event.metadata["questionPhase"] === "string"
+                    ? item.event.metadata["questionPhase"]
+                    : undefined;
+                  const todoState = typeof item.event.metadata["todoState"] === "string"
+                    ? item.event.metadata["todoState"]
+                    : undefined;
+
+                  return (
                 <button
                   key={item.event.id}
                   className={`event-node ${item.event.lane}${item.event.id === selectedEvent?.id ? " active" : ""}${selectedConnector && (item.event.id === selectedConnector.source.id || item.event.id === selectedConnector.target.id) ? " linked" : ""}`}
@@ -659,14 +660,16 @@ export function Timeline({
                     <span className="event-lane-tag">{item.event.lane}</span>
                   </div>
                   <strong>{item.event.kind === "task.start" ? (taskTitle ?? item.event.title) : item.event.title}</strong>
-                  {item.event.kind === "question.logged" && item.event.metadata["questionPhase"] && (
-                    <span className="event-semantic-tag">{item.event.metadata["questionPhase"] as string}</span>
+                  {item.event.kind === "question.logged" && questionPhase && (
+                    <span className="event-semantic-tag">{questionPhase}</span>
                   )}
-                  {item.event.kind === "todo.logged" && item.event.metadata["todoState"] && (
-                    <span className="event-semantic-tag">{(item.event.metadata["todoState"] as string).replace("_", " ")}</span>
+                  {item.event.kind === "todo.logged" && todoState && (
+                    <span className="event-semantic-tag">{todoState.replace("_", " ")}</span>
                   )}
                   <span className="event-time">{formatRelativeTime(item.event.createdAt)}</span>
                 </button>
+                  );
+                })()
               ))}
 
             </div>

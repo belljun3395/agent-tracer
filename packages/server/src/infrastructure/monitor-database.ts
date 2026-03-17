@@ -17,6 +17,7 @@ import type {
   MonitoringEventKind,
   MonitoringSession,
   MonitoringTask,
+  MonitoringTaskKind,
   TimelineEvent,
   TimelineLane
 } from "@monitor/core";
@@ -32,6 +33,10 @@ interface TaskRow {
   slug: string;
   workspace_path: string | null;
   status: MonitoringTask["status"];
+  task_kind: MonitoringTaskKind;
+  parent_task_id: string | null;
+  parent_session_id: string | null;
+  background_task_id: string | null;
   created_at: string;
   updated_at: string;
   last_session_started_at: string | null;
@@ -113,6 +118,10 @@ export class MonitorDatabase {
         slug text not null,
         workspace_path text,
         status text not null,
+        task_kind text not null default 'primary',
+        parent_task_id text references monitoring_tasks(id) on delete set null,
+        parent_session_id text,
+        background_task_id text,
         created_at text not null,
         updated_at text not null,
         last_session_started_at text,
@@ -158,6 +167,18 @@ export class MonitorDatabase {
     if (!cols.some((c) => c.name === "cli_source")) {
       this.connection.exec("alter table monitoring_tasks add column cli_source text");
     }
+    if (!cols.some((c) => c.name === "task_kind")) {
+      this.connection.exec("alter table monitoring_tasks add column task_kind text not null default 'primary'");
+    }
+    if (!cols.some((c) => c.name === "parent_task_id")) {
+      this.connection.exec("alter table monitoring_tasks add column parent_task_id text references monitoring_tasks(id) on delete set null");
+    }
+    if (!cols.some((c) => c.name === "parent_session_id")) {
+      this.connection.exec("alter table monitoring_tasks add column parent_session_id text");
+    }
+    if (!cols.some((c) => c.name === "background_task_id")) {
+      this.connection.exec("alter table monitoring_tasks add column background_task_id text");
+    }
   }
 
   /**
@@ -169,15 +190,19 @@ export class MonitorDatabase {
     this.connection
       .prepare(`
         insert into monitoring_tasks (
-          id, title, slug, workspace_path, status, created_at, updated_at, last_session_started_at, cli_source
+          id, title, slug, workspace_path, status, task_kind, parent_task_id, parent_session_id, background_task_id, created_at, updated_at, last_session_started_at, cli_source
         ) values (
-          @id, @title, @slug, @workspacePath, @status, @createdAt, @updatedAt, @lastSessionStartedAt, @cliSource
+          @id, @title, @slug, @workspacePath, @status, @taskKind, @parentTaskId, @parentSessionId, @backgroundTaskId, @createdAt, @updatedAt, @lastSessionStartedAt, @cliSource
         )
         on conflict(id) do update set
           title = excluded.title,
           slug = excluded.slug,
           workspace_path = excluded.workspace_path,
           status = excluded.status,
+          task_kind = excluded.task_kind,
+          parent_task_id = excluded.parent_task_id,
+          parent_session_id = excluded.parent_session_id,
+          background_task_id = excluded.background_task_id,
           updated_at = excluded.updated_at,
           last_session_started_at = excluded.last_session_started_at,
           cli_source = coalesce(excluded.cli_source, monitoring_tasks.cli_source)
@@ -188,6 +213,10 @@ export class MonitorDatabase {
         slug: task.slug,
         workspacePath: task.workspacePath ?? null,
         status: task.status,
+        taskKind: task.taskKind,
+        parentTaskId: task.parentTaskId ?? null,
+        parentSessionId: task.parentSessionId ?? null,
+        backgroundTaskId: task.backgroundTaskId ?? null,
         createdAt: task.createdAt,
         updatedAt: task.updatedAt,
         lastSessionStartedAt: task.lastSessionStartedAt ?? null,
@@ -314,6 +343,37 @@ export class MonitorDatabase {
     return row ? mapTaskRow(row) : undefined;
   }
 
+  updateTaskLink(input: {
+    taskId: string;
+    taskKind?: MonitoringTaskKind;
+    parentTaskId?: string;
+    parentSessionId?: string;
+    backgroundTaskId?: string;
+    updatedAt: string;
+  }): MonitoringTask | undefined {
+    this.connection
+      .prepare(`
+        update monitoring_tasks
+        set
+          task_kind = coalesce(@taskKind, task_kind),
+          parent_task_id = coalesce(@parentTaskId, parent_task_id),
+          parent_session_id = coalesce(@parentSessionId, parent_session_id),
+          background_task_id = coalesce(@backgroundTaskId, background_task_id),
+          updated_at = @updatedAt
+        where id = @taskId
+      `)
+      .run({
+        taskId: input.taskId,
+        taskKind: input.taskKind ?? null,
+        parentTaskId: input.parentTaskId ?? null,
+        parentSessionId: input.parentSessionId ?? null,
+        backgroundTaskId: input.backgroundTaskId ?? null,
+        updatedAt: input.updatedAt
+      });
+
+    return this.getTask(input.taskId);
+  }
+
   /**
    * 특정 세션을 ID로 조회한다.
    * @param sessionId 조회할 세션 ID
@@ -348,6 +408,19 @@ export class MonitorDatabase {
       .get({ taskId });
 
     return row ? mapSessionRow(row) : undefined;
+  }
+
+  countRunningSessions(taskId: string): number {
+    const row = this.connection
+      .prepare<{ taskId: string }, { count: number }>(`
+        select count(*) as count
+        from task_sessions
+        where task_id = @taskId
+          and status = 'running'
+      `)
+      .get({ taskId });
+
+    return row?.count ?? 0;
   }
 
   /**
@@ -493,9 +566,13 @@ function mapTaskRow(row: TaskRow): MonitoringTask {
     title: row.title,
     slug: row.slug,
     status: row.status,
+    taskKind: row.task_kind,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     ...(row.workspace_path ? { workspacePath: row.workspace_path } : {}),
+    ...(row.parent_task_id ? { parentTaskId: row.parent_task_id } : {}),
+    ...(row.parent_session_id ? { parentSessionId: row.parent_session_id } : {}),
+    ...(row.background_task_id ? { backgroundTaskId: row.background_task_id } : {}),
     ...(row.last_session_started_at
       ? { lastSessionStartedAt: row.last_session_started_at }
       : {}),

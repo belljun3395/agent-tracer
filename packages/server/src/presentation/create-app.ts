@@ -15,6 +15,7 @@ import { WebSocketServer } from "ws";
 import { MonitorService } from "../application/monitor-service.js";
 import type {
   TaskActionInput,
+  TaskLinkInput,
   TaskCompletionInput,
   TaskContextSavedInput,
   TaskErrorInput,
@@ -37,6 +38,7 @@ import type {
 } from "../application/types.js";
 import {
   taskStartSchema,
+  taskLinkSchema,
   taskCompleteSchema,
   taskRenameSchema,
   taskErrorSchema,
@@ -166,6 +168,13 @@ export function createMonitoringHttpServer(
     const result = service.startTask(taskStartSchema.parse(request.body) as TaskStartInput);
     broadcast("task.started", result);
     response.json(result);
+  });
+
+  app.post("/api/task-link", (request, response) => {
+    const task = service.linkTask(taskLinkSchema.parse(request.body) as TaskLinkInput);
+    const payload = { task };
+    broadcast("task.updated", payload);
+    response.json(payload);
   });
 
   app.post("/api/task-complete", (request, response) => {

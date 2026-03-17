@@ -1,5 +1,5 @@
 /** 타임라인 이벤트가 속하는 레인. 대시보드에서 수직 구역으로 표시됨. */
-export type TimelineLane = "user" | "exploration" | "planning" | "implementation" | "rules" | "questions" | "todos" | "thoughts";
+export type TimelineLane = "user" | "exploration" | "planning" | "implementation" | "rules" | "questions" | "todos" | "background";
 
 /**
  * 캐노니컬 user.message 메타데이터 계약 (contractVersion "1").
@@ -20,8 +20,9 @@ export type TimelineLane = "user" | "exploration" | "planning" | "implementation
  *     ruleId="user-message-capture-unavailable" 로 /api/rule 을 호출해야 한다.
  *
  * 세션-종료 vs. 태스크-완료:
- *   - /api/session-end 는 현재 런타임 세션만 종료하며 task.status 를 변경하지 않는다.
- *   - /api/task-complete 만이 작업 항목을 명시적으로 닫는다.
+ *   - /api/session-end 는 현재 런타임 세션을 종료한다.
+ *   - primary 태스크는 /api/task-complete 로 명시적으로 닫는다.
+ *   - background 태스크는 마지막 running 세션 종료 시 자동 완료될 수 있다.
  *   - 자동 런타임 종료(session.deleted, Claude Stop) 는 반드시 session-end 를 사용해야 한다.
  */
 export const USER_MESSAGE_CONTRACT_VERSION = "1" as const;
@@ -44,10 +45,16 @@ export type MonitoringEventKind =
   | "question.logged"
   | "todo.logged";
 
+export type MonitoringTaskKind = "primary" | "background";
+
 /** 태스크 생성에 필요한 최소 입력 데이터. */
 export interface MonitoringTaskInput {
   readonly title: string;
   readonly workspacePath?: string;
+  readonly taskKind?: MonitoringTaskKind;
+  readonly parentTaskId?: string;
+  readonly parentSessionId?: string;
+  readonly backgroundTaskId?: string;
 }
 
 /** 모니터링 태스크. 하나의 에이전트 세션(또는 연속된 세션)을 나타냄. */
@@ -60,6 +67,7 @@ export interface MonitoringTask extends MonitoringTaskInput {
   readonly lastSessionStartedAt?: string;
   /** 이벤트를 생성한 CLI 소스 (예: claude-hook, opencode-plugin). */
   readonly cliSource?: string;
+  readonly taskKind?: MonitoringTaskKind;
 }
 
 /** 태스크 내 단일 에이전트 실행 세션. */
@@ -154,7 +162,7 @@ export function defaultLaneForEventKind(kind: MonitoringEventKind): TimelineLane
     case "todo.logged":
       return "todos";
     case "thought.logged":
-      return "thoughts";
+      return "planning";
   }
 }
 
@@ -202,6 +210,7 @@ export function normalizeLane(raw: string): TimelineLane {
     case "terminal":  return "implementation";
     case "tool":      return "implementation";
     case "thought":   return "planning";
+    case "thoughts":  return "planning";
     case "message":   return "user";
     // already-normalized values pass through
     case "user":
@@ -211,7 +220,7 @@ export function normalizeLane(raw: string): TimelineLane {
     case "rules":
     case "questions":
     case "todos":
-    case "thoughts":
+    case "background":
       return raw as TimelineLane;
     default:
       return "user";

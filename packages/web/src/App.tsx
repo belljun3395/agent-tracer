@@ -6,6 +6,7 @@
 
 import type React from "react";
 import {
+  useCallback,
   useEffect,
   useMemo,
   useState
@@ -72,8 +73,40 @@ export function App(): React.JSX.Element {
   const [taskTitleError, setTaskTitleError] = useState<string | null>(null);
   const [isSavingTaskTitle, setIsSavingTaskTitle] = useState(false);
 
+  const refreshOverview = useCallback(async (): Promise<void> => {
+    setStatus((s) => (s === "ready" ? s : "loading"));
+    setErrorMessage(null);
+    try {
+      const [nextOverview, nextTasks] = await Promise.all([fetchOverview(), fetchTasks()]);
+      setOverview(nextOverview);
+      setTasks(nextTasks.tasks);
+      setStatus("ready");
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : "Failed to load monitor data.");
+      setStatus("error");
+    }
+  }, []);
+
+  const refreshTaskDetail = useCallback(async (taskId: string): Promise<void> => {
+    try {
+      const detail = await fetchTaskDetail(taskId);
+      setTaskDetail(detail);
+      setSelectedConnectorKey((current) =>
+        current && isConnectorKeyValid(current, detail.timeline) ? current : null
+      );
+      setSelectedEventId((current) =>
+        current && detail.timeline.some((e) => e.id === current)
+          ? current
+          : detail.timeline[0]?.id ?? null
+      );
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : "Failed to load task detail.");
+      setStatus("error");
+    }
+  }, []);
+
   /* initial load */
-  useEffect(() => { void refreshOverview(); }, []);
+  useEffect(() => { void refreshOverview(); }, [refreshOverview]);
 
   /* live clock */
   useEffect(() => {
@@ -97,7 +130,7 @@ export function App(): React.JSX.Element {
   useEffect(() => {
     if (!selectedTaskId) return;
     void refreshTaskDetail(selectedTaskId);
-  }, [selectedTaskId]);
+  }, [refreshTaskDetail, selectedTaskId]);
 
   /* reset filters on task change */
   useEffect(() => {
@@ -107,7 +140,7 @@ export function App(): React.JSX.Element {
     setIsEditingTaskTitle(false);
     setTaskTitleError(null);
     setIsSavingTaskTitle(false);
-  }, [selectedTaskId]);
+  }, []);
 
   /* websocket with auto-reconnect */
   useEffect(() => {
@@ -139,7 +172,7 @@ export function App(): React.JSX.Element {
       destroyed = true;
       if (timer !== null) clearTimeout(timer);
     };
-  }, [selectedTaskId]);
+  }, [refreshOverview, refreshTaskDetail, selectedTaskId]);
 
   const taskTimeline = taskDetail?.timeline ?? [];
 
@@ -182,7 +215,7 @@ export function App(): React.JSX.Element {
 
   const filteredTimeline = useMemo(
     () => filterTimelineEvents(taskTimeline, {
-      laneFilters: { user: true, questions: true, todos: true, thoughts: true, exploration: true, planning: true, implementation: true, rules: true },
+      laneFilters: { user: true, questions: true, todos: true, background: true, exploration: true, planning: true, implementation: true, rules: true },
       selectedRuleId,
       selectedTag,
       showRuleGapsOnly
@@ -204,39 +237,6 @@ export function App(): React.JSX.Element {
 
     setTaskTitleDraft(selectedTaskDisplayTitle ?? taskDetail?.task.title ?? "");
   }, [isEditingTaskTitle, selectedTaskDisplayTitle, taskDetail?.task.title]);
-
-  /* data helpers */
-  async function refreshOverview(): Promise<void> {
-    setStatus((s) => (s === "ready" ? s : "loading"));
-    setErrorMessage(null);
-    try {
-      const [nextOverview, nextTasks] = await Promise.all([fetchOverview(), fetchTasks()]);
-      setOverview(nextOverview);
-      setTasks(nextTasks.tasks);
-      setStatus("ready");
-    } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : "Failed to load monitor data.");
-      setStatus("error");
-    }
-  }
-
-  async function refreshTaskDetail(taskId: string): Promise<void> {
-    try {
-      const detail = await fetchTaskDetail(taskId);
-      setTaskDetail(detail);
-      setSelectedConnectorKey((current) =>
-        current && isConnectorKeyValid(current, detail.timeline) ? current : null
-      );
-      setSelectedEventId((current) =>
-        current && detail.timeline.some((e) => e.id === current)
-          ? current
-          : detail.timeline[0]?.id ?? null
-      );
-    } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : "Failed to load task detail.");
-      setStatus("error");
-    }
-  }
 
   async function handleDeleteTask(taskId: string): Promise<void> {
     setDeletingTaskId(taskId);

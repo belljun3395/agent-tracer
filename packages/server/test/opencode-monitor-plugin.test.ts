@@ -219,8 +219,76 @@ describe("OpenCode monitor plugin", () => {
     );
 
     expect(calls).toHaveLength(callsBeforeLateEvent);
-    expect(calls.filter((call) => call.endpoint === "/api/task-start")).toHaveLength(1);
+    expect(calls.filter((call) => call.endpoint === "/api/task-start")).toHaveLength(0);
     expect(calls.filter((call) => call.endpoint === "/api/terminal-command")).toHaveLength(0);
+  });
+
+  it("deduplicates repeated tool.execute.after callbacks with same callID", async () => {
+    const hooks = createMonitorHooks("/repo");
+
+    await hooks.event?.({ event: sessionEvent("session.created", "session-dedupe") });
+
+    const input = {
+      tool: "grep",
+      sessionID: "session-dedupe",
+      callID: "call-same",
+      args: { pattern: "foo", path: "src/app.ts" }
+    };
+    const output = {
+      title: "grep",
+      output: "match",
+      metadata: {}
+    };
+
+    await hooks["tool.execute.after"]?.(input, output);
+    await hooks["tool.execute.after"]?.(input, output);
+
+    expect(calls.filter((call) => call.endpoint === "/api/explore")).toHaveLength(1);
+  });
+
+  it("promotes already-started child session to background via task-link", async () => {
+    const hooks = createMonitorHooks("/repo");
+
+    await hooks.event?.({ event: sessionEvent("session.created", "parent-session") });
+    await hooks.event?.({ event: sessionEvent("session.created", "child-session") });
+
+    await hooks["tool.execute.before"]?.(
+      {
+        tool: "read",
+        sessionID: "child-session",
+        callID: "call-child-init"
+      },
+      { args: { filePath: "src/child.ts" } }
+    );
+
+    await hooks["tool.execute.after"]?.(
+      {
+        tool: "task",
+        sessionID: "parent-session",
+        callID: "call-parent-task",
+        args: {
+          run_in_background: true,
+          description: "Background child"
+        }
+      },
+      {
+        title: "task",
+        output: "Background Task ID: bg-1\nsession_id: child-session",
+        metadata: {
+          session_id: "child-session",
+          background_task_id: "bg-1"
+        }
+      }
+    );
+
+    const taskLinkCall = calls.find((call) => call.endpoint === "/api/task-link");
+    expect(taskLinkCall).toBeDefined();
+    expect(taskLinkCall?.body).toEqual(expect.objectContaining({
+      taskId: "task-child-session",
+      taskKind: "background",
+      parentTaskId: "task-parent-session",
+      backgroundTaskId: "bg-1"
+    }));
   });
 
   it("maps TodoWrite tool calls to todo lifecycle events", async () => {
@@ -342,5 +410,70 @@ describe("OpenCode monitor plugin", () => {
     }));
 
     expect(calls.filter((call) => call.endpoint === "/api/tool-used")).toHaveLength(0);
+  });
+
+  it("parses wrapped oh-my-opencode user messages and extracts referenced file paths", async () => {
+    const hooks = createMonitorHooks("/repo");
+
+    await hooks.event?.({ event: sessionEvent("session.created", "session-wrapped") });
+
+    await hooks["chat.message"]?.(
+      {
+        sessionID: "session-wrapped",
+        model: { modelID: "m1", providerID: "p1" }
+      } as never,
+      {
+        message: { id: "msg-wrapped-1" },
+        parts: [
+          {
+            type: "input_text",
+            content: "[search-mode]\nMAXIMIZE SEARCH EFFORT.\n---\n@.opencode/plugins/monitor.ts 에서 확인해줘\n`packages/server/src/application/monitor-service.ts` 도 봐줘"
+          }
+        ]
+      } as never
+    );
+
+    const userMessageCall = calls.find((call) => call.endpoint === "/api/user-message");
+    expect(userMessageCall).toBeDefined();
+    expect(String(userMessageCall?.body.title)).toContain("@.opencode/plugins/monitor.ts");
+
+    const metadata = userMessageCall?.body.metadata as Record<string, unknown>;
+    const filePaths = metadata.filePaths as string[];
+    expect(filePaths).toEqual(expect.arrayContaining([
+      ".opencode/plugins/monitor.ts",
+      "packages/server/src/application/monitor-service.ts"
+    ]));
+  });
+
+  it("extracts file paths from nested stringified tool input payloads", async () => {
+    const hooks = createMonitorHooks("/repo");
+
+    await hooks.event?.({ event: sessionEvent("session.created", "session-nested-path") });
+
+    await hooks["tool.execute.after"]?.(
+      {
+        tool: "grep",
+        sessionID: "session-nested-path",
+        callID: "call-nested-path",
+        args: {
+          payload: JSON.stringify({
+            toolInput: {
+              path: "packages/web/src/components/Timeline.tsx"
+            }
+          })
+        }
+      },
+      {
+        title: "explore",
+        output: "ok",
+        metadata: {}
+      }
+    );
+
+    const exploreCall = calls.find((call) => call.endpoint === "/api/explore");
+    expect(exploreCall).toBeDefined();
+    expect(exploreCall?.body.filePaths).toEqual(expect.arrayContaining([
+      "packages/web/src/components/Timeline.tsx"
+    ]));
   });
 });

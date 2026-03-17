@@ -1,4 +1,4 @@
-export type TimelineLane = "user" | "exploration" | "planning" | "implementation" | "rules" | "questions" | "todos" | "thoughts";
+export type TimelineLane = "user" | "exploration" | "planning" | "implementation" | "rules" | "questions" | "todos" | "background";
 
 export interface MonitoringTask {
   readonly id: string;
@@ -6,6 +6,10 @@ export interface MonitoringTask {
   readonly slug: string;
   readonly workspacePath?: string;
   readonly status: "running" | "completed" | "errored";
+  readonly taskKind?: "primary" | "background";
+  readonly parentTaskId?: string;
+  readonly parentSessionId?: string;
+  readonly backgroundTaskId?: string;
   readonly createdAt: string;
   readonly updatedAt: string;
   readonly lastSessionStartedAt?: string;

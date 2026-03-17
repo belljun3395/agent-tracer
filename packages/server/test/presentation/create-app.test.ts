@@ -214,6 +214,31 @@ describe("HTTP API", () => {
         .filter(e => e.kind === "user.message");
       expect(userMessages).toHaveLength(2);
     });
+
+    it("background taskKind 태스크는 session-end 시 completed가 된다", async () => {
+      const parent = await request(app)
+        .post("/api/task-start")
+        .send({ title: "Parent task" });
+
+      const start = await request(app)
+        .post("/api/task-start")
+        .send({
+          title: "Background Session End",
+          taskKind: "background",
+          parentTaskId: parent.body.task.id
+        });
+      const taskId = start.body.task.id as string;
+      const sessionId = start.body.sessionId as string;
+
+      const res = await request(app)
+        .post("/api/session-end")
+        .send({ taskId, sessionId });
+
+      expect(res.status).toBe(200);
+      expect(res.body.task.status).toBe("completed");
+      expect(res.body.task.taskKind).toBe("background");
+      expect(res.body.task.parentTaskId).toBe(parent.body.task.id);
+    });
   });
 });
 

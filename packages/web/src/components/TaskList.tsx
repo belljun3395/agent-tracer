@@ -38,6 +38,15 @@ export function TaskList({
   onDeleteTask,
   onRefresh
 }: TaskListProps): React.JSX.Element {
+  const taskTitleById = new Map(tasks.map((task) => [task.id, buildTaskDisplayTitle(task, [])]));
+  const childCountByParentId = new Map<string, number>();
+
+  for (const task of tasks) {
+    if (!task.parentTaskId) continue;
+    const count = childCountByParentId.get(task.parentTaskId) ?? 0;
+    childCountByParentId.set(task.parentTaskId, count + 1);
+  }
+
   return (
     <aside className="sidebar-panel">
       <div className="panel-header">
@@ -71,9 +80,21 @@ export function TaskList({
               <div
                 key={task.id}
                 className={`task-item${task.id === selectedTaskId ? " active" : ""}`}
-                onClick={() => onSelectTask(task.id)}
               >
-                <div className="task-item-body">
+                <button
+                  className="task-item-body"
+                  onClick={() => onSelectTask(task.id)}
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    color: "inherit",
+                    cursor: "pointer",
+                    padding: 0,
+                    textAlign: "left",
+                    width: "100%"
+                  }}
+                  type="button"
+                >
                   <div className="task-item-meta">
                     <span className={`status-pill ${task.status}`}>{task.status}</span>
                     <span className="task-age">{formatRelativeTime(task.updatedAt)}</span>
@@ -86,6 +107,21 @@ export function TaskList({
                   <div className="task-item-title">
                     {buildTaskDisplayTitle(task, [])}
                   </div>
+                  <div className="task-item-meta" style={{ marginTop: 4 }}>
+                    {task.taskKind === "background" ? (
+                      <span className="cli-tag cli-tag--opencode">background</span>
+                    ) : (
+                      <span className="cli-tag">primary</span>
+                    )}
+                    {task.parentTaskId && (
+                      <span className="task-age">
+                        parent: {taskTitleById.get(task.parentTaskId) ?? task.parentTaskId.slice(0, 8)}
+                      </span>
+                    )}
+                    {(task.taskKind ?? "primary") === "primary" && (childCountByParentId.get(task.id) ?? 0) > 0 && (
+                      <span className="task-signal-pill todos">{childCountByParentId.get(task.id)} child</span>
+                    )}
+                  </div>
                   <div className="task-item-path mono">{task.workspacePath ?? "—"}</div>
                   {task.id === selectedTaskId && task.id === taskDetail?.task.id && (
                     <div className="task-item-signals">
@@ -97,7 +133,7 @@ export function TaskList({
                       )}
                     </div>
                   )}
-                </div>
+                </button>
                 <button
                   className="delete-btn"
                   disabled={deletingTaskId === task.id}

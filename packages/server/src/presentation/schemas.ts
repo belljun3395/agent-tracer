@@ -13,7 +13,19 @@ export const taskStartSchema = z.object({
   title: z.string().min(1),
   workspacePath: z.string().optional(),
   summary: z.string().optional(),
+  taskKind: z.enum(["primary", "background"]).optional(),
+  parentTaskId: z.string().optional(),
+  parentSessionId: z.string().optional(),
+  backgroundTaskId: z.string().optional(),
   metadata: z.record(z.unknown()).optional()
+});
+
+export const taskLinkSchema = z.object({
+  taskId: z.string().min(1),
+  taskKind: z.enum(["primary", "background"]).optional(),
+  parentTaskId: z.string().optional(),
+  parentSessionId: z.string().optional(),
+  backgroundTaskId: z.string().optional()
 });
 
 export const taskCompleteSchema = z.object({
@@ -31,7 +43,7 @@ export const taskErrorSchema = taskCompleteSchema.extend({
   errorMessage: z.string().min(1)
 });
 
-export const laneSchema = z.enum(["user", "exploration", "planning", "implementation", "rules"]);
+export const laneSchema = z.enum(["user", "exploration", "planning", "background", "implementation", "rules"]);
 
 export const toolUsedSchema = z.object({
   taskId: z.string().min(1),
@@ -71,6 +83,7 @@ export const exploreSchema = z.object({
   toolName: z.string().min(1),
   title: z.string().min(1),
   body: z.string().optional(),
+  lane: laneSchema.optional(),
   filePaths: z.array(z.string()).optional(),
   metadata: z.record(z.unknown()).optional()
 });
