@@ -194,7 +194,7 @@ export class MonitorService {
   }
 
   /**
-   * 캐노니컬 user.message 이벤트를 기록한다 (contractVersion "1").
+   * 캐노니컬 user.message 이벤트를 기록한다. sessionId는 필수.
    * raw와 derived 이벤트를 같은 태스크에 append-only 로 기록한다.
    * @param input 사용자 메시지 입력
    * @returns 태스크·세션·이벤트 envelope
@@ -206,32 +206,11 @@ export class MonitorService {
       throw new Error(`Task not found: ${input.taskId}`);
     }
 
-    // 자동 이미터(opencode-plugin, claude-hook)는 sessionId를 명시적으로 제공해야 한다.
-    // 그 외 소스는 latest-session fallback 허용.
-    const automaticSources = ["opencode-plugin", "claude-hook"];
-    const sessionId = input.sessionId
-      ?? (automaticSources.includes(input.source)
-        ? undefined
-        : this.database.findLatestSession(input.taskId)?.id);
+    const sessionId = input.sessionId;
 
-    // 첫 번째 사용자 메시지(phase=initial)이면:
-    // - generic 제목이면 user message 제목으로 자동 업데이트
-    // - cliSource가 없으면 input.source로 설정
-    if (input.phase === "initial") {
-      const updatedTitle = (input.title && isGenericTaskTitle(task.title))
-        ? input.title
-        : task.title;
-      const updatedCliSource = input.source;
-      if (updatedTitle !== task.title || updatedCliSource !== task.cliSource) {
-        this.database.upsertTask({
-          ...task,
-          title: updatedTitle,
-          slug: createTaskSlug({ title: updatedTitle }),
-          cliSource: updatedCliSource,
-          updatedAt: new Date().toISOString()
-        });
-      }
-    }
+    // phase가 제공되지 않으면 태스크의 기존 raw user.message 이벤트 수로 derive.
+    const phase = input.phase
+      ?? (this.database.countRawUserMessages(input.taskId) === 0 ? "initial" : "follow_up");
 
     const event = this.recordGenericEvent({
       taskId: input.taskId,
@@ -244,7 +223,7 @@ export class MonitorService {
         messageId: input.messageId,
         captureMode: input.captureMode,
         source: input.source,
-        ...(input.phase ? { phase: input.phase } : {}),
+        phase,
         ...(input.sourceEventId ? { sourceEventId: input.sourceEventId } : {}),
         contractVersion: input.contractVersion ?? "1"
       }
@@ -1245,10 +1224,4 @@ function normalizeTagSegment(value: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
-}
-
-
-/** Claude Code / OpenCode 등이 자동 생성하는 generic task 제목인지 판별한다. */
-function isGenericTaskTitle(title: string): boolean {
-  return /^(Claude Code|OpenCode)\s*[—–-]\s*/i.test(title);
 }

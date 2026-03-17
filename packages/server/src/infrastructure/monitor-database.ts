@@ -448,6 +448,19 @@ export class MonitorDatabase {
     return row?.count ?? 0;
   }
 
+  countRawUserMessages(taskId: string): number {
+    const row = this.connection
+      .prepare<{ taskId: string }, { count: number }>(`
+        select count(*) as count
+        from timeline_events
+        where task_id = @taskId
+          and kind = 'user.message'
+          and json_extract(metadata_json, '$.captureMode') = 'raw'
+      `)
+      .get({ taskId });
+    return row?.count ?? 0;
+  }
+
   /**
    * 태스크의 타임라인 이벤트 목록을 시간순으로 반환한다.
    * @param taskId 대상 태스크 ID

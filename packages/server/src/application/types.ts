@@ -145,7 +145,7 @@ export interface TaskUserMessageInput {
   readonly captureMode: "raw" | "derived";
   /** 이미터 식별자 (불투명 메타데이터): manual-mcp | <runtime-adapter> | <custom>. */
   readonly source: string;
-  /** initial = 작업 항목의 첫 메시지; follow_up = 후속 메시지. */
+  /** initial = 작업 항목의 첫 메시지; follow_up = 후속 메시지. 생략 시 서버가 기존 raw user.message 이벤트 수로 자동 도출. */
   readonly phase?: "initial" | "follow_up";
   readonly title: string;
   readonly body?: string;
