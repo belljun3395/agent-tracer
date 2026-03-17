@@ -19,7 +19,13 @@ interface SessionState {
   readonly taskId: string;
   readonly monitorSessionId?: string;
   messageCount: number; // mutable: tracks user messages for phase detection
+  todoStateById: Map<string, "added" | "in_progress" | "completed" | "cancelled">;
 }
+
+type MonitorSemanticRoute = {
+  endpoint: "/api/question" | "/api/todo" | "/api/thought";
+  body: Record<string, unknown>;
+};
 
 type TaskStartResult = {
   readonly task?: { id: string };
@@ -53,6 +59,10 @@ async function post(endpoint: string, body: unknown): Promise<unknown> {
 function classifyTool(toolName: string): { endpoint: string; lane?: string } {
   const lower = toolName.toLowerCase();
 
+  if (isTodoWriteTool(lower)) {
+    return { endpoint: "/api/todo", lane: "todos" };
+  }
+
   if (/read|glob|grep|search|fetch|find|list/.test(lower)) {
     return { endpoint: "/api/explore" };
   }
@@ -68,6 +78,203 @@ function classifyTool(toolName: string): { endpoint: string; lane?: string } {
   }
 
   return { endpoint: "/api/tool-used", lane: "implementation" };
+}
+
+function normalizeTodoState(
+  status: unknown
+): "added" | "in_progress" | "completed" | "cancelled" {
+  const normalized = String(status ?? "").toLowerCase().trim();
+  if (normalized === "in_progress") return "in_progress";
+  if (normalized === "completed") return "completed";
+  if (normalized === "cancelled") return "cancelled";
+  return "added";
+}
+
+function isTodoWriteTool(lowerToolName: string): boolean {
+  return lowerToolName === "todowrite"
+    || lowerToolName.endsWith(".todowrite")
+    || lowerToolName.endsWith("/todowrite");
+}
+
+function isMonitorQuestionTool(lowerToolName: string): boolean {
+  return lowerToolName.endsWith("monitor_question")
+    || lowerToolName.endsWith("monitor_monitor_question");
+}
+
+function isMonitorTodoTool(lowerToolName: string): boolean {
+  return lowerToolName.endsWith("monitor_todo")
+    || lowerToolName.endsWith("monitor_monitor_todo");
+}
+
+function isMonitorThoughtTool(lowerToolName: string): boolean {
+  return lowerToolName.endsWith("monitor_thought")
+    || lowerToolName.endsWith("monitor_monitor_thought");
+}
+
+function asObject(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== "object") return {};
+  return value as Record<string, unknown>;
+}
+
+function toNonEmptyString(value: unknown): string | undefined {
+  const normalized = String(value ?? "").trim();
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+function parseQuestionPhase(value: unknown): "asked" | "answered" | "concluded" | undefined {
+  const normalized = toNonEmptyString(value);
+  if (!normalized) return undefined;
+  if (normalized === "asked" || normalized === "answered" || normalized === "concluded") {
+    return normalized;
+  }
+  return undefined;
+}
+
+function buildSemanticRoute(input: {
+  toolName: string;
+  args: unknown;
+  state: SessionState;
+  opencodeSessionId: string;
+  opencodeCallId?: string;
+  outputTitle?: string;
+}): MonitorSemanticRoute | undefined {
+  const lower = input.toolName.toLowerCase();
+  const args = asObject(input.args);
+  const metadata = {
+    ...(asObject(args.metadata)),
+    opencodeSessionId: input.opencodeSessionId,
+    ...(input.opencodeCallId ? { opencodeCallId: input.opencodeCallId } : {})
+  };
+
+  if (isMonitorQuestionTool(lower)) {
+    const questionId = toNonEmptyString(args.questionId);
+    const questionPhase = parseQuestionPhase(args.questionPhase);
+    const title = toNonEmptyString(args.title) ?? toNonEmptyString(input.outputTitle);
+    if (!questionId || !questionPhase || !title) return undefined;
+    return {
+      endpoint: "/api/question",
+      body: {
+        taskId: input.state.taskId,
+        sessionId: input.state.monitorSessionId,
+        questionId,
+        questionPhase,
+        ...(typeof args.sequence === "number" ? { sequence: args.sequence } : {}),
+        title,
+        ...(toNonEmptyString(args.body) ? { body: toNonEmptyString(args.body) } : {}),
+        ...(toNonEmptyString(args.modelName) ? { modelName: toNonEmptyString(args.modelName) } : {}),
+        ...(toNonEmptyString(args.modelProvider) ? { modelProvider: toNonEmptyString(args.modelProvider) } : {}),
+        metadata
+      }
+    };
+  }
+
+  if (isMonitorTodoTool(lower)) {
+    const todoId = toNonEmptyString(args.todoId);
+    const title = toNonEmptyString(args.title) ?? toNonEmptyString(input.outputTitle);
+    if (!todoId || !title) return undefined;
+    return {
+      endpoint: "/api/todo",
+      body: {
+        taskId: input.state.taskId,
+        sessionId: input.state.monitorSessionId,
+        todoId,
+        todoState: normalizeTodoState(args.todoState),
+        ...(typeof args.sequence === "number" ? { sequence: args.sequence } : {}),
+        title,
+        ...(toNonEmptyString(args.body) ? { body: toNonEmptyString(args.body) } : {}),
+        metadata
+      }
+    };
+  }
+
+  if (isMonitorThoughtTool(lower)) {
+    const title = toNonEmptyString(args.title) ?? toNonEmptyString(input.outputTitle);
+    if (!title) return undefined;
+    return {
+      endpoint: "/api/thought",
+      body: {
+        taskId: input.state.taskId,
+        sessionId: input.state.monitorSessionId,
+        title,
+        ...(toNonEmptyString(args.body) ? { body: toNonEmptyString(args.body) } : {}),
+        ...(toNonEmptyString(args.modelName) ? { modelName: toNonEmptyString(args.modelName) } : {}),
+        ...(toNonEmptyString(args.modelProvider) ? { modelProvider: toNonEmptyString(args.modelProvider) } : {}),
+        metadata
+      }
+    };
+  }
+
+  return undefined;
+}
+
+function toTodoId(todo: Record<string, unknown>): string {
+  const content = String(todo.content ?? "").trim();
+  const priority = String(todo.priority ?? "").trim();
+  return `${content}::${priority}`;
+}
+
+function extractTextFromParts(parts: readonly unknown[]): string {
+  return parts
+    .map((part) => {
+      if (!part || typeof part !== "object") return "";
+      const record = part as Record<string, unknown>;
+      const type = String(record.type ?? "").toLowerCase();
+      if (typeof record.text === "string") return record.text;
+      if (type === "input_text" && typeof record.content === "string") return record.content;
+      return "";
+    })
+    .join("\n")
+    .trim();
+}
+
+function deriveUserMessageFields(text: string): { title: string; body: string } {
+  const body = text.trim();
+  const sanitizedLines = body
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+    .filter((line) => line !== "<system-reminder>" && line !== "</system-reminder>")
+    .filter((line) => !line.startsWith("[BACKGROUND TASK COMPLETED]"))
+    .filter((line) => !line.startsWith("[ALL BACKGROUND TASKS COMPLETE]"));
+
+  const preferred = sanitizedLines[0] ?? body;
+  const title = preferred.length > 120 ? `${preferred.slice(0, 120)}…` : preferred;
+  return { title, body };
+}
+
+async function logTodoTransitions(input: {
+  state: SessionState;
+  opencodeSessionId: string;
+  todos: readonly unknown[];
+}): Promise<void> {
+  const nextById = new Map<string, "added" | "in_progress" | "completed" | "cancelled">();
+
+  for (const item of input.todos) {
+    if (!item || typeof item !== "object") continue;
+    const todo = item as Record<string, unknown>;
+    const title = String(todo.content ?? "").trim();
+    if (!title) continue;
+
+    const todoId = toTodoId(todo);
+    const nextState = normalizeTodoState(todo.status);
+    nextById.set(todoId, nextState);
+
+    const prevState = input.state.todoStateById.get(todoId);
+    if (prevState === nextState) continue;
+
+    await post("/api/todo", {
+      taskId: input.state.taskId,
+      sessionId: input.state.monitorSessionId,
+      todoId,
+      todoState: nextState,
+      title,
+      metadata: {
+        opencodeSessionId: input.opencodeSessionId
+      }
+    });
+  }
+
+  input.state.todoStateById = nextById;
 }
 
 export function createMonitorHooks(workspacePath: string): Hooks {
@@ -105,6 +312,7 @@ export function createMonitorHooks(workspacePath: string): Hooks {
       const nextState: SessionState = {
         taskId,
         messageCount: 0,
+        todoStateById: new Map(),
         ...(result?.sessionId ? { monitorSessionId: result.sessionId } : {})
       };
       sessionStates.set(input.sessionId, nextState);
@@ -126,18 +334,14 @@ export function createMonitorHooks(workspacePath: string): Hooks {
       if (!state) return;
 
       // Extract text from TextPart items
-      const text = output.parts
-        .filter((p): p is { type: "text"; text: string } & typeof p => p.type === "text")
-        .map((p) => p.text)
-        .join("\n")
-        .trim();
+      const text = extractTextFromParts(output.parts);
 
       if (!text) return;
 
+      const message = deriveUserMessageFields(text);
+
       const phase = state.messageCount === 0 ? "initial" : "follow_up";
       state.messageCount++;
-
-      const title = text.length > 120 ? text.slice(0, 120) + "…" : text;
 
       await post("/api/user-message", {
         taskId: state.taskId,
@@ -146,8 +350,8 @@ export function createMonitorHooks(workspacePath: string): Hooks {
         captureMode: "raw",
         source: "opencode-plugin",
         phase,
-        title,
-        body: text,
+        title: message.title,
+        body: message.body,
         metadata: {
           modelId: input.model?.modelID,
           providerId: input.model?.providerID,
@@ -158,13 +362,13 @@ export function createMonitorHooks(workspacePath: string): Hooks {
 
     event: async ({ event }) => {
       if (event.type === "session.created") {
-        const state = await ensureSessionState({
+        await ensureSessionState({
           sessionId: event.properties.info.id,
           directory: event.properties.info.directory,
           title: event.properties.info.title
         });
 
-          return;
+        return;
       }
 
       if (event.type !== "session.deleted") return;
@@ -202,6 +406,34 @@ export function createMonitorHooks(workspacePath: string): Hooks {
       if (!state) return;
 
       const toolName = typeof input.tool === "string" ? input.tool : "unknown";
+
+      if (isTodoWriteTool(toolName.toLowerCase())) {
+        const todos = Array.isArray(input.args?.todos)
+          ? input.args.todos as unknown[]
+          : [];
+        if (todos.length > 0) {
+          await logTodoTransitions({
+            state,
+            opencodeSessionId: input.sessionID,
+            todos
+          });
+        }
+        return;
+      }
+
+      const semanticRoute = buildSemanticRoute({
+        toolName,
+        args: input.args,
+        state,
+        opencodeSessionId: input.sessionID,
+        opencodeCallId: input.callID,
+        outputTitle: output.title
+      });
+      if (semanticRoute) {
+        await post(semanticRoute.endpoint, semanticRoute.body);
+        return;
+      }
+
       const { endpoint, lane } = classifyTool(toolName);
 
       const body: Record<string, unknown> = {

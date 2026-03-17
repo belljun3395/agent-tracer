@@ -205,7 +205,7 @@ export class MonitorService {
       const updatedTitle = (input.title && isGenericTaskTitle(task.title))
         ? input.title
         : task.title;
-      const updatedCliSource = task.cliSource ?? input.source;
+      const updatedCliSource = input.source;
       if (updatedTitle !== task.title || updatedCliSource !== task.cliSource) {
         this.database.upsertTask({
           ...task,

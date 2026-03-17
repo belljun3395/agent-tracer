@@ -222,4 +222,125 @@ describe("OpenCode monitor plugin", () => {
     expect(calls.filter((call) => call.endpoint === "/api/task-start")).toHaveLength(1);
     expect(calls.filter((call) => call.endpoint === "/api/terminal-command")).toHaveLength(0);
   });
+
+  it("maps TodoWrite tool calls to todo lifecycle events", async () => {
+    const hooks = createMonitorHooks("/repo");
+
+    await hooks.event?.({ event: sessionEvent("session.created", "session-todo") });
+
+    await hooks["tool.execute.after"]?.(
+      {
+        tool: "TodoWrite",
+        sessionID: "session-todo",
+        callID: "call-todo-1",
+        args: {
+          todos: [
+            { content: "Track OpenCode todo state", status: "pending", priority: "high" }
+          ]
+        }
+      },
+      {
+        title: "1 todo",
+        output: "ok",
+        metadata: {}
+      }
+    );
+
+    await hooks["tool.execute.after"]?.(
+      {
+        tool: "TodoWrite",
+        sessionID: "session-todo",
+        callID: "call-todo-2",
+        args: {
+          todos: [
+            { content: "Track OpenCode todo state", status: "in_progress", priority: "high" }
+          ]
+        }
+      },
+      {
+        title: "1 todo",
+        output: "ok",
+        metadata: {}
+      }
+    );
+
+    const todoCalls = calls.filter((call) => call.endpoint === "/api/todo");
+    expect(todoCalls).toHaveLength(2);
+    expect(todoCalls[0]?.body).toEqual(expect.objectContaining({
+      taskId: "task-session-todo",
+      sessionId: "monitor-session-todo",
+      todoState: "added",
+      title: "Track OpenCode todo state"
+    }));
+    expect(todoCalls[1]?.body).toEqual(expect.objectContaining({
+      taskId: "task-session-todo",
+      sessionId: "monitor-session-todo",
+      todoState: "in_progress",
+      title: "Track OpenCode todo state"
+    }));
+    expect(calls.filter((call) => call.endpoint === "/api/tool-used")).toHaveLength(0);
+  });
+
+  it("routes monitor_question and monitor_thought tools to semantic endpoints", async () => {
+    const hooks = createMonitorHooks("/repo");
+
+    await hooks.event?.({ event: sessionEvent("session.created", "session-semantic") });
+
+    await hooks["tool.execute.after"]?.(
+      {
+        tool: "monitor_question",
+        sessionID: "session-semantic",
+        callID: "call-question",
+        args: {
+          questionId: "q-1",
+          questionPhase: "asked",
+          title: "Need clarification",
+          body: "Confirm the runtime behavior"
+        }
+      },
+      {
+        title: "question",
+        output: "ok",
+        metadata: {}
+      }
+    );
+
+    await hooks["tool.execute.after"]?.(
+      {
+        tool: "monitor_thought",
+        sessionID: "session-semantic",
+        callID: "call-thought",
+        args: {
+          title: "Likely mixed runtime hooks",
+          body: "Need stricter runtime gate"
+        }
+      },
+      {
+        title: "thought",
+        output: "ok",
+        metadata: {}
+      }
+    );
+
+    const questionCalls = calls.filter((call) => call.endpoint === "/api/question");
+    const thoughtCalls = calls.filter((call) => call.endpoint === "/api/thought");
+
+    expect(questionCalls).toHaveLength(1);
+    expect(questionCalls[0]?.body).toEqual(expect.objectContaining({
+      taskId: "task-session-semantic",
+      sessionId: "monitor-session-semantic",
+      questionId: "q-1",
+      questionPhase: "asked",
+      title: "Need clarification"
+    }));
+
+    expect(thoughtCalls).toHaveLength(1);
+    expect(thoughtCalls[0]?.body).toEqual(expect.objectContaining({
+      taskId: "task-session-semantic",
+      sessionId: "monitor-session-semantic",
+      title: "Likely mixed runtime hooks"
+    }));
+
+    expect(calls.filter((call) => call.endpoint === "/api/tool-used")).toHaveLength(0);
+  });
 });
