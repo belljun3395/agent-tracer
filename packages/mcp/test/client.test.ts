@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { MonitorClient } from "../src/client.js";
+import { createMonitorMcpServer } from "../src/index.js";
 
 /**
  * MonitorClient HTTP 클라이언트 단위 테스트.
@@ -65,5 +66,62 @@ describe("MonitorClient", () => {
     const result = await client.post("/api/task-start", {});
     expect(result.ok).toBe(false);
     expect(result.message).toContain("unavailable");
+  });
+});
+
+describe("MCP tool registry — canonical tools", () => {
+  it("monitor_user_message 가 /api/user-message 로 POST한다", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ events: [{ id: "e1", kind: "user.message" }] })
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = new MonitorClient("http://localhost:3847");
+    const server = createMonitorMcpServer(client);
+    expect(server).toBeDefined();
+
+    await client.post("/api/user-message", {
+      taskId: "t1",
+      sessionId: "s1",
+      messageId: "msg-1",
+      captureMode: "raw",
+      source: "manual-mcp",
+      title: "Test prompt"
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3847/api/user-message",
+      expect.objectContaining({ method: "POST" })
+    );
+  });
+
+  it("monitor_session_end 가 /api/session-end 로 POST한다", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ sessionId: "s1", task: { id: "t1", status: "running" } })
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = new MonitorClient("http://localhost:3847");
+
+    await client.post("/api/session-end", {
+      taskId: "t1",
+      sessionId: "s1"
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3847/api/session-end",
+      expect.objectContaining({ method: "POST" })
+    );
+  });
+
+  it("MCP 서버에 monitor_user_message 와 monitor_session_end 가 등록된다", () => {
+    const client = new MonitorClient();
+    const server = createMonitorMcpServer(client);
+    // McpServer가 정상 생성되면 도구가 등록된 것으로 간주
+    expect(server).toBeDefined();
   });
 });

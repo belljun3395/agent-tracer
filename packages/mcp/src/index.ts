@@ -290,6 +290,55 @@ export function createMonitorMcpServer(client = new MonitorClient()): McpServer 
     async (input) => toToolResponse(await client.post("/api/explore", input))
   );
 
+  // ─── Canonical User Message & Session End ────────────────────────────────────
+  // monitor_user_message, monitor_session_end
+
+  server.registerTool(
+    "monitor_user_message",
+    {
+      title: "Monitor User Message",
+      description:
+        "Record a canonical user.message event (contractVersion 1). " +
+        "Use captureMode='raw' for actual user prompt text. " +
+        "Use captureMode='derived' for inferred/enriched records — sourceEventId is required. " +
+        "Automatic emitters (opencode-plugin, claude-hook) must provide sessionId. " +
+        "If raw prompt text is unavailable, use monitor_rule with ruleId='user-message-capture-unavailable' instead.",
+      inputSchema: {
+        taskId: z.string(),
+        sessionId: z.string().optional(),
+        messageId: z.string(),
+        captureMode: z.enum(["raw", "derived"]),
+        source: z.string(),
+        phase: z.enum(["initial", "follow_up"]).optional(),
+        title: z.string(),
+        body: z.string().optional(),
+        sourceEventId: z.string().optional(),
+        metadata: z.record(z.unknown()).optional(),
+        contractVersion: z.string().optional()
+      }
+    },
+    async (input) => toToolResponse(await client.post("/api/user-message", input))
+  );
+
+  server.registerTool(
+    "monitor_session_end",
+    {
+      title: "Monitor Session End",
+      description:
+        "End the current runtime session without completing the work item. " +
+        "The task remains running; the work item accumulates messages across multiple sessions. " +
+        "Use monitor_task_complete to explicitly close the work item when all work is done. " +
+        "Automatic runtimes (OpenCode session.deleted, Claude Stop hook) must call this, NOT monitor_task_complete.",
+      inputSchema: {
+        taskId: z.string(),
+        sessionId: z.string().optional(),
+        summary: z.string().optional(),
+        metadata: z.record(z.unknown()).optional()
+      }
+    },
+    async (input) => toToolResponse(await client.post("/api/session-end", input))
+  );
+
   return server;
 }
 
