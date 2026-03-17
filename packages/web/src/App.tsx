@@ -8,8 +8,7 @@ import type React from "react";
 import {
   useEffect,
   useMemo,
-  useState,
-  type FormEvent as ReactFormEvent
+  useState
 } from "react";
 
 import {
@@ -249,7 +248,7 @@ export function App(): React.JSX.Element {
     setIsEditingTaskTitle(false);
   }
 
-  async function handleTaskTitleSubmit(event: ReactFormEvent<HTMLFormElement>): Promise<void> {
+  async function handleTaskTitleSubmit(event: React.SyntheticEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
 
     if (!taskDetail?.task) {
