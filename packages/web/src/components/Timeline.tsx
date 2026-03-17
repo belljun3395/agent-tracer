@@ -311,7 +311,7 @@ export function Timeline({
 
   const selectedEvent = selectedConnector
     ? null
-    : filteredTimeline.find((e) => e.id === selectedEventId) ?? filteredTimeline[0] ?? null;
+    : filteredTimeline.find((e) => e.id === selectedEventId) ?? filteredTimeline[filteredTimeline.length - 1] ?? null;
 
   return (
     <section className="main-panel">

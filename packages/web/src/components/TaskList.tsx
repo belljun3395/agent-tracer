@@ -4,6 +4,7 @@
  * 각 태스크의 상태, 제목, 경로, 마지막 업데이트 시간 표시.
  */
 
+import { useEffect, useMemo, useState } from "react";
 import type React from "react";
 import type { MonitoringTask, TaskDetailResponse } from "../types.js";
 import { formatRelativeTime } from "../lib/timeline.js";
@@ -26,6 +27,15 @@ interface TaskListProps {
   readonly onRefresh: () => void;
 }
 
+interface DisplayTaskRow {
+  readonly task: MonitoringTask;
+  readonly depth: 0 | 1;
+}
+
+interface BuildTaskListRowsOptions {
+  readonly collapsedParentIds?: ReadonlySet<string>;
+}
+
 /**
  * 사이드바 태스크 목록 컴포넌트.
  * 태스크 선택 및 개별 삭제를 지원.
@@ -46,16 +56,57 @@ export function TaskList({
   onDeleteTask,
   onRefresh
 }: TaskListProps): React.JSX.Element {
+  const [collapsedParentIds, setCollapsedParentIds] = useState<ReadonlySet<string>>(new Set());
   const taskTitleById = new Map(
     tasks.map((task) => [task.id, resolveTaskListItemTitle(task, selectedTaskId, selectedTaskDisplayTitle, taskTitleCache)])
   );
-  const childCountByParentId = new Map<string, number>();
+  const childCountByParentId = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const task of tasks) {
+      if (!task.parentTaskId) continue;
+      const count = counts.get(task.parentTaskId) ?? 0;
+      counts.set(task.parentTaskId, count + 1);
+    }
+    return counts;
+  }, [tasks]);
 
-  for (const task of tasks) {
-    if (!task.parentTaskId) continue;
-    const count = childCountByParentId.get(task.parentTaskId) ?? 0;
-    childCountByParentId.set(task.parentTaskId, count + 1);
-  }
+  const displayRows = useMemo(
+    () => buildTaskListRows(tasks, { collapsedParentIds }),
+    [tasks, collapsedParentIds]
+  );
+
+  useEffect(() => {
+    const validParentIds = new Set(
+      tasks
+        .filter((task) => (childCountByParentId.get(task.id) ?? 0) > 0)
+        .map((task) => task.id)
+    );
+
+    setCollapsedParentIds((current) => {
+      const next = new Set<string>();
+      for (const parentId of current) {
+        if (validParentIds.has(parentId)) {
+          next.add(parentId);
+        }
+      }
+      return next.size === current.size ? current : next;
+    });
+  }, [tasks, childCountByParentId]);
+
+  useEffect(() => {
+    if (!selectedTaskId) return;
+
+    const selectedTask = tasks.find((task) => task.id === selectedTaskId);
+    const parentId = selectedTask?.parentTaskId;
+    if (!parentId) return;
+
+    setCollapsedParentIds((current) => {
+      if (!current.has(parentId)) return current;
+      const next = new Set(current);
+      next.delete(parentId);
+      return next;
+    });
+  }, [selectedTaskId, tasks]);
 
   return (
     <aside className="sidebar-panel">
@@ -95,15 +146,41 @@ export function TaskList({
           </div>
         ) : (
           <div className="task-items">
-            {tasks.map((task) => (
+            {displayRows.map(({ task, depth }) => (
               (() => {
                 const taskDisplayTitle = resolveTaskListItemTitle(task, selectedTaskId, selectedTaskDisplayTitle, taskTitleCache);
+                const childCount = childCountByParentId.get(task.id) ?? 0;
+                const hasChildren = childCount > 0;
+                const isCollapsedParent = collapsedParentIds.has(task.id);
 
                 return (
               <div
                 key={task.id}
-                className={`task-item${task.id === selectedTaskId ? " active" : ""}`}
+                className={`task-item${depth > 0 ? " child" : ""}${task.id === selectedTaskId ? " active" : ""}`}
               >
+                {hasChildren ? (
+                  <button
+                    aria-label={isCollapsedParent ? "Expand child tasks" : "Collapse child tasks"}
+                    className="task-tree-toggle"
+                    onClick={() => {
+                      setCollapsedParentIds((current) => {
+                        const next = new Set(current);
+                        if (next.has(task.id)) {
+                          next.delete(task.id);
+                        } else {
+                          next.add(task.id);
+                        }
+                        return next;
+                      });
+                    }}
+                    title={isCollapsedParent ? "Expand children" : "Collapse children"}
+                    type="button"
+                  >
+                    {isCollapsedParent ? "▸" : "▾"}
+                  </button>
+                ) : (
+                  <span aria-hidden="true" className="task-tree-spacer" />
+                )}
                 <button
                   className="task-item-body"
                   onClick={() => onSelectTask(task.id)}
@@ -141,8 +218,8 @@ export function TaskList({
                         parent: {taskTitleById.get(task.parentTaskId) ?? task.parentTaskId.slice(0, 8)}
                       </span>
                     )}
-                    {(task.taskKind ?? "primary") === "primary" && (childCountByParentId.get(task.id) ?? 0) > 0 && (
-                      <span className="task-signal-pill todos">{childCountByParentId.get(task.id)} child</span>
+                    {(task.taskKind ?? "primary") === "primary" && childCount > 0 && (
+                      <span className="task-signal-pill todos">{childCount} child{childCount === 1 ? "" : "ren"}</span>
                     )}
                   </div>
                   <div className="task-item-path mono">{task.workspacePath ?? "—"}</div>
@@ -197,6 +274,67 @@ export function resolveTaskListItemTitle(
   }
 
   return buildTaskDisplayTitle(task, []);
+}
+
+export function buildTaskListRows(
+  tasks: readonly MonitoringTask[],
+  options: BuildTaskListRowsOptions = {}
+): readonly DisplayTaskRow[] {
+  if (tasks.length === 0) return [];
+
+  const { collapsedParentIds = new Set<string>() } = options;
+
+  const taskById = new Map(tasks.map((task) => [task.id, task]));
+  const childrenByParentId = new Map<string, MonitoringTask[]>();
+  const roots: MonitoringTask[] = [];
+
+  for (const task of tasks) {
+    const parentId = task.parentTaskId;
+    if (!parentId || !taskById.has(parentId)) {
+      roots.push(task);
+      continue;
+    }
+
+    const children = childrenByParentId.get(parentId);
+    if (children) {
+      children.push(task);
+      continue;
+    }
+
+    childrenByParentId.set(parentId, [task]);
+  }
+
+  const rows: DisplayTaskRow[] = [];
+  const seen = new Set<string>();
+  const compareByLatest = (a: MonitoringTask, b: MonitoringTask): number =>
+    Date.parse(b.updatedAt) - Date.parse(a.updatedAt);
+
+  const sortedRoots = [...roots].sort(compareByLatest);
+
+  for (const root of sortedRoots) {
+    if (seen.has(root.id)) continue;
+
+    seen.add(root.id);
+    rows.push({ task: root, depth: 0 });
+
+    if (!collapsedParentIds.has(root.id)) {
+      const children = [...(childrenByParentId.get(root.id) ?? [])].sort(compareByLatest);
+      for (const child of children) {
+        if (seen.has(child.id)) continue;
+        seen.add(child.id);
+        rows.push({ task: child, depth: 1 });
+      }
+    }
+  }
+
+  for (const task of tasks) {
+    if (seen.has(task.id)) continue;
+    if (task.parentTaskId && collapsedParentIds.has(task.parentTaskId)) continue;
+    seen.add(task.id);
+    rows.push({ task, depth: task.parentTaskId && taskById.has(task.parentTaskId) ? 1 : 0 });
+  }
+
+  return rows;
 }
 
 function runtimeTagSlug(source: string): string {

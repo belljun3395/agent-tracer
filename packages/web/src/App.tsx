@@ -53,6 +53,11 @@ function isConnectorKeyValid(
     && events.some((event) => event.id === targetId);
 }
 
+const SIDEBAR_MIN_WIDTH = 240;
+const SIDEBAR_MAX_WIDTH = 460;
+const SIDEBAR_DEFAULT_WIDTH = 280;
+const SIDEBAR_WIDTH_STORAGE_KEY = "agent-tracer.sidebar-width";
+
 export function App(): React.JSX.Element {
   const [overview,        setOverview]        = useState<OverviewResponse | null>(null);
   const [tasks,           setTasks]           = useState<readonly MonitoringTask[]>([]);
@@ -77,6 +82,19 @@ export function App(): React.JSX.Element {
   const [isSavingTaskTitle, setIsSavingTaskTitle] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isInspectorCollapsed, setIsInspectorCollapsed] = useState(false);
+  const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
+    const raw = window.localStorage.getItem(SIDEBAR_WIDTH_STORAGE_KEY);
+    if (!raw) return SIDEBAR_DEFAULT_WIDTH;
+
+    const parsed = Number.parseInt(raw, 10);
+    if (!Number.isFinite(parsed)) return SIDEBAR_DEFAULT_WIDTH;
+
+    return Math.max(SIDEBAR_MIN_WIDTH, Math.min(SIDEBAR_MAX_WIDTH, parsed));
+  });
+  const sidebarResizeRef = useRef<{
+    readonly startX: number;
+    readonly startWidth: number;
+  } | null>(null);
 
   const refreshOverview = useCallback(async (): Promise<void> => {
     setStatus((s) => (s === "ready" ? s : "loading"));
@@ -125,7 +143,7 @@ export function App(): React.JSX.Element {
       setSelectedEventId((current) =>
         current && detail.timeline.some((e) => e.id === current)
           ? current
-          : detail.timeline[0]?.id ?? null
+          : detail.timeline[detail.timeline.length - 1]?.id ?? null
       );
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : "Failed to load task detail.");
@@ -141,6 +159,10 @@ export function App(): React.JSX.Element {
     const timer = setInterval(() => setNowMs(Date.now()), 10_000);
     return () => clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem(SIDEBAR_WIDTH_STORAGE_KEY, String(sidebarWidth));
+  }, [sidebarWidth]);
 
   /* auto-select first task (hash에 유효한 ID가 있으면 유지) */
   useEffect(() => {
@@ -367,6 +389,44 @@ export function App(): React.JSX.Element {
     }
   }
 
+  const onSidebarResizeStart = useCallback((event: React.PointerEvent<HTMLDivElement>): void => {
+    if (event.button !== 0 || isSidebarCollapsed) return;
+
+    sidebarResizeRef.current = {
+      startX: event.clientX,
+      startWidth: sidebarWidth
+    };
+
+    const onMove = (moveEvent: PointerEvent): void => {
+      const current = sidebarResizeRef.current;
+      if (!current) return;
+
+      const delta = moveEvent.clientX - current.startX;
+      const nextWidth = Math.round(current.startWidth + delta);
+      const clamped = Math.max(SIDEBAR_MIN_WIDTH, Math.min(SIDEBAR_MAX_WIDTH, nextWidth));
+      setSidebarWidth(clamped);
+    };
+
+    const onUp = (): void => {
+      sidebarResizeRef.current = null;
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+      document.body.classList.remove("is-resizing-sidebar");
+    };
+
+    document.body.classList.add("is-resizing-sidebar");
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+    event.preventDefault();
+  }, [isSidebarCollapsed, sidebarWidth]);
+
+  const dashboardStyle = useMemo(
+    () => ({ "--sidebar-width": `${sidebarWidth}px` }) as React.CSSProperties,
+    [sidebarWidth]
+  );
+
   return (
     <div className="app-shell">
 
@@ -376,24 +436,38 @@ export function App(): React.JSX.Element {
         onRefresh={() => void refreshOverview()}
       />
 
-      <main className={`dashboard-shell${isSidebarCollapsed ? " sidebar-collapsed" : ""}${isInspectorCollapsed ? " inspector-collapsed" : ""}`}>
+      <main
+        className={`dashboard-shell${isSidebarCollapsed ? " sidebar-collapsed" : ""}${isInspectorCollapsed ? " inspector-collapsed" : ""}`}
+        style={dashboardStyle}
+      >
 
-        <TaskList
-          tasks={tasks}
-          selectedTaskId={selectedTaskId}
-          taskDetail={taskDetail}
-          selectedTaskDisplayTitle={selectedTaskDisplayTitle}
-          taskTitleCache={taskTitleCache}
-          selectedTaskQuestionCount={questionGroups.length}
-          selectedTaskTodoCount={todoGroups.length}
-          deletingTaskId={deletingTaskId}
-          deleteErrorTaskId={deleteErrorTaskId}
-          isCollapsed={isSidebarCollapsed}
-          onToggleCollapse={() => setIsSidebarCollapsed((v) => !v)}
-          onSelectTask={(id) => setSelectedTaskId(id)}
-          onDeleteTask={(id) => void handleDeleteTask(id)}
-          onRefresh={() => void refreshOverview()}
-        />
+        <div className="sidebar-slot">
+          <TaskList
+            tasks={tasks}
+            selectedTaskId={selectedTaskId}
+            taskDetail={taskDetail}
+            selectedTaskDisplayTitle={selectedTaskDisplayTitle}
+            taskTitleCache={taskTitleCache}
+            selectedTaskQuestionCount={questionGroups.length}
+            selectedTaskTodoCount={todoGroups.length}
+            deletingTaskId={deletingTaskId}
+            deleteErrorTaskId={deleteErrorTaskId}
+            isCollapsed={isSidebarCollapsed}
+            onToggleCollapse={() => setIsSidebarCollapsed((v) => !v)}
+            onSelectTask={(id) => setSelectedTaskId(id)}
+            onDeleteTask={(id) => void handleDeleteTask(id)}
+            onRefresh={() => void refreshOverview()}
+          />
+          {!isSidebarCollapsed && (
+            <div
+              aria-label="Resize task sidebar"
+              aria-orientation="vertical"
+              className="sidebar-resizer"
+              onPointerDown={onSidebarResizeStart}
+              role="separator"
+            />
+          )}
+        </div>
 
         <section className="main-panel">
           {/* error banner */}
