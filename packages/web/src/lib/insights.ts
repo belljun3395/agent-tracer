@@ -26,9 +26,9 @@ export interface CompactInsight {
   readonly occurrences: number;
   readonly handoffCount: number;
   readonly eventCount: number;
-  readonly lastSeenAt?: string;
-  readonly latestTitle?: string;
-  readonly latestBody?: string;
+  readonly lastSeenAt?: string | undefined;
+  readonly latestTitle?: string | undefined;
+  readonly latestBody?: string | undefined;
   readonly tagFacets: readonly string[];
 }
 
@@ -36,14 +36,14 @@ export interface RuleCoverageStat {
   readonly ruleId: string;
   readonly title: string;
   readonly configured: boolean;
-  readonly lane?: TimelineLane;
+  readonly lane?: TimelineLane | undefined;
   readonly tags: readonly string[];
   readonly matchCount: number;
   readonly ruleEventCount: number;
   readonly checkCount: number;
   readonly violationCount: number;
   readonly passCount: number;
-  readonly lastSeenAt?: string;
+  readonly lastSeenAt?: string | undefined;
 }
 
 export interface TagInsight {
@@ -673,7 +673,7 @@ function buildTaskProcessSections(
       return {
         lane,
         title: TASK_EXTRACTION_LANE_TITLES[lane],
-        items
+        items: items as readonly string[]
       };
     })
     .filter((value): value is TaskProcessSection => value !== null);

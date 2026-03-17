@@ -4,6 +4,7 @@
  * UI는 TopBar, TaskList, Timeline, EventInspector에 위임.
  */
 
+import type React from "react";
 import {
   useEffect,
   useMemo,
@@ -48,7 +49,7 @@ function isConnectorKeyValid(
     && events.some((event) => event.id === targetId);
 }
 
-export function App(): JSX.Element {
+export function App(): React.JSX.Element {
   const [overview,        setOverview]        = useState<OverviewResponse | null>(null);
   const [tasks,           setTasks]           = useState<readonly MonitoringTask[]>([]);
   const [selectedTaskId,  setSelectedTaskId]  = useState<string | null>(null);

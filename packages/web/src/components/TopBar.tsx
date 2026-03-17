@@ -3,6 +3,7 @@
  * 총 태스크 수, 실행 중, 완료, 오류, 이벤트 카운트를 StatCard로 표시.
  */
 
+import type React from "react";
 import type { OverviewResponse } from "../types.js";
 
 interface TopBarProps {
@@ -20,7 +21,7 @@ function StatCard({
   readonly accent: string;
   readonly label: string;
   readonly value: number;
-}): JSX.Element {
+}): React.JSX.Element {
   return (
     <div className={`stat-card ${accent}`}>
       <span className="stat-card-label">{label}</span>
@@ -34,7 +35,7 @@ function StatCard({
  * 대시보드 상단 네비게이션 바와 통계 스트립.
  * 브랜드 로고, WebSocket 연결 상태, 태스크/이벤트 통계를 표시.
  */
-export function TopBar({ overview, isConnected, onRefresh }: TopBarProps): JSX.Element {
+export function TopBar({ overview, isConnected, onRefresh }: TopBarProps): React.JSX.Element {
   return (
     <>
       <nav className="topnav">

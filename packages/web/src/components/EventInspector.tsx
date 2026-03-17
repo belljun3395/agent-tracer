@@ -4,6 +4,7 @@
  * 이벤트 선택 및 커넥터 선택 두 모드를 지원하며 지원 패널(규칙/태그/태스크/compact/파일)을 포함.
  */
 
+import type React from "react";
 import {
   useLayoutEffect,
   useMemo,
@@ -88,7 +89,7 @@ function DetailSection({
   readonly label: string;
   readonly mono?: boolean;
   readonly value: string;
-}): JSX.Element {
+}): React.JSX.Element {
   return (
     <div className="detail-card">
       <div className="detail-card-head">{label}</div>
@@ -100,7 +101,7 @@ function DetailSection({
 }
 
 /** DetailIds: 이벤트 식별자(event ID, task ID, session ID, time)를 테이블로 표시. */
-function DetailIds({ event }: { readonly event: TimelineEvent }): JSX.Element {
+function DetailIds({ event }: { readonly event: TimelineEvent }): React.JSX.Element {
   return (
     <div className="detail-card">
       <div className="detail-card-head">IDs</div>
@@ -139,7 +140,7 @@ function DetailConnectorIds({
   readonly connector: TimelineConnector;
   readonly source: TimelineEvent;
   readonly target: TimelineEvent;
-}): JSX.Element {
+}): React.JSX.Element {
   return (
     <div className="detail-card">
       <div className="detail-card-head">IDs</div>
@@ -177,7 +178,7 @@ function DetailTags({
   readonly values: readonly string[];
   readonly activeValue?: string | null;
   readonly onSelect?: (value: string) => void;
-}): JSX.Element {
+}): React.JSX.Element {
   return (
     <div className="detail-card">
       <div className="detail-card-head">{title}</div>
@@ -213,7 +214,7 @@ function DetailMatchList({
   readonly event: TimelineEvent;
   readonly activeRuleId?: string | null;
   readonly onSelectRule?: (ruleId: string) => void;
-}): JSX.Element {
+}): React.JSX.Element {
   return (
     <div className="detail-card">
       <div className="detail-card-head">Classification Matches</div>
@@ -265,7 +266,7 @@ function DetailConnectorEvents({
 }: {
   readonly source: TimelineEvent;
   readonly target: TimelineEvent;
-}): JSX.Element {
+}): React.JSX.Element {
   return (
     <div className="detail-card">
       <div className="detail-card-head">Connected Events</div>
@@ -291,10 +292,10 @@ function DetailExploredFiles({
   files, workspacePath, expanded, onToggle
 }: {
   readonly files: readonly ExploredFileStat[];
-  readonly workspacePath?: string;
+  readonly workspacePath?: string | undefined;
   readonly expanded: boolean;
   readonly onToggle: () => void;
-}): JSX.Element {
+}): React.JSX.Element {
   return (
     <div className="detail-card">
       <button className="detail-card-toggle" onClick={onToggle} type="button">
@@ -357,7 +358,7 @@ function CompactActivityCard({
   readonly insight: CompactInsight;
   readonly selectedTag: string | null;
   readonly onSelectTag: (tag: string) => void;
-}): JSX.Element {
+}): React.JSX.Element {
   return (
     <div className="detail-card">
       <div className="detail-card-head detail-card-head-with-action">
@@ -431,11 +432,11 @@ function TaskExtractionCard({
   extraction, workspacePath, copiedState, onCopyBrief, onCopyProcess
 }: {
   readonly extraction: TaskExtraction;
-  readonly workspacePath?: string;
+  readonly workspacePath?: string | undefined;
   readonly copiedState: "brief" | "process" | null;
   readonly onCopyBrief: () => void;
   readonly onCopyProcess: () => void;
-}): JSX.Element {
+}): React.JSX.Element {
   return (
     <div className="detail-card">
       <div className="detail-card-head detail-card-head-with-action">
@@ -525,7 +526,7 @@ function RuleCoverageCard({
   readonly unmatchedRuleEvents: number;
   readonly onSelectRule: (ruleId: string) => void;
   readonly onToggleRuleGaps: () => void;
-}): JSX.Element {
+}): React.JSX.Element {
   const configuredRules = rules.filter((rule) => rule.configured);
   const matchedConfiguredRules = configuredRules.filter((rule) => rule.matchCount > 0 || rule.ruleEventCount > 0);
   const runtimeRules = rules.filter((rule) => !rule.configured);
@@ -611,7 +612,7 @@ function TagExplorerCard({
   readonly tags: readonly TagInsight[];
   readonly selectedTag: string | null;
   readonly onSelectTag: (tag: string) => void;
-}): JSX.Element {
+}): React.JSX.Element {
   const selectedInsight = selectedTag
     ? tags.find((tag) => tag.tag === selectedTag) ?? null
     : null;
@@ -764,7 +765,7 @@ export function EventInspector({
   onSelectTag,
   onSelectRule,
   onToggleRuleGaps
-}: EventInspectorProps): JSX.Element {
+}: EventInspectorProps): React.JSX.Element {
   const [detailSplit, setDetailSplit] = useState(DETAIL_SPLIT_DEFAULT);
   const [detailPanelHeight, setDetailPanelHeight] = useState(0);
   const [isDetailResizing, setIsDetailResizing] = useState(false);

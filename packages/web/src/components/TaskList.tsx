@@ -4,6 +4,7 @@
  * 각 태스크의 상태, 제목, 경로, 마지막 업데이트 시간 표시.
  */
 
+import type React from "react";
 import type { MonitoringTask, TaskDetailResponse } from "../types.js";
 import { formatRelativeTime } from "../lib/timeline.js";
 
@@ -33,7 +34,7 @@ export function TaskList({
   onSelectTask,
   onDeleteTask,
   onRefresh
-}: TaskListProps): JSX.Element {
+}: TaskListProps): React.JSX.Element {
   return (
     <aside className="sidebar-panel">
       <div className="panel-header">

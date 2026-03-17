@@ -5,6 +5,7 @@
  * 태스크 제목 편집 기능 포함.
  */
 
+import type React from "react";
 import {
   useEffect,
   useLayoutEffect,
@@ -98,7 +99,7 @@ function MiniMap({
 }: {
   readonly items: readonly TimelineItemLayout[];
   readonly canvasWidth: number;
-}): JSX.Element {
+}): React.JSX.Element {
   const W = 200;
   const H = 72;
   const scale = W / canvasWidth;
@@ -137,9 +138,9 @@ function MiniMap({
 interface TimelineProps {
   readonly timeline: readonly TimelineEvent[];
   readonly taskTitle: string | null;
-  readonly taskWorkspacePath?: string;
-  readonly taskStatus?: "running" | "completed" | "errored";
-  readonly taskUpdatedAt?: string;
+  readonly taskWorkspacePath?: string | undefined;
+  readonly taskStatus?: "running" | "completed" | "errored" | undefined;
+  readonly taskUpdatedAt?: string | undefined;
   readonly taskUsesDerivedTitle: boolean;
   readonly isEditingTaskTitle: boolean;
   readonly taskTitleDraft: string;
@@ -204,7 +205,7 @@ export function Timeline({
   onToggleRuleGap,
   onClearRuleId,
   onClearTag
-}: TimelineProps): JSX.Element {
+}: TimelineProps): React.JSX.Element {
   const [zoom, setZoom] = useState(1.1);
   const [filters, setFilters] = useState<Record<TimelineLane, boolean>>({
     user: true, exploration: true, planning: true, implementation: true, rules: true
