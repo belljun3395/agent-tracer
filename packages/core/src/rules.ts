@@ -35,14 +35,17 @@ const rulesIndexSchema = z.object({
   rules: z.array(ruleDefinitionSchema).default([])
 });
 
+/** INDEX.yaml에서 파싱된 단일 규칙 정의 (zod 스키마 기반). */
 export type RuleDefinition = z.infer<typeof ruleDefinitionSchema>;
 
+/** 파일 시스템에서 로드된 규칙. lane이 정규화되고 markdown 내용이 포함될 수 있음. */
 export interface LoadedRule extends Omit<RuleDefinition, "lane"> {
   readonly lane?: TimelineLane;
   readonly markdown?: string;
   readonly absolutePath?: string;
 }
 
+/** 로드된 규칙 인덱스. 모든 규칙과 로드 경로 포함. */
 export interface RulesIndex {
   readonly version: number;
   readonly loadedFrom?: string;

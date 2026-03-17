@@ -14,6 +14,7 @@ import {
   type RulesIndex
 } from "./rules.js";
 
+/** classifyEvent()에 전달하는 이벤트 분류 입력 데이터. */
 export interface ClassifyEventInput {
   readonly kind: MonitoringEventKind;
   readonly title?: string;

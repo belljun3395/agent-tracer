@@ -17,6 +17,7 @@ export type MonitoringEventKind =
   | "thought.logged"
   | "user.message";
 
+/** 태스크 생성에 필요한 최소 입력 데이터. */
 export interface MonitoringTaskInput {
   readonly title: string;
   readonly workspacePath?: string;
@@ -42,11 +43,13 @@ export interface MonitoringSession {
   readonly endedAt?: string;
 }
 
+/** 이벤트 분류에서 특정 규칙이 매치된 이유. prefix 매치 또는 keyword 매치. */
 export interface EventClassificationReason {
   readonly kind: "keyword" | "prefix" | "action-prefix" | "action-keyword";
   readonly value: string;
 }
 
+/** 단일 규칙에 대한 이벤트 매치 결과. 점수와 매치 이유 포함. */
 export interface EventClassificationMatch {
   readonly ruleId: string;
   readonly source?: "rules-index" | "action-registry";
