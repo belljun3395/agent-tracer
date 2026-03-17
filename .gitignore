@@ -16,3 +16,4 @@ coverage
 .codex/.current-task-id
 .codex/hook-debug/
 .worktrees
+.idea
