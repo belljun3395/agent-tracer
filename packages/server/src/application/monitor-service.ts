@@ -1,0 +1,715 @@
+/**
+ * @module application/monitor-service
+ *
+ * 모니터링 비즈니스 로직 레이어.
+ * 태스크·세션·이벤트 생명주기를 조율하고, 이벤트 분류를 적용.
+ *
+ * 의존성 방향: application → infrastructure, @monitor/core
+ */
+
+import crypto from "node:crypto";
+import path from "node:path";
+
+import {
+  classifyEvent,
+  createTaskSlug,
+  loadRulesIndex,
+  normalizeWorkspacePath,
+  tokenizeActionName,
+  type MonitoringEventKind,
+  type TimelineEvent,
+  type TimelineLane,
+  type MonitoringTask,
+  type RulesIndex
+} from "@monitor/core";
+
+import { MonitorDatabase } from "../infrastructure/monitor-database.js";
+import type {
+  GenericEventInput,
+  TaskActionInput,
+  TaskCompletionInput,
+  TaskContextSavedInput,
+  TaskErrorInput,
+  TaskExploreInput,
+  TaskAsyncLifecycleInput,
+  TaskPlanInput,
+  TaskRenameInput,
+  TaskRuleInput,
+  TaskStartInput,
+  TaskTerminalCommandInput,
+  TaskToolUsedInput,
+  TaskVerifyInput
+} from "./types.js";
+
+export interface MonitorServiceOptions {
+  readonly databasePath: string;
+  readonly rulesDir: string;
+}
+
+export interface RecordedEventEnvelope {
+  readonly task: MonitoringTask;
+  readonly sessionId?: string;
+  readonly events: readonly {
+    readonly id: string;
+    readonly kind: MonitoringEventKind;
+  }[];
+}
+
+/**
+ * 모니터링 서비스 클래스.
+ * 태스크·세션·이벤트 생명주기와 규칙 색인 관리를 담당.
+ */
+export class MonitorService {
+  private readonly database: MonitorDatabase;
+  private readonly rulesDir: string;
+
+  #rulesIndex: RulesIndex;
+
+  constructor(options: MonitorServiceOptions) {
+    this.database = new MonitorDatabase({
+      filename: options.databasePath
+    });
+    this.rulesDir = options.rulesDir;
+    this.#rulesIndex = loadRulesIndex(options.rulesDir);
+  }
+
+  /**
+   * 규칙 색인을 디스크에서 다시 읽어 갱신한다.
+   * @returns 갱신된 RulesIndex
+   */
+  reloadRules(): RulesIndex {
+    this.#rulesIndex = loadRulesIndex(this.rulesDir);
+    return this.#rulesIndex;
+  }
+
+  /**
+   * 현재 로드된 규칙 색인을 반환한다.
+   * @returns 현재 RulesIndex
+   */
+  getRules(): RulesIndex {
+    return this.#rulesIndex;
+  }
+
+  /**
+   * 새 태스크를 시작하고 task.start 이벤트를 기록한다.
+   * @param input 태스크 시작 입력
+   * @returns 태스크·세션·이벤트 envelope
+   */
+  startTask(input: TaskStartInput): RecordedEventEnvelope {
+    const taskId = input.taskId ?? crypto.randomUUID();
+    const sessionId = crypto.randomUUID();
+    const startedAt = new Date().toISOString();
+    const existingTask = this.database.getTask(taskId);
+    const workspacePath = input.workspacePath
+      ? normalizeWorkspacePath(input.workspacePath)
+      : undefined;
+    const task = this.database.upsertTask({
+      id: taskId,
+      title: input.title,
+      slug: createTaskSlug({ title: input.title }),
+      status: "running",
+      createdAt: existingTask?.createdAt ?? startedAt,
+      updatedAt: startedAt,
+      lastSessionStartedAt: startedAt,
+      ...(workspacePath ? { workspacePath } : {})
+    });
+
+    this.database.createSession({
+      id: sessionId,
+      taskId: task.id,
+      status: "running",
+      startedAt,
+      ...(input.summary ? { summary: input.summary } : {})
+    });
+
+    const event = this.recordGenericEvent({
+      taskId: task.id,
+      sessionId,
+      kind: "task.start",
+      title: input.title,
+      metadata: {
+        ...(input.metadata ?? {}),
+        ...(task.workspacePath ? { workspacePath: task.workspacePath } : {})
+      },
+      ...(input.summary ? { body: input.summary } : {})
+    });
+
+    return {
+      task,
+      ...(sessionId ? { sessionId } : {}),
+      events: [{ id: event.id, kind: event.kind }]
+    };
+  }
+
+  /**
+   * 태스크를 완료 처리하고 task.complete 이벤트를 기록한다.
+   * @param input 완료 입력
+   * @returns 태스크·세션·이벤트 envelope
+   */
+  completeTask(input: TaskCompletionInput): RecordedEventEnvelope {
+    return this.finishTask(input, "completed", "task.complete", input.summary);
+  }
+
+  /**
+   * 태스크를 에러 처리하고 task.error 이벤트를 기록한다.
+   * @param input 에러 입력
+   * @returns 태스크·세션·이벤트 envelope
+   */
+  errorTask(input: TaskErrorInput): RecordedEventEnvelope {
+    return this.finishTask(input, "errored", "task.error", input.errorMessage);
+  }
+
+  /**
+   * 터미널 명령 실행을 기록한다.
+   * @param input 터미널 명령 입력
+   * @returns 태스크·세션·이벤트 envelope
+   */
+  logTerminalCommand(input: TaskTerminalCommandInput): RecordedEventEnvelope {
+    const sessionId = input.sessionId ?? this.database.findLatestSession(input.taskId)?.id;
+
+    return this.recordWithDerivedFiles({
+      taskId: input.taskId,
+      kind: "terminal.command",
+      title: input.title ?? input.command,
+      body: input.body ?? input.command,
+      metadata: {
+        ...(input.metadata ?? {}),
+        command: input.command
+      },
+      command: input.command,
+      ...(sessionId ? { sessionId } : {}),
+      ...(input.lane ? { lane: input.lane } : {}),
+      ...(input.filePaths ? { filePaths: input.filePaths } : {})
+    });
+  }
+
+  /**
+   * 도구 사용 이벤트를 기록한다.
+   * @param input 도구 사용 입력
+   * @returns 태스크·세션·이벤트 envelope
+   */
+  logToolUsed(input: TaskToolUsedInput): RecordedEventEnvelope {
+    const sessionId = input.sessionId ?? this.database.findLatestSession(input.taskId)?.id;
+
+    return this.recordWithDerivedFiles({
+      taskId: input.taskId,
+      kind: "tool.used",
+      title: input.title ?? input.toolName,
+      metadata: {
+        ...(input.metadata ?? {}),
+        toolName: input.toolName
+      },
+      toolName: input.toolName,
+      ...(sessionId ? { sessionId } : {}),
+      ...(input.body ? { body: input.body } : {}),
+      ...(input.lane ? { lane: input.lane } : {}),
+      ...(input.filePaths ? { filePaths: input.filePaths } : {})
+    });
+  }
+
+  /**
+   * 컨텍스트 저장 이벤트를 기록한다.
+   * @param input 컨텍스트 저장 입력
+   * @returns 태스크·세션·이벤트 envelope
+   */
+  saveContext(input: TaskContextSavedInput): RecordedEventEnvelope {
+    const sessionId = input.sessionId ?? this.database.findLatestSession(input.taskId)?.id;
+
+    return this.recordWithDerivedFiles({
+      taskId: input.taskId,
+      kind: "context.saved",
+      title: input.title,
+      ...(sessionId ? { sessionId } : {}),
+      ...(input.body ? { body: input.body } : {}),
+      ...(input.lane ? { lane: input.lane } : {}),
+      ...(input.filePaths ? { filePaths: input.filePaths } : {}),
+      ...(input.metadata ? { metadata: input.metadata } : {})
+    });
+  }
+
+  /**
+   * 탐색(exploration) 이벤트를 기록한다.
+   * @param input 탐색 입력
+   * @returns 태스크·세션·이벤트 envelope
+   */
+  logExploration(input: TaskExploreInput): RecordedEventEnvelope {
+    const sessionId = input.sessionId ?? this.database.findLatestSession(input.taskId)?.id;
+
+    return this.recordWithDerivedFiles({
+      taskId: input.taskId,
+      kind: "tool.used",
+      lane: "exploration",
+      title: input.title,
+      metadata: {
+        ...(input.metadata ?? {}),
+        toolName: input.toolName
+      },
+      toolName: input.toolName,
+      ...(sessionId ? { sessionId } : {}),
+      ...(input.body ? { body: input.body } : {}),
+      ...(input.filePaths ? { filePaths: input.filePaths } : {})
+    });
+  }
+
+  /**
+   * 계획(plan) 이벤트를 기록한다.
+   * @param input 계획 입력
+   * @returns 태스크·세션·이벤트 envelope
+   */
+  logPlan(input: TaskPlanInput): RecordedEventEnvelope {
+    const sessionId = input.sessionId ?? this.database.findLatestSession(input.taskId)?.id;
+
+    return this.recordWithDerivedFiles({
+      taskId: input.taskId,
+      kind: "plan.logged",
+      lane: "planning",
+      title: input.title ?? input.action,
+      metadata: {
+        ...(input.metadata ?? {}),
+        action: input.action
+      },
+      actionName: input.action,
+      ...(sessionId ? { sessionId } : {}),
+      ...(input.body ? { body: input.body } : {}),
+      ...(input.filePaths ? { filePaths: input.filePaths } : {})
+    });
+  }
+
+  /**
+   * 액션(action) 이벤트를 기록한다.
+   * @param input 액션 입력
+   * @returns 태스크·세션·이벤트 envelope
+   */
+  logAction(input: TaskActionInput): RecordedEventEnvelope {
+    const sessionId = input.sessionId ?? this.database.findLatestSession(input.taskId)?.id;
+
+    return this.recordWithDerivedFiles({
+      taskId: input.taskId,
+      kind: "action.logged",
+      title: input.title ?? input.action,
+      metadata: {
+        ...(input.metadata ?? {}),
+        action: input.action
+      },
+      actionName: input.action,
+      ...(sessionId ? { sessionId } : {}),
+      ...(input.body ? { body: input.body } : {}),
+      ...(input.filePaths ? { filePaths: input.filePaths } : {})
+    });
+  }
+
+  /**
+   * 검증(verification) 이벤트를 기록한다.
+   * @param input 검증 입력
+   * @returns 태스크·세션·이벤트 envelope
+   */
+  logVerification(input: TaskVerifyInput): RecordedEventEnvelope {
+    const sessionId = input.sessionId ?? this.database.findLatestSession(input.taskId)?.id;
+
+    return this.recordWithDerivedFiles({
+      taskId: input.taskId,
+      kind: "verification.logged",
+      lane: "rules",
+      title: input.title ?? input.action,
+      body: input.body ?? input.result,
+      metadata: {
+        ...(input.metadata ?? {}),
+        action: input.action,
+        result: input.result,
+        verificationStatus: normalizeVerificationStatus(input.status ?? input.result)
+      },
+      actionName: input.action,
+      ...(sessionId ? { sessionId } : {}),
+      ...(input.filePaths ? { filePaths: input.filePaths } : {})
+    });
+  }
+
+  /**
+   * 규칙(rule) 이벤트를 기록한다.
+   * @param input 규칙 입력
+   * @returns 태스크·세션·이벤트 envelope
+   */
+  logRule(input: TaskRuleInput): RecordedEventEnvelope {
+    const sessionId = input.sessionId ?? this.database.findLatestSession(input.taskId)?.id;
+
+    return this.recordWithDerivedFiles({
+      taskId: input.taskId,
+      kind: "rule.logged",
+      lane: "rules",
+      title: input.title ?? input.action,
+      body: input.body ?? `${input.ruleId} · ${input.status} · ${input.severity}`,
+      metadata: {
+        ...(input.metadata ?? {}),
+        action: input.action,
+        ruleId: input.ruleId,
+        severity: input.severity,
+        ruleStatus: input.status,
+        ruleSource: input.source ?? "rule-guard"
+      },
+      actionName: input.action,
+      ...(sessionId ? { sessionId } : {}),
+      ...(input.filePaths ? { filePaths: input.filePaths } : {})
+    });
+  }
+
+  /**
+   * 비동기 태스크 생명주기 이벤트를 기록한다.
+   * @param input 비동기 생명주기 입력
+   * @returns 태스크·세션·이벤트 envelope
+   */
+  logAsyncLifecycle(input: TaskAsyncLifecycleInput): RecordedEventEnvelope {
+    const sessionId = input.sessionId ?? this.database.findLatestSession(input.taskId)?.id;
+
+    return this.recordWithDerivedFiles({
+      taskId: input.taskId,
+      kind: "action.logged",
+      lane: "implementation",
+      title: input.title ?? `Async task ${input.asyncStatus}`,
+      metadata: {
+        ...(input.metadata ?? {}),
+        asyncTaskId: input.asyncTaskId,
+        asyncStatus: input.asyncStatus,
+        ...(input.description ? { description: input.description } : {}),
+        ...(input.agent ? { asyncAgent: input.agent } : {}),
+        ...(input.category ? { asyncCategory: input.category } : {}),
+        ...(input.parentSessionId ? { parentSessionId: input.parentSessionId } : {}),
+        ...(typeof input.durationMs === "number" ? { asyncDurationMs: input.durationMs } : {})
+      },
+      actionName: `async_task_${input.asyncStatus}`,
+      ...(sessionId ? { sessionId } : {}),
+      ...(input.body || input.description ? { body: input.body ?? input.description } : {}),
+      ...(input.filePaths ? { filePaths: input.filePaths } : {})
+    });
+  }
+
+  /**
+   * 전체 개요 통계를 반환한다.
+   * @returns OverviewStats
+   */
+  getOverview() {
+    return this.database.getOverviewStats();
+  }
+
+  /**
+   * 모든 태스크 목록을 반환한다.
+   * @returns 태스크 배열
+   */
+  listTasks() {
+    return this.database.listTasks();
+  }
+
+  /**
+   * 특정 태스크를 ID로 조회한다.
+   * @param taskId 조회할 태스크 ID
+   * @returns 태스크 또는 undefined
+   */
+  getTask(taskId: string) {
+    return this.database.getTask(taskId);
+  }
+
+  /**
+   * 특정 태스크의 타임라인 이벤트를 반환한다.
+   * @param taskId 조회할 태스크 ID
+   * @returns 이벤트 배열
+   */
+  getTaskTimeline(taskId: string) {
+    return this.database.getTaskTimeline(taskId);
+  }
+
+  /**
+   * 태스크 이름을 변경한다.
+   * @param input 이름 변경 입력
+   * @returns 변경된 태스크, 없으면 undefined
+   */
+  renameTask(input: TaskRenameInput): MonitoringTask | undefined {
+    const task = this.database.getTask(input.taskId);
+
+    if (!task) {
+      return undefined;
+    }
+
+    const nextTitle = input.title.trim();
+    if (nextTitle === task.title) {
+      return task;
+    }
+
+    return this.database.upsertTask({
+      ...task,
+      title: nextTitle,
+      slug: createTaskSlug({ title: nextTitle }),
+      updatedAt: new Date().toISOString()
+    });
+  }
+
+  /**
+   * 태스크를 삭제한다. 실행 중인 태스크는 삭제할 수 없다.
+   * @param taskId 삭제할 태스크 ID
+   * @returns "deleted" | "not_found" | "running"
+   */
+  deleteTask(taskId: string): "deleted" | "not_found" | "running" {
+    return this.database.deleteTask(taskId);
+  }
+
+  /**
+   * 완료·에러 상태의 모든 태스크를 삭제한다.
+   * @returns 삭제된 태스크 수
+   */
+  deleteFinishedTasks(): number {
+    return this.database.deleteFinishedTasks();
+  }
+
+  private finishTask(
+    input: TaskCompletionInput,
+    status: MonitoringTask["status"],
+    kind: MonitoringEventKind,
+    body?: string
+  ): RecordedEventEnvelope {
+    const task = this.database.getTask(input.taskId);
+
+    if (!task) {
+      throw new Error(`Task not found: ${input.taskId}`);
+    }
+
+    const endedAt = new Date().toISOString();
+    const sessionId = input.sessionId ?? this.database.findLatestSession(input.taskId)?.id;
+
+    if (sessionId) {
+      this.database.updateSessionStatus(sessionId, status, input.summary, endedAt);
+    }
+
+    const updatedTask = this.database.upsertTask({
+      ...task,
+      status,
+      updatedAt: endedAt
+    });
+
+    const event = this.recordGenericEvent({
+      taskId: input.taskId,
+      kind,
+      title: status === "completed" ? "Task completed" : "Task errored",
+      ...(sessionId ? { sessionId } : {}),
+      ...(body ? { body } : {}),
+      ...(input.metadata ? { metadata: input.metadata } : {})
+    });
+
+    return {
+      task: updatedTask,
+      ...(sessionId ? { sessionId } : {}),
+      events: [{ id: event.id, kind: event.kind }]
+    };
+  }
+
+  private recordWithDerivedFiles(input: GenericEventInput): RecordedEventEnvelope {
+    const task = this.database.getTask(input.taskId);
+
+    if (!task) {
+      throw new Error(`Task not found: ${input.taskId}`);
+    }
+
+    const primaryEvent = this.recordGenericEvent(input);
+    const derivedEvents = (input.filePaths ?? []).map((filePath) =>
+      this.recordGenericEvent({
+        taskId: input.taskId,
+        kind: "file.changed",
+        title: path.basename(filePath),
+        body: filePath,
+        filePaths: [filePath],
+        metadata: {
+          sourceKind: input.kind,
+          sourceEventId: primaryEvent.id
+        },
+        ...(input.sessionId ? { sessionId: input.sessionId } : {})
+      })
+    );
+
+    return {
+      task,
+      ...(input.sessionId ? { sessionId: input.sessionId } : {}),
+      events: [primaryEvent, ...derivedEvents].map((event) => ({
+        id: event.id,
+        kind: event.kind
+      }))
+    };
+  }
+
+  private recordGenericEvent(input: GenericEventInput): TimelineEvent {
+    const createdAt = new Date().toISOString();
+    const classification = classifyEvent(
+      {
+        kind: input.kind,
+        title: input.title,
+        ...(input.lane ? { lane: input.lane as TimelineLane } : {}),
+        ...(input.body ? { body: input.body } : {}),
+        ...(input.command ? { command: input.command } : {}),
+        ...(input.toolName ? { toolName: input.toolName } : {}),
+        ...(input.actionName ? { actionName: input.actionName } : {}),
+        ...(input.filePaths ? { filePaths: input.filePaths } : {})
+      },
+      this.#rulesIndex
+    );
+    const contextualTags = deriveContextualTags(input);
+
+    return this.database.appendEvent({
+      id: crypto.randomUUID(),
+      taskId: input.taskId,
+      kind: input.kind,
+      lane: classification.lane,
+      title: input.title,
+      metadata: {
+        ...(input.metadata ?? {}),
+        filePaths: input.filePaths ?? []
+      },
+      classification: {
+        ...classification,
+        tags: [...new Set([...classification.tags, ...contextualTags])]
+      },
+      createdAt,
+      ...(input.sessionId ? { sessionId: input.sessionId } : {}),
+      ...(input.body ? { body: input.body } : {})
+    });
+  }
+}
+
+function normalizeVerificationStatus(value?: string): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  const normalized = value.trim().toLowerCase();
+
+  if (normalized.includes("pass") || normalized.includes("ok") || normalized.includes("success")) {
+    return "pass";
+  }
+
+  if (normalized.includes("fail") || normalized.includes("error")) {
+    return "fail";
+  }
+
+  if (normalized.includes("warn")) {
+    return "warn";
+  }
+
+  return normalized;
+}
+
+function deriveContextualTags(input: GenericEventInput): readonly string[] {
+  const tags = new Set<string>();
+  const metadata = input.metadata ?? {};
+
+  if (input.actionName) {
+    const rootAction = tokenizeActionName(input.actionName)[0];
+    if (rootAction) {
+      tags.add(`action:${normalizeTagSegment(rootAction)}`);
+    }
+  }
+
+  if (input.kind === "verification.logged") {
+    tags.add("verification");
+  }
+
+  if (input.kind === "rule.logged") {
+    tags.add("rule-event");
+  }
+
+  const ruleId = extractMetadataString(metadata, "ruleId");
+  if (ruleId) {
+    tags.add(`rule:${normalizeTagSegment(ruleId)}`);
+  }
+
+  const ruleStatus = extractMetadataString(metadata, "ruleStatus");
+  if (ruleStatus) {
+    tags.add(`status:${normalizeTagSegment(ruleStatus)}`);
+  }
+
+  const verificationStatus = extractMetadataString(metadata, "verificationStatus");
+  if (verificationStatus) {
+    tags.add(`status:${normalizeTagSegment(verificationStatus)}`);
+  }
+
+  const severity = extractMetadataString(metadata, "severity");
+  if (severity) {
+    tags.add(`severity:${normalizeTagSegment(severity)}`);
+  }
+
+  const asyncTaskId = extractMetadataString(metadata, "asyncTaskId");
+  if (asyncTaskId) {
+    tags.add("async-task");
+  }
+
+  const asyncStatus = extractMetadataString(metadata, "asyncStatus");
+  if (asyncStatus) {
+    tags.add(`async:${normalizeTagSegment(asyncStatus)}`);
+    tags.add(`status:${normalizeTagSegment(asyncStatus)}`);
+  }
+
+  const asyncAgent = extractMetadataString(metadata, "asyncAgent");
+  if (asyncAgent) {
+    tags.add(`agent:${normalizeTagSegment(asyncAgent)}`);
+  }
+
+  const asyncCategory = extractMetadataString(metadata, "asyncCategory");
+  if (asyncCategory) {
+    tags.add(`category:${normalizeTagSegment(asyncCategory)}`);
+  }
+
+  const ruleSource = extractMetadataString(metadata, "ruleSource");
+  if (ruleSource) {
+    tags.add(`source:${normalizeTagSegment(ruleSource)}`);
+  }
+
+  if (extractMetadataBoolean(metadata, "compactEvent")) {
+    tags.add("compact");
+  }
+
+  const compactPhase = extractMetadataString(metadata, "compactPhase");
+  if (compactPhase) {
+    tags.add(`compact:${normalizeTagSegment(compactPhase)}`);
+  }
+
+  const compactEventType = extractMetadataString(metadata, "compactEventType");
+  if (compactEventType) {
+    tags.add(`compact:${normalizeTagSegment(compactEventType)}`);
+  }
+
+  for (const compactSignal of extractMetadataStringArray(metadata, "compactSignals")) {
+    tags.add(`compact:${normalizeTagSegment(compactSignal)}`);
+  }
+
+  return [...tags];
+}
+
+function extractMetadataString(
+  metadata: Record<string, unknown>,
+  key: string
+): string | undefined {
+  const value = metadata[key];
+  return typeof value === "string" ? value : undefined;
+}
+
+function extractMetadataBoolean(
+  metadata: Record<string, unknown>,
+  key: string
+): boolean {
+  return metadata[key] === true;
+}
+
+function extractMetadataStringArray(
+  metadata: Record<string, unknown>,
+  key: string
+): readonly string[] {
+  const value = metadata[key];
+
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.filter((entry): entry is string => typeof entry === "string");
+}
+
+function normalizeTagSegment(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
