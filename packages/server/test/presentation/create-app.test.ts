@@ -216,3 +216,103 @@ describe("HTTP API", () => {
     });
   });
 });
+
+describe("POST /api/question — question.logged", () => {
+  let app: import("express").Express;
+  let closeServer: () => void;
+
+  beforeAll(() => {
+    const server = createMonitoringHttpServer({
+      databasePath: ":memory:",
+      rulesDir: "/nonexistent/rules"
+    });
+    app = server.app;
+    closeServer = () => server.server.close();
+  });
+
+  afterAll(() => closeServer());
+
+  it("asked 단계 → user 레인 이벤트 기록", async () => {
+    const start = await request(app).post("/api/task-start").send({ title: "Q Test" });
+    const taskId = start.body.task.id as string;
+    const sessionId = start.body.sessionId as string;
+
+    const res = await request(app).post("/api/question").send({
+      taskId, sessionId,
+      questionId: "q-1", questionPhase: "asked",
+      title: "Which approach?"
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.events[0].kind).toBe("question.logged");
+  });
+
+  it("questionId 누락 → 400", async () => {
+    const start = await request(app).post("/api/task-start").send({ title: "Q Test" });
+    const res = await request(app).post("/api/question").send({
+      taskId: start.body.task.id, questionPhase: "asked", title: "?"
+      // questionId 누락
+    });
+    expect(res.status).toBe(400);
+  });
+});
+
+describe("POST /api/todo — todo.logged", () => {
+  let app: import("express").Express;
+  let closeServer: () => void;
+
+  beforeAll(() => {
+    const server = createMonitoringHttpServer({
+      databasePath: ":memory:",
+      rulesDir: "/nonexistent/rules"
+    });
+    app = server.app;
+    closeServer = () => server.server.close();
+  });
+
+  afterAll(() => closeServer());
+
+  it("todo 이벤트를 기록한다", async () => {
+    const start = await request(app).post("/api/task-start").send({ title: "Todo Test" });
+    const taskId = start.body.task.id as string;
+    const sessionId = start.body.sessionId as string;
+
+    const res = await request(app).post("/api/todo").send({
+      taskId, sessionId,
+      todoId: "t-1", todoState: "added",
+      title: "Implement feature"
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.events[0].kind).toBe("todo.logged");
+  });
+});
+
+describe("POST /api/thought — thought.logged", () => {
+  let app: import("express").Express;
+  let closeServer: () => void;
+
+  beforeAll(() => {
+    const server = createMonitoringHttpServer({
+      databasePath: ":memory:",
+      rulesDir: "/nonexistent/rules"
+    });
+    app = server.app;
+    closeServer = () => server.server.close();
+  });
+
+  afterAll(() => closeServer());
+
+  it("thought 이벤트를 기록한다", async () => {
+    const start = await request(app).post("/api/task-start").send({ title: "Thought Test" });
+    const taskId = start.body.task.id as string;
+    const sessionId = start.body.sessionId as string;
+
+    const res = await request(app).post("/api/thought").send({
+      taskId, sessionId,
+      title: "Analysis",
+      body: "The root cause is...",
+      modelName: "claude-opus-4-6"
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.events[0].kind).toBe("thought.logged");
+  });
+});

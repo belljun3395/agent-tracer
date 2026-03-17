@@ -153,6 +153,43 @@ export interface TaskSessionEndInput {
   readonly metadata?: Record<string, unknown>;
 }
 
+/** question.logged 이벤트 입력. questionPhase=concluded는 planning 레인으로 라우팅됨. */
+export interface TaskQuestionInput {
+  readonly taskId: string;
+  readonly sessionId?: string;
+  readonly questionId: string;
+  readonly questionPhase: "asked" | "answered" | "concluded";
+  readonly sequence?: number;
+  readonly title: string;
+  readonly body?: string;
+  readonly modelName?: string;
+  readonly modelProvider?: string;
+  readonly metadata?: Record<string, unknown>;
+}
+
+/** todo.logged 이벤트 입력. planning 레인으로 라우팅됨. */
+export interface TaskTodoInput {
+  readonly taskId: string;
+  readonly sessionId?: string;
+  readonly todoId: string;
+  readonly todoState: "added" | "in_progress" | "completed" | "cancelled";
+  readonly sequence?: number;
+  readonly title: string;
+  readonly body?: string;
+  readonly metadata?: Record<string, unknown>;
+}
+
+/** thought.logged 이벤트 입력. 요약된 추론만 허용 (raw chain-of-thought 금지). planning 레인. */
+export interface TaskThoughtInput {
+  readonly taskId: string;
+  readonly sessionId?: string;
+  readonly title: string;
+  readonly body?: string;
+  readonly modelName?: string;
+  readonly modelProvider?: string;
+  readonly metadata?: Record<string, unknown>;
+}
+
 export interface GenericEventInput {
   readonly taskId: string;
   readonly sessionId?: string;

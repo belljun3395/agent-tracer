@@ -33,11 +33,14 @@ import type {
   TaskExploreInput,
   TaskAsyncLifecycleInput,
   TaskPlanInput,
+  TaskQuestionInput,
   TaskRenameInput,
   TaskRuleInput,
   TaskSessionEndInput,
   TaskStartInput,
   TaskTerminalCommandInput,
+  TaskThoughtInput,
+  TaskTodoInput,
   TaskToolUsedInput,
   TaskUserMessageInput,
   TaskVerifyInput
@@ -455,6 +458,110 @@ export class MonitorService {
   }
 
   /**
+   * question.logged 이벤트를 기록한다.
+   * questionPhase=concluded는 planning 레인, 나머지는 user 레인으로 라우팅된다.
+   * @param input 질문 입력
+   * @returns 태스크·세션·이벤트 envelope
+   */
+  logQuestion(input: TaskQuestionInput): RecordedEventEnvelope {
+    const task = this.database.getTask(input.taskId);
+    if (!task) throw new Error(`Task not found: ${input.taskId}`);
+
+    const sessionId = input.sessionId ?? this.database.findLatestSession(input.taskId)?.id;
+    // concluded 단계는 planning 레인, 나머지는 user 레인
+    const lane = input.questionPhase === "concluded" ? "planning" : "user";
+
+    const event = this.recordGenericEvent({
+      taskId: input.taskId,
+      kind: "question.logged",
+      lane,
+      title: input.title,
+      ...(sessionId ? { sessionId } : {}),
+      ...(input.body ? { body: input.body } : {}),
+      metadata: {
+        ...(input.metadata ?? {}),
+        questionId: input.questionId,
+        questionPhase: input.questionPhase,
+        ...(typeof input.sequence === "number" ? { sequence: input.sequence } : {}),
+        ...(input.modelName ? { modelName: input.modelName } : {}),
+        ...(input.modelProvider ? { modelProvider: input.modelProvider } : {})
+      }
+    });
+
+    return {
+      task,
+      ...(sessionId ? { sessionId } : {}),
+      events: [{ id: event.id, kind: event.kind }]
+    };
+  }
+
+  /**
+   * todo.logged 이벤트를 기록한다. planning 레인으로 라우팅된다.
+   * @param input 할일 입력
+   * @returns 태스크·세션·이벤트 envelope
+   */
+  logTodo(input: TaskTodoInput): RecordedEventEnvelope {
+    const task = this.database.getTask(input.taskId);
+    if (!task) throw new Error(`Task not found: ${input.taskId}`);
+
+    const sessionId = input.sessionId ?? this.database.findLatestSession(input.taskId)?.id;
+
+    const event = this.recordGenericEvent({
+      taskId: input.taskId,
+      kind: "todo.logged",
+      lane: "planning",
+      title: input.title,
+      ...(sessionId ? { sessionId } : {}),
+      ...(input.body ? { body: input.body } : {}),
+      metadata: {
+        ...(input.metadata ?? {}),
+        todoId: input.todoId,
+        todoState: input.todoState,
+        ...(typeof input.sequence === "number" ? { sequence: input.sequence } : {})
+      }
+    });
+
+    return {
+      task,
+      ...(sessionId ? { sessionId } : {}),
+      events: [{ id: event.id, kind: event.kind }]
+    };
+  }
+
+  /**
+   * thought.logged 이벤트를 기록한다. planning 레인으로 라우팅된다.
+   * 요약된 추론만 허용 (raw chain-of-thought 금지).
+   * @param input 사고 입력
+   * @returns 태스크·세션·이벤트 envelope
+   */
+  logThought(input: TaskThoughtInput): RecordedEventEnvelope {
+    const task = this.database.getTask(input.taskId);
+    if (!task) throw new Error(`Task not found: ${input.taskId}`);
+
+    const sessionId = input.sessionId ?? this.database.findLatestSession(input.taskId)?.id;
+
+    const event = this.recordGenericEvent({
+      taskId: input.taskId,
+      kind: "thought.logged",
+      lane: "planning",
+      title: input.title,
+      ...(sessionId ? { sessionId } : {}),
+      ...(input.body ? { body: input.body } : {}),
+      metadata: {
+        ...(input.metadata ?? {}),
+        ...(input.modelName ? { modelName: input.modelName } : {}),
+        ...(input.modelProvider ? { modelProvider: input.modelProvider } : {})
+      }
+    });
+
+    return {
+      task,
+      ...(sessionId ? { sessionId } : {}),
+      events: [{ id: event.id, kind: event.kind }]
+    };
+  }
+
+  /**
    * 전체 개요 통계를 반환한다.
    * @returns OverviewStats
    */
@@ -728,6 +835,31 @@ function deriveContextualTags(input: GenericEventInput): readonly string[] {
   if (ruleSource) {
     tags.add(`source:${normalizeTagSegment(ruleSource)}`);
   }
+
+  // question/todo/thought/model/MCP 컨텍스트 태그
+  const questionId = extractMetadataString(metadata, "questionId");
+  if (questionId) tags.add("question");
+
+  const questionPhase = extractMetadataString(metadata, "questionPhase");
+  if (questionPhase) tags.add(`question:${normalizeTagSegment(questionPhase)}`);
+
+  const todoId = extractMetadataString(metadata, "todoId");
+  if (todoId) tags.add("todo");
+
+  const todoState = extractMetadataString(metadata, "todoState");
+  if (todoState) tags.add(`todo:${normalizeTagSegment(todoState)}`);
+
+  const modelName = extractMetadataString(metadata, "modelName");
+  if (modelName) tags.add(`model:${normalizeTagSegment(modelName)}`);
+
+  const modelProvider = extractMetadataString(metadata, "modelProvider");
+  if (modelProvider) tags.add(`provider:${normalizeTagSegment(modelProvider)}`);
+
+  const mcpServer = extractMetadataString(metadata, "mcpServer");
+  if (mcpServer) tags.add(`mcp:${normalizeTagSegment(mcpServer)}`);
+
+  const mcpTool = extractMetadataString(metadata, "mcpTool");
+  if (mcpTool) tags.add(`mcp-tool:${normalizeTagSegment(mcpTool)}`);
 
   if (extractMetadataBoolean(metadata, "compactEvent")) {
     tags.add("compact");

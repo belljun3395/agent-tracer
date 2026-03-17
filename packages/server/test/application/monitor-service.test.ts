@@ -191,3 +191,110 @@ describe("MonitorService", () => {
     });
   });
 });
+
+describe("logQuestion — question.logged 계약", () => {
+  let service: MonitorService;
+
+  beforeEach(() => {
+    service = new MonitorService({
+      databasePath: ":memory:",
+      rulesDir: "/nonexistent/rules"
+    });
+  });
+
+  it("asked/answered 단계는 user 레인으로 기록된다", () => {
+    const { task, sessionId } = service.startTask({ title: "T" });
+    const result = service.logQuestion({
+      taskId: task.id, sessionId,
+      questionId: "q1", questionPhase: "asked",
+      title: "Should we use TypeScript?"
+    });
+    expect(result.events[0]?.kind).toBe("question.logged");
+    const timeline = service.getTaskTimeline(task.id);
+    const ev = timeline.find(e => e.id === result.events[0]!.id);
+    expect(ev?.lane).toBe("user");
+    expect(ev?.metadata.questionId).toBe("q1");
+    expect(ev?.metadata.questionPhase).toBe("asked");
+  });
+
+  it("concluded 단계는 planning 레인으로 기록된다", () => {
+    const { task, sessionId } = service.startTask({ title: "T" });
+    const result = service.logQuestion({
+      taskId: task.id, sessionId,
+      questionId: "q1", questionPhase: "concluded",
+      title: "Decision: use TypeScript"
+    });
+    const timeline = service.getTaskTimeline(task.id);
+    const ev = timeline.find(e => e.id === result.events[0]!.id);
+    expect(ev?.lane).toBe("planning");
+  });
+
+  it("존재하지 않는 태스크 → 에러", () => {
+    expect(() => service.logQuestion({
+      taskId: "no-such", questionId: "q1",
+      questionPhase: "asked", title: "?"
+    })).toThrow();
+  });
+});
+
+describe("logTodo — todo.logged 계약", () => {
+  let service: MonitorService;
+
+  beforeEach(() => {
+    service = new MonitorService({
+      databasePath: ":memory:",
+      rulesDir: "/nonexistent/rules"
+    });
+  });
+
+  it("todo 이벤트는 planning 레인으로 기록된다", () => {
+    const { task, sessionId } = service.startTask({ title: "T" });
+    const result = service.logTodo({
+      taskId: task.id, sessionId,
+      todoId: "todo-1", todoState: "added",
+      title: "Implement feature X"
+    });
+    expect(result.events[0]?.kind).toBe("todo.logged");
+    const timeline = service.getTaskTimeline(task.id);
+    const ev = timeline.find(e => e.id === result.events[0]!.id);
+    expect(ev?.lane).toBe("planning");
+    expect(ev?.metadata.todoId).toBe("todo-1");
+    expect(ev?.metadata.todoState).toBe("added");
+  });
+
+  it("동일 todoId로 다른 상태를 기록할 수 있다", () => {
+    const { task, sessionId } = service.startTask({ title: "T" });
+    service.logTodo({ taskId: task.id, sessionId, todoId: "todo-1", todoState: "added", title: "X" });
+    service.logTodo({ taskId: task.id, sessionId, todoId: "todo-1", todoState: "completed", title: "X done" });
+    const timeline = service.getTaskTimeline(task.id);
+    const todos = timeline.filter(e => e.kind === "todo.logged" && e.metadata.todoId === "todo-1");
+    expect(todos).toHaveLength(2);
+  });
+});
+
+describe("logThought — thought.logged 계약", () => {
+  let service: MonitorService;
+
+  beforeEach(() => {
+    service = new MonitorService({
+      databasePath: ":memory:",
+      rulesDir: "/nonexistent/rules"
+    });
+  });
+
+  it("thought 이벤트는 planning 레인으로 기록된다", () => {
+    const { task, sessionId } = service.startTask({ title: "T" });
+    const result = service.logThought({
+      taskId: task.id, sessionId,
+      title: "Analyzing the problem",
+      body: "The issue seems to be...",
+      modelName: "claude-opus-4-6",
+      modelProvider: "anthropic"
+    });
+    expect(result.events[0]?.kind).toBe("thought.logged");
+    const timeline = service.getTaskTimeline(task.id);
+    const ev = timeline.find(e => e.id === result.events[0]!.id);
+    expect(ev?.lane).toBe("planning");
+    expect(ev?.metadata.modelName).toBe("claude-opus-4-6");
+  });
+});

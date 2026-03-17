@@ -140,6 +140,40 @@ export const sessionEndSchema = z.object({
   metadata: z.record(z.unknown()).optional()
 });
 
+export const questionSchema = z.object({
+  taskId: z.string().min(1),
+  sessionId: z.string().optional(),
+  questionId: z.string().min(1),
+  questionPhase: z.enum(["asked", "answered", "concluded"]),
+  sequence: z.number().int().nonnegative().optional(),
+  title: z.string().min(1),
+  body: z.string().optional(),
+  modelName: z.string().optional(),
+  modelProvider: z.string().optional(),
+  metadata: z.record(z.unknown()).optional()
+});
+
+export const todoSchema = z.object({
+  taskId: z.string().min(1),
+  sessionId: z.string().optional(),
+  todoId: z.string().min(1),
+  todoState: z.enum(["added", "in_progress", "completed", "cancelled"]),
+  sequence: z.number().int().nonnegative().optional(),
+  title: z.string().min(1),
+  body: z.string().optional(),
+  metadata: z.record(z.unknown()).optional()
+});
+
+export const thoughtSchema = z.object({
+  taskId: z.string().min(1),
+  sessionId: z.string().optional(),
+  title: z.string().min(1),
+  body: z.string().optional(),
+  modelName: z.string().optional(),
+  modelProvider: z.string().optional(),
+  metadata: z.record(z.unknown()).optional()
+});
+
 export const asyncLifecycleSchema = z.object({
   taskId: z.string().min(1),
   sessionId: z.string().optional(),

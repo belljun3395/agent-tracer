@@ -21,11 +21,14 @@ import type {
   TaskAsyncLifecycleInput,
   TaskExploreInput,
   TaskPlanInput,
+  TaskQuestionInput,
   TaskRenameInput,
   TaskRuleInput,
   TaskSessionEndInput,
   TaskStartInput,
   TaskTerminalCommandInput,
+  TaskThoughtInput,
+  TaskTodoInput,
   TaskToolUsedInput,
   TaskUserMessageInput,
   TaskVerifyInput
@@ -44,7 +47,10 @@ import {
   ruleSchema,
   asyncLifecycleSchema,
   userMessageSchema,
-  sessionEndSchema
+  sessionEndSchema,
+  questionSchema,
+  todoSchema,
+  thoughtSchema
 } from "./schemas.js";
 
 export interface MonitoringHttpServer {
@@ -237,6 +243,24 @@ export function createMonitoringHttpServer(
       sessionEndSchema.parse(request.body) as TaskSessionEndInput
     );
     broadcast("task.session-ended", result);
+    response.json(result);
+  });
+
+  app.post("/api/question", (request, response) => {
+    const result = service.logQuestion(questionSchema.parse(request.body) as TaskQuestionInput);
+    broadcast("task.event-recorded", result);
+    response.json(result);
+  });
+
+  app.post("/api/todo", (request, response) => {
+    const result = service.logTodo(todoSchema.parse(request.body) as TaskTodoInput);
+    broadcast("task.event-recorded", result);
+    response.json(result);
+  });
+
+  app.post("/api/thought", (request, response) => {
+    const result = service.logThought(thoughtSchema.parse(request.body) as TaskThoughtInput);
+    broadcast("task.event-recorded", result);
     response.json(result);
   });
 
