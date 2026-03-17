@@ -8,7 +8,8 @@ import urllib.request
 
 API_BASE    = f"http://127.0.0.1:{os.environ.get('MONITOR_PORT', '3847')}"
 PROJECT_DIR = os.environ.get("CLAUDE_PROJECT_DIR", os.getcwd())
-CLAUDE_RUNTIME = bool(os.environ.get("CLAUDE_PROJECT_DIR"))
+OPENCODE_RUNTIME = bool(os.environ.get("OPENCODE") or os.environ.get("OPENCODE_CLIENT"))
+CLAUDE_RUNTIME = bool(os.environ.get("CLAUDE_PROJECT_DIR")) and not OPENCODE_RUNTIME
 
 
 def _rel(path: str) -> str:
