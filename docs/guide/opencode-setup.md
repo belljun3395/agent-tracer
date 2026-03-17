@@ -48,9 +48,22 @@ export MONITOR_PORT=3847
 
 플러그인이 자동으로 처리하는 이벤트:
 
-- `session.created` — 세션 시작 시 태스크 생성
+- `session.created` — 세션 시작 시 태스크 생성 + `user-message-capture-unavailable` 규칙 신호 기록
 - `tool.execute.after` — 도구 실행 후 이벤트 기록
-- `session.deleted` — 세션 종료 시 태스크 완료
+- `session.deleted` — 세션 종료 (태스크는 `running` 유지 — `task-complete` 미호출)
+
+**세션 vs. 태스크 생명주기:**
+
+| 이벤트 | 플러그인 동작 |
+|--------|-------------|
+| `session.created` | 새 태스크 + 세션 생성 |
+| `session.deleted` | 세션만 종료 (`/api/session-end`) — 태스크는 `running` 유지 |
+| 작업 완료 | `monitor_task_complete` MCP 도구로 명시적 종료 |
+
+OpenCode 플러그인 훅은 raw 사용자 프롬프트 텍스트를 노출하지 않는다.
+플러그인은 `ruleId: user-message-capture-unavailable` 규칙 이벤트를 기록하여
+이 gap을 타임라인에 명시적으로 표시한다.
+실제 사용자 메시지를 기록하려면 MCP를 통해 `monitor_user_message`를 직접 호출해야 한다.
 
 OpenCode를 이 저장소에서 실행하면 추가 설정 없이 모니터링이 활성화됩니다.
 
@@ -150,3 +163,5 @@ cp /path/to/agent-tracer/opencode.json /your-project/opencode.json
 3. Run one normal task.
 4. Confirm the monitor dashboard shows task lifecycle events.
 5. Confirm `opencode mcp list` shows `monitor` as connected.
+6. End the OpenCode session — the task should remain `running` in the dashboard.
+7. Call `monitor_task_complete` via MCP to explicitly close the work item.

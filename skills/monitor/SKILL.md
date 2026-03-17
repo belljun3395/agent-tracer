@@ -17,13 +17,24 @@ description: MCP가 있는 모든 환경에서 Agent Tracer 모니터링 기록.
 
 ## 이벤트 매핑
 
+**사용자 메시지 (캐노니컬 경로):**
+- `monitor_user_message` + `captureMode="raw"` — 실제 사용자 프롬프트 텍스트
+  - `messageId` 필수 (중복 방지)
+  - `source="manual-mcp"` (MCP/수동 환경), `phase="initial"` 또는 `"follow_up"`
+- `monitor_user_message` + `captureMode="derived"` — raw 소스 연결 보강 레코드
+  - `sourceEventId` 필수 (raw 이벤트 ID 참조)
+
+**세션 생명주기:**
+- `monitor_session_end` — 현재 세션 종료 (태스크는 `running` 유지)
+- `monitor_task_complete` — 작업 항목 명시적 종료
+- `monitor_task_error` — 실패·차단·중단 시
+
+**작업 이벤트:**
 - `monitor_explore` — 파일 읽기, 코드 검색, 문서 조회
-- `monitor_save_context` + `lane="planning"` — 계획, 분석, 접근 결정
-- `monitor_save_context` + `lane="user"` — 사용자가 볼 만한 주요 체크포인트
+- `monitor_save_context` + `lane="planning"` — 계획, 분석, 접근 결정 (체크포인트; raw 프롬프트 아님)
 - `monitor_terminal_command` — 셸 명령. test/lint/build는 `lane="rules"`, 그 외 `lane="implementation"`
 - `monitor_tool_used` — 파일 수정, patch 적용 등 핵심 도구 사용
-- `monitor_task_complete` — 작업 완료 및 검증 후
-- `monitor_task_error` — 실패·차단·중단 시
+- `monitor_rule` + `ruleId="user-message-capture-unavailable"` — raw 캡처 불가 환경에서 gap 명시
 
 ## 필수 리듬
 
@@ -37,7 +48,12 @@ description: MCP가 있는 모든 환경에서 Agent Tracer 모니터링 기록.
 ## 최소 흐름
 
 1. `monitor_task_start`
-2. `monitor_explore` — 탐색
-3. `monitor_save_context` — 계획 스냅샷
-4. `monitor_terminal_command` / `monitor_tool_used` — 구현
-5. `monitor_task_complete` 또는 `monitor_task_error`
+2. `monitor_user_message` (`captureMode="raw"`, `phase="initial"`) — 사용자 요청 기록
+3. `monitor_explore` — 탐색
+4. `monitor_save_context` — 계획 스냅샷
+5. `monitor_terminal_command` / `monitor_tool_used` — 구현
+6. `monitor_task_complete` 또는 `monitor_task_error`
+
+후속 메시지가 있을 경우:
+- `monitor_user_message` (`captureMode="raw"`, `phase="follow_up"`) — 후속 요청 기록
+  (동일 `taskId` 사용 — 새 태스크 생성 금지)

@@ -16,3 +16,11 @@ A skill is a set of local instructions stored in a `SKILL.md` file.
   - Claude Code → hook 자동 동작 (스킬 불필요)
 - 스킬 파일을 열고 실질적 작업 전에 흐름을 따름.
 - monitor-server MCP 서버 미가용 시 작업 계속하고 마지막에 gap 리포트.
+
+### 캐노니컬 user.message 경로
+
+- MCP/수동 환경 → `monitor_user_message` (`captureMode="raw"`) 으로 실제 사용자 프롬프트 기록
+- `monitor_save_context`는 raw 프롬프트 경로가 아닌 계획·체크포인트 전용
+- `monitor_session_end`는 세션만 종료; 작업 항목 종료는 `monitor_task_complete`만 사용
+- OpenCode/Claude 자동 통합은 훅 페이로드에 raw 프롬프트가 없을 경우
+  `ruleId: user-message-capture-unavailable` 규칙 이벤트로 gap을 명시적으로 기록
