@@ -32,6 +32,7 @@ import {
 } from "../lib/insights.js";
 import { formatRelativeTime } from "../lib/timeline.js";
 import type { TimelineConnector } from "../lib/timeline.js";
+import { useDragScroll } from "../lib/useDragScroll.js";
 import type {
   BookmarkRecord,
   OverviewResponse,
@@ -936,6 +937,7 @@ export function EventInspector({
   const [activeTab, setActiveTab]                   = useState<PanelTabId>("inspector");
   const [isExploredFilesExpanded, setIsExploredFilesExpanded] = useState(true);
   const [copiedExtraction, setCopiedExtraction]     = useState<"brief" | "process" | null>(null);
+  const inspectorDragScroll = useDragScroll({ axis: "y" });
 
   const taskTimeline = taskDetail?.timeline ?? [];
 
@@ -1055,7 +1057,12 @@ export function EventInspector({
       </div>
 
       {/* ── Tab content ── */}
-      <div className="panel-tab-content" role="tabpanel">
+      <div
+        className="panel-tab-content"
+        role="tabpanel"
+        style={{ cursor: inspectorDragScroll.isDragging ? "grabbing" : undefined }}
+        {...inspectorDragScroll.handlers}
+      >
 
         {activeTab === "inspector" ? (
           <>

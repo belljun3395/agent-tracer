@@ -13,6 +13,7 @@ import type {
 } from "../types.js";
 import { formatRelativeTime } from "../lib/timeline.js";
 import { buildTaskDisplayTitle } from "../lib/insights.js";
+import { useDragScroll } from "../lib/useDragScroll.js";
 
 interface TaskListProps {
   readonly tasks: readonly MonitoringTask[];
@@ -71,6 +72,7 @@ export function TaskList({
   onRefresh
 }: TaskListProps): React.JSX.Element {
   const [collapsedParentIds, setCollapsedParentIds] = useState<ReadonlySet<string>>(new Set());
+  const tasksDragScroll = useDragScroll({ axis: "y" });
   const taskTitleById = new Map(
     tasks.map((task) => [task.id, resolveTaskListItemTitle(task, selectedTaskId, selectedTaskDisplayTitle, taskTitleCache)])
   );
@@ -154,7 +156,7 @@ export function TaskList({
         {selectedTaskBookmarkId ? "Saved Current Task" : "Save Current Task"}
       </button>
 
-      <div className="task-list-section">
+      <div className="task-list-section saved-section">
         <div className="section-heading">
           <span>Saved</span>
           <span className="count-badge">{bookmarks.length}</span>
@@ -227,7 +229,11 @@ export function TaskList({
             </p>
           </div>
         ) : (
-          <div className="task-items">
+          <div
+            className="task-items"
+            style={{ cursor: tasksDragScroll.isDragging ? "grabbing" : undefined }}
+            {...tasksDragScroll.handlers}
+          >
             {displayRows.map(({ task, depth }) => (
               (() => {
                 const taskDisplayTitle = resolveTaskListItemTitle(task, selectedTaskId, selectedTaskDisplayTitle, taskTitleCache);
