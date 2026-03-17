@@ -67,6 +67,26 @@ export interface RecordedEventEnvelope {
   }[];
 }
 
+function extractCompletedBackgroundTaskIds(text: string | undefined): readonly string[] {
+  if (!text) return [];
+
+  const ids = new Set<string>();
+  for (const match of text.matchAll(/\bbg_[A-Za-z0-9_-]+\b/g)) {
+    const id = match[0]?.trim();
+    if (id) ids.add(id);
+  }
+
+  return [...ids];
+}
+
+function hasAllBackgroundCompleteMarker(text: string | undefined): boolean {
+  return typeof text === "string" && text.includes("[ALL BACKGROUND TASKS COMPLETE]");
+}
+
+function hasBackgroundTaskMissingMarker(text: string | undefined): boolean {
+  return typeof text === "string" && text.includes("Task not found:");
+}
+
 /**
  * 모니터링 서비스 클래스.
  * 태스크·세션·이벤트 생명주기와 규칙 색인 관리를 담당.
@@ -229,11 +249,82 @@ export class MonitorService {
       }
     });
 
+    this.#reconcileBackgroundCompletionFromText({
+      parentTask: task,
+      title: input.title,
+      ...(sessionId ? { parentSessionId: sessionId } : {}),
+      ...(input.body ? { body: input.body } : {}),
+      source: "user.message"
+    });
+
     return {
       task,
       ...(sessionId ? { sessionId } : {}),
       events: [{ id: event.id, kind: event.kind }]
     };
+  }
+
+  #reconcileBackgroundCompletionFromText(input: {
+    parentTask: MonitoringTask;
+    parentSessionId?: string;
+    title?: string;
+    body?: string;
+    source: "user.message" | "tool.used";
+  }): void {
+    const text = [input.title, input.body]
+      .filter((value): value is string => typeof value === "string" && value.length > 0)
+      .join("\n");
+
+    const hasReminderMarker = text.includes("[BACKGROUND TASK COMPLETED]") || text.includes("[ALL BACKGROUND TASKS COMPLETE]");
+    const hasMissingMarker = hasBackgroundTaskMissingMarker(text);
+    if (!hasReminderMarker && !hasMissingMarker) {
+      return;
+    }
+
+    const completedBackgroundTaskIds = new Set(extractCompletedBackgroundTaskIds(text));
+    const completeAllChildren = hasAllBackgroundCompleteMarker(text);
+    const runningChildren = this.database
+      .listTasks()
+      .filter((candidate) => candidate.parentTaskId === input.parentTask.id)
+      .filter((candidate) => candidate.taskKind === "background")
+      .filter((candidate) => candidate.status === "running");
+
+    const targets = runningChildren.filter((candidate) => {
+      if (completeAllChildren) return true;
+      return candidate.backgroundTaskId !== undefined
+        && completedBackgroundTaskIds.has(candidate.backgroundTaskId);
+    });
+
+    for (const childTask of targets) {
+      const childSessionId = this.database.findLatestSession(childTask.id)?.id;
+      if (!childSessionId) {
+        continue;
+      }
+
+      this.endSession({
+        taskId: childTask.id,
+        sessionId: childSessionId,
+        summary: "Background task completed",
+        metadata: {
+          reminderSource: input.source,
+          ...(childTask.backgroundTaskId ? { backgroundTaskId: childTask.backgroundTaskId } : {})
+        }
+      });
+
+      this.logAsyncLifecycle({
+        taskId: input.parentTask.id,
+        ...(input.parentSessionId ? { sessionId: input.parentSessionId } : {}),
+        asyncTaskId: childTask.backgroundTaskId ?? childTask.id,
+        asyncStatus: "completed",
+        title: childTask.title,
+        ...(input.parentSessionId ? { parentSessionId: input.parentSessionId } : {}),
+        metadata: {
+          reminderSource: input.source,
+          childTaskId: childTask.id,
+          ...(childTask.backgroundTaskId ? { backgroundTaskId: childTask.backgroundTaskId } : {})
+        }
+      });
+    }
   }
 
   endSession(input: TaskSessionEndInput): { sessionId: string; task: MonitoringTask } {
@@ -549,7 +640,7 @@ export class MonitorService {
   logToolUsed(input: TaskToolUsedInput): RecordedEventEnvelope {
     const sessionId = input.sessionId ?? this.database.findLatestSession(input.taskId)?.id;
 
-    return this.recordWithDerivedFiles({
+    const event = this.recordWithDerivedFiles({
       taskId: input.taskId,
       kind: "tool.used",
       title: input.title ?? input.toolName,
@@ -563,6 +654,19 @@ export class MonitorService {
       ...(input.lane ? { lane: input.lane } : {}),
       ...(input.filePaths ? { filePaths: input.filePaths } : {})
     });
+
+    const task = this.database.getTask(input.taskId);
+    if (task && input.toolName === "background_output") {
+      this.#reconcileBackgroundCompletionFromText({
+        parentTask: task,
+        ...(sessionId ? { parentSessionId: sessionId } : {}),
+        ...(input.title ? { title: input.title } : {}),
+        ...(input.body ? { body: input.body } : {}),
+        source: "tool.used"
+      });
+    }
+
+    return event;
   }
 
   /**

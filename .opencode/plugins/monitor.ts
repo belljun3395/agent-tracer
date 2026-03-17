@@ -44,6 +44,7 @@ interface BackgroundTaskLink {
   readonly parentSessionId?: string;
   readonly backgroundTaskId?: string;
   readonly title?: string;
+  readonly taskId?: string;
 }
 
 type MonitorSemanticRoute = {
@@ -176,6 +177,75 @@ function extractMatches(text: string | undefined, pattern: RegExp): string[] {
   return matches;
 }
 
+function extractSubagentParentTitle(title: string | undefined): string | undefined {
+  if (!title) return undefined;
+
+  const match = title.match(/^(.*)\s+\(@[^)]+ subagent\)$/i);
+  const parentTitle = match?.[1]?.trim();
+  return parentTitle && parentTitle.length > 0 ? parentTitle : undefined;
+}
+
+function findBackgroundAncestorLink(title: string | undefined): BackgroundTaskLink | undefined {
+  const parentTitle = extractSubagentParentTitle(title);
+  if (!parentTitle) return undefined;
+
+  let matchedPendingLink: BackgroundTaskLink | undefined;
+  for (const pendingLink of pendingBackgroundLinks.values()) {
+    if (pendingLink.title === parentTitle) {
+      matchedPendingLink = pendingLink;
+    }
+  }
+
+  if (matchedPendingLink) {
+    const linkedState = sessionStates.get(matchedPendingLink.childSessionId);
+    return {
+      childSessionId: "",
+      parentTaskId: matchedPendingLink.parentTaskId,
+      ...(matchedPendingLink.parentSessionId ? { parentSessionId: matchedPendingLink.parentSessionId } : {}),
+      ...(matchedPendingLink.backgroundTaskId ? { backgroundTaskId: matchedPendingLink.backgroundTaskId } : {}),
+      ...(matchedPendingLink.title ? { title: matchedPendingLink.title } : {}),
+      ...(linkedState?.taskId ? { taskId: linkedState.taskId } : {})
+    };
+  }
+
+  let matchedState: SessionState | undefined;
+  for (const state of sessionStates.values()) {
+    if (state.taskKind !== "background") continue;
+
+    const candidateTitle = state.backgroundTitle ?? state.taskTitle;
+    if (candidateTitle === parentTitle) {
+      matchedState = state;
+    }
+  }
+
+  if (!matchedState?.parentTaskId) {
+    return undefined;
+  }
+
+  return {
+    childSessionId: "",
+    parentTaskId: matchedState.parentTaskId,
+    ...(matchedState.parentSessionId ? { parentSessionId: matchedState.parentSessionId } : {}),
+    ...(matchedState.backgroundTaskId ? { backgroundTaskId: matchedState.backgroundTaskId } : {}),
+    ...(matchedState.backgroundTitle ? { title: matchedState.backgroundTitle } : {}),
+    taskId: matchedState.taskId
+  };
+}
+
+function extractCompletedBackgroundTaskIds(text: string): readonly string[] {
+  const ids = new Set<string>();
+  if (!text.includes("[BACKGROUND TASK COMPLETED]") && !text.includes("[ALL BACKGROUND TASKS COMPLETE]")) {
+    return [];
+  }
+
+  for (const match of text.matchAll(/\bbg_[A-Za-z0-9_-]+\b/g)) {
+    const id = match[0]?.trim();
+    if (id) ids.add(id);
+  }
+
+  return [...ids];
+}
+
 function extractParallelBackgroundLinks(input: {
   toolName: string;
   args: unknown;
@@ -277,7 +347,7 @@ function extractPathLikeTokens(text: string): readonly string[] {
     }
   }
 
-  const atPathRegex = /@([A-Za-z0-9_.\/-]+(?:\.[A-Za-z0-9_-]+)?)/g;
+  const atPathRegex = /@([A-Za-z0-9_./-]+(?:\.[A-Za-z0-9_-]+)?)/g;
   for (const match of text.matchAll(atPathRegex)) {
     const candidate = match[1]?.trim();
     if (candidate && looksLikePath(candidate)) {
@@ -569,11 +639,12 @@ export function createMonitorHooks(workspacePath: string): Hooks {
 
     const cachedInfo = sessionInfoById.get(input.sessionId);
     const targetWorkspacePath = input.directory ?? cachedInfo?.directory ?? workspacePath;
-    const backgroundLink = pendingBackgroundLinks.get(input.sessionId);
+    const backgroundLink = pendingBackgroundLinks.get(input.sessionId)
+      ?? findBackgroundAncestorLink(input.title ?? cachedInfo?.title);
     const taskTitle = backgroundLink?.title ?? buildTaskTitle(targetWorkspacePath, input.sessionId);
     const promise = (async (): Promise<SessionState | undefined> => {
       const result = await post("/api/task-start", {
-        taskId: monitorTaskIdForOpenCodeSession(input.sessionId),
+        taskId: backgroundLink?.taskId ?? monitorTaskIdForOpenCodeSession(input.sessionId),
         title: taskTitle,
         workspacePath: targetWorkspacePath,
         taskKind: backgroundLink ? "background" : "primary",
@@ -594,9 +665,9 @@ export function createMonitorHooks(workspacePath: string): Hooks {
       const taskId = result?.task?.id;
       if (!taskId) return undefined;
 
-      const nextState: SessionState = {
-        taskId,
-        taskTitle,
+        const nextState: SessionState = {
+          taskId,
+          taskTitle,
         taskKind: backgroundLink ? "background" : "primary",
         // DB row is confirmed "background" only when we created it with the link already known.
         // Late-backfill cases start as false until /api/task-link succeeds.
@@ -622,8 +693,98 @@ export function createMonitorHooks(workspacePath: string): Hooks {
       return await promise;
     } finally {
       pendingSessionStarts.delete(input.sessionId);
+      }
     }
-  }
+
+    function hasSiblingSessions(opencodeSessionId: string, taskId: string): boolean {
+      for (const [candidateSessionId, candidateState] of sessionStates.entries()) {
+        if (candidateSessionId === opencodeSessionId) continue;
+        if (candidateState.taskId === taskId) {
+          return true;
+        }
+      }
+
+      return false;
+    }
+
+    async function finalizeSession(opencodeSessionId: string, state: SessionState, summary: string): Promise<void> {
+      let confirmedBackground = state.taskKind === "background" && state.backgroundLinkConfirmed;
+
+      if (state.taskKind === "background" && !state.backgroundLinkConfirmed && state.parentTaskId) {
+        const retryResult = await post("/api/task-link", {
+          taskId: state.taskId,
+          taskKind: "background",
+          parentTaskId: state.parentTaskId,
+          ...(state.parentSessionId ? { parentSessionId: state.parentSessionId } : {}),
+          ...(state.backgroundTaskId ? { backgroundTaskId: state.backgroundTaskId } : {}),
+          ...(state.backgroundTitle ? { title: state.backgroundTitle } : {})
+        });
+        if (retryResult !== null) {
+          confirmedBackground = true;
+        }
+      }
+
+      await post("/api/session-end", {
+        taskId: state.taskId,
+        sessionId: state.monitorSessionId,
+        completeTask: !confirmedBackground,
+        summary,
+        metadata: {
+          opencodeSessionId
+        }
+      });
+
+      if (confirmedBackground && state.parentTaskId && !hasSiblingSessions(opencodeSessionId, state.taskId)) {
+        await post("/api/async-task", {
+          taskId: state.parentTaskId,
+          ...(state.parentSessionId ? { sessionId: state.parentSessionId } : {}),
+          asyncTaskId: state.backgroundTaskId ?? opencodeSessionId,
+          asyncStatus: "completed",
+          title: state.backgroundTitle ?? "Background task completed",
+          ...(state.parentSessionId ? { parentSessionId: state.parentSessionId } : {}),
+          metadata: {
+            opencodeSessionId,
+            childTaskId: state.taskId,
+            ...(state.backgroundTaskId ? { backgroundTaskId: state.backgroundTaskId } : {})
+          }
+        });
+      }
+
+      sessionStates.delete(opencodeSessionId);
+      pendingSessionStarts.delete(opencodeSessionId);
+      pendingBackgroundLinks.delete(opencodeSessionId);
+      sessionInfoById.delete(opencodeSessionId);
+      endedSessionIds.add(opencodeSessionId);
+    }
+
+    async function reconcileCompletedBackgroundTasks(backgroundTaskIds: readonly string[]): Promise<void> {
+      for (const backgroundTaskId of backgroundTaskIds) {
+        const matchingSessionIds = new Set<string>();
+
+        for (const [sessionId, state] of sessionStates.entries()) {
+          if (state.backgroundTaskId === backgroundTaskId) {
+            matchingSessionIds.add(sessionId);
+          }
+        }
+
+        for (const [sessionId, backgroundLink] of pendingBackgroundLinks.entries()) {
+          if (backgroundLink.backgroundTaskId === backgroundTaskId) {
+            matchingSessionIds.add(sessionId);
+          }
+        }
+
+        for (const sessionId of matchingSessionIds) {
+          const state = sessionStates.get(sessionId)
+            ?? await pendingSessionStarts.get(sessionId)
+            ?? undefined;
+          if (!state) {
+            continue;
+          }
+
+          await finalizeSession(sessionId, state, "OpenCode background task completed");
+        }
+      }
+    }
 
   return {
     "chat.message": async (input, output) => {
@@ -642,6 +803,12 @@ export function createMonitorHooks(workspacePath: string): Hooks {
       const text = extractTextFromParts(output.parts);
 
       if (!text) return;
+
+      const completedBackgroundTaskIds = extractCompletedBackgroundTaskIds(text);
+      if (completedBackgroundTaskIds.length > 0) {
+        await reconcileCompletedBackgroundTasks(completedBackgroundTaskIds);
+        return;
+      }
 
       const message = deriveUserMessageFields(text);
 
@@ -674,6 +841,14 @@ export function createMonitorHooks(workspacePath: string): Hooks {
           title: event.properties.info.title
         });
 
+        const inheritedBackgroundLink = findBackgroundAncestorLink(event.properties.info.title);
+        if (inheritedBackgroundLink) {
+          pendingBackgroundLinks.set(event.properties.info.id, {
+            ...inheritedBackgroundLink,
+            childSessionId: event.properties.info.id
+          });
+        }
+
         return;
       }
 
@@ -691,63 +866,7 @@ export function createMonitorHooks(workspacePath: string): Hooks {
         endedSessionIds.add(opencodeSessionId);
         return;
       }
-
-      // Determine whether the DB row is confirmed as "background".
-      // If the state is "background" but the link was never confirmed (e.g. /api/task-link
-      // failed silently), the DB row is still "primary". In that case we attempt one
-      // last retry; if it also fails we fall back to completeTask:true so the task
-      // does not remain stuck in "running".
-      let confirmedBackground = state.taskKind === "background" && state.backgroundLinkConfirmed;
-
-      if (state.taskKind === "background" && !state.backgroundLinkConfirmed && state.parentTaskId) {
-        const retryResult = await post("/api/task-link", {
-          taskId: state.taskId,
-          taskKind: "background",
-          parentTaskId: state.parentTaskId,
-          ...(state.parentSessionId ? { parentSessionId: state.parentSessionId } : {}),
-          ...(state.backgroundTaskId ? { backgroundTaskId: state.backgroundTaskId } : {}),
-          ...(state.backgroundTitle ? { title: state.backgroundTitle } : {})
-        });
-        if (retryResult !== null) {
-          confirmedBackground = true;
-        }
-      }
-
-      await post("/api/session-end", {
-        taskId: state.taskId,
-        sessionId: state.monitorSessionId,
-        // completeTask:true closes a primary (or an unconfirmed-background) task.
-        // For confirmed-background tasks the server auto-completes on last session end.
-        completeTask: !confirmedBackground,
-        summary: "OpenCode session ended",
-        metadata: {
-          opencodeSessionId
-        }
-      });
-
-      if (confirmedBackground) {
-        if (state.parentTaskId) {
-          await post("/api/async-task", {
-            taskId: state.parentTaskId,
-            ...(state.parentSessionId ? { sessionId: state.parentSessionId } : {}),
-            asyncTaskId: state.backgroundTaskId ?? opencodeSessionId,
-            asyncStatus: "completed",
-            title: state.backgroundTitle ?? "Background task completed",
-            ...(state.parentSessionId ? { parentSessionId: state.parentSessionId } : {}),
-            metadata: {
-              opencodeSessionId,
-              childTaskId: state.taskId,
-              ...(state.backgroundTaskId ? { backgroundTaskId: state.backgroundTaskId } : {})
-            }
-          });
-        }
-      }
-
-      sessionStates.delete(opencodeSessionId);
-      pendingSessionStarts.delete(opencodeSessionId);
-      pendingBackgroundLinks.delete(opencodeSessionId);
-      sessionInfoById.delete(opencodeSessionId);
-      endedSessionIds.add(opencodeSessionId);
+      await finalizeSession(opencodeSessionId, state, "OpenCode session ended");
     },
 
     "tool.execute.before": async (input) => {

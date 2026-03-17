@@ -134,13 +134,14 @@ export function App(): React.JSX.Element {
 
   /* reset filters on task change */
   useEffect(() => {
+    void selectedTaskId;
     setSelectedRuleId(null);
     setSelectedTag(null);
     setShowRuleGapsOnly(false);
     setIsEditingTaskTitle(false);
     setTaskTitleError(null);
     setIsSavingTaskTitle(false);
-  }, []);
+  }, [selectedTaskId]);
 
   /* websocket with auto-reconnect */
   useEffect(() => {

@@ -156,6 +156,118 @@ describe("MonitorService", () => {
       });
       expect(result.sessionId).toBe(sessionId);
     });
+
+    it("background completion reminder user.message closes the matching child task", () => {
+      const { task: parent, sessionId: parentSessionId } = service.startTask({ title: "Parent" });
+      const { task: child, sessionId: childSessionId } = service.startTask({
+        title: "Background child",
+        taskKind: "background",
+        parentTaskId: parent.id,
+        parentSessionId,
+        backgroundTaskId: "bg_reminder_1"
+      });
+
+      const result = service.logUserMessage({
+        taskId: parent.id,
+        sessionId: parentSessionId,
+        messageId: "msg-reminder-1",
+        captureMode: "raw",
+        source: "manual-mcp",
+        phase: "follow_up",
+        title: "**ID:** `bg_reminder_1`",
+        body: "<system-reminder>\n[BACKGROUND TASK COMPLETED]\n**ID:** `bg_reminder_1`\n</system-reminder>"
+      });
+
+      expect(result.events[0]?.kind).toBe("user.message");
+      expect(service.getTask(child.id)?.status).toBe("completed");
+      expect(service.getTask(parent.id)?.status).toBe("running");
+
+      const childSession = service.getTaskTimeline(child.id).find((event) => event.kind === "task.complete");
+      expect(childSession).toBeDefined();
+
+      const parentTimeline = service.getTaskTimeline(parent.id);
+      const completionAction = parentTimeline.find((event) =>
+        event.kind === "action.logged"
+        && event.metadata.asyncTaskId === "bg_reminder_1"
+        && event.metadata.asyncStatus === "completed"
+      );
+      expect(completionAction).toBeDefined();
+
+      const latestChildSession = service.getTaskTimeline(child.id).find((event) =>
+        event.kind === "task.complete" && event.sessionId === childSessionId
+      );
+      expect(latestChildSession).toBeDefined();
+    });
+
+    it("all background complete reminder closes orphaned running children under the parent", () => {
+      const { task: parent, sessionId: parentSessionId } = service.startTask({ title: "Parent All" });
+      const { task: childA } = service.startTask({
+        title: "Background A",
+        taskKind: "background",
+        parentTaskId: parent.id,
+        parentSessionId,
+        backgroundTaskId: "bg-all-a"
+      });
+      const { task: childB } = service.startTask({
+        title: "Background B",
+        taskKind: "background",
+        parentTaskId: parent.id,
+        parentSessionId,
+        backgroundTaskId: "bg-all-b"
+      });
+
+      service.logUserMessage({
+        taskId: parent.id,
+        sessionId: parentSessionId,
+        messageId: "msg-reminder-all",
+        captureMode: "raw",
+        source: "manual-mcp",
+        phase: "follow_up",
+        title: "**Completed:**",
+        body: "<system-reminder>\n[ALL BACKGROUND TASKS COMPLETE]\n\n**Completed:**\n- `bg-all-a`: Background A\n</system-reminder>"
+      });
+
+      expect(service.getTask(childA.id)?.status).toBe("completed");
+      expect(service.getTask(childB.id)?.status).toBe("completed");
+
+      const parentTimeline = service.getTaskTimeline(parent.id);
+      const completedAsyncEvents = parentTimeline.filter((event) =>
+        event.kind === "action.logged"
+        && event.metadata.asyncStatus === "completed"
+      );
+      expect(completedAsyncEvents).toHaveLength(2);
+    });
+
+    it("background_output not-found result closes the matching child task", () => {
+      const { task: parent, sessionId: parentSessionId } = service.startTask({ title: "Parent Tool" });
+      const { task: child } = service.startTask({
+        title: "Background child tool",
+        taskKind: "background",
+        parentTaskId: parent.id,
+        parentSessionId,
+        backgroundTaskId: "bg_tool_1"
+      });
+
+      const result = service.logToolUsed({
+        taskId: parent.id,
+        sessionId: parentSessionId,
+        toolName: "background_output",
+        title: "background_output",
+        body: "Task not found: bg_tool_1"
+      });
+
+      expect(result.events[0]?.kind).toBe("tool.used");
+      expect(service.getTask(child.id)?.status).toBe("completed");
+
+      const parentTimeline = service.getTaskTimeline(parent.id);
+      const completionAction = parentTimeline.find((event) =>
+        event.kind === "action.logged"
+        && event.metadata.asyncTaskId === "bg_tool_1"
+        && event.metadata.asyncStatus === "completed"
+        && event.metadata.reminderSource === "tool.used"
+      );
+      expect(completionAction).toBeDefined();
+    });
   });
 
   describe("endSession — 세션 종료 (태스크 유지)", () => {

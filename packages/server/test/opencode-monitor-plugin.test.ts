@@ -20,15 +20,19 @@ function requestUrl(input: string | URL | globalThis.Request): string {
   return input.url;
 }
 
-function sessionEvent(type: "session.created" | "session.deleted", sessionId: string) {
+function sessionEvent(
+  type: "session.created" | "session.deleted",
+  sessionId: string,
+  overrides?: { title?: string; directory?: string }
+) {
   return {
     type,
     properties: {
       info: {
         id: sessionId,
         projectID: "project-1",
-        directory: "/repo",
-        title: `Session ${sessionId}`,
+        directory: overrides?.directory ?? "/repo",
+        title: overrides?.title ?? `Session ${sessionId}`,
         version: "1",
         time: {
           created: 0,
@@ -547,6 +551,105 @@ describe("OpenCode monitor plugin", () => {
       taskKind: "background",
       parentTaskId: "task-parent-parallel",
       backgroundTaskId: "bg-parallel"
+    }));
+  });
+
+  it("reuses the background task row for nested subagent sessions and finalizes on reminder", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (url: string | URL | globalThis.Request, init?: RequestInit) => {
+      const endpoint = new URL(requestUrl(url)).pathname;
+      const body = init?.body ? JSON.parse(String(init.body)) as Record<string, unknown> : {};
+      calls.push({ endpoint, body });
+
+      if (endpoint === "/api/task-start") {
+        const opencodeSessionId = String(body.metadata && (body.metadata as Record<string, unknown>).opencodeSessionId);
+        const requestedTaskId = typeof body.taskId === "string" ? body.taskId : undefined;
+        const taskId = requestedTaskId === "task-child-nested"
+          ? requestedTaskId
+          : `task-${opencodeSessionId}`;
+        return jsonResponse({
+          task: { id: taskId },
+          sessionId: `monitor-${opencodeSessionId}`
+        });
+      }
+
+      return jsonResponse({ ok: true });
+    }));
+
+    const hooks = createMonitorHooks("/repo");
+
+    await hooks.event?.({ event: sessionEvent("session.created", "parent-nested") });
+    await hooks.event?.({ event: sessionEvent("session.created", "child-nested") });
+    await hooks["tool.execute.before"]?.(
+      { tool: "read", sessionID: "child-nested", callID: "call-child-nested" },
+      { args: {} }
+    );
+
+    await hooks["tool.execute.after"]?.(
+      {
+        tool: "task",
+        sessionID: "parent-nested",
+        callID: "call-parent-nested",
+        args: { run_in_background: true, description: "Confirmed background child" }
+      },
+      {
+        title: "task",
+        output: "session_id: child-nested\nBackground Task ID: bg_nested",
+        metadata: { session_id: "child-nested", background_task_id: "bg_nested" }
+      }
+    );
+
+    await hooks.event?.({
+      event: sessionEvent("session.created", "nested-subagent", {
+        title: "Confirmed background child (@explore subagent)"
+      })
+    });
+
+    await hooks["tool.execute.before"]?.(
+      { tool: "grep", sessionID: "nested-subagent", callID: "call-nested-subagent" },
+      { args: { pattern: "background" } }
+    );
+
+    const nestedStartCall = calls.find((call) => call.endpoint === "/api/task-start"
+      && String((call.body.metadata as Record<string, unknown> | undefined)?.opencodeSessionId) === "nested-subagent");
+    expect(nestedStartCall?.body).toEqual(expect.objectContaining({
+      taskId: "task-child-nested",
+      title: "Confirmed background child",
+      taskKind: "background",
+      parentTaskId: "task-parent-nested",
+      backgroundTaskId: "bg_nested"
+    }));
+
+    await hooks["chat.message"]?.(
+      {
+        sessionID: "parent-nested",
+        model: { modelID: "m1", providerID: "p1" }
+      } as never,
+      {
+        message: { id: "msg-bg-complete" },
+        parts: [
+          {
+            type: "input_text",
+            content: "<system-reminder>\n[BACKGROUND TASK COMPLETED]\n**ID:** `bg_nested`\n</system-reminder>"
+          }
+        ]
+      } as never
+    );
+
+    const childSessionEndCalls = calls.filter((call) => call.endpoint === "/api/session-end"
+      && String(call.body.taskId) === "task-child-nested");
+    expect(childSessionEndCalls).toHaveLength(2);
+    expect(childSessionEndCalls).toEqual(expect.arrayContaining([
+      expect.objectContaining({ body: expect.objectContaining({ sessionId: "monitor-child-nested", completeTask: false }) }),
+      expect.objectContaining({ body: expect.objectContaining({ sessionId: "monitor-nested-subagent", completeTask: false }) })
+    ]));
+
+    const completedAsyncCalls = calls.filter((call) => call.endpoint === "/api/async-task"
+      && String(call.body.asyncTaskId) === "bg_nested"
+      && String(call.body.asyncStatus) === "completed");
+    expect(completedAsyncCalls).toHaveLength(1);
+    expect(completedAsyncCalls[0]?.body).toEqual(expect.objectContaining({
+      taskId: "task-parent-nested",
+      title: "Confirmed background child"
     }));
   });
 
