@@ -40,7 +40,9 @@ export type MonitoringEventKind =
   | "context.saved"
   | "file.changed"
   | "thought.logged"
-  | "user.message";
+  | "user.message"
+  | "question.logged"
+  | "todo.logged";
 
 /** 태스크 생성에 필요한 최소 입력 데이터. */
 export interface MonitoringTaskInput {
@@ -145,9 +147,49 @@ export function defaultLaneForEventKind(kind: MonitoringEventKind): TimelineLane
     case "task.complete":
     case "task.error":
     case "user.message":
+    case "question.logged":
       return "user";
+    case "todo.logged":
+      return "planning";
   }
 }
+
+/** question.logged 이벤트의 단계. asked/answered는 user 레인, concluded는 planning 레인. */
+export type QuestionPhase = "asked" | "answered" | "concluded";
+
+/** todo.logged 이벤트의 상태. */
+export type TodoState = "added" | "in_progress" | "completed" | "cancelled";
+
+/**
+ * 캐노니컬 question/todo/thought 메타데이터 계약.
+ *
+ * question.logged 메타데이터 키:
+ *   questionId     — 클라이언트 할당 안정 ID (같은 질문 흐름의 이벤트 그룹화에 사용)
+ *   questionPhase  — "asked" | "answered" | "concluded"
+ *   sequence       — 같은 밀리초 이벤트의 결정론적 순서 (숫자)
+ *
+ * todo.logged 메타데이터 키:
+ *   todoId         — 클라이언트 할당 안정 ID
+ *   todoState      — "added" | "in_progress" | "completed" | "cancelled"
+ *   sequence       — 결정론적 순서
+ *
+ * model/MCP 공통 메타데이터 키 (모든 이벤트에 선택적으로 추가 가능):
+ *   modelName      — AI 모델명 (예: "claude-opus-4-6")
+ *   modelProvider  — AI 제공자 (예: "anthropic")
+ *   mcpServer      — MCP 서버명 (예: "monitor-server")
+ *   mcpTool        — MCP 도구명 (예: "monitor_tool_used")
+ */
+export const TRACE_METADATA_KEYS = {
+  questionId: "questionId",
+  questionPhase: "questionPhase",
+  todoId: "todoId",
+  todoState: "todoState",
+  sequence: "sequence",
+  modelName: "modelName",
+  modelProvider: "modelProvider",
+  mcpServer: "mcpServer",
+  mcpTool: "mcpTool"
+} as const;
 
 /** DB에 저장된 구버전 lane 값을 현재 레인 이름으로 정규화. */
 export function normalizeLane(raw: string): TimelineLane {
