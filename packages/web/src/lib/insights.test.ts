@@ -3,11 +3,14 @@ import { describe, expect, it } from "vitest";
 import type { RulesIndex, TimelineEvent } from "../types.js";
 import {
   buildCompactInsight,
+  buildModelSummary,
   buildObservabilityStats,
+  buildQuestionGroups,
   buildRuleCoverage,
   buildTaskDisplayTitle,
   buildTaskExtraction,
   buildTagInsights,
+  buildTodoGroups,
   eventHasRuleGap,
   filterTimelineEvents
 } from "./insights.js";
@@ -684,5 +687,155 @@ describe("filterTimelineEvents - 엣지케이스", () => {
     });
 
     expect(result).toHaveLength(0);
+  });
+});
+
+describe("buildQuestionGroups", () => {
+  function makeQuestionEvent(
+    id: string, questionId: string, questionPhase: string, createdAt: string
+  ): TimelineEvent {
+    return {
+      id, taskId: "t1", kind: "question.logged",
+      lane: questionPhase === "concluded" ? "planning" : "user",
+      title: `Question ${questionPhase}`,
+      metadata: { questionId, questionPhase },
+      classification: { lane: "user", tags: [], matches: [] },
+      createdAt
+    };
+  }
+
+  it("동일 questionId의 이벤트를 그룹화한다", () => {
+    const events: TimelineEvent[] = [
+      makeQuestionEvent("e1", "q1", "asked", "2024-01-01T00:00:01Z"),
+      makeQuestionEvent("e2", "q1", "answered", "2024-01-01T00:00:02Z"),
+      makeQuestionEvent("e3", "q1", "concluded", "2024-01-01T00:00:03Z")
+    ];
+    const groups = buildQuestionGroups(events);
+    expect(groups).toHaveLength(1);
+    expect(groups[0]?.questionId).toBe("q1");
+    expect(groups[0]?.phases).toHaveLength(3);
+    expect(groups[0]?.isComplete).toBe(true);
+  });
+
+  it("concluded 없는 그룹은 isComplete=false", () => {
+    const events: TimelineEvent[] = [
+      makeQuestionEvent("e1", "q2", "asked", "2024-01-01T00:00:01Z")
+    ];
+    const groups = buildQuestionGroups(events);
+    expect(groups[0]?.isComplete).toBe(false);
+  });
+
+  it("phase 순서로 정렬된다 (asked→answered→concluded)", () => {
+    const events: TimelineEvent[] = [
+      makeQuestionEvent("e3", "q3", "concluded", "2024-01-01T00:00:01Z"),
+      makeQuestionEvent("e1", "q3", "asked", "2024-01-01T00:00:01Z"),
+      makeQuestionEvent("e2", "q3", "answered", "2024-01-01T00:00:01Z")
+    ];
+    const groups = buildQuestionGroups(events);
+    const phases = groups[0]?.phases.map(p => p.phase);
+    expect(phases).toEqual(["asked", "answered", "concluded"]);
+  });
+
+  it("question.logged가 없으면 빈 배열 반환", () => {
+    expect(buildQuestionGroups([])).toEqual([]);
+  });
+
+  it("questionId 없는 이벤트는 무시한다", () => {
+    const event: TimelineEvent = {
+      id: "e1", taskId: "t1", kind: "question.logged",
+      lane: "user", title: "No ID",
+      metadata: {}, // questionId 없음
+      classification: { lane: "user", tags: [], matches: [] },
+      createdAt: "2024-01-01T00:00:01Z"
+    };
+    expect(buildQuestionGroups([event])).toEqual([]);
+  });
+});
+
+describe("buildTodoGroups", () => {
+  function makeTodoEvent(
+    id: string, todoId: string, todoState: string, title: string, createdAt: string
+  ): TimelineEvent {
+    return {
+      id, taskId: "t1", kind: "todo.logged",
+      lane: "planning", title,
+      metadata: { todoId, todoState },
+      classification: { lane: "planning", tags: [], matches: [] },
+      createdAt
+    };
+  }
+
+  it("동일 todoId의 이벤트를 그룹화한다", () => {
+    const events: TimelineEvent[] = [
+      makeTodoEvent("e1", "todo-1", "added", "Feature X", "2024-01-01T00:00:01Z"),
+      makeTodoEvent("e2", "todo-1", "in_progress", "Feature X", "2024-01-01T00:00:02Z"),
+      makeTodoEvent("e3", "todo-1", "completed", "Feature X", "2024-01-01T00:00:03Z")
+    ];
+    const groups = buildTodoGroups(events);
+    expect(groups).toHaveLength(1);
+    expect(groups[0]?.todoId).toBe("todo-1");
+    expect(groups[0]?.currentState).toBe("completed");
+    expect(groups[0]?.isTerminal).toBe(true);
+  });
+
+  it("added 상태만 있는 그룹은 isTerminal=false", () => {
+    const events: TimelineEvent[] = [
+      makeTodoEvent("e1", "todo-2", "added", "Feature Y", "2024-01-01T00:00:01Z")
+    ];
+    const groups = buildTodoGroups(events);
+    expect(groups[0]?.isTerminal).toBe(false);
+  });
+
+  it("state 순서로 정렬된다", () => {
+    const events: TimelineEvent[] = [
+      makeTodoEvent("e2", "todo-3", "in_progress", "Z", "2024-01-01T00:00:01Z"),
+      makeTodoEvent("e1", "todo-3", "added", "Z", "2024-01-01T00:00:01Z")
+    ];
+    const groups = buildTodoGroups(events);
+    const states = groups[0]?.transitions.map(t => t.state);
+    expect(states).toEqual(["added", "in_progress"]);
+  });
+
+  it("비어 있으면 빈 배열 반환", () => {
+    expect(buildTodoGroups([])).toEqual([]);
+  });
+});
+
+describe("buildModelSummary", () => {
+  function makeModelEvent(id: string, modelName: string, modelProvider?: string): TimelineEvent {
+    return {
+      id, taskId: "t1", kind: "thought.logged",
+      lane: "planning", title: "Thought",
+      metadata: { modelName, ...(modelProvider ? { modelProvider } : {}) },
+      classification: { lane: "planning", tags: [], matches: [] },
+      createdAt: "2024-01-01T00:00:01Z"
+    };
+  }
+
+  it("가장 많이 등장한 모델을 defaultModelName으로 반환한다", () => {
+    const events: TimelineEvent[] = [
+      makeModelEvent("e1", "claude-opus-4-6", "anthropic"),
+      makeModelEvent("e2", "claude-opus-4-6"),
+      makeModelEvent("e3", "claude-sonnet-4-6")
+    ];
+    const summary = buildModelSummary(events);
+    expect(summary.defaultModelName).toBe("claude-opus-4-6");
+    expect(summary.defaultModelProvider).toBe("anthropic");
+    expect(summary.modelCounts["claude-opus-4-6"]).toBe(2);
+  });
+
+  it("모델 정보 없으면 defaultModelName=undefined", () => {
+    const summary = buildModelSummary([]);
+    expect(summary.defaultModelName).toBeUndefined();
+  });
+
+  it("기존 observability stats에 영향을 주지 않는다", () => {
+    const events: TimelineEvent[] = [
+      makeModelEvent("e1", "claude-opus-4-6")
+    ];
+    const stats = buildObservabilityStats(events, 0);
+    // question/todo/model 이벤트는 actions/checks 카운트에 포함되지 않음
+    expect(stats.actions).toBe(0);
+    expect(stats.checks).toBe(0);
   });
 });

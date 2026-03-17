@@ -932,6 +932,147 @@ function normalizeSentence(value?: string): string | null {
     : normalized;
 }
 
+/** 단일 questionId에 대한 질문 흐름 그룹. */
+export interface QuestionGroup {
+  readonly questionId: string;
+  readonly phases: readonly {
+    readonly phase: string;
+    readonly event: TimelineEvent;
+  }[];
+  readonly isComplete: boolean; // concluded 단계 존재 여부
+}
+
+/** 단일 todoId에 대한 할일 전환 그룹. */
+export interface TodoGroup {
+  readonly todoId: string;
+  readonly title: string;
+  readonly transitions: readonly {
+    readonly state: string;
+    readonly event: TimelineEvent;
+  }[];
+  readonly currentState: string;
+  readonly isTerminal: boolean; // completed 또는 cancelled
+}
+
+/** 타임라인에서 추출한 AI 모델 요약. */
+export interface ModelSummary {
+  /** 태스크 전체에서 가장 많이 등장한 모델명. */
+  readonly defaultModelName?: string;
+  /** 태스크 전체에서 가장 많이 등장한 제공자명. */
+  readonly defaultModelProvider?: string;
+  /** 모델명별 이벤트 수. */
+  readonly modelCounts: Readonly<Record<string, number>>;
+}
+
+/**
+ * questionId로 question.logged 이벤트를 그룹화한다.
+ * 같은 questionId의 이벤트를 phase 순서(asked→answered→concluded)로 정렬.
+ */
+export function buildQuestionGroups(
+  timeline: readonly TimelineEvent[]
+): readonly QuestionGroup[] {
+  const PHASE_ORDER: Record<string, number> = { asked: 0, answered: 1, concluded: 2 };
+  const groups = new Map<string, { phases: Array<{ phase: string; event: TimelineEvent }> }>();
+
+  for (const event of timeline) {
+    if (event.kind !== "question.logged") continue;
+    const questionId = extractMetadataString(event.metadata, "questionId");
+    if (!questionId) continue;
+    const phase = extractMetadataString(event.metadata, "questionPhase") ?? "asked";
+    const existing = groups.get(questionId) ?? { phases: [] };
+    existing.phases.push({ phase, event });
+    groups.set(questionId, existing);
+  }
+
+  return [...groups.entries()].map(([questionId, group]) => {
+    const sorted = [...group.phases].sort((a, b) => {
+      const pDiff = (PHASE_ORDER[a.phase] ?? 99) - (PHASE_ORDER[b.phase] ?? 99);
+      if (pDiff !== 0) return pDiff;
+      // 같은 phase면 sequence → createdAt 순
+      const aSeq = typeof a.event.metadata["sequence"] === "number" ? a.event.metadata["sequence"] as number : Infinity;
+      const bSeq = typeof b.event.metadata["sequence"] === "number" ? b.event.metadata["sequence"] as number : Infinity;
+      if (aSeq !== bSeq) return aSeq - bSeq;
+      return Date.parse(a.event.createdAt) - Date.parse(b.event.createdAt);
+    });
+    return {
+      questionId,
+      phases: sorted,
+      isComplete: sorted.some(p => p.phase === "concluded")
+    };
+  });
+}
+
+const TODO_TERMINAL_STATES = new Set(["completed", "cancelled"]);
+const TODO_STATE_ORDER: Record<string, number> = { added: 0, in_progress: 1, completed: 2, cancelled: 2 };
+
+/**
+ * todoId로 todo.logged 이벤트를 그룹화한다.
+ * 같은 todoId의 이벤트를 state 순서(added→in_progress→completed/cancelled)로 정렬.
+ */
+export function buildTodoGroups(
+  timeline: readonly TimelineEvent[]
+): readonly TodoGroup[] {
+  const groups = new Map<string, { title: string; transitions: Array<{ state: string; event: TimelineEvent }> }>();
+
+  for (const event of timeline) {
+    if (event.kind !== "todo.logged") continue;
+    const todoId = extractMetadataString(event.metadata, "todoId");
+    if (!todoId) continue;
+    const state = extractMetadataString(event.metadata, "todoState") ?? "added";
+    const existing = groups.get(todoId) ?? { title: event.title, transitions: [] };
+    existing.transitions.push({ state, event });
+    groups.set(todoId, existing);
+  }
+
+  return [...groups.entries()].map(([todoId, group]) => {
+    const sorted = [...group.transitions].sort((a, b) => {
+      const sDiff = (TODO_STATE_ORDER[a.state] ?? 99) - (TODO_STATE_ORDER[b.state] ?? 99);
+      if (sDiff !== 0) return sDiff;
+      const aSeq = typeof a.event.metadata["sequence"] === "number" ? a.event.metadata["sequence"] as number : Infinity;
+      const bSeq = typeof b.event.metadata["sequence"] === "number" ? b.event.metadata["sequence"] as number : Infinity;
+      if (aSeq !== bSeq) return aSeq - bSeq;
+      return Date.parse(a.event.createdAt) - Date.parse(b.event.createdAt);
+    });
+    const last = sorted[sorted.length - 1];
+    const currentState = last?.state ?? "added";
+    return {
+      todoId,
+      title: group.title,
+      transitions: sorted,
+      currentState,
+      isTerminal: TODO_TERMINAL_STATES.has(currentState)
+    };
+  });
+}
+
+/**
+ * 타임라인 이벤트에서 AI 모델 요약을 추출한다.
+ * modelName 메타데이터를 가진 이벤트를 집계하여 가장 많이 등장한 모델명을 반환.
+ */
+export function buildModelSummary(
+  timeline: readonly TimelineEvent[]
+): ModelSummary {
+  const modelCounts: Record<string, number> = {};
+
+  for (const event of timeline) {
+    const modelName = extractMetadataString(event.metadata, "modelName");
+    if (modelName) {
+      modelCounts[modelName] = (modelCounts[modelName] ?? 0) + 1;
+    }
+  }
+
+  const entries = Object.entries(modelCounts).sort((a, b) => b[1] - a[1]);
+  const defaultModelName = entries[0]?.[0];
+  const defaultModelProvider = defaultModelName
+    ? extractMetadataString(
+        timeline.find(e => extractMetadataString(e.metadata, "modelName") === defaultModelName)?.metadata ?? {},
+        "modelProvider"
+      )
+    : undefined;
+
+  return { defaultModelName, defaultModelProvider, modelCounts };
+}
+
 function extractMetadataString(
   metadata: Record<string, unknown>,
   key: string
