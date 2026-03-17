@@ -39,10 +39,13 @@ const rulesIndexSchema = z.object({
 export type RuleDefinition = z.infer<typeof ruleDefinitionSchema>;
 
 /** 파일 시스템에서 로드된 규칙. lane이 정규화되고 markdown 내용이 포함될 수 있음. */
-export interface LoadedRule extends Omit<RuleDefinition, "lane"> {
-  readonly lane?: TimelineLane;
-  readonly markdown?: string;
-  readonly absolutePath?: string;
+export interface LoadedRule extends Omit<RuleDefinition, "lane" | "prefixes" | "keywords" | "tags"> {
+  readonly lane?: TimelineLane | undefined;
+  readonly prefixes: readonly string[];
+  readonly keywords: readonly string[];
+  readonly tags: readonly string[];
+  readonly markdown?: string | undefined;
+  readonly absolutePath?: string | undefined;
 }
 
 /** 로드된 규칙 인덱스. 모든 규칙과 로드 경로 포함. */
