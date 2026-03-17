@@ -42,7 +42,7 @@ def main() -> None:
     except Exception:
         return
 
-    trigger    = (payload.get("trigger") or "").lower()
+    trigger    = (payload.get("source") or payload.get("trigger") or "").lower()
     session_id = (payload.get("session_id") or "").strip()
 
     if trigger in ("startup", "resume", "") or not session_id:
@@ -75,7 +75,7 @@ def main() -> None:
                     "Earlier events are summarised; this marker indicates the compact point."
                 ),
                 "lane":      "planning",
-                "metadata":  {"trigger": "compact"},
+                "metadata":  {"trigger": "compact", "compactEvent": True},
             })
         except Exception:
             pass

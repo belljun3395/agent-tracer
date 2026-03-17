@@ -158,19 +158,51 @@ Expected result: `monitor` is listed as `connected`.
 
 ## 6. Reuse This OpenCode Setup In Another Project
 
-다른 저장소에서도 같은 방식을 쓰려면 아래 두 파일을 함께 복사해야 합니다.
+다른 저장소에서도 같은 방식을 쓰려면 플러그인, 스킬, 설정 파일을 함께 복사해야 합니다.
 
 ```bash
-mkdir -p /your-project/.opencode/plugins
-cp /path/to/agent-tracer/.opencode/plugins/monitor.ts /your-project/.opencode/plugins/monitor.ts
-cp /path/to/agent-tracer/opencode.json /your-project/opencode.json
+AGENT_TRACER=/path/to/agent-tracer
+YOUR_PROJECT=/your-project
+
+mkdir -p "$YOUR_PROJECT/.opencode/plugins"
+mkdir -p "$YOUR_PROJECT/skills/monitor"
+
+cp "$AGENT_TRACER/.opencode/plugins/monitor.ts" "$YOUR_PROJECT/.opencode/plugins/monitor.ts"
+cp "$AGENT_TRACER/skills/monitor/SKILL.md"      "$YOUR_PROJECT/skills/monitor/SKILL.md"
 ```
 
-그다음 `/your-project/opencode.json`에서 아래 항목만 해당 프로젝트 기준으로 맞추면 됩니다.
+그다음 `$YOUR_PROJECT/opencode.json`을 아래 내용으로 **새로 작성**합니다.
 
-- `command` 경로가 현재 프로젝트의 `packages/mcp/dist/index.js`를 가리키는지
+> **주의:** 외부 프로젝트에는 `packages/mcp/dist/index.js`가 없습니다.
+> agent-tracer의 MCP 서버를 **절대 경로**로 지정해야 합니다.
+> `opencode.json`을 agent-tracer에서 그대로 복사하면 `command`의 상대 경로가
+> 깨지므로 반드시 아래 템플릿을 사용하세요.
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "monitor": {
+      "type": "local",
+      "command": [
+        "node",
+        "/absolute/path/to/agent-tracer/packages/mcp/dist/index.js"
+      ],
+      "enabled": true,
+      "environment": {
+        "MONITOR_BASE_URL": "http://127.0.0.1:3847"
+      }
+    }
+  },
+  "plugin": [".opencode/plugins/monitor.ts"]
+}
+```
+
+복사 후 확인 목록:
+
+- `command`가 agent-tracer의 절대 경로를 가리키는지
 - `MONITOR_BASE_URL`이 실제 Agent Tracer 서버 주소와 일치하는지
-- `plugin` 배열에 `.opencode/plugins/monitor.ts`가 포함되어 있는지
+- `skills/monitor/SKILL.md`가 복사되어 OpenCode Skills 패널에 표시되는지
 
 ## 7. End-to-end check
 

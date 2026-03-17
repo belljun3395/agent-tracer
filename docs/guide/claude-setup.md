@@ -92,11 +92,31 @@ No extra Claude-specific setup is required if you are working in this checkout.
 Copy both the settings file and the hook scripts:
 
 ```bash
-cp -r /path/to/agent-tracer/.claude/hooks /your-project/.claude/hooks
-cp /path/to/agent-tracer/.claude/settings.json /your-project/.claude/settings.json
+AGENT_TRACER=/path/to/agent-tracer
+YOUR_PROJECT=/your-project
+
+mkdir -p "$YOUR_PROJECT/.claude"
+cp -r "$AGENT_TRACER/.claude/hooks"       "$YOUR_PROJECT/.claude/hooks"
+cp    "$AGENT_TRACER/.claude/settings.json" "$YOUR_PROJECT/.claude/settings.json"
 ```
 
-Then register the same `monitor` MCP server in Claude Code.
+Then register the same `monitor` MCP server in Claude Code:
+
+```bash
+claude mcp add monitor \
+  -e MONITOR_BASE_URL=http://127.0.0.1:3847 \
+  node /absolute/path/to/agent-tracer/packages/mcp/dist/index.js
+```
+
+**OpenCode와 동시 사용 시:** `settings.json`의 모든 훅 커맨드 앞에는 아래 가드가 붙어 있습니다.
+
+```bash
+[ -n "$OPENCODE" ] || [ -n "$OPENCODE_CLIENT" ] || python3 .claude/hooks/...
+```
+
+이 조건은 OpenCode 환경(`$OPENCODE` 환경변수가 설정된 경우)에서는 훅 스크립트를 건너뛰도록
+설계된 것입니다. OpenCode는 `.opencode/plugins/monitor.ts` 플러그인이 모니터링을 처리하므로
+Claude 훅이 중복 실행되지 않습니다. 두 도구를 같은 프로젝트에서 쓸 때 이 가드가 충돌을 방지합니다.
 
 ## 5. Manual MCP Tools
 
