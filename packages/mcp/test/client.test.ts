@@ -125,3 +125,47 @@ describe("MCP tool registry — canonical tools", () => {
     expect(server).toBeDefined();
   });
 });
+
+describe("MCP tool registry — question/todo/thought tools", () => {
+  it("monitor_question 이 /api/question 으로 POST한다", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true, status: 200,
+      json: async () => ({ events: [{ id: "e1", kind: "question.logged" }] })
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const client = new MonitorClient("http://localhost:3847");
+    await client.post("/api/question", { taskId: "t1", questionId: "q1", questionPhase: "asked", title: "?" });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3847/api/question",
+      expect.objectContaining({ method: "POST" })
+    );
+  });
+
+  it("monitor_todo 이 /api/todo 로 POST한다", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true, status: 200,
+      json: async () => ({ events: [{ id: "e1", kind: "todo.logged" }] })
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const client = new MonitorClient("http://localhost:3847");
+    await client.post("/api/todo", { taskId: "t1", todoId: "todo-1", todoState: "added", title: "Feature" });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3847/api/todo",
+      expect.objectContaining({ method: "POST" })
+    );
+  });
+
+  it("monitor_thought 이 /api/thought 로 POST한다", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true, status: 200,
+      json: async () => ({ events: [{ id: "e1", kind: "thought.logged" }] })
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const client = new MonitorClient("http://localhost:3847");
+    await client.post("/api/thought", { taskId: "t1", title: "Analysis" });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3847/api/thought",
+      expect.objectContaining({ method: "POST" })
+    );
+  });
+});

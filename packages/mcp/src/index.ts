@@ -290,6 +290,76 @@ export function createMonitorMcpServer(client = new MonitorClient()): McpServer 
     async (input) => toToolResponse(await client.post("/api/explore", input))
   );
 
+  server.registerTool(
+    "monitor_question",
+    {
+      title: "Monitor Question",
+      description:
+        "Record a question flow event. " +
+        "Use phase='asked' when the agent poses a question to the user, " +
+        "'answered' when a user answer is received, " +
+        "'concluded' when the agent draws a conclusion (routes to planning lane). " +
+        "Use the same questionId for all phases of one question.",
+      inputSchema: {
+        taskId: z.string(),
+        sessionId: z.string().optional(),
+        questionId: z.string(),
+        questionPhase: z.enum(["asked", "answered", "concluded"]),
+        sequence: z.number().int().nonnegative().optional(),
+        title: z.string(),
+        body: z.string().optional(),
+        modelName: z.string().optional(),
+        modelProvider: z.string().optional(),
+        metadata: z.record(z.unknown()).optional()
+      }
+    },
+    async (input) => toToolResponse(await client.post("/api/question", input))
+  );
+
+  server.registerTool(
+    "monitor_todo",
+    {
+      title: "Monitor Todo",
+      description:
+        "Record a todo item lifecycle transition. " +
+        "Use state='added' when first created, 'in_progress' when started, " +
+        "'completed' or 'cancelled' when finished. " +
+        "Use the same todoId for all transitions of one todo item.",
+      inputSchema: {
+        taskId: z.string(),
+        sessionId: z.string().optional(),
+        todoId: z.string(),
+        todoState: z.enum(["added", "in_progress", "completed", "cancelled"]),
+        sequence: z.number().int().nonnegative().optional(),
+        title: z.string(),
+        body: z.string().optional(),
+        metadata: z.record(z.unknown()).optional()
+      }
+    },
+    async (input) => toToolResponse(await client.post("/api/todo", input))
+  );
+
+  server.registerTool(
+    "monitor_thought",
+    {
+      title: "Monitor Thought",
+      description:
+        "Record a summarized reasoning step in the planning lane. " +
+        "Use for summary-safe thoughts only — do NOT dump raw chain-of-thought. " +
+        "Include modelName/modelProvider when model identity is known.",
+      inputSchema: {
+        taskId: z.string(),
+        sessionId: z.string().optional(),
+        title: z.string(),
+        body: z.string().optional(),
+        modelName: z.string().optional(),
+        modelProvider: z.string().optional(),
+        metadata: z.record(z.unknown()).optional()
+      }
+    },
+    async (input) => toToolResponse(await client.post("/api/thought", input))
+  );
+
   // ─── Canonical User Message & Session End ────────────────────────────────────
   // monitor_user_message, monitor_session_end
 
