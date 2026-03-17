@@ -3,9 +3,9 @@ import { describe, expect, it } from "vitest";
 import type { RulesIndex, TimelineEvent } from "../types.js";
 import {
   buildCompactInsight,
-  buildTaskDisplayTitle,
   buildObservabilityStats,
   buildRuleCoverage,
+  buildTaskDisplayTitle,
   buildTaskExtraction,
   buildTagInsights,
   eventHasRuleGap,
@@ -330,6 +330,61 @@ describe("buildTaskDisplayTitle", () => {
     ];
 
     expect(buildTaskDisplayTitle(task, timeline)).toBe("Improve the dashboard task title UX.");
+  });
+
+  it("does not let agent session boilerplate override an OpenCode task title", () => {
+    const task = {
+      id: "task-4a",
+      title: "OpenCode - agent-tracer",
+      slug: "opencode-agent-tracer",
+      status: "running",
+      createdAt: "2026-03-16T12:00:00.000Z",
+      updatedAt: "2026-03-16T12:10:00.000Z",
+      workspacePath: "/workspace/agent-tracer"
+    } as const;
+
+    const timeline = [
+      makeEvent({
+        id: "start",
+        kind: "task.start",
+        lane: "user",
+        title: "OpenCode - agent-tracer",
+        body: "Claude Code session started. Project: agent-tracer Path: /workspace/agent-tracer Session: abc123"
+      })
+    ];
+
+    expect(buildTaskDisplayTitle(task, timeline)).toBe("OpenCode - agent-tracer");
+  });
+
+  it("still prefers a real user goal over a generic agent-workspace title", () => {
+    const task = {
+      id: "task-4b",
+      title: "OpenCode - agent-tracer",
+      slug: "opencode-agent-tracer",
+      status: "running",
+      createdAt: "2026-03-16T12:00:00.000Z",
+      updatedAt: "2026-03-16T12:10:00.000Z",
+      workspacePath: "/workspace/agent-tracer"
+    } as const;
+
+    const timeline = [
+      makeEvent({
+        id: "user-goal",
+        kind: "context.saved",
+        lane: "user",
+        title: "User request",
+        body: "Fix the monitor title so OpenCode sessions are labeled correctly."
+      }),
+      makeEvent({
+        id: "start",
+        kind: "task.start",
+        lane: "user",
+        title: "OpenCode - agent-tracer",
+        body: "Claude Code session started. Project: agent-tracer Path: /workspace/agent-tracer Session: abc123"
+      })
+    ];
+
+    expect(buildTaskDisplayTitle(task, timeline)).toBe("Fix the monitor title so OpenCode sessions are labeled correctly.");
   });
 
   it("keeps a custom stored task title when it is already meaningful", () => {

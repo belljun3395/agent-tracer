@@ -610,11 +610,21 @@ function inferTaskTitleSignal(timeline: readonly TimelineEvent[]): string | null
   );
 
   return (
-    normalizeSentence(userGoal)
-    ?? normalizeSentence(startSummary)
-    ?? normalizeSentence(firstMeaningfulEvent?.body)
-    ?? normalizeSentence(firstMeaningfulEvent?.title)
+    meaningfulInferredTaskTitle(userGoal)
+    ?? meaningfulInferredTaskTitle(startSummary)
+    ?? meaningfulInferredTaskTitle(firstMeaningfulEvent?.body)
+    ?? meaningfulInferredTaskTitle(firstMeaningfulEvent?.title)
   );
+}
+
+function meaningfulInferredTaskTitle(value?: string): string | null {
+  const normalized = normalizeSentence(value);
+
+  if (!normalized || isAgentSessionBoilerplate(normalized)) {
+    return null;
+  }
+
+  return normalized;
 }
 
 function isGenericWorkspaceTaskTitle(
@@ -648,6 +658,13 @@ function isGenericWorkspaceTaskTitle(
 
 function normalizeTitleToken(value?: string): string {
   return value?.trim().toLowerCase().replace(/\s+/g, " ") ?? "";
+}
+
+function isAgentSessionBoilerplate(value: string): boolean {
+  const normalized = normalizeTitleToken(value);
+
+  return /^(claude code|claude|opencode|open code|codex|cursor|gemini(?: cli)?|agent|ai cli) session started\b/.test(normalized)
+    || /^(claude code|claude|opencode|open code|codex|cursor|gemini(?: cli)?|agent|ai cli) - /.test(normalized);
 }
 
 function buildTaskProcessSections(

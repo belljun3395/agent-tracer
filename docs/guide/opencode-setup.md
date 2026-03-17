@@ -27,10 +27,18 @@ npm run dev:server
 npm run build && npm run start:server
 ```
 
-## 3. 플러그인 훅 설정 (자동 추적 권장)
+## 3. Repo-local OpenCode 연결 상태
 
-이 저장소는 `.opencode/plugins/monitor.ts` 플러그인을 이미 포함하고 있습니다.
-별도 설치 없이 자동으로 세션과 도구 실행을 추적합니다.
+이 저장소는 OpenCode 연결에 필요한 두 구성을 이미 포함하고 있습니다.
+
+- `.opencode/plugins/monitor.ts` - 세션과 도구 실행을 자동 추적하는 플러그인
+- `opencode.json` - `monitor` MCP 서버 등록 + 플러그인 로드 설정
+
+즉, 이 저장소에서 OpenCode를 열면 기본 경로는 이미 연결된 상태입니다.
+
+## 4. 플러그인 훅 동작 방식 (자동 추적 기본 경로)
+
+플러그인은 별도 설치 없이 자동으로 세션과 도구 실행을 추적합니다.
 
 환경 변수 설정 (기본값: 3847):
 
@@ -46,7 +54,25 @@ export MONITOR_PORT=3847
 
 OpenCode를 이 저장소에서 실행하면 추가 설정 없이 모니터링이 활성화됩니다.
 
-## 4. Register The MCP Server In OpenCode (선택적 대체 방법)
+`opencode.json`의 핵심 설정은 다음 두 항목입니다.
+
+```json
+{
+  "mcp": {
+    "monitor": {
+      "type": "local",
+      "command": ["node", "packages/mcp/dist/index.js"],
+      "enabled": true,
+      "environment": {
+        "MONITOR_BASE_URL": "http://127.0.0.1:3847"
+      }
+    }
+  },
+  "plugin": [".opencode/plugins/monitor.ts"]
+}
+```
+
+## 5. Register The MCP Server In OpenCode (선택적 대체 방법)
 
 플러그인 훅이 동작하지 않는 환경에서는 MCP 서버를 직접 등록할 수 있습니다.
 
@@ -101,9 +127,26 @@ opencode mcp list
 
 Expected result: `monitor` is listed as `connected`.
 
-## 5. End-to-end check
+## 6. Reuse This OpenCode Setup In Another Project
+
+다른 저장소에서도 같은 방식을 쓰려면 아래 두 파일을 함께 복사해야 합니다.
+
+```bash
+mkdir -p /your-project/.opencode/plugins
+cp /path/to/agent-tracer/.opencode/plugins/monitor.ts /your-project/.opencode/plugins/monitor.ts
+cp /path/to/agent-tracer/opencode.json /your-project/opencode.json
+```
+
+그다음 `/your-project/opencode.json`에서 아래 항목만 해당 프로젝트 기준으로 맞추면 됩니다.
+
+- `command` 경로가 현재 프로젝트의 `packages/mcp/dist/index.js`를 가리키는지
+- `MONITOR_BASE_URL`이 실제 Agent Tracer 서버 주소와 일치하는지
+- `plugin` 배열에 `.opencode/plugins/monitor.ts`가 포함되어 있는지
+
+## 7. End-to-end check
 
 1. Start the monitor server.
 2. Open OpenCode in this repository.
 3. Run one normal task.
 4. Confirm the monitor dashboard shows task lifecycle events.
+5. Confirm `opencode mcp list` shows `monitor` as connected.
