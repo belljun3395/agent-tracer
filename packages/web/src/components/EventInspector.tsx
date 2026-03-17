@@ -84,17 +84,18 @@ interface EventInspectorProps {
 
 /** DetailSection: 라벨과 내용을 가진 inspector 카드. */
 function DetailSection({
-  label, mono = false, value
+  label, mono = false, resizable = false, value
 }: {
   readonly label: string;
   readonly mono?: boolean;
+  readonly resizable?: boolean;
   readonly value: string;
 }): React.JSX.Element {
   return (
     <div className="detail-card">
       <div className="detail-card-head">{label}</div>
       <div className="detail-card-body">
-        <pre className={`detail-value${mono ? " mono" : ""}`}>{value}</pre>
+        <pre className={`detail-value${mono ? " mono" : ""}${resizable ? " resizable" : ""}`}>{value}</pre>
       </div>
     </div>
   );
@@ -993,6 +994,7 @@ export function EventInspector({
           <div className="detail-stack">
             <DetailSection
               label="Summary"
+              resizable
               value={[
                 `${selectedConnector.connector.cross ? "Lane transition" : "Same-lane progression"} from ${selectedConnector.source.lane} to ${selectedConnector.target.lane}.`,
                 `From: ${selectedConnector.source.title}`,
@@ -1025,6 +1027,7 @@ export function EventInspector({
           <div className="detail-stack">
             <DetailSection
               label="Summary"
+              resizable
               value={
                 selectedEvent.body
                 ?? (selectedEvent.metadata?.description as string | undefined)

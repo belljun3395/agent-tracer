@@ -1426,6 +1426,13 @@ input[type="range"] { accent-color: var(--accent); }
 .detail-card:first-child .detail-value {
   max-height: clamp(300px, 36vh, 420px);
 }
+.detail-value.resizable {
+  min-height: 11rem;
+  resize: vertical;
+}
+.detail-card:first-child .detail-value.resizable {
+  max-height: min(72vh, 760px);
+}
 .detail-value.mono {
   max-height: clamp(260px, 34vh, 420px);
   padding: 14px 16px;
