@@ -14,6 +14,7 @@ import type { Hooks, Plugin } from "@opencode-ai/plugin";
 
 const BASE_URL = process.env.MONITOR_BASE_URL?.replace(/\/+$/, "")
   ?? `http://127.0.0.1:${process.env.MONITOR_PORT ?? "3847"}`;
+const DEBUG_EXIT = /^(1|true|yes|on)$/i.test(String(process.env.MONITOR_DEBUG_EXIT ?? ""));
 
 interface SessionState {
   readonly taskId: string;
@@ -62,6 +63,7 @@ const pendingSessionStarts = new Map<string, Promise<SessionState | undefined>>(
 const pendingBackgroundLinks = new Map<string, BackgroundTaskLink>();
 const sessionInfoById = new Map<string, { directory?: string; title?: string }>();
 const endedSessionIds = new Set<string>();
+const finalizingSessionIds = new Set<string>();
 
 /**
  * JSON POST 헬퍼. 오류 시 조용히 무시 (에이전트 동작 방해하지 않음).
@@ -78,6 +80,15 @@ async function post(endpoint: string, body: unknown): Promise<unknown> {
   } catch {
     return null; // 서버 미가용 시 조용히 무시
   }
+}
+
+function debugExitLog(message: string, payload?: Record<string, unknown>): void {
+  if (!DEBUG_EXIT) return;
+  if (payload) {
+    console.warn(`[monitor-plugin][exit] ${message}`, payload);
+    return;
+  }
+  console.warn(`[monitor-plugin][exit] ${message}`);
 }
 
 /**
@@ -232,18 +243,180 @@ function findBackgroundAncestorLink(title: string | undefined): BackgroundTaskLi
   };
 }
 
-function extractCompletedBackgroundTaskIds(text: string): readonly string[] {
-  const ids = new Set<string>();
-  if (!text.includes("[BACKGROUND TASK COMPLETED]") && !text.includes("[ALL BACKGROUND TASKS COMPLETE]")) {
+type BackgroundTerminalStatus = "completed" | "cancelled" | "error" | "interrupt";
+
+function extractBackgroundTaskTerminalEvents(
+  text: string
+): readonly { backgroundTaskId: string; status: BackgroundTerminalStatus }[] {
+  const markerStatus: BackgroundTerminalStatus | undefined = text.includes("[BACKGROUND TASK COMPLETED]")
+    ? "completed"
+    : text.includes("[BACKGROUND TASK CANCELLED]")
+      ? "cancelled"
+      : text.includes("[BACKGROUND TASK ERROR]")
+        ? "error"
+        : text.includes("[BACKGROUND TASK INTERRUPT]") || text.includes("[BACKGROUND TASK INTERRUPTED]")
+          ? "interrupt"
+          : undefined;
+  const hasAllCompleteMarker = text.includes("[ALL BACKGROUND TASKS COMPLETE]");
+  if (!markerStatus && !hasAllCompleteMarker) {
     return [];
   }
 
+  const eventsById = new Map<string, BackgroundTerminalStatus>();
   for (const match of text.matchAll(/\bbg_[A-Za-z0-9_-]+\b/g)) {
     const id = match[0]?.trim();
-    if (id) ids.add(id);
+    if (!id) continue;
+
+    eventsById.set(id, markerStatus ?? "completed");
   }
 
-  return [...ids];
+  return [...eventsById.entries()].map(([backgroundTaskId, status]) => ({
+    backgroundTaskId,
+    status
+  }));
+}
+
+function summaryForBackgroundTerminalStatus(status: BackgroundTerminalStatus): string {
+  if (status === "cancelled") return "OpenCode background task cancelled";
+  if (status === "error") return "OpenCode background task failed";
+  if (status === "interrupt") return "OpenCode background task interrupted";
+  return "OpenCode background task completed";
+}
+
+function isExitCommandName(name: string | undefined): boolean {
+  const normalized = String(name ?? "").trim().toLowerCase();
+  if (!normalized) return false;
+
+  const commandToken = (normalized.split(/\s+/, 1)[0] ?? "")
+    .replace(/^['"]+|['"]+$/g, "")
+    .replace(/[),;]+$/g, "");
+  if (!commandToken) return false;
+
+  return commandToken === "exit"
+    || commandToken === "/exit"
+    || commandToken === "quit"
+    || commandToken === "/quit"
+    || commandToken === "app.exit"
+    || commandToken === "session.exit";
+}
+
+function extractExitCommandNameFromEvent(properties: Record<string, unknown>): string | undefined {
+  const candidates: string[] = [];
+
+  const pushString = (value: unknown): void => {
+    if (typeof value !== "string") return;
+    const normalized = toNonEmptyString(value);
+    if (normalized) candidates.push(normalized);
+  };
+
+  pushString(properties.name);
+  pushString(properties.command);
+  pushString(properties.input);
+
+  const commandObject = asObject(properties.command);
+  pushString(commandObject.name);
+  pushString(commandObject.id);
+  pushString(commandObject.command);
+  pushString(commandObject.input);
+
+  const args = properties.args;
+  if (Array.isArray(args)) {
+    for (const argument of args) {
+      pushString(argument);
+    }
+  }
+
+  pushString(properties.title);
+
+  for (const candidate of candidates) {
+    if (isExitCommandName(candidate)) {
+      return candidate;
+    }
+  }
+
+  return undefined;
+}
+
+function extractSessionIdFromKnownPaths(properties: Record<string, unknown>): string | undefined {
+  const direct = toNonEmptyString(properties.sessionID)
+    ?? toNonEmptyString(properties.sessionId)
+    ?? toNonEmptyString(properties.session_id);
+  if (direct) return direct;
+
+  const sessionRecord = asObject(properties.session);
+  const nestedSession = toNonEmptyString(sessionRecord.id)
+    ?? toNonEmptyString(sessionRecord.sessionID)
+    ?? toNonEmptyString(sessionRecord.sessionId)
+    ?? toNonEmptyString(sessionRecord.session_id);
+  if (nestedSession) return nestedSession;
+
+  const infoRecord = asObject(properties.info);
+  const infoSession = toNonEmptyString(infoRecord.id)
+    ?? toNonEmptyString(infoRecord.sessionID)
+    ?? toNonEmptyString(infoRecord.sessionId)
+    ?? toNonEmptyString(infoRecord.session_id);
+  if (infoSession) return infoSession;
+
+  const contextRecord = asObject(properties.context);
+  const contextSession = toNonEmptyString(contextRecord.sessionID)
+    ?? toNonEmptyString(contextRecord.sessionId)
+    ?? toNonEmptyString(contextRecord.session_id);
+  if (contextSession) return contextSession;
+
+  return undefined;
+}
+
+function extractFallbackPrimarySessionId(): string | undefined {
+  const activePrimarySessionIds = [...sessionStates.entries()]
+    .filter(([sessionId, state]) => {
+      if (endedSessionIds.has(sessionId)) return false;
+      if (finalizingSessionIds.has(sessionId)) return false;
+      return state.taskKind !== "background";
+    })
+    .map(([sessionId]) => sessionId);
+
+  if (activePrimarySessionIds.length === 1) {
+    return activePrimarySessionIds[0];
+  }
+
+  const activePrimarySessionInfos = [...sessionInfoById.keys()]
+    .filter((sessionId) => !endedSessionIds.has(sessionId))
+    .filter((sessionId) => {
+      const state = sessionStates.get(sessionId);
+      return !state || state.taskKind !== "background";
+    });
+
+  if (activePrimarySessionInfos.length === 1) {
+    return activePrimarySessionInfos[0];
+  }
+
+  const parentPrimarySessionIds = new Set<string>();
+  for (const backgroundLink of pendingBackgroundLinks.values()) {
+    if (!backgroundLink.parentTaskId) continue;
+
+    for (const [sessionId, state] of sessionStates.entries()) {
+      if (endedSessionIds.has(sessionId)) continue;
+      if (finalizingSessionIds.has(sessionId)) continue;
+      if (state.taskKind === "background") continue;
+      if (state.taskId === backgroundLink.parentTaskId) {
+        parentPrimarySessionIds.add(sessionId);
+      }
+    }
+  }
+
+  if (parentPrimarySessionIds.size === 1) {
+    const [sessionId] = parentPrimarySessionIds;
+    return sessionId;
+  }
+
+  return undefined;
+}
+
+function extractSessionIdFromCommandEvent(properties: Record<string, unknown>): string | undefined {
+  const fromKnownPaths = extractSessionIdFromKnownPaths(properties);
+  if (fromKnownPaths) return fromKnownPaths;
+
+  return extractFallbackPrimarySessionId();
 }
 
 function extractParallelBackgroundLinks(input: {
@@ -707,7 +880,12 @@ export function createMonitorHooks(workspacePath: string): Hooks {
       return false;
     }
 
-    async function finalizeSession(opencodeSessionId: string, state: SessionState, summary: string): Promise<void> {
+  async function finalizeSession(
+      opencodeSessionId: string,
+      state: SessionState,
+      summary: string,
+      backgroundAsyncStatus: BackgroundTerminalStatus = "completed"
+    ): Promise<void> {
       let confirmedBackground = state.taskKind === "background" && state.backgroundLinkConfirmed;
 
       if (state.taskKind === "background" && !state.backgroundLinkConfirmed && state.parentTaskId) {
@@ -739,7 +917,7 @@ export function createMonitorHooks(workspacePath: string): Hooks {
           taskId: state.parentTaskId,
           ...(state.parentSessionId ? { sessionId: state.parentSessionId } : {}),
           asyncTaskId: state.backgroundTaskId ?? opencodeSessionId,
-          asyncStatus: "completed",
+          asyncStatus: backgroundAsyncStatus,
           title: state.backgroundTitle ?? "Background task completed",
           ...(state.parentSessionId ? { parentSessionId: state.parentSessionId } : {}),
           metadata: {
@@ -757,8 +935,32 @@ export function createMonitorHooks(workspacePath: string): Hooks {
       endedSessionIds.add(opencodeSessionId);
     }
 
-    async function reconcileCompletedBackgroundTasks(backgroundTaskIds: readonly string[]): Promise<void> {
-      for (const backgroundTaskId of backgroundTaskIds) {
+    async function finalizeByRuntimeSession(input: {
+      opencodeSessionId: string;
+      summary: string;
+      completeTask?: boolean;
+    }): Promise<void> {
+      await post("/api/task-complete", {
+        taskId: monitorTaskIdForOpenCodeSession(input.opencodeSessionId),
+        summary: input.summary,
+        metadata: {
+          opencodeSessionId: input.opencodeSessionId,
+          fallbackReason: "missing-in-memory-session-state",
+          completeTask: input.completeTask ?? true
+        }
+      });
+
+      pendingSessionStarts.delete(input.opencodeSessionId);
+      pendingBackgroundLinks.delete(input.opencodeSessionId);
+      sessionInfoById.delete(input.opencodeSessionId);
+      endedSessionIds.add(input.opencodeSessionId);
+    }
+
+    async function reconcileBackgroundTaskTerminalEvents(
+      backgroundTaskEvents: readonly { backgroundTaskId: string; status: BackgroundTerminalStatus }[]
+    ): Promise<void> {
+      for (const backgroundTaskEvent of backgroundTaskEvents) {
+        const { backgroundTaskId, status } = backgroundTaskEvent;
         const matchingSessionIds = new Set<string>();
 
         for (const [sessionId, state] of sessionStates.entries()) {
@@ -781,12 +983,104 @@ export function createMonitorHooks(workspacePath: string): Hooks {
             continue;
           }
 
-          await finalizeSession(sessionId, state, "OpenCode background task completed");
+          await finalizeSession(
+            sessionId,
+            state,
+            summaryForBackgroundTerminalStatus(status),
+            status
+          );
         }
       }
     }
 
+    async function finalizeForExitCommand(opencodeSessionId: string): Promise<void> {
+      if (endedSessionIds.has(opencodeSessionId)) return;
+      if (finalizingSessionIds.has(opencodeSessionId)) return;
+
+      finalizingSessionIds.add(opencodeSessionId);
+      try {
+        const knownSessionInfo = sessionInfoById.get(opencodeSessionId);
+        const state = sessionStates.get(opencodeSessionId)
+          ?? await pendingSessionStarts.get(opencodeSessionId)
+          ?? await ensureSessionState({
+            sessionId: opencodeSessionId,
+            directory: knownSessionInfo?.directory,
+            title: knownSessionInfo?.title
+          })
+          ?? undefined;
+
+        if (!state) {
+          debugExitLog("finalizing via runtime fallback", {
+            opencodeSessionId
+          });
+          await finalizeByRuntimeSession({
+            opencodeSessionId,
+            summary: "OpenCode exit command executed"
+          });
+          return;
+        }
+
+        debugExitLog("finalizing resolved session", {
+          opencodeSessionId,
+          taskId: state.taskId,
+          monitorSessionId: state.monitorSessionId
+        });
+        await finalizeSession(opencodeSessionId, state, "OpenCode exit command executed");
+      } finally {
+        finalizingSessionIds.delete(opencodeSessionId);
+      }
+    }
+
+    async function finalizeForExitAcrossActiveSessions(trigger: string): Promise<void> {
+      const singlePrimary = extractFallbackPrimarySessionId();
+      if (singlePrimary) {
+        debugExitLog("finalizing primary session from fallback resolver", {
+          trigger,
+          opencodeSessionId: singlePrimary
+        });
+        await finalizeForExitCommand(singlePrimary);
+        return;
+      }
+
+      let newestPrimaryFromSessionInfo: string | undefined;
+      for (const sessionId of sessionInfoById.keys()) {
+        if (endedSessionIds.has(sessionId)) continue;
+        const state = sessionStates.get(sessionId);
+        if (state?.taskKind === "background") continue;
+        newestPrimaryFromSessionInfo = sessionId;
+      }
+
+      if (newestPrimaryFromSessionInfo) {
+        debugExitLog("finalizing newest active primary session from sessionInfoById", {
+          trigger,
+          opencodeSessionId: newestPrimaryFromSessionInfo
+        });
+        await finalizeForExitCommand(newestPrimaryFromSessionInfo);
+      }
+    }
+
   return {
+    "command.execute.before": async (input) => {
+      const commandName = toNonEmptyString(input.command);
+      if (!isExitCommandName(commandName)) return;
+
+      const opencodeSessionId = toNonEmptyString(input.sessionID)
+        ?? extractFallbackPrimarySessionId();
+      debugExitLog("exit command detected before execution", {
+        commandName,
+        opencodeSessionId
+      });
+
+      if (!opencodeSessionId) {
+        debugExitLog("session id not resolved in command.execute.before", {
+          commandName
+        });
+        return;
+      }
+
+      await finalizeForExitCommand(opencodeSessionId);
+    },
+
     "chat.message": async (input, output) => {
       const state = await ensureSessionState({ sessionId: input.sessionID });
       if (!state) return;
@@ -804,9 +1098,9 @@ export function createMonitorHooks(workspacePath: string): Hooks {
 
       if (!text) return;
 
-      const completedBackgroundTaskIds = extractCompletedBackgroundTaskIds(text);
-      if (completedBackgroundTaskIds.length > 0) {
-        await reconcileCompletedBackgroundTasks(completedBackgroundTaskIds);
+      const backgroundTaskEvents = extractBackgroundTaskTerminalEvents(text);
+      if (backgroundTaskEvents.length > 0) {
+        await reconcileBackgroundTaskTerminalEvents(backgroundTaskEvents);
         return;
       }
 
@@ -852,21 +1146,68 @@ export function createMonitorHooks(workspacePath: string): Hooks {
         return;
       }
 
+      if (event.type === "tui.command.execute") {
+        const commandName = toNonEmptyString((event.properties as Record<string, unknown>).command);
+        if (!isExitCommandName(commandName)) return;
+
+        debugExitLog("exit command detected from tui.command.execute", {
+          commandName
+        });
+
+        await finalizeForExitAcrossActiveSessions("tui.command.execute");
+        return;
+      }
+
+      if (event.type === "server.instance.disposed") {
+        debugExitLog("exit/dispose event detected", {
+          eventType: event.type
+        });
+        await finalizeForExitAcrossActiveSessions(event.type);
+        return;
+      }
+
+      if (event.type === "command.executed") {
+        const eventProperties = event.properties as Record<string, unknown>;
+        const commandName = extractExitCommandNameFromEvent(eventProperties);
+        if (!isExitCommandName(commandName)) return;
+        debugExitLog("exit command detected", {
+          commandName,
+          propertyKeys: Object.keys(eventProperties)
+        });
+
+        const opencodeSessionId = extractSessionIdFromCommandEvent(eventProperties);
+        if (!opencodeSessionId) {
+          debugExitLog("session id not resolved for exit command", {
+            commandName,
+            propertyKeys: Object.keys(eventProperties)
+          });
+          return;
+        }
+        await finalizeForExitCommand(opencodeSessionId);
+        return;
+      }
+
       if (event.type !== "session.deleted") return;
 
       const opencodeSessionId = event.properties.info.id;
+      if (finalizingSessionIds.has(opencodeSessionId)) return;
       const state = sessionStates.get(opencodeSessionId)
         ?? await pendingSessionStarts.get(opencodeSessionId)
         ?? undefined;
 
       if (!state) {
-        pendingSessionStarts.delete(opencodeSessionId);
-        pendingBackgroundLinks.delete(opencodeSessionId);
-        sessionInfoById.delete(opencodeSessionId);
-        endedSessionIds.add(opencodeSessionId);
+        await finalizeByRuntimeSession({
+          opencodeSessionId,
+          summary: "OpenCode session ended"
+        });
         return;
       }
-      await finalizeSession(opencodeSessionId, state, "OpenCode session ended");
+      finalizingSessionIds.add(opencodeSessionId);
+      try {
+        await finalizeSession(opencodeSessionId, state, "OpenCode session ended");
+      } finally {
+        finalizingSessionIds.delete(opencodeSessionId);
+      }
     },
 
     "tool.execute.before": async (input) => {

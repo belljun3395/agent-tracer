@@ -43,6 +43,31 @@ function sessionEvent(
   };
 }
 
+function commandExecutedEvent(
+  overrides: Record<string, unknown>
+): never {
+  return {
+    type: "command.executed",
+    properties: {
+      ...overrides
+    }
+  } as never;
+}
+
+function tuiCommandEvent(command: string): never {
+  return {
+    type: "tui.command.execute",
+    properties: { command }
+  } as never;
+}
+
+function serverDisposedEvent(directory: string = "/repo"): never {
+  return {
+    type: "server.instance.disposed",
+    properties: { directory }
+  } as never;
+}
+
 describe("OpenCode monitor plugin", () => {
   let calls: FetchCall[];
 
@@ -881,5 +906,205 @@ describe("OpenCode monitor plugin", () => {
     expect(exploreCall?.body.filePaths).toEqual(expect.arrayContaining([
       "packages/web/src/components/Timeline.tsx"
     ]));
+  });
+
+  it("finalizes session on /exit command with nested session payload", async () => {
+    const hooks = createMonitorHooks("/repo");
+
+    await hooks.event?.({ event: sessionEvent("session.created", "session-exit") });
+
+    await hooks.event?.({
+      event: commandExecutedEvent({
+        command: "/exit now",
+        session: { id: "session-exit" }
+      })
+    });
+
+    const sessionEndCall = calls.find((call) =>
+      call.endpoint === "/api/session-end"
+      && String(call.body.taskId) === "task-session-exit"
+    );
+    expect(sessionEndCall?.body).toEqual(expect.objectContaining({
+      sessionId: "monitor-session-exit",
+      completeTask: true,
+      summary: "OpenCode exit command executed"
+    }));
+  });
+
+  it("accepts session_id shape for /exit command events", async () => {
+    const hooks = createMonitorHooks("/repo");
+
+    await hooks.event?.({ event: sessionEvent("session.created", "session-exit-snake") });
+
+    await hooks.event?.({
+      event: commandExecutedEvent({
+        name: "'/exit'",
+        session_id: "session-exit-snake"
+      })
+    });
+
+    const sessionEndCall = calls.find((call) =>
+      call.endpoint === "/api/session-end"
+      && String(call.body.taskId) === "task-session-exit-snake"
+    );
+    expect(sessionEndCall?.body).toEqual(expect.objectContaining({
+      summary: "OpenCode exit command executed"
+    }));
+  });
+
+  it("accepts command object payload for /exit events", async () => {
+    const hooks = createMonitorHooks("/repo");
+
+    await hooks.event?.({ event: sessionEvent("session.created", "session-exit-command-object") });
+
+    await hooks.event?.({
+      event: commandExecutedEvent({
+        title: "OpenCode command",
+        command: { name: "/exit" },
+        session: { id: "session-exit-command-object" }
+      })
+    });
+
+    const sessionEndCall = calls.find((call) =>
+      call.endpoint === "/api/session-end"
+      && String(call.body.taskId) === "task-session-exit-command-object"
+    );
+    expect(sessionEndCall?.body).toEqual(expect.objectContaining({
+      summary: "OpenCode exit command executed"
+    }));
+  });
+
+  it("accepts info.session_id shape for /exit command events", async () => {
+    const hooks = createMonitorHooks("/repo");
+
+    await hooks.event?.({ event: sessionEvent("session.created", "session-exit-info-snake") });
+
+    await hooks.event?.({
+      event: commandExecutedEvent({
+        input: "/exit",
+        info: { session_id: "session-exit-info-snake" }
+      })
+    });
+
+    const sessionEndCall = calls.find((call) =>
+      call.endpoint === "/api/session-end"
+      && String(call.body.taskId) === "task-session-exit-info-snake"
+    );
+    expect(sessionEndCall?.body).toEqual(expect.objectContaining({
+      summary: "OpenCode exit command executed"
+    }));
+  });
+
+  it("detects /exit token from args array even when not first", async () => {
+    const hooks = createMonitorHooks("/repo");
+
+    await hooks.event?.({ event: sessionEvent("session.created", "session-exit-args") });
+
+    await hooks.event?.({
+      event: commandExecutedEvent({
+        args: ["now", "'/exit'"],
+        sessionID: "session-exit-args"
+      })
+    });
+
+    const sessionEndCall = calls.find((call) =>
+      call.endpoint === "/api/session-end"
+      && String(call.body.taskId) === "task-session-exit-args"
+    );
+    expect(sessionEndCall?.body).toEqual(expect.objectContaining({
+      summary: "OpenCode exit command executed"
+    }));
+  });
+
+  it("finalizes session via command.execute.before for /exit", async () => {
+    const hooks = createMonitorHooks("/repo");
+
+    await hooks.event?.({ event: sessionEvent("session.created", "session-exit-before") });
+
+    await hooks["command.execute.before"]?.(
+      {
+        command: "/exit",
+        sessionID: "session-exit-before",
+        arguments: ""
+      },
+      {
+        parts: []
+      }
+    );
+
+    const sessionEndCall = calls.find((call) =>
+      call.endpoint === "/api/session-end"
+      && String(call.body.taskId) === "task-session-exit-before"
+    );
+    expect(sessionEndCall?.body).toEqual(expect.objectContaining({
+      sessionId: "monitor-session-exit-before",
+      summary: "OpenCode exit command executed"
+    }));
+  });
+
+  it("ignores non-exit command in command.execute.before", async () => {
+    const hooks = createMonitorHooks("/repo");
+
+    await hooks.event?.({ event: sessionEvent("session.created", "session-before-ignore") });
+
+    await hooks["command.execute.before"]?.(
+      {
+        command: "session.list",
+        sessionID: "session-before-ignore",
+        arguments: ""
+      },
+      {
+        parts: []
+      }
+    );
+
+    const sessionEndCall = calls.find((call) =>
+      call.endpoint === "/api/session-end"
+      && String(call.body.taskId) === "task-session-before-ignore"
+    );
+    expect(sessionEndCall).toBeUndefined();
+  });
+
+  it("finalizes active primary session on tui app.exit command", async () => {
+    const hooks = createMonitorHooks("/repo");
+
+    await hooks.event?.({ event: sessionEvent("session.created", "session-tui-exit") });
+    await hooks.event?.({ event: tuiCommandEvent("app.exit") });
+
+    const sessionEndCall = calls.find((call) =>
+      call.endpoint === "/api/session-end"
+      && String(call.body.taskId) === "task-session-tui-exit"
+    );
+    expect(sessionEndCall?.body).toEqual(expect.objectContaining({
+      summary: "OpenCode exit command executed"
+    }));
+  });
+
+  it("ignores non-exit tui command", async () => {
+    const hooks = createMonitorHooks("/repo");
+
+    await hooks.event?.({ event: sessionEvent("session.created", "session-tui-ignore") });
+    await hooks.event?.({ event: tuiCommandEvent("session.list") });
+
+    const sessionEndCall = calls.find((call) =>
+      call.endpoint === "/api/session-end"
+      && String(call.body.taskId) === "task-session-tui-ignore"
+    );
+    expect(sessionEndCall).toBeUndefined();
+  });
+
+  it("finalizes active primary session on server.instance.disposed", async () => {
+    const hooks = createMonitorHooks("/repo");
+
+    await hooks.event?.({ event: sessionEvent("session.created", "session-dispose-exit") });
+    await hooks.event?.({ event: serverDisposedEvent("/repo") });
+
+    const sessionEndCall = calls.find((call) =>
+      call.endpoint === "/api/session-end"
+      && String(call.body.taskId) === "task-session-dispose-exit"
+    );
+    expect(sessionEndCall?.body).toEqual(expect.objectContaining({
+      summary: "OpenCode exit command executed"
+    }));
   });
 });
