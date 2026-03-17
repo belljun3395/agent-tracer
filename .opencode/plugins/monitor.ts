@@ -18,6 +18,7 @@ const BASE_URL = process.env.MONITOR_BASE_URL?.replace(/\/+$/, "")
 interface SessionState {
   readonly taskId: string;
   readonly monitorSessionId?: string;
+  messageCount: number; // mutable: tracks user messages for phase detection
 }
 
 type TaskStartResult = {
@@ -103,6 +104,7 @@ export function createMonitorHooks(workspacePath: string): Hooks {
 
       const nextState: SessionState = {
         taskId,
+        messageCount: 0,
         ...(result?.sessionId ? { monitorSessionId: result.sessionId } : {})
       };
       sessionStates.set(input.sessionId, nextState);
@@ -119,6 +121,41 @@ export function createMonitorHooks(workspacePath: string): Hooks {
   }
 
   return {
+    "chat.message": async (input, output) => {
+      const state = await ensureSessionState({ sessionId: input.sessionID });
+      if (!state) return;
+
+      // Extract text from TextPart items
+      const text = output.parts
+        .filter((p): p is { type: "text"; text: string } & typeof p => p.type === "text")
+        .map((p) => p.text)
+        .join("\n")
+        .trim();
+
+      if (!text) return;
+
+      const phase = state.messageCount === 0 ? "initial" : "follow_up";
+      state.messageCount++;
+
+      const title = text.length > 120 ? text.slice(0, 120) + "…" : text;
+
+      await post("/api/user-message", {
+        taskId: state.taskId,
+        sessionId: state.monitorSessionId,
+        messageId: output.message.id,
+        captureMode: "raw",
+        source: "opencode-plugin",
+        phase,
+        title,
+        body: text,
+        metadata: {
+          modelId: input.model?.modelID,
+          providerId: input.model?.providerID,
+          opencodeSessionId: input.sessionID
+        }
+      });
+    },
+
     event: async ({ event }) => {
       if (event.type === "session.created") {
         const state = await ensureSessionState({
@@ -127,22 +164,7 @@ export function createMonitorHooks(workspacePath: string): Hooks {
           title: event.properties.info.title
         });
 
-        // OpenCode 런타임은 raw 사용자 프롬프트를 훅 페이로드에 노출하지 않는다.
-        // unsupported-gap 규칙 이벤트를 기록하여 캡처 불가 상태를 명시적으로 표시.
-        if (state) {
-          await post("/api/rule", {
-            taskId: state.taskId,
-            sessionId: state.monitorSessionId,
-            action: "user_message_capture_check",
-            ruleId: "user-message-capture-unavailable",
-            severity: "info",
-            status: "gap",
-            source: "opencode-plugin",
-            title: "Raw user prompt capture unavailable",
-            body: "OpenCode hook payloads do not expose raw user prompt text. User messages cannot be captured as raw user.message events from this runtime."
-          });
-        }
-        return;
+          return;
       }
 
       if (event.type !== "session.deleted") return;
