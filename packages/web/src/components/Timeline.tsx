@@ -103,6 +103,7 @@ function areNodeBoundsEqual(
 interface TimelineProps {
   readonly timeline: readonly TimelineEvent[];
   readonly taskTitle: string | null;
+  readonly taskId?: string | null;
   readonly taskWorkspacePath?: string | undefined;
   readonly taskStatus?: "running" | "completed" | "errored" | undefined;
   readonly taskUpdatedAt?: string | undefined;
@@ -111,6 +112,7 @@ interface TimelineProps {
   readonly taskTitleDraft: string;
   readonly taskTitleError: string | null;
   readonly isSavingTaskTitle: boolean;
+  readonly isUpdatingTaskStatus?: boolean;
   readonly selectedEventId: string | null;
   readonly selectedConnectorKey: string | null;
   readonly selectedRuleId: string | null;
@@ -136,6 +138,7 @@ interface TimelineProps {
   readonly onToggleRuleGap: (show: boolean) => void;
   readonly onClearRuleId: () => void;
   readonly onClearTag: () => void;
+  readonly onChangeTaskStatus?: (status: "running" | "completed" | "errored") => void;
 }
 
 /**
@@ -154,6 +157,7 @@ export function Timeline({
   taskTitleDraft,
   taskTitleError,
   isSavingTaskTitle,
+  isUpdatingTaskStatus = false,
   selectedEventId,
   selectedConnectorKey,
   selectedRuleId,
@@ -170,7 +174,8 @@ export function Timeline({
   onClearFilters,
   onToggleRuleGap,
   onClearRuleId,
-  onClearTag
+  onClearTag,
+  onChangeTaskStatus
 }: TimelineProps): React.JSX.Element {
   const [zoom, setZoom] = useState(1.1);
   const [filters, setFilters] = useState<Record<TimelineLane, boolean>>({
@@ -440,7 +445,7 @@ export function Timeline({
                 {taskTitle && (
                   <div className="timeline-title-actions">
                     {taskUsesDerivedTitle && (
-                      <span className="event-kind-badge suggested">Suggested title</span>
+                      <span className="event-kind-badge suggested">Suggested</span>
                     )}
                     <button className="compact-focus-button" onClick={onStartEditTitle} type="button">
                       Rename
@@ -452,10 +457,20 @@ export function Timeline({
             {taskWorkspacePath && (
               <span className="timeline-workspace mono">{taskWorkspacePath}</span>
             )}
-            {!isEditingTaskTitle && taskUsesDerivedTitle && (
-              <p className="task-title-helper muted small">
-                Showing a title inferred from the task activity. Save it if you want to keep it.
-              </p>
+            {!isEditingTaskTitle && taskStatus && onChangeTaskStatus && (
+              <div className="task-status-row">
+                {(["running", "completed", "errored"] as const).map((s) => (
+                  <button
+                    key={s}
+                    className={`task-status-btn ${s}${taskStatus === s ? " active" : ""}`}
+                    disabled={isUpdatingTaskStatus || taskStatus === s}
+                    onClick={() => onChangeTaskStatus(s)}
+                    type="button"
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
             )}
           </div>
           <div className="timeline-badges">

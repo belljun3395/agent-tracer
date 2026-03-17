@@ -23,7 +23,8 @@ import {
   fetchSearchResults,
   fetchTaskDetail,
   fetchTasks,
-  updateTaskTitle
+  updateTaskTitle,
+  updateTaskStatus
 } from "./api.js";
 import {
   buildCompactInsight,
@@ -107,6 +108,7 @@ export function App(): React.JSX.Element {
   const [taskTitleDraft, setTaskTitleDraft] = useState("");
   const [taskTitleError, setTaskTitleError] = useState<string | null>(null);
   const [isSavingTaskTitle, setIsSavingTaskTitle] = useState(false);
+  const [isUpdatingTaskStatus, setIsUpdatingTaskStatus] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isInspectorCollapsed, setIsInspectorCollapsed] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
@@ -547,6 +549,25 @@ export function App(): React.JSX.Element {
     setIsEditingTaskTitle(false);
   }
 
+  async function handleTaskStatusChange(status: MonitoringTask["status"]): Promise<void> {
+    if (!taskDetail?.task) return;
+
+    setIsUpdatingTaskStatus(true);
+    try {
+      const updatedTask = await updateTaskStatus(taskDetail.task.id, status);
+      setTasks((current) => current.map((task) => task.id === updatedTask.id ? updatedTask : task));
+      setTaskDetail((current) => (
+        current && current.task.id === updatedTask.id
+          ? { ...current, task: updatedTask }
+          : current
+      ));
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : "Failed to update task status.");
+    } finally {
+      setIsUpdatingTaskStatus(false);
+    }
+  }
+
   async function handleTaskTitleSubmit(event: React.SyntheticEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
 
@@ -717,6 +738,7 @@ export function App(): React.JSX.Element {
             taskTitleDraft={taskTitleDraft}
             taskTitleError={taskTitleError}
             isSavingTaskTitle={isSavingTaskTitle}
+            isUpdatingTaskStatus={isUpdatingTaskStatus}
             selectedEventId={selectedEventId}
             selectedConnectorKey={selectedConnectorKey}
             selectedRuleId={selectedRuleId}
@@ -744,6 +766,7 @@ export function App(): React.JSX.Element {
             onToggleRuleGap={(show) => setShowRuleGapsOnly(show)}
             onClearRuleId={() => setSelectedRuleId(null)}
             onClearTag={() => setSelectedTag(null)}
+            onChangeTaskStatus={(s) => void handleTaskStatusChange(s)}
           />
         </section>
 

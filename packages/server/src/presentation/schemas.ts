@@ -40,6 +40,14 @@ export const taskRenameSchema = z.object({
   title: z.string().trim().min(1)
 });
 
+export const taskPatchSchema = z.object({
+  title: z.string().trim().min(1).optional(),
+  status: z.enum(["running", "completed", "errored"]).optional()
+}).refine(
+  (data) => data.title !== undefined || data.status !== undefined,
+  { message: "At least one of title or status must be provided" }
+);
+
 export const taskErrorSchema = taskCompleteSchema.extend({
   errorMessage: z.string().min(1)
 });

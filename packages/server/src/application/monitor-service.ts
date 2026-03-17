@@ -43,6 +43,7 @@ import type {
   TaskPlanInput,
   TaskLinkInput,
   TaskQuestionInput,
+  TaskPatchInput,
   TaskRenameInput,
   TaskRuleInput,
   TaskSessionEndInput,
@@ -1085,6 +1086,29 @@ export class MonitorService {
       ...task,
       title: nextTitle,
       slug: createTaskSlug({ title: nextTitle }),
+      updatedAt: new Date().toISOString()
+    });
+  }
+
+  updateTask(input: TaskPatchInput): MonitoringTask | undefined {
+    const task = this.database.getTask(input.taskId);
+
+    if (!task) {
+      return undefined;
+    }
+
+    const titleUpdate = input.title !== undefined ? input.title.trim() : undefined;
+    const hasNewTitle = titleUpdate !== undefined && titleUpdate !== task.title;
+    const hasNewStatus = input.status !== undefined && input.status !== task.status;
+
+    if (!hasNewTitle && !hasNewStatus) {
+      return task;
+    }
+
+    return this.database.upsertTask({
+      ...task,
+      ...(hasNewTitle ? { title: titleUpdate!, slug: createTaskSlug({ title: titleUpdate! }) } : {}),
+      ...(hasNewStatus ? { status: input.status! } : {}),
       updatedAt: new Date().toISOString()
     });
   }

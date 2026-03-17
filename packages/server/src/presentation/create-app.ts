@@ -26,7 +26,7 @@ import type {
   TaskExploreInput,
   TaskPlanInput,
   TaskQuestionInput,
-  TaskRenameInput,
+  TaskPatchInput,
   TaskRuleInput,
   TaskSessionEndInput,
   TaskStartInput,
@@ -46,7 +46,7 @@ import {
   taskStartSchema,
   taskLinkSchema,
   taskCompleteSchema,
-  taskRenameSchema,
+  taskPatchSchema,
   taskErrorSchema,
   toolUsedSchema,
   terminalCommandSchema,
@@ -166,11 +166,13 @@ export function createMonitoringHttpServer(
   });
 
   app.patch("/api/tasks/:taskId", (request, response) => {
-    const parsed = taskRenameSchema.parse(request.body) as { title: string };
-    const task = service.renameTask({
+    const parsed = taskPatchSchema.parse(request.body) as { title?: string; status?: "running" | "completed" | "errored" };
+    const patchInput: TaskPatchInput = {
       taskId: request.params.taskId,
-      title: parsed.title
-    } as TaskRenameInput);
+      ...(parsed.title !== undefined ? { title: parsed.title } : {}),
+      ...(parsed.status !== undefined ? { status: parsed.status } : {})
+    };
+    const task = service.updateTask(patchInput);
 
     if (!task) {
       response.status(404).json({

@@ -38,6 +38,12 @@ export interface TaskRenameInput {
   readonly title: string;
 }
 
+export interface TaskPatchInput {
+  readonly taskId: string;
+  readonly title?: string;
+  readonly status?: "running" | "completed" | "errored";
+}
+
 export interface TaskTerminalCommandInput {
   readonly taskId: string;
   readonly sessionId?: string;

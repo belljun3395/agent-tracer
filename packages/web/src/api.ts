@@ -130,6 +130,17 @@ export async function updateTaskTitle(taskId: string, title: string): Promise<Mo
 }
 
 /**
+ * 태스크 상태를 업데이트함.
+ * @param taskId - 수정할 태스크 ID
+ * @param status - 새 상태
+ * @returns 업데이트된 태스크 객체
+ */
+export async function updateTaskStatus(taskId: string, status: MonitoringTask["status"]): Promise<MonitoringTask> {
+  const payload = await patchJson<{ task: MonitoringTask }>(`/api/tasks/${taskId}`, { status });
+  return payload.task;
+}
+
+/**
  * 특정 태스크를 삭제함.
  * @param taskId - 삭제할 태스크 ID
  */
