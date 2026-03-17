@@ -89,16 +89,17 @@ No extra Claude-specific setup is required if you are working in this checkout.
 
 ## 4. Reuse Claude Hooks In Another Project
 
-Copy both the settings file and the hook scripts:
+외부 프로젝트에서는 Python 훅 파일을 복사하지 말고,
+설치 스크립트로 **절대 경로 참조형 hooks 설정**을 생성하세요.
 
 ```bash
-AGENT_TRACER=/path/to/agent-tracer
-YOUR_PROJECT=/your-project
-
-mkdir -p "$YOUR_PROJECT/.claude"
-cp -r "$AGENT_TRACER/.claude/hooks"       "$YOUR_PROJECT/.claude/hooks"
-cp    "$AGENT_TRACER/.claude/settings.json" "$YOUR_PROJECT/.claude/settings.json"
+cd /path/to/agent-tracer
+npm run setup:external -- --target /path/to/your-project --mode claude
 ```
+
+이 스크립트는 `/path/to/your-project/.claude/settings.json`을 생성/병합하며,
+각 hook command가 `agent-tracer/.claude/hooks/*.py`를 절대 경로로 실행하도록 설정합니다.
+즉, 외부 프로젝트에 Python 구현 파일을 복사하지 않습니다.
 
 Then register the same `monitor` MCP server in Claude Code:
 
