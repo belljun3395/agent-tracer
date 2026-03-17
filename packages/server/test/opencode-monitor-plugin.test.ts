@@ -103,54 +103,38 @@ describe("OpenCode monitor plugin", () => {
     await hooks.event?.({ event: sessionEvent("session.deleted", "session-a") });
     await hooks.event?.({ event: sessionEvent("session.deleted", "session-b") });
 
-    expect(calls).toEqual([
-      {
-        endpoint: "/api/task-start",
-        body: expect.objectContaining({
-          metadata: expect.objectContaining({ opencodeSessionId: "session-a" })
-        })
-      },
-      {
-        endpoint: "/api/task-start",
-        body: expect.objectContaining({
-          metadata: expect.objectContaining({ opencodeSessionId: "session-b" })
-        })
-      },
-      {
-        endpoint: "/api/terminal-command",
-        body: expect.objectContaining({
-          taskId: "task-session-a",
-          sessionId: "monitor-session-a",
-          command: "pwd",
-          metadata: expect.objectContaining({ opencodeSessionId: "session-a" })
-        })
-      },
-      {
-        endpoint: "/api/terminal-command",
-        body: expect.objectContaining({
-          taskId: "task-session-b",
-          sessionId: "monitor-session-b",
-          command: "ls",
-          metadata: expect.objectContaining({ opencodeSessionId: "session-b" })
-        })
-      },
-      {
-        endpoint: "/api/task-complete",
-        body: expect.objectContaining({
-          taskId: "task-session-a",
-          sessionId: "monitor-session-a",
-          metadata: expect.objectContaining({ opencodeSessionId: "session-a" })
-        })
-      },
-      {
-        endpoint: "/api/task-complete",
-        body: expect.objectContaining({
-          taskId: "task-session-b",
-          sessionId: "monitor-session-b",
-          metadata: expect.objectContaining({ opencodeSessionId: "session-b" })
-        })
-      }
-    ]);
+    // 순서: task-start (a), unsupported-gap rule (a), task-start (b), unsupported-gap rule (b),
+    //        terminal-command (a), terminal-command (b), session-end (a), session-end (b)
+    expect(calls.filter(c => c.endpoint === "/api/task-start")).toHaveLength(2);
+    expect(calls.filter(c => c.endpoint === "/api/rule")).toHaveLength(2);
+    expect(calls.filter(c => c.endpoint === "/api/terminal-command")).toHaveLength(2);
+    expect(calls.filter(c => c.endpoint === "/api/session-end")).toHaveLength(2);
+    // 태스크가 세션 종료 시 complete 되어서는 안 된다
+    expect(calls.filter(c => c.endpoint === "/api/task-complete")).toHaveLength(0);
+
+    // unsupported-gap rule이 올바른 ruleId를 사용한다
+    const ruleCall = calls.find(c => c.endpoint === "/api/rule");
+    expect(ruleCall?.body).toMatchObject({
+      ruleId: "user-message-capture-unavailable",
+      source: "opencode-plugin"
+    });
+
+    // session-end 가 세션별로 올바른 taskId/sessionId를 사용한다
+    const sessionEndBodies = calls
+      .filter(c => c.endpoint === "/api/session-end")
+      .map(c => c.body);
+    expect(sessionEndBodies).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        taskId: "task-session-a",
+        sessionId: "monitor-session-a",
+        metadata: expect.objectContaining({ opencodeSessionId: "session-a" })
+      }),
+      expect.objectContaining({
+        taskId: "task-session-b",
+        sessionId: "monitor-session-b",
+        metadata: expect.objectContaining({ opencodeSessionId: "session-b" })
+      })
+    ]));
   });
 
   it("deduplicates task creation when a tool starts before session initialization finishes", async () => {

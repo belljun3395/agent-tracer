@@ -115,6 +115,44 @@ export interface TaskErrorInput extends TaskCompletionInput {
   readonly errorMessage: string;
 }
 
+/**
+ * 캐노니컬 user.message 이벤트 입력 (contractVersion "1").
+ *
+ * 자동 이미터(source=opencode-plugin | claude-hook)는 반드시 sessionId를 제공해야 한다.
+ * derived 레코드는 반드시 sourceEventId로 raw 소스 이벤트를 참조해야 한다.
+ */
+export interface TaskUserMessageInput {
+  readonly taskId: string;
+  /** 자동 이미터(opencode-plugin, claude-hook)는 필수. */
+  readonly sessionId?: string;
+  /** 클라이언트 할당 메시지 ID (중복 방지용). */
+  readonly messageId: string;
+  /** raw = 실제 사용자 입력 텍스트; derived = raw 소스에 연결된 보강 레코드. */
+  readonly captureMode: "raw" | "derived";
+  /** 이미터 식별자: opencode-plugin | claude-hook | manual-mcp | <custom>. */
+  readonly source: string;
+  /** initial = 작업 항목의 첫 메시지; follow_up = 후속 메시지. */
+  readonly phase?: "initial" | "follow_up";
+  readonly title: string;
+  readonly body?: string;
+  /** captureMode=derived 시 필수. raw 소스 이벤트 ID. */
+  readonly sourceEventId?: string;
+  readonly metadata?: Record<string, unknown>;
+  readonly contractVersion?: string;
+}
+
+/**
+ * 세션-종료 입력.
+ * 현재 런타임 세션만 종료하며 태스크는 running 상태를 유지한다.
+ * 작업 항목 종료는 task-complete 를 명시적으로 호출해야 한다.
+ */
+export interface TaskSessionEndInput {
+  readonly taskId: string;
+  readonly sessionId?: string;
+  readonly summary?: string;
+  readonly metadata?: Record<string, unknown>;
+}
+
 export interface GenericEventInput {
   readonly taskId: string;
   readonly sessionId?: string;

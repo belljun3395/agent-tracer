@@ -1,6 +1,31 @@
 /** 타임라인 이벤트가 속하는 레인. 대시보드에서 수직 구역으로 표시됨. */
 export type TimelineLane = "user" | "exploration" | "planning" | "implementation" | "rules";
 
+/**
+ * 캐노니컬 user.message 메타데이터 계약 (contractVersion "1").
+ *
+ * 메타데이터 키 정의:
+ *   messageId      — 클라이언트 할당 메시지 ID (중복 방지용)
+ *   captureMode    — "raw" | "derived"
+ *                    raw: 실제 사용자 입력 텍스트
+ *                    derived: raw 이벤트에서 파생된 보강 레코드 (sourceEventId 필수)
+ *   source         — 이미터 식별자 (opencode-plugin | claude-hook | manual-mcp | <custom>)
+ *   phase          — "initial" | "follow_up" — 작업 내 첫 메시지 vs. 후속 메시지
+ *   sourceEventId  — captureMode=derived 시 raw 소스 이벤트 ID (derived 시 필수)
+ *   contractVersion — "1" (이 계약 버전)
+ *
+ * 자동 이미터 규칙:
+ *   - source=opencode-plugin 또는 claude-hook 는 항상 sessionId를 제공해야 한다.
+ *   - 런타임이 raw 프롬프트를 노출하지 않는 경우 fake raw 이벤트를 생성하지 말고
+ *     ruleId="user-message-capture-unavailable" 로 /api/rule 을 호출해야 한다.
+ *
+ * 세션-종료 vs. 태스크-완료:
+ *   - /api/session-end 는 현재 런타임 세션만 종료하며 task.status 를 변경하지 않는다.
+ *   - /api/task-complete 만이 작업 항목을 명시적으로 닫는다.
+ *   - 자동 런타임 종료(session.deleted, Claude Stop) 는 반드시 session-end 를 사용해야 한다.
+ */
+export const USER_MESSAGE_CONTRACT_VERSION = "1" as const;
+
 /** 에이전트가 작업 중에 발생시키는 이벤트 종류. */
 export type MonitoringEventKind =
   | "task.start"

@@ -69,4 +69,150 @@ describe("HTTP API", () => {
       .send({ title: "" });
     expect(res.status).toBe(400);
   });
+
+  describe("POST /api/user-message — 캐노니컬 user.message", () => {
+    it("raw 메시지를 기록한다 → 200", async () => {
+      const start = await request(app)
+        .post("/api/task-start")
+        .send({ title: "User Message Test" });
+      const taskId = start.body.task.id as string;
+      const sessionId = start.body.sessionId as string;
+
+      const res = await request(app)
+        .post("/api/user-message")
+        .send({
+          taskId,
+          sessionId,
+          messageId: "msg-1",
+          captureMode: "raw",
+          source: "manual-mcp",
+          phase: "initial",
+          title: "User prompt"
+        });
+      expect(res.status).toBe(200);
+      expect(res.body.events[0].kind).toBe("user.message");
+    });
+
+    it("derived 페이로드에 sourceEventId 누락 → 400", async () => {
+      const start = await request(app)
+        .post("/api/task-start")
+        .send({ title: "Derived Test" });
+      const taskId = start.body.task.id as string;
+      const sessionId = start.body.sessionId as string;
+
+      const res = await request(app)
+        .post("/api/user-message")
+        .send({
+          taskId,
+          sessionId,
+          messageId: "msg-derived",
+          captureMode: "derived",
+          source: "manual-mcp",
+          title: "Derived without sourceEventId"
+          // sourceEventId 누락
+        });
+      expect(res.status).toBe(400);
+    });
+
+    it("자동 이미터(opencode-plugin) sessionId 누락 → 400", async () => {
+      const start = await request(app)
+        .post("/api/task-start")
+        .send({ title: "Auto Emitter Test" });
+      const taskId = start.body.task.id as string;
+
+      const res = await request(app)
+        .post("/api/user-message")
+        .send({
+          taskId,
+          // sessionId 누락
+          messageId: "msg-auto",
+          captureMode: "raw",
+          source: "opencode-plugin",
+          title: "Auto emitter without sessionId"
+        });
+      expect(res.status).toBe(400);
+    });
+
+    it("messageId 누락 → 400", async () => {
+      const start = await request(app)
+        .post("/api/task-start")
+        .send({ title: "Missing messageId Test" });
+      const taskId = start.body.task.id as string;
+      const sessionId = start.body.sessionId as string;
+
+      const res = await request(app)
+        .post("/api/user-message")
+        .send({
+          taskId,
+          sessionId,
+          // messageId 누락
+          captureMode: "raw",
+          source: "manual-mcp",
+          title: "No messageId"
+        });
+      expect(res.status).toBe(400);
+    });
+  });
+
+  describe("POST /api/session-end — 세션 종료 연속성", () => {
+    it("세션 종료 후 태스크는 running 상태를 유지한다", async () => {
+      const start = await request(app)
+        .post("/api/task-start")
+        .send({ title: "Session End Test" });
+      const taskId = start.body.task.id as string;
+      const sessionId = start.body.sessionId as string;
+
+      const res = await request(app)
+        .post("/api/session-end")
+        .send({ taskId, sessionId });
+      expect(res.status).toBe(200);
+      expect(res.body.task.status).toBe("running");
+      expect(res.body.sessionId).toBe(sessionId);
+    });
+
+    it("세션 재시작 후 두 raw 메시지가 같은 태스크에 누적된다", async () => {
+      // 첫 번째 세션
+      const start1 = await request(app)
+        .post("/api/task-start")
+        .send({ title: "Continuity Test", taskId: "work-item-cont-1" });
+      const taskId = start1.body.task.id as string;
+      const sessionId1 = start1.body.sessionId as string;
+
+      await request(app)
+        .post("/api/user-message")
+        .send({
+          taskId, sessionId: sessionId1,
+          messageId: "msg-1", captureMode: "raw",
+          source: "manual-mcp", phase: "initial",
+          title: "First prompt"
+        });
+
+      await request(app)
+        .post("/api/session-end")
+        .send({ taskId, sessionId: sessionId1 });
+
+      // 두 번째 세션 (같은 taskId)
+      const start2 = await request(app)
+        .post("/api/task-start")
+        .send({ title: "Continuity Test", taskId });
+      const sessionId2 = start2.body.sessionId as string;
+      expect(sessionId2).not.toBe(sessionId1);
+
+      await request(app)
+        .post("/api/user-message")
+        .send({
+          taskId, sessionId: sessionId2,
+          messageId: "msg-2", captureMode: "raw",
+          source: "manual-mcp", phase: "follow_up",
+          title: "Follow-up prompt"
+        });
+
+      const detail = await request(app).get(`/api/tasks/${taskId}`);
+      expect(detail.status).toBe(200);
+      expect(detail.body.task.status).toBe("running");
+      const userMessages = (detail.body.timeline as Array<{ kind: string }>)
+        .filter(e => e.kind === "user.message");
+      expect(userMessages).toHaveLength(2);
+    });
+  });
 });

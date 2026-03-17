@@ -23,9 +23,11 @@ import type {
   TaskPlanInput,
   TaskRenameInput,
   TaskRuleInput,
+  TaskSessionEndInput,
   TaskStartInput,
   TaskTerminalCommandInput,
   TaskToolUsedInput,
+  TaskUserMessageInput,
   TaskVerifyInput
 } from "../application/types.js";
 import {
@@ -40,7 +42,9 @@ import {
   actionEventSchema,
   verifySchema,
   ruleSchema,
-  asyncLifecycleSchema
+  asyncLifecycleSchema,
+  userMessageSchema,
+  sessionEndSchema
 } from "./schemas.js";
 
 export interface MonitoringHttpServer {
@@ -217,6 +221,22 @@ export function createMonitoringHttpServer(
       asyncLifecycleSchema.parse(request.body) as TaskAsyncLifecycleInput
     );
     broadcast("task.event-recorded", result);
+    response.json(result);
+  });
+
+  app.post("/api/user-message", (request, response) => {
+    const result = service.logUserMessage(
+      userMessageSchema.parse(request.body) as TaskUserMessageInput
+    );
+    broadcast("task.event-recorded", result);
+    response.json(result);
+  });
+
+  app.post("/api/session-end", (request, response) => {
+    const result = service.endSession(
+      sessionEndSchema.parse(request.body) as TaskSessionEndInput
+    );
+    broadcast("task.session-ended", result);
     response.json(result);
   });
 

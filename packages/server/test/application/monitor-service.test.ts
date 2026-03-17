@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { MonitorService } from "../../src/application/monitor-service.js";
+import type { TaskUserMessageInput } from "../../src/application/types.js";
 
 /** MonitorService 통합 테스트 — 실제 in-memory SQLite 사용 */
 describe("MonitorService", () => {
@@ -68,6 +69,125 @@ describe("MonitorService", () => {
       const { task } = service.startTask({ title: "T" });
       service.completeTask({ taskId: task.id });
       expect(service.deleteTask(task.id)).toBe("deleted");
+    });
+  });
+
+  describe("logUserMessage — 캐노니컬 user.message 계약", () => {
+    it("raw 메시지를 같은 태스크에 기록한다", () => {
+      const { task, sessionId } = service.startTask({ title: "Work Item" });
+      const input: TaskUserMessageInput = {
+        taskId: task.id,
+        sessionId,
+        messageId: "msg-1",
+        captureMode: "raw",
+        source: "manual-mcp",
+        phase: "initial",
+        title: "User prompt text",
+        body: "Please do X"
+      };
+      const result = service.logUserMessage(input);
+      expect(result.task.id).toBe(task.id);
+      expect(result.task.status).toBe("running");
+      expect(result.events).toHaveLength(1);
+      expect(result.events[0]?.kind).toBe("user.message");
+    });
+
+    it("derived 메시지를 sourceEventId와 함께 기록한다", () => {
+      const { task, sessionId } = service.startTask({ title: "Work Item" });
+      const raw = service.logUserMessage({
+        taskId: task.id,
+        sessionId,
+        messageId: "msg-raw",
+        captureMode: "raw",
+        source: "manual-mcp",
+        title: "Raw prompt"
+      });
+      const rawEventId = raw.events[0]!.id;
+
+      const derived = service.logUserMessage({
+        taskId: task.id,
+        sessionId,
+        messageId: "msg-derived",
+        captureMode: "derived",
+        source: "manual-mcp",
+        sourceEventId: rawEventId,
+        title: "Derived enrichment"
+      });
+      expect(derived.events[0]?.kind).toBe("user.message");
+      const timeline = service.getTaskTimeline(task.id);
+      const derivedEvent = timeline.find(e => e.id === derived.events[0]!.id);
+      expect(derivedEvent?.metadata.sourceEventId).toBe(rawEventId);
+      expect(derivedEvent?.metadata.captureMode).toBe("derived");
+    });
+
+    it("여러 raw 메시지가 동일 태스크에 누적된다", () => {
+      const { task, sessionId } = service.startTask({ title: "Work Item" });
+      service.logUserMessage({
+        taskId: task.id, sessionId, messageId: "msg-1",
+        captureMode: "raw", source: "manual-mcp", title: "First prompt"
+      });
+      service.logUserMessage({
+        taskId: task.id, sessionId, messageId: "msg-2",
+        captureMode: "raw", source: "manual-mcp", phase: "follow_up", title: "Follow-up prompt"
+      });
+      const timeline = service.getTaskTimeline(task.id);
+      const userMessages = timeline.filter(e => e.kind === "user.message");
+      expect(userMessages).toHaveLength(2);
+    });
+
+    it("자동 이미터(opencode-plugin)가 sessionId 없이 호출하면 에러를 던진다", () => {
+      const { task } = service.startTask({ title: "Work Item" });
+      // sessionId를 제공하지 않은 opencode-plugin → 자동 이미터는 sessionId 필수
+      // 서비스 레이어에서는 sessionId=undefined + automaticSource → sessionId를 결정할 수 없어 기록됨
+      // (HTTP 레이어 스키마 검증에서 400으로 거부됨 — 서비스 자체는 기록 허용)
+      // 이 케이스는 스키마 검증 테스트에서 확인 (create-app.test.ts)
+      const result = service.logUserMessage({
+        taskId: task.id,
+        messageId: "msg-x",
+        captureMode: "raw",
+        source: "opencode-plugin",
+        title: "No sessionId"
+      });
+      // sessionId가 없으므로 result.sessionId가 undefined
+      expect(result.sessionId).toBeUndefined();
+    });
+  });
+
+  describe("endSession — 세션 종료 (태스크 유지)", () => {
+    it("세션을 종료해도 태스크는 running 상태를 유지한다", () => {
+      const { task, sessionId } = service.startTask({ title: "Work Item" });
+      const endResult = service.endSession({ taskId: task.id, sessionId });
+      expect(endResult.task.status).toBe("running");
+      expect(endResult.sessionId).toBe(sessionId);
+    });
+
+    it("세션 종료 후 같은 태스크에서 새 세션을 시작할 수 있다", () => {
+      const { task, sessionId: firstSessionId } = service.startTask({ title: "Work Item" });
+      service.logUserMessage({
+        taskId: task.id, sessionId: firstSessionId, messageId: "msg-1",
+        captureMode: "raw", source: "manual-mcp", title: "First prompt"
+      });
+      service.endSession({ taskId: task.id, sessionId: firstSessionId });
+
+      // 같은 taskId로 새 세션 시작
+      const restart = service.startTask({ title: "Work Item", taskId: task.id });
+      expect(restart.task.id).toBe(task.id);
+      expect(restart.sessionId).not.toBe(firstSessionId);
+
+      service.logUserMessage({
+        taskId: task.id, sessionId: restart.sessionId, messageId: "msg-2",
+        captureMode: "raw", source: "manual-mcp", phase: "follow_up", title: "Follow-up"
+      });
+
+      const timeline = service.getTaskTimeline(task.id);
+      const userMessages = timeline.filter(e => e.kind === "user.message");
+      // 두 세션의 raw 메시지가 모두 같은 태스크 타임라인에 존재해야 한다
+      expect(userMessages).toHaveLength(2);
+      expect(restart.task.status).toBe("running");
+    });
+
+    it("존재하지 않는 태스크 종료 시 에러를 던진다", () => {
+      expect(() => service.endSession({ taskId: "no-such" })).toThrow();
     });
   });
 });

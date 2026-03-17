@@ -35,9 +35,11 @@ import type {
   TaskPlanInput,
   TaskRenameInput,
   TaskRuleInput,
+  TaskSessionEndInput,
   TaskStartInput,
   TaskTerminalCommandInput,
   TaskToolUsedInput,
+  TaskUserMessageInput,
   TaskVerifyInput
 } from "./types.js";
 
@@ -157,6 +159,76 @@ export class MonitorService {
    */
   errorTask(input: TaskErrorInput): RecordedEventEnvelope {
     return this.finishTask(input, "errored", "task.error", input.errorMessage);
+  }
+
+  /**
+   * 캐노니컬 user.message 이벤트를 기록한다 (contractVersion "1").
+   * raw와 derived 이벤트를 같은 태스크에 append-only 로 기록한다.
+   * @param input 사용자 메시지 입력
+   * @returns 태스크·세션·이벤트 envelope
+   */
+  logUserMessage(input: TaskUserMessageInput): RecordedEventEnvelope {
+    const task = this.database.getTask(input.taskId);
+
+    if (!task) {
+      throw new Error(`Task not found: ${input.taskId}`);
+    }
+
+    // 자동 이미터(opencode-plugin, claude-hook)는 sessionId를 명시적으로 제공해야 한다.
+    // 그 외 소스는 latest-session fallback 허용.
+    const automaticSources = ["opencode-plugin", "claude-hook"];
+    const sessionId = input.sessionId
+      ?? (automaticSources.includes(input.source)
+        ? undefined
+        : this.database.findLatestSession(input.taskId)?.id);
+
+    const event = this.recordGenericEvent({
+      taskId: input.taskId,
+      kind: "user.message",
+      title: input.title,
+      ...(sessionId ? { sessionId } : {}),
+      ...(input.body ? { body: input.body } : {}),
+      metadata: {
+        ...(input.metadata ?? {}),
+        messageId: input.messageId,
+        captureMode: input.captureMode,
+        source: input.source,
+        ...(input.phase ? { phase: input.phase } : {}),
+        ...(input.sourceEventId ? { sourceEventId: input.sourceEventId } : {}),
+        contractVersion: input.contractVersion ?? "1"
+      }
+    });
+
+    return {
+      task,
+      ...(sessionId ? { sessionId } : {}),
+      events: [{ id: event.id, kind: event.kind }]
+    };
+  }
+
+  /**
+   * 현재 런타임 세션을 종료한다. 태스크는 running 상태를 유지한다.
+   * 작업 항목을 닫으려면 completeTask 를 명시적으로 호출해야 한다.
+   * @param input 세션 종료 입력
+   * @returns 종료된 sessionId와 변경되지 않은 task
+   */
+  endSession(input: TaskSessionEndInput): { sessionId: string; task: MonitoringTask } {
+    const task = this.database.getTask(input.taskId);
+
+    if (!task) {
+      throw new Error(`Task not found: ${input.taskId}`);
+    }
+
+    const sessionId = input.sessionId ?? this.database.findLatestSession(input.taskId)?.id;
+
+    if (!sessionId) {
+      throw new Error(`No active session for task: ${input.taskId}`);
+    }
+
+    const endedAt = new Date().toISOString();
+    this.database.updateSessionStatus(sessionId, "completed", input.summary, endedAt);
+
+    return { sessionId, task };
   }
 
   /**
