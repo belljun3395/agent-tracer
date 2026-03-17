@@ -25,7 +25,7 @@ import {
   formatRelativeTime
 } from "../lib/timeline.js";
 import { filterTimelineEvents } from "../lib/insights.js";
-import type { TimelineConnector, TimelineItemLayout, TimelineNodeBounds } from "../lib/timeline.js";
+import type { TimelineItemLayout, TimelineNodeBounds } from "../lib/timeline.js";
 import type { TimelineEvent, TimelineLane } from "../types.js";
 
 const laneLabels: Record<TimelineLane, string> = {

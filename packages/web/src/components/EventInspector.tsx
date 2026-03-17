@@ -30,7 +30,6 @@ import {
 import { formatRelativeTime } from "../lib/timeline.js";
 import type { TimelineConnector } from "../lib/timeline.js";
 import type {
-  MonitoringTask,
   OverviewResponse,
   TaskDetailResponse,
   TimelineEvent
@@ -71,7 +70,6 @@ interface SelectedConnectorData {
 interface EventInspectorProps {
   readonly taskDetail: TaskDetailResponse | null;
   readonly overview: OverviewResponse | null;
-  readonly selectedTask: MonitoringTask | null;
   readonly selectedEvent: TimelineEvent | null;
   readonly selectedConnector: SelectedConnectorData | null;
   readonly selectedEventDisplayTitle: string | null;
@@ -757,7 +755,6 @@ function summarizeDetailText(value: string, limit = 180): string {
 export function EventInspector({
   taskDetail,
   overview,
-  selectedTask,
   selectedEvent,
   selectedConnector,
   selectedEventDisplayTitle,

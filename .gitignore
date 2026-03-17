@@ -12,7 +12,6 @@ coverage
 !.env.example
 .agents
 .ralph
-.baden
 .claude/.current-task-id
 .codex/.current-task-id
 .codex/hook-debug/

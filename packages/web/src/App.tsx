@@ -22,8 +22,6 @@ import {
 import {
   buildCompactInsight,
   buildObservabilityStats,
-  buildRuleCoverage,
-  buildTagInsights,
   buildTaskDisplayTitle,
   collectExploredFiles,
   filterTimelineEvents
@@ -36,8 +34,7 @@ import type {
   MonitoringTask,
   OverviewResponse,
   TaskDetailResponse,
-  TimelineEvent,
-  TimelineLane
+  TimelineEvent
 } from "./types.js";
 
 function isConnectorKeyValid(
@@ -176,18 +173,6 @@ export function App(): JSX.Element {
     }),
     [selectedRuleId, selectedTag, showRuleGapsOnly, taskTimeline]
   );
-
-  const selectedConnectorData = useMemo(() => {
-    if (!selectedConnectorKey) return null;
-    const [sourceId, targetId] = selectedConnectorKey.split("→");
-    if (!sourceId || !targetId) return null;
-    const source = filteredTimeline.find((e) => e.id === sourceId);
-    const target = filteredTimeline.find((e) => e.id === targetId);
-    if (!source || !target) return null;
-    // We need the connector path from connectors array — Timeline component manages this internally
-    // Expose minimal data for EventInspector
-    return null; // Timeline manages connectors internally; EventInspector uses selectedConnector from Timeline
-  }, [selectedConnectorKey, filteredTimeline]);
 
   const selectedEvent = filteredTimeline.find((e) => e.id === selectedEventId) ?? filteredTimeline[0] ?? null;
   const selectedEventDisplayTitle = selectedEvent
@@ -377,7 +362,6 @@ export function App(): JSX.Element {
         <EventInspector
           taskDetail={taskDetail}
           overview={overview}
-          selectedTask={taskDetail?.task ?? null}
           selectedEvent={selectedEvent}
           selectedConnector={null}
           selectedEventDisplayTitle={selectedEventDisplayTitle}
