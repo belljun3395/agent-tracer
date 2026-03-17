@@ -132,18 +132,18 @@ export interface TaskErrorInput extends TaskCompletionInput {
 /**
  * 캐노니컬 user.message 이벤트 입력 (contractVersion "1").
  *
- * 자동 이미터(source=opencode-plugin | claude-hook)는 반드시 sessionId를 제공해야 한다.
+ * sessionId는 모든 호출자에게 필수다 (서버가 자동으로 세션을 유추하지 않는다).
  * derived 레코드는 반드시 sourceEventId로 raw 소스 이벤트를 참조해야 한다.
  */
 export interface TaskUserMessageInput {
   readonly taskId: string;
-  /** 자동 이미터(opencode-plugin, claude-hook)는 필수. */
-  readonly sessionId?: string;
+  /** 모든 호출자에게 필수. source는 이미터를 식별하는 불투명 메타데이터. */
+  readonly sessionId: string;
   /** 클라이언트 할당 메시지 ID (중복 방지용). */
   readonly messageId: string;
   /** raw = 실제 사용자 입력 텍스트; derived = raw 소스에 연결된 보강 레코드. */
   readonly captureMode: "raw" | "derived";
-  /** 이미터 식별자: opencode-plugin | claude-hook | manual-mcp | <custom>. */
+  /** 이미터 식별자 (불투명 메타데이터): manual-mcp | <runtime-adapter> | <custom>. */
   readonly source: string;
   /** initial = 작업 항목의 첫 메시지; follow_up = 후속 메시지. */
   readonly phase?: "initial" | "follow_up";
@@ -242,5 +242,30 @@ export interface CcSessionEndInput {
   readonly ccSessionId: string;
   readonly summary?: string;
   /** true — task also transitions to "completed" on session end */
+  readonly completeTask?: boolean;
+}
+
+/**
+ * 제너릭 런타임-세션 보장 입력.
+ * 어떤 런타임 어댑터라도 runtimeSource + runtimeSessionId 쌍으로 task/session을 자동 생성·재개한다.
+ */
+export interface RuntimeSessionEnsureInput {
+  readonly runtimeSource: string;
+  readonly runtimeSessionId: string;
+  readonly title: string;
+  readonly workspacePath?: string;
+}
+
+export interface RuntimeSessionEnsureResult {
+  readonly taskId: string;
+  readonly sessionId: string;
+  readonly taskCreated: boolean;
+  readonly sessionCreated: boolean;
+}
+
+export interface RuntimeSessionEndInput {
+  readonly runtimeSource: string;
+  readonly runtimeSessionId: string;
+  readonly summary?: string;
   readonly completeTask?: boolean;
 }

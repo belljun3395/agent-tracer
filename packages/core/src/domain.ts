@@ -15,7 +15,7 @@ export type TimelineLane = "user" | "exploration" | "planning" | "implementation
  *   contractVersion — "1" (이 계약 버전)
  *
  * 자동 이미터 규칙:
- *   - source=opencode-plugin 또는 claude-hook 는 항상 sessionId를 제공해야 한다.
+ *   - sessionId는 모든 호출자에게 필수다 (서버가 자동으로 세션을 유추하지 않는다).
  *   - 런타임이 raw 프롬프트를 노출하지 않는 경우 fake raw 이벤트를 생성하지 말고
  *     ruleId="user-message-capture-unavailable" 로 /api/rule 을 호출해야 한다.
  *
@@ -65,8 +65,8 @@ export interface MonitoringTask extends MonitoringTaskInput {
   readonly createdAt: string;
   readonly updatedAt: string;
   readonly lastSessionStartedAt?: string;
-  /** 이벤트를 생성한 CLI 소스 (예: claude-hook, opencode-plugin). */
-  readonly cliSource?: string;
+  /** 이벤트 출처 소스 (read-model, 파생값). 예: claude-hook, opencode-plugin, manual-mcp */
+  readonly runtimeSource?: string;
   readonly taskKind?: MonitoringTaskKind;
 }
 

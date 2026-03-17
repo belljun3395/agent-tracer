@@ -113,12 +113,12 @@ export const ruleSchema = actionEventSchema.extend({
 
 /**
  * 캐노니컬 user.message 요청 스키마 (contractVersion "1").
+ * - sessionId는 모든 호출자에게 필수.
  * - captureMode=derived 시 sourceEventId 필수.
- * - source=opencode-plugin | claude-hook (자동 이미터) 시 sessionId 필수.
  */
 export const userMessageSchema = z.object({
   taskId: z.string().min(1),
-  sessionId: z.string().optional(),
+  sessionId: z.string().min(1),
   messageId: z.string().min(1),
   captureMode: z.enum(["raw", "derived"]),
   source: z.string().min(1),
@@ -128,22 +128,6 @@ export const userMessageSchema = z.object({
   sourceEventId: z.string().optional(),
   metadata: z.record(z.unknown()).optional(),
   contractVersion: z.string().optional()
-}).superRefine((data, ctx) => {
-  if (data.captureMode === "derived" && !data.sourceEventId) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: "derived captureMode requires sourceEventId",
-      path: ["sourceEventId"]
-    });
-  }
-  const automaticSources = ["opencode-plugin", "claude-hook"];
-  if (automaticSources.includes(data.source) && !data.sessionId) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: "automatic emitters (opencode-plugin, claude-hook) must provide sessionId",
-      path: ["sessionId"]
-    });
-  }
 });
 
 /** 세션-종료 요청 스키마. 태스크를 완료하지 않고 세션만 종료한다. */
@@ -214,6 +198,20 @@ export const ccSessionEnsureSchema = z.object({
 
 export const ccSessionEndSchema = z.object({
   ccSessionId: z.string().min(1),
+  summary: z.string().optional(),
+  completeTask: z.boolean().optional()
+});
+
+export const runtimeSessionEnsureSchema = z.object({
+  runtimeSource: z.string().min(1),
+  runtimeSessionId: z.string().min(1),
+  title: z.string().min(1),
+  workspacePath: z.string().optional()
+});
+
+export const runtimeSessionEndSchema = z.object({
+  runtimeSource: z.string().min(1),
+  runtimeSessionId: z.string().min(1),
   summary: z.string().optional(),
   completeTask: z.boolean().optional()
 });

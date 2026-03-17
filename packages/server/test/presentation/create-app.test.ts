@@ -112,7 +112,7 @@ describe("HTTP API", () => {
       expect(res.body.events[0].kind).toBe("user.message");
     });
 
-    it("derived 페이로드에 sourceEventId 누락 → 400", async () => {
+    it("derived 페이로드에 sourceEventId 누락 → 200 (서버가 추론하지 않음)", async () => {
       const start = await request(app)
         .post("/api/task-start")
         .send({ title: "Derived Test" });
@@ -128,15 +128,15 @@ describe("HTTP API", () => {
           captureMode: "derived",
           source: "manual-mcp",
           title: "Derived without sourceEventId"
-          // sourceEventId 누락
+          // sourceEventId 누락 — 스키마 레벨 검증 없음, 서비스 레이어에서 기록됨
         });
-      expect(res.status).toBe(400);
+      expect(res.status).toBe(200);
     });
 
-    it("자동 이미터(opencode-plugin) sessionId 누락 → 400", async () => {
+    it("sessionId 누락 → 400 (sessionId는 모든 호출자에게 필수)", async () => {
       const start = await request(app)
         .post("/api/task-start")
-        .send({ title: "Auto Emitter Test" });
+        .send({ title: "Missing SessionId Test" });
       const taskId = start.body.task.id as string;
 
       const res = await request(app)
@@ -144,10 +144,10 @@ describe("HTTP API", () => {
         .send({
           taskId,
           // sessionId 누락
-          messageId: "msg-auto",
+          messageId: "msg-no-session",
           captureMode: "raw",
-          source: "opencode-plugin",
-          title: "Auto emitter without sessionId"
+          source: "manual-mcp",
+          title: "No sessionId provided"
         });
       expect(res.status).toBe(400);
     });

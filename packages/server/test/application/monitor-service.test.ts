@@ -143,21 +143,18 @@ describe("MonitorService", () => {
       expect(userMessages).toHaveLength(2);
     });
 
-    it("자동 이미터(opencode-plugin)가 sessionId 없이 호출하면 에러를 던진다", () => {
-      const { task } = service.startTask({ title: "Work Item" });
-      // sessionId를 제공하지 않은 opencode-plugin → 자동 이미터는 sessionId 필수
-      // 서비스 레이어에서는 sessionId=undefined + automaticSource → sessionId를 결정할 수 없어 기록됨
-      // (HTTP 레이어 스키마 검증에서 400으로 거부됨 — 서비스 자체는 기록 허용)
-      // 이 케이스는 스키마 검증 테스트에서 확인 (create-app.test.ts)
+    it("sessionId를 제공하면 이벤트가 sessionId와 함께 기록된다", () => {
+      const { task, sessionId } = service.startTask({ title: "Work Item" });
+      // sessionId는 모든 호출자에게 필수 — HTTP 레이어에서 400으로 거부됨 (create-app.test.ts 참고)
       const result = service.logUserMessage({
         taskId: task.id,
+        sessionId,
         messageId: "msg-x",
         captureMode: "raw",
         source: "opencode-plugin",
-        title: "No sessionId"
+        title: "With sessionId"
       });
-      // sessionId가 없으므로 result.sessionId가 undefined
-      expect(result.sessionId).toBeUndefined();
+      expect(result.sessionId).toBe(sessionId);
     });
   });
 
