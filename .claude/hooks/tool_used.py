@@ -8,6 +8,7 @@ import urllib.request
 
 API_BASE    = f"http://127.0.0.1:{os.environ.get('MONITOR_PORT', '3847')}"
 PROJECT_DIR = os.environ.get("CLAUDE_PROJECT_DIR", os.getcwd())
+CLAUDE_RUNTIME = bool(os.environ.get("CLAUDE_PROJECT_DIR"))
 
 
 def _rel(path: str) -> str:
@@ -43,6 +44,9 @@ def _get_ids(cc_session_id: str) -> tuple[str, str]:
 
 
 def main() -> None:
+    if not CLAUDE_RUNTIME:
+        return
+
     try:
         event         = json.load(sys.stdin)
         tool_name     = event.get("tool_name", "")

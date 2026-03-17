@@ -9,6 +9,7 @@ import urllib.request
 API_BASE    = f"http://127.0.0.1:{os.environ.get('MONITOR_PORT', '3847')}"
 PROJECT_DIR = os.environ.get("CLAUDE_PROJECT_DIR", os.getcwd())
 MAX_CMD_LEN = 500
+CLAUDE_RUNTIME = bool(os.environ.get("CLAUDE_PROJECT_DIR"))
 
 RULES_PATTERNS = (
     "npm test", "npm run test", "npm run build", "npm run typecheck",
@@ -54,6 +55,9 @@ def _get_ids(cc_session_id: str) -> tuple[str, str]:
 
 
 def main() -> None:
+    if not CLAUDE_RUNTIME:
+        return
+
     try:
         event         = json.load(sys.stdin)
         tool_input    = event.get("tool_input", {})

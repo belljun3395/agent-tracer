@@ -11,6 +11,7 @@ import os
 import urllib.request
 
 API_BASE    = f"http://127.0.0.1:{os.environ.get('MONITOR_PORT', '3847')}"
+CLAUDE_RUNTIME = bool(os.environ.get("CLAUDE_PROJECT_DIR"))
 
 
 def _post(path: str, body: dict) -> None:
@@ -24,6 +25,9 @@ def _post(path: str, body: dict) -> None:
 
 
 def main() -> None:
+    if not CLAUDE_RUNTIME:
+        return
+
     try:
         raw = sys.stdin.read()
         payload = json.loads(raw) if raw.strip() else {}

@@ -13,6 +13,7 @@ import os
 
 API_BASE    = f"http://127.0.0.1:{os.environ.get('MONITOR_PORT', '3847')}"
 PROJECT_DIR = os.environ.get("CLAUDE_PROJECT_DIR", os.getcwd())
+CLAUDE_RUNTIME = bool(os.environ.get("CLAUDE_PROJECT_DIR"))
 
 
 def _post(path: str, body: dict) -> dict:
@@ -28,6 +29,9 @@ def _post(path: str, body: dict) -> dict:
 
 
 def main() -> None:
+    if not CLAUDE_RUNTIME:
+        return
+
     try:
         raw = sys.stdin.read()
         payload = json.loads(raw) if raw.strip() else {}

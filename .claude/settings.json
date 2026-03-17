@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 .claude/hooks/session_start.py"
+            "command": "test -n \"$OPENCODE_CLIENT\" || python3 .claude/hooks/session_start.py"
           }
         ]
       }
@@ -16,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 .claude/hooks/user_prompt.py"
+            "command": "test -n \"$OPENCODE_CLIENT\" || python3 .claude/hooks/user_prompt.py"
           }
         ]
       }
@@ -26,7 +26,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 .claude/hooks/ensure_task.py"
+            "command": "test -n \"$OPENCODE_CLIENT\" || python3 .claude/hooks/ensure_task.py"
           }
         ]
       }
@@ -37,7 +37,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 .claude/hooks/terminal.py"
+            "command": "test -n \"$OPENCODE_CLIENT\" || python3 .claude/hooks/terminal.py"
           }
         ]
       },
@@ -46,7 +46,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 .claude/hooks/tool_used.py"
+            "command": "test -n \"$OPENCODE_CLIENT\" || python3 .claude/hooks/tool_used.py"
           }
         ]
       },
@@ -55,7 +55,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 .claude/hooks/explore.py"
+            "command": "test -n \"$OPENCODE_CLIENT\" || python3 .claude/hooks/explore.py"
           }
         ]
       }
@@ -65,7 +65,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 .claude/hooks/session_stop.py"
+            "command": "test -n \"$OPENCODE_CLIENT\" || python3 .claude/hooks/session_stop.py"
           }
         ]
       }
