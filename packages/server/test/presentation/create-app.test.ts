@@ -53,6 +53,25 @@ describe("HTTP API", () => {
     expect(get.body.task.id).toBe(taskId);
   });
 
+  it("POST /api/task-link 에 title을 주면 태스크 제목이 함께 갱신된다", async () => {
+    const start = await request(app)
+      .post("/api/task-start")
+      .send({ title: "OpenCode - agent-tracer" });
+    const taskId = start.body.task.id as string;
+
+    const linked = await request(app)
+      .post("/api/task-link")
+      .send({
+        taskId,
+        title: "Inspect git internals",
+        taskKind: "background"
+      });
+
+    expect(linked.status).toBe(200);
+    expect(linked.body.task.title).toBe("Inspect git internals");
+    expect(linked.body.task.taskKind).toBe("background");
+  });
+
   it("DELETE 실행 중인 태스크도 강제 삭제 → 200", async () => {
     const start = await request(app)
       .post("/api/task-start")
@@ -213,6 +232,21 @@ describe("HTTP API", () => {
       const userMessages = (detail.body.timeline as Array<{ kind: string }>)
         .filter(e => e.kind === "user.message");
       expect(userMessages).toHaveLength(2);
+    });
+
+    it("completeTask=true 이면 primary 태스크를 completed로 전이한다", async () => {
+      const start = await request(app)
+        .post("/api/task-start")
+        .send({ title: "Complete On Exit" });
+      const taskId = start.body.task.id as string;
+      const sessionId = start.body.sessionId as string;
+
+      const res = await request(app)
+        .post("/api/session-end")
+        .send({ taskId, sessionId, completeTask: true });
+
+      expect(res.status).toBe(200);
+      expect(res.body.task.status).toBe("completed");
     });
 
     it("background taskKind 태스크는 session-end 시 completed가 된다", async () => {

@@ -22,6 +22,7 @@ export const taskStartSchema = z.object({
 
 export const taskLinkSchema = z.object({
   taskId: z.string().min(1),
+  title: z.string().trim().min(1).optional(),
   taskKind: z.enum(["primary", "background"]).optional(),
   parentTaskId: z.string().optional(),
   parentSessionId: z.string().optional(),
@@ -149,6 +150,7 @@ export const userMessageSchema = z.object({
 export const sessionEndSchema = z.object({
   taskId: z.string().min(1),
   sessionId: z.string().optional(),
+  completeTask: z.boolean().optional(),
   summary: z.string().optional(),
   metadata: z.record(z.unknown()).optional()
 });

@@ -345,6 +345,8 @@ export class MonitorDatabase {
 
   updateTaskLink(input: {
     taskId: string;
+    title?: string;
+    slug?: string;
     taskKind?: MonitoringTaskKind;
     parentTaskId?: string;
     parentSessionId?: string;
@@ -355,6 +357,8 @@ export class MonitorDatabase {
       .prepare(`
         update monitoring_tasks
         set
+          title = coalesce(@title, title),
+          slug = coalesce(@slug, slug),
           task_kind = coalesce(@taskKind, task_kind),
           parent_task_id = coalesce(@parentTaskId, parent_task_id),
           parent_session_id = coalesce(@parentSessionId, parent_session_id),
@@ -364,6 +368,8 @@ export class MonitorDatabase {
       `)
       .run({
         taskId: input.taskId,
+        title: input.title ?? null,
+        slug: input.slug ?? null,
         taskKind: input.taskKind ?? null,
         parentTaskId: input.parentTaskId ?? null,
         parentSessionId: input.parentSessionId ?? null,

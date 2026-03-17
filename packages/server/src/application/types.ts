@@ -21,6 +21,7 @@ export interface TaskStartInput {
 
 export interface TaskLinkInput {
   readonly taskId: string;
+  readonly title?: string;
   readonly taskKind?: "primary" | "background";
   readonly parentTaskId?: string;
   readonly parentSessionId?: string;
@@ -156,12 +157,13 @@ export interface TaskUserMessageInput {
 
 /**
  * 세션-종료 입력.
- * 현재 런타임 세션만 종료하며 태스크는 running 상태를 유지한다.
- * 작업 항목 종료는 task-complete 를 명시적으로 호출해야 한다.
+ * 기본적으로 세션만 종료하고 태스크 상태는 유지한다.
+ * completeTask=true 이면 primary 태스크를 completed로 전이한다.
  */
 export interface TaskSessionEndInput {
   readonly taskId: string;
   readonly sessionId?: string;
+  readonly completeTask?: boolean;
   readonly summary?: string;
   readonly metadata?: Record<string, unknown>;
 }

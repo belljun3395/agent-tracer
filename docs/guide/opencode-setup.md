@@ -48,17 +48,21 @@ export MONITOR_PORT=3847
 
 플러그인이 자동으로 처리하는 이벤트:
 
-- `session.created` — 세션 시작 시 태스크 생성 + `user-message-capture-unavailable` 규칙 신호 기록
+- `session.created` — 세션 시작 시 태스크 생성 기록
 - `tool.execute.after` — 도구 실행 후 이벤트 기록
-- `session.deleted` — 세션 종료 (태스크는 `running` 유지 — `task-complete` 미호출)
+- `session.deleted` — `/api/session-end` 호출로 세션 종료 + 태스크 자동 완료 (아래 표 참조)
 
 **세션 vs. 태스크 생명주기:**
 
-| 이벤트 | 플러그인 동작 |
-|--------|-------------|
-| `session.created` | 새 태스크 + 세션 생성 |
-| `session.deleted` | 세션만 종료 (`/api/session-end`) — 태스크는 `running` 유지 |
-| 작업 완료 | `monitor_task_complete` MCP 도구로 명시적 종료 |
+| 태스크 종류 | `session.deleted` 동작 |
+|------------|----------------------|
+| `primary` | `/api/session-end` 에 `completeTask:true` 전송 → 서버가 태스크를 `completed`로 전환 |
+| `background` (DB에 확정된 경우) | `/api/session-end` 에 `completeTask:false` 전송 → 서버가 마지막 세션 종료 시 자동 완료 |
+| `background` (링크 미확정) | `/api/task-link` 재시도 후 성공하면 background 경로, 실패하면 `completeTask:true` fallback |
+
+> `background` 태스크는 백그라운드 자식 세션에 해당한다.
+> `/api/task-link` POST가 성공해야 서버 DB 행이 `background`로 확정되며,
+> 그 전까지는 플러그인이 `completeTask:true`로 fallback하여 태스크가 `running`에 고착되지 않도록 보호한다.
 
 OpenCode 플러그인 훅은 raw 사용자 프롬프트 텍스트를 노출하지 않는다.
 플러그인은 `ruleId: user-message-capture-unavailable` 규칙 이벤트를 기록하여
@@ -175,5 +179,5 @@ cp /path/to/agent-tracer/opencode.json /your-project/opencode.json
 3. Run one normal task.
 4. Confirm the monitor dashboard shows task lifecycle events.
 5. Confirm `opencode mcp list` shows `monitor` as connected.
-6. End the OpenCode session — the task should remain `running` in the dashboard.
-7. Call `monitor_task_complete` via MCP to explicitly close the work item.
+6. End the OpenCode session — the task should transition to `completed` in the dashboard.
+7. (Optional) To close a task manually before session end, call `monitor_task_complete` via MCP.

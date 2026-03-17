@@ -317,6 +317,7 @@ export function App(): React.JSX.Element {
           tasks={tasks}
           selectedTaskId={selectedTaskId}
           taskDetail={taskDetail}
+          selectedTaskDisplayTitle={selectedTaskDisplayTitle}
           selectedTaskQuestionCount={questionGroups.length}
           selectedTaskTodoCount={todoGroups.length}
           deletingTaskId={deletingTaskId}

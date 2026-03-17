@@ -13,6 +13,7 @@ interface TaskListProps {
   readonly tasks: readonly MonitoringTask[];
   readonly selectedTaskId: string | null;
   readonly taskDetail: TaskDetailResponse | null;
+  readonly selectedTaskDisplayTitle?: string | null;
   readonly selectedTaskQuestionCount?: number | undefined;
   readonly selectedTaskTodoCount?: number | undefined;
   readonly deletingTaskId: string | null;
@@ -30,6 +31,7 @@ export function TaskList({
   tasks,
   selectedTaskId,
   taskDetail,
+  selectedTaskDisplayTitle,
   selectedTaskQuestionCount,
   selectedTaskTodoCount,
   deletingTaskId,
@@ -38,7 +40,9 @@ export function TaskList({
   onDeleteTask,
   onRefresh
 }: TaskListProps): React.JSX.Element {
-  const taskTitleById = new Map(tasks.map((task) => [task.id, buildTaskDisplayTitle(task, [])]));
+  const taskTitleById = new Map(
+    tasks.map((task) => [task.id, resolveTaskListItemTitle(task, selectedTaskId, selectedTaskDisplayTitle)])
+  );
   const childCountByParentId = new Map<string, number>();
 
   for (const task of tasks) {
@@ -77,6 +81,10 @@ export function TaskList({
         ) : (
           <div className="task-items">
             {tasks.map((task) => (
+              (() => {
+                const taskDisplayTitle = resolveTaskListItemTitle(task, selectedTaskId, selectedTaskDisplayTitle);
+
+                return (
               <div
                 key={task.id}
                 className={`task-item${task.id === selectedTaskId ? " active" : ""}`}
@@ -105,7 +113,7 @@ export function TaskList({
                     )}
                   </div>
                   <div className="task-item-title">
-                    {buildTaskDisplayTitle(task, [])}
+                    {taskDisplayTitle}
                   </div>
                   <div className="task-item-meta" style={{ marginTop: 4 }}>
                     {task.taskKind === "background" ? (
@@ -148,12 +156,26 @@ export function TaskList({
                   <img src="/icons/trash.svg" alt="Delete" />
                 </button>
               </div>
+                );
+              })()
             ))}
           </div>
         )}
       </div>
     </aside>
   );
+}
+
+export function resolveTaskListItemTitle(
+  task: MonitoringTask,
+  selectedTaskId: string | null,
+  selectedTaskDisplayTitle?: string | null
+): string {
+  if (task.id === selectedTaskId && selectedTaskDisplayTitle?.trim()) {
+    return selectedTaskDisplayTitle;
+  }
+
+  return buildTaskDisplayTitle(task, []);
 }
 
 function cliTagSlug(source: string): string {

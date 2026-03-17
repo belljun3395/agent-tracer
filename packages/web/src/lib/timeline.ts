@@ -98,6 +98,7 @@ export function buildTimelineLayout(
   // Reserve NODE_WIDTH/2 on each side so nodes never clip behind the lane label or right edge.
   const NODE_HALF = NODE_WIDTH / 2;
   const trackStart = LEFT_GUTTER + NODE_HALF;
+  const trackEnd = trackStart + Math.max(1, trackWidth - NODE_HALF * 2);
   const usableTrack = Math.max(1, trackWidth - NODE_HALF * 2);
 
   const nowLeft = trackStart + Math.round(((nowMs - min) / span) * usableTrack);
@@ -118,8 +119,13 @@ export function buildTimelineLayout(
   const byLane = new Map<string, typeof rawItems>();
   for (const item of rawItems) {
     const key = item.event.lane;
-    if (!byLane.has(key)) byLane.set(key, []);
-    byLane.get(key)!.push(item);
+    const laneItems = byLane.get(key);
+    if (laneItems) {
+      laneItems.push(item);
+      continue;
+    }
+
+    byLane.set(key, [item]);
   }
 
   const adjusted = new Map<TimelineEvent, number>(); // event → adjusted left
@@ -128,25 +134,44 @@ export function buildTimelineLayout(
     const sorted = [...laneItems].sort((a, b) => a.left - b.left);
     let i = 0;
     while (i < sorted.length) {
+      const currentItem = sorted[i];
+      if (!currentItem) break;
+
       // Collect cluster: all items within NODE_WIDTH of sorted[i].left
-      const anchor = sorted[i]!.left;
+      const anchor = currentItem.left;
       const cluster: typeof sorted = [];
-      while (i < sorted.length && sorted[i]!.left - anchor < NODE_WIDTH) {
-        cluster.push(sorted[i]!);
+      while (i < sorted.length) {
+        const candidate = sorted[i];
+        if (!candidate || candidate.left - anchor >= NODE_WIDTH) break;
+
+        cluster.push(candidate);
         i++;
       }
       if (cluster.length === 1) continue; // no overlap, keep original
       // Spread cluster: center around anchor
       const total = (cluster.length - 1) * CLUSTER_STAGGER;
-      cluster.forEach((item, idx) => {
-        adjusted.set(item.event, anchor - total / 2 + idx * CLUSTER_STAGGER);
-      });
+      const distributedLefts = cluster.map((_, idx) => anchor - total / 2 + idx * CLUSTER_STAGGER);
+      const minLeft = Math.min(...distributedLefts);
+      const maxLeft = Math.max(...distributedLefts);
+      let shift = 0;
+
+      if (minLeft < trackStart) {
+        shift = trackStart - minLeft;
+      } else if (maxLeft > trackEnd) {
+        shift = trackEnd - maxLeft;
+      }
+
+      for (const [idx, item] of cluster.entries()) {
+        const distributedLeft = distributedLefts[idx];
+        if (distributedLeft === undefined) continue;
+        adjusted.set(item.event, distributedLeft + shift);
+      }
     }
   }
 
   const items = rawItems.map((item) =>
     adjusted.has(item.event)
-      ? { ...item, left: Math.round(adjusted.get(item.event)!) }
+      ? { ...item, left: Math.round(adjusted.get(item.event) ?? item.left) }
       : item
   );
 
@@ -232,8 +257,10 @@ export function buildTimelineConnectors(
   const result: TimelineConnector[] = [];
 
   for (let i = 0; i < sorted.length - 1; i++) {
-    const item = sorted[i]!;
-    const next = sorted[i + 1]!;
+    const item = sorted[i];
+    const next = sorted[i + 1];
+    if (!item || !next) continue;
+
     const source = getTimelineNodeBounds(item, nodeBoundsById[item.event.id]);
     const target = getTimelineNodeBounds(next, nodeBoundsById[next.event.id]);
     const sameLane = item.event.lane === next.event.lane;

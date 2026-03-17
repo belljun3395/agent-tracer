@@ -5,6 +5,7 @@ import json
 import os
 import sys
 import urllib.request
+from typing import Optional, Tuple
 
 API_BASE    = f"http://127.0.0.1:{os.environ.get('MONITOR_PORT', '3847')}"
 PROJECT_DIR = os.environ.get("CLAUDE_PROJECT_DIR", os.getcwd())
@@ -29,7 +30,7 @@ def _post(path: str, body: dict) -> None:
     urllib.request.urlopen(req, timeout=2)
 
 
-def _get_ids(cc_session_id: str) -> tuple[str, str] | None:
+def _get_ids(cc_session_id: str) -> Optional[Tuple[str, str]]:
     req = urllib.request.Request(
         f"{API_BASE}/api/cc-session-ensure",
         data=json.dumps({

@@ -213,6 +213,43 @@ describe("MonitorService", () => {
       const completionEvent = timeline.find((event) => event.kind === "task.complete");
       expect(completionEvent).toBeDefined();
     });
+
+    it("primary 태스크는 completeTask:false 이면 running을 유지한다", () => {
+      const { task, sessionId } = service.startTask({ title: "Stay Running" });
+      const result = service.endSession({ taskId: task.id, sessionId, completeTask: false });
+      expect(result.task.status).toBe("running");
+    });
+
+    it("primary 태스크는 completeTask:undefined 이면 running을 유지한다", () => {
+      const { task, sessionId } = service.startTask({ title: "Stay Running 2" });
+      const result = service.endSession({ taskId: task.id, sessionId });
+      expect(result.task.status).toBe("running");
+    });
+
+    it("background 태스크는 실행 중인 세션이 남아있으면 첫 번째 session-end 후에도 running을 유지한다", () => {
+      const { task: parent } = service.startTask({ title: "Parent Multi" });
+      // First session
+      const { task, sessionId: session1 } = service.startTask({
+        title: "Background multi-session",
+        taskKind: "background",
+        parentTaskId: parent.id
+      });
+      // Second session for the same task
+      const { sessionId: session2 } = service.startTask({
+        title: "Background multi-session",
+        taskId: task.id,
+        taskKind: "background",
+        parentTaskId: parent.id
+      });
+
+      // End first session — second is still running → task must stay running
+      const midResult = service.endSession({ taskId: task.id, sessionId: session1 });
+      expect(midResult.task.status).toBe("running");
+
+      // End second (last) session → now task should complete
+      const finalResult = service.endSession({ taskId: task.id, sessionId: session2 });
+      expect(finalResult.task.status).toBe("completed");
+    });
   });
 });
 

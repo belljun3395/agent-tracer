@@ -103,14 +103,19 @@ describe("OpenCode monitor plugin", () => {
     await hooks.event?.({ event: sessionEvent("session.deleted", "session-a") });
     await hooks.event?.({ event: sessionEvent("session.deleted", "session-b") });
 
-    // 순서: task-start (a), unsupported-gap rule (a), task-start (b), unsupported-gap rule (b),
-    //        terminal-command (a), terminal-command (b), session-end (a), session-end (b)
     expect(calls.filter(c => c.endpoint === "/api/task-start")).toHaveLength(2);
     expect(calls.filter(c => c.endpoint === "/api/rule")).toHaveLength(0);
     expect(calls.filter(c => c.endpoint === "/api/terminal-command")).toHaveLength(2);
     expect(calls.filter(c => c.endpoint === "/api/session-end")).toHaveLength(2);
-    // 태스크가 세션 종료 시 complete 되어서는 안 된다
     expect(calls.filter(c => c.endpoint === "/api/task-complete")).toHaveLength(0);
+
+    const taskStartBodies = calls
+      .filter(c => c.endpoint === "/api/task-start")
+      .map(c => c.body);
+    expect(taskStartBodies).toEqual(expect.arrayContaining([
+      expect.objectContaining({ taskId: "opencode-session-a" }),
+      expect.objectContaining({ taskId: "opencode-session-b" })
+    ]));
 
 
     // session-end 가 세션별로 올바른 taskId/sessionId를 사용한다
@@ -121,11 +126,13 @@ describe("OpenCode monitor plugin", () => {
       expect.objectContaining({
         taskId: "task-session-a",
         sessionId: "monitor-session-a",
+        completeTask: true,
         metadata: expect.objectContaining({ opencodeSessionId: "session-a" })
       }),
       expect.objectContaining({
         taskId: "task-session-b",
         sessionId: "monitor-session-b",
+        completeTask: true,
         metadata: expect.objectContaining({ opencodeSessionId: "session-b" })
       })
     ]));
@@ -246,6 +253,158 @@ describe("OpenCode monitor plugin", () => {
     expect(calls.filter((call) => call.endpoint === "/api/explore")).toHaveLength(1);
   });
 
+  it("session.deleted sends completeTask:true when /api/task-link failed for child-first launch", async () => {
+    // Simulate: child starts first (primary), parent fires task tool,
+    // /api/task-link returns error → DB row stays "primary".
+    // session.deleted must still close the task (completeTask:true).
+    vi.stubGlobal("fetch", vi.fn(async (url: string | URL | globalThis.Request, init?: RequestInit) => {
+      const endpoint = new URL(requestUrl(url)).pathname;
+      const body = init?.body ? JSON.parse(String(init.body)) as Record<string, unknown> : {};
+      calls.push({ endpoint, body });
+
+      if (endpoint === "/api/task-start") {
+        const opencodeSessionId = String(body.metadata && (body.metadata as Record<string, unknown>).opencodeSessionId);
+        return jsonResponse({
+          task: { id: `task-${opencodeSessionId}` },
+          sessionId: `monitor-${opencodeSessionId}`
+        });
+      }
+
+      if (endpoint === "/api/task-link") {
+        // Simulate server failure for task-link
+        return new Response("Internal Server Error", { status: 500 });
+      }
+
+      return jsonResponse({ ok: true });
+    }));
+
+    const hooks = createMonitorHooks("/repo");
+
+    await hooks.event?.({ event: sessionEvent("session.created", "parent-fl") });
+    await hooks.event?.({ event: sessionEvent("session.created", "child-fl") });
+
+    // Child starts (primary) before the parent fires the background task tool
+    await hooks["tool.execute.before"]?.(
+      { tool: "read", sessionID: "child-fl", callID: "call-child-fl" },
+      { args: { filePath: "src/child.ts" } }
+    );
+
+    // Parent fires background task tool → link POST fails
+    await hooks["tool.execute.after"]?.(
+      {
+        tool: "task",
+        sessionID: "parent-fl",
+        callID: "call-parent-fl",
+        args: { run_in_background: true, description: "Failing link child" }
+      },
+      {
+        title: "task",
+        output: "session_id: child-fl",
+        metadata: { session_id: "child-fl" }
+      }
+    );
+
+    // Child session ends — link is unconfirmed, retry also fails
+    await hooks.event?.({ event: sessionEvent("session.deleted", "child-fl") });
+
+    const sessionEndCalls = calls.filter(c => c.endpoint === "/api/session-end");
+    expect(sessionEndCalls).toHaveLength(1);
+    // Must send completeTask:true so the "primary" DB row actually closes
+    expect(sessionEndCalls[0]?.body).toEqual(expect.objectContaining({
+      taskId: "task-child-fl",
+      completeTask: true
+    }));
+  });
+
+  it("does not flip local state to background when /api/task-link returns an error", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (url: string | URL | globalThis.Request, init?: RequestInit) => {
+      const endpoint = new URL(requestUrl(url)).pathname;
+      const body = init?.body ? JSON.parse(String(init.body)) as Record<string, unknown> : {};
+      calls.push({ endpoint, body });
+
+      if (endpoint === "/api/task-start") {
+        const opencodeSessionId = String(body.metadata && (body.metadata as Record<string, unknown>).opencodeSessionId);
+        return jsonResponse({
+          task: { id: `task-${opencodeSessionId}` },
+          sessionId: `monitor-${opencodeSessionId}`
+        });
+      }
+
+      if (endpoint === "/api/task-link") {
+        return new Response("error", { status: 503 });
+      }
+
+      return jsonResponse({ ok: true });
+    }));
+
+    const hooks = createMonitorHooks("/repo");
+
+    await hooks.event?.({ event: sessionEvent("session.created", "parent-noflip") });
+    await hooks.event?.({ event: sessionEvent("session.created", "child-noflip") });
+    await hooks["tool.execute.before"]?.(
+      { tool: "read", sessionID: "child-noflip", callID: "call-noflip" },
+      { args: {} }
+    );
+
+    await hooks["tool.execute.after"]?.(
+      {
+        tool: "task",
+        sessionID: "parent-noflip",
+        callID: "call-parent-noflip",
+        args: { run_in_background: true, description: "noflip child" }
+      },
+      {
+        title: "task",
+        output: "session_id: child-noflip",
+        metadata: { session_id: "child-noflip" }
+      }
+    );
+
+    // The failed task-link should not flip the child to background.
+    // session.deleted retry also fails → completeTask must be true.
+    await hooks.event?.({ event: sessionEvent("session.deleted", "child-noflip") });
+
+    const sessionEndCall = calls.find(c => c.endpoint === "/api/session-end" &&
+      (c.body as Record<string, unknown>).taskId === "task-child-noflip");
+    expect(sessionEndCall?.body).toEqual(expect.objectContaining({ completeTask: true }));
+  });
+
+  it("session.deleted sends completeTask:false for confirmed-background child", async () => {
+    // Normal path: link succeeds → local state is background → completeTask:false
+    const hooks = createMonitorHooks("/repo");
+
+    await hooks.event?.({ event: sessionEvent("session.created", "parent-ok") });
+    await hooks.event?.({ event: sessionEvent("session.created", "child-ok") });
+    await hooks["tool.execute.before"]?.(
+      { tool: "read", sessionID: "child-ok", callID: "call-child-ok" },
+      { args: {} }
+    );
+
+    await hooks["tool.execute.after"]?.(
+      {
+        tool: "task",
+        sessionID: "parent-ok",
+        callID: "call-parent-ok",
+        args: { run_in_background: true, description: "Confirmed background child" }
+      },
+      {
+        title: "task",
+        output: "session_id: child-ok\nBackground Task ID: bg-ok",
+        metadata: { session_id: "child-ok", background_task_id: "bg-ok" }
+      }
+    );
+
+    await hooks.event?.({ event: sessionEvent("session.deleted", "child-ok") });
+
+    const sessionEndCalls = calls.filter(c =>
+      c.endpoint === "/api/session-end" &&
+      (c.body as Record<string, unknown>).taskId === "task-child-ok"
+    );
+    expect(sessionEndCalls).toHaveLength(1);
+    // Link succeeded → DB row is "background" → server auto-completes → completeTask:false
+    expect(sessionEndCalls[0]?.body).toEqual(expect.objectContaining({ completeTask: false }));
+  });
+
   it("promotes already-started child session to background via task-link", async () => {
     const hooks = createMonitorHooks("/repo");
 
@@ -285,10 +444,154 @@ describe("OpenCode monitor plugin", () => {
     expect(taskLinkCall).toBeDefined();
     expect(taskLinkCall?.body).toEqual(expect.objectContaining({
       taskId: "task-child-session",
+      title: "Background child",
       taskKind: "background",
       parentTaskId: "task-parent-session",
       backgroundTaskId: "bg-1"
     }));
+  });
+
+  it("starts delayed child background sessions with the background title", async () => {
+    const hooks = createMonitorHooks("/repo");
+
+    await hooks.event?.({ event: sessionEvent("session.created", "parent-delayed") });
+
+    await hooks["tool.execute.after"]?.(
+      {
+        tool: "task",
+        sessionID: "parent-delayed",
+        callID: "call-parent-delayed",
+        args: {
+          run_in_background: true,
+          description: "Inspect git internals"
+        }
+      },
+      {
+        title: "task",
+        output: "Background Task ID: bg-delayed\nsession_id: child-delayed",
+        metadata: {
+          session_id: "child-delayed",
+          background_task_id: "bg-delayed"
+        }
+      }
+    );
+
+    await hooks.event?.({ event: sessionEvent("session.created", "child-delayed") });
+
+    await hooks["tool.execute.before"]?.(
+      {
+        tool: "read",
+        sessionID: "child-delayed",
+        callID: "call-child-delayed"
+      },
+      { args: { filePath: "README.md" } }
+    );
+
+    const startCalls = calls.filter((call) => call.endpoint === "/api/task-start");
+    const childStart = startCalls.find((call) => call.body.metadata && String((call.body.metadata as Record<string, unknown>).opencodeSessionId) === "child-delayed");
+
+    expect(childStart).toBeDefined();
+    expect(childStart?.body).toEqual(expect.objectContaining({
+      taskId: "opencode-child-delayed",
+      title: "Inspect git internals",
+      taskKind: "background",
+      parentTaskId: "task-parent-delayed",
+      backgroundTaskId: "bg-delayed"
+    }));
+  });
+
+  it("links background children launched through parallel wrapper", async () => {
+    const hooks = createMonitorHooks("/repo");
+
+    await hooks.event?.({ event: sessionEvent("session.created", "parent-parallel") });
+    await hooks.event?.({ event: sessionEvent("session.created", "child-parallel") });
+
+    await hooks["tool.execute.before"]?.(
+      {
+        tool: "read",
+        sessionID: "child-parallel",
+        callID: "call-child-parallel"
+      },
+      { args: { filePath: "src/child.ts" } }
+    );
+
+    await hooks["tool.execute.after"]?.(
+      {
+        tool: "multi_tool_use.parallel",
+        sessionID: "parent-parallel",
+        callID: "call-parent-parallel",
+        args: {
+          tool_uses: [
+            {
+              recipient_name: "functions.task",
+              parameters: {
+                run_in_background: true,
+                description: "Parallel background child"
+              }
+            }
+          ]
+        }
+      },
+      {
+        title: "parallel",
+        output: "Background Task ID: bg-parallel\nsession_id: child-parallel",
+        metadata: {}
+      }
+    );
+
+    const taskLinkCall = calls.find((call) => call.endpoint === "/api/task-link");
+    expect(taskLinkCall).toBeDefined();
+    expect(taskLinkCall?.body).toEqual(expect.objectContaining({
+      taskId: "task-child-parallel",
+      title: "Parallel background child",
+      taskKind: "background",
+      parentTaskId: "task-parent-parallel",
+      backgroundTaskId: "bg-parallel"
+    }));
+  });
+
+  it("reuses deterministic taskId when the same OpenCode session ID reconnects", async () => {
+    const hooks = createMonitorHooks("/repo");
+
+    await hooks.event?.({ event: sessionEvent("session.created", "session-reconnect") });
+    await hooks["tool.execute.after"]?.(
+      {
+        tool: "bash",
+        sessionID: "session-reconnect",
+        callID: "call-reconnect-1",
+        args: { command: "pwd" }
+      },
+      {
+        title: "pwd",
+        output: "/repo",
+        metadata: {}
+      }
+    );
+    await hooks.event?.({ event: sessionEvent("session.deleted", "session-reconnect") });
+
+    await hooks.event?.({ event: sessionEvent("session.created", "session-reconnect") });
+    await hooks["tool.execute.after"]?.(
+      {
+        tool: "bash",
+        sessionID: "session-reconnect",
+        callID: "call-reconnect-2",
+        args: { command: "ls" }
+      },
+      {
+        title: "ls",
+        output: "a\nb",
+        metadata: {}
+      }
+    );
+
+    const startBodies = calls
+      .filter((call) => call.endpoint === "/api/task-start")
+      .map((call) => call.body)
+      .filter((body) => String((body.metadata as Record<string, unknown> | undefined)?.opencodeSessionId) === "session-reconnect");
+
+    expect(startBodies).toHaveLength(2);
+    expect(startBodies[0]).toEqual(expect.objectContaining({ taskId: "opencode-session-reconnect" }));
+    expect(startBodies[1]).toEqual(expect.objectContaining({ taskId: "opencode-session-reconnect" }));
   });
 
   it("maps TodoWrite tool calls to todo lifecycle events", async () => {

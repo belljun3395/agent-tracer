@@ -283,6 +283,19 @@ export class MonitorService {
       }
     }
 
+    if (input.completeTask === true && task.taskKind === "primary" && task.status === "running") {
+      const runningSessions = this.database.countRunningSessions(task.id);
+      if (runningSessions === 0) {
+        const completion = this.completeTask({
+          taskId: task.id,
+          sessionId,
+          summary: input.summary ?? "Session ended",
+          ...(input.metadata ? { metadata: input.metadata } : {})
+        });
+        return { sessionId, task: completion.task };
+      }
+    }
+
     return { sessionId, task };
   }
 
@@ -776,8 +789,10 @@ export class MonitorService {
   }
 
   linkTask(input: TaskLinkInput): MonitoringTask {
+    const normalizedTitle = input.title?.trim();
     const task = this.database.updateTaskLink({
       taskId: input.taskId,
+      ...(normalizedTitle ? { title: normalizedTitle, slug: createTaskSlug({ title: normalizedTitle }) } : {}),
       ...(input.taskKind ? { taskKind: input.taskKind } : {}),
       ...(input.parentTaskId ? { parentTaskId: input.parentTaskId } : {}),
       ...(input.parentSessionId ? { parentSessionId: input.parentSessionId } : {}),
@@ -826,6 +841,14 @@ export class MonitorService {
 
     if (sessionId) {
       this.database.updateSessionStatus(sessionId, status, input.summary, endedAt);
+    }
+
+    if (task.status === status) {
+      return {
+        task,
+        ...(sessionId ? { sessionId } : {}),
+        events: []
+      };
     }
 
     const updatedTask = this.database.upsertTask({

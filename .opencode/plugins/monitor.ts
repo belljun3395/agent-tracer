@@ -20,6 +20,14 @@ interface SessionState {
   readonly taskTitle: string;
   readonly monitorSessionId?: string;
   readonly taskKind: "primary" | "background";
+  /**
+   * true when the DB row is confirmed to be `background`:
+   * - set at task-start if a pendingBackgroundLink was already present, or
+   * - set after a successful /api/task-link response during late backfill.
+   * If false while taskKind is "background", the DB row may still be "primary"
+   * (link POST failed or has not been attempted yet).
+   */
+  readonly backgroundLinkConfirmed: boolean;
   readonly parentTaskId?: string;
   readonly parentSessionId?: string;
   readonly backgroundTaskId?: string;
@@ -152,6 +160,69 @@ function isTaskTool(lowerToolName: string): boolean {
     || lowerToolName.endsWith("/task");
 }
 
+function isParallelTool(lowerToolName: string): boolean {
+  return lowerToolName === "parallel"
+    || lowerToolName.endsWith(".parallel")
+    || lowerToolName.includes("multi_tool_use.parallel");
+}
+
+function extractMatches(text: string | undefined, pattern: RegExp): string[] {
+  if (!text) return [];
+  const matches: string[] = [];
+  for (const match of text.matchAll(pattern)) {
+    const value = match[1]?.trim();
+    if (value) matches.push(value);
+  }
+  return matches;
+}
+
+function extractParallelBackgroundLinks(input: {
+  toolName: string;
+  args: unknown;
+  state: SessionState;
+  outputText?: string;
+}): readonly BackgroundTaskLink[] {
+  const lower = input.toolName.toLowerCase();
+  if (!isParallelTool(lower)) return [];
+
+  const args = asObject(input.args);
+  const toolUses = Array.isArray(args.tool_uses) ? args.tool_uses : [];
+  const backgroundRequests = toolUses
+    .map((entry) => asObject(entry))
+    .filter((entry) => isTaskTool(String(entry.recipient_name ?? "").toLowerCase()))
+    .map((entry) => asObject(entry.parameters))
+    .filter((parameters) => parameters.run_in_background === true)
+    .map((parameters) => ({
+      title: toNonEmptyString(parameters.description)
+        ?? toNonEmptyString(parameters.prompt)
+    }));
+
+  if (backgroundRequests.length === 0) return [];
+
+  const sessionIds = extractMatches(input.outputText, /session_id:\s*([^\s<]+)/gi);
+  const backgroundTaskIds = extractMatches(input.outputText, /(?:Background Task ID|background_task_id):\s*([^\s<]+)/gi);
+
+  const count = Math.min(backgroundRequests.length, sessionIds.length);
+  const links: BackgroundTaskLink[] = [];
+  for (let index = 0; index < count; index++) {
+    const childSessionId = sessionIds[index];
+    if (!childSessionId) continue;
+
+    const backgroundTaskId = backgroundTaskIds[index];
+    const title = backgroundRequests[index]?.title;
+
+    links.push({
+      childSessionId,
+      parentTaskId: input.state.taskId,
+      ...(input.state.monitorSessionId ? { parentSessionId: input.state.monitorSessionId } : {}),
+      ...(backgroundTaskId ? { backgroundTaskId } : {}),
+      ...(title ? { title } : {})
+    });
+  }
+
+  return links;
+}
+
 function extractBackgroundTaskLink(input: {
   toolName: string;
   args: unknown;
@@ -223,6 +294,10 @@ function extractPathLikeTokens(text: string): readonly string[] {
   }
 
   return [...matches];
+}
+
+function monitorTaskIdForOpenCodeSession(sessionId: string): string {
+  return `opencode-${sessionId}`;
 }
 
 function appendPathCandidates(value: unknown, into: Set<string>, depth: number = 0): void {
@@ -494,10 +569,11 @@ export function createMonitorHooks(workspacePath: string): Hooks {
 
     const cachedInfo = sessionInfoById.get(input.sessionId);
     const targetWorkspacePath = input.directory ?? cachedInfo?.directory ?? workspacePath;
-    const taskTitle = buildTaskTitle(targetWorkspacePath, input.sessionId);
     const backgroundLink = pendingBackgroundLinks.get(input.sessionId);
+    const taskTitle = backgroundLink?.title ?? buildTaskTitle(targetWorkspacePath, input.sessionId);
     const promise = (async (): Promise<SessionState | undefined> => {
       const result = await post("/api/task-start", {
+        taskId: monitorTaskIdForOpenCodeSession(input.sessionId),
         title: taskTitle,
         workspacePath: targetWorkspacePath,
         taskKind: backgroundLink ? "background" : "primary",
@@ -522,6 +598,9 @@ export function createMonitorHooks(workspacePath: string): Hooks {
         taskId,
         taskTitle,
         taskKind: backgroundLink ? "background" : "primary",
+        // DB row is confirmed "background" only when we created it with the link already known.
+        // Late-backfill cases start as false until /api/task-link succeeds.
+        backgroundLinkConfirmed: backgroundLink !== undefined,
         messageCount: 0,
         seenMessageIds: new Set(),
         seenToolCallIds: new Set(),
@@ -613,16 +692,40 @@ export function createMonitorHooks(workspacePath: string): Hooks {
         return;
       }
 
+      // Determine whether the DB row is confirmed as "background".
+      // If the state is "background" but the link was never confirmed (e.g. /api/task-link
+      // failed silently), the DB row is still "primary". In that case we attempt one
+      // last retry; if it also fails we fall back to completeTask:true so the task
+      // does not remain stuck in "running".
+      let confirmedBackground = state.taskKind === "background" && state.backgroundLinkConfirmed;
+
+      if (state.taskKind === "background" && !state.backgroundLinkConfirmed && state.parentTaskId) {
+        const retryResult = await post("/api/task-link", {
+          taskId: state.taskId,
+          taskKind: "background",
+          parentTaskId: state.parentTaskId,
+          ...(state.parentSessionId ? { parentSessionId: state.parentSessionId } : {}),
+          ...(state.backgroundTaskId ? { backgroundTaskId: state.backgroundTaskId } : {}),
+          ...(state.backgroundTitle ? { title: state.backgroundTitle } : {})
+        });
+        if (retryResult !== null) {
+          confirmedBackground = true;
+        }
+      }
+
       await post("/api/session-end", {
         taskId: state.taskId,
         sessionId: state.monitorSessionId,
+        // completeTask:true closes a primary (or an unconfirmed-background) task.
+        // For confirmed-background tasks the server auto-completes on last session end.
+        completeTask: !confirmedBackground,
         summary: "OpenCode session ended",
         metadata: {
           opencodeSessionId
         }
       });
 
-      if (state.taskKind === "background") {
+      if (confirmedBackground) {
         if (state.parentTaskId) {
           await post("/api/async-task", {
             taskId: state.parentTaskId,
@@ -675,43 +778,59 @@ export function createMonitorHooks(workspacePath: string): Hooks {
         outputMetadata: output.metadata,
         outputTitle: output.title
       });
-      if (backgroundLink) {
-        pendingBackgroundLinks.set(backgroundLink.childSessionId, backgroundLink);
+      const backgroundLinks = [
+        ...(backgroundLink ? [backgroundLink] : []),
+        ...extractParallelBackgroundLinks({
+          toolName,
+          args: input.args,
+          state,
+          outputText: typeof output.output === "string" ? output.output : undefined
+        })
+      ];
+      for (const linkedBackground of backgroundLinks) {
+        pendingBackgroundLinks.set(linkedBackground.childSessionId, linkedBackground);
 
-        const childState = sessionStates.get(backgroundLink.childSessionId)
-          ?? await pendingSessionStarts.get(backgroundLink.childSessionId)
+        const childState = sessionStates.get(linkedBackground.childSessionId)
+          ?? await pendingSessionStarts.get(linkedBackground.childSessionId)
           ?? undefined;
 
         if (childState && childState.taskKind !== "background") {
-          await post("/api/task-link", {
+          const linkResult = await post("/api/task-link", {
             taskId: childState.taskId,
+            ...(linkedBackground.title ? { title: linkedBackground.title } : {}),
             taskKind: "background",
-            parentTaskId: backgroundLink.parentTaskId,
-            ...(backgroundLink.parentSessionId ? { parentSessionId: backgroundLink.parentSessionId } : {}),
-            ...(backgroundLink.backgroundTaskId ? { backgroundTaskId: backgroundLink.backgroundTaskId } : {})
+            parentTaskId: linkedBackground.parentTaskId,
+            ...(linkedBackground.parentSessionId ? { parentSessionId: linkedBackground.parentSessionId } : {}),
+            ...(linkedBackground.backgroundTaskId ? { backgroundTaskId: linkedBackground.backgroundTaskId } : {})
           });
 
-          sessionStates.set(backgroundLink.childSessionId, {
-            ...childState,
-            taskKind: "background",
-            parentTaskId: backgroundLink.parentTaskId,
-            parentSessionId: backgroundLink.parentSessionId,
-            backgroundTaskId: backgroundLink.backgroundTaskId,
-            backgroundTitle: backgroundLink.title ?? childState.backgroundTitle
-          });
+          // Only flip local state to "background" when the server confirmed the link.
+          // If the POST failed, the DB row remains "primary"; leaving the local state
+          // as-is ensures session.deleted will send completeTask:true and close the task.
+          if (linkResult !== null) {
+            sessionStates.set(linkedBackground.childSessionId, {
+              ...childState,
+              taskKind: "background",
+              backgroundLinkConfirmed: true,
+              parentTaskId: linkedBackground.parentTaskId,
+              parentSessionId: linkedBackground.parentSessionId,
+              backgroundTaskId: linkedBackground.backgroundTaskId,
+              backgroundTitle: linkedBackground.title ?? childState.backgroundTitle
+            });
+          }
         }
 
         await post("/api/async-task", {
           taskId: state.taskId,
           sessionId: state.monitorSessionId,
-          asyncTaskId: backgroundLink.backgroundTaskId ?? backgroundLink.childSessionId,
+          asyncTaskId: linkedBackground.backgroundTaskId ?? linkedBackground.childSessionId,
           asyncStatus: "running",
-          title: backgroundLink.title ?? output.title ?? "Background task launched",
+          title: linkedBackground.title ?? output.title ?? "Background task launched",
           ...(state.monitorSessionId ? { parentSessionId: state.monitorSessionId } : {}),
           metadata: {
             opencodeSessionId: input.sessionID,
-            ...(backgroundLink.backgroundTaskId ? { backgroundTaskId: backgroundLink.backgroundTaskId } : {}),
-            childSessionId: backgroundLink.childSessionId
+            ...(linkedBackground.backgroundTaskId ? { backgroundTaskId: linkedBackground.backgroundTaskId } : {}),
+            childSessionId: linkedBackground.childSessionId
           }
         });
       }

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   LANE_HEIGHT,
+  LEFT_GUTTER,
   NODE_WIDTH,
   RULER_HEIGHT,
   TIMELINE_LANES,
@@ -235,8 +236,31 @@ describe("buildTimelineLayout - 엣지케이스", () => {
     const sortedUnique = [...new Set(tops)].sort((a, b) => a - b);
 
     for (let i = 1; i < sortedUnique.length; i++) {
-      expect(sortedUnique[i]! - sortedUnique[i - 1]!).toBe(LANE_HEIGHT);
+      const currentTop = sortedUnique[i];
+      const previousTop = sortedUnique[i - 1];
+
+      expect(currentTop).toBeDefined();
+      expect(previousTop).toBeDefined();
+      expect((currentTop ?? 0) - (previousTop ?? 0)).toBe(LANE_HEIGHT);
     }
+  });
+
+  it("왼쪽 경계 근처 클러스터도 첫 카드가 gutter 안으로 밀리지 않는다", () => {
+    const events = [0, 1, 2].map((offsetSec, index) => ({
+      id: `cluster-${index}`,
+      taskId: "t",
+      kind: "tool.used",
+      lane: "user" as const,
+      title: `Cluster ${index}`,
+      metadata: {},
+      classification: { lane: "user" as const, tags: [], matches: [] },
+      createdAt: new Date(Date.parse("2026-03-16T09:00:00.000Z") + offsetSec * 1000).toISOString()
+    }));
+
+    const layout = buildTimelineLayout(events, 1, Date.parse("2026-03-16T09:05:00.000Z"));
+    const firstLeft = Math.min(...layout.items.map((item) => item.left));
+
+    expect(firstLeft).toBeGreaterThanOrEqual(LEFT_GUTTER + NODE_WIDTH / 2);
   });
 });
 
