@@ -10,15 +10,23 @@
  *   MONITOR_PORT  - 서버 포트 (기본값: 3847)
  *   MONITOR_BASE_URL - 전체 서버 URL (지정 시 MONITOR_PORT 대신 사용)
  */
-import type { Plugin } from "@opencode-ai/plugin";
+import type { Hooks, Plugin } from "@opencode-ai/plugin";
 
 const BASE_URL = process.env.MONITOR_BASE_URL?.replace(/\/+$/, "")
   ?? `http://127.0.0.1:${process.env.MONITOR_PORT ?? "3847"}`;
 
-/** 현재 세션의 태스크 ID (session.created 시 설정, session.deleted 시 초기화) */
-let currentTaskId: string | undefined;
-/** 현재 세션 ID */
-let currentSessionId: string | undefined;
+interface SessionState {
+  readonly taskId: string;
+  readonly monitorSessionId?: string;
+}
+
+type TaskStartResult = {
+  readonly task?: { id: string };
+  readonly sessionId?: string;
+};
+
+const sessionStates = new Map<string, SessionState>();
+const pendingSessionStarts = new Map<string, Promise<SessionState | undefined>>();
 
 /**
  * JSON POST 헬퍼. 오류 시 조용히 무시 (에이전트 동작 방해하지 않음).
@@ -61,64 +69,126 @@ function classifyTool(toolName: string): { endpoint: string; lane?: string } {
   return { endpoint: "/api/tool-used", lane: "implementation" };
 }
 
-export const MonitorPlugin: Plugin = async ({ project }) => {
-  const workspacePath = project?.path ?? process.cwd();
+export function createMonitorHooks(workspacePath: string): Hooks {
+
+  function buildTaskTitle(targetWorkspacePath: string, sessionId: string): string {
+    const workspaceName = targetWorkspacePath.split("/").pop() ?? "opencode";
+    return `OpenCode - ${workspaceName} (${sessionId.slice(0, 8)})`;
+  }
+
+  async function ensureSessionState(input: {
+    sessionId: string;
+    directory?: string;
+    title?: string;
+  }): Promise<SessionState | undefined> {
+    const existing = sessionStates.get(input.sessionId);
+    if (existing) return existing;
+
+    const pending = pendingSessionStarts.get(input.sessionId);
+    if (pending) return pending;
+
+    const targetWorkspacePath = input.directory ?? workspacePath;
+    const promise = (async (): Promise<SessionState | undefined> => {
+      const result = await post("/api/task-start", {
+        title: buildTaskTitle(targetWorkspacePath, input.sessionId),
+        workspacePath: targetWorkspacePath,
+        metadata: {
+          opencodeSessionId: input.sessionId,
+          ...(input.title ? { opencodeSessionTitle: input.title } : {})
+        }
+      }) as TaskStartResult | null;
+
+      const taskId = result?.task?.id;
+      if (!taskId) return undefined;
+
+      const nextState: SessionState = {
+        taskId,
+        ...(result?.sessionId ? { monitorSessionId: result.sessionId } : {})
+      };
+      sessionStates.set(input.sessionId, nextState);
+      return nextState;
+    })();
+
+    pendingSessionStarts.set(input.sessionId, promise);
+
+    try {
+      return await promise;
+    } finally {
+      pendingSessionStarts.delete(input.sessionId);
+    }
+  }
 
   return {
-    /** 세션 시작: 새 모니터링 태스크 생성 */
-    "session.created": async () => {
-      const workspaceName = workspacePath.split("/").pop() ?? "opencode";
-      const result = await post("/api/task-start", {
-        title: `OpenCode - ${workspaceName}`,
-        workspacePath
-      }) as { task?: { id: string }; sessionId?: string } | null;
+    event: async ({ event }) => {
+      if (event.type === "session.created") {
+        await ensureSessionState({
+          sessionId: event.properties.info.id,
+          directory: event.properties.info.directory,
+          title: event.properties.info.title
+        });
+        return;
+      }
 
-      currentTaskId = result?.task?.id;
-      currentSessionId = result?.sessionId;
+      if (event.type !== "session.deleted") return;
+
+      const opencodeSessionId = event.properties.info.id;
+      const state = sessionStates.get(opencodeSessionId)
+        ?? await pendingSessionStarts.get(opencodeSessionId)
+        ?? undefined;
+
+      if (!state) return;
+
+      await post("/api/task-complete", {
+        taskId: state.taskId,
+        sessionId: state.monitorSessionId,
+        summary: "OpenCode session ended",
+        metadata: {
+          opencodeSessionId
+        }
+      });
+
+      sessionStates.delete(opencodeSessionId);
+      pendingSessionStarts.delete(opencodeSessionId);
     },
 
-    /** 도구 실행 후: 도구 종류에 따라 이벤트 기록 */
-    "tool.execute.after": async ({ tool, input, output }: { tool: { name?: string }; input: Record<string, unknown>; output: unknown }) => {
-      if (!currentTaskId) return;
+    "tool.execute.before": async (input) => {
+      await ensureSessionState({ sessionId: input.sessionID });
+    },
 
-      const toolName = tool?.name ?? "unknown";
+    "tool.execute.after": async (input, output) => {
+      const state = sessionStates.get(input.sessionID)
+        ?? await pendingSessionStarts.get(input.sessionID)
+        ?? undefined;
+      if (!state) return;
+
+      const toolName = typeof input.tool === "string" ? input.tool : "unknown";
       const { endpoint, lane } = classifyTool(toolName);
 
       const body: Record<string, unknown> = {
-        taskId: currentTaskId,
-        sessionId: currentSessionId,
+        taskId: state.taskId,
+        sessionId: state.monitorSessionId,
         toolName,
-        title: toolName,
-        body: typeof output === "string" ? output.slice(0, 500) : undefined,
+        title: output.title || toolName,
+        body: typeof output.output === "string" ? output.output.slice(0, 500) : undefined,
+        metadata: {
+          opencodeSessionId: input.sessionID,
+          opencodeCallId: input.callID
+        },
         ...(lane ? { lane } : {})
       };
 
-      // explore 엔드포인트는 toolName 필드 필요
       if (endpoint === "/api/explore") {
         await post(endpoint, body);
       } else if (endpoint === "/api/terminal-command") {
         await post(endpoint, {
           ...body,
-          command: typeof input?.command === "string" ? input.command : toolName
+          command: typeof input.args?.command === "string" ? input.args.command : toolName
         });
       } else {
         await post(endpoint, body);
       }
-    },
-
-    /** 세션 종료: 태스크 완료 처리 */
-    "session.deleted": async () => {
-      if (!currentTaskId) return;
-
-      await post("/api/task-complete", {
-        taskId: currentTaskId,
-        sessionId: currentSessionId,
-        summary: "OpenCode session ended"
-      });
-
-      // 다음 세션을 위해 상태 초기화
-      currentTaskId = undefined;
-      currentSessionId = undefined;
     }
   };
-};
+}
+
+export const MonitorPlugin: Plugin = async ({ directory }) => createMonitorHooks(directory || process.cwd());
