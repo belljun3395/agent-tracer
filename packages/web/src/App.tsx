@@ -21,8 +21,11 @@ import {
 } from "./api.js";
 import {
   buildCompactInsight,
+  buildModelSummary,
   buildObservabilityStats,
+  buildQuestionGroups,
   buildTaskDisplayTitle,
+  buildTodoGroups,
   collectExploredFiles,
   filterTimelineEvents
 } from "./lib/insights.js";
@@ -164,6 +167,19 @@ export function App(): React.JSX.Element {
     [compactInsight.occurrences, exploredFiles.length, taskTimeline]
   );
 
+  const modelSummary = useMemo(
+    () => buildModelSummary(taskTimeline),
+    [taskTimeline]
+  );
+  const questionGroups = useMemo(
+    () => buildQuestionGroups(taskTimeline),
+    [taskTimeline]
+  );
+  const todoGroups = useMemo(
+    () => buildTodoGroups(taskTimeline),
+    [taskTimeline]
+  );
+
   const filteredTimeline = useMemo(
     () => filterTimelineEvents(taskTimeline, {
       laneFilters: { user: true, exploration: true, planning: true, implementation: true, rules: true },
@@ -302,6 +318,9 @@ export function App(): React.JSX.Element {
           selectedTaskId={selectedTaskId}
           taskDetail={taskDetail}
           selectedTaskDisplayTitle={selectedTaskDisplayTitle}
+          selectedTaskModelName={modelSummary.defaultModelName}
+          selectedTaskQuestionCount={questionGroups.length}
+          selectedTaskTodoCount={todoGroups.length}
           deletingTaskId={deletingTaskId}
           deleteErrorTaskId={deleteErrorTaskId}
           onSelectTask={(id) => setSelectedTaskId(id)}

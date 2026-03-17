@@ -13,6 +13,9 @@ interface TaskListProps {
   readonly selectedTaskId: string | null;
   readonly taskDetail: TaskDetailResponse | null;
   readonly selectedTaskDisplayTitle: string | null;
+  readonly selectedTaskModelName?: string | undefined;
+  readonly selectedTaskQuestionCount?: number | undefined;
+  readonly selectedTaskTodoCount?: number | undefined;
   readonly deletingTaskId: string | null;
   readonly deleteErrorTaskId: string | null;
   readonly onSelectTask: (taskId: string) => void;
@@ -29,6 +32,9 @@ export function TaskList({
   selectedTaskId,
   taskDetail,
   selectedTaskDisplayTitle,
+  selectedTaskModelName,
+  selectedTaskQuestionCount,
+  selectedTaskTodoCount,
   deletingTaskId,
   deleteErrorTaskId,
   onSelectTask,
@@ -81,6 +87,19 @@ export function TaskList({
                       : task.title}
                   </div>
                   <div className="task-item-path mono">{task.workspacePath ?? "—"}</div>
+                  {task.id === selectedTaskId && task.id === taskDetail?.task.id && (
+                    <div className="task-item-signals">
+                      {selectedTaskModelName && (
+                        <span className="task-signal-pill model" title="AI model">{selectedTaskModelName}</span>
+                      )}
+                      {selectedTaskQuestionCount !== undefined && selectedTaskQuestionCount > 0 && (
+                        <span className="task-signal-pill questions">{selectedTaskQuestionCount}Q</span>
+                      )}
+                      {selectedTaskTodoCount !== undefined && selectedTaskTodoCount > 0 && (
+                        <span className="task-signal-pill todos">{selectedTaskTodoCount} todo{selectedTaskTodoCount === 1 ? "" : "s"}</span>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <button
                   className="delete-btn"

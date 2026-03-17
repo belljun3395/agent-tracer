@@ -6,27 +6,27 @@
 
 import type React from "react";
 import {
-  useLayoutEffect,
   useMemo,
-  useRef,
-  useState,
-  type KeyboardEvent as ReactKeyboardEvent,
-  type PointerEvent as ReactPointerEvent
+  useState
 } from "react";
 
 import {
   buildCompactInsight,
   buildObservabilityStats,
+  buildQuestionGroups,
   buildRuleCoverage,
   buildTagInsights,
   buildTaskExtraction,
+  buildTodoGroups,
   collectExploredFiles,
   eventHasRuleGap,
   type CompactInsight,
   type ExploredFileStat,
+  type QuestionGroup,
   type RuleCoverageStat,
   type TaskExtraction,
-  type TagInsight
+  type TagInsight,
+  type TodoGroup
 } from "../lib/insights.js";
 import { formatRelativeTime } from "../lib/timeline.js";
 import type { TimelineConnector } from "../lib/timeline.js";
@@ -36,31 +36,16 @@ import type {
   TimelineEvent
 } from "../types.js";
 
-type DetailTabId = "rules" | "tags" | "task" | "compact" | "files";
-const DETAIL_PRIMARY_MIN = 260;
-const DETAIL_SECONDARY_MIN = 232;
-const DETAIL_RESIZER_SIZE = 18;
-const DETAIL_SPLIT_DEFAULT = 0.62;
-const DETAIL_SPLIT_STEP = 0.04;
+type PanelTabId = "inspector" | "rules" | "tags" | "task" | "compact" | "files";
 
-function getDetailAvailableHeight(panelHeight: number): number {
-  return Math.max(panelHeight - DETAIL_RESIZER_SIZE, 1);
-}
-
-function clampDetailSplit(value: number, availableHeight: number): number {
-  if (availableHeight <= 0) {
-    return DETAIL_SPLIT_DEFAULT;
-  }
-
-  const minPrimaryRatio = DETAIL_PRIMARY_MIN / availableHeight;
-  const maxPrimaryRatio = 1 - DETAIL_SECONDARY_MIN / availableHeight;
-
-  if (minPrimaryRatio >= maxPrimaryRatio) {
-    return 0.5;
-  }
-
-  return Math.min(maxPrimaryRatio, Math.max(minPrimaryRatio, value));
-}
+const PANEL_TABS = [
+  { id: "inspector", label: "Inspector" },
+  { id: "rules",     label: "Rules" },
+  { id: "tags",      label: "Tags" },
+  { id: "task",      label: "Task" },
+  { id: "compact",   label: "Compact" },
+  { id: "files",     label: "Files" },
+] as const;
 
 interface SelectedConnectorData {
   readonly connector: TimelineConnector;
@@ -283,6 +268,110 @@ function DetailConnectorEvents({
             </div>
           ))}
         </div>
+      </div>
+    </div>
+  );
+}
+
+const QUESTION_PHASE_LABELS: Readonly<Record<string, string>> = { asked: "Asked", answered: "Answered", concluded: "Concluded" };
+const TODO_STATE_LABELS: Readonly<Record<string, string>> = { added: "Added", in_progress: "In Progress", completed: "Completed", cancelled: "Cancelled" };
+
+/** DetailQuestionFlow: question.logged 이벤트를 questionId 기준으로 그룹화해 모든 단계를 표시. */
+function DetailQuestionFlow({ group }: { readonly group: QuestionGroup }): React.JSX.Element {
+  return (
+    <div className="detail-card">
+      <div className="detail-card-head">Question Flow</div>
+      <div className="detail-card-body">
+        <div className="semantic-flow-list">
+          {group.phases.map(({ phase, event }) => (
+            <div key={event.id} className="semantic-flow-item">
+              <span className={`semantic-phase-badge phase-${phase}`}>{QUESTION_PHASE_LABELS[phase] ?? phase}</span>
+              <span className="semantic-flow-title">{event.title}</span>
+              <span className="match-score">{new Date(event.createdAt).toLocaleTimeString()}</span>
+            </div>
+          ))}
+        </div>
+        {!group.isComplete && (
+          <p className="muted small" style={{ margin: "8px 0 0" }}>Awaiting conclusion.</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** DetailTodoFlow: todo.logged 이벤트를 todoId 기준으로 그룹화해 상태 전이 목록을 표시. */
+function DetailTodoFlow({ group }: { readonly group: TodoGroup }): React.JSX.Element {
+  return (
+    <div className="detail-card">
+      <div className="detail-card-head">Todo Lifecycle</div>
+      <div className="detail-card-body">
+        <div className="semantic-flow-list">
+          {group.transitions.map(({ state, event }) => (
+            <div key={event.id} className="semantic-flow-item">
+              <span className={`semantic-state-badge state-${state.replace("_", "-")}`}>{TODO_STATE_LABELS[state] ?? state}</span>
+              <span className="semantic-flow-title">{event.title}</span>
+              <span className="match-score">{new Date(event.createdAt).toLocaleTimeString()}</span>
+            </div>
+          ))}
+        </div>
+        <p className="muted small" style={{ margin: "8px 0 0" }}>
+          Current: <strong>{TODO_STATE_LABELS[group.currentState] ?? group.currentState}</strong>
+          {group.isTerminal ? " (terminal)" : ""}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/** DetailModelInfo: 이벤트에 있는 모델 식별 정보를 표시. */
+function DetailModelInfo({
+  modelName, modelProvider
+}: {
+  readonly modelName: string;
+  readonly modelProvider?: string | undefined;
+}): React.JSX.Element {
+  return (
+    <div className="detail-card">
+      <div className="detail-card-head">Model</div>
+      <div className="detail-card-body">
+        <table className="ids-table">
+          <tbody>
+            <tr>
+              <td className="ids-key muted small">Name</td>
+              <td className="ids-val mono">{modelName}</td>
+            </tr>
+            {modelProvider && (
+              <tr>
+                <td className="ids-key muted small">Provider</td>
+                <td className="ids-val mono">{modelProvider}</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+/** DetailCaptureInfo: user.message 이벤트의 캡처 메타데이터(captureMode, messageId, source, phase)를 표시. */
+function DetailCaptureInfo({ event }: { readonly event: TimelineEvent }): React.JSX.Element {
+  const captureMode = event.metadata["captureMode"] as string | undefined;
+  const messageId   = event.metadata["messageId"]   as string | undefined;
+  const source      = event.metadata["source"]      as string | undefined;
+  const phase       = event.metadata["phase"]       as string | undefined;
+  if (!captureMode && !messageId && !source && !phase) return <></>;
+  return (
+    <div className="detail-card">
+      <div className="detail-card-head">Capture Info</div>
+      <div className="detail-card-body">
+        <table className="ids-table">
+          <tbody>
+            {captureMode && <tr><td className="ids-key muted small">Mode</td><td className="ids-val mono">{captureMode}</td></tr>}
+            {messageId   && <tr><td className="ids-key muted small">Message ID</td><td className="ids-val mono">{messageId}</td></tr>}
+            {source      && <tr><td className="ids-key muted small">Source</td><td className="ids-val mono">{source}</td></tr>}
+            {phase       && <tr><td className="ids-key muted small">Phase</td><td className="ids-val mono">{phase}</td></tr>}
+          </tbody>
+        </table>
       </div>
     </div>
   );
@@ -767,19 +856,9 @@ export function EventInspector({
   onSelectRule,
   onToggleRuleGaps
 }: EventInspectorProps): React.JSX.Element {
-  const [detailSplit, setDetailSplit] = useState(DETAIL_SPLIT_DEFAULT);
-  const [detailPanelHeight, setDetailPanelHeight] = useState(0);
-  const [isDetailResizing, setIsDetailResizing] = useState(false);
-  const [detailTab, setDetailTab] = useState<DetailTabId>("rules");
+  const [activeTab, setActiveTab]                   = useState<PanelTabId>("inspector");
   const [isExploredFilesExpanded, setIsExploredFilesExpanded] = useState(true);
-  const [copiedExtraction, setCopiedExtraction] = useState<"brief" | "process" | null>(null);
-
-  const detailPanelRef = useRef<HTMLElement | null>(null);
-  const detailResizeState = useRef<{
-    readonly pointerId: number;
-    readonly panelTop: number;
-    readonly availableHeight: number;
-  } | null>(null);
+  const [copiedExtraction, setCopiedExtraction]     = useState<"brief" | "process" | null>(null);
 
   const taskTimeline = taskDetail?.timeline ?? [];
 
@@ -811,148 +890,14 @@ export function EventInspector({
     () => taskTimeline.filter((event) => eventHasRuleGap(event)).length,
     [taskTimeline]
   );
-
-  const detailPanelTemplateRows = useMemo(() => {
-    if (detailPanelHeight <= 0) {
-      const primaryRatio = Math.max(detailSplit, 0.001).toFixed(3);
-      const secondaryRatio = Math.max(1 - detailSplit, 0.001).toFixed(3);
-
-      return `minmax(${DETAIL_PRIMARY_MIN}px, ${primaryRatio}fr) ${DETAIL_RESIZER_SIZE}px minmax(${DETAIL_SECONDARY_MIN}px, ${secondaryRatio}fr)`;
-    }
-
-    const availableHeight = getDetailAvailableHeight(detailPanelHeight);
-    const clampedSplit = clampDetailSplit(detailSplit, availableHeight);
-    const minPrimary = Math.min(DETAIL_PRIMARY_MIN, availableHeight);
-    const minSecondary = Math.min(DETAIL_SECONDARY_MIN, Math.max(availableHeight - minPrimary, 0));
-    const maxPrimary = Math.max(availableHeight - minSecondary, 0);
-    const primaryHeight = Math.min(maxPrimary, Math.max(minPrimary, Math.round(availableHeight * clampedSplit)));
-    const secondaryHeight = Math.max(availableHeight - primaryHeight, 0);
-
-    return `${primaryHeight}px ${DETAIL_RESIZER_SIZE}px ${secondaryHeight}px`;
-  }, [detailPanelHeight, detailSplit]);
-
-  useLayoutEffect(() => {
-    const panel = detailPanelRef.current;
-    if (!panel) {
-      return;
-    }
-
-    const syncDetailPanelSizing = (): void => {
-      const nextHeight = panel.clientHeight;
-      setDetailPanelHeight((current) => current === nextHeight ? current : nextHeight);
-      const availableHeight = getDetailAvailableHeight(nextHeight);
-      setDetailSplit((current) => clampDetailSplit(current, availableHeight));
-    };
-
-    syncDetailPanelSizing();
-
-    const observer =
-      typeof ResizeObserver === "undefined"
-        ? null
-        : new ResizeObserver(() => syncDetailPanelSizing());
-
-    observer?.observe(panel);
-    window.addEventListener("resize", syncDetailPanelSizing);
-
-    return () => {
-      observer?.disconnect();
-      window.removeEventListener("resize", syncDetailPanelSizing);
-    };
-  }, []);
-
-  // Reset tab when task changes
-  const prevTaskIdRef = useRef<string | null>(null);
-  if (taskDetail?.task.id !== prevTaskIdRef.current) {
-    prevTaskIdRef.current = taskDetail?.task.id ?? null;
-    // We need to reset state outside render - handled in App.tsx via key prop or useEffect
-  }
-
-  function resetDetailSplit(): void {
-    const panelHeight = detailPanelRef.current?.clientHeight ?? 0;
-    const availableHeight = getDetailAvailableHeight(panelHeight);
-    setDetailSplit(clampDetailSplit(DETAIL_SPLIT_DEFAULT, availableHeight));
-  }
-
-  function updateDetailSplitFromPointer(clientY: number, panelTop: number, availableHeight: number): void {
-    const nextRatio = clampDetailSplit(
-      (clientY - panelTop - DETAIL_RESIZER_SIZE / 2) / availableHeight,
-      availableHeight
-    );
-    setDetailSplit(nextRatio);
-  }
-
-  function handleDetailResizeStart(event: ReactPointerEvent<HTMLDivElement>): void {
-    const panel = detailPanelRef.current;
-    if (!panel) {
-      return;
-    }
-
-    const panelRect = panel.getBoundingClientRect();
-    const availableHeight = getDetailAvailableHeight(panelRect.height);
-
-    detailResizeState.current = {
-      pointerId: event.pointerId,
-      panelTop: panelRect.top,
-      availableHeight
-    };
-
-    updateDetailSplitFromPointer(event.clientY, panelRect.top, availableHeight);
-    setIsDetailResizing(true);
-    event.currentTarget.setPointerCapture(event.pointerId);
-    event.preventDefault();
-  }
-
-  function handleDetailResizeMove(event: ReactPointerEvent<HTMLDivElement>): void {
-    const current = detailResizeState.current;
-    if (!current || current.pointerId !== event.pointerId) {
-      return;
-    }
-
-    updateDetailSplitFromPointer(event.clientY, current.panelTop, current.availableHeight);
-  }
-
-  function handleDetailResizeEnd(event: ReactPointerEvent<HTMLDivElement>): void {
-    if (detailResizeState.current?.pointerId !== event.pointerId) {
-      return;
-    }
-
-    detailResizeState.current = null;
-    setIsDetailResizing(false);
-
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    }
-  }
-
-  function handleDetailResizeKeyDown(event: ReactKeyboardEvent<HTMLDivElement>): void {
-    const panelHeight = detailPanelRef.current?.clientHeight ?? 0;
-    const availableHeight = getDetailAvailableHeight(panelHeight);
-    let nextRatio: number | null = null;
-
-    switch (event.key) {
-      case "ArrowUp":
-        nextRatio = detailSplit - DETAIL_SPLIT_STEP;
-        break;
-      case "ArrowDown":
-        nextRatio = detailSplit + DETAIL_SPLIT_STEP;
-        break;
-      case "Home":
-        nextRatio = DETAIL_PRIMARY_MIN / availableHeight;
-        break;
-      case "End":
-        nextRatio = 1 - DETAIL_SECONDARY_MIN / availableHeight;
-        break;
-      case "Enter":
-      case " ":
-        nextRatio = DETAIL_SPLIT_DEFAULT;
-        break;
-      default:
-        return;
-    }
-
-    event.preventDefault();
-    setDetailSplit(clampDetailSplit(nextRatio, availableHeight));
-  }
+  const questionGroups = useMemo(
+    () => buildQuestionGroups(taskTimeline),
+    [taskTimeline]
+  );
+  const todoGroups = useMemo(
+    () => buildTodoGroups(taskTimeline),
+    [taskTimeline]
+  );
 
   async function handleCopyExtraction(kind: "brief" | "process"): Promise<void> {
     const content = kind === "brief"
@@ -969,166 +914,159 @@ export function EventInspector({
     }
   }
 
+  const eventTime = selectedEvent
+    ? new Date(selectedEvent.createdAt).toLocaleTimeString()
+    : null;
+
+  const obsBadges = taskDetail ? [
+    { key: "actions",    label: "Actions",    value: observabilityStats.actions,       cls: "actions" },
+    { key: "files",      label: "Files",      value: observabilityStats.exploredFiles, cls: "files" },
+    { key: "compacts",   label: "Compact",    value: observabilityStats.compactions,   cls: "compacts" },
+    { key: "checks",     label: "Check",      value: observabilityStats.checks,        cls: "checks" },
+    { key: "violations", label: "Violation",  value: observabilityStats.violations,    cls: "violations" },
+    { key: "passes",     label: "Pass",       value: observabilityStats.passes,        cls: "passes" },
+  ].filter((b) => b.value > 0) : [];
+
   return (
-    <aside
-      className={`detail-panel${isDetailResizing ? " is-resizing" : ""}`}
-      ref={detailPanelRef}
-      style={{ gridTemplateRows: detailPanelTemplateRows }}
-    >
-      <section className="detail-primary" id="detail-primary">
-        <div className="inspector-header">
-          <p className="eyebrow">Inspector</p>
-          <h2>{selectedConnector ? `${selectedConnector.source.title} -> ${selectedConnector.target.title}` : selectedEventDisplayTitle ?? "Select an event"}</h2>
-          {selectedConnector ? (
-            <span className="event-kind-badge">transition · {selectedConnector.connector.cross ? "cross-lane" : "same-lane"}</span>
-          ) : selectedEvent ? (
-            <span className="event-kind-badge">{selectedEvent.kind} · {selectedEvent.lane}</span>
-          ) : (
-            <p className="muted small" style={{ margin: "4px 0 0" }}>
-              Choose a timeline node to inspect metadata.
-            </p>
-          )}
-        </div>
-
-        {selectedConnector ? (
-          <div className="detail-stack">
-            <DetailSection
-              label="Summary"
-              resizable
-              value={[
-                `${selectedConnector.connector.cross ? "Lane transition" : "Same-lane progression"} from ${selectedConnector.source.lane} to ${selectedConnector.target.lane}.`,
-                `From: ${selectedConnector.source.title}`,
-                `To: ${selectedConnector.target.title}`
-              ].join("\n")}
-            />
-            <DetailConnectorIds connector={selectedConnector.connector} source={selectedConnector.source} target={selectedConnector.target} />
-            <DetailTags
-              title="Transition Tags"
-              values={[
-                selectedConnector.connector.cross ? "cross-lane" : "same-lane",
-                selectedConnector.source.lane,
-                selectedConnector.target.lane
-              ]}
-            />
-            <DetailConnectorEvents source={selectedConnector.source} target={selectedConnector.target} />
-            <DetailSection
-              label="Metadata"
-              mono
-              value={JSON.stringify({
-                connectorKey: selectedConnector.connector.key,
-                sourceEventId: selectedConnector.source.id,
-                targetEventId: selectedConnector.target.id,
-                sourceLane: selectedConnector.source.lane,
-                targetLane: selectedConnector.target.lane
-              }, null, 2)}
-            />
-          </div>
-        ) : selectedEvent ? (
-          <div className="detail-stack">
-            <DetailSection
-              label="Summary"
-              resizable
-              value={
-                selectedEvent.body
-                ?? (selectedEvent.metadata?.description as string | undefined)
-                ?? (selectedEvent.metadata?.command as string | undefined)
-                ?? (selectedEvent.metadata?.result as string | undefined)
-                ?? (selectedEvent.metadata?.action as string | undefined)
-                ?? (selectedEvent.metadata?.ruleId as string | undefined)
-                ?? "—"
-              }
-            />
-            <DetailIds event={selectedEvent} />
-            <DetailTags
-              title="Tags"
-              values={selectedEvent.classification.tags}
-              activeValue={selectedTag}
-              onSelect={(tag) => onSelectTag(selectedTag === tag ? null : tag)}
-            />
-            <DetailMatchList
-              event={selectedEvent}
-              activeRuleId={selectedRuleId}
-              onSelectRule={(ruleId) => {
-                onSelectRule(selectedRuleId === ruleId ? null : ruleId);
-              }}
-            />
-            <DetailSection label="Metadata" mono value={JSON.stringify(selectedEvent.metadata, null, 2)} />
-          </div>
-        ) : (
-          <div className="empty-card">
-            <p>No event selected.</p>
-            <p className="muted small">
-              As soon as the monitor records activity, the latest item appears here.
-            </p>
-          </div>
-        )}
-
-        {/* observability badges */}
-        {taskDetail && (
-          <div className="timeline-badges" style={{ padding: "8px 16px", borderTop: "1px solid var(--border)" }}>
-            <span className="summary-badge actions">{observabilityStats.actions} Actions</span>
-            <span className="summary-badge files">{observabilityStats.exploredFiles} Files</span>
-            <span className="summary-badge compacts">{observabilityStats.compactions} Compact</span>
-            <span className="summary-badge checks">{observabilityStats.checks} Check</span>
-            <span className="summary-badge violations">{observabilityStats.violations} Violation</span>
-            <span className="summary-badge passes">{observabilityStats.passes} Pass</span>
-          </div>
-        )}
-      </section>
-
-      <div
-        aria-controls="detail-primary detail-secondary"
-        aria-label="Resize inspector and support panels"
-        aria-orientation="horizontal"
-        aria-valuemax={100}
-        aria-valuemin={0}
-        aria-valuenow={Math.round(detailSplit * 100)}
-        aria-valuetext={`Inspector ${Math.round(detailSplit * 100)} percent`}
-        className={`detail-resizer${isDetailResizing ? " active" : ""}`}
-        onDoubleClick={resetDetailSplit}
-        onKeyDown={handleDetailResizeKeyDown}
-        onLostPointerCapture={() => {
-          detailResizeState.current = null;
-          setIsDetailResizing(false);
-        }}
-        onPointerCancel={handleDetailResizeEnd}
-        onPointerDown={handleDetailResizeStart}
-        onPointerMove={handleDetailResizeMove}
-        onPointerUp={handleDetailResizeEnd}
-        role="separator"
-        tabIndex={0}
-        title="Drag to resize. Double click to reset."
-      >
-        <span className="detail-resizer-line" />
+    <aside className="detail-panel">
+      {/* ── Tab bar ── */}
+      <div className="panel-tab-bar" aria-label="Inspector panels" role="tablist">
+        {PANEL_TABS.map((tab) => (
+          <button
+            key={tab.id}
+            aria-selected={activeTab === tab.id}
+            className={`panel-tab${activeTab === tab.id ? " active" : ""}`}
+            onClick={() => setActiveTab(tab.id)}
+            role="tab"
+            type="button"
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
-      <section className="detail-secondary" id="detail-secondary">
-        <div className="detail-secondary-header">
-          <p className="eyebrow">Support Panels</p>
-          <p className="muted small">Rules, tags, extraction, compact summaries, and explored files stay here so the inspector remains front and center.</p>
-        </div>
-        <div className="detail-tab-row" aria-label="Inspector support panels" role="tablist">
-          {([
-            { id: "rules", label: "Rules" },
-            { id: "tags", label: "Tags" },
-            { id: "task", label: "Task" },
-            { id: "compact", label: "Compact" },
-            { id: "files", label: "Files" }
-          ] as const).map((tab) => (
-            <button
-              key={tab.id}
-              aria-selected={detailTab === tab.id}
-              className={`detail-tab-button${detailTab === tab.id ? " active" : ""}`}
-              onClick={() => setDetailTab(tab.id)}
-              role="tab"
-              type="button"
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-        <div className="detail-secondary-body" role="tabpanel">
-          {detailTab === "rules" ? (
+      {/* ── Tab content ── */}
+      <div className="panel-tab-content" role="tabpanel">
+
+        {activeTab === "inspector" ? (
+          <>
+            <div className="inspector-header">
+              <h2>
+                {selectedConnector
+                  ? `${selectedConnector.source.title} → ${selectedConnector.target.title}`
+                  : selectedEventDisplayTitle ?? "Select an event"}
+              </h2>
+              <div className="inspector-header-meta">
+                {selectedConnector ? (
+                  <span className="event-kind-badge">transition · {selectedConnector.connector.cross ? "cross-lane" : "same-lane"}</span>
+                ) : selectedEvent ? (
+                  <span className="event-kind-badge">{selectedEvent.kind} · {selectedEvent.lane}</span>
+                ) : null}
+                {eventTime && <span className="event-time-badge">{eventTime}</span>}
+              </div>
+            </div>
+
+            {selectedConnector ? (
+              <div className="detail-stack">
+                <DetailSection
+                  label="Summary"
+                  resizable
+                  value={[
+                    `${selectedConnector.connector.cross ? "Lane transition" : "Same-lane progression"} from ${selectedConnector.source.lane} to ${selectedConnector.target.lane}.`,
+                    `From: ${selectedConnector.source.title}`,
+                    `To: ${selectedConnector.target.title}`
+                  ].join("\n")}
+                />
+                <DetailConnectorIds connector={selectedConnector.connector} source={selectedConnector.source} target={selectedConnector.target} />
+                <DetailTags
+                  title="Transition Tags"
+                  values={[
+                    selectedConnector.connector.cross ? "cross-lane" : "same-lane",
+                    selectedConnector.source.lane,
+                    selectedConnector.target.lane
+                  ]}
+                />
+                <DetailConnectorEvents source={selectedConnector.source} target={selectedConnector.target} />
+                <DetailSection
+                  label="Metadata"
+                  mono
+                  value={JSON.stringify({
+                    connectorKey: selectedConnector.connector.key,
+                    sourceEventId: selectedConnector.source.id,
+                    targetEventId: selectedConnector.target.id,
+                    sourceLane: selectedConnector.source.lane,
+                    targetLane: selectedConnector.target.lane
+                  }, null, 2)}
+                />
+              </div>
+            ) : selectedEvent ? (
+              <div className="detail-stack">
+                <DetailSection
+                  label="Summary"
+                  resizable
+                  value={
+                    selectedEvent.body
+                    ?? (selectedEvent.metadata?.description as string | undefined)
+                    ?? (selectedEvent.metadata?.command as string | undefined)
+                    ?? (selectedEvent.metadata?.result as string | undefined)
+                    ?? (selectedEvent.metadata?.action as string | undefined)
+                    ?? (selectedEvent.metadata?.ruleId as string | undefined)
+                    ?? "—"
+                  }
+                />
+                <DetailIds event={selectedEvent} />
+                {selectedEvent.kind === "question.logged" && (() => {
+                  const qId = selectedEvent.metadata["questionId"] as string | undefined;
+                  const group = qId ? questionGroups.find((g) => g.questionId === qId) : null;
+                  return group ? <DetailQuestionFlow group={group} /> : null;
+                })()}
+                {selectedEvent.kind === "todo.logged" && (() => {
+                  const tId = selectedEvent.metadata["todoId"] as string | undefined;
+                  const group = tId ? todoGroups.find((g) => g.todoId === tId) : null;
+                  return group ? <DetailTodoFlow group={group} /> : null;
+                })()}
+                {selectedEvent.kind === "user.message" && <DetailCaptureInfo event={selectedEvent} />}
+                {(selectedEvent.metadata["modelName"] as string | undefined) && (
+                  <DetailModelInfo
+                    modelName={selectedEvent.metadata["modelName"] as string}
+                    modelProvider={selectedEvent.metadata["modelProvider"] as string | undefined}
+                  />
+                )}
+                <DetailTags
+                  title="Tags"
+                  values={selectedEvent.classification.tags}
+                  activeValue={selectedTag}
+                  onSelect={(tag) => onSelectTag(selectedTag === tag ? null : tag)}
+                />
+                <DetailMatchList
+                  event={selectedEvent}
+                  activeRuleId={selectedRuleId}
+                  onSelectRule={(ruleId) => {
+                    onSelectRule(selectedRuleId === ruleId ? null : ruleId);
+                  }}
+                />
+                <DetailSection label="Metadata" mono value={JSON.stringify(selectedEvent.metadata, null, 2)} />
+              </div>
+            ) : (
+              <div className="empty-card">
+                <p>No event selected.</p>
+                <p className="muted small">
+                  As soon as the monitor records activity, the latest item appears here.
+                </p>
+              </div>
+            )}
+
+            {obsBadges.length > 0 && (
+              <div className="timeline-badges" style={{ padding: "8px 16px", borderTop: "1px solid var(--border)", flexShrink: 0 }}>
+                {obsBadges.map((b) => (
+                  <span key={b.key} className={`summary-badge ${b.cls}`}>{b.value} {b.label}</span>
+                ))}
+              </div>
+            )}
+          </>
+
+        ) : activeTab === "rules" ? (
+          <div className="panel-tab-inner">
             <RuleCoverageCard
               rules={ruleCoverage}
               selectedRuleId={selectedRuleId}
@@ -1139,13 +1077,19 @@ export function EventInspector({
               }}
               onToggleRuleGaps={onToggleRuleGaps}
             />
-          ) : detailTab === "tags" ? (
+          </div>
+
+        ) : activeTab === "tags" ? (
+          <div className="panel-tab-inner">
             <TagExplorerCard
               tags={tagInsights}
               selectedTag={selectedTag}
               onSelectTag={(tag) => onSelectTag(selectedTag === tag ? null : tag)}
             />
-          ) : detailTab === "task" ? (
+          </div>
+
+        ) : activeTab === "task" ? (
+          <div className="panel-tab-inner">
             <TaskExtractionCard
               extraction={taskExtraction}
               workspacePath={taskDetail?.task.workspacePath}
@@ -1153,22 +1097,28 @@ export function EventInspector({
               onCopyBrief={() => void handleCopyExtraction("brief")}
               onCopyProcess={() => void handleCopyExtraction("process")}
             />
-          ) : detailTab === "compact" ? (
+          </div>
+
+        ) : activeTab === "compact" ? (
+          <div className="panel-tab-inner">
             <CompactActivityCard
               insight={compactInsight}
               selectedTag={selectedTag}
               onSelectTag={(tag) => onSelectTag(selectedTag === tag ? null : tag)}
             />
-          ) : (
+          </div>
+
+        ) : (
+          <div className="panel-tab-inner">
             <DetailExploredFiles
               files={exploredFiles}
               workspacePath={taskDetail?.task.workspacePath}
               expanded={isExploredFilesExpanded}
               onToggle={() => setIsExploredFilesExpanded((current) => !current)}
             />
-          )}
-        </div>
-      </section>
+          </div>
+        )}
+      </div>
     </aside>
   );
 }

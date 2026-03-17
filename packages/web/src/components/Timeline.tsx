@@ -671,6 +671,12 @@ export function Timeline({
                     <span className="event-lane-tag">{item.event.lane}</span>
                   </div>
                   <strong>{item.event.kind === "task.start" ? (taskTitle ?? item.event.title) : item.event.title}</strong>
+                  {item.event.kind === "question.logged" && item.event.metadata["questionPhase"] && (
+                    <span className="event-semantic-tag">{item.event.metadata["questionPhase"] as string}</span>
+                  )}
+                  {item.event.kind === "todo.logged" && item.event.metadata["todoState"] && (
+                    <span className="event-semantic-tag">{(item.event.metadata["todoState"] as string).replace("_", " ")}</span>
+                  )}
                   <span className="event-time">{formatRelativeTime(item.event.createdAt)}</span>
                 </button>
               ))}
