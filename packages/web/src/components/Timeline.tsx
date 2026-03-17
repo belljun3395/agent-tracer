@@ -96,47 +96,6 @@ function areNodeBoundsEqual(
   return true;
 }
 
-function MiniMap({
-  items, canvasWidth, activeLanes
-}: {
-  readonly items: readonly TimelineItemLayout[];
-  readonly canvasWidth: number;
-  readonly activeLanes: readonly TimelineLane[];
-}): React.JSX.Element {
-  const W = 200;
-  const H = 72;
-  const scale = W / canvasWidth;
-
-  return (
-    <div className="minimap">
-      <svg width={W} height={H} xmlns="http://www.w3.org/2000/svg">
-        {activeLanes.map((lane, laneIdx) => {
-          const y = (laneIdx / activeLanes.length) * H;
-          const rowH = H / activeLanes.length - 1;
-          return (
-            <g key={lane}>
-              <rect x="0" y={y} width={W} height={rowH}
-                className={`minimap-lane-bg ${lane}`} />
-              {items
-                .filter((item) => item.event.lane === lane)
-                .map((item) => (
-                  <rect
-                    key={item.event.id}
-                    x={item.left * scale - 2}
-                    y={y + 2}
-                    width={4}
-                    height={rowH - 4}
-                    className={`minimap-dot ${lane}`}
-                    rx="1"
-                  />
-                ))}
-            </g>
-          );
-        })}
-      </svg>
-    </div>
-  );
-}
 
 interface TimelineProps {
   readonly timeline: readonly TimelineEvent[];
@@ -703,14 +662,6 @@ export function Timeline({
           </div>
         </div>
 
-        {/* mini-map */}
-        {timelineLayout.items.length > 0 && (
-          <MiniMap
-            items={timelineLayout.items}
-            canvasWidth={timelineLayout.width}
-            activeLanes={activeLanes}
-          />
-        )}
       </div>
     </section>
   );

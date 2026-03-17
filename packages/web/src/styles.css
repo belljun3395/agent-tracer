@@ -1270,44 +1270,6 @@ input[type="range"] { accent-color: var(--accent); }
 .arrow-tip.planning  { fill: var(--planning);  }
 .arrow-tip.user  { fill: var(--user);  }
 
-/* ─── MINI-MAP ───────────────────────────────────────────── */
-.timeline-panel { position: relative; }   /* anchor for minimap */
-
-.minimap {
-  position: absolute;
-  bottom: 16px;
-  right: 16px;
-  width: 200px;
-  height: 72px;
-  background: rgba(255,255,255,.92);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0,0,0,.10);
-  overflow: hidden;
-  z-index: 20;
-  backdrop-filter: blur(4px);
-  pointer-events: none;
-}
-.minimap-lane-bg       { opacity: 0.08; }
-.minimap-lane-bg.exploration     { fill: var(--exploration);     }
-.minimap-lane-bg.rules { fill: var(--rules); }
-.minimap-lane-bg.implementation     { fill: var(--implementation);     }
-.minimap-lane-bg.planning  { fill: var(--planning);  }
-.minimap-lane-bg.user      { fill: var(--user);      }
-.minimap-lane-bg.questions { fill: var(--questions); }
-.minimap-lane-bg.todos     { fill: var(--todos);     }
-.minimap-lane-bg.thoughts  { fill: var(--thoughts);  }
-
-.minimap-dot           { opacity: 0.75; }
-.minimap-dot.exploration  { fill: var(--exploration);  }
-.minimap-dot.rules        { fill: var(--rules);        }
-.minimap-dot.implementation { fill: var(--implementation); }
-.minimap-dot.planning     { fill: var(--planning);     }
-.minimap-dot.user         { fill: var(--user);         }
-.minimap-dot.questions    { fill: var(--questions);    }
-.minimap-dot.todos        { fill: var(--todos);        }
-.minimap-dot.thoughts     { fill: var(--thoughts);     }
-
 /* ─── NOW LINE ──────────────────────────────────────────── */
 .now-line {
   position: absolute;
@@ -1900,8 +1862,7 @@ input[type="range"] { accent-color: var(--accent); }
   }
 }
 @media (max-width: 1120px) {
-  .minimap { display: none; }
-  .timeline-gutter-scrim { width: 150px; }
+.timeline-gutter-scrim { width: 150px; }
   .lane-label {
     width: 136px;
     padding: 0 10px;
@@ -1923,7 +1884,8 @@ input[type="range"] { accent-color: var(--accent); }
   .tag-detail-grid { grid-template-columns: 1fr; }
   .detail-panel {
     display: flex;
-    max-height: none;
+    max-height: 60vh;
+    min-height: 240px;
   }
 }
 @media (max-width: 820px) {
