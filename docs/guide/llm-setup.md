@@ -1,5 +1,14 @@
 # Agent Tracer — 에이전트 설정 가이드
 
+## 서버 아키텍처 (generic runtime boundary)
+
+`packages/server`는 특정 런타임에 종속되지 않은 범용 모니터 서버입니다.
+
+- **`POST /api/runtime-session-ensure`** / **`POST /api/runtime-session-end`** — 상태 비저장 런타임 어댑터가 호출하는 범용 헬퍼 엔드포인트. Claude 훅은 `runtimeSource: "claude-hook"`을 전달하여 이 엔드포인트를 사용합니다.
+- **OpenCode 플러그인 및 MCP/수동 경로** — `task-start` + 시맨틱 이벤트 엔드포인트 + `/api/session-end` 를 사용하는 표준 범용 진입점입니다. `runtime-session-*` 헬퍼가 필요하지 않습니다.
+- **`POST /api/cc-session-ensure`** / **`POST /api/cc-session-end`** — 임시 호환성 래퍼입니다. 신규 통합에는 범용 `runtime-session-*` 엔드포인트를 사용하세요.
+- 도메인 모델의 런타임 소스 필드는 `runtimeSource` 파생 읽기 모델로 표준화되었습니다 (이전 CLI 전용 필드 대체).
+
 ## 에이전트별 선택
 
 | 에이전트 | 방법 | 가이드 |

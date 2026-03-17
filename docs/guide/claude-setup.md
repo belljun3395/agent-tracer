@@ -2,6 +2,14 @@
 
 This guide is for Claude Code only.
 
+> **Server note:** `packages/server` is a generic runtime monitor. It exposes
+> `POST /api/runtime-session-ensure` and `POST /api/runtime-session-end` as
+> stateless runtime helpers that any adapter can call. The Claude hooks use
+> these endpoints with `runtimeSource: "claude-hook"`. Legacy compatibility
+> wrappers `POST /api/cc-session-ensure` and `POST /api/cc-session-end` still
+> exist but are temporary shims — new integrations should use the generic
+> `runtime-session-*` endpoints.
+
 ## 1. Verify The Monitor Server
 
 ```bash
@@ -104,7 +112,7 @@ If hooks are not enough, call the MCP tools directly:
 - `monitor_user_message` — record a user.message event (`captureMode: "raw"` or `"derived"`)
   - `messageId` is required for deduplication
   - `captureMode: "derived"` requires `sourceEventId` linking to the raw source event
-  - `source: "claude-hook"` requires `sessionId`
+  - `runtimeSource: "claude-hook"` path requires `sessionId` (always provided by hooks)
 
 **Planning checkpoints (not raw prompts):**
 - `monitor_save_context` — planning thought, analysis, or context snapshot

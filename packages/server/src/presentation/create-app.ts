@@ -34,7 +34,9 @@ import type {
   TaskUserMessageInput,
   TaskVerifyInput,
   CcSessionEnsureInput,
-  CcSessionEndInput
+  CcSessionEndInput,
+  RuntimeSessionEnsureInput,
+  RuntimeSessionEndInput
 } from "../application/types.js";
 import {
   taskStartSchema,
@@ -172,7 +174,7 @@ export function createMonitoringHttpServer(
       res.status(400).json({ error: parsed.error.format() });
       return;
     }
-    const result = service.ensureRuntimeSession(parsed.data);
+    const result = service.ensureRuntimeSession(parsed.data as RuntimeSessionEnsureInput);
     res.json(result);
   });
 
@@ -182,7 +184,7 @@ export function createMonitoringHttpServer(
       res.status(400).json({ error: parsed.error.format() });
       return;
     }
-    service.endRuntimeSession(parsed.data);
+    service.endRuntimeSession(parsed.data as RuntimeSessionEndInput);
     res.json({ ok: true });
   });
 
