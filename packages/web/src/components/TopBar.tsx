@@ -43,9 +43,15 @@ export function TopBar({ overview, isConnected, onRefresh }: TopBarProps): React
           <img className="brand-icon" src="/icons/activity.svg" alt="" />
           <span className="brand-name">Monitor</span>
         </div>
-        <div className="topnav-status">
-          <span className={`status-dot ${isConnected ? "connected" : "disconnected"}`} />
-          <span>{isConnected ? "Connected" : "Reconnecting…"}</span>
+        <div className="topnav-right">
+          <button className="ghost-button" onClick={onRefresh} type="button">
+            <img src="/icons/refresh.svg" alt="" />
+            Refresh
+          </button>
+          <div className="topnav-status">
+            <span className={`status-dot ${isConnected ? "connected" : "disconnected"}`} />
+            <span>{isConnected ? "Connected" : "Reconnecting…"}</span>
+          </div>
         </div>
       </nav>
       <div className="stats-strip">
@@ -54,15 +60,6 @@ export function TopBar({ overview, isConnected, onRefresh }: TopBarProps): React
         <StatCard label="Completed" value={overview?.stats.completedTasks ?? 0} accent="amber" />
         <StatCard label="Errored"   value={overview?.stats.erroredTasks   ?? 0} accent="red"   />
         <StatCard label="Events"    value={overview?.stats.totalEvents    ?? 0} accent="slate" />
-        <button
-          className="ghost-button"
-          onClick={onRefresh}
-          type="button"
-          style={{ marginLeft: "auto" }}
-        >
-          <img src="/icons/refresh.svg" alt="" />
-          Refresh
-        </button>
       </div>
     </>
   );

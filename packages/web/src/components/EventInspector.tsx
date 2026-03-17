@@ -65,6 +65,8 @@ interface EventInspectorProps {
   readonly selectedRuleId: string | null;
   readonly showRuleGapsOnly: boolean;
   readonly taskModelSummary?: ModelSummary | undefined;
+  readonly isCollapsed?: boolean;
+  readonly onToggleCollapse?: () => void;
   readonly onSelectTag: (tag: string | null) => void;
   readonly onSelectRule: (ruleId: string | null) => void;
   readonly onToggleRuleGaps: () => void;
@@ -887,6 +889,8 @@ export function EventInspector({
   selectedRuleId,
   showRuleGapsOnly,
   taskModelSummary,
+  isCollapsed = false,
+  onToggleCollapse,
   onSelectTag,
   onSelectRule,
   onToggleRuleGaps
@@ -966,6 +970,15 @@ export function EventInspector({
     <aside className="detail-panel">
       {/* ── Tab bar ── */}
       <div className="panel-tab-bar" aria-label="Inspector panels" role="tablist">
+        <button
+          aria-label={isCollapsed ? "Expand inspector" : "Collapse inspector"}
+          className="inspector-toggle-btn"
+          onClick={onToggleCollapse}
+          title={isCollapsed ? "Expand inspector" : "Collapse inspector"}
+          type="button"
+        >
+          {isCollapsed ? "‹" : "›"}
+        </button>
         {PANEL_TABS.map((tab) => (
           <button
             key={tab.id}

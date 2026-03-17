@@ -14,10 +14,13 @@ interface TaskListProps {
   readonly selectedTaskId: string | null;
   readonly taskDetail: TaskDetailResponse | null;
   readonly selectedTaskDisplayTitle?: string | null;
+  readonly taskTitleCache?: ReadonlyMap<string, string>;
   readonly selectedTaskQuestionCount?: number | undefined;
   readonly selectedTaskTodoCount?: number | undefined;
   readonly deletingTaskId: string | null;
   readonly deleteErrorTaskId: string | null;
+  readonly isCollapsed?: boolean;
+  readonly onToggleCollapse?: () => void;
   readonly onSelectTask: (taskId: string) => void;
   readonly onDeleteTask: (taskId: string) => void;
   readonly onRefresh: () => void;
@@ -32,16 +35,19 @@ export function TaskList({
   selectedTaskId,
   taskDetail,
   selectedTaskDisplayTitle,
+  taskTitleCache,
   selectedTaskQuestionCount,
   selectedTaskTodoCount,
   deletingTaskId,
   deleteErrorTaskId,
+  isCollapsed = false,
+  onToggleCollapse,
   onSelectTask,
   onDeleteTask,
   onRefresh
 }: TaskListProps): React.JSX.Element {
   const taskTitleById = new Map(
-    tasks.map((task) => [task.id, resolveTaskListItemTitle(task, selectedTaskId, selectedTaskDisplayTitle)])
+    tasks.map((task) => [task.id, resolveTaskListItemTitle(task, selectedTaskId, selectedTaskDisplayTitle, taskTitleCache)])
   );
   const childCountByParentId = new Map<string, number>();
 
@@ -53,6 +59,15 @@ export function TaskList({
 
   return (
     <aside className="sidebar-panel">
+      <button
+        aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+        className="sidebar-toggle-btn"
+        onClick={onToggleCollapse}
+        title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+        type="button"
+      >
+        {isCollapsed ? "›" : "‹"}
+      </button>
       <div className="panel-header">
         <p className="eyebrow">Monitor</p>
         <h1>AI CLI Timeline</h1>
@@ -82,7 +97,7 @@ export function TaskList({
           <div className="task-items">
             {tasks.map((task) => (
               (() => {
-                const taskDisplayTitle = resolveTaskListItemTitle(task, selectedTaskId, selectedTaskDisplayTitle);
+                const taskDisplayTitle = resolveTaskListItemTitle(task, selectedTaskId, selectedTaskDisplayTitle, taskTitleCache);
 
                 return (
               <div
@@ -169,10 +184,16 @@ export function TaskList({
 export function resolveTaskListItemTitle(
   task: MonitoringTask,
   selectedTaskId: string | null,
-  selectedTaskDisplayTitle?: string | null
+  selectedTaskDisplayTitle?: string | null,
+  titleCache?: ReadonlyMap<string, string>
 ): string {
   if (task.id === selectedTaskId && selectedTaskDisplayTitle?.trim()) {
     return selectedTaskDisplayTitle;
+  }
+
+  const cached = titleCache?.get(task.id);
+  if (cached?.trim()) {
+    return cached;
   }
 
   return buildTaskDisplayTitle(task, []);

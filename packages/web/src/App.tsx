@@ -9,6 +9,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState
 } from "react";
 
@@ -55,7 +56,9 @@ function isConnectorKeyValid(
 export function App(): React.JSX.Element {
   const [overview,        setOverview]        = useState<OverviewResponse | null>(null);
   const [tasks,           setTasks]           = useState<readonly MonitoringTask[]>([]);
-  const [selectedTaskId,  setSelectedTaskId]  = useState<string | null>(null);
+  const [selectedTaskId,  setSelectedTaskId]  = useState<string | null>(
+    () => window.location.hash.slice(1) || null
+  );
   const [taskDetail,      setTaskDetail]      = useState<TaskDetailResponse | null>(null);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [selectedConnectorKey, setSelectedConnectorKey] = useState<string | null>(null);
@@ -72,6 +75,8 @@ export function App(): React.JSX.Element {
   const [taskTitleDraft, setTaskTitleDraft] = useState("");
   const [taskTitleError, setTaskTitleError] = useState<string | null>(null);
   const [isSavingTaskTitle, setIsSavingTaskTitle] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isInspectorCollapsed, setIsInspectorCollapsed] = useState(false);
 
   const refreshOverview = useCallback(async (): Promise<void> => {
     setStatus((s) => (s === "ready" ? s : "loading"));
@@ -79,7 +84,16 @@ export function App(): React.JSX.Element {
     try {
       const [nextOverview, nextTasks] = await Promise.all([fetchOverview(), fetchTasks()]);
       setOverview(nextOverview);
-      setTasks(nextTasks.tasks);
+      setTasks((prev) => {
+        const prevById = new Map(prev.map((t) => [t.id, t]));
+        const merged = nextTasks.tasks.map((next) => {
+          const existing = prevById.get(next.id);
+          return existing && existing.updatedAt === next.updatedAt ? existing : next;
+        });
+        // 순서・개수가 같고 모든 항목이 동일한 참조면 배열 자체도 유지
+        const unchanged = merged.length === prev.length && merged.every((t, i) => t === prev[i]);
+        return unchanged ? prev : merged;
+      });
       setStatus("ready");
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : "Failed to load monitor data.");
@@ -90,7 +104,21 @@ export function App(): React.JSX.Element {
   const refreshTaskDetail = useCallback(async (taskId: string): Promise<void> => {
     try {
       const detail = await fetchTaskDetail(taskId);
-      setTaskDetail(detail);
+      setTaskDetail((prev) => {
+        if (!prev || prev.task.id !== detail.task.id) return detail;
+        // 태스크 메타 변경 여부
+        const sameTask = prev.task.updatedAt === detail.task.updatedAt;
+        // 이벤트 배열 병합: 기존 이벤트 객체 참조 재사용
+        const prevById = new Map(prev.timeline.map((e) => [e.id, e]));
+        const mergedTimeline = detail.timeline.map((next) => prevById.get(next.id) ?? next);
+        const timelineUnchanged = mergedTimeline.length === prev.timeline.length
+          && mergedTimeline.every((e, i) => e === prev.timeline[i]);
+        if (sameTask && timelineUnchanged) return prev;
+        return {
+          task: sameTask ? prev.task : detail.task,
+          timeline: timelineUnchanged ? prev.timeline : mergedTimeline,
+        };
+      });
       setSelectedConnectorKey((current) =>
         current && isConnectorKeyValid(current, detail.timeline) ? current : null
       );
@@ -114,17 +142,35 @@ export function App(): React.JSX.Element {
     return () => clearInterval(timer);
   }, []);
 
-  /* auto-select first task */
+  /* auto-select first task (hash에 유효한 ID가 있으면 유지) */
   useEffect(() => {
     if (tasks.length === 0) {
       setSelectedTaskId(null);
       setTaskDetail(null);
       return;
     }
+    const hashId = window.location.hash.slice(1);
+    if (hashId && tasks.some((t) => t.id === hashId)) return; // hash ID 유효 → 유지
     if (!selectedTaskId || !tasks.some((t) => t.id === selectedTaskId)) {
       setSelectedTaskId(tasks[0]?.id ?? null);
     }
   }, [selectedTaskId, tasks]);
+
+  /* hash ↔ selectedTaskId 동기화 */
+  useEffect(() => {
+    const next = selectedTaskId ? `#${selectedTaskId}` : "";
+    if (window.location.hash !== next) {
+      window.history.replaceState(null, "", next || window.location.pathname);
+    }
+  }, [selectedTaskId]);
+
+  useEffect(() => {
+    function onHashChange(): void {
+      setSelectedTaskId(window.location.hash.slice(1) || null);
+    }
+    window.addEventListener("hashchange", onHashChange);
+    return () => window.removeEventListener("hashchange", onHashChange);
+  }, []);
 
   /* load task detail when selection changes */
   useEffect(() => {
@@ -143,6 +189,8 @@ export function App(): React.JSX.Element {
     setIsSavingTaskTitle(false);
   }, [selectedTaskId]);
 
+  const wsRefreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   /* websocket with auto-reconnect */
   useEffect(() => {
     let destroyed = false;
@@ -155,8 +203,12 @@ export function App(): React.JSX.Element {
 
       ws.onmessage = () => {
         setIsConnected(true);
-        void refreshOverview();
-        if (selectedTaskId) void refreshTaskDetail(selectedTaskId);
+        if (wsRefreshTimer.current !== null) clearTimeout(wsRefreshTimer.current);
+        wsRefreshTimer.current = setTimeout(() => {
+          wsRefreshTimer.current = null;
+          void refreshOverview();
+          if (selectedTaskId) void refreshTaskDetail(selectedTaskId);
+        }, 200);
       };
 
       ws.onerror = () => { ws.close(); };
@@ -181,6 +233,18 @@ export function App(): React.JSX.Element {
     () => taskDetail?.task ? buildTaskDisplayTitle(taskDetail.task, taskTimeline) : null,
     [taskDetail?.task, taskTimeline]
   );
+
+  const [taskTitleCache, setTaskTitleCache] = useState<ReadonlyMap<string, string>>(new Map());
+
+  useEffect(() => {
+    if (selectedTaskId && selectedTaskDisplayTitle) {
+      setTaskTitleCache((prev) => {
+        const next = new Map(prev);
+        next.set(selectedTaskId, selectedTaskDisplayTitle);
+        return next;
+      });
+    }
+  }, [selectedTaskId, selectedTaskDisplayTitle]);
 
   const selectedTaskUsesDerivedTitle = Boolean(
     taskDetail?.task
@@ -312,17 +376,20 @@ export function App(): React.JSX.Element {
         onRefresh={() => void refreshOverview()}
       />
 
-      <main className="dashboard-shell">
+      <main className={`dashboard-shell${isSidebarCollapsed ? " sidebar-collapsed" : ""}${isInspectorCollapsed ? " inspector-collapsed" : ""}`}>
 
         <TaskList
           tasks={tasks}
           selectedTaskId={selectedTaskId}
           taskDetail={taskDetail}
           selectedTaskDisplayTitle={selectedTaskDisplayTitle}
+          taskTitleCache={taskTitleCache}
           selectedTaskQuestionCount={questionGroups.length}
           selectedTaskTodoCount={todoGroups.length}
           deletingTaskId={deletingTaskId}
           deleteErrorTaskId={deleteErrorTaskId}
+          isCollapsed={isSidebarCollapsed}
+          onToggleCollapse={() => setIsSidebarCollapsed((v) => !v)}
           onSelectTask={(id) => setSelectedTaskId(id)}
           onDeleteTask={(id) => void handleDeleteTask(id)}
           onRefresh={() => void refreshOverview()}
@@ -388,6 +455,8 @@ export function App(): React.JSX.Element {
           selectedRuleId={selectedRuleId}
           showRuleGapsOnly={showRuleGapsOnly}
           taskModelSummary={modelSummary}
+          isCollapsed={isInspectorCollapsed}
+          onToggleCollapse={() => setIsInspectorCollapsed((v) => !v)}
           onSelectTag={(tag) => setSelectedTag(tag)}
           onSelectRule={(ruleId) => {
             setShowRuleGapsOnly(false);
