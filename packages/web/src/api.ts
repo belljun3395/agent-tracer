@@ -1,0 +1,119 @@
+/**
+ * @module api
+ *
+ * 대시보드 REST API + WebSocket 클라이언트.
+ * 서버와의 모든 HTTP/WebSocket 통신을 담당.
+ */
+
+import type {
+  MonitoringTask,
+  OverviewResponse,
+  TaskDetailResponse,
+  TasksResponse
+} from "./types.js";
+
+const API_BASE = (import.meta.env.VITE_BADEN_BASE_URL as string | undefined)?.replace(/\/+$/g, "") ?? "";
+
+async function getJson<T>(pathname: string): Promise<T> {
+  const response = await fetch(`${API_BASE}${pathname}`);
+
+  if (!response.ok) {
+    throw new Error(`Failed to load ${pathname}: ${response.status}`);
+  }
+
+  return (await response.json()) as T;
+}
+
+/**
+ * JSON 본문으로 PATCH 요청 수행.
+ * @throws 응답이 ok가 아닐 때 에러
+ */
+async function patchJson<T>(pathname: string, body: unknown): Promise<T> {
+  const response = await fetch(`${API_BASE}${pathname}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  });
+  if (!response.ok) throw new Error(`PATCH ${pathname}: ${response.status}`);
+  return response.json() as Promise<T>;
+}
+
+/**
+ * DELETE 요청 수행.
+ * @throws 응답이 ok가 아닐 때 에러
+ */
+async function deleteRequest(pathname: string): Promise<void> {
+  const response = await fetch(`${API_BASE}${pathname}`, { method: "DELETE" });
+  if (!response.ok) throw new Error(`DELETE ${pathname}: ${response.status}`);
+}
+
+/**
+ * JSON 응답이 있는 DELETE 요청 수행.
+ * @throws 응답이 ok가 아닐 때 에러
+ */
+async function deleteJson<T>(pathname: string): Promise<T> {
+  const response = await fetch(`${API_BASE}${pathname}`, { method: "DELETE" });
+  if (!response.ok) throw new Error(`DELETE ${pathname}: ${response.status}`);
+  return response.json() as Promise<T>;
+}
+
+/**
+ * 대시보드 개요(통계 + 규칙 인덱스)를 가져옴.
+ */
+export function fetchOverview(): Promise<OverviewResponse> {
+  return getJson<OverviewResponse>("/api/overview");
+}
+
+/**
+ * 모든 모니터링 태스크 목록을 가져옴.
+ */
+export function fetchTasks(): Promise<TasksResponse> {
+  return getJson<TasksResponse>("/api/tasks");
+}
+
+/**
+ * 특정 태스크의 상세 정보(타임라인 포함)를 가져옴.
+ * @param taskId - 조회할 태스크 ID
+ */
+export function fetchTaskDetail(taskId: string): Promise<TaskDetailResponse> {
+  return getJson<TaskDetailResponse>(`/api/tasks/${taskId}`);
+}
+
+/**
+ * 태스크 제목을 업데이트함.
+ * @param taskId - 수정할 태스크 ID
+ * @param title - 새 제목
+ * @returns 업데이트된 태스크 객체
+ */
+export async function updateTaskTitle(taskId: string, title: string): Promise<MonitoringTask> {
+  const payload = await patchJson<{ task: MonitoringTask }>(`/api/tasks/${taskId}`, { title });
+  return payload.task;
+}
+
+/**
+ * 특정 태스크를 삭제함.
+ * @param taskId - 삭제할 태스크 ID
+ */
+export async function deleteTask(taskId: string): Promise<void> {
+  return deleteRequest(`/api/tasks/${taskId}`);
+}
+
+/**
+ * 완료된 모든 태스크를 일괄 삭제함.
+ * @returns 삭제된 태스크 수
+ */
+export async function purgeFinishedTasks(): Promise<{ deleted: number }> {
+  return deleteJson<{ deleted: number }>("/api/tasks/finished");
+}
+
+/**
+ * 모니터 WebSocket 연결을 생성함.
+ * 서버 이벤트 수신 시 대시보드 데이터를 갱신하는 데 사용.
+ */
+export function createMonitorWebSocket(): WebSocket {
+  const baseUrl = API_BASE || window.location.origin;
+  const wsUrl = new URL(baseUrl.replace(/^http/, "ws"));
+  wsUrl.pathname = "/ws";
+
+  return new WebSocket(wsUrl);
+}

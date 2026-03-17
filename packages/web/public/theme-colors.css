@@ -1,0 +1,17 @@
+/* Color Palette from Reference UI */
+:root {
+  --color-primary-green: #20b2aa;
+  --color-success-green: #e6f6ec;
+  --color-success-text: #2f9e57;
+  
+  --color-danger-red: #fae6e6;
+  --color-danger-text: #c92a2a;
+  
+  --color-warning-yellow: #fef0db;
+  --color-warning-text: #e67700;
+  
+  --color-background-light: #f8f9fa;
+  --color-border-gray: #e9ecef;
+  --color-text-main: #343a40;
+  --color-text-muted: #868e96;
+}
