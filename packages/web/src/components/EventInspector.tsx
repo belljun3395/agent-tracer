@@ -1060,7 +1060,7 @@ export function EventInspector({
       <div
         className="panel-tab-content"
         role="tabpanel"
-        style={{ cursor: inspectorDragScroll.isDragging ? "grabbing" : undefined }}
+        style={{ cursor: inspectorDragScroll.isDragging ? "grabbing" : "grab", userSelect: inspectorDragScroll.isDragging ? "none" : undefined }}
         {...inspectorDragScroll.handlers}
       >
 

@@ -231,7 +231,7 @@ export function TaskList({
         ) : (
           <div
             className="task-items"
-            style={{ cursor: tasksDragScroll.isDragging ? "grabbing" : undefined }}
+            style={{ cursor: tasksDragScroll.isDragging ? "grabbing" : "grab", userSelect: tasksDragScroll.isDragging ? "none" : undefined }}
             {...tasksDragScroll.handlers}
           >
             {displayRows.map(({ task, depth }) => (
