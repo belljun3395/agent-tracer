@@ -106,9 +106,9 @@ export function TaskList({
                   <div className="task-item-meta">
                     <span className={`status-pill ${task.status}`}>{task.status}</span>
                     <span className="task-age">{formatRelativeTime(task.updatedAt)}</span>
-                    {task.cliSource && (
-                      <span className={`cli-tag cli-tag--${cliTagSlug(task.cliSource)}`}>
-                        {cliTagLabel(task.cliSource)}
+                    {task.runtimeSource && (
+                      <span className={`cli-tag cli-tag--${runtimeTagSlug(task.runtimeSource)}`}>
+                        {runtimeTagLabel(task.runtimeSource)}
                       </span>
                     )}
                   </div>
@@ -178,13 +178,13 @@ export function resolveTaskListItemTitle(
   return buildTaskDisplayTitle(task, []);
 }
 
-function cliTagSlug(source: string): string {
+function runtimeTagSlug(source: string): string {
   if (source === "claude-hook") return "claude";
   if (source === "opencode-plugin") return "opencode";
   return "other";
 }
 
-function cliTagLabel(source: string): string {
+function runtimeTagLabel(source: string): string {
   if (source === "claude-hook") return "Claude Code";
   if (source === "opencode-plugin") return "OpenCode";
   return source;

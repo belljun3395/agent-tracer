@@ -211,7 +211,7 @@ export class MonitorDatabase {
         insert into monitoring_tasks (
           id, title, slug, workspace_path, status, task_kind, parent_task_id, parent_session_id, background_task_id, created_at, updated_at, last_session_started_at, cli_source
         ) values (
-          @id, @title, @slug, @workspacePath, @status, @taskKind, @parentTaskId, @parentSessionId, @backgroundTaskId, @createdAt, @updatedAt, @lastSessionStartedAt, @cliSource
+          @id, @title, @slug, @workspacePath, @status, @taskKind, @parentTaskId, @parentSessionId, @backgroundTaskId, @createdAt, @updatedAt, @lastSessionStartedAt, @runtimeSource
         )
         on conflict(id) do update set
           title = excluded.title,
@@ -239,7 +239,7 @@ export class MonitorDatabase {
         createdAt: task.createdAt,
         updatedAt: task.updatedAt,
         lastSessionStartedAt: task.lastSessionStartedAt ?? null,
-        cliSource: task.cliSource ?? null
+        runtimeSource: task.runtimeSource ?? null
       });
 
     return this.getTask(task.id)!;
@@ -641,7 +641,7 @@ function mapTaskRow(row: TaskRow): MonitoringTask {
     ...(row.last_session_started_at
       ? { lastSessionStartedAt: row.last_session_started_at }
       : {}),
-    ...(row.cli_source ? { cliSource: row.cli_source } : {})
+    ...(row.cli_source ? { runtimeSource: row.cli_source } : {})
   };
 }
 

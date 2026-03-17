@@ -13,7 +13,7 @@ export interface MonitoringTask {
   readonly createdAt: string;
   readonly updatedAt: string;
   readonly lastSessionStartedAt?: string;
-  readonly cliSource?: string;
+  readonly runtimeSource?: string;
 }
 
 export interface EventClassificationReason {

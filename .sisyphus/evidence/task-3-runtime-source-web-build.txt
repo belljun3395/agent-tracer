@@ -1,0 +1,36 @@
+Task 3: refactor(web): derive runtime source badge from read model
+Date: 2026-03-17
+
+## Changes Made
+
+### packages/server/src/infrastructure/monitor-database.ts
+- mapTaskRow(): changed `cliSource: row.cli_source` → `runtimeSource: row.cli_source`
+  (legacy DB column cli_source now maps to runtimeSource on domain object)
+- upsertTask(): changed INSERT parameter @cliSource → @runtimeSource
+- upsertTask(): changed run() binding `cliSource: task.cliSource ?? null` → `runtimeSource: task.runtimeSource ?? null`
+- SQL column name cli_source and ON CONFLICT coalesce clause kept unchanged (no schema change)
+
+### packages/web/src/types.ts
+- MonitoringTask interface: renamed `cliSource?: string` → `runtimeSource?: string`
+
+### packages/web/src/components/TaskList.tsx
+- Badge render: task.cliSource → task.runtimeSource
+- cliTagSlug() renamed to runtimeTagSlug()
+- cliTagLabel() renamed to runtimeTagLabel()
+
+## Verification
+
+grep -rn "cliSource" packages/ --include="*.ts" --include="*.tsx"
+→ 0 results (clean)
+
+npm run build --workspace @monitor/web
+→ ✓ built in 543ms (exit 0)
+
+npm test --workspace @monitor/server
+→ Test Files  5 passed (5)
+→ Tests  73 passed (73)
+→ Duration  675ms (exit 0)
+
+## Notes
+- monitor-service.ts: ensureCcSession does NOT spread cliSource onto tasks (no change needed)
+- DB schema: cli_source column retained for migration safety
