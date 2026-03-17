@@ -2,7 +2,7 @@
 """PreToolUse hook: ensures a monitoring task and session are active.
 
 Safety fallback for tool-only flows (subagents, non-interactive runs).
-Uses /api/cc-session-ensure — no files on disk.
+Uses /api/runtime-session-ensure — no files on disk.
 """
 
 import json
@@ -38,15 +38,16 @@ def main() -> None:
     except Exception:
         return
 
-    cc_session_id = (payload.get("session_id") or "").strip()
-    if not cc_session_id:
+    session_id = (payload.get("session_id") or "").strip()
+    if not session_id:
         return
 
     try:
-        _post("/api/cc-session-ensure", {
-            "ccSessionId":   cc_session_id,
-            "title":         f"Claude Code — {os.path.basename(PROJECT_DIR)}",
-            "workspacePath": PROJECT_DIR,
+        _post("/api/runtime-session-ensure", {
+            "runtimeSource":    "claude-hook",
+            "runtimeSessionId": session_id,
+            "title":            f"Claude Code — {os.path.basename(PROJECT_DIR)}",
+            "workspacePath":    PROJECT_DIR,
         })
     except Exception:
         pass  # monitor not running — silent skip

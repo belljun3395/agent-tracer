@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Stop hook: ends the current runtime session.
 
-Calls /api/cc-session-end so the next turn starts a fresh monitoring session
+Calls /api/runtime-session-end so the next turn starts a fresh monitoring session
 under the same task. No files on disk.
 """
 
@@ -35,15 +35,16 @@ def main() -> None:
     except Exception:
         return
 
-    cc_session_id = (payload.get("session_id") or "").strip()
-    if not cc_session_id:
+    session_id = (payload.get("session_id") or "").strip()
+    if not session_id:
         return
 
     try:
-        _post("/api/cc-session-end", {
-            "ccSessionId":  cc_session_id,
-            "summary":      "Claude Code session ended",
-            "completeTask": True,
+        _post("/api/runtime-session-end", {
+            "runtimeSource":    "claude-hook",
+            "runtimeSessionId": session_id,
+            "summary":          "Claude Code session ended",
+            "completeTask":     True,
         })
     except Exception:
         pass

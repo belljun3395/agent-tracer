@@ -6,7 +6,7 @@ Fires at the beginning of each Claude Code session event.
 - clear:   conversation cleared — record as a planning event
 - startup/resume: handled by user_prompt.py / ensure_task.py, skip here
 
-No files on disk — uses cc_session_id to look up task/session from DB.
+No files on disk — uses runtime session id to look up task/session from DB.
 """
 
 import json
@@ -42,18 +42,19 @@ def main() -> None:
     except Exception:
         return
 
-    trigger       = (payload.get("trigger") or "").lower()
-    cc_session_id = (payload.get("session_id") or "").strip()
+    trigger    = (payload.get("trigger") or "").lower()
+    session_id = (payload.get("session_id") or "").strip()
 
-    if trigger in ("startup", "resume", "") or not cc_session_id:
+    if trigger in ("startup", "resume", "") or not session_id:
         return
 
     # Get current task/session for this CC window
     try:
-        ids = _post("/api/cc-session-ensure", {
-            "ccSessionId":   cc_session_id,
-            "title":         f"Claude Code — {os.path.basename(PROJECT_DIR)}",
-            "workspacePath": PROJECT_DIR,
+        ids = _post("/api/runtime-session-ensure", {
+            "runtimeSource":    "claude-hook",
+            "runtimeSessionId": session_id,
+            "title":            f"Claude Code — {os.path.basename(PROJECT_DIR)}",
+            "workspacePath":    PROJECT_DIR,
         })
     except Exception:
         return

@@ -28,13 +28,14 @@ def _post(path: str, body: dict) -> None:
     urllib.request.urlopen(req, timeout=2)
 
 
-def _get_ids(cc_session_id: str) -> tuple[str, str]:
+def _get_ids(runtime_session_id: str) -> tuple[str, str]:
     req = urllib.request.Request(
-        f"{API_BASE}/api/cc-session-ensure",
+        f"{API_BASE}/api/runtime-session-ensure",
         data=json.dumps({
-            "ccSessionId":   cc_session_id,
-            "title":         f"Claude Code — {os.path.basename(PROJECT_DIR)}",
-            "workspacePath": PROJECT_DIR,
+            "runtimeSource":    "claude-hook",
+            "runtimeSessionId": runtime_session_id,
+            "title":            f"Claude Code — {os.path.basename(PROJECT_DIR)}",
+            "workspacePath":    PROJECT_DIR,
         }).encode(),
         headers={"Content-Type": "application/json"},
         method="POST",
@@ -52,11 +53,11 @@ def main() -> None:
         event         = json.load(sys.stdin)
         tool_name     = event.get("tool_name", "")
         tool_input    = event.get("tool_input", {})
-        cc_session_id = (event.get("session_id") or "").strip()
+        runtime_session_id = (event.get("session_id") or "").strip()
     except Exception:
         return
 
-    if not cc_session_id:
+    if not runtime_session_id:
         return
 
     fp = (
@@ -67,7 +68,7 @@ def main() -> None:
     )
 
     try:
-        task_id, session_id = _get_ids(cc_session_id)
+        task_id, session_id = _get_ids(runtime_session_id)
     except Exception:
         return
 

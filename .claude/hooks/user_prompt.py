@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """UserPromptSubmit hook: captures the user's prompt and logs it as a user.message event.
 
-Uses /api/cc-session-ensure to get or create a task/session for this Claude Code
+Uses /api/runtime-session-ensure to get or create a task/session for this Claude Code
 window (identified by session_id). No files on disk.
 """
 
@@ -39,20 +39,20 @@ def main() -> None:
     except Exception:
         return
 
-    prompt        = (payload.get("prompt") or "").strip()
-    cc_session_id = (payload.get("session_id") or "").strip()
+    prompt     = (payload.get("prompt") or "").strip()
+    session_id = (payload.get("session_id") or "").strip()
 
-    if not cc_session_id:
+    if not session_id:
         return
 
     title = (prompt[:120] + "…") if len(prompt) > 120 else prompt
 
     try:
-        ids = _post("/api/cc-session-ensure", {
-            "ccSessionId":     cc_session_id,
-            "title":           f"Claude Code — {os.path.basename(PROJECT_DIR)}",
-            "workspacePath":   PROJECT_DIR,
-            "bumpMessageCount": bool(prompt),
+        ids = _post("/api/runtime-session-ensure", {
+            "runtimeSource":    "claude-hook",
+            "runtimeSessionId": session_id,
+            "title":            f"Claude Code — {os.path.basename(PROJECT_DIR)}",
+            "workspacePath":    PROJECT_DIR,
         })
     except Exception:
         return  # monitor not running
@@ -67,7 +67,6 @@ def main() -> None:
             "messageId":   str(uuid.uuid4()),
             "captureMode": "raw",
             "source":      "claude-hook",
-            "phase":       ids["phase"],
             "title":       title,
             "body":        prompt,
         })

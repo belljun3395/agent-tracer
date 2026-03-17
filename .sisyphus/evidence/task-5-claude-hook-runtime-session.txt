@@ -1,0 +1,76 @@
+Task 5: Migrate Claude hooks to generic runtime session API
+===========================================================
+
+Date: 2026-03-17
+
+## Changes Made
+
+All 7 hook files in .claude/hooks/ were updated to use the new generic endpoints.
+
+### Files Changed
+
+1. ensure_task.py
+   - Changed endpoint: /api/cc-session-ensure → /api/runtime-session-ensure
+   - Changed payload key: ccSessionId → runtimeSessionId (from session_id)
+   - Added: runtimeSource: "claude-hook"
+   - Renamed variable: cc_session_id → session_id
+
+2. session_stop.py
+   - Changed endpoint: /api/cc-session-end → /api/runtime-session-end
+   - Changed payload key: ccSessionId → runtimeSessionId (from session_id)
+   - Added: runtimeSource: "claude-hook"
+   - Renamed variable: cc_session_id → session_id
+
+3. user_prompt.py
+   - Changed endpoint: /api/cc-session-ensure → /api/runtime-session-ensure
+   - Changed payload key: ccSessionId → runtimeSessionId
+   - Added: runtimeSource: "claude-hook"
+   - Removed: bumpMessageCount from ensure call
+   - Removed: phase from /api/user-message call (no longer needed)
+   - Renamed variable: cc_session_id → session_id
+
+4. session_start.py
+   - Changed endpoint: /api/cc-session-ensure → /api/runtime-session-ensure
+   - Changed payload key: ccSessionId → runtimeSessionId
+   - Added: runtimeSource: "claude-hook"
+   - Renamed variable: cc_session_id → session_id (also the local var after ids lookup)
+
+5. terminal.py
+   - Changed _get_ids() to call /api/runtime-session-ensure
+   - Changed payload key: ccSessionId → runtimeSessionId
+   - Added: runtimeSource: "claude-hook"
+   - Renamed parameter/variable: cc_session_id → runtime_session_id
+
+6. explore.py
+   - Changed _get_ids() to call /api/runtime-session-ensure
+   - Changed payload key: ccSessionId → runtimeSessionId
+   - Added: runtimeSource: "claude-hook"
+   - Renamed parameter/variable: cc_session_id → runtime_session_id
+
+7. tool_used.py
+   - Changed _get_ids() to call /api/runtime-session-ensure
+   - Changed payload key: ccSessionId → runtimeSessionId
+   - Added: runtimeSource: "claude-hook"
+   - Renamed parameter/variable: cc_session_id → runtime_session_id
+
+## Verification
+
+### No cc-session references remain:
+$ grep -rn "cc-session-ensure|cc-session-end|cc_session|ccSessionId|bumpMessageCount" .claude/hooks/
+(no output - PASS)
+
+### New endpoint references present:
+$ grep -rn "runtimeSource.*claude-hook|runtime-session" .claude/hooks/
+- terminal.py: /api/runtime-session-ensure with runtimeSource: "claude-hook"
+- tool_used.py: /api/runtime-session-ensure with runtimeSource: "claude-hook"
+- ensure_task.py: /api/runtime-session-ensure with runtimeSource: "claude-hook"
+- user_prompt.py: /api/runtime-session-ensure with runtimeSource: "claude-hook"
+- session_start.py: /api/runtime-session-ensure with runtimeSource: "claude-hook"
+- explore.py: /api/runtime-session-ensure with runtimeSource: "claude-hook"
+- session_stop.py: /api/runtime-session-end with runtimeSource: "claude-hook"
+
+## OpenCode Guards Preserved
+All hooks retain:
+  OPENCODE_RUNTIME = bool(os.environ.get("OPENCODE") or os.environ.get("OPENCODE_CLIENT"))
+  CLAUDE_RUNTIME = bool(os.environ.get("CLAUDE_PROJECT_DIR")) and not OPENCODE_RUNTIME
+And each main() begins with: if not CLAUDE_RUNTIME: return
