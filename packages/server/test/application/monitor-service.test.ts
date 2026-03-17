@@ -202,7 +202,7 @@ describe("logQuestion — question.logged 계약", () => {
     });
   });
 
-  it("asked/answered 단계는 user 레인으로 기록된다", () => {
+  it("모든 단계는 questions 레인으로 기록된다", () => {
     const { task, sessionId } = service.startTask({ title: "T" });
     const result = service.logQuestion({
       taskId: task.id, sessionId,
@@ -212,12 +212,12 @@ describe("logQuestion — question.logged 계약", () => {
     expect(result.events[0]?.kind).toBe("question.logged");
     const timeline = service.getTaskTimeline(task.id);
     const ev = timeline.find(e => e.id === result.events[0]!.id);
-    expect(ev?.lane).toBe("user");
+    expect(ev?.lane).toBe("questions");
     expect(ev?.metadata.questionId).toBe("q1");
     expect(ev?.metadata.questionPhase).toBe("asked");
   });
 
-  it("concluded 단계는 planning 레인으로 기록된다", () => {
+  it("concluded 단계도 questions 레인으로 기록된다", () => {
     const { task, sessionId } = service.startTask({ title: "T" });
     const result = service.logQuestion({
       taskId: task.id, sessionId,
@@ -226,7 +226,7 @@ describe("logQuestion — question.logged 계약", () => {
     });
     const timeline = service.getTaskTimeline(task.id);
     const ev = timeline.find(e => e.id === result.events[0]!.id);
-    expect(ev?.lane).toBe("planning");
+    expect(ev?.lane).toBe("questions");
   });
 
   it("존재하지 않는 태스크 → 에러", () => {
@@ -247,7 +247,7 @@ describe("logTodo — todo.logged 계약", () => {
     });
   });
 
-  it("todo 이벤트는 planning 레인으로 기록된다", () => {
+  it("todo 이벤트는 todos 레인으로 기록된다", () => {
     const { task, sessionId } = service.startTask({ title: "T" });
     const result = service.logTodo({
       taskId: task.id, sessionId,
@@ -257,7 +257,7 @@ describe("logTodo — todo.logged 계약", () => {
     expect(result.events[0]?.kind).toBe("todo.logged");
     const timeline = service.getTaskTimeline(task.id);
     const ev = timeline.find(e => e.id === result.events[0]!.id);
-    expect(ev?.lane).toBe("planning");
+    expect(ev?.lane).toBe("todos");
     expect(ev?.metadata.todoId).toBe("todo-1");
     expect(ev?.metadata.todoState).toBe("added");
   });
@@ -282,7 +282,7 @@ describe("logThought — thought.logged 계약", () => {
     });
   });
 
-  it("thought 이벤트는 planning 레인으로 기록된다", () => {
+  it("thought 이벤트는 thoughts 레인으로 기록된다", () => {
     const { task, sessionId } = service.startTask({ title: "T" });
     const result = service.logThought({
       taskId: task.id, sessionId,
@@ -294,7 +294,7 @@ describe("logThought — thought.logged 계약", () => {
     expect(result.events[0]?.kind).toBe("thought.logged");
     const timeline = service.getTaskTimeline(task.id);
     const ev = timeline.find(e => e.id === result.events[0]!.id);
-    expect(ev?.lane).toBe("planning");
+    expect(ev?.lane).toBe("thoughts");
     expect(ev?.metadata.modelName).toBe("claude-opus-4-6");
   });
 });

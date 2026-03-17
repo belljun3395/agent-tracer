@@ -468,13 +468,11 @@ export class MonitorService {
     if (!task) throw new Error(`Task not found: ${input.taskId}`);
 
     const sessionId = input.sessionId ?? this.database.findLatestSession(input.taskId)?.id;
-    // concluded 단계는 planning 레인, 나머지는 user 레인
-    const lane = input.questionPhase === "concluded" ? "planning" : "user";
 
     const event = this.recordGenericEvent({
       taskId: input.taskId,
       kind: "question.logged",
-      lane,
+      lane: "questions",
       title: input.title,
       ...(sessionId ? { sessionId } : {}),
       ...(input.body ? { body: input.body } : {}),
@@ -509,7 +507,7 @@ export class MonitorService {
     const event = this.recordGenericEvent({
       taskId: input.taskId,
       kind: "todo.logged",
-      lane: "planning",
+      lane: "todos",
       title: input.title,
       ...(sessionId ? { sessionId } : {}),
       ...(input.body ? { body: input.body } : {}),
@@ -543,7 +541,7 @@ export class MonitorService {
     const event = this.recordGenericEvent({
       taskId: input.taskId,
       kind: "thought.logged",
-      lane: "planning",
+      lane: "thoughts",
       title: input.title,
       ...(sessionId ? { sessionId } : {}),
       ...(input.body ? { body: input.body } : {}),

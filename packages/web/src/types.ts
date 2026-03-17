@@ -1,4 +1,4 @@
-export type TimelineLane = "user" | "exploration" | "planning" | "implementation" | "rules";
+export type TimelineLane = "user" | "exploration" | "planning" | "implementation" | "rules" | "questions" | "todos" | "thoughts";
 
 export interface MonitoringTask {
   readonly id: string;

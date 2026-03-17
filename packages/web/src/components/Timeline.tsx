@@ -24,6 +24,9 @@ import type {TimelineEvent, TimelineLane} from "../types.js";
 
 const laneLabels: Record<TimelineLane, string> = {
   user:           "User",
+  questions:      "Questions",
+  todos:          "Todos",
+  thoughts:       "Thoughts",
   exploration:    "Exploration",
   planning:       "Planning",
   implementation: "Implementation",
@@ -32,16 +35,22 @@ const laneLabels: Record<TimelineLane, string> = {
 
 const laneIcons: Record<TimelineLane, string> = {
   user:           "/icons/message.svg",
+  questions:      "/icons/bell.svg",
+  todos:          "/icons/check-circle.svg",
+  thoughts:       "/icons/thought.svg",
   exploration:    "/icons/file.svg",
-  planning:       "/icons/thought.svg",
+  planning:       "/icons/layers.svg",
   implementation: "/icons/tool.svg",
   rules:          "/icons/terminal.svg"
 };
 
 const laneDescriptions: Record<TimelineLane, string> = {
   user:           "User instructions & task boundaries",
+  questions:      "Agent question flows (asked → answered → concluded)",
+  todos:          "Task item lifecycle (added → in progress → done)",
+  thoughts:       "Summarized reasoning snapshots",
   exploration:    "File reads, searches, dependency checks",
-  planning:       "Analysis, approach decisions, thinking",
+  planning:       "Analysis, approach decisions, context checkpoints",
   implementation: "Code edits, writes, file changes",
   rules:          "Tests, builds, lints, rule verifications"
 };

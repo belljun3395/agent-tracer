@@ -182,7 +182,7 @@ export function App(): React.JSX.Element {
 
   const filteredTimeline = useMemo(
     () => filterTimelineEvents(taskTimeline, {
-      laneFilters: { user: true, exploration: true, planning: true, implementation: true, rules: true },
+      laneFilters: { user: true, questions: true, todos: true, thoughts: true, exploration: true, planning: true, implementation: true, rules: true },
       selectedRuleId,
       selectedTag,
       showRuleGapsOnly
@@ -318,7 +318,6 @@ export function App(): React.JSX.Element {
           selectedTaskId={selectedTaskId}
           taskDetail={taskDetail}
           selectedTaskDisplayTitle={selectedTaskDisplayTitle}
-          selectedTaskModelName={modelSummary.defaultModelName}
           selectedTaskQuestionCount={questionGroups.length}
           selectedTaskTodoCount={todoGroups.length}
           deletingTaskId={deletingTaskId}
@@ -387,6 +386,7 @@ export function App(): React.JSX.Element {
           selectedTag={selectedTag}
           selectedRuleId={selectedRuleId}
           showRuleGapsOnly={showRuleGapsOnly}
+          taskModelSummary={modelSummary}
           onSelectTag={(tag) => setSelectedTag(tag)}
           onSelectRule={(ruleId) => {
             setShowRuleGapsOnly(false);

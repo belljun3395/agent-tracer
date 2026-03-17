@@ -1,5 +1,5 @@
 /** 타임라인 이벤트가 속하는 레인. 대시보드에서 수직 구역으로 표시됨. */
-export type TimelineLane = "user" | "exploration" | "planning" | "implementation" | "rules";
+export type TimelineLane = "user" | "exploration" | "planning" | "implementation" | "rules" | "questions" | "todos" | "thoughts";
 
 /**
  * 캐노니컬 user.message 메타데이터 계약 (contractVersion "1").
@@ -136,7 +136,6 @@ export function defaultLaneForEventKind(kind: MonitoringEventKind): TimelineLane
       return "implementation";
     case "plan.logged":
     case "context.saved":
-    case "thought.logged":
       return "planning";
     case "file.changed":
       return "exploration";
@@ -147,10 +146,13 @@ export function defaultLaneForEventKind(kind: MonitoringEventKind): TimelineLane
     case "task.complete":
     case "task.error":
     case "user.message":
-    case "question.logged":
       return "user";
+    case "question.logged":
+      return "questions";
     case "todo.logged":
-      return "planning";
+      return "todos";
+    case "thought.logged":
+      return "thoughts";
   }
 }
 
@@ -205,6 +207,9 @@ export function normalizeLane(raw: string): TimelineLane {
     case "planning":
     case "implementation":
     case "rules":
+    case "questions":
+    case "todos":
+    case "thoughts":
       return raw as TimelineLane;
     default:
       return "user";

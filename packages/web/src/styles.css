@@ -33,6 +33,18 @@
   --rules-bg:           #fffbeb;
   --rules-border:       #fde68a;
 
+  --questions:          #c026d3;
+  --questions-bg:       #fdf4ff;
+  --questions-border:   #f0abfc;
+
+  --todos:              #1d4ed8;
+  --todos-bg:           #eff6ff;
+  --todos-border:       #bfdbfe;
+
+  --thoughts:           #0891b2;
+  --thoughts-bg:        #ecfeff;
+  --thoughts-border:    #a5f3fc;
+
 
   /* status */
   --ok:            #16a34a;
@@ -499,7 +511,10 @@ input[type="range"] { accent-color: var(--accent); }
 .filter-chip.active.rules { border-color: var(--rules); background: var(--rules-bg); color: var(--rules); }
 .filter-chip.active.implementation     { border-color: var(--implementation);     background: var(--implementation-bg);     color: var(--implementation);     }
 .filter-chip.active.planning  { border-color: var(--planning);  background: var(--planning-bg);  color: var(--planning);  }
-.filter-chip.active.user  { border-color: var(--user);  background: var(--user-bg);  color: var(--user);  }
+.filter-chip.active.user      { border-color: var(--user);      background: var(--user-bg);      color: var(--user);      }
+.filter-chip.active.questions { border-color: var(--questions); background: var(--questions-bg); color: var(--questions); }
+.filter-chip.active.todos     { border-color: var(--todos);     background: var(--todos-bg);     color: var(--todos);     }
+.filter-chip.active.thoughts  { border-color: var(--thoughts);  background: var(--thoughts-bg);  color: var(--thoughts);  }
 
 .filter-chip.active.exploration     .filter-dot { background: var(--exploration);     }
 .filter-chip.active.rules .filter-dot { background: var(--rules); }
@@ -954,9 +969,9 @@ input[type="range"] { accent-color: var(--accent); }
     repeating-linear-gradient(
       90deg,
       transparent,
-      transparent 111px,
-      var(--border) 111px,
-      var(--border) 112px
+      transparent 95px,
+      var(--border) 95px,
+      var(--border) 96px
     ),
     var(--surface);
   min-height: 0;
@@ -1000,7 +1015,7 @@ input[type="range"] { accent-color: var(--accent); }
 
 .timeline-canvas {
   position: relative;
-  min-height: 592px; /* RULER_HEIGHT(32) + 5 × LANE_HEIGHT(112) */
+  min-height: 800px; /* RULER_HEIGHT(32) + 8 × LANE_HEIGHT(96) */
 }
 
 /* lane rows */
@@ -1008,7 +1023,7 @@ input[type="range"] { accent-color: var(--accent); }
   position: absolute;
   left: 0;
   right: 0;
-  height: 112px;
+  height: 96px;
 }
 .lane-row:nth-child(even) {
   background: rgba(0,0,0,.015);
@@ -1039,7 +1054,10 @@ input[type="range"] { accent-color: var(--accent); }
 .lane-label.rules { color: var(--rules); }
 .lane-label.implementation     { color: var(--implementation);     }
 .lane-label.planning  { color: var(--planning);  }
-.lane-label.user  { color: var(--user);  }
+.lane-label.user      { color: var(--user);      }
+.lane-label.questions { color: var(--questions); }
+.lane-label.todos     { color: var(--todos);     }
+.lane-label.thoughts  { color: var(--thoughts);  }
 
 .lane-icon {
   width: 16px;
@@ -1095,7 +1113,10 @@ input[type="range"] { accent-color: var(--accent); }
 .event-node.rules { border-top-color: var(--rules); }
 .event-node.implementation     { border-top-color: var(--implementation);     }
 .event-node.planning  { border-top-color: var(--planning);  }
-.event-node.user  { border-top-color: var(--user);  }
+.event-node.user      { border-top-color: var(--user);      }
+.event-node.questions { border-top-color: var(--questions); }
+.event-node.todos     { border-top-color: var(--todos);     }
+.event-node.thoughts  { border-top-color: var(--thoughts);  }
 
 .event-node-header {
   display: flex;
@@ -1111,7 +1132,10 @@ input[type="range"] { accent-color: var(--accent); }
 .event-node.rules .event-node-header img { filter: brightness(0) saturate(100%) invert(37%) sepia(72%) saturate(800%) hue-rotate(20deg) brightness(88%); }
 .event-node.implementation     .event-node-header img { filter: brightness(0) saturate(100%) invert(22%) sepia(80%) saturate(1500%) hue-rotate(255deg) brightness(88%); }
 .event-node.planning  .event-node-header img { filter: brightness(0) saturate(100%) invert(20%) sepia(75%) saturate(800%) hue-rotate(130deg) brightness(85%); }
-.event-node.user  .event-node-header img { filter: brightness(0) saturate(100%) invert(18%) sepia(90%) saturate(1800%) hue-rotate(335deg) brightness(85%); }
+.event-node.user      .event-node-header img { filter: brightness(0) saturate(100%) invert(18%) sepia(90%) saturate(1800%) hue-rotate(335deg) brightness(85%); }
+.event-node.questions .event-node-header img { filter: brightness(0) saturate(100%) invert(27%) sepia(90%) saturate(2000%) hue-rotate(285deg) brightness(85%); }
+.event-node.todos     .event-node-header img { filter: brightness(0) saturate(100%) invert(20%) sepia(90%) saturate(1800%) hue-rotate(220deg) brightness(85%); }
+.event-node.thoughts  .event-node-header img { filter: brightness(0) saturate(100%) invert(30%) sepia(90%) saturate(1200%) hue-rotate(185deg) brightness(85%); }
 
 .event-lane-tag {
   font-size: 0.62rem;
@@ -1123,7 +1147,10 @@ input[type="range"] { accent-color: var(--accent); }
 .event-node.rules .event-lane-tag { color: var(--rules); }
 .event-node.implementation     .event-lane-tag { color: var(--implementation);     }
 .event-node.planning  .event-lane-tag { color: var(--planning);  }
-.event-node.user  .event-lane-tag { color: var(--user);  }
+.event-node.user      .event-lane-tag { color: var(--user);      }
+.event-node.questions .event-lane-tag { color: var(--questions); }
+.event-node.todos     .event-lane-tag { color: var(--todos);     }
+.event-node.thoughts  .event-lane-tag { color: var(--thoughts);  }
 
 .event-node strong {
   display: block;
@@ -1264,14 +1291,20 @@ input[type="range"] { accent-color: var(--accent); }
 .minimap-lane-bg.rules { fill: var(--rules); }
 .minimap-lane-bg.implementation     { fill: var(--implementation);     }
 .minimap-lane-bg.planning  { fill: var(--planning);  }
-.minimap-lane-bg.user  { fill: var(--user);  }
+.minimap-lane-bg.user      { fill: var(--user);      }
+.minimap-lane-bg.questions { fill: var(--questions); }
+.minimap-lane-bg.todos     { fill: var(--todos);     }
+.minimap-lane-bg.thoughts  { fill: var(--thoughts);  }
 
 .minimap-dot           { opacity: 0.75; }
-.minimap-dot.exploration      { fill: var(--exploration);     }
-.minimap-dot.rules  { fill: var(--rules); }
-.minimap-dot.implementation      { fill: var(--implementation);     }
-.minimap-dot.planning   { fill: var(--planning);  }
-.minimap-dot.user   { fill: var(--user);  }
+.minimap-dot.exploration  { fill: var(--exploration);  }
+.minimap-dot.rules        { fill: var(--rules);        }
+.minimap-dot.implementation { fill: var(--implementation); }
+.minimap-dot.planning     { fill: var(--planning);     }
+.minimap-dot.user         { fill: var(--user);         }
+.minimap-dot.questions    { fill: var(--questions);    }
+.minimap-dot.todos        { fill: var(--todos);        }
+.minimap-dot.thoughts     { fill: var(--thoughts);     }
 
 /* ─── NOW LINE ──────────────────────────────────────────── */
 .now-line {

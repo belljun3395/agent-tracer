@@ -13,7 +13,6 @@ interface TaskListProps {
   readonly selectedTaskId: string | null;
   readonly taskDetail: TaskDetailResponse | null;
   readonly selectedTaskDisplayTitle: string | null;
-  readonly selectedTaskModelName?: string | undefined;
   readonly selectedTaskQuestionCount?: number | undefined;
   readonly selectedTaskTodoCount?: number | undefined;
   readonly deletingTaskId: string | null;
@@ -32,7 +31,6 @@ export function TaskList({
   selectedTaskId,
   taskDetail,
   selectedTaskDisplayTitle,
-  selectedTaskModelName,
   selectedTaskQuestionCount,
   selectedTaskTodoCount,
   deletingTaskId,
@@ -89,9 +87,6 @@ export function TaskList({
                   <div className="task-item-path mono">{task.workspacePath ?? "—"}</div>
                   {task.id === selectedTaskId && task.id === taskDetail?.task.id && (
                     <div className="task-item-signals">
-                      {selectedTaskModelName && (
-                        <span className="task-signal-pill model" title="AI model">{selectedTaskModelName}</span>
-                      )}
                       {selectedTaskQuestionCount !== undefined && selectedTaskQuestionCount > 0 && (
                         <span className="task-signal-pill questions">{selectedTaskQuestionCount}Q</span>
                       )}

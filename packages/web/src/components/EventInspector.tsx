@@ -12,6 +12,7 @@ import {
 
 import {
   buildCompactInsight,
+  buildModelSummary,
   buildObservabilityStats,
   buildQuestionGroups,
   buildRuleCoverage,
@@ -22,6 +23,7 @@ import {
   eventHasRuleGap,
   type CompactInsight,
   type ExploredFileStat,
+  type ModelSummary,
   type QuestionGroup,
   type RuleCoverageStat,
   type TaskExtraction,
@@ -62,6 +64,7 @@ interface EventInspectorProps {
   readonly selectedTag: string | null;
   readonly selectedRuleId: string | null;
   readonly showRuleGapsOnly: boolean;
+  readonly taskModelSummary?: ModelSummary | undefined;
   readonly onSelectTag: (tag: string | null) => void;
   readonly onSelectRule: (ruleId: string | null) => void;
   readonly onToggleRuleGaps: () => void;
@@ -372,6 +375,37 @@ function DetailCaptureInfo({ event }: { readonly event: TimelineEvent }): React.
             {phase       && <tr><td className="ids-key muted small">Phase</td><td className="ids-val mono">{phase}</td></tr>}
           </tbody>
         </table>
+      </div>
+    </div>
+  );
+}
+
+/** DetailTaskModel: 태스크 레벨 AI 모델 요약 카드. 작업 중 모델이 바뀌어도 전체 기록을 표시. */
+function DetailTaskModel({ summary }: { readonly summary: ModelSummary }): React.JSX.Element | null {
+  const entries = Object.entries(summary.modelCounts).sort((a, b) => b[1] - a[1]);
+  if (entries.length === 0) return null;
+  return (
+    <div className="detail-card">
+      <div className="detail-card-head">AI Model</div>
+      <div className="detail-card-body">
+        <table className="ids-table">
+          <tbody>
+            {entries.map(([name, count]) => (
+              <tr key={name}>
+                <td className="ids-val mono" style={{ fontWeight: name === summary.defaultModelName ? 600 : undefined }}>
+                  {name}
+                  {name === summary.defaultModelName && (
+                    <span className="muted small" style={{ marginLeft: 6, fontWeight: 400 }}>default</span>
+                  )}
+                </td>
+                <td className="ids-key muted small" style={{ textAlign: "right" }}>{count} events</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {summary.defaultModelProvider && (
+          <p className="muted small" style={{ margin: "6px 0 0" }}>Provider: {summary.defaultModelProvider}</p>
+        )}
       </div>
     </div>
   );
@@ -852,6 +886,7 @@ export function EventInspector({
   selectedTag,
   selectedRuleId,
   showRuleGapsOnly,
+  taskModelSummary,
   onSelectTag,
   onSelectRule,
   onToggleRuleGaps
@@ -1061,6 +1096,11 @@ export function EventInspector({
                 {obsBadges.map((b) => (
                   <span key={b.key} className={`summary-badge ${b.cls}`}>{b.value} {b.label}</span>
                 ))}
+              </div>
+            )}
+            {taskModelSummary && (
+              <div style={{ padding: "0 16px 12px" }}>
+                <DetailTaskModel summary={taskModelSummary} />
               </div>
             )}
           </>
