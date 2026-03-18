@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { execFile } from "node:child_process";
@@ -11,6 +11,13 @@ const repoRoot = path.resolve(import.meta.dirname, "../../..");
 const setupExternalScript = path.join(repoRoot, "scripts", "setup-external.mjs");
 const repoClaudeSettingsPath = path.join(repoRoot, ".claude", "settings.json");
 const repoOpenCodeTsconfigPath = path.join(repoRoot, ".opencode", "tsconfig.json");
+const repoCodexSkillProjectionPath = path.join(
+  repoRoot,
+  ".agents",
+  "skills",
+  "codex-monitor",
+  "SKILL.md"
+);
 
 type HookEntry = {
   readonly matcher?: string;
@@ -179,5 +186,77 @@ describe("setup:external OpenCode integration", () => {
     }));
     expect(pluginShim).toContain("export { MonitorPlugin as default }");
     expect(generatedTsconfig).toEqual(repoTsconfig);
+  });
+});
+
+describe("setup:external Codex integration", () => {
+  const tempDirs: string[] = [];
+
+  afterEach(async () => {
+    await Promise.all(tempDirs.map((dir) => rm(dir, { recursive: true, force: true })));
+  });
+
+  it("generates a Codex skill projection and AGENTS instructions", async () => {
+    const targetDir = await mkdtemp(path.join(os.tmpdir(), "agent-tracer-codex-setup-"));
+    tempDirs.push(targetDir);
+
+    await execFileAsync(process.execPath, [
+      setupExternalScript,
+      "--target",
+      targetDir,
+      "--mode",
+      "codex"
+    ], {
+      cwd: repoRoot
+    });
+
+    const generatedAgents = await readFile(path.join(targetDir, "AGENTS.md"), "utf8");
+    const generatedSkill = await readFile(
+      path.join(targetDir, ".agents", "skills", "codex-monitor", "SKILL.md"),
+      "utf8"
+    );
+    const repoSkill = await readFile(repoCodexSkillProjectionPath, "utf8");
+
+    expect(generatedAgents).toContain("codex-monitor");
+    expect(generatedAgents).toContain(".agents/skills/codex-monitor/SKILL.md");
+    expect(generatedAgents).toContain("monitor_user_message");
+    expect(generatedSkill).toEqual(repoSkill);
+  });
+
+  it("preserves existing AGENTS.md content while updating the managed Codex block", async () => {
+    const targetDir = await mkdtemp(path.join(os.tmpdir(), "agent-tracer-codex-merge-"));
+    tempDirs.push(targetDir);
+
+    const existingAgents = [
+      "# Existing Instructions",
+      "",
+      "Keep local conventions intact.",
+      "",
+      "<!-- BEGIN agent-tracer codex-monitor -->",
+      "stale content",
+      "<!-- END agent-tracer codex-monitor -->",
+      ""
+    ].join("\n");
+
+    await writeFile(path.join(targetDir, "AGENTS.md"), existingAgents, "utf8");
+
+    await execFileAsync(process.execPath, [
+      setupExternalScript,
+      "--target",
+      targetDir,
+      "--mode",
+      "codex"
+    ], {
+      cwd: repoRoot
+    });
+
+    const generatedAgents = await readFile(path.join(targetDir, "AGENTS.md"), "utf8");
+
+    expect(generatedAgents).toContain("# Existing Instructions");
+    expect(generatedAgents).toContain("Keep local conventions intact.");
+    expect(generatedAgents).toContain("<!-- BEGIN agent-tracer codex-monitor -->");
+    expect(generatedAgents).toContain("codex-monitor");
+    expect(generatedAgents).not.toContain("stale content");
+    expect(generatedAgents.match(/BEGIN agent-tracer codex-monitor/g)).toHaveLength(1);
   });
 });

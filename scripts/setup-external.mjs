@@ -3,6 +3,10 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
+const SKILL_PROJECTION_BANNER = "<!-- GENERATED FILE: edit skills/... source, then run node scripts/sync-skill-projections.mjs -->\n\n";
+const CODEX_AGENTS_BEGIN = "<!-- BEGIN agent-tracer codex-monitor -->";
+const CODEX_AGENTS_END = "<!-- END agent-tracer codex-monitor -->";
+
 function parseArgs(argv) {
   const args = {
     target: "",
@@ -24,7 +28,7 @@ function parseArgs(argv) {
     }
     if (token === "--mode") {
       const mode = String(argv[index + 1] || "").trim();
-      if (mode === "opencode" || mode === "claude" || mode === "both") {
+      if (mode === "opencode" || mode === "claude" || mode === "codex" || mode === "both") {
         args.mode = mode;
       }
       index += 1;
@@ -93,6 +97,58 @@ function ensureHookEntry(list, command, matcher) {
 function hookCommand(tracerRoot, scriptPath) {
   const tsxPath = path.join(tracerRoot, "node_modules", "tsx", "dist", "cli.mjs");
   return `node ${JSON.stringify(tsxPath)} ${JSON.stringify(scriptPath)}`;
+}
+
+function generatedSkillContent(sourceContent) {
+  return `${SKILL_PROJECTION_BANNER}${sourceContent}`;
+}
+
+function buildCodexAgentsBlock() {
+  return [
+    CODEX_AGENTS_BEGIN,
+    "## Agent Tracer",
+    "",
+    "### Available skills",
+    "",
+    "- codex-monitor: Agent Tracer monitoring workflow for Codex. (file: .agents/skills/codex-monitor/SKILL.md)",
+    "",
+    "### How to use skills",
+    "",
+    "- Codex CLI -> `codex-monitor` 스킬 사용",
+    "- 실질적 작업 전에 스킬 파일을 열고 흐름을 따름",
+    "- monitor-server MCP 서버 미가용 시 작업 계속 후 마지막에 gap 리포트",
+    "",
+    "### Canonical user.message path",
+    "",
+    "- `monitor_user_message` (`captureMode=\"raw\"`) 로 실제 사용자 프롬프트 기록",
+    "- `monitor_save_context`는 raw 프롬프트가 아닌 계획·체크포인트 전용",
+    "- `monitor_session_end`는 세션만 종료; 작업 종료는 `monitor_task_complete`만 사용",
+    CODEX_AGENTS_END,
+    ""
+  ].join("\n");
+}
+
+function upsertManagedBlock(currentContent, block, beginMarker, endMarker) {
+  const trimmedBlock = block.trimEnd();
+  if (!currentContent.trim()) {
+    return `${trimmedBlock}\n`;
+  }
+
+  const beginIndex = currentContent.indexOf(beginMarker);
+  const endIndex = currentContent.indexOf(endMarker);
+  if (beginIndex !== -1 && endIndex !== -1 && endIndex >= beginIndex) {
+    const afterEnd = endIndex + endMarker.length;
+    const before = currentContent.slice(0, beginIndex).replace(/\s*$/, "");
+    const after = currentContent.slice(afterEnd).replace(/^\s*/, "");
+    return [
+      before,
+      "",
+      trimmedBlock,
+      after ? `\n${after}` : ""
+    ].join("\n").replace(/\n{3,}/g, "\n\n").replace(/\s*$/, "\n");
+  }
+
+  return `${currentContent.replace(/\s*$/, "")}\n\n${trimmedBlock}\n`;
 }
 
 const CLAUDE_HOOK_SPECS = [
@@ -181,15 +237,43 @@ async function setupClaude({ targetDir, tracerRoot }) {
   });
 }
 
+async function setupCodex({ targetDir, tracerRoot }) {
+  const agentsPath = path.join(targetDir, "AGENTS.md");
+  const codexSkillSourcePath = path.join(tracerRoot, "skills", "codex-monitor", "SKILL.md");
+  const codexSkillTargetPath = path.join(targetDir, ".agents", "skills", "codex-monitor", "SKILL.md");
+
+  await mkdir(path.dirname(codexSkillTargetPath), { recursive: true });
+
+  const sourceSkill = await readFile(codexSkillSourcePath, "utf8");
+  await writeFile(codexSkillTargetPath, generatedSkillContent(sourceSkill), "utf8");
+
+  let existingAgents = "";
+  try {
+    existingAgents = await readFile(agentsPath, "utf8");
+  } catch {
+    existingAgents = "";
+  }
+
+  const nextAgents = upsertManagedBlock(
+    existingAgents,
+    buildCodexAgentsBlock(),
+    CODEX_AGENTS_BEGIN,
+    CODEX_AGENTS_END
+  );
+
+  await writeFile(agentsPath, nextAgents, "utf8");
+}
+
 function printHelp() {
   process.stdout.write(
     [
       "Usage:",
-      "  npm run setup:external -- --target /path/to/your-project [--mode both|opencode|claude] [--monitor-base-url http://127.0.0.1:3847]",
+      "  npm run setup:external -- --target /path/to/your-project [--mode both|opencode|claude|codex] [--monitor-base-url http://127.0.0.1:3847]",
       "",
       "Examples:",
       "  npm run setup:external -- --target ../my-app",
       "  npm run setup:external -- --target ../my-app --mode opencode",
+      "  npm run setup:external -- --target ../my-app --mode codex",
       ""
     ].join("\n")
   );
@@ -219,6 +303,13 @@ async function main() {
 
   if (args.mode === "both" || args.mode === "claude") {
     await setupClaude({
+      targetDir,
+      tracerRoot
+    });
+  }
+
+  if (args.mode === "codex") {
+    await setupCodex({
       targetDir,
       tracerRoot
     });

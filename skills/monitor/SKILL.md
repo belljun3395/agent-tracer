@@ -33,13 +33,21 @@ description: MCP가 있는 모든 환경에서 Agent Tracer 모니터링 기록.
 - `monitor_task_complete` — 작업 항목 명시적 종료
 - `monitor_task_error` — 실패·차단·중단 시
 - `monitor_task_link` — background/subagent lineage 를 연결할 때
+- `monitor_async_task` — 백그라운드 태스크 상태 기록. `asyncTaskId` + `asyncStatus` 필수
+  - `asyncStatus`: `running`(시작) / `completed`(성공) / `error`(실패) / `cancelled` / `interrupt`
+  - 서브에이전트 dispatch 직후 `running`, 완료 시 `completed`/`error`
 
 **작업 이벤트:**
 - `monitor_explore` — 파일 읽기, 코드 검색, 문서 조회
 - `monitor_save_context` + `lane="planning"` — 계획, 분석, 접근 결정 (체크포인트; raw 프롬프트 아님)
+- `monitor_plan` — 계획 단계 기록. `action`(snake_case 동사) 필수. `monitor_save_context`와 달리 구조화된 action명 기반
+- `monitor_action` — 실행 직전 agent action 기록. `action`(snake_case 동사) 필수
+- `monitor_verify` — 검증 단계 결과 기록. `action` + `result` + `status` 필수. test/build/lint 완료 시 사용
 - `monitor_terminal_command` — 셸 명령. test/lint/build는 `lane="rules"`, 그 외 `lane="implementation"`
 - `monitor_tool_used` — 파일 수정, patch 적용 등 핵심 도구 사용
-- `monitor_rule` + `ruleId="user-message-capture-unavailable"` — raw 캡처 불가 환경에서 gap 명시
+- `monitor_rule` — rule 관련 이벤트 기록. `action` + `ruleId` + `severity` + `status` 필수
+  - raw 캡처 불가 환경의 gap 명시: `ruleId="user-message-capture-unavailable"`
+  - 그 외 rule check/violation/fix 이벤트에도 범용 사용 가능
 
 **시맨틱 흐름 이벤트 (선택적, 고신호):**
 - `monitor_question` — 에이전트 질문 흐름 추적

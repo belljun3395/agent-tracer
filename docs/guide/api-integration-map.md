@@ -36,8 +36,14 @@
 |-----|------|-------------|----------|---------------------|
 | `/api/user-message` | 사용자 입력 기록 | `UserPromptSubmit` | `chat.message` hook | ✅ 필수. `captureMode: "raw"`, `source` 필드로 런타임 구분 |
 | `/api/save-context` | planning 레인 스냅샷 | `SessionStart`, `Pre/PostCompact`, `Bash` + description 있을 때 | ❌ | 세션 상태 변화 시점마다 기록 권장 |
+| `/api/plan` | 구조화된 계획 단계 기록 | ❌ | ❌ | MCP 수동 경로(`monitor_plan`)에서만 호출 |
+| `/api/action` | 실행 직전 agent action 기록 | ❌ | ❌ | MCP 수동 경로(`monitor_action`)에서만 호출 |
+| `/api/verify` | 검증 단계 결과 기록 | ❌ | ❌ | MCP 수동 경로(`monitor_verify`)에서만 호출 |
+| `/api/rule` | rule 관련 이벤트 기록 | ❌ | ❌ | MCP 수동 경로(`monitor_rule`)에서만 호출. gap 명시 포함 |
 | `/api/question` | assistant 질문/호출 패턴 기록 | ❌ | `message.updated` 이벤트 분석 | assistant 응답 스트림 접근 가능하면 구현 |
 | `/api/thought` | assistant reasoning/사고 흐름 기록 | ❌ | `message.updated` 이벤트 분석 | assistant 응답 스트림 접근 가능하면 구현 |
+
+`/api/plan`, `/api/action`, `/api/verify`, `/api/rule`은 현재 훅/플러그인에서 자동 호출되지 않으며, MCP `monitor_*` 도구를 통한 수동 경로 전용이다.
 
 `/api/question`과 `/api/thought`는 OpenCode만 지원. assistant 응답 스트림(event stream)에 직접 접근할 수 있을 때만 구현 가능.
 
@@ -100,6 +106,10 @@
 | `/api/agent-activity` | ✅ | ✅ |
 | `/api/async-task` | ✅ | ✅ |
 | `/api/task-link` | ✅ | ✅ |
+| `/api/plan` | ❌ | ❌ (MCP 수동) |
+| `/api/action` | ❌ | ❌ (MCP 수동) |
+| `/api/verify` | ❌ | ❌ (MCP 수동) |
+| `/api/rule` | ❌ | ❌ (MCP 수동) |
 
 ---
 
