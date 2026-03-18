@@ -42,7 +42,7 @@ export const taskRenameSchema = z.object({
 
 export const taskPatchSchema = z.object({
   title: z.string().trim().min(1).optional(),
-  status: z.enum(["running", "completed", "errored"]).optional()
+  status: z.enum(["running", "waiting", "completed", "errored"]).optional()
 }).refine(
   (data) => data.title !== undefined || data.status !== undefined,
   { message: "At least one of title or status must be provided" }
@@ -205,6 +205,7 @@ export const sessionEndSchema = z.object({
   taskId: z.string().min(1),
   sessionId: z.string().optional(),
   completeTask: z.boolean().optional(),
+  completionReason: z.enum(["idle", "assistant_turn_complete", "explicit_exit", "runtime_terminated"]).optional(),
   summary: z.string().optional(),
   metadata: z.record(z.unknown()).optional()
 });
@@ -321,5 +322,6 @@ export const runtimeSessionEndSchema = z.object({
   runtimeSource: z.string().min(1),
   runtimeSessionId: z.string().min(1),
   summary: z.string().optional(),
-  completeTask: z.boolean().optional()
+  completeTask: z.boolean().optional(),
+  completionReason: z.enum(["idle", "assistant_turn_complete", "explicit_exit", "runtime_terminated"]).optional()
 });

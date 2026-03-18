@@ -1,323 +1,173 @@
 /**
  * 대시보드 루트 컴포넌트.
- * WebSocket 연결, 데이터 페칭, 전역 상태 관리를 담당.
- * UI는 TopBar, TaskList, Timeline, EventInspector에 위임.
+ * 레이아웃 조합만 담당. 데이터 페칭·소켓·검색은 store hooks에 위임.
  */
 
 import type React from "react";
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import {
-  createBookmark,
-  createMonitorWebSocket,
-  deleteBookmark,
-  deleteTask,
-  fetchBookmarks,
-  fetchOverview,
-  fetchSearchResults,
-  fetchTaskDetail,
-  fetchTasks,
-  updateTaskTitle,
-  updateTaskStatus
-} from "./api.js";
 import {
   buildCompactInsight,
   buildModelSummary,
   buildObservabilityStats,
   buildQuestionGroups,
-  buildTaskDisplayTitle,
   buildTodoGroups,
   collectExploredFiles,
   filterTimelineEvents
 } from "./lib/insights.js";
 import { buildTimelineRelations } from "./lib/timeline.js";
+import { refreshRealtimeMonitorData } from "./lib/realtime.js";
 import { cn } from "./lib/ui/cn.js";
 import { TopBar } from "./components/TopBar.js";
 import { TaskList } from "./components/TaskList.js";
 import { Timeline } from "./components/Timeline.js";
 import { EventInspector } from "./components/EventInspector.js";
-import type {
-  BookmarkRecord,
-  MonitoringTask,
-  OverviewResponse,
-  SearchResponse,
-  TaskDetailResponse,
-  TimelineEvent
-} from "./types.js";
+import { MonitorProvider, useMonitorStore } from "./store/useMonitorStore.js";
+import { useWebSocket } from "./store/useWebSocket.js";
+import { useSearch } from "./store/useSearch.js";
 
-function isConnectorKeyValid(
-  key: string,
-  events: readonly TimelineEvent[]
-): boolean {
-  const parsed = parseConnectorKey(key);
-  if (!parsed) return false;
-
-  return events.some((event) => event.id === parsed.sourceEventId)
-    && events.some((event) => event.id === parsed.targetEventId);
-}
+// ---------------------------------------------------------------------------
+// Connector key helpers (App 내부에서만 사용)
+// ---------------------------------------------------------------------------
 
 function parseConnectorKey(
   key: string
 ): { sourceEventId: string; targetEventId: string; relationType?: string } | null {
   const [sourceEventId, targetPart] = key.split("→");
   if (!sourceEventId || !targetPart) return null;
-
   const [targetEventId, relationType] = targetPart.split(":");
   if (!targetEventId) return null;
-
-  return {
-    sourceEventId,
-    targetEventId,
-    ...(relationType ? { relationType } : {})
-  };
+  return { sourceEventId, targetEventId, ...(relationType ? { relationType } : {}) };
 }
+
+// ---------------------------------------------------------------------------
+// Sidebar resize constants
+// ---------------------------------------------------------------------------
 
 const SIDEBAR_MIN_WIDTH = 240;
 const SIDEBAR_MAX_WIDTH = 460;
 const SIDEBAR_DEFAULT_WIDTH = 280;
 const SIDEBAR_WIDTH_STORAGE_KEY = "agent-tracer.sidebar-width";
 
-export function App(): React.JSX.Element {
-  const [overview,        setOverview]        = useState<OverviewResponse | null>(null);
-  const [tasks,           setTasks]           = useState<readonly MonitoringTask[]>([]);
-  const [bookmarks,       setBookmarks]       = useState<readonly BookmarkRecord[]>([]);
-  const [selectedTaskId,  setSelectedTaskId]  = useState<string | null>(
-    () => window.location.hash.slice(1) || null
-  );
-  const [taskDetail,      setTaskDetail]      = useState<TaskDetailResponse | null>(null);
-  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
-  const [selectedConnectorKey, setSelectedConnectorKey] = useState<string | null>(null);
-  const [selectedRuleId, setSelectedRuleId] = useState<string | null>(null);
-  const [selectedTag, setSelectedTag] = useState<string | null>(null);
-  const [showRuleGapsOnly, setShowRuleGapsOnly] = useState(false);
-  const [searchQuery,      setSearchQuery]      = useState("");
-  const [searchResults,    setSearchResults]    = useState<SearchResponse | null>(null);
-  const [isSearching,      setIsSearching]      = useState(false);
-  const [status,           setStatus]           = useState<"idle"|"loading"|"ready"|"error">("idle");
-  const [errorMessage,     setErrorMessage]     = useState<string | null>(null);
-  const [deletingTaskId,   setDeletingTaskId]   = useState<string | null>(null);
-  const [deleteErrorTaskId,setDeleteErrorTaskId]= useState<string | null>(null);
-  const [isConnected,      setIsConnected]      = useState(false);
-  const [nowMs,            setNowMs]            = useState(() => Date.now());
-  const [isEditingTaskTitle, setIsEditingTaskTitle] = useState(false);
-  const [taskTitleDraft, setTaskTitleDraft] = useState("");
-  const [taskTitleError, setTaskTitleError] = useState<string | null>(null);
-  const [isSavingTaskTitle, setIsSavingTaskTitle] = useState(false);
-  const [isUpdatingTaskStatus, setIsUpdatingTaskStatus] = useState(false);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const [isInspectorCollapsed, setIsInspectorCollapsed] = useState(false);
-  const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth);
-  const [taskDisplayTitleCache, setTaskDisplayTitleCache] = useState<
-    Readonly<Record<string, { readonly title: string; readonly updatedAt: string }>>
-  >({});
+// ---------------------------------------------------------------------------
+// Inner dashboard (consumes context)
+// ---------------------------------------------------------------------------
+
+function Dashboard(): React.JSX.Element {
+  const {
+    state,
+    dispatch,
+    refreshOverview,
+    refreshTaskDetail,
+    handleDeleteTask,
+    handleCreateTaskBookmark,
+    handleCreateEventBookmark,
+    handleDeleteBookmark,
+    handleTaskStatusChange,
+    handleTaskTitleSubmit
+  } = useMonitorStore();
+
+  const {
+    tasks,
+    bookmarks,
+    overview,
+    selectedTaskId,
+    selectedEventId,
+    selectedConnectorKey,
+    selectedRuleId,
+    selectedTag,
+    showRuleGapsOnly,
+    taskDetail,
+    isConnected,
+    status,
+    errorMessage,
+    deletingTaskId,
+    deleteErrorTaskId,
+    nowMs,
+    isEditingTaskTitle,
+    taskTitleDraft,
+    taskTitleError,
+    isSavingTaskTitle,
+    isUpdatingTaskStatus,
+    taskDisplayTitleCache
+  } = state;
+
+  // WebSocket: message 수신 시 overview + taskDetail 새로고침
+  const { isConnected: wsConnected } = useWebSocket(() => {
+    void refreshRealtimeMonitorData({
+      selectedTaskId,
+      refreshOverview,
+      refreshTaskDetail
+    });
+  });
+
+  // isConnected는 WebSocket 상태로부터 동기화
+  useEffect(() => {
+    dispatch({ type: "SET_CONNECTED", isConnected: wsConnected });
+  }, [dispatch, wsConnected]);
+
+  // Search
+  const { query: searchQuery, setQuery: setSearchQuery, results: searchResults, isSearching } = useSearch();
+
+  // Sidebar resize state
   const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
     const raw = window.localStorage.getItem(SIDEBAR_WIDTH_STORAGE_KEY);
     if (!raw) return SIDEBAR_DEFAULT_WIDTH;
-
     const parsed = Number.parseInt(raw, 10);
     if (!Number.isFinite(parsed)) return SIDEBAR_DEFAULT_WIDTH;
-
     return Math.max(SIDEBAR_MIN_WIDTH, Math.min(SIDEBAR_MAX_WIDTH, parsed));
   });
-  const sidebarResizeRef = useRef<{
-    readonly startX: number;
-    readonly startWidth: number;
-  } | null>(null);
-  const selectedTaskIdRef = useRef<string | null>(selectedTaskId);
-  const socketRef = useRef<WebSocket | null>(null);
-
-  const refreshOverview = useCallback(async (): Promise<void> => {
-    setStatus((s) => (s === "ready" ? s : "loading"));
-    setErrorMessage(null);
-    try {
-      const [nextOverview, nextTasks, nextBookmarks] = await Promise.all([
-        fetchOverview(),
-        fetchTasks(),
-        fetchBookmarks()
-      ]);
-      setOverview(nextOverview);
-      setTasks((prev) => {
-        const prevById = new Map(prev.map((t) => [t.id, t]));
-        const merged = nextTasks.tasks.map((next) => {
-          const existing = prevById.get(next.id);
-          return existing && existing.updatedAt === next.updatedAt ? existing : next;
-        });
-        // 순서・개수가 같고 모든 항목이 동일한 참조면 배열 자체도 유지
-        const unchanged = merged.length === prev.length && merged.every((t, i) => t === prev[i]);
-        return unchanged ? prev : merged;
-      });
-      setBookmarks(nextBookmarks.bookmarks);
-      setStatus("ready");
-    } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : "Failed to load monitor data.");
-      setStatus("error");
-    }
-  }, []);
-
-  const refreshTaskDetail = useCallback(async (taskId: string): Promise<void> => {
-    try {
-      const detail = await fetchTaskDetail(taskId);
-      setTaskDetail((prev) => {
-        if (!prev || prev.task.id !== detail.task.id) return detail;
-        // 태스크 메타 변경 여부
-        const sameTask = prev.task.updatedAt === detail.task.updatedAt;
-        // 이벤트 배열 병합: 기존 이벤트 객체 참조 재사용
-        const prevById = new Map(prev.timeline.map((e) => [e.id, e]));
-        const mergedTimeline = detail.timeline.map((next) => prevById.get(next.id) ?? next);
-        const timelineUnchanged = mergedTimeline.length === prev.timeline.length
-          && mergedTimeline.every((e, i) => e === prev.timeline[i]);
-        if (sameTask && timelineUnchanged) return prev;
-        return {
-          task: sameTask ? prev.task : detail.task,
-          timeline: timelineUnchanged ? prev.timeline : mergedTimeline,
-        };
-      });
-      setSelectedConnectorKey((current) =>
-        current && isConnectorKeyValid(current, detail.timeline) ? current : null
-      );
-      setSelectedEventId((current) =>
-        current && detail.timeline.some((e) => e.id === current)
-          ? current
-          : detail.timeline[detail.timeline.length - 1]?.id ?? null
-      );
-    } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : "Failed to load task detail.");
-      setStatus("error");
-    }
-  }, []);
-
-  /* initial load */
-  useEffect(() => { void refreshOverview(); }, [refreshOverview]);
-
-  /* live clock */
-  useEffect(() => {
-    const timer = setInterval(() => setNowMs(Date.now()), 10_000);
-    return () => clearInterval(timer);
-  }, []);
-
-  useEffect(() => {
-    const handleResize = (): void => {
-      setViewportWidth(window.innerWidth);
-    };
-
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isInspectorCollapsed, setIsInspectorCollapsed] = useState(false);
+  const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth);
+  const sidebarResizeRef = useRef<{ readonly startX: number; readonly startWidth: number } | null>(null);
 
   useEffect(() => {
     window.localStorage.setItem(SIDEBAR_WIDTH_STORAGE_KEY, String(sidebarWidth));
   }, [sidebarWidth]);
 
-  /* auto-select first task (hash에 유효한 ID가 있으면 유지) */
   useEffect(() => {
-    if (tasks.length === 0) {
-      setSelectedTaskId(null);
-      setTaskDetail(null);
-      return;
-    }
-    const hashId = window.location.hash.slice(1);
-    if (hashId && tasks.some((t) => t.id === hashId)) return; // hash ID 유효 → 유지
-    if (!selectedTaskId || !tasks.some((t) => t.id === selectedTaskId)) {
-      setSelectedTaskId(tasks[0]?.id ?? null);
-    }
-  }, [selectedTaskId, tasks]);
-
-  /* hash ↔ selectedTaskId 동기화 */
-  useEffect(() => {
-    const next = selectedTaskId ? `#${selectedTaskId}` : "";
-    if (window.location.hash !== next) {
-      window.history.replaceState(null, "", next || window.location.pathname);
-    }
-  }, [selectedTaskId]);
-
-  useEffect(() => {
-    function onHashChange(): void {
-      setSelectedTaskId(window.location.hash.slice(1) || null);
-    }
-    window.addEventListener("hashchange", onHashChange);
-    return () => window.removeEventListener("hashchange", onHashChange);
+    const handleResize = (): void => setViewportWidth(window.innerWidth);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  useEffect(() => {
-    selectedTaskIdRef.current = selectedTaskId;
-  }, [selectedTaskId]);
+  const onSidebarResizeStart = useCallback((event: React.PointerEvent<HTMLDivElement>): void => {
+    if (event.button !== 0 || isSidebarCollapsed) return;
+    sidebarResizeRef.current = { startX: event.clientX, startWidth: sidebarWidth };
 
-  /* load task detail when selection changes */
-  useEffect(() => {
-    if (!selectedTaskId) return;
-    void refreshTaskDetail(selectedTaskId);
-  }, [refreshTaskDetail, selectedTaskId]);
-
-  /* reset filters on task change */
-  useEffect(() => {
-    void selectedTaskId;
-    setSelectedRuleId(null);
-    setSelectedTag(null);
-    setShowRuleGapsOnly(false);
-    setIsEditingTaskTitle(false);
-    setTaskTitleError(null);
-    setIsSavingTaskTitle(false);
-  }, [selectedTaskId]);
-
-  const wsRefreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  /* websocket with auto-reconnect */
-  useEffect(() => {
-    let destroyed = false;
-    let timer: ReturnType<typeof setTimeout> | null = null;
-
-    function connect(): void {
-      const ws = createMonitorWebSocket();
-      socketRef.current = ws;
-
-      ws.onopen = () => { setIsConnected(true); };
-
-      ws.onmessage = () => {
-        setIsConnected(true);
-        if (wsRefreshTimer.current !== null) clearTimeout(wsRefreshTimer.current);
-        wsRefreshTimer.current = setTimeout(() => {
-          wsRefreshTimer.current = null;
-          void refreshOverview();
-          if (selectedTaskIdRef.current) void refreshTaskDetail(selectedTaskIdRef.current);
-        }, 200);
-      };
-
-      ws.onerror = () => { ws.close(); };
-
-      ws.onclose = () => {
-        setIsConnected(false);
-        if (socketRef.current === ws) {
-          socketRef.current = null;
-        }
-        if (!destroyed) timer = setTimeout(connect, 5000);
-      };
-    }
-
-    connect();
-
-    return () => {
-      destroyed = true;
-      if (timer !== null) clearTimeout(timer);
-      if (wsRefreshTimer.current !== null) {
-        clearTimeout(wsRefreshTimer.current);
-        wsRefreshTimer.current = null;
-      }
-      socketRef.current?.close();
-      socketRef.current = null;
+    const onMove = (moveEvent: PointerEvent): void => {
+      const current = sidebarResizeRef.current;
+      if (!current) return;
+      const delta = moveEvent.clientX - current.startX;
+      const clamped = Math.max(SIDEBAR_MIN_WIDTH, Math.min(SIDEBAR_MAX_WIDTH, Math.round(current.startWidth + delta)));
+      setSidebarWidth(clamped);
     };
-  }, [refreshOverview, refreshTaskDetail]);
+
+    const onUp = (): void => {
+      sidebarResizeRef.current = null;
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+      document.body.classList.remove("is-resizing-sidebar");
+    };
+
+    document.body.classList.add("is-resizing-sidebar");
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+    event.preventDefault();
+  }, [isSidebarCollapsed, sidebarWidth]);
+
+  // ---------------------------------------------------------------------------
+  // Derived / memoised values
+  // ---------------------------------------------------------------------------
 
   const taskTimeline = taskDetail?.timeline ?? [];
 
   const selectedTaskDisplayTitle = useMemo(
-    () => taskDetail?.task ? buildTaskDisplayTitle(taskDetail.task, taskTimeline) : null,
-    [taskDetail?.task, taskTimeline]
+    () => taskDetail?.task ? (taskDisplayTitleCache[taskDetail.task.id]?.title ?? taskDetail.task.title) : null,
+    [taskDetail, taskDisplayTitleCache]
   );
 
   const selectedTaskUsesDerivedTitle = Boolean(
@@ -326,111 +176,15 @@ export function App(): React.JSX.Element {
     && selectedTaskDisplayTitle.trim() !== taskDetail.task.title.trim()
   );
 
-  useEffect(() => {
-    if (!taskDetail?.task || !selectedTaskDisplayTitle) {
-      return;
-    }
-
-    setTaskDisplayTitleCache((current) => {
-      const existing = current[taskDetail.task.id];
-      if (
-        existing
-        && existing.title === selectedTaskDisplayTitle
-        && existing.updatedAt === taskDetail.task.updatedAt
-      ) {
-        return current;
-      }
-
-      return {
-        ...current,
-        [taskDetail.task.id]: {
-          title: selectedTaskDisplayTitle,
-          updatedAt: taskDetail.task.updatedAt
-        }
-      };
-    });
-  }, [selectedTaskDisplayTitle, taskDetail?.task]);
-
-  useEffect(() => {
-    const validTaskIds = new Set(tasks.map((task) => task.id));
-
-    setTaskDisplayTitleCache((current) => {
-      let changed = false;
-      const next: Record<string, { readonly title: string; readonly updatedAt: string }> = {};
-
-      for (const [taskId, entry] of Object.entries(current)) {
-        if (!validTaskIds.has(taskId)) {
-          changed = true;
-          continue;
-        }
-
-        next[taskId] = entry;
-      }
-
-      return changed ? next : current;
-    });
-  }, [tasks]);
-
-  const exploredFiles = useMemo(
-    () => collectExploredFiles(taskTimeline),
-    [taskTimeline]
-  );
-  const compactInsight = useMemo(
-    () => buildCompactInsight(taskTimeline),
-    [taskTimeline]
-  );
+  const exploredFiles = useMemo(() => collectExploredFiles(taskTimeline), [taskTimeline]);
+  const compactInsight = useMemo(() => buildCompactInsight(taskTimeline), [taskTimeline]);
   const observabilityStats = useMemo(
     () => buildObservabilityStats(taskTimeline, exploredFiles.length, compactInsight.occurrences),
     [compactInsight.occurrences, exploredFiles.length, taskTimeline]
   );
-
-  const modelSummary = useMemo(
-    () => buildModelSummary(taskTimeline),
-    [taskTimeline]
-  );
-  const questionGroups = useMemo(
-    () => buildQuestionGroups(taskTimeline),
-    [taskTimeline]
-  );
-  const todoGroups = useMemo(
-    () => buildTodoGroups(taskTimeline),
-    [taskTimeline]
-  );
-
-  useEffect(() => {
-    const normalizedQuery = searchQuery.trim();
-    if (!normalizedQuery) {
-      setSearchResults(null);
-      setIsSearching(false);
-      return;
-    }
-
-    let cancelled = false;
-    const timer = setTimeout(() => {
-      setIsSearching(true);
-      void fetchSearchResults(normalizedQuery)
-        .then((result) => {
-          if (!cancelled) {
-            setSearchResults(result);
-          }
-        })
-        .catch((err) => {
-          if (!cancelled) {
-            setErrorMessage(err instanceof Error ? err.message : "Failed to search monitor data.");
-          }
-        })
-        .finally(() => {
-          if (!cancelled) {
-            setIsSearching(false);
-          }
-        });
-    }, 180);
-
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [searchQuery]);
+  const modelSummary = useMemo(() => buildModelSummary(taskTimeline), [taskTimeline]);
+  const questionGroups = useMemo(() => buildQuestionGroups(taskTimeline), [taskTimeline]);
+  const todoGroups = useMemo(() => buildTodoGroups(taskTimeline), [taskTimeline]);
 
   const filteredTimeline = useMemo(
     () => filterTimelineEvents(taskTimeline, {
@@ -443,27 +197,17 @@ export function App(): React.JSX.Element {
   );
 
   const selectedConnector = useMemo(() => {
-    if (!selectedConnectorKey) {
-      return null;
-    }
-
+    if (!selectedConnectorKey) return null;
     const parsed = parseConnectorKey(selectedConnectorKey);
-    if (!parsed) {
-      return null;
-    }
-
-    const source = taskTimeline.find((event) => event.id === parsed.sourceEventId);
-    const target = taskTimeline.find((event) => event.id === parsed.targetEventId);
-    if (!source || !target) {
-      return null;
-    }
-
+    if (!parsed) return null;
+    const source = taskTimeline.find((e) => e.id === parsed.sourceEventId);
+    const target = taskTimeline.find((e) => e.id === parsed.targetEventId);
+    if (!source || !target) return null;
     const relation = buildTimelineRelations(taskTimeline).find((item) =>
       item.sourceEventId === source.id
       && item.targetEventId === target.id
       && (item.relationType ?? undefined) === parsed.relationType
     );
-
     return {
       connector: {
         key: selectedConnectorKey,
@@ -489,202 +233,29 @@ export function App(): React.JSX.Element {
   }, [selectedConnectorKey, taskTimeline]);
 
   const selectedTaskBookmark = useMemo(
-    () => (
-      selectedTaskId
-        ? bookmarks.find((bookmark) => bookmark.taskId === selectedTaskId && !bookmark.eventId) ?? null
-        : null
-    ),
+    () => selectedTaskId
+      ? bookmarks.find((b) => b.taskId === selectedTaskId && !b.eventId) ?? null
+      : null,
     [bookmarks, selectedTaskId]
   );
 
   const selectedEvent = selectedConnector
     ? null
     : filteredTimeline.find((e) => e.id === selectedEventId) ?? filteredTimeline[0] ?? null;
+
   const selectedEventDisplayTitle = selectedEvent
     ? selectedEvent.kind === "task.start"
       ? selectedTaskDisplayTitle ?? selectedEvent.title
       : selectedEvent.title
     : null;
+
   const selectedEventBookmark = selectedEvent
-    ? bookmarks.find((bookmark) => bookmark.eventId === selectedEvent.id) ?? null
+    ? bookmarks.find((b) => b.eventId === selectedEvent.id) ?? null
     : null;
 
-  useEffect(() => {
-    if (isEditingTaskTitle) {
-      return;
-    }
-
-    setTaskTitleDraft(selectedTaskDisplayTitle ?? taskDetail?.task.title ?? "");
-  }, [isEditingTaskTitle, selectedTaskDisplayTitle, taskDetail?.task.title]);
-
-  async function refreshBookmarksOnly(): Promise<void> {
-    const response = await fetchBookmarks();
-    setBookmarks(response.bookmarks);
-  }
-
-  async function handleCreateTaskBookmark(): Promise<void> {
-    if (!selectedTaskId) {
-      return;
-    }
-
-    await createBookmark({
-      taskId: selectedTaskId,
-      title: selectedTaskDisplayTitle ?? taskDetail?.task.title
-    });
-    await refreshBookmarksOnly();
-  }
-
-  async function handleCreateEventBookmark(): Promise<void> {
-    if (!selectedTaskId || !selectedEvent) {
-      return;
-    }
-
-    await createBookmark({
-      taskId: selectedTaskId,
-      eventId: selectedEvent.id,
-      title: selectedEvent.title
-    });
-    await refreshBookmarksOnly();
-  }
-
-  async function handleDeleteBookmark(bookmarkId: string): Promise<void> {
-    await deleteBookmark(bookmarkId);
-    await refreshBookmarksOnly();
-  }
-
-  function handleSelectBookmark(bookmark: BookmarkRecord): void {
-    setSelectedConnectorKey(null);
-    setSelectedTaskId(bookmark.taskId);
-    setSelectedEventId(bookmark.eventId ?? null);
-  }
-
-  function handleSelectSearchTask(taskId: string): void {
-    setSelectedConnectorKey(null);
-    setSelectedEventId(null);
-    setSelectedTaskId(taskId);
-  }
-
-  function handleSelectSearchEvent(taskId: string, eventId: string): void {
-    setSelectedConnectorKey(null);
-    setSelectedTaskId(taskId);
-    setSelectedEventId(eventId);
-  }
-
-  async function handleDeleteTask(taskId: string): Promise<void> {
-    setDeletingTaskId(taskId);
-    try {
-      await deleteTask(taskId);
-      if (selectedTaskId === taskId) { setSelectedTaskId(null); setTaskDetail(null); }
-      await refreshOverview();
-    } catch {
-      setDeleteErrorTaskId(taskId);
-      setTimeout(() => setDeleteErrorTaskId(null), 2000);
-    } finally {
-      setDeletingTaskId(null);
-    }
-  }
-
-  function startTaskTitleEdit(): void {
-    setTaskTitleDraft(selectedTaskDisplayTitle ?? taskDetail?.task.title ?? "");
-    setTaskTitleError(null);
-    setIsEditingTaskTitle(true);
-  }
-
-  function cancelTaskTitleEdit(): void {
-    setTaskTitleDraft(selectedTaskDisplayTitle ?? taskDetail?.task.title ?? "");
-    setTaskTitleError(null);
-    setIsEditingTaskTitle(false);
-  }
-
-  async function handleTaskStatusChange(status: MonitoringTask["status"]): Promise<void> {
-    if (!taskDetail?.task) return;
-
-    setIsUpdatingTaskStatus(true);
-    try {
-      const updatedTask = await updateTaskStatus(taskDetail.task.id, status);
-      setTasks((current) => current.map((task) => task.id === updatedTask.id ? updatedTask : task));
-      setTaskDetail((current) => (
-        current && current.task.id === updatedTask.id
-          ? { ...current, task: updatedTask }
-          : current
-      ));
-    } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : "Failed to update task status.");
-    } finally {
-      setIsUpdatingTaskStatus(false);
-    }
-  }
-
-  async function handleTaskTitleSubmit(event: React.SyntheticEvent<HTMLFormElement>): Promise<void> {
-    event.preventDefault();
-
-    if (!taskDetail?.task) {
-      return;
-    }
-
-    const nextTitle = taskTitleDraft.trim();
-    if (!nextTitle) {
-      setTaskTitleError("Title cannot be empty.");
-      return;
-    }
-
-    if (nextTitle === taskDetail.task.title.trim()) {
-      setTaskTitleError(null);
-      setIsEditingTaskTitle(false);
-      return;
-    }
-
-    setIsSavingTaskTitle(true);
-    setTaskTitleError(null);
-
-    try {
-      const updatedTask = await updateTaskTitle(taskDetail.task.id, nextTitle);
-      setTasks((current) => current.map((task) => task.id === updatedTask.id ? updatedTask : task));
-      setTaskDetail((current) => (
-        current && current.task.id === updatedTask.id
-          ? { ...current, task: updatedTask }
-          : current
-      ));
-      setIsEditingTaskTitle(false);
-    } catch (err) {
-      setTaskTitleError(err instanceof Error ? err.message : "Failed to save task title.");
-    } finally {
-      setIsSavingTaskTitle(false);
-    }
-  }
-
-  const onSidebarResizeStart = useCallback((event: React.PointerEvent<HTMLDivElement>): void => {
-    if (event.button !== 0 || isSidebarCollapsed) return;
-
-    sidebarResizeRef.current = {
-      startX: event.clientX,
-      startWidth: sidebarWidth
-    };
-
-    const onMove = (moveEvent: PointerEvent): void => {
-      const current = sidebarResizeRef.current;
-      if (!current) return;
-
-      const delta = moveEvent.clientX - current.startX;
-      const nextWidth = Math.round(current.startWidth + delta);
-      const clamped = Math.max(SIDEBAR_MIN_WIDTH, Math.min(SIDEBAR_MAX_WIDTH, nextWidth));
-      setSidebarWidth(clamped);
-    };
-
-    const onUp = (): void => {
-      sidebarResizeRef.current = null;
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-      window.removeEventListener("pointercancel", onUp);
-      document.body.classList.remove("is-resizing-sidebar");
-    };
-
-    document.body.classList.add("is-resizing-sidebar");
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp);
-    window.addEventListener("pointercancel", onUp);
-    event.preventDefault();
-  }, [isSidebarCollapsed, sidebarWidth]);
+  // ---------------------------------------------------------------------------
+  // Layout helpers
+  // ---------------------------------------------------------------------------
 
   const dashboardStyle = useMemo(
     () => ({ "--sidebar-width": `${sidebarWidth}px` }) as React.CSSProperties,
@@ -704,8 +275,13 @@ export function App(): React.JSX.Element {
         : (isInspectorCollapsed
           ? "!grid-cols-[var(--sidebar-width)_minmax(0,1fr)_44px]"
           : "!grid-cols-[var(--sidebar-width)_minmax(0,1fr)_clamp(300px,26vw,480px)]"));
+
   const isStackedDashboard = viewportWidth < 960;
   const isCompactDashboard = viewportWidth < 1040;
+
+  // ---------------------------------------------------------------------------
+  // Render
+  // ---------------------------------------------------------------------------
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-[var(--bg)]">
@@ -717,19 +293,32 @@ export function App(): React.JSX.Element {
         searchResults={searchResults}
         isSearching={isSearching}
         onSearchQueryChange={setSearchQuery}
-        onSelectSearchTask={handleSelectSearchTask}
-        onSelectSearchEvent={handleSelectSearchEvent}
+        onSelectSearchTask={(taskId) => {
+          dispatch({ type: "SELECT_CONNECTOR", connectorKey: null });
+          dispatch({ type: "SELECT_EVENT", eventId: null });
+          dispatch({ type: "SELECT_TASK", taskId });
+        }}
+        onSelectSearchEvent={(taskId, eventId) => {
+          dispatch({ type: "SELECT_CONNECTOR", connectorKey: null });
+          dispatch({ type: "SELECT_TASK", taskId });
+          dispatch({ type: "SELECT_EVENT", eventId });
+        }}
         onSelectSearchBookmark={(bookmark) => {
           const target = bookmarks.find((item) => item.id === bookmark.bookmarkId);
           if (target) {
-            handleSelectBookmark(target);
+            dispatch({ type: "SELECT_CONNECTOR", connectorKey: null });
+            dispatch({ type: "SELECT_TASK", taskId: target.taskId });
+            dispatch({ type: "SELECT_EVENT", eventId: target.eventId ?? null });
             return;
           }
-
           if (bookmark.eventId) {
-            handleSelectSearchEvent(bookmark.taskId, bookmark.eventId);
+            dispatch({ type: "SELECT_CONNECTOR", connectorKey: null });
+            dispatch({ type: "SELECT_TASK", taskId: bookmark.taskId });
+            dispatch({ type: "SELECT_EVENT", eventId: bookmark.eventId });
           } else {
-            handleSelectSearchTask(bookmark.taskId);
+            dispatch({ type: "SELECT_CONNECTOR", connectorKey: null });
+            dispatch({ type: "SELECT_EVENT", eventId: null });
+            dispatch({ type: "SELECT_TASK", taskId: bookmark.taskId });
           }
         }}
         onRefresh={() => void refreshOverview()}
@@ -766,16 +355,28 @@ export function App(): React.JSX.Element {
             deleteErrorTaskId={deleteErrorTaskId}
             isCollapsed={isSidebarCollapsed}
             onToggleCollapse={() => setIsSidebarCollapsed((v) => !v)}
-            onSelectTask={(id) => setSelectedTaskId(id)}
-            onSelectBookmark={handleSelectBookmark}
+            onSelectTask={(id) => dispatch({ type: "SELECT_TASK", taskId: id })}
+            onSelectBookmark={(bookmark) => {
+              dispatch({ type: "SELECT_CONNECTOR", connectorKey: null });
+              dispatch({ type: "SELECT_TASK", taskId: bookmark.taskId });
+              dispatch({ type: "SELECT_EVENT", eventId: bookmark.eventId ?? null });
+            }}
             onDeleteBookmark={(bookmarkId) => {
               void handleDeleteBookmark(bookmarkId).catch((err) => {
-                setErrorMessage(err instanceof Error ? err.message : "Failed to delete bookmark.");
+                dispatch({
+                  type: "SET_STATUS",
+                  status: "error",
+                  errorMessage: err instanceof Error ? err.message : "Failed to delete bookmark."
+                });
               });
             }}
             onSaveTaskBookmark={() => {
               void handleCreateTaskBookmark().catch((err) => {
-                setErrorMessage(err instanceof Error ? err.message : "Failed to save task bookmark.");
+                dispatch({
+                  type: "SET_STATUS",
+                  status: "error",
+                  errorMessage: err instanceof Error ? err.message : "Failed to save task bookmark."
+                });
               });
             }}
             onDeleteTask={(id) => void handleDeleteTask(id)}
@@ -799,7 +400,6 @@ export function App(): React.JSX.Element {
             isStackedDashboard && "order-1 min-h-[28rem]"
           )}
         >
-          {/* error banner */}
           {status === "error" && (
             <div className="error-banner flex-shrink-0 border-b border-[#fca5a5] bg-[var(--err-bg)] px-3.5 py-2 text-[0.82rem] text-[var(--err)]">
               <strong>Monitor unavailable</strong>
@@ -827,25 +427,33 @@ export function App(): React.JSX.Element {
             nowMs={nowMs}
             observabilityStats={observabilityStats}
             onSelectEvent={(id) => {
-              setSelectedConnectorKey(null);
-              setSelectedEventId(id);
+              dispatch({ type: "SELECT_CONNECTOR", connectorKey: null });
+              dispatch({ type: "SELECT_EVENT", eventId: id });
             }}
             onSelectConnector={(key) => {
-              setSelectedConnectorKey(key);
-              setSelectedEventId(null);
+              dispatch({ type: "SELECT_CONNECTOR", connectorKey: key });
+              dispatch({ type: "SELECT_EVENT", eventId: null });
             }}
-            onStartEditTitle={startTaskTitleEdit}
-            onCancelEditTitle={cancelTaskTitleEdit}
-            onSubmitTitle={(e) => void handleTaskTitleSubmit(e)}
-            onTitleDraftChange={(val) => setTaskTitleDraft(val)}
+            onStartEditTitle={() => {
+              dispatch({ type: "SET_TASK_TITLE_DRAFT", draft: selectedTaskDisplayTitle ?? taskDetail?.task.title ?? "" });
+              dispatch({ type: "SET_TASK_TITLE_ERROR", error: null });
+              dispatch({ type: "SET_EDITING_TASK_TITLE", isEditing: true });
+            }}
+            onCancelEditTitle={() => {
+              dispatch({ type: "SET_TASK_TITLE_DRAFT", draft: selectedTaskDisplayTitle ?? taskDetail?.task.title ?? "" });
+              dispatch({ type: "SET_TASK_TITLE_ERROR", error: null });
+              dispatch({ type: "SET_EDITING_TASK_TITLE", isEditing: false });
+            }}
+            onSubmitTitle={(e) => void handleTaskTitleSubmit(e, taskTitleDraft)}
+            onTitleDraftChange={(val) => dispatch({ type: "SET_TASK_TITLE_DRAFT", draft: val })}
             onClearFilters={() => {
-              setSelectedRuleId(null);
-              setSelectedTag(null);
-              setShowRuleGapsOnly(false);
+              dispatch({ type: "SELECT_RULE", ruleId: null });
+              dispatch({ type: "SELECT_TAG", tag: null });
+              dispatch({ type: "SET_SHOW_RULE_GAPS_ONLY", show: false });
             }}
-            onToggleRuleGap={(show) => setShowRuleGapsOnly(show)}
-            onClearRuleId={() => setSelectedRuleId(null)}
-            onClearTag={() => setSelectedTag(null)}
+            onToggleRuleGap={(show) => dispatch({ type: "SET_SHOW_RULE_GAPS_ONLY", show })}
+            onClearRuleId={() => dispatch({ type: "SELECT_RULE", ruleId: null })}
+            onClearTag={() => dispatch({ type: "SELECT_TAG", tag: null })}
             onChangeTaskStatus={(s) => void handleTaskStatusChange(s)}
           />
         </section>
@@ -867,26 +475,47 @@ export function App(): React.JSX.Element {
           onToggleCollapse={() => setIsInspectorCollapsed((v) => !v)}
           onCreateTaskBookmark={() => {
             void handleCreateTaskBookmark().catch((err) => {
-              setErrorMessage(err instanceof Error ? err.message : "Failed to save task bookmark.");
+              dispatch({
+                type: "SET_STATUS",
+                status: "error",
+                errorMessage: err instanceof Error ? err.message : "Failed to save task bookmark."
+              });
             });
           }}
           onCreateEventBookmark={() => {
-            void handleCreateEventBookmark().catch((err) => {
-              setErrorMessage(err instanceof Error ? err.message : "Failed to save event bookmark.");
+            if (!selectedEvent) return;
+            void handleCreateEventBookmark(selectedEvent.id, selectedEvent.title).catch((err) => {
+              dispatch({
+                type: "SET_STATUS",
+                status: "error",
+                errorMessage: err instanceof Error ? err.message : "Failed to save event bookmark."
+              });
             });
           }}
-          onSelectTag={(tag) => setSelectedTag(tag)}
+          onSelectTag={(tag) => dispatch({ type: "SELECT_TAG", tag })}
           onSelectRule={(ruleId) => {
-            setShowRuleGapsOnly(false);
-            setSelectedRuleId(ruleId);
+            dispatch({ type: "SET_SHOW_RULE_GAPS_ONLY", show: false });
+            dispatch({ type: "SELECT_RULE", ruleId });
           }}
           onToggleRuleGaps={() => {
-            setSelectedRuleId(null);
-            setShowRuleGapsOnly((current) => !current);
+            dispatch({ type: "SELECT_RULE", ruleId: null });
+            dispatch({ type: "SET_SHOW_RULE_GAPS_ONLY", show: !showRuleGapsOnly });
           }}
         />
 
       </main>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Exported App — wraps Dashboard in Provider
+// ---------------------------------------------------------------------------
+
+export function App(): React.JSX.Element {
+  return (
+    <MonitorProvider>
+      <Dashboard />
+    </MonitorProvider>
   );
 }

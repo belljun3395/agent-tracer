@@ -47,41 +47,10 @@ export function createMonitorMcpServer(client = new MonitorClient()): McpServer 
   );
 
   server.registerTool(
-    "monitor_start_task",
-    {
-      title: "Monitor Start Task",
-      description: "Article-aligned alias for recording the start of a monitored agent task.",
-      inputSchema: {
-        taskId: z.string().optional(),
-        title: z.string(),
-        workspacePath: z.string().optional(),
-        summary: z.string().optional(),
-        metadata: z.record(z.unknown()).optional()
-      }
-    },
-    async (input) => toToolResponse(await client.post("/api/task-start", input))
-  );
-
-  server.registerTool(
     "monitor_task_complete",
     {
       title: "Monitor Task Complete",
       description: "Mark a monitored task as completed.",
-      inputSchema: {
-        taskId: z.string(),
-        sessionId: z.string().optional(),
-        summary: z.string().optional(),
-        metadata: z.record(z.unknown()).optional()
-      }
-    },
-    async (input) => toToolResponse(await client.post("/api/task-complete", input))
-  );
-
-  server.registerTool(
-    "monitor_complete_task",
-    {
-      title: "Monitor Complete Task",
-      description: "Article-aligned alias for marking a monitored task as completed.",
       inputSchema: {
         taskId: z.string(),
         sessionId: z.string().optional(),

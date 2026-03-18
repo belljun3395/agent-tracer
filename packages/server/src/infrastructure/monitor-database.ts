@@ -172,6 +172,7 @@ export interface SearchResults {
 export interface OverviewStats {
   readonly totalTasks: number;
   readonly runningTasks: number;
+  readonly waitingTasks: number;
   readonly completedTasks: number;
   readonly erroredTasks: number;
   readonly totalEvents: number;
@@ -971,6 +972,7 @@ export class MonitorDatabase {
         .prepare<[], {
           total_tasks: number;
           running_tasks: number | null;
+          waiting_tasks: number | null;
           completed_tasks: number | null;
           errored_tasks: number | null;
           total_events: number;
@@ -978,14 +980,16 @@ export class MonitorDatabase {
           select
             count(*) as total_tasks,
             sum(case when status = 'running' then 1 else 0 end) as running_tasks,
+            sum(case when status = 'waiting' then 1 else 0 end) as waiting_tasks,
             sum(case when status = 'completed' then 1 else 0 end) as completed_tasks,
             sum(case when status = 'errored' then 1 else 0 end) as errored_tasks,
             (select count(*) from timeline_events) as total_events
           from monitoring_tasks
         `)
-        .get() ?? {
+      .get() ?? {
         total_tasks: 0,
         running_tasks: 0,
+        waiting_tasks: 0,
         completed_tasks: 0,
         errored_tasks: 0,
         total_events: 0
@@ -994,6 +998,7 @@ export class MonitorDatabase {
     return {
       totalTasks: counts.total_tasks,
       runningTasks: counts.running_tasks ?? 0,
+      waitingTasks: counts.waiting_tasks ?? 0,
       completedTasks: counts.completed_tasks ?? 0,
       erroredTasks: counts.errored_tasks ?? 0,
       totalEvents: counts.total_events

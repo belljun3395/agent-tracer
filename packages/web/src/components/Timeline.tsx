@@ -85,6 +85,10 @@ const TASK_STATUS_BUTTON_STYLES = {
     active: "border-[var(--ok)] bg-[var(--ok-bg)] text-[var(--ok)]",
     idle: "border-[var(--border)] bg-[var(--surface)] text-[var(--text-3)] hover:border-[var(--ok)] hover:bg-[var(--ok-bg)]/70 hover:text-[var(--ok)]"
   },
+  waiting: {
+    active: "border-[#d97706] bg-[#fef3c7] text-[#b45309]",
+    idle: "border-[var(--border)] bg-[var(--surface)] text-[var(--text-3)] hover:border-[#d97706] hover:bg-[#fef3c7] hover:text-[#b45309]"
+  },
   completed: {
     active: "border-[var(--done)] bg-[var(--done-bg)] text-[var(--done)]",
     idle: "border-[var(--border)] bg-[var(--surface)] text-[var(--text-3)] hover:border-[var(--done)] hover:bg-[var(--done-bg)]/70 hover:text-[var(--done)]"
@@ -103,7 +107,7 @@ interface TimelineProps {
   readonly taskTitle: string | null;
   readonly taskId?: string | null;
   readonly taskWorkspacePath?: string | undefined;
-  readonly taskStatus?: "running" | "completed" | "errored" | undefined;
+  readonly taskStatus?: "running" | "waiting" | "completed" | "errored" | undefined;
   readonly taskUpdatedAt?: string | undefined;
   readonly taskUsesDerivedTitle: boolean;
   readonly isEditingTaskTitle: boolean;
@@ -136,7 +140,37 @@ interface TimelineProps {
   readonly onToggleRuleGap: (show: boolean) => void;
   readonly onClearRuleId: () => void;
   readonly onClearTag: () => void;
-  readonly onChangeTaskStatus?: (status: "running" | "completed" | "errored") => void;
+  readonly onChangeTaskStatus?: (status: "running" | "waiting" | "completed" | "errored") => void;
+}
+
+export function shouldResetTimelineFollowForTaskChange(input: {
+  previousTaskId: string | null | undefined;
+  nextTaskId: string | null | undefined;
+  selectedEventId: string | null;
+  timeline: readonly TimelineEvent[];
+}): boolean {
+  if (!input.nextTaskId || input.previousTaskId === input.nextTaskId) {
+    return false;
+  }
+
+  if (!input.selectedEventId) {
+    return true;
+  }
+
+  return !input.timeline.some((event) => event.id === input.selectedEventId);
+}
+
+export function computeTimelineFollowScrollLeft(input: {
+  clientWidth: number;
+  scrollWidth: number;
+  timelineFocusRight: number;
+}): number {
+  const rightPadding = Math.max(72, Math.round(input.clientWidth * 0.08));
+  const maxScrollLeft = Math.max(0, input.scrollWidth - input.clientWidth);
+  return Math.max(
+    0,
+    Math.min(maxScrollLeft, input.timelineFocusRight - input.clientWidth + rightPadding)
+  );
 }
 
 /**
@@ -147,6 +181,7 @@ interface TimelineProps {
 export function Timeline({
   timeline,
   taskTitle,
+  taskId,
   taskWorkspacePath,
   taskStatus,
   taskUpdatedAt,
@@ -194,6 +229,7 @@ export function Timeline({
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const nodeRefs = useRef(new Map<string, HTMLButtonElement>());
   const isFollowing = useRef(true);
+  const previousTaskId = useRef<string | null | undefined>(taskId);
   const dragState = useRef<{
     readonly pointerId: number;
     readonly startX: number;
@@ -309,10 +345,33 @@ export function Timeline({
     const el = scrollRef.current;
     if (!el || !isFollowing.current) return;
 
-    const rightPadding = Math.max(72, Math.round(el.clientWidth * 0.08));
-    const maxScrollLeft = Math.max(0, el.scrollWidth - el.clientWidth);
-    el.scrollLeft = Math.max(0, Math.min(maxScrollLeft, timelineFocusRight - el.clientWidth + rightPadding));
+    el.scrollLeft = computeTimelineFollowScrollLeft({
+      clientWidth: el.clientWidth,
+      scrollWidth: el.scrollWidth,
+      timelineFocusRight
+    });
   }, [timelineFocusRight]);
+
+  useEffect(() => {
+    const shouldReset = shouldResetTimelineFollowForTaskChange({
+      previousTaskId: previousTaskId.current,
+      nextTaskId: taskId,
+      selectedEventId,
+      timeline: filteredTimeline
+    });
+    previousTaskId.current = taskId;
+    if (!shouldReset) return;
+
+    isFollowing.current = true;
+    const el = scrollRef.current;
+    if (!el) return;
+
+    el.scrollLeft = computeTimelineFollowScrollLeft({
+      clientWidth: el.clientWidth,
+      scrollWidth: el.scrollWidth,
+      timelineFocusRight
+    });
+  }, [filteredTimeline, selectedEventId, taskId, timelineFocusRight]);
 
   const selectedConnector = useMemo(() => {
     if (!selectedConnectorKey) return null;
@@ -566,7 +625,7 @@ export function Timeline({
                   </div>
                   {!isEditingTaskTitle && taskStatus && onChangeTaskStatus && (
                     <div className="task-status-row">
-                      {(["running", "completed", "errored"] as const).map((s) => (
+                      {(["running", "waiting", "completed", "errored"] as const).map((s) => (
                         <Button
                           key={s}
                           className={cn(

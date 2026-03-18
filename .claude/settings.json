@@ -66,6 +66,15 @@
             "command": "[ -n \"$OPENCODE\" ] || [ -n \"$OPENCODE_CLIENT\" ] || cd \"$(git rev-parse --show-toplevel)\" && python3 .claude/hooks/agent_activity.py"
           }
         ]
+      },
+      {
+        "matcher": "TodoWrite",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -n \"$OPENCODE\" ] || [ -n \"$OPENCODE_CLIENT\" ] || cd \"$(git rev-parse --show-toplevel)\" && python3 .claude/hooks/todo.py"
+          }
+        ]
       }
     ],
     "Stop": [

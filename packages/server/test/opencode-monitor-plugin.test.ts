@@ -43,6 +43,52 @@ function sessionEvent(
   };
 }
 
+function sessionIdleEvent(sessionId: string): never {
+  return {
+    type: "session.idle",
+    properties: {
+      sessionID: sessionId
+    }
+  } as never;
+}
+
+function assistantMessageUpdatedEvent(
+  sessionId: string,
+  messageId: string,
+  overrides?: { finish?: string; completed?: number; error?: Record<string, unknown> }
+): never {
+  return {
+    type: "message.updated",
+    properties: {
+      info: {
+        id: messageId,
+        sessionID: sessionId,
+        role: "assistant",
+        parentID: `parent-${messageId}`,
+        modelID: "gpt-5.4",
+        providerID: "openai",
+        mode: "default",
+        agent: "default",
+        path: { cwd: "/repo", root: "/repo" },
+        cost: 0,
+        tokens: {
+          total: 0,
+          input: 0,
+          output: 0,
+          reasoning: 0,
+          cache: { read: 0, write: 0 }
+        },
+        time: {
+          created: 0,
+          ...(overrides?.completed !== undefined ? { completed: overrides.completed } : { completed: 1 })
+        },
+        ...(overrides?.finish ? { finish: overrides.finish } : { finish: "stop" }),
+        ...(overrides?.error ? { error: overrides.error } : {})
+      }
+    }
+  } as never;
+}
+
 function commandExecutedEvent(
   overrides: Record<string, unknown>
 ): never {
@@ -230,6 +276,30 @@ describe("OpenCode monitor plugin", () => {
         sessionId: "monitor-session-race"
       })
     });
+  });
+
+  it("starts new OpenCode primary tasks with a workspace title instead of a session suffix title", async () => {
+    const hooks = createMonitorHooks("/repo");
+
+    await hooks.event?.({ event: sessionEvent("session.created", "ses_3006abcd") });
+    await hooks["tool.execute.before"]?.(
+      {
+        tool: "bash",
+        sessionID: "ses_3006abcd",
+        callID: "call-session-title",
+        args: { command: "pwd" }
+      },
+      { args: { command: "pwd" } }
+    );
+
+    const taskStartCall = calls.find((call) =>
+      call.endpoint === "/api/task-start"
+      && String((call.body.metadata as Record<string, unknown> | undefined)?.opencodeSessionId) === "ses_3006abcd"
+    );
+    expect(taskStartCall?.body).toEqual(expect.objectContaining({
+      title: "OpenCode - repo",
+      taskKind: "primary"
+    }));
   });
 
   it("ignores delayed tool events after a session has already ended", async () => {
@@ -579,6 +649,229 @@ describe("OpenCode monitor plugin", () => {
     }));
   });
 
+  it("starts wrapper and actual child sessions as one background lineage when the wrapper appears before task output", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (url: string | URL | globalThis.Request, init?: RequestInit) => {
+      const endpoint = new URL(requestUrl(url)).pathname;
+      const body = init?.body ? JSON.parse(String(init.body)) as Record<string, unknown> : {};
+      calls.push({ endpoint, body });
+
+      if (endpoint === "/api/task-start") {
+        const requestedTaskId = typeof body.taskId === "string" ? body.taskId : undefined;
+        const opencodeSessionId = String(body.metadata && (body.metadata as Record<string, unknown>).opencodeSessionId);
+        return jsonResponse({
+          task: { id: requestedTaskId ?? `task-${opencodeSessionId}` },
+          sessionId: `monitor-${opencodeSessionId}`
+        });
+      }
+
+      return jsonResponse({ ok: true });
+    }));
+
+    const hooks = createMonitorHooks("/repo");
+
+    await hooks.event?.({ event: sessionEvent("session.created", "parent-wrapper-first") });
+    await hooks["tool.execute.before"]?.(
+      {
+        tool: "task",
+        sessionID: "parent-wrapper-first",
+        callID: "call-parent-wrapper-first",
+        args: { run_in_background: true, description: "Python official updates" }
+      },
+      { args: { run_in_background: true, description: "Python official updates" } }
+    );
+
+    await hooks.event?.({
+      event: sessionEvent("session.created", "wrapper-session", {
+        title: "Python official updates (@librarian subagent)"
+      })
+    });
+    await hooks["tool.execute.before"]?.(
+      {
+        tool: "grep",
+        sessionID: "wrapper-session",
+        callID: "call-wrapper-session",
+        args: { pattern: "python" }
+      },
+      { args: { pattern: "python" } }
+    );
+
+    const wrapperStartCall = calls.find((call) =>
+      call.endpoint === "/api/task-start"
+      && String((call.body.metadata as Record<string, unknown> | undefined)?.opencodeSessionId) === "wrapper-session"
+    );
+    expect(wrapperStartCall?.body).toEqual(expect.objectContaining({
+      title: "Python official updates",
+      taskKind: "background",
+      parentTaskId: "opencode-parent-wrapper-first"
+    }));
+
+    await hooks["tool.execute.after"]?.(
+      {
+        tool: "task",
+        sessionID: "parent-wrapper-first",
+        callID: "call-parent-wrapper-first",
+        args: { run_in_background: true, description: "Python official updates" }
+      },
+      {
+        title: "task",
+        output: "Background Task ID: bg-wrapper-first\nsession_id: actual-child-session",
+        metadata: {
+          session_id: "actual-child-session",
+          background_task_id: "bg-wrapper-first"
+        }
+      }
+    );
+
+    await hooks.event?.({ event: sessionEvent("session.created", "actual-child-session") });
+    await hooks["tool.execute.before"]?.(
+      {
+        tool: "read",
+        sessionID: "actual-child-session",
+        callID: "call-actual-child-session",
+        args: { filePath: "README.md" }
+      },
+      { args: { filePath: "README.md" } }
+    );
+
+    const childStartCall = calls.find((call) =>
+      call.endpoint === "/api/task-start"
+      && String((call.body.metadata as Record<string, unknown> | undefined)?.opencodeSessionId) === "actual-child-session"
+    );
+    expect(childStartCall?.body).toEqual(expect.objectContaining({
+      taskId: "opencode-wrapper-session",
+      title: "Python official updates",
+      taskKind: "background",
+      parentTaskId: "opencode-parent-wrapper-first",
+      backgroundTaskId: "bg-wrapper-first"
+    }));
+  });
+
+  it("reuses a wrapper primary session as the background task row when the real child session arrives later", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (url: string | URL | globalThis.Request, init?: RequestInit) => {
+      const endpoint = new URL(requestUrl(url)).pathname;
+      const body = init?.body ? JSON.parse(String(init.body)) as Record<string, unknown> : {};
+      calls.push({ endpoint, body });
+
+      if (endpoint === "/api/task-start") {
+        const requestedTaskId = typeof body.taskId === "string" ? body.taskId : undefined;
+        const opencodeSessionId = String(body.metadata && (body.metadata as Record<string, unknown>).opencodeSessionId);
+        return jsonResponse({
+          task: { id: requestedTaskId ?? `task-${opencodeSessionId}` },
+          sessionId: `monitor-${opencodeSessionId}`
+        });
+      }
+
+      return jsonResponse({ ok: true });
+    }));
+
+    const hooks = createMonitorHooks("/repo");
+
+    await hooks.event?.({ event: sessionEvent("session.created", "parent-wrapper-reuse") });
+    await hooks.event?.({
+      event: sessionEvent("session.created", "wrapper-primary", {
+        title: "Java learning resources (@librarian subagent)"
+      })
+    });
+
+    await hooks["chat.message"]?.(
+      {
+        sessionID: "wrapper-primary",
+        model: { modelID: "glm-4.7-free", providerID: "opencode" }
+      } as never,
+      {
+        message: { id: "msg-wrapper-primary" },
+        parts: [
+          {
+            type: "input_text",
+            content: "1. TASK: Find high-quality Java learning resources beyond official docs."
+          }
+        ]
+      } as never
+    );
+
+    const wrapperStartCall = calls.find((call) =>
+      call.endpoint === "/api/task-start"
+      && String((call.body.metadata as Record<string, unknown> | undefined)?.opencodeSessionId) === "wrapper-primary"
+    );
+    expect(wrapperStartCall?.body).toEqual(expect.objectContaining({
+      taskId: "opencode-wrapper-primary",
+      title: "OpenCode - repo",
+      taskKind: "primary"
+    }));
+
+    await hooks.event?.({ event: sessionIdleEvent("wrapper-primary") });
+
+    const wrapperIdleCall = calls.find((call) =>
+      call.endpoint === "/api/session-end"
+      && String(call.body.sessionId) === "monitor-wrapper-primary"
+    );
+    expect(wrapperIdleCall?.body).toEqual(expect.objectContaining({
+      taskId: "opencode-wrapper-primary",
+      completeTask: false,
+      completionReason: "idle"
+    }));
+
+    await hooks["tool.execute.after"]?.(
+      {
+        tool: "task",
+        sessionID: "parent-wrapper-reuse",
+        callID: "call-parent-wrapper-reuse",
+        args: {
+          run_in_background: true,
+          description: "Java learning resources"
+        }
+      },
+      {
+        title: "task",
+        output: "Background Task ID: bg-wrapper-reuse\nsession_id: actual-wrapper-reuse",
+        metadata: {
+          session_id: "actual-wrapper-reuse",
+          background_task_id: "bg-wrapper-reuse"
+        }
+      }
+    );
+
+    const wrapperLinkCall = calls.find((call) =>
+      call.endpoint === "/api/task-link"
+      && String(call.body.taskId) === "opencode-wrapper-primary"
+    );
+    expect(wrapperLinkCall?.body).toEqual(expect.objectContaining({
+      taskId: "opencode-wrapper-primary",
+      title: "Java learning resources",
+      taskKind: "background",
+      parentTaskId: "opencode-parent-wrapper-reuse",
+      backgroundTaskId: "bg-wrapper-reuse"
+    }));
+
+    await hooks.event?.({ event: sessionEvent("session.created", "actual-wrapper-reuse") });
+    await hooks["tool.execute.before"]?.(
+      {
+        tool: "read",
+        sessionID: "actual-wrapper-reuse",
+        callID: "call-actual-wrapper-reuse",
+        args: { filePath: "README.md" }
+      },
+      { args: { filePath: "README.md" } }
+    );
+
+    const actualChildStartCall = calls.find((call) =>
+      call.endpoint === "/api/task-start"
+      && String((call.body.metadata as Record<string, unknown> | undefined)?.opencodeSessionId) === "actual-wrapper-reuse"
+    );
+    expect(actualChildStartCall?.body).toEqual(expect.objectContaining({
+      taskId: "opencode-wrapper-primary",
+      title: "Java learning resources",
+      taskKind: "background",
+      parentTaskId: "opencode-parent-wrapper-reuse",
+      backgroundTaskId: "bg-wrapper-reuse"
+    }));
+
+    expect(calls.filter((call) =>
+      call.endpoint === "/api/task-start"
+      && String(call.body.taskId) === "opencode-actual-wrapper-reuse"
+    )).toHaveLength(0);
+  });
+
   it("reuses the background task row for nested subagent sessions and finalizes on reminder", async () => {
     vi.stubGlobal("fetch", vi.fn(async (url: string | URL | globalThis.Request, init?: RequestInit) => {
       const endpoint = new URL(requestUrl(url)).pathname;
@@ -720,6 +1013,140 @@ describe("OpenCode monitor plugin", () => {
     expect(startBodies).toHaveLength(2);
     expect(startBodies[0]).toEqual(expect.objectContaining({ taskId: "opencode-session-reconnect" }));
     expect(startBodies[1]).toEqual(expect.objectContaining({ taskId: "opencode-session-reconnect" }));
+  });
+
+  it("marks an OpenCode idle session as waiting instead of completed", async () => {
+    const hooks = createMonitorHooks("/repo");
+
+    await hooks.event?.({ event: sessionEvent("session.created", "session-idle-complete") });
+    await hooks["tool.execute.after"]?.(
+      {
+        tool: "bash",
+        sessionID: "session-idle-complete",
+        callID: "call-idle-complete",
+        args: { command: "pwd" }
+      },
+      {
+        title: "pwd",
+        output: "/repo",
+        metadata: {}
+      }
+    );
+
+    await hooks.event?.({ event: sessionIdleEvent("session-idle-complete") });
+
+    const sessionEndCall = calls.find((call) =>
+      call.endpoint === "/api/session-end"
+      && String(call.body.taskId) === "task-session-idle-complete"
+    );
+
+    expect(sessionEndCall?.body).toEqual(expect.objectContaining({
+      taskId: "task-session-idle-complete",
+      sessionId: "monitor-session-idle-complete",
+      completeTask: false,
+      completionReason: "idle",
+      summary: "OpenCode session idle",
+      metadata: expect.objectContaining({
+        opencodeSessionId: "session-idle-complete",
+        idleEvent: true,
+        completionReason: "idle"
+      })
+    }));
+    expect(calls.filter((call) => call.endpoint === "/api/task-complete")).toHaveLength(0);
+  });
+
+  it("reopens the same OpenCode task after idle waiting when a follow-up turn starts", async () => {
+    const hooks = createMonitorHooks("/repo");
+
+    await hooks.event?.({ event: sessionEvent("session.created", "session-idle-reopen") });
+    await hooks["tool.execute.after"]?.(
+      {
+        tool: "bash",
+        sessionID: "session-idle-reopen",
+        callID: "call-idle-reopen-1",
+        args: { command: "pwd" }
+      },
+      {
+        title: "pwd",
+        output: "/repo",
+        metadata: {}
+      }
+    );
+    await hooks.event?.({ event: sessionIdleEvent("session-idle-reopen") });
+
+    await hooks["tool.execute.after"]?.(
+      {
+        tool: "bash",
+        sessionID: "session-idle-reopen",
+        callID: "call-idle-reopen-2",
+        args: { command: "ls" }
+      },
+      {
+        title: "ls",
+        output: "a\nb",
+        metadata: {}
+      }
+    );
+
+    const startBodies = calls
+      .filter((call) => call.endpoint === "/api/task-start")
+      .map((call) => call.body)
+      .filter((body) => String((body.metadata as Record<string, unknown> | undefined)?.opencodeSessionId) === "session-idle-reopen");
+
+    expect(startBodies).toHaveLength(2);
+    expect(startBodies[0]).toEqual(expect.objectContaining({ taskId: "opencode-session-idle-reopen" }));
+    expect(startBodies[1]).toEqual(expect.objectContaining({ taskId: "opencode-session-idle-reopen" }));
+
+    const secondToolCall = calls.find((call) =>
+      call.endpoint === "/api/terminal-command"
+      && String(call.body.command) === "ls"
+    );
+    expect(secondToolCall?.body).toEqual(expect.objectContaining({
+      taskId: "task-session-idle-reopen",
+      sessionId: "monitor-session-idle-reopen"
+    }));
+  });
+
+  it("completes a primary task when the assistant publishes a final answer", async () => {
+    const hooks = createMonitorHooks("/repo");
+
+    await hooks.event?.({ event: sessionEvent("session.created", "session-answer-complete") });
+    await hooks["tool.execute.after"]?.(
+      {
+        tool: "bash",
+        sessionID: "session-answer-complete",
+        callID: "call-answer-complete",
+        args: { command: "pwd" }
+      },
+      {
+        title: "pwd",
+        output: "/repo",
+        metadata: {}
+      }
+    );
+
+    await hooks.event?.({
+      event: assistantMessageUpdatedEvent("session-answer-complete", "assistant-msg-1")
+    });
+
+    const sessionEndCall = calls.find((call) =>
+      call.endpoint === "/api/session-end"
+      && String(call.body.taskId) === "task-session-answer-complete"
+    );
+
+    expect(sessionEndCall?.body).toEqual(expect.objectContaining({
+      taskId: "task-session-answer-complete",
+      sessionId: "monitor-session-answer-complete",
+      completeTask: true,
+      completionReason: "assistant_turn_complete",
+      summary: "OpenCode assistant completed turn",
+      metadata: expect.objectContaining({
+        opencodeSessionId: "session-answer-complete",
+        completionReason: "assistant_turn_complete",
+        messageId: "assistant-msg-1",
+        finish: "stop"
+      })
+    }));
   });
 
   it("maps TodoWrite tool calls to todo lifecycle events", async () => {

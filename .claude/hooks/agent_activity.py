@@ -55,12 +55,13 @@ def main() -> None:
         return
 
     if tool_name == "Agent":
-        activity_type = "delegation"
-        description   = tool_input.get("description", "")
-        prompt        = tool_input.get("prompt", "")
-        title         = f"Agent: {description[:80]}" if description else "Agent dispatch"
-        body_text     = prompt[:400] if prompt else description
-        extra: dict   = {"agentName": tool_input.get("subagent_type", "")}
+        activity_type    = "delegation"
+        description      = tool_input.get("description", "")
+        prompt           = tool_input.get("prompt", "")
+        run_in_background = bool(tool_input.get("run_in_background", False))
+        title            = f"Agent: {description[:80]}" if description else "Agent dispatch"
+        body_text        = prompt[:400] if prompt else description
+        extra: dict      = {"agentName": tool_input.get("subagent_type", "")}
     elif tool_name == "Skill":
         activity_type = "skill_use"
         skill_name    = tool_input.get("skill", "")
@@ -91,6 +92,26 @@ def main() -> None:
         _post("/api/agent-activity", payload)
     except Exception:
         pass
+
+    # Background task: extract child session_id from tool response and link it
+    if tool_name == "Agent" and run_in_background:
+        import re
+        tool_response = event.get("tool_response", "") or ""
+        if isinstance(tool_response, dict):
+            tool_response = json.dumps(tool_response)
+        match = re.search(r"session_id[:\s]+([a-f0-9-]{8,})", str(tool_response), re.IGNORECASE)
+        if match:
+            child_session_id = match.group(1).strip()
+            try:
+                _post("/api/task-link", {
+                    "taskId":          f"claude-{child_session_id}",
+                    "taskKind":        "background",
+                    "parentTaskId":    task_id,
+                    "parentSessionId": session_id,
+                    "title":           description or prompt[:80],
+                })
+            except Exception:
+                pass
 
 
 main()

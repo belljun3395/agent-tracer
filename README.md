@@ -1,21 +1,55 @@
 # Agent Tracer
 
-Claude Code, OpenCode, Codex 등 AI CLI 에이전트가 작업할 때의 행동을 실시간으로 추적하는 로컬 모니터링 대시보드.
+Claude Code, OpenCode, Codex 같은 AI CLI 에이전트가 작업할 때의 행동을
+실시간으로 추적하는 로컬 monitor server + dashboard 입니다.
 
-## 빠른 시작
+## 외부 프로젝트에 붙이기
+
+이 저장소의 1차 목표는 Agent Tracer를 **다른 프로젝트에 연결해서 쓰는 것**입니다.
+
+권장 방식:
+
+- Agent Tracer 코드를 외부 프로젝트에 복사하지 않습니다.
+- 이 저장소를 monitor server / MCP / hook / plugin source로 유지합니다.
+- 외부 프로젝트에는 설정 파일이나 shim만 생성합니다.
+
+시작 순서:
 
 ```bash
 npm install
 npm run build
-npm run dev        # 서버 + 대시보드 동시 실행
+npm run dev:server
 ```
 
-대시보드: http://127.0.0.1:5173
-서버: http://127.0.0.1:3847
+그 다음 외부 설치 허브 문서로 이동하세요:
 
-## 에이전트 통합
+- 외부 설치 허브: [docs/guide/external-setup.md](docs/guide/external-setup.md)
+- 런타임 비교표: [docs/guide/llm-setup.md](docs/guide/llm-setup.md)
 
-→ `docs/guide/llm-setup.md` 참고
+> `npm run setup:external`은 현재 Claude Code와 OpenCode를 자동화합니다.
+> Codex는 수동 / repo-local 흐름만 문서화되어 있습니다.
+
+## 이 저장소 자체를 실행해 보기
+
+```bash
+npm install
+npm run build
+npm run dev
+```
+
+- 대시보드: http://127.0.0.1:5173
+- 서버: http://127.0.0.1:3847
+
+## 가이드 맵
+
+| 목적 | 문서 |
+|------|------|
+| 외부 프로젝트 설치 시작점 | [docs/guide/external-setup.md](docs/guide/external-setup.md) |
+| 런타임별 추천 경로 비교 | [docs/guide/llm-setup.md](docs/guide/llm-setup.md) |
+| Claude Code 연결 | [docs/guide/claude-setup.md](docs/guide/claude-setup.md) |
+| OpenCode 연결 | [docs/guide/opencode-setup.md](docs/guide/opencode-setup.md) |
+| Codex 연결 | [docs/guide/codex-setup.md](docs/guide/codex-setup.md) |
+| 런타임 capability 상세 | [docs/guide/runtime-capabilities.md](docs/guide/runtime-capabilities.md) |
 
 ## 패키지
 
@@ -23,5 +57,5 @@ npm run dev        # 서버 + 대시보드 동시 실행
 |--------|------|
 | `@monitor/core` | 타입, 규칙, 이벤트 분류 |
 | `@monitor/server` | Express + SQLite + WebSocket API |
-| `@monitor/mcp` | MCP stdio 서버 (14개 모니터링 도구) |
-| `@monitor/web` | React 19 대시보드 (Vite) |
+| `@monitor/mcp` | MCP stdio 서버 |
+| `@monitor/web` | React 19 대시보드 |

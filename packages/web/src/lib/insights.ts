@@ -597,7 +597,7 @@ function resolvePreferredTaskTitle(
   task: MonitoringTask | null | undefined,
   timeline: readonly TimelineEvent[]
 ): string | null {
-  return meaningfulTaskTitle(task) ?? inferTaskTitleSignal(timeline) ?? normalizeSentence(task?.title);
+  return meaningfulTaskTitle(task) ?? inferTaskTitleSignal(timeline) ?? normalizeFallbackTaskTitle(task?.title);
 }
 
 function meaningfulTaskTitle(task: MonitoringTask | null | undefined): string | null {
@@ -667,10 +667,23 @@ function isGenericWorkspaceTaskTitle(
     ?.split("/")
     .filter(Boolean)
     .pop();
-  const normalizedSuffix = normalizeTitleToken(suffix);
+  const normalizedSuffix = normalizeTitleToken(stripTrailingSessionSuffix(suffix));
 
   return normalizedSuffix === normalizeTitleToken(task.slug)
     || (workspaceName ? normalizedSuffix === normalizeTitleToken(workspaceName) : false);
+}
+
+function normalizeFallbackTaskTitle(value?: string): string | null {
+  const normalized = normalizeSentence(value);
+  if (!normalized) {
+    return null;
+  }
+
+  return stripTrailingSessionSuffix(normalized);
+}
+
+function stripTrailingSessionSuffix(value: string): string {
+  return value.replace(/\s+\((?:ses_[^)]+|session[^)]*|sess[^)]*)\)\s*$/i, "").trim();
 }
 
 function normalizeTitleToken(value?: string): string {

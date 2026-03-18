@@ -45,13 +45,27 @@ def main() -> None:
     if not session_id:
         return
 
+    # /exit — immediately complete the task without waiting for TTL
+    if prompt.lower() in ("/exit", "exit"):
+        try:
+            _post("/api/runtime-session-end", {
+                "runtimeSource":    "claude-hook",
+                "runtimeSessionId": session_id,
+                "summary":          "Session exited by user",
+                "completeTask":     True,
+                "completionReason": "explicit_exit",
+            })
+        except Exception:
+            pass
+        return
+
     title = (prompt[:120] + "…") if len(prompt) > 120 else prompt
 
     try:
         ids = _post("/api/runtime-session-ensure", {
             "runtimeSource":    "claude-hook",
             "runtimeSessionId": session_id,
-            "title":            f"Claude Code — {os.path.basename(PROJECT_DIR)}",
+            "title":            title or f"Claude Code — {os.path.basename(PROJECT_DIR)}",
             "workspacePath":    PROJECT_DIR,
         })
     except Exception:

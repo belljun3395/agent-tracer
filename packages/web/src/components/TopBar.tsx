@@ -1,6 +1,6 @@
 /**
  * 대시보드 상단 통계 바.
- * 총 태스크 수, 실행 중, 완료, 오류, 이벤트 카운트를 StatCard로 표시.
+ * 총 태스크 수, 실행 중, 대기, 완료, 오류, 이벤트 카운트를 StatCard로 표시.
  */
 
 import type React from "react";
@@ -199,9 +199,10 @@ export function TopBar({
           </div>
         </div>
       </nav>
-      <div className="grid grid-cols-2 border-b border-[var(--border)] bg-[linear-gradient(180deg,var(--surface-2)_0%,var(--surface)_100%)] sm:grid-cols-3 lg:grid-cols-5">
+      <div className="grid grid-cols-2 border-b border-[var(--border)] bg-[linear-gradient(180deg,var(--surface-2)_0%,var(--surface)_100%)] sm:grid-cols-3 lg:grid-cols-6">
         <StatCard accent="cyan" label="Tasks" value={overview?.stats.totalTasks ?? 0} />
         <StatCard accent="green" label="Running" value={overview?.stats.runningTasks ?? 0} />
+        <StatCard accent="amber" label="Waiting" value={overview?.stats.waitingTasks ?? 0} />
         <StatCard accent="amber" label="Completed" value={overview?.stats.completedTasks ?? 0} />
         <StatCard accent="red" label="Errored" value={overview?.stats.erroredTasks ?? 0} />
         <StatCard accent="slate" label="Events" value={overview?.stats.totalEvents ?? 0} />

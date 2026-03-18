@@ -8,8 +8,7 @@
 import type {
   AgentActivityType,
   EventRelationType,
-  MonitoringEventKind,
-  TimelineLane
+  MonitoringEventKind
 } from "@monitor/core";
 
 export interface TaskStartInput {
@@ -41,8 +40,14 @@ export interface TaskRenameInput {
 export interface TaskPatchInput {
   readonly taskId: string;
   readonly title?: string;
-  readonly status?: "running" | "completed" | "errored";
+  readonly status?: "running" | "waiting" | "completed" | "errored";
 }
+
+export type TaskCompletionReason =
+  | "idle"
+  | "assistant_turn_complete"
+  | "explicit_exit"
+  | "runtime_terminated";
 
 export interface TaskTerminalCommandInput {
   readonly taskId: string;
@@ -212,7 +217,9 @@ export interface TaskSessionEndInput {
   readonly taskId: string;
   readonly sessionId?: string;
   readonly completeTask?: boolean;
+  readonly completionReason?: TaskCompletionReason;
   readonly summary?: string;
+  readonly backgroundCompletions?: string[];
   readonly metadata?: Record<string, unknown>;
 }
 
@@ -257,7 +264,7 @@ export interface GenericEventInput extends TraceActivityInput {
   readonly taskId: string;
   readonly sessionId?: string;
   readonly kind: MonitoringEventKind;
-  readonly lane?: TimelineLane | string;
+  readonly lane?: string;
   readonly title: string;
   readonly body?: string;
   readonly command?: string;
@@ -286,32 +293,6 @@ export interface TaskSearchInput {
 }
 
 /**
- * Claude Code 창(window) 단위 세션 보장 입력.
- * cc_session_id 를 키로 task/session 을 자동 생성·재개한다.
- */
-export interface CcSessionEnsureInput {
-  readonly ccSessionId: string;
-  readonly title: string;
-  readonly workspacePath?: string;
-  /** true 면 message_count 를 증가시키고 phase 를 반환한다. */
-  readonly bumpMessageCount?: boolean;
-}
-
-export interface CcSessionEnsureResult {
-  readonly taskId: string;
-  readonly sessionId: string;
-  readonly phase: "initial" | "follow_up";
-  readonly isNewTask: boolean;
-}
-
-export interface CcSessionEndInput {
-  readonly ccSessionId: string;
-  readonly summary?: string;
-  /** true — task also transitions to "completed" on session end */
-  readonly completeTask?: boolean;
-}
-
-/**
  * 제너릭 런타임-세션 보장 입력.
  * 어떤 런타임 어댑터라도 runtimeSource + runtimeSessionId 쌍으로 task/session을 자동 생성·재개한다.
  */
@@ -335,4 +316,6 @@ export interface RuntimeSessionEndInput {
   readonly summary?: string;
   /** Claude hook path keeps this unset; OpenCode primary shutdown may set true explicitly. */
   readonly completeTask?: boolean;
+  readonly completionReason?: TaskCompletionReason;
+  readonly backgroundCompletions?: string[];
 }

@@ -15,7 +15,7 @@ export interface MonitoringTask {
   readonly slug: string;
   readonly displayTitle?: string;
   readonly workspacePath?: string;
-  readonly status: "running" | "completed" | "errored";
+  readonly status: "running" | "waiting" | "completed" | "errored";
   readonly taskKind?: "primary" | "background";
   readonly parentTaskId?: string;
   readonly parentSessionId?: string;
@@ -133,6 +133,7 @@ export interface SearchResponse {
 export interface OverviewStats {
   readonly totalTasks: number;
   readonly runningTasks: number;
+  readonly waitingTasks: number;
   readonly completedTasks: number;
   readonly erroredTasks: number;
   readonly totalEvents: number;

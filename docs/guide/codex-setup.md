@@ -2,25 +2,23 @@
 
 This guide is for Codex only.
 
-As of March 16, 2026, the most reliable Codex path in this repository is:
+Unlike Claude Code and OpenCode, Codex does **not** currently have a
+`setup:external` installer in this repository. If your goal is to attach Agent
+Tracer to another project, treat this page as a manual reference rather than an
+automated path.
 
-1. register the `monitor` MCP server
-2. let Codex use the repo-local `codex-monitor` skill exposed through `AGENTS.md`
-3. prefer the generated native discovery path under `.agents/skills`
+## 1. Current Status
 
-## 1. Verify The Monitor Server
+Supported today:
 
-```bash
-curl -sf http://127.0.0.1:${MONITOR_PORT:-3847}/api/overview | python3 -m json.tool
-```
+- repo-local Codex integration in this repository
+- manual MCP registration
+- repo-local `codex-monitor` skill discovery through `AGENTS.md`
 
-If the request fails, start the server:
+Not automated yet:
 
-```bash
-npm run dev:server
-# or
-npm run build && npm run start:server
-```
+- writing Codex-specific config into another target project
+- generating a target-project `AGENTS.md` and skill projection automatically
 
 ## 2. Register The MCP Server
 
@@ -30,14 +28,8 @@ codex mcp add monitor \
   -- node /path/to/agent-tracer/packages/mcp/dist/index.js
 ```
 
-If Codex is launched from a GUI app and `node` is managed outside the GUI PATH,
-prefer an absolute node path:
-
-```bash
-codex mcp add monitor \
-  --env MONITOR_BASE_URL=http://127.0.0.1:3847 \
-  -- /absolute/path/to/node /path/to/agent-tracer/packages/mcp/dist/index.js
-```
+If Codex is launched from a GUI and `node` is not on the GUI PATH, use an
+absolute Node binary path instead of plain `node`.
 
 Verify registration:
 
@@ -47,26 +39,43 @@ codex mcp list
 
 Expected result: `monitor` is listed.
 
-## 3. Use The Repo-Local Codex Skill
+## 3. Repo-local Path In This Repository
 
-This repository keeps the human-edited source skill at:
+The current recommended Codex path in this repository is:
+
+1. register the `monitor` MCP server
+2. let Codex use the repo-local `codex-monitor` skill exposed through `AGENTS.md`
+3. rely on the generated native discovery path under `.agents/skills`
+
+Source and generated skill files:
 
 - `skills/codex-monitor/SKILL.md`
-
-It also generates the native discovery projection at:
-
 - `.agents/skills/codex-monitor/SKILL.md`
 
-The repository root `AGENTS.md` advertises this skill so future Codex sessions in
-this checkout can trigger it automatically.
-
-The projection file is generated. Edit the source skill, then refresh projections:
+If the source skill changes, refresh projections:
 
 ```bash
 node scripts/sync-skill-projections.mjs
 ```
 
-What the skill does:
+If automatic skill triggering does not happen, invoke it explicitly in the
+prompt with `$codex-monitor`.
+
+## 4. Manual External Path
+
+If you want to experiment with Codex in another project today, you need to
+manually recreate the same pieces:
+
+1. register the `monitor` MCP server
+2. make the target repository advertise an Agent Tracer monitoring skill through its own `AGENTS.md`
+3. expose a Codex-readable skill projection in the target repository
+4. restart the Codex thread so the new instructions are loaded
+
+This repository does not yet provide a one-command external Codex installer.
+
+## 5. What The Repo-local Skill Does
+
+The `codex-monitor` skill:
 
 - starts one monitor task per user request
 - records exploration, planning, shell validation, and notable tool usage
@@ -74,19 +83,10 @@ What the skill does:
 - can link background/subagent work through `monitor_task_link`
 - completes or errors the task explicitly
 
-What you need to do:
+If `monitor-server` is unavailable, the skill policy is to keep working and
+emit a gap report at the end instead of stopping the task.
 
-1. Keep the `monitor` MCP server registered.
-2. Start a new Codex thread after pulling these changes so `AGENTS.md` is reloaded.
-3. Work normally in this repository.
-
-If automatic skill triggering does not happen, invoke it explicitly in the user
-prompt with `$codex-monitor`.
-
-If `monitor-server` is unavailable, the skill policy is to keep working and emit
-a gap report at the end instead of stopping the task.
-
-## 4. End-To-End Check
+## 6. End-To-End Check
 
 1. Start the monitor server.
 2. Confirm `monitor` is registered in `codex mcp list`.

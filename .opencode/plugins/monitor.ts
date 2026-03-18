@@ -35,6 +35,7 @@ interface SessionState {
   readonly backgroundTitle?: string;
   messageCount: number; // mutable: tracks user messages for phase detection
   seenMessageIds: Set<string>;
+  seenCompletionMessageIds: Set<string>;
   seenToolCallIds: Set<string>;
   todoStateById: Map<string, "added" | "in_progress" | "completed" | "cancelled">;
 }
@@ -63,6 +64,8 @@ const pendingSessionStarts = new Map<string, Promise<SessionState | undefined>>(
 const pendingBackgroundLinks = new Map<string, BackgroundTaskLink>();
 const sessionInfoById = new Map<string, { directory?: string; title?: string }>();
 const endedSessionIds = new Set<string>();
+const suspendedSessionIds = new Set<string>();
+const suspendedSessionStates = new Map<string, SessionState>();
 const finalizingSessionIds = new Set<string>();
 
 /**
@@ -152,6 +155,12 @@ function isMonitorQuestionTool(lowerToolName: string): boolean {
     || lowerToolName.endsWith("monitor_monitor_question");
 }
 
+function isNativeQuestionTool(lowerToolName: string): boolean {
+  return lowerToolName === "question"
+    || lowerToolName.endsWith(".question")
+    || lowerToolName.endsWith("/question");
+}
+
 function isMonitorTodoTool(lowerToolName: string): boolean {
   return lowerToolName.endsWith("monitor_todo")
     || lowerToolName.endsWith("monitor_monitor_todo");
@@ -208,27 +217,72 @@ function extractSubagentParentTitle(title: string | undefined): string | undefin
   return parentTitle && parentTitle.length > 0 ? parentTitle : undefined;
 }
 
-function findBackgroundAncestorLink(title: string | undefined): BackgroundTaskLink | undefined {
-  const parentTitle = extractSubagentParentTitle(title);
-  if (!parentTitle) return undefined;
+function buildBackgroundCandidateTitles(title: string | undefined): ReadonlySet<string> {
+  const normalizedTitle = toNonEmptyString(title);
+  if (!normalizedTitle) {
+    return new Set<string>();
+  }
 
-  let matchedPendingLink: BackgroundTaskLink | undefined;
-  for (const pendingLink of pendingBackgroundLinks.values()) {
-    if (pendingLink.title === parentTitle) {
-      matchedPendingLink = pendingLink;
+  const candidateTitles = new Set<string>([normalizedTitle]);
+  const parentTitle = extractSubagentParentTitle(normalizedTitle);
+  if (parentTitle) {
+    candidateTitles.add(parentTitle);
+  }
+
+  return candidateTitles;
+}
+
+function findReusablePrimarySubagentState(
+  title: string | undefined
+): { sessionId: string; state: SessionState } | undefined {
+  const candidateTitles = buildBackgroundCandidateTitles(title);
+  if (candidateTitles.size === 0) {
+    return undefined;
+  }
+
+  const candidateEntries: Array<[string, SessionState]> = [
+    ...sessionStates.entries(),
+    ...suspendedSessionStates.entries()
+  ];
+
+  let matched: { sessionId: string; state: SessionState } | undefined;
+  for (const [sessionId, state] of candidateEntries) {
+    if (state.taskKind === "background") continue;
+    if (endedSessionIds.has(sessionId)) continue;
+    if (finalizingSessionIds.has(sessionId)) continue;
+
+    const sessionTitle = toNonEmptyString(sessionInfoById.get(sessionId)?.title);
+    const subagentParentTitle = extractSubagentParentTitle(sessionTitle);
+    if (!subagentParentTitle) continue;
+
+    if ((sessionTitle && candidateTitles.has(sessionTitle)) || candidateTitles.has(subagentParentTitle)) {
+      matched = { sessionId, state };
     }
   }
 
-  if (matchedPendingLink) {
-    const linkedState = sessionStates.get(matchedPendingLink.childSessionId);
-    return {
-      childSessionId: "",
-      parentTaskId: matchedPendingLink.parentTaskId,
-      ...(matchedPendingLink.parentSessionId ? { parentSessionId: matchedPendingLink.parentSessionId } : {}),
-      ...(matchedPendingLink.backgroundTaskId ? { backgroundTaskId: matchedPendingLink.backgroundTaskId } : {}),
-      ...(matchedPendingLink.title ? { title: matchedPendingLink.title } : {}),
-      ...(linkedState?.taskId ? { taskId: linkedState.taskId } : {})
-    };
+  return matched;
+}
+
+function findBackgroundAncestorLink(title: string | undefined): BackgroundTaskLink | undefined {
+  const candidateTitles = buildBackgroundCandidateTitles(title);
+  if (candidateTitles.size === 0) return undefined;
+
+  let matchedPendingLink: BackgroundTaskLink | undefined;
+  for (const pendingLink of pendingBackgroundLinks.values()) {
+    if (pendingLink.title && candidateTitles.has(pendingLink.title)) {
+      const linkedState = sessionStates.get(pendingLink.childSessionId);
+      if (linkedState?.taskId) {
+        return {
+          childSessionId: "",
+          parentTaskId: pendingLink.parentTaskId,
+          ...(pendingLink.parentSessionId ? { parentSessionId: pendingLink.parentSessionId } : {}),
+          ...(pendingLink.backgroundTaskId ? { backgroundTaskId: pendingLink.backgroundTaskId } : {}),
+          ...(pendingLink.title ? { title: pendingLink.title } : {}),
+          taskId: linkedState.taskId
+        };
+      }
+      matchedPendingLink = pendingLink;
+    }
   }
 
   let matchedState: SessionState | undefined;
@@ -236,13 +290,23 @@ function findBackgroundAncestorLink(title: string | undefined): BackgroundTaskLi
     if (state.taskKind !== "background") continue;
 
     const candidateTitle = state.backgroundTitle ?? state.taskTitle;
-    if (candidateTitle === parentTitle) {
+    if (candidateTitles.has(candidateTitle)) {
       matchedState = state;
     }
   }
 
+  const matchedPrimarySubagent = findReusablePrimarySubagentState(title);
+
   if (!matchedState?.parentTaskId) {
-    return undefined;
+    if (!matchedPendingLink) return undefined;
+    return {
+      childSessionId: "",
+      parentTaskId: matchedPendingLink.parentTaskId,
+      ...(matchedPendingLink.parentSessionId ? { parentSessionId: matchedPendingLink.parentSessionId } : {}),
+      ...(matchedPendingLink.backgroundTaskId ? { backgroundTaskId: matchedPendingLink.backgroundTaskId } : {}),
+      ...(matchedPendingLink.title ? { title: matchedPendingLink.title } : {}),
+      ...(matchedPrimarySubagent?.state.taskId ? { taskId: matchedPrimarySubagent.state.taskId } : {})
+    };
   }
 
   return {
@@ -253,6 +317,60 @@ function findBackgroundAncestorLink(title: string | undefined): BackgroundTaskLi
     ...(matchedState.backgroundTitle ? { title: matchedState.backgroundTitle } : {}),
     taskId: matchedState.taskId
   };
+}
+
+async function promoteSessionStateToBackground(input: {
+  sessionId: string;
+  state: SessionState;
+  backgroundLink: BackgroundTaskLink;
+}): Promise<SessionState | undefined> {
+  if (input.state.taskKind === "background") {
+    return input.state;
+  }
+
+  const linkResult = await post("/api/task-link", {
+    taskId: input.state.taskId,
+    ...(input.backgroundLink.title ? { title: input.backgroundLink.title } : {}),
+    taskKind: "background",
+    parentTaskId: input.backgroundLink.parentTaskId,
+    ...(input.backgroundLink.parentSessionId ? { parentSessionId: input.backgroundLink.parentSessionId } : {}),
+    ...(input.backgroundLink.backgroundTaskId ? { backgroundTaskId: input.backgroundLink.backgroundTaskId } : {})
+  });
+  if (linkResult === null) {
+    return undefined;
+  }
+
+  const nextState: SessionState = {
+    ...input.state,
+    taskTitle: input.backgroundLink.title ?? input.state.taskTitle,
+    taskKind: "background",
+    backgroundLinkConfirmed: true,
+    parentTaskId: input.backgroundLink.parentTaskId,
+    parentSessionId: input.backgroundLink.parentSessionId,
+    backgroundTaskId: input.backgroundLink.backgroundTaskId,
+    backgroundTitle: input.backgroundLink.title ?? input.state.backgroundTitle
+  };
+  if (sessionStates.has(input.sessionId)) {
+    sessionStates.set(input.sessionId, nextState);
+  }
+  if (suspendedSessionStates.has(input.sessionId) || suspendedSessionIds.has(input.sessionId)) {
+    suspendedSessionStates.set(input.sessionId, nextState);
+  }
+  return nextState;
+}
+
+function provisionalBackgroundLinkKey(parentSessionId: string, callId: string, index: number): string {
+  return `pending:${parentSessionId}:${callId}:${index}`;
+}
+
+function clearProvisionalBackgroundLinks(parentSessionId: string, callId: string | undefined): void {
+  if (!callId) return;
+  const prefix = `pending:${parentSessionId}:${callId}:`;
+  for (const key of pendingBackgroundLinks.keys()) {
+    if (key.startsWith(prefix)) {
+      pendingBackgroundLinks.delete(key);
+    }
+  }
 }
 
 type BackgroundTerminalStatus = "completed" | "cancelled" | "error" | "interrupt";
@@ -383,6 +501,7 @@ function extractFallbackPrimarySessionId(): string | undefined {
     .filter(([sessionId, state]) => {
       if (endedSessionIds.has(sessionId)) return false;
       if (finalizingSessionIds.has(sessionId)) return false;
+      if (suspendedSessionIds.has(sessionId)) return false;
       return state.taskKind !== "background";
     })
     .map(([sessionId]) => sessionId);
@@ -393,6 +512,7 @@ function extractFallbackPrimarySessionId(): string | undefined {
 
   const activePrimarySessionInfos = [...sessionInfoById.keys()]
     .filter((sessionId) => !endedSessionIds.has(sessionId))
+    .filter((sessionId) => !suspendedSessionIds.has(sessionId))
     .filter((sessionId) => {
       const state = sessionStates.get(sessionId);
       return !state || state.taskKind !== "background";
@@ -409,6 +529,7 @@ function extractFallbackPrimarySessionId(): string | undefined {
     for (const [sessionId, state] of sessionStates.entries()) {
       if (endedSessionIds.has(sessionId)) continue;
       if (finalizingSessionIds.has(sessionId)) continue;
+      if (suspendedSessionIds.has(sessionId)) continue;
       if (state.taskKind === "background") continue;
       if (state.taskId === backgroundLink.parentTaskId) {
         parentPrimarySessionIds.add(sessionId);
@@ -515,6 +636,49 @@ function extractBackgroundTaskLink(input: {
     ...(backgroundTaskId ? { backgroundTaskId } : {}),
     ...(title ? { title } : {})
   };
+}
+
+function extractBackgroundLaunchHints(input: {
+  toolName: string;
+  args: unknown;
+  state: SessionState;
+  callId?: string;
+}): readonly BackgroundTaskLink[] {
+  if (!input.callId) return [];
+
+  const lower = input.toolName.toLowerCase();
+  const args = asObject(input.args);
+
+  if (isTaskTool(lower) && args.run_in_background === true) {
+    const title = toNonEmptyString(args.description) ?? toNonEmptyString(args.prompt);
+    if (!title) return [];
+    return [{
+      childSessionId: provisionalBackgroundLinkKey(input.state.taskId, input.callId, 0),
+      parentTaskId: input.state.taskId,
+      ...(input.state.monitorSessionId ? { parentSessionId: input.state.monitorSessionId } : {}),
+      title
+    }];
+  }
+
+  if (!isParallelTool(lower)) return [];
+
+  const toolUses = Array.isArray(args.tool_uses) ? args.tool_uses : [];
+  return toolUses
+    .map((entry) => asObject(entry))
+    .filter((entry) => isTaskTool(String(entry.recipient_name ?? "").toLowerCase()))
+    .map((entry) => asObject(entry.parameters))
+    .filter((parameters) => parameters.run_in_background === true)
+    .map((parameters, index) => {
+      const title = toNonEmptyString(parameters.description) ?? toNonEmptyString(parameters.prompt);
+      if (!title) return undefined;
+      return {
+        childSessionId: provisionalBackgroundLinkKey(input.state.taskId, input.callId!, index),
+        parentTaskId: input.state.taskId,
+        ...(input.state.monitorSessionId ? { parentSessionId: input.state.monitorSessionId } : {}),
+        title
+      };
+    })
+    .filter((link): link is BackgroundTaskLink => Boolean(link));
 }
 
 function looksLikePath(value: string): boolean {
@@ -646,14 +810,54 @@ function parseQuestionPhase(value: unknown): "asked" | "answered" | "concluded" 
   return undefined;
 }
 
-function buildSemanticRoute(input: {
+function extractNativeQuestionAnswerMap(text: string | undefined): ReadonlyMap<string, string> {
+  const answers = new Map<string, string>();
+  if (!text) return answers;
+
+  for (const match of text.matchAll(/"([^"]+)"\s*=\s*"([^"]+)"/g)) {
+    const question = match[1]?.trim();
+    const answer = match[2]?.trim();
+    if (question && answer) {
+      answers.set(question, answer);
+    }
+  }
+
+  return answers;
+}
+
+function buildNativeQuestionBody(question: Record<string, unknown>): string | undefined {
+  const details: string[] = [];
+  const header = toNonEmptyString(question.header);
+  const description = toNonEmptyString(question.description);
+  const options = Array.isArray(question.options) ? question.options : [];
+
+  if (header) {
+    details.push(`Header: ${header}`);
+  }
+  if (description) {
+    details.push(description);
+  }
+
+  const optionLabels = options
+    .map((option) => asObject(option))
+    .map((option) => toNonEmptyString(option.label))
+    .filter((label): label is string => Boolean(label));
+  if (optionLabels.length > 0) {
+    details.push(`Options: ${optionLabels.join(", ")}`);
+  }
+
+  return details.length > 0 ? details.join("\n") : undefined;
+}
+
+function buildSemanticRoutes(input: {
   toolName: string;
   args: unknown;
   state: SessionState;
   opencodeSessionId: string;
   opencodeCallId?: string;
   outputTitle?: string;
-}): MonitorSemanticRoute | undefined {
+  outputText?: string;
+}): readonly MonitorSemanticRoute[] {
   const lower = input.toolName.toLowerCase();
   const args = asObject(input.args);
   const metadata = {
@@ -666,8 +870,8 @@ function buildSemanticRoute(input: {
     const questionId = toNonEmptyString(args.questionId);
     const questionPhase = parseQuestionPhase(args.questionPhase);
     const title = toNonEmptyString(args.title) ?? toNonEmptyString(input.outputTitle);
-    if (!questionId || !questionPhase || !title) return undefined;
-    return {
+    if (!questionId || !questionPhase || !title) return [];
+    return [{
       endpoint: "/api/question",
       body: {
         taskId: input.state.taskId,
@@ -681,14 +885,70 @@ function buildSemanticRoute(input: {
         ...(toNonEmptyString(args.modelProvider) ? { modelProvider: toNonEmptyString(args.modelProvider) } : {}),
         metadata
       }
-    };
+    }];
+  }
+
+  if (isNativeQuestionTool(lower)) {
+    const questions = Array.isArray(args.questions)
+      ? args.questions.map((question) => asObject(question))
+      : [];
+    if (questions.length === 0) return [];
+
+    const answerMap = extractNativeQuestionAnswerMap(input.outputText);
+    const defaultAnswer = toNonEmptyString(input.outputText);
+
+    return questions.flatMap((question, index) => {
+      const title = toNonEmptyString(question.question) ?? toNonEmptyString(question.header);
+      if (!title) return [];
+
+      const questionId = `${input.opencodeCallId ?? input.opencodeSessionId}:question:${index}`;
+      const askedBody = buildNativeQuestionBody(question);
+      const answeredBody = answerMap.get(title) ?? (questions.length === 1 ? defaultAnswer : undefined);
+      const nextMetadata = {
+        ...metadata,
+        questionTool: "native",
+        questionIndex: index
+      };
+
+      const routes: MonitorSemanticRoute[] = [{
+        endpoint: "/api/question",
+        body: {
+          taskId: input.state.taskId,
+          sessionId: input.state.monitorSessionId,
+          questionId,
+          questionPhase: "asked",
+          sequence: index * 2,
+          title,
+          ...(askedBody ? { body: askedBody } : {}),
+          metadata: nextMetadata
+        }
+      }];
+
+      if (answeredBody) {
+        routes.push({
+          endpoint: "/api/question",
+          body: {
+            taskId: input.state.taskId,
+            sessionId: input.state.monitorSessionId,
+            questionId,
+            questionPhase: "answered",
+            sequence: index * 2 + 1,
+            title: `Answered: ${title}`,
+            body: answeredBody,
+            metadata: nextMetadata
+          }
+        });
+      }
+
+      return routes;
+    });
   }
 
   if (isMonitorTodoTool(lower)) {
     const todoId = toNonEmptyString(args.todoId);
     const title = toNonEmptyString(args.title) ?? toNonEmptyString(input.outputTitle);
-    if (!todoId || !title) return undefined;
-    return {
+    if (!todoId || !title) return [];
+    return [{
       endpoint: "/api/todo",
       body: {
         taskId: input.state.taskId,
@@ -700,13 +960,13 @@ function buildSemanticRoute(input: {
         ...(toNonEmptyString(args.body) ? { body: toNonEmptyString(args.body) } : {}),
         metadata
       }
-    };
+    }];
   }
 
   if (isMonitorThoughtTool(lower)) {
     const title = toNonEmptyString(args.title) ?? toNonEmptyString(input.outputTitle);
-    if (!title) return undefined;
-    return {
+    if (!title) return [];
+    return [{
       endpoint: "/api/thought",
       body: {
         taskId: input.state.taskId,
@@ -717,10 +977,37 @@ function buildSemanticRoute(input: {
         ...(toNonEmptyString(args.modelProvider) ? { modelProvider: toNonEmptyString(args.modelProvider) } : {}),
         metadata
       }
-    };
+    }];
   }
 
-  return undefined;
+  return [];
+}
+
+function extractAssistantTurnCompletion(input: unknown): {
+  readonly messageId: string;
+  readonly sessionId: string;
+  readonly finish?: string;
+} | undefined {
+  const properties = asObject(input);
+  const info = asObject(properties.info);
+  const role = toNonEmptyString(info.role);
+  if (role !== "assistant") return undefined;
+
+  const messageId = toNonEmptyString(info.id);
+  const sessionId = toNonEmptyString(info.sessionID);
+  const finish = toNonEmptyString(info.finish);
+  const error = asObject(info.error);
+  const completedAt = asObject(info.time).completed;
+  if (!messageId || !sessionId) return undefined;
+  if (Object.keys(error).length > 0) return undefined;
+  if (completedAt === undefined || completedAt === null) return undefined;
+  if (!finish || finish.toLowerCase() !== "stop") return undefined;
+
+  return {
+    messageId,
+    sessionId,
+    finish
+  };
 }
 
 function toTodoId(todo: Record<string, unknown>): string {
@@ -802,9 +1089,39 @@ async function logTodoTransitions(input: {
 
 export function createMonitorHooks(workspacePath: string): Hooks {
 
-  function buildTaskTitle(targetWorkspacePath: string, sessionId: string): string {
+  function clearTrackedSessionState(input: {
+    sessionId: string;
+    markEnded?: boolean;
+    keepSessionInfo?: boolean;
+    markSuspended?: boolean;
+  }): void {
+    const trackedState = sessionStates.get(input.sessionId);
+    sessionStates.delete(input.sessionId);
+    pendingSessionStarts.delete(input.sessionId);
+    pendingBackgroundLinks.delete(input.sessionId);
+    if (!input.keepSessionInfo) {
+      sessionInfoById.delete(input.sessionId);
+    }
+    if (input.markEnded) {
+      endedSessionIds.add(input.sessionId);
+      suspendedSessionIds.delete(input.sessionId);
+      suspendedSessionStates.delete(input.sessionId);
+      return;
+    }
+    if (input.markSuspended) {
+      suspendedSessionIds.add(input.sessionId);
+      if (trackedState) {
+        suspendedSessionStates.set(input.sessionId, trackedState);
+      }
+    } else {
+      suspendedSessionIds.delete(input.sessionId);
+      suspendedSessionStates.delete(input.sessionId);
+    }
+  }
+
+  function buildTaskTitle(targetWorkspacePath: string): string {
     const workspaceName = targetWorkspacePath.split("/").pop() ?? "opencode";
-    return `OpenCode - ${workspaceName} (${sessionId.slice(0, 8)})`;
+    return `OpenCode - ${workspaceName}`;
   }
 
   async function ensureSessionState(input: {
@@ -826,7 +1143,7 @@ export function createMonitorHooks(workspacePath: string): Hooks {
     const targetWorkspacePath = input.directory ?? cachedInfo?.directory ?? workspacePath;
     const backgroundLink = pendingBackgroundLinks.get(input.sessionId)
       ?? findBackgroundAncestorLink(input.title ?? cachedInfo?.title);
-    const taskTitle = backgroundLink?.title ?? buildTaskTitle(targetWorkspacePath, input.sessionId);
+    const taskTitle = backgroundLink?.title ?? buildTaskTitle(targetWorkspacePath);
     const promise = (async (): Promise<SessionState | undefined> => {
       const result = await post("/api/task-start", {
         taskId: backgroundLink?.taskId ?? monitorTaskIdForOpenCodeSession(input.sessionId),
@@ -859,6 +1176,7 @@ export function createMonitorHooks(workspacePath: string): Hooks {
         backgroundLinkConfirmed: backgroundLink !== undefined,
         messageCount: 0,
         seenMessageIds: new Set(),
+        seenCompletionMessageIds: new Set(),
         seenToolCallIds: new Set(),
         todoStateById: new Map(),
         ...(backgroundLink?.parentTaskId ? { parentTaskId: backgroundLink.parentTaskId } : {}),
@@ -867,6 +1185,8 @@ export function createMonitorHooks(workspacePath: string): Hooks {
         ...(backgroundLink?.title ? { backgroundTitle: backgroundLink.title } : {}),
         ...(result?.sessionId ? { monitorSessionId: result.sessionId } : {})
       };
+      suspendedSessionIds.delete(input.sessionId);
+      suspendedSessionStates.delete(input.sessionId);
       sessionStates.set(input.sessionId, nextState);
       pendingBackgroundLinks.delete(input.sessionId);
       return nextState;
@@ -896,7 +1216,15 @@ export function createMonitorHooks(workspacePath: string): Hooks {
       opencodeSessionId: string,
       state: SessionState,
       summary: string,
-      backgroundAsyncStatus: BackgroundTerminalStatus = "completed"
+      backgroundAsyncStatus: BackgroundTerminalStatus = "completed",
+      options?: {
+        readonly metadata?: Record<string, unknown>;
+        readonly completeTask?: boolean;
+        readonly completionReason?: "idle" | "assistant_turn_complete" | "explicit_exit" | "runtime_terminated";
+        readonly markEnded?: boolean;
+        readonly keepSessionInfo?: boolean;
+        readonly markSuspended?: boolean;
+      }
     ): Promise<void> {
       let confirmedBackground = state.taskKind === "background" && state.backgroundLinkConfirmed;
 
@@ -914,13 +1242,20 @@ export function createMonitorHooks(workspacePath: string): Hooks {
         }
       }
 
+      const completeTask = state.taskKind === "background"
+        ? !confirmedBackground
+        : (options?.completeTask ?? true);
+
       await post("/api/session-end", {
         taskId: state.taskId,
         sessionId: state.monitorSessionId,
-        completeTask: !confirmedBackground,
+        completeTask,
+        ...(options?.completionReason ? { completionReason: options.completionReason } : {}),
         summary,
         metadata: {
-          opencodeSessionId
+          opencodeSessionId,
+          ...(options?.completionReason ? { completionReason: options.completionReason } : {}),
+          ...(options?.metadata ?? {})
         }
       });
 
@@ -940,11 +1275,12 @@ export function createMonitorHooks(workspacePath: string): Hooks {
         });
       }
 
-      sessionStates.delete(opencodeSessionId);
-      pendingSessionStarts.delete(opencodeSessionId);
-      pendingBackgroundLinks.delete(opencodeSessionId);
-      sessionInfoById.delete(opencodeSessionId);
-      endedSessionIds.add(opencodeSessionId);
+      clearTrackedSessionState({
+        sessionId: opencodeSessionId,
+        markEnded: options?.markEnded ?? true,
+        keepSessionInfo: options?.keepSessionInfo ?? false,
+        markSuspended: options?.markSuspended ?? false
+      });
     }
 
     async function finalizeByRuntimeSession(input: {
@@ -962,10 +1298,10 @@ export function createMonitorHooks(workspacePath: string): Hooks {
         }
       });
 
-      pendingSessionStarts.delete(input.opencodeSessionId);
-      pendingBackgroundLinks.delete(input.opencodeSessionId);
-      sessionInfoById.delete(input.opencodeSessionId);
-      endedSessionIds.add(input.opencodeSessionId);
+      clearTrackedSessionState({
+        sessionId: input.opencodeSessionId,
+        markEnded: true
+      });
     }
 
     async function reconcileBackgroundTaskTerminalEvents(
@@ -1012,14 +1348,18 @@ export function createMonitorHooks(workspacePath: string): Hooks {
       finalizingSessionIds.add(opencodeSessionId);
       try {
         const knownSessionInfo = sessionInfoById.get(opencodeSessionId);
-        const state = sessionStates.get(opencodeSessionId)
+        const existingState = sessionStates.get(opencodeSessionId)
           ?? await pendingSessionStarts.get(opencodeSessionId)
-          ?? await ensureSessionState({
-            sessionId: opencodeSessionId,
-            directory: knownSessionInfo?.directory,
-            title: knownSessionInfo?.title
-          })
           ?? undefined;
+        const state = existingState ?? (
+          suspendedSessionIds.has(opencodeSessionId)
+            ? undefined
+            : await ensureSessionState({
+              sessionId: opencodeSessionId,
+              directory: knownSessionInfo?.directory,
+              title: knownSessionInfo?.title
+            }) ?? undefined
+        );
 
         if (!state) {
           debugExitLog("finalizing via runtime fallback", {
@@ -1037,7 +1377,10 @@ export function createMonitorHooks(workspacePath: string): Hooks {
           taskId: state.taskId,
           monitorSessionId: state.monitorSessionId
         });
-        await finalizeSession(opencodeSessionId, state, "OpenCode exit command executed");
+        await finalizeSession(opencodeSessionId, state, "OpenCode exit command executed", "completed", {
+          completeTask: true,
+          completionReason: "explicit_exit"
+        });
       } finally {
         finalizingSessionIds.delete(opencodeSessionId);
       }
@@ -1057,6 +1400,7 @@ export function createMonitorHooks(workspacePath: string): Hooks {
       let newestPrimaryFromSessionInfo: string | undefined;
       for (const sessionId of sessionInfoById.keys()) {
         if (endedSessionIds.has(sessionId)) continue;
+        if (suspendedSessionIds.has(sessionId)) continue;
         const state = sessionStates.get(sessionId);
         if (state?.taskKind === "background") continue;
         newestPrimaryFromSessionInfo = sessionId;
@@ -1142,6 +1486,8 @@ export function createMonitorHooks(workspacePath: string): Hooks {
     event: async ({ event }) => {
       if (event.type === "session.created") {
         endedSessionIds.delete(event.properties.info.id);
+        suspendedSessionIds.delete(event.properties.info.id);
+        suspendedSessionStates.delete(event.properties.info.id);
         sessionInfoById.set(event.properties.info.id, {
           directory: event.properties.info.directory,
           title: event.properties.info.title
@@ -1155,6 +1501,78 @@ export function createMonitorHooks(workspacePath: string): Hooks {
           });
         }
 
+        return;
+      }
+
+      if (event.type === "message.updated") {
+        const completion = extractAssistantTurnCompletion(event.properties);
+        if (!completion) return;
+        if (endedSessionIds.has(completion.sessionId)) return;
+        if (suspendedSessionIds.has(completion.sessionId)) return;
+        if (finalizingSessionIds.has(completion.sessionId)) return;
+
+        const state = sessionStates.get(completion.sessionId)
+          ?? await pendingSessionStarts.get(completion.sessionId)
+          ?? undefined;
+        if (!state) return;
+        if (state.seenCompletionMessageIds.has(completion.messageId)) return;
+        state.seenCompletionMessageIds.add(completion.messageId);
+
+        finalizingSessionIds.add(completion.sessionId);
+        try {
+          await finalizeSession(
+            completion.sessionId,
+            state,
+            "OpenCode assistant completed turn",
+            "completed",
+            {
+              completeTask: true,
+              completionReason: "assistant_turn_complete",
+              metadata: {
+                messageId: completion.messageId,
+                ...(completion.finish ? { finish: completion.finish } : {})
+              },
+              markEnded: false,
+              keepSessionInfo: true,
+              markSuspended: true
+            }
+          );
+        } finally {
+          finalizingSessionIds.delete(completion.sessionId);
+        }
+        return;
+      }
+
+      if (event.type === "session.idle") {
+        const opencodeSessionId = event.properties.sessionID;
+        if (endedSessionIds.has(opencodeSessionId)) return;
+        if (suspendedSessionIds.has(opencodeSessionId)) return;
+        if (finalizingSessionIds.has(opencodeSessionId)) return;
+
+        const state = sessionStates.get(opencodeSessionId)
+          ?? await pendingSessionStarts.get(opencodeSessionId)
+          ?? undefined;
+        if (!state) return;
+
+        finalizingSessionIds.add(opencodeSessionId);
+        try {
+          await finalizeSession(
+            opencodeSessionId,
+            state,
+            "OpenCode session idle",
+            "completed",
+            {
+              completeTask: false,
+              completionReason: "idle",
+              metadata: { idleEvent: true },
+              markEnded: false,
+              keepSessionInfo: true,
+              markSuspended: true
+            }
+          );
+        } finally {
+          finalizingSessionIds.delete(opencodeSessionId);
+        }
         return;
       }
 
@@ -1216,14 +1634,30 @@ export function createMonitorHooks(workspacePath: string): Hooks {
       }
       finalizingSessionIds.add(opencodeSessionId);
       try {
-        await finalizeSession(opencodeSessionId, state, "OpenCode session ended");
+        await finalizeSession(opencodeSessionId, state, "OpenCode session ended", "completed", {
+          completeTask: true,
+          completionReason: "runtime_terminated"
+        });
       } finally {
         finalizingSessionIds.delete(opencodeSessionId);
       }
     },
 
     "tool.execute.before": async (input) => {
-      await ensureSessionState({ sessionId: input.sessionID });
+      const state = await ensureSessionState({ sessionId: input.sessionID });
+      if (!state) return;
+
+      const toolName = typeof input.tool === "string" ? input.tool : "unknown";
+      const callId = toNonEmptyString(input.callID);
+      clearProvisionalBackgroundLinks(state.taskId, callId);
+      for (const launchHint of extractBackgroundLaunchHints({
+        toolName,
+        args: input.args,
+        state,
+        callId
+      })) {
+        pendingBackgroundLinks.set(launchHint.childSessionId, launchHint);
+      }
     },
 
     "tool.execute.after": async (input, output) => {
@@ -1258,8 +1692,31 @@ export function createMonitorHooks(workspacePath: string): Hooks {
           state,
           outputText: typeof output.output === "string" ? output.output : undefined
         })
-      ];
-      for (const linkedBackground of backgroundLinks) {
+      ].map((linkedBackground) => {
+        const inheritedLink = findBackgroundAncestorLink(linkedBackground.title);
+        return {
+          ...linkedBackground,
+          ...(inheritedLink?.taskId ? { taskId: inheritedLink.taskId } : {})
+        };
+      });
+      clearProvisionalBackgroundLinks(state.taskId, callId);
+      for (const initialLinkedBackground of backgroundLinks) {
+        let linkedBackground = initialLinkedBackground;
+        const reusablePrimary = findReusablePrimarySubagentState(linkedBackground.title);
+        if (reusablePrimary && reusablePrimary.state.taskId !== linkedBackground.taskId) {
+          const promotedState = await promoteSessionStateToBackground({
+            sessionId: reusablePrimary.sessionId,
+            state: reusablePrimary.state,
+            backgroundLink: linkedBackground
+          });
+          if (promotedState) {
+            linkedBackground = {
+              ...linkedBackground,
+              taskId: promotedState.taskId
+            };
+          }
+        }
+
         pendingBackgroundLinks.set(linkedBackground.childSessionId, linkedBackground);
 
         const childState = sessionStates.get(linkedBackground.childSessionId)
@@ -1321,16 +1778,19 @@ export function createMonitorHooks(workspacePath: string): Hooks {
         return;
       }
 
-      const semanticRoute = buildSemanticRoute({
+      const semanticRoutes = buildSemanticRoutes({
         toolName,
         args: input.args,
         state,
         opencodeSessionId: input.sessionID,
         opencodeCallId: input.callID,
-        outputTitle: output.title
+        outputTitle: output.title,
+        outputText: typeof output.output === "string" ? output.output : undefined
       });
-      if (semanticRoute) {
-        await post(semanticRoute.endpoint, semanticRoute.body);
+      if (semanticRoutes.length > 0) {
+        for (const semanticRoute of semanticRoutes) {
+          await post(semanticRoute.endpoint, semanticRoute.body);
+        }
         return;
       }
 

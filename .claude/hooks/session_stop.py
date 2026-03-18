@@ -44,6 +44,8 @@ def main() -> None:
             "runtimeSource":    "claude-hook",
             "runtimeSessionId": session_id,
             "summary":          "Claude Code session ended",
+            "completeTask":     True,
+            "completionReason": "assistant_turn_complete",
         })
     except Exception:
         pass

@@ -338,7 +338,15 @@ export function TaskList({
                           <Badge
                             className="uppercase tracking-[0.06em]"
                             size="sm"
-                            tone={task.status === "running" ? "success" : task.status === "completed" ? "accent" : "danger"}
+                            tone={
+                              task.status === "running"
+                                ? "success"
+                                : task.status === "waiting"
+                                  ? "neutral"
+                                  : task.status === "completed"
+                                    ? "accent"
+                                    : "danger"
+                            }
                           >
                             {task.status}
                           </Badge>
