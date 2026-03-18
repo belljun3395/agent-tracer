@@ -52,6 +52,27 @@ async function writeJson(filePath, value) {
   await writeFile(filePath, next, "utf8");
 }
 
+const OPENCODE_TSCONFIG = {
+  compilerOptions: {
+    target: "ES2022",
+    lib: ["ES2022", "DOM", "DOM.Iterable"],
+    module: "ESNext",
+    moduleResolution: "Bundler",
+    resolveJsonModule: true,
+    allowSyntheticDefaultImports: true,
+    esModuleInterop: true,
+    strict: true,
+    noUncheckedIndexedAccess: true,
+    noImplicitOverride: true,
+    exactOptionalPropertyTypes: true,
+    forceConsistentCasingInFileNames: true,
+    skipLibCheck: true,
+    noEmit: true,
+    types: ["node"]
+  },
+  include: ["plugins/**/*.ts"]
+};
+
 function ensureHookEntry(list, command, matcher) {
   const entries = Array.isArray(list) ? [...list] : [];
   const duplicate = entries.some((entry) => {
@@ -94,6 +115,7 @@ const CLAUDE_HOOK_SPECS = [
 
 async function setupOpenCode({ targetDir, tracerRoot, monitorBaseUrl }) {
   const opencodePath = path.join(targetDir, "opencode.json");
+  const opencodeTsconfigPath = path.join(targetDir, ".opencode", "tsconfig.json");
   const pluginDir = path.join(targetDir, ".opencode", "plugins");
   const pluginShimPath = path.join(pluginDir, "monitor.ts");
   const mcpEntryPath = path.join(tracerRoot, "packages", "mcp", "dist", "index.js");
@@ -132,6 +154,7 @@ async function setupOpenCode({ targetDir, tracerRoot, monitorBaseUrl }) {
     ""
   ].join("\n");
   await writeFile(pluginShimPath, shim, "utf8");
+  await writeJson(opencodeTsconfigPath, OPENCODE_TSCONFIG);
 }
 
 async function setupClaude({ targetDir, tracerRoot }) {

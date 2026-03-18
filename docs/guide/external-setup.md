@@ -83,6 +83,7 @@ npm run setup:external -- \
 - `--mode opencode`
   - 외부 프로젝트의 `opencode.json`에 `monitor` MCP 설정을 추가합니다.
   - 외부 프로젝트의 `.opencode/plugins/monitor.ts` shim을 생성합니다.
+  - 외부 프로젝트의 `.opencode/tsconfig.json`을 생성합니다.
   - shim은 이 저장소의 `.opencode/plugins/monitor.ts`를 re-export 합니다.
 - `--mode both`
   - 위 두 작업을 모두 수행합니다.
@@ -95,7 +96,7 @@ npm run setup:external -- \
 - Claude Code: [claude-setup.md](./claude-setup.md)
   - `setup:external` 이후에도 `claude mcp add monitor ...`는 직접 실행해야 합니다.
 - OpenCode: [opencode-setup.md](./opencode-setup.md)
-  - `setup:external`이 `opencode.json`과 plugin shim을 써주므로 보통 바로 사용할 수 있습니다.
+  - `setup:external`이 `opencode.json`, plugin shim, `.opencode/tsconfig.json`을 써주므로 보통 바로 사용할 수 있습니다.
 - Codex: [codex-setup.md](./codex-setup.md)
   - 현재는 수동 / repo-local 방식만 안내합니다.
 

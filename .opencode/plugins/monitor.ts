@@ -19,7 +19,7 @@ const DEBUG_EXIT = /^(1|true|yes|on)$/i.test(String(process.env.MONITOR_DEBUG_EX
 interface SessionState {
   readonly taskId: string;
   readonly taskTitle: string;
-  readonly monitorSessionId?: string;
+  readonly monitorSessionId?: string | undefined;
   readonly taskKind: "primary" | "background";
   /**
    * true when the DB row is confirmed to be `background`:
@@ -29,10 +29,10 @@ interface SessionState {
    * (link POST failed or has not been attempted yet).
    */
   readonly backgroundLinkConfirmed: boolean;
-  readonly parentTaskId?: string;
-  readonly parentSessionId?: string;
-  readonly backgroundTaskId?: string;
-  readonly backgroundTitle?: string;
+  readonly parentTaskId?: string | undefined;
+  readonly parentSessionId?: string | undefined;
+  readonly backgroundTaskId?: string | undefined;
+  readonly backgroundTitle?: string | undefined;
   messageCount: number; // mutable: tracks user messages for phase detection
   seenMessageIds: Set<string>;
   seenCompletionMessageIds: Set<string>;
@@ -43,10 +43,10 @@ interface SessionState {
 interface BackgroundTaskLink {
   readonly childSessionId: string;
   readonly parentTaskId: string;
-  readonly parentSessionId?: string;
-  readonly backgroundTaskId?: string;
-  readonly title?: string;
-  readonly taskId?: string;
+  readonly parentSessionId?: string | undefined;
+  readonly backgroundTaskId?: string | undefined;
+  readonly title?: string | undefined;
+  readonly taskId?: string | undefined;
 }
 
 type MonitorSemanticRoute = {
@@ -556,7 +556,7 @@ function extractParallelBackgroundLinks(input: {
   toolName: string;
   args: unknown;
   state: SessionState;
-  outputText?: string;
+  outputText?: string | undefined;
 }): readonly BackgroundTaskLink[] {
   const lower = input.toolName.toLowerCase();
   if (!isParallelTool(lower)) return [];
@@ -603,9 +603,9 @@ function extractBackgroundTaskLink(input: {
   toolName: string;
   args: unknown;
   state: SessionState;
-  outputText?: string;
-  outputMetadata?: unknown;
-  outputTitle?: string;
+  outputText?: string | undefined;
+  outputMetadata?: unknown | undefined;
+  outputTitle?: string | undefined;
 }): BackgroundTaskLink | undefined {
   const lower = input.toolName.toLowerCase();
   if (!isTaskTool(lower)) return undefined;
@@ -642,7 +642,7 @@ function extractBackgroundLaunchHints(input: {
   toolName: string;
   args: unknown;
   state: SessionState;
-  callId?: string;
+  callId?: string | undefined;
 }): readonly BackgroundTaskLink[] {
   if (!input.callId) return [];
 
@@ -668,7 +668,7 @@ function extractBackgroundLaunchHints(input: {
     .filter((entry) => isTaskTool(String(entry.recipient_name ?? "").toLowerCase()))
     .map((entry) => asObject(entry.parameters))
     .filter((parameters) => parameters.run_in_background === true)
-    .map((parameters, index) => {
+    .map((parameters, index): BackgroundTaskLink | undefined => {
       const title = toNonEmptyString(parameters.description) ?? toNonEmptyString(parameters.prompt);
       if (!title) return undefined;
       return {
@@ -854,9 +854,9 @@ function buildSemanticRoutes(input: {
   args: unknown;
   state: SessionState;
   opencodeSessionId: string;
-  opencodeCallId?: string;
-  outputTitle?: string;
-  outputText?: string;
+  opencodeCallId?: string | undefined;
+  outputTitle?: string | undefined;
+  outputText?: string | undefined;
 }): readonly MonitorSemanticRoute[] {
   const lower = input.toolName.toLowerCase();
   const args = asObject(input.args);
@@ -1126,8 +1126,8 @@ export function createMonitorHooks(workspacePath: string): Hooks {
 
   async function ensureSessionState(input: {
     sessionId: string;
-    directory?: string;
-    title?: string;
+    directory?: string | undefined;
+    title?: string | undefined;
   }): Promise<SessionState | undefined> {
     if (endedSessionIds.has(input.sessionId)) {
       return undefined;
@@ -1140,6 +1140,7 @@ export function createMonitorHooks(workspacePath: string): Hooks {
     if (pending) return pending;
 
     const cachedInfo = sessionInfoById.get(input.sessionId);
+    const suspendedState = suspendedSessionStates.get(input.sessionId);
     const targetWorkspacePath = input.directory ?? cachedInfo?.directory ?? workspacePath;
     const backgroundLink = pendingBackgroundLinks.get(input.sessionId)
       ?? findBackgroundAncestorLink(input.title ?? cachedInfo?.title);
@@ -1174,11 +1175,11 @@ export function createMonitorHooks(workspacePath: string): Hooks {
         // DB row is confirmed "background" only when we created it with the link already known.
         // Late-backfill cases start as false until /api/task-link succeeds.
         backgroundLinkConfirmed: backgroundLink !== undefined,
-        messageCount: 0,
-        seenMessageIds: new Set(),
-        seenCompletionMessageIds: new Set(),
-        seenToolCallIds: new Set(),
-        todoStateById: new Map(),
+        messageCount: suspendedState?.messageCount ?? 0,
+        seenMessageIds: new Set(suspendedState?.seenMessageIds ?? []),
+        seenCompletionMessageIds: new Set(suspendedState?.seenCompletionMessageIds ?? []),
+        seenToolCallIds: new Set(suspendedState?.seenToolCallIds ?? []),
+        todoStateById: new Map(suspendedState?.todoStateById ?? []),
         ...(backgroundLink?.parentTaskId ? { parentTaskId: backgroundLink.parentTaskId } : {}),
         ...(backgroundLink?.parentSessionId ? { parentSessionId: backgroundLink.parentSessionId } : {}),
         ...(backgroundLink?.backgroundTaskId ? { backgroundTaskId: backgroundLink.backgroundTaskId } : {}),
@@ -1416,6 +1417,8 @@ export function createMonitorHooks(workspacePath: string): Hooks {
     }
 
   return {
+    // `command.execute.before` is a typed OpenCode plugin hook. We keep it as an
+    // early exit path because `/exit` can terminate the active session quickly.
     "command.execute.before": async (input) => {
       const commandName = toNonEmptyString(input.command);
       if (!isExitCommandName(commandName)) return;
@@ -1437,6 +1440,8 @@ export function createMonitorHooks(workspacePath: string): Hooks {
       await finalizeForExitCommand(opencodeSessionId);
     },
 
+    // `chat.message` is a typed OpenCode plugin hook used for raw user-prompt capture.
+    // It is distinct from the documented event stream handled by `event`.
     "chat.message": async (input, output) => {
       const state = await ensureSessionState({ sessionId: input.sessionID });
       if (!state) return;
@@ -1588,6 +1593,8 @@ export function createMonitorHooks(workspacePath: string): Hooks {
         return;
       }
 
+      // This shutdown event is present in the current @opencode-ai/sdk Event union
+      // even though the public docs event list does not enumerate it.
       if (event.type === "server.instance.disposed") {
         debugExitLog("exit/dispose event detected", {
           eventType: event.type
@@ -1643,7 +1650,7 @@ export function createMonitorHooks(workspacePath: string): Hooks {
       }
     },
 
-    "tool.execute.before": async (input) => {
+    "tool.execute.before": async (input, output) => {
       const state = await ensureSessionState({ sessionId: input.sessionID });
       if (!state) return;
 
@@ -1652,7 +1659,7 @@ export function createMonitorHooks(workspacePath: string): Hooks {
       clearProvisionalBackgroundLinks(state.taskId, callId);
       for (const launchHint of extractBackgroundLaunchHints({
         toolName,
-        args: input.args,
+        args: output.args,
         state,
         callId
       })) {

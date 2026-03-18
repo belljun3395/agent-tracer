@@ -10,6 +10,7 @@ const execFileAsync = promisify(execFile);
 const repoRoot = path.resolve(import.meta.dirname, "../../..");
 const setupExternalScript = path.join(repoRoot, "scripts", "setup-external.mjs");
 const repoClaudeSettingsPath = path.join(repoRoot, ".claude", "settings.json");
+const repoOpenCodeTsconfigPath = path.join(repoRoot, ".opencode", "tsconfig.json");
 
 type HookEntry = {
   readonly matcher?: string;
@@ -131,5 +132,52 @@ describe("setup:external Claude integration", () => {
       expect(command.includes("OPENCODE")).toBe(false);
       expect(command.includes("git rev-parse")).toBe(false);
     }
+  });
+});
+
+describe("setup:external OpenCode integration", () => {
+  const tempDirs: string[] = [];
+
+  afterEach(async () => {
+    await Promise.all(tempDirs.map((dir) => rm(dir, { recursive: true, force: true })));
+  });
+
+  it("generates OpenCode plugin shim and local TypeScript config", async () => {
+    const targetDir = await mkdtemp(path.join(os.tmpdir(), "agent-tracer-opencode-setup-"));
+    tempDirs.push(targetDir);
+
+    await execFileAsync(process.execPath, [
+      setupExternalScript,
+      "--target",
+      targetDir,
+      "--mode",
+      "opencode"
+    ], {
+      cwd: repoRoot
+    });
+
+    const generatedOpencodeConfig = JSON.parse(
+      await readFile(path.join(targetDir, "opencode.json"), "utf8")
+    ) as { plugin?: unknown; mcp?: Record<string, unknown> };
+    const generatedTsconfig = JSON.parse(
+      await readFile(path.join(targetDir, ".opencode", "tsconfig.json"), "utf8")
+    );
+    const repoTsconfig = JSON.parse(
+      await readFile(repoOpenCodeTsconfigPath, "utf8")
+    );
+    const pluginShim = await readFile(
+      path.join(targetDir, ".opencode", "plugins", "monitor.ts"),
+      "utf8"
+    );
+
+    expect(generatedOpencodeConfig.plugin).toEqual(
+      expect.arrayContaining([".opencode/plugins/monitor.ts"])
+    );
+    expect(generatedOpencodeConfig.mcp?.monitor).toEqual(expect.objectContaining({
+      type: "local",
+      enabled: true
+    }));
+    expect(pluginShim).toContain("export { MonitorPlugin as default }");
+    expect(generatedTsconfig).toEqual(repoTsconfig);
   });
 });

@@ -13,6 +13,7 @@ The script:
 - writes or merges `target-project/opencode.json`
 - registers the `monitor` MCP entry in that config
 - creates `target-project/.opencode/plugins/monitor.ts`
+- creates `target-project/.opencode/tsconfig.json`
 - makes the target plugin file re-export this repository’s plugin
 
 The script does **not** copy the actual TypeScript plugin implementation into
@@ -45,6 +46,7 @@ After that, the target project should contain:
 
 - `opencode.json` with a `monitor` MCP entry
 - `.opencode/plugins/monitor.ts` shim pointing back to this repository
+- `.opencode/tsconfig.json` so IDEs type-check the plugin shim with modern TS settings
 
 In the common case, that is enough. Open the target project in OpenCode and the
 plugin path should activate automatically.
@@ -55,10 +57,9 @@ The plugin is the default automatic monitoring path for OpenCode.
 
 It observes:
 
-- `session.created`
-- `chat.message`
-- `tool.execute.after`
-- `session.deleted`
+- direct plugin hooks: `chat.message`, `command.execute.before`, `tool.execute.before`, `tool.execute.after`
+- documented event stream entries: `session.created`, `message.updated`, `session.idle`, `command.executed`, `tui.command.execute`, `session.deleted`
+- additional typed SDK event used for shutdown cleanup: `server.instance.disposed`
 
 **Session vs. task lifecycle:**
 
@@ -69,15 +70,20 @@ It observes:
 
 The plugin also:
 
-- records raw user prompt text from `chat.message`
+- records raw user prompt text from the typed `chat.message` hook
 - preserves wrapped OpenCode payloads such as Oh My OpenCode message shapes
 - can call semantic tools such as `monitor_question`, `monitor_todo`, `monitor_thought`, and `monitor_task_link` when extra observability is useful
+
+The OpenCode docs event table does not currently list every typed hook surface.
+`chat.message` and `command.execute.before` come from the plugin hook interface,
+and `server.instance.disposed` comes from the SDK event union.
 
 ## 5. Repo-local Setup In This Repository
 
 This repository already includes:
 
 - `.opencode/plugins/monitor.ts`
+- `.opencode/tsconfig.json`
 - `opencode.json`
 
 So when you open **this repository itself** in OpenCode, the repo-local path is
