@@ -90,9 +90,9 @@ export interface MonitoringSession {
   readonly endedAt?: string;
 }
 
-/** 이벤트 분류에서 특정 규칙이 매치된 이유. prefix 매치 또는 keyword 매치. */
+/** 이벤트 분류에서 특정 규칙이 매치된 이유. keyword 또는 action 기반 매치. */
 export interface EventClassificationReason {
-  readonly kind: "keyword" | "prefix" | "action-prefix" | "action-keyword";
+  readonly kind: "keyword" | "action-prefix" | "action-keyword";
   readonly value: string;
 }
 

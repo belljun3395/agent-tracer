@@ -26,7 +26,7 @@ export interface MonitoringTask {
 }
 
 export interface EventClassificationReason {
-  readonly kind: "keyword" | "prefix" | "action-prefix" | "action-keyword";
+  readonly kind: "keyword" | "action-prefix" | "action-keyword";
   readonly value: string;
 }
 
@@ -144,11 +144,8 @@ export interface RulesIndex {
     readonly title: string;
     readonly description?: string;
     readonly lane?: TimelineLane;
-    readonly prefixes: readonly string[];
     readonly keywords: readonly string[];
     readonly tags: readonly string[];
-    readonly file?: string;
-    readonly markdown?: string;
   }[];
 }
 

@@ -42,7 +42,6 @@ describe("buildRuleCoverage", () => {
           id: "backend",
           title: "Backend Rule",
           lane: "implementation",
-          prefixes: [],
           keywords: [],
           tags: ["backend"]
         }
@@ -563,7 +562,6 @@ describe("buildRuleCoverage - 엣지케이스", () => {
           id: "empty-rule",
           title: "Empty Rule",
           lane: "rules",
-          prefixes: [],
           keywords: [],
           tags: []
         }

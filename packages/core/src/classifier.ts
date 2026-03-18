@@ -9,7 +9,6 @@ import { classifyActionName } from "./action-registry.js";
 import { defaultLaneForEventKind } from "./domain.js";
 import {
   collectRuleKeywords,
-  collectRulePrefixes,
   lanePriority,
   type RulesIndex
 } from "./rules.js";
@@ -28,7 +27,7 @@ export interface ClassifyEventInput {
 
 /**
  * 이벤트를 분류하여 레인, 태그, 매치 목록을 포함한 EventClassification을 반환.
- * 규칙의 prefix 매치는 +5점, keyword 매치는 +2점으로 점수 계산.
+ * 규칙의 keyword 매치는 +2점으로 점수 계산.
  * 명시적 lane이 있으면 규칙 매치보다 우선하여 사용됨.
  */
 export function classifyEvent(
@@ -47,11 +46,10 @@ export function classifyEvent(
     .join("\n")
     .toLowerCase();
 
-  const normalizedPaths = (input.filePaths ?? []).map((value) => value.toLowerCase());
   const actionMatch = classifyActionName(input.actionName);
 
   const matches = rulesIndex.rules
-    .map((rule) => classifyRule(rule, searchText, normalizedPaths))
+    .map((rule) => classifyRule(rule, searchText))
     .filter((match): match is EventClassificationMatch => match !== null)
     .concat(actionMatch ? [actionMatch] : [])
     .sort((left, right) => {
@@ -81,22 +79,10 @@ function getCanonicalLane(kind: MonitoringEventKind): TimelineLane | undefined {
 
 function classifyRule(
   rule: RulesIndex["rules"][number],
-  searchText: string,
-  normalizedPaths: readonly string[]
+  searchText: string
 ): EventClassificationMatch | null {
   const reasons: EventClassificationReason[] = [];
   let score = 0;
-
-  for (const prefix of collectRulePrefixes(rule)) {
-    // Support both relative ("packages/web/src/foo") and absolute paths ("/home/.../packages/web/src/foo")
-    if (normalizedPaths.some((value) => value.startsWith(prefix) || value.includes("/" + prefix))) {
-      reasons.push({
-        kind: "prefix",
-        value: prefix
-      });
-      score += 5;
-    }
-  }
 
   for (const keyword of collectRuleKeywords(rule)) {
     if (searchText.includes(keyword)) {

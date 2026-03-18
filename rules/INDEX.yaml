@@ -4,9 +4,6 @@ rules:
     title: Code Exploration
     description: Reading files, searching code, checking dependencies.
     lane: exploration
-    prefixes:
-      - docs/
-      - README
     keywords:
       - read
       - search
@@ -44,8 +41,6 @@ rules:
     title: Dashboard UI
     description: Timeline rendering, components, and browser-facing work.
     lane: implementation
-    prefixes:
-      - packages/web/
     keywords:
       - react
       - vite
@@ -60,15 +55,11 @@ rules:
     tags:
       - frontend
       - implementation
-    file: frontend.md
 
   - id: backend
     title: Backend and API
     description: Server routes, data stores, and ingest pipelines.
     lane: implementation
-    prefixes:
-      - packages/server/
-      - packages/core/
     keywords:
       - express
       - sqlite
@@ -80,15 +71,11 @@ rules:
     tags:
       - backend
       - implementation
-    file: backend.md
 
   - id: hooks
     title: Claude Hooks
     description: Hook scripts and automation configuration.
     lane: implementation
-    prefixes:
-      - .claude/hooks/
-      - .claude/
     keywords:
       - hook
       - settings.json

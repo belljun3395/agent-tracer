@@ -26,7 +26,7 @@ describe("createTaskSlug", () => {
 });
 
 describe("loadRulesIndex", () => {
-  it("loads yaml index entries and markdown references", () => {
+  it("loads yaml index entries without markdown sidecars", () => {
     const rulesDir = fs.mkdtempSync(path.join(os.tmpdir(), "baden-rules-"));
 
     fs.writeFileSync(
@@ -37,19 +37,17 @@ describe("loadRulesIndex", () => {
         "  - id: docs",
         "    title: Documentation",
         "    lane: file",
-        "    prefixes: [\"docs/\"]",
         "    keywords: [\"readme\"]",
-        "    tags: [\"docs\"]",
-        "    file: docs.md"
+        "    tags: [\"docs\"]"
       ].join("\n")
     );
-    fs.writeFileSync(path.join(rulesDir, "docs.md"), "# Docs rule\n");
 
     const index = loadRulesIndex(rulesDir);
 
     expect(index.rules).toHaveLength(1);
     expect(index.rules[0]?.lane).toBe("exploration");
-    expect(index.rules[0]?.markdown).toContain("Docs rule");
+    expect(index.rules[0]).not.toHaveProperty("markdown");
+    expect(index.rules[0]).not.toHaveProperty("file");
   });
 });
 
@@ -62,7 +60,6 @@ describe("classifyEvent", () => {
           id: "docs",
           title: "Documentation",
           lane: "exploration",
-          prefixes: ["docs/"],
           keywords: ["readme"],
           tags: ["docs"]
         }
@@ -72,8 +69,7 @@ describe("classifyEvent", () => {
     const classification = classifyEvent(
       {
         kind: "tool.used",
-        title: "Updated README references",
-        filePaths: ["docs/tasks/003-backend-core.md"]
+        title: "Updated README references"
       },
       index
     );
@@ -161,7 +157,6 @@ describe("classifyEvent - 추가 케이스", () => {
             id: "opencode-async",
             title: "OpenCode Async Lifecycle",
             lane: "implementation",
-            prefixes: [],
             keywords: ["opencode", "async", "background"],
             tags: ["opencode", "async"]
           }
@@ -186,7 +181,6 @@ describe("classifyEvent - 추가 케이스", () => {
             id: "opencode-async",
             title: "OpenCode Async Lifecycle",
             lane: "implementation",
-            prefixes: [],
             keywords: ["opencode", "background"],
             tags: ["opencode", "async"]
           }

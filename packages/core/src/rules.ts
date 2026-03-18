@@ -25,10 +25,8 @@ const ruleDefinitionSchema = z.object({
   title: z.string().min(1),
   description: z.string().optional(),
   lane: ruleLaneSchema.optional(),
-  prefixes: z.array(z.string().min(1)).default([]),
   keywords: z.array(z.string().min(1)).default([]),
-  tags: z.array(z.string().min(1)).default([]),
-  file: z.string().min(1).optional()
+  tags: z.array(z.string().min(1)).default([])
 });
 
 const rulesIndexSchema = z.object({
@@ -39,14 +37,11 @@ const rulesIndexSchema = z.object({
 /** INDEX.yaml에서 파싱된 단일 규칙 정의 (zod 스키마 기반). */
 export type RuleDefinition = z.infer<typeof ruleDefinitionSchema>;
 
-/** 파일 시스템에서 로드된 규칙. lane이 정규화되고 markdown 내용이 포함될 수 있음. */
-export interface LoadedRule extends Omit<RuleDefinition, "lane" | "prefixes" | "keywords" | "tags"> {
+/** 파일 시스템에서 로드된 규칙. lane이 정규화된다. */
+export interface LoadedRule extends Omit<RuleDefinition, "lane" | "keywords" | "tags"> {
   readonly lane?: TimelineLane | undefined;
-  readonly prefixes: readonly string[];
   readonly keywords: readonly string[];
   readonly tags: readonly string[];
-  readonly markdown?: string | undefined;
-  readonly absolutePath?: string | undefined;
 }
 
 /** 로드된 규칙 인덱스. 모든 규칙과 로드 경로 포함. */
@@ -75,42 +70,18 @@ export function loadRulesIndex(rulesDir: string): RulesIndex {
   return {
     version: parsed.version,
     loadedFrom: indexPath,
-    rules: parsed.rules.map((rule) => loadRuleMarkdown(rulesDir, rule))
+    rules: parsed.rules.map((rule) => normalizeLoadedRule(rule))
   };
 }
 
-function loadRuleMarkdown(rulesDir: string, rule: RuleDefinition): LoadedRule {
+function normalizeLoadedRule(rule: RuleDefinition): LoadedRule {
   const { lane, ...rest } = rule;
-  const normalizedRule: LoadedRule = lane
+  return lane
     ? {
         ...rest,
         lane: normalizeLane(lane)
       }
     : rest;
-
-  if (!rule.file) {
-    return normalizedRule;
-  }
-
-  const absolutePath = path.resolve(rulesDir, rule.file);
-
-  if (!fs.existsSync(absolutePath)) {
-    return {
-      ...normalizedRule,
-      absolutePath
-    };
-  }
-
-  return {
-    ...normalizedRule,
-    absolutePath,
-    markdown: fs.readFileSync(absolutePath, "utf8")
-  };
-}
-
-/** 규칙의 prefixes를 소문자로 정규화하여 반환. */
-export function collectRulePrefixes(rule: LoadedRule): readonly string[] {
-  return rule.prefixes.map((value) => value.toLowerCase());
 }
 
 /** 규칙의 keywords를 소문자로 정규화하여 반환. */
