@@ -2,7 +2,7 @@
   "hooks": {
     "SessionStart": [
       {
-        "matcher": "clear",
+        "matcher": "startup|resume|clear",
         "hooks": [
           {
             "type": "command",
@@ -89,6 +89,7 @@
     ],
     "PostToolUseFailure": [
       {
+        "matcher": "Bash|Edit|Write|Agent|Skill|TaskCreate|TaskUpdate|TodoWrite|mcp__.*",
         "hooks": [
           {
             "type": "command",

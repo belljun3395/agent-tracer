@@ -19,6 +19,11 @@ async function main(): Promise<void> {
   if (!sessionId) return;
 
   const reason = toTrimmedString(payload.reason) || "other";
+
+  // /clear fires SessionEnd(reason=clear) then SessionStart(source=clear).
+  // session_start.ts records the "Conversation cleared" event — skip here to avoid double-fire.
+  if (reason === "clear") return;
+
   await postJson("/api/runtime-session-end", {
     runtimeSource: CLAUDE_RUNTIME_SOURCE,
     runtimeSessionId: sessionId,

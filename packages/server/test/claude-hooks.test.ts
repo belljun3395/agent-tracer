@@ -12,6 +12,7 @@ interface RequestCall {
 
 const tsxCli = fileURLToPath(new URL("../../../node_modules/tsx/dist/cli.mjs", import.meta.url));
 const userPromptHook = fileURLToPath(new URL("../../../.claude/hooks/user_prompt.ts", import.meta.url));
+const sessionStartHook = fileURLToPath(new URL("../../../.claude/hooks/session_start.ts", import.meta.url));
 const sessionEndHook = fileURLToPath(new URL("../../../.claude/hooks/session_end.ts", import.meta.url));
 const agentActivityHook = fileURLToPath(new URL("../../../.claude/hooks/agent_activity.ts", import.meta.url));
 const compactHook = fileURLToPath(new URL("../../../.claude/hooks/compact.ts", import.meta.url));
@@ -118,6 +119,84 @@ describe("Claude hooks", () => {
     await runClaudeHook(userPromptHook, {
       prompt: "/exit",
       session_id: "parent-session"
+    }, monitor.port);
+
+    expect(monitor.calls).toEqual([]);
+  });
+
+  it("SessionStart startup records a session-started planning event", async () => {
+    const monitor = await startMonitorStub();
+    servers.push(monitor);
+
+    await runClaudeHook(sessionStartHook, {
+      session_id: "parent-session",
+      source: "startup"
+    }, monitor.port);
+
+    expect(monitor.calls).toEqual([
+      {
+        endpoint: "/api/runtime-session-ensure",
+        body: {
+          runtimeSource: "claude-hook",
+          runtimeSessionId: "parent-session",
+          title: "Claude Code — repo",
+          workspacePath: "/repo"
+        }
+      },
+      {
+        endpoint: "/api/save-context",
+        body: {
+          taskId: "parent-task",
+          sessionId: "parent-monitor-session",
+          title: "Session started",
+          body: "Claude Code session started.",
+          lane: "planning",
+          metadata: { trigger: "startup" }
+        }
+      }
+    ]);
+  });
+
+  it("SessionStart resume records a session-resumed planning event", async () => {
+    const monitor = await startMonitorStub();
+    servers.push(monitor);
+
+    await runClaudeHook(sessionStartHook, {
+      session_id: "parent-session",
+      source: "resume"
+    }, monitor.port);
+
+    expect(monitor.calls).toEqual([
+      {
+        endpoint: "/api/runtime-session-ensure",
+        body: {
+          runtimeSource: "claude-hook",
+          runtimeSessionId: "parent-session",
+          title: "Claude Code — repo",
+          workspacePath: "/repo"
+        }
+      },
+      {
+        endpoint: "/api/save-context",
+        body: {
+          taskId: "parent-task",
+          sessionId: "parent-monitor-session",
+          title: "Session resumed",
+          body: "Claude Code session resumed.",
+          lane: "planning",
+          metadata: { trigger: "resume" }
+        }
+      }
+    ]);
+  });
+
+  it("SessionEnd with reason clear emits no events (handled by SessionStart clear)", async () => {
+    const monitor = await startMonitorStub();
+    servers.push(monitor);
+
+    await runClaudeHook(sessionEndHook, {
+      session_id: "parent-session",
+      reason: "clear"
     }, monitor.port);
 
     expect(monitor.calls).toEqual([]);

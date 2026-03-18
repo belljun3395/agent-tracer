@@ -42,7 +42,7 @@ export async function postJson<T = JsonObject>(pathname: string, body: JsonObjec
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
-    signal: AbortSignal.timeout(2_000)
+    signal: AbortSignal.timeout(1_000)
   });
   if (!response.ok) {
     throw new Error(`Monitor request failed: ${pathname} (${response.status})`);

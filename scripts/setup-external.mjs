@@ -75,7 +75,7 @@ function hookCommand(tracerRoot, scriptPath) {
 }
 
 const CLAUDE_HOOK_SPECS = [
-  { event: "SessionStart", script: "session_start.ts", matcher: "clear" },
+  { event: "SessionStart", script: "session_start.ts", matcher: "startup|resume|clear" },
   { event: "UserPromptSubmit", script: "user_prompt.ts" },
   { event: "PreToolUse", script: "ensure_task.ts" },
   { event: "PostToolUse", script: "terminal.ts", matcher: "Bash" },
@@ -84,7 +84,7 @@ const CLAUDE_HOOK_SPECS = [
   { event: "PostToolUse", script: "agent_activity.ts", matcher: "Agent|Skill" },
   { event: "PostToolUse", script: "todo.ts", matcher: "TaskCreate|TaskUpdate|TodoWrite" },
   { event: "PostToolUse", script: "tool_used.ts", matcher: "mcp__.*" },
-  { event: "PostToolUseFailure", script: "tool_used.ts" },
+  { event: "PostToolUseFailure", script: "tool_used.ts", matcher: "Bash|Edit|Write|Agent|Skill|TaskCreate|TaskUpdate|TodoWrite|mcp__.*" },
   { event: "SubagentStart", script: "subagent_lifecycle.ts" },
   { event: "SubagentStop", script: "subagent_lifecycle.ts" },
   { event: "PreCompact", script: "compact.ts" },
