@@ -59,10 +59,10 @@ rules:
       - claude-hook
       - userpromptsubmit
       - .claude/hooks/
-      - user_prompt.py
-      - ensure_task.py
-      - session_stop.py
-      - agent_activity.py
+      - user_prompt.ts
+      - ensure_task.ts
+      - session_end.ts
+      - agent_activity.ts
       - .claude/settings.json
     tags:
       - claude

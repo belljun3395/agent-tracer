@@ -56,7 +56,8 @@ function ensureHookEntry(list, command, matcher) {
   const entries = Array.isArray(list) ? [...list] : [];
   const duplicate = entries.some((entry) => {
     const hooks = Array.isArray(entry?.hooks) ? entry.hooks : [];
-    return hooks.some((hook) => hook?.type === "command" && hook?.command === command);
+    return (entry?.matcher ?? "") === (matcher ?? "")
+      && hooks.some((hook) => hook?.type === "command" && hook?.command === command);
   });
   if (duplicate) return entries;
 
@@ -68,10 +69,28 @@ function ensureHookEntry(list, command, matcher) {
   return entries;
 }
 
-function hookCommand(scriptPath) {
-  const quoted = scriptPath.replace(/"/g, '\\"');
-  return `[ -n "${"$"}OPENCODE" ] || [ -n "${"$"}OPENCODE_CLIENT" ] || python3 "${quoted}"`;
+function hookCommand(tracerRoot, scriptPath) {
+  const tsxPath = path.join(tracerRoot, "node_modules", "tsx", "dist", "cli.mjs");
+  return `node ${JSON.stringify(tsxPath)} ${JSON.stringify(scriptPath)}`;
 }
+
+const CLAUDE_HOOK_SPECS = [
+  { event: "SessionStart", script: "session_start.ts", matcher: "clear" },
+  { event: "UserPromptSubmit", script: "user_prompt.ts" },
+  { event: "PreToolUse", script: "ensure_task.ts" },
+  { event: "PostToolUse", script: "terminal.ts", matcher: "Bash" },
+  { event: "PostToolUse", script: "tool_used.ts", matcher: "Edit|Write" },
+  { event: "PostToolUse", script: "explore.ts", matcher: "Read|Glob|Grep|WebSearch|WebFetch" },
+  { event: "PostToolUse", script: "agent_activity.ts", matcher: "Agent|Skill" },
+  { event: "PostToolUse", script: "todo.ts", matcher: "TaskCreate|TaskUpdate|TodoWrite" },
+  { event: "PostToolUse", script: "tool_used.ts", matcher: "mcp__.*" },
+  { event: "PostToolUseFailure", script: "tool_used.ts" },
+  { event: "SubagentStart", script: "subagent_lifecycle.ts" },
+  { event: "SubagentStop", script: "subagent_lifecycle.ts" },
+  { event: "PreCompact", script: "compact.ts" },
+  { event: "PostCompact", script: "compact.ts" },
+  { event: "SessionEnd", script: "session_end.ts" }
+];
 
 async function setupOpenCode({ targetDir, tracerRoot, monitorBaseUrl }) {
   const opencodePath = path.join(targetDir, "opencode.json");
@@ -121,38 +140,17 @@ async function setupClaude({ targetDir, tracerRoot }) {
 
   const settings = await readJson(settingsPath, {});
   const hooks = settings.hooks && typeof settings.hooks === "object" ? { ...settings.hooks } : {};
+  const hookRoot = path.join(tracerRoot, ".claude", "hooks");
+  const command = (scriptName) => hookCommand(tracerRoot, path.join(hookRoot, scriptName));
 
-  hooks.SessionStart = ensureHookEntry(
-    hooks.SessionStart,
-    hookCommand(path.join(tracerRoot, ".claude", "hooks", "session_start.py"))
-  );
-  hooks.UserPromptSubmit = ensureHookEntry(
-    hooks.UserPromptSubmit,
-    hookCommand(path.join(tracerRoot, ".claude", "hooks", "user_prompt.py"))
-  );
-  hooks.PreToolUse = ensureHookEntry(
-    hooks.PreToolUse,
-    hookCommand(path.join(tracerRoot, ".claude", "hooks", "ensure_task.py"))
-  );
-  hooks.PostToolUse = ensureHookEntry(
-    hooks.PostToolUse,
-    hookCommand(path.join(tracerRoot, ".claude", "hooks", "terminal.py")),
-    "Bash"
-  );
-  hooks.PostToolUse = ensureHookEntry(
-    hooks.PostToolUse,
-    hookCommand(path.join(tracerRoot, ".claude", "hooks", "tool_used.py")),
-    "Edit|Write"
-  );
-  hooks.PostToolUse = ensureHookEntry(
-    hooks.PostToolUse,
-    hookCommand(path.join(tracerRoot, ".claude", "hooks", "explore.py")),
-    "Read|Glob|Grep|LS|WebSearch|WebFetch"
-  );
-  hooks.Stop = ensureHookEntry(
-    hooks.Stop,
-    hookCommand(path.join(tracerRoot, ".claude", "hooks", "session_stop.py"))
-  );
+  delete hooks.Stop;
+  for (const spec of CLAUDE_HOOK_SPECS) {
+    hooks[spec.event] = ensureHookEntry(
+      hooks[spec.event],
+      command(spec.script),
+      spec.matcher
+    );
+  }
 
   await writeJson(settingsPath, {
     ...settings,

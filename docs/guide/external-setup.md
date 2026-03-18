@@ -78,15 +78,14 @@ npm run setup:external -- \
 
 - `--mode claude`
   - 외부 프로젝트의 `.claude/settings.json`을 생성하거나 병합합니다.
-  - hook command는 이 저장소의 `.claude/hooks/*.py`를 **절대 경로**로 참조합니다.
+  - hook command는 이 저장소의 `.claude/hooks/*.ts`를 **절대 경로**로 참조합니다.
+  - hook 실행은 이 저장소의 `node_modules/tsx/dist/cli.mjs`를 사용합니다.
 - `--mode opencode`
   - 외부 프로젝트의 `opencode.json`에 `monitor` MCP 설정을 추가합니다.
   - 외부 프로젝트의 `.opencode/plugins/monitor.ts` shim을 생성합니다.
   - shim은 이 저장소의 `.opencode/plugins/monitor.ts`를 re-export 합니다.
 - `--mode both`
   - 위 두 작업을 모두 수행합니다.
-  - Claude hook command에는 OpenCode 환경 가드가 포함되어, 같은 프로젝트에서
-    Claude와 OpenCode를 함께 써도 중복 추적이 생기지 않도록 설계되어 있습니다.
 
 즉, 외부 프로젝트에 남는 것은 설정 파일과 shim뿐이고,
 실제 구현은 Agent Tracer 저장소가 계속 소유합니다.

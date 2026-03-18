@@ -11,13 +11,14 @@ Claude-specific steps after the shared setup flow.
 The script:
 
 - creates or merges `target-project/.claude/settings.json`
-- points the hook commands back to `agent-tracer/.claude/hooks/*.py` by absolute path
+- points the hook commands back to `agent-tracer/.claude/hooks/*.ts` by absolute path
+- uses the Agent Tracer repository's bundled `tsx` runtime to execute the hook files
 - keeps the hook implementation in this repository
 
 The script does **not**:
 
 - register the Claude MCP server for you
-- copy the Python hook implementation into the target project
+- copy the TypeScript hook implementation into the target project
 
 ## 2. Verify The Monitor Server
 
@@ -65,30 +66,37 @@ Expected result: `monitor` is listed and connected.
 
 Configured hook files in this repository:
 
-- `.claude/hooks/session_start.py`
-- `.claude/hooks/user_prompt.py`
-- `.claude/hooks/ensure_task.py`
-- `.claude/hooks/terminal.py`
-- `.claude/hooks/tool_used.py`
-- `.claude/hooks/explore.py`
-- `.claude/hooks/agent_activity.py`
-- `.claude/hooks/session_stop.py`
+- `.claude/hooks/session_start.ts`
+- `.claude/hooks/user_prompt.ts`
+- `.claude/hooks/ensure_task.ts`
+- `.claude/hooks/terminal.ts`
+- `.claude/hooks/tool_used.ts`
+- `.claude/hooks/explore.ts`
+- `.claude/hooks/agent_activity.ts`
+- `.claude/hooks/todo.ts`
+- `.claude/hooks/compact.ts`
+- `.claude/hooks/subagent_lifecycle.ts`
+- `.claude/hooks/session_end.ts`
 
 Behavior:
 
 - create or resume a runtime session through `/api/runtime-session-ensure`
 - capture raw user prompt text via `UserPromptSubmit`
-- capture Bash, edit, write, and exploration activity
-- capture Agent and Skill activity
-- end only the current session on stop, not the entire work item
+- capture successful and failed tool activity, including MCP tool names
+- capture Agent and Skill activity plus subagent start/stop lifecycle
+- capture compaction markers and compact summaries
+- end only the current session on `SessionEnd`, not the entire work item
 
 **Session vs. task lifecycle:**
 
 | Event | Hook | Effect |
 |-------|------|--------|
-| Session start / first prompt | `session_start.py`, `user_prompt.py` | Ensure runtime task + record raw user prompt |
-| First tool use | `ensure_task.py` | Reuses the ensured runtime session |
-| Session stop | `session_stop.py` | Ends only the current session |
+| Session cleared / first prompt | `session_start.ts`, `user_prompt.ts` | Record clear markers + ensure runtime task + record raw user prompt |
+| First tool use | `ensure_task.ts` | Reuses the ensured runtime session |
+| Tool success / failure | `terminal.ts`, `tool_used.ts`, `explore.ts`, `agent_activity.ts`, `todo.ts` | Capture command, edit, explore, MCP, subagent launch, and task-list activity |
+| Subagent lifecycle | `subagent_lifecycle.ts` | Record subagent running/completed async lifecycle events |
+| Pre/Post compact | `compact.ts` | Record compaction checkpoint and compact summary |
+| Session end | `session_end.ts` | Ends only the current runtime session |
 | Work item complete | `monitor_task_complete` MCP tool | Marks the task `completed` |
 
 ## 5. Repo-local Setup In This Repository
