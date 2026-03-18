@@ -54,10 +54,10 @@ const PANEL_TABS = [
   { id: "files",     label: "Files" },
 ] as const;
 
-const cardShell = "gap-0 overflow-hidden rounded-[14px] border border-[var(--border)] bg-[var(--surface)] shadow-[0_1px_3px_rgba(0,0,0,0.04)]";
-const cardHeader = "flex items-center justify-between gap-3 border-b border-[var(--border)] bg-[var(--surface-2)] px-4 py-3 text-[0.72rem] font-semibold uppercase tracking-[0.1em] text-[var(--text-3)]";
+const cardShell = "gap-0 overflow-hidden rounded-[16px] border border-[var(--border)] bg-[var(--surface)] shadow-[0_1px_2px_rgba(0,0,0,0.04),0_8px_24px_rgba(0,0,0,0.03)]";
+const cardHeader = "flex items-center justify-between gap-3 border-b border-[var(--border)] bg-[var(--surface-2)] px-4 py-3.5 text-[0.72rem] font-semibold uppercase tracking-[0.1em] text-[var(--text-3)]";
 const cardBody = "px-4 py-4";
-const innerPanel = "rounded-[12px] border border-[var(--border)] bg-[var(--surface-2)]";
+const innerPanel = "rounded-[12px] border border-[var(--border)] bg-[var(--bg)]";
 const monoText = "font-mono text-[0.8rem] leading-6";
 
 function SectionCard({
@@ -107,6 +107,31 @@ function SectionTitle({
   );
 }
 
+function InspectorHeaderCard({
+  eyebrow,
+  title,
+  description,
+  actions
+}: {
+  readonly eyebrow: string;
+  readonly title: string;
+  readonly description: React.ReactNode;
+  readonly actions: React.ReactNode;
+}): React.JSX.Element {
+  return (
+    <PanelCard className={cn(cardShell, "bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(250,252,255,0.96))]")}>
+      <div className="flex flex-col gap-4 px-5 py-5">
+        <div className="min-w-0">
+          <p className="mb-1 text-[0.68rem] font-bold uppercase tracking-[0.1em] text-[var(--text-3)]">{eyebrow}</p>
+          <h2 className="text-[1.02rem] font-semibold leading-6 text-[var(--text-1)]">{title}</h2>
+          <p className="mt-1 text-[0.82rem] leading-6 text-[var(--text-2)]">{description}</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">{actions}</div>
+      </div>
+    </PanelCard>
+  );
+}
+
 function KeyValueTable({
   rows
 }: {
@@ -146,6 +171,7 @@ interface EventInspectorProps {
   readonly showRuleGapsOnly: boolean;
   readonly taskModelSummary?: ModelSummary | undefined;
   readonly isCollapsed?: boolean;
+  readonly className?: string;
   readonly onToggleCollapse?: () => void;
   readonly onCreateTaskBookmark: () => void;
   readonly onCreateEventBookmark: () => void;
@@ -167,7 +193,7 @@ function DetailSection({
     <SectionCard title={label}>
       <pre
         className={cn(
-          "m-0 max-h-[clamp(220px,28vh,300px)] overflow-auto whitespace-pre-wrap break-words rounded-[10px] border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3 text-[0.88rem] leading-7 text-[var(--text-2)]",
+          "m-0 max-h-[clamp(220px,28vh,300px)] overflow-auto whitespace-pre-wrap break-words rounded-[10px] border border-[var(--border)] bg-[var(--bg)] px-4 py-4 text-[0.88rem] leading-7 text-[var(--text-2)]",
           mono ? monoText : "",
           mono && "text-[0.8rem] leading-6",
           resizable && "min-h-44 resize-y",
@@ -187,7 +213,7 @@ function DetailIds({ event }: { readonly event: TimelineEvent }): React.JSX.Elem
   return (
     <SectionCard
       title="IDs"
-      bodyClassName="pt-3"
+      bodyClassName="pt-4"
     >
       <KeyValueTable
         rows={[
@@ -212,7 +238,7 @@ function DetailConnectorIds({
   return (
     <SectionCard
       title="IDs"
-      bodyClassName="pt-3"
+      bodyClassName="pt-4"
     >
       <KeyValueTable
         rows={[
@@ -236,7 +262,7 @@ function DetailTags({
   readonly onSelect?: (value: string) => void;
 }): React.JSX.Element {
   return (
-    <SectionCard title={title} bodyClassName="pt-3">
+    <SectionCard title={title} bodyClassName="pt-4">
       <div className="flex flex-wrap gap-2">
         {values.length === 0
           ? <span className="text-[0.8rem] text-[var(--text-3)]">No tags</span>
@@ -278,7 +304,7 @@ function DetailMatchList({
   readonly onSelectRule?: (ruleId: string) => void;
 }): React.JSX.Element {
   return (
-    <SectionCard title="Classification Matches" bodyClassName="pt-3">
+    <SectionCard title="Classification Matches" bodyClassName="pt-4">
       {event.classification.matches.length === 0 ? (
         <p className="m-0 text-[0.8rem] text-[var(--text-3)]">No classifier matched this event.</p>
       ) : (
@@ -337,7 +363,7 @@ function DetailConnectorEvents({
   readonly target: TimelineEvent;
 }): React.JSX.Element {
   return (
-    <SectionCard title="Connected Events" bodyClassName="pt-3">
+    <SectionCard title="Connected Events" bodyClassName="pt-4">
       <div className="flex flex-col gap-3">
         {[source, target].map((event, index) => (
           <div key={event.id} className="rounded-[12px] border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3">
@@ -359,7 +385,7 @@ function DetailRelatedEvents({
   readonly events: readonly TimelineEvent[];
 }): React.JSX.Element {
   return (
-    <SectionCard title="Related Events" bodyClassName="pt-3">
+    <SectionCard title="Related Events" bodyClassName="pt-4">
       {events.length === 0 ? (
         <p className="m-0 text-[0.8rem] text-[var(--text-3)]">No related events linked from metadata.</p>
       ) : (
@@ -385,7 +411,7 @@ const TODO_STATE_LABELS: Readonly<Record<string, string>> = { added: "Added", in
 /** DetailQuestionFlow: question.logged 이벤트를 questionId 기준으로 그룹화해 모든 단계를 표시. */
 function DetailQuestionFlow({ group }: { readonly group: QuestionGroup }): React.JSX.Element {
   return (
-    <SectionCard title="Question Flow" bodyClassName="pt-3">
+    <SectionCard title="Question Flow" bodyClassName="pt-4">
       <div className="flex flex-col gap-2">
         {group.phases.map(({ phase, event }) => (
           <div key={event.id} className="flex flex-col gap-2 rounded-[12px] border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
@@ -407,7 +433,7 @@ function DetailQuestionFlow({ group }: { readonly group: QuestionGroup }): React
 /** DetailTodoFlow: todo.logged 이벤트를 todoId 기준으로 그룹화해 상태 전이 목록을 표시. */
 function DetailTodoFlow({ group }: { readonly group: TodoGroup }): React.JSX.Element {
   return (
-    <SectionCard title="Todo Lifecycle" bodyClassName="pt-3">
+    <SectionCard title="Todo Lifecycle" bodyClassName="pt-4">
       <div className="flex flex-col gap-2">
         {group.transitions.map(({ state, event }) => (
           <div key={event.id} className="flex flex-col gap-2 rounded-[12px] border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
@@ -438,7 +464,7 @@ function DetailModelInfo({
   readonly modelProvider?: string | undefined;
 }): React.JSX.Element {
   return (
-    <SectionCard title="Model" bodyClassName="pt-3">
+    <SectionCard title="Model" bodyClassName="pt-4">
       <KeyValueTable
         rows={[
           { key: "Name", value: modelName },
@@ -457,7 +483,7 @@ function DetailCaptureInfo({ event }: { readonly event: TimelineEvent }): React.
   const phase       = event.metadata["phase"]       as string | undefined;
   if (!captureMode && !messageId && !source && !phase) return <></>;
   return (
-    <SectionCard title="Capture Info" bodyClassName="pt-3">
+    <SectionCard title="Capture Info" bodyClassName="pt-4">
       <KeyValueTable
         rows={[
           ...(captureMode ? [{ key: "Mode", value: captureMode }] : []),
@@ -475,7 +501,7 @@ function DetailTaskModel({ summary }: { readonly summary: ModelSummary }): React
   const entries = Object.entries(summary.modelCounts).sort((a, b) => b[1] - a[1]);
   if (entries.length === 0) return null;
   return (
-    <SectionCard title="AI Model" bodyClassName="pt-3">
+    <SectionCard title="AI Model" bodyClassName="pt-4">
       <div className="flex flex-col gap-2">
         {entries.map(([name, count]) => (
           <div key={name} className="grid grid-cols-[minmax(0,1fr)_auto] gap-3">
@@ -508,7 +534,7 @@ function DetailExploredFiles({
   return (
     <PanelCard className={cardShell}>
       <button
-        className="flex w-full items-center justify-between gap-3 border-b border-[var(--border)] bg-[var(--surface-2)] px-4 py-3 text-left"
+        className="flex w-full items-center justify-between gap-3 border-b border-[var(--border)] bg-[var(--surface-2)] px-4 py-3.5 text-left"
         onClick={onToggle}
         type="button"
       >
@@ -523,7 +549,7 @@ function DetailExploredFiles({
         <span className="text-[0.76rem] font-semibold text-[var(--accent)]">{expanded ? "Hide" : "Show"}</span>
       </button>
       {!expanded && files.length > 0 && (
-        <div className="px-4 py-3">
+        <div className="px-4 py-3.5">
           <div className="flex flex-wrap gap-2">
             {files.slice(0, 3).map((file) => (
               <Badge key={file.path} tone="neutral" size="xs" className="max-w-full break-words" title={file.path}>
@@ -1022,6 +1048,7 @@ export function EventInspector({
   showRuleGapsOnly,
   taskModelSummary,
   isCollapsed = false,
+  className,
   onToggleCollapse,
   onCreateTaskBookmark,
   onCreateEventBookmark,
@@ -1125,7 +1152,7 @@ export function EventInspector({
   ].filter((b) => b.value > 0) : [];
 
   return (
-    <aside className="detail-panel flex min-h-0 flex-col overflow-hidden rounded-[10px] border border-[var(--border)] bg-[var(--surface)] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_12px_rgba(0,0,0,0.03)]">
+    <aside className={cn("detail-panel flex min-h-0 flex-col overflow-hidden rounded-[12px] border border-[var(--border)] bg-[var(--surface)] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_12px_rgba(0,0,0,0.03)]", className)}>
       {/* ── Tab bar ── */}
       <div className="panel-tab-bar flex items-center gap-1 overflow-x-auto border-b border-[var(--border)] bg-[var(--surface)] px-3 py-2" aria-label="Inspector panels" role="tablist">
         <button
@@ -1168,34 +1195,46 @@ export function EventInspector({
 
         {activeTab === "inspector" ? (
           <>
-            <div className="flex flex-col gap-3 border-b border-[var(--border)] px-4 py-4">
-              <h2 className="min-w-0 text-[1rem] font-semibold leading-6 text-[var(--text-1)]">
-                {selectedConnector
-                  ? `${selectedConnector.source.title} → ${selectedConnector.target.title}`
-                  : selectedEventDisplayTitle ?? "Select an event"}
-              </h2>
-              <div className="flex flex-wrap items-center gap-2">
-                <Button className="h-auto rounded-full px-3 py-1.5 text-[0.72rem] font-semibold" onClick={onCreateTaskBookmark} size="sm" type="button" variant="ghost">
-                  {selectedTaskBookmark ? "Task Saved" : "Save Task"}
-                </Button>
-                {selectedEvent && (
-                  <Button className="h-auto rounded-full px-3 py-1.5 text-[0.72rem] font-semibold" onClick={onCreateEventBookmark} size="sm" type="button" variant="ghost">
-                    {selectedEventBookmark ? "Card Saved" : "Save Card"}
-                  </Button>
+            <div className="px-4 pt-4">
+              <InspectorHeaderCard
+                actions={(
+                  <>
+                    <Button className="h-auto rounded-full px-3 py-1.5 text-[0.72rem] font-semibold" onClick={onCreateTaskBookmark} size="sm" type="button" variant="ghost">
+                      {selectedTaskBookmark ? "Task Saved" : "Save Task"}
+                    </Button>
+                    {selectedEvent && (
+                      <Button className="h-auto rounded-full px-3 py-1.5 text-[0.72rem] font-semibold" onClick={onCreateEventBookmark} size="sm" type="button" variant="ghost">
+                        {selectedEventBookmark ? "Card Saved" : "Save Card"}
+                      </Button>
+                    )}
+                    {selectedConnector ? (
+                      <Badge tone="neutral" size="xs" className="uppercase tracking-[0.06em]">
+                        {selectedConnector.connector.isExplicit ? "relation" : "transition"} · {selectedConnector.connector.cross ? "cross-lane" : "same-lane"}
+                      </Badge>
+                    ) : selectedEvent ? (
+                      <Badge tone="neutral" size="xs" className="uppercase tracking-[0.06em]">{selectedEvent.kind} · {selectedEvent.lane}</Badge>
+                    ) : null}
+                    {eventTime && <Badge tone="accent" size="xs">{eventTime}</Badge>}
+                  </>
                 )}
-                {selectedConnector ? (
-                  <Badge tone="neutral" size="xs" className="uppercase tracking-[0.06em]">
-                    {selectedConnector.connector.isExplicit ? "relation" : "transition"} · {selectedConnector.connector.cross ? "cross-lane" : "same-lane"}
-                  </Badge>
-                ) : selectedEvent ? (
-                  <Badge tone="neutral" size="xs" className="uppercase tracking-[0.06em]">{selectedEvent.kind} · {selectedEvent.lane}</Badge>
-                ) : null}
-                {eventTime && <Badge tone="accent" size="xs">{eventTime}</Badge>}
-              </div>
+                description={
+                  selectedConnector
+                    ? `${selectedConnector.connector.isExplicit ? "Explicit relation" : "Fallback sequence"} linking ${selectedConnector.source.lane} to ${selectedConnector.target.lane}.`
+                    : selectedEvent
+                      ? `${selectedEvent.kind} in ${selectedEvent.lane}.`
+                      : "Choose an event or connector to inspect its full timeline context."
+                }
+                eyebrow="Inspector"
+                title={
+                  selectedConnector
+                    ? `${selectedConnector.source.title} → ${selectedConnector.target.title}`
+                    : selectedEventDisplayTitle ?? "Select an event"
+                }
+              />
             </div>
 
             {selectedConnector ? (
-              <div className="flex flex-col gap-4 px-4 py-4">
+              <div className="flex flex-col gap-5 px-4 py-5">
                 <DetailSection
                   label="Summary"
                   resizable
@@ -1240,7 +1279,7 @@ export function EventInspector({
                 />
               </div>
             ) : selectedEvent ? (
-              <div className="flex flex-col gap-4 px-4 py-4">
+              <div className="flex flex-col gap-5 px-4 py-5">
                 <DetailSection
                   label="Summary"
                   resizable
@@ -1341,7 +1380,7 @@ export function EventInspector({
           </>
 
         ) : activeTab === "rules" ? (
-          <div className="panel-tab-inner flex flex-col gap-4 p-4">
+          <div className="panel-tab-inner flex flex-col gap-5 p-4">
             <RuleCoverageCard
               rules={ruleCoverage}
               selectedRuleId={selectedRuleId}
@@ -1355,7 +1394,7 @@ export function EventInspector({
           </div>
 
         ) : activeTab === "tags" ? (
-          <div className="panel-tab-inner flex flex-col gap-4 p-4">
+          <div className="panel-tab-inner flex flex-col gap-5 p-4">
             <TagExplorerCard
               tags={tagInsights}
               selectedTag={selectedTag}
@@ -1364,7 +1403,7 @@ export function EventInspector({
           </div>
 
         ) : activeTab === "task" ? (
-          <div className="panel-tab-inner flex flex-col gap-4 p-4">
+          <div className="panel-tab-inner flex flex-col gap-5 p-4">
             <TaskExtractionCard
               extraction={taskExtraction}
               workspacePath={taskDetail?.task.workspacePath}
@@ -1375,7 +1414,7 @@ export function EventInspector({
           </div>
 
         ) : activeTab === "compact" ? (
-          <div className="panel-tab-inner flex flex-col gap-4 p-4">
+          <div className="panel-tab-inner flex flex-col gap-5 p-4">
             <CompactActivityCard
               insight={compactInsight}
               selectedTag={selectedTag}
@@ -1384,7 +1423,7 @@ export function EventInspector({
           </div>
 
         ) : (
-          <div className="panel-tab-inner flex flex-col gap-4 p-4">
+          <div className="panel-tab-inner flex flex-col gap-5 p-4">
             <DetailExploredFiles
               files={exploredFiles}
               workspacePath={taskDetail?.task.workspacePath}

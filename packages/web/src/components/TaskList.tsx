@@ -54,6 +54,18 @@ interface BuildTaskListRowsOptions {
   readonly collapsedParentIds?: ReadonlySet<string>;
 }
 
+const railSectionHeaderClass =
+  "sticky top-0 z-10 flex items-center justify-between border-b border-[var(--border)] bg-[linear-gradient(180deg,var(--surface-2),var(--surface))] px-[14px] py-2 text-[0.68rem] font-semibold uppercase tracking-[0.1em] text-[var(--text-3)]";
+
+const railRowBaseClass =
+  "group relative shrink-0 overflow-hidden rounded-[10px] border border-transparent px-3 py-2.5 transition-[background-color,border-color,box-shadow] hover:border-[var(--border)] hover:bg-[var(--surface-2)]";
+
+const railSelectedRowClass =
+  "border-[var(--exploration-border)] bg-[var(--exploration-bg)] shadow-[inset_0_0_0_1px_var(--exploration-border)] before:absolute before:inset-y-1.5 before:left-0 before:w-0.5 before:rounded-full before:bg-[var(--exploration)] before:content-['']";
+
+const railContentButtonClass =
+  "flex min-w-0 flex-col items-start justify-start rounded-none border-0 bg-transparent p-0 text-left font-normal shadow-none outline-none transition-colors";
+
 /**
  * 사이드바 태스크 목록 컴포넌트.
  * 태스크 선택 및 개별 삭제를 지원.
@@ -80,9 +92,6 @@ export function TaskList({
 }: TaskListProps): React.JSX.Element {
   const [collapsedParentIds, setCollapsedParentIds] = useState<ReadonlySet<string>>(new Set());
   const tasksDragScroll = useDragScroll({ axis: "y" });
-  const taskTitleById = new Map(
-    tasks.map((task) => [task.id, resolveTaskListItemTitle(task, taskDisplayTitleCache?.[task.id])])
-  );
   const childCountByParentId = useMemo(() => {
     const counts = new Map<string, number>();
     for (const task of tasks) {
@@ -136,7 +145,7 @@ export function TaskList({
       <Button
         aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
         className={cn(
-          "absolute right-2 top-2 h-7 w-7 rounded-lg border border-[var(--border)] bg-[var(--surface)] text-[0.78rem] text-[var(--text-2)] transition hover:border-[var(--accent)] hover:bg-[var(--accent-light)] hover:text-[var(--accent)]",
+          "absolute right-2 top-2 h-7 w-7 rounded-lg border border-[var(--border)] bg-[var(--surface-2)] text-[0.78rem] text-[var(--text-3)] transition-colors hover:border-[var(--border-2)] hover:bg-[var(--surface)] hover:text-[var(--text-2)]",
           isCollapsed && "static mx-auto mt-2"
         )}
         onClick={onToggleCollapse}
@@ -148,10 +157,10 @@ export function TaskList({
       </Button>
 
       <div className={cn("flex min-h-0 flex-1 flex-col overflow-hidden", isCollapsed && "hidden")}>
-        <div className="border-b border-[var(--border)] px-4 py-4 pr-11">
-          <p className="m-0 text-[0.67rem] font-semibold uppercase tracking-[0.12em] text-[var(--accent)]">Monitor</p>
-          <h1 className="mt-1 text-[1.05rem] font-bold tracking-[-0.02em] text-[var(--text-1)]">AI CLI Timeline</h1>
-          <p className="mt-1 text-[0.79rem] text-[var(--text-2)]">Live task observability for parallel agent work.</p>
+        <div className="border-b border-[var(--border)] bg-[linear-gradient(180deg,var(--surface-2),var(--surface))] px-4 py-[15px] pr-11">
+          <p className="m-0 text-[0.66rem] font-semibold uppercase tracking-[0.12em] text-[var(--accent)]">Monitor</p>
+          <h1 className="mt-1 text-[1rem] font-semibold tracking-[-0.02em] text-[var(--text-1)]">AI CLI Timeline</h1>
+          <p className="mt-1 text-[0.78rem] leading-5 text-[var(--text-2)]">Live task observability for parallel agent work.</p>
         </div>
 
         <Button
@@ -175,8 +184,8 @@ export function TaskList({
           {selectedTaskBookmarkId ? "Saved Current Task" : "Save Current Task"}
         </Button>
 
-        <div className="flex max-h-[240px] flex-none flex-col overflow-y-auto">
-          <div className="flex items-center justify-between border-b border-[var(--border)] px-[14px] py-2 text-[0.68rem] font-semibold uppercase tracking-[0.1em] text-[var(--text-3)]">
+        <div className="flex max-h-[180px] flex-none flex-col overflow-y-auto">
+          <div className={railSectionHeaderClass}>
             <span>Saved</span>
             <Badge className="normal-case tracking-normal" size="xs" tone="neutral">
               {bookmarks.length}
@@ -194,38 +203,45 @@ export function TaskList({
                 <div
                   key={bookmark.id}
                   className={cn(
-                    "group relative flex items-start gap-2 rounded-[7px] border border-transparent px-2.5 py-2 transition-colors hover:border-[var(--border)] hover:bg-[var(--surface-2)]",
-                    bookmark.id === selectedTaskBookmarkId && "border-[var(--exploration-border)] bg-[var(--exploration-bg)]"
+                    railRowBaseClass,
+                    bookmark.id === selectedTaskBookmarkId && railSelectedRowClass
                   )}
                 >
-                  <Button
-                    className="h-auto min-h-0 justify-start flex w-full min-w-0 flex-1 flex-col items-start rounded-none p-0 text-left font-normal shadow-none hover:bg-transparent"
-                    onClick={() => onSelectBookmark(bookmark)}
-                    variant="bare"
-                  >
-                    <div className="flex w-full items-center gap-1.5">
-                      <Badge className="uppercase tracking-[0.06em]" size="sm" tone="accent">
-                        {bookmark.kind}
-                      </Badge>
-                      <span className="ml-auto shrink-0 text-[0.7rem] text-[var(--text-3)]">{formatRelativeTime(bookmark.updatedAt)}</span>
-                    </div>
-                    <div className="mt-1 w-full truncate text-[0.84rem] font-semibold text-[var(--text-1)]">{bookmark.title}</div>
-                    <div className="mt-0.5 w-full truncate font-mono text-[0.71rem] text-[var(--text-3)]">
-                      {bookmark.eventTitle ?? bookmark.taskTitle ?? bookmark.taskId}
-                    </div>
-                  </Button>
-                  <Button
-                    className="h-6 w-6 shrink-0 self-start rounded-md p-1 text-[var(--text-3)] opacity-0 transition-opacity hover:bg-[var(--err-bg)] hover:text-[var(--err)] group-hover:opacity-100"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      onDeleteBookmark(bookmark.id);
-                    }}
-                    size="icon"
-                    title="Remove saved item"
-                    variant="bare"
-                  >
-                    <img alt="Remove saved item" className="h-3.5 w-3.5" src="/icons/trash.svg" />
-                  </Button>
+                  <div className="flex items-start gap-2.5">
+                    <span aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
+                    <button
+                      className={cn(railContentButtonClass, "min-w-0 flex-1")}
+                      onClick={() => onSelectBookmark(bookmark)}
+                      title={bookmark.title}
+                      type="button"
+                    >
+                      <div className="w-full truncate text-[0.89rem] font-semibold leading-5 text-[var(--text-1)]">
+                        {bookmark.title}
+                      </div>
+                      <div className="mt-1 flex w-full min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-[0.7rem] text-[var(--text-3)]">
+                        <Badge className="uppercase tracking-[0.06em]" size="sm" tone="accent">
+                          {bookmark.kind}
+                        </Badge>
+                        <span className="min-w-0 truncate font-mono text-[0.71rem]">
+                          {bookmark.eventTitle ?? bookmark.taskTitle ?? bookmark.taskId}
+                        </span>
+                        <span className="shrink-0">·</span>
+                        <span className="shrink-0">{formatRelativeTime(bookmark.updatedAt)}</span>
+                      </div>
+                    </button>
+                    <Button
+                      className="h-6 w-6 shrink-0 self-start rounded-md p-1 text-[var(--text-3)] opacity-0 transition-opacity hover:bg-[var(--err-bg)] hover:text-[var(--err)] group-hover:opacity-100"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onDeleteBookmark(bookmark.id);
+                      }}
+                      size="icon"
+                      title="Remove saved item"
+                      variant="bare"
+                    >
+                      <img alt="Remove saved item" className="h-3.5 w-3.5" src="/icons/trash.svg" />
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -233,11 +249,18 @@ export function TaskList({
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          <div className="flex items-center justify-between border-b border-[var(--border)] px-[14px] py-2 text-[0.68rem] font-semibold uppercase tracking-[0.1em] text-[var(--text-3)]">
+          <div className={railSectionHeaderClass}>
             <span>Tracked Tasks</span>
-            <Badge className="normal-case tracking-normal" size="xs" tone="neutral">
-              {tasks.length}
-            </Badge>
+            <div className="ml-auto flex items-center gap-2">
+              {tasks.length > 10 && (
+                <span className="text-[0.62rem] font-normal normal-case tracking-normal text-[var(--text-3)]">
+                  Drag to browse
+                </span>
+              )}
+              <Badge className="normal-case tracking-normal" size="xs" tone="neutral">
+                {tasks.length}
+              </Badge>
+            </div>
           </div>
 
           {tasks.length === 0 ? (
@@ -267,125 +290,127 @@ export function TaskList({
                   <div
                     key={task.id}
                     className={cn(
-                      "group relative flex items-start gap-2 rounded-[7px] border border-transparent px-2.5 py-2 transition-colors hover:border-[var(--border)] hover:bg-[var(--surface-2)]",
-                      depth > 0 && "ml-3.5 pl-3.5 before:absolute before:bottom-2.5 before:left-1 before:top-2.5 before:w-0.5 before:rounded-full before:bg-[color-mix(in_srgb,var(--implementation-border)_66%,transparent)]",
-                      task.id === selectedTaskId && "border-[var(--exploration-border)] bg-[var(--exploration-bg)]"
+                      railRowBaseClass,
+                      depth > 0 &&
+                        "ml-3.5 pl-3.5 before:absolute before:bottom-2.5 before:left-1 before:top-2.5 before:w-0.5 before:rounded-full before:bg-[color-mix(in_srgb,var(--implementation-border)_66%,transparent)] before:content-['']",
+                      task.id === selectedTaskId && railSelectedRowClass
                     )}
                   >
-                    {hasChildren ? (
-                      <Button
-                        aria-label={isCollapsedParent ? "Expand child tasks" : "Collapse child tasks"}
-                        className="mt-0.5 h-4 w-4 shrink-0 justify-start rounded-none p-0 text-[0.8rem] text-[var(--text-3)] hover:text-[var(--accent)]"
-                        onClick={() => {
-                          setCollapsedParentIds((current) => {
-                            const next = new Set(current);
-                            if (next.has(task.id)) {
-                              next.delete(task.id);
-                            } else {
-                              next.add(task.id);
-                            }
-                            return next;
-                          });
-                        }}
-                        title={isCollapsedParent ? "Expand children" : "Collapse children"}
-                        variant="bare"
-                        size="icon"
-                      >
-                        {isCollapsedParent ? "▸" : "▾"}
-                      </Button>
-                    ) : (
-                      <span aria-hidden="true" className="mt-0.5 inline-block h-4 w-4 shrink-0" />
-                    )}
-
-                    <Button
-                      className="h-auto min-h-0 justify-start flex w-full min-w-0 flex-1 flex-col items-start rounded-none p-0 text-left font-normal shadow-none hover:bg-transparent"
-                      onClick={() => onSelectTask(task.id)}
-                      variant="bare"
-                    >
-                      <div className="flex w-full items-center gap-1.5">
-                        <Badge
-                          className="uppercase tracking-[0.06em]"
-                          size="sm"
-                          tone={task.status === "running" ? "success" : task.status === "completed" ? "accent" : "danger"}
-                        >
-                          {task.status}
-                        </Badge>
-                        <span className="ml-auto shrink-0 text-[0.7rem] text-[var(--text-3)]">{formatRelativeTime(task.updatedAt)}</span>
-                      </div>
-
-                      <div className="mt-1.5 w-full truncate text-[0.84rem] font-semibold text-[var(--text-1)]">
-                        {taskDisplayTitle}
-                      </div>
-
-                      <div className="mt-1.5 flex w-full flex-wrap items-center gap-1.5">
-                        {task.taskKind === "background" ? (
-                          <Badge className="ml-0 border-[color-mix(in_srgb,#6366f1_30%,transparent)] bg-[color-mix(in_srgb,#6366f1_12%,transparent)] text-[#6366f1]" size="xs" tone="neutral">
-                            background
-                          </Badge>
-                        ) : (
-                          <Badge className="ml-0" size="xs" tone="neutral">
-                            primary
-                          </Badge>
-                        )}
-                        {task.runtimeSource && (
-                          <Badge
-                            className={runtimeBadgeClass(task.runtimeSource)}
-                            size="xs"
-                            tone="neutral"
+                    <div className="flex items-start gap-2.5">
+                      <div className="pt-0.5">
+                        {hasChildren ? (
+                          <Button
+                            aria-label={isCollapsedParent ? "Expand child tasks" : "Collapse child tasks"}
+                            className="mt-0.5 h-4 w-4 shrink-0 justify-start rounded-none p-0 text-[0.8rem] text-[var(--text-3)] hover:text-[var(--accent)]"
+                            onClick={() => {
+                              setCollapsedParentIds((current) => {
+                                const next = new Set(current);
+                                if (next.has(task.id)) {
+                                  next.delete(task.id);
+                                } else {
+                                  next.add(task.id);
+                                }
+                                return next;
+                              });
+                            }}
+                            title={isCollapsedParent ? "Expand children" : "Collapse children"}
+                            variant="bare"
+                            size="icon"
                           >
-                            {runtimeTagLabel(task.runtimeSource)}
-                          </Badge>
-                        )}
-                        {(task.taskKind ?? "primary") === "primary" && childCount > 0 && (
-                          <Badge className="border-[var(--planning-border)] bg-[var(--planning-bg)] text-[var(--planning)]" size="xs" tone="neutral">
-                            {childCount} child{childCount === 1 ? "" : "ren"}
-                          </Badge>
+                            {isCollapsedParent ? "▸" : "▾"}
+                          </Button>
+                        ) : (
+                          <span aria-hidden="true" className="mt-0.5 inline-block h-4 w-4 shrink-0" />
                         )}
                       </div>
 
-                      {task.parentTaskId && (
-                        <div className="mt-1 w-full truncate text-[0.71rem] text-[var(--text-3)]">
-                          Parent: {taskTitleById.get(task.parentTaskId) ?? task.parentTaskId.slice(0, 8)}
+                      <button
+                        className={cn(railContentButtonClass, "min-w-0 flex-1")}
+                        onClick={() => onSelectTask(task.id)}
+                        title={taskDisplayTitle}
+                        type="button"
+                      >
+                        <div className="w-full truncate text-[0.89rem] font-semibold leading-5 text-[var(--text-1)]">
+                          {taskDisplayTitle}
                         </div>
-                      )}
 
-                      <div className="mt-1 w-full truncate font-mono text-[0.71rem] text-[var(--text-3)]">
-                        {task.workspacePath ?? "—"}
-                      </div>
-
-                      {task.id === selectedTaskId && task.id === taskDetail?.task.id && (
-                        <div className="mt-1.5 flex flex-wrap gap-1.5">
-                          {selectedTaskQuestionCount !== undefined && selectedTaskQuestionCount > 0 && (
-                            <Badge className="border-[var(--user-border)] bg-[var(--user-bg)] text-[var(--user)]" size="xs" tone="neutral">
-                              {selectedTaskQuestionCount}Q
+                        <div className="mt-1 flex w-full min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-[0.7rem] text-[var(--text-3)]">
+                          <Badge
+                            className="uppercase tracking-[0.06em]"
+                            size="sm"
+                            tone={task.status === "running" ? "success" : task.status === "completed" ? "accent" : "danger"}
+                          >
+                            {task.status}
+                          </Badge>
+                          {task.taskKind === "background" ? (
+                            <Badge className="border-[color-mix(in_srgb,#6366f1_30%,transparent)] bg-[color-mix(in_srgb,#6366f1_12%,transparent)] text-[#6366f1]" size="xs" tone="neutral">
+                              background
+                            </Badge>
+                          ) : (
+                            <Badge size="xs" tone="neutral">
+                              primary
                             </Badge>
                           )}
-                          {selectedTaskTodoCount !== undefined && selectedTaskTodoCount > 0 && (
+                          {task.runtimeSource && (
+                            <Badge
+                              className={runtimeBadgeClass(task.runtimeSource)}
+                              size="xs"
+                              tone="neutral"
+                            >
+                              {runtimeTagLabel(task.runtimeSource)}
+                            </Badge>
+                          )}
+                          {(task.taskKind ?? "primary") === "primary" && childCount > 0 && (
                             <Badge className="border-[var(--planning-border)] bg-[var(--planning-bg)] text-[var(--planning)]" size="xs" tone="neutral">
-                              {selectedTaskTodoCount} todo{selectedTaskTodoCount === 1 ? "" : "s"}
+                              {childCount} child{childCount === 1 ? "" : "ren"}
                             </Badge>
                           )}
+                          <span className="shrink-0">{formatRelativeTime(task.updatedAt)}</span>
                         </div>
-                      )}
-                    </Button>
 
-                    <Button
-                      className={cn(
-                        "h-6 w-6 shrink-0 rounded-md p-1 opacity-0 transition-opacity hover:bg-[var(--err-bg)] hover:opacity-100 group-hover:opacity-35",
-                        deleteErrorTaskId === task.id ? "text-[var(--err)] hover:text-[var(--err)]" : "text-[var(--text-3)]",
-                        deletingTaskId === task.id && "opacity-30"
-                      )}
-                      disabled={deletingTaskId === task.id}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        onDeleteTask(task.id);
-                      }}
-                      size="icon"
-                      title="Delete task"
-                      variant="bare"
-                    >
-                      <img alt="Delete" className="h-3.5 w-3.5" src="/icons/trash.svg" />
-                    </Button>
+                        {task.id === selectedTaskId && (
+                          <div className="mt-1.5 flex w-full min-w-0 flex-col gap-1">
+                            {task.workspacePath && (
+                              <div className="w-full truncate font-mono text-[0.69rem] text-[var(--text-3)]">
+                                {task.workspacePath}
+                              </div>
+                            )}
+                            {task.id === taskDetail?.task.id && (
+                              <div className="flex flex-wrap gap-1.5">
+                                {selectedTaskQuestionCount !== undefined && selectedTaskQuestionCount > 0 && (
+                                  <Badge className="border-[var(--user-border)] bg-[var(--user-bg)] text-[var(--user)]" size="xs" tone="neutral">
+                                    {selectedTaskQuestionCount}Q
+                                  </Badge>
+                                )}
+                                {selectedTaskTodoCount !== undefined && selectedTaskTodoCount > 0 && (
+                                  <Badge className="border-[var(--planning-border)] bg-[var(--planning-bg)] text-[var(--planning)]" size="xs" tone="neutral">
+                                    {selectedTaskTodoCount} todo{selectedTaskTodoCount === 1 ? "" : "s"}
+                                  </Badge>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </button>
+
+                      <Button
+                        className={cn(
+                          "h-6 w-6 shrink-0 rounded-md p-1 opacity-0 transition-opacity hover:bg-[var(--err-bg)] hover:opacity-100 group-hover:opacity-35",
+                          deleteErrorTaskId === task.id ? "text-[var(--err)] hover:text-[var(--err)]" : "text-[var(--text-3)]",
+                          deletingTaskId === task.id && "opacity-30"
+                        )}
+                        disabled={deletingTaskId === task.id}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onDeleteTask(task.id);
+                        }}
+                        size="icon"
+                        title="Delete task"
+                        variant="bare"
+                      >
+                        <img alt="Delete" className="h-3.5 w-3.5" src="/icons/trash.svg" />
+                      </Button>
+                    </div>
                   </div>
                 );
               })}

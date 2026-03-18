@@ -403,210 +403,212 @@ export function Timeline({
           </div>
         ) : (
           <>
-            {/* toolbar */}
-            <div className="toolbar flex flex-wrap items-center gap-3 border-b border-[var(--border)] px-3.5 py-2.5">
-              <div className="toolbar-group">
-                <span className="toolbar-label">Zoom</span>
-                <input
-                  max={2.5} min={0.8} step={0.1} type="range" value={zoom}
-                  onChange={(e) => setZoom(Number(e.target.value))}
-                />
-                <span className="toolbar-value">{zoom.toFixed(1)}×</span>
-              </div>
-              <div className="filters">
-                <button
-                  className={`filter-chip all-toggle${activeLanes.length === TIMELINE_LANES.length ? " active" : ""}`}
-                  type="button"
-                  onClick={() => {
-                    const allOn = activeLanes.length === TIMELINE_LANES.length;
-                    const next = Object.fromEntries(TIMELINE_LANES.map((l) => [l, !allOn])) as Record<TimelineLane, boolean>;
-                    setFilters(next);
-                  }}
-                >
-                  {activeLanes.length === TIMELINE_LANES.length ? "All" : `${activeLanes.length}/${TIMELINE_LANES.length}`}
-                </button>
-                {TIMELINE_LANES.map((lane) => (
-                  <label
-                    key={lane}
-                    className={`filter-chip ${lane}${filters[lane] ? " active" : ""}`}
-                  >
-                    <input
-                      checked={filters[lane]}
-                      type="checkbox"
-                      onChange={() => setFilters((c) => ({ ...c, [lane]: !c[lane] }))}
-                    />
-                    <span className="filter-dot" />
-                    {getLaneTheme(lane).label}
-                  </label>
-                ))}
-              </div>
-              <Button
-                aria-label="Collapse timeline controls"
-                className="ml-auto h-8 rounded-full px-3 text-[0.76rem] font-semibold shadow-none"
-                onClick={() => setIsContextCollapsed(true)}
-                size="sm"
-                type="button"
-              >
-                Collapse
-              </Button>
-            </div>
-
-            <div className="focus-strip flex flex-wrap items-start justify-between gap-3 border-b border-[var(--border)] bg-[var(--surface-2)] px-3.5 py-2.5">
-              <div className="focus-strip-head">
-                <span className="toolbar-label">Focus</span>
-                <span className="text-[0.79rem] text-[var(--text-2)]">{filteredTimeline.length}/{timeline.length} events</span>
-              </div>
-              <div className="focus-strip-body">
-                {showRuleGapsOnly && (
+            <div className="timeline-chrome">
+              {/* toolbar */}
+              <div className="timeline-toolbar toolbar flex flex-wrap items-center gap-3 px-3.5 py-2.5">
+                <div className="toolbar-group">
+                  <span className="toolbar-label">Zoom</span>
+                  <input
+                    max={2.5} min={0.8} step={0.1} type="range" value={zoom}
+                    onChange={(e) => setZoom(Number(e.target.value))}
+                  />
+                  <span className="toolbar-value">{zoom.toFixed(1)}×</span>
+                </div>
+                <div className="filters">
                   <button
-                    className="focus-pill active warning"
-                    onClick={() => onToggleRuleGap(false)}
+                    className={`filter-chip all-toggle${activeLanes.length === TIMELINE_LANES.length ? " active" : ""}`}
                     type="button"
+                    onClick={() => {
+                      const allOn = activeLanes.length === TIMELINE_LANES.length;
+                      const next = Object.fromEntries(TIMELINE_LANES.map((l) => [l, !allOn])) as Record<TimelineLane, boolean>;
+                      setFilters(next);
+                    }}
                   >
-                    No configured rule
+                    {activeLanes.length === TIMELINE_LANES.length ? "All" : `${activeLanes.length}/${TIMELINE_LANES.length}`}
                   </button>
-                )}
-                {selectedRuleId && (
-                  <button
-                    className="focus-pill active"
-                    onClick={onClearRuleId}
-                    type="button"
-                  >
-                    Rule: {selectedRuleId}
-                  </button>
-                )}
-                {selectedTag && (
-                  <button
-                    className="focus-pill active"
-                    onClick={onClearTag}
-                    type="button"
-                  >
-                    Tag: {selectedTag}
-                  </button>
-                )}
-                {!showRuleGapsOnly && !selectedRuleId && !selectedTag && (
-                  <span className="text-[0.79rem] text-[var(--text-2)]">Choose a rule or tag from the right rail to focus the timeline.</span>
-                )}
-              </div>
-              {(showRuleGapsOnly || selectedRuleId || selectedTag) && (
+                  {TIMELINE_LANES.map((lane) => (
+                    <label
+                      key={lane}
+                      className={`filter-chip ${lane}${filters[lane] ? " active" : ""}`}
+                    >
+                      <input
+                        checked={filters[lane]}
+                        type="checkbox"
+                        onChange={() => setFilters((c) => ({ ...c, [lane]: !c[lane] }))}
+                      />
+                      <span className="filter-dot" />
+                      {getLaneTheme(lane).label}
+                    </label>
+                  ))}
+                </div>
                 <Button
-                  className="h-auto px-0 text-[0.78rem] font-semibold text-[var(--accent)] hover:text-[var(--accent)]"
-                  onClick={onClearFilters}
+                  aria-label="Collapse timeline controls"
+                  className="ml-auto h-8 rounded-full px-3 text-[0.76rem] font-semibold shadow-none"
+                  onClick={() => setIsContextCollapsed(true)}
                   size="sm"
                   type="button"
-                  variant="bare"
                 >
-                  Clear filters
+                  Collapse
                 </Button>
-              )}
-            </div>
+              </div>
 
-            <div className="timeline-header">
-              <div className="timeline-title-row">
-                <div className="flex min-w-0 flex-1 flex-col gap-2.5">
-                  {isEditingTaskTitle ? (
-                    <form className="task-title-form" onSubmit={onSubmitTitle}>
-                      <div className="task-title-form-row">
-                        <input
-                          className="task-title-input"
-                          disabled={isSavingTaskTitle}
-                          onChange={(event) => onTitleDraftChange(event.target.value)}
-                          placeholder="Rename this task"
-                          type="text"
-                          value={taskTitleDraft}
-                        />
-                        <div className="task-title-actions">
-                          <Button
-                            className="h-7 rounded-full border-[var(--accent)] bg-[var(--accent-light)] px-3 text-[0.72rem] font-semibold text-[var(--accent)] shadow-none hover:border-[var(--accent)] hover:bg-[var(--accent-light)] hover:text-[var(--accent)]"
-                            disabled={isSavingTaskTitle}
-                            size="sm"
-                            type="submit"
-                          >
-                            {isSavingTaskTitle ? "Saving..." : "Save"}
-                          </Button>
-                          <Button
-                            className="h-7 rounded-full px-3 text-[0.72rem] font-semibold shadow-none"
-                            disabled={isSavingTaskTitle}
-                            onClick={onCancelEditTitle}
-                            size="sm"
-                            type="button"
-                          >
-                            Cancel
-                          </Button>
-                        </div>
-                      </div>
-                      {taskTitleError && <p className="task-title-error">{taskTitleError}</p>}
-                    </form>
-                  ) : (
-                    <div className="timeline-title-head">
-                      <h2>{taskTitle ?? "Waiting for task data…"}</h2>
-                      {taskTitle && (
-                        <div className="timeline-title-actions">
-                          {taskUsesDerivedTitle && (
-                            <span className="inline-flex h-7 items-center rounded-full border border-[var(--accent-light)] bg-[var(--accent-light)] px-3 text-[0.68rem] font-semibold uppercase tracking-[0.06em] text-[var(--accent)]">
-                              Suggested
-                            </span>
-                          )}
-                          <Button
-                            className="h-7 rounded-full px-3 text-[0.72rem] font-semibold shadow-none"
-                            onClick={onStartEditTitle}
-                            size="sm"
-                            type="button"
-                          >
-                            Rename
-                          </Button>
-                        </div>
-                      )}
-                    </div>
+              <div className="timeline-focus-strip focus-strip flex flex-wrap items-start justify-between gap-3 px-3.5 py-2.5">
+                <div className="focus-strip-head">
+                  <span className="toolbar-label">Focus</span>
+                  <span className="text-[0.79rem] text-[var(--text-2)]">{filteredTimeline.length}/{timeline.length} events</span>
+                </div>
+                <div className="focus-strip-body">
+                  {showRuleGapsOnly && (
+                    <button
+                      className="focus-pill active warning"
+                      onClick={() => onToggleRuleGap(false)}
+                      type="button"
+                    >
+                      No configured rule
+                    </button>
                   )}
-                  {taskWorkspacePath && (
-                    <span className="timeline-workspace block truncate font-mono">{taskWorkspacePath}</span>
+                  {selectedRuleId && (
+                    <button
+                      className="focus-pill active"
+                      onClick={onClearRuleId}
+                      type="button"
+                    >
+                      Rule: {selectedRuleId}
+                    </button>
+                  )}
+                  {selectedTag && (
+                    <button
+                      className="focus-pill active"
+                      onClick={onClearTag}
+                      type="button"
+                    >
+                      Tag: {selectedTag}
+                    </button>
+                  )}
+                  {!showRuleGapsOnly && !selectedRuleId && !selectedTag && (
+                    <span className="text-[0.79rem] text-[var(--text-2)]">Choose a rule or tag from the right rail to focus the timeline.</span>
                   )}
                 </div>
-                {!isEditingTaskTitle && taskStatus && onChangeTaskStatus && (
-                  <div className="task-status-row">
-                    {(["running", "completed", "errored"] as const).map((s) => (
-                      <Button
-                        key={s}
-                        className={cn(
-                          "h-7 rounded-full px-3 text-[0.68rem] font-semibold uppercase tracking-[0.06em] shadow-none",
-                          taskStatus === s
-                            ? TASK_STATUS_BUTTON_STYLES[s].active
-                            : TASK_STATUS_BUTTON_STYLES[s].idle
-                        )}
-                        disabled={isUpdatingTaskStatus || taskStatus === s}
-                        onClick={() => onChangeTaskStatus(s)}
-                        size="sm"
-                        type="button"
-                        variant="bare"
-                      >
-                        {s}
-                      </Button>
-                    ))}
-                  </div>
+                {(showRuleGapsOnly || selectedRuleId || selectedTag) && (
+                  <Button
+                    className="h-auto px-0 text-[0.78rem] font-semibold text-[var(--accent)] hover:text-[var(--accent)]"
+                    onClick={onClearFilters}
+                    size="sm"
+                    type="button"
+                    variant="bare"
+                  >
+                    Clear filters
+                  </Button>
                 )}
               </div>
-              <div className="flex w-full flex-wrap items-center gap-2">
-                {[
-                  { key: "actions", label: "Actions", value: observabilityStats.actions },
-                  { key: "coordination", label: "Coordination", value: observabilityStats.coordinationActivities },
-                  { key: "files", label: "Files", value: observabilityStats.exploredFiles },
-                  { key: "compacts", label: "Compact", value: observabilityStats.compactions },
-                  { key: "checks", label: "Check", value: observabilityStats.checks },
-                  { key: "violations", label: "Violation", value: observabilityStats.violations },
-                  { key: "passes", label: "Pass", value: observabilityStats.passes }
-                ].map((badge) => (
-                  <div
-                    key={badge.key}
-                    className={cn(
-                      "inline-flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-[0.72rem] font-semibold tracking-[0.02em]",
-                      OBSERVABILITY_BADGE_STYLES[badge.key as keyof typeof OBSERVABILITY_BADGE_STYLES]
+
+              <div className="timeline-header">
+                <div className="timeline-title-row">
+                  <div className="flex min-w-0 flex-1 flex-col gap-2.5">
+                    {isEditingTaskTitle ? (
+                      <form className="task-title-form" onSubmit={onSubmitTitle}>
+                        <div className="task-title-form-row">
+                          <input
+                            className="task-title-input"
+                            disabled={isSavingTaskTitle}
+                            onChange={(event) => onTitleDraftChange(event.target.value)}
+                            placeholder="Rename this task"
+                            type="text"
+                            value={taskTitleDraft}
+                          />
+                          <div className="task-title-actions">
+                            <Button
+                              className="h-7 rounded-full border-[var(--accent)] bg-[var(--accent-light)] px-3 text-[0.72rem] font-semibold text-[var(--accent)] shadow-none hover:border-[var(--accent)] hover:bg-[var(--accent-light)] hover:text-[var(--accent)]"
+                              disabled={isSavingTaskTitle}
+                              size="sm"
+                              type="submit"
+                            >
+                              {isSavingTaskTitle ? "Saving..." : "Save"}
+                            </Button>
+                            <Button
+                              className="h-7 rounded-full px-3 text-[0.72rem] font-semibold shadow-none"
+                              disabled={isSavingTaskTitle}
+                              onClick={onCancelEditTitle}
+                              size="sm"
+                              type="button"
+                            >
+                              Cancel
+                            </Button>
+                          </div>
+                        </div>
+                        {taskTitleError && <p className="task-title-error">{taskTitleError}</p>}
+                      </form>
+                    ) : (
+                      <div className="timeline-title-head">
+                        <h2>{taskTitle ?? "Waiting for task data…"}</h2>
+                        {taskTitle && (
+                          <div className="timeline-title-actions">
+                            {taskUsesDerivedTitle && (
+                              <span className="inline-flex h-7 items-center rounded-full border border-[var(--accent-light)] bg-[var(--accent-light)] px-3 text-[0.68rem] font-semibold uppercase tracking-[0.06em] text-[var(--accent)]">
+                                Suggested
+                              </span>
+                            )}
+                            <Button
+                              className="h-7 rounded-full px-3 text-[0.72rem] font-semibold shadow-none"
+                              onClick={onStartEditTitle}
+                              size="sm"
+                              type="button"
+                            >
+                              Rename
+                            </Button>
+                          </div>
+                        )}
+                      </div>
                     )}
-                  >
-                    <span className="text-[0.78rem] font-bold leading-none">{badge.value}</span>
-                    <span className="leading-none">{badge.label}</span>
+                    {taskWorkspacePath && (
+                      <span className="timeline-workspace block truncate font-mono">{taskWorkspacePath}</span>
+                    )}
                   </div>
-                ))}
+                  {!isEditingTaskTitle && taskStatus && onChangeTaskStatus && (
+                    <div className="task-status-row">
+                      {(["running", "completed", "errored"] as const).map((s) => (
+                        <Button
+                          key={s}
+                          className={cn(
+                            "h-7 rounded-full px-3 text-[0.68rem] font-semibold uppercase tracking-[0.06em] shadow-none",
+                            taskStatus === s
+                              ? TASK_STATUS_BUTTON_STYLES[s].active
+                              : TASK_STATUS_BUTTON_STYLES[s].idle
+                          )}
+                          disabled={isUpdatingTaskStatus || taskStatus === s}
+                          onClick={() => onChangeTaskStatus(s)}
+                          size="sm"
+                          type="button"
+                          variant="bare"
+                        >
+                          {s}
+                        </Button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="flex w-full flex-wrap items-center gap-2">
+                  {[
+                    { key: "actions", label: "Actions", value: observabilityStats.actions },
+                    { key: "coordination", label: "Coordination", value: observabilityStats.coordinationActivities },
+                    { key: "files", label: "Files", value: observabilityStats.exploredFiles },
+                    { key: "compacts", label: "Compact", value: observabilityStats.compactions },
+                    { key: "checks", label: "Check", value: observabilityStats.checks },
+                    { key: "violations", label: "Violation", value: observabilityStats.violations },
+                    { key: "passes", label: "Pass", value: observabilityStats.passes }
+                  ].map((badge) => (
+                    <div
+                      key={badge.key}
+                      className={cn(
+                        "inline-flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-[0.72rem] font-semibold tracking-[0.02em]",
+                        OBSERVABILITY_BADGE_STYLES[badge.key as keyof typeof OBSERVABILITY_BADGE_STYLES]
+                      )}
+                    >
+                      <span className="text-[0.78rem] font-bold leading-none">{badge.value}</span>
+                      <span className="leading-none">{badge.label}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </>

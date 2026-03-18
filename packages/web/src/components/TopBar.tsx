@@ -52,8 +52,8 @@ function StatCard({
   } as const;
 
   return (
-    <div className="relative border-r border-[var(--border)] px-3.5 py-3.5 last:border-r-0">
-      <span className="mb-1.5 block text-[0.67rem] font-semibold uppercase tracking-[0.09em] text-[var(--text-3)]">
+    <div className="relative flex min-h-[4.75rem] flex-col justify-between border-r border-[var(--border)]/80 px-3.5 py-3.5 last:border-r-0 sm:px-4">
+      <span className="block text-[0.67rem] font-semibold uppercase tracking-[0.09em] text-[var(--text-3)]">
         {label}
       </span>
       <strong className={cn("block text-[1.55rem] font-bold leading-none", accentClasses[accent as keyof typeof accentClasses])}>
@@ -86,20 +86,22 @@ export function TopBar({
 
   return (
     <>
-      <nav className="z-10 flex h-[50px] shrink-0 items-center justify-between border-b border-[var(--border)] bg-[var(--surface)] px-5 shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
+      <nav className="z-10 flex h-[56px] shrink-0 items-center justify-between border-b border-[var(--border)] bg-[linear-gradient(180deg,var(--surface)_0%,var(--surface-2)_100%)] px-4 shadow-[0_1px_3px_rgba(0,0,0,0.05)] backdrop-blur-[8px] sm:px-5 max-[900px]:h-auto max-[900px]:flex-col max-[900px]:items-stretch max-[900px]:gap-3 max-[900px]:py-3">
         <div className="flex items-center gap-2.5">
-          <img
-            alt=""
-            className="h-5 w-5 [filter:brightness(0)_saturate(100%)_invert(36%)_sepia(89%)_saturate(451%)_hue-rotate(143deg)_brightness(93%)]"
-            src="/icons/activity.svg"
-          />
+          <span className="flex h-8 w-8 items-center justify-center rounded-[10px] border border-[var(--border)] bg-[var(--surface)] shadow-[inset_0_1px_0_rgba(255,255,255,0.55)]">
+            <img
+              alt=""
+              className="h-[18px] w-[18px] [filter:brightness(0)_saturate(100%)_invert(36%)_sepia(89%)_saturate(451%)_hue-rotate(143deg)_brightness(93%)]"
+              src="/icons/activity.svg"
+            />
+          </span>
           <span className="text-base font-bold tracking-[-0.025em] text-[var(--text-1)]">Monitor</span>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="relative w-[min(32rem,40vw)]">
+        <div className="flex items-center gap-2.5 sm:gap-3 max-[900px]:w-full max-[900px]:flex-wrap max-[900px]:justify-between max-[900px]:gap-2">
+          <div className="relative w-[min(36rem,42vw)] min-w-[18rem] max-[900px]:w-full max-[900px]:min-w-0 max-[900px]:flex-[1_1_100%]">
             <input
               aria-label="Search tasks, events, and bookmarks"
-              className="w-full rounded-[10px] border border-[var(--border)] bg-[var(--surface-2)] px-3 py-[9px] pr-20 text-[var(--text-1)] outline-none transition placeholder:text-[var(--text-3)] focus:border-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface)]"
+              className="w-full rounded-[12px] border border-[var(--border)] bg-[var(--surface)] px-3 py-2 pr-20 text-[var(--text-1)] shadow-[inset_0_1px_0_rgba(255,255,255,0.5)] outline-none transition placeholder:text-[var(--text-3)] focus:border-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface)] max-[900px]:pr-18"
               onChange={(event) => onSearchQueryChange(event.target.value)}
               placeholder="Search tasks, cards, MCP calls, skills…"
               type="search"
@@ -107,7 +109,7 @@ export function TopBar({
             />
             {searchQuery && (
               <button
-                className="absolute right-2 top-1/2 -translate-y-1/2 rounded px-2 py-1 text-[0.72rem] font-semibold text-[var(--text-3)] transition hover:text-[var(--text-2)]"
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full border border-transparent bg-[var(--surface-2)] px-2.5 py-1 text-[0.72rem] font-semibold text-[var(--text-3)] transition hover:border-[var(--border)] hover:text-[var(--text-2)]"
                 onClick={() => onSearchQueryChange("")}
                 type="button"
               >
@@ -115,7 +117,7 @@ export function TopBar({
               </button>
             )}
             {searchQuery.trim() && (
-              <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-20 max-h-[26rem] overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-[0_18px_40px_rgba(15,23,42,0.12)]">
+              <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-20 max-h-[26rem] overflow-y-auto rounded-[14px] border border-[var(--border)] bg-[var(--surface)] shadow-[0_20px_50px_rgba(15,23,42,0.14)]">
                 <div className="border-b border-[var(--border)] px-3 py-2.5 text-[0.73rem] font-bold uppercase tracking-[0.08em] text-[var(--text-3)]">
                   <span>{isSearching ? "Searching…" : `${totalResults} results`}</span>
                 </div>
@@ -179,11 +181,11 @@ export function TopBar({
               </div>
             )}
           </div>
-          <Button className="gap-1.5 px-3" onClick={onRefresh} size="sm" variant="ghost">
+          <Button className="gap-1.5 rounded-[10px] px-3" onClick={onRefresh} size="sm" variant="ghost">
             <img alt="" className="h-3.5 w-3.5 opacity-60" src="/icons/refresh.svg" />
             Refresh
           </Button>
-          <div className="flex items-center gap-1.5 text-[0.8rem] font-medium text-[var(--text-3)]">
+          <div className="flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 py-1.5 text-[0.8rem] font-medium text-[var(--text-3)] shadow-[inset_0_1px_0_rgba(255,255,255,0.45)]">
             <span
               aria-hidden="true"
               className={cn(
@@ -197,7 +199,7 @@ export function TopBar({
           </div>
         </div>
       </nav>
-      <div className="grid grid-cols-2 border-b border-[var(--border)] sm:grid-cols-3 lg:grid-cols-5">
+      <div className="grid grid-cols-2 border-b border-[var(--border)] bg-[linear-gradient(180deg,var(--surface-2)_0%,var(--surface)_100%)] sm:grid-cols-3 lg:grid-cols-5">
         <StatCard accent="cyan" label="Tasks" value={overview?.stats.totalTasks ?? 0} />
         <StatCard accent="green" label="Running" value={overview?.stats.runningTasks ?? 0} />
         <StatCard accent="amber" label="Completed" value={overview?.stats.completedTasks ?? 0} />

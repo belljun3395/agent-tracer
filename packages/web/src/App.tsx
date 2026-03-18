@@ -112,6 +112,7 @@ export function App(): React.JSX.Element {
   const [isUpdatingTaskStatus, setIsUpdatingTaskStatus] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isInspectorCollapsed, setIsInspectorCollapsed] = useState(false);
+  const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth);
   const [taskDisplayTitleCache, setTaskDisplayTitleCache] = useState<
     Readonly<Record<string, { readonly title: string; readonly updatedAt: string }>>
   >({});
@@ -198,6 +199,15 @@ export function App(): React.JSX.Element {
   useEffect(() => {
     const timer = setInterval(() => setNowMs(Date.now()), 10_000);
     return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    const handleResize = (): void => {
+      setViewportWidth(window.innerWidth);
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
   }, []);
 
   useEffect(() => {
@@ -681,13 +691,21 @@ export function App(): React.JSX.Element {
     [sidebarWidth]
   );
 
-  const dashboardColumns = isSidebarCollapsed
-    ? (isInspectorCollapsed
-      ? "!grid-cols-[44px_minmax(0,1fr)_44px]"
-      : "!grid-cols-[44px_minmax(0,1fr)_clamp(300px,26vw,480px)]")
-    : (isInspectorCollapsed
-      ? "!grid-cols-[var(--sidebar-width)_minmax(0,1fr)_44px]"
-      : "!grid-cols-[var(--sidebar-width)_minmax(0,1fr)_clamp(300px,26vw,480px)]");
+  const dashboardColumns = viewportWidth < 960
+    ? "!grid-cols-1"
+    : viewportWidth < 1040
+      ? (isSidebarCollapsed
+        ? "!grid-cols-[44px_minmax(0,1fr)]"
+        : "!grid-cols-[248px_minmax(0,1fr)]")
+      : (isSidebarCollapsed
+        ? (isInspectorCollapsed
+          ? "!grid-cols-[44px_minmax(0,1fr)_44px]"
+          : "!grid-cols-[44px_minmax(0,1fr)_clamp(300px,26vw,480px)]")
+        : (isInspectorCollapsed
+          ? "!grid-cols-[var(--sidebar-width)_minmax(0,1fr)_44px]"
+          : "!grid-cols-[var(--sidebar-width)_minmax(0,1fr)_clamp(300px,26vw,480px)]"));
+  const isStackedDashboard = viewportWidth < 960;
+  const isCompactDashboard = viewportWidth < 1040;
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-[var(--bg)]">
@@ -719,15 +737,22 @@ export function App(): React.JSX.Element {
 
       <main
         className={cn(
-          "dashboard-shell grid flex-1 min-h-0 gap-3 overflow-hidden p-2.5 transition-[grid-template-columns] duration-200",
+          "dashboard-shell grid flex-1 min-h-0 gap-3 p-2.5 transition-[grid-template-columns] duration-200",
           dashboardColumns,
+          isStackedDashboard ? "auto-rows-max overflow-y-auto" : "overflow-hidden",
           isSidebarCollapsed && "sidebar-collapsed",
           isInspectorCollapsed && "inspector-collapsed"
         )}
         style={dashboardStyle}
       >
 
-        <div className="sidebar-slot relative flex min-h-0 min-w-0 flex-col overflow-hidden">
+        <div
+          className={cn(
+            "sidebar-slot relative flex min-h-0 min-w-0 flex-col overflow-hidden",
+            isCompactDashboard && "min-h-[21rem]",
+            isStackedDashboard && "order-2 overflow-visible"
+          )}
+        >
           <TaskList
             tasks={tasks}
             bookmarks={bookmarks}
@@ -767,7 +792,13 @@ export function App(): React.JSX.Element {
           )}
         </div>
 
-        <section className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-[10px] border border-[var(--border)] bg-[var(--surface)] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_12px_rgba(0,0,0,0.03)]">
+        <section
+          className={cn(
+            "flex min-h-0 min-w-0 flex-col overflow-hidden rounded-[10px] border border-[var(--border)] bg-[var(--surface)] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_12px_rgba(0,0,0,0.03)]",
+            isCompactDashboard && "min-h-[22rem]",
+            isStackedDashboard && "order-1 min-h-[28rem]"
+          )}
+        >
           {/* error banner */}
           {status === "error" && (
             <div className="error-banner flex-shrink-0 border-b border-[#fca5a5] bg-[var(--err-bg)] px-3.5 py-2 text-[0.82rem] text-[var(--err)]">
@@ -832,6 +863,7 @@ export function App(): React.JSX.Element {
           showRuleGapsOnly={showRuleGapsOnly}
           taskModelSummary={modelSummary}
           isCollapsed={isInspectorCollapsed}
+          className={isStackedDashboard ? "order-3" : undefined}
           onToggleCollapse={() => setIsInspectorCollapsed((v) => !v)}
           onCreateTaskBookmark={() => {
             void handleCreateTaskBookmark().catch((err) => {
