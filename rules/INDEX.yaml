@@ -1,53 +1,18 @@
 version: 1
 rules:
-  - id: ui-surface
-    title: Dashboard UI Surface
-    description: Web dashboard components, style tokens, and timeline UI files.
+  - id: mcp-protocol
+    title: MCP Protocol
+    description: Model Context Protocol usage — tool calls, resource access, and server connections across any runtime.
+    lane: coordination
     keywords:
-      - "@monitor/web"
-      - tasklist.tsx
-      - eventinspector.tsx
-      - topbar.tsx
-      - timeline.tsx
-      - timeline.module.css
-      - lanetheme.ts
-      - styles/tokens.css
-      - styles/base.css
-      - vite.config.ts
-    tags:
-      - frontend
-      - ui
-      - web
-
-  - id: server-runtime
-    title: Server Runtime
-    description: Express app, monitor service, database, and runtime session APIs.
-    keywords:
-      - "@monitor/server"
-      - monitor-service.ts
-      - create-app.ts
-      - monitor-database.ts
-      - runtime-session
-      - task-link
-      - better-sqlite3
-      - express
-      - websocket
-    tags:
-      - backend
-      - server
-      - runtime
-
-  - id: mcp-surface
-    title: MCP Surface
-    description: MCP package, server, and monitor MCP tool names.
-    keywords:
-      - "@monitor/mcp"
       - modelcontextprotocol
-      - monitor_task_link
-      - monitor_user_message
-      - monitor_session_end
-      - monitor_agent_activity
       - mcp server
+      - mcp client
+      - tools/call
+      - tools/list
+      - resources/list
+      - resources/read
+      - prompts/get
     tags:
       - mcp
       - coordination
@@ -132,3 +97,126 @@ rules:
     tags:
       - coordination
       - orchestration
+
+  - id: version-control
+    title: Version Control
+    description: Git operations — commits, branches, merges, and pull requests.
+    keywords:
+      - "git commit"
+      - "git push"
+      - "git pull"
+      - "git merge"
+      - "git branch"
+      - "git rebase"
+      - "git stash"
+      - "pull request"
+    tags:
+      - git
+      - vcs
+
+  - id: package-management
+    title: Package Management
+    description: Dependency installs and updates across ecosystems.
+    keywords:
+      - "npm install"
+      - "npm ci"
+      - "pnpm install"
+      - "pnpm add"
+      - "yarn install"
+      - "yarn add"
+      - "pip install"
+      - "pip freeze"
+      - "uv add"
+      - "uv sync"
+      - "poetry install"
+      - "poetry add"
+      - "cargo add"
+      - "cargo fetch"
+      - "go get"
+      - "go mod download"
+      - "bundle install"
+      - "gem install"
+      - "composer install"
+      - "composer require"
+      - "mvn install"
+      - "./gradlew"
+      - "dotnet restore"
+      - "nuget install"
+      - "mix deps.get"
+      - "pod install"
+      - "swift package resolve"
+    tags:
+      - dependencies
+      - packages
+
+  - id: test-execution
+    title: Test Execution
+    description: Running tests across ecosystems and frameworks.
+    keywords:
+      - "npm test"
+      - "npm run test"
+      - "npx vitest"
+      - "vitest run"
+      - "jest --"
+      - "jest run"
+      - "mocha "
+      - "pytest"
+      - "python -m pytest"
+      - "python -m unittest"
+      - "cargo test"
+      - "go test"
+      - "go test ./..."
+      - "mvn test"
+      - "./gradlew test"
+      - "dotnet test"
+      - "swift test"
+      - "rspec"
+      - "bundle exec rspec"
+      - "phpunit"
+      - "mix test"
+      - "elixir --"
+      - "deno test"
+      - "bun test"
+    tags:
+      - testing
+
+  - id: error-recovery
+    title: Error Recovery
+    description: Test failures, compilation errors, and runtime panics that signal a recovery step.
+    keywords:
+      - "FAILED"
+      - "COMPILATION ERROR"
+      - "SyntaxError:"
+      - "TypeError:"
+      - "AssertionError"
+      - "NullPointerException"
+      - "panicked at"
+      - "Traceback (most recent"
+      - "error[E"
+      - "exit code 1"
+      - "Process exited with"
+      - "build failed"
+      - "test failed"
+      - "segfault"
+    tags:
+      - error
+      - debugging
+
+  - id: human-in-loop
+    title: Human in the Loop
+    description: Agent pausing for human approval, review, or confirmation.
+    lane: questions
+    keywords:
+      - "awaiting approval"
+      - "waiting for approval"
+      - "requires approval"
+      - "human review"
+      - "human approval"
+      - "waiting for input"
+      - "requires confirmation"
+      - definehook
+      - resumehook
+      - "paused workflow"
+    tags:
+      - human-in-loop
+      - approval
