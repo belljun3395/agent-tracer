@@ -39,7 +39,7 @@ async function main(): Promise<void> {
 
   let title = relPath ? `${toolName}: ${path.basename(relPath)}` : toolName;
   let body = relPath ? `Modified ${relPath}` : `Used ${toolName}`;
-  let lane: "implementation" | "rules" | undefined = "implementation";
+  let lane: "implementation" | "rules" | "coordination" | undefined = "implementation";
   const metadata: Record<string, unknown> = {};
 
   if (toolName === "Bash") {
@@ -50,7 +50,7 @@ async function main(): Promise<void> {
   } else if (mcpTool) {
     title = `MCP: ${mcpTool.server}/${mcpTool.tool}`;
     body = `Used MCP tool ${mcpTool.server}/${mcpTool.tool}`;
-    lane = undefined;
+    lane = "coordination";
     metadata.mcpServer = mcpTool.server;
     metadata.mcpTool = mcpTool.tool;
   }

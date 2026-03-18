@@ -519,6 +519,7 @@ describe("Claude hooks", () => {
           toolName: "mcp__github__search_repositories",
           title: "MCP: github/search_repositories",
           body: "Used MCP tool github/search_repositories",
+          lane: "coordination",
           metadata: {
             mcpServer: "github",
             mcpTool: "search_repositories"
