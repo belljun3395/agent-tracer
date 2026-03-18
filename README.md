@@ -26,8 +26,9 @@ npm run dev:server
 - 외부 설치 허브: [docs/guide/external-setup.md](docs/guide/external-setup.md)
 - 런타임 비교표: [docs/guide/llm-setup.md](docs/guide/llm-setup.md)
 
-> `npm run setup:external`은 현재 Claude Code와 OpenCode를 자동화합니다.
-> Codex는 수동 / repo-local 흐름만 문서화되어 있습니다.
+> `npm run setup:external`은 현재 Claude Code, OpenCode, Codex의
+> repo-local 설정 파일 생성을 자동화합니다.
+> Codex의 전역 MCP 등록(`codex mcp add monitor ...`)은 여전히 수동입니다.
 
 ## 이 저장소 자체를 실행해 보기
 

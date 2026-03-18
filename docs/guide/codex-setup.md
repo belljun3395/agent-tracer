@@ -2,11 +2,6 @@
 
 This guide is for Codex only.
 
-Unlike Claude Code and OpenCode, Codex does **not** currently have a
-`setup:external` installer in this repository. If your goal is to attach Agent
-Tracer to another project, treat this page as a manual reference rather than an
-automated path.
-
 ## 1. Current Status
 
 Supported today:
@@ -14,11 +9,12 @@ Supported today:
 - repo-local Codex integration in this repository
 - manual MCP registration
 - repo-local `codex-monitor` skill discovery through `AGENTS.md`
+- external-project bootstrap through `setup:external --mode codex`
 
-Not automated yet:
+Still manual:
 
-- writing Codex-specific config into another target project
-- generating a target-project `AGENTS.md` and skill projection automatically
+- global Codex MCP registration on the machine that runs Codex
+- restarting the Codex thread after new repo instructions are written
 
 ## 2. Register The MCP Server
 
@@ -39,7 +35,29 @@ codex mcp list
 
 Expected result: `monitor` is listed.
 
-## 3. Repo-local Path In This Repository
+## 3. External Project Path
+
+To attach Agent Tracer to another project:
+
+```bash
+npm run setup:external -- --target /path/to/your-project --mode codex
+```
+
+This writes two Codex-facing pieces into the target repository:
+
+1. a managed Agent Tracer block in `AGENTS.md`
+2. `.agents/skills/codex-monitor/SKILL.md`
+
+If `AGENTS.md` already exists, the installer updates only the managed
+`agent-tracer codex-monitor` block and leaves the rest of the file intact.
+
+After that:
+
+1. register the `monitor` MCP server
+2. restart the Codex thread opened in the target repository
+3. ask Codex to do a small task so the skill gets loaded
+
+## 4. Repo-local Path In This Repository
 
 The current recommended Codex path in this repository is:
 
@@ -61,19 +79,7 @@ node scripts/sync-skill-projections.mjs
 If automatic skill triggering does not happen, invoke it explicitly in the
 prompt with `$codex-monitor`.
 
-## 4. Manual External Path
-
-If you want to experiment with Codex in another project today, you need to
-manually recreate the same pieces:
-
-1. register the `monitor` MCP server
-2. make the target repository advertise an Agent Tracer monitoring skill through its own `AGENTS.md`
-3. expose a Codex-readable skill projection in the target repository
-4. restart the Codex thread so the new instructions are loaded
-
-This repository does not yet provide a one-command external Codex installer.
-
-## 5. What The Repo-local Skill Does
+## 5. What The Codex Skill Does
 
 The `codex-monitor` skill:
 
@@ -90,6 +96,7 @@ emit a gap report at the end instead of stopping the task.
 
 1. Start the monitor server.
 2. Confirm `monitor` is registered in `codex mcp list`.
-3. Start a new Codex thread in this repository.
-4. Ask Codex to do a small task in the repo.
-5. Confirm a monitor task appears in the dashboard and receives multiple events.
+3. If you ran `setup:external --mode codex`, start a new Codex thread in that target repository.
+4. Otherwise, start a new Codex thread in this repository.
+5. Ask Codex to do a small task in the repo.
+6. Confirm a monitor task appears in the dashboard and receives multiple events.

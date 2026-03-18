@@ -13,10 +13,11 @@
 | Claude Code | 예 (`--mode claude`) | Claude MCP 서버 등록 | [claude-setup.md](./claude-setup.md) |
 | OpenCode | 예 (`--mode opencode`) | 보통 없음. 필요 시 수동 MCP 확인 | [opencode-setup.md](./opencode-setup.md) |
 | Claude + OpenCode | 예 (`--mode both`) | Claude MCP 서버 등록 | [claude-setup.md](./claude-setup.md), [opencode-setup.md](./opencode-setup.md) |
-| Codex | 아니오 | 수동 / repo-local 방식만 문서화됨 | [codex-setup.md](./codex-setup.md) |
+| Codex | 예 (`--mode codex`) | Codex MCP 서버 등록 + 새 스레드 시작 | [codex-setup.md](./codex-setup.md) |
 
-> `setup:external`은 현재 **Claude Code와 OpenCode만** 자동화합니다.
-> Codex는 별도 설치 스크립트를 아직 제공하지 않습니다.
+> `setup:external`은 현재 **Claude Code, OpenCode, Codex**의
+> repo-local 통합 파일 생성을 자동화합니다.
+> 다만 Codex/Claude의 전역 MCP 등록은 각 CLI에서 직접 수행해야 합니다.
 
 ## 2. 공통 준비
 
@@ -63,6 +64,19 @@ npm run setup:external -- --target /path/to/your-project --mode opencode
 npm run setup:external -- --target /path/to/your-project --mode both
 ```
 
+Codex만 연결:
+
+```bash
+npm run setup:external -- --target /path/to/your-project --mode codex
+```
+
+Claude, OpenCode, Codex를 모두 연결하려면:
+
+```bash
+npm run setup:external -- --target /path/to/your-project --mode both
+npm run setup:external -- --target /path/to/your-project --mode codex
+```
+
 다른 monitor server 주소를 쓰는 경우:
 
 ```bash
@@ -87,6 +101,10 @@ npm run setup:external -- \
   - shim은 이 저장소의 `.opencode/plugins/monitor.ts`를 re-export 합니다.
 - `--mode both`
   - 위 두 작업을 모두 수행합니다.
+- `--mode codex`
+  - 외부 프로젝트의 `AGENTS.md`에 Agent Tracer 관리 블록을 생성하거나 갱신합니다.
+  - 외부 프로젝트의 `.agents/skills/codex-monitor/SKILL.md`를 생성합니다.
+  - skill source는 이 저장소의 `skills/codex-monitor/SKILL.md`이고, target에는 generated projection이 기록됩니다.
 
 즉, 외부 프로젝트에 남는 것은 설정 파일과 shim뿐이고,
 실제 구현은 Agent Tracer 저장소가 계속 소유합니다.
@@ -98,7 +116,8 @@ npm run setup:external -- \
 - OpenCode: [opencode-setup.md](./opencode-setup.md)
   - `setup:external`이 `opencode.json`, plugin shim, `.opencode/tsconfig.json`을 써주므로 보통 바로 사용할 수 있습니다.
 - Codex: [codex-setup.md](./codex-setup.md)
-  - 현재는 수동 / repo-local 방식만 안내합니다.
+  - `setup:external --mode codex` 이후에도 `codex mcp add monitor ...`는 직접 실행해야 합니다.
+  - 새 `AGENTS.md` / `.agents/skills`를 읽도록 Codex 스레드를 다시 시작해야 합니다.
 
 ## 6. 자주 막히는 지점
 

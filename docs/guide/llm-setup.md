@@ -11,7 +11,7 @@
 |--------|------------------|----------------|--------|
 | Claude Code | 예 | `setup:external` + Claude MCP 등록 + hooks | [claude-setup.md](./claude-setup.md) |
 | OpenCode | 예 | `setup:external` + `opencode.json` + plugin shim | [opencode-setup.md](./opencode-setup.md) |
-| Codex | 아니오 | MCP + skill + `AGENTS.md` 수동 구성 | [codex-setup.md](./codex-setup.md) |
+| Codex | 예 | `setup:external --mode codex` + Codex MCP 등록 + 새 스레드 | [codex-setup.md](./codex-setup.md) |
 | 기타 MCP 환경 | 부분적 | MCP + `monitor` 스킬 수동 구성 | [skills/monitor/SKILL.md](../../skills/monitor/SKILL.md) |
 
 ## 공통 구조
