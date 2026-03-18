@@ -6,6 +6,7 @@ As of March 16, 2026, the most reliable Codex path in this repository is:
 
 1. register the `monitor` MCP server
 2. let Codex use the repo-local `codex-monitor` skill exposed through `AGENTS.md`
+3. prefer the generated native discovery path under `.agents/skills`
 
 ## 1. Verify The Monitor Server
 
@@ -48,18 +49,29 @@ Expected result: `monitor` is listed.
 
 ## 3. Use The Repo-Local Codex Skill
 
-This repository ships a Codex skill at:
+This repository keeps the human-edited source skill at:
 
 - `skills/codex-monitor/SKILL.md`
 
+It also generates the native discovery projection at:
+
+- `.agents/skills/codex-monitor/SKILL.md`
+
 The repository root `AGENTS.md` advertises this skill so future Codex sessions in
 this checkout can trigger it automatically.
+
+The projection file is generated. Edit the source skill, then refresh projections:
+
+```bash
+node scripts/sync-skill-projections.mjs
+```
 
 What the skill does:
 
 - starts one monitor task per user request
 - records exploration, planning, shell validation, and notable tool usage
 - can record async/background lifecycle updates through `monitor_async_task`
+- can link background/subagent work through `monitor_task_link`
 - completes or errors the task explicitly
 
 What you need to do:
@@ -70,6 +82,9 @@ What you need to do:
 
 If automatic skill triggering does not happen, invoke it explicitly in the user
 prompt with `$codex-monitor`.
+
+If `monitor-server` is unavailable, the skill policy is to keep working and emit
+a gap report at the end instead of stopping the task.
 
 ## 4. End-To-End Check
 

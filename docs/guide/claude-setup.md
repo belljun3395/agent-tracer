@@ -53,37 +53,46 @@ hook scripts.
 
 Configured hook files:
 
+- `.claude/hooks/session_start.py`
+- `.claude/hooks/user_prompt.py`
 - `.claude/hooks/ensure_task.py`
 - `.claude/hooks/terminal.py`
 - `.claude/hooks/tool_used.py`
 - `.claude/hooks/explore.py`
+- `.claude/hooks/agent_activity.py`
 - `.claude/hooks/session_stop.py`
 
 Behavior in this repository:
 
-- create a task on first tool use of a new session
-- resume an existing work item when the previous session ended normally
-  (`.current-task-id` retains the task ID between sessions)
+- create or resume a runtime session through `/api/runtime-session-ensure`
+- capture raw user prompt text via `UserPromptSubmit`
 - capture Bash activity
 - capture Edit and Write activity
 - capture Read, Glob, Grep, LS, WebSearch, and WebFetch exploration
+- capture Agent and Skill activity
 - end only the current session on stop — the work item stays open for follow-up turns
-- record an explicit `user-message-capture-unavailable` signal each session because
-  Claude Code hook payloads do not expose raw user prompt text
+- emit `user-message-capture-unavailable` only if a future Claude payload omits raw prompt text
 
 **Session vs. task lifecycle:**
 
 | Event | Hook | Effect |
 |-------|------|--------|
-| First tool use (no task file) | `ensure_task.py` | New task + new session |
-| First tool use (task file with cleared session) | `ensure_task.py` | New session under same task |
+| Session start / first prompt | `session_start.py`, `user_prompt.py` | Ensure runtime task + record raw user prompt |
+| First tool use | `ensure_task.py` | Reuses ensured runtime session |
 | Session stop | `session_stop.py` | Session ended; task stays `running` |
 | Work item complete | `monitor_task_complete` MCP tool | Task marked `completed` |
 
-Raw user prompt text is **not available** from Claude Code hooks. The hooks
-record a `rule.logged` event with `ruleId: user-message-capture-unavailable`
-to make this gap explicit in the timeline. To record actual user messages,
-call `monitor_user_message` directly via MCP.
+Raw user prompt text **is available in this repository’s hook setup** through
+`UserPromptSubmit`. If a Claude payload arrives without raw prompt text in a
+future runtime variant, the fallback remains `monitor_rule` with
+`ruleId: user-message-capture-unavailable`.
+
+Native Claude skill projection is available at:
+
+- `.claude/skills/agent-tracer-monitor/SKILL.md`
+
+This is a fallback/manual discovery aid only. Hook-based automatic monitoring
+remains the primary Claude path.
 
 No extra Claude-specific setup is required if you are working in this checkout.
 
@@ -133,7 +142,7 @@ If hooks are not enough, call the MCP tools directly:
 - `monitor_user_message` — record a user.message event (`captureMode: "raw"` or `"derived"`)
   - `messageId` is required for deduplication
   - `captureMode: "derived"` requires `sourceEventId` linking to the raw source event
-  - `runtimeSource: "claude-hook"` path requires `sessionId` (always provided by hooks)
+  - `source: "claude-hook"` path requires `sessionId` (always provided by hooks)
 
 **Planning checkpoints (not raw prompts):**
 - `monitor_save_context` — planning thought, analysis, or context snapshot

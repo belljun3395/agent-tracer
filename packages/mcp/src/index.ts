@@ -2,7 +2,7 @@
  * @module index
  *
  * Agent Tracer MCP stdio 서버.
- * 에이전트(Claude, OpenCode, Codex)가 호출할 수 있는 14개 모니터링 도구 제공.
+ * 에이전트(Claude, OpenCode, Codex)가 호출할 수 있는 21개 모니터링 도구 제공.
  * 직접 실행 시(`node dist/index.js`) stdio MCP 서버로 시작.
  */
 
@@ -90,6 +90,25 @@ export function createMonitorMcpServer(client = new MonitorClient()): McpServer 
       }
     },
     async (input) => toToolResponse(await client.post("/api/task-complete", input))
+  );
+
+  server.registerTool(
+    "monitor_task_link",
+    {
+      title: "Monitor Task Link",
+      description:
+        "Link an already-started task into parent/background lineage. " +
+        "Use this when a runtime discovers subagent or background relationships after task creation.",
+      inputSchema: {
+        taskId: z.string(),
+        title: z.string().optional(),
+        taskKind: z.enum(["primary", "background"]).optional(),
+        parentTaskId: z.string().optional(),
+        parentSessionId: z.string().optional(),
+        backgroundTaskId: z.string().optional()
+      }
+    },
+    async (input) => toToolResponse(await client.post("/api/task-link", input))
   );
 
   server.registerTool(
@@ -416,11 +435,11 @@ export function createMonitorMcpServer(client = new MonitorClient()): McpServer 
         "Record a canonical user.message event (contractVersion 1). " +
         "Use captureMode='raw' for actual user prompt text. " +
         "Use captureMode='derived' for inferred/enriched records — sourceEventId is required. " +
-        "Automatic emitters (opencode-plugin, claude-hook) must provide sessionId. " +
+        "All callers must provide sessionId. " +
         "If raw prompt text is unavailable, use monitor_rule with ruleId='user-message-capture-unavailable' instead.",
       inputSchema: {
         taskId: z.string(),
-        sessionId: z.string().optional(),
+        sessionId: z.string(),
         messageId: z.string(),
         captureMode: z.enum(["raw", "derived"]),
         source: z.string(),
@@ -443,7 +462,7 @@ export function createMonitorMcpServer(client = new MonitorClient()): McpServer 
         "End the current runtime session without completing the work item. " +
         "The task remains running; the work item accumulates messages across multiple sessions. " +
         "Use monitor_task_complete to explicitly close the work item when all work is done. " +
-        "Automatic runtimes (OpenCode session.deleted, Claude Stop hook) must call this, NOT monitor_task_complete.",
+        "Claude hooks should keep completeTask unset; OpenCode primary session shutdown may choose explicit completion through its adapter policy.",
       inputSchema: {
         taskId: z.string(),
         sessionId: z.string().optional(),

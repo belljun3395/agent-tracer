@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { MonitoringTask } from "../types.js";
-import { buildTaskListRows, resolveTaskListItemTitle } from "./TaskList.js";
+import { buildTaskListRows, resolveTaskListItemTitle, runtimeTagLabel } from "./TaskList.js";
 
 const BASE_TASK: MonitoringTask = {
   id: "task-1",
@@ -149,5 +149,18 @@ describe("buildTaskListRows", () => {
       ["completed-parent", 0],
       ["completed-child", 1]
     ]);
+  });
+});
+
+describe("runtimeTagLabel", () => {
+  it("renders explicit runtime labels for supported adapters", () => {
+    expect(runtimeTagLabel("claude-hook")).toBe("Claude Code");
+    expect(runtimeTagLabel("codex-skill")).toBe("Codex");
+    expect(runtimeTagLabel("opencode-plugin")).toBe("OpenCode");
+    expect(runtimeTagLabel("opencode-sse")).toBe("OpenCode SSE");
+  });
+
+  it("falls back to the raw source for unknown adapters", () => {
+    expect(runtimeTagLabel("custom-runtime")).toBe("custom-runtime");
   });
 });

@@ -496,7 +496,9 @@ export function buildTaskListRows(
 
 function runtimeTagSlug(source: string): string {
   if (source === "claude-hook") return "claude";
+  if (source === "codex-skill") return "codex";
   if (source === "opencode-plugin") return "opencode";
+  if (source === "opencode-sse") return "opencode";
   return "other";
 }
 
@@ -506,13 +508,16 @@ function runtimeBadgeClass(source: string): string {
   return cn(
     "ml-0 text-[0.6rem] normal-case",
     slug === "claude" && "border-[color-mix(in_srgb,#d97706_30%,transparent)] bg-[color-mix(in_srgb,#d97706_12%,transparent)] text-[#d97706]",
+    slug === "codex" && "border-[color-mix(in_srgb,#0f766e_30%,transparent)] bg-[color-mix(in_srgb,#0f766e_12%,transparent)] text-[#0f766e]",
     slug === "opencode" && "border-[color-mix(in_srgb,#818cf8_30%,transparent)] bg-[color-mix(in_srgb,#6366f1_12%,transparent)] text-[#818cf8]",
     slug === "other" && "border-[var(--border-1)] bg-[var(--bg-2)] text-[var(--text-2)]"
   );
 }
 
-function runtimeTagLabel(source: string): string {
+export function runtimeTagLabel(source: string): string {
   if (source === "claude-hook") return "Claude Code";
+  if (source === "codex-skill") return "Codex";
   if (source === "opencode-plugin") return "OpenCode";
+  if (source === "opencode-sse") return "OpenCode SSE";
   return source;
 }

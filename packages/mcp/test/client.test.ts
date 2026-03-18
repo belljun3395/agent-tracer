@@ -124,6 +124,32 @@ describe("MCP tool registry — canonical tools", () => {
     // McpServer가 정상 생성되면 도구가 등록된 것으로 간주
     expect(server).toBeDefined();
   });
+
+  it("monitor_task_link 가 /api/task-link 로 POST한다", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ task: { id: "t1", taskKind: "background" } })
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = new MonitorClient("http://localhost:3847");
+    const server = createMonitorMcpServer(client);
+    expect(server).toBeDefined();
+
+    await client.post("/api/task-link", {
+      taskId: "t1",
+      taskKind: "background",
+      parentTaskId: "parent-1",
+      parentSessionId: "session-parent-1",
+      backgroundTaskId: "bg-1"
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3847/api/task-link",
+      expect.objectContaining({ method: "POST" })
+    );
+  });
 });
 
 describe("MCP tool registry — question/todo/thought tools", () => {

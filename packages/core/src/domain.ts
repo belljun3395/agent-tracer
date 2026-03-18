@@ -29,10 +29,12 @@ export type TimelineLane =
  *     ruleId="user-message-capture-unavailable" 로 /api/rule 을 호출해야 한다.
  *
  * 세션-종료 vs. 태스크-완료:
- *   - /api/session-end 는 현재 런타임 세션을 종료한다.
+ *   - /api/session-end 및 /api/runtime-session-end 는 현재 런타임 세션만 종료한다.
  *   - primary 태스크는 /api/task-complete 로 명시적으로 닫는다.
  *   - background 태스크는 마지막 running 세션 종료 시 자동 완료될 수 있다.
- *   - 자동 런타임 종료(session.deleted, Claude Stop) 는 반드시 session-end 를 사용해야 한다.
+ *   - Claude 훅은 runtime-session adapter 로 동작하며 primary 태스크를 자동 완료하지 않는다.
+ *   - OpenCode plugin/SSE adapter 는 primary session 종료에서만 completeTask=true 를 보낼 수 있다.
+ *   - 세부 정책은 runtime capability registry 를 따른다.
  */
 export const USER_MESSAGE_CONTRACT_VERSION = "1" as const;
 
@@ -76,7 +78,7 @@ export interface MonitoringTask extends MonitoringTaskInput {
   readonly createdAt: string;
   readonly updatedAt: string;
   readonly lastSessionStartedAt?: string;
-  /** 이벤트 출처 소스 (read-model, 파생값). 예: claude-hook, opencode-plugin, manual-mcp */
+  /** 이벤트 출처 소스 (read-model, 파생값). 예: claude-hook, codex-skill, opencode-plugin, opencode-sse, manual-mcp */
   readonly runtimeSource?: string;
   readonly taskKind?: MonitoringTaskKind;
 }

@@ -513,6 +513,38 @@ describe("POST /api/runtime-session-end", () => {
     expect(end1.status).toBe(200);
     expect(end2.status).toBe(200);
   });
+
+  it("keeps the primary task running by default", async () => {
+    const ensured = await request(app)
+      .post("/api/runtime-session-ensure")
+      .send({ runtimeSource: "claude-hook", runtimeSessionId: "sess-keep-running", title: "Claude Task" });
+
+    const end = await request(app)
+      .post("/api/runtime-session-end")
+      .send({ runtimeSource: "claude-hook", runtimeSessionId: "sess-keep-running" });
+
+    expect(end.status).toBe(200);
+
+    const detail = await request(app).get(`/api/tasks/${ensured.body.taskId as string}`);
+    expect(detail.status).toBe(200);
+    expect(detail.body.task.status).toBe("running");
+  });
+
+  it("completes the primary task only when completeTask=true is explicit", async () => {
+    const ensured = await request(app)
+      .post("/api/runtime-session-ensure")
+      .send({ runtimeSource: "opencode-plugin", runtimeSessionId: "sess-complete", title: "OpenCode Task" });
+
+    const end = await request(app)
+      .post("/api/runtime-session-end")
+      .send({ runtimeSource: "opencode-plugin", runtimeSessionId: "sess-complete", completeTask: true });
+
+    expect(end.status).toBe(200);
+
+    const detail = await request(app).get(`/api/tasks/${ensured.body.taskId as string}`);
+    expect(detail.status).toBe(200);
+    expect(detail.body.task.status).toBe("completed");
+  });
 });
 
 describe("Agent activity, bookmarks, and search API", () => {

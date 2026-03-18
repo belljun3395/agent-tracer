@@ -1,136 +1,134 @@
 version: 1
 rules:
-  - id: exploration
-    title: Code Exploration
-    description: Reading files, searching code, checking dependencies.
-    lane: exploration
+  - id: ui-surface
+    title: Dashboard UI Surface
+    description: Web dashboard components, style tokens, and timeline UI files.
     keywords:
-      - read
-      - search
-      - grep
-      - glob
-      - find
-      - explore
-      - check
-      - inspect
-      - list
-      - fetch
-    tags:
-      - exploration
-      - read
-
-  - id: planning
-    title: Planning & Analysis
-    description: Thinking, planning, deciding approaches before coding.
-    lane: planning
-    keywords:
-      - plan
-      - analyze
-      - decide
-      - approach
-      - strategy
-      - consider
-      - review
-      - assess
-      - design
-      - architecture
-    tags:
-      - planning
-
-  - id: frontend
-    title: Dashboard UI
-    description: Timeline rendering, components, and browser-facing work.
-    lane: implementation
-    keywords:
-      - react
-      - vite
-      - dashboard
-      - timeline
-      - component
-      - style
-      - css
-      - tsx
-      - app.tsx
-      - styles.css
+      - "@monitor/web"
+      - tasklist.tsx
+      - eventinspector.tsx
+      - topbar.tsx
+      - timeline.tsx
+      - timeline.module.css
+      - lanetheme.ts
+      - styles/tokens.css
+      - styles/base.css
+      - vite.config.ts
     tags:
       - frontend
-      - implementation
+      - ui
+      - web
 
-  - id: backend
-    title: Backend and API
-    description: Server routes, data stores, and ingest pipelines.
-    lane: implementation
+  - id: server-runtime
+    title: Server Runtime
+    description: Express app, monitor service, database, and runtime session APIs.
     keywords:
+      - "@monitor/server"
+      - monitor-service.ts
+      - create-app.ts
+      - monitor-database.ts
+      - runtime-session
+      - task-link
+      - better-sqlite3
       - express
-      - sqlite
       - websocket
-      - api
-      - database
-      - service
-      - endpoint
     tags:
       - backend
-      - implementation
+      - server
+      - runtime
 
-  - id: hooks
-    title: Claude Hooks
-    description: Hook scripts and automation configuration.
-    lane: implementation
+  - id: mcp-surface
+    title: MCP Surface
+    description: MCP package, server, and monitor MCP tool names.
     keywords:
-      - hook
-      - settings.json
-      - ensure_task
-      - terminal.py
-      - tool_used
-      - session_stop
-      - explore
+      - "@monitor/mcp"
+      - modelcontextprotocol
+      - monitor_task_link
+      - monitor_user_message
+      - monitor_session_end
+      - monitor_agent_activity
+      - mcp server
     tags:
-      - hooks
-      - automation
+      - mcp
+      - coordination
 
-  - id: opencode-async
-    title: OpenCode Async Lifecycle
-    description: Background task launches, progress, and completion events from OpenCode workflows.
-    lane: implementation
+  - id: claude-runtime
+    title: Claude Runtime
+    description: Claude hook scripts, settings, and runtime-specific integration paths.
     keywords:
+      - claude-hook
+      - userpromptsubmit
+      - .claude/hooks/
+      - user_prompt.py
+      - ensure_task.py
+      - session_stop.py
+      - agent_activity.py
+      - .claude/settings.json
+    tags:
+      - claude
+      - hooks
+      - runtime
+
+  - id: codex-runtime
+    title: Codex Runtime
+    description: Codex skill-based integration paths and native discovery files.
+    keywords:
+      - codex-skill
+      - codex-monitor
+      - .agents/skills/
+      - agents.md
+      - /codex/
+    tags:
+      - codex
+      - runtime
+      - skills
+
+  - id: opencode-runtime
+    title: OpenCode Runtime
+    description: OpenCode plugin/runtime integration and Oh My Opencode envelopes.
+    keywords:
+      - opencode-plugin
+      - opencode-sse
+      - .opencode/plugins/monitor.ts
+      - chat.message
+      - tool.execute.after
+      - session.created
+      - session.deleted
+      - oh-my-opencode
+    tags:
       - opencode
-      - background
-      - async
+      - runtime
+      - plugin
+
+  - id: background-lifecycle
+    title: Background Lifecycle
+    description: Runtime-specific background task lifecycle markers and tool names.
+    lane: background
+    keywords:
       - run_in_background
       - background_output
       - prompt_async
-      - async task
-      - async lifecycle
-      - pending
-      - completed
-      - cancelled
-      - interrupt
+      - async_task_
+      - asyncstatus
+      - asynctaskid
     tags:
-      - opencode
+      - background
       - async
       - lifecycle
-      - implementation
 
-  - id: test-build
-    title: Tests & Builds
-    description: Running tests, builds, lints, and quality checks.
-    lane: rules
+  - id: coordination-surface
+    title: Coordination Surface
+    description: Skill use, MCP calls, delegation, handoff, and task-link activity.
+    lane: coordination
     keywords:
-      - npm test
-      - npm run
-      - vitest
-      - typecheck
-      - build
-      - lint
-      - jest
-      - mocha
-      - pytest
-      - git commit
-      - git push
-      - npm install
-      - pnpm
-      - tsc
+      - monitor_task_link
+      - monitor_agent_activity
+      - codex-monitor
+      - delegation
+      - handoff
+      - subagent
+      - skill_use
+      - monitor-server
     tags:
-      - build
-      - test
-      - rules
+      - coordination
+      - orchestration

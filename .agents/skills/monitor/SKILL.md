@@ -1,3 +1,5 @@
+<!-- GENERATED FILE: edit skills/... source, then run node scripts/sync-skill-projections.mjs -->
+
 ---
 name: monitor
 description: MCP가 있는 모든 환경에서 Agent Tracer 모니터링 기록. Cursor, Windsurf, 웹 IDE, 기타 MCP 지원 환경에서 사용.

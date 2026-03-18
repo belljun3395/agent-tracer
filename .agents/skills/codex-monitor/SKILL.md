@@ -1,3 +1,5 @@
+<!-- GENERATED FILE: edit skills/... source, then run node scripts/sync-skill-projections.mjs -->
+
 ---
 name: codex-monitor
 description: Codex CLI 전용 Agent Tracer 모니터링. apply_patch, view_file 등 Codex 도구명 컨벤션 포함. monitor-server MCP 사용 불가 시 작업은 계속하고 마지막에 gap을 보고.

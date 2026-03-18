@@ -1,5 +1,7 @@
 # Agent Tracer — 에이전트 설정 가이드
 
+런타임 capability 비교표는 [runtime-capabilities.md](./runtime-capabilities.md)를 참고하세요.
+
 ## 서버 아키텍처 (generic runtime boundary)
 
 `packages/server`는 특정 런타임에 종속되지 않은 범용 모니터 서버입니다.
@@ -15,7 +17,7 @@
 |----------|------|--------|
 | Claude Code | 자동 훅 | `docs/guide/claude-setup.md` |
 | OpenCode | TypeScript 플러그인 훅 (자동) | `docs/guide/opencode-setup.md` |
-| Codex | MCP + `codex-monitor` 스킬 | `docs/guide/codex-setup.md` |
+| Codex | MCP + `codex-monitor` 스킬 (`.agents/skills` projection) | `docs/guide/codex-setup.md` |
 | 기타 (Cursor 등) | MCP + `monitor` 스킬 | MCP 등록 후 `monitor` 스킬 사용 |
 
 ## 공통 전제
@@ -38,7 +40,8 @@ npm run build && npm run start:server
 
 ## 시맨틱 트레이스 계약 (v1)
 
-Agent Tracer는 5개 레인(user / exploration / planning / implementation / rules) 안에서 다음 이벤트 종류를 지원합니다.
+Agent Tracer는 user / exploration / planning / implementation / rules 기본 레인에 더해
+questions / todos / background / coordination 레인을 지원합니다.
 
 ### 새 이벤트 종류
 
@@ -64,7 +67,7 @@ Agent Tracer는 5개 레인(user / exploration / planning / implementation / rul
 
 ### 규칙
 
-- 6번째 레인 없음. `model.logged` / `mcp.logged` 최상위 이벤트 종류 없음.
+- 별도의 `model.logged` / `mcp.logged` 최상위 이벤트 종류는 없다.
 - `thought.logged`는 요약만. raw 체인오브소트 퍼시스트 금지.
 - 모델 식별은 태스크/세션 기본값 + 이벤트별 오버라이드(다를 때만).
 - 새 메타데이터가 없는 기존 이벤트는 변경 없이 렌더링됨.

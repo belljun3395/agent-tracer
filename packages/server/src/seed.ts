@@ -149,7 +149,7 @@ function seedCoordinationTask(): void {
       activityType: "skill_use",
       title: "Loaded codex-monitor skill",
       skillName: "codex-monitor",
-      skillPath: "skills/codex-monitor/SKILL.md",
+      skillPath: ".agents/skills/codex-monitor/SKILL.md",
       parentEventId: todoAddedId,
       workItemId,
       goalId,
