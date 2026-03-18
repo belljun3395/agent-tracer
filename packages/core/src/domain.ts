@@ -71,6 +71,7 @@ export interface MonitoringTaskInput {
 export interface MonitoringTask extends MonitoringTaskInput {
   readonly id: string;
   readonly slug: string;
+  readonly displayTitle?: string;
   readonly status: "running" | "completed" | "errored";
   readonly createdAt: string;
   readonly updatedAt: string;

@@ -72,6 +72,39 @@ describe("HTTP API", () => {
     expect(linked.body.task.taskKind).toBe("background");
   });
 
+  it("GET /api/tasks 는 generic task.title 대신 derived displayTitle 을 포함한다", async () => {
+    const start = await request(app)
+      .post("/api/task-start")
+      .send({
+        title: "Codex - agent-tracer",
+        workspacePath: "/Users/okestro/Documents/code/agent-tracer"
+      });
+    const taskId = start.body.task.id as string;
+    const sessionId = start.body.sessionId as string;
+
+    const message = "Stop the development server started in this session and verify the monitor port is no longer listening.";
+
+    await request(app)
+      .post("/api/user-message")
+      .send({
+        taskId,
+        sessionId,
+        messageId: "msg-display-title",
+        captureMode: "raw",
+        source: "manual-mcp",
+        phase: "initial",
+        title: "User prompt",
+        body: message
+      });
+
+    const list = await request(app).get("/api/tasks");
+    expect(list.status).toBe(200);
+    const task = (list.body.tasks as Array<{ id: string; title: string; displayTitle?: string }>)
+      .find((item) => item.id === taskId);
+    expect(task?.title).toBe("Codex - agent-tracer");
+    expect(task?.displayTitle).toBe(message);
+  });
+
   it("DELETE 실행 중인 태스크도 강제 삭제 → 200", async () => {
     const start = await request(app)
       .post("/api/task-start")
