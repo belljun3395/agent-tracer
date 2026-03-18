@@ -693,10 +693,9 @@ code {
 /* toolbar */
 .toolbar {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 8px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
   padding: 8px 14px;
   background: var(--surface-2);
   border-bottom: 1px solid var(--border);
@@ -706,6 +705,7 @@ code {
   display: flex;
   align-items: center;
   gap: 9px;
+  width: 100%;
 }
 .toolbar-label {
   font-size: 0.76rem;
@@ -718,18 +718,15 @@ code {
   color: var(--text-2);
   min-width: 30px;
 }
-input[type="range"] { accent-color: var(--accent); }
+input[type="range"] { accent-color: var(--accent); flex: 1; }
 
 /* filter chips */
 .filters {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   gap: 5px;
-  overflow-x: auto;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
+  width: 100%;
 }
-.filters::-webkit-scrollbar { display: none; }
 .filter-chip {
   display: inline-flex;
   align-items: center;
@@ -1099,12 +1096,12 @@ input[type="range"] { accent-color: var(--accent); }
 }
 .timeline-header {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
+  align-items: stretch;
   padding: 7px 14px;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
-  gap: 10px;
+  gap: 6px;
   min-height: 0;
 }
 .timeline-title-row {
@@ -1228,13 +1225,11 @@ input[type="range"] { accent-color: var(--accent); }
 .timeline-badges {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: flex-start;
   gap: 5px;
   flex-shrink: 0;
-  flex-wrap: nowrap;
-  overflow-x: auto;
-  scrollbar-width: none;
-  max-width: min(100%, 38rem);
+  flex-wrap: wrap;
+  width: 100%;
 }
 .timeline-badges::-webkit-scrollbar { display: none; }
 .summary-badge {
@@ -2185,19 +2180,8 @@ input[type="range"] { accent-color: var(--accent); }
   .topnav-search {
     width: 100%;
   }
-  .toolbar,
   .focus-strip {
     align-items: stretch;
-  }
-  .toolbar {
-    flex-direction: column;
-  }
-  .filters {
-    flex-wrap: wrap;
-  }
-  .timeline-badges {
-    flex-wrap: nowrap;
-    overflow-x: auto;
   }
   .task-title-form-row {
     align-items: stretch;
@@ -2241,9 +2225,6 @@ input[type="range"] { accent-color: var(--accent); }
     position: static;
     margin-top: 8px;
     box-shadow: none;
-  }
-  .toolbar-group {
-    width: 100%;
   }
   .toolbar-group input[type="range"] {
     flex: 1;
