@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildTimelineContextSummary,
   LANE_HEIGHT,
   LEFT_GUTTER,
   NODE_WIDTH,
@@ -10,7 +11,8 @@ import {
   buildTimelineConnectors,
   buildTimelineLayout,
   buildTimestampTicks,
-  formatRelativeTime
+  formatRelativeTime,
+  resolveTimelineViewportHeight
 } from "./timeline.js";
 
 describe("buildTimelineLayout", () => {
@@ -194,6 +196,50 @@ describe("buildTimelineLayout", () => {
       label: "implements todo",
       isExplicit: true,
       workItemId: "todo-1"
+    });
+  });
+});
+
+describe("resolveTimelineViewportHeight", () => {
+  it("caps the visible timeline viewport at the compact default height", () => {
+    expect(resolveTimelineViewportHeight(896, 704)).toBe(704);
+  });
+
+  it("shows the full lane stack when the content is already shorter than the cap", () => {
+    expect(resolveTimelineViewportHeight(512, 704)).toBe(512);
+  });
+});
+
+describe("buildTimelineContextSummary", () => {
+  it("summarizes the default unfocused all-lanes state", () => {
+    expect(buildTimelineContextSummary({
+      filteredEventCount: 6,
+      totalEventCount: 6,
+      activeLaneCount: TIMELINE_LANES.length,
+      totalLaneCount: TIMELINE_LANES.length,
+      selectedRuleId: null,
+      selectedTag: null,
+      showRuleGapsOnly: false
+    })).toEqual({
+      eventSummary: "6/6 events",
+      laneSummary: "All lanes",
+      focusSummary: null
+    });
+  });
+
+  it("summarizes focused rule-gap and partial-lane states", () => {
+    expect(buildTimelineContextSummary({
+      filteredEventCount: 2,
+      totalEventCount: 9,
+      activeLaneCount: 4,
+      totalLaneCount: TIMELINE_LANES.length,
+      selectedRuleId: null,
+      selectedTag: null,
+      showRuleGapsOnly: true
+    })).toEqual({
+      eventSummary: "2/9 events",
+      laneSummary: `4/${TIMELINE_LANES.length} lanes`,
+      focusSummary: "Rule gaps"
     });
   });
 });

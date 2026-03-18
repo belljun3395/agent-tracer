@@ -13,6 +13,7 @@ export interface MonitoringTask {
   readonly id: string;
   readonly title: string;
   readonly slug: string;
+  readonly displayTitle?: string;
   readonly workspacePath?: string;
   readonly status: "running" | "completed" | "errored";
   readonly taskKind?: "primary" | "background";

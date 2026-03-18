@@ -14,16 +14,49 @@ const BASE_TASK: MonitoringTask = {
 };
 
 describe("resolveTaskListItemTitle", () => {
-  it("uses the shared selected-task title for the active row", () => {
-    expect(resolveTaskListItemTitle(BASE_TASK, "task-1", "Fix the timeline title mismatch")).toBe(
-      "Fix the timeline title mismatch"
-    );
+  it("keeps the sidebar row title stable for the active row", () => {
+    expect(resolveTaskListItemTitle(BASE_TASK)).toBe("OpenCode - agent-tracer");
   });
 
-  it("falls back to the sidebar title for non-selected rows", () => {
-    expect(resolveTaskListItemTitle(BASE_TASK, "task-2", "Fix the timeline title mismatch")).toBe(
-      "OpenCode - agent-tracer"
-    );
+  it("uses the persisted task title instead of a derived selection title", () => {
+    expect(resolveTaskListItemTitle({
+      ...BASE_TASK,
+      title: "Codex - agent-tracer"
+    })).toBe("Codex - agent-tracer");
+  });
+
+  it("uses a precomputed displayTitle before any row is selected", () => {
+    expect(resolveTaskListItemTitle({
+      ...BASE_TASK,
+      title: "Codex - agent-tracer",
+      displayTitle: "Stop the development server started in this session and verify the monitor port is no longer listening."
+    })).toBe("Stop the development server started in this session and verify the monitor port is no longer listening.");
+  });
+
+  it("uses the cached derived timeline title when available for the same task revision", () => {
+    expect(resolveTaskListItemTitle(
+      {
+        ...BASE_TASK,
+        title: "Codex - agent-tracer"
+      },
+      {
+        title: "Stop the development server started in this session and verify the monitor port is no longer listening.",
+        updatedAt: "2026-03-16T09:01:00.000Z"
+      }
+    )).toBe("Stop the development server started in this session and verify the monitor port is no longer listening.");
+  });
+
+  it("ignores stale cached titles from an older task revision", () => {
+    expect(resolveTaskListItemTitle(
+      {
+        ...BASE_TASK,
+        title: "Codex - agent-tracer"
+      },
+      {
+        title: "Old derived title",
+        updatedAt: "2026-03-16T08:59:00.000Z"
+      }
+    )).toBe("Codex - agent-tracer");
   });
 });
 

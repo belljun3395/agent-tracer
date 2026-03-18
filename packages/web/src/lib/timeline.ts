@@ -199,6 +199,46 @@ export interface TimestampTick {
   readonly label: string;
 }
 
+export interface TimelineContextSummary {
+  readonly eventSummary: string;
+  readonly laneSummary: string;
+  readonly focusSummary: string | null;
+}
+
+export const DEFAULT_TIMELINE_VIEWPORT_HEIGHT = RULER_HEIGHT + LANE_HEIGHT * 7;
+
+export function resolveTimelineViewportHeight(contentHeight: number, preferredMaxHeight: number): number {
+  return Math.min(contentHeight, preferredMaxHeight);
+}
+
+export function buildTimelineContextSummary(input: {
+  filteredEventCount: number;
+  totalEventCount: number;
+  activeLaneCount: number;
+  totalLaneCount: number;
+  selectedRuleId: string | null;
+  selectedTag: string | null;
+  showRuleGapsOnly: boolean;
+}): TimelineContextSummary {
+  const eventSummary = `${input.filteredEventCount}/${input.totalEventCount} events`;
+  const laneSummary = input.activeLaneCount === input.totalLaneCount
+    ? "All lanes"
+    : `${input.activeLaneCount}/${input.totalLaneCount} lanes`;
+  const focusSummary = input.showRuleGapsOnly
+    ? "Rule gaps"
+    : input.selectedRuleId
+      ? `Rule: ${input.selectedRuleId}`
+      : input.selectedTag
+        ? `Tag: ${input.selectedTag}`
+        : null;
+
+  return {
+    eventSummary,
+    laneSummary,
+    focusSummary
+  };
+}
+
 /**
  * 타임라인 시간축 눈금 데이터 생성.
  * 최대 12개의 눈금이 생성되도록 자동으로 간격을 선택함.

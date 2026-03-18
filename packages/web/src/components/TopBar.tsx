@@ -9,6 +9,8 @@ import type {
   OverviewResponse,
   SearchResponse
 } from "../types.js";
+import { cn } from "../lib/ui/cn.js";
+import { Button } from "./ui/Button.js";
 
 interface TopBarProps {
   readonly overview: OverviewResponse | null;
@@ -33,11 +35,31 @@ function StatCard({
   readonly label: string;
   readonly value: number;
 }): React.JSX.Element {
+  const accentClasses = {
+    cyan: "text-[#0891b2]",
+    green: "text-[var(--ok)]",
+    amber: "text-[var(--rules)]",
+    red: "text-[var(--err)]",
+    slate: "text-[var(--text-2)]"
+  } as const;
+
+  const accentBarClasses = {
+    cyan: "bg-[#0891b2]",
+    green: "bg-[var(--ok)]",
+    amber: "bg-[var(--rules)]",
+    red: "bg-[var(--err)]",
+    slate: "bg-[var(--text-3)]"
+  } as const;
+
   return (
-    <div className={`stat-card ${accent}`}>
-      <span className="stat-card-label">{label}</span>
-      <strong className="stat-card-value">{value}</strong>
-      <div className="stat-card-bar" />
+    <div className="relative border-r border-[var(--border)] px-3.5 py-3.5 last:border-r-0">
+      <span className="mb-1.5 block text-[0.67rem] font-semibold uppercase tracking-[0.09em] text-[var(--text-3)]">
+        {label}
+      </span>
+      <strong className={cn("block text-[1.55rem] font-bold leading-none", accentClasses[accent as keyof typeof accentClasses])}>
+        {value}
+      </strong>
+      <div className={cn("absolute inset-x-0 bottom-0 h-0.5 rounded-b-[1px]", accentBarClasses[accent as keyof typeof accentBarClasses])} />
     </div>
   );
 }
@@ -64,16 +86,20 @@ export function TopBar({
 
   return (
     <>
-      <nav className="topnav">
-        <div className="topnav-brand">
-          <img className="brand-icon" src="/icons/activity.svg" alt="" />
-          <span className="brand-name">Monitor</span>
+      <nav className="z-10 flex h-[50px] shrink-0 items-center justify-between border-b border-[var(--border)] bg-[var(--surface)] px-5 shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
+        <div className="flex items-center gap-2.5">
+          <img
+            alt=""
+            className="h-5 w-5 [filter:brightness(0)_saturate(100%)_invert(36%)_sepia(89%)_saturate(451%)_hue-rotate(143deg)_brightness(93%)]"
+            src="/icons/activity.svg"
+          />
+          <span className="text-base font-bold tracking-[-0.025em] text-[var(--text-1)]">Monitor</span>
         </div>
-        <div className="topnav-right">
-          <div className={`topnav-search${searchQuery.trim() ? " has-results" : ""}`}>
+        <div className="flex items-center gap-3">
+          <div className="relative w-[min(32rem,40vw)]">
             <input
               aria-label="Search tasks, events, and bookmarks"
-              className="topnav-search-input"
+              className="w-full rounded-[10px] border border-[var(--border)] bg-[var(--surface-2)] px-3 py-[9px] pr-20 text-[var(--text-1)] outline-none transition placeholder:text-[var(--text-3)] focus:border-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface)]"
               onChange={(event) => onSearchQueryChange(event.target.value)}
               placeholder="Search tasks, cards, MCP calls, skills…"
               type="search"
@@ -81,7 +107,7 @@ export function TopBar({
             />
             {searchQuery && (
               <button
-                className="topnav-search-clear"
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded px-2 py-1 text-[0.72rem] font-semibold text-[var(--text-3)] transition hover:text-[var(--text-2)]"
                 onClick={() => onSearchQueryChange("")}
                 type="button"
               >
@@ -89,61 +115,63 @@ export function TopBar({
               </button>
             )}
             {searchQuery.trim() && (
-              <div className="topnav-search-results">
-                <div className="search-results-head">
+              <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-20 max-h-[26rem] overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-[0_18px_40px_rgba(15,23,42,0.12)]">
+                <div className="border-b border-[var(--border)] px-3 py-2.5 text-[0.73rem] font-bold uppercase tracking-[0.08em] text-[var(--text-3)]">
                   <span>{isSearching ? "Searching…" : `${totalResults} results`}</span>
                 </div>
 
                 {!isSearching && totalResults === 0 && (
-                  <div className="search-empty">No matching tasks, events, or saved cards.</div>
+                  <div className="px-3 py-2.5 text-[0.73rem] text-[var(--text-3)]">
+                    No matching tasks, events, or saved cards.
+                  </div>
                 )}
 
                 {(searchResults?.tasks.length ?? 0) > 0 && (
-                  <div className="search-group">
-                    <div className="search-group-title">Tasks</div>
+                  <div className="border-t border-[var(--border)] first:border-t-0">
+                    <div className="px-3 py-2.5 text-[0.73rem] font-bold uppercase tracking-[0.08em] text-[var(--text-3)]">Tasks</div>
                     {searchResults?.tasks.map((task) => (
                       <button
                         key={task.id}
-                        className="search-result-row"
+                        className="flex w-full flex-col items-start gap-1 px-3 py-2.5 text-left transition-colors hover:bg-[var(--surface-2)]"
                         onClick={() => onSelectSearchTask(task.taskId)}
                         type="button"
                       >
-                        <strong>{task.title}</strong>
-                        <span>{task.workspacePath ?? task.status}</span>
+                        <strong className="text-[0.84rem] font-semibold text-[var(--text-1)]">{task.title}</strong>
+                        <span className="text-[0.76rem] text-[var(--text-2)]">{task.workspacePath ?? task.status}</span>
                       </button>
                     ))}
                   </div>
                 )}
 
                 {(searchResults?.events.length ?? 0) > 0 && (
-                  <div className="search-group">
-                    <div className="search-group-title">Cards</div>
+                  <div className="border-t border-[var(--border)] first:border-t-0">
+                    <div className="px-3 py-2.5 text-[0.73rem] font-bold uppercase tracking-[0.08em] text-[var(--text-3)]">Cards</div>
                     {searchResults?.events.map((event) => (
                       <button
                         key={event.id}
-                        className="search-result-row"
+                        className="flex w-full flex-col items-start gap-1 px-3 py-2.5 text-left transition-colors hover:bg-[var(--surface-2)]"
                         onClick={() => onSelectSearchEvent(event.taskId, event.eventId)}
                         type="button"
                       >
-                        <strong>{event.title}</strong>
-                        <span>{event.taskTitle} · {event.lane}</span>
+                        <strong className="text-[0.84rem] font-semibold text-[var(--text-1)]">{event.title}</strong>
+                        <span className="text-[0.76rem] text-[var(--text-2)]">{event.taskTitle} · {event.lane}</span>
                       </button>
                     ))}
                   </div>
                 )}
 
                 {(searchResults?.bookmarks.length ?? 0) > 0 && (
-                  <div className="search-group">
-                    <div className="search-group-title">Saved</div>
+                  <div className="border-t border-[var(--border)] first:border-t-0">
+                    <div className="px-3 py-2.5 text-[0.73rem] font-bold uppercase tracking-[0.08em] text-[var(--text-3)]">Saved</div>
                     {searchResults?.bookmarks.map((bookmark) => (
                       <button
                         key={bookmark.id}
-                        className="search-result-row"
+                        className="flex w-full flex-col items-start gap-1 px-3 py-2.5 text-left transition-colors hover:bg-[var(--surface-2)]"
                         onClick={() => onSelectSearchBookmark(bookmark)}
                         type="button"
                       >
-                        <strong>{bookmark.title}</strong>
-                        <span>{bookmark.taskTitle ?? bookmark.kind}</span>
+                        <strong className="text-[0.84rem] font-semibold text-[var(--text-1)]">{bookmark.title}</strong>
+                        <span className="text-[0.76rem] text-[var(--text-2)]">{bookmark.taskTitle ?? bookmark.kind}</span>
                       </button>
                     ))}
                   </div>
@@ -151,22 +179,30 @@ export function TopBar({
               </div>
             )}
           </div>
-          <button className="ghost-button" onClick={onRefresh} type="button">
-            <img src="/icons/refresh.svg" alt="" />
+          <Button className="gap-1.5 px-3" onClick={onRefresh} size="sm" variant="ghost">
+            <img alt="" className="h-3.5 w-3.5 opacity-60" src="/icons/refresh.svg" />
             Refresh
-          </button>
-          <div className="topnav-status">
-            <span className={`status-dot ${isConnected ? "connected" : "disconnected"}`} />
+          </Button>
+          <div className="flex items-center gap-1.5 text-[0.8rem] font-medium text-[var(--text-3)]">
+            <span
+              aria-hidden="true"
+              className={cn(
+                "h-1.5 w-1.5 shrink-0 rounded-full",
+                isConnected
+                  ? "bg-[var(--ok)] shadow-[0_0_0_3px_rgba(22,163,74,0.15)]"
+                  : "bg-[#f59e0b] animate-[blink_1.4s_ease-in-out_infinite]"
+              )}
+            />
             <span>{isConnected ? "Connected" : "Reconnecting…"}</span>
           </div>
         </div>
       </nav>
-      <div className="stats-strip">
-        <StatCard label="Tasks"     value={overview?.stats.totalTasks     ?? 0} accent="cyan"  />
-        <StatCard label="Running"   value={overview?.stats.runningTasks   ?? 0} accent="green" />
-        <StatCard label="Completed" value={overview?.stats.completedTasks ?? 0} accent="amber" />
-        <StatCard label="Errored"   value={overview?.stats.erroredTasks   ?? 0} accent="red"   />
-        <StatCard label="Events"    value={overview?.stats.totalEvents    ?? 0} accent="slate" />
+      <div className="grid grid-cols-2 border-b border-[var(--border)] sm:grid-cols-3 lg:grid-cols-5">
+        <StatCard accent="cyan" label="Tasks" value={overview?.stats.totalTasks ?? 0} />
+        <StatCard accent="green" label="Running" value={overview?.stats.runningTasks ?? 0} />
+        <StatCard accent="amber" label="Completed" value={overview?.stats.completedTasks ?? 0} />
+        <StatCard accent="red" label="Errored" value={overview?.stats.erroredTasks ?? 0} />
+        <StatCard accent="slate" label="Events" value={overview?.stats.totalEvents ?? 0} />
       </div>
     </>
   );

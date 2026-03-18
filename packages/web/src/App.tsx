@@ -37,6 +37,7 @@ import {
   filterTimelineEvents
 } from "./lib/insights.js";
 import { buildTimelineRelations } from "./lib/timeline.js";
+import { cn } from "./lib/ui/cn.js";
 import { TopBar } from "./components/TopBar.js";
 import { TaskList } from "./components/TaskList.js";
 import { Timeline } from "./components/Timeline.js";
@@ -111,6 +112,9 @@ export function App(): React.JSX.Element {
   const [isUpdatingTaskStatus, setIsUpdatingTaskStatus] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isInspectorCollapsed, setIsInspectorCollapsed] = useState(false);
+  const [taskDisplayTitleCache, setTaskDisplayTitleCache] = useState<
+    Readonly<Record<string, { readonly title: string; readonly updatedAt: string }>>
+  >({});
   const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
     const raw = window.localStorage.getItem(SIDEBAR_WIDTH_STORAGE_KEY);
     if (!raw) return SIDEBAR_DEFAULT_WIDTH;
@@ -306,23 +310,56 @@ export function App(): React.JSX.Element {
     [taskDetail?.task, taskTimeline]
   );
 
-  const [taskTitleCache, setTaskTitleCache] = useState<ReadonlyMap<string, string>>(new Map());
-
-  useEffect(() => {
-    if (selectedTaskId && selectedTaskDisplayTitle) {
-      setTaskTitleCache((prev) => {
-        const next = new Map(prev);
-        next.set(selectedTaskId, selectedTaskDisplayTitle);
-        return next;
-      });
-    }
-  }, [selectedTaskId, selectedTaskDisplayTitle]);
-
   const selectedTaskUsesDerivedTitle = Boolean(
     taskDetail?.task
     && selectedTaskDisplayTitle
     && selectedTaskDisplayTitle.trim() !== taskDetail.task.title.trim()
   );
+
+  useEffect(() => {
+    if (!taskDetail?.task || !selectedTaskDisplayTitle) {
+      return;
+    }
+
+    setTaskDisplayTitleCache((current) => {
+      const existing = current[taskDetail.task.id];
+      if (
+        existing
+        && existing.title === selectedTaskDisplayTitle
+        && existing.updatedAt === taskDetail.task.updatedAt
+      ) {
+        return current;
+      }
+
+      return {
+        ...current,
+        [taskDetail.task.id]: {
+          title: selectedTaskDisplayTitle,
+          updatedAt: taskDetail.task.updatedAt
+        }
+      };
+    });
+  }, [selectedTaskDisplayTitle, taskDetail?.task]);
+
+  useEffect(() => {
+    const validTaskIds = new Set(tasks.map((task) => task.id));
+
+    setTaskDisplayTitleCache((current) => {
+      let changed = false;
+      const next: Record<string, { readonly title: string; readonly updatedAt: string }> = {};
+
+      for (const [taskId, entry] of Object.entries(current)) {
+        if (!validTaskIds.has(taskId)) {
+          changed = true;
+          continue;
+        }
+
+        next[taskId] = entry;
+      }
+
+      return changed ? next : current;
+    });
+  }, [tasks]);
 
   const exploredFiles = useMemo(
     () => collectExploredFiles(taskTimeline),
@@ -644,8 +681,16 @@ export function App(): React.JSX.Element {
     [sidebarWidth]
   );
 
+  const dashboardColumns = isSidebarCollapsed
+    ? (isInspectorCollapsed
+      ? "!grid-cols-[44px_minmax(0,1fr)_44px]"
+      : "!grid-cols-[44px_minmax(0,1fr)_clamp(300px,26vw,480px)]")
+    : (isInspectorCollapsed
+      ? "!grid-cols-[var(--sidebar-width)_minmax(0,1fr)_44px]"
+      : "!grid-cols-[var(--sidebar-width)_minmax(0,1fr)_clamp(300px,26vw,480px)]");
+
   return (
-    <div className="app-shell">
+    <div className="flex h-dvh flex-col overflow-hidden bg-[var(--bg)]">
 
       <TopBar
         overview={overview}
@@ -673,19 +718,23 @@ export function App(): React.JSX.Element {
       />
 
       <main
-        className={`dashboard-shell${isSidebarCollapsed ? " sidebar-collapsed" : ""}${isInspectorCollapsed ? " inspector-collapsed" : ""}`}
+        className={cn(
+          "dashboard-shell grid flex-1 min-h-0 gap-3 overflow-hidden p-2.5 transition-[grid-template-columns] duration-200",
+          dashboardColumns,
+          isSidebarCollapsed && "sidebar-collapsed",
+          isInspectorCollapsed && "inspector-collapsed"
+        )}
         style={dashboardStyle}
       >
 
-        <div className="sidebar-slot">
+        <div className="sidebar-slot relative flex min-h-0 min-w-0 flex-col overflow-hidden">
           <TaskList
             tasks={tasks}
             bookmarks={bookmarks}
+            taskDisplayTitleCache={taskDisplayTitleCache}
             selectedTaskBookmarkId={selectedTaskBookmark?.id ?? null}
             selectedTaskId={selectedTaskId}
             taskDetail={taskDetail}
-            selectedTaskDisplayTitle={selectedTaskDisplayTitle}
-            taskTitleCache={taskTitleCache}
             selectedTaskQuestionCount={questionGroups.length}
             selectedTaskTodoCount={todoGroups.length}
             deletingTaskId={deletingTaskId}
@@ -711,19 +760,19 @@ export function App(): React.JSX.Element {
             <div
               aria-label="Resize task sidebar"
               aria-orientation="vertical"
-              className="sidebar-resizer"
+              className="sidebar-resizer absolute right-[-9px] top-2 bottom-2 z-10 w-3 cursor-col-resize before:absolute before:left-[5px] before:top-0 before:bottom-0 before:w-0.5 before:rounded-full before:bg-[color-mix(in_srgb,var(--border)_74%,transparent)] before:transition-colors hover:before:bg-[color-mix(in_srgb,var(--accent)_75%,transparent)]"
               onPointerDown={onSidebarResizeStart}
               role="separator"
             />
           )}
         </div>
 
-        <section className="main-panel">
+        <section className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-[10px] border border-[var(--border)] bg-[var(--surface)] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_12px_rgba(0,0,0,0.03)]">
           {/* error banner */}
           {status === "error" && (
-            <div className="error-banner">
+            <div className="error-banner flex-shrink-0 border-b border-[#fca5a5] bg-[var(--err-bg)] px-3.5 py-2 text-[0.82rem] text-[var(--err)]">
               <strong>Monitor unavailable</strong>
-              <p style={{ margin: 0 }}>{errorMessage}</p>
+              <p className="m-0">{errorMessage}</p>
             </div>
           )}
 
