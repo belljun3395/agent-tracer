@@ -54,6 +54,28 @@ import type {
 
 type PanelTabId = "inspector" | "rules" | "tags" | "task" | "compact" | "files" | "exploration";
 
+type ExplorationSortKey = "recent" | "most-read" | "alpha";
+type FileSortKey = "recent" | "most-active" | "writes-first" | "alpha";
+
+function sortExploredFiles(files: readonly ExploredFileStat[], key: ExplorationSortKey): readonly ExploredFileStat[] {
+  const copy = [...files];
+  switch (key) {
+    case "recent": return copy.sort((a, b) => Date.parse(b.lastSeenAt) - Date.parse(a.lastSeenAt));
+    case "most-read": return copy.sort((a, b) => b.count - a.count || a.path.localeCompare(b.path));
+    case "alpha": return copy.sort((a, b) => a.path.localeCompare(b.path));
+  }
+}
+
+function sortFileActivity(files: readonly FileActivityStat[], key: FileSortKey): readonly FileActivityStat[] {
+  const copy = [...files];
+  switch (key) {
+    case "recent": return copy.sort((a, b) => Date.parse(b.lastSeenAt) - Date.parse(a.lastSeenAt));
+    case "most-active": return copy.sort((a, b) => (b.readCount + b.writeCount) - (a.readCount + a.writeCount) || a.path.localeCompare(b.path));
+    case "writes-first": return copy.sort((a, b) => b.writeCount - a.writeCount || a.path.localeCompare(b.path));
+    case "alpha": return copy.sort((a, b) => a.path.localeCompare(b.path));
+  }
+}
+
 const PANEL_TABS = [
   { id: "inspector",   label: "Inspector" },
   { id: "rules",       label: "Rules" },
@@ -541,14 +563,22 @@ function compactRelationLabel(relation: CompactRelation): { label: string; tone:
   }
 }
 
+const EXPLORATION_SORT_OPTIONS: ReadonlyArray<{ readonly key: ExplorationSortKey; readonly label: string }> = [
+  { key: "recent",    label: "Recent" },
+  { key: "most-read", label: "Most read" },
+  { key: "alpha",     label: "A→Z" }
+];
+
 /** DetailExploredFiles: 탐색된 파일 목록을 접기/펼치기로 표시. compact 관계와 읽기 시간 이력 포함. */
 function DetailExploredFiles({
-  files, workspacePath, expanded, onToggle
+  files, workspacePath, expanded, sortKey, onToggle, onSortChange
 }: {
   readonly files: readonly ExploredFileStat[];
   readonly workspacePath?: string | undefined;
   readonly expanded: boolean;
+  readonly sortKey: ExplorationSortKey;
   readonly onToggle: () => void;
+  readonly onSortChange: (key: ExplorationSortKey) => void;
 }): React.JSX.Element {
   const staleCount = files.filter((f) => f.compactRelation === "before-compact").length;
 
@@ -588,34 +618,54 @@ function DetailExploredFiles({
           {files.length === 0 ? (
             <p className="m-0 text-[0.8rem] text-[var(--text-3)]">No exploration file paths recorded yet.</p>
           ) : (
-            <div className="flex flex-col gap-3">
-              {files.map((file) => {
-                const compactBadge = compactRelationLabel(file.compactRelation);
-                return (
-                  <div key={file.path} className="rounded-[12px] border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <strong className={cn("block min-w-0 break-words text-[0.82rem] text-[var(--text-1)]", monoText)} title={file.path}>
-                        {toRelativePath(file.path, workspacePath)}
-                      </strong>
-                      <div className="flex shrink-0 items-center gap-1.5">
-                        {compactBadge && (
-                          <Badge tone={compactBadge.tone} size="xs">{compactBadge.label}</Badge>
-                        )}
-                        <Badge tone="accent" size="xs">{file.count}x</Badge>
+            <>
+              <div className="mb-3 flex items-center gap-1.5">
+                <span className="text-[0.68rem] font-semibold uppercase tracking-[0.06em] text-[var(--text-3)]">Sort</span>
+                {EXPLORATION_SORT_OPTIONS.map(({ key, label }) => (
+                  <button
+                    key={key}
+                    className={cn(
+                      "rounded-full px-2.5 py-1 text-[0.72rem] font-semibold transition-colors",
+                      sortKey === key
+                        ? "bg-[var(--accent-light)] text-[var(--accent)]"
+                        : "text-[var(--text-3)] hover:bg-[var(--surface-2)] hover:text-[var(--text-2)]"
+                    )}
+                    onClick={() => onSortChange(key)}
+                    type="button"
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <div className="flex flex-col gap-3">
+                {files.map((file) => {
+                  const compactBadge = compactRelationLabel(file.compactRelation);
+                  return (
+                    <div key={file.path} className="rounded-[12px] border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <strong className={cn("block min-w-0 break-words text-[0.82rem] text-[var(--text-1)]", monoText)} title={file.path}>
+                          {toRelativePath(file.path, workspacePath)}
+                        </strong>
+                        <div className="flex shrink-0 items-center gap-1.5">
+                          {compactBadge && (
+                            <Badge tone={compactBadge.tone} size="xs">{compactBadge.label}</Badge>
+                          )}
+                          <Badge tone="accent" size="xs">{file.count}x</Badge>
+                        </div>
+                      </div>
+                      <div className="mt-2 flex flex-wrap justify-between gap-2 text-[0.8rem] text-[var(--text-3)]">
+                        <span>{dirnameLabel(file.path, workspacePath)}</span>
+                        <span>
+                          {file.count > 1
+                            ? `First ${formatRelativeTime(file.firstSeenAt)} · Last ${formatRelativeTime(file.lastSeenAt)}`
+                            : `Read ${formatRelativeTime(file.lastSeenAt)}`}
+                        </span>
                       </div>
                     </div>
-                    <div className="mt-2 flex flex-wrap justify-between gap-2 text-[0.8rem] text-[var(--text-3)]">
-                      <span>{dirnameLabel(file.path, workspacePath)}</span>
-                      <span>
-                        {file.count > 1
-                          ? `First ${formatRelativeTime(file.firstSeenAt)} · Last ${formatRelativeTime(file.lastSeenAt)}`
-                          : `Read ${formatRelativeTime(file.lastSeenAt)}`}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            </>
           )}
         </div>
       )}
@@ -810,14 +860,23 @@ function MentionedFilesVerificationCard({
   );
 }
 
+const FILE_SORT_OPTIONS: ReadonlyArray<{ readonly key: FileSortKey; readonly label: string }> = [
+  { key: "recent",       label: "Recent" },
+  { key: "most-active",  label: "Most active" },
+  { key: "writes-first", label: "Writes first" },
+  { key: "alpha",        label: "A→Z" }
+];
+
 /** DetailFileActivity: 실제 파일 활동(read + write) 목록 카드. */
 function DetailFileActivity({
-  files, workspacePath, expanded, onToggle
+  files, workspacePath, expanded, sortKey, onToggle, onSortChange
 }: {
   readonly files: readonly FileActivityStat[];
   readonly workspacePath?: string | undefined;
   readonly expanded: boolean;
+  readonly sortKey: FileSortKey;
   readonly onToggle: () => void;
+  readonly onSortChange: (key: FileSortKey) => void;
 }): React.JSX.Element {
   const writeFiles = files.filter((f) => f.writeCount > 0).length;
   const readOnlyFiles = files.filter((f) => f.writeCount === 0).length;
@@ -864,38 +923,58 @@ function DetailFileActivity({
           {files.length === 0 ? (
             <p className="m-0 text-[0.8rem] text-[var(--text-3)]">No file activity recorded yet.</p>
           ) : (
-            <div className="flex flex-col gap-3">
-              {files.map((file) => {
-                const total = file.readCount + file.writeCount;
-                const compactBadge = compactRelationLabel(file.compactRelation);
-                return (
-                  <div key={file.path} className="rounded-[12px] border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <strong className={cn("block min-w-0 break-words text-[0.82rem] text-[var(--text-1)]", monoText)} title={file.path}>
-                        {toRelativePath(file.path, workspacePath)}
-                      </strong>
-                      <div className="flex shrink-0 items-center gap-1.5">
-                        {compactBadge && (
-                          <Badge tone={compactBadge.tone} size="xs">{compactBadge.label}</Badge>
-                        )}
-                        {file.writeCount > 0 && (
-                          <Badge tone="accent" size="xs">{file.writeCount} write</Badge>
-                        )}
-                        <Badge tone="neutral" size="xs">{file.readCount > 0 ? `${file.readCount} read` : `${total}x`}</Badge>
+            <>
+              <div className="mb-3 flex items-center gap-1.5">
+                <span className="text-[0.68rem] font-semibold uppercase tracking-[0.06em] text-[var(--text-3)]">Sort</span>
+                {FILE_SORT_OPTIONS.map(({ key, label }) => (
+                  <button
+                    key={key}
+                    className={cn(
+                      "rounded-full px-2.5 py-1 text-[0.72rem] font-semibold transition-colors",
+                      sortKey === key
+                        ? "bg-[var(--accent-light)] text-[var(--accent)]"
+                        : "text-[var(--text-3)] hover:bg-[var(--surface-2)] hover:text-[var(--text-2)]"
+                    )}
+                    onClick={() => onSortChange(key)}
+                    type="button"
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <div className="flex flex-col gap-3">
+                {files.map((file) => {
+                  const total = file.readCount + file.writeCount;
+                  const compactBadge = compactRelationLabel(file.compactRelation);
+                  return (
+                    <div key={file.path} className="rounded-[12px] border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <strong className={cn("block min-w-0 break-words text-[0.82rem] text-[var(--text-1)]", monoText)} title={file.path}>
+                          {toRelativePath(file.path, workspacePath)}
+                        </strong>
+                        <div className="flex shrink-0 items-center gap-1.5">
+                          {compactBadge && (
+                            <Badge tone={compactBadge.tone} size="xs">{compactBadge.label}</Badge>
+                          )}
+                          {file.writeCount > 0 && (
+                            <Badge tone="accent" size="xs">{file.writeCount} write</Badge>
+                          )}
+                          <Badge tone="neutral" size="xs">{file.readCount > 0 ? `${file.readCount} read` : `${total}x`}</Badge>
+                        </div>
+                      </div>
+                      <div className="mt-2 flex flex-wrap justify-between gap-2 text-[0.8rem] text-[var(--text-3)]">
+                        <span>{dirnameLabel(file.path, workspacePath)}</span>
+                        <span>
+                          {total > 1
+                            ? `First ${formatRelativeTime(file.firstSeenAt)} · Last ${formatRelativeTime(file.lastSeenAt)}`
+                            : formatRelativeTime(file.lastSeenAt)}
+                        </span>
                       </div>
                     </div>
-                    <div className="mt-2 flex flex-wrap justify-between gap-2 text-[0.8rem] text-[var(--text-3)]">
-                      <span>{dirnameLabel(file.path, workspacePath)}</span>
-                      <span>
-                        {total > 1
-                          ? `First ${formatRelativeTime(file.firstSeenAt)} · Last ${formatRelativeTime(file.lastSeenAt)}`
-                          : formatRelativeTime(file.lastSeenAt)}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            </>
           )}
         </div>
       )}
@@ -1458,6 +1537,8 @@ export function EventInspector({
   const [activeTab, setActiveTab]                   = useState<PanelTabId>("inspector");
   const [isExploredFilesExpanded, setIsExploredFilesExpanded] = useState(true);
   const [isFileActivityExpanded, setIsFileActivityExpanded]   = useState(true);
+  const [explorationSortKey, setExplorationSortKey] = useState<ExplorationSortKey>("recent");
+  const [fileSortKey, setFileSortKey]               = useState<FileSortKey>("recent");
   const [copiedExtraction, setCopiedExtraction]     = useState<"brief" | "process" | null>(null);
   const inspectorDragScroll = useDragScroll({ axis: "y" });
 
@@ -1470,6 +1551,15 @@ export function EventInspector({
   const fileActivity = useMemo(
     () => collectFileActivity(taskTimeline),
     [taskTimeline]
+  );
+
+  const sortedExploredFiles = useMemo(
+    () => sortExploredFiles(exploredFiles, explorationSortKey),
+    [exploredFiles, explorationSortKey]
+  );
+  const sortedFileActivity = useMemo(
+    () => sortFileActivity(fileActivity, fileSortKey),
+    [fileActivity, fileSortKey]
   );
   const explorationInsight = useMemo(
     () => buildExplorationInsight(taskTimeline, exploredFiles),
@@ -1837,10 +1927,12 @@ export function EventInspector({
         ) : activeTab === "files" ? (
           <div className="panel-tab-inner flex flex-col gap-5 p-4">
             <DetailFileActivity
-              files={fileActivity}
+              files={sortedFileActivity}
               workspacePath={taskDetail?.task.workspacePath}
               expanded={isFileActivityExpanded}
+              sortKey={fileSortKey}
               onToggle={() => setIsFileActivityExpanded((current) => !current)}
+              onSortChange={setFileSortKey}
             />
           </div>
 
@@ -1848,10 +1940,12 @@ export function EventInspector({
           <div className="panel-tab-inner flex flex-col gap-5 p-4">
             <ExplorationInsightCard insight={explorationInsight} />
             <DetailExploredFiles
-              files={exploredFiles}
+              files={sortedExploredFiles}
               workspacePath={taskDetail?.task.workspacePath}
               expanded={isExploredFilesExpanded}
+              sortKey={explorationSortKey}
               onToggle={() => setIsExploredFilesExpanded((current) => !current)}
+              onSortChange={setExplorationSortKey}
             />
             <MentionedFilesVerificationCard
               verifications={mentionedVerifications}
