@@ -225,7 +225,12 @@ export function collectExploredFiles(
   const fileTimestamps = new Map<string, string[]>();
 
   for (const event of timeline) {
-    if (event.lane !== "exploration" || event.kind === "file.changed") {
+    if (event.lane !== "exploration") {
+      continue;
+    }
+    // file.changed 이벤트는 filePaths가 없으면 파일 시스템 노이즈이므로 건너뜀.
+    // filePaths가 있으면 에이전트가 실제로 열람한 파일이므로 포함.
+    if (event.kind === "file.changed" && extractMetadataStringArray(event.metadata, "filePaths").length === 0) {
       continue;
     }
 

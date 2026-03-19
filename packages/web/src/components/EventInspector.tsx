@@ -1210,9 +1210,18 @@ function toRelativePath(filePath: string, workspacePath?: string): string {
   }
 
   const normalizedWorkspacePath = workspacePath.endsWith("/") ? workspacePath : `${workspacePath}/`;
-  return filePath.startsWith(normalizedWorkspacePath)
-    ? filePath.slice(normalizedWorkspacePath.length)
-    : filePath;
+
+  if (filePath.startsWith(normalizedWorkspacePath)) {
+    return filePath.slice(normalizedWorkspacePath.length);
+  }
+
+  // leading slash가 누락된 절대 경로 처리 (e.g. file watcher 버그로 "Users/..." 형태로 저장된 경우)
+  const withSlash = filePath.startsWith("/") ? filePath : `/${filePath}`;
+  if (withSlash.startsWith(normalizedWorkspacePath)) {
+    return withSlash.slice(normalizedWorkspacePath.length);
+  }
+
+  return filePath;
 }
 
 function summarizePath(filePath: string, workspacePath?: string): string {
