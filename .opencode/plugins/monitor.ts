@@ -682,7 +682,11 @@ function extractBackgroundLaunchHints(input: {
 }
 
 function looksLikePath(value: string): boolean {
-  return /[\\/]/.test(value) || /\.[a-z0-9]{1,8}$/i.test(value);
+  return (
+    /[\\/]/.test(value) ||
+    /\.[a-z0-9]{1,15}$/i.test(value) ||
+    /^\.[a-z0-9]/i.test(value)
+  );
 }
 
 function extractPathLikeTokens(text: string): readonly string[] {
@@ -788,7 +792,12 @@ function unwrapQuotedEnvelope(line: string): string {
   return trimmed;
 }
 
-function extractFilePaths(args: unknown, outputMetadata?: unknown, outputTitle?: string): readonly string[] {
+function extractFilePaths(
+  args: unknown,
+  outputMetadata?: unknown,
+  outputTitle?: string,
+  outputText?: string
+): readonly string[] {
   const values = new Set<string>();
   appendPathCandidates(args, values);
   appendPathCandidates(outputMetadata, values);
@@ -796,6 +805,15 @@ function extractFilePaths(args: unknown, outputMetadata?: unknown, outputTitle?:
   const title = toNonEmptyString(outputTitle);
   if (title) {
     appendPathCandidates(title, values);
+  }
+
+  // 도구 출력 텍스트에서 경로 토큰 추출 (BrowseIndexed* 등 MCP 도구 결과 커버).
+  // 너무 긴 출력은 앞부분만 스캔 (성능 보호).
+  if (outputText) {
+    const scanText = outputText.length > 3000 ? outputText.slice(0, 3000) : outputText;
+    for (const token of extractPathLikeTokens(scanText)) {
+      values.add(token);
+    }
   }
 
   return [...values];
@@ -1802,7 +1820,12 @@ export function createMonitorHooks(workspacePath: string): Hooks {
       }
 
       const { endpoint, lane, activityType } = classifyTool(toolName);
-      const filePaths = extractFilePaths(input.args, output.metadata, output.title);
+      const filePaths = extractFilePaths(
+        input.args,
+        output.metadata,
+        output.title,
+        typeof output.output === "string" ? output.output : undefined
+      );
       const effectiveLane = state.taskKind === "background"
         ? "background"
         : lane;
