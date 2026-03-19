@@ -158,7 +158,12 @@ export function filePathsInDirectory(
     const normalizedFile = normalizeFilePath(filePath, workspacePath);
     const fileSuffix = toPathSuffix(normalizedFile);
 
-    // 폴더 prefix로 시작하는지 확인 (세그먼트 경계 보장)
+    // 1. 디렉토리 자체가 탐색된 경우 (ls / tree 류 도구가 폴더 경로를 기록할 때)
+    if (fileSuffix === dirSuffix || normalizedFile === normalizedDir) {
+      return true;
+    }
+
+    // 2. 폴더 하위 파일: prefix + 세그먼트 경계 확인
     return fileSuffix.startsWith(`${dirSuffix}/`)
       || normalizedFile.startsWith(`${normalizedDir}/`);
   });

@@ -1216,6 +1216,7 @@ export function buildMentionedFileVerifications(
   const allExploredPaths = exploredFiles.map((f) => f.path);
 
   const results: MentionedFileVerification[] = [];
+  // 경로 기준으로 전역 중복 제거: 같은 경로가 여러 메시지에서 멘션되면 첫 번째만 사용.
   const seen = new Set<string>();
 
   for (const event of timeline) {
@@ -1227,11 +1228,10 @@ export function buildMentionedFileVerifications(
     const mentionedMs = Date.parse(event.createdAt);
 
     for (const mentionedPath of mentionedPaths) {
-      const dedupeKey = `${event.id}::${mentionedPath}`;
-      if (seen.has(dedupeKey)) {
+      if (seen.has(mentionedPath)) {
         continue;
       }
-      seen.add(dedupeKey);
+      seen.add(mentionedPath);
 
       if (isDirectoryPath(mentionedPath)) {
         // 폴더 멘션: 하위 파일들 중 읽힌 것을 수집
