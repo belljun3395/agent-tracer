@@ -12,6 +12,7 @@ import {
 
 import {
   buildCompactInsight,
+  buildExplorationInsight,
   buildMentionedFileVerifications,
   buildObservabilityStats,
   buildQuestionGroups,
@@ -20,11 +21,14 @@ import {
   buildTaskExtraction,
   buildTodoGroups,
   collectExploredFiles,
+  collectFileActivity,
   eventHasRuleGap,
   type CompactInsight,
   type CompactRelation,
   type DirectoryMentionVerification,
+  type ExplorationInsight,
   type ExploredFileStat,
+  type FileActivityStat,
   type FileMentionVerification,
   type MentionedFileVerification,
   type ModelSummary,
@@ -48,15 +52,16 @@ import type {
   TimelineEvent
 } from "../types.js";
 
-type PanelTabId = "inspector" | "rules" | "tags" | "task" | "compact" | "files";
+type PanelTabId = "inspector" | "rules" | "tags" | "task" | "compact" | "files" | "exploration";
 
 const PANEL_TABS = [
-  { id: "inspector", label: "Inspector" },
-  { id: "rules",     label: "Rules" },
-  { id: "tags",      label: "Tags" },
-  { id: "task",      label: "Task" },
-  { id: "compact",   label: "Compact" },
-  { id: "files",     label: "Files" },
+  { id: "inspector",   label: "Inspector" },
+  { id: "rules",       label: "Rules" },
+  { id: "tags",        label: "Tags" },
+  { id: "task",        label: "Task" },
+  { id: "compact",     label: "Compact" },
+  { id: "files",       label: "Files" },
+  { id: "exploration", label: "Exploration" },
 ] as const;
 
 const cardShell = "gap-0 overflow-hidden rounded-[16px] border border-[var(--border)] bg-[var(--surface)] shadow-[0_1px_2px_rgba(0,0,0,0.04),0_8px_24px_rgba(0,0,0,0.03)]";
@@ -805,6 +810,176 @@ function MentionedFilesVerificationCard({
   );
 }
 
+/** DetailFileActivity: 실제 파일 활동(read + write) 목록 카드. */
+function DetailFileActivity({
+  files, workspacePath, expanded, onToggle
+}: {
+  readonly files: readonly FileActivityStat[];
+  readonly workspacePath?: string | undefined;
+  readonly expanded: boolean;
+  readonly onToggle: () => void;
+}): React.JSX.Element {
+  const writeFiles = files.filter((f) => f.writeCount > 0).length;
+  const readOnlyFiles = files.filter((f) => f.writeCount === 0).length;
+
+  return (
+    <PanelCard className={cardShell}>
+      <button
+        className="flex w-full items-center justify-between gap-3 border-b border-[var(--border)] bg-[var(--surface-2)] px-4 py-3.5 text-left"
+        onClick={onToggle}
+        type="button"
+      >
+        <div>
+          <div className="text-[0.72rem] font-semibold uppercase tracking-[0.1em] text-[var(--text-3)]">File Activity</div>
+          <div className="mt-1 text-[0.82rem] text-[var(--text-2)]">
+            {files.length === 0
+              ? "No file activity recorded yet."
+              : `${files.length} files · ${writeFiles} modified · ${readOnlyFiles} read-only`}
+          </div>
+        </div>
+        <span className="text-[0.76rem] font-semibold text-[var(--accent)]">{expanded ? "Hide" : "Show"}</span>
+      </button>
+      {!expanded && files.length > 0 && (
+        <div className="px-4 py-3.5">
+          <div className="flex flex-wrap gap-2">
+            {files.slice(0, 4).map((file) => (
+              <Badge
+                key={file.path}
+                tone={file.writeCount > 0 ? "accent" : "neutral"}
+                size="xs"
+                className="max-w-full break-words"
+                title={file.path}
+              >
+                {file.writeCount > 0 ? "✎ " : ""}{summarizePath(file.path, workspacePath)}
+              </Badge>
+            ))}
+            {files.length > 4 && (
+              <Badge tone="neutral" size="xs">+{files.length - 4} more</Badge>
+            )}
+          </div>
+        </div>
+      )}
+      {expanded && (
+        <div className="px-4 py-4">
+          {files.length === 0 ? (
+            <p className="m-0 text-[0.8rem] text-[var(--text-3)]">No file activity recorded yet.</p>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {files.map((file) => {
+                const total = file.readCount + file.writeCount;
+                const compactBadge = compactRelationLabel(file.compactRelation);
+                return (
+                  <div key={file.path} className="rounded-[12px] border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <strong className={cn("block min-w-0 break-words text-[0.82rem] text-[var(--text-1)]", monoText)} title={file.path}>
+                        {toRelativePath(file.path, workspacePath)}
+                      </strong>
+                      <div className="flex shrink-0 items-center gap-1.5">
+                        {compactBadge && (
+                          <Badge tone={compactBadge.tone} size="xs">{compactBadge.label}</Badge>
+                        )}
+                        {file.writeCount > 0 && (
+                          <Badge tone="accent" size="xs">{file.writeCount} write</Badge>
+                        )}
+                        <Badge tone="neutral" size="xs">{file.readCount > 0 ? `${file.readCount} read` : `${total}x`}</Badge>
+                      </div>
+                    </div>
+                    <div className="mt-2 flex flex-wrap justify-between gap-2 text-[0.8rem] text-[var(--text-3)]">
+                      <span>{dirnameLabel(file.path, workspacePath)}</span>
+                      <span>
+                        {total > 1
+                          ? `First ${formatRelativeTime(file.firstSeenAt)} · Last ${formatRelativeTime(file.lastSeenAt)}`
+                          : formatRelativeTime(file.lastSeenAt)}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+    </PanelCard>
+  );
+}
+
+/** ExplorationInsightCard: 탐색 통계 인사이트 대시보드 카드. */
+function ExplorationInsightCard({
+  insight
+}: {
+  readonly insight: ExplorationInsight;
+}): React.JSX.Element {
+  const toolEntries = Object.entries(insight.toolBreakdown).sort((a, b) => b[1] - a[1]);
+
+  return (
+    <PanelCard className={cardShell}>
+      <div className={cardHeader}>
+        <span>Exploration Overview</span>
+      </div>
+      <div className={cardBody}>
+        {insight.totalExplorations === 0 ? (
+          <p className="m-0 text-[0.8rem] text-[var(--text-3)]">No exploration activity recorded yet.</p>
+        ) : (
+          <div className="flex flex-col gap-4">
+            <div className="grid grid-cols-2 gap-2 max-md:grid-cols-1">
+              <div className={innerPanel + " p-3"}>
+                <span className="block text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">Total Explorations</span>
+                <strong className="mt-2 block text-[1.05rem] text-[var(--text-1)]">{insight.totalExplorations}</strong>
+              </div>
+              <div className={innerPanel + " p-3"}>
+                <span className="block text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">Unique Files</span>
+                <strong className="mt-2 block text-[1.05rem] text-[var(--text-1)]">{insight.uniqueFiles}</strong>
+              </div>
+            </div>
+
+            {(insight.preCompactFiles > 0 || insight.postCompactFiles > 0 || insight.acrossCompactFiles > 0) && (
+              <div className="grid grid-cols-3 gap-2 max-md:grid-cols-1">
+                <div className={innerPanel + " p-3"}>
+                  <span className="block text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">Pre-compact</span>
+                  <strong className="mt-2 block text-[1.05rem] text-[color-mix(in_srgb,#f59e0b_80%,var(--text-1))]">{insight.preCompactFiles}</strong>
+                </div>
+                <div className={innerPanel + " p-3"}>
+                  <span className="block text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">Post-compact</span>
+                  <strong className="mt-2 block text-[1.05rem] text-[color-mix(in_srgb,#10b981_80%,var(--text-1))]">{insight.postCompactFiles}</strong>
+                </div>
+                <div className={innerPanel + " p-3"}>
+                  <span className="block text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">Across compact</span>
+                  <strong className="mt-2 block text-[1.05rem] text-[var(--accent)]">{insight.acrossCompactFiles}</strong>
+                </div>
+              </div>
+            )}
+
+            {toolEntries.length > 0 && (
+              <div>
+                <div className="mb-2 text-[0.7rem] font-bold uppercase tracking-[0.08em] text-[var(--text-3)]">Tool Breakdown</div>
+                <div className="flex flex-col gap-2">
+                  {toolEntries.map(([tool, count]) => (
+                    <div key={tool} className="flex items-center justify-between gap-3 rounded-[8px] bg-[var(--surface-2)] px-3 py-2">
+                      <span className={cn("min-w-0 break-words text-[0.82rem] text-[var(--text-2)]", monoText)}>{tool}</span>
+                      <Badge tone="neutral" size="xs">{count}x</Badge>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {(insight.firstExplorationAt || insight.lastExplorationAt) && (
+              <div className="flex flex-wrap gap-4 text-[0.78rem] text-[var(--text-3)]">
+                {insight.firstExplorationAt && (
+                  <span>First: {formatRelativeTime(insight.firstExplorationAt)}</span>
+                )}
+                {insight.lastExplorationAt && (
+                  <span>Last: {formatRelativeTime(insight.lastExplorationAt)}</span>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </PanelCard>
+  );
+}
+
 /** CompactActivityCard: compact 이벤트 활동 요약 카드. */
 function CompactActivityCard({
   insight, selectedTag, onSelectTag
@@ -1282,6 +1457,7 @@ export function EventInspector({
 }: EventInspectorProps): React.JSX.Element {
   const [activeTab, setActiveTab]                   = useState<PanelTabId>("inspector");
   const [isExploredFilesExpanded, setIsExploredFilesExpanded] = useState(true);
+  const [isFileActivityExpanded, setIsFileActivityExpanded]   = useState(true);
   const [copiedExtraction, setCopiedExtraction]     = useState<"brief" | "process" | null>(null);
   const inspectorDragScroll = useDragScroll({ axis: "y" });
 
@@ -1290,6 +1466,14 @@ export function EventInspector({
   const exploredFiles = useMemo(
     () => collectExploredFiles(taskTimeline),
     [taskTimeline]
+  );
+  const fileActivity = useMemo(
+    () => collectFileActivity(taskTimeline),
+    [taskTimeline]
+  );
+  const explorationInsight = useMemo(
+    () => buildExplorationInsight(taskTimeline, exploredFiles),
+    [exploredFiles, taskTimeline]
   );
   const compactInsight = useMemo(
     () => buildCompactInsight(taskTimeline),
@@ -1650,8 +1834,19 @@ export function EventInspector({
             />
           </div>
 
+        ) : activeTab === "files" ? (
+          <div className="panel-tab-inner flex flex-col gap-5 p-4">
+            <DetailFileActivity
+              files={fileActivity}
+              workspacePath={taskDetail?.task.workspacePath}
+              expanded={isFileActivityExpanded}
+              onToggle={() => setIsFileActivityExpanded((current) => !current)}
+            />
+          </div>
+
         ) : (
           <div className="panel-tab-inner flex flex-col gap-5 p-4">
+            <ExplorationInsightCard insight={explorationInsight} />
             <DetailExploredFiles
               files={exploredFiles}
               workspacePath={taskDetail?.task.workspacePath}

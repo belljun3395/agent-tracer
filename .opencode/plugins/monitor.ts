@@ -682,6 +682,11 @@ function extractBackgroundLaunchHints(input: {
 }
 
 function looksLikePath(value: string): boolean {
+  if (/[\n\r]/.test(value)) return false;
+  if (value.length > 260) return false;
+  if (/\s/.test(value)) return false;
+  if (/[=(){};,\[\]<>!?#&|+*^~"']/.test(value)) return false;
+
   return (
     /[\\/]/.test(value) ||
     /\.[a-z0-9]{1,15}$/i.test(value) ||
@@ -692,8 +697,10 @@ function looksLikePath(value: string): boolean {
 function extractPathLikeTokens(text: string): readonly string[] {
   const matches = new Set<string>();
 
-  const backtickRegex = /`([^`]+)`/g;
-  for (const match of text.matchAll(backtickRegex)) {
+  const stripped = text.replace(/```[\s\S]*?```/g, "");
+
+  const backtickRegex = /`([^`\n]+)`/g;
+  for (const match of stripped.matchAll(backtickRegex)) {
     const candidate = match[1]?.trim();
     if (candidate && looksLikePath(candidate)) {
       matches.add(candidate);
@@ -701,7 +708,7 @@ function extractPathLikeTokens(text: string): readonly string[] {
   }
 
   const atPathRegex = /@([A-Za-z0-9_./-]+(?:\.[A-Za-z0-9_-]+)?)/g;
-  for (const match of text.matchAll(atPathRegex)) {
+  for (const match of stripped.matchAll(atPathRegex)) {
     const candidate = match[1]?.trim();
     if (candidate && looksLikePath(candidate)) {
       matches.add(candidate);
@@ -709,7 +716,7 @@ function extractPathLikeTokens(text: string): readonly string[] {
   }
 
   const plainPathRegex = /(?:[A-Za-z0-9_.-]+\/)+[A-Za-z0-9_.-]+(?:\.[A-Za-z0-9_-]+)?/g;
-  for (const match of text.matchAll(plainPathRegex)) {
+  for (const match of stripped.matchAll(plainPathRegex)) {
     const candidate = match[0]?.trim();
     if (candidate && looksLikePath(candidate)) {
       matches.add(candidate);

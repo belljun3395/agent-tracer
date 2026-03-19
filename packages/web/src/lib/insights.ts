@@ -40,6 +40,28 @@ export type CompactRelation =
   | "across-compact"
   | "no-compact";
 
+/** Files 탭에 표시할 개별 파일 활동. explored(읽기)와 changed(수정) 구분. */
+export interface FileActivityStat {
+  readonly path: string;
+  readonly readCount: number;
+  readonly writeCount: number;
+  readonly firstSeenAt: string;
+  readonly lastSeenAt: string;
+  readonly compactRelation: CompactRelation;
+}
+
+/** Exploration 탭에 표시할 탐색 전체 인사이트. */
+export interface ExplorationInsight {
+  readonly totalExplorations: number;
+  readonly uniqueFiles: number;
+  readonly toolBreakdown: Readonly<Record<string, number>>;
+  readonly preCompactFiles: number;
+  readonly postCompactFiles: number;
+  readonly acrossCompactFiles: number;
+  readonly firstExplorationAt?: string | undefined;
+  readonly lastExplorationAt?: string | undefined;
+}
+
 export interface CompactInsight {
   readonly occurrences: number;
   readonly handoffCount: number;
@@ -273,6 +295,118 @@ export function collectExploredFiles(
 
     return left.path.localeCompare(right.path);
   });
+}
+
+/**
+ * 실제 파일 활동(읽기 + 수정)을 수집.
+ * exploration 레인(읽기)과 implementation 레인(수정) 모두 포함.
+ * Files 탭에서 에이전트가 실제로 접근한 파일만 표시하는 데 사용.
+ */
+export function collectFileActivity(
+  timeline: readonly TimelineEvent[]
+): readonly FileActivityStat[] {
+  const compactTimestamps = extractCompactTimestamps(timeline);
+  const lastCompactAt = compactTimestamps.at(-1);
+
+  const fileData = new Map<string, { reads: string[]; writes: string[] }>();
+
+  for (const event of timeline) {
+    const isExploration = event.lane === "exploration";
+    const isImplementation = event.lane === "implementation";
+    if (!isExploration && !isImplementation) continue;
+
+    if (event.kind === "file.changed" && extractMetadataStringArray(event.metadata, "filePaths").length === 0) {
+      continue;
+    }
+
+    for (const filePath of extractMetadataStringArray(event.metadata, "filePaths")) {
+      const existing = fileData.get(filePath) ?? { reads: [], writes: [] };
+      if (isExploration) {
+        existing.reads.push(event.createdAt);
+      } else {
+        existing.writes.push(event.createdAt);
+      }
+      fileData.set(filePath, existing);
+    }
+  }
+
+  const stats: FileActivityStat[] = [];
+
+  for (const [filePath, data] of fileData) {
+    const allTimestamps = [...data.reads, ...data.writes].sort((a, b) => Date.parse(a) - Date.parse(b));
+    if (allTimestamps.length === 0) continue;
+
+    stats.push({
+      path: filePath,
+      readCount: data.reads.length,
+      writeCount: data.writes.length,
+      firstSeenAt: allTimestamps[0]!,
+      lastSeenAt: allTimestamps[allTimestamps.length - 1]!,
+      compactRelation: deriveCompactRelation(allTimestamps, lastCompactAt)
+    });
+  }
+
+  return stats.sort((left, right) => {
+    const timeDelta = Date.parse(right.lastSeenAt) - Date.parse(left.lastSeenAt);
+    if (timeDelta !== 0) return timeDelta;
+    const totalRight = right.readCount + right.writeCount;
+    const totalLeft = left.readCount + left.writeCount;
+    if (totalRight !== totalLeft) return totalRight - totalLeft;
+    return left.path.localeCompare(right.path);
+  });
+}
+
+/**
+ * 탐색 레인 이벤트에서 Exploration 인사이트를 집계.
+ * 도구별 사용 횟수, compact 전후 파일 분포 등 메타 통계 생성.
+ */
+export function buildExplorationInsight(
+  timeline: readonly TimelineEvent[],
+  exploredFiles: readonly ExploredFileStat[]
+): ExplorationInsight {
+  const toolBreakdown: Record<string, number> = {};
+  let totalExplorations = 0;
+  let firstExplorationAt: string | undefined;
+  let lastExplorationAt: string | undefined;
+
+  for (const event of timeline) {
+    if (event.lane !== "exploration") continue;
+    if (event.kind === "file.changed") continue;
+
+    totalExplorations += 1;
+    const toolName = extractMetadataString(event.metadata, "toolName") ?? event.kind;
+    toolBreakdown[toolName] = (toolBreakdown[toolName] ?? 0) + 1;
+
+    if (!firstExplorationAt || Date.parse(event.createdAt) < Date.parse(firstExplorationAt)) {
+      firstExplorationAt = event.createdAt;
+    }
+    if (!lastExplorationAt || Date.parse(event.createdAt) > Date.parse(lastExplorationAt)) {
+      lastExplorationAt = event.createdAt;
+    }
+  }
+
+  let preCompactFiles = 0;
+  let postCompactFiles = 0;
+  let acrossCompactFiles = 0;
+
+  for (const file of exploredFiles) {
+    switch (file.compactRelation) {
+      case "before-compact": preCompactFiles += 1; break;
+      case "after-compact": postCompactFiles += 1; break;
+      case "across-compact": acrossCompactFiles += 1; break;
+    }
+  }
+
+  return {
+    totalExplorations,
+    uniqueFiles: exploredFiles.length,
+    toolBreakdown,
+    preCompactFiles,
+    postCompactFiles,
+    acrossCompactFiles,
+    firstExplorationAt,
+    lastExplorationAt
+  };
 }
 
 /**

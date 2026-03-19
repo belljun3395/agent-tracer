@@ -15,8 +15,6 @@
 export function extractPathLikeTokens(text: string): readonly string[] {
   const matches = new Set<string>();
 
-  // 후보를 Set에 추가하기 전 정규화: trailing slash 제거 후 중복 방지.
-  // isDirectoryPath()는 trailing slash 없이도 확장자 유무로 판별하므로 정보 손실 없음.
   function addCandidate(raw: string | undefined): void {
     const candidate = raw?.trim().replace(/\/$/, "");
     if (candidate && looksLikePath(candidate)) {
@@ -24,22 +22,25 @@ export function extractPathLikeTokens(text: string): readonly string[] {
     }
   }
 
+  // fenced code block(``` ... ```)을 제거해 코드 내용이 경로로 오탐되는 것을 방지.
+  const stripped = text.replace(/```[\s\S]*?```/g, "");
+
   // 백틱 내 경로: `src/components/` 또는 `src/foo.ts`
-  const backtickRegex = /`([^`]+)`/g;
-  for (const match of text.matchAll(backtickRegex)) {
+  // 개행을 포함하면 코드블록 잔여물이므로 제외.
+  const backtickRegex = /`([^`\n]+)`/g;
+  for (const match of stripped.matchAll(backtickRegex)) {
     addCandidate(match[1]);
   }
 
   // @ 접두사 경로: trailing slash 포함 → 폴더도 캡처
-  // @src/components/  @src/components  @packages/web/src/lib/insights.ts
   const atPathRegex = /@([A-Za-z0-9_./-]+\/?)/g;
-  for (const match of text.matchAll(atPathRegex)) {
+  for (const match of stripped.matchAll(atPathRegex)) {
     addCandidate(match[1]);
   }
 
   // 일반 경로 패턴 (슬래시 포함 세그먼트)
   const plainPathRegex = /(?:[A-Za-z0-9_.-]+\/)+[A-Za-z0-9_.-]*/g;
-  for (const match of text.matchAll(plainPathRegex)) {
+  for (const match of stripped.matchAll(plainPathRegex)) {
     addCandidate(match[0]);
   }
 
@@ -52,6 +53,11 @@ export function extractPathLikeTokens(text: string): readonly string[] {
  * dotfile (.gitignore, .env, .prettierrc)도 파일 경로로 인식.
  */
 export function looksLikePath(value: string): boolean {
+  if (/[\n\r]/.test(value)) return false;
+  if (value.length > 260) return false;
+  if (/\s/.test(value)) return false;
+  if (/[=(){};,\[\]<>!?#&|+*^~"']/.test(value)) return false;
+
   return (
     /[/\\]/.test(value) ||
     /\.[a-z0-9]{1,15}$/i.test(value) ||
