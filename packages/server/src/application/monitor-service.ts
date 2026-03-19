@@ -6,7 +6,7 @@
  */
 
 import {
-  createTaskSlug, normalizeWorkspacePath,
+  createTaskSlug, extractPathLikeTokens, normalizeWorkspacePath,
   type MonitoringEventKind, type MonitoringTask, type TimelineEvent, type TimelineLane
 } from "@monitor/core";
 
@@ -76,8 +76,35 @@ export class MonitorService {
     const task = await this.requireTask(input.taskId);
     if (input.captureMode === "derived" && !input.sourceEventId) throw new Error("sourceEventId is required when captureMode is 'derived'.");
     const phase = input.phase ?? (await this.ports.events.countRawUserMessages(input.taskId) === 0 ? "initial" : "follow_up");
-    const meta = { ...(input.metadata ?? {}), messageId: input.messageId, captureMode: input.captureMode, source: input.source, phase, ...(input.sourceEventId ? { sourceEventId: input.sourceEventId } : {}), contractVersion: input.contractVersion ?? "1" };
-    const event = await this.recorder.record({ taskId: input.taskId, kind: "user.message", title: input.title, ...(input.sessionId ? { sessionId: input.sessionId } : {}), ...(input.body ? { body: input.body } : {}), metadata: meta });
+
+    const meta = {
+      ...(input.metadata ?? {}),
+      messageId: input.messageId,
+      captureMode: input.captureMode,
+      source: input.source,
+      phase,
+      ...(input.sourceEventId ? { sourceEventId: input.sourceEventId } : {}),
+      contractVersion: input.contractVersion ?? "1"
+    };
+
+    // filePaths가 없으면 body 텍스트에서 @ 멘션·경로 패턴을 파생 (Claude Code 갭 보완).
+    // EventRecorder가 input.filePaths를 metadata.filePaths로 저장하므로 top-level로 전달.
+    const existingFilePaths = Array.isArray(input.metadata?.["filePaths"])
+      ? (input.metadata?.["filePaths"] as string[]).filter((p): p is string => typeof p === "string")
+      : undefined;
+    const filePaths = (existingFilePaths && existingFilePaths.length > 0)
+      ? existingFilePaths
+      : (input.body ? [...extractPathLikeTokens(input.body)] : []);
+
+    const event = await this.recorder.record({
+      taskId: input.taskId,
+      kind: "user.message",
+      title: input.title,
+      ...(input.sessionId ? { sessionId: input.sessionId } : {}),
+      ...(input.body ? { body: input.body } : {}),
+      ...(filePaths.length > 0 ? { filePaths } : {}),
+      metadata: meta
+    });
     return { task, ...(input.sessionId ? { sessionId: input.sessionId } : {}), events: [{ id: event.id, kind: event.kind }] };
   }
 

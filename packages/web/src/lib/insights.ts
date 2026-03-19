@@ -5,6 +5,7 @@
  * 통계, 태그 분석, 규칙 커버리지, 태스크 요약 등을 담당.
  */
 
+import { filePathsInDirectory, isDirectoryPath, matchFilePaths } from "@monitor/core";
 import type { MonitoringTask, RulesIndex, TimelineEvent, TimelineLane } from "../types.js";
 
 export interface ObservabilityStats {
@@ -20,8 +21,24 @@ export interface ObservabilityStats {
 export interface ExploredFileStat {
   readonly path: string;
   readonly count: number;
+  readonly firstSeenAt: string;
   readonly lastSeenAt: string;
+  readonly readTimestamps: readonly string[];
+  readonly compactRelation: CompactRelation;
 }
+
+/**
+ * 파일 읽기와 compact 이벤트의 시간적 관계.
+ * - before-compact: 모든 읽기가 마지막 compact 이전
+ * - after-compact: 모든 읽기가 마지막 compact 이후
+ * - across-compact: compact 전후 모두 읽음
+ * - no-compact: 이 태스크에 compact 이벤트 없음
+ */
+export type CompactRelation =
+  | "before-compact"
+  | "after-compact"
+  | "across-compact"
+  | "no-compact";
 
 export interface CompactInsight {
   readonly occurrences: number;
@@ -135,16 +152,77 @@ export function buildObservabilityStats(
 }
 
 /**
- * 탐색 이벤트에서 파일 활동 집계.
- * exploration 레인 이벤트의 metadata.filePaths를 수집하고 방문 횟수 및 최근 시각 순으로 정렬.
+ * 타임라인에서 compact 이벤트들의 createdAt 시각 배열을 추출.
+ * compactPhase="after" 이벤트를 compact 완료 시점으로 간주.
  *
  * @param timeline - 전체 이벤트 목록
- * @returns 파일 경로별 방문 횟수와 최근 시각 배열 (최근순 정렬)
+ * @returns ISO 시각 문자열 배열 (오래된 순)
+ */
+export function extractCompactTimestamps(
+  timeline: readonly TimelineEvent[]
+): readonly string[] {
+  const timestamps: string[] = [];
+
+  for (const event of timeline) {
+    const isCompact = event.classification.tags.includes("compact")
+      || extractMetadataBoolean(event.metadata, "compactEvent")
+      || Boolean(extractMetadataString(event.metadata, "compactPhase"))
+      || Boolean(extractMetadataString(event.metadata, "compactEventType"));
+
+    if (!isCompact) {
+      continue;
+    }
+
+    const phase = extractMetadataString(event.metadata, "compactPhase");
+    // compactPhase="after"를 compact 완료 기준점으로 사용.
+    // phase가 없으면(수동 기록 등) 이벤트 자체를 기준점으로 사용.
+    if (phase === "after" || !phase) {
+      timestamps.push(event.createdAt);
+    }
+  }
+
+  return timestamps.sort((a, b) => Date.parse(a) - Date.parse(b));
+}
+
+/**
+ * 파일 읽기 시각 목록과 마지막 compact 시각을 비교해 CompactRelation 계산.
+ */
+function deriveCompactRelation(
+  readTimestamps: readonly string[],
+  lastCompactAt: string | undefined
+): CompactRelation {
+  if (!lastCompactAt) {
+    return "no-compact";
+  }
+
+  const compactMs = Date.parse(lastCompactAt);
+  const beforeCount = readTimestamps.filter((t) => Date.parse(t) < compactMs).length;
+  const afterCount = readTimestamps.filter((t) => Date.parse(t) >= compactMs).length;
+
+  if (beforeCount > 0 && afterCount > 0) {
+    return "across-compact";
+  }
+  if (afterCount > 0) {
+    return "after-compact";
+  }
+  return "before-compact";
+}
+
+/**
+ * 탐색 이벤트에서 파일 활동 집계.
+ * exploration 레인 이벤트의 metadata.filePaths를 수집하고
+ * 방문 횟수, 최초/최근 시각, compact 관계를 포함해 최근순으로 정렬.
+ *
+ * @param timeline - 전체 이벤트 목록
+ * @returns 파일 경로별 통계 배열 (최근순 정렬)
  */
 export function collectExploredFiles(
   timeline: readonly TimelineEvent[]
 ): readonly ExploredFileStat[] {
-  const files = new Map<string, ExploredFileStat>();
+  const compactTimestamps = extractCompactTimestamps(timeline);
+  const lastCompactAt = compactTimestamps.at(-1);
+
+  const fileTimestamps = new Map<string, string[]>();
 
   for (const event of timeline) {
     if (event.lane !== "exploration" || event.kind === "file.changed") {
@@ -152,26 +230,33 @@ export function collectExploredFiles(
     }
 
     for (const filePath of extractMetadataStringArray(event.metadata, "filePaths")) {
-      const existing = files.get(filePath);
-
-      if (!existing) {
-        files.set(filePath, {
-          path: filePath,
-          count: 1,
-          lastSeenAt: event.createdAt
-        });
-        continue;
+      const existing = fileTimestamps.get(filePath);
+      if (existing) {
+        existing.push(event.createdAt);
+      } else {
+        fileTimestamps.set(filePath, [event.createdAt]);
       }
-
-      files.set(filePath, {
-        path: filePath,
-        count: existing.count + 1,
-        lastSeenAt: latestTimestamp(existing.lastSeenAt, event.createdAt)
-      });
     }
   }
 
-  return [...files.values()].sort((left, right) => {
+  const stats: ExploredFileStat[] = [];
+
+  for (const [filePath, timestamps] of fileTimestamps) {
+    const sorted = [...timestamps].sort((a, b) => Date.parse(a) - Date.parse(b));
+    const firstSeenAt = sorted[0]!;
+    const lastSeenAt = sorted[sorted.length - 1]!;
+
+    stats.push({
+      path: filePath,
+      count: sorted.length,
+      firstSeenAt,
+      lastSeenAt,
+      readTimestamps: sorted,
+      compactRelation: deriveCompactRelation(sorted, lastCompactAt)
+    });
+  }
+
+  return stats.sort((left, right) => {
     const timeDelta = Date.parse(right.lastSeenAt) - Date.parse(left.lastSeenAt);
     if (timeDelta !== 0) {
       return timeDelta;
@@ -1073,6 +1158,139 @@ export function buildTodoGroups(
       isTerminal: TODO_TERMINAL_STATES.has(currentState)
     };
   });
+}
+
+/**
+ * @ 멘션이 파일인지 폴더인지 구분.
+ * - file: 확장자가 있거나 trailing slash 없이 정확히 한 파일을 가리킴
+ * - directory: trailing slash 있거나 확장자 없는 경로 세그먼트
+ */
+export type MentionType = "file" | "directory";
+
+/** 파일 멘션의 교차 검증 결과. */
+export interface FileMentionVerification {
+  readonly mentionType: "file";
+  readonly path: string;
+  readonly mentionedAt: string;
+  readonly mentionedInEventId: string;
+  readonly wasExplored: boolean;
+  readonly firstExploredAt: string | undefined;
+  readonly explorationCount: number;
+  /** 멘션 이후에 읽은 적이 있는지 여부. false면 멘션 전 읽은 내용이 최신인지 확인 필요. */
+  readonly exploredAfterMention: boolean;
+}
+
+/** 폴더 멘션의 교차 검증 결과. */
+export interface DirectoryMentionVerification {
+  readonly mentionType: "directory";
+  readonly path: string;
+  readonly mentionedAt: string;
+  readonly mentionedInEventId: string;
+  /** 이 폴더 아래에서 실제로 읽힌 파일 목록 */
+  readonly exploredFilesInFolder: readonly ExploredFileStat[];
+  /** 폴더 안에서 읽힌 파일이 하나 이상인지 여부 */
+  readonly wasExplored: boolean;
+  /** 멘션 이후에 폴더 내 파일을 읽은 적이 있는지 여부 */
+  readonly exploredAfterMention: boolean;
+}
+
+/** 파일 또는 폴더 멘션의 교차 검증 결과. */
+export type MentionedFileVerification = FileMentionVerification | DirectoryMentionVerification;
+
+/**
+ * 사용자 메시지에서 멘션된 파일·폴더가 실제로 탐색되었는지 교차 검증.
+ * user.message 이벤트의 metadata.filePaths와 collectExploredFiles 결과를 매칭.
+ * 파일 멘션은 정확한 경로 일치를, 폴더 멘션은 하위 파일 포함 여부를 확인한다.
+ *
+ * @param timeline - 전체 이벤트 목록
+ * @param exploredFiles - collectExploredFiles 결과
+ * @param workspacePath - 경로 정규화에 사용할 워크스페이스 경로 (선택적)
+ * @returns 멘션된 파일·폴더별 검증 결과 (멘션 시각 오래된 순)
+ */
+export function buildMentionedFileVerifications(
+  timeline: readonly TimelineEvent[],
+  exploredFiles: readonly ExploredFileStat[],
+  workspacePath?: string
+): readonly MentionedFileVerification[] {
+  const exploredMap = new Map(exploredFiles.map((f) => [f.path, f]));
+  const allExploredPaths = exploredFiles.map((f) => f.path);
+
+  const results: MentionedFileVerification[] = [];
+  const seen = new Set<string>();
+
+  for (const event of timeline) {
+    if (event.kind !== "user.message") {
+      continue;
+    }
+
+    const mentionedPaths = extractMetadataStringArray(event.metadata, "filePaths");
+    const mentionedMs = Date.parse(event.createdAt);
+
+    for (const mentionedPath of mentionedPaths) {
+      const dedupeKey = `${event.id}::${mentionedPath}`;
+      if (seen.has(dedupeKey)) {
+        continue;
+      }
+      seen.add(dedupeKey);
+
+      if (isDirectoryPath(mentionedPath)) {
+        // 폴더 멘션: 하위 파일들 중 읽힌 것을 수집
+        const matchedPaths = filePathsInDirectory(mentionedPath, allExploredPaths, workspacePath);
+        const exploredFilesInFolder = matchedPaths
+          .map((p) => exploredMap.get(p))
+          .filter((s): s is ExploredFileStat => s !== undefined);
+
+        results.push({
+          mentionType: "directory",
+          path: mentionedPath,
+          mentionedAt: event.createdAt,
+          mentionedInEventId: event.id,
+          exploredFilesInFolder,
+          wasExplored: exploredFilesInFolder.length > 0,
+          exploredAfterMention: exploredFilesInFolder.some((s) =>
+            s.readTimestamps.some((t) => Date.parse(t) > mentionedMs)
+          )
+        });
+      } else {
+        // 파일 멘션: 정확히 일치하는 파일 탐색
+        const matchedStat = findMatchingExploredFile(mentionedPath, exploredMap, workspacePath);
+
+        results.push({
+          mentionType: "file",
+          path: mentionedPath,
+          mentionedAt: event.createdAt,
+          mentionedInEventId: event.id,
+          wasExplored: Boolean(matchedStat),
+          firstExploredAt: matchedStat?.firstSeenAt,
+          explorationCount: matchedStat?.count ?? 0,
+          exploredAfterMention: Boolean(
+            matchedStat?.readTimestamps.some((t) => Date.parse(t) > mentionedMs)
+          )
+        });
+      }
+    }
+  }
+
+  return results.sort((a, b) => Date.parse(a.mentionedAt) - Date.parse(b.mentionedAt));
+}
+
+function findMatchingExploredFile(
+  mentionedPath: string,
+  exploredMap: Map<string, ExploredFileStat>,
+  workspacePath?: string
+): ExploredFileStat | undefined {
+  const exact = exploredMap.get(mentionedPath);
+  if (exact) {
+    return exact;
+  }
+
+  for (const [exploredPath, stat] of exploredMap) {
+    if (matchFilePaths(mentionedPath, exploredPath, workspacePath)) {
+      return stat;
+    }
+  }
+
+  return undefined;
 }
 
 /**

@@ -12,6 +12,7 @@ import {
 
 import {
   buildCompactInsight,
+  buildMentionedFileVerifications,
   buildObservabilityStats,
   buildQuestionGroups,
   buildRuleCoverage,
@@ -21,7 +22,11 @@ import {
   collectExploredFiles,
   eventHasRuleGap,
   type CompactInsight,
+  type CompactRelation,
+  type DirectoryMentionVerification,
   type ExploredFileStat,
+  type FileMentionVerification,
+  type MentionedFileVerification,
   type ModelSummary,
   type QuestionGroup,
   type RuleCoverageStat,
@@ -522,7 +527,16 @@ function DetailTaskModel({ summary }: { readonly summary: ModelSummary }): React
   );
 }
 
-/** DetailExploredFiles: 탐색된 파일 목록을 접기/펼치기로 표시. */
+function compactRelationLabel(relation: CompactRelation): { label: string; tone: "warning" | "success" | "accent" | "neutral" } | null {
+  switch (relation) {
+    case "before-compact": return { label: "pre-compact", tone: "warning" };
+    case "after-compact": return { label: "post-compact", tone: "success" };
+    case "across-compact": return { label: "across compact", tone: "accent" };
+    case "no-compact": return null;
+  }
+}
+
+/** DetailExploredFiles: 탐색된 파일 목록을 접기/펼치기로 표시. compact 관계와 읽기 시간 이력 포함. */
 function DetailExploredFiles({
   files, workspacePath, expanded, onToggle
 }: {
@@ -531,6 +545,8 @@ function DetailExploredFiles({
   readonly expanded: boolean;
   readonly onToggle: () => void;
 }): React.JSX.Element {
+  const staleCount = files.filter((f) => f.compactRelation === "before-compact").length;
+
   return (
     <PanelCard className={cardShell}>
       <button
@@ -543,7 +559,7 @@ function DetailExploredFiles({
           <div className="mt-1 text-[0.82rem] text-[var(--text-2)]">
             {files.length === 0
               ? "No exploration file paths recorded yet."
-              : `${files.length} files · latest ${formatRelativeTime(files[0]?.lastSeenAt ?? new Date().toISOString())}`}
+              : `${files.length} files · latest ${formatRelativeTime(files[0]?.lastSeenAt ?? new Date().toISOString())}${staleCount > 0 ? ` · ${staleCount} pre-compact` : ""}`}
           </div>
         </div>
         <span className="text-[0.76rem] font-semibold text-[var(--accent)]">{expanded ? "Hide" : "Show"}</span>
@@ -568,20 +584,219 @@ function DetailExploredFiles({
             <p className="m-0 text-[0.8rem] text-[var(--text-3)]">No exploration file paths recorded yet.</p>
           ) : (
             <div className="flex flex-col gap-3">
-              {files.map((file) => (
-                <div key={file.path} className="rounded-[12px] border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <strong className={cn("block min-w-0 break-words text-[0.82rem] text-[var(--text-1)]", monoText)} title={file.path}>
-                      {toRelativePath(file.path, workspacePath)}
-                    </strong>
-                    <Badge tone="accent" size="xs">{file.count}x</Badge>
+              {files.map((file) => {
+                const compactBadge = compactRelationLabel(file.compactRelation);
+                return (
+                  <div key={file.path} className="rounded-[12px] border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <strong className={cn("block min-w-0 break-words text-[0.82rem] text-[var(--text-1)]", monoText)} title={file.path}>
+                        {toRelativePath(file.path, workspacePath)}
+                      </strong>
+                      <div className="flex shrink-0 items-center gap-1.5">
+                        {compactBadge && (
+                          <Badge tone={compactBadge.tone} size="xs">{compactBadge.label}</Badge>
+                        )}
+                        <Badge tone="accent" size="xs">{file.count}x</Badge>
+                      </div>
+                    </div>
+                    <div className="mt-2 flex flex-wrap justify-between gap-2 text-[0.8rem] text-[var(--text-3)]">
+                      <span>{dirnameLabel(file.path, workspacePath)}</span>
+                      <span>
+                        {file.count > 1
+                          ? `First ${formatRelativeTime(file.firstSeenAt)} · Last ${formatRelativeTime(file.lastSeenAt)}`
+                          : `Read ${formatRelativeTime(file.lastSeenAt)}`}
+                      </span>
+                    </div>
                   </div>
-                  <div className="mt-2 flex flex-wrap justify-between gap-2 text-[0.8rem] text-[var(--text-3)]">
-                    <span>{dirnameLabel(file.path, workspacePath)}</span>
-                    <span>Last seen {formatRelativeTime(file.lastSeenAt)}</span>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+    </PanelCard>
+  );
+}
+
+function FileMentionRow({
+  v, workspacePath
+}: {
+  readonly v: FileMentionVerification;
+  readonly workspacePath?: string | undefined;
+}): React.JSX.Element {
+  return (
+    <div className={cn(
+      "rounded-[12px] border px-4 py-3",
+      v.wasExplored
+        ? "border-[var(--border)] bg-[var(--surface-2)]"
+        : "border-[color-mix(in_srgb,#f59e0b_30%,transparent)] bg-[color-mix(in_srgb,#f59e0b_5%,var(--surface-2))]"
+    )}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-1.5">
+          <span className="shrink-0 text-[0.72rem] text-[var(--text-3)]">file</span>
+          <strong className={cn("block min-w-0 break-words text-[0.82rem] text-[var(--text-1)]", monoText)} title={v.path}>
+            {toRelativePath(v.path, workspacePath)}
+          </strong>
+        </div>
+        <div className="flex shrink-0 items-center gap-1.5">
+          {v.wasExplored ? (
+            <>
+              {!v.exploredAfterMention && (
+                <Badge tone="warning" size="xs">pre-mention</Badge>
+              )}
+              <Badge tone="success" size="xs">
+                {v.explorationCount > 1 ? `read ${v.explorationCount}x` : "read ✓"}
+              </Badge>
+            </>
+          ) : (
+            <Badge tone="warning" size="xs">not read</Badge>
+          )}
+        </div>
+      </div>
+      <div className="mt-1.5 text-[0.78rem] text-[var(--text-3)]">
+        Mentioned {formatRelativeTime(v.mentionedAt)}
+        {v.wasExplored && v.firstExploredAt
+          ? ` · first read ${formatRelativeTime(v.firstExploredAt)}`
+          : !v.wasExplored ? " · not yet explored" : ""}
+      </div>
+    </div>
+  );
+}
+
+function DirectoryMentionRow({
+  v, workspacePath
+}: {
+  readonly v: DirectoryMentionVerification;
+  readonly workspacePath?: string | undefined;
+}): React.JSX.Element {
+  const [open, setOpen] = useState(false);
+  const count = v.exploredFilesInFolder.length;
+
+  return (
+    <div className={cn(
+      "rounded-[12px] border px-4 py-3",
+      v.wasExplored
+        ? "border-[var(--border)] bg-[var(--surface-2)]"
+        : "border-[color-mix(in_srgb,#f59e0b_30%,transparent)] bg-[color-mix(in_srgb,#f59e0b_5%,var(--surface-2))]"
+    )}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-1.5">
+          <span className="shrink-0 text-[0.72rem] text-[var(--text-3)]">dir</span>
+          <strong className={cn("block min-w-0 break-words text-[0.82rem] text-[var(--text-1)]", monoText)} title={v.path}>
+            {toRelativePath(v.path.replace(/\/$/, ""), workspacePath)}/
+          </strong>
+        </div>
+        <div className="flex shrink-0 items-center gap-1.5">
+          {v.wasExplored ? (
+            <>
+              {!v.exploredAfterMention && (
+                <Badge tone="warning" size="xs">pre-mention</Badge>
+              )}
+              <Badge tone="success" size="xs">{count} file{count !== 1 ? "s" : ""} read</Badge>
+            </>
+          ) : (
+            <Badge tone="warning" size="xs">none read</Badge>
+          )}
+        </div>
+      </div>
+      <div className="mt-1.5 text-[0.78rem] text-[var(--text-3)]">
+        Mentioned {formatRelativeTime(v.mentionedAt)}
+        {count > 0 && (
+          <button
+            className="ml-2 text-[var(--accent)] hover:underline"
+            onClick={() => setOpen((c) => !c)}
+            type="button"
+          >
+            {open ? "hide files" : `show ${count} file${count !== 1 ? "s" : ""}`}
+          </button>
+        )}
+      </div>
+      {open && count > 0 && (
+        <div className="mt-2 flex flex-col gap-1">
+          {v.exploredFilesInFolder.map((f) => (
+            <div key={f.path} className="flex items-center justify-between gap-2 rounded-[8px] bg-[var(--surface)] px-3 py-1.5">
+              <span className={cn("min-w-0 break-words text-[0.78rem] text-[var(--text-2)]", monoText)} title={f.path}>
+                {toRelativePath(f.path, workspacePath)}
+              </span>
+              <Badge tone="accent" size="xs">{f.count}x</Badge>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * MentionedFilesVerificationCard: 사용자가 @ 멘션한 파일·폴더의 실제 탐색 여부를 검증해 표시.
+ * 멘션이 없을 때도 항상 카드를 표시 (empty state 안내 포함).
+ */
+function MentionedFilesVerificationCard({
+  verifications, workspacePath
+}: {
+  readonly verifications: readonly MentionedFileVerification[];
+  readonly workspacePath?: string | undefined;
+}): React.JSX.Element {
+  const [expanded, setExpanded] = useState(false);
+  const unverifiedCount = verifications.filter((v) => !v.wasExplored).length;
+  const preCount = verifications.filter((v) => v.wasExplored && !v.exploredAfterMention).length;
+
+  const summaryText = verifications.length === 0
+    ? "No @ mentions detected in user messages"
+    : `${verifications.length} mentioned · ${unverifiedCount} not read${preCount > 0 ? ` · ${preCount} pre-mention` : ""}`;
+
+  return (
+    <PanelCard className={cardShell}>
+      <button
+        className="flex w-full items-center justify-between gap-3 border-b border-[var(--border)] bg-[var(--surface-2)] px-4 py-3.5 text-left"
+        onClick={() => setExpanded((c) => !c)}
+        type="button"
+      >
+        <div>
+          <div className="text-[0.72rem] font-semibold uppercase tracking-[0.1em] text-[var(--text-3)]">@ Mentioned Files</div>
+          <div className="mt-1 text-[0.82rem] text-[var(--text-2)]">{summaryText}</div>
+        </div>
+        <span className="text-[0.76rem] font-semibold text-[var(--accent)]">{expanded ? "Hide" : "Show"}</span>
+      </button>
+
+      {/* 접힌 상태: 미리보기 배지 */}
+      {!expanded && verifications.length > 0 && (
+        <div className="px-4 py-3.5">
+          <div className="flex flex-wrap gap-2">
+            {verifications.slice(0, 3).map((v) => (
+              <Badge
+                key={`${v.mentionedInEventId}::${v.path}`}
+                tone={v.wasExplored ? "success" : "warning"}
+                size="xs"
+                className="max-w-full break-words"
+                title={v.path}
+              >
+                {v.mentionType === "directory" ? "📁 " : ""}{summarizePath(v.path, workspacePath)}
+              </Badge>
+            ))}
+            {verifications.length > 3 && (
+              <Badge tone="neutral" size="xs">+{verifications.length - 3} more</Badge>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 펼친 상태 */}
+      {expanded && (
+        <div className="px-4 py-4">
+          {verifications.length === 0 ? (
+            <p className="m-0 text-[0.8rem] text-[var(--text-3)]">
+              User messages did not contain any @ file or folder references. Mentions are captured from <code className="text-[0.78rem]">@path</code>, backtick paths, and inline path tokens.
+            </p>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {verifications.map((v) =>
+                v.mentionType === "directory" ? (
+                  <DirectoryMentionRow key={`${v.mentionedInEventId}::${v.path}`} v={v} workspacePath={workspacePath} />
+                ) : (
+                  <FileMentionRow key={`${v.mentionedInEventId}::${v.path}`} v={v} workspacePath={workspacePath} />
+                )
+              )}
             </div>
           )}
         </div>
@@ -1099,6 +1314,10 @@ export function EventInspector({
     () => buildTodoGroups(taskTimeline),
     [taskTimeline]
   );
+  const mentionedVerifications = useMemo(
+    () => buildMentionedFileVerifications(taskTimeline, exploredFiles, taskDetail?.task.workspacePath),
+    [exploredFiles, taskDetail?.task.workspacePath, taskTimeline]
+  );
   const relatedEvents = useMemo(() => {
     if (!selectedEvent) {
       return [];
@@ -1429,6 +1648,10 @@ export function EventInspector({
               workspacePath={taskDetail?.task.workspacePath}
               expanded={isExploredFilesExpanded}
               onToggle={() => setIsExploredFilesExpanded((current) => !current)}
+            />
+            <MentionedFilesVerificationCard
+              verifications={mentionedVerifications}
+              workspacePath={taskDetail?.task.workspacePath}
             />
           </div>
         )}
