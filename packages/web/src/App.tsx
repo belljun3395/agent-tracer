@@ -106,8 +106,15 @@ function Dashboard(): React.JSX.Element {
     dispatch({ type: "SET_CONNECTED", isConnected: wsConnected });
   }, [dispatch, wsConnected]);
 
-  // Search
-  const { query: searchQuery, setQuery: setSearchQuery, results: searchResults, isSearching } = useSearch();
+  // Search — selectedTaskId を渡すとタスク単位検索が可能になる
+  const {
+    query: searchQuery,
+    setQuery: setSearchQuery,
+    results: searchResults,
+    isSearching,
+    taskScopeEnabled,
+    setTaskScopeEnabled
+  } = useSearch(selectedTaskId ?? undefined);
 
   // Sidebar resize state
   const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
@@ -292,6 +299,9 @@ function Dashboard(): React.JSX.Element {
         searchQuery={searchQuery}
         searchResults={searchResults}
         isSearching={isSearching}
+        selectedTaskTitle={selectedTaskDisplayTitle ?? taskDetail?.task.title ?? null}
+        taskScopeEnabled={taskScopeEnabled}
+        onTaskScopeToggle={setTaskScopeEnabled}
         onSearchQueryChange={setSearchQuery}
         onSelectSearchTask={(taskId) => {
           dispatch({ type: "SELECT_CONNECTOR", connectorKey: null });

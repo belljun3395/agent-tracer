@@ -18,6 +18,9 @@ interface TopBarProps {
   readonly searchQuery: string;
   readonly searchResults: SearchResponse | null;
   readonly isSearching: boolean;
+  readonly selectedTaskTitle?: string | null;
+  readonly taskScopeEnabled: boolean;
+  readonly onTaskScopeToggle: (enabled: boolean) => void;
   readonly onSearchQueryChange: (value: string) => void;
   readonly onSelectSearchTask: (taskId: string) => void;
   readonly onSelectSearchEvent: (taskId: string, eventId: string) => void;
@@ -74,6 +77,9 @@ export function TopBar({
   searchQuery,
   searchResults,
   isSearching,
+  selectedTaskTitle,
+  taskScopeEnabled,
+  onTaskScopeToggle,
   onSearchQueryChange,
   onSelectSearchTask,
   onSelectSearchEvent,
@@ -99,27 +105,54 @@ export function TopBar({
         </div>
         <div className="flex items-center gap-2.5 sm:gap-3 max-[900px]:w-full max-[900px]:flex-wrap max-[900px]:justify-between max-[900px]:gap-2">
           <div className="relative w-[min(36rem,42vw)] min-w-[18rem] max-[900px]:w-full max-[900px]:min-w-0 max-[900px]:flex-[1_1_100%]">
-            <input
-              aria-label="Search tasks, events, and bookmarks"
-              className="w-full rounded-[12px] border border-[var(--border)] bg-[var(--surface)] px-3 py-2 pr-20 text-[var(--text-1)] shadow-[inset_0_1px_0_rgba(255,255,255,0.5)] outline-none transition placeholder:text-[var(--text-3)] focus:border-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface)] max-[900px]:pr-18"
-              onChange={(event) => onSearchQueryChange(event.target.value)}
-              placeholder="Search tasks, cards, MCP calls, skills…"
-              type="search"
-              value={searchQuery}
-            />
-            {searchQuery && (
-              <button
-                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full border border-transparent bg-[var(--surface-2)] px-2.5 py-1 text-[0.72rem] font-semibold text-[var(--text-3)] transition hover:border-[var(--border)] hover:text-[var(--text-2)]"
-                onClick={() => onSearchQueryChange("")}
-                type="button"
-              >
-                Clear
-              </button>
-            )}
+            <div className="flex items-center gap-1.5">
+              <div className="relative flex-1">
+                <input
+                  aria-label="Search tasks, events, and bookmarks"
+                  className="w-full rounded-[12px] border border-[var(--border)] bg-[var(--surface)] px-3 py-2 pr-20 text-[var(--text-1)] shadow-[inset_0_1px_0_rgba(255,255,255,0.5)] outline-none transition placeholder:text-[var(--text-3)] focus:border-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface)] max-[900px]:pr-18"
+                  onChange={(event) => onSearchQueryChange(event.target.value)}
+                  placeholder="Search tasks, cards, MCP calls, skills…"
+                  type="search"
+                  value={searchQuery}
+                />
+                {searchQuery && (
+                  <button
+                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full border border-transparent bg-[var(--surface-2)] px-2.5 py-1 text-[0.72rem] font-semibold text-[var(--text-3)] transition hover:border-[var(--border)] hover:text-[var(--text-2)]"
+                    onClick={() => onSearchQueryChange("")}
+                    type="button"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+              {selectedTaskTitle && (
+                <button
+                  aria-label={taskScopeEnabled ? "Search all tasks" : "Limit search to this task"}
+                  className={cn(
+                    "shrink-0 rounded-[10px] border px-2.5 py-2 text-[0.72rem] font-semibold leading-none transition-all",
+                    taskScopeEnabled
+                      ? "border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] text-[var(--accent)]"
+                      : "border-[var(--border)] bg-[var(--surface)] text-[var(--text-3)] hover:border-[var(--accent)] hover:text-[var(--accent)]"
+                  )}
+                  onClick={() => onTaskScopeToggle(!taskScopeEnabled)}
+                  title={taskScopeEnabled ? `Searching in: ${selectedTaskTitle}` : `Limit to: ${selectedTaskTitle}`}
+                  type="button"
+                >
+                  This task
+                </button>
+              )}
+            </div>
             {searchQuery.trim() && (
               <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-20 max-h-[26rem] overflow-y-auto rounded-[14px] border border-[var(--border)] bg-[var(--surface)] shadow-[0_20px_50px_rgba(15,23,42,0.14)]">
-                <div className="border-b border-[var(--border)] px-3 py-2.5 text-[0.73rem] font-bold uppercase tracking-[0.08em] text-[var(--text-3)]">
-                  <span>{isSearching ? "Searching…" : `${totalResults} results`}</span>
+                <div className="flex items-center justify-between border-b border-[var(--border)] px-3 py-2.5">
+                  <span className="text-[0.73rem] font-bold uppercase tracking-[0.08em] text-[var(--text-3)]">
+                    {isSearching ? "Searching…" : `${totalResults} results`}
+                  </span>
+                  {taskScopeEnabled && selectedTaskTitle && (
+                    <span className="max-w-[14rem] truncate rounded-full bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] px-2 py-0.5 text-[0.68rem] font-semibold text-[var(--accent)]">
+                      in: {selectedTaskTitle}
+                    </span>
+                  )}
                 </div>
 
                 {!isSearching && totalResults === 0 && (

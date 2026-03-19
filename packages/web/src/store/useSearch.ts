@@ -1,6 +1,7 @@
 /**
  * 검색 상태 훅.
  * debounce 180ms 적용, fetchSearchResults 호출.
+ * taskId가 주어지면 해당 태스크로 검색 범위를 제한함.
  */
 
 import { useEffect, useState } from "react";
@@ -13,13 +14,18 @@ export interface UseSearchResult {
   readonly results: SearchResponse | null;
   readonly isSearching: boolean;
   readonly errorMessage: string | null;
+  readonly taskScopeEnabled: boolean;
+  readonly setTaskScopeEnabled: (enabled: boolean) => void;
 }
 
-export function useSearch(): UseSearchResult {
+export function useSearch(scopedTaskId?: string): UseSearchResult {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResponse | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [taskScopeEnabled, setTaskScopeEnabled] = useState(false);
+
+  const effectiveTaskId = taskScopeEnabled && scopedTaskId ? scopedTaskId : undefined;
 
   useEffect(() => {
     const normalizedQuery = query.trim();
@@ -33,7 +39,7 @@ export function useSearch(): UseSearchResult {
 
     const timer = setTimeout(() => {
       setIsSearching(true);
-      void fetchSearchResults(normalizedQuery)
+      void fetchSearchResults(normalizedQuery, effectiveTaskId)
         .then((result) => {
           if (!cancelled) setResults(result);
         })
@@ -51,7 +57,7 @@ export function useSearch(): UseSearchResult {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [query]);
+  }, [query, effectiveTaskId]);
 
-  return { query, setQuery, results, isSearching, errorMessage };
+  return { query, setQuery, results, isSearching, errorMessage, taskScopeEnabled, setTaskScopeEnabled };
 }
