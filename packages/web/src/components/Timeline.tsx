@@ -229,6 +229,7 @@ export function Timeline({
   const nodeRefs = useRef(new Map<string, HTMLButtonElement>());
   const isFollowing = useRef(true);
   const previousTaskId = useRef<string | null | undefined>(taskId);
+  const lastScrolledEventId = useRef<string | null>(null);
   const dragState = useRef<{
     readonly pointerId: number;
     readonly startX: number;
@@ -367,6 +368,25 @@ export function Timeline({
       timelineFocusRight
     });
   }, [filteredTimeline, selectedEventId, taskId, timelineFocusRight]);
+
+  // selectedEventId가 바뀌면 해당 노드가 타임라인 뷰포트에 보이도록 수평 스크롤
+  useEffect(() => {
+    if (!selectedEventId) return;
+    if (lastScrolledEventId.current === selectedEventId) return;
+
+    const el = scrollRef.current;
+    if (!el) return;
+
+    const item = timelineLayout.items.find((i) => i.event.id === selectedEventId);
+    if (!item) return;
+
+    lastScrolledEventId.current = selectedEventId;
+
+    const nodeCenter = item.left + NODE_WIDTH / 2;
+    const targetScroll = nodeCenter - el.clientWidth / 2;
+    el.scrollLeft = Math.max(0, Math.min(el.scrollWidth - el.clientWidth, targetScroll));
+    isFollowing.current = false;
+  }, [selectedEventId, timelineLayout.items]);
 
   const selectedConnector = useMemo(() => {
     if (!selectedConnectorKey) return null;
