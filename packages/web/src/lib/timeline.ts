@@ -16,6 +16,8 @@ export interface TimelineItemLayout {
   readonly event: TimelineEvent;
   readonly left: number;
   readonly top: number;
+  /** 같은 레인에서 수평 겹침 발생 시 수직 분산 행 인덱스. 0 = 앞(front). */
+  readonly rowIndex: number;
 }
 
 /** 전체 타임라인 캔버스 레이아웃: 너비, "now" 선 위치, 항목 배열. */
@@ -77,6 +79,8 @@ export const NODE_HEIGHT   = 76;
 /** 레인 라벨 영역 너비. */
 export const LEFT_GUTTER = 176;
 const CLUSTER_STAGGER = NODE_WIDTH + 8; // px shift between stacked same-lane same-time nodes
+/** 겹치는 카드를 수직으로 분산할 때 각 행(row) 간 픽셀 오프셋. */
+export const ROW_VERTICAL_OFFSET = 14;
 
 /**
  * 이벤트 목록을 5-레인 타임라인 레이아웃으로 변환.
@@ -184,11 +188,52 @@ export function buildTimelineLayout(
     }
   }
 
-  const items = rawItems.map((item) =>
+  const spreadItems = rawItems.map((item) =>
     adjusted.has(item.event)
       ? { ...item, left: Math.round(adjusted.get(item.event) ?? item.left) }
       : item
   );
+
+  // Post-clustering: 동일 레인에서 여전히 수평 겹침이 발생하는 카드를 수직 행으로 분산.
+  // 각 레인에서 left 순으로 정렬 후 그리디하게 가장 낮은 비어있는 행에 배치.
+  const laneItemsForRows = new Map<TimelineLane, typeof spreadItems>();
+  for (const item of spreadItems) {
+    const list = laneItemsForRows.get(item.event.lane) ?? [];
+    list.push(item);
+    laneItemsForRows.set(item.event.lane, list);
+  }
+
+  const rowIndexMap = new Map<TimelineEvent, number>();
+  for (const laneItems of laneItemsForRows.values()) {
+    const sorted = [...laneItems].sort((a, b) => a.left - b.left);
+    const rowEnds: number[] = []; // 각 행의 마지막 카드 우측 끝 x좌표
+
+    for (const item of sorted) {
+      const itemLeft = item.left - NODE_WIDTH / 2;
+      const itemRight = item.left + NODE_WIDTH / 2;
+
+      let assigned = -1;
+      for (let r = 0; r < rowEnds.length; r++) {
+        if ((rowEnds[r] ?? 0) <= itemLeft) {
+          assigned = r;
+          rowEnds[r] = itemRight;
+          break;
+        }
+      }
+
+      if (assigned === -1) {
+        assigned = rowEnds.length;
+        rowEnds.push(itemRight);
+      }
+
+      rowIndexMap.set(item.event, assigned);
+    }
+  }
+
+  const items: TimelineItemLayout[] = spreadItems.map((item) => ({
+    ...item,
+    rowIndex: rowIndexMap.get(item.event) ?? 0
+  }));
 
   return { width: contentWidth, nowLeft, items };
 }

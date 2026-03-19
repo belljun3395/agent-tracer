@@ -8,17 +8,16 @@
 import type React from "react";
 import {type FormEvent as ReactFormEvent, useEffect, useLayoutEffect, useMemo, useRef, useState} from "react";
 
-import type {TimelineNodeBounds} from "../lib/timeline.js";
+import type {TimelineItemLayout, TimelineNodeBounds} from "../lib/timeline.js";
 import {
   buildTimelineContextSummary,
   buildTimelineConnectors,
   buildTimelineLayout,
   buildTimestampTicks,
-  DEFAULT_TIMELINE_VIEWPORT_HEIGHT,
   formatRelativeTime,
   LANE_HEIGHT,
   NODE_WIDTH,
-  resolveTimelineViewportHeight,
+  ROW_VERTICAL_OFFSET,
   RULER_HEIGHT,
   TIMELINE_LANES
 } from "../lib/timeline.js";
@@ -250,10 +249,6 @@ export function Timeline({
   );
 
   const canvasHeight = RULER_HEIGHT + activeLanes.length * LANE_HEIGHT;
-  const preferredTimelineViewportHeight = isContextCollapsed
-    ? canvasHeight
-    : DEFAULT_TIMELINE_VIEWPORT_HEIGHT;
-  const timelineViewportHeight = resolveTimelineViewportHeight(canvasHeight, preferredTimelineViewportHeight);
 
   const filteredTimeline = useMemo(
     () => filterTimelineEvents(timeline, {
@@ -399,6 +394,43 @@ export function Timeline({
     selectedTag,
     showRuleGapsOnly
   }), [activeLanes.length, filteredTimeline.length, selectedRuleId, selectedTag, showRuleGapsOnly, timeline.length]);
+
+  // row-0 카드를 키로, 같은 위치에 스택된 전체 아이템 배열(본인 포함)을 값으로 저장.
+  const stackGroups = useMemo(() => {
+    const map = new Map<string, readonly TimelineItemLayout[]>();
+    for (const frontItem of timelineLayout.items) {
+      if (frontItem.rowIndex !== 0) continue;
+      const group = timelineLayout.items.filter(
+        (other) =>
+          other.event.lane === frontItem.event.lane &&
+          Math.abs(other.left - frontItem.left) < NODE_WIDTH
+      );
+      if (group.length > 1) map.set(frontItem.event.id, group);
+    }
+    return map;
+  }, [timelineLayout.items]);
+
+  // 팝오버를 열 row-0 카드의 eventId. null이면 닫힌 상태.
+  const [openStackEventId, setOpenStackEventId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!openStackEventId) return;
+    const handleKey = (e: KeyboardEvent): void => {
+      if (e.key === "Escape") setOpenStackEventId(null);
+    };
+    const handlePointerDown = (e: PointerEvent): void => {
+      const target = e.target as HTMLElement | null;
+      if (!target?.closest(".stack-popover") && !target?.closest(".stack-badge-btn")) {
+        setOpenStackEventId(null);
+      }
+    };
+    window.addEventListener("keydown", handleKey);
+    document.addEventListener("pointerdown", handlePointerDown, { capture: true });
+    return () => {
+      window.removeEventListener("keydown", handleKey);
+      document.removeEventListener("pointerdown", handlePointerDown, { capture: true });
+    };
+  }, [openStackEventId]);
 
   useEffect(() => {
     window.localStorage.setItem(
@@ -673,7 +705,7 @@ export function Timeline({
           </>
         )}
 
-        <div className="timeline-stage" style={{ maxHeight: `${timelineViewportHeight}px` }}>
+        <div className="timeline-stage" style={{ minHeight: `${canvasHeight}px` }}>
           <div className="timeline-edge-fade left" />
           <div className="timeline-edge-fade right" />
           <div className="timeline-gutter-scrim" />
@@ -725,8 +757,7 @@ export function Timeline({
               e.currentTarget.releasePointerCapture(e.pointerId);
             }}
             style={{
-              cursor: isTimelineDragging ? "grabbing" : "grab",
-              maxHeight: `${timelineViewportHeight}px`
+              cursor: isTimelineDragging ? "grabbing" : "grab"
             }}
           >
             <div
@@ -852,8 +883,10 @@ export function Timeline({
                 <span className="now-label">now</span>
               </div>
 
-              {/* event nodes */}
-              {timelineLayout.items.map((item) => (
+              {/* event nodes — rowIndex 내림차순 정렬: 높은 행(뒤)부터 렌더해 낮은 행(앞)이 위에 표시됨 */}
+              {[...timelineLayout.items]
+                .sort((a, b) => b.rowIndex - a.rowIndex)
+                .map((item) => (
                 (() => {
                   const laneTheme = getLaneTheme(item.event.lane);
                   const questionPhase = typeof item.event.metadata["questionPhase"] === "string"
@@ -885,12 +918,22 @@ export function Timeline({
                       ? item.event.metadata["todoId"]
                       : undefined;
 
+                  const stackGroup = stackGroups.get(item.event.id);
+                  const stackCount = stackGroup ? stackGroup.length - 1 : 0;
+                  const nodeTop = item.top + item.rowIndex * ROW_VERTICAL_OFFSET;
+
                   return (
                 <button
                   key={item.event.id}
-                  className={`event-node ${item.event.lane}${item.event.id === selectedEvent?.id ? " active" : ""}${selectedConnector && (item.event.id === selectedConnector.source.id || item.event.id === selectedConnector.target.id) ? " linked" : ""}`}
+                  className={cn(
+                    `event-node ${item.event.lane}`,
+                    item.event.id === selectedEvent?.id && "active",
+                    selectedConnector && (item.event.id === selectedConnector.source.id || item.event.id === selectedConnector.target.id) && "linked",
+                    item.rowIndex > 0 && "stacked-behind"
+                  )}
                   onClick={() => {
                     onSelectEvent(item.event.id);
+                    setOpenStackEventId(null);
                   }}
                   ref={(node) => {
                     if (node) {
@@ -900,12 +943,27 @@ export function Timeline({
 
                     nodeRefs.current.delete(item.event.id);
                   }}
-                  style={{ left: `${item.left}px`, top: `${item.top}px` }}
+                  style={{ left: `${item.left}px`, top: `${nodeTop}px` }}
                   type="button"
                 >
                   <div className="event-node-header">
                     <img src={laneTheme.icon} alt="" />
                     <span className="event-lane-tag">{item.event.lane}</span>
+                    {stackCount > 0 && (
+                      <button
+                        className="stack-badge-btn"
+                        title={`${stackCount + 1}개 이벤트 겹침 — 클릭해서 모두 보기`}
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setOpenStackEventId(
+                            openStackEventId === item.event.id ? null : item.event.id
+                          );
+                        }}
+                      >
+                        +{stackCount}
+                      </button>
+                    )}
                   </div>
                   <strong>{item.event.kind === "task.start" ? (taskTitle ?? item.event.title) : item.event.title}</strong>
                   <div className="event-node-chips">
@@ -927,6 +985,58 @@ export function Timeline({
                   );
                 })()
               ))}
+
+              {/* stack popover — 스택 배지 클릭 시 같은 위치의 모든 이벤트 목록 */}
+              {openStackEventId && (() => {
+                const frontItem = timelineLayout.items.find((i) => i.event.id === openStackEventId);
+                if (!frontItem) return null;
+                const group = stackGroups.get(openStackEventId);
+                if (!group) return null;
+                const bounds = nodeBounds[openStackEventId];
+                if (!bounds) return null;
+                const popoverLeft = bounds.left;
+                const popoverTop = bounds.top + bounds.height + 6;
+                const sortedGroup = [...group].sort(
+                  (a, b) => Date.parse(a.event.createdAt) - Date.parse(b.event.createdAt)
+                );
+                return (
+                  <div
+                    className="stack-popover"
+                    style={{ left: `${popoverLeft}px`, top: `${popoverTop}px` }}
+                  >
+                    <div className="stack-popover-header">
+                      {group.length}개 이벤트 겹침
+                    </div>
+                    {sortedGroup.map((groupItem) => {
+                      const gt = getLaneTheme(groupItem.event.lane);
+                      return (
+                        <button
+                          key={groupItem.event.id}
+                          className={cn(
+                            "stack-popover-item",
+                            groupItem.event.lane,
+                            groupItem.event.id === selectedEvent?.id && "active"
+                          )}
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onSelectEvent(groupItem.event.id);
+                            setOpenStackEventId(null);
+                          }}
+                        >
+                          <img className={`stack-item-icon ${groupItem.event.lane}`} src={gt.icon} alt="" />
+                          <span className="stack-item-title">
+                            {groupItem.event.kind === "task.start"
+                              ? (taskTitle ?? groupItem.event.title)
+                              : groupItem.event.title}
+                          </span>
+                          <span className="stack-item-time">{formatRelativeTime(groupItem.event.createdAt)}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
 
             </div>
           </div>
