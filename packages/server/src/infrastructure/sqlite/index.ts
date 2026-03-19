@@ -41,6 +41,7 @@ export function createSqliteMonitorPorts(options: SqliteMonitorPortsOptions): Mo
   fs.mkdirSync(path.dirname(options.databasePath), { recursive: true });
   const db = new BetterSqlite3(options.databasePath);
   db.pragma("journal_mode = WAL");
+  db.pragma("case_sensitive_like = OFF");
 
   createSchema(db);
   runMigrations(db);

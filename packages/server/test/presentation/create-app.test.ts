@@ -198,4 +198,37 @@ describe("HTTP API", () => {
     expect(search.body.events.some((item: { eventId: string }) => item.eventId === message.body.events[0].id)).toBe(true);
     expect(search.body.bookmarks.some((item: { bookmarkId: string }) => item.bookmarkId === bookmark.body.bookmark.id)).toBe(true);
   });
+
+  it("검색은 대소문자를 구분하지 않는다", async () => {
+    const started = await request(runtime.app)
+      .post("/api/task-start")
+      .send({ title: "CamelCase Task Title" });
+
+    const taskId = started.body.task.id as string;
+    const sessionId = started.body.sessionId as string;
+
+    await request(runtime.app)
+      .post("/api/user-message")
+      .send({
+        taskId,
+        sessionId,
+        messageId: "msg-case",
+        captureMode: "raw",
+        source: "manual-mcp",
+        title: "CamelCase Event Title",
+        body: "CamelCase body content"
+      });
+
+    const lowerSearch = await request(runtime.app).get("/api/search?q=camelcase");
+    const upperSearch = await request(runtime.app).get("/api/search?q=CAMELCASE");
+    const mixedSearch = await request(runtime.app).get("/api/search?q=CamelCase");
+
+    expect(lowerSearch.body.tasks.some((t: { taskId: string }) => t.taskId === taskId)).toBe(true);
+    expect(upperSearch.body.tasks.some((t: { taskId: string }) => t.taskId === taskId)).toBe(true);
+    expect(mixedSearch.body.tasks.some((t: { taskId: string }) => t.taskId === taskId)).toBe(true);
+
+    expect(lowerSearch.body.events.some((e: { taskId: string }) => e.taskId === taskId)).toBe(true);
+    expect(upperSearch.body.events.some((e: { taskId: string }) => e.taskId === taskId)).toBe(true);
+    expect(mixedSearch.body.events.some((e: { taskId: string }) => e.taskId === taskId)).toBe(true);
+  });
 });
