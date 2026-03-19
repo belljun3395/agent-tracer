@@ -6,9 +6,9 @@
  */
 
 import type React from "react";
-import {type FormEvent as ReactFormEvent, useEffect, useLayoutEffect, useMemo, useRef, useState} from "react";
+import { type FormEvent as ReactFormEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
-import type {TimelineItemLayout, TimelineNodeBounds} from "../lib/timeline.js";
+import type { TimelineItemLayout, TimelineNodeBounds } from "../lib/timeline.js";
 import {
   buildTimelineContextSummary,
   buildTimelineConnectors,
@@ -21,12 +21,12 @@ import {
   RULER_HEIGHT,
   TIMELINE_LANES
 } from "../lib/timeline.js";
-import {filterTimelineEvents} from "../lib/insights.js";
+import { filterTimelineEvents } from "../lib/insights.js";
 import { cn } from "../lib/ui/cn.js";
 import { getLaneTheme } from "../lib/ui/laneTheme.js";
-import type {TimelineEvent, TimelineLane} from "../types.js";
+import type { TimelineEvent, TimelineLane } from "../types.js";
 import { Button } from "./ui/Button.js";
-import "./Timeline.module.css";
+import "./Timeline.css";
 
 // CANVAS_HEIGHT is computed dynamically from active lanes in the component
 
@@ -777,20 +777,20 @@ export function Timeline({
                   {TIMELINE_LANES.map((lane) => (
                     (() => {
                       return (
-                    <marker
-                      key={lane}
-                      id={`arrow-${lane}`}
-                      markerWidth="6"
-                      markerHeight="4"
-                      refX="5"
-                      refY="2"
-                      orient="auto"
-                    >
-                      <polygon
-                        points="0 0, 6 2, 0 4"
-                        className={`arrow-tip ${lane}`}
-                      />
-                    </marker>
+                        <marker
+                          key={lane}
+                          id={`arrow-${lane}`}
+                          markerWidth="6"
+                          markerHeight="4"
+                          refX="5"
+                          refY="2"
+                          orient="auto"
+                        >
+                          <polygon
+                            points="0 0, 6 2, 0 4"
+                            className={`arrow-tip ${lane}`}
+                          />
+                        </marker>
                       );
                     })()
                   ))}
@@ -887,104 +887,104 @@ export function Timeline({
               {[...timelineLayout.items]
                 .sort((a, b) => b.rowIndex - a.rowIndex)
                 .map((item) => (
-                (() => {
-                  const laneTheme = getLaneTheme(item.event.lane);
-                  const questionPhase = typeof item.event.metadata["questionPhase"] === "string"
-                    ? item.event.metadata["questionPhase"]
-                    : undefined;
-                  const todoState = typeof item.event.metadata["todoState"] === "string"
-                    ? item.event.metadata["todoState"]
-                    : undefined;
-                  const relationLabel = typeof item.event.metadata["relationLabel"] === "string"
-                    ? item.event.metadata["relationLabel"]
-                    : typeof item.event.metadata["relationType"] === "string"
-                      ? String(item.event.metadata["relationType"]).replace(/_/g, " ")
+                  (() => {
+                    const laneTheme = getLaneTheme(item.event.lane);
+                    const questionPhase = typeof item.event.metadata["questionPhase"] === "string"
+                      ? item.event.metadata["questionPhase"]
                       : undefined;
-                  const activityType = typeof item.event.metadata["activityType"] === "string"
-                    ? item.event.metadata["activityType"]
-                    : undefined;
-                  const agentName = typeof item.event.metadata["agentName"] === "string"
-                    ? item.event.metadata["agentName"]
-                    : undefined;
-                  const skillName = typeof item.event.metadata["skillName"] === "string"
-                    ? item.event.metadata["skillName"]
-                    : undefined;
-                  const mcpTool = typeof item.event.metadata["mcpTool"] === "string"
-                    ? item.event.metadata["mcpTool"]
-                    : undefined;
-                  const workItemId = typeof item.event.metadata["workItemId"] === "string"
-                    ? item.event.metadata["workItemId"]
-                    : typeof item.event.metadata["todoId"] === "string"
-                      ? item.event.metadata["todoId"]
+                    const todoState = typeof item.event.metadata["todoState"] === "string"
+                      ? item.event.metadata["todoState"]
                       : undefined;
+                    const relationLabel = typeof item.event.metadata["relationLabel"] === "string"
+                      ? item.event.metadata["relationLabel"]
+                      : typeof item.event.metadata["relationType"] === "string"
+                        ? String(item.event.metadata["relationType"]).replace(/_/g, " ")
+                        : undefined;
+                    const activityType = typeof item.event.metadata["activityType"] === "string"
+                      ? item.event.metadata["activityType"]
+                      : undefined;
+                    const agentName = typeof item.event.metadata["agentName"] === "string"
+                      ? item.event.metadata["agentName"]
+                      : undefined;
+                    const skillName = typeof item.event.metadata["skillName"] === "string"
+                      ? item.event.metadata["skillName"]
+                      : undefined;
+                    const mcpTool = typeof item.event.metadata["mcpTool"] === "string"
+                      ? item.event.metadata["mcpTool"]
+                      : undefined;
+                    const workItemId = typeof item.event.metadata["workItemId"] === "string"
+                      ? item.event.metadata["workItemId"]
+                      : typeof item.event.metadata["todoId"] === "string"
+                        ? item.event.metadata["todoId"]
+                        : undefined;
 
-                  const stackGroup = stackGroups.get(item.event.id);
-                  const stackCount = stackGroup ? stackGroup.length - 1 : 0;
-                  const nodeTop = item.top + item.rowIndex * ROW_VERTICAL_OFFSET;
+                    const stackGroup = stackGroups.get(item.event.id);
+                    const stackCount = stackGroup ? stackGroup.length - 1 : 0;
+                    const nodeTop = item.top + item.rowIndex * ROW_VERTICAL_OFFSET;
 
-                  return (
-                <button
-                  key={item.event.id}
-                  className={cn(
-                    `event-node ${item.event.lane}`,
-                    item.event.id === selectedEvent?.id && "active",
-                    selectedConnector && (item.event.id === selectedConnector.source.id || item.event.id === selectedConnector.target.id) && "linked",
-                    item.rowIndex > 0 && "stacked-behind"
-                  )}
-                  onClick={() => {
-                    onSelectEvent(item.event.id);
-                    setOpenStackEventId(null);
-                  }}
-                  ref={(node) => {
-                    if (node) {
-                      nodeRefs.current.set(item.event.id, node);
-                      return;
-                    }
-
-                    nodeRefs.current.delete(item.event.id);
-                  }}
-                  style={{ left: `${item.left}px`, top: `${nodeTop}px` }}
-                  type="button"
-                >
-                  <div className="event-node-header">
-                    <img src={laneTheme.icon} alt="" />
-                    <span className="event-lane-tag">{item.event.lane}</span>
-                    {stackCount > 0 && (
+                    return (
                       <button
-                        className="stack-badge-btn"
-                        title={`${stackCount + 1}개 이벤트 겹침 — 클릭해서 모두 보기`}
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setOpenStackEventId(
-                            openStackEventId === item.event.id ? null : item.event.id
-                          );
+                        key={item.event.id}
+                        className={cn(
+                          `event-node ${item.event.lane}`,
+                          item.event.id === selectedEvent?.id && "active",
+                          selectedConnector && (item.event.id === selectedConnector.source.id || item.event.id === selectedConnector.target.id) && "linked",
+                          item.rowIndex > 0 && "stacked-behind"
+                        )}
+                        onClick={() => {
+                          onSelectEvent(item.event.id);
+                          setOpenStackEventId(null);
                         }}
+                        ref={(node) => {
+                          if (node) {
+                            nodeRefs.current.set(item.event.id, node);
+                            return;
+                          }
+
+                          nodeRefs.current.delete(item.event.id);
+                        }}
+                        style={{ left: `${item.left}px`, top: `${nodeTop}px` }}
+                        type="button"
                       >
-                        +{stackCount}
+                        <div className="event-node-header">
+                          <img src={laneTheme.icon} alt="" />
+                          <span className="event-lane-tag">{item.event.lane}</span>
+                          {stackCount > 0 && (
+                            <button
+                              className="stack-badge-btn"
+                              title={`${stackCount + 1}개 이벤트 겹침 — 클릭해서 모두 보기`}
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenStackEventId(
+                                  openStackEventId === item.event.id ? null : item.event.id
+                                );
+                              }}
+                            >
+                              +{stackCount}
+                            </button>
+                          )}
+                        </div>
+                        <strong>{item.event.kind === "task.start" ? (taskTitle ?? item.event.title) : item.event.title}</strong>
+                        <div className="event-node-chips">
+                          {activityType && <span className="event-semantic-tag">{activityType.replace(/_/g, " ")}</span>}
+                          {relationLabel && <span className="event-semantic-tag subtle">{relationLabel}</span>}
+                          {agentName && <span className="event-semantic-tag subtle">{agentName}</span>}
+                          {skillName && <span className="event-semantic-tag subtle">skill:{skillName}</span>}
+                          {!skillName && mcpTool && <span className="event-semantic-tag subtle">mcp:{mcpTool}</span>}
+                          {workItemId && <span className="event-semantic-tag subtle">work:{workItemId}</span>}
+                        </div>
+                        {item.event.kind === "question.logged" && questionPhase && (
+                          <span className="event-semantic-tag">{questionPhase}</span>
+                        )}
+                        {item.event.kind === "todo.logged" && todoState && (
+                          <span className="event-semantic-tag">{todoState.replace("_", " ")}</span>
+                        )}
+                        <span className="event-time">{formatRelativeTime(item.event.createdAt)}</span>
                       </button>
-                    )}
-                  </div>
-                  <strong>{item.event.kind === "task.start" ? (taskTitle ?? item.event.title) : item.event.title}</strong>
-                  <div className="event-node-chips">
-                    {activityType && <span className="event-semantic-tag">{activityType.replace(/_/g, " ")}</span>}
-                    {relationLabel && <span className="event-semantic-tag subtle">{relationLabel}</span>}
-                    {agentName && <span className="event-semantic-tag subtle">{agentName}</span>}
-                    {skillName && <span className="event-semantic-tag subtle">skill:{skillName}</span>}
-                    {!skillName && mcpTool && <span className="event-semantic-tag subtle">mcp:{mcpTool}</span>}
-                    {workItemId && <span className="event-semantic-tag subtle">work:{workItemId}</span>}
-                  </div>
-                  {item.event.kind === "question.logged" && questionPhase && (
-                    <span className="event-semantic-tag">{questionPhase}</span>
-                  )}
-                  {item.event.kind === "todo.logged" && todoState && (
-                    <span className="event-semantic-tag">{todoState.replace("_", " ")}</span>
-                  )}
-                  <span className="event-time">{formatRelativeTime(item.event.createdAt)}</span>
-                </button>
-                  );
-                })()
-              ))}
+                    );
+                  })()
+                ))}
 
               {/* stack popover — 스택 배지 클릭 시 같은 위치의 모든 이벤트 목록 */}
               {openStackEventId && (() => {
