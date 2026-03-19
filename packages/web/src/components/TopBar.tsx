@@ -111,6 +111,9 @@ export function TopBar({
                   aria-label="Search tasks, events, and bookmarks"
                   className="w-full rounded-[12px] border border-[var(--border)] bg-[var(--surface)] px-3 py-2 pr-20 text-[var(--text-1)] shadow-[inset_0_1px_0_rgba(255,255,255,0.5)] outline-none transition placeholder:text-[var(--text-3)] focus:border-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface)] max-[900px]:pr-18"
                   onChange={(event) => onSearchQueryChange(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") onSearchQueryChange("");
+                  }}
                   placeholder="Search tasks, cards, MCP calls, skills…"
                   type="search"
                   value={searchQuery}

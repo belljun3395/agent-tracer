@@ -304,16 +304,19 @@ function Dashboard(): React.JSX.Element {
         onTaskScopeToggle={setTaskScopeEnabled}
         onSearchQueryChange={setSearchQuery}
         onSelectSearchTask={(taskId) => {
+          setSearchQuery("");
           dispatch({ type: "SELECT_CONNECTOR", connectorKey: null });
           dispatch({ type: "SELECT_EVENT", eventId: null });
           dispatch({ type: "SELECT_TASK", taskId });
         }}
         onSelectSearchEvent={(taskId, eventId) => {
+          setSearchQuery("");
           dispatch({ type: "SELECT_CONNECTOR", connectorKey: null });
           dispatch({ type: "SELECT_TASK", taskId });
           dispatch({ type: "SELECT_EVENT", eventId });
         }}
         onSelectSearchBookmark={(bookmark) => {
+          setSearchQuery("");
           const target = bookmarks.find((item) => item.id === bookmark.bookmarkId);
           if (target) {
             dispatch({ type: "SELECT_CONNECTOR", connectorKey: null });
