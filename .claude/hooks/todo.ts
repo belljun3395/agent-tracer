@@ -1,5 +1,4 @@
 import {
-  CLAUDE_RUNTIME,
   createStableTodoId,
   ensureRuntimeSession,
   getSessionId,
@@ -82,8 +81,6 @@ function extractTodoEvents(
 }
 
 async function main(): Promise<void> {
-  if (!CLAUDE_RUNTIME) return;
-
   const payload = await readStdinJson();
   const toolName = toTrimmedString(payload.tool_name);
   const toolInput = getToolInput(payload);

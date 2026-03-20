@@ -1,7 +1,6 @@
-import path from "node:path";
+import * as path from "node:path";
 
 import {
-  CLAUDE_RUNTIME,
   ensureRuntimeSession,
   getHookEventName,
   getSessionId,
@@ -21,8 +20,6 @@ function filePathFromToolInput(toolInput: Record<string, unknown>): string {
 }
 
 async function main(): Promise<void> {
-  if (!CLAUDE_RUNTIME) return;
-
   const payload = await readStdinJson();
   const hookEventName = getHookEventName(payload) || "PostToolUse";
   const toolName = toTrimmedString(payload.tool_name);

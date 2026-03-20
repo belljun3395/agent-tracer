@@ -1,7 +1,6 @@
-import path from "node:path";
+import * as path from "node:path";
 
 import {
-  CLAUDE_RUNTIME,
   ensureRuntimeSession,
   getSessionId,
   getToolInput,
@@ -15,8 +14,6 @@ import {
 const MAX_PATH_LENGTH = 300;
 
 async function main(): Promise<void> {
-  if (!CLAUDE_RUNTIME) return;
-
   const payload = await readStdinJson();
   const sessionId = getSessionId(payload);
   const toolName = toTrimmedString(payload.tool_name);

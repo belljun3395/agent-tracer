@@ -1,5 +1,4 @@
 import {
-  CLAUDE_RUNTIME,
   createMessageId,
   defaultTaskTitle,
   ellipsize,
@@ -11,8 +10,6 @@ import {
 } from "./common.js";
 
 async function main(): Promise<void> {
-  if (!CLAUDE_RUNTIME) return;
-
   const payload = await readStdinJson();
   const prompt = toTrimmedString(payload.prompt);
   const sessionId = getSessionId(payload);

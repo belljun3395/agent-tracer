@@ -1,5 +1,4 @@
 import {
-  CLAUDE_RUNTIME,
   ensureRuntimeSession,
   getSessionId,
   getToolInput,
@@ -12,8 +11,6 @@ import {
 const MAX_COMMAND_LENGTH = 500;
 
 async function main(): Promise<void> {
-  if (!CLAUDE_RUNTIME) return;
-
   const payload = await readStdinJson();
   const toolInput = getToolInput(payload);
   const sessionId = getSessionId(payload);

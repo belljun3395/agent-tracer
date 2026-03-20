@@ -1,5 +1,5 @@
-import crypto from "node:crypto";
-import path from "node:path";
+import * as crypto from "node:crypto";
+import * as path from "node:path";
 
 export type JsonObject = Record<string, unknown>;
 
@@ -9,11 +9,9 @@ interface RuntimeSessionEnsureResult {
 }
 
 const API_BASE = `http://127.0.0.1:${process.env.MONITOR_PORT || "3847"}`;
-const OPENCODE_RUNTIME = Boolean(process.env.OPENCODE || process.env.OPENCODE_CLIENT);
 
 export const PROJECT_DIR = process.env.CLAUDE_PROJECT_DIR || process.cwd();
 // CLAUDE_PROJECT_DIR may be absent when hook commands use relative paths.
-export const CLAUDE_RUNTIME = !OPENCODE_RUNTIME;
 export const CLAUDE_RUNTIME_SOURCE = "claude-hook";
 
 
@@ -74,7 +72,11 @@ export function getHookEventName(event: JsonObject): string {
 }
 
 export function toTrimmedString(value: unknown, maxLength?: number): string {
-    const next = typeof value === "string" ? value.trim() : String(value ?? "").trim();
+    const next = typeof value === "string"
+        ? value.trim()
+        : (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint")
+            ? String(value).trim()
+            : "";
     if (!maxLength || next.length <= maxLength) return next;
     return next.slice(0, maxLength);
 }
@@ -86,7 +88,8 @@ export function toBoolean(value: unknown): boolean {
     return normalized === "true" || normalized === "1" || normalized === "yes";
 }
 
-export function inferCommandLane(_command: string): "implementation" {
+export function inferCommandLane(command: string): "implementation" {
+    void command;
     return "implementation";
 }
 

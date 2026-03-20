@@ -76,7 +76,6 @@ async function startMonitorStub() {
 interface RunClaudeHookOptions {
   readonly cwd?: string;
   readonly omitProjectDir?: boolean;
-  readonly opencodeRuntime?: boolean;
   readonly projectDir?: string;
 }
 
@@ -95,13 +94,6 @@ async function runClaudeHook(
     delete env.CLAUDE_PROJECT_DIR;
   } else {
     env.CLAUDE_PROJECT_DIR = options.projectDir ?? "/repo";
-  }
-
-  if (options.opencodeRuntime) {
-    env.OPENCODE = "1";
-  } else {
-    delete env.OPENCODE;
-    delete env.OPENCODE_CLIENT;
   }
 
   const child = spawn("node", [tsxCli, scriptPath], {
@@ -218,20 +210,6 @@ describe("Claude hooks", () => {
         }
       }
     ]);
-  });
-
-  it("Claude hooks are disabled when OPENCODE runtime flags are present", async () => {
-    const monitor = await startMonitorStub();
-    servers.push(monitor);
-
-    await runClaudeHook(sessionStartHook, {
-      session_id: "parent-session",
-      source: "startup"
-    }, monitor.port, {
-      opencodeRuntime: true
-    });
-
-    expect(monitor.calls).toEqual([]);
   });
 
   it("SessionStart resume records a session-resumed planning event", async () => {
