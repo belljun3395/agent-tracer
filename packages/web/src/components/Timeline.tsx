@@ -211,7 +211,7 @@ export function Timeline({
   const [zoom, setZoom] = useState(1.1);
   const [filters, setFilters] = useState<Record<TimelineLane, boolean>>({
     user: true, exploration: true, planning: true, coordination: true, background: true,
-    implementation: true, questions: true, todos: true, rules: true
+    implementation: true, questions: true, todos: true
   });
   const [isTimelineDragging, setIsTimelineDragging] = useState(false);
   const [nodeBounds, setNodeBounds] = useState<Record<string, NodeBounds>>({});

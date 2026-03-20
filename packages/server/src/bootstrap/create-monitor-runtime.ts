@@ -16,7 +16,6 @@ import { EventBroadcaster } from "../presentation/ws/event-broadcaster.js";
 
 export interface RuntimeOptions {
   readonly databasePath: string;
-  readonly rulesDir: string;
 }
 
 export interface MonitorRuntime {

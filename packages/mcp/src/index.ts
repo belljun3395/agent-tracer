@@ -149,14 +149,14 @@ export function createMonitorMcpServer(client = new MonitorClient()): McpServer 
     "monitor_terminal_command",
     {
       title: "Monitor Terminal Command",
-      description: "Record a terminal command executed during a task. Use lane='rules' for tests/builds/lints, 'implementation' for regular commands.",
+      description: "Record a terminal command executed during a task. Use lane='implementation' for commands.",
       inputSchema: {
         taskId: z.string(),
         sessionId: z.string().optional(),
         command: z.string(),
         title: z.string().optional(),
         body: z.string().optional(),
-        lane: z.enum(["implementation", "rules"]).optional(),
+        lane: z.enum(["implementation"]).optional(),
         filePaths: z.array(z.string()).optional(),
         metadata: z.record(z.unknown()).optional()
       }
@@ -174,7 +174,7 @@ export function createMonitorMcpServer(client = new MonitorClient()): McpServer 
         sessionId: z.string().optional(),
         title: z.string(),
         body: z.string().optional(),
-        lane: z.enum(["user", "exploration", "planning", "implementation", "rules"]).optional(),
+        lane: z.enum(["user", "exploration", "planning", "implementation"]).optional(),
         filePaths: z.array(z.string()).optional(),
         metadata: z.record(z.unknown()).optional()
       }

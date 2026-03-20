@@ -195,7 +195,7 @@ function Dashboard(): React.JSX.Element {
 
   const filteredTimeline = useMemo(
     () => filterTimelineEvents(taskTimeline, {
-      laneFilters: { user: true, questions: true, todos: true, background: true, coordination: true, exploration: true, planning: true, implementation: true, rules: true },
+      laneFilters: { user: true, questions: true, todos: true, background: true, coordination: true, exploration: true, planning: true, implementation: true },
       selectedRuleId,
       selectedTag,
       showRuleGapsOnly

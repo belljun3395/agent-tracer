@@ -1,17 +1,11 @@
 import type {
   EventClassification,
   EventClassificationMatch,
-  EventClassificationReason,
   MonitoringEventKind,
   TimelineLane
 } from "./domain.js";
 import { classifyActionName } from "./action-registry.js";
 import { defaultLaneForEventKind } from "./domain.js";
-import {
-  collectRuleKeywords,
-  lanePriority,
-  type RulesIndex
-} from "./rules.js";
 
 /** classifyEvent()에 전달하는 이벤트 분류 입력 데이터. */
 export interface ClassifyEventInput {
@@ -27,38 +21,14 @@ export interface ClassifyEventInput {
 
 /**
  * 이벤트를 분류하여 레인, 태그, 매치 목록을 포함한 EventClassification을 반환.
- * 규칙의 keyword 매치는 +2점으로 점수 계산.
- * 명시적 lane이 있으면 규칙 매치보다 우선하여 사용됨.
+ * 명시적 lane이 있으면 action-registry 매치보다 우선하여 사용됨.
  */
 export function classifyEvent(
-  input: ClassifyEventInput,
-  rulesIndex: RulesIndex
+  input: ClassifyEventInput
 ): EventClassification {
-  const searchText = [
-    input.title,
-    input.body,
-    input.command,
-    input.toolName,
-    input.actionName,
-    ...(input.filePaths ?? [])
-  ]
-    .filter(Boolean)
-    .join("\n")
-    .toLowerCase();
-
   const actionMatch = classifyActionName(input.actionName);
 
-  const matches = rulesIndex.rules
-    .map((rule) => classifyRule(rule, searchText))
-    .filter((match): match is EventClassificationMatch => match !== null)
-    .concat(actionMatch ? [actionMatch] : [])
-    .sort((left, right) => {
-      if (right.score !== left.score) {
-        return right.score - left.score;
-      }
-
-      return lanePriority(right.lane ?? "user") - lanePriority(left.lane ?? "user");
-    });
+  const matches: EventClassificationMatch[] = actionMatch ? [actionMatch] : [];
 
   const canonicalLane = getCanonicalLane(input.kind);
 
@@ -77,33 +47,3 @@ function getCanonicalLane(kind: MonitoringEventKind): TimelineLane | undefined {
   return undefined;
 }
 
-function classifyRule(
-  rule: RulesIndex["rules"][number],
-  searchText: string
-): EventClassificationMatch | null {
-  const reasons: EventClassificationReason[] = [];
-  let score = 0;
-
-  for (const keyword of collectRuleKeywords(rule)) {
-    if (searchText.includes(keyword)) {
-      reasons.push({
-        kind: "keyword",
-        value: keyword
-      });
-      score += 2;
-    }
-  }
-
-  if (score === 0) {
-    return null;
-  }
-
-  return {
-    ruleId: rule.id,
-    source: "rules-index",
-    score,
-    tags: rule.tags,
-    reasons,
-    ...(rule.lane ? { lane: rule.lane } : {})
-  };
-}

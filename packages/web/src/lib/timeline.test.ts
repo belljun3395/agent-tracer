@@ -41,7 +41,7 @@ describe("buildTimelineLayout", () => {
       makeEvent({
         id: "verify",
         kind: "verification.logged",
-        lane: "rules",
+        lane: "implementation",
         title: "테스트 실행",
         createdAt: "2026-03-16T09:01:00.000Z"
       })

@@ -6,7 +6,6 @@ import {
   getHookEventName,
   getSessionId,
   getToolInput,
-  inferCommandLane,
   parseMcpToolName,
   postJson,
   readStdinJson,
@@ -43,9 +42,7 @@ async function main(): Promise<void> {
   const metadata: Record<string, unknown> = {};
 
   if (toolName === "Bash") {
-    const command = toTrimmedString(toolInput.command);
     const description = toTrimmedString(toolInput.description);
-    lane = inferCommandLane(command);
     metadata.description = description;
   } else if (mcpTool) {
     title = `MCP: ${mcpTool.server}/${mcpTool.tool}`;

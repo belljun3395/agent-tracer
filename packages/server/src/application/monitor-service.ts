@@ -35,10 +35,8 @@ export class MonitorService {
   private readonly recorder: EventRecorder;
 
   constructor(private readonly ports: MonitorPorts) {
-    this.recorder = new EventRecorder(ports.events, ports.rules, ports.notifier);
+    this.recorder = new EventRecorder(ports.events, ports.notifier);
   }
-  reloadRules() { return this.ports.rules.reload(); }
-  getRules() { return this.ports.rules.getIndex(); }
   async startTask(input: TaskStartInput): Promise<RecordedEventEnvelope> {
     const taskId = input.taskId ?? globalThis.crypto.randomUUID();
     const sessionId = globalThis.crypto.randomUUID();
@@ -259,11 +257,11 @@ export class MonitorService {
   }
 
   async logVerification(input: TaskVerifyInput): Promise<RecordedEventEnvelope> {
-    return this.withSession(input, (sid) => ({ taskId: input.taskId, kind: "verification.logged", lane: "rules", title: input.title ?? input.action, body: input.body ?? input.result, metadata: TMF.build({ ...(input.metadata ?? {}), action: input.action, result: input.result, verificationStatus: TMF.normalizeVerificationStatus(input.status ?? input.result) }, input), actionName: input.action, ...(sid ? { sessionId: sid } : {}), ...(input.filePaths ? { filePaths: input.filePaths } : {}) }));
+    return this.withSession(input, (sid) => ({ taskId: input.taskId, kind: "verification.logged", lane: "implementation", title: input.title ?? input.action, body: input.body ?? input.result, metadata: TMF.build({ ...(input.metadata ?? {}), action: input.action, result: input.result, verificationStatus: TMF.normalizeVerificationStatus(input.status ?? input.result) }, input), actionName: input.action, ...(sid ? { sessionId: sid } : {}), ...(input.filePaths ? { filePaths: input.filePaths } : {}) }));
   }
 
   async logRule(input: TaskRuleInput): Promise<RecordedEventEnvelope> {
-    return this.withSession(input, (sid) => ({ taskId: input.taskId, kind: "rule.logged", lane: "rules", title: input.title ?? input.action, body: input.body ?? `${input.ruleId} · ${input.status} · ${input.severity}`, metadata: TMF.build({ ...(input.metadata ?? {}), action: input.action, ruleId: input.ruleId, severity: input.severity, ruleStatus: input.status, ruleSource: input.source ?? "rule-guard" }, input), actionName: input.action, ...(sid ? { sessionId: sid } : {}), ...(input.filePaths ? { filePaths: input.filePaths } : {}) }));
+    return this.withSession(input, (sid) => ({ taskId: input.taskId, kind: "rule.logged", lane: "implementation", title: input.title ?? input.action, body: input.body ?? `${input.ruleId} · ${input.status} · ${input.severity}`, metadata: TMF.build({ ...(input.metadata ?? {}), action: input.action, ruleId: input.ruleId, severity: input.severity, ruleStatus: input.status, ruleSource: input.source ?? "rule-guard" }, input), actionName: input.action, ...(sid ? { sessionId: sid } : {}), ...(input.filePaths ? { filePaths: input.filePaths } : {}) }));
   }
 
   async logAsyncLifecycle(input: TaskAsyncLifecycleInput): Promise<RecordedEventEnvelope> {

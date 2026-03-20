@@ -58,7 +58,6 @@ export const laneSchema = z.enum([
   "planning",
   "background",
   "implementation",
-  "rules",
   "questions",
   "todos",
   "coordination"
