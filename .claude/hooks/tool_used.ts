@@ -38,7 +38,7 @@ async function main(): Promise<void> {
 
   let title = relPath ? `${toolName}: ${path.basename(relPath)}` : toolName;
   let body = relPath ? `Modified ${relPath}` : `Used ${toolName}`;
-  let lane: "implementation" | "rules" | "coordination" | undefined = "implementation";
+  let lane: "implementation" | "coordination" | undefined = "implementation";
   const metadata: Record<string, unknown> = {};
 
   if (toolName === "Bash") {
