@@ -1,15 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
-
 import {
   classifyEvent,
   createTaskSlug,
   normalizeWorkspacePath,
   normalizeLane,
-  loadRulesIndex,
   tokenizeActionName
 } from "@monitor/core";
 
@@ -25,71 +20,25 @@ describe("createTaskSlug", () => {
   });
 });
 
-describe("loadRulesIndex", () => {
-  it("loads yaml index entries without markdown sidecars", () => {
-    const rulesDir = fs.mkdtempSync(path.join(os.tmpdir(), "baden-rules-"));
-
-    fs.writeFileSync(
-      path.join(rulesDir, "INDEX.yaml"),
-      [
-        "version: 1",
-        "rules:",
-        "  - id: docs",
-        "    title: Documentation",
-        "    lane: file",
-        "    keywords: [\"readme\"]",
-        "    tags: [\"docs\"]"
-      ].join("\n")
-    );
-
-    const index = loadRulesIndex(rulesDir);
-
-    expect(index.rules).toHaveLength(1);
-    expect(index.rules[0]?.lane).toBe("exploration");
-    expect(index.rules[0]).not.toHaveProperty("markdown");
-    expect(index.rules[0]).not.toHaveProperty("file");
-  });
-});
-
 describe("classifyEvent", () => {
-  it("derives the lane from classifier matches when no explicit lane is provided", () => {
-    const index = {
-      version: 1,
-      rules: [
-        {
-          id: "docs",
-          title: "Documentation",
-          lane: "exploration",
-          keywords: ["readme"],
-          tags: ["docs"]
-        }
-      ]
-    } as const;
-
-    const classification = classifyEvent(
-      {
-        kind: "tool.used",
-        title: "Updated README references"
-      },
-      index
-    );
+  it("derives the lane from action-registry match", () => {
+    const classification = classifyEvent({
+      kind: "tool.used",
+      actionName: "readFile"
+    });
 
     expect(classification.lane).toBe("exploration");
-    expect(classification.tags).toContain("docs");
-    expect(classification.matches[0]?.ruleId).toBe("docs");
+    expect(classification.tags).toContain("action-registry");
   });
 
   it("classifies free-form snake_case actions with keyword overrides", () => {
-    const classification = classifyEvent(
-      {
-        kind: "action.logged",
-        actionName: "run_test_rule_guard",
-        title: "run_test_rule_guard"
-      },
-      { version: 1, rules: [] }
-    );
+    const classification = classifyEvent({
+      kind: "action.logged",
+      actionName: "run_test_rule_guard",
+      title: "run_test_rule_guard"
+    });
 
-    expect(classification.lane).toBe("rules");
+    expect(classification.lane).toBe("implementation");
     expect(classification.tags).toContain("action-registry");
     expect(classification.matches[0]?.source).toBe("action-registry");
   });
@@ -126,67 +75,36 @@ describe("tokenizeActionName - 추가 케이스", () => {
 
 // Additional test cases for classifyEvent
 describe("classifyEvent - 추가 케이스", () => {
-  it("빈 규칙 인덱스에서도 기본 레인을 반환한다", () => {
+  it("액션 없을 때 기본 레인을 반환한다", () => {
     const result = classifyEvent(
-      { kind: "tool.used", title: "read file" },
-      { version: 1, rules: [] }
+      { kind: "tool.used", title: "read file" }
     );
     expect(result.lane).toBe("implementation");
     expect(result.matches).toHaveLength(0);
   });
 
-  it("명시적 lane은 규칙 매치보다 우선한다", () => {
+  it("명시적 lane은 action-registry 매치보다 우선한다", () => {
     const result = classifyEvent(
-      { kind: "tool.used", title: "read", lane: "rules" },
-      { version: 1, rules: [] }
+      { kind: "tool.used", title: "read", lane: "implementation" }
     );
-    expect(result.lane).toBe("rules");
+    expect(result.lane).toBe("implementation");
   });
 
-  it("user.message는 규칙 키워드가 있어도 user 레인을 유지한다", () => {
-    const result = classifyEvent(
-      {
-        kind: "user.message",
-        title: "Discuss opencode async background behavior",
-        body: "Need to review background lifecycle"
-      },
-      {
-        version: 1,
-        rules: [
-          {
-            id: "opencode-async",
-            title: "OpenCode Async Lifecycle",
-            lane: "implementation",
-            keywords: ["opencode", "async", "background"],
-            tags: ["opencode", "async"]
-          }
-        ]
-      }
-    );
+  it("user.message는 action-registry 매치가 있어도 user 레인을 유지한다", () => {
+    const result = classifyEvent({
+      kind: "user.message",
+      title: "Discuss opencode async background behavior",
+      body: "Need to review background lifecycle"
+    });
 
     expect(result.lane).toBe("user");
-    expect(result.matches[0]?.ruleId).toBe("opencode-async");
   });
 
-  it("task.start도 규칙 키워드가 있어도 user 레인을 유지한다", () => {
-    const result = classifyEvent(
-      {
-        kind: "task.start",
-        title: "OpenCode background task"
-      },
-      {
-        version: 1,
-        rules: [
-          {
-            id: "opencode-async",
-            title: "OpenCode Async Lifecycle",
-            lane: "implementation",
-            keywords: ["opencode", "background"],
-            tags: ["opencode", "async"]
-          }
-        ]
-      }
-    );
+  it("task.start도 user 레인을 유지한다", () => {
+    const result = classifyEvent({
+      kind: "task.start",
+      title: "OpenCode background task"
+    });
 
     expect(result.lane).toBe("user");
   });
@@ -202,12 +120,16 @@ describe("normalizeLane - 추가 케이스", () => {
     expect(normalizeLane("terminal")).toBe("implementation");
   });
 
+  it("구버전 'rules' → 'implementation' (backward compat)", () => {
+    expect(normalizeLane("rules")).toBe("implementation");
+  });
+
   it("알 수 없는 값 → 'user'", () => {
     expect(normalizeLane("unknown-lane")).toBe("user");
   });
 
   it("현재 유효한 레인은 그대로 통과한다", () => {
-    const lanes = ["user", "exploration", "planning", "implementation", "rules"] as const;
+    const lanes = ["user", "exploration", "planning", "implementation"] as const;
     for (const lane of lanes) {
       expect(normalizeLane(lane)).toBe(lane);
     }

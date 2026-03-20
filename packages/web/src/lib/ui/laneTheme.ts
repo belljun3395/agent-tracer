@@ -66,14 +66,6 @@ export const LANE_THEME: Record<TimelineLane, LaneTheme> = {
     bgVar: "--implementation-bg",
     borderVar: "--implementation-border"
   },
-  rules: {
-    label: "Rules",
-    description: "Tests, builds, lints, rule verifications",
-    icon: "/icons/terminal.svg",
-    toneVar: "--rules",
-    bgVar: "--rules-bg",
-    borderVar: "--rules-border"
-  },
   background: {
     label: "Background",
     description: "Subagent and background lifecycle activity",

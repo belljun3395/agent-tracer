@@ -476,7 +476,7 @@ describe("Claude hooks", () => {
           toolName: "Bash",
           title: "Failed Bash",
           body: "Command exited with non-zero status code 1",
-          lane: "rules",
+          lane: "implementation",
           metadata: {
             description: "Run tests",
             failed: true,

@@ -17,18 +17,15 @@ import { SqliteSessionRepository } from "./sqlite-session-repository.js";
 import { SqliteEventRepository } from "./sqlite-event-repository.js";
 import { SqliteRuntimeBindingRepository } from "./sqlite-runtime-binding-repository.js";
 import { SqliteBookmarkRepository } from "./sqlite-bookmark-repository.js";
-import { SqliteRulesCatalog } from "./sqlite-rules-catalog.js";
 
 export { SqliteTaskRepository } from "./sqlite-task-repository.js";
 export { SqliteSessionRepository } from "./sqlite-session-repository.js";
 export { SqliteEventRepository } from "./sqlite-event-repository.js";
 export { SqliteRuntimeBindingRepository } from "./sqlite-runtime-binding-repository.js";
 export { SqliteBookmarkRepository } from "./sqlite-bookmark-repository.js";
-export { SqliteRulesCatalog } from "./sqlite-rules-catalog.js";
 
 export interface SqliteMonitorPortsOptions {
   readonly databasePath: string;
-  readonly rulesDir: string;
   /** Optional pre-built notifier for real-time notifications. */
   readonly notifier?: INotificationPublisher;
 }
@@ -54,7 +51,6 @@ export function createSqliteMonitorPorts(options: SqliteMonitorPortsOptions): Mo
     events: new SqliteEventRepository(db),
     runtimeBindings: new SqliteRuntimeBindingRepository(db),
     bookmarks: new SqliteBookmarkRepository(db),
-    rules: new SqliteRulesCatalog(options.rulesDir),
     notifier,
     close: () => db.close()
   };

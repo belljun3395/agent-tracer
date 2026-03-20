@@ -55,7 +55,7 @@ export interface TimelineConnector {
   readonly handoffId?: string;
 }
 
-/** 타임라인에 표시되는 5개 레인 순서. */
+/** 타임라인에 표시되는 레인 순서. */
 export const TIMELINE_LANES: readonly TimelineLane[] = [
   "user",
   "questions",
@@ -64,7 +64,6 @@ export const TIMELINE_LANES: readonly TimelineLane[] = [
   "coordination",
   "exploration",
   "implementation",
-  "rules",
   "background"
 ];
 

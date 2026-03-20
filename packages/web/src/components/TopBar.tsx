@@ -41,7 +41,7 @@ function StatCard({
   const accentClasses = {
     cyan: "text-[#0891b2]",
     green: "text-[var(--ok)]",
-    amber: "text-[var(--rules)]",
+    amber: "text-[#b45309]",
     red: "text-[var(--err)]",
     slate: "text-[var(--text-2)]"
   } as const;
@@ -49,7 +49,7 @@ function StatCard({
   const accentBarClasses = {
     cyan: "bg-[#0891b2]",
     green: "bg-[var(--ok)]",
-    amber: "bg-[var(--rules)]",
+    amber: "bg-[#b45309]",
     red: "bg-[var(--err)]",
     slate: "bg-[var(--text-3)]"
   } as const;

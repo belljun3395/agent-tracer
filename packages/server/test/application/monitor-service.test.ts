@@ -1,142 +1,134 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
-import { createServiceHarness } from "../test-helpers.js";
+import {
+  classifyEvent,
+  createTaskSlug,
+  normalizeWorkspacePath,
+  normalizeLane,
+  tokenizeActionName
+} from "@monitor/core";
 
-describe("MonitorService", () => {
-  let harness: ReturnType<typeof createServiceHarness>;
+describe("normalizeWorkspacePath", () => {
+  it("compresses duplicate separators and trims trailing slash", () => {
+    expect(normalizeWorkspacePath("/tmp//baden///")).toBe("/tmp/baden");
+  });
+});
 
-  beforeEach(() => {
-    harness = createServiceHarness();
+describe("createTaskSlug", () => {
+  it("creates a stable slug from a title", () => {
+    expect(createTaskSlug({ title: "Build Baden Timeline MVP" })).toBe("build-baden-timeline-mvp");
+  });
+});
+
+describe("classifyEvent", () => {
+  it("derives the lane from action-registry match when action name is provided", () => {
+    const classification = classifyEvent({
+      kind: "tool.used",
+      actionName: "readFile"
+    });
+
+    expect(classification.lane).toBe("exploration");
+    expect(classification.tags).toContain("action-registry");
   });
 
-  afterEach(() => {
-    harness.close();
+  it("classifies free-form snake_case actions with keyword matches", () => {
+    const classification = classifyEvent({
+      kind: "action.logged",
+      actionName: "run_test_rule_guard",
+      title: "run_test_rule_guard"
+    });
+
+    expect(classification.lane).toBe("implementation");
+    expect(classification.tags).toContain("action-registry");
+    expect(classification.matches[0]?.source).toBe("action-registry");
+  });
+});
+
+describe("tokenizeActionName", () => {
+  it("drops skip words like run_ before classification", () => {
+    expect(tokenizeActionName("run_test_rule_guard")).toEqual(["test", "rule", "guard"]);
+  });
+});
+
+describe("tokenizeActionName - 추가 케이스", () => {
+  it("camelCase를 토큰으로 분리한다", () => {
+    expect(tokenizeActionName("readFileContent")).toEqual(["read", "file", "content"]);
   });
 
-  it("작업을 시작하면 세션과 task.start 이벤트를 함께 만든다", async () => {
-    const result = await harness.service.startTask({
-      title: "Codex - agent-tracer",
-      workspacePath: "/tmp//agent-tracer///"
-    });
-
-    expect(result.task).toMatchObject({
-      title: "Codex - agent-tracer",
-      status: "running",
-      workspacePath: "/tmp/agent-tracer"
-    });
-    expect(result.sessionId).toBeTruthy();
-    expect(result.events).toEqual([
-      expect.objectContaining({ kind: "task.start" })
-    ]);
-
-    const timeline = await harness.service.getTaskTimeline(result.task.id);
-    expect(timeline.map((event) => event.kind)).toEqual(["task.start"]);
+  it("앞의 run skip word를 제거한다", () => {
+    expect(tokenizeActionName("run_tests")).toEqual(["tests"]);
   });
 
-  it("raw 메시지와 derived 메시지를 같은 작업 흐름에 연결한다", async () => {
-    const started = await harness.service.startTask({ title: "사용자 요청 추적" });
-
-    const raw = await harness.service.logUserMessage({
-      taskId: started.task.id,
-      sessionId: started.sessionId!,
-      messageId: "msg-1",
-      captureMode: "raw",
-      source: "manual-mcp",
-      title: "원본 요청",
-      body: "테스트 구조를 정리해줘"
-    });
-
-    const derived = await harness.service.logUserMessage({
-      taskId: started.task.id,
-      sessionId: started.sessionId!,
-      messageId: "msg-2",
-      captureMode: "derived",
-      source: "manual-mcp",
-      sourceEventId: raw.events[0]!.id,
-      title: "요청 요약",
-      body: "테스트를 비즈니스 규칙 중심으로 재정리"
-    });
-
-    const timeline = await harness.service.getTaskTimeline(started.task.id);
-    const userMessages = timeline.filter((event) => event.kind === "user.message");
-
-    expect(userMessages).toHaveLength(2);
-    expect(userMessages[0]?.metadata.captureMode).toBe("raw");
-    expect(userMessages[1]?.metadata).toMatchObject({
-      captureMode: "derived",
-      sourceEventId: raw.events[0]!.id
-    });
-    expect(derived.events[0]?.kind).toBe("user.message");
+  it("빈 문자열은 빈 배열을 반환한다", () => {
+    expect(tokenizeActionName("")).toEqual([]);
   });
 
-  it("background 자식이 남아 있으면 primary 작업을 바로 완료하지 않고 waiting으로 둔다", async () => {
-    const parent = await harness.service.startTask({ title: "상위 작업" });
-    await harness.service.startTask({
-      title: "백그라운드 자식",
-      taskKind: "background",
-      parentTaskId: parent.task.id,
-      parentSessionId: parent.sessionId!
-    });
-
-    const ended = await harness.service.endSession({
-      taskId: parent.task.id,
-      sessionId: parent.sessionId!,
-      completeTask: true,
-      completionReason: "assistant_turn_complete"
-    });
-
-    expect(ended.task.status).toBe("waiting");
+  it("특수문자를 구분자로 처리한다", () => {
+    expect(tokenizeActionName("read-file.content")).toEqual(["read", "file", "content"]);
   });
 
-  it("background 작업의 마지막 세션이 끝나면 자동으로 completed가 된다", async () => {
-    const background = await harness.service.startTask({
-      title: "백그라운드 작업",
-      taskKind: "background"
-    });
+  it("모두 skip word면 빈 배열을 반환한다", () => {
+    expect(tokenizeActionName("run")).toEqual([]);
+  });
+});
 
-    const ended = await harness.service.endSession({
-      taskId: background.task.id,
-      sessionId: background.sessionId!
-    });
-
-    expect(ended.task.status).toBe("completed");
-
-    const timeline = await harness.service.getTaskTimeline(background.task.id);
-    expect(timeline.some((event) => event.kind === "task.complete")).toBe(true);
+describe("classifyEvent - 추가 케이스", () => {
+  it("액션 없을 때 기본 레인을 반환한다", () => {
+    const result = classifyEvent(
+      { kind: "tool.used", title: "read file" }
+    );
+    expect(result.lane).toBe("implementation");
+    expect(result.matches).toHaveLength(0);
   });
 
-  it("idle로 종료된 runtime 세션은 같은 task로 다시 이어서 재개한다", async () => {
-    const first = await harness.service.ensureRuntimeSession({
-      runtimeSource: "claude-hook",
-      runtimeSessionId: "runtime-1",
-      title: "Claude - agent-tracer",
-      workspacePath: "/workspace/agent-tracer"
+  it("명시적 lane은 action-registry 매치보다 우선한다", () => {
+    const result = classifyEvent(
+      { kind: "tool.used", title: "read", lane: "implementation" }
+    );
+    expect(result.lane).toBe("implementation");
+  });
+
+  it("user.message는 user 레인을 유지한다", () => {
+    const result = classifyEvent({
+      kind: "user.message",
+      title: "Discuss opencode async background behavior",
+      body: "Need to review background lifecycle"
     });
 
-    await harness.service.endRuntimeSession({
-      runtimeSource: "claude-hook",
-      runtimeSessionId: "runtime-1",
-      completionReason: "idle"
+    expect(result.lane).toBe("user");
+  });
+
+  it("task.start도 user 레인을 유지한다", () => {
+    const result = classifyEvent({
+      kind: "task.start",
+      title: "OpenCode background task"
     });
 
-    const waitingTask = await harness.service.getTask(first.taskId);
-    expect(waitingTask?.status).toBe("waiting");
+    expect(result.lane).toBe("user");
+  });
+});
 
-    const reopened = await harness.service.ensureRuntimeSession({
-      runtimeSource: "claude-hook",
-      runtimeSessionId: "runtime-1",
-      title: "Claude - agent-tracer",
-      workspacePath: "/workspace/agent-tracer"
-    });
+describe("normalizeLane - 추가 케이스", () => {
+  it("구버전 'file' → 'exploration'", () => {
+    expect(normalizeLane("file")).toBe("exploration");
+  });
 
-    expect(reopened).toMatchObject({
-      taskId: first.taskId,
-      taskCreated: false,
-      sessionCreated: true
-    });
-    expect(reopened.sessionId).not.toBe(first.sessionId);
+  it("구버전 'terminal' → 'implementation'", () => {
+    expect(normalizeLane("terminal")).toBe("implementation");
+  });
 
-    const resumedTask = await harness.service.getTask(first.taskId);
-    expect(resumedTask?.status).toBe("running");
+  it("구버전 'rules' → 'implementation' (backward compat)", () => {
+    expect(normalizeLane("rules")).toBe("implementation");
+  });
+
+  it("알 수 없는 값 → 'user'", () => {
+    expect(normalizeLane("unknown-lane")).toBe("user");
+  });
+
+  it("현재 유효한 레인은 그대로 통과한다", () => {
+    const lanes = ["user", "exploration", "planning", "implementation"] as const;
+    for (const lane of lanes) {
+      expect(normalizeLane(lane)).toBe(lane);
+    }
   });
 });

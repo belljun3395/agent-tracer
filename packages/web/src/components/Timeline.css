@@ -81,7 +81,6 @@
 }
 
 .filter-chip.active.exploration { border-color: var(--exploration); background: var(--exploration-bg); color: var(--exploration); }
-.filter-chip.active.rules { border-color: var(--rules); background: var(--rules-bg); color: var(--rules); }
 .filter-chip.active.implementation { border-color: var(--implementation); background: var(--implementation-bg); color: var(--implementation); }
 .filter-chip.active.planning { border-color: var(--planning); background: var(--planning-bg); color: var(--planning); }
 .filter-chip.active.user { border-color: var(--user); background: var(--user-bg); color: var(--user); }
@@ -91,7 +90,6 @@
 .filter-chip.active.background { border-color: var(--background); background: var(--background-bg); color: var(--background); }
 
 .filter-chip.active.exploration .filter-dot { background: var(--exploration); }
-.filter-chip.active.rules .filter-dot { background: var(--rules); }
 .filter-chip.active.implementation .filter-dot { background: var(--implementation); }
 .filter-chip.active.planning .filter-dot { background: var(--planning); }
 .filter-chip.active.user .filter-dot { background: var(--user); }
@@ -553,7 +551,6 @@
 }
 
 .lane-label.exploration { color: var(--exploration); }
-.lane-label.rules { color: var(--rules); }
 .lane-label.implementation { color: var(--implementation); }
 .lane-label.planning { color: var(--planning); }
 .lane-label.user { color: var(--user); }
@@ -569,7 +566,6 @@
 }
 
 .lane-icon.exploration { filter: brightness(0) saturate(100%) invert(36%) sepia(89%) saturate(451%) hue-rotate(143deg) brightness(93%); }
-.lane-icon.rules { filter: brightness(0) saturate(100%) invert(37%) sepia(72%) saturate(800%) hue-rotate(20deg) brightness(88%); }
 .lane-icon.implementation { filter: brightness(0) saturate(100%) invert(22%) sepia(80%) saturate(1500%) hue-rotate(255deg) brightness(88%); }
 .lane-icon.planning { filter: brightness(0) saturate(100%) invert(20%) sepia(75%) saturate(800%) hue-rotate(130deg) brightness(85%); }
 .lane-icon.user { filter: brightness(0) saturate(100%) invert(18%) sepia(90%) saturate(1800%) hue-rotate(335deg) brightness(85%); }
@@ -623,7 +619,6 @@
 }
 
 .event-node.exploration { border-top-color: var(--exploration); }
-.event-node.rules { border-top-color: var(--rules); }
 .event-node.implementation { border-top-color: var(--implementation); }
 .event-node.planning { border-top-color: var(--planning); }
 .event-node.user { border-top-color: var(--user); }
@@ -645,7 +640,6 @@
 }
 
 .event-node.exploration .event-node-header img { filter: brightness(0) saturate(100%) invert(36%) sepia(89%) saturate(451%) hue-rotate(143deg) brightness(93%); }
-.event-node.rules .event-node-header img { filter: brightness(0) saturate(100%) invert(37%) sepia(72%) saturate(800%) hue-rotate(20deg) brightness(88%); }
 .event-node.implementation .event-node-header img { filter: brightness(0) saturate(100%) invert(22%) sepia(80%) saturate(1500%) hue-rotate(255deg) brightness(88%); }
 .event-node.planning .event-node-header img { filter: brightness(0) saturate(100%) invert(20%) sepia(75%) saturate(800%) hue-rotate(130deg) brightness(85%); }
 .event-node.user .event-node-header img { filter: brightness(0) saturate(100%) invert(18%) sepia(90%) saturate(1800%) hue-rotate(335deg) brightness(85%); }
@@ -662,7 +656,6 @@
 }
 
 .event-node.exploration .event-lane-tag { color: var(--exploration); }
-.event-node.rules .event-lane-tag { color: var(--rules); }
 .event-node.implementation .event-lane-tag { color: var(--implementation); }
 .event-node.planning .event-lane-tag { color: var(--planning); }
 .event-node.user .event-lane-tag { color: var(--user); }
@@ -760,7 +753,6 @@
 }
 
 .stack-popover-item.exploration { border-left-color: var(--exploration); }
-.stack-popover-item.rules        { border-left-color: var(--rules); }
 .stack-popover-item.implementation { border-left-color: var(--implementation); }
 .stack-popover-item.planning     { border-left-color: var(--planning); }
 .stack-popover-item.user         { border-left-color: var(--user); }
@@ -776,7 +768,6 @@
 }
 
 .stack-item-icon.exploration { filter: brightness(0) saturate(100%) invert(36%) sepia(89%) saturate(451%) hue-rotate(143deg) brightness(93%); }
-.stack-item-icon.rules       { filter: brightness(0) saturate(100%) invert(37%) sepia(72%) saturate(800%) hue-rotate(20deg) brightness(88%); }
 .stack-item-icon.implementation { filter: brightness(0) saturate(100%) invert(22%) sepia(80%) saturate(1500%) hue-rotate(255deg) brightness(88%); }
 .stack-item-icon.planning    { filter: brightness(0) saturate(100%) invert(20%) sepia(75%) saturate(800%) hue-rotate(130deg) brightness(85%); }
 .stack-item-icon.user        { filter: brightness(0) saturate(100%) invert(18%) sepia(90%) saturate(1800%) hue-rotate(335deg) brightness(85%); }
@@ -922,7 +913,6 @@
 }
 
 .connector.exploration { stroke: var(--exploration); }
-.connector.rules { stroke: var(--rules); }
 .connector.implementation { stroke: var(--implementation); }
 .connector.planning { stroke: var(--planning); }
 .connector.user { stroke: var(--user); }
@@ -942,7 +932,6 @@
 }
 
 .arrow-tip.exploration { fill: var(--exploration); }
-.arrow-tip.rules { fill: var(--rules); }
 .arrow-tip.implementation { fill: var(--implementation); }
 .arrow-tip.planning { fill: var(--planning); }
 .arrow-tip.user { fill: var(--user); }

@@ -1,10 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import type { MonitoringTask, RulesIndex, TimelineEvent } from "../types.js";
+import type { MonitoringTask, TimelineEvent } from "../types.js";
 import {
   buildObservabilityStats,
   buildQuestionGroups,
-  buildRuleCoverage,
   buildTaskDisplayTitle,
   buildTodoGroups,
   filterTimelineEvents
@@ -68,66 +67,6 @@ describe("buildTaskDisplayTitle", () => {
   });
 });
 
-describe("buildRuleCoverage", () => {
-  it("설정된 규칙과 런타임 규칙 이벤트를 함께 보여준다", () => {
-    const rulesIndex: RulesIndex = {
-      version: 1,
-      rules: [
-        {
-          id: "backend",
-          title: "Backend Rule",
-          lane: "implementation",
-          keywords: [],
-          tags: ["backend"]
-        }
-      ]
-    };
-
-    const timeline = [
-      makeEvent({
-        id: "configured-match",
-        classification: {
-          lane: "implementation",
-          tags: ["backend"],
-          matches: [
-            {
-              ruleId: "backend",
-              source: "rules-index",
-              score: 8,
-              lane: "implementation",
-              tags: ["backend"],
-              reasons: [{ kind: "keyword", value: "service" }]
-            }
-          ]
-        }
-      }),
-      makeEvent({
-        id: "runtime-violation",
-        kind: "rule.logged",
-        lane: "rules",
-        metadata: {
-          ruleId: "c5",
-          ruleStatus: "violation"
-        }
-      })
-    ];
-
-    expect(buildRuleCoverage(rulesIndex, timeline)).toEqual([
-      expect.objectContaining({
-        ruleId: "backend",
-        configured: true,
-        matchCount: 1
-      }),
-      expect.objectContaining({
-        ruleId: "c5",
-        configured: false,
-        ruleEventCount: 1,
-        violationCount: 1
-      })
-    ]);
-  });
-});
-
 describe("buildObservabilityStats", () => {
   it("행동, 검증, 규칙 위반, 협업 이벤트를 한 번에 집계한다", () => {
     const timeline = [
@@ -135,12 +74,12 @@ describe("buildObservabilityStats", () => {
       makeEvent({ kind: "agent.activity.logged", lane: "coordination" }),
       makeEvent({
         kind: "verification.logged",
-        lane: "rules",
+        lane: "implementation",
         metadata: { verificationStatus: "pass" }
       }),
       makeEvent({
         kind: "rule.logged",
-        lane: "rules",
+        lane: "implementation",
         metadata: { ruleId: "c1", ruleStatus: "violation" }
       })
     ];
@@ -162,19 +101,11 @@ describe("filterTimelineEvents", () => {
     const matched = makeEvent({
       id: "matched",
       lane: "implementation",
+      metadata: { ruleId: "backend" },
       classification: {
         lane: "implementation",
         tags: ["backend"],
-        matches: [
-          {
-            ruleId: "backend",
-            source: "rules-index",
-            score: 4,
-            lane: "implementation",
-            tags: ["backend"],
-            reasons: [{ kind: "keyword", value: "service" }]
-          }
-        ]
+        matches: []
       }
     });
     const gap = makeEvent({
@@ -195,7 +126,6 @@ describe("filterTimelineEvents", () => {
       coordination: false,
       exploration: false,
       implementation: true,
-      rules: false,
       background: false
     } as const;
 

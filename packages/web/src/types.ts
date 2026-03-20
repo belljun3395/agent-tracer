@@ -3,7 +3,6 @@ export type TimelineLane =
   | "exploration"
   | "planning"
   | "implementation"
-  | "rules"
   | "questions"
   | "todos"
   | "background"
@@ -33,7 +32,7 @@ export interface EventClassificationReason {
 
 export interface EventClassificationMatch {
   readonly ruleId: string;
-  readonly source?: "rules-index" | "action-registry";
+  readonly source?: "action-registry";
   readonly score: number;
   readonly lane?: TimelineLane;
   readonly tags: readonly string[];
@@ -139,21 +138,8 @@ export interface OverviewStats {
   readonly totalEvents: number;
 }
 
-export interface RulesIndex {
-  readonly version: number;
-  readonly rules: readonly {
-    readonly id: string;
-    readonly title: string;
-    readonly description?: string;
-    readonly lane?: TimelineLane;
-    readonly keywords: readonly string[];
-    readonly tags: readonly string[];
-  }[];
-}
-
 export interface OverviewResponse {
   readonly stats: OverviewStats;
-  readonly rules: RulesIndex;
 }
 
 export interface TasksResponse {

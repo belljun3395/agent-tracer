@@ -6,7 +6,7 @@
  */
 
 import { filePathsInDirectory, isDirectoryPath, matchFilePaths } from "@monitor/core";
-import type { MonitoringTask, RulesIndex, TimelineEvent, TimelineLane } from "../types.js";
+import type { MonitoringTask, TimelineEvent, TimelineLane } from "../types.js";
 
 export interface ObservabilityStats {
   readonly actions: number;
@@ -106,7 +106,6 @@ export interface TaskExtraction {
   readonly sections: readonly TaskProcessSection[];
   readonly validations: readonly string[];
   readonly files: readonly string[];
-  readonly rules: readonly string[];
   readonly brief: string;
   readonly processMarkdown: string;
 }
@@ -484,10 +483,9 @@ export function buildTaskExtraction(
   const sections = buildTaskProcessSections(timeline);
   const validations = collectTaskValidations(timeline);
   const files = exploredFiles.slice(0, 6).map((file) => file.path);
-  const rules = collectTaskRules(timeline);
   const summary = buildTaskSummary(timeline, sections, validations, files);
   const brief = buildTaskBrief(objective, summary, sections, validations);
-  const processMarkdown = buildTaskProcessMarkdown(objective, summary, sections, validations, files, rules);
+  const processMarkdown = buildTaskProcessMarkdown(objective, summary, sections, validations, files);
 
   return {
     objective,
@@ -495,7 +493,6 @@ export function buildTaskExtraction(
     sections,
     validations,
     files,
-    rules,
     brief,
     processMarkdown
   };
@@ -522,97 +519,67 @@ export function buildTaskDisplayTitle(
 }
 
 /**
- * 규칙 인덱스 대비 실제 이벤트 커버리지 통계 계산.
- * 설정된 규칙과 런타임에만 관찰된 규칙을 모두 포함하여 매칭/위반/통과 횟수를 집계.
+ * 타임라인 이벤트에서 규칙 커버리지 통계 계산.
+ * metadata.ruleId가 있는 이벤트를 기반으로 위반/통과 횟수를 집계.
  *
- * @param rulesIndex - 설정된 규칙 인덱스 (null/undefined 가능)
  * @param timeline - 전체 이벤트 목록
- * @returns configured 규칙 우선, 위반 횟수 내림차순으로 정렬된 통계 배열
+ * @returns 위반 횟수 내림차순으로 정렬된 통계 배열
  */
 export function buildRuleCoverage(
-  rulesIndex: RulesIndex | null | undefined,
   timeline: readonly TimelineEvent[]
 ): readonly RuleCoverageStat[] {
-  const configuredRules = new Map(
-    (rulesIndex?.rules ?? []).map((rule) => [
-      rule.id,
-      {
-        ruleId: rule.id,
-        title: rule.title,
-        configured: true,
-        lane: rule.lane,
-        tags: [...rule.tags],
-        matchCount: 0,
-        ruleEventCount: 0,
-        checkCount: 0,
-        violationCount: 0,
-        passCount: 0,
-        lastSeenAt: undefined as string | undefined
-      }
-    ])
-  );
-
-  const allRules = new Map(configuredRules);
+  const configuredRules = new Map<string, {
+    ruleId: string;
+    title: string;
+    configured: boolean;
+    lane: TimelineLane | undefined;
+    tags: string[];
+    matchCount: number;
+    ruleEventCount: number;
+    checkCount: number;
+    violationCount: number;
+    passCount: number;
+    lastSeenAt: string | undefined;
+  }>();
 
   for (const event of timeline) {
-    const configuredMatchIds = new Set(
-      event.classification.matches
-        .filter((match) => match.source === "rules-index")
-        .map((match) => match.ruleId)
-    );
     const metadataRuleId = extractMetadataString(event.metadata, "ruleId");
-    if (metadataRuleId) {
-      configuredMatchIds.add(metadataRuleId);
-    }
+    if (!metadataRuleId) continue;
 
-    for (const ruleId of configuredMatchIds) {
-      const existing = allRules.get(ruleId);
-      const next = existing ?? {
-        ruleId,
-        title: ruleId,
-        configured: configuredRules.has(ruleId),
-        lane: undefined,
-        tags: [] as string[],
-        matchCount: 0,
-        ruleEventCount: 0,
-        checkCount: 0,
-        violationCount: 0,
-        passCount: 0,
-        lastSeenAt: undefined as string | undefined
-      };
+    const existing = configuredRules.get(metadataRuleId);
+    const next = existing ?? {
+      ruleId: metadataRuleId,
+      title: metadataRuleId,
+      configured: false,
+      lane: undefined,
+      tags: [] as string[],
+      matchCount: 0,
+      ruleEventCount: 0,
+      checkCount: 0,
+      violationCount: 0,
+      passCount: 0,
+      lastSeenAt: undefined as string | undefined
+    };
 
-      const hasConfiguredMatch = event.classification.matches.some(
-        (match) => match.ruleId === ruleId && match.source === "rules-index"
-      );
-      const ruleStatus = metadataRuleId === ruleId
-        ? extractMetadataString(event.metadata, "ruleStatus")
-        : undefined;
+    const ruleStatus = extractMetadataString(event.metadata, "ruleStatus");
 
-      allRules.set(ruleId, {
-        ...next,
-        matchCount: next.matchCount + (hasConfiguredMatch ? 1 : 0),
-        ruleEventCount: next.ruleEventCount + (metadataRuleId === ruleId ? 1 : 0),
-        checkCount: next.checkCount + (ruleStatus === "check" ? 1 : 0),
-        violationCount: next.violationCount + (ruleStatus === "violation" ? 1 : 0),
-        passCount: next.passCount + ((ruleStatus === "pass" || ruleStatus === "fix-applied") ? 1 : 0),
-        lastSeenAt: next.lastSeenAt ? latestTimestamp(next.lastSeenAt, event.createdAt) : event.createdAt
-      });
-    }
+    configuredRules.set(metadataRuleId, {
+      ...next,
+      ruleEventCount: next.ruleEventCount + 1,
+      checkCount: next.checkCount + (ruleStatus === "check" ? 1 : 0),
+      violationCount: next.violationCount + (ruleStatus === "violation" ? 1 : 0),
+      passCount: next.passCount + ((ruleStatus === "pass" || ruleStatus === "fix-applied") ? 1 : 0),
+      lastSeenAt: next.lastSeenAt ? latestTimestamp(next.lastSeenAt, event.createdAt) : event.createdAt
+    });
   }
 
-  return [...allRules.values()].sort((left, right) => {
-    if (left.configured !== right.configured) {
-      return left.configured ? -1 : 1;
-    }
-
+  return [...configuredRules.values()].sort((left, right) => {
     if (right.violationCount !== left.violationCount) {
       return right.violationCount - left.violationCount;
     }
 
-    const rightActivity = right.matchCount + right.ruleEventCount;
-    const leftActivity = left.matchCount + left.ruleEventCount;
-    if (rightActivity !== leftActivity) {
-      return rightActivity - leftActivity;
+    if (right.ruleEventCount !== left.ruleEventCount) {
+      return right.ruleEventCount - left.ruleEventCount;
     }
 
     if ((right.lastSeenAt ?? "") !== (left.lastSeenAt ?? "")) {
@@ -737,27 +704,15 @@ export function eventHasRule(event: TimelineEvent, ruleId: string): boolean {
 }
 
 /**
- * 이벤트가 rules-index 기반의 설정된 규칙과 매칭되었는지 확인.
- * @param event - 검사할 이벤트
- */
-export function eventHasConfiguredRuleMatch(event: TimelineEvent): boolean {
-  return event.classification.matches.some((match) => match.source === "rules-index");
-}
-
-/**
- * 이벤트가 규칙 갭인지 확인. user 레인이 아니고 설정된 규칙 매칭이 없으면 갭으로 간주.
+ * 이벤트가 규칙 갭인지 확인. user 레인이 아니고 metadata.ruleId가 없으면 갭으로 간주.
  * @param event - 검사할 이벤트
  */
 export function eventHasRuleGap(event: TimelineEvent): boolean {
-  return event.lane !== "user" && !eventHasConfiguredRuleMatch(event);
+  return event.lane !== "user" && !extractMetadataString(event.metadata, "ruleId");
 }
 
 function collectEventRuleIds(event: TimelineEvent): readonly string[] {
-  const ruleIds = new Set(
-    event.classification.matches
-      .filter((match) => match.source === "rules-index")
-      .map((match) => match.ruleId)
-  );
+  const ruleIds = new Set<string>();
   const metadataRuleId = extractMetadataString(event.metadata, "ruleId");
   if (metadataRuleId) {
     ruleIds.add(metadataRuleId);
@@ -773,8 +728,7 @@ const TASK_EXTRACTION_LANES: readonly TimelineLane[] = [
   "exploration",
   "planning",
   "coordination",
-  "implementation",
-  "rules"
+  "implementation"
 ];
 
 const TASK_EXTRACTION_LANE_TITLES: Readonly<Record<TimelineLane, string>> = {
@@ -785,7 +739,6 @@ const TASK_EXTRACTION_LANE_TITLES: Readonly<Record<TimelineLane, string>> = {
   planning: "Plan the approach",
   coordination: "Coordinate tools and agents",
   implementation: "Implement the change",
-  rules: "Validate and enforce rules",
   background: "Observe background work"
 };
 
@@ -957,25 +910,6 @@ function collectTaskValidations(
   ).slice(0, 5);
 }
 
-function collectTaskRules(
-  timeline: readonly TimelineEvent[]
-): readonly string[] {
-  const rules = new Set<string>();
-
-  for (const event of timeline) {
-    const metadataRuleId = extractMetadataString(event.metadata, "ruleId");
-    if (metadataRuleId) {
-      rules.add(metadataRuleId);
-    }
-
-    for (const match of event.classification.matches) {
-      rules.add(match.ruleId);
-    }
-  }
-
-  return [...rules].sort();
-}
-
 function buildTaskSummary(
   timeline: readonly TimelineEvent[],
   sections: readonly TaskProcessSection[],
@@ -1034,8 +968,7 @@ function buildTaskProcessMarkdown(
   summary: string,
   sections: readonly TaskProcessSection[],
   validations: readonly string[],
-  files: readonly string[],
-  rules: readonly string[]
+  files: readonly string[]
 ): string {
   const lines = [
     "# Extracted Task",
@@ -1068,13 +1001,6 @@ function buildTaskProcessMarkdown(
     lines.push("", "## Related Files");
     for (const filePath of files) {
       lines.push(`- ${filePath}`);
-    }
-  }
-
-  if (rules.length > 0) {
-    lines.push("", "## Rules");
-    for (const ruleId of rules) {
-      lines.push(`- ${ruleId}`);
     }
   }
 

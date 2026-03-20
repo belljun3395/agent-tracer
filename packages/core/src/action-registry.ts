@@ -31,17 +31,17 @@ const ACTION_PREFIX_RULES: readonly ActionPrefixRule[] = [
     tags: ["action-registry", "implementation"]
   },
   {
-    lane: "rules",
+    lane: "implementation",
     prefixes: ["test", "build", "lint", "verify", "validate", "check", "assert"],
-    tags: ["action-registry", "rules"]
+    tags: ["action-registry", "implementation"]
   }
 ];
 
 const ACTION_KEYWORD_RULES: readonly ActionKeywordRule[] = [
   {
-    lane: "rules",
+    lane: "implementation",
     keywords: ["test", "tests", "build", "lint", "verify", "validate", "validation", "check", "checks", "guard", "rule", "violation", "pass", "compliance"],
-    tags: ["rule-cycle"]
+    tags: ["verification"]
   },
   {
     lane: "planning",

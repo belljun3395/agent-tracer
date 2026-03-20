@@ -13,14 +13,12 @@ import {
 
 import type { IEventRepository } from "../ports/event-repository.js";
 import type { INotificationPublisher } from "../ports/notification-publisher.js";
-import type { IRulesCatalog } from "../ports/rules-catalog.js";
 import type { GenericEventInput } from "../types.js";
 import { TraceMetadataFactory } from "./trace-metadata-factory.js";
 
 export class EventRecorder {
   constructor(
     private readonly events: IEventRepository,
-    private readonly rules: IRulesCatalog,
     private readonly notifier: INotificationPublisher
   ) {}
 
@@ -36,8 +34,7 @@ export class EventRecorder {
         ...(input.toolName ? { toolName: input.toolName } : {}),
         ...(input.actionName ? { actionName: input.actionName } : {}),
         ...(input.filePaths ? { filePaths: input.filePaths } : {})
-      },
-      this.rules.getIndex()
+      }
     );
     const contextualTags = TraceMetadataFactory.deriveTags(input);
 

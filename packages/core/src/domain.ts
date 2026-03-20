@@ -4,7 +4,6 @@ export type TimelineLane =
   | "exploration"
   | "planning"
   | "implementation"
-  | "rules"
   | "questions"
   | "todos"
   | "background"
@@ -102,7 +101,7 @@ export interface EventClassificationReason {
 /** 단일 규칙에 대한 이벤트 매치 결과. 점수와 매치 이유 포함. */
 export interface EventClassificationMatch {
   readonly ruleId: string;
-  readonly source?: "rules-index" | "action-registry";
+  readonly source?: "action-registry";
   readonly score: number;
   readonly lane?: TimelineLane;
   readonly tags: readonly string[];
@@ -177,7 +176,7 @@ export function defaultLaneForEventKind(kind: MonitoringEventKind): TimelineLane
   switch (kind) {
     case "verification.logged":
     case "rule.logged":
-      return "rules";
+      return "implementation";
     case "action.logged":
       return "implementation";
     case "agent.activity.logged":
@@ -278,12 +277,12 @@ export function normalizeLane(raw: string): TimelineLane {
     case "thought":   return "planning";
     case "thoughts":  return "planning";
     case "message":   return "user";
+    case "rules":      return "implementation";
     // already-normalized values pass through
     case "user":
     case "exploration":
     case "planning":
     case "implementation":
-    case "rules":
     case "questions":
     case "todos":
     case "background":

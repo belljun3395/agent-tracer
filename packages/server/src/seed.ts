@@ -4,10 +4,9 @@ import { MonitorService } from "./application/monitor-service.js";
 import { createSqliteMonitorPorts } from "./infrastructure/sqlite/index.js";
 
 const databasePath = path.resolve(process.cwd(), ".monitor", "monitor.sqlite");
-const rulesDir = path.resolve(process.cwd(), "rules");
 const workspacePath = process.cwd();
 
-const ports = createSqliteMonitorPorts({ databasePath, rulesDir });
+const ports = createSqliteMonitorPorts({ databasePath });
 const service = new MonitorService(ports);
 
 await seedDashboardTask();

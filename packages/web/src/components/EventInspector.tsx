@@ -16,13 +16,11 @@ import {
   buildMentionedFileVerifications,
   buildObservabilityStats,
   buildQuestionGroups,
-  buildRuleCoverage,
   buildTagInsights,
   buildTaskExtraction,
   buildTodoGroups,
   collectExploredFiles,
   collectFileActivity,
-  eventHasRuleGap,
   type CompactInsight,
   type CompactRelation,
   type DirectoryMentionVerification,
@@ -33,7 +31,6 @@ import {
   type MentionedFileVerification,
   type ModelSummary,
   type QuestionGroup,
-  type RuleCoverageStat,
   type TaskExtraction,
   type TagInsight,
   type TodoGroup
@@ -52,7 +49,7 @@ import type {
   TimelineEvent
 } from "../types.js";
 
-type PanelTabId = "inspector" | "rules" | "tags" | "task" | "compact" | "files" | "exploration";
+type PanelTabId = "inspector" | "tags" | "task" | "compact" | "files" | "exploration";
 
 type ExplorationSortKey = "recent" | "most-read" | "alpha";
 type FileSortKey = "recent" | "most-active" | "writes-first" | "alpha";
@@ -78,7 +75,6 @@ function sortFileActivity(files: readonly FileActivityStat[], key: FileSortKey):
 
 const PANEL_TABS = [
   { id: "inspector",   label: "Inspector" },
-  { id: "rules",       label: "Rules" },
   { id: "tags",        label: "Tags" },
   { id: "task",        label: "Task" },
   { id: "compact",     label: "Compact" },
@@ -362,7 +358,7 @@ function DetailMatchList({
                   <strong className="min-w-0 truncate text-[0.95rem] text-[var(--text-1)]">{match.ruleId}</strong>
                 )}
                 <Badge tone="accent" size="xs">
-                  {match.score} · {match.source ?? "rules-index"}
+                  {match.score} · {match.source ?? "action-registry"}
                 </Badge>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -1213,17 +1209,6 @@ function TaskExtractionCard({
             </div>
           )}
 
-          {extraction.rules.length > 0 && (
-            <div className="flex flex-col gap-2">
-              <span className="text-[0.7rem] font-bold uppercase tracking-[0.08em] text-[var(--text-3)]">Rules</span>
-              <div className="flex flex-wrap gap-2">
-                {extraction.rules.map((ruleId) => (
-                  <Badge key={ruleId} tone="neutral" size="xs" className="max-w-full break-words">{ruleId}</Badge>
-                ))}
-              </div>
-            </div>
-          )}
-
           {extraction.files.length > 0 && (
             <div className="flex flex-col gap-2">
               <span className="text-[0.7rem] font-bold uppercase tracking-[0.08em] text-[var(--text-3)]">Files</span>
@@ -1235,107 +1220,6 @@ function TaskExtractionCard({
                 ))}
               </div>
             </div>
-          )}
-        </div>
-      </div>
-    </PanelCard>
-  );
-}
-
-/** RuleCoverageCard: 규칙 커버리지 인사이트 카드. */
-function RuleCoverageCard({
-  rules, selectedRuleId, showRuleGapsOnly, unmatchedRuleEvents, onSelectRule, onToggleRuleGaps
-}: {
-  readonly rules: readonly RuleCoverageStat[];
-  readonly selectedRuleId: string | null;
-  readonly showRuleGapsOnly: boolean;
-  readonly unmatchedRuleEvents: number;
-  readonly onSelectRule: (ruleId: string) => void;
-  readonly onToggleRuleGaps: () => void;
-}): React.JSX.Element {
-  const configuredRules = rules.filter((rule) => rule.configured);
-  const matchedConfiguredRules = configuredRules.filter((rule) => rule.matchCount > 0 || rule.ruleEventCount > 0);
-  const runtimeRules = rules.filter((rule) => !rule.configured);
-
-  return (
-    <PanelCard className={cardShell}>
-      <div className={cardBody}>
-        <SectionTitle
-          action={(
-            <Button
-              className={cn(
-                "h-auto rounded-full px-3 py-1.5 text-[0.72rem] font-semibold shadow-none",
-                showRuleGapsOnly
-                  ? "border-[var(--rules)] bg-[color-mix(in_srgb,var(--rules)_10%,white)] text-[var(--rules)]"
-                  : "border-[var(--border)] bg-[var(--surface)] text-[var(--text-2)] hover:border-[var(--border-2)] hover:bg-[var(--surface-2)]"
-              )}
-              disabled={unmatchedRuleEvents === 0}
-              onClick={onToggleRuleGaps}
-              size="sm"
-              type="button"
-              variant="bare"
-            >
-              Gap {unmatchedRuleEvents}
-            </Button>
-          )}
-          description={`${matchedConfiguredRules.length}/${configuredRules.length} configured rules observed`}
-          eyebrow="Rules"
-          title="Rule Coverage"
-        />
-        <div className="mt-4 grid grid-cols-3 gap-2 max-md:grid-cols-1">
-          <div className={innerPanel + " p-3"}>
-            <span className="block text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">Configured</span>
-            <strong className="mt-2 block text-[1rem] text-[var(--text-1)]">{configuredRules.length}</strong>
-          </div>
-          <div className={innerPanel + " p-3"}>
-            <span className="block text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">Observed</span>
-            <strong className="mt-2 block text-[1rem] text-[var(--text-1)]">{matchedConfiguredRules.length}</strong>
-          </div>
-          <div className={innerPanel + " p-3"}>
-            <span className="block text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">Runtime-only</span>
-            <strong className="mt-2 block text-[1rem] text-[var(--text-1)]">{runtimeRules.length}</strong>
-          </div>
-        </div>
-        <div className="mt-4 flex flex-col gap-3">
-          {rules.length === 0 ? (
-            <p className="m-0 text-[0.8rem] text-[var(--text-3)]">No rules loaded yet.</p>
-          ) : (
-            rules.map((rule) => (
-              <button
-                key={rule.ruleId}
-                className={cn(
-                  "w-full rounded-[12px] border px-4 py-3 text-left transition-colors",
-                  selectedRuleId === rule.ruleId
-                    ? "border-[var(--accent)] bg-[var(--accent-light)]"
-                    : "border-[var(--border)] bg-[var(--surface-2)] hover:border-[var(--border-2)] hover:bg-[var(--surface)]"
-                )}
-                onClick={() => onSelectRule(rule.ruleId)}
-                type="button"
-              >
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0 text-left">
-                    <strong className="block text-[0.96rem] text-[var(--text-1)]">{rule.title}</strong>
-                    <span className={cn("mt-1 block text-[0.8rem] font-mono text-[var(--text-3)]", monoText)}>{rule.ruleId}</span>
-                  </div>
-                  <Badge tone={rule.configured ? "success" : "warning"} size="xs">
-                    {rule.configured ? "configured" : "runtime"}
-                  </Badge>
-                </div>
-                <div className="mt-3 flex flex-wrap items-center gap-2 text-[0.76rem] font-semibold text-[var(--text-2)]">
-                  <Badge tone="neutral" size="xs"><strong className="mr-1">{rule.matchCount}</strong>match</Badge>
-                  <Badge tone="neutral" size="xs"><strong className="mr-1">{rule.violationCount}</strong>violation</Badge>
-                  <Badge tone="neutral" size="xs"><strong className="mr-1">{rule.passCount}</strong>pass</Badge>
-                  {rule.lane && <Badge tone="accent" size="xs">{rule.lane}</Badge>}
-                </div>
-                {rule.tags.length > 0 && (
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {rule.tags.slice(0, 4).map((tag) => (
-                      <Badge key={`${rule.ruleId}-${tag}`} tone="neutral" size="xs" className="max-w-full break-words">{tag}</Badge>
-                    ))}
-                  </div>
-                )}
-              </button>
-            ))
           )}
         </div>
       </div>
@@ -1577,16 +1461,8 @@ export function EventInspector({
     () => buildObservabilityStats(taskTimeline, exploredFiles.length, compactInsight.occurrences),
     [compactInsight.occurrences, exploredFiles.length, taskTimeline]
   );
-  const ruleCoverage = useMemo(
-    () => buildRuleCoverage(overview?.rules, taskTimeline),
-    [overview?.rules, taskTimeline]
-  );
   const tagInsights = useMemo(
     () => buildTagInsights(taskTimeline),
-    [taskTimeline]
-  );
-  const unmatchedRuleEvents = useMemo(
-    () => taskTimeline.filter((event) => eventHasRuleGap(event)).length,
     [taskTimeline]
   );
   const questionGroups = useMemo(
@@ -1880,20 +1756,6 @@ export function EventInspector({
               </div>
             )}
           </>
-
-        ) : activeTab === "rules" ? (
-          <div className="panel-tab-inner flex flex-col gap-5 p-4">
-            <RuleCoverageCard
-              rules={ruleCoverage}
-              selectedRuleId={selectedRuleId}
-              showRuleGapsOnly={showRuleGapsOnly}
-              unmatchedRuleEvents={unmatchedRuleEvents}
-              onSelectRule={(ruleId) => {
-                onSelectRule(selectedRuleId === ruleId ? null : ruleId);
-              }}
-              onToggleRuleGaps={onToggleRuleGaps}
-            />
-          </div>
 
         ) : activeTab === "tags" ? (
           <div className="panel-tab-inner flex flex-col gap-5 p-4">

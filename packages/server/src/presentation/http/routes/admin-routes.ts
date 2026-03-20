@@ -12,7 +12,7 @@ export function createAdminRoutes(service: MonitorService): Router {
   router.get("/health", (_req, res) => { res.json({ ok: true }); });
 
   router.get("/api/overview", async (_req, res) => {
-    res.json({ stats: await service.getOverview(), rules: service.getRules() });
+    res.json({ stats: await service.getOverview() });
   });
 
   router.get("/api/tasks", async (_req, res) => {
@@ -23,10 +23,6 @@ export function createAdminRoutes(service: MonitorService): Router {
     const task = await service.getTask(req.params.taskId);
     if (!task) { res.status(404).json({ error: "Task not found" }); return; }
     res.json({ task, timeline: await service.getTaskTimeline(task.id) });
-  });
-
-  router.post("/api/reload-rules", (_req, res) => {
-    res.json({ rules: service.reloadRules() });
   });
 
   return router;
