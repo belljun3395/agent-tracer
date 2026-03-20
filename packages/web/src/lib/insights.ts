@@ -835,6 +835,9 @@ function isGenericWorkspaceTaskTitle(
   }
 
   const [prefix, suffix] = segments;
+  if (!prefix || !suffix) {
+    return false;
+  }
   const normalizedPrefix = normalizeTitleToken(prefix);
   if (!GENERIC_TASK_TITLE_PREFIXES.has(normalizedPrefix)) {
     return false;
@@ -1383,7 +1386,11 @@ export function buildModelSummary(
       )
     : undefined;
 
-  return { defaultModelName, defaultModelProvider, modelCounts };
+  return {
+    ...(defaultModelName ? { defaultModelName } : {}),
+    ...(defaultModelProvider ? { defaultModelProvider } : {}),
+    modelCounts
+  };
 }
 
 function extractMetadataString(

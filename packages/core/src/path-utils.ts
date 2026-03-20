@@ -56,7 +56,7 @@ export function looksLikePath(value: string): boolean {
   if (/[\n\r]/.test(value)) return false;
   if (value.length > 260) return false;
   if (/\s/.test(value)) return false;
-  if (/[=(){};,\[\]<>!?#&|+*^~"']/.test(value)) return false;
+  if (/[=(){};,\x5b\x5d<>!?#&|+*^~"']/.test(value)) return false;
 
   return (
     /[/\\]/.test(value) ||

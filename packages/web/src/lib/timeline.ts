@@ -403,14 +403,8 @@ export function buildTimelineConnectors(
       targetEventId: relation.targetEventId,
       sourceLane: sourceItem.event.lane,
       targetLane: targetItem.event.lane,
-      relationType: relation.relationType,
-      label: relation.label,
-      explanation: relation.explanation,
       isExplicit: relation.isExplicit,
-      workItemId: relation.workItemId,
-      goalId: relation.goalId,
-      planId: relation.planId,
-      handoffId: relation.handoffId
+      ...buildOptionalRelationFields(relation)
     });
   }
 
@@ -427,17 +421,24 @@ export function buildTimelineRelations(
   for (const event of events) {
     const parentEventId = extractMetadataString(event.metadata, "parentEventId");
     if (parentEventId && eventIds.has(parentEventId)) {
+      const relationType = extractMetadataString(event.metadata, "relationType");
+      const label = extractMetadataString(event.metadata, "relationLabel");
+      const explanation = extractMetadataString(event.metadata, "relationExplanation");
+      const workItemId = extractMetadataString(event.metadata, "workItemId");
+      const goalId = extractMetadataString(event.metadata, "goalId");
+      const planId = extractMetadataString(event.metadata, "planId");
+      const handoffId = extractMetadataString(event.metadata, "handoffId");
       pushRelation(relations, seen, {
         sourceEventId: parentEventId,
         targetEventId: event.id,
-        relationType: extractMetadataString(event.metadata, "relationType"),
-        label: extractMetadataString(event.metadata, "relationLabel"),
-        explanation: extractMetadataString(event.metadata, "relationExplanation"),
         isExplicit: true,
-        workItemId: extractMetadataString(event.metadata, "workItemId"),
-        goalId: extractMetadataString(event.metadata, "goalId"),
-        planId: extractMetadataString(event.metadata, "planId"),
-        handoffId: extractMetadataString(event.metadata, "handoffId")
+        ...(relationType !== undefined ? { relationType } : {}),
+        ...(label !== undefined ? { label } : {}),
+        ...(explanation !== undefined ? { explanation } : {}),
+        ...(workItemId !== undefined ? { workItemId } : {}),
+        ...(goalId !== undefined ? { goalId } : {}),
+        ...(planId !== undefined ? { planId } : {}),
+        ...(handoffId !== undefined ? { handoffId } : {})
       });
     }
 
@@ -446,17 +447,24 @@ export function buildTimelineRelations(
         continue;
       }
 
+      const relationType = extractMetadataString(event.metadata, "relationType");
+      const label = extractMetadataString(event.metadata, "relationLabel");
+      const explanation = extractMetadataString(event.metadata, "relationExplanation");
+      const workItemId = extractMetadataString(event.metadata, "workItemId");
+      const goalId = extractMetadataString(event.metadata, "goalId");
+      const planId = extractMetadataString(event.metadata, "planId");
+      const handoffId = extractMetadataString(event.metadata, "handoffId");
       pushRelation(relations, seen, {
         sourceEventId: relatedEventId,
         targetEventId: event.id,
-        relationType: extractMetadataString(event.metadata, "relationType"),
-        label: extractMetadataString(event.metadata, "relationLabel"),
-        explanation: extractMetadataString(event.metadata, "relationExplanation"),
         isExplicit: true,
-        workItemId: extractMetadataString(event.metadata, "workItemId"),
-        goalId: extractMetadataString(event.metadata, "goalId"),
-        planId: extractMetadataString(event.metadata, "planId"),
-        handoffId: extractMetadataString(event.metadata, "handoffId")
+        ...(relationType !== undefined ? { relationType } : {}),
+        ...(label !== undefined ? { label } : {}),
+        ...(explanation !== undefined ? { explanation } : {}),
+        ...(workItemId !== undefined ? { workItemId } : {}),
+        ...(goalId !== undefined ? { goalId } : {}),
+        ...(planId !== undefined ? { planId } : {}),
+        ...(handoffId !== undefined ? { handoffId } : {})
       });
     }
   }
@@ -575,6 +583,26 @@ function pushRelation(
 
   seen.add(key);
   relations.push(relation);
+}
+
+function buildOptionalRelationFields(relation: TimelineRelation): {
+  readonly relationType?: string;
+  readonly label?: string;
+  readonly explanation?: string;
+  readonly workItemId?: string;
+  readonly goalId?: string;
+  readonly planId?: string;
+  readonly handoffId?: string;
+} {
+  return {
+    ...(relation.relationType !== undefined ? { relationType: relation.relationType } : {}),
+    ...(relation.label !== undefined ? { label: relation.label } : {}),
+    ...(relation.explanation !== undefined ? { explanation: relation.explanation } : {}),
+    ...(relation.workItemId !== undefined ? { workItemId: relation.workItemId } : {}),
+    ...(relation.goalId !== undefined ? { goalId: relation.goalId } : {}),
+    ...(relation.planId !== undefined ? { planId: relation.planId } : {}),
+    ...(relation.handoffId !== undefined ? { handoffId: relation.handoffId } : {})
+  };
 }
 
 function extractMetadataString(
