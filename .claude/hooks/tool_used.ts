@@ -5,6 +5,8 @@ import {
   getHookEventName,
   getSessionId,
   getToolInput,
+  hookLog,
+  hookLogPayload,
   parseMcpToolName,
   postJson,
   readStdinJson,
@@ -21,12 +23,18 @@ function filePathFromToolInput(toolInput: Record<string, unknown>): string {
 
 async function main(): Promise<void> {
   const payload = await readStdinJson();
+  hookLogPayload("tool_used", payload);
   const hookEventName = getHookEventName(payload) || "PostToolUse";
   const toolName = toTrimmedString(payload.tool_name);
   const toolInput = getToolInput(payload);
   const sessionId = getSessionId(payload);
 
-  if (!sessionId || !toolName) return;
+  hookLog("tool_used", "fired", { hookEventName, toolName, sessionId: sessionId || "(none)" });
+
+  if (!sessionId || !toolName) {
+    hookLog("tool_used", "skipped — missing sessionId or toolName");
+    return;
+  }
 
   const ids = await ensureRuntimeSession(sessionId);
   const filePath = filePathFromToolInput(toolInput);
@@ -70,6 +78,9 @@ async function main(): Promise<void> {
     ...(filePath && hookEventName !== "PostToolUseFailure" ? { filePaths: [filePath] } : {}),
     metadata
   });
+  hookLog("tool_used", "tool-used posted", { toolName, title });
 }
 
-void main().catch(() => {});
+void main().catch((err: unknown) => {
+  hookLog("tool_used", "ERROR", { error: String(err) });
+});

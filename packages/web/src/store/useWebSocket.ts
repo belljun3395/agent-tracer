@@ -47,8 +47,14 @@ export function useWebSocket(onMessage: () => void): { isConnected: boolean } {
         setIsConnected(true);
       };
 
-      ws.onmessage = (): void => {
+      ws.onmessage = (event): void => {
         setIsConnected(true);
+        try {
+          const data = JSON.parse(event.data as string) as unknown;
+          console.log("[WS] message", data);
+        } catch {
+          console.log("[WS] message (raw)", event.data);
+        }
         if (debounceTimer !== null) clearTimeout(debounceTimer);
         debounceTimer = setTimeout(() => {
           debounceTimer = null;

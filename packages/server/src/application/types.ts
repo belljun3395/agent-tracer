@@ -301,6 +301,8 @@ export interface RuntimeSessionEnsureInput {
   readonly runtimeSessionId: string;
   readonly title: string;
   readonly workspacePath?: string;
+  readonly parentTaskId?: string;
+  readonly parentSessionId?: string;
 }
 
 export interface RuntimeSessionEnsureResult {

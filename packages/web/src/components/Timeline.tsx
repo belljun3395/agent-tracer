@@ -219,7 +219,7 @@ export function Timeline({
 
   const timelineCanvasRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
-  const nodeRefs = useRef(new Map<string, HTMLButtonElement>());
+  const nodeRefs = useRef(new Map<string, HTMLElement>());
   const isFollowing = useRef(true);
   const previousTaskId = useRef<string | null | undefined>(taskId);
   const lastScrolledEventId = useRef<string | null>(null);
@@ -935,8 +935,10 @@ export function Timeline({
                     const nodeTop = item.top + item.rowIndex * ROW_VERTICAL_OFFSET;
 
                     return (
-                      <button
+                      <div
                         key={item.event.id}
+                        role="button"
+                        tabIndex={0}
                         className={cn(
                           `event-node ${item.event.lane}`,
                           item.event.id === selectedEvent?.id && "active",
@@ -947,6 +949,13 @@ export function Timeline({
                           onSelectEvent(item.event.id);
                           setOpenStackEventId(null);
                         }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            onSelectEvent(item.event.id);
+                            setOpenStackEventId(null);
+                          }
+                        }}
                         ref={(node) => {
                           if (node) {
                             nodeRefs.current.set(item.event.id, node);
@@ -956,7 +965,6 @@ export function Timeline({
                           nodeRefs.current.delete(item.event.id);
                         }}
                         style={{ left: `${item.left}px`, top: `${nodeTop}px` }}
-                        type="button"
                       >
                         <div className="event-node-header">
                           <img src={laneTheme.icon} alt="" />
@@ -993,7 +1001,7 @@ export function Timeline({
                           <span className="event-semantic-tag">{todoState.replace("_", " ")}</span>
                         )}
                         <span className="event-time">{formatRelativeTime(item.event.createdAt)}</span>
-                      </button>
+                      </div>
                     );
                   })()
                 ))}
