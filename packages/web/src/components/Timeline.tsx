@@ -98,7 +98,6 @@ const TASK_STATUS_BUTTON_STYLES = {
   }
 } as const;
 
-const TIMELINE_CONTEXT_COLLAPSED_STORAGE_KEY = "agent-tracer.timeline-context-collapsed";
 
 
 interface TimelineProps {
@@ -216,13 +215,7 @@ export function Timeline({
   });
   const [isTimelineDragging, setIsTimelineDragging] = useState(false);
   const [nodeBounds, setNodeBounds] = useState<Record<string, NodeBounds>>({});
-  const [isContextCollapsed, setIsContextCollapsed] = useState<boolean>(() => {
-    if (typeof window === "undefined") {
-      return false;
-    }
-
-    return window.localStorage.getItem(TIMELINE_CONTEXT_COLLAPSED_STORAGE_KEY) === "true";
-  });
+  const [isContextCollapsed, setIsContextCollapsed] = useState(true);
 
   const timelineCanvasRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -451,13 +444,6 @@ export function Timeline({
       document.removeEventListener("pointerdown", handlePointerDown, { capture: true });
     };
   }, [openStackEventId]);
-
-  useEffect(() => {
-    window.localStorage.setItem(
-      TIMELINE_CONTEXT_COLLAPSED_STORAGE_KEY,
-      isContextCollapsed ? "true" : "false"
-    );
-  }, [isContextCollapsed]);
 
   useEffect(() => {
     if (isEditingTaskTitle && isContextCollapsed) {
@@ -726,6 +712,12 @@ export function Timeline({
         )}
 
         <div className="timeline-stage" style={{ minHeight: `${canvasHeight}px` }}>
+          {filteredTimeline.length === 0 && (
+            <div className="timeline-empty-state">
+              <p>아직 이벤트가 없습니다</p>
+              <span>에이전트가 실행되면 여기에 이벤트가 표시됩니다.</span>
+            </div>
+          )}
           <div className="timeline-edge-fade left" />
           <div className="timeline-edge-fade right" />
           <div className="timeline-gutter-scrim" />

@@ -69,7 +69,7 @@ export const TIMELINE_LANES: readonly TimelineLane[] = [
 ];
 
 /** 레인 한 행의 픽셀 높이. */
-export const LANE_HEIGHT   = 96;
+export const LANE_HEIGHT   = 80;
 /** 타임스탬프 눈금 영역 높이. */
 export const RULER_HEIGHT  = 32;
 /** 이벤트 노드 카드 너비 (CSS .event-node width와 일치해야 함). */
