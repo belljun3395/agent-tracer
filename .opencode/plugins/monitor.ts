@@ -114,9 +114,7 @@ function classifyTool(toolName: string): { endpoint: string; lane?: string; acti
   }
 
   if (/bash|shell|run|exec|terminal/.test(lower)) {
-    // test/build/lint 패턴이면 rules 레인
-    const isVerification = /test|build|lint|vitest|pytest|tsc/.test(lower);
-    return { endpoint: "/api/terminal-command", lane: isVerification ? "rules" : "implementation" };
+    return { endpoint: "/api/terminal-command", lane: "implementation" };
   }
 
   if (/\bagent\b|dispatch|delegate|spawn/.test(lower)) {
@@ -137,7 +135,7 @@ function classifyTool(toolName: string): { endpoint: string; lane?: string; acti
 function normalizeTodoState(
   status: unknown
 ): "added" | "in_progress" | "completed" | "cancelled" {
-  const normalized = String(status ?? "").toLowerCase().trim();
+  const normalized = (toNonEmptyString(status) ?? "").toLowerCase();
   if (normalized === "in_progress") return "in_progress";
   if (normalized === "completed") return "completed";
   if (normalized === "cancelled") return "cancelled";
@@ -176,8 +174,16 @@ function asObject(value: unknown): Record<string, unknown> {
   return value as Record<string, unknown>;
 }
 
+function primitiveToString(value: unknown): string | undefined {
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") {
+    return String(value);
+  }
+  return undefined;
+}
+
 function toNonEmptyString(value: unknown): string | undefined {
-  const normalized = String(value ?? "").trim();
+  const normalized = primitiveToString(value)?.trim() ?? "";
   return normalized.length > 0 ? normalized : undefined;
 }
 
@@ -565,7 +571,7 @@ function extractParallelBackgroundLinks(input: {
   const toolUses = Array.isArray(args.tool_uses) ? args.tool_uses : [];
   const backgroundRequests = toolUses
     .map((entry) => asObject(entry))
-    .filter((entry) => isTaskTool(String(entry.recipient_name ?? "").toLowerCase()))
+    .filter((entry) => isTaskTool((toNonEmptyString(entry.recipient_name) ?? "").toLowerCase()))
     .map((entry) => asObject(entry.parameters))
     .filter((parameters) => parameters.run_in_background === true)
     .map((parameters) => ({
@@ -604,7 +610,7 @@ function extractBackgroundTaskLink(input: {
   args: unknown;
   state: SessionState;
   outputText?: string | undefined;
-  outputMetadata?: unknown | undefined;
+  outputMetadata?: unknown;
   outputTitle?: string | undefined;
 }): BackgroundTaskLink | undefined {
   const lower = input.toolName.toLowerCase();
@@ -665,7 +671,7 @@ function extractBackgroundLaunchHints(input: {
   const toolUses = Array.isArray(args.tool_uses) ? args.tool_uses : [];
   return toolUses
     .map((entry) => asObject(entry))
-    .filter((entry) => isTaskTool(String(entry.recipient_name ?? "").toLowerCase()))
+    .filter((entry) => isTaskTool((toNonEmptyString(entry.recipient_name) ?? "").toLowerCase()))
     .map((entry) => asObject(entry.parameters))
     .filter((parameters) => parameters.run_in_background === true)
     .map((parameters, index): BackgroundTaskLink | undefined => {
@@ -685,7 +691,7 @@ function looksLikePath(value: string): boolean {
   if (/[\n\r]/.test(value)) return false;
   if (value.length > 260) return false;
   if (/\s/.test(value)) return false;
-  if (/[=(){};,\[\]<>!?#&|+*^~"']/.test(value)) return false;
+  if (/[=(){};,\x5b\x5d<>!?#&|+*^~"']/.test(value)) return false;
 
   return (
     /[\\/]/.test(value) ||
@@ -748,6 +754,7 @@ function appendPathCandidates(value: unknown, into: Set<string>, depth: number =
         try {
           appendPathCandidates(JSON.parse(normalized), into, depth + 1);
         } catch {
+          // Ignore parse failures for non-JSON string content.
         }
       }
     }
@@ -1036,8 +1043,8 @@ function extractAssistantTurnCompletion(input: unknown): {
 }
 
 function toTodoId(todo: Record<string, unknown>): string {
-  const content = String(todo.content ?? "").trim();
-  const priority = String(todo.priority ?? "").trim();
+  const content = toNonEmptyString(todo.content) ?? "";
+  const priority = toNonEmptyString(todo.priority) ?? "";
   return `${content}::${priority}`;
 }
 
@@ -1046,7 +1053,7 @@ function extractTextFromParts(parts: readonly unknown[]): string {
     .map((part) => {
       if (!part || typeof part !== "object") return "";
       const record = part as Record<string, unknown>;
-      const type = String(record.type ?? "").toLowerCase();
+      const type = (toNonEmptyString(record.type) ?? "").toLowerCase();
       if (typeof record.text === "string") return record.text;
       if (type === "input_text" && typeof record.content === "string") return record.content;
       return "";
@@ -1087,7 +1094,7 @@ async function logTodoTransitions(input: {
   for (const item of input.todos) {
     if (!item || typeof item !== "object") continue;
     const todo = item as Record<string, unknown>;
-    const title = String(todo.content ?? "").trim();
+    const title = toNonEmptyString(todo.content) ?? "";
     if (!title) continue;
 
     const todoId = toTodoId(todo);
@@ -1797,8 +1804,9 @@ export function createMonitorHooks(workspacePath: string): Hooks {
       }
 
       if (isTodoWriteTool(toolName.toLowerCase())) {
-        const todos = Array.isArray(input.args?.todos)
-          ? input.args.todos as unknown[]
+        const todoArgs = asObject(input.args);
+        const todos = Array.isArray(todoArgs.todos)
+          ? todoArgs.todos as unknown[]
           : [];
         if (todos.length > 0) {
           await logTodoTransitions({
@@ -1827,8 +1835,9 @@ export function createMonitorHooks(workspacePath: string): Hooks {
       }
 
       const { endpoint, lane, activityType } = classifyTool(toolName);
+      const toolArgs = asObject(input.args);
       const filePaths = extractFilePaths(
-        input.args,
+        toolArgs,
         output.metadata,
         output.title,
         typeof output.output === "string" ? output.output : undefined
@@ -1846,7 +1855,7 @@ export function createMonitorHooks(workspacePath: string): Hooks {
         metadata: {
           opencodeSessionId: input.sessionID,
           opencodeCallId: input.callID,
-          toolInput: asObject(input.args)
+          toolInput: toolArgs
         },
         ...(filePaths.length > 0 ? { filePaths } : {}),
         ...(effectiveLane ? { lane: effectiveLane } : {})
@@ -1862,7 +1871,7 @@ export function createMonitorHooks(workspacePath: string): Hooks {
       } else if (endpoint === "/api/terminal-command") {
         await post(endpoint, {
           ...body,
-          command: typeof input.args?.command === "string" ? input.args.command : toolName
+          command: typeof toolArgs.command === "string" ? toolArgs.command : toolName
         });
       } else {
         await post(endpoint, body);
@@ -1871,4 +1880,7 @@ export function createMonitorHooks(workspacePath: string): Hooks {
   };
 }
 
-export const MonitorPlugin: Plugin = async ({ directory }) => createMonitorHooks(directory || process.cwd());
+export const MonitorPlugin: Plugin = ({ directory }) =>
+  Promise.resolve(createMonitorHooks(directory || process.cwd()));
+
+export default MonitorPlugin;

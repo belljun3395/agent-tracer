@@ -44,7 +44,6 @@ import { Button } from "./ui/Button.js";
 import { PanelCard } from "./ui/PanelCard.js";
 import type {
   BookmarkRecord,
-  OverviewResponse,
   TaskDetailResponse,
   TimelineEvent
 } from "../types.js";
@@ -188,7 +187,6 @@ interface SelectedConnectorData {
 
 interface EventInspectorProps {
   readonly taskDetail: TaskDetailResponse | null;
-  readonly overview: OverviewResponse | null;
   readonly selectedEvent: TimelineEvent | null;
   readonly selectedConnector: SelectedConnectorData | null;
   readonly selectedEventDisplayTitle: string | null;
@@ -196,16 +194,14 @@ interface EventInspectorProps {
   readonly selectedEventBookmark?: BookmarkRecord | null;
   readonly selectedTag: string | null;
   readonly selectedRuleId: string | null;
-  readonly showRuleGapsOnly: boolean;
   readonly taskModelSummary?: ModelSummary | undefined;
   readonly isCollapsed?: boolean;
-  readonly className?: string;
+  readonly className?: string | undefined;
   readonly onToggleCollapse?: () => void;
   readonly onCreateTaskBookmark: () => void;
   readonly onCreateEventBookmark: () => void;
   readonly onSelectTag: (tag: string | null) => void;
   readonly onSelectRule: (ruleId: string | null) => void;
-  readonly onToggleRuleGaps: () => void;
 }
 
 /** DetailSection: 라벨과 내용을 가진 inspector 카드. */
@@ -1399,7 +1395,6 @@ function summarizeDetailText(value: string, limit = 180): string {
  */
 export function EventInspector({
   taskDetail,
-  overview,
   selectedEvent,
   selectedConnector,
   selectedEventDisplayTitle,
@@ -1407,7 +1402,6 @@ export function EventInspector({
   selectedEventBookmark = null,
   selectedTag,
   selectedRuleId,
-  showRuleGapsOnly,
   taskModelSummary,
   isCollapsed = false,
   className,
@@ -1415,8 +1409,7 @@ export function EventInspector({
   onCreateTaskBookmark,
   onCreateEventBookmark,
   onSelectTag,
-  onSelectRule,
-  onToggleRuleGaps
+  onSelectRule
 }: EventInspectorProps): React.JSX.Element {
   const [activeTab, setActiveTab]                   = useState<PanelTabId>("inspector");
   const [isExploredFilesExpanded, setIsExploredFilesExpanded] = useState(true);

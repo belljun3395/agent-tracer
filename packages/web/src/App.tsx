@@ -225,14 +225,16 @@ function Dashboard(): React.JSX.Element {
         targetEventId: target.id,
         sourceLane: source.lane,
         targetLane: target.lane,
-        relationType: relation?.relationType ?? parsed.relationType,
-        label: relation?.label,
-        explanation: relation?.explanation,
         isExplicit: relation?.isExplicit ?? parsed.relationType !== "sequence",
-        workItemId: relation?.workItemId,
-        goalId: relation?.goalId,
-        planId: relation?.planId,
-        handoffId: relation?.handoffId
+        ...((relation?.relationType ?? parsed.relationType) !== undefined
+          ? { relationType: relation?.relationType ?? parsed.relationType }
+          : {}),
+        ...(relation?.label !== undefined ? { label: relation.label } : {}),
+        ...(relation?.explanation !== undefined ? { explanation: relation.explanation } : {}),
+        ...(relation?.workItemId !== undefined ? { workItemId: relation.workItemId } : {}),
+        ...(relation?.goalId !== undefined ? { goalId: relation.goalId } : {}),
+        ...(relation?.planId !== undefined ? { planId: relation.planId } : {}),
+        ...(relation?.handoffId !== undefined ? { handoffId: relation.handoffId } : {})
       },
       source,
       target
@@ -473,7 +475,6 @@ function Dashboard(): React.JSX.Element {
 
         <EventInspector
           taskDetail={taskDetail}
-          overview={overview}
           selectedEvent={selectedEvent}
           selectedConnector={selectedConnector}
           selectedEventDisplayTitle={selectedEventDisplayTitle}
@@ -481,7 +482,6 @@ function Dashboard(): React.JSX.Element {
           selectedEventBookmark={selectedEventBookmark}
           selectedTag={selectedTag}
           selectedRuleId={selectedRuleId}
-          showRuleGapsOnly={showRuleGapsOnly}
           taskModelSummary={modelSummary}
           isCollapsed={isInspectorCollapsed}
           className={isStackedDashboard ? "order-3" : undefined}
@@ -509,10 +509,6 @@ function Dashboard(): React.JSX.Element {
           onSelectRule={(ruleId) => {
             dispatch({ type: "SET_SHOW_RULE_GAPS_ONLY", show: false });
             dispatch({ type: "SELECT_RULE", ruleId });
-          }}
-          onToggleRuleGaps={() => {
-            dispatch({ type: "SELECT_RULE", ruleId: null });
-            dispatch({ type: "SET_SHOW_RULE_GAPS_ONLY", show: !showRuleGapsOnly });
           }}
         />
 
