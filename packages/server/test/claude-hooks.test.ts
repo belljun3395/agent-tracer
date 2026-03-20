@@ -1,6 +1,7 @@
 import { createServer } from "node:http";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
+import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { afterEach, describe, expect, it } from "vitest";
@@ -19,6 +20,7 @@ const compactHook = fileURLToPath(new URL("../../../.claude/hooks/compact.ts", i
 const subagentLifecycleHook = fileURLToPath(new URL("../../../.claude/hooks/subagent_lifecycle.ts", import.meta.url));
 const todoHook = fileURLToPath(new URL("../../../.claude/hooks/todo.ts", import.meta.url));
 const toolUsedHook = fileURLToPath(new URL("../../../.claude/hooks/tool_used.ts", import.meta.url));
+const terminalHook = fileURLToPath(new URL("../../../.claude/hooks/terminal.ts", import.meta.url));
 
 async function startMonitorStub() {
   const calls: RequestCall[] = [];
@@ -71,18 +73,41 @@ async function startMonitorStub() {
   };
 }
 
-async function runClaudeHook(scriptPath: string, payload: Record<string, unknown>, port: number) {
-  const env = {
+interface RunClaudeHookOptions {
+  readonly cwd?: string;
+  readonly omitProjectDir?: boolean;
+  readonly opencodeRuntime?: boolean;
+  readonly projectDir?: string;
+}
+
+async function runClaudeHook(
+  scriptPath: string,
+  payload: Record<string, unknown>,
+  port: number,
+  options: RunClaudeHookOptions = {}
+) {
+  const env: NodeJS.ProcessEnv = {
     ...process.env,
-    CLAUDE_PROJECT_DIR: "/repo",
     MONITOR_PORT: String(port)
   };
-  delete env.OPENCODE;
-  delete env.OPENCODE_CLIENT;
+
+  if (options.omitProjectDir) {
+    delete env.CLAUDE_PROJECT_DIR;
+  } else {
+    env.CLAUDE_PROJECT_DIR = options.projectDir ?? "/repo";
+  }
+
+  if (options.opencodeRuntime) {
+    env.OPENCODE = "1";
+  } else {
+    delete env.OPENCODE;
+    delete env.OPENCODE_CLIENT;
+  }
 
   const child = spawn("node", [tsxCli, scriptPath], {
     env,
-    stdio: ["pipe", "pipe", "pipe"]
+    stdio: ["pipe", "pipe", "pipe"],
+    ...(options.cwd ? { cwd: options.cwd } : {})
   });
   let stdout = "";
   let stderr = "";
@@ -155,6 +180,58 @@ describe("Claude hooks", () => {
         }
       }
     ]);
+  });
+
+  it("SessionStart works without CLAUDE_PROJECT_DIR by falling back to cwd", async () => {
+    const monitor = await startMonitorStub();
+    servers.push(monitor);
+
+    const repoRoot = path.resolve(fileURLToPath(new URL("../../..", import.meta.url)));
+
+    await runClaudeHook(sessionStartHook, {
+      session_id: "parent-session",
+      source: "startup"
+    }, monitor.port, {
+      cwd: repoRoot,
+      omitProjectDir: true
+    });
+
+    expect(monitor.calls).toEqual([
+      {
+        endpoint: "/api/runtime-session-ensure",
+        body: {
+          runtimeSource: "claude-hook",
+          runtimeSessionId: "parent-session",
+          title: `Claude Code — ${path.basename(repoRoot)}`,
+          workspacePath: repoRoot
+        }
+      },
+      {
+        endpoint: "/api/save-context",
+        body: {
+          taskId: "parent-task",
+          sessionId: "parent-monitor-session",
+          title: "Session started",
+          body: "Claude Code session started.",
+          lane: "planning",
+          metadata: { trigger: "startup" }
+        }
+      }
+    ]);
+  });
+
+  it("Claude hooks are disabled when OPENCODE runtime flags are present", async () => {
+    const monitor = await startMonitorStub();
+    servers.push(monitor);
+
+    await runClaudeHook(sessionStartHook, {
+      session_id: "parent-session",
+      source: "startup"
+    }, monitor.port, {
+      opencodeRuntime: true
+    });
+
+    expect(monitor.calls).toEqual([]);
   });
 
   it("SessionStart resume records a session-resumed planning event", async () => {
@@ -482,6 +559,59 @@ describe("Claude hooks", () => {
             failed: true,
             error: "Command exited with non-zero status code 1",
             isInterrupt: false
+          }
+        }
+      }
+    ]);
+  });
+
+  it("Bash terminal hook records commands on the implementation lane", async () => {
+    const monitor = await startMonitorStub();
+    servers.push(monitor);
+
+    await runClaudeHook(terminalHook, {
+      tool_name: "Bash",
+      session_id: "parent-session",
+      tool_input: {
+        command: "npm run lint",
+        description: "Run lint"
+      }
+    }, monitor.port);
+
+    expect(monitor.calls).toEqual([
+      {
+        endpoint: "/api/runtime-session-ensure",
+        body: {
+          runtimeSource: "claude-hook",
+          runtimeSessionId: "parent-session",
+          title: "Claude Code — repo",
+          workspacePath: "/repo"
+        }
+      },
+      {
+        endpoint: "/api/terminal-command",
+        body: {
+          taskId: "parent-task",
+          sessionId: "parent-monitor-session",
+          command: "npm run lint",
+          title: "Run lint",
+          body: "Run lint\n\n$ npm run lint",
+          lane: "implementation",
+          metadata: {
+            description: "Run lint"
+          }
+        }
+      },
+      {
+        endpoint: "/api/save-context",
+        body: {
+          taskId: "parent-task",
+          sessionId: "parent-monitor-session",
+          title: "Run lint",
+          body: "Intent: Run lint\nAction: $ npm run lint",
+          lane: "planning",
+          metadata: {
+            command: "npm run lint"
           }
         }
       }

@@ -12,7 +12,8 @@ const API_BASE = `http://127.0.0.1:${process.env.MONITOR_PORT || "3847"}`;
 const OPENCODE_RUNTIME = Boolean(process.env.OPENCODE || process.env.OPENCODE_CLIENT);
 
 export const PROJECT_DIR = process.env.CLAUDE_PROJECT_DIR || process.cwd();
-export const CLAUDE_RUNTIME = Boolean(process.env.CLAUDE_PROJECT_DIR) && !OPENCODE_RUNTIME;
+// CLAUDE_PROJECT_DIR may be absent when hook commands use relative paths.
+export const CLAUDE_RUNTIME = !OPENCODE_RUNTIME;
 export const CLAUDE_RUNTIME_SOURCE = "claude-hook";
 
 
@@ -83,6 +84,10 @@ export function toBoolean(value: unknown): boolean {
     if (typeof value === "number") return value !== 0;
     const normalized = toTrimmedString(value).toLowerCase();
     return normalized === "true" || normalized === "1" || normalized === "yes";
+}
+
+export function inferCommandLane(_command: string): "implementation" {
+    return "implementation";
 }
 
 export function ellipsize(value: string, maxLength: number): string {
