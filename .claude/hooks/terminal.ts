@@ -2,6 +2,8 @@ import {
   ensureRuntimeSession,
   getSessionId,
   getToolInput,
+  hookLog,
+  hookLogPayload,
   inferCommandLane,
   postJson,
   readStdinJson,
@@ -12,12 +14,18 @@ const MAX_COMMAND_LENGTH = 500;
 
 async function main(): Promise<void> {
   const payload = await readStdinJson();
+  hookLogPayload("terminal", payload);
   const toolInput = getToolInput(payload);
   const sessionId = getSessionId(payload);
   const command = toTrimmedString(toolInput.command);
   const description = toTrimmedString(toolInput.description);
 
-  if (!sessionId || !command) return;
+  hookLog("terminal", "fired", { sessionId: sessionId || "(none)", cmdPreview: command.slice(0, 60) });
+
+  if (!sessionId || !command) {
+    hookLog("terminal", "skipped — no sessionId or command");
+    return;
+  }
 
   const ids = await ensureRuntimeSession(sessionId);
   const lane = inferCommandLane(command);
@@ -34,6 +42,8 @@ async function main(): Promise<void> {
     }
   });
 
+  hookLog("terminal", "terminal-command posted", { description: description || command.slice(0, 60) });
+
   if (!description) return;
 
   await postJson("/api/save-context", {
@@ -48,4 +58,6 @@ async function main(): Promise<void> {
   });
 }
 
-void main().catch(() => {});
+void main().catch((err: unknown) => {
+  hookLog("terminal", "ERROR", { error: String(err) });
+});

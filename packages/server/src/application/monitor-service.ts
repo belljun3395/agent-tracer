@@ -178,7 +178,12 @@ export class MonitorService {
     }
 
     // No binding at all — new task + session
-    const result = await this.startTask({ title: input.title, ...(input.workspacePath ? { workspacePath: input.workspacePath } : {}) });
+    const result = await this.startTask({
+      title: input.title,
+      ...(input.workspacePath ? { workspacePath: input.workspacePath } : {}),
+      ...(input.parentTaskId ? { taskKind: "background" as const, parentTaskId: input.parentTaskId } : {}),
+      ...(input.parentSessionId ? { parentSessionId: input.parentSessionId } : {})
+    });
     const taskId = result.task.id;
     const sessionId = result.sessionId!;
     await this.ports.runtimeBindings.upsert({ runtimeSource: input.runtimeSource, runtimeSessionId: input.runtimeSessionId, taskId, monitorSessionId: sessionId });

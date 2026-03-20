@@ -3,6 +3,8 @@ import {
   ensureRuntimeSession,
   getSessionId,
   getToolInput,
+  hookLog,
+  hookLogPayload,
   postJson,
   readStdinJson,
   stringifyToolInput,
@@ -20,11 +22,15 @@ function extractChildSessionId(toolResponse: unknown): string {
 
 async function main(): Promise<void> {
   const payload = await readStdinJson();
+  hookLogPayload("agent_activity", payload);
   const toolName = toTrimmedString(payload.tool_name);
   const toolInput = getToolInput(payload);
   const sessionId = getSessionId(payload);
 
+  hookLog("agent_activity", "fired", { toolName, sessionId: sessionId || "(none)" });
+
   if (!sessionId || (toolName !== "Agent" && toolName !== "Skill")) {
+    hookLog("agent_activity", "skipped — not Agent/Skill or no sessionId");
     return;
   }
 
@@ -64,6 +70,8 @@ async function main(): Promise<void> {
     ...(agentName ? { agentName } : {})
   });
 
+  hookLog("agent_activity", "agent-activity posted", { activityType: "delegation", title });
+
   if (!runInBackground) return;
 
   const childSessionId = extractChildSessionId(payload.tool_response);
@@ -78,6 +86,9 @@ async function main(): Promise<void> {
     parentSessionId: ids.sessionId,
     title: childTitle
   });
+  hookLog("agent_activity", "task-link posted", { childSessionId, childTitle });
 }
 
-void main().catch(() => {});
+void main().catch((err: unknown) => {
+  hookLog("agent_activity", "ERROR", { error: String(err) });
+});

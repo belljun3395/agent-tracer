@@ -10,11 +10,45 @@
  *   MONITOR_PORT  - 서버 포트 (기본값: 3847)
  *   MONITOR_BASE_URL - 전체 서버 URL (지정 시 MONITOR_PORT 대신 사용)
  */
+import fs from "node:fs";
+import path from "node:path";
 import type { Hooks, Plugin } from "@opencode-ai/plugin";
 
 const BASE_URL = process.env.MONITOR_BASE_URL?.replace(/\/+$/, "")
   ?? `http://127.0.0.1:${process.env.MONITOR_PORT ?? "3847"}`;
 const DEBUG_EXIT = /^(1|true|yes|on)$/i.test(String(process.env.MONITOR_DEBUG_EXIT ?? ""));
+
+// 파일 로그: .opencode/.dev-log 마커 파일이 존재할 때만 기록.
+// setup:external로 연결된 외부 프로젝트에는 마커 파일이 없으므로 자동으로 비활성화.
+// 매 호출마다 동적으로 체크하여 npm run dev 실행 후에도 즉시 활성화됨.
+const DEV_LOG_MARKER = path.join(process.cwd(), ".opencode", ".dev-log");
+const LOG_FILE = path.join(process.cwd(), ".opencode", "monitor.log");
+
+function isLogEnabled(): boolean {
+  try { fs.accessSync(DEV_LOG_MARKER); return true; }
+  catch { return false; }
+}
+
+function pluginLog(hook: string, message: string, data?: Record<string, unknown>): void {
+  if (!isLogEnabled()) return;
+  const ts = new Date().toISOString().slice(11, 23);
+  const dataStr = data ? ` ${JSON.stringify(data)}` : "";
+  const line = `[${ts}][HOOK:${hook}] ${message}${dataStr}`;
+  process.stderr.write(line + "\n");
+  try { fs.appendFileSync(LOG_FILE, line + "\n"); } catch { /* ignore */ }
+}
+
+function pluginLogPayload(hook: string, input: unknown, extra?: Record<string, unknown>): void {
+  if (!isLogEnabled()) return;
+  const ts = new Date().toISOString().slice(11, 23);
+  // output 같은 큰 필드는 200자 truncate
+  const sanitized = JSON.stringify(input, (_, v) =>
+    typeof v === "string" && v.length > 200 ? v.slice(0, 200) + "…" : v
+  );
+  const extraStr = extra ? ` | extra: ${JSON.stringify(extra)}` : "";
+  const line = `[${ts}][PAYLOAD:${hook}] ${sanitized}${extraStr}`;
+  try { fs.appendFileSync(LOG_FILE, line + "\n"); } catch { /* ignore */ }
+}
 
 interface SessionState {
   readonly taskId: string;
@@ -1119,6 +1153,41 @@ async function logTodoTransitions(input: {
   input.state.todoStateById = nextById;
 }
 
+/**
+ * Claude Code hook의 subagent registry에 OpenCode background session 정보를 기록.
+ * ensure_task.ts가 이 정보를 읽어 background task로 올바르게 연결한다.
+ * registry 파일: {workspacePath}/.claude/.subagent-registry.json
+ * key: "opencode:{childSessionId}"
+ */
+function writeOpenCodeSubagentRegistryEntry(
+  wPath: string,
+  childSessionId: string,
+  parentTaskId: string,
+  parentSessionId?: string
+): void {
+  const registryPath = path.join(wPath, ".claude", ".subagent-registry.json");
+  try {
+    let registry: Record<string, unknown> = {};
+    try {
+      const raw = fs.readFileSync(registryPath, "utf-8");
+      const parsed = JSON.parse(raw) as unknown;
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        registry = parsed as Record<string, unknown>;
+      }
+    } catch { /* 파일 없으면 새로 생성 */ }
+
+    registry[`opencode:${childSessionId}`] = {
+      parentSessionId: parentSessionId ?? "",
+      agentType: "opencode-background",
+      linked: false,
+      parentTaskId
+    };
+    fs.writeFileSync(registryPath, JSON.stringify(registry, null, 2));
+  } catch {
+    // 쓰기 실패해도 OpenCode plugin 동작에 영향 없도록 무시
+  }
+}
+
 export function createMonitorHooks(workspacePath: string): Hooks {
 
   function clearTrackedSessionState(input: {
@@ -1452,6 +1521,7 @@ export function createMonitorHooks(workspacePath: string): Hooks {
     // `command.execute.before` is a typed OpenCode plugin hook. We keep it as an
     // early exit path because `/exit` can terminate the active session quickly.
     "command.execute.before": async (input) => {
+      pluginLogPayload("command.execute.before", { command: input.command, sessionID: input.sessionID });
       const commandName = toNonEmptyString(input.command);
       if (!isExitCommandName(commandName)) return;
 
@@ -1475,6 +1545,12 @@ export function createMonitorHooks(workspacePath: string): Hooks {
     // `chat.message` is a typed OpenCode plugin hook used for raw user-prompt capture.
     // It is distinct from the documented event stream handled by `event`.
     "chat.message": async (input, output) => {
+      pluginLogPayload("chat.message", {
+        sessionID: input.sessionID,
+        model: input.model,
+        messageId: output.message.id,
+        partsCount: output.parts.length
+      });
       const state = await ensureSessionState({ sessionId: input.sessionID });
       if (!state) return;
 
@@ -1521,6 +1597,12 @@ export function createMonitorHooks(workspacePath: string): Hooks {
     },
 
     event: async ({ event }) => {
+      pluginLog("event", event.type, {
+        ...(("properties" in event && event.properties && typeof event.properties === "object")
+          ? { id: (event.properties as Record<string, unknown>)["id"]
+              ?? ((event.properties as Record<string, unknown>)["info"] as Record<string,unknown> | undefined)?.["id"] }
+          : {})
+      });
       if (event.type === "session.created") {
         endedSessionIds.delete(event.properties.info.id);
         suspendedSessionIds.delete(event.properties.info.id);
@@ -1599,12 +1681,15 @@ export function createMonitorHooks(workspacePath: string): Hooks {
             "OpenCode session idle",
             "completed",
             {
-              completeTask: false,
+              // message.updated(assistant turn)가 먼저 처리했으면 suspendedSessionIds 체크로
+              // 이미 return됨. 여기까지 온 경우는 assistant turn 없이 idle된 케이스이므로
+              // completeTask: true로 정리해 waiting 태스크 누적을 방지.
+              completeTask: true,
               completionReason: "idle",
               metadata: { idleEvent: true },
-              markEnded: false,
-              keepSessionInfo: true,
-              markSuspended: true
+              markEnded: true,
+              keepSessionInfo: false,
+              markSuspended: false
             }
           );
         } finally {
@@ -1683,6 +1768,12 @@ export function createMonitorHooks(workspacePath: string): Hooks {
     },
 
     "tool.execute.before": async (input, output) => {
+      pluginLogPayload("tool.execute.before", {
+        sessionID: input.sessionID,
+        tool: input.tool,
+        callID: input.callID,
+        args: output.args
+      });
       const state = await ensureSessionState({ sessionId: input.sessionID });
       if (!state) return;
 
@@ -1700,6 +1791,14 @@ export function createMonitorHooks(workspacePath: string): Hooks {
     },
 
     "tool.execute.after": async (input, output) => {
+      pluginLogPayload("tool.execute.after", {
+        sessionID: input.sessionID,
+        tool: input.tool,
+        callID: input.callID,
+        args: input.args,
+        outputTitle: output.title,
+        outputMetadata: output.metadata
+      });
       const state = sessionStates.get(input.sessionID)
         ?? await pendingSessionStarts.get(input.sessionID)
         ?? await ensureSessionState({ sessionId: input.sessionID })
@@ -1757,6 +1856,18 @@ export function createMonitorHooks(workspacePath: string): Hooks {
         }
 
         pendingBackgroundLinks.set(linkedBackground.childSessionId, linkedBackground);
+
+        // Claude Code hook(ensure_task.ts)이 이 세션을 primary로 만들지 않도록
+        // subagent registry에 parentTaskId를 기록해둔다.
+        // provisional key(pending:...)는 아직 실제 sessionId가 아니므로 건너뜀.
+        if (!linkedBackground.childSessionId.startsWith("pending:")) {
+          writeOpenCodeSubagentRegistryEntry(
+            workspacePath,
+            linkedBackground.childSessionId,
+            linkedBackground.parentTaskId,
+            linkedBackground.parentSessionId
+          );
+        }
 
         const childState = sessionStates.get(linkedBackground.childSessionId)
           ?? await pendingSessionStarts.get(linkedBackground.childSessionId)

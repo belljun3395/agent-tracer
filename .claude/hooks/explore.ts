@@ -4,6 +4,8 @@ import {
   ensureRuntimeSession,
   getSessionId,
   getToolInput,
+  hookLog,
+  hookLogPayload,
   postJson,
   readStdinJson,
   relativeProjectPath,
@@ -15,11 +17,17 @@ const MAX_PATH_LENGTH = 300;
 
 async function main(): Promise<void> {
   const payload = await readStdinJson();
+  hookLogPayload("explore", payload);
   const sessionId = getSessionId(payload);
   const toolName = toTrimmedString(payload.tool_name);
   const toolInput = getToolInput(payload);
 
-  if (!sessionId) return;
+  hookLog("explore", "fired", { toolName, sessionId: sessionId || "(none)" });
+
+  if (!sessionId) {
+    hookLog("explore", "skipped — no sessionId");
+    return;
+  }
 
   const ids = await ensureRuntimeSession(sessionId);
   let title = `Explore: ${toolName}`;
@@ -60,6 +68,9 @@ async function main(): Promise<void> {
       toolInput: stringifyToolInput(toolInput)
     }
   });
+  hookLog("explore", "explore posted", { toolName, title });
 }
 
-void main().catch(() => {});
+void main().catch((err: unknown) => {
+  hookLog("explore", "ERROR", { error: String(err) });
+});

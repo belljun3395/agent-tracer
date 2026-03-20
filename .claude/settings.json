@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"node_modules/tsx/dist/cli.mjs\" \".claude/hooks/session_start.ts\""
+            "command": "NODE_ENV=development node \"node_modules/tsx/dist/cli.mjs\" \".claude/hooks/session_start.ts\""
           }
         ]
       }
@@ -16,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"node_modules/tsx/dist/cli.mjs\" \".claude/hooks/user_prompt.ts\""
+            "command": "NODE_ENV=development node \"node_modules/tsx/dist/cli.mjs\" \".claude/hooks/user_prompt.ts\""
           }
         ]
       }
@@ -26,7 +26,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"node_modules/tsx/dist/cli.mjs\" \".claude/hooks/ensure_task.ts\""
+            "command": "NODE_ENV=development node \"node_modules/tsx/dist/cli.mjs\" \".claude/hooks/ensure_task.ts\""
           }
         ]
       }
@@ -37,7 +37,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"node_modules/tsx/dist/cli.mjs\" \".claude/hooks/terminal.ts\""
+            "command": "NODE_ENV=development node \"node_modules/tsx/dist/cli.mjs\" \".claude/hooks/terminal.ts\""
           }
         ]
       },
@@ -46,7 +46,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"node_modules/tsx/dist/cli.mjs\" \".claude/hooks/tool_used.ts\""
+            "command": "NODE_ENV=development node \"node_modules/tsx/dist/cli.mjs\" \".claude/hooks/tool_used.ts\""
           }
         ]
       },
@@ -55,7 +55,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"node_modules/tsx/dist/cli.mjs\" \".claude/hooks/explore.ts\""
+            "command": "NODE_ENV=development node \"node_modules/tsx/dist/cli.mjs\" \".claude/hooks/explore.ts\""
           }
         ]
       },
@@ -64,7 +64,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"node_modules/tsx/dist/cli.mjs\" \".claude/hooks/agent_activity.ts\""
+            "command": "NODE_ENV=development node \"node_modules/tsx/dist/cli.mjs\" \".claude/hooks/agent_activity.ts\""
           }
         ]
       },
@@ -73,7 +73,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"node_modules/tsx/dist/cli.mjs\" \".claude/hooks/todo.ts\""
+            "command": "NODE_ENV=development node \"node_modules/tsx/dist/cli.mjs\" \".claude/hooks/todo.ts\""
           }
         ]
       },
@@ -82,7 +82,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"node_modules/tsx/dist/cli.mjs\" \".claude/hooks/tool_used.ts\""
+            "command": "NODE_ENV=development node \"node_modules/tsx/dist/cli.mjs\" \".claude/hooks/tool_used.ts\""
           }
         ]
       }
@@ -93,7 +93,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"node_modules/tsx/dist/cli.mjs\" \".claude/hooks/tool_used.ts\""
+            "command": "NODE_ENV=development node \"node_modules/tsx/dist/cli.mjs\" \".claude/hooks/tool_used.ts\""
           }
         ]
       }
@@ -103,7 +103,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"node_modules/tsx/dist/cli.mjs\" \".claude/hooks/subagent_lifecycle.ts\""
+            "command": "NODE_ENV=development node \"node_modules/tsx/dist/cli.mjs\" \".claude/hooks/subagent_lifecycle.ts\""
           }
         ]
       }
@@ -113,7 +113,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"node_modules/tsx/dist/cli.mjs\" \".claude/hooks/subagent_lifecycle.ts\""
+            "command": "NODE_ENV=development node \"node_modules/tsx/dist/cli.mjs\" \".claude/hooks/subagent_lifecycle.ts\""
           }
         ]
       }
@@ -123,7 +123,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"node_modules/tsx/dist/cli.mjs\" \".claude/hooks/compact.ts\""
+            "command": "NODE_ENV=development node \"node_modules/tsx/dist/cli.mjs\" \".claude/hooks/compact.ts\""
           }
         ]
       }
@@ -133,7 +133,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"node_modules/tsx/dist/cli.mjs\" \".claude/hooks/compact.ts\""
+            "command": "NODE_ENV=development node \"node_modules/tsx/dist/cli.mjs\" \".claude/hooks/compact.ts\""
           }
         ]
       }
@@ -143,7 +143,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"node_modules/tsx/dist/cli.mjs\" \".claude/hooks/session_end.ts\""
+            "command": "NODE_ENV=development node \"node_modules/tsx/dist/cli.mjs\" \".claude/hooks/session_end.ts\""
           }
         ]
       }

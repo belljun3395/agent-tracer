@@ -3,6 +3,8 @@ import {
   ensureRuntimeSession,
   getSessionId,
   getToolInput,
+  hookLog,
+  hookLogPayload,
   postJson,
   readStdinJson,
   toTrimmedString
@@ -82,15 +84,25 @@ function extractTodoEvents(
 
 async function main(): Promise<void> {
   const payload = await readStdinJson();
+  hookLogPayload("todo", payload);
   const toolName = toTrimmedString(payload.tool_name);
   const toolInput = getToolInput(payload);
   const sessionId = getSessionId(payload);
-  if (!sessionId) return;
+  hookLog("todo", "fired", { toolName, sessionId: sessionId || "(none)" });
+
+  if (!sessionId) {
+    hookLog("todo", "skipped — no sessionId");
+    return;
+  }
 
   const events = extractTodoEvents(toolName, toolInput);
-  if (events.length === 0) return;
+  if (events.length === 0) {
+    hookLog("todo", "skipped — no events extracted");
+    return;
+  }
 
   const ids = await ensureRuntimeSession(sessionId);
+  hookLog("todo", "posting todos", { count: events.length, taskId: ids.taskId });
   for (const event of events) {
     await postJson("/api/todo", {
       taskId: ids.taskId,
@@ -101,6 +113,9 @@ async function main(): Promise<void> {
       metadata: event.metadata
     });
   }
+  hookLog("todo", "todos posted", { count: events.length });
 }
 
-void main().catch(() => {});
+void main().catch((err: unknown) => {
+  hookLog("todo", "ERROR", { error: String(err) });
+});

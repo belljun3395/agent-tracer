@@ -314,7 +314,9 @@ export const runtimeSessionEnsureSchema = z.object({
   runtimeSource: z.string().min(1),
   runtimeSessionId: z.string().min(1),
   title: z.string().min(1),
-  workspacePath: z.string().optional()
+  workspacePath: z.string().optional(),
+  parentTaskId: z.string().optional(),
+  parentSessionId: z.string().optional()
 });
 
 export const runtimeSessionEndSchema = z.object({

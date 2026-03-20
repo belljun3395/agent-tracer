@@ -1,4 +1,5 @@
 import * as crypto from "node:crypto";
+import * as fs from "node:fs";
 import * as path from "node:path";
 
 export type JsonObject = Record<string, unknown>;
@@ -45,13 +46,16 @@ export async function postJson<T = JsonObject>(pathname: string, body: JsonObjec
 
 export async function ensureRuntimeSession(
     runtimeSessionId: string,
-    title: string = defaultTaskTitle()
+    title: string = defaultTaskTitle(),
+    opts?: { parentTaskId?: string; parentSessionId?: string }
 ): Promise<RuntimeSessionEnsureResult> {
     return postJson<RuntimeSessionEnsureResult>("/api/runtime-session-ensure", {
         runtimeSource: CLAUDE_RUNTIME_SOURCE,
         runtimeSessionId,
         title,
-        workspacePath: PROJECT_DIR
+        workspacePath: PROJECT_DIR,
+        ...(opts?.parentTaskId ? { parentTaskId: opts.parentTaskId } : {}),
+        ...(opts?.parentSessionId ? { parentSessionId: opts.parentSessionId } : {})
     });
 }
 
@@ -132,4 +136,89 @@ export function createStableTodoId(content: string, priority: string): string {
         .update(`${content}::${priority}`)
         .digest("hex")
         .slice(0, 16);
+}
+
+const LOG_FILE = path.join(PROJECT_DIR, ".claude", "hooks.log");
+
+// ─── Subagent Registry ───────────────────────────────────────────────────────
+// SubagentStart 시 agent_id → parentSessionId 매핑을 파일로 저장.
+// ensure_task.ts에서 자식 session과 부모 task를 연결할 때 사용.
+
+const SUBAGENT_REGISTRY_FILE = path.join(PROJECT_DIR, ".claude", ".subagent-registry.json");
+
+export interface SubagentRegistryEntry {
+    parentSessionId: string;
+    agentType: string;
+    linked: boolean;
+    /** OpenCode background session용: monitor task ID of parent (opencode-plugin이 기록) */
+    parentTaskId?: string;
+}
+
+export type SubagentRegistry = Record<string, SubagentRegistryEntry>;
+
+export function readSubagentRegistry(): SubagentRegistry {
+    try {
+        const raw = fs.readFileSync(SUBAGENT_REGISTRY_FILE, "utf-8");
+        const parsed = JSON.parse(raw) as unknown;
+        return isRecord(parsed) ? (parsed as SubagentRegistry) : {};
+    } catch {
+        return {};
+    }
+}
+
+export function writeSubagentRegistry(registry: SubagentRegistry): void {
+    try {
+        fs.writeFileSync(SUBAGENT_REGISTRY_FILE, JSON.stringify(registry, null, 2));
+    } catch {
+        // 파일 쓰기 실패해도 hook 동작에 영향 없도록 무시
+    }
+}
+
+const LOG_ENABLED = process.env.NODE_ENV === "development";
+
+function appendLog(line: string): void {
+    if (!LOG_ENABLED) return;
+    try {
+        fs.appendFileSync(LOG_FILE, line + "\n");
+    } catch {
+        // 파일 쓰기 실패해도 hook 동작에 영향 없도록 무시
+    }
+}
+
+/**
+ * Hook 디버그 로그. stderr + 파일(.claude/hooks.log) 동시 출력.
+ */
+export function hookLog(hookName: string, message: string, data?: Record<string, unknown>): void {
+    const ts = new Date().toISOString().slice(11, 23); // HH:MM:SS.mmm
+    const dataStr = data ? ` ${JSON.stringify(data)}` : "";
+    const line = `[${ts}][HOOK:${hookName}] ${message}${dataStr}`;
+    process.stderr.write(line + "\n");
+    appendLog(line);
+}
+
+/**
+ * Hook이 stdin으로 받은 원본 payload를 로그 파일에 기록.
+ * tool_response / transcript_path 같은 덩치 큰 필드는 제거하고,
+ * tool_input 문자열 값은 200자로 잘라 읽기 좋게 기록.
+ * 각 hook main()의 맨 앞에서 호출.
+ */
+export function hookLogPayload(hookName: string, payload: JsonObject): void {
+    const ts = new Date().toISOString().slice(11, 23);
+
+    // 덩치 큰 필드 제거
+    const { tool_response: _tr, transcript_path: _tp, ...rest } = payload;
+
+    // tool_input 문자열 값 200자 truncate
+    if (isRecord(rest.tool_input)) {
+        rest.tool_input = Object.fromEntries(
+            Object.entries(rest.tool_input).map(([k, v]) =>
+                typeof v === "string" && v.length > 200
+                    ? [k, v.slice(0, 200) + "…"]
+                    : [k, v]
+            )
+        );
+    }
+
+    const line = `[${ts}][PAYLOAD:${hookName}] ${JSON.stringify(rest)}`;
+    appendLog(line);
 }

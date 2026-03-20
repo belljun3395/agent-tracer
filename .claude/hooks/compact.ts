@@ -2,6 +2,8 @@ import {
   ensureRuntimeSession,
   getHookEventName,
   getSessionId,
+  hookLog,
+  hookLogPayload,
   postJson,
   readStdinJson,
   toTrimmedString
@@ -9,9 +11,13 @@ import {
 
 async function main(): Promise<void> {
   const payload = await readStdinJson();
+  hookLogPayload("compact", payload);
   const hookEventName = getHookEventName(payload);
   const sessionId = getSessionId(payload);
+  hookLog("compact", "fired", { hookEventName, sessionId: sessionId || "(none)" });
+
   if (!sessionId || (hookEventName !== "PreCompact" && hookEventName !== "PostCompact")) {
+    hookLog("compact", "skipped — no sessionId or unexpected event");
     return;
   }
 
@@ -34,17 +40,23 @@ async function main(): Promise<void> {
     return;
   }
 
+  // compact_summary는 수 KB 규모의 XML 텍스트 — 1000자로 제한
+  const summary = toTrimmedString(payload.compact_summary, 1_000)
+    || "Claude Code compacted the conversation history.";
   await postJson("/api/save-context", {
     taskId: ids.taskId,
     sessionId: ids.sessionId,
     title: "Context compacted",
-    body: toTrimmedString(payload.compact_summary) || "Claude Code compacted the conversation history.",
+    body: summary,
     lane: "planning",
     metadata: {
       trigger,
       compactPhase: "after"
     }
   });
+  hookLog("compact", "save-context posted", { hookEventName, trigger });
 }
 
-void main().catch(() => {});
+void main().catch((err: unknown) => {
+  hookLog("compact", "ERROR", { error: String(err) });
+});
