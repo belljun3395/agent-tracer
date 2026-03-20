@@ -1,5 +1,4 @@
 import {
-  CLAUDE_RUNTIME,
   defaultTaskTitle,
   ensureRuntimeSession,
   getSessionId,
@@ -20,8 +19,6 @@ function extractChildSessionId(toolResponse: unknown): string {
 }
 
 async function main(): Promise<void> {
-  if (!CLAUDE_RUNTIME) return;
-
   const payload = await readStdinJson();
   const toolName = toTrimmedString(payload.tool_name);
   const toolInput = getToolInput(payload);

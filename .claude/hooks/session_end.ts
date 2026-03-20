@@ -1,5 +1,4 @@
 import {
-  CLAUDE_RUNTIME,
   CLAUDE_RUNTIME_SOURCE,
   getSessionId,
   readStdinJson,
@@ -12,8 +11,6 @@ function mapCompletionReason(reason: string): "explicit_exit" | "runtime_termina
 }
 
 async function main(): Promise<void> {
-  if (!CLAUDE_RUNTIME) return;
-
   const payload = await readStdinJson();
   const sessionId = getSessionId(payload);
   if (!sessionId) return;

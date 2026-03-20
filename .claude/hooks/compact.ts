@@ -1,5 +1,4 @@
 import {
-  CLAUDE_RUNTIME,
   ensureRuntimeSession,
   getHookEventName,
   getSessionId,
@@ -9,8 +8,6 @@ import {
 } from "./common.js";
 
 async function main(): Promise<void> {
-  if (!CLAUDE_RUNTIME) return;
-
   const payload = await readStdinJson();
   const hookEventName = getHookEventName(payload);
   const sessionId = getSessionId(payload);

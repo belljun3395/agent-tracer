@@ -1,8 +1,6 @@
-import { CLAUDE_RUNTIME, ensureRuntimeSession, getSessionId, postJson, readStdinJson, toTrimmedString } from "./common.js";
+import { ensureRuntimeSession, getSessionId, postJson, readStdinJson, toTrimmedString } from "./common.js";
 
 async function main(): Promise<void> {
-  if (!CLAUDE_RUNTIME) return;
-
   const payload = await readStdinJson();
   const sessionId = getSessionId(payload);
   const source = toTrimmedString(payload.source).toLowerCase();
