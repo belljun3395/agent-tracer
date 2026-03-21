@@ -9,6 +9,7 @@ import type {
   SearchResponse
 } from "../types.js";
 import { cn } from "../lib/ui/cn.js";
+import { useTheme } from "../lib/useTheme.js";
 import { Button } from "./ui/Button.js";
 
 interface ObservabilityBadgeCounts {
@@ -52,6 +53,7 @@ export function TopBar({
   onSelectSearchBookmark,
   onRefresh
 }: TopBarProps): React.JSX.Element {
+  const { theme, toggle: toggleTheme } = useTheme();
   const totalResults = (searchResults?.tasks.length ?? 0)
     + (searchResults?.events.length ?? 0)
     + (searchResults?.bookmarks.length ?? 0);
@@ -224,6 +226,17 @@ export function TopBar({
           This task
         </button>
       )}
+
+      {/* Dark mode toggle */}
+      <button
+        aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] border border-[var(--border)] bg-[var(--surface-2)] text-[0.88rem] text-[var(--text-2)] transition hover:border-[var(--border-strong)] hover:bg-[var(--surface)] hover:text-[var(--text-1)]"
+        onClick={toggleTheme}
+        title={theme === "dark" ? "Light mode" : "Dark mode"}
+        type="button"
+      >
+        {theme === "dark" ? "☀" : "☽"}
+      </button>
 
       <Button className="shrink-0 gap-1 rounded-[8px] px-2.5" onClick={onRefresh} size="sm" variant="ghost">
         <img alt="" className="h-3.5 w-3.5 opacity-50" src="/icons/refresh.svg" />
