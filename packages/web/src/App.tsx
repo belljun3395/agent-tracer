@@ -46,8 +46,13 @@ function parseConnectorKey(
 
 const SIDEBAR_MIN_WIDTH = 240;
 const SIDEBAR_MAX_WIDTH = 460;
-const SIDEBAR_DEFAULT_WIDTH = 280;
+const SIDEBAR_DEFAULT_WIDTH = 220;
 const SIDEBAR_WIDTH_STORAGE_KEY = "agent-tracer.sidebar-width";
+
+const INSPECTOR_MIN_WIDTH = 280;
+const INSPECTOR_MAX_WIDTH = 560;
+const INSPECTOR_DEFAULT_WIDTH = 340;
+const INSPECTOR_WIDTH_STORAGE_KEY = "agent-tracer.inspector-width";
 
 // ---------------------------------------------------------------------------
 // Inner dashboard (consumes context)
@@ -70,7 +75,6 @@ function Dashboard(): React.JSX.Element {
   const {
     tasks,
     bookmarks,
-    overview,
     selectedTaskId,
     selectedEventId,
     selectedConnectorKey,
@@ -129,9 +133,22 @@ function Dashboard(): React.JSX.Element {
   const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth);
   const sidebarResizeRef = useRef<{ readonly startX: number; readonly startWidth: number } | null>(null);
 
+  const [inspectorWidth, setInspectorWidth] = useState<number>(() => {
+    const raw = window.localStorage.getItem(INSPECTOR_WIDTH_STORAGE_KEY);
+    if (!raw) return INSPECTOR_DEFAULT_WIDTH;
+    const parsed = Number.parseInt(raw, 10);
+    if (!Number.isFinite(parsed)) return INSPECTOR_DEFAULT_WIDTH;
+    return Math.max(INSPECTOR_MIN_WIDTH, Math.min(INSPECTOR_MAX_WIDTH, parsed));
+  });
+  const inspectorResizeRef = useRef<{ readonly startX: number; readonly startWidth: number } | null>(null);
+
   useEffect(() => {
     window.localStorage.setItem(SIDEBAR_WIDTH_STORAGE_KEY, String(sidebarWidth));
   }, [sidebarWidth]);
+
+  useEffect(() => {
+    window.localStorage.setItem(INSPECTOR_WIDTH_STORAGE_KEY, String(inspectorWidth));
+  }, [inspectorWidth]);
 
   useEffect(() => {
     const handleResize = (): void => setViewportWidth(window.innerWidth);
@@ -165,6 +182,34 @@ function Dashboard(): React.JSX.Element {
     window.addEventListener("pointercancel", onUp);
     event.preventDefault();
   }, [isSidebarCollapsed, sidebarWidth]);
+
+  const onInspectorResizeStart = useCallback((event: React.PointerEvent<HTMLDivElement>): void => {
+    if (event.button !== 0 || isInspectorCollapsed) return;
+    inspectorResizeRef.current = { startX: event.clientX, startWidth: inspectorWidth };
+
+    const onMove = (moveEvent: PointerEvent): void => {
+      const current = inspectorResizeRef.current;
+      if (!current) return;
+      // Inspector은 오른쪽에 있으므로 왼쪽으로 드래그할수록 너비 증가
+      const delta = current.startX - moveEvent.clientX;
+      const clamped = Math.max(INSPECTOR_MIN_WIDTH, Math.min(INSPECTOR_MAX_WIDTH, Math.round(current.startWidth + delta)));
+      setInspectorWidth(clamped);
+    };
+
+    const onUp = (): void => {
+      inspectorResizeRef.current = null;
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+      document.body.classList.remove("is-resizing-inspector");
+    };
+
+    document.body.classList.add("is-resizing-inspector");
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+    event.preventDefault();
+  }, [isInspectorCollapsed, inspectorWidth]);
 
   // ---------------------------------------------------------------------------
   // Derived / memoised values
@@ -267,8 +312,11 @@ function Dashboard(): React.JSX.Element {
   // ---------------------------------------------------------------------------
 
   const dashboardStyle = useMemo(
-    () => ({ "--sidebar-width": `${sidebarWidth}px` }) as React.CSSProperties,
-    [sidebarWidth]
+    () => ({
+      "--sidebar-width": `${sidebarWidth}px`,
+      "--inspector-width": `${inspectorWidth}px`
+    }) as React.CSSProperties,
+    [sidebarWidth, inspectorWidth]
   );
 
   const dashboardColumns = viewportWidth < 960
@@ -280,10 +328,10 @@ function Dashboard(): React.JSX.Element {
       : (isSidebarCollapsed
         ? (isInspectorCollapsed
           ? "!grid-cols-[44px_minmax(0,1fr)_44px]"
-          : "!grid-cols-[44px_minmax(0,1fr)_clamp(300px,26vw,480px)]")
+          : "!grid-cols-[44px_minmax(0,1fr)_var(--inspector-width)]")
         : (isInspectorCollapsed
           ? "!grid-cols-[var(--sidebar-width)_minmax(0,1fr)_44px]"
-          : "!grid-cols-[var(--sidebar-width)_minmax(0,1fr)_clamp(300px,26vw,480px)]"));
+          : "!grid-cols-[var(--sidebar-width)_minmax(0,1fr)_var(--inspector-width)]"));
 
   const isStackedDashboard = viewportWidth < 960;
   const isCompactDashboard = viewportWidth < 1040;
@@ -296,13 +344,13 @@ function Dashboard(): React.JSX.Element {
     <div className="flex h-dvh flex-col overflow-hidden bg-[var(--bg)]">
 
       <TopBar
-        overview={overview}
         isConnected={isConnected}
         searchQuery={searchQuery}
         searchResults={searchResults}
         isSearching={isSearching}
         selectedTaskTitle={selectedTaskDisplayTitle ?? taskDetail?.task.title ?? null}
         taskScopeEnabled={taskScopeEnabled}
+        observabilityStats={observabilityStats ? { checks: observabilityStats.checks, violations: observabilityStats.violations, passes: observabilityStats.passes } : null}
         onTaskScopeToggle={setTaskScopeEnabled}
         onSearchQueryChange={setSearchQuery}
         onSelectSearchTask={(taskId) => {
@@ -473,44 +521,54 @@ function Dashboard(): React.JSX.Element {
           />
         </section>
 
-        <EventInspector
-          taskDetail={taskDetail}
-          selectedEvent={selectedEvent}
-          selectedConnector={selectedConnector}
-          selectedEventDisplayTitle={selectedEventDisplayTitle}
-          selectedTaskBookmark={selectedTaskBookmark}
-          selectedEventBookmark={selectedEventBookmark}
-          selectedTag={selectedTag}
-          selectedRuleId={selectedRuleId}
-          taskModelSummary={modelSummary}
-          isCollapsed={isInspectorCollapsed}
-          className={isStackedDashboard ? "order-3" : undefined}
-          onToggleCollapse={() => setIsInspectorCollapsed((v) => !v)}
-          onCreateTaskBookmark={() => {
-            void handleCreateTaskBookmark().catch((err) => {
-              dispatch({
-                type: "SET_STATUS",
-                status: "error",
-                errorMessage: err instanceof Error ? err.message : "Failed to save task bookmark."
+        <div className={cn("relative min-h-0 min-w-0", isStackedDashboard && "order-3")}>
+          {!isInspectorCollapsed && !isStackedDashboard && (
+            <div
+              aria-label="Resize inspector panel"
+              aria-orientation="vertical"
+              className="inspector-resizer absolute left-[-9px] top-2 bottom-2 z-10 w-3 cursor-col-resize before:absolute before:left-[5px] before:top-0 before:bottom-0 before:w-0.5 before:rounded-full before:bg-[color-mix(in_srgb,var(--border)_74%,transparent)] before:transition-colors hover:before:bg-[color-mix(in_srgb,var(--accent)_75%,transparent)]"
+              onPointerDown={onInspectorResizeStart}
+              role="separator"
+            />
+          )}
+          <EventInspector
+            taskDetail={taskDetail}
+            selectedEvent={selectedEvent}
+            selectedConnector={selectedConnector}
+            selectedEventDisplayTitle={selectedEventDisplayTitle}
+            selectedTaskBookmark={selectedTaskBookmark}
+            selectedEventBookmark={selectedEventBookmark}
+            selectedTag={selectedTag}
+            selectedRuleId={selectedRuleId}
+            taskModelSummary={modelSummary}
+            isCollapsed={isInspectorCollapsed}
+            onToggleCollapse={() => setIsInspectorCollapsed((v) => !v)}
+            onCreateTaskBookmark={() => {
+              void handleCreateTaskBookmark().catch((err) => {
+                dispatch({
+                  type: "SET_STATUS",
+                  status: "error",
+                  errorMessage: err instanceof Error ? err.message : "Failed to save task bookmark."
+                });
               });
-            });
-          }}
-          onCreateEventBookmark={() => {
-            if (!selectedEvent) return;
-            void handleCreateEventBookmark(selectedEvent.id, selectedEvent.title).catch((err) => {
-              dispatch({
-                type: "SET_STATUS",
-                status: "error",
-                errorMessage: err instanceof Error ? err.message : "Failed to save event bookmark."
+            }}
+            onCreateEventBookmark={() => {
+              if (!selectedEvent) return;
+              void handleCreateEventBookmark(selectedEvent.id, selectedEvent.title).catch((err) => {
+                dispatch({
+                  type: "SET_STATUS",
+                  status: "error",
+                  errorMessage: err instanceof Error ? err.message : "Failed to save event bookmark."
+                });
               });
-            });
-          }}
-          onSelectTag={(tag) => dispatch({ type: "SELECT_TAG", tag })}
-          onSelectRule={(ruleId) => {
-            dispatch({ type: "SET_SHOW_RULE_GAPS_ONLY", show: false });
-            dispatch({ type: "SELECT_RULE", ruleId });
-          }}
-        />
+            }}
+            onSelectTag={(tag) => dispatch({ type: "SELECT_TAG", tag })}
+            onSelectRule={(ruleId) => {
+              dispatch({ type: "SET_SHOW_RULE_GAPS_ONLY", show: false });
+              dispatch({ type: "SELECT_RULE", ruleId });
+            }}
+          />
+        </div>
 
       </main>
     </div>

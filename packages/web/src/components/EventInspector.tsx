@@ -38,7 +38,6 @@ import {
 import { formatRelativeTime } from "../lib/timeline.js";
 import type { TimelineConnector } from "../lib/timeline.js";
 import { cn } from "../lib/ui/cn.js";
-import { useDragScroll } from "../lib/useDragScroll.js";
 import { Badge } from "./ui/Badge.js";
 import { Button } from "./ui/Button.js";
 import { PanelCard } from "./ui/PanelCard.js";
@@ -1167,8 +1166,8 @@ function TaskExtractionCard({
       <div className={cardBody}>
         <div className="rounded-[14px] border border-[var(--border)] bg-[radial-gradient(circle_at_top_right,rgba(13,148,136,0.1),transparent_26%),linear-gradient(180deg,rgba(240,253,250,0.86),rgba(255,255,255,1))] p-4">
           <span className="mb-2 inline-flex text-[0.68rem] font-bold uppercase tracking-[0.08em] text-[var(--accent)]">Reusable Task</span>
-          <strong className="block text-[0.98rem] leading-6 text-[var(--text-1)]">{extraction.objective}</strong>
-          <p className="mt-2 text-[0.82rem] leading-6 text-[var(--text-2)]">{extraction.summary}</p>
+          <strong className="block break-words text-[0.98rem] leading-6 text-[var(--text-1)] [overflow-wrap:anywhere]">{extraction.objective}</strong>
+          <p className="mt-2 break-words text-[0.82rem] leading-6 text-[var(--text-2)] [overflow-wrap:anywhere]">{extraction.summary}</p>
         </div>
 
         {extraction.sections.length > 0 && (
@@ -1183,7 +1182,7 @@ function TaskExtractionCard({
                 </div>
                 <div className="flex flex-col gap-2">
                   {section.items.map((item) => (
-                    <p key={`${section.lane}-${item}`} className="m-0 text-[0.78rem] leading-6 text-[var(--text-2)]">
+                    <p key={`${section.lane}-${item}`} className="m-0 break-words text-[0.78rem] leading-6 text-[var(--text-2)] [overflow-wrap:anywhere]">
                       {item}
                     </p>
                   ))}
@@ -1417,7 +1416,6 @@ export function EventInspector({
   const [explorationSortKey, setExplorationSortKey] = useState<ExplorationSortKey>("recent");
   const [fileSortKey, setFileSortKey]               = useState<FileSortKey>("recent");
   const [copiedExtraction, setCopiedExtraction]     = useState<"brief" | "process" | null>(null);
-  const inspectorDragScroll = useDragScroll({ axis: "y" });
 
   const taskTimeline = taskDetail?.timeline ?? [];
 
@@ -1557,11 +1555,9 @@ export function EventInspector({
       {/* ── Tab content ── */}
       <div
         className={cn(
-          "panel-tab-content flex min-h-0 flex-1 flex-col overflow-y-auto",
-          inspectorDragScroll.isDragging ? "cursor-grabbing select-none" : "cursor-grab"
+          "panel-tab-content flex min-h-0 flex-1 flex-col overflow-y-auto"
         )}
         role="tabpanel"
-        {...inspectorDragScroll.handlers}
       >
 
         {activeTab === "inspector" ? (

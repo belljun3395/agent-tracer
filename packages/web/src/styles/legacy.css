@@ -39,6 +39,16 @@
   background: color-mix(in srgb, var(--accent) 75%, transparent);
 }
 
+.is-resizing-inspector,
+.is-resizing-inspector * {
+  cursor: col-resize !important;
+  user-select: none;
+}
+
+.is-resizing-inspector .inspector-resizer::before {
+  background: color-mix(in srgb, var(--accent) 75%, transparent);
+}
+
 @media (max-width: 1380px) {
   .sidebar-resizer {
     display: none;
