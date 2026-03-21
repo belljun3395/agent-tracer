@@ -37,6 +37,7 @@ import {
 } from "../lib/insights.js";
 import { formatRelativeTime } from "../lib/timeline.js";
 import type { TimelineConnector } from "../lib/timeline.js";
+import { copyToClipboard } from "../lib/ui/clipboard.js";
 import { cn } from "../lib/ui/cn.js";
 import { Badge } from "./ui/Badge.js";
 import { Button } from "./ui/Button.js";
@@ -1306,35 +1307,6 @@ function TagExplorerCard({
       </div>
     </PanelCard>
   );
-}
-
-async function copyToClipboard(value: string): Promise<boolean> {
-  if (navigator.clipboard?.writeText) {
-    try {
-      await navigator.clipboard.writeText(value);
-      return true;
-    } catch {
-      return copyTextFallback(value);
-    }
-  }
-
-  return copyTextFallback(value);
-}
-
-function copyTextFallback(value: string): boolean {
-  const textArea = document.createElement("textarea");
-  textArea.value = value;
-  textArea.setAttribute("readonly", "true");
-  textArea.style.position = "fixed";
-  textArea.style.opacity = "0";
-  document.body.appendChild(textArea);
-  textArea.select();
-
-  try {
-    return document.execCommand("copy");
-  } finally {
-    document.body.removeChild(textArea);
-  }
 }
 
 function toRelativePath(filePath: string, workspacePath?: string): string {
