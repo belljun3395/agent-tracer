@@ -25,6 +25,8 @@ export interface TimelineLayout {
   readonly width: number;
   readonly nowLeft: number;
   readonly items: readonly TimelineItemLayout[];
+  /** 타임스탬프(ms)를 캔버스 x 좌표(px)로 변환. */
+  readonly tsToLeft: (ms: number) => number;
 }
 
 /** 측정된 DOM 노드의 바운딩 박스. 정확한 연결선 경로 계산에 사용. */
@@ -101,7 +103,8 @@ export function buildTimelineLayout(
     return {
       width: 1200,
       nowLeft: 1200 - 32,
-      items: []
+      items: [],
+      tsToLeft: () => 1200 - 32
     };
   }
 
@@ -234,7 +237,10 @@ export function buildTimelineLayout(
     rowIndex: rowIndexMap.get(item.event) ?? 0
   }));
 
-  return { width: contentWidth, nowLeft, items };
+  const tsToLeft = (ms: number): number =>
+    trackStart + Math.round(((ms - min) / span) * usableTrack);
+
+  return { width: contentWidth, nowLeft, items, tsToLeft };
 }
 
 /** 타임라인 시간축 눈금 한 항목: 픽셀 x 위치와 레이블 문자열. */

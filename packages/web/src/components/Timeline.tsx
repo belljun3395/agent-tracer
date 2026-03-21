@@ -24,7 +24,7 @@ import {
 import { filterTimelineEvents } from "../lib/insights.js";
 import { cn } from "../lib/ui/cn.js";
 import { getLaneTheme } from "../lib/ui/laneTheme.js";
-import type { TimelineEvent, TimelineLane } from "../types.js";
+import type { MonitoringTask, TimelineEvent, TimelineLane } from "../types.js";
 import { Button } from "./ui/Button.js";
 import "./Timeline.css";
 
@@ -119,6 +119,9 @@ interface TimelineProps {
   readonly selectedTag: string | null;
   readonly showRuleGapsOnly: boolean;
   readonly nowMs: number;
+  readonly zoom: number;
+  readonly backgroundTasks: readonly MonitoringTask[];
+  readonly onZoomChange: (zoom: number) => void;
   readonly observabilityStats: {
     readonly actions: number;
     readonly coordinationActivities: number;
@@ -206,9 +209,11 @@ export function Timeline({
   onToggleRuleGap,
   onClearRuleId,
   onClearTag,
-  onChangeTaskStatus
+  onChangeTaskStatus,
+  zoom,
+  onZoomChange,
+  backgroundTasks
 }: TimelineProps): React.JSX.Element {
-  const [zoom, setZoom] = useState(1.1);
   const [filters, setFilters] = useState<Record<TimelineLane, boolean>>({
     user: true, exploration: true, planning: true, coordination: true, background: true,
     implementation: true, questions: true, todos: true
@@ -507,7 +512,7 @@ export function Timeline({
                   <span className="toolbar-label">Zoom</span>
                   <input
                     max={2.5} min={0.8} step={0.1} type="range" value={zoom}
-                    onChange={(e) => setZoom(Number(e.target.value))}
+                    onChange={(e) => onZoomChange(Number(e.target.value))}
                   />
                   <span className="toolbar-value">{zoom.toFixed(1)}×</span>
                 </div>
@@ -887,6 +892,35 @@ export function Timeline({
                 })()
               ))}
 
+              {/* background task region boxes */}
+              {backgroundTasks.length > 0 && activeLanes.includes("background") && (() => {
+                const bgLaneIndex = activeLanes.indexOf("background");
+                const laneTop = RULER_HEIGHT + bgLaneIndex * LANE_HEIGHT;
+                return backgroundTasks.map((bgTask) => {
+                  const startMs = Date.parse(bgTask.createdAt);
+                  const endMs = bgTask.updatedAt ? Date.parse(bgTask.updatedAt) : anchorMs;
+                  const left = timelineLayout.tsToLeft(startMs);
+                  const right = timelineLayout.tsToLeft(endMs);
+                  const width = Math.max(right - left, 8);
+                  const label = bgTask.displayTitle ?? bgTask.title;
+                  return (
+                    <div
+                      key={bgTask.id}
+                      className="bg-task-region"
+                      style={{
+                        left: `${left - NODE_WIDTH / 2}px`,
+                        top: `${laneTop + 4}px`,
+                        width: `${width + NODE_WIDTH}px`,
+                        height: `${LANE_HEIGHT - 8}px`
+                      }}
+                      title={label}
+                    >
+                      <span className="bg-task-region-label">{label}</span>
+                    </div>
+                  );
+                });
+              })()}
+
               {/* now line */}
               <div
                 className="now-line"
@@ -1061,8 +1095,130 @@ export function Timeline({
           </div>
         </div>
 
+        {/* Minimap */}
+        {filteredTimeline.length > 0 && (
+          <TimelineMinimap
+            timelineWidth={timelineLayout.width}
+            canvasHeight={canvasHeight}
+            items={timelineLayout.items}
+            activeLanes={activeLanes}
+            scrollRef={scrollRef}
+          />
+        )}
+
       </div>
     </section>
+  );
+}
+
+// ─── Minimap ─────────────────────────────────────────────────────────────────
+
+interface MinimapProps {
+  readonly timelineWidth: number;
+  readonly canvasHeight: number;
+  readonly items: readonly TimelineItemLayout[];
+  readonly activeLanes: readonly string[];
+  readonly scrollRef: React.RefObject<HTMLDivElement | null>;
+}
+
+function TimelineMinimap({ timelineWidth, canvasHeight: _canvasHeight, items, activeLanes, scrollRef }: MinimapProps): React.JSX.Element | null {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [scrollState, setScrollState] = useState({ left: 0, viewWidth: 0, totalWidth: 1 });
+  const isDragging = useRef(false);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+
+    const update = (): void => {
+      setScrollState({ left: el.scrollLeft, viewWidth: el.clientWidth, totalWidth: Math.max(el.scrollWidth, 1) });
+    };
+
+    update();
+    el.addEventListener("scroll", update, { passive: true });
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => {
+      el.removeEventListener("scroll", update);
+      ro.disconnect();
+    };
+  }, [scrollRef]);
+
+  const scrubToClientX = (clientX: number): void => {
+    const container = containerRef.current;
+    const scrollEl = scrollRef.current;
+    if (!container || !scrollEl) return;
+    const rect = container.getBoundingClientRect();
+    const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    const target = ratio * scrollState.totalWidth - scrollState.viewWidth / 2;
+    scrollEl.scrollLeft = Math.max(0, Math.min(scrollState.totalWidth - scrollState.viewWidth, target));
+  };
+
+  const laneCount = activeLanes.length;
+  const viewportLeftPct = (scrollState.left / scrollState.totalWidth) * 100;
+  const viewportWidthPct = (scrollState.viewWidth / scrollState.totalWidth) * 100;
+
+  if (laneCount === 0 || timelineWidth === 0) return null;
+
+  return (
+    <div
+      ref={containerRef}
+      className="timeline-minimap"
+      role="scrollbar"
+      aria-label="Timeline minimap"
+      aria-valuenow={Math.round(viewportLeftPct)}
+      onPointerDown={(e) => {
+        isDragging.current = true;
+        (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
+        scrubToClientX(e.clientX);
+        e.preventDefault();
+      }}
+      onPointerMove={(e) => {
+        if (!isDragging.current) return;
+        scrubToClientX(e.clientX);
+      }}
+      onPointerUp={(e) => {
+        isDragging.current = false;
+        (e.currentTarget as HTMLDivElement).releasePointerCapture(e.pointerId);
+      }}
+      onPointerCancel={(e) => {
+        isDragging.current = false;
+        (e.currentTarget as HTMLDivElement).releasePointerCapture(e.pointerId);
+      }}
+    >
+      {/* Lane stripes */}
+      {activeLanes.map((lane, i) => (
+        <div
+          key={lane}
+          className={`minimap-lane ${lane}`}
+          style={{
+            top: `${(i / laneCount) * 100}%`,
+            height: `${(1 / laneCount) * 100}%`
+          }}
+        />
+      ))}
+
+      {/* Event dots */}
+      {items.map((item) => {
+        const laneIndex = activeLanes.indexOf(item.event.lane);
+        if (laneIndex < 0) return null;
+        const leftPct = (item.left / timelineWidth) * 100;
+        const topPct = ((laneIndex + 0.5) / laneCount) * 100;
+        return (
+          <div
+            key={item.event.id}
+            className={`minimap-dot ${item.event.lane}`}
+            style={{ left: `${leftPct}%`, top: `${topPct}%` }}
+          />
+        );
+      })}
+
+      {/* Viewport indicator */}
+      <div
+        className="minimap-viewport"
+        style={{ left: `${viewportLeftPct}%`, width: `${Math.max(viewportWidthPct, 2)}%` }}
+      />
+    </div>
   );
 }
 

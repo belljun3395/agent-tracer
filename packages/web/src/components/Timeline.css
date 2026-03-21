@@ -154,26 +154,20 @@
 .timeline-chrome {
   flex-shrink: 0;
   overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--border) 82%, white);
+  border: 1px solid var(--border);
   border-radius: 18px;
-  background:
-    linear-gradient(180deg,
-      color-mix(in srgb, var(--surface) 97%, white 3%),
-      color-mix(in srgb, var(--surface) 94%, white 6%)
-    );
-  box-shadow:
-    0 12px 28px rgba(15, 23, 42, 0.05),
-    inset 0 1px 0 rgba(255, 255, 255, 0.66);
+  background: var(--surface);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.05);
 }
 
 .timeline-toolbar {
-  border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, white);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.66), rgba(255, 255, 255, 0.46));
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
 }
 
 .timeline-focus-strip {
-  border-bottom: 1px solid color-mix(in srgb, var(--border) 66%, white);
-  background: color-mix(in srgb, var(--surface-2) 74%, white 26%);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-subtle);
 }
 
 .timeline-header {
@@ -188,16 +182,10 @@
   gap: 10px;
   margin: 8px 12px 0;
   padding: 9px 12px 10px 14px;
-  border: 1px solid color-mix(in srgb, var(--border) 76%, white);
+  border: 1px solid var(--border);
   border-radius: 16px;
-  background:
-    linear-gradient(135deg,
-      color-mix(in srgb, var(--surface) 96%, white 4%),
-      color-mix(in srgb, var(--surface-2) 84%, white 16%)
-    );
-  box-shadow:
-    0 8px 20px rgba(15, 23, 42, 0.045),
-    inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  background: var(--surface);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.045);
   backdrop-filter: blur(12px);
   animation: timeline-context-strip-enter 160ms ease;
 }
@@ -210,7 +198,7 @@
   bottom: 10px;
   width: 3px;
   border-radius: 999px;
-  background: linear-gradient(180deg, var(--accent), color-mix(in srgb, var(--accent) 30%, white));
+  background: linear-gradient(180deg, var(--accent), color-mix(in srgb, var(--accent) 30%, transparent));
 }
 
 .timeline-context-bar-main {
@@ -228,8 +216,8 @@
   align-items: center;
   justify-content: center;
   border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--border) 78%, white);
-  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid var(--border);
+  background: var(--surface);
   color: var(--text-2);
   font-size: 0.82rem;
   box-shadow: none;
@@ -238,8 +226,8 @@
 
 .timeline-context-toggle:hover {
   transform: translateY(-1px);
-  border-color: color-mix(in srgb, var(--accent) 36%, white);
-  background: rgba(255, 255, 255, 0.92);
+  border-color: color-mix(in srgb, var(--accent) 36%, var(--border));
+  background: var(--surface-2);
 }
 
 .timeline-context-copy {
@@ -282,8 +270,8 @@
   min-height: 1.4rem;
   padding: 3px 9px;
   border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--border) 78%, white);
-  background: rgba(255, 255, 255, 0.62);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
   color: var(--text-2);
   font-size: 0.69rem;
   font-weight: 600;
@@ -292,15 +280,15 @@
 
 .timeline-context-summary-chip.accent {
   border-color: var(--accent-light);
-  background: color-mix(in srgb, var(--accent-light) 82%, white);
+  background: var(--accent-light);
   color: var(--accent);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 
 .timeline-context-summary-chip.emphasis {
-  border-color: color-mix(in srgb, var(--implementation) 32%, white);
-  background: color-mix(in srgb, var(--implementation) 8%, white);
+  border-color: var(--implementation-border);
+  background: var(--implementation-bg);
   color: var(--implementation);
 }
 
@@ -488,12 +476,12 @@
 
 .timeline-edge-fade.left {
   left: 0;
-  background: linear-gradient(90deg, color-mix(in srgb, var(--surface) 98%, white 2%), rgba(255,255,255,0));
+  background: linear-gradient(90deg, var(--surface), transparent);
 }
 
 .timeline-edge-fade.right {
   right: 0;
-  background: linear-gradient(270deg, color-mix(in srgb, var(--surface) 98%, white 2%), rgba(255,255,255,0));
+  background: linear-gradient(270deg, var(--surface), transparent);
 }
 
 .timeline-gutter-scrim {
@@ -504,7 +492,7 @@
   width: 176px;
   pointer-events: none;
   z-index: 6;
-  background: linear-gradient(90deg, color-mix(in srgb, var(--surface) 99%, white 1%) 0%, color-mix(in srgb, var(--surface) 99%, white 1%) 76%, color-mix(in srgb, var(--surface) 90%, white 10%) 92%, rgba(255,255,255,0) 100%);
+  background: linear-gradient(90deg, var(--surface) 0%, var(--surface) 76%, color-mix(in srgb, var(--surface) 80%, transparent) 92%, transparent 100%);
 }
 
 .timeline-canvas {
@@ -583,6 +571,31 @@
   height: 1px;
   background: var(--border-2);
   opacity: 0.7;
+}
+
+/* Background task region boxes */
+.bg-task-region {
+  position: absolute;
+  border: 1.5px dashed var(--background-border);
+  background: color-mix(in srgb, var(--background-bg) 60%, transparent);
+  border-radius: 8px;
+  pointer-events: none;
+  z-index: 2;
+  display: flex;
+  align-items: flex-start;
+  padding: 4px 8px;
+  overflow: hidden;
+}
+
+.bg-task-region-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--background);
+  opacity: 0.8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 
 .event-node {
@@ -714,8 +727,7 @@
   background: var(--surface);
   box-shadow:
     0 4px 16px rgba(15, 23, 42, 0.12),
-    0 1px 4px rgba(15, 23, 42, 0.07),
-    inset 0 1px 0 rgba(255, 255, 255, 0.7);
+    0 1px 4px rgba(15, 23, 42, 0.07);
   overflow: hidden;
   animation: stack-popover-enter 120ms ease;
 }
@@ -985,6 +997,65 @@
 @keyframes now-pulse {
   0%, 100% { transform: scale(1); opacity: 1; }
   50% { transform: scale(1.6); opacity: 0.5; }
+}
+
+/* ─── Minimap ────────────────────────────────────────────────────────────── */
+
+.timeline-minimap {
+  position: relative;
+  flex-shrink: 0;
+  height: 44px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-subtle);
+  cursor: pointer;
+  overflow: hidden;
+  user-select: none;
+}
+
+.minimap-lane {
+  position: absolute;
+  left: 0;
+  right: 0;
+  pointer-events: none;
+}
+
+.minimap-lane.exploration  { background: var(--exploration-bg);  opacity: 0.55; }
+.minimap-lane.implementation { background: var(--implementation-bg); opacity: 0.55; }
+.minimap-lane.planning     { background: var(--planning-bg);     opacity: 0.55; }
+.minimap-lane.user         { background: var(--user-bg);         opacity: 0.55; }
+.minimap-lane.questions    { background: var(--questions-bg);    opacity: 0.55; }
+.minimap-lane.todos        { background: var(--todos-bg);        opacity: 0.55; }
+.minimap-lane.coordination { background: var(--coordination-bg); opacity: 0.55; }
+.minimap-lane.background   { background: var(--background-bg);   opacity: 0.55; }
+
+.minimap-dot {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  opacity: 0.75;
+}
+
+.minimap-dot.exploration  { background: var(--exploration); }
+.minimap-dot.implementation { background: var(--implementation); }
+.minimap-dot.planning     { background: var(--planning); }
+.minimap-dot.user         { background: var(--user); }
+.minimap-dot.questions    { background: var(--questions); }
+.minimap-dot.todos        { background: var(--todos); }
+.minimap-dot.coordination { background: var(--coordination); }
+.minimap-dot.background   { background: var(--background); }
+
+.minimap-viewport {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border: 1.5px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  border-radius: 3px;
+  pointer-events: none;
+  transition: left 0.05s linear, width 0.05s linear;
 }
 
 @media (max-width: 1240px) {

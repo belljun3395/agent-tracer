@@ -25,6 +25,8 @@ interface TopBarProps {
   readonly selectedTaskTitle?: string | null;
   readonly taskScopeEnabled: boolean;
   readonly observabilityStats: ObservabilityBadgeCounts | null;
+  readonly zoom: number;
+  readonly onZoomChange: (zoom: number) => void;
   readonly onTaskScopeToggle: (enabled: boolean) => void;
   readonly onSearchQueryChange: (value: string) => void;
   readonly onSelectSearchTask: (taskId: string) => void;
@@ -41,6 +43,8 @@ export function TopBar({
   selectedTaskTitle,
   taskScopeEnabled,
   observabilityStats,
+  zoom,
+  onZoomChange,
   onTaskScopeToggle,
   onSearchQueryChange,
   onSelectSearchTask,
@@ -97,6 +101,17 @@ export function TopBar({
 
       {/* Spacer */}
       <div className="flex-1" />
+
+      {/* Zoom slider */}
+      <div className="flex shrink-0 items-center gap-2">
+        <span className="text-[0.72rem] font-medium text-[var(--text-3)]">Zoom</span>
+        <input
+          className="h-1 w-20 cursor-pointer accent-[var(--accent)]"
+          max={2.5} min={0.8} step={0.1} type="range" value={zoom}
+          onChange={(e) => onZoomChange(Number(e.target.value))}
+        />
+        <span className="w-7 text-right text-[0.72rem] font-medium tabular-nums text-[var(--text-2)]">{zoom.toFixed(1)}×</span>
+      </div>
 
       {/* Search */}
       <div className="relative w-[min(240px,30vw)] shrink-0">

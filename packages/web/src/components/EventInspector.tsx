@@ -145,7 +145,7 @@ function InspectorHeaderCard({
   readonly actions: React.ReactNode;
 }): React.JSX.Element {
   return (
-    <PanelCard className={cn(cardShell, "bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(250,252,255,0.96))]")}>
+    <PanelCard className={cn(cardShell, "bg-[var(--surface)]")}>
       <div className="flex flex-col gap-4 px-5 py-5">
         <div className="min-w-0">
           <p className="mb-1 text-[0.68rem] font-bold uppercase tracking-[0.1em] text-[var(--text-3)]">{eyebrow}</p>
@@ -1066,7 +1066,7 @@ function CompactActivityCard({
           className={cn(
             "h-auto rounded-full px-3 py-1.5 text-[0.72rem] font-semibold shadow-none",
             selectedTag === "compact"
-              ? "border-[var(--planning)] bg-[color-mix(in_srgb,var(--planning)_12%,white)] text-[var(--planning)]"
+              ? "border-[var(--planning)] bg-[color-mix(in_srgb,var(--planning)_12%,var(--surface))] text-[var(--planning)]"
               : "border-[var(--border)] bg-[var(--surface)] text-[var(--text-2)] hover:border-[var(--border-2)] hover:bg-[var(--surface-2)]"
           )}
           disabled={insight.occurrences === 0 && insight.handoffCount === 0}
@@ -1121,7 +1121,7 @@ function CompactActivityCard({
               </div>
             )}
             {(insight.latestTitle || insight.latestBody || insight.lastSeenAt) && (
-              <div className="rounded-[12px] border border-[var(--border)] bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.94))] p-4">
+              <div className="rounded-[12px] border border-[var(--border)] bg-[var(--surface)] p-4">
                 <div className="flex items-start justify-between gap-3">
                   <strong className="min-w-0 text-[0.92rem] text-[var(--text-1)]">{insight.latestTitle ?? "Latest compact signal"}</strong>
                   {insight.lastSeenAt && (
@@ -1164,7 +1164,7 @@ function TaskExtractionCard({
         </div>
       </div>
       <div className={cardBody}>
-        <div className="rounded-[14px] border border-[var(--border)] bg-[radial-gradient(circle_at_top_right,rgba(13,148,136,0.1),transparent_26%),linear-gradient(180deg,rgba(240,253,250,0.86),rgba(255,255,255,1))] p-4">
+        <div className="rounded-[14px] border border-[var(--exploration-border)] bg-[color-mix(in_srgb,var(--exploration-bg)_60%,var(--surface))] p-4">
           <span className="mb-2 inline-flex text-[0.68rem] font-bold uppercase tracking-[0.08em] text-[var(--accent)]">Reusable Task</span>
           <strong className="block break-words text-[0.98rem] leading-6 text-[var(--text-1)] [overflow-wrap:anywhere]">{extraction.objective}</strong>
           <p className="mt-2 break-words text-[0.82rem] leading-6 text-[var(--text-2)] [overflow-wrap:anywhere]">{extraction.summary}</p>
@@ -1521,7 +1521,7 @@ export function EventInspector({
   ].filter((b) => b.value > 0) : [];
 
   return (
-    <aside className={cn("detail-panel flex min-h-0 flex-col overflow-hidden rounded-[12px] border border-[var(--border)] bg-[var(--surface)] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_12px_rgba(0,0,0,0.03)]", className)}>
+    <aside className={cn("detail-panel flex min-h-0 flex-1 flex-col overflow-hidden rounded-[12px] border border-[var(--border)] bg-[var(--surface)] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_12px_rgba(0,0,0,0.03)]", className)}>
       {/* ── Tab bar ── */}
       <div className="panel-tab-bar flex items-center gap-1 overflow-x-auto border-b border-[var(--border)] bg-[var(--surface)] px-3 py-2" aria-label="Inspector panels" role="tablist">
         <button

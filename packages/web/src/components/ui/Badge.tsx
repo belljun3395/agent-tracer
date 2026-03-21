@@ -15,7 +15,7 @@ const badgeTones: Record<BadgeTone, string> = {
   neutral: "border-[var(--border)] bg-[var(--bg)] text-[var(--text-2)]",
   accent: "border-[var(--accent-light)] bg-[var(--accent-light)] text-[var(--accent)]",
   success: "border-[var(--ok-bg)] bg-[var(--ok-bg)] text-[var(--ok)]",
-  warning: "border-[#fde68a] bg-[#fffbeb] text-[#b45309]",
+  warning: "border-[var(--warn-bg)] bg-[var(--warn-bg)] text-[var(--warn)]",
   danger: "border-[var(--err-bg)] bg-[var(--err-bg)] text-[var(--err)]"
 };
 
