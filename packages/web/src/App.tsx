@@ -54,6 +54,11 @@ const INSPECTOR_MAX_WIDTH = 560;
 const INSPECTOR_DEFAULT_WIDTH = 340;
 const INSPECTOR_WIDTH_STORAGE_KEY = "agent-tracer.inspector-width";
 
+const ZOOM_MIN = 0.8;
+const ZOOM_MAX = 2.5;
+const ZOOM_DEFAULT = 1.1;
+const ZOOM_STORAGE_KEY = "agent-tracer.zoom";
+
 // ---------------------------------------------------------------------------
 // Inner dashboard (consumes context)
 // ---------------------------------------------------------------------------
@@ -142,9 +147,21 @@ function Dashboard(): React.JSX.Element {
   });
   const inspectorResizeRef = useRef<{ readonly startX: number; readonly startWidth: number } | null>(null);
 
+  const [zoom, setZoom] = useState<number>(() => {
+    const raw = window.localStorage.getItem(ZOOM_STORAGE_KEY);
+    if (!raw) return ZOOM_DEFAULT;
+    const parsed = Number.parseFloat(raw);
+    if (!Number.isFinite(parsed)) return ZOOM_DEFAULT;
+    return Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, parsed));
+  });
+
   useEffect(() => {
     window.localStorage.setItem(SIDEBAR_WIDTH_STORAGE_KEY, String(sidebarWidth));
   }, [sidebarWidth]);
+
+  useEffect(() => {
+    window.localStorage.setItem(ZOOM_STORAGE_KEY, String(zoom));
+  }, [zoom]);
 
   useEffect(() => {
     window.localStorage.setItem(INSPECTOR_WIDTH_STORAGE_KEY, String(inspectorWidth));
@@ -351,6 +368,8 @@ function Dashboard(): React.JSX.Element {
         selectedTaskTitle={selectedTaskDisplayTitle ?? taskDetail?.task.title ?? null}
         taskScopeEnabled={taskScopeEnabled}
         observabilityStats={observabilityStats ? { checks: observabilityStats.checks, violations: observabilityStats.violations, passes: observabilityStats.passes } : null}
+        zoom={zoom}
+        onZoomChange={setZoom}
         onTaskScopeToggle={setTaskScopeEnabled}
         onSearchQueryChange={setSearchQuery}
         onSelectSearchTask={(taskId) => {
@@ -471,6 +490,9 @@ function Dashboard(): React.JSX.Element {
           )}
 
           <Timeline
+            zoom={zoom}
+            onZoomChange={setZoom}
+            backgroundTasks={tasks.filter((t) => t.taskKind === "background" && t.parentTaskId === selectedTaskId)}
             timeline={taskTimeline}
             taskTitle={selectedTaskDisplayTitle}
             taskWorkspacePath={taskDetail?.task.workspacePath}
@@ -521,7 +543,7 @@ function Dashboard(): React.JSX.Element {
           />
         </section>
 
-        <div className={cn("relative min-h-0 min-w-0", isStackedDashboard && "order-3")}>
+        <div className={cn("relative flex min-h-0 min-w-0 flex-col", isStackedDashboard && "order-3")}>
           {!isInspectorCollapsed && !isStackedDashboard && (
             <div
               aria-label="Resize inspector panel"
