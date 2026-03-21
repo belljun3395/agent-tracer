@@ -74,7 +74,7 @@ const OBSERVABILITY_BADGE_STYLES = {
   coordination: "border-[var(--coordination-border)] bg-[var(--coordination-bg)] text-[var(--coordination)]",
   files: "border-[var(--exploration-border)] bg-[var(--exploration-bg)] text-[var(--exploration)]",
   compacts: "border-[color-mix(in_srgb,var(--planning)_28%,white)] bg-[color-mix(in_srgb,var(--planning)_10%,white)] text-[var(--planning)]",
-  checks: "border-[#67e8f9] bg-[#ecfeff] text-[#0891b2]",
+  checks: "border-[var(--coordination-border)] bg-[var(--coordination-bg)] text-[var(--coordination)]",
   violations: "border-[#fecaca] bg-[#fef2f2] text-[var(--err)]",
   passes: "border-[#bbf7d0] bg-[#f0fdf4] text-[var(--ok)]"
 } as const;
@@ -900,7 +900,6 @@ export function Timeline({
                 .sort((a, b) => b.rowIndex - a.rowIndex)
                 .map((item) => (
                   (() => {
-                    const laneTheme = getLaneTheme(item.event.lane);
                     const questionPhase = typeof item.event.metadata["questionPhase"] === "string"
                       ? item.event.metadata["questionPhase"]
                       : undefined;
@@ -967,7 +966,7 @@ export function Timeline({
                         style={{ left: `${item.left}px`, top: `${nodeTop}px` }}
                       >
                         <div className="event-node-header">
-                          <img src={laneTheme.icon} alt="" />
+                          <span className="event-node-dot" />
                           <span className="event-lane-tag">{item.event.lane}</span>
                           {stackCount > 0 && (
                             <button
