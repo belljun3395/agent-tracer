@@ -267,18 +267,20 @@ describe("collectViolationDescriptions", () => {
     expect(collectViolationDescriptions(timeline)).toEqual([]);
   });
 
-  it("falls back to body when title is absent", () => {
+  it("uses title as the violation description", () => {
     const timeline = [
-      makeEvent({
-        kind: "verification.logged",
-        body: "Body fallback",
-        metadata: { verificationStatus: "fail" }
-      })
+      makeEvent({ kind: "verification.logged", title: "Specific error", metadata: { verificationStatus: "fail" } })
     ];
-    // Override title to undefined after construction if needed
-    expect(collectViolationDescriptions(timeline)).toSatisfy((r: readonly string[]) =>
-      r.length === 1 && (r[0] === "Body fallback" || r[0] === "이벤트")
-    );
+    expect(collectViolationDescriptions(timeline)).toEqual(["Specific error"]);
+  });
+
+  it("filters out non-violation events from a mixed timeline", () => {
+    const timeline = [
+      makeEvent({ kind: "tool.used", title: "Read file", metadata: {} }),
+      makeEvent({ kind: "verification.logged", title: "Check failed", metadata: { verificationStatus: "fail" } }),
+      makeEvent({ kind: "verification.logged", title: "Check passed", metadata: { verificationStatus: "pass" } }),
+    ];
+    expect(collectViolationDescriptions(timeline)).toEqual(["Check failed"]);
   });
 
   it("returns empty array for empty timeline", () => {
