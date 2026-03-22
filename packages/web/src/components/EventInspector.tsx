@@ -21,6 +21,7 @@ import {
   buildTodoGroups,
   collectExploredFiles,
   collectFileActivity,
+  collectViolationDescriptions,
   type CompactInsight,
   type CompactRelation,
   type DirectoryMentionVerification,
@@ -37,10 +38,12 @@ import {
 } from "../lib/insights.js";
 import { formatRelativeTime } from "../lib/timeline.js";
 import type { TimelineConnector } from "../lib/timeline.js";
+import { copyToClipboard } from "../lib/ui/clipboard.js";
 import { cn } from "../lib/ui/cn.js";
 import { Badge } from "./ui/Badge.js";
 import { Button } from "./ui/Button.js";
 import { PanelCard } from "./ui/PanelCard.js";
+import { TaskHandoffPanel } from "./TaskHandoffPanel.js";
 import type {
   BookmarkRecord,
   TaskDetailResponse,
@@ -1308,35 +1311,6 @@ function TagExplorerCard({
   );
 }
 
-async function copyToClipboard(value: string): Promise<boolean> {
-  if (navigator.clipboard?.writeText) {
-    try {
-      await navigator.clipboard.writeText(value);
-      return true;
-    } catch {
-      return copyTextFallback(value);
-    }
-  }
-
-  return copyTextFallback(value);
-}
-
-function copyTextFallback(value: string): boolean {
-  const textArea = document.createElement("textarea");
-  textArea.value = value;
-  textArea.setAttribute("readonly", "true");
-  textArea.style.position = "fixed";
-  textArea.style.opacity = "0";
-  document.body.appendChild(textArea);
-  textArea.select();
-
-  try {
-    return document.execCommand("copy");
-  } finally {
-    document.body.removeChild(textArea);
-  }
-}
-
 function toRelativePath(filePath: string, workspacePath?: string): string {
   if (!workspacePath) {
     return filePath;
@@ -1468,6 +1442,34 @@ export function EventInspector({
     () => buildMentionedFileVerifications(taskTimeline, exploredFiles, taskDetail?.task.workspacePath),
     [exploredFiles, taskDetail?.task.workspacePath, taskTimeline]
   );
+
+  // ── Handoff panel data ──
+  const handoffExploredFiles = useMemo(
+    () => collectExploredFiles(taskTimeline).map(f => f.path),
+    [taskTimeline]
+  );
+  const handoffModifiedFiles = useMemo(
+    () => collectFileActivity(taskTimeline).filter(f => f.writeCount > 0).map(f => f.path),
+    [taskTimeline]
+  );
+  const handoffOpenTodos = useMemo(
+    () => todoGroups.filter(g => !g.isTerminal).map(g => g.title),
+    [todoGroups]
+  );
+  const handoffOpenQuestions = useMemo(
+    () => questionGroups
+      .filter(g => !g.isComplete)
+      .flatMap(g => g.phases)
+      .filter(p => p.phase === "asked")
+      .map(p => p.event.body ?? p.event.title ?? "")
+      .filter(Boolean),
+    [questionGroups]
+  );
+  const handoffViolations = useMemo(
+    () => collectViolationDescriptions(taskTimeline),
+    [taskTimeline]
+  );
+
   const relatedEvents = useMemo(() => {
     if (!selectedEvent) {
       return [];
@@ -1764,6 +1766,18 @@ export function EventInspector({
               onCopyBrief={() => void handleCopyExtraction("brief")}
               onCopyProcess={() => void handleCopyExtraction("process")}
             />
+            {taskExtraction.objective && (
+              <TaskHandoffPanel
+                objective={taskExtraction.objective}
+                summary={taskExtraction.summary}
+                sections={taskExtraction.sections}
+                exploredFiles={handoffExploredFiles}
+                modifiedFiles={handoffModifiedFiles}
+                openTodos={handoffOpenTodos}
+                openQuestions={handoffOpenQuestions}
+                violations={handoffViolations}
+              />
+            )}
           </div>
 
         ) : activeTab === "compact" ? (
