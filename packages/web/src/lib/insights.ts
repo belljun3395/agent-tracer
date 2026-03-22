@@ -1543,3 +1543,113 @@ export function buildHandoffMarkdown(options: HandoffOptions): string {
 
   return parts.join("");
 }
+
+function cdata(s: string): string {
+  return `<![CDATA[${s}]]>`;
+}
+
+export function buildHandoffXML(options: HandoffOptions): string {
+  const { objective, summary, sections, exploredFiles, modifiedFiles,
+          openTodos, openQuestions, violations, memo, include } = options;
+  const lines: string[] = ["<context>"];
+
+  lines.push(`  <objective>${cdata(objective)}</objective>`);
+
+  if (include.summary && summary) {
+    lines.push(`  <summary>${cdata(summary)}</summary>`);
+  }
+
+  if (include.process && sections.length > 0) {
+    lines.push("  <process>");
+    for (const section of sections) {
+      lines.push(`    <section lane="${section.lane}" title="${section.title}">`);
+      for (const item of section.items) {
+        lines.push(`      <step>${cdata(item)}</step>`);
+      }
+      lines.push("    </section>");
+    }
+    lines.push("  </process>");
+  }
+
+  if (include.files && exploredFiles.length > 0) {
+    lines.push("  <explored_files>");
+    for (const f of exploredFiles) lines.push(`    <file>${f}</file>`);
+    lines.push("  </explored_files>");
+  }
+
+  if (include.modifiedFiles && modifiedFiles.length > 0) {
+    lines.push("  <modified_files>");
+    for (const f of modifiedFiles) lines.push(`    <file>${f}</file>`);
+    lines.push("  </modified_files>");
+  }
+
+  if (include.todos && openTodos.length > 0) {
+    lines.push("  <open_todos>");
+    for (const t of openTodos) lines.push(`    <todo>${cdata(t)}</todo>`);
+    lines.push("  </open_todos>");
+  }
+
+  if (include.violations && violations.length > 0) {
+    lines.push(`  <violations count="${violations.length}">`);
+    for (const v of violations) lines.push(`    <violation>${cdata(v)}</violation>`);
+    lines.push("  </violations>");
+  }
+
+  if (include.questions && openQuestions.length > 0) {
+    lines.push("  <open_questions>");
+    for (const q of openQuestions) lines.push(`    <question>${cdata(q)}</question>`);
+    lines.push("  </open_questions>");
+  }
+
+  if (memo.trim()) {
+    lines.push(`  <handoff_note>${cdata(memo.trim())}</handoff_note>`);
+  }
+
+  lines.push("</context>");
+  return lines.join("\n");
+}
+
+export function buildHandoffSystemPrompt(options: HandoffOptions): string {
+  const { objective, summary, sections, exploredFiles, modifiedFiles,
+          openTodos, openQuestions, violations, memo, include } = options;
+  const parts: string[] = [
+    "You are continuing a software development task. Below is the full context from the previous session.",
+    `\n## Task\n${objective}`
+  ];
+
+  if (include.summary && summary) {
+    parts.push(`\n## What was done\n${summary}`);
+  }
+
+  if (include.process && sections.length > 0) {
+    const items = sections.flatMap(s => s.items.map(i => `- ${s.lane}: ${i}`));
+    parts.push(`\n## Process steps\n${items.join("\n")}`);
+  }
+
+  if (include.files && exploredFiles.length > 0) {
+    parts.push(`\n## Files explored\n${exploredFiles.map(f => `- ${f}`).join("\n")}`);
+  }
+
+  if (include.modifiedFiles && modifiedFiles.length > 0) {
+    parts.push(`\n## Files modified\n${modifiedFiles.map(f => `- ${f}`).join("\n")}`);
+  }
+
+  if (include.todos && openTodos.length > 0) {
+    parts.push(`\n## What still needs to be done\n${openTodos.map(t => `- ${t}`).join("\n")}`);
+  }
+
+  if (include.violations && violations.length > 0) {
+    parts.push(`\n## Watch out for\n${violations.map(v => `- ${v}`).join("\n")}`);
+  }
+
+  if (include.questions && openQuestions.length > 0) {
+    parts.push(`\n## Open questions\n${openQuestions.map(q => `- ${q}`).join("\n")}`);
+  }
+
+  if (memo.trim()) {
+    parts.push(`\n## Note from previous session\n${memo.trim()}`);
+  }
+
+  parts.push("\nBegin by acknowledging you have read this context, then ask what to tackle first.");
+  return parts.join("");
+}
