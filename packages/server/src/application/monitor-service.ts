@@ -18,7 +18,8 @@ import type {
   TaskQuestionInput, TaskPatchInput, TaskRenameInput, TaskRuleInput, TaskSessionEndInput,
   TaskStartInput, TaskTerminalCommandInput, TaskThoughtInput, TaskTodoInput,
   TaskToolUsedInput, TaskUserMessageInput, TaskVerifyInput,
-  RuntimeSessionEnsureInput, RuntimeSessionEnsureResult, RuntimeSessionEndInput, TaskSearchInput
+  RuntimeSessionEnsureInput, RuntimeSessionEnsureResult, RuntimeSessionEndInput, TaskSearchInput,
+  TaskAssistantResponseInput
 } from "./types.js";
 import { EventRecorder } from "./services/event-recorder.js";
 import { SessionLifecyclePolicy } from "./services/session-lifecycle-policy.js";
@@ -102,6 +103,23 @@ export class MonitorService {
       ...(input.body ? { body: input.body } : {}),
       ...(filePaths.length > 0 ? { filePaths } : {}),
       metadata: meta
+    });
+    return { task, ...(input.sessionId ? { sessionId: input.sessionId } : {}), events: [{ id: event.id, kind: event.kind }] };
+  }
+
+  async logAssistantResponse(input: TaskAssistantResponseInput): Promise<RecordedEventEnvelope> {
+    const task = await this.requireTask(input.taskId);
+    const event = await this.recorder.record({
+      taskId: input.taskId,
+      kind: "assistant.response",
+      title: input.title,
+      ...(input.sessionId ? { sessionId: input.sessionId } : {}),
+      ...(input.body      ? { body: input.body }           : {}),
+      metadata: {
+        ...(input.metadata ?? {}),
+        messageId: input.messageId,
+        source:    input.source
+      }
     });
     return { task, ...(input.sessionId ? { sessionId: input.sessionId } : {}), events: [{ id: event.id, kind: event.kind }] };
   }
