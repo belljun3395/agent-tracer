@@ -54,7 +54,8 @@ export type MonitoringEventKind =
   | "thought.logged"
   | "user.message"
   | "question.logged"
-  | "todo.logged";
+  | "todo.logged"
+  | "assistant.response";
 
 export type MonitoringTaskKind = "primary" | "background";
 
@@ -200,6 +201,8 @@ export function defaultLaneForEventKind(kind: MonitoringEventKind): TimelineLane
       return "todos";
     case "thought.logged":
       return "planning";
+    case "assistant.response":
+      return "user";
   }
 }
 
