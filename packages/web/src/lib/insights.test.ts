@@ -4,6 +4,8 @@ import type { MonitoringTask, TimelineEvent } from "../types.js";
 import {
   buildHandoffMarkdown,
   buildHandoffPlain,
+  buildHandoffXML,
+  buildHandoffSystemPrompt,
   buildObservabilityStats,
   buildQuestionGroups,
   buildTaskDisplayTitle,
@@ -418,5 +420,86 @@ describe("buildHandoffMarkdown", () => {
       include: { summary: false, process: false, files: false, modifiedFiles: false, todos: false, violations: false, questions: false }
     }));
     expect(result).toContain("## Objective\nBuild the feature");
+  });
+});
+
+describe("buildHandoffXML", () => {
+  it("produces valid XML structure with CDATA wrappers", () => {
+    const result = buildHandoffXML(makeHandoff());
+    expect(result).toContain("<context>");
+    expect(result).toContain("</context>");
+    expect(result).toContain("<objective><![CDATA[Build the feature]]></objective>");
+    expect(result).toContain("<summary><![CDATA[Implemented X and Y]]></summary>");
+    expect(result).toContain("<process>");
+    expect(result).toContain('lane="implementation"');
+    expect(result).toContain("<step><![CDATA[Did A]]></step>");
+    expect(result).toContain("<explored_files>");
+    expect(result).toContain("<file>src/App.tsx</file>");
+    expect(result).toContain("<modified_files>");
+    expect(result).toContain("<open_todos>");
+    expect(result).toContain("<todo><![CDATA[Write tests]]></todo>");
+    expect(result).toContain('<violations count="1">');
+    expect(result).toContain("<violation><![CDATA[No console.log allowed]]></violation>");
+    expect(result).toContain("<handoff_note><![CDATA[Start from the tests]]></handoff_note>");
+  });
+
+  it("omits questions when include.questions = false", () => {
+    const result = buildHandoffXML(makeHandoff());
+    expect(result).not.toContain("<open_questions>");
+  });
+
+  it("includes questions when enabled", () => {
+    const result = buildHandoffXML(makeHandoff({
+      include: { summary: true, process: true, files: true, modifiedFiles: true, todos: true, violations: true, questions: true }
+    }));
+    expect(result).toContain("<open_questions>");
+    expect(result).toContain("<question><![CDATA[Should we use Redux?]]></question>");
+  });
+
+  it("omits empty sections entirely", () => {
+    const result = buildHandoffXML(makeHandoff({ openTodos: [] }));
+    expect(result).not.toContain("<open_todos>");
+  });
+
+  it("omits handoff_note when memo is blank", () => {
+    const result = buildHandoffXML(makeHandoff({ memo: "" }));
+    expect(result).not.toContain("<handoff_note>");
+  });
+});
+
+describe("buildHandoffSystemPrompt", () => {
+  it("starts with the continuity preamble", () => {
+    const result = buildHandoffSystemPrompt(makeHandoff());
+    expect(result).toContain("You are continuing a software development task");
+  });
+
+  it("includes objective under ## Task", () => {
+    const result = buildHandoffSystemPrompt(makeHandoff());
+    expect(result).toContain("## Task\nBuild the feature");
+  });
+
+  it("includes todos under ## What still needs to be done", () => {
+    const result = buildHandoffSystemPrompt(makeHandoff());
+    expect(result).toContain("## What still needs to be done\n- Write tests");
+  });
+
+  it("includes violations under ## Watch out for", () => {
+    const result = buildHandoffSystemPrompt(makeHandoff());
+    expect(result).toContain("## Watch out for\n- No console.log allowed");
+  });
+
+  it("ends with acknowledgement request", () => {
+    const result = buildHandoffSystemPrompt(makeHandoff());
+    expect(result).toContain("Begin by acknowledging you have read this context");
+  });
+
+  it("omits empty sections", () => {
+    const result = buildHandoffSystemPrompt(makeHandoff({ openTodos: [] }));
+    expect(result).not.toContain("## What still needs to be done");
+  });
+
+  it("omits note section when memo is blank", () => {
+    const result = buildHandoffSystemPrompt(makeHandoff({ memo: "" }));
+    expect(result).not.toContain("## Note from previous session");
   });
 });
