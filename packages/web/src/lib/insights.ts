@@ -1500,3 +1500,46 @@ export function buildHandoffPlain(options: HandoffOptions): string {
 
   return lines.join("\n");
 }
+
+export function buildHandoffMarkdown(options: HandoffOptions): string {
+  const { objective, summary, sections, exploredFiles, modifiedFiles,
+          openTodos, openQuestions, violations, memo, include } = options;
+  const parts: string[] = ["# Task Context", `\n## Objective\n${objective}`];
+
+  if (include.summary && summary) {
+    parts.push(`\n## Summary\n${summary}`);
+  }
+
+  if (include.process && sections.length > 0) {
+    const sectionLines = sections.map(s =>
+      `### ${s.title}\n${s.items.map(i => `- ${i}`).join("\n")}`
+    );
+    parts.push(`\n## Process\n${sectionLines.join("\n\n")}`);
+  }
+
+  if (include.files && exploredFiles.length > 0) {
+    parts.push(`\n## Explored Files\n${exploredFiles.map(f => `- \`${f}\``).join("\n")}`);
+  }
+
+  if (include.modifiedFiles && modifiedFiles.length > 0) {
+    parts.push(`\n## Modified Files\n${modifiedFiles.map(f => `- \`${f}\``).join("\n")}`);
+  }
+
+  if (include.todos && openTodos.length > 0) {
+    parts.push(`\n## Open TODOs\n${openTodos.map(t => `- ${t}`).join("\n")}`);
+  }
+
+  if (include.violations && violations.length > 0) {
+    parts.push(`\n## Violations\n${violations.map(v => `- ${v}`).join("\n")}`);
+  }
+
+  if (include.questions && openQuestions.length > 0) {
+    parts.push(`\n## Open Questions\n${openQuestions.map(q => `- ${q}`).join("\n")}`);
+  }
+
+  if (memo.trim()) {
+    parts.push(`\n## Handoff Note\n${memo.trim()}`);
+  }
+
+  return parts.join("");
+}

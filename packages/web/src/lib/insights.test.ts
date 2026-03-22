@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { MonitoringTask, TimelineEvent } from "../types.js";
 import {
+  buildHandoffMarkdown,
   buildHandoffPlain,
   buildObservabilityStats,
   buildQuestionGroups,
@@ -372,5 +373,50 @@ describe("buildHandoffPlain", () => {
       include: { summary: false, process: false, files: false, modifiedFiles: false, todos: false, violations: false, questions: false }
     }));
     expect(result).toContain("Task: Build the feature");
+  });
+});
+
+describe("buildHandoffMarkdown", () => {
+  it("produces markdown structure for all enabled sections", () => {
+    const result = buildHandoffMarkdown(makeHandoff());
+    expect(result).toContain("# Task Context");
+    expect(result).toContain("## Objective\nBuild the feature");
+    expect(result).toContain("## Summary\nImplemented X and Y");
+    expect(result).toContain("## Process\n### Implementation\n- Did A\n- Did B");
+    expect(result).toContain("## Explored Files\n- `src/App.tsx`\n- `src/lib/insights.ts`");
+    expect(result).toContain("## Modified Files\n- `src/App.tsx`");
+    expect(result).toContain("## Open TODOs\n- Write tests");
+    expect(result).toContain("## Violations\n- No console.log allowed");
+    expect(result).toContain("## Handoff Note\nStart from the tests");
+  });
+
+  it("omits questions section when include.questions = false", () => {
+    const result = buildHandoffMarkdown(makeHandoff());
+    expect(result).not.toContain("## Open Questions");
+  });
+
+  it("includes questions when include.questions = true", () => {
+    const result = buildHandoffMarkdown(makeHandoff({
+      include: { summary: true, process: true, files: true, modifiedFiles: true, todos: true, violations: true, questions: true }
+    }));
+    expect(result).toContain("## Open Questions\n- Should we use Redux?");
+  });
+
+  it("omits sections with no content", () => {
+    const result = buildHandoffMarkdown(makeHandoff({ openTodos: [], violations: [] }));
+    expect(result).not.toContain("## Open TODOs");
+    expect(result).not.toContain("## Violations");
+  });
+
+  it("omits handoff note section when memo is blank", () => {
+    const result = buildHandoffMarkdown(makeHandoff({ memo: "" }));
+    expect(result).not.toContain("## Handoff Note");
+  });
+
+  it("always includes objective", () => {
+    const result = buildHandoffMarkdown(makeHandoff({
+      include: { summary: false, process: false, files: false, modifiedFiles: false, todos: false, violations: false, questions: false }
+    }));
+    expect(result).toContain("## Objective\nBuild the feature");
   });
 });
