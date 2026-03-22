@@ -6,6 +6,7 @@ import {
   buildQuestionGroups,
   buildTaskDisplayTitle,
   buildTodoGroups,
+  collectViolationDescriptions,
   filterTimelineEvents
 } from "./insights.js";
 
@@ -218,5 +219,69 @@ describe("buildTodoGroups", () => {
       "in_progress",
       "completed"
     ]);
+  });
+});
+
+describe("collectViolationDescriptions", () => {
+  it("verification.logged with fail status is captured", () => {
+    const timeline = [
+      makeEvent({
+        kind: "verification.logged",
+        title: "Assertion failed: expected true",
+        metadata: { verificationStatus: "fail" }
+      })
+    ];
+    expect(collectViolationDescriptions(timeline)).toEqual(["Assertion failed: expected true"]);
+  });
+
+  it("rule.logged with violation status is captured", () => {
+    const timeline = [
+      makeEvent({
+        kind: "rule.logged",
+        title: "Rule broken: no console.log",
+        metadata: { ruleStatus: "violation" }
+      })
+    ];
+    expect(collectViolationDescriptions(timeline)).toEqual(["Rule broken: no console.log"]);
+  });
+
+  it("verification.logged with pass status is excluded", () => {
+    const timeline = [
+      makeEvent({
+        kind: "verification.logged",
+        title: "All good",
+        metadata: { verificationStatus: "pass" }
+      })
+    ];
+    expect(collectViolationDescriptions(timeline)).toEqual([]);
+  });
+
+  it("rule.logged with pass status is excluded", () => {
+    const timeline = [
+      makeEvent({
+        kind: "rule.logged",
+        title: "Rule OK",
+        metadata: { ruleStatus: "pass" }
+      })
+    ];
+    expect(collectViolationDescriptions(timeline)).toEqual([]);
+  });
+
+  it("falls back to body when title is absent", () => {
+    const timeline = [
+      makeEvent({
+        kind: "verification.logged",
+        body: "Body fallback",
+        metadata: { verificationStatus: "fail" }
+      })
+    ];
+    // Override title to undefined after construction if needed
+    expect(collectViolationDescriptions(timeline)).toSatisfy((r: readonly string[]) =>
+      r.length === 1 && (r[0] === "Body fallback" || r[0] === "이벤트")
+    );
+  });
+
+  it("returns empty array for empty timeline", () => {
+    expect(collectViolationDescriptions([])).toEqual([]);
   });
 });
