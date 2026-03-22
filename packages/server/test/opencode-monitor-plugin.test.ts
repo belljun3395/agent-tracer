@@ -93,6 +93,33 @@ function assistantMessageUpdatedEvent(
   };
 }
 
+function assistantMessageUpdatedEventWithParts(
+  sessionId: string,
+  messageId: string,
+  parts: Array<{ type: string; text?: string }>,
+  tokens?: { input?: number; output?: number; cache?: { read?: number; write?: number } }
+): MonitorEvent {
+  return {
+    type: "message.updated",
+    properties: {
+      info: {
+        id: messageId,
+        sessionID: sessionId,
+        role: "assistant",
+        time: { created: 0, completed: 1 },
+        finish: "stop",
+        tokens: {
+          input: tokens?.input ?? 0,
+          output: tokens?.output ?? 0,
+          reasoning: 0,
+          cache: { read: tokens?.cache?.read ?? 0, write: tokens?.cache?.write ?? 0 }
+        }
+      },
+      parts
+    }
+  } as unknown as MonitorEvent;
+}
+
 function commandExecutedEvent(
   overrides: Record<string, unknown>
 ): MonitorEvent {
@@ -1564,5 +1591,107 @@ describe("OpenCode monitor plugin", () => {
     expect(sessionEndCall?.body).toEqual(expect.objectContaining({
       summary: "OpenCode exit command executed"
     }));
+  });
+
+  it("emits assistant-response when message.updated has text parts", async () => {
+    const hooks = createMonitorHooks("/repo");
+
+    await hooks.event?.({ event: sessionEvent("session.created", "session-ar-1") });
+    await hooks["tool.execute.after"]?.(
+      { tool: "bash", sessionID: "session-ar-1", callID: "call-ar-1", args: { command: "pwd" } },
+      { title: "pwd", output: "/repo", metadata: {} }
+    );
+    await hooks.event?.({
+      event: assistantMessageUpdatedEventWithParts(
+        "session-ar-1", "msg-ar-1",
+        [{ type: "text", text: "Hello, this is the assistant response." }]
+      )
+    });
+
+    const arCall = calls.find((c) => c.endpoint === "/api/assistant-response");
+    expect(arCall?.body).toEqual(expect.objectContaining({
+      taskId: "task-session-ar-1",
+      sessionId: "monitor-session-ar-1",
+      messageId: "msg-ar-1",
+      source: "opencode-plugin",
+      title: "Hello, this is the assistant response.",
+      body: "Hello, this is the assistant response."
+    }));
+  });
+
+  it("skips assistant-response when message.updated has no text parts", async () => {
+    const hooks = createMonitorHooks("/repo");
+
+    await hooks.event?.({ event: sessionEvent("session.created", "session-ar-2") });
+    await hooks["tool.execute.after"]?.(
+      { tool: "bash", sessionID: "session-ar-2", callID: "call-ar-2", args: { command: "pwd" } },
+      { title: "pwd", output: "/repo", metadata: {} }
+    );
+    await hooks.event?.({
+      event: assistantMessageUpdatedEvent("session-ar-2", "msg-ar-2")
+    });
+
+    expect(calls.find((c) => c.endpoint === "/api/assistant-response")).toBeUndefined();
+  });
+
+  it("includes token counts in assistant-response metadata", async () => {
+    const hooks = createMonitorHooks("/repo");
+
+    await hooks.event?.({ event: sessionEvent("session.created", "session-ar-3") });
+    await hooks["tool.execute.after"]?.(
+      { tool: "bash", sessionID: "session-ar-3", callID: "call-ar-3", args: { command: "pwd" } },
+      { title: "pwd", output: "/repo", metadata: {} }
+    );
+    await hooks.event?.({
+      event: assistantMessageUpdatedEventWithParts(
+        "session-ar-3", "msg-ar-3",
+        [{ type: "text", text: "Response with tokens." }],
+        { input: 100, output: 50, cache: { read: 25, write: 10 } }
+      )
+    });
+
+    const arCall = calls.find((c) => c.endpoint === "/api/assistant-response");
+    expect(arCall?.body.metadata).toEqual(expect.objectContaining({
+      inputTokens: 100,
+      outputTokens: 50,
+      cacheReadTokens: 25,
+      cacheWriteTokens: 10
+    }));
+  });
+
+  it("non-fatal assistant-response failure does not prevent session finalization", async () => {
+    const localCalls: FetchCall[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (url: string | URL | globalThis.Request, init?: RequestInit) => {
+      const endpoint = new URL(requestUrl(url)).pathname;
+      const body = init?.body ? JSON.parse(String(init.body)) as Record<string, unknown> : {};
+      if (endpoint === "/api/assistant-response") throw new Error("network error");
+      localCalls.push({ endpoint, body });
+      if (endpoint === "/api/task-start") {
+        const opencodeSessionId = String(body.metadata && (body.metadata as Record<string, unknown>).opencodeSessionId);
+        return jsonResponse({
+          task: { id: `task-${opencodeSessionId}` },
+          sessionId: `monitor-${opencodeSessionId}`
+        });
+      }
+      return jsonResponse({ ok: true });
+    }));
+
+    const hooks = createMonitorHooks("/repo");
+    await hooks.event?.({ event: sessionEvent("session.created", "session-ar-4") });
+    await hooks["tool.execute.after"]?.(
+      { tool: "bash", sessionID: "session-ar-4", callID: "call-ar-4", args: { command: "pwd" } },
+      { title: "pwd", output: "/repo", metadata: {} }
+    );
+    await hooks.event?.({
+      event: assistantMessageUpdatedEventWithParts(
+        "session-ar-4", "msg-ar-4",
+        [{ type: "text", text: "Should fail but finalize anyway." }]
+      )
+    });
+
+    const sessionEndCall = localCalls.find(
+      (c) => c.endpoint === "/api/session-end" && String(c.body.taskId) === "task-session-ar-4"
+    );
+    expect(sessionEndCall).toBeDefined();
   });
 });
