@@ -1420,3 +1420,13 @@ function extractMetadataStringArray(
 
   return value.filter((entry): entry is string => typeof entry === "string");
 }
+
+export function collectViolationDescriptions(timeline: readonly TimelineEvent[]): readonly string[] {
+  return timeline
+    .filter(e =>
+      (e.kind === "verification.logged" && e.metadata["verificationStatus"] === "fail") ||
+      (e.kind === "rule.logged" && e.metadata["ruleStatus"] === "violation")
+    )
+    .map(e => e.title ?? e.body ?? "Violation detected")
+    .filter(Boolean);
+}
