@@ -106,19 +106,21 @@ This makes `"web_search"`, `"web-search"`, `"WebSearch"`, `"websearch"` all equi
 
 ```typescript
 export function resolveExplorationCategory(
-  event: Pick<TimelineEvent, "lane" | "metadata" | "title" | "classification">
+  event: Pick<TimelineEvent, "metadata" | "title" | "classification">
 ): ExplorationCategory | null
 ```
 
-**Step 1 — toolName:** If `event.metadata["toolName"]` is a non-empty string, normalize it and check if any category pattern `includes`-matches the normalized value or vice versa.
+Note: the lane guard (`lane === "exploration"`) is the caller's responsibility (Timeline.tsx). The function itself does not receive `lane` — it matches purely on event content.
 
-**Step 2 — title prefix:** Extract the substring before the first `":"` in `event.title`. Normalize it and run the same includes-match.
+**Step 1 — toolName:** If `event.metadata["toolName"]` is a non-empty string, normalize it and check each category in `EXPLORATION_CATEGORIES` order. Return the **first** category whose patterns array contains a pattern `p` where `normalizedInput.includes(p) || p.includes(normalizedInput)`.
 
-**Step 3 — tags:** Find any tag in `event.classification.tags` that starts with `"mcp-tool:"`. Extract the suffix, normalize, and match.
+**Step 2 — title prefix:** If step 1 produced no match, extract the substring before the first `":"` in `event.title` (or the entire title if no `":"` is present — including empty string, which silently produces no match). Normalize and run the same first-match scan.
+
+**Step 3 — tags:** If step 2 produced no match, find the first tag in `event.classification.tags` that starts with `"mcp-tool:"`. Extract the suffix (`tag.slice("mcp-tool:".length)`), normalize, and run the same first-match scan.
 
 **Step 4 — null:** Return `null` if no step matched.
 
-**Matching rule:** A pattern matches if `normalizedInput.includes(normalizedPattern) || normalizedPattern.includes(normalizedInput)`. This handles both directions — `"websearch"` matches pattern `"search"`, and `"search"` matches tool name `"my_search_tool"`.
+**Matching rule:** A pattern `p` matches normalized input `n` if `n.includes(p) || p.includes(n)`. This handles both directions — `"websearch"` matches pattern `"search"` (n contains p), and `"search"` matches tool name `"my_search_tool"` (n contains p). **First match in `EXPLORATION_CATEGORIES` array order wins** — when a tool name satisfies patterns in multiple categories, the earlier entry in the array takes precedence.
 
 ### Extensibility
 
@@ -219,5 +221,7 @@ Unit tests covering:
 - Test all 3 matching paths independently
 - Test priority order (toolName before title)
 - Test normalization: `"web_search"` and `"websearch"` and `"WebSearch"` all produce same result
-- Test null cases: no match, non-exploration lane
+- Test null cases: no match
+- Test title with no `":"` — full title used as key (e.g., `"websearch"` → search category)
+- Test first-match wins when tool name could match multiple categories (e.g., `"read_list"` → `"read"` category wins because it appears first in the array)
 - No UI snapshot tests — visual verification sufficient
