@@ -974,7 +974,7 @@ export function Timeline({
                         role="button"
                         tabIndex={0}
                         className={cn(
-                          `event-node ${item.event.lane}`,
+                          `event-node ${item.event.lane} kind-${item.event.kind.replace(/\./g, "-")}`,
                           item.event.id === selectedEvent?.id && "active",
                           selectedConnector && (item.event.id === selectedConnector.source.id || item.event.id === selectedConnector.target.id) && "linked",
                           item.rowIndex > 0 && "stacked-behind"

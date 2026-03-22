@@ -643,6 +643,10 @@
 .event-node.coordination { border-color: var(--coordination-border); background: var(--coordination-bg); }
 .event-node.background   { border-color: var(--background-border);   background: var(--background-bg); }
 
+/* Event-kind overrides (higher specificity than lane) */
+.event-node.kind-assistant-response { border-color: var(--assistant-border); background: var(--assistant-bg); }
+.event-node.kind-assistant-response .event-node-dot { background: var(--assistant); }
+
 .event-node-header {
   display: flex;
   align-items: center;

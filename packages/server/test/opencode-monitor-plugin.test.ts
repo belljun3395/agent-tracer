@@ -1619,7 +1619,7 @@ describe("OpenCode monitor plugin", () => {
     }));
   });
 
-  it("skips assistant-response when message.updated has no text parts", async () => {
+  it("emits assistant-response with fallback title when message.updated has no text parts", async () => {
     const hooks = createMonitorHooks("/repo");
 
     await hooks.event?.({ event: sessionEvent("session.created", "session-ar-2") });
@@ -1631,7 +1631,10 @@ describe("OpenCode monitor plugin", () => {
       event: assistantMessageUpdatedEvent("session-ar-2", "msg-ar-2")
     });
 
-    expect(calls.find((c) => c.endpoint === "/api/assistant-response")).toBeUndefined();
+    const arCall = calls.find((c) => c.endpoint === "/api/assistant-response");
+    expect(arCall).toBeDefined();
+    expect(arCall?.body.title).toBe("Response (stop)");
+    expect(arCall?.body.body).toBeUndefined();
   });
 
   it("includes token counts in assistant-response metadata", async () => {

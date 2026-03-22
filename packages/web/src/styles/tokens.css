@@ -17,6 +17,10 @@
   --user-bg: #fff1f2;
   --user-border: #fecdd3;
 
+  --assistant: #0369a1;
+  --assistant-bg: #f0f9ff;
+  --assistant-border: #bae6fd;
+
   --exploration: #0d9488;
   --exploration-bg: #f0fdf9;
   --exploration-border: #99f6e4;
@@ -87,6 +91,9 @@
     --user-bg:           #2A0A12;
     --user-border:       #5C1526;
 
+    --assistant-bg:      #062035;
+    --assistant-border:  #0A4570;
+
     --exploration-bg:    #062220;
     --exploration-border:#0D4A45;
 
@@ -138,6 +145,9 @@
 
   --user-bg:           #2A0A12;
   --user-border:       #5C1526;
+
+  --assistant-bg:      #062035;
+  --assistant-border:  #0A4570;
 
   --exploration-bg:    #062220;
   --exploration-border:#0D4A45;

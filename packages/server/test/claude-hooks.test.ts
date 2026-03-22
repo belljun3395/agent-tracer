@@ -638,17 +638,14 @@ describe("Claude hooks", () => {
     ]);
   });
 
-  it("Stop hook: string transcript → assistant-response with full text", async () => {
+  it("Stop hook: last_assistant_message → assistant-response with full text", async () => {
     const monitor = await startMonitorStub();
     servers.push(monitor);
 
     await runClaudeHook(stopHook, {
       session_id: "parent-session",
       stop_reason: "end_turn",
-      transcript: [
-        { role: "user", content: "Fix the bug" },
-        { role: "assistant", content: "I'll fix the bug by editing the file." }
-      ],
+      last_assistant_message: "I'll fix the bug by editing the file.",
       usage: { input_tokens: 100, output_tokens: 40 }
     }, monitor.port);
 
@@ -660,30 +657,39 @@ describe("Claude hooks", () => {
     expect((response!.body.metadata as Record<string, unknown>).stopReason).toBe("end_turn");
     expect((response!.body.metadata as Record<string, unknown>).inputTokens).toBe(100);
     expect((response!.body.metadata as Record<string, unknown>).outputTokens).toBe(40);
+
+    // Stop hook also completes the task via runtime-session-end
+    const sessionEnd = monitor.calls.find(c => c.endpoint === "/api/runtime-session-end");
+    expect(sessionEnd).toBeDefined();
+    expect(sessionEnd!.body.completeTask).toBe(true);
+    expect(sessionEnd!.body.completionReason).toBe("assistant_turn_complete");
   });
 
-  it("Stop hook: array-of-blocks transcript → concatenated text blocks only", async () => {
+  it("Stop hook: last_assistant_message with cache tokens → all token fields populated", async () => {
     const monitor = await startMonitorStub();
     servers.push(monitor);
 
     await runClaudeHook(stopHook, {
       session_id: "parent-session",
       stop_reason: "end_turn",
-      transcript: [
-        { role: "user", content: "What is 2+2?" },
-        { role: "assistant", content: [
-          { type: "tool_use", id: "t1", name: "bash", input: {} },
-          { type: "text", text: "The answer is 4." }
-        ]}
-      ]
+      last_assistant_message: "The answer is 4.",
+      usage: {
+        input_tokens: 50,
+        output_tokens: 10,
+        cache_read_input_tokens: 200,
+        cache_creation_input_tokens: 300
+      }
     }, monitor.port);
 
     const response = monitor.calls.find(c => c.endpoint === "/api/assistant-response");
     expect(response).toBeDefined();
     expect(response!.body.body).toBe("The answer is 4.");
+    const meta = response!.body.metadata as Record<string, unknown>;
+    expect(meta.cacheReadTokens).toBe(200);
+    expect(meta.cacheCreateTokens).toBe(300);
   });
 
-  it("Stop hook: missing transcript → empty body, fallback title", async () => {
+  it("Stop hook: missing last_assistant_message → empty body, fallback title", async () => {
     const monitor = await startMonitorStub();
     servers.push(monitor);
 
@@ -705,9 +711,7 @@ describe("Claude hooks", () => {
     await runClaudeHook(stopHook, {
       session_id: "parent-session",
       stop_reason: "end_turn",
-      transcript: [
-        { role: "assistant", content: "Done." }
-      ]
+      last_assistant_message: "Done."
     }, monitor.port);
 
     const response = monitor.calls.find(c => c.endpoint === "/api/assistant-response");
