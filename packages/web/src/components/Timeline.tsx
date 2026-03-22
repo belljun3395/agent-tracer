@@ -21,6 +21,7 @@ import {
   RULER_HEIGHT,
   TIMELINE_LANES
 } from "../lib/timeline.js";
+import { resolveExplorationCategory } from "../lib/explorationCategory.js";
 import { filterTimelineEvents } from "../lib/insights.js";
 import { cn } from "../lib/ui/cn.js";
 import { getLaneTheme } from "../lib/ui/laneTheme.js";
@@ -1002,6 +1003,19 @@ export function Timeline({
                         <div className="event-node-header">
                           <span className="event-node-dot" />
                           <span className="event-lane-tag">{item.event.lane}</span>
+                          {item.event.lane === "exploration" && (() => {
+                            const cat = resolveExplorationCategory(item.event);
+                            return cat ? (
+                              <span
+                                aria-label={cat.category}
+                                className="text-[0.75rem] opacity-70 select-none leading-none"
+                                role="img"
+                                title={cat.category}
+                              >
+                                {cat.icon}
+                              </span>
+                            ) : null;
+                          })()}
                           {stackCount > 0 && (
                             <button
                               className="stack-badge-btn"
