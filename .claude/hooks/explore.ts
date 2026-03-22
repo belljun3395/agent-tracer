@@ -54,7 +54,7 @@ async function main(): Promise<void> {
   } else if (toolName === "WebSearch" || toolName === "WebFetch") {
     const query = toTrimmedString(toolInput.query) || toTrimmedString(toolInput.url);
     title = `${toolName}: ${query.slice(0, 60)}`;
-    body = `Web lookup: ${query.slice(0, 200)}`;
+    body = `Web lookup: ${query}`;
   }
 
   await postJson("/api/explore", {

@@ -10,8 +10,6 @@ import {
   toTrimmedString
 } from "./common.js";
 
-const MAX_COMMAND_LENGTH = 500;
-
 async function main(): Promise<void> {
   const payload = await readStdinJson();
   hookLogPayload("terminal", payload);
@@ -33,9 +31,9 @@ async function main(): Promise<void> {
   await postJson("/api/terminal-command", {
     taskId: ids.taskId,
     sessionId: ids.sessionId,
-    command: command.slice(0, MAX_COMMAND_LENGTH),
+    command,
     title: description || command.slice(0, 80),
-    body: description ? `${description}\n\n$ ${command.slice(0, 300)}` : command,
+    body: description ? `${description}\n\n$ ${command}` : command,
     lane,
     metadata: {
       description
@@ -50,10 +48,10 @@ async function main(): Promise<void> {
     taskId: ids.taskId,
     sessionId: ids.sessionId,
     title: description,
-    body: `Intent: ${description}\nAction: $ ${command.slice(0, 200)}`,
+    body: `Intent: ${description}\nAction: $ ${command}`,
     lane: "planning",
     metadata: {
-      command: command.slice(0, 200)
+      command
     }
   });
 }
