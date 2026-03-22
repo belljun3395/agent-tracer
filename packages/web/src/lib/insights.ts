@@ -1573,13 +1573,13 @@ export function buildHandoffXML(options: HandoffOptions): string {
 
   if (include.files && exploredFiles.length > 0) {
     lines.push("  <explored_files>");
-    for (const f of exploredFiles) lines.push(`    <file>${f}</file>`);
+    for (const f of exploredFiles) lines.push(`    <file>${cdata(f)}</file>`);
     lines.push("  </explored_files>");
   }
 
   if (include.modifiedFiles && modifiedFiles.length > 0) {
     lines.push("  <modified_files>");
-    for (const f of modifiedFiles) lines.push(`    <file>${f}</file>`);
+    for (const f of modifiedFiles) lines.push(`    <file>${cdata(f)}</file>`);
     lines.push("  </modified_files>");
   }
 

@@ -1458,6 +1458,7 @@ export function EventInspector({
   );
   const handoffOpenQuestions = useMemo(
     () => questionGroups
+      .filter(g => !g.isComplete)
       .flatMap(g => g.phases)
       .filter(p => p.phase === "asked")
       .map(p => p.event.body ?? p.event.title ?? "")

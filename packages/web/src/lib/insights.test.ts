@@ -434,7 +434,7 @@ describe("buildHandoffXML", () => {
     expect(result).toContain('lane="implementation"');
     expect(result).toContain("<step><![CDATA[Did A]]></step>");
     expect(result).toContain("<explored_files>");
-    expect(result).toContain("<file>src/App.tsx</file>");
+    expect(result).toContain("<file><![CDATA[src/App.tsx]]></file>");
     expect(result).toContain("<modified_files>");
     expect(result).toContain("<open_todos>");
     expect(result).toContain("<todo><![CDATA[Write tests]]></todo>");
