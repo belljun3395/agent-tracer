@@ -326,3 +326,13 @@ export const runtimeSessionEndSchema = z.object({
   completeTask: z.boolean().optional(),
   completionReason: z.enum(["idle", "assistant_turn_complete", "explicit_exit", "runtime_terminated"]).optional()
 });
+
+export const assistantResponseSchema = z.object({
+  taskId:    z.string().min(1),
+  sessionId: z.string().min(1).optional(),
+  messageId: z.string().min(1),
+  source:    z.string().min(1),
+  title:     z.string().min(1),
+  body:      z.string().optional(),
+  metadata:  z.record(z.unknown()).optional()
+});
