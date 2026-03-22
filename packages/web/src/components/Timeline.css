@@ -1047,6 +1047,21 @@
 .minimap-dot.coordination { background: var(--coordination); }
 .minimap-dot.background   { background: var(--background); }
 
+.minimap-gap {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: repeating-linear-gradient(
+    90deg,
+    transparent 0px,
+    transparent 2px,
+    color-mix(in srgb, var(--border) 60%, transparent) 2px,
+    color-mix(in srgb, var(--border) 60%, transparent) 3px
+  );
+  pointer-events: none;
+  opacity: 0.7;
+}
+
 .minimap-viewport {
   position: absolute;
   top: 0;
