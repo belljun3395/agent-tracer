@@ -192,7 +192,9 @@ export function hookLog(hookName: string, message: string, data?: Record<string,
     const ts = new Date().toISOString().slice(11, 23); // HH:MM:SS.mmm
     const dataStr = data ? ` ${JSON.stringify(data)}` : "";
     const line = `[${ts}][HOOK:${hookName}] ${message}${dataStr}`;
-    process.stderr.write(line + "\n");
+    if (process.env["NODE_ENV"] === "development") {
+        process.stderr.write(line + "\n");
+    }
     appendLog(line);
 }
 

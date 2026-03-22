@@ -1681,15 +1681,14 @@ export function createMonitorHooks(workspacePath: string): Hooks {
             "OpenCode session idle",
             "completed",
             {
-              // message.updated(assistant turn)가 먼저 처리했으면 suspendedSessionIds 체크로
-              // 이미 return됨. 여기까지 온 경우는 assistant turn 없이 idle된 케이스이므로
-              // completeTask: true로 정리해 waiting 태스크 누적을 방지.
-              completeTask: true,
+              // idle = 대기 상태. completeTask: false로 task를 열어두고 markSuspended: true로
+              // 세션 상태를 보존해 후속 turn이 오면 follow_up phase로 재오픈할 수 있게 한다.
+              completeTask: false,
               completionReason: "idle",
               metadata: { idleEvent: true },
-              markEnded: true,
-              keepSessionInfo: false,
-              markSuspended: false
+              markEnded: false,
+              keepSessionInfo: true,
+              markSuspended: true
             }
           );
         } finally {
