@@ -102,7 +102,7 @@ export function ellipsize(value: string, maxLength: number): string {
     return `${value.slice(0, Math.max(0, maxLength - 1))}…`;
 }
 
-export function stringifyToolInput(input: JsonObject, maxValueLength: number = 200): Record<string, string> {
+export function stringifyToolInput(input: JsonObject, maxValueLength: number = 10000): Record<string, string> {
     return Object.fromEntries(
         Object.entries(input).map(([key, value]) => [key, toTrimmedString(value, maxValueLength)])
     );

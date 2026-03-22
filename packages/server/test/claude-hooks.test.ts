@@ -21,6 +21,7 @@ const subagentLifecycleHook = fileURLToPath(new URL("../../../.claude/hooks/suba
 const todoHook = fileURLToPath(new URL("../../../.claude/hooks/todo.ts", import.meta.url));
 const toolUsedHook = fileURLToPath(new URL("../../../.claude/hooks/tool_used.ts", import.meta.url));
 const terminalHook = fileURLToPath(new URL("../../../.claude/hooks/terminal.ts", import.meta.url));
+const stopHook = fileURLToPath(new URL("../../../.claude/hooks/stop.ts", import.meta.url));
 
 async function startMonitorStub() {
   const calls: RequestCall[] = [];
@@ -635,5 +636,84 @@ describe("Claude hooks", () => {
         }
       }
     ]);
+  });
+
+  it("Stop hook: string transcript → assistant-response with full text", async () => {
+    const monitor = await startMonitorStub();
+    servers.push(monitor);
+
+    await runClaudeHook(stopHook, {
+      session_id: "parent-session",
+      stop_reason: "end_turn",
+      transcript: [
+        { role: "user", content: "Fix the bug" },
+        { role: "assistant", content: "I'll fix the bug by editing the file." }
+      ],
+      usage: { input_tokens: 100, output_tokens: 40 }
+    }, monitor.port);
+
+    const response = monitor.calls.find(c => c.endpoint === "/api/assistant-response");
+    expect(response).toBeDefined();
+    expect(response!.body.source).toBe("claude-hook");
+    expect(response!.body.body).toBe("I'll fix the bug by editing the file.");
+    expect(response!.body.title).toBe("I'll fix the bug by editing the file.");
+    expect((response!.body.metadata as Record<string, unknown>).stopReason).toBe("end_turn");
+    expect((response!.body.metadata as Record<string, unknown>).inputTokens).toBe(100);
+    expect((response!.body.metadata as Record<string, unknown>).outputTokens).toBe(40);
+  });
+
+  it("Stop hook: array-of-blocks transcript → concatenated text blocks only", async () => {
+    const monitor = await startMonitorStub();
+    servers.push(monitor);
+
+    await runClaudeHook(stopHook, {
+      session_id: "parent-session",
+      stop_reason: "end_turn",
+      transcript: [
+        { role: "user", content: "What is 2+2?" },
+        { role: "assistant", content: [
+          { type: "tool_use", id: "t1", name: "bash", input: {} },
+          { type: "text", text: "The answer is 4." }
+        ]}
+      ]
+    }, monitor.port);
+
+    const response = monitor.calls.find(c => c.endpoint === "/api/assistant-response");
+    expect(response).toBeDefined();
+    expect(response!.body.body).toBe("The answer is 4.");
+  });
+
+  it("Stop hook: missing transcript → empty body, fallback title", async () => {
+    const monitor = await startMonitorStub();
+    servers.push(monitor);
+
+    await runClaudeHook(stopHook, {
+      session_id: "parent-session",
+      stop_reason: "max_turns"
+    }, monitor.port);
+
+    const response = monitor.calls.find(c => c.endpoint === "/api/assistant-response");
+    expect(response).toBeDefined();
+    expect(response!.body.body).toBeUndefined();
+    expect(response!.body.title).toBe("Response (max_turns)");
+  });
+
+  it("Stop hook: missing usage → no token metadata fields", async () => {
+    const monitor = await startMonitorStub();
+    servers.push(monitor);
+
+    await runClaudeHook(stopHook, {
+      session_id: "parent-session",
+      stop_reason: "end_turn",
+      transcript: [
+        { role: "assistant", content: "Done." }
+      ]
+    }, monitor.port);
+
+    const response = monitor.calls.find(c => c.endpoint === "/api/assistant-response");
+    expect(response).toBeDefined();
+    const meta = response!.body.metadata as Record<string, unknown>;
+    expect(meta).not.toHaveProperty("inputTokens");
+    expect(meta).not.toHaveProperty("outputTokens");
   });
 });

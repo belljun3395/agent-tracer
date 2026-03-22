@@ -1096,6 +1096,10 @@ function extractTextFromParts(parts: readonly unknown[]): string {
     .trim();
 }
 
+function ellipsize(value: string, maxLength: number): string {
+  return value.length <= maxLength ? value : `${value.slice(0, maxLength - 1)}…`;
+}
+
 function deriveUserMessageFields(text: string): { title: string; body: string; filePaths: readonly string[] } {
   const body = text.trim();
   const lines = body
@@ -1636,6 +1640,35 @@ export function createMonitorHooks(workspacePath: string): Hooks {
         if (!state) return;
         if (state.seenCompletionMessageIds.has(completion.messageId)) return;
         state.seenCompletionMessageIds.add(completion.messageId);
+
+        // Emit assistant.response (non-fatal — failure must not block finalizeSession)
+        const properties = asObject(event.properties);
+        const rawParts = Array.isArray(properties.parts) ? properties.parts : [];
+        const responseText = extractTextFromParts(rawParts);
+        if (responseText) {
+          try {
+            const info = asObject(properties.info);
+            const tokens = asObject(info.tokens);
+            const cacheTokens = asObject(tokens.cache);
+            await post("/api/assistant-response", {
+              taskId: state.taskId,
+              ...(state.monitorSessionId ? { sessionId: state.monitorSessionId } : {}),
+              messageId: completion.messageId,
+              source: "opencode-plugin",
+              title: ellipsize(responseText, 120),
+              body: responseText,
+              metadata: {
+                stopReason: completion.finish ?? "stop",
+                ...(typeof tokens.input === "number"        ? { inputTokens:      tokens.input }              : {}),
+                ...(typeof tokens.output === "number"       ? { outputTokens:     tokens.output }             : {}),
+                ...(typeof cacheTokens.read === "number"    ? { cacheReadTokens:  cacheTokens.read }          : {}),
+                ...(typeof cacheTokens.write === "number"   ? { cacheWriteTokens: cacheTokens.write }         : {})
+              }
+            });
+          } catch (err: unknown) {
+            pluginLog("message.updated", "assistant-response post failed (non-fatal)", { error: String(err) });
+          }
+        }
 
         finalizingSessionIds.add(completion.sessionId);
         try {

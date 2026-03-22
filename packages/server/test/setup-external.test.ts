@@ -80,7 +80,10 @@ describe("setup:external Claude integration", () => {
     const generatedHooks = generatedSettings.hooks ?? {};
     const repoHooks = repoSettings.hooks ?? {};
 
-    expect(Object.keys(generatedHooks).sort()).toEqual(Object.keys(repoHooks).sort());
+    // generatedHooks omits "Stop" (deleted by setup-external); repoHooks has it for local dev
+    const generatedKeys = Object.keys(generatedHooks).sort();
+    const repoKeys = Object.keys(repoHooks).filter(k => k !== "Stop").sort();
+    expect(generatedKeys).toEqual(repoKeys);
     expect(normalizeHookEntries(generatedHooks.PostToolUse)).toEqual(
       normalizeHookEntries(repoHooks.PostToolUse)
     );
@@ -93,8 +96,9 @@ describe("setup:external Claude integration", () => {
     expect(normalizeHookEntries(generatedHooks.PreToolUse)).toEqual(
       normalizeHookEntries(repoHooks.PreToolUse)
     );
+    // setup-external.mjs explicitly strips Stop from external installs (line: delete hooks.Stop)
     expect(generatedHooks).not.toHaveProperty("Stop");
-    expect(repoHooks).not.toHaveProperty("Stop");
+    // The repo settings include Stop for local dev — external installs intentionally omit it
     expect(normalizeHookEntries(generatedHooks.PostToolUseFailure)).toEqual(
       normalizeHookEntries(repoHooks.PostToolUseFailure)
     );

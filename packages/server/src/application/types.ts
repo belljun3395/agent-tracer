@@ -292,6 +292,16 @@ export interface TaskSearchInput {
   readonly limit?: number;
 }
 
+export interface TaskAssistantResponseInput {
+  readonly taskId: string;
+  readonly sessionId?: string;
+  readonly messageId: string;
+  readonly source: string;
+  readonly title: string;
+  readonly body?: string;
+  readonly metadata?: Record<string, unknown>;
+}
+
 /**
  * 제너릭 런타임-세션 보장 입력.
  * 어떤 런타임 어댑터라도 runtimeSource + runtimeSessionId 쌍으로 task/session을 자동 생성·재개한다.
