@@ -52,7 +52,11 @@ Claude Code fires the `Stop` hook after each assistant turn completes. Payload s
 }
 ```
 
-Extract: last `{ role: "assistant" }` entry from `transcript` as `body`. If `transcript` is absent or has no assistant entry, send with empty body and `title = "Response (${stopReason})"`.
+**Transcript extraction:** Find the last entry with `role === "assistant"`. Its `content` may be:
+- A plain `string` — use directly.
+- An **array of content blocks** (common when the turn includes tool calls): extract only `{ type: "text" }` blocks and concatenate their `text` fields. If no text blocks exist (e.g., pure tool-use turn), treat as empty response.
+
+If `transcript` is absent or has no assistant entry, send with empty body and `title = "Response (${stopReason})"`.
 
 ### OpenCode — `message.updated` event
 
@@ -66,20 +70,22 @@ Already handled in `extractAssistantTurnCompletion`. The `event.properties` for 
 }
 ```
 
-Extract text via existing `extractTextFromParts(asArray(properties.parts))`. Token counts from `info.tokens`.
+Extract text via existing `extractTextFromParts(Array.isArray(properties.parts) ? properties.parts : [])`. Token counts from `info.tokens`. **Note:** cache token counts (`cache.read`, `cache.write`) are available in `info.tokens.cache` but are not captured — only `input` and `output` are included for simplicity and parity with the available field names.
 
 ---
 
 ## New Event Kind
 
-### `packages/core/src/domain.ts`
+### `packages/core/src/domain.ts` — **single atomic change**
 
-Add to `MonitoringEventKind` union:
+Both edits must be committed together. Adding the union member without the switch case produces a TypeScript exhaustiveness error across the entire monorepo.
+
+1. Add to `MonitoringEventKind` union:
 ```typescript
 | "assistant.response"
 ```
 
-Add to `defaultLaneForEventKind`:
+2. Add to `defaultLaneForEventKind` switch (no `default` branch — exhaustiveness is enforced):
 ```typescript
 case "assistant.response":
   return "user";
@@ -89,16 +95,20 @@ case "assistant.response":
 
 ## Server Changes
 
+> **Implementation order:** Apply the `packages/core/src/domain.ts` change first. Every server file that references `kind: "assistant.response"` will fail TypeScript compilation until `MonitoringEventKind` includes `"assistant.response"`. The domain change is a prerequisite for all files in this section.
+
 ### `packages/server/src/application/types.ts`
+
+`sessionId` is optional (matching every other event input type in this file):
 
 ```typescript
 export interface TaskAssistantResponseInput {
   readonly taskId: string;
-  readonly sessionId: string;
+  readonly sessionId?: string;         // optional — consistent with other event input types
   readonly messageId: string;
-  readonly source: string;          // "claude-hook" | "opencode-plugin"
-  readonly title: string;           // ellipsized first line (120 chars)
-  readonly body?: string;           // full response text
+  readonly source: string;             // "claude-hook" | "opencode-plugin"
+  readonly title: string;              // ellipsized first line (120 chars)
+  readonly body?: string;              // full response text
   readonly metadata?: Record<string, unknown>;
   // metadata carries: stopReason, inputTokens, outputTokens, cacheReadTokens, cacheCreateTokens
 }
@@ -106,10 +116,12 @@ export interface TaskAssistantResponseInput {
 
 ### `packages/server/src/presentation/schemas.ts`
 
+`sessionId` is optional in the schema as well, consistent with `userMessageSchema` where some fields are optional:
+
 ```typescript
 export const assistantResponseSchema = z.object({
   taskId:    z.string().min(1),
-  sessionId: z.string().min(1),
+  sessionId: z.string().min(1).optional(),
   messageId: z.string().min(1),
   source:    z.string().min(1),
   title:     z.string().min(1),
@@ -120,7 +132,9 @@ export const assistantResponseSchema = z.object({
 
 ### `packages/server/src/application/monitor-service.ts`
 
-New method:
+1. Add `TaskAssistantResponseInput` to the existing named import from `./types.js` at the top of the file.
+
+2. Add new method:
 ```typescript
 async logAssistantResponse(input: TaskAssistantResponseInput): Promise<RecordedEventEnvelope> {
   await this.requireTask(input.taskId);
@@ -129,7 +143,7 @@ async logAssistantResponse(input: TaskAssistantResponseInput): Promise<RecordedE
     kind: "assistant.response",
     title: input.title,
     ...(input.sessionId ? { sessionId: input.sessionId } : {}),
-    ...(input.body       ? { body: input.body }           : {}),
+    ...(input.body      ? { body: input.body }           : {}),
     metadata: {
       ...(input.metadata ?? {}),
       messageId: input.messageId,
@@ -140,6 +154,10 @@ async logAssistantResponse(input: TaskAssistantResponseInput): Promise<RecordedE
 ```
 
 ### `packages/server/src/presentation/http/routes/event-routes.ts`
+
+1. Add `assistantResponseSchema` to the schema imports at the top of the file.
+2. Add `TaskAssistantResponseInput` to the types imports at the top of the file.
+3. Inside `createEventRoutes()`, add the new route alongside the other event routes:
 
 ```typescript
 router.post("/api/assistant-response", async (req, res) => {
@@ -157,6 +175,8 @@ router.post("/api/assistant-response", async (req, res) => {
 
 ### New file: `.claude/hooks/stop.ts`
 
+`content` may be a string or an array of content blocks. Extract text from both:
+
 ```typescript
 import {
   createMessageId,
@@ -169,6 +189,19 @@ import {
   readStdinJson,
   toTrimmedString
 } from "./common.js";
+
+function extractTextFromContent(content: unknown): string {
+  if (typeof content === "string") return content;
+  if (!Array.isArray(content)) return "";
+  return content
+    .filter((block): block is Record<string, unknown> =>
+      typeof block === "object" && block !== null &&
+      (block as Record<string, unknown>).type === "text"
+    )
+    .map(block => String(block.text ?? ""))
+    .join("\n")
+    .trim();
+}
 
 async function main(): Promise<void> {
   const payload = await readStdinJson();
@@ -185,11 +218,11 @@ async function main(): Promise<void> {
   const transcript = Array.isArray(payload.transcript) ? payload.transcript : [];
   const lastAssistant = [...transcript]
     .reverse()
-    .find((m): m is { role: string; content: string } =>
+    .find((m): m is Record<string, unknown> =>
       typeof m === "object" && m !== null &&
       (m as Record<string, unknown>).role === "assistant"
     );
-  const responseText = lastAssistant ? String(lastAssistant.content ?? "") : "";
+  const responseText = lastAssistant ? extractTextFromContent(lastAssistant.content) : "";
 
   const title = responseText
     ? ellipsize(responseText, 120)
@@ -208,9 +241,9 @@ async function main(): Promise<void> {
     ...(responseText ? { body: responseText } : {}),
     metadata: {
       stopReason,
-      ...(usage?.input_tokens          != null ? { inputTokens:       usage.input_tokens }          : {}),
-      ...(usage?.output_tokens         != null ? { outputTokens:      usage.output_tokens }         : {}),
-      ...(usage?.cache_read_input_tokens    != null ? { cacheReadTokens:  usage.cache_read_input_tokens }    : {}),
+      ...(usage?.input_tokens               != null ? { inputTokens:       usage.input_tokens }               : {}),
+      ...(usage?.output_tokens              != null ? { outputTokens:      usage.output_tokens }              : {}),
+      ...(usage?.cache_read_input_tokens    != null ? { cacheReadTokens:   usage.cache_read_input_tokens }    : {}),
       ...(usage?.cache_creation_input_tokens != null ? { cacheCreateTokens: usage.cache_creation_input_tokens } : {})
     }
   });
@@ -225,7 +258,8 @@ void main().catch((err: unknown) => {
 
 ### `.claude/settings.json`
 
-Add `Stop` hook registration:
+Inside the existing top-level `"hooks"` object, add a new `"Stop"` key alongside `"SessionStart"`, `"UserPromptSubmit"`, etc.:
+
 ```json
 "Stop": [
   {
@@ -246,21 +280,21 @@ Remove artificial caps on `body` and `command`:
 | Before | After |
 |--------|-------|
 | `command: command.slice(0, MAX_COMMAND_LENGTH)` (500) | `command: command` |
-| `body: description ? \`${description}\n\n$ ${command.slice(0, 300)}\`` | `body: description ? \`${description}\n\n$ ${command}\`` |
-| `body: \`Intent: ${description}\nAction: $ ${command.slice(0, 200)}\`` | `body: \`Intent: ${description}\nAction: $ ${command}\`` |
+| ``body: description ? `${description}\n\n$ ${command.slice(0, 300)}` `` | ``body: description ? `${description}\n\n$ ${command}` `` |
+| ``body: `Intent: ${description}\nAction: $ ${command.slice(0, 200)}` `` | ``body: `Intent: ${description}\nAction: $ ${command}` `` |
 | `metadata: { command: command.slice(0, 200) }` | `metadata: { command }` |
 
-Remove the `MAX_COMMAND_LENGTH` constant.
+Remove the `MAX_COMMAND_LENGTH` constant entirely.
 
 ### Truncation fixes — `.claude/hooks/explore.ts`
 
 | Before | After |
 |--------|-------|
-| `body = \`Web lookup: ${query.slice(0, 200)}\`` | `body = \`Web lookup: ${query}\`` |
+| ``body = `Web lookup: ${query.slice(0, 200)}` `` | ``body = `Web lookup: ${query}` `` |
 
 ### Truncation fixes — `.claude/hooks/common.ts`
 
-`stringifyToolInput` default limit: `200` → `10000`.
+`stringifyToolInput` default `maxValueLength`: `200` → `10000`.
 
 ---
 
@@ -268,15 +302,26 @@ Remove the `MAX_COMMAND_LENGTH` constant.
 
 ### `.opencode/plugins/monitor.ts`
 
-In the `message.updated` handler, after `extractAssistantTurnCompletion` returns successfully and before `finalizeSession`:
+**Add local `ellipsize` helper** (the plugin is self-contained and does not import from Claude Code hooks):
+
+```typescript
+function ellipsize(text: string, max: number): string {
+  if (text.length <= max) return text;
+  return `${text.slice(0, max - 1)}…`;
+}
+```
+
+Place this alongside the existing `pluginLog` and `toNonEmptyString` helpers.
+
+**In the `message.updated` handler**, after `extractAssistantTurnCompletion` returns successfully and before `finalizeSession`:
 
 ```typescript
 // Extract response text from parts if available
 const parts = Array.isArray(properties.parts) ? properties.parts : [];
 const responseText = extractTextFromParts(parts);
-const tokens = asObject(asObject(properties.info).tokens);
-const inputTokens  = typeof tokens.input  === "number" ? tokens.input  : undefined;
-const outputTokens = typeof tokens.output === "number" ? tokens.output : undefined;
+const tokensObj = asObject(asObject(properties.info).tokens);
+const inputTokens  = typeof tokensObj.input  === "number" ? tokensObj.input  : undefined;
+const outputTokens = typeof tokensObj.output === "number" ? tokensObj.output : undefined;
 
 if (responseText) {
   await post("/api/assistant-response", {
@@ -292,8 +337,13 @@ if (responseText) {
       ...(outputTokens != null ? { outputTokens } : {})
     }
   });
+  // Note: cache token counts are available in tokensObj.cache but not captured
+  // (OpenCode does not expose them in the same format as Claude Code)
 }
+// If responseText is empty, skip — do not post an empty assistant-response event
 ```
+
+**Post failure handling:** wrap the `post("/api/assistant-response", ...)` call in a try/catch. Log the error but do NOT rethrow — `finalizeSession` must always complete regardless of response capture success.
 
 Also fix similar body truncation patterns in `chat.message` and other handlers if found.
 
@@ -313,31 +363,38 @@ No additional CSS or component changes required for v1. Visual grouping of Q/A p
 
 ## Testing
 
-### Server (`packages/server/test/`)
+### Server endpoint tests (`packages/server/test/`)
 
 New test file: `test/assistant-response.test.ts`
 - `logAssistantResponse` records event with `kind = "assistant.response"`, `lane = "user"`
-- Schema rejects missing `taskId`, `sessionId`, `messageId`, `source`, `title`
+- Schema rejects missing `taskId`, `messageId`, `source`, `title`
+- `sessionId` is optional — records event without it
 - Body is optional — records event without body when omitted
 - Metadata is merged with `messageId` and `source`
 
-### Claude Code Hooks (`packages/server/test/claude-hooks.test.ts`)
+### Stop hook → `/api/assistant-response` integration tests (`packages/server/test/claude-hooks.test.ts`)
 
-- Stop hook posts to `/api/assistant-response` with `stopReason`, `title`, `body`
-- Stop hook handles missing `transcript` → posts with empty body, title = `"Response (end_turn)"`
-- Stop hook handles missing `usage` → posts without token metadata
+These tests follow the existing pattern in `claude-hooks.test.ts`: they send HTTP POST requests to the running server (not by importing the hook script directly). The tests verify server-side behavior triggered by the hook's payload shape.
 
-### OpenCode Plugin (`packages/server/test/opencode-monitor-plugin.test.ts`)
+- Stop hook payload with string transcript → posts with full response text as body
+- Stop hook payload with array-of-blocks transcript → posts concatenated text blocks only
+- Stop hook payload with missing `transcript` → posts with empty body, title = `"Response (end_turn)"`
+- Stop hook payload with missing `usage` → posts without token metadata fields
 
-- `message.updated` with `parts` containing text → posts `assistant.response` event
-- `message.updated` without `parts` → skips assistant-response post (no error)
+### OpenCode plugin tests (`packages/server/test/opencode-monitor-plugin.test.ts`)
+
+- `message.updated` with `parts` containing text → posts `assistant.response` before `finalizeSession`
+- `message.updated` without `parts` (or empty `parts`) → skips assistant-response post, no error, `finalizeSession` still runs
 - Token counts from `info.tokens` are included in metadata when present
+- `post` failure for assistant-response → error is caught, `finalizeSession` still runs
 
 ---
 
 ## Error Handling
 
 - `Stop` hook: any error → log + silent exit (no hook blocking Claude Code)
-- OpenCode: response post failure → log, do NOT fail `finalizeSession`
+- OpenCode: response post failure → catch + log, do NOT fail `finalizeSession`
 - Missing transcript / parts → post with empty body, no error
+- Empty response text in OpenCode → skip posting entirely (no empty-body events)
 - Server: Zod parse failure → 400 with validation details (same as all other routes)
+- Server: task not found (`requireTask` throws) → server error response (consistent with all other event routes). The hook's top-level catch handles this as a non-blocking error and logs it without blocking Claude Code.
