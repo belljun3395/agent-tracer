@@ -1429,3 +1429,74 @@ export function collectViolationDescriptions(timeline: readonly TimelineEvent[])
     )
     .map(e => e.title);
 }
+
+export interface HandoffOptions {
+  readonly objective: string;
+  readonly summary: string;
+  readonly sections: readonly TaskProcessSection[];
+  readonly exploredFiles: readonly string[];
+  readonly modifiedFiles: readonly string[];
+  readonly openTodos: readonly string[];
+  readonly openQuestions: readonly string[];
+  readonly violations: readonly string[];
+  readonly memo: string;
+  readonly include: {
+    readonly summary: boolean;
+    readonly process: boolean;
+    readonly files: boolean;
+    readonly modifiedFiles: boolean;
+    readonly todos: boolean;
+    readonly violations: boolean;
+    readonly questions: boolean;
+  };
+}
+
+export function buildHandoffPlain(options: HandoffOptions): string {
+  const { objective, summary, sections, exploredFiles, modifiedFiles,
+          openTodos, openQuestions, violations, memo, include } = options;
+  const lines: string[] = [];
+
+  lines.push(`Task: ${objective}`);
+
+  if (include.summary && summary) {
+    lines.push(`Summary: ${summary}`);
+  }
+
+  if (include.process && sections.length > 0) {
+    lines.push("Process:");
+    for (const section of sections) {
+      for (const item of section.items) {
+        lines.push(`- ${section.lane}: ${item}`);
+      }
+    }
+  }
+
+  if (include.files && exploredFiles.length > 0) {
+    lines.push(`Explored Files: ${exploredFiles.join(", ")}`);
+  }
+
+  if (include.modifiedFiles && modifiedFiles.length > 0) {
+    lines.push(`Modified Files: ${modifiedFiles.join(", ")}`);
+  }
+
+  if (include.todos && openTodos.length > 0) {
+    lines.push("Open TODOs:");
+    for (const todo of openTodos) lines.push(`- ${todo}`);
+  }
+
+  if (include.violations && violations.length > 0) {
+    lines.push("Violations:");
+    for (const v of violations) lines.push(`- ${v}`);
+  }
+
+  if (include.questions && openQuestions.length > 0) {
+    lines.push("Open Questions:");
+    for (const q of openQuestions) lines.push(`- ${q}`);
+  }
+
+  if (memo.trim()) {
+    lines.push(`Note: ${memo.trim()}`);
+  }
+
+  return lines.join("\n");
+}

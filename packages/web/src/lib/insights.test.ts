@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { MonitoringTask, TimelineEvent } from "../types.js";
 import {
+  buildHandoffPlain,
   buildObservabilityStats,
   buildQuestionGroups,
   buildTaskDisplayTitle,
@@ -9,6 +10,7 @@ import {
   collectViolationDescriptions,
   filterTimelineEvents
 } from "./insights.js";
+import type { HandoffOptions } from "./insights.js";
 
 function makeTask(overrides: Partial<MonitoringTask> = {}): MonitoringTask {
   return {
@@ -285,5 +287,90 @@ describe("collectViolationDescriptions", () => {
 
   it("returns empty array for empty timeline", () => {
     expect(collectViolationDescriptions([])).toEqual([]);
+  });
+});
+
+function makeHandoff(overrides: Partial<HandoffOptions> = {}): HandoffOptions {
+  const defaultInclude = {
+    summary: true, process: true, files: true, modifiedFiles: true,
+    todos: true, violations: true, questions: false
+  };
+  return {
+    objective: "Build the feature",
+    summary: "Implemented X and Y",
+    sections: [{ lane: "implementation" as const, title: "Implementation", items: ["Did A", "Did B"] }],
+    exploredFiles: ["src/App.tsx", "src/lib/insights.ts"],
+    modifiedFiles: ["src/App.tsx"],
+    openTodos: ["Write tests"],
+    openQuestions: ["Should we use Redux?"],
+    violations: ["No console.log allowed"],
+    memo: "Start from the tests",
+    include: { ...defaultInclude, ...(overrides.include ?? {}) },
+    ...overrides
+  };
+}
+
+describe("buildHandoffPlain", () => {
+  it("includes all enabled sections when fully populated", () => {
+    const result = buildHandoffPlain(makeHandoff());
+    expect(result).toContain("Task: Build the feature");
+    expect(result).toContain("Summary: Implemented X and Y");
+    expect(result).toContain("Process:");
+    expect(result).toContain("- implementation: Did A");
+    expect(result).toContain("Explored Files: src/App.tsx, src/lib/insights.ts");
+    expect(result).toContain("Modified Files: src/App.tsx");
+    expect(result).toContain("Open TODOs:");
+    expect(result).toContain("- Write tests");
+    expect(result).toContain("Violations:");
+    expect(result).toContain("- No console.log allowed");
+    expect(result).toContain("Note: Start from the tests");
+  });
+
+  it("excludes questions when include.questions = false", () => {
+    const result = buildHandoffPlain(makeHandoff());
+    expect(result).not.toContain("Open Questions:");
+  });
+
+  it("includes questions when include.questions = true", () => {
+    const result = buildHandoffPlain(makeHandoff({ include: { summary: true, process: true, files: true, modifiedFiles: true, todos: true, violations: true, questions: true } }));
+    expect(result).toContain("Open Questions:");
+    expect(result).toContain("- Should we use Redux?");
+  });
+
+  it("omits summary when include.summary = false", () => {
+    const result = buildHandoffPlain(makeHandoff({ include: { summary: false, process: true, files: true, modifiedFiles: true, todos: true, violations: true, questions: false } }));
+    expect(result).not.toContain("Summary:");
+  });
+
+  it("omits process when include.process = false", () => {
+    const result = buildHandoffPlain(makeHandoff({ include: { summary: true, process: false, files: true, modifiedFiles: true, todos: true, violations: true, questions: false } }));
+    expect(result).not.toContain("Process:");
+  });
+
+  it("omits process when sections array is empty", () => {
+    const result = buildHandoffPlain(makeHandoff({ sections: [] }));
+    expect(result).not.toContain("Process:");
+  });
+
+  it("omits note line when memo is blank", () => {
+    const result = buildHandoffPlain(makeHandoff({ memo: "" }));
+    expect(result).not.toContain("Note:");
+  });
+
+  it("omits explored files when include.files = false", () => {
+    const result = buildHandoffPlain(makeHandoff({ include: { summary: true, process: true, files: false, modifiedFiles: true, todos: true, violations: true, questions: false } }));
+    expect(result).not.toContain("Explored Files:");
+  });
+
+  it("omits explored files when array is empty", () => {
+    const result = buildHandoffPlain(makeHandoff({ exploredFiles: [] }));
+    expect(result).not.toContain("Explored Files:");
+  });
+
+  it("always includes objective regardless of toggles", () => {
+    const result = buildHandoffPlain(makeHandoff({
+      include: { summary: false, process: false, files: false, modifiedFiles: false, todos: false, violations: false, questions: false }
+    }));
+    expect(result).toContain("Task: Build the feature");
   });
 });
