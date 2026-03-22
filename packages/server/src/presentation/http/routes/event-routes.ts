@@ -19,7 +19,8 @@ import type {
   TaskUserMessageInput,
   TaskQuestionInput,
   TaskTodoInput,
-  TaskThoughtInput
+  TaskThoughtInput,
+  TaskAssistantResponseInput
 } from "../../../application/types.js";
 import {
   toolUsedSchema,
@@ -34,7 +35,8 @@ import {
   userMessageSchema,
   questionSchema,
   todoSchema,
-  thoughtSchema
+  thoughtSchema,
+  assistantResponseSchema
 } from "../../schemas.js";
 
 export function createEventRoutes(service: MonitorService): Router {
@@ -94,6 +96,14 @@ export function createEventRoutes(service: MonitorService): Router {
 
   router.post("/api/thought", async (req, res) => {
     res.json(await service.logThought(thoughtSchema.parse(req.body) as TaskThoughtInput));
+  });
+
+  router.post("/api/assistant-response", async (req, res) => {
+    res.json(
+      await service.logAssistantResponse(
+        assistantResponseSchema.parse(req.body) as TaskAssistantResponseInput
+      )
+    );
   });
 
   return router;

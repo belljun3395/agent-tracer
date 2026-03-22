@@ -147,6 +147,16 @@
           }
         ]
       }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "NODE_ENV=development node \"node_modules/tsx/dist/cli.mjs\" \".claude/hooks/stop.ts\""
+          }
+        ]
+      }
     ]
   }
 }
