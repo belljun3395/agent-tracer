@@ -1645,29 +1645,29 @@ export function createMonitorHooks(workspacePath: string): Hooks {
         const properties = asObject(event.properties);
         const rawParts = Array.isArray(properties.parts) ? properties.parts : [];
         const responseText = extractTextFromParts(rawParts);
-        if (responseText) {
-          try {
-            const info = asObject(properties.info);
-            const tokens = asObject(info.tokens);
-            const cacheTokens = asObject(tokens.cache);
-            await post("/api/assistant-response", {
-              taskId: state.taskId,
-              ...(state.monitorSessionId ? { sessionId: state.monitorSessionId } : {}),
-              messageId: completion.messageId,
-              source: "opencode-plugin",
-              title: ellipsize(responseText, 120),
-              body: responseText,
-              metadata: {
-                stopReason: completion.finish ?? "stop",
-                ...(typeof tokens.input === "number"        ? { inputTokens:      tokens.input }              : {}),
-                ...(typeof tokens.output === "number"       ? { outputTokens:     tokens.output }             : {}),
-                ...(typeof cacheTokens.read === "number"    ? { cacheReadTokens:  cacheTokens.read }          : {}),
-                ...(typeof cacheTokens.write === "number"   ? { cacheWriteTokens: cacheTokens.write }         : {})
-              }
-            });
-          } catch (err: unknown) {
-            pluginLog("message.updated", "assistant-response post failed (non-fatal)", { error: String(err) });
-          }
+        const stopReason = completion.finish ?? "stop";
+        const responseTitle = responseText ? ellipsize(responseText, 120) : `Response (${stopReason})`;
+        try {
+          const info = asObject(properties.info);
+          const tokens = asObject(info.tokens);
+          const cacheTokens = asObject(tokens.cache);
+          await post("/api/assistant-response", {
+            taskId: state.taskId,
+            ...(state.monitorSessionId ? { sessionId: state.monitorSessionId } : {}),
+            messageId: completion.messageId,
+            source: "opencode-plugin",
+            title: responseTitle,
+            ...(responseText ? { body: responseText } : {}),
+            metadata: {
+              stopReason,
+              ...(typeof tokens.input === "number"        ? { inputTokens:      tokens.input }              : {}),
+              ...(typeof tokens.output === "number"       ? { outputTokens:     tokens.output }             : {}),
+              ...(typeof cacheTokens.read === "number"    ? { cacheReadTokens:  cacheTokens.read }          : {}),
+              ...(typeof cacheTokens.write === "number"   ? { cacheWriteTokens: cacheTokens.write }         : {})
+            }
+          });
+        } catch (err: unknown) {
+          pluginLog("message.updated", "assistant-response post failed (non-fatal)", { error: String(err) });
         }
 
         finalizingSessionIds.add(completion.sessionId);

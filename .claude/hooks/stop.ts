@@ -1,4 +1,5 @@
 import {
+  CLAUDE_RUNTIME_SOURCE,
   createMessageId,
   ellipsize,
   ensureRuntimeSession,
@@ -9,19 +10,6 @@ import {
   readStdinJson,
   toTrimmedString
 } from "./common.js";
-
-function extractTextFromContent(content: unknown): string {
-  if (typeof content === "string") return content;
-  if (!Array.isArray(content)) return "";
-  return content
-    .filter((block): block is Record<string, unknown> =>
-      typeof block === "object" && block !== null &&
-      (block as Record<string, unknown>).type === "text"
-    )
-    .map(block => String(block.text ?? ""))
-    .join("\n")
-    .trim();
-}
 
 async function main(): Promise<void> {
   const payload = await readStdinJson();
@@ -34,15 +22,8 @@ async function main(): Promise<void> {
 
   const stopReason = toTrimmedString(payload.stop_reason) || "end_turn";
 
-  // Extract last assistant message from transcript
-  const transcript = Array.isArray(payload.transcript) ? payload.transcript : [];
-  const lastAssistant = [...transcript]
-    .reverse()
-    .find((m): m is Record<string, unknown> =>
-      typeof m === "object" && m !== null &&
-      (m as Record<string, unknown>).role === "assistant"
-    );
-  const responseText = lastAssistant ? extractTextFromContent(lastAssistant.content) : "";
+  // Claude Code Stop hook provides last_assistant_message as a top-level string field
+  const responseText = toTrimmedString(payload.last_assistant_message) || "";
 
   const title = responseText
     ? ellipsize(responseText, 120)
@@ -69,6 +50,17 @@ async function main(): Promise<void> {
   });
 
   hookLog("stop", "assistant-response posted", { stopReason, hasText: !!responseText });
+
+  // Complete the task when the assistant finishes a turn.
+  // session_end.ts will fire afterwards but completeTask is unset there (idempotent).
+  await postJson("/api/runtime-session-end", {
+    runtimeSource: CLAUDE_RUNTIME_SOURCE,
+    runtimeSessionId: sessionId,
+    completeTask: true,
+    completionReason: "assistant_turn_complete",
+    summary: responseText ? ellipsize(responseText, 200) : undefined
+  });
+  hookLog("stop", "task completed", { stopReason });
 }
 
 void main().catch((err: unknown) => {
