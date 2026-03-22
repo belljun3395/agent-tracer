@@ -96,7 +96,7 @@ function ensureHookEntry(list, command, matcher) {
 
 function hookCommand(tracerRoot, scriptPath) {
   const tsxPath = path.join(tracerRoot, "node_modules", "tsx", "dist", "cli.mjs");
-  return `node ${JSON.stringify(tsxPath)} ${JSON.stringify(scriptPath)}`;
+  return `NODE_ENV=development node ${JSON.stringify(tsxPath)} ${JSON.stringify(scriptPath)}`;
 }
 
 function generatedSkillContent(sourceContent) {
