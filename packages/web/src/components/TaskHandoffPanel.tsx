@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import type { TaskProcessSection } from "../lib/insights.js";
 import {
   buildHandoffPlain,
@@ -123,28 +123,28 @@ export function TaskHandoffPanel({
     !prefs.include.questions &&
     memo.trim() === "";
 
-  function handleCopy(): void {
+  const handleCopy = useCallback((): void => {
     void copyToClipboard(preview).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });
-  }
+  }, [preview]);
 
-  function updatePrefs(next: HandoffPrefs): void {
+  const updatePrefs = useCallback((next: HandoffPrefs): void => {
     setPrefs(next);
     savePrefs(next);
-  }
+  }, []);
 
-  function toggleInclude(key: keyof HandoffPrefs["include"]): void {
+  const toggleInclude = useCallback((key: keyof HandoffPrefs["include"]): void => {
     updatePrefs({
       ...prefs,
       include: { ...prefs.include, [key]: !prefs.include[key] }
     });
-  }
+  }, [updatePrefs, prefs]);
 
-  function setFormat(format: HandoffFormat): void {
+  const setFormat = useCallback((format: HandoffFormat): void => {
     updatePrefs({ ...prefs, format });
-  }
+  }, [updatePrefs, prefs]);
 
   const labelClass = "text-[0.72rem] font-semibold uppercase tracking-[0.06em] text-[var(--text-3)]";
 
@@ -236,7 +236,7 @@ export function TaskHandoffPanel({
                   className={cn(
                     "px-2.5 py-1 text-[0.72rem] font-medium transition-colors",
                     prefs.format === value
-                      ? "bg-[var(--accent)] text-white"
+                      ? "bg-[var(--accent)] text-[#fff]"
                       : "text-[var(--text-2)] hover:text-[var(--text-1)]"
                   )}
                   type="button"
@@ -268,7 +268,7 @@ export function TaskHandoffPanel({
                   ? "border-[var(--ok-bg)] bg-[var(--ok-bg)] text-[var(--ok)]"
                   : isDisabled
                     ? "cursor-not-allowed border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-3)] opacity-50"
-                    : "border-[var(--accent)] bg-[var(--accent)] text-white hover:opacity-90"
+                    : "border-[var(--accent)] bg-[var(--accent)] text-[#fff] hover:opacity-90"
               )}
               disabled={isDisabled}
               type="button"
