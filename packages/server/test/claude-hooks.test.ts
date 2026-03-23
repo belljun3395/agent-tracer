@@ -577,19 +577,7 @@ describe("Claude hooks", () => {
           body: "Run lint\n\n$ npm run lint",
           lane: "implementation",
           metadata: {
-            description: "Run lint"
-          }
-        }
-      },
-      {
-        endpoint: "/api/save-context",
-        body: {
-          taskId: "parent-task",
-          sessionId: "parent-monitor-session",
-          title: "Run lint",
-          body: "Intent: Run lint\nAction: $ npm run lint",
-          lane: "planning",
-          metadata: {
+            description: "Run lint",
             command: "npm run lint"
           }
         }

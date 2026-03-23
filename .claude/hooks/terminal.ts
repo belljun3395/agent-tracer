@@ -36,24 +36,12 @@ async function main(): Promise<void> {
     body: description ? `${description}\n\n$ ${command}` : command,
     lane,
     metadata: {
-      description
+      description,
+      command
     }
   });
 
   hookLog("terminal", "terminal-command posted", { description: description || command.slice(0, 60) });
-
-  if (!description) return;
-
-  await postJson("/api/save-context", {
-    taskId: ids.taskId,
-    sessionId: ids.sessionId,
-    title: description,
-    body: `Intent: ${description}\nAction: $ ${command}`,
-    lane: "planning",
-    metadata: {
-      command
-    }
-  });
 }
 
 void main().catch((err: unknown) => {

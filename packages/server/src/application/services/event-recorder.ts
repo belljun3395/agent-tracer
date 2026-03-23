@@ -69,7 +69,11 @@ export class EventRecorder {
     events: readonly { id: string; kind: MonitoringEventKind }[];
   }> {
     const primaryEvent = await this.record(input);
-    const derivedEventPromises = (input.filePaths ?? []).map((filePath) =>
+    // 검색 도구(grep/glob류)에서 오는 대량 filePaths가 file.changed 이벤트를 폭발시키는 것을 방지.
+    // 상한을 초과하는 경우 처음 MAX_DERIVED_FILES개만 파생 이벤트로 생성하고 나머지는 버린다.
+    const MAX_DERIVED_FILES = 15;
+    const derivedPaths = (input.filePaths ?? []).slice(0, MAX_DERIVED_FILES);
+    const derivedEventPromises = derivedPaths.map((filePath) =>
       this.record({
         taskId: input.taskId,
         kind: "file.changed",
