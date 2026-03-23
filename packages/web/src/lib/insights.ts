@@ -1431,9 +1431,16 @@ export function collectViolationDescriptions(timeline: readonly TimelineEvent[])
 }
 
 export function collectPlanSteps(timeline: readonly TimelineEvent[]): readonly string[] {
+  // planning 레인 이벤트(context.saved 등) + description이 있는 terminal.command 포함.
+  // terminal.ts hook이 더 이상 save-context를 별도로 발행하지 않으므로
+  // terminal.command metadata.description을 직접 수집한다.
+  const planningEvents = timeline.filter(e => e.lane === "planning");
+  const describedTerminals = timeline.filter(
+    e => e.kind === "terminal.command"
+      && Boolean(extractMetadataString(e.metadata, "description"))
+  );
   return uniqueStrings(
-    timeline
-      .filter(e => e.lane === "planning")
+    [...planningEvents, ...describedTerminals]
       .map(describeProcessEvent)
       .filter((v): v is string => Boolean(v))
   );
