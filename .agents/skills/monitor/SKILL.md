@@ -2,7 +2,7 @@
 
 ---
 name: monitor
-description: MCP가 있는 모든 환경에서 Agent Tracer 모니터링 기록. Cursor, Windsurf, 웹 IDE, 기타 MCP 지원 환경에서 사용.
+description: Agent Tracer 모니터링. Claude Code·OpenCode 자동화 환경과 Cursor·Windsurf 등 MCP 지원 환경 전반에서 사용. 훅/플러그인 없는 환경에서는 전체 이벤트 수동 기록.
 ---
 
 # Agent Tracer Monitor
@@ -13,9 +13,28 @@ description: MCP가 있는 모든 환경에서 Agent Tracer 모니터링 기록.
 
 1. `monitor-server` MCP 서버 사용 가능 여부 확인. 없으면 작업은 계속하고 마지막에 gap 리포트.
 2. 첫 번째 실질적 작업 전에 `monitor_task_start` 호출.
+   - **Claude Code / OpenCode**: `ensure_task` hook / plugin이 자동 생성하므로 생략 가능.
 3. 이후 모든 모니터링 도구 호출에 반환된 `task.id`와 `sessionId` 재사용.
 4. 작업 중 주요 마일스톤 기록.
 5. `monitor_task_complete` 또는 `monitor_task_error`로 종료.
+   - **Claude Code / OpenCode**: `stop` hook / plugin이 자동 처리하므로 생략 가능.
+
+## 환경별 자동화 수준
+
+Claude Code / OpenCode는 훅·플러그인이 대부분의 이벤트를 자동 기록한다.
+**에이전트가 직접 호출해야 할 이벤트**: `monitor_save_context`, `monitor_plan`, `monitor_action`, `monitor_verify`, `monitor_thought`, `monitor_question`, `monitor_rule`
+
+| 이벤트 | Claude Code (hook) | OpenCode (plugin) | Cursor / Windsurf / 기타 |
+|---|---|---|---|
+| `monitor_task_start` / `_complete` / `_error` | 자동 | 자동 | **수동** |
+| `monitor_user_message` | 자동 (user_prompt) | 자동 | **수동** |
+| `monitor_explore` | 자동 (explore) | 자동 | **수동** |
+| `monitor_terminal_command` | 자동 (terminal) | 자동 | **수동** |
+| `monitor_tool_used` | 자동 (tool_used) | 자동 | **수동** |
+| `monitor_agent_activity` | 자동 (agent_activity) | 자동 | **수동** |
+| `monitor_todo` | 자동 (todo) | 자동 | **수동** |
+| `monitor_session_end` | 자동 (session_end) | 자동 | **수동** |
+| `monitor_save_context` / `_plan` / `_action` / `_verify` / `_thought` / `_question` / `_rule` | **수동** | **수동** | **수동** |
 
 네이티브 projection:
 - source-of-truth: `skills/monitor/SKILL.md`
@@ -70,7 +89,7 @@ description: MCP가 있는 모든 환경에서 Agent Tracer 모니터링 기록.
   - `activityType="mcp_call"` → 외부 MCP 서버 호출 시, `mcpServer` / `mcpTool` 첨부
   - `activityType="search"` → WebSearch/WebFetch로 외부 리소스를 적극적으로 조회할 때
   - `activityType="handoff"` → 다른 에이전트·세션으로 작업을 넘길 때
-  - Claude Code / OpenCode 자동화 환경에서는 훅이 자동 기록하므로 중복 호출 불필요
+  - Claude Code / OpenCode: 훅·플러그인이 자동 기록. 위 "환경별 자동화 수준" 참조.
 
 ## 필수 리듬
 
@@ -83,6 +102,7 @@ description: MCP가 있는 모든 환경에서 Agent Tracer 모니터링 기록.
 
 ## 최소 흐름
 
+**MCP 수동 환경 (Cursor / Windsurf / 기타):**
 1. `monitor_task_start`
 2. `monitor_user_message` (`captureMode="raw"`, `phase="initial"`) — 사용자 요청 기록
 3. `monitor_explore` — 탐색
@@ -93,3 +113,9 @@ description: MCP가 있는 모든 환경에서 Agent Tracer 모니터링 기록.
 후속 메시지가 있을 경우:
 - `monitor_user_message` (`captureMode="raw"`, `phase="follow_up"`) — 후속 요청 기록
   (동일 `taskId` 사용 — 새 태스크 생성 금지)
+
+**Claude Code / OpenCode (자동화 환경):**
+1. `monitor_save_context` (`lane="planning"`) — 계획 스냅샷 (수동 필수)
+2. `monitor_action` — 주요 실행 직전 (수동 필수)
+3. `monitor_verify` — 검증 완료 시 (수동 필수)
+4. _(태스크 생성·사용자 메시지·탐색·구현 이벤트·종료는 훅/플러그인이 자동 처리)_
