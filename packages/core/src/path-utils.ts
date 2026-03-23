@@ -10,13 +10,13 @@
  * 백틱 내 경로, @ 접두사 경로(파일·폴더 모두), 일반 경로 패턴을 순서대로 시도.
  *
  * @param text - 추출할 원본 텍스트
- * @returns 중복 제거된 경로 후보 배열 (trailing slash 보존)
+ * @returns 중복 제거된 경로 후보 배열 (trailing slash 보존 — 폴더 멘션 구분에 사용)
  */
 export function extractPathLikeTokens(text: string): readonly string[] {
   const matches = new Set<string>();
 
   function addCandidate(raw: string | undefined): void {
-    const candidate = raw?.trim().replace(/\/$/, "");
+    const candidate = raw?.trim();
     if (candidate && looksLikePath(candidate)) {
       matches.add(candidate);
     }
@@ -68,7 +68,9 @@ export function looksLikePath(value: string): boolean {
 /**
  * 경로가 디렉토리(폴더)를 가리키는지 판별.
  * - trailing slash 있음: 명확히 폴더
- * - dotfile (.gitignore, .env): 파일로 간주
+ * - dotfile 중 secondary extension 없고 길이 >= 4이며 알려진 config 패턴이 없는 경우: 폴더로 간주
+ *   (예: .claude, .opencode, .agents, .github, .vscode → 폴더)
+ *   (예: .env, .gitignore, .npmrc, .eslintrc → 파일)
  * - 확장자 없음: 폴더로 간주
  * - 확장자 있음: 파일로 간주
  */
@@ -78,7 +80,17 @@ export function isDirectoryPath(path: string): boolean {
   }
   const lastSegment = path.split("/").filter(Boolean).at(-1) ?? "";
   if (/^\.[a-z0-9]/i.test(lastSegment)) {
-    return false;
+    const afterDot = lastSegment.slice(1);
+    // secondary 확장자, 길이 3 이하(예: .env), 또는 알려진 config 파일 suffix → 파일
+    if (
+      afterDot.length <= 3 ||
+      afterDot.includes(".") ||
+      /(?:rc|ignore|config|lock|keep|list|sum|sig)$/i.test(afterDot)
+    ) {
+      return false;
+    }
+    // 그 외 dotname (예: .claude, .github, .vscode) → 폴더
+    return true;
   }
   return !/\.[a-z0-9]{1,15}$/i.test(lastSegment);
 }

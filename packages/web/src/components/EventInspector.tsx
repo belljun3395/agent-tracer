@@ -21,6 +21,7 @@ import {
   buildTodoGroups,
   collectExploredFiles,
   collectFileActivity,
+  collectPlanSteps,
   collectViolationDescriptions,
   type CompactInsight,
   type CompactRelation,
@@ -38,7 +39,6 @@ import {
 } from "../lib/insights.js";
 import { formatRelativeTime } from "../lib/timeline.js";
 import type { TimelineConnector } from "../lib/timeline.js";
-import { copyToClipboard } from "../lib/ui/clipboard.js";
 import { cn } from "../lib/ui/cn.js";
 import { Badge } from "./ui/Badge.js";
 import { Button } from "./ui/Button.js";
@@ -1143,34 +1143,21 @@ function CompactActivityCard({
   );
 }
 
-/** TaskExtractionCard: 태스크 추출 카드. 재사용 가능한 브리프와 마크다운 복사 기능 포함. */
+/** TaskExtractionCard: 태스크 추출 카드. 목표, 프로세스 섹션, 검증, 파일 표시. */
 function TaskExtractionCard({
-  extraction, workspacePath, copiedState, onCopyBrief, onCopyProcess
+  extraction, workspacePath
 }: {
   readonly extraction: TaskExtraction;
   readonly workspacePath?: string | undefined;
-  readonly copiedState: "brief" | "process" | null;
-  readonly onCopyBrief: () => void;
-  readonly onCopyProcess: () => void;
 }): React.JSX.Element {
   return (
     <PanelCard className={cardShell}>
       <div className={cardHeader}>
         <span>Task Extraction</span>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button className="rounded-full px-3 py-1.5 text-[0.72rem] font-semibold" onClick={onCopyBrief} size="sm" type="button" variant="ghost">
-            {copiedState === "brief" ? "Copied brief" : "Copy brief"}
-          </Button>
-          <Button className="rounded-full px-3 py-1.5 text-[0.72rem] font-semibold" onClick={onCopyProcess} size="sm" type="button" variant="ghost">
-            {copiedState === "process" ? "Copied process" : "Copy process"}
-          </Button>
-        </div>
       </div>
       <div className={cardBody}>
         <div className="rounded-[14px] border border-[var(--exploration-border)] bg-[color-mix(in_srgb,var(--exploration-bg)_60%,var(--surface))] p-4">
-          <span className="mb-2 inline-flex text-[0.68rem] font-bold uppercase tracking-[0.08em] text-[var(--accent)]">Reusable Task</span>
           <strong className="block break-words text-[0.98rem] leading-6 text-[var(--text-1)] [overflow-wrap:anywhere]">{extraction.objective}</strong>
-          <p className="mt-2 break-words text-[0.82rem] leading-6 text-[var(--text-2)] [overflow-wrap:anywhere]">{extraction.summary}</p>
         </div>
 
         {extraction.sections.length > 0 && (
@@ -1211,11 +1198,14 @@ function TaskExtractionCard({
             <div className="flex flex-col gap-2">
               <span className="text-[0.7rem] font-bold uppercase tracking-[0.08em] text-[var(--text-3)]">Files</span>
               <div className="flex flex-wrap gap-2">
-                {extraction.files.map((filePath) => (
+                {extraction.files.slice(0, 6).map((filePath) => (
                   <Badge key={filePath} tone="neutral" size="xs" className="max-w-full break-words" title={filePath}>
                     {summarizePath(filePath, workspacePath)}
                   </Badge>
                 ))}
+                {extraction.files.length > 6 && (
+                  <Badge tone="neutral" size="xs">+{extraction.files.length - 6} more</Badge>
+                )}
               </div>
             </div>
           )}
@@ -1338,7 +1328,8 @@ function summarizePath(filePath: string, workspacePath?: string): string {
   }
 
   const parts = relative.split("/");
-  return parts.length > 3 ? parts.slice(-3).join("/") : relative;
+  const shortened = parts.length > 3 ? parts.slice(-3).join("/") : relative;
+  return shortened.length > 42 ? `…${shortened.slice(-(42 - 1))}` : shortened;
 }
 
 function dirnameLabel(filePath: string, workspacePath?: string): string {
@@ -1389,7 +1380,6 @@ export function EventInspector({
   const [isFileActivityExpanded, setIsFileActivityExpanded]   = useState(true);
   const [explorationSortKey, setExplorationSortKey] = useState<ExplorationSortKey>("recent");
   const [fileSortKey, setFileSortKey]               = useState<FileSortKey>("recent");
-  const [copiedExtraction, setCopiedExtraction]     = useState<"brief" | "process" | null>(null);
 
   const taskTimeline = taskDetail?.timeline ?? [];
 
@@ -1469,6 +1459,10 @@ export function EventInspector({
     () => collectViolationDescriptions(taskTimeline),
     [taskTimeline]
   );
+  const handoffPlans = useMemo(
+    () => collectPlanSteps(taskTimeline),
+    [taskTimeline]
+  );
 
   const relatedEvents = useMemo(() => {
     if (!selectedEvent) {
@@ -1492,21 +1486,6 @@ export function EventInspector({
 
     return taskTimeline.filter((event) => relatedIds.has(event.id));
   }, [selectedEvent, taskTimeline]);
-
-  async function handleCopyExtraction(kind: "brief" | "process"): Promise<void> {
-    const content = kind === "brief"
-      ? taskExtraction.brief
-      : taskExtraction.processMarkdown;
-
-    if (!content.trim()) {
-      return;
-    }
-
-    const copied = await copyToClipboard(content);
-    if (copied) {
-      setCopiedExtraction(kind);
-    }
-  }
 
   const eventTime = selectedEvent
     ? new Date(selectedEvent.createdAt).toLocaleTimeString()
@@ -1762,14 +1741,12 @@ export function EventInspector({
             <TaskExtractionCard
               extraction={taskExtraction}
               workspacePath={taskDetail?.task.workspacePath}
-              copiedState={copiedExtraction}
-              onCopyBrief={() => void handleCopyExtraction("brief")}
-              onCopyProcess={() => void handleCopyExtraction("process")}
             />
             {taskExtraction.objective && (
               <TaskHandoffPanel
                 objective={taskExtraction.objective}
                 summary={taskExtraction.summary}
+                plans={handoffPlans}
                 sections={taskExtraction.sections}
                 exploredFiles={handoffExploredFiles}
                 modifiedFiles={handoffModifiedFiles}

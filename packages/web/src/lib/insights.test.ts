@@ -295,12 +295,13 @@ describe("collectViolationDescriptions", () => {
 
 function makeHandoff(overrides: Partial<HandoffOptions> = {}): HandoffOptions {
   const defaultInclude = {
-    summary: true, process: true, files: true, modifiedFiles: true,
+    summary: true, plans: true, process: true, files: true, modifiedFiles: true,
     todos: true, violations: true, questions: false
   };
   return {
     objective: "Build the feature",
     summary: "Implemented X and Y",
+    plans: ["Design the data model", "Implement API endpoints"],
     sections: [{ lane: "implementation" as const, title: "Implementation", items: ["Did A", "Did B"] }],
     exploredFiles: ["src/App.tsx", "src/lib/insights.ts"],
     modifiedFiles: ["src/App.tsx"],
@@ -335,18 +336,18 @@ describe("buildHandoffPlain", () => {
   });
 
   it("includes questions when include.questions = true", () => {
-    const result = buildHandoffPlain(makeHandoff({ include: { summary: true, process: true, files: true, modifiedFiles: true, todos: true, violations: true, questions: true } }));
+    const result = buildHandoffPlain(makeHandoff({ include: { summary: true, plans: true, process: true, files: true, modifiedFiles: true, todos: true, violations: true, questions: true } }));
     expect(result).toContain("Open Questions:");
     expect(result).toContain("- Should we use Redux?");
   });
 
   it("omits summary when include.summary = false", () => {
-    const result = buildHandoffPlain(makeHandoff({ include: { summary: false, process: true, files: true, modifiedFiles: true, todos: true, violations: true, questions: false } }));
+    const result = buildHandoffPlain(makeHandoff({ include: { summary: false, plans: true, process: true, files: true, modifiedFiles: true, todos: true, violations: true, questions: false } }));
     expect(result).not.toContain("Summary:");
   });
 
   it("omits process when include.process = false", () => {
-    const result = buildHandoffPlain(makeHandoff({ include: { summary: true, process: false, files: true, modifiedFiles: true, todos: true, violations: true, questions: false } }));
+    const result = buildHandoffPlain(makeHandoff({ include: { summary: true, plans: true, process: false, files: true, modifiedFiles: true, todos: true, violations: true, questions: false } }));
     expect(result).not.toContain("Process:");
   });
 
@@ -361,7 +362,7 @@ describe("buildHandoffPlain", () => {
   });
 
   it("omits explored files when include.files = false", () => {
-    const result = buildHandoffPlain(makeHandoff({ include: { summary: true, process: true, files: false, modifiedFiles: true, todos: true, violations: true, questions: false } }));
+    const result = buildHandoffPlain(makeHandoff({ include: { summary: true, plans: true, process: true, files: false, modifiedFiles: true, todos: true, violations: true, questions: false } }));
     expect(result).not.toContain("Explored Files:");
   });
 
@@ -372,7 +373,7 @@ describe("buildHandoffPlain", () => {
 
   it("always includes objective regardless of toggles", () => {
     const result = buildHandoffPlain(makeHandoff({
-      include: { summary: false, process: false, files: false, modifiedFiles: false, todos: false, violations: false, questions: false }
+      include: { summary: false, plans: false, process: false, files: false, modifiedFiles: false, todos: false, violations: false, questions: false }
     }));
     expect(result).toContain("Task: Build the feature");
   });
@@ -399,7 +400,7 @@ describe("buildHandoffMarkdown", () => {
 
   it("includes questions when include.questions = true", () => {
     const result = buildHandoffMarkdown(makeHandoff({
-      include: { summary: true, process: true, files: true, modifiedFiles: true, todos: true, violations: true, questions: true }
+      include: { summary: true, plans: true, process: true, files: true, modifiedFiles: true, todos: true, violations: true, questions: true }
     }));
     expect(result).toContain("## Open Questions\n- Should we use Redux?");
   });
@@ -417,7 +418,7 @@ describe("buildHandoffMarkdown", () => {
 
   it("always includes objective", () => {
     const result = buildHandoffMarkdown(makeHandoff({
-      include: { summary: false, process: false, files: false, modifiedFiles: false, todos: false, violations: false, questions: false }
+      include: { summary: false, plans: false, process: false, files: false, modifiedFiles: false, todos: false, violations: false, questions: false }
     }));
     expect(result).toContain("## Objective\nBuild the feature");
   });
@@ -450,7 +451,7 @@ describe("buildHandoffXML", () => {
 
   it("includes questions when enabled", () => {
     const result = buildHandoffXML(makeHandoff({
-      include: { summary: true, process: true, files: true, modifiedFiles: true, todos: true, violations: true, questions: true }
+      include: { summary: true, plans: true, process: true, files: true, modifiedFiles: true, todos: true, violations: true, questions: true }
     }));
     expect(result).toContain("<open_questions>");
     expect(result).toContain("<question><![CDATA[Should we use Redux?]]></question>");
