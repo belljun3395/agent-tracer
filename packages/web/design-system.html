@@ -1,0 +1,800 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Agent Tracer — Design System v3</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
+  <style>
+    :root {
+      --bg:          #F7F8FC;
+      --surface:     #FFFFFF;
+      --surface-2:   #F3F4F8;
+      --border:      #E4E7F0;
+      --border-strong: #CDD1E0;
+
+      --text-1:      #0F1117;
+      --text-2:      #4A5068;
+      --text-3:      #8B92A8;
+
+      --accent:      #2563EB;
+      --accent-light:#DBEAFE;
+
+      --ok:          #059669;
+      --ok-bg:       #D1FAE5;
+      --warn:        #D97706;
+      --warn-bg:     #FEF3C7;
+      --err:         #DC2626;
+      --err-bg:      #FEE2E2;
+
+      --user:              #BE123C;
+      --user-bg:           #FFF1F2;
+      --user-border:       #FECDD3;
+
+      --exploration:       #0D9488;
+      --exploration-bg:    #F0FDF9;
+      --exploration-border:#99F6E4;
+
+      --planning:          #7C3AED;
+      --planning-bg:       #F5F3FF;
+      --planning-border:   #C4B5FD;
+
+      --implementation:    #EA580C;
+      --implementation-bg: #FFF7ED;
+      --implementation-border: #FDBA74;
+
+      --questions:         #C026D3;
+      --questions-bg:      #FDF4FF;
+      --questions-border:  #F0ABFC;
+
+      --todos:             #1D4ED8;
+      --todos-bg:          #EFF6FF;
+      --todos-border:      #BFDBFE;
+
+      --coordination:      #0891B2;
+      --coordination-bg:   #ECFEFF;
+      --coordination-border:#A5F3FC;
+
+      --background-lane:   #6366F1;
+      --background-bg:     #EEF2FF;
+      --background-border: #C7D2FE;
+
+      --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font-sans); background: var(--bg); color: var(--text-1); font-size: 14px; }
+
+    /* ── DASHBOARD ────────────────────────────────────── */
+    .dashboard {
+      width: 1440px;
+      height: 920px;
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      box-shadow: 0 8px 40px rgba(15,17,23,0.12);
+    }
+
+    /* ── TOPBAR ──────────────────────────────────────── */
+    .topbar {
+      height: 52px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+      gap: 12px;
+      flex-shrink: 0;
+    }
+    .brand { display: flex; align-items: center; gap: 8px; }
+    .brand-icon {
+      width: 28px; height: 28px; border-radius: 7px;
+      background: var(--accent);
+      display: flex; align-items: center; justify-content: center;
+      color: white; font-weight: 800; font-size: 11px; letter-spacing: -0.5px;
+    }
+    .brand-name { font-size: 14px; font-weight: 700; color: var(--text-1); }
+    .sep { width: 1px; height: 22px; background: var(--border); }
+    .task-info { display: flex; flex-direction: column; gap: 1px; }
+    .task-name { font-size: 13px; font-weight: 600; color: var(--text-1); }
+    .task-path { font-size: 10px; color: var(--text-3); font-family: var(--font-mono); }
+    .top-badges { display: flex; gap: 6px; }
+    .tbadge {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 3px 9px; border-radius: 999px;
+      font-size: 11px; font-weight: 600; border: 1.5px solid transparent;
+    }
+    .tbadge.check     { background:#EFF6FF; color:var(--accent); border-color:#BFDBFE; }
+    .tbadge.violation { background:var(--err-bg); color:var(--err); border-color:#FCA5A5; }
+    .tbadge.pass      { background:var(--ok-bg); color:var(--ok); border-color:#A7F3D0; }
+    .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+    .ws-pill { display: flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 500; color: var(--ok); background: var(--ok-bg); border: 1px solid #A7F3D0; padding: 3px 9px; border-radius: 999px; }
+    .ws-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ok); }
+    .icon-btn { width: 28px; height: 28px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); display: flex; align-items: center; justify-content: center; font-size: 12px; color: var(--text-3); cursor: pointer; }
+    .zoom-row { display: flex; align-items: center; gap: 6px; padding: 3px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+    .zoom-track { width: 64px; height: 3px; background: var(--border); border-radius: 2px; position: relative; }
+    .zoom-fill  { position: absolute; left: 0; top: 0; height: 100%; width: 55%; background: var(--accent); border-radius: 2px; }
+    .zoom-thumb { position: absolute; width: 11px; height: 11px; border-radius: 50%; background: var(--accent); border: 2px solid white; box-shadow: 0 1px 3px rgba(0,0,0,0.25); top: -4px; left: calc(55% - 5px); }
+    .zoom-lbl { font-size: 10px; color: var(--text-3); font-family: var(--font-mono); }
+
+    /* ── TIMELINE SHELL ──────────────────────────────── */
+    .timeline-shell {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+    }
+
+    /* ── LANE LABEL SIDEBAR ──────────────────────────── */
+    .lane-sidebar {
+      width: 120px;
+      flex-shrink: 0;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+    }
+    .sidebar-ruler-placeholder { height: 36px; border-bottom: 1px solid var(--border); background: var(--surface-2); }
+    .lane-lbl {
+      display: flex; align-items: center;
+      padding: 0 14px;
+      font-size: 11px; font-weight: 600;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      transition: background 0.1s;
+      flex-shrink: 0;
+    }
+    .lane-lbl:hover { background: var(--surface-2); }
+    .lane-lbl.user           { height: 72px;  color: var(--user); }
+    .lane-lbl.exploration    { height: 120px; color: var(--exploration); }
+    .lane-lbl.planning       { height: 88px;  color: var(--planning); }
+    .lane-lbl.implementation { height: 160px; color: var(--implementation); }
+    .lane-lbl.coordination   { height: 72px;  color: var(--coordination); }
+    .lane-lbl.background     { height: 120px; color: var(--background-lane); }
+
+    /* ── CANVAS ──────────────────────────────────────── */
+    .canvas-wrap {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Ruler */
+    .ruler {
+      height: 36px;
+      background: var(--surface-2);
+      border-bottom: 2px solid var(--border);
+      flex-shrink: 0;
+      position: relative;
+      overflow: hidden;
+    }
+    .tick {
+      position: absolute;
+      bottom: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+    }
+    .tick-lbl { font-size: 9px; font-family: var(--font-mono); color: var(--text-3); white-space: nowrap; }
+    .tick-lbl.hi { color: var(--text-2); font-weight: 600; font-size: 10px; }
+    .tick-bar { width: 1px; height: 8px; background: var(--border); }
+    .tick-bar.hi { background: var(--border-strong); height: 12px; }
+
+    /* Lane rows */
+    .lane-rows {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+    .lane-row {
+      border-bottom: 1px solid var(--border);
+      position: relative;
+    }
+    .lane-row.user           { height: 72px;  background: linear-gradient(180deg, rgba(255,241,242,0.4) 0%, var(--surface) 100%); }
+    .lane-row.exploration    { height: 120px; background: linear-gradient(180deg, rgba(240,253,249,0.6) 0%, var(--surface) 100%); }
+    .lane-row.planning       { height: 88px;  background: linear-gradient(180deg, rgba(245,243,255,0.5) 0%, var(--surface) 100%); }
+    .lane-row.implementation { height: 160px; background: linear-gradient(180deg, rgba(255,247,237,0.6) 0%, var(--surface) 100%); }
+    .lane-row.coordination   { height: 72px;  background: linear-gradient(180deg, rgba(236,254,255,0.5) 0%, var(--surface) 100%); }
+    .lane-row.background     { height: 120px; background: linear-gradient(180deg, rgba(238,242,255,0.7) 0%, var(--surface) 100%); }
+
+    /* Vertical grid lines */
+    .grid-line {
+      position: absolute;
+      top: 0; bottom: 0;
+      width: 1px;
+      background: var(--border);
+      opacity: 0.4;
+      pointer-events: none;
+    }
+
+    /* NOW red line */
+    .now-line {
+      position: absolute;
+      top: 0; bottom: 0;
+      width: 1.5px;
+      background: var(--err);
+      z-index: 10;
+      pointer-events: none;
+    }
+    .now-badge {
+      position: absolute;
+      top: -36px; /* in ruler */
+      transform: translateX(-50%);
+      font-size: 9px; font-weight: 700;
+      color: white; background: var(--err);
+      padding: 1px 5px; border-radius: 3px;
+    }
+
+    /* ── EVENT NODES ─────────────────────────────────── */
+    .enode {
+      position: absolute;
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 5px 9px;
+      border-radius: 7px;
+      border: 1.5px solid transparent;
+      font-size: 11px; font-weight: 500;
+      white-space: nowrap;
+      cursor: pointer;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.04);
+      transition: box-shadow 0.1s, transform 0.1s;
+      max-width: 200px;
+    }
+    .enode:hover { box-shadow: 0 3px 10px rgba(0,0,0,0.13); transform: translateY(-1px); }
+    .enode.selected { outline: 2.5px solid var(--accent); outline-offset: 2px; box-shadow: 0 3px 10px rgba(37,99,235,0.2); }
+
+    .enode.user           { background: var(--user-bg);           border-color: var(--user-border);           color: var(--user); }
+    .enode.exploration    { background: var(--exploration-bg);    border-color: var(--exploration-border);    color: var(--exploration); }
+    .enode.planning       { background: var(--planning-bg);       border-color: var(--planning-border);       color: var(--planning); }
+    .enode.implementation { background: var(--implementation-bg); border-color: var(--implementation-border); color: var(--implementation); }
+    .enode.coordination   { background: var(--coordination-bg);   border-color: var(--coordination-border);   color: var(--coordination); }
+    .enode.background     { background: var(--background-bg);     border-color: var(--background-border);     color: var(--background-lane); }
+    .enode.questions      { background: var(--questions-bg);      border-color: var(--questions-border);      color: var(--questions); }
+    .enode.todos          { background: var(--todos-bg);          border-color: var(--todos-border);          color: var(--todos); }
+
+    .enode-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; flex-shrink: 0; opacity: 0.7; }
+    .enode-lbl  { overflow: hidden; text-overflow: ellipsis; max-width: 160px; }
+
+    /* ── BACKGROUND TASK REGION ──────────────────────── */
+    /* A background sub-agent task is shown as a shaded region
+       spanning the time it was active, WITHIN the background lane.
+       This corresponds to MonitoringTask.taskKind === "background" */
+    .bg-task-region {
+      position: absolute;
+      border-radius: 8px;
+      border: 1.5px dashed var(--background-border);
+      background: rgba(99,102,241,0.06);
+      pointer-events: none;
+    }
+    .bg-task-label {
+      position: absolute;
+      top: 4px; left: 8px;
+      font-size: 9px; font-weight: 600;
+      color: var(--background-lane);
+      opacity: 0.7;
+      font-family: var(--font-mono);
+      letter-spacing: 0.04em;
+    }
+
+    /* ── SVG CONNECTORS ──────────────────────────────── */
+    .connectors-svg {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+      overflow: visible;
+    }
+
+    /* ── MINIMAP ─────────────────────────────────────── */
+    .minimap {
+      position: absolute;
+      bottom: 14px; right: 14px;
+      width: 190px; height: 90px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+      overflow: hidden;
+      z-index: 20;
+    }
+    .minimap-hdr {
+      height: 22px; background: var(--surface-2);
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; padding: 0 8px;
+      font-size: 9px; font-weight: 700; color: var(--text-3);
+      letter-spacing: 0.1em; text-transform: uppercase;
+    }
+    .minimap-body { padding: 5px 8px; display: flex; flex-direction: column; gap: 3px; }
+    .minimap-row { display: flex; gap: 3px; align-items: center; }
+    .minimap-lbl { font-size: 8px; color: var(--text-3); width: 60px; text-align: right; flex-shrink: 0; }
+    .minimap-bar-wrap { flex: 1; height: 7px; background: var(--surface-2); border-radius: 2px; overflow: hidden; }
+    .minimap-bar { height: 100%; border-radius: 2px; }
+
+    /* ── INSPECTOR ───────────────────────────────────── */
+    .inspector {
+      width: 340px;
+      flex-shrink: 0;
+      background: var(--surface);
+      border-left: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      box-shadow: -4px 0 16px rgba(15,17,23,0.07);
+    }
+    .insp-hdr {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex; gap: 10px; align-items: flex-start;
+    }
+    .insp-lane-bar { width: 3px; border-radius: 2px; align-self: stretch; flex-shrink: 0; }
+    .insp-title-block { flex: 1; min-width: 0; }
+    .insp-title { font-size: 13px; font-weight: 600; color: var(--text-1); line-height: 1.4; margin-bottom: 3px; }
+    .insp-meta  { font-size: 10px; color: var(--text-3); font-family: var(--font-mono); }
+    .insp-close { width: 24px; height: 24px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface-2); display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--text-3); cursor: pointer; flex-shrink: 0; }
+    .insp-section { padding: 12px 16px; border-bottom: 1px solid var(--border); }
+    .insp-sec-title { font-size: 9px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-3); margin-bottom: 8px; }
+    .code-block { font-family: var(--font-mono); font-size: 11px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; color: var(--text-2); line-height: 1.6; }
+    .code-add { color: var(--ok); }
+    .ver-list { display: flex; flex-direction: column; gap: 7px; }
+    .ver-card { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+    .ver-card-hdr { display: flex; align-items: center; gap: 7px; padding: 7px 10px; background: var(--surface-2); }
+    .ver-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+    .ver-dot.pass { background: var(--ok); }
+    .ver-dot.issue { background: var(--err); }
+    .ver-status { font-size: 11px; font-weight: 600; }
+    .ver-status.pass { color: var(--ok); }
+    .ver-status.issue { color: var(--err); }
+    .ver-time { font-size: 10px; color: var(--text-3); font-family: var(--font-mono); margin-left: auto; }
+    .ver-rules { padding: 6px 10px; display: flex; flex-direction: column; gap: 4px; }
+    .ver-rule { display: flex; align-items: flex-start; gap: 6px; font-size: 11px; color: var(--text-2); line-height: 1.45; }
+    .vr-dot { width: 4px; height: 4px; border-radius: 50%; flex-shrink: 0; margin-top: 5px; }
+    .vr-dot.ok  { background: var(--ok); }
+    .vr-dot.err { background: var(--err); }
+    .vr-dot.neu { background: var(--text-3); }
+    .tag-row { display: flex; flex-wrap: wrap; gap: 4px; }
+    .tag { font-size: 10px; font-weight: 500; padding: 2px 7px; border-radius: 4px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text-2); }
+
+    /* ── PAGE WRAPPER ────────────────────────────────── */
+    .page { padding: 40px; display: flex; flex-direction: column; gap: 48px; background: var(--bg); }
+    .sec-title { font-size: 9px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-3); margin-bottom: 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+
+    /* Swatch grid */
+    .sw-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px,1fr)); gap: 8px; }
+    .sw { border-radius: 8px; overflow: hidden; border: 1px solid var(--border); background: var(--surface); }
+    .sw-color { height: 44px; }
+    .sw-info { padding: 6px 8px; }
+    .sw-name { font-size: 10px; font-weight: 600; color: var(--text-2); }
+    .sw-hex  { font-size: 9px; color: var(--text-3); font-family: var(--font-mono); }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <!-- ── FULL DASHBOARD ────────────────────────────── -->
+  <div>
+    <div class="sec-title">Full Dashboard — Horizontal Gantt Timeline with Background Task Regions</div>
+    <div class="dashboard">
+
+      <!-- TOPBAR -->
+      <div class="topbar">
+        <div class="brand">
+          <div class="brand-icon">AT</div>
+          <span class="brand-name">Agent Tracer</span>
+        </div>
+        <div class="sep"></div>
+        <div class="task-info">
+          <span class="task-name">Fix auth middleware refresh logic</span>
+          <span class="task-path">packages/server/src/middleware/auth.ts</span>
+        </div>
+        <div class="sep"></div>
+        <div class="top-badges">
+          <span class="tbadge check">Check 42</span>
+          <span class="tbadge violation">Violation 3</span>
+          <span class="tbadge pass">Pass 39</span>
+        </div>
+        <div class="topbar-right">
+          <div class="icon-btn">⎙</div>
+          <div class="icon-btn">⚙</div>
+          <div class="zoom-row">
+            <span class="zoom-lbl">−</span>
+            <div class="zoom-track">
+              <div class="zoom-fill"></div>
+              <div class="zoom-thumb"></div>
+            </div>
+            <span class="zoom-lbl">+</span>
+          </div>
+          <div class="ws-pill"><span class="ws-dot"></span>Connected</div>
+        </div>
+      </div>
+
+      <!-- TIMELINE SHELL -->
+      <div class="timeline-shell">
+
+        <!-- Lane Labels -->
+        <div class="lane-sidebar">
+          <div class="sidebar-ruler-placeholder"></div>
+          <div class="lane-lbl user">User</div>
+          <div class="lane-lbl exploration">Exploration</div>
+          <div class="lane-lbl planning">Planning</div>
+          <div class="lane-lbl implementation">Implementation</div>
+          <div class="lane-lbl coordination">Coordination</div>
+          <div class="lane-lbl background">Background</div>
+        </div>
+
+        <!-- Canvas -->
+        <div class="canvas-wrap">
+
+          <!-- Ruler -->
+          <div class="ruler">
+            <div class="tick" style="left:60px">
+              <span class="tick-lbl">16:47:42</span>
+              <span class="tick-bar"></span>
+            </div>
+            <div class="tick" style="left:160px">
+              <span class="tick-lbl hi">16:49:30</span>
+              <span class="tick-bar hi"></span>
+            </div>
+            <div class="tick" style="left:280px">
+              <span class="tick-lbl">16:51:18</span>
+              <span class="tick-bar"></span>
+            </div>
+            <div class="tick" style="left:400px">
+              <span class="tick-lbl">16:53:06</span>
+              <span class="tick-bar"></span>
+            </div>
+            <div class="tick" style="left:520px">
+              <span class="tick-lbl hi">16:54:54</span>
+              <span class="tick-bar hi"></span>
+            </div>
+            <div class="tick" style="left:640px">
+              <span class="tick-lbl">16:56:42</span>
+              <span class="tick-bar"></span>
+            </div>
+            <div class="tick" style="left:760px">
+              <span class="tick-lbl">16:58:30</span>
+              <span class="tick-bar"></span>
+            </div>
+            <div class="tick" style="left:880px">
+              <span class="tick-lbl hi">17:00:18</span>
+              <span class="tick-bar hi"></span>
+            </div>
+            <div class="tick" style="left:1000px">
+              <span class="tick-lbl">17:02:06</span>
+              <span class="tick-bar"></span>
+            </div>
+            <!-- NOW -->
+            <div class="tick" style="left:920px; z-index:10">
+              <div style="background:var(--err);color:white;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-bottom:2px;font-family:var(--font-mono)">NOW</div>
+              <span class="tick-bar" style="background:var(--err);height:12px"></span>
+            </div>
+          </div>
+
+          <!-- Lane Rows -->
+          <div class="lane-rows">
+            <!-- Grid lines -->
+            <div class="grid-line" style="left:160px"></div>
+            <div class="grid-line" style="left:280px"></div>
+            <div class="grid-line" style="left:400px"></div>
+            <div class="grid-line" style="left:520px"></div>
+            <div class="grid-line" style="left:640px"></div>
+            <div class="grid-line" style="left:760px"></div>
+            <div class="grid-line" style="left:880px"></div>
+            <div class="grid-line" style="left:1000px"></div>
+            <!-- NOW line -->
+            <div class="now-line" style="left:920px"></div>
+
+            <!-- USER lane -->
+            <div class="lane-row user">
+              <div class="enode user" style="left:60px;top:22px">
+                <span class="enode-dot"></span>
+                <span class="enode-lbl">Fix auth token refresh</span>
+              </div>
+              <div class="enode user" style="left:700px;top:22px">
+                <span class="enode-dot"></span>
+                <span class="enode-lbl">Add error handling</span>
+              </div>
+            </div>
+
+            <!-- EXPLORATION lane -->
+            <div class="lane-row exploration">
+              <div class="enode exploration" style="left:140px;top:14px">
+                <span class="enode-dot"></span>
+                <span class="enode-lbl">Read auth.ts</span>
+              </div>
+              <div class="enode exploration" style="left:240px;top:55px">
+                <span class="enode-dot"></span>
+                <span class="enode-lbl">Read middleware/index</span>
+              </div>
+              <div class="enode exploration" style="left:350px;top:14px">
+                <span class="enode-dot"></span>
+                <span class="enode-lbl">Search: refreshToken</span>
+              </div>
+              <div class="enode exploration" style="left:460px;top:55px">
+                <span class="enode-dot"></span>
+                <span class="enode-lbl">Read token.utils.ts</span>
+              </div>
+              <div class="enode exploration" style="left:720px;top:14px">
+                <span class="enode-dot"></span>
+                <span class="enode-lbl">Read auth.test.ts</span>
+              </div>
+              <div class="enode exploration" style="left:830px;top:55px">
+                <span class="enode-dot"></span>
+                <span class="enode-lbl">Glob: **/*.test.ts</span>
+              </div>
+            </div>
+
+            <!-- PLANNING lane -->
+            <div class="lane-row planning">
+              <div class="enode planning" style="left:120px;top:24px;min-width:140px">
+                <span class="enode-dot"></span>
+                <span class="enode-lbl">plan: fix token logic</span>
+              </div>
+              <div class="enode planning" style="left:560px;top:24px">
+                <span class="enode-dot"></span>
+                <span class="enode-lbl">plan: add tests</span>
+              </div>
+              <div class="enode planning" style="left:940px;top:24px;min-width:130px">
+                <span class="enode-dot"></span>
+                <span class="enode-lbl">plan: update docs</span>
+              </div>
+            </div>
+
+            <!-- IMPLEMENTATION lane -->
+            <div class="lane-row implementation">
+              <div class="enode implementation" style="left:140px;top:14px;min-width:100px">
+                <span class="enode-dot"></span>
+                <span class="enode-lbl">Edit auth.ts</span>
+              </div>
+              <div class="enode implementation" style="left:280px;top:62px;min-width:110px">
+                <span class="enode-dot"></span>
+                <span class="enode-lbl">Edit token.utils</span>
+              </div>
+              <div class="enode implementation" style="left:400px;top:14px;min-width:106px">
+                <span class="enode-dot"></span>
+                <span class="enode-lbl">Edit middleware</span>
+              </div>
+              <div class="enode implementation" style="left:520px;top:106px;min-width:100px">
+                <span class="enode-dot"></span>
+                <span class="enode-lbl">Edit index.ts</span>
+              </div>
+              <div class="enode implementation" style="left:640px;top:14px;min-width:94px">
+                <span class="enode-dot"></span>
+                <span class="enode-lbl">Edit types.ts</span>
+              </div>
+              <div class="enode implementation" style="left:750px;top:62px;min-width:116px">
+                <span class="enode-dot"></span>
+                <span class="enode-lbl">Edit auth.test.ts</span>
+              </div>
+              <div class="enode implementation" style="left:870px;top:14px;min-width:112px">
+                <span class="enode-dot"></span>
+                <span class="enode-lbl">Edit README.md</span>
+              </div>
+              <div class="enode implementation selected" style="left:990px;top:106px;min-width:130px">
+                <span class="enode-dot"></span>
+                <span class="enode-lbl">Edit CHANGELOG.md</span>
+              </div>
+            </div>
+
+            <!-- COORDINATION lane -->
+            <div class="lane-row coordination">
+              <div class="enode coordination" style="left:200px;top:22px">
+                <span class="enode-dot"></span>
+                <span class="enode-lbl">spawn: lint-agent</span>
+              </div>
+              <div class="enode coordination" style="left:600px;top:22px">
+                <span class="enode-dot"></span>
+                <span class="enode-lbl">spawn: test-runner</span>
+              </div>
+              <div class="enode coordination" style="left:850px;top:22px">
+                <span class="enode-dot"></span>
+                <span class="enode-lbl">handoff: complete</span>
+              </div>
+            </div>
+
+            <!-- BACKGROUND lane — sub-agent regions + events -->
+            <div class="lane-row background">
+
+              <!-- Background task region 1: lint-agent (taskKind: "background") -->
+              <div class="bg-task-region" style="left:205px;top:8px;width:320px;height:104px">
+                <span class="bg-task-label">lint-agent · background task</span>
+              </div>
+              <!-- Events inside lint-agent region -->
+              <div class="enode background" style="left:220px;top:30px">
+                <span class="enode-dot"></span>
+                <span class="enode-lbl">agent:start</span>
+              </div>
+              <div class="enode background" style="left:330px;top:68px">
+                <span class="enode-dot"></span>
+                <span class="enode-lbl">lint:run</span>
+              </div>
+              <div class="enode background" style="left:440px;top:30px">
+                <span class="enode-dot"></span>
+                <span class="enode-lbl">agent:done</span>
+              </div>
+
+              <!-- Background task region 2: test-runner (taskKind: "background") -->
+              <div class="bg-task-region" style="left:605px;top:8px;width:280px;height:104px">
+                <span class="bg-task-label">test-runner · background task</span>
+              </div>
+              <!-- Events inside test-runner region -->
+              <div class="enode background" style="left:620px;top:30px">
+                <span class="enode-dot"></span>
+                <span class="enode-lbl">agent:start</span>
+              </div>
+              <div class="enode background" style="left:730px;top:68px">
+                <span class="enode-dot"></span>
+                <span class="enode-lbl">tests:run</span>
+              </div>
+              <div class="enode background" style="left:840px;top:30px">
+                <span class="enode-dot"></span>
+                <span class="enode-lbl">agent:done</span>
+              </div>
+            </div>
+
+            <!-- SVG Connectors -->
+            <svg class="connectors-svg" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <marker id="arr-impl" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+                  <path d="M0,0.5 L5,3 L0,5.5" fill="none" stroke="#EA580C" stroke-width="1.5" opacity="0.6"/>
+                </marker>
+                <marker id="arr-coord" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+                  <path d="M0,0.5 L5,3 L0,5.5" fill="none" stroke="#0891B2" stroke-width="1.5" opacity="0.6"/>
+                </marker>
+                <marker id="arr-expl" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+                  <path d="M0,0.5 L5,3 L0,5.5" fill="none" stroke="#0D9488" stroke-width="1.5" opacity="0.5"/>
+                </marker>
+              </defs>
+
+              <!-- User → Exploration (cross-lane, dashed) -->
+              <path d="M 200 36 C 200 70, 160 72, 160 86" stroke="#BE123C" stroke-width="1" fill="none" stroke-dasharray="4,3" opacity="0.5"/>
+
+              <!-- Exploration chain → Planning -->
+              <line x1="200" y1="192" x2="200" y2="220" stroke="#0D9488" stroke-width="1" opacity="0.4" marker-end="url(#arr-expl)"/>
+              <line x1="410" y1="192" x2="250" y2="220" stroke="#0D9488" stroke-width="1" opacity="0.4"/>
+
+              <!-- Planning → Implementation (spawn) -->
+              <path d="M 260 280 C 260 310, 200 310, 200 320" stroke="#7C3AED" stroke-width="1" fill="none" opacity="0.4"/>
+              <path d="M 680 280 C 680 310, 690 310, 690 320" stroke="#7C3AED" stroke-width="1" fill="none" opacity="0.4"/>
+
+              <!-- Implementation chain (horizontal) -->
+              <line x1="250" y1="338" x2="282" y2="338" stroke="#EA580C" stroke-width="1.5" opacity="0.5" marker-end="url(#arr-impl)"/>
+              <line x1="392" y1="374" x2="402" y2="350" stroke="#EA580C" stroke-width="1" opacity="0.4"/>
+              <line x1="510" y1="338" x2="521" y2="338" stroke="#EA580C" stroke-width="1.5" opacity="0.5" marker-end="url(#arr-impl)"/>
+              <line x1="630" y1="392" x2="640" y2="352" stroke="#EA580C" stroke-width="1" opacity="0.4"/>
+              <line x1="752" y1="338" x2="756" y2="338" stroke="#EA580C" stroke-width="1.5" opacity="0.5" marker-end="url(#arr-impl)"/>
+              <line x1="868" y1="374" x2="872" y2="352" stroke="#EA580C" stroke-width="1" opacity="0.4"/>
+
+              <!-- Coordination → Background (spawn arrows, vertical) -->
+              <line x1="290" y1="454" x2="290" y2="500" stroke="#0891B2" stroke-width="1.5" opacity="0.6" stroke-dasharray="3,2" marker-end="url(#arr-coord)"/>
+              <line x1="690" y1="454" x2="690" y2="500" stroke="#0891B2" stroke-width="1.5" opacity="0.6" stroke-dasharray="3,2" marker-end="url(#arr-coord)"/>
+            </svg>
+
+            <!-- Minimap -->
+            <div class="minimap">
+              <div class="minimap-hdr">Overview</div>
+              <div class="minimap-body">
+                <div class="minimap-row">
+                  <span class="minimap-lbl">user</span>
+                  <div class="minimap-bar-wrap"><div class="minimap-bar" style="width:55%;background:var(--user-border)"></div></div>
+                </div>
+                <div class="minimap-row">
+                  <span class="minimap-lbl">exploration</span>
+                  <div class="minimap-bar-wrap"><div class="minimap-bar" style="width:80%;background:var(--exploration-border)"></div></div>
+                </div>
+                <div class="minimap-row">
+                  <span class="minimap-lbl">planning</span>
+                  <div class="minimap-bar-wrap"><div class="minimap-bar" style="width:90%;background:var(--planning-border)"></div></div>
+                </div>
+                <div class="minimap-row">
+                  <span class="minimap-lbl">implement</span>
+                  <div class="minimap-bar-wrap"><div class="minimap-bar" style="width:100%;background:var(--implementation-border)"></div></div>
+                </div>
+                <div class="minimap-row">
+                  <span class="minimap-lbl">background</span>
+                  <div class="minimap-bar-wrap"><div class="minimap-bar" style="width:65%;background:var(--background-border)"></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Inspector Panel -->
+        <div class="inspector">
+          <div class="insp-hdr">
+            <div class="insp-lane-bar" style="background:var(--implementation)"></div>
+            <div class="insp-title-block">
+              <div class="insp-title">Edit CHANGELOG.md</div>
+              <div class="insp-meta">implementation · 17:03:12 · 8s</div>
+            </div>
+            <div class="insp-close">✕</div>
+          </div>
+          <div class="insp-section">
+            <div class="insp-sec-title">File</div>
+            <div class="code-block">docs/CHANGELOG.md</div>
+          </div>
+          <div class="insp-section">
+            <div class="insp-sec-title">Diff Preview</div>
+            <div class="code-block">
+              <span class="code-add">+ ## v0.4.2 — 2026-03-21</span><br>
+              <span class="code-add">+ Fix token expiry window (5s buffer)</span><br>
+              <span class="code-add">+ Resolves #481: 401 on concurrent refresh</span>
+            </div>
+          </div>
+          <div class="insp-section">
+            <div class="insp-sec-title">Verification Cycles</div>
+            <div class="ver-list">
+              <div class="ver-card">
+                <div class="ver-card-hdr">
+                  <div class="ver-dot pass"></div>
+                  <span class="ver-status pass">Pass</span>
+                  <span class="ver-time">17:03:45 · 4s</span>
+                </div>
+                <div class="ver-rules">
+                  <div class="ver-rule"><div class="vr-dot ok"></div>no unused exports in middleware</div>
+                  <div class="ver-rule"><div class="vr-dot ok"></div>async handlers must catch errors</div>
+                </div>
+              </div>
+              <div class="ver-card">
+                <div class="ver-card-hdr">
+                  <div class="ver-dot issue"></div>
+                  <span class="ver-status issue">Issue</span>
+                  <span class="ver-time">17:03:20 · 12s</span>
+                </div>
+                <div class="ver-rules">
+                  <div class="ver-rule"><div class="vr-dot err"></div>MUST include JSDoc for exported functions</div>
+                  <div class="ver-rule"><div class="vr-dot err"></div>changelog must reference issue number</div>
+                  <div class="ver-rule"><div class="vr-dot neu"></div>token expiry buffer must be ≥ 5s</div>
+                </div>
+              </div>
+              <div class="ver-card">
+                <div class="ver-card-hdr">
+                  <div class="ver-dot pass"></div>
+                  <span class="ver-status pass">Pass</span>
+                  <span class="ver-time">17:03:00 · 6s</span>
+                </div>
+                <div class="ver-rules">
+                  <div class="ver-rule"><div class="vr-dot ok"></div>middleware must not mutate req.body</div>
+                  <div class="ver-rule"><div class="vr-dot ok"></div>refresh token stored in httpOnly cookie</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="insp-section">
+            <div class="insp-sec-title">Tags</div>
+            <div class="tag-row">
+              <span class="tag">auth</span>
+              <span class="tag">changelog</span>
+              <span class="tag">middleware</span>
+              <span class="tag">docs</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ── COLOR TOKENS ──────────────────────────────── -->
+  <div>
+    <div class="sec-title">Lane Color Tokens</div>
+    <div class="sw-grid">
+      <div class="sw"><div class="sw-color" style="background:#BE123C"></div><div class="sw-info"><div class="sw-name">user</div><div class="sw-hex">#BE123C</div></div></div>
+      <div class="sw"><div class="sw-color" style="background:#0D9488"></div><div class="sw-info"><div class="sw-name">exploration</div><div class="sw-hex">#0D9488</div></div></div>
+      <div class="sw"><div class="sw-color" style="background:#7C3AED"></div><div class="sw-info"><div class="sw-name">planning</div><div class="sw-hex">#7C3AED</div></div></div>
+      <div class="sw"><div class="sw-color" style="background:#EA580C"></div><div class="sw-info"><div class="sw-name">implementation</div><div class="sw-hex">#EA580C</div></div></div>
+      <div class="sw"><div class="sw-color" style="background:#C026D3"></div><div class="sw-info"><div class="sw-name">questions</div><div class="sw-hex">#C026D3</div></div></div>
+      <div class="sw"><div class="sw-color" style="background:#1D4ED8"></div><div class="sw-info"><div class="sw-name">todos</div><div class="sw-hex">#1D4ED8</div></div></div>
+      <div class="sw"><div class="sw-color" style="background:#0891B2"></div><div class="sw-info"><div class="sw-name">coordination</div><div class="sw-hex">#0891B2</div></div></div>
+      <div class="sw"><div class="sw-color" style="background:#6366F1"></div><div class="sw-info"><div class="sw-name">background</div><div class="sw-hex">#6366F1</div></div></div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
