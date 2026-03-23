@@ -1430,10 +1430,20 @@ export function collectViolationDescriptions(timeline: readonly TimelineEvent[])
     .map(e => e.title);
 }
 
+export function collectPlanSteps(timeline: readonly TimelineEvent[]): readonly string[] {
+  return uniqueStrings(
+    timeline
+      .filter(e => e.lane === "planning")
+      .map(describeProcessEvent)
+      .filter((v): v is string => Boolean(v))
+  );
+}
+
 export interface HandoffOptions {
   readonly objective: string;
   readonly summary: string;
   readonly sections: readonly TaskProcessSection[];
+  readonly plans: readonly string[];
   readonly exploredFiles: readonly string[];
   readonly modifiedFiles: readonly string[];
   readonly openTodos: readonly string[];
@@ -1443,6 +1453,7 @@ export interface HandoffOptions {
   readonly include: {
     readonly summary: boolean;
     readonly process: boolean;
+    readonly plans: boolean;
     readonly files: boolean;
     readonly modifiedFiles: boolean;
     readonly todos: boolean;
@@ -1452,7 +1463,7 @@ export interface HandoffOptions {
 }
 
 export function buildHandoffPlain(options: HandoffOptions): string {
-  const { objective, summary, sections, exploredFiles, modifiedFiles,
+  const { objective, summary, sections, plans, exploredFiles, modifiedFiles,
           openTodos, openQuestions, violations, memo, include } = options;
   const lines: string[] = [];
 
@@ -1460,6 +1471,11 @@ export function buildHandoffPlain(options: HandoffOptions): string {
 
   if (include.summary && summary) {
     lines.push(`Summary: ${summary}`);
+  }
+
+  if (include.plans && plans.length > 0) {
+    lines.push("Plan:");
+    for (const step of plans) lines.push(`- ${step}`);
   }
 
   if (include.process && sections.length > 0) {
@@ -1502,12 +1518,16 @@ export function buildHandoffPlain(options: HandoffOptions): string {
 }
 
 export function buildHandoffMarkdown(options: HandoffOptions): string {
-  const { objective, summary, sections, exploredFiles, modifiedFiles,
+  const { objective, summary, sections, plans, exploredFiles, modifiedFiles,
           openTodos, openQuestions, violations, memo, include } = options;
   const parts: string[] = ["# Task Context", `\n## Objective\n${objective}`];
 
   if (include.summary && summary) {
     parts.push(`\n## Summary\n${summary}`);
+  }
+
+  if (include.plans && plans.length > 0) {
+    parts.push(`\n## Plan\n${plans.map(p => `- ${p}`).join("\n")}`);
   }
 
   if (include.process && sections.length > 0) {
@@ -1549,7 +1569,7 @@ function cdata(s: string): string {
 }
 
 export function buildHandoffXML(options: HandoffOptions): string {
-  const { objective, summary, sections, exploredFiles, modifiedFiles,
+  const { objective, summary, sections, plans, exploredFiles, modifiedFiles,
           openTodos, openQuestions, violations, memo, include } = options;
   const lines: string[] = ["<context>"];
 
@@ -1557,6 +1577,12 @@ export function buildHandoffXML(options: HandoffOptions): string {
 
   if (include.summary && summary) {
     lines.push(`  <summary>${cdata(summary)}</summary>`);
+  }
+
+  if (include.plans && plans.length > 0) {
+    lines.push("  <plan>");
+    for (const step of plans) lines.push(`    <step>${cdata(step)}</step>`);
+    lines.push("  </plan>");
   }
 
   if (include.process && sections.length > 0) {
@@ -1610,7 +1636,7 @@ export function buildHandoffXML(options: HandoffOptions): string {
 }
 
 export function buildHandoffSystemPrompt(options: HandoffOptions): string {
-  const { objective, summary, sections, exploredFiles, modifiedFiles,
+  const { objective, summary, sections, plans, exploredFiles, modifiedFiles,
           openTodos, openQuestions, violations, memo, include } = options;
   const parts: string[] = [
     "You are continuing a software development task. Below is the full context from the previous session.",
@@ -1619,6 +1645,10 @@ export function buildHandoffSystemPrompt(options: HandoffOptions): string {
 
   if (include.summary && summary) {
     parts.push(`\n## What was done\n${summary}`);
+  }
+
+  if (include.plans && plans.length > 0) {
+    parts.push(`\n## Plan\n${plans.map(p => `- ${p}`).join("\n")}`);
   }
 
   if (include.process && sections.length > 0) {

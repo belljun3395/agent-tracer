@@ -17,6 +17,7 @@ interface HandoffPrefs {
   format: HandoffFormat;
   include: {
     summary: boolean;
+    plans: boolean;
     process: boolean;
     files: boolean;
     modifiedFiles: boolean;
@@ -30,6 +31,7 @@ const DEFAULT_HANDOFF_PREFS: HandoffPrefs = {
   format: "xml",
   include: {
     summary: true,
+    plans: true,
     process: true,
     files: true,
     modifiedFiles: true,
@@ -67,6 +69,7 @@ function savePrefs(prefs: HandoffPrefs): void {
 interface TaskHandoffPanelProps {
   readonly objective: string;
   readonly summary: string;
+  readonly plans: readonly string[];
   readonly sections: readonly TaskProcessSection[];
   readonly exploredFiles: readonly string[];
   readonly modifiedFiles: readonly string[];
@@ -80,6 +83,7 @@ interface TaskHandoffPanelProps {
 export function TaskHandoffPanel({
   objective,
   summary,
+  plans,
   sections,
   exploredFiles,
   modifiedFiles,
@@ -96,6 +100,7 @@ export function TaskHandoffPanel({
     const options = {
       objective,
       summary,
+      plans,
       sections,
       exploredFiles,
       modifiedFiles,
@@ -111,10 +116,11 @@ export function TaskHandoffPanel({
       case "xml": return buildHandoffXML(options);
       case "system-prompt": return buildHandoffSystemPrompt(options);
     }
-  }, [prefs.format, prefs.include, objective, summary, sections, exploredFiles, modifiedFiles, openTodos, openQuestions, violations, memo]);
+  }, [prefs.format, prefs.include, objective, summary, plans, sections, exploredFiles, modifiedFiles, openTodos, openQuestions, violations, memo]);
 
   const isDisabled =
     !prefs.include.summary &&
+    !prefs.include.plans &&
     !prefs.include.process &&
     !prefs.include.files &&
     !prefs.include.modifiedFiles &&
@@ -153,6 +159,7 @@ export function TaskHandoffPanel({
 
   const includeItems: { key: keyof HandoffPrefs["include"]; label: string }[] = [
     { key: "summary", label: "Summary" },
+    { key: "plans", label: "Plan" },
     { key: "process", label: "Process" },
     { key: "files", label: "Files" },
     { key: "modifiedFiles", label: "Modified" },
