@@ -66,6 +66,13 @@ npm run docs:dev
 - 가이드 섹션: `docs/guide/*`
 - 위키 섹션: `docs/wiki/*`
 
+### GitHub Pages 배포
+
+- 워크플로우: `.github/workflows/deploy-docs.yml`
+- 최초 1회 GitHub 저장소의 `Settings > Pages > Build and deployment > Source`에서 `GitHub Actions`를 선택해야 합니다.
+- 이후 `main` 브랜치에 문서 관련 변경이 푸시되면 GitHub Pages로 자동 배포됩니다.
+- 현재 저장소 기준 배포 주소는 `https://belljun3395.github.io/agent-tracer/` 입니다.
+
 ## 패키지
 
 | 패키지 | 역할 |
