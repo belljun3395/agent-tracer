@@ -24,16 +24,6 @@ type HookEntry = {
   readonly hooks?: Array<{ readonly type?: string; readonly command?: string }>;
 };
 
-function normalizeHookCommand(command: string): string {
-  return command
-    .replaceAll(repoRoot, "<repo>")
-    .replace(/node\s+"\$CLAUDE_PROJECT_DIR\/node_modules\/tsx\/dist\/cli\.mjs"\s+"\$CLAUDE_PROJECT_DIR\/\.claude\/hooks\/([^"]+)"/g, "node node_modules/tsx/dist/cli.mjs .claude/hooks/$1")
-    .replace(/node\s+"?<repo>\/node_modules\/tsx\/dist\/cli\.mjs"?\s+"?<repo>\/\.claude\/hooks\/([^"\s]+)"?/g, "node node_modules/tsx/dist/cli.mjs .claude/hooks/$1")
-    .replace(/node\s+"?node_modules\/tsx\/dist\/cli\.mjs"?\s+"?\.claude\/hooks\/([^"\s]+)"?/g, "node node_modules/tsx/dist/cli.mjs .claude/hooks/$1")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
 function normalizeHookEntries(entries: unknown): HookEntry[] {
   const list = Array.isArray(entries) ? entries : [];
   return list
@@ -42,8 +32,8 @@ function normalizeHookEntries(entries: unknown): HookEntry[] {
       ...(entry.matcher ? { matcher: entry.matcher } : {}),
       hooks: (Array.isArray(entry.hooks) ? entry.hooks : [])
         .map((hook) => ({
-          type: hook.type,
-          command: hook.command ? normalizeHookCommand(hook.command) : hook.command
+          ...(hook.type ? { type: hook.type } : {}),
+          ...(hook.command ? { command: hook.command } : {})
         }))
     }))
     .sort((left, right) => (left.matcher ?? "").localeCompare(right.matcher ?? ""));
@@ -56,7 +46,7 @@ describe("setup:external Claude integration", () => {
     await Promise.all(tempDirs.map((dir) => rm(dir, { recursive: true, force: true })));
   });
 
-  it("generates Claude hook settings with repo-local parity", async () => {
+  it("generates Claude hook settings with vendored source references", async () => {
     const targetDir = await mkdtemp(path.join(os.tmpdir(), "agent-tracer-setup-"));
     tempDirs.push(targetDir);
 
@@ -65,7 +55,9 @@ describe("setup:external Claude integration", () => {
       "--target",
       targetDir,
       "--mode",
-      "claude"
+      "claude",
+      "--source-root",
+      repoRoot
     ], {
       cwd: repoRoot
     });
@@ -80,50 +72,15 @@ describe("setup:external Claude integration", () => {
     const generatedHooks = generatedSettings.hooks ?? {};
     const repoHooks = repoSettings.hooks ?? {};
 
-    // generatedHooks omits "Stop" (deleted by setup-external); repoHooks has it for local dev
     const generatedKeys = Object.keys(generatedHooks).sort();
-    const repoKeys = Object.keys(repoHooks).filter(k => k !== "Stop").sort();
+    const repoKeys = Object.keys(repoHooks).filter((key) => key !== "Stop").sort();
     expect(generatedKeys).toEqual(repoKeys);
-    expect(normalizeHookEntries(generatedHooks.PostToolUse)).toEqual(
-      normalizeHookEntries(repoHooks.PostToolUse)
-    );
-    expect(normalizeHookEntries(generatedHooks.SessionStart)).toEqual(
-      normalizeHookEntries(repoHooks.SessionStart)
-    );
-    expect(normalizeHookEntries(generatedHooks.UserPromptSubmit)).toEqual(
-      normalizeHookEntries(repoHooks.UserPromptSubmit)
-    );
-    expect(normalizeHookEntries(generatedHooks.PreToolUse)).toEqual(
-      normalizeHookEntries(repoHooks.PreToolUse)
-    );
-    // setup-external.mjs explicitly strips Stop from external installs (line: delete hooks.Stop)
-    expect(generatedHooks).not.toHaveProperty("Stop");
-    // The repo settings include Stop for local dev — external installs intentionally omit it
-    expect(normalizeHookEntries(generatedHooks.PostToolUseFailure)).toEqual(
-      normalizeHookEntries(repoHooks.PostToolUseFailure)
-    );
-    expect(normalizeHookEntries(generatedHooks.SubagentStart)).toEqual(
-      normalizeHookEntries(repoHooks.SubagentStart)
-    );
-    expect(normalizeHookEntries(generatedHooks.SubagentStop)).toEqual(
-      normalizeHookEntries(repoHooks.SubagentStop)
-    );
-    expect(normalizeHookEntries(generatedHooks.PreCompact)).toEqual(
-      normalizeHookEntries(repoHooks.PreCompact)
-    );
-    expect(normalizeHookEntries(generatedHooks.PostCompact)).toEqual(
-      normalizeHookEntries(repoHooks.PostCompact)
-    );
-    expect(normalizeHookEntries(generatedHooks.SessionEnd)).toEqual(
-      normalizeHookEntries(repoHooks.SessionEnd)
-    );
 
     const postToolMatchers = normalizeHookEntries(generatedHooks.PostToolUse)
       .map((entry) => entry.matcher ?? "");
-    expect(postToolMatchers).toContain("Read|Glob|Grep|WebSearch|WebFetch");
-    expect(postToolMatchers).not.toContain("Read|Glob|Grep|LS|WebSearch|WebFetch");
-    expect(postToolMatchers).toContain("TaskCreate|TaskUpdate|TodoWrite");
-    expect(postToolMatchers).toContain("mcp__.*");
+    const repoPostToolMatchers = normalizeHookEntries(repoHooks.PostToolUse)
+      .map((entry) => entry.matcher ?? "");
+    expect(postToolMatchers.sort()).toEqual(repoPostToolMatchers.sort());
 
     const allCommands = [
       ...normalizeHookEntries(generatedHooks.SessionStart),
@@ -140,9 +97,22 @@ describe("setup:external Claude integration", () => {
 
     expect(allCommands.length).toBeGreaterThan(0);
     for (const command of allCommands) {
-      expect(command.includes("OPENCODE")).toBe(false);
+      expect(command).toContain("npx --yes tsx");
+      expect(command).toContain("$CLAUDE_PROJECT_DIR/.agent-tracer/.claude/hooks/");
+      expect(command.includes(repoRoot)).toBe(false);
       expect(command.includes("git rev-parse")).toBe(false);
     }
+
+    const vendoredCommon = await readFile(
+      path.join(targetDir, ".agent-tracer", ".claude", "hooks", "common.ts"),
+      "utf8"
+    );
+    const vendoredSessionStart = await readFile(
+      path.join(targetDir, ".agent-tracer", ".claude", "hooks", "session_start.ts"),
+      "utf8"
+    );
+    expect(vendoredCommon).toContain("ensureRuntimeSession");
+    expect(vendoredSessionStart).toContain("Session started");
   });
 });
 
@@ -162,7 +132,9 @@ describe("setup:external OpenCode integration", () => {
       "--target",
       targetDir,
       "--mode",
-      "opencode"
+      "opencode",
+      "--source-root",
+      repoRoot
     ], {
       cwd: repoRoot
     });
@@ -180,6 +152,10 @@ describe("setup:external OpenCode integration", () => {
       path.join(targetDir, ".opencode", "plugins", "monitor.ts"),
       "utf8"
     );
+    const vendoredPlugin = await readFile(
+      path.join(targetDir, ".agent-tracer", ".opencode", "plugins", "monitor.ts"),
+      "utf8"
+    );
 
     expect(generatedOpencodeConfig.plugin).toEqual(
       expect.arrayContaining([".opencode/plugins/monitor.ts"])
@@ -188,7 +164,13 @@ describe("setup:external OpenCode integration", () => {
       type: "local",
       enabled: true
     }));
+    const monitorConfig = generatedOpencodeConfig.mcp?.monitor as { command?: unknown } | undefined;
+    expect(Array.isArray(monitorConfig?.command)).toBe(true);
+    expect((monitorConfig?.command as string[])[0]).toBe("node");
+    expect((monitorConfig?.command as string[])[1]).toContain("packages/mcp/dist/index.js");
     expect(pluginShim).toContain("export { MonitorPlugin as default }");
+    expect(pluginShim).toContain("../../.agent-tracer/.opencode/plugins/monitor.ts");
+    expect(vendoredPlugin).toContain("createMonitorHooks");
     expect(generatedTsconfig).toEqual(repoTsconfig);
   });
 });

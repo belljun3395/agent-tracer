@@ -2,9 +2,9 @@
 
 이 문서는 Agent Tracer를 **다른 프로젝트에 붙일 때 가장 먼저 보는 문서**입니다.
 
-권장 방식은 Agent Tracer 코드를 외부 프로젝트에 복사하는 것이 아니라,
-이 저장소를 monitor server / MCP / hook / plugin source-of-truth로 두고
-외부 프로젝트에는 설정 파일이나 shim만 생성하는 것입니다.
+권장 방식은 `setup:external`이 GitHub 공개 저장소(`belljun3395/agent-tracer`)의
+`main` 브랜치 소스 파일을 외부 프로젝트에 vendor 디렉터리(`.agent-tracer/`)로
+가져오고, 설정 파일은 그 vendor 경로를 참조하도록 만드는 것입니다.
 
 ## 1. 현재 지원 범위
 
@@ -88,26 +88,28 @@ npm run setup:external -- \
 
 ## 4. 스크립트가 실제로 하는 일
 
-`setup:external`은 내부 구현 파일을 외부 프로젝트에 복사하지 않습니다.
+`setup:external`은 기본적으로 GitHub `main`에서 소스 파일을 받아
+외부 프로젝트의 `.agent-tracer/` 아래에 vendor 합니다.
 
 - `--mode claude`
   - 외부 프로젝트의 `.claude/settings.json`을 생성하거나 병합합니다.
-  - hook command는 이 저장소의 `.claude/hooks/*.ts`를 **절대 경로**로 참조합니다.
-  - hook 실행은 이 저장소의 `node_modules/tsx/dist/cli.mjs`를 사용합니다.
+  - `.agent-tracer/.claude/hooks/*.ts`를 받아 저장합니다.
+  - hook command는 `$CLAUDE_PROJECT_DIR/.agent-tracer/.claude/hooks/*.ts`를 참조합니다.
+  - hook 실행은 `npx --yes tsx`를 사용합니다.
 - `--mode opencode`
   - 외부 프로젝트의 `opencode.json`에 `monitor` MCP 설정을 추가합니다.
   - 외부 프로젝트의 `.opencode/plugins/monitor.ts` shim을 생성합니다.
   - 외부 프로젝트의 `.opencode/tsconfig.json`을 생성합니다.
-  - shim은 이 저장소의 `.opencode/plugins/monitor.ts`를 re-export 합니다.
+  - `.agent-tracer/.opencode/plugins/monitor.ts`를 받아 저장하고 shim에서 re-export 합니다.
 - `--mode both`
   - 위 두 작업을 모두 수행합니다.
 - `--mode codex`
   - 외부 프로젝트의 `AGENTS.md`에 Agent Tracer 관리 블록을 생성하거나 갱신합니다.
   - 외부 프로젝트의 `.agents/skills/codex-monitor/SKILL.md`를 생성합니다.
-  - skill source는 이 저장소의 `skills/codex-monitor/SKILL.md`이고, target에는 generated projection이 기록됩니다.
+  - skill source는 실행 중인 로컬 저장소의 `skills/codex-monitor/SKILL.md`입니다.
 
-즉, 외부 프로젝트에 남는 것은 설정 파일과 shim뿐이고,
-실제 구현은 Agent Tracer 저장소가 계속 소유합니다.
+원하면 `--source-repo`, `--source-ref`로 원격 소스를 바꿀 수 있고,
+테스트/오프라인 환경에서는 `--source-root /local/agent-tracer`로 로컬 소스를 쓸 수 있습니다.
 
 ## 5. 런타임별 다음 단계
 
@@ -121,7 +123,7 @@ npm run setup:external -- \
 
 ## 6. 자주 막히는 지점
 
-- Agent Tracer 저장소를 옮기면 외부 프로젝트의 절대 경로 참조가 깨집니다.
+- `npx --yes tsx`를 사용하므로 최초 실행 시 네트워크 또는 npm 캐시가 필요할 수 있습니다.
 - `packages/mcp` 구현이 바뀌었으면 다시 `npm run build`를 해야 합니다.
 - GUI 앱에서 `node`를 못 찾으면 절대 경로의 Node 실행 파일을 사용해야 합니다.
 - 설정 파일을 바꾼 뒤에는 CLI 앱 또는 스레드를 다시 시작해야 반영됩니다.

@@ -11,14 +11,14 @@ Claude-specific steps after the shared setup flow.
 The script:
 
 - creates or merges `target-project/.claude/settings.json`
-- points the hook commands back to `agent-tracer/.claude/hooks/*.ts` by absolute path
-- uses the Agent Tracer repository's bundled `tsx` runtime to execute the hook files
-- keeps the hook implementation in this repository
+- vendors hook source files into `target-project/.agent-tracer/.claude/hooks/*.ts`
+- points hook commands to `$CLAUDE_PROJECT_DIR/.agent-tracer/.claude/hooks/*.ts`
+- uses `npx --yes tsx` to execute the hook files
 
 The script does **not**:
 
 - register the Claude MCP server for you
-- copy the TypeScript hook implementation into the target project
+- bundle a full local clone of the Agent Tracer repository into the target project
 
 ## 2. Verify The Monitor Server
 
