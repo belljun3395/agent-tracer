@@ -96,9 +96,333 @@ export function toBoolean(value: unknown): boolean {
     return normalized === "true" || normalized === "1" || normalized === "yes";
 }
 
-export function inferCommandLane(command: string): "implementation" {
-    void command;
-    return "implementation";
+export interface SemanticMetadata {
+    readonly subtypeKey: string;
+    readonly subtypeLabel?: string;
+    readonly subtypeGroup: string;
+    readonly toolFamily: string;
+    readonly operation: string;
+    readonly entityType?: string;
+    readonly entityName?: string;
+    readonly sourceTool?: string;
+    readonly importance?: string;
+}
+
+export interface CommandSemantic {
+    readonly lane: "exploration" | "implementation";
+    readonly metadata: SemanticMetadata;
+}
+
+export function buildSemanticMetadata(input: SemanticMetadata): JsonObject {
+    return {
+        subtypeKey: input.subtypeKey,
+        subtypeLabel: input.subtypeLabel ?? humanizeSubtypeKey(input.subtypeKey),
+        subtypeGroup: input.subtypeGroup,
+        toolFamily: input.toolFamily,
+        operation: input.operation,
+        ...(input.entityType ? { entityType: input.entityType } : {}),
+        ...(input.entityName ? { entityName: input.entityName } : {}),
+        ...(input.sourceTool ? { sourceTool: input.sourceTool } : {}),
+        ...(input.importance ? { importance: input.importance } : {})
+    };
+}
+
+export function inferCommandLane(command: string): "exploration" | "implementation" {
+    return inferCommandSemantic(command).lane;
+}
+
+export function inferCommandSemantic(command: string): CommandSemantic {
+    const normalized = command.trim().toLowerCase();
+    const commandToken = firstCommandToken(command);
+    const commandEntity = commandToken || "shell";
+
+    if (
+        /^(pwd|ls|tree|find|fd|rg|grep|cat|sed|head|tail|wc|stat|file|which|whereis)\b/.test(normalized)
+        || /^git\s+(status|diff|show|log)\b/.test(normalized)
+        || /^(npm|pnpm|yarn|bun)\s+(ls|list)\b/.test(normalized)
+    ) {
+        return {
+            lane: "exploration",
+            metadata: {
+                subtypeKey: "shell_probe",
+                subtypeLabel: "Shell probe",
+                subtypeGroup: "shell",
+                toolFamily: "terminal",
+                operation: "probe",
+                entityType: "command",
+                entityName: commandEntity,
+                sourceTool: "Bash"
+            }
+        };
+    }
+
+    if (/\b(rule|policy|guard|constraint|conformance)\b/.test(normalized)) {
+        return {
+            lane: "implementation",
+            metadata: {
+                subtypeKey: "rule_check",
+                subtypeLabel: "Rule check",
+                subtypeGroup: "execution",
+                toolFamily: "terminal",
+                operation: "execute",
+                entityType: "command",
+                entityName: commandEntity,
+                sourceTool: "Bash"
+            }
+        };
+    }
+
+    if (
+        /\b(pytest|vitest|jest|ava|mocha|phpunit|rspec)\b/.test(normalized)
+        || /\b(npm|pnpm|yarn|bun)\s+(run\s+)?test\b/.test(normalized)
+        || /\b(go|cargo)\s+test\b/.test(normalized)
+        || /\bplaywright\s+test\b/.test(normalized)
+        || /\bcypress\s+run\b/.test(normalized)
+    ) {
+        return {
+            lane: "implementation",
+            metadata: {
+                subtypeKey: "run_test",
+                subtypeLabel: "Run test",
+                subtypeGroup: "execution",
+                toolFamily: "terminal",
+                operation: "execute",
+                entityType: "command",
+                entityName: commandEntity,
+                sourceTool: "Bash"
+            }
+        };
+    }
+
+    if (
+        /\b(eslint|stylelint|ruff|flake8|prettier|biome|oxlint)\b/.test(normalized)
+        || /\b(npm|pnpm|yarn|bun)\s+(run\s+)?lint\b/.test(normalized)
+        || /\b(cargo|go)\s+fmt\b/.test(normalized)
+    ) {
+        return {
+            lane: "implementation",
+            metadata: {
+                subtypeKey: "run_lint",
+                subtypeLabel: "Run lint",
+                subtypeGroup: "execution",
+                toolFamily: "terminal",
+                operation: "execute",
+                entityType: "command",
+                entityName: commandEntity,
+                sourceTool: "Bash"
+            }
+        };
+    }
+
+    if (
+        /\b(typecheck|type-check|check-types|verify|validate|doctor|audit)\b/.test(normalized)
+        || /\btsc\b.*\b--noemit\b/.test(normalized)
+        || /\bcargo\s+check\b/.test(normalized)
+        || /\bgo\s+vet\b/.test(normalized)
+        || /\bmypy\b/.test(normalized)
+    ) {
+        return {
+            lane: "implementation",
+            metadata: {
+                subtypeKey: "verify",
+                subtypeLabel: "Verify",
+                subtypeGroup: "execution",
+                toolFamily: "terminal",
+                operation: "execute",
+                entityType: "command",
+                entityName: commandEntity,
+                sourceTool: "Bash"
+            }
+        };
+    }
+
+    if (
+        /\b(npm|pnpm|yarn|bun)\s+(run\s+)?build\b/.test(normalized)
+        || /\b(next|vite|webpack|rollup)\s+build\b/.test(normalized)
+        || /\bcargo\s+build\b/.test(normalized)
+        || /\bgo\s+build\b/.test(normalized)
+        || /\bdocker\s+build\b/.test(normalized)
+        || /\btsc\b/.test(normalized)
+    ) {
+        return {
+            lane: "implementation",
+            metadata: {
+                subtypeKey: "run_build",
+                subtypeLabel: "Run build",
+                subtypeGroup: "execution",
+                toolFamily: "terminal",
+                operation: "execute",
+                entityType: "command",
+                entityName: commandEntity,
+                sourceTool: "Bash"
+            }
+        };
+    }
+
+    return {
+        lane: "implementation",
+        metadata: {
+            subtypeKey: "run_command",
+            subtypeLabel: "Run command",
+            subtypeGroup: "execution",
+            toolFamily: "terminal",
+            operation: "execute",
+            entityType: "command",
+            entityName: commandEntity,
+            sourceTool: "Bash"
+        }
+    };
+}
+
+export function inferExploreSemantic(toolName: string, toolInput: JsonObject): SemanticMetadata {
+    const normalized = toolName.trim().toLowerCase();
+    const filePath = extractToolFilePath(toolInput);
+    const entityName = filePath ? relativeProjectPath(filePath) : undefined;
+
+    if (normalized === "read" || normalized.includes("view") || normalized.includes("open")) {
+        return {
+            subtypeKey: "read_file",
+            subtypeLabel: "Read file",
+            subtypeGroup: "files",
+            toolFamily: "explore",
+            operation: "read",
+            entityType: "file",
+            ...(entityName ? { entityName } : {}),
+            sourceTool: toolName
+        };
+    }
+
+    if (normalized.includes("glob")) {
+        return {
+            subtypeKey: "glob_files",
+            subtypeLabel: "Glob files",
+            subtypeGroup: "search",
+            toolFamily: "explore",
+            operation: "search",
+            entityType: "file",
+            ...(entityName ? { entityName } : {}),
+            sourceTool: toolName
+        };
+    }
+
+    if (normalized.includes("grep")) {
+        return {
+            subtypeKey: "grep_code",
+            subtypeLabel: "Grep code",
+            subtypeGroup: "search",
+            toolFamily: "explore",
+            operation: "search",
+            entityType: "file",
+            ...(entityName ? { entityName } : {}),
+            sourceTool: toolName
+        };
+    }
+
+    if (normalized.includes("webfetch")) {
+        return {
+            subtypeKey: "web_fetch",
+            subtypeLabel: "Web fetch",
+            subtypeGroup: "web",
+            toolFamily: "explore",
+            operation: "fetch",
+            entityType: "url",
+            entityName: toTrimmedString(toolInput.url) || toTrimmedString(toolInput.query),
+            sourceTool: toolName
+        };
+    }
+
+    if (normalized.includes("websearch")) {
+        return {
+            subtypeKey: "web_search",
+            subtypeLabel: "Web search",
+            subtypeGroup: "web",
+            toolFamily: "explore",
+            operation: "search",
+            entityType: "query",
+            entityName: toTrimmedString(toolInput.query),
+            sourceTool: toolName
+        };
+    }
+
+    return {
+        subtypeKey: "list_files",
+        subtypeLabel: "List files",
+        subtypeGroup: "search",
+        toolFamily: "explore",
+        operation: "list",
+        entityType: "file",
+        ...(entityName ? { entityName } : {}),
+        sourceTool: toolName
+    };
+}
+
+export function inferFileToolSemantic(toolName: string, toolInput: JsonObject): SemanticMetadata {
+    const normalized = toolName.trim().toLowerCase();
+    const filePath = extractToolFilePath(toolInput);
+    const entityName = filePath ? relativeProjectPath(filePath) : undefined;
+
+    if (normalized.includes("patch")) {
+        return {
+            subtypeKey: "apply_patch",
+            subtypeLabel: "Apply patch",
+            subtypeGroup: "file_ops",
+            toolFamily: "file",
+            operation: "patch",
+            entityType: "file",
+            ...(entityName ? { entityName } : {}),
+            sourceTool: toolName
+        };
+    }
+
+    if (normalized.includes("rename") || normalized.includes("move")) {
+        return {
+            subtypeKey: "rename_file",
+            subtypeLabel: "Rename file",
+            subtypeGroup: "file_ops",
+            toolFamily: "file",
+            operation: "rename",
+            entityType: "file",
+            ...(entityName ? { entityName } : {}),
+            sourceTool: toolName
+        };
+    }
+
+    if (normalized.includes("delete") || normalized.includes("remove")) {
+        return {
+            subtypeKey: "delete_file",
+            subtypeLabel: "Delete file",
+            subtypeGroup: "file_ops",
+            toolFamily: "file",
+            operation: "delete",
+            entityType: "file",
+            ...(entityName ? { entityName } : {}),
+            sourceTool: toolName
+        };
+    }
+
+    if (normalized.includes("write") || normalized.includes("create")) {
+        return {
+            subtypeKey: "create_file",
+            subtypeLabel: "Create file",
+            subtypeGroup: "file_ops",
+            toolFamily: "file",
+            operation: "create",
+            entityType: "file",
+            ...(entityName ? { entityName } : {}),
+            sourceTool: toolName
+        };
+    }
+
+    return {
+        subtypeKey: "modify_file",
+        subtypeLabel: "Modify file",
+        subtypeGroup: "file_ops",
+        toolFamily: "file",
+        operation: "modify",
+        entityType: "file",
+        ...(entityName ? { entityName } : {}),
+        sourceTool: toolName
+    };
 }
 
 export function ellipsize(value: string, maxLength: number): string {
@@ -140,6 +464,25 @@ export function createStableTodoId(content: string, priority: string): string {
         .update(`${content}::${priority}`)
         .digest("hex")
         .slice(0, 16);
+}
+
+function extractToolFilePath(toolInput: JsonObject): string {
+    return toTrimmedString(toolInput.file_path)
+        || toTrimmedString(toolInput.path)
+        || toTrimmedString(toolInput.pattern);
+}
+
+function firstCommandToken(command: string): string {
+    const [first = ""] = command.trim().split(/\s+/, 1);
+    return first.replace(/^['"]+|['"]+$/g, "");
+}
+
+function humanizeSubtypeKey(value: string): string {
+    return value
+        .split("_")
+        .filter(Boolean)
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(" ");
 }
 
 const LOG_FILE = path.join(PROJECT_DIR, ".claude", "hooks.log");

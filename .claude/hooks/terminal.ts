@@ -1,10 +1,11 @@
 import {
+  buildSemanticMetadata,
   ensureRuntimeSession,
   getSessionId,
   getToolInput,
   hookLog,
   hookLogPayload,
-  inferCommandLane,
+  inferCommandSemantic,
   postJson,
   readStdinJson,
   toTrimmedString
@@ -26,7 +27,7 @@ async function main(): Promise<void> {
   }
 
   const ids = await ensureRuntimeSession(sessionId);
-  const lane = inferCommandLane(command);
+  const semantic = inferCommandSemantic(command);
 
   await postJson("/api/terminal-command", {
     taskId: ids.taskId,
@@ -34,10 +35,11 @@ async function main(): Promise<void> {
     command,
     title: description || command.slice(0, 80),
     body: description ? `${description}\n\n$ ${command}` : command,
-    lane,
+    lane: semantic.lane,
     metadata: {
       description,
-      command
+      command,
+      ...buildSemanticMetadata(semantic.metadata)
     }
   });
 

@@ -1,4 +1,5 @@
 import {
+  buildSemanticMetadata,
   defaultTaskTitle,
   ensureRuntimeSession,
   getSessionId,
@@ -48,7 +49,19 @@ async function main(): Promise<void> {
       activityType: "skill_use",
       title: skillName ? `Skill: ${skillName}` : "Skill invoked",
       ...(toTrimmedString(toolInput.args) ? { body: `args: ${toTrimmedString(toolInput.args, 400)}` } : {}),
-      metadata,
+      metadata: {
+        ...buildSemanticMetadata({
+          subtypeKey: "skill_use",
+          subtypeLabel: "Skill use",
+          subtypeGroup: "external",
+          toolFamily: "coordination",
+          operation: "invoke",
+          entityType: "skill",
+          entityName: skillName,
+          sourceTool: toolName
+        }),
+        ...metadata
+      },
       ...(skillName ? { skillName } : {})
     });
     return;
@@ -66,7 +79,19 @@ async function main(): Promise<void> {
     activityType: "delegation",
     title,
     ...(prompt || description ? { body: prompt || description } : {}),
-    metadata,
+    metadata: {
+      ...buildSemanticMetadata({
+        subtypeKey: "delegation",
+        subtypeLabel: "Delegation",
+        subtypeGroup: "agent",
+        toolFamily: "coordination",
+        operation: "delegate",
+        entityType: "agent",
+        entityName: agentName || description,
+        sourceTool: toolName
+      }),
+      ...metadata
+    },
     ...(agentName ? { agentName } : {})
   });
 
