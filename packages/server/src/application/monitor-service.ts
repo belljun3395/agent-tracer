@@ -22,8 +22,12 @@ import type {
   TaskAssistantResponseInput, EventPatchInput
 } from "./types.js";
 import { EventRecorder } from "./services/event-recorder.js";
-import { SessionLifecyclePolicy } from "./services/session-lifecycle-policy.js";
 import { TraceMetadataFactory as TMF } from "./services/trace-metadata-factory.js";
+import {
+  shouldAutoCompleteBackground,
+  shouldAutoCompletePrimary,
+  shouldMovePrimaryToWaiting
+} from "./services/session-lifecycle-policy.js";
 
 export type { BookmarkRecord, SearchResults };
 export interface RecordedEventEnvelope {
@@ -34,7 +38,6 @@ export interface RecordedEventEnvelope {
 
 export class MonitorService {
   private readonly recorder: EventRecorder;
-  // 동일 asyncTaskId+asyncStatus 조합의 중복 background 이벤트를 방지하기 위한 in-memory 가드.
   // key: taskId → Set<"asyncTaskId:asyncStatus">
   private readonly seenAsyncEvents = new Map<string, Set<string>>();
 
@@ -91,7 +94,6 @@ export class MonitorService {
       contractVersion: input.contractVersion ?? "1"
     };
 
-    // filePaths가 없으면 body 텍스트에서 @ 멘션·경로 패턴을 파생 (Claude Code 갭 보완).
     // EventRecorder가 input.filePaths를 metadata.filePaths로 저장하므로 top-level로 전달.
     const existingFilePaths = Array.isArray(input.metadata?.["filePaths"])
       ? (input.metadata?.["filePaths"] as string[]).filter((p): p is string => typeof p === "string")
@@ -146,11 +148,11 @@ export class MonitorService {
       ? await this.hasRunningBackgroundDescendants(task.id)
       : false;
     const meta = input.metadata ? { metadata: input.metadata } : {};
-    if (SessionLifecyclePolicy.shouldAutoCompleteBackground({ taskKind, runningSessionCount: postRunning }) && task.status === "running") {
+    if (shouldAutoCompleteBackground({ taskKind, runningSessionCount: postRunning }) && task.status === "running") {
       const r = await this.completeTask({ taskId: task.id, sessionId, summary: input.summary ?? "Background session completed", ...meta });
       return { sessionId, task: r.task };
     }
-    if (SessionLifecyclePolicy.shouldAutoCompletePrimary({
+    if (shouldAutoCompletePrimary({
       taskKind,
       completeTask: input.completeTask ?? false,
       runningSessionCount: postRunning,
@@ -160,7 +162,7 @@ export class MonitorService {
       const r = await this.completeTask({ taskId: task.id, sessionId, summary: input.summary ?? "Session ended", ...meta });
       return { sessionId, task: r.task };
     }
-    if (SessionLifecyclePolicy.shouldMovePrimaryToWaiting({
+    if (shouldMovePrimaryToWaiting({
       taskKind,
       completeTask: input.completeTask ?? false,
       runningSessionCount: postRunning,
@@ -240,7 +242,7 @@ export class MonitorService {
       ? await this.hasRunningBackgroundDescendants(binding.taskId)
       : false;
     if (input.completeTask === true && task) {
-      if (SessionLifecyclePolicy.shouldAutoCompletePrimary({
+      if (shouldAutoCompletePrimary({
         taskKind: task.taskKind ?? "primary",
         completeTask: true,
         runningSessionCount: await this.ports.sessions.countRunningByTaskId(binding.taskId),
@@ -251,7 +253,7 @@ export class MonitorService {
       }
     } else if (task?.taskKind === "background" && task.status === "running" && await this.ports.sessions.countRunningByTaskId(binding.taskId) === 0) {
       try { await this.completeTask({ taskId: binding.taskId, sessionId: binding.monitorSessionId, summary: input.summary ?? "Background session completed" }); } catch { /* ignore */ }
-    } else if (task && SessionLifecyclePolicy.shouldMovePrimaryToWaiting({
+    } else if (task && shouldMovePrimaryToWaiting({
       taskKind: task.taskKind ?? "primary",
       completeTask: input.completeTask ?? false,
       runningSessionCount: await this.ports.sessions.countRunningByTaskId(binding.taskId),

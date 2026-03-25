@@ -9,7 +9,8 @@ import type Database from "better-sqlite3";
 
 import type { IEvaluationRepository, TaskEvaluation, WorkflowSearchResult, WorkflowSummary } from "../../application/ports/evaluation-repository.js";
 import type { TimelineEvent } from "@monitor/core";
-import { buildWorkflowContext } from "../../application/workflow-context-builder.js";
+import { parseJsonField } from "./sqlite-json.js";
+import { buildWorkflowContext } from "../../application/workflow-context-builder.helpers.js";
 
 interface EvaluationRow {
   task_id: string;
@@ -49,7 +50,7 @@ function mapEvaluationRow(row: EvaluationRow): TaskEvaluation {
     taskId: row.task_id,
     rating: row.rating as "good" | "skip",
     useCase: row.use_case,
-    workflowTags: row.workflow_tags ? (JSON.parse(row.workflow_tags) as string[]) : [],
+    workflowTags: row.workflow_tags ? parseJsonField<string[]>(row.workflow_tags) : [],
     outcomeNote: row.outcome_note,
     evaluatedAt: row.evaluated_at
   };
@@ -64,8 +65,8 @@ function mapEventRow(row: EventRow): TimelineEvent {
     lane: row.lane as TimelineEvent["lane"],
     title: row.title,
     ...(row.body ? { body: row.body } : {}),
-    metadata: JSON.parse(row.metadata_json) as Record<string, unknown>,
-    classification: JSON.parse(row.classification_json) as TimelineEvent["classification"],
+    metadata: parseJsonField(row.metadata_json),
+    classification: parseJsonField(row.classification_json),
     createdAt: row.created_at
   };
 }
@@ -114,11 +115,11 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
       order by (e.rating = 'good') desc, datetime(e.evaluated_at) desc
     `).all(rating ? { rating } : {} as { rating?: string });
 
-    return rows.map(row => ({
+    return rows.map((row) => ({
       taskId: row.task_id,
       title: row.title,
       useCase: row.use_case,
-      workflowTags: row.workflow_tags ? (JSON.parse(row.workflow_tags) as string[]) : [],
+      workflowTags: row.workflow_tags ? parseJsonField<string[]>(row.workflow_tags) : [],
       outcomeNote: row.outcome_note,
       rating: row.rating as "good" | "skip",
       eventCount: row.event_count,
@@ -170,9 +171,9 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
 
     // tags 필터 (post-filter)
     const filtered = tags && tags.length > 0
-      ? rows.filter(row => {
+      ? rows.filter((row) => {
           if (!row.workflow_tags) return false;
-          const rowTags = JSON.parse(row.workflow_tags) as string[];
+          const rowTags = parseJsonField<string[]>(row.workflow_tags);
           return tags.some(t => rowTags.some(rt => rt.toLowerCase().includes(t.toLowerCase())));
         })
       : rows;
@@ -189,7 +190,7 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
         taskId: row.task_id,
         title: row.title,
         useCase: row.use_case,
-        workflowTags: row.workflow_tags ? (JSON.parse(row.workflow_tags) as string[]) : [],
+        workflowTags: row.workflow_tags ? parseJsonField<string[]>(row.workflow_tags) : [],
         outcomeNote: row.outcome_note,
         rating: row.rating,
         eventCount: row.event_count,

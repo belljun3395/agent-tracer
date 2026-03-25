@@ -10,10 +10,11 @@
 - `packages/server/src/application/services/event-recorder.ts`
 - `packages/server/src/application/services/session-lifecycle-policy.ts`
 - `packages/server/src/application/services/trace-metadata-factory.ts`
-- `packages/server/src/application/services/task-display-title-resolver.ts`
+- `packages/server/src/application/services/task-display-title-resolver.helpers.ts`
+- `packages/server/src/application/services/task-display-title-resolver.constants.ts`
 - `packages/server/src/application/services/event-recorder.helpers.ts`
 - `packages/server/src/application/services/trace-metadata-factory.helpers.ts`
-- `packages/server/src/application/services/task-display-title-resolver.helpers.ts`
+- `packages/server/src/application/workflow-context-builder.helpers.ts`
 
 ## 주요 책임
 
@@ -73,9 +74,12 @@ primary/background task가 언제 자동 완료되거나 waiting으로 이동할
 
 relation, activity, compact, verification, question/todo metadata를 정리하고 tag를 도출한다.
 
-### `TaskDisplayTitleResolver`
+### `deriveTaskDisplayTitle`
 
-task title이 너무 generic할 때 user prompt와 초반 event를 바탕으로 더 의미 있는 표시 제목을 추론한다.
+task title이 너무 generic할 때 user prompt와 초반 이벤트를 바탕으로 더 의미 있는 표시 제목을 추론한다.
+`task-display-title-resolver.ts`는 파일 분해되어
+`task-display-title-resolver.helpers.ts` + `task-display-title-resolver.constants.ts`
+로 나뉘었고, `session/task` repository에서 사용된다.
 
 ## 읽기 경로와 쓰기 경로
 

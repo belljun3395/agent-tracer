@@ -15,6 +15,13 @@
 다만 지금부터는 기능 추가보다 "복잡도 분해"가 더 중요한 단계다.
 특히 웹과 서버의 일부 중심 파일은 이제 유지보수 부담이 눈에 띄게 커지고 있다.
 
+## 현재 반영 상태
+
+- `@monitor/server`의 중심 유스케이스 분해 경로에서 `session-lifecycle-policy.ts`는
+  클래스로부터 순수 함수들로 정리되었고, workflow context/title 계산 로직은 보조 헬퍼 모듈로 분리됐다.
+- `sqlite` JSON 파싱은 `parseJsonField()` 헬퍼로 일원화되어 `sqlite-evaluation-repository.ts`,
+  `sqlite-bookmark-repository.ts`, `sqlite-task-repository.ts`, `monitor-database.ts`의 중복 파싱 포인트가 축소된다.
+
 ## 가장 중요한 이슈
 
 ### 1. 거대 중심 모듈이 너무 많은 책임을 가진다

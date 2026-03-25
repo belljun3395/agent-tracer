@@ -22,6 +22,7 @@ import type {
   TimelineLane
 } from "@monitor/core";
 import { normalizeLane } from "@monitor/core";
+import { parseJsonField } from "./sqlite/sqlite-json.js";
 
 export interface MonitorDatabaseOptions {
   readonly filename: string;
@@ -1044,8 +1045,8 @@ function mapEventRow(row: EventRow): TimelineEvent {
     kind: row.kind,
     lane: normalizeLane(row.lane),
     title: row.title,
-    metadata: JSON.parse(row.metadata_json) as Record<string, unknown>,
-    classification: JSON.parse(row.classification_json) as EventClassification,
+    metadata: parseJsonField(row.metadata_json),
+    classification: parseJsonField(row.classification_json),
     createdAt: row.created_at,
     ...(row.session_id ? { sessionId: row.session_id } : {}),
     ...(row.body ? { body: row.body } : {})
@@ -1058,7 +1059,7 @@ function mapBookmarkRow(row: BookmarkRow): BookmarkRecord {
     kind: row.kind,
     taskId: row.task_id,
     title: row.title,
-    metadata: JSON.parse(row.metadata_json) as Record<string, unknown>,
+    metadata: parseJsonField(row.metadata_json),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     ...(row.event_id ? { eventId: row.event_id } : {}),
