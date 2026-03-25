@@ -37,17 +37,20 @@ A skill is a set of local instructions stored in a `SKILL.md` file.
 ### How to use skills
 
 - **Trigger rules:**
-  - Codex CLI → `codex-monitor` 스킬 사용
+  - Codex CLI → `codex-monitor` 스킬 사용 (`monitor`를 직접 쓰지 않음)
   - 그 외 MCP 지원 환경 → `monitor` 스킬 사용
   - OpenCode → 플러그인 훅 자동 동작 (스킬 불필요)
   - Claude Code → hook 자동 동작 (스킬 불필요)
 - 네이티브 discovery projection:
-  - Codex/OpenCode → `.agents/skills/...`
+  - Codex/OpenCode → `.agents/skills/...` (Codex 런타임이 실제로 읽는 경로)
   - Claude fallback → `.claude/skills/agent-tracer-monitor/SKILL.md`
-  - human-edited source는 계속 `skills/...`
-- 스킬 source를 수정한 뒤에는 `npm run sync:skills` 로 projection 갱신.
-- Codex는 새 `AGENTS.md` / `.agents/skills` 내용을 새 스레드에서 더 안정적으로 읽는다.
+  - human-edited source는 계속 `skills/...` (직접 수정 대상)
+- Codex용 스킬 문구를 수정했다면 다음 순서를 따른다:
+  1. `skills/...` source 수정
+  2. `npm run sync:skills` 실행
+  3. 현재 스레드가 이전 지시를 계속 쓰면 새 스레드에서 다시 시작
 - 자동 트리거가 빗나가면 프롬프트에 `$codex-monitor` 를 명시해 강제 호출.
+  - 예: ``$codex-monitor 이 요청부터 모니터링 시작해줘``
 - 스킬 파일을 열고 실질적 작업 전에 흐름을 따름.
 - monitor-server MCP 서버 미가용 시 작업 계속하고 마지막에 gap 리포트.
 
