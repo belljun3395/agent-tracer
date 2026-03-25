@@ -90,7 +90,7 @@ function assistantMessageUpdatedEvent(
         ...(overrides?.error ? { error: overrides.error } : {})
       }
     }
-  };
+  } as unknown as MonitorEvent;
 }
 
 function assistantMessageUpdatedEventWithParts(
@@ -120,6 +120,24 @@ function assistantMessageUpdatedEventWithParts(
   } as unknown as MonitorEvent;
 }
 
+function assistantMessagePartDeltaEvent(
+  sessionId: string,
+  messageId: string,
+  delta: string
+): MonitorEvent {
+  return {
+    type: "message.part.delta",
+    properties: {
+      info: {
+        id: messageId,
+        sessionID: sessionId,
+        role: "assistant"
+      },
+      delta
+    }
+  } as unknown as MonitorEvent;
+}
+
 function commandExecutedEvent(
   overrides: Record<string, unknown>
 ): MonitorEvent {
@@ -128,7 +146,7 @@ function commandExecutedEvent(
     properties: {
       ...overrides
     }
-  };
+  } as unknown as MonitorEvent;
 }
 
 function tuiCommandEvent(command: string): MonitorEvent {
@@ -184,6 +202,36 @@ function chatMessageOutput(
         text
       }
     ]
+  };
+}
+
+function chatMessageOutputWithParts(
+  sessionId: string,
+  messageId: string,
+  texts: readonly string[],
+  model: NonNullable<ChatMessageInput["model"]> = { modelID: "m1", providerID: "p1" }
+): ChatMessageOutput {
+  return {
+    message: {
+      id: messageId,
+      sessionID: sessionId,
+      role: "user",
+      time: {
+        created: 0
+      },
+      agent: "default",
+      model: {
+        providerID: model.providerID,
+        modelID: model.modelID
+      }
+    },
+    parts: texts.map((text, index) => ({
+      id: `part-${messageId}-${index + 1}`,
+      sessionID: sessionId,
+      messageID: messageId,
+      type: "text",
+      text
+    }))
   };
 }
 
@@ -390,8 +438,7 @@ describe("OpenCode monitor plugin", () => {
       {
         tool: "bash",
         sessionID: "ses_3006abcd",
-        callID: "call-session-title",
-        args: { command: "pwd" }
+        callID: "call-session-title"
       },
       { args: { command: "pwd" } }
     );
@@ -778,8 +825,7 @@ describe("OpenCode monitor plugin", () => {
       {
         tool: "task",
         sessionID: "parent-wrapper-first",
-        callID: "call-parent-wrapper-first",
-        args: { run_in_background: true, description: "Python official updates" }
+        callID: "call-parent-wrapper-first"
       },
       { args: { run_in_background: true, description: "Python official updates" } }
     );
@@ -793,8 +839,7 @@ describe("OpenCode monitor plugin", () => {
       {
         tool: "grep",
         sessionID: "wrapper-session",
-        callID: "call-wrapper-session",
-        args: { pattern: "python" }
+        callID: "call-wrapper-session"
       },
       { args: { pattern: "python" } }
     );
@@ -831,8 +876,7 @@ describe("OpenCode monitor plugin", () => {
       {
         tool: "read",
         sessionID: "actual-child-session",
-        callID: "call-actual-child-session",
-        args: { filePath: "README.md" }
+        callID: "call-actual-child-session"
       },
       { args: { filePath: "README.md" } }
     );
@@ -946,8 +990,7 @@ describe("OpenCode monitor plugin", () => {
       {
         tool: "read",
         sessionID: "actual-wrapper-reuse",
-        callID: "call-actual-wrapper-reuse",
-        args: { filePath: "README.md" }
+        callID: "call-actual-wrapper-reuse"
       },
       { args: { filePath: "README.md" } }
     );
@@ -1223,6 +1266,31 @@ describe("OpenCode monitor plugin", () => {
     expect(userMessageCalls[1]?.body).toEqual(expect.objectContaining({
       taskId: "task-session-user-phase",
       phase: "follow_up"
+    }));
+  });
+
+  it("joins multi-part user chat.message text with spaces before persisting", async () => {
+    const hooks = createMonitorHooks("/repo");
+
+    await hooks.event?.({ event: sessionEvent("session.created", "session-user-space-join") });
+    await hooks["chat.message"]?.(
+      chatMessageInput("session-user-space-join"),
+      chatMessageOutputWithParts("session-user-space-join", "msg-user-space-1", [
+        "'I",
+        "detect",
+        "**",
+        "pure",
+        "question"
+      ])
+    );
+
+    const userMessageCall = calls.find((call) => call.endpoint === "/api/user-message");
+    expect(userMessageCall?.body).toEqual(expect.objectContaining({
+      taskId: "task-session-user-space-join",
+      sessionId: "monitor-session-user-space-join",
+      messageId: "msg-user-space-1",
+      title: "'I detect ** pure question",
+      body: "'I detect ** pure question"
     }));
   });
 
@@ -1650,7 +1718,80 @@ describe("OpenCode monitor plugin", () => {
     }));
   });
 
-  it("emits assistant-response with fallback title when message.updated has no text parts", async () => {
+  it("emits assistant-response when message.updated carries text parts under info.parts", async () => {
+    const hooks = createMonitorHooks("/repo");
+
+    await hooks.event?.({ event: sessionEvent("session.created", "session-ar-info-parts") });
+    await hooks["tool.execute.after"]?.(
+      { tool: "bash", sessionID: "session-ar-info-parts", callID: "call-ar-info-parts", args: { command: "pwd" } },
+      { title: "pwd", output: "/repo", metadata: {} }
+    );
+    await hooks.event?.({
+      event: {
+        type: "message.updated",
+        properties: {
+          info: {
+            id: "msg-ar-info-parts",
+            sessionID: "session-ar-info-parts",
+            role: "assistant",
+            time: { created: 0, completed: 1 },
+            finish: "stop",
+            tokens: {
+              input: 0,
+              output: 0,
+              reasoning: 0,
+              cache: { read: 0, write: 0 }
+            },
+            parts: [
+              { type: "text", text: "Response text from info.parts." }
+            ]
+          }
+        }
+      } as unknown as MonitorEvent
+    });
+
+    const arCall = calls.find((c) => c.endpoint === "/api/assistant-response");
+    expect(arCall?.body).toEqual(expect.objectContaining({
+      taskId: "task-session-ar-info-parts",
+      sessionId: "monitor-session-ar-info-parts",
+      messageId: "msg-ar-info-parts",
+      source: "opencode-plugin",
+      title: "Response text from info.parts.",
+      body: "Response text from info.parts."
+    }));
+  });
+
+  it("emits assistant-response from buffered message.part.delta text when message.updated has no parts", async () => {
+    const hooks = createMonitorHooks("/repo");
+
+    await hooks.event?.({ event: sessionEvent("session.created", "session-ar-delta") });
+    await hooks["tool.execute.after"]?.(
+      { tool: "bash", sessionID: "session-ar-delta", callID: "call-ar-delta", args: { command: "pwd" } },
+      { title: "pwd", output: "/repo", metadata: {} }
+    );
+
+    await hooks.event?.({
+      event: assistantMessagePartDeltaEvent("session-ar-delta", "msg-ar-delta", "Hello")
+    });
+    await hooks.event?.({
+      event: assistantMessagePartDeltaEvent("session-ar-delta", "msg-ar-delta", "world")
+    });
+    await hooks.event?.({
+      event: assistantMessageUpdatedEvent("session-ar-delta", "msg-ar-delta")
+    });
+
+    const arCall = calls.find((c) => c.endpoint === "/api/assistant-response");
+    expect(arCall?.body).toEqual(expect.objectContaining({
+      taskId: "task-session-ar-delta",
+      sessionId: "monitor-session-ar-delta",
+      messageId: "msg-ar-delta",
+      source: "opencode-plugin",
+      title: "Hello\nworld",
+      body: "Hello\nworld"
+    }));
+  });
+
+  it("skips assistant-response when message.updated has no text parts", async () => {
     const hooks = createMonitorHooks("/repo");
 
     await hooks.event?.({ event: sessionEvent("session.created", "session-ar-2") });
@@ -1663,9 +1804,7 @@ describe("OpenCode monitor plugin", () => {
     });
 
     const arCall = calls.find((c) => c.endpoint === "/api/assistant-response");
-    expect(arCall).toBeDefined();
-    expect(arCall?.body.title).toBe("Response (stop)");
-    expect(arCall?.body.body).toBeUndefined();
+    expect(arCall).toBeUndefined();
   });
 
   it("includes token counts in assistant-response metadata", async () => {
