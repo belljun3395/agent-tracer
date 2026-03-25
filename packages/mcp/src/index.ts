@@ -2,8 +2,9 @@
  * @module index
  *
  * Agent Tracer MCP stdio 서버.
- * 에이전트(Claude, OpenCode, Codex)가 호출할 수 있는 24개 모니터링 도구 제공.
- * 직접 실행 시(`node dist/index.js`) stdio MCP 서버로 시작.
+ * 에이전트(Claude, OpenCode, Codex)가 호출할 수 있도록 모니터링 도구를 등록한다.
+ * 현재 기준으로는 24개 MCP 도구를 노출한다.
+ * 빌드 산출물(`dist/index.js`) 또는 패키지 바이너리(`monitor-mcp`)로 stdio MCP 서버를 시작한다.
  */
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -14,7 +15,7 @@ import { MonitorClient } from "./client.js";
 import { toToolResponse } from "./result.js";
 
 /**
- * 모니터링 도구가 등록된 MCP 서버 인스턴스를 생성한다.
+ * 모니터링 툴 핸들러가 등록된 MCP 서버 인스턴스를 생성한다.
  * 테스트에서는 커스텀 `client`를 주입할 수 있다.
  *
  * @param client - HTTP 클라이언트 (기본값: `new MonitorClient()`)
@@ -27,9 +28,8 @@ export function createMonitorMcpServer(client = new MonitorClient()): McpServer 
   });
 
   // ─── Task Lifecycle ──────────────────────────────────────────────────────────
-  // monitor_task_start, monitor_start_task, monitor_task_complete,
-  // monitor_complete_task, monitor_task_error, monitor_runtime_session_ensure,
-  // monitor_runtime_session_end
+  // monitor_task_start, monitor_task_complete, monitor_task_link,
+  // monitor_task_error, monitor_runtime_session_ensure, monitor_runtime_session_end
 
   server.registerTool(
     "monitor_task_start",
@@ -165,7 +165,8 @@ export function createMonitorMcpServer(client = new MonitorClient()): McpServer 
 
   // ─── Event Logging ───────────────────────────────────────────────────────────
   // monitor_tool_used, monitor_terminal_command, monitor_save_context,
-  // monitor_plan, monitor_action, monitor_verify, monitor_rule, monitor_explore
+  // monitor_plan, monitor_action, monitor_verify, monitor_rule, monitor_explore,
+  // monitor_question, monitor_todo, monitor_thought, monitor_agent_activity
 
   server.registerTool(
     "monitor_tool_used",
@@ -208,7 +209,10 @@ export function createMonitorMcpServer(client = new MonitorClient()): McpServer 
     "monitor_save_context",
     {
       title: "Monitor Save Context",
-      description: "Record a planning thought, analysis, or context snapshot. Use lane='planning' for thoughts/plans, 'user' for user-facing messages.",
+      description:
+        "Record a planning thought, analysis, or context snapshot. " +
+        "Use lane='planning' for thoughts/plans, 'exploration' for discovery, " +
+        "'implementation' for execution notes, and 'user' for user-facing messages.",
       inputSchema: {
         taskId: z.string(),
         sessionId: z.string().optional(),
@@ -572,7 +576,7 @@ export function createMonitorMcpServer(client = new MonitorClient()): McpServer 
 
 /**
  * stdio 트랜스포트로 MCP 서버를 시작한다.
- * 에이전트 런타임이 이 함수를 직접 호출하거나 `node dist/index.js`로 실행한다.
+ * 에이전트 런타임이 이 함수를 직접 호출하거나 빌드 산출물(`dist/index.js`)을 직접 실행한다.
  */
 export async function startMonitorMcpServer(): Promise<void> {
   const server = createMonitorMcpServer();
