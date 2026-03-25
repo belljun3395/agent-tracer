@@ -21,6 +21,7 @@ export type MonitorNotification =
   | { readonly type: "session.started"; readonly payload: MonitoringSession }
   | { readonly type: "session.ended";  readonly payload: MonitoringSession }
   | { readonly type: "event.logged";   readonly payload: TimelineEvent }
+  | { readonly type: "event.updated";  readonly payload: TimelineEvent }
   | { readonly type: "bookmark.saved"; readonly payload: BookmarkRecord }
   | { readonly type: "bookmark.deleted"; readonly payload: { bookmarkId: string } }
   | { readonly type: "tasks.purged";   readonly payload: { count: number } };

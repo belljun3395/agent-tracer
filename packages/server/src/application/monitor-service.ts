@@ -19,7 +19,7 @@ import type {
   TaskStartInput, TaskTerminalCommandInput, TaskThoughtInput, TaskTodoInput,
   TaskToolUsedInput, TaskUserMessageInput, TaskVerifyInput,
   RuntimeSessionEnsureInput, RuntimeSessionEnsureResult, RuntimeSessionEndInput, TaskSearchInput,
-  TaskAssistantResponseInput
+  TaskAssistantResponseInput, EventPatchInput
 } from "./types.js";
 import { EventRecorder } from "./services/event-recorder.js";
 import { SessionLifecyclePolicy } from "./services/session-lifecycle-policy.js";
@@ -373,6 +373,38 @@ export class MonitorService {
     if (!hasNewTitle && !hasNewStatus) return task;
     const updated = await this.ports.tasks.upsert({ ...task, taskKind: task.taskKind ?? "primary", ...(hasNewTitle && titleUpdate !== undefined ? { title: titleUpdate, slug: createTaskSlug({ title: titleUpdate }) } : {}), ...(hasNewStatus && input.status !== undefined ? { status: input.status } : {}), updatedAt: new Date().toISOString() });
     this.ports.notifier.publish({ type: "task.updated", payload: updated });
+    return updated;
+  }
+
+  async updateEvent(input: EventPatchInput): Promise<TimelineEvent | null> {
+    const event = await this.ports.events.findById(input.eventId);
+    if (!event) return null;
+
+    const nextMetadata = { ...event.metadata };
+    const nextDisplayTitle = typeof input.displayTitle === "string"
+      ? input.displayTitle.trim()
+      : null;
+    const normalizedDisplayTitle = nextDisplayTitle && nextDisplayTitle !== event.title.trim()
+      ? nextDisplayTitle
+      : null;
+    const currentDisplayTitle = typeof event.metadata["displayTitle"] === "string"
+      ? event.metadata["displayTitle"].trim()
+      : null;
+
+    if ((normalizedDisplayTitle ?? null) === (currentDisplayTitle ?? null)) {
+      return event;
+    }
+
+    if (normalizedDisplayTitle) {
+      nextMetadata["displayTitle"] = normalizedDisplayTitle;
+    } else {
+      delete nextMetadata["displayTitle"];
+    }
+
+    const updated = await this.ports.events.updateMetadata(event.id, nextMetadata);
+    if (updated) {
+      this.ports.notifier.publish({ type: "event.updated", payload: updated });
+    }
     return updated;
   }
 

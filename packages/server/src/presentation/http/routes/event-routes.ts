@@ -20,7 +20,8 @@ import type {
   TaskQuestionInput,
   TaskTodoInput,
   TaskThoughtInput,
-  TaskAssistantResponseInput
+  TaskAssistantResponseInput,
+  EventPatchInput
 } from "../../../application/types.js";
 import {
   toolUsedSchema,
@@ -36,7 +37,8 @@ import {
   questionSchema,
   todoSchema,
   thoughtSchema,
-  assistantResponseSchema
+  assistantResponseSchema,
+  eventPatchSchema
 } from "../../schemas.js";
 
 export function createEventRoutes(service: MonitorService): Router {
@@ -104,6 +106,19 @@ export function createEventRoutes(service: MonitorService): Router {
         assistantResponseSchema.parse(req.body) as TaskAssistantResponseInput
       )
     );
+  });
+
+  router.patch("/api/events/:eventId", async (req, res) => {
+    const parsed = eventPatchSchema.parse(req.body) as { displayTitle?: string | null };
+    const event = await service.updateEvent({
+      eventId: req.params.eventId,
+      ...(parsed.displayTitle !== undefined ? { displayTitle: parsed.displayTitle } : {})
+    } satisfies EventPatchInput);
+    if (!event) {
+      res.status(404).json({ error: "Event not found" });
+      return;
+    }
+    res.json({ event });
   });
 
   return router;

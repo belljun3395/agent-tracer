@@ -74,6 +74,7 @@ export interface IEventRepository {
   insert(input: EventInsertInput): Promise<TimelineEvent>;
   findById(id: string): Promise<TimelineEvent | null>;
   findByTaskId(taskId: string): Promise<readonly TimelineEvent[]>;
+  updateMetadata(eventId: string, metadata: Record<string, unknown>): Promise<TimelineEvent | null>;
   /** 태스크의 raw user.message 이벤트 수 반환 (phase 자동 도출용). */
   countRawUserMessages(taskId: string): Promise<number>;
   search(query: string, opts?: SearchOptions): Promise<SearchResults>;
