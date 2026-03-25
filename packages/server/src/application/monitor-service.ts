@@ -34,6 +34,9 @@ export interface RecordedEventEnvelope {
 
 export class MonitorService {
   private readonly recorder: EventRecorder;
+  // 동일 asyncTaskId+asyncStatus 조합의 중복 background 이벤트를 방지하기 위한 in-memory 가드.
+  // key: taskId → Set<"asyncTaskId:asyncStatus">
+  private readonly seenAsyncEvents = new Map<string, Set<string>>();
 
   constructor(private readonly ports: MonitorPorts) {
     this.recorder = new EventRecorder(ports.events, ports.notifier);
@@ -288,6 +291,14 @@ export class MonitorService {
   }
 
   async logAsyncLifecycle(input: TaskAsyncLifecycleInput): Promise<RecordedEventEnvelope> {
+    const dedupeKey = `${input.asyncTaskId}:${input.asyncStatus}`;
+    const taskSeen = this.seenAsyncEvents.get(input.taskId) ?? new Set<string>();
+    if (taskSeen.has(dedupeKey)) {
+      const task = await this.requireTask(input.taskId);
+      return { task, events: [] };
+    }
+    taskSeen.add(dedupeKey);
+    this.seenAsyncEvents.set(input.taskId, taskSeen);
     return this.withSession(input, (sid) => ({ taskId: input.taskId, kind: "action.logged", lane: "background", title: input.title ?? `Async task ${input.asyncStatus}`, metadata: TMF.build({ ...(input.metadata ?? {}), asyncTaskId: input.asyncTaskId, asyncStatus: input.asyncStatus, ...(input.description ? { description: input.description } : {}), ...(input.agent ? { asyncAgent: input.agent } : {}), ...(input.category ? { asyncCategory: input.category } : {}), ...(input.parentSessionId ? { parentSessionId: input.parentSessionId } : {}), ...(typeof input.durationMs === "number" ? { asyncDurationMs: input.durationMs } : {}) }, input), actionName: `async_task_${input.asyncStatus}`, ...(sid ? { sessionId: sid } : {}), ...(input.body || input.description ? { body: input.body ?? input.description } : {}), ...(input.filePaths ? { filePaths: input.filePaths } : {}) }));
   }
 
@@ -313,7 +324,7 @@ export class MonitorService {
   }
 
   async logAgentActivity(input: TaskAgentActivityInput): Promise<RecordedEventEnvelope> {
-    return this.withSession(input, (sid) => ({ taskId: input.taskId, kind: "agent.activity.logged", lane: "coordination", title: input.title ?? TMF.normalizeAgentActivityTitle(input.activityType), metadata: TMF.build(input.metadata, input), ...(sid ? { sessionId: sid } : {}), ...(input.body ? { body: input.body } : {}), ...(input.filePaths ? { filePaths: input.filePaths } : {}) }));
+    return this.withSession(input, (sid) => ({ taskId: input.taskId, kind: "agent.activity.logged", lane: (input.lane as TimelineLane | undefined) ?? "coordination", title: input.title ?? TMF.normalizeAgentActivityTitle(input.activityType), metadata: TMF.build(input.metadata, input), ...(sid ? { sessionId: sid } : {}), ...(input.body ? { body: input.body } : {}), ...(input.filePaths ? { filePaths: input.filePaths } : {}) }));
   }
 
   async getOverview() { return this.ports.tasks.getOverviewStats(); }

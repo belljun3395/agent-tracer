@@ -186,7 +186,7 @@ export function defaultLaneForEventKind(kind: MonitoringEventKind): TimelineLane
     case "context.saved":
       return "planning";
     case "file.changed":
-      return "exploration";
+      return "implementation";
     case "terminal.command":
     case "tool.used":
       return "implementation";

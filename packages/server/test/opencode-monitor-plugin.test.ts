@@ -286,6 +286,37 @@ describe("OpenCode monitor plugin", () => {
     ]));
   });
 
+  it("routes OpenCode-style MCP tools to coordination mcp_call events", async () => {
+    const hooks = createMonitorHooks("/repo");
+
+    await hooks.event?.({ event: sessionEvent("session.created", "session-mcp-route") });
+    await hooks["tool.execute.after"]?.(
+      {
+        tool: "monitor_monitor_task_start",
+        sessionID: "session-mcp-route",
+        callID: "call-mcp-route",
+        args: { taskId: "task-1" }
+      },
+      {
+        title: "monitor task start",
+        output: "ok",
+        metadata: {}
+      }
+    );
+
+    const mcpCall = calls.find((call) =>
+      call.endpoint === "/api/agent-activity"
+      && String(call.body.activityType) === "mcp_call"
+    );
+    expect(mcpCall?.body).toEqual(expect.objectContaining({
+      taskId: "task-session-mcp-route",
+      sessionId: "monitor-session-mcp-route",
+      lane: "coordination",
+      mcpServer: "monitor",
+      mcpTool: "monitor_task_start"
+    }));
+  });
+
   it("deduplicates task creation when a tool starts before session initialization finishes", async () => {
     let resolveTaskStart: (() => void) | undefined;
 

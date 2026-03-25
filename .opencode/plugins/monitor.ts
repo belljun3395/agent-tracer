@@ -132,11 +132,88 @@ function debugExitLog(message: string, payload?: Record<string, unknown>): void 
  * 도구명을 분석하여 적절한 모니터링 엔드포인트와 레인을 결정.
  * @param toolName OpenCode가 실행한 도구 이름
  */
-function classifyTool(toolName: string): { endpoint: string; lane?: string; activityType?: string } {
+function normalizeMcpName(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
+function loadConfiguredMcpServers(workspacePath: string): string[] {
+  const configPath = path.join(workspacePath, "opencode.json");
+  try {
+    const raw = fs.readFileSync(configPath, "utf-8");
+    const parsed = JSON.parse(raw) as { mcp?: Record<string, unknown> };
+    const keys = Object.keys(parsed.mcp ?? {});
+    return keys
+      .map((key) => normalizeMcpName(key))
+      .filter((key) => key.length > 0)
+      .sort((left, right) => right.length - left.length);
+  } catch {
+    return [];
+  }
+}
+
+function isKnownBuiltinUnderscoreTool(toolName: string): boolean {
+  return /^ast_grep_/.test(toolName)
+    || /^background_/.test(toolName)
+    || /^lsp_/.test(toolName)
+    || /^session_/.test(toolName)
+    || /^websearch_/.test(toolName)
+    || /^playwright_browser_/.test(toolName)
+    || /^filesystem_/.test(toolName)
+    || toolName === "grep_searchgithub"
+    || toolName === "grep_app_searchgithub";
+}
+
+function parseMcpToolParts(
+  toolName: string,
+  configuredMcpServers: readonly string[] = []
+): { server: string; tool: string } | undefined {
+  const normalizedToolName = normalizeMcpName(toolName);
+  if (!normalizedToolName) return undefined;
+
+  if (normalizedToolName.startsWith("mcp__")) {
+    const parts = normalizedToolName.split("__");
+    if (parts.length < 3) return undefined;
+    const server = parts[1]?.trim();
+    const tool = parts.slice(2).join("__").trim();
+    if (!server || !tool) return undefined;
+    return { server, tool };
+  }
+
+  for (const server of configuredMcpServers) {
+    const prefix = `${server}_`;
+    if (!normalizedToolName.startsWith(prefix)) continue;
+    const tool = normalizedToolName.slice(prefix.length).trim();
+    if (tool) return { server, tool };
+  }
+
+  if (isKnownBuiltinUnderscoreTool(normalizedToolName)) return undefined;
+  const firstUnderscoreIndex = normalizedToolName.indexOf("_");
+  if (firstUnderscoreIndex <= 0 || firstUnderscoreIndex >= normalizedToolName.length - 1) {
+    return undefined;
+  }
+  return {
+    server: normalizedToolName.slice(0, firstUnderscoreIndex),
+    tool: normalizedToolName.slice(firstUnderscoreIndex + 1)
+  };
+}
+
+function classifyTool(
+  toolName: string,
+  configuredMcpServers: readonly string[] = []
+): { endpoint: string; lane?: string; activityType?: string } {
   const lower = toolName.toLowerCase();
 
   if (isTodoWriteTool(lower)) {
     return { endpoint: "/api/todo", lane: "todos" };
+  }
+
+  // MCP 도구 — 사용자가 직접 설정/구성한 외부 서버 도구 → coordination 레인
+  if (parseMcpToolParts(lower, configuredMcpServers)) {
+    return { endpoint: "/api/agent-activity", lane: "coordination", activityType: "mcp_call" };
   }
 
   if (/read|glob|grep|search|fetch|find|list/.test(lower)) {
@@ -1192,7 +1269,9 @@ function writeOpenCodeSubagentRegistryEntry(
   }
 }
 
+
 export function createMonitorHooks(workspacePath: string): Hooks {
+  const configuredMcpServers = loadConfiguredMcpServers(workspacePath);
 
   function clearTrackedSessionState(input: {
     sessionId: string;
@@ -1295,6 +1374,7 @@ export function createMonitorHooks(workspacePath: string): Hooks {
       suspendedSessionStates.delete(input.sessionId);
       sessionStates.set(input.sessionId, nextState);
       pendingBackgroundLinks.delete(input.sessionId);
+
       return nextState;
     })();
 
@@ -1387,6 +1467,7 @@ export function createMonitorHooks(workspacePath: string): Hooks {
         keepSessionInfo: options?.keepSessionInfo ?? false,
         markSuspended: options?.markSuspended ?? false
       });
+
     }
 
     async function finalizeByRuntimeSession(input: {
@@ -1616,6 +1697,21 @@ export function createMonitorHooks(workspacePath: string): Hooks {
           title: event.properties.info.title
         });
 
+        // parentID가 있으면 컴팩션/remember 세션 — 부모 태스크의 background로 연결.
+        const parentID = event.properties.info.parentID;
+        if (parentID) {
+          const parentState = sessionStates.get(parentID) ?? suspendedSessionStates.get(parentID);
+          const parentTaskId = parentState?.taskId ?? monitorTaskIdForOpenCodeSession(parentID);
+          const parentMonitorSessionId = parentState?.monitorSessionId;
+          pendingBackgroundLinks.set(event.properties.info.id, {
+            childSessionId: event.properties.info.id,
+            parentTaskId,
+            ...(parentMonitorSessionId ? { parentSessionId: parentMonitorSessionId } : {}),
+            title: event.properties.info.title
+          });
+          return;
+        }
+
         const inheritedBackgroundLink = findBackgroundAncestorLink(event.properties.info.title);
         if (inheritedBackgroundLink) {
           pendingBackgroundLinks.set(event.properties.info.id, {
@@ -1770,6 +1866,28 @@ export function createMonitorHooks(workspacePath: string): Hooks {
           return;
         }
         await finalizeForExitCommand(opencodeSessionId);
+        return;
+      }
+
+      if (event.type === "session.compacted") {
+        // 컴팩션 완료 — 컴팩션 자식 세션을 정리한다.
+        // session.compacted의 sessionID는 원본(부모) 세션 ID이므로,
+        // 해당 부모를 parentTaskId로 갖는 background 세션을 찾아 종료.
+        const compactedParentId = event.properties.sessionID;
+        const parentState = sessionStates.get(compactedParentId) ?? suspendedSessionStates.get(compactedParentId);
+        if (parentState) {
+          for (const [candidateSessionId, candidateState] of sessionStates.entries()) {
+            if (candidateState.taskKind === "background" && candidateState.parentTaskId === parentState.taskId) {
+              if (!finalizingSessionIds.has(candidateSessionId)) {
+                finalizingSessionIds.add(candidateSessionId);
+                finalizeSession(candidateSessionId, candidateState, "OpenCode compaction completed", "completed", {
+                  completeTask: false,
+                  markEnded: true
+                }).finally(() => { finalizingSessionIds.delete(candidateSessionId); });
+              }
+            }
+          }
+        }
         return;
       }
 
@@ -1977,7 +2095,7 @@ export function createMonitorHooks(workspacePath: string): Hooks {
         return;
       }
 
-      const { endpoint, lane, activityType } = classifyTool(toolName);
+      const { endpoint, lane, activityType } = classifyTool(toolName, configuredMcpServers);
       const toolArgs = asObject(input.args);
       const filePaths = extractFilePaths(
         toolArgs,
@@ -2005,9 +2123,11 @@ export function createMonitorHooks(workspacePath: string): Hooks {
       };
 
       if (endpoint === "/api/agent-activity") {
+        const mcpParts = parseMcpToolParts(toolName.toLowerCase(), configuredMcpServers);
         await post(endpoint, {
           ...body,
           activityType: activityType ?? "agent_step",
+          ...(mcpParts ? { mcpServer: mcpParts.server, mcpTool: mcpParts.tool } : {})
         });
       } else if (endpoint === "/api/explore") {
         await post(endpoint, body);
