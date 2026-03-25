@@ -503,6 +503,39 @@ describe("OpenCode monitor plugin", () => {
     expect(calls.filter((call) => call.endpoint === "/api/explore")).toHaveLength(1);
   });
 
+  it("deduplicates repeated background task launches with same callID", async () => {
+    const hooks = createMonitorHooks("/repo");
+
+    await hooks.event?.({ event: sessionEvent("session.created", "parent-bg-dedupe") });
+
+    const input = {
+      tool: "task",
+      sessionID: "parent-bg-dedupe",
+      callID: "call-bg-same",
+      args: {
+        run_in_background: true,
+        description: "Background dedupe child"
+      }
+    };
+    const output = {
+      title: "task",
+      output: "Background Task ID: bg-dedupe\nsession_id: child-bg-dedupe",
+      metadata: {
+        background_task_id: "bg-dedupe",
+        session_id: "child-bg-dedupe"
+      }
+    };
+
+    await hooks["tool.execute.after"]?.(input, output);
+    await hooks["tool.execute.after"]?.(input, output);
+
+    expect(calls.filter((call) =>
+      call.endpoint === "/api/async-task"
+      && String(call.body.asyncTaskId) === "bg-dedupe"
+      && String(call.body.asyncStatus) === "running"
+    )).toHaveLength(1);
+  });
+
   it("session.deleted sends completeTask:true when /api/task-link failed for child-first launch", async () => {
     // Simulate: child starts first (primary), parent fires task tool,
     // /api/task-link returns error → DB row stays "primary".

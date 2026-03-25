@@ -53,6 +53,45 @@ describe("HTTP API", () => {
     expect(task?.displayTitle).toBe(goal);
   });
 
+  it("이벤트 displayTitle override를 저장하고 reset할 수 있다", async () => {
+    const started = await request(runtime.app)
+      .post("/api/task-start")
+      .send({ title: "이벤트 제목 편집" });
+
+    const taskId = started.body.task.id as string;
+    const sessionId = started.body.sessionId as string;
+
+    const message = await request(runtime.app)
+      .post("/api/user-message")
+      .send({
+        taskId,
+        sessionId,
+        messageId: "msg-editable-title",
+        captureMode: "raw",
+        source: "manual-mcp",
+        title: "[CONTEXT]: User requested to inspect the README and revert a temporary comment.",
+        body: "원본 제목은 유지하고 inspector용 제목만 바꾼다."
+      });
+
+    const eventId = message.body.events[0].id as string;
+
+    const patched = await request(runtime.app)
+      .patch(`/api/events/${eventId}`)
+      .send({ displayTitle: "README check and revert" });
+
+    expect(patched.status).toBe(200);
+    expect(patched.body.event.title).toBe("[CONTEXT]: User requested to inspect the README and revert a temporary comment.");
+    expect(patched.body.event.metadata.displayTitle).toBe("README check and revert");
+
+    const reset = await request(runtime.app)
+      .patch(`/api/events/${eventId}`)
+      .send({ displayTitle: null });
+
+    expect(reset.status).toBe(200);
+    expect(reset.body.event.title).toBe("[CONTEXT]: User requested to inspect the README and revert a temporary comment.");
+    expect(reset.body.event.metadata.displayTitle).toBeUndefined();
+  });
+
   it("derived 사용자 메시지에 sourceEventId가 없으면 400을 반환한다", async () => {
     const started = await request(runtime.app)
       .post("/api/task-start")
