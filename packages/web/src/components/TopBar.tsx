@@ -34,6 +34,7 @@ interface TopBarProps {
   readonly onSelectSearchEvent: (taskId: string, eventId: string) => void;
   readonly onSelectSearchBookmark: (bookmark: BookmarkSearchHit) => void;
   readonly onRefresh: () => void;
+  readonly onOpenLibrary: () => void;
 }
 
 export function TopBar({
@@ -51,7 +52,8 @@ export function TopBar({
   onSelectSearchTask,
   onSelectSearchEvent,
   onSelectSearchBookmark,
-  onRefresh
+  onRefresh,
+  onOpenLibrary
 }: TopBarProps): React.JSX.Element {
   const { theme, toggle: toggleTheme } = useTheme();
   const totalResults = (searchResults?.tasks.length ?? 0)
@@ -226,6 +228,18 @@ export function TopBar({
           This task
         </button>
       )}
+
+      {/* Workflow Library button */}
+      <button
+        aria-label="Open workflow library"
+        className="flex h-7 shrink-0 items-center gap-1.5 rounded-[8px] border border-[var(--border)] bg-[var(--surface-2)] px-2.5 text-[0.75rem] font-semibold text-[var(--text-2)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]"
+        onClick={onOpenLibrary}
+        title="Workflow Library"
+        type="button"
+      >
+        <span className="text-[0.8rem] leading-none">⊞</span>
+        Library
+      </button>
 
       {/* Dark mode toggle */}
       <button

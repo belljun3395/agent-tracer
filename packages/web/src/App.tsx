@@ -24,6 +24,7 @@ import { TopBar } from "./components/TopBar.js";
 import { TaskList } from "./components/TaskList.js";
 import { Timeline } from "./components/Timeline.js";
 import { EventInspector } from "./components/EventInspector.js";
+import { WorkflowLibraryPanel } from "./components/WorkflowLibraryPanel.js";
 import { MonitorProvider, useMonitorStore } from "./store/useMonitorStore.js";
 import { useWebSocket } from "./store/useWebSocket.js";
 import { useSearch } from "./store/useSearch.js";
@@ -71,6 +72,7 @@ function Dashboard(): React.JSX.Element {
     dispatch,
     refreshOverview,
     refreshTaskDetail,
+    refreshBookmarksOnly,
     handleDeleteTask,
     handleCreateTaskBookmark,
     handleCreateEventBookmark,
@@ -104,11 +106,13 @@ function Dashboard(): React.JSX.Element {
   } = state;
 
   // WebSocket: message 수신 시 overview + taskDetail 새로고침
-  const { isConnected: wsConnected } = useWebSocket(() => {
+  const { isConnected: wsConnected } = useWebSocket((message) => {
     void refreshRealtimeMonitorData({
+      message,
       selectedTaskId,
       refreshOverview,
-      refreshTaskDetail
+      refreshTaskDetail,
+      refreshBookmarksOnly
     });
   });
 
@@ -148,6 +152,8 @@ function Dashboard(): React.JSX.Element {
     return Math.max(INSPECTOR_MIN_WIDTH, Math.min(INSPECTOR_MAX_WIDTH, parsed));
   });
   const inspectorResizeRef = useRef<{ readonly startX: number; readonly startWidth: number } | null>(null);
+
+  const [isLibraryOpen, setIsLibraryOpen] = useState(false);
 
   const [zoom, setZoom] = useState<number>(() => {
     const raw = window.localStorage.getItem(ZOOM_STORAGE_KEY);
@@ -404,6 +410,7 @@ function Dashboard(): React.JSX.Element {
           }
         }}
         onRefresh={() => void refreshOverview()}
+        onOpenLibrary={() => setIsLibraryOpen(true)}
       />
 
       <main
@@ -600,6 +607,17 @@ function Dashboard(): React.JSX.Element {
         </div>
 
       </main>
+
+      {isLibraryOpen && (
+        <WorkflowLibraryPanel
+          onSelectTask={(taskId) => {
+            dispatch({ type: "SELECT_CONNECTOR", connectorKey: null });
+            dispatch({ type: "SELECT_EVENT", eventId: null });
+            dispatch({ type: "SELECT_TASK", taskId });
+          }}
+          onClose={() => setIsLibraryOpen(false)}
+        />
+      )}
     </div>
   );
 }

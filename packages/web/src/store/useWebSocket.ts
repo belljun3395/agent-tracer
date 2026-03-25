@@ -5,6 +5,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createMonitorWebSocket } from "../api.js";
+import { parseRealtimeMessage, type MonitorRealtimeMessage } from "../lib/realtime.js";
 
 export const SOCKET_READY_STATE = {
   CONNECTING: 0,
@@ -23,7 +24,9 @@ export function cleanupSocketOnUnmount(input: {
   input.socket.close();
 }
 
-export function useWebSocket(onMessage: () => void): { isConnected: boolean } {
+export function useWebSocket(
+  onMessage: (message: MonitorRealtimeMessage | null) => void
+): { isConnected: boolean } {
   const [isConnected, setIsConnected] = useState(false);
   const onMessageRef = useRef(onMessage);
   onMessageRef.current = onMessage;
@@ -49,16 +52,13 @@ export function useWebSocket(onMessage: () => void): { isConnected: boolean } {
 
       ws.onmessage = (event): void => {
         setIsConnected(true);
-        try {
-          const data = JSON.parse(event.data as string) as unknown;
-          console.log("[WS] message", data);
-        } catch {
-          console.log("[WS] message (raw)", event.data);
-        }
+        const message = typeof event.data === "string"
+          ? parseRealtimeMessage(event.data)
+          : null;
         if (debounceTimer !== null) clearTimeout(debounceTimer);
         debounceTimer = setTimeout(() => {
           debounceTimer = null;
-          onMessageRef.current();
+          onMessageRef.current(message);
         }, 200);
       };
 
