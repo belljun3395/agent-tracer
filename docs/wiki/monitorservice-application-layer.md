@@ -11,6 +11,9 @@
 - `packages/server/src/application/services/session-lifecycle-policy.ts`
 - `packages/server/src/application/services/trace-metadata-factory.ts`
 - `packages/server/src/application/services/task-display-title-resolver.ts`
+- `packages/server/src/application/services/event-recorder.helpers.ts`
+- `packages/server/src/application/services/trace-metadata-factory.helpers.ts`
+- `packages/server/src/application/services/task-display-title-resolver.helpers.ts`
 
 ## 주요 책임
 

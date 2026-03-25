@@ -86,6 +86,7 @@ search는 free-text query와 optional task scope를 지원한다.
 모든 쓰기 경로는 `presentation/schemas.ts`의 Zod schema를 통해 request body를 검증한다.
 특히 canonical contract가 중요한 `user.message`, `question`, `todo`, `runtime-session-*`
 계열은 schema가 실질적인 방어선 역할을 한다.
+`schemas.constants.ts`에 열거형 값들을 분리해두어 여러 schema에서 중복 문자열 사용을 줄였다.
 
 ## 에러 처리
 
