@@ -1,11 +1,13 @@
 import * as path from "node:path";
 
 import {
+  buildSemanticMetadata,
   ensureRuntimeSession,
   getSessionId,
   getToolInput,
   hookLog,
   hookLogPayload,
+  inferExploreSemantic,
   postJson,
   readStdinJson,
   relativeProjectPath,
@@ -57,6 +59,8 @@ async function main(): Promise<void> {
     body = `Web lookup: ${query}`;
   }
 
+  const semantic = inferExploreSemantic(toolName, toolInput);
+
   await postJson("/api/explore", {
     taskId: ids.taskId,
     sessionId: ids.sessionId,
@@ -65,6 +69,7 @@ async function main(): Promise<void> {
     body,
     filePaths: filePaths.map((filePath) => filePath.slice(0, MAX_PATH_LENGTH)),
     metadata: {
+      ...buildSemanticMetadata(semantic),
       toolInput: stringifyToolInput(toolInput)
     }
   });

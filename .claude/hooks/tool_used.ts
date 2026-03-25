@@ -1,12 +1,15 @@
 import * as path from "node:path";
 
 import {
+  buildSemanticMetadata,
   ensureRuntimeSession,
   getHookEventName,
   getSessionId,
   getToolInput,
   hookLog,
   hookLogPayload,
+  inferCommandSemantic,
+  inferFileToolSemantic,
   parseMcpToolName,
   postJson,
   readStdinJson,
@@ -43,16 +46,32 @@ async function main(): Promise<void> {
 
   let title = relPath ? `${toolName}: ${path.basename(relPath)}` : toolName;
   let body = relPath ? `Modified ${relPath}` : `Used ${toolName}`;
-  let lane: "implementation" | "coordination" | undefined = "implementation";
+  let endpoint: "/api/tool-used" | "/api/agent-activity" = "/api/tool-used";
+  let lane: "exploration" | "implementation" | "coordination" | undefined = "implementation";
+  let activityType: "mcp_call" | undefined;
+  let semanticMetadata = buildSemanticMetadata(inferFileToolSemantic(toolName, toolInput));
   const metadata: Record<string, unknown> = {};
 
   if (toolName === "Bash") {
     const description = toTrimmedString(toolInput.description);
     metadata.description = description;
+    semanticMetadata = buildSemanticMetadata(inferCommandSemantic(toTrimmedString(toolInput.command)).metadata);
   } else if (mcpTool) {
     title = `MCP: ${mcpTool.server}/${mcpTool.tool}`;
     body = `Used MCP tool ${mcpTool.server}/${mcpTool.tool}`;
+    endpoint = "/api/agent-activity";
     lane = "coordination";
+    activityType = "mcp_call";
+    semanticMetadata = buildSemanticMetadata({
+      subtypeKey: "mcp_call",
+      subtypeLabel: "MCP call",
+      subtypeGroup: "external",
+      toolFamily: "coordination",
+      operation: "invoke",
+      entityType: "mcp",
+      entityName: `${mcpTool.server}/${mcpTool.tool}`,
+      sourceTool: toolName
+    });
     metadata.mcpServer = mcpTool.server;
     metadata.mcpTool = mcpTool.tool;
   }
@@ -68,16 +87,29 @@ async function main(): Promise<void> {
     metadata.relPath = relPath;
   }
 
-  await postJson("/api/tool-used", {
+  const requestBody = {
     taskId: ids.taskId,
     sessionId: ids.sessionId,
-    toolName,
+    ...(endpoint === "/api/tool-used" ? { toolName } : {}),
     title,
     body,
     ...(lane ? { lane } : {}),
     ...(filePath && hookEventName !== "PostToolUseFailure" ? { filePaths: [filePath] } : {}),
-    metadata
-  });
+    metadata: {
+      ...semanticMetadata,
+      ...metadata
+    }
+  };
+
+  if (endpoint === "/api/agent-activity") {
+    await postJson(endpoint, {
+      ...requestBody,
+      activityType: activityType ?? "mcp_call",
+      ...(mcpTool ? { mcpServer: mcpTool.server, mcpTool: mcpTool.tool } : {})
+    });
+  } else {
+    await postJson(endpoint, requestBody);
+  }
   hookLog("tool_used", "tool-used posted", { toolName, title });
 }
 

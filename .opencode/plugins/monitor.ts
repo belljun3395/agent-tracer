@@ -202,46 +202,388 @@ function parseMcpToolParts(
   };
 }
 
-function classifyTool(
+type ToolClassification = {
+  endpoint: string;
+  lane?: string;
+  activityType?: string;
+  subtypeKey: string;
+  subtypeLabel: string;
+  subtypeGroup: string;
+  toolFamily: string;
+  operation: string;
+  entityType?: string;
+  entityName?: string;
+};
+
+function firstCommandToken(command: string): string | undefined {
+  const [first] = command.trim().split(/\s+/, 1);
+  return first?.replace(/^['"]+|['"]+$/g, "") || undefined;
+}
+
+function classifyCommand(command: string): ToolClassification {
+  const normalized = command.trim().toLowerCase();
+  const entityName = firstCommandToken(command) ?? "shell";
+
+  if (
+    /^(pwd|ls|tree|find|fd|rg|grep|cat|sed|head|tail|wc|stat|file|which|whereis)\b/.test(normalized)
+    || /^git\s+(status|diff|show|log)\b/.test(normalized)
+    || /^(npm|pnpm|yarn|bun)\s+(ls|list)\b/.test(normalized)
+  ) {
+    return {
+      endpoint: "/api/terminal-command",
+      lane: "exploration",
+      subtypeKey: "shell_probe",
+      subtypeLabel: "Shell probe",
+      subtypeGroup: "shell",
+      toolFamily: "terminal",
+      operation: "probe",
+      entityType: "command",
+      entityName
+    };
+  }
+
+  if (/\b(rule|policy|guard|constraint|conformance)\b/.test(normalized)) {
+    return {
+      endpoint: "/api/terminal-command",
+      lane: "implementation",
+      subtypeKey: "rule_check",
+      subtypeLabel: "Rule check",
+      subtypeGroup: "execution",
+      toolFamily: "terminal",
+      operation: "execute",
+      entityType: "command",
+      entityName
+    };
+  }
+
+  if (
+    /\b(pytest|vitest|jest|ava|mocha|phpunit|rspec)\b/.test(normalized)
+    || /\b(npm|pnpm|yarn|bun)\s+(run\s+)?test\b/.test(normalized)
+    || /\b(go|cargo)\s+test\b/.test(normalized)
+    || /\bplaywright\s+test\b/.test(normalized)
+    || /\bcypress\s+run\b/.test(normalized)
+  ) {
+    return {
+      endpoint: "/api/terminal-command",
+      lane: "implementation",
+      subtypeKey: "run_test",
+      subtypeLabel: "Run test",
+      subtypeGroup: "execution",
+      toolFamily: "terminal",
+      operation: "execute",
+      entityType: "command",
+      entityName
+    };
+  }
+
+  if (
+    /\b(eslint|stylelint|ruff|flake8|prettier|biome|oxlint)\b/.test(normalized)
+    || /\b(npm|pnpm|yarn|bun)\s+(run\s+)?lint\b/.test(normalized)
+    || /\b(cargo|go)\s+fmt\b/.test(normalized)
+  ) {
+    return {
+      endpoint: "/api/terminal-command",
+      lane: "implementation",
+      subtypeKey: "run_lint",
+      subtypeLabel: "Run lint",
+      subtypeGroup: "execution",
+      toolFamily: "terminal",
+      operation: "execute",
+      entityType: "command",
+      entityName
+    };
+  }
+
+  if (
+    /\b(typecheck|type-check|check-types|verify|validate|doctor|audit)\b/.test(normalized)
+    || /\btsc\b.*\b--noemit\b/.test(normalized)
+    || /\bcargo\s+check\b/.test(normalized)
+    || /\bgo\s+vet\b/.test(normalized)
+    || /\bmypy\b/.test(normalized)
+  ) {
+    return {
+      endpoint: "/api/terminal-command",
+      lane: "implementation",
+      subtypeKey: "verify",
+      subtypeLabel: "Verify",
+      subtypeGroup: "execution",
+      toolFamily: "terminal",
+      operation: "execute",
+      entityType: "command",
+      entityName
+    };
+  }
+
+  if (
+    /\b(npm|pnpm|yarn|bun)\s+(run\s+)?build\b/.test(normalized)
+    || /\b(next|vite|webpack|rollup)\s+build\b/.test(normalized)
+    || /\bcargo\s+build\b/.test(normalized)
+    || /\bgo\s+build\b/.test(normalized)
+    || /\bdocker\s+build\b/.test(normalized)
+    || /\btsc\b/.test(normalized)
+  ) {
+    return {
+      endpoint: "/api/terminal-command",
+      lane: "implementation",
+      subtypeKey: "run_build",
+      subtypeLabel: "Run build",
+      subtypeGroup: "execution",
+      toolFamily: "terminal",
+      operation: "execute",
+      entityType: "command",
+      entityName
+    };
+  }
+
+  return {
+    endpoint: "/api/terminal-command",
+    lane: "implementation",
+    subtypeKey: "run_command",
+    subtypeLabel: "Run command",
+    subtypeGroup: "execution",
+    toolFamily: "terminal",
+    operation: "execute",
+    entityType: "command",
+    entityName
+  };
+}
+
+function classifyExploreTool(toolName: string): ToolClassification {
+  const lower = toolName.toLowerCase();
+
+  if (/websearch/.test(lower)) {
+    return {
+      endpoint: "/api/explore",
+      lane: "exploration",
+      subtypeKey: "web_search",
+      subtypeLabel: "Web search",
+      subtypeGroup: "web",
+      toolFamily: "explore",
+      operation: "search",
+      entityType: "query"
+    };
+  }
+
+  if (/fetch|browse|navigate/.test(lower)) {
+    return {
+      endpoint: "/api/explore",
+      lane: "exploration",
+      subtypeKey: "web_fetch",
+      subtypeLabel: "Web fetch",
+      subtypeGroup: "web",
+      toolFamily: "explore",
+      operation: "fetch",
+      entityType: "url"
+    };
+  }
+
+  if (/read|view|open/.test(lower)) {
+    return {
+      endpoint: "/api/explore",
+      lane: "exploration",
+      subtypeKey: "read_file",
+      subtypeLabel: "Read file",
+      subtypeGroup: "files",
+      toolFamily: "explore",
+      operation: "read",
+      entityType: "file"
+    };
+  }
+
+  if (/glob/.test(lower)) {
+    return {
+      endpoint: "/api/explore",
+      lane: "exploration",
+      subtypeKey: "glob_files",
+      subtypeLabel: "Glob files",
+      subtypeGroup: "search",
+      toolFamily: "explore",
+      operation: "search",
+      entityType: "file"
+    };
+  }
+
+  if (/grep|ast_grep|search/.test(lower)) {
+    return {
+      endpoint: "/api/explore",
+      lane: "exploration",
+      subtypeKey: "grep_code",
+      subtypeLabel: "Grep code",
+      subtypeGroup: "search",
+      toolFamily: "explore",
+      operation: "search",
+      entityType: "file"
+    };
+  }
+
+  return {
+    endpoint: "/api/explore",
+    lane: "exploration",
+    subtypeKey: "list_files",
+    subtypeLabel: "List files",
+    subtypeGroup: "search",
+    toolFamily: "explore",
+    operation: "list",
+    entityType: "file"
+  };
+}
+
+function classifyImplementationTool(toolName: string): ToolClassification {
+  const lower = toolName.toLowerCase();
+
+  if (/apply_patch|patch/.test(lower)) {
+    return {
+      endpoint: "/api/tool-used",
+      lane: "implementation",
+      subtypeKey: "apply_patch",
+      subtypeLabel: "Apply patch",
+      subtypeGroup: "file_ops",
+      toolFamily: "file",
+      operation: "patch",
+      entityType: "file"
+    };
+  }
+
+  if (/rename|move/.test(lower)) {
+    return {
+      endpoint: "/api/tool-used",
+      lane: "implementation",
+      subtypeKey: "rename_file",
+      subtypeLabel: "Rename file",
+      subtypeGroup: "file_ops",
+      toolFamily: "file",
+      operation: "rename",
+      entityType: "file"
+    };
+  }
+
+  if (/delete|remove/.test(lower)) {
+    return {
+      endpoint: "/api/tool-used",
+      lane: "implementation",
+      subtypeKey: "delete_file",
+      subtypeLabel: "Delete file",
+      subtypeGroup: "file_ops",
+      toolFamily: "file",
+      operation: "delete",
+      entityType: "file"
+    };
+  }
+
+  if (/create|write/.test(lower)) {
+    return {
+      endpoint: "/api/tool-used",
+      lane: "implementation",
+      subtypeKey: "create_file",
+      subtypeLabel: "Create file",
+      subtypeGroup: "file_ops",
+      toolFamily: "file",
+      operation: "create",
+      entityType: "file"
+    };
+  }
+
+  return {
+    endpoint: "/api/tool-used",
+    lane: "implementation",
+    subtypeKey: "modify_file",
+    subtypeLabel: "Modify file",
+    subtypeGroup: "file_ops",
+    toolFamily: "file",
+    operation: "modify",
+    entityType: "file"
+  };
+}
+
+function classifyToolEvent(
   toolName: string,
+  args: Record<string, unknown>,
   configuredMcpServers: readonly string[] = []
-): { endpoint: string; lane?: string; activityType?: string } {
+): ToolClassification {
   const lower = toolName.toLowerCase();
 
   if (isTodoWriteTool(lower)) {
-    return { endpoint: "/api/todo", lane: "todos" };
+    return {
+      endpoint: "/api/todo",
+      lane: "todos",
+      subtypeKey: "todo_update",
+      subtypeLabel: "Todo update",
+      subtypeGroup: "todos",
+      toolFamily: "todo",
+      operation: "update"
+    };
   }
 
-  // MCP 도구 — 사용자가 직접 설정/구성한 외부 서버 도구 → coordination 레인
-  if (parseMcpToolParts(lower, configuredMcpServers)) {
-    return { endpoint: "/api/agent-activity", lane: "coordination", activityType: "mcp_call" };
+  const mcpParts = parseMcpToolParts(lower, configuredMcpServers);
+  if (mcpParts) {
+    return {
+      endpoint: "/api/agent-activity",
+      lane: "coordination",
+      activityType: "mcp_call",
+      subtypeKey: "mcp_call",
+      subtypeLabel: "MCP call",
+      subtypeGroup: "external",
+      toolFamily: "coordination",
+      operation: "invoke",
+      entityType: "mcp",
+      entityName: `${mcpParts.server}/${mcpParts.tool}`
+    };
   }
 
-  if (/read|glob|grep|search|fetch|find|list/.test(lower)) {
-    return { endpoint: "/api/explore" };
-  }
-
-  if (/edit|write|create|patch|apply/.test(lower)) {
-    return { endpoint: "/api/tool-used", lane: "implementation" };
-  }
-
-  if (/bash|shell|run|exec|terminal/.test(lower)) {
-    return { endpoint: "/api/terminal-command", lane: "implementation" };
-  }
-
-  if (/\bagent\b|dispatch|delegate|spawn/.test(lower)) {
-    return { endpoint: "/api/agent-activity", activityType: "delegation" };
+  if (isTaskTool(lower) || isParallelTool(lower) || /\bagent\b|dispatch|delegate|spawn/.test(lower)) {
+    return {
+      endpoint: "/api/agent-activity",
+      lane: "coordination",
+      activityType: "delegation",
+      subtypeKey: "delegation",
+      subtypeLabel: "Delegation",
+      subtypeGroup: "agent",
+      toolFamily: "coordination",
+      operation: "delegate",
+      entityType: "agent",
+      entityName: toNonEmptyString(args.description) ?? toNonEmptyString(args.prompt) ?? toNonEmptyString(args.subagent_type)
+    };
   }
 
   if (/\bskill\b/.test(lower)) {
-    return { endpoint: "/api/agent-activity", activityType: "skill_use" };
+    return {
+      endpoint: "/api/agent-activity",
+      lane: "coordination",
+      activityType: "skill_use",
+      subtypeKey: "skill_use",
+      subtypeLabel: "Skill use",
+      subtypeGroup: "external",
+      toolFamily: "coordination",
+      operation: "invoke",
+      entityType: "skill",
+      entityName: toNonEmptyString(args.skill)
+    };
   }
 
   if (/\bhandoff\b/.test(lower)) {
-    return { endpoint: "/api/agent-activity", activityType: "handoff" };
+    return {
+      endpoint: "/api/agent-activity",
+      lane: "coordination",
+      activityType: "handoff",
+      subtypeKey: "handoff",
+      subtypeLabel: "Handoff",
+      subtypeGroup: "agent",
+      toolFamily: "coordination",
+      operation: "handoff",
+      entityType: "agent",
+      entityName: toNonEmptyString(args.description)
+    };
   }
 
-  return { endpoint: "/api/tool-used", lane: "implementation" };
+  if (/read|glob|grep|search|fetch|find|list/.test(lower)) {
+    return classifyExploreTool(toolName);
+  }
+
+  if (/bash|shell|run|exec|terminal/.test(lower)) {
+    return classifyCommand(toNonEmptyString(args.command) ?? toolName);
+  }
+
+  return classifyImplementationTool(toolName);
 }
 
 function normalizeTodoState(
@@ -918,31 +1260,75 @@ function unwrapQuotedEnvelope(line: string): string {
   return trimmed;
 }
 
+function shouldScanOutputForPaths(toolName: string): boolean {
+  const lower = toolName.toLowerCase();
+  return /glob|grep|search|find|list|tree|scan/.test(lower);
+}
+
+function normalizeFilePathCandidate(candidate: string, workspacePath: string): string | undefined {
+  const trimmed = candidate
+    .trim()
+    .replace(/^file:\/\//, "")
+    .replace(/^['"`]+|['"`]+$/g, "");
+  if (!trimmed || !looksLikePath(trimmed)) {
+    return undefined;
+  }
+
+  const normalizedWorkspace = path.resolve(workspacePath);
+  const normalized = trimmed.replace(/\\/g, "/");
+
+  if (path.isAbsolute(normalized)) {
+    const resolved = path.resolve(normalized);
+    if (resolved === normalizedWorkspace || resolved.startsWith(`${normalizedWorkspace}${path.sep}`)) {
+      return path.relative(normalizedWorkspace, resolved).split(path.sep).join("/");
+    }
+    return resolved.split(path.sep).join("/");
+  }
+
+  const workspaceWithoutRoot = normalizedWorkspace.replace(/^[/\\]+/, "").replace(/\\/g, "/");
+  if (workspaceWithoutRoot && (normalized === workspaceWithoutRoot || normalized.startsWith(`${workspaceWithoutRoot}/`))) {
+    const resolved = path.resolve(path.sep, normalized);
+    return path.relative(normalizedWorkspace, resolved).split(path.sep).join("/");
+  }
+
+  const relative = path.posix.normalize(normalized).replace(/^\.\/+/, "");
+  return relative === "." ? undefined : relative;
+}
+
 function extractFilePaths(
+  toolName: string,
   args: unknown,
+  workspacePath: string,
   outputMetadata?: unknown,
   outputTitle?: string,
   outputText?: string
 ): readonly string[] {
-  const values = new Set<string>();
-  appendPathCandidates(args, values);
-  appendPathCandidates(outputMetadata, values);
+  const rawValues = new Set<string>();
+  appendPathCandidates(args, rawValues);
+  appendPathCandidates(outputMetadata, rawValues);
 
   const title = toNonEmptyString(outputTitle);
-  if (title) {
-    appendPathCandidates(title, values);
+  if (title && shouldScanOutputForPaths(toolName)) {
+    appendPathCandidates(title, rawValues);
   }
 
   // 도구 출력 텍스트에서 경로 토큰 추출 (BrowseIndexed* 등 MCP 도구 결과 커버).
   // 너무 긴 출력은 앞부분만 스캔 (성능 보호).
-  if (outputText) {
+  if (outputText && shouldScanOutputForPaths(toolName)) {
     const scanText = outputText.length > 3000 ? outputText.slice(0, 3000) : outputText;
     for (const token of extractPathLikeTokens(scanText)) {
-      values.add(token);
+      rawValues.add(token);
     }
   }
 
-  return [...values];
+  const normalizedValues = new Set<string>();
+  for (const value of rawValues) {
+    const normalized = normalizeFilePathCandidate(value, workspacePath);
+    if (!normalized) continue;
+    normalizedValues.add(normalized);
+  }
+
+  return [...normalizedValues];
 }
 
 function parseQuestionPhase(value: unknown): "asked" | "answered" | "concluded" | undefined {
@@ -2248,17 +2634,25 @@ export function createMonitorHooks(workspacePath: string): Hooks {
         return;
       }
 
-      const { endpoint, lane, activityType } = classifyTool(toolName, configuredMcpServers);
       const toolArgs = asObject(input.args);
+      const classification = classifyToolEvent(toolName, toolArgs, configuredMcpServers);
       const filePaths = extractFilePaths(
+        toolName,
         toolArgs,
+        workspacePath,
         output.metadata,
         output.title,
         typeof output.output === "string" ? output.output : undefined
       );
+      const entityName = classification.entityName
+        ?? (classification.entityType === "file" ? filePaths[0] : undefined);
+      const agentName = toNonEmptyString(toolArgs.subagent_type)
+        ?? (classification.entityType === "agent" ? entityName : undefined);
+      const skillName = toNonEmptyString(toolArgs.skill)
+        ?? (classification.entityType === "skill" ? entityName : undefined);
       const effectiveLane = state.taskKind === "background"
         ? "background"
-        : lane;
+        : classification.lane;
 
       const body: Record<string, unknown> = {
         taskId: state.taskId,
@@ -2269,28 +2663,39 @@ export function createMonitorHooks(workspacePath: string): Hooks {
         metadata: {
           opencodeSessionId: input.sessionID,
           opencodeCallId: input.callID,
+          sourceTool: toolName,
+          sourceCallId: input.callID,
+          subtypeKey: classification.subtypeKey,
+          subtypeLabel: classification.subtypeLabel,
+          subtypeGroup: classification.subtypeGroup,
+          toolFamily: classification.toolFamily,
+          operation: classification.operation,
+          ...(classification.entityType ? { entityType: classification.entityType } : {}),
+          ...(entityName ? { entityName } : {}),
           toolInput: toolArgs
         },
         ...(filePaths.length > 0 ? { filePaths } : {}),
         ...(effectiveLane ? { lane: effectiveLane } : {})
       };
 
-      if (endpoint === "/api/agent-activity") {
+      if (classification.endpoint === "/api/agent-activity") {
         const mcpParts = parseMcpToolParts(toolName.toLowerCase(), configuredMcpServers);
-        await post(endpoint, {
+        await post(classification.endpoint, {
           ...body,
-          activityType: activityType ?? "agent_step",
+          activityType: classification.activityType ?? "agent_step",
+          ...(agentName ? { agentName } : {}),
+          ...(skillName ? { skillName } : {}),
           ...(mcpParts ? { mcpServer: mcpParts.server, mcpTool: mcpParts.tool } : {})
         });
-      } else if (endpoint === "/api/explore") {
-        await post(endpoint, body);
-      } else if (endpoint === "/api/terminal-command") {
-        await post(endpoint, {
+      } else if (classification.endpoint === "/api/explore") {
+        await post(classification.endpoint, body);
+      } else if (classification.endpoint === "/api/terminal-command") {
+        await post(classification.endpoint, {
           ...body,
           command: typeof toolArgs.command === "string" ? toolArgs.command : toolName
         });
       } else {
-        await post(endpoint, body);
+        await post(classification.endpoint, body);
       }
     }
   };
