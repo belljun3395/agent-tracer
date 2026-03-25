@@ -10,10 +10,13 @@ import type {
   TimelineLane,
   TimelineRelation
 } from "../types.js";
+import { resolveEventSubtype, type TimelineLaneRow } from "./eventSubtype.js";
 
 /** 타임라인 캔버스에서 이벤트 노드 한 항목의 레이아웃 정보. */
 export interface TimelineItemLayout {
   readonly event: TimelineEvent;
+  readonly laneKey: string;
+  readonly baseLane: TimelineLane;
   readonly left: number;
   readonly top: number;
   /** 같은 레인에서 수평 겹침 발생 시 수직 분산 행 인덱스. 0 = 앞(front). */
@@ -24,6 +27,7 @@ export interface TimelineItemLayout {
 export interface TimelineLayout {
   readonly width: number;
   readonly nowLeft: number;
+  readonly leftGutter: number;
   readonly items: readonly TimelineItemLayout[];
   /** 타임스탬프(ms)를 캔버스 x 좌표(px)로 변환. */
   readonly tsToLeft: (ms: number) => number;
@@ -83,6 +87,10 @@ const CLUSTER_STAGGER = NODE_WIDTH + 8; // px shift between stacked same-lane sa
 /** 겹치는 카드를 수직으로 분산할 때 각 행(row) 간 픽셀 오프셋. */
 export const ROW_VERTICAL_OFFSET = 14;
 
+export interface TimelineLayoutOptions {
+  readonly leftGutter?: number;
+}
+
 /**
  * 이벤트 목록을 5-레인 타임라인 레이아웃으로 변환.
  * 각 이벤트의 x(시간), y(레인) 좌표를 계산하며,
@@ -97,12 +105,17 @@ export function buildTimelineLayout(
   events: readonly TimelineEvent[],
   zoom: number,
   nowMs: number = Date.now(),
-  activeLanes: readonly TimelineLane[] = TIMELINE_LANES
+  laneRowsOrLanes: readonly TimelineLaneRow[] | readonly TimelineLane[] = TIMELINE_LANES,
+  options?: TimelineLayoutOptions
 ): TimelineLayout {
+  const laneRows = normalizeLaneRows(laneRowsOrLanes);
+  const leftGutter = options?.leftGutter ?? LEFT_GUTTER;
+
   if (events.length === 0) {
     return {
       width: 1200,
       nowLeft: 1200 - 32,
+      leftGutter,
       items: [],
       tsToLeft: () => 1200 - 32
     };
@@ -114,11 +127,11 @@ export function buildTimelineLayout(
   const anchor = Math.max(nowMs, Math.max(...timestamps));
   const span = Math.max(anchor - min, 1);
   const contentWidth = Math.max(1200, Math.round(events.length * 150 * zoom));
-  const trackWidth = contentWidth - LEFT_GUTTER - 64;
+  const trackWidth = contentWidth - leftGutter - 64;
 
   // Reserve NODE_WIDTH/2 on each side so nodes never clip behind the lane label or right edge.
   const NODE_HALF = NODE_WIDTH / 2;
-  const trackStart = LEFT_GUTTER + NODE_HALF;
+  const trackStart = leftGutter + NODE_HALF;
   const trackEnd = trackStart + Math.max(1, trackWidth - NODE_HALF * 2);
   const usableTrack = Math.max(1, trackWidth - NODE_HALF * 2);
 
@@ -126,10 +139,14 @@ export function buildTimelineLayout(
 
   // Base positions
   const rawItems = events.map((event) => {
-    const laneIndex = activeLanes.indexOf(event.lane);
+    const laneKey = resolveLaneKeyForEvent(event, laneRows);
+    const laneIndex = laneRows.findIndex((row) => row.key === laneKey);
     const timePosition = (Date.parse(event.createdAt) - min) / span;
+    const laneRow = laneRows[laneIndex] ?? { key: event.lane, baseLane: event.lane, isSubtype: false };
     return {
       event,
+      laneKey,
+      baseLane: laneRow.baseLane,
       left: trackStart + Math.round(timePosition * usableTrack),
       top: RULER_HEIGHT + laneIndex * LANE_HEIGHT + 18
     };
@@ -139,7 +156,7 @@ export function buildTimelineLayout(
   // Group by lane, then sort by left, then find runs of items within NODE_WIDTH of each other
   const byLane = new Map<string, typeof rawItems>();
   for (const item of rawItems) {
-    const key = item.event.lane;
+    const key = item.laneKey;
     const laneItems = byLane.get(key);
     if (laneItems) {
       laneItems.push(item);
@@ -198,11 +215,11 @@ export function buildTimelineLayout(
 
   // Post-clustering: 동일 레인에서 여전히 수평 겹침이 발생하는 카드를 수직 행으로 분산.
   // 각 레인에서 left 순으로 정렬 후 그리디하게 가장 낮은 비어있는 행에 배치.
-  const laneItemsForRows = new Map<TimelineLane, typeof spreadItems>();
+  const laneItemsForRows = new Map<string, typeof spreadItems>();
   for (const item of spreadItems) {
-    const list = laneItemsForRows.get(item.event.lane) ?? [];
+    const list = laneItemsForRows.get(item.laneKey) ?? [];
     list.push(item);
-    laneItemsForRows.set(item.event.lane, list);
+    laneItemsForRows.set(item.laneKey, list);
   }
 
   const rowIndexMap = new Map<TimelineEvent, number>();
@@ -240,7 +257,7 @@ export function buildTimelineLayout(
   const tsToLeft = (ms: number): number =>
     trackStart + Math.round(((ms - min) / span) * usableTrack);
 
-  return { width: contentWidth, nowLeft, items, tsToLeft };
+  return { width: contentWidth, nowLeft, leftGutter, items, tsToLeft };
 }
 
 /** 타임라인 시간축 눈금 한 항목: 픽셀 x 위치와 레이블 문자열. */
@@ -311,7 +328,7 @@ export function buildTimestampTicks(
   const span      = anchor - min;
   if (span <= 0) return [];
 
-  const trackWidth = layout.width - LEFT_GUTTER - 64;
+  const trackWidth = layout.width - layout.leftGutter - 64;
 
   // Pick the smallest interval that yields ≤ 12 ticks.
   const candidates = [2_000, 5_000, 10_000, 15_000, 30_000, 60_000, 120_000, 300_000, 600_000];
@@ -322,8 +339,8 @@ export function buildTimestampTicks(
 
   for (let t = firstTick; t <= anchor + interval; t += interval) {
     const ratio = (t - min) / span;
-    const x     = LEFT_GUTTER + Math.round(ratio * trackWidth);
-    if (x < LEFT_GUTTER || x > layout.width) continue;
+    const x     = layout.leftGutter + Math.round(ratio * trackWidth);
+    if (x < layout.leftGutter || x > layout.width) continue;
 
     const d = new Date(t);
     const h = String(d.getHours()).padStart(2, "0");
@@ -355,8 +372,7 @@ export function buildTimelineConnectors(
     const dt = Date.parse(a.event.createdAt) - Date.parse(b.event.createdAt);
     if (dt !== 0) return dt;
 
-    const laneOrder =
-      TIMELINE_LANES.indexOf(a.event.lane) - TIMELINE_LANES.indexOf(b.event.lane);
+    const laneOrder = a.top - b.top;
     if (laneOrder !== 0) return laneOrder;
 
     return a.left - b.left;
@@ -542,7 +558,7 @@ function buildConnectorPath(
 ): { readonly path: string; readonly cross: boolean } | null {
   const source = getTimelineNodeBounds(sourceItem, sourceBounds);
   const target = getTimelineNodeBounds(targetItem, targetBounds);
-  const sameLane = sourceItem.event.lane === targetItem.event.lane;
+  const sameLane = sourceItem.laneKey === targetItem.laneKey;
 
   if (sameLane) {
     const x1 = source.right;
@@ -575,6 +591,49 @@ function buildConnectorPath(
         ? `M ${roundCoordinate(startX)} ${roundCoordinate(startY)} V ${roundCoordinate(endY)}`
         : `M ${roundCoordinate(startX)} ${roundCoordinate(startY)} V ${roundCoordinate((startY + endY) / 2)} H ${roundCoordinate(endX)} V ${roundCoordinate(endY)}`
   };
+}
+
+function normalizeLaneRows(
+  input: readonly TimelineLaneRow[] | readonly TimelineLane[]
+): readonly TimelineLaneRow[] {
+  if (input.length === 0) {
+    return [];
+  }
+
+  const [first] = input;
+  if (typeof first === "string") {
+    return (input as readonly TimelineLane[]).map((lane) => ({
+      key: lane,
+      baseLane: lane,
+      isSubtype: false
+    }));
+  }
+
+  return input as readonly TimelineLaneRow[];
+}
+
+function resolveLaneKeyForEvent(
+  event: TimelineEvent,
+  laneRows: readonly TimelineLaneRow[]
+): string {
+  if (laneRows.some((row) => row.key === event.lane)) {
+    return event.lane;
+  }
+
+  const subtype = resolveEventSubtype(event);
+  if (subtype) {
+    const subtypeKey = `${event.lane}:${subtype.key}`;
+    if (laneRows.some((row) => row.key === subtypeKey)) {
+      return subtypeKey;
+    }
+  }
+
+  const fallbackKey = `${event.lane}:uncategorized`;
+  if (laneRows.some((row) => row.key === fallbackKey)) {
+    return fallbackKey;
+  }
+
+  return event.lane;
 }
 
 function pushRelation(

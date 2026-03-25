@@ -10,22 +10,30 @@ import { type FormEvent as ReactFormEvent, useEffect, useLayoutEffect, useMemo, 
 
 import type { TimelineItemLayout, TimelineNodeBounds } from "../lib/timeline.js";
 import {
+  buildDisplayLaneRows,
+  countLaneSubtypes,
+  isExpandableLane,
+  resolveEventSubtype,
+  type ExpandableTimelineLane,
+  type TimelineLaneRow
+} from "../lib/eventSubtype.js";
+import {
   buildTimelineContextSummary,
   buildTimelineConnectors,
   buildTimelineLayout,
   buildTimestampTicks,
   formatRelativeTime,
   LANE_HEIGHT,
+  LEFT_GUTTER,
   NODE_WIDTH,
   ROW_VERTICAL_OFFSET,
   RULER_HEIGHT,
   TIMELINE_LANES
 } from "../lib/timeline.js";
-import { resolveExplorationCategory } from "../lib/explorationCategory.js";
 import { filterTimelineEvents } from "../lib/insights.js";
 import { cn } from "../lib/ui/cn.js";
 import { getLaneTheme } from "../lib/ui/laneTheme.js";
-import type { MonitoringTask, TimelineEvent, TimelineLane } from "../types.js";
+import type { TimelineEvent, TimelineLane } from "../types.js";
 import { Button } from "./ui/Button.js";
 import "./Timeline.css";
 
@@ -121,7 +129,6 @@ interface TimelineProps {
   readonly showRuleGapsOnly: boolean;
   readonly nowMs: number;
   readonly zoom: number;
-  readonly backgroundTasks: readonly MonitoringTask[];
   readonly onZoomChange: (zoom: number) => void;
   readonly observabilityStats: {
     readonly actions: number;
@@ -213,11 +220,15 @@ export function Timeline({
   onChangeTaskStatus,
   zoom,
   onZoomChange,
-  backgroundTasks
 }: TimelineProps): React.JSX.Element {
   const [filters, setFilters] = useState<Record<TimelineLane, boolean>>({
     user: true, exploration: true, planning: true, coordination: true, background: true,
     implementation: true, questions: true, todos: true
+  });
+  const [expandedSubtypeLanes, setExpandedSubtypeLanes] = useState<Record<ExpandableTimelineLane, boolean>>({
+    exploration: false,
+    implementation: false,
+    coordination: false
   });
   const [isTimelineDragging, setIsTimelineDragging] = useState(false);
   const [nodeBounds, setNodeBounds] = useState<Record<string, NodeBounds>>({});
@@ -243,12 +254,10 @@ export function Timeline({
     return taskUpdatedAt ? Date.parse(taskUpdatedAt) : nowMs;
   }, [taskStatus, taskUpdatedAt, nowMs]);
 
-  const activeLanes = useMemo(
+  const activeBaseLanes = useMemo(
     () => TIMELINE_LANES.filter((l) => filters[l]),
     [filters]
   );
-
-  const canvasHeight = RULER_HEIGHT + activeLanes.length * LANE_HEIGHT;
 
   const filteredTimeline = useMemo(
     () => filterTimelineEvents(timeline, {
@@ -260,9 +269,57 @@ export function Timeline({
     [filters, selectedRuleId, selectedTag, showRuleGapsOnly, timeline]
   );
 
+  const expandedLaneSet = useMemo(() => {
+    const active = Object.entries(expandedSubtypeLanes)
+      .filter(([, enabled]) => enabled)
+      .map(([lane]) => lane as ExpandableTimelineLane);
+    return new Set<ExpandableTimelineLane>(active);
+  }, [expandedSubtypeLanes]);
+
+  const displayLaneRows = useMemo(
+    () => buildDisplayLaneRows(filteredTimeline, activeBaseLanes, expandedLaneSet),
+    [activeBaseLanes, expandedLaneSet, filteredTimeline]
+  );
+
+  const laneSubtypeCounts = useMemo(() => ({
+    exploration: countLaneSubtypes(filteredTimeline, "exploration"),
+    implementation: countLaneSubtypes(filteredTimeline, "implementation"),
+    coordination: countLaneSubtypes(filteredTimeline, "coordination")
+  }), [filteredTimeline]);
+
+  const firstExpandedSubtypeRowByLane = useMemo(() => {
+    const entries = new Map<ExpandableTimelineLane, string>();
+    for (const row of displayLaneRows) {
+      if (!row.isSubtype) continue;
+      const lane = row.baseLane;
+      if (!isExpandableLane(lane) || entries.has(lane)) continue;
+      entries.set(lane, row.key);
+    }
+    return entries;
+  }, [displayLaneRows]);
+
+  const hasExpandedSubtypeRows = useMemo(
+    () => displayLaneRows.some((row) => row.isSubtype),
+    [displayLaneRows]
+  );
+
+  const timelineLeftGutter = hasExpandedSubtypeRows ? 212 : LEFT_GUTTER;
+  const laneLabelWidth = hasExpandedSubtypeRows ? 156 : 120;
+  const timelineStageStyle = useMemo(
+    () => ({
+      "--timeline-left-gutter": `${timelineLeftGutter}px`,
+      "--timeline-lane-label-width": `${laneLabelWidth}px`,
+      "--timeline-track-left": `${Math.max(96, timelineLeftGutter - 16)}px`,
+      "--timeline-gutter-scrim-width": `${timelineLeftGutter + 28}px`
+    }) as React.CSSProperties,
+    [laneLabelWidth, timelineLeftGutter]
+  );
+
+  const canvasHeight = RULER_HEIGHT + displayLaneRows.length * LANE_HEIGHT;
+
   const timelineLayout = useMemo(
-    () => buildTimelineLayout(filteredTimeline, zoom, anchorMs, activeLanes),
-    [filteredTimeline, zoom, anchorMs, activeLanes]
+    () => buildTimelineLayout(filteredTimeline, zoom, anchorMs, displayLaneRows, { leftGutter: timelineLeftGutter }),
+    [filteredTimeline, zoom, anchorMs, displayLaneRows, timelineLeftGutter]
   );
   const timestampTicks = useMemo(
     () => buildTimestampTicks(filteredTimeline, timelineLayout, anchorMs),
@@ -407,12 +464,12 @@ export function Timeline({
   const contextSummary = useMemo(() => buildTimelineContextSummary({
     filteredEventCount: filteredTimeline.length,
     totalEventCount: timeline.length,
-    activeLaneCount: activeLanes.length,
+    activeLaneCount: activeBaseLanes.length,
     totalLaneCount: TIMELINE_LANES.length,
     selectedRuleId,
     selectedTag,
     showRuleGapsOnly
-  }), [activeLanes.length, filteredTimeline.length, selectedRuleId, selectedTag, showRuleGapsOnly, timeline.length]);
+  }), [activeBaseLanes.length, filteredTimeline.length, selectedRuleId, selectedTag, showRuleGapsOnly, timeline.length]);
 
   // row-0 카드를 키로, 같은 위치에 스택된 전체 아이템 배열(본인 포함)을 값으로 저장.
   const stackGroups = useMemo(() => {
@@ -421,7 +478,7 @@ export function Timeline({
       if (frontItem.rowIndex !== 0) continue;
       const group = timelineLayout.items.filter(
         (other) =>
-          other.event.lane === frontItem.event.lane &&
+          other.laneKey === frontItem.laneKey &&
           Math.abs(other.left - frontItem.left) < NODE_WIDTH
       );
       if (group.length > 1) map.set(frontItem.event.id, group);
@@ -519,29 +576,30 @@ export function Timeline({
                 </div>
                 <div className="filters">
                   <button
-                    className={`filter-chip all-toggle${activeLanes.length === TIMELINE_LANES.length ? " active" : ""}`}
+                    className={`filter-chip all-toggle${activeBaseLanes.length === TIMELINE_LANES.length ? " active" : ""}`}
                     type="button"
                     onClick={() => {
-                      const allOn = activeLanes.length === TIMELINE_LANES.length;
+                      const allOn = activeBaseLanes.length === TIMELINE_LANES.length;
                       const next = Object.fromEntries(TIMELINE_LANES.map((l) => [l, !allOn])) as Record<TimelineLane, boolean>;
                       setFilters(next);
                     }}
                   >
-                    {activeLanes.length === TIMELINE_LANES.length ? "All" : `${activeLanes.length}/${TIMELINE_LANES.length}`}
+                    {activeBaseLanes.length === TIMELINE_LANES.length ? "All" : `${activeBaseLanes.length}/${TIMELINE_LANES.length}`}
                   </button>
                   {TIMELINE_LANES.map((lane) => (
-                    <label
-                      key={lane}
-                      className={`filter-chip ${lane}${filters[lane] ? " active" : ""}`}
-                    >
-                      <input
-                        checked={filters[lane]}
-                        type="checkbox"
-                        onChange={() => setFilters((c) => ({ ...c, [lane]: !c[lane] }))}
-                      />
-                      <span className="filter-dot" />
-                      {getLaneTheme(lane).label}
-                    </label>
+                    <div key={lane} className="lane-filter-group">
+                      <label
+                        className={`filter-chip ${lane}${filters[lane] ? " active" : ""}`}
+                      >
+                        <input
+                          checked={filters[lane]}
+                          type="checkbox"
+                          onChange={() => setFilters((c) => ({ ...c, [lane]: !c[lane] }))}
+                        />
+                        <span className="filter-dot" />
+                        {getLaneTheme(lane).label}
+                      </label>
+                    </div>
                   ))}
                 </div>
                 <Button
@@ -717,7 +775,7 @@ export function Timeline({
           </>
         )}
 
-        <div className="timeline-stage" style={{ minHeight: `${canvasHeight}px` }}>
+        <div className="timeline-stage" style={timelineStageStyle}>
           {filteredTimeline.length === 0 && (
             <div className="timeline-empty-state">
               <p>아직 이벤트가 없습니다</p>
@@ -872,19 +930,65 @@ export function Timeline({
                 ))}
               </svg>
 
-              {/* lane rows — only visible (active) lanes */}
-              {activeLanes.map((lane, index) => (
+              {/* lane rows — visible rows include expanded subtype lanes */}
+              {displayLaneRows.map((row, index) => (
                 (() => {
-                  const laneTheme = getLaneTheme(lane);
+                  const laneTheme = getLaneTheme(row.baseLane);
+                  const expandableLane = isExpandableLane(row.baseLane) ? row.baseLane : null;
+                  const subtypeCount = expandableLane ? laneSubtypeCounts[expandableLane] : 0;
+                  const isExpanded = expandableLane ? expandedSubtypeLanes[expandableLane] : false;
+                  const showExpandButton = expandableLane && !row.isSubtype && subtypeCount > 0;
+                  const showCollapseButton = expandableLane
+                    && row.isSubtype
+                    && firstExpandedSubtypeRowByLane.get(expandableLane) === row.key;
                   return (
                     <div
-                      key={lane}
+                      key={row.key}
                       className={cn("lane-row", index % 2 === 1 && "striped")}
                       style={{ top: `${RULER_HEIGHT + index * LANE_HEIGHT}px` }}
                     >
-                      <div className={`lane-label ${lane}`} title={laneTheme.description}>
-                        <img className={`lane-icon ${lane}`} src={laneTheme.icon} alt="" />
-                        {laneTheme.label}
+                      <div
+                        className={cn("lane-label", row.baseLane, row.isSubtype && "subtype")}
+                        title={row.isSubtype ? `${laneTheme.label} • ${row.subtypeLabel}` : laneTheme.description}
+                      >
+                        <img className={`lane-icon ${row.baseLane}`} src={laneTheme.icon} alt="" />
+                        <span className="lane-label-copy">
+                          <span>{row.isSubtype ? row.subtypeLabel : laneTheme.label}</span>
+                          {row.isSubtype && <span className="lane-subtype-parent">{laneTheme.label}</span>}
+                        </span>
+                        {showExpandButton && expandableLane && (
+                          <button
+                            className={cn("lane-expand-toggle", row.baseLane, isExpanded && "active")}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setExpandedSubtypeLanes((current) => ({
+                                ...current,
+                                [expandableLane]: !current[expandableLane]
+                              }));
+                            }}
+                            title={`${laneTheme.label} details`}
+                            type="button"
+                          >
+                            <span className="lane-expand-count">{subtypeCount}</span>
+                            <span>{isExpanded ? "▾" : "▸"}</span>
+                          </button>
+                        )}
+                        {showCollapseButton && expandableLane && (
+                          <button
+                            className={cn("lane-expand-toggle", row.baseLane, "active")}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setExpandedSubtypeLanes((current) => ({
+                                ...current,
+                                [expandableLane]: false
+                              }));
+                            }}
+                            title={`Fold ${laneTheme.label} details`}
+                            type="button"
+                          >
+                            <span>▾</span>
+                          </button>
+                        )}
                       </div>
                       <div className="lane-track" />
                       <div className="lane-separator" />
@@ -892,35 +996,6 @@ export function Timeline({
                   );
                 })()
               ))}
-
-              {/* background task region boxes */}
-              {backgroundTasks.length > 0 && activeLanes.includes("background") && (() => {
-                const bgLaneIndex = activeLanes.indexOf("background");
-                const laneTop = RULER_HEIGHT + bgLaneIndex * LANE_HEIGHT;
-                return backgroundTasks.map((bgTask) => {
-                  const startMs = Date.parse(bgTask.createdAt);
-                  const endMs = bgTask.updatedAt ? Date.parse(bgTask.updatedAt) : anchorMs;
-                  const left = timelineLayout.tsToLeft(startMs);
-                  const right = timelineLayout.tsToLeft(endMs);
-                  const width = Math.max(right - left, 8);
-                  const label = bgTask.displayTitle ?? bgTask.title;
-                  return (
-                    <div
-                      key={bgTask.id}
-                      className="bg-task-region"
-                      style={{
-                        left: `${left - NODE_WIDTH / 2}px`,
-                        top: `${laneTop + 4}px`,
-                        width: `${width + NODE_WIDTH}px`,
-                        height: `${LANE_HEIGHT - 8}px`
-                      }}
-                      title={label}
-                    >
-                      <span className="bg-task-region-label">{label}</span>
-                    </div>
-                  );
-                });
-              })()}
 
               {/* now line */}
               <div
@@ -963,6 +1038,7 @@ export function Timeline({
                       : typeof item.event.metadata["todoId"] === "string"
                         ? item.event.metadata["todoId"]
                         : undefined;
+                    const subtype = resolveEventSubtype(item.event);
 
                     const stackGroup = stackGroups.get(item.event.id);
                     const stackCount = stackGroup ? stackGroup.length - 1 : 0;
@@ -974,7 +1050,7 @@ export function Timeline({
                         role="button"
                         tabIndex={0}
                         className={cn(
-                          `event-node ${item.event.lane} kind-${item.event.kind.replace(/\./g, "-")}`,
+                          `event-node ${item.baseLane} kind-${item.event.kind.replace(/\./g, "-")}`,
                           item.event.id === selectedEvent?.id && "active",
                           selectedConnector && (item.event.id === selectedConnector.source.id || item.event.id === selectedConnector.target.id) && "linked",
                           item.rowIndex > 0 && "stacked-behind"
@@ -1002,20 +1078,17 @@ export function Timeline({
                       >
                         <div className="event-node-header">
                           <span className="event-node-dot" />
-                          <span className="event-lane-tag">{item.event.lane}</span>
-                          {item.event.lane === "exploration" && (() => {
-                            const cat = resolveExplorationCategory(item.event);
-                            return cat ? (
-                              <span
-                                aria-label={cat.category}
-                                className="text-[0.75rem] opacity-70 select-none leading-none"
-                                role="img"
-                                title={cat.category}
-                              >
-                                {cat.icon}
-                              </span>
-                            ) : null;
-                          })()}
+                          <span className="event-lane-tag">{item.baseLane}</span>
+                          {subtype?.icon && (
+                            <span
+                              aria-label={subtype.label}
+                              className="text-[0.75rem] opacity-70 select-none leading-none"
+                              role="img"
+                              title={subtype.label}
+                            >
+                              {subtype.icon}
+                            </span>
+                          )}
                           {stackCount > 0 && (
                             <button
                               className="stack-badge-btn"
@@ -1034,6 +1107,7 @@ export function Timeline({
                         </div>
                         <strong>{item.event.kind === "task.start" ? (taskTitle ?? item.event.title) : item.event.title}</strong>
                         <div className="event-node-chips">
+                          {subtype && <span className="event-semantic-tag">{subtype.label}</span>}
                           {activityType && <span className="event-semantic-tag">{activityType.replace(/_/g, " ")}</span>}
                           {relationLabel && <span className="event-semantic-tag subtle">{relationLabel}</span>}
                           {agentName && <span className="event-semantic-tag subtle">{agentName}</span>}
@@ -1041,6 +1115,9 @@ export function Timeline({
                           {!skillName && mcpTool && <span className="event-semantic-tag subtle">mcp:{mcpTool}</span>}
                           {workItemId && <span className="event-semantic-tag subtle">work:{workItemId}</span>}
                         </div>
+                        {item.event.kind === "assistant.response" && (
+                          <span className="event-semantic-tag">response</span>
+                        )}
                         {item.event.kind === "question.logged" && questionPhase && (
                           <span className="event-semantic-tag">{questionPhase}</span>
                         )}
@@ -1075,13 +1152,13 @@ export function Timeline({
                       {group.length}개 이벤트 겹침
                     </div>
                     {sortedGroup.map((groupItem) => {
-                      const gt = getLaneTheme(groupItem.event.lane);
+                      const gt = getLaneTheme(groupItem.baseLane);
                       return (
                         <button
                           key={groupItem.event.id}
                           className={cn(
                             "stack-popover-item",
-                            groupItem.event.lane,
+                            groupItem.baseLane,
                             groupItem.event.id === selectedEvent?.id && "active"
                           )}
                           type="button"
@@ -1091,7 +1168,7 @@ export function Timeline({
                             setOpenStackEventId(null);
                           }}
                         >
-                          <img className={`stack-item-icon ${groupItem.event.lane}`} src={gt.icon} alt="" />
+                          <img className={`stack-item-icon ${groupItem.baseLane}`} src={gt.icon} alt="" />
                           <span className="stack-item-title">
                             {groupItem.event.kind === "task.start"
                               ? (taskTitle ?? groupItem.event.title)
@@ -1109,15 +1186,22 @@ export function Timeline({
           </div>
         </div>
 
-        {/* Minimap */}
         {filteredTimeline.length > 0 && (
-          <TimelineMinimap
-            timelineWidth={timelineLayout.width}
-            canvasHeight={canvasHeight}
-            items={timelineLayout.items}
-            activeLanes={activeLanes}
-            scrollRef={scrollRef}
-          />
+          <>
+            <div className="timeline-visual-legend" role="note" aria-label="Timeline visual guide">
+              <div className="timeline-visual-legend-item">
+                <span className="timeline-visual-swatch viewport" aria-hidden="true" />
+                <span>Bottom minimap box = currently visible timeline range</span>
+              </div>
+            </div>
+            <TimelineMinimap
+              timelineWidth={timelineLayout.width}
+              canvasHeight={canvasHeight}
+              items={timelineLayout.items}
+              laneRows={displayLaneRows}
+              scrollRef={scrollRef}
+            />
+          </>
         )}
 
       </div>
@@ -1131,7 +1215,7 @@ interface MinimapProps {
   readonly timelineWidth: number;
   readonly canvasHeight: number;
   readonly items: readonly TimelineItemLayout[];
-  readonly activeLanes: readonly string[];
+  readonly laneRows: readonly TimelineLaneRow[];
   readonly scrollRef: React.RefObject<HTMLDivElement | null>;
 }
 
@@ -1218,7 +1302,7 @@ function compressedToReal(ratio: number, segments: readonly MapSegment[]): numbe
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
-function TimelineMinimap({ timelineWidth, canvasHeight: _canvasHeight, items, activeLanes, scrollRef }: MinimapProps): React.JSX.Element | null {
+function TimelineMinimap({ timelineWidth, canvasHeight: _canvasHeight, items, laneRows, scrollRef }: MinimapProps): React.JSX.Element | null {
   const containerRef = useRef<HTMLDivElement>(null);
   const [scrollState, setScrollState] = useState({ left: 0, viewWidth: 0, totalWidth: 1 });
   const isDragging = useRef(false);
@@ -1261,7 +1345,7 @@ function TimelineMinimap({ timelineWidth, canvasHeight: _canvasHeight, items, ac
     scrollEl.scrollLeft = Math.max(0, Math.min(scrollState.totalWidth - scrollState.viewWidth, target));
   };
 
-  const laneCount = activeLanes.length;
+  const laneCount = laneRows.length;
   const viewportRealLeft = (scrollState.left / scrollState.totalWidth) * timelineWidth;
   const viewportRealRight = viewportRealLeft + (scrollState.viewWidth / scrollState.totalWidth) * timelineWidth;
   const viewportLeftPct = realToCompressed(viewportRealLeft, segments) * 100;
@@ -1296,10 +1380,10 @@ function TimelineMinimap({ timelineWidth, canvasHeight: _canvasHeight, items, ac
       }}
     >
       {/* Lane stripes */}
-      {activeLanes.map((lane, i) => (
+      {laneRows.map((row, i) => (
         <div
-          key={lane}
-          className={`minimap-lane ${lane}`}
+          key={row.key}
+          className={`minimap-lane ${row.baseLane}`}
           style={{
             top: `${(i / laneCount) * 100}%`,
             height: `${(1 / laneCount) * 100}%`
@@ -1318,14 +1402,14 @@ function TimelineMinimap({ timelineWidth, canvasHeight: _canvasHeight, items, ac
 
       {/* Event dots */}
       {items.map((item) => {
-        const laneIndex = activeLanes.indexOf(item.event.lane);
+        const laneIndex = laneRows.findIndex((row) => row.key === item.laneKey);
         if (laneIndex < 0) return null;
         const leftPct = realToCompressed(item.left, segments) * 100;
         const topPct = ((laneIndex + 0.5) / laneCount) * 100;
         return (
           <div
             key={item.event.id}
-            className={`minimap-dot ${item.event.lane}`}
+            className={`minimap-dot ${item.baseLane}`}
             style={{ left: `${leftPct}%`, top: `${topPct}%` }}
           />
         );
@@ -1335,6 +1419,7 @@ function TimelineMinimap({ timelineWidth, canvasHeight: _canvasHeight, items, ac
       <div
         className="minimap-viewport"
         style={{ left: `${viewportLeftPct}%`, width: `${Math.max(viewportWidthPct, 2)}%` }}
+        title="Currently visible timeline range"
       />
     </div>
   );
