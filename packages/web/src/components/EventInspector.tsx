@@ -6,6 +6,7 @@
 
 import type React from "react";
 import {
+  useEffect,
   useMemo,
   useState
 } from "react";
@@ -13,6 +14,7 @@ import {
 import {
   buildCompactInsight,
   buildExplorationInsight,
+  buildInspectorEventTitle,
   buildMentionedFileVerifications,
   buildObservabilityStats,
   buildQuestionGroups,
@@ -140,20 +142,25 @@ function InspectorHeaderCard({
   eyebrow,
   title,
   description,
-  actions
+  actions,
+  children
 }: {
   readonly eyebrow: string;
-  readonly title: string;
+  readonly title: React.ReactNode;
   readonly description: React.ReactNode;
   readonly actions: React.ReactNode;
+  readonly children?: React.ReactNode;
 }): React.JSX.Element {
   return (
     <PanelCard className={cn(cardShell, "bg-[var(--surface)]")}>
       <div className="flex flex-col gap-4 px-5 py-5">
         <div className="min-w-0">
           <p className="mb-1 text-[0.68rem] font-bold uppercase tracking-[0.1em] text-[var(--text-3)]">{eyebrow}</p>
-          <h2 className="text-[1.02rem] font-semibold leading-6 text-[var(--text-1)]">{title}</h2>
+          {typeof title === "string"
+            ? <h2 className="text-[1.02rem] font-semibold leading-6 text-[var(--text-1)]">{title}</h2>
+            : <div className="text-[1.02rem] font-semibold leading-6 text-[var(--text-1)]">{title}</div>}
           <p className="mt-1 text-[0.82rem] leading-6 text-[var(--text-2)]">{description}</p>
+          {children}
         </div>
         <div className="flex flex-wrap items-center gap-2">{actions}</div>
       </div>
@@ -202,6 +209,7 @@ interface EventInspectorProps {
   readonly onToggleCollapse?: () => void;
   readonly onCreateTaskBookmark: () => void;
   readonly onCreateEventBookmark: () => void;
+  readonly onUpdateEventDisplayTitle: (eventId: string, displayTitle: string | null) => Promise<void>;
   readonly onSelectTag: (tag: string | null) => void;
   readonly onSelectRule: (ruleId: string | null) => void;
 }
@@ -223,7 +231,7 @@ function DetailSection({
           mono ? monoText : "",
           mono && "text-[0.8rem] leading-6",
           resizable && "min-h-44 resize-y",
-          label === "Summary" && "max-h-[clamp(300px,36vh,420px)]",
+          label === "Full Context" && "max-h-[clamp(300px,36vh,420px)]",
           mono && "max-h-[clamp(260px,34vh,420px)]",
           mono && resizable && "max-h-[min(72vh,760px)]"
         )}
@@ -397,7 +405,7 @@ function DetailConnectorEvents({
               <strong className="text-[0.9rem] text-[var(--text-1)]">{index === 0 ? "From" : "To"}</strong>
               <Badge tone="neutral" size="xs">{event.lane}</Badge>
             </div>
-            <p className="m-0 text-[0.82rem] leading-6 text-[var(--text-2)]">{event.title}</p>
+            <p className="m-0 text-[0.82rem] leading-6 text-[var(--text-2)]">{buildInspectorEventTitle(event) ?? event.title}</p>
           </div>
         ))}
       </div>
@@ -419,7 +427,7 @@ function DetailRelatedEvents({
           {events.map((event) => (
             <div key={event.id} className="rounded-[12px] border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3">
               <div className="mb-2 flex items-center justify-between gap-3">
-                <strong className="text-[0.9rem] text-[var(--text-1)]">{event.title}</strong>
+                <strong className="text-[0.9rem] text-[var(--text-1)]">{buildInspectorEventTitle(event) ?? event.title}</strong>
                 <Badge tone="neutral" size="xs">{event.lane}</Badge>
               </div>
               <p className="m-0 text-[0.82rem] leading-6 text-[var(--text-2)]">{summarizeDetailText(event.body ?? event.kind)}</p>
@@ -444,7 +452,7 @@ function DetailQuestionFlow({ group }: { readonly group: QuestionGroup }): React
             <Badge tone={phase === "concluded" ? "success" : phase === "answered" ? "accent" : "neutral"} size="xs">
               {QUESTION_PHASE_LABELS[phase] ?? phase}
             </Badge>
-            <span className="min-w-0 flex-1 text-[0.84rem] font-medium text-[var(--text-1)]">{event.title}</span>
+            <span className="min-w-0 flex-1 text-[0.84rem] font-medium text-[var(--text-1)]">{buildInspectorEventTitle(event) ?? event.title}</span>
             <span className="text-[0.76rem] font-semibold text-[var(--text-3)]">{new Date(event.createdAt).toLocaleTimeString()}</span>
           </div>
         ))}
@@ -469,7 +477,7 @@ function DetailTodoFlow({ group }: { readonly group: TodoGroup }): React.JSX.Ele
             >
               {TODO_STATE_LABELS[state] ?? state}
             </Badge>
-            <span className="min-w-0 flex-1 text-[0.84rem] font-medium text-[var(--text-1)]">{event.title}</span>
+            <span className="min-w-0 flex-1 text-[0.84rem] font-medium text-[var(--text-1)]">{buildInspectorEventTitle(event) ?? event.title}</span>
             <span className="text-[0.76rem] font-semibold text-[var(--text-3)]">{new Date(event.createdAt).toLocaleTimeString()}</span>
           </div>
         ))}
@@ -497,6 +505,28 @@ function DetailModelInfo({
           ...(modelProvider ? [{ key: "Provider", value: modelProvider }] : [])
         ]}
       />
+    </SectionCard>
+  );
+}
+
+/** DetailTokenUsage: assistant.response 이벤트의 토큰 사용량을 표시. */
+function DetailTokenUsage({ event }: { readonly event: TimelineEvent }): React.JSX.Element {
+  const inputTokens       = event.metadata["inputTokens"]       as number | undefined;
+  const outputTokens      = event.metadata["outputTokens"]      as number | undefined;
+  const cacheReadTokens   = event.metadata["cacheReadTokens"]   as number | undefined;
+  const cacheCreateTokens = event.metadata["cacheCreateTokens"] as number | undefined;
+  const stopReason        = event.metadata["stopReason"]        as string | undefined;
+  const rows = [
+    ...(inputTokens       != null ? [{ key: "Input Tokens",        value: inputTokens.toLocaleString() }]        : []),
+    ...(outputTokens      != null ? [{ key: "Output Tokens",       value: outputTokens.toLocaleString() }]       : []),
+    ...(cacheReadTokens   != null ? [{ key: "Cache Read Tokens",   value: cacheReadTokens.toLocaleString() }]   : []),
+    ...(cacheCreateTokens != null ? [{ key: "Cache Create Tokens", value: cacheCreateTokens.toLocaleString() }] : []),
+    ...(stopReason               ? [{ key: "Stop Reason",          value: stopReason }]                          : [])
+  ];
+  if (rows.length === 0) return <></>;
+  return (
+    <SectionCard title="Token Usage" bodyClassName="pt-4">
+      <KeyValueTable rows={rows} />
     </SectionCard>
   );
 }
@@ -1372,6 +1402,7 @@ export function EventInspector({
   onToggleCollapse,
   onCreateTaskBookmark,
   onCreateEventBookmark,
+  onUpdateEventDisplayTitle,
   onSelectTag,
   onSelectRule
 }: EventInspectorProps): React.JSX.Element {
@@ -1380,6 +1411,10 @@ export function EventInspector({
   const [isFileActivityExpanded, setIsFileActivityExpanded]   = useState(true);
   const [explorationSortKey, setExplorationSortKey] = useState<ExplorationSortKey>("recent");
   const [fileSortKey, setFileSortKey]               = useState<FileSortKey>("recent");
+  const [isEditingEventTitle, setIsEditingEventTitle] = useState(false);
+  const [eventTitleDraft, setEventTitleDraft] = useState("");
+  const [eventTitleError, setEventTitleError] = useState<string | null>(null);
+  const [isSavingEventTitle, setIsSavingEventTitle] = useState(false);
 
   const taskTimeline = taskDetail?.timeline ?? [];
 
@@ -1490,6 +1525,10 @@ export function EventInspector({
   const eventTime = selectedEvent
     ? new Date(selectedEvent.createdAt).toLocaleTimeString()
     : null;
+  const selectedEventDisplayTitleOverride = selectedEvent && typeof selectedEvent.metadata["displayTitle"] === "string"
+    ? selectedEvent.metadata["displayTitle"].trim()
+    : null;
+  const canEditSelectedEventTitle = Boolean(selectedEvent && selectedEvent.kind !== "task.start");
 
   const obsBadges = taskDetail ? [
     { key: "actions",    label: "Actions",    value: observabilityStats.actions,       tone: "accent" as const },
@@ -1500,6 +1539,58 @@ export function EventInspector({
     { key: "violations", label: "Violation",  value: observabilityStats.violations,    tone: "danger" as const },
     { key: "passes",     label: "Pass",       value: observabilityStats.passes,        tone: "success" as const },
   ].filter((b) => b.value > 0) : [];
+
+  useEffect(() => {
+    setIsEditingEventTitle(false);
+    setEventTitleDraft(selectedEventDisplayTitle ?? "");
+    setEventTitleError(null);
+    setIsSavingEventTitle(false);
+  }, [selectedEvent?.id, selectedEventDisplayTitle]);
+
+  async function handleEventTitleSubmit(
+    event: React.SyntheticEvent<HTMLFormElement>
+  ): Promise<void> {
+    event.preventDefault();
+    if (!selectedEvent || !canEditSelectedEventTitle) {
+      return;
+    }
+
+    const trimmed = eventTitleDraft.trim();
+    if (!trimmed) {
+      setEventTitleError("Title cannot be empty.");
+      return;
+    }
+
+    setIsSavingEventTitle(true);
+    setEventTitleError(null);
+
+    try {
+      await onUpdateEventDisplayTitle(selectedEvent.id, trimmed);
+      setIsEditingEventTitle(false);
+    } catch (error) {
+      setEventTitleError(error instanceof Error ? error.message : "Failed to save event title.");
+    } finally {
+      setIsSavingEventTitle(false);
+    }
+  }
+
+  async function handleResetEventTitle(): Promise<void> {
+    if (!selectedEvent || !canEditSelectedEventTitle) {
+      return;
+    }
+
+    setIsSavingEventTitle(true);
+    setEventTitleError(null);
+
+    try {
+      await onUpdateEventDisplayTitle(selectedEvent.id, null);
+      setIsEditingEventTitle(false);
+    } catch (error) {
+      setEventTitleError(error instanceof Error ? error.message : "Failed to reset event title.");
+    } finally {
+      setIsSavingEventTitle(false);
+    }
+  }
 
   return (
     <aside className={cn("detail-panel flex min-h-0 flex-1 flex-col overflow-hidden rounded-[12px] border border-[var(--border)] bg-[var(--surface)] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_12px_rgba(0,0,0,0.03)]", className)}>
@@ -1563,6 +1654,32 @@ export function EventInspector({
                       <Badge tone="neutral" size="xs" className="uppercase tracking-[0.06em]">{selectedEvent.kind} · {selectedEvent.lane}</Badge>
                     ) : null}
                     {eventTime && <Badge tone="accent" size="xs">{eventTime}</Badge>}
+                    {selectedEvent && canEditSelectedEventTitle && !isEditingEventTitle && (
+                      <Button
+                        className="h-auto rounded-full px-3 py-1.5 text-[0.72rem] font-semibold"
+                        onClick={() => {
+                          setEventTitleDraft(selectedEventDisplayTitle ?? "");
+                          setEventTitleError(null);
+                          setIsEditingEventTitle(true);
+                        }}
+                        size="sm"
+                        type="button"
+                        variant="ghost"
+                      >
+                        Rename Card
+                      </Button>
+                    )}
+                    {selectedEvent && canEditSelectedEventTitle && selectedEventDisplayTitleOverride && !isEditingEventTitle && (
+                      <Button
+                        className="h-auto rounded-full px-3 py-1.5 text-[0.72rem] font-semibold"
+                        onClick={() => { void handleResetEventTitle(); }}
+                        size="sm"
+                        type="button"
+                        variant="ghost"
+                      >
+                        Reset Title
+                      </Button>
+                    )}
                   </>
                 )}
                 description={
@@ -1575,23 +1692,74 @@ export function EventInspector({
                 eyebrow="Inspector"
                 title={
                   selectedConnector
-                    ? `${selectedConnector.source.title} → ${selectedConnector.target.title}`
+                    ? `${buildInspectorEventTitle(selectedConnector.source) ?? selectedConnector.source.title} → ${buildInspectorEventTitle(selectedConnector.target) ?? selectedConnector.target.title}`
                     : selectedEventDisplayTitle ?? "Select an event"
                 }
-              />
+              >
+                {selectedEvent && canEditSelectedEventTitle && isEditingEventTitle && (
+                  <form className="mt-4 flex flex-col gap-2" onSubmit={(event) => { void handleEventTitleSubmit(event); }}>
+                    <input
+                      className="w-full rounded-[10px] border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-[0.84rem] text-[var(--text-1)] outline-none transition-colors focus:border-[var(--accent)]"
+                      disabled={isSavingEventTitle}
+                      onChange={(event) => setEventTitleDraft(event.target.value)}
+                      placeholder="Short title for this card"
+                      type="text"
+                      value={eventTitleDraft}
+                    />
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button
+                        className="h-7 rounded-full border-[var(--accent)] bg-[var(--accent-light)] px-3 text-[0.72rem] font-semibold text-[var(--accent)] shadow-none hover:border-[var(--accent)] hover:bg-[var(--accent-light)] hover:text-[var(--accent)]"
+                        disabled={isSavingEventTitle}
+                        size="sm"
+                        type="submit"
+                      >
+                        {isSavingEventTitle ? "Saving..." : "Save"}
+                      </Button>
+                      <Button
+                        className="h-7 rounded-full px-3 text-[0.72rem] font-semibold shadow-none"
+                        disabled={isSavingEventTitle}
+                        onClick={() => {
+                          setEventTitleDraft(selectedEventDisplayTitle ?? "");
+                          setEventTitleError(null);
+                          setIsEditingEventTitle(false);
+                        }}
+                        size="sm"
+                        type="button"
+                      >
+                        Cancel
+                      </Button>
+                      {selectedEventDisplayTitleOverride && (
+                        <Button
+                          className="h-7 rounded-full px-3 text-[0.72rem] font-semibold shadow-none"
+                          disabled={isSavingEventTitle}
+                          onClick={() => { void handleResetEventTitle(); }}
+                          size="sm"
+                          type="button"
+                        >
+                          Reset to Raw
+                        </Button>
+                      )}
+                    </div>
+                    <p className="m-0 text-[0.76rem] text-[var(--text-3)]">
+                      Raw event title is preserved. This only changes the inspector display title.
+                    </p>
+                    {eventTitleError && <p className="m-0 text-[0.76rem] font-medium text-[var(--danger)]">{eventTitleError}</p>}
+                  </form>
+                )}
+              </InspectorHeaderCard>
             </div>
 
             {selectedConnector ? (
               <div className="flex flex-col gap-5 px-4 py-5">
                 <DetailSection
-                  label="Summary"
+                  label="Full Context"
                   resizable
                   value={[
                     `${selectedConnector.connector.isExplicit ? "Explicit relation" : "Fallback sequence"} from ${selectedConnector.source.lane} to ${selectedConnector.target.lane}.`,
                     selectedConnector.connector.label ? `Label: ${selectedConnector.connector.label}` : undefined,
                     selectedConnector.connector.explanation,
-                    `From: ${selectedConnector.source.title}`,
-                    `To: ${selectedConnector.target.title}`
+                    `From: ${buildInspectorEventTitle(selectedConnector.source) ?? selectedConnector.source.title}`,
+                    `To: ${buildInspectorEventTitle(selectedConnector.target) ?? selectedConnector.target.title}`
                   ].filter((value): value is string => Boolean(value)).join("\n")}
                 />
                 <DetailConnectorIds connector={selectedConnector.connector} source={selectedConnector.source} target={selectedConnector.target} />
@@ -1629,7 +1797,7 @@ export function EventInspector({
             ) : selectedEvent ? (
               <div className="flex flex-col gap-5 px-4 py-5">
                 <DetailSection
-                  label="Summary"
+                  label="Full Context"
                   resizable
                   value={
                     selectedEvent.body
@@ -1680,6 +1848,7 @@ export function EventInspector({
                 )}
                 {relatedEvents.length > 0 && <DetailRelatedEvents events={relatedEvents} />}
                 {selectedEvent.kind === "user.message" && <DetailCaptureInfo event={selectedEvent} />}
+                {selectedEvent.kind === "assistant.response" && <DetailTokenUsage event={selectedEvent} />}
                 {(selectedEvent.metadata["modelName"] as string | undefined) && (
                   <DetailModelInfo
                     modelName={selectedEvent.metadata["modelName"] as string}
