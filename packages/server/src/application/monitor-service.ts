@@ -490,4 +490,31 @@ export class MonitorService {
     const task = await this.requireTask(input.taskId);
     return { ...(await this.recorder.recordWithDerivedFiles(input)), task };
   }
+
+  // ── Workflow Evaluation ───────────────────────────────────────────────────────
+
+  async upsertTaskEvaluation(
+    taskId: string,
+    rating: "good" | "skip",
+    useCase?: string,
+    workflowTags?: string[],
+    outcomeNote?: string
+  ): Promise<void> {
+    await this.ports.evaluations.upsertEvaluation({
+      taskId,
+      rating,
+      useCase: useCase ?? null,
+      workflowTags: workflowTags ?? [],
+      outcomeNote: outcomeNote ?? null,
+      evaluatedAt: new Date().toISOString()
+    });
+  }
+
+  async getTaskEvaluation(taskId: string) {
+    return this.ports.evaluations.getEvaluation(taskId);
+  }
+
+  async searchSimilarWorkflows(query: string, tags?: string[], limit?: number) {
+    return this.ports.evaluations.searchSimilarWorkflows(query, tags, limit);
+  }
 }

@@ -27,6 +27,7 @@ export type {
   BookmarkSaveInput
 } from "./bookmark-repository.js";
 export type { INotificationPublisher, MonitorNotification } from "./notification-publisher.js";
+export type { IEvaluationRepository, TaskEvaluation, WorkflowSearchResult } from "./evaluation-repository.js";
 
 import type { ITaskRepository } from "./task-repository.js";
 import type { ISessionRepository } from "./session-repository.js";
@@ -34,6 +35,7 @@ import type { IEventRepository } from "./event-repository.js";
 import type { IRuntimeBindingRepository } from "./runtime-binding-repository.js";
 import type { IBookmarkRepository } from "./bookmark-repository.js";
 import type { INotificationPublisher } from "./notification-publisher.js";
+import type { IEvaluationRepository } from "./evaluation-repository.js";
 
 /** 애플리케이션 서비스가 필요로 하는 모든 포트의 집합. bootstrap에서 조합한다. */
 export interface MonitorPorts {
@@ -42,5 +44,6 @@ export interface MonitorPorts {
   readonly events: IEventRepository;
   readonly runtimeBindings: IRuntimeBindingRepository;
   readonly bookmarks: IBookmarkRepository;
+  readonly evaluations: IEvaluationRepository;
   readonly notifier: INotificationPublisher;
 }

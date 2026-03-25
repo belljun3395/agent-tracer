@@ -153,6 +153,29 @@ export type AgentActivityType =
   | "bookmark"
   | "search";
 
+/** 태스크 워크플로우 평가 레코드. */
+export interface TaskEvaluation {
+  readonly taskId: string;
+  readonly rating: "good" | "skip";
+  readonly useCase: string | null;
+  readonly workflowTags: readonly string[];
+  readonly outcomeNote: string | null;
+  readonly evaluatedAt: string;
+}
+
+/** 유사 워크플로우 검색 결과. */
+export interface WorkflowSearchResult {
+  readonly taskId: string;
+  readonly title: string;
+  readonly useCase: string | null;
+  readonly workflowTags: readonly string[];
+  readonly outcomeNote: string | null;
+  readonly rating: string;
+  readonly eventCount: number;
+  readonly createdAt: string;
+  readonly workflowContext: string;
+}
+
 /** 워크스페이스 경로에서 중복 슬래시를 제거하고 끝의 슬래시를 정리. */
 export function normalizeWorkspacePath(path: string): string {
   const normalized = path.trim().replace(/\/+/g, "/");
