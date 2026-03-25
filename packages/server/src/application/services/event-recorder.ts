@@ -15,6 +15,8 @@ import type { IEventRepository } from "../ports/event-repository.js";
 import type { INotificationPublisher } from "../ports/notification-publisher.js";
 import type { GenericEventInput } from "../types.js";
 import { TraceMetadataFactory } from "./trace-metadata-factory.js";
+import { MAX_DERIVED_FILES } from "./event-recorder.constants.js";
+import { normalizeFilePaths } from "./event-recorder.helpers.js";
 
 export class EventRecorder {
   constructor(
@@ -85,7 +87,6 @@ export class EventRecorder {
     }
     // 검색 도구(grep/glob류)에서 오는 대량 filePaths가 file.changed 이벤트를 폭발시키는 것을 방지.
     // 상한을 초과하는 경우 처음 MAX_DERIVED_FILES개만 파생 이벤트로 생성하고 나머지는 버린다.
-    const MAX_DERIVED_FILES = 15;
     const derivedPaths = filePaths.slice(0, MAX_DERIVED_FILES);
     const derivedEventPromises = derivedPaths.map((filePath) =>
       this.record({
@@ -111,25 +112,4 @@ export class EventRecorder {
       }))
     };
   }
-}
-
-function normalizeFilePaths(filePaths: readonly string[] | undefined): readonly string[] {
-  if (!filePaths || filePaths.length === 0) {
-    return [];
-  }
-
-  const seen = new Set<string>();
-  const normalized: string[] = [];
-
-  for (const filePath of filePaths) {
-    const trimmed = filePath.trim();
-    if (!trimmed || seen.has(trimmed)) {
-      continue;
-    }
-
-    seen.add(trimmed);
-    normalized.push(trimmed);
-  }
-
-  return normalized;
 }

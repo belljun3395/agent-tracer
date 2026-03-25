@@ -7,6 +7,12 @@
 import { tokenizeActionName, type AgentActivityType } from "@monitor/core";
 
 import type { GenericEventInput, TraceActivityInput, TraceRelationInput } from "../types.js";
+import {
+  extractMetadataBoolean,
+  extractMetadataString,
+  extractMetadataStringArray,
+  normalizeTagSegment
+} from "./trace-metadata-factory.helpers.js";
 
 export class TraceMetadataFactory {
   static build(
@@ -248,40 +254,4 @@ export class TraceMetadataFactory {
         return "Search";
     }
   }
-}
-
-function extractMetadataString(
-  metadata: Record<string, unknown>,
-  key: string
-): string | undefined {
-  const value = metadata[key];
-  return typeof value === "string" ? value : undefined;
-}
-
-function extractMetadataBoolean(
-  metadata: Record<string, unknown>,
-  key: string
-): boolean {
-  return metadata[key] === true;
-}
-
-function extractMetadataStringArray(
-  metadata: Record<string, unknown>,
-  key: string
-): readonly string[] {
-  const value = metadata[key];
-
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return value.filter((entry): entry is string => typeof entry === "string");
-}
-
-function normalizeTagSegment(value: string): string {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
 }

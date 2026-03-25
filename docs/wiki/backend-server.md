@@ -81,6 +81,13 @@ infrastructure/sqlite/
 - Zod schema에서 DTO 타입을 추론하거나
 - 공통 입력 shape를 더 작게 쪼개 재사용률을 높인다.
 
+현재 상태(리팩터링 반영 중):
+
+- `presentation/schemas.ts`가 `schemas.constants.ts`로 상태/열거형 집합을 분리해 사용하고 있어,
+  같은 값 목록의 중복 정의가 줄어들었다.
+- 향후 `TASK_KIND`, `TASK_STATUS`, `RELATION_TYPE` 계열 값이 변경될 때
+  공통 상수 계열에서 한 곳만 수정해 일관성 유지가 쉬워졌다.
+
 ### 사용되지 않는 레거시 인프라가 남아 있다
 
 - `infrastructure/monitor-database.ts`는 대형 SQLite 구현이지만 현재 조합 경로에서 사용되지 않는다.

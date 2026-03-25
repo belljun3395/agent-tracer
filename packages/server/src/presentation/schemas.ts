@@ -7,6 +7,18 @@
  */
 
 import { z } from "zod";
+import {
+  AGENT_ACTIVITY_TYPES,
+  ASYNC_LIFECYCLE_STATUSES,
+  CAPTURE_MODES,
+  COMPLETION_REASONS,
+  EVENT_LANES,
+  QUESTION_PHASES,
+  TASK_KINDS,
+  TASK_RELATION_TYPES,
+  TASK_STATUSES,
+  TODO_STATES
+} from "./schemas.constants";
 
 export const taskStartSchema = z.object({
   taskId: z.string().optional(),
@@ -14,7 +26,7 @@ export const taskStartSchema = z.object({
   workspacePath: z.string().optional(),
   runtimeSource: z.string().min(1).optional(),
   summary: z.string().optional(),
-  taskKind: z.enum(["primary", "background"]).optional(),
+  taskKind: z.enum(TASK_KINDS).optional(),
   parentTaskId: z.string().optional(),
   parentSessionId: z.string().optional(),
   backgroundTaskId: z.string().optional(),
@@ -24,7 +36,7 @@ export const taskStartSchema = z.object({
 export const taskLinkSchema = z.object({
   taskId: z.string().min(1),
   title: z.string().trim().min(1).optional(),
-  taskKind: z.enum(["primary", "background"]).optional(),
+  taskKind: z.enum(TASK_KINDS).optional(),
   parentTaskId: z.string().optional(),
   parentSessionId: z.string().optional(),
   backgroundTaskId: z.string().optional()
@@ -43,7 +55,7 @@ export const taskRenameSchema = z.object({
 
 export const taskPatchSchema = z.object({
   title: z.string().trim().min(1).optional(),
-  status: z.enum(["running", "waiting", "completed", "errored"]).optional()
+  status: z.enum(TASK_STATUSES).optional()
 }).refine(
   (data) => data.title !== undefined || data.status !== undefined,
   { message: "At least one of title or status must be provided" }
@@ -60,16 +72,7 @@ export const taskErrorSchema = taskCompleteSchema.extend({
   errorMessage: z.string().min(1)
 });
 
-export const laneSchema = z.enum([
-  "user",
-  "exploration",
-  "planning",
-  "background",
-  "implementation",
-  "questions",
-  "todos",
-  "coordination"
-]);
+export const laneSchema = z.enum(EVENT_LANES);
 
 /**
  * 카드 간 관계와 워크아이템 묶음을 표현하는 공통 스키마.
@@ -82,32 +85,13 @@ export const traceRelationSchema = z.object({
   goalId: z.string().min(1).optional(),
   planId: z.string().min(1).optional(),
   handoffId: z.string().min(1).optional(),
-  relationType: z.enum([
-    "implements",
-    "revises",
-    "verifies",
-    "answers",
-    "delegates",
-    "returns",
-    "completes",
-    "blocks",
-    "caused_by",
-    "relates_to"
-  ]).optional(),
+  relationType: z.enum(TASK_RELATION_TYPES).optional(),
   relationLabel: z.string().min(1).optional(),
   relationExplanation: z.string().min(1).optional()
 });
 
 export const traceActivitySchema = traceRelationSchema.extend({
-  activityType: z.enum([
-    "agent_step",
-    "mcp_call",
-    "skill_use",
-    "delegation",
-    "handoff",
-    "bookmark",
-    "search"
-  ]).optional(),
+  activityType: z.enum(AGENT_ACTIVITY_TYPES).optional(),
   agentName: z.string().min(1).optional(),
   skillName: z.string().min(1).optional(),
   skillPath: z.string().min(1).optional(),
@@ -189,7 +173,7 @@ export const userMessageSchema = z.object({
   taskId: z.string().min(1),
   sessionId: z.string().min(1),
   messageId: z.string().min(1),
-  captureMode: z.enum(["raw", "derived"]),
+  captureMode: z.enum(CAPTURE_MODES),
   source: z.string().min(1),
   phase: z.enum(["initial", "follow_up"]).optional(),
   title: z.string().min(1),
@@ -212,7 +196,7 @@ export const sessionEndSchema = z.object({
   taskId: z.string().min(1),
   sessionId: z.string().optional(),
   completeTask: z.boolean().optional(),
-  completionReason: z.enum(["idle", "assistant_turn_complete", "explicit_exit", "runtime_terminated"]).optional(),
+  completionReason: z.enum(COMPLETION_REASONS).optional(),
   summary: z.string().optional(),
   metadata: z.record(z.unknown()).optional()
 });
@@ -221,7 +205,7 @@ export const questionSchema = z.object({
   taskId: z.string().min(1),
   sessionId: z.string().optional(),
   questionId: z.string().min(1),
-  questionPhase: z.enum(["asked", "answered", "concluded"]),
+  questionPhase: z.enum(QUESTION_PHASES),
   sequence: z.number().int().nonnegative().optional(),
   title: z.string().min(1),
   body: z.string().optional(),
@@ -234,7 +218,7 @@ export const todoSchema = z.object({
   taskId: z.string().min(1),
   sessionId: z.string().optional(),
   todoId: z.string().min(1),
-  todoState: z.enum(["added", "in_progress", "completed", "cancelled"]),
+  todoState: z.enum(TODO_STATES),
   sequence: z.number().int().nonnegative().optional(),
   title: z.string().min(1),
   body: z.string().optional(),
@@ -255,7 +239,7 @@ export const asyncLifecycleSchema = z.object({
   taskId: z.string().min(1),
   sessionId: z.string().optional(),
   asyncTaskId: z.string().min(1),
-  asyncStatus: z.enum(["pending", "running", "completed", "error", "cancelled", "interrupt"]),
+  asyncStatus: z.enum(ASYNC_LIFECYCLE_STATUSES),
   title: z.string().optional(),
   body: z.string().optional(),
   description: z.string().optional(),
@@ -270,15 +254,7 @@ export const asyncLifecycleSchema = z.object({
 export const agentActivitySchema = z.object({
   taskId: z.string().min(1),
   sessionId: z.string().optional(),
-  activityType: z.enum([
-    "agent_step",
-    "mcp_call",
-    "skill_use",
-    "delegation",
-    "handoff",
-    "bookmark",
-    "search"
-  ]),
+  activityType: z.enum(AGENT_ACTIVITY_TYPES),
   title: z.string().optional(),
   body: z.string().optional(),
   lane: z.string().optional(),
@@ -333,7 +309,7 @@ export const runtimeSessionEndSchema = z.object({
   runtimeSessionId: z.string().min(1),
   summary: z.string().optional(),
   completeTask: z.boolean().optional(),
-  completionReason: z.enum(["idle", "assistant_turn_complete", "explicit_exit", "runtime_terminated"]).optional()
+  completionReason: z.enum(COMPLETION_REASONS).optional()
 });
 
 export const assistantResponseSchema = z.object({
