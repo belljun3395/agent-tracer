@@ -15,21 +15,53 @@ export interface UseEvaluationResult {
   readonly saveEvaluation: (payload: TaskEvaluationPayload) => Promise<void>;
 }
 
-export function useEvaluation(taskId: string): UseEvaluationResult {
+export function useEvaluation(taskId: string | null | undefined): UseEvaluationResult {
   const [evaluation, setEvaluation] = useState<TaskEvaluationRecord | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
 
   useEffect(() => {
+    if (!taskId) {
+      setEvaluation(null);
+      setIsLoading(false);
+      setIsSaving(false);
+      setIsSaved(false);
+      return;
+    }
+
+    let isActive = true;
     setIsLoading(true);
+    setIsSaved(false);
     void fetchTaskEvaluation(taskId)
-      .then(setEvaluation)
-      .catch(() => { /* ignore */ })
-      .finally(() => setIsLoading(false));
+      .then((record) => {
+        if (isActive) {
+          setEvaluation(record);
+          setIsSaved(false);
+        }
+      })
+      .catch(() => {
+        if (isActive) {
+          setEvaluation(null);
+          setIsSaved(false);
+        }
+      })
+      .finally(() => {
+        if (isActive) {
+          setIsLoading(false);
+        }
+      });
+
+    return () => {
+      isActive = false;
+    };
   }, [taskId]);
 
   const saveEvaluation = useCallback(async (payload: TaskEvaluationPayload): Promise<void> => {
+    if (!taskId) {
+      return;
+    }
+
     setIsSaving(true);
     try {
       await saveTaskEvaluation(taskId, payload);

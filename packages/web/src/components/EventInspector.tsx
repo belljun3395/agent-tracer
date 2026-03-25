@@ -47,13 +47,14 @@ import { Button } from "./ui/Button.js";
 import { PanelCard } from "./ui/PanelCard.js";
 import { TaskHandoffPanel } from "./TaskHandoffPanel.js";
 import { TaskEvaluatePanel } from "./TaskEvaluatePanel.js";
+import { useEvaluation } from "../store/useEvaluation.js";
 import type {
   BookmarkRecord,
   TaskDetailResponse,
   TimelineEvent
 } from "../types.js";
 
-type PanelTabId = "inspector" | "tags" | "task" | "compact" | "files" | "exploration";
+type PanelTabId = "inspector" | "tags" | "task" | "evaluate" | "compact" | "files" | "exploration";
 
 type ExplorationSortKey = "recent" | "most-read" | "alpha";
 type FileSortKey = "recent" | "most-active" | "writes-first" | "alpha";
@@ -81,6 +82,7 @@ const PANEL_TABS = [
   { id: "inspector",   label: "Inspector" },
   { id: "tags",        label: "Tags" },
   { id: "task",        label: "Task" },
+  { id: "evaluate",    label: "Evaluate" },
   { id: "compact",     label: "Compact" },
   { id: "files",       label: "Files" },
   { id: "exploration", label: "Exploration" },
@@ -1416,6 +1418,12 @@ export function EventInspector({
   const [eventTitleDraft, setEventTitleDraft] = useState("");
   const [eventTitleError, setEventTitleError] = useState<string | null>(null);
   const [isSavingEventTitle, setIsSavingEventTitle] = useState(false);
+  const {
+    evaluation: taskEvaluation,
+    isSaving: isSavingTaskEvaluation,
+    isSaved: isSavedTaskEvaluation,
+    saveEvaluation: saveTaskEvaluation
+  } = useEvaluation(taskDetail?.task.id ?? null);
 
   const taskTimeline = taskDetail?.timeline ?? [];
 
@@ -1621,6 +1629,12 @@ export function EventInspector({
             type="button"
           >
             {tab.label}
+            {tab.id === "evaluate" && taskEvaluation && (
+              <span className={cn(
+                "ml-1.5 h-1.5 w-1.5 rounded-full",
+                taskEvaluation.rating === "good" ? "bg-[var(--ok)]" : "bg-[var(--text-3)]"
+              )} />
+            )}
           </button>
         ))}
       </div>
@@ -1925,9 +1939,25 @@ export function EventInspector({
                 violations={handoffViolations}
               />
             )}
-            {taskDetail?.task.id && (
-              <TaskEvaluatePanel taskId={taskDetail.task.id} />
-            )}
+          </div>
+
+        ) : activeTab === "evaluate" ? (
+          <div className="panel-tab-inner flex flex-col gap-5 p-4">
+            {taskDetail?.task.id
+              ? (
+                <TaskEvaluatePanel
+                  evaluation={taskEvaluation}
+                  isSaving={isSavingTaskEvaluation}
+                  isSaved={isSavedTaskEvaluation}
+                  onSave={saveTaskEvaluation}
+                />
+              )
+              : (
+                <div className="flex items-center justify-center py-8 text-[0.82rem] text-[var(--text-3)]">
+                  Select a task to evaluate it.
+                </div>
+              )
+            }
           </div>
 
         ) : activeTab === "compact" ? (

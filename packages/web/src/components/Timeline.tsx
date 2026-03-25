@@ -1302,7 +1302,7 @@ function compressedToReal(ratio: number, segments: readonly MapSegment[]): numbe
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
-function TimelineMinimap({ timelineWidth, canvasHeight: _canvasHeight, items, laneRows, scrollRef }: MinimapProps): React.JSX.Element | null {
+function TimelineMinimap({ timelineWidth, items, laneRows, scrollRef }: MinimapProps): React.JSX.Element | null {
   const containerRef = useRef<HTMLDivElement>(null);
   const [scrollState, setScrollState] = useState({ left: 0, viewWidth: 0, totalWidth: 1 });
   const isDragging = useRef(false);
