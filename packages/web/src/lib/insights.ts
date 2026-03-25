@@ -919,21 +919,45 @@ function buildTaskSummary(
   validations: readonly string[],
   files: readonly string[]
 ): string {
-  const eventCount = timeline.filter((event) => event.kind !== "file.changed").length;
-  const laneText = sections.map((section) => section.lane).join(", ");
-  const parts = [`${eventCount} recorded task events`];
+  const parts: string[] = [];
 
-  if (laneText) {
-    parts.push(`lanes: ${laneText}`);
+  // 원래 요청 — 첫 번째 user.message 이벤트
+  const firstUserMsg = timeline.find(e => e.kind === "user.message");
+  const originalRequest = firstUserMsg?.body ?? firstUserMsg?.title;
+  if (originalRequest) {
+    parts.push(`원래 요청: ${originalRequest.slice(0, 120)}`);
   }
+
+  // 구현 작업 수
+  const implCount = timeline.filter(e => e.lane === "implementation").length;
+  if (implCount > 0) {
+    parts.push(`구현 작업 ${implCount}개`);
+  }
+
+  // 검증 결과
   if (validations.length > 0) {
-    parts.push(`${validations.length} validation checkpoints`);
-  }
-  if (files.length > 0) {
-    parts.push(`${files.length} touched files`);
+    const failCount = timeline.filter(e =>
+      (e.kind === "verification.logged" && e.metadata["verificationStatus"] === "fail") ||
+      (e.kind === "rule.logged" && e.metadata["ruleStatus"] === "violation")
+    ).length;
+    const passCount = validations.length - failCount;
+    parts.push(failCount > 0 ? `검증 ${validations.length}회 (통과 ${passCount}, 실패 ${failCount})` : `검증 ${validations.length}회 통과`);
   }
 
-  return normalizeSentence(parts.join(" | ")) ?? "Recorded task activity is available for extraction.";
+  // 수정 파일 수
+  if (files.length > 0) {
+    parts.push(`${files.length}개 파일 관련`);
+  }
+
+  if (parts.length === 0) {
+    // fallback: lane 정보라도
+    const laneText = sections.map(s => s.lane).join(", ");
+    return laneText
+      ? `${timeline.filter(e => e.kind !== "file.changed").length}개 이벤트 기록 (${laneText}).`
+      : "Recorded task activity is available for extraction.";
+  }
+
+  return parts.join(". ") + ".";
 }
 
 function buildTaskBrief(

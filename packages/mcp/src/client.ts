@@ -32,6 +32,22 @@ export class MonitorClient {
   }
 
   /**
+   * 지정한 엔드포인트로 GET 요청을 보낸다.
+   * 네트워크 오류나 비정상 응답 시에도 예외를 던지지 않고 `ok:false`를 반환한다.
+   */
+  async get(endpoint: string): Promise<SafePostResult> {
+    try {
+      const response = await fetch(`${this.baseUrl}${endpoint}`);
+      if (!response.ok) {
+        return { ok: false, endpoint, status: response.status, message: `monitor server returned ${response.status}` };
+      }
+      return { ok: true, endpoint, status: response.status, data: (await response.json()) as unknown, message: "ok" };
+    } catch {
+      return { ok: false, endpoint, message: "monitor server unavailable; event ignored" };
+    }
+  }
+
+  /**
    * 지정한 엔드포인트로 JSON payload를 POST한다.
    * 네트워크 오류나 비정상 응답 시에도 예외를 던지지 않고 `ok:false`를 반환한다.
    *

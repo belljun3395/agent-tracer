@@ -10,6 +10,7 @@ import { createEventRoutes } from "./routes/event-routes.js";
 import { createBookmarkRoutes } from "./routes/bookmark-routes.js";
 import { createSearchRoutes } from "./routes/search-routes.js";
 import { createAdminRoutes } from "./routes/admin-routes.js";
+import { createEvaluationRoutes } from "./routes/evaluation-routes.js";
 
 export function createRouter(service: MonitorService): Router {
   const router = Router();
@@ -18,5 +19,6 @@ export function createRouter(service: MonitorService): Router {
   router.use(createEventRoutes(service));
   router.use(createBookmarkRoutes(service));
   router.use(createSearchRoutes(service));
+  router.use(createEvaluationRoutes(service));
   return router;
 }
