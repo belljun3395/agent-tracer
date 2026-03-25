@@ -315,6 +315,14 @@ describe("Claude hooks", () => {
           title: "Agent: Review child monitor flow",
           body: "Inspect the child task",
           metadata: {
+            subtypeKey: "delegation",
+            subtypeLabel: "Delegation",
+            subtypeGroup: "agent",
+            toolFamily: "coordination",
+            operation: "delegate",
+            entityType: "agent",
+            entityName: "default",
+            sourceTool: "Agent",
             toolInput: {
               description: "Review child monitor flow",
               prompt: "Inspect the child task",
@@ -535,6 +543,14 @@ describe("Claude hooks", () => {
           lane: "implementation",
           metadata: {
             description: "Run tests",
+            subtypeKey: "run_test",
+            subtypeLabel: "Run test",
+            subtypeGroup: "execution",
+            toolFamily: "terminal",
+            operation: "execute",
+            entityType: "command",
+            entityName: "npm",
+            sourceTool: "Bash",
             failed: true,
             error: "Command exited with non-zero status code 1",
             isInterrupt: false
@@ -578,7 +594,15 @@ describe("Claude hooks", () => {
           lane: "implementation",
           metadata: {
             description: "Run lint",
-            command: "npm run lint"
+            command: "npm run lint",
+            subtypeKey: "run_lint",
+            subtypeLabel: "Run lint",
+            subtypeGroup: "execution",
+            toolFamily: "terminal",
+            operation: "execute",
+            entityType: "command",
+            entityName: "npm",
+            sourceTool: "Bash"
           }
         }
       }
@@ -609,15 +633,25 @@ describe("Claude hooks", () => {
         }
       },
       {
-        endpoint: "/api/tool-used",
+        endpoint: "/api/agent-activity",
         body: {
           taskId: "parent-task",
           sessionId: "parent-monitor-session",
-          toolName: "mcp__github__search_repositories",
+          activityType: "mcp_call",
           title: "MCP: github/search_repositories",
           body: "Used MCP tool github/search_repositories",
           lane: "coordination",
+          mcpServer: "github",
+          mcpTool: "search_repositories",
           metadata: {
+            subtypeKey: "mcp_call",
+            subtypeLabel: "MCP call",
+            subtypeGroup: "external",
+            toolFamily: "coordination",
+            operation: "invoke",
+            entityType: "mcp",
+            entityName: "github/search_repositories",
+            sourceTool: "mcp__github__search_repositories",
             mcpServer: "github",
             mcpTool: "search_repositories"
           }
