@@ -106,12 +106,12 @@ export class MonitorService {
       taskId: input.taskId,
       kind: "user.message",
       title: input.title,
-      ...(input.sessionId ? { sessionId: input.sessionId } : {}),
+      ...this.withSessionId(input.sessionId),
       ...(input.body ? { body: input.body } : {}),
       ...(filePaths.length > 0 ? { filePaths } : {}),
       metadata: meta
     });
-    return { task, ...(input.sessionId ? { sessionId: input.sessionId } : {}), events: [{ id: event.id, kind: event.kind }] };
+    return { task, ...this.withSessionId(input.sessionId), events: [{ id: event.id, kind: event.kind }] };
   }
 
   async logAssistantResponse(input: TaskAssistantResponseInput): Promise<RecordedEventEnvelope> {
@@ -120,7 +120,7 @@ export class MonitorService {
       taskId: input.taskId,
       kind: "assistant.response",
       title: input.title,
-      ...(input.sessionId ? { sessionId: input.sessionId } : {}),
+      ...this.withSessionId(input.sessionId),
       ...(input.body      ? { body: input.body }           : {}),
       metadata: {
         ...(input.metadata ?? {}),
@@ -128,7 +128,7 @@ export class MonitorService {
         source:    input.source
       }
     });
-    return { task, ...(input.sessionId ? { sessionId: input.sessionId } : {}), events: [{ id: event.id, kind: event.kind }] };
+    return { task, ...this.withSessionId(input.sessionId), events: [{ id: event.id, kind: event.kind }] };
   }
 
   async endSession(input: TaskSessionEndInput): Promise<{ sessionId: string; task: MonitoringTask }> {
@@ -276,35 +276,35 @@ export class MonitorService {
   }
 
   async logTerminalCommand(input: TaskTerminalCommandInput): Promise<RecordedEventEnvelope> {
-    return this.withSession(input, (sid) => ({ taskId: input.taskId, kind: "terminal.command", title: input.title ?? input.command, body: input.body ?? input.command, metadata: { ...(input.metadata ?? {}), command: input.command }, command: input.command, ...(sid ? { sessionId: sid } : {}), ...(input.lane ? { lane: input.lane } : {}), ...(input.filePaths ? { filePaths: input.filePaths } : {}) }));
+    return this.withSession(input, (sid) => ({ taskId: input.taskId, kind: "terminal.command", title: input.title ?? input.command, body: input.body ?? input.command, metadata: { ...(input.metadata ?? {}), command: input.command }, command: input.command, ...this.withSessionId(sid), ...(input.lane ? { lane: input.lane } : {}), ...(input.filePaths ? { filePaths: input.filePaths } : {}) }));
   }
 
   async logToolUsed(input: TaskToolUsedInput): Promise<RecordedEventEnvelope> {
-    return this.withSession(input, (sid) => ({ taskId: input.taskId, kind: "tool.used", title: input.title ?? input.toolName, metadata: TMF.build({ ...(input.metadata ?? {}), toolName: input.toolName }, input), toolName: input.toolName, ...(sid ? { sessionId: sid } : {}), ...(input.body ? { body: input.body } : {}), ...(input.lane ? { lane: input.lane } : {}), ...(input.filePaths ? { filePaths: input.filePaths } : {}) }));
+    return this.withSession(input, (sid) => ({ taskId: input.taskId, kind: "tool.used", title: input.title ?? input.toolName, metadata: TMF.build({ ...(input.metadata ?? {}), toolName: input.toolName }, input), toolName: input.toolName, ...this.withSessionId(sid), ...(input.body ? { body: input.body } : {}), ...(input.lane ? { lane: input.lane } : {}), ...(input.filePaths ? { filePaths: input.filePaths } : {}) }));
   }
 
   async saveContext(input: TaskContextSavedInput): Promise<RecordedEventEnvelope> {
-    return this.withSession(input, (sid) => ({ taskId: input.taskId, kind: "context.saved", title: input.title, ...(sid ? { sessionId: sid } : {}), ...(input.body ? { body: input.body } : {}), ...(input.lane ? { lane: input.lane } : {}), ...(input.filePaths ? { filePaths: input.filePaths } : {}), metadata: TMF.build(input.metadata, input) }));
+    return this.withSession(input, (sid) => ({ taskId: input.taskId, kind: "context.saved", title: input.title, ...this.withSessionId(sid), ...(input.body ? { body: input.body } : {}), ...(input.lane ? { lane: input.lane } : {}), ...(input.filePaths ? { filePaths: input.filePaths } : {}), metadata: TMF.build(input.metadata, input) }));
   }
 
   async logExploration(input: TaskExploreInput): Promise<RecordedEventEnvelope> {
-    return this.withSession(input, (sid) => ({ taskId: input.taskId, kind: "tool.used", lane: (input.lane as TimelineLane | undefined) ?? "exploration", title: input.title, metadata: TMF.build({ ...(input.metadata ?? {}), toolName: input.toolName }, input), toolName: input.toolName, ...(sid ? { sessionId: sid } : {}), ...(input.body ? { body: input.body } : {}), ...(input.filePaths ? { filePaths: input.filePaths } : {}) }));
+    return this.withSession(input, (sid) => ({ taskId: input.taskId, kind: "tool.used", lane: (input.lane as TimelineLane | undefined) ?? "exploration", title: input.title, metadata: TMF.build({ ...(input.metadata ?? {}), toolName: input.toolName }, input), toolName: input.toolName, ...this.withSessionId(sid), ...(input.body ? { body: input.body } : {}), ...(input.filePaths ? { filePaths: input.filePaths } : {}) }));
   }
 
   async logPlan(input: TaskPlanInput): Promise<RecordedEventEnvelope> {
-    return this.withSession(input, (sid) => ({ taskId: input.taskId, kind: "plan.logged", lane: "planning", title: input.title ?? input.action, metadata: TMF.build({ ...(input.metadata ?? {}), action: input.action }, input), actionName: input.action, ...(sid ? { sessionId: sid } : {}), ...(input.body ? { body: input.body } : {}), ...(input.filePaths ? { filePaths: input.filePaths } : {}) }));
+    return this.withSession(input, (sid) => ({ taskId: input.taskId, kind: "plan.logged", lane: "planning", title: input.title ?? input.action, metadata: TMF.build({ ...(input.metadata ?? {}), action: input.action }, input), actionName: input.action, ...this.withSessionId(sid), ...(input.body ? { body: input.body } : {}), ...(input.filePaths ? { filePaths: input.filePaths } : {}) }));
   }
 
   async logAction(input: TaskActionInput): Promise<RecordedEventEnvelope> {
-    return this.withSession(input, (sid) => ({ taskId: input.taskId, kind: "action.logged", title: input.title ?? input.action, metadata: TMF.build({ ...(input.metadata ?? {}), action: input.action }, input), actionName: input.action, ...(sid ? { sessionId: sid } : {}), ...(input.body ? { body: input.body } : {}), ...(input.filePaths ? { filePaths: input.filePaths } : {}) }));
+    return this.withSession(input, (sid) => ({ taskId: input.taskId, kind: "action.logged", title: input.title ?? input.action, metadata: TMF.build({ ...(input.metadata ?? {}), action: input.action }, input), actionName: input.action, ...this.withSessionId(sid), ...(input.body ? { body: input.body } : {}), ...(input.filePaths ? { filePaths: input.filePaths } : {}) }));
   }
 
   async logVerification(input: TaskVerifyInput): Promise<RecordedEventEnvelope> {
-    return this.withSession(input, (sid) => ({ taskId: input.taskId, kind: "verification.logged", lane: "implementation", title: input.title ?? input.action, body: input.body ?? input.result, metadata: TMF.build({ ...(input.metadata ?? {}), action: input.action, result: input.result, verificationStatus: TMF.normalizeVerificationStatus(input.status ?? input.result) }, input), actionName: input.action, ...(sid ? { sessionId: sid } : {}), ...(input.filePaths ? { filePaths: input.filePaths } : {}) }));
+    return this.withSession(input, (sid) => ({ taskId: input.taskId, kind: "verification.logged", lane: "implementation", title: input.title ?? input.action, body: input.body ?? input.result, metadata: TMF.build({ ...(input.metadata ?? {}), action: input.action, result: input.result, verificationStatus: TMF.normalizeVerificationStatus(input.status ?? input.result) }, input), actionName: input.action, ...this.withSessionId(sid), ...(input.filePaths ? { filePaths: input.filePaths } : {}) }));
   }
 
   async logRule(input: TaskRuleInput): Promise<RecordedEventEnvelope> {
-    return this.withSession(input, (sid) => ({ taskId: input.taskId, kind: "rule.logged", lane: "implementation", title: input.title ?? input.action, body: input.body ?? `${input.ruleId} · ${input.status} · ${input.severity}`, metadata: TMF.build({ ...(input.metadata ?? {}), action: input.action, ruleId: input.ruleId, severity: input.severity, ruleStatus: input.status, ruleSource: input.source ?? "rule-guard" }, input), actionName: input.action, ...(sid ? { sessionId: sid } : {}), ...(input.filePaths ? { filePaths: input.filePaths } : {}) }));
+    return this.withSession(input, (sid) => ({ taskId: input.taskId, kind: "rule.logged", lane: "implementation", title: input.title ?? input.action, body: input.body ?? `${input.ruleId} · ${input.status} · ${input.severity}`, metadata: TMF.build({ ...(input.metadata ?? {}), action: input.action, ruleId: input.ruleId, severity: input.severity, ruleStatus: input.status, ruleSource: input.source ?? "rule-guard" }, input), actionName: input.action, ...this.withSessionId(sid), ...(input.filePaths ? { filePaths: input.filePaths } : {}) }));
   }
 
   async logAsyncLifecycle(input: TaskAsyncLifecycleInput): Promise<RecordedEventEnvelope> {
@@ -316,32 +316,72 @@ export class MonitorService {
     }
     taskSeen.add(dedupeKey);
     this.seenAsyncEvents.set(input.taskId, taskSeen);
-    return this.withSession(input, (sid) => ({ taskId: input.taskId, kind: "action.logged", lane: "background", title: input.title ?? `Async task ${input.asyncStatus}`, metadata: TMF.build({ ...(input.metadata ?? {}), asyncTaskId: input.asyncTaskId, asyncStatus: input.asyncStatus, ...(input.description ? { description: input.description } : {}), ...(input.agent ? { asyncAgent: input.agent } : {}), ...(input.category ? { asyncCategory: input.category } : {}), ...(input.parentSessionId ? { parentSessionId: input.parentSessionId } : {}), ...(typeof input.durationMs === "number" ? { asyncDurationMs: input.durationMs } : {}) }, input), actionName: `async_task_${input.asyncStatus}`, ...(sid ? { sessionId: sid } : {}), ...(input.body || input.description ? { body: input.body ?? input.description } : {}), ...(input.filePaths ? { filePaths: input.filePaths } : {}) }));
+    return this.withSession(input, (sid) => ({ taskId: input.taskId, kind: "action.logged", lane: "background", title: input.title ?? `Async task ${input.asyncStatus}`, metadata: TMF.build({ ...(input.metadata ?? {}), asyncTaskId: input.asyncTaskId, asyncStatus: input.asyncStatus, ...(input.description ? { description: input.description } : {}), ...(input.agent ? { asyncAgent: input.agent } : {}), ...(input.category ? { asyncCategory: input.category } : {}), ...(input.parentSessionId ? { parentSessionId: input.parentSessionId } : {}), ...(typeof input.durationMs === "number" ? { asyncDurationMs: input.durationMs } : {}) }, input), actionName: `async_task_${input.asyncStatus}`, ...this.withSessionId(sid), ...(input.body || input.description ? { body: input.body ?? input.description } : {}), ...(input.filePaths ? { filePaths: input.filePaths } : {}) }));
   }
 
   async logQuestion(input: TaskQuestionInput): Promise<RecordedEventEnvelope> {
     const task = await this.requireTask(input.taskId);
     const sessionId = await this.resolveSessionId(input.taskId, input.sessionId);
-    const event = await this.recorder.record({ taskId: input.taskId, kind: "question.logged", lane: "questions", title: input.title, ...(sessionId ? { sessionId } : {}), ...(input.body ? { body: input.body } : {}), metadata: TMF.build({ ...(input.metadata ?? {}), questionId: input.questionId, questionPhase: input.questionPhase, ...(typeof input.sequence === "number" ? { sequence: input.sequence } : {}), ...(input.modelName ? { modelName: input.modelName } : {}), ...(input.modelProvider ? { modelProvider: input.modelProvider } : {}) }, input) });
-    return { task, ...(sessionId ? { sessionId } : {}), events: [{ id: event.id, kind: event.kind }] };
+    const event = await this.recorder.record({
+      taskId: input.taskId,
+      kind: "question.logged",
+      lane: "questions",
+      title: input.title,
+      ...this.withSessionId(sessionId),
+      ...(input.body ? { body: input.body } : {}),
+      metadata: TMF.build({
+        ...(input.metadata ?? {}),
+        questionId: input.questionId,
+        questionPhase: input.questionPhase,
+        ...(typeof input.sequence === "number" ? { sequence: input.sequence } : {}),
+        ...(input.modelName ? { modelName: input.modelName } : {}),
+        ...(input.modelProvider ? { modelProvider: input.modelProvider } : {})
+      }, input)
+    });
+    return { task, ...this.withSessionId(sessionId), events: [{ id: event.id, kind: event.kind }] };
   }
 
   async logTodo(input: TaskTodoInput): Promise<RecordedEventEnvelope> {
     const task = await this.requireTask(input.taskId);
     const sessionId = await this.resolveSessionId(input.taskId, input.sessionId);
-    const event = await this.recorder.record({ taskId: input.taskId, kind: "todo.logged", lane: "todos", title: input.title, ...(sessionId ? { sessionId } : {}), ...(input.body ? { body: input.body } : {}), metadata: TMF.build({ ...(input.metadata ?? {}), todoId: input.todoId, todoState: input.todoState, ...(typeof input.sequence === "number" ? { sequence: input.sequence } : {}) }, input) });
-    return { task, ...(sessionId ? { sessionId } : {}), events: [{ id: event.id, kind: event.kind }] };
+    const event = await this.recorder.record({
+      taskId: input.taskId,
+      kind: "todo.logged",
+      lane: "todos",
+      title: input.title,
+      ...this.withSessionId(sessionId),
+      ...(input.body ? { body: input.body } : {}),
+      metadata: TMF.build({
+        ...(input.metadata ?? {}),
+        todoId: input.todoId,
+        todoState: input.todoState,
+        ...(typeof input.sequence === "number" ? { sequence: input.sequence } : {})
+      }, input)
+    });
+    return { task, ...this.withSessionId(sessionId), events: [{ id: event.id, kind: event.kind }] };
   }
 
   async logThought(input: TaskThoughtInput): Promise<RecordedEventEnvelope> {
     const task = await this.requireTask(input.taskId);
     const sessionId = await this.resolveSessionId(input.taskId, input.sessionId);
-    const event = await this.recorder.record({ taskId: input.taskId, kind: "thought.logged", lane: "planning", title: input.title, ...(sessionId ? { sessionId } : {}), ...(input.body ? { body: input.body } : {}), metadata: TMF.build({ ...(input.metadata ?? {}), ...(input.modelName ? { modelName: input.modelName } : {}), ...(input.modelProvider ? { modelProvider: input.modelProvider } : {}) }, input) });
-    return { task, ...(sessionId ? { sessionId } : {}), events: [{ id: event.id, kind: event.kind }] };
+    const event = await this.recorder.record({
+      taskId: input.taskId,
+      kind: "thought.logged",
+      lane: "planning",
+      title: input.title,
+      ...this.withSessionId(sessionId),
+      ...(input.body ? { body: input.body } : {}),
+      metadata: TMF.build({
+        ...(input.metadata ?? {}),
+        ...(input.modelName ? { modelName: input.modelName } : {}),
+        ...(input.modelProvider ? { modelProvider: input.modelProvider } : {})
+      }, input)
+    });
+    return { task, ...this.withSessionId(sessionId), events: [{ id: event.id, kind: event.kind }] };
   }
 
   async logAgentActivity(input: TaskAgentActivityInput): Promise<RecordedEventEnvelope> {
-    return this.withSession(input, (sid) => ({ taskId: input.taskId, kind: "agent.activity.logged", lane: (input.lane as TimelineLane | undefined) ?? "coordination", title: input.title ?? TMF.normalizeAgentActivityTitle(input.activityType), metadata: TMF.build(input.metadata, input), ...(sid ? { sessionId: sid } : {}), ...(input.body ? { body: input.body } : {}), ...(input.filePaths ? { filePaths: input.filePaths } : {}) }));
+    return this.withSession(input, (sid) => ({ taskId: input.taskId, kind: "agent.activity.logged", lane: (input.lane as TimelineLane | undefined) ?? "coordination", title: input.title ?? TMF.normalizeAgentActivityTitle(input.activityType), metadata: TMF.build(input.metadata, input), ...this.withSessionId(sid), ...(input.body ? { body: input.body } : {}), ...(input.filePaths ? { filePaths: input.filePaths } : {}) }));
   }
 
   async getOverview() { return this.ports.tasks.getOverviewStats(); }
@@ -485,6 +525,9 @@ export class MonitorService {
     }
     return false;
   }
+  private withSessionId(sessionId?: string): { sessionId?: string } {
+    return sessionId ? { sessionId } : {};
+  }
   private async completeBgTasks(ids?: readonly string[]): Promise<void> {
     if (!ids?.length) return;
     for (const bgTaskId of ids) {
@@ -505,12 +548,12 @@ export class MonitorService {
       await this.ports.sessions.updateStatus(sessionId, status, endedAt, input.summary);
       if (sOld) this.ports.notifier.publish({ type: "session.ended", payload: { ...sOld, status, endedAt } });
     }
-    if (task.status === status) return { task, ...(sessionId ? { sessionId } : {}), events: [] };
+    if (task.status === status) return { task, ...this.withSessionId(sessionId), events: [] };
     await this.ports.tasks.updateStatus(input.taskId, status, endedAt);
     const finalTask = await this.ports.tasks.findById(input.taskId) ?? task;
     this.ports.notifier.publish(status === "completed" ? { type: "task.completed", payload: finalTask } : { type: "task.updated", payload: finalTask });
-    const event = await this.recorder.record({ taskId: input.taskId, kind, title: status === "completed" ? "Task completed" : "Task errored", ...(sessionId ? { sessionId } : {}), ...(body ? { body } : {}), ...(input.metadata ? { metadata: input.metadata } : {}) });
-    return { task: finalTask, ...(sessionId ? { sessionId } : {}), events: [{ id: event.id, kind: event.kind }] };
+    const event = await this.recorder.record({ taskId: input.taskId, kind, title: status === "completed" ? "Task completed" : "Task errored", ...this.withSessionId(sessionId), ...(body ? { body } : {}), ...(input.metadata ? { metadata: input.metadata } : {}) });
+    return { task: finalTask, ...this.withSessionId(sessionId), events: [{ id: event.id, kind: event.kind }] };
   }
 
   private async recordWithDerivedFiles(input: GenericEventInput): Promise<RecordedEventEnvelope> {
