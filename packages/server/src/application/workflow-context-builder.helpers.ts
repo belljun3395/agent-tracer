@@ -12,6 +12,39 @@ export function buildOriginalRequestSection(events: readonly TimelineEvent[]): s
   return `\n## Original Request\n${text}`;
 }
 
+export function buildWorkflowContext(events: readonly TimelineEvent[], taskTitle: string): string {
+  const parts: string[] = [`# Workflow: ${taskTitle}`];
+
+  const originalRequestSection = buildOriginalRequestSection(events);
+  if (originalRequestSection) {
+    parts.push(originalRequestSection);
+  }
+
+  const planSection = buildPlanSection(events);
+  if (planSection) {
+    parts.push(planSection);
+  }
+
+  parts.push(...buildLaneSections(events));
+
+  const modifiedFilesSection = buildModifiedFilesSection(events);
+  if (modifiedFilesSection) {
+    parts.push(modifiedFilesSection);
+  }
+
+  const openTodoSection = buildOpenTodoSection(events);
+  if (openTodoSection) {
+    parts.push(openTodoSection);
+  }
+
+  const verificationSummarySection = buildVerificationSummarySection(events);
+  if (verificationSummarySection) {
+    parts.push(verificationSummarySection);
+  }
+
+  return parts.join("");
+}
+
 export function buildPlanSection(events: readonly TimelineEvent[]): string | undefined {
   const planEvents = events.filter((e) => e.lane === "planning");
   if (planEvents.length === 0) {

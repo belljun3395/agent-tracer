@@ -4,11 +4,11 @@
  * 이벤트 삽입·파일 derived 이벤트 생성 서비스.
  */
 
-import { classifyEvent } from "@monitor/core";
-import type {
-  MonitoringEventKind,
-  TimelineEvent,
-  TimelineLane
+import {
+  classifyEvent,
+  type MonitoringEventKind,
+  type TimelineEvent,
+  type TimelineLane
 } from "@monitor/core";
 
 import type { IEventRepository } from "../ports/event-repository.js";
@@ -82,8 +82,6 @@ export class EventRecorder {
         events: [{ id: primaryEvent.id, kind: primaryEvent.kind }]
       };
     }
-    // 검색 도구(grep/glob류)에서 오는 대량 filePaths가 file.changed 이벤트를 폭발시키는 것을 방지.
-    // 상한을 초과하는 경우 처음 MAX_DERIVED_FILES개만 파생 이벤트로 생성하고 나머지는 버린다.
     const derivedPaths = filePaths.slice(0, MAX_DERIVED_FILES);
     const derivedEventPromises = derivedPaths.map((filePath) =>
       this.record({

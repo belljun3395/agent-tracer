@@ -14,6 +14,7 @@ Agent Tracer의 실제 저장 경로는 `packages/server/src/infrastructure/sqli
 - `packages/server/src/infrastructure/sqlite/sqlite-runtime-binding-repository.ts`
 - `packages/server/src/infrastructure/sqlite/sqlite-bookmark-repository.ts`
 - `packages/server/src/infrastructure/sqlite/sqlite-evaluation-repository.ts`
+- `packages/server/src/infrastructure/sqlite/sqlite-json.ts`
 
 ## 조합 방식
 
@@ -61,9 +62,9 @@ workflow library용 평가를 저장한다. `rating`, `use_case`, `workflow_tags
 현재는 `cli_source`, `task_kind`, parent/background lineage 관련 컬럼 보강과
 runtime source backfill을 담당한다.
 
-## evaluation 저장소의 최근 변화
+## evaluation 저장소의 현재 동작
 
-`SqliteEvaluationRepository`는 이제 두 종류의 읽기 경로를 지원한다.
+`SqliteEvaluationRepository`는 현재 두 종류의 읽기 경로를 지원한다.
 
 - `getEvaluation(taskId)` - 단일 task 평가
 - `listEvaluations(rating?)` - workflow library 전체 목록
@@ -71,6 +72,9 @@ runtime source backfill을 담당한다.
 
 `listEvaluations()`는 `task_evaluations`, `monitoring_tasks`, `timeline_events`를 조합해
 웹 패널이 바로 렌더링할 수 있는 `WorkflowSummary` 배열을 반환한다.
+
+이 문맥의 JSON 문자열 파싱은 repository 공통 유틸인
+`parseJsonField()`(`sqlite-json.ts`)로 일원화돼 예외 처리와 타입 변환이 일관화됐다.
 
 ## 비용이 커질 수 있는 지점
 

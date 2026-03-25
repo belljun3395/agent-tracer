@@ -21,6 +21,7 @@ import type {
   SearchOptions,
   SearchResults
 } from "../../application/ports/event-repository.js";
+import { parseJsonField } from "./sqlite-json.js";
 
 interface EventRow {
   id: string;
@@ -73,8 +74,8 @@ function mapEventRow(row: EventRow): TimelineEvent {
     kind: row.kind,
     lane: normalizeLane(row.lane),
     title: row.title,
-    metadata: JSON.parse(row.metadata_json) as Record<string, unknown>,
-    classification: JSON.parse(row.classification_json) as EventClassification,
+    metadata: parseJsonField<Record<string, unknown>>(row.metadata_json),
+    classification: parseJsonField<EventClassification>(row.classification_json),
     createdAt: row.created_at,
     ...(row.session_id ? { sessionId: row.session_id } : {}),
     ...(row.body ? { body: row.body } : {})

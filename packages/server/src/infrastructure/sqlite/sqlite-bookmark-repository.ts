@@ -8,6 +8,7 @@
 import type Database from "better-sqlite3";
 
 import type { IBookmarkRepository, BookmarkRecord, BookmarkSaveInput } from "../../application/ports/bookmark-repository.js";
+import { parseJsonField } from "./sqlite-json.js";
 
 interface BookmarkRow {
   id: string;
@@ -29,7 +30,7 @@ function mapBookmarkRow(row: BookmarkRow): BookmarkRecord {
     kind: row.kind,
     taskId: row.task_id,
     title: row.title,
-    metadata: JSON.parse(row.metadata_json) as Record<string, unknown>,
+    metadata: parseJsonField(row.metadata_json),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     ...(row.event_id ? { eventId: row.event_id } : {}),

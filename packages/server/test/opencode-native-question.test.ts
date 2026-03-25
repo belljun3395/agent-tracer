@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createMonitorHooks } from "../../../.opencode/plugins/monitor.ts";
+import { createMonitorHooks } from "../../../.opencode/plugins/monitor";
 
 interface RecordedRequest {
   readonly url: string;

@@ -9,7 +9,8 @@ import type Database from "better-sqlite3";
 import type { EventClassification, MonitoringEventKind, MonitoringTask, MonitoringTaskKind, TimelineLane } from "@monitor/core";
 
 import type { ITaskRepository, OverviewStats, TaskUpsertInput } from "../../application/ports/task-repository.js";
-import { TaskDisplayTitleResolver } from "../../application/services/task-display-title-resolver.js";
+import { deriveTaskDisplayTitle } from "../../application/services/task-display-title-resolver.helpers.js";
+import { parseJsonField } from "./sqlite-json.js";
 
 interface TaskRow {
   id: string;
@@ -59,8 +60,6 @@ function mapTaskRow(row: TaskRow): MonitoringTask {
 }
 
 export class SqliteTaskRepository implements ITaskRepository {
-  private readonly resolver = new TaskDisplayTitleResolver();
-
   constructor(private readonly db: Database.Database) {}
 
   private withDisplayTitle(task: MonitoringTask): MonitoringTask {
@@ -74,7 +73,7 @@ export class SqliteTaskRepository implements ITaskRepository {
 
     // Check if we need events for title inference
     const events = this.loadEventsForTitle(task);
-    const displayTitle = this.resolver.resolve(task, events);
+    const displayTitle = deriveTaskDisplayTitle(task, events);
     return displayTitle ? { ...task, displayTitle } : task;
   }
 
@@ -84,19 +83,19 @@ export class SqliteTaskRepository implements ITaskRepository {
       .prepare<{ taskId: string }, EventKindRow>(
         "select id, task_id, session_id, kind, lane, title, body, metadata_json, classification_json, created_at from timeline_events where task_id = @taskId order by datetime(created_at) asc"
       )
-      .all({ taskId: task.id })
-      .map((r) => ({
-        id: r.id,
-        taskId: r.task_id,
-        kind: r.kind as MonitoringEventKind,
-        lane: r.lane as TimelineLane,
-        title: r.title,
-        metadata: JSON.parse(r.metadata_json) as Record<string, unknown>,
-        classification: JSON.parse(r.classification_json) as EventClassification,
-        createdAt: r.created_at,
-        ...(r.session_id ? { sessionId: r.session_id } : {}),
-        ...(r.body ? { body: r.body } : {})
-      }));
+        .all({ taskId: task.id })
+        .map((r) => ({
+          id: r.id,
+          taskId: r.task_id,
+          kind: r.kind as MonitoringEventKind,
+          lane: r.lane as TimelineLane,
+          title: r.title,
+          metadata: parseJsonField<Record<string, unknown>>(r.metadata_json),
+          classification: parseJsonField<EventClassification>(r.classification_json),
+          createdAt: r.created_at,
+          ...(r.session_id ? { sessionId: r.session_id } : {}),
+          ...(r.body ? { body: r.body } : {})
+        }));
   }
 
   async upsert(input: TaskUpsertInput): Promise<MonitoringTask> {
