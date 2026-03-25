@@ -39,6 +39,8 @@ Expected result: `monitor` is listed.
 
 ## 3. External Project Path
 
+최신 공식 안내: https://belljun3395.github.io/agent-tracer/guide/external-setup
+
 To attach Agent Tracer to another project:
 
 ```bash

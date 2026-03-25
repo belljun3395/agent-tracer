@@ -3,7 +3,8 @@
 This guide is for OpenCode only.
 
 If you want to attach Agent Tracer to another project, start with
-[external-setup.md](./external-setup.md) first. This page covers the
+[external-setup.md](./external-setup.md) first (official mirror:
+https://belljun3395.github.io/agent-tracer/guide/external-setup). This page covers the
 OpenCode-specific steps after the shared setup flow.
 
 ## 1. What `setup:external --mode opencode` automates
