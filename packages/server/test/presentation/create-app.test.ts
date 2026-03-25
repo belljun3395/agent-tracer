@@ -146,6 +146,62 @@ describe("HTTP API", () => {
     expect(response.status).toBe(400);
   });
 
+  it("question/todo/thought에 sessionId가 없어도 active session으로 이벤트를 기록한다", async () => {
+    const started = await request(runtime.app)
+      .post("/api/task-start")
+      .send({ title: "활성 세션 기본 바인딩 검증" });
+
+    const taskId = started.body.task.id as string;
+    const expectedSessionId = started.body.sessionId as string;
+
+    const question = await request(runtime.app)
+      .post("/api/question")
+      .send({
+        taskId,
+        questionId: "q-fallback",
+        questionPhase: "asked",
+        title: "활성 세션을 사용해도 될까?",
+        body: "sessionId를 생략한 질문 이벤트 테스트"
+      });
+
+    const todo = await request(runtime.app)
+      .post("/api/todo")
+      .send({
+        taskId,
+        todoId: "todo-fallback",
+        todoState: "added",
+        title: "활성 세션 기반 todo 기록"
+      });
+
+    const thought = await request(runtime.app)
+      .post("/api/thought")
+      .send({
+        taskId,
+        title: "활성 세션 기반 thought 테스트",
+        body: "sessionId 없이 기록된 thought 입니다."
+      });
+
+    expect(question.status).toBe(200);
+    expect(todo.status).toBe(200);
+    expect(thought.status).toBe(200);
+    expect(question.body.sessionId).toBe(expectedSessionId);
+    expect(todo.body.sessionId).toBe(expectedSessionId);
+    expect(thought.body.sessionId).toBe(expectedSessionId);
+
+    const detail = await request(runtime.app).get(`/api/tasks/${taskId}`);
+    const timeline = detail.body.timeline as Array<{ kind: string; sessionId?: string }>;
+
+    expect(detail.status).toBe(200);
+
+    const questionEvent = timeline.find((event) => event.kind === "question.logged");
+    const todoEvent = timeline.find((event) => event.kind === "todo.logged");
+    const thoughtEvent = timeline.find((event) => event.kind === "thought.logged");
+
+    expect(questionEvent?.sessionId).toBe(expectedSessionId);
+    expect(todoEvent?.sessionId).toBe(expectedSessionId);
+    expect(thoughtEvent?.sessionId).toBe(expectedSessionId);
+  });
+
   it("같은 runtime 세션 보장은 중복 task와 session을 만들지 않는다", async () => {
     const first = await request(runtime.app)
       .post("/api/runtime-session-ensure")

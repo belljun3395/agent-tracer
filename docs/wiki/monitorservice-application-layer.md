@@ -41,9 +41,21 @@
 - `logVerification()`
 - `logRule()`
 - `logQuestion()`
+- `logAssistantResponse()`
+- `logQuestion()`
 - `logTodo()`
 - `logThought()`
-- `logAssistantResponse()`
+
+### SessionId 결합 규칙
+
+`MonitorService`는 이벤트 기록 입력(`user.message`, `assistant.response`, `question`, `todo`, `thought`, `tool-used` 등)에서 `sessionId`를 다음 규칙으로 결합한다:
+
+- 호출자가 `sessionId`를 명시하면 해당 값을 그대로 사용한다.
+- 호출자가 `sessionId`를 생략하면 `resolveSessionId(taskId, sessionId)`로 해당 task의 현재 active session을 조회해 사용한다.
+- 실제 이벤트 payload에 포함할 때는 공통 헬퍼 `withSessionId()`를 통해
+  `...(resolvedSessionId ? { sessionId: resolvedSessionId } : {})` 형태로 통일해 기록한다.
+
+이 규칙은 특히 `question`, `todo`, `thought`처럼 런타임에서 context 기반 호출이 잦은 이벤트에서 일관된 세션 바인딩을 보장한다.
 
 실제 event insert는 `EventRecorder`가 맡고, `MonitorService`는 입력 검증 이후의
 유스케이스와 lifecycle 맥락을 조정한다.

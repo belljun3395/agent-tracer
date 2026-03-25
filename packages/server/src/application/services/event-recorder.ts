@@ -24,6 +24,10 @@ export class EventRecorder {
     private readonly notifier: INotificationPublisher
   ) {}
 
+  private withSessionId(sessionId?: string): { sessionId?: string } {
+    return sessionId ? { sessionId } : {};
+  }
+
   async record(input: GenericEventInput): Promise<TimelineEvent> {
     const createdAt = new Date().toISOString();
     const filePaths = normalizeFilePaths(input.filePaths);
@@ -59,7 +63,7 @@ export class EventRecorder {
         tags: [...new Set([...classification.tags, ...contextualTags])]
       },
       createdAt,
-      ...(input.sessionId ? { sessionId: input.sessionId } : {}),
+      ...this.withSessionId(input.sessionId),
       ...(input.body ? { body: input.body } : {})
     });
 
@@ -78,7 +82,7 @@ export class EventRecorder {
     });
     if (primaryEvent.lane === "exploration" || primaryEvent.lane === "background") {
       return {
-        ...(input.sessionId ? { sessionId: input.sessionId } : {}),
+        ...this.withSessionId(input.sessionId),
         events: [{ id: primaryEvent.id, kind: primaryEvent.kind }]
       };
     }
@@ -94,13 +98,13 @@ export class EventRecorder {
           sourceKind: input.kind,
           sourceEventId: primaryEvent.id
         },
-        ...(input.sessionId ? { sessionId: input.sessionId } : {})
+        ...this.withSessionId(input.sessionId)
       })
     );
     const derivedEvents = await Promise.all(derivedEventPromises);
 
     return {
-      ...(input.sessionId ? { sessionId: input.sessionId } : {}),
+      ...this.withSessionId(input.sessionId),
       events: [primaryEvent, ...derivedEvents].map((event) => ({
         id: event.id,
         kind: event.kind
