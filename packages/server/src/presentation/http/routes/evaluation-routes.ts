@@ -40,6 +40,14 @@ export function createEvaluationRoutes(service: MonitorService): Router {
     res.json(evaluation ?? null);
   });
 
+  // GET /api/workflows?rating=good|skip — 워크플로우 라이브러리 전체 목록
+  router.get("/api/workflows", async (req, res) => {
+    const rating = req.query.rating === "good" || req.query.rating === "skip"
+      ? req.query.rating
+      : undefined;
+    res.json(await service.listEvaluations(rating));
+  });
+
   // GET /api/workflows/similar?q=&tags=&limit=
   router.get("/api/workflows/similar", async (req, res) => {
     const query = typeof req.query.q === "string" ? req.query.q.trim() : "";
@@ -50,8 +58,9 @@ export function createEvaluationRoutes(service: MonitorService): Router {
     const tags = typeof req.query.tags === "string" && req.query.tags
       ? req.query.tags.split(",").map(t => t.trim()).filter(Boolean)
       : undefined;
-    const limitRaw = parseInt(String(req.query.limit ?? "5"), 10);
-    const limit = isNaN(limitRaw) ? 5 : Math.min(limitRaw, 10);
+    const limitValue = typeof req.query.limit === "string" ? req.query.limit : "5";
+    const limitRaw = Number.parseInt(limitValue, 10);
+    const limit = Number.isNaN(limitRaw) ? 5 : Math.min(limitRaw, 10);
 
     res.json(await service.searchSimilarWorkflows(query, tags, limit));
   });

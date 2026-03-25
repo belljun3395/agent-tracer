@@ -7,7 +7,7 @@
 
 import type Database from "better-sqlite3";
 
-import type { IEvaluationRepository, TaskEvaluation, WorkflowSearchResult } from "../../application/ports/evaluation-repository.js";
+import type { IEvaluationRepository, TaskEvaluation, WorkflowSearchResult, WorkflowSummary } from "../../application/ports/evaluation-repository.js";
 import type { TimelineEvent } from "@monitor/core";
 import { buildWorkflowContext } from "../../application/workflow-context-builder.js";
 
@@ -91,6 +91,40 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
       outcomeNote: evaluation.outcomeNote ?? null,
       evaluatedAt: evaluation.evaluatedAt
     });
+  }
+
+  async listEvaluations(rating?: "good" | "skip"): Promise<readonly WorkflowSummary[]> {
+    const whereClause = rating ? "where e.rating = @rating" : "";
+    const rows = this.db.prepare<{ rating?: string }, TaskWithEvaluationRow & { evaluated_at: string }>(`
+      select
+        e.task_id,
+        t.title,
+        e.use_case,
+        e.workflow_tags,
+        e.outcome_note,
+        e.rating,
+        e.evaluated_at,
+        count(ev.id) as event_count,
+        t.created_at
+      from task_evaluations e
+      join monitoring_tasks t on t.id = e.task_id
+      left join timeline_events ev on ev.task_id = e.task_id
+      ${whereClause}
+      group by e.task_id
+      order by (e.rating = 'good') desc, datetime(e.evaluated_at) desc
+    `).all(rating ? { rating } : {} as { rating?: string });
+
+    return rows.map(row => ({
+      taskId: row.task_id,
+      title: row.title,
+      useCase: row.use_case,
+      workflowTags: row.workflow_tags ? (JSON.parse(row.workflow_tags) as string[]) : [],
+      outcomeNote: row.outcome_note,
+      rating: row.rating as "good" | "skip",
+      eventCount: row.event_count,
+      createdAt: row.created_at,
+      evaluatedAt: (row as { evaluated_at: string }).evaluated_at
+    }));
   }
 
   async getEvaluation(taskId: string): Promise<TaskEvaluation | null> {
