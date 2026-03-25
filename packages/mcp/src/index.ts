@@ -443,6 +443,71 @@ export function createMonitorMcpServer(client = new MonitorClient()): McpServer 
     async (input) => toToolResponse(await client.post("/api/session-end", input))
   );
 
+  // ─── Workflow Library ─────────────────────────────────────────────────────────
+  // monitor_evaluate_task, monitor_find_similar_workflows
+
+  server.registerTool(
+    "monitor_evaluate_task",
+    {
+      title: "Monitor Evaluate Task",
+      description:
+        "Mark a completed task as a workflow example for future reference. " +
+        "Use rating='good' for tasks where the approach worked well and should be referenced later. " +
+        "Use rating='skip' to exclude a task from future suggestions. " +
+        "The outcomeNote is the most valuable field — describe what approach worked and why.",
+      inputSchema: {
+        taskId: z.string(),
+        rating: z.enum(["good", "skip"]),
+        useCase: z.string().optional().describe("What kind of task was this? e.g. 'TypeScript type error fixes'"),
+        workflowTags: z.array(z.string()).optional().describe("e.g. ['typescript', 'bug-fix', 'refactor']"),
+        outcomeNote: z.string().optional().describe("What approach worked well? Hints for next time.")
+      }
+    },
+    async ({ taskId, ...rest }) => toToolResponse(await client.post(`/api/tasks/${taskId}/evaluate`, rest))
+  );
+
+  server.registerTool(
+    "monitor_find_similar_workflows",
+    {
+      title: "Monitor Find Similar Workflows",
+      description:
+        "Search past workflow examples to find how similar tasks were handled. " +
+        "Call this at the start of a new task to get hints from past similar work. " +
+        "Returns workflow summaries including what was done and what approach worked.",
+      inputSchema: {
+        description: z.string().describe("Describe the current task to search for similar past work"),
+        tags: z.array(z.string()).optional().describe("Filter by tags e.g. ['typescript', 'refactor']"),
+        limit: z.number().int().min(1).max(10).optional().default(3)
+      }
+    },
+    async ({ description, tags, limit }) => {
+      const params = new URLSearchParams({ q: description, limit: String(limit ?? 3) });
+      if (tags && tags.length > 0) params.set("tags", tags.join(","));
+      const result = await client.get(`/api/workflows/similar?${params.toString()}`);
+      if (!result.ok || !Array.isArray(result.data)) {
+        return toToolResponse(result);
+      }
+      // Format results as readable text for the AI
+      const items = result.data as Array<{
+        taskId: string; title: string; rating: string; useCase: string | null;
+        workflowTags: string[]; outcomeNote: string | null; eventCount: number;
+        workflowContext: string;
+      }>;
+      if (items.length === 0) {
+        return { content: [{ type: "text" as const, text: "No similar past workflows found." }], structuredContent: result };
+      }
+      const text = items.map((item, i) => [
+        `--- [${i + 1}] ${item.title} (${item.rating})`,
+        item.useCase ? `Use case: ${item.useCase}` : null,
+        item.workflowTags.length > 0 ? `Tags: ${item.workflowTags.join(", ")}` : null,
+        item.outcomeNote ? `Hint: ${item.outcomeNote}` : null,
+        "",
+        item.workflowContext
+      ].filter(Boolean).join("\n")).join("\n\n");
+      return { content: [{ type: "text" as const, text }], structuredContent: result };
+    }
+  );
+
   return server;
 }
 

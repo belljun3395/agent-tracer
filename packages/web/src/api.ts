@@ -169,6 +169,30 @@ export async function purgeFinishedTasks(): Promise<{ deleted: number }> {
   return deleteJson<{ deleted: number }>("/api/tasks/finished");
 }
 
+export interface TaskEvaluationPayload {
+  rating: "good" | "skip";
+  useCase?: string;
+  workflowTags?: string[];
+  outcomeNote?: string;
+}
+
+export interface TaskEvaluationRecord {
+  taskId: string;
+  rating: "good" | "skip";
+  useCase: string | null;
+  workflowTags: string[];
+  outcomeNote: string | null;
+  evaluatedAt: string;
+}
+
+export function fetchTaskEvaluation(taskId: string): Promise<TaskEvaluationRecord | null> {
+  return getJson<TaskEvaluationRecord | null>(`/api/tasks/${taskId}/evaluate`);
+}
+
+export async function saveTaskEvaluation(taskId: string, payload: TaskEvaluationPayload): Promise<void> {
+  await postJson<{ ok: boolean }>(`/api/tasks/${taskId}/evaluate`, payload);
+}
+
 /**
  * 모니터 WebSocket 연결을 생성함.
  * 서버 이벤트 수신 시 대시보드 데이터를 갱신하는 데 사용.
