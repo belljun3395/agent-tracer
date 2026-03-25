@@ -2,7 +2,7 @@
  * @module index
  *
  * Agent Tracer MCP stdio 서버.
- * 에이전트(Claude, OpenCode, Codex)가 호출할 수 있는 21개 모니터링 도구 제공.
+ * 에이전트(Claude, OpenCode, Codex)가 호출할 수 있는 24개 모니터링 도구 제공.
  * 직접 실행 시(`node dist/index.js`) stdio MCP 서버로 시작.
  */
 
@@ -28,7 +28,8 @@ export function createMonitorMcpServer(client = new MonitorClient()): McpServer 
 
   // ─── Task Lifecycle ──────────────────────────────────────────────────────────
   // monitor_task_start, monitor_start_task, monitor_task_complete,
-  // monitor_complete_task, monitor_task_error
+  // monitor_complete_task, monitor_task_error, monitor_runtime_session_ensure,
+  // monitor_runtime_session_end
 
   server.registerTool(
     "monitor_task_start",
@@ -95,6 +96,44 @@ export function createMonitorMcpServer(client = new MonitorClient()): McpServer 
       }
     },
     async (input) => toToolResponse(await client.post("/api/task-error", input))
+  );
+
+  server.registerTool(
+    "monitor_runtime_session_ensure",
+    {
+      title: "Monitor Runtime Session Ensure",
+      description:
+        "Create or resume a runtime-scoped monitor task/session using runtimeSource + runtimeSessionId. " +
+        "Use this when the runtime can keep a stable thread/session identity across turns.",
+      inputSchema: {
+        runtimeSource: z.string(),
+        runtimeSessionId: z.string(),
+        title: z.string(),
+        workspacePath: z.string().optional(),
+        parentTaskId: z.string().optional(),
+        parentSessionId: z.string().optional()
+      }
+    },
+    async (input) => toToolResponse(await client.post("/api/runtime-session-ensure", input))
+  );
+
+  server.registerTool(
+    "monitor_runtime_session_end",
+    {
+      title: "Monitor Runtime Session End",
+      description:
+        "End a runtime-scoped monitor session. " +
+        "Use completeTask=true only when the whole work item should be completed, otherwise leave it unset to preserve the task across turns.",
+      inputSchema: {
+        runtimeSource: z.string(),
+        runtimeSessionId: z.string(),
+        summary: z.string().optional(),
+        completeTask: z.boolean().optional(),
+        completionReason: z.enum(["idle", "assistant_turn_complete", "explicit_exit", "runtime_terminated"]).optional(),
+        backgroundCompletions: z.array(z.string()).optional()
+      }
+    },
+    async (input) => toToolResponse(await client.post("/api/runtime-session-end", input))
   );
 
   // ─── Async Lifecycle ─────────────────────────────────────────────────────────
@@ -394,8 +433,8 @@ export function createMonitorMcpServer(client = new MonitorClient()): McpServer 
     async (input) => toToolResponse(await client.post("/api/agent-activity", input))
   );
 
-  // ─── Canonical User Message & Session End ────────────────────────────────────
-  // monitor_user_message, monitor_session_end
+  // ─── Canonical Conversation Events & Session End ─────────────────────────────
+  // monitor_user_message, monitor_assistant_response, monitor_session_end
 
   server.registerTool(
     "monitor_user_message",
@@ -422,6 +461,26 @@ export function createMonitorMcpServer(client = new MonitorClient()): McpServer 
       }
     },
     async (input) => toToolResponse(await client.post("/api/user-message", input))
+  );
+
+  server.registerTool(
+    "monitor_assistant_response",
+    {
+      title: "Monitor Assistant Response",
+      description:
+        "Record the assistant's user-facing response as a canonical assistant.response event. " +
+        "Call this immediately before sending the final answer when the runtime has no native response hook.",
+      inputSchema: {
+        taskId: z.string(),
+        sessionId: z.string().optional(),
+        messageId: z.string(),
+        source: z.string(),
+        title: z.string(),
+        body: z.string().optional(),
+        metadata: z.record(z.unknown()).optional()
+      }
+    },
+    async (input) => toToolResponse(await client.post("/api/assistant-response", input))
   );
 
   server.registerTool(
