@@ -15,6 +15,7 @@ export interface TaskStartInput {
   readonly taskId?: string;
   readonly title: string;
   readonly workspacePath?: string;
+  readonly runtimeSource?: string;
   readonly summary?: string;
   readonly taskKind?: "primary" | "background";
   readonly parentTaskId?: string;
