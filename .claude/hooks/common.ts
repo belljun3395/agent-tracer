@@ -68,6 +68,10 @@ export function getToolInput(event: JsonObject): JsonObject {
 }
 
 export function getSessionId(event: JsonObject): string {
+    const hookSource = toTrimmedString(event.hook_source);
+    if (hookSource && hookSource !== "claude-hook") {
+        return "";
+    }
     return toTrimmedString(event.session_id);
 }
 
