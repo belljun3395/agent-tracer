@@ -54,7 +54,6 @@ export function buildWorkflowContext(events: readonly TimelineEvent[], taskTitle
     parts.push(`\n## Modified Files\n${modifiedFiles.map(f => `- \`${f}\``).join("\n")}`);
   }
 
-  // 미완료 TODO
   const openTodos = events
     .filter(e => e.kind === "todo.logged")
     .filter(e => {
