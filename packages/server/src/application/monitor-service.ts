@@ -135,7 +135,7 @@ export class MonitorService {
     const task = await this.requireTask(input.taskId);
     const runningCount = await this.ports.sessions.countRunningByTaskId(input.taskId);
     if (!input.sessionId && runningCount > 1) throw new Error(`sessionId is required to end one of multiple running sessions for task: ${input.taskId}`);
-    const sessionId = input.sessionId ?? (await this.ports.sessions.findActiveByTaskId(input.taskId))?.id;
+    const sessionId = await this.resolveSessionId(input.taskId, input.sessionId);
     if (!sessionId) throw new Error(`No active session for task: ${input.taskId}`);
     const endedAt = new Date().toISOString();
     const sessionBefore = await this.ports.sessions.findById(sessionId);
@@ -224,7 +224,10 @@ export class MonitorService {
       if (input.completeTask === true) {
         const taskId = await this.ports.runtimeBindings.findTaskId(input.runtimeSource, input.runtimeSessionId);
         if (taskId) {
-          try { await this.completeTask({ taskId, summary: input.summary ?? "Runtime session ended" }); } catch { /* already completed */ }
+          await this.completeTaskIfIncomplete({
+            taskId,
+            summary: input.summary ?? "Runtime session ended"
+          });
           await this.ports.runtimeBindings.delete(input.runtimeSource, input.runtimeSessionId);
         }
       }
@@ -249,10 +252,18 @@ export class MonitorService {
         completionReason: input.completionReason,
         hasRunningBackgroundDescendants
       })) {
-        try { await this.completeTask({ taskId: binding.taskId, sessionId: binding.monitorSessionId, summary: input.summary ?? "Runtime session ended" }); } catch { /* already completed */ }
+        await this.completeTaskIfIncomplete({
+          taskId: binding.taskId,
+          sessionId: binding.monitorSessionId,
+          summary: input.summary ?? "Runtime session ended"
+        });
       }
     } else if (task?.taskKind === "background" && task.status === "running" && await this.ports.sessions.countRunningByTaskId(binding.taskId) === 0) {
-      try { await this.completeTask({ taskId: binding.taskId, sessionId: binding.monitorSessionId, summary: input.summary ?? "Background session completed" }); } catch { /* ignore */ }
+      await this.completeTaskIfIncomplete({
+        taskId: binding.taskId,
+        sessionId: binding.monitorSessionId,
+        summary: input.summary ?? "Background task completed"
+      });
     } else if (task && shouldMovePrimaryToWaiting({
       taskKind: task.taskKind ?? "primary",
       completeTask: input.completeTask ?? false,
@@ -310,21 +321,21 @@ export class MonitorService {
 
   async logQuestion(input: TaskQuestionInput): Promise<RecordedEventEnvelope> {
     const task = await this.requireTask(input.taskId);
-    const sessionId = input.sessionId ?? (await this.ports.sessions.findActiveByTaskId(input.taskId))?.id;
+    const sessionId = await this.resolveSessionId(input.taskId, input.sessionId);
     const event = await this.recorder.record({ taskId: input.taskId, kind: "question.logged", lane: "questions", title: input.title, ...(sessionId ? { sessionId } : {}), ...(input.body ? { body: input.body } : {}), metadata: TMF.build({ ...(input.metadata ?? {}), questionId: input.questionId, questionPhase: input.questionPhase, ...(typeof input.sequence === "number" ? { sequence: input.sequence } : {}), ...(input.modelName ? { modelName: input.modelName } : {}), ...(input.modelProvider ? { modelProvider: input.modelProvider } : {}) }, input) });
     return { task, ...(sessionId ? { sessionId } : {}), events: [{ id: event.id, kind: event.kind }] };
   }
 
   async logTodo(input: TaskTodoInput): Promise<RecordedEventEnvelope> {
     const task = await this.requireTask(input.taskId);
-    const sessionId = input.sessionId ?? (await this.ports.sessions.findActiveByTaskId(input.taskId))?.id;
+    const sessionId = await this.resolveSessionId(input.taskId, input.sessionId);
     const event = await this.recorder.record({ taskId: input.taskId, kind: "todo.logged", lane: "todos", title: input.title, ...(sessionId ? { sessionId } : {}), ...(input.body ? { body: input.body } : {}), metadata: TMF.build({ ...(input.metadata ?? {}), todoId: input.todoId, todoState: input.todoState, ...(typeof input.sequence === "number" ? { sequence: input.sequence } : {}) }, input) });
     return { task, ...(sessionId ? { sessionId } : {}), events: [{ id: event.id, kind: event.kind }] };
   }
 
   async logThought(input: TaskThoughtInput): Promise<RecordedEventEnvelope> {
     const task = await this.requireTask(input.taskId);
-    const sessionId = input.sessionId ?? (await this.ports.sessions.findActiveByTaskId(input.taskId))?.id;
+    const sessionId = await this.resolveSessionId(input.taskId, input.sessionId);
     const event = await this.recorder.record({ taskId: input.taskId, kind: "thought.logged", lane: "planning", title: input.title, ...(sessionId ? { sessionId } : {}), ...(input.body ? { body: input.body } : {}), metadata: TMF.build({ ...(input.metadata ?? {}), ...(input.modelName ? { modelName: input.modelName } : {}), ...(input.modelProvider ? { modelProvider: input.modelProvider } : {}) }, input) });
     return { task, ...(sessionId ? { sessionId } : {}), events: [{ id: event.id, kind: event.kind }] };
   }
@@ -445,6 +456,20 @@ export class MonitorService {
     this.ports.notifier.publish({ type: "task.updated", payload: task });
     return task;
   }
+  private async completeTaskIfIncomplete(input: TaskCompletionInput): Promise<void> {
+    const task = await this.ports.tasks.findById(input.taskId);
+    if (!task || task.status === "completed" || task.status === "errored") {
+      return;
+    }
+
+    await this.completeTask(input);
+  }
+  private async resolveSessionId(taskId: string, sessionId?: string): Promise<string | undefined> {
+    if (sessionId) {
+      return sessionId;
+    }
+    return (await this.ports.sessions.findActiveByTaskId(taskId))?.id;
+  }
   private async hasRunningBackgroundDescendants(taskId: string): Promise<boolean> {
     const stack = [taskId];
     while (stack.length > 0) {
@@ -468,13 +493,13 @@ export class MonitorService {
     }
   }
   private async withSession(input: { taskId: string; sessionId?: string }, buildEvent: (sessionId: string | undefined) => GenericEventInput): Promise<RecordedEventEnvelope> {
-    const sessionId = input.sessionId ?? (await this.ports.sessions.findActiveByTaskId(input.taskId))?.id;
+    const sessionId = await this.resolveSessionId(input.taskId, input.sessionId);
     return this.recordWithDerivedFiles(buildEvent(sessionId));
   }
   private async finishTask(input: TaskCompletionInput, status: "completed" | "errored", kind: MonitoringEventKind, body?: string): Promise<RecordedEventEnvelope> {
     const task = await this.requireTask(input.taskId);
     const endedAt = new Date().toISOString();
-    const sessionId = input.sessionId ?? (await this.ports.sessions.findActiveByTaskId(input.taskId))?.id;
+    const sessionId = await this.resolveSessionId(input.taskId, input.sessionId);
     if (sessionId) {
       const sOld = await this.ports.sessions.findById(sessionId);
       await this.ports.sessions.updateStatus(sessionId, status, endedAt, input.summary);
