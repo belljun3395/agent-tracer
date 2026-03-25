@@ -1,21 +1,51 @@
 # Testing & Development
 
-개발 기본 루틴과 품질 게이트를 정리한 페이지다.
+이 문서는 Agent Tracer를 수정할 때 가장 자주 쓰는 명령과,
+어떤 종류의 테스트가 어디에 있는지 정리한 개발용 시작점이다.
 
-## 자주 쓰는 명령
+## 루트 명령
 
 ```bash
-npm test
-npm run lint
 npm run build
+npm run lint
+npm test
 npm run dev
 ```
 
-## 현재 상태 요약
+## 패키지별 명령
 
-- 테스트 통과
-- 빌드 통과
-- 현재 워킹 트리 기준 린트 실패 2건
+- `@monitor/core`: `npm run test --workspace @monitor/core`
+- `@monitor/server`: `npm run test --workspace @monitor/server`
+- `@monitor/mcp`: `npm run test --workspace @monitor/mcp`
+- `@monitor/web`: `npm run test --workspace @monitor/web`
+
+## 자주 쓰는 개발 루프
+
+### 로컬 앱 개발
+
+```bash
+npm run dev
+```
+
+### 서버만 보기
+
+```bash
+npm run dev:server
+```
+
+### 특정 패키지 빌드 확인
+
+```bash
+npm run build --workspace @monitor/server
+npm run build --workspace @monitor/web
+```
+
+## 코드 수정 시 체크포인트
+
+- core contract를 바꿨으면 web/types import와 server schema를 같이 확인
+- runtime adapter를 바꿨으면 guide 문서와 capability registry를 같이 갱신
+- workflow library를 바꿨으면 evaluation route, repository, web panel을 같이 확인
+- 스킬을 바꿨으면 `npm run sync:skills`도 필요할 수 있다
 
 ## 관련 문서
 

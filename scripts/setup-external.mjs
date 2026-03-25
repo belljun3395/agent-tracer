@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { execFileSync } from "node:child_process";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
@@ -7,8 +8,27 @@ const SKILL_PROJECTION_BANNER = "<!-- GENERATED FILE: edit skills/... source, th
 const CODEX_AGENTS_BEGIN = "<!-- BEGIN agent-tracer codex-monitor -->";
 const CODEX_AGENTS_END = "<!-- END agent-tracer codex-monitor -->";
 const DEFAULT_SOURCE_REPO = process.env.AGENT_TRACER_SOURCE_REPO || "belljun3395/agent-tracer";
-const DEFAULT_SOURCE_REF = process.env.AGENT_TRACER_SOURCE_REF || "main";
 const VENDOR_DIR = ".agent-tracer";
+
+function resolveDefaultSourceRef() {
+  const explicitRef = String(process.env.AGENT_TRACER_SOURCE_REF || "").trim();
+  if (explicitRef) return explicitRef;
+
+  try {
+    const gitHead = execFileSync("git", ["rev-parse", "HEAD"], {
+      cwd: process.cwd(),
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"]
+    }).trim();
+    if (gitHead) return gitHead;
+  } catch {
+    // Fall through to the branch-based default below.
+  }
+
+  return "main";
+}
+
+const DEFAULT_SOURCE_REF = resolveDefaultSourceRef();
 
 function parseArgs(argv) {
   const args = {
@@ -350,6 +370,9 @@ function printHelp() {
       "  npm run setup:external -- --target ../my-app --mode opencode",
       "  npm run setup:external -- --target ../my-app --mode claude --source-ref main",
       "  npm run setup:external -- --target ../my-app --mode codex",
+      "",
+      "Default source ref: AGENT_TRACER_SOURCE_REF, otherwise current git HEAD when available, otherwise main.",
+      "Use --source-root to vendor from a local checkout without remote fetching.",
       ""
     ].join("\n")
   );

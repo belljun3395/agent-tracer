@@ -94,12 +94,13 @@ lib/
 작은 규모에서는 안전하지만, 이벤트 수가 많아질수록 네트워크 비용과 렌더 부하가 커진다.
 서버가 이미 notification payload를 보내고 있으므로 점진 갱신으로 옮길 여지가 크다.
 
-### 공통 타입이 `@monitor/core`와 분리돼 있다
+### 공통 타입은 최근 `@monitor/core`로 다시 수렴했지만, read-model 경계는 여전히 남아 있다
 
 - `packages/web/src/types.ts`
 
-서버와 코어 계약이 커질수록 drift 위험이 커진다.
-가능하면 공통 타입은 core에서 직접 import하고, 웹 전용 view-model만 별도 두는 편이 낫다.
+최근 코드에서 주요 타입은 `@monitor/core`에서 직접 import하도록 정리됐다.
+이건 분명한 개선이지만, search hit나 UI 전용 view-model은 여전히 별도 shape를 가지므로
+경계를 더 명확히 유지할 필요는 있다.
 
 ### raw metadata 해석이 UI 전반에 퍼져 있다
 
@@ -131,13 +132,12 @@ lib/
 
 ## 추천 리팩터링 순서
 
-1. `types.ts` 정리와 shared contract 재수렴
-2. evaluation fetch 중복 제거와 empty-id 방지
-3. `insights.ts` 분해
-4. `EventInspector` 탭별 분할
-5. `Timeline`의 minimap / layout / filter control 분리
-6. `App`의 레이아웃 상태와 실시간 갱신 훅 분리
-7. notification payload 기반 점진 갱신 도입
+1. `insights.ts` 분해
+2. `EventInspector` 탭별 분할
+3. `Timeline`의 minimap / layout / filter control 분리
+4. `App`의 레이아웃 상태와 실시간 갱신 훅 분리
+5. notification payload 기반 점진 갱신 도입
+6. workflow library 패널과 search/evaluation 흐름의 상태 경계 정리
 
 ## 먼저 읽어야 할 파일
 

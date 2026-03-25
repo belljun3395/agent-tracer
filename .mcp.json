@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "agent-tracer": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["packages/mcp/dist/index.js"],
+      "env": {
+        "MONITOR_BASE_URL": "http://127.0.0.1:3847"
+      }
+    }
+  }
+}

@@ -17,16 +17,17 @@
 
 | API | 역할 | Claude Code | OpenCode | 신규 런타임 추가 시 |
 |-----|------|-------------|----------|---------------------|
-| `/api/runtime-session-ensure` | 세션 upsert (없으면 생성, 있으면 조회) | 모든 훅 공통 첫 호출 | ❌ | 훅마다 첫 진입점으로 호출 권장 |
-| `/api/task-start` | 태스크/세션 명시적 생성 | ❌ | 첫 `chat.message` 또는 `tool.execute.after` | 세션 ID 기반 직접 생성이 필요하면 사용 |
-| `/api/runtime-session-end` | 런타임 세션 종료 | `SessionEnd` (reason≠clear) | ❌ | 프로세스 종료 이벤트에 연결 |
-| `/api/session-end` | 태스크 레벨 세션 종료 | ❌ | `session.idle`(suspend), `session.deleted`(complete), exit 명령 | 세션 일시중지/완료 구분이 필요하면 사용 |
-| `/api/task-complete` | 태스크 완전 완료 처리 | ❌ | `session.deleted` (primary 세션) | 태스크 완료를 별도 이벤트로 처리할 때 사용 |
+| `/api/runtime-session-ensure` | 세션 upsert (없으면 생성, 있으면 조회) | `SessionStart`, `UserPromptSubmit`, `PreToolUse` | ❌ | 훅/수동 MCP의 첫 진입점으로 사용 |
+| `/api/task-start` | 태스크/세션 명시적 생성 | ❌ | `session.created` | 세션 ID 기반 task row를 직접 만들어야 할 때 사용 |
+| `/api/runtime-session-end` | 런타임 세션 종료 | `SessionEnd` (reason≠clear) | ❌ | 프로세스 종료나 turn 종료와 분리해 처리 |
+| `/api/session-end` | 태스크 레벨 세션 종료 | ❌ | `session.idle`(suspend), exit 명령 | resumable 세션을 닫되 task는 유지할 때 사용 |
+| `/api/task-complete` | 태스크 완전 완료 처리 | `Stop` | `session.deleted` (primary 세션) | work item 종료를 별도 이벤트로 처리할 때 사용 |
+| `/api/assistant-response` | assistant turn 결과 기록 | `Stop` | `message.updated` / `message.part.*` | assistant 최종 텍스트가 있으면 함께 기록 권장 |
 
 세션 초기화 방식의 차이:
 
 - **Claude Code** — `runtime-session-ensure`로 모든 훅에서 세션을 자동 upsert. 응답의 `taskId`/`sessionId`를 이후 요청에 사용.
-- **OpenCode** — `task-start`를 명시적으로 호출하고 응답의 `task.id`를 이후 모든 요청에 전달. 세션 상태를 플러그인 메모리(`sessionStates` Map)에서 직접 관리.
+- **OpenCode** — plugin이 `session.created`를 기준으로 task-start를 호출하고, 응답의 `task.id`를 이후 모든 요청에 전달한다. `chat.message`와 `tool.execute.after`는 같은 task의 후속 이벤트를 기록하는 경로다. 세션 상태는 플러그인 메모리(`sessionStates` Map)에서 직접 관리한다.
 
 ---
 
@@ -75,7 +76,7 @@
 
 | API | 역할 | Claude Code | OpenCode | 신규 런타임 추가 시 |
 |-----|------|-------------|----------|---------------------|
-| `/api/agent-activity` | 에이전트 위임/스킬 호출 기록 | `PostToolUse(Agent\|Skill)` | `tool.execute.after` — agent/skill/dispatch 계열 | 서브에이전트 지원 시 구현 |
+| `/api/agent-activity` | 에이전트 위임/스킬 호출 기록 | `PostToolUse(Agent\|Skill)` | `tool.execute.after` + typed `event` callback | 서브에이전트 지원 시 구현 |
 | `/api/async-task` | 백그라운드 태스크 상태 (running/completed/failed) | `SubagentStart`/`SubagentStop`, `Agent` + `run_in_background=true` | 백그라운드 링크 확정 시(`running`), `finalizeSession` 종료 시(`completed`/`failed`) | 백그라운드 실행 지원 시 구현 |
 | `/api/task-link` | parent-child 태스크 연결 | `Agent` + `run_in_background=true` + child session id 추출 | `tool.execute.before` 예비 수집 → `tool.execute.after` 확정, `finalizeSession` retry | 서브에이전트가 별도 세션을 가지면 구현 |
 
@@ -94,7 +95,8 @@
 | `/api/task-start` | ❌ | ✅ |
 | `/api/runtime-session-end` | ✅ | ❌ |
 | `/api/session-end` | ❌ | ✅ |
-| `/api/task-complete` | ❌ | ✅ |
+| `/api/task-complete` | ✅ (`Stop`) | ✅ |
+| `/api/assistant-response` | ✅ (`Stop`) | ✅ |
 | `/api/user-message` | ✅ | ✅ |
 | `/api/save-context` | ✅ | ❌ |
 | `/api/question` | ❌ | ✅ |
@@ -120,7 +122,7 @@
 ```
 1. 세션 초기화
    - hook 방식이면: /api/runtime-session-ensure (모든 훅 공통 첫 호출)
-   - plugin 방식이면: /api/task-start (첫 이벤트에서 명시적 생성)
+   - plugin 방식이면: /api/task-start (첫 session.created 또는 첫 유효 이벤트에서 생성)
 
 2. 사용자 입력 캡처
    - /api/user-message (UserPromptSubmit 상당 이벤트)
@@ -130,7 +132,7 @@
    - /api/explore    (탐색 도구)
 
 4. 세션 종료
-   - /api/runtime-session-end 또는 /api/session-end + /api/task-complete
+   - /api/assistant-response + /api/runtime-session-end 또는 /api/session-end + /api/task-complete
 
 ── 여기까지가 최소 동작 ──
 

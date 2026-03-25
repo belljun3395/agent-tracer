@@ -57,11 +57,11 @@ flowchart LR
 
 ## 현재 구조에서 보이는 주의점
 
-### 1. 계약은 중앙화됐지만 일부 소비자는 다시 복제하고 있다
+### 1. 계약은 중앙화됐고, 최근 웹도 그 방향으로 더 수렴했다
 
-- `packages/core/src/domain.ts`가 핵심 계약을 제공하지만,
-  웹은 `packages/web/src/types.ts`에서 상당 부분을 다시 정의한다.
-- 이 구조는 새 필드 추가 시 서버와 웹이 조용히 어긋날 가능성을 만든다.
+- `packages/core/src/domain.ts`가 핵심 계약을 제공하고,
+  웹도 이제 `packages/web/src/types.ts`에서 주요 타입을 `@monitor/core`에서 직접 재export한다.
+- 완전히 해결된 것은 아니지만, 예전보다 서버와 웹의 조용한 drift 가능성은 줄었다.
 
 ### 2. "기능 확장"은 빠르지만 "구조 분해"는 아직 덜 됐다
 
@@ -88,8 +88,8 @@ flowchart LR
 
 ## 구조 개선 우선순위
 
-1. 공통 타입을 `@monitor/core`로 다시 수렴
-2. 서버 use case를 lifecycle / event logging / bookmarks / evaluation으로 분리
-3. 웹의 거대 컴포넌트와 계산 유틸을 feature 단위로 분해
-4. WebSocket payload를 활용한 점진 갱신으로 재조회 비용 축소
+1. 서버 use case를 lifecycle / event logging / bookmarks / evaluation으로 분리
+2. 웹의 거대 컴포넌트와 계산 유틸을 feature 단위로 분해
+3. WebSocket payload를 활용한 점진 갱신으로 재조회 비용 축소
+4. workflow library와 evaluation read path의 read-model 비용 절감
 5. 코드 이해 문서를 계속 업데이트하는 운영 루틴 정착

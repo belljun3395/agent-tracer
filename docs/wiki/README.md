@@ -1,23 +1,25 @@
 # Agent Tracer Wiki
 
-이 폴더는 설치 가이드가 아니라 "코드베이스를 이해하기 위한 문서"를 모아 둔 위키다.
-기존 `docs/guide`가 외부 프로젝트 연결과 런타임 설정에 초점을 둔다면,
-여기는 저장소 구조, 이벤트 모델, 패키지 경계, 유지보수 리스크를 빠르게 파악하는 데 초점을 둔다.
+이 폴더는 설치 가이드가 아니라, Agent Tracer 코드베이스를 유지보수자 관점에서 빠르게
+이해하기 위한 위키다. `docs/guide`가 "외부 프로젝트에 어떻게 붙이는가"를 설명한다면,
+여기는 "이 저장소 안에서 무엇이 어디에 있고 어떤 책임을 가지는가"를 설명한다.
 
-이번 정리는 공개된 DeepWiki의 섹션 구조를 참고해, 로컬에서도 비슷한 정보 구조로 탐색할 수 있게 재편한 것이다.
-차이는 하나 있다. DeepWiki가 코드 스냅샷 중심이라면, 여기 문서는 maintainer 관점에서
-"현재 실제 활성 경로"와 "정리해야 할 legacy"를 같이 적는다.
+이번 정리는 공개된 DeepWiki의 정보 구조를 기준으로 다시 맞췄다. 다만 그대로 복제하지 않고,
+현재 코드 경로와 유지보수 포인트, legacy 흔적, 확장 시 주의점까지 로컬 관점에서 덧붙였다.
 
-## Quick Start
+## 읽는 순서
+
+처음 따라갈 때는 아래 순서가 가장 빠르다.
 
 1. [Agent Tracer Overview](./agent-tracer-overview.md)
 2. [Getting Started & Installation](./getting-started-and-installation.md)
 3. [Architecture & Package Map](./architecture-and-package-map.md)
-4. [Monitor Server](./monitor-server.md)
-5. [Web Dashboard](./web-dashboard.md)
+4. [Core Domain & Event Model](./core-domain-and-event-model.md)
+5. [Monitor Server](./monitor-server.md)
 6. [Runtime Adapters & Integration](./runtime-adapters-and-integration.md)
-7. [Workflow Library & Evaluation](./workflow-library-and-evaluation.md)
-8. [Testing & Development](./testing-and-development.md)
+7. [Web Dashboard](./web-dashboard.md)
+8. [Workflow Library & Evaluation](./workflow-library-and-evaluation.md)
+9. [Testing & Development](./testing-and-development.md)
 
 ## DeepWiki-Aligned Map
 
@@ -77,9 +79,10 @@
 - [Web & Core Tests](./web-and-core-tests.md)
 - [Glossary](./glossary.md)
 
-## Maintainer Notes
+## Deep Dives
 
-아래 문서는 DeepWiki 정렬본과 별개로, 유지보수 관점의 보강 문서다.
+아래 문서는 위 목록을 보강하는 maintainer용 확장 문서다. 특정 영역의 부채나 설계
+리뷰까지 같이 보고 싶을 때 읽는다.
 
 - [System Overview](./system-overview.md)
 - [Backend Server](./backend-server.md)
@@ -90,9 +93,17 @@
 
 ## 패키지 지도
 
-| Package | 역할 | 현재 상태 |
+| Package | 역할 | 지금 읽어야 할 파일 |
 | --- | --- | --- |
-| `packages/core` | 공통 도메인 타입, 이벤트 분류, 런타임 capability | 계약의 중심축 역할이 분명하다. |
-| `packages/server` | Express + SQLite + WebSocket + application service | 레이어링은 좋지만 `MonitorService`와 일부 인프라가 비대하다. |
-| `packages/mcp` | monitor-server MCP stdio 어댑터 | 기능은 명확하지만 등록 코드가 반복적이다. |
-| `packages/web` | React 19 대시보드 | 기능은 풍부하지만 UI/상태/도메인 계산이 몇몇 거대 파일에 집중되어 있다. |
+| `packages/core` | 공통 도메인 타입, 이벤트 분류, 런타임 capability registry | `src/domain.ts`, `src/classifier.ts`, `src/runtime-capabilities.ts` |
+| `packages/server` | Express API, SQLite repository, runtime session 관리, WebSocket broadcast | `src/bootstrap/create-monitor-runtime.ts`, `src/application/monitor-service.ts` |
+| `packages/mcp` | monitor-server HTTP API를 MCP tool surface로 노출 | `src/index.ts`, `src/client.ts` |
+| `packages/web` | React 19 기반 실시간 대시보드와 워크플로우 라이브러리 UI | `src/App.tsx`, `src/store/useMonitorStore.tsx`, `src/components/Timeline.tsx` |
+
+## 이 위키를 업데이트할 때의 기준
+
+- 문서는 실제 코드 경로를 기준으로 적는다. 삭제 대상 legacy는 "현재 경로"와 분리해서 표시한다.
+- 한 페이지만 읽어도 책임, 주요 파일, 핵심 흐름, 관련 문서를 알 수 있게 유지한다.
+- `docs/guide`와 중복될 때는 설정 절차보다 코드 구조를 우선 설명하고, 실행 방법은 가이드로 링크한다.
+- 런타임 동작처럼 시간이 지나며 바뀌기 쉬운 내용은 `packages/core/src/runtime-capabilities.ts`와
+  `docs/guide/*-setup.md`를 먼저 확인한 뒤 반영한다.
