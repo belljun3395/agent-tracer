@@ -4,11 +4,11 @@
  * 이벤트 삽입·파일 derived 이벤트 생성 서비스.
  */
 
-import {
-  classifyEvent,
-  type MonitoringEventKind,
-  type TimelineEvent,
-  type TimelineLane
+import { classifyEvent } from "@monitor/core";
+import type {
+  MonitoringEventKind,
+  TimelineEvent,
+  TimelineLane
 } from "@monitor/core";
 
 import type { IEventRepository } from "../ports/event-repository.js";
@@ -76,9 +76,6 @@ export class EventRecorder {
       ...input,
       ...(filePaths.length > 0 ? { filePaths } : {})
     });
-    // exploration/background 레인은 tool.used 이벤트로 충분히 표현되므로 file.changed 파생 이벤트를 생성하지 않는다.
-    // exploration: 탐색 도구(Read/Glob/Grep)는 tool.used 하나로 표현. file.changed가 추가되면 레인이 노이즈로 가득 참.
-    // background: 배경 세션의 파일 접근은 background 레인에 이미 기록됨. exploration에 file.changed 누수를 방지.
     if (primaryEvent.lane === "exploration" || primaryEvent.lane === "background") {
       return {
         ...(input.sessionId ? { sessionId: input.sessionId } : {}),
