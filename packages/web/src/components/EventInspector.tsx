@@ -44,6 +44,7 @@ import { Badge } from "./ui/Badge.js";
 import { Button } from "./ui/Button.js";
 import { PanelCard } from "./ui/PanelCard.js";
 import { TaskHandoffPanel } from "./TaskHandoffPanel.js";
+import { TaskEvaluatePanel } from "./TaskEvaluatePanel.js";
 import type {
   BookmarkRecord,
   TaskDetailResponse,
@@ -1754,6 +1755,9 @@ export function EventInspector({
                 openQuestions={handoffOpenQuestions}
                 violations={handoffViolations}
               />
+            )}
+            {taskDetail?.task.id && (
+              <TaskEvaluatePanel taskId={taskDetail.task.id} />
             )}
           </div>
 

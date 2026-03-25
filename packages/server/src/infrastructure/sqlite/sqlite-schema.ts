@@ -77,5 +77,17 @@ export function createSchema(db: Database.Database): void {
 
     create index if not exists idx_bookmarks_event
       on bookmarks(event_id);
+
+    create table if not exists task_evaluations (
+      task_id       text primary key references monitoring_tasks(id) on delete cascade,
+      rating        text not null check(rating in ('good', 'skip')),
+      use_case      text,
+      workflow_tags text,
+      outcome_note  text,
+      evaluated_at  text not null
+    );
+
+    create index if not exists idx_task_evaluations_rating
+      on task_evaluations(rating);
   `);
 }
