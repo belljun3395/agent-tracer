@@ -71,6 +71,7 @@ interface SessionState {
   seenMessageIds: Set<string>;
   seenCompletionMessageIds: Set<string>;
   seenToolCallIds: Set<string>;
+  assistantResponsePartsByMessageId: Map<string, string[]>;
   todoStateById: Map<string, "added" | "in_progress" | "completed" | "cancelled">;
 }
 
@@ -1159,7 +1160,7 @@ function toTodoId(todo: Record<string, unknown>): string {
   return `${content}::${priority}`;
 }
 
-function extractTextFromParts(parts: readonly unknown[]): string {
+function extractTextFromParts(parts: readonly unknown[], separator: "\n" | " " = "\n"): string {
   return parts
     .map((part) => {
       if (!part || typeof part !== "object") return "";
@@ -1169,8 +1170,135 @@ function extractTextFromParts(parts: readonly unknown[]): string {
       if (type === "input_text" && typeof record.content === "string") return record.content;
       return "";
     })
-    .join("\n")
+    .join(separator)
     .trim();
+}
+
+function extractAssistantResponseTextFromMessageUpdatedProperties(properties: Record<string, unknown>): string {
+  const info = asObject(properties.info);
+
+  const candidatePartLists: readonly unknown[][] = [
+    Array.isArray(properties.parts) ? properties.parts : [],
+    Array.isArray(info.parts) ? info.parts : []
+  ];
+
+  for (const candidateParts of candidatePartLists) {
+    const text = extractTextFromParts(candidateParts);
+    if (text) {
+      return text;
+    }
+  }
+
+  const candidateContents: readonly unknown[] = [
+    info.content,
+    info.text,
+    properties.content,
+    properties.text
+  ];
+
+  for (const candidate of candidateContents) {
+    if (typeof candidate === "string") {
+      const normalized = candidate.trim();
+      if (normalized) {
+        return normalized;
+      }
+      continue;
+    }
+
+    if (!Array.isArray(candidate)) {
+      continue;
+    }
+
+    const text = extractTextFromParts(candidate);
+    if (text) {
+      return text;
+    }
+  }
+
+  return "";
+}
+
+function extractMessageIdentityFromProperties(properties: Record<string, unknown>): {
+  readonly messageId?: string;
+  readonly sessionId?: string;
+  readonly role?: string;
+} {
+  const info = asObject(properties.info);
+  const message = asObject(properties.message);
+
+  const messageId = toNonEmptyString(info.id)
+    ?? toNonEmptyString(properties.messageID)
+    ?? toNonEmptyString(properties.messageId)
+    ?? toNonEmptyString(message.id);
+  const sessionId = toNonEmptyString(info.sessionID)
+    ?? toNonEmptyString(properties.sessionID)
+    ?? toNonEmptyString(properties.sessionId)
+    ?? toNonEmptyString(asObject(properties.session).id)
+    ?? toNonEmptyString(message.sessionID)
+    ?? toNonEmptyString(message.sessionId);
+  const role = toNonEmptyString(info.role)
+    ?? toNonEmptyString(properties.role)
+    ?? toNonEmptyString(message.role);
+
+  return {
+    ...(messageId ? { messageId } : {}),
+    ...(sessionId ? { sessionId } : {}),
+    ...(role ? { role } : {})
+  };
+}
+
+function extractAssistantResponseTextFromPartEventProperties(properties: Record<string, unknown>): string {
+  const info = asObject(properties.info);
+
+  const directCandidates: readonly unknown[] = [
+    properties.delta,
+    properties.text,
+    info.delta,
+    info.text,
+    info.content,
+    asObject(properties.part).text,
+    asObject(info.part).text
+  ];
+
+  for (const candidate of directCandidates) {
+    if (typeof candidate !== "string") continue;
+    const normalized = candidate.trim();
+    if (normalized) return normalized;
+  }
+
+  const partCandidates: readonly unknown[][] = [
+    Array.isArray(properties.parts) ? properties.parts : [],
+    Array.isArray(info.parts) ? info.parts : [],
+    properties.part ? [properties.part] : [],
+    info.part ? [info.part] : []
+  ];
+
+  for (const parts of partCandidates) {
+    const text = extractTextFromParts(parts);
+    if (text) return text;
+  }
+
+  return "";
+}
+
+function appendAssistantResponsePart(state: SessionState, messageId: string, text: string): void {
+  const normalized = text.trim();
+  if (!normalized) return;
+
+  const existing = state.assistantResponsePartsByMessageId.get(messageId) ?? [];
+  const last = existing.at(-1);
+  if (last === normalized) {
+    state.assistantResponsePartsByMessageId.set(messageId, existing);
+    return;
+  }
+
+  state.assistantResponsePartsByMessageId.set(messageId, [...existing, normalized]);
+}
+
+function consumeAssistantResponseParts(state: SessionState, messageId: string): string {
+  const parts = state.assistantResponsePartsByMessageId.get(messageId) ?? [];
+  state.assistantResponsePartsByMessageId.delete(messageId);
+  return parts.join("\n").trim();
 }
 
 function ellipsize(value: string, maxLength: number): string {
@@ -1360,10 +1488,14 @@ export function createMonitorHooks(workspacePath: string): Hooks {
         // Late-backfill cases start as false until /api/task-link succeeds.
         backgroundLinkConfirmed: backgroundLink !== undefined,
         messageCount: suspendedState?.messageCount ?? 0,
-        seenMessageIds: new Set(suspendedState?.seenMessageIds ?? []),
-        seenCompletionMessageIds: new Set(suspendedState?.seenCompletionMessageIds ?? []),
-        seenToolCallIds: new Set(suspendedState?.seenToolCallIds ?? []),
-        todoStateById: new Map(suspendedState?.todoStateById ?? []),
+          seenMessageIds: new Set(suspendedState?.seenMessageIds ?? []),
+          seenCompletionMessageIds: new Set(suspendedState?.seenCompletionMessageIds ?? []),
+          seenToolCallIds: new Set(suspendedState?.seenToolCallIds ?? []),
+          assistantResponsePartsByMessageId: new Map(
+            [...(suspendedState?.assistantResponsePartsByMessageId ?? new Map<string, string[]>()).entries()]
+              .map(([messageId, parts]) => [messageId, [...parts]])
+          ),
+          todoStateById: new Map(suspendedState?.todoStateById ?? []),
         ...(backgroundLink?.parentTaskId ? { parentTaskId: backgroundLink.parentTaskId } : {}),
         ...(backgroundLink?.parentSessionId ? { parentSessionId: backgroundLink.parentSessionId } : {}),
         ...(backgroundLink?.backgroundTaskId ? { backgroundTaskId: backgroundLink.backgroundTaskId } : {}),
@@ -1648,7 +1780,7 @@ export function createMonitorHooks(workspacePath: string): Hooks {
       }
 
       // Extract text from TextPart items
-      const text = extractTextFromParts(output.parts);
+      const text = extractTextFromParts(output.parts, " ");
 
       if (!text) return;
 
@@ -1739,29 +1871,31 @@ export function createMonitorHooks(workspacePath: string): Hooks {
 
         // Emit assistant.response (non-fatal — failure must not block finalizeSession)
         const properties = asObject(event.properties);
-        const rawParts = Array.isArray(properties.parts) ? properties.parts : [];
-        const responseText = extractTextFromParts(rawParts);
+        const responseTextFromMessageUpdated = extractAssistantResponseTextFromMessageUpdatedProperties(properties);
+        const bufferedResponseText = consumeAssistantResponseParts(state, completion.messageId);
+        const responseText = responseTextFromMessageUpdated || bufferedResponseText;
         const stopReason = completion.finish ?? "stop";
-        const responseTitle = responseText ? ellipsize(responseText, 120) : `Response (${stopReason})`;
         try {
           const info = asObject(properties.info);
           const tokens = asObject(info.tokens);
           const cacheTokens = asObject(tokens.cache);
-          await post("/api/assistant-response", {
-            taskId: state.taskId,
-            ...(state.monitorSessionId ? { sessionId: state.monitorSessionId } : {}),
-            messageId: completion.messageId,
-            source: "opencode-plugin",
-            title: responseTitle,
-            ...(responseText ? { body: responseText } : {}),
-            metadata: {
-              stopReason,
-              ...(typeof tokens.input === "number"        ? { inputTokens:      tokens.input }              : {}),
-              ...(typeof tokens.output === "number"       ? { outputTokens:     tokens.output }             : {}),
-              ...(typeof cacheTokens.read === "number"    ? { cacheReadTokens:  cacheTokens.read }          : {}),
-              ...(typeof cacheTokens.write === "number"   ? { cacheWriteTokens: cacheTokens.write }         : {})
-            }
-          });
+          if (responseText) {
+            await post("/api/assistant-response", {
+              taskId: state.taskId,
+              ...(state.monitorSessionId ? { sessionId: state.monitorSessionId } : {}),
+              messageId: completion.messageId,
+              source: "opencode-plugin",
+              title: ellipsize(responseText, 120),
+              body: responseText,
+              metadata: {
+                stopReason,
+                ...(typeof tokens.input === "number"        ? { inputTokens:      tokens.input }              : {}),
+                ...(typeof tokens.output === "number"       ? { outputTokens:     tokens.output }             : {}),
+                ...(typeof cacheTokens.read === "number"    ? { cacheReadTokens:  cacheTokens.read }          : {}),
+                ...(typeof cacheTokens.write === "number"   ? { cacheWriteTokens: cacheTokens.write }         : {})
+              }
+            });
+          }
         } catch (err: unknown) {
           pluginLog("message.updated", "assistant-response post failed (non-fatal)", { error: String(err) });
         }
@@ -1788,6 +1922,25 @@ export function createMonitorHooks(workspacePath: string): Hooks {
         } finally {
           finalizingSessionIds.delete(completion.sessionId);
         }
+        return;
+      }
+
+      const eventType = String(event.type);
+      if (eventType === "message.part.updated" || eventType === "message.part.delta") {
+        const properties = asObject(event.properties);
+        const identity = extractMessageIdentityFromProperties(properties);
+        if (!identity.sessionId || !identity.messageId) return;
+        if (identity.role && identity.role !== "assistant") return;
+        if (endedSessionIds.has(identity.sessionId)) return;
+
+        const state = sessionStates.get(identity.sessionId)
+          ?? await pendingSessionStarts.get(identity.sessionId)
+          ?? undefined;
+        if (!state) return;
+
+        const responseText = extractAssistantResponseTextFromPartEventProperties(properties);
+        if (!responseText) return;
+        appendAssistantResponsePart(state, identity.messageId, responseText);
         return;
       }
 
