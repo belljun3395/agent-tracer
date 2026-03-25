@@ -71,7 +71,7 @@ curl -sf http://127.0.0.1:3847/api/overview
 
 1. `README.md`
 2. `packages/server/src/bootstrap/create-monitor-runtime.ts`
-3. `packages/core/src/domain.ts`
+3. `packages/core/src/domain.ts` (barrel, 내부적으로 `packages/core/src/domain/*`)
 4. `packages/mcp/src/index.ts`
 5. `packages/web/src/App.tsx`
 

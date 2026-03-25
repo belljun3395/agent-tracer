@@ -1,23 +1,11 @@
 import type {
   EventClassification,
-  EventClassificationMatch,
-  MonitoringEventKind,
-  TimelineLane
-} from "./domain.js";
+  EventClassificationMatch
+} from "./domain/types.js";
+import type { ClassifyEventInput } from "./classifier.types.js";
 import { classifyActionName } from "./action-registry.js";
-import { defaultLaneForEventKind } from "./domain.js";
-
-/** classifyEvent()에 전달하는 이벤트 분류 입력 데이터. */
-export interface ClassifyEventInput {
-  readonly kind: MonitoringEventKind;
-  readonly title?: string;
-  readonly body?: string;
-  readonly command?: string;
-  readonly toolName?: string;
-  readonly actionName?: string;
-  readonly filePaths?: readonly string[];
-  readonly lane?: TimelineLane;
-}
+import { defaultLaneForEventKind } from "./domain/utils.js";
+import { getCanonicalLane } from "./classifier.helpers.js";
 
 /**
  * 이벤트를 분류하여 레인, 태그, 매치 목록을 포함한 EventClassification을 반환.
@@ -39,11 +27,4 @@ export function classifyEvent(
   };
 }
 
-function getCanonicalLane(kind: MonitoringEventKind): TimelineLane | undefined {
-  if (kind === "user.message" || kind === "task.start" || kind === "task.complete" || kind === "task.error") {
-    return defaultLaneForEventKind(kind);
-  }
-
-  return undefined;
-}
-
+export type { ClassifyEventInput } from "./classifier.types.js";

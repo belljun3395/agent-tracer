@@ -69,7 +69,7 @@ assistant response 같은 개별 관측 단위다. 모두 lane, metadata, classi
 ## 먼저 읽을 파일
 
 - `README.md`
-- `packages/core/src/domain.ts`
+- `packages/core/src/domain.ts`(barrel)
 - `packages/server/src/bootstrap/create-monitor-runtime.ts`
 - `packages/server/src/application/monitor-service.ts`
 - `packages/mcp/src/index.ts`

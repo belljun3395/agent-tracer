@@ -5,7 +5,10 @@ Agent Tracer의 강점 중 하나는 특정 런타임 하나에 묶이지 않는
 
 ## 핵심 파일
 
-- `packages/core/src/domain.ts`
+- `packages/core/src/domain.ts`(barrel)
+- `packages/core/src/runtime-capabilities.constants.ts`
+- `packages/core/src/runtime-capabilities.types.ts`
+- `packages/core/src/runtime-capabilities.helpers.ts`
 - `packages/core/src/classifier.ts`
 - `packages/core/src/runtime-capabilities.ts`
 - `packages/mcp/src/index.ts`
