@@ -24,6 +24,7 @@ npm run dev:server
 그 다음 외부 설치 허브 문서로 이동하세요:
 
 - 외부 설치 허브: [docs/guide/external-setup.md](docs/guide/external-setup.md)
+- 배포된 최신 가이드: https://belljun3395.github.io/agent-tracer/guide/external-setup
 - 런타임 비교표: [docs/guide/llm-setup.md](docs/guide/llm-setup.md)
 
 > `npm run setup:external`은 현재 Claude Code, OpenCode, Codex의
@@ -72,6 +73,21 @@ npm run docs:dev
 - 최초 1회 GitHub 저장소의 `Settings > Pages > Build and deployment > Source`에서 `GitHub Actions`를 선택해야 합니다.
 - 이후 `main` 브랜치에 문서 관련 변경이 푸시되면 GitHub Pages로 자동 배포됩니다.
 - 현재 저장소 기준 배포 주소는 `https://belljun3395.github.io/agent-tracer/` 입니다.
+
+### NPM 릴리스
+
+- 개별 패키지 배포:
+  - `npm run publish:core`
+  - `npm run publish:server`
+  - `npm run publish:mcp`
+  - `npm run publish:web`
+- 한 번에 배포: `npm run publish:all`
+- GitHub Actions 수동 실행:
+  - `.github/workflows/publish-packages.yml`에서 `Run workflow` 선택
+  - `dryRun`을 `true`로 두면 실제 업로드 없이 `--dry-run`으로 동작
+- 태그 릴리즈 배포:
+  - `v*` 형식의 태그(`v0.1.0` 등)를 push하면 자동으로 4개 패키지 publish job이 동작합니다.
+- `NPM_TOKEN` secret이 필수입니다 (`repository > Settings > Secrets and variables > Actions`).
 
 ## 패키지
 

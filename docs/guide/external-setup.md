@@ -2,6 +2,14 @@
 
 이 문서는 Agent Tracer를 **다른 프로젝트에 붙일 때 가장 먼저 보는 문서**입니다.
 
+## 0. 공식 최신 문서 원본
+
+이 가이드는 원본 소스이며, 배포된 최신 문서는 GitHub Pages에서 확인할 수 있습니다.
+
+- 최신 문서: https://belljun3395.github.io/agent-tracer/guide/external-setup
+
+원본 저장소가 업데이트되면 `.github/workflows/deploy-docs.yml`이 자동으로 VitePress 빌드 결과를 재배포하므로, 위 링크는 항상 최신 문서를 제공합니다.
+
 권장 방식은 `setup:external`이 GitHub 공개 저장소(`belljun3395/agent-tracer`)의
 `main` 브랜치 소스 파일을 외부 프로젝트에 vendor 디렉터리(`.agent-tracer/`)로
 가져오고, 설정 파일은 그 vendor 경로를 참조하도록 만드는 것입니다.
