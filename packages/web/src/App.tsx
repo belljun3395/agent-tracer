@@ -8,6 +8,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   buildCompactInsight,
+  buildInspectorEventTitle,
   buildModelSummary,
   buildObservabilityStats,
   buildQuestionGroups,
@@ -15,6 +16,7 @@ import {
   collectExploredFiles,
   filterTimelineEvents
 } from "./lib/insights.js";
+import { updateEventDisplayTitle } from "./api.js";
 import { buildTimelineRelations } from "./lib/timeline.js";
 import { refreshRealtimeMonitorData } from "./lib/realtime.js";
 import { cn } from "./lib/ui/cn.js";
@@ -315,9 +317,7 @@ function Dashboard(): React.JSX.Element {
     : filteredTimeline.find((e) => e.id === selectedEventId) ?? filteredTimeline[0] ?? null;
 
   const selectedEventDisplayTitle = selectedEvent
-    ? selectedEvent.kind === "task.start"
-      ? selectedTaskDisplayTitle ?? selectedEvent.title
-      : selectedEvent.title
+    ? buildInspectorEventTitle(selectedEvent, { taskDisplayTitle: selectedTaskDisplayTitle })
     : null;
 
   const selectedEventBookmark = selectedEvent
@@ -492,7 +492,6 @@ function Dashboard(): React.JSX.Element {
           <Timeline
             zoom={zoom}
             onZoomChange={setZoom}
-            backgroundTasks={tasks.filter((t) => t.taskKind === "background" && t.parentTaskId === selectedTaskId)}
             timeline={taskTimeline}
             taskTitle={selectedTaskDisplayTitle}
             taskWorkspacePath={taskDetail?.task.workspacePath}
@@ -576,13 +575,21 @@ function Dashboard(): React.JSX.Element {
             }}
             onCreateEventBookmark={() => {
               if (!selectedEvent) return;
-              void handleCreateEventBookmark(selectedEvent.id, selectedEvent.title).catch((err) => {
+              void handleCreateEventBookmark(
+                selectedEvent.id,
+                selectedEventDisplayTitle ?? selectedEvent.title
+              ).catch((err) => {
                 dispatch({
                   type: "SET_STATUS",
                   status: "error",
                   errorMessage: err instanceof Error ? err.message : "Failed to save event bookmark."
                 });
               });
+            }}
+            onUpdateEventDisplayTitle={async (eventId, displayTitle) => {
+              if (!selectedTaskId) return;
+              await updateEventDisplayTitle(eventId, displayTitle);
+              await refreshTaskDetail(selectedTaskId);
             }}
             onSelectTag={(tag) => dispatch({ type: "SELECT_TAG", tag })}
             onSelectRule={(ruleId) => {

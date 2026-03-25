@@ -7,6 +7,7 @@
 
 import { filePathsInDirectory, isDirectoryPath, matchFilePaths } from "@monitor/core";
 import type { MonitoringTask, TimelineEvent, TimelineLane } from "../types.js";
+import { resolveEventSubtype } from "./eventSubtype.js";
 
 export interface ObservabilityStats {
   readonly actions: number;
@@ -373,8 +374,9 @@ export function buildExplorationInsight(
     if (event.kind === "file.changed") continue;
 
     totalExplorations += 1;
-    const toolName = extractMetadataString(event.metadata, "toolName") ?? event.kind;
-    toolBreakdown[toolName] = (toolBreakdown[toolName] ?? 0) + 1;
+    const subtype = resolveEventSubtype(event);
+    const breakdownKey = subtype?.label ?? extractMetadataString(event.metadata, "toolName") ?? event.kind;
+    toolBreakdown[breakdownKey] = (toolBreakdown[breakdownKey] ?? 0) + 1;
 
     if (!firstExplorationAt || Date.parse(event.createdAt) < Date.parse(firstExplorationAt)) {
       firstExplorationAt = event.createdAt;
@@ -516,6 +518,48 @@ export function buildTaskDisplayTitle(
   }
 
   return resolvePreferredTaskTitle(task, timeline) ?? "Untitled task";
+}
+
+export function buildInspectorEventTitle(
+  event: TimelineEvent | null | undefined,
+  options?: {
+    readonly taskDisplayTitle?: string | null;
+    readonly limit?: number;
+  }
+): string | null {
+  if (!event) {
+    return null;
+  }
+
+  const overrideTitle = normalizeInspectorDisplayTitle(extractMetadataString(event.metadata, "displayTitle"));
+  if (overrideTitle) {
+    return overrideTitle;
+  }
+
+  if (event.kind === "task.start") {
+    const taskDisplayTitle = normalizeInspectorDisplayTitle(options?.taskDisplayTitle ?? undefined);
+    if (taskDisplayTitle) {
+      return taskDisplayTitle;
+    }
+  }
+
+  const limit = options?.limit ?? 80;
+  const syntheticTitle = inferSyntheticInspectorTitle(event, limit);
+  if (syntheticTitle) {
+    return syntheticTitle;
+  }
+
+  const fallback = firstMeaningfulInspectorLine(
+    event.title,
+    event.body,
+    extractMetadataString(event.metadata, "description"),
+    extractMetadataString(event.metadata, "command"),
+    extractMetadataString(event.metadata, "result"),
+    extractMetadataString(event.metadata, "action"),
+    extractMetadataString(event.metadata, "ruleId")
+  ) ?? normalizeInspectorDisplayTitle(event.title);
+
+  return fallback ? truncateInspectorTitle(fallback, limit) : null;
 }
 
 /**
@@ -1113,6 +1157,139 @@ function normalizeSentence(value?: string): string | null {
   return normalized.length > 120
     ? `${normalized.slice(0, 117)}...`
     : normalized;
+}
+
+function normalizeInspectorDisplayTitle(value?: string): string | null {
+  if (!value) {
+    return null;
+  }
+
+  const normalized = value
+    .replace(/\r/g, "\n")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return normalized || null;
+}
+
+function inferSyntheticInspectorTitle(
+  event: TimelineEvent,
+  limit: number
+): string | null {
+  const title = event.title.trim();
+  if (!title) {
+    return null;
+  }
+
+  const contextMatch = title.match(/^\[context\]:\s*(.+)$/i);
+  if (contextMatch?.[1]) {
+    return truncateInspectorTitle(`Context: ${sanitizeInspectorLine(contextMatch[1])}`, limit);
+  }
+
+  if (/^\[search-mode\]/i.test(title)) {
+    return "Search mode instructions";
+  }
+
+  if (/^\[analyze-mode\]/i.test(title)) {
+    return "Analyze mode instructions";
+  }
+
+  if (/^<task-notification>/i.test(title)) {
+    return "Task notification";
+  }
+
+  if (/^<system-reminder>/i.test(title)) {
+    const description = extractLabeledInspectorValue(title, "Description");
+    if (/\[background task completed\]/i.test(title)) {
+      return description
+        ? truncateInspectorTitle(`Background task completed: ${description}`, limit)
+        : "Background task completed";
+    }
+    if (/\[background task error\]/i.test(title)) {
+      return description
+        ? truncateInspectorTitle(`Background task error: ${description}`, limit)
+        : "Background task error";
+    }
+    if (/\[background task cancelled\]/i.test(title)) {
+      return description
+        ? truncateInspectorTitle(`Background task cancelled: ${description}`, limit)
+        : "Background task cancelled";
+    }
+    if (/\[background task interrupt(?:ed)?\]/i.test(title)) {
+      return description
+        ? truncateInspectorTitle(`Background task interrupted: ${description}`, limit)
+        : "Background task interrupted";
+    }
+    return "System reminder";
+  }
+
+  return null;
+}
+
+function extractLabeledInspectorValue(
+  value: string,
+  label: string
+): string | null {
+  const pattern = new RegExp(`(?:\\*\\*${label}:\\*\\*|${label}:)\\s*(.+)`, "i");
+  const match = value.match(pattern);
+  if (!match?.[1]) {
+    return null;
+  }
+
+  return sanitizeInspectorLine(match[1]);
+}
+
+function firstMeaningfulInspectorLine(...values: Array<string | null | undefined>): string | null {
+  for (const value of values) {
+    if (!value) {
+      continue;
+    }
+
+    const lines = value.split(/\r?\n/);
+    for (const line of lines) {
+      const sanitized = sanitizeInspectorLine(line);
+      if (!sanitized || isIgnorableInspectorLine(sanitized)) {
+        continue;
+      }
+      return sanitized;
+    }
+  }
+
+  return null;
+}
+
+function sanitizeInspectorLine(value: string): string {
+  return value
+    .replace(/^\[context\]:\s*/i, "Context: ")
+    .replace(/[*_`>#]+/g, "")
+    .replace(/^[-•]\s+/, "")
+    .replace(/<\/?[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isIgnorableInspectorLine(value: string): boolean {
+  const normalized = value.toLowerCase();
+  return normalized === "system-reminder"
+    || normalized === "task-notification"
+    || normalized.startsWith("task-id")
+    || normalized.startsWith("tool-use-id")
+    || normalized.startsWith("output-file")
+    || normalized.startsWith("id:");
+}
+
+function truncateInspectorTitle(value: string, limit: number): string {
+  if (value.length <= limit) {
+    return value;
+  }
+
+  const truncated = value.slice(0, Math.max(1, limit - 1)).trimEnd();
+  const boundary = truncated.lastIndexOf(" ");
+  const safe = boundary >= Math.floor(limit * 0.55)
+    ? truncated.slice(0, boundary)
+    : truncated;
+
+  return `${safe}...`;
 }
 
 /** 단일 questionId에 대한 질문 흐름 그룹. */

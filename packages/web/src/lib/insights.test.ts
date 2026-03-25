@@ -6,6 +6,7 @@ import {
   buildHandoffPlain,
   buildHandoffXML,
   buildHandoffSystemPrompt,
+  buildInspectorEventTitle,
   buildObservabilityStats,
   buildQuestionGroups,
   buildTaskDisplayTitle,
@@ -70,6 +71,29 @@ describe("buildTaskDisplayTitle", () => {
     });
 
     expect(buildTaskDisplayTitle(task, [])).toBe("테스트 전략 재정비");
+  });
+});
+
+describe("buildInspectorEventTitle", () => {
+  it("긴 search mode 안내문을 짧은 inspector 제목으로 바꾼다", () => {
+    const event = makeEvent({
+      kind: "user.message",
+      lane: "user",
+      title: "[search-mode]\nMAXIMIZE SEARCH EFFORT. Launch multiple background agents IN PARALLEL."
+    });
+
+    expect(buildInspectorEventTitle(event)).toBe("Search mode instructions");
+  });
+
+  it("저장된 displayTitle override를 우선 사용한다", () => {
+    const event = makeEvent({
+      kind: "user.message",
+      lane: "user",
+      title: "[CONTEXT]: User requested to read README.md, run a shell echo command, add and remove a comment.",
+      metadata: { displayTitle: "README check and revert" }
+    });
+
+    expect(buildInspectorEventTitle(event)).toBe("README check and revert");
   });
 });
 
