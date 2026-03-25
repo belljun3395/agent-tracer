@@ -48,6 +48,13 @@ export const taskPatchSchema = z.object({
   { message: "At least one of title or status must be provided" }
 );
 
+export const eventPatchSchema = z.object({
+  displayTitle: z.union([z.string().trim().min(1), z.null()]).optional()
+}).refine(
+  (data) => data.displayTitle !== undefined,
+  { message: "At least one field must be provided" }
+);
+
 export const taskErrorSchema = taskCompleteSchema.extend({
   errorMessage: z.string().min(1)
 });

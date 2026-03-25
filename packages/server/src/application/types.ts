@@ -43,6 +43,11 @@ export interface TaskPatchInput {
   readonly status?: "running" | "waiting" | "completed" | "errored";
 }
 
+export interface EventPatchInput {
+  readonly eventId: string;
+  readonly displayTitle?: string | null;
+}
+
 export type TaskCompletionReason =
   | "idle"
   | "assistant_turn_complete"

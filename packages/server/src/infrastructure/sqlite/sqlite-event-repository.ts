@@ -123,6 +123,24 @@ export class SqliteEventRepository implements IEventRepository {
       .map(mapEventRow);
   }
 
+  async updateMetadata(eventId: string, metadata: Record<string, unknown>): Promise<TimelineEvent | null> {
+    const existing = await this.findById(eventId);
+    if (!existing) {
+      return null;
+    }
+
+    this.db.prepare(`
+      update timeline_events
+      set metadata_json = @metadataJson
+      where id = @id
+    `).run({
+      id: eventId,
+      metadataJson: JSON.stringify(metadata)
+    });
+
+    return this.findById(eventId);
+  }
+
   async countRawUserMessages(taskId: string): Promise<number> {
     const row = this.db
       .prepare<{ taskId: string }, { count: number }>(
