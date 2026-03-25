@@ -12,6 +12,7 @@ import type {
   OverviewResponse,
   SearchResponse,
   TaskDetailResponse,
+  TimelineEvent,
   TasksResponse
 } from "./types.js";
 
@@ -138,6 +139,14 @@ export async function updateTaskTitle(taskId: string, title: string): Promise<Mo
 export async function updateTaskStatus(taskId: string, status: MonitoringTask["status"]): Promise<MonitoringTask> {
   const payload = await patchJson<{ task: MonitoringTask }>(`/api/tasks/${taskId}`, { status });
   return payload.task;
+}
+
+export async function updateEventDisplayTitle(
+  eventId: string,
+  displayTitle: string | null
+): Promise<TimelineEvent> {
+  const payload = await patchJson<{ event: TimelineEvent }>(`/api/events/${eventId}`, { displayTitle });
+  return payload.event;
 }
 
 /**
