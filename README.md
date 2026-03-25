@@ -51,6 +51,7 @@ npm run dev
 | OpenCode 연결 | [docs/guide/opencode-setup.md](docs/guide/opencode-setup.md) |
 | Codex 연결 | [docs/guide/codex-setup.md](docs/guide/codex-setup.md) |
 | 런타임 capability 상세 | [docs/guide/runtime-capabilities.md](docs/guide/runtime-capabilities.md) |
+| 코드베이스 위키 / 아키텍처 문서 | [docs/wiki/README.md](docs/wiki/README.md) |
 
 ## 패키지
 
