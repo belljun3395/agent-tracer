@@ -53,6 +53,19 @@ npm run dev
 | 런타임 capability 상세 | [docs/guide/runtime-capabilities.md](docs/guide/runtime-capabilities.md) |
 | 코드베이스 위키 / 아키텍처 문서 | [docs/wiki/README.md](docs/wiki/README.md) |
 
+## 문서 사이트
+
+`docs/` 아래 Markdown을 페이지형 문서 사이트로 보려면 VitePress 엔트리를 사용할 수 있습니다.
+
+```bash
+npm run docs:dev
+```
+
+- 기본 주소: `http://127.0.0.1:5174`
+- 홈: `docs/index.md`
+- 가이드 섹션: `docs/guide/*`
+- 위키 섹션: `docs/wiki/*`
+
 ## 패키지
 
 | 패키지 | 역할 |
