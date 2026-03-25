@@ -14,10 +14,10 @@ The script:
 - registers the `monitor` MCP entry in that config
 - creates `target-project/.opencode/plugins/monitor.ts`
 - creates `target-project/.opencode/tsconfig.json`
-- makes the target plugin file re-export this repository’s plugin
+- vendors `.opencode/plugins/monitor.ts` into `target-project/.agent-tracer/.opencode/plugins/monitor.ts`
+- makes the target plugin file re-export that vendored plugin
 
-The script does **not** copy the actual TypeScript plugin implementation into
-the target project.
+By default, vendored source files come from the public repository `main` branch.
 
 ## 2. Verify The Monitor Server
 
@@ -45,7 +45,7 @@ npm run setup:external -- --target /path/to/your-project --mode opencode
 After that, the target project should contain:
 
 - `opencode.json` with a `monitor` MCP entry
-- `.opencode/plugins/monitor.ts` shim pointing back to this repository
+- `.opencode/plugins/monitor.ts` shim pointing to `../../.agent-tracer/.opencode/plugins/monitor.ts`
 - `.opencode/tsconfig.json` so IDEs type-check the plugin shim with modern TS settings
 
 In the common case, that is enough. Open the target project in OpenCode and the
