@@ -101,6 +101,41 @@ export class TraceMetadataFactory {
       tags.add(`activity:${normalizeTagSegment(activityType)}`);
     }
 
+    const subtypeKey = extractMetadataString(metadata, "subtypeKey");
+    if (subtypeKey) {
+      tags.add(`subtype:${normalizeTagSegment(subtypeKey)}`);
+    }
+
+    const subtypeGroup = extractMetadataString(metadata, "subtypeGroup");
+    if (subtypeGroup) {
+      tags.add(`subtype-group:${normalizeTagSegment(subtypeGroup)}`);
+    }
+
+    const entityType = extractMetadataString(metadata, "entityType");
+    if (entityType) {
+      tags.add(`entity:${normalizeTagSegment(entityType)}`);
+    }
+
+    const toolFamily = extractMetadataString(metadata, "toolFamily");
+    if (toolFamily) {
+      tags.add(`tool-family:${normalizeTagSegment(toolFamily)}`);
+    }
+
+    const operation = extractMetadataString(metadata, "operation");
+    if (operation) {
+      tags.add(`operation:${normalizeTagSegment(operation)}`);
+    }
+
+    const sourceTool = extractMetadataString(metadata, "sourceTool");
+    if (sourceTool) {
+      tags.add(`source-tool:${normalizeTagSegment(sourceTool)}`);
+    }
+
+    const importance = extractMetadataString(metadata, "importance");
+    if (importance) {
+      tags.add(`importance:${normalizeTagSegment(importance)}`);
+    }
+
     const agentName = extractMetadataString(metadata, "agentName");
     if (agentName) {
       tags.add(`agent:${normalizeTagSegment(agentName)}`);
