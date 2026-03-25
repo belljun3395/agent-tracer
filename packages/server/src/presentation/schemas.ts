@@ -273,6 +273,7 @@ export const agentActivitySchema = z.object({
   ]),
   title: z.string().optional(),
   body: z.string().optional(),
+  lane: z.string().optional(),
   filePaths: z.array(z.string()).optional(),
   metadata: z.record(z.unknown()).optional()
 }).merge(traceRelationSchema).extend({

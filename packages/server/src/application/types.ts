@@ -167,6 +167,7 @@ export interface TaskAgentActivityInput extends TraceActivityInput {
   readonly activityType: AgentActivityType;
   readonly title?: string;
   readonly body?: string;
+  readonly lane?: string;
   readonly filePaths?: readonly string[];
   readonly metadata?: Record<string, unknown>;
 }
