@@ -1,5 +1,19 @@
 import { defineConfig } from "vitepress";
 
+const repositoryUrl = "https://github.com/belljun3395/agent-tracer";
+
+function normalizeBasePath(base: string): string {
+  if (base === "/") {
+    return base;
+  }
+
+  const prefixed = base.startsWith("/") ? base : `/${base}`;
+  return prefixed.endsWith("/") ? prefixed : `${prefixed}/`;
+}
+
+// GitHub Pages can inject a project-site base without changing local dev URLs.
+const docsBase = normalizeBasePath(process.env.DOCS_BASE ?? "/");
+
 const guideSidebar = [
   {
     text: "Guide Home",
@@ -117,6 +131,7 @@ const wikiSidebar = [
 ];
 
 export default defineConfig({
+  base: docsBase,
   title: "Agent Tracer",
   description: "Codebase wiki, runtime setup guides, and maintainer notes for Agent Tracer.",
   cleanUrls: true,
@@ -133,10 +148,10 @@ export default defineConfig({
       { text: "Home", link: "/" },
       { text: "Guides", link: "/guide/" },
       { text: "Wiki", link: "/wiki/" },
-      { text: "GitHub", link: "https://github.com/belljun3395/agent-tracer" }
+      { text: "GitHub", link: repositoryUrl }
     ],
     socialLinks: [
-      { icon: "github", link: "https://github.com/belljun3395/agent-tracer" }
+      { icon: "github", link: repositoryUrl }
     ],
     sidebar: {
       "/guide/": guideSidebar,
@@ -147,7 +162,7 @@ export default defineConfig({
       label: "On This Page"
     },
     editLink: {
-      pattern: "https://github.com/belljun3395/agent-tracer/edit/main/docs/:path",
+      pattern: `${repositoryUrl}/edit/main/docs/:path`,
       text: "Edit this page on GitHub"
     },
     footer: {
