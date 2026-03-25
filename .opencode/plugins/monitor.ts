@@ -1848,6 +1848,7 @@ export function createMonitorHooks(workspacePath: string): Hooks {
         taskId: backgroundLink?.taskId ?? monitorTaskIdForOpenCodeSession(input.sessionId),
         title: taskTitle,
         workspacePath: targetWorkspacePath,
+        runtimeSource: "opencode-plugin",
         taskKind: backgroundLink ? "background" : "primary",
         ...(backgroundLink?.parentTaskId ? { parentTaskId: backgroundLink.parentTaskId } : {}),
         ...(backgroundLink?.parentSessionId ? { parentSessionId: backgroundLink.parentSessionId } : {}),

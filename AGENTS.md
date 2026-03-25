@@ -18,6 +18,9 @@ A skill is a set of local instructions stored in a `SKILL.md` file.
   - Codex/OpenCode → `.agents/skills/...`
   - Claude fallback → `.claude/skills/agent-tracer-monitor/SKILL.md`
   - human-edited source는 계속 `skills/...`
+- 스킬 source를 수정한 뒤에는 `npm run sync:skills` 로 projection 갱신.
+- Codex는 새 `AGENTS.md` / `.agents/skills` 내용을 새 스레드에서 더 안정적으로 읽는다.
+- 자동 트리거가 빗나가면 프롬프트에 `$codex-monitor` 를 명시해 강제 호출.
 - 스킬 파일을 열고 실질적 작업 전에 흐름을 따름.
 - monitor-server MCP 서버 미가용 시 작업 계속하고 마지막에 gap 리포트.
 

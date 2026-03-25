@@ -53,6 +53,23 @@ describe("HTTP API", () => {
     expect(task?.displayTitle).toBe(goal);
   });
 
+  it("task-start가 generic runtimeSource를 task read-model에 저장한다", async () => {
+    const started = await request(runtime.app)
+      .post("/api/task-start")
+      .send({
+        title: "Codex - agent-tracer",
+        runtimeSource: "codex-skill"
+      });
+
+    const taskId = started.body.task.id as string;
+    const list = await request(runtime.app).get("/api/tasks");
+    const task = (list.body.tasks as Array<{ id: string; runtimeSource?: string }>)
+      .find((item) => item.id === taskId);
+
+    expect(started.status).toBe(200);
+    expect(task?.runtimeSource).toBe("codex-skill");
+  });
+
   it("이벤트 displayTitle override를 저장하고 reset할 수 있다", async () => {
     const started = await request(runtime.app)
       .post("/api/task-start")
@@ -156,6 +173,12 @@ describe("HTTP API", () => {
       taskCreated: false,
       sessionCreated: false
     });
+
+    const list = await request(runtime.app).get("/api/tasks");
+    const task = (list.body.tasks as Array<{ id: string; runtimeSource?: string }>)
+      .find((item) => item.id === first.body.taskId);
+
+    expect(task?.runtimeSource).toBe("claude-hook");
   });
 
   it("idle runtime 세션 종료 뒤 다시 보장하면 같은 task를 새 session으로 재개한다", async () => {

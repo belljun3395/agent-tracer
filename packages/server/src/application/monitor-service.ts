@@ -48,6 +48,7 @@ export class MonitorService {
     const existingTask = await this.ports.tasks.findById(taskId);
     const workspacePath = input.workspacePath ? normalizeWorkspacePath(input.workspacePath) : undefined;
     const taskKind = input.taskKind ?? existingTask?.taskKind ?? "primary";
+    const runtimeSource = input.runtimeSource ?? existingTask?.runtimeSource;
 
     const task = await this.ports.tasks.upsert({
       id: taskId, title: input.title, slug: createTaskSlug({ title: input.title }),
@@ -56,16 +57,17 @@ export class MonitorService {
       ...(input.parentTaskId ?? existingTask?.parentTaskId ? { parentTaskId: input.parentTaskId ?? existingTask!.parentTaskId } : {}),
       ...(input.parentSessionId ?? existingTask?.parentSessionId ? { parentSessionId: input.parentSessionId ?? existingTask!.parentSessionId } : {}),
       ...(input.backgroundTaskId ?? existingTask?.backgroundTaskId ? { backgroundTaskId: input.backgroundTaskId ?? existingTask!.backgroundTaskId } : {}),
-      ...(workspacePath ? { workspacePath } : {})
+      ...(workspacePath ? { workspacePath } : {}),
+      ...(runtimeSource ? { runtimeSource } : {})
     });
     const session = await this.ports.sessions.create({ id: sessionId, taskId: task.id, status: "running", startedAt, ...(input.summary ? { summary: input.summary } : {}) });
-    if (existingTask && existingTask.status !== "running") {
+    if (existingTask && (existingTask.status !== "running" || existingTask.runtimeSource !== task.runtimeSource)) {
       this.ports.notifier.publish({ type: "task.updated", payload: task });
     }
     this.ports.notifier.publish({ type: "task.started", payload: task });
     this.ports.notifier.publish({ type: "session.started", payload: session });
     if (!existingTask) {
-      const startMeta = { ...(input.metadata ?? {}), taskKind: task.taskKind, ...(task.parentTaskId ? { parentTaskId: task.parentTaskId } : {}), ...(task.parentSessionId ? { parentSessionId: task.parentSessionId } : {}), ...(task.backgroundTaskId ? { backgroundTaskId: task.backgroundTaskId } : {}), ...(task.workspacePath ? { workspacePath: task.workspacePath } : {}) };
+      const startMeta = { ...(input.metadata ?? {}), taskKind: task.taskKind, ...(task.parentTaskId ? { parentTaskId: task.parentTaskId } : {}), ...(task.parentSessionId ? { parentSessionId: task.parentSessionId } : {}), ...(task.backgroundTaskId ? { backgroundTaskId: task.backgroundTaskId } : {}), ...(task.workspacePath ? { workspacePath: task.workspacePath } : {}), ...(runtimeSource ? { runtimeSource } : {}) };
       const event = await this.recorder.record({ taskId: task.id, sessionId, kind: "task.start", title: input.title, metadata: startMeta, ...(input.summary ? { body: input.summary } : {}) });
       return { task, sessionId, events: [{ id: event.id, kind: event.kind }] };
     }
@@ -182,13 +184,14 @@ export class MonitorService {
       const sessionId = globalThis.crypto.randomUUID();
       const startedAt = new Date().toISOString();
       const task = await this.ports.tasks.findById(existingTaskId);
-      if (task && task.status !== "running") {
+      if (task && (task.status !== "running" || task.runtimeSource !== input.runtimeSource)) {
         const resumedTask = await this.ports.tasks.upsert({
           ...task,
           taskKind: task.taskKind ?? "primary",
           status: "running",
           updatedAt: startedAt,
-          lastSessionStartedAt: startedAt
+          lastSessionStartedAt: startedAt,
+          runtimeSource: input.runtimeSource
         });
         this.ports.notifier.publish({ type: "task.updated", payload: resumedTask });
       }
@@ -202,6 +205,7 @@ export class MonitorService {
     const result = await this.startTask({
       title: input.title,
       ...(input.workspacePath ? { workspacePath: input.workspacePath } : {}),
+      runtimeSource: input.runtimeSource,
       ...(input.parentTaskId ? { taskKind: "background" as const, parentTaskId: input.parentTaskId } : {}),
       ...(input.parentSessionId ? { parentSessionId: input.parentSessionId } : {})
     });

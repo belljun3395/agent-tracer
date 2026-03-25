@@ -12,6 +12,7 @@ export const taskStartSchema = z.object({
   taskId: z.string().optional(),
   title: z.string().min(1),
   workspacePath: z.string().optional(),
+  runtimeSource: z.string().min(1).optional(),
   summary: z.string().optional(),
   taskKind: z.enum(["primary", "background"]).optional(),
   parentTaskId: z.string().optional(),

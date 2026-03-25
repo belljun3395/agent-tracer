@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
 
 import type { MonitoringTask } from "../types.js";
-import { buildTaskListRows, resolveTaskListItemTitle, runtimeTagLabel } from "./TaskList.js";
+import {
+  buildRuntimeFilterOptions,
+  buildTaskListRows,
+  filterTasksByRuntime,
+  resolveTaskListItemTitle,
+  runtimeFilterKey,
+  runtimeTagLabel
+} from "./TaskList.js";
 
 const BASE_TASK: MonitoringTask = {
   id: "task-1",
@@ -162,5 +169,47 @@ describe("runtimeTagLabel", () => {
 
   it("falls back to the raw source for unknown adapters", () => {
     expect(runtimeTagLabel("custom-runtime")).toBe("custom-runtime");
+  });
+});
+
+describe("runtimeFilter helpers", () => {
+  it("groups known runtime adapters under stable filter keys", () => {
+    expect(runtimeFilterKey("claude-hook")).toBe("claude");
+    expect(runtimeFilterKey("codex-skill")).toBe("codex");
+    expect(runtimeFilterKey("opencode-plugin")).toBe("opencode");
+    expect(runtimeFilterKey("opencode-sse")).toBe("opencode");
+    expect(runtimeFilterKey(undefined)).toBe("unknown");
+  });
+
+  it("filters tasks by grouped runtime family", () => {
+    const tasks: MonitoringTask[] = [
+      { ...BASE_TASK, id: "claude-1", runtimeSource: "claude-hook" },
+      { ...BASE_TASK, id: "codex-1", runtimeSource: "codex-skill" },
+      { ...BASE_TASK, id: "opencode-1", runtimeSource: "opencode-plugin" },
+      { ...BASE_TASK, id: "opencode-2", runtimeSource: "opencode-sse" },
+      { ...BASE_TASK, id: "unknown-1" }
+    ];
+
+    expect(filterTasksByRuntime(tasks, "opencode").map((task) => task.id)).toEqual([
+      "opencode-1",
+      "opencode-2"
+    ]);
+    expect(filterTasksByRuntime(tasks, "unknown").map((task) => task.id)).toEqual(["unknown-1"]);
+  });
+
+  it("builds runtime filter options with grouped counts", () => {
+    const tasks: MonitoringTask[] = [
+      { ...BASE_TASK, id: "claude-1", runtimeSource: "claude-hook" },
+      { ...BASE_TASK, id: "opencode-1", runtimeSource: "opencode-plugin" },
+      { ...BASE_TASK, id: "opencode-2", runtimeSource: "opencode-sse" },
+      { ...BASE_TASK, id: "unknown-1" }
+    ];
+
+    expect(buildRuntimeFilterOptions(tasks)).toEqual([
+      { key: "all", label: "All", count: 4 },
+      { key: "claude", label: "Claude", count: 1 },
+      { key: "opencode", label: "OpenCode", count: 2 },
+      { key: "unknown", label: "Unknown", count: 1 }
+    ]);
   });
 });

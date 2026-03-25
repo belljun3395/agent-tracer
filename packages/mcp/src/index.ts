@@ -39,6 +39,7 @@ export function createMonitorMcpServer(client = new MonitorClient()): McpServer 
         taskId: z.string().optional(),
         title: z.string(),
         workspacePath: z.string().optional(),
+        runtimeSource: z.string().optional(),
         summary: z.string().optional(),
         metadata: z.record(z.unknown()).optional()
       }

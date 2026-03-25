@@ -54,6 +54,12 @@ interface BuildTaskListRowsOptions {
   readonly collapsedParentIds?: ReadonlySet<string>;
 }
 
+interface RuntimeFilterOption {
+  readonly key: string;
+  readonly label: string;
+  readonly count: number;
+}
+
 const railSectionHeaderClass =
   "sticky top-0 z-10 flex items-center justify-between border-b border-[var(--border)] bg-[linear-gradient(180deg,var(--surface-2),var(--surface))] px-[14px] py-2 text-[0.68rem] font-semibold uppercase tracking-[0.1em] text-[var(--text-3)]";
 
@@ -65,6 +71,8 @@ const railSelectedRowClass =
 
 const railContentButtonClass =
   "flex min-w-0 flex-col items-start justify-start rounded-none border-0 bg-transparent p-0 text-left font-normal shadow-none outline-none transition-colors";
+
+const ALL_RUNTIME_FILTER_KEY = "all";
 
 /**
  * 사이드바 태스크 목록 컴포넌트.
@@ -90,26 +98,40 @@ export function TaskList({
   onDeleteTask,
   onRefresh
 }: TaskListProps): React.JSX.Element {
+  const [runtimeFilter, setRuntimeFilter] = useState<string>(ALL_RUNTIME_FILTER_KEY);
   const [collapsedParentIds, setCollapsedParentIds] = useState<ReadonlySet<string>>(new Set());
   const tasksDragScroll = useDragScroll({ axis: "y" });
+  const runtimeFilterOptions = useMemo(
+    () => buildRuntimeFilterOptions(tasks),
+    [tasks]
+  );
+  const filteredTasks = useMemo(
+    () => filterTasksByRuntime(tasks, runtimeFilter),
+    [tasks, runtimeFilter]
+  );
   const childCountByParentId = useMemo(() => {
     const counts = new Map<string, number>();
-    for (const task of tasks) {
+    for (const task of filteredTasks) {
       if (!task.parentTaskId) continue;
       const count = counts.get(task.parentTaskId) ?? 0;
       counts.set(task.parentTaskId, count + 1);
     }
     return counts;
-  }, [tasks]);
+  }, [filteredTasks]);
 
   const displayRows = useMemo(
-    () => buildTaskListRows(tasks, { collapsedParentIds }),
-    [tasks, collapsedParentIds]
+    () => buildTaskListRows(filteredTasks, { collapsedParentIds }),
+    [filteredTasks, collapsedParentIds]
   );
 
   useEffect(() => {
+    if (runtimeFilterOptions.some((option) => option.key === runtimeFilter)) return;
+    setRuntimeFilter(ALL_RUNTIME_FILTER_KEY);
+  }, [runtimeFilter, runtimeFilterOptions]);
+
+  useEffect(() => {
     const validParentIds = new Set(
-      tasks
+      filteredTasks
         .filter((task) => (childCountByParentId.get(task.id) ?? 0) > 0)
         .map((task) => task.id)
     );
@@ -123,12 +145,12 @@ export function TaskList({
       }
       return next.size === current.size ? current : next;
     });
-  }, [tasks, childCountByParentId]);
+  }, [filteredTasks, childCountByParentId]);
 
   useEffect(() => {
     if (!selectedTaskId) return;
 
-    const selectedTask = tasks.find((task) => task.id === selectedTaskId);
+    const selectedTask = filteredTasks.find((task) => task.id === selectedTaskId);
     const parentId = selectedTask?.parentTaskId;
     if (!parentId) return;
 
@@ -138,7 +160,7 @@ export function TaskList({
       next.delete(parentId);
       return next;
     });
-  }, [selectedTaskId, tasks]);
+  }, [selectedTaskId, filteredTasks]);
 
   return (
     <PanelCard className={cn("relative flex-1", isCollapsed && "items-center")}>
@@ -252,13 +274,13 @@ export function TaskList({
           <div className={railSectionHeaderClass}>
             <span>Tracked Tasks</span>
             <div className="ml-auto flex items-center gap-2">
-              {tasks.length > 10 && (
+              {filteredTasks.length > 10 && (
                 <span className="text-[0.62rem] font-normal normal-case tracking-normal text-[var(--text-3)]">
                   Drag to browse
                 </span>
               )}
               <Badge className="normal-case tracking-normal" size="xs" tone="neutral">
-                {tasks.length}
+                {filteredTasks.length === tasks.length ? tasks.length : `${filteredTasks.length}/${tasks.length}`}
               </Badge>
             </div>
           </div>
@@ -272,157 +294,200 @@ export function TaskList({
               </p>
             </div>
           ) : (
-            <div
-              className="flex flex-1 flex-col gap-1 overflow-y-auto p-1.5"
-              style={{
-                cursor: tasksDragScroll.isDragging ? "grabbing" : "grab",
-                userSelect: tasksDragScroll.isDragging ? "none" : undefined
-              }}
-              {...tasksDragScroll.handlers}
-            >
-              {displayRows.map(({ task, depth }) => {
-                const taskDisplayTitle = resolveTaskListItemTitle(task, taskDisplayTitleCache?.[task.id]);
-                const childCount = childCountByParentId.get(task.id) ?? 0;
-                const hasChildren = childCount > 0;
-                const isCollapsedParent = collapsedParentIds.has(task.id);
+            <>
+              {runtimeFilterOptions.length > 1 && (
+                <div className="border-b border-[var(--border)] px-3 py-2">
+                  <div className="flex flex-wrap gap-1.5">
+                    {runtimeFilterOptions.map((option) => {
+                      const isActive = option.key === runtimeFilter;
 
-                return (
-                  <div
-                    key={task.id}
-                    className={cn(
-                      railRowBaseClass,
-                      depth > 0 &&
-                        "ml-3.5 pl-3.5 before:absolute before:bottom-2.5 before:left-1 before:top-2.5 before:w-0.5 before:rounded-full before:bg-[color-mix(in_srgb,var(--implementation-border)_66%,transparent)] before:content-['']",
-                      task.id === selectedTaskId && railSelectedRowClass
-                    )}
+                      return (
+                        <button
+                          key={option.key}
+                          aria-pressed={isActive}
+                          className={cn(
+                            "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[0.7rem] font-medium transition-colors",
+                            isActive
+                              ? "border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] text-[var(--accent)]"
+                              : "border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-2)] hover:border-[var(--border-2)] hover:bg-[var(--surface)]"
+                          )}
+                          onClick={() => setRuntimeFilter(option.key)}
+                          type="button"
+                        >
+                          <span>{option.label}</span>
+                          <span className="text-[0.66rem] text-[inherit]/80">{option.count}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {filteredTasks.length === 0 ? (
+                <div className="m-3 rounded-lg border border-dashed border-[var(--border)] bg-[var(--bg)]/40 p-3">
+                  <p className="m-0 text-[0.84rem] text-[var(--text-2)]">No tasks match this runtime.</p>
+                  <button
+                    className="mt-2 rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-2.5 py-1 text-[0.72rem] font-medium text-[var(--text-2)] transition-colors hover:border-[var(--border-2)] hover:bg-[var(--surface)]"
+                    onClick={() => setRuntimeFilter(ALL_RUNTIME_FILTER_KEY)}
+                    type="button"
                   >
-                    <div className="flex items-start gap-2.5">
-                      <div className="pt-0.5">
-                        {hasChildren ? (
-                          <Button
-                            aria-label={isCollapsedParent ? "Expand child tasks" : "Collapse child tasks"}
-                            className="mt-0.5 h-4 w-4 shrink-0 justify-start rounded-none p-0 text-[0.8rem] text-[var(--text-3)] hover:text-[var(--accent)]"
-                            onClick={() => {
-                              setCollapsedParentIds((current) => {
-                                const next = new Set(current);
-                                if (next.has(task.id)) {
-                                  next.delete(task.id);
-                                } else {
-                                  next.add(task.id);
-                                }
-                                return next;
-                              });
-                            }}
-                            title={isCollapsedParent ? "Expand children" : "Collapse children"}
-                            variant="bare"
-                            size="icon"
-                          >
-                            {isCollapsedParent ? "▸" : "▾"}
-                          </Button>
-                        ) : (
-                          <span aria-hidden="true" className="mt-0.5 inline-block h-4 w-4 shrink-0" />
+                    Show all tasks
+                  </button>
+                </div>
+              ) : (
+                <div
+                  className="flex flex-1 flex-col gap-1 overflow-y-auto p-1.5"
+                  style={{
+                    cursor: tasksDragScroll.isDragging ? "grabbing" : "grab",
+                    userSelect: tasksDragScroll.isDragging ? "none" : undefined
+                  }}
+                  {...tasksDragScroll.handlers}
+                >
+                  {displayRows.map(({ task, depth }) => {
+                    const taskDisplayTitle = resolveTaskListItemTitle(task, taskDisplayTitleCache?.[task.id]);
+                    const childCount = childCountByParentId.get(task.id) ?? 0;
+                    const hasChildren = childCount > 0;
+                    const isCollapsedParent = collapsedParentIds.has(task.id);
+
+                    return (
+                      <div
+                        key={task.id}
+                        className={cn(
+                          railRowBaseClass,
+                          depth > 0 &&
+                            "ml-3.5 pl-3.5 before:absolute before:bottom-2.5 before:left-1 before:top-2.5 before:w-0.5 before:rounded-full before:bg-[color-mix(in_srgb,var(--implementation-border)_66%,transparent)] before:content-['']",
+                          task.id === selectedTaskId && railSelectedRowClass
                         )}
-                      </div>
-
-                      <button
-                        className={cn(railContentButtonClass, "min-w-0 flex-1")}
-                        onClick={() => onSelectTask(task.id)}
-                        title={taskDisplayTitle}
-                        type="button"
                       >
-                        <div className="w-full truncate text-[0.89rem] font-semibold leading-5 text-[var(--text-1)]">
-                          {taskDisplayTitle}
-                        </div>
-
-                        <div className="mt-1 flex w-full min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-[0.7rem] text-[var(--text-3)]">
-                          <Badge
-                            className="uppercase tracking-[0.06em]"
-                            size="sm"
-                            tone={
-                              task.status === "running"
-                                ? "success"
-                                : task.status === "waiting"
-                                  ? "neutral"
-                                  : task.status === "completed"
-                                    ? "accent"
-                                    : "danger"
-                            }
-                          >
-                            {task.status}
-                          </Badge>
-                          {task.taskKind === "background" ? (
-                            <Badge className="border-[color-mix(in_srgb,#6366f1_30%,transparent)] bg-[color-mix(in_srgb,#6366f1_12%,transparent)] text-[#6366f1]" size="xs" tone="neutral">
-                              background
-                            </Badge>
-                          ) : (
-                            <Badge size="xs" tone="neutral">
-                              primary
-                            </Badge>
-                          )}
-                          {task.runtimeSource && (
-                            <Badge
-                              className={runtimeBadgeClass(task.runtimeSource)}
-                              size="xs"
-                              tone="neutral"
-                            >
-                              {runtimeTagLabel(task.runtimeSource)}
-                            </Badge>
-                          )}
-                          {(task.taskKind ?? "primary") === "primary" && childCount > 0 && (
-                            <Badge className="border-[var(--planning-border)] bg-[var(--planning-bg)] text-[var(--planning)]" size="xs" tone="neutral">
-                              {childCount} child{childCount === 1 ? "" : "ren"}
-                            </Badge>
-                          )}
-                          <span className="shrink-0">{formatRelativeTime(task.updatedAt)}</span>
-                        </div>
-
-                        {task.id === selectedTaskId && (
-                          <div className="mt-1.5 flex w-full min-w-0 flex-col gap-1">
-                            {task.workspacePath && (
-                              <div className="w-full truncate font-mono text-[0.69rem] text-[var(--text-3)]">
-                                {task.workspacePath}
-                              </div>
-                            )}
-                            {task.id === taskDetail?.task.id && (
-                              <div className="flex flex-wrap gap-1.5">
-                                {selectedTaskQuestionCount !== undefined && selectedTaskQuestionCount > 0 && (
-                                  <Badge className="border-[var(--user-border)] bg-[var(--user-bg)] text-[var(--user)]" size="xs" tone="neutral">
-                                    {selectedTaskQuestionCount}Q
-                                  </Badge>
-                                )}
-                                {selectedTaskTodoCount !== undefined && selectedTaskTodoCount > 0 && (
-                                  <Badge className="border-[var(--planning-border)] bg-[var(--planning-bg)] text-[var(--planning)]" size="xs" tone="neutral">
-                                    {selectedTaskTodoCount} todo{selectedTaskTodoCount === 1 ? "" : "s"}
-                                  </Badge>
-                                )}
-                              </div>
+                        <div className="flex items-start gap-2.5">
+                          <div className="pt-0.5">
+                            {hasChildren ? (
+                              <Button
+                                aria-label={isCollapsedParent ? "Expand child tasks" : "Collapse child tasks"}
+                                className="mt-0.5 h-4 w-4 shrink-0 justify-start rounded-none p-0 text-[0.8rem] text-[var(--text-3)] hover:text-[var(--accent)]"
+                                onClick={() => {
+                                  setCollapsedParentIds((current) => {
+                                    const next = new Set(current);
+                                    if (next.has(task.id)) {
+                                      next.delete(task.id);
+                                    } else {
+                                      next.add(task.id);
+                                    }
+                                    return next;
+                                  });
+                                }}
+                                title={isCollapsedParent ? "Expand children" : "Collapse children"}
+                                variant="bare"
+                                size="icon"
+                              >
+                                {isCollapsedParent ? "▸" : "▾"}
+                              </Button>
+                            ) : (
+                              <span aria-hidden="true" className="mt-0.5 inline-block h-4 w-4 shrink-0" />
                             )}
                           </div>
-                        )}
-                      </button>
 
-                      <Button
-                        className={cn(
-                          "h-6 w-6 shrink-0 rounded-md p-1 opacity-0 transition-opacity hover:bg-[var(--err-bg)] hover:opacity-100 group-hover:opacity-35",
-                          deleteErrorTaskId === task.id ? "text-[var(--err)] hover:text-[var(--err)]" : "text-[var(--text-3)]",
-                          deletingTaskId === task.id && "opacity-30"
-                        )}
-                        disabled={deletingTaskId === task.id}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          onDeleteTask(task.id);
-                        }}
-                        size="icon"
-                        title="Delete task"
-                        variant="bare"
-                      >
-                        <img alt="Delete" className="h-3.5 w-3.5" src="/icons/trash.svg" />
-                      </Button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                          <button
+                            className={cn(railContentButtonClass, "min-w-0 flex-1")}
+                            onClick={() => onSelectTask(task.id)}
+                            title={taskDisplayTitle}
+                            type="button"
+                          >
+                            <div className="w-full truncate text-[0.89rem] font-semibold leading-5 text-[var(--text-1)]">
+                              {taskDisplayTitle}
+                            </div>
+
+                            <div className="mt-1 flex w-full min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-[0.7rem] text-[var(--text-3)]">
+                              <Badge
+                                className="uppercase tracking-[0.06em]"
+                                size="sm"
+                                tone={
+                                  task.status === "running"
+                                    ? "success"
+                                    : task.status === "waiting"
+                                      ? "neutral"
+                                      : task.status === "completed"
+                                        ? "accent"
+                                        : "danger"
+                                }
+                              >
+                                {task.status}
+                              </Badge>
+                              {task.taskKind === "background" ? (
+                                <Badge className="border-[color-mix(in_srgb,#6366f1_30%,transparent)] bg-[color-mix(in_srgb,#6366f1_12%,transparent)] text-[#6366f1]" size="xs" tone="neutral">
+                                  background
+                                </Badge>
+                              ) : (
+                                <Badge size="xs" tone="neutral">
+                                  primary
+                                </Badge>
+                              )}
+                              {task.runtimeSource && (
+                                <Badge
+                                  className={runtimeBadgeClass(task.runtimeSource)}
+                                  size="xs"
+                                  tone="neutral"
+                                >
+                                  {runtimeTagLabel(task.runtimeSource)}
+                                </Badge>
+                              )}
+                              {(task.taskKind ?? "primary") === "primary" && childCount > 0 && (
+                                <Badge className="border-[var(--planning-border)] bg-[var(--planning-bg)] text-[var(--planning)]" size="xs" tone="neutral">
+                                  {childCount} child{childCount === 1 ? "" : "ren"}
+                                </Badge>
+                              )}
+                              <span className="shrink-0">{formatRelativeTime(task.updatedAt)}</span>
+                            </div>
+
+                            {task.id === selectedTaskId && (
+                              <div className="mt-1.5 flex w-full min-w-0 flex-col gap-1">
+                                {task.workspacePath && (
+                                  <div className="w-full truncate font-mono text-[0.69rem] text-[var(--text-3)]">
+                                    {task.workspacePath}
+                                  </div>
+                                )}
+                                {task.id === taskDetail?.task.id && (
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {selectedTaskQuestionCount !== undefined && selectedTaskQuestionCount > 0 && (
+                                      <Badge className="border-[var(--user-border)] bg-[var(--user-bg)] text-[var(--user)]" size="xs" tone="neutral">
+                                        {selectedTaskQuestionCount}Q
+                                      </Badge>
+                                    )}
+                                    {selectedTaskTodoCount !== undefined && selectedTaskTodoCount > 0 && (
+                                      <Badge className="border-[var(--planning-border)] bg-[var(--planning-bg)] text-[var(--planning)]" size="xs" tone="neutral">
+                                        {selectedTaskTodoCount} todo{selectedTaskTodoCount === 1 ? "" : "s"}
+                                      </Badge>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </button>
+
+                          <Button
+                            className={cn(
+                              "h-6 w-6 shrink-0 rounded-md p-1 opacity-0 transition-opacity hover:bg-[var(--err-bg)] hover:opacity-100 group-hover:opacity-35",
+                              deleteErrorTaskId === task.id ? "text-[var(--err)] hover:text-[var(--err)]" : "text-[var(--text-3)]",
+                              deletingTaskId === task.id && "opacity-30"
+                            )}
+                            disabled={deletingTaskId === task.id}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              onDeleteTask(task.id);
+                            }}
+                            size="icon"
+                            title="Delete task"
+                            variant="bare"
+                          >
+                            <img alt="Delete" className="h-3.5 w-3.5" src="/icons/trash.svg" />
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -528,4 +593,58 @@ export function runtimeTagLabel(source: string): string {
   if (source === "opencode-plugin") return "OpenCode";
   if (source === "opencode-sse") return "OpenCode SSE";
   return source;
+}
+
+export function runtimeFilterKey(source?: string): string {
+  if (!source) return "unknown";
+  const slug = runtimeTagSlug(source);
+  return slug === "other" ? `source:${source}` : slug;
+}
+
+export function runtimeFilterLabel(key: string): string {
+  if (key === ALL_RUNTIME_FILTER_KEY) return "All";
+  if (key === "claude") return "Claude";
+  if (key === "codex") return "Codex";
+  if (key === "opencode") return "OpenCode";
+  if (key === "unknown") return "Unknown";
+  return key.startsWith("source:") ? runtimeTagLabel(key.slice("source:".length)) : key;
+}
+
+export function filterTasksByRuntime(tasks: readonly MonitoringTask[], filterKey: string): readonly MonitoringTask[] {
+  if (filterKey === ALL_RUNTIME_FILTER_KEY) return tasks;
+  return tasks.filter((task) => runtimeFilterKey(task.runtimeSource) === filterKey);
+}
+
+export function buildRuntimeFilterOptions(tasks: readonly MonitoringTask[]): readonly RuntimeFilterOption[] {
+  const counts = new Map<string, number>();
+
+  for (const task of tasks) {
+    const key = runtimeFilterKey(task.runtimeSource);
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+
+  const customKeys = [...counts.keys()]
+    .filter((key) => !["claude", "codex", "opencode", "unknown"].includes(key))
+    .sort((a, b) => runtimeFilterLabel(a).localeCompare(runtimeFilterLabel(b)));
+
+  const orderedKeys = [
+    "claude",
+    "codex",
+    "opencode",
+    ...customKeys,
+    "unknown"
+  ].filter((key) => counts.has(key));
+
+  return [
+    {
+      key: ALL_RUNTIME_FILTER_KEY,
+      label: runtimeFilterLabel(ALL_RUNTIME_FILTER_KEY),
+      count: tasks.length
+    },
+    ...orderedKeys.map((key) => ({
+      key,
+      label: runtimeFilterLabel(key),
+      count: counts.get(key) ?? 0
+    }))
+  ];
 }
