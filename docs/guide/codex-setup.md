@@ -9,6 +9,8 @@ Supported today:
 - repo-local Codex integration in this repository
 - manual MCP registration
 - repo-local `codex-monitor` skill discovery through `AGENTS.md`
+- thread/topic-scoped Codex task reuse through runtime session ensure/end
+- manual `assistant.response` capture through the Codex skill flow
 - external-project bootstrap through `setup:external --mode codex`
 
 Still manual:
@@ -83,11 +85,13 @@ prompt with `$codex-monitor`.
 
 The `codex-monitor` skill:
 
-- starts one monitor task per user request
+- keeps one monitor task per Codex thread/topic by reusing a thread-local `runtimeSessionId`
+- opens and closes a runtime session per turn through `runtime-session-ensure/end`
 - records exploration, planning, shell validation, and notable tool usage
+- records the final user-facing answer as `assistant.response` before the turn ends
 - can record async/background lifecycle updates through `monitor_async_task`
 - can link background/subagent work through `monitor_task_link`
-- completes or errors the task explicitly
+- completes or errors the task explicitly only when the whole thread/topic is done
 
 If `monitor-server` is unavailable, the skill policy is to keep working and
 emit a gap report at the end instead of stopping the task.
@@ -99,4 +103,5 @@ emit a gap report at the end instead of stopping the task.
 3. If you ran `setup:external --mode codex`, start a new Codex thread in that target repository.
 4. Otherwise, start a new Codex thread in this repository.
 5. Ask Codex to do a small task in the repo.
-6. Confirm a monitor task appears in the dashboard and receives multiple events.
+6. Continue with a follow-up prompt in the same Codex thread.
+7. Confirm the same monitor task is reused across turns and receives both `user.message` and `assistant.response` events.

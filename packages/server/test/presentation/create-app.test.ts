@@ -217,6 +217,122 @@ describe("HTTP API", () => {
     expect(reopened.body.sessionId).not.toBe(first.body.sessionId);
   });
 
+  it("Codex runtime 세션은 같은 thread id에서 task를 재사용하고 assistant.response를 남긴다", async () => {
+    const runtimeSessionId = "codex-thread-1";
+
+    const first = await request(runtime.app)
+      .post("/api/runtime-session-ensure")
+      .send({
+        runtimeSource: "codex-skill",
+        runtimeSessionId,
+        title: "Codex - agent-tracer",
+        workspacePath: "/workspace/agent-tracer"
+      });
+
+    expect(first.status).toBe(200);
+
+    const taskId = first.body.taskId as string;
+    const firstSessionId = first.body.sessionId as string;
+
+    await request(runtime.app)
+      .post("/api/user-message")
+      .send({
+        taskId,
+        sessionId: firstSessionId,
+        messageId: "codex-user-1",
+        captureMode: "raw",
+        source: "manual-mcp",
+        phase: "initial",
+        title: "첫 요청",
+        body: "Codex task reuse를 고쳐줘"
+      });
+
+    await request(runtime.app)
+      .post("/api/assistant-response")
+      .send({
+        taskId,
+        sessionId: firstSessionId,
+        messageId: "codex-assistant-1",
+        source: "codex-skill",
+        title: "I'll investigate the Codex task reuse flow.",
+        body: "I'll investigate the Codex task reuse flow and keep the same task across turns."
+      });
+
+    const firstEnded = await request(runtime.app)
+      .post("/api/runtime-session-end")
+      .send({
+        runtimeSource: "codex-skill",
+        runtimeSessionId,
+        completionReason: "idle",
+        summary: "Codex turn idle"
+      });
+
+    expect(firstEnded.status).toBe(200);
+
+    const waitingDetail = await request(runtime.app).get(`/api/tasks/${taskId}`);
+    expect(waitingDetail.status).toBe(200);
+    expect(waitingDetail.body.task.status).toBe("waiting");
+
+    const reopened = await request(runtime.app)
+      .post("/api/runtime-session-ensure")
+      .send({
+        runtimeSource: "codex-skill",
+        runtimeSessionId,
+        title: "Codex - agent-tracer",
+        workspacePath: "/workspace/agent-tracer"
+      });
+
+    expect(reopened.status).toBe(200);
+    expect(reopened.body).toMatchObject({
+      taskId,
+      taskCreated: false,
+      sessionCreated: true
+    });
+    expect(reopened.body.sessionId).not.toBe(firstSessionId);
+
+    const secondSessionId = reopened.body.sessionId as string;
+
+    await request(runtime.app)
+      .post("/api/user-message")
+      .send({
+        taskId,
+        sessionId: secondSessionId,
+        messageId: "codex-user-2",
+        captureMode: "raw",
+        source: "manual-mcp",
+        phase: "follow_up",
+        title: "후속 요청",
+        body: "assistant.response도 같이 기록해줘"
+      });
+
+    await request(runtime.app)
+      .post("/api/assistant-response")
+      .send({
+        taskId,
+        sessionId: secondSessionId,
+        messageId: "codex-assistant-2",
+        source: "codex-skill",
+        title: "I'll record assistant responses too.",
+        body: "I'll record assistant responses too and keep reusing the same runtime session binding."
+      });
+
+    const detail = await request(runtime.app).get(`/api/tasks/${taskId}`);
+    const timeline = detail.body.timeline as Array<{ kind: string; sessionId?: string; title: string }>;
+
+    expect(detail.status).toBe(200);
+    expect(detail.body.task.status).toBe("running");
+    expect(timeline.filter((event) => event.kind === "user.message")).toHaveLength(2);
+    expect(timeline.filter((event) => event.kind === "assistant.response")).toHaveLength(2);
+
+    const responseSessionIds = new Set(
+      timeline
+        .filter((event) => event.kind === "assistant.response")
+        .map((event) => event.sessionId)
+    );
+
+    expect(responseSessionIds).toEqual(new Set([firstSessionId, secondSessionId]));
+  });
+
   it("북마크와 검색이 같은 작업 맥락을 다시 찾게 해준다", async () => {
     const started = await request(runtime.app)
       .post("/api/task-start")
