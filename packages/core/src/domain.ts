@@ -163,6 +163,19 @@ export interface TaskEvaluation {
   readonly evaluatedAt: string;
 }
 
+/** 워크플로우 라이브러리 목록 항목 (workflowContext 제외). */
+export interface WorkflowSummary {
+  readonly taskId: string;
+  readonly title: string;
+  readonly useCase: string | null;
+  readonly workflowTags: readonly string[];
+  readonly outcomeNote: string | null;
+  readonly rating: "good" | "skip";
+  readonly eventCount: number;
+  readonly createdAt: string;
+  readonly evaluatedAt: string;
+}
+
 /** 유사 워크플로우 검색 결과. */
 export interface WorkflowSearchResult {
   readonly taskId: string;

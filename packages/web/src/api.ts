@@ -11,9 +11,11 @@ import type {
   MonitoringTask,
   OverviewResponse,
   SearchResponse,
+  TaskEvaluation,
   TaskDetailResponse,
   TimelineEvent,
-  TasksResponse
+  TasksResponse,
+  WorkflowSummary
 } from "./types.js";
 
 const API_BASE = (
@@ -176,13 +178,13 @@ export interface TaskEvaluationPayload {
   outcomeNote?: string;
 }
 
-export interface TaskEvaluationRecord {
-  taskId: string;
-  rating: "good" | "skip";
-  useCase: string | null;
-  workflowTags: string[];
-  outcomeNote: string | null;
-  evaluatedAt: string;
+export type TaskEvaluationRecord = TaskEvaluation;
+
+export type WorkflowSummaryRecord = WorkflowSummary;
+
+export function fetchWorkflowLibrary(rating?: "good" | "skip"): Promise<WorkflowSummaryRecord[]> {
+  const qs = rating ? `?rating=${rating}` : "";
+  return getJson<WorkflowSummaryRecord[]>(`/api/workflows${qs}`);
 }
 
 export function fetchTaskEvaluation(taskId: string): Promise<TaskEvaluationRecord | null> {

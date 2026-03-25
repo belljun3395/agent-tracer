@@ -514,6 +514,10 @@ export class MonitorService {
     return this.ports.evaluations.getEvaluation(taskId);
   }
 
+  async listEvaluations(rating?: "good" | "skip") {
+    return this.ports.evaluations.listEvaluations(rating);
+  }
+
   async searchSimilarWorkflows(query: string, tags?: string[], limit?: number) {
     return this.ports.evaluations.searchSimilarWorkflows(query, tags, limit);
   }
