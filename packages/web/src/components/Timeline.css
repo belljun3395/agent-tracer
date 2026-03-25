@@ -501,7 +501,7 @@
   top: 32px;
   left: 0;
   bottom: 0;
-  width: 204px;
+  width: var(--timeline-gutter-scrim-width, 204px);
   pointer-events: none;
   z-index: 6;
   background: linear-gradient(90deg, var(--surface) 0%, var(--surface) 76%, color-mix(in srgb, var(--surface) 80%, transparent) 92%, transparent 100%);
@@ -543,7 +543,7 @@
   align-items: center;
   gap: 8px;
   height: 100%;
-  width: 152px;
+  width: var(--timeline-lane-label-width, 120px);
   padding: 0 14px;
   font-size: 0.73rem;
   font-weight: 600;
@@ -657,7 +657,7 @@
 
 .lane-track {
   position: absolute;
-  left: 184px;
+  left: var(--timeline-track-left, 160px);
   right: 16px;
   top: 44px;
   height: 1px;
@@ -1222,22 +1222,8 @@
     gap: 10px;
   }
 
-  .timeline-gutter-scrim {
-    width: 174px;
-  }
-
   .lane-label {
-    width: 132px;
     padding: 0 12px;
-  }
-
-  .lane-track {
-    left: 154px;
-    right: 14px;
-  }
-
-  .event-node {
-    width: 142px;
   }
 }
 
@@ -1389,21 +1375,11 @@
   }
 
   .event-node {
-    width: 132px;
     padding: 5px 8px;
   }
 
   .lane-label {
-    width: 112px;
     font-size: 0.73rem;
-  }
-
-  .lane-track {
-    left: 128px;
-  }
-
-  .timeline-gutter-scrim {
-    width: 136px;
   }
 }
 
@@ -1412,24 +1388,10 @@
     font-size: 0.72rem;
   }
 
-  .timeline-gutter-scrim {
-    width: 112px;
-  }
-
   .lane-label {
-    width: 96px;
     font-size: 0.71rem;
     gap: 5px;
     padding: 0 8px;
-  }
-
-  .lane-track {
-    left: 108px;
-    right: 10px;
-  }
-
-  .event-node {
-    width: 118px;
   }
 
   .event-node strong {
