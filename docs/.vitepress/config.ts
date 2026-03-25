@@ -141,6 +141,7 @@ export default defineConfig({
   ],
   themeConfig: {
     siteTitle: "Agent Tracer Docs",
+    appearance: true,
     search: {
       provider: "local"
     },
