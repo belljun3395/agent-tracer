@@ -6,10 +6,16 @@
 
 ## 핵심 파일
 
-- `packages/core/src/domain.ts`
+- `packages/core/src/domain.ts` (barrel export)
+- `packages/core/src/domain/types.ts`
+- `packages/core/src/domain/constants.ts`
+- `packages/core/src/domain/utils.ts`
 - `packages/core/src/classifier.ts`
 - `packages/core/src/action-registry.ts`
-- `packages/core/src/runtime-capabilities.ts`
+- `packages/core/src/runtime-capabilities.ts` (barrel export)
+- `packages/core/src/runtime-capabilities.constants.ts`
+- `packages/core/src/runtime-capabilities.types.ts`
+- `packages/core/src/runtime-capabilities.helpers.ts`
 - `packages/core/src/path-utils.ts`
 
 ## 이 패키지가 정의하는 것

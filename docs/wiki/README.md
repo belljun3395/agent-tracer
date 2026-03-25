@@ -95,7 +95,7 @@
 
 | Package | 역할 | 지금 읽어야 할 파일 |
 | --- | --- | --- |
-| `packages/core` | 공통 도메인 타입, 이벤트 분류, 런타임 capability registry | `src/domain.ts`, `src/classifier.ts`, `src/runtime-capabilities.ts` |
+| `packages/core` | 공통 도메인 타입, 이벤트 분류, 런타임 capability registry | `src/domain.ts`, `src/domain/*`, `src/classifier.ts`, `src/runtime-capabilities.ts` |
 | `packages/server` | Express API, SQLite repository, runtime session 관리, WebSocket broadcast | `src/bootstrap/create-monitor-runtime.ts`, `src/application/monitor-service.ts` |
 | `packages/mcp` | monitor-server HTTP API를 MCP tool surface로 노출 | `src/index.ts`, `src/client.ts` |
 | `packages/web` | React 19 기반 실시간 대시보드와 워크플로우 라이브러리 UI | `src/App.tsx`, `src/store/useMonitorStore.tsx`, `src/components/Timeline.tsx` |

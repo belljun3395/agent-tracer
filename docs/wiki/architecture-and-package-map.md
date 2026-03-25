@@ -9,7 +9,7 @@ Agent Tracer는 npm workspace 기반 TypeScript 모노레포이며,
 
 | Package | 역할 | 대표 파일 |
 | --- | --- | --- |
-| `@monitor/core` | 도메인 타입, event classifier, runtime capability registry | `src/domain.ts`, `src/classifier.ts`, `src/runtime-capabilities.ts` |
+| `@monitor/core` | 도메인 타입, event classifier, runtime capability registry | `src/domain.ts`(barrel), `src/domain/*`, `src/classifier.ts`, `src/runtime-capabilities.ts`(barrel) |
 | `@monitor/server` | Express API, application service, SQLite repository, WebSocket broadcaster | `src/bootstrap/create-monitor-runtime.ts`, `src/application/monitor-service.ts` |
 | `@monitor/mcp` | 서버 API를 MCP tool 집합으로 노출 | `src/index.ts`, `src/client.ts` |
 | `@monitor/web` | 대시보드 UI, overview/task detail fetch, realtime refresh | `src/App.tsx`, `src/store/useMonitorStore.tsx`, `src/components/Timeline.tsx` |
