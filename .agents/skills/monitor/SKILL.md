@@ -91,6 +91,22 @@ Claude Code / OpenCode는 훅·플러그인이 대부분의 이벤트를 자동 
   - `activityType="handoff"` → 다른 에이전트·세션으로 작업을 넘길 때
   - Claude Code / OpenCode: 훅·플러그인이 자동 기록. 위 "환경별 자동화 수준" 참조.
 
+## 워크플로우 라이브러리 — 작업 완료 후 평가
+
+작업이 마무리된 것 같으면:
+
+1. `monitor_question`으로 사용자에게 평가 의사를 먼저 확인한다.
+   - 예: "이 작업을 워크플로우 라이브러리에 저장할까요?"
+2. 사용자가 원하면 아래 정보를 물어본다 (한 번에 물어봐도 됨):
+   - `rating`: `good` / `skip`
+   - `useCase`: 작업 종류 (예: `"java 최신 조사"`)
+   - `workflowTags`: 태그 목록
+   - `outcomeNote`: 잘 된 접근법 — 다음 참고 힌트
+3. 현재 taskId: `GET http://localhost:3847/api/tasks?limit=1` 로 조회.
+4. `monitor_evaluate_task` 호출해 저장.
+
+> 모니터 서버 미응답 시 건너뜀.
+
 ## 필수 리듬
 
 - 첫 탐색 전에 모니터링 시작
