@@ -11,6 +11,7 @@ import {
     setProjectDir,
     toTrimmedString
 } from "./common.js";
+import { queuePendingUserPrompt, readHookState, writeHookState } from "./hook_state.js";
 
 async function main(): Promise<void> {
     const payload = await readStdinJson();
@@ -44,6 +45,7 @@ async function main(): Promise<void> {
         title,
         body: prompt
     });
+    writeHookState(queuePendingUserPrompt(readHookState(), sessionId, prompt));
     hookLog("user_prompt", "user-message posted", { title });
 }
 

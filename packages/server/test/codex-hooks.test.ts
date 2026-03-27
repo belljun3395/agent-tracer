@@ -1,7 +1,7 @@
 import { createServer } from "node:http";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -67,13 +67,15 @@ async function runCodexHook(
   scriptPath: string,
   payload: Record<string, unknown>,
   port: number,
-  projectDir: string
+  projectDir: string,
+  extraEnv?: Record<string, string>
 ) {
   const child = spawn("node", [tsxCli, scriptPath], {
     env: {
       ...process.env,
       MONITOR_PORT: String(port),
-      CODEX_PROJECT_DIR: projectDir
+      CODEX_PROJECT_DIR: projectDir,
+      ...(extraEnv ?? {})
     },
     stdio: ["pipe", "pipe", "pipe"]
   });
@@ -96,14 +98,30 @@ async function runCodexHook(
   expect(stderr).toBe("");
 }
 
-function makeTranscriptLines(repoDir: string, turnId: string): string {
+function makeTranscriptLines(
+  repoDir: string,
+  turnId: string,
+  options?: {
+    readonly userMessage?: string;
+    readonly lastAssistantMessage?: string;
+  }
+): string {
   const filePath = path.join(repoDir, "src", "app.ts");
+  const userMessage = options?.userMessage ?? "Investigate the Codex hook gap.";
+  const lastAssistantMessage = options?.lastAssistantMessage ?? "Hook gap inspected.";
   return [
     JSON.stringify({
       type: "event_msg",
       payload: {
         type: "task_started",
         turn_id: turnId
+      }
+    }),
+    JSON.stringify({
+      type: "event_msg",
+      payload: {
+        type: "user_message",
+        message: userMessage
       }
     }),
     JSON.stringify({
@@ -151,7 +169,8 @@ function makeTranscriptLines(repoDir: string, turnId: string): string {
       type: "event_msg",
       payload: {
         type: "task_complete",
-        turn_id: turnId
+        turn_id: turnId,
+        last_agent_message: lastAssistantMessage
       }
     })
   ].join("\n");
@@ -194,6 +213,18 @@ describe("Codex hooks", () => {
           runtimeSessionId: "codex-session",
           title: `Codex — ${path.basename(repoDir)}`,
           workspacePath: repoDir
+        }
+      },
+      {
+        endpoint: "/api/user-message",
+        body: {
+          taskId: "codex-task",
+          sessionId: "codex-monitor-session",
+          messageId: expect.any(String),
+          captureMode: "raw",
+          source: "codex-hook",
+          title: "Investigate the Codex hook gap.",
+          body: "Investigate the Codex hook gap."
         }
       },
       {
@@ -271,6 +302,19 @@ describe("Codex hooks", () => {
         }
       },
       {
+        endpoint: "/api/assistant-response",
+        body: expect.objectContaining({
+          taskId: "codex-task",
+          sessionId: "codex-monitor-session",
+          messageId: expect.any(String),
+          source: "codex-hook",
+          title: "Response (end_turn)",
+          metadata: {
+            stopReason: "end_turn"
+          }
+        })
+      },
+      {
         endpoint: "/api/runtime-session-end",
         body: {
           runtimeSource: "codex-hook",
@@ -280,6 +324,51 @@ describe("Codex hooks", () => {
         }
       }
     ]);
+  });
+
+  it("Stop hook backfill resolves transcript from session_id when payload omits turn_id and transcript_path", async () => {
+    const monitor = await startMonitorStub();
+    monitors.push(monitor);
+
+    const repoDir = await mkdtemp(path.join(os.tmpdir(), "agent-tracer-codex-hooks-fallback-"));
+    const fakeHome = await mkdtemp(path.join(os.tmpdir(), "agent-tracer-codex-home-"));
+    tempDirs.push(repoDir, fakeHome);
+
+    const transcriptDir = path.join(fakeHome, ".codex", "sessions", "2026", "03", "27");
+    await mkdir(transcriptDir, { recursive: true });
+
+    const turnId = "turn-codex-fallback";
+    const transcriptPath = path.join(
+      transcriptDir,
+      "rollout-2026-03-27T21-19-44-codex-session.jsonl"
+    );
+    await writeFile(transcriptPath, makeTranscriptLines(repoDir, turnId, {
+      userMessage: "다 진행해.",
+      lastAssistantMessage: "모든 경로를 복구하겠습니다."
+    }), "utf8");
+
+    await runCodexHook(stopHook, {
+      session_id: "codex-session",
+      cwd: repoDir,
+      stop_reason: "end_turn",
+      last_assistant_message: "모든 경로를 복구하겠습니다."
+    }, monitor.port, repoDir, { HOME: fakeHome });
+
+    expect(monitor.calls.map((call) => call.endpoint)).toEqual([
+      "/api/runtime-session-ensure",
+      "/api/user-message",
+      "/api/explore",
+      "/api/explore",
+      "/api/tool-used",
+      "/api/assistant-response",
+      "/api/runtime-session-end"
+    ]);
+    expect(monitor.calls[1]?.body).toEqual(expect.objectContaining({
+      captureMode: "raw",
+      source: "codex-hook",
+      title: "다 진행해.",
+      body: "다 진행해."
+    }));
   });
 
   it("Stop hook backfill dedupes already-processed turns via .codex/.hook-state.json", async () => {
@@ -303,8 +392,59 @@ describe("Codex hooks", () => {
     await runCodexHook(stopHook, payload, monitor.port, repoDir);
     await runCodexHook(stopHook, payload, monitor.port, repoDir);
 
+    expect(monitor.calls.filter((call) => call.endpoint === "/api/user-message")).toHaveLength(1);
     expect(monitor.calls.filter((call) => call.endpoint === "/api/explore")).toHaveLength(2);
     expect(monitor.calls.filter((call) => call.endpoint === "/api/tool-used")).toHaveLength(1);
+    expect(monitor.calls.filter((call) => call.endpoint === "/api/assistant-response")).toHaveLength(2);
     expect(monitor.calls.filter((call) => call.endpoint === "/api/runtime-session-end")).toHaveLength(2);
+  });
+
+  it("Stop hook posts assistant-response from last_assistant_message and usage metadata", async () => {
+    const monitor = await startMonitorStub();
+    monitors.push(monitor);
+
+    const repoDir = await mkdtemp(path.join(os.tmpdir(), "agent-tracer-codex-hooks-response-"));
+    tempDirs.push(repoDir);
+
+    await runCodexHook(stopHook, {
+      session_id: "codex-session",
+      cwd: repoDir,
+      stop_reason: "end_turn",
+      last_assistant_message: "I'll inspect the hook pipeline and patch the gap.",
+      usage: {
+        input_tokens: 100,
+        output_tokens: 40,
+        cache_read_input_tokens: 200,
+        cache_creation_input_tokens: 300
+      }
+    }, monitor.port, repoDir);
+
+    const response = monitor.calls.find((call) => call.endpoint === "/api/assistant-response");
+    expect(response).toBeDefined();
+    expect(response!.body).toEqual(expect.objectContaining({
+      taskId: "codex-task",
+      sessionId: "codex-monitor-session",
+      messageId: expect.any(String),
+      source: "codex-hook",
+      title: "I'll inspect the hook pipeline and patch the gap.",
+      body: "I'll inspect the hook pipeline and patch the gap.",
+      metadata: {
+        stopReason: "end_turn",
+        inputTokens: 100,
+        outputTokens: 40,
+        cacheReadTokens: 200,
+        cacheCreateTokens: 300
+      }
+    }));
+
+    const sessionEnd = monitor.calls.find((call) => call.endpoint === "/api/runtime-session-end");
+    expect(sessionEnd).toBeDefined();
+    expect(sessionEnd!.body).toEqual({
+      runtimeSource: "codex-hook",
+      runtimeSessionId: "codex-session",
+      completeTask: true,
+      completionReason: "assistant_turn_complete",
+      summary: "I'll inspect the hook pipeline and patch the gap."
+    });
   });
 });

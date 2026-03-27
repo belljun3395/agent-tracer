@@ -18,7 +18,8 @@
 
 ## 레퍼런스
 
-- [Hook payload spec](./hook-payload-spec.md)
+- [Claude Code hook payload spec](./hook-payload-spec.md)
+- [Codex CLI hook payload spec](./codex-cli-hook-payload-spec.md)
 - [OpenCode plugin spec](./opencode-plugin-spec.md)
 - [Web styling guide](./web-styling.md)
 

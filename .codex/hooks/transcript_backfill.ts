@@ -1,10 +1,12 @@
 import * as fs from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
 
+import type { JsonObject } from "./common.js";
 import {
-    JsonObject,
     PROJECT_DIR,
     buildSemanticMetadata,
+    createMessageId,
     ellipsize,
     hookLog,
     inferExploreSemantic,
@@ -14,32 +16,29 @@ import {
     relativeProjectPath,
     toTrimmedString
 } from "./common.js";
+import {
+    consumePendingUserPrompt,
+    isTurnAlreadyProcessed,
+    markTurnProcessed,
+    readHookState,
+    writeHookState
+} from "./hook_state.js";
 
 interface RuntimeIds {
     readonly taskId: string;
     readonly sessionId: string;
 }
 
-interface HookState {
-    readonly processedTurnsBySession: Record<string, string[]>;
-}
-
-const STATE_FILE_NAME = ".hook-state.json";
-const MAX_TURN_HISTORY = 200;
-
 export async function backfillTurnEventsFromTranscript(payload: JsonObject, ids: RuntimeIds): Promise<void> {
     const runtimeSessionId = toTrimmedString(payload.session_id);
-    const turnId = toTrimmedString(payload.turn_id);
-    const transcriptPath = toTrimmedString(payload.transcript_path);
-
-    if (!runtimeSessionId || !turnId || !transcriptPath) {
-        hookLog("stop", "transcript backfill skipped — missing session/turn/transcript path");
+    if (!runtimeSessionId) {
+        hookLog("stop", "transcript backfill skipped — missing session id");
         return;
     }
 
-    const state = readHookState();
-    if (isTurnAlreadyProcessed(state, runtimeSessionId, turnId)) {
-        hookLog("stop", "transcript backfill skipped — turn already processed", { runtimeSessionId, turnId });
+    const transcriptPath = resolveTranscriptPath(payload, runtimeSessionId);
+    if (!transcriptPath) {
+        hookLog("stop", "transcript backfill skipped — transcript path unavailable", { runtimeSessionId });
         return;
     }
 
@@ -49,19 +48,32 @@ export async function backfillTurnEventsFromTranscript(payload: JsonObject, ids:
         return;
     }
 
+    const turnId = resolveTurnId(payload, rows);
+    if (!turnId) {
+        hookLog("stop", "transcript backfill skipped — turn id unavailable", { transcriptPath, runtimeSessionId });
+        return;
+    }
+
+    const state = readHookState();
+    if (isTurnAlreadyProcessed(state, runtimeSessionId, turnId)) {
+        hookLog("stop", "transcript backfill skipped — turn already processed", { runtimeSessionId, turnId });
+        return;
+    }
+
     const turnRows = extractRowsForTurn(rows, turnId);
     if (turnRows.length === 0) {
         hookLog("stop", "transcript backfill skipped — turn rows not found", { turnId });
         return;
     }
 
+    const { count: userCount, nextState: stateAfterUsers } = await postUserMessageEvents(turnRows, ids, state, runtimeSessionId);
     const webCount = await postWebSearchEvents(turnRows, ids);
     const patchCount = await postApplyPatchEvents(turnRows, ids);
 
-    const nextState = markTurnProcessed(state, runtimeSessionId, turnId);
+    const nextState = markTurnProcessed(stateAfterUsers, runtimeSessionId, turnId);
     writeHookState(nextState);
 
-    hookLog("stop", "transcript backfill posted", { turnId, webCount, patchCount });
+    hookLog("stop", "transcript backfill posted", { transcriptPath, turnId, userCount, webCount, patchCount });
 }
 
 function readTranscriptRows(transcriptPath: string): JsonObject[] {
@@ -87,6 +99,58 @@ function readTranscriptRows(transcriptPath: string): JsonObject[] {
     }
 }
 
+function resolveTranscriptPath(payload: JsonObject, runtimeSessionId: string): string {
+    const explicitPath = toTrimmedString(payload.transcript_path);
+    if (explicitPath) return explicitPath;
+
+    const inferredPath = findTranscriptPathBySessionId(runtimeSessionId);
+    if (inferredPath) {
+        hookLog("stop", "resolved transcript path from session", { runtimeSessionId, transcriptPath: inferredPath });
+    }
+    return inferredPath;
+}
+
+function resolveTurnId(payload: JsonObject, rows: JsonObject[]): string {
+    const explicitTurnId = toTrimmedString(payload.turn_id);
+    if (explicitTurnId) return explicitTurnId;
+
+    const responseText = toTrimmedString(payload.last_assistant_message, 100_000);
+    if (responseText) {
+        for (let index = rows.length - 1; index >= 0; index -= 1) {
+            const row = rows[index];
+            if (!row) continue;
+            if (toTrimmedString(row.type) !== "event_msg") continue;
+            const rowPayload = getPayload(row);
+            if (toTrimmedString(rowPayload.type) !== "task_complete") continue;
+            if (toTrimmedString(rowPayload.last_agent_message, 100_000) !== responseText) continue;
+            const matchedTurnId = toTrimmedString(rowPayload.turn_id);
+            if (matchedTurnId) return matchedTurnId;
+        }
+    }
+
+    for (let index = rows.length - 1; index >= 0; index -= 1) {
+        const row = rows[index];
+        if (!row) continue;
+        if (toTrimmedString(row.type) !== "event_msg") continue;
+        const rowPayload = getPayload(row);
+        if (toTrimmedString(rowPayload.type) !== "task_complete") continue;
+        const matchedTurnId = toTrimmedString(rowPayload.turn_id);
+        if (matchedTurnId) return matchedTurnId;
+    }
+
+    for (let index = rows.length - 1; index >= 0; index -= 1) {
+        const row = rows[index];
+        if (!row) continue;
+        if (toTrimmedString(row.type) !== "event_msg") continue;
+        const rowPayload = getPayload(row);
+        if (toTrimmedString(rowPayload.type) !== "task_started") continue;
+        const matchedTurnId = toTrimmedString(rowPayload.turn_id);
+        if (matchedTurnId) return matchedTurnId;
+    }
+
+    return "";
+}
+
 function extractRowsForTurn(rows: JsonObject[], turnId: string): JsonObject[] {
     const startIndex = rows.findIndex((row) => {
         if (toTrimmedString(row.type) !== "event_msg") return false;
@@ -106,6 +170,42 @@ function extractRowsForTurn(rows: JsonObject[], turnId: string): JsonObject[] {
     });
 
     return rows.slice(startIndex, endIndex >= startIndex ? endIndex + 1 : rows.length);
+}
+
+async function postUserMessageEvents(
+    rows: JsonObject[],
+    ids: RuntimeIds,
+    initialState: ReturnType<typeof readHookState>,
+    runtimeSessionId: string
+): Promise<{ readonly count: number; readonly nextState: ReturnType<typeof readHookState> }> {
+    let state = initialState;
+    let count = 0;
+
+    for (const row of rows) {
+        if (toTrimmedString(row.type) !== "event_msg") continue;
+        const payload = getPayload(row);
+        if (toTrimmedString(payload.type) !== "user_message") continue;
+
+        const message = toTrimmedString(payload.message, 100_000);
+        if (!message) continue;
+
+        const consumed = consumePendingUserPrompt(state, runtimeSessionId, message);
+        state = consumed.state;
+        if (consumed.matched) continue;
+
+        await postJson("/api/user-message", {
+            taskId: ids.taskId,
+            sessionId: ids.sessionId,
+            messageId: createMessageId(),
+            captureMode: "raw",
+            source: "codex-hook",
+            title: ellipsize(message, 120),
+            body: message
+        });
+        count += 1;
+    }
+
+    return { count, nextState: state };
 }
 
 async function postWebSearchEvents(rows: JsonObject[], ids: RuntimeIds): Promise<number> {
@@ -155,6 +255,41 @@ async function postWebSearchEvents(rows: JsonObject[], ids: RuntimeIds): Promise
     }
 
     return count;
+}
+
+function findTranscriptPathBySessionId(runtimeSessionId: string): string {
+    const codexHome = process.env.CODEX_HOME || path.join(os.homedir(), ".codex");
+    const candidates: string[] = [];
+
+    for (const rootDir of [path.join(codexHome, "sessions"), path.join(codexHome, "archived_sessions")]) {
+        collectTranscriptCandidates(rootDir, runtimeSessionId, candidates);
+    }
+
+    return candidates.sort().at(-1) ?? "";
+}
+
+function collectTranscriptCandidates(rootDir: string, runtimeSessionId: string, candidates: string[]): void {
+    try {
+        const entries = fs.readdirSync(rootDir, { withFileTypes: true });
+        for (const entry of entries) {
+            const fullPath = path.join(rootDir, entry.name);
+            if (entry.isDirectory()) {
+                collectTranscriptCandidates(fullPath, runtimeSessionId, candidates);
+                continue;
+            }
+            if (entry.isFile() && isTranscriptCandidate(entry.name, runtimeSessionId)) {
+                candidates.push(fullPath);
+            }
+        }
+    } catch {
+        // Ignore missing/unreadable roots and keep searching other locations.
+    }
+}
+
+function isTranscriptCandidate(filename: string, runtimeSessionId: string): boolean {
+    return filename.endsWith(".jsonl")
+        && filename.includes(runtimeSessionId)
+        && filename.startsWith("rollout-");
 }
 
 async function postApplyPatchEvents(rows: JsonObject[], ids: RuntimeIds): Promise<number> {
@@ -256,60 +391,4 @@ function toAbsoluteProjectPath(candidate: string): string {
 
 function getPayload(row: JsonObject): JsonObject {
     return isRecord(row.payload) ? row.payload : {};
-}
-
-function stateFilePath(): string {
-    return path.join(PROJECT_DIR, ".codex", STATE_FILE_NAME);
-}
-
-function readHookState(): HookState {
-    const filename = stateFilePath();
-    try {
-        const raw = fs.readFileSync(filename, "utf8");
-        const parsed = JSON.parse(raw) as unknown;
-        if (!isRecord(parsed)) return { processedTurnsBySession: {} };
-
-        const mapped = isRecord(parsed.processedTurnsBySession)
-            ? Object.fromEntries(
-                Object.entries(parsed.processedTurnsBySession).map(([key, value]) => [
-                    key,
-                    Array.isArray(value) ? value.map((item) => toTrimmedString(item)).filter(Boolean) : []
-                ])
-            )
-            : {};
-
-        return { processedTurnsBySession: mapped };
-    } catch {
-        return { processedTurnsBySession: {} };
-    }
-}
-
-function writeHookState(state: HookState): void {
-    const filename = stateFilePath();
-    try {
-        fs.mkdirSync(path.dirname(filename), { recursive: true });
-        fs.writeFileSync(filename, JSON.stringify(state, null, 2));
-    } catch (error) {
-        hookLog("stop", "failed to write hook state", { error: String(error) });
-    }
-}
-
-function isTurnAlreadyProcessed(state: HookState, runtimeSessionId: string, turnId: string): boolean {
-    const turns = state.processedTurnsBySession[runtimeSessionId] ?? [];
-    return turns.includes(turnId);
-}
-
-function markTurnProcessed(state: HookState, runtimeSessionId: string, turnId: string): HookState {
-    const turns = state.processedTurnsBySession[runtimeSessionId] ?? [];
-    const merged = turns.includes(turnId)
-        ? turns
-        : [...turns, turnId];
-    const trimmed = merged.slice(Math.max(0, merged.length - MAX_TURN_HISTORY));
-
-    return {
-        processedTurnsBySession: {
-            ...state.processedTurnsBySession,
-            [runtimeSessionId]: trimmed
-        }
-    };
 }

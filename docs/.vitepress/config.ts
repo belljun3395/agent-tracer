@@ -36,7 +36,8 @@ const guideSidebar = [
     items: [
       { text: "Runtime Capabilities", link: "/guide/runtime-capabilities" },
       { text: "API Integration Map", link: "/guide/api-integration-map" },
-      { text: "Hook Payload Spec", link: "/guide/hook-payload-spec" },
+      { text: "Claude Hook Payload Spec", link: "/guide/hook-payload-spec" },
+      { text: "Codex CLI Hook Payload Spec", link: "/guide/codex-cli-hook-payload-spec" },
       { text: "OpenCode Plugin Spec", link: "/guide/opencode-plugin-spec" },
       { text: "Web Styling Guide", link: "/guide/web-styling" }
     ]

@@ -413,7 +413,9 @@ export function hookLog(hookName: string, message: string, data?: Record<string,
 
 export function hookLogPayload(hookName: string, payload: JsonObject): void {
     const ts = new Date().toISOString().slice(11, 23);
-    const { tool_response: _tr, transcript_path: _tp, ...rest } = payload;
+    const rest = { ...payload };
+    delete rest.tool_response;
+    delete rest.transcript_path;
 
     if (isRecord(rest.tool_input)) {
         rest.tool_input = Object.fromEntries(

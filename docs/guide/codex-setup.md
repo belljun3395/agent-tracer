@@ -177,10 +177,13 @@ The repo-local `.codex/config.toml` is already committed in this repository
 | Event | Hook file | What it records |
 |-------|-----------|-----------------|
 | `SessionStart` (startup/resume) | `session_start.ts` | Opens a runtime session, saves a planning event |
-| `UserPromptSubmit` | `user_prompt.ts` | Captures the user prompt as `user.message` |
+| `UserPromptSubmit` | `user_prompt.ts` | Primary path for `user.message` when the runtime emits the event |
 | `PreToolUse` | `pre_tool.ts` | Ensures a runtime session/task exists |
 | `PostToolUse` (Bash) | `terminal.ts` | Records the shell command with lane/semantic metadata |
-| `Stop` | `stop.ts` | Backfills current-turn transcript events (`web_search_end`, `apply_patch`) and marks the task complete |
+| `Stop` | `stop.ts` | Backfills current-turn transcript events (`user_message`, `web_search_end`, `apply_patch`), records `assistant.response`, and marks the task complete |
+
+Current Codex payload details and observed runtime differences are documented in
+[codex-cli-hook-payload-spec.md](./codex-cli-hook-payload-spec.md).
 
 ### Hook Runner
 
@@ -212,18 +215,19 @@ Debug logs are written to `.codex/hooks.log` when `NODE_ENV=development`.
 | Exploration/planning events | Partially captured (`SessionStart`, transcript `web_search_end`) | Captured via explicit skill calls |
 | File edits (`apply_patch`) | Captured from transcript on `Stop` | Captured via `monitor_tool_used` |
 | Terminal commands | Captured automatically (PostToolUse) | Via `monitor_terminal_command` |
-| Assistant response text | Not captured (Codex doesn't expose it in Stop) | Via `monitor_assistant_response` |
+| Assistant response text | Captured from `Stop.last_assistant_message` when present | Via `monitor_assistant_response` |
 | Task lifecycle default | Current `stop.ts` marks task complete per turn | Keeps one task across turns until explicitly completed |
 | Runtime source | `codex-hook` | `codex-skill` |
 | Recommended for | Passive background monitoring | Full-fidelity tracing |
 
-If assistant response text matters, prefer the skill as the primary path even
-when hooks are enabled.
+If hooks are not enough, or if you need semantic planning context,
+question/todo/thought flows, or a canonical assistant-response path independent
+from native hook payload quirks, prefer the skill as the primary path.
 
 ## 8. Manual MCP Tools
 
-If hooks are not enough, or if you want assistant response text preserved, the
-Codex skill path should use these MCP tools directly.
+If hooks are not enough, the Codex skill path should use these MCP tools
+directly.
 
 Common lifecycle tools:
 
