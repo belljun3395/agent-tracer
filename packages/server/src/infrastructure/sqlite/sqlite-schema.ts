@@ -84,7 +84,9 @@ export function createSchema(db: Database.Database): void {
       use_case      text,
       workflow_tags text,
       outcome_note  text,
-      evaluated_at  text not null
+      evaluated_at  text not null,
+      embedding     text,
+      embedding_model text
     );
 
     create index if not exists idx_task_evaluations_rating

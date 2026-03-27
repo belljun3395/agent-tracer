@@ -10,6 +10,8 @@ import path from "node:path";
 import BetterSqlite3 from "better-sqlite3";
 
 import type { INotificationPublisher, MonitorPorts } from "../../application/ports/index.js";
+import { instrumentDb } from "../otel/index.js";
+import type { IEmbeddingService } from "../embedding/index.js";
 import { createSchema } from "./sqlite-schema.js";
 import { runMigrations } from "./sqlite-schema-migrator.js";
 import { SqliteTaskRepository } from "./sqlite-task-repository.js";
@@ -30,6 +32,8 @@ export interface SqliteMonitorPortsOptions {
   readonly databasePath: string;
   /** Optional pre-built notifier for real-time notifications. */
   readonly notifier?: INotificationPublisher;
+  /** Optional embedding service for semantic workflow search. */
+  readonly embeddingService?: IEmbeddingService;
 }
 
 /**
@@ -38,7 +42,7 @@ export interface SqliteMonitorPortsOptions {
  */
 export function createSqliteMonitorPorts(options: SqliteMonitorPortsOptions): MonitorPorts & { close: () => void } {
   fs.mkdirSync(path.dirname(options.databasePath), { recursive: true });
-  const db = new BetterSqlite3(options.databasePath);
+  const db = instrumentDb(new BetterSqlite3(options.databasePath));
   db.pragma("journal_mode = WAL");
   db.pragma("case_sensitive_like = OFF");
 
@@ -53,7 +57,7 @@ export function createSqliteMonitorPorts(options: SqliteMonitorPortsOptions): Mo
     events: new SqliteEventRepository(db),
     runtimeBindings: new SqliteRuntimeBindingRepository(db),
     bookmarks: new SqliteBookmarkRepository(db),
-    evaluations: new SqliteEvaluationRepository(db),
+    evaluations: new SqliteEvaluationRepository(db, options.embeddingService),
     notifier,
     close: () => db.close()
   };

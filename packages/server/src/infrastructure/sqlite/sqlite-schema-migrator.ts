@@ -26,7 +26,19 @@ export function runMigrations(db: Database.Database): void {
   }
 
   backfillTaskRuntimeSources(db);
+  migrateEvaluationEmbedding(db);
 }
+
+function migrateEvaluationEmbedding(db: Database.Database): void {
+  const cols = db.pragma("table_info(task_evaluations)") as Array<{ name: string }>;
+  if (!cols.some((c) => c.name === "embedding")) {
+    db.exec("alter table task_evaluations add column embedding text");
+  }
+  if (!cols.some((c) => c.name === "embedding_model")) {
+    db.exec("alter table task_evaluations add column embedding_model text");
+  }
+}
+
 
 function backfillTaskRuntimeSources(db: Database.Database): void {
   db.exec(`
