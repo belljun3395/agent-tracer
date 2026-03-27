@@ -6,11 +6,13 @@
 각 런타임 구현은 공식 문서를 기반으로 작성되었다:
 - **Claude Code hooks**: https://code.claude.com/docs/en/hooks
 - **OpenCode plugins**: https://opencode.ai/docs/en/plugins
+- **Codex hooks**: https://developers.openai.com/codex/hooks
 
 관련 파일:
 - `.claude/hooks/` — Claude Code 훅 구현체
 - `.opencode/plugins/monitor.ts` — OpenCode 플러그인 구현체
 - `.codex/hooks/` — Codex 훅 구현체 (`Stop`에서 transcript backfill 포함)
+- `.agents/skills/codex-monitor/SKILL.md` — Codex skill + MCP 지침 경로
 
 ---
 
@@ -117,7 +119,8 @@
 Codex 참고:
 - Hook 경로는 `runtime-session-ensure/end`, `user-message`, `save-context`, `terminal-command`를 기본 제공한다.
 - `Stop` 훅은 transcript 기반으로 `web_search_end -> /api/explore`, `apply_patch -> /api/tool-used`를 backfill한다.
-- `assistant.response`/고수준 planning 추적은 skill(MCP) 경로를 함께 쓰는 것이 권장된다.
+- final `assistant.response`는 hook이 아니라 skill(MCP) 경로의 `monitor_assistant_response`가 캐노니컬이다.
+- `codex-hook`와 `codex-skill`은 현재 별도 runtimeSource이므로, 둘을 같이 쓰면 task lineage도 분리될 수 있다.
 
 ---
 

@@ -18,6 +18,8 @@ const repoCodexSkillProjectionPath = path.join(
   "codex-monitor",
   "SKILL.md"
 );
+const repoCodexHooksPath = path.join(repoRoot, ".codex", "hooks.json");
+const repoCodexConfigPath = path.join(repoRoot, ".codex", "config.toml");
 
 type HookEntry = {
   readonly matcher?: string;
@@ -98,9 +100,30 @@ describe("setup:external Claude integration", () => {
     expect(allCommands.length).toBeGreaterThan(0);
     for (const command of allCommands) {
       expect(command).toContain("npx --yes tsx");
-      expect(command).toContain("$CLAUDE_PROJECT_DIR/.agent-tracer/.claude/hooks/");
+      expect(command).toContain("CLAUDE_PROJECT_DIR");
+      expect(command).toContain(".agent-tracer/.claude/hooks/");
       expect(command.includes(repoRoot)).toBe(false);
-      expect(command.includes("git rev-parse")).toBe(false);
+      expect(command).toContain("git rev-parse --show-toplevel");
+    }
+
+    const repoAllCommands = [
+      ...normalizeHookEntries(repoHooks.SessionStart),
+      ...normalizeHookEntries(repoHooks.UserPromptSubmit),
+      ...normalizeHookEntries(repoHooks.PreToolUse),
+      ...normalizeHookEntries(repoHooks.PostToolUse),
+      ...normalizeHookEntries(repoHooks.PostToolUseFailure),
+      ...normalizeHookEntries(repoHooks.SubagentStart),
+      ...normalizeHookEntries(repoHooks.SubagentStop),
+      ...normalizeHookEntries(repoHooks.PreCompact),
+      ...normalizeHookEntries(repoHooks.PostCompact),
+      ...normalizeHookEntries(repoHooks.SessionEnd),
+      ...normalizeHookEntries(repoHooks.Stop)
+    ].flatMap((entry) => entry.hooks ?? []).map((hook) => hook.command ?? "");
+
+    expect(repoAllCommands.length).toBeGreaterThan(0);
+    for (const command of repoAllCommands) {
+      expect(command).toContain("git rev-parse --show-toplevel");
+      expect(command).toContain(".claude/hooks/");
     }
 
     const vendoredCommon = await readFile(
@@ -191,7 +214,9 @@ describe("setup:external Codex integration", () => {
       "--target",
       targetDir,
       "--mode",
-      "codex"
+      "codex",
+      "--source-root",
+      repoRoot
     ], {
       cwd: repoRoot
     });
@@ -201,12 +226,59 @@ describe("setup:external Codex integration", () => {
       path.join(targetDir, ".agents", "skills", "codex-monitor", "SKILL.md"),
       "utf8"
     );
+    const generatedHooks = JSON.parse(
+      await readFile(path.join(targetDir, ".codex", "hooks.json"), "utf8")
+    ) as { hooks?: Record<string, unknown> };
+    const repoHooks = JSON.parse(
+      await readFile(repoCodexHooksPath, "utf8")
+    ) as { hooks?: Record<string, unknown> };
+    const generatedConfig = await readFile(path.join(targetDir, ".codex", "config.toml"), "utf8");
+    const repoConfig = await readFile(repoCodexConfigPath, "utf8");
+    const vendoredSessionStart = await readFile(
+      path.join(targetDir, ".agent-tracer", ".codex", "hooks", "session_start.ts"),
+      "utf8"
+    );
+    const vendoredCommon = await readFile(
+      path.join(targetDir, ".agent-tracer", ".codex", "hooks", "common.ts"),
+      "utf8"
+    );
+    const vendoredTsconfig = JSON.parse(
+      await readFile(path.join(targetDir, ".agent-tracer", ".codex", "tsconfig.json"), "utf8")
+    );
+    const repoTsconfig = JSON.parse(
+      await readFile(path.join(repoRoot, ".codex", "tsconfig.json"), "utf8")
+    );
     const repoSkill = await readFile(repoCodexSkillProjectionPath, "utf8");
 
     expect(generatedAgents).toContain("codex-monitor");
     expect(generatedAgents).toContain(".agents/skills/codex-monitor/SKILL.md");
     expect(generatedAgents).toContain("monitor_user_message");
     expect(generatedSkill).toEqual(repoSkill);
+    expect(generatedConfig).toContain("codex_hooks = true");
+    expect(repoConfig).toContain("codex_hooks = true");
+    expect(vendoredSessionStart).toContain("ensureRuntimeSession");
+    expect(vendoredCommon).toContain("CODEX_RUNTIME_SOURCE");
+    expect(vendoredTsconfig).toEqual(repoTsconfig);
+
+    const generatedHookKeys = Object.keys(generatedHooks.hooks ?? {}).sort();
+    const repoHookKeys = Object.keys(repoHooks.hooks ?? {}).sort();
+    expect(generatedHookKeys).toEqual(repoHookKeys);
+
+    const allCommands = generatedHookKeys.flatMap((eventName) => normalizeHookEntries(generatedHooks.hooks?.[eventName]).flatMap((entry) => entry.hooks ?? []).map((hook) => hook.command ?? ""));
+    expect(allCommands.length).toBeGreaterThan(0);
+    for (const command of allCommands) {
+      expect(command).toContain("npx --yes tsx");
+      expect(command).toContain(".agent-tracer/.codex/hooks/");
+      expect(command).toContain("git rev-parse --show-toplevel");
+      expect(command.includes(repoRoot)).toBe(false);
+    }
+
+    const repoAllCommands = repoHookKeys.flatMap((eventName) => normalizeHookEntries(repoHooks.hooks?.[eventName]).flatMap((entry) => entry.hooks ?? []).map((hook) => hook.command ?? ""));
+    expect(repoAllCommands.length).toBeGreaterThan(0);
+    for (const command of repoAllCommands) {
+      expect(command).toContain("git rev-parse --show-toplevel");
+      expect(command).toContain(".codex/hooks/");
+    }
   });
 
   it("preserves existing AGENTS.md content while updating the managed Codex block", async () => {

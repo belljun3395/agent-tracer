@@ -15,5 +15,6 @@
 
 - Claude hooks 는 raw prompt 를 캡처하지만 세션 종료 시 primary task 를 자동 완료하지 않는다.
 - Codex 는 explicit skill + MCP 경로라서 native hook 수준의 자동 관찰은 없다.
+- Codex 의 final `assistant.response` 본문은 `codex-skill` 경로의 `monitor_assistant_response`가 캐노니컬이다.
 - OpenCode plugin 은 typed hooks 와 `event` callback 을 함께 사용하지만, capability registry 에서는 별도 event-stream 경로가 아닌 `opencode-sse` 만 `hasEventStream: true` 로 본다.
 - `opencode-sse` 는 capability registry 에 예약된 실험 어댑터이며, shadow observer wiring 이 필요할 때 확장한다.

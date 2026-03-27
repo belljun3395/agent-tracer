@@ -13,7 +13,7 @@ The script:
 
 - creates or merges `target-project/.claude/settings.json`
 - vendors hook source files into `target-project/.agent-tracer/.claude/hooks/*.ts`
-- points hook commands to `$CLAUDE_PROJECT_DIR/.agent-tracer/.claude/hooks/*.ts`
+- points hook commands to the target repo root using `$CLAUDE_PROJECT_DIR` first, then git-root / upward-directory fallback, before resolving `.agent-tracer/.claude/hooks/*.ts`
 - uses `npx --yes tsx` to execute the hook files
 - defaults to a pinned source ref, using `AGENT_TRACER_SOURCE_REF` when set,
   then the current git `HEAD`, then `main`
@@ -115,7 +115,8 @@ Behavior:
 ## 5. Repo-local Setup In This Repository
 
 If you are working inside this repository, `.claude/settings.json` already
-points at the repository hook scripts. No extra Claude hook wiring is required.
+points at the repository hook scripts through the same root-resolution pattern.
+No extra Claude hook wiring is required.
 
 You still need the `monitor` MCP server registered in Claude Code.
 

@@ -4,7 +4,6 @@ import { execFileSync } from "node:child_process";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-const SKILL_PROJECTION_BANNER = "<!-- GENERATED FILE: edit skills/... source, then run node scripts/sync-skill-projections.mjs -->\n\n";
 const CODEX_AGENTS_BEGIN = "<!-- BEGIN agent-tracer codex-monitor -->";
 const CODEX_AGENTS_END = "<!-- END agent-tracer codex-monitor -->";
 const DEFAULT_SOURCE_REPO = process.env.AGENT_TRACER_SOURCE_REPO || "belljun3395/agent-tracer";
@@ -173,12 +172,36 @@ function ensureHookEntry(list, command, matcher) {
 }
 
 function hookCommand(scriptRelativePath) {
-  const posixScriptPath = toPosixPath(scriptRelativePath);
-  return `NODE_ENV=development npx --yes tsx \"$CLAUDE_PROJECT_DIR/${posixScriptPath}\"`;
+  return buildRootResolvedTscHookCommand({
+    scriptRelativePath,
+    markerRelativePath: scriptRelativePath,
+    preferredRootEnvVar: "CLAUDE_PROJECT_DIR"
+  });
 }
 
-function generatedSkillContent(sourceContent) {
-  return `${SKILL_PROJECTION_BANNER}${sourceContent}`;
+function codexHookCommand(scriptRelativePath) {
+  return buildRootResolvedTscHookCommand({
+    scriptRelativePath,
+    markerRelativePath: scriptRelativePath
+  });
+}
+
+function buildRootResolvedTscHookCommand({
+  scriptRelativePath,
+  markerRelativePath,
+  preferredRootEnvVar
+}) {
+  const posixScriptPath = toPosixPath(scriptRelativePath);
+  const posixMarkerPath = toPosixPath(markerRelativePath);
+  const rootSeed = preferredRootEnvVar
+    ? `ROOT="\${${preferredRootEnvVar}:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"`
+    : 'ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"';
+
+  return [
+    rootSeed,
+    `if [ ! -f "$ROOT/${posixMarkerPath}" ]; then SEARCH="$PWD"; while [ "$SEARCH" != "/" ]; do if [ -f "$SEARCH/${posixMarkerPath}" ]; then ROOT="$SEARCH"; break; fi; SEARCH="$(dirname "$SEARCH")"; done; fi`,
+    `NODE_ENV=development npx --yes tsx "$ROOT/${posixScriptPath}"`
+  ].join("; ");
 }
 
 function buildCodexAgentsBlock() {
@@ -246,6 +269,40 @@ const CLAUDE_HOOK_SPECS = [
   { event: "PostCompact", script: "compact.ts" },
   { event: "SessionEnd", script: "session_end.ts" }
 ];
+
+const CODEX_HOOK_SPECS = [
+  { event: "SessionStart", script: "session_start.ts", matcher: "startup|resume" },
+  { event: "UserPromptSubmit", script: "user_prompt.ts" },
+  { event: "PreToolUse", script: "pre_tool.ts" },
+  { event: "PostToolUse", script: "terminal.ts", matcher: "Bash" },
+  { event: "Stop", script: "stop.ts" }
+];
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function upsertTomlBoolean(content, sectionName, key, value) {
+  const normalized = content.replace(/\r\n/g, "\n");
+  const header = `[${sectionName}]`;
+  const line = `${key} = ${value ? "true" : "false"}`;
+  const sectionRegex = new RegExp(`(^|\\n)\\[${escapeRegExp(sectionName)}\\]\\n([\\s\\S]*?)(?=\\n\\[[^\\n]+\\]|$)`, "m");
+  const sectionMatch = normalized.match(sectionRegex);
+
+  if (!sectionMatch || typeof sectionMatch.index !== "number") {
+    const trimmed = normalized.replace(/\s*$/, "");
+    return trimmed ? `${trimmed}\n\n${header}\n${line}\n` : `${header}\n${line}\n`;
+  }
+
+  const sectionBody = sectionMatch[2] || "";
+  const keyRegex = new RegExp(`^\\s*${escapeRegExp(key)}\\s*=.*$`, "m");
+  const nextBody = keyRegex.test(sectionBody)
+    ? sectionBody.replace(keyRegex, line)
+    : `${sectionBody.replace(/\s*$/, "")}\n${line}\n`;
+
+  const nextSection = `${sectionMatch[1]}${header}\n${nextBody}`;
+  return `${normalized.slice(0, sectionMatch.index)}${nextSection}${normalized.slice(sectionMatch.index + sectionMatch[0].length)}`.replace(/\s*$/, "\n");
+}
 
 async function setupOpenCode({ targetDir, tracerRoot, monitorBaseUrl, sourceRepo, sourceRef, sourceRoot }) {
   const opencodePath = path.join(targetDir, "opencode.json");
@@ -334,13 +391,36 @@ async function setupClaude({ targetDir, sourceRepo, sourceRef, sourceRoot }) {
 
 async function setupCodex({ targetDir, tracerRoot }) {
   const agentsPath = path.join(targetDir, "AGENTS.md");
+  const codexConfigPath = path.join(targetDir, ".codex", "config.toml");
+  const codexHooksPath = path.join(targetDir, ".codex", "hooks.json");
   const codexSkillSourcePath = path.join(tracerRoot, "skills", "codex-monitor", "SKILL.md");
   const codexSkillTargetPath = path.join(targetDir, ".agents", "skills", "codex-monitor", "SKILL.md");
 
-  await mkdir(path.dirname(codexSkillTargetPath), { recursive: true });
+  await Promise.all([
+    mkdir(path.dirname(codexSkillTargetPath), { recursive: true }),
+    mkdir(path.dirname(codexConfigPath), { recursive: true })
+  ]);
+
+  const hookFiles = new Set(["common.ts", "transcript_backfill.ts", ...CODEX_HOOK_SPECS.map((spec) => spec.script)]);
+  await Promise.all([
+    fetchIntoVendorDir({
+      targetDir,
+      sourceRepo: DEFAULT_SOURCE_REPO,
+      sourceRef: DEFAULT_SOURCE_REF,
+      sourceRoot: tracerRoot,
+      sourcePath: ".codex/tsconfig.json"
+    }),
+    ...[...hookFiles].map((fileName) => fetchIntoVendorDir({
+      targetDir,
+      sourceRepo: DEFAULT_SOURCE_REPO,
+      sourceRef: DEFAULT_SOURCE_REF,
+      sourceRoot: tracerRoot,
+      sourcePath: `.codex/hooks/${fileName}`
+    }))
+  ]);
 
   const sourceSkill = await readFile(codexSkillSourcePath, "utf8");
-  await writeFile(codexSkillTargetPath, generatedSkillContent(sourceSkill), "utf8");
+  await writeFile(codexSkillTargetPath, sourceSkill, "utf8");
 
   let existingAgents = "";
   try {
@@ -356,7 +436,31 @@ async function setupCodex({ targetDir, tracerRoot }) {
     CODEX_AGENTS_END
   );
 
-  await writeFile(agentsPath, nextAgents, "utf8");
+  const existingCodexConfig = await readFile(codexConfigPath, "utf8").catch(() => "");
+  const nextCodexConfig = upsertTomlBoolean(existingCodexConfig, "features", "codex_hooks", true);
+
+  const existingHooksConfig = await readJson(codexHooksPath, {});
+  const hooks = existingHooksConfig.hooks && typeof existingHooksConfig.hooks === "object"
+    ? { ...existingHooksConfig.hooks }
+    : {};
+  const command = (scriptName) => codexHookCommand(path.posix.join(VENDOR_DIR, ".codex", "hooks", scriptName));
+
+  for (const spec of CODEX_HOOK_SPECS) {
+    hooks[spec.event] = ensureHookEntry(
+      hooks[spec.event],
+      command(spec.script),
+      spec.matcher
+    );
+  }
+
+  await Promise.all([
+    writeFile(agentsPath, nextAgents, "utf8"),
+    writeFile(codexConfigPath, nextCodexConfig, "utf8"),
+    writeJson(codexHooksPath, {
+      ...existingHooksConfig,
+      hooks
+    })
+  ]);
 }
 
 function printHelp() {
