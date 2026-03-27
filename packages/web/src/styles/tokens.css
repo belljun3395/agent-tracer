@@ -1,0 +1,180 @@
+:root {
+  --bg: #F7F8FC;
+  --bg-2: #edf2f7;        /* deprecated — use --bg-subtle */
+  --bg-subtle: #ECEEF5;
+  --surface: #ffffff;
+  --surface-2: #F3F4F8;
+  --border: #E4E7F0;
+  --border-1: #E4E7F0;
+  --border-2: #c8ccd8;    /* deprecated — use --border-strong */
+  --border-strong: #CDD1E0;
+
+  --text-1: #0F1117;
+  --text-2: #4A5068;
+  --text-3: #8B92A8;
+
+  --user: #be123c;
+  --user-bg: #fff1f2;
+  --user-border: #fecdd3;
+
+  --assistant: #0369a1;
+  --assistant-bg: #f0f9ff;
+  --assistant-border: #bae6fd;
+
+  --exploration: #0d9488;
+  --exploration-bg: #f0fdf9;
+  --exploration-border: #99f6e4;
+
+  --planning: #065f46;
+  --planning-bg: #f0fdf4;
+  --planning-border: #a7f3d0;
+
+  --implementation: #6d28d9;
+  --implementation-bg: #f5f3ff;
+  --implementation-border: #ddd6fe;
+
+  --questions: #c026d3;
+  --questions-bg: #fdf4ff;
+  --questions-border: #f0abfc;
+
+  --todos: #1d4ed8;
+  --todos-bg: #eff6ff;
+  --todos-border: #bfdbfe;
+
+  --coordination: #7c3aed;
+  --coordination-bg: #f5f3ff;
+  --coordination-border: #ddd6fe;
+
+  --background: #6366F1;
+  --background-bg: #EEF2FF;
+  --background-border: #C7D2FE;
+
+  --ok: #059669;
+  --ok-bg: #D1FAE5;
+  --done: #2563eb;
+  --done-bg: #dbeafe;
+  --err: #dc2626;
+  --err-bg: #fee2e2;
+  --warn: #D97706;
+  --warn-bg: #FEF3C7;
+
+  --accent: #2563EB;
+  --accent-light: #DBEAFE;
+
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "Fira Code", monospace;
+
+  color: var(--text-1);
+  background: var(--bg);
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+
+    --bg:           #0D0F14;
+    --bg-2:         #131620;
+    --bg-subtle:    #181B24;
+    --surface:      #1A1D27;
+    --surface-2:    #1F2230;
+    --border:       #2A2E3F;
+    --border-1:     #2A2E3F;
+    --border-2:     #353A50;
+    --border-strong:#3E4357;
+
+    --text-1:       #F0F2FA;
+    --text-2:       #9AA0BB;
+    --text-3:       #555B75;
+
+    /* Lane colors — shift bg/border darker */
+    --user-bg:           #2A0A12;
+    --user-border:       #5C1526;
+
+    --assistant-bg:      #062035;
+    --assistant-border:  #0A4570;
+
+    --exploration-bg:    #062220;
+    --exploration-border:#0D4A45;
+
+    --planning-bg:       #052015;
+    --planning-border:   #0A4030;
+
+    --implementation-bg:  #1A1040;
+    --implementation-border: #3B2A6E;
+
+    --questions-bg:      #28082E;
+    --questions-border:  #5C1068;
+
+    --todos-bg:          #0A1535;
+    --todos-border:      #1A3070;
+
+    --coordination-bg:   #1A1040;
+    --coordination-border: #3B2A6E;
+
+    --background-bg:     #0F1035;
+    --background-border: #2A2E6E;
+
+    --ok-bg:        #052A18;
+    --done-bg:      #0A1535;
+    --err-bg:       #2A0808;
+    --warn-bg:      #2A1A02;
+
+    --accent:       #3B82F6;
+    --accent-light: #1E3A6E;
+  }
+}
+
+/* Explicit dark mode override (data-theme="dark" on <html>) */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg:           #0D0F14;
+  --bg-2:         #131620;
+  --bg-subtle:    #181B24;
+  --surface:      #1A1D27;
+  --surface-2:    #1F2230;
+  --border:       #2A2E3F;
+  --border-1:     #2A2E3F;
+  --border-2:     #353A50;
+  --border-strong:#3E4357;
+
+  --text-1:       #F0F2FA;
+  --text-2:       #9AA0BB;
+  --text-3:       #555B75;
+
+  --user-bg:           #2A0A12;
+  --user-border:       #5C1526;
+
+  --assistant-bg:      #062035;
+  --assistant-border:  #0A4570;
+
+  --exploration-bg:    #062220;
+  --exploration-border:#0D4A45;
+
+  --planning-bg:       #052015;
+  --planning-border:   #0A4030;
+
+  --implementation-bg:  #1A1040;
+  --implementation-border: #3B2A6E;
+
+  --questions-bg:      #28082E;
+  --questions-border:  #5C1068;
+
+  --todos-bg:          #0A1535;
+  --todos-border:      #1A3070;
+
+  --coordination-bg:   #1A1040;
+  --coordination-border: #3B2A6E;
+
+  --background-bg:     #0F1035;
+  --background-border: #2A2E6E;
+
+  --ok-bg:        #052A18;
+  --done-bg:      #0A1535;
+  --err-bg:       #2A0808;
+  --warn-bg:      #2A1A02;
+
+  --accent:       #3B82F6;
+  --accent-light: #1E3A6E;
+}

@@ -5,7 +5,9 @@
  * 통계, 태그 분석, 규칙 커버리지, 태스크 요약 등을 담당.
  */
 
-import type { MonitoringTask, RulesIndex, TimelineEvent, TimelineLane } from "../types.js";
+import { filePathsInDirectory, isDirectoryPath, matchFilePaths } from "@monitor/core";
+import type { MonitoringTask, TimelineEvent, TimelineLane } from "../types.js";
+import { resolveEventSubtype } from "./eventSubtype.js";
 
 export interface ObservabilityStats {
   readonly actions: number;
@@ -20,7 +22,45 @@ export interface ObservabilityStats {
 export interface ExploredFileStat {
   readonly path: string;
   readonly count: number;
+  readonly firstSeenAt: string;
   readonly lastSeenAt: string;
+  readonly readTimestamps: readonly string[];
+  readonly compactRelation: CompactRelation;
+}
+
+/**
+ * 파일 읽기와 compact 이벤트의 시간적 관계.
+ * - before-compact: 모든 읽기가 마지막 compact 이전
+ * - after-compact: 모든 읽기가 마지막 compact 이후
+ * - across-compact: compact 전후 모두 읽음
+ * - no-compact: 이 태스크에 compact 이벤트 없음
+ */
+export type CompactRelation =
+  | "before-compact"
+  | "after-compact"
+  | "across-compact"
+  | "no-compact";
+
+/** Files 탭에 표시할 개별 파일 활동. explored(읽기)와 changed(수정) 구분. */
+export interface FileActivityStat {
+  readonly path: string;
+  readonly readCount: number;
+  readonly writeCount: number;
+  readonly firstSeenAt: string;
+  readonly lastSeenAt: string;
+  readonly compactRelation: CompactRelation;
+}
+
+/** Exploration 탭에 표시할 탐색 전체 인사이트. */
+export interface ExplorationInsight {
+  readonly totalExplorations: number;
+  readonly uniqueFiles: number;
+  readonly toolBreakdown: Readonly<Record<string, number>>;
+  readonly preCompactFiles: number;
+  readonly postCompactFiles: number;
+  readonly acrossCompactFiles: number;
+  readonly firstExplorationAt?: string | undefined;
+  readonly lastExplorationAt?: string | undefined;
 }
 
 export interface CompactInsight {
@@ -67,7 +107,6 @@ export interface TaskExtraction {
   readonly sections: readonly TaskProcessSection[];
   readonly validations: readonly string[];
   readonly files: readonly string[];
-  readonly rules: readonly string[];
   readonly brief: string;
   readonly processMarkdown: string;
 }
@@ -135,43 +174,116 @@ export function buildObservabilityStats(
 }
 
 /**
- * 탐색 이벤트에서 파일 활동 집계.
- * exploration 레인 이벤트의 metadata.filePaths를 수집하고 방문 횟수 및 최근 시각 순으로 정렬.
+ * 타임라인에서 compact 이벤트들의 createdAt 시각 배열을 추출.
+ * compactPhase="after" 이벤트를 compact 완료 시점으로 간주.
  *
  * @param timeline - 전체 이벤트 목록
- * @returns 파일 경로별 방문 횟수와 최근 시각 배열 (최근순 정렬)
+ * @returns ISO 시각 문자열 배열 (오래된 순)
+ */
+export function extractCompactTimestamps(
+  timeline: readonly TimelineEvent[]
+): readonly string[] {
+  const timestamps: string[] = [];
+
+  for (const event of timeline) {
+    const isCompact = event.classification.tags.includes("compact")
+      || extractMetadataBoolean(event.metadata, "compactEvent")
+      || Boolean(extractMetadataString(event.metadata, "compactPhase"))
+      || Boolean(extractMetadataString(event.metadata, "compactEventType"));
+
+    if (!isCompact) {
+      continue;
+    }
+
+    const phase = extractMetadataString(event.metadata, "compactPhase");
+    // compactPhase="after"를 compact 완료 기준점으로 사용.
+    // phase가 없으면(수동 기록 등) 이벤트 자체를 기준점으로 사용.
+    if (phase === "after" || !phase) {
+      timestamps.push(event.createdAt);
+    }
+  }
+
+  return timestamps.sort((a, b) => Date.parse(a) - Date.parse(b));
+}
+
+/**
+ * 파일 읽기 시각 목록과 마지막 compact 시각을 비교해 CompactRelation 계산.
+ */
+function deriveCompactRelation(
+  readTimestamps: readonly string[],
+  lastCompactAt: string | undefined
+): CompactRelation {
+  if (!lastCompactAt) {
+    return "no-compact";
+  }
+
+  const compactMs = Date.parse(lastCompactAt);
+  const beforeCount = readTimestamps.filter((t) => Date.parse(t) < compactMs).length;
+  const afterCount = readTimestamps.filter((t) => Date.parse(t) >= compactMs).length;
+
+  if (beforeCount > 0 && afterCount > 0) {
+    return "across-compact";
+  }
+  if (afterCount > 0) {
+    return "after-compact";
+  }
+  return "before-compact";
+}
+
+/**
+ * 탐색 이벤트에서 파일 활동 집계.
+ * exploration 레인 이벤트의 metadata.filePaths를 수집하고
+ * 방문 횟수, 최초/최근 시각, compact 관계를 포함해 최근순으로 정렬.
+ *
+ * @param timeline - 전체 이벤트 목록
+ * @returns 파일 경로별 통계 배열 (최근순 정렬)
  */
 export function collectExploredFiles(
   timeline: readonly TimelineEvent[]
 ): readonly ExploredFileStat[] {
-  const files = new Map<string, ExploredFileStat>();
+  const compactTimestamps = extractCompactTimestamps(timeline);
+  const lastCompactAt = compactTimestamps.at(-1);
+
+  const fileTimestamps = new Map<string, string[]>();
 
   for (const event of timeline) {
-    if (event.lane !== "exploration" || event.kind === "file.changed") {
+    if (event.lane !== "exploration") {
+      continue;
+    }
+    // file.changed 이벤트는 filePaths가 없으면 파일 시스템 노이즈이므로 건너뜀.
+    // filePaths가 있으면 에이전트가 실제로 열람한 파일이므로 포함.
+    if (event.kind === "file.changed" && extractMetadataStringArray(event.metadata, "filePaths").length === 0) {
       continue;
     }
 
     for (const filePath of extractMetadataStringArray(event.metadata, "filePaths")) {
-      const existing = files.get(filePath);
-
-      if (!existing) {
-        files.set(filePath, {
-          path: filePath,
-          count: 1,
-          lastSeenAt: event.createdAt
-        });
-        continue;
+      const existing = fileTimestamps.get(filePath);
+      if (existing) {
+        existing.push(event.createdAt);
+      } else {
+        fileTimestamps.set(filePath, [event.createdAt]);
       }
-
-      files.set(filePath, {
-        path: filePath,
-        count: existing.count + 1,
-        lastSeenAt: latestTimestamp(existing.lastSeenAt, event.createdAt)
-      });
     }
   }
 
-  return [...files.values()].sort((left, right) => {
+  const stats: ExploredFileStat[] = [];
+
+  for (const [filePath, timestamps] of fileTimestamps) {
+    const sorted = [...timestamps].sort((a, b) => Date.parse(a) - Date.parse(b));
+    const firstSeenAt = sorted[0]!;
+    const lastSeenAt = sorted[sorted.length - 1]!;
+
+    stats.push({
+      path: filePath,
+      count: sorted.length,
+      firstSeenAt,
+      lastSeenAt,
+      readTimestamps: sorted,
+      compactRelation: deriveCompactRelation(sorted, lastCompactAt)
+    });
+  }
+
+  return stats.sort((left, right) => {
     const timeDelta = Date.parse(right.lastSeenAt) - Date.parse(left.lastSeenAt);
     if (timeDelta !== 0) {
       return timeDelta;
@@ -183,6 +295,119 @@ export function collectExploredFiles(
 
     return left.path.localeCompare(right.path);
   });
+}
+
+/**
+ * 실제 파일 활동(읽기 + 수정)을 수집.
+ * exploration 레인(읽기)과 implementation 레인(수정) 모두 포함.
+ * Files 탭에서 에이전트가 실제로 접근한 파일만 표시하는 데 사용.
+ */
+export function collectFileActivity(
+  timeline: readonly TimelineEvent[]
+): readonly FileActivityStat[] {
+  const compactTimestamps = extractCompactTimestamps(timeline);
+  const lastCompactAt = compactTimestamps.at(-1);
+
+  const fileData = new Map<string, { reads: string[]; writes: string[] }>();
+
+  for (const event of timeline) {
+    const isExploration = event.lane === "exploration";
+    const isImplementation = event.lane === "implementation";
+    if (!isExploration && !isImplementation) continue;
+
+    if (event.kind === "file.changed" && extractMetadataStringArray(event.metadata, "filePaths").length === 0) {
+      continue;
+    }
+
+    for (const filePath of extractMetadataStringArray(event.metadata, "filePaths")) {
+      const existing = fileData.get(filePath) ?? { reads: [], writes: [] };
+      if (isExploration) {
+        existing.reads.push(event.createdAt);
+      } else {
+        existing.writes.push(event.createdAt);
+      }
+      fileData.set(filePath, existing);
+    }
+  }
+
+  const stats: FileActivityStat[] = [];
+
+  for (const [filePath, data] of fileData) {
+    const allTimestamps = [...data.reads, ...data.writes].sort((a, b) => Date.parse(a) - Date.parse(b));
+    if (allTimestamps.length === 0) continue;
+
+    stats.push({
+      path: filePath,
+      readCount: data.reads.length,
+      writeCount: data.writes.length,
+      firstSeenAt: allTimestamps[0]!,
+      lastSeenAt: allTimestamps[allTimestamps.length - 1]!,
+      compactRelation: deriveCompactRelation(allTimestamps, lastCompactAt)
+    });
+  }
+
+  return stats.sort((left, right) => {
+    const timeDelta = Date.parse(right.lastSeenAt) - Date.parse(left.lastSeenAt);
+    if (timeDelta !== 0) return timeDelta;
+    const totalRight = right.readCount + right.writeCount;
+    const totalLeft = left.readCount + left.writeCount;
+    if (totalRight !== totalLeft) return totalRight - totalLeft;
+    return left.path.localeCompare(right.path);
+  });
+}
+
+/**
+ * 탐색 레인 이벤트에서 Exploration 인사이트를 집계.
+ * 도구별 사용 횟수, compact 전후 파일 분포 등 메타 통계 생성.
+ */
+export function buildExplorationInsight(
+  timeline: readonly TimelineEvent[],
+  exploredFiles: readonly ExploredFileStat[]
+): ExplorationInsight {
+  const toolBreakdown: Record<string, number> = {};
+  let totalExplorations = 0;
+  let firstExplorationAt: string | undefined;
+  let lastExplorationAt: string | undefined;
+
+  for (const event of timeline) {
+    if (event.lane !== "exploration") continue;
+    if (event.kind === "file.changed") continue;
+
+    totalExplorations += 1;
+    const subtype = resolveEventSubtype(event);
+    const breakdownKey = subtype?.label ?? extractMetadataString(event.metadata, "toolName") ?? event.kind;
+    toolBreakdown[breakdownKey] = (toolBreakdown[breakdownKey] ?? 0) + 1;
+
+    if (!firstExplorationAt || Date.parse(event.createdAt) < Date.parse(firstExplorationAt)) {
+      firstExplorationAt = event.createdAt;
+    }
+    if (!lastExplorationAt || Date.parse(event.createdAt) > Date.parse(lastExplorationAt)) {
+      lastExplorationAt = event.createdAt;
+    }
+  }
+
+  let preCompactFiles = 0;
+  let postCompactFiles = 0;
+  let acrossCompactFiles = 0;
+
+  for (const file of exploredFiles) {
+    switch (file.compactRelation) {
+      case "before-compact": preCompactFiles += 1; break;
+      case "after-compact": postCompactFiles += 1; break;
+      case "across-compact": acrossCompactFiles += 1; break;
+    }
+  }
+
+  return {
+    totalExplorations,
+    uniqueFiles: exploredFiles.length,
+    toolBreakdown,
+    preCompactFiles,
+    postCompactFiles,
+    acrossCompactFiles,
+    firstExplorationAt,
+    lastExplorationAt
+  };
 }
 
 /**
@@ -260,10 +485,9 @@ export function buildTaskExtraction(
   const sections = buildTaskProcessSections(timeline);
   const validations = collectTaskValidations(timeline);
   const files = exploredFiles.slice(0, 6).map((file) => file.path);
-  const rules = collectTaskRules(timeline);
   const summary = buildTaskSummary(timeline, sections, validations, files);
   const brief = buildTaskBrief(objective, summary, sections, validations);
-  const processMarkdown = buildTaskProcessMarkdown(objective, summary, sections, validations, files, rules);
+  const processMarkdown = buildTaskProcessMarkdown(objective, summary, sections, validations, files);
 
   return {
     objective,
@@ -271,7 +495,6 @@ export function buildTaskExtraction(
     sections,
     validations,
     files,
-    rules,
     brief,
     processMarkdown
   };
@@ -289,101 +512,118 @@ export function buildTaskDisplayTitle(
   task: MonitoringTask | null | undefined,
   timeline: readonly TimelineEvent[]
 ): string {
+  const precomputedDisplayTitle = normalizeSentence(task?.displayTitle);
+  if (precomputedDisplayTitle) {
+    return precomputedDisplayTitle;
+  }
+
   return resolvePreferredTaskTitle(task, timeline) ?? "Untitled task";
 }
 
-/**
- * 규칙 인덱스 대비 실제 이벤트 커버리지 통계 계산.
- * 설정된 규칙과 런타임에만 관찰된 규칙을 모두 포함하여 매칭/위반/통과 횟수를 집계.
- *
- * @param rulesIndex - 설정된 규칙 인덱스 (null/undefined 가능)
- * @param timeline - 전체 이벤트 목록
- * @returns configured 규칙 우선, 위반 횟수 내림차순으로 정렬된 통계 배열
- */
-export function buildRuleCoverage(
-  rulesIndex: RulesIndex | null | undefined,
-  timeline: readonly TimelineEvent[]
-): readonly RuleCoverageStat[] {
-  const configuredRules = new Map(
-    (rulesIndex?.rules ?? []).map((rule) => [
-      rule.id,
-      {
-        ruleId: rule.id,
-        title: rule.title,
-        configured: true,
-        lane: rule.lane,
-        tags: [...rule.tags],
-        matchCount: 0,
-        ruleEventCount: 0,
-        checkCount: 0,
-        violationCount: 0,
-        passCount: 0,
-        lastSeenAt: undefined as string | undefined
-      }
-    ])
-  );
+export function buildInspectorEventTitle(
+  event: TimelineEvent | null | undefined,
+  options?: {
+    readonly taskDisplayTitle?: string | null;
+    readonly limit?: number;
+  }
+): string | null {
+  if (!event) {
+    return null;
+  }
 
-  const allRules = new Map(configuredRules);
+  const overrideTitle = normalizeInspectorDisplayTitle(extractMetadataString(event.metadata, "displayTitle"));
+  if (overrideTitle) {
+    return overrideTitle;
+  }
 
-  for (const event of timeline) {
-    const configuredMatchIds = new Set(
-      event.classification.matches
-        .filter((match) => match.source === "rules-index")
-        .map((match) => match.ruleId)
-    );
-    const metadataRuleId = extractMetadataString(event.metadata, "ruleId");
-    if (metadataRuleId) {
-      configuredMatchIds.add(metadataRuleId);
-    }
-
-    for (const ruleId of configuredMatchIds) {
-      const existing = allRules.get(ruleId);
-      const next = existing ?? {
-        ruleId,
-        title: ruleId,
-        configured: configuredRules.has(ruleId),
-        lane: undefined,
-        tags: [] as string[],
-        matchCount: 0,
-        ruleEventCount: 0,
-        checkCount: 0,
-        violationCount: 0,
-        passCount: 0,
-        lastSeenAt: undefined as string | undefined
-      };
-
-      const hasConfiguredMatch = event.classification.matches.some(
-        (match) => match.ruleId === ruleId && match.source === "rules-index"
-      );
-      const ruleStatus = metadataRuleId === ruleId
-        ? extractMetadataString(event.metadata, "ruleStatus")
-        : undefined;
-
-      allRules.set(ruleId, {
-        ...next,
-        matchCount: next.matchCount + (hasConfiguredMatch ? 1 : 0),
-        ruleEventCount: next.ruleEventCount + (metadataRuleId === ruleId ? 1 : 0),
-        checkCount: next.checkCount + (ruleStatus === "check" ? 1 : 0),
-        violationCount: next.violationCount + (ruleStatus === "violation" ? 1 : 0),
-        passCount: next.passCount + ((ruleStatus === "pass" || ruleStatus === "fix-applied") ? 1 : 0),
-        lastSeenAt: next.lastSeenAt ? latestTimestamp(next.lastSeenAt, event.createdAt) : event.createdAt
-      });
+  if (event.kind === "task.start") {
+    const taskDisplayTitle = normalizeInspectorDisplayTitle(options?.taskDisplayTitle ?? undefined);
+    if (taskDisplayTitle) {
+      return taskDisplayTitle;
     }
   }
 
-  return [...allRules.values()].sort((left, right) => {
-    if (left.configured !== right.configured) {
-      return left.configured ? -1 : 1;
-    }
+  const limit = options?.limit ?? 80;
+  const syntheticTitle = inferSyntheticInspectorTitle(event, limit);
+  if (syntheticTitle) {
+    return syntheticTitle;
+  }
 
+  const fallback = firstMeaningfulInspectorLine(
+    event.title,
+    event.body,
+    extractMetadataString(event.metadata, "description"),
+    extractMetadataString(event.metadata, "command"),
+    extractMetadataString(event.metadata, "result"),
+    extractMetadataString(event.metadata, "action"),
+    extractMetadataString(event.metadata, "ruleId")
+  ) ?? normalizeInspectorDisplayTitle(event.title);
+
+  return fallback ? truncateInspectorTitle(fallback, limit) : null;
+}
+
+/**
+ * 타임라인 이벤트에서 규칙 커버리지 통계 계산.
+ * metadata.ruleId가 있는 이벤트를 기반으로 위반/통과 횟수를 집계.
+ *
+ * @param timeline - 전체 이벤트 목록
+ * @returns 위반 횟수 내림차순으로 정렬된 통계 배열
+ */
+export function buildRuleCoverage(
+  timeline: readonly TimelineEvent[]
+): readonly RuleCoverageStat[] {
+  const configuredRules = new Map<string, {
+    ruleId: string;
+    title: string;
+    configured: boolean;
+    lane: TimelineLane | undefined;
+    tags: string[];
+    matchCount: number;
+    ruleEventCount: number;
+    checkCount: number;
+    violationCount: number;
+    passCount: number;
+    lastSeenAt: string | undefined;
+  }>();
+
+  for (const event of timeline) {
+    const metadataRuleId = extractMetadataString(event.metadata, "ruleId");
+    if (!metadataRuleId) continue;
+
+    const existing = configuredRules.get(metadataRuleId);
+    const next = existing ?? {
+      ruleId: metadataRuleId,
+      title: metadataRuleId,
+      configured: false,
+      lane: undefined,
+      tags: [] as string[],
+      matchCount: 0,
+      ruleEventCount: 0,
+      checkCount: 0,
+      violationCount: 0,
+      passCount: 0,
+      lastSeenAt: undefined as string | undefined
+    };
+
+    const ruleStatus = extractMetadataString(event.metadata, "ruleStatus");
+
+    configuredRules.set(metadataRuleId, {
+      ...next,
+      ruleEventCount: next.ruleEventCount + 1,
+      checkCount: next.checkCount + (ruleStatus === "check" ? 1 : 0),
+      violationCount: next.violationCount + (ruleStatus === "violation" ? 1 : 0),
+      passCount: next.passCount + ((ruleStatus === "pass" || ruleStatus === "fix-applied") ? 1 : 0),
+      lastSeenAt: next.lastSeenAt ? latestTimestamp(next.lastSeenAt, event.createdAt) : event.createdAt
+    });
+  }
+
+  return [...configuredRules.values()].sort((left, right) => {
     if (right.violationCount !== left.violationCount) {
       return right.violationCount - left.violationCount;
     }
 
-    const rightActivity = right.matchCount + right.ruleEventCount;
-    const leftActivity = left.matchCount + left.ruleEventCount;
-    if (rightActivity !== leftActivity) {
-      return rightActivity - leftActivity;
+    if (right.ruleEventCount !== left.ruleEventCount) {
+      return right.ruleEventCount - left.ruleEventCount;
     }
 
     if ((right.lastSeenAt ?? "") !== (left.lastSeenAt ?? "")) {
@@ -508,27 +748,15 @@ export function eventHasRule(event: TimelineEvent, ruleId: string): boolean {
 }
 
 /**
- * 이벤트가 rules-index 기반의 설정된 규칙과 매칭되었는지 확인.
- * @param event - 검사할 이벤트
- */
-export function eventHasConfiguredRuleMatch(event: TimelineEvent): boolean {
-  return event.classification.matches.some((match) => match.source === "rules-index");
-}
-
-/**
- * 이벤트가 규칙 갭인지 확인. user 레인이 아니고 설정된 규칙 매칭이 없으면 갭으로 간주.
+ * 이벤트가 규칙 갭인지 확인. user 레인이 아니고 metadata.ruleId가 없으면 갭으로 간주.
  * @param event - 검사할 이벤트
  */
 export function eventHasRuleGap(event: TimelineEvent): boolean {
-  return event.lane !== "user" && !eventHasConfiguredRuleMatch(event);
+  return event.lane !== "user" && !extractMetadataString(event.metadata, "ruleId");
 }
 
 function collectEventRuleIds(event: TimelineEvent): readonly string[] {
-  const ruleIds = new Set(
-    event.classification.matches
-      .filter((match) => match.source === "rules-index")
-      .map((match) => match.ruleId)
-  );
+  const ruleIds = new Set<string>();
   const metadataRuleId = extractMetadataString(event.metadata, "ruleId");
   if (metadataRuleId) {
     ruleIds.add(metadataRuleId);
@@ -544,8 +772,7 @@ const TASK_EXTRACTION_LANES: readonly TimelineLane[] = [
   "exploration",
   "planning",
   "coordination",
-  "implementation",
-  "rules"
+  "implementation"
 ];
 
 const TASK_EXTRACTION_LANE_TITLES: Readonly<Record<TimelineLane, string>> = {
@@ -556,7 +783,6 @@ const TASK_EXTRACTION_LANE_TITLES: Readonly<Record<TimelineLane, string>> = {
   planning: "Plan the approach",
   coordination: "Coordinate tools and agents",
   implementation: "Implement the change",
-  rules: "Validate and enforce rules",
   background: "Observe background work"
 };
 
@@ -592,7 +818,7 @@ function resolvePreferredTaskTitle(
   task: MonitoringTask | null | undefined,
   timeline: readonly TimelineEvent[]
 ): string | null {
-  return meaningfulTaskTitle(task) ?? inferTaskTitleSignal(timeline) ?? normalizeSentence(task?.title);
+  return meaningfulTaskTitle(task) ?? inferTaskTitleSignal(timeline) ?? normalizeFallbackTaskTitle(task?.title);
 }
 
 function meaningfulTaskTitle(task: MonitoringTask | null | undefined): string | null {
@@ -653,6 +879,9 @@ function isGenericWorkspaceTaskTitle(
   }
 
   const [prefix, suffix] = segments;
+  if (!prefix || !suffix) {
+    return false;
+  }
   const normalizedPrefix = normalizeTitleToken(prefix);
   if (!GENERIC_TASK_TITLE_PREFIXES.has(normalizedPrefix)) {
     return false;
@@ -662,10 +891,23 @@ function isGenericWorkspaceTaskTitle(
     ?.split("/")
     .filter(Boolean)
     .pop();
-  const normalizedSuffix = normalizeTitleToken(suffix);
+  const normalizedSuffix = normalizeTitleToken(stripTrailingSessionSuffix(suffix));
 
   return normalizedSuffix === normalizeTitleToken(task.slug)
     || (workspaceName ? normalizedSuffix === normalizeTitleToken(workspaceName) : false);
+}
+
+function normalizeFallbackTaskTitle(value?: string): string | null {
+  const normalized = normalizeSentence(value);
+  if (!normalized) {
+    return null;
+  }
+
+  return stripTrailingSessionSuffix(normalized);
+}
+
+function stripTrailingSessionSuffix(value: string): string {
+  return value.replace(/\s+\((?:ses_[^)]+|session[^)]*|sess[^)]*)\)\s*$/i, "").trim();
 }
 
 function normalizeTitleToken(value?: string): string {
@@ -715,46 +957,51 @@ function collectTaskValidations(
   ).slice(0, 5);
 }
 
-function collectTaskRules(
-  timeline: readonly TimelineEvent[]
-): readonly string[] {
-  const rules = new Set<string>();
-
-  for (const event of timeline) {
-    const metadataRuleId = extractMetadataString(event.metadata, "ruleId");
-    if (metadataRuleId) {
-      rules.add(metadataRuleId);
-    }
-
-    for (const match of event.classification.matches) {
-      rules.add(match.ruleId);
-    }
-  }
-
-  return [...rules].sort();
-}
-
 function buildTaskSummary(
   timeline: readonly TimelineEvent[],
   sections: readonly TaskProcessSection[],
   validations: readonly string[],
   files: readonly string[]
 ): string {
-  const eventCount = timeline.filter((event) => event.kind !== "file.changed").length;
-  const laneText = sections.map((section) => section.lane).join(", ");
-  const parts = [`${eventCount} recorded task events`];
+  const parts: string[] = [];
 
-  if (laneText) {
-    parts.push(`lanes: ${laneText}`);
+  // 원래 요청 — 첫 번째 user.message 이벤트
+  const firstUserMsg = timeline.find(e => e.kind === "user.message");
+  const originalRequest = firstUserMsg?.body ?? firstUserMsg?.title;
+  if (originalRequest) {
+    parts.push(`원래 요청: ${originalRequest.slice(0, 120)}`);
   }
+
+  // 구현 작업 수
+  const implCount = timeline.filter(e => e.lane === "implementation").length;
+  if (implCount > 0) {
+    parts.push(`구현 작업 ${implCount}개`);
+  }
+
+  // 검증 결과
   if (validations.length > 0) {
-    parts.push(`${validations.length} validation checkpoints`);
-  }
-  if (files.length > 0) {
-    parts.push(`${files.length} touched files`);
+    const failCount = timeline.filter(e =>
+      (e.kind === "verification.logged" && e.metadata["verificationStatus"] === "fail") ||
+      (e.kind === "rule.logged" && e.metadata["ruleStatus"] === "violation")
+    ).length;
+    const passCount = validations.length - failCount;
+    parts.push(failCount > 0 ? `검증 ${validations.length}회 (통과 ${passCount}, 실패 ${failCount})` : `검증 ${validations.length}회 통과`);
   }
 
-  return normalizeSentence(parts.join(" | ")) ?? "Recorded task activity is available for extraction.";
+  // 수정 파일 수
+  if (files.length > 0) {
+    parts.push(`${files.length}개 파일 관련`);
+  }
+
+  if (parts.length === 0) {
+    // fallback: lane 정보라도
+    const laneText = sections.map(s => s.lane).join(", ");
+    return laneText
+      ? `${timeline.filter(e => e.kind !== "file.changed").length}개 이벤트 기록 (${laneText}).`
+      : "Recorded task activity is available for extraction.";
+  }
+
+  return parts.join(". ") + ".";
 }
 
 function buildTaskBrief(
@@ -792,8 +1039,7 @@ function buildTaskProcessMarkdown(
   summary: string,
   sections: readonly TaskProcessSection[],
   validations: readonly string[],
-  files: readonly string[],
-  rules: readonly string[]
+  files: readonly string[]
 ): string {
   const lines = [
     "# Extracted Task",
@@ -826,13 +1072,6 @@ function buildTaskProcessMarkdown(
     lines.push("", "## Related Files");
     for (const filePath of files) {
       lines.push(`- ${filePath}`);
-    }
-  }
-
-  if (rules.length > 0) {
-    lines.push("", "## Rules");
-    for (const ruleId of rules) {
-      lines.push(`- ${ruleId}`);
     }
   }
 
@@ -942,6 +1181,139 @@ function normalizeSentence(value?: string): string | null {
   return normalized.length > 120
     ? `${normalized.slice(0, 117)}...`
     : normalized;
+}
+
+function normalizeInspectorDisplayTitle(value?: string): string | null {
+  if (!value) {
+    return null;
+  }
+
+  const normalized = value
+    .replace(/\r/g, "\n")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return normalized || null;
+}
+
+function inferSyntheticInspectorTitle(
+  event: TimelineEvent,
+  limit: number
+): string | null {
+  const title = event.title.trim();
+  if (!title) {
+    return null;
+  }
+
+  const contextMatch = title.match(/^\[context\]:\s*(.+)$/i);
+  if (contextMatch?.[1]) {
+    return truncateInspectorTitle(`Context: ${sanitizeInspectorLine(contextMatch[1])}`, limit);
+  }
+
+  if (/^\[search-mode\]/i.test(title)) {
+    return "Search mode instructions";
+  }
+
+  if (/^\[analyze-mode\]/i.test(title)) {
+    return "Analyze mode instructions";
+  }
+
+  if (/^<task-notification>/i.test(title)) {
+    return "Task notification";
+  }
+
+  if (/^<system-reminder>/i.test(title)) {
+    const description = extractLabeledInspectorValue(title, "Description");
+    if (/\[background task completed\]/i.test(title)) {
+      return description
+        ? truncateInspectorTitle(`Background task completed: ${description}`, limit)
+        : "Background task completed";
+    }
+    if (/\[background task error\]/i.test(title)) {
+      return description
+        ? truncateInspectorTitle(`Background task error: ${description}`, limit)
+        : "Background task error";
+    }
+    if (/\[background task cancelled\]/i.test(title)) {
+      return description
+        ? truncateInspectorTitle(`Background task cancelled: ${description}`, limit)
+        : "Background task cancelled";
+    }
+    if (/\[background task interrupt(?:ed)?\]/i.test(title)) {
+      return description
+        ? truncateInspectorTitle(`Background task interrupted: ${description}`, limit)
+        : "Background task interrupted";
+    }
+    return "System reminder";
+  }
+
+  return null;
+}
+
+function extractLabeledInspectorValue(
+  value: string,
+  label: string
+): string | null {
+  const pattern = new RegExp(`(?:\\*\\*${label}:\\*\\*|${label}:)\\s*(.+)`, "i");
+  const match = value.match(pattern);
+  if (!match?.[1]) {
+    return null;
+  }
+
+  return sanitizeInspectorLine(match[1]);
+}
+
+function firstMeaningfulInspectorLine(...values: Array<string | null | undefined>): string | null {
+  for (const value of values) {
+    if (!value) {
+      continue;
+    }
+
+    const lines = value.split(/\r?\n/);
+    for (const line of lines) {
+      const sanitized = sanitizeInspectorLine(line);
+      if (!sanitized || isIgnorableInspectorLine(sanitized)) {
+        continue;
+      }
+      return sanitized;
+    }
+  }
+
+  return null;
+}
+
+function sanitizeInspectorLine(value: string): string {
+  return value
+    .replace(/^\[context\]:\s*/i, "Context: ")
+    .replace(/[*_`>#]+/g, "")
+    .replace(/^[-•]\s+/, "")
+    .replace(/<\/?[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isIgnorableInspectorLine(value: string): boolean {
+  const normalized = value.toLowerCase();
+  return normalized === "system-reminder"
+    || normalized === "task-notification"
+    || normalized.startsWith("task-id")
+    || normalized.startsWith("tool-use-id")
+    || normalized.startsWith("output-file")
+    || normalized.startsWith("id:");
+}
+
+function truncateInspectorTitle(value: string, limit: number): string {
+  if (value.length <= limit) {
+    return value;
+  }
+
+  const truncated = value.slice(0, Math.max(1, limit - 1)).trimEnd();
+  const boundary = truncated.lastIndexOf(" ");
+  const safe = boundary >= Math.floor(limit * 0.55)
+    ? truncated.slice(0, boundary)
+    : truncated;
+
+  return `${safe}...`;
 }
 
 /** 단일 questionId에 대한 질문 흐름 그룹. */
@@ -1058,6 +1430,139 @@ export function buildTodoGroups(
 }
 
 /**
+ * @ 멘션이 파일인지 폴더인지 구분.
+ * - file: 확장자가 있거나 trailing slash 없이 정확히 한 파일을 가리킴
+ * - directory: trailing slash 있거나 확장자 없는 경로 세그먼트
+ */
+export type MentionType = "file" | "directory";
+
+/** 파일 멘션의 교차 검증 결과. */
+export interface FileMentionVerification {
+  readonly mentionType: "file";
+  readonly path: string;
+  readonly mentionedAt: string;
+  readonly mentionedInEventId: string;
+  readonly wasExplored: boolean;
+  readonly firstExploredAt: string | undefined;
+  readonly explorationCount: number;
+  /** 멘션 이후에 읽은 적이 있는지 여부. false면 멘션 전 읽은 내용이 최신인지 확인 필요. */
+  readonly exploredAfterMention: boolean;
+}
+
+/** 폴더 멘션의 교차 검증 결과. */
+export interface DirectoryMentionVerification {
+  readonly mentionType: "directory";
+  readonly path: string;
+  readonly mentionedAt: string;
+  readonly mentionedInEventId: string;
+  /** 이 폴더 아래에서 실제로 읽힌 파일 목록 */
+  readonly exploredFilesInFolder: readonly ExploredFileStat[];
+  /** 폴더 안에서 읽힌 파일이 하나 이상인지 여부 */
+  readonly wasExplored: boolean;
+  /** 멘션 이후에 폴더 내 파일을 읽은 적이 있는지 여부 */
+  readonly exploredAfterMention: boolean;
+}
+
+/** 파일 또는 폴더 멘션의 교차 검증 결과. */
+export type MentionedFileVerification = FileMentionVerification | DirectoryMentionVerification;
+
+/**
+ * 사용자 메시지에서 멘션된 파일·폴더가 실제로 탐색되었는지 교차 검증.
+ * user.message 이벤트의 metadata.filePaths와 collectExploredFiles 결과를 매칭.
+ * 파일 멘션은 정확한 경로 일치를, 폴더 멘션은 하위 파일 포함 여부를 확인한다.
+ *
+ * @param timeline - 전체 이벤트 목록
+ * @param exploredFiles - collectExploredFiles 결과
+ * @param workspacePath - 경로 정규화에 사용할 워크스페이스 경로 (선택적)
+ * @returns 멘션된 파일·폴더별 검증 결과 (멘션 시각 오래된 순)
+ */
+export function buildMentionedFileVerifications(
+  timeline: readonly TimelineEvent[],
+  exploredFiles: readonly ExploredFileStat[],
+  workspacePath?: string
+): readonly MentionedFileVerification[] {
+  const exploredMap = new Map(exploredFiles.map((f) => [f.path, f]));
+  const allExploredPaths = exploredFiles.map((f) => f.path);
+
+  const results: MentionedFileVerification[] = [];
+  // 경로 기준으로 전역 중복 제거: 같은 경로가 여러 메시지에서 멘션되면 첫 번째만 사용.
+  const seen = new Set<string>();
+
+  for (const event of timeline) {
+    if (event.kind !== "user.message") {
+      continue;
+    }
+
+    const mentionedPaths = extractMetadataStringArray(event.metadata, "filePaths");
+    const mentionedMs = Date.parse(event.createdAt);
+
+    for (const mentionedPath of mentionedPaths) {
+      if (seen.has(mentionedPath)) {
+        continue;
+      }
+      seen.add(mentionedPath);
+
+      if (isDirectoryPath(mentionedPath)) {
+        // 폴더 멘션: 하위 파일들 중 읽힌 것을 수집
+        const matchedPaths = filePathsInDirectory(mentionedPath, allExploredPaths, workspacePath);
+        const exploredFilesInFolder = matchedPaths
+          .map((p) => exploredMap.get(p))
+          .filter((s): s is ExploredFileStat => s !== undefined);
+
+        results.push({
+          mentionType: "directory",
+          path: mentionedPath,
+          mentionedAt: event.createdAt,
+          mentionedInEventId: event.id,
+          exploredFilesInFolder,
+          wasExplored: exploredFilesInFolder.length > 0,
+          exploredAfterMention: exploredFilesInFolder.some((s) =>
+            s.readTimestamps.some((t) => Date.parse(t) > mentionedMs)
+          )
+        });
+      } else {
+        // 파일 멘션: 정확히 일치하는 파일 탐색
+        const matchedStat = findMatchingExploredFile(mentionedPath, exploredMap, workspacePath);
+
+        results.push({
+          mentionType: "file",
+          path: mentionedPath,
+          mentionedAt: event.createdAt,
+          mentionedInEventId: event.id,
+          wasExplored: Boolean(matchedStat),
+          firstExploredAt: matchedStat?.firstSeenAt,
+          explorationCount: matchedStat?.count ?? 0,
+          exploredAfterMention: Boolean(
+            matchedStat?.readTimestamps.some((t) => Date.parse(t) > mentionedMs)
+          )
+        });
+      }
+    }
+  }
+
+  return results.sort((a, b) => Date.parse(a.mentionedAt) - Date.parse(b.mentionedAt));
+}
+
+function findMatchingExploredFile(
+  mentionedPath: string,
+  exploredMap: Map<string, ExploredFileStat>,
+  workspacePath?: string
+): ExploredFileStat | undefined {
+  const exact = exploredMap.get(mentionedPath);
+  if (exact) {
+    return exact;
+  }
+
+  for (const [exploredPath, stat] of exploredMap) {
+    if (matchFilePaths(mentionedPath, exploredPath, workspacePath)) {
+      return stat;
+    }
+  }
+
+  return undefined;
+}
+
+/**
  * 타임라인 이벤트에서 AI 모델 요약을 추출한다.
  * modelName 메타데이터를 가진 이벤트를 집계하여 가장 많이 등장한 모델명을 반환.
  */
@@ -1082,7 +1587,11 @@ export function buildModelSummary(
       )
     : undefined;
 
-  return { defaultModelName, defaultModelProvider, modelCounts };
+  return {
+    ...(defaultModelName ? { defaultModelName } : {}),
+    ...(defaultModelProvider ? { defaultModelProvider } : {}),
+    modelCounts
+  };
 }
 
 function extractMetadataString(
@@ -1111,4 +1620,274 @@ function extractMetadataStringArray(
   }
 
   return value.filter((entry): entry is string => typeof entry === "string");
+}
+
+export function collectViolationDescriptions(timeline: readonly TimelineEvent[]): readonly string[] {
+  return timeline
+    .filter(e =>
+      (e.kind === "verification.logged" && e.metadata["verificationStatus"] === "fail") ||
+      (e.kind === "rule.logged" && e.metadata["ruleStatus"] === "violation")
+    )
+    .map(e => e.title);
+}
+
+export function collectPlanSteps(timeline: readonly TimelineEvent[]): readonly string[] {
+  // planning 레인 이벤트(context.saved 등) + description이 있는 terminal.command 포함.
+  // terminal.ts hook이 더 이상 save-context를 별도로 발행하지 않으므로
+  // terminal.command metadata.description을 직접 수집한다.
+  const planningEvents = timeline.filter(e => e.lane === "planning");
+  const describedTerminals = timeline.filter(
+    e => e.kind === "terminal.command"
+      && Boolean(extractMetadataString(e.metadata, "description"))
+  );
+  return uniqueStrings(
+    [...planningEvents, ...describedTerminals]
+      .map(describeProcessEvent)
+      .filter((v): v is string => Boolean(v))
+  );
+}
+
+export interface HandoffOptions {
+  readonly objective: string;
+  readonly summary: string;
+  readonly sections: readonly TaskProcessSection[];
+  readonly plans: readonly string[];
+  readonly exploredFiles: readonly string[];
+  readonly modifiedFiles: readonly string[];
+  readonly openTodos: readonly string[];
+  readonly openQuestions: readonly string[];
+  readonly violations: readonly string[];
+  readonly memo: string;
+  readonly include: {
+    readonly summary: boolean;
+    readonly process: boolean;
+    readonly plans: boolean;
+    readonly files: boolean;
+    readonly modifiedFiles: boolean;
+    readonly todos: boolean;
+    readonly violations: boolean;
+    readonly questions: boolean;
+  };
+}
+
+export function buildHandoffPlain(options: HandoffOptions): string {
+  const { objective, summary, sections, plans, exploredFiles, modifiedFiles,
+          openTodos, openQuestions, violations, memo, include } = options;
+  const lines: string[] = [];
+
+  lines.push(`Task: ${objective}`);
+
+  if (include.summary && summary) {
+    lines.push(`Summary: ${summary}`);
+  }
+
+  if (include.plans && plans.length > 0) {
+    lines.push("Plan:");
+    for (const step of plans) lines.push(`- ${step}`);
+  }
+
+  if (include.process && sections.length > 0) {
+    lines.push("Process:");
+    for (const section of sections) {
+      for (const item of section.items) {
+        lines.push(`- ${section.lane}: ${item}`);
+      }
+    }
+  }
+
+  if (include.files && exploredFiles.length > 0) {
+    lines.push(`Explored Files: ${exploredFiles.join(", ")}`);
+  }
+
+  if (include.modifiedFiles && modifiedFiles.length > 0) {
+    lines.push(`Modified Files: ${modifiedFiles.join(", ")}`);
+  }
+
+  if (include.todos && openTodos.length > 0) {
+    lines.push("Open TODOs:");
+    for (const todo of openTodos) lines.push(`- ${todo}`);
+  }
+
+  if (include.violations && violations.length > 0) {
+    lines.push("Violations:");
+    for (const v of violations) lines.push(`- ${v}`);
+  }
+
+  if (include.questions && openQuestions.length > 0) {
+    lines.push("Open Questions:");
+    for (const q of openQuestions) lines.push(`- ${q}`);
+  }
+
+  if (memo.trim()) {
+    lines.push(`Note: ${memo.trim()}`);
+  }
+
+  return lines.join("\n");
+}
+
+export function buildHandoffMarkdown(options: HandoffOptions): string {
+  const { objective, summary, sections, plans, exploredFiles, modifiedFiles,
+          openTodos, openQuestions, violations, memo, include } = options;
+  const parts: string[] = ["# Task Context", `\n## Objective\n${objective}`];
+
+  if (include.summary && summary) {
+    parts.push(`\n## Summary\n${summary}`);
+  }
+
+  if (include.plans && plans.length > 0) {
+    parts.push(`\n## Plan\n${plans.map(p => `- ${p}`).join("\n")}`);
+  }
+
+  if (include.process && sections.length > 0) {
+    const sectionLines = sections.map(s =>
+      `### ${s.title}\n${s.items.map(i => `- ${i}`).join("\n")}`
+    );
+    parts.push(`\n## Process\n${sectionLines.join("\n\n")}`);
+  }
+
+  if (include.files && exploredFiles.length > 0) {
+    parts.push(`\n## Explored Files\n${exploredFiles.map(f => `- \`${f}\``).join("\n")}`);
+  }
+
+  if (include.modifiedFiles && modifiedFiles.length > 0) {
+    parts.push(`\n## Modified Files\n${modifiedFiles.map(f => `- \`${f}\``).join("\n")}`);
+  }
+
+  if (include.todos && openTodos.length > 0) {
+    parts.push(`\n## Open TODOs\n${openTodos.map(t => `- ${t}`).join("\n")}`);
+  }
+
+  if (include.violations && violations.length > 0) {
+    parts.push(`\n## Violations\n${violations.map(v => `- ${v}`).join("\n")}`);
+  }
+
+  if (include.questions && openQuestions.length > 0) {
+    parts.push(`\n## Open Questions\n${openQuestions.map(q => `- ${q}`).join("\n")}`);
+  }
+
+  if (memo.trim()) {
+    parts.push(`\n## Handoff Note\n${memo.trim()}`);
+  }
+
+  return parts.join("");
+}
+
+function cdata(s: string): string {
+  return `<![CDATA[${s}]]>`;
+}
+
+export function buildHandoffXML(options: HandoffOptions): string {
+  const { objective, summary, sections, plans, exploredFiles, modifiedFiles,
+          openTodos, openQuestions, violations, memo, include } = options;
+  const lines: string[] = ["<context>"];
+
+  lines.push(`  <objective>${cdata(objective)}</objective>`);
+
+  if (include.summary && summary) {
+    lines.push(`  <summary>${cdata(summary)}</summary>`);
+  }
+
+  if (include.plans && plans.length > 0) {
+    lines.push("  <plan>");
+    for (const step of plans) lines.push(`    <step>${cdata(step)}</step>`);
+    lines.push("  </plan>");
+  }
+
+  if (include.process && sections.length > 0) {
+    lines.push("  <process>");
+    for (const section of sections) {
+      lines.push(`    <section lane="${section.lane}" title="${section.title}">`);
+      for (const item of section.items) {
+        lines.push(`      <step>${cdata(item)}</step>`);
+      }
+      lines.push("    </section>");
+    }
+    lines.push("  </process>");
+  }
+
+  if (include.files && exploredFiles.length > 0) {
+    lines.push("  <explored_files>");
+    for (const f of exploredFiles) lines.push(`    <file>${cdata(f)}</file>`);
+    lines.push("  </explored_files>");
+  }
+
+  if (include.modifiedFiles && modifiedFiles.length > 0) {
+    lines.push("  <modified_files>");
+    for (const f of modifiedFiles) lines.push(`    <file>${cdata(f)}</file>`);
+    lines.push("  </modified_files>");
+  }
+
+  if (include.todos && openTodos.length > 0) {
+    lines.push("  <open_todos>");
+    for (const t of openTodos) lines.push(`    <todo>${cdata(t)}</todo>`);
+    lines.push("  </open_todos>");
+  }
+
+  if (include.violations && violations.length > 0) {
+    lines.push(`  <violations count="${violations.length}">`);
+    for (const v of violations) lines.push(`    <violation>${cdata(v)}</violation>`);
+    lines.push("  </violations>");
+  }
+
+  if (include.questions && openQuestions.length > 0) {
+    lines.push("  <open_questions>");
+    for (const q of openQuestions) lines.push(`    <question>${cdata(q)}</question>`);
+    lines.push("  </open_questions>");
+  }
+
+  if (memo.trim()) {
+    lines.push(`  <handoff_note>${cdata(memo.trim())}</handoff_note>`);
+  }
+
+  lines.push("</context>");
+  return lines.join("\n");
+}
+
+export function buildHandoffSystemPrompt(options: HandoffOptions): string {
+  const { objective, summary, sections, plans, exploredFiles, modifiedFiles,
+          openTodos, openQuestions, violations, memo, include } = options;
+  const parts: string[] = [
+    "You are continuing a software development task. Below is the full context from the previous session.",
+    `\n## Task\n${objective}`
+  ];
+
+  if (include.summary && summary) {
+    parts.push(`\n## What was done\n${summary}`);
+  }
+
+  if (include.plans && plans.length > 0) {
+    parts.push(`\n## Plan\n${plans.map(p => `- ${p}`).join("\n")}`);
+  }
+
+  if (include.process && sections.length > 0) {
+    const items = sections.flatMap(s => s.items.map(i => `- ${s.lane}: ${i}`));
+    parts.push(`\n## Process steps\n${items.join("\n")}`);
+  }
+
+  if (include.files && exploredFiles.length > 0) {
+    parts.push(`\n## Files explored\n${exploredFiles.map(f => `- ${f}`).join("\n")}`);
+  }
+
+  if (include.modifiedFiles && modifiedFiles.length > 0) {
+    parts.push(`\n## Files modified\n${modifiedFiles.map(f => `- ${f}`).join("\n")}`);
+  }
+
+  if (include.todos && openTodos.length > 0) {
+    parts.push(`\n## What still needs to be done\n${openTodos.map(t => `- ${t}`).join("\n")}`);
+  }
+
+  if (include.violations && violations.length > 0) {
+    parts.push(`\n## Watch out for\n${violations.map(v => `- ${v}`).join("\n")}`);
+  }
+
+  if (include.questions && openQuestions.length > 0) {
+    parts.push(`\n## Open questions\n${openQuestions.map(q => `- ${q}`).join("\n")}`);
+  }
+
+  if (memo.trim()) {
+    parts.push(`\n## Note from previous session\n${memo.trim()}`);
+  }
+
+  parts.push("\nBegin by acknowledging you have read this context, then ask what to tackle first.");
+  return parts.join("");
 }

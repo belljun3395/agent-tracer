@@ -1,59 +1,5 @@
-import type { EventClassificationMatch, EventClassificationReason, TimelineLane } from "./domain.js";
-
-interface ActionPrefixRule {
-  readonly lane: TimelineLane;
-  readonly prefixes: readonly string[];
-  readonly tags: readonly string[];
-}
-
-interface ActionKeywordRule {
-  readonly lane: TimelineLane;
-  readonly keywords: readonly string[];
-  readonly tags: readonly string[];
-}
-
-const ACTION_SKIP_WORDS = new Set(["run"]);
-
-const ACTION_PREFIX_RULES: readonly ActionPrefixRule[] = [
-  {
-    lane: "exploration",
-    prefixes: ["read", "search", "scan", "inspect", "list", "open", "find", "fetch", "lookup", "grep"],
-    tags: ["action-registry", "exploration"]
-  },
-  {
-    lane: "planning",
-    prefixes: ["plan", "analyze", "assess", "review", "design", "decide"],
-    tags: ["action-registry", "planning"]
-  },
-  {
-    lane: "implementation",
-    prefixes: ["create", "modify", "write", "edit", "update", "fix", "refactor", "implement"],
-    tags: ["action-registry", "implementation"]
-  },
-  {
-    lane: "rules",
-    prefixes: ["test", "build", "lint", "verify", "validate", "check", "assert"],
-    tags: ["action-registry", "rules"]
-  }
-];
-
-const ACTION_KEYWORD_RULES: readonly ActionKeywordRule[] = [
-  {
-    lane: "rules",
-    keywords: ["test", "tests", "build", "lint", "verify", "validate", "validation", "check", "checks", "guard", "rule", "violation", "pass", "compliance"],
-    tags: ["rule-cycle"]
-  },
-  {
-    lane: "planning",
-    keywords: ["plan", "design", "approach", "analysis", "review", "assess", "strategy"],
-    tags: ["planning"]
-  },
-  {
-    lane: "exploration",
-    keywords: ["read", "search", "scan", "inspect", "lookup", "explore"],
-    tags: ["exploration"]
-  }
-];
+import type { EventClassificationMatch, EventClassificationReason } from "./domain/types.js";
+import { ACTION_KEYWORD_RULES, ACTION_PREFIX_RULES, ACTION_SKIP_WORDS } from "./action-registry.constants.js";
 
 /** actionName을 분류하여 레인, 태그, 이유를 포함한 매치 결과를 반환. 매치 없으면 null. */
 export function classifyActionName(actionName?: string): EventClassificationMatch | null {
@@ -86,7 +32,7 @@ export function classifyActionName(actionName?: string): EventClassificationMatc
   const keywordMatches = ACTION_KEYWORD_RULES
     .map((rule) => ({
       rule,
-      keywords: rule.keywords.filter((keyword) => tokens.includes(keyword))
+      keywords: rule.keywords.filter((keyword: string) => tokens.includes(keyword))
     }))
     .filter((entry) => entry.keywords.length > 0);
 

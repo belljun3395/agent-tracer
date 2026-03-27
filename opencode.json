@@ -9,6 +9,5 @@
         "MONITOR_BASE_URL": "http://127.0.0.1:3847"
       }
     }
-  },
-  "plugin": [".opencode/plugins/monitor.ts"]
+  }
 }

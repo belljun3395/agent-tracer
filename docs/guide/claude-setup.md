@@ -2,15 +2,30 @@
 
 This guide is for Claude Code only.
 
-> **Server note:** `packages/server` is a generic runtime monitor. It exposes
-> `POST /api/runtime-session-ensure` and `POST /api/runtime-session-end` as
-> stateless runtime helpers that any adapter can call. The Claude hooks use
-> these endpoints with `runtimeSource: "claude-hook"`. Legacy compatibility
-> wrappers `POST /api/cc-session-ensure` and `POST /api/cc-session-end` still
-> exist but are temporary shims — new integrations should use the generic
-> `runtime-session-*` endpoints.
+If you want to attach Agent Tracer to another project, start with
+[external-setup.md](./external-setup.md) first (official mirror:
+https://belljun3395.github.io/agent-tracer/guide/external-setup). This page covers the
+Claude-specific steps after the shared setup flow.
 
-## 1. Verify The Monitor Server
+## 1. What `setup:external --mode claude` automates
+
+The script:
+
+- creates or merges `target-project/.claude/settings.json`
+- vendors hook source files into `target-project/.agent-tracer/.claude/hooks/*.ts`
+- points hook commands to the target repo root using `$CLAUDE_PROJECT_DIR` first, then git-root / upward-directory fallback, before resolving `.agent-tracer/.claude/hooks/*.ts`
+- uses `npx --yes tsx` to execute the hook files
+- defaults to a pinned source ref, using `AGENT_TRACER_SOURCE_REF` when set,
+  then the current git `HEAD`, then `main`
+- can vendor from a local checkout with `--source-root` without changing the
+  local override path
+
+The script does **not**:
+
+- register the Claude MCP server for you
+- bundle a full local clone of the Agent Tracer repository into the target project
+
+## 2. Verify The Monitor Server
 
 ```bash
 curl -sf http://127.0.0.1:${MONITOR_PORT:-3847}/api/overview | python3 -m json.tool
@@ -24,82 +39,18 @@ npm run dev:server
 npm run build && npm run start:server
 ```
 
-## 2. Register The MCP Server
+## 3. External Project Setup
+
+From the Agent Tracer repository root:
 
 ```bash
-claude mcp add monitor node /path/to/packages/mcp/dist/index.js
-```
-
-To use a custom monitor URL:
-
-```bash
-claude mcp add monitor \
-  -e MONITOR_BASE_URL=http://127.0.0.1:3847 \
-  node /path/to/packages/mcp/dist/index.js
-```
-
-Verify registration:
-
-```bash
-claude mcp list
-```
-
-Expected result: `monitor` is listed and connected.
-
-## 3. Claude Hook Setup In This Repository
-
-Claude reads `.claude/settings.json`, which already points at the repository
-hook scripts.
-
-Configured hook files:
-
-- `.claude/hooks/ensure_task.py`
-- `.claude/hooks/terminal.py`
-- `.claude/hooks/tool_used.py`
-- `.claude/hooks/explore.py`
-- `.claude/hooks/session_stop.py`
-
-Behavior in this repository:
-
-- create a task on first tool use of a new session
-- resume an existing work item when the previous session ended normally
-  (`.current-task-id` retains the task ID between sessions)
-- capture Bash activity
-- capture Edit and Write activity
-- capture Read, Glob, Grep, LS, WebSearch, and WebFetch exploration
-- end only the current session on stop — the work item stays open for follow-up turns
-- record an explicit `user-message-capture-unavailable` signal each session because
-  Claude Code hook payloads do not expose raw user prompt text
-
-**Session vs. task lifecycle:**
-
-| Event | Hook | Effect |
-|-------|------|--------|
-| First tool use (no task file) | `ensure_task.py` | New task + new session |
-| First tool use (task file with cleared session) | `ensure_task.py` | New session under same task |
-| Session stop | `session_stop.py` | Session ended; task stays `running` |
-| Work item complete | `monitor_task_complete` MCP tool | Task marked `completed` |
-
-Raw user prompt text is **not available** from Claude Code hooks. The hooks
-record a `rule.logged` event with `ruleId: user-message-capture-unavailable`
-to make this gap explicit in the timeline. To record actual user messages,
-call `monitor_user_message` directly via MCP.
-
-No extra Claude-specific setup is required if you are working in this checkout.
-
-## 4. Reuse Claude Hooks In Another Project
-
-외부 프로젝트에서는 Python 훅 파일을 복사하지 말고,
-설치 스크립트로 **절대 경로 참조형 hooks 설정**을 생성하세요.
-
-```bash
-cd /path/to/agent-tracer
+npm run build
 npm run setup:external -- --target /path/to/your-project --mode claude
 ```
 
-이 스크립트는 `/path/to/your-project/.claude/settings.json`을 생성/병합하며,
-각 hook command가 `agent-tracer/.claude/hooks/*.py`를 절대 경로로 실행하도록 설정합니다.
-즉, 외부 프로젝트에 Python 구현 파일을 복사하지 않습니다.
+If you are wiring this into another checkout and want to pin a specific source
+version, pass `--source-ref <commit-or-tag>` or set `AGENT_TRACER_SOURCE_REF`.
+For local source overrides, use `--source-root /path/to/agent-tracer`.
 
 Then register the same `monitor` MCP server in Claude Code:
 
@@ -109,36 +60,111 @@ claude mcp add monitor \
   node /absolute/path/to/agent-tracer/packages/mcp/dist/index.js
 ```
 
-**OpenCode와 동시 사용 시:** `settings.json`의 모든 훅 커맨드 앞에는 아래 가드가 붙어 있습니다.
+If Claude is launched from a GUI and `node` is not on the GUI PATH, use an
+absolute Node binary path instead of plain `node`.
+
+Verify registration:
 
 ```bash
-[ -n "$OPENCODE" ] || [ -n "$OPENCODE_CLIENT" ] || python3 .claude/hooks/...
+claude mcp list
 ```
 
-이 조건은 OpenCode 환경(`$OPENCODE` 환경변수가 설정된 경우)에서는 훅 스크립트를 건너뛰도록
-설계된 것입니다. OpenCode는 `.opencode/plugins/monitor.ts` 플러그인이 모니터링을 처리하므로
-Claude 훅이 중복 실행되지 않습니다. 두 도구를 같은 프로젝트에서 쓸 때 이 가드가 충돌을 방지합니다.
+Expected result: `monitor` is listed and connected.
 
-## 5. Manual MCP Tools
+## 4. What The Hooks Do
 
-If hooks are not enough, call the MCP tools directly:
+Configured hook files in this repository:
 
-**Lifecycle:**
-- `monitor_task_start` — start or resume a work item
-- `monitor_task_complete` — explicitly close the work item
-- `monitor_task_error` — record a failure
-- `monitor_session_end` — end the current session without closing the work item
+- `.claude/hooks/session_start.ts`
+- `.claude/hooks/user_prompt.ts`
+- `.claude/hooks/ensure_task.ts`
+- `.claude/hooks/terminal.ts`
+- `.claude/hooks/tool_used.ts`
+- `.claude/hooks/explore.ts`
+- `.claude/hooks/agent_activity.ts`
+- `.claude/hooks/todo.ts`
+- `.claude/hooks/compact.ts`
+- `.claude/hooks/subagent_lifecycle.ts`
+- `.claude/hooks/session_end.ts`
+- `.claude/hooks/stop.ts`
 
-**Canonical user message (raw prompt path):**
-- `monitor_user_message` — record a user.message event (`captureMode: "raw"` or `"derived"`)
-  - `messageId` is required for deduplication
-  - `captureMode: "derived"` requires `sourceEventId` linking to the raw source event
-  - `runtimeSource: "claude-hook"` path requires `sessionId` (always provided by hooks)
+Behavior:
 
-**Planning checkpoints (not raw prompts):**
-- `monitor_save_context` — planning thought, analysis, or context snapshot
+- create or resume a runtime session through `/api/runtime-session-ensure`
+- capture raw user prompt text via `UserPromptSubmit`
+- capture successful and failed tool activity, including MCP tool names
+- capture Agent and Skill activity plus subagent start/stop lifecycle
+- capture compaction markers and compact summaries
+- post assistant turn output and complete the task on `Stop`
+- end only the current runtime session on `SessionEnd` and skip clear events
+- store transient subagent registry data in `.claude/.subagent-registry.json`
 
-**Event logging:**
+**Session vs. task lifecycle:**
+
+| Event | Hook | Effect |
+|-------|------|--------|
+| Session cleared / first prompt | `session_start.ts`, `user_prompt.ts` | Record clear markers + ensure runtime task + record raw user prompt |
+| First tool use | `ensure_task.ts` | Reuses the ensured runtime session |
+| Tool success / failure | `terminal.ts`, `tool_used.ts`, `explore.ts`, `agent_activity.ts`, `todo.ts` | Capture command, edit, explore, MCP, subagent launch, and task-list activity |
+| Subagent lifecycle | `subagent_lifecycle.ts` | Record subagent running/completed async lifecycle events |
+| Pre/Post compact | `compact.ts` | Record compaction checkpoint and compact summary |
+| Assistant turn end | `stop.ts` | Record assistant response and call `/api/runtime-session-end` with `completeTask: true` |
+| Session end | `session_end.ts` | Ends only the current runtime session unless `stop.ts` already completed the primary task |
+| Work item complete | `monitor_task_complete` MCP tool | Marks the task `completed` |
+
+## 5. Repo-local Setup In This Repository
+
+If you are working inside this repository, `.claude/settings.json` already
+points at the repository hook scripts through the same root-resolution pattern.
+No extra Claude hook wiring is required.
+
+You still need the `monitor` MCP server registered in Claude Code.
+
+## 6. Hook Debug Log
+
+Hook scripts write a debug log to `.claude/hooks.log` **only when
+`NODE_ENV=development`**.
+
+All hook commands in `.claude/settings.json` and the commands generated by
+`setup:external` include `NODE_ENV=development` automatically, so file logging
+is active whenever hooks are wired through either of these paths.
+
+| Environment | Logging |
+|-------------|---------|
+| This repo (Claude Code, via `.claude/settings.json`) | ✅ enabled |
+| External project (wired via `setup:external`) | ✅ enabled when the generated hook commands are used |
+| `scripts/test-hooks.ts` (calls monitor API directly) | ❌ not applicable |
+| Docker (`scripts/start-docker.sh`) | ❌ hooks do not run inside Docker |
+
+To clear the log:
+
+```bash
+> .claude/hooks.log
+```
+
+For the payload schema and known differences from the official spec, see
+[hook-payload-spec.md](./hook-payload-spec.md).
+
+## 7. Manual MCP Tools
+
+If hooks are not enough, you can still call MCP tools directly.
+
+Common lifecycle tools:
+
+- `monitor_task_start`
+- `monitor_task_complete`
+- `monitor_task_error`
+- `monitor_session_end`
+
+Canonical user message path:
+
+- `monitor_user_message`
+  - `messageId` is required
+  - `captureMode: "derived"` requires `sourceEventId`
+
+Planning / event logging tools:
+
+- `monitor_save_context`
 - `monitor_tool_used`
 - `monitor_terminal_command`
 - `monitor_plan`
@@ -148,13 +174,12 @@ If hooks are not enough, call the MCP tools directly:
 - `monitor_explore`
 - `monitor_async_task`
 
-## 6. End-To-End Check
+## 8. End-To-End Check
 
 1. Start the monitor server.
-2. Open Claude Code in this repository.
-3. Perform one read or edit action.
-4. Confirm the task appears in the dashboard.
-5. Stop the session — the task should remain `running` (not `completed`).
-6. Reopen Claude Code and perform another action.
-7. Confirm the same task in the dashboard now has two sessions under it.
-8. Call `monitor_task_complete` via MCP to explicitly close the work item.
+2. Run `setup:external --mode claude` for the target project.
+3. Register `monitor` in `claude mcp add`.
+4. Open the target project in Claude Code.
+5. Perform one read or edit action.
+6. Confirm a task appears in the dashboard.
+7. Stop the Claude turn and confirm the primary task transitions to `completed` unless background descendants are still running.

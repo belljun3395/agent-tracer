@@ -2,8 +2,9 @@
  * @module index
  *
  * Agent Tracer MCP stdio 서버.
- * 에이전트(Claude, OpenCode, Codex)가 호출할 수 있는 14개 모니터링 도구 제공.
- * 직접 실행 시(`node dist/index.js`) stdio MCP 서버로 시작.
+ * 에이전트(Claude, OpenCode, Codex)가 호출할 수 있도록 모니터링 도구를 등록한다.
+ * 현재 기준으로는 24개 MCP 도구를 노출한다.
+ * 빌드 산출물(`dist/index.js`) 또는 패키지 바이너리(`monitor-mcp`)로 stdio MCP 서버를 시작한다.
  */
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -14,7 +15,7 @@ import { MonitorClient } from "./client.js";
 import { toToolResponse } from "./result.js";
 
 /**
- * 모니터링 도구가 등록된 MCP 서버 인스턴스를 생성한다.
+ * 모니터링 툴 핸들러가 등록된 MCP 서버 인스턴스를 생성한다.
  * 테스트에서는 커스텀 `client`를 주입할 수 있다.
  *
  * @param client - HTTP 클라이언트 (기본값: `new MonitorClient()`)
@@ -27,8 +28,8 @@ export function createMonitorMcpServer(client = new MonitorClient()): McpServer 
   });
 
   // ─── Task Lifecycle ──────────────────────────────────────────────────────────
-  // monitor_task_start, monitor_start_task, monitor_task_complete,
-  // monitor_complete_task, monitor_task_error
+  // monitor_task_start, monitor_task_complete, monitor_task_link,
+  // monitor_task_error, monitor_runtime_session_ensure, monitor_runtime_session_end
 
   server.registerTool(
     "monitor_task_start",
@@ -39,22 +40,7 @@ export function createMonitorMcpServer(client = new MonitorClient()): McpServer 
         taskId: z.string().optional(),
         title: z.string(),
         workspacePath: z.string().optional(),
-        summary: z.string().optional(),
-        metadata: z.record(z.unknown()).optional()
-      }
-    },
-    async (input) => toToolResponse(await client.post("/api/task-start", input))
-  );
-
-  server.registerTool(
-    "monitor_start_task",
-    {
-      title: "Monitor Start Task",
-      description: "Article-aligned alias for recording the start of a monitored agent task.",
-      inputSchema: {
-        taskId: z.string().optional(),
-        title: z.string(),
-        workspacePath: z.string().optional(),
+        runtimeSource: z.string().optional(),
         summary: z.string().optional(),
         metadata: z.record(z.unknown()).optional()
       }
@@ -78,18 +64,22 @@ export function createMonitorMcpServer(client = new MonitorClient()): McpServer 
   );
 
   server.registerTool(
-    "monitor_complete_task",
+    "monitor_task_link",
     {
-      title: "Monitor Complete Task",
-      description: "Article-aligned alias for marking a monitored task as completed.",
+      title: "Monitor Task Link",
+      description:
+        "Link an already-started task into parent/background lineage. " +
+        "Use this when a runtime discovers subagent or background relationships after task creation.",
       inputSchema: {
         taskId: z.string(),
-        sessionId: z.string().optional(),
-        summary: z.string().optional(),
-        metadata: z.record(z.unknown()).optional()
+        title: z.string().optional(),
+        taskKind: z.enum(["primary", "background"]).optional(),
+        parentTaskId: z.string().optional(),
+        parentSessionId: z.string().optional(),
+        backgroundTaskId: z.string().optional()
       }
     },
-    async (input) => toToolResponse(await client.post("/api/task-complete", input))
+    async (input) => toToolResponse(await client.post("/api/task-link", input))
   );
 
   server.registerTool(
@@ -106,6 +96,44 @@ export function createMonitorMcpServer(client = new MonitorClient()): McpServer 
       }
     },
     async (input) => toToolResponse(await client.post("/api/task-error", input))
+  );
+
+  server.registerTool(
+    "monitor_runtime_session_ensure",
+    {
+      title: "Monitor Runtime Session Ensure",
+      description:
+        "Create or resume a runtime-scoped monitor task/session using runtimeSource + runtimeSessionId. " +
+        "Use this when the runtime can keep a stable thread/session identity across turns.",
+      inputSchema: {
+        runtimeSource: z.string(),
+        runtimeSessionId: z.string(),
+        title: z.string(),
+        workspacePath: z.string().optional(),
+        parentTaskId: z.string().optional(),
+        parentSessionId: z.string().optional()
+      }
+    },
+    async (input) => toToolResponse(await client.post("/api/runtime-session-ensure", input))
+  );
+
+  server.registerTool(
+    "monitor_runtime_session_end",
+    {
+      title: "Monitor Runtime Session End",
+      description:
+        "End a runtime-scoped monitor session. " +
+        "Use completeTask=true only when the whole work item should be completed, otherwise leave it unset to preserve the task across turns.",
+      inputSchema: {
+        runtimeSource: z.string(),
+        runtimeSessionId: z.string(),
+        summary: z.string().optional(),
+        completeTask: z.boolean().optional(),
+        completionReason: z.enum(["idle", "assistant_turn_complete", "explicit_exit", "runtime_terminated"]).optional(),
+        backgroundCompletions: z.array(z.string()).optional()
+      }
+    },
+    async (input) => toToolResponse(await client.post("/api/runtime-session-end", input))
   );
 
   // ─── Async Lifecycle ─────────────────────────────────────────────────────────
@@ -137,7 +165,8 @@ export function createMonitorMcpServer(client = new MonitorClient()): McpServer 
 
   // ─── Event Logging ───────────────────────────────────────────────────────────
   // monitor_tool_used, monitor_terminal_command, monitor_save_context,
-  // monitor_plan, monitor_action, monitor_verify, monitor_rule, monitor_explore
+  // monitor_plan, monitor_action, monitor_verify, monitor_rule, monitor_explore,
+  // monitor_question, monitor_todo, monitor_thought, monitor_agent_activity
 
   server.registerTool(
     "monitor_tool_used",
@@ -161,14 +190,14 @@ export function createMonitorMcpServer(client = new MonitorClient()): McpServer 
     "monitor_terminal_command",
     {
       title: "Monitor Terminal Command",
-      description: "Record a terminal command executed during a task. Use lane='rules' for tests/builds/lints, 'implementation' for regular commands.",
+      description: "Record a terminal command executed during a task. Use lane='implementation' for commands.",
       inputSchema: {
         taskId: z.string(),
         sessionId: z.string().optional(),
         command: z.string(),
         title: z.string().optional(),
         body: z.string().optional(),
-        lane: z.enum(["implementation", "rules"]).optional(),
+        lane: z.enum(["implementation"]).optional(),
         filePaths: z.array(z.string()).optional(),
         metadata: z.record(z.unknown()).optional()
       }
@@ -180,13 +209,16 @@ export function createMonitorMcpServer(client = new MonitorClient()): McpServer 
     "monitor_save_context",
     {
       title: "Monitor Save Context",
-      description: "Record a planning thought, analysis, or context snapshot. Use lane='planning' for thoughts/plans, 'user' for user-facing messages.",
+      description:
+        "Record a planning thought, analysis, or context snapshot. " +
+        "Use lane='planning' for thoughts/plans, 'exploration' for discovery, " +
+        "'implementation' for execution notes, and 'user' for user-facing messages.",
       inputSchema: {
         taskId: z.string(),
         sessionId: z.string().optional(),
         title: z.string(),
         body: z.string().optional(),
-        lane: z.enum(["user", "exploration", "planning", "implementation", "rules"]).optional(),
+        lane: z.enum(["user", "exploration", "planning", "implementation"]).optional(),
         filePaths: z.array(z.string()).optional(),
         metadata: z.record(z.unknown()).optional()
       }
@@ -405,8 +437,8 @@ export function createMonitorMcpServer(client = new MonitorClient()): McpServer 
     async (input) => toToolResponse(await client.post("/api/agent-activity", input))
   );
 
-  // ─── Canonical User Message & Session End ────────────────────────────────────
-  // monitor_user_message, monitor_session_end
+  // ─── Canonical Conversation Events & Session End ─────────────────────────────
+  // monitor_user_message, monitor_assistant_response, monitor_session_end
 
   server.registerTool(
     "monitor_user_message",
@@ -416,11 +448,11 @@ export function createMonitorMcpServer(client = new MonitorClient()): McpServer 
         "Record a canonical user.message event (contractVersion 1). " +
         "Use captureMode='raw' for actual user prompt text. " +
         "Use captureMode='derived' for inferred/enriched records — sourceEventId is required. " +
-        "Automatic emitters (opencode-plugin, claude-hook) must provide sessionId. " +
+        "All callers must provide sessionId. " +
         "If raw prompt text is unavailable, use monitor_rule with ruleId='user-message-capture-unavailable' instead.",
       inputSchema: {
         taskId: z.string(),
-        sessionId: z.string().optional(),
+        sessionId: z.string(),
         messageId: z.string(),
         captureMode: z.enum(["raw", "derived"]),
         source: z.string(),
@@ -436,6 +468,26 @@ export function createMonitorMcpServer(client = new MonitorClient()): McpServer 
   );
 
   server.registerTool(
+    "monitor_assistant_response",
+    {
+      title: "Monitor Assistant Response",
+      description:
+        "Record the assistant's user-facing response as a canonical assistant.response event. " +
+        "Call this immediately before sending the final answer when the runtime has no native response hook.",
+      inputSchema: {
+        taskId: z.string(),
+        sessionId: z.string().optional(),
+        messageId: z.string(),
+        source: z.string(),
+        title: z.string(),
+        body: z.string().optional(),
+        metadata: z.record(z.unknown()).optional()
+      }
+    },
+    async (input) => toToolResponse(await client.post("/api/assistant-response", input))
+  );
+
+  server.registerTool(
     "monitor_session_end",
     {
       title: "Monitor Session End",
@@ -443,7 +495,7 @@ export function createMonitorMcpServer(client = new MonitorClient()): McpServer 
         "End the current runtime session without completing the work item. " +
         "The task remains running; the work item accumulates messages across multiple sessions. " +
         "Use monitor_task_complete to explicitly close the work item when all work is done. " +
-        "Automatic runtimes (OpenCode session.deleted, Claude Stop hook) must call this, NOT monitor_task_complete.",
+        "Claude hooks should keep completeTask unset; OpenCode primary session shutdown may choose explicit completion through its adapter policy.",
       inputSchema: {
         taskId: z.string(),
         sessionId: z.string().optional(),
@@ -454,12 +506,77 @@ export function createMonitorMcpServer(client = new MonitorClient()): McpServer 
     async (input) => toToolResponse(await client.post("/api/session-end", input))
   );
 
+  // ─── Workflow Library ─────────────────────────────────────────────────────────
+  // monitor_evaluate_task, monitor_find_similar_workflows
+
+  server.registerTool(
+    "monitor_evaluate_task",
+    {
+      title: "Monitor Evaluate Task",
+      description:
+        "Mark a completed task as a workflow example for future reference. " +
+        "Use rating='good' for tasks where the approach worked well and should be referenced later. " +
+        "Use rating='skip' to exclude a task from future suggestions. " +
+        "The outcomeNote is the most valuable field — describe what approach worked and why.",
+      inputSchema: {
+        taskId: z.string(),
+        rating: z.enum(["good", "skip"]),
+        useCase: z.string().optional().describe("What kind of task was this? e.g. 'TypeScript type error fixes'"),
+        workflowTags: z.array(z.string()).optional().describe("e.g. ['typescript', 'bug-fix', 'refactor']"),
+        outcomeNote: z.string().optional().describe("What approach worked well? Hints for next time.")
+      }
+    },
+    async ({ taskId, ...rest }) => toToolResponse(await client.post(`/api/tasks/${taskId}/evaluate`, rest))
+  );
+
+  server.registerTool(
+    "monitor_find_similar_workflows",
+    {
+      title: "Monitor Find Similar Workflows",
+      description:
+        "Search past workflow examples to find how similar tasks were handled. " +
+        "Call this at the start of a new task to get hints from past similar work. " +
+        "Returns workflow summaries including what was done and what approach worked.",
+      inputSchema: {
+        description: z.string().describe("Describe the current task to search for similar past work"),
+        tags: z.array(z.string()).optional().describe("Filter by tags e.g. ['typescript', 'refactor']"),
+        limit: z.number().int().min(1).max(10).optional().default(3)
+      }
+    },
+    async ({ description, tags, limit }) => {
+      const params = new URLSearchParams({ q: description, limit: String(limit ?? 3) });
+      if (tags && tags.length > 0) params.set("tags", tags.join(","));
+      const result = await client.get(`/api/workflows/similar?${params.toString()}`);
+      if (!result.ok || !Array.isArray(result.data)) {
+        return toToolResponse(result);
+      }
+      // Format results as readable text for the AI
+      const items = result.data as Array<{
+        taskId: string; title: string; rating: string; useCase: string | null;
+        workflowTags: string[]; outcomeNote: string | null; eventCount: number;
+        workflowContext: string;
+      }>;
+      if (items.length === 0) {
+        return { content: [{ type: "text" as const, text: "No similar past workflows found." }], structuredContent: result };
+      }
+      const text = items.map((item, i) => [
+        `--- [${i + 1}] ${item.title} (${item.rating})`,
+        item.useCase ? `Use case: ${item.useCase}` : null,
+        item.workflowTags.length > 0 ? `Tags: ${item.workflowTags.join(", ")}` : null,
+        item.outcomeNote ? `Hint: ${item.outcomeNote}` : null,
+        "",
+        item.workflowContext
+      ].filter(Boolean).join("\n")).join("\n\n");
+      return { content: [{ type: "text" as const, text }], structuredContent: result };
+    }
+  );
+
   return server;
 }
 
 /**
  * stdio 트랜스포트로 MCP 서버를 시작한다.
- * 에이전트 런타임이 이 함수를 직접 호출하거나 `node dist/index.js`로 실행한다.
+ * 에이전트 런타임이 이 함수를 직접 호출하거나 빌드 산출물(`dist/index.js`)을 직접 실행한다.
  */
 export async function startMonitorMcpServer(): Promise<void> {
   const server = createMonitorMcpServer();

@@ -14,8 +14,10 @@ coverage
 .ralph
 .claude/.current-task-id*
 .claude/.msg-count-*
+.claude/.subagent-registry.json
 .codex/.current-task-id*
 .codex/.current-task-id
 .codex/hook-debug/
 .worktrees
 .idea
+docs/.vitepress/dist

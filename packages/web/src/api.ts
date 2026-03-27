@@ -11,9 +11,12 @@ import type {
   MonitoringTask,
   OverviewResponse,
   SearchResponse,
+  TaskEvaluation,
   TaskDetailResponse,
   TaskObservabilityResponse,
-  TasksResponse
+  TimelineEvent,
+  TasksResponse,
+  WorkflowSummary
 } from "./types.js";
 
 const API_BASE = (
@@ -81,10 +84,6 @@ export function fetchOverview(): Promise<OverviewResponse> {
   return getJson<OverviewResponse>("/api/overview");
 }
 
-export function fetchTaskObservability(taskId: string): Promise<TaskObservabilityResponse> {
-  return getJson<TaskObservabilityResponse>(`/api/tasks/${taskId}/observability`);
-}
-
 /**
  * 모든 모니터링 태스크 목록을 가져옴.
  */
@@ -98,6 +97,10 @@ export function fetchTasks(): Promise<TasksResponse> {
  */
 export function fetchTaskDetail(taskId: string): Promise<TaskDetailResponse> {
   return getJson<TaskDetailResponse>(`/api/tasks/${taskId}`);
+}
+
+export function fetchTaskObservability(taskId: string): Promise<TaskObservabilityResponse> {
+  return getJson<TaskObservabilityResponse>(`/api/tasks/${taskId}/observability`);
 }
 
 export function fetchBookmarks(taskId?: string): Promise<BookmarksResponse> {
@@ -145,6 +148,14 @@ export async function updateTaskStatus(taskId: string, status: MonitoringTask["s
   return payload.task;
 }
 
+export async function updateEventDisplayTitle(
+  eventId: string,
+  displayTitle: string | null
+): Promise<TimelineEvent> {
+  const payload = await patchJson<{ event: TimelineEvent }>(`/api/events/${eventId}`, { displayTitle });
+  return payload.event;
+}
+
 /**
  * 특정 태스크를 삭제함.
  * @param taskId - 삭제할 태스크 ID
@@ -163,6 +174,30 @@ export async function deleteBookmark(bookmarkId: string): Promise<void> {
  */
 export async function purgeFinishedTasks(): Promise<{ deleted: number }> {
   return deleteJson<{ deleted: number }>("/api/tasks/finished");
+}
+
+export interface TaskEvaluationPayload {
+  rating: "good" | "skip";
+  useCase?: string;
+  workflowTags?: string[];
+  outcomeNote?: string;
+}
+
+export type TaskEvaluationRecord = TaskEvaluation;
+
+export type WorkflowSummaryRecord = WorkflowSummary;
+
+export function fetchWorkflowLibrary(rating?: "good" | "skip"): Promise<WorkflowSummaryRecord[]> {
+  const qs = rating ? `?rating=${rating}` : "";
+  return getJson<WorkflowSummaryRecord[]>(`/api/workflows${qs}`);
+}
+
+export function fetchTaskEvaluation(taskId: string): Promise<TaskEvaluationRecord | null> {
+  return getJson<TaskEvaluationRecord | null>(`/api/tasks/${taskId}/evaluate`);
+}
+
+export async function saveTaskEvaluation(taskId: string, payload: TaskEvaluationPayload): Promise<void> {
+  await postJson<{ ok: boolean }>(`/api/tasks/${taskId}/evaluate`, payload);
 }
 
 /**

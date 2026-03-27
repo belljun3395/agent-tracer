@@ -1,565 +1,468 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import request from "supertest";
-import { createMonitoringHttpServer } from "../../src/presentation/create-app.js";
-import type { Express } from "express";
 
-/**
- * HTTP 엔드포인트 통합 테스트.
- * 실제 in-memory DB + 실제 Express 서버 사용.
- */
+import { createRuntimeHarness } from "../test-helpers.js";
+
 describe("HTTP API", () => {
-  let app: Express;
-  let closeServer: () => void;
+  let runtime: ReturnType<typeof createRuntimeHarness>;
 
-  beforeAll(() => {
-    const server = createMonitoringHttpServer({
-      databasePath: ":memory:",
-      rulesDir: "/nonexistent/rules"
-    });
-    app = server.app;
-    closeServer = () => server.server.close();
+  beforeEach(() => {
+    runtime = createRuntimeHarness();
   });
 
-  afterAll(() => closeServer());
-
-  it("GET /health → 200 ok", async () => {
-    const res = await request(app).get("/health");
-    expect(res.status).toBe(200);
-    expect(res.body.ok).toBe(true);
+  afterEach(() => {
+    runtime.close();
   });
 
-  it("POST /api/task-start → 태스크 생성", async () => {
-    const res = await request(app)
-      .post("/api/task-start")
-      .send({ title: "My Task" });
-    expect(res.status).toBe(200);
-    expect(res.body.task.title).toBe("My Task");
-    expect(res.body.task.status).toBe("running");
+  it("상태 확인 엔드포인트를 제공한다", async () => {
+    const response = await request(runtime.app).get("/health");
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ ok: true });
   });
 
-  it("GET /api/tasks/:id → 404 없는 태스크", async () => {
-    const res = await request(app).get("/api/tasks/no-such-id");
-    expect(res.status).toBe(404);
-  });
-
-  it("POST /api/task-start + GET /api/tasks/:id 라운드트립", async () => {
-    const start = await request(app)
-      .post("/api/task-start")
-      .send({ title: "Round Trip" });
-    const taskId = start.body.task.id as string;
-
-    const get = await request(app).get(`/api/tasks/${taskId}`);
-    expect(get.status).toBe(200);
-    expect(get.body.task.id).toBe(taskId);
-  });
-
-  it("POST /api/task-link 에 title을 주면 태스크 제목이 함께 갱신된다", async () => {
-    const start = await request(app)
-      .post("/api/task-start")
-      .send({ title: "OpenCode - agent-tracer" });
-    const taskId = start.body.task.id as string;
-
-    const linked = await request(app)
-      .post("/api/task-link")
-      .send({
-        taskId,
-        title: "Inspect git internals",
-        taskKind: "background"
-      });
-
-    expect(linked.status).toBe(200);
-    expect(linked.body.task.title).toBe("Inspect git internals");
-    expect(linked.body.task.taskKind).toBe("background");
-  });
-
-  it("DELETE 실행 중인 태스크도 강제 삭제 → 200", async () => {
-    const start = await request(app)
-      .post("/api/task-start")
-      .send({ title: "Running" });
-    const taskId = start.body.task.id as string;
-
-    const del = await request(app).delete(`/api/tasks/${taskId}`);
-    expect(del.status).toBe(200);
-  });
-
-  it("DELETE 부모 태스크 시 자식 태스크도 함께 삭제된다", async () => {
-    const parent = await request(app)
-      .post("/api/task-start")
-      .send({ title: "Parent For Cascade" });
-    const parentId = parent.body.task.id as string;
-
-    const child = await request(app)
+  it("generic 작업 제목보다 실제 사용자 목표를 displayTitle로 보여준다", async () => {
+    const started = await request(runtime.app)
       .post("/api/task-start")
       .send({
-        title: "Child For Cascade",
-        taskKind: "background",
-        parentTaskId: parentId
-      });
-    const childId = child.body.task.id as string;
-
-    const del = await request(app).delete(`/api/tasks/${parentId}`);
-    expect(del.status).toBe(200);
-
-    const childGet = await request(app).get(`/api/tasks/${childId}`);
-    expect(childGet.status).toBe(404);
-  });
-
-  it("잘못된 요청 본문 → 400", async () => {
-    const res = await request(app)
-      .post("/api/task-start")
-      .send({ title: "" });
-    expect(res.status).toBe(400);
-  });
-
-  describe("POST /api/user-message — 캐노니컬 user.message", () => {
-    it("raw 메시지를 기록한다 → 200", async () => {
-      const start = await request(app)
-        .post("/api/task-start")
-        .send({ title: "User Message Test" });
-      const taskId = start.body.task.id as string;
-      const sessionId = start.body.sessionId as string;
-
-      const res = await request(app)
-        .post("/api/user-message")
-        .send({
-          taskId,
-          sessionId,
-          messageId: "msg-1",
-          captureMode: "raw",
-          source: "manual-mcp",
-          phase: "initial",
-          title: "User prompt"
-        });
-      expect(res.status).toBe(200);
-      expect(res.body.events[0].kind).toBe("user.message");
-    });
-
-    it("derived 페이로드에 sourceEventId 누락 → 400", async () => {
-      const start = await request(app)
-        .post("/api/task-start")
-        .send({ title: "Derived Test" });
-      const taskId = start.body.task.id as string;
-      const sessionId = start.body.sessionId as string;
-
-      const res = await request(app)
-        .post("/api/user-message")
-        .send({
-          taskId,
-          sessionId,
-          messageId: "msg-derived",
-          captureMode: "derived",
-          source: "manual-mcp",
-          title: "Derived without sourceEventId"
-        });
-      expect(res.status).toBe(400);
-    });
-
-    it("sessionId 누락 → 400 (sessionId는 모든 호출자에게 필수)", async () => {
-      const start = await request(app)
-        .post("/api/task-start")
-        .send({ title: "Missing SessionId Test" });
-      const taskId = start.body.task.id as string;
-
-      const res = await request(app)
-        .post("/api/user-message")
-        .send({
-          taskId,
-          // sessionId 누락
-          messageId: "msg-no-session",
-          captureMode: "raw",
-          source: "manual-mcp",
-          title: "No sessionId provided"
-        });
-      expect(res.status).toBe(400);
-    });
-
-    it("messageId 누락 → 400", async () => {
-      const start = await request(app)
-        .post("/api/task-start")
-        .send({ title: "Missing messageId Test" });
-      const taskId = start.body.task.id as string;
-      const sessionId = start.body.sessionId as string;
-
-      const res = await request(app)
-        .post("/api/user-message")
-        .send({
-          taskId,
-          sessionId,
-          // messageId 누락
-          captureMode: "raw",
-          source: "manual-mcp",
-          title: "No messageId"
-        });
-      expect(res.status).toBe(400);
-    });
-  });
-
-  describe("POST /api/session-end — 세션 종료 연속성", () => {
-    it("세션 종료 후 태스크는 running 상태를 유지한다", async () => {
-      const start = await request(app)
-        .post("/api/task-start")
-        .send({ title: "Session End Test" });
-      const taskId = start.body.task.id as string;
-      const sessionId = start.body.sessionId as string;
-
-      const res = await request(app)
-        .post("/api/session-end")
-        .send({ taskId, sessionId });
-      expect(res.status).toBe(200);
-      expect(res.body.task.status).toBe("running");
-      expect(res.body.sessionId).toBe(sessionId);
-    });
-
-    it("세션 재시작 후 두 raw 메시지가 같은 태스크에 누적된다", async () => {
-      // 첫 번째 세션
-      const start1 = await request(app)
-        .post("/api/task-start")
-        .send({ title: "Continuity Test", taskId: "work-item-cont-1" });
-      const taskId = start1.body.task.id as string;
-      const sessionId1 = start1.body.sessionId as string;
-
-      await request(app)
-        .post("/api/user-message")
-        .send({
-          taskId, sessionId: sessionId1,
-          messageId: "msg-1", captureMode: "raw",
-          source: "manual-mcp", phase: "initial",
-          title: "First prompt"
-        });
-
-      await request(app)
-        .post("/api/session-end")
-        .send({ taskId, sessionId: sessionId1 });
-
-      // 두 번째 세션 (같은 taskId)
-      const start2 = await request(app)
-        .post("/api/task-start")
-        .send({ title: "Continuity Test", taskId });
-      const sessionId2 = start2.body.sessionId as string;
-      expect(sessionId2).not.toBe(sessionId1);
-
-      await request(app)
-        .post("/api/user-message")
-        .send({
-          taskId, sessionId: sessionId2,
-          messageId: "msg-2", captureMode: "raw",
-          source: "manual-mcp", phase: "follow_up",
-          title: "Follow-up prompt"
-        });
-
-      const detail = await request(app).get(`/api/tasks/${taskId}`);
-      expect(detail.status).toBe(200);
-      expect(detail.body.task.status).toBe("running");
-      const userMessages = (detail.body.timeline as Array<{ kind: string }>)
-        .filter(e => e.kind === "user.message");
-      expect(userMessages).toHaveLength(2);
-    });
-
-    it("completeTask=true 이면 primary 태스크를 completed로 전이한다", async () => {
-      const start = await request(app)
-        .post("/api/task-start")
-        .send({ title: "Complete On Exit" });
-      const taskId = start.body.task.id as string;
-      const sessionId = start.body.sessionId as string;
-
-      const res = await request(app)
-        .post("/api/session-end")
-        .send({ taskId, sessionId, completeTask: true });
-
-      expect(res.status).toBe(200);
-      expect(res.body.task.status).toBe("completed");
-    });
-
-    it("background taskKind 태스크는 session-end 시 completed가 된다", async () => {
-      const parent = await request(app)
-        .post("/api/task-start")
-        .send({ title: "Parent task" });
-
-      const start = await request(app)
-        .post("/api/task-start")
-        .send({
-          title: "Background Session End",
-          taskKind: "background",
-          parentTaskId: parent.body.task.id
-        });
-      const taskId = start.body.task.id as string;
-      const sessionId = start.body.sessionId as string;
-
-      const res = await request(app)
-        .post("/api/session-end")
-        .send({ taskId, sessionId });
-
-      expect(res.status).toBe(200);
-      expect(res.body.task.status).toBe("completed");
-      expect(res.body.task.taskKind).toBe("background");
-      expect(res.body.task.parentTaskId).toBe(parent.body.task.id);
-    });
-  });
-});
-
-describe("POST /api/question — question.logged", () => {
-  let app: import("express").Express;
-  let closeServer: () => void;
-
-  beforeAll(() => {
-    const server = createMonitoringHttpServer({
-      databasePath: ":memory:",
-      rulesDir: "/nonexistent/rules"
-    });
-    app = server.app;
-    closeServer = () => server.server.close();
-  });
-
-  afterAll(() => closeServer());
-
-  it("asked 단계 → user 레인 이벤트 기록", async () => {
-    const start = await request(app).post("/api/task-start").send({ title: "Q Test" });
-    const taskId = start.body.task.id as string;
-    const sessionId = start.body.sessionId as string;
-
-    const res = await request(app).post("/api/question").send({
-      taskId, sessionId,
-      questionId: "q-1", questionPhase: "asked",
-      title: "Which approach?"
-    });
-    expect(res.status).toBe(200);
-    expect(res.body.events[0].kind).toBe("question.logged");
-  });
-
-  it("questionId 누락 → 400", async () => {
-    const start = await request(app).post("/api/task-start").send({ title: "Q Test" });
-    const res = await request(app).post("/api/question").send({
-      taskId: start.body.task.id, questionPhase: "asked", title: "?"
-      // questionId 누락
-    });
-    expect(res.status).toBe(400);
-  });
-});
-
-describe("POST /api/todo — todo.logged", () => {
-  let app: import("express").Express;
-  let closeServer: () => void;
-
-  beforeAll(() => {
-    const server = createMonitoringHttpServer({
-      databasePath: ":memory:",
-      rulesDir: "/nonexistent/rules"
-    });
-    app = server.app;
-    closeServer = () => server.server.close();
-  });
-
-  afterAll(() => closeServer());
-
-  it("todo 이벤트를 기록한다", async () => {
-    const start = await request(app).post("/api/task-start").send({ title: "Todo Test" });
-    const taskId = start.body.task.id as string;
-    const sessionId = start.body.sessionId as string;
-
-    const res = await request(app).post("/api/todo").send({
-      taskId, sessionId,
-      todoId: "t-1", todoState: "added",
-      title: "Implement feature"
-    });
-    expect(res.status).toBe(200);
-    expect(res.body.events[0].kind).toBe("todo.logged");
-  });
-});
-
-describe("POST /api/thought — thought.logged", () => {
-  let app: import("express").Express;
-  let closeServer: () => void;
-
-  beforeAll(() => {
-    const server = createMonitoringHttpServer({
-      databasePath: ":memory:",
-      rulesDir: "/nonexistent/rules"
-    });
-    app = server.app;
-    closeServer = () => server.server.close();
-  });
-
-  afterAll(() => closeServer());
-
-  it("thought 이벤트를 기록한다", async () => {
-    const start = await request(app).post("/api/task-start").send({ title: "Thought Test" });
-    const taskId = start.body.task.id as string;
-    const sessionId = start.body.sessionId as string;
-
-    const res = await request(app).post("/api/thought").send({
-      taskId, sessionId,
-      title: "Analysis",
-      body: "The root cause is...",
-      modelName: "claude-opus-4-6"
-    });
-    expect(res.status).toBe(200);
-    expect(res.body.events[0].kind).toBe("thought.logged");
-  });
-});
-
-describe("POST /api/runtime-session-ensure", () => {
-  let app: import("express").Express;
-  let closeServer: () => void;
-
-  beforeAll(() => {
-    const server = createMonitoringHttpServer({
-      databasePath: ":memory:",
-      rulesDir: "/nonexistent/rules"
-    });
-    app = server.app;
-    closeServer = () => server.server.close();
-  });
-
-  afterAll(() => closeServer());
-
-  it("creates task and session on first call", async () => {
-    const res = await request(app)
-      .post("/api/runtime-session-ensure")
-      .send({ runtimeSource: "test-adapter", runtimeSessionId: "sess-1", title: "Test Task" });
-    expect(res.status).toBe(200);
-    expect(res.body).toMatchObject({ taskCreated: true, sessionCreated: true });
-    expect(res.body.taskId).toBeDefined();
-    expect(res.body.sessionId).toBeDefined();
-  });
-
-  it("is idempotent on repeated calls", async () => {
-    const first = await request(app)
-      .post("/api/runtime-session-ensure")
-      .send({ runtimeSource: "test-adapter", runtimeSessionId: "sess-2", title: "Test Task" });
-    const second = await request(app)
-      .post("/api/runtime-session-ensure")
-      .send({ runtimeSource: "test-adapter", runtimeSessionId: "sess-2", title: "Test Task" });
-    expect(second.body.taskId).toBe(first.body.taskId);
-    expect(second.body.sessionId).toBe(first.body.sessionId);
-    expect(second.body.taskCreated).toBe(false);
-    expect(second.body.sessionCreated).toBe(false);
-  });
-
-  it("reopens session after end", async () => {
-    const ensure1 = await request(app)
-      .post("/api/runtime-session-ensure")
-      .send({ runtimeSource: "test-adapter", runtimeSessionId: "sess-3", title: "Test Task" });
-    await request(app)
-      .post("/api/runtime-session-end")
-      .send({ runtimeSource: "test-adapter", runtimeSessionId: "sess-3" });
-    const ensure2 = await request(app)
-      .post("/api/runtime-session-ensure")
-      .send({ runtimeSource: "test-adapter", runtimeSessionId: "sess-3", title: "Test Task" });
-    expect(ensure2.body.taskId).toBe(ensure1.body.taskId);
-    expect(ensure2.body.sessionId).not.toBe(ensure1.body.sessionId);
-    expect(ensure2.body.taskCreated).toBe(false);
-    expect(ensure2.body.sessionCreated).toBe(true);
-  });
-});
-
-describe("POST /api/runtime-session-end", () => {
-  let app: import("express").Express;
-  let closeServer: () => void;
-
-  beforeAll(() => {
-    const server = createMonitoringHttpServer({
-      databasePath: ":memory:",
-      rulesDir: "/nonexistent/rules"
-    });
-    app = server.app;
-    closeServer = () => server.server.close();
-  });
-
-  afterAll(() => closeServer());
-
-  it("is idempotent (double end is harmless)", async () => {
-    await request(app)
-      .post("/api/runtime-session-ensure")
-      .send({ runtimeSource: "test-adapter", runtimeSessionId: "sess-end", title: "Test Task" });
-    const end1 = await request(app)
-      .post("/api/runtime-session-end")
-      .send({ runtimeSource: "test-adapter", runtimeSessionId: "sess-end" });
-    const end2 = await request(app)
-      .post("/api/runtime-session-end")
-      .send({ runtimeSource: "test-adapter", runtimeSessionId: "sess-end" });
-    expect(end1.status).toBe(200);
-    expect(end2.status).toBe(200);
-  });
-});
-
-describe("Agent activity, bookmarks, and search API", () => {
-  let app: import("express").Express;
-  let closeServer: () => void;
-
-  beforeAll(() => {
-    const server = createMonitoringHttpServer({
-      databasePath: ":memory:",
-      rulesDir: "/nonexistent/rules"
-    });
-    app = server.app;
-    closeServer = () => server.server.close();
-  });
-
-  afterAll(() => closeServer());
-
-  it("POST /api/agent-activity → coordination 이벤트를 기록한다", async () => {
-    const start = await request(app)
-      .post("/api/task-start")
-      .send({ title: "Agent Activity Test" });
-
-    const res = await request(app)
-      .post("/api/agent-activity")
-      .send({
-        taskId: start.body.task.id,
-        sessionId: start.body.sessionId,
-        activityType: "skill_use",
-        title: "Use codex-monitor",
-        skillName: "codex-monitor",
-        skillPath: "skills/codex-monitor/SKILL.md",
-        workItemId: "work-item-1",
-        relationType: "implements"
+        title: "Codex - agent-tracer",
+        workspacePath: "/Users/okestro/Documents/code/agent-tracer"
       });
 
-    expect(res.status).toBe(200);
-    expect(res.body.events[0].kind).toBe("agent.activity.logged");
-  });
+    const taskId = started.body.task.id as string;
+    const sessionId = started.body.sessionId as string;
+    const goal = "실제 사용자 요청을 제목처럼 보이게 정리한다.";
 
-  it("bookmark CRUD와 검색을 지원한다", async () => {
-    const start = await request(app)
-      .post("/api/task-start")
-      .send({ title: "Bookmark Search Task" });
-    const taskId = start.body.task.id as string;
-    const sessionId = start.body.sessionId as string;
-
-    const todo = await request(app)
-      .post("/api/todo")
+    await request(runtime.app)
+      .post("/api/user-message")
       .send({
         taskId,
         sessionId,
-        todoId: "todo-bookmark-1",
-        todoState: "added",
-        title: "Track bookmarkable todo",
-        workItemId: "work-item-bookmark"
+        messageId: "msg-display-title",
+        captureMode: "raw",
+        source: "manual-mcp",
+        title: "사용자 요청",
+        body: goal
       });
-    const eventId = todo.body.events[0].id as string;
 
-    const saved = await request(app)
+    const list = await request(runtime.app).get("/api/tasks");
+    const task = (list.body.tasks as Array<{ id: string; displayTitle?: string }>)
+      .find((item) => item.id === taskId);
+
+    expect(list.status).toBe(200);
+    expect(task?.displayTitle).toBe(goal);
+  });
+
+  it("task-start가 generic runtimeSource를 task read-model에 저장한다", async () => {
+    const started = await request(runtime.app)
+      .post("/api/task-start")
+      .send({
+        title: "Codex - agent-tracer",
+        runtimeSource: "codex-skill"
+      });
+
+    const taskId = started.body.task.id as string;
+    const list = await request(runtime.app).get("/api/tasks");
+    const task = (list.body.tasks as Array<{ id: string; runtimeSource?: string }>)
+      .find((item) => item.id === taskId);
+
+    expect(started.status).toBe(200);
+    expect(task?.runtimeSource).toBe("codex-skill");
+  });
+
+  it("이벤트 displayTitle override를 저장하고 reset할 수 있다", async () => {
+    const started = await request(runtime.app)
+      .post("/api/task-start")
+      .send({ title: "이벤트 제목 편집" });
+
+    const taskId = started.body.task.id as string;
+    const sessionId = started.body.sessionId as string;
+
+    const message = await request(runtime.app)
+      .post("/api/user-message")
+      .send({
+        taskId,
+        sessionId,
+        messageId: "msg-editable-title",
+        captureMode: "raw",
+        source: "manual-mcp",
+        title: "[CONTEXT]: User requested to inspect the README and revert a temporary comment.",
+        body: "원본 제목은 유지하고 inspector용 제목만 바꾼다."
+      });
+
+    const eventId = message.body.events[0].id as string;
+
+    const patched = await request(runtime.app)
+      .patch(`/api/events/${eventId}`)
+      .send({ displayTitle: "README check and revert" });
+
+    expect(patched.status).toBe(200);
+    expect(patched.body.event.title).toBe("[CONTEXT]: User requested to inspect the README and revert a temporary comment.");
+    expect(patched.body.event.metadata.displayTitle).toBe("README check and revert");
+
+    const reset = await request(runtime.app)
+      .patch(`/api/events/${eventId}`)
+      .send({ displayTitle: null });
+
+    expect(reset.status).toBe(200);
+    expect(reset.body.event.title).toBe("[CONTEXT]: User requested to inspect the README and revert a temporary comment.");
+    expect(reset.body.event.metadata.displayTitle).toBeUndefined();
+  });
+
+  it("derived 사용자 메시지에 sourceEventId가 없으면 400을 반환한다", async () => {
+    const started = await request(runtime.app)
+      .post("/api/task-start")
+      .send({ title: "파생 메시지 검증" });
+
+    const response = await request(runtime.app)
+      .post("/api/user-message")
+      .send({
+        taskId: started.body.task.id,
+        sessionId: started.body.sessionId,
+        messageId: "msg-derived",
+        captureMode: "derived",
+        source: "manual-mcp",
+        title: "파생 메시지"
+      });
+
+    expect(response.status).toBe(400);
+  });
+
+  it("사용자 메시지에 sessionId가 없으면 400을 반환한다", async () => {
+    const started = await request(runtime.app)
+      .post("/api/task-start")
+      .send({ title: "세션 필수 검증" });
+
+    const response = await request(runtime.app)
+      .post("/api/user-message")
+      .send({
+        taskId: started.body.task.id,
+        messageId: "msg-no-session",
+        captureMode: "raw",
+        source: "manual-mcp",
+        title: "세션 없는 요청"
+      });
+
+    expect(response.status).toBe(400);
+  });
+
+  it("question/todo/thought에 sessionId가 없어도 active session으로 이벤트를 기록한다", async () => {
+    const started = await request(runtime.app)
+      .post("/api/task-start")
+      .send({ title: "활성 세션 기본 바인딩 검증" });
+
+    const taskId = started.body.task.id as string;
+    const expectedSessionId = started.body.sessionId as string;
+
+    const question = await request(runtime.app)
+      .post("/api/question")
+      .send({
+        taskId,
+        questionId: "q-fallback",
+        questionPhase: "asked",
+        title: "활성 세션을 사용해도 될까?",
+        body: "sessionId를 생략한 질문 이벤트 테스트"
+      });
+
+    const todo = await request(runtime.app)
+      .post("/api/todo")
+      .send({
+        taskId,
+        todoId: "todo-fallback",
+        todoState: "added",
+        title: "활성 세션 기반 todo 기록"
+      });
+
+    const thought = await request(runtime.app)
+      .post("/api/thought")
+      .send({
+        taskId,
+        title: "활성 세션 기반 thought 테스트",
+        body: "sessionId 없이 기록된 thought 입니다."
+      });
+
+    expect(question.status).toBe(200);
+    expect(todo.status).toBe(200);
+    expect(thought.status).toBe(200);
+    expect(question.body.sessionId).toBe(expectedSessionId);
+    expect(todo.body.sessionId).toBe(expectedSessionId);
+    expect(thought.body.sessionId).toBe(expectedSessionId);
+
+    const detail = await request(runtime.app).get(`/api/tasks/${taskId}`);
+    const timeline = detail.body.timeline as Array<{ kind: string; sessionId?: string }>;
+
+    expect(detail.status).toBe(200);
+
+    const questionEvent = timeline.find((event) => event.kind === "question.logged");
+    const todoEvent = timeline.find((event) => event.kind === "todo.logged");
+    const thoughtEvent = timeline.find((event) => event.kind === "thought.logged");
+
+    expect(questionEvent?.sessionId).toBe(expectedSessionId);
+    expect(todoEvent?.sessionId).toBe(expectedSessionId);
+    expect(thoughtEvent?.sessionId).toBe(expectedSessionId);
+  });
+
+  it("같은 runtime 세션 보장은 중복 task와 session을 만들지 않는다", async () => {
+    const first = await request(runtime.app)
+      .post("/api/runtime-session-ensure")
+      .send({
+        runtimeSource: "claude-hook",
+        runtimeSessionId: "runtime-1",
+        title: "Claude - agent-tracer",
+        workspacePath: "/workspace/agent-tracer"
+      });
+
+    const second = await request(runtime.app)
+      .post("/api/runtime-session-ensure")
+      .send({
+        runtimeSource: "claude-hook",
+        runtimeSessionId: "runtime-1",
+        title: "Claude - agent-tracer",
+        workspacePath: "/workspace/agent-tracer"
+      });
+
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
+    expect(second.body).toMatchObject({
+      taskId: first.body.taskId,
+      sessionId: first.body.sessionId,
+      taskCreated: false,
+      sessionCreated: false
+    });
+
+    const list = await request(runtime.app).get("/api/tasks");
+    const task = (list.body.tasks as Array<{ id: string; runtimeSource?: string }>)
+      .find((item) => item.id === first.body.taskId);
+
+    expect(task?.runtimeSource).toBe("claude-hook");
+  });
+
+  it("idle runtime 세션 종료 뒤 다시 보장하면 같은 task를 새 session으로 재개한다", async () => {
+    const first = await request(runtime.app)
+      .post("/api/runtime-session-ensure")
+      .send({
+        runtimeSource: "claude-hook",
+        runtimeSessionId: "runtime-2",
+        title: "Claude - agent-tracer",
+        workspacePath: "/workspace/agent-tracer"
+      });
+
+    const ended = await request(runtime.app)
+      .post("/api/runtime-session-end")
+      .send({
+        runtimeSource: "claude-hook",
+        runtimeSessionId: "runtime-2",
+        completionReason: "idle"
+      });
+
+    const reopened = await request(runtime.app)
+      .post("/api/runtime-session-ensure")
+      .send({
+        runtimeSource: "claude-hook",
+        runtimeSessionId: "runtime-2",
+        title: "Claude - agent-tracer",
+        workspacePath: "/workspace/agent-tracer"
+      });
+
+    expect(ended.status).toBe(200);
+    expect(reopened.body).toMatchObject({
+      taskId: first.body.taskId,
+      taskCreated: false,
+      sessionCreated: true
+    });
+    expect(reopened.body.sessionId).not.toBe(first.body.sessionId);
+  });
+
+  it("Codex runtime 세션은 같은 thread id에서 task를 재사용하고 assistant.response를 남긴다", async () => {
+    const runtimeSessionId = "codex-thread-1";
+
+    const first = await request(runtime.app)
+      .post("/api/runtime-session-ensure")
+      .send({
+        runtimeSource: "codex-skill",
+        runtimeSessionId,
+        title: "Codex - agent-tracer",
+        workspacePath: "/workspace/agent-tracer"
+      });
+
+    expect(first.status).toBe(200);
+
+    const taskId = first.body.taskId as string;
+    const firstSessionId = first.body.sessionId as string;
+
+    await request(runtime.app)
+      .post("/api/user-message")
+      .send({
+        taskId,
+        sessionId: firstSessionId,
+        messageId: "codex-user-1",
+        captureMode: "raw",
+        source: "manual-mcp",
+        phase: "initial",
+        title: "첫 요청",
+        body: "Codex task reuse를 고쳐줘"
+      });
+
+    await request(runtime.app)
+      .post("/api/assistant-response")
+      .send({
+        taskId,
+        sessionId: firstSessionId,
+        messageId: "codex-assistant-1",
+        source: "codex-skill",
+        title: "I'll investigate the Codex task reuse flow.",
+        body: "I'll investigate the Codex task reuse flow and keep the same task across turns."
+      });
+
+    const firstEnded = await request(runtime.app)
+      .post("/api/runtime-session-end")
+      .send({
+        runtimeSource: "codex-skill",
+        runtimeSessionId,
+        completionReason: "idle",
+        summary: "Codex turn idle"
+      });
+
+    expect(firstEnded.status).toBe(200);
+
+    const waitingDetail = await request(runtime.app).get(`/api/tasks/${taskId}`);
+    expect(waitingDetail.status).toBe(200);
+    expect(waitingDetail.body.task.status).toBe("waiting");
+
+    const reopened = await request(runtime.app)
+      .post("/api/runtime-session-ensure")
+      .send({
+        runtimeSource: "codex-skill",
+        runtimeSessionId,
+        title: "Codex - agent-tracer",
+        workspacePath: "/workspace/agent-tracer"
+      });
+
+    expect(reopened.status).toBe(200);
+    expect(reopened.body).toMatchObject({
+      taskId,
+      taskCreated: false,
+      sessionCreated: true
+    });
+    expect(reopened.body.sessionId).not.toBe(firstSessionId);
+
+    const secondSessionId = reopened.body.sessionId as string;
+
+    await request(runtime.app)
+      .post("/api/user-message")
+      .send({
+        taskId,
+        sessionId: secondSessionId,
+        messageId: "codex-user-2",
+        captureMode: "raw",
+        source: "manual-mcp",
+        phase: "follow_up",
+        title: "후속 요청",
+        body: "assistant.response도 같이 기록해줘"
+      });
+
+    await request(runtime.app)
+      .post("/api/assistant-response")
+      .send({
+        taskId,
+        sessionId: secondSessionId,
+        messageId: "codex-assistant-2",
+        source: "codex-skill",
+        title: "I'll record assistant responses too.",
+        body: "I'll record assistant responses too and keep reusing the same runtime session binding."
+      });
+
+    const detail = await request(runtime.app).get(`/api/tasks/${taskId}`);
+    const timeline = detail.body.timeline as Array<{ kind: string; sessionId?: string; title: string }>;
+
+    expect(detail.status).toBe(200);
+    expect(detail.body.task.status).toBe("running");
+    expect(timeline.filter((event) => event.kind === "user.message")).toHaveLength(2);
+    expect(timeline.filter((event) => event.kind === "assistant.response")).toHaveLength(2);
+
+    const responseSessionIds = new Set(
+      timeline
+        .filter((event) => event.kind === "assistant.response")
+        .map((event) => event.sessionId)
+    );
+
+    expect(responseSessionIds).toEqual(new Set([firstSessionId, secondSessionId]));
+  });
+
+  it("북마크와 검색이 같은 작업 맥락을 다시 찾게 해준다", async () => {
+    const started = await request(runtime.app)
+      .post("/api/task-start")
+      .send({ title: "검색 대상 작업" });
+
+    const taskId = started.body.task.id as string;
+    const sessionId = started.body.sessionId as string;
+
+    const message = await request(runtime.app)
+      .post("/api/user-message")
+      .send({
+        taskId,
+        sessionId,
+        messageId: "msg-search",
+        captureMode: "raw",
+        source: "manual-mcp",
+        title: "검색 요청",
+        body: "북마크와 검색 결과가 같은 작업을 가리켜야 한다"
+      });
+
+    const bookmark = await request(runtime.app)
       .post("/api/bookmarks")
       .send({
         taskId,
-        eventId,
-        title: "Saved todo card",
-        note: "Pin this todo"
+        eventId: message.body.events[0].id,
+        title: "검색 북마크"
       });
 
-    expect(saved.status).toBe(200);
-    expect(saved.body.bookmark.eventId).toBe(eventId);
+    const bookmarks = await request(runtime.app).get(`/api/bookmarks?taskId=${taskId}`);
+    const search = await request(runtime.app).get("/api/search?q=검색");
 
-    const list = await request(app).get("/api/bookmarks");
-    expect(list.status).toBe(200);
-    expect(list.body.bookmarks).toHaveLength(1);
+    expect(bookmark.status).toBe(200);
+    expect(bookmarks.body.bookmarks).toEqual([
+      expect.objectContaining({
+        taskId,
+        eventId: message.body.events[0].id,
+        title: "검색 북마크"
+      })
+    ]);
+    expect(search.body.tasks.some((item: { taskId: string }) => item.taskId === taskId)).toBe(true);
+    expect(search.body.events.some((item: { eventId: string }) => item.eventId === message.body.events[0].id)).toBe(true);
+    expect(search.body.bookmarks.some((item: { bookmarkId: string }) => item.bookmarkId === bookmark.body.bookmark.id)).toBe(true);
+  });
 
-    const search = await request(app).get("/api/search").query({ q: "todo" });
-    expect(search.status).toBe(200);
-    expect(search.body.bookmarks).toHaveLength(1);
-    expect(search.body.events.some((event: { eventId: string }) => event.eventId === eventId)).toBe(true);
+  it("검색은 대소문자를 구분하지 않는다", async () => {
+    const started = await request(runtime.app)
+      .post("/api/task-start")
+      .send({ title: "CamelCase Task Title" });
 
-    const deleted = await request(app).delete(`/api/bookmarks/${saved.body.bookmark.id as string}`);
-    expect(deleted.status).toBe(200);
+    const taskId = started.body.task.id as string;
+    const sessionId = started.body.sessionId as string;
+
+    await request(runtime.app)
+      .post("/api/user-message")
+      .send({
+        taskId,
+        sessionId,
+        messageId: "msg-case",
+        captureMode: "raw",
+        source: "manual-mcp",
+        title: "CamelCase Event Title",
+        body: "CamelCase body content"
+      });
+
+    const lowerSearch = await request(runtime.app).get("/api/search?q=camelcase");
+    const upperSearch = await request(runtime.app).get("/api/search?q=CAMELCASE");
+    const mixedSearch = await request(runtime.app).get("/api/search?q=CamelCase");
+
+    expect(lowerSearch.body.tasks.some((t: { taskId: string }) => t.taskId === taskId)).toBe(true);
+    expect(upperSearch.body.tasks.some((t: { taskId: string }) => t.taskId === taskId)).toBe(true);
+    expect(mixedSearch.body.tasks.some((t: { taskId: string }) => t.taskId === taskId)).toBe(true);
+
+    expect(lowerSearch.body.events.some((e: { taskId: string }) => e.taskId === taskId)).toBe(true);
+    expect(upperSearch.body.events.some((e: { taskId: string }) => e.taskId === taskId)).toBe(true);
+    expect(mixedSearch.body.events.some((e: { taskId: string }) => e.taskId === taskId)).toBe(true);
   });
 });

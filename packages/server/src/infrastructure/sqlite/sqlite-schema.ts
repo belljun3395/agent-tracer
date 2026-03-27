@@ -1,0 +1,93 @@
+/**
+ * @module infrastructure/sqlite/sqlite-schema
+ *
+ * SQLite DDL - CREATE TABLE 문과 인덱스 정의.
+ * cc_sessions 테이블은 포함하지 않는다.
+ */
+
+import type Database from "better-sqlite3";
+
+export function createSchema(db: Database.Database): void {
+  db.exec(`
+    create table if not exists monitoring_tasks (
+      id text primary key,
+      title text not null,
+      slug text not null,
+      workspace_path text,
+      status text not null,
+      task_kind text not null default 'primary',
+      parent_task_id text references monitoring_tasks(id) on delete cascade,
+      parent_session_id text,
+      background_task_id text,
+      created_at text not null,
+      updated_at text not null,
+      last_session_started_at text,
+      cli_source text
+    );
+
+    create table if not exists task_sessions (
+      id text primary key,
+      task_id text not null references monitoring_tasks(id) on delete cascade,
+      status text not null,
+      summary text,
+      started_at text not null,
+      ended_at text
+    );
+
+    create table if not exists timeline_events (
+      id text primary key,
+      task_id text not null references monitoring_tasks(id) on delete cascade,
+      session_id text references task_sessions(id) on delete set null,
+      kind text not null,
+      lane text not null,
+      title text not null,
+      body text,
+      metadata_json text not null,
+      classification_json text not null,
+      created_at text not null
+    );
+
+    create index if not exists idx_timeline_events_task_created
+      on timeline_events(task_id, created_at);
+
+    create table if not exists runtime_session_bindings (
+      runtime_source text not null,
+      runtime_session_id text not null,
+      task_id text not null references monitoring_tasks(id) on delete cascade,
+      monitor_session_id text,
+      created_at text not null,
+      updated_at text not null,
+      primary key (runtime_source, runtime_session_id)
+    );
+
+    create table if not exists bookmarks (
+      id text primary key,
+      task_id text not null references monitoring_tasks(id) on delete cascade,
+      event_id text references timeline_events(id) on delete cascade,
+      kind text not null,
+      title text not null,
+      note text,
+      metadata_json text not null default '{}',
+      created_at text not null,
+      updated_at text not null
+    );
+
+    create index if not exists idx_bookmarks_task_created
+      on bookmarks(task_id, updated_at desc);
+
+    create index if not exists idx_bookmarks_event
+      on bookmarks(event_id);
+
+    create table if not exists task_evaluations (
+      task_id       text primary key references monitoring_tasks(id) on delete cascade,
+      rating        text not null check(rating in ('good', 'skip')),
+      use_case      text,
+      workflow_tags text,
+      outcome_note  text,
+      evaluated_at  text not null
+    );
+
+    create index if not exists idx_task_evaluations_rating
+      on task_evaluations(rating);
+  `);
+}

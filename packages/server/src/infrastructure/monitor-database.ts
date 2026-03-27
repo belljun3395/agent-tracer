@@ -22,6 +22,7 @@ import type {
   TimelineLane
 } from "@monitor/core";
 import { normalizeLane } from "@monitor/core";
+import { parseJsonField } from "./sqlite/sqlite-json.js";
 
 export interface MonitorDatabaseOptions {
   readonly filename: string;
@@ -172,6 +173,7 @@ export interface SearchResults {
 export interface OverviewStats {
   readonly totalTasks: number;
   readonly runningTasks: number;
+  readonly waitingTasks: number;
   readonly completedTasks: number;
   readonly erroredTasks: number;
   readonly totalEvents: number;
@@ -447,7 +449,7 @@ export class MonitorDatabase {
         order by datetime(updated_at) desc
       `)
       .all()
-      .map(mapTaskRow);
+      .map((row) => this.withDerivedTaskDisplayTitle(mapTaskRow(row)));
   }
 
   /**
@@ -464,7 +466,16 @@ export class MonitorDatabase {
       `)
       .get({ taskId });
 
-    return row ? mapTaskRow(row) : undefined;
+    return row ? this.withDerivedTaskDisplayTitle(mapTaskRow(row)) : undefined;
+  }
+
+  private withDerivedTaskDisplayTitle(task: MonitoringTask): MonitoringTask {
+    const displayTitle = deriveTaskDisplayTitle(
+      task,
+      meaningfulTaskTitle(task) ? [] : this.getTaskTimeline(task.id)
+    );
+
+    return displayTitle ? { ...task, displayTitle } : task;
   }
 
   updateTaskLink(input: {
@@ -979,6 +990,7 @@ export class MonitorDatabase {
         .prepare<[], {
           total_tasks: number;
           running_tasks: number | null;
+          waiting_tasks: number | null;
           completed_tasks: number | null;
           errored_tasks: number | null;
           total_events: number;
@@ -986,14 +998,16 @@ export class MonitorDatabase {
           select
             count(*) as total_tasks,
             sum(case when status = 'running' then 1 else 0 end) as running_tasks,
+            sum(case when status = 'waiting' then 1 else 0 end) as waiting_tasks,
             sum(case when status = 'completed' then 1 else 0 end) as completed_tasks,
             sum(case when status = 'errored' then 1 else 0 end) as errored_tasks,
             (select count(*) from timeline_events) as total_events
           from monitoring_tasks
         `)
-        .get() ?? {
+      .get() ?? {
         total_tasks: 0,
         running_tasks: 0,
+        waiting_tasks: 0,
         completed_tasks: 0,
         errored_tasks: 0,
         total_events: 0
@@ -1002,6 +1016,7 @@ export class MonitorDatabase {
     return {
       totalTasks: counts.total_tasks,
       runningTasks: counts.running_tasks ?? 0,
+      waitingTasks: counts.waiting_tasks ?? 0,
       completedTasks: counts.completed_tasks ?? 0,
       erroredTasks: counts.errored_tasks ?? 0,
       totalEvents: counts.total_events
@@ -1047,8 +1062,8 @@ function mapEventRow(row: EventRow): TimelineEvent {
     kind: row.kind,
     lane: normalizeLane(row.lane),
     title: row.title,
-    metadata: JSON.parse(row.metadata_json) as Record<string, unknown>,
-    classification: JSON.parse(row.classification_json) as EventClassification,
+    metadata: parseJsonField(row.metadata_json),
+    classification: parseJsonField(row.classification_json),
     createdAt: row.created_at,
     ...(row.session_id ? { sessionId: row.session_id } : {}),
     ...(row.body ? { body: row.body } : {})
@@ -1061,7 +1076,7 @@ function mapBookmarkRow(row: BookmarkRow): BookmarkRecord {
     kind: row.kind,
     taskId: row.task_id,
     title: row.title,
-    metadata: JSON.parse(row.metadata_json) as Record<string, unknown>,
+    metadata: parseJsonField(row.metadata_json),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     ...(row.event_id ? { eventId: row.event_id } : {}),
@@ -1073,4 +1088,131 @@ function mapBookmarkRow(row: BookmarkRow): BookmarkRecord {
 
 function escapeLikePattern(value: string): string {
   return value.replace(/[\\%_]/g, "\\$&");
+}
+
+const GENERIC_TASK_TITLE_PREFIXES = new Set([
+  "agent",
+  "ai cli",
+  "aider",
+  "claude",
+  "claude code",
+  "codex",
+  "cursor",
+  "gemini",
+  "gemini cli",
+  "open code",
+  "opencode"
+]);
+
+function deriveTaskDisplayTitle(
+  task: MonitoringTask | null | undefined,
+  timeline: readonly TimelineEvent[]
+): string | undefined {
+  return resolvePreferredTaskTitle(task, timeline) ?? undefined;
+}
+
+function resolvePreferredTaskTitle(
+  task: MonitoringTask | null | undefined,
+  timeline: readonly TimelineEvent[]
+): string | null {
+  return meaningfulTaskTitle(task) ?? inferTaskTitleSignal(timeline) ?? normalizeSentence(task?.title);
+}
+
+function meaningfulTaskTitle(task: MonitoringTask | null | undefined): string | null {
+  const title = normalizeSentence(task?.title);
+
+  if (!title) {
+    return null;
+  }
+
+  return isGenericWorkspaceTaskTitle(task, title) ? null : title;
+}
+
+function inferTaskTitleSignal(timeline: readonly TimelineEvent[]): string | null {
+  const userGoal = timeline.find((event) =>
+    event.lane === "user"
+    && event.kind !== "task.start"
+    && event.kind !== "task.complete"
+    && event.kind !== "task.error"
+    && event.body
+  )?.body;
+  const startSummary = timeline.find((event) => event.kind === "task.start" && event.body)?.body;
+  const firstMeaningfulEvent = timeline.find((event) =>
+    event.kind !== "task.start"
+    && event.kind !== "task.complete"
+    && event.kind !== "task.error"
+    && event.kind !== "file.changed"
+  );
+
+  return (
+    meaningfulInferredTaskTitle(userGoal)
+    ?? meaningfulInferredTaskTitle(startSummary)
+    ?? meaningfulInferredTaskTitle(firstMeaningfulEvent?.body)
+    ?? meaningfulInferredTaskTitle(firstMeaningfulEvent?.title)
+  );
+}
+
+function meaningfulInferredTaskTitle(value?: string): string | null {
+  const normalized = normalizeSentence(value);
+
+  if (!normalized || isAgentSessionBoilerplate(normalized)) {
+    return null;
+  }
+
+  return normalized;
+}
+
+function isGenericWorkspaceTaskTitle(
+  task: MonitoringTask | null | undefined,
+  normalizedTitle: string
+): boolean {
+  if (!task) {
+    return false;
+  }
+
+  const segments = normalizedTitle.split(/\s+[—–-]\s+/);
+  if (segments.length !== 2) {
+    return false;
+  }
+
+  const [prefix, suffix] = segments;
+  const normalizedPrefix = normalizeTitleToken(prefix);
+  if (!GENERIC_TASK_TITLE_PREFIXES.has(normalizedPrefix)) {
+    return false;
+  }
+
+  const workspaceName = task.workspacePath
+    ?.split("/")
+    .filter(Boolean)
+    .pop();
+  const normalizedSuffix = normalizeTitleToken(suffix);
+
+  return normalizedSuffix === normalizeTitleToken(task.slug)
+    || (workspaceName ? normalizedSuffix === normalizeTitleToken(workspaceName) : false);
+}
+
+function normalizeTitleToken(value?: string): string {
+  return value?.trim().toLowerCase().replace(/\s+/g, " ") ?? "";
+}
+
+function isAgentSessionBoilerplate(value: string): boolean {
+  const normalized = normalizeTitleToken(value);
+
+  return /^(claude code|claude|opencode|open code|codex|cursor|gemini(?: cli)?|agent|ai cli) session started\b/.test(normalized)
+    || /^(claude code|claude|opencode|open code|codex|cursor|gemini(?: cli)?|agent|ai cli) - /.test(normalized);
+}
+
+function normalizeSentence(value?: string): string | null {
+  if (!value) {
+    return null;
+  }
+
+  const normalized = value.replace(/\s+/g, " ").trim();
+  if (!normalized) {
+    return null;
+  }
+
+  return normalized.length > 120
+    ? `${normalized.slice(0, 117)}...`
+    : normalized;
 }

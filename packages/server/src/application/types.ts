@@ -8,16 +8,15 @@
 import type {
   AgentActivityType,
   EventRelationType,
-  MonitoringEventKind,
-  TimelineLane
+  MonitoringEventKind
 } from "@monitor/core";
 
 export interface TaskStartInput {
   readonly taskId?: string;
   readonly title: string;
   readonly workspacePath?: string;
-  readonly summary?: string;
   readonly runtimeSource?: string;
+  readonly summary?: string;
   readonly taskKind?: "primary" | "background";
   readonly parentTaskId?: string;
   readonly parentSessionId?: string;
@@ -42,8 +41,19 @@ export interface TaskRenameInput {
 export interface TaskPatchInput {
   readonly taskId: string;
   readonly title?: string;
-  readonly status?: "running" | "completed" | "errored";
+  readonly status?: "running" | "waiting" | "completed" | "errored";
 }
+
+export interface EventPatchInput {
+  readonly eventId: string;
+  readonly displayTitle?: string | null;
+}
+
+export type TaskCompletionReason =
+  | "idle"
+  | "assistant_turn_complete"
+  | "explicit_exit"
+  | "runtime_terminated";
 
 export interface TaskTerminalCommandInput {
   readonly taskId: string;
@@ -163,6 +173,7 @@ export interface TaskAgentActivityInput extends TraceActivityInput {
   readonly activityType: AgentActivityType;
   readonly title?: string;
   readonly body?: string;
+  readonly lane?: string;
   readonly filePaths?: readonly string[];
   readonly metadata?: Record<string, unknown>;
 }
@@ -213,7 +224,9 @@ export interface TaskSessionEndInput {
   readonly taskId: string;
   readonly sessionId?: string;
   readonly completeTask?: boolean;
+  readonly completionReason?: TaskCompletionReason;
   readonly summary?: string;
+  readonly backgroundCompletions?: string[];
   readonly metadata?: Record<string, unknown>;
 }
 
@@ -258,7 +271,7 @@ export interface GenericEventInput extends TraceActivityInput {
   readonly taskId: string;
   readonly sessionId?: string;
   readonly kind: MonitoringEventKind;
-  readonly lane?: TimelineLane;
+  readonly lane?: string;
   readonly title: string;
   readonly body?: string;
   readonly command?: string;
@@ -286,30 +299,14 @@ export interface TaskSearchInput {
   readonly limit?: number;
 }
 
-/**
- * Claude Code 창(window) 단위 세션 보장 입력.
- * cc_session_id 를 키로 task/session 을 자동 생성·재개한다.
- */
-export interface CcSessionEnsureInput {
-  readonly ccSessionId: string;
-  readonly title: string;
-  readonly workspacePath?: string;
-  /** true 면 message_count 를 증가시키고 phase 를 반환한다. */
-  readonly bumpMessageCount?: boolean;
-}
-
-export interface CcSessionEnsureResult {
+export interface TaskAssistantResponseInput {
   readonly taskId: string;
-  readonly sessionId: string;
-  readonly phase: "initial" | "follow_up";
-  readonly isNewTask: boolean;
-}
-
-export interface CcSessionEndInput {
-  readonly ccSessionId: string;
-  readonly summary?: string;
-  /** true — task also transitions to "completed" on session end */
-  readonly completeTask?: boolean;
+  readonly sessionId?: string;
+  readonly messageId: string;
+  readonly source: string;
+  readonly title: string;
+  readonly body?: string;
+  readonly metadata?: Record<string, unknown>;
 }
 
 /**
@@ -321,6 +318,8 @@ export interface RuntimeSessionEnsureInput {
   readonly runtimeSessionId: string;
   readonly title: string;
   readonly workspacePath?: string;
+  readonly parentTaskId?: string;
+  readonly parentSessionId?: string;
 }
 
 export interface RuntimeSessionEnsureResult {
@@ -334,5 +333,8 @@ export interface RuntimeSessionEndInput {
   readonly runtimeSource: string;
   readonly runtimeSessionId: string;
   readonly summary?: string;
+  /** Claude hook path keeps this unset; OpenCode primary shutdown may set true explicitly. */
   readonly completeTask?: boolean;
+  readonly completionReason?: TaskCompletionReason;
+  readonly backgroundCompletions?: string[];
 }

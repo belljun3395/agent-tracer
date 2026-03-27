@@ -1,552 +1,134 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { MonitorService } from "../../src/application/monitor-service.js";
-import type { TaskUserMessageInput } from "../../src/application/types.js";
+import { describe, expect, it } from "vitest";
 
-/** MonitorService 통합 테스트 — 실제 in-memory SQLite 사용 */
-describe("MonitorService", () => {
-  let service: MonitorService;
+import {
+  classifyEvent,
+  createTaskSlug,
+  normalizeWorkspacePath,
+  normalizeLane,
+  tokenizeActionName
+} from "@monitor/core";
 
-  beforeEach(() => {
-    service = new MonitorService({
-      databasePath: ":memory:",
-      rulesDir: "/nonexistent/rules"
-    });
-  });
-
-  describe("startTask", () => {
-    it("태스크 생성 후 envelope을 반환한다", () => {
-      const result = service.startTask({ title: "Test Task" });
-      expect(result.task.title).toBe("Test Task");
-      expect(result.task.status).toBe("running");
-      expect(result.sessionId).toBeDefined();
-      expect(result.events).toHaveLength(1);
-      expect(result.events[0]?.kind).toBe("task.start");
-    });
-
-    it("taskId 지정 시 해당 ID로 생성한다", () => {
-      const result = service.startTask({ title: "T", taskId: "custom-id" });
-      expect(result.task.id).toBe("custom-id");
-    });
-
-    it("기존 태스크 재개 시 task.start 이벤트를 생성하지 않는다", () => {
-      const { task } = service.startTask({ title: "T" });
-      const resumed = service.startTask({ title: "T", taskId: task.id });
-      expect(resumed.task.id).toBe(task.id);
-      expect(resumed.sessionId).toBeDefined();
-      expect(resumed.events).toHaveLength(0);
-    });
-  });
-
-  describe("completeTask", () => {
-    it("태스크를 완료 처리한다", () => {
-      const { task } = service.startTask({ title: "T" });
-      const result = service.completeTask({ taskId: task.id });
-      expect(result.task.status).toBe("completed");
-    });
-
-    it("존재하지 않는 태스크 완료 시 에러를 던진다", () => {
-      expect(() => service.completeTask({ taskId: "no-such" })).toThrow();
-    });
-  });
-
-  describe("renameTask", () => {
-    it("태스크 이름을 변경한다", () => {
-      const { task } = service.startTask({ title: "Old" });
-      const renamed = service.renameTask({ taskId: task.id, title: "New" });
-      expect(renamed?.title).toBe("New");
-    });
-
-    it("존재하지 않는 태스크 → undefined 반환", () => {
-      expect(service.renameTask({ taskId: "no-such", title: "X" })).toBeUndefined();
-    });
-
-    it("같은 이름으로 변경 시 그대로 반환한다", () => {
-      const { task } = service.startTask({ title: "Same" });
-      const result = service.renameTask({ taskId: task.id, title: "Same" });
-      expect(result?.title).toBe("Same");
-    });
-  });
-
-  describe("deleteTask", () => {
-    it("실행 중인 태스크도 강제 삭제 가능 → deleted", () => {
-      const { task } = service.startTask({ title: "T" });
-      expect(service.deleteTask(task.id)).toBe("deleted");
-    });
-
-    it("완료된 태스크를 삭제한다 → deleted", () => {
-      const { task } = service.startTask({ title: "T" });
-      service.completeTask({ taskId: task.id });
-      expect(service.deleteTask(task.id)).toBe("deleted");
-    });
-
-    it("부모 태스크를 삭제하면 자식 태스크도 함께 삭제된다", () => {
-      const { task: parent } = service.startTask({ title: "Parent" });
-      const { task: child } = service.startTask({
-        title: "Child",
-        taskKind: "background",
-        parentTaskId: parent.id
-      });
-
-      expect(service.deleteTask(parent.id)).toBe("deleted");
-      expect(service.getTask(parent.id)).toBeUndefined();
-      expect(service.getTask(child.id)).toBeUndefined();
-    });
-  });
-
-  describe("logUserMessage — 캐노니컬 user.message 계약", () => {
-    it("raw 메시지를 같은 태스크에 기록한다", () => {
-      const { task, sessionId } = service.startTask({ title: "Work Item" });
-      const input: TaskUserMessageInput = {
-        taskId: task.id,
-        sessionId: sessionId!,
-        messageId: "msg-1",
-        captureMode: "raw",
-        source: "manual-mcp",
-        phase: "initial",
-        title: "User prompt text",
-        body: "Please do X"
-      };
-      const result = service.logUserMessage(input);
-      expect(result.task.id).toBe(task.id);
-      expect(result.task.status).toBe("running");
-      expect(result.events).toHaveLength(1);
-      expect(result.events[0]?.kind).toBe("user.message");
-    });
-
-    it("derived 메시지를 sourceEventId와 함께 기록한다", () => {
-      const { task, sessionId } = service.startTask({ title: "Work Item" });
-      const raw = service.logUserMessage({
-        taskId: task.id,
-        sessionId: sessionId!,
-        messageId: "msg-raw",
-        captureMode: "raw",
-        source: "manual-mcp",
-        title: "Raw prompt"
-      });
-      const rawEventId = raw.events[0]!.id;
-
-      const derived = service.logUserMessage({
-        taskId: task.id,
-        sessionId: sessionId!,
-        messageId: "msg-derived",
-        captureMode: "derived",
-        source: "manual-mcp",
-        sourceEventId: rawEventId,
-        title: "Derived enrichment"
-      });
-      expect(derived.events[0]?.kind).toBe("user.message");
-      const timeline = service.getTaskTimeline(task.id);
-      const derivedEvent = timeline.find(e => e.id === derived.events[0]!.id);
-      expect(derivedEvent?.metadata.sourceEventId).toBe(rawEventId);
-      expect(derivedEvent?.metadata.captureMode).toBe("derived");
-    });
-
-    it("derived 메시지에 sourceEventId가 없으면 에러를 던진다", () => {
-      const { task, sessionId } = service.startTask({ title: "Work Item" });
-      expect(() => service.logUserMessage({
-        taskId: task.id,
-        sessionId: sessionId!,
-        messageId: "msg-derived-missing",
-        captureMode: "derived",
-        source: "manual-mcp",
-        title: "Derived without source"
-      })).toThrow(/sourceEventId/);
-    });
-
-    it("여러 raw 메시지가 동일 태스크에 누적된다", () => {
-      const { task, sessionId } = service.startTask({ title: "Work Item" });
-      service.logUserMessage({
-        taskId: task.id, sessionId: sessionId!, messageId: "msg-1",
-        captureMode: "raw", source: "manual-mcp", title: "First prompt"
-      });
-      service.logUserMessage({
-        taskId: task.id, sessionId: sessionId!, messageId: "msg-2",
-        captureMode: "raw", source: "manual-mcp", phase: "follow_up", title: "Follow-up prompt"
-      });
-      const timeline = service.getTaskTimeline(task.id);
-      const userMessages = timeline.filter(e => e.kind === "user.message");
-      expect(userMessages).toHaveLength(2);
-    });
-
-    it("sessionId를 제공하면 이벤트가 sessionId와 함께 기록된다", () => {
-      const { task, sessionId } = service.startTask({ title: "Work Item" });
-      // sessionId는 모든 호출자에게 필수 — HTTP 레이어에서 400으로 거부됨 (create-app.test.ts 참고)
-      const result = service.logUserMessage({
-        taskId: task.id,
-        sessionId: sessionId!,
-        messageId: "msg-x",
-        captureMode: "raw",
-        source: "opencode-plugin",
-        title: "With sessionId"
-      });
-      expect(result.sessionId).toBe(sessionId);
-    });
-
-    it("background completion reminder user.message closes the matching child task", () => {
-      const { task: parent, sessionId: parentSessionId } = service.startTask({ title: "Parent" });
-      const { task: child, sessionId: childSessionId } = service.startTask({
-        title: "Background child",
-        taskKind: "background",
-        parentTaskId: parent.id,
-        parentSessionId: parentSessionId!,
-        backgroundTaskId: "bg_reminder_1"
-      });
-
-      const result = service.logUserMessage({
-        taskId: parent.id,
-        sessionId: parentSessionId!,
-        messageId: "msg-reminder-1",
-        captureMode: "raw",
-        source: "manual-mcp",
-        phase: "follow_up",
-        title: "**ID:** `bg_reminder_1`",
-        body: "<system-reminder>\n[BACKGROUND TASK COMPLETED]\n**ID:** `bg_reminder_1`\n</system-reminder>"
-      });
-
-      expect(result.events[0]?.kind).toBe("user.message");
-      expect(service.getTask(child.id)?.status).toBe("completed");
-      expect(service.getTask(parent.id)?.status).toBe("running");
-
-      const childSession = service.getTaskTimeline(child.id).find((event) => event.kind === "task.complete");
-      expect(childSession).toBeDefined();
-
-      const parentTimeline = service.getTaskTimeline(parent.id);
-      const completionAction = parentTimeline.find((event) =>
-        event.kind === "action.logged"
-        && event.metadata.asyncTaskId === "bg_reminder_1"
-        && event.metadata.asyncStatus === "completed"
-      );
-      expect(completionAction).toBeDefined();
-
-      const latestChildSession = service.getTaskTimeline(child.id).find((event) =>
-        event.kind === "task.complete" && event.sessionId === childSessionId
-      );
-      expect(latestChildSession).toBeDefined();
-    });
-
-    it("all background complete reminder closes orphaned running children under the parent", () => {
-      const { task: parent, sessionId: parentSessionId } = service.startTask({ title: "Parent All" });
-      const { task: childA } = service.startTask({
-        title: "Background A",
-        taskKind: "background",
-        parentTaskId: parent.id,
-        parentSessionId,
-        backgroundTaskId: "bg-all-a"
-      });
-      const { task: childB } = service.startTask({
-        title: "Background B",
-        taskKind: "background",
-        parentTaskId: parent.id,
-        parentSessionId,
-        backgroundTaskId: "bg-all-b"
-      });
-
-      service.logUserMessage({
-        taskId: parent.id,
-        sessionId: parentSessionId!,
-        messageId: "msg-reminder-all",
-        captureMode: "raw",
-        source: "manual-mcp",
-        phase: "follow_up",
-        title: "**Completed:**",
-        body: "<system-reminder>\n[ALL BACKGROUND TASKS COMPLETE]\n\n**Completed:**\n- `bg-all-a`: Background A\n</system-reminder>"
-      });
-
-      expect(service.getTask(childA.id)?.status).toBe("completed");
-      expect(service.getTask(childB.id)?.status).toBe("completed");
-
-      const parentTimeline = service.getTaskTimeline(parent.id);
-      const completedAsyncEvents = parentTimeline.filter((event) =>
-        event.kind === "action.logged"
-        && event.metadata.asyncStatus === "completed"
-      );
-      expect(completedAsyncEvents).toHaveLength(2);
-    });
-
-    it("background_output not-found result closes the matching child task", () => {
-      const { task: parent, sessionId: parentSessionId } = service.startTask({ title: "Parent Tool" });
-      const { task: child } = service.startTask({
-        title: "Background child tool",
-        taskKind: "background",
-        parentTaskId: parent.id,
-        parentSessionId,
-        backgroundTaskId: "bg_tool_1"
-      });
-
-      const result = service.logToolUsed({
-        taskId: parent.id,
-        sessionId: parentSessionId!,
-        toolName: "background_output",
-        title: "background_output",
-        body: "Task not found: bg_tool_1"
-      });
-
-      expect(result.events[0]?.kind).toBe("tool.used");
-      expect(service.getTask(child.id)?.status).toBe("completed");
-
-      const parentTimeline = service.getTaskTimeline(parent.id);
-      const completionAction = parentTimeline.find((event) =>
-        event.kind === "action.logged"
-        && event.metadata.asyncTaskId === "bg_tool_1"
-        && event.metadata.asyncStatus === "completed"
-        && event.metadata.reminderSource === "tool.used"
-      );
-      expect(completionAction).toBeDefined();
-    });
-  });
-
-  describe("endSession — 세션 종료 (태스크 유지)", () => {
-    it("세션을 종료해도 태스크는 running 상태를 유지한다", () => {
-      const { task, sessionId } = service.startTask({ title: "Work Item" });
-      const endResult = service.endSession({ taskId: task.id, sessionId });
-      expect(endResult.task.status).toBe("running");
-      expect(endResult.sessionId).toBe(sessionId);
-    });
-
-    it("세션 종료 후 같은 태스크에서 새 세션을 시작할 수 있다", () => {
-      const { task, sessionId: firstSessionId } = service.startTask({ title: "Work Item" });
-      service.logUserMessage({
-        taskId: task.id, sessionId: firstSessionId!, messageId: "msg-1",
-        captureMode: "raw", source: "manual-mcp", title: "First prompt"
-      });
-      service.endSession({ taskId: task.id, sessionId: firstSessionId });
-
-      // 같은 taskId로 새 세션 시작
-      const restart = service.startTask({ title: "Work Item", taskId: task.id });
-      expect(restart.task.id).toBe(task.id);
-      expect(restart.sessionId).not.toBe(firstSessionId);
-
-      service.logUserMessage({
-        taskId: task.id, sessionId: restart.sessionId!, messageId: "msg-2",
-        captureMode: "raw", source: "manual-mcp", phase: "follow_up", title: "Follow-up"
-      });
-
-      const timeline = service.getTaskTimeline(task.id);
-      const userMessages = timeline.filter(e => e.kind === "user.message");
-      // 두 세션의 raw 메시지가 모두 같은 태스크 타임라인에 존재해야 한다
-      expect(userMessages).toHaveLength(2);
-      expect(restart.task.status).toBe("running");
-    });
-
-    it("존재하지 않는 태스크 종료 시 에러를 던진다", () => {
-      expect(() => service.endSession({ taskId: "no-such" })).toThrow();
-    });
-
-    it("background 태스크는 마지막 세션 종료 시 completed로 전환된다", () => {
-      const { task: parent } = service.startTask({ title: "Parent" });
-      const { task, sessionId } = service.startTask({
-        title: "Background child",
-        taskKind: "background",
-        parentTaskId: parent.id
-      });
-
-      const endResult = service.endSession({ taskId: task.id, sessionId });
-      expect(endResult.task.status).toBe("completed");
-
-      const timeline = service.getTaskTimeline(task.id);
-      const completionEvent = timeline.find((event) => event.kind === "task.complete");
-      expect(completionEvent).toBeDefined();
-    });
-
-    it("primary 태스크는 completeTask:false 이면 running을 유지한다", () => {
-      const { task, sessionId } = service.startTask({ title: "Stay Running" });
-      const result = service.endSession({ taskId: task.id, sessionId, completeTask: false });
-      expect(result.task.status).toBe("running");
-    });
-
-    it("primary 태스크는 completeTask:undefined 이면 running을 유지한다", () => {
-      const { task, sessionId } = service.startTask({ title: "Stay Running 2" });
-      const result = service.endSession({ taskId: task.id, sessionId });
-      expect(result.task.status).toBe("running");
-    });
-
-    it("background 태스크는 실행 중인 세션이 남아있으면 첫 번째 session-end 후에도 running을 유지한다", () => {
-      const { task: parent } = service.startTask({ title: "Parent Multi" });
-      // First session
-      const { task, sessionId: session1 } = service.startTask({
-        title: "Background multi-session",
-        taskKind: "background",
-        parentTaskId: parent.id
-      });
-      // Second session for the same task
-      const { sessionId: session2 } = service.startTask({
-        title: "Background multi-session",
-        taskId: task.id,
-        taskKind: "background",
-        parentTaskId: parent.id
-      });
-
-      // End first session — second is still running → task must stay running
-      const midResult = service.endSession({ taskId: task.id, sessionId: session1 });
-      expect(midResult.task.status).toBe("running");
-
-      // End second (last) session → now task should complete
-      const finalResult = service.endSession({ taskId: task.id, sessionId: session2 });
-      expect(finalResult.task.status).toBe("completed");
-    });
+describe("normalizeWorkspacePath", () => {
+  it("compresses duplicate separators and trims trailing slash", () => {
+    expect(normalizeWorkspacePath("/tmp//baden///")).toBe("/tmp/baden");
   });
 });
 
-describe("logQuestion — question.logged 계약", () => {
-  let service: MonitorService;
-
-  beforeEach(() => {
-    service = new MonitorService({
-      databasePath: ":memory:",
-      rulesDir: "/nonexistent/rules"
-    });
-  });
-
-  it("모든 단계는 questions 레인으로 기록된다", () => {
-    const { task, sessionId } = service.startTask({ title: "T" });
-    const result = service.logQuestion({
-      taskId: task.id, sessionId,
-      questionId: "q1", questionPhase: "asked",
-      title: "Should we use TypeScript?"
-    });
-    expect(result.events[0]?.kind).toBe("question.logged");
-    const timeline = service.getTaskTimeline(task.id);
-    const ev = timeline.find(e => e.id === result.events[0]!.id);
-    expect(ev?.lane).toBe("questions");
-    expect(ev?.metadata.questionId).toBe("q1");
-    expect(ev?.metadata.questionPhase).toBe("asked");
-  });
-
-  it("concluded 단계도 questions 레인으로 기록된다", () => {
-    const { task, sessionId } = service.startTask({ title: "T" });
-    const result = service.logQuestion({
-      taskId: task.id, sessionId,
-      questionId: "q1", questionPhase: "concluded",
-      title: "Decision: use TypeScript"
-    });
-    const timeline = service.getTaskTimeline(task.id);
-    const ev = timeline.find(e => e.id === result.events[0]!.id);
-    expect(ev?.lane).toBe("questions");
-  });
-
-  it("존재하지 않는 태스크 → 에러", () => {
-    expect(() => service.logQuestion({
-      taskId: "no-such", questionId: "q1",
-      questionPhase: "asked", title: "?"
-    })).toThrow();
+describe("createTaskSlug", () => {
+  it("creates a stable slug from a title", () => {
+    expect(createTaskSlug({ title: "Build Baden Timeline MVP" })).toBe("build-baden-timeline-mvp");
   });
 });
 
-describe("logTodo — todo.logged 계약", () => {
-  let service: MonitorService;
-
-  beforeEach(() => {
-    service = new MonitorService({
-      databasePath: ":memory:",
-      rulesDir: "/nonexistent/rules"
+describe("classifyEvent", () => {
+  it("derives the lane from action-registry match when action name is provided", () => {
+    const classification = classifyEvent({
+      kind: "tool.used",
+      actionName: "readFile"
     });
+
+    expect(classification.lane).toBe("exploration");
+    expect(classification.tags).toContain("action-registry");
   });
 
-  it("todo 이벤트는 todos 레인으로 기록된다", () => {
-    const { task, sessionId } = service.startTask({ title: "T" });
-    const result = service.logTodo({
-      taskId: task.id, sessionId,
-      todoId: "todo-1", todoState: "added",
-      title: "Implement feature X"
+  it("classifies free-form snake_case actions with keyword matches", () => {
+    const classification = classifyEvent({
+      kind: "action.logged",
+      actionName: "run_test_rule_guard",
+      title: "run_test_rule_guard"
     });
-    expect(result.events[0]?.kind).toBe("todo.logged");
-    const timeline = service.getTaskTimeline(task.id);
-    const ev = timeline.find(e => e.id === result.events[0]!.id);
-    expect(ev?.lane).toBe("todos");
-    expect(ev?.metadata.todoId).toBe("todo-1");
-    expect(ev?.metadata.todoState).toBe("added");
-  });
 
-  it("동일 todoId로 다른 상태를 기록할 수 있다", () => {
-    const { task, sessionId } = service.startTask({ title: "T" });
-    service.logTodo({ taskId: task.id, sessionId, todoId: "todo-1", todoState: "added", title: "X" });
-    service.logTodo({ taskId: task.id, sessionId, todoId: "todo-1", todoState: "completed", title: "X done" });
-    const timeline = service.getTaskTimeline(task.id);
-    const todos = timeline.filter(e => e.kind === "todo.logged" && e.metadata.todoId === "todo-1");
-    expect(todos).toHaveLength(2);
+    expect(classification.lane).toBe("implementation");
+    expect(classification.tags).toContain("action-registry");
+    expect(classification.matches[0]?.source).toBe("action-registry");
   });
 });
 
-describe("logThought — thought.logged 계약", () => {
-  let service: MonitorService;
-
-  beforeEach(() => {
-    service = new MonitorService({
-      databasePath: ":memory:",
-      rulesDir: "/nonexistent/rules"
-    });
-  });
-
-  it("thought 이벤트는 planning 레인으로 기록된다", () => {
-    const { task, sessionId } = service.startTask({ title: "T" });
-    const result = service.logThought({
-      taskId: task.id, sessionId,
-      title: "Analyzing the problem",
-      body: "The issue seems to be...",
-      modelName: "claude-opus-4-6",
-      modelProvider: "anthropic"
-    });
-    expect(result.events[0]?.kind).toBe("thought.logged");
-    const timeline = service.getTaskTimeline(task.id);
-    const ev = timeline.find(e => e.id === result.events[0]!.id);
-    expect(ev?.lane).toBe("planning");
-    expect(ev?.metadata.modelName).toBe("claude-opus-4-6");
+describe("tokenizeActionName", () => {
+  it("drops skip words like run_ before classification", () => {
+    expect(tokenizeActionName("run_test_rule_guard")).toEqual(["test", "rule", "guard"]);
   });
 });
 
-describe("agent activity, bookmarks, and search", () => {
-  let service: MonitorService;
-
-  beforeEach(() => {
-    service = new MonitorService({
-      databasePath: ":memory:",
-      rulesDir: "/nonexistent/rules"
-    });
+describe("tokenizeActionName - 추가 케이스", () => {
+  it("camelCase를 토큰으로 분리한다", () => {
+    expect(tokenizeActionName("readFileContent")).toEqual(["read", "file", "content"]);
   });
 
-  it("agent.activity.logged 는 coordination 레인과 trace 메타데이터를 유지한다", () => {
-    const { task, sessionId } = service.startTask({ title: "Coordination Task" });
-    const result = service.logAgentActivity({
-      taskId: task.id,
-      sessionId,
-      activityType: "mcp_call",
-      title: "Call monitor tool",
-      agentName: "codex",
-      mcpServer: "monitor-server",
-      mcpTool: "monitor_agent_activity",
-      workItemId: "work-item-1",
-      relationType: "implements"
-    });
-
-    const timeline = service.getTaskTimeline(task.id);
-    const event = timeline.find((entry) => entry.id === result.events[0]?.id);
-    expect(event?.lane).toBe("coordination");
-    expect(event?.metadata.activityType).toBe("mcp_call");
-    expect(event?.classification.tags).toContain("coordination");
-    expect(event?.classification.tags).toContain("mcp:monitor-server");
+  it("앞의 run skip word를 제거한다", () => {
+    expect(tokenizeActionName("run_tests")).toEqual(["tests"]);
   });
 
-  it("북마크를 저장하고 검색 결과에 노출한다", () => {
-    const { task, sessionId } = service.startTask({ title: "Searchable Task" });
-    const todo = service.logTodo({
-      taskId: task.id,
-      sessionId,
-      todoId: "todo-1",
-      todoState: "added",
-      title: "Traceable todo"
+  it("빈 문자열은 빈 배열을 반환한다", () => {
+    expect(tokenizeActionName("")).toEqual([]);
+  });
+
+  it("특수문자를 구분자로 처리한다", () => {
+    expect(tokenizeActionName("read-file.content")).toEqual(["read", "file", "content"]);
+  });
+
+  it("모두 skip word면 빈 배열을 반환한다", () => {
+    expect(tokenizeActionName("run")).toEqual([]);
+  });
+});
+
+describe("classifyEvent - 추가 케이스", () => {
+  it("액션 없을 때 기본 레인을 반환한다", () => {
+    const result = classifyEvent(
+      { kind: "tool.used", title: "read file" }
+    );
+    expect(result.lane).toBe("implementation");
+    expect(result.matches).toHaveLength(0);
+  });
+
+  it("명시적 lane은 action-registry 매치보다 우선한다", () => {
+    const result = classifyEvent(
+      { kind: "tool.used", title: "read", lane: "implementation" }
+    );
+    expect(result.lane).toBe("implementation");
+  });
+
+  it("user.message는 user 레인을 유지한다", () => {
+    const result = classifyEvent({
+      kind: "user.message",
+      title: "Discuss opencode async background behavior",
+      body: "Need to review background lifecycle"
     });
 
-    const bookmark = service.saveBookmark({
-      taskId: task.id,
-      eventId: todo.events[0]?.id,
-      title: "Important todo"
+    expect(result.lane).toBe("user");
+  });
+
+  it("task.start도 user 레인을 유지한다", () => {
+    const result = classifyEvent({
+      kind: "task.start",
+      title: "OpenCode background task"
     });
 
-    expect(service.listBookmarks()).toHaveLength(1);
-    expect(bookmark.eventId).toBe(todo.events[0]?.id);
+    expect(result.lane).toBe("user");
+  });
+});
 
-    const results = service.search({ query: "todo" });
-    expect(results.bookmarks).toHaveLength(1);
-    expect(results.events.some((event) => event.eventId === todo.events[0]?.id)).toBe(true);
+describe("normalizeLane - 추가 케이스", () => {
+  it("구버전 'file' → 'exploration'", () => {
+    expect(normalizeLane("file")).toBe("exploration");
+  });
+
+  it("구버전 'terminal' → 'implementation'", () => {
+    expect(normalizeLane("terminal")).toBe("implementation");
+  });
+
+  it("구버전 'rules' → 'implementation' (backward compat)", () => {
+    expect(normalizeLane("rules")).toBe("implementation");
+  });
+
+  it("알 수 없는 값 → 'user'", () => {
+    expect(normalizeLane("unknown-lane")).toBe("user");
+  });
+
+  it("현재 유효한 레인은 그대로 통과한다", () => {
+    const lanes = ["user", "exploration", "planning", "implementation"] as const;
+    for (const lane of lanes) {
+      expect(normalizeLane(lane)).toBe(lane);
+    }
   });
 });

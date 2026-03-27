@@ -10,19 +10,27 @@ import type {
   TimelineLane,
   TimelineRelation
 } from "../types.js";
+import { resolveEventSubtype, type TimelineLaneRow } from "./eventSubtype.js";
 
 /** 타임라인 캔버스에서 이벤트 노드 한 항목의 레이아웃 정보. */
 export interface TimelineItemLayout {
   readonly event: TimelineEvent;
+  readonly laneKey: string;
+  readonly baseLane: TimelineLane;
   readonly left: number;
   readonly top: number;
+  /** 같은 레인에서 수평 겹침 발생 시 수직 분산 행 인덱스. 0 = 앞(front). */
+  readonly rowIndex: number;
 }
 
 /** 전체 타임라인 캔버스 레이아웃: 너비, "now" 선 위치, 항목 배열. */
 export interface TimelineLayout {
   readonly width: number;
   readonly nowLeft: number;
+  readonly leftGutter: number;
   readonly items: readonly TimelineItemLayout[];
+  /** 타임스탬프(ms)를 캔버스 x 좌표(px)로 변환. */
+  readonly tsToLeft: (ms: number) => number;
 }
 
 /** 측정된 DOM 노드의 바운딩 박스. 정확한 연결선 경로 계산에 사용. */
@@ -53,7 +61,7 @@ export interface TimelineConnector {
   readonly handoffId?: string;
 }
 
-/** 타임라인에 표시되는 5개 레인 순서. */
+/** 타임라인에 표시되는 레인 순서. */
 export const TIMELINE_LANES: readonly TimelineLane[] = [
   "user",
   "questions",
@@ -62,12 +70,11 @@ export const TIMELINE_LANES: readonly TimelineLane[] = [
   "coordination",
   "exploration",
   "implementation",
-  "rules",
   "background"
 ];
 
 /** 레인 한 행의 픽셀 높이. */
-export const LANE_HEIGHT   = 96;
+export const LANE_HEIGHT   = 80;
 /** 타임스탬프 눈금 영역 높이. */
 export const RULER_HEIGHT  = 32;
 /** 이벤트 노드 카드 너비 (CSS .event-node width와 일치해야 함). */
@@ -77,6 +84,12 @@ export const NODE_HEIGHT   = 76;
 /** 레인 라벨 영역 너비. */
 export const LEFT_GUTTER = 176;
 const CLUSTER_STAGGER = NODE_WIDTH + 8; // px shift between stacked same-lane same-time nodes
+/** 겹치는 카드를 수직으로 분산할 때 각 행(row) 간 픽셀 오프셋. */
+export const ROW_VERTICAL_OFFSET = 14;
+
+export interface TimelineLayoutOptions {
+  readonly leftGutter?: number;
+}
 
 /**
  * 이벤트 목록을 5-레인 타임라인 레이아웃으로 변환.
@@ -92,13 +105,19 @@ export function buildTimelineLayout(
   events: readonly TimelineEvent[],
   zoom: number,
   nowMs: number = Date.now(),
-  activeLanes: readonly TimelineLane[] = TIMELINE_LANES
+  laneRowsOrLanes: readonly TimelineLaneRow[] | readonly TimelineLane[] = TIMELINE_LANES,
+  options?: TimelineLayoutOptions
 ): TimelineLayout {
+  const laneRows = normalizeLaneRows(laneRowsOrLanes);
+  const leftGutter = options?.leftGutter ?? LEFT_GUTTER;
+
   if (events.length === 0) {
     return {
       width: 1200,
       nowLeft: 1200 - 32,
-      items: []
+      leftGutter,
+      items: [],
+      tsToLeft: () => 1200 - 32
     };
   }
 
@@ -108,11 +127,11 @@ export function buildTimelineLayout(
   const anchor = Math.max(nowMs, Math.max(...timestamps));
   const span = Math.max(anchor - min, 1);
   const contentWidth = Math.max(1200, Math.round(events.length * 150 * zoom));
-  const trackWidth = contentWidth - LEFT_GUTTER - 64;
+  const trackWidth = contentWidth - leftGutter - 64;
 
   // Reserve NODE_WIDTH/2 on each side so nodes never clip behind the lane label or right edge.
   const NODE_HALF = NODE_WIDTH / 2;
-  const trackStart = LEFT_GUTTER + NODE_HALF;
+  const trackStart = leftGutter + NODE_HALF;
   const trackEnd = trackStart + Math.max(1, trackWidth - NODE_HALF * 2);
   const usableTrack = Math.max(1, trackWidth - NODE_HALF * 2);
 
@@ -120,10 +139,14 @@ export function buildTimelineLayout(
 
   // Base positions
   const rawItems = events.map((event) => {
-    const laneIndex = activeLanes.indexOf(event.lane);
+    const laneKey = resolveLaneKeyForEvent(event, laneRows);
+    const laneIndex = laneRows.findIndex((row) => row.key === laneKey);
     const timePosition = (Date.parse(event.createdAt) - min) / span;
+    const laneRow = laneRows[laneIndex] ?? { key: event.lane, baseLane: event.lane, isSubtype: false };
     return {
       event,
+      laneKey,
+      baseLane: laneRow.baseLane,
       left: trackStart + Math.round(timePosition * usableTrack),
       top: RULER_HEIGHT + laneIndex * LANE_HEIGHT + 18
     };
@@ -133,7 +156,7 @@ export function buildTimelineLayout(
   // Group by lane, then sort by left, then find runs of items within NODE_WIDTH of each other
   const byLane = new Map<string, typeof rawItems>();
   for (const item of rawItems) {
-    const key = item.event.lane;
+    const key = item.laneKey;
     const laneItems = byLane.get(key);
     if (laneItems) {
       laneItems.push(item);
@@ -184,19 +207,103 @@ export function buildTimelineLayout(
     }
   }
 
-  const items = rawItems.map((item) =>
+  const spreadItems = rawItems.map((item) =>
     adjusted.has(item.event)
       ? { ...item, left: Math.round(adjusted.get(item.event) ?? item.left) }
       : item
   );
 
-  return { width: contentWidth, nowLeft, items };
+  // Post-clustering: 동일 레인에서 여전히 수평 겹침이 발생하는 카드를 수직 행으로 분산.
+  // 각 레인에서 left 순으로 정렬 후 그리디하게 가장 낮은 비어있는 행에 배치.
+  const laneItemsForRows = new Map<string, typeof spreadItems>();
+  for (const item of spreadItems) {
+    const list = laneItemsForRows.get(item.laneKey) ?? [];
+    list.push(item);
+    laneItemsForRows.set(item.laneKey, list);
+  }
+
+  const rowIndexMap = new Map<TimelineEvent, number>();
+  for (const laneItems of laneItemsForRows.values()) {
+    const sorted = [...laneItems].sort((a, b) => a.left - b.left);
+    const rowEnds: number[] = []; // 각 행의 마지막 카드 우측 끝 x좌표
+
+    for (const item of sorted) {
+      const itemLeft = item.left - NODE_WIDTH / 2;
+      const itemRight = item.left + NODE_WIDTH / 2;
+
+      let assigned = -1;
+      for (let r = 0; r < rowEnds.length; r++) {
+        if ((rowEnds[r] ?? 0) <= itemLeft) {
+          assigned = r;
+          rowEnds[r] = itemRight;
+          break;
+        }
+      }
+
+      if (assigned === -1) {
+        assigned = rowEnds.length;
+        rowEnds.push(itemRight);
+      }
+
+      rowIndexMap.set(item.event, assigned);
+    }
+  }
+
+  const items: TimelineItemLayout[] = spreadItems.map((item) => ({
+    ...item,
+    rowIndex: rowIndexMap.get(item.event) ?? 0
+  }));
+
+  const tsToLeft = (ms: number): number =>
+    trackStart + Math.round(((ms - min) / span) * usableTrack);
+
+  return { width: contentWidth, nowLeft, leftGutter, items, tsToLeft };
 }
 
 /** 타임라인 시간축 눈금 한 항목: 픽셀 x 위치와 레이블 문자열. */
 export interface TimestampTick {
   readonly x: number;
   readonly label: string;
+}
+
+export interface TimelineContextSummary {
+  readonly eventSummary: string;
+  readonly laneSummary: string;
+  readonly focusSummary: string | null;
+}
+
+export const DEFAULT_TIMELINE_VIEWPORT_HEIGHT = RULER_HEIGHT + LANE_HEIGHT * 7;
+
+export function resolveTimelineViewportHeight(contentHeight: number, preferredMaxHeight: number): number {
+  return Math.min(contentHeight, preferredMaxHeight);
+}
+
+export function buildTimelineContextSummary(input: {
+  filteredEventCount: number;
+  totalEventCount: number;
+  activeLaneCount: number;
+  totalLaneCount: number;
+  selectedRuleId: string | null;
+  selectedTag: string | null;
+  showRuleGapsOnly: boolean;
+}): TimelineContextSummary {
+  const eventSummary = `${input.filteredEventCount}/${input.totalEventCount} events`;
+  const laneSummary = input.activeLaneCount === input.totalLaneCount
+    ? "All lanes"
+    : `${input.activeLaneCount}/${input.totalLaneCount} lanes`;
+  const focusSummary = input.showRuleGapsOnly
+    ? "Rule gaps"
+    : input.selectedRuleId
+      ? `Rule: ${input.selectedRuleId}`
+      : input.selectedTag
+        ? `Tag: ${input.selectedTag}`
+        : null;
+
+  return {
+    eventSummary,
+    laneSummary,
+    focusSummary
+  };
 }
 
 /**
@@ -221,7 +328,7 @@ export function buildTimestampTicks(
   const span      = anchor - min;
   if (span <= 0) return [];
 
-  const trackWidth = layout.width - LEFT_GUTTER - 64;
+  const trackWidth = layout.width - layout.leftGutter - 64;
 
   // Pick the smallest interval that yields ≤ 12 ticks.
   const candidates = [2_000, 5_000, 10_000, 15_000, 30_000, 60_000, 120_000, 300_000, 600_000];
@@ -232,8 +339,8 @@ export function buildTimestampTicks(
 
   for (let t = firstTick; t <= anchor + interval; t += interval) {
     const ratio = (t - min) / span;
-    const x     = LEFT_GUTTER + Math.round(ratio * trackWidth);
-    if (x < LEFT_GUTTER || x > layout.width) continue;
+    const x     = layout.leftGutter + Math.round(ratio * trackWidth);
+    if (x < layout.leftGutter || x > layout.width) continue;
 
     const d = new Date(t);
     const h = String(d.getHours()).padStart(2, "0");
@@ -265,8 +372,7 @@ export function buildTimelineConnectors(
     const dt = Date.parse(a.event.createdAt) - Date.parse(b.event.createdAt);
     if (dt !== 0) return dt;
 
-    const laneOrder =
-      TIMELINE_LANES.indexOf(a.event.lane) - TIMELINE_LANES.indexOf(b.event.lane);
+    const laneOrder = a.top - b.top;
     if (laneOrder !== 0) return laneOrder;
 
     return a.left - b.left;
@@ -319,14 +425,8 @@ export function buildTimelineConnectors(
       targetEventId: relation.targetEventId,
       sourceLane: sourceItem.event.lane,
       targetLane: targetItem.event.lane,
-      relationType: relation.relationType,
-      label: relation.label,
-      explanation: relation.explanation,
       isExplicit: relation.isExplicit,
-      workItemId: relation.workItemId,
-      goalId: relation.goalId,
-      planId: relation.planId,
-      handoffId: relation.handoffId
+      ...buildOptionalRelationFields(relation)
     });
   }
 
@@ -343,17 +443,24 @@ export function buildTimelineRelations(
   for (const event of events) {
     const parentEventId = extractMetadataString(event.metadata, "parentEventId");
     if (parentEventId && eventIds.has(parentEventId)) {
+      const relationType = extractMetadataString(event.metadata, "relationType");
+      const label = extractMetadataString(event.metadata, "relationLabel");
+      const explanation = extractMetadataString(event.metadata, "relationExplanation");
+      const workItemId = extractMetadataString(event.metadata, "workItemId");
+      const goalId = extractMetadataString(event.metadata, "goalId");
+      const planId = extractMetadataString(event.metadata, "planId");
+      const handoffId = extractMetadataString(event.metadata, "handoffId");
       pushRelation(relations, seen, {
         sourceEventId: parentEventId,
         targetEventId: event.id,
-        relationType: extractMetadataString(event.metadata, "relationType"),
-        label: extractMetadataString(event.metadata, "relationLabel"),
-        explanation: extractMetadataString(event.metadata, "relationExplanation"),
         isExplicit: true,
-        workItemId: extractMetadataString(event.metadata, "workItemId"),
-        goalId: extractMetadataString(event.metadata, "goalId"),
-        planId: extractMetadataString(event.metadata, "planId"),
-        handoffId: extractMetadataString(event.metadata, "handoffId")
+        ...(relationType !== undefined ? { relationType } : {}),
+        ...(label !== undefined ? { label } : {}),
+        ...(explanation !== undefined ? { explanation } : {}),
+        ...(workItemId !== undefined ? { workItemId } : {}),
+        ...(goalId !== undefined ? { goalId } : {}),
+        ...(planId !== undefined ? { planId } : {}),
+        ...(handoffId !== undefined ? { handoffId } : {})
       });
     }
 
@@ -362,17 +469,24 @@ export function buildTimelineRelations(
         continue;
       }
 
+      const relationType = extractMetadataString(event.metadata, "relationType");
+      const label = extractMetadataString(event.metadata, "relationLabel");
+      const explanation = extractMetadataString(event.metadata, "relationExplanation");
+      const workItemId = extractMetadataString(event.metadata, "workItemId");
+      const goalId = extractMetadataString(event.metadata, "goalId");
+      const planId = extractMetadataString(event.metadata, "planId");
+      const handoffId = extractMetadataString(event.metadata, "handoffId");
       pushRelation(relations, seen, {
         sourceEventId: relatedEventId,
         targetEventId: event.id,
-        relationType: extractMetadataString(event.metadata, "relationType"),
-        label: extractMetadataString(event.metadata, "relationLabel"),
-        explanation: extractMetadataString(event.metadata, "relationExplanation"),
         isExplicit: true,
-        workItemId: extractMetadataString(event.metadata, "workItemId"),
-        goalId: extractMetadataString(event.metadata, "goalId"),
-        planId: extractMetadataString(event.metadata, "planId"),
-        handoffId: extractMetadataString(event.metadata, "handoffId")
+        ...(relationType !== undefined ? { relationType } : {}),
+        ...(label !== undefined ? { label } : {}),
+        ...(explanation !== undefined ? { explanation } : {}),
+        ...(workItemId !== undefined ? { workItemId } : {}),
+        ...(goalId !== undefined ? { goalId } : {}),
+        ...(planId !== undefined ? { planId } : {}),
+        ...(handoffId !== undefined ? { handoffId } : {})
       });
     }
   }
@@ -444,7 +558,7 @@ function buildConnectorPath(
 ): { readonly path: string; readonly cross: boolean } | null {
   const source = getTimelineNodeBounds(sourceItem, sourceBounds);
   const target = getTimelineNodeBounds(targetItem, targetBounds);
-  const sameLane = sourceItem.event.lane === targetItem.event.lane;
+  const sameLane = sourceItem.laneKey === targetItem.laneKey;
 
   if (sameLane) {
     const x1 = source.right;
@@ -479,6 +593,49 @@ function buildConnectorPath(
   };
 }
 
+function normalizeLaneRows(
+  input: readonly TimelineLaneRow[] | readonly TimelineLane[]
+): readonly TimelineLaneRow[] {
+  if (input.length === 0) {
+    return [];
+  }
+
+  const [first] = input;
+  if (typeof first === "string") {
+    return (input as readonly TimelineLane[]).map((lane) => ({
+      key: lane,
+      baseLane: lane,
+      isSubtype: false
+    }));
+  }
+
+  return input as readonly TimelineLaneRow[];
+}
+
+function resolveLaneKeyForEvent(
+  event: TimelineEvent,
+  laneRows: readonly TimelineLaneRow[]
+): string {
+  if (laneRows.some((row) => row.key === event.lane)) {
+    return event.lane;
+  }
+
+  const subtype = resolveEventSubtype(event);
+  if (subtype) {
+    const subtypeKey = `${event.lane}:${subtype.key}`;
+    if (laneRows.some((row) => row.key === subtypeKey)) {
+      return subtypeKey;
+    }
+  }
+
+  const fallbackKey = `${event.lane}:uncategorized`;
+  if (laneRows.some((row) => row.key === fallbackKey)) {
+    return fallbackKey;
+  }
+
+  return event.lane;
+}
+
 function pushRelation(
   relations: TimelineRelation[],
   seen: Set<string>,
@@ -491,6 +648,26 @@ function pushRelation(
 
   seen.add(key);
   relations.push(relation);
+}
+
+function buildOptionalRelationFields(relation: TimelineRelation): {
+  readonly relationType?: string;
+  readonly label?: string;
+  readonly explanation?: string;
+  readonly workItemId?: string;
+  readonly goalId?: string;
+  readonly planId?: string;
+  readonly handoffId?: string;
+} {
+  return {
+    ...(relation.relationType !== undefined ? { relationType: relation.relationType } : {}),
+    ...(relation.label !== undefined ? { label: relation.label } : {}),
+    ...(relation.explanation !== undefined ? { explanation: relation.explanation } : {}),
+    ...(relation.workItemId !== undefined ? { workItemId: relation.workItemId } : {}),
+    ...(relation.goalId !== undefined ? { goalId: relation.goalId } : {}),
+    ...(relation.planId !== undefined ? { planId: relation.planId } : {}),
+    ...(relation.handoffId !== undefined ? { handoffId: relation.handoffId } : {})
+  };
 }
 
 function extractMetadataString(

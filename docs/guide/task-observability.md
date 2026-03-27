@@ -126,8 +126,9 @@ phase breakdown은 별도 stopwatch가 아니라 timeline event와 session windo
   - `action.logged`, `tool.used`, `terminal.command` on implementation lane
 - `verification`
   - `verification.logged`, `rule.logged`, `task.complete`, `task.error`
+  - verification 관련 이벤트 종류를 별도 phase로 읽지만, 현재 core lane 집합에는 전용 `rules` lane이 없다
 - `coordination`
-  - `agent.activity.logged`
+  - `agent.activity.logged`, background lane activity
 - `waiting`
   - raw user turn 이후 구간
   - 세션 사이 gap

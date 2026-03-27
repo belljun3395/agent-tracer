@@ -10,7 +10,16 @@
     "build": "npm run build --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
-    "dev": "concurrently -k -n server,web \"npm run dev:server\" \"npm run dev:web\"",
+    "publish:core": "npm publish --workspace @monitor/core --access public",
+    "publish:server": "npm publish --workspace @monitor/server --access public",
+    "publish:mcp": "npm publish --workspace @monitor/mcp --access public",
+    "publish:web": "npm publish --workspace @monitor/web --access public",
+    "publish:all": "npm run publish:core && npm run publish:server && npm run publish:mcp && npm run publish:web",
+    "sync:skills": "node scripts/sync-skill-projections.mjs",
+    "docs:dev": "vitepress dev docs --host 0.0.0.0 --port 5174",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs --host 0.0.0.0 --port 4174",
+    "dev": "touch .opencode/.dev-log && concurrently -k -n server,web \"npm run dev:server\" \"npm run dev:web\"; rm -f .opencode/.dev-log",
     "dev:server": "NODE_OPTIONS=--conditions=development tsx watch packages/server/src/index.ts",
     "dev:web": "npm run dev --workspace @monitor/web -- --host 0.0.0.0",
     "seed": "NODE_OPTIONS=--conditions=development tsx packages/server/src/seed.ts",
@@ -22,8 +31,10 @@
     "@eslint/js": "^9.0.0",
     "concurrently": "^9.0.0",
     "eslint": "^9.0.0",
+    "mermaid": "^11.13.0",
     "tsx": "^4.0.0",
     "typescript": "^5.0.0",
-    "typescript-eslint": "^8.0.0"
+    "typescript-eslint": "^8.0.0",
+    "vitepress": "^2.0.0-alpha.17"
   }
 }

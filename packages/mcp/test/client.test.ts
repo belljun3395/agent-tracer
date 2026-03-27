@@ -118,11 +118,112 @@ describe("MCP tool registry — canonical tools", () => {
     );
   });
 
+  it("monitor_runtime_session_ensure 가 /api/runtime-session-ensure 로 POST한다", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ taskId: "t1", sessionId: "s1", taskCreated: true, sessionCreated: true })
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = new MonitorClient("http://localhost:3847");
+    const server = createMonitorMcpServer(client);
+    expect(server).toBeDefined();
+
+    await client.post("/api/runtime-session-ensure", {
+      runtimeSource: "codex-skill",
+      runtimeSessionId: "codex-thread-1",
+      title: "Codex - repo"
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3847/api/runtime-session-ensure",
+      expect.objectContaining({ method: "POST" })
+    );
+  });
+
+  it("monitor_runtime_session_end 가 /api/runtime-session-end 로 POST한다", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ ok: true })
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = new MonitorClient("http://localhost:3847");
+    const server = createMonitorMcpServer(client);
+    expect(server).toBeDefined();
+
+    await client.post("/api/runtime-session-end", {
+      runtimeSource: "codex-skill",
+      runtimeSessionId: "codex-thread-1",
+      completionReason: "idle"
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3847/api/runtime-session-end",
+      expect.objectContaining({ method: "POST" })
+    );
+  });
+
+  it("monitor_assistant_response 가 /api/assistant-response 로 POST한다", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ events: [{ id: "e1", kind: "assistant.response" }] })
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = new MonitorClient("http://localhost:3847");
+    const server = createMonitorMcpServer(client);
+    expect(server).toBeDefined();
+
+    await client.post("/api/assistant-response", {
+      taskId: "t1",
+      sessionId: "s1",
+      messageId: "assistant-1",
+      source: "codex-skill",
+      title: "I updated the integration.",
+      body: "I updated the integration to reuse the same task across turns."
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3847/api/assistant-response",
+      expect.objectContaining({ method: "POST" })
+    );
+  });
+
   it("MCP 서버에 monitor_user_message 와 monitor_session_end 가 등록된다", () => {
     const client = new MonitorClient();
     const server = createMonitorMcpServer(client);
     // McpServer가 정상 생성되면 도구가 등록된 것으로 간주
     expect(server).toBeDefined();
+  });
+
+  it("monitor_task_link 가 /api/task-link 로 POST한다", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ task: { id: "t1", taskKind: "background" } })
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = new MonitorClient("http://localhost:3847");
+    const server = createMonitorMcpServer(client);
+    expect(server).toBeDefined();
+
+    await client.post("/api/task-link", {
+      taskId: "t1",
+      taskKind: "background",
+      parentTaskId: "parent-1",
+      parentSessionId: "session-parent-1",
+      backgroundTaskId: "bg-1"
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3847/api/task-link",
+      expect.objectContaining({ method: "POST" })
+    );
   });
 });
 

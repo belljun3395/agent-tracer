@@ -6,25 +6,35 @@
 
 import type React from "react";
 import {
+  useEffect,
   useMemo,
   useState
 } from "react";
 
 import {
   buildCompactInsight,
+  buildExplorationInsight,
+  buildInspectorEventTitle,
+  buildMentionedFileVerifications,
   buildObservabilityStats,
   buildQuestionGroups,
-  buildRuleCoverage,
   buildTagInsights,
   buildTaskExtraction,
   buildTodoGroups,
   collectExploredFiles,
-  eventHasRuleGap,
+  collectFileActivity,
+  collectPlanSteps,
+  collectViolationDescriptions,
   type CompactInsight,
+  type CompactRelation,
+  type DirectoryMentionVerification,
+  type ExplorationInsight,
   type ExploredFileStat,
+  type FileActivityStat,
+  type FileMentionVerification,
+  type MentionedFileVerification,
   type ModelSummary,
   type QuestionGroup,
-  type RuleCoverageStat,
   type TaskExtraction,
   type TagInsight,
   type TodoGroup
@@ -37,27 +47,286 @@ import {
 } from "../lib/observability.js";
 import { formatRelativeTime } from "../lib/timeline.js";
 import type { TimelineConnector } from "../lib/timeline.js";
-import { useDragScroll } from "../lib/useDragScroll.js";
+import { cn } from "../lib/ui/cn.js";
+import { Badge } from "./ui/Badge.js";
+import { Button } from "./ui/Button.js";
+import { PanelCard } from "./ui/PanelCard.js";
+import { TaskHandoffPanel } from "./TaskHandoffPanel.js";
+import { TaskEvaluatePanel } from "./TaskEvaluatePanel.js";
+import { useEvaluation } from "../store/useEvaluation.js";
 import type {
   BookmarkRecord,
-  OverviewResponse,
   TaskObservabilityResponse,
   TaskDetailResponse,
   TimelineEvent
 } from "../types.js";
 
-type PanelTabId = "inspector" | "flow" | "health" | "rules" | "tags" | "task" | "compact" | "files";
+type PanelTabId = "inspector" | "flow" | "health" | "tags" | "task" | "evaluate" | "compact" | "files" | "exploration";
+
+type ExplorationSortKey = "recent" | "most-read" | "alpha";
+type FileSortKey = "recent" | "most-active" | "writes-first" | "alpha";
+
+function sortExploredFiles(files: readonly ExploredFileStat[], key: ExplorationSortKey): readonly ExploredFileStat[] {
+  const copy = [...files];
+  switch (key) {
+    case "recent": return copy.sort((a, b) => Date.parse(b.lastSeenAt) - Date.parse(a.lastSeenAt));
+    case "most-read": return copy.sort((a, b) => b.count - a.count || a.path.localeCompare(b.path));
+    case "alpha": return copy.sort((a, b) => a.path.localeCompare(b.path));
+  }
+}
+
+function sortFileActivity(files: readonly FileActivityStat[], key: FileSortKey): readonly FileActivityStat[] {
+  const copy = [...files];
+  switch (key) {
+    case "recent": return copy.sort((a, b) => Date.parse(b.lastSeenAt) - Date.parse(a.lastSeenAt));
+    case "most-active": return copy.sort((a, b) => (b.readCount + b.writeCount) - (a.readCount + a.writeCount) || a.path.localeCompare(b.path));
+    case "writes-first": return copy.sort((a, b) => b.writeCount - a.writeCount || a.path.localeCompare(b.path));
+    case "alpha": return copy.sort((a, b) => a.path.localeCompare(b.path));
+  }
+}
 
 const PANEL_TABS = [
-  { id: "inspector", label: "Inspector" },
-  { id: "flow",      label: "Flow" },
-  { id: "health",    label: "Health" },
-  { id: "rules",     label: "Rules" },
-  { id: "tags",      label: "Tags" },
-  { id: "task",      label: "Task" },
-  { id: "compact",   label: "Compact" },
-  { id: "files",     label: "Files" },
+  { id: "inspector",   label: "Inspector" },
+  { id: "flow",        label: "Flow" },
+  { id: "health",      label: "Health" },
+  { id: "tags",        label: "Tags" },
+  { id: "task",        label: "Task" },
+  { id: "evaluate",    label: "Evaluate" },
+  { id: "compact",     label: "Compact" },
+  { id: "files",       label: "Files" },
+  { id: "exploration", label: "Exploration" },
 ] as const;
+
+const cardShell = "gap-0 overflow-hidden rounded-[16px] border border-[var(--border)] bg-[var(--surface)] shadow-[0_1px_2px_rgba(0,0,0,0.04),0_8px_24px_rgba(0,0,0,0.03)]";
+const cardHeader = "flex items-center justify-between gap-3 border-b border-[var(--border)] bg-[var(--surface-2)] px-4 py-3.5 text-[0.72rem] font-semibold uppercase tracking-[0.1em] text-[var(--text-3)]";
+const cardBody = "px-4 py-4";
+const innerPanel = "rounded-[12px] border border-[var(--border)] bg-[var(--bg)]";
+const monoText = "font-mono text-[0.8rem] leading-6";
+
+function SectionCard({
+  title,
+  action,
+  children,
+  bodyClassName,
+  className
+}: {
+  readonly title: React.ReactNode;
+  readonly action?: React.ReactNode;
+  readonly children: React.ReactNode;
+  readonly bodyClassName?: string;
+  readonly className?: string;
+}): React.JSX.Element {
+  return (
+    <PanelCard className={cn(cardShell, className)}>
+      <div className={cardHeader}>
+        <div className="min-w-0">{title}</div>
+        {action}
+      </div>
+      <div className={cn(cardBody, bodyClassName)}>{children}</div>
+    </PanelCard>
+  );
+}
+
+function SectionTitle({
+  eyebrow,
+  title,
+  description,
+  action
+}: {
+  readonly eyebrow: string;
+  readonly title: string;
+  readonly description: React.ReactNode;
+  readonly action?: React.ReactNode;
+}): React.JSX.Element {
+  return (
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+      <div className="min-w-0">
+        <p className="mb-1 text-[0.68rem] font-bold uppercase tracking-[0.08em] text-[var(--text-3)]">{eyebrow}</p>
+        <h3 className="text-[0.98rem] font-semibold text-[var(--text-1)]">{title}</h3>
+        <p className="mt-1 text-[0.82rem] leading-6 text-[var(--text-2)]">{description}</p>
+      </div>
+      {action}
+    </div>
+  );
+}
+
+function InspectorHeaderCard({
+  eyebrow,
+  title,
+  description,
+  actions,
+  children
+}: {
+  readonly eyebrow: string;
+  readonly title: React.ReactNode;
+  readonly description: React.ReactNode;
+  readonly actions: React.ReactNode;
+  readonly children?: React.ReactNode;
+}): React.JSX.Element {
+  return (
+    <PanelCard className={cn(cardShell, "bg-[var(--surface)]")}>
+      <div className="flex flex-col gap-4 px-5 py-5">
+        <div className="min-w-0">
+          <p className="mb-1 text-[0.68rem] font-bold uppercase tracking-[0.1em] text-[var(--text-3)]">{eyebrow}</p>
+          {typeof title === "string"
+            ? <h2 className="text-[1.02rem] font-semibold leading-6 text-[var(--text-1)]">{title}</h2>
+            : <div className="text-[1.02rem] font-semibold leading-6 text-[var(--text-1)]">{title}</div>}
+          <p className="mt-1 text-[0.82rem] leading-6 text-[var(--text-2)]">{description}</p>
+          {children}
+        </div>
+        <div className="flex flex-wrap items-center gap-2">{actions}</div>
+      </div>
+    </PanelCard>
+  );
+}
+
+function KeyValueTable({
+  rows
+}: {
+  readonly rows: ReadonlyArray<{
+    readonly key: string;
+    readonly value: React.ReactNode;
+  }>;
+}): React.JSX.Element {
+  return (
+    <div className="flex flex-col gap-2">
+      {rows.map((row) => (
+        <div key={row.key} className="grid grid-cols-[92px_minmax(0,1fr)] gap-3">
+          <div className="pt-0.5 text-[0.72rem] font-semibold uppercase tracking-[0.04em] text-[var(--text-3)]">{row.key}</div>
+          <div className={cn("min-w-0 break-words text-[0.83rem] text-[var(--text-2)]", monoText)}>{row.value}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ObservabilityMetricGrid({
+  items
+}: {
+  readonly items: ReadonlyArray<{
+    readonly label: string;
+    readonly value: string;
+    readonly note?: string;
+    readonly tone?: "neutral" | "accent" | "ok" | "warn" | "danger";
+  }>;
+}): React.JSX.Element {
+  const toneClassName: Record<"neutral" | "accent" | "ok" | "warn" | "danger", string> = {
+    neutral: "border-[var(--border)] bg-[var(--bg)]",
+    accent: "border-[color-mix(in_srgb,var(--accent)_22%,var(--border))] bg-[color-mix(in_srgb,var(--accent)_8%,transparent)]",
+    ok: "border-[color-mix(in_srgb,var(--ok)_24%,var(--border))] bg-[var(--ok-bg)]",
+    warn: "border-[color-mix(in_srgb,var(--warn)_24%,var(--border))] bg-[var(--warn-bg)]",
+    danger: "border-[color-mix(in_srgb,var(--err)_24%,var(--border))] bg-[var(--err-bg)]"
+  };
+
+  return (
+    <div className="grid gap-3 sm:grid-cols-2">
+      {items.map((item) => (
+        <div
+          key={`${item.label}-${item.value}`}
+          className={cn("rounded-[12px] border px-3.5 py-3", toneClassName[item.tone ?? "neutral"])}
+        >
+          <div className="text-[0.68rem] font-bold uppercase tracking-[0.08em] text-[var(--text-3)]">{item.label}</div>
+          <div className="mt-1 text-[0.98rem] font-semibold text-[var(--text-1)]">{item.value}</div>
+          {item.note && <p className="mt-1 m-0 text-[0.74rem] text-[var(--text-3)]">{item.note}</p>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ObservabilityList({
+  emptyLabel,
+  items
+}: {
+  readonly items: ReadonlyArray<{
+    readonly label: string;
+    readonly value: string;
+    readonly note?: string;
+  }>;
+  readonly emptyLabel: string;
+}): React.JSX.Element {
+  if (items.length === 0) {
+    return <p className="m-0 text-[0.8rem] text-[var(--text-3)]">{emptyLabel}</p>;
+  }
+
+  return (
+    <div className="flex flex-col gap-2.5">
+      {items.map((item) => (
+        <div key={`${item.label}-${item.value}`} className="rounded-[12px] border border-[var(--border)] bg-[var(--bg)] px-3.5 py-3">
+          <div className="flex items-center justify-between gap-3">
+            <strong className="min-w-0 truncate text-[0.84rem] text-[var(--text-1)]">{item.label}</strong>
+            <Badge tone="neutral" size="xs">{item.value}</Badge>
+          </div>
+          {item.note && <p className="mt-1.5 mb-0 text-[0.76rem] text-[var(--text-3)]">{item.note}</p>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ObservabilityFocusGroup({
+  label,
+  values,
+  emptyLabel
+}: {
+  readonly label: string;
+  readonly values: readonly string[];
+  readonly emptyLabel: string;
+}): React.JSX.Element {
+  return (
+    <div className="rounded-[12px] border border-[var(--border)] bg-[var(--bg)] px-3.5 py-3">
+      <div className="mb-2 text-[0.68rem] font-bold uppercase tracking-[0.08em] text-[var(--text-3)]">{label}</div>
+      {values.length === 0 ? (
+        <p className="m-0 text-[0.78rem] text-[var(--text-3)]">{emptyLabel}</p>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          {values.map((value) => (
+            <Badge key={value} tone="neutral" size="xs" className="max-w-full break-words">
+              {value}
+            </Badge>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ObservabilityPhaseBreakdown({
+  phases
+}: {
+  readonly phases: readonly {
+    readonly phase: string;
+    readonly durationMs: number;
+    readonly share: number;
+  }[];
+}): React.JSX.Element {
+  if (phases.length === 0) {
+    return <p className="m-0 text-[0.8rem] text-[var(--text-3)]">No phase data recorded yet.</p>;
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      {phases.map((phase) => {
+        const share = phase.share > 1 ? phase.share / 100 : phase.share;
+        return (
+          <div key={phase.phase} className="rounded-[12px] border border-[var(--border)] bg-[var(--bg)] px-3.5 py-3">
+            <div className="flex items-center justify-between gap-3">
+              <strong className="text-[0.84rem] text-[var(--text-1)]">{formatPhaseLabel(phase.phase)}</strong>
+              <Badge tone="accent" size="xs">{formatRate(phase.share)}</Badge>
+            </div>
+            <div className="mt-2 h-2 overflow-hidden rounded-full border border-[var(--border)] bg-[var(--surface-2)]">
+              <span
+                className="block h-full rounded-full bg-[linear-gradient(90deg,var(--accent),color-mix(in_srgb,var(--accent)_55%,white))]"
+                style={{ width: `${Math.max(4, share * 100)}%` }}
+              />
+            </div>
+            <p className="mt-2 mb-0 text-[0.76rem] text-[var(--text-3)]">{formatDuration(phase.durationMs)}</p>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 interface SelectedConnectorData {
   readonly connector: TimelineConnector;
@@ -67,7 +336,6 @@ interface SelectedConnectorData {
 
 interface EventInspectorProps {
   readonly taskDetail: TaskDetailResponse | null;
-  readonly overview: OverviewResponse | null;
   readonly taskObservability?: TaskObservabilityResponse | null;
   readonly selectedEvent: TimelineEvent | null;
   readonly selectedConnector: SelectedConnectorData | null;
@@ -76,15 +344,15 @@ interface EventInspectorProps {
   readonly selectedEventBookmark?: BookmarkRecord | null;
   readonly selectedTag: string | null;
   readonly selectedRuleId: string | null;
-  readonly showRuleGapsOnly: boolean;
   readonly taskModelSummary?: ModelSummary | undefined;
   readonly isCollapsed?: boolean;
+  readonly className?: string | undefined;
   readonly onToggleCollapse?: () => void;
   readonly onCreateTaskBookmark: () => void;
   readonly onCreateEventBookmark: () => void;
+  readonly onUpdateEventDisplayTitle: (eventId: string, displayTitle: string | null) => Promise<void>;
   readonly onSelectTag: (tag: string | null) => void;
   readonly onSelectRule: (ruleId: string | null) => void;
-  readonly onToggleRuleGaps: () => void;
 }
 
 /** DetailSection: 라벨과 내용을 가진 inspector 카드. */
@@ -97,45 +365,40 @@ function DetailSection({
   readonly value: string;
 }): React.JSX.Element {
   return (
-    <div className="detail-card">
-      <div className="detail-card-head">{label}</div>
-      <div className="detail-card-body">
-        <pre className={`detail-value${mono ? " mono" : ""}${resizable ? " resizable" : ""}`}>{value}</pre>
-      </div>
-    </div>
+    <SectionCard title={label}>
+      <pre
+        className={cn(
+          "m-0 max-h-[clamp(220px,28vh,300px)] overflow-auto whitespace-pre-wrap break-words rounded-[10px] border border-[var(--border)] bg-[var(--bg)] px-4 py-4 text-[0.88rem] leading-7 text-[var(--text-2)]",
+          mono ? monoText : "",
+          mono && "text-[0.8rem] leading-6",
+          resizable && "min-h-44 resize-y",
+          label === "Full Context" && "max-h-[clamp(300px,36vh,420px)]",
+          mono && "max-h-[clamp(260px,34vh,420px)]",
+          mono && resizable && "max-h-[min(72vh,760px)]"
+        )}
+      >
+        {value}
+      </pre>
+    </SectionCard>
   );
 }
 
 /** DetailIds: 이벤트 식별자(event ID, task ID, session ID, time)를 테이블로 표시. */
 function DetailIds({ event }: { readonly event: TimelineEvent }): React.JSX.Element {
   return (
-    <div className="detail-card">
-      <div className="detail-card-head">IDs</div>
-      <div className="detail-card-body">
-        <table className="ids-table">
-          <tbody>
-            <tr>
-              <td className="ids-key muted small">Event</td>
-              <td className="ids-val mono">{event.id}</td>
-            </tr>
-            <tr>
-              <td className="ids-key muted small">Task</td>
-              <td className="ids-val mono">{event.taskId}</td>
-            </tr>
-            {event.sessionId && (
-              <tr>
-                <td className="ids-key muted small">Session</td>
-                <td className="ids-val mono">{event.sessionId}</td>
-              </tr>
-            )}
-            <tr>
-              <td className="ids-key muted small">Time</td>
-              <td className="ids-val mono">{new Date(event.createdAt).toLocaleTimeString()}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
+    <SectionCard
+      title="IDs"
+      bodyClassName="pt-4"
+    >
+      <KeyValueTable
+        rows={[
+          { key: "Event", value: event.id },
+          { key: "Task", value: event.taskId },
+          ...(event.sessionId ? [{ key: "Session", value: event.sessionId }] : []),
+          { key: "Time", value: new Date(event.createdAt).toLocaleTimeString() }
+        ]}
+      />
+    </SectionCard>
   );
 }
 
@@ -148,31 +411,19 @@ function DetailConnectorIds({
   readonly target: TimelineEvent;
 }): React.JSX.Element {
   return (
-    <div className="detail-card">
-      <div className="detail-card-head">IDs</div>
-      <div className="detail-card-body">
-        <table className="ids-table">
-          <tbody>
-            <tr>
-              <td className="ids-key muted small">Path</td>
-              <td className="ids-val mono">{connector.key}</td>
-            </tr>
-            <tr>
-              <td className="ids-key muted small">From</td>
-              <td className="ids-val mono">{source.id}</td>
-            </tr>
-            <tr>
-              <td className="ids-key muted small">To</td>
-              <td className="ids-val mono">{target.id}</td>
-            </tr>
-            <tr>
-              <td className="ids-key muted small">Time</td>
-              <td className="ids-val mono">{new Date(target.createdAt).toLocaleTimeString()}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
+    <SectionCard
+      title="IDs"
+      bodyClassName="pt-4"
+    >
+      <KeyValueTable
+        rows={[
+          { key: "Path", value: connector.key },
+          { key: "From", value: source.id },
+          { key: "To", value: target.id },
+          { key: "Time", value: new Date(target.createdAt).toLocaleTimeString() }
+        ]}
+      />
+    </SectionCard>
   );
 }
 
@@ -186,30 +437,36 @@ function DetailTags({
   readonly onSelect?: (value: string) => void;
 }): React.JSX.Element {
   return (
-    <div className="detail-card">
-      <div className="detail-card-head">{title}</div>
-      <div className="detail-card-body">
-        <div className="tag-row">
-          {values.length === 0
-            ? <span className="muted small">No tags</span>
-            : values.map((v) => (
-                onSelect ? (
-                  <button
-                    key={v}
-                    className={`tag-pill-button${activeValue === v ? " active" : ""}`}
-                    onClick={() => onSelect(v)}
-                    type="button"
-                  >
-                    {v}
-                  </button>
-                ) : (
-                  <span key={v} className="tag-pill">{v}</span>
-                )
-              ))
-          }
-        </div>
+    <SectionCard title={title} bodyClassName="pt-4">
+      <div className="flex flex-wrap gap-2">
+        {values.length === 0
+          ? <span className="text-[0.8rem] text-[var(--text-3)]">No tags</span>
+          : values.map((v) => (
+              onSelect ? (
+                <Button
+                  key={v}
+                  className={cn(
+                    "h-auto rounded-full border px-3.5 py-1.5 text-[0.78rem] font-semibold shadow-none transition-colors",
+                    activeValue === v
+                      ? "border-[var(--accent)] bg-[var(--accent-light)] text-[var(--accent)]"
+                      : "border-[var(--border)] bg-[var(--bg)] text-[var(--text-2)] hover:border-[var(--border-2)] hover:bg-[var(--surface-2)]"
+                  )}
+                  onClick={() => onSelect(v)}
+                  size="sm"
+                  type="button"
+                  variant="bare"
+                >
+                  {v}
+                </Button>
+              ) : (
+                <Badge key={v} className="max-w-full break-words px-3 py-1.5 text-[0.78rem] font-medium">
+                  {v}
+                </Badge>
+              )
+            ))
+        }
       </div>
-    </div>
+    </SectionCard>
   );
 }
 
@@ -222,47 +479,54 @@ function DetailMatchList({
   readonly onSelectRule?: (ruleId: string) => void;
 }): React.JSX.Element {
   return (
-    <div className="detail-card">
-      <div className="detail-card-head">Classification Matches</div>
-      <div className="detail-card-body">
-        {event.classification.matches.length === 0 ? (
-          <p className="muted small" style={{ margin: 0 }}>No classifier matched this event.</p>
-        ) : (
-          <div className="match-list">
-            {event.classification.matches.map((match) => (
-              <div key={`${event.id}-${match.ruleId}`} className="match-item">
-                <div className="match-header">
-                  {onSelectRule ? (
-                    <button
-                      className={`match-link${activeRuleId === match.ruleId ? " active" : ""}`}
-                      onClick={() => onSelectRule(match.ruleId)}
-                      type="button"
-                    >
-                      {match.ruleId}
-                    </button>
-                  ) : (
-                    <strong>{match.ruleId}</strong>
-                  )}
-                  <span className="match-score">{match.score} · {match.source ?? "rules-index"}</span>
-                </div>
-                <div className="tag-row">
-                  {match.tags.map((tag) => (
-                    <span key={tag} className="tag-pill">{tag}</span>
-                  ))}
-                </div>
-                <ul className="reason-list">
-                  {match.reasons.map((reason) => (
-                    <li key={`${reason.kind}-${reason.value}`}>
-                      {reason.kind}: <span className="mono">{reason.value}</span>
-                    </li>
-                  ))}
-                </ul>
+    <SectionCard title="Classification Matches" bodyClassName="pt-4">
+      {event.classification.matches.length === 0 ? (
+        <p className="m-0 text-[0.8rem] text-[var(--text-3)]">No classifier matched this event.</p>
+      ) : (
+        <div className="flex flex-col gap-3">
+          {event.classification.matches.map((match) => (
+            <div
+              key={`${event.id}-${match.ruleId}`}
+              className="rounded-[12px] border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3"
+            >
+              <div className="mb-2 flex items-center justify-between gap-3">
+                {onSelectRule ? (
+                  <button
+                    className={cn(
+                      "min-w-0 truncate bg-transparent p-0 text-left text-[0.95rem] font-semibold transition-colors",
+                      activeRuleId === match.ruleId ? "text-[var(--accent)]" : "text-[var(--text-1)]"
+                    )}
+                    onClick={() => onSelectRule(match.ruleId)}
+                    type="button"
+                  >
+                    {match.ruleId}
+                  </button>
+                ) : (
+                  <strong className="min-w-0 truncate text-[0.95rem] text-[var(--text-1)]">{match.ruleId}</strong>
+                )}
+                <Badge tone="accent" size="xs">
+                  {match.score} · {match.source ?? "action-registry"}
+                </Badge>
               </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
+              <div className="flex flex-wrap gap-2">
+                {match.tags.map((tag) => (
+                  <Badge key={tag} tone="neutral" size="xs" className="max-w-full break-words">
+                    {tag}
+                  </Badge>
+                ))}
+              </div>
+              <ul className="mt-2 flex flex-col gap-1 pl-4 text-[0.76rem] leading-6 text-[var(--text-2)]">
+                {match.reasons.map((reason) => (
+                  <li key={`${reason.kind}-${reason.value}`}>
+                    {reason.kind}: <span className={monoText}>{reason.value}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      )}
+    </SectionCard>
   );
 }
 
@@ -274,22 +538,19 @@ function DetailConnectorEvents({
   readonly target: TimelineEvent;
 }): React.JSX.Element {
   return (
-    <div className="detail-card">
-      <div className="detail-card-head">Connected Events</div>
-      <div className="detail-card-body">
-        <div className="match-list">
-          {[source, target].map((event, index) => (
-            <div key={event.id} className="match-item">
-              <div className="match-header">
-                <strong>{index === 0 ? "From" : "To"}</strong>
-                <span className="match-score">{event.lane}</span>
-              </div>
-              <p className="muted small" style={{ margin: 0 }}>{event.title}</p>
+    <SectionCard title="Connected Events" bodyClassName="pt-4">
+      <div className="flex flex-col gap-3">
+        {[source, target].map((event, index) => (
+          <div key={event.id} className="rounded-[12px] border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3">
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <strong className="text-[0.9rem] text-[var(--text-1)]">{index === 0 ? "From" : "To"}</strong>
+              <Badge tone="neutral" size="xs">{event.lane}</Badge>
             </div>
-          ))}
-        </div>
+            <p className="m-0 text-[0.82rem] leading-6 text-[var(--text-2)]">{buildInspectorEventTitle(event) ?? event.title}</p>
+          </div>
+        ))}
       </div>
-    </div>
+    </SectionCard>
   );
 }
 
@@ -299,153 +560,23 @@ function DetailRelatedEvents({
   readonly events: readonly TimelineEvent[];
 }): React.JSX.Element {
   return (
-    <div className="detail-card">
-      <div className="detail-card-head">Related Events</div>
-      <div className="detail-card-body">
-        {events.length === 0 ? (
-          <p className="muted small" style={{ margin: 0 }}>No related events linked from metadata.</p>
-        ) : (
-          <div className="match-list">
-            {events.map((event) => (
-              <div key={event.id} className="match-item">
-                <div className="match-header">
-                  <strong>{event.title}</strong>
-                  <span className="match-score">{event.lane}</span>
-                </div>
-                <p className="muted small" style={{ margin: 0 }}>{summarizeDetailText(event.body ?? event.kind)}</p>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function ObservabilityMetricGrid({
-  items
-}: {
-  readonly items: readonly {
-    readonly label: string;
-    readonly value: string;
-    readonly note?: string | undefined;
-    readonly tone?: "accent" | "ok" | "warn" | "muted" | undefined;
-  }[];
-}): React.JSX.Element {
-  return (
-    <div className="observability-metric-grid">
-      {items.map((item) => (
-        <div key={item.label} className={`observability-metric-tile${item.tone ? ` tone-${item.tone}` : ""}`}>
-          <span className="observability-metric-label">{item.label}</span>
-          <strong className="observability-metric-value">{item.value}</strong>
-          {item.note && <span className="observability-metric-note">{item.note}</span>}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function ObservabilityListCard({
-  title,
-  items,
-  emptyLabel = "None"
-}: {
-  readonly title: string;
-  readonly items: readonly {
-    readonly label: string;
-    readonly value: string;
-    readonly note?: string | undefined;
-  }[];
-  readonly emptyLabel?: string;
-}): React.JSX.Element {
-  return (
-    <div className="detail-card">
-      <div className="detail-card-head">{title}</div>
-      <div className="detail-card-body">
-        {items.length === 0 ? (
-          <p className="muted small" style={{ margin: 0 }}>{emptyLabel}</p>
-        ) : (
-          <div className="match-list">
-            {items.map((item) => (
-              <div key={`${title}-${item.label}-${item.value}`} className="match-item">
-                <div className="match-header">
-                  <strong>{item.label}</strong>
-                  <span className="match-score">{item.value}</span>
-                </div>
-                {item.note && <p className="muted small" style={{ margin: 0 }}>{item.note}</p>}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function ObservabilityPhaseCard({
-  phases
-}: {
-  readonly phases: readonly {
-    readonly phase: string;
-    readonly durationMs: number;
-    readonly share: number;
-  }[];
-}): React.JSX.Element {
-  return (
-    <div className="detail-card">
-      <div className="detail-card-head">Phase Breakdown</div>
-      <div className="detail-card-body">
-        {phases.length === 0 ? (
-          <p className="muted small" style={{ margin: 0 }}>No phase data yet.</p>
-        ) : (
-          <div className="observability-phase-list">
-            {phases.map((phase) => {
-              const share = phase.share > 1 ? phase.share / 100 : phase.share;
-              return (
-                <div key={phase.phase} className="observability-phase-row">
-                  <div className="observability-phase-head">
-                    <strong>{formatPhaseLabel(phase.phase)}</strong>
-                    <span className="match-score">{formatRate(phase.share)}</span>
-                  </div>
-                  <div className="observability-phase-track">
-                    <span
-                      className="observability-phase-fill"
-                      style={{ width: `${Math.max(4, share * 100)}%` }}
-                    />
-                  </div>
-                  <div className="observability-phase-meta">{formatDuration(phase.durationMs)}</div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function ObservabilityFocusCard({
-  title,
-  values,
-  emptyLabel = "None"
-}: {
-  readonly title: string;
-  readonly values: readonly string[];
-  readonly emptyLabel?: string;
-}): React.JSX.Element {
-  return (
-    <div className="observability-focus-section">
-      <div className="observability-focus-section-head">{title}</div>
-      {values.length === 0 ? (
-        <p className="muted small" style={{ margin: 0 }}>{emptyLabel}</p>
+    <SectionCard title="Related Events" bodyClassName="pt-4">
+      {events.length === 0 ? (
+        <p className="m-0 text-[0.8rem] text-[var(--text-3)]">No related events linked from metadata.</p>
       ) : (
-        <div className="tag-row">
-          {values.map((value) => (
-            <span key={value} className="tag-pill">{value}</span>
+        <div className="flex flex-col gap-3">
+          {events.map((event) => (
+            <div key={event.id} className="rounded-[12px] border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3">
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <strong className="text-[0.9rem] text-[var(--text-1)]">{buildInspectorEventTitle(event) ?? event.title}</strong>
+                <Badge tone="neutral" size="xs">{event.lane}</Badge>
+              </div>
+              <p className="m-0 text-[0.82rem] leading-6 text-[var(--text-2)]">{summarizeDetailText(event.body ?? event.kind)}</p>
+            </div>
           ))}
         </div>
       )}
-    </div>
+    </SectionCard>
   );
 }
 
@@ -455,47 +586,48 @@ const TODO_STATE_LABELS: Readonly<Record<string, string>> = { added: "Added", in
 /** DetailQuestionFlow: question.logged 이벤트를 questionId 기준으로 그룹화해 모든 단계를 표시. */
 function DetailQuestionFlow({ group }: { readonly group: QuestionGroup }): React.JSX.Element {
   return (
-    <div className="detail-card">
-      <div className="detail-card-head">Question Flow</div>
-      <div className="detail-card-body">
-        <div className="semantic-flow-list">
-          {group.phases.map(({ phase, event }) => (
-            <div key={event.id} className="semantic-flow-item">
-              <span className={`semantic-phase-badge phase-${phase}`}>{QUESTION_PHASE_LABELS[phase] ?? phase}</span>
-              <span className="semantic-flow-title">{event.title}</span>
-              <span className="match-score">{new Date(event.createdAt).toLocaleTimeString()}</span>
-            </div>
-          ))}
-        </div>
-        {!group.isComplete && (
-          <p className="muted small" style={{ margin: "8px 0 0" }}>Awaiting conclusion.</p>
-        )}
+    <SectionCard title="Question Flow" bodyClassName="pt-4">
+      <div className="flex flex-col gap-2">
+        {group.phases.map(({ phase, event }) => (
+          <div key={event.id} className="flex flex-col gap-2 rounded-[12px] border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <Badge tone={phase === "concluded" ? "success" : phase === "answered" ? "accent" : "neutral"} size="xs">
+              {QUESTION_PHASE_LABELS[phase] ?? phase}
+            </Badge>
+            <span className="min-w-0 flex-1 text-[0.84rem] font-medium text-[var(--text-1)]">{buildInspectorEventTitle(event) ?? event.title}</span>
+            <span className="text-[0.76rem] font-semibold text-[var(--text-3)]">{new Date(event.createdAt).toLocaleTimeString()}</span>
+          </div>
+        ))}
       </div>
-    </div>
+      {!group.isComplete && (
+        <p className="mt-2 text-[0.8rem] text-[var(--text-3)]">Awaiting conclusion.</p>
+      )}
+    </SectionCard>
   );
 }
 
 /** DetailTodoFlow: todo.logged 이벤트를 todoId 기준으로 그룹화해 상태 전이 목록을 표시. */
 function DetailTodoFlow({ group }: { readonly group: TodoGroup }): React.JSX.Element {
   return (
-    <div className="detail-card">
-      <div className="detail-card-head">Todo Lifecycle</div>
-      <div className="detail-card-body">
-        <div className="semantic-flow-list">
-          {group.transitions.map(({ state, event }) => (
-            <div key={event.id} className="semantic-flow-item">
-              <span className={`semantic-state-badge state-${state.replace("_", "-")}`}>{TODO_STATE_LABELS[state] ?? state}</span>
-              <span className="semantic-flow-title">{event.title}</span>
-              <span className="match-score">{new Date(event.createdAt).toLocaleTimeString()}</span>
-            </div>
-          ))}
-        </div>
-        <p className="muted small" style={{ margin: "8px 0 0" }}>
-          Current: <strong>{TODO_STATE_LABELS[group.currentState] ?? group.currentState}</strong>
-          {group.isTerminal ? " (terminal)" : ""}
-        </p>
+    <SectionCard title="Todo Lifecycle" bodyClassName="pt-4">
+      <div className="flex flex-col gap-2">
+        {group.transitions.map(({ state, event }) => (
+          <div key={event.id} className="flex flex-col gap-2 rounded-[12px] border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <Badge
+              tone={state === "completed" ? "success" : state === "added" ? "accent" : state === "cancelled" ? "danger" : "warning"}
+              size="xs"
+            >
+              {TODO_STATE_LABELS[state] ?? state}
+            </Badge>
+            <span className="min-w-0 flex-1 text-[0.84rem] font-medium text-[var(--text-1)]">{buildInspectorEventTitle(event) ?? event.title}</span>
+            <span className="text-[0.76rem] font-semibold text-[var(--text-3)]">{new Date(event.createdAt).toLocaleTimeString()}</span>
+          </div>
+        ))}
       </div>
-    </div>
+      <p className="mt-2 text-[0.8rem] text-[var(--text-3)]">
+        Current: <strong className="text-[var(--text-2)]">{TODO_STATE_LABELS[group.currentState] ?? group.currentState}</strong>
+        {group.isTerminal ? " (terminal)" : ""}
+      </p>
+    </SectionCard>
   );
 }
 
@@ -507,25 +639,36 @@ function DetailModelInfo({
   readonly modelProvider?: string | undefined;
 }): React.JSX.Element {
   return (
-    <div className="detail-card">
-      <div className="detail-card-head">Model</div>
-      <div className="detail-card-body">
-        <table className="ids-table">
-          <tbody>
-            <tr>
-              <td className="ids-key muted small">Name</td>
-              <td className="ids-val mono">{modelName}</td>
-            </tr>
-            {modelProvider && (
-              <tr>
-                <td className="ids-key muted small">Provider</td>
-                <td className="ids-val mono">{modelProvider}</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
+    <SectionCard title="Model" bodyClassName="pt-4">
+      <KeyValueTable
+        rows={[
+          { key: "Name", value: modelName },
+          ...(modelProvider ? [{ key: "Provider", value: modelProvider }] : [])
+        ]}
+      />
+    </SectionCard>
+  );
+}
+
+/** DetailTokenUsage: assistant.response 이벤트의 토큰 사용량을 표시. */
+function DetailTokenUsage({ event }: { readonly event: TimelineEvent }): React.JSX.Element {
+  const inputTokens       = event.metadata["inputTokens"]       as number | undefined;
+  const outputTokens      = event.metadata["outputTokens"]      as number | undefined;
+  const cacheReadTokens   = event.metadata["cacheReadTokens"]   as number | undefined;
+  const cacheCreateTokens = event.metadata["cacheCreateTokens"] as number | undefined;
+  const stopReason        = event.metadata["stopReason"]        as string | undefined;
+  const rows = [
+    ...(inputTokens       != null ? [{ key: "Input Tokens",        value: inputTokens.toLocaleString() }]        : []),
+    ...(outputTokens      != null ? [{ key: "Output Tokens",       value: outputTokens.toLocaleString() }]       : []),
+    ...(cacheReadTokens   != null ? [{ key: "Cache Read Tokens",   value: cacheReadTokens.toLocaleString() }]   : []),
+    ...(cacheCreateTokens != null ? [{ key: "Cache Create Tokens", value: cacheCreateTokens.toLocaleString() }] : []),
+    ...(stopReason               ? [{ key: "Stop Reason",          value: stopReason }]                          : [])
+  ];
+  if (rows.length === 0) return <></>;
+  return (
+    <SectionCard title="Token Usage" bodyClassName="pt-4">
+      <KeyValueTable rows={rows} />
+    </SectionCard>
   );
 }
 
@@ -537,19 +680,16 @@ function DetailCaptureInfo({ event }: { readonly event: TimelineEvent }): React.
   const phase       = event.metadata["phase"]       as string | undefined;
   if (!captureMode && !messageId && !source && !phase) return <></>;
   return (
-    <div className="detail-card">
-      <div className="detail-card-head">Capture Info</div>
-      <div className="detail-card-body">
-        <table className="ids-table">
-          <tbody>
-            {captureMode && <tr><td className="ids-key muted small">Mode</td><td className="ids-val mono">{captureMode}</td></tr>}
-            {messageId   && <tr><td className="ids-key muted small">Message ID</td><td className="ids-val mono">{messageId}</td></tr>}
-            {source      && <tr><td className="ids-key muted small">Source</td><td className="ids-val mono">{source}</td></tr>}
-            {phase       && <tr><td className="ids-key muted small">Phase</td><td className="ids-val mono">{phase}</td></tr>}
-          </tbody>
-        </table>
-      </div>
-    </div>
+    <SectionCard title="Capture Info" bodyClassName="pt-4">
+      <KeyValueTable
+        rows={[
+          ...(captureMode ? [{ key: "Mode", value: captureMode }] : []),
+          ...(messageId ? [{ key: "Message ID", value: messageId }] : []),
+          ...(source ? [{ key: "Source", value: source }] : []),
+          ...(phase ? [{ key: "Phase", value: phase }] : [])
+        ]}
+      />
+    </SectionCard>
   );
 }
 
@@ -558,93 +698,529 @@ function DetailTaskModel({ summary }: { readonly summary: ModelSummary }): React
   const entries = Object.entries(summary.modelCounts).sort((a, b) => b[1] - a[1]);
   if (entries.length === 0) return null;
   return (
-    <div className="detail-card">
-      <div className="detail-card-head">AI Model</div>
-      <div className="detail-card-body">
-        <table className="ids-table">
-          <tbody>
-            {entries.map(([name, count]) => (
-              <tr key={name}>
-                <td className="ids-val mono" style={{ fontWeight: name === summary.defaultModelName ? 600 : undefined }}>
-                  {name}
-                  {name === summary.defaultModelName && (
-                    <span className="muted small" style={{ marginLeft: 6, fontWeight: 400 }}>default</span>
-                  )}
-                </td>
-                <td className="ids-key muted small" style={{ textAlign: "right" }}>{count} events</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {summary.defaultModelProvider && (
-          <p className="muted small" style={{ margin: "6px 0 0" }}>Provider: {summary.defaultModelProvider}</p>
-        )}
+    <SectionCard title="AI Model" bodyClassName="pt-4">
+      <div className="flex flex-col gap-2">
+        {entries.map(([name, count]) => (
+          <div key={name} className="grid grid-cols-[minmax(0,1fr)_auto] gap-3">
+            <div className="min-w-0 break-words text-[0.83rem] text-[var(--text-2)]">
+              <span className={cn("font-mono", name === summary.defaultModelName && "font-semibold text-[var(--text-1)]")}>{name}</span>
+              {name === summary.defaultModelName && (
+                <span className="ml-1.5 text-[0.72rem] font-normal text-[var(--text-3)]">default</span>
+              )}
+            </div>
+            <div className="text-right text-[0.72rem] uppercase tracking-[0.04em] text-[var(--text-3)]">{count} events</div>
+          </div>
+        ))}
       </div>
-    </div>
+      {summary.defaultModelProvider && (
+        <p className="mt-2 text-[0.8rem] text-[var(--text-3)]">Provider: {summary.defaultModelProvider}</p>
+      )}
+    </SectionCard>
   );
 }
 
-/** DetailExploredFiles: 탐색된 파일 목록을 접기/펼치기로 표시. */
+function compactRelationLabel(relation: CompactRelation): { label: string; tone: "warning" | "success" | "accent" | "neutral" } | null {
+  switch (relation) {
+    case "before-compact": return { label: "pre-compact", tone: "warning" };
+    case "after-compact": return { label: "post-compact", tone: "success" };
+    case "across-compact": return { label: "across compact", tone: "accent" };
+    case "no-compact": return null;
+  }
+}
+
+const EXPLORATION_SORT_OPTIONS: ReadonlyArray<{ readonly key: ExplorationSortKey; readonly label: string }> = [
+  { key: "recent",    label: "Recent" },
+  { key: "most-read", label: "Most read" },
+  { key: "alpha",     label: "A→Z" }
+];
+
+/** DetailExploredFiles: 탐색된 파일 목록을 접기/펼치기로 표시. compact 관계와 읽기 시간 이력 포함. */
 function DetailExploredFiles({
-  files, workspacePath, expanded, onToggle
+  files, workspacePath, expanded, sortKey, onToggle, onSortChange
 }: {
   readonly files: readonly ExploredFileStat[];
   readonly workspacePath?: string | undefined;
   readonly expanded: boolean;
+  readonly sortKey: ExplorationSortKey;
   readonly onToggle: () => void;
+  readonly onSortChange: (key: ExplorationSortKey) => void;
 }): React.JSX.Element {
+  const staleCount = files.filter((f) => f.compactRelation === "before-compact").length;
+
   return (
-    <div className="detail-card">
-      <button className="detail-card-toggle" onClick={onToggle} type="button">
+    <PanelCard className={cardShell}>
+      <button
+        className="flex w-full items-center justify-between gap-3 border-b border-[var(--border)] bg-[var(--surface-2)] px-4 py-3.5 text-left"
+        onClick={onToggle}
+        type="button"
+      >
         <div>
-          <div className="detail-card-toggle-title">Explored Files</div>
-          <div className="detail-card-toggle-meta">
+          <div className="text-[0.72rem] font-semibold uppercase tracking-[0.1em] text-[var(--text-3)]">Explored Files</div>
+          <div className="mt-1 text-[0.82rem] text-[var(--text-2)]">
             {files.length === 0
               ? "No exploration file paths recorded yet."
-              : `${files.length} files · latest ${formatRelativeTime(files[0]?.lastSeenAt ?? new Date().toISOString())}`}
+              : `${files.length} files · latest ${formatRelativeTime(files[0]?.lastSeenAt ?? new Date().toISOString())}${staleCount > 0 ? ` · ${staleCount} pre-compact` : ""}`}
           </div>
         </div>
-        <span className="detail-card-toggle-action">{expanded ? "Hide" : "Show"}</span>
+        <span className="text-[0.76rem] font-semibold text-[var(--accent)]">{expanded ? "Hide" : "Show"}</span>
       </button>
       {!expanded && files.length > 0 && (
-        <div className="detail-card-body compact">
-          <div className="explored-preview">
+        <div className="px-4 py-3.5">
+          <div className="flex flex-wrap gap-2">
             {files.slice(0, 3).map((file) => (
-              <span key={file.path} className="explored-file-pill" title={file.path}>
+              <Badge key={file.path} tone="neutral" size="xs" className="max-w-full break-words" title={file.path}>
                 {summarizePath(file.path, workspacePath)}
-              </span>
+              </Badge>
             ))}
             {files.length > 3 && (
-              <span className="explored-file-pill muted">+{files.length - 3} more</span>
+              <Badge tone="neutral" size="xs">+{files.length - 3} more</Badge>
             )}
           </div>
         </div>
       )}
       {expanded && (
-        <div className="detail-card-body">
-        {files.length === 0 ? (
-          <p className="muted small" style={{ margin: 0 }}>No exploration file paths recorded yet.</p>
+        <div className="px-4 py-4">
+          {files.length === 0 ? (
+            <p className="m-0 text-[0.8rem] text-[var(--text-3)]">No exploration file paths recorded yet.</p>
+          ) : (
+            <>
+              <div className="mb-3 flex items-center gap-1.5">
+                <span className="text-[0.68rem] font-semibold uppercase tracking-[0.06em] text-[var(--text-3)]">Sort</span>
+                {EXPLORATION_SORT_OPTIONS.map(({ key, label }) => (
+                  <button
+                    key={key}
+                    className={cn(
+                      "rounded-full px-2.5 py-1 text-[0.72rem] font-semibold transition-colors",
+                      sortKey === key
+                        ? "bg-[var(--accent-light)] text-[var(--accent)]"
+                        : "text-[var(--text-3)] hover:bg-[var(--surface-2)] hover:text-[var(--text-2)]"
+                    )}
+                    onClick={() => onSortChange(key)}
+                    type="button"
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <div className="flex flex-col gap-3">
+                {files.map((file) => {
+                  const compactBadge = compactRelationLabel(file.compactRelation);
+                  return (
+                    <div key={file.path} className="rounded-[12px] border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <strong className={cn("block min-w-0 break-words text-[0.82rem] text-[var(--text-1)]", monoText)} title={file.path}>
+                          {toRelativePath(file.path, workspacePath)}
+                        </strong>
+                        <div className="flex shrink-0 items-center gap-1.5">
+                          {compactBadge && (
+                            <Badge tone={compactBadge.tone} size="xs">{compactBadge.label}</Badge>
+                          )}
+                          <Badge tone="accent" size="xs">{file.count}x</Badge>
+                        </div>
+                      </div>
+                      <div className="mt-2 flex flex-wrap justify-between gap-2 text-[0.8rem] text-[var(--text-3)]">
+                        <span>{dirnameLabel(file.path, workspacePath)}</span>
+                        <span>
+                          {file.count > 1
+                            ? `First ${formatRelativeTime(file.firstSeenAt)} · Last ${formatRelativeTime(file.lastSeenAt)}`
+                            : `Read ${formatRelativeTime(file.lastSeenAt)}`}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </PanelCard>
+  );
+}
+
+function FileMentionRow({
+  v, workspacePath
+}: {
+  readonly v: FileMentionVerification;
+  readonly workspacePath?: string | undefined;
+}): React.JSX.Element {
+  return (
+    <div className={cn(
+      "rounded-[12px] border px-4 py-3",
+      v.wasExplored
+        ? "border-[var(--border)] bg-[var(--surface-2)]"
+        : "border-[color-mix(in_srgb,#f59e0b_30%,transparent)] bg-[color-mix(in_srgb,#f59e0b_5%,var(--surface-2))]"
+    )}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-1.5">
+          <span className="shrink-0 text-[0.72rem] text-[var(--text-3)]">file</span>
+          <strong className={cn("block min-w-0 break-words text-[0.82rem] text-[var(--text-1)]", monoText)} title={v.path}>
+            {toRelativePath(v.path, workspacePath)}
+          </strong>
+        </div>
+        <div className="flex shrink-0 items-center gap-1.5">
+          {v.wasExplored ? (
+            <>
+              {!v.exploredAfterMention && (
+                <Badge tone="warning" size="xs">pre-mention</Badge>
+              )}
+              <Badge tone="success" size="xs">
+                {v.explorationCount > 1 ? `read ${v.explorationCount}x` : "read ✓"}
+              </Badge>
+            </>
+          ) : (
+            <Badge tone="warning" size="xs">not read</Badge>
+          )}
+        </div>
+      </div>
+      <div className="mt-1.5 text-[0.78rem] text-[var(--text-3)]">
+        Mentioned {formatRelativeTime(v.mentionedAt)}
+        {v.wasExplored && v.firstExploredAt
+          ? ` · first read ${formatRelativeTime(v.firstExploredAt)}`
+          : !v.wasExplored ? " · not yet explored" : ""}
+      </div>
+    </div>
+  );
+}
+
+function DirectoryMentionRow({
+  v, workspacePath
+}: {
+  readonly v: DirectoryMentionVerification;
+  readonly workspacePath?: string | undefined;
+}): React.JSX.Element {
+  const [open, setOpen] = useState(false);
+  const count = v.exploredFilesInFolder.length;
+
+  return (
+    <div className={cn(
+      "rounded-[12px] border px-4 py-3",
+      v.wasExplored
+        ? "border-[var(--border)] bg-[var(--surface-2)]"
+        : "border-[color-mix(in_srgb,#f59e0b_30%,transparent)] bg-[color-mix(in_srgb,#f59e0b_5%,var(--surface-2))]"
+    )}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-1.5">
+          <span className="shrink-0 text-[0.72rem] text-[var(--text-3)]">dir</span>
+          <strong className={cn("block min-w-0 break-words text-[0.82rem] text-[var(--text-1)]", monoText)} title={v.path}>
+            {toRelativePath(v.path.replace(/\/$/, ""), workspacePath)}/
+          </strong>
+        </div>
+        <div className="flex shrink-0 items-center gap-1.5">
+          {v.wasExplored ? (
+            <>
+              {!v.exploredAfterMention && (
+                <Badge tone="warning" size="xs">pre-mention</Badge>
+              )}
+              <Badge tone="success" size="xs">{count} file{count !== 1 ? "s" : ""} read</Badge>
+            </>
+          ) : (
+            <Badge tone="warning" size="xs">none read</Badge>
+          )}
+        </div>
+      </div>
+      <div className="mt-1.5 text-[0.78rem] text-[var(--text-3)]">
+        Mentioned {formatRelativeTime(v.mentionedAt)}
+        {count > 0 && (
+          <button
+            className="ml-2 text-[var(--accent)] hover:underline"
+            onClick={() => setOpen((c) => !c)}
+            type="button"
+          >
+            {open ? "hide files" : `show ${count} file${count !== 1 ? "s" : ""}`}
+          </button>
+        )}
+      </div>
+      {open && count > 0 && (
+        <div className="mt-2 flex flex-col gap-1">
+          {v.exploredFilesInFolder.map((f) => (
+            <div key={f.path} className="flex items-center justify-between gap-2 rounded-[8px] bg-[var(--surface)] px-3 py-1.5">
+              <span className={cn("min-w-0 break-words text-[0.78rem] text-[var(--text-2)]", monoText)} title={f.path}>
+                {toRelativePath(f.path, workspacePath)}
+              </span>
+              <Badge tone="accent" size="xs">{f.count}x</Badge>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * MentionedFilesVerificationCard: 사용자가 @ 멘션한 파일·폴더의 실제 탐색 여부를 검증해 표시.
+ * 멘션이 없을 때도 항상 카드를 표시 (empty state 안내 포함).
+ */
+function MentionedFilesVerificationCard({
+  verifications, workspacePath
+}: {
+  readonly verifications: readonly MentionedFileVerification[];
+  readonly workspacePath?: string | undefined;
+}): React.JSX.Element {
+  const [expanded, setExpanded] = useState(false);
+  const unverifiedCount = verifications.filter((v) => !v.wasExplored).length;
+  const preCount = verifications.filter((v) => v.wasExplored && !v.exploredAfterMention).length;
+
+  const summaryText = verifications.length === 0
+    ? "No @ mentions detected in user messages"
+    : `${verifications.length} mentioned · ${unverifiedCount} not read${preCount > 0 ? ` · ${preCount} pre-mention` : ""}`;
+
+  return (
+    <PanelCard className={cardShell}>
+      <button
+        className="flex w-full items-center justify-between gap-3 border-b border-[var(--border)] bg-[var(--surface-2)] px-4 py-3.5 text-left"
+        onClick={() => setExpanded((c) => !c)}
+        type="button"
+      >
+        <div>
+          <div className="text-[0.72rem] font-semibold uppercase tracking-[0.1em] text-[var(--text-3)]">@ Mentioned Files</div>
+          <div className="mt-1 text-[0.82rem] text-[var(--text-2)]">{summaryText}</div>
+        </div>
+        <span className="text-[0.76rem] font-semibold text-[var(--accent)]">{expanded ? "Hide" : "Show"}</span>
+      </button>
+
+      {/* 접힌 상태: 미리보기 배지 */}
+      {!expanded && verifications.length > 0 && (
+        <div className="px-4 py-3.5">
+          <div className="flex flex-wrap gap-2">
+            {verifications.slice(0, 3).map((v) => (
+              <Badge
+                key={`${v.mentionedInEventId}::${v.path}`}
+                tone={v.wasExplored ? "success" : "warning"}
+                size="xs"
+                className="max-w-full break-words"
+                title={v.path}
+              >
+                {v.mentionType === "directory" ? "📁 " : ""}{summarizePath(v.path, workspacePath)}
+              </Badge>
+            ))}
+            {verifications.length > 3 && (
+              <Badge tone="neutral" size="xs">+{verifications.length - 3} more</Badge>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 펼친 상태 */}
+      {expanded && (
+        <div className="px-4 py-4">
+          {verifications.length === 0 ? (
+            <p className="m-0 text-[0.8rem] text-[var(--text-3)]">
+              User messages did not contain any @ file or folder references. Mentions are captured from <code className="text-[0.78rem]">@path</code>, backtick paths, and inline path tokens.
+            </p>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {verifications.map((v) =>
+                v.mentionType === "directory" ? (
+                  <DirectoryMentionRow key={`${v.mentionedInEventId}::${v.path}`} v={v} workspacePath={workspacePath} />
+                ) : (
+                  <FileMentionRow key={`${v.mentionedInEventId}::${v.path}`} v={v} workspacePath={workspacePath} />
+                )
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </PanelCard>
+  );
+}
+
+const FILE_SORT_OPTIONS: ReadonlyArray<{ readonly key: FileSortKey; readonly label: string }> = [
+  { key: "recent",       label: "Recent" },
+  { key: "most-active",  label: "Most active" },
+  { key: "writes-first", label: "Writes first" },
+  { key: "alpha",        label: "A→Z" }
+];
+
+/** DetailFileActivity: 실제 파일 활동(read + write) 목록 카드. */
+function DetailFileActivity({
+  files, workspacePath, expanded, sortKey, onToggle, onSortChange
+}: {
+  readonly files: readonly FileActivityStat[];
+  readonly workspacePath?: string | undefined;
+  readonly expanded: boolean;
+  readonly sortKey: FileSortKey;
+  readonly onToggle: () => void;
+  readonly onSortChange: (key: FileSortKey) => void;
+}): React.JSX.Element {
+  const writeFiles = files.filter((f) => f.writeCount > 0).length;
+  const readOnlyFiles = files.filter((f) => f.writeCount === 0).length;
+
+  return (
+    <PanelCard className={cardShell}>
+      <button
+        className="flex w-full items-center justify-between gap-3 border-b border-[var(--border)] bg-[var(--surface-2)] px-4 py-3.5 text-left"
+        onClick={onToggle}
+        type="button"
+      >
+        <div>
+          <div className="text-[0.72rem] font-semibold uppercase tracking-[0.1em] text-[var(--text-3)]">File Activity</div>
+          <div className="mt-1 text-[0.82rem] text-[var(--text-2)]">
+            {files.length === 0
+              ? "No file activity recorded yet."
+              : `${files.length} files · ${writeFiles} modified · ${readOnlyFiles} read-only`}
+          </div>
+        </div>
+        <span className="text-[0.76rem] font-semibold text-[var(--accent)]">{expanded ? "Hide" : "Show"}</span>
+      </button>
+      {!expanded && files.length > 0 && (
+        <div className="px-4 py-3.5">
+          <div className="flex flex-wrap gap-2">
+            {files.slice(0, 4).map((file) => (
+              <Badge
+                key={file.path}
+                tone={file.writeCount > 0 ? "accent" : "neutral"}
+                size="xs"
+                className="max-w-full break-words"
+                title={file.path}
+              >
+                {file.writeCount > 0 ? "✎ " : ""}{summarizePath(file.path, workspacePath)}
+              </Badge>
+            ))}
+            {files.length > 4 && (
+              <Badge tone="neutral" size="xs">+{files.length - 4} more</Badge>
+            )}
+          </div>
+        </div>
+      )}
+      {expanded && (
+        <div className="px-4 py-4">
+          {files.length === 0 ? (
+            <p className="m-0 text-[0.8rem] text-[var(--text-3)]">No file activity recorded yet.</p>
+          ) : (
+            <>
+              <div className="mb-3 flex items-center gap-1.5">
+                <span className="text-[0.68rem] font-semibold uppercase tracking-[0.06em] text-[var(--text-3)]">Sort</span>
+                {FILE_SORT_OPTIONS.map(({ key, label }) => (
+                  <button
+                    key={key}
+                    className={cn(
+                      "rounded-full px-2.5 py-1 text-[0.72rem] font-semibold transition-colors",
+                      sortKey === key
+                        ? "bg-[var(--accent-light)] text-[var(--accent)]"
+                        : "text-[var(--text-3)] hover:bg-[var(--surface-2)] hover:text-[var(--text-2)]"
+                    )}
+                    onClick={() => onSortChange(key)}
+                    type="button"
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <div className="flex flex-col gap-3">
+                {files.map((file) => {
+                  const total = file.readCount + file.writeCount;
+                  const compactBadge = compactRelationLabel(file.compactRelation);
+                  return (
+                    <div key={file.path} className="rounded-[12px] border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <strong className={cn("block min-w-0 break-words text-[0.82rem] text-[var(--text-1)]", monoText)} title={file.path}>
+                          {toRelativePath(file.path, workspacePath)}
+                        </strong>
+                        <div className="flex shrink-0 items-center gap-1.5">
+                          {compactBadge && (
+                            <Badge tone={compactBadge.tone} size="xs">{compactBadge.label}</Badge>
+                          )}
+                          {file.writeCount > 0 && (
+                            <Badge tone="accent" size="xs">{file.writeCount} write</Badge>
+                          )}
+                          <Badge tone="neutral" size="xs">{file.readCount > 0 ? `${file.readCount} read` : `${total}x`}</Badge>
+                        </div>
+                      </div>
+                      <div className="mt-2 flex flex-wrap justify-between gap-2 text-[0.8rem] text-[var(--text-3)]">
+                        <span>{dirnameLabel(file.path, workspacePath)}</span>
+                        <span>
+                          {total > 1
+                            ? `First ${formatRelativeTime(file.firstSeenAt)} · Last ${formatRelativeTime(file.lastSeenAt)}`
+                            : formatRelativeTime(file.lastSeenAt)}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </PanelCard>
+  );
+}
+
+/** ExplorationInsightCard: 탐색 통계 인사이트 대시보드 카드. */
+function ExplorationInsightCard({
+  insight
+}: {
+  readonly insight: ExplorationInsight;
+}): React.JSX.Element {
+  const toolEntries = Object.entries(insight.toolBreakdown).sort((a, b) => b[1] - a[1]);
+
+  return (
+    <PanelCard className={cardShell}>
+      <div className={cardHeader}>
+        <span>Exploration Overview</span>
+      </div>
+      <div className={cardBody}>
+        {insight.totalExplorations === 0 ? (
+          <p className="m-0 text-[0.8rem] text-[var(--text-3)]">No exploration activity recorded yet.</p>
         ) : (
-          <div className="explored-file-list">
-            {files.map((file) => (
-              <div key={file.path} className="explored-file-item">
-                <div className="explored-file-top">
-                  <strong className="explored-file-path mono" title={file.path}>
-                    {toRelativePath(file.path, workspacePath)}
-                  </strong>
-                  <span className="match-score">{file.count}x</span>
+          <div className="flex flex-col gap-4">
+            <div className="grid grid-cols-2 gap-2 max-md:grid-cols-1">
+              <div className={innerPanel + " p-3"}>
+                <span className="block text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">Total Explorations</span>
+                <strong className="mt-2 block text-[1.05rem] text-[var(--text-1)]">{insight.totalExplorations}</strong>
+              </div>
+              <div className={innerPanel + " p-3"}>
+                <span className="block text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">Unique Files</span>
+                <strong className="mt-2 block text-[1.05rem] text-[var(--text-1)]">{insight.uniqueFiles}</strong>
+              </div>
+            </div>
+
+            {(insight.preCompactFiles > 0 || insight.postCompactFiles > 0 || insight.acrossCompactFiles > 0) && (
+              <div className="grid grid-cols-3 gap-2 max-md:grid-cols-1">
+                <div className={innerPanel + " p-3"}>
+                  <span className="block text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">Pre-compact</span>
+                  <strong className="mt-2 block text-[1.05rem] text-[color-mix(in_srgb,#f59e0b_80%,var(--text-1))]">{insight.preCompactFiles}</strong>
                 </div>
-                <div className="explored-file-meta">
-                  <span className="muted small">{dirnameLabel(file.path, workspacePath)}</span>
-                  <span className="muted small">Last seen {formatRelativeTime(file.lastSeenAt)}</span>
+                <div className={innerPanel + " p-3"}>
+                  <span className="block text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">Post-compact</span>
+                  <strong className="mt-2 block text-[1.05rem] text-[color-mix(in_srgb,#10b981_80%,var(--text-1))]">{insight.postCompactFiles}</strong>
+                </div>
+                <div className={innerPanel + " p-3"}>
+                  <span className="block text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">Across compact</span>
+                  <strong className="mt-2 block text-[1.05rem] text-[var(--accent)]">{insight.acrossCompactFiles}</strong>
                 </div>
               </div>
-            ))}
+            )}
+
+            {toolEntries.length > 0 && (
+              <div>
+                <div className="mb-2 text-[0.7rem] font-bold uppercase tracking-[0.08em] text-[var(--text-3)]">Tool Breakdown</div>
+                <div className="flex flex-col gap-2">
+                  {toolEntries.map(([tool, count]) => (
+                    <div key={tool} className="flex items-center justify-between gap-3 rounded-[8px] bg-[var(--surface-2)] px-3 py-2">
+                      <span className={cn("min-w-0 break-words text-[0.82rem] text-[var(--text-2)]", monoText)}>{tool}</span>
+                      <Badge tone="neutral" size="xs">{count}x</Badge>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {(insight.firstExplorationAt || insight.lastExplorationAt) && (
+              <div className="flex flex-wrap gap-4 text-[0.78rem] text-[var(--text-3)]">
+                {insight.firstExplorationAt && (
+                  <span>First: {formatRelativeTime(insight.firstExplorationAt)}</span>
+                )}
+                {insight.lastExplorationAt && (
+                  <span>Last: {formatRelativeTime(insight.lastExplorationAt)}</span>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>
-      )}
-    </div>
+    </PanelCard>
   );
 }
 
@@ -657,114 +1233,119 @@ function CompactActivityCard({
   readonly onSelectTag: (tag: string) => void;
 }): React.JSX.Element {
   return (
-    <div className="detail-card">
-      <div className="detail-card-head detail-card-head-with-action">
+    <PanelCard className={cardShell}>
+      <div className={cardHeader}>
         <span>Compact Activity</span>
-        <button
-          className={`compact-focus-button${selectedTag === "compact" ? " active" : ""}`}
+        <Button
+          className={cn(
+            "h-auto rounded-full px-3 py-1.5 text-[0.72rem] font-semibold shadow-none",
+            selectedTag === "compact"
+              ? "border-[var(--planning)] bg-[color-mix(in_srgb,var(--planning)_12%,var(--surface))] text-[var(--planning)]"
+              : "border-[var(--border)] bg-[var(--surface)] text-[var(--text-2)] hover:border-[var(--border-2)] hover:bg-[var(--surface-2)]"
+          )}
           disabled={insight.occurrences === 0 && insight.handoffCount === 0}
           onClick={() => onSelectTag("compact")}
+          size="sm"
           type="button"
+          variant="bare"
         >
           Focus compact
-        </button>
+        </Button>
       </div>
-      <div className="detail-card-body">
+      <div className={cardBody}>
         {insight.occurrences === 0 && insight.handoffCount === 0 ? (
-          <p className="muted small" style={{ margin: 0 }}>
+          <p className="m-0 text-[0.8rem] text-[var(--text-3)]">
             No compact-related task activity has been recorded yet.
           </p>
         ) : (
-          <div className="compact-card-stack">
-            <div className="compact-metric-row">
-              <div className="compact-metric">
-                <span className="compact-metric-label">Compacts</span>
-                <strong>{insight.occurrences}</strong>
+          <div className="flex flex-col gap-3">
+            <div className="grid grid-cols-3 gap-2 max-md:grid-cols-1">
+              <div className={innerPanel + " p-3"}>
+                <span className="block text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">Compacts</span>
+                <strong className="mt-2 block text-[1.05rem] text-[var(--text-1)]">{insight.occurrences}</strong>
               </div>
-              <div className="compact-metric">
-                <span className="compact-metric-label">Handoffs</span>
-                <strong>{insight.handoffCount}</strong>
+              <div className={innerPanel + " p-3"}>
+                <span className="block text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">Handoffs</span>
+                <strong className="mt-2 block text-[1.05rem] text-[var(--text-1)]">{insight.handoffCount}</strong>
               </div>
-              <div className="compact-metric">
-                <span className="compact-metric-label">Markers</span>
-                <strong>{insight.eventCount}</strong>
+              <div className={innerPanel + " p-3"}>
+                <span className="block text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">Markers</span>
+                <strong className="mt-2 block text-[1.05rem] text-[var(--text-1)]">{insight.eventCount}</strong>
               </div>
             </div>
             {insight.tagFacets.length > 0 && (
-              <div className="tag-row">
+              <div className="flex flex-wrap gap-2">
                 {insight.tagFacets.map((tag) => (
-                  <button
+                  <Button
                     key={tag}
-                    className={`tag-pill-button${selectedTag === tag ? " active" : ""}`}
+                    className={cn(
+                      "h-auto rounded-full border px-3.5 py-1.5 text-[0.78rem] font-semibold shadow-none",
+                      selectedTag === tag
+                        ? "border-[var(--accent)] bg-[var(--accent-light)] text-[var(--accent)]"
+                        : "border-[var(--border)] bg-[var(--bg)] text-[var(--text-2)] hover:border-[var(--border-2)] hover:bg-[var(--surface-2)]"
+                    )}
                     onClick={() => onSelectTag(tag)}
+                    size="sm"
                     type="button"
+                    variant="bare"
                   >
                     {tag}
-                  </button>
+                  </Button>
                 ))}
               </div>
             )}
             {(insight.latestTitle || insight.latestBody || insight.lastSeenAt) && (
-              <div className="compact-latest">
-                <div className="compact-latest-head">
-                  <strong>{insight.latestTitle ?? "Latest compact signal"}</strong>
+              <div className="rounded-[12px] border border-[var(--border)] bg-[var(--surface)] p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <strong className="min-w-0 text-[0.92rem] text-[var(--text-1)]">{insight.latestTitle ?? "Latest compact signal"}</strong>
                   {insight.lastSeenAt && (
-                    <span className="match-score">{formatRelativeTime(insight.lastSeenAt)}</span>
+                    <Badge tone="accent" size="xs">{formatRelativeTime(insight.lastSeenAt)}</Badge>
                   )}
                 </div>
                 {insight.latestBody && (
-                  <p className="compact-latest-body">{summarizeDetailText(insight.latestBody, 220)}</p>
+                  <p className="mt-2 text-[0.82rem] leading-6 text-[var(--text-2)]">{summarizeDetailText(insight.latestBody, 220)}</p>
                 )}
               </div>
             )}
           </div>
         )}
       </div>
-    </div>
+    </PanelCard>
   );
 }
 
-/** TaskExtractionCard: 태스크 추출 카드. 재사용 가능한 브리프와 마크다운 복사 기능 포함. */
+/** TaskExtractionCard: 태스크 추출 카드. 목표, 프로세스 섹션, 검증, 파일 표시. */
 function TaskExtractionCard({
-  extraction, workspacePath, copiedState, onCopyBrief, onCopyProcess
+  extraction, workspacePath
 }: {
   readonly extraction: TaskExtraction;
   readonly workspacePath?: string | undefined;
-  readonly copiedState: "brief" | "process" | null;
-  readonly onCopyBrief: () => void;
-  readonly onCopyProcess: () => void;
 }): React.JSX.Element {
   return (
-    <div className="detail-card">
-      <div className="detail-card-head detail-card-head-with-action">
+    <PanelCard className={cardShell}>
+      <div className={cardHeader}>
         <span>Task Extraction</span>
-        <div className="detail-card-head-actions">
-          <button className="compact-focus-button" onClick={onCopyBrief} type="button">
-            {copiedState === "brief" ? "Copied brief" : "Copy brief"}
-          </button>
-          <button className="compact-focus-button" onClick={onCopyProcess} type="button">
-            {copiedState === "process" ? "Copied process" : "Copy process"}
-          </button>
-        </div>
       </div>
-      <div className="detail-card-body">
-        <div className="task-extraction-hero">
-          <span className="task-extraction-eyebrow">Reusable Task</span>
-          <strong>{extraction.objective}</strong>
-          <p>{extraction.summary}</p>
+      <div className={cardBody}>
+        <div className="rounded-[14px] border border-[var(--exploration-border)] bg-[color-mix(in_srgb,var(--exploration-bg)_60%,var(--surface))] p-4">
+          <strong className="block break-words text-[0.98rem] leading-6 text-[var(--text-1)] [overflow-wrap:anywhere]">{extraction.objective}</strong>
         </div>
 
         {extraction.sections.length > 0 && (
-          <div className="task-extraction-grid">
+          <div className="mt-3 grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr))]">
             {extraction.sections.map((section) => (
-              <div key={section.lane} className="task-extraction-section">
-                <div className="task-extraction-section-head">
-                  <span className={`rule-lane-pill ${section.lane}`}>{section.lane}</span>
-                  <strong>{section.title}</strong>
+              <div key={section.lane} className="rounded-[12px] border border-[var(--border)] bg-[var(--surface-2)] p-4">
+                <div className="mb-2 flex min-w-0 flex-wrap items-center gap-2">
+                  <Badge tone="neutral" size="xs" className="uppercase tracking-[0.06em]">
+                    {section.lane}
+                  </Badge>
+                  <strong className="min-w-0 text-[0.84rem] text-[var(--text-1)]">{section.title}</strong>
                 </div>
-                <div className="task-extraction-section-list">
+                <div className="flex flex-col gap-2">
                   {section.items.map((item) => (
-                    <p key={`${section.lane}-${item}`}>{item}</p>
+                    <p key={`${section.lane}-${item}`} className="m-0 break-words text-[0.78rem] leading-6 text-[var(--text-2)] [overflow-wrap:anywhere]">
+                      {item}
+                    </p>
                   ))}
                 </div>
               </div>
@@ -772,133 +1353,36 @@ function TaskExtractionCard({
           </div>
         )}
 
-        <div className="task-extraction-foot">
+        <div className="mt-3 flex flex-col gap-3">
           {extraction.validations.length > 0 && (
-            <div className="task-extraction-meta">
-              <span className="task-extraction-meta-label">Validation</span>
-              <div className="task-extraction-chip-list">
+            <div className="flex flex-col gap-2">
+              <span className="text-[0.7rem] font-bold uppercase tracking-[0.08em] text-[var(--text-3)]">Validation</span>
+              <div className="flex flex-wrap gap-2">
                 {extraction.validations.map((item) => (
-                  <span key={item} className="explored-file-pill">{item}</span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {extraction.rules.length > 0 && (
-            <div className="task-extraction-meta">
-              <span className="task-extraction-meta-label">Rules</span>
-              <div className="task-extraction-chip-list">
-                {extraction.rules.map((ruleId) => (
-                  <span key={ruleId} className="explored-file-pill">{ruleId}</span>
+                  <Badge key={item} tone="neutral" size="xs" className="max-w-full break-words">{item}</Badge>
                 ))}
               </div>
             </div>
           )}
 
           {extraction.files.length > 0 && (
-            <div className="task-extraction-meta">
-              <span className="task-extraction-meta-label">Files</span>
-              <div className="task-extraction-chip-list">
-                {extraction.files.map((filePath) => (
-                  <span key={filePath} className="explored-file-pill" title={filePath}>
+            <div className="flex flex-col gap-2">
+              <span className="text-[0.7rem] font-bold uppercase tracking-[0.08em] text-[var(--text-3)]">Files</span>
+              <div className="flex flex-wrap gap-2">
+                {extraction.files.slice(0, 6).map((filePath) => (
+                  <Badge key={filePath} tone="neutral" size="xs" className="max-w-full break-words" title={filePath}>
                     {summarizePath(filePath, workspacePath)}
-                  </span>
+                  </Badge>
                 ))}
+                {extraction.files.length > 6 && (
+                  <Badge tone="neutral" size="xs">+{extraction.files.length - 6} more</Badge>
+                )}
               </div>
             </div>
           )}
         </div>
       </div>
-    </div>
-  );
-}
-
-/** RuleCoverageCard: 규칙 커버리지 인사이트 카드. */
-function RuleCoverageCard({
-  rules, selectedRuleId, showRuleGapsOnly, unmatchedRuleEvents, onSelectRule, onToggleRuleGaps
-}: {
-  readonly rules: readonly RuleCoverageStat[];
-  readonly selectedRuleId: string | null;
-  readonly showRuleGapsOnly: boolean;
-  readonly unmatchedRuleEvents: number;
-  readonly onSelectRule: (ruleId: string) => void;
-  readonly onToggleRuleGaps: () => void;
-}): React.JSX.Element {
-  const configuredRules = rules.filter((rule) => rule.configured);
-  const matchedConfiguredRules = configuredRules.filter((rule) => rule.matchCount > 0 || rule.ruleEventCount > 0);
-  const runtimeRules = rules.filter((rule) => !rule.configured);
-
-  return (
-    <section className="insight-card">
-      <div className="insight-head">
-        <div>
-          <p className="eyebrow">Rules</p>
-          <h3>Rule Coverage</h3>
-          <p className="muted small">
-            {matchedConfiguredRules.length}/{configuredRules.length} configured rules observed
-          </p>
-        </div>
-        <button
-          className={`insight-callout${showRuleGapsOnly ? " active warning" : ""}`}
-          disabled={unmatchedRuleEvents === 0}
-          onClick={onToggleRuleGaps}
-          type="button"
-        >
-          Gap {unmatchedRuleEvents}
-        </button>
-      </div>
-      <div className="insight-summary-row">
-        <div className="insight-summary-tile">
-          <span className="insight-summary-label">Configured</span>
-          <strong>{configuredRules.length}</strong>
-        </div>
-        <div className="insight-summary-tile">
-          <span className="insight-summary-label">Observed</span>
-          <strong>{matchedConfiguredRules.length}</strong>
-        </div>
-        <div className="insight-summary-tile">
-          <span className="insight-summary-label">Runtime-only</span>
-          <strong>{runtimeRules.length}</strong>
-        </div>
-      </div>
-      <div className="rule-row-list">
-        {rules.length === 0 ? (
-          <p className="muted small" style={{ margin: 0 }}>No rules loaded yet.</p>
-        ) : (
-          rules.map((rule) => (
-            <button
-              key={rule.ruleId}
-              className={`rule-row${selectedRuleId === rule.ruleId ? " active" : ""}`}
-              onClick={() => onSelectRule(rule.ruleId)}
-              type="button"
-            >
-              <div className="rule-row-head">
-                <div className="rule-row-title">
-                  <strong>{rule.title}</strong>
-                  <span className="rule-row-id mono">{rule.ruleId}</span>
-                </div>
-                <span className={`rule-state-badge ${rule.configured ? "configured" : "runtime"}`}>
-                  {rule.configured ? "configured" : "runtime"}
-                </span>
-              </div>
-              <div className="rule-row-metrics">
-                <span className="rule-metric"><strong>{rule.matchCount}</strong>match</span>
-                <span className="rule-metric"><strong>{rule.violationCount}</strong>violation</span>
-                <span className="rule-metric"><strong>{rule.passCount}</strong>pass</span>
-                {rule.lane && <span className="rule-lane-pill">{rule.lane}</span>}
-              </div>
-              {rule.tags.length > 0 && (
-                <div className="rule-row-tags">
-                  {rule.tags.slice(0, 4).map((tag) => (
-                    <span key={`${rule.ruleId}-${tag}`} className="insight-mini-pill">{tag}</span>
-                  ))}
-                </div>
-              )}
-            </button>
-          ))
-        )}
-      </div>
-    </section>
+    </PanelCard>
   );
 }
 
@@ -915,93 +1399,77 @@ function TagExplorerCard({
     : null;
 
   return (
-    <section className="insight-card">
-      <div className="insight-head">
-        <div>
-          <p className="eyebrow">Tags</p>
-          <h3>Tag Explorer</h3>
-          <p className="muted small">{tags.length} distinct tags across the selected task</p>
-        </div>
-        {selectedTag && (
-          <button className="text-button" onClick={() => onSelectTag(selectedTag)} type="button">
-            Clear
-          </button>
-        )}
-      </div>
-      <div className="tag-chip-grid">
-        {tags.length === 0 ? (
-          <p className="muted small" style={{ margin: 0 }}>No tags observed yet.</p>
-        ) : (
-          tags.map((tag) => (
-            <button
-              key={tag.tag}
-              className={`tag-explorer-chip${selectedTag === tag.tag ? " active" : ""}`}
-              onClick={() => onSelectTag(tag.tag)}
+    <PanelCard className={cardShell}>
+      <div className={cardBody}>
+        <SectionTitle
+          action={selectedTag ? (
+            <Button
+              className="h-auto rounded-full px-3 py-1.5 text-[0.72rem] font-semibold"
+              onClick={() => onSelectTag(selectedTag)}
+              size="sm"
               type="button"
+              variant="bare"
             >
-              <span className="tag-explorer-label mono">{tag.tag}</span>
-              <span className="tag-explorer-count">{tag.count}</span>
-            </button>
-          ))
-        )}
-      </div>
-      <div className="tag-detail-panel">
-        {selectedInsight ? (
-          <>
-            <div className="tag-detail-head">
-              <strong className="mono">{selectedInsight.tag}</strong>
-              <span className="match-score">{selectedInsight.count} events</span>
-            </div>
-            <div className="tag-detail-grid">
-              <div>
-                <div className="insight-summary-label">Lanes</div>
-                <div className="tag-detail-text">{selectedInsight.lanes.join(" · ")}</div>
+              Clear
+            </Button>
+          ) : undefined}
+          description={`${tags.length} distinct tags across the selected task`}
+          eyebrow="Tags"
+          title="Tag Explorer"
+        />
+        <div className="mt-4 flex flex-wrap gap-2">
+          {tags.length === 0 ? (
+            <p className="m-0 text-[0.8rem] text-[var(--text-3)]">No tags observed yet.</p>
+          ) : (
+            tags.map((tag) => (
+              <Button
+                key={tag.tag}
+                className={cn(
+                  "h-auto rounded-full border px-3.5 py-1.5 text-[0.78rem] font-semibold shadow-none",
+                  selectedTag === tag.tag
+                    ? "border-[var(--accent)] bg-[var(--accent-light)] text-[var(--accent)]"
+                    : "border-[var(--border)] bg-[var(--bg)] text-[var(--text-2)] hover:border-[var(--border-2)] hover:bg-[var(--surface-2)]"
+                )}
+                onClick={() => onSelectTag(tag.tag)}
+                size="sm"
+                type="button"
+                variant="bare"
+              >
+                <span className="font-mono">{tag.tag}</span>
+                <span className="ml-2 rounded-full bg-[var(--surface)] px-2 py-0.5 text-[0.7rem] font-semibold text-[var(--text-3)]">{tag.count}</span>
+              </Button>
+            ))
+          )}
+        </div>
+        <div className="mt-4 rounded-[12px] border border-[var(--border)] bg-[var(--surface-2)] p-4">
+          {selectedInsight ? (
+            <>
+              <div className="flex items-center justify-between gap-3">
+                <strong className="font-mono text-[0.9rem] text-[var(--text-1)]">{selectedInsight.tag}</strong>
+                <Badge tone="accent" size="xs">{selectedInsight.count} events</Badge>
               </div>
-              <div>
-                <div className="insight-summary-label">Rules</div>
-                <div className="tag-detail-text">
-                  {selectedInsight.ruleIds.length > 0 ? selectedInsight.ruleIds.join(", ") : "No linked rule"}
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <div>
+                  <div className="text-[0.7rem] font-bold uppercase tracking-[0.08em] text-[var(--text-3)]">Lanes</div>
+                  <div className="mt-1 text-[0.82rem] text-[var(--text-2)]">{selectedInsight.lanes.join(" · ")}</div>
+                </div>
+                <div>
+                  <div className="text-[0.7rem] font-bold uppercase tracking-[0.08em] text-[var(--text-3)]">Rules</div>
+                  <div className="mt-1 text-[0.82rem] text-[var(--text-2)]">
+                    {selectedInsight.ruleIds.length > 0 ? selectedInsight.ruleIds.join(", ") : "No linked rule"}
+                  </div>
                 </div>
               </div>
-            </div>
-          </>
-        ) : (
-          <p className="muted small" style={{ margin: 0 }}>
-            Pick a tag chip to focus the timeline and inspect where that signal appears.
-          </p>
-        )}
+            </>
+          ) : (
+            <p className="m-0 text-[0.8rem] text-[var(--text-3)]">
+              Pick a tag chip to focus the timeline and inspect where that signal appears.
+            </p>
+          )}
+        </div>
       </div>
-    </section>
+    </PanelCard>
   );
-}
-
-async function copyToClipboard(value: string): Promise<boolean> {
-  if (navigator.clipboard?.writeText) {
-    try {
-      await navigator.clipboard.writeText(value);
-      return true;
-    } catch {
-      return copyTextFallback(value);
-    }
-  }
-
-  return copyTextFallback(value);
-}
-
-function copyTextFallback(value: string): boolean {
-  const textArea = document.createElement("textarea");
-  textArea.value = value;
-  textArea.setAttribute("readonly", "true");
-  textArea.style.position = "fixed";
-  textArea.style.opacity = "0";
-  document.body.appendChild(textArea);
-  textArea.select();
-
-  try {
-    return document.execCommand("copy");
-  } finally {
-    document.body.removeChild(textArea);
-  }
 }
 
 function toRelativePath(filePath: string, workspacePath?: string): string {
@@ -1010,9 +1478,18 @@ function toRelativePath(filePath: string, workspacePath?: string): string {
   }
 
   const normalizedWorkspacePath = workspacePath.endsWith("/") ? workspacePath : `${workspacePath}/`;
-  return filePath.startsWith(normalizedWorkspacePath)
-    ? filePath.slice(normalizedWorkspacePath.length)
-    : filePath;
+
+  if (filePath.startsWith(normalizedWorkspacePath)) {
+    return filePath.slice(normalizedWorkspacePath.length);
+  }
+
+  // leading slash가 누락된 절대 경로 처리 (e.g. file watcher 버그로 "Users/..." 형태로 저장된 경우)
+  const withSlash = filePath.startsWith("/") ? filePath : `/${filePath}`;
+  if (withSlash.startsWith(normalizedWorkspacePath)) {
+    return withSlash.slice(normalizedWorkspacePath.length);
+  }
+
+  return filePath;
 }
 
 function summarizePath(filePath: string, workspacePath?: string): string {
@@ -1022,7 +1499,8 @@ function summarizePath(filePath: string, workspacePath?: string): string {
   }
 
   const parts = relative.split("/");
-  return parts.length > 3 ? parts.slice(-3).join("/") : relative;
+  const shortened = parts.length > 3 ? parts.slice(-3).join("/") : relative;
+  return shortened.length > 42 ? `…${shortened.slice(-(42 - 1))}` : shortened;
 }
 
 function dirnameLabel(filePath: string, workspacePath?: string): string {
@@ -1052,7 +1530,6 @@ function summarizeDetailText(value: string, limit = 180): string {
  */
 export function EventInspector({
   taskDetail,
-  overview,
   taskObservability = null,
   selectedEvent,
   selectedConnector,
@@ -1061,20 +1538,31 @@ export function EventInspector({
   selectedEventBookmark = null,
   selectedTag,
   selectedRuleId,
-  showRuleGapsOnly,
   taskModelSummary,
   isCollapsed = false,
+  className,
   onToggleCollapse,
   onCreateTaskBookmark,
   onCreateEventBookmark,
+  onUpdateEventDisplayTitle,
   onSelectTag,
-  onSelectRule,
-  onToggleRuleGaps
+  onSelectRule
 }: EventInspectorProps): React.JSX.Element {
   const [activeTab, setActiveTab]                   = useState<PanelTabId>("inspector");
   const [isExploredFilesExpanded, setIsExploredFilesExpanded] = useState(true);
-  const [copiedExtraction, setCopiedExtraction]     = useState<"brief" | "process" | null>(null);
-  const inspectorDragScroll = useDragScroll({ axis: "y" });
+  const [isFileActivityExpanded, setIsFileActivityExpanded]   = useState(true);
+  const [explorationSortKey, setExplorationSortKey] = useState<ExplorationSortKey>("recent");
+  const [fileSortKey, setFileSortKey]               = useState<FileSortKey>("recent");
+  const [isEditingEventTitle, setIsEditingEventTitle] = useState(false);
+  const [eventTitleDraft, setEventTitleDraft] = useState("");
+  const [eventTitleError, setEventTitleError] = useState<string | null>(null);
+  const [isSavingEventTitle, setIsSavingEventTitle] = useState(false);
+  const {
+    evaluation: taskEvaluation,
+    isSaving: isSavingTaskEvaluation,
+    isSaved: isSavedTaskEvaluation,
+    saveEvaluation: saveTaskEvaluation
+  } = useEvaluation(taskDetail?.task.id ?? null);
 
   const taskTimeline = taskDetail?.timeline ?? [];
   const observability = taskObservability?.observability ?? null;
@@ -1082,6 +1570,23 @@ export function EventInspector({
   const exploredFiles = useMemo(
     () => collectExploredFiles(taskTimeline),
     [taskTimeline]
+  );
+  const fileActivity = useMemo(
+    () => collectFileActivity(taskTimeline),
+    [taskTimeline]
+  );
+
+  const sortedExploredFiles = useMemo(
+    () => sortExploredFiles(exploredFiles, explorationSortKey),
+    [exploredFiles, explorationSortKey]
+  );
+  const sortedFileActivity = useMemo(
+    () => sortFileActivity(fileActivity, fileSortKey),
+    [fileActivity, fileSortKey]
+  );
+  const explorationInsight = useMemo(
+    () => buildExplorationInsight(taskTimeline, exploredFiles),
+    [exploredFiles, taskTimeline]
   );
   const compactInsight = useMemo(
     () => buildCompactInsight(taskTimeline),
@@ -1095,16 +1600,8 @@ export function EventInspector({
     () => buildObservabilityStats(taskTimeline, exploredFiles.length, compactInsight.occurrences),
     [compactInsight.occurrences, exploredFiles.length, taskTimeline]
   );
-  const ruleCoverage = useMemo(
-    () => buildRuleCoverage(overview?.rules, taskTimeline),
-    [overview?.rules, taskTimeline]
-  );
   const tagInsights = useMemo(
     () => buildTagInsights(taskTimeline),
-    [taskTimeline]
-  );
-  const unmatchedRuleEvents = useMemo(
-    () => taskTimeline.filter((event) => eventHasRuleGap(event)).length,
     [taskTimeline]
   );
   const questionGroups = useMemo(
@@ -1115,6 +1612,42 @@ export function EventInspector({
     () => buildTodoGroups(taskTimeline),
     [taskTimeline]
   );
+  const mentionedVerifications = useMemo(
+    () => buildMentionedFileVerifications(taskTimeline, exploredFiles, taskDetail?.task.workspacePath),
+    [exploredFiles, taskDetail?.task.workspacePath, taskTimeline]
+  );
+
+  // ── Handoff panel data ──
+  const handoffExploredFiles = useMemo(
+    () => collectExploredFiles(taskTimeline).map(f => f.path),
+    [taskTimeline]
+  );
+  const handoffModifiedFiles = useMemo(
+    () => collectFileActivity(taskTimeline).filter(f => f.writeCount > 0).map(f => f.path),
+    [taskTimeline]
+  );
+  const handoffOpenTodos = useMemo(
+    () => todoGroups.filter(g => !g.isTerminal).map(g => g.title),
+    [todoGroups]
+  );
+  const handoffOpenQuestions = useMemo(
+    () => questionGroups
+      .filter(g => !g.isComplete)
+      .flatMap(g => g.phases)
+      .filter(p => p.phase === "asked")
+      .map(p => p.event.body ?? p.event.title ?? "")
+      .filter(Boolean),
+    [questionGroups]
+  );
+  const handoffViolations = useMemo(
+    () => collectViolationDescriptions(taskTimeline),
+    [taskTimeline]
+  );
+  const handoffPlans = useMemo(
+    () => collectPlanSteps(taskTimeline),
+    [taskTimeline]
+  );
+
   const relatedEvents = useMemo(() => {
     if (!selectedEvent) {
       return [];
@@ -1138,42 +1671,83 @@ export function EventInspector({
     return taskTimeline.filter((event) => relatedIds.has(event.id));
   }, [selectedEvent, taskTimeline]);
 
-  async function handleCopyExtraction(kind: "brief" | "process"): Promise<void> {
-    const content = kind === "brief"
-      ? taskExtraction.brief
-      : taskExtraction.processMarkdown;
-
-    if (!content.trim()) {
-      return;
-    }
-
-    const copied = await copyToClipboard(content);
-    if (copied) {
-      setCopiedExtraction(kind);
-    }
-  }
-
   const eventTime = selectedEvent
     ? new Date(selectedEvent.createdAt).toLocaleTimeString()
     : null;
+  const selectedEventDisplayTitleOverride = selectedEvent && typeof selectedEvent.metadata["displayTitle"] === "string"
+    ? selectedEvent.metadata["displayTitle"].trim()
+    : null;
+  const canEditSelectedEventTitle = Boolean(selectedEvent && selectedEvent.kind !== "task.start");
 
   const obsBadges = taskDetail ? [
-    { key: "actions",    label: "Actions",    value: observabilityStats.actions,       cls: "actions" },
-    { key: "coordination", label: "Coordination", value: observabilityStats.coordinationActivities, cls: "coordination" },
-    { key: "files",      label: "Files",      value: observabilityStats.exploredFiles, cls: "files" },
-    { key: "compacts",   label: "Compact",    value: observabilityStats.compactions,   cls: "compacts" },
-    { key: "checks",     label: "Check",      value: observabilityStats.checks,        cls: "checks" },
-    { key: "violations", label: "Violation",  value: observabilityStats.violations,    cls: "violations" },
-    { key: "passes",     label: "Pass",       value: observabilityStats.passes,        cls: "passes" },
+    { key: "actions",    label: "Actions",    value: observabilityStats.actions,       tone: "accent" as const },
+    { key: "coordination", label: "Coordination", value: observabilityStats.coordinationActivities, tone: "success" as const },
+    { key: "files",      label: "Files",      value: observabilityStats.exploredFiles, tone: "neutral" as const },
+    { key: "compacts",   label: "Compact",    value: observabilityStats.compactions,   tone: "warning" as const },
+    { key: "checks",     label: "Check",      value: observabilityStats.checks,        tone: "accent" as const },
+    { key: "violations", label: "Violation",  value: observabilityStats.violations,    tone: "danger" as const },
+    { key: "passes",     label: "Pass",       value: observabilityStats.passes,        tone: "success" as const },
   ].filter((b) => b.value > 0) : [];
 
+  useEffect(() => {
+    setIsEditingEventTitle(false);
+    setEventTitleDraft(selectedEventDisplayTitle ?? "");
+    setEventTitleError(null);
+    setIsSavingEventTitle(false);
+  }, [selectedEvent?.id, selectedEventDisplayTitle]);
+
+  async function handleEventTitleSubmit(
+    event: React.SyntheticEvent<HTMLFormElement>
+  ): Promise<void> {
+    event.preventDefault();
+    if (!selectedEvent || !canEditSelectedEventTitle) {
+      return;
+    }
+
+    const trimmed = eventTitleDraft.trim();
+    if (!trimmed) {
+      setEventTitleError("Title cannot be empty.");
+      return;
+    }
+
+    setIsSavingEventTitle(true);
+    setEventTitleError(null);
+
+    try {
+      await onUpdateEventDisplayTitle(selectedEvent.id, trimmed);
+      setIsEditingEventTitle(false);
+    } catch (error) {
+      setEventTitleError(error instanceof Error ? error.message : "Failed to save event title.");
+    } finally {
+      setIsSavingEventTitle(false);
+    }
+  }
+
+  async function handleResetEventTitle(): Promise<void> {
+    if (!selectedEvent || !canEditSelectedEventTitle) {
+      return;
+    }
+
+    setIsSavingEventTitle(true);
+    setEventTitleError(null);
+
+    try {
+      await onUpdateEventDisplayTitle(selectedEvent.id, null);
+      setIsEditingEventTitle(false);
+    } catch (error) {
+      setEventTitleError(error instanceof Error ? error.message : "Failed to reset event title.");
+    } finally {
+      setIsSavingEventTitle(false);
+    }
+  }
+
   return (
-    <aside className="detail-panel">
+    <aside className={cn("detail-panel flex min-h-0 flex-1 flex-col overflow-hidden rounded-[12px] border border-[var(--border)] bg-[var(--surface)] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_12px_rgba(0,0,0,0.03)]", className)}>
       {/* ── Tab bar ── */}
-      <div className="panel-tab-bar" aria-label="Inspector panels" role="tablist">
+      <div className="panel-tab-bar flex items-center gap-1 overflow-x-auto border-b border-[var(--border)] bg-[var(--surface)] px-3 py-2" aria-label="Inspector panels" role="tablist">
         <button
           aria-label={isCollapsed ? "Expand inspector" : "Collapse inspector"}
-          className="inspector-toggle-btn"
+          className="inspector-toggle-btn inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] border border-[var(--border)] bg-[var(--surface)] text-[0.95rem] font-semibold text-[var(--text-2)] shadow-sm transition-colors hover:border-[var(--border-2)] hover:bg-[var(--surface-2)]"
           onClick={onToggleCollapse}
           title={isCollapsed ? "Expand inspector" : "Collapse inspector"}
           type="button"
@@ -1184,63 +1758,163 @@ export function EventInspector({
           <button
             key={tab.id}
             aria-selected={activeTab === tab.id}
-            className={`panel-tab${activeTab === tab.id ? " active" : ""}`}
+            className={cn(
+              "panel-tab inline-flex h-8 items-center rounded-[8px] border px-3 text-[0.76rem] font-semibold transition-colors",
+              activeTab === tab.id
+                ? "border-[var(--accent)] bg-[var(--accent-light)] text-[var(--accent)]"
+                : "border-transparent bg-transparent text-[var(--text-3)] hover:border-[var(--border)] hover:bg-[var(--surface-2)] hover:text-[var(--text-2)]"
+            )}
             onClick={() => setActiveTab(tab.id)}
             role="tab"
             type="button"
           >
             {tab.label}
+            {tab.id === "evaluate" && taskEvaluation && (
+              <span className={cn(
+                "ml-1.5 h-1.5 w-1.5 rounded-full",
+                taskEvaluation.rating === "good" ? "bg-[var(--ok)]" : "bg-[var(--text-3)]"
+              )} />
+            )}
           </button>
         ))}
       </div>
 
       {/* ── Tab content ── */}
       <div
-        className="panel-tab-content"
+        className={cn(
+          "panel-tab-content flex min-h-0 flex-1 flex-col overflow-y-auto"
+        )}
         role="tabpanel"
-        style={{ cursor: inspectorDragScroll.isDragging ? "grabbing" : undefined }}
-        {...inspectorDragScroll.handlers}
       >
 
         {activeTab === "inspector" ? (
           <>
-            <div className="inspector-header">
-              <h2>
-                {selectedConnector
-                  ? `${selectedConnector.source.title} → ${selectedConnector.target.title}`
-                  : selectedEventDisplayTitle ?? "Select an event"}
-              </h2>
-              <div className="inspector-header-meta">
-                <button className="compact-focus-button" onClick={onCreateTaskBookmark} type="button">
-                  {selectedTaskBookmark ? "Task Saved" : "Save Task"}
-                </button>
-                {selectedEvent && (
-                  <button className="compact-focus-button" onClick={onCreateEventBookmark} type="button">
-                    {selectedEventBookmark ? "Card Saved" : "Save Card"}
-                  </button>
+            <div className="px-4 pt-4">
+              <InspectorHeaderCard
+                actions={(
+                  <>
+                    <Button className="h-auto rounded-full px-3 py-1.5 text-[0.72rem] font-semibold" onClick={onCreateTaskBookmark} size="sm" type="button" variant="ghost">
+                      {selectedTaskBookmark ? "Task Saved" : "Save Task"}
+                    </Button>
+                    {selectedEvent && (
+                      <Button className="h-auto rounded-full px-3 py-1.5 text-[0.72rem] font-semibold" onClick={onCreateEventBookmark} size="sm" type="button" variant="ghost">
+                        {selectedEventBookmark ? "Card Saved" : "Save Card"}
+                      </Button>
+                    )}
+                    {selectedConnector ? (
+                      <Badge tone="neutral" size="xs" className="uppercase tracking-[0.06em]">
+                        {selectedConnector.connector.isExplicit ? "relation" : "transition"} · {selectedConnector.connector.cross ? "cross-lane" : "same-lane"}
+                      </Badge>
+                    ) : selectedEvent ? (
+                      <Badge tone="neutral" size="xs" className="uppercase tracking-[0.06em]">{selectedEvent.kind} · {selectedEvent.lane}</Badge>
+                    ) : null}
+                    {eventTime && <Badge tone="accent" size="xs">{eventTime}</Badge>}
+                    {selectedEvent && canEditSelectedEventTitle && !isEditingEventTitle && (
+                      <Button
+                        className="h-auto rounded-full px-3 py-1.5 text-[0.72rem] font-semibold"
+                        onClick={() => {
+                          setEventTitleDraft(selectedEventDisplayTitle ?? "");
+                          setEventTitleError(null);
+                          setIsEditingEventTitle(true);
+                        }}
+                        size="sm"
+                        type="button"
+                        variant="ghost"
+                      >
+                        Rename Card
+                      </Button>
+                    )}
+                    {selectedEvent && canEditSelectedEventTitle && selectedEventDisplayTitleOverride && !isEditingEventTitle && (
+                      <Button
+                        className="h-auto rounded-full px-3 py-1.5 text-[0.72rem] font-semibold"
+                        onClick={() => { void handleResetEventTitle(); }}
+                        size="sm"
+                        type="button"
+                        variant="ghost"
+                      >
+                        Reset Title
+                      </Button>
+                    )}
+                  </>
                 )}
-                {selectedConnector ? (
-                  <span className="event-kind-badge">
-                    {selectedConnector.connector.isExplicit ? "relation" : "transition"} · {selectedConnector.connector.cross ? "cross-lane" : "same-lane"}
-                  </span>
-                ) : selectedEvent ? (
-                  <span className="event-kind-badge">{selectedEvent.kind} · {selectedEvent.lane}</span>
-                ) : null}
-                {eventTime && <span className="event-time-badge">{eventTime}</span>}
-              </div>
+                description={
+                  selectedConnector
+                    ? `${selectedConnector.connector.isExplicit ? "Explicit relation" : "Fallback sequence"} linking ${selectedConnector.source.lane} to ${selectedConnector.target.lane}.`
+                    : selectedEvent
+                      ? `${selectedEvent.kind} in ${selectedEvent.lane}.`
+                      : "Choose an event or connector to inspect its full timeline context."
+                }
+                eyebrow="Inspector"
+                title={
+                  selectedConnector
+                    ? `${buildInspectorEventTitle(selectedConnector.source) ?? selectedConnector.source.title} → ${buildInspectorEventTitle(selectedConnector.target) ?? selectedConnector.target.title}`
+                    : selectedEventDisplayTitle ?? "Select an event"
+                }
+              >
+                {selectedEvent && canEditSelectedEventTitle && isEditingEventTitle && (
+                  <form className="mt-4 flex flex-col gap-2" onSubmit={(event) => { void handleEventTitleSubmit(event); }}>
+                    <input
+                      className="w-full rounded-[10px] border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-[0.84rem] text-[var(--text-1)] outline-none transition-colors focus:border-[var(--accent)]"
+                      disabled={isSavingEventTitle}
+                      onChange={(event) => setEventTitleDraft(event.target.value)}
+                      placeholder="Short title for this card"
+                      type="text"
+                      value={eventTitleDraft}
+                    />
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button
+                        className="h-7 rounded-full border-[var(--accent)] bg-[var(--accent-light)] px-3 text-[0.72rem] font-semibold text-[var(--accent)] shadow-none hover:border-[var(--accent)] hover:bg-[var(--accent-light)] hover:text-[var(--accent)]"
+                        disabled={isSavingEventTitle}
+                        size="sm"
+                        type="submit"
+                      >
+                        {isSavingEventTitle ? "Saving..." : "Save"}
+                      </Button>
+                      <Button
+                        className="h-7 rounded-full px-3 text-[0.72rem] font-semibold shadow-none"
+                        disabled={isSavingEventTitle}
+                        onClick={() => {
+                          setEventTitleDraft(selectedEventDisplayTitle ?? "");
+                          setEventTitleError(null);
+                          setIsEditingEventTitle(false);
+                        }}
+                        size="sm"
+                        type="button"
+                      >
+                        Cancel
+                      </Button>
+                      {selectedEventDisplayTitleOverride && (
+                        <Button
+                          className="h-7 rounded-full px-3 text-[0.72rem] font-semibold shadow-none"
+                          disabled={isSavingEventTitle}
+                          onClick={() => { void handleResetEventTitle(); }}
+                          size="sm"
+                          type="button"
+                        >
+                          Reset to Raw
+                        </Button>
+                      )}
+                    </div>
+                    <p className="m-0 text-[0.76rem] text-[var(--text-3)]">
+                      Raw event title is preserved. This only changes the inspector display title.
+                    </p>
+                    {eventTitleError && <p className="m-0 text-[0.76rem] font-medium text-[var(--err)]">{eventTitleError}</p>}
+                  </form>
+                )}
+              </InspectorHeaderCard>
             </div>
 
             {selectedConnector ? (
-              <div className="detail-stack">
+              <div className="flex flex-col gap-5 px-4 py-5">
                 <DetailSection
-                  label="Summary"
+                  label="Full Context"
                   resizable
                   value={[
                     `${selectedConnector.connector.isExplicit ? "Explicit relation" : "Fallback sequence"} from ${selectedConnector.source.lane} to ${selectedConnector.target.lane}.`,
                     selectedConnector.connector.label ? `Label: ${selectedConnector.connector.label}` : undefined,
                     selectedConnector.connector.explanation,
-                    `From: ${selectedConnector.source.title}`,
-                    `To: ${selectedConnector.target.title}`
+                    `From: ${buildInspectorEventTitle(selectedConnector.source) ?? selectedConnector.source.title}`,
+                    `To: ${buildInspectorEventTitle(selectedConnector.target) ?? selectedConnector.target.title}`
                   ].filter((value): value is string => Boolean(value)).join("\n")}
                 />
                 <DetailConnectorIds connector={selectedConnector.connector} source={selectedConnector.source} target={selectedConnector.target} />
@@ -1276,9 +1950,9 @@ export function EventInspector({
                 />
               </div>
             ) : selectedEvent ? (
-              <div className="detail-stack">
+              <div className="flex flex-col gap-5 px-4 py-5">
                 <DetailSection
-                  label="Summary"
+                  label="Full Context"
                   resizable
                   value={
                     selectedEvent.body
@@ -1329,6 +2003,7 @@ export function EventInspector({
                 )}
                 {relatedEvents.length > 0 && <DetailRelatedEvents events={relatedEvents} />}
                 {selectedEvent.kind === "user.message" && <DetailCaptureInfo event={selectedEvent} />}
+                {selectedEvent.kind === "assistant.response" && <DetailTokenUsage event={selectedEvent} />}
                 {(selectedEvent.metadata["modelName"] as string | undefined) && (
                   <DetailModelInfo
                     modelName={selectedEvent.metadata["modelName"] as string}
@@ -1351,252 +2026,212 @@ export function EventInspector({
                 <DetailSection label="Metadata" mono value={JSON.stringify(selectedEvent.metadata, null, 2)} />
               </div>
             ) : (
-              <div className="empty-card">
-                <p>No event selected.</p>
-                <p className="muted small">
+              <div className="px-4 py-8 text-center">
+                <p className="m-0 text-[0.9rem] font-medium text-[var(--text-2)]">No event selected.</p>
+                <p className="mt-2 text-[0.8rem] text-[var(--text-3)]">
                   As soon as the monitor records activity, the latest item appears here.
                 </p>
               </div>
             )}
 
             {obsBadges.length > 0 && (
-              <div className="timeline-badges" style={{ padding: "8px 16px", borderTop: "1px solid var(--border)", flexShrink: 0 }}>
+              <div className="flex flex-wrap gap-2 border-t border-[var(--border)] px-4 py-3">
                 {obsBadges.map((b) => (
-                  <span key={b.key} className={`summary-badge ${b.cls}`}>{b.value} {b.label}</span>
+                  <Badge key={b.key} tone={b.tone} size="xs" className="gap-1 px-2.5 py-1 text-[0.68rem]">
+                    <strong>{b.value}</strong>
+                    <span>{b.label}</span>
+                  </Badge>
                 ))}
               </div>
             )}
             {taskModelSummary && (
-              <div style={{ padding: "0 16px 12px" }}>
+              <div className="px-4 pb-4">
                 <DetailTaskModel summary={taskModelSummary} />
               </div>
             )}
           </>
 
         ) : activeTab === "flow" ? (
-          <div className="panel-tab-inner">
+          <div className="panel-tab-inner flex flex-col gap-5 p-4">
             {observability ? (
               <>
-                <div className="detail-card">
-                  <div className="detail-card-head">Task Flow</div>
-                  <div className="detail-card-body">
-                    <ObservabilityMetricGrid
-                      items={[
-                        {
-                          label: "Total Duration",
-                          value: formatDuration(observability.totalDurationMs),
-                          note: observability.runtimeSource ? `source ${observability.runtimeSource}` : undefined,
-                          tone: "accent"
-                        },
-                        {
-                          label: "Active Duration",
-                          value: formatDuration(observability.activeDurationMs),
-                          note: "work in motion",
-                          tone: "ok"
-                        },
-                        {
-                          label: "Waiting Duration",
-                          value: formatDuration(observability.waitingDurationMs),
-                          note: "idle or blocked",
-                          tone: "warn"
-                        },
-                        {
-                          label: "Events",
-                          value: formatCount(observability.totalEvents),
-                          note: "timeline entries"
-                        },
-                        {
-                          label: "Sessions",
-                          value: formatCount(observability.sessions.total),
-                          note: `${formatCount(observability.sessions.resumed)} resumed · ${formatCount(observability.sessions.open)} open`
-                        },
-                        {
-                          label: "Relation Coverage",
-                          value: formatRate(observability.relationCoverageRate),
-                          note: `${formatCount(observability.explicitRelationCount)} explicit links`,
-                          tone: "accent"
-                        }
-                      ]}
+                <SectionCard title="Task Flow">
+                  <ObservabilityMetricGrid
+                    items={[
+                      {
+                        label: "Total Duration",
+                        value: formatDuration(observability.totalDurationMs),
+                        note: observability.runtimeSource ? `runtime ${observability.runtimeSource}` : undefined,
+                        tone: "accent"
+                      },
+                      {
+                        label: "Active Duration",
+                        value: formatDuration(observability.activeDurationMs),
+                        note: "work in motion",
+                        tone: "ok"
+                      },
+                      {
+                        label: "Waiting Duration",
+                        value: formatDuration(observability.waitingDurationMs),
+                        note: "idle or blocked",
+                        tone: "warn"
+                      },
+                      {
+                        label: "Events",
+                        value: formatCount(observability.totalEvents),
+                        note: "timeline entries"
+                      },
+                      {
+                        label: "Sessions",
+                        value: formatCount(observability.sessions.total),
+                        note: `${formatCount(observability.sessions.resumed)} resumed · ${formatCount(observability.sessions.open)} open`
+                      },
+                      {
+                        label: "Relation Coverage",
+                        value: formatRate(observability.relationCoverageRate),
+                        note: `${formatCount(observability.explicitRelationCount)} explicit links`,
+                        tone: "accent"
+                      }
+                    ]}
+                  />
+                </SectionCard>
+
+                <SectionCard title="Phase Breakdown">
+                  <ObservabilityPhaseBreakdown phases={observability.phaseBreakdown} />
+                </SectionCard>
+
+                <SectionCard title="Focus">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <ObservabilityFocusGroup
+                      emptyLabel="No work items observed"
+                      label="Work Items"
+                      values={observability.focus.workItemIds}
+                    />
+                    <ObservabilityFocusGroup
+                      emptyLabel="No goals observed"
+                      label="Goals"
+                      values={observability.focus.goalIds}
+                    />
+                    <ObservabilityFocusGroup
+                      emptyLabel="No plans observed"
+                      label="Plans"
+                      values={observability.focus.planIds}
+                    />
+                    <ObservabilityFocusGroup
+                      emptyLabel="No handoffs observed"
+                      label="Handoffs"
+                      values={observability.focus.handoffIds}
                     />
                   </div>
-                </div>
-                <ObservabilityPhaseCard phases={observability.phaseBreakdown} />
-                <div className="detail-card">
-                  <div className="detail-card-head">Focus</div>
-                  <div className="detail-card-body">
-                    <div className="observability-focus-stack">
-                      <div>
-                        <div className="insight-summary-label">Work Items</div>
-                        <ObservabilityFocusCard
-                          title="Work Items"
-                          values={observability.focus.workItemIds}
-                          emptyLabel="No work item IDs observed"
-                        />
-                      </div>
-                      <div>
-                        <div className="insight-summary-label">Goals</div>
-                        <ObservabilityFocusCard
-                          title="Goals"
-                          values={observability.focus.goalIds}
-                          emptyLabel="No goal IDs observed"
-                        />
-                      </div>
-                      <div>
-                        <div className="insight-summary-label">Plans</div>
-                        <ObservabilityFocusCard
-                          title="Plans"
-                          values={observability.focus.planIds}
-                          emptyLabel="No plan IDs observed"
-                        />
-                      </div>
-                      <div>
-                        <div className="insight-summary-label">Handoffs</div>
-                        <ObservabilityFocusCard
-                          title="Handoffs"
-                          values={observability.focus.handoffIds}
-                          emptyLabel="No handoff IDs observed"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <ObservabilityListCard
-                  title="Top Files"
-                  items={observability.focus.topFiles.map((file) => ({
-                    label: file.path,
-                    value: `${formatCount(file.count)}x`
-                  }))}
-                  emptyLabel="No file focus recorded yet."
-                />
-                <ObservabilityListCard
-                  title="Top Tags"
-                  items={observability.focus.topTags.map((tag) => ({
-                    label: tag.tag,
-                    value: `${formatCount(tag.count)}x`
-                  }))}
-                  emptyLabel="No focus tags recorded yet."
-                />
+                </SectionCard>
+
+                <SectionCard title="Top Files">
+                  <ObservabilityList
+                    emptyLabel="No file focus recorded yet."
+                    items={observability.focus.topFiles.map((file) => ({
+                      label: file.path,
+                      value: `${formatCount(file.count)}x`
+                    }))}
+                  />
+                </SectionCard>
+
+                <SectionCard title="Top Tags">
+                  <ObservabilityList
+                    emptyLabel="No focus tags recorded yet."
+                    items={observability.focus.topTags.map((tag) => ({
+                      label: tag.tag,
+                      value: `${formatCount(tag.count)}x`
+                    }))}
+                  />
+                </SectionCard>
               </>
             ) : (
-              <div className="empty-card">
-                <p>No task flow observability is available yet.</p>
-                <p className="muted small">Select a task after the server starts exposing `/api/tasks/:taskId/observability`.</p>
+              <div className="rounded-[14px] border border-dashed border-[var(--border)] bg-[var(--bg)] px-4 py-6 text-center">
+                <p className="m-0 text-[0.86rem] font-medium text-[var(--text-2)]">No task flow diagnostics available.</p>
+                <p className="mt-1.5 mb-0 text-[0.78rem] text-[var(--text-3)]">
+                  The server will populate this tab once `/api/tasks/:taskId/observability` is available for the selected task.
+                </p>
               </div>
             )}
           </div>
 
         ) : activeTab === "health" ? (
-          <div className="panel-tab-inner">
+          <div className="panel-tab-inner flex flex-col gap-5 p-4">
             {observability ? (
               <>
-                <div className="detail-card">
-                  <div className="detail-card-head">Health Overview</div>
-                  <div className="detail-card-body">
-                    <ObservabilityMetricGrid
-                      items={[
-                        {
-                          label: "Explicit Relations",
-                          value: formatCount(observability.explicitRelationCount),
-                          note: `${formatRate(observability.relationCoverageRate)} coverage`,
-                          tone: "accent"
-                        },
-                        {
-                          label: "Rule Gaps",
-                          value: formatCount(observability.ruleGapCount),
-                          note: "unmatched events",
-                          tone: observability.ruleGapCount > 0 ? "warn" : "ok"
-                        },
-                        {
-                          label: "Questions",
-                          value: formatCount(observability.signals.questionsAsked),
-                          note: `${formatCount(observability.signals.questionsClosed)} closed`
-                        },
-                        {
-                          label: "Todos",
-                          value: formatCount(observability.signals.todosAdded),
-                          note: `${formatCount(observability.signals.todosCompleted)} completed`
-                        },
-                        {
-                          label: "Sessions",
-                          value: formatCount(observability.sessions.total),
-                          note: `${formatCount(observability.sessions.open)} open · ${formatCount(observability.sessions.resumed)} resumed`
-                        },
-                        {
-                          label: "Runtime Source",
-                          value: observability.runtimeSource ?? "unknown",
-                          note: "task lineage",
-                          tone: "muted"
-                        }
-                      ]}
-                    />
-                  </div>
-                </div>
-                <div className="detail-card">
-                  <div className="detail-card-head">Signals</div>
-                  <div className="detail-card-body">
-                    <ObservabilityMetricGrid
-                      items={[
-                        { label: "Raw Prompts", value: formatCount(observability.signals.rawUserMessages), note: "captured user turns" },
-                        { label: "Follow-ups", value: formatCount(observability.signals.followUpMessages), note: "additional turns" },
-                        { label: "Thoughts", value: formatCount(observability.signals.thoughts), note: "planning snapshots" },
-                        { label: "Tool Calls", value: formatCount(observability.signals.toolCalls), note: "tool executions" },
-                        { label: "Terminal Commands", value: formatCount(observability.signals.terminalCommands), note: "shell activity" },
-                        { label: "Verifications", value: formatCount(observability.signals.verifications), note: "tests and checks" },
-                        { label: "Rule Violations", value: formatCount(observability.signals.ruleViolations), note: "rule gaps or violations", tone: observability.signals.ruleViolations > 0 ? "warn" : "ok" },
-                        { label: "Coordination", value: formatCount(observability.signals.coordinationActivities), note: "MCP / delegation" },
-                        { label: "Background", value: formatCount(observability.signals.backgroundTransitions), note: "subagent transitions" },
-                        { label: "Explored Files", value: formatCount(observability.signals.exploredFiles), note: "read paths" }
-                      ]}
-                    />
-                  </div>
-                </div>
-                <ObservabilityListCard
-                  title="Rule / Flow Health"
-                  items={[
-                    {
-                      label: "Relation coverage",
-                      value: formatRate(observability.relationCoverageRate),
-                      note: `${formatCount(observability.explicitRelationCount)} explicit connections recorded`
-                    },
-                    {
-                      label: "Rule gap pressure",
-                      value: formatCount(observability.ruleGapCount),
-                      note: observability.ruleGapCount > 0
-                        ? "Some events still have no configured rule match"
-                        : "No rule gaps on the selected task"
-                    },
-                    {
-                      label: "Active sessions",
-                      value: formatCount(observability.sessions.open),
-                      note: `${formatCount(observability.sessions.total)} total sessions`
-                    }
-                  ]}
-                />
+                <SectionCard title="Health Overview">
+                  <ObservabilityMetricGrid
+                    items={[
+                      {
+                        label: "Explicit Relations",
+                        value: formatCount(observability.explicitRelationCount),
+                        note: `${formatRate(observability.relationCoverageRate)} coverage`,
+                        tone: "accent"
+                      },
+                      {
+                        label: "Rule Gaps",
+                        value: formatCount(observability.ruleGapCount),
+                        note: "unmatched or uncovered events",
+                        tone: observability.ruleGapCount > 0 ? "warn" : "ok"
+                      },
+                      {
+                        label: "Questions",
+                        value: formatCount(observability.signals.questionsAsked),
+                        note: `${formatRate(observability.signals.questionClosureRate)} closed`
+                      },
+                      {
+                        label: "Todos",
+                        value: formatCount(observability.signals.todosAdded),
+                        note: `${formatRate(observability.signals.todoCompletionRate)} completed`
+                      },
+                      {
+                        label: "Sessions",
+                        value: formatCount(observability.sessions.total),
+                        note: `${formatCount(observability.sessions.open)} open · ${formatCount(observability.sessions.resumed)} resumed`
+                      },
+                      {
+                        label: "Runtime Source",
+                        value: observability.runtimeSource ?? "unknown",
+                        note: "task lineage"
+                      }
+                    ]}
+                  />
+                </SectionCard>
+
+                <SectionCard title="Signals">
+                  <ObservabilityMetricGrid
+                    items={[
+                      { label: "Raw Prompts", value: formatCount(observability.signals.rawUserMessages), note: "captured user turns" },
+                      { label: "Follow-ups", value: formatCount(observability.signals.followUpMessages), note: "additional user turns" },
+                      { label: "Thoughts", value: formatCount(observability.signals.thoughts), note: "planning summaries" },
+                      { label: "Tool Calls", value: formatCount(observability.signals.toolCalls), note: "non-terminal tools" },
+                      { label: "Terminal", value: formatCount(observability.signals.terminalCommands), note: "shell commands" },
+                      { label: "Verifications", value: formatCount(observability.signals.verifications), note: "tests and checks" },
+                      {
+                        label: "Rule Violations",
+                        value: formatCount(observability.signals.ruleViolations),
+                        note: "rule-level failures",
+                        tone: observability.signals.ruleViolations > 0 ? "warn" : "ok"
+                      },
+                      { label: "Coordination", value: formatCount(observability.signals.coordinationActivities), note: "MCP / delegation" },
+                      { label: "Background", value: formatCount(observability.signals.backgroundTransitions), note: "async task transitions" },
+                      { label: "Explored Files", value: formatCount(observability.signals.exploredFiles), note: "read paths" }
+                    ]}
+                  />
+                </SectionCard>
               </>
             ) : (
-              <div className="empty-card">
-                <p>No task health observability is available yet.</p>
-                <p className="muted small">Health cards will appear once the server returns task-level diagnostics.</p>
+              <div className="rounded-[14px] border border-dashed border-[var(--border)] bg-[var(--bg)] px-4 py-6 text-center">
+                <p className="m-0 text-[0.86rem] font-medium text-[var(--text-2)]">No task health diagnostics available.</p>
+                <p className="mt-1.5 mb-0 text-[0.78rem] text-[var(--text-3)]">
+                  Health cards appear once the server returns task-level observability for the current selection.
+                </p>
               </div>
             )}
           </div>
 
-        ) : activeTab === "rules" ? (
-          <div className="panel-tab-inner">
-            <RuleCoverageCard
-              rules={ruleCoverage}
-              selectedRuleId={selectedRuleId}
-              showRuleGapsOnly={showRuleGapsOnly}
-              unmatchedRuleEvents={unmatchedRuleEvents}
-              onSelectRule={(ruleId) => {
-                onSelectRule(selectedRuleId === ruleId ? null : ruleId);
-              }}
-              onToggleRuleGaps={onToggleRuleGaps}
-            />
-          </div>
-
         ) : activeTab === "tags" ? (
-          <div className="panel-tab-inner">
+          <div className="panel-tab-inner flex flex-col gap-5 p-4">
             <TagExplorerCard
               tags={tagInsights}
               selectedTag={selectedTag}
@@ -1605,18 +2240,47 @@ export function EventInspector({
           </div>
 
         ) : activeTab === "task" ? (
-          <div className="panel-tab-inner">
+          <div className="panel-tab-inner flex flex-col gap-5 p-4">
             <TaskExtractionCard
               extraction={taskExtraction}
               workspacePath={taskDetail?.task.workspacePath}
-              copiedState={copiedExtraction}
-              onCopyBrief={() => void handleCopyExtraction("brief")}
-              onCopyProcess={() => void handleCopyExtraction("process")}
             />
+            {taskExtraction.objective && (
+              <TaskHandoffPanel
+                objective={taskExtraction.objective}
+                summary={taskExtraction.summary}
+                plans={handoffPlans}
+                sections={taskExtraction.sections}
+                exploredFiles={handoffExploredFiles}
+                modifiedFiles={handoffModifiedFiles}
+                openTodos={handoffOpenTodos}
+                openQuestions={handoffOpenQuestions}
+                violations={handoffViolations}
+              />
+            )}
+          </div>
+
+        ) : activeTab === "evaluate" ? (
+          <div className="panel-tab-inner flex flex-col gap-5 p-4">
+            {taskDetail?.task.id
+              ? (
+                <TaskEvaluatePanel
+                  evaluation={taskEvaluation}
+                  isSaving={isSavingTaskEvaluation}
+                  isSaved={isSavedTaskEvaluation}
+                  onSave={saveTaskEvaluation}
+                />
+              )
+              : (
+                <div className="flex items-center justify-center py-8 text-[0.82rem] text-[var(--text-3)]">
+                  Select a task to evaluate it.
+                </div>
+              )
+            }
           </div>
 
         ) : activeTab === "compact" ? (
-          <div className="panel-tab-inner">
+          <div className="panel-tab-inner flex flex-col gap-5 p-4">
             <CompactActivityCard
               insight={compactInsight}
               selectedTag={selectedTag}
@@ -1624,13 +2288,32 @@ export function EventInspector({
             />
           </div>
 
+        ) : activeTab === "files" ? (
+          <div className="panel-tab-inner flex flex-col gap-5 p-4">
+            <DetailFileActivity
+              files={sortedFileActivity}
+              workspacePath={taskDetail?.task.workspacePath}
+              expanded={isFileActivityExpanded}
+              sortKey={fileSortKey}
+              onToggle={() => setIsFileActivityExpanded((current) => !current)}
+              onSortChange={setFileSortKey}
+            />
+          </div>
+
         ) : (
-          <div className="panel-tab-inner">
+          <div className="panel-tab-inner flex flex-col gap-5 p-4">
+            <ExplorationInsightCard insight={explorationInsight} />
             <DetailExploredFiles
-              files={exploredFiles}
+              files={sortedExploredFiles}
               workspacePath={taskDetail?.task.workspacePath}
               expanded={isExploredFilesExpanded}
+              sortKey={explorationSortKey}
               onToggle={() => setIsExploredFilesExpanded((current) => !current)}
+              onSortChange={setExplorationSortKey}
+            />
+            <MentionedFilesVerificationCard
+              verifications={mentionedVerifications}
+              workspacePath={taskDetail?.task.workspacePath}
             />
           </div>
         )}

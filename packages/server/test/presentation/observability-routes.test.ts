@@ -2,19 +2,18 @@ import type { Express } from "express";
 import request from "supertest";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { createMonitoringHttpServer } from "../../src/presentation/create-app.js";
+import { createMonitorRuntime } from "../../src/bootstrap/create-monitor-runtime.js";
 
 describe("observability routes", () => {
   let app: Express;
   let closeServer: () => void;
 
   beforeEach(() => {
-    const server = createMonitoringHttpServer({
-      databasePath: ":memory:",
-      rulesDir: "/nonexistent/rules"
+    const runtime = createMonitorRuntime({
+      databasePath: ":memory:"
     });
-    app = server.app;
-    closeServer = () => server.server.close();
+    app = runtime.app;
+    closeServer = () => runtime.close();
   });
 
   afterEach(() => closeServer());

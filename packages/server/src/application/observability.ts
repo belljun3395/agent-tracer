@@ -607,8 +607,6 @@ function phaseFromLane(lane: TimelineEvent["lane"]): ObservabilityPhase {
       return "exploration";
     case "implementation":
       return "implementation";
-    case "rules":
-      return "verification";
     case "coordination":
       return "coordination";
     case "background":
@@ -807,7 +805,7 @@ function countRuleGaps(timeline: readonly TimelineEvent[]): number {
       continue;
     }
 
-    if (!event.classification.matches.some((match) => match.source === "rules-index")) {
+    if (!event.classification.matches.some((match) => match.source === "action-registry")) {
       count += 1;
     }
   }

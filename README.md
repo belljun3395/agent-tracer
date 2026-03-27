@@ -1,21 +1,93 @@
 # Agent Tracer
 
-Claude Code, OpenCode, Codex 등 AI CLI 에이전트가 작업할 때의 행동을 실시간으로 추적하는 로컬 모니터링 대시보드.
+Claude Code, OpenCode, Codex 같은 AI CLI 에이전트가 작업할 때의 행동을
+실시간으로 추적하는 로컬 monitor server + dashboard 입니다.
 
-## 빠른 시작
+## 외부 프로젝트에 붙이기
+
+이 저장소의 1차 목표는 Agent Tracer를 **다른 프로젝트에 연결해서 쓰는 것**입니다.
+
+권장 방식:
+
+- Agent Tracer 코드를 외부 프로젝트에 복사하지 않습니다.
+- 이 저장소를 monitor server / MCP / hook / plugin source로 유지합니다.
+- 외부 프로젝트에는 설정 파일이나 shim만 생성합니다.
+
+시작 순서:
 
 ```bash
 npm install
 npm run build
-npm run dev        # 서버 + 대시보드 동시 실행
+npm run dev:server
 ```
 
-대시보드: http://127.0.0.1:5173
-서버: http://127.0.0.1:3847
+그 다음 외부 설치 허브 문서로 이동하세요:
 
-## 에이전트 통합
+- 외부 설치 허브: [docs/guide/external-setup.md](docs/guide/external-setup.md)
+- 배포된 최신 가이드: https://belljun3395.github.io/agent-tracer/guide/external-setup
+- 런타임 비교표: [docs/guide/llm-setup.md](docs/guide/llm-setup.md)
 
-→ `docs/guide/llm-setup.md` 참고
+> `npm run setup:external`은 현재 Claude Code, OpenCode, Codex의
+> repo-local 설정 파일 생성을 자동화합니다.
+> Codex의 전역 MCP 등록(`codex mcp add monitor ...`)은 여전히 수동입니다.
+
+## 이 저장소 자체를 실행해 보기
+
+```bash
+npm install
+npm run build
+npm run dev
+```
+
+- 대시보드: http://127.0.0.1:5173
+- 서버: http://127.0.0.1:3847
+
+## 가이드 맵
+
+| 목적 | 문서 |
+|------|------|
+| 외부 프로젝트 설치 시작점 | [docs/guide/external-setup.md](docs/guide/external-setup.md) |
+| 런타임별 추천 경로 비교 | [docs/guide/llm-setup.md](docs/guide/llm-setup.md) |
+| Claude Code 연결 | [docs/guide/claude-setup.md](docs/guide/claude-setup.md) |
+| OpenCode 연결 | [docs/guide/opencode-setup.md](docs/guide/opencode-setup.md) |
+| Codex 연결 | [docs/guide/codex-setup.md](docs/guide/codex-setup.md) |
+| 런타임 capability 상세 | [docs/guide/runtime-capabilities.md](docs/guide/runtime-capabilities.md) |
+| 코드베이스 위키 / 아키텍처 문서 | [docs/wiki/README.md](docs/wiki/README.md) |
+
+## 문서 사이트
+
+`docs/` 아래 Markdown을 페이지형 문서 사이트로 보려면 VitePress 엔트리를 사용할 수 있습니다.
+
+```bash
+npm run docs:dev
+```
+
+- 기본 주소: `http://127.0.0.1:5174`
+- 홈: `docs/index.md`
+- 가이드 섹션: `docs/guide/*`
+- 위키 섹션: `docs/wiki/*`
+
+### GitHub Pages 배포
+
+- 워크플로우: `.github/workflows/deploy-docs.yml`
+- 최초 1회 GitHub 저장소의 `Settings > Pages > Build and deployment > Source`에서 `GitHub Actions`를 선택해야 합니다.
+- 이후 `main` 브랜치에 문서 관련 변경이 푸시되면 GitHub Pages로 자동 배포됩니다.
+- 현재 저장소 기준 배포 주소는 `https://belljun3395.github.io/agent-tracer/` 입니다.
+
+### NPM 릴리스
+
+- 개별 패키지 배포:
+  - `npm run publish:core`
+  - `npm run publish:server`
+  - `npm run publish:mcp`
+  - `npm run publish:web`
+- 한 번에 배포: `npm run publish:all`
+- GitHub Actions 수동 실행:
+  - `.github/workflows/publish-packages.yml`에서 `Run workflow` 선택
+  - `dryRun`을 `true`로 두면 실제 업로드 없이 `--dry-run`으로 동작
+- 태그 릴리즈 배포:
+  - `v*` 형식의 태그(`v0.1.0` 등)를 push하면 자동으로 4개 패키지 publish job이 동작합니다.
+- `NPM_TOKEN` secret이 필수입니다 (`repository > Settings > Secrets and variables > Actions`).
 
 ## Thought-Flow Observability
 
@@ -33,5 +105,5 @@ npm run dev        # 서버 + 대시보드 동시 실행
 |--------|------|
 | `@monitor/core` | 타입, 규칙, 이벤트 분류 |
 | `@monitor/server` | Express + SQLite + WebSocket API |
-| `@monitor/mcp` | MCP stdio 서버 (14개 모니터링 도구) |
-| `@monitor/web` | React 19 대시보드 (Vite) |
+| `@monitor/mcp` | MCP stdio 서버 |
+| `@monitor/web` | React 19 대시보드 |

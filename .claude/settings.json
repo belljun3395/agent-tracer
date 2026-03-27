@@ -2,10 +2,11 @@
   "hooks": {
     "SessionStart": [
       {
+        "matcher": "startup|resume|clear|compact",
         "hooks": [
           {
             "type": "command",
-            "command": "[ -n \"$OPENCODE\" ] || [ -n \"$OPENCODE_CLIENT\" ] || cd \"$(git rev-parse --show-toplevel)\" && python3 .claude/hooks/session_start.py"
+            "command": "ROOT=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}\"; if [ ! -f \"$ROOT/.claude/hooks/session_start.ts\" ]; then SEARCH=\"$PWD\"; while [ \"$SEARCH\" != \"/\" ]; do if [ -f \"$SEARCH/.claude/hooks/session_start.ts\" ]; then ROOT=\"$SEARCH\"; break; fi; SEARCH=\"$(dirname \"$SEARCH\")\"; done; fi; if [ -f \"$ROOT/node_modules/tsx/dist/cli.mjs\" ]; then NODE_ENV=development node \"$ROOT/node_modules/tsx/dist/cli.mjs\" \"$ROOT/.claude/hooks/session_start.ts\"; else NODE_ENV=development npx --yes tsx \"$ROOT/.claude/hooks/session_start.ts\"; fi"
           }
         ]
       }
@@ -15,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "[ -n \"$OPENCODE\" ] || [ -n \"$OPENCODE_CLIENT\" ] || cd \"$(git rev-parse --show-toplevel)\" && python3 .claude/hooks/user_prompt.py"
+            "command": "ROOT=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}\"; if [ ! -f \"$ROOT/.claude/hooks/user_prompt.ts\" ]; then SEARCH=\"$PWD\"; while [ \"$SEARCH\" != \"/\" ]; do if [ -f \"$SEARCH/.claude/hooks/user_prompt.ts\" ]; then ROOT=\"$SEARCH\"; break; fi; SEARCH=\"$(dirname \"$SEARCH\")\"; done; fi; if [ -f \"$ROOT/node_modules/tsx/dist/cli.mjs\" ]; then NODE_ENV=development node \"$ROOT/node_modules/tsx/dist/cli.mjs\" \"$ROOT/.claude/hooks/user_prompt.ts\"; else NODE_ENV=development npx --yes tsx \"$ROOT/.claude/hooks/user_prompt.ts\"; fi"
           }
         ]
       }
@@ -25,7 +26,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "[ -n \"$OPENCODE\" ] || [ -n \"$OPENCODE_CLIENT\" ] || cd \"$(git rev-parse --show-toplevel)\" && python3 .claude/hooks/ensure_task.py"
+            "command": "ROOT=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}\"; if [ ! -f \"$ROOT/.claude/hooks/ensure_task.ts\" ]; then SEARCH=\"$PWD\"; while [ \"$SEARCH\" != \"/\" ]; do if [ -f \"$SEARCH/.claude/hooks/ensure_task.ts\" ]; then ROOT=\"$SEARCH\"; break; fi; SEARCH=\"$(dirname \"$SEARCH\")\"; done; fi; if [ -f \"$ROOT/node_modules/tsx/dist/cli.mjs\" ]; then NODE_ENV=development node \"$ROOT/node_modules/tsx/dist/cli.mjs\" \"$ROOT/.claude/hooks/ensure_task.ts\"; else NODE_ENV=development npx --yes tsx \"$ROOT/.claude/hooks/ensure_task.ts\"; fi"
           }
         ]
       }
@@ -36,7 +37,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "[ -n \"$OPENCODE\" ] || [ -n \"$OPENCODE_CLIENT\" ] || cd \"$(git rev-parse --show-toplevel)\" && python3 .claude/hooks/terminal.py"
+            "command": "ROOT=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}\"; if [ ! -f \"$ROOT/.claude/hooks/terminal.ts\" ]; then SEARCH=\"$PWD\"; while [ \"$SEARCH\" != \"/\" ]; do if [ -f \"$SEARCH/.claude/hooks/terminal.ts\" ]; then ROOT=\"$SEARCH\"; break; fi; SEARCH=\"$(dirname \"$SEARCH\")\"; done; fi; if [ -f \"$ROOT/node_modules/tsx/dist/cli.mjs\" ]; then NODE_ENV=development node \"$ROOT/node_modules/tsx/dist/cli.mjs\" \"$ROOT/.claude/hooks/terminal.ts\"; else NODE_ENV=development npx --yes tsx \"$ROOT/.claude/hooks/terminal.ts\"; fi"
           }
         ]
       },
@@ -45,16 +46,16 @@
         "hooks": [
           {
             "type": "command",
-            "command": "[ -n \"$OPENCODE\" ] || [ -n \"$OPENCODE_CLIENT\" ] || cd \"$(git rev-parse --show-toplevel)\" && python3 .claude/hooks/tool_used.py"
+            "command": "ROOT=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}\"; if [ ! -f \"$ROOT/.claude/hooks/tool_used.ts\" ]; then SEARCH=\"$PWD\"; while [ \"$SEARCH\" != \"/\" ]; do if [ -f \"$SEARCH/.claude/hooks/tool_used.ts\" ]; then ROOT=\"$SEARCH\"; break; fi; SEARCH=\"$(dirname \"$SEARCH\")\"; done; fi; if [ -f \"$ROOT/node_modules/tsx/dist/cli.mjs\" ]; then NODE_ENV=development node \"$ROOT/node_modules/tsx/dist/cli.mjs\" \"$ROOT/.claude/hooks/tool_used.ts\"; else NODE_ENV=development npx --yes tsx \"$ROOT/.claude/hooks/tool_used.ts\"; fi"
           }
         ]
       },
       {
-        "matcher": "Read|Glob|Grep|LS|WebSearch|WebFetch",
+        "matcher": "Read|Glob|Grep|WebSearch|WebFetch",
         "hooks": [
           {
             "type": "command",
-            "command": "[ -n \"$OPENCODE\" ] || [ -n \"$OPENCODE_CLIENT\" ] || cd \"$(git rev-parse --show-toplevel)\" && python3 .claude/hooks/explore.py"
+            "command": "ROOT=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}\"; if [ ! -f \"$ROOT/.claude/hooks/explore.ts\" ]; then SEARCH=\"$PWD\"; while [ \"$SEARCH\" != \"/\" ]; do if [ -f \"$SEARCH/.claude/hooks/explore.ts\" ]; then ROOT=\"$SEARCH\"; break; fi; SEARCH=\"$(dirname \"$SEARCH\")\"; done; fi; if [ -f \"$ROOT/node_modules/tsx/dist/cli.mjs\" ]; then NODE_ENV=development node \"$ROOT/node_modules/tsx/dist/cli.mjs\" \"$ROOT/.claude/hooks/explore.ts\"; else NODE_ENV=development npx --yes tsx \"$ROOT/.claude/hooks/explore.ts\"; fi"
           }
         ]
       },
@@ -63,7 +64,86 @@
         "hooks": [
           {
             "type": "command",
-            "command": "[ -n \"$OPENCODE\" ] || [ -n \"$OPENCODE_CLIENT\" ] || cd \"$(git rev-parse --show-toplevel)\" && python3 .claude/hooks/agent_activity.py"
+            "command": "ROOT=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}\"; if [ ! -f \"$ROOT/.claude/hooks/agent_activity.ts\" ]; then SEARCH=\"$PWD\"; while [ \"$SEARCH\" != \"/\" ]; do if [ -f \"$SEARCH/.claude/hooks/agent_activity.ts\" ]; then ROOT=\"$SEARCH\"; break; fi; SEARCH=\"$(dirname \"$SEARCH\")\"; done; fi; if [ -f \"$ROOT/node_modules/tsx/dist/cli.mjs\" ]; then NODE_ENV=development node \"$ROOT/node_modules/tsx/dist/cli.mjs\" \"$ROOT/.claude/hooks/agent_activity.ts\"; else NODE_ENV=development npx --yes tsx \"$ROOT/.claude/hooks/agent_activity.ts\"; fi"
+          }
+        ]
+      },
+      {
+        "matcher": "TaskCreate|TaskUpdate|TodoWrite",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ROOT=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}\"; if [ ! -f \"$ROOT/.claude/hooks/todo.ts\" ]; then SEARCH=\"$PWD\"; while [ \"$SEARCH\" != \"/\" ]; do if [ -f \"$SEARCH/.claude/hooks/todo.ts\" ]; then ROOT=\"$SEARCH\"; break; fi; SEARCH=\"$(dirname \"$SEARCH\")\"; done; fi; if [ -f \"$ROOT/node_modules/tsx/dist/cli.mjs\" ]; then NODE_ENV=development node \"$ROOT/node_modules/tsx/dist/cli.mjs\" \"$ROOT/.claude/hooks/todo.ts\"; else NODE_ENV=development npx --yes tsx \"$ROOT/.claude/hooks/todo.ts\"; fi"
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ROOT=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}\"; if [ ! -f \"$ROOT/.claude/hooks/tool_used.ts\" ]; then SEARCH=\"$PWD\"; while [ \"$SEARCH\" != \"/\" ]; do if [ -f \"$SEARCH/.claude/hooks/tool_used.ts\" ]; then ROOT=\"$SEARCH\"; break; fi; SEARCH=\"$(dirname \"$SEARCH\")\"; done; fi; if [ -f \"$ROOT/node_modules/tsx/dist/cli.mjs\" ]; then NODE_ENV=development node \"$ROOT/node_modules/tsx/dist/cli.mjs\" \"$ROOT/.claude/hooks/tool_used.ts\"; else NODE_ENV=development npx --yes tsx \"$ROOT/.claude/hooks/tool_used.ts\"; fi"
+          }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "matcher": "Bash|Edit|Write|Agent|Skill|TaskCreate|TaskUpdate|TodoWrite|mcp__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ROOT=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}\"; if [ ! -f \"$ROOT/.claude/hooks/tool_used.ts\" ]; then SEARCH=\"$PWD\"; while [ \"$SEARCH\" != \"/\" ]; do if [ -f \"$SEARCH/.claude/hooks/tool_used.ts\" ]; then ROOT=\"$SEARCH\"; break; fi; SEARCH=\"$(dirname \"$SEARCH\")\"; done; fi; if [ -f \"$ROOT/node_modules/tsx/dist/cli.mjs\" ]; then NODE_ENV=development node \"$ROOT/node_modules/tsx/dist/cli.mjs\" \"$ROOT/.claude/hooks/tool_used.ts\"; else NODE_ENV=development npx --yes tsx \"$ROOT/.claude/hooks/tool_used.ts\"; fi"
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ROOT=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}\"; if [ ! -f \"$ROOT/.claude/hooks/subagent_lifecycle.ts\" ]; then SEARCH=\"$PWD\"; while [ \"$SEARCH\" != \"/\" ]; do if [ -f \"$SEARCH/.claude/hooks/subagent_lifecycle.ts\" ]; then ROOT=\"$SEARCH\"; break; fi; SEARCH=\"$(dirname \"$SEARCH\")\"; done; fi; if [ -f \"$ROOT/node_modules/tsx/dist/cli.mjs\" ]; then NODE_ENV=development node \"$ROOT/node_modules/tsx/dist/cli.mjs\" \"$ROOT/.claude/hooks/subagent_lifecycle.ts\"; else NODE_ENV=development npx --yes tsx \"$ROOT/.claude/hooks/subagent_lifecycle.ts\"; fi"
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ROOT=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}\"; if [ ! -f \"$ROOT/.claude/hooks/subagent_lifecycle.ts\" ]; then SEARCH=\"$PWD\"; while [ \"$SEARCH\" != \"/\" ]; do if [ -f \"$SEARCH/.claude/hooks/subagent_lifecycle.ts\" ]; then ROOT=\"$SEARCH\"; break; fi; SEARCH=\"$(dirname \"$SEARCH\")\"; done; fi; if [ -f \"$ROOT/node_modules/tsx/dist/cli.mjs\" ]; then NODE_ENV=development node \"$ROOT/node_modules/tsx/dist/cli.mjs\" \"$ROOT/.claude/hooks/subagent_lifecycle.ts\"; else NODE_ENV=development npx --yes tsx \"$ROOT/.claude/hooks/subagent_lifecycle.ts\"; fi"
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ROOT=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}\"; if [ ! -f \"$ROOT/.claude/hooks/compact.ts\" ]; then SEARCH=\"$PWD\"; while [ \"$SEARCH\" != \"/\" ]; do if [ -f \"$SEARCH/.claude/hooks/compact.ts\" ]; then ROOT=\"$SEARCH\"; break; fi; SEARCH=\"$(dirname \"$SEARCH\")\"; done; fi; if [ -f \"$ROOT/node_modules/tsx/dist/cli.mjs\" ]; then NODE_ENV=development node \"$ROOT/node_modules/tsx/dist/cli.mjs\" \"$ROOT/.claude/hooks/compact.ts\"; else NODE_ENV=development npx --yes tsx \"$ROOT/.claude/hooks/compact.ts\"; fi"
+          }
+        ]
+      }
+    ],
+    "PostCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ROOT=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}\"; if [ ! -f \"$ROOT/.claude/hooks/compact.ts\" ]; then SEARCH=\"$PWD\"; while [ \"$SEARCH\" != \"/\" ]; do if [ -f \"$SEARCH/.claude/hooks/compact.ts\" ]; then ROOT=\"$SEARCH\"; break; fi; SEARCH=\"$(dirname \"$SEARCH\")\"; done; fi; if [ -f \"$ROOT/node_modules/tsx/dist/cli.mjs\" ]; then NODE_ENV=development node \"$ROOT/node_modules/tsx/dist/cli.mjs\" \"$ROOT/.claude/hooks/compact.ts\"; else NODE_ENV=development npx --yes tsx \"$ROOT/.claude/hooks/compact.ts\"; fi"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ROOT=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}\"; if [ ! -f \"$ROOT/.claude/hooks/session_end.ts\" ]; then SEARCH=\"$PWD\"; while [ \"$SEARCH\" != \"/\" ]; do if [ -f \"$SEARCH/.claude/hooks/session_end.ts\" ]; then ROOT=\"$SEARCH\"; break; fi; SEARCH=\"$(dirname \"$SEARCH\")\"; done; fi; if [ -f \"$ROOT/node_modules/tsx/dist/cli.mjs\" ]; then NODE_ENV=development node \"$ROOT/node_modules/tsx/dist/cli.mjs\" \"$ROOT/.claude/hooks/session_end.ts\"; else NODE_ENV=development npx --yes tsx \"$ROOT/.claude/hooks/session_end.ts\"; fi"
           }
         ]
       }
@@ -73,7 +153,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "[ -n \"$OPENCODE\" ] || [ -n \"$OPENCODE_CLIENT\" ] || cd \"$(git rev-parse --show-toplevel)\" && python3 .claude/hooks/session_stop.py"
+            "command": "ROOT=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}\"; if [ ! -f \"$ROOT/.claude/hooks/stop.ts\" ]; then SEARCH=\"$PWD\"; while [ \"$SEARCH\" != \"/\" ]; do if [ -f \"$SEARCH/.claude/hooks/stop.ts\" ]; then ROOT=\"$SEARCH\"; break; fi; SEARCH=\"$(dirname \"$SEARCH\")\"; done; fi; if [ -f \"$ROOT/node_modules/tsx/dist/cli.mjs\" ]; then NODE_ENV=development node \"$ROOT/node_modules/tsx/dist/cli.mjs\" \"$ROOT/.claude/hooks/stop.ts\"; else NODE_ENV=development npx --yes tsx \"$ROOT/.claude/hooks/stop.ts\"; fi"
           }
         ]
       }
