@@ -98,7 +98,61 @@ The `codex-monitor` skill:
 If `monitor-server` is unavailable, the skill policy is to keep working and
 emit a gap report at the end instead of stopping the task.
 
-## 6. End-To-End Check
+## 6. Hooks-Based Integration (Automatic Tracking)
+
+Codex 0.x supports a native hook system that fires shell scripts at lifecycle
+events. Agent Tracer ships `.codex/hooks.json` + hook scripts that use this
+system to track sessions, prompts, terminal commands, and turn completion
+without requiring the MCP skill to be invoked manually.
+
+### Prerequisites
+
+Enable the feature flag in `~/.codex/config.toml` or `<repo>/.codex/config.toml`:
+
+```toml
+[features]
+codex_hooks = true
+```
+
+The repo-local `.codex/config.toml` is already committed in this repository.
+
+### What Each Hook Does
+
+| Event | Hook file | What it records |
+|-------|-----------|-----------------|
+| `SessionStart` (startup/resume) | `session_start.ts` | Opens a runtime session, saves a planning event |
+| `UserPromptSubmit` | `user_prompt.ts` | Captures the user prompt as `user.message` |
+| `PreToolUse` | `pre_tool.ts` | Ensures a runtime session/task exists |
+| `PostToolUse` (Bash) | `terminal.ts` | Records the shell command with lane/semantic metadata |
+| `Stop` | `stop.ts` | Marks the task complete when the turn ends |
+
+### Hook Runner
+
+All hooks run via `tsx` (already in `node_modules`):
+
+```bash
+node "node_modules/tsx/dist/cli.mjs" ".codex/hooks/<hook>.ts"
+```
+
+The `MONITOR_PORT` environment variable controls which server port is targeted
+(default: `3847`).
+
+Debug logs are written to `.codex/hooks.log` when `NODE_ENV=development`.
+
+### Hooks vs MCP Skill
+
+| | Hooks | MCP Skill |
+|-|-------|-----------|
+| Setup | Automatic once `codex_hooks = true` | Must be registered via `codex mcp add` |
+| Exploration/planning events | Not captured | Captured via explicit skill calls |
+| Terminal commands | Captured automatically (PostToolUse) | Via `monitor_terminal_command` |
+| Assistant response text | Not captured (Codex doesn't expose it in Stop) | Via `monitor_assistant_response` |
+| Recommended for | Passive background monitoring | Full-fidelity tracing |
+
+For full-fidelity tracing, use both: hooks provide automatic low-level events
+while the MCP skill adds semantic context (thoughts, plans, exploration).
+
+## 7. End-To-End Check
 
 1. Start the monitor server.
 2. Confirm `monitor` is registered in `codex mcp list`.
