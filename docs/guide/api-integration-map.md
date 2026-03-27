@@ -10,6 +10,7 @@
 관련 파일:
 - `.claude/hooks/` — Claude Code 훅 구현체
 - `.opencode/plugins/monitor.ts` — OpenCode 플러그인 구현체
+- `.codex/hooks/` — Codex 훅 구현체 (`Stop`에서 transcript backfill 포함)
 
 ---
 
@@ -112,6 +113,11 @@
 | `/api/action` | ❌ | ❌ (MCP 수동) |
 | `/api/verify` | ❌ | ❌ (MCP 수동) |
 | `/api/rule` | ❌ | ❌ (MCP 수동) |
+
+Codex 참고:
+- Hook 경로는 `runtime-session-ensure/end`, `user-message`, `save-context`, `terminal-command`를 기본 제공한다.
+- `Stop` 훅은 transcript 기반으로 `web_search_end -> /api/explore`, `apply_patch -> /api/tool-used`를 backfill한다.
+- `assistant.response`/고수준 planning 추적은 skill(MCP) 경로를 함께 쓰는 것이 권장된다.
 
 ---
 

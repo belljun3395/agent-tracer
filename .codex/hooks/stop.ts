@@ -19,6 +19,7 @@ import {
     setProjectDir,
     toTrimmedString
 } from "./common.js";
+import { backfillTurnEventsFromTranscript } from "./transcript_backfill.js";
 
 async function main(): Promise<void> {
     const payload = await readStdinJson();
@@ -34,6 +35,8 @@ async function main(): Promise<void> {
     }
 
     const ids = await ensureRuntimeSession(sessionId);
+
+    await backfillTurnEventsFromTranscript(payload, ids);
 
     // Mark the task complete for this turn.
     await postJson("/api/runtime-session-end", {
