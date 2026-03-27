@@ -18,9 +18,23 @@ Still manual:
 
 - global Codex MCP registration on the machine that runs Codex
 - restarting the Codex thread after new repo instructions are written
-- wiring `.codex/hooks.json` + `.codex/hooks/*.ts` in external target repositories
 
-## 2. Register The MCP Server
+## 2. What `setup:external --mode codex` Automates
+
+The script:
+
+- creates or updates the managed Agent Tracer block in `target-project/AGENTS.md`
+- writes `target-project/.agents/skills/codex-monitor/SKILL.md`
+- writes or merges `target-project/.codex/config.toml` with `codex_hooks = true`
+- writes or merges `target-project/.codex/hooks.json`
+- vendors `.codex/hooks/*.ts` and `.codex/tsconfig.json` into `target-project/.agent-tracer/.codex/`
+
+The script does **not**:
+
+- register the Codex MCP server for you
+- force an already-open Codex thread to reload changed repo instructions
+
+## 3. Register The MCP Server
 
 ```bash
 codex mcp add monitor \
@@ -39,7 +53,7 @@ codex mcp list
 
 Expected result: `monitor` is listed.
 
-## 3. External Project Path
+## 4. External Project Path
 
 최신 공식 안내: https://belljun3395.github.io/agent-tracer/guide/external-setup
 
@@ -54,9 +68,8 @@ This writes two Codex-facing pieces into the target repository:
 1. a managed Agent Tracer block in `AGENTS.md`
 2. `.agents/skills/codex-monitor/SKILL.md`
 
-`setup:external --mode codex` currently installs the Codex skill path only.
-It does **not** vendor `.codex/hooks.json` or `.codex/hooks/*.ts` into the target
-repository yet.
+`setup:external --mode codex` installs the Codex skill path and the Codex hook
+bundle for the target repository.
 
 If `AGENTS.md` already exists, the installer updates only the managed
 `agent-tracer codex-monitor` block and leaves the rest of the file intact.
@@ -66,14 +79,17 @@ After that:
 1. register the `monitor` MCP server
 2. restart the Codex thread opened in the target repository
 3. ask Codex to do a small task so the skill gets loaded
+4. if you want hook-based tracking as well, reopen Codex in the target repo so
+   the generated `.codex/config.toml` + `.codex/hooks.json` take effect
 
-## 4. Repo-local Path In This Repository
+## 5. Repo-local Path In This Repository
 
 The current recommended Codex path in this repository is:
 
 1. register the `monitor` MCP server
 2. let Codex use the repo-local `codex-monitor` skill exposed through `AGENTS.md`
 3. rely on the generated native discovery path under `.agents/skills`
+4. use hooks only as optional low-level background monitoring, not as the source of truth for assistant answers
 
 Source and generated skill files:
 
@@ -89,7 +105,7 @@ node scripts/sync-skill-projections.mjs
 If automatic skill triggering does not happen, invoke it explicitly in the
 prompt with `$codex-monitor`.
 
-## 5. What The Codex Skill Does
+## 6. What The Codex Skill Does
 
 The `codex-monitor` skill:
 
@@ -104,15 +120,45 @@ The `codex-monitor` skill:
 If `monitor-server` is unavailable, the skill policy is to keep working and
 emit a gap report at the end instead of stopping the task.
 
-## 6. Hooks-Based Integration (Automatic Tracking)
+### Assistant Response Capture
+
+For Codex, `monitor_assistant_response` is the canonical path for final answer
+text. The native `Stop` hook payload does not expose the final assistant
+message body, so hooks alone cannot produce `assistant.response` with full text.
+
+That means:
+
+- if you need `assistant.response` events, use `codex-monitor`
+- if you use hooks only, you will still see `user.message`, shell activity, and transcript backfill, but not final answer text
+- if you use both hooks and the skill, expect richer coverage but separate task lineages today (`codex-hook` vs `codex-skill`)
+
+### Recommended Operating Modes
+
+| Mode | What you get | What you miss | Recommended use |
+|------|---------------|---------------|-----------------|
+| Hooks only | automatic `user.message`, Bash, transcript backfill (`web_search_end`, `apply_patch`) | no `assistant.response`, weaker planning context | passive low-noise background tracing |
+| Skill only | thread/topic task reuse, `assistant.response`, planning/context, explicit semantic events | no automatic Bash/transcript observation unless the skill records it | primary Codex tracing path |
+| Hooks + skill | low-level automatic events plus semantic skill events | currently separate runtime lineages (`codex-hook`, `codex-skill`) | deep debugging when duplicate task rows are acceptable |
+
+### Canonical Skill Sequence Per Turn
+
+1. `monitor_runtime_session_ensure`
+2. `monitor_user_message`
+3. `monitor_explore` / `monitor_save_context` / `monitor_plan`
+4. `monitor_terminal_command` / `monitor_tool_used` / `monitor_verify`
+5. `monitor_assistant_response`
+6. `monitor_runtime_session_end`
+
+## 7. Hooks-Based Integration (Automatic Tracking)
 
 Codex 0.x supports a native hook system that fires shell scripts at lifecycle
 events. This repository includes `.codex/hooks.json` + hook scripts that track
 sessions, prompts, terminal commands, and turn completion without requiring the
 MCP skill to be invoked manually.
 
-For external projects, this hook bundle is currently wired manually; it is not
-generated by `setup:external --mode codex` yet.
+For external projects, `setup:external --mode codex` now vendors the hook
+bundle into `.agent-tracer/.codex` and writes repo-local `.codex/config.toml`
+plus `.codex/hooks.json` wrappers in the target repository.
 
 ### Prerequisites
 
@@ -138,20 +184,20 @@ The repo-local `.codex/config.toml` is already committed in this repository
 
 ### Hook Runner
 
-All hooks run via `tsx`:
+All hooks resolve the repository root first. They prefer `git rev-parse --show-toplevel`,
+fall back to the current directory when Git metadata is unavailable, and then
+walk upward from `PWD` if needed to find the hook files.
+
+Execution then uses local `node_modules/tsx` when present, otherwise `npx --yes tsx`:
 
 ```bash
-node "node_modules/tsx/dist/cli.mjs" ".codex/hooks/<hook>.ts"
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+if [ -f "$ROOT/node_modules/tsx/dist/cli.mjs" ]; then
+  node "$ROOT/node_modules/tsx/dist/cli.mjs" "$ROOT/.codex/hooks/<hook>.ts"
+else
+  npx --yes tsx "$ROOT/.codex/hooks/<hook>.ts"
+fi
 ```
-
-In this repository, `tsx` exists under `node_modules` after `npm install`.
-In an external project, if local `node_modules/tsx` is missing, use either:
-
-```bash
-npx --yes tsx ".codex/hooks/<hook>.ts"
-```
-
-or an absolute `tsx` path in your hook command wrapper.
 
 The `MONITOR_PORT` environment variable controls which server port is targeted
 (default: `3847`).
@@ -168,12 +214,45 @@ Debug logs are written to `.codex/hooks.log` when `NODE_ENV=development`.
 | Terminal commands | Captured automatically (PostToolUse) | Via `monitor_terminal_command` |
 | Assistant response text | Not captured (Codex doesn't expose it in Stop) | Via `monitor_assistant_response` |
 | Task lifecycle default | Current `stop.ts` marks task complete per turn | Keeps one task across turns until explicitly completed |
+| Runtime source | `codex-hook` | `codex-skill` |
 | Recommended for | Passive background monitoring | Full-fidelity tracing |
 
-For full-fidelity tracing, use both: hooks provide automatic low-level events
-while the MCP skill adds semantic context (thoughts, plans, exploration).
+If assistant response text matters, prefer the skill as the primary path even
+when hooks are enabled.
 
-## 7. End-To-End Check
+## 8. Manual MCP Tools
+
+If hooks are not enough, or if you want assistant response text preserved, the
+Codex skill path should use these MCP tools directly.
+
+Common lifecycle tools:
+
+- `monitor_runtime_session_ensure`
+- `monitor_runtime_session_end`
+- `monitor_task_complete`
+- `monitor_task_error`
+
+Canonical conversation-boundary tools:
+
+- `monitor_user_message`
+  - use `captureMode: "raw"` and keep `messageId` stable per user turn
+- `monitor_assistant_response`
+  - use this immediately before the final user-facing answer
+  - this is the only Codex path that records final answer text as `assistant.response`
+
+Common semantic logging tools:
+
+- `monitor_explore`
+- `monitor_save_context`
+- `monitor_plan`
+- `monitor_action`
+- `monitor_terminal_command`
+- `monitor_tool_used`
+- `monitor_verify`
+- `monitor_async_task`
+- `monitor_task_link`
+
+## 9. End-To-End Check
 
 1. Start the monitor server.
 2. Confirm `monitor` is registered in `codex mcp list`.
@@ -182,4 +261,5 @@ while the MCP skill adds semantic context (thoughts, plans, exploration).
 5. Ask Codex to do a small task in the repo.
 6. Continue with a follow-up prompt in the same Codex thread.
 7. If you are using hooks only, confirm `codex-hook` tasks are created and that `user.message` + terminal command + `explore` (`web_search`) + `tool.used` (`apply_patch`) events arrive.
-8. If you are using the MCP skill as well, confirm the same task is reused across turns and receives `assistant.response` events.
+8. If you are using the MCP skill, confirm the same `codex-skill` task is reused across turns and receives `assistant.response` events.
+9. If you are using both, confirm the expected split: low-level hook events under `codex-hook`, final answer text and semantic events under `codex-skill`.

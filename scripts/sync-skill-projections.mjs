@@ -3,8 +3,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-const banner = "<!-- GENERATED FILE: edit skills/... source, then run node scripts/sync-skill-projections.mjs -->\n\n";
-
 const projections = [
   {
     source: "skills/codex-monitor/SKILL.md",
@@ -34,7 +32,7 @@ async function syncProjection(projection, check) {
   const sourcePath = resolveRepoPath(projection.source);
   const targetPath = resolveRepoPath(projection.target);
   const sourceContent = await readFile(sourcePath, "utf8");
-  const nextContent = `${banner}${sourceContent}`;
+  const nextContent = sourceContent;
 
   let currentContent = "";
   try {

@@ -21,7 +21,7 @@
 | Claude Code | 예 (`--mode claude`) | Claude MCP 서버 등록 | [claude-setup.md](./claude-setup.md) |
 | OpenCode | 예 (`--mode opencode`) | 보통 없음. 필요 시 수동 MCP 확인 | [opencode-setup.md](./opencode-setup.md) |
 | Claude + OpenCode | 예 (`--mode both`) | Claude MCP 서버 등록 | [claude-setup.md](./claude-setup.md), [opencode-setup.md](./opencode-setup.md) |
-| Codex | 예 (`--mode codex`) | Codex MCP 서버 등록 + 새 스레드 시작 (+ hooks 사용 시 `.codex/hooks*` 수동 배치) | [codex-setup.md](./codex-setup.md) |
+| Codex | 예 (`--mode codex`) | Codex MCP 서버 등록 + 새 스레드 시작 | [codex-setup.md](./codex-setup.md) |
 
 > `setup:external`은 현재 **Claude Code, OpenCode, Codex**의
 > repo-local 통합 파일 생성을 자동화합니다.
@@ -102,7 +102,7 @@ npm run setup:external -- \
 - `--mode claude`
   - 외부 프로젝트의 `.claude/settings.json`을 생성하거나 병합합니다.
   - `.agent-tracer/.claude/hooks/*.ts`를 받아 저장합니다.
-  - hook command는 `$CLAUDE_PROJECT_DIR/.agent-tracer/.claude/hooks/*.ts`를 참조합니다.
+  - hook command는 `$CLAUDE_PROJECT_DIR`를 우선 사용하고, 없으면 git root 및 상위 디렉터리 탐색으로 `.agent-tracer/.claude/hooks/*.ts`를 찾습니다.
   - hook 실행은 `npx --yes tsx`를 사용합니다.
 - `--mode opencode`
   - 외부 프로젝트의 `opencode.json`에 `monitor` MCP 설정을 추가합니다.
@@ -114,8 +114,11 @@ npm run setup:external -- \
 - `--mode codex`
   - 외부 프로젝트의 `AGENTS.md`에 Agent Tracer 관리 블록을 생성하거나 갱신합니다.
   - 외부 프로젝트의 `.agents/skills/codex-monitor/SKILL.md`를 생성합니다.
-  - skill source는 실행 중인 로컬 저장소의 `skills/codex-monitor/SKILL.md`입니다.
-  - 현재 `.codex/hooks.json`, `.codex/hooks/*.ts`는 자동 생성/복사하지 않습니다.
+  - skill source와 Codex hook bundle source는 실행 중인 로컬 저장소의 `skills/codex-monitor/SKILL.md`, `.codex/*` 입니다.
+  - 외부 프로젝트의 `.codex/config.toml`에 `codex_hooks = true`를 설정합니다.
+  - 외부 프로젝트의 `.codex/hooks.json`을 생성하거나 병합합니다.
+  - `.agent-tracer/.codex/hooks/*.ts`와 `.agent-tracer/.codex/tsconfig.json`을 vendor 하고, `.codex/hooks.json`은 git root 우선, 상위 디렉터리 탐색 fallback 방식으로 그 경로를 참조합니다.
+  - hook 실행은 `npx --yes tsx`를 사용합니다.
 
 원하면 `--source-repo`, `--source-ref`로 원격 소스를 바꿀 수 있고,
 테스트/오프라인 환경에서는 `--source-root /local/agent-tracer`로 로컬 소스를 쓸 수 있습니다.
@@ -129,7 +132,7 @@ npm run setup:external -- \
 - Codex: [codex-setup.md](./codex-setup.md)
   - `setup:external --mode codex` 이후에도 `codex mcp add monitor ...`는 직접 실행해야 합니다.
   - 새 `AGENTS.md` / `.agents/skills`를 읽도록 Codex 스레드를 다시 시작해야 합니다.
-  - hook 기반 추적을 쓰려면 `.codex/config.toml` (`codex_hooks = true`)과 `.codex/hooks*`를 별도로 배치해야 합니다.
+  - hook 기반 추적까지 쓰려면 Codex를 target repo에서 다시 열어 새 `.codex/config.toml` / `.codex/hooks.json`을 읽게 해야 합니다.
 
 ## 6. 자주 막히는 지점
 

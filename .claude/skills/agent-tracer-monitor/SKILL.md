@@ -1,5 +1,3 @@
-<!-- GENERATED FILE: edit skills/... source, then run node scripts/sync-skill-projections.mjs -->
-
 ---
 name: monitor
 description: Agent Tracer 모니터링. Claude Code·OpenCode 자동화 환경과 Cursor·Windsurf 등 MCP 지원 환경 전반에서 사용. 훅/플러그인 없는 환경에서는 전체 이벤트 수동 기록.

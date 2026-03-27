@@ -26,6 +26,7 @@ runtime capability registry는 "각 런타임이 무엇을 관찰할 수 있고,
 
 - Claude hook은 raw prompt와 tool use를 자동으로 볼 수 있다.
 - Codex는 skill + MCP 조합이라 자동 hook 수준 관찰은 없다.
+- Codex의 final `assistant.response` 본문은 `codex-skill`이 `monitor_assistant_response`로 남기는 경로가 캐노니컬이다.
 - OpenCode는 plugin hook과 typed event callback을 통해 assistant-side signal을 비교적 풍부하게 다룰 수 있다.
 
 이 차이를 capability registry로 명시해 두면,
