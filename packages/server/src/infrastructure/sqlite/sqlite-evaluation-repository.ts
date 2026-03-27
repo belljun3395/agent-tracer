@@ -124,7 +124,7 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
         .get({ taskId: evaluation.taskId })?.title ?? "";
 
       const text = buildEmbeddingText(evaluation, events, title);
-      const vector = await this.embeddingService!.embed(text, "document");
+      const vector = await this.embeddingService!.embed(text);
 
       this.db.prepare(`
         update task_evaluations set embedding = @embedding, embedding_model = @model
@@ -223,7 +223,7 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
 
     if (rows.length === 0) return [];
 
-    const queryVector = await this.embeddingService!.embed(query, "query");
+    const queryVector = await this.embeddingService!.embed(query);
 
     const scored = rows
       .map((row) => ({
@@ -332,5 +332,5 @@ function buildEmbeddingText(
     evaluation.outcomeNote ?? "",
     buildWorkflowContext(events, title),
   ];
-  return parts.filter(Boolean).join("\n").slice(0, 4000); // Voyage 토큰 제한 고려
+  return parts.filter(Boolean).join("\n").slice(0, 2000); // MiniLM 256 word-piece 제한 고려
 }

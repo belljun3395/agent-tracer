@@ -29,11 +29,10 @@ export interface MonitorRuntime {
 
 export function createMonitorRuntime(options: RuntimeOptions): MonitorRuntime {
   const broadcaster = new EventBroadcaster();
-  const embeddingService = createEmbeddingService();
   const ports = createSqliteMonitorPorts({
     ...options,
     notifier: broadcaster,
-    ...(embeddingService ? { embeddingService } : {}),
+    embeddingService: createEmbeddingService(),
   });
   const service = new MonitorService(ports);
   const app = createApp(service);

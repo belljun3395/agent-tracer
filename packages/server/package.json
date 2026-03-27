@@ -15,6 +15,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@huggingface/transformers": "^3.8.1",
     "@monitor/core": "*",
     "@opentelemetry/api": "^1.9.0",
     "@opentelemetry/exporter-prometheus": "^0.57.0",
@@ -28,9 +29,9 @@
     "@types/better-sqlite3": "^7.6.0",
     "@types/express": "^5.0.0",
     "@types/node": "^22.0.0",
+    "@types/supertest": "^6.0.0",
     "@types/ws": "^8.0.0",
     "supertest": "^7.0.0",
-    "@types/supertest": "^6.0.0",
     "tsup": "^8.0.0",
     "vitest": "^3.0.0"
   }
