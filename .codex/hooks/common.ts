@@ -222,6 +222,157 @@ export function inferCommandSemantic(command: string): CommandSemantic {
     };
 }
 
+export function inferExploreSemantic(toolName: string, toolInput: JsonObject): SemanticMetadata {
+    const normalized = toolName.trim().toLowerCase();
+    const filePath = extractToolFilePath(toolInput);
+    const entityName = filePath ? relativeProjectPath(filePath) : undefined;
+
+    if (normalized === "read" || normalized.includes("view") || normalized.includes("open")) {
+        return {
+            subtypeKey: "read_file",
+            subtypeLabel: "Read file",
+            subtypeGroup: "files",
+            toolFamily: "explore",
+            operation: "read",
+            entityType: "file",
+            ...(entityName ? { entityName } : {}),
+            sourceTool: toolName
+        };
+    }
+
+    if (normalized.includes("glob")) {
+        return {
+            subtypeKey: "glob_files",
+            subtypeLabel: "Glob files",
+            subtypeGroup: "search",
+            toolFamily: "explore",
+            operation: "search",
+            entityType: "file",
+            ...(entityName ? { entityName } : {}),
+            sourceTool: toolName
+        };
+    }
+
+    if (normalized.includes("grep")) {
+        return {
+            subtypeKey: "grep_code",
+            subtypeLabel: "Grep code",
+            subtypeGroup: "search",
+            toolFamily: "explore",
+            operation: "search",
+            entityType: "file",
+            ...(entityName ? { entityName } : {}),
+            sourceTool: toolName
+        };
+    }
+
+    if (normalized.includes("webfetch") || normalized.includes("open_page")) {
+        return {
+            subtypeKey: "web_fetch",
+            subtypeLabel: "Web fetch",
+            subtypeGroup: "web",
+            toolFamily: "explore",
+            operation: "fetch",
+            entityType: "url",
+            entityName: toTrimmedString(toolInput.url) || toTrimmedString(toolInput.query),
+            sourceTool: toolName
+        };
+    }
+
+    if (normalized.includes("websearch") || normalized.includes("search") || normalized.includes("find_in_page")) {
+        return {
+            subtypeKey: "web_search",
+            subtypeLabel: "Web search",
+            subtypeGroup: "web",
+            toolFamily: "explore",
+            operation: "search",
+            entityType: "query",
+            entityName: toTrimmedString(toolInput.query),
+            sourceTool: toolName
+        };
+    }
+
+    return {
+        subtypeKey: "list_files",
+        subtypeLabel: "List files",
+        subtypeGroup: "search",
+        toolFamily: "explore",
+        operation: "list",
+        entityType: "file",
+        ...(entityName ? { entityName } : {}),
+        sourceTool: toolName
+    };
+}
+
+export function inferFileToolSemantic(toolName: string, toolInput: JsonObject): SemanticMetadata {
+    const normalized = toolName.trim().toLowerCase();
+    const filePath = extractToolFilePath(toolInput);
+    const entityName = filePath ? relativeProjectPath(filePath) : undefined;
+
+    if (normalized.includes("patch")) {
+        return {
+            subtypeKey: "apply_patch",
+            subtypeLabel: "Apply patch",
+            subtypeGroup: "file_ops",
+            toolFamily: "file",
+            operation: "patch",
+            entityType: "file",
+            ...(entityName ? { entityName } : {}),
+            sourceTool: toolName
+        };
+    }
+
+    if (normalized.includes("rename") || normalized.includes("move")) {
+        return {
+            subtypeKey: "rename_file",
+            subtypeLabel: "Rename file",
+            subtypeGroup: "file_ops",
+            toolFamily: "file",
+            operation: "rename",
+            entityType: "file",
+            ...(entityName ? { entityName } : {}),
+            sourceTool: toolName
+        };
+    }
+
+    if (normalized.includes("delete") || normalized.includes("remove")) {
+        return {
+            subtypeKey: "delete_file",
+            subtypeLabel: "Delete file",
+            subtypeGroup: "file_ops",
+            toolFamily: "file",
+            operation: "delete",
+            entityType: "file",
+            ...(entityName ? { entityName } : {}),
+            sourceTool: toolName
+        };
+    }
+
+    if (normalized.includes("write") || normalized.includes("create")) {
+        return {
+            subtypeKey: "create_file",
+            subtypeLabel: "Create file",
+            subtypeGroup: "file_ops",
+            toolFamily: "file",
+            operation: "create",
+            entityType: "file",
+            ...(entityName ? { entityName } : {}),
+            sourceTool: toolName
+        };
+    }
+
+    return {
+        subtypeKey: "modify_file",
+        subtypeLabel: "Modify file",
+        subtypeGroup: "file_ops",
+        toolFamily: "file",
+        operation: "modify",
+        entityType: "file",
+        ...(entityName ? { entityName } : {}),
+        sourceTool: toolName
+    };
+}
+
 export function ellipsize(value: string, maxLength: number): string {
     if (value.length <= maxLength) return value;
     return `${value.slice(0, Math.max(0, maxLength - 1))}…`;
@@ -280,6 +431,12 @@ export function hookLogPayload(hookName: string, payload: JsonObject): void {
 function firstCommandToken(command: string): string {
     const [first = ""] = command.trim().split(/\s+/, 1);
     return first.replace(/^['"]+|['"]+$/g, "");
+}
+
+function extractToolFilePath(toolInput: JsonObject): string {
+    return toTrimmedString(toolInput.file_path)
+        || toTrimmedString(toolInput.path)
+        || toTrimmedString(toolInput.pattern);
 }
 
 function humanizeSubtypeKey(value: string): string {

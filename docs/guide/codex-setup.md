@@ -134,7 +134,7 @@ The repo-local `.codex/config.toml` is already committed in this repository
 | `UserPromptSubmit` | `user_prompt.ts` | Captures the user prompt as `user.message` |
 | `PreToolUse` | `pre_tool.ts` | Ensures a runtime session/task exists |
 | `PostToolUse` (Bash) | `terminal.ts` | Records the shell command with lane/semantic metadata |
-| `Stop` | `stop.ts` | Marks the task complete when the turn ends |
+| `Stop` | `stop.ts` | Backfills current-turn transcript events (`web_search_end`, `apply_patch`) and marks the task complete |
 
 ### Hook Runner
 
@@ -163,7 +163,8 @@ Debug logs are written to `.codex/hooks.log` when `NODE_ENV=development`.
 | | Hooks | MCP Skill |
 |-|-------|-----------|
 | Setup | Automatic once `codex_hooks = true` | Must be registered via `codex mcp add` |
-| Exploration/planning events | Not captured | Captured via explicit skill calls |
+| Exploration/planning events | Partially captured (`SessionStart`, transcript `web_search_end`) | Captured via explicit skill calls |
+| File edits (`apply_patch`) | Captured from transcript on `Stop` | Captured via `monitor_tool_used` |
 | Terminal commands | Captured automatically (PostToolUse) | Via `monitor_terminal_command` |
 | Assistant response text | Not captured (Codex doesn't expose it in Stop) | Via `monitor_assistant_response` |
 | Task lifecycle default | Current `stop.ts` marks task complete per turn | Keeps one task across turns until explicitly completed |
@@ -180,5 +181,5 @@ while the MCP skill adds semantic context (thoughts, plans, exploration).
 4. Otherwise, start a new Codex thread in this repository.
 5. Ask Codex to do a small task in the repo.
 6. Continue with a follow-up prompt in the same Codex thread.
-7. If you are using hooks only, confirm `codex-hook` tasks are created and that `user.message` + terminal command events arrive.
+7. If you are using hooks only, confirm `codex-hook` tasks are created and that `user.message` + terminal command + `explore` (`web_search`) + `tool.used` (`apply_patch`) events arrive.
 8. If you are using the MCP skill as well, confirm the same task is reused across turns and receives `assistant.response` events.

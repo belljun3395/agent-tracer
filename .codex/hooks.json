@@ -1,54 +1,56 @@
 {
-  "SessionStart": [
-    {
-      "matcher": "startup|resume",
-      "hooks": [
-        {
-          "type": "command",
-          "command": "node \"node_modules/tsx/dist/cli.mjs\" \".codex/hooks/session_start.ts\""
-        }
-      ]
-    }
-  ],
-  "UserPromptSubmit": [
-    {
-      "hooks": [
-        {
-          "type": "command",
-          "command": "node \"node_modules/tsx/dist/cli.mjs\" \".codex/hooks/user_prompt.ts\""
-        }
-      ]
-    }
-  ],
-  "PreToolUse": [
-    {
-      "hooks": [
-        {
-          "type": "command",
-          "command": "node \"node_modules/tsx/dist/cli.mjs\" \".codex/hooks/pre_tool.ts\""
-        }
-      ]
-    }
-  ],
-  "PostToolUse": [
-    {
-      "matcher": "Bash",
-      "hooks": [
-        {
-          "type": "command",
-          "command": "node \"node_modules/tsx/dist/cli.mjs\" \".codex/hooks/terminal.ts\""
-        }
-      ]
-    }
-  ],
-  "Stop": [
-    {
-      "hooks": [
-        {
-          "type": "command",
-          "command": "node \"node_modules/tsx/dist/cli.mjs\" \".codex/hooks/stop.ts\""
-        }
-      ]
-    }
-  ]
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"node_modules/tsx/dist/cli.mjs\" \".codex/hooks/session_start.ts\""
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"node_modules/tsx/dist/cli.mjs\" \".codex/hooks/user_prompt.ts\""
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"node_modules/tsx/dist/cli.mjs\" \".codex/hooks/pre_tool.ts\""
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"node_modules/tsx/dist/cli.mjs\" \".codex/hooks/terminal.ts\""
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"node_modules/tsx/dist/cli.mjs\" \".codex/hooks/stop.ts\""
+          }
+        ]
+      }
+    ]
+  }
 }
