@@ -1,5 +1,28 @@
 # Agent Thought Flow Improvement Plan
 
+## 현재 구현 상태 (2026-03-27)
+
+이 브랜치에는 다음 read model / UI가 먼저 구현되었다.
+
+- task-level observability API
+  - `GET /api/tasks/:taskId/observability`
+- global observability overview API
+  - `GET /api/observability/overview`
+  - `GET /api/overview` 안에도 snapshot 포함
+- UI diagnostics surface
+  - Top bar diagnostics cards
+  - Inspector `Flow` / `Health` tabs
+- read model 내용
+  - phase breakdown
+  - active / waiting duration 추정
+  - session resumed/open 상태
+  - relation coverage
+  - rule gap count
+  - work item / goal / plan / handoff focus
+  - runtime source summary
+
+즉 이 문서의 최종 비전 전체를 끝낸 것은 아니지만, “event log를 thought-flow 관점으로 읽기 시작하는 첫 제품 레이어”는 들어간 상태다.
+
 ## 목적
 
 이 문서는 Agent Tracer를 "이벤트 로그 대시보드"에서 "AI 에이전트의 생각 흐름과 실행 인과를 읽는 도구"로 발전시키기 위한 구체적인 구현 계획이다.

@@ -17,6 +17,16 @@ npm run dev        # 서버 + 대시보드 동시 실행
 
 → `docs/guide/llm-setup.md` 참고
 
+## Thought-Flow Observability
+
+대시보드는 이제 단순 이벤트 목록 외에 다음 진단 정보를 함께 보여준다.
+
+- 상단 diagnostics 카드: prompt capture 비율, explicit flow coverage, stale running task, 평균 작업 시간
+- Inspector `Flow` 탭: phase breakdown, active/waiting duration, session 상태, top files/tags, work item/goal/plan/handoff focus
+- Inspector `Health` 탭: question/todo closure, rule gap, coordination/background activity, runtime lineage
+
+세부 계약과 API는 `docs/guide/task-observability.md` 참고.
+
 ## 패키지
 
 | 패키지 | 역할 |

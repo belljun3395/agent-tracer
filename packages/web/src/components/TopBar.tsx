@@ -9,6 +9,7 @@ import type {
   OverviewResponse,
   SearchResponse
 } from "../types.js";
+import { formatCount, formatDuration, formatRate } from "../lib/observability.js";
 
 interface TopBarProps {
   readonly overview: OverviewResponse | null;
@@ -27,16 +28,19 @@ interface TopBarProps {
  * 통계 카드 하나를 렌더링하는 내부 컴포넌트.
  */
 function StatCard({
-  accent, label, value
+  accent, label, value, detail, compact = false
 }: {
   readonly accent: string;
   readonly label: string;
-  readonly value: number;
+  readonly value: React.ReactNode;
+  readonly detail?: string | undefined;
+  readonly compact?: boolean;
 }): React.JSX.Element {
   return (
-    <div className={`stat-card ${accent}`}>
+    <div className={`stat-card ${accent}${compact ? " compact" : ""}`}>
       <span className="stat-card-label">{label}</span>
       <strong className="stat-card-value">{value}</strong>
+      {detail && <span className="stat-card-detail">{detail}</span>}
       <div className="stat-card-bar" />
     </div>
   );
@@ -61,6 +65,7 @@ export function TopBar({
   const totalResults = (searchResults?.tasks.length ?? 0)
     + (searchResults?.events.length ?? 0)
     + (searchResults?.bookmarks.length ?? 0);
+  const observability = overview?.observability ?? null;
 
   return (
     <>
@@ -162,12 +167,56 @@ export function TopBar({
         </div>
       </nav>
       <div className="stats-strip">
-        <StatCard label="Tasks"     value={overview?.stats.totalTasks     ?? 0} accent="cyan"  />
-        <StatCard label="Running"   value={overview?.stats.runningTasks   ?? 0} accent="green" />
+        <StatCard label="Tasks" value={overview?.stats.totalTasks ?? 0} accent="cyan" />
+        <StatCard label="Running" value={overview?.stats.runningTasks ?? 0} accent="green" />
         <StatCard label="Completed" value={overview?.stats.completedTasks ?? 0} accent="amber" />
-        <StatCard label="Errored"   value={overview?.stats.erroredTasks   ?? 0} accent="red"   />
-        <StatCard label="Events"    value={overview?.stats.totalEvents    ?? 0} accent="slate" />
+        <StatCard label="Errored" value={overview?.stats.erroredTasks ?? 0} accent="red" />
+        <StatCard label="Events" value={overview?.stats.totalEvents ?? 0} accent="slate" />
+        <StatCard
+          compact
+          label="Prompt Capture"
+          value={observability ? formatRate(observability.promptCaptureRate) : "—"}
+          accent="cyan"
+          detail="raw prompts"
+        />
+        <StatCard
+          compact
+          label="Flow Coverage"
+          value={observability ? formatRate(observability.explicitFlowCoverageRate) : "—"}
+          accent="green"
+          detail="explicit relations"
+        />
+        <StatCard
+          compact
+          label="Stale Running"
+          value={observability ? formatCount(observability.staleRunningTasks) : "—"}
+          accent="red"
+          detail="needs attention"
+        />
+        <StatCard
+          compact
+          label="Avg Duration"
+          value={observability ? formatDuration(observability.avgDurationMs) : "—"}
+          accent="slate"
+          detail="per task"
+        />
       </div>
+      {observability?.runtimeSources && observability.runtimeSources.length > 0 && (
+        <div className="topbar-runtime-sources" aria-label="Runtime source health">
+          {observability.runtimeSources.map((source) => (
+            <span key={source.runtimeSource} className="runtime-source-chip">
+              <strong>{source.runtimeSource}</strong>
+              <span>{formatCount(source.taskCount)} tasks</span>
+              <span>{formatRate(source.promptCaptureRate)} capture</span>
+              <span>{formatRate(source.explicitFlowCoverageRate)} flow</span>
+              <span>{formatCount(source.runningTaskCount)} running</span>
+            </span>
+          ))}
+          <span className="runtime-source-chip muted">
+            Snapshot {observability.generatedAt ? new Date(observability.generatedAt).toLocaleTimeString() : "n/a"}
+          </span>
+        </div>
+      )}
     </>
   );
 }

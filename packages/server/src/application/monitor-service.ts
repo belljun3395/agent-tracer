@@ -18,6 +18,7 @@ import {
   tokenizeActionName,
   type AgentActivityType,
   type MonitoringEventKind,
+  type MonitoringSession,
   type TimelineEvent,
   type TimelineLane,
   type MonitoringTask,
@@ -29,6 +30,12 @@ import {
   type BookmarkRecord,
   type SearchResults
 } from "../infrastructure/monitor-database.js";
+import {
+  analyzeObservabilityOverview,
+  analyzeTaskObservability,
+  type ObservabilityOverviewResponse,
+  type TaskObservabilityResponse
+} from "./observability.js";
 import type {
   GenericEventInput,
   TaskActionInput,
@@ -157,6 +164,7 @@ export class MonitorService {
       slug: createTaskSlug({ title: input.title }),
       status: "running",
       taskKind,
+      ...(input.runtimeSource ? { runtimeSource: input.runtimeSource } : {}),
       createdAt: existingTask?.createdAt ?? startedAt,
       updatedAt: startedAt,
       lastSessionStartedAt: startedAt,
@@ -562,6 +570,7 @@ export class MonitorService {
     // 3. 처음 보는 runtimeSource+runtimeSessionId — 신규 task + session 생성
     const result = this.startTask({
       title: input.title,
+      runtimeSource: input.runtimeSource,
       ...(input.workspacePath ? { workspacePath: input.workspacePath } : {})
     });
     const taskId = result.task.id;
@@ -650,7 +659,7 @@ export class MonitorService {
       },
       command: input.command,
       ...(sessionId ? { sessionId } : {}),
-      ...(input.lane ? { lane: input.lane } : {}),
+      ...(input.lane ? { lane: input.lane as TimelineLane } : {}),
       ...(input.filePaths ? { filePaths: input.filePaths } : {})
     });
   }
@@ -674,7 +683,7 @@ export class MonitorService {
       toolName: input.toolName,
       ...(sessionId ? { sessionId } : {}),
       ...(input.body ? { body: input.body } : {}),
-      ...(input.lane ? { lane: input.lane } : {}),
+      ...(input.lane ? { lane: input.lane as TimelineLane } : {}),
       ...(input.filePaths ? { filePaths: input.filePaths } : {})
     });
 
@@ -706,7 +715,7 @@ export class MonitorService {
       title: input.title,
       ...(sessionId ? { sessionId } : {}),
       ...(input.body ? { body: input.body } : {}),
-      ...(input.lane ? { lane: input.lane } : {}),
+      ...(input.lane ? { lane: input.lane as TimelineLane } : {}),
       ...(input.filePaths ? { filePaths: input.filePaths } : {}),
       metadata: buildTraceMetadata(input.metadata, input)
     });
@@ -1023,6 +1032,58 @@ export class MonitorService {
     return this.database.getTaskTimeline(taskId);
   }
 
+  /**
+   * 특정 태스크의 모든 세션을 반환한다.
+   * @param taskId 대상 태스크 ID
+   * @returns 세션 배열
+   */
+  listTaskSessions(taskId: string): readonly MonitoringSession[] {
+    return this.database.listSessions(taskId);
+  }
+
+  /**
+   * 특정 태스크의 thought-flow observability 분석을 반환한다.
+   * @param taskId 대상 태스크 ID
+   * @returns observability read-model
+   */
+  getTaskObservability(taskId: string): TaskObservabilityResponse | undefined {
+    const task = this.database.getTask(taskId);
+    if (!task) {
+      return undefined;
+    }
+
+    return {
+      observability: analyzeTaskObservability({
+        task,
+        sessions: this.database.listSessions(taskId),
+        timeline: this.database.getTaskTimeline(taskId)
+      })
+    };
+  }
+
+  /**
+   * 전체 작업 집합에 대한 observability 개요를 반환한다.
+   * @returns observability overview read-model
+   */
+  getObservabilityOverview(): ObservabilityOverviewResponse {
+    const tasks = this.database.listTasks();
+    const sessionsByTaskId = new Map<string, readonly MonitoringSession[]>();
+    const timelinesByTaskId = new Map<string, readonly TimelineEvent[]>();
+
+    for (const task of tasks) {
+      sessionsByTaskId.set(task.id, this.database.listSessions(task.id));
+      timelinesByTaskId.set(task.id, this.database.getTaskTimeline(task.id));
+    }
+
+    return {
+      observability: analyzeObservabilityOverview({
+        tasks,
+        sessionsByTaskId,
+        timelinesByTaskId
+      })
+    };
+  }
+
   listBookmarks(taskId?: string): readonly BookmarkRecord[] {
     return this.database.listBookmarks(taskId);
   }
@@ -1107,8 +1168,8 @@ export class MonitorService {
 
     return this.database.upsertTask({
       ...task,
-      ...(hasNewTitle ? { title: titleUpdate!, slug: createTaskSlug({ title: titleUpdate! }) } : {}),
-      ...(hasNewStatus ? { status: input.status! } : {}),
+      ...(hasNewTitle && titleUpdate ? { title: titleUpdate, slug: createTaskSlug({ title: titleUpdate }) } : {}),
+      ...(hasNewStatus && input.status ? { status: input.status } : {}),
       updatedAt: new Date().toISOString()
     });
   }
@@ -1237,7 +1298,7 @@ export class MonitorService {
       {
         kind: input.kind,
         title: input.title,
-        ...(input.lane ? { lane: input.lane as TimelineLane } : {}),
+        ...(input.lane ? { lane: input.lane } : {}),
         ...(input.body ? { body: input.body } : {}),
         ...(input.command ? { command: input.command } : {}),
         ...(input.toolName ? { toolName: input.toolName } : {}),

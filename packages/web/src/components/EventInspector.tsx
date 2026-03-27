@@ -12,7 +12,6 @@ import {
 
 import {
   buildCompactInsight,
-  buildModelSummary,
   buildObservabilityStats,
   buildQuestionGroups,
   buildRuleCoverage,
@@ -30,20 +29,29 @@ import {
   type TagInsight,
   type TodoGroup
 } from "../lib/insights.js";
+import {
+  formatCount,
+  formatDuration,
+  formatPhaseLabel,
+  formatRate
+} from "../lib/observability.js";
 import { formatRelativeTime } from "../lib/timeline.js";
 import type { TimelineConnector } from "../lib/timeline.js";
 import { useDragScroll } from "../lib/useDragScroll.js";
 import type {
   BookmarkRecord,
   OverviewResponse,
+  TaskObservabilityResponse,
   TaskDetailResponse,
   TimelineEvent
 } from "../types.js";
 
-type PanelTabId = "inspector" | "rules" | "tags" | "task" | "compact" | "files";
+type PanelTabId = "inspector" | "flow" | "health" | "rules" | "tags" | "task" | "compact" | "files";
 
 const PANEL_TABS = [
   { id: "inspector", label: "Inspector" },
+  { id: "flow",      label: "Flow" },
+  { id: "health",    label: "Health" },
   { id: "rules",     label: "Rules" },
   { id: "tags",      label: "Tags" },
   { id: "task",      label: "Task" },
@@ -60,6 +68,7 @@ interface SelectedConnectorData {
 interface EventInspectorProps {
   readonly taskDetail: TaskDetailResponse | null;
   readonly overview: OverviewResponse | null;
+  readonly taskObservability?: TaskObservabilityResponse | null;
   readonly selectedEvent: TimelineEvent | null;
   readonly selectedConnector: SelectedConnectorData | null;
   readonly selectedEventDisplayTitle: string | null;
@@ -309,6 +318,133 @@ function DetailRelatedEvents({
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function ObservabilityMetricGrid({
+  items
+}: {
+  readonly items: readonly {
+    readonly label: string;
+    readonly value: string;
+    readonly note?: string | undefined;
+    readonly tone?: "accent" | "ok" | "warn" | "muted" | undefined;
+  }[];
+}): React.JSX.Element {
+  return (
+    <div className="observability-metric-grid">
+      {items.map((item) => (
+        <div key={item.label} className={`observability-metric-tile${item.tone ? ` tone-${item.tone}` : ""}`}>
+          <span className="observability-metric-label">{item.label}</span>
+          <strong className="observability-metric-value">{item.value}</strong>
+          {item.note && <span className="observability-metric-note">{item.note}</span>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ObservabilityListCard({
+  title,
+  items,
+  emptyLabel = "None"
+}: {
+  readonly title: string;
+  readonly items: readonly {
+    readonly label: string;
+    readonly value: string;
+    readonly note?: string | undefined;
+  }[];
+  readonly emptyLabel?: string;
+}): React.JSX.Element {
+  return (
+    <div className="detail-card">
+      <div className="detail-card-head">{title}</div>
+      <div className="detail-card-body">
+        {items.length === 0 ? (
+          <p className="muted small" style={{ margin: 0 }}>{emptyLabel}</p>
+        ) : (
+          <div className="match-list">
+            {items.map((item) => (
+              <div key={`${title}-${item.label}-${item.value}`} className="match-item">
+                <div className="match-header">
+                  <strong>{item.label}</strong>
+                  <span className="match-score">{item.value}</span>
+                </div>
+                {item.note && <p className="muted small" style={{ margin: 0 }}>{item.note}</p>}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ObservabilityPhaseCard({
+  phases
+}: {
+  readonly phases: readonly {
+    readonly phase: string;
+    readonly durationMs: number;
+    readonly share: number;
+  }[];
+}): React.JSX.Element {
+  return (
+    <div className="detail-card">
+      <div className="detail-card-head">Phase Breakdown</div>
+      <div className="detail-card-body">
+        {phases.length === 0 ? (
+          <p className="muted small" style={{ margin: 0 }}>No phase data yet.</p>
+        ) : (
+          <div className="observability-phase-list">
+            {phases.map((phase) => {
+              const share = phase.share > 1 ? phase.share / 100 : phase.share;
+              return (
+                <div key={phase.phase} className="observability-phase-row">
+                  <div className="observability-phase-head">
+                    <strong>{formatPhaseLabel(phase.phase)}</strong>
+                    <span className="match-score">{formatRate(phase.share)}</span>
+                  </div>
+                  <div className="observability-phase-track">
+                    <span
+                      className="observability-phase-fill"
+                      style={{ width: `${Math.max(4, share * 100)}%` }}
+                    />
+                  </div>
+                  <div className="observability-phase-meta">{formatDuration(phase.durationMs)}</div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ObservabilityFocusCard({
+  title,
+  values,
+  emptyLabel = "None"
+}: {
+  readonly title: string;
+  readonly values: readonly string[];
+  readonly emptyLabel?: string;
+}): React.JSX.Element {
+  return (
+    <div className="observability-focus-section">
+      <div className="observability-focus-section-head">{title}</div>
+      {values.length === 0 ? (
+        <p className="muted small" style={{ margin: 0 }}>{emptyLabel}</p>
+      ) : (
+        <div className="tag-row">
+          {values.map((value) => (
+            <span key={value} className="tag-pill">{value}</span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -917,6 +1053,7 @@ function summarizeDetailText(value: string, limit = 180): string {
 export function EventInspector({
   taskDetail,
   overview,
+  taskObservability = null,
   selectedEvent,
   selectedConnector,
   selectedEventDisplayTitle,
@@ -940,6 +1077,7 @@ export function EventInspector({
   const inspectorDragScroll = useDragScroll({ axis: "y" });
 
   const taskTimeline = taskDetail?.timeline ?? [];
+  const observability = taskObservability?.observability ?? null;
 
   const exploredFiles = useMemo(
     () => collectExploredFiles(taskTimeline),
@@ -1234,6 +1372,214 @@ export function EventInspector({
               </div>
             )}
           </>
+
+        ) : activeTab === "flow" ? (
+          <div className="panel-tab-inner">
+            {observability ? (
+              <>
+                <div className="detail-card">
+                  <div className="detail-card-head">Task Flow</div>
+                  <div className="detail-card-body">
+                    <ObservabilityMetricGrid
+                      items={[
+                        {
+                          label: "Total Duration",
+                          value: formatDuration(observability.totalDurationMs),
+                          note: observability.runtimeSource ? `source ${observability.runtimeSource}` : undefined,
+                          tone: "accent"
+                        },
+                        {
+                          label: "Active Duration",
+                          value: formatDuration(observability.activeDurationMs),
+                          note: "work in motion",
+                          tone: "ok"
+                        },
+                        {
+                          label: "Waiting Duration",
+                          value: formatDuration(observability.waitingDurationMs),
+                          note: "idle or blocked",
+                          tone: "warn"
+                        },
+                        {
+                          label: "Events",
+                          value: formatCount(observability.totalEvents),
+                          note: "timeline entries"
+                        },
+                        {
+                          label: "Sessions",
+                          value: formatCount(observability.sessions.total),
+                          note: `${formatCount(observability.sessions.resumed)} resumed · ${formatCount(observability.sessions.open)} open`
+                        },
+                        {
+                          label: "Relation Coverage",
+                          value: formatRate(observability.relationCoverageRate),
+                          note: `${formatCount(observability.explicitRelationCount)} explicit links`,
+                          tone: "accent"
+                        }
+                      ]}
+                    />
+                  </div>
+                </div>
+                <ObservabilityPhaseCard phases={observability.phaseBreakdown} />
+                <div className="detail-card">
+                  <div className="detail-card-head">Focus</div>
+                  <div className="detail-card-body">
+                    <div className="observability-focus-stack">
+                      <div>
+                        <div className="insight-summary-label">Work Items</div>
+                        <ObservabilityFocusCard
+                          title="Work Items"
+                          values={observability.focus.workItemIds}
+                          emptyLabel="No work item IDs observed"
+                        />
+                      </div>
+                      <div>
+                        <div className="insight-summary-label">Goals</div>
+                        <ObservabilityFocusCard
+                          title="Goals"
+                          values={observability.focus.goalIds}
+                          emptyLabel="No goal IDs observed"
+                        />
+                      </div>
+                      <div>
+                        <div className="insight-summary-label">Plans</div>
+                        <ObservabilityFocusCard
+                          title="Plans"
+                          values={observability.focus.planIds}
+                          emptyLabel="No plan IDs observed"
+                        />
+                      </div>
+                      <div>
+                        <div className="insight-summary-label">Handoffs</div>
+                        <ObservabilityFocusCard
+                          title="Handoffs"
+                          values={observability.focus.handoffIds}
+                          emptyLabel="No handoff IDs observed"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <ObservabilityListCard
+                  title="Top Files"
+                  items={observability.focus.topFiles.map((file) => ({
+                    label: file.path,
+                    value: `${formatCount(file.count)}x`
+                  }))}
+                  emptyLabel="No file focus recorded yet."
+                />
+                <ObservabilityListCard
+                  title="Top Tags"
+                  items={observability.focus.topTags.map((tag) => ({
+                    label: tag.tag,
+                    value: `${formatCount(tag.count)}x`
+                  }))}
+                  emptyLabel="No focus tags recorded yet."
+                />
+              </>
+            ) : (
+              <div className="empty-card">
+                <p>No task flow observability is available yet.</p>
+                <p className="muted small">Select a task after the server starts exposing `/api/tasks/:taskId/observability`.</p>
+              </div>
+            )}
+          </div>
+
+        ) : activeTab === "health" ? (
+          <div className="panel-tab-inner">
+            {observability ? (
+              <>
+                <div className="detail-card">
+                  <div className="detail-card-head">Health Overview</div>
+                  <div className="detail-card-body">
+                    <ObservabilityMetricGrid
+                      items={[
+                        {
+                          label: "Explicit Relations",
+                          value: formatCount(observability.explicitRelationCount),
+                          note: `${formatRate(observability.relationCoverageRate)} coverage`,
+                          tone: "accent"
+                        },
+                        {
+                          label: "Rule Gaps",
+                          value: formatCount(observability.ruleGapCount),
+                          note: "unmatched events",
+                          tone: observability.ruleGapCount > 0 ? "warn" : "ok"
+                        },
+                        {
+                          label: "Questions",
+                          value: formatCount(observability.signals.questionsAsked),
+                          note: `${formatCount(observability.signals.questionsClosed)} closed`
+                        },
+                        {
+                          label: "Todos",
+                          value: formatCount(observability.signals.todosAdded),
+                          note: `${formatCount(observability.signals.todosCompleted)} completed`
+                        },
+                        {
+                          label: "Sessions",
+                          value: formatCount(observability.sessions.total),
+                          note: `${formatCount(observability.sessions.open)} open · ${formatCount(observability.sessions.resumed)} resumed`
+                        },
+                        {
+                          label: "Runtime Source",
+                          value: observability.runtimeSource ?? "unknown",
+                          note: "task lineage",
+                          tone: "muted"
+                        }
+                      ]}
+                    />
+                  </div>
+                </div>
+                <div className="detail-card">
+                  <div className="detail-card-head">Signals</div>
+                  <div className="detail-card-body">
+                    <ObservabilityMetricGrid
+                      items={[
+                        { label: "Raw Prompts", value: formatCount(observability.signals.rawUserMessages), note: "captured user turns" },
+                        { label: "Follow-ups", value: formatCount(observability.signals.followUpMessages), note: "additional turns" },
+                        { label: "Thoughts", value: formatCount(observability.signals.thoughts), note: "planning snapshots" },
+                        { label: "Tool Calls", value: formatCount(observability.signals.toolCalls), note: "tool executions" },
+                        { label: "Terminal Commands", value: formatCount(observability.signals.terminalCommands), note: "shell activity" },
+                        { label: "Verifications", value: formatCount(observability.signals.verifications), note: "tests and checks" },
+                        { label: "Rule Violations", value: formatCount(observability.signals.ruleViolations), note: "rule gaps or violations", tone: observability.signals.ruleViolations > 0 ? "warn" : "ok" },
+                        { label: "Coordination", value: formatCount(observability.signals.coordinationActivities), note: "MCP / delegation" },
+                        { label: "Background", value: formatCount(observability.signals.backgroundTransitions), note: "subagent transitions" },
+                        { label: "Explored Files", value: formatCount(observability.signals.exploredFiles), note: "read paths" }
+                      ]}
+                    />
+                  </div>
+                </div>
+                <ObservabilityListCard
+                  title="Rule / Flow Health"
+                  items={[
+                    {
+                      label: "Relation coverage",
+                      value: formatRate(observability.relationCoverageRate),
+                      note: `${formatCount(observability.explicitRelationCount)} explicit connections recorded`
+                    },
+                    {
+                      label: "Rule gap pressure",
+                      value: formatCount(observability.ruleGapCount),
+                      note: observability.ruleGapCount > 0
+                        ? "Some events still have no configured rule match"
+                        : "No rule gaps on the selected task"
+                    },
+                    {
+                      label: "Active sessions",
+                      value: formatCount(observability.sessions.open),
+                      note: `${formatCount(observability.sessions.total)} total sessions`
+                    }
+                  ]}
+                />
+              </>
+            ) : (
+              <div className="empty-card">
+                <p>No task health observability is available yet.</p>
+                <p className="muted small">Health cards will appear once the server returns task-level diagnostics.</p>
+              </div>
+            )}
+          </div>
 
         ) : activeTab === "rules" ? (
           <div className="panel-tab-inner">

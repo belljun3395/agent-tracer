@@ -17,6 +17,7 @@ export interface TaskStartInput {
   readonly title: string;
   readonly workspacePath?: string;
   readonly summary?: string;
+  readonly runtimeSource?: string;
   readonly taskKind?: "primary" | "background";
   readonly parentTaskId?: string;
   readonly parentSessionId?: string;
@@ -257,7 +258,7 @@ export interface GenericEventInput extends TraceActivityInput {
   readonly taskId: string;
   readonly sessionId?: string;
   readonly kind: MonitoringEventKind;
-  readonly lane?: TimelineLane | string;
+  readonly lane?: TimelineLane;
   readonly title: string;
   readonly body?: string;
   readonly command?: string;

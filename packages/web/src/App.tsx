@@ -22,6 +22,7 @@ import {
   fetchOverview,
   fetchSearchResults,
   fetchTaskDetail,
+  fetchTaskObservability,
   fetchTasks,
   updateTaskTitle,
   updateTaskStatus
@@ -47,6 +48,7 @@ import type {
   OverviewResponse,
   SearchResponse,
   TaskDetailResponse,
+  TaskObservabilityResponse,
   TimelineEvent
 } from "./types.js";
 
@@ -90,6 +92,7 @@ export function App(): React.JSX.Element {
     () => window.location.hash.slice(1) || null
   );
   const [taskDetail,      setTaskDetail]      = useState<TaskDetailResponse | null>(null);
+  const [taskObservability, setTaskObservability] = useState<TaskObservabilityResponse | null>(null);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [selectedConnectorKey, setSelectedConnectorKey] = useState<string | null>(null);
   const [selectedRuleId, setSelectedRuleId] = useState<string | null>(null);
@@ -187,6 +190,15 @@ export function App(): React.JSX.Element {
     }
   }, []);
 
+  const refreshTaskObservability = useCallback(async (taskId: string): Promise<void> => {
+    try {
+      const result = await fetchTaskObservability(taskId);
+      setTaskObservability(result);
+    } catch {
+      setTaskObservability(null);
+    }
+  }, []);
+
   /* initial load */
   useEffect(() => { void refreshOverview(); }, [refreshOverview]);
 
@@ -238,7 +250,8 @@ export function App(): React.JSX.Element {
   useEffect(() => {
     if (!selectedTaskId) return;
     void refreshTaskDetail(selectedTaskId);
-  }, [refreshTaskDetail, selectedTaskId]);
+    void refreshTaskObservability(selectedTaskId);
+  }, [refreshTaskDetail, refreshTaskObservability, selectedTaskId]);
 
   /* reset filters on task change */
   useEffect(() => {
@@ -270,7 +283,10 @@ export function App(): React.JSX.Element {
         wsRefreshTimer.current = setTimeout(() => {
           wsRefreshTimer.current = null;
           void refreshOverview();
-          if (selectedTaskIdRef.current) void refreshTaskDetail(selectedTaskIdRef.current);
+          if (selectedTaskIdRef.current) {
+            void refreshTaskDetail(selectedTaskIdRef.current);
+            void refreshTaskObservability(selectedTaskIdRef.current);
+          }
         }, 200);
       };
 
@@ -773,6 +789,7 @@ export function App(): React.JSX.Element {
         <EventInspector
           taskDetail={taskDetail}
           overview={overview}
+          taskObservability={taskObservability}
           selectedEvent={selectedEvent}
           selectedConnector={selectedConnector}
           selectedEventDisplayTitle={selectedEventDisplayTitle}

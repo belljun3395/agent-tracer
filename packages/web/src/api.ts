@@ -12,6 +12,7 @@ import type {
   OverviewResponse,
   SearchResponse,
   TaskDetailResponse,
+  TaskObservabilityResponse,
   TasksResponse
 } from "./types.js";
 
@@ -78,6 +79,10 @@ async function deleteJson<T>(pathname: string): Promise<T> {
  */
 export function fetchOverview(): Promise<OverviewResponse> {
   return getJson<OverviewResponse>("/api/overview");
+}
+
+export function fetchTaskObservability(taskId: string): Promise<TaskObservabilityResponse> {
+  return getJson<TaskObservabilityResponse>(`/api/tasks/${taskId}/observability`);
 }
 
 /**

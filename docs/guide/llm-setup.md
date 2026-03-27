@@ -36,17 +36,41 @@ npm run build && npm run start:server
 
 기본 서버 URL: `http://127.0.0.1:3847`
 
+## Thought-Flow Read Model
+
+서버는 runtime event를 그대로 다시 보여주는 것 외에 observability read model도 제공한다.
+
+- `GET /api/tasks/:taskId/observability`
+  - 선택 task의 phase breakdown, duration, session 상태, relation coverage, focus summary
+- `GET /api/observability/overview`
+  - 전체 task 기준 prompt capture / explicit flow / stale running summary
+- `GET /api/overview`
+  - 기존 stats + rules와 함께 `observability` 스냅샷 포함
+
+웹 대시보드는 이 JSON을 이용해 Top bar diagnostics와 Inspector `Flow` / `Health` 탭을 그린다.
+
 ## 시맨틱 트레이스 계약 (v1)
 
-Agent Tracer는 5개 레인(user / exploration / planning / implementation / rules) 안에서 다음 이벤트 종류를 지원합니다.
+Agent Tracer는 9개 레인에서 thought-flow를 읽는다.
+
+- `user`
+- `questions`
+- `todos`
+- `planning`
+- `coordination`
+- `exploration`
+- `implementation`
+- `rules`
+- `background`
 
 ### 새 이벤트 종류
 
 | Kind | Lane | 용도 |
 |------|------|------|
-| `question.logged` | `user` (asked/answered) / `planning` (concluded) | 에이전트가 던지거나 결론낸 질문 흐름 |
+| `question.logged` | `questions` (asked/answered) / `planning` (concluded) | 에이전트가 던지거나 결론낸 질문 흐름 |
 | `todo.logged` | `planning` | 태스크 내 항목의 상태 전이 (added → in_progress → completed/cancelled) |
 | `thought.logged` | `planning` | 요약 안전한 추론 스냅샷. raw 체인오브소트 덤프 **금지** |
+| `agent.activity.logged` | `coordination` | MCP 호출, skill 사용, delegation, handoff, bookmark, search 같은 coordination 신호 |
 
 ### 안정 메타데이터 필드 (TRACE_METADATA_KEYS)
 
@@ -64,7 +88,7 @@ Agent Tracer는 5개 레인(user / exploration / planning / implementation / rul
 
 ### 규칙
 
-- 6번째 레인 없음. `model.logged` / `mcp.logged` 최상위 이벤트 종류 없음.
+- 별도 `model.logged` / `mcp.logged` 최상위 이벤트 종류는 없고, 관련 정보는 metadata와 coordination lane으로 표현한다.
 - `thought.logged`는 요약만. raw 체인오브소트 퍼시스트 금지.
 - 모델 식별은 태스크/세션 기본값 + 이벤트별 오버라이드(다를 때만).
 - 새 메타데이터가 없는 기존 이벤트는 변경 없이 렌더링됨.

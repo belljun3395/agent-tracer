@@ -8,7 +8,7 @@
 import type React from "react";
 import {type FormEvent as ReactFormEvent, useEffect, useLayoutEffect, useMemo, useRef, useState} from "react";
 
-import type {TimelineItemLayout, TimelineNodeBounds} from "../lib/timeline.js";
+import type {TimelineNodeBounds} from "../lib/timeline.js";
 import {
   buildTimelineConnectors,
   buildTimelineLayout,

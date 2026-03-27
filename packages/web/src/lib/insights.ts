@@ -1001,8 +1001,8 @@ export function buildQuestionGroups(
       const pDiff = (PHASE_ORDER[a.phase] ?? 99) - (PHASE_ORDER[b.phase] ?? 99);
       if (pDiff !== 0) return pDiff;
       // 같은 phase면 sequence → createdAt 순
-      const aSeq = typeof a.event.metadata["sequence"] === "number" ? a.event.metadata["sequence"] as number : Infinity;
-      const bSeq = typeof b.event.metadata["sequence"] === "number" ? b.event.metadata["sequence"] as number : Infinity;
+      const aSeq = typeof a.event.metadata["sequence"] === "number" ? a.event.metadata["sequence"] : Infinity;
+      const bSeq = typeof b.event.metadata["sequence"] === "number" ? b.event.metadata["sequence"] : Infinity;
       if (aSeq !== bSeq) return aSeq - bSeq;
       return Date.parse(a.event.createdAt) - Date.parse(b.event.createdAt);
     });
@@ -1040,8 +1040,8 @@ export function buildTodoGroups(
     const sorted = [...group.transitions].sort((a, b) => {
       const sDiff = (TODO_STATE_ORDER[a.state] ?? 99) - (TODO_STATE_ORDER[b.state] ?? 99);
       if (sDiff !== 0) return sDiff;
-      const aSeq = typeof a.event.metadata["sequence"] === "number" ? a.event.metadata["sequence"] as number : Infinity;
-      const bSeq = typeof b.event.metadata["sequence"] === "number" ? b.event.metadata["sequence"] as number : Infinity;
+      const aSeq = typeof a.event.metadata["sequence"] === "number" ? a.event.metadata["sequence"] : Infinity;
+      const bSeq = typeof b.event.metadata["sequence"] === "number" ? b.event.metadata["sequence"] : Infinity;
       if (aSeq !== bSeq) return aSeq - bSeq;
       return Date.parse(a.event.createdAt) - Date.parse(b.event.createdAt);
     });

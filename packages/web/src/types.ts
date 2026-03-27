@@ -137,6 +137,92 @@ export interface OverviewStats {
   readonly totalEvents: number;
 }
 
+export interface ObservabilityRuntimeSource {
+  readonly runtimeSource: string;
+  readonly taskCount: number;
+  readonly runningTaskCount: number;
+  readonly promptCaptureRate: number;
+  readonly explicitFlowCoverageRate: number;
+}
+
+export interface OverviewObservability {
+  readonly generatedAt: string;
+  readonly totalTasks: number;
+  readonly runningTasks: number;
+  readonly staleRunningTasks: number;
+  readonly avgDurationMs: number;
+  readonly avgEventsPerTask: number;
+  readonly promptCaptureRate: number;
+  readonly explicitFlowCoverageRate: number;
+  readonly tasksWithQuestions: number;
+  readonly tasksWithTodos: number;
+  readonly tasksWithCoordination: number;
+  readonly tasksWithBackground: number;
+  readonly runtimeSources: readonly ObservabilityRuntimeSource[];
+}
+
+export interface TaskObservabilityPhase {
+  readonly phase: string;
+  readonly durationMs: number;
+  readonly share: number;
+}
+
+export interface TaskObservabilitySignalSummary {
+  readonly rawUserMessages: number;
+  readonly followUpMessages: number;
+  readonly questionsAsked: number;
+  readonly questionsClosed: number;
+  readonly todosAdded: number;
+  readonly todosCompleted: number;
+  readonly thoughts: number;
+  readonly toolCalls: number;
+  readonly terminalCommands: number;
+  readonly verifications: number;
+  readonly ruleViolations: number;
+  readonly coordinationActivities: number;
+  readonly backgroundTransitions: number;
+  readonly exploredFiles: number;
+}
+
+export interface TaskObservabilityFocusSummary {
+  readonly workItemIds: readonly string[];
+  readonly goalIds: readonly string[];
+  readonly planIds: readonly string[];
+  readonly handoffIds: readonly string[];
+  readonly topFiles: readonly {
+    readonly path: string;
+    readonly count: number;
+  }[];
+  readonly topTags: readonly {
+    readonly tag: string;
+    readonly count: number;
+  }[];
+}
+
+export interface TaskObservabilitySummary {
+  readonly taskId: string;
+  readonly runtimeSource?: string;
+  readonly totalDurationMs: number;
+  readonly activeDurationMs: number;
+  readonly waitingDurationMs: number;
+  readonly totalEvents: number;
+  readonly explicitRelationCount: number;
+  readonly relationCoverageRate: number;
+  readonly ruleGapCount: number;
+  readonly phaseBreakdown: readonly TaskObservabilityPhase[];
+  readonly sessions: {
+    readonly total: number;
+    readonly resumed: number;
+    readonly open: number;
+  };
+  readonly signals: TaskObservabilitySignalSummary;
+  readonly focus: TaskObservabilityFocusSummary;
+}
+
+export interface TaskObservabilityResponse {
+  readonly observability: TaskObservabilitySummary;
+}
+
 export interface RulesIndex {
   readonly version: number;
   readonly rules: readonly {
@@ -155,6 +241,7 @@ export interface RulesIndex {
 export interface OverviewResponse {
   readonly stats: OverviewStats;
   readonly rules: RulesIndex;
+  readonly observability?: OverviewObservability | null;
 }
 
 export interface TasksResponse {

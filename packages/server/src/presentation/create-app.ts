@@ -97,10 +97,17 @@ export function createMonitoringHttpServer(
   });
 
   app.get("/api/overview", (_request, response) => {
+    const observability = service.getObservabilityOverview();
+
     response.json({
       stats: service.getOverview(),
-      rules: service.getRules()
+      rules: service.getRules(),
+      observability: observability.observability
     });
+  });
+
+  app.get("/api/observability/overview", (_request, response) => {
+    response.json(service.getObservabilityOverview());
   });
 
   app.get("/api/tasks", (_request, response) => {
@@ -148,6 +155,19 @@ export function createMonitoringHttpServer(
       task,
       timeline: service.getTaskTimeline(task.id)
     });
+  });
+
+  app.get("/api/tasks/:taskId/observability", (request, response) => {
+    const observability = service.getTaskObservability(request.params.taskId);
+
+    if (!observability) {
+      response.status(404).json({
+        error: "Task not found"
+      });
+      return;
+    }
+
+    response.json(observability);
   });
 
   app.get("/api/search", (request, response) => {
