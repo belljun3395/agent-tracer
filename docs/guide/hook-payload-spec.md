@@ -2,8 +2,15 @@
 
 공식 문서: https://code.claude.com/docs/en/hooks
 
-각 hook이 stdin으로 받는 JSON payload 필드를 정리한다.
+이 문서는 Agent Tracer가 현재 사용하는 Claude hook subset을 중심으로
+stdin payload를 정리한다.
 `[실측]` 표기는 공식 스펙과 실제 동작이 다른 부분을 나타낸다.
+
+현재 공식 문서에 있지만 이 페이지에서 상세 payload를 다루지 않는 이벤트:
+`InstructionsLoaded`, `PermissionRequest`, `Notification`, `TaskCreated`,
+`TaskCompleted`, `StopFailure`, `ConfigChange`, `CwdChanged`, `FileChanged`,
+`WorktreeCreate`, `WorktreeRemove`, `Elicitation`, `ElicitationResult`,
+`TeammateIdle`.
 
 ---
 
@@ -90,11 +97,14 @@ Edit:    { file_path, old_string, new_string, replace_all? }
 Write:   { file_path, content }
 Read:    { file_path, offset?, limit? }
 Glob:    { pattern, path? }
-Grep:    { pattern, path?, glob?, type? }
-Agent:   { description?, prompt, subagent_type?, run_in_background? }
+Grep:    { pattern, path?, glob?, output_mode?, "-i"?, multiline? }
+Agent:   { description?, prompt, subagent_type?, model?, run_in_background? }
 Skill:   { skill, args? }
 mcp__*:  MCP 서버/툴별 상이
 ```
+
+> 위 구조는 Agent Tracer가 현재 주로 쓰는 필드를 요약한 것이다.
+> exhaustive schema는 공식 hooks reference를 우선 본다.
 
 ---
 

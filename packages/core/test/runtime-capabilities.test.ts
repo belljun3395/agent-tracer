@@ -10,6 +10,7 @@ describe("runtime capabilities", () => {
   it("defines the supported adapter ids", () => {
     expect(RUNTIME_ADAPTER_IDS).toEqual([
       "claude-hook",
+      "codex-hook",
       "codex-skill",
       "opencode-plugin",
       "opencode-sse"
@@ -32,6 +33,17 @@ describe("runtime capabilities", () => {
     expect(capabilities.canObserveToolCalls).toBe(false);
     expect(capabilities.canObserveSubagents).toBe(false);
     expect(listNativeSkillPaths("codex-skill")).toEqual([".agents/skills"]);
+  });
+
+  it("treats Codex hook monitoring as automatic per-turn tracing without native skill discovery", () => {
+    const capabilities = getRuntimeCapabilities("codex-hook");
+
+    expect(capabilities.canCaptureRawUserMessage).toBe(true);
+    expect(capabilities.canObserveToolCalls).toBe(true);
+    expect(capabilities.canObserveSubagents).toBe(false);
+    expect(capabilities.hasNativeSkillDiscovery).toBe(false);
+    expect(capabilities.endTaskOnSessionClose).toBe("always");
+    expect(listNativeSkillPaths("codex-hook")).toEqual([]);
   });
 
   it("distinguishes OpenCode plugin and SSE observers", () => {

@@ -1,5 +1,6 @@
 export type RuntimeAdapterId =
   | "claude-hook"
+  | "codex-hook"
   | "codex-skill"
   | "opencode-plugin"
   | "opencode-sse";

@@ -55,4 +55,3 @@
 - [Frontend dashboard](./frontend-dashboard.md)
 - [Runtime integrations](./runtime-integrations.md)
 - [Quality and testing](./quality-and-testing.md)
-- [Maintainability review (2026-03-25)](./maintainability-review-2026-03-25.md)
