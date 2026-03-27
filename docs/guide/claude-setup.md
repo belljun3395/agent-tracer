@@ -108,8 +108,8 @@ Behavior:
 | Tool success / failure | `terminal.ts`, `tool_used.ts`, `explore.ts`, `agent_activity.ts`, `todo.ts` | Capture command, edit, explore, MCP, subagent launch, and task-list activity |
 | Subagent lifecycle | `subagent_lifecycle.ts` | Record subagent running/completed async lifecycle events |
 | Pre/Post compact | `compact.ts` | Record compaction checkpoint and compact summary |
-| Assistant turn end | `stop.ts` | Record assistant response and complete the task |
-| Session end | `session_end.ts` | Ends only the current runtime session |
+| Assistant turn end | `stop.ts` | Record assistant response and call `/api/runtime-session-end` with `completeTask: true` |
+| Session end | `session_end.ts` | Ends only the current runtime session unless `stop.ts` already completed the primary task |
 | Work item complete | `monitor_task_complete` MCP tool | Marks the task `completed` |
 
 ## 5. Repo-local Setup In This Repository
@@ -182,4 +182,4 @@ Planning / event logging tools:
 4. Open the target project in Claude Code.
 5. Perform one read or edit action.
 6. Confirm a task appears in the dashboard.
-7. Stop the Claude session and confirm the task remains open for follow-up turns.
+7. Stop the Claude turn and confirm the primary task transitions to `completed` unless background descendants are still running.

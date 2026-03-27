@@ -89,4 +89,3 @@ wiki를 읽는 것이 맞다.
 - [setup:external Automation Script](./setup-external-automation-script.md)
 - [Architecture & Package Map](./architecture-and-package-map.md)
 - [Testing & Development](./testing-and-development.md)
-- [Maintainability Review (2026-03-25)](./maintainability-review-2026-03-25.md)

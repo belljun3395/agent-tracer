@@ -125,8 +125,7 @@ const wikiSidebar = [
       { text: "Backend Server", link: "/wiki/backend-server" },
       { text: "Frontend Dashboard", link: "/wiki/frontend-dashboard" },
       { text: "Runtime Integrations", link: "/wiki/runtime-integrations" },
-      { text: "Quality and Testing", link: "/wiki/quality-and-testing" },
-      { text: "Maintainability Review (2026-03-25)", link: "/wiki/maintainability-review-2026-03-25" }
+      { text: "Quality and Testing", link: "/wiki/quality-and-testing" }
     ]
   }
 ];

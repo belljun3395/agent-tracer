@@ -2,6 +2,7 @@ import type { RuntimeAdapterId, RuntimeCapabilities } from "./runtime-capabiliti
 
 export const RUNTIME_ADAPTER_IDS: readonly RuntimeAdapterId[] = [
   "claude-hook",
+  "codex-hook",
   "codex-skill",
   "opencode-plugin",
   "opencode-sse"
@@ -17,6 +18,16 @@ export const RUNTIME_CAPABILITIES_BY_ID: Record<RuntimeAdapterId, RuntimeCapabil
     hasEventStream: false,
     endTaskOnSessionClose: "never",
     nativeSkillPaths: [".claude/skills"]
+  },
+  "codex-hook": {
+    adapterId: "codex-hook",
+    canCaptureRawUserMessage: true,
+    canObserveToolCalls: true,
+    canObserveSubagents: false,
+    hasNativeSkillDiscovery: false,
+    hasEventStream: false,
+    endTaskOnSessionClose: "always",
+    nativeSkillPaths: []
   },
   "codex-skill": {
     adapterId: "codex-skill",

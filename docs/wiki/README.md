@@ -89,7 +89,6 @@
 - [Frontend Dashboard](./frontend-dashboard.md)
 - [Runtime Integrations](./runtime-integrations.md)
 - [Quality And Testing](./quality-and-testing.md)
-- [Maintainability Review (2026-03-25)](./maintainability-review-2026-03-25.md)
 
 ## 패키지 지도
 

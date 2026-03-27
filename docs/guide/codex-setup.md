@@ -89,7 +89,7 @@ The current recommended Codex path in this repository is:
 1. register the `monitor` MCP server
 2. let Codex use the repo-local `codex-monitor` skill exposed through `AGENTS.md`
 3. rely on the generated native discovery path under `.agents/skills`
-4. use hooks only as optional low-level background monitoring, not as the source of truth for assistant answers
+4. use hooks for low-level automatic tracing, and use the skill as the primary thread/topic-level semantic path
 
 Source and generated skill files:
 
@@ -123,20 +123,22 @@ emit a gap report at the end instead of stopping the task.
 ### Assistant Response Capture
 
 For Codex, `monitor_assistant_response` is the canonical path for final answer
-text. The native `Stop` hook payload does not expose the final assistant
-message body, so hooks alone cannot produce `assistant.response` with full text.
+text at the thread/topic level. Native hooks can also emit
+`assistant.response` from `Stop.last_assistant_message`, but that path is
+turn-local and does not give you the same task-reuse or semantic context model
+as `codex-skill`.
 
 That means:
 
-- if you need `assistant.response` events, use `codex-monitor`
-- if you use hooks only, you will still see `user.message`, shell activity, and transcript backfill, but not final answer text
+- if you need one reusable task across follow-up turns, use `codex-monitor`
+- if you use hooks only, you can still get `user.message`, shell activity, transcript backfill, and `assistant.response` when `Stop.last_assistant_message` is present
 - if you use both hooks and the skill, expect richer coverage but separate task lineages today (`codex-hook` vs `codex-skill`)
 
 ### Recommended Operating Modes
 
 | Mode | What you get | What you miss | Recommended use |
 |------|---------------|---------------|-----------------|
-| Hooks only | automatic `user.message`, Bash, transcript backfill (`web_search_end`, `apply_patch`) | no `assistant.response`, weaker planning context | passive low-noise background tracing |
+| Hooks only | automatic `user.message`, Bash, transcript backfill (`web_search_end`, `apply_patch`), turn-local `assistant.response` | no thread/topic task reuse, weaker planning context | passive low-noise background tracing |
 | Skill only | thread/topic task reuse, `assistant.response`, planning/context, explicit semantic events | no automatic Bash/transcript observation unless the skill records it | primary Codex tracing path |
 | Hooks + skill | low-level automatic events plus semantic skill events | currently separate runtime lineages (`codex-hook`, `codex-skill`) | deep debugging when duplicate task rows are acceptable |
 
@@ -242,7 +244,7 @@ Canonical conversation-boundary tools:
   - use `captureMode: "raw"` and keep `messageId` stable per user turn
 - `monitor_assistant_response`
   - use this immediately before the final user-facing answer
-  - this is the only Codex path that records final answer text as `assistant.response`
+  - this is the canonical thread/topic-level path for final answer text as `assistant.response`
 
 Common semantic logging tools:
 
@@ -264,6 +266,6 @@ Common semantic logging tools:
 4. Otherwise, start a new Codex thread in this repository.
 5. Ask Codex to do a small task in the repo.
 6. Continue with a follow-up prompt in the same Codex thread.
-7. If you are using hooks only, confirm `codex-hook` tasks are created and that `user.message` + terminal command + `explore` (`web_search`) + `tool.used` (`apply_patch`) events arrive.
+7. If you are using hooks only, confirm `codex-hook` tasks are created and that `user.message` + terminal command + `explore` (`web_search`) + `tool.used` (`apply_patch`) + `assistant.response` events arrive.
 8. If you are using the MCP skill, confirm the same `codex-skill` task is reused across turns and receives `assistant.response` events.
 9. If you are using both, confirm the expected split: low-level hook events under `codex-hook`, final answer text and semantic events under `codex-skill`.

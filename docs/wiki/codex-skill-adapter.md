@@ -1,14 +1,14 @@
 # Codex Skill Adapter
 
 Codex 통합은 hook만으로 끝나지 않는다. Agent Tracer에서 Codex의
-`assistant.response`와 고수준 planning context를 제대로 남기려면
+thread/topic 단위 `assistant.response`와 고수준 planning context를 제대로 남기려면
 `codex-monitor` skill + MCP 경로가 필요하다.
 
 핵심 이유는 단순하다.
 
 - Codex native hooks는 `user.message`, Bash, transcript backfill 같은 저수준 신호는 잡을 수 있다.
-- 하지만 final assistant answer text는 native `Stop` payload에 들어오지 않는다.
-- 따라서 `assistant.response`는 skill이 `monitor_assistant_response`를 직접 호출하는 방식이 캐노니컬이다.
+- native `Stop` payload의 `last_assistant_message`로 turn-local `assistant.response`도 남길 수 있다.
+- 따라서 skill의 역할은 "최종 답변을 유일하게 남긴다"가 아니라, thread/topic 재사용과 semantic tracing을 캐노니컬하게 맡는 쪽에 가깝다.
 
 ## 핵심 파일
 
@@ -24,8 +24,8 @@ Codex 통합은 hook만으로 끝나지 않는다. Agent Tracer에서 Codex의
 
 다음 중 하나라도 필요하면 hook-only가 아니라 skill path를 써야 한다.
 
-- final answer를 `assistant.response`로 남겨야 한다
 - follow-up turn을 같은 Codex thread/topic task에 재사용해야 한다
+- final answer를 같은 thread/topic lineage 아래 canonical `assistant.response`로 남겨야 한다
 - planning, thought, verification 같은 고수준 semantic event를 수동으로 남겨야 한다
 - workflow library search/evaluation을 Codex에서도 같은 규칙으로 운영해야 한다
 
@@ -44,8 +44,8 @@ Codex 통합은 hook만으로 끝나지 않는다. Agent Tracer에서 Codex의
 현재 코드 기준으로:
 
 - Codex hook path는 `UserPromptSubmit`, `PreToolUse`, `PostToolUse(Bash)`, `Stop`만 자동 관찰한다.
-- `Stop`은 transcript backfill(`web_search_end`, `apply_patch`)과 turn 종료 처리에는 충분하다.
-- 하지만 final assistant text는 `Stop` payload에 없다.
+- `Stop`은 transcript backfill(`web_search_end`, `apply_patch`), `assistant.response`, turn 종료 처리까지 맡는다.
+- 다만 이 경로는 turn-local이고, thread/topic task reuse나 planning context는 제공하지 않는다.
 
 그래서 Codex의 대화 경계는 다음처럼 나뉜다.
 
@@ -82,8 +82,8 @@ Codex에는 현재 두 경로가 공존한다.
 
 ### `codex-hook`
 
-- 장점: 자동 Bash / transcript backfill
-- 한계: `assistant.response` 본문 불가
+- 장점: 자동 Bash / transcript backfill / turn-local `assistant.response`
+- 한계: thread/topic task reuse와 semantic context 없음
 - 적합한 용도: passive background tracing
 
 ### `codex-skill`
@@ -135,7 +135,7 @@ skill source를 바꿨으면 `npm run sync:skills`가 필요하다.
 - expected behavior일 수 있다
 - `codex-hook` task는 low-level automatic path
 - `codex-skill` task는 semantic/manual path
-- assistant answer text를 찾을 때는 `codex-skill` lineage를 본다
+- thread/topic 단위 최종 흐름을 보려면 `codex-skill` lineage를 본다
 
 ## 장점과 한계
 

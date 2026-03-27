@@ -253,7 +253,7 @@ function upsertManagedBlock(currentContent, block, beginMarker, endMarker) {
 }
 
 const CLAUDE_HOOK_SPECS = [
-  { event: "SessionStart", script: "session_start.ts", matcher: "startup|resume|clear" },
+  { event: "SessionStart", script: "session_start.ts", matcher: "startup|resume|clear|compact" },
   { event: "UserPromptSubmit", script: "user_prompt.ts" },
   { event: "PreToolUse", script: "ensure_task.ts" },
   { event: "PostToolUse", script: "terminal.ts", matcher: "Bash" },

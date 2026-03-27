@@ -95,6 +95,40 @@
   border-radius: 18px;
 }
 
+.VPDoc .vp-doc div.language-mermaid.mermaid-block {
+  padding: 18px;
+}
+
+.VPDoc .vp-doc div.language-mermaid.mermaid-block .lang,
+.VPDoc .vp-doc div.language-mermaid.mermaid-block .copy {
+  display: none;
+}
+
+.VPDoc .vp-doc div.language-mermaid.mermaid-block[data-mermaid-rendered="true"] pre {
+  display: none;
+}
+
+.VPDoc .vp-doc .mermaid-output {
+  display: flex;
+  justify-content: center;
+  overflow-x: auto;
+}
+
+.VPDoc .vp-doc .mermaid-output svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.VPDoc .vp-doc .mermaid-error-message {
+  margin: 12px 0 0;
+  color: #b91c1c;
+  font-size: 0.95rem;
+}
+
+.dark .VPDoc .vp-doc .mermaid-error-message {
+  color: #fca5a5;
+}
+
 .VPDoc .vp-doc table {
   display: table;
   width: 100%;
