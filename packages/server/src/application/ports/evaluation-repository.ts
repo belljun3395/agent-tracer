@@ -8,8 +8,12 @@ import type { TaskEvaluation, WorkflowSearchResult, WorkflowSummary } from "@mon
 
 export type { TaskEvaluation, WorkflowSearchResult, WorkflowSummary };
 
+export interface PersistedTaskEvaluation extends TaskEvaluation {
+  readonly searchText?: string | null;
+}
+
 export interface IEvaluationRepository {
-  upsertEvaluation(evaluation: TaskEvaluation): Promise<void>;
+  upsertEvaluation(evaluation: PersistedTaskEvaluation): Promise<void>;
   getEvaluation(taskId: string): Promise<TaskEvaluation | null>;
   listEvaluations(rating?: "good" | "skip"): Promise<readonly WorkflowSummary[]>;
   searchSimilarWorkflows(query: string, tags?: readonly string[], limit?: number): Promise<readonly WorkflowSearchResult[]>;

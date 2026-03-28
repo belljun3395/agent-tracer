@@ -609,17 +609,41 @@ export class MonitorService {
 
   async upsertTaskEvaluation(
     taskId: string,
-    rating: "good" | "skip",
-    useCase?: string,
-    workflowTags?: string[],
-    outcomeNote?: string
+    input: {
+      readonly rating: "good" | "skip";
+      readonly useCase?: string;
+      readonly workflowTags?: string[];
+      readonly outcomeNote?: string;
+      readonly approachNote?: string;
+      readonly reuseWhen?: string;
+      readonly watchouts?: string;
+    }
   ): Promise<void> {
+    const task = await this.requireTask(taskId);
+    const events = await this.ports.events.findByTaskId(taskId);
+    const snapshot = buildReusableTaskSnapshot({
+      objective: task.title,
+      events,
+      evaluation: {
+        useCase: input.useCase ?? null,
+        workflowTags: input.workflowTags ?? [],
+        outcomeNote: input.outcomeNote ?? null,
+        approachNote: input.approachNote ?? null,
+        reuseWhen: input.reuseWhen ?? null,
+        watchouts: input.watchouts ?? null
+      }
+    });
+
     await this.ports.evaluations.upsertEvaluation({
       taskId,
-      rating,
-      useCase: useCase ?? null,
-      workflowTags: workflowTags ?? [],
-      outcomeNote: outcomeNote ?? null,
+      rating: input.rating,
+      useCase: input.useCase ?? null,
+      workflowTags: input.workflowTags ?? [],
+      outcomeNote: input.outcomeNote ?? null,
+      approachNote: input.approachNote ?? null,
+      reuseWhen: input.reuseWhen ?? null,
+      watchouts: input.watchouts ?? null,
+      searchText: snapshot.searchText,
       evaluatedAt: new Date().toISOString()
     });
   }
@@ -636,3 +660,4 @@ export class MonitorService {
     return this.ports.evaluations.searchSimilarWorkflows(query, tags, limit);
   }
 }
+import { buildReusableTaskSnapshot } from "@monitor/core";

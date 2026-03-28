@@ -84,6 +84,10 @@ export function createSchema(db: Database.Database): void {
       use_case      text,
       workflow_tags text,
       outcome_note  text,
+      approach_note text,
+      reuse_when    text,
+      watchouts     text,
+      search_text   text,
       evaluated_at  text not null
     );
 
