@@ -221,11 +221,13 @@ async function postWebSearchEvents(rows: JsonObject[], ids: RuntimeIds): Promise
         if (callId && seenCallIds.has(callId)) continue;
         if (callId) seenCallIds.add(callId);
 
-        const query = toTrimmedString(payload.query, 4000);
         const action = isRecord(payload.action) ? payload.action : {};
+        const actionQuery = toTrimmedString(action.query, 4000);
+        const query = toTrimmedString(payload.query, 4000) || actionQuery;
         const actionType = toTrimmedString(action.type);
         const actionUrl = toTrimmedString(action.url, 4000);
         const actionPattern = toTrimmedString(action.pattern, 4000);
+        const webLookup = buildWebLookupValue(actionType, query, actionUrl, actionPattern);
 
         const toolInput: JsonObject = {
             ...(query ? { query } : {}),
@@ -248,6 +250,7 @@ async function postWebSearchEvents(rows: JsonObject[], ids: RuntimeIds): Promise
                 actionType,
                 ...(actionUrl ? { url: actionUrl } : {}),
                 ...(actionPattern ? { pattern: actionPattern } : {}),
+                ...(webLookup ? { webUrls: [ellipsize(webLookup, 300)] } : {}),
                 ...buildSemanticMetadata(semantic)
             }
         });
@@ -361,6 +364,12 @@ function buildWebSearchBody(query: string, actionType: string, url: string, patt
         pattern ? `pattern: ${pattern}` : ""
     ].filter(Boolean);
     return lines.length > 0 ? lines.join("\n") : undefined;
+}
+
+function buildWebLookupValue(actionType: string, query: string, url: string, pattern: string): string {
+    if (actionType === "open_page") return url || query;
+    if (actionType === "find_in_page") return pattern || query;
+    return query || url || pattern;
 }
 
 function parsePatchedFilePaths(patchInput: string): string[] {
