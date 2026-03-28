@@ -2651,7 +2651,7 @@ export function createMonitorHooks(workspacePath: string): Hooks {
         ?? (classification.entityType === "agent" ? entityName : undefined);
       const skillName = toNonEmptyString(toolArgs.skill)
         ?? (classification.entityType === "skill" ? entityName : undefined);
-      const effectiveLane = state.taskKind === "background"
+      const effectiveLane = state.taskKind === "background" && classification.lane !== "exploration"
         ? "background"
         : classification.lane;
 
