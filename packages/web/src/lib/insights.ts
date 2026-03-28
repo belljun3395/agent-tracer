@@ -2106,8 +2106,7 @@ function selectHandoffViewData(options: HandoffOptions): {
       .slice(0, options.mode === "compact" ? 4 : 6),
     modifiedFiles: (options.snapshot.modifiedFiles.length > 0 ? options.snapshot.modifiedFiles : options.modifiedFiles)
       .slice(0, options.mode === "compact" ? 4 : 6),
-    openTodos: (options.snapshot.nextSteps.length > 0 ? options.snapshot.nextSteps : options.openTodos)
-      .slice(0, options.mode === "compact" ? 3 : 4),
+    openTodos: options.openTodos.slice(0, options.mode === "compact" ? 3 : 4),
     openQuestions: options.openQuestions.slice(0, options.mode === "compact" ? 1 : 2),
     violations: uniqueStrings([
       ...options.snapshot.watchItems,
