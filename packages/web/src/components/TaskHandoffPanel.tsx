@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
-import type { TaskProcessSection } from "../lib/insights.js";
+import type { ReusableTaskSnapshot } from "@monitor/core";
+import type { HandoffMode, TaskProcessSection } from "../lib/insights.js";
 import {
   buildHandoffPlain,
   buildHandoffMarkdown,
@@ -15,6 +16,7 @@ type HandoffFormat = "plain" | "markdown" | "xml" | "system-prompt";
 
 interface HandoffPrefs {
   format: HandoffFormat;
+  mode: HandoffMode;
   include: {
     summary: boolean;
     plans: boolean;
@@ -28,7 +30,8 @@ interface HandoffPrefs {
 }
 
 const DEFAULT_HANDOFF_PREFS: HandoffPrefs = {
-  format: "xml",
+  format: "markdown",
+  mode: "compact",
   include: {
     summary: true,
     plans: true,
@@ -76,6 +79,7 @@ interface TaskHandoffPanelProps {
   readonly openTodos: readonly string[];
   readonly openQuestions: readonly string[];
   readonly violations: readonly string[];
+  readonly snapshot: ReusableTaskSnapshot;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -89,7 +93,8 @@ export function TaskHandoffPanel({
   modifiedFiles,
   openTodos,
   openQuestions,
-  violations
+  violations,
+  snapshot
 }: TaskHandoffPanelProps): React.JSX.Element {
   const [isOpen, setIsOpen] = useState(false);
   const [memo, setMemo] = useState("");
@@ -107,6 +112,8 @@ export function TaskHandoffPanel({
       openTodos,
       openQuestions,
       violations,
+      snapshot,
+      mode: prefs.mode,
       memo,
       include: prefs.include
     };
@@ -116,7 +123,7 @@ export function TaskHandoffPanel({
       case "xml": return buildHandoffXML(options);
       case "system-prompt": return buildHandoffSystemPrompt(options);
     }
-  }, [prefs.format, prefs.include, objective, summary, plans, sections, exploredFiles, modifiedFiles, openTodos, openQuestions, violations, memo]);
+  }, [prefs.format, prefs.include, prefs.mode, objective, summary, plans, sections, exploredFiles, modifiedFiles, openTodos, openQuestions, violations, snapshot, memo]);
 
   const isDisabled =
     !prefs.include.summary &&
@@ -152,6 +159,10 @@ export function TaskHandoffPanel({
     updatePrefs({ ...prefs, format });
   }, [updatePrefs, prefs]);
 
+  const setMode = useCallback((mode: HandoffMode): void => {
+    updatePrefs({ ...prefs, mode });
+  }, [updatePrefs, prefs]);
+
   const labelClass = "text-[0.72rem] font-semibold uppercase tracking-[0.06em] text-[var(--text-3)]";
 
   const pillBase = "rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-2 py-0.5 text-[0.73rem] cursor-pointer select-none transition-colors";
@@ -173,6 +184,12 @@ export function TaskHandoffPanel({
     { value: "markdown", label: "Markdown" },
     { value: "xml", label: "XML" },
     { value: "system-prompt", label: "SP" }
+  ];
+
+  const modes: { value: HandoffMode; label: string }[] = [
+    { value: "compact", label: "Compact" },
+    { value: "standard", label: "Standard" },
+    { value: "full", label: "Full" }
   ];
 
   return (
@@ -235,6 +252,28 @@ export function TaskHandoffPanel({
 
           {/* Format selector */}
           <div className="flex flex-col gap-1.5">
+            <span className={labelClass}>Mode</span>
+            <div className="flex rounded-[6px] border border-[var(--border)] overflow-hidden w-fit">
+              {modes.map(({ value, label }) => (
+                <button
+                  key={value}
+                  className={cn(
+                    "px-2.5 py-1 text-[0.72rem] font-medium transition-colors",
+                    prefs.mode === value
+                      ? "bg-[var(--accent)] text-[#fff]"
+                      : "text-[var(--text-2)] hover:text-[var(--text-1)]"
+                  )}
+                  type="button"
+                  onClick={() => setMode(value)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Format selector */}
+          <div className="flex flex-col gap-1.5">
             <span className={labelClass}>Format</span>
             <div className="flex rounded-[6px] border border-[var(--border)] overflow-hidden w-fit">
               {formats.map(({ value, label }) => (
@@ -257,7 +296,10 @@ export function TaskHandoffPanel({
 
           {/* Preview */}
           <div className="flex flex-col gap-1.5">
-            <span className={labelClass}>Preview</span>
+            <div className="flex items-center justify-between gap-3">
+              <span className={labelClass}>Preview</span>
+              <span className="text-[0.7rem] text-[var(--text-3)]">{preview.length} chars</span>
+            </div>
             <pre className="max-h-48 overflow-auto rounded-[6px] border border-[var(--border)] bg-[var(--surface-2)] p-2 font-mono text-[0.72rem] text-[var(--text-1)] whitespace-pre">
               {preview
                 ? preview

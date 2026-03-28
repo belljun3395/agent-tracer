@@ -15,6 +15,9 @@ export function TaskEvaluatePanel({ evaluation, isSaving, isSaved, onSave }: Tas
   const [tagInput, setTagInput] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [outcomeNote, setOutcomeNote] = useState("");
+  const [approachNote, setApproachNote] = useState("");
+  const [reuseWhen, setReuseWhen] = useState("");
+  const [watchouts, setWatchouts] = useState("");
 
   useEffect(() => {
     if (evaluation) {
@@ -22,6 +25,9 @@ export function TaskEvaluatePanel({ evaluation, isSaving, isSaved, onSave }: Tas
       setUseCase(evaluation.useCase ?? "");
       setTags([...evaluation.workflowTags]);
       setOutcomeNote(evaluation.outcomeNote ?? "");
+      setApproachNote(evaluation.approachNote ?? "");
+      setReuseWhen(evaluation.reuseWhen ?? "");
+      setWatchouts(evaluation.watchouts ?? "");
       setTagInput("");
       return;
     }
@@ -30,6 +36,9 @@ export function TaskEvaluatePanel({ evaluation, isSaving, isSaved, onSave }: Tas
     setUseCase("");
     setTags([]);
     setOutcomeNote("");
+    setApproachNote("");
+    setReuseWhen("");
+    setWatchouts("");
     setTagInput("");
   }, [evaluation]);
 
@@ -64,9 +73,12 @@ export function TaskEvaluatePanel({ evaluation, isSaving, isSaved, onSave }: Tas
       rating,
       ...(useCase.trim() ? { useCase: useCase.trim() } : {}),
       ...(tags.length > 0 ? { workflowTags: tags } : {}),
-      ...(outcomeNote.trim() ? { outcomeNote: outcomeNote.trim() } : {})
+      ...(outcomeNote.trim() ? { outcomeNote: outcomeNote.trim() } : {}),
+      ...(approachNote.trim() ? { approachNote: approachNote.trim() } : {}),
+      ...(reuseWhen.trim() ? { reuseWhen: reuseWhen.trim() } : {}),
+      ...(watchouts.trim() ? { watchouts: watchouts.trim() } : {})
     });
-  }, [rating, useCase, tags, outcomeNote, onSave]);
+  }, [rating, useCase, tags, outcomeNote, approachNote, reuseWhen, watchouts, onSave]);
 
   const labelClass = "text-[0.72rem] font-semibold uppercase tracking-[0.06em] text-[var(--text-3)]";
 
@@ -160,15 +172,48 @@ export function TaskEvaluatePanel({ evaluation, isSaving, isSaved, onSave }: Tas
         </div>
       </div>
 
-      {/* Outcome note */}
+      {/* Outcome */}
       <div className="flex flex-col gap-1.5">
-        <span className={labelClass}>Outcome note</span>
+        <span className={labelClass}>Outcome</span>
         <textarea
           className="rounded-[6px] border border-[var(--border)] bg-[var(--surface-2)] px-2.5 py-1.5 text-[0.8rem] text-[var(--text-1)] outline-none placeholder:text-[var(--text-3)] focus:border-[var(--accent)] resize-none"
-          placeholder="다음번에 도움이 될 힌트는? e.g. satisfies operator가 as보다 효과적"
+          placeholder="무엇이 해결됐는지 짧게 적어주세요. e.g. copy for ai를 compact/standard/full handoff로 정리"
           rows={3}
           value={outcomeNote}
           onChange={e => setOutcomeNote(e.target.value)}
+        />
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <span className={labelClass}>What worked</span>
+        <textarea
+          className="rounded-[6px] border border-[var(--border)] bg-[var(--surface-2)] px-2.5 py-1.5 text-[0.8rem] text-[var(--text-1)] outline-none placeholder:text-[var(--text-3)] focus:border-[var(--accent)] resize-none"
+          placeholder="어떤 접근이 잘 먹혔는지 적어주세요. e.g. shared task snapshot을 만들고 handoff/search 둘 다 거기서 생성"
+          rows={3}
+          value={approachNote}
+          onChange={e => setApproachNote(e.target.value)}
+        />
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <span className={labelClass}>Reuse when</span>
+        <textarea
+          className="rounded-[6px] border border-[var(--border)] bg-[var(--surface-2)] px-2.5 py-1.5 text-[0.8rem] text-[var(--text-1)] outline-none placeholder:text-[var(--text-3)] focus:border-[var(--accent)] resize-none"
+          placeholder="어떤 상황에서 다시 쓰면 좋은지 적어주세요. e.g. handoff가 길어지고 workflow search 정확도가 떨어질 때"
+          rows={2}
+          value={reuseWhen}
+          onChange={e => setReuseWhen(e.target.value)}
+        />
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <span className={labelClass}>Watch out</span>
+        <textarea
+          className="rounded-[6px] border border-[var(--border)] bg-[var(--surface-2)] px-2.5 py-1.5 text-[0.8rem] text-[var(--text-1)] outline-none placeholder:text-[var(--text-3)] focus:border-[var(--accent)] resize-none"
+          placeholder="주의할 점을 적어주세요. e.g. 기존 evaluation row와 migration, 긴 assistant.response를 그대로 searchText에 넣지 않기"
+          rows={2}
+          value={watchouts}
+          onChange={e => setWatchouts(e.target.value)}
         />
       </div>
 

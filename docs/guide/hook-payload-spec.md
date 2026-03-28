@@ -92,19 +92,33 @@ stdin payload를 정리한다.
 **tool_input 구조 (도구별):**
 
 ```
-Bash:    { command, description?, timeout?, run_in_background? }
-Edit:    { file_path, old_string, new_string, replace_all? }
-Write:   { file_path, content }
-Read:    { file_path, offset?, limit? }
-Glob:    { pattern, path? }
-Grep:    { pattern, path?, glob?, output_mode?, "-i"?, multiline? }
-Agent:   { description?, prompt, subagent_type?, model?, run_in_background? }
-Skill:   { skill, args? }
-mcp__*:  MCP 서버/툴별 상이
+Bash:        { command, description?, timeout?, run_in_background? }
+Edit:        { file_path, old_string, new_string, replace_all? }
+Write:       { file_path, content }
+Read:        { file_path, offset?, limit? }
+Glob:        { pattern, path? }
+Grep:        { pattern, path?, glob?, output_mode?, "-i"?, multiline? }
+WebSearch:   { query }
+WebFetch:    { url, prompt? }
+Agent:       { description?, prompt, subagent_type?, model?, run_in_background? }
+Skill:       { skill, args? }
+mcp__*:      MCP 서버/툴별 상이
 ```
 
 > 위 구조는 Agent Tracer가 현재 주로 쓰는 필드를 요약한 것이다.
 > exhaustive schema는 공식 hooks reference를 우선 본다.
+
+## Agent Tracer 커스텀 메타데이터
+
+`explore.ts`는 PostToolUse 이후 `/api/explore`를 호출할 때 `metadata` 필드에 도구별 추가 정보를 삽입한다.
+
+| 도구 | 추가 메타데이터 | 설명 |
+|------|-----------------|------|
+| `WebSearch` | `metadata.webUrls: string[]` | 검색 쿼리를 최대 300자까지 저장. 대시보드 Exploration 탭 Web Lookups 섹션에서 표시됨 |
+| `WebFetch` | `metadata.webUrls: string[]` | 페치한 URL을 최대 300자까지 저장 |
+| 전체 explore 도구 | `metadata.toolInput` | `tool_input` 원본을 JSON 문자열로 저장 (디버깅용) |
+
+이 필드들은 Claude Code hook payload 공식 스펙에 없는 **Agent Tracer 자체 확장**이다.
 
 ---
 

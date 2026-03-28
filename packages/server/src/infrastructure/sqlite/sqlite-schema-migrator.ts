@@ -8,6 +8,7 @@ import type Database from "better-sqlite3";
 
 export function runMigrations(db: Database.Database): void {
   const cols = db.pragma("table_info(monitoring_tasks)") as Array<{ name: string }>;
+  const evaluationCols = db.pragma("table_info(task_evaluations)") as Array<{ name: string }>;
 
   if (!cols.some((c) => c.name === "cli_source")) {
     db.exec("alter table monitoring_tasks add column cli_source text");
@@ -23,6 +24,18 @@ export function runMigrations(db: Database.Database): void {
   }
   if (!cols.some((c) => c.name === "background_task_id")) {
     db.exec("alter table monitoring_tasks add column background_task_id text");
+  }
+  if (evaluationCols.length > 0 && !evaluationCols.some((c) => c.name === "approach_note")) {
+    db.exec("alter table task_evaluations add column approach_note text");
+  }
+  if (evaluationCols.length > 0 && !evaluationCols.some((c) => c.name === "reuse_when")) {
+    db.exec("alter table task_evaluations add column reuse_when text");
+  }
+  if (evaluationCols.length > 0 && !evaluationCols.some((c) => c.name === "watchouts")) {
+    db.exec("alter table task_evaluations add column watchouts text");
+  }
+  if (evaluationCols.length > 0 && !evaluationCols.some((c) => c.name === "search_text")) {
+    db.exec("alter table task_evaluations add column search_text text");
   }
 
   backfillTaskRuntimeSources(db);
