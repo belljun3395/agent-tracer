@@ -37,6 +37,12 @@ export function runMigrations(db: Database.Database): void {
   if (evaluationCols.length > 0 && !evaluationCols.some((c) => c.name === "search_text")) {
     db.exec("alter table task_evaluations add column search_text text");
   }
+  if (evaluationCols.length > 0 && !evaluationCols.some((c) => c.name === "embedding")) {
+    db.exec("alter table task_evaluations add column embedding text");
+  }
+  if (evaluationCols.length > 0 && !evaluationCols.some((c) => c.name === "embedding_model")) {
+    db.exec("alter table task_evaluations add column embedding_model text");
+  }
 
   backfillTaskRuntimeSources(db);
 }

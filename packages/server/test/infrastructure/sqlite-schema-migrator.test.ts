@@ -91,4 +91,83 @@ describe("sqlite runtimeSource backfill", () => {
     expect(claudeTask?.runtimeSource).toBe("claude-hook");
     expect(opencodeTask?.runtimeSource).toBe("opencode-plugin");
   });
+
+  it("adds missing workflow search columns for existing evaluation tables", async () => {
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "monitor-evaluation-migration-"));
+    const databasePath = path.join(tempDir, "monitor.sqlite");
+    const seedDb = new BetterSqlite3(databasePath);
+
+    seedDb.exec(`
+      create table monitoring_tasks (
+        id text primary key,
+        title text not null,
+        slug text not null,
+        workspace_path text,
+        status text not null,
+        created_at text not null,
+        updated_at text not null
+      );
+      create table task_evaluations (
+        task_id text primary key references monitoring_tasks(id) on delete cascade,
+        rating text not null,
+        use_case text,
+        workflow_tags text,
+        outcome_note text,
+        evaluated_at text not null
+      );
+      create table task_sessions (
+        id text primary key,
+        task_id text not null references monitoring_tasks(id) on delete cascade,
+        status text not null,
+        summary text,
+        started_at text not null,
+        ended_at text
+      );
+      create table timeline_events (
+        id text primary key,
+        task_id text not null references monitoring_tasks(id) on delete cascade,
+        session_id text references task_sessions(id) on delete set null,
+        kind text not null,
+        lane text not null,
+        title text not null,
+        body text,
+        metadata_json text not null,
+        classification_json text not null,
+        created_at text not null
+      );
+      create table runtime_session_bindings (
+        runtime_source text not null,
+        runtime_session_id text not null,
+        task_id text not null references monitoring_tasks(id) on delete cascade,
+        monitor_session_id text,
+        created_at text not null,
+        updated_at text not null,
+        primary key (runtime_source, runtime_session_id)
+      );
+      create table bookmarks (
+        id text primary key,
+        task_id text not null references monitoring_tasks(id) on delete cascade,
+        event_id text references timeline_events(id) on delete cascade,
+        kind text not null,
+        title text not null,
+        note text,
+        metadata_json text not null default '{}',
+        created_at text not null,
+        updated_at text not null
+      );
+    `);
+    seedDb.close();
+
+    const ports = createSqliteMonitorPorts({ databasePath });
+    closePorts = ports.close;
+
+    const inspectDb = new BetterSqlite3(databasePath, { readonly: true });
+    const columns = inspectDb.pragma("table_info(task_evaluations)") as Array<{ name: string }>;
+
+    expect(columns.some((column) => column.name === "search_text")).toBe(true);
+    expect(columns.some((column) => column.name === "embedding")).toBe(true);
+    expect(columns.some((column) => column.name === "embedding_model")).toBe(true);
+
+    inspectDb.close();
+  });
 });

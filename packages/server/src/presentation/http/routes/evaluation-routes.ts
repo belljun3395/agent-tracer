@@ -50,6 +50,16 @@ export function createEvaluationRoutes(service: MonitorService): Router {
     const rating = req.query.rating === "good" || req.query.rating === "skip"
       ? req.query.rating
       : undefined;
+    const query = typeof req.query.q === "string" ? req.query.q.trim() : "";
+    const limitValue = typeof req.query.limit === "string" ? req.query.limit : "50";
+    const limitRaw = Number.parseInt(limitValue, 10);
+    const limit = Number.isNaN(limitRaw) ? 50 : Math.min(Math.max(limitRaw, 1), 100);
+
+    if (query) {
+      res.json(await service.searchWorkflowLibrary(query, rating, limit));
+      return;
+    }
+
     res.json(await service.listEvaluations(rating));
   });
 

@@ -2274,6 +2274,7 @@ export function EventInspector({
             />
             {taskExtraction.objective && (
               <TaskHandoffPanel
+                taskId={taskDetail?.task.id}
                 objective={taskExtraction.objective}
                 summary={taskExtraction.summary}
                 plans={handoffPlans}

@@ -53,6 +53,40 @@ describe("HTTP API", () => {
     expect(task?.displayTitle).toBe(goal);
   });
 
+  it("workflow library 목록 검색은 semantic ranking을 사용한다", async () => {
+    const started = await request(runtime.app)
+      .post("/api/task-start")
+      .send({ title: "Workflow library semantic search" });
+
+    const taskId = started.body.task.id as string;
+    const sessionId = started.body.sessionId as string;
+
+    await request(runtime.app)
+      .post(`/api/tasks/${taskId}/evaluate`)
+      .send({
+        rating: "good",
+        useCase: "typescript refactor",
+        outcomeNote: "Branch simplification for nested logic"
+      });
+
+    await request(runtime.app)
+      .post("/api/save-context")
+      .send({
+        taskId,
+        sessionId,
+        title: "Context saved",
+        body: "Guard clause cleanup for nested branch logic."
+      });
+
+    const response = await request(runtime.app)
+      .get("/api/workflows")
+      .query({ q: "branch simplification", rating: "good", limit: 10 });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toHaveLength(1);
+    expect(response.body[0]?.taskId).toBe(taskId);
+  });
+
   it("task-start가 generic runtimeSource를 task read-model에 저장한다", async () => {
     const started = await request(runtime.app)
       .post("/api/task-start")

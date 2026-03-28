@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReusableTaskSnapshot } from "@monitor/core";
 import type { HandoffMode, TaskProcessSection } from "../lib/insights.js";
 import {
@@ -9,67 +9,17 @@ import {
 } from "../lib/insights.js";
 import { copyToClipboard } from "../lib/ui/clipboard.js";
 import { cn } from "../lib/ui/cn.js";
-
-// ── Types ────────────────────────────────────────────────────────────────────
-
-type HandoffFormat = "plain" | "markdown" | "xml" | "system-prompt";
-
-interface HandoffPrefs {
-  format: HandoffFormat;
-  mode: HandoffMode;
-  include: {
-    summary: boolean;
-    plans: boolean;
-    process: boolean;
-    files: boolean;
-    modifiedFiles: boolean;
-    todos: boolean;
-    violations: boolean;
-    questions: boolean;
-  };
-}
-
-const DEFAULT_HANDOFF_PREFS: HandoffPrefs = {
-  format: "markdown",
-  mode: "compact",
-  include: {
-    summary: true,
-    plans: true,
-    process: true,
-    files: true,
-    modifiedFiles: true,
-    todos: true,
-    violations: true,
-    questions: false
-  }
-};
-
-const STORAGE_KEY = "agent-tracer.handoff-prefs";
-
-function loadPrefs(violationCount: number): HandoffPrefs {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw) as Partial<HandoffPrefs>;
-      return {
-        ...DEFAULT_HANDOFF_PREFS,
-        ...parsed,
-        include: { ...DEFAULT_HANDOFF_PREFS.include, ...(parsed.include ?? {}) }
-      };
-    }
-  } catch {
-    // malformed JSON
-  }
-  return { ...DEFAULT_HANDOFF_PREFS, include: { ...DEFAULT_HANDOFF_PREFS.include, violations: violationCount > 0 } };
-}
-
-function savePrefs(prefs: HandoffPrefs): void {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs)); } catch { /* ignore */ }
-}
+import {
+  loadHandoffDraft,
+  saveHandoffDraft,
+  type HandoffFormat,
+  type HandoffPrefs
+} from "../lib/ui/handoffStorage.js";
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 
 interface TaskHandoffPanelProps {
+  readonly taskId?: string;
   readonly objective: string;
   readonly summary: string;
   readonly plans: readonly string[];
@@ -85,6 +35,7 @@ interface TaskHandoffPanelProps {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function TaskHandoffPanel({
+  taskId,
   objective,
   summary,
   plans,
@@ -96,10 +47,34 @@ export function TaskHandoffPanel({
   violations,
   snapshot
 }: TaskHandoffPanelProps): React.JSX.Element {
+  const initialDraft = useMemo(
+    () => loadHandoffDraft(taskId, violations.length),
+    [taskId, violations.length]
+  );
   const [isOpen, setIsOpen] = useState(false);
-  const [memo, setMemo] = useState("");
+  const [memo, setMemo] = useState(initialDraft.memo);
   const [copied, setCopied] = useState(false);
-  const [prefs, setPrefs] = useState<HandoffPrefs>(() => loadPrefs(violations.length));
+  const [prefs, setPrefs] = useState<HandoffPrefs>(initialDraft.prefs);
+  const [lastCopiedText, setLastCopiedText] = useState<string | null>(initialDraft.lastCopiedText);
+  const [lastCopiedAt, setLastCopiedAt] = useState<string | null>(initialDraft.lastCopiedAt);
+
+  useEffect(() => {
+    const draft = loadHandoffDraft(taskId, violations.length);
+    setMemo(draft.memo);
+    setPrefs(draft.prefs);
+    setLastCopiedText(draft.lastCopiedText);
+    setLastCopiedAt(draft.lastCopiedAt);
+    setCopied(false);
+  }, [taskId, violations.length]);
+
+  useEffect(() => {
+    saveHandoffDraft(taskId, {
+      prefs,
+      memo,
+      lastCopiedText,
+      lastCopiedAt
+    });
+  }, [lastCopiedAt, lastCopiedText, memo, prefs, taskId]);
 
   const preview = useMemo(() => {
     const options = {
@@ -136,32 +111,29 @@ export function TaskHandoffPanel({
     !prefs.include.questions &&
     memo.trim() === "";
 
-  const handleCopy = useCallback((): void => {
-    void copyToClipboard(preview).then(() => {
+  const handleCopy = useCallback((text: string): void => {
+    void copyToClipboard(text).then(() => {
+      setLastCopiedText(text);
+      setLastCopiedAt(new Date().toISOString());
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });
-  }, [preview]);
-
-  const updatePrefs = useCallback((next: HandoffPrefs): void => {
-    setPrefs(next);
-    savePrefs(next);
   }, []);
 
   const toggleInclude = useCallback((key: keyof HandoffPrefs["include"]): void => {
-    updatePrefs({
+    setPrefs({
       ...prefs,
       include: { ...prefs.include, [key]: !prefs.include[key] }
     });
-  }, [updatePrefs, prefs]);
+  }, [prefs]);
 
   const setFormat = useCallback((format: HandoffFormat): void => {
-    updatePrefs({ ...prefs, format });
-  }, [updatePrefs, prefs]);
+    setPrefs({ ...prefs, format });
+  }, [prefs]);
 
   const setMode = useCallback((mode: HandoffMode): void => {
-    updatePrefs({ ...prefs, mode });
-  }, [updatePrefs, prefs]);
+    setPrefs({ ...prefs, mode });
+  }, [prefs]);
 
   const labelClass = "text-[0.72rem] font-semibold uppercase tracking-[0.06em] text-[var(--text-3)]";
 
@@ -191,6 +163,7 @@ export function TaskHandoffPanel({
     { value: "standard", label: "Standard" },
     { value: "full", label: "Full" }
   ];
+  const canCopyLast = Boolean(lastCopiedText && lastCopiedText !== preview);
 
   return (
     <div className="rounded-[10px] border border-[var(--border)] bg-[var(--surface)]">
@@ -298,7 +271,10 @@ export function TaskHandoffPanel({
           <div className="flex flex-col gap-1.5">
             <div className="flex items-center justify-between gap-3">
               <span className={labelClass}>Preview</span>
-              <span className="text-[0.7rem] text-[var(--text-3)]">{preview.length} chars</span>
+              <div className="flex items-center gap-2 text-[0.7rem] text-[var(--text-3)]">
+                {lastCopiedAt ? <span>Last copy saved locally</span> : null}
+                <span>{preview.length} chars</span>
+              </div>
             </div>
             <pre className="max-h-48 overflow-auto rounded-[6px] border border-[var(--border)] bg-[var(--surface-2)] p-2 font-mono text-[0.72rem] text-[var(--text-1)] whitespace-pre">
               {preview
@@ -309,7 +285,16 @@ export function TaskHandoffPanel({
           </div>
 
           {/* Copy button */}
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-2">
+            {canCopyLast && lastCopiedText ? (
+              <button
+                className="rounded-[7px] border border-[var(--border)] bg-[var(--surface-2)] px-3 py-1.5 text-[0.78rem] font-semibold text-[var(--text-2)] transition-colors hover:text-[var(--text-1)]"
+                type="button"
+                onClick={() => handleCopy(lastCopiedText)}
+              >
+                Copy last
+              </button>
+            ) : null}
             <button
               className={cn(
                 "rounded-[7px] border px-3 py-1.5 text-[0.78rem] font-semibold transition-all",
@@ -321,7 +306,7 @@ export function TaskHandoffPanel({
               )}
               disabled={isDisabled}
               type="button"
-              onClick={handleCopy}
+              onClick={() => handleCopy(preview)}
             >
               {copied ? "Copied ✓" : "Copy for AI"}
             </button>

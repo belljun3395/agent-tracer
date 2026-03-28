@@ -9,6 +9,11 @@ import type Database from "better-sqlite3";
 
 import type { IBookmarkRepository, BookmarkRecord, BookmarkSaveInput } from "../../application/ports/bookmark-repository.js";
 import { parseJsonField } from "./sqlite-json.js";
+import {
+  buildBookmarkSearchText,
+  deleteSearchDocument,
+  upsertSearchDocument
+} from "./sqlite-search-documents.js";
 
 interface BookmarkRow {
   id: string;
@@ -77,6 +82,21 @@ export class SqliteBookmarkRepository implements IBookmarkRepository {
     const row = this.db
       .prepare<{ id: string }, BookmarkRow>(`${BOOKMARK_SELECT} where b.id = @id`)
       .get({ id: input.id });
+    if (row) {
+      upsertSearchDocument(this.db, {
+        scope: "bookmark",
+        entityId: row.id,
+        taskId: row.task_id,
+        searchText: buildBookmarkSearchText({
+          kind: row.kind,
+          title: row.title,
+          note: row.note,
+          taskTitle: row.task_title,
+          eventTitle: row.event_title
+        }),
+        updatedAt: row.updated_at
+      });
+    }
     return mapBookmarkRow(row!);
   }
 
@@ -96,5 +116,6 @@ export class SqliteBookmarkRepository implements IBookmarkRepository {
 
   async delete(bookmarkId: string): Promise<void> {
     this.db.prepare("delete from bookmarks where id = @bookmarkId").run({ bookmarkId });
+    deleteSearchDocument(this.db, "bookmark", bookmarkId);
   }
 }
