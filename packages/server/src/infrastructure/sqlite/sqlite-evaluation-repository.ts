@@ -16,8 +16,12 @@ import type {
   WorkflowSearchResult,
   WorkflowSummary
 } from "../../application/ports/evaluation-repository.js";
-import type { TimelineEvent, WorkflowEvaluationData } from "@monitor/core";
+import type { MonitoringTask, TimelineEvent, WorkflowEvaluationData } from "@monitor/core";
 import { buildWorkflowContext } from "../../application/workflow-context-builder.helpers.js";
+import {
+  deriveTaskDisplayTitle,
+  meaningfulTaskTitle
+} from "../../application/services/task-display-title-resolver.helpers.js";
 import type { IEmbeddingService } from "../embedding/index.js";
 import {
   cosineSimilarity,
@@ -45,6 +49,8 @@ interface EvaluationRow {
 interface TaskWithEvaluationRow {
   task_id: string;
   title: string;
+  slug: string;
+  workspace_path: string | null;
   use_case: string | null;
   workflow_tags: string | null;
   outcome_note: string | null;
@@ -154,7 +160,7 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
     const rows = this.loadSearchRows(undefined, rating);
     return rows
       .sort(compareWorkflowSummaryRows)
-      .map((row) => mapWorkflowSummary(row));
+      .map((row) => this.hydrateWorkflowSummary(row));
   }
 
   async getEvaluation(taskId: string): Promise<TaskEvaluation | null> {
@@ -172,7 +178,7 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
   ): Promise<readonly WorkflowSummary[]> {
     const effectiveLimit = Math.min(Math.max(limit, 1), 100);
     const rankedRows = await this.rankWorkflowRows(query, undefined, effectiveLimit, rating);
-    return rankedRows.map((row) => mapWorkflowSummary(row));
+    return rankedRows.map((row) => this.hydrateWorkflowSummary(row));
   }
 
   async searchSimilarWorkflows(
@@ -229,6 +235,8 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
       select
         e.task_id,
         t.title,
+        t.slug,
+        t.workspace_path,
         e.use_case,
         e.workflow_tags,
         e.outcome_note,
@@ -305,10 +313,12 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
   private hydrateSearchResult(row: TaskWithEvaluationRow): WorkflowSearchResult {
     const events = this.loadWorkflowEvents(row.task_id);
     const evaluation = buildEvaluationData(row);
+    const displayTitle = resolveWorkflowDisplayTitle(row, events);
 
     return {
       taskId: row.task_id,
       title: row.title,
+      ...(displayTitle ? { displayTitle } : {}),
       useCase: row.use_case,
       workflowTags: row.workflow_tags ? parseJsonField<string[]>(row.workflow_tags) : [],
       outcomeNote: row.outcome_note,
@@ -318,8 +328,22 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
       rating: row.rating as "good" | "skip",
       eventCount: row.event_count,
       createdAt: row.created_at,
-      workflowContext: buildWorkflowContext(events, row.title, evaluation)
+      workflowContext: buildWorkflowContext(events, displayTitle ?? row.title, evaluation)
     };
+  }
+
+  private hydrateWorkflowSummary(row: TaskWithEvaluationRow): WorkflowSummary {
+    return mapWorkflowSummary(row, this.resolveWorkflowDisplayTitle(row));
+  }
+
+  private resolveWorkflowDisplayTitle(row: TaskWithEvaluationRow): string | undefined {
+    const task = buildWorkflowTask(row);
+    if (meaningfulTaskTitle(task)) {
+      return undefined;
+    }
+
+    const events = this.loadWorkflowEvents(row.task_id);
+    return resolveWorkflowDisplayTitle(row, events);
   }
 
   private loadWorkflowEvents(taskId: string): readonly TimelineEvent[] {
@@ -376,10 +400,11 @@ function mergeRankedRows(
     .map((entry) => entry.row);
 }
 
-function mapWorkflowSummary(row: TaskWithEvaluationRow): WorkflowSummary {
+function mapWorkflowSummary(row: TaskWithEvaluationRow, displayTitle?: string): WorkflowSummary {
   return {
     taskId: row.task_id,
     title: row.title,
+    ...(displayTitle ? { displayTitle } : {}),
     useCase: row.use_case,
     workflowTags: row.workflow_tags ? parseJsonField<string[]>(row.workflow_tags) : [],
     outcomeNote: row.outcome_note,
@@ -391,6 +416,28 @@ function mapWorkflowSummary(row: TaskWithEvaluationRow): WorkflowSummary {
     createdAt: row.created_at,
     evaluatedAt: row.evaluated_at
   };
+}
+
+function buildWorkflowTask(row: Pick<TaskWithEvaluationRow, "task_id" | "title" | "slug" | "workspace_path" | "created_at" | "evaluated_at">): MonitoringTask {
+  return {
+    id: row.task_id,
+    title: row.title,
+    slug: row.slug,
+    status: "completed",
+    createdAt: row.created_at,
+    updatedAt: row.evaluated_at,
+    ...(row.workspace_path ? { workspacePath: row.workspace_path } : {})
+  };
+}
+
+function resolveWorkflowDisplayTitle(
+  row: Pick<TaskWithEvaluationRow, "task_id" | "title" | "slug" | "workspace_path" | "created_at" | "evaluated_at">,
+  events: readonly TimelineEvent[]
+): string | undefined {
+  const displayTitle = deriveTaskDisplayTitle(buildWorkflowTask(row), events);
+  return displayTitle && displayTitle !== row.title
+    ? displayTitle
+    : undefined;
 }
 
 function combinedRankScore(entry: RankedWorkflowRow): number {

@@ -139,7 +139,7 @@ export function WorkflowLibraryPanel({ onSelectTask, onClose }: WorkflowLibraryP
                     {item.rating === "good" ? "Good" : "Skip"}
                   </span>
                   <div className="flex flex-1 flex-col gap-0.5 min-w-0">
-                    <span className="truncate text-[0.85rem] font-semibold text-[var(--text-1)]">{item.title}</span>
+                    <span className="truncate text-[0.85rem] font-semibold text-[var(--text-1)]">{item.displayTitle ?? item.title}</span>
                     {item.useCase && (
                       <span className="text-[0.78rem] text-[var(--text-2)]">{item.useCase}</span>
                     )}
