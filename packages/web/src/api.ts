@@ -5,18 +5,17 @@
  * 서버와의 모든 HTTP/WebSocket 통신을 담당.
  */
 
+import type { ReusableTaskSnapshot, TaskEvaluation, WorkflowSummary } from "@monitor/core";
 import type {
   BookmarksResponse,
   BookmarkRecord,
   MonitoringTask,
   OverviewResponse,
   SearchResponse,
-  TaskEvaluation,
   TaskDetailResponse,
   TaskObservabilityResponse,
   TimelineEvent,
-  TasksResponse,
-  WorkflowSummary
+  TasksResponse
 } from "./types.js";
 
 const API_BASE = (
@@ -184,11 +183,27 @@ export interface TaskEvaluationPayload {
   approachNote?: string;
   reuseWhen?: string;
   watchouts?: string;
+  workflowSnapshot?: ReusableTaskSnapshot;
+  workflowContext?: string;
 }
 
-export type TaskEvaluationRecord = TaskEvaluation;
+export interface TaskEvaluationRecord extends TaskEvaluation {
+  readonly workflowSnapshot: ReusableTaskSnapshot | null;
+  readonly workflowContext: string | null;
+  readonly searchText: string | null;
+}
 
 export type WorkflowSummaryRecord = WorkflowSummary;
+
+export interface WorkflowContentRecord {
+  readonly taskId: string;
+  readonly title: string;
+  readonly displayTitle?: string;
+  readonly workflowSnapshot: ReusableTaskSnapshot;
+  readonly workflowContext: string;
+  readonly searchText: string | null;
+  readonly source: "saved" | "generated";
+}
 
 export function fetchWorkflowLibrary(
   rating?: "good" | "skip",
@@ -215,6 +230,10 @@ export function fetchTaskEvaluation(taskId: string): Promise<TaskEvaluationRecor
 
 export async function saveTaskEvaluation(taskId: string, payload: TaskEvaluationPayload): Promise<void> {
   await postJson<{ ok: boolean }>(`/api/tasks/${taskId}/evaluate`, payload);
+}
+
+export function fetchWorkflowContent(taskId: string): Promise<WorkflowContentRecord> {
+  return getJson<WorkflowContentRecord>(`/api/workflows/${taskId}/content`);
 }
 
 /**

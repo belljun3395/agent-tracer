@@ -74,6 +74,9 @@ export function useEvaluation(taskId: string | null | undefined): UseEvaluationR
         approachNote: payload.approachNote ?? null,
         reuseWhen: payload.reuseWhen ?? null,
         watchouts: payload.watchouts ?? null,
+        workflowSnapshot: payload.workflowSnapshot ?? null,
+        workflowContext: payload.workflowContext ?? null,
+        searchText: payload.workflowSnapshot?.searchText ?? null,
         evaluatedAt: new Date().toISOString()
       });
       setIsSaved(true);

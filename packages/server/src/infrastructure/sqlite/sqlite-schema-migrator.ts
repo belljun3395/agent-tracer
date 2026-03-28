@@ -34,6 +34,12 @@ export function runMigrations(db: Database.Database): void {
   if (evaluationCols.length > 0 && !evaluationCols.some((c) => c.name === "watchouts")) {
     db.exec("alter table task_evaluations add column watchouts text");
   }
+  if (evaluationCols.length > 0 && !evaluationCols.some((c) => c.name === "workflow_snapshot_json")) {
+    db.exec("alter table task_evaluations add column workflow_snapshot_json text");
+  }
+  if (evaluationCols.length > 0 && !evaluationCols.some((c) => c.name === "workflow_context")) {
+    db.exec("alter table task_evaluations add column workflow_context text");
+  }
   if (evaluationCols.length > 0 && !evaluationCols.some((c) => c.name === "search_text")) {
     db.exec("alter table task_evaluations add column search_text text");
   }

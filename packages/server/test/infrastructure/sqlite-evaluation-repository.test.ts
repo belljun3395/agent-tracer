@@ -155,6 +155,49 @@ describe("sqlite evaluation repository search", () => {
 
     db.close();
   });
+
+  it("returns saved workflow content overrides when available", async () => {
+    const db = new BetterSqlite3(":memory:");
+    createSchema(db);
+    seedTask(db, {
+      id: "task-workflow-content",
+      title: "Codex - agent-tracer",
+      workspacePath: "/tmp/agent-tracer"
+    });
+    seedEvaluation(db, {
+      taskId: "task-workflow-content",
+      rating: "good",
+      workflowSnapshotJson: JSON.stringify({
+        objective: "workflow content preview",
+        originalRequest: "workflow content preview",
+        outcomeSummary: "saved override",
+        approachSummary: "manual snapshot edit",
+        reuseWhen: null,
+        watchItems: [],
+        keyDecisions: ["persist override"],
+        nextSteps: [],
+        keyFiles: [],
+        modifiedFiles: [],
+        verificationSummary: null,
+        searchText: "workflow content preview"
+      }),
+      workflowContext: "# Workflow: workflow content preview\n\n## Outcome\nsaved override"
+    });
+    seedUserMessage(db, {
+      id: "event-user-content",
+      taskId: "task-workflow-content",
+      body: "workflow content preview"
+    });
+
+    const repository = new SqliteEvaluationRepository(db);
+    const result = await repository.getWorkflowContent("task-workflow-content");
+
+    expect(result?.source).toBe("saved");
+    expect(result?.workflowSnapshot.outcomeSummary).toBe("saved override");
+    expect(result?.workflowContext).toContain("saved override");
+
+    db.close();
+  });
 });
 
 function seedTask(db: BetterSqlite3.Database, input: {
@@ -189,14 +232,16 @@ function seedEvaluation(db: BetterSqlite3.Database, input: {
   evaluatedAt?: string;
   embedding?: string;
   embeddingModel?: string;
+  workflowSnapshotJson?: string;
+  workflowContext?: string;
 }): void {
   db.prepare(`
     insert into task_evaluations (
       task_id, rating, use_case, workflow_tags, outcome_note, approach_note, reuse_when,
-      watchouts, search_text, embedding, embedding_model, evaluated_at
+      watchouts, workflow_snapshot_json, workflow_context, search_text, embedding, embedding_model, evaluated_at
     ) values (
       @taskId, @rating, @useCase, '["search"]', @outcomeNote, @approachNote, null,
-      null, null, @embedding, @embeddingModel, @evaluatedAt
+      null, @workflowSnapshotJson, @workflowContext, null, @embedding, @embeddingModel, @evaluatedAt
     )
   `).run({
     taskId: input.taskId,
@@ -204,6 +249,8 @@ function seedEvaluation(db: BetterSqlite3.Database, input: {
     useCase: input.useCase ?? null,
     outcomeNote: input.outcomeNote ?? null,
     approachNote: input.approachNote ?? null,
+    workflowSnapshotJson: input.workflowSnapshotJson ?? null,
+    workflowContext: input.workflowContext ?? null,
     embedding: input.embedding ?? null,
     embeddingModel: input.embeddingModel ?? null,
     evaluatedAt: input.evaluatedAt ?? "2026-03-28T00:00:00.000Z"
