@@ -13,6 +13,7 @@ function normalizeBasePath(base: string): string {
 
 // GitHub Pages can inject a project-site base without changing local dev URLs.
 const docsBase = normalizeBasePath(process.env.DOCS_BASE ?? "/");
+const enableLastUpdated = process.env.DOCS_LAST_UPDATED !== "false";
 
 const guideSidebar = [
   {
@@ -134,7 +135,7 @@ export default defineConfig({
   title: "Agent Tracer",
   description: "Codebase wiki, runtime setup guides, and maintainer notes for Agent Tracer.",
   cleanUrls: true,
-  lastUpdated: true,
+  lastUpdated: enableLastUpdated,
   head: [
     ["meta", { name: "theme-color", content: "#b45309" }]
   ],
