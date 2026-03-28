@@ -103,6 +103,30 @@ const cardBody = "px-4 py-4";
 const innerPanel = "rounded-[12px] border border-[var(--border)] bg-[var(--bg)]";
 const monoText = "font-mono text-[0.8rem] leading-6";
 
+function formatTraceLinkCoverageNote(observability: TaskObservabilityResponse["observability"]): string {
+  if (observability.traceLinkEligibleEventCount === 0) {
+    return "no link-eligible events";
+  }
+
+  return `${formatCount(observability.traceLinkedEventCount)}/${formatCount(observability.traceLinkEligibleEventCount)} eligible events linked`;
+}
+
+function formatTraceLinkHealthNote(observability: TaskObservabilityResponse["observability"]): string {
+  if (observability.traceLinkEligibleEventCount === 0) {
+    return "no eligible events to link";
+  }
+
+  return `${formatCount(observability.traceLinkedEventCount)}/${formatCount(observability.traceLinkEligibleEventCount)} eligible events linked`;
+}
+
+function formatActionRegistryGapNote(observability: TaskObservabilityResponse["observability"]): string {
+  if (observability.actionRegistryEligibleEventCount === 0) {
+    return "no action events to classify";
+  }
+
+  return `${formatCount(observability.actionRegistryGapCount)}/${formatCount(observability.actionRegistryEligibleEventCount)} action events without registry matches`;
+}
+
 function SectionCard({
   title,
   action,
@@ -2071,12 +2095,6 @@ export function EventInspector({
                         tone: "ok"
                       },
                       {
-                        label: "Waiting Duration",
-                        value: formatDuration(observability.waitingDurationMs),
-                        note: "idle or blocked",
-                        tone: "warn"
-                      },
-                      {
                         label: "Events",
                         value: formatCount(observability.totalEvents),
                         note: "timeline entries"
@@ -2087,9 +2105,9 @@ export function EventInspector({
                         note: `${formatCount(observability.sessions.resumed)} resumed · ${formatCount(observability.sessions.open)} open`
                       },
                       {
-                        label: "Relation Coverage",
-                        value: formatRate(observability.relationCoverageRate),
-                        note: `${formatCount(observability.explicitRelationCount)} explicit links`,
+                        label: "Trace Link Coverage",
+                        value: formatRate(observability.traceLinkCoverageRate),
+                        note: formatTraceLinkCoverageNote(observability),
                         tone: "accent"
                       }
                     ]}
@@ -2163,16 +2181,16 @@ export function EventInspector({
                   <ObservabilityMetricGrid
                     items={[
                       {
-                        label: "Explicit Relations",
-                        value: formatCount(observability.explicitRelationCount),
-                        note: `${formatRate(observability.relationCoverageRate)} coverage`,
+                        label: "Trace Links",
+                        value: formatCount(observability.traceLinkCount),
+                        note: formatTraceLinkHealthNote(observability),
                         tone: "accent"
                       },
                       {
-                        label: "Rule Gaps",
-                        value: formatCount(observability.ruleGapCount),
-                        note: "unmatched or uncovered events",
-                        tone: observability.ruleGapCount > 0 ? "warn" : "ok"
+                        label: "Action-Registry Gaps",
+                        value: formatCount(observability.actionRegistryGapCount),
+                        note: formatActionRegistryGapNote(observability),
+                        tone: observability.actionRegistryGapCount > 0 ? "warn" : "ok"
                       },
                       {
                         label: "Questions",
@@ -2207,12 +2225,6 @@ export function EventInspector({
                       { label: "Tool Calls", value: formatCount(observability.signals.toolCalls), note: "non-terminal tools" },
                       { label: "Terminal", value: formatCount(observability.signals.terminalCommands), note: "shell commands" },
                       { label: "Verifications", value: formatCount(observability.signals.verifications), note: "tests and checks" },
-                      {
-                        label: "Rule Violations",
-                        value: formatCount(observability.signals.ruleViolations),
-                        note: "rule-level failures",
-                        tone: observability.signals.ruleViolations > 0 ? "warn" : "ok"
-                      },
                       { label: "Coordination", value: formatCount(observability.signals.coordinationActivities), note: "MCP / delegation" },
                       { label: "Background", value: formatCount(observability.signals.backgroundTransitions), note: "async task transitions" },
                       { label: "Explored Files", value: formatCount(observability.signals.exploredFiles), note: "read paths" }

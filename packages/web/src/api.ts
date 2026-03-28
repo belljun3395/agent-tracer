@@ -78,7 +78,7 @@ async function deleteJson<T>(pathname: string): Promise<T> {
 }
 
 /**
- * 대시보드 개요(통계 + 규칙 인덱스)를 가져옴.
+ * 대시보드 개요(통계 + observability snapshot)를 가져옴.
  */
 export function fetchOverview(): Promise<OverviewResponse> {
   return getJson<OverviewResponse>("/api/overview");

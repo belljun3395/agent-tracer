@@ -124,9 +124,9 @@ export function TopBar({
             value={formatRate(overviewObservability.promptCaptureRate)}
           />
           <TopBarMetricChip
-            label="Flow"
+            label="Linked"
             tone="ok"
-            value={formatRate(overviewObservability.explicitFlowCoverageRate)}
+            value={formatRate(overviewObservability.traceLinkedTaskRate)}
           />
           <TopBarMetricChip
             label="Stale"
@@ -143,7 +143,7 @@ export function TopBar({
               key={source.runtimeSource}
               label={source.runtimeSource}
               tone="neutral"
-              value={`${formatCount(source.taskCount)} · ${formatRate(source.promptCaptureRate)}`}
+              value={`${formatCount(source.taskCount)} · ${formatRate(source.traceLinkedTaskRate)}`}
             />
           ))}
         </div>

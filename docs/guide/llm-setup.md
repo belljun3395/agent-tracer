@@ -40,9 +40,9 @@ Agent Tracer 통합은 항상 두 조각으로 나뉩니다.
 서버는 raw event log 외에 대시보드용 observability read model도 함께 제공합니다.
 
 - `GET /api/tasks/:taskId/observability`
-  - 선택한 task의 phase breakdown, active/waiting duration, session 상태, relation coverage, focus summary
+  - 선택한 task의 phase breakdown, active duration, session 상태, trace coverage, focus summary
 - `GET /api/observability/overview`
-  - 전체 task 기준 prompt capture, explicit flow coverage, stale running task, runtime source summary
+  - 전체 task 기준 prompt capture, trace-linked task 비율, stale running task, runtime source summary
 - `GET /api/overview`
   - 기존 stats 응답에 `observability` snapshot 포함
 

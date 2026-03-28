@@ -191,10 +191,13 @@ describe("observability read model", () => {
 
     expect(summary.runtimeSource).toBe("codex-cli");
     expect(summary.totalEvents).toBe(12);
-    expect(summary.waitingDurationMs).toBeGreaterThan(0);
     expect(summary.activeDurationMs).toBeLessThan(summary.totalDurationMs);
-    expect(summary.explicitRelationCount).toBeGreaterThan(0);
-    expect(summary.relationCoverageRate).toBeGreaterThan(0);
+    expect(summary.traceLinkCount).toBe(1);
+    expect(summary.traceLinkedEventCount).toBe(2);
+    expect(summary.traceLinkEligibleEventCount).toBe(6);
+    expect(summary.traceLinkCoverageRate).toBeCloseTo(2 / 6);
+    expect(summary.actionRegistryGapCount).toBe(4);
+    expect(summary.actionRegistryEligibleEventCount).toBe(4);
     expect(summary.signals.rawUserMessages).toBe(1);
     expect(summary.signals.questionsAsked).toBe(1);
     expect(summary.signals.questionClosureRate).toBe(1);
@@ -212,7 +215,8 @@ describe("observability read model", () => {
         expect.objectContaining({ path: "src/a.ts" })
       ])
     );
-    expect(summary.phaseBreakdown).toHaveLength(6);
+    expect(summary.phaseBreakdown).toHaveLength(5);
+    expect(summary.phaseBreakdown.some((phase) => phase.phase === "waiting")).toBe(false);
   });
 
   it("summarizes overview across runtime sources and stale running tasks", () => {
@@ -276,7 +280,7 @@ describe("observability read model", () => {
     expect(overview.runningTasks).toBe(1);
     expect(overview.staleRunningTasks).toBe(1);
     expect(overview.promptCaptureRate).toBe(0.5);
-    expect(overview.explicitFlowCoverageRate).toBe(0.5);
+    expect(overview.traceLinkedTaskRate).toBe(0.5);
     expect(overview.tasksWithQuestions).toBe(1);
     expect(overview.tasksWithTodos).toBe(1);
     expect(overview.tasksWithCoordination).toBe(1);
@@ -287,13 +291,13 @@ describe("observability read model", () => {
           runtimeSource: "codex-cli",
           taskCount: 1,
           promptCaptureRate: 1,
-          explicitFlowCoverageRate: 1
+          traceLinkedTaskRate: 1
         }),
         expect.objectContaining({
           runtimeSource: "manual-mcp",
           taskCount: 1,
           promptCaptureRate: 0,
-          explicitFlowCoverageRate: 0
+          traceLinkedTaskRate: 0
         })
       ])
     );

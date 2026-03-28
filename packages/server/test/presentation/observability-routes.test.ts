@@ -135,27 +135,36 @@ describe("observability routes", () => {
     expect(taskObservability.body.observability.runtimeSource).toBe("codex-cli");
     expect(taskObservability.body.observability.totalEvents).toBeGreaterThan(0);
     expect(taskObservability.body.observability.sessions.total).toBe(1);
+    expect(taskObservability.body.observability.traceLinkCount).toBe(5);
+    expect(taskObservability.body.observability.traceLinkedEventCount).toBe(5);
+    expect(taskObservability.body.observability.traceLinkEligibleEventCount).toBe(6);
+    expect(taskObservability.body.observability.traceLinkCoverageRate).toBeCloseTo(5 / 6);
+    expect(taskObservability.body.observability.actionRegistryGapCount).toBe(0);
+    expect(taskObservability.body.observability.actionRegistryEligibleEventCount).toBe(2);
     expect(taskObservability.body.observability.signals.rawUserMessages).toBe(1);
     expect(taskObservability.body.observability.signals.questionClosureRate).toBe(1);
     expect(taskObservability.body.observability.signals.todoCompletionRate).toBe(1);
     expect(taskObservability.body.observability.focus.workItemIds).toContain("work-1");
-    expect(taskObservability.body.observability.phaseBreakdown).toHaveLength(6);
+    expect(taskObservability.body.observability.phaseBreakdown).toHaveLength(5);
+    expect(taskObservability.body.observability.phaseBreakdown.some((phase: { phase: string }) => phase.phase === "waiting")).toBe(false);
 
     const overview = await request(app).get("/api/observability/overview");
 
     expect(overview.status).toBe(200);
     expect(overview.body.observability.totalTasks).toBe(2);
     expect(overview.body.observability.promptCaptureRate).toBe(0.5);
-    expect(overview.body.observability.explicitFlowCoverageRate).toBe(0.5);
+    expect(overview.body.observability.traceLinkedTaskRate).toBe(0.5);
     expect(overview.body.observability.runtimeSources).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           runtimeSource: "codex-cli",
-          taskCount: 1
+          taskCount: 1,
+          traceLinkedTaskRate: 1
         }),
         expect.objectContaining({
           runtimeSource: "unknown",
-          taskCount: 1
+          taskCount: 1,
+          traceLinkedTaskRate: 0
         })
       ])
     );
@@ -168,7 +177,8 @@ describe("observability routes", () => {
       expect.arrayContaining([
         expect.objectContaining({
           runtimeSource: "codex-cli",
-          taskCount: 1
+          taskCount: 1,
+          traceLinkedTaskRate: 1
         })
       ])
     );

@@ -6,20 +6,20 @@
 
 - Top bar diagnostics cards
   - `Prompt Capture`
-  - `Flow Coverage`
+  - `Linked Tasks`
   - `Stale Running`
   - `Avg Duration`
 - Runtime source chips
-  - 런타임별 task 수, running task 수, prompt capture 비율, explicit flow coverage 비율
+  - 런타임별 task 수와 trace-linked task 비율
 - Inspector `Flow` 탭
   - phase breakdown
-  - total / active / waiting duration
+  - total / active duration
   - sessions 요약
   - work items / goals / plans / handoffs
   - top files / top tags
 - Inspector `Health` 탭
-  - relation coverage
-  - rule gap count
+  - trace links / trace link coverage
+  - action-registry gap count
   - raw prompt / follow-up / question / todo / thought / tool / verification / coordination / background counts
 
 ## HTTP API
@@ -35,11 +35,13 @@
     "runtimeSource": "codex-cli",
     "totalDurationMs": 360000,
     "activeDurationMs": 210000,
-    "waitingDurationMs": 150000,
     "totalEvents": 24,
-    "explicitRelationCount": 6,
-    "relationCoverageRate": 0.42,
-    "ruleGapCount": 3,
+    "traceLinkCount": 6,
+    "traceLinkedEventCount": 8,
+    "traceLinkEligibleEventCount": 14,
+    "traceLinkCoverageRate": 0.57,
+    "actionRegistryGapCount": 1,
+    "actionRegistryEligibleEventCount": 5,
     "phaseBreakdown": [
       { "phase": "planning", "durationMs": 48000, "share": 0.13 }
     ],
@@ -61,7 +63,6 @@
       "toolCalls": 5,
       "terminalCommands": 4,
       "verifications": 2,
-      "ruleViolations": 1,
       "coordinationActivities": 3,
       "backgroundTransitions": 1,
       "exploredFiles": 4
@@ -92,7 +93,7 @@
     "avgDurationMs": 182000,
     "avgEventsPerTask": 19.4,
     "promptCaptureRate": 0.83,
-    "explicitFlowCoverageRate": 0.58,
+    "traceLinkedTaskRate": 0.58,
     "tasksWithQuestions": 7,
     "tasksWithTodos": 6,
     "tasksWithCoordination": 5,
@@ -103,7 +104,7 @@
         "taskCount": 4,
         "runningTaskCount": 1,
         "promptCaptureRate": 1,
-        "explicitFlowCoverageRate": 0.75
+        "traceLinkedTaskRate": 0.75
       }
     ]
   }
@@ -113,6 +114,23 @@
 ### `GET /api/overview`
 
 기존 overview 응답에도 `observability` 스냅샷이 포함된다. 웹 top bar는 이 payload를 사용한다.
+
+## Metric Semantics
+
+- `traceLinkCount`
+  - `parentEventId`, `relatedEventIds`, `sourceEventId` 로 복원된 explicit trace edge 수
+  - `filePaths`로부터 생성된 derived `file.changed` 이벤트의 `sourceEventId`도 여기에 포함된다.
+- `traceLinkedEventCount`
+  - link-eligible 이벤트 중 실제 explicit trace link에 연결된 이벤트 수
+- `traceLinkEligibleEventCount`
+  - coverage 분모. 현재는 `plan.logged`, `action.logged`, `verification.logged`, `rule.logged`, `agent.activity.logged`, `file.changed` 만 포함한다.
+- `traceLinkCoverageRate`
+  - 전체 이벤트 대비 비율이 아니라, link-eligible 이벤트 중 실제 explicit trace link에 연결된 이벤트 비율
+- `actionRegistryGapCount`
+  - `plan.logged`, foreground `action.logged`, `verification.logged`, `rule.logged` 중 `action-registry` match가 없는 이벤트 수
+  - WebSearch, MCP call, delegation 같은 coordination 이벤트나 background async lifecycle 이벤트는 여기에 포함하지 않는다.
+- `actionRegistryEligibleEventCount`
+  - `actionRegistryGapCount`의 분모. 현재는 gap 대상이 되는 action-like 이벤트 수만 센다.
 
 ## Phase Mapping
 
@@ -129,21 +147,20 @@ phase breakdown은 별도 stopwatch가 아니라 timeline event와 session windo
   - verification 관련 이벤트 종류를 별도 phase로 읽지만, 현재 core lane 집합에는 전용 `rules` lane이 없다
 - `coordination`
   - `agent.activity.logged`, background lane activity
-- `waiting`
-  - raw user turn 이후 구간
-  - 세션 사이 gap
-  - 긴 idle gap
 
-현재 구현은 90초 이상의 긴 gap을 `waiting`으로 간주한다.
+idle gap과 세션 사이 공백은 public phase breakdown에 직접 노출하지 않고,
+`activeDurationMs` 계산에서 제외되는 비활성 시간으로만 사용한다.
 
 ## What This Is For
 
 - 사용자가 task 하나를 열었을 때 “어디에 시간을 썼는지”를 빠르게 파악
-- 유지보수자가 runtime별 prompt capture / explicit relation coverage / stale running task를 확인
+- 유지보수자가 runtime별 prompt capture / trace-linked task 비율 / stale running task를 확인
 - raw `/metrics`가 아니라 UI에 바로 맞는 JSON read model 제공
 
 ## Current Limits
 
 - duration은 runtime 내부 stopwatch가 아니라 event timing 기반 추정치다.
 - raw prompt capture는 해당 runtime adapter가 실제 prompt를 보내는 경우에만 정확하다.
-- explicit flow coverage는 `parentEventId`, `relatedEventIds`, `relationType` 같은 trace metadata가 기록된 범위만 반영한다.
+- trace link coverage는 explicit relation metadata가 들어온 이벤트 집합에만 의미가 있다.
+- action-registry gap count는 전체 trace 품질 점수가 아니라 action-name 분류 누락 탐지용 진단치다.
+- idle/wait gap은 내부 active duration 계산에만 쓰고, 현재 UI/API의 phase 목록에는 노출하지 않는다.

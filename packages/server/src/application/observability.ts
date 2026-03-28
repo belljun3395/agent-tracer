@@ -10,8 +10,9 @@ type ObservabilityPhase =
   | "exploration"
   | "implementation"
   | "verification"
-  | "coordination"
-  | "waiting";
+  | "coordination";
+
+type ObservabilityPhaseBucket = ObservabilityPhase | "waiting";
 
 export interface ObservabilityPhaseStat {
   readonly phase: ObservabilityPhase;
@@ -42,7 +43,6 @@ export interface ObservabilityTaskSignals {
   toolCalls: number;
   terminalCommands: number;
   verifications: number;
-  ruleViolations: number;
   backgroundTransitions: number;
   coordinationActivities: number;
   exploredFiles: number;
@@ -62,11 +62,13 @@ export interface TaskObservabilitySummary {
   readonly runtimeSource?: string;
   readonly totalDurationMs: number;
   readonly activeDurationMs: number;
-  readonly waitingDurationMs: number;
   readonly totalEvents: number;
-  readonly explicitRelationCount: number;
-  readonly relationCoverageRate: number;
-  readonly ruleGapCount: number;
+  readonly traceLinkCount: number;
+  readonly traceLinkedEventCount: number;
+  readonly traceLinkEligibleEventCount: number;
+  readonly traceLinkCoverageRate: number;
+  readonly actionRegistryGapCount: number;
+  readonly actionRegistryEligibleEventCount: number;
   readonly phaseBreakdown: readonly ObservabilityPhaseStat[];
   readonly sessions: {
     readonly total: number;
@@ -82,7 +84,7 @@ export interface ObservabilityRuntimeSourceSummary {
   readonly taskCount: number;
   readonly runningTaskCount: number;
   readonly promptCaptureRate: number;
-  readonly explicitFlowCoverageRate: number;
+  readonly traceLinkedTaskRate: number;
 }
 
 export interface ObservabilityOverviewSummary {
@@ -93,7 +95,7 @@ export interface ObservabilityOverviewSummary {
   readonly avgDurationMs: number;
   readonly avgEventsPerTask: number;
   readonly promptCaptureRate: number;
-  readonly explicitFlowCoverageRate: number;
+  readonly traceLinkedTaskRate: number;
   readonly tasksWithQuestions: number;
   readonly tasksWithTodos: number;
   readonly tasksWithCoordination: number;
@@ -140,8 +142,7 @@ const PHASE_ORDER: readonly ObservabilityPhase[] = [
   "exploration",
   "implementation",
   "verification",
-  "coordination",
-  "waiting"
+  "coordination"
 ];
 
 // Long idle gaps are treated as waiting even if the preceding event was active.
@@ -152,6 +153,14 @@ const STALE_RUNNING_TASK_THRESHOLD_MS = 30 * 60_000;
 
 const TOP_LIST_LIMIT = 5;
 const UNKNOWN_RUNTIME_SOURCE = "unknown";
+const TRACE_LINK_ELIGIBLE_KINDS = new Set<TimelineEvent["kind"]>([
+  "plan.logged",
+  "action.logged",
+  "verification.logged",
+  "rule.logged",
+  "agent.activity.logged",
+  "file.changed"
+]);
 
 export function analyzeTaskObservability(
   input: TaskObservabilityInput
@@ -170,7 +179,7 @@ export function analyzeTaskObservability(
   const taskEndMs = resolveTaskEndMs(input.task, sessions, timeline, now);
   const sessionWindows = buildSessionWindows(input.task, sessions, timeline, now, taskEndMs);
 
-  const phaseDurations: Record<ObservabilityPhase, number> = {
+  const phaseDurations: Record<ObservabilityPhaseBucket, number> = {
     planning: 0,
     exploration: 0,
     implementation: 0,
@@ -192,7 +201,6 @@ export function analyzeTaskObservability(
     toolCalls: 0,
     terminalCommands: 0,
     verifications: 0,
-    ruleViolations: 0,
     backgroundTransitions: 0,
     coordinationActivities: 0,
     exploredFiles: 0
@@ -208,10 +216,19 @@ export function analyzeTaskObservability(
   const todoGroups = new Map<string, { readonly completed: boolean }>();
 
   const relationEdges = collectExplicitRelations(timeline);
-  const relationCoverageEventIds = new Set<string>();
+  const traceLinkEligibleEventIds = new Set(
+    timeline
+      .filter((event) => isTraceLinkEligible(event))
+      .map((event) => event.id)
+  );
+  const traceLinkedEventIds = new Set<string>();
   for (const edge of relationEdges) {
-    relationCoverageEventIds.add(edge.sourceEventId);
-    relationCoverageEventIds.add(edge.targetEventId);
+    if (traceLinkEligibleEventIds.has(edge.sourceEventId)) {
+      traceLinkedEventIds.add(edge.sourceEventId);
+    }
+    if (traceLinkEligibleEventIds.has(edge.targetEventId)) {
+      traceLinkedEventIds.add(edge.targetEventId);
+    }
   }
 
   for (const event of timeline) {
@@ -243,7 +260,7 @@ export function analyzeTaskObservability(
     });
 
     let previousMs = window.startMs;
-    let previousPhase: ObservabilityPhase = "waiting";
+    let previousPhase: ObservabilityPhaseBucket = "waiting";
 
     for (const event of sessionEvents) {
       const eventMs = Date.parse(event.createdAt);
@@ -267,13 +284,15 @@ export function analyzeTaskObservability(
   }
 
   const totalDurationMs = Math.max(0, taskEndMs - taskStartMs);
-  const waitingDurationMs = phaseDurations.waiting;
-  const activeDurationMs = Math.max(0, totalDurationMs - waitingDurationMs);
+  const activeDurationMs = Math.max(0, totalDurationMs - phaseDurations.waiting);
   const totalEvents = timeline.length;
-  const explicitRelationCount = relationEdges.length;
-  const relationCoverageRate = totalEvents > 0
-    ? relationCoverageEventIds.size / totalEvents
+  const traceLinkCount = relationEdges.length;
+  const traceLinkedEventCount = traceLinkedEventIds.size;
+  const traceLinkEligibleEventCount = traceLinkEligibleEventIds.size;
+  const traceLinkCoverageRate = traceLinkEligibleEventCount > 0
+    ? traceLinkedEventCount / traceLinkEligibleEventCount
     : 0;
+  const actionRegistryEligibleEventCount = countActionRegistryGapEligibleEvents(timeline);
   const questionGroupCount = questionGroups.size;
   const todoGroupCount = todoGroups.size;
   signals.questionsClosed = [...questionGroups.values()].filter((group) => group.concluded).length;
@@ -291,11 +310,13 @@ export function analyzeTaskObservability(
     ...(input.task.runtimeSource ? { runtimeSource: input.task.runtimeSource } : {}),
     totalDurationMs,
     activeDurationMs,
-    waitingDurationMs,
     totalEvents,
-    explicitRelationCount,
-    relationCoverageRate,
-    ruleGapCount: countRuleGaps(timeline),
+    traceLinkCount,
+    traceLinkedEventCount,
+    traceLinkEligibleEventCount,
+    traceLinkCoverageRate,
+    actionRegistryGapCount: countActionRegistryGaps(timeline),
+    actionRegistryEligibleEventCount,
     phaseBreakdown: PHASE_ORDER.map((phase) => ({
       phase,
       durationMs: phaseDurations[phase],
@@ -336,7 +357,7 @@ export function analyzeObservabilityOverview(
   let totalDurationMs = 0;
   let totalEvents = 0;
   let tasksWithRawPrompt = 0;
-  let tasksWithExplicitFlow = 0;
+  let tasksWithTraceLinks = 0;
   let tasksWithQuestions = 0;
   let tasksWithTodos = 0;
   let tasksWithCoordination = 0;
@@ -346,7 +367,7 @@ export function analyzeObservabilityOverview(
     taskCount: number;
     runningTaskCount: number;
     promptCaptureCount: number;
-    explicitFlowCount: number;
+      traceLinkedTaskCount: number;
   }>();
 
   for (const analysis of analyses) {
@@ -366,8 +387,8 @@ export function analyzeObservabilityOverview(
     if (analysis.signals.rawUserMessages > 0) {
       tasksWithRawPrompt += 1;
     }
-    if (analysis.explicitRelationCount > 0) {
-      tasksWithExplicitFlow += 1;
+    if (analysis.traceLinkCount > 0) {
+      tasksWithTraceLinks += 1;
     }
     if (analysis.signals.questionsAsked > 0 || analysis.signals.questionsClosed > 0) {
       tasksWithQuestions += 1;
@@ -387,7 +408,7 @@ export function analyzeObservabilityOverview(
       taskCount: 0,
       runningTaskCount: 0,
       promptCaptureCount: 0,
-      explicitFlowCount: 0
+      traceLinkedTaskCount: 0
     };
 
     bucket.taskCount += 1;
@@ -397,8 +418,8 @@ export function analyzeObservabilityOverview(
     if (analysis.signals.rawUserMessages > 0) {
       bucket.promptCaptureCount += 1;
     }
-    if (analysis.explicitRelationCount > 0) {
-      bucket.explicitFlowCount += 1;
+    if (analysis.traceLinkCount > 0) {
+      bucket.traceLinkedTaskCount += 1;
     }
     runtimeSources.set(runtimeSource, bucket);
   }
@@ -410,7 +431,7 @@ export function analyzeObservabilityOverview(
       taskCount: stats.taskCount,
       runningTaskCount: stats.runningTaskCount,
       promptCaptureRate: stats.taskCount > 0 ? stats.promptCaptureCount / stats.taskCount : 0,
-      explicitFlowCoverageRate: stats.taskCount > 0 ? stats.explicitFlowCount / stats.taskCount : 0
+      traceLinkedTaskRate: stats.taskCount > 0 ? stats.traceLinkedTaskCount / stats.taskCount : 0
     }))
     .sort((left, right) => {
       if (right.taskCount !== left.taskCount) {
@@ -428,7 +449,7 @@ export function analyzeObservabilityOverview(
     avgDurationMs: totalTasks > 0 ? totalDurationMs / totalTasks : 0,
     avgEventsPerTask: totalTasks > 0 ? totalEvents / totalTasks : 0,
     promptCaptureRate: totalTasks > 0 ? tasksWithRawPrompt / totalTasks : 0,
-    explicitFlowCoverageRate: totalTasks > 0 ? tasksWithExplicitFlow / totalTasks : 0,
+    traceLinkedTaskRate: totalTasks > 0 ? tasksWithTraceLinks / totalTasks : 0,
     tasksWithQuestions,
     tasksWithTodos,
     tasksWithCoordination,
@@ -499,12 +520,6 @@ function collectSignalsAndFocus(input: {
     input.signals.verifications += 1;
   }
 
-  if (event.kind === "rule.logged") {
-    if (extractString(metadata, "ruleStatus") === "violation") {
-      input.signals.ruleViolations += 1;
-    }
-  }
-
   if (event.kind === "agent.activity.logged" || event.lane === "coordination") {
     input.signals.coordinationActivities += 1;
   }
@@ -548,8 +563,8 @@ function collectSignalsAndFocus(input: {
 }
 
 function addDuration(
-  phaseDurations: Record<ObservabilityPhase, number>,
-  phase: ObservabilityPhase,
+  phaseDurations: Record<ObservabilityPhaseBucket, number>,
+  phase: ObservabilityPhaseBucket,
   durationMs: number
 ): void {
   if (durationMs <= 0) {
@@ -566,7 +581,7 @@ function addDuration(
   phaseDurations.waiting += durationMs - activeDurationMs;
 }
 
-function phaseForEvent(event: TimelineEvent): ObservabilityPhase {
+function phaseForEvent(event: TimelineEvent): ObservabilityPhaseBucket {
   switch (event.kind) {
     case "user.message":
       return "waiting";
@@ -599,7 +614,7 @@ function phaseForEvent(event: TimelineEvent): ObservabilityPhase {
   }
 }
 
-function phaseFromLane(lane: TimelineEvent["lane"]): ObservabilityPhase {
+function phaseFromLane(lane: TimelineEvent["lane"]): ObservabilityPhaseBucket {
   switch (lane) {
     case "planning":
       return "planning";
@@ -797,11 +812,15 @@ function pushRelation(
   relations.push(relation);
 }
 
-function countRuleGaps(timeline: readonly TimelineEvent[]): number {
+function isTraceLinkEligible(event: TimelineEvent): boolean {
+  return TRACE_LINK_ELIGIBLE_KINDS.has(event.kind);
+}
+
+function countActionRegistryGaps(timeline: readonly TimelineEvent[]): number {
   let count = 0;
 
   for (const event of timeline) {
-    if (event.lane === "user") {
+    if (!isActionRegistryGapEligible(event)) {
       continue;
     }
 
@@ -811,6 +830,30 @@ function countRuleGaps(timeline: readonly TimelineEvent[]): number {
   }
 
   return count;
+}
+
+function countActionRegistryGapEligibleEvents(timeline: readonly TimelineEvent[]): number {
+  let count = 0;
+
+  for (const event of timeline) {
+    if (isActionRegistryGapEligible(event)) {
+      count += 1;
+    }
+  }
+
+  return count;
+}
+
+function isActionRegistryGapEligible(event: TimelineEvent): boolean {
+  if (event.kind === "plan.logged" || event.kind === "verification.logged" || event.kind === "rule.logged") {
+    return true;
+  }
+
+  if (event.kind === "action.logged") {
+    return event.lane !== "background" && !extractString(event.metadata, "asyncTaskId");
+  }
+
+  return false;
 }
 
 function isStaleRunningTask(

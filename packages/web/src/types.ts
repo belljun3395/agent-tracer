@@ -105,7 +105,7 @@ export interface ObservabilityRuntimeSource {
   readonly taskCount: number;
   readonly runningTaskCount: number;
   readonly promptCaptureRate: number;
-  readonly explicitFlowCoverageRate: number;
+  readonly traceLinkedTaskRate: number;
 }
 
 export interface OverviewObservability {
@@ -116,7 +116,7 @@ export interface OverviewObservability {
   readonly avgDurationMs: number;
   readonly avgEventsPerTask: number;
   readonly promptCaptureRate: number;
-  readonly explicitFlowCoverageRate: number;
+  readonly traceLinkedTaskRate: number;
   readonly tasksWithQuestions: number;
   readonly tasksWithTodos: number;
   readonly tasksWithCoordination: number;
@@ -143,7 +143,6 @@ export interface TaskObservabilitySignalSummary {
   readonly toolCalls: number;
   readonly terminalCommands: number;
   readonly verifications: number;
-  readonly ruleViolations: number;
   readonly coordinationActivities: number;
   readonly backgroundTransitions: number;
   readonly exploredFiles: number;
@@ -169,11 +168,13 @@ export interface TaskObservabilitySummary {
   readonly runtimeSource?: string;
   readonly totalDurationMs: number;
   readonly activeDurationMs: number;
-  readonly waitingDurationMs: number;
   readonly totalEvents: number;
-  readonly explicitRelationCount: number;
-  readonly relationCoverageRate: number;
-  readonly ruleGapCount: number;
+  readonly traceLinkCount: number;
+  readonly traceLinkedEventCount: number;
+  readonly traceLinkEligibleEventCount: number;
+  readonly traceLinkCoverageRate: number;
+  readonly actionRegistryGapCount: number;
+  readonly actionRegistryEligibleEventCount: number;
   readonly phaseBreakdown: readonly TaskObservabilityPhase[];
   readonly sessions: {
     readonly total: number;
