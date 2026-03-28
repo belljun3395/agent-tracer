@@ -53,8 +53,9 @@ task 또는 event 기반 bookmark를 저장한다.
 
 ### `task_evaluations`
 
-workflow library용 평가를 저장한다. `rating`, `use_case`, `workflow_tags`,
-`outcome_note`, `evaluated_at`가 핵심 필드다.
+workflow library용 평가를 저장한다.
+현재는 `rating`, `use_case`, `workflow_tags`, `outcome_note`뿐 아니라
+`approach_note`, `reuse_when`, `watchouts`, `workflow_snapshot_json`, `workflow_context`, `search_text`, `evaluated_at`까지 함께 관리한다.
 
 ## migration의 역할
 
@@ -64,14 +65,19 @@ runtime source backfill을 담당한다.
 
 ## evaluation 저장소의 현재 동작
 
-`SqliteEvaluationRepository`는 현재 두 종류의 읽기 경로를 지원한다.
+`SqliteEvaluationRepository`는 workflow library에 대해 여러 read path를 지원한다.
 
 - `getEvaluation(taskId)` - 단일 task 평가
+- `getWorkflowContent(taskId)` - snapshot/context 상세 조회
 - `listEvaluations(rating?)` - workflow library 전체 목록
+- `searchWorkflowLibrary(query, rating?, limit?)` - library 목록 검색
 - `searchSimilarWorkflows(query, tags?, limit?)` - 유사 워크플로우 검색
 
 `listEvaluations()`는 `task_evaluations`, `monitoring_tasks`, `timeline_events`를 조합해
 웹 패널이 바로 렌더링할 수 있는 `WorkflowSummary` 배열을 반환한다.
+
+`getWorkflowContent()`는 저장된 `workflowSnapshot`/`workflowContext`가 있으면 그것을 우선 사용하고,
+없으면 timeline에서 다시 생성한 값을 `source: "saved" | "generated"`와 함께 돌려준다.
 
 이 문맥의 JSON 문자열 파싱은 repository 공통 유틸인
 `parseJsonField()`(`sqlite-json.ts`)로 일원화돼 예외 처리와 타입 변환이 일관화됐다.
@@ -79,8 +85,8 @@ runtime source backfill을 담당한다.
 ## 비용이 커질 수 있는 지점
 
 - `displayTitle` 같은 파생 값이 read path에서 추가 계산된다.
-- workflow similarity search는 매칭된 task마다 전체 이벤트를 다시 읽어
-  `workflowContext`를 만든다.
+- workflow similarity search와 workflow content detail은 매칭된 task마다 전체 이벤트를 다시 읽어
+  `workflowSnapshot`/`workflowContext`를 hydrate한다.
 - 장기적으로는 read model materialization이 필요할 수 있다.
 
 ## 실제 경로와 legacy 구분
