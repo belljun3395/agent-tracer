@@ -240,6 +240,7 @@ describe("Codex hooks", () => {
             callId: "ws-search-1",
             query: "OpenJDK JDK 26 release date",
             actionType: "search",
+            webUrls: ["OpenJDK JDK 26 release date"],
             subtypeKey: "web_search",
             subtypeLabel: "Web search",
             subtypeGroup: "web",
@@ -265,6 +266,7 @@ describe("Codex hooks", () => {
             query: "https://jdk.java.net/26/release-notes",
             actionType: "open_page",
             url: "https://jdk.java.net/26/release-notes",
+            webUrls: ["https://jdk.java.net/26/release-notes"],
             subtypeKey: "web_fetch",
             subtypeLabel: "Web fetch",
             subtypeGroup: "web",
@@ -369,6 +371,79 @@ describe("Codex hooks", () => {
       title: "다 진행해.",
       body: "다 진행해."
     }));
+  });
+
+  it("Stop hook backfill uses action.query and records webUrls when payload.query is absent", async () => {
+    const monitor = await startMonitorStub();
+    monitors.push(monitor);
+
+    const repoDir = await mkdtemp(path.join(os.tmpdir(), "agent-tracer-codex-hooks-web-query-"));
+    tempDirs.push(repoDir);
+
+    const turnId = "turn-codex-web-query";
+    const transcriptPath = path.join(repoDir, "transcript.jsonl");
+    await writeFile(transcriptPath, [
+      JSON.stringify({
+        type: "event_msg",
+        payload: {
+          type: "task_started",
+          turn_id: turnId
+        }
+      }),
+      JSON.stringify({
+        type: "event_msg",
+        payload: {
+          type: "web_search_end",
+          call_id: "ws-search-variant",
+          action: {
+            type: "search",
+            query: "OpenAI Codex hooks web search"
+          }
+        }
+      }),
+      JSON.stringify({
+        type: "event_msg",
+        payload: {
+          type: "task_complete",
+          turn_id: turnId,
+          last_agent_message: "Variant handled."
+        }
+      })
+    ].join("\n"), "utf8");
+
+    await runCodexHook(stopHook, {
+      session_id: "codex-session",
+      turn_id: turnId,
+      transcript_path: transcriptPath,
+      cwd: repoDir,
+      last_assistant_message: "Variant handled."
+    }, monitor.port, repoDir);
+
+    expect(monitor.calls).toContainEqual({
+      endpoint: "/api/explore",
+      body: {
+        taskId: "codex-task",
+        sessionId: "codex-monitor-session",
+        toolName: "web_search",
+        title: "Web search: OpenAI Codex hooks web search",
+        body: "query: OpenAI Codex hooks web search\naction: search",
+        lane: "exploration",
+        metadata: {
+          callId: "ws-search-variant",
+          query: "OpenAI Codex hooks web search",
+          actionType: "search",
+          webUrls: ["OpenAI Codex hooks web search"],
+          subtypeKey: "web_search",
+          subtypeLabel: "Web search",
+          subtypeGroup: "web",
+          toolFamily: "explore",
+          operation: "search",
+          entityType: "query",
+          entityName: "OpenAI Codex hooks web search",
+          sourceTool: "websearch"
+        }
+      }
+    });
   });
 
   it("Stop hook backfill dedupes already-processed turns via .codex/.hook-state.json", async () => {
