@@ -25,6 +25,7 @@ import {
   collectFileActivity,
   collectPlanSteps,
   collectViolationDescriptions,
+  collectWebLookups,
   type CompactInsight,
   type CompactRelation,
   type DirectoryMentionVerification,
@@ -37,7 +38,8 @@ import {
   type QuestionGroup,
   type TaskExtraction,
   type TagInsight,
-  type TodoGroup
+  type TodoGroup,
+  type WebLookupStat
 } from "../lib/insights.js";
 import {
   formatCount,
@@ -1171,6 +1173,53 @@ function DetailFileActivity({
   );
 }
 
+/** WebLookupsCard: WebSearch/WebFetch 조회 URL 목록 카드. */
+function WebLookupsCard({
+  lookups
+}: {
+  readonly lookups: readonly WebLookupStat[];
+}): React.JSX.Element {
+  return (
+    <PanelCard className={cardShell}>
+      <div className={cardHeader}>
+        <span>Web Lookups</span>
+        <Badge tone="neutral" size="xs">{lookups.length}</Badge>
+      </div>
+      <div className={cardBody}>
+        {lookups.length === 0 ? (
+          <p className="m-0 text-[0.8rem] text-[var(--text-3)]">No web lookups recorded yet.</p>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {lookups.map((lookup) => (
+              <div
+                key={`${lookup.url}-${lookup.firstSeenAt}`}
+                className="flex items-start justify-between gap-3 rounded-[8px] bg-[var(--surface-2)] px-3 py-2"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[0.68rem] font-semibold uppercase tracking-[0.06em] text-[var(--exploration)]">
+                      {lookup.toolName}
+                    </span>
+                    {lookup.count > 1 && (
+                      <Badge tone="neutral" size="xs">{lookup.count}x</Badge>
+                    )}
+                  </div>
+                  <p className={cn("mt-0.5 break-all text-[0.82rem] text-[var(--text-1)]", monoText)}>
+                    {lookup.url}
+                  </p>
+                  <p className="mt-0.5 text-[0.72rem] text-[var(--text-3)]">
+                    {formatRelativeTime(lookup.lastSeenAt)}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </PanelCard>
+  );
+}
+
 /** ExplorationInsightCard: 탐색 통계 인사이트 대시보드 카드. */
 function ExplorationInsightCard({
   insight
@@ -1189,7 +1238,7 @@ function ExplorationInsightCard({
           <p className="m-0 text-[0.8rem] text-[var(--text-3)]">No exploration activity recorded yet.</p>
         ) : (
           <div className="flex flex-col gap-4">
-            <div className="grid grid-cols-2 gap-2 max-md:grid-cols-1">
+            <div className="grid grid-cols-3 gap-2 max-md:grid-cols-1">
               <div className={innerPanel + " p-3"}>
                 <span className="block text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">Total Explorations</span>
                 <strong className="mt-2 block text-[1.05rem] text-[var(--text-1)]">{insight.totalExplorations}</strong>
@@ -1197,6 +1246,10 @@ function ExplorationInsightCard({
               <div className={innerPanel + " p-3"}>
                 <span className="block text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">Unique Files</span>
                 <strong className="mt-2 block text-[1.05rem] text-[var(--text-1)]">{insight.uniqueFiles}</strong>
+              </div>
+              <div className={innerPanel + " p-3"}>
+                <span className="block text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">Web Lookups</span>
+                <strong className="mt-2 block text-[1.05rem] text-[var(--exploration)]">{insight.uniqueWebLookups}</strong>
               </div>
             </div>
 
@@ -1608,9 +1661,13 @@ export function EventInspector({
     () => sortFileActivity(fileActivity, fileSortKey),
     [fileActivity, fileSortKey]
   );
+  const webLookups = useMemo(
+    () => collectWebLookups(taskTimeline),
+    [taskTimeline]
+  );
   const explorationInsight = useMemo(
-    () => buildExplorationInsight(taskTimeline, exploredFiles),
-    [exploredFiles, taskTimeline]
+    () => buildExplorationInsight(taskTimeline, exploredFiles, webLookups),
+    [exploredFiles, taskTimeline, webLookups]
   );
   const compactInsight = useMemo(
     () => buildCompactInsight(taskTimeline),
@@ -2315,6 +2372,7 @@ export function EventInspector({
         ) : (
           <div className="panel-tab-inner flex flex-col gap-5 p-4">
             <ExplorationInsightCard insight={explorationInsight} />
+            <WebLookupsCard lookups={webLookups} />
             <DetailExploredFiles
               files={sortedExploredFiles}
               workspacePath={taskDetail?.task.workspacePath}

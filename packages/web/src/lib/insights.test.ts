@@ -12,6 +12,7 @@ import {
   buildTaskDisplayTitle,
   buildTodoGroups,
   collectViolationDescriptions,
+  collectWebLookups,
   filterTimelineEvents
 } from "./insights.js";
 import type { HandoffOptions } from "./insights.js";
@@ -526,5 +527,88 @@ describe("buildHandoffSystemPrompt", () => {
   it("omits note section when memo is blank", () => {
     const result = buildHandoffSystemPrompt(makeHandoff({ memo: "" }));
     expect(result).not.toContain("## Note from previous session");
+  });
+});
+
+describe("collectWebLookups", () => {
+  function makeWebEvent(overrides: Partial<TimelineEvent> = {}): TimelineEvent {
+    return makeEvent({
+      kind: "tool.used",
+      lane: "exploration",
+      title: "WebSearch: typescript generics",
+      body: "Web lookup: typescript generics",
+      metadata: { toolName: "WebSearch", webUrls: ["typescript generics"] },
+      ...overrides
+    });
+  }
+
+  it("returns empty array when no events", () => {
+    expect(collectWebLookups([])).toEqual([]);
+  });
+
+  it("ignores exploration events without webUrls", () => {
+    const event = makeWebEvent({ metadata: { toolName: "Read", filePaths: ["foo.ts"] } });
+    expect(collectWebLookups([event])).toEqual([]);
+  });
+
+  it("ignores non-exploration lane events", () => {
+    const event = makeWebEvent({ lane: "implementation" });
+    expect(collectWebLookups([event])).toEqual([]);
+  });
+
+  it("collects a WebSearch event as a WebLookupStat", () => {
+    const event = makeWebEvent();
+    const result = collectWebLookups([event]);
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({
+      url: "typescript generics",
+      toolName: "WebSearch",
+      count: 1
+    });
+  });
+
+  it("deduplicates same URL and increments count", () => {
+    const e1 = makeWebEvent({ id: "e1", createdAt: "2026-01-01T00:00:00.000Z" });
+    const e2 = makeWebEvent({ id: "e2", createdAt: "2026-01-01T01:00:00.000Z" });
+    const result = collectWebLookups([e1, e2]);
+    expect(result).toHaveLength(1);
+    expect(result[0]!.count).toBe(2);
+    expect(result[0]!.lastSeenAt).toBe("2026-01-01T01:00:00.000Z");
+    expect(result[0]!.firstSeenAt).toBe("2026-01-01T00:00:00.000Z");
+  });
+
+  it("handles WebFetch events", () => {
+    const event = makeWebEvent({
+      title: "WebFetch: https://example.com",
+      metadata: { toolName: "WebFetch", webUrls: ["https://example.com"] }
+    });
+    const result = collectWebLookups([event]);
+    expect(result[0]!.toolName).toBe("WebFetch");
+    expect(result[0]!.url).toBe("https://example.com");
+  });
+
+  it("sorts by lastSeenAt descending (most recent first)", () => {
+    const e1 = makeWebEvent({
+      id: "e1",
+      title: "WebSearch: older",
+      metadata: { toolName: "WebSearch", webUrls: ["older query"] },
+      createdAt: "2026-01-01T00:00:00.000Z"
+    });
+    const e2 = makeWebEvent({
+      id: "e2",
+      title: "WebSearch: newer",
+      metadata: { toolName: "WebSearch", webUrls: ["newer query"] },
+      createdAt: "2026-01-02T00:00:00.000Z"
+    });
+    const result = collectWebLookups([e1, e2]);
+    expect(result[0]!.url).toBe("newer query");
+    expect(result[1]!.url).toBe("older query");
+  });
+
+  it("tracks firstSeenAt and lastSeenAt correctly for single event", () => {
+    const event = makeWebEvent({ createdAt: "2026-03-01T10:00:00.000Z" });
+    const result = collectWebLookups([event]);
+    expect(result[0]!.firstSeenAt).toBe("2026-03-01T10:00:00.000Z");
+    expect(result[0]!.lastSeenAt).toBe("2026-03-01T10:00:00.000Z");
   });
 });
