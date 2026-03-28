@@ -9,6 +9,7 @@
 - [런타임 설정 맵](./llm-setup.md)
 - [Runtime capabilities](./runtime-capabilities.md)
 - [API integration map](./api-integration-map.md)
+- [Runtime API flow & preprocessing](./runtime-api-flow-and-preprocessing.md)
 
 ## 런타임별 가이드
 

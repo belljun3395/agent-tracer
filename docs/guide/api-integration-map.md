@@ -14,6 +14,9 @@
 
 Codex CLI는 `codex-skill` runtimeSource를 캐노니컬 경로로 사용한다.
 
+보완 문서:
+- [Runtime API flow & preprocessing](./runtime-api-flow-and-preprocessing.md) — 런타임별 전처리/요청 흐름(Mermaid) 중심 문서
+
 ---
 
 ## 세션 생명주기
