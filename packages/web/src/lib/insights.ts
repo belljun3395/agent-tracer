@@ -64,6 +64,7 @@ export interface FileActivityStat {
 export interface ExplorationInsight {
   readonly totalExplorations: number;
   readonly uniqueFiles: number;
+  readonly uniqueWebLookups: number;
   readonly toolBreakdown: Readonly<Record<string, number>>;
   readonly preCompactFiles: number;
   readonly postCompactFiles: number;
@@ -410,7 +411,8 @@ export function collectFileActivity(
  */
 export function buildExplorationInsight(
   timeline: readonly TimelineEvent[],
-  exploredFiles: readonly ExploredFileStat[]
+  exploredFiles: readonly ExploredFileStat[],
+  webLookups: readonly WebLookupStat[]
 ): ExplorationInsight {
   const toolBreakdown: Record<string, number> = {};
   let totalExplorations = 0;
@@ -449,6 +451,7 @@ export function buildExplorationInsight(
   return {
     totalExplorations,
     uniqueFiles: exploredFiles.length,
+    uniqueWebLookups: webLookups.length,
     toolBreakdown,
     preCompactFiles,
     postCompactFiles,
