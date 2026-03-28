@@ -1,9 +1,10 @@
 /**
  * 대시보드 상단 헤더 (52px 단일 행).
- * 브랜드 | 태스크명 | Check/Violation/Pass 뱃지 | 검색 | WS 상태
+ * 브랜드 | 태스크명 | 관찰가능성 요약 | 검색 | 액션 그룹 | WS 상태
  */
 
 import type React from "react";
+import { useState } from "react";
 import type {
   BookmarkSearchHit,
   OverviewResponse,
@@ -40,6 +41,78 @@ interface TopBarProps {
   readonly onOpenLibrary: () => void;
 }
 
+// ---------------------------------------------------------------------------
+// Observability summary chip — collapses 3 counters into one compact widget
+// ---------------------------------------------------------------------------
+
+function ObservabilityChip({ stats }: { stats: ObservabilityBadgeCounts }): React.JSX.Element {
+  const [open, setOpen] = useState(false);
+  const hasViolations = stats.violations > 0;
+  const hasChecks = stats.checks > 0;
+
+  const chipColor = hasViolations
+    ? { bg: "var(--err-bg)", border: "var(--err-bg)", text: "var(--err)", dot: "var(--err)" }
+    : hasChecks
+      ? { bg: "var(--coordination-bg)", border: "var(--coordination-border)", text: "var(--coordination)", dot: "var(--coordination)" }
+      : { bg: "var(--ok-bg)", border: "var(--ok-bg)", text: "var(--ok)", dot: "var(--ok)" };
+
+  const label = hasViolations
+    ? `${stats.violations} violation${stats.violations !== 1 ? "s" : ""}`
+    : hasChecks
+      ? `${stats.checks} check${stats.checks !== 1 ? "s" : ""}`
+      : `${stats.passes} pass${stats.passes !== 1 ? "es" : ""}`;
+
+  return (
+    <div className="relative shrink-0">
+      <button
+        aria-label="Observability summary"
+        className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[0.72rem] font-semibold transition-all hover:opacity-80"
+        style={{
+          background: chipColor.bg,
+          borderColor: chipColor.border,
+          color: chipColor.text
+        }}
+        onClick={() => setOpen((v) => !v)}
+        type="button"
+      >
+        <span
+          className="h-1.5 w-1.5 shrink-0 rounded-full opacity-80"
+          style={{ background: chipColor.dot }}
+        />
+        {label}
+        <span className="ml-0.5 opacity-60">▾</span>
+      </button>
+
+      {open && (
+        <div
+          className="absolute left-0 top-[calc(100%+6px)] z-30 min-w-[160px] rounded-[10px] border border-[var(--border)] bg-[var(--surface)] p-2 shadow-[0_8px_24px_rgba(0,0,0,0.12)]"
+          onMouseLeave={() => setOpen(false)}
+        >
+          <ObsRow color="var(--coordination)" label="Checks" value={stats.checks} />
+          <ObsRow color="var(--err)" label="Violations" value={stats.violations} />
+          <ObsRow color="var(--ok)" label="Passes" value={stats.passes} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ObsRow({ label, value, color }: { label: string; value: number; color: string }): React.JSX.Element {
+  return (
+    <div className="flex items-center justify-between gap-4 rounded-[6px] px-2 py-1 hover:bg-[var(--surface-2)]">
+      <div className="flex items-center gap-1.5">
+        <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: color }} />
+        <span className="text-[0.72rem] text-[var(--text-2)]">{label}</span>
+      </div>
+      <span className="text-[0.72rem] font-semibold tabular-nums text-[var(--text-1)]">{value}</span>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Overview metric chip — displays aggregate stats from the overview endpoint
+// ---------------------------------------------------------------------------
+
 function TopBarMetricChip({
   label,
   value,
@@ -65,6 +138,9 @@ function TopBarMetricChip({
   );
 }
 
+// ---------------------------------------------------------------------------
+// TopBar
+// ---------------------------------------------------------------------------
 export function TopBar({
   overview = null,
   isConnected,
@@ -92,7 +168,7 @@ export function TopBar({
   const runtimeSourceChips = overviewObservability?.runtimeSources.slice(0, 2) ?? [];
 
   return (
-    <header className="z-10 flex h-[52px] shrink-0 items-center gap-3 border-b border-[var(--border)] bg-[var(--surface)] px-4 shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
+    <header className="z-10 flex h-[52px] shrink-0 items-center gap-2 border-b border-[var(--border)] bg-[var(--surface)] px-4 shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
 
       {/* Brand */}
       <div className="flex shrink-0 items-center gap-2">
@@ -109,13 +185,18 @@ export function TopBar({
       {/* Divider */}
       <div className="h-4 w-px shrink-0 bg-[var(--border)]" />
 
-      {/* Task title */}
+      {/* Task title — grows with available space, capped via clamp */}
       {selectedTaskTitle && (
-        <span className="max-w-[200px] truncate text-[0.8rem] text-[var(--text-2)]" title={selectedTaskTitle}>
+        <span
+          className="truncate text-[0.8rem] text-[var(--text-2)]"
+          title={selectedTaskTitle}
+          style={{ maxWidth: "clamp(100px, 20vw, 280px)" }}
+        >
           {selectedTaskTitle}
         </span>
       )}
 
+      {/* Overview metric chips — aggregate stats (xl+ only) */}
       {overviewObservability && (
         <div className="hidden min-w-0 shrink items-center gap-1.5 xl:flex">
           <TopBarMetricChip
@@ -149,43 +230,19 @@ export function TopBar({
         </div>
       )}
 
-      {/* Observability badges */}
+      {/* Observability summary chip — single pill, expands on click */}
       {observabilityStats && (
-        <div className="flex shrink-0 items-center gap-1.5">
-          <span className="inline-flex items-center gap-1 rounded-full border border-[var(--coordination-border)] bg-[var(--coordination-bg)] px-2 py-0.5 text-[0.72rem] font-semibold text-[var(--coordination)]">
-            <span className="h-1.5 w-1.5 rounded-full bg-[var(--coordination)] opacity-70" />
-            {observabilityStats.checks} checks
-          </span>
-          <span className="inline-flex items-center gap-1 rounded-full border border-[var(--err-bg)] bg-[var(--err-bg)] px-2 py-0.5 text-[0.72rem] font-semibold text-[var(--err)]">
-            <span className="h-1.5 w-1.5 rounded-full bg-[var(--err)] opacity-70" />
-            {observabilityStats.violations} violations
-          </span>
-          <span className="inline-flex items-center gap-1 rounded-full border border-[var(--ok-bg)] bg-[var(--ok-bg)] px-2 py-0.5 text-[0.72rem] font-semibold text-[var(--ok)]">
-            <span className="h-1.5 w-1.5 rounded-full bg-[var(--ok)] opacity-70" />
-            {observabilityStats.passes} passes
-          </span>
-        </div>
+        <ObservabilityChip stats={observabilityStats} />
       )}
 
       {/* Spacer */}
       <div className="flex-1" />
 
-      {/* Zoom slider */}
-      <div className="flex shrink-0 items-center gap-2">
-        <span className="text-[0.72rem] font-medium text-[var(--text-3)]">Zoom</span>
-        <input
-          className="h-1 w-20 cursor-pointer accent-[var(--accent)]"
-          max={2.5} min={0.8} step={0.1} type="range" value={zoom}
-          onChange={(e) => onZoomChange(Number(e.target.value))}
-        />
-        <span className="w-7 text-right text-[0.72rem] font-medium tabular-nums text-[var(--text-2)]">{zoom.toFixed(1)}×</span>
-      </div>
-
       {/* Search */}
-      <div className="relative w-[min(240px,30vw)] shrink-0">
+      <div className="relative w-[min(220px,28vw)] shrink-0">
         <input
           aria-label="Search tasks, events, and bookmarks"
-          className="w-full rounded-[9px] border border-[var(--border)] bg-[var(--surface-2)] px-3 py-1.5 pr-16 text-[0.8rem] text-[var(--text-1)] outline-none transition placeholder:text-[var(--text-3)] focus:border-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-1"
+          className="w-full rounded-[9px] border border-[var(--border)] bg-[var(--surface-2)] px-3 py-1.5 pr-14 text-[0.8rem] text-[var(--text-1)] outline-none transition placeholder:text-[var(--text-3)] focus:border-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-1"
           onChange={(event) => onSearchQueryChange(event.target.value)}
           onKeyDown={(event) => {
             if (event.key === "Escape") onSearchQueryChange("");
@@ -276,49 +333,74 @@ export function TopBar({
         )}
       </div>
 
-      {/* Task scope toggle */}
-      {selectedTaskTitle && (
+      {/* Divider */}
+      <div className="h-4 w-px shrink-0 bg-[var(--border)]" />
+
+      {/* Action group: Task scope + Library */}
+      <div className="flex shrink-0 items-center gap-1">
+        {selectedTaskTitle && (
+          <button
+            aria-label={taskScopeEnabled ? "Search all tasks" : "Limit search to this task"}
+            className={cn(
+              "shrink-0 rounded-[8px] border px-2 py-1.5 text-[0.72rem] font-semibold leading-none transition-all",
+              taskScopeEnabled
+                ? "border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] text-[var(--accent)]"
+                : "border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-3)] hover:border-[var(--accent)] hover:text-[var(--accent)]"
+            )}
+            onClick={() => onTaskScopeToggle(!taskScopeEnabled)}
+            type="button"
+          >
+            This task
+          </button>
+        )}
+
         <button
-          aria-label={taskScopeEnabled ? "Search all tasks" : "Limit search to this task"}
-          className={cn(
-            "shrink-0 rounded-[8px] border px-2 py-1.5 text-[0.72rem] font-semibold leading-none transition-all",
-            taskScopeEnabled
-              ? "border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] text-[var(--accent)]"
-              : "border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-3)] hover:border-[var(--accent)] hover:text-[var(--accent)]"
-          )}
-          onClick={() => onTaskScopeToggle(!taskScopeEnabled)}
+          aria-label="Open workflow library"
+          className="flex h-7 shrink-0 items-center gap-1.5 rounded-[8px] border border-[var(--border)] bg-[var(--surface-2)] px-2.5 text-[0.75rem] font-semibold text-[var(--text-2)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]"
+          onClick={onOpenLibrary}
+          title="Workflow Library"
           type="button"
         >
-          This task
+          <span className="text-[0.8rem] leading-none">⊞</span>
+          Library
         </button>
-      )}
+      </div>
 
-      {/* Workflow Library button */}
-      <button
-        aria-label="Open workflow library"
-        className="flex h-7 shrink-0 items-center gap-1.5 rounded-[8px] border border-[var(--border)] bg-[var(--surface-2)] px-2.5 text-[0.75rem] font-semibold text-[var(--text-2)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]"
-        onClick={onOpenLibrary}
-        title="Workflow Library"
-        type="button"
-      >
-        <span className="text-[0.8rem] leading-none">⊞</span>
-        Library
-      </button>
+      {/* Divider */}
+      <div className="h-4 w-px shrink-0 bg-[var(--border)]" />
 
-      {/* Dark mode toggle */}
-      <button
-        aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] border border-[var(--border)] bg-[var(--surface-2)] text-[0.88rem] text-[var(--text-2)] transition hover:border-[var(--border-strong)] hover:bg-[var(--surface)] hover:text-[var(--text-1)]"
-        onClick={toggleTheme}
-        title={theme === "dark" ? "Light mode" : "Dark mode"}
-        type="button"
-      >
-        {theme === "dark" ? "☀" : "☽"}
-      </button>
+      {/* Controls group: Zoom + Theme + Refresh */}
+      <div className="flex shrink-0 items-center gap-1">
+        {/* Compact zoom — no "Zoom" label text, just slider + value */}
+        <div
+          className="flex items-center gap-1.5"
+          title={`Zoom: ${zoom.toFixed(1)}×`}
+        >
+          <input
+            aria-label="Timeline zoom"
+            className="h-1 w-16 cursor-pointer accent-[var(--accent)]"
+            max={2.5} min={0.8} step={0.1} type="range" value={zoom}
+            onChange={(e) => onZoomChange(Number(e.target.value))}
+          />
+          <span className="w-6 text-right text-[0.68rem] font-medium tabular-nums text-[var(--text-3)]">
+            {zoom.toFixed(1)}×
+          </span>
+        </div>
 
-      <Button className="shrink-0 gap-1 rounded-[8px] px-2.5" onClick={onRefresh} size="sm" variant="ghost">
-        <img alt="" className="h-3.5 w-3.5 opacity-50" src="/icons/refresh.svg" />
-      </Button>
+        <button
+          aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] border border-[var(--border)] bg-[var(--surface-2)] text-[0.88rem] text-[var(--text-2)] transition hover:border-[var(--border-strong)] hover:bg-[var(--surface)] hover:text-[var(--text-1)]"
+          onClick={toggleTheme}
+          title={theme === "dark" ? "Light mode" : "Dark mode"}
+          type="button"
+        >
+          {theme === "dark" ? "☀" : "☽"}
+        </button>
+
+        <Button className="shrink-0 gap-1 rounded-[8px] px-2" onClick={onRefresh} size="sm" variant="ghost">
+          <img alt="" className="h-3.5 w-3.5 opacity-50" src="/icons/refresh.svg" />
+        </Button>
+      </div>
 
       {/* WS status */}
       <div className={cn(
