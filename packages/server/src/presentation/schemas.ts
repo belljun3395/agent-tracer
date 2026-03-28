@@ -194,6 +194,7 @@ export const sessionEndSchema = z.object({
   completeTask: z.boolean().optional(),
   completionReason: z.enum(COMPLETION_REASONS).optional(),
   summary: z.string().optional(),
+  backgroundCompletions: z.array(z.string().min(1)).optional(),
   metadata: z.record(z.unknown()).optional()
 });
 
@@ -288,7 +289,9 @@ export const ccSessionEnsureSchema = z.object({
 export const ccSessionEndSchema = z.object({
   ccSessionId: z.string().min(1),
   summary: z.string().optional(),
-  completeTask: z.boolean().optional()
+  completeTask: z.boolean().optional(),
+  completionReason: z.enum(COMPLETION_REASONS).optional(),
+  backgroundCompletions: z.array(z.string().min(1)).optional()
 });
 
 export const runtimeSessionEnsureSchema = z.object({
@@ -305,7 +308,8 @@ export const runtimeSessionEndSchema = z.object({
   runtimeSessionId: z.string().min(1),
   summary: z.string().optional(),
   completeTask: z.boolean().optional(),
-  completionReason: z.enum(COMPLETION_REASONS).optional()
+  completionReason: z.enum(COMPLETION_REASONS).optional(),
+  backgroundCompletions: z.array(z.string().min(1)).optional()
 });
 
 export const assistantResponseSchema = z.object({

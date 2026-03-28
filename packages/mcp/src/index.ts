@@ -57,6 +57,9 @@ export function createMonitorMcpServer(client = new MonitorClient()): McpServer 
         taskId: z.string(),
         sessionId: z.string().optional(),
         summary: z.string().optional(),
+        completeTask: z.boolean().optional(),
+        completionReason: z.enum(["idle", "assistant_turn_complete", "explicit_exit", "runtime_terminated"]).optional(),
+        backgroundCompletions: z.array(z.string()).optional(),
         metadata: z.record(z.unknown()).optional()
       }
     },

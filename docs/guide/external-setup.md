@@ -114,11 +114,7 @@ npm run setup:external -- \
 - `--mode codex`
   - 외부 프로젝트의 `AGENTS.md`에 Agent Tracer 관리 블록을 생성하거나 갱신합니다.
   - 외부 프로젝트의 `.agents/skills/codex-monitor/SKILL.md`를 생성합니다.
-  - skill source와 Codex hook bundle source는 실행 중인 로컬 저장소의 `skills/codex-monitor/SKILL.md`, `.codex/*` 입니다.
-  - 외부 프로젝트의 `.codex/config.toml`에 `codex_hooks = true`를 설정합니다.
-  - 외부 프로젝트의 `.codex/hooks.json`을 생성하거나 병합합니다.
-  - `.agent-tracer/.codex/hooks/*.ts`와 `.agent-tracer/.codex/tsconfig.json`을 vendor 하고, `.codex/hooks.json`은 git root 우선, 상위 디렉터리 탐색 fallback 방식으로 그 경로를 참조합니다.
-  - hook 실행은 `npx --yes tsx`를 사용합니다.
+  - skill source는 실행 중인 로컬 저장소의 `skills/codex-monitor/SKILL.md`입니다.
 
 원하면 `--source-repo`, `--source-ref`로 원격 소스를 바꿀 수 있고,
 테스트/오프라인 환경에서는 `--source-root /local/agent-tracer`로 로컬 소스를 쓸 수 있습니다.
@@ -132,12 +128,10 @@ npm run setup:external -- \
 - Codex: [codex-setup.md](./codex-setup.md)
   - `setup:external --mode codex` 이후에도 `codex mcp add monitor ...`는 직접 실행해야 합니다.
   - 새 `AGENTS.md` / `.agents/skills`를 읽도록 Codex 스레드를 다시 시작해야 합니다.
-  - hook 기반 추적까지 쓰려면 Codex를 target repo에서 다시 열어 새 `.codex/config.toml` / `.codex/hooks.json`을 읽게 해야 합니다.
 
 ## 6. 자주 막히는 지점
 
 - `npx --yes tsx`를 사용하므로 최초 실행 시 네트워크 또는 npm 캐시가 필요할 수 있습니다.
-- Codex hook을 외부 프로젝트에 수동 배치했다면 `tsx` 실행 경로(`node_modules/tsx` 또는 `npx tsx`)를 해당 프로젝트 환경에 맞게 조정해야 합니다.
 - `packages/mcp` 구현이 바뀌었으면 다시 `npm run build`를 해야 합니다.
 - GUI 앱에서 `node`를 못 찾으면 절대 경로의 Node 실행 파일을 사용해야 합니다.
 - 설정 파일을 바꾼 뒤에는 CLI 앱 또는 스레드를 다시 시작해야 반영됩니다.

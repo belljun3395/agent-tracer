@@ -16,18 +16,19 @@ runtime capability registry는 "각 런타임이 무엇을 관찰할 수 있고,
 | Adapter | Raw prompt | Tool calls | Subagents | Native skill discovery | Event stream | Session close policy |
 | --- | --- | --- | --- | --- | --- | --- |
 | `claude-hook` | Yes | Yes | Yes | `.claude/skills` | No | `never` |
-| `codex-hook` | Yes | Yes | No | None | No | `always` |
 | `codex-skill` | Yes, but manual | No automatic observation | No automatic observation | `.agents/skills` | No | `never` |
 | `opencode-plugin` | Yes | Yes | Yes | `.agents/skills`, `.claude/skills` | No | `primary-only` |
 | `opencode-sse` | Yes | Yes | Yes | `.agents/skills`, `.claude/skills` | Yes | `primary-only` |
+
+참고: 서버 HTTP 스키마의 `runtimeSource`는 확장성을 위해 문자열로 열려 있다.
+이 표는 core capability registry에 사전 등록된 adapter 집합만 설명한다.
 
 ## capability가 필요한 이유
 
 런타임마다 할 수 있는 일이 다르기 때문이다.
 
 - Claude hook은 raw prompt와 tool use를 자동으로 볼 수 있다.
-- Codex CLI 는 `codex-hook` 과 `codex-skill` 두 경로를 함께 가진다.
-- `codex-hook` 은 자동 prompt/Bash/transcript backfill 을 남기지만, native skill discovery 는 없고 기본 종료 정책도 turn 단위다.
+- Codex CLI 는 `codex-skill` + MCP 경로를 캐노니컬로 사용한다.
 - `codex-skill` 은 같은 thread/topic task 를 재사용하고, final `assistant.response` 와 planning context 를 명시적으로 남긴다.
 - OpenCode는 plugin hook과 typed event callback을 통해 assistant-side signal을 비교적 풍부하게 다룰 수 있다.
 

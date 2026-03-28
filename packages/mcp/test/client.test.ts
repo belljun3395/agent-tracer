@@ -109,13 +109,22 @@ describe("MCP tool registry — canonical tools", () => {
 
     await client.post("/api/session-end", {
       taskId: "t1",
-      sessionId: "s1"
+      sessionId: "s1",
+      completionReason: "idle",
+      backgroundCompletions: ["bg-1"]
     });
 
     expect(fetchMock).toHaveBeenCalledWith(
       "http://localhost:3847/api/session-end",
       expect.objectContaining({ method: "POST" })
     );
+    const requestInit = fetchMock.mock.calls[0]?.[1] as { body?: string };
+    expect(requestInit.body).toBe(JSON.stringify({
+      taskId: "t1",
+      sessionId: "s1",
+      completionReason: "idle",
+      backgroundCompletions: ["bg-1"]
+    }));
   });
 
   it("monitor_runtime_session_ensure 가 /api/runtime-session-ensure 로 POST한다", async () => {
@@ -157,13 +166,21 @@ describe("MCP tool registry — canonical tools", () => {
     await client.post("/api/runtime-session-end", {
       runtimeSource: "codex-skill",
       runtimeSessionId: "codex-thread-1",
-      completionReason: "idle"
+      completionReason: "idle",
+      backgroundCompletions: ["bg-1"]
     });
 
     expect(fetchMock).toHaveBeenCalledWith(
       "http://localhost:3847/api/runtime-session-end",
       expect.objectContaining({ method: "POST" })
     );
+    const requestInit = fetchMock.mock.calls[0]?.[1] as { body?: string };
+    expect(requestInit.body).toBe(JSON.stringify({
+      runtimeSource: "codex-skill",
+      runtimeSessionId: "codex-thread-1",
+      completionReason: "idle",
+      backgroundCompletions: ["bg-1"]
+    }));
   });
 
   it("monitor_assistant_response 가 /api/assistant-response 로 POST한다", async () => {
