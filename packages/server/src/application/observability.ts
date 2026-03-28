@@ -49,10 +49,6 @@ export interface ObservabilityTaskSignals {
 }
 
 export interface ObservabilityTaskFocus {
-  readonly workItemIds: readonly string[];
-  readonly goalIds: readonly string[];
-  readonly planIds: readonly string[];
-  readonly handoffIds: readonly string[];
   readonly topFiles: readonly ObservabilityFileCount[];
   readonly topTags: readonly ObservabilityTagCount[];
 }
@@ -208,10 +204,6 @@ export function analyzeTaskObservability(
 
   const topFiles = new Map<string, number>();
   const topTags = new Map<string, number>();
-  const workItemIds = new Map<string, number>();
-  const goalIds = new Map<string, number>();
-  const planIds = new Map<string, number>();
-  const handoffIds = new Map<string, number>();
   const questionGroups = new Map<string, { readonly concluded: boolean }>();
   const todoGroups = new Map<string, { readonly completed: boolean }>();
 
@@ -238,11 +230,7 @@ export function analyzeTaskObservability(
       questionGroups,
       todoGroups,
       topFiles,
-      topTags,
-      workItemIds,
-      goalIds,
-      planIds,
-      handoffIds
+      topTags
     });
   }
 
@@ -329,10 +317,6 @@ export function analyzeTaskObservability(
     },
     signals,
     focus: {
-      workItemIds: topKeys(workItemIds),
-      goalIds: topKeys(goalIds),
-      planIds: topKeys(planIds),
-      handoffIds: topKeys(handoffIds),
       topFiles: topFileCounts(topFiles, TOP_LIST_LIMIT),
       topTags: topTagCounts(topTags, TOP_LIST_LIMIT)
     }
@@ -465,10 +449,6 @@ function collectSignalsAndFocus(input: {
   readonly todoGroups: Map<string, { readonly completed: boolean }>;
   readonly topFiles: Map<string, number>;
   readonly topTags: Map<string, number>;
-  readonly workItemIds: Map<string, number>;
-  readonly goalIds: Map<string, number>;
-  readonly planIds: Map<string, number>;
-  readonly handoffIds: Map<string, number>;
 }): void {
   const { event } = input;
   const metadata = event.metadata;
@@ -541,25 +521,6 @@ function collectSignalsAndFocus(input: {
     incrementCount(input.topTags, tag);
   }
 
-  const workItemId = extractString(metadata, "workItemId");
-  if (workItemId) {
-    incrementCount(input.workItemIds, workItemId);
-  }
-
-  const goalId = extractString(metadata, "goalId");
-  if (goalId) {
-    incrementCount(input.goalIds, goalId);
-  }
-
-  const planId = extractString(metadata, "planId");
-  if (planId) {
-    incrementCount(input.planIds, planId);
-  }
-
-  const handoffId = extractString(metadata, "handoffId");
-  if (handoffId) {
-    incrementCount(input.handoffIds, handoffId);
-  }
 }
 
 function addDuration(
@@ -900,19 +861,6 @@ function collectStringArray(
 
 function incrementCount(map: Map<string, number>, value: string): void {
   map.set(value, (map.get(value) ?? 0) + 1);
-}
-
-function topKeys(map: Map<string, number>): readonly string[] {
-  return [...map.entries()]
-    .sort((left, right) => {
-      if (right[1] !== left[1]) {
-        return right[1] - left[1];
-      }
-
-      return left[0].localeCompare(right[0]);
-    })
-    .slice(0, TOP_LIST_LIMIT)
-    .map(([key]) => key);
 }
 
 function topFileCounts(

@@ -291,32 +291,6 @@ function ObservabilityList({
   );
 }
 
-function ObservabilityFocusGroup({
-  label,
-  values,
-  emptyLabel
-}: {
-  readonly label: string;
-  readonly values: readonly string[];
-  readonly emptyLabel: string;
-}): React.JSX.Element {
-  return (
-    <div className="rounded-[12px] border border-[var(--border)] bg-[var(--bg)] px-3.5 py-3">
-      <div className="mb-2 text-[0.68rem] font-bold uppercase tracking-[0.08em] text-[var(--text-3)]">{label}</div>
-      {values.length === 0 ? (
-        <p className="m-0 text-[0.78rem] text-[var(--text-3)]">{emptyLabel}</p>
-      ) : (
-        <div className="flex flex-wrap gap-2">
-          {values.map((value) => (
-            <Badge key={value} tone="neutral" size="xs" className="max-w-full break-words">
-              {value}
-            </Badge>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
 
 function ObservabilityPhaseBreakdown({
   phases
@@ -2184,32 +2158,7 @@ export function EventInspector({
                   <ObservabilityPhaseBreakdown phases={observability.phaseBreakdown} />
                 </SectionCard>
 
-                <SectionCard title="Focus">
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <ObservabilityFocusGroup
-                      emptyLabel="No work items observed"
-                      label="Work Items"
-                      values={observability.focus.workItemIds}
-                    />
-                    <ObservabilityFocusGroup
-                      emptyLabel="No goals observed"
-                      label="Goals"
-                      values={observability.focus.goalIds}
-                    />
-                    <ObservabilityFocusGroup
-                      emptyLabel="No plans observed"
-                      label="Plans"
-                      values={observability.focus.planIds}
-                    />
-                    <ObservabilityFocusGroup
-                      emptyLabel="No handoffs observed"
-                      label="Handoffs"
-                      values={observability.focus.handoffIds}
-                    />
-                  </div>
-                </SectionCard>
-
-                <SectionCard title="Top Files">
+<SectionCard title="Top Files">
                   <ObservabilityList
                     emptyLabel="No file focus recorded yet."
                     items={observability.focus.topFiles.map((file) => ({

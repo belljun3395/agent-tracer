@@ -25,10 +25,6 @@ export class TraceMetadataFactory {
       ...(input.relatedEventIds && input.relatedEventIds.length > 0
         ? { relatedEventIds: [...input.relatedEventIds] }
         : {}),
-      ...(input.workItemId ? { workItemId: input.workItemId } : {}),
-      ...(input.goalId ? { goalId: input.goalId } : {}),
-      ...(input.planId ? { planId: input.planId } : {}),
-      ...(input.handoffId ? { handoffId: input.handoffId } : {}),
       ...(input.relationType ? { relationType: input.relationType } : {}),
       ...(input.relationLabel ? { relationLabel: input.relationLabel } : {}),
       ...(input.relationExplanation ? { relationExplanation: input.relationExplanation } : {}),
@@ -180,15 +176,6 @@ export class TraceMetadataFactory {
 
     const mcpTool = extractMetadataString(metadata, "mcpTool");
     if (mcpTool) tags.add(`mcp-tool:${normalizeTagSegment(mcpTool)}`);
-
-    const workItemId = extractMetadataString(metadata, "workItemId");
-    if (workItemId) tags.add(`work-item:${normalizeTagSegment(workItemId)}`);
-
-    const goalId = extractMetadataString(metadata, "goalId");
-    if (goalId) tags.add(`goal:${normalizeTagSegment(goalId)}`);
-
-    const planId = extractMetadataString(metadata, "planId");
-    if (planId) tags.add(`plan:${normalizeTagSegment(planId)}`);
 
     const relationType = extractMetadataString(metadata, "relationType");
     if (relationType) tags.add(`relation:${normalizeTagSegment(relationType)}`);

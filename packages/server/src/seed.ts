@@ -102,10 +102,6 @@ async function seedCoordinationTask(): Promise<void> {
 
   const sessionId = requireSessionId(started, started.task.title);
   const taskId = started.task.id;
-  const workItemId = "todo:card-connection";
-  const goalId = "goal:coordination-demo";
-  const planId = "plan:coordination-journey";
-  const handoffId = "handoff:leibniz-server-review";
 
   const userRequestId = firstEventId(
     await service.logUserMessage({
@@ -118,10 +114,10 @@ async function seedCoordinationTask(): Promise<void> {
 
   const todoAddedId = firstEventId(
     await service.logTodo({
-      taskId, sessionId, todoId: workItemId, todoState: "added", sequence: 1,
+      taskId, sessionId, todoId: "todo:card-connection", todoState: "added", sequence: 1,
       title: "Add seeded coordination flow",
       body: "Create one todo that can be traced from the user request to a follow-up bookmark.",
-      parentEventId: userRequestId, workItemId, goalId, relationType: "caused_by",
+      parentEventId: userRequestId, relationType: "caused_by",
       relationLabel: "request created todo",
       relationExplanation: "The user request directly created the todo for the coordination demo."
     }),
@@ -132,7 +128,7 @@ async function seedCoordinationTask(): Promise<void> {
     await service.logAgentActivity({
       taskId, sessionId, activityType: "skill_use", title: "Loaded codex-monitor skill",
       skillName: "codex-monitor", skillPath: ".agents/skills/codex-monitor/SKILL.md",
-      parentEventId: todoAddedId, workItemId, goalId, relationType: "implements",
+      parentEventId: todoAddedId, relationType: "implements",
       relationLabel: "skill workflow loaded",
       relationExplanation: "The codex-monitor workflow is loaded before the todo is carried out."
     }),
@@ -143,7 +139,7 @@ async function seedCoordinationTask(): Promise<void> {
     await service.logAgentActivity({
       taskId, sessionId, activityType: "mcp_call", title: "Called monitor_explore on monitor-server",
       mcpServer: "monitor-server", mcpTool: "monitor_explore",
-      parentEventId: skillUseId, workItemId, goalId, relationType: "implements",
+      parentEventId: skillUseId, relationType: "implements",
       relationLabel: "repo inspection started",
       relationExplanation: "The MCP exploration call gathers the context needed to shape the seeded example.",
       filePaths: ["packages/server/src/seed.ts", "packages/web/src/components/EventInspector.tsx"]
@@ -154,7 +150,7 @@ async function seedCoordinationTask(): Promise<void> {
   const delegationId = firstEventId(
     await service.logAgentActivity({
       taskId, sessionId, activityType: "delegation", title: "Delegated server package review to Leibniz",
-      agentName: "Leibniz", parentEventId: todoAddedId, workItemId, goalId, handoffId,
+      agentName: "Leibniz", parentEventId: todoAddedId,
       relationType: "delegates", relationLabel: "server review delegated",
       relationExplanation: "A focused server review is delegated in parallel to map the flow more quickly.",
       filePaths: ["packages/server/src/presentation/schemas.ts", "packages/server/src/application/monitor-service.ts"]
@@ -166,7 +162,7 @@ async function seedCoordinationTask(): Promise<void> {
     await service.logPlan({
       taskId, sessionId, action: "plan_seed_coordination_journey", title: "Plan coordination seed journey",
       body: "Map one todo through skill use, MCP exploration, delegation, implementation, verification, search, and bookmark.",
-      parentEventId: mcpCallId, workItemId, goalId, planId, relationType: "implements",
+      parentEventId: mcpCallId, relationType: "implements",
       relationLabel: "seed plan drafted",
       relationExplanation: "The plan turns exploration results into a concrete seed journey."
     }),
@@ -176,7 +172,7 @@ async function seedCoordinationTask(): Promise<void> {
   const handoffEventId = firstEventId(
     await service.logAgentActivity({
       taskId, sessionId, activityType: "handoff", title: "Received findings from Leibniz",
-      agentName: "Leibniz", relatedEventIds: [delegationId], workItemId, goalId, handoffId,
+      agentName: "Leibniz", relatedEventIds: [delegationId],
       relationType: "returns", relationLabel: "delegation returned",
       relationExplanation: "The delegated review returns findings that feed back into the main implementation plan.",
       body: "Server metadata already carries relation fields, so the seed can focus on event wiring."
@@ -188,7 +184,7 @@ async function seedCoordinationTask(): Promise<void> {
     await service.logAction({
       taskId, sessionId, action: "seed_coordination_example", title: "Seed coordination flow example",
       body: "Added a todo-centric scenario so the timeline shows coordination cards, explicit connectors, and follow-up evidence.",
-      parentEventId: planEventId, relatedEventIds: [handoffEventId], workItemId, goalId, planId,
+      parentEventId: planEventId, relatedEventIds: [handoffEventId],
       relationType: "implements", relationLabel: "seed written",
       relationExplanation: "The implementation applies both the plan and the returned handoff findings.",
       filePaths: ["packages/server/src/seed.ts"]
@@ -200,7 +196,7 @@ async function seedCoordinationTask(): Promise<void> {
     await service.logVerification({
       taskId, sessionId, action: "run_seed_for_coordination_demo", title: "Verify seeded coordination flow",
       body: "Confirmed the seeded task exposes coordination chips, connector explanations, and a bookmarkable follow-up event.",
-      result: "PASS coordination flow visible", parentEventId: actionId, workItemId, goalId, planId,
+      result: "PASS coordination flow visible", parentEventId: actionId,
       relationType: "verifies", relationLabel: "seed verified",
       relationExplanation: "Verification checks that the example produces the intended coordination narrative in the UI.",
       filePaths: ["packages/server/src/seed.ts", "packages/web/src/components/Timeline.tsx", "packages/web/src/components/EventInspector.tsx"]
@@ -211,7 +207,7 @@ async function seedCoordinationTask(): Promise<void> {
   const searchId = firstEventId(
     await service.logAgentActivity({
       taskId, sessionId, activityType: "search", title: "Searched saved cards for relationType",
-      parentEventId: verifyId, workItemId, goalId, relationType: "relates_to",
+      parentEventId: verifyId, relationType: "relates_to",
       relationLabel: "follow-up search",
       relationExplanation: "After verification, saved cards are searched to confirm the relation metadata stays discoverable."
     }),
@@ -221,7 +217,7 @@ async function seedCoordinationTask(): Promise<void> {
   const bookmarkEventId = firstEventId(
     await service.logAgentActivity({
       taskId, sessionId, activityType: "bookmark", title: "Saved task for follow-up",
-      parentEventId: searchId, workItemId, goalId, relationType: "completes",
+      parentEventId: searchId, relationType: "completes",
       relationLabel: "follow-up saved",
       relationExplanation: "The verified example is bookmarked so the team can return to this flow during future UI reviews."
     }),
@@ -235,10 +231,10 @@ async function seedCoordinationTask(): Promise<void> {
 
   firstEventId(
     await service.logTodo({
-      taskId, sessionId, todoId: workItemId, todoState: "completed", sequence: 2,
+      taskId, sessionId, todoId: "todo:card-connection", todoState: "completed", sequence: 2,
       title: "Seeded coordination flow ready",
       body: "The demo now shows one todo that can be traced from the user request to a saved follow-up.",
-      parentEventId: bookmarkEventId, workItemId, goalId, relationType: "completes",
+      parentEventId: bookmarkEventId, relationType: "completes",
       relationLabel: "todo completed",
       relationExplanation: "The todo is completed only after the example is verified and bookmarked."
     }),

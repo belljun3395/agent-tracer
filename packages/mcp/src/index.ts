@@ -412,10 +412,6 @@ export function createMonitorMcpServer(client = new MonitorClient()): McpServer 
         mcpTool: z.string().optional(),
         parentEventId: z.string().optional(),
         relatedEventIds: z.array(z.string()).optional(),
-        workItemId: z.string().optional(),
-        goalId: z.string().optional(),
-        planId: z.string().optional(),
-        handoffId: z.string().optional(),
         relationType: z.enum([
           "implements",
           "revises",
