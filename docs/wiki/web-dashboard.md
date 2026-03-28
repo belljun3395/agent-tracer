@@ -27,7 +27,8 @@ WebSocket 신호와 REST read model을 조합해 상태를 갱신한다.
 ### Event inspector
 
 오른쪽 패널에서 event/task를 더 읽기 쉬운 정보로 재구성한다.
-tags, task summary, evaluation, compact, file activity, exploration 탭이 있다.
+`Inspector`, `Flow`, `Health`, `Tags`, `Task`, `Evaluate`, `Compact`, `Files`, `Exploration`
+탭이 있다. `Flow`와 `Health`는 `/api/tasks/:taskId/observability` read model을 사용한다.
 
 ### Workflow library
 
@@ -58,6 +59,13 @@ TopBar 버튼과 `WorkflowLibraryPanel`을 통해 바로 접근 가능한 UI다.
 
 `useWebSocket()`은 raw string이 아니라 `MonitorRealtimeMessage | null`을 넘기고,
 bookmark/event/task 종류에 따라 refresh 전략을 나눈다.
+
+### observability top bar와 inspector 탭이 추가됐다
+
+TopBar는 이제 overview stats만 아니라 prompt capture, trace-linked task 비율,
+stale running task, 평균 작업 시간을 카드로 보여 준다.
+선택된 task가 바뀌면 `App.tsx`가 `/api/tasks/:taskId/observability`를 따로 읽어
+Inspector의 `Flow` / `Health` 탭을 채운다.
 
 ## 구조적으로 보는 강점과 한계
 

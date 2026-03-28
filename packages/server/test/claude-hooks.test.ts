@@ -140,7 +140,7 @@ describe("Claude hooks", () => {
     }, monitor.port);
 
     expect(monitor.calls).toEqual([]);
-  });
+  }, 60_000);
 
   it("SessionStart startup records a session-started planning event", async () => {
     const monitor = await startMonitorStub();

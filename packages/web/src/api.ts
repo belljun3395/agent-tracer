@@ -13,6 +13,7 @@ import type {
   SearchResponse,
   TaskEvaluation,
   TaskDetailResponse,
+  TaskObservabilityResponse,
   TimelineEvent,
   TasksResponse,
   WorkflowSummary
@@ -77,7 +78,7 @@ async function deleteJson<T>(pathname: string): Promise<T> {
 }
 
 /**
- * 대시보드 개요(통계 + 규칙 인덱스)를 가져옴.
+ * 대시보드 개요(통계 + observability snapshot)를 가져옴.
  */
 export function fetchOverview(): Promise<OverviewResponse> {
   return getJson<OverviewResponse>("/api/overview");
@@ -96,6 +97,10 @@ export function fetchTasks(): Promise<TasksResponse> {
  */
 export function fetchTaskDetail(taskId: string): Promise<TaskDetailResponse> {
   return getJson<TaskDetailResponse>(`/api/tasks/${taskId}`);
+}
+
+export function fetchTaskObservability(taskId: string): Promise<TaskObservabilityResponse> {
+  return getJson<TaskObservabilityResponse>(`/api/tasks/${taskId}/observability`);
 }
 
 export function fetchBookmarks(taskId?: string): Promise<BookmarksResponse> {

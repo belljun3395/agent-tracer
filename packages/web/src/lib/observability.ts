@@ -1,0 +1,58 @@
+/**
+ * @module observability
+ *
+ * UI 전용 observability formatting helpers.
+ * 서버 응답을 카드/표시용 문자열로 변환한다.
+ */
+
+export function formatDuration(ms: number): string {
+  if (!Number.isFinite(ms) || ms < 0) {
+    return "0ms";
+  }
+
+  if (ms < 1000) {
+    return `${Math.round(ms)}ms`;
+  }
+
+  const totalSeconds = ms / 1000;
+  if (totalSeconds < 60) {
+    return `${totalSeconds < 10 ? totalSeconds.toFixed(1) : Math.round(totalSeconds)}s`;
+  }
+
+  const totalMinutes = Math.floor(totalSeconds / 60);
+  const seconds = Math.round(totalSeconds % 60);
+  if (totalMinutes < 60) {
+    return `${totalMinutes}m ${seconds}s`;
+  }
+
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return `${hours}h ${minutes}m`;
+}
+
+export function formatRate(rate: number): string {
+  if (!Number.isFinite(rate)) {
+    return "0%";
+  }
+
+  const percent = rate <= 1 ? rate * 100 : rate;
+  return Number.isInteger(percent) ? `${percent.toFixed(0)}%` : `${percent.toFixed(1)}%`;
+}
+
+export function formatCount(value: number): string {
+  if (!Number.isFinite(value)) {
+    return "0";
+  }
+
+  return value.toLocaleString();
+}
+
+export function formatPhaseLabel(phase: string): string {
+  if (!phase) {
+    return "Unknown";
+  }
+
+  return phase
+    .replace(/[_-]+/g, " ")
+    .replace(/\b\w/g, (match) => match.toUpperCase());
+}

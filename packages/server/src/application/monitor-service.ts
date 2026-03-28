@@ -21,6 +21,12 @@ import type {
   RuntimeSessionEnsureInput, RuntimeSessionEnsureResult, RuntimeSessionEndInput, TaskSearchInput,
   TaskAssistantResponseInput, EventPatchInput
 } from "./types.js";
+import {
+  analyzeObservabilityOverview,
+  analyzeTaskObservability,
+  type ObservabilityOverviewResponse,
+  type TaskObservabilityResponse
+} from "./observability.js";
 import { EventRecorder } from "./services/event-recorder.js";
 import { TraceMetadataFactory as TMF } from "./services/trace-metadata-factory.js";
 import {
@@ -388,6 +394,44 @@ export class MonitorService {
   async listTasks() { return this.ports.tasks.findAll(); }
   async getTask(taskId: string) { return this.ports.tasks.findById(taskId); }
   async getTaskTimeline(taskId: string): Promise<readonly TimelineEvent[]> { return this.ports.events.findByTaskId(taskId); }
+  async getTaskObservability(taskId: string): Promise<TaskObservabilityResponse | undefined> {
+    const task = await this.ports.tasks.findById(taskId);
+    if (!task) {
+      return undefined;
+    }
+
+    const [sessions, timeline] = await Promise.all([
+      this.ports.sessions.findByTaskId(taskId),
+      this.ports.events.findByTaskId(taskId)
+    ]);
+
+    return {
+      observability: analyzeTaskObservability({
+        task,
+        sessions,
+        timeline
+      })
+    };
+  }
+
+  async getObservabilityOverview(): Promise<ObservabilityOverviewResponse> {
+    const tasks = await this.ports.tasks.findAll();
+    const sessionEntries = await Promise.all(
+      tasks.map(async (task) => [task.id, await this.ports.sessions.findByTaskId(task.id)] as const)
+    );
+    const timelineEntries = await Promise.all(
+      tasks.map(async (task) => [task.id, await this.ports.events.findByTaskId(task.id)] as const)
+    );
+
+    return {
+      observability: analyzeObservabilityOverview({
+        tasks,
+        sessionsByTaskId: new Map(sessionEntries),
+        timelinesByTaskId: new Map(timelineEntries)
+      })
+    };
+  }
+
   async listBookmarks(taskId?: string): Promise<readonly BookmarkRecord[]> { return taskId ? this.ports.bookmarks.findByTaskId(taskId) : this.ports.bookmarks.findAll(); }
 
   async saveBookmark(input: TaskBookmarkInput): Promise<BookmarkRecord> {
