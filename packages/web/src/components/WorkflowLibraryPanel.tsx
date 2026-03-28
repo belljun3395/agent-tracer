@@ -29,28 +29,26 @@ export function WorkflowLibraryPanel({ onSelectTask, onClose }: WorkflowLibraryP
   const load = useCallback(async () => {
     setIsLoading(true);
     try {
-      const data = await fetchWorkflowLibrary(filter === "all" ? undefined : filter);
+      const normalizedSearch = search.trim();
+      const data = await fetchWorkflowLibrary(
+        filter === "all" ? undefined : filter,
+        normalizedSearch || undefined,
+        normalizedSearch ? 50 : undefined
+      );
       setItems(data);
     } catch {
       setItems([]);
     } finally {
       setIsLoading(false);
     }
-  }, [filter]);
+  }, [filter, search]);
 
-  useEffect(() => { void load(); }, [load]);
-
-  const visible = search.trim()
-    ? items.filter(item =>
-        item.title.toLowerCase().includes(search.toLowerCase())
-        || (item.useCase ?? "").toLowerCase().includes(search.toLowerCase())
-        || item.workflowTags.some(t => t.toLowerCase().includes(search.toLowerCase()))
-        || (item.outcomeNote ?? "").toLowerCase().includes(search.toLowerCase())
-        || (item.approachNote ?? "").toLowerCase().includes(search.toLowerCase())
-        || (item.reuseWhen ?? "").toLowerCase().includes(search.toLowerCase())
-        || (item.watchouts ?? "").toLowerCase().includes(search.toLowerCase())
-      )
-    : items;
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      void load();
+    }, search.trim() ? 180 : 0);
+    return (): void => clearTimeout(timer);
+  }, [load, search]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 backdrop-blur-[2px]" onClick={onClose}>
@@ -101,7 +99,7 @@ export function WorkflowLibraryPanel({ onSelectTask, onClose }: WorkflowLibraryP
         <div className="shrink-0 border-b border-[var(--border)] px-4 py-2.5">
           <input
             className="w-full rounded-[8px] border border-[var(--border)] bg-[var(--surface-2)] px-3 py-1.5 text-[0.8rem] text-[var(--text-1)] outline-none placeholder:text-[var(--text-3)] focus:border-[var(--accent)]"
-            placeholder="Filter by title, use case, tags, reuse hints…"
+            placeholder="Search by title, intent, tags, reuse hints…"
             type="search"
             value={search}
             onChange={e => setSearch(e.target.value)}
@@ -112,16 +110,18 @@ export function WorkflowLibraryPanel({ onSelectTask, onClose }: WorkflowLibraryP
         <div className="flex-1 overflow-y-auto">
           {isLoading ? (
             <div className="flex items-center justify-center py-12 text-[0.82rem] text-[var(--text-3)]">Loading…</div>
-          ) : visible.length === 0 ? (
+          ) : items.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-2 py-12 text-center">
               <span className="text-[0.82rem] text-[var(--text-3)]">
-                {items.length === 0
+                {search.trim()
+                  ? "No workflows matched your semantic search."
+                  : items.length === 0
                   ? "No workflows saved yet. Complete a task and evaluate it to add it here."
                   : "No matches for your search."}
               </span>
             </div>
           ) : (
-            visible.map(item => (
+            items.map(item => (
               <button
                 key={item.taskId}
                 type="button"

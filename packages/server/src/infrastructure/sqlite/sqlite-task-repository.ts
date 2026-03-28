@@ -11,6 +11,11 @@ import type { EventClassification, MonitoringEventKind, MonitoringTask, Monitori
 import type { ITaskRepository, OverviewStats, TaskUpsertInput } from "../../application/ports/task-repository.js";
 import { deriveTaskDisplayTitle } from "../../application/services/task-display-title-resolver.helpers.js";
 import { parseJsonField } from "./sqlite-json.js";
+import {
+  buildTaskSearchText,
+  deleteSearchDocumentsByTaskIds,
+  upsertSearchDocument
+} from "./sqlite-search-documents.js";
 
 interface TaskRow {
   id: string;
@@ -134,6 +139,7 @@ export class SqliteTaskRepository implements ITaskRepository {
       lastSessionStartedAt: input.lastSessionStartedAt ?? null,
       runtimeSource: input.runtimeSource ?? null
     });
+    this.refreshSearchDocument(input.id);
     const task = await this.findById(input.id);
     return task!;
   }
@@ -168,6 +174,7 @@ export class SqliteTaskRepository implements ITaskRepository {
         "update monitoring_tasks set status = @status, updated_at = @updatedAt where id = @id"
       )
       .run({ id, status, updatedAt });
+    this.refreshSearchDocument(id);
   }
 
   async updateTitle(id: string, title: string, slug: string, updatedAt: string): Promise<void> {
@@ -176,6 +183,7 @@ export class SqliteTaskRepository implements ITaskRepository {
         "update monitoring_tasks set title = @title, slug = @slug, updated_at = @updatedAt where id = @id"
       )
       .run({ id, title, slug, updatedAt });
+    this.refreshSearchDocument(id);
   }
 
   async delete(id: string): Promise<{ deletedIds: readonly string[] }> {
@@ -245,10 +253,36 @@ export class SqliteTaskRepository implements ITaskRepository {
   private deleteByIds(taskIds: readonly string[]): void {
     if (taskIds.length === 0) return;
     const ph = taskIds.map(() => "?").join(", ");
+    deleteSearchDocumentsByTaskIds(this.db, taskIds);
     this.db.prepare(`delete from timeline_events where task_id in (${ph})`).run(...taskIds);
     this.db.prepare(`delete from task_sessions where task_id in (${ph})`).run(...taskIds);
     this.db.prepare(`delete from runtime_session_bindings where task_id in (${ph})`).run(...taskIds);
     this.db.prepare(`delete from bookmarks where task_id in (${ph})`).run(...taskIds);
     this.db.prepare(`delete from monitoring_tasks where id in (${ph})`).run(...taskIds);
+  }
+
+  private refreshSearchDocument(taskId: string): void {
+    const row = this.db
+      .prepare<{ taskId: string }, { id: string; title: string; workspace_path: string | null; cli_source: string | null; updated_at: string }>(`
+        select id, title, workspace_path, cli_source, updated_at
+        from monitoring_tasks
+        where id = @taskId
+      `)
+      .get({ taskId });
+    if (!row) {
+      return;
+    }
+
+    upsertSearchDocument(this.db, {
+      scope: "task",
+      entityId: row.id,
+      taskId: row.id,
+      searchText: buildTaskSearchText({
+        title: row.title,
+        workspacePath: row.workspace_path,
+        runtimeSource: row.cli_source
+      }),
+      updatedAt: row.updated_at
+    });
   }
 }

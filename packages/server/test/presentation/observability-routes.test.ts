@@ -144,7 +144,17 @@ describe("observability routes", () => {
     expect(taskObservability.body.observability.signals.rawUserMessages).toBe(1);
     expect(taskObservability.body.observability.signals.questionClosureRate).toBe(1);
     expect(taskObservability.body.observability.signals.todoCompletionRate).toBe(1);
-    expect(taskObservability.body.observability.focus.workItemIds).toContain("work-1");
+    expect(taskObservability.body.observability.focus.topFiles).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ path: "src/observability.ts" })
+      ])
+    );
+    expect(taskObservability.body.observability.focus.topTags).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ tag: "action:plan" }),
+        expect.objectContaining({ tag: "action:implement" })
+      ])
+    );
     expect(taskObservability.body.observability.phaseBreakdown).toHaveLength(5);
     expect(taskObservability.body.observability.phaseBreakdown.some((phase: { phase: string }) => phase.phase === "waiting")).toBe(false);
 

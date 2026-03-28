@@ -190,9 +190,23 @@ export type TaskEvaluationRecord = TaskEvaluation;
 
 export type WorkflowSummaryRecord = WorkflowSummary;
 
-export function fetchWorkflowLibrary(rating?: "good" | "skip"): Promise<WorkflowSummaryRecord[]> {
-  const qs = rating ? `?rating=${rating}` : "";
-  return getJson<WorkflowSummaryRecord[]>(`/api/workflows${qs}`);
+export function fetchWorkflowLibrary(
+  rating?: "good" | "skip",
+  query?: string,
+  limit?: number
+): Promise<WorkflowSummaryRecord[]> {
+  const params = new URLSearchParams();
+  if (rating) {
+    params.set("rating", rating);
+  }
+  if (query?.trim()) {
+    params.set("q", query.trim());
+  }
+  if (typeof limit === "number") {
+    params.set("limit", String(limit));
+  }
+  const suffix = params.size > 0 ? `?${params.toString()}` : "";
+  return getJson<WorkflowSummaryRecord[]>(`/api/workflows${suffix}`);
 }
 
 export function fetchTaskEvaluation(taskId: string): Promise<TaskEvaluationRecord | null> {

@@ -10,6 +10,7 @@ import type express from "express";
 import { WebSocketServer } from "ws";
 
 import { MonitorService } from "../application/monitor-service.js";
+import { createEmbeddingService } from "../infrastructure/embedding/index.js";
 import { createSqliteMonitorPorts } from "../infrastructure/sqlite/index.js";
 import { createApp } from "../presentation/create-app.js";
 import { EventBroadcaster } from "../presentation/ws/event-broadcaster.js";
@@ -28,7 +29,12 @@ export interface MonitorRuntime {
 
 export function createMonitorRuntime(options: RuntimeOptions): MonitorRuntime {
   const broadcaster = new EventBroadcaster();
-  const ports = createSqliteMonitorPorts({ ...options, notifier: broadcaster });
+  const embeddingService = createEmbeddingService();
+  const ports = createSqliteMonitorPorts({
+    ...options,
+    notifier: broadcaster,
+    ...(embeddingService ? { embeddingService } : {})
+  });
   const service = new MonitorService(ports);
   const app = createApp(service);
   const server = http.createServer(app);

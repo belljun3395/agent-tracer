@@ -78,6 +78,20 @@ export function createSchema(db: Database.Database): void {
     create index if not exists idx_bookmarks_event
       on bookmarks(event_id);
 
+    create table if not exists search_documents (
+      scope text not null check(scope in ('task', 'event', 'bookmark')),
+      entity_id text not null,
+      task_id text,
+      search_text text not null,
+      embedding text,
+      embedding_model text,
+      updated_at text not null,
+      primary key (scope, entity_id)
+    );
+
+    create index if not exists idx_search_documents_scope_task_updated
+      on search_documents(scope, task_id, updated_at desc);
+
     create table if not exists task_evaluations (
       task_id       text primary key references monitoring_tasks(id) on delete cascade,
       rating        text not null check(rating in ('good', 'skip')),
@@ -88,6 +102,8 @@ export function createSchema(db: Database.Database): void {
       reuse_when    text,
       watchouts     text,
       search_text   text,
+      embedding     text,
+      embedding_model text,
       evaluated_at  text not null
     );
 

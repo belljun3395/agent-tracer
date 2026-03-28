@@ -3,14 +3,31 @@
  * @module infrastructure/sqlite/sqlite-evaluation-repository
  *
  * IEvaluationRepository SQLite 구현.
+ * 로컬 임베딩 모델이 있으면 시맨틱 검색을 사용하고,
+ * 없거나 실패하면 lexical scoring으로 안전하게 폴백한다.
  */
 
 import type Database from "better-sqlite3";
 
-import type { IEvaluationRepository, PersistedTaskEvaluation, TaskEvaluation, WorkflowSearchResult, WorkflowSummary } from "../../application/ports/evaluation-repository.js";
-import type { TimelineEvent } from "@monitor/core";
-import { parseJsonField } from "./sqlite-json.js";
+import type {
+  IEvaluationRepository,
+  PersistedTaskEvaluation,
+  TaskEvaluation,
+  WorkflowSearchResult,
+  WorkflowSummary
+} from "../../application/ports/evaluation-repository.js";
+import type { TimelineEvent, WorkflowEvaluationData } from "@monitor/core";
 import { buildWorkflowContext } from "../../application/workflow-context-builder.helpers.js";
+import type { IEmbeddingService } from "../embedding/index.js";
+import {
+  cosineSimilarity,
+  deserializeEmbedding,
+  EMBEDDING_MODEL,
+  serializeEmbedding
+} from "../embedding/index.js";
+import { parseJsonField } from "./sqlite-json.js";
+
+const MIN_SEMANTIC_SCORE = 0.22;
 
 interface EvaluationRow {
   task_id: string;
@@ -35,10 +52,12 @@ interface TaskWithEvaluationRow {
   reuse_when: string | null;
   watchouts: string | null;
   search_text: string | null;
+  embedding: string | null;
+  embedding_model: string | null;
   rating: string;
   event_count: number;
   created_at: string;
-  evaluated_at?: string;
+  evaluated_at: string;
 }
 
 interface EventRow {
@@ -52,6 +71,12 @@ interface EventRow {
   metadata_json: string;
   classification_json: string;
   created_at: string;
+}
+
+interface RankedWorkflowRow {
+  readonly row: TaskWithEvaluationRow;
+  readonly lexicalScore: number;
+  readonly semanticScore: number | null;
 }
 
 function mapEvaluationRow(row: EvaluationRow): TaskEvaluation {
@@ -84,7 +109,10 @@ function mapEventRow(row: EventRow): TimelineEvent {
 }
 
 export class SqliteEvaluationRepository implements IEvaluationRepository {
-  constructor(private readonly db: Database.Database) {}
+  constructor(
+    private readonly db: Database.Database,
+    private readonly embeddingService?: IEmbeddingService
+  ) {}
 
   async upsertEvaluation(evaluation: PersistedTaskEvaluation): Promise<void> {
     this.db.prepare(`
@@ -95,15 +123,15 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
         @taskId, @rating, @useCase, @workflowTags, @outcomeNote, @approachNote, @reuseWhen, @watchouts, @searchText, @evaluatedAt
       )
       on conflict(task_id) do update set
-        rating        = excluded.rating,
-        use_case      = excluded.use_case,
-        workflow_tags = excluded.workflow_tags,
-        outcome_note  = excluded.outcome_note,
-        approach_note = excluded.approach_note,
-        reuse_when    = excluded.reuse_when,
-        watchouts     = excluded.watchouts,
-        search_text   = excluded.search_text,
-        evaluated_at  = excluded.evaluated_at
+        rating          = excluded.rating,
+        use_case        = excluded.use_case,
+        workflow_tags   = excluded.workflow_tags,
+        outcome_note    = excluded.outcome_note,
+        approach_note   = excluded.approach_note,
+        reuse_when      = excluded.reuse_when,
+        watchouts       = excluded.watchouts,
+        search_text     = excluded.search_text,
+        evaluated_at    = excluded.evaluated_at
     `).run({
       taskId: evaluation.taskId,
       rating: evaluation.rating,
@@ -116,11 +144,88 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
       searchText: evaluation.searchText ?? null,
       evaluatedAt: evaluation.evaluatedAt
     });
+
+    if (this.embeddingService) {
+      void this.generateAndSaveEmbedding(evaluation);
+    }
   }
 
   async listEvaluations(rating?: "good" | "skip"): Promise<readonly WorkflowSummary[]> {
-    const whereClause = rating ? "where e.rating = @rating" : "";
-    const rows = this.db.prepare<{ rating?: string }, TaskWithEvaluationRow & { evaluated_at: string }>(`
+    const rows = this.loadSearchRows(undefined, rating);
+    return rows
+      .sort(compareWorkflowSummaryRows)
+      .map((row) => mapWorkflowSummary(row));
+  }
+
+  async getEvaluation(taskId: string): Promise<TaskEvaluation | null> {
+    const row = this.db
+      .prepare<{ taskId: string }, EvaluationRow>("select * from task_evaluations where task_id = @taskId")
+      .get({ taskId });
+
+    return row ? mapEvaluationRow(row) : null;
+  }
+
+  async searchWorkflowLibrary(
+    query: string,
+    rating?: "good" | "skip",
+    limit = 50
+  ): Promise<readonly WorkflowSummary[]> {
+    const effectiveLimit = Math.min(Math.max(limit, 1), 100);
+    const rankedRows = await this.rankWorkflowRows(query, undefined, effectiveLimit, rating);
+    return rankedRows.map((row) => mapWorkflowSummary(row));
+  }
+
+  async searchSimilarWorkflows(
+    query: string,
+    tags?: readonly string[],
+    limit = 5
+  ): Promise<readonly WorkflowSearchResult[]> {
+    const effectiveLimit = Math.min(limit, 10);
+    const rankedRows = await this.rankWorkflowRows(query, tags, effectiveLimit);
+    return rankedRows.map((row) => this.hydrateSearchResult(row));
+  }
+
+  private async generateAndSaveEmbedding(evaluation: PersistedTaskEvaluation): Promise<void> {
+    try {
+      const titleRow = this.db
+        .prepare<{ taskId: string }, { title: string }>("select title from monitoring_tasks where id = @taskId")
+        .get({ taskId: evaluation.taskId });
+      const events = this.loadWorkflowEvents(evaluation.taskId);
+      const embeddingText = buildEmbeddingText(evaluation, events, titleRow?.title ?? "");
+      const vector = await this.embeddingService!.embed(embeddingText);
+
+      this.db.prepare(`
+        update task_evaluations
+        set embedding = @embedding,
+            embedding_model = @embeddingModel
+        where task_id = @taskId
+      `).run({
+        taskId: evaluation.taskId,
+        embedding: serializeEmbedding(vector),
+        embeddingModel: EMBEDDING_MODEL
+      });
+    } catch (error) {
+      if (isClosedDatabaseError(error)) {
+        return;
+      }
+      console.warn(
+        "[monitor-server] embedding generation failed:",
+        error instanceof Error ? error.message : error
+      );
+    }
+  }
+
+  private loadSearchRows(
+    tags?: readonly string[],
+    rating?: "good" | "skip"
+  ): readonly TaskWithEvaluationRow[] {
+    const whereConditions = [
+      rating ? "e.rating = @rating" : null
+    ].filter((condition): condition is string => Boolean(condition));
+    const whereClause = whereConditions.length > 0
+      ? `where ${whereConditions.join(" and ")}`
+      : "";
+    const rows = this.db.prepare<{ rating?: "good" | "skip" }, TaskWithEvaluationRow>(`
       select
         e.task_id,
         t.title,
@@ -131,6 +236,8 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
         e.reuse_when,
         e.watchouts,
         e.search_text,
+        e.embedding,
+        e.embedding_model,
         e.rating,
         e.evaluated_at,
         count(ev.id) as event_count,
@@ -140,10 +247,66 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
       left join timeline_events ev on ev.task_id = e.task_id
       ${whereClause}
       group by e.task_id
-      order by (e.rating = 'good') desc, datetime(e.evaluated_at) desc
-    `).all(rating ? { rating } : {} as { rating?: string });
+    `).all(rating ? { rating } : {});
 
-    return rows.map((row) => ({
+    return applyTagFilter(rows, tags);
+  }
+
+  private async rankWorkflowRows(
+    query: string,
+    tags: readonly string[] | undefined,
+    limit: number,
+    rating?: "good" | "skip"
+  ): Promise<readonly TaskWithEvaluationRow[]> {
+    const rows = this.loadSearchRows(tags, rating);
+    if (rows.length === 0) {
+      return [];
+    }
+
+    const lexicalMatches = scoreLexicalMatches(rows, query);
+    let semanticMatches: readonly { row: TaskWithEvaluationRow; score: number }[] = [];
+
+    if (this.embeddingService && query.trim().length > 0) {
+      try {
+        semanticMatches = await this.scoreSemanticMatches(rows, query);
+      } catch (error) {
+        console.warn(
+          "[monitor-server] semantic workflow search failed; falling back to lexical search:",
+          error instanceof Error ? error.message : error
+        );
+      }
+    }
+
+    return mergeRankedRows(semanticMatches, lexicalMatches, limit);
+  }
+
+  private async scoreSemanticMatches(
+    rows: readonly TaskWithEvaluationRow[],
+    query: string
+  ): Promise<readonly { row: TaskWithEvaluationRow; score: number }[]> {
+    const embeddedRows = rows.filter((row) => typeof row.embedding === "string" && row.embedding.length > 0);
+    if (embeddedRows.length === 0) {
+      return [];
+    }
+
+    const queryVector = await this.embeddingService!.embed(query);
+    return embeddedRows
+      .map((row) => ({
+        row,
+        score: cosineSimilarity(queryVector, deserializeEmbedding(row.embedding as string))
+      }))
+      .filter((entry) => entry.score >= MIN_SEMANTIC_SCORE)
+      .sort((left, right) =>
+        right.score - left.score
+        || compareRatedRows(left.row, right.row)
+      );
+  }
+
+  private hydrateSearchResult(row: TaskWithEvaluationRow): WorkflowSearchResult {
+    const events = this.loadWorkflowEvents(row.task_id);
+    const evaluation = buildEvaluationData(row);
+
+    return {
       taskId: row.task_id,
       title: row.title,
       useCase: row.use_case,
@@ -155,97 +318,294 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
       rating: row.rating as "good" | "skip",
       eventCount: row.event_count,
       createdAt: row.created_at,
-      evaluatedAt: (row as { evaluated_at: string }).evaluated_at
-    }));
+      workflowContext: buildWorkflowContext(events, row.title, evaluation)
+    };
   }
 
-  async getEvaluation(taskId: string): Promise<TaskEvaluation | null> {
-    const row = this.db
-      .prepare<{ taskId: string }, EvaluationRow>(
-        "select * from task_evaluations where task_id = @taskId"
+  private loadWorkflowEvents(taskId: string): readonly TimelineEvent[] {
+    const eventRows = this.db
+      .prepare<{ taskId: string }, EventRow>(
+        "select * from timeline_events where task_id = @taskId order by created_at asc"
       )
-      .get({ taskId });
-    return row ? mapEvaluationRow(row) : null;
+      .all({ taskId });
+
+    return eventRows.map(mapEventRow);
   }
+}
 
-  async searchSimilarWorkflows(
-    query: string,
-    tags?: readonly string[],
-    limit = 5
-  ): Promise<readonly WorkflowSearchResult[]> {
-    const effectiveLimit = Math.min(limit, 10);
-    const pattern = `%${query.toLowerCase().replace(/%/g, "\\%").replace(/_/g, "\\_")}%`;
+function mergeRankedRows(
+  semanticMatches: readonly { row: TaskWithEvaluationRow; score: number }[],
+  lexicalMatches: readonly { row: TaskWithEvaluationRow; score: number }[],
+  limit: number
+): readonly TaskWithEvaluationRow[] {
+  const ranked = new Map<string, RankedWorkflowRow>();
 
-    const rows = this.db.prepare<{ pattern: string }, TaskWithEvaluationRow>(`
-      select
-        e.task_id,
-        t.title,
-        e.use_case,
-        e.workflow_tags,
-        e.outcome_note,
-        e.approach_note,
-        e.reuse_when,
-        e.watchouts,
-        e.search_text,
-        e.rating,
-        count(ev.id) as event_count,
-        t.created_at
-      from task_evaluations e
-      join monitoring_tasks t on t.id = e.task_id
-      left join timeline_events ev on ev.task_id = e.task_id
-      where (
-        lower(t.title) like @pattern escape '\\'
-        or lower(coalesce(e.use_case, '')) like @pattern escape '\\'
-        or lower(coalesce(e.workflow_tags, '')) like @pattern escape '\\'
-        or lower(coalesce(e.outcome_note, '')) like @pattern escape '\\'
-        or lower(coalesce(e.approach_note, '')) like @pattern escape '\\'
-        or lower(coalesce(e.reuse_when, '')) like @pattern escape '\\'
-        or lower(coalesce(e.watchouts, '')) like @pattern escape '\\'
-        or lower(coalesce(e.search_text, '')) like @pattern escape '\\'
-      )
-      group by e.task_id
-      order by (e.rating = 'good') desc, datetime(e.evaluated_at) desc
-      limit ${effectiveLimit}
-    `).all({ pattern });
-
-    // tags 필터 (post-filter)
-    const filtered = tags && tags.length > 0
-      ? rows.filter((row) => {
-          if (!row.workflow_tags) return false;
-          const rowTags = parseJsonField<string[]>(row.workflow_tags);
-          return tags.some(t => rowTags.some(rt => rt.toLowerCase().includes(t.toLowerCase())));
-        })
-      : rows;
-
-    return filtered.map(row => {
-      // 각 태스크의 이벤트 로드 후 워크플로우 컨텍스트 빌드
-      const eventRows = this.db
-        .prepare<{ taskId: string }, EventRow>(
-          "select * from timeline_events where task_id = @taskId order by created_at asc"
-        )
-        .all({ taskId: row.task_id });
-      const events = eventRows.map(mapEventRow);
-      return {
-        taskId: row.task_id,
-        title: row.title,
-        useCase: row.use_case,
-        workflowTags: row.workflow_tags ? parseJsonField<string[]>(row.workflow_tags) : [],
-        outcomeNote: row.outcome_note,
-        approachNote: row.approach_note,
-        reuseWhen: row.reuse_when,
-        watchouts: row.watchouts,
-        rating: row.rating as "good" | "skip",
-        eventCount: row.event_count,
-        createdAt: row.created_at,
-        workflowContext: buildWorkflowContext(events, row.title, {
-          useCase: row.use_case,
-          workflowTags: row.workflow_tags ? parseJsonField<string[]>(row.workflow_tags) : [],
-          outcomeNote: row.outcome_note,
-          approachNote: row.approach_note,
-          reuseWhen: row.reuse_when,
-          watchouts: row.watchouts
-        })
-      };
+  for (const semantic of semanticMatches) {
+    ranked.set(semantic.row.task_id, {
+      row: semantic.row,
+      lexicalScore: 0,
+      semanticScore: semantic.score
     });
   }
+
+  for (const lexical of lexicalMatches) {
+    const existing = ranked.get(lexical.row.task_id);
+    if (existing) {
+      ranked.set(lexical.row.task_id, {
+        ...existing,
+        lexicalScore: Math.max(existing.lexicalScore, lexical.score)
+      });
+      continue;
+    }
+
+    ranked.set(lexical.row.task_id, {
+      row: lexical.row,
+      lexicalScore: lexical.score,
+      semanticScore: null
+    });
+  }
+
+  return [...ranked.values()]
+    .sort((left, right) =>
+      combinedRankScore(right) - combinedRankScore(left)
+      || (right.semanticScore ?? 0) - (left.semanticScore ?? 0)
+      || right.lexicalScore - left.lexicalScore
+      || compareRatedRows(left.row, right.row)
+    )
+    .slice(0, limit)
+    .map((entry) => entry.row);
+}
+
+function mapWorkflowSummary(row: TaskWithEvaluationRow): WorkflowSummary {
+  return {
+    taskId: row.task_id,
+    title: row.title,
+    useCase: row.use_case,
+    workflowTags: row.workflow_tags ? parseJsonField<string[]>(row.workflow_tags) : [],
+    outcomeNote: row.outcome_note,
+    approachNote: row.approach_note,
+    reuseWhen: row.reuse_when,
+    watchouts: row.watchouts,
+    rating: row.rating as "good" | "skip",
+    eventCount: row.event_count,
+    createdAt: row.created_at,
+    evaluatedAt: row.evaluated_at
+  };
+}
+
+function combinedRankScore(entry: RankedWorkflowRow): number {
+  return (entry.semanticScore ?? 0) * 100 + entry.lexicalScore;
+}
+
+function scoreLexicalMatches(
+  rows: readonly TaskWithEvaluationRow[],
+  query: string
+): readonly { row: TaskWithEvaluationRow; score: number }[] {
+  const normalizedQuery = normalizeSearchText(query);
+  if (!normalizedQuery) {
+    return [];
+  }
+
+  const queryTokens = tokenizeText(normalizedQuery);
+
+  return rows
+    .map((row) => ({
+      row,
+      score: computeLexicalScore(row, normalizedQuery, queryTokens)
+    }))
+    .filter((entry) => entry.score > 0)
+    .sort((left, right) =>
+      right.score - left.score
+      || compareRatedRows(left.row, right.row)
+    );
+}
+
+function computeLexicalScore(
+  row: TaskWithEvaluationRow,
+  normalizedQuery: string,
+  queryTokens: readonly string[]
+): number {
+  const fields = buildSearchFields(row);
+  const combinedText = fields
+    .map((field) => field.value)
+    .filter(Boolean)
+    .join(" ");
+  const matchedTokens = new Set<string>();
+  let score = 0;
+
+  if (combinedText.includes(normalizedQuery)) {
+    score += 18;
+  }
+
+  for (const field of fields) {
+    if (!field.value) {
+      continue;
+    }
+
+    if (field.value.includes(normalizedQuery)) {
+      score += field.weight * 2;
+    }
+
+    for (const token of queryTokens) {
+      if (!field.value.includes(token)) {
+        continue;
+      }
+      matchedTokens.add(token);
+      score += field.weight;
+    }
+  }
+
+  if (queryTokens.length > 1 && matchedTokens.size === queryTokens.length) {
+    score += queryTokens.length * 4;
+  }
+
+  return score;
+}
+
+function buildSearchFields(row: TaskWithEvaluationRow): readonly Array<{ value: string; weight: number }> {
+  const workflowTags = row.workflow_tags ? parseJsonField<string[]>(row.workflow_tags).join(" ") : "";
+  return [
+    { value: normalizeSearchText(row.title) ?? "", weight: 12 },
+    { value: normalizeSearchText(row.use_case) ?? "", weight: 10 },
+    { value: normalizeSearchText(workflowTags) ?? "", weight: 8 },
+    { value: normalizeSearchText(row.outcome_note) ?? "", weight: 7 },
+    { value: normalizeSearchText(row.approach_note) ?? "", weight: 7 },
+    { value: normalizeSearchText(row.reuse_when) ?? "", weight: 5 },
+    { value: normalizeSearchText(row.watchouts) ?? "", weight: 5 },
+    { value: normalizeSearchText(row.search_text) ?? "", weight: 6 }
+  ];
+}
+
+function normalizeSearchText(value?: string | null): string | null {
+  if (!value) {
+    return null;
+  }
+
+  const normalized = value
+    .normalize("NFKC")
+    .toLocaleLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return normalized || null;
+}
+
+function tokenizeText(value: string): readonly string[] {
+  const seen = new Set<string>();
+  const tokens: string[] = [];
+
+  for (const rawToken of value.split(/[^\p{L}\p{N}]+/u)) {
+    const token = rawToken.trim();
+    if (!token || seen.has(token)) {
+      continue;
+    }
+    seen.add(token);
+    tokens.push(token);
+  }
+
+  return tokens.length > 0 ? tokens : [value];
+}
+
+function applyTagFilter<T extends { workflow_tags: string | null }>(
+  rows: readonly T[],
+  tags: readonly string[] | undefined
+): readonly T[] {
+  if (!tags || tags.length === 0) {
+    return rows;
+  }
+
+  return rows.filter((row) => {
+    if (!row.workflow_tags) {
+      return false;
+    }
+
+    const rowTags = parseJsonField<string[]>(row.workflow_tags);
+    return tags.some((tag) => rowTags.some((rowTag) =>
+      rowTag.toLocaleLowerCase().includes(tag.toLocaleLowerCase())
+    ));
+  });
+}
+
+function compareRatedRows(left: TaskWithEvaluationRow, right: TaskWithEvaluationRow): number {
+  return Number(right.rating === "good") - Number(left.rating === "good")
+    || compareIsoDatesDesc(left.evaluated_at, right.evaluated_at);
+}
+
+function compareWorkflowSummaryRows(left: TaskWithEvaluationRow, right: TaskWithEvaluationRow): number {
+  return compareRatedRows(left, right);
+}
+
+function compareIsoDatesDesc(left: string, right: string): number {
+  return Date.parse(right) - Date.parse(left);
+}
+
+function buildEvaluationData(
+  value: Pick<
+    TaskWithEvaluationRow,
+    "use_case" | "workflow_tags" | "outcome_note" | "approach_note" | "reuse_when" | "watchouts"
+  > | Pick<
+    PersistedTaskEvaluation,
+    "useCase" | "workflowTags" | "outcomeNote" | "approachNote" | "reuseWhen" | "watchouts"
+  >
+): WorkflowEvaluationData {
+  if ("use_case" in value) {
+    return {
+      useCase: value.use_case,
+      workflowTags: value.workflow_tags ? parseJsonField<string[]>(value.workflow_tags) : [],
+      outcomeNote: value.outcome_note,
+      approachNote: value.approach_note,
+      reuseWhen: value.reuse_when,
+      watchouts: value.watchouts
+    };
+  }
+
+  return {
+    useCase: value.useCase ?? null,
+    workflowTags: value.workflowTags ?? [],
+    outcomeNote: value.outcomeNote ?? null,
+    approachNote: value.approachNote ?? null,
+    reuseWhen: value.reuseWhen ?? null,
+    watchouts: value.watchouts ?? null
+  };
+}
+
+function buildEmbeddingText(
+  evaluation: PersistedTaskEvaluation,
+  events: readonly TimelineEvent[],
+  title: string
+): string {
+  const workflowContext = buildWorkflowContext(events, title, buildEvaluationData(evaluation));
+  const parts = [
+    title,
+    evaluation.useCase,
+    evaluation.workflowTags.join(" "),
+    evaluation.outcomeNote,
+    evaluation.approachNote,
+    evaluation.reuseWhen,
+    evaluation.watchouts,
+    evaluation.searchText ?? null,
+    workflowContext
+  ];
+
+  return parts
+    .map((part) => normalizeEmbeddingSection(part))
+    .filter((part): part is string => Boolean(part))
+    .join("\n\n");
+}
+
+function normalizeEmbeddingSection(value?: string | null): string | null {
+  if (!value) {
+    return null;
+  }
+
+  const normalized = value.replace(/\s+/g, " ").trim();
+  if (!normalized) {
+    return null;
+  }
+
+  return normalized.slice(0, 1600);
+}
+
+function isClosedDatabaseError(error: unknown): boolean {
+  return error instanceof Error && /database connection is not open/i.test(error.message);
 }

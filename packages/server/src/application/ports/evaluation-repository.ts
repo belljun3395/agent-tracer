@@ -16,5 +16,6 @@ export interface IEvaluationRepository {
   upsertEvaluation(evaluation: PersistedTaskEvaluation): Promise<void>;
   getEvaluation(taskId: string): Promise<TaskEvaluation | null>;
   listEvaluations(rating?: "good" | "skip"): Promise<readonly WorkflowSummary[]>;
+  searchWorkflowLibrary(query: string, rating?: "good" | "skip", limit?: number): Promise<readonly WorkflowSummary[]>;
   searchSimilarWorkflows(query: string, tags?: readonly string[], limit?: number): Promise<readonly WorkflowSearchResult[]>;
 }

@@ -98,7 +98,14 @@ export function buildPlanSection(events: readonly TimelineEvent[]): string | und
     return undefined;
   }
 
-  return `\n## Plan\n${planEvents.map((e) => `- ${e.title}`).join("\n")}`;
+  const lines = planEvents
+    .map((event) => describeWorkflowEvent(event))
+    .filter((value): value is string => Boolean(value));
+  if (lines.length === 0) {
+    return undefined;
+  }
+
+  return `\n## Plan\n${lines.map((line) => `- ${line}`).join("\n")}`;
 }
 
 export function buildLaneSections(events: readonly TimelineEvent[]): readonly string[] {
@@ -111,7 +118,14 @@ export function buildLaneSections(events: readonly TimelineEvent[]): readonly st
     }
 
     const title = LANE_TITLES[lane] ?? lane;
-    sections.push(`\n## ${title}\n${laneEvents.map((e) => `- ${e.title}`).join("\n")}`);
+    const lines = laneEvents
+      .map((event) => describeWorkflowEvent(event))
+      .filter((value): value is string => Boolean(value));
+    if (lines.length === 0) {
+      continue;
+    }
+
+    sections.push(`\n## ${title}\n${lines.map((line) => `- ${line}`).join("\n")}`);
   }
 
   return sections;
@@ -177,3 +191,61 @@ export function buildVerificationSummarySection(events: readonly TimelineEvent[]
 
   return summary.join("\n");
 }
+
+function describeWorkflowEvent(event: TimelineEvent): string | null {
+  const title = normalizeContextText(event.title);
+  const detail = normalizeContextText(
+    stringMetadata(event, "description")
+    ?? stringMetadata(event, "command")
+    ?? stringMetadata(event, "action")
+    ?? event.body
+  );
+
+  if (!title && !detail) {
+    return null;
+  }
+  if (!detail) {
+    return title;
+  }
+  if (!title || title === detail || shouldPreferDetailOnly(event, title)) {
+    return detail;
+  }
+
+  return `${title}: ${detail}`;
+}
+
+function shouldPreferDetailOnly(event: TimelineEvent, title: string): boolean {
+  if (event.kind === "context.saved" || event.kind === "terminal.command") {
+    return true;
+  }
+
+  return GENERIC_CONTEXT_TITLES.has(title.toLocaleLowerCase());
+}
+
+function normalizeContextText(value?: string | null): string | null {
+  if (!value) {
+    return null;
+  }
+
+  const normalized = value.replace(/\s+/g, " ").trim();
+  return normalized || null;
+}
+
+function stringMetadata(event: TimelineEvent, key: string): string | null {
+  const value = event.metadata[key];
+  return typeof value === "string" ? value : null;
+}
+
+const GENERIC_CONTEXT_TITLES = new Set([
+  "action logged",
+  "agent activity",
+  "assistant response",
+  "context saved",
+  "plan updated",
+  "terminal command",
+  "thought",
+  "tool used",
+  "user message",
+  "verification",
+  "workflow note"
+]);

@@ -206,13 +206,15 @@ describe("observability read model", () => {
     expect(summary.signals.backgroundTransitions).toBe(1);
     expect(summary.signals.coordinationActivities).toBe(1);
     expect(summary.sessions).toEqual({ total: 2, resumed: 1, open: 0 });
-    expect(summary.focus.workItemIds).toContain("work-1");
-    expect(summary.focus.goalIds).toContain("goal-1");
-    expect(summary.focus.planIds).toContain("plan-1");
-    expect(summary.focus.handoffIds).toContain("handoff-1");
     expect(summary.focus.topFiles).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ path: "src/a.ts" })
+      ])
+    );
+    expect(summary.focus.topTags).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ tag: "verification" }),
+        expect.objectContaining({ tag: "coordination" })
       ])
     );
     expect(summary.phaseBreakdown).toHaveLength(5);

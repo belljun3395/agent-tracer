@@ -10,11 +10,12 @@
     }
   },
   "scripts": {
-    "build": "tsup src/index.ts --format esm --dts --clean --external @monitor/core --external better-sqlite3 --external express --external ws --external zod",
+    "build": "tsup src/index.ts --format esm --dts --clean --external @huggingface/transformers --external @monitor/core --external better-sqlite3 --external express --external ws --external zod",
     "lint": "eslint src",
     "test": "vitest run"
   },
   "dependencies": {
+    "@huggingface/transformers": "^3.8.1",
     "@monitor/core": "*",
     "better-sqlite3": "^12.0.0",
     "express": "^5.0.0",

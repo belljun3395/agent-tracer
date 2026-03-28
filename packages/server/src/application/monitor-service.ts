@@ -658,6 +658,10 @@ export class MonitorService {
     return this.ports.evaluations.listEvaluations(rating);
   }
 
+  async searchWorkflowLibrary(query: string, rating?: "good" | "skip", limit?: number) {
+    return this.ports.evaluations.searchWorkflowLibrary(query, rating, limit);
+  }
+
   async searchSimilarWorkflows(query: string, tags?: string[], limit?: number) {
     return this.ports.evaluations.searchSimilarWorkflows(query, tags, limit);
   }
