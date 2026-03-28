@@ -25,6 +25,7 @@ import {
   collectFileActivity,
   collectPlanSteps,
   collectViolationDescriptions,
+  collectWebLookups,
   type CompactInsight,
   type CompactRelation,
   type DirectoryMentionVerification,
@@ -37,7 +38,8 @@ import {
   type QuestionGroup,
   type TaskExtraction,
   type TagInsight,
-  type TodoGroup
+  type TodoGroup,
+  type WebLookupStat
 } from "../lib/insights.js";
 import { formatRelativeTime } from "../lib/timeline.js";
 import type { TimelineConnector } from "../lib/timeline.js";
@@ -1444,9 +1446,13 @@ export function EventInspector({
     () => sortFileActivity(fileActivity, fileSortKey),
     [fileActivity, fileSortKey]
   );
+  const webLookups = useMemo(
+    () => collectWebLookups(taskTimeline),
+    [taskTimeline]
+  );
   const explorationInsight = useMemo(
-    () => buildExplorationInsight(taskTimeline, exploredFiles),
-    [exploredFiles, taskTimeline]
+    () => buildExplorationInsight(taskTimeline, exploredFiles, webLookups),
+    [exploredFiles, taskTimeline, webLookups]
   );
   const compactInsight = useMemo(
     () => buildCompactInsight(taskTimeline),
