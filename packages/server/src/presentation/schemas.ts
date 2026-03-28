@@ -81,10 +81,6 @@ export const laneSchema = z.enum(EVENT_LANES);
 export const traceRelationSchema = z.object({
   parentEventId: z.string().min(1).optional(),
   relatedEventIds: z.array(z.string().min(1)).optional(),
-  workItemId: z.string().min(1).optional(),
-  goalId: z.string().min(1).optional(),
-  planId: z.string().min(1).optional(),
-  handoffId: z.string().min(1).optional(),
   relationType: z.enum(TASK_RELATION_TYPES).optional(),
   relationLabel: z.string().min(1).optional(),
   relationExplanation: z.string().min(1).optional()

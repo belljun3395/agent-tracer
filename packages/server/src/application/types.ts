@@ -106,10 +106,6 @@ export interface TaskExploreInput {
 export interface TraceRelationInput {
   readonly parentEventId?: string;
   readonly relatedEventIds?: readonly string[];
-  readonly workItemId?: string;
-  readonly goalId?: string;
-  readonly planId?: string;
-  readonly handoffId?: string;
   readonly relationType?: EventRelationType;
   readonly relationLabel?: string;
   readonly relationExplanation?: string;
