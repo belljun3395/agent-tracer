@@ -2655,6 +2655,10 @@ export function createMonitorHooks(workspacePath: string): Hooks {
         ? "background"
         : classification.lane;
 
+      const webUrl = classification.subtypeGroup === "web"
+        ? (toNonEmptyString(toolArgs.url) ?? toNonEmptyString(toolArgs.query))
+        : undefined;
+
       const body: Record<string, unknown> = {
         taskId: state.taskId,
         sessionId: state.monitorSessionId,
@@ -2673,6 +2677,7 @@ export function createMonitorHooks(workspacePath: string): Hooks {
           operation: classification.operation,
           ...(classification.entityType ? { entityType: classification.entityType } : {}),
           ...(entityName ? { entityName } : {}),
+          ...(webUrl ? { webUrls: [webUrl] } : {}),
           toolInput: toolArgs
         },
         ...(filePaths.length > 0 ? { filePaths } : {}),
