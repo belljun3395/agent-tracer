@@ -28,6 +28,15 @@ export interface ExploredFileStat {
   readonly compactRelation: CompactRelation;
 }
 
+/** Exploration 탭 Web Lookups 섹션에 표시할 개별 웹 조회 통계. */
+export interface WebLookupStat {
+  readonly url: string;
+  readonly toolName: "WebSearch" | "WebFetch" | string;
+  readonly count: number;
+  readonly firstSeenAt: string;
+  readonly lastSeenAt: string;
+}
+
 /**
  * 파일 읽기와 compact 이벤트의 시간적 관계.
  * - before-compact: 모든 읽기가 마지막 compact 이전
@@ -295,6 +304,45 @@ export function collectExploredFiles(
 
     return left.path.localeCompare(right.path);
   });
+}
+
+/**
+ * Exploration 레인에서 WebSearch/WebFetch 이벤트를 수집하여 URL별로 집계.
+ * metadata.webUrls 배열이 있는 이벤트만 대상으로 한다.
+ */
+export function collectWebLookups(
+  timeline: readonly TimelineEvent[]
+): readonly WebLookupStat[] {
+  const urlData = new Map<string, { toolName: string; timestamps: string[] }>();
+
+  for (const event of timeline) {
+    if (event.lane !== "exploration") continue;
+    const urls = extractMetadataStringArray(event.metadata, "webUrls");
+    if (urls.length === 0) continue;
+    const toolName = extractMetadataString(event.metadata, "toolName") ?? "WebSearch";
+    for (const url of urls) {
+      const existing = urlData.get(url);
+      if (existing) {
+        existing.timestamps.push(event.createdAt);
+      } else {
+        urlData.set(url, { toolName, timestamps: [event.createdAt] });
+      }
+    }
+  }
+
+  const stats: WebLookupStat[] = [];
+  for (const [url, { toolName, timestamps }] of urlData) {
+    const sorted = [...timestamps].sort((a, b) => Date.parse(a) - Date.parse(b));
+    stats.push({
+      url,
+      toolName,
+      count: sorted.length,
+      firstSeenAt: sorted[0]!,
+      lastSeenAt: sorted[sorted.length - 1]!
+    });
+  }
+
+  return stats.sort((a, b) => Date.parse(b.lastSeenAt) - Date.parse(a.lastSeenAt));
 }
 
 /**
