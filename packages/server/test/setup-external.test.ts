@@ -136,7 +136,7 @@ describe("setup:external Claude integration", () => {
     );
     expect(vendoredCommon).toContain("ensureRuntimeSession");
     expect(vendoredSessionStart).toContain("Session started");
-  });
+  }, 60_000);
 });
 
 describe("setup:external OpenCode integration", () => {

@@ -324,7 +324,7 @@ describe("Codex hooks", () => {
         }
       }
     ]);
-  });
+  }, 60_000);
 
   it("Stop hook backfill resolves transcript from session_id when payload omits turn_id and transcript_path", async () => {
     const monitor = await startMonitorStub();

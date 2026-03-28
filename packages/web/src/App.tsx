@@ -16,7 +16,7 @@ import {
   collectExploredFiles,
   filterTimelineEvents
 } from "./lib/insights.js";
-import { updateEventDisplayTitle } from "./api.js";
+import { fetchTaskObservability, updateEventDisplayTitle } from "./api.js";
 import { buildTimelineRelations } from "./lib/timeline.js";
 import { refreshRealtimeMonitorData } from "./lib/realtime.js";
 import { cn } from "./lib/ui/cn.js";
@@ -28,6 +28,7 @@ import { WorkflowLibraryPanel } from "./components/WorkflowLibraryPanel.js";
 import { MonitorProvider, useMonitorStore } from "./store/useMonitorStore.js";
 import { useWebSocket } from "./store/useWebSocket.js";
 import { useSearch } from "./store/useSearch.js";
+import type { TaskObservabilityResponse } from "./types.js";
 
 // ---------------------------------------------------------------------------
 // Connector key helpers (App 내부에서만 사용)
@@ -90,6 +91,7 @@ function Dashboard(): React.JSX.Element {
     selectedRuleId,
     selectedTag,
     showRuleGapsOnly,
+    overview,
     taskDetail,
     isConnected,
     status,
@@ -105,6 +107,17 @@ function Dashboard(): React.JSX.Element {
     taskDisplayTitleCache
   } = state;
 
+  const [taskObservability, setTaskObservability] = useState<TaskObservabilityResponse | null>(null);
+
+  const refreshTaskObservability = useCallback(async (taskId: string): Promise<void> => {
+    try {
+      const nextObservability = await fetchTaskObservability(taskId);
+      setTaskObservability(nextObservability);
+    } catch {
+      setTaskObservability(null);
+    }
+  }, []);
+
   // WebSocket: message 수신 시 overview + taskDetail 새로고침
   const { isConnected: wsConnected } = useWebSocket((message) => {
     void refreshRealtimeMonitorData({
@@ -114,12 +127,23 @@ function Dashboard(): React.JSX.Element {
       refreshTaskDetail,
       refreshBookmarksOnly
     });
+    if (selectedTaskId) {
+      void refreshTaskObservability(selectedTaskId);
+    }
   });
 
   // isConnected는 WebSocket 상태로부터 동기화
   useEffect(() => {
     dispatch({ type: "SET_CONNECTED", isConnected: wsConnected });
   }, [dispatch, wsConnected]);
+
+  useEffect(() => {
+    if (!selectedTaskId) {
+      setTaskObservability(null);
+      return;
+    }
+    void refreshTaskObservability(selectedTaskId);
+  }, [refreshTaskObservability, selectedTaskId]);
 
   // Search — selectedTaskId を渡すとタスク単位検索が可能になる
   const {
@@ -367,6 +391,7 @@ function Dashboard(): React.JSX.Element {
     <div className="flex h-dvh flex-col overflow-hidden bg-[var(--bg)]">
 
       <TopBar
+        overview={overview}
         isConnected={isConnected}
         searchQuery={searchQuery}
         searchResults={searchResults}
@@ -561,6 +586,7 @@ function Dashboard(): React.JSX.Element {
           )}
           <EventInspector
             taskDetail={taskDetail}
+            taskObservability={taskObservability}
             selectedEvent={selectedEvent}
             selectedConnector={selectedConnector}
             selectedEventDisplayTitle={selectedEventDisplayTitle}
