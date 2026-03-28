@@ -252,7 +252,10 @@ function buildSearchText(input: {
     input.keyDecisions.join(" "),
     input.keyFiles.join(" ")
   ]
-    .map((value) => normalizeText(value, 240))
+    .map((value) => {
+      const normalized = normalizeText(value);
+      return normalized ? truncateText(normalized, 240) : null;
+    })
     .filter((value): value is string => Boolean(value))
     .join(" ");
 }
@@ -280,9 +283,16 @@ function normalizeText(value?: string | null, limit = 160): string | null {
     return null;
   }
 
-  return normalized.length > limit
-    ? `${normalized.slice(0, Math.max(1, limit - 1)).trimEnd()}…`
-    : normalized;
+  void limit;
+  return normalized;
+}
+
+function truncateText(value: string, limit: number): string {
+  if (value.length <= limit) {
+    return value;
+  }
+
+  return `${value.slice(0, Math.max(1, limit - 1)).trimEnd()}…`;
 }
 
 function uniqueStrings(values: readonly string[]): readonly string[] {

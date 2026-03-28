@@ -1021,8 +1021,9 @@ function buildTaskSummary(
   // 원래 요청 — 첫 번째 user.message 이벤트
   const firstUserMsg = timeline.find(e => e.kind === "user.message");
   const originalRequest = firstUserMsg?.body ?? firstUserMsg?.title;
-  if (originalRequest) {
-    parts.push(`원래 요청: ${originalRequest.slice(0, 120)}`);
+  const normalizedOriginalRequest = normalizeSentence(originalRequest);
+  if (normalizedOriginalRequest) {
+    parts.push(`원래 요청: ${normalizedOriginalRequest}`);
   }
 
   // 구현 작업 수
@@ -1231,9 +1232,7 @@ function normalizeSentence(value?: string): string | null {
     return null;
   }
 
-  return normalized.length > 120
-    ? `${normalized.slice(0, 117)}...`
-    : normalized;
+  return normalized;
 }
 
 function normalizeInspectorDisplayTitle(value?: string): string | null {
