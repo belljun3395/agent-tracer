@@ -4,7 +4,8 @@
  */
 
 import type React from "react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Navigate, Route, Routes, useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import {
   buildCompactInsight,
@@ -21,10 +22,11 @@ import { buildTimelineRelations } from "./lib/timeline.js";
 import { refreshRealtimeMonitorData } from "./lib/realtime.js";
 import { cn } from "./lib/ui/cn.js";
 import { TopBar } from "./components/TopBar.js";
+import { QuickInspector } from "./components/QuickInspector.js";
 import { TaskList } from "./components/TaskList.js";
 import { Timeline } from "./components/Timeline.js";
-import { EventInspector } from "./components/EventInspector.js";
 import { WorkflowLibraryPanel } from "./components/WorkflowLibraryPanel.js";
+import { TaskWorkspacePage } from "./pages/TaskWorkspacePage.js";
 import { MonitorProvider, useMonitorStore } from "./store/useMonitorStore.js";
 import { useWebSocket } from "./store/useWebSocket.js";
 import { useSearch } from "./store/useSearch.js";
@@ -67,7 +69,13 @@ const ZOOM_STORAGE_KEY = "agent-tracer.zoom";
 // Inner dashboard (consumes context)
 // ---------------------------------------------------------------------------
 
-function Dashboard(): React.JSX.Element {
+function Dashboard({
+  onOpenTaskWorkspace,
+  onSelectTaskRoute
+}: {
+  readonly onOpenTaskWorkspace: (taskId: string) => void;
+  readonly onSelectTaskRoute: (taskId: string | null) => void;
+}): React.JSX.Element {
   const {
     state,
     dispatch,
@@ -354,6 +362,11 @@ function Dashboard(): React.JSX.Element {
     ? bookmarks.find((b) => b.eventId === selectedEvent.id) ?? null
     : null;
 
+  const selectDashboardTask = useCallback((taskId: string | null): void => {
+    onSelectTaskRoute(taskId);
+    dispatch({ type: "SELECT_TASK", taskId });
+  }, [dispatch, onSelectTaskRoute]);
+
   // ---------------------------------------------------------------------------
   // Layout helpers
   // ---------------------------------------------------------------------------
@@ -407,12 +420,12 @@ function Dashboard(): React.JSX.Element {
           setSearchQuery("");
           dispatch({ type: "SELECT_CONNECTOR", connectorKey: null });
           dispatch({ type: "SELECT_EVENT", eventId: null });
-          dispatch({ type: "SELECT_TASK", taskId });
+          selectDashboardTask(taskId);
         }}
         onSelectSearchEvent={(taskId, eventId) => {
           setSearchQuery("");
           dispatch({ type: "SELECT_CONNECTOR", connectorKey: null });
-          dispatch({ type: "SELECT_TASK", taskId });
+          selectDashboardTask(taskId);
           dispatch({ type: "SELECT_EVENT", eventId });
         }}
         onSelectSearchBookmark={(bookmark) => {
@@ -420,18 +433,18 @@ function Dashboard(): React.JSX.Element {
           const target = bookmarks.find((item) => item.id === bookmark.bookmarkId);
           if (target) {
             dispatch({ type: "SELECT_CONNECTOR", connectorKey: null });
-            dispatch({ type: "SELECT_TASK", taskId: target.taskId });
+            selectDashboardTask(target.taskId);
             dispatch({ type: "SELECT_EVENT", eventId: target.eventId ?? null });
             return;
           }
           if (bookmark.eventId) {
             dispatch({ type: "SELECT_CONNECTOR", connectorKey: null });
-            dispatch({ type: "SELECT_TASK", taskId: bookmark.taskId });
+            selectDashboardTask(bookmark.taskId);
             dispatch({ type: "SELECT_EVENT", eventId: bookmark.eventId });
           } else {
             dispatch({ type: "SELECT_CONNECTOR", connectorKey: null });
             dispatch({ type: "SELECT_EVENT", eventId: null });
-            dispatch({ type: "SELECT_TASK", taskId: bookmark.taskId });
+            selectDashboardTask(bookmark.taskId);
           }
         }}
         onRefresh={() => void refreshOverview()}
@@ -469,10 +482,10 @@ function Dashboard(): React.JSX.Element {
             deleteErrorTaskId={deleteErrorTaskId}
             isCollapsed={isSidebarCollapsed}
             onToggleCollapse={() => setIsSidebarCollapsed((v) => !v)}
-            onSelectTask={(id) => dispatch({ type: "SELECT_TASK", taskId: id })}
+            onSelectTask={(id) => selectDashboardTask(id)}
             onSelectBookmark={(bookmark) => {
               dispatch({ type: "SELECT_CONNECTOR", connectorKey: null });
-              dispatch({ type: "SELECT_TASK", taskId: bookmark.taskId });
+              selectDashboardTask(bookmark.taskId);
               dispatch({ type: "SELECT_EVENT", eventId: bookmark.eventId ?? null });
             }}
             onDeleteBookmark={(bookmarkId) => {
@@ -570,6 +583,7 @@ function Dashboard(): React.JSX.Element {
             onToggleRuleGap={(show) => dispatch({ type: "SET_SHOW_RULE_GAPS_ONLY", show })}
             onClearRuleId={() => dispatch({ type: "SELECT_RULE", ruleId: null })}
             onClearTag={() => dispatch({ type: "SELECT_TAG", tag: null })}
+            onOpenTaskWorkspace={selectedTaskId ? () => onOpenTaskWorkspace(selectedTaskId) : undefined}
             onChangeTaskStatus={(s) => void handleTaskStatusChange(s)}
           />
         </section>
@@ -584,7 +598,7 @@ function Dashboard(): React.JSX.Element {
               role="separator"
             />
           )}
-          <EventInspector
+          <QuickInspector
             taskDetail={taskDetail}
             selectedTaskTitle={selectedTaskDisplayTitle}
             taskObservability={taskObservability}
@@ -597,6 +611,7 @@ function Dashboard(): React.JSX.Element {
             selectedRuleId={selectedRuleId}
             taskModelSummary={modelSummary}
             isCollapsed={isInspectorCollapsed}
+            onOpenTaskWorkspace={selectedTaskId ? () => onOpenTaskWorkspace(selectedTaskId) : undefined}
             onToggleCollapse={() => setIsInspectorCollapsed((v) => !v)}
             onCreateTaskBookmark={() => {
               void handleCreateTaskBookmark().catch((err) => {
@@ -640,12 +655,77 @@ function Dashboard(): React.JSX.Element {
           onSelectTask={(taskId) => {
             dispatch({ type: "SELECT_CONNECTOR", connectorKey: null });
             dispatch({ type: "SELECT_EVENT", eventId: null });
-            dispatch({ type: "SELECT_TASK", taskId });
+            selectDashboardTask(taskId);
           }}
           onClose={() => setIsLibraryOpen(false)}
         />
       )}
     </div>
+  );
+}
+
+function DashboardRoute(): React.JSX.Element {
+  const { state, dispatch } = useMonitorStore();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const routeTaskId = searchParams.get("task");
+
+  useLayoutEffect(() => {
+    if (!routeTaskId || routeTaskId === state.selectedTaskId) {
+      return;
+    }
+    dispatch({ type: "SELECT_TASK", taskId: routeTaskId });
+  }, [dispatch, routeTaskId, state.selectedTaskId]);
+
+  useEffect(() => {
+    const currentTaskId = searchParams.get("task");
+    if (!state.selectedTaskId) {
+      return;
+    }
+    if (currentTaskId === state.selectedTaskId) {
+      return;
+    }
+    if (currentTaskId && currentTaskId !== state.selectedTaskId) {
+      return;
+    }
+    const next = new URLSearchParams(searchParams);
+    next.set("task", state.selectedTaskId);
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams, state.selectedTaskId]);
+
+  return (
+    <Dashboard
+      onSelectTaskRoute={(taskId) => {
+        const next = new URLSearchParams(searchParams);
+        if (taskId) {
+          next.set("task", taskId);
+        } else {
+          next.delete("task");
+        }
+        setSearchParams(next, { replace: true });
+      }}
+      onOpenTaskWorkspace={(taskId) => navigate(`/tasks/${encodeURIComponent(taskId)}?tab=overview`)}
+    />
+  );
+}
+
+function TaskWorkspaceRoute(): React.JSX.Element {
+  const { taskId } = useParams<{ readonly taskId: string }>();
+
+  if (!taskId) {
+    return <Navigate replace to="/" />;
+  }
+
+  return <TaskWorkspacePage taskId={taskId} />;
+}
+
+function AppRoutes(): React.JSX.Element {
+  return (
+    <Routes>
+      <Route path="/" element={<DashboardRoute />} />
+      <Route path="/tasks/:taskId" element={<TaskWorkspaceRoute />} />
+      <Route path="*" element={<Navigate replace to="/" />} />
+    </Routes>
   );
 }
 
@@ -656,7 +736,7 @@ function Dashboard(): React.JSX.Element {
 export function App(): React.JSX.Element {
   return (
     <MonitorProvider>
-      <Dashboard />
+      <AppRoutes />
     </MonitorProvider>
   );
 }

@@ -1,7 +1,8 @@
 /**
  * 이벤트 상세 정보 패널 (오른쪽 inspector 영역).
  * 분류 결과, 메타데이터, 파일 경로 등 전체 이벤트 데이터 표시.
- * 이벤트 선택 및 커넥터 선택 두 모드를 지원하며 지원 패널(규칙/태그/태스크/compact/파일)을 포함.
+ * 이벤트 선택 및 커넥터 선택 두 모드를 지원하며 workspace에서는
+ * overview / evidence / actions 그룹 탭으로 task-level 분석을 제공한다.
  */
 
 import type React from "react";
@@ -64,7 +65,7 @@ import type {
   TimelineEvent
 } from "../types.js";
 
-type PanelTabId = "inspector" | "flow" | "health" | "tags" | "task" | "evaluate" | "compact" | "files" | "exploration";
+export type PanelTabId = "inspector" | "overview" | "evidence" | "actions";
 
 type ExplorationSortKey = "recent" | "most-read" | "alpha";
 type FileSortKey = "recent" | "most-active" | "writes-first" | "alpha";
@@ -90,15 +91,16 @@ function sortFileActivity(files: readonly FileActivityStat[], key: FileSortKey):
 
 const PANEL_TABS = [
   { id: "inspector",   label: "Inspector" },
-  { id: "flow",        label: "Flow" },
-  { id: "health",      label: "Health" },
-  { id: "tags",        label: "Tags" },
-  { id: "task",        label: "Task" },
-  { id: "evaluate",    label: "Evaluate" },
-  { id: "compact",     label: "Compact" },
-  { id: "files",       label: "Files" },
-  { id: "exploration", label: "Exploration" },
+  { id: "overview",    label: "Overview" },
+  { id: "evidence",    label: "Evidence" },
+  { id: "actions",     label: "Actions" },
 ] as const;
+
+export const TASK_WORKSPACE_TAB_IDS: readonly PanelTabId[] = [
+  "overview",
+  "evidence",
+  "actions"
+];
 
 const cardShell = "gap-0 overflow-hidden rounded-[16px] border border-[var(--border)] bg-[var(--surface)] shadow-[0_1px_2px_rgba(0,0,0,0.04),0_8px_24px_rgba(0,0,0,0.03)]";
 const cardHeader = "flex items-center justify-between gap-3 border-b border-[var(--border)] bg-[var(--surface-2)] px-4 py-3.5 text-[0.72rem] font-semibold uppercase tracking-[0.1em] text-[var(--text-3)]";
@@ -349,7 +351,16 @@ interface EventInspectorProps {
   readonly taskModelSummary?: ModelSummary | undefined;
   readonly isCollapsed?: boolean;
   readonly className?: string | undefined;
+  readonly allowedTabs?: readonly PanelTabId[];
+  readonly initialTab?: PanelTabId;
+  readonly activeTab?: PanelTabId;
+  readonly panelLabel?: string;
+  readonly showCollapseControl?: boolean;
+  readonly showInspectorSummaryFooter?: boolean;
+  readonly singleTabHeaderLayout?: "stacked" | "inline";
   readonly onToggleCollapse?: () => void;
+  readonly onActiveTabChange?: (tab: PanelTabId) => void;
+  readonly onOpenTaskWorkspace?: () => void;
   readonly onCreateTaskBookmark: () => void;
   readonly onCreateEventBookmark: () => void;
   readonly onUpdateEventDisplayTitle: (eventId: string, displayTitle: string | null) => Promise<void>;
@@ -1578,8 +1589,8 @@ function summarizeDetailText(value: string, limit = 180): string {
 
 /**
  * 이벤트 상세 정보 및 지원 패널 전체를 담당하는 inspector 컴포넌트.
- * 이벤트 또는 커넥터 선택에 따라 primary 섹션 내용이 변경됨.
- * secondary 섹션에는 규칙/태그/태스크/compact/파일 탭이 있음.
+ * 이벤트 또는 커넥터 선택에 따라 primary 섹션 내용이 변경된다.
+ * task workspace에서는 overview / evidence / actions로 묶인 보조 패널을 렌더링한다.
  */
 export function EventInspector({
   taskDetail,
@@ -1595,14 +1606,33 @@ export function EventInspector({
   taskModelSummary,
   isCollapsed = false,
   className,
+  allowedTabs = PANEL_TABS.map((tab) => tab.id),
+  initialTab,
+  activeTab: controlledActiveTab,
+  panelLabel,
+  showCollapseControl = true,
+  showInspectorSummaryFooter = true,
+  singleTabHeaderLayout = "stacked",
   onToggleCollapse,
+  onActiveTabChange,
+  onOpenTaskWorkspace,
   onCreateTaskBookmark,
   onCreateEventBookmark,
   onUpdateEventDisplayTitle,
   onSelectTag,
   onSelectRule
 }: EventInspectorProps): React.JSX.Element {
-  const [activeTab, setActiveTab]                   = useState<PanelTabId>("inspector");
+  const resolvedAllowedTabs = useMemo<readonly PanelTabId[]>(
+    () => allowedTabs.length > 0 ? allowedTabs : ["inspector"],
+    [allowedTabs]
+  );
+  const [uncontrolledActiveTab, setUncontrolledActiveTab] = useState<PanelTabId>(() => {
+    const nextTab = initialTab ?? resolvedAllowedTabs[0] ?? "inspector";
+    return resolvedAllowedTabs.includes(nextTab) ? nextTab : resolvedAllowedTabs[0] ?? "inspector";
+  });
+  const activeTab = controlledActiveTab && resolvedAllowedTabs.includes(controlledActiveTab)
+    ? controlledActiveTab
+    : uncontrolledActiveTab;
   const [isExploredFilesExpanded, setIsExploredFilesExpanded] = useState(true);
   const [isFileActivityExpanded, setIsFileActivityExpanded]   = useState(true);
   const [explorationSortKey, setExplorationSortKey] = useState<ExplorationSortKey>("recent");
@@ -1762,6 +1792,32 @@ export function EventInspector({
     setIsSavingEventTitle(false);
   }, [selectedEvent?.id, selectedEventDisplayTitle]);
 
+  useEffect(() => {
+    if (!resolvedAllowedTabs.includes(uncontrolledActiveTab)) {
+      setUncontrolledActiveTab(resolvedAllowedTabs[0] ?? "inspector");
+    }
+  }, [resolvedAllowedTabs, uncontrolledActiveTab]);
+
+  useEffect(() => {
+    if (!initialTab || !resolvedAllowedTabs.includes(initialTab)) {
+      return;
+    }
+    setUncontrolledActiveTab((current) => (current === initialTab ? current : initialTab));
+  }, [initialTab, resolvedAllowedTabs]);
+
+  useEffect(() => {
+    onActiveTabChange?.(activeTab);
+  }, [activeTab, onActiveTabChange]);
+
+  const visibleTabs = useMemo(
+    () => PANEL_TABS.filter((tab) => resolvedAllowedTabs.includes(tab.id)),
+    [resolvedAllowedTabs]
+  );
+  const isSingleTabMode = visibleTabs.length <= 1;
+  const isInlineSingleTabHeader = isSingleTabMode && singleTabHeaderLayout === "inline";
+  const resolvedPanelLabel = panelLabel ?? visibleTabs[0]?.label ?? "Inspector";
+  const openWorkspaceLabel = isSingleTabMode ? "Workspace" : "Open Workspace";
+
   async function handleEventTitleSubmit(
     event: React.SyntheticEvent<HTMLFormElement>
   ): Promise<void> {
@@ -1807,42 +1863,101 @@ export function EventInspector({
     }
   }
 
+  const collapseControl = showCollapseControl ? (
+    <button
+      aria-label={isCollapsed ? "Expand inspector" : "Collapse inspector"}
+      className="inspector-toggle-btn inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] border border-[var(--border)] bg-[var(--surface)] text-[0.95rem] font-semibold text-[var(--text-2)] shadow-sm transition-colors hover:border-[var(--border-2)] hover:bg-[var(--surface-2)]"
+      onClick={onToggleCollapse}
+      title={isCollapsed ? "Expand inspector" : "Collapse inspector"}
+      type="button"
+    >
+      {isCollapsed ? "‹" : "›"}
+    </button>
+  ) : null;
+
+  const openWorkspaceButton = onOpenTaskWorkspace ? (
+    <Button
+      className={cn(
+        "h-8 rounded-full px-3 text-[0.74rem] font-semibold shadow-none whitespace-nowrap",
+        isSingleTabMode
+          ? (isInlineSingleTabHeader ? "h-7 shrink-0 px-2.5 text-[0.72rem]" : "w-full justify-center")
+          : "ml-auto shrink-0"
+      )}
+      onClick={onOpenTaskWorkspace}
+      size="sm"
+      type="button"
+    >
+      {openWorkspaceLabel}
+    </Button>
+  ) : null;
+
   return (
     <aside className={cn("detail-panel flex min-h-0 flex-1 flex-col overflow-hidden rounded-[12px] border border-[var(--border)] bg-[var(--surface)] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_12px_rgba(0,0,0,0.03)]", className)}>
       {/* ── Tab bar ── */}
-      <div className="panel-tab-bar flex items-center gap-1 overflow-x-auto border-b border-[var(--border)] bg-[var(--surface)] px-3 py-2" aria-label="Inspector panels" role="tablist">
-        <button
-          aria-label={isCollapsed ? "Expand inspector" : "Collapse inspector"}
-          className="inspector-toggle-btn inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] border border-[var(--border)] bg-[var(--surface)] text-[0.95rem] font-semibold text-[var(--text-2)] shadow-sm transition-colors hover:border-[var(--border-2)] hover:bg-[var(--surface-2)]"
-          onClick={onToggleCollapse}
-          title={isCollapsed ? "Expand inspector" : "Collapse inspector"}
-          type="button"
-        >
-          {isCollapsed ? "‹" : "›"}
-        </button>
-        {PANEL_TABS.map((tab) => (
-          <button
-            key={tab.id}
-            aria-selected={activeTab === tab.id}
-            className={cn(
-              "panel-tab inline-flex h-8 items-center rounded-[8px] border px-3 text-[0.76rem] font-semibold transition-colors",
-              activeTab === tab.id
-                ? "border-[var(--accent)] bg-[var(--accent-light)] text-[var(--accent)]"
-                : "border-transparent bg-transparent text-[var(--text-3)] hover:border-[var(--border)] hover:bg-[var(--surface-2)] hover:text-[var(--text-2)]"
-            )}
-            onClick={() => setActiveTab(tab.id)}
-            role="tab"
-            type="button"
-          >
-            {tab.label}
-            {tab.id === "evaluate" && taskEvaluation && (
-              <span className={cn(
-                "ml-1.5 h-1.5 w-1.5 rounded-full",
-                taskEvaluation.rating === "good" ? "bg-[var(--ok)]" : "bg-[var(--text-3)]"
-              )} />
-            )}
-          </button>
-        ))}
+      <div
+        aria-label="Inspector panels"
+        className={cn(
+          "panel-tab-bar border-b border-[var(--border)] bg-[var(--surface)] px-3 py-2",
+          isSingleTabMode ? "flex flex-col gap-2" : "flex items-center gap-1 overflow-x-auto"
+        )}
+        role={isSingleTabMode ? undefined : "tablist"}
+      >
+        {isSingleTabMode ? (
+          isInlineSingleTabHeader ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex min-w-0 flex-1 items-center gap-2">
+                {collapseControl}
+                <div className="min-w-0 truncate px-1 text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">
+                  {resolvedPanelLabel}
+                </div>
+              </div>
+              {openWorkspaceButton}
+            </div>
+          ) : (
+            <>
+              <div className="flex min-w-0 items-center gap-2">
+                {collapseControl}
+                <div className="min-w-0 truncate px-1 text-[0.72rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">
+                  {resolvedPanelLabel}
+                </div>
+              </div>
+              {openWorkspaceButton}
+            </>
+          )
+        ) : (
+          <>
+            {collapseControl}
+            {visibleTabs.map((tab) => (
+              <button
+                key={tab.id}
+                aria-selected={activeTab === tab.id}
+                className={cn(
+                  "panel-tab inline-flex h-8 items-center rounded-[8px] border px-3 text-[0.76rem] font-semibold transition-colors",
+                  activeTab === tab.id
+                    ? "border-[var(--accent)] bg-[var(--accent-light)] text-[var(--accent)]"
+                    : "border-transparent bg-transparent text-[var(--text-3)] hover:border-[var(--border)] hover:bg-[var(--surface-2)] hover:text-[var(--text-2)]"
+                )}
+                onClick={() => {
+                  if (controlledActiveTab === undefined) {
+                    setUncontrolledActiveTab(tab.id);
+                  }
+                  onActiveTabChange?.(tab.id);
+                }}
+                role="tab"
+                type="button"
+              >
+                {tab.label}
+                {tab.id === "actions" && taskEvaluation && (
+                  <span className={cn(
+                    "ml-1.5 h-1.5 w-1.5 rounded-full",
+                    taskEvaluation.rating === "good" ? "bg-[var(--ok)]" : "bg-[var(--text-3)]"
+                  )} />
+                )}
+              </button>
+            ))}
+            {openWorkspaceButton}
+          </>
+        )}
       </div>
 
       {/* ── Tab content ── */}
@@ -2097,10 +2212,22 @@ export function EventInspector({
                 <p className="mt-2 text-[0.8rem] text-[var(--text-3)]">
                   As soon as the monitor records activity, the latest item appears here.
                 </p>
+                {onOpenTaskWorkspace && (
+                  <div className="mt-4">
+                    <Button
+                      className="h-8 rounded-full px-3 text-[0.76rem] font-semibold shadow-none whitespace-nowrap"
+                      onClick={onOpenTaskWorkspace}
+                      size="sm"
+                      type="button"
+                    >
+                      {openWorkspaceLabel}
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
 
-            {obsBadges.length > 0 && (
+            {showInspectorSummaryFooter && obsBadges.length > 0 && (
               <div className="flex flex-wrap gap-2 border-t border-[var(--border)] px-4 py-3">
                 {obsBadges.map((b) => (
                   <Badge key={b.key} tone={b.tone} size="xs" className="gap-1 px-2.5 py-1 text-[0.68rem]">
@@ -2110,14 +2237,14 @@ export function EventInspector({
                 ))}
               </div>
             )}
-            {taskModelSummary && (
+            {showInspectorSummaryFooter && taskModelSummary && (
               <div className="px-4 pb-4">
                 <DetailTaskModel summary={taskModelSummary} />
               </div>
             )}
           </>
 
-        ) : activeTab === "flow" ? (
+        ) : activeTab === "overview" ? (
           <div className="panel-tab-inner flex flex-col gap-5 p-4">
             {observability ? (
               <>
@@ -2156,44 +2283,6 @@ export function EventInspector({
                   />
                 </SectionCard>
 
-                <SectionCard title="Phase Breakdown">
-                  <ObservabilityPhaseBreakdown phases={observability.phaseBreakdown} />
-                </SectionCard>
-
-<SectionCard title="Top Files">
-                  <ObservabilityList
-                    emptyLabel="No file focus recorded yet."
-                    items={observability.focus.topFiles.map((file) => ({
-                      label: file.path,
-                      value: `${formatCount(file.count)}x`
-                    }))}
-                  />
-                </SectionCard>
-
-                <SectionCard title="Top Tags">
-                  <ObservabilityList
-                    emptyLabel="No focus tags recorded yet."
-                    items={observability.focus.topTags.map((tag) => ({
-                      label: tag.tag,
-                      value: `${formatCount(tag.count)}x`
-                    }))}
-                  />
-                </SectionCard>
-              </>
-            ) : (
-              <div className="rounded-[14px] border border-dashed border-[var(--border)] bg-[var(--bg)] px-4 py-6 text-center">
-                <p className="m-0 text-[0.86rem] font-medium text-[var(--text-2)]">No task flow diagnostics available.</p>
-                <p className="mt-1.5 mb-0 text-[0.78rem] text-[var(--text-3)]">
-                  The server will populate this tab once `/api/tasks/:taskId/observability` is available for the selected task.
-                </p>
-              </div>
-            )}
-          </div>
-
-        ) : activeTab === "health" ? (
-          <div className="panel-tab-inner flex flex-col gap-5 p-4">
-            {observability ? (
-              <>
                 <SectionCard title="Health Overview">
                   <ObservabilityMetricGrid
                     items={[
@@ -2248,31 +2337,82 @@ export function EventInspector({
                     ]}
                   />
                 </SectionCard>
+
+                <SectionCard title="Phase Breakdown">
+                  <ObservabilityPhaseBreakdown phases={observability.phaseBreakdown} />
+                </SectionCard>
+
+                <SectionCard title="Top Files">
+                  <ObservabilityList
+                    emptyLabel="No file focus recorded yet."
+                    items={observability.focus.topFiles.map((file) => ({
+                      label: file.path,
+                      value: `${formatCount(file.count)}x`
+                    }))}
+                  />
+                </SectionCard>
+
+                <SectionCard title="Top Tags">
+                  <ObservabilityList
+                    emptyLabel="No focus tags recorded yet."
+                    items={observability.focus.topTags.map((tag) => ({
+                      label: tag.tag,
+                      value: `${formatCount(tag.count)}x`
+                    }))}
+                  />
+                </SectionCard>
               </>
             ) : (
               <div className="rounded-[14px] border border-dashed border-[var(--border)] bg-[var(--bg)] px-4 py-6 text-center">
-                <p className="m-0 text-[0.86rem] font-medium text-[var(--text-2)]">No task health diagnostics available.</p>
+                <p className="m-0 text-[0.86rem] font-medium text-[var(--text-2)]">No workspace overview available.</p>
                 <p className="mt-1.5 mb-0 text-[0.78rem] text-[var(--text-3)]">
-                  Health cards appear once the server returns task-level observability for the current selection.
+                  The server will populate this tab once `/api/tasks/:taskId/observability` is available for the selected task.
                 </p>
               </div>
             )}
           </div>
 
-        ) : activeTab === "tags" ? (
+        ) : activeTab === "evidence" ? (
           <div className="panel-tab-inner flex flex-col gap-5 p-4">
             <TagExplorerCard
               tags={tagInsights}
               selectedTag={selectedTag}
               onSelectTag={(tag) => onSelectTag(selectedTag === tag ? null : tag)}
             />
+            <DetailFileActivity
+              files={sortedFileActivity}
+              workspacePath={taskDetail?.task.workspacePath}
+              expanded={isFileActivityExpanded}
+              sortKey={fileSortKey}
+              onToggle={() => setIsFileActivityExpanded((current) => !current)}
+              onSortChange={setFileSortKey}
+            />
+            <ExplorationInsightCard insight={explorationInsight} />
+            <WebLookupsCard lookups={webLookups} />
+            <DetailExploredFiles
+              files={sortedExploredFiles}
+              workspacePath={taskDetail?.task.workspacePath}
+              expanded={isExploredFilesExpanded}
+              sortKey={explorationSortKey}
+              onToggle={() => setIsExploredFilesExpanded((current) => !current)}
+              onSortChange={setExplorationSortKey}
+            />
+            <MentionedFilesVerificationCard
+              verifications={mentionedVerifications}
+              workspacePath={taskDetail?.task.workspacePath}
+            />
           </div>
 
-        ) : activeTab === "task" ? (
+        ) : (
           <div className="panel-tab-inner flex flex-col gap-5 p-4">
             <TaskExtractionCard
               extraction={taskExtraction}
               workspacePath={taskDetail?.task.workspacePath}
+            />
+            <CompactActivityCard
+              insight={compactInsight}
+              selectedTag={selectedTag}
+              onSelectTag={(tag) => onSelectTag(selectedTag === tag ? null : tag)}
             />
             {taskExtraction.objective && (
               <TaskHandoffPanel
@@ -2289,10 +2429,6 @@ export function EventInspector({
                 snapshot={handoffSnapshot}
               />
             )}
-          </div>
-
-        ) : activeTab === "evaluate" ? (
-          <div className="panel-tab-inner flex flex-col gap-5 p-4">
             {taskDetail?.task.id
               ? (
                 <TaskEvaluatePanel
@@ -2311,45 +2447,6 @@ export function EventInspector({
                 </div>
               )
             }
-          </div>
-
-        ) : activeTab === "compact" ? (
-          <div className="panel-tab-inner flex flex-col gap-5 p-4">
-            <CompactActivityCard
-              insight={compactInsight}
-              selectedTag={selectedTag}
-              onSelectTag={(tag) => onSelectTag(selectedTag === tag ? null : tag)}
-            />
-          </div>
-
-        ) : activeTab === "files" ? (
-          <div className="panel-tab-inner flex flex-col gap-5 p-4">
-            <DetailFileActivity
-              files={sortedFileActivity}
-              workspacePath={taskDetail?.task.workspacePath}
-              expanded={isFileActivityExpanded}
-              sortKey={fileSortKey}
-              onToggle={() => setIsFileActivityExpanded((current) => !current)}
-              onSortChange={setFileSortKey}
-            />
-          </div>
-
-        ) : (
-          <div className="panel-tab-inner flex flex-col gap-5 p-4">
-            <ExplorationInsightCard insight={explorationInsight} />
-            <WebLookupsCard lookups={webLookups} />
-            <DetailExploredFiles
-              files={sortedExploredFiles}
-              workspacePath={taskDetail?.task.workspacePath}
-              expanded={isExploredFilesExpanded}
-              sortKey={explorationSortKey}
-              onToggle={() => setIsExploredFilesExpanded((current) => !current)}
-              onSortChange={setExplorationSortKey}
-            />
-            <MentionedFilesVerificationCard
-              verifications={mentionedVerifications}
-              workspacePath={taskDetail?.task.workspacePath}
-            />
           </div>
         )}
       </div>
