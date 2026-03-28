@@ -60,6 +60,10 @@ async function main(): Promise<void> {
   }
 
   const semantic = inferExploreSemantic(toolName, toolInput);
+  const isWebTool = toolName === "WebSearch" || toolName === "WebFetch";
+  const webQuery = isWebTool
+    ? (toTrimmedString(toolInput.query) || toTrimmedString(toolInput.url)).slice(0, MAX_PATH_LENGTH)
+    : "";
 
   await postJson("/api/explore", {
     taskId: ids.taskId,
@@ -70,7 +74,8 @@ async function main(): Promise<void> {
     filePaths: filePaths.map((filePath) => filePath.slice(0, MAX_PATH_LENGTH)),
     metadata: {
       ...buildSemanticMetadata(semantic),
-      toolInput: stringifyToolInput(toolInput)
+      toolInput: stringifyToolInput(toolInput),
+      ...(isWebTool && webQuery ? { webUrls: [webQuery] } : {})
     }
   });
   hookLog("explore", "explore posted", { toolName, title });
