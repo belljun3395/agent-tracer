@@ -6,7 +6,11 @@
  */
 
 import {
-  createTaskSlug, extractPathLikeTokens, normalizeWorkspacePath,
+  buildReusableTaskSnapshot,
+  buildWorkflowContext,
+  createTaskSlug,
+  extractPathLikeTokens,
+  normalizeWorkspacePath,
   type MonitoringEventKind, type MonitoringTask, type TimelineEvent, type TimelineLane
 } from "@monitor/core";
 
@@ -34,6 +38,7 @@ import {
   shouldAutoCompletePrimary,
   shouldMovePrimaryToWaiting
 } from "./services/session-lifecycle-policy.js";
+import { deriveTaskDisplayTitle } from "./services/task-display-title-resolver.helpers.js";
 
 export type { BookmarkRecord, SearchResults };
 export interface RecordedEventEnvelope {
@@ -619,32 +624,40 @@ export class MonitorService {
       readonly approachNote?: string;
       readonly reuseWhen?: string;
       readonly watchouts?: string;
+      readonly workflowSnapshot?: import("@monitor/core").ReusableTaskSnapshot | null;
+      readonly workflowContext?: string;
     }
   ): Promise<void> {
     const task = await this.requireTask(taskId);
     const events = await this.ports.events.findByTaskId(taskId);
-    const snapshot = buildReusableTaskSnapshot({
-      objective: task.title,
-      events,
-      evaluation: {
-        useCase: input.useCase ?? null,
-        workflowTags: input.workflowTags ?? [],
-        outcomeNote: input.outcomeNote ?? null,
-        approachNote: input.approachNote ?? null,
-        reuseWhen: input.reuseWhen ?? null,
-        watchouts: input.watchouts ?? null
-      }
-    });
-
-    await this.ports.evaluations.upsertEvaluation({
-      taskId,
-      rating: input.rating,
+    const evaluation = {
       useCase: input.useCase ?? null,
       workflowTags: input.workflowTags ?? [],
       outcomeNote: input.outcomeNote ?? null,
       approachNote: input.approachNote ?? null,
       reuseWhen: input.reuseWhen ?? null,
-      watchouts: input.watchouts ?? null,
+      watchouts: input.watchouts ?? null
+    } as const;
+    const workflowTitle = deriveTaskDisplayTitle(task, events) ?? task.title;
+    const snapshot = input.workflowSnapshot ?? buildReusableTaskSnapshot({
+      objective: workflowTitle,
+      events,
+      evaluation
+    });
+    const workflowContext = normalizeWorkflowContextOverride(input.workflowContext)
+      ?? buildWorkflowContext(events, workflowTitle, evaluation, snapshot);
+
+    await this.ports.evaluations.upsertEvaluation({
+      taskId,
+      rating: input.rating,
+      useCase: evaluation.useCase,
+      workflowTags: evaluation.workflowTags,
+      outcomeNote: evaluation.outcomeNote,
+      approachNote: evaluation.approachNote,
+      reuseWhen: evaluation.reuseWhen,
+      watchouts: evaluation.watchouts,
+      workflowSnapshot: snapshot,
+      workflowContext,
       searchText: snapshot.searchText,
       evaluatedAt: new Date().toISOString()
     });
@@ -652,6 +665,10 @@ export class MonitorService {
 
   async getTaskEvaluation(taskId: string) {
     return this.ports.evaluations.getEvaluation(taskId);
+  }
+
+  async getWorkflowContent(taskId: string) {
+    return this.ports.evaluations.getWorkflowContent(taskId);
   }
 
   async listEvaluations(rating?: "good" | "skip") {
@@ -666,4 +683,12 @@ export class MonitorService {
     return this.ports.evaluations.searchSimilarWorkflows(query, tags, limit);
   }
 }
-import { buildReusableTaskSnapshot } from "@monitor/core";
+
+function normalizeWorkflowContextOverride(value?: string | null): string | null {
+  if (!value) {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}

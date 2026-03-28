@@ -124,6 +124,59 @@ describe("HTTP API", () => {
     expect(response.body[0]?.displayTitle).toBe(goal);
   });
 
+  it("workflow content read path returns saved snapshot/context for a workflow entry", async () => {
+    const started = await request(runtime.app)
+      .post("/api/task-start")
+      .send({
+        title: "Codex - agent-tracer",
+        workspacePath: "/Users/okestro/Documents/code/agent-tracer"
+      });
+
+    const taskId = started.body.task.id as string;
+    const sessionId = started.body.sessionId as string;
+
+    await request(runtime.app)
+      .post("/api/user-message")
+      .send({
+        taskId,
+        sessionId,
+        messageId: "msg-workflow-content",
+        captureMode: "raw",
+        source: "manual-mcp",
+        title: "사용자 요청",
+        body: "workflow content preview를 저장한다."
+      });
+
+    await request(runtime.app)
+      .post(`/api/tasks/${taskId}/evaluate`)
+      .send({
+        rating: "good",
+        workflowSnapshot: {
+          objective: "workflow content preview를 저장한다.",
+          originalRequest: "workflow content preview를 저장한다.",
+          outcomeSummary: "workflow content를 저장한다.",
+          approachSummary: "generated content를 검토 후 저장한다.",
+          reuseWhen: "workflow 저장 내용이 궁금할 때",
+          watchItems: ["timeline 기반 생성값 확인"],
+          keyDecisions: ["workflow content route 추가"],
+          nextSteps: ["library에서 확인"],
+          keyFiles: ["packages/web/src/components/WorkflowLibraryPanel.tsx"],
+          modifiedFiles: ["packages/server/src/application/monitor-service.ts"],
+          verificationSummary: "Checks: 1 (1 pass, 0 fail)",
+          searchText: "workflow content preview route"
+        },
+        workflowContext: "# Workflow: workflow content preview를 저장한다.\n\n## Outcome\nworkflow content를 저장한다."
+      });
+
+    const response = await request(runtime.app).get(`/api/workflows/${taskId}/content`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.taskId).toBe(taskId);
+    expect(response.body.source).toBe("saved");
+    expect(response.body.workflowSnapshot.objective).toBe("workflow content preview를 저장한다.");
+    expect(response.body.workflowContext).toContain("## Outcome");
+  });
+
   it("task-start가 generic runtimeSource를 task read-model에 저장한다", async () => {
     const started = await request(runtime.app)
       .post("/api/task-start")

@@ -12,12 +12,18 @@ import type Database from "better-sqlite3";
 import type {
   IEvaluationRepository,
   PersistedTaskEvaluation,
-  TaskEvaluation,
+  StoredTaskEvaluation,
+  WorkflowContentRecord,
   WorkflowSearchResult,
   WorkflowSummary
 } from "../../application/ports/evaluation-repository.js";
-import type { MonitoringTask, TimelineEvent, WorkflowEvaluationData } from "@monitor/core";
-import { buildWorkflowContext } from "../../application/workflow-context-builder.helpers.js";
+import type {
+  MonitoringTask,
+  ReusableTaskSnapshot,
+  TimelineEvent,
+  WorkflowEvaluationData
+} from "@monitor/core";
+import { buildReusableTaskSnapshot, buildWorkflowContext } from "@monitor/core";
 import {
   deriveTaskDisplayTitle,
   meaningfulTaskTitle
@@ -42,6 +48,8 @@ interface EvaluationRow {
   approach_note: string | null;
   reuse_when: string | null;
   watchouts: string | null;
+  workflow_snapshot_json: string | null;
+  workflow_context: string | null;
   search_text: string | null;
   evaluated_at: string;
 }
@@ -57,6 +65,8 @@ interface TaskWithEvaluationRow {
   approach_note: string | null;
   reuse_when: string | null;
   watchouts: string | null;
+  workflow_snapshot_json: string | null;
+  workflow_context: string | null;
   search_text: string | null;
   embedding: string | null;
   embedding_model: string | null;
@@ -85,7 +95,7 @@ interface RankedWorkflowRow {
   readonly semanticScore: number | null;
 }
 
-function mapEvaluationRow(row: EvaluationRow): TaskEvaluation {
+function mapEvaluationRow(row: EvaluationRow): StoredTaskEvaluation {
   return {
     taskId: row.task_id,
     rating: row.rating as "good" | "skip",
@@ -95,6 +105,11 @@ function mapEvaluationRow(row: EvaluationRow): TaskEvaluation {
     approachNote: row.approach_note,
     reuseWhen: row.reuse_when,
     watchouts: row.watchouts,
+    workflowSnapshot: row.workflow_snapshot_json
+      ? parseJsonField<ReusableTaskSnapshot>(row.workflow_snapshot_json)
+      : null,
+    workflowContext: row.workflow_context,
+    searchText: row.search_text,
     evaluatedAt: row.evaluated_at
   };
 }
@@ -123,10 +138,12 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
   async upsertEvaluation(evaluation: PersistedTaskEvaluation): Promise<void> {
     this.db.prepare(`
       insert into task_evaluations (
-        task_id, rating, use_case, workflow_tags, outcome_note, approach_note, reuse_when, watchouts, search_text, evaluated_at
+        task_id, rating, use_case, workflow_tags, outcome_note, approach_note, reuse_when, watchouts,
+        workflow_snapshot_json, workflow_context, search_text, evaluated_at
       )
       values (
-        @taskId, @rating, @useCase, @workflowTags, @outcomeNote, @approachNote, @reuseWhen, @watchouts, @searchText, @evaluatedAt
+        @taskId, @rating, @useCase, @workflowTags, @outcomeNote, @approachNote, @reuseWhen, @watchouts,
+        @workflowSnapshotJson, @workflowContext, @searchText, @evaluatedAt
       )
       on conflict(task_id) do update set
         rating          = excluded.rating,
@@ -136,6 +153,8 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
         approach_note   = excluded.approach_note,
         reuse_when      = excluded.reuse_when,
         watchouts       = excluded.watchouts,
+        workflow_snapshot_json = excluded.workflow_snapshot_json,
+        workflow_context = excluded.workflow_context,
         search_text     = excluded.search_text,
         evaluated_at    = excluded.evaluated_at
     `).run({
@@ -147,6 +166,10 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
       approachNote: evaluation.approachNote ?? null,
       reuseWhen: evaluation.reuseWhen ?? null,
       watchouts: evaluation.watchouts ?? null,
+      workflowSnapshotJson: evaluation.workflowSnapshot
+        ? JSON.stringify(evaluation.workflowSnapshot)
+        : null,
+      workflowContext: evaluation.workflowContext ?? null,
       searchText: evaluation.searchText ?? null,
       evaluatedAt: evaluation.evaluatedAt
     });
@@ -163,12 +186,48 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
       .map((row) => this.hydrateWorkflowSummary(row));
   }
 
-  async getEvaluation(taskId: string): Promise<TaskEvaluation | null> {
+  async getEvaluation(taskId: string): Promise<StoredTaskEvaluation | null> {
     const row = this.db
       .prepare<{ taskId: string }, EvaluationRow>("select * from task_evaluations where task_id = @taskId")
       .get({ taskId });
 
     return row ? mapEvaluationRow(row) : null;
+  }
+
+  async getWorkflowContent(taskId: string): Promise<WorkflowContentRecord | null> {
+    const row = this.db.prepare<{ taskId: string }, TaskWithEvaluationRow>(`
+      select
+        e.task_id,
+        t.title,
+        t.slug,
+        t.workspace_path,
+        e.use_case,
+        e.workflow_tags,
+        e.outcome_note,
+        e.approach_note,
+        e.reuse_when,
+        e.watchouts,
+        e.workflow_snapshot_json,
+        e.workflow_context,
+        e.search_text,
+        e.embedding,
+        e.embedding_model,
+        e.rating,
+        e.evaluated_at,
+        count(ev.id) as event_count,
+        t.created_at
+      from task_evaluations e
+      join monitoring_tasks t on t.id = e.task_id
+      left join timeline_events ev on ev.task_id = e.task_id
+      where e.task_id = @taskId
+      group by e.task_id
+    `).get({ taskId });
+
+    if (!row) {
+      return null;
+    }
+
+    return this.hydrateWorkflowContent(row);
   }
 
   async searchWorkflowLibrary(
@@ -243,6 +302,8 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
         e.approach_note,
         e.reuse_when,
         e.watchouts,
+        e.workflow_snapshot_json,
+        e.workflow_context,
         e.search_text,
         e.embedding,
         e.embedding_model,
@@ -311,14 +372,12 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
   }
 
   private hydrateSearchResult(row: TaskWithEvaluationRow): WorkflowSearchResult {
-    const events = this.loadWorkflowEvents(row.task_id);
-    const evaluation = buildEvaluationData(row);
-    const displayTitle = resolveWorkflowDisplayTitle(row, events);
+    const content = this.buildWorkflowContent(row);
 
     return {
       taskId: row.task_id,
       title: row.title,
-      ...(displayTitle ? { displayTitle } : {}),
+      ...(content.displayTitle ? { displayTitle: content.displayTitle } : {}),
       useCase: row.use_case,
       workflowTags: row.workflow_tags ? parseJsonField<string[]>(row.workflow_tags) : [],
       outcomeNote: row.outcome_note,
@@ -328,12 +387,16 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
       rating: row.rating as "good" | "skip",
       eventCount: row.event_count,
       createdAt: row.created_at,
-      workflowContext: buildWorkflowContext(events, displayTitle ?? row.title, evaluation)
+      workflowContext: content.workflowContext
     };
   }
 
   private hydrateWorkflowSummary(row: TaskWithEvaluationRow): WorkflowSummary {
     return mapWorkflowSummary(row, this.resolveWorkflowDisplayTitle(row));
+  }
+
+  private hydrateWorkflowContent(row: TaskWithEvaluationRow): WorkflowContentRecord {
+    return this.buildWorkflowContent(row);
   }
 
   private resolveWorkflowDisplayTitle(row: TaskWithEvaluationRow): string | undefined {
@@ -354,6 +417,35 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
       .all({ taskId });
 
     return eventRows.map(mapEventRow);
+  }
+
+  private buildWorkflowContent(row: TaskWithEvaluationRow): WorkflowContentRecord {
+    const events = this.loadWorkflowEvents(row.task_id);
+    const evaluation = buildEvaluationData(row);
+    const displayTitle = resolveWorkflowDisplayTitle(row, events);
+    const title = displayTitle ?? row.title;
+    const generatedSnapshot = buildReusableTaskSnapshot({
+      objective: title,
+      events,
+      evaluation
+    });
+    const storedSnapshot = row.workflow_snapshot_json
+      ? parseJsonField<ReusableTaskSnapshot>(row.workflow_snapshot_json)
+      : null;
+    const workflowSnapshot = storedSnapshot ?? generatedSnapshot;
+    const generatedContext = buildWorkflowContext(events, title, evaluation, workflowSnapshot);
+    const workflowContext = row.workflow_context ?? generatedContext;
+    const source = row.workflow_snapshot_json || row.workflow_context ? "saved" : "generated";
+
+    return {
+      taskId: row.task_id,
+      title: row.title,
+      ...(displayTitle ? { displayTitle } : {}),
+      workflowSnapshot,
+      workflowContext,
+      searchText: row.search_text ?? workflowSnapshot.searchText ?? null,
+      source
+    };
   }
 }
 
@@ -621,7 +713,13 @@ function buildEmbeddingText(
   events: readonly TimelineEvent[],
   title: string
 ): string {
-  const workflowContext = buildWorkflowContext(events, title, buildEvaluationData(evaluation));
+  const workflowSnapshot = evaluation.workflowSnapshot ?? buildReusableTaskSnapshot({
+    objective: title,
+    events,
+    evaluation: buildEvaluationData(evaluation)
+  });
+  const workflowContext = evaluation.workflowContext
+    ?? buildWorkflowContext(events, title, buildEvaluationData(evaluation), workflowSnapshot);
   const parts = [
     title,
     evaluation.useCase,
@@ -630,7 +728,7 @@ function buildEmbeddingText(
     evaluation.approachNote,
     evaluation.reuseWhen,
     evaluation.watchouts,
-    evaluation.searchText ?? null,
+    evaluation.searchText ?? workflowSnapshot.searchText ?? null,
     workflowContext
   ];
 

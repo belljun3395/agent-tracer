@@ -337,6 +337,7 @@ interface SelectedConnectorData {
 
 interface EventInspectorProps {
   readonly taskDetail: TaskDetailResponse | null;
+  readonly selectedTaskTitle?: string | null;
   readonly taskObservability?: TaskObservabilityResponse | null;
   readonly selectedEvent: TimelineEvent | null;
   readonly selectedConnector: SelectedConnectorData | null;
@@ -1582,6 +1583,7 @@ function summarizeDetailText(value: string, limit = 180): string {
  */
 export function EventInspector({
   taskDetail,
+  selectedTaskTitle = null,
   taskObservability = null,
   selectedEvent,
   selectedConnector,
@@ -2294,6 +2296,9 @@ export function EventInspector({
             {taskDetail?.task.id
               ? (
                 <TaskEvaluatePanel
+                  taskId={taskDetail.task.id}
+                  taskTitle={selectedTaskTitle ?? taskDetail.task.title}
+                  taskTimeline={taskTimeline}
                   evaluation={taskEvaluation}
                   isSaving={isSavingTaskEvaluation}
                   isSaved={isSavedTaskEvaluation}

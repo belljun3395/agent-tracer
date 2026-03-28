@@ -27,7 +27,13 @@ export type {
   BookmarkSaveInput
 } from "./bookmark-repository.js";
 export type { INotificationPublisher, MonitorNotification } from "./notification-publisher.js";
-export type { IEvaluationRepository, TaskEvaluation, WorkflowSearchResult } from "./evaluation-repository.js";
+export type {
+  IEvaluationRepository,
+  StoredTaskEvaluation,
+  TaskEvaluation,
+  WorkflowContentRecord,
+  WorkflowSearchResult
+} from "./evaluation-repository.js";
 
 import type { ITaskRepository } from "./task-repository.js";
 import type { ISessionRepository } from "./session-repository.js";

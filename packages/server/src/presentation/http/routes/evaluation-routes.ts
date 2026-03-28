@@ -4,6 +4,7 @@
  * 태스크 평가 및 유사 워크플로우 검색 엔드포인트.
  */
 import { Router } from "express";
+import type { ReusableTaskSnapshot } from "@monitor/core";
 import type { MonitorService } from "../../../application/monitor-service.js";
 
 export function createEvaluationRoutes(service: MonitorService): Router {
@@ -12,7 +13,17 @@ export function createEvaluationRoutes(service: MonitorService): Router {
   // POST /api/tasks/:id/evaluate — 태스크 평가 저장
   router.post("/api/tasks/:id/evaluate", async (req, res) => {
     const taskId = req.params.id;
-    const { rating, useCase, workflowTags, outcomeNote, approachNote, reuseWhen, watchouts } = req.body as {
+    const {
+      rating,
+      useCase,
+      workflowTags,
+      outcomeNote,
+      approachNote,
+      reuseWhen,
+      watchouts,
+      workflowSnapshot,
+      workflowContext
+    } = req.body as {
       rating?: unknown;
       useCase?: unknown;
       workflowTags?: unknown;
@@ -20,6 +31,8 @@ export function createEvaluationRoutes(service: MonitorService): Router {
       approachNote?: unknown;
       reuseWhen?: unknown;
       watchouts?: unknown;
+      workflowSnapshot?: unknown;
+      workflowContext?: unknown;
     };
 
     if (rating !== "good" && rating !== "skip") {
@@ -34,7 +47,9 @@ export function createEvaluationRoutes(service: MonitorService): Router {
       outcomeNote: typeof outcomeNote === "string" ? outcomeNote : undefined,
       approachNote: typeof approachNote === "string" ? approachNote : undefined,
       reuseWhen: typeof reuseWhen === "string" ? reuseWhen : undefined,
-      watchouts: typeof watchouts === "string" ? watchouts : undefined
+      watchouts: typeof watchouts === "string" ? watchouts : undefined,
+      workflowSnapshot: isReusableTaskSnapshot(workflowSnapshot) ? workflowSnapshot : undefined,
+      workflowContext: typeof workflowContext === "string" ? workflowContext : undefined
     });
     res.json({ ok: true });
   });
@@ -80,5 +95,35 @@ export function createEvaluationRoutes(service: MonitorService): Router {
     res.json(await service.searchSimilarWorkflows(query, tags, limit));
   });
 
+  router.get("/api/workflows/:id/content", async (req, res) => {
+    const content = await service.getWorkflowContent(req.params.id);
+    if (!content) {
+      res.status(404).json({ error: "workflow content not found" });
+      return;
+    }
+
+    res.json(content);
+  });
+
   return router;
+}
+
+function isReusableTaskSnapshot(value: unknown): value is ReusableTaskSnapshot {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const snapshot = value as Record<string, unknown>;
+  return typeof snapshot.objective === "string"
+    && (snapshot.originalRequest === null || typeof snapshot.originalRequest === "string")
+    && (snapshot.outcomeSummary === null || typeof snapshot.outcomeSummary === "string")
+    && (snapshot.approachSummary === null || typeof snapshot.approachSummary === "string")
+    && (snapshot.reuseWhen === null || typeof snapshot.reuseWhen === "string")
+    && Array.isArray(snapshot.watchItems)
+    && Array.isArray(snapshot.keyDecisions)
+    && Array.isArray(snapshot.nextSteps)
+    && Array.isArray(snapshot.keyFiles)
+    && Array.isArray(snapshot.modifiedFiles)
+    && (snapshot.verificationSummary === null || typeof snapshot.verificationSummary === "string")
+    && typeof snapshot.searchText === "string";
 }

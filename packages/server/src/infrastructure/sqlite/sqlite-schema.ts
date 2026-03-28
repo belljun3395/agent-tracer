@@ -101,6 +101,8 @@ export function createSchema(db: Database.Database): void {
       approach_note text,
       reuse_when    text,
       watchouts     text,
+      workflow_snapshot_json text,
+      workflow_context text,
       search_text   text,
       embedding     text,
       embedding_model text,

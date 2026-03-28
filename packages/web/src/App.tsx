@@ -586,6 +586,7 @@ function Dashboard(): React.JSX.Element {
           )}
           <EventInspector
             taskDetail={taskDetail}
+            selectedTaskTitle={selectedTaskDisplayTitle}
             taskObservability={taskObservability}
             selectedEvent={selectedEvent}
             selectedConnector={selectedConnector}
