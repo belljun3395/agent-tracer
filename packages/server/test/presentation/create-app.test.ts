@@ -273,6 +273,86 @@ describe("HTTP API", () => {
     expect(reopened.body.sessionId).not.toBe(first.body.sessionId);
   });
 
+  it("runtime-session-end의 backgroundCompletions로 백그라운드 작업을 완료할 수 있다", async () => {
+    const runtimeSessionId = "runtime-bg-1";
+    const ensured = await request(runtime.app)
+      .post("/api/runtime-session-ensure")
+      .send({
+        runtimeSource: "codex-skill",
+        runtimeSessionId,
+        title: "Codex - background completion",
+        workspacePath: "/workspace/agent-tracer"
+      });
+
+    const parentTaskId = ensured.body.taskId as string;
+    const parentSessionId = ensured.body.sessionId as string;
+
+    const background = await request(runtime.app)
+      .post("/api/task-start")
+      .send({
+        title: "Background worker",
+        taskKind: "background",
+        parentTaskId,
+        parentSessionId
+      });
+
+    const backgroundTaskId = background.body.task.id as string;
+
+    const ended = await request(runtime.app)
+      .post("/api/runtime-session-end")
+      .send({
+        runtimeSource: "codex-skill",
+        runtimeSessionId,
+        completionReason: "idle",
+        backgroundCompletions: [backgroundTaskId]
+      });
+
+    const backgroundDetail = await request(runtime.app).get(`/api/tasks/${backgroundTaskId}`);
+
+    expect(ensured.status).toBe(200);
+    expect(background.status).toBe(200);
+    expect(ended.status).toBe(200);
+    expect(backgroundDetail.status).toBe(200);
+    expect(backgroundDetail.body.task.status).toBe("completed");
+  });
+
+  it("session-end의 backgroundCompletions로 백그라운드 작업을 완료할 수 있다", async () => {
+    const started = await request(runtime.app)
+      .post("/api/task-start")
+      .send({ title: "Foreground task" });
+
+    const taskId = started.body.task.id as string;
+    const sessionId = started.body.sessionId as string;
+
+    const background = await request(runtime.app)
+      .post("/api/task-start")
+      .send({
+        title: "Background worker for session-end",
+        taskKind: "background",
+        parentTaskId: taskId,
+        parentSessionId: sessionId
+      });
+
+    const backgroundTaskId = background.body.task.id as string;
+
+    const ended = await request(runtime.app)
+      .post("/api/session-end")
+      .send({
+        taskId,
+        sessionId,
+        summary: "Primary session paused",
+        backgroundCompletions: [backgroundTaskId]
+      });
+
+    const backgroundDetail = await request(runtime.app).get(`/api/tasks/${backgroundTaskId}`);
+
+    expect(started.status).toBe(200);
+    expect(background.status).toBe(200);
+    expect(ended.status).toBe(200);
+    expect(backgroundDetail.status).toBe(200);
+    expect(backgroundDetail.body.task.status).toBe("completed");
+  });
+
   it("Codex runtime 세션은 같은 thread id에서 task를 재사용하고 assistant.response를 남긴다", async () => {
     const runtimeSessionId = "codex-thread-1";
 

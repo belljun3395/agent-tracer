@@ -182,6 +182,8 @@ export class MonitorService {
   }
 
   async ensureRuntimeSession(input: RuntimeSessionEnsureInput): Promise<RuntimeSessionEnsureResult> {
+    const workspacePath = input.workspacePath ? normalizeWorkspacePath(input.workspacePath) : undefined;
+
     // Active binding: same session still running
     const binding = await this.ports.runtimeBindings.find(input.runtimeSource, input.runtimeSessionId);
     if (binding) return { taskId: binding.taskId, sessionId: binding.monitorSessionId, taskCreated: false, sessionCreated: false };
@@ -212,7 +214,7 @@ export class MonitorService {
     // No binding at all — new task + session
     const result = await this.startTask({
       title: input.title,
-      ...(input.workspacePath ? { workspacePath: input.workspacePath } : {}),
+      ...(workspacePath ? { workspacePath } : {}),
       runtimeSource: input.runtimeSource,
       ...(input.parentTaskId ? { taskKind: "background" as const, parentTaskId: input.parentTaskId } : {}),
       ...(input.parentSessionId ? { parentSessionId: input.parentSessionId } : {})

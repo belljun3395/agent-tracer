@@ -37,8 +37,8 @@ A skill is a set of local instructions stored in a `SKILL.md` file.
 ### How to use skills
 
 - **Trigger rules:**
-  - Codex CLI → `codex-monitor` 스킬 사용 (`monitor`를 직접 쓰지 않음)
-  - 그 외 MCP 지원 환경 → `monitor` 스킬 사용
+  - Codex CLI → `codex-monitor` 스킬을 캐노니컬 경로로 사용 (`monitor`를 직접 쓰지 않음)
+  - 그 외 MCP 지원 환경(자동 hook/plugin 없음) → `monitor` 스킬 사용
   - OpenCode → 플러그인 훅 자동 동작 (스킬 불필요)
   - Claude Code → hook 자동 동작 (스킬 불필요)
 - 네이티브 discovery projection:
@@ -51,13 +51,17 @@ A skill is a set of local instructions stored in a `SKILL.md` file.
   3. 현재 스레드가 이전 지시를 계속 쓰면 새 스레드에서 다시 시작
 - 자동 트리거가 빗나가면 프롬프트에 `$codex-monitor` 를 명시해 강제 호출.
   - 예: ``$codex-monitor 이 요청부터 모니터링 시작해줘``
-- 스킬 파일을 열고 실질적 작업 전에 흐름을 따름.
+- Codex에서는 `codex-monitor` 스킬 파일을 열고 흐름을 따른다.
+- Codex 모니터링에서는 `monitor_runtime_session_ensure` 성공 전까지 `taskId`가 필요한 `monitor_*` 호출을 금지한다.
+- Codex 모니터링에서는 `runtimeSessionId`를 명시 전달하는 것을 기본으로 사용한다 (`CODEX_THREAD_ID` 우선).
 - monitor-server MCP 서버 미가용 시 작업 계속하고 마지막에 gap 리포트.
 
 ### 캐노니컬 user.message 경로
 
+- 자동 hook/plugin 환경에서는 네이티브 통합이 raw 프롬프트 기록의 캐노니컬 경로다.
 - MCP/수동 환경 → `monitor_user_message` (`captureMode="raw"`) 으로 실제 사용자 프롬프트 기록
 - `monitor_save_context`는 raw 프롬프트 경로가 아닌 계획·체크포인트 전용
-- `monitor_session_end`는 세션만 종료; 작업 항목 종료는 `monitor_task_complete`만 사용
+- `monitor_runtime_session_end`는 runtime session 종료 경로다. 작업을 즉시 닫아야 할 때만 `completeTask=true`를 사용하고, 그 외 작업 종료는 `monitor_task_complete`로 명시한다.
 - OpenCode/Claude 자동 통합은 raw 프롬프트를 우선 기록하고, 훅 페이로드에 raw 프롬프트가 없을 경우
   `ruleId: user-message-capture-unavailable` 규칙 이벤트로 gap을 명시적으로 기록
+- Codex CLI는 `codex-monitor` 스킬 + MCP 경로를 사용한다.
