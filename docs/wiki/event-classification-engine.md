@@ -2,7 +2,7 @@
 
 Agent Tracer가 많은 이벤트를 한 화면에서 읽기 쉽게 보여줄 수 있는 이유는
 모든 기록을 저장 전에 분류해 두기 때문이다. 이 분류는 단순 색칠용이 아니라,
-lane 배치, tag 필터, rule gap 보기, connector 해석의 기반이 된다.
+lane 배치, tag 필터, action-registry gap 보기, connector 해석의 기반이 된다.
 
 ## 핵심 파일
 

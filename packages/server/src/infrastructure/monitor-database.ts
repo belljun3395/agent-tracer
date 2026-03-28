@@ -551,6 +551,23 @@ export class MonitorDatabase {
     return row ? mapSessionRow(row) : undefined;
   }
 
+  /**
+   * 태스크에 속한 모든 세션을 시작 시각 순으로 반환한다.
+   * @param taskId 대상 태스크 ID
+   * @returns 세션 배열
+   */
+  listSessions(taskId: string): readonly MonitoringSession[] {
+    return this.connection
+      .prepare<{ taskId: string }, SessionRow>(`
+        select *
+        from task_sessions
+        where task_id = @taskId
+        order by datetime(started_at) asc
+      `)
+      .all({ taskId })
+      .map(mapSessionRow);
+  }
+
   countRunningSessions(taskId: string): number {
     const row = this.connection
       .prepare<{ taskId: string }, { count: number }>(`

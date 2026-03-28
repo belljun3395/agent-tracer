@@ -34,3 +34,17 @@ Agent Tracer 통합은 항상 두 조각으로 나뉩니다.
 
 즉, 외부 사용자는 서버 내부 엔드포인트 차이를 직접 설계할 필요가 없고,
 자신이 쓰는 런타임 가이드만 따르면 됩니다.
+
+## Thought-Flow Read Model
+
+서버는 raw event log 외에 대시보드용 observability read model도 함께 제공합니다.
+
+- `GET /api/tasks/:taskId/observability`
+  - 선택한 task의 phase breakdown, active duration, session 상태, trace coverage, focus summary
+- `GET /api/observability/overview`
+  - 전체 task 기준 prompt capture, trace-linked task 비율, stale running task, runtime source summary
+- `GET /api/overview`
+  - 기존 stats 응답에 `observability` snapshot 포함
+
+웹 대시보드는 이 read model을 사용해 Top bar diagnostics와 Inspector `Flow` / `Health` 탭을 렌더링합니다.
+세부 응답 shape과 해석 기준은 [task-observability.md](./task-observability.md)를 참고하세요.

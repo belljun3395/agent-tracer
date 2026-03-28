@@ -22,8 +22,12 @@ bookmark API, search API, workflow library API로 나뉜다.
 - `GET /api/overview`
 - `GET /api/tasks`
 - `GET /api/tasks/:taskId`
+- `GET /api/tasks/:taskId/observability`
+- `GET /api/observability/overview`
 
 이 그룹은 대시보드 초기 로딩과 상세 조회의 기본 read model을 제공한다.
+최근 코드 기준으로 `observability` read model도 이 그룹에 포함되며,
+`/api/overview`는 기존 stats와 함께 observability snapshot을 싣는다.
 
 ## 2. Lifecycle API
 

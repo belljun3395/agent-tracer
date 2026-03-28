@@ -25,6 +25,7 @@ import {
   collectFileActivity,
   collectPlanSteps,
   collectViolationDescriptions,
+  collectWebLookups,
   type CompactInsight,
   type CompactRelation,
   type DirectoryMentionVerification,
@@ -37,8 +38,15 @@ import {
   type QuestionGroup,
   type TaskExtraction,
   type TagInsight,
-  type TodoGroup
+  type TodoGroup,
+  type WebLookupStat
 } from "../lib/insights.js";
+import {
+  formatCount,
+  formatDuration,
+  formatPhaseLabel,
+  formatRate
+} from "../lib/observability.js";
 import { formatRelativeTime } from "../lib/timeline.js";
 import type { TimelineConnector } from "../lib/timeline.js";
 import { cn } from "../lib/ui/cn.js";
@@ -50,11 +58,12 @@ import { TaskEvaluatePanel } from "./TaskEvaluatePanel.js";
 import { useEvaluation } from "../store/useEvaluation.js";
 import type {
   BookmarkRecord,
+  TaskObservabilityResponse,
   TaskDetailResponse,
   TimelineEvent
 } from "../types.js";
 
-type PanelTabId = "inspector" | "tags" | "task" | "evaluate" | "compact" | "files" | "exploration";
+type PanelTabId = "inspector" | "flow" | "health" | "tags" | "task" | "evaluate" | "compact" | "files" | "exploration";
 
 type ExplorationSortKey = "recent" | "most-read" | "alpha";
 type FileSortKey = "recent" | "most-active" | "writes-first" | "alpha";
@@ -80,6 +89,8 @@ function sortFileActivity(files: readonly FileActivityStat[], key: FileSortKey):
 
 const PANEL_TABS = [
   { id: "inspector",   label: "Inspector" },
+  { id: "flow",        label: "Flow" },
+  { id: "health",      label: "Health" },
   { id: "tags",        label: "Tags" },
   { id: "task",        label: "Task" },
   { id: "evaluate",    label: "Evaluate" },
@@ -93,6 +104,30 @@ const cardHeader = "flex items-center justify-between gap-3 border-b border-[var
 const cardBody = "px-4 py-4";
 const innerPanel = "rounded-[12px] border border-[var(--border)] bg-[var(--bg)]";
 const monoText = "font-mono text-[0.8rem] leading-6";
+
+function formatTraceLinkCoverageNote(observability: TaskObservabilityResponse["observability"]): string {
+  if (observability.traceLinkEligibleEventCount === 0) {
+    return "no link-eligible events";
+  }
+
+  return `${formatCount(observability.traceLinkedEventCount)}/${formatCount(observability.traceLinkEligibleEventCount)} eligible events linked`;
+}
+
+function formatTraceLinkHealthNote(observability: TaskObservabilityResponse["observability"]): string {
+  if (observability.traceLinkEligibleEventCount === 0) {
+    return "no eligible events to link";
+  }
+
+  return `${formatCount(observability.traceLinkedEventCount)}/${formatCount(observability.traceLinkEligibleEventCount)} eligible events linked`;
+}
+
+function formatActionRegistryGapNote(observability: TaskObservabilityResponse["observability"]): string {
+  if (observability.actionRegistryEligibleEventCount === 0) {
+    return "no action events to classify";
+  }
+
+  return `${formatCount(observability.actionRegistryGapCount)}/${formatCount(observability.actionRegistryEligibleEventCount)} action events without registry matches`;
+}
 
 function SectionCard({
   title,
@@ -191,6 +226,134 @@ function KeyValueTable({
   );
 }
 
+function ObservabilityMetricGrid({
+  items
+}: {
+  readonly items: ReadonlyArray<{
+    readonly label: string;
+    readonly value: string;
+    readonly note?: string;
+    readonly tone?: "neutral" | "accent" | "ok" | "warn" | "danger";
+  }>;
+}): React.JSX.Element {
+  const toneClassName: Record<"neutral" | "accent" | "ok" | "warn" | "danger", string> = {
+    neutral: "border-[var(--border)] bg-[var(--bg)]",
+    accent: "border-[color-mix(in_srgb,var(--accent)_22%,var(--border))] bg-[color-mix(in_srgb,var(--accent)_8%,transparent)]",
+    ok: "border-[color-mix(in_srgb,var(--ok)_24%,var(--border))] bg-[var(--ok-bg)]",
+    warn: "border-[color-mix(in_srgb,var(--warn)_24%,var(--border))] bg-[var(--warn-bg)]",
+    danger: "border-[color-mix(in_srgb,var(--err)_24%,var(--border))] bg-[var(--err-bg)]"
+  };
+
+  return (
+    <div className="grid gap-3 sm:grid-cols-2">
+      {items.map((item) => (
+        <div
+          key={`${item.label}-${item.value}`}
+          className={cn("rounded-[12px] border px-3.5 py-3", toneClassName[item.tone ?? "neutral"])}
+        >
+          <div className="text-[0.68rem] font-bold uppercase tracking-[0.08em] text-[var(--text-3)]">{item.label}</div>
+          <div className="mt-1 text-[0.98rem] font-semibold text-[var(--text-1)]">{item.value}</div>
+          {item.note && <p className="mt-1 m-0 text-[0.74rem] text-[var(--text-3)]">{item.note}</p>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ObservabilityList({
+  emptyLabel,
+  items
+}: {
+  readonly items: ReadonlyArray<{
+    readonly label: string;
+    readonly value: string;
+    readonly note?: string;
+  }>;
+  readonly emptyLabel: string;
+}): React.JSX.Element {
+  if (items.length === 0) {
+    return <p className="m-0 text-[0.8rem] text-[var(--text-3)]">{emptyLabel}</p>;
+  }
+
+  return (
+    <div className="flex flex-col gap-2.5">
+      {items.map((item) => (
+        <div key={`${item.label}-${item.value}`} className="rounded-[12px] border border-[var(--border)] bg-[var(--bg)] px-3.5 py-3">
+          <div className="flex items-center justify-between gap-3">
+            <strong className="min-w-0 truncate text-[0.84rem] text-[var(--text-1)]">{item.label}</strong>
+            <Badge tone="neutral" size="xs">{item.value}</Badge>
+          </div>
+          {item.note && <p className="mt-1.5 mb-0 text-[0.76rem] text-[var(--text-3)]">{item.note}</p>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ObservabilityFocusGroup({
+  label,
+  values,
+  emptyLabel
+}: {
+  readonly label: string;
+  readonly values: readonly string[];
+  readonly emptyLabel: string;
+}): React.JSX.Element {
+  return (
+    <div className="rounded-[12px] border border-[var(--border)] bg-[var(--bg)] px-3.5 py-3">
+      <div className="mb-2 text-[0.68rem] font-bold uppercase tracking-[0.08em] text-[var(--text-3)]">{label}</div>
+      {values.length === 0 ? (
+        <p className="m-0 text-[0.78rem] text-[var(--text-3)]">{emptyLabel}</p>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          {values.map((value) => (
+            <Badge key={value} tone="neutral" size="xs" className="max-w-full break-words">
+              {value}
+            </Badge>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ObservabilityPhaseBreakdown({
+  phases
+}: {
+  readonly phases: readonly {
+    readonly phase: string;
+    readonly durationMs: number;
+    readonly share: number;
+  }[];
+}): React.JSX.Element {
+  if (phases.length === 0) {
+    return <p className="m-0 text-[0.8rem] text-[var(--text-3)]">No phase data recorded yet.</p>;
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      {phases.map((phase) => {
+        const share = phase.share > 1 ? phase.share / 100 : phase.share;
+        return (
+          <div key={phase.phase} className="rounded-[12px] border border-[var(--border)] bg-[var(--bg)] px-3.5 py-3">
+            <div className="flex items-center justify-between gap-3">
+              <strong className="text-[0.84rem] text-[var(--text-1)]">{formatPhaseLabel(phase.phase)}</strong>
+              <Badge tone="accent" size="xs">{formatRate(phase.share)}</Badge>
+            </div>
+            <div className="mt-2 h-2 overflow-hidden rounded-full border border-[var(--border)] bg-[var(--surface-2)]">
+              <span
+                className="block h-full rounded-full bg-[linear-gradient(90deg,var(--accent),color-mix(in_srgb,var(--accent)_55%,white))]"
+                style={{ width: `${Math.max(4, share * 100)}%` }}
+              />
+            </div>
+            <p className="mt-2 mb-0 text-[0.76rem] text-[var(--text-3)]">{formatDuration(phase.durationMs)}</p>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 interface SelectedConnectorData {
   readonly connector: TimelineConnector;
   readonly source: TimelineEvent;
@@ -199,6 +362,7 @@ interface SelectedConnectorData {
 
 interface EventInspectorProps {
   readonly taskDetail: TaskDetailResponse | null;
+  readonly taskObservability?: TaskObservabilityResponse | null;
   readonly selectedEvent: TimelineEvent | null;
   readonly selectedConnector: SelectedConnectorData | null;
   readonly selectedEventDisplayTitle: string | null;
@@ -1009,6 +1173,53 @@ function DetailFileActivity({
   );
 }
 
+/** WebLookupsCard: WebSearch/WebFetch 조회 URL 목록 카드. */
+function WebLookupsCard({
+  lookups
+}: {
+  readonly lookups: readonly WebLookupStat[];
+}): React.JSX.Element {
+  return (
+    <PanelCard className={cardShell}>
+      <div className={cardHeader}>
+        <span>Web Lookups</span>
+        <Badge tone="neutral" size="xs">{lookups.length}</Badge>
+      </div>
+      <div className={cardBody}>
+        {lookups.length === 0 ? (
+          <p className="m-0 text-[0.8rem] text-[var(--text-3)]">No web lookups recorded yet.</p>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {lookups.map((lookup) => (
+              <div
+                key={`${lookup.url}-${lookup.firstSeenAt}`}
+                className="flex items-start justify-between gap-3 rounded-[8px] bg-[var(--surface-2)] px-3 py-2"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[0.68rem] font-semibold uppercase tracking-[0.06em] text-[var(--exploration)]">
+                      {lookup.toolName}
+                    </span>
+                    {lookup.count > 1 && (
+                      <Badge tone="neutral" size="xs">{lookup.count}x</Badge>
+                    )}
+                  </div>
+                  <p className={cn("mt-0.5 break-all text-[0.82rem] text-[var(--text-1)]", monoText)}>
+                    {lookup.url}
+                  </p>
+                  <p className="mt-0.5 text-[0.72rem] text-[var(--text-3)]">
+                    {formatRelativeTime(lookup.lastSeenAt)}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </PanelCard>
+  );
+}
+
 /** ExplorationInsightCard: 탐색 통계 인사이트 대시보드 카드. */
 function ExplorationInsightCard({
   insight
@@ -1027,7 +1238,7 @@ function ExplorationInsightCard({
           <p className="m-0 text-[0.8rem] text-[var(--text-3)]">No exploration activity recorded yet.</p>
         ) : (
           <div className="flex flex-col gap-4">
-            <div className="grid grid-cols-2 gap-2 max-md:grid-cols-1">
+            <div className="grid grid-cols-3 gap-2 max-md:grid-cols-1">
               <div className={innerPanel + " p-3"}>
                 <span className="block text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">Total Explorations</span>
                 <strong className="mt-2 block text-[1.05rem] text-[var(--text-1)]">{insight.totalExplorations}</strong>
@@ -1035,6 +1246,10 @@ function ExplorationInsightCard({
               <div className={innerPanel + " p-3"}>
                 <span className="block text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">Unique Files</span>
                 <strong className="mt-2 block text-[1.05rem] text-[var(--text-1)]">{insight.uniqueFiles}</strong>
+              </div>
+              <div className={innerPanel + " p-3"}>
+                <span className="block text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">Web Lookups</span>
+                <strong className="mt-2 block text-[1.05rem] text-[var(--exploration)]">{insight.uniqueWebLookups}</strong>
               </div>
             </div>
 
@@ -1392,6 +1607,7 @@ function summarizeDetailText(value: string, limit = 180): string {
  */
 export function EventInspector({
   taskDetail,
+  taskObservability = null,
   selectedEvent,
   selectedConnector,
   selectedEventDisplayTitle,
@@ -1426,6 +1642,7 @@ export function EventInspector({
   } = useEvaluation(taskDetail?.task.id ?? null);
 
   const taskTimeline = taskDetail?.timeline ?? [];
+  const observability = taskObservability?.observability ?? null;
 
   const exploredFiles = useMemo(
     () => collectExploredFiles(taskTimeline),
@@ -1444,9 +1661,13 @@ export function EventInspector({
     () => sortFileActivity(fileActivity, fileSortKey),
     [fileActivity, fileSortKey]
   );
+  const webLookups = useMemo(
+    () => collectWebLookups(taskTimeline),
+    [taskTimeline]
+  );
   const explorationInsight = useMemo(
-    () => buildExplorationInsight(taskTimeline, exploredFiles),
-    [exploredFiles, taskTimeline]
+    () => buildExplorationInsight(taskTimeline, exploredFiles, webLookups),
+    [exploredFiles, taskTimeline, webLookups]
   );
   const compactInsight = useMemo(
     () => buildCompactInsight(taskTimeline),
@@ -1758,7 +1979,7 @@ export function EventInspector({
                     <p className="m-0 text-[0.76rem] text-[var(--text-3)]">
                       Raw event title is preserved. This only changes the inspector display title.
                     </p>
-                    {eventTitleError && <p className="m-0 text-[0.76rem] font-medium text-[var(--danger)]">{eventTitleError}</p>}
+                    {eventTitleError && <p className="m-0 text-[0.76rem] font-medium text-[var(--err)]">{eventTitleError}</p>}
                   </form>
                 )}
               </InspectorHeaderCard>
@@ -1911,6 +2132,173 @@ export function EventInspector({
             )}
           </>
 
+        ) : activeTab === "flow" ? (
+          <div className="panel-tab-inner flex flex-col gap-5 p-4">
+            {observability ? (
+              <>
+                <SectionCard title="Task Flow">
+                  <ObservabilityMetricGrid
+                    items={[
+                      {
+                        label: "Total Duration",
+                        value: formatDuration(observability.totalDurationMs),
+                        note: observability.runtimeSource ? `runtime ${observability.runtimeSource}` : undefined,
+                        tone: "accent"
+                      },
+                      {
+                        label: "Active Duration",
+                        value: formatDuration(observability.activeDurationMs),
+                        note: "work in motion",
+                        tone: "ok"
+                      },
+                      {
+                        label: "Events",
+                        value: formatCount(observability.totalEvents),
+                        note: "timeline entries"
+                      },
+                      {
+                        label: "Sessions",
+                        value: formatCount(observability.sessions.total),
+                        note: `${formatCount(observability.sessions.resumed)} resumed · ${formatCount(observability.sessions.open)} open`
+                      },
+                      {
+                        label: "Trace Link Coverage",
+                        value: formatRate(observability.traceLinkCoverageRate),
+                        note: formatTraceLinkCoverageNote(observability),
+                        tone: "accent"
+                      }
+                    ]}
+                  />
+                </SectionCard>
+
+                <SectionCard title="Phase Breakdown">
+                  <ObservabilityPhaseBreakdown phases={observability.phaseBreakdown} />
+                </SectionCard>
+
+                <SectionCard title="Focus">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <ObservabilityFocusGroup
+                      emptyLabel="No work items observed"
+                      label="Work Items"
+                      values={observability.focus.workItemIds}
+                    />
+                    <ObservabilityFocusGroup
+                      emptyLabel="No goals observed"
+                      label="Goals"
+                      values={observability.focus.goalIds}
+                    />
+                    <ObservabilityFocusGroup
+                      emptyLabel="No plans observed"
+                      label="Plans"
+                      values={observability.focus.planIds}
+                    />
+                    <ObservabilityFocusGroup
+                      emptyLabel="No handoffs observed"
+                      label="Handoffs"
+                      values={observability.focus.handoffIds}
+                    />
+                  </div>
+                </SectionCard>
+
+                <SectionCard title="Top Files">
+                  <ObservabilityList
+                    emptyLabel="No file focus recorded yet."
+                    items={observability.focus.topFiles.map((file) => ({
+                      label: file.path,
+                      value: `${formatCount(file.count)}x`
+                    }))}
+                  />
+                </SectionCard>
+
+                <SectionCard title="Top Tags">
+                  <ObservabilityList
+                    emptyLabel="No focus tags recorded yet."
+                    items={observability.focus.topTags.map((tag) => ({
+                      label: tag.tag,
+                      value: `${formatCount(tag.count)}x`
+                    }))}
+                  />
+                </SectionCard>
+              </>
+            ) : (
+              <div className="rounded-[14px] border border-dashed border-[var(--border)] bg-[var(--bg)] px-4 py-6 text-center">
+                <p className="m-0 text-[0.86rem] font-medium text-[var(--text-2)]">No task flow diagnostics available.</p>
+                <p className="mt-1.5 mb-0 text-[0.78rem] text-[var(--text-3)]">
+                  The server will populate this tab once `/api/tasks/:taskId/observability` is available for the selected task.
+                </p>
+              </div>
+            )}
+          </div>
+
+        ) : activeTab === "health" ? (
+          <div className="panel-tab-inner flex flex-col gap-5 p-4">
+            {observability ? (
+              <>
+                <SectionCard title="Health Overview">
+                  <ObservabilityMetricGrid
+                    items={[
+                      {
+                        label: "Trace Links",
+                        value: formatCount(observability.traceLinkCount),
+                        note: formatTraceLinkHealthNote(observability),
+                        tone: "accent"
+                      },
+                      {
+                        label: "Action-Registry Gaps",
+                        value: formatCount(observability.actionRegistryGapCount),
+                        note: formatActionRegistryGapNote(observability),
+                        tone: observability.actionRegistryGapCount > 0 ? "warn" : "ok"
+                      },
+                      {
+                        label: "Questions",
+                        value: formatCount(observability.signals.questionsAsked),
+                        note: `${formatRate(observability.signals.questionClosureRate)} closed`
+                      },
+                      {
+                        label: "Todos",
+                        value: formatCount(observability.signals.todosAdded),
+                        note: `${formatRate(observability.signals.todoCompletionRate)} completed`
+                      },
+                      {
+                        label: "Sessions",
+                        value: formatCount(observability.sessions.total),
+                        note: `${formatCount(observability.sessions.open)} open · ${formatCount(observability.sessions.resumed)} resumed`
+                      },
+                      {
+                        label: "Runtime Source",
+                        value: observability.runtimeSource ?? "unknown",
+                        note: "task lineage"
+                      }
+                    ]}
+                  />
+                </SectionCard>
+
+                <SectionCard title="Signals">
+                  <ObservabilityMetricGrid
+                    items={[
+                      { label: "Raw Prompts", value: formatCount(observability.signals.rawUserMessages), note: "captured user turns" },
+                      { label: "Follow-ups", value: formatCount(observability.signals.followUpMessages), note: "additional user turns" },
+                      { label: "Thoughts", value: formatCount(observability.signals.thoughts), note: "planning summaries" },
+                      { label: "Tool Calls", value: formatCount(observability.signals.toolCalls), note: "non-terminal tools" },
+                      { label: "Terminal", value: formatCount(observability.signals.terminalCommands), note: "shell commands" },
+                      { label: "Verifications", value: formatCount(observability.signals.verifications), note: "tests and checks" },
+                      { label: "Coordination", value: formatCount(observability.signals.coordinationActivities), note: "MCP / delegation" },
+                      { label: "Background", value: formatCount(observability.signals.backgroundTransitions), note: "async task transitions" },
+                      { label: "Explored Files", value: formatCount(observability.signals.exploredFiles), note: "read paths" }
+                    ]}
+                  />
+                </SectionCard>
+              </>
+            ) : (
+              <div className="rounded-[14px] border border-dashed border-[var(--border)] bg-[var(--bg)] px-4 py-6 text-center">
+                <p className="m-0 text-[0.86rem] font-medium text-[var(--text-2)]">No task health diagnostics available.</p>
+                <p className="mt-1.5 mb-0 text-[0.78rem] text-[var(--text-3)]">
+                  Health cards appear once the server returns task-level observability for the current selection.
+                </p>
+              </div>
+            )}
+          </div>
+
         ) : activeTab === "tags" ? (
           <div className="panel-tab-inner flex flex-col gap-5 p-4">
             <TagExplorerCard
@@ -1984,6 +2372,7 @@ export function EventInspector({
         ) : (
           <div className="panel-tab-inner flex flex-col gap-5 p-4">
             <ExplorationInsightCard insight={explorationInsight} />
+            <WebLookupsCard lookups={webLookups} />
             <DetailExploredFiles
               files={sortedExploredFiles}
               workspacePath={taskDetail?.task.workspacePath}

@@ -7,8 +7,10 @@ import type React from "react";
 import { useState } from "react";
 import type {
   BookmarkSearchHit,
+  OverviewResponse,
   SearchResponse
 } from "../types.js";
+import { formatCount, formatDuration, formatRate } from "../lib/observability.js";
 import { cn } from "../lib/ui/cn.js";
 import { useTheme } from "../lib/useTheme.js";
 import { Button } from "./ui/Button.js";
@@ -20,6 +22,7 @@ interface ObservabilityBadgeCounts {
 }
 
 interface TopBarProps {
+  readonly overview?: OverviewResponse | null;
   readonly isConnected: boolean;
   readonly searchQuery: string;
   readonly searchResults: SearchResponse | null;
@@ -107,10 +110,39 @@ function ObsRow({ label, value, color }: { label: string; value: number; color: 
 }
 
 // ---------------------------------------------------------------------------
-// TopBar
+// Overview metric chip — displays aggregate stats from the overview endpoint
 // ---------------------------------------------------------------------------
 
+function TopBarMetricChip({
+  label,
+  value,
+  tone = "neutral"
+}: {
+  readonly label: string;
+  readonly value: string;
+  readonly tone?: "neutral" | "accent" | "ok" | "warn" | "danger";
+}): React.JSX.Element {
+  const toneClassName = {
+    neutral: "border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-2)]",
+    accent: "border-[color-mix(in_srgb,var(--accent)_24%,var(--border))] bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] text-[var(--accent)]",
+    ok: "border-[color-mix(in_srgb,var(--ok)_28%,var(--border))] bg-[var(--ok-bg)] text-[var(--ok)]",
+    warn: "border-[color-mix(in_srgb,var(--warn)_28%,var(--border))] bg-[var(--warn-bg)] text-[var(--warn)]",
+    danger: "border-[color-mix(in_srgb,var(--err)_28%,var(--border))] bg-[var(--err-bg)] text-[var(--err)]"
+  } satisfies Record<"neutral" | "accent" | "ok" | "warn" | "danger", string>;
+
+  return (
+    <span className={cn("inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[0.68rem] font-semibold whitespace-nowrap", toneClassName[tone])}>
+      <span className="uppercase tracking-[0.08em] opacity-70">{label}</span>
+      <strong className="text-[0.72rem] font-semibold">{value}</strong>
+    </span>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// TopBar
+// ---------------------------------------------------------------------------
 export function TopBar({
+  overview = null,
   isConnected,
   searchQuery,
   searchResults,
@@ -132,6 +164,8 @@ export function TopBar({
   const totalResults = (searchResults?.tasks.length ?? 0)
     + (searchResults?.events.length ?? 0)
     + (searchResults?.bookmarks.length ?? 0);
+  const overviewObservability = overview?.observability ?? null;
+  const runtimeSourceChips = overviewObservability?.runtimeSources.slice(0, 2) ?? [];
 
   return (
     <header className="z-10 flex h-[52px] shrink-0 items-center gap-2 border-b border-[var(--border)] bg-[var(--surface)] px-4 shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
@@ -162,7 +196,41 @@ export function TopBar({
         </span>
       )}
 
-      {/* Observability summary chip — single pill, expands on hover */}
+      {/* Overview metric chips — aggregate stats (xl+ only) */}
+      {overviewObservability && (
+        <div className="hidden min-w-0 shrink items-center gap-1.5 xl:flex">
+          <TopBarMetricChip
+            label="Prompt"
+            tone="accent"
+            value={formatRate(overviewObservability.promptCaptureRate)}
+          />
+          <TopBarMetricChip
+            label="Linked"
+            tone="ok"
+            value={formatRate(overviewObservability.traceLinkedTaskRate)}
+          />
+          <TopBarMetricChip
+            label="Stale"
+            tone={overviewObservability.staleRunningTasks > 0 ? "danger" : "neutral"}
+            value={formatCount(overviewObservability.staleRunningTasks)}
+          />
+          <TopBarMetricChip
+            label="Avg"
+            tone="neutral"
+            value={formatDuration(overviewObservability.avgDurationMs)}
+          />
+          {runtimeSourceChips.map((source) => (
+            <TopBarMetricChip
+              key={source.runtimeSource}
+              label={source.runtimeSource}
+              tone="neutral"
+              value={`${formatCount(source.taskCount)} · ${formatRate(source.traceLinkedTaskRate)}`}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Observability summary chip — single pill, expands on click */}
       {observabilityStats && (
         <ObservabilityChip stats={observabilityStats} />
       )}

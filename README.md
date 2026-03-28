@@ -89,6 +89,16 @@ npm run docs:dev
   - `v*` 형식의 태그(`v0.1.0` 등)를 push하면 자동으로 4개 패키지 publish job이 동작합니다.
 - `NPM_TOKEN` secret이 필수입니다 (`repository > Settings > Secrets and variables > Actions`).
 
+## Thought-Flow Observability
+
+대시보드는 이제 단순 이벤트 목록 외에 다음 진단 정보를 함께 보여준다.
+
+- 상단 diagnostics 카드: prompt capture 비율, trace-linked task 비율, stale running task, 평균 작업 시간
+- Inspector `Flow` 탭: phase breakdown, active duration, session 상태, top files/tags, work item/goal/plan/handoff focus
+- Inspector `Health` 탭: trace links, action-registry gaps, question/todo closure, coordination/background activity, runtime lineage
+
+세부 계약과 API는 `docs/guide/task-observability.md` 참고.
+
 ## 패키지
 
 | 패키지 | 역할 |
