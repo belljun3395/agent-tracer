@@ -15,7 +15,10 @@ docker compose up -d --build
 
 실행이 완료되면 아래 URL을 통해 접속할 수 있습니다:
 - **웹 UI (Frontend):** [http://localhost:5173](http://localhost:5173)
+- **문서 (VitePress):** [http://localhost:5173/docs/](http://localhost:5173/docs/)
 - **API 서버 (Backend):** `http://localhost:3847` 에서 내부적으로 통신 중입니다.
+
+문서는 별도 컨테이너를 추가로 띄우지 않고, 기존 `web` 컨테이너 안에서 `/docs/` 경로로 함께 서빙됩니다.
 
 ---
 
