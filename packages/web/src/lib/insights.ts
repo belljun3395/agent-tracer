@@ -5,7 +5,8 @@
  * 통계, 태그 분석, 규칙 커버리지, 태스크 요약 등을 담당.
  */
 
-import { filePathsInDirectory, isDirectoryPath, matchFilePaths } from "@monitor/core";
+import { buildReusableTaskSnapshot, filePathsInDirectory, isDirectoryPath, matchFilePaths } from "@monitor/core";
+import type { ReusableTaskSnapshot } from "@monitor/core";
 import type { MonitoringTask, TimelineEvent, TimelineLane } from "../types.js";
 import { resolveEventSubtype } from "./eventSubtype.js";
 
@@ -31,7 +32,7 @@ export interface ExploredFileStat {
 /** Exploration 탭 Web Lookups 섹션에 표시할 개별 웹 조회 통계. */
 export interface WebLookupStat {
   readonly url: string;
-  readonly toolName: "WebSearch" | "WebFetch" | string;
+  readonly toolName: string;
   readonly count: number;
   readonly firstSeenAt: string;
   readonly lastSeenAt: string;
@@ -536,7 +537,8 @@ export function buildTaskExtraction(
   const sections = buildTaskProcessSections(timeline);
   const validations = collectTaskValidations(timeline);
   const files = exploredFiles.slice(0, 6).map((file) => file.path);
-  const summary = buildTaskSummary(timeline, sections, validations, files);
+  const snapshot = buildReusableTaskSnapshot({ objective, events: timeline });
+  const summary = snapshot.outcomeSummary ?? buildTaskSummary(timeline, sections, validations, files);
   const brief = buildTaskBrief(objective, summary, sections, validations);
   const processMarkdown = buildTaskProcessMarkdown(objective, summary, sections, validations, files);
 
@@ -1709,6 +1711,8 @@ export interface HandoffOptions {
   readonly openQuestions: readonly string[];
   readonly violations: readonly string[];
   readonly memo: string;
+  readonly snapshot: ReusableTaskSnapshot;
+  readonly mode: HandoffMode;
   readonly include: {
     readonly summary: boolean;
     readonly process: boolean;
@@ -1721,15 +1725,37 @@ export interface HandoffOptions {
   };
 }
 
+export type HandoffMode = "compact" | "standard" | "full";
+
 export function buildHandoffPlain(options: HandoffOptions): string {
-  const { objective, summary, sections, plans, exploredFiles, modifiedFiles,
-          openTodos, openQuestions, violations, memo, include } = options;
+  const {
+    objective,
+    memo,
+    include,
+    snapshot,
+    mode
+  } = options;
+  const {
+    summary,
+    sections,
+    plans,
+    exploredFiles,
+    modifiedFiles,
+    openTodos,
+    openQuestions,
+    violations
+  } = selectHandoffViewData(options);
   const lines: string[] = [];
 
   lines.push(`Task: ${objective}`);
+  lines.push(`Mode: ${mode}`);
 
   if (include.summary && summary) {
     lines.push(`Summary: ${summary}`);
+  }
+
+  if (snapshot.reuseWhen) {
+    lines.push(`Reuse When: ${snapshot.reuseWhen}`);
   }
 
   if (include.plans && plans.length > 0) {
@@ -1764,6 +1790,10 @@ export function buildHandoffPlain(options: HandoffOptions): string {
     for (const v of violations) lines.push(`- ${v}`);
   }
 
+  if (snapshot.verificationSummary) {
+    lines.push(`Verification: ${snapshot.verificationSummary}`);
+  }
+
   if (include.questions && openQuestions.length > 0) {
     lines.push("Open Questions:");
     for (const q of openQuestions) lines.push(`- ${q}`);
@@ -1777,12 +1807,31 @@ export function buildHandoffPlain(options: HandoffOptions): string {
 }
 
 export function buildHandoffMarkdown(options: HandoffOptions): string {
-  const { objective, summary, sections, plans, exploredFiles, modifiedFiles,
-          openTodos, openQuestions, violations, memo, include } = options;
-  const parts: string[] = ["# Task Context", `\n## Objective\n${objective}`];
+  const {
+    objective,
+    memo,
+    include,
+    snapshot,
+    mode
+  } = options;
+  const {
+    summary,
+    sections,
+    plans,
+    exploredFiles,
+    modifiedFiles,
+    openTodos,
+    openQuestions,
+    violations
+  } = selectHandoffViewData(options);
+  const parts: string[] = ["# Task Context", `\n## Objective\n${objective}`, `\n## Mode\n${mode}`];
 
   if (include.summary && summary) {
     parts.push(`\n## Summary\n${summary}`);
+  }
+
+  if (snapshot.reuseWhen) {
+    parts.push(`\n## Reuse When\n${snapshot.reuseWhen}`);
   }
 
   if (include.plans && plans.length > 0) {
@@ -1812,6 +1861,10 @@ export function buildHandoffMarkdown(options: HandoffOptions): string {
     parts.push(`\n## Violations\n${violations.map(v => `- ${v}`).join("\n")}`);
   }
 
+  if (snapshot.verificationSummary) {
+    parts.push(`\n## Verification\n- ${snapshot.verificationSummary}`);
+  }
+
   if (include.questions && openQuestions.length > 0) {
     parts.push(`\n## Open Questions\n${openQuestions.map(q => `- ${q}`).join("\n")}`);
   }
@@ -1828,14 +1881,34 @@ function cdata(s: string): string {
 }
 
 export function buildHandoffXML(options: HandoffOptions): string {
-  const { objective, summary, sections, plans, exploredFiles, modifiedFiles,
-          openTodos, openQuestions, violations, memo, include } = options;
+  const {
+    objective,
+    memo,
+    include,
+    snapshot,
+    mode
+  } = options;
+  const {
+    summary,
+    sections,
+    plans,
+    exploredFiles,
+    modifiedFiles,
+    openTodos,
+    openQuestions,
+    violations
+  } = selectHandoffViewData(options);
   const lines: string[] = ["<context>"];
 
   lines.push(`  <objective>${cdata(objective)}</objective>`);
+  lines.push(`  <mode>${cdata(mode)}</mode>`);
 
   if (include.summary && summary) {
     lines.push(`  <summary>${cdata(summary)}</summary>`);
+  }
+
+  if (snapshot.reuseWhen) {
+    lines.push(`  <reuse_when>${cdata(snapshot.reuseWhen)}</reuse_when>`);
   }
 
   if (include.plans && plans.length > 0) {
@@ -1880,6 +1953,10 @@ export function buildHandoffXML(options: HandoffOptions): string {
     lines.push("  </violations>");
   }
 
+  if (snapshot.verificationSummary) {
+    lines.push(`  <verification>${cdata(snapshot.verificationSummary)}</verification>`);
+  }
+
   if (include.questions && openQuestions.length > 0) {
     lines.push("  <open_questions>");
     for (const q of openQuestions) lines.push(`    <question>${cdata(q)}</question>`);
@@ -1895,15 +1972,35 @@ export function buildHandoffXML(options: HandoffOptions): string {
 }
 
 export function buildHandoffSystemPrompt(options: HandoffOptions): string {
-  const { objective, summary, sections, plans, exploredFiles, modifiedFiles,
-          openTodos, openQuestions, violations, memo, include } = options;
+  const {
+    objective,
+    memo,
+    include,
+    snapshot,
+    mode
+  } = options;
+  const {
+    summary,
+    sections,
+    plans,
+    exploredFiles,
+    modifiedFiles,
+    openTodos,
+    openQuestions,
+    violations
+  } = selectHandoffViewData(options);
   const parts: string[] = [
     "You are continuing a software development task. Below is the full context from the previous session.",
-    `\n## Task\n${objective}`
+    `\n## Task\n${objective}`,
+    `\n## Handoff Mode\n${mode}`
   ];
 
   if (include.summary && summary) {
     parts.push(`\n## What was done\n${summary}`);
+  }
+
+  if (snapshot.reuseWhen) {
+    parts.push(`\n## Reuse When\n${snapshot.reuseWhen}`);
   }
 
   if (include.plans && plans.length > 0) {
@@ -1931,6 +2028,10 @@ export function buildHandoffSystemPrompt(options: HandoffOptions): string {
     parts.push(`\n## Watch out for\n${violations.map(v => `- ${v}`).join("\n")}`);
   }
 
+  if (snapshot.verificationSummary) {
+    parts.push(`\n## Verification\n- ${snapshot.verificationSummary}`);
+  }
+
   if (include.questions && openQuestions.length > 0) {
     parts.push(`\n## Open questions\n${openQuestions.map(q => `- ${q}`).join("\n")}`);
   }
@@ -1941,4 +2042,76 @@ export function buildHandoffSystemPrompt(options: HandoffOptions): string {
 
   parts.push("\nBegin by acknowledging you have read this context, then ask what to tackle first.");
   return parts.join("");
+}
+
+function selectHandoffViewData(options: HandoffOptions): {
+  readonly summary: string;
+  readonly sections: readonly TaskProcessSection[];
+  readonly plans: readonly string[];
+  readonly exploredFiles: readonly string[];
+  readonly modifiedFiles: readonly string[];
+  readonly openTodos: readonly string[];
+  readonly openQuestions: readonly string[];
+  readonly violations: readonly string[];
+} {
+  if (options.mode === "full") {
+    return {
+      summary: options.summary,
+      sections: options.sections,
+      plans: options.plans,
+      exploredFiles: options.exploredFiles,
+      modifiedFiles: options.modifiedFiles,
+      openTodos: options.openTodos,
+      openQuestions: options.openQuestions,
+      violations: options.violations
+    };
+  }
+
+  const compactSections: TaskProcessSection[] = [];
+  if (options.snapshot.approachSummary) {
+    compactSections.push({
+      lane: "planning",
+      title: "What Worked",
+      items: [options.snapshot.approachSummary]
+    });
+  }
+  if (options.snapshot.keyDecisions.length > 0) {
+    compactSections.push({
+      lane: "implementation",
+      title: "Key Decisions",
+      items: options.mode === "compact"
+        ? options.snapshot.keyDecisions.slice(0, 3)
+        : options.snapshot.keyDecisions
+    });
+  }
+
+  const summaryLines = [
+    options.snapshot.outcomeSummary ?? options.summary,
+    options.mode === "standard" && options.snapshot.reuseWhen ? `Reuse when: ${options.snapshot.reuseWhen}` : null
+  ].filter((value): value is string => Boolean(value));
+
+  return {
+    summary: summaryLines.join("\n"),
+    sections: options.mode === "compact"
+      ? compactSections
+      : compactSections.length > 0
+        ? [...compactSections, ...options.sections.map((section) => ({
+            ...section,
+            items: section.items.slice(0, 2)
+          }))]
+        : options.sections.map((section) => ({ ...section, items: section.items.slice(0, 2) })),
+    plans: (options.snapshot.nextSteps.length > 0 ? options.snapshot.nextSteps : options.plans)
+      .slice(0, options.mode === "compact" ? 3 : 5),
+    exploredFiles: (options.snapshot.keyFiles.length > 0 ? options.snapshot.keyFiles : options.exploredFiles)
+      .slice(0, options.mode === "compact" ? 4 : 6),
+    modifiedFiles: (options.snapshot.modifiedFiles.length > 0 ? options.snapshot.modifiedFiles : options.modifiedFiles)
+      .slice(0, options.mode === "compact" ? 4 : 6),
+    openTodos: (options.snapshot.nextSteps.length > 0 ? options.snapshot.nextSteps : options.openTodos)
+      .slice(0, options.mode === "compact" ? 3 : 4),
+    openQuestions: options.openQuestions.slice(0, options.mode === "compact" ? 1 : 2),
+    violations: uniqueStrings([
+      ...options.snapshot.watchItems,
+      ...options.violations
+    ]).slice(0, options.mode === "compact" ? 4 : 6)
+  };
 }

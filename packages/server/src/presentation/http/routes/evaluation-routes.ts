@@ -12,11 +12,14 @@ export function createEvaluationRoutes(service: MonitorService): Router {
   // POST /api/tasks/:id/evaluate — 태스크 평가 저장
   router.post("/api/tasks/:id/evaluate", async (req, res) => {
     const taskId = req.params.id;
-    const { rating, useCase, workflowTags, outcomeNote } = req.body as {
+    const { rating, useCase, workflowTags, outcomeNote, approachNote, reuseWhen, watchouts } = req.body as {
       rating?: unknown;
       useCase?: unknown;
       workflowTags?: unknown;
       outcomeNote?: unknown;
+      approachNote?: unknown;
+      reuseWhen?: unknown;
+      watchouts?: unknown;
     };
 
     if (rating !== "good" && rating !== "skip") {
@@ -24,13 +27,15 @@ export function createEvaluationRoutes(service: MonitorService): Router {
       return;
     }
 
-    await service.upsertTaskEvaluation(
-      taskId,
+    await service.upsertTaskEvaluation(taskId, {
       rating,
-      typeof useCase === "string" ? useCase : undefined,
-      Array.isArray(workflowTags) ? (workflowTags as string[]) : undefined,
-      typeof outcomeNote === "string" ? outcomeNote : undefined
-    );
+      useCase: typeof useCase === "string" ? useCase : undefined,
+      workflowTags: Array.isArray(workflowTags) ? (workflowTags as string[]) : undefined,
+      outcomeNote: typeof outcomeNote === "string" ? outcomeNote : undefined,
+      approachNote: typeof approachNote === "string" ? approachNote : undefined,
+      reuseWhen: typeof reuseWhen === "string" ? reuseWhen : undefined,
+      watchouts: typeof watchouts === "string" ? watchouts : undefined
+    });
     res.json({ ok: true });
   });
 

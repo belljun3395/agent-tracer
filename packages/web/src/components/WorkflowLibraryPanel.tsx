@@ -46,6 +46,9 @@ export function WorkflowLibraryPanel({ onSelectTask, onClose }: WorkflowLibraryP
         || (item.useCase ?? "").toLowerCase().includes(search.toLowerCase())
         || item.workflowTags.some(t => t.toLowerCase().includes(search.toLowerCase()))
         || (item.outcomeNote ?? "").toLowerCase().includes(search.toLowerCase())
+        || (item.approachNote ?? "").toLowerCase().includes(search.toLowerCase())
+        || (item.reuseWhen ?? "").toLowerCase().includes(search.toLowerCase())
+        || (item.watchouts ?? "").toLowerCase().includes(search.toLowerCase())
       )
     : items;
 
@@ -98,7 +101,7 @@ export function WorkflowLibraryPanel({ onSelectTask, onClose }: WorkflowLibraryP
         <div className="shrink-0 border-b border-[var(--border)] px-4 py-2.5">
           <input
             className="w-full rounded-[8px] border border-[var(--border)] bg-[var(--surface-2)] px-3 py-1.5 text-[0.8rem] text-[var(--text-1)] outline-none placeholder:text-[var(--text-3)] focus:border-[var(--accent)]"
-            placeholder="Filter by title, use case, tags…"
+            placeholder="Filter by title, use case, tags, reuse hints…"
             type="search"
             value={search}
             onChange={e => setSearch(e.target.value)}
@@ -158,10 +161,24 @@ export function WorkflowLibraryPanel({ onSelectTask, onClose }: WorkflowLibraryP
                   </div>
                 )}
 
-                {/* Outcome note */}
                 {item.outcomeNote && (
-                  <p className="m-0 line-clamp-2 text-[0.77rem] leading-relaxed text-[var(--text-3)]">
-                    {item.outcomeNote}
+                  <p className="m-0 line-clamp-2 text-[0.77rem] leading-relaxed text-[var(--text-2)]">
+                    Outcome: {item.outcomeNote}
+                  </p>
+                )}
+                {item.approachNote && (
+                  <p className="m-0 line-clamp-2 text-[0.76rem] leading-relaxed text-[var(--text-3)]">
+                    What worked: {item.approachNote}
+                  </p>
+                )}
+                {item.reuseWhen && (
+                  <p className="m-0 line-clamp-2 text-[0.76rem] leading-relaxed text-[var(--accent)]">
+                    Reuse when: {item.reuseWhen}
+                  </p>
+                )}
+                {item.watchouts && (
+                  <p className="m-0 line-clamp-2 text-[0.76rem] leading-relaxed text-[var(--danger)]">
+                    Watch out: {item.watchouts}
                   </p>
                 )}
               </button>

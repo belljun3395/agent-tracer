@@ -181,6 +181,9 @@ export interface TaskEvaluationPayload {
   useCase?: string;
   workflowTags?: string[];
   outcomeNote?: string;
+  approachNote?: string;
+  reuseWhen?: string;
+  watchouts?: string;
 }
 
 export type TaskEvaluationRecord = TaskEvaluation;

@@ -30,6 +30,18 @@ WebSocket 신호와 REST read model을 조합해 상태를 갱신한다.
 `Inspector`, `Flow`, `Health`, `Tags`, `Task`, `Evaluate`, `Compact`, `Files`, `Exploration`
 탭이 있다. `Flow`와 `Health`는 `/api/tasks/:taskId/observability` read model을 사용한다.
 
+### TopBar 컴포넌트 상세
+
+TopBar에는 역할이 다른 두 가지 칩 컴포넌트가 공존한다.
+
+| 컴포넌트 | 데이터 소스 | 역할 |
+|----------|-------------|------|
+| `TopBarMetricChip` | `GET /api/observability/overview` | 전체 세션 기준 글로벌 지표 카드 (Prompt Capture, Linked Tasks, Stale Running, Avg Duration 등) |
+| `ObservabilityChip` | 선택된 task의 `ObservabilityBadgeCounts` | 현재 선택 task 기준 per-task 상태 배지 (exploration, planning, implementation 카운트) |
+
+`TopBarMetricChip`은 `overviewObservability` 섹션에서 전역 리스트를 렌더링한다.
+`ObservabilityChip`은 선택된 task가 있을 때 `observabilityStats`를 prop으로 받아 해당 task의 lane별 카운트를 표시한다.
+
 ### Workflow library
 
 최근 코드 기준으로 TopBar의 `Library` 버튼을 통해 열리는 별도 패널이다.

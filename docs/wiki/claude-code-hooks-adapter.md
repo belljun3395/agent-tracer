@@ -50,6 +50,25 @@ hook 동작 중 transient subagent registry 정보가 `.claude/.subagent-registr
 repo-local 설정과 `setup:external`이 생성한 hook command는
 `NODE_ENV=development`를 포함하므로 `.claude/hooks.log`를 남길 수 있다.
 
+### `explore.ts`가 웹 조회 URL을 메타데이터에 기록한다
+
+`explore.ts`는 `PostToolUse` hook에서 `WebSearch` / `WebFetch` 도구 호출을 감지하면,
+`/api/explore` 요청의 `metadata.webUrls` 필드에 쿼리 또는 URL을 저장한다.
+
+```typescript
+const isWebTool = toolName === "WebSearch" || toolName === "WebFetch";
+const webQuery = isWebTool
+  ? (toTrimmedString(toolInput.query) || toTrimmedString(toolInput.url)).slice(0, MAX_PATH_LENGTH)
+  : "";
+// postJson body의 metadata:
+...(isWebTool && webQuery ? { webUrls: [webQuery] } : {})
+```
+
+이 데이터는 `insights.ts`의 `collectWebLookups()` 함수가 수집해 대시보드
+Exploration 탭의 **Web Lookups** 섹션에 표시된다.
+`metadata.webUrls`는 Claude Code hook 공식 스펙에 없는 Agent Tracer 자체 확장이며,
+DB 스키마 변경 없이 `metadata` 자유 필드로 저장된다.
+
 ## 이 경로의 장점
 
 - raw prompt를 자동 캡처할 수 있다.

@@ -1,4 +1,5 @@
-import type { TimelineEvent } from "@monitor/core";
+import { buildReusableTaskSnapshot } from "@monitor/core";
+import type { TimelineEvent, WorkflowEvaluationData } from "@monitor/core";
 
 import { LANE_TITLES, WORKFLOW_CONTEXT_LANES } from "./workflow-context-builder.constants.js";
 
@@ -12,13 +13,19 @@ export function buildOriginalRequestSection(events: readonly TimelineEvent[]): s
   return `\n## Original Request\n${text}`;
 }
 
-export function buildWorkflowContext(events: readonly TimelineEvent[], taskTitle: string): string {
+export function buildWorkflowContext(
+  events: readonly TimelineEvent[],
+  taskTitle: string,
+  evaluation?: Partial<WorkflowEvaluationData> | null
+): string {
+  const snapshot = buildReusableTaskSnapshot({
+    objective: taskTitle,
+    events,
+    evaluation
+  });
   const parts: string[] = [`# Workflow: ${taskTitle}`];
 
-  const originalRequestSection = buildOriginalRequestSection(events);
-  if (originalRequestSection) {
-    parts.push(originalRequestSection);
-  }
+  parts.push(...buildSnapshotSections(snapshot, evaluation));
 
   const planSection = buildPlanSection(events);
   if (planSection) {
@@ -43,6 +50,46 @@ export function buildWorkflowContext(events: readonly TimelineEvent[], taskTitle
   }
 
   return parts.join("");
+}
+
+function buildSnapshotSections(
+  snapshot: ReturnType<typeof buildReusableTaskSnapshot>,
+  evaluation?: Partial<WorkflowEvaluationData> | null
+): readonly string[] {
+  const sections: string[] = [];
+
+  if (snapshot.originalRequest) {
+    sections.push(`\n## Original Request\n${snapshot.originalRequest}`);
+  }
+  if (evaluation?.useCase) {
+    sections.push(`\n## Use Case\n${evaluation.useCase}`);
+  }
+  if (snapshot.outcomeSummary) {
+    sections.push(`\n## Outcome\n${snapshot.outcomeSummary}`);
+  }
+  if (snapshot.approachSummary) {
+    sections.push(`\n## What Worked\n${snapshot.approachSummary}`);
+  }
+  if (snapshot.reuseWhen) {
+    sections.push(`\n## Reuse When\n${snapshot.reuseWhen}`);
+  }
+  if (snapshot.keyDecisions.length > 0) {
+    sections.push(`\n## Key Decisions\n${snapshot.keyDecisions.map((item) => `- ${item}`).join("\n")}`);
+  }
+  if (snapshot.nextSteps.length > 0) {
+    sections.push(`\n## Next Steps\n${snapshot.nextSteps.map((item) => `- ${item}`).join("\n")}`);
+  }
+  if (snapshot.watchItems.length > 0) {
+    sections.push(`\n## Watchouts\n${snapshot.watchItems.map((item) => `- ${item}`).join("\n")}`);
+  }
+  if (snapshot.keyFiles.length > 0) {
+    sections.push(`\n## Key Files\n${snapshot.keyFiles.map((filePath) => `- \`${filePath}\``).join("\n")}`);
+  }
+  if (snapshot.verificationSummary) {
+    sections.push(`\n## Verification Snapshot\n- ${snapshot.verificationSummary}`);
+  }
+
+  return sections;
 }
 
 export function buildPlanSection(events: readonly TimelineEvent[]): string | undefined {

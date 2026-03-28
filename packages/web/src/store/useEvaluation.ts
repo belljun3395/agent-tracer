@@ -65,7 +65,17 @@ export function useEvaluation(taskId: string | null | undefined): UseEvaluationR
     setIsSaving(true);
     try {
       await saveTaskEvaluation(taskId, payload);
-      setEvaluation({ taskId, ...payload, workflowTags: payload.workflowTags ?? [], useCase: payload.useCase ?? null, outcomeNote: payload.outcomeNote ?? null, evaluatedAt: new Date().toISOString() });
+      setEvaluation({
+        taskId,
+        ...payload,
+        workflowTags: payload.workflowTags ?? [],
+        useCase: payload.useCase ?? null,
+        outcomeNote: payload.outcomeNote ?? null,
+        approachNote: payload.approachNote ?? null,
+        reuseWhen: payload.reuseWhen ?? null,
+        watchouts: payload.watchouts ?? null,
+        evaluatedAt: new Date().toISOString()
+      });
       setIsSaved(true);
       setTimeout(() => setIsSaved(false), 2500);
     } finally {

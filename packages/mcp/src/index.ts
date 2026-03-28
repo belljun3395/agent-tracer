@@ -517,13 +517,16 @@ export function createMonitorMcpServer(client = new MonitorClient()): McpServer 
         "Mark a completed task as a workflow example for future reference. " +
         "Use rating='good' for tasks where the approach worked well and should be referenced later. " +
         "Use rating='skip' to exclude a task from future suggestions. " +
-        "The outcomeNote is the most valuable field — describe what approach worked and why.",
+        "Fill outcomeNote, approachNote, reuseWhen, and watchouts when possible so the saved workflow is reusable later.",
       inputSchema: {
         taskId: z.string(),
         rating: z.enum(["good", "skip"]),
         useCase: z.string().optional().describe("What kind of task was this? e.g. 'TypeScript type error fixes'"),
         workflowTags: z.array(z.string()).optional().describe("e.g. ['typescript', 'bug-fix', 'refactor']"),
-        outcomeNote: z.string().optional().describe("What approach worked well? Hints for next time.")
+        outcomeNote: z.string().optional().describe("What was achieved or resolved?"),
+        approachNote: z.string().optional().describe("What approach worked well and why?"),
+        reuseWhen: z.string().optional().describe("When should this workflow be reused?"),
+        watchouts: z.string().optional().describe("What should future runs watch out for?")
       }
     },
     async ({ taskId, ...rest }) => toToolResponse(await client.post(`/api/tasks/${taskId}/evaluate`, rest))
@@ -553,7 +556,8 @@ export function createMonitorMcpServer(client = new MonitorClient()): McpServer 
       // Format results as readable text for the AI
       const items = result.data as Array<{
         taskId: string; title: string; rating: string; useCase: string | null;
-        workflowTags: string[]; outcomeNote: string | null; eventCount: number;
+        workflowTags: string[]; outcomeNote: string | null; approachNote: string | null;
+        reuseWhen: string | null; watchouts: string | null; eventCount: number;
         workflowContext: string;
       }>;
       if (items.length === 0) {
@@ -563,7 +567,10 @@ export function createMonitorMcpServer(client = new MonitorClient()): McpServer 
         `--- [${i + 1}] ${item.title} (${item.rating})`,
         item.useCase ? `Use case: ${item.useCase}` : null,
         item.workflowTags.length > 0 ? `Tags: ${item.workflowTags.join(", ")}` : null,
-        item.outcomeNote ? `Hint: ${item.outcomeNote}` : null,
+        item.outcomeNote ? `Outcome: ${item.outcomeNote}` : null,
+        item.approachNote ? `What worked: ${item.approachNote}` : null,
+        item.reuseWhen ? `Reuse when: ${item.reuseWhen}` : null,
+        item.watchouts ? `Watch out: ${item.watchouts}` : null,
         "",
         item.workflowContext
       ].filter(Boolean).join("\n")).join("\n\n");

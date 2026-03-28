@@ -7,7 +7,7 @@
 
 import type Database from "better-sqlite3";
 
-import type { IEvaluationRepository, TaskEvaluation, WorkflowSearchResult, WorkflowSummary } from "../../application/ports/evaluation-repository.js";
+import type { IEvaluationRepository, PersistedTaskEvaluation, TaskEvaluation, WorkflowSearchResult, WorkflowSummary } from "../../application/ports/evaluation-repository.js";
 import type { TimelineEvent } from "@monitor/core";
 import { parseJsonField } from "./sqlite-json.js";
 import { buildWorkflowContext } from "../../application/workflow-context-builder.helpers.js";
@@ -18,6 +18,10 @@ interface EvaluationRow {
   use_case: string | null;
   workflow_tags: string | null;
   outcome_note: string | null;
+  approach_note: string | null;
+  reuse_when: string | null;
+  watchouts: string | null;
+  search_text: string | null;
   evaluated_at: string;
 }
 
@@ -27,9 +31,14 @@ interface TaskWithEvaluationRow {
   use_case: string | null;
   workflow_tags: string | null;
   outcome_note: string | null;
+  approach_note: string | null;
+  reuse_when: string | null;
+  watchouts: string | null;
+  search_text: string | null;
   rating: string;
   event_count: number;
   created_at: string;
+  evaluated_at?: string;
 }
 
 interface EventRow {
@@ -52,6 +61,9 @@ function mapEvaluationRow(row: EvaluationRow): TaskEvaluation {
     useCase: row.use_case,
     workflowTags: row.workflow_tags ? parseJsonField<string[]>(row.workflow_tags) : [],
     outcomeNote: row.outcome_note,
+    approachNote: row.approach_note,
+    reuseWhen: row.reuse_when,
+    watchouts: row.watchouts,
     evaluatedAt: row.evaluated_at
   };
 }
@@ -74,15 +86,23 @@ function mapEventRow(row: EventRow): TimelineEvent {
 export class SqliteEvaluationRepository implements IEvaluationRepository {
   constructor(private readonly db: Database.Database) {}
 
-  async upsertEvaluation(evaluation: TaskEvaluation): Promise<void> {
+  async upsertEvaluation(evaluation: PersistedTaskEvaluation): Promise<void> {
     this.db.prepare(`
-      insert into task_evaluations (task_id, rating, use_case, workflow_tags, outcome_note, evaluated_at)
-      values (@taskId, @rating, @useCase, @workflowTags, @outcomeNote, @evaluatedAt)
+      insert into task_evaluations (
+        task_id, rating, use_case, workflow_tags, outcome_note, approach_note, reuse_when, watchouts, search_text, evaluated_at
+      )
+      values (
+        @taskId, @rating, @useCase, @workflowTags, @outcomeNote, @approachNote, @reuseWhen, @watchouts, @searchText, @evaluatedAt
+      )
       on conflict(task_id) do update set
         rating        = excluded.rating,
         use_case      = excluded.use_case,
         workflow_tags = excluded.workflow_tags,
         outcome_note  = excluded.outcome_note,
+        approach_note = excluded.approach_note,
+        reuse_when    = excluded.reuse_when,
+        watchouts     = excluded.watchouts,
+        search_text   = excluded.search_text,
         evaluated_at  = excluded.evaluated_at
     `).run({
       taskId: evaluation.taskId,
@@ -90,6 +110,10 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
       useCase: evaluation.useCase ?? null,
       workflowTags: evaluation.workflowTags.length > 0 ? JSON.stringify(evaluation.workflowTags) : null,
       outcomeNote: evaluation.outcomeNote ?? null,
+      approachNote: evaluation.approachNote ?? null,
+      reuseWhen: evaluation.reuseWhen ?? null,
+      watchouts: evaluation.watchouts ?? null,
+      searchText: evaluation.searchText ?? null,
       evaluatedAt: evaluation.evaluatedAt
     });
   }
@@ -103,6 +127,10 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
         e.use_case,
         e.workflow_tags,
         e.outcome_note,
+        e.approach_note,
+        e.reuse_when,
+        e.watchouts,
+        e.search_text,
         e.rating,
         e.evaluated_at,
         count(ev.id) as event_count,
@@ -121,6 +149,9 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
       useCase: row.use_case,
       workflowTags: row.workflow_tags ? parseJsonField<string[]>(row.workflow_tags) : [],
       outcomeNote: row.outcome_note,
+      approachNote: row.approach_note,
+      reuseWhen: row.reuse_when,
+      watchouts: row.watchouts,
       rating: row.rating as "good" | "skip",
       eventCount: row.event_count,
       createdAt: row.created_at,
@@ -152,6 +183,10 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
         e.use_case,
         e.workflow_tags,
         e.outcome_note,
+        e.approach_note,
+        e.reuse_when,
+        e.watchouts,
+        e.search_text,
         e.rating,
         count(ev.id) as event_count,
         t.created_at
@@ -163,6 +198,10 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
         or lower(coalesce(e.use_case, '')) like @pattern escape '\\'
         or lower(coalesce(e.workflow_tags, '')) like @pattern escape '\\'
         or lower(coalesce(e.outcome_note, '')) like @pattern escape '\\'
+        or lower(coalesce(e.approach_note, '')) like @pattern escape '\\'
+        or lower(coalesce(e.reuse_when, '')) like @pattern escape '\\'
+        or lower(coalesce(e.watchouts, '')) like @pattern escape '\\'
+        or lower(coalesce(e.search_text, '')) like @pattern escape '\\'
       )
       group by e.task_id
       order by (e.rating = 'good') desc, datetime(e.evaluated_at) desc
@@ -192,10 +231,20 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
         useCase: row.use_case,
         workflowTags: row.workflow_tags ? parseJsonField<string[]>(row.workflow_tags) : [],
         outcomeNote: row.outcome_note,
-        rating: row.rating,
+        approachNote: row.approach_note,
+        reuseWhen: row.reuse_when,
+        watchouts: row.watchouts,
+        rating: row.rating as "good" | "skip",
         eventCount: row.event_count,
         createdAt: row.created_at,
-        workflowContext: buildWorkflowContext(events, row.title)
+        workflowContext: buildWorkflowContext(events, row.title, {
+          useCase: row.use_case,
+          workflowTags: row.workflow_tags ? parseJsonField<string[]>(row.workflow_tags) : [],
+          outcomeNote: row.outcome_note,
+          approachNote: row.approach_note,
+          reuseWhen: row.reuse_when,
+          watchouts: row.watchouts
+        })
       };
     });
   }

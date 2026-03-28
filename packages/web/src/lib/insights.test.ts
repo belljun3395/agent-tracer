@@ -334,6 +334,21 @@ function makeHandoff(overrides: Partial<HandoffOptions> = {}): HandoffOptions {
     openQuestions: ["Should we use Redux?"],
     violations: ["No console.log allowed"],
     memo: "Start from the tests",
+    mode: "full",
+    snapshot: {
+      objective: "Build the feature",
+      originalRequest: "Please build the feature",
+      outcomeSummary: "Implemented X and Y",
+      approachSummary: "Started from the task snapshot and iterated on the API shape.",
+      reuseWhen: null,
+      watchItems: ["No console.log allowed"],
+      keyDecisions: ["Did A", "Did B"],
+      nextSteps: ["Write tests"],
+      keyFiles: ["src/App.tsx", "src/lib/insights.ts"],
+      modifiedFiles: ["src/App.tsx"],
+      verificationSummary: "Checks: 1 (1 pass, 0 fail)",
+      searchText: "Build the feature Implemented X and Y"
+    },
     include: { ...defaultInclude, ...(overrides.include ?? {}) },
     ...overrides
   };
@@ -402,6 +417,20 @@ describe("buildHandoffPlain", () => {
     }));
     expect(result).toContain("Task: Build the feature");
   });
+
+  it("uses snapshot-driven compact mode for short handoff output", () => {
+    const result = buildHandoffPlain(makeHandoff({
+      mode: "compact",
+      snapshot: {
+        ...makeHandoff().snapshot,
+        reuseWhen: "When you need a short AI handoff",
+        watchItems: ["Keep the prompt under budget"]
+      }
+    }));
+    expect(result).toContain("Mode: compact");
+    expect(result).toContain("Reuse When: When you need a short AI handoff");
+    expect(result).toContain("Verification: Checks: 1 (1 pass, 0 fail)");
+  });
 });
 
 describe("buildHandoffMarkdown", () => {
@@ -446,6 +475,19 @@ describe("buildHandoffMarkdown", () => {
       include: { summary: false, plans: false, process: false, files: false, modifiedFiles: false, todos: false, violations: false, questions: false }
     }));
     expect(result).toContain("## Objective\nBuild the feature");
+  });
+
+  it("renders reuse and verification sections in compact mode when snapshot provides them", () => {
+    const result = buildHandoffMarkdown(makeHandoff({
+      mode: "compact",
+      snapshot: {
+        ...makeHandoff().snapshot,
+        reuseWhen: "When workflow context keeps getting too long"
+      }
+    }));
+    expect(result).toContain("## Mode\ncompact");
+    expect(result).toContain("## Reuse When\nWhen workflow context keeps getting too long");
+    expect(result).toContain("## Verification\n- Checks: 1 (1 pass, 0 fail)");
   });
 });
 

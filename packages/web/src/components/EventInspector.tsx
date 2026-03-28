@@ -10,6 +10,7 @@ import {
   useMemo,
   useState
 } from "react";
+import { buildReusableTaskSnapshot } from "@monitor/core";
 
 import {
   buildCompactInsight,
@@ -1728,6 +1729,14 @@ export function EventInspector({
     () => collectPlanSteps(taskTimeline),
     [taskTimeline]
   );
+  const handoffSnapshot = useMemo(
+    () => buildReusableTaskSnapshot({
+      objective: taskExtraction.objective,
+      events: taskTimeline,
+      evaluation: taskEvaluation ?? undefined
+    }),
+    [taskExtraction.objective, taskTimeline, taskEvaluation]
+  );
 
   const relatedEvents = useMemo(() => {
     if (!selectedEvent) {
@@ -2325,6 +2334,7 @@ export function EventInspector({
                 openTodos={handoffOpenTodos}
                 openQuestions={handoffOpenQuestions}
                 violations={handoffViolations}
+                snapshot={handoffSnapshot}
               />
             )}
           </div>
