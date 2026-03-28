@@ -116,16 +116,16 @@ function collectVerificationState(events: readonly TimelineEvent[]): {
     return { summary: null, failures: [] };
   }
 
+  const failingVerifications = verifications.filter((event) =>
+    stringMetadata(event, "verificationStatus") === "fail"
+    || stringMetadata(event, "ruleStatus") === "violation"
+  );
   const failures = uniqueStrings(
-    verifications
-      .filter((event) =>
-        stringMetadata(event, "verificationStatus") === "fail"
-        || stringMetadata(event, "ruleStatus") === "violation"
-      )
+    failingVerifications
       .map((event) => normalizeText(event.title, 180))
       .filter((value): value is string => Boolean(value))
   ).slice(0, 4);
-  const failureCount = failures.length;
+  const failureCount = failingVerifications.length;
   const passCount = verifications.length - failureCount;
 
   return {
