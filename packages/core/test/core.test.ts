@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildReusableTaskSnapshot,
   classifyEvent,
   createTaskSlug,
   normalizeWorkspacePath,
@@ -11,6 +12,55 @@ import {
 describe("normalizeWorkspacePath", () => {
   it("compresses duplicate separators and trims trailing slash", () => {
     expect(normalizeWorkspacePath("/tmp//baden///")).toBe("/tmp/baden");
+  });
+});
+
+describe("buildReusableTaskSnapshot", () => {
+  it("preserves full assistant and planning text while keeping search text indexed", () => {
+    const longSummary = "[README.md](/Users/example/project/README.md) 다시 읽었습니다. 현재 기준 핵심은 Agent Tracer를 다른 프로젝트에 붙여 쓰는 monitor server/MCP/hook/plugin 소스로 두는 쪽이 1차 목표라는 점이고, 외부 프로젝트용 실행 경로는 `npm install && npm run build && npm run dev:server`입니다.";
+    const longDecision = "README refresh summary: README re-read complete. Key points: Agent Tracer is positioned primarily as an external-project integration via monitor server/MCP/hooks/plugins.";
+    const snapshot = buildReusableTaskSnapshot({
+      objective: "README.md 한번 다시 읽어봐.",
+      events: [
+        {
+          id: "user-1",
+          taskId: "task-1",
+          kind: "user.message",
+          lane: "user",
+          title: "사용자 요청",
+          body: "README.md 한번 다시 읽어봐.",
+          metadata: {},
+          classification: { lane: "user", tags: [], matches: [] },
+          createdAt: "2026-03-28T00:00:00.000Z"
+        },
+        {
+          id: "plan-1",
+          taskId: "task-1",
+          kind: "context.saved",
+          lane: "planning",
+          title: "README refresh summary",
+          body: longDecision,
+          metadata: {},
+          classification: { lane: "planning", tags: [], matches: [] },
+          createdAt: "2026-03-28T00:00:01.000Z"
+        },
+        {
+          id: "assistant-1",
+          taskId: "task-1",
+          kind: "assistant.response",
+          lane: "user",
+          title: "README reread summary",
+          body: longSummary,
+          metadata: {},
+          classification: { lane: "user", tags: [], matches: [] },
+          createdAt: "2026-03-28T00:00:02.000Z"
+        }
+      ]
+    });
+
+    expect(snapshot.outcomeSummary).toBe(longSummary);
+    expect(snapshot.keyDecisions).toContain(`README refresh summary: ${longDecision}`);
+    expect(snapshot.searchText).toContain("npm install && npm run build && npm run dev:server");
   });
 });
 

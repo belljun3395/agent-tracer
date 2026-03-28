@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { MonitoringTask, TimelineEvent } from "../types.js";
 import {
+  buildTaskExtraction,
   buildHandoffMarkdown,
   buildHandoffPlain,
   buildHandoffXML,
@@ -11,6 +12,7 @@ import {
   buildQuestionGroups,
   buildTaskDisplayTitle,
   buildTodoGroups,
+  collectPlanSteps,
   collectViolationDescriptions,
   collectWebLookups,
   filterTimelineEvents
@@ -488,6 +490,51 @@ describe("buildHandoffMarkdown", () => {
     expect(result).toContain("## Mode\ncompact");
     expect(result).toContain("## Reuse When\nWhen workflow context keeps getting too long");
     expect(result).toContain("## Verification\n- Checks: 1 (1 pass, 0 fail)");
+  });
+
+  it("keeps full summary and plan text in full mode instead of injecting ellipsis", () => {
+    const longSummary = "[README.md](/Users/example/project/README.md) 다시 읽었습니다. 현재 기준 핵심은 Agent Tracer를 다른 프로젝트에 붙여 쓰는 monitor server/MCP/hook/plugin 소스로 두는 쪽이 1차 목표라는 점이고, 외부 프로젝트용 실행 경로는 `npm install && npm run build && npm run dev:server`입니다.";
+    const longPlan = "README refresh summary: README re-read complete. Key points: Agent Tracer is positioned primarily as an external-project integration via monitor server/MCP/hooks/plugins.";
+    const extractedPlan = `README refresh summary: ${longPlan}`;
+    const timeline = [
+      makeEvent({
+        id: "user-goal",
+        kind: "user.message",
+        lane: "user",
+        title: "사용자 요청",
+        body: "README.md 한번 다시 읽어봐."
+      }),
+      makeEvent({
+        id: "planning-summary",
+        kind: "context.saved",
+        lane: "planning",
+        title: "README refresh summary",
+        body: longPlan
+      }),
+      makeEvent({
+        id: "assistant-summary",
+        kind: "assistant.response",
+        lane: "user",
+        title: "README reread summary",
+        body: longSummary
+      })
+    ];
+
+    const extraction = buildTaskExtraction(null, timeline, []);
+    const plans = collectPlanSteps(timeline);
+    const result = buildHandoffMarkdown(makeHandoff({
+      summary: extraction.summary,
+      plans,
+      sections: extraction.sections,
+      mode: "full"
+    }));
+
+    expect(extraction.summary).toBe(longSummary);
+    expect(plans).toContain(extractedPlan);
+    expect(result).toContain(longSummary);
+    expect(result).toContain(extractedPlan);
+    expect(result).not.toContain("npm install && npm…");
+    expect(result).not.toContain("monitor server/MCP/hooks/plugins...");
   });
 });
 
