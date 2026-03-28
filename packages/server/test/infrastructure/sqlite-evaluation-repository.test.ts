@@ -127,25 +127,56 @@ describe("sqlite evaluation repository search", () => {
 
     db.close();
   });
+
+  it("hydrates derived displayTitle for workflow summaries when the stored title is generic", async () => {
+    const db = new BetterSqlite3(":memory:");
+    createSchema(db);
+    seedTask(db, {
+      id: "task-library-display-title",
+      title: "Codex - agent-tracer",
+      workspacePath: "/tmp/agent-tracer"
+    });
+    seedEvaluation(db, {
+      taskId: "task-library-display-title",
+      rating: "good"
+    });
+    seedUserMessage(db, {
+      id: "event-user-title",
+      taskId: "task-library-display-title",
+      body: "hi?"
+    });
+
+    const repository = new SqliteEvaluationRepository(db);
+    const results = await repository.listEvaluations("good");
+
+    expect(results).toHaveLength(1);
+    expect(results[0]?.title).toBe("Codex - agent-tracer");
+    expect(results[0]?.displayTitle).toBe("hi?");
+
+    db.close();
+  });
 });
 
 function seedTask(db: BetterSqlite3.Database, input: {
   id: string;
   title: string;
+  slug?: string;
+  workspacePath?: string;
 }): void {
   db.prepare(`
     insert into monitoring_tasks (
       id, title, slug, workspace_path, status, task_kind, parent_task_id, parent_session_id,
       background_task_id, created_at, updated_at, last_session_started_at, cli_source
     ) values (
-      @id, @title, @slug, null, 'completed', 'primary', null, null,
+      @id, @title, @slug, @workspacePath, 'completed', 'primary', null, null,
       null, '2026-03-28T00:00:00.000Z', '2026-03-28T00:00:00.000Z',
       '2026-03-28T00:00:00.000Z', 'codex-skill'
     )
   `).run({
     id: input.id,
     title: input.title,
-    slug: input.id
+    slug: input.slug ?? input.id,
+    workspacePath: input.workspacePath ?? null
   });
 }
 
@@ -191,6 +222,21 @@ function seedEvent(db: BetterSqlite3.Database, input: {
     ) values (
       @id, @taskId, null, 'context.saved', 'planning', @title, @body,
       '{}', '{"lane":"planning","tags":[],"matches":[]}', '2026-03-28T00:00:01.000Z'
+    )
+  `).run(input);
+}
+
+function seedUserMessage(db: BetterSqlite3.Database, input: {
+  id: string;
+  taskId: string;
+  body: string;
+}): void {
+  db.prepare(`
+    insert into timeline_events (
+      id, task_id, session_id, kind, lane, title, body, metadata_json, classification_json, created_at
+    ) values (
+      @id, @taskId, null, 'user.message', 'user', 'User request', @body,
+      '{"captureMode":"raw"}', '{"lane":"user","tags":[],"matches":[]}', '2026-03-28T00:00:01.000Z'
     )
   `).run(input);
 }

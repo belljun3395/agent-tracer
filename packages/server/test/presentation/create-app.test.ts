@@ -87,6 +87,43 @@ describe("HTTP API", () => {
     expect(response.body[0]?.taskId).toBe(taskId);
   });
 
+  it("workflow library 목록은 generic task title 대신 derived displayTitle을 내려준다", async () => {
+    const started = await request(runtime.app)
+      .post("/api/task-start")
+      .send({
+        title: "Codex - agent-tracer",
+        workspacePath: "/Users/okestro/Documents/code/agent-tracer"
+      });
+
+    const taskId = started.body.task.id as string;
+    const sessionId = started.body.sessionId as string;
+    const goal = "hi?";
+
+    await request(runtime.app)
+      .post("/api/user-message")
+      .send({
+        taskId,
+        sessionId,
+        messageId: "msg-workflow-display-title",
+        captureMode: "raw",
+        source: "manual-mcp",
+        title: "사용자 요청",
+        body: goal
+      });
+
+    await request(runtime.app)
+      .post(`/api/tasks/${taskId}/evaluate`)
+      .send({ rating: "good" });
+
+    const response = await request(runtime.app).get("/api/workflows");
+
+    expect(response.status).toBe(200);
+    expect(response.body).toHaveLength(1);
+    expect(response.body[0]?.taskId).toBe(taskId);
+    expect(response.body[0]?.title).toBe("Codex - agent-tracer");
+    expect(response.body[0]?.displayTitle).toBe(goal);
+  });
+
   it("task-start가 generic runtimeSource를 task read-model에 저장한다", async () => {
     const started = await request(runtime.app)
       .post("/api/task-start")

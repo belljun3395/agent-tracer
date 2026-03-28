@@ -146,6 +146,7 @@ export interface TaskEvaluation extends WorkflowEvaluationData {
 export interface WorkflowSummary extends WorkflowEvaluationData {
   readonly taskId: string;
   readonly title: string;
+  readonly displayTitle?: string;
   readonly rating: "good" | "skip";
   readonly eventCount: number;
   readonly createdAt: string;
@@ -155,6 +156,7 @@ export interface WorkflowSummary extends WorkflowEvaluationData {
 export interface WorkflowSearchResult extends WorkflowEvaluationData {
   readonly taskId: string;
   readonly title: string;
+  readonly displayTitle?: string;
   readonly rating: "good" | "skip";
   readonly eventCount: number;
   readonly createdAt: string;
