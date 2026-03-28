@@ -103,7 +103,7 @@ const initialState: MonitorState = {
   tasks: [],
   bookmarks: [],
   overview: null,
-  selectedTaskId: window.location.hash.slice(1) || null,
+  selectedTaskId: null,
   selectedEventId: null,
   selectedConnectorKey: null,
   selectedRuleId: null,
@@ -363,10 +363,15 @@ export function MonitorProvider({ children }: { children: React.ReactNode }): Re
         })()
       });
     } catch (err) {
+      const status = err instanceof Error ? (err as Error & { readonly status?: number }).status : undefined;
       dispatch({
         type: "SET_STATUS",
         status: "error",
-        errorMessage: err instanceof Error ? err.message : "Failed to load task detail."
+        errorMessage: status === 404
+          ? "Task not found."
+          : err instanceof Error
+            ? err.message
+            : "Failed to load task detail."
       });
     }
   }, []);
@@ -539,33 +544,16 @@ export function MonitorProvider({ children }: { children: React.ReactNode }): Re
   useEffect(() => {
     const { tasks, selectedTaskId } = state;
     if (tasks.length === 0) {
-      dispatch({ type: "SELECT_TASK", taskId: null });
-      dispatch({ type: "SET_TASK_DETAIL", detail: null });
+      if (state.status === "ready") {
+        dispatch({ type: "SELECT_TASK", taskId: null });
+        dispatch({ type: "SET_TASK_DETAIL", detail: null });
+      }
       return;
     }
-    const hashId = window.location.hash.slice(1);
-    if (hashId && tasks.some((t) => t.id === hashId)) return;
-    if (!selectedTaskId || !tasks.some((t) => t.id === selectedTaskId)) {
+    if (!selectedTaskId) {
       dispatch({ type: "SELECT_TASK", taskId: tasks[0]?.id ?? null });
     }
-  }, [state.tasks]);
-
-  // hash ↔ selectedTaskId 동기화
-  useEffect(() => {
-    const next = state.selectedTaskId ? `#${state.selectedTaskId}` : "";
-    if (window.location.hash !== next) {
-      window.history.replaceState(null, "", next || window.location.pathname);
-    }
-  }, [state.selectedTaskId]);
-
-  // hashchange 이벤트
-  useEffect(() => {
-    function onHashChange(): void {
-      dispatch({ type: "SELECT_TASK", taskId: window.location.hash.slice(1) || null });
-    }
-    window.addEventListener("hashchange", onHashChange);
-    return () => window.removeEventListener("hashchange", onHashChange);
-  }, []);
+  }, [state.status, state.tasks]);
 
   // task 변경 시 task detail 로드
   useEffect(() => {

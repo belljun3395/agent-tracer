@@ -27,7 +27,13 @@ async function getJson<T>(pathname: string): Promise<T> {
   const response = await fetch(`${API_BASE}${pathname}`);
 
   if (!response.ok) {
-    throw new Error(`Failed to load ${pathname}: ${response.status}`);
+    const error = new Error(`Failed to load ${pathname}: ${response.status}`) as Error & {
+      readonly status?: number;
+      readonly pathname?: string;
+    };
+    error.status = response.status;
+    error.pathname = pathname;
+    throw error;
   }
 
   return (await response.json()) as T;

@@ -149,6 +149,7 @@ interface TimelineProps {
   readonly onToggleRuleGap: (show: boolean) => void;
   readonly onClearRuleId: () => void;
   readonly onClearTag: () => void;
+  readonly onOpenTaskWorkspace?: () => void;
   readonly onChangeTaskStatus?: (status: "running" | "waiting" | "completed" | "errored") => void;
 }
 
@@ -217,6 +218,7 @@ export function Timeline({
   onToggleRuleGap,
   onClearRuleId,
   onClearTag,
+  onOpenTaskWorkspace,
   onChangeTaskStatus,
   zoom,
   onZoomChange,
@@ -233,6 +235,7 @@ export function Timeline({
   const [isTimelineDragging, setIsTimelineDragging] = useState(false);
   const [nodeBounds, setNodeBounds] = useState<Record<string, NodeBounds>>({});
   const [isContextCollapsed, setIsContextCollapsed] = useState(true);
+  const [isTaskControlsOpen, setIsTaskControlsOpen] = useState(false);
 
   const timelineCanvasRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -514,6 +517,12 @@ export function Timeline({
     }
   }, [isContextCollapsed, isEditingTaskTitle]);
 
+  useEffect(() => {
+    if (isEditingTaskTitle && !isTaskControlsOpen) {
+      setIsTaskControlsOpen(true);
+    }
+  }, [isEditingTaskTitle, isTaskControlsOpen]);
+
   return (
     <section className="flex h-full min-h-0 flex-col">
       {/* error banner placeholder - handled in App */}
@@ -664,8 +673,45 @@ export function Timeline({
               </div>
 
               <div className="timeline-header">
-                <div className="timeline-title-row">
-                  <div className="flex min-w-0 flex-1 flex-col gap-2.5">
+                <div className="timeline-summary-bar">
+                  <div className="timeline-summary-copy">
+                    <div className="timeline-title-head">
+                      <h2>{taskTitle ?? "Waiting for task data…"}</h2>
+                      <div className="timeline-title-actions">
+                        {taskUsesDerivedTitle && taskTitle && (
+                          <span className="inline-flex h-7 items-center rounded-full border border-[var(--accent-light)] bg-[var(--accent-light)] px-3 text-[0.68rem] font-semibold uppercase tracking-[0.06em] text-[var(--accent)]">
+                            Suggested
+                          </span>
+                        )}
+                        {taskStatus && (
+                          <span
+                            className={cn(
+                              "timeline-context-status",
+                              TASK_STATUS_BUTTON_STYLES[taskStatus].active
+                            )}
+                          >
+                            {taskStatus}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="timeline-summary-meta">
+                      <span>{timeline.length} timeline events</span>
+                      {taskWorkspacePath && <span className="truncate font-mono">{taskWorkspacePath}</span>}
+                    </div>
+                  </div>
+                  <Button
+                    aria-expanded={isTaskControlsOpen || isEditingTaskTitle}
+                    className="h-8 rounded-full px-3 text-[0.76rem] font-semibold shadow-none whitespace-nowrap"
+                    onClick={() => setIsTaskControlsOpen((current) => !current)}
+                    size="sm"
+                    type="button"
+                  >
+                    {isTaskControlsOpen || isEditingTaskTitle ? "Hide Task Controls" : "Manage Task"}
+                  </Button>
+                </div>
+                {(isTaskControlsOpen || isEditingTaskTitle) && (
+                  <div className="timeline-task-controls">
                     {isEditingTaskTitle ? (
                       <form className="task-title-form" onSubmit={onSubmitTitle}>
                         <div className="task-title-form-row">
@@ -700,76 +746,78 @@ export function Timeline({
                         {taskTitleError && <p className="task-title-error">{taskTitleError}</p>}
                       </form>
                     ) : (
-                      <div className="timeline-title-head">
-                        <h2>{taskTitle ?? "Waiting for task data…"}</h2>
-                        {taskTitle && (
-                          <div className="timeline-title-actions">
-                            {taskUsesDerivedTitle && (
-                              <span className="inline-flex h-7 items-center rounded-full border border-[var(--accent-light)] bg-[var(--accent-light)] px-3 text-[0.68rem] font-semibold uppercase tracking-[0.06em] text-[var(--accent)]">
-                                Suggested
-                              </span>
-                            )}
+                      <div className="timeline-task-controls-row">
+                        <div className="timeline-title-actions">
+                          <Button
+                            className="h-7 rounded-full px-3 text-[0.72rem] font-semibold shadow-none"
+                            onClick={onStartEditTitle}
+                            size="sm"
+                            type="button"
+                          >
+                            Rename
+                          </Button>
+                          {onOpenTaskWorkspace && (
                             <Button
                               className="h-7 rounded-full px-3 text-[0.72rem] font-semibold shadow-none"
-                              onClick={onStartEditTitle}
+                              onClick={onOpenTaskWorkspace}
                               size="sm"
                               type="button"
                             >
-                              Rename
+                              Workspace
                             </Button>
-                          </div>
-                        )}
+                          )}
+                        </div>
                       </div>
                     )}
                     {taskWorkspacePath && (
                       <span className="timeline-workspace block truncate font-mono">{taskWorkspacePath}</span>
                     )}
-                  </div>
-                  {!isEditingTaskTitle && taskStatus && onChangeTaskStatus && (
-                    <div className="task-status-row">
-                      {(["running", "waiting", "completed", "errored"] as const).map((s) => (
-                        <Button
-                          key={s}
+                    {!isEditingTaskTitle && taskStatus && onChangeTaskStatus && (
+                      <div className="task-status-row">
+                        {(["running", "waiting", "completed", "errored"] as const).map((s) => (
+                          <Button
+                            key={s}
+                            className={cn(
+                              "h-7 rounded-full px-3 text-[0.68rem] font-semibold uppercase tracking-[0.06em] shadow-none",
+                              taskStatus === s
+                                ? TASK_STATUS_BUTTON_STYLES[s].active
+                                : TASK_STATUS_BUTTON_STYLES[s].idle
+                            )}
+                            disabled={isUpdatingTaskStatus || taskStatus === s}
+                            onClick={() => onChangeTaskStatus(s)}
+                            size="sm"
+                            type="button"
+                            variant="bare"
+                          >
+                            {s}
+                          </Button>
+                        ))}
+                      </div>
+                    )}
+                    <div className="timeline-task-badges">
+                      {[
+                        { key: "actions", label: "Actions", value: observabilityStats.actions },
+                        { key: "coordination", label: "Coordination", value: observabilityStats.coordinationActivities },
+                        { key: "files", label: "Files", value: observabilityStats.exploredFiles },
+                        { key: "compacts", label: "Compact", value: observabilityStats.compactions },
+                        { key: "checks", label: "Check", value: observabilityStats.checks },
+                        { key: "violations", label: "Violation", value: observabilityStats.violations },
+                        { key: "passes", label: "Pass", value: observabilityStats.passes }
+                      ].map((badge) => (
+                        <div
+                          key={badge.key}
                           className={cn(
-                            "h-7 rounded-full px-3 text-[0.68rem] font-semibold uppercase tracking-[0.06em] shadow-none",
-                            taskStatus === s
-                              ? TASK_STATUS_BUTTON_STYLES[s].active
-                              : TASK_STATUS_BUTTON_STYLES[s].idle
+                            "inline-flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-[0.72rem] font-semibold tracking-[0.02em]",
+                            OBSERVABILITY_BADGE_STYLES[badge.key as keyof typeof OBSERVABILITY_BADGE_STYLES]
                           )}
-                          disabled={isUpdatingTaskStatus || taskStatus === s}
-                          onClick={() => onChangeTaskStatus(s)}
-                          size="sm"
-                          type="button"
-                          variant="bare"
                         >
-                          {s}
-                        </Button>
+                          <span className="text-[0.78rem] font-bold leading-none">{badge.value}</span>
+                          <span className="leading-none">{badge.label}</span>
+                        </div>
                       ))}
                     </div>
-                  )}
-                </div>
-                <div className="flex w-full flex-wrap items-center gap-2">
-                  {[
-                    { key: "actions", label: "Actions", value: observabilityStats.actions },
-                    { key: "coordination", label: "Coordination", value: observabilityStats.coordinationActivities },
-                    { key: "files", label: "Files", value: observabilityStats.exploredFiles },
-                    { key: "compacts", label: "Compact", value: observabilityStats.compactions },
-                    { key: "checks", label: "Check", value: observabilityStats.checks },
-                    { key: "violations", label: "Violation", value: observabilityStats.violations },
-                    { key: "passes", label: "Pass", value: observabilityStats.passes }
-                  ].map((badge) => (
-                    <div
-                      key={badge.key}
-                      className={cn(
-                        "inline-flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-[0.72rem] font-semibold tracking-[0.02em]",
-                        OBSERVABILITY_BADGE_STYLES[badge.key as keyof typeof OBSERVABILITY_BADGE_STYLES]
-                      )}
-                    >
-                      <span className="text-[0.78rem] font-bold leading-none">{badge.value}</span>
-                      <span className="leading-none">{badge.label}</span>
-                    </div>
-                  ))}
-                </div>
+                  </div>
+                )}
               </div>
             </div>
           </>
