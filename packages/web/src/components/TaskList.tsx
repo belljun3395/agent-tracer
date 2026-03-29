@@ -142,7 +142,7 @@ export function TaskList({
   }, [runtimeFilter, runtimeFilterOptions]);
 
   useEffect(() => {
-    const validParentIds = new Set(
+    const validParentIds = new Set<string>(
       filteredTasks
         .filter((task) => (childCountByParentId.get(task.id) ?? 0) > 0)
         .map((task) => task.id)

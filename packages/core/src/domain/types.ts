@@ -1,3 +1,5 @@
+import type { TaskId, SessionId, EventId } from "./branded.js";
+
 export type TimelineLane =
   | "user"
   | "exploration"
@@ -33,13 +35,13 @@ export interface MonitoringTaskInput {
   readonly title: string;
   readonly workspacePath?: string;
   readonly taskKind?: MonitoringTaskKind;
-  readonly parentTaskId?: string;
-  readonly parentSessionId?: string;
-  readonly backgroundTaskId?: string;
+  readonly parentTaskId?: TaskId;
+  readonly parentSessionId?: SessionId;
+  readonly backgroundTaskId?: TaskId;
 }
 
 export interface MonitoringTask extends MonitoringTaskInput {
-  readonly id: string;
+  readonly id: TaskId;
   readonly slug: string;
   readonly displayTitle?: string;
   readonly status: "running" | "waiting" | "completed" | "errored";
@@ -51,8 +53,8 @@ export interface MonitoringTask extends MonitoringTaskInput {
 }
 
 export interface MonitoringSession {
-  readonly id: string;
-  readonly taskId: string;
+  readonly id: SessionId;
+  readonly taskId: TaskId;
   readonly status: "running" | "completed" | "errored";
   readonly summary?: string;
   readonly startedAt: string;
@@ -80,9 +82,9 @@ export interface EventClassification {
 }
 
 export interface TimelineEvent {
-  readonly id: string;
-  readonly taskId: string;
-  readonly sessionId?: string;
+  readonly id: EventId;
+  readonly taskId: TaskId;
+  readonly sessionId?: SessionId;
   readonly kind: MonitoringEventKind;
   readonly lane: TimelineLane;
   readonly title: string;
@@ -138,13 +140,13 @@ export interface ReusableTaskSnapshot {
 }
 
 export interface TaskEvaluation extends WorkflowEvaluationData {
-  readonly taskId: string;
+  readonly taskId: TaskId;
   readonly rating: "good" | "skip";
   readonly evaluatedAt: string;
 }
 
 export interface WorkflowSummary extends WorkflowEvaluationData {
-  readonly taskId: string;
+  readonly taskId: TaskId;
   readonly title: string;
   readonly displayTitle?: string;
   readonly rating: "good" | "skip";
@@ -154,7 +156,7 @@ export interface WorkflowSummary extends WorkflowEvaluationData {
 }
 
 export interface WorkflowSearchResult extends WorkflowEvaluationData {
-  readonly taskId: string;
+  readonly taskId: TaskId;
   readonly title: string;
   readonly displayTitle?: string;
   readonly rating: "good" | "skip";

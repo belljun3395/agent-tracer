@@ -321,3 +321,34 @@ export const assistantResponseSchema = z.object({
   body:      z.string().optional(),
   metadata:  z.record(z.unknown()).optional()
 });
+
+/**
+ * ReusableTaskSnapshot 인라인 스키마 — workflowSnapshot 필드 검증에 사용.
+ */
+const reusableTaskSnapshotSchema = z.object({
+  objective: z.string(),
+  originalRequest: z.string().nullable(),
+  outcomeSummary: z.string().nullable(),
+  approachSummary: z.string().nullable(),
+  reuseWhen: z.string().nullable(),
+  watchItems: z.array(z.string()),
+  keyDecisions: z.array(z.string()),
+  nextSteps: z.array(z.string()),
+  keyFiles: z.array(z.string()),
+  modifiedFiles: z.array(z.string()),
+  verificationSummary: z.string().nullable(),
+  searchText: z.string()
+});
+
+/** POST /api/tasks/:id/evaluate 요청 본문 스키마. */
+export const taskEvaluateSchema = z.object({
+  rating: z.enum(["good", "skip"]),
+  useCase: z.string().optional(),
+  workflowTags: z.array(z.string()).optional(),
+  outcomeNote: z.string().optional(),
+  approachNote: z.string().optional(),
+  reuseWhen: z.string().optional(),
+  watchouts: z.string().optional(),
+  workflowSnapshot: reusableTaskSnapshotSchema.optional(),
+  workflowContext: z.string().optional()
+});
