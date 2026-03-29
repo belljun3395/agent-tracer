@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { TaskId } from "@monitor/core";
 import type { MonitoringTask } from "../types.js";
 import {
   buildRuntimeFilterOptions,
@@ -11,7 +12,7 @@ import {
 } from "./TaskList.js";
 
 const BASE_TASK: MonitoringTask = {
-  id: "task-1",
+  id: TaskId("task-1"),
   title: "OpenCode - agent-tracer",
   slug: "agent-tracer",
   workspacePath: "/Users/okestro/Documents/code/agent-tracer",
@@ -71,19 +72,19 @@ describe("buildTaskListRows", () => {
   it("groups background child rows directly under their parent", () => {
     const parent: MonitoringTask = {
       ...BASE_TASK,
-      id: "parent-1",
+      id: TaskId("parent-1"),
       updatedAt: "2026-03-16T09:01:00.000Z"
     };
     const childNewer: MonitoringTask = {
       ...BASE_TASK,
-      id: "child-1",
+      id: TaskId("child-1"),
       taskKind: "background",
-      parentTaskId: "parent-1",
+      parentTaskId: TaskId("parent-1"),
       updatedAt: "2026-03-16T09:03:00.000Z"
     };
     const rootLatest: MonitoringTask = {
       ...BASE_TASK,
-      id: "root-latest",
+      id: TaskId("root-latest"),
       updatedAt: "2026-03-16T09:05:00.000Z"
     };
 
@@ -99,16 +100,16 @@ describe("buildTaskListRows", () => {
   it("treats orphaned child tasks as root rows", () => {
     const orphan: MonitoringTask = {
       ...BASE_TASK,
-      id: "orphan-child",
+      id: TaskId("orphan-child"),
       taskKind: "background",
-      parentTaskId: "missing-parent"
+      parentTaskId: TaskId("missing-parent")
     };
 
     const rows = buildTaskListRows([orphan]);
 
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({
-      task: { id: "orphan-child" },
+      task: { id: TaskId("orphan-child") },
       depth: 0
     });
   });
@@ -116,14 +117,14 @@ describe("buildTaskListRows", () => {
   it("hides children when parent is collapsed", () => {
     const parent: MonitoringTask = {
       ...BASE_TASK,
-      id: "parent-1",
+      id: TaskId("parent-1"),
       updatedAt: "2026-03-16T09:01:00.000Z"
     };
     const child: MonitoringTask = {
       ...BASE_TASK,
-      id: "child-1",
+      id: TaskId("child-1"),
       taskKind: "background",
-      parentTaskId: "parent-1",
+      parentTaskId: TaskId("parent-1"),
       updatedAt: "2026-03-16T09:02:00.000Z"
     };
 
@@ -137,16 +138,16 @@ describe("buildTaskListRows", () => {
   it("still groups completed parent and background child", () => {
     const completedParent: MonitoringTask = {
       ...BASE_TASK,
-      id: "completed-parent",
+      id: TaskId("completed-parent"),
       status: "completed",
       updatedAt: "2026-03-16T09:10:00.000Z"
     };
     const completedChild: MonitoringTask = {
       ...BASE_TASK,
-      id: "completed-child",
+      id: TaskId("completed-child"),
       status: "completed",
       taskKind: "background",
-      parentTaskId: "completed-parent",
+      parentTaskId: TaskId("completed-parent"),
       updatedAt: "2026-03-16T09:11:00.000Z"
     };
 
@@ -183,11 +184,11 @@ describe("runtimeFilter helpers", () => {
 
   it("filters tasks by grouped runtime family", () => {
     const tasks: MonitoringTask[] = [
-      { ...BASE_TASK, id: "claude-1", runtimeSource: "claude-hook" },
-      { ...BASE_TASK, id: "codex-1", runtimeSource: "codex-skill" },
-      { ...BASE_TASK, id: "opencode-1", runtimeSource: "opencode-plugin" },
-      { ...BASE_TASK, id: "opencode-2", runtimeSource: "opencode-sse" },
-      { ...BASE_TASK, id: "unknown-1" }
+      { ...BASE_TASK, id: TaskId("claude-1"), runtimeSource: "claude-hook" },
+      { ...BASE_TASK, id: TaskId("codex-1"), runtimeSource: "codex-skill" },
+      { ...BASE_TASK, id: TaskId("opencode-1"), runtimeSource: "opencode-plugin" },
+      { ...BASE_TASK, id: TaskId("opencode-2"), runtimeSource: "opencode-sse" },
+      { ...BASE_TASK, id: TaskId("unknown-1") }
     ];
 
     expect(filterTasksByRuntime(tasks, "opencode").map((task) => task.id)).toEqual([
@@ -199,10 +200,10 @@ describe("runtimeFilter helpers", () => {
 
   it("builds runtime filter options with grouped counts", () => {
     const tasks: MonitoringTask[] = [
-      { ...BASE_TASK, id: "claude-1", runtimeSource: "claude-hook" },
-      { ...BASE_TASK, id: "opencode-1", runtimeSource: "opencode-plugin" },
-      { ...BASE_TASK, id: "opencode-2", runtimeSource: "opencode-sse" },
-      { ...BASE_TASK, id: "unknown-1" }
+      { ...BASE_TASK, id: TaskId("claude-1"), runtimeSource: "claude-hook" },
+      { ...BASE_TASK, id: TaskId("opencode-1"), runtimeSource: "opencode-plugin" },
+      { ...BASE_TASK, id: TaskId("opencode-2"), runtimeSource: "opencode-sse" },
+      { ...BASE_TASK, id: TaskId("unknown-1") }
     ];
 
     expect(buildRuntimeFilterOptions(tasks)).toEqual([

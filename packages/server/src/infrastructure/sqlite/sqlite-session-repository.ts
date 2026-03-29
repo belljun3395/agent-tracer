@@ -7,6 +7,7 @@
 
 import type Database from "better-sqlite3";
 import type { MonitoringSession } from "@monitor/core";
+import { SessionId, TaskId } from "@monitor/core";
 
 import type { ISessionRepository, SessionCreateInput } from "../../application/ports/session-repository.js";
 
@@ -21,8 +22,8 @@ interface SessionRow {
 
 function mapSessionRow(row: SessionRow): MonitoringSession {
   return {
-    id: row.id,
-    taskId: row.task_id,
+    id: SessionId(row.id),
+    taskId: TaskId(row.task_id),
     status: row.status,
     startedAt: row.started_at,
     ...(row.summary ? { summary: row.summary } : {}),

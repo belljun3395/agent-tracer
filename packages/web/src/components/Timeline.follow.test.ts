@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { EventId, TaskId } from "@monitor/core";
 import {
   computeTimelineFollowScrollLeft,
   shouldResetTimelineFollowForTaskChange
@@ -31,8 +32,8 @@ describe("timeline follow reset", () => {
       selectedEventId: "event-2",
       timeline: [
         {
-          id: "event-2",
-          taskId: "task-2",
+          id: EventId("event-2"),
+          taskId: TaskId("task-2"),
           kind: "tool.used",
           lane: "implementation",
           title: "Pinned event",

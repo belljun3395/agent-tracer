@@ -4,6 +4,7 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
+import { TaskId } from "@monitor/core";
 import { fetchTaskEvaluation, saveTaskEvaluation } from "../api.js";
 import type { TaskEvaluationPayload, TaskEvaluationRecord } from "../api.js";
 
@@ -66,7 +67,7 @@ export function useEvaluation(taskId: string | null | undefined): UseEvaluationR
     try {
       await saveTaskEvaluation(taskId, payload);
       setEvaluation({
-        taskId,
+        taskId: TaskId(taskId),
         ...payload,
         workflowTags: payload.workflowTags ?? [],
         useCase: payload.useCase ?? null,
