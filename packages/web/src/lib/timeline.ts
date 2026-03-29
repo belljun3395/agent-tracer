@@ -366,7 +366,7 @@ export function buildTimelineConnectors(
   nodeBoundsById: Readonly<Record<string, TimelineNodeBounds>> = {}
 ): readonly TimelineConnector[] {
   const relations = buildTimelineRelations(items.map((item) => item.event));
-  const itemById = new Map(items.map((item) => [item.event.id, item]));
+  const itemById = new Map<string, (typeof items)[number]>(items.map((item) => [item.event.id, item]));
 
   const sorted = [...items].sort((a, b) => {
     const dt = Date.parse(a.event.createdAt) - Date.parse(b.event.createdAt);
@@ -436,7 +436,7 @@ export function buildTimelineConnectors(
 export function buildTimelineRelations(
   events: readonly TimelineEvent[]
 ): readonly TimelineRelation[] {
-  const eventIds = new Set(events.map((event) => event.id));
+  const eventIds = new Set<string>(events.map((event) => event.id));
   const seen = new Set<string>();
   const relations: TimelineRelation[] = [];
 

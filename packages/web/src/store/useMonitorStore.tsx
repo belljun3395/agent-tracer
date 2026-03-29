@@ -1,18 +1,11 @@
 /**
  * 전역 모니터 상태 관리.
- * useReducer + Context 패턴으로 App 전역 상태를 집중 관리.
+ * Zustand 스토어로 App 전역 상태를 집중 관리.
+ * useReducer + Context 패턴에서 마이그레이션됨.
  */
 
-import React, {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useReducer,
-  useRef,
-  type Dispatch
-} from "react";
+import React from "react";
+import { create } from "zustand";
 
 import {
   createBookmark,
@@ -36,7 +29,7 @@ import type {
 } from "../types.js";
 
 // ---------------------------------------------------------------------------
-// State
+// State type (preserved for API compatibility)
 // ---------------------------------------------------------------------------
 
 export interface MonitorState {
@@ -67,7 +60,7 @@ export interface MonitorState {
 }
 
 // ---------------------------------------------------------------------------
-// Actions
+// Actions type (preserved for API compatibility — dispatch({ type: ... }))
 // ---------------------------------------------------------------------------
 
 export type MonitorAction =
@@ -96,35 +89,32 @@ export type MonitorAction =
   | { type: "RESET_TASK_FILTERS" };
 
 // ---------------------------------------------------------------------------
-// Reducer
+// Internal helpers
 // ---------------------------------------------------------------------------
 
-const initialState: MonitorState = {
-  tasks: [],
-  bookmarks: [],
-  overview: null,
-  selectedTaskId: null,
-  selectedEventId: null,
-  selectedConnectorKey: null,
-  selectedRuleId: null,
-  selectedTag: null,
-  showRuleGapsOnly: false,
-  taskDetail: null,
-  isConnected: false,
-  status: "idle",
-  errorMessage: null,
-  deletingTaskId: null,
-  deleteErrorTaskId: null,
-  nowMs: Date.now(),
-  isEditingTaskTitle: false,
-  taskTitleDraft: "",
-  taskTitleError: null,
-  isSavingTaskTitle: false,
-  isUpdatingTaskStatus: false,
-  taskDisplayTitleCache: {}
-};
+function mergeTimeline(
+  prev: readonly TimelineEvent[],
+  next: readonly TimelineEvent[]
+): readonly TimelineEvent[] {
+  const prevById = new Map(prev.map((e) => [e.id, e]));
+  const merged = next.map((e) => prevById.get(e.id) ?? e);
+  const unchanged =
+    merged.length === prev.length && merged.every((e, i) => e === prev[i]);
+  return unchanged ? prev : merged;
+}
 
-function monitorReducer(state: MonitorState, action: MonitorAction): MonitorState {
+function isConnectorKeyValidForTimeline(
+  key: string,
+  events: readonly TimelineEvent[]
+): boolean {
+  const [sourceEventId, targetPart] = key.split("→");
+  if (!sourceEventId || !targetPart) return false;
+  const [targetEventId] = targetPart.split(":");
+  if (!targetEventId) return false;
+  return events.some((e) => e.id === sourceEventId) && events.some((e) => e.id === targetEventId);
+}
+
+function applyAction(state: MonitorState, action: MonitorAction): MonitorState {
   switch (action.type) {
     case "SET_OVERVIEW":
       return { ...state, overview: action.overview };
@@ -234,60 +224,79 @@ function monitorReducer(state: MonitorState, action: MonitorAction): MonitorStat
 }
 
 // ---------------------------------------------------------------------------
-// Context
+// Zustand store shape
 // ---------------------------------------------------------------------------
 
-interface MonitorContextValue {
-  readonly state: MonitorState;
-  readonly dispatch: Dispatch<MonitorAction>;
-  readonly refreshOverview: () => Promise<void>;
-  readonly refreshTaskDetail: (taskId: string) => Promise<void>;
-  readonly refreshBookmarksOnly: () => Promise<void>;
-  readonly handleDeleteTask: (taskId: string) => Promise<void>;
-  readonly handleCreateTaskBookmark: () => Promise<void>;
-  readonly handleCreateEventBookmark: (eventId: string, eventTitle: string) => Promise<void>;
-  readonly handleDeleteBookmark: (bookmarkId: string) => Promise<void>;
-  readonly handleTaskStatusChange: (status: MonitoringTask["status"]) => Promise<void>;
-  readonly handleTaskTitleSubmit: (
+interface MonitorStoreSlice {
+  // The nested `state` object, preserved for consumer API compatibility
+  state: MonitorState;
+
+  // dispatch-style action applicator (preserved for consumers using dispatch({ type: ... }))
+  dispatch: (action: MonitorAction) => void;
+
+  // Async action methods
+  refreshOverview: () => Promise<void>;
+  refreshTaskDetail: (taskId: string) => Promise<void>;
+  refreshBookmarksOnly: () => Promise<void>;
+  handleDeleteTask: (taskId: string) => Promise<void>;
+  handleCreateTaskBookmark: () => Promise<void>;
+  handleCreateEventBookmark: (eventId: string, eventTitle: string) => Promise<void>;
+  handleDeleteBookmark: (bookmarkId: string) => Promise<void>;
+  handleTaskStatusChange: (status: MonitoringTask["status"]) => Promise<void>;
+  handleTaskTitleSubmit: (
     event: React.SyntheticEvent<HTMLFormElement>,
     nextTitle: string
   ) => Promise<void>;
 }
 
-const MonitorContext = createContext<MonitorContextValue | null>(null);
+const INITIAL_STATE: MonitorState = {
+  tasks: [],
+  bookmarks: [],
+  overview: null,
+  selectedTaskId: null,
+  selectedEventId: null,
+  selectedConnectorKey: null,
+  selectedRuleId: null,
+  selectedTag: null,
+  showRuleGapsOnly: false,
+  taskDetail: null,
+  isConnected: false,
+  status: "idle",
+  errorMessage: null,
+  deletingTaskId: null,
+  deleteErrorTaskId: null,
+  nowMs: Date.now(),
+  isEditingTaskTitle: false,
+  taskTitleDraft: "",
+  taskTitleError: null,
+  isSavingTaskTitle: false,
+  isUpdatingTaskStatus: false,
+  taskDisplayTitleCache: {}
+};
 
 // ---------------------------------------------------------------------------
-// Helper: merge timeline arrays with reference reuse
+// Internal Zustand store (singleton)
 // ---------------------------------------------------------------------------
 
-function mergeTimeline(
-  prev: readonly TimelineEvent[],
-  next: readonly TimelineEvent[]
-): readonly TimelineEvent[] {
-  const prevById = new Map(prev.map((e) => [e.id, e]));
-  const merged = next.map((e) => prevById.get(e.id) ?? e);
-  const unchanged =
-    merged.length === prev.length && merged.every((e, i) => e === prev[i]);
-  return unchanged ? prev : merged;
-}
+const _monitorStore = create<MonitorStoreSlice>((set, get) => {
+  // Helper: apply a MonitorAction to the nested state object
+  function dispatch(action: MonitorAction): void {
+    set((slice) => ({ state: applyAction(slice.state, action) }));
+  }
 
-// ---------------------------------------------------------------------------
-// Provider
-// ---------------------------------------------------------------------------
-
-export function MonitorProvider({ children }: { children: React.ReactNode }): React.JSX.Element {
-  const [state, dispatch] = useReducer(monitorReducer, initialState);
-
-  const stateRef = useRef(state);
-  stateRef.current = state;
+  // Helper: read current nested state without subscribing
+  function getState(): MonitorState {
+    return get().state;
+  }
 
   // ------------------------------------------------------------------
   // refreshOverview
   // ------------------------------------------------------------------
-  const refreshOverview = useCallback(async (): Promise<void> => {
+  async function refreshOverview(): Promise<void> {
+    const currentStatus = getState().status;
     dispatch({
       type: "SET_STATUS",
-      status: stateRef.current.status === "ready" ? "ready" : "loading",
+      status: currentStatus === "ready" ? "ready" : "loading",
       errorMessage: null
     });
     try {
@@ -300,7 +309,7 @@ export function MonitorProvider({ children }: { children: React.ReactNode }): Re
       dispatch({
         type: "SET_TASKS",
         tasks: (() => {
-          const prev = stateRef.current.tasks;
+          const prev = getState().tasks;
           const prevById = new Map(prev.map((t) => [t.id, t]));
           const merged = nextTasks.tasks.map((next) => {
             const existing = prevById.get(next.id);
@@ -320,18 +329,18 @@ export function MonitorProvider({ children }: { children: React.ReactNode }): Re
         errorMessage: err instanceof Error ? err.message : "Failed to load monitor data."
       });
     }
-  }, []);
+  }
 
   // ------------------------------------------------------------------
   // refreshTaskDetail
   // ------------------------------------------------------------------
-  const refreshTaskDetail = useCallback(async (taskId: string): Promise<void> => {
+  async function refreshTaskDetail(taskId: string): Promise<void> {
     try {
       const detail = await fetchTaskDetail(taskId);
       dispatch({
         type: "SET_TASK_DETAIL",
         detail: (() => {
-          const prev = stateRef.current.taskDetail;
+          const prev = getState().taskDetail;
           if (!prev || prev.task.id !== detail.task.id) return detail;
           const sameTask = prev.task.updatedAt === detail.task.updatedAt;
           const mergedTimeline = mergeTimeline(prev.timeline, detail.timeline);
@@ -345,7 +354,7 @@ export function MonitorProvider({ children }: { children: React.ReactNode }): Re
       });
 
       // connector key 유효성 검사
-      const currentConnector = stateRef.current.selectedConnectorKey;
+      const currentConnector = getState().selectedConnectorKey;
       if (currentConnector) {
         const valid = isConnectorKeyValidForTimeline(currentConnector, detail.timeline);
         if (!valid) {
@@ -357,7 +366,7 @@ export function MonitorProvider({ children }: { children: React.ReactNode }): Re
       dispatch({
         type: "SELECT_EVENT",
         eventId: (() => {
-          const current = stateRef.current.selectedEventId;
+          const current = getState().selectedEventId;
           if (current && detail.timeline.some((e) => e.id === current)) return current;
           return detail.timeline[detail.timeline.length - 1]?.id ?? null;
         })()
@@ -374,24 +383,24 @@ export function MonitorProvider({ children }: { children: React.ReactNode }): Re
             : "Failed to load task detail."
       });
     }
-  }, []);
+  }
 
   // ------------------------------------------------------------------
   // refreshBookmarksOnly
   // ------------------------------------------------------------------
-  const refreshBookmarksOnly = useCallback(async (): Promise<void> => {
+  async function refreshBookmarksOnly(): Promise<void> {
     const response = await fetchBookmarks();
     dispatch({ type: "SET_BOOKMARKS", bookmarks: response.bookmarks });
-  }, []);
+  }
 
   // ------------------------------------------------------------------
   // handleDeleteTask
   // ------------------------------------------------------------------
-  const handleDeleteTask = useCallback(async (taskId: string): Promise<void> => {
+  async function handleDeleteTask(taskId: string): Promise<void> {
     dispatch({ type: "SET_DELETING_TASK_ID", taskId });
     try {
       await deleteTask(taskId);
-      if (stateRef.current.selectedTaskId === taskId) {
+      if (getState().selectedTaskId === taskId) {
         dispatch({ type: "SELECT_TASK", taskId: null });
         dispatch({ type: "SET_TASK_DETAIL", detail: null });
       }
@@ -402,13 +411,13 @@ export function MonitorProvider({ children }: { children: React.ReactNode }): Re
     } finally {
       dispatch({ type: "SET_DELETING_TASK_ID", taskId: null });
     }
-  }, [refreshOverview]);
+  }
 
   // ------------------------------------------------------------------
   // handleCreateTaskBookmark
   // ------------------------------------------------------------------
-  const handleCreateTaskBookmark = useCallback(async (): Promise<void> => {
-    const { selectedTaskId, taskDetail, taskDisplayTitleCache } = stateRef.current;
+  async function handleCreateTaskBookmark(): Promise<void> {
+    const { selectedTaskId, taskDetail, taskDisplayTitleCache } = getState();
     if (!selectedTaskId) return;
     const displayTitle = taskDetail?.task
       ? (taskDisplayTitleCache[taskDetail.task.id]?.title ?? taskDetail.task.title)
@@ -417,162 +426,181 @@ export function MonitorProvider({ children }: { children: React.ReactNode }): Re
       ? { taskId: selectedTaskId, title: displayTitle }
       : { taskId: selectedTaskId });
     await refreshBookmarksOnly();
-  }, [refreshBookmarksOnly]);
+  }
 
   // ------------------------------------------------------------------
   // handleCreateEventBookmark
   // ------------------------------------------------------------------
-  const handleCreateEventBookmark = useCallback(
-    async (eventId: string, eventTitle: string): Promise<void> => {
-      const { selectedTaskId } = stateRef.current;
-      if (!selectedTaskId) return;
-      await createBookmark({ taskId: selectedTaskId, eventId, title: eventTitle });
-      await refreshBookmarksOnly();
-    },
-    [refreshBookmarksOnly]
-  );
+  async function handleCreateEventBookmark(eventId: string, eventTitle: string): Promise<void> {
+    const { selectedTaskId } = getState();
+    if (!selectedTaskId) return;
+    await createBookmark({ taskId: selectedTaskId, eventId, title: eventTitle });
+    await refreshBookmarksOnly();
+  }
 
   // ------------------------------------------------------------------
   // handleDeleteBookmark
   // ------------------------------------------------------------------
-  const handleDeleteBookmark = useCallback(async (bookmarkId: string): Promise<void> => {
+  async function handleDeleteBookmark(bookmarkId: string): Promise<void> {
     await deleteBookmark(bookmarkId);
     await refreshBookmarksOnly();
-  }, [refreshBookmarksOnly]);
+  }
 
   // ------------------------------------------------------------------
   // handleTaskStatusChange
   // ------------------------------------------------------------------
-  const handleTaskStatusChange = useCallback(
-    async (status: MonitoringTask["status"]): Promise<void> => {
-      const { taskDetail } = stateRef.current;
-      if (!taskDetail?.task) return;
-      dispatch({ type: "SET_UPDATING_TASK_STATUS", isUpdating: true });
-      try {
-        const updatedTask = await updateTaskStatus(taskDetail.task.id, status);
-        dispatch({
-          type: "SET_TASKS",
-          tasks: stateRef.current.tasks.map((t) => (t.id === updatedTask.id ? updatedTask : t))
-        });
-        dispatch({
-          type: "SET_TASK_DETAIL",
-          detail:
-            stateRef.current.taskDetail?.task.id === updatedTask.id
-              ? { ...stateRef.current.taskDetail, task: updatedTask }
-              : stateRef.current.taskDetail
-        });
-      } catch (err) {
-        dispatch({
-          type: "SET_STATUS",
-          status: "error",
-          errorMessage: err instanceof Error ? err.message : "Failed to update task status."
-        });
-      } finally {
-        dispatch({ type: "SET_UPDATING_TASK_STATUS", isUpdating: false });
-      }
-    },
-    []
-  );
+  async function handleTaskStatusChange(status: MonitoringTask["status"]): Promise<void> {
+    const { taskDetail } = getState();
+    if (!taskDetail?.task) return;
+    dispatch({ type: "SET_UPDATING_TASK_STATUS", isUpdating: true });
+    try {
+      const updatedTask = await updateTaskStatus(taskDetail.task.id, status);
+      dispatch({
+        type: "SET_TASKS",
+        tasks: getState().tasks.map((t) => (t.id === updatedTask.id ? updatedTask : t))
+      });
+      dispatch({
+        type: "SET_TASK_DETAIL",
+        detail:
+          getState().taskDetail?.task.id === updatedTask.id
+            ? { ...getState().taskDetail!, task: updatedTask }
+            : getState().taskDetail
+      });
+    } catch (err) {
+      dispatch({
+        type: "SET_STATUS",
+        status: "error",
+        errorMessage: err instanceof Error ? err.message : "Failed to update task status."
+      });
+    } finally {
+      dispatch({ type: "SET_UPDATING_TASK_STATUS", isUpdating: false });
+    }
+  }
 
   // ------------------------------------------------------------------
   // handleTaskTitleSubmit
   // ------------------------------------------------------------------
-  const handleTaskTitleSubmit = useCallback(
-    async (
-      event: React.SyntheticEvent<HTMLFormElement>,
-      nextTitle: string
-    ): Promise<void> => {
-      event.preventDefault();
-      const { taskDetail } = stateRef.current;
-      if (!taskDetail?.task) return;
+  async function handleTaskTitleSubmit(
+    event: React.SyntheticEvent<HTMLFormElement>,
+    nextTitle: string
+  ): Promise<void> {
+    event.preventDefault();
+    const { taskDetail } = getState();
+    if (!taskDetail?.task) return;
 
-      const trimmed = nextTitle.trim();
-      if (!trimmed) {
-        dispatch({ type: "SET_TASK_TITLE_ERROR", error: "Title cannot be empty." });
-        return;
-      }
+    const trimmed = nextTitle.trim();
+    if (!trimmed) {
+      dispatch({ type: "SET_TASK_TITLE_ERROR", error: "Title cannot be empty." });
+      return;
+    }
 
-      if (trimmed === taskDetail.task.title.trim()) {
-        dispatch({ type: "SET_TASK_TITLE_ERROR", error: null });
-        dispatch({ type: "SET_EDITING_TASK_TITLE", isEditing: false });
-        return;
-      }
-
-      dispatch({ type: "SET_SAVING_TASK_TITLE", isSaving: true });
+    if (trimmed === taskDetail.task.title.trim()) {
       dispatch({ type: "SET_TASK_TITLE_ERROR", error: null });
+      dispatch({ type: "SET_EDITING_TASK_TITLE", isEditing: false });
+      return;
+    }
 
-      try {
-        const updatedTask = await updateTaskTitle(taskDetail.task.id, trimmed);
-        dispatch({
-          type: "SET_TASKS",
-          tasks: stateRef.current.tasks.map((t) => (t.id === updatedTask.id ? updatedTask : t))
-        });
-        dispatch({
-          type: "SET_TASK_DETAIL",
-          detail:
-            stateRef.current.taskDetail?.task.id === updatedTask.id
-              ? { ...stateRef.current.taskDetail, task: updatedTask }
-              : stateRef.current.taskDetail
-        });
-        dispatch({ type: "SET_EDITING_TASK_TITLE", isEditing: false });
-      } catch (err) {
-        dispatch({
-          type: "SET_TASK_TITLE_ERROR",
-          error: err instanceof Error ? err.message : "Failed to save task title."
-        });
-      } finally {
-        dispatch({ type: "SET_SAVING_TASK_TITLE", isSaving: false });
-      }
-    },
-    []
-  );
+    dispatch({ type: "SET_SAVING_TASK_TITLE", isSaving: true });
+    dispatch({ type: "SET_TASK_TITLE_ERROR", error: null });
 
-  // ------------------------------------------------------------------
-  // Effects
-  // ------------------------------------------------------------------
+    try {
+      const updatedTask = await updateTaskTitle(taskDetail.task.id, trimmed);
+      dispatch({
+        type: "SET_TASKS",
+        tasks: getState().tasks.map((t) => (t.id === updatedTask.id ? updatedTask : t))
+      });
+      dispatch({
+        type: "SET_TASK_DETAIL",
+        detail:
+          getState().taskDetail?.task.id === updatedTask.id
+            ? { ...getState().taskDetail!, task: updatedTask }
+            : getState().taskDetail
+      });
+      dispatch({ type: "SET_EDITING_TASK_TITLE", isEditing: false });
+    } catch (err) {
+      dispatch({
+        type: "SET_TASK_TITLE_ERROR",
+        error: err instanceof Error ? err.message : "Failed to save task title."
+      });
+    } finally {
+      dispatch({ type: "SET_SAVING_TASK_TITLE", isSaving: false });
+    }
+  }
 
-  // initial load
-  useEffect(() => { void refreshOverview(); }, [refreshOverview]);
+  return {
+    state: INITIAL_STATE,
+    dispatch,
+    refreshOverview,
+    refreshTaskDetail,
+    refreshBookmarksOnly,
+    handleDeleteTask,
+    handleCreateTaskBookmark,
+    handleCreateEventBookmark,
+    handleDeleteBookmark,
+    handleTaskStatusChange,
+    handleTaskTitleSubmit
+  };
+});
 
-  // live clock (10초마다 갱신)
-  useEffect(() => {
-    const timer = setInterval(() => dispatch({ type: "SET_NOW_MS", nowMs: Date.now() }), 10_000);
-    return () => clearInterval(timer);
+// ---------------------------------------------------------------------------
+// MonitorProvider — initialises side-effects (clock, initial load, auto-select)
+// that previously lived in the Provider component.
+// Kept as a no-op wrapper so App.tsx doesn't need to change.
+// ---------------------------------------------------------------------------
+
+export function MonitorProvider({ children }: { children: React.ReactNode }): React.JSX.Element {
+  const storeRef = React.useRef(false);
+
+  React.useEffect(() => {
+    if (storeRef.current) return;
+    storeRef.current = true;
+
+    // Initial data load
+    void _monitorStore.getState().refreshOverview();
+
+    // Live clock: update nowMs every 10 seconds
+    const clockTimer = setInterval(() => {
+      _monitorStore.getState().dispatch({ type: "SET_NOW_MS", nowMs: Date.now() });
+    }, 10_000);
+
+    return () => {
+      clearInterval(clockTimer);
+    };
   }, []);
 
-  // auto-select first task
-  useEffect(() => {
-    const { tasks, selectedTaskId } = state;
+  // auto-select first task & load task detail when selectedTaskId changes
+  const state = _monitorStore((s) => s.state);
+
+  React.useEffect(() => {
+    const { tasks, selectedTaskId, status } = state;
     if (tasks.length === 0) {
-      if (state.status === "ready") {
-        dispatch({ type: "SELECT_TASK", taskId: null });
-        dispatch({ type: "SET_TASK_DETAIL", detail: null });
+      if (status === "ready") {
+        _monitorStore.getState().dispatch({ type: "SELECT_TASK", taskId: null });
+        _monitorStore.getState().dispatch({ type: "SET_TASK_DETAIL", detail: null });
       }
       return;
     }
     if (!selectedTaskId) {
-      dispatch({ type: "SELECT_TASK", taskId: tasks[0]?.id ?? null });
+      _monitorStore.getState().dispatch({ type: "SELECT_TASK", taskId: tasks[0]?.id ?? null });
     }
   }, [state.status, state.tasks]);
 
-  // task 변경 시 task detail 로드
-  useEffect(() => {
+  React.useEffect(() => {
     if (!state.selectedTaskId) return;
-    void refreshTaskDetail(state.selectedTaskId);
-  }, [refreshTaskDetail, state.selectedTaskId]);
-
-  // task 변경 시 필터 초기화
-  useEffect(() => {
-    dispatch({ type: "RESET_TASK_FILTERS" });
+    void _monitorStore.getState().refreshTaskDetail(state.selectedTaskId);
   }, [state.selectedTaskId]);
 
-  // taskDisplayTitleCache: 선택된 태스크 표시 제목 갱신
-  useEffect(() => {
+  React.useEffect(() => {
+    _monitorStore.getState().dispatch({ type: "RESET_TASK_FILTERS" });
+  }, [state.selectedTaskId]);
+
+  // taskDisplayTitleCache: update display title for selected task
+  React.useEffect(() => {
     const { taskDetail } = state;
     if (!taskDetail?.task) return;
     const displayTitle = buildTaskDisplayTitle(taskDetail.task, taskDetail.timeline);
     if (!displayTitle) return;
-    dispatch({
+    _monitorStore.getState().dispatch({
       type: "PATCH_TASK_DISPLAY_TITLE_CACHE",
       taskId: taskDetail.task.id,
       title: displayTitle,
@@ -580,82 +608,30 @@ export function MonitorProvider({ children }: { children: React.ReactNode }): Re
     });
   }, [state.taskDetail]);
 
-  // taskDisplayTitleCache: 삭제된 태스크 항목 제거
-  useEffect(() => {
+  // taskDisplayTitleCache: prune deleted tasks
+  React.useEffect(() => {
     const validTaskIds = new Set(state.tasks.map((t) => t.id));
-    dispatch({ type: "PRUNE_TASK_DISPLAY_TITLE_CACHE", validTaskIds });
+    _monitorStore.getState().dispatch({ type: "PRUNE_TASK_DISPLAY_TITLE_CACHE", validTaskIds });
   }, [state.tasks]);
 
-  // isEditingTaskTitle 해제 시 draft 동기화
-  useEffect(() => {
+  // Sync taskTitleDraft when editing mode is exited
+  React.useEffect(() => {
     if (state.isEditingTaskTitle) return;
     const { taskDetail, taskDisplayTitleCache } = state;
     if (!taskDetail?.task) return;
     const displayTitle = taskDisplayTitleCache[taskDetail.task.id]?.title ?? taskDetail.task.title;
-    dispatch({ type: "SET_TASK_TITLE_DRAFT", draft: displayTitle });
+    _monitorStore.getState().dispatch({ type: "SET_TASK_TITLE_DRAFT", draft: displayTitle });
   }, [state.isEditingTaskTitle, state.taskDetail]);
 
-  const value = useMemo<MonitorContextValue>(
-    () => ({
-      state,
-      dispatch,
-      refreshOverview,
-      refreshTaskDetail,
-      refreshBookmarksOnly,
-      handleDeleteTask,
-      handleCreateTaskBookmark,
-      handleCreateEventBookmark,
-      handleDeleteBookmark,
-      handleTaskStatusChange,
-      handleTaskTitleSubmit
-    }),
-    // dispatch는 안정적이므로 의존성에서 제외
-    [
-      state,
-      refreshOverview,
-      refreshTaskDetail,
-      refreshBookmarksOnly,
-      handleDeleteTask,
-      handleCreateTaskBookmark,
-      handleCreateEventBookmark,
-      handleDeleteBookmark,
-      handleTaskStatusChange,
-      handleTaskTitleSubmit
-    ]
-  );
-
-  return (
-    <MonitorContext.Provider value={value}>
-      {children}
-    </MonitorContext.Provider>
-  );
+  return <>{children}</>;
 }
 
 // ---------------------------------------------------------------------------
-// Hook
+// Public hook — preserves original API shape: { state, dispatch, refreshOverview, ... }
 // ---------------------------------------------------------------------------
 
-export function useMonitorStore(): MonitorContextValue {
-  const ctx = useContext(MonitorContext);
-  if (!ctx) {
-    throw new Error("useMonitorStore must be used inside <MonitorProvider>");
-  }
-  return ctx;
-}
-
-// ---------------------------------------------------------------------------
-// Internal helpers
-// ---------------------------------------------------------------------------
-
-function isConnectorKeyValidForTimeline(
-  key: string,
-  events: readonly TimelineEvent[]
-): boolean {
-  const [sourceEventId, targetPart] = key.split("→");
-  if (!sourceEventId || !targetPart) return false;
-  const [targetEventId] = targetPart.split(":");
-  if (!targetEventId) return false;
-  return events.some((e) => e.id === sourceEventId) && events.some((e) => e.id === targetEventId);
+export function useMonitorStore(): MonitorStoreSlice {
+  return _monitorStore();
 }
 
 // SearchResponse는 useSearch에서 사용되므로 여기서 re-export

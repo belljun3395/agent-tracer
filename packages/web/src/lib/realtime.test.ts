@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { EventId, TaskId } from "@monitor/core";
 import {
   parseRealtimeMessage,
   refreshRealtimeMonitorData,
@@ -58,8 +59,8 @@ describe("refreshRealtimeMonitorData", () => {
     const message: MonitorRealtimeMessage = {
       type: "event.logged",
       payload: {
-        id: "event-1",
-        taskId: "task-1",
+        id: EventId("event-1"),
+        taskId: TaskId("task-1"),
         kind: "action.logged",
         lane: "implementation",
         title: "Action",
@@ -85,7 +86,7 @@ describe("refreshRealtimeMonitorData", () => {
     const message: MonitorRealtimeMessage = {
       type: "task.updated",
       payload: {
-        id: "task-2",
+        id: TaskId("task-2"),
         title: "Other task",
         slug: "other-task",
         status: "running",

@@ -4,15 +4,16 @@
  * 태스크 평가 및 유사 워크플로우 검색 엔드포인트.
  */
 import { Router } from "express";
-import type { ReusableTaskSnapshot } from "@monitor/core";
 import type { MonitorService } from "../../../application/monitor-service.js";
+import { validate } from "../validate.js";
+import { taskEvaluateSchema } from "../../schemas.js";
 
 export function createEvaluationRoutes(service: MonitorService): Router {
   const router = Router();
 
   // POST /api/tasks/:id/evaluate — 태스크 평가 저장
-  router.post("/api/tasks/:id/evaluate", async (req, res) => {
-    const taskId = req.params.id;
+  router.post("/api/tasks/:id/evaluate", validate(taskEvaluateSchema), async (req, res) => {
+    const taskId = req.params["id"] as string;
     const {
       rating,
       useCase,
@@ -23,33 +24,18 @@ export function createEvaluationRoutes(service: MonitorService): Router {
       watchouts,
       workflowSnapshot,
       workflowContext
-    } = req.body as {
-      rating?: unknown;
-      useCase?: unknown;
-      workflowTags?: unknown;
-      outcomeNote?: unknown;
-      approachNote?: unknown;
-      reuseWhen?: unknown;
-      watchouts?: unknown;
-      workflowSnapshot?: unknown;
-      workflowContext?: unknown;
-    };
-
-    if (rating !== "good" && rating !== "skip") {
-      res.status(400).json({ error: "rating must be 'good' or 'skip'" });
-      return;
-    }
+    } = req.body as typeof taskEvaluateSchema._type;
 
     await service.upsertTaskEvaluation(taskId, {
       rating,
-      useCase: typeof useCase === "string" ? useCase : undefined,
-      workflowTags: Array.isArray(workflowTags) ? (workflowTags as string[]) : undefined,
-      outcomeNote: typeof outcomeNote === "string" ? outcomeNote : undefined,
-      approachNote: typeof approachNote === "string" ? approachNote : undefined,
-      reuseWhen: typeof reuseWhen === "string" ? reuseWhen : undefined,
-      watchouts: typeof watchouts === "string" ? watchouts : undefined,
-      workflowSnapshot: isReusableTaskSnapshot(workflowSnapshot) ? workflowSnapshot : undefined,
-      workflowContext: typeof workflowContext === "string" ? workflowContext : undefined
+      ...(useCase !== undefined ? { useCase } : {}),
+      ...(workflowTags !== undefined ? { workflowTags } : {}),
+      ...(outcomeNote !== undefined ? { outcomeNote } : {}),
+      ...(approachNote !== undefined ? { approachNote } : {}),
+      ...(reuseWhen !== undefined ? { reuseWhen } : {}),
+      ...(watchouts !== undefined ? { watchouts } : {}),
+      ...(workflowSnapshot !== undefined ? { workflowSnapshot } : {}),
+      ...(workflowContext !== undefined ? { workflowContext } : {}),
     });
     res.json({ ok: true });
   });
@@ -106,24 +92,4 @@ export function createEvaluationRoutes(service: MonitorService): Router {
   });
 
   return router;
-}
-
-function isReusableTaskSnapshot(value: unknown): value is ReusableTaskSnapshot {
-  if (!value || typeof value !== "object") {
-    return false;
-  }
-
-  const snapshot = value as Record<string, unknown>;
-  return typeof snapshot.objective === "string"
-    && (snapshot.originalRequest === null || typeof snapshot.originalRequest === "string")
-    && (snapshot.outcomeSummary === null || typeof snapshot.outcomeSummary === "string")
-    && (snapshot.approachSummary === null || typeof snapshot.approachSummary === "string")
-    && (snapshot.reuseWhen === null || typeof snapshot.reuseWhen === "string")
-    && Array.isArray(snapshot.watchItems)
-    && Array.isArray(snapshot.keyDecisions)
-    && Array.isArray(snapshot.nextSteps)
-    && Array.isArray(snapshot.keyFiles)
-    && Array.isArray(snapshot.modifiedFiles)
-    && (snapshot.verificationSummary === null || typeof snapshot.verificationSummary === "string")
-    && typeof snapshot.searchText === "string";
 }

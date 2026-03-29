@@ -11,6 +11,7 @@ import {
   createTaskSlug,
   extractPathLikeTokens,
   normalizeWorkspacePath,
+  TaskId,
   type MonitoringEventKind, type MonitoringTask, type TimelineEvent, type TimelineLane
 } from "@monitor/core";
 
@@ -648,7 +649,7 @@ export class MonitorService {
       ?? buildWorkflowContext(events, workflowTitle, evaluation, snapshot);
 
     await this.ports.evaluations.upsertEvaluation({
-      taskId,
+      taskId: TaskId(taskId),
       rating: input.rating,
       useCase: evaluation.useCase,
       workflowTags: evaluation.workflowTags,

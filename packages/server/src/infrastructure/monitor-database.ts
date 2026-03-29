@@ -21,7 +21,7 @@ import type {
   TimelineEvent,
   TimelineLane
 } from "@monitor/core";
-import { normalizeLane } from "@monitor/core";
+import { EventId, normalizeLane, SessionId, TaskId } from "@monitor/core";
 import { parseJsonField } from "./sqlite/sqlite-json.js";
 
 export interface MonitorDatabaseOptions {
@@ -1026,7 +1026,7 @@ export class MonitorDatabase {
 
 function mapTaskRow(row: TaskRow): MonitoringTask {
   return {
-    id: row.id,
+    id: TaskId(row.id),
     title: row.title,
     slug: row.slug,
     status: row.status,
@@ -1034,9 +1034,9 @@ function mapTaskRow(row: TaskRow): MonitoringTask {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     ...(row.workspace_path ? { workspacePath: row.workspace_path } : {}),
-    ...(row.parent_task_id ? { parentTaskId: row.parent_task_id } : {}),
-    ...(row.parent_session_id ? { parentSessionId: row.parent_session_id } : {}),
-    ...(row.background_task_id ? { backgroundTaskId: row.background_task_id } : {}),
+    ...(row.parent_task_id ? { parentTaskId: TaskId(row.parent_task_id) } : {}),
+    ...(row.parent_session_id ? { parentSessionId: SessionId(row.parent_session_id) } : {}),
+    ...(row.background_task_id ? { backgroundTaskId: TaskId(row.background_task_id) } : {}),
     ...(row.last_session_started_at
       ? { lastSessionStartedAt: row.last_session_started_at }
       : {}),
@@ -1046,8 +1046,8 @@ function mapTaskRow(row: TaskRow): MonitoringTask {
 
 function mapSessionRow(row: SessionRow): MonitoringSession {
   return {
-    id: row.id,
-    taskId: row.task_id,
+    id: SessionId(row.id),
+    taskId: TaskId(row.task_id),
     status: row.status,
     startedAt: row.started_at,
     ...(row.summary ? { summary: row.summary } : {}),
@@ -1057,15 +1057,15 @@ function mapSessionRow(row: SessionRow): MonitoringSession {
 
 function mapEventRow(row: EventRow): TimelineEvent {
   return {
-    id: row.id,
-    taskId: row.task_id,
+    id: EventId(row.id),
+    taskId: TaskId(row.task_id),
     kind: row.kind,
     lane: normalizeLane(row.lane),
     title: row.title,
     metadata: parseJsonField(row.metadata_json),
     classification: parseJsonField(row.classification_json),
     createdAt: row.created_at,
-    ...(row.session_id ? { sessionId: row.session_id } : {}),
+    ...(row.session_id ? { sessionId: SessionId(row.session_id) } : {}),
     ...(row.body ? { body: row.body } : {})
   };
 }

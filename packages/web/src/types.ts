@@ -27,6 +27,10 @@ export interface TimelineRelation {
   readonly label?: string;
   readonly explanation?: string;
   readonly isExplicit: boolean;
+  readonly workItemId?: string;
+  readonly goalId?: string;
+  readonly planId?: string;
+  readonly handoffId?: string;
 }
 
 export interface BookmarkRecord {

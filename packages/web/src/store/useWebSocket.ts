@@ -1,9 +1,10 @@
 /**
  * WebSocket 연결 훅.
- * 자동 재접속(5초), cleanup을 담당.
+ * 지수 백오프 재접속(100ms → 200ms → 400ms → 최대 5000ms),
+ * useTransition으로 비긴급 메시지 처리, cleanup을 담당.
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { createMonitorWebSocket } from "../api.js";
 import { parseRealtimeMessage, type MonitorRealtimeMessage } from "../lib/realtime.js";
 
@@ -11,6 +12,9 @@ export const SOCKET_READY_STATE = {
   CONNECTING: 0,
   OPEN: 1
 } as const;
+
+const RECONNECT_BASE_MS = 100;
+const RECONNECT_MAX_MS = 5000;
 
 export function cleanupSocketOnUnmount(input: {
   socket: Pick<WebSocket, "readyState" | "close">;
@@ -31,12 +35,21 @@ export function useWebSocket(
   const onMessageRef = useRef(onMessage);
   onMessageRef.current = onMessage;
 
+  // useTransition: WebSocket message processing is non-urgent — avoids blocking UI
+  const [, startTransition] = useTransition();
+
   useEffect(() => {
     let destroyed = false;
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
     let ws: WebSocket | null = null;
     let closeAfterConnect = false;
+    let reconnectAttempts = 0;
+
+    function getReconnectDelay(): number {
+      const delay = RECONNECT_BASE_MS * Math.pow(2, reconnectAttempts);
+      return Math.min(delay, RECONNECT_MAX_MS);
+    }
 
     function connect(): void {
       ws = createMonitorWebSocket();
@@ -47,6 +60,7 @@ export function useWebSocket(
           ws?.close();
           return;
         }
+        reconnectAttempts = 0;
         setIsConnected(true);
       };
 
@@ -58,7 +72,10 @@ export function useWebSocket(
         if (debounceTimer !== null) clearTimeout(debounceTimer);
         debounceTimer = setTimeout(() => {
           debounceTimer = null;
-          onMessageRef.current(message);
+          // Non-urgent: schedule via useTransition to avoid blocking UI renders
+          startTransition(() => {
+            onMessageRef.current(message);
+          });
         }, 200);
       };
 
@@ -69,7 +86,9 @@ export function useWebSocket(
       ws.onclose = (): void => {
         setIsConnected(false);
         if (!destroyed) {
-          reconnectTimer = setTimeout(connect, 5000);
+          const delay = getReconnectDelay();
+          reconnectAttempts += 1;
+          reconnectTimer = setTimeout(connect, delay);
         }
       };
     }

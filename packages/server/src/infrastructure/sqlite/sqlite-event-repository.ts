@@ -13,7 +13,7 @@ import type {
   TimelineEvent,
   TimelineLane
 } from "@monitor/core";
-import { normalizeLane } from "@monitor/core";
+import { EventId, normalizeLane, SessionId, TaskId } from "@monitor/core";
 
 import type {
   EventInsertInput,
@@ -103,15 +103,15 @@ interface RankedSearchDocument {
 
 function mapEventRow(row: EventRow): TimelineEvent {
   return {
-    id: row.id,
-    taskId: row.task_id,
+    id: EventId(row.id),
+    taskId: TaskId(row.task_id),
     kind: row.kind,
     lane: normalizeLane(row.lane),
     title: row.title,
     metadata: parseJsonField<Record<string, unknown>>(row.metadata_json),
     classification: parseJsonField<EventClassification>(row.classification_json),
     createdAt: row.created_at,
-    ...(row.session_id ? { sessionId: row.session_id } : {}),
+    ...(row.session_id ? { sessionId: SessionId(row.session_id) } : {}),
     ...(row.body ? { body: row.body } : {})
   };
 }

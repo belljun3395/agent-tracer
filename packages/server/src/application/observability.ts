@@ -4,6 +4,7 @@ import type {
   MonitoringTask,
   TimelineEvent
 } from "@monitor/core";
+import { EventId } from "@monitor/core";
 
 type ObservabilityPhase =
   | "planning"
@@ -208,7 +209,7 @@ export function analyzeTaskObservability(
   const todoGroups = new Map<string, { readonly completed: boolean }>();
 
   const relationEdges = collectExplicitRelations(timeline);
-  const traceLinkEligibleEventIds = new Set(
+  const traceLinkEligibleEventIds = new Set<string>(
     timeline
       .filter((event) => isTraceLinkEligible(event))
       .map((event) => event.id)
@@ -709,7 +710,7 @@ function resolveTaskEndMs(
 }
 
 function collectExplicitRelations(timeline: readonly TimelineEvent[]): readonly TimelineRelationEdge[] {
-  const eventIds = new Set(timeline.map((event) => event.id));
+  const eventIds = new Set<string>(timeline.map((event) => event.id));
   const seen = new Set<string>();
   const relations: TimelineRelationEdge[] = [];
 

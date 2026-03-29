@@ -23,7 +23,7 @@ import type {
   TimelineEvent,
   WorkflowEvaluationData
 } from "@monitor/core";
-import { buildReusableTaskSnapshot, buildWorkflowContext } from "@monitor/core";
+import { buildReusableTaskSnapshot, buildWorkflowContext, EventId, SessionId, TaskId } from "@monitor/core";
 import {
   deriveTaskDisplayTitle,
   meaningfulTaskTitle
@@ -97,7 +97,7 @@ interface RankedWorkflowRow {
 
 function mapEvaluationRow(row: EvaluationRow): StoredTaskEvaluation {
   return {
-    taskId: row.task_id,
+    taskId: TaskId(row.task_id),
     rating: row.rating as "good" | "skip",
     useCase: row.use_case,
     workflowTags: row.workflow_tags ? parseJsonField<string[]>(row.workflow_tags) : [],
@@ -116,9 +116,9 @@ function mapEvaluationRow(row: EvaluationRow): StoredTaskEvaluation {
 
 function mapEventRow(row: EventRow): TimelineEvent {
   return {
-    id: row.id,
-    taskId: row.task_id,
-    ...(row.session_id ? { sessionId: row.session_id } : {}),
+    id: EventId(row.id),
+    taskId: TaskId(row.task_id),
+    ...(row.session_id ? { sessionId: SessionId(row.session_id) } : {}),
     kind: row.kind as TimelineEvent["kind"],
     lane: row.lane as TimelineEvent["lane"],
     title: row.title,
@@ -375,7 +375,7 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
     const content = this.buildWorkflowContent(row);
 
     return {
-      taskId: row.task_id,
+      taskId: TaskId(row.task_id),
       title: row.title,
       ...(content.displayTitle ? { displayTitle: content.displayTitle } : {}),
       useCase: row.use_case,
@@ -494,7 +494,7 @@ function mergeRankedRows(
 
 function mapWorkflowSummary(row: TaskWithEvaluationRow, displayTitle?: string): WorkflowSummary {
   return {
-    taskId: row.task_id,
+    taskId: TaskId(row.task_id),
     title: row.title,
     ...(displayTitle ? { displayTitle } : {}),
     useCase: row.use_case,
@@ -512,7 +512,7 @@ function mapWorkflowSummary(row: TaskWithEvaluationRow, displayTitle?: string): 
 
 function buildWorkflowTask(row: Pick<TaskWithEvaluationRow, "task_id" | "title" | "slug" | "workspace_path" | "created_at" | "evaluated_at">): MonitoringTask {
   return {
-    id: row.task_id,
+    id: TaskId(row.task_id),
     title: row.title,
     slug: row.slug,
     status: "completed",

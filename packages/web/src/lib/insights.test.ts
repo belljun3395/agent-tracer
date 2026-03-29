@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { EventId, TaskId } from "@monitor/core";
 import type { MonitoringTask, TimelineEvent } from "../types.js";
 import {
   buildTaskExtraction,
@@ -19,34 +20,38 @@ import {
 } from "./insights.js";
 import type { HandoffOptions } from "./insights.js";
 
-function makeTask(overrides: Partial<MonitoringTask> = {}): MonitoringTask {
+function makeTask(overrides: Omit<Partial<MonitoringTask>, "id"> & { id?: string } = {}): MonitoringTask {
+  const { id, ...rest } = overrides;
   return {
-    id: overrides.id ?? "task-1",
-    title: overrides.title ?? "Codex - agent-tracer",
-    slug: overrides.slug ?? "codex-agent-tracer",
-    status: overrides.status ?? "running",
-    createdAt: overrides.createdAt ?? "2026-03-16T12:00:00.000Z",
-    updatedAt: overrides.updatedAt ?? "2026-03-16T12:10:00.000Z",
-    workspacePath: overrides.workspacePath ?? "/workspace/agent-tracer",
-    ...overrides
+    id: TaskId(id ?? "task-1"),
+    title: rest.title ?? "Codex - agent-tracer",
+    slug: rest.slug ?? "codex-agent-tracer",
+    status: rest.status ?? "running",
+    createdAt: rest.createdAt ?? "2026-03-16T12:00:00.000Z",
+    updatedAt: rest.updatedAt ?? "2026-03-16T12:10:00.000Z",
+    workspacePath: rest.workspacePath ?? "/workspace/agent-tracer",
+    ...rest
   };
 }
 
-function makeEvent(overrides: Partial<TimelineEvent> = {}): TimelineEvent {
+type EventOverrides = Omit<Partial<TimelineEvent>, "id" | "taskId"> & { id?: string; taskId?: string };
+
+function makeEvent(overrides: EventOverrides = {}): TimelineEvent {
+  const { id, taskId, ...rest } = overrides;
   return {
-    id: overrides.id ?? "event-1",
-    taskId: overrides.taskId ?? "task-1",
-    kind: overrides.kind ?? "tool.used",
-    lane: overrides.lane ?? "implementation",
-    title: overrides.title ?? "이벤트",
-    metadata: overrides.metadata ?? {},
-    classification: overrides.classification ?? {
-      lane: overrides.lane ?? "implementation",
+    id: EventId(id ?? "event-1"),
+    taskId: TaskId(taskId ?? "task-1"),
+    kind: rest.kind ?? "tool.used",
+    lane: rest.lane ?? "implementation",
+    title: rest.title ?? "이벤트",
+    metadata: rest.metadata ?? {},
+    classification: rest.classification ?? {
+      lane: rest.lane ?? "implementation",
       tags: [],
       matches: []
     },
-    createdAt: overrides.createdAt ?? "2026-03-16T12:00:00.000Z",
-    ...overrides
+    createdAt: rest.createdAt ?? "2026-03-16T12:00:00.000Z",
+    ...rest
   };
 }
 
@@ -620,7 +625,7 @@ describe("buildHandoffSystemPrompt", () => {
 });
 
 describe("collectWebLookups", () => {
-  function makeWebEvent(overrides: Partial<TimelineEvent> = {}): TimelineEvent {
+  function makeWebEvent(overrides: EventOverrides = {}): TimelineEvent {
     return makeEvent({
       kind: "tool.used",
       lane: "exploration",

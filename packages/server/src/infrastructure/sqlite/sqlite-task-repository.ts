@@ -7,6 +7,7 @@
 
 import type Database from "better-sqlite3";
 import type { EventClassification, MonitoringEventKind, MonitoringTask, MonitoringTaskKind, TimelineLane } from "@monitor/core";
+import { EventId, SessionId, TaskId } from "@monitor/core";
 
 import type { ITaskRepository, OverviewStats, TaskUpsertInput } from "../../application/ports/task-repository.js";
 import { deriveTaskDisplayTitle } from "../../application/services/task-display-title-resolver.helpers.js";
@@ -48,7 +49,7 @@ interface EventKindRow {
 
 function mapTaskRow(row: TaskRow): MonitoringTask {
   return {
-    id: row.id,
+    id: TaskId(row.id),
     title: row.title,
     slug: row.slug,
     status: row.status,
@@ -56,9 +57,9 @@ function mapTaskRow(row: TaskRow): MonitoringTask {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     ...(row.workspace_path ? { workspacePath: row.workspace_path } : {}),
-    ...(row.parent_task_id ? { parentTaskId: row.parent_task_id } : {}),
-    ...(row.parent_session_id ? { parentSessionId: row.parent_session_id } : {}),
-    ...(row.background_task_id ? { backgroundTaskId: row.background_task_id } : {}),
+    ...(row.parent_task_id ? { parentTaskId: TaskId(row.parent_task_id) } : {}),
+    ...(row.parent_session_id ? { parentSessionId: SessionId(row.parent_session_id) } : {}),
+    ...(row.background_task_id ? { backgroundTaskId: TaskId(row.background_task_id) } : {}),
     ...(row.last_session_started_at ? { lastSessionStartedAt: row.last_session_started_at } : {}),
     ...(row.cli_source ? { runtimeSource: row.cli_source } : {})
   };
@@ -90,15 +91,15 @@ export class SqliteTaskRepository implements ITaskRepository {
       )
         .all({ taskId: task.id })
         .map((r) => ({
-          id: r.id,
-          taskId: r.task_id,
+          id: EventId(r.id),
+          taskId: TaskId(r.task_id),
           kind: r.kind as MonitoringEventKind,
           lane: r.lane as TimelineLane,
           title: r.title,
           metadata: parseJsonField<Record<string, unknown>>(r.metadata_json),
           classification: parseJsonField<EventClassification>(r.classification_json),
           createdAt: r.created_at,
-          ...(r.session_id ? { sessionId: r.session_id } : {}),
+          ...(r.session_id ? { sessionId: SessionId(r.session_id) } : {}),
           ...(r.body ? { body: r.body } : {})
         }));
   }

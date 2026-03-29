@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { EventId, TaskId } from "@monitor/core";
 import type { TimelineEvent } from "../types.js";
 import {
   TIMELINE_LANES,
@@ -11,21 +12,24 @@ import {
   resolveTimelineViewportHeight
 } from "./timeline.js";
 
-function makeEvent(overrides: Partial<TimelineEvent> = {}): TimelineEvent {
+type EventOverrides = Omit<Partial<TimelineEvent>, "id" | "taskId"> & { id?: string; taskId?: string };
+
+function makeEvent(overrides: EventOverrides = {}): TimelineEvent {
+  const { id, taskId, ...rest } = overrides;
   return {
-    id: overrides.id ?? "event-1",
-    taskId: overrides.taskId ?? "task-1",
-    kind: overrides.kind ?? "tool.used",
-    lane: overrides.lane ?? "implementation",
-    title: overrides.title ?? "이벤트",
-    metadata: overrides.metadata ?? {},
-    classification: overrides.classification ?? {
-      lane: overrides.lane ?? "implementation",
+    id: EventId(id ?? "event-1"),
+    taskId: TaskId(taskId ?? "task-1"),
+    kind: rest.kind ?? "tool.used",
+    lane: rest.lane ?? "implementation",
+    title: rest.title ?? "이벤트",
+    metadata: rest.metadata ?? {},
+    classification: rest.classification ?? {
+      lane: rest.lane ?? "implementation",
       tags: [],
       matches: []
     },
-    createdAt: overrides.createdAt ?? "2026-03-16T09:00:00.000Z",
-    ...overrides
+    createdAt: rest.createdAt ?? "2026-03-16T09:00:00.000Z",
+    ...rest
   };
 }
 
