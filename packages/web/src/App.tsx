@@ -21,10 +21,14 @@ import { SidebarContainer } from "./components/SidebarContainer.js";
 import { TimelineContainer } from "./components/TimelineContainer.js";
 import { InspectorContainer } from "./components/InspectorContainer.js";
 import { TaskWorkspacePage } from "./pages/TaskWorkspacePage.js";
+import { ChatPage } from "./pages/ChatPage.js";
 import { MonitorProvider, useMonitorStore } from "./store/useMonitorStore.js";
 import { useWebSocket } from "./store/useWebSocket.js";
 import { useSearch } from "./store/useSearch.js";
 import { useResizable } from "./hooks/useResizable.js";
+import { useCliChat } from "./hooks/useCliChat.js";
+import { ChatWindow } from "./components/chat/index.js";
+import type { CliType } from "./types/chat.js";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -56,6 +60,7 @@ function Dashboard({
 
   const {
     bookmarks,
+    tasks,
     selectedTaskId,
     overview,
     taskDetail,
@@ -102,6 +107,20 @@ function Dashboard({
   } = useResizable();
 
   const [isLibraryOpen, setIsLibraryOpen] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [isNewChatModalOpen, setIsNewChatModalOpen] = useState(false);
+  const [newChatCli, setNewChatCli] = useState<CliType>("claude");
+  const [newChatWorkdir, setNewChatWorkdir] = useState("");
+
+  const {
+    state: cliChatState,
+    activeSession,
+    createSession,
+    sendMessage,
+    cancelSession,
+    closeSession,
+    setActiveSession
+  } = useCliChat();
 
   const [zoom, setZoom] = useState<number>(() => {
     const raw = window.localStorage.getItem(ZOOM_STORAGE_KEY);
@@ -128,6 +147,14 @@ function Dashboard({
     && selectedTaskDisplayTitle
     && selectedTaskDisplayTitle.trim() !== taskDetail.task.title.trim()
   );
+
+  useEffect(() => {
+    if (isNewChatModalOpen) return;
+    if (!selectedTaskId) return;
+    const selectedTask = tasks.find((task) => task.id === selectedTaskId);
+    if (!selectedTask?.workspacePath) return;
+    setNewChatWorkdir(selectedTask.workspacePath);
+  }, [isNewChatModalOpen, selectedTaskId, tasks]);
 
   const exploredFiles = useMemo(() => collectExploredFiles(taskTimeline), [taskTimeline]);
   const compactInsight = useMemo(() => buildCompactInsight(taskTimeline), [taskTimeline]);
@@ -173,6 +200,40 @@ function Dashboard({
     }
   }, [bookmarks, dispatch, selectDashboardTask, setSearchQuery]);
 
+  const handleOpenNewChat = useCallback((): void => {
+    const selectedTask = tasks.find((task) => task.id === selectedTaskId);
+    setNewChatWorkdir(selectedTask?.workspacePath ?? "");
+    setIsNewChatModalOpen(true);
+  }, [selectedTaskId, tasks]);
+
+  const handleCreateChatSession = useCallback((): void => {
+    if (!newChatWorkdir.trim()) return;
+    const sessionId = createSession({
+      cli: newChatCli,
+      workdir: newChatWorkdir.trim(),
+      ...(selectedTaskId ? { taskId: selectedTaskId } : {})
+    });
+    setActiveSession(sessionId);
+    setIsNewChatModalOpen(false);
+    setIsChatOpen(true);
+  }, [createSession, newChatCli, newChatWorkdir, selectedTaskId, setActiveSession]);
+
+  const handleContinueTaskChat = useCallback((taskId: string, workspacePath?: string): void => {
+    const resolvedWorkdir = workspacePath ?? tasks.find((task) => task.id === taskId)?.workspacePath ?? "";
+    if (!resolvedWorkdir) {
+      setNewChatWorkdir("");
+      setIsNewChatModalOpen(true);
+      return;
+    }
+    const sessionId = createSession({
+      cli: newChatCli,
+      workdir: resolvedWorkdir,
+      taskId
+    });
+    setActiveSession(sessionId);
+    setIsChatOpen(true);
+  }, [createSession, newChatCli, setActiveSession, tasks]);
+
   // Layout
   const dashboardStyle = useMemo(
     () => ({
@@ -213,6 +274,7 @@ function Dashboard({
         onSelectSearchBookmark={handleSelectSearchBookmark}
         onRefresh={() => void refreshOverview()}
         onOpenLibrary={() => setIsLibraryOpen(true)}
+        onOpenNewChat={handleOpenNewChat}
       />
 
       <main
@@ -251,6 +313,7 @@ function Dashboard({
           onToggleCollapse={() => setIsInspectorCollapsed((v) => !v)}
           onInspectorResizeStart={onInspectorResizeStart}
           onOpenTaskWorkspace={selectedTaskId ? () => onOpenTaskWorkspace(selectedTaskId) : undefined}
+          onContinueChat={handleContinueTaskChat}
         />
       </main>
 
@@ -263,6 +326,98 @@ function Dashboard({
           }}
           onClose={() => setIsLibraryOpen(false)}
         />
+      )}
+
+      {isNewChatModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 backdrop-blur-[2px]" role="dialog" aria-modal="true" aria-label="New chat setup">
+          <button
+            aria-label="Close new chat modal"
+            className="absolute inset-0"
+            onClick={() => setIsNewChatModalOpen(false)}
+            type="button"
+          />
+          <div
+            className="relative mt-12 w-full max-w-xl overflow-hidden rounded-[14px] border border-[var(--border)] bg-[var(--surface)] shadow-[0_20px_60px_rgba(0,0,0,0.25)]"
+          >
+            <div className="border-b border-[var(--border)] bg-[var(--surface-2)] px-4 py-3">
+              <h2 className="text-[0.92rem] font-semibold text-[var(--text-1)]">New Chat</h2>
+            </div>
+            <div className="space-y-4 p-4">
+              <label className="block">
+                <span className="mb-1 block text-[0.74rem] font-semibold text-[var(--text-2)]">CLI</span>
+                <select
+                  className="w-full rounded-[8px] border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[0.82rem]"
+                  onChange={(event) => setNewChatCli(event.target.value === "opencode" ? "opencode" : "claude")}
+                  value={newChatCli}
+                >
+                  <option value="claude">Claude Code</option>
+                  <option value="opencode">OpenCode</option>
+                </select>
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-[0.74rem] font-semibold text-[var(--text-2)]">Workdir</span>
+                <input
+                  className="w-full rounded-[8px] border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[0.82rem]"
+                  onChange={(event) => setNewChatWorkdir(event.target.value)}
+                  placeholder="/absolute/path"
+                  value={newChatWorkdir}
+                />
+              </label>
+              <div className="flex justify-end gap-2">
+                <button
+                  className="rounded-[8px] border border-[var(--border)] bg-[var(--surface-2)] px-3 py-1.5 text-[0.78rem] font-semibold"
+                  onClick={() => setIsNewChatModalOpen(false)}
+                  type="button"
+                >
+                  취소
+                </button>
+                <button
+                  className="rounded-[8px] border border-[var(--accent)] bg-[var(--accent-light)] px-3 py-1.5 text-[0.78rem] font-semibold text-[var(--accent)]"
+                  disabled={!newChatWorkdir.trim()}
+                  onClick={handleCreateChatSession}
+                  type="button"
+                >
+                  시작
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isChatOpen && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 backdrop-blur-[2px]" role="dialog" aria-modal="true" aria-label="CLI chat">
+          <button
+            aria-label="Close chat modal"
+            className="absolute inset-0"
+            onClick={() => setIsChatOpen(false)}
+            type="button"
+          />
+          <div
+            className="relative mt-10 h-[min(82vh,860px)] w-full max-w-5xl px-2"
+          >
+            <ChatWindow
+              isConnected={cliChatState.isConnected}
+              onCancel={() => {
+                if (!activeSession) return;
+                cancelSession(activeSession.id);
+              }}
+              onClose={() => {
+                if (!activeSession) {
+                  setIsChatOpen(false);
+                  return;
+                }
+                closeSession(activeSession.id);
+                setIsChatOpen(false);
+              }}
+              onSendMessage={(message) => {
+                if (!activeSession) return;
+                sendMessage(activeSession.id, message);
+              }}
+              session={activeSession}
+            />
+          </div>
+        </div>
       )}
     </div>
   );
@@ -307,11 +462,16 @@ function TaskWorkspaceRoute(): React.JSX.Element {
   return <TaskWorkspacePage taskId={taskId} />;
 }
 
+function ChatRoute(): React.JSX.Element {
+  return <ChatPage />;
+}
+
 function AppRoutes(): React.JSX.Element {
   return (
     <Routes>
       <Route path="/" element={<DashboardRoute />} />
       <Route path="/tasks/:taskId" element={<TaskWorkspaceRoute />} />
+      <Route path="/chat" element={<ChatRoute />} />
       <Route path="*" element={<Navigate replace to="/" />} />
     </Routes>
   );

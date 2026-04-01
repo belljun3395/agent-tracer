@@ -361,6 +361,7 @@ interface EventInspectorProps {
   readonly onToggleCollapse?: () => void;
   readonly onActiveTabChange?: (tab: PanelTabId) => void;
   readonly onOpenTaskWorkspace?: () => void;
+  readonly onContinueChat?: (taskId: string, workspacePath?: string) => void;
   readonly onCreateTaskBookmark: () => void;
   readonly onCreateEventBookmark: () => void;
   readonly onUpdateEventDisplayTitle: (eventId: string, displayTitle: string | null) => Promise<void>;
@@ -1616,6 +1617,7 @@ export function EventInspector({
   onToggleCollapse,
   onActiveTabChange,
   onOpenTaskWorkspace,
+  onContinueChat,
   onCreateTaskBookmark,
   onCreateEventBookmark,
   onUpdateEventDisplayTitle,
@@ -1739,7 +1741,7 @@ export function EventInspector({
     () => buildReusableTaskSnapshot({
       objective: taskExtraction.objective,
       events: taskTimeline,
-      evaluation: taskEvaluation ?? undefined
+      evaluation: taskEvaluation ?? null
     }),
     [taskExtraction.objective, taskTimeline, taskEvaluation]
   );
@@ -1790,7 +1792,7 @@ export function EventInspector({
     setEventTitleDraft(selectedEventDisplayTitle ?? "");
     setEventTitleError(null);
     setIsSavingEventTitle(false);
-  }, [selectedEvent?.id, selectedEventDisplayTitle]);
+  }, [selectedEventDisplayTitle]);
 
   useEffect(() => {
     if (!resolvedAllowedTabs.includes(uncontrolledActiveTab)) {
@@ -1895,11 +1897,11 @@ export function EventInspector({
     <aside className={cn("detail-panel flex min-h-0 flex-1 flex-col overflow-hidden rounded-[12px] border border-[var(--border)] bg-[var(--surface)] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_12px_rgba(0,0,0,0.03)]", className)}>
       {/* ── Tab bar ── */}
       <div
-        aria-label="Inspector panels"
         className={cn(
           "panel-tab-bar border-b border-[var(--border)] bg-[var(--surface)] px-3 py-2",
           isSingleTabMode ? "flex flex-col gap-2" : "flex items-center gap-1 overflow-x-auto"
         )}
+        {...(isSingleTabMode ? {} : { "aria-label": "Inspector panels" })}
         role={isSingleTabMode ? undefined : "tablist"}
       >
         {isSingleTabMode ? (
@@ -1977,6 +1979,17 @@ export function EventInspector({
                     <Button className="h-auto rounded-full px-3 py-1.5 text-[0.72rem] font-semibold" onClick={onCreateTaskBookmark} size="sm" type="button" variant="ghost">
                       {selectedTaskBookmark ? "Task Saved" : "Save Task"}
                     </Button>
+                    {taskDetail?.task && (
+                      <Button
+                        className="h-auto rounded-full px-3 py-1.5 text-[0.72rem] font-semibold"
+                        onClick={() => onContinueChat?.(taskDetail.task.id, taskDetail.task.workspacePath)}
+                        size="sm"
+                        type="button"
+                        variant="ghost"
+                      >
+                        대화 이어가기
+                      </Button>
+                    )}
                     {selectedEvent && (
                       <Button className="h-auto rounded-full px-3 py-1.5 text-[0.72rem] font-semibold" onClick={onCreateEventBookmark} size="sm" type="button" variant="ghost">
                         {selectedEventBookmark ? "Card Saved" : "Save Card"}
@@ -2254,7 +2267,7 @@ export function EventInspector({
                       {
                         label: "Total Duration",
                         value: formatDuration(observability.totalDurationMs),
-                        note: observability.runtimeSource ? `runtime ${observability.runtimeSource}` : undefined,
+                        ...(observability.runtimeSource ? { note: `runtime ${observability.runtimeSource}` } : {}),
                         tone: "accent"
                       },
                       {
@@ -2416,7 +2429,7 @@ export function EventInspector({
             />
             {taskExtraction.objective && (
               <TaskHandoffPanel
-                taskId={taskDetail?.task.id}
+                {...(taskDetail?.task.id ? { taskId: taskDetail.task.id } : {})}
                 objective={taskExtraction.objective}
                 summary={taskExtraction.summary}
                 plans={handoffPlans}

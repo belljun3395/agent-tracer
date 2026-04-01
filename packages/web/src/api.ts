@@ -23,13 +23,32 @@ const API_BASE = (
   ?? (import.meta.env.VITE_BADEN_BASE_URL as string | undefined)
 )?.replace(/\/+$/g, "") ?? "";
 
+const WS_BASE = (import.meta.env.VITE_MONITOR_WS_BASE_URL as string | undefined)?.replace(/\/+$/g, "") ?? "";
+
+function resolveWebSocketBaseUrl(): string {
+  if (WS_BASE) {
+    return WS_BASE;
+  }
+
+  if (API_BASE) {
+    return API_BASE;
+  }
+
+  if (window.location.port === "5173") {
+    const protocol = window.location.protocol === "https:" ? "https:" : "http:";
+    return `${protocol}//${window.location.hostname}:3847`;
+  }
+
+  return window.location.origin;
+}
+
 async function getJson<T>(pathname: string): Promise<T> {
   const response = await fetch(`${API_BASE}${pathname}`);
 
   if (!response.ok) {
     const error = new Error(`Failed to load ${pathname}: ${response.status}`) as Error & {
-      readonly status?: number;
-      readonly pathname?: string;
+      status?: number;
+      pathname?: string;
     };
     error.status = response.status;
     error.pathname = pathname;
@@ -247,9 +266,17 @@ export function fetchWorkflowContent(taskId: string): Promise<WorkflowContentRec
  * 서버 이벤트 수신 시 대시보드 데이터를 갱신하는 데 사용.
  */
 export function createMonitorWebSocket(): WebSocket {
-  const baseUrl = API_BASE || window.location.origin;
+  const baseUrl = resolveWebSocketBaseUrl();
   const wsUrl = new URL(baseUrl.replace(/^http/, "ws"));
   wsUrl.pathname = "/ws";
+
+  return new WebSocket(wsUrl);
+}
+
+export function createCliWebSocket(): WebSocket {
+  const baseUrl = resolveWebSocketBaseUrl();
+  const wsUrl = new URL(baseUrl.replace(/^http/, "ws"));
+  wsUrl.pathname = "/cli";
 
   return new WebSocket(wsUrl);
 }

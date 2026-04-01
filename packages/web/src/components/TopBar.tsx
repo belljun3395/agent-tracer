@@ -39,6 +39,7 @@ interface TopBarProps {
   readonly onSelectSearchBookmark: (bookmark: BookmarkSearchHit) => void;
   readonly onRefresh: () => void;
   readonly onOpenLibrary: () => void;
+  readonly onOpenNewChat: () => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -158,7 +159,8 @@ export function TopBar({
   onSelectSearchEvent,
   onSelectSearchBookmark,
   onRefresh,
-  onOpenLibrary
+  onOpenLibrary,
+  onOpenNewChat
 }: TopBarProps): React.JSX.Element {
   const { theme, toggle: toggleTheme } = useTheme();
   const totalResults = (searchResults?.tasks.length ?? 0)
@@ -353,6 +355,17 @@ export function TopBar({
             This task
           </button>
         )}
+
+        <button
+          aria-label="Open new chat"
+          className="flex h-7 shrink-0 items-center gap-1.5 rounded-[8px] border border-[var(--border)] bg-[var(--surface-2)] px-2.5 text-[0.75rem] font-semibold text-[var(--text-2)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]"
+          onClick={onOpenNewChat}
+          title="New Chat"
+          type="button"
+        >
+          <span className="text-[0.85rem] leading-none">✦</span>
+          New Chat
+        </button>
 
         <button
           aria-label="Open workflow library"

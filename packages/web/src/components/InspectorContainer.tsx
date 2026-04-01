@@ -44,6 +44,7 @@ interface InspectorContainerProps {
   readonly onToggleCollapse: () => void;
   readonly onInspectorResizeStart: (event: React.PointerEvent<HTMLDivElement>) => void;
   readonly onOpenTaskWorkspace?: (() => void) | undefined;
+  readonly onContinueChat?: (taskId: string, workspacePath?: string) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -56,7 +57,8 @@ export function InspectorContainer({
   selectedTaskDisplayTitle,
   onToggleCollapse,
   onInspectorResizeStart,
-  onOpenTaskWorkspace
+  onOpenTaskWorkspace,
+  onContinueChat
 }: InspectorContainerProps): React.JSX.Element {
   const {
     state,
@@ -190,6 +192,7 @@ export function InspectorContainer({
         selectedRuleId={selectedRuleId}
         isCollapsed={isInspectorCollapsed}
         {...(onOpenTaskWorkspace !== undefined ? { onOpenTaskWorkspace } : {})}
+        {...(onContinueChat !== undefined ? { onContinueChat } : {})}
         onToggleCollapse={onToggleCollapse}
         onCreateTaskBookmark={() => {
           void handleCreateTaskBookmark().catch((err) => {
