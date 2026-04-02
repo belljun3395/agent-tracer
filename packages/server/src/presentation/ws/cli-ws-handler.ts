@@ -99,11 +99,24 @@ export class CliWsHandler {
       return;
     }
     try {
+      // For OpenCode, register/resolve the canonical taskId before spawning so the
+      // client receives it in cli:started and can reuse it on every subsequent resume.
+      // This is safe to await here — stream listeners are attached after startChat,
+      // and OpenCode's fast-exit race is with streamOutput, not with this registration.
+      let resolvedTaskId = message.taskId;
+      if (message.cli === "opencode") {
+        resolvedTaskId = await this.registerOpencodeTask({
+          ...(message.taskId ? { taskId: message.taskId } : {}),
+          workdir: message.workdir,
+          prompt: message.prompt,
+        }) ?? message.taskId;
+      }
+
       const options: Parameters<CliBridgeService["startChat"]>[0] = {
         cli: message.cli,
         workdir: message.workdir,
         prompt: message.prompt,
-        ...(message.taskId ? { taskId: message.taskId } : {}),
+        ...(resolvedTaskId ? { taskId: resolvedTaskId } : {}),
         ...(message.model ? { model: message.model } : {}),
       };
       const process = await this.bridgeService.startChat(options);
@@ -111,18 +124,8 @@ export class CliWsHandler {
 
       // IMPORTANT: attach stream listeners immediately, before any async work,
       // so we never miss stdout data if the process exits quickly.
-      this.sendStarted(ws, process, message.requestId, message.taskId);
+      this.sendStarted(ws, process, message.requestId, resolvedTaskId);
       this.streamOutput(ws, process);
-
-      // For OpenCode, register the task in the monitor service in the background.
-      // This must NOT block streaming — OpenCode may exit within milliseconds.
-      if (message.cli === "opencode") {
-        void this.registerOpencodeTask({
-          ...(message.taskId ? { taskId: message.taskId } : {}),
-          workdir: message.workdir,
-          prompt: message.prompt,
-        });
-      }
     } catch (error) {
       this.sendError(
         ws,
@@ -155,27 +158,29 @@ export class CliWsHandler {
       return;
     }
     try {
+      // Same as handleStart: resolve canonical taskId before spawn for OpenCode.
+      let resolvedTaskId = message.taskId;
+      if (message.cli === "opencode") {
+        resolvedTaskId = await this.registerOpencodeTask({
+          ...(message.taskId ? { taskId: message.taskId } : {}),
+          workdir: message.workdir,
+          prompt: message.prompt,
+        }) ?? message.taskId;
+      }
+
       const options: Parameters<CliBridgeService["resumeChat"]>[0] = {
         cli: message.cli,
         sessionId: message.sessionId,
         workdir: message.workdir,
         prompt: message.prompt,
-        ...(message.taskId ? { taskId: message.taskId } : {}),
+        ...(resolvedTaskId ? { taskId: resolvedTaskId } : {}),
         ...(message.model ? { model: message.model } : {}),
       };
       const process = await this.bridgeService.resumeChat(options);
       this.trackProcess(ws, process);
 
-      this.sendStarted(ws, process, message.requestId, message.taskId);
+      this.sendStarted(ws, process, message.requestId, resolvedTaskId);
       this.streamOutput(ws, process);
-
-      if (message.cli === "opencode") {
-        void this.registerOpencodeTask({
-          ...(message.taskId ? { taskId: message.taskId } : {}),
-          workdir: message.workdir,
-          prompt: message.prompt,
-        });
-      }
     } catch (error) {
       this.sendError(
         ws,

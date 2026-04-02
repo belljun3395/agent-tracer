@@ -271,6 +271,133 @@ describe("CliWsHandler — cancel/complete race", () => {
 });
 
 // ---------------------------------------------------------------------------
+// OpenCode canonical taskId propagation (Codex high finding)
+// ---------------------------------------------------------------------------
+
+function makeMockMonitorService(canonicalTaskId?: string) {
+  return {
+    startTask: vi.fn(async (input: { taskId?: string }) => ({
+      task: { id: canonicalTaskId ?? input.taskId ?? "server-assigned-task-id" },
+      sessionId: "monitor-sess-1",
+    })),
+  } as unknown as import("../../application/monitor-service.js").MonitorService;
+}
+
+describe("CliWsHandler — OpenCode canonical taskId propagation", () => {
+  it("resolves canonical taskId from monitorService and includes it in cli:started when no taskId given", async () => {
+    const mockProcess = makeMockProcess();
+    const bridge = makeMockBridgeService(mockProcess);
+    const monitorService = makeMockMonitorService("server-assigned-task-id");
+    const handler = new CliWsHandler(bridge, monitorService);
+    const ws = makeMockWs();
+    attachAndConnect(handler, ws);
+
+    sendWsMessage(ws, { type: "cli:start", cli: "opencode", workdir: "/tmp", prompt: "hello" });
+    // registerOpencodeTask is async — flush microtasks
+    await new Promise((r) => setTimeout(r, 0));
+
+    const startedRaw = ws._sent.find((s) => s.includes("cli:started"));
+    expect(startedRaw).toBeDefined();
+    const started = JSON.parse(startedRaw!);
+    expect(started.taskId).toBe("server-assigned-task-id");
+  });
+
+  it("passes canonical taskId to bridgeService.startChat for OpenCode", async () => {
+    const mockProcess = makeMockProcess();
+    const bridge = makeMockBridgeService(mockProcess);
+    const monitorService = makeMockMonitorService("server-assigned-task-id");
+    const handler = new CliWsHandler(bridge, monitorService);
+    const ws = makeMockWs();
+    attachAndConnect(handler, ws);
+
+    sendWsMessage(ws, { type: "cli:start", cli: "opencode", workdir: "/tmp", prompt: "hello" });
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(bridge.startChat).toHaveBeenCalledWith(
+      expect.objectContaining({ taskId: "server-assigned-task-id" })
+    );
+  });
+
+  it("uses client-supplied taskId as hint but reflects canonical server taskId in cli:started", async () => {
+    const mockProcess = makeMockProcess();
+    const bridge = makeMockBridgeService(mockProcess);
+    // Server confirms the supplied taskId is canonical (upsert found existing task)
+    const monitorService = makeMockMonitorService("task-hint-confirmed");
+    const handler = new CliWsHandler(bridge, monitorService);
+    const ws = makeMockWs();
+    attachAndConnect(handler, ws);
+
+    sendWsMessage(ws, {
+      type: "cli:start", cli: "opencode", workdir: "/tmp", prompt: "hello", taskId: "task-hint"
+    });
+    await new Promise((r) => setTimeout(r, 0));
+
+    const startedRaw = ws._sent.find((s) => s.includes("cli:started"));
+    const started = JSON.parse(startedRaw!);
+    // The server-returned canonical ID takes precedence
+    expect(started.taskId).toBe("task-hint-confirmed");
+  });
+
+  it("includes canonical taskId in cli:started for OpenCode cli:resume with no prior taskId", async () => {
+    const mockProcess = makeMockProcess();
+    const bridge = makeMockBridgeService(mockProcess);
+    const monitorService = makeMockMonitorService("server-assigned-resume-id");
+    const handler = new CliWsHandler(bridge, monitorService);
+    const ws = makeMockWs();
+    attachAndConnect(handler, ws);
+
+    sendWsMessage(ws, {
+      type: "cli:resume",
+      cli: "opencode",
+      sessionId: "opencode-session-1",
+      workdir: "/tmp",
+      prompt: "continue",
+    });
+    await new Promise((r) => setTimeout(r, 0));
+
+    const startedRaw = ws._sent.find((s) => s.includes("cli:started"));
+    expect(startedRaw).toBeDefined();
+    const started = JSON.parse(startedRaw!);
+    expect(started.taskId).toBe("server-assigned-resume-id");
+  });
+
+  it("falls back to client taskId when monitorService is unavailable (no monitorService)", async () => {
+    const mockProcess = makeMockProcess();
+    const bridge = makeMockBridgeService(mockProcess);
+    // No monitorService — handler constructed without it
+    const handler = new CliWsHandler(bridge);
+    const ws = makeMockWs();
+    attachAndConnect(handler, ws);
+
+    sendWsMessage(ws, {
+      type: "cli:start", cli: "opencode", workdir: "/tmp", prompt: "hello", taskId: "client-task"
+    });
+    await new Promise((r) => setTimeout(r, 0));
+
+    const startedRaw = ws._sent.find((s) => s.includes("cli:started"));
+    expect(startedRaw).toBeDefined();
+    const started = JSON.parse(startedRaw!);
+    expect(started.taskId).toBe("client-task");
+  });
+
+  it("omits taskId from cli:started for OpenCode when monitorService unavailable and none provided", async () => {
+    const mockProcess = makeMockProcess();
+    const bridge = makeMockBridgeService(mockProcess);
+    const handler = new CliWsHandler(bridge);
+    const ws = makeMockWs();
+    attachAndConnect(handler, ws);
+
+    sendWsMessage(ws, { type: "cli:start", cli: "opencode", workdir: "/tmp", prompt: "hello" });
+    await new Promise((r) => setTimeout(r, 0));
+
+    const startedRaw = ws._sent.find((s) => s.includes("cli:started"));
+    expect(startedRaw).toBeDefined();
+    const started = JSON.parse(startedRaw!);
+    expect(started.taskId).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // taskId echo in cli:started (Bug #2 regression guard)
 // ---------------------------------------------------------------------------
 

@@ -103,6 +103,34 @@ function mergeTimeline(
   return unchanged ? prev : merged;
 }
 
+/**
+ * Merges a freshly-fetched TaskDetailResponse into the cached previous value.
+ * Exported for unit testing.
+ *
+ * Rules:
+ *  - If prev refers to a different task, return the new detail as-is.
+ *  - If nothing changed (same task + unchanged timeline), return prev (referential
+ *    stability so consumers don't re-render).
+ *  - Otherwise, merge timeline events and preserve `runtimeSessionId`, preferring
+ *    the freshest non-empty value from `detail` and falling back to `prev`.
+ */
+export function mergeTaskDetail(
+  prev: TaskDetailResponse,
+  detail: TaskDetailResponse
+): TaskDetailResponse {
+  if (prev.task.id !== detail.task.id) return detail;
+  const sameTask = prev.task.updatedAt === detail.task.updatedAt;
+  const mergedTimeline = mergeTimeline(prev.timeline, detail.timeline);
+  const timelineUnchanged = mergedTimeline === prev.timeline;
+  if (sameTask && timelineUnchanged) return prev;
+  const resolvedRuntimeSessionId = detail.runtimeSessionId ?? prev.runtimeSessionId;
+  return {
+    task: sameTask ? prev.task : detail.task,
+    timeline: mergedTimeline,
+    ...(resolvedRuntimeSessionId !== undefined ? { runtimeSessionId: resolvedRuntimeSessionId } : {})
+  };
+}
+
 function isConnectorKeyValidForTimeline(
   key: string,
   events: readonly TimelineEvent[]
@@ -341,15 +369,8 @@ const _monitorStore = create<MonitorStoreSlice>((set, get) => {
         type: "SET_TASK_DETAIL",
         detail: (() => {
           const prev = getState().taskDetail;
-          if (!prev || prev.task.id !== detail.task.id) return detail;
-          const sameTask = prev.task.updatedAt === detail.task.updatedAt;
-          const mergedTimeline = mergeTimeline(prev.timeline, detail.timeline);
-          const timelineUnchanged = mergedTimeline === prev.timeline;
-          if (sameTask && timelineUnchanged) return prev;
-          return {
-            task: sameTask ? prev.task : detail.task,
-            timeline: mergedTimeline
-          };
+          if (!prev) return detail;
+          return mergeTaskDetail(prev, detail);
         })()
       });
 
