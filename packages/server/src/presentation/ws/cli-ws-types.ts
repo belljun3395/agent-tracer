@@ -18,6 +18,8 @@ export interface CliStartMessage {
   readonly requestId?: string;
   /** 연결할 agent-tracer task ID (선택) */
   readonly taskId?: string;
+  /** 사용할 모델 (provider/model 형식) */
+  readonly model?: string;
 }
 
 /** 기존 CLI 세션 재개 요청 */
@@ -30,6 +32,8 @@ export interface CliResumeMessage {
   readonly requestId?: string;
   /** 연결할 agent-tracer task ID (선택) */
   readonly taskId?: string;
+  /** 사용할 모델 (provider/model 형식) */
+  readonly model?: string;
 }
 
 /** CLI에 메시지 전송 */

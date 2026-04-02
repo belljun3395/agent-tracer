@@ -7,11 +7,6 @@ import type React from "react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { Navigate, Route, Routes, useNavigate, useParams, useSearchParams } from "react-router-dom";
 
-import {
-  buildCompactInsight,
-  buildObservabilityStats,
-  collectExploredFiles
-} from "./lib/insights.js";
 import { refreshRealtimeMonitorData } from "./lib/realtime.js";
 import type { BookmarkSearchHit } from "./types.js";
 import { cn } from "./lib/ui/cn.js";
@@ -62,7 +57,6 @@ function Dashboard({
     bookmarks,
     tasks,
     selectedTaskId,
-    overview,
     taskDetail,
     isConnected,
     taskDisplayTitleCache
@@ -111,6 +105,7 @@ function Dashboard({
   const [isNewChatModalOpen, setIsNewChatModalOpen] = useState(false);
   const [newChatCli, setNewChatCli] = useState<CliType>("claude");
   const [newChatWorkdir, setNewChatWorkdir] = useState("");
+  const [newChatModel, setNewChatModel] = useState("");
 
   const {
     state: cliChatState,
@@ -134,9 +129,6 @@ function Dashboard({
     window.localStorage.setItem(ZOOM_STORAGE_KEY, String(zoom));
   }, [zoom]);
 
-  // Derived values for TopBar + containers
-  const taskTimeline = taskDetail?.timeline ?? [];
-
   const selectedTaskDisplayTitle = useMemo(
     () => taskDetail?.task ? (taskDisplayTitleCache[taskDetail.task.id]?.title ?? taskDetail.task.title) : null,
     [taskDetail, taskDisplayTitleCache]
@@ -156,12 +148,8 @@ function Dashboard({
     setNewChatWorkdir(selectedTask.workspacePath);
   }, [isNewChatModalOpen, selectedTaskId, tasks]);
 
-  const exploredFiles = useMemo(() => collectExploredFiles(taskTimeline), [taskTimeline]);
-  const compactInsight = useMemo(() => buildCompactInsight(taskTimeline), [taskTimeline]);
-  const observabilityStats = useMemo(
-    () => buildObservabilityStats(taskTimeline, exploredFiles.length, compactInsight.occurrences),
-    [compactInsight.occurrences, exploredFiles.length, taskTimeline]
-  );
+  // observabilityStats, exploredFiles, compactInsight are computed inside
+  // TimelineContainer — no longer needed at Dashboard level after TopBar simplification.
   const selectDashboardTask = useCallback((taskId: string | null): void => {
     onSelectTaskRoute(taskId);
     dispatch({ type: "SELECT_TASK", taskId });
@@ -211,12 +199,13 @@ function Dashboard({
     const sessionId = createSession({
       cli: newChatCli,
       workdir: newChatWorkdir.trim(),
-      ...(selectedTaskId ? { taskId: selectedTaskId } : {})
+      ...(selectedTaskId ? { taskId: selectedTaskId } : {}),
+      ...(newChatModel.trim() ? { model: newChatModel.trim() } : {})
     });
     setActiveSession(sessionId);
     setIsNewChatModalOpen(false);
     setIsChatOpen(true);
-  }, [createSession, newChatCli, newChatWorkdir, selectedTaskId, setActiveSession]);
+  }, [createSession, newChatCli, newChatWorkdir, newChatModel, selectedTaskId, setActiveSession]);
 
   const handleContinueTaskChat = useCallback((taskId: string, workspacePath?: string): void => {
     const resolvedWorkdir = workspacePath ?? tasks.find((task) => task.id === taskId)?.workspacePath ?? "";
@@ -225,14 +214,25 @@ function Dashboard({
       setIsNewChatModalOpen(true);
       return;
     }
+
+    // Detect CLI type from the task's runtimeSource so we resume with the right adapter.
+    const task = tasks.find((t) => t.id === taskId);
+    const cli: CliType = task?.runtimeSource?.includes("opencode") ? "opencode" : "claude";
+
+    // Use the runtimeSessionId from the already-loaded taskDetail so cli:resume is sent
+    // instead of cli:start — this is what actually carries context across turns.
+    const cliSessionId =
+      taskDetail?.task.id === taskId ? taskDetail.runtimeSessionId : undefined;
+
     const sessionId = createSession({
-      cli: newChatCli,
+      cli,
       workdir: resolvedWorkdir,
-      taskId
+      taskId,
+      ...(cliSessionId ? { cliSessionId } : {})
     });
     setActiveSession(sessionId);
     setIsChatOpen(true);
-  }, [createSession, newChatCli, setActiveSession, tasks]);
+  }, [createSession, taskDetail, setActiveSession, tasks]);
 
   // Layout
   const dashboardStyle = useMemo(
@@ -243,13 +243,13 @@ function Dashboard({
     [sidebarWidth, inspectorWidth]
   );
 
-  const isStackedDashboard = viewportWidth < 960;
-  const isCompactDashboard = viewportWidth < 1040;
+  const isStackedDashboard = viewportWidth < 1024;
+  const isCompactDashboard = viewportWidth < 1280;
 
-  const dashboardColumns = viewportWidth < 960
+  const dashboardColumns = viewportWidth < 1024
     ? "!grid-cols-1"
-    : viewportWidth < 1040
-      ? (isSidebarCollapsed ? "!grid-cols-[44px_minmax(0,1fr)]" : "!grid-cols-[248px_minmax(0,1fr)]")
+    : viewportWidth < 1280
+      ? (isSidebarCollapsed ? "!grid-cols-[44px_minmax(0,1fr)]" : "!grid-cols-[var(--sidebar-width)_minmax(0,1fr)]")
       : (isSidebarCollapsed
         ? (isInspectorCollapsed ? "!grid-cols-[44px_minmax(0,1fr)_44px]" : "!grid-cols-[44px_minmax(0,1fr)_var(--inspector-width)]")
         : (isInspectorCollapsed ? "!grid-cols-[var(--sidebar-width)_minmax(0,1fr)_44px]" : "!grid-cols-[var(--sidebar-width)_minmax(0,1fr)_var(--inspector-width)]"));
@@ -257,24 +257,18 @@ function Dashboard({
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-[var(--bg)]">
       <TopBar
-        overview={overview}
         isConnected={isConnected}
         searchQuery={searchQuery}
         searchResults={searchResults}
         isSearching={isSearching}
         selectedTaskTitle={selectedTaskDisplayTitle ?? taskDetail?.task.title ?? null}
         taskScopeEnabled={taskScopeEnabled}
-        observabilityStats={observabilityStats ? { checks: observabilityStats.checks, violations: observabilityStats.violations, passes: observabilityStats.passes } : null}
-        zoom={zoom}
-        onZoomChange={setZoom}
         onTaskScopeToggle={setTaskScopeEnabled}
         onSearchQueryChange={setSearchQuery}
         onSelectSearchTask={handleSelectSearchTask}
         onSelectSearchEvent={handleSelectSearchEvent}
         onSelectSearchBookmark={handleSelectSearchBookmark}
         onRefresh={() => void refreshOverview()}
-        onOpenLibrary={() => setIsLibraryOpen(true)}
-        onOpenNewChat={handleOpenNewChat}
       />
 
       <main
@@ -294,6 +288,8 @@ function Dashboard({
           onToggleCollapse={() => setIsSidebarCollapsed((v) => !v)}
           onSidebarResizeStart={onSidebarResizeStart}
           onSelectTask={selectDashboardTask}
+          onOpenNewChat={handleOpenNewChat}
+          onOpenLibrary={() => setIsLibraryOpen(true)}
         />
 
         <TimelineContainer
@@ -363,6 +359,38 @@ function Dashboard({
                   value={newChatWorkdir}
                 />
               </label>
+              {newChatCli === "opencode" && (
+                <label className="block">
+                  <span className="mb-1 block text-[0.74rem] font-semibold text-[var(--text-2)]">Model</span>
+                  <select
+                    className="w-full rounded-[8px] border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[0.82rem]"
+                    onChange={(event) => setNewChatModel(event.target.value)}
+                    value={newChatModel}
+                  >
+                    <option value="">-- 모델 선택 --</option>
+                    <optgroup label="OpenAI">
+                      <option value="openai/gpt-5.3-codex-spark">openai/gpt-5.3-codex-spark</option>
+                      <option value="openai/gpt-5.3-codex">openai/gpt-5.3-codex</option>
+                      <option value="openai/gpt-5.4">openai/gpt-5.4</option>
+                    </optgroup>
+                    <optgroup label="GitHub Copilot">
+                      <option value="github-copilot/claude-opus-4.6">github-copilot/claude-opus-4.6</option>
+                      <option value="github-copilot/claude-sonnet-4.6">github-copilot/claude-sonnet-4.6</option>
+                      <option value="github-copilot/gpt-5-mini">github-copilot/gpt-5-mini</option>
+                    </optgroup>
+                    <optgroup label="Anthropic">
+                      <option value="anthropic/claude-opus-4-6">anthropic/claude-opus-4-6</option>
+                      <option value="anthropic/claude-sonnet-4-6">anthropic/claude-sonnet-4-6</option>
+                    </optgroup>
+                    <optgroup label="Other">
+                      <option value="opencode/minimax-m2.5-free">opencode/minimax-m2.5-free</option>
+                    </optgroup>
+                  </select>
+                  <span className="mt-0.5 block text-[0.68rem] text-[var(--text-3)]">
+                    headless 모드에서는 모델을 반드시 지정해야 합니다.
+                  </span>
+                </label>
+              )}
               <div className="flex justify-end gap-2">
                 <button
                   className="rounded-[8px] border border-[var(--border)] bg-[var(--surface-2)] px-3 py-1.5 text-[0.78rem] font-semibold"

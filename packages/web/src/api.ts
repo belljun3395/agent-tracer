@@ -34,7 +34,12 @@ function resolveWebSocketBaseUrl(): string {
     return API_BASE;
   }
 
-  if (window.location.port === "5173") {
+  // In any Vite dev-server run (port 5173, 5174, 5175, …) the page is served by
+  // Vite while the monitor backend always listens on port 3847.
+  // Connect directly to 3847 so the /ws and /cli WebSockets bypass Vite's proxy
+  // layer entirely — Vite's HMR upgrade handler can otherwise intercept all
+  // upgrade requests before the proxy rules are applied, causing silent failures.
+  if (import.meta.env.DEV) {
     const protocol = window.location.protocol === "https:" ? "https:" : "http:";
     return `${protocol}//${window.location.hostname}:3847`;
   }

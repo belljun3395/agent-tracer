@@ -402,6 +402,9 @@ export class MonitorService {
   async listTasks() { return this.ports.tasks.findAll(); }
   async getTask(taskId: string) { return this.ports.tasks.findById(taskId); }
   async getTaskTimeline(taskId: string): Promise<readonly TimelineEvent[]> { return this.ports.events.findByTaskId(taskId); }
+  async getTaskLatestRuntimeSession(taskId: string): Promise<{ runtimeSource: string; runtimeSessionId: string } | null> {
+    return this.ports.runtimeBindings.findLatestByTaskId(taskId);
+  }
   async getTaskObservability(taskId: string): Promise<TaskObservabilityResponse | undefined> {
     const task = await this.ports.tasks.findById(taskId);
     if (!task) {

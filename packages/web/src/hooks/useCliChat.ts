@@ -39,6 +39,7 @@ function createSession(input: {
   workdir: string;
   taskId?: string;
   cliSessionId?: string;
+  model?: string;
 }): ChatSession {
   const now = new Date().toISOString();
   return {
@@ -47,6 +48,7 @@ function createSession(input: {
     workdir: input.workdir,
     ...(input.taskId ? { taskId: input.taskId } : {}),
     ...(input.cliSessionId ? { cliSessionId: input.cliSessionId } : {}),
+    ...(input.model ? { model: input.model } : {}),
     messages: [],
     status: "idle",
     createdAt: now,
@@ -183,6 +185,7 @@ interface StartSessionInput {
   readonly workdir: string;
   readonly taskId?: string;
   readonly cliSessionId?: string;
+  readonly model?: string;
 }
 
 export function useCliChat(): {
@@ -203,6 +206,7 @@ export function useCliChat(): {
   }, []);
 
   const wsRef = useRef<WebSocket | null>(null);
+  const triggerConnectRef = useRef<(() => void) | null>(null);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectAttemptsRef = useRef(0);
   const pendingSessionQueueRef = useRef<string[]>([]);
@@ -241,7 +245,13 @@ export function useCliChat(): {
         if (typeof event.data !== "string") {
           return;
         }
-        const payload = JSON.parse(event.data) as CliWsMessage;
+        let payload: CliWsMessage;
+        try {
+          payload = JSON.parse(event.data) as CliWsMessage;
+        } catch {
+          // Malformed server message — ignore rather than crash the message loop.
+          return;
+        }
 
         if (payload.type === "cli:started" && payload.processId) {
           const sessionId = payload.requestId
@@ -307,6 +317,19 @@ export function useCliChat(): {
               type: "ADD_MESSAGE",
               sessionId,
               message: createMessage({ role: "system", content: errorMessage, error: errorMessage })
+            });
+            dispatch({ type: "UPDATE_SESSION_STATUS", sessionId, status: "error" });
+            return;
+          }
+
+          // CLI exited successfully but never produced any visible content —
+          // typically an API/model configuration error where OpenCode exits 0.
+          if (!streamingMessageId) {
+            const fallback = "CLI 프로세스가 응답 없이 종료되었습니다. 모델 설정을 확인해 주세요.";
+            dispatch({
+              type: "ADD_MESSAGE",
+              sessionId,
+              message: createMessage({ role: "system", content: fallback, error: fallback })
             });
             dispatch({ type: "UPDATE_SESSION_STATUS", sessionId, status: "error" });
             return;
@@ -388,10 +411,21 @@ export function useCliChat(): {
       };
     };
 
-    connect();
+    // Lazily expose connect so the WebSocket is only opened on first session creation.
+    triggerConnectRef.current = () => {
+      const existing = wsRef.current;
+      if (
+        !existing
+        || (existing.readyState !== SOCKET_READY_STATE.CONNECTING
+          && existing.readyState !== SOCKET_READY_STATE.OPEN)
+      ) {
+        connect();
+      }
+    };
 
     return () => {
       destroyed = true;
+      triggerConnectRef.current = null;
       clearReconnectTimer();
       const ws = wsRef.current;
       if (ws) {
@@ -407,6 +441,7 @@ export function useCliChat(): {
   const createSessionHandler = useCallback((input: StartSessionInput): string => {
     const session = createSession(input);
     dispatch({ type: "CREATE_SESSION", session });
+    triggerConnectRef.current?.();
     return session.id;
   }, [dispatch]);
 
@@ -418,6 +453,10 @@ export function useCliChat(): {
     const session = stateRef.current.sessions.get(sessionId);
     const ws = wsRef.current;
     if (!session || !ws || ws.readyState !== SOCKET_READY_STATE.OPEN) {
+      return;
+    }
+    // Guard: don't send a new cli:start while a previous start is still in flight.
+    if (session.status === "starting") {
       return;
     }
 
@@ -441,7 +480,8 @@ export function useCliChat(): {
         sessionId: session.cliSessionId,
         workdir: session.workdir,
         prompt: message,
-        ...(session.taskId ? { taskId: session.taskId } : {})
+        ...(session.taskId ? { taskId: session.taskId } : {}),
+        ...(session.model ? { model: session.model } : {})
       }));
       return;
     }
@@ -452,7 +492,8 @@ export function useCliChat(): {
       cli: session.cli,
       workdir: session.workdir,
       prompt: message,
-      ...(session.taskId ? { taskId: session.taskId } : {})
+      ...(session.taskId ? { taskId: session.taskId } : {}),
+      ...(session.model ? { model: session.model } : {})
     }));
   }, [dispatch]);
 

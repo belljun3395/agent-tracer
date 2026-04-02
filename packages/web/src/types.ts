@@ -197,4 +197,6 @@ export interface TasksResponse {
 export interface TaskDetailResponse {
   readonly task: MonitoringTask;
   readonly timeline: readonly TimelineEvent[];
+  /** CLI session ID (e.g. OpenCode session UUID or Claude conversation_id) for the latest runtime binding. */
+  readonly runtimeSessionId?: string;
 }

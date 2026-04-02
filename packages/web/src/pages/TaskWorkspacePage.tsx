@@ -23,7 +23,7 @@ import type { TaskObservabilityResponse } from "../types.js";
 const DEFAULT_WORKSPACE_TAB: PanelTabId = "overview";
 const WORKSPACE_INSPECTOR_MIN_WIDTH = 340;
 const WORKSPACE_INSPECTOR_MAX_WIDTH = 680;
-const WORKSPACE_INSPECTOR_DEFAULT_WIDTH = 420;
+const WORKSPACE_INSPECTOR_DEFAULT_WIDTH = 360;
 const WORKSPACE_INSPECTOR_WIDTH_STORAGE_KEY = "agent-tracer.workspace-inspector-width";
 
 const WORKSPACE_TAB_MAP: Record<string, PanelTabId> = {

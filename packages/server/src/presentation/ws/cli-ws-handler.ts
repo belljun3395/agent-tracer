@@ -4,7 +4,10 @@
  * CLI WebSocket handler. Manages CLI chat sessions over WebSocket.
  */
 
+import { existsSync } from "node:fs";
+import { isAbsolute } from "node:path";
 import type { WebSocket, WebSocketServer } from "ws";
+import type { MonitorService } from "../../application/monitor-service.js";
 import type { CliBridgeService } from "../../application/cli-bridge/cli-bridge-service.js";
 import type { CliProcess } from "../../application/cli-bridge/types.js";
 import {
@@ -16,10 +19,32 @@ import {
   type CliServerMessage,
 } from "./cli-ws-types.js";
 
+/**
+ * Validate that a workdir value is a non-empty absolute path that exists on disk.
+ * Returns an error string if invalid, undefined if OK.
+ */
+function validateWorkdir(workdir: unknown): string | undefined {
+  if (typeof workdir !== "string" || workdir.trim() === "") {
+    return "workdir must be a non-empty string";
+  }
+  if (!isAbsolute(workdir)) {
+    return "workdir must be an absolute path";
+  }
+  if (!existsSync(workdir)) {
+    return `workdir does not exist: ${workdir}`;
+  }
+  return undefined;
+}
+
 export class CliWsHandler {
   private readonly clientProcesses = new Map<WebSocket, Set<string>>();
+  /** Tracks processIds that were explicitly cancelled so wait() can skip cli:complete. */
+  private readonly cancelledProcesses = new Set<string>();
 
-  constructor(private readonly bridgeService: CliBridgeService) {}
+  constructor(
+    private readonly bridgeService: CliBridgeService,
+    private readonly monitorService?: MonitorService
+  ) {}
 
   attach(wss: WebSocketServer): void {
     wss.on("connection", (ws) => this.handleConnection(ws));
@@ -62,21 +87,44 @@ export class CliWsHandler {
 
   private async handleStart(
     ws: WebSocket,
-    message: { cli: "claude" | "opencode"; workdir: string; prompt: string; taskId?: string; requestId?: string }
+    message: { cli: "claude" | "opencode"; workdir: string; prompt: string; taskId?: string; requestId?: string; model?: string }
   ): Promise<void> {
+    const workdirError = validateWorkdir(message.workdir);
+    if (workdirError) {
+      this.sendError(ws, undefined, workdirError, message.requestId);
+      return;
+    }
+    if (!message.prompt || typeof message.prompt !== "string" || message.prompt.trim() === "") {
+      this.sendError(ws, undefined, "prompt must be a non-empty string", message.requestId);
+      return;
+    }
     try {
+      // For OpenCode, register/resolve the canonical taskId before spawning so the
+      // client receives it in cli:started and can reuse it on every subsequent resume.
+      // This is safe to await here — stream listeners are attached after startChat,
+      // and OpenCode's fast-exit race is with streamOutput, not with this registration.
+      let resolvedTaskId = message.taskId;
+      if (message.cli === "opencode") {
+        resolvedTaskId = await this.registerOpencodeTask({
+          ...(message.taskId ? { taskId: message.taskId } : {}),
+          workdir: message.workdir,
+          prompt: message.prompt,
+        }) ?? message.taskId;
+      }
+
       const options: Parameters<CliBridgeService["startChat"]>[0] = {
         cli: message.cli,
         workdir: message.workdir,
         prompt: message.prompt,
+        ...(resolvedTaskId ? { taskId: resolvedTaskId } : {}),
+        ...(message.model ? { model: message.model } : {}),
       };
-      if (message.taskId) {
-        (options as { taskId?: string }).taskId = message.taskId;
-      }
       const process = await this.bridgeService.startChat(options);
-
       this.trackProcess(ws, process);
-      this.sendStarted(ws, process, message.requestId);
+
+      // IMPORTANT: attach stream listeners immediately, before any async work,
+      // so we never miss stdout data if the process exits quickly.
+      this.sendStarted(ws, process, message.requestId, resolvedTaskId);
       this.streamOutput(ws, process);
     } catch (error) {
       this.sendError(
@@ -97,22 +145,41 @@ export class CliWsHandler {
       prompt: string;
       taskId?: string;
       requestId?: string;
+      model?: string;
     }
   ): Promise<void> {
+    const workdirError = validateWorkdir(message.workdir);
+    if (workdirError) {
+      this.sendError(ws, undefined, workdirError, message.requestId);
+      return;
+    }
+    if (!message.prompt || typeof message.prompt !== "string" || message.prompt.trim() === "") {
+      this.sendError(ws, undefined, "prompt must be a non-empty string", message.requestId);
+      return;
+    }
     try {
+      // Same as handleStart: resolve canonical taskId before spawn for OpenCode.
+      let resolvedTaskId = message.taskId;
+      if (message.cli === "opencode") {
+        resolvedTaskId = await this.registerOpencodeTask({
+          ...(message.taskId ? { taskId: message.taskId } : {}),
+          workdir: message.workdir,
+          prompt: message.prompt,
+        }) ?? message.taskId;
+      }
+
       const options: Parameters<CliBridgeService["resumeChat"]>[0] = {
         cli: message.cli,
         sessionId: message.sessionId,
         workdir: message.workdir,
         prompt: message.prompt,
+        ...(resolvedTaskId ? { taskId: resolvedTaskId } : {}),
+        ...(message.model ? { model: message.model } : {}),
       };
-      if (message.taskId) {
-        (options as { taskId?: string }).taskId = message.taskId;
-      }
       const process = await this.bridgeService.resumeChat(options);
-
       this.trackProcess(ws, process);
-      this.sendStarted(ws, process, message.requestId);
+
+      this.sendStarted(ws, process, message.requestId, resolvedTaskId);
       this.streamOutput(ws, process);
     } catch (error) {
       this.sendError(
@@ -124,10 +191,47 @@ export class CliWsHandler {
     }
   }
 
+  /**
+   * Registers or updates an OpenCode task in the monitor service.
+   * Called before spawning so the task appears in the dashboard even if the
+   * OpenCode monitor plugin does not fire (e.g., in --format json headless mode).
+   * Returns the canonical taskId (newly created or the existing one passed in).
+   */
+  private async registerOpencodeTask(input: {
+    taskId?: string;
+    workdir: string;
+    prompt: string;
+  }): Promise<string | undefined> {
+    if (!this.monitorService) return undefined;
+    try {
+      const title = input.prompt.length > 80
+        ? `${input.prompt.slice(0, 80)}…`
+        : input.prompt;
+      const { task } = await this.monitorService.startTask({
+        ...(input.taskId ? { taskId: input.taskId } : {}),
+        title,
+        workspacePath: input.workdir,
+        runtimeSource: "opencode",
+      });
+      return task.id;
+    } catch {
+      // Never block the chat start on monitor unavailability.
+      return undefined;
+    }
+  }
+
   private handleSendMessage(
     ws: WebSocket,
     message: { processId: string; message: string }
   ): void {
+    if (!message.processId || typeof message.processId !== "string") {
+      this.sendError(ws, undefined, "processId is required");
+      return;
+    }
+    if (!message.message || typeof message.message !== "string" || message.message.trim() === "") {
+      this.sendError(ws, message.processId, "message must be a non-empty string");
+      return;
+    }
     const process = this.bridgeService.getProcess(message.processId);
     if (!process) {
       this.sendError(ws, message.processId, "Process not found");
@@ -149,8 +253,15 @@ export class CliWsHandler {
     ws: WebSocket,
     message: { processId: string }
   ): void {
+    if (!message.processId || typeof message.processId !== "string") {
+      this.sendError(ws, undefined, "processId is required");
+      return;
+    }
+    // Mark as cancelled before calling cancel so streamOutput's wait() sees it.
+    this.cancelledProcesses.add(message.processId);
     const cancelled = this.bridgeService.cancelChat(message.processId);
     if (!cancelled) {
+      this.cancelledProcesses.delete(message.processId);
       this.sendError(ws, message.processId, "Process not found or already terminated");
     }
     this.clientProcesses.get(ws)?.delete(message.processId);
@@ -160,6 +271,7 @@ export class CliWsHandler {
     const processIds = this.clientProcesses.get(ws);
     if (processIds) {
       for (const processId of processIds) {
+        this.cancelledProcesses.add(processId);
         this.bridgeService.cancelChat(processId);
       }
     }
@@ -181,6 +293,14 @@ export class CliWsHandler {
           : undefined;
       if (direct) return direct;
 
+      // OpenCode --format json wraps content in { part: { text: "..." } }
+      const part = typeof event.part === "object" && event.part !== null
+        ? event.part as Record<string, unknown>
+        : undefined;
+      if (part && typeof part.text === "string") {
+        return part.text;
+      }
+
       const delta = typeof event.delta === "object" && event.delta !== null
         ? event.delta as Record<string, unknown>
         : undefined;
@@ -193,6 +313,15 @@ export class CliWsHandler {
         : undefined;
       if (error && typeof error.message === "string") {
         return error.message;
+      }
+      // OpenCode wraps API errors as { error: { name, data: { message } } }
+      if (error) {
+        const errorData = typeof error.data === "object" && error.data !== null
+          ? error.data as Record<string, unknown>
+          : undefined;
+        if (errorData && typeof errorData.message === "string") {
+          return errorData.message;
+        }
       }
 
       const message = typeof event.message === "object" && event.message !== null
@@ -287,24 +416,31 @@ export class CliWsHandler {
     });
 
     void process.wait().then((exitCode) => {
-      this.send(ws, {
-        type: "cli:complete",
-        processId: process.processId,
-        sessionId: process.sessionId,
-        exitCode,
-      });
+      const wasCancelled = this.cancelledProcesses.has(process.processId);
+      this.cancelledProcesses.delete(process.processId);
       this.bridgeService.removeProcess(process.processId);
       this.clientProcesses.get(ws)?.delete(process.processId);
+      // Do not send cli:complete for explicitly cancelled processes — the client
+      // already transitioned state when it sent cli:cancel.
+      if (!wasCancelled) {
+        this.send(ws, {
+          type: "cli:complete",
+          processId: process.processId,
+          sessionId: process.sessionId,
+          exitCode,
+        });
+      }
     });
   }
 
-  private sendStarted(ws: WebSocket, process: CliProcess, requestId?: string): void {
+  private sendStarted(ws: WebSocket, process: CliProcess, requestId?: string, taskId?: string): void {
     this.send(ws, {
       type: "cli:started",
       processId: process.processId,
       sessionId: process.sessionId,
       cli: process.cli,
       ...(requestId ? { requestId } : {}),
+      ...(taskId ? { taskId } : {}),
     });
   }
 

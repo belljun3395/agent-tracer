@@ -262,8 +262,8 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.88rem;
-  font-weight: 700;
+  font-size: 0.82rem;
+  font-weight: 600;
   letter-spacing: -0.01em;
   color: var(--text-1);
 }
@@ -288,6 +288,7 @@
   font-size: 0.69rem;
   font-weight: 600;
   line-height: 1;
+  opacity: 0.78;
 }
 
 .timeline-context-summary-chip.accent {

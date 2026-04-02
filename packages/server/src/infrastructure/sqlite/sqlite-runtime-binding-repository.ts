@@ -71,6 +71,15 @@ export class SqliteRuntimeBindingRepository implements IRuntimeBindingRepository
     return row?.task_id ?? null;
   }
 
+  async findLatestByTaskId(taskId: string): Promise<{ runtimeSource: string; runtimeSessionId: string } | null> {
+    const row = this.db
+      .prepare<{ taskId: string }, { runtime_source: string; runtime_session_id: string }>(
+        "select runtime_source, runtime_session_id from runtime_session_bindings where task_id = @taskId order by datetime(updated_at) desc limit 1"
+      )
+      .get({ taskId });
+    return row ? { runtimeSource: row.runtime_source, runtimeSessionId: row.runtime_session_id } : null;
+  }
+
   async clearSession(runtimeSource: string, runtimeSessionId: string): Promise<void> {
     this.db.prepare(
       "update runtime_session_bindings set monitor_session_id = null, updated_at = @updatedAt where runtime_source = @runtimeSource and runtime_session_id = @runtimeSessionId"

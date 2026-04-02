@@ -125,6 +125,52 @@ describe("CLI adapters", () => {
     vi.runOnlyPendingTimers();
   });
 
+  it("does not fire SIGKILL when process exits within grace period (timer cleared)", async () => {
+    const { spawn } = await import("node:child_process");
+    const { ClaudeCodeAdapter } = await import("./claude-code-adapter.js");
+
+    const mock = createMockChildProcess();
+    vi.mocked(spawn).mockReturnValue(mock.child);
+
+    const adapter = new ClaudeCodeAdapter();
+    const process = await adapter.startSession({ workdir: "/tmp", prompt: "hi" });
+
+    process.kill();
+    expect(mock.child.kill).toHaveBeenCalledWith("SIGTERM");
+
+    // Simulate graceful exit before the 5-second SIGKILL timer fires.
+    mock.emitExit(0);
+
+    // Advance time past the grace period — SIGKILL must NOT be called.
+    vi.runAllTimers();
+    const killCalls = vi.mocked(mock.child.kill).mock.calls;
+    const sigkillCalls = killCalls.filter(([signal]) => signal === "SIGKILL");
+    expect(sigkillCalls).toHaveLength(0);
+  });
+
+  it("does fire SIGKILL when process does not exit within grace period", async () => {
+    const { spawn } = await import("node:child_process");
+    const { ClaudeCodeAdapter } = await import("./claude-code-adapter.js");
+
+    const mock = createMockChildProcess();
+    // Override kill mock so it does NOT emit exit (process ignores SIGTERM).
+    vi.mocked(mock.child.kill).mockImplementation(() => true);
+    vi.mocked(spawn).mockReturnValue(mock.child);
+
+    const adapter = new ClaudeCodeAdapter();
+    const process = await adapter.startSession({ workdir: "/tmp", prompt: "hi" });
+
+    process.kill();
+    expect(mock.child.kill).toHaveBeenCalledWith("SIGTERM");
+
+    // Do NOT emit exit — simulate a process that ignores SIGTERM.
+    vi.runAllTimers();
+
+    const killCalls = vi.mocked(mock.child.kill).mock.calls;
+    const sigkillCalls = killCalls.filter(([signal]) => signal === "SIGKILL");
+    expect(sigkillCalls).toHaveLength(1);
+  });
+
   it("fails fast when claude spawn pid is unavailable", async () => {
     const { spawn } = await import("node:child_process");
     const { ClaudeCodeAdapter } = await import("./claude-code-adapter.js");

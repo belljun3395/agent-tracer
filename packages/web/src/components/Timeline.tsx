@@ -548,6 +548,19 @@ export function Timeline({
               </div>
             </div>
             <div className="timeline-context-bar-actions">
+              {(observabilityStats.violations > 0 || observabilityStats.checks > 0) && (
+                <span className="timeline-context-summary-chip" style={{ gap: 4, fontSize: "0.66rem" }}>
+                  {observabilityStats.violations > 0 && (
+                    <span style={{ color: "var(--err)" }}>{observabilityStats.violations}v</span>
+                  )}
+                  {observabilityStats.checks > 0 && (
+                    <span>{observabilityStats.checks}c</span>
+                  )}
+                  {observabilityStats.passes > 0 && (
+                    <span style={{ color: "var(--ok)" }}>{observabilityStats.passes}p</span>
+                  )}
+                </span>
+              )}
               {taskStatus && (
                 <span
                   className={cn(
