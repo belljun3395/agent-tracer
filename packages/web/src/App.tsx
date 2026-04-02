@@ -7,11 +7,6 @@ import type React from "react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { Navigate, Route, Routes, useNavigate, useParams, useSearchParams } from "react-router-dom";
 
-import {
-  buildCompactInsight,
-  buildObservabilityStats,
-  collectExploredFiles
-} from "./lib/insights.js";
 import { refreshRealtimeMonitorData } from "./lib/realtime.js";
 import type { BookmarkSearchHit } from "./types.js";
 import { cn } from "./lib/ui/cn.js";
@@ -62,7 +57,6 @@ function Dashboard({
     bookmarks,
     tasks,
     selectedTaskId,
-    overview,
     taskDetail,
     isConnected,
     taskDisplayTitleCache
@@ -135,9 +129,6 @@ function Dashboard({
     window.localStorage.setItem(ZOOM_STORAGE_KEY, String(zoom));
   }, [zoom]);
 
-  // Derived values for TopBar + containers
-  const taskTimeline = taskDetail?.timeline ?? [];
-
   const selectedTaskDisplayTitle = useMemo(
     () => taskDetail?.task ? (taskDisplayTitleCache[taskDetail.task.id]?.title ?? taskDetail.task.title) : null,
     [taskDetail, taskDisplayTitleCache]
@@ -157,12 +148,8 @@ function Dashboard({
     setNewChatWorkdir(selectedTask.workspacePath);
   }, [isNewChatModalOpen, selectedTaskId, tasks]);
 
-  const exploredFiles = useMemo(() => collectExploredFiles(taskTimeline), [taskTimeline]);
-  const compactInsight = useMemo(() => buildCompactInsight(taskTimeline), [taskTimeline]);
-  const observabilityStats = useMemo(
-    () => buildObservabilityStats(taskTimeline, exploredFiles.length, compactInsight.occurrences),
-    [compactInsight.occurrences, exploredFiles.length, taskTimeline]
-  );
+  // observabilityStats, exploredFiles, compactInsight are computed inside
+  // TimelineContainer — no longer needed at Dashboard level after TopBar simplification.
   const selectDashboardTask = useCallback((taskId: string | null): void => {
     onSelectTaskRoute(taskId);
     dispatch({ type: "SELECT_TASK", taskId });
@@ -256,13 +243,13 @@ function Dashboard({
     [sidebarWidth, inspectorWidth]
   );
 
-  const isStackedDashboard = viewportWidth < 960;
-  const isCompactDashboard = viewportWidth < 1040;
+  const isStackedDashboard = viewportWidth < 1024;
+  const isCompactDashboard = viewportWidth < 1280;
 
-  const dashboardColumns = viewportWidth < 960
+  const dashboardColumns = viewportWidth < 1024
     ? "!grid-cols-1"
-    : viewportWidth < 1040
-      ? (isSidebarCollapsed ? "!grid-cols-[44px_minmax(0,1fr)]" : "!grid-cols-[248px_minmax(0,1fr)]")
+    : viewportWidth < 1280
+      ? (isSidebarCollapsed ? "!grid-cols-[44px_minmax(0,1fr)]" : "!grid-cols-[var(--sidebar-width)_minmax(0,1fr)]")
       : (isSidebarCollapsed
         ? (isInspectorCollapsed ? "!grid-cols-[44px_minmax(0,1fr)_44px]" : "!grid-cols-[44px_minmax(0,1fr)_var(--inspector-width)]")
         : (isInspectorCollapsed ? "!grid-cols-[var(--sidebar-width)_minmax(0,1fr)_44px]" : "!grid-cols-[var(--sidebar-width)_minmax(0,1fr)_var(--inspector-width)]"));
@@ -270,24 +257,18 @@ function Dashboard({
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-[var(--bg)]">
       <TopBar
-        overview={overview}
         isConnected={isConnected}
         searchQuery={searchQuery}
         searchResults={searchResults}
         isSearching={isSearching}
         selectedTaskTitle={selectedTaskDisplayTitle ?? taskDetail?.task.title ?? null}
         taskScopeEnabled={taskScopeEnabled}
-        observabilityStats={observabilityStats ? { checks: observabilityStats.checks, violations: observabilityStats.violations, passes: observabilityStats.passes } : null}
-        zoom={zoom}
-        onZoomChange={setZoom}
         onTaskScopeToggle={setTaskScopeEnabled}
         onSearchQueryChange={setSearchQuery}
         onSelectSearchTask={handleSelectSearchTask}
         onSelectSearchEvent={handleSelectSearchEvent}
         onSelectSearchBookmark={handleSelectSearchBookmark}
         onRefresh={() => void refreshOverview()}
-        onOpenLibrary={() => setIsLibraryOpen(true)}
-        onOpenNewChat={handleOpenNewChat}
       />
 
       <main
@@ -307,6 +288,8 @@ function Dashboard({
           onToggleCollapse={() => setIsSidebarCollapsed((v) => !v)}
           onSidebarResizeStart={onSidebarResizeStart}
           onSelectTask={selectDashboardTask}
+          onOpenNewChat={handleOpenNewChat}
+          onOpenLibrary={() => setIsLibraryOpen(true)}
         />
 
         <TimelineContainer

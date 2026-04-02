@@ -1,176 +1,78 @@
 /**
- * 대시보드 상단 헤더 (52px 단일 행).
- * 브랜드 | 태스크명 | 관찰가능성 요약 | 검색 | 액션 그룹 | WS 상태
+ * 앱 셸 상단 바 (40px 단일 행).
+ * 브랜드 | 검색(flex) | 유틸리티(Theme·Refresh) | WS dot
+ *
+ * 태스크 컨텍스트(제목·상태·obs)는 Timeline header에 위임.
+ * New Chat / Library 는 SidebarContainer로 이동.
  */
 
 import type React from "react";
-import { useState } from "react";
+import { useEffect, useRef } from "react";
 import type {
   BookmarkSearchHit,
-  OverviewResponse,
   SearchResponse
 } from "../types.js";
-import { formatCount, formatDuration, formatRate } from "../lib/observability.js";
 import { cn } from "../lib/ui/cn.js";
 import { useTheme } from "../lib/useTheme.js";
 import { Button } from "./ui/Button.js";
 
-interface ObservabilityBadgeCounts {
-  readonly checks: number;
-  readonly violations: number;
-  readonly passes: number;
-}
-
 interface TopBarProps {
-  readonly overview?: OverviewResponse | null;
   readonly isConnected: boolean;
   readonly searchQuery: string;
   readonly searchResults: SearchResponse | null;
   readonly isSearching: boolean;
   readonly selectedTaskTitle?: string | null;
   readonly taskScopeEnabled: boolean;
-  readonly observabilityStats: ObservabilityBadgeCounts | null;
-  readonly zoom: number;
-  readonly onZoomChange: (zoom: number) => void;
   readonly onTaskScopeToggle: (enabled: boolean) => void;
   readonly onSearchQueryChange: (value: string) => void;
   readonly onSelectSearchTask: (taskId: string) => void;
   readonly onSelectSearchEvent: (taskId: string, eventId: string) => void;
   readonly onSelectSearchBookmark: (bookmark: BookmarkSearchHit) => void;
   readonly onRefresh: () => void;
-  readonly onOpenLibrary: () => void;
-  readonly onOpenNewChat: () => void;
-}
-
-// ---------------------------------------------------------------------------
-// Observability summary chip — collapses 3 counters into one compact widget
-// ---------------------------------------------------------------------------
-
-function ObservabilityChip({ stats }: { stats: ObservabilityBadgeCounts }): React.JSX.Element {
-  const [open, setOpen] = useState(false);
-  const hasViolations = stats.violations > 0;
-  const hasChecks = stats.checks > 0;
-
-  const chipColor = hasViolations
-    ? { bg: "var(--err-bg)", border: "var(--err-bg)", text: "var(--err)", dot: "var(--err)" }
-    : hasChecks
-      ? { bg: "var(--coordination-bg)", border: "var(--coordination-border)", text: "var(--coordination)", dot: "var(--coordination)" }
-      : { bg: "var(--ok-bg)", border: "var(--ok-bg)", text: "var(--ok)", dot: "var(--ok)" };
-
-  const label = hasViolations
-    ? `${stats.violations} violation${stats.violations !== 1 ? "s" : ""}`
-    : hasChecks
-      ? `${stats.checks} check${stats.checks !== 1 ? "s" : ""}`
-      : `${stats.passes} pass${stats.passes !== 1 ? "es" : ""}`;
-
-  return (
-    <div className="relative shrink-0">
-      <button
-        aria-label="Observability summary"
-        className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[0.72rem] font-semibold transition-all hover:opacity-80"
-        style={{
-          background: chipColor.bg,
-          borderColor: chipColor.border,
-          color: chipColor.text
-        }}
-        onClick={() => setOpen((v) => !v)}
-        type="button"
-      >
-        <span
-          className="h-1.5 w-1.5 shrink-0 rounded-full opacity-80"
-          style={{ background: chipColor.dot }}
-        />
-        {label}
-        <span className="ml-0.5 opacity-60">▾</span>
-      </button>
-
-      {open && (
-        <div
-          className="absolute left-0 top-[calc(100%+6px)] z-30 min-w-[160px] rounded-[10px] border border-[var(--border)] bg-[var(--surface)] p-2 shadow-[0_8px_24px_rgba(0,0,0,0.12)]"
-          onMouseLeave={() => setOpen(false)}
-        >
-          <ObsRow color="var(--coordination)" label="Checks" value={stats.checks} />
-          <ObsRow color="var(--err)" label="Violations" value={stats.violations} />
-          <ObsRow color="var(--ok)" label="Passes" value={stats.passes} />
-        </div>
-      )}
-    </div>
-  );
-}
-
-function ObsRow({ label, value, color }: { label: string; value: number; color: string }): React.JSX.Element {
-  return (
-    <div className="flex items-center justify-between gap-4 rounded-[6px] px-2 py-1 hover:bg-[var(--surface-2)]">
-      <div className="flex items-center gap-1.5">
-        <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: color }} />
-        <span className="text-[0.72rem] text-[var(--text-2)]">{label}</span>
-      </div>
-      <span className="text-[0.72rem] font-semibold tabular-nums text-[var(--text-1)]">{value}</span>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Overview metric chip — displays aggregate stats from the overview endpoint
-// ---------------------------------------------------------------------------
-
-function TopBarMetricChip({
-  label,
-  value,
-  tone = "neutral"
-}: {
-  readonly label: string;
-  readonly value: string;
-  readonly tone?: "neutral" | "accent" | "ok" | "warn" | "danger";
-}): React.JSX.Element {
-  const toneClassName = {
-    neutral: "border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-2)]",
-    accent: "border-[color-mix(in_srgb,var(--accent)_24%,var(--border))] bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] text-[var(--accent)]",
-    ok: "border-[color-mix(in_srgb,var(--ok)_28%,var(--border))] bg-[var(--ok-bg)] text-[var(--ok)]",
-    warn: "border-[color-mix(in_srgb,var(--warn)_28%,var(--border))] bg-[var(--warn-bg)] text-[var(--warn)]",
-    danger: "border-[color-mix(in_srgb,var(--err)_28%,var(--border))] bg-[var(--err-bg)] text-[var(--err)]"
-  } satisfies Record<"neutral" | "accent" | "ok" | "warn" | "danger", string>;
-
-  return (
-    <span className={cn("inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[0.68rem] font-semibold whitespace-nowrap", toneClassName[tone])}>
-      <span className="uppercase tracking-[0.08em] opacity-70">{label}</span>
-      <strong className="text-[0.72rem] font-semibold">{value}</strong>
-    </span>
-  );
 }
 
 // ---------------------------------------------------------------------------
 // TopBar
 // ---------------------------------------------------------------------------
 export function TopBar({
-  overview = null,
   isConnected,
   searchQuery,
   searchResults,
   isSearching,
   selectedTaskTitle,
   taskScopeEnabled,
-  observabilityStats,
-  zoom,
-  onZoomChange,
   onTaskScopeToggle,
   onSearchQueryChange,
   onSelectSearchTask,
   onSelectSearchEvent,
   onSelectSearchBookmark,
-  onRefresh,
-  onOpenLibrary,
-  onOpenNewChat
+  onRefresh
 }: TopBarProps): React.JSX.Element {
   const { theme, toggle: toggleTheme } = useTheme();
+  const searchRef = useRef<HTMLInputElement>(null);
   const totalResults = (searchResults?.tasks.length ?? 0)
     + (searchResults?.events.length ?? 0)
     + (searchResults?.bookmarks.length ?? 0);
-  const overviewObservability = overview?.observability ?? null;
-  const runtimeSourceChips = overviewObservability?.runtimeSources.slice(0, 2) ?? [];
+
+  // ⌘K / Ctrl+K shortcut to focus search
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent): void => {
+      if ((event.metaKey || event.ctrlKey) && event.key === "k") {
+        event.preventDefault();
+        searchRef.current?.focus();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+  const hasTaskScope = Boolean(selectedTaskTitle);
+  const searchPlaceholder = taskScopeEnabled && hasTaskScope
+    ? "Search in task… ⌘K"
+    : "Search… ⌘K";
 
   return (
-    <header className="z-10 flex h-[52px] shrink-0 items-center gap-2 border-b border-[var(--border)] bg-[var(--surface)] px-4 shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
+    <header className="z-10 flex h-10 shrink-0 items-center gap-2.5 border-b border-[var(--border)] bg-[var(--surface)] px-4 shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
 
       {/* Brand */}
       <div className="flex shrink-0 items-center gap-2">
@@ -181,87 +83,60 @@ export function TopBar({
             src="/icons/activity.svg"
           />
         </span>
-        <span className="text-[0.875rem] font-semibold tracking-[-0.02em] text-[var(--text-1)]">Agent Tracer</span>
+        <span className="hidden text-[0.82rem] font-semibold tracking-[-0.02em] text-[var(--text-1)] xl:inline">
+          Agent Tracer
+        </span>
       </div>
 
-      {/* Divider */}
-      <div className="h-4 w-px shrink-0 bg-[var(--border)]" />
-
-      {/* Task title — grows with available space, capped via clamp */}
-      {selectedTaskTitle && (
-        <span
-          className="truncate text-[0.8rem] text-[var(--text-2)]"
-          title={selectedTaskTitle}
-          style={{ maxWidth: "clamp(100px, 20vw, 280px)" }}
-        >
-          {selectedTaskTitle}
-        </span>
-      )}
-
-      {/* Overview metric chips — aggregate stats (xl+ only) */}
-      {overviewObservability && (
-        <div className="hidden min-w-0 shrink items-center gap-1.5 xl:flex">
-          <TopBarMetricChip
-            label="Prompt"
-            tone="accent"
-            value={formatRate(overviewObservability.promptCaptureRate)}
+      {/* Search — flex-grow, centered between brand and utilities */}
+      <div className="relative flex-1" style={{ maxWidth: 400 }}>
+        <div className="relative flex items-center">
+          {/* Task scope toggle icon inside search */}
+          {hasTaskScope && (
+            <button
+              aria-label={taskScopeEnabled ? "Search all tasks" : "Limit search to this task"}
+              className={cn(
+                "absolute left-2 top-1/2 z-[1] flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-[4px] text-[0.7rem] transition-colors",
+                taskScopeEnabled
+                  ? "bg-[color-mix(in_srgb,var(--accent)_14%,transparent)] text-[var(--accent)]"
+                  : "text-[var(--text-3)] hover:text-[var(--text-2)]"
+              )}
+              onClick={() => onTaskScopeToggle(!taskScopeEnabled)}
+              title={taskScopeEnabled ? `Scoped to: ${selectedTaskTitle}` : "Click to scope search to current task"}
+              type="button"
+            >
+              ⊕
+            </button>
+          )}
+          <input
+            ref={searchRef}
+            aria-label="Search tasks, events, and bookmarks"
+            className={cn(
+              "w-full rounded-[9px] border border-[var(--border)] bg-[var(--surface-2)] py-1.5 pr-14 text-[0.8rem] text-[var(--text-1)] outline-none transition placeholder:text-[var(--text-3)] focus:border-[var(--accent)] focus:bg-[var(--surface)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-1",
+              hasTaskScope ? "pl-8" : "pl-3"
+            )}
+            onChange={(event) => onSearchQueryChange(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                onSearchQueryChange("");
+                searchRef.current?.blur();
+              }
+            }}
+            placeholder={searchPlaceholder}
+            type="search"
+            value={searchQuery}
           />
-          <TopBarMetricChip
-            label="Linked"
-            tone="ok"
-            value={formatRate(overviewObservability.traceLinkedTaskRate)}
-          />
-          <TopBarMetricChip
-            label="Stale"
-            tone={overviewObservability.staleRunningTasks > 0 ? "danger" : "neutral"}
-            value={formatCount(overviewObservability.staleRunningTasks)}
-          />
-          <TopBarMetricChip
-            label="Avg"
-            tone="neutral"
-            value={formatDuration(overviewObservability.avgDurationMs)}
-          />
-          {runtimeSourceChips.map((source) => (
-            <TopBarMetricChip
-              key={source.runtimeSource}
-              label={source.runtimeSource}
-              tone="neutral"
-              value={`${formatCount(source.taskCount)} · ${formatRate(source.traceLinkedTaskRate)}`}
-            />
-          ))}
+          {searchQuery && (
+            <button
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-[var(--border)] px-2 py-0.5 text-[0.68rem] font-semibold text-[var(--text-3)] transition hover:text-[var(--text-2)]"
+              onClick={() => onSearchQueryChange("")}
+              type="button"
+            >
+              Clear
+            </button>
+          )}
         </div>
-      )}
-
-      {/* Observability summary chip — single pill, expands on click */}
-      {observabilityStats && (
-        <ObservabilityChip stats={observabilityStats} />
-      )}
-
-      {/* Spacer */}
-      <div className="flex-1" />
-
-      {/* Search */}
-      <div className="relative w-[min(220px,28vw)] shrink-0">
-        <input
-          aria-label="Search tasks, events, and bookmarks"
-          className="w-full rounded-[9px] border border-[var(--border)] bg-[var(--surface-2)] px-3 py-1.5 pr-14 text-[0.8rem] text-[var(--text-1)] outline-none transition placeholder:text-[var(--text-3)] focus:border-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-1"
-          onChange={(event) => onSearchQueryChange(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Escape") onSearchQueryChange("");
-          }}
-          placeholder="Search…"
-          type="search"
-          value={searchQuery}
-        />
-        {searchQuery && (
-          <button
-            className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-[var(--border)] px-2 py-0.5 text-[0.68rem] font-semibold text-[var(--text-3)] transition hover:text-[var(--text-2)]"
-            onClick={() => onSearchQueryChange("")}
-            type="button"
-          >
-            Clear
-          </button>
-        )}
+        {/* Search results dropdown */}
         {searchQuery.trim() && (
           <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-20 max-h-[26rem] overflow-y-auto rounded-[12px] border border-[var(--border)] bg-[var(--surface)] shadow-[0_20px_50px_rgba(15,23,42,0.14)]">
             <div className="flex items-center justify-between border-b border-[var(--border)] px-3 py-2">
@@ -335,74 +210,14 @@ export function TopBar({
         )}
       </div>
 
-      {/* Divider */}
-      <div className="h-4 w-px shrink-0 bg-[var(--border)]" />
+      {/* Spacer */}
+      <div className="flex-1" />
 
-      {/* Action group: Task scope + Library */}
+      {/* Utilities: Theme + Refresh — subdued */}
       <div className="flex shrink-0 items-center gap-1">
-        {selectedTaskTitle && (
-          <button
-            aria-label={taskScopeEnabled ? "Search all tasks" : "Limit search to this task"}
-            className={cn(
-              "shrink-0 rounded-[8px] border px-2 py-1.5 text-[0.72rem] font-semibold leading-none transition-all",
-              taskScopeEnabled
-                ? "border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] text-[var(--accent)]"
-                : "border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-3)] hover:border-[var(--accent)] hover:text-[var(--accent)]"
-            )}
-            onClick={() => onTaskScopeToggle(!taskScopeEnabled)}
-            type="button"
-          >
-            This task
-          </button>
-        )}
-
-        <button
-          aria-label="Open new chat"
-          className="flex h-7 shrink-0 items-center gap-1.5 rounded-[8px] border border-[var(--border)] bg-[var(--surface-2)] px-2.5 text-[0.75rem] font-semibold text-[var(--text-2)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]"
-          onClick={onOpenNewChat}
-          title="New Chat"
-          type="button"
-        >
-          <span className="text-[0.85rem] leading-none">✦</span>
-          New Chat
-        </button>
-
-        <button
-          aria-label="Open workflow library"
-          className="flex h-7 shrink-0 items-center gap-1.5 rounded-[8px] border border-[var(--border)] bg-[var(--surface-2)] px-2.5 text-[0.75rem] font-semibold text-[var(--text-2)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]"
-          onClick={onOpenLibrary}
-          title="Workflow Library"
-          type="button"
-        >
-          <span className="text-[0.8rem] leading-none">⊞</span>
-          Library
-        </button>
-      </div>
-
-      {/* Divider */}
-      <div className="h-4 w-px shrink-0 bg-[var(--border)]" />
-
-      {/* Controls group: Zoom + Theme + Refresh */}
-      <div className="flex shrink-0 items-center gap-1">
-        {/* Compact zoom — no "Zoom" label text, just slider + value */}
-        <div
-          className="flex items-center gap-1.5"
-          title={`Zoom: ${zoom.toFixed(1)}×`}
-        >
-          <input
-            aria-label="Timeline zoom"
-            className="h-1 w-16 cursor-pointer accent-[var(--accent)]"
-            max={2.5} min={0.8} step={0.1} type="range" value={zoom}
-            onChange={(e) => onZoomChange(Number(e.target.value))}
-          />
-          <span className="w-6 text-right text-[0.68rem] font-medium tabular-nums text-[var(--text-3)]">
-            {zoom.toFixed(1)}×
-          </span>
-        </div>
-
         <button
           aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] border border-[var(--border)] bg-[var(--surface-2)] text-[0.88rem] text-[var(--text-2)] transition hover:border-[var(--border-strong)] hover:bg-[var(--surface)] hover:text-[var(--text-1)]"
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] border border-[var(--border)] bg-[var(--surface-2)] text-[0.88rem] text-[var(--text-3)] opacity-60 transition hover:border-[var(--border-strong)] hover:bg-[var(--surface)] hover:text-[var(--text-1)] hover:opacity-100"
           onClick={toggleTheme}
           title={theme === "dark" ? "Light mode" : "Dark mode"}
           type="button"
@@ -410,29 +225,27 @@ export function TopBar({
           {theme === "dark" ? "☀" : "☽"}
         </button>
 
-        <Button className="shrink-0 gap-1 rounded-[8px] px-2" onClick={onRefresh} size="sm" variant="ghost">
+        <Button
+          className="shrink-0 gap-1 rounded-[8px] px-2 opacity-60 hover:opacity-100"
+          onClick={onRefresh}
+          size="sm"
+          variant="ghost"
+        >
           <img alt="" className="h-3.5 w-3.5 opacity-50" src="/icons/refresh.svg" />
         </Button>
       </div>
 
-      {/* WS status */}
-      <div className={cn(
-        "flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[0.75rem] font-medium",
-        isConnected
-          ? "border-[var(--ok-bg)] bg-[var(--ok-bg)] text-[var(--ok)]"
-          : "border-[var(--warn-bg)] bg-[var(--warn-bg)] text-[var(--warn)]"
-      )}>
-        <span
-          aria-hidden="true"
-          className={cn(
-            "h-1.5 w-1.5 shrink-0 rounded-full",
-            isConnected
-              ? "bg-[var(--ok)]"
-              : "bg-[var(--warn)] animate-[blink_1.4s_ease-in-out_infinite]"
-          )}
-        />
-        <span>{isConnected ? "Connected" : "Reconnecting…"}</span>
-      </div>
+      {/* WS status — minimal dot */}
+      <span
+        aria-label={isConnected ? "WebSocket connected" : "WebSocket reconnecting"}
+        className={cn(
+          "h-2 w-2 shrink-0 rounded-full",
+          isConnected
+            ? "bg-[var(--ok)]"
+            : "bg-[var(--warn)] animate-[blink_1.4s_ease-in-out_infinite]"
+        )}
+        title={isConnected ? "Connected" : "Reconnecting…"}
+      />
 
     </header>
   );

@@ -206,6 +206,7 @@ export function useCliChat(): {
   }, []);
 
   const wsRef = useRef<WebSocket | null>(null);
+  const triggerConnectRef = useRef<(() => void) | null>(null);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectAttemptsRef = useRef(0);
   const pendingSessionQueueRef = useRef<string[]>([]);
@@ -410,10 +411,21 @@ export function useCliChat(): {
       };
     };
 
-    connect();
+    // Lazily expose connect so the WebSocket is only opened on first session creation.
+    triggerConnectRef.current = () => {
+      const existing = wsRef.current;
+      if (
+        !existing
+        || (existing.readyState !== SOCKET_READY_STATE.CONNECTING
+          && existing.readyState !== SOCKET_READY_STATE.OPEN)
+      ) {
+        connect();
+      }
+    };
 
     return () => {
       destroyed = true;
+      triggerConnectRef.current = null;
       clearReconnectTimer();
       const ws = wsRef.current;
       if (ws) {
@@ -429,6 +441,7 @@ export function useCliChat(): {
   const createSessionHandler = useCallback((input: StartSessionInput): string => {
     const session = createSession(input);
     dispatch({ type: "CREATE_SESSION", session });
+    triggerConnectRef.current?.();
     return session.id;
   }, [dispatch]);
 
