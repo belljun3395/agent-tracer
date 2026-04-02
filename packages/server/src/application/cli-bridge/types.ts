@@ -20,6 +20,8 @@ export interface CliSessionOptions {
   readonly prompt: string;
   /** 연결할 agent-tracer task ID (선택) */
   readonly taskId?: string;
+  /** 사용할 모델 (provider/model 형식, 예: openai/gpt-5.3-codex) */
+  readonly model?: string;
 }
 
 /** CLI 세션 재개 옵션 */
@@ -34,6 +36,8 @@ export interface CliResumeOptions {
   readonly prompt: string;
   /** 연결할 agent-tracer task ID (선택) */
   readonly taskId?: string;
+  /** 사용할 모델 (provider/model 형식) */
+  readonly model?: string;
 }
 
 /** 실행 중인 CLI 프로세스 핸들 */

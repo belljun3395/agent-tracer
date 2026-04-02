@@ -28,6 +28,8 @@ export interface IRuntimeBindingRepository {
   find(runtimeSource: string, runtimeSessionId: string): Promise<RuntimeBinding | null>;
   /** Returns taskId for any binding (active or session-cleared). */
   findTaskId(runtimeSource: string, runtimeSessionId: string): Promise<string | null>;
+  /** Returns the most recent runtimeSource + runtimeSessionId for a task (any status). */
+  findLatestByTaskId(taskId: string): Promise<{ runtimeSource: string; runtimeSessionId: string } | null>;
   /** Clears monitor_session_id to NULL, preserving the task association. */
   clearSession(runtimeSource: string, runtimeSessionId: string): Promise<void>;
   delete(runtimeSource: string, runtimeSessionId: string): Promise<void>;

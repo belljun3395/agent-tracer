@@ -269,3 +269,70 @@ describe("CliWsHandler — cancel/complete race", () => {
     expect(completeMsg).toBeDefined();
   });
 });
+
+// ---------------------------------------------------------------------------
+// taskId echo in cli:started (Bug #2 regression guard)
+// ---------------------------------------------------------------------------
+
+describe("CliWsHandler — taskId echo", () => {
+  it("echoes taskId in cli:started when provided in cli:start", async () => {
+    const mockProcess = makeMockProcess();
+    const bridge = makeMockBridgeService(mockProcess);
+    const handler = new CliWsHandler(bridge);
+    const ws = makeMockWs();
+    attachAndConnect(handler, ws);
+
+    sendWsMessage(ws, {
+      type: "cli:start",
+      cli: "claude",
+      workdir: "/tmp",
+      prompt: "hello",
+      taskId: "task-abc"
+    });
+    await Promise.resolve();
+
+    const startedRaw = ws._sent.find((s) => s.includes("cli:started"));
+    expect(startedRaw).toBeDefined();
+    const started = JSON.parse(startedRaw!);
+    expect(started.taskId).toBe("task-abc");
+  });
+
+  it("omits taskId from cli:started when not provided", async () => {
+    const mockProcess = makeMockProcess();
+    const bridge = makeMockBridgeService(mockProcess);
+    const handler = new CliWsHandler(bridge);
+    const ws = makeMockWs();
+    attachAndConnect(handler, ws);
+
+    sendWsMessage(ws, { type: "cli:start", cli: "claude", workdir: "/tmp", prompt: "hello" });
+    await Promise.resolve();
+
+    const startedRaw = ws._sent.find((s) => s.includes("cli:started"));
+    expect(startedRaw).toBeDefined();
+    const started = JSON.parse(startedRaw!);
+    expect(started.taskId).toBeUndefined();
+  });
+
+  it("echoes taskId in cli:started when provided in cli:resume", async () => {
+    const mockProcess = makeMockProcess();
+    const bridge = makeMockBridgeService(mockProcess);
+    const handler = new CliWsHandler(bridge);
+    const ws = makeMockWs();
+    attachAndConnect(handler, ws);
+
+    sendWsMessage(ws, {
+      type: "cli:resume",
+      cli: "claude",
+      sessionId: "sess-existing",
+      workdir: "/tmp",
+      prompt: "continue",
+      taskId: "task-xyz"
+    });
+    await Promise.resolve();
+
+    const startedRaw = ws._sent.find((s) => s.includes("cli:started"));
+    expect(startedRaw).toBeDefined();
+    const started = JSON.parse(startedRaw!);
+    expect(started.taskId).toBe("task-xyz");
+  });
+});

@@ -39,6 +39,7 @@ function createSession(input: {
   workdir: string;
   taskId?: string;
   cliSessionId?: string;
+  model?: string;
 }): ChatSession {
   const now = new Date().toISOString();
   return {
@@ -47,6 +48,7 @@ function createSession(input: {
     workdir: input.workdir,
     ...(input.taskId ? { taskId: input.taskId } : {}),
     ...(input.cliSessionId ? { cliSessionId: input.cliSessionId } : {}),
+    ...(input.model ? { model: input.model } : {}),
     messages: [],
     status: "idle",
     createdAt: now,
@@ -183,6 +185,7 @@ interface StartSessionInput {
   readonly workdir: string;
   readonly taskId?: string;
   readonly cliSessionId?: string;
+  readonly model?: string;
 }
 
 export function useCliChat(): {
@@ -313,6 +316,19 @@ export function useCliChat(): {
               type: "ADD_MESSAGE",
               sessionId,
               message: createMessage({ role: "system", content: errorMessage, error: errorMessage })
+            });
+            dispatch({ type: "UPDATE_SESSION_STATUS", sessionId, status: "error" });
+            return;
+          }
+
+          // CLI exited successfully but never produced any visible content —
+          // typically an API/model configuration error where OpenCode exits 0.
+          if (!streamingMessageId) {
+            const fallback = "CLI 프로세스가 응답 없이 종료되었습니다. 모델 설정을 확인해 주세요.";
+            dispatch({
+              type: "ADD_MESSAGE",
+              sessionId,
+              message: createMessage({ role: "system", content: fallback, error: fallback })
             });
             dispatch({ type: "UPDATE_SESSION_STATUS", sessionId, status: "error" });
             return;
@@ -451,7 +467,8 @@ export function useCliChat(): {
         sessionId: session.cliSessionId,
         workdir: session.workdir,
         prompt: message,
-        ...(session.taskId ? { taskId: session.taskId } : {})
+        ...(session.taskId ? { taskId: session.taskId } : {}),
+        ...(session.model ? { model: session.model } : {})
       }));
       return;
     }
@@ -462,7 +479,8 @@ export function useCliChat(): {
       cli: session.cli,
       workdir: session.workdir,
       prompt: message,
-      ...(session.taskId ? { taskId: session.taskId } : {})
+      ...(session.taskId ? { taskId: session.taskId } : {}),
+      ...(session.model ? { model: session.model } : {})
     }));
   }, [dispatch]);
 

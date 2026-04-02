@@ -7,6 +7,7 @@
 import { existsSync } from "node:fs";
 import { isAbsolute } from "node:path";
 import type { WebSocket, WebSocketServer } from "ws";
+import type { MonitorService } from "../../application/monitor-service.js";
 import type { CliBridgeService } from "../../application/cli-bridge/cli-bridge-service.js";
 import type { CliProcess } from "../../application/cli-bridge/types.js";
 import {
@@ -40,7 +41,10 @@ export class CliWsHandler {
   /** Tracks processIds that were explicitly cancelled so wait() can skip cli:complete. */
   private readonly cancelledProcesses = new Set<string>();
 
-  constructor(private readonly bridgeService: CliBridgeService) {}
+  constructor(
+    private readonly bridgeService: CliBridgeService,
+    private readonly monitorService?: MonitorService
+  ) {}
 
   attach(wss: WebSocketServer): void {
     wss.on("connection", (ws) => this.handleConnection(ws));
@@ -83,7 +87,7 @@ export class CliWsHandler {
 
   private async handleStart(
     ws: WebSocket,
-    message: { cli: "claude" | "opencode"; workdir: string; prompt: string; taskId?: string; requestId?: string }
+    message: { cli: "claude" | "opencode"; workdir: string; prompt: string; taskId?: string; requestId?: string; model?: string }
   ): Promise<void> {
     const workdirError = validateWorkdir(message.workdir);
     if (workdirError) {
@@ -100,12 +104,25 @@ export class CliWsHandler {
         workdir: message.workdir,
         prompt: message.prompt,
         ...(message.taskId ? { taskId: message.taskId } : {}),
+        ...(message.model ? { model: message.model } : {}),
       };
       const process = await this.bridgeService.startChat(options);
-
       this.trackProcess(ws, process);
-      this.sendStarted(ws, process, message.requestId);
+
+      // IMPORTANT: attach stream listeners immediately, before any async work,
+      // so we never miss stdout data if the process exits quickly.
+      this.sendStarted(ws, process, message.requestId, message.taskId);
       this.streamOutput(ws, process);
+
+      // For OpenCode, register the task in the monitor service in the background.
+      // This must NOT block streaming — OpenCode may exit within milliseconds.
+      if (message.cli === "opencode") {
+        void this.registerOpencodeTask({
+          ...(message.taskId ? { taskId: message.taskId } : {}),
+          workdir: message.workdir,
+          prompt: message.prompt,
+        });
+      }
     } catch (error) {
       this.sendError(
         ws,
@@ -125,6 +142,7 @@ export class CliWsHandler {
       prompt: string;
       taskId?: string;
       requestId?: string;
+      model?: string;
     }
   ): Promise<void> {
     const workdirError = validateWorkdir(message.workdir);
@@ -143,12 +161,21 @@ export class CliWsHandler {
         workdir: message.workdir,
         prompt: message.prompt,
         ...(message.taskId ? { taskId: message.taskId } : {}),
+        ...(message.model ? { model: message.model } : {}),
       };
       const process = await this.bridgeService.resumeChat(options);
-
       this.trackProcess(ws, process);
-      this.sendStarted(ws, process, message.requestId);
+
+      this.sendStarted(ws, process, message.requestId, message.taskId);
       this.streamOutput(ws, process);
+
+      if (message.cli === "opencode") {
+        void this.registerOpencodeTask({
+          ...(message.taskId ? { taskId: message.taskId } : {}),
+          workdir: message.workdir,
+          prompt: message.prompt,
+        });
+      }
     } catch (error) {
       this.sendError(
         ws,
@@ -156,6 +183,35 @@ export class CliWsHandler {
         error instanceof Error ? error.message : String(error),
         message.requestId
       );
+    }
+  }
+
+  /**
+   * Registers or updates an OpenCode task in the monitor service.
+   * Called before spawning so the task appears in the dashboard even if the
+   * OpenCode monitor plugin does not fire (e.g., in --format json headless mode).
+   * Returns the canonical taskId (newly created or the existing one passed in).
+   */
+  private async registerOpencodeTask(input: {
+    taskId?: string;
+    workdir: string;
+    prompt: string;
+  }): Promise<string | undefined> {
+    if (!this.monitorService) return undefined;
+    try {
+      const title = input.prompt.length > 80
+        ? `${input.prompt.slice(0, 80)}…`
+        : input.prompt;
+      const { task } = await this.monitorService.startTask({
+        ...(input.taskId ? { taskId: input.taskId } : {}),
+        title,
+        workspacePath: input.workdir,
+        runtimeSource: "opencode",
+      });
+      return task.id;
+    } catch {
+      // Never block the chat start on monitor unavailability.
+      return undefined;
     }
   }
 
@@ -232,6 +288,14 @@ export class CliWsHandler {
           : undefined;
       if (direct) return direct;
 
+      // OpenCode --format json wraps content in { part: { text: "..." } }
+      const part = typeof event.part === "object" && event.part !== null
+        ? event.part as Record<string, unknown>
+        : undefined;
+      if (part && typeof part.text === "string") {
+        return part.text;
+      }
+
       const delta = typeof event.delta === "object" && event.delta !== null
         ? event.delta as Record<string, unknown>
         : undefined;
@@ -244,6 +308,15 @@ export class CliWsHandler {
         : undefined;
       if (error && typeof error.message === "string") {
         return error.message;
+      }
+      // OpenCode wraps API errors as { error: { name, data: { message } } }
+      if (error) {
+        const errorData = typeof error.data === "object" && error.data !== null
+          ? error.data as Record<string, unknown>
+          : undefined;
+        if (errorData && typeof errorData.message === "string") {
+          return errorData.message;
+        }
       }
 
       const message = typeof event.message === "object" && event.message !== null
@@ -355,13 +428,14 @@ export class CliWsHandler {
     });
   }
 
-  private sendStarted(ws: WebSocket, process: CliProcess, requestId?: string): void {
+  private sendStarted(ws: WebSocket, process: CliProcess, requestId?: string, taskId?: string): void {
     this.send(ws, {
       type: "cli:started",
       processId: process.processId,
       sessionId: process.sessionId,
       cli: process.cli,
       ...(requestId ? { requestId } : {}),
+      ...(taskId ? { taskId } : {}),
     });
   }
 
