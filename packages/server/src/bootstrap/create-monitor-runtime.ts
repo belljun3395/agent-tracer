@@ -75,7 +75,7 @@ export function createMonitorRuntime(options: RuntimeOptions): MonitorRuntime {
     });
   });
 
-  const cliWsHandler = new CliWsHandler(cliBridge);
+  const cliWsHandler = new CliWsHandler(cliBridge, service);
   cliWsHandler.attach(cliWss);
 
   return {

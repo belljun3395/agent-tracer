@@ -19,6 +19,7 @@ export interface StartChatOptions {
   readonly workdir: string;
   readonly prompt: string;
   readonly taskId?: string;
+  readonly model?: string;
 }
 
 export interface ResumeChatOptions {
@@ -27,6 +28,7 @@ export interface ResumeChatOptions {
   readonly workdir: string;
   readonly prompt: string;
   readonly taskId?: string;
+  readonly model?: string;
 }
 
 export class CliBridgeService {
@@ -65,6 +67,9 @@ export class CliBridgeService {
     if (options.taskId) {
       (sessionOptions as { taskId?: string }).taskId = options.taskId;
     }
+    if (options.model) {
+      (sessionOptions as { model?: string }).model = options.model;
+    }
 
     const process = await adapter.startSession(sessionOptions);
 
@@ -85,6 +90,9 @@ export class CliBridgeService {
     };
     if (options.taskId) {
       (resumeOptions as { taskId?: string }).taskId = options.taskId;
+    }
+    if (options.model) {
+      (resumeOptions as { model?: string }).model = options.model;
     }
 
     const process = await adapter.resumeSession(resumeOptions);

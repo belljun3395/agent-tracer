@@ -10,14 +10,14 @@ import type React from "react";
 // Constants
 // ---------------------------------------------------------------------------
 
-const SIDEBAR_MIN_WIDTH = 240;
+const SIDEBAR_MIN_WIDTH = 200;
 const SIDEBAR_MAX_WIDTH = 460;
-const SIDEBAR_DEFAULT_WIDTH = 220;
+const SIDEBAR_DEFAULT_WIDTH = 200;
 const SIDEBAR_WIDTH_STORAGE_KEY = "agent-tracer.sidebar-width";
 
 const INSPECTOR_MIN_WIDTH = 280;
 const INSPECTOR_MAX_WIDTH = 560;
-const INSPECTOR_DEFAULT_WIDTH = 340;
+const INSPECTOR_DEFAULT_WIDTH = 300;
 const INSPECTOR_WIDTH_STORAGE_KEY = "agent-tracer.inspector-width";
 
 // ---------------------------------------------------------------------------
@@ -66,7 +66,8 @@ export function useResizable(): UseResizableReturn {
     return Math.max(INSPECTOR_MIN_WIDTH, Math.min(INSPECTOR_MAX_WIDTH, parsed));
   });
 
-  const [isInspectorCollapsed, setIsInspectorCollapsed] = useState(false);
+  // Auto-collapse inspector on narrow viewports (initial render only).
+  const [isInspectorCollapsed, setIsInspectorCollapsed] = useState(() => window.innerWidth < 1280);
 
   const sidebarResizeRef = useRef<{ readonly startX: number; readonly startWidth: number } | null>(null);
   const inspectorResizeRef = useRef<{ readonly startX: number; readonly startWidth: number } | null>(null);

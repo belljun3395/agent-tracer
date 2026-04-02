@@ -1987,7 +1987,7 @@ export function EventInspector({
                         type="button"
                         variant="ghost"
                       >
-                        대화 이어가기
+                        Continue Chat
                       </Button>
                     )}
                     {selectedEvent && (
