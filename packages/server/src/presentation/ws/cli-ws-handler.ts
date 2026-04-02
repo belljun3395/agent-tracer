@@ -4,6 +4,8 @@
  * CLI WebSocket handler. Manages CLI chat sessions over WebSocket.
  */
 
+import { existsSync } from "node:fs";
+import { isAbsolute } from "node:path";
 import type { WebSocket, WebSocketServer } from "ws";
 import type { CliBridgeService } from "../../application/cli-bridge/cli-bridge-service.js";
 import type { CliProcess } from "../../application/cli-bridge/types.js";
@@ -16,8 +18,27 @@ import {
   type CliServerMessage,
 } from "./cli-ws-types.js";
 
+/**
+ * Validate that a workdir value is a non-empty absolute path that exists on disk.
+ * Returns an error string if invalid, undefined if OK.
+ */
+function validateWorkdir(workdir: unknown): string | undefined {
+  if (typeof workdir !== "string" || workdir.trim() === "") {
+    return "workdir must be a non-empty string";
+  }
+  if (!isAbsolute(workdir)) {
+    return "workdir must be an absolute path";
+  }
+  if (!existsSync(workdir)) {
+    return `workdir does not exist: ${workdir}`;
+  }
+  return undefined;
+}
+
 export class CliWsHandler {
   private readonly clientProcesses = new Map<WebSocket, Set<string>>();
+  /** Tracks processIds that were explicitly cancelled so wait() can skip cli:complete. */
+  private readonly cancelledProcesses = new Set<string>();
 
   constructor(private readonly bridgeService: CliBridgeService) {}
 
@@ -64,15 +85,22 @@ export class CliWsHandler {
     ws: WebSocket,
     message: { cli: "claude" | "opencode"; workdir: string; prompt: string; taskId?: string; requestId?: string }
   ): Promise<void> {
+    const workdirError = validateWorkdir(message.workdir);
+    if (workdirError) {
+      this.sendError(ws, undefined, workdirError, message.requestId);
+      return;
+    }
+    if (!message.prompt || typeof message.prompt !== "string" || message.prompt.trim() === "") {
+      this.sendError(ws, undefined, "prompt must be a non-empty string", message.requestId);
+      return;
+    }
     try {
       const options: Parameters<CliBridgeService["startChat"]>[0] = {
         cli: message.cli,
         workdir: message.workdir,
         prompt: message.prompt,
+        ...(message.taskId ? { taskId: message.taskId } : {}),
       };
-      if (message.taskId) {
-        (options as { taskId?: string }).taskId = message.taskId;
-      }
       const process = await this.bridgeService.startChat(options);
 
       this.trackProcess(ws, process);
@@ -99,16 +127,23 @@ export class CliWsHandler {
       requestId?: string;
     }
   ): Promise<void> {
+    const workdirError = validateWorkdir(message.workdir);
+    if (workdirError) {
+      this.sendError(ws, undefined, workdirError, message.requestId);
+      return;
+    }
+    if (!message.prompt || typeof message.prompt !== "string" || message.prompt.trim() === "") {
+      this.sendError(ws, undefined, "prompt must be a non-empty string", message.requestId);
+      return;
+    }
     try {
       const options: Parameters<CliBridgeService["resumeChat"]>[0] = {
         cli: message.cli,
         sessionId: message.sessionId,
         workdir: message.workdir,
         prompt: message.prompt,
+        ...(message.taskId ? { taskId: message.taskId } : {}),
       };
-      if (message.taskId) {
-        (options as { taskId?: string }).taskId = message.taskId;
-      }
       const process = await this.bridgeService.resumeChat(options);
 
       this.trackProcess(ws, process);
@@ -128,6 +163,14 @@ export class CliWsHandler {
     ws: WebSocket,
     message: { processId: string; message: string }
   ): void {
+    if (!message.processId || typeof message.processId !== "string") {
+      this.sendError(ws, undefined, "processId is required");
+      return;
+    }
+    if (!message.message || typeof message.message !== "string" || message.message.trim() === "") {
+      this.sendError(ws, message.processId, "message must be a non-empty string");
+      return;
+    }
     const process = this.bridgeService.getProcess(message.processId);
     if (!process) {
       this.sendError(ws, message.processId, "Process not found");
@@ -149,8 +192,15 @@ export class CliWsHandler {
     ws: WebSocket,
     message: { processId: string }
   ): void {
+    if (!message.processId || typeof message.processId !== "string") {
+      this.sendError(ws, undefined, "processId is required");
+      return;
+    }
+    // Mark as cancelled before calling cancel so streamOutput's wait() sees it.
+    this.cancelledProcesses.add(message.processId);
     const cancelled = this.bridgeService.cancelChat(message.processId);
     if (!cancelled) {
+      this.cancelledProcesses.delete(message.processId);
       this.sendError(ws, message.processId, "Process not found or already terminated");
     }
     this.clientProcesses.get(ws)?.delete(message.processId);
@@ -160,6 +210,7 @@ export class CliWsHandler {
     const processIds = this.clientProcesses.get(ws);
     if (processIds) {
       for (const processId of processIds) {
+        this.cancelledProcesses.add(processId);
         this.bridgeService.cancelChat(processId);
       }
     }
@@ -287,14 +338,20 @@ export class CliWsHandler {
     });
 
     void process.wait().then((exitCode) => {
-      this.send(ws, {
-        type: "cli:complete",
-        processId: process.processId,
-        sessionId: process.sessionId,
-        exitCode,
-      });
+      const wasCancelled = this.cancelledProcesses.has(process.processId);
+      this.cancelledProcesses.delete(process.processId);
       this.bridgeService.removeProcess(process.processId);
       this.clientProcesses.get(ws)?.delete(process.processId);
+      // Do not send cli:complete for explicitly cancelled processes — the client
+      // already transitioned state when it sent cli:cancel.
+      if (!wasCancelled) {
+        this.send(ws, {
+          type: "cli:complete",
+          processId: process.processId,
+          sessionId: process.sessionId,
+          exitCode,
+        });
+      }
     });
   }
 

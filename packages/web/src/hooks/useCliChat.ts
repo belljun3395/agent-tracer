@@ -241,7 +241,13 @@ export function useCliChat(): {
         if (typeof event.data !== "string") {
           return;
         }
-        const payload = JSON.parse(event.data) as CliWsMessage;
+        let payload: CliWsMessage;
+        try {
+          payload = JSON.parse(event.data) as CliWsMessage;
+        } catch {
+          // Malformed server message — ignore rather than crash the message loop.
+          return;
+        }
 
         if (payload.type === "cli:started" && payload.processId) {
           const sessionId = payload.requestId
@@ -418,6 +424,10 @@ export function useCliChat(): {
     const session = stateRef.current.sessions.get(sessionId);
     const ws = wsRef.current;
     if (!session || !ws || ws.readyState !== SOCKET_READY_STATE.OPEN) {
+      return;
+    }
+    // Guard: don't send a new cli:start while a previous start is still in flight.
+    if (session.status === "starting") {
       return;
     }
 
