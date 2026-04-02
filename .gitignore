@@ -20,4 +20,5 @@ coverage
 .codex/hook-debug/
 .worktrees
 .idea
+.sisyphus/
 docs/.vitepress/dist
