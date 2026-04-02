@@ -22,3 +22,7 @@ coverage
 .idea
 .sisyphus/
 docs/.vitepress/dist
+.monitor/
+.playwright-mcp/
+.opencode/.dev-log
+*.png
