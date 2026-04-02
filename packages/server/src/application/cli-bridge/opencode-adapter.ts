@@ -18,33 +18,27 @@ export class OpenCodeAdapter implements CliAdapter {
   readonly name: CliType = "opencode";
 
   private resolveModel(): string | undefined {
-    const explicit = process.env.OPENCODE_CLI_MODEL?.trim()
-      || process.env.MONITOR_OPENCODE_MODEL?.trim();
-    if (explicit) return explicit;
-
-    if (process.env.OPENAI_API_KEY?.trim()) {
-      return "openai/gpt-5.3-codex";
-    }
-
-    return undefined;
+    return process.env.OPENCODE_CLI_MODEL?.trim()
+      || process.env.MONITOR_OPENCODE_MODEL?.trim()
+      || undefined;
   }
 
   async startSession(
     options: Omit<CliSessionOptions, "cli">
   ): Promise<CliProcess> {
-    const { workdir, prompt } = options;
+    const { workdir, prompt, taskId } = options;
     const args = ["run", prompt, "--format", "json", "--dir", workdir];
-    const model = this.resolveModel();
+    const model = options.model ?? this.resolveModel();
     if (model) {
       args.push("--model", model);
     }
-    return this.spawnOpenCode(args, workdir);
+    return this.spawnOpenCode(args, workdir, undefined, taskId);
   }
 
   async resumeSession(
     options: Omit<CliResumeOptions, "cli">
   ): Promise<CliProcess> {
-    const { sessionId, workdir, prompt } = options;
+    const { sessionId, workdir, prompt, taskId } = options;
     const args = [
       "run",
       prompt,
@@ -55,17 +49,18 @@ export class OpenCodeAdapter implements CliAdapter {
       "--session",
       sessionId,
     ];
-    const model = this.resolveModel();
+    const model = options.model ?? this.resolveModel();
     if (model) {
       args.push("--model", model);
     }
-    return this.spawnOpenCode(args, workdir, sessionId);
+    return this.spawnOpenCode(args, workdir, sessionId, taskId);
   }
 
   private spawnOpenCode(
     args: string[],
     workdir: string,
-    existingSessionId?: string
+    existingSessionId?: string,
+    taskId?: string
   ): CliProcess {
     const processId = globalThis.crypto.randomUUID();
 
@@ -73,11 +68,14 @@ export class OpenCodeAdapter implements CliAdapter {
     try {
       childProcess = spawn("opencode", args, {
         cwd: workdir,
-        stdio: ["pipe", "pipe", "pipe"],
+        stdio: ["ignore", "pipe", "pipe"],
         env: {
           ...process.env,
           TERM: "dumb",
           CI: "true",
+          // Let the monitor plugin associate this session with the right task,
+          // even in --format json headless mode where plugin loading is uncertain.
+          ...(taskId ? { MONITOR_TASK_ID: taskId } : {}),
         },
       });
     } catch (error) {
@@ -90,9 +88,9 @@ export class OpenCodeAdapter implements CliAdapter {
       throw new Error("Failed to spawn OpenCode CLI: executable not found or failed to start");
     }
 
-    if (!childProcess.stdout || !childProcess.stdin) {
+    if (!childProcess.stdout) {
       childProcess.kill();
-      throw new Error("Failed to create stdio streams for OpenCode CLI");
+      throw new Error("Failed to create stdout stream for OpenCode CLI");
     }
 
     let extractedSessionId = existingSessionId ?? "";
@@ -101,7 +99,7 @@ export class OpenCodeAdapter implements CliAdapter {
     childProcess.stdout.on("data", (chunk: Buffer) => {
       const text = chunk.toString();
       if (!extractedSessionId) {
-        const match = text.match(/"sessionId"\s*:\s*"([^"]+)"/);
+        const match = text.match(/"sessionI[dD]"\s*:\s*"([^"]+)"/);
         if (match?.[1]) {
           extractedSessionId = match[1];
         }
@@ -127,8 +125,6 @@ export class OpenCodeAdapter implements CliAdapter {
       console.error(`[opencode stderr] ${chunk.toString()}`);
     });
 
-    const stdin = childProcess.stdin;
-
     return {
       processId,
       get sessionId(): string {
@@ -137,11 +133,8 @@ export class OpenCodeAdapter implements CliAdapter {
       cli: "opencode",
       stdout: outputStream as Readable,
 
-      sendMessage(message: string): void {
-        if (!stdin.writable) {
-          throw new Error("OpenCode CLI stdin is not writable");
-        }
-        stdin.write(JSON.stringify({ type: "message", content: message }) + "\n");
+      sendMessage(_message: string): void {
+        throw new Error("OpenCode CLI does not support interactive stdin messages");
       },
 
       kill(): void {

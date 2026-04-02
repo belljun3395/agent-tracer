@@ -29,7 +29,15 @@ export function createAdminRoutes(service: MonitorService): Router {
   router.get("/api/tasks/:taskId", async (req, res) => {
     const task = await service.getTask(req.params.taskId);
     if (!task) { res.status(404).json({ error: "Task not found" }); return; }
-    res.json({ task, timeline: await service.getTaskTimeline(task.id) });
+    const [timeline, runtimeSession] = await Promise.all([
+      service.getTaskTimeline(task.id),
+      service.getTaskLatestRuntimeSession(task.id)
+    ]);
+    res.json({
+      task,
+      timeline,
+      ...(runtimeSession ? { runtimeSessionId: runtimeSession.runtimeSessionId } : {})
+    });
   });
 
   router.get("/api/tasks/:taskId/observability", async (req, res) => {

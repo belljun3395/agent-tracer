@@ -111,6 +111,7 @@ function Dashboard({
   const [isNewChatModalOpen, setIsNewChatModalOpen] = useState(false);
   const [newChatCli, setNewChatCli] = useState<CliType>("claude");
   const [newChatWorkdir, setNewChatWorkdir] = useState("");
+  const [newChatModel, setNewChatModel] = useState("");
 
   const {
     state: cliChatState,
@@ -211,12 +212,13 @@ function Dashboard({
     const sessionId = createSession({
       cli: newChatCli,
       workdir: newChatWorkdir.trim(),
-      ...(selectedTaskId ? { taskId: selectedTaskId } : {})
+      ...(selectedTaskId ? { taskId: selectedTaskId } : {}),
+      ...(newChatModel.trim() ? { model: newChatModel.trim() } : {})
     });
     setActiveSession(sessionId);
     setIsNewChatModalOpen(false);
     setIsChatOpen(true);
-  }, [createSession, newChatCli, newChatWorkdir, selectedTaskId, setActiveSession]);
+  }, [createSession, newChatCli, newChatWorkdir, newChatModel, selectedTaskId, setActiveSession]);
 
   const handleContinueTaskChat = useCallback((taskId: string, workspacePath?: string): void => {
     const resolvedWorkdir = workspacePath ?? tasks.find((task) => task.id === taskId)?.workspacePath ?? "";
@@ -225,14 +227,25 @@ function Dashboard({
       setIsNewChatModalOpen(true);
       return;
     }
+
+    // Detect CLI type from the task's runtimeSource so we resume with the right adapter.
+    const task = tasks.find((t) => t.id === taskId);
+    const cli: CliType = task?.runtimeSource?.includes("opencode") ? "opencode" : "claude";
+
+    // Use the runtimeSessionId from the already-loaded taskDetail so cli:resume is sent
+    // instead of cli:start — this is what actually carries context across turns.
+    const cliSessionId =
+      taskDetail?.task.id === taskId ? taskDetail.runtimeSessionId : undefined;
+
     const sessionId = createSession({
-      cli: newChatCli,
+      cli,
       workdir: resolvedWorkdir,
-      taskId
+      taskId,
+      ...(cliSessionId ? { cliSessionId } : {})
     });
     setActiveSession(sessionId);
     setIsChatOpen(true);
-  }, [createSession, newChatCli, setActiveSession, tasks]);
+  }, [createSession, taskDetail, setActiveSession, tasks]);
 
   // Layout
   const dashboardStyle = useMemo(
@@ -363,6 +376,38 @@ function Dashboard({
                   value={newChatWorkdir}
                 />
               </label>
+              {newChatCli === "opencode" && (
+                <label className="block">
+                  <span className="mb-1 block text-[0.74rem] font-semibold text-[var(--text-2)]">Model</span>
+                  <select
+                    className="w-full rounded-[8px] border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[0.82rem]"
+                    onChange={(event) => setNewChatModel(event.target.value)}
+                    value={newChatModel}
+                  >
+                    <option value="">-- 모델 선택 --</option>
+                    <optgroup label="OpenAI">
+                      <option value="openai/gpt-5.3-codex-spark">openai/gpt-5.3-codex-spark</option>
+                      <option value="openai/gpt-5.3-codex">openai/gpt-5.3-codex</option>
+                      <option value="openai/gpt-5.4">openai/gpt-5.4</option>
+                    </optgroup>
+                    <optgroup label="GitHub Copilot">
+                      <option value="github-copilot/claude-opus-4.6">github-copilot/claude-opus-4.6</option>
+                      <option value="github-copilot/claude-sonnet-4.6">github-copilot/claude-sonnet-4.6</option>
+                      <option value="github-copilot/gpt-5-mini">github-copilot/gpt-5-mini</option>
+                    </optgroup>
+                    <optgroup label="Anthropic">
+                      <option value="anthropic/claude-opus-4-6">anthropic/claude-opus-4-6</option>
+                      <option value="anthropic/claude-sonnet-4-6">anthropic/claude-sonnet-4-6</option>
+                    </optgroup>
+                    <optgroup label="Other">
+                      <option value="opencode/minimax-m2.5-free">opencode/minimax-m2.5-free</option>
+                    </optgroup>
+                  </select>
+                  <span className="mt-0.5 block text-[0.68rem] text-[var(--text-3)]">
+                    headless 모드에서는 모델을 반드시 지정해야 합니다.
+                  </span>
+                </label>
+              )}
               <div className="flex justify-end gap-2">
                 <button
                   className="rounded-[8px] border border-[var(--border)] bg-[var(--surface-2)] px-3 py-1.5 text-[0.78rem] font-semibold"

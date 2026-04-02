@@ -43,6 +43,8 @@ export interface ChatSession {
   readonly cli: CliType;
   /** 작업 디렉토리 */
   readonly workdir: string;
+  /** 사용할 모델 (provider/model 형식) */
+  readonly model?: string;
   /** CLI 세션 ID (CLI 쪽 세션 식별자) */
   readonly cliSessionId?: string;
   /** CLI 프로세스 ID (실행 중인 프로세스 식별자) */
