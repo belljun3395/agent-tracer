@@ -541,7 +541,11 @@ function classifyToolEvent(
       toolFamily: "coordination",
       operation: "delegate",
       entityType: "agent",
-      entityName: toNonEmptyString(args.description) ?? toNonEmptyString(args.prompt) ?? toNonEmptyString(args.subagent_type)
+      ...(
+        (toNonEmptyString(args.description) ?? toNonEmptyString(args.prompt) ?? toNonEmptyString(args.subagent_type))
+          ? { entityName: toNonEmptyString(args.description) ?? toNonEmptyString(args.prompt) ?? toNonEmptyString(args.subagent_type) as string }
+          : {}
+      )
     };
   }
 
@@ -556,7 +560,7 @@ function classifyToolEvent(
       toolFamily: "coordination",
       operation: "invoke",
       entityType: "skill",
-      entityName: toNonEmptyString(args.skill)
+      ...(toNonEmptyString(args.skill) ? { entityName: toNonEmptyString(args.skill) as string } : {})
     };
   }
 
@@ -571,7 +575,7 @@ function classifyToolEvent(
       toolFamily: "coordination",
       operation: "handoff",
       entityType: "agent",
-      entityName: toNonEmptyString(args.description)
+      ...(toNonEmptyString(args.description) ? { entityName: toNonEmptyString(args.description) as string } : {})
     };
   }
 
