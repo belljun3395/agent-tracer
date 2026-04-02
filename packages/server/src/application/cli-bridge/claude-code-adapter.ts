@@ -128,11 +128,13 @@ export class ClaudeCodeAdapter implements CliAdapter {
       kill(): void {
         if (!childProcess.killed) {
           childProcess.kill("SIGTERM");
-          setTimeout(() => {
+          const sigkillTimer = setTimeout(() => {
             if (!childProcess.killed) {
               childProcess.kill("SIGKILL");
             }
           }, 5000);
+          // Clear the SIGKILL timer if the process exits on its own within the grace period.
+          childProcess.once("exit", () => clearTimeout(sigkillTimer));
         }
       },
 
