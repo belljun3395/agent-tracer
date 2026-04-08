@@ -130,8 +130,14 @@ export class CliWsHandler {
         ...(resolvedTaskId ? { taskId: resolvedTaskId } : {}),
         ...(message.model ? { model: message.model } : {}),
       };
-      await this.recordCliPrompt(resolvedTaskId, message.prompt, message.cli, message.requestId);
       const process = await this.bridgeService.startChat(options);
+      await this.recordCliPrompt(
+        resolvedTaskId,
+        process.sessionId,
+        message.prompt,
+        message.cli,
+        message.requestId
+      );
       this.trackProcess(ws, process, resolvedTaskId);
 
       // IMPORTANT: attach stream listeners immediately, before any async work,
@@ -193,7 +199,13 @@ export class CliWsHandler {
         ...(resolvedTaskId ? { taskId: resolvedTaskId } : {}),
         ...(message.model ? { model: message.model } : {}),
       };
-      await this.recordCliPrompt(resolvedTaskId, message.prompt, message.cli, message.requestId);
+      await this.recordCliPrompt(
+        resolvedTaskId,
+        message.sessionId,
+        message.prompt,
+        message.cli,
+        message.requestId
+      );
       const process = await this.bridgeService.resumeChat(options);
       this.trackProcess(ws, process, resolvedTaskId);
 
@@ -353,35 +365,6 @@ export class CliWsHandler {
 
   private streamOutput(ws: WebSocket, process: CliProcess): void {
     let buffer = "";
-    let inactivityTimer: ReturnType<typeof setTimeout> | null = null;
-
-    const clearInactivityTimer = (): void => {
-      if (inactivityTimer) {
-        clearTimeout(inactivityTimer);
-        inactivityTimer = null;
-      }
-    };
-
-    const scheduleInactivityTimeout = (): void => {
-      clearInactivityTimer();
-      if (process.cli !== "opencode") {
-        return;
-      }
-      inactivityTimer = setTimeout(() => {
-        if (this.cancelledProcesses.has(process.processId)) {
-          return;
-        }
-        this.cancelledProcesses.add(process.processId);
-        process.kill();
-        this.sendError(
-          ws,
-          process.processId,
-          "OpenCode Bridge stalled while handling a complex prompt. Try Claude Code here, or run OpenCode directly in its native environment."
-        );
-      }, 20_000);
-    };
-
-    scheduleInactivityTimeout();
 
     const extractEventContent = (event: Record<string, unknown>): string | undefined => {
       const direct = typeof event.content === "string"
@@ -461,7 +444,6 @@ export class CliWsHandler {
     };
 
     process.stdout.on("data", (chunk: Buffer) => {
-      scheduleInactivityTimeout();
       buffer += chunk.toString();
 
       const lines = buffer.split("\n");
@@ -501,7 +483,6 @@ export class CliWsHandler {
     });
 
     process.stdout.on("end", () => {
-      clearInactivityTimer();
       if (buffer.trim()) {
         try {
           const event = JSON.parse(buffer);
@@ -534,7 +515,6 @@ export class CliWsHandler {
     });
 
     void process.wait().then((exitCode) => {
-      clearInactivityTimer();
       const wasCancelled = this.cancelledProcesses.has(process.processId);
       this.cancelledProcesses.delete(process.processId);
       this.bridgeService.removeProcess(process.processId);
@@ -603,6 +583,7 @@ export class CliWsHandler {
 
   private async recordCliPrompt(
     taskId: string | undefined,
+    sessionId: string,
     prompt: string,
     cli: "claude" | "opencode",
     requestId?: string
@@ -614,6 +595,7 @@ export class CliWsHandler {
     try {
       await this.monitorService.logUserMessage({
         taskId,
+        sessionId,
         messageId: requestId ?? globalThis.crypto.randomUUID(),
         captureMode: "raw",
         source: `${cli}-bridge`,
