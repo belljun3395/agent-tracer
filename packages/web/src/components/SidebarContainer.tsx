@@ -107,11 +107,11 @@ export function SidebarContainer({
             <button
               className="flex h-7 items-center gap-1.5 rounded-[8px] border border-[var(--border)] bg-[var(--surface-2)] px-2.5 text-[0.74rem] font-medium text-[var(--text-2)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--surface)] hover:text-[var(--text-1)]"
               onClick={onOpenNewChat}
-              title="New Task"
+              title="New Chat"
               type="button"
             >
               <span className="text-[0.82rem]">✦</span>
-              <span>New Task</span>
+              <span>New Chat</span>
             </button>
           )}
           {onOpenLibrary && (
@@ -149,11 +149,9 @@ export function SidebarContainer({
       />
       {!isSidebarCollapsed && (
         <div
-          aria-label="Resize task sidebar"
-          aria-orientation="vertical"
+          aria-hidden="true"
           className="sidebar-resizer absolute right-[-9px] top-2 bottom-2 z-10 w-3 cursor-col-resize before:absolute before:left-[5px] before:top-0 before:bottom-0 before:w-0.5 before:rounded-full before:bg-[color-mix(in_srgb,var(--border)_74%,transparent)] before:transition-colors hover:before:bg-[color-mix(in_srgb,var(--accent)_75%,transparent)]"
           onPointerDown={onSidebarResizeStart}
-          role="separator"
         />
       )}
     </div>

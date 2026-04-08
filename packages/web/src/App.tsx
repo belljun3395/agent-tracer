@@ -9,6 +9,7 @@ import { Navigate, Route, Routes, useNavigate, useParams, useSearchParams } from
 
 import { createMonitoredTask, fetchDefaultWorkspace } from "./api.js";
 import { refreshRealtimeMonitorData } from "./lib/realtime.js";
+import { buildNewChatHref, buildResumeChatHref, type ResumeChatContext } from "./lib/chatRoute.js";
 import type { BookmarkSearchHit } from "./types.js";
 import { cn } from "./lib/ui/cn.js";
 import { TopBar } from "./components/TopBar.js";
@@ -36,16 +37,54 @@ const ZOOM_MAX = 2.5;
 const ZOOM_DEFAULT = 1.1;
 const ZOOM_STORAGE_KEY = "agent-tracer.zoom";
 const DEFAULT_OPENCODE_MODEL = "openai/gpt-5.4";
-const PROMPT_RUNNER_WORKDIR_STORAGE_KEY = "agent-tracer.prompt-runner-workdir";
+const NEW_CHAT_WORKDIR_STORAGE_KEY = "agent-tracer.new-chat-workdir";
+const NEW_CHAT_WORKDIR_HISTORY_STORAGE_KEY = "agent-tracer.new-chat-workdir-history";
+const MAX_RECENT_WORKDIRS = 6;
 
-export function isOpenCodeBridgeComplexPrompt(prompt: string): boolean {
-  const normalized = prompt.toLowerCase();
-  return (
-    /서브\s*에이전트|subagent|sub-agent|병렬|parallel|latest news|최근 소식|research|investigate|look up|찾아줘|10개|top 10/.test(normalized)
-  );
+function readRecentWorkdirs(): string[] {
+  try {
+    const raw = window.localStorage.getItem(NEW_CHAT_WORKDIR_HISTORY_STORAGE_KEY);
+    if (!raw) {
+      return [];
+    }
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+    const unique = new Set<string>();
+    const result: string[] = [];
+    for (const entry of parsed) {
+      if (typeof entry !== "string") continue;
+      const trimmed = entry.trim();
+      if (!trimmed || unique.has(trimmed)) continue;
+      unique.add(trimmed);
+      result.push(trimmed);
+      if (result.length >= MAX_RECENT_WORKDIRS) break;
+    }
+    return result;
+  } catch {
+    return [];
+  }
 }
 
-function resolvePromptRunnerWorkdir(
+function rememberRecentWorkdir(workdir: string): string[] {
+  const trimmed = workdir.trim();
+  if (!trimmed) {
+    return readRecentWorkdirs();
+  }
+  const next = [trimmed, ...readRecentWorkdirs().filter((entry) => entry !== trimmed)]
+    .slice(0, MAX_RECENT_WORKDIRS);
+  window.localStorage.setItem(NEW_CHAT_WORKDIR_HISTORY_STORAGE_KEY, JSON.stringify(next));
+  return next;
+}
+
+function buildNewChatTaskTitle(cli: CliType, workdir: string): string {
+  const normalized = workdir.replace(/\/+$/, "");
+  const label = normalized.split("/").filter(Boolean).pop() ?? workdir;
+  return `${cli === "opencode" ? "OpenCode" : "Claude Code"} chat · ${label}`;
+}
+
+function resolveNewChatWorkdir(
   tasks: readonly { id: string; workspacePath?: string }[],
   selectedTaskId: string | null
 ): string {
@@ -56,7 +95,7 @@ function resolvePromptRunnerWorkdir(
     return selectedTask.workspacePath;
   }
 
-  const stored = window.localStorage.getItem(PROMPT_RUNNER_WORKDIR_STORAGE_KEY)?.trim();
+  const stored = window.localStorage.getItem(NEW_CHAT_WORKDIR_STORAGE_KEY)?.trim();
   if (stored) {
     return stored;
   }
@@ -71,13 +110,12 @@ function resolvePromptRunnerWorkdir(
 
 function Dashboard({
   onOpenTaskWorkspace,
-  onSelectTaskRoute,
-  launchSession
+  onSelectTaskRoute
 }: {
   readonly onOpenTaskWorkspace: (taskId: string) => void;
   readonly onSelectTaskRoute: (taskId: string | null) => void;
-  readonly launchSession: ReturnType<typeof useCliChat>["launchSession"];
 }): React.JSX.Element {
+  const navigate = useNavigate();
   const {
     state,
     dispatch,
@@ -139,14 +177,9 @@ function Dashboard({
   const [newChatCli, setNewChatCli] = useState<CliType>("claude");
   const [newChatWorkdir, setNewChatWorkdir] = useState("");
   const [newChatModel, setNewChatModel] = useState("");
-  const [newChatPrompt, setNewChatPrompt] = useState("");
-  const [newChatTaskId, setNewChatTaskId] = useState<string | null>(null);
-  const [newChatCliSessionId, setNewChatCliSessionId] = useState<string | undefined>(undefined);
-  const [newChatTitle, setNewChatTitle] = useState("Run Prompt");
-  const isPromptBlockedForOpenCode = useMemo(
-    () => newChatCli === "opencode" && isOpenCodeBridgeComplexPrompt(newChatPrompt),
-    [newChatCli, newChatPrompt]
-  );
+  const [recentWorkdirs, setRecentWorkdirs] = useState<string[]>([]);
+  const [newChatError, setNewChatError] = useState<string | null>(null);
+  const [isStartingNewChat, setIsStartingNewChat] = useState(false);
 
   const [zoom, setZoom] = useState<number>(() => {
     const raw = window.localStorage.getItem(ZOOM_STORAGE_KEY);
@@ -173,7 +206,7 @@ function Dashboard({
 
   useEffect(() => {
     if (isNewChatModalOpen) return;
-    const nextWorkdir = resolvePromptRunnerWorkdir(tasks, selectedTaskId);
+    const nextWorkdir = resolveNewChatWorkdir(tasks, selectedTaskId);
     if (!nextWorkdir) return;
     setNewChatWorkdir(nextWorkdir);
   }, [isNewChatModalOpen, selectedTaskId, tasks]);
@@ -181,7 +214,7 @@ function Dashboard({
   useEffect(() => {
     const trimmed = newChatWorkdir.trim();
     if (!trimmed) return;
-    window.localStorage.setItem(PROMPT_RUNNER_WORKDIR_STORAGE_KEY, trimmed);
+    window.localStorage.setItem(NEW_CHAT_WORKDIR_STORAGE_KEY, trimmed);
   }, [newChatWorkdir]);
 
   // observabilityStats, exploredFiles, compactInsight are computed inside
@@ -225,10 +258,7 @@ function Dashboard({
   }, [bookmarks, dispatch, selectDashboardTask, setSearchQuery]);
 
   const handleOpenNewChat = useCallback(async (): Promise<void> => {
-    setNewChatTitle("Run New Task");
-    setNewChatTaskId(null);
-    setNewChatCliSessionId(undefined);
-    let nextWorkdir = resolvePromptRunnerWorkdir(tasks, selectedTaskId);
+    let nextWorkdir = resolveNewChatWorkdir(tasks, selectedTaskId);
     if (!nextWorkdir) {
       try {
         nextWorkdir = (await fetchDefaultWorkspace()).workspacePath;
@@ -237,62 +267,48 @@ function Dashboard({
       }
     }
     setNewChatWorkdir(nextWorkdir);
-    setNewChatPrompt("");
+    setNewChatCli("claude");
+    setNewChatModel("");
+    setNewChatError(null);
+    setIsStartingNewChat(false);
+    setRecentWorkdirs(readRecentWorkdirs());
     setIsNewChatModalOpen(true);
   }, [selectedTaskId, tasks]);
 
-  const handleCreateChatSession = useCallback(async (): Promise<void> => {
-    const prompt = newChatPrompt.trim();
-    if (!newChatWorkdir.trim() || !prompt) return;
+  const handleStartNewChat = useCallback(async (): Promise<void> => {
+    const workdir = newChatWorkdir.trim();
+    if (!workdir) return;
+
+    setIsStartingNewChat(true);
+    setNewChatError(null);
+
     const resolvedModel = newChatCli === "opencode"
       ? (newChatModel.trim() || DEFAULT_OPENCODE_MODEL)
-      : newChatModel.trim();
-    let resolvedTaskId = newChatTaskId;
-    if (!resolvedTaskId) {
-      const createdTask = await createMonitoredTask({
-        title: prompt.length > 80 ? `${prompt.slice(0, 80)}…` : prompt,
-        workspacePath: newChatWorkdir.trim(),
-        runtimeSource: newChatCli === "opencode" ? "opencode-bridge" : "claude-hook"
+      : undefined;
+    try {
+      const task = await createMonitoredTask({
+        title: buildNewChatTaskTitle(newChatCli, workdir),
+        workspacePath: workdir,
+        runtimeSource: newChatCli === "opencode" ? "opencode-bridge" : "claude-code-bridge"
       });
-      resolvedTaskId = createdTask.id;
-      dispatch({ type: "SELECT_CONNECTOR", connectorKey: null });
-      dispatch({ type: "SELECT_EVENT", eventId: null });
-      selectDashboardTask(createdTask.id);
-      void refreshOverview();
+      setRecentWorkdirs(rememberRecentWorkdir(workdir));
+      navigate(buildNewChatHref({
+        cli: newChatCli,
+        workdir,
+        taskId: task.id,
+        ...(resolvedModel ? { model: resolvedModel } : {})
+      }));
+      setIsNewChatModalOpen(false);
+    } catch (error) {
+      setNewChatError(error instanceof Error ? error.message : "Failed to prepare chat task");
+    } finally {
+      setIsStartingNewChat(false);
     }
-    launchSession({
-      cli: newChatCli,
-      workdir: newChatWorkdir.trim(),
-      ...(resolvedTaskId ? { taskId: resolvedTaskId } : {}),
-      ...(newChatCliSessionId ? { cliSessionId: newChatCliSessionId } : {}),
-      ...(resolvedModel ? { model: resolvedModel } : {})
-    }, prompt);
-    setNewChatPrompt("");
-    setIsNewChatModalOpen(false);
-  }, [dispatch, launchSession, newChatCli, newChatWorkdir, newChatPrompt, newChatTaskId, newChatCliSessionId, newChatModel, refreshOverview, selectDashboardTask]);
+  }, [navigate, newChatCli, newChatModel, newChatWorkdir]);
 
-  const handleContinueTaskChat = useCallback((taskId: string, workspacePath?: string): void => {
-    const resolvedWorkdir = workspacePath ?? tasks.find((task) => task.id === taskId)?.workspacePath ?? "";
-    // Detect CLI type from the task's runtimeSource so we resume with the right adapter.
-    const task = tasks.find((t) => t.id === taskId);
-    const cli: CliType = task?.runtimeSource?.includes("opencode") ? "opencode" : "claude";
-
-    // Use the runtimeSessionId from the already-loaded taskDetail so cli:resume is sent
-    // instead of cli:start — this is what actually carries context across turns.
-    const cliSessionId =
-      taskDetail?.task.id === taskId ? taskDetail.runtimeSessionId : undefined;
-
-    setNewChatTitle("Continue Task");
-    setNewChatCli(cli);
-    setNewChatWorkdir(resolvedWorkdir);
-    setNewChatTaskId(taskId);
-    setNewChatCliSessionId(cliSessionId);
-    if (cli === "opencode" && !newChatModel.trim()) {
-      setNewChatModel(DEFAULT_OPENCODE_MODEL);
-    }
-    setNewChatPrompt("");
-    setIsNewChatModalOpen(true);
-  }, [newChatModel, taskDetail, tasks]);
+  const handleContinueTaskChat = useCallback((context: ResumeChatContext): void => {
+    navigate(buildResumeChatHref(context));
+  }, [navigate]);
 
   // Layout
   const dashboardStyle = useMemo(
@@ -402,9 +418,9 @@ function Dashboard({
       )}
 
       {isNewChatModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 backdrop-blur-[2px]" role="dialog" aria-modal="true" aria-label="Prompt runner">
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 backdrop-blur-[2px]" role="dialog" aria-modal="true" aria-label="New chat">
           <button
-            aria-label="Close prompt runner"
+            aria-label="Close new chat"
             className="absolute inset-0"
             onClick={() => setIsNewChatModalOpen(false)}
             type="button"
@@ -413,7 +429,7 @@ function Dashboard({
             className="relative mt-12 w-full max-w-xl overflow-hidden rounded-[14px] border border-[var(--border)] bg-[var(--surface)] shadow-[0_20px_60px_rgba(0,0,0,0.25)]"
           >
             <div className="border-b border-[var(--border)] bg-[var(--surface-2)] px-4 py-3">
-              <h2 className="text-[0.92rem] font-semibold text-[var(--text-1)]">{newChatTitle}</h2>
+              <h2 className="text-[0.92rem] font-semibold text-[var(--text-1)]">New Chat</h2>
             </div>
             <div className="space-y-4 p-4">
               <label className="block">
@@ -442,25 +458,26 @@ function Dashboard({
                   value={newChatWorkdir}
                 />
               </label>
-              <label className="block">
-                <span className="mb-1 block text-[0.74rem] font-semibold text-[var(--text-2)]">Prompt</span>
-                <textarea
-                  className="min-h-[120px] w-full rounded-[8px] border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[0.82rem] leading-6"
-                  onChange={(event) => setNewChatPrompt(event.target.value)}
-                  onKeyDown={(event) => {
-                    if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
-                      event.preventDefault();
-                      if (!newChatWorkdir.trim() || !newChatPrompt.trim()) return;
-                      void handleCreateChatSession();
-                    }
-                  }}
-                  placeholder="Describe the task you want to run."
-                  value={newChatPrompt}
-                />
-                <span className="mt-1 block text-[0.7rem] text-[var(--text-3)]">
-                  The main dashboard will stay visible while the task runs. Press Cmd/Ctrl + Enter to run.
-                </span>
-              </label>
+              {recentWorkdirs.length > 0 && (
+                <div className="space-y-1.5">
+                  <div className="text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">
+                    Recent workdirs
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {recentWorkdirs.map((workdir) => (
+                      <button
+                        key={workdir}
+                        className="max-w-full truncate rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-2.5 py-1 text-[0.72rem] text-[var(--text-2)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]"
+                        onClick={() => setNewChatWorkdir(workdir)}
+                        title={workdir}
+                        type="button"
+                      >
+                        {workdir}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               {newChatCli === "opencode" && (
                 <label className="block">
                   <span className="mb-1 block text-[0.74rem] font-semibold text-[var(--text-2)]">Model</span>
@@ -493,9 +510,16 @@ function Dashboard({
                   </span>
                 </label>
               )}
+              <p className="m-0 text-[0.72rem] text-[var(--text-3)]">
+                Start on the dedicated chat page. A monitored task will be created before the chat opens.
+              </p>
+              {newChatError && (
+                <p className="m-0 text-[0.72rem] text-rose-400">{newChatError}</p>
+              )}
               <div className="flex justify-end gap-2">
                 <button
                   className="rounded-[8px] border border-[var(--border)] bg-[var(--surface-2)] px-3 py-1.5 text-[0.78rem] font-semibold"
+                  disabled={isStartingNewChat}
                   onClick={() => setIsNewChatModalOpen(false)}
                   type="button"
                 >
@@ -503,18 +527,13 @@ function Dashboard({
                 </button>
                 <button
                   className="rounded-[8px] border border-[var(--accent)] bg-[var(--accent-light)] px-3 py-1.5 text-[0.78rem] font-semibold text-[var(--accent)]"
-                  disabled={!newChatWorkdir.trim() || !newChatPrompt.trim() || isPromptBlockedForOpenCode}
-                  onClick={() => { void handleCreateChatSession(); }}
+                  disabled={!newChatWorkdir.trim() || isStartingNewChat}
+                  onClick={() => { void handleStartNewChat(); }}
                   type="button"
                 >
-                  Run Prompt
+                  {isStartingNewChat ? "Preparing…" : "Start Chat"}
                 </button>
               </div>
-              {isPromptBlockedForOpenCode && (
-                <p className="m-0 text-[0.74rem] text-[var(--warn)]">
-                  OpenCode Bridge is currently limited for complex research or subagent prompts. Use Claude Code here, or run OpenCode directly in its native environment.
-                </p>
-              )}
             </div>
           </div>
         </div>
@@ -523,11 +542,7 @@ function Dashboard({
   );
 }
 
-function DashboardRoute({
-  launchSession
-}: {
-  readonly launchSession: ReturnType<typeof useCliChat>["launchSession"];
-}): React.JSX.Element {
+function DashboardRoute(): React.JSX.Element {
   const { state, dispatch } = useMonitorStore();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -550,7 +565,6 @@ function DashboardRoute({
 
   return (
     <Dashboard
-      launchSession={launchSession}
       onSelectTaskRoute={(taskId) => {
         const next = new URLSearchParams(searchParams);
         if (taskId) { next.set("task", taskId); } else { next.delete("task"); }
@@ -562,15 +576,13 @@ function DashboardRoute({
 }
 
 function TaskWorkspaceRoute({
-  launchSession,
   interruptTask
 }: {
-  readonly launchSession: ReturnType<typeof useCliChat>["launchSession"];
   readonly interruptTask: ReturnType<typeof useCliChat>["interruptTask"];
 }): React.JSX.Element {
   const { taskId } = useParams<{ readonly taskId: string }>();
   if (!taskId) return <Navigate replace to="/" />;
-  return <TaskWorkspacePage taskId={taskId} launchSession={launchSession} interruptTask={interruptTask} />;
+  return <TaskWorkspacePage taskId={taskId} interruptTask={interruptTask} />;
 }
 
 function ChatRoute(): React.JSX.Element {
@@ -578,11 +590,11 @@ function ChatRoute(): React.JSX.Element {
 }
 
 function AppRoutes(): React.JSX.Element {
-  const { launchSession, interruptTask } = useCliChat();
+  const { interruptTask } = useCliChat();
   return (
     <Routes>
-      <Route path="/" element={<DashboardRoute launchSession={launchSession} />} />
-      <Route path="/tasks/:taskId" element={<TaskWorkspaceRoute launchSession={launchSession} interruptTask={interruptTask} />} />
+      <Route path="/" element={<DashboardRoute />} />
+      <Route path="/tasks/:taskId" element={<TaskWorkspaceRoute interruptTask={interruptTask} />} />
       <Route path="/chat" element={<ChatRoute />} />
       <Route path="*" element={<Navigate replace to="/" />} />
     </Routes>

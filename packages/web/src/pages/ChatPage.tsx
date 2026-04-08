@@ -6,8 +6,43 @@ import { ChatWindow } from "../components/chat/index.js";
 import { useCliChat } from "../hooks/useCliChat.js";
 import type { CliType } from "../types/chat.js";
 
+const RESUME_OPEN_CONSUMED_PREFIX = "agent-tracer.chat-open-consumed:";
+const RESUME_OPEN_CONSUMED_TTL_MS = 10_000;
+
 function toCliType(value: string | null): CliType {
   return value === "opencode" ? "opencode" : "claude";
+}
+
+function buildResumeOpenKey(searchParams: URLSearchParams): string {
+  return JSON.stringify({
+    cli: toCliType(searchParams.get("cli")),
+    workdir: searchParams.get("workdir") ?? "",
+    model: searchParams.get("model") ?? "",
+    taskId: searchParams.get("taskId") ?? "",
+    sessionId: searchParams.get("sessionId") ?? ""
+  });
+}
+
+function hasConsumedResumeOpen(key: string): boolean {
+  const storageKey = `${RESUME_OPEN_CONSUMED_PREFIX}${key}`;
+  const raw = window.sessionStorage.getItem(storageKey);
+  if (!raw) {
+    return false;
+  }
+  const consumedAt = Number.parseInt(raw, 10);
+  if (!Number.isFinite(consumedAt)) {
+    window.sessionStorage.removeItem(storageKey);
+    return false;
+  }
+  if (Date.now() - consumedAt > RESUME_OPEN_CONSUMED_TTL_MS) {
+    window.sessionStorage.removeItem(storageKey);
+    return false;
+  }
+  return true;
+}
+
+function markResumeOpenConsumed(key: string): void {
+  window.sessionStorage.setItem(`${RESUME_OPEN_CONSUMED_PREFIX}${key}`, String(Date.now()));
 }
 
 export function ChatPage(): React.JSX.Element {
@@ -26,19 +61,38 @@ export function ChatPage(): React.JSX.Element {
     const open = searchParams.get("open");
     if (open !== "1") return;
 
+    const resumeOpenKey = buildResumeOpenKey(searchParams);
+    if (hasConsumedResumeOpen(resumeOpenKey)) {
+      return;
+    }
+
     const cli = toCliType(searchParams.get("cli"));
     const workdir = searchParams.get("workdir") ?? "";
+    const model = searchParams.get("model") ?? undefined;
     const taskId = searchParams.get("taskId") ?? undefined;
     const cliSessionId = searchParams.get("sessionId") ?? undefined;
 
     if (!workdir.trim()) return;
 
-    const sessionId = createSession({ cli, workdir, ...(taskId ? { taskId } : {}), ...(cliSessionId ? { cliSessionId } : {}) });
-    setActiveSession(sessionId);
-
     const next = new URLSearchParams(searchParams);
     next.delete("open");
+    const nextQuery = next.toString();
+    markResumeOpenConsumed(resumeOpenKey);
+    window.history.replaceState(
+      window.history.state,
+      "",
+      nextQuery ? `${window.location.pathname}?${nextQuery}` : window.location.pathname
+    );
     setSearchParams(next, { replace: true });
+
+    const sessionId = createSession({
+      cli,
+      workdir,
+      ...(model ? { model } : {}),
+      ...(taskId ? { taskId } : {}),
+      ...(cliSessionId ? { cliSessionId } : {})
+    });
+    setActiveSession(sessionId);
   }, [createSession, searchParams, setActiveSession, setSearchParams]);
 
   const sessions = useMemo(() => Array.from(state.sessions.values()), [state.sessions]);
