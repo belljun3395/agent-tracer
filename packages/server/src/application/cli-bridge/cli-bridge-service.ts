@@ -11,8 +11,6 @@ import type {
   CliResumeOptions,
   CliType,
 } from "./types.js";
-import { ClaudeCodeAdapter } from "./claude-code-adapter.js";
-import { OpenCodeAdapter } from "./opencode-adapter.js";
 
 export interface StartChatOptions {
   readonly cli: CliType;
@@ -35,15 +33,12 @@ export class CliBridgeService {
   private readonly adapters: Map<CliType, CliAdapter>;
   private readonly activeProcesses: Map<string, CliProcess>;
 
-  constructor() {
+  constructor(adapters: readonly CliAdapter[]) {
     this.adapters = new Map();
     this.activeProcesses = new Map();
-    this.registerDefaultAdapters();
-  }
-
-  private registerDefaultAdapters(): void {
-    this.adapters.set("claude", new ClaudeCodeAdapter());
-    this.adapters.set("opencode", new OpenCodeAdapter());
+    for (const adapter of adapters) {
+      this.adapters.set(adapter.name, adapter);
+    }
   }
 
   getAdapter(cli: CliType): CliAdapter | undefined {
@@ -63,13 +58,9 @@ export class CliBridgeService {
     const sessionOptions: Omit<CliSessionOptions, "cli"> = {
       workdir: options.workdir,
       prompt: options.prompt,
+      ...(options.taskId ? { taskId: options.taskId } : {}),
+      ...(options.model ? { model: options.model } : {}),
     };
-    if (options.taskId) {
-      (sessionOptions as { taskId?: string }).taskId = options.taskId;
-    }
-    if (options.model) {
-      (sessionOptions as { model?: string }).model = options.model;
-    }
 
     const process = await adapter.startSession(sessionOptions);
 
@@ -87,13 +78,9 @@ export class CliBridgeService {
       sessionId: options.sessionId,
       workdir: options.workdir,
       prompt: options.prompt,
+      ...(options.taskId ? { taskId: options.taskId } : {}),
+      ...(options.model ? { model: options.model } : {}),
     };
-    if (options.taskId) {
-      (resumeOptions as { taskId?: string }).taskId = options.taskId;
-    }
-    if (options.model) {
-      (resumeOptions as { model?: string }).model = options.model;
-    }
 
     const process = await adapter.resumeSession(resumeOptions);
 
