@@ -2,29 +2,35 @@ import type React from "react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
-import { fetchTaskObservability, updateEventDisplayTitle } from "../api.js";
+import { fetchTaskObservability, fetchTaskOpenInference, postRuleAction, updateEventDisplayTitle } from "../api.js";
 import { EventInspector, type PanelTabId } from "../components/EventInspector.js";
+import { runtimeObservabilityLabel, runtimeTagLabel } from "../components/TaskList.js";
+import { isOpenCodeBridgeComplexPrompt } from "../App.js";
 import { Timeline } from "../components/Timeline.js";
 import {
   buildCompactInsight,
   buildInspectorEventTitle,
   buildModelSummary,
   buildObservabilityStats,
+  collectRecentRuleDecisions,
   collectExploredFiles,
   filterTimelineEvents
 } from "../lib/insights.js";
 import { buildTimelineRelations } from "../lib/timeline.js";
 import { refreshRealtimeMonitorData } from "../lib/realtime.js";
 import { cn } from "../lib/ui/cn.js";
+import type { useCliChat } from "../hooks/useCliChat.js";
 import { useMonitorStore } from "../store/useMonitorStore.js";
 import { useWebSocket } from "../store/useWebSocket.js";
 import type { TaskObservabilityResponse } from "../types.js";
+import type { CliType } from "../types/chat.js";
 
 const DEFAULT_WORKSPACE_TAB: PanelTabId = "overview";
 const WORKSPACE_INSPECTOR_MIN_WIDTH = 340;
 const WORKSPACE_INSPECTOR_MAX_WIDTH = 680;
 const WORKSPACE_INSPECTOR_DEFAULT_WIDTH = 360;
 const WORKSPACE_INSPECTOR_WIDTH_STORAGE_KEY = "agent-tracer.workspace-inspector-width";
+const REVIEWER_ID_STORAGE_KEY = "agent-tracer.reviewer-id";
 
 const WORKSPACE_TAB_MAP: Record<string, PanelTabId> = {
   inspector: "inspector",
@@ -62,7 +68,15 @@ function parseConnectorKey(
   return { sourceEventId, targetEventId, ...(relationType ? { relationType } : {}) };
 }
 
-export function TaskWorkspacePage({ taskId }: { readonly taskId: string }): React.JSX.Element {
+export function TaskWorkspacePage({
+  taskId,
+  launchSession,
+  interruptTask
+}: {
+  readonly taskId: string;
+  readonly launchSession: ReturnType<typeof useCliChat>["launchSession"];
+  readonly interruptTask: ReturnType<typeof useCliChat>["interruptTask"];
+}): React.JSX.Element {
   const {
     state,
     dispatch,
@@ -95,6 +109,17 @@ export function TaskWorkspacePage({ taskId }: { readonly taskId: string }): Reac
 
   const [searchParams, setSearchParams] = useSearchParams();
   const [taskObservability, setTaskObservability] = useState<TaskObservabilityResponse | null>(null);
+  const [reviewerNote, setReviewerNote] = useState("");
+  const [isSubmittingRuleReview, setIsSubmittingRuleReview] = useState(false);
+  const [reviewerId, setReviewerId] = useState(() => window.localStorage.getItem(REVIEWER_ID_STORAGE_KEY) ?? "local-reviewer");
+  const [isPromptRunnerOpen, setIsPromptRunnerOpen] = useState(false);
+  const [promptRunnerCli, setPromptRunnerCli] = useState<CliType>("claude");
+  const [promptRunnerModel, setPromptRunnerModel] = useState("");
+  const [promptRunnerText, setPromptRunnerText] = useState("");
+  const isPromptBlockedForOpenCode = useMemo(
+    () => promptRunnerCli === "opencode" && isOpenCodeBridgeComplexPrompt(promptRunnerText),
+    [promptRunnerCli, promptRunnerText]
+  );
   const [zoom, setZoom] = useState(1.1);
   const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth);
   const [inspectorWidth, setInspectorWidth] = useState<number>(() => {
@@ -137,6 +162,10 @@ export function TaskWorkspacePage({ taskId }: { readonly taskId: string }): Reac
   }, [refreshTaskObservability]);
 
   useEffect(() => {
+    window.localStorage.setItem(REVIEWER_ID_STORAGE_KEY, reviewerId);
+  }, [reviewerId]);
+
+  useEffect(() => {
     window.localStorage.setItem(WORKSPACE_INSPECTOR_WIDTH_STORAGE_KEY, String(inspectorWidth));
   }, [inspectorWidth]);
 
@@ -177,6 +206,7 @@ export function TaskWorkspacePage({ taskId }: { readonly taskId: string }): Reac
 
   const exploredFiles = useMemo(() => collectExploredFiles(taskTimeline), [taskTimeline]);
   const compactInsight = useMemo(() => buildCompactInsight(taskTimeline), [taskTimeline]);
+  const recentRuleDecisions = useMemo(() => collectRecentRuleDecisions(taskTimeline), [taskTimeline]);
   const observabilityStats = useMemo(
     () => buildObservabilityStats(taskTimeline, exploredFiles.length, compactInsight.occurrences),
     [compactInsight.occurrences, exploredFiles.length, taskTimeline]
@@ -294,6 +324,90 @@ export function TaskWorkspacePage({ taskId }: { readonly taskId: string }): Reac
     setSearchParams(next, { replace: true });
   }, [searchParams, setSearchParams]);
 
+  const handleRuleReview = useCallback(async (
+    outcome: "approved" | "rejected" | "bypassed"
+  ): Promise<void> => {
+    if (!selectedTaskDetail?.task || !taskObservability?.observability.ruleEnforcement.activeRuleId) {
+      return;
+    }
+
+    setIsSubmittingRuleReview(true);
+    try {
+      await postRuleAction({
+        taskId: selectedTaskDetail.task.id,
+        action: "review_rule_gate",
+        title: outcome === "approved"
+          ? "Approval granted"
+          : outcome === "rejected"
+            ? "Approval rejected"
+            : "Rule bypassed",
+        ruleId: taskObservability.observability.ruleEnforcement.activeRuleId,
+        severity: outcome === "approved" ? "info" : "warn",
+        status: outcome === "approved" || outcome === "bypassed" ? "pass" : "violation",
+        source: "workspace-review",
+        metadata: {
+          reviewerId,
+          reviewerSource: "workspace-review"
+        },
+        ...(reviewerNote.trim() ? { body: reviewerNote.trim() } : {}),
+        outcome
+      });
+      setReviewerNote("");
+      await Promise.all([
+        refreshOverview(),
+        refreshTaskDetail(taskId),
+        refreshTaskObservability()
+      ]);
+    } finally {
+      setIsSubmittingRuleReview(false);
+    }
+  }, [refreshOverview, refreshTaskDetail, refreshTaskObservability, reviewerId, reviewerNote, selectedTaskDetail?.task, taskId, taskObservability?.observability.ruleEnforcement.activeRuleId]);
+
+  const handleInterruptTask = useCallback((): void => {
+    interruptTask(taskId);
+  }, [interruptTask, taskId]);
+
+  const handleOpenPromptRunner = useCallback((): void => {
+    const cli: CliType = selectedTaskDetail?.task.runtimeSource?.includes("opencode") ? "opencode" : "claude";
+    setPromptRunnerCli(cli);
+    if (cli === "opencode" && !promptRunnerModel.trim()) {
+      setPromptRunnerModel("openai/gpt-5.4");
+    }
+    setPromptRunnerText("");
+    setIsPromptRunnerOpen(true);
+  }, [promptRunnerModel, selectedTaskDetail?.task.runtimeSource]);
+
+  const handleRunPrompt = useCallback((): void => {
+    const workdir = selectedTaskDetail?.task.workspacePath;
+    const prompt = promptRunnerText.trim();
+    if (!selectedTaskDetail?.task.id || !workdir || !prompt) {
+      return;
+    }
+
+    launchSession({
+      cli: promptRunnerCli,
+      workdir,
+      taskId: selectedTaskDetail.task.id,
+      ...(taskDetail?.runtimeSessionId ? { cliSessionId: taskDetail.runtimeSessionId } : {}),
+      ...(promptRunnerCli === "opencode"
+        ? { model: promptRunnerModel.trim() || "openai/gpt-5.4" }
+        : {})
+    }, prompt);
+    setPromptRunnerText("");
+    setIsPromptRunnerOpen(false);
+  }, [launchSession, promptRunnerCli, promptRunnerModel, promptRunnerText, selectedTaskDetail?.task.id, selectedTaskDetail?.task.workspacePath, taskDetail?.runtimeSessionId]);
+
+  const handleExportOpenInference = useCallback(async (): Promise<void> => {
+    const payload = await fetchTaskOpenInference(taskId);
+    const blob = new Blob([JSON.stringify(payload.openinference, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `${taskId}-openinference.json`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }, [taskId]);
+
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-[var(--bg)]">
       <header className="flex shrink-0 flex-wrap items-start justify-between gap-3 border-b border-[var(--border)] bg-[var(--surface)] px-4 py-3">
@@ -304,6 +418,48 @@ export function TaskWorkspacePage({ taskId }: { readonly taskId: string }): Reac
           <h1 className="mt-1 truncate text-[1rem] font-semibold tracking-[-0.02em] text-[var(--text-1)]">
             {selectedTaskDisplayTitle ?? selectedTaskDetail?.task.title ?? taskId}
           </h1>
+          {selectedTaskDetail?.task && (
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-[0.72rem]">
+              {selectedTaskDetail.task.runtimeSource && (
+                <span className="inline-flex items-center rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-2.5 py-1 font-semibold text-[var(--text-2)]">
+                  {runtimeTagLabel(selectedTaskDetail.task.runtimeSource)}
+                </span>
+              )}
+              <span className={cn(
+                "inline-flex items-center rounded-full border px-2.5 py-1 font-semibold uppercase tracking-[0.06em]",
+                selectedTaskDetail.task.status === "running"
+                  ? "border-[var(--ok-bg)] bg-[var(--ok-bg)] text-[var(--ok)]"
+                  : selectedTaskDetail.task.status === "waiting"
+                    ? "border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-2)]"
+                    : selectedTaskDetail.task.status === "completed"
+                      ? "border-[var(--accent-light)] bg-[var(--accent-light)] text-[var(--accent)]"
+                      : "border-[var(--err-bg)] bg-[var(--err-bg)] text-[var(--err)]"
+              )}>
+                {selectedTaskDetail.task.status}
+              </span>
+              {runtimeObservabilityLabel(selectedTaskDetail.task.runtimeSource) && (
+                <span className="inline-flex items-center rounded-full border border-[var(--warn-bg)] bg-[var(--warn-bg)] px-2.5 py-1 font-semibold text-[var(--warn)]">
+                  {runtimeObservabilityLabel(selectedTaskDetail.task.runtimeSource)}
+                </span>
+              )}
+              {taskObservability?.observability.ruleEnforcement.activeState === "approval_required"
+                && selectedTaskDetail.task.status === "waiting" ? (
+                  <span className="inline-flex items-center rounded-full border border-[var(--accent-light)] bg-[var(--accent-light)] px-2.5 py-1 font-semibold text-[var(--accent)]">
+                    {taskObservability.observability.ruleEnforcement.activeLabel
+                      ? `approval required · ${taskObservability.observability.ruleEnforcement.activeLabel}`
+                      : "approval required"}
+                  </span>
+                ) : null}
+              {taskObservability?.observability.ruleEnforcement.activeState === "blocked"
+                && selectedTaskDetail.task.status === "errored" ? (
+                  <span className="inline-flex items-center rounded-full border border-[var(--err-bg)] bg-[var(--err-bg)] px-2.5 py-1 font-semibold text-[var(--err)]">
+                    {taskObservability.observability.ruleEnforcement.activeLabel
+                      ? `blocked by rule · ${taskObservability.observability.ruleEnforcement.activeLabel}`
+                      : "blocked by rule"}
+                  </span>
+                ) : null}
+            </div>
+          )}
           {selectedTaskDetail?.task.workspacePath && (
             <p className="mt-1 truncate font-mono text-[0.78rem] text-[var(--text-3)]">
               {selectedTaskDetail.task.workspacePath}
@@ -311,6 +467,54 @@ export function TaskWorkspacePage({ taskId }: { readonly taskId: string }): Reac
           )}
         </div>
         <div className="flex shrink-0 items-center gap-2">
+          {selectedTaskDetail?.task.status === "running" && (
+            <button
+              className="inline-flex h-8 items-center justify-center rounded-full border border-[var(--warn-bg)] bg-[var(--warn-bg)] px-3 text-[0.76rem] font-semibold text-[var(--warn)]"
+              onClick={handleInterruptTask}
+              type="button"
+            >
+              Interrupt
+            </button>
+          )}
+          <button
+            className="inline-flex h-8 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 text-[0.76rem] font-semibold text-[var(--text-2)]"
+            onClick={() => { void handleExportOpenInference(); }}
+            type="button"
+          >
+            Export Trace
+          </button>
+          {taskObservability?.observability.ruleEnforcement.activeState === "approval_required" && (
+            <button
+              className="inline-flex h-8 items-center justify-center rounded-full border border-[var(--accent-light)] bg-[var(--accent-light)] px-3 text-[0.76rem] font-semibold text-[var(--accent)]"
+              onClick={() => void handleRuleReview("approved")}
+              type="button"
+              disabled={isSubmittingRuleReview}
+            >
+              Approve
+            </button>
+          )}
+          {(taskObservability?.observability.ruleEnforcement.activeState === "approval_required"
+            || taskObservability?.observability.ruleEnforcement.activeState === "blocked") && (
+            <button
+              className="inline-flex h-8 items-center justify-center rounded-full border border-[var(--err-bg)] bg-[var(--err-bg)] px-3 text-[0.76rem] font-semibold text-[var(--err)]"
+              onClick={() => void handleRuleReview("rejected")}
+              type="button"
+              disabled={isSubmittingRuleReview}
+            >
+              Reject
+            </button>
+          )}
+          {(taskObservability?.observability.ruleEnforcement.activeState === "approval_required"
+            || taskObservability?.observability.ruleEnforcement.activeState === "blocked") && (
+            <button
+              className="inline-flex h-8 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 text-[0.76rem] font-semibold text-[var(--text-2)]"
+              onClick={() => void handleRuleReview("bypassed")}
+              type="button"
+              disabled={isSubmittingRuleReview}
+            >
+              Bypass
+            </button>
+          )}
           <Link
             className="inline-flex h-8 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 text-[0.76rem] font-semibold text-[var(--text-2)] shadow-sm transition-colors hover:border-[var(--accent)] hover:bg-[var(--accent-light)] hover:text-[var(--accent)]"
             to={`/?task=${encodeURIComponent(taskId)}`}
@@ -419,6 +623,49 @@ export function TaskWorkspacePage({ taskId }: { readonly taskId: string }): Reac
             </section>
 
             <div className="relative flex min-h-0 min-w-0 flex-col">
+              {(taskObservability?.observability.ruleEnforcement.activeState === "approval_required"
+                || taskObservability?.observability.ruleEnforcement.activeState === "blocked") && (
+                <section className="mb-3 rounded-[10px] border border-[var(--border)] bg-[var(--surface)] px-4 py-3 shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_12px_rgba(0,0,0,0.03)]">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="m-0 text-[0.72rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">Review decision</p>
+                      <p className="mt-1 text-[0.84rem] text-[var(--text-2)]">
+                        {taskObservability.observability.ruleEnforcement.activeLabel
+                          ? `Active rule: ${taskObservability.observability.ruleEnforcement.activeLabel}`
+                          : "A rule guard is currently active for this task."}
+                      </p>
+                    </div>
+                  </div>
+                  <textarea
+                    className="mt-3 min-h-[78px] w-full rounded-[8px] border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-[0.82rem] leading-6"
+                    onChange={(event) => setReviewerNote(event.target.value)}
+                    placeholder="Optional reviewer note"
+                    value={reviewerNote}
+                  />
+                  <input
+                    className="mt-3 w-full rounded-[8px] border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-[0.82rem]"
+                    onChange={(event) => setReviewerId(event.target.value)}
+                    placeholder="Reviewer identity"
+                    value={reviewerId}
+                  />
+                  {recentRuleDecisions.length > 0 && (
+                    <div className="mt-3 rounded-[8px] border border-[var(--border)] bg-[var(--bg)] px-3 py-2">
+                      <p className="m-0 text-[0.72rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">Recent decisions</p>
+                      <div className="mt-2 flex flex-col gap-2">
+                        {recentRuleDecisions.slice(0, 3).map((decision) => (
+                          <div key={decision.id} className="text-[0.78rem] text-[var(--text-2)]">
+                            <strong className="text-[var(--text-1)]">{decision.ruleId}</strong>
+                            {" · "}
+                            {decision.outcome ?? decision.status}
+                            {decision.reviewerId ? ` · ${decision.reviewerId}` : ""}
+                            {decision.note ? ` — ${decision.note}` : ""}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </section>
+              )}
               {!isStackedWorkspace && (
                 <div
                   aria-label="Resize workspace inspector panel"
@@ -477,11 +724,88 @@ export function TaskWorkspacePage({ taskId }: { readonly taskId: string }): Reac
                 taskDetail={selectedTaskDetail}
                 taskModelSummary={modelSummary}
                 taskObservability={taskObservability}
+                onContinueChat={() => handleOpenPromptRunner()}
               />
             </div>
           </div>
         )}
       </main>
+      {isPromptRunnerOpen && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 backdrop-blur-[2px]" role="dialog" aria-modal="true" aria-label="Workspace prompt runner">
+          <button
+            aria-label="Close workspace prompt runner"
+            className="absolute inset-0"
+            onClick={() => setIsPromptRunnerOpen(false)}
+            type="button"
+          />
+          <div className="relative mt-12 w-full max-w-xl overflow-hidden rounded-[14px] border border-[var(--border)] bg-[var(--surface)] shadow-[0_20px_60px_rgba(0,0,0,0.25)]">
+            <div className="border-b border-[var(--border)] bg-[var(--surface-2)] px-4 py-3">
+              <h2 className="text-[0.92rem] font-semibold text-[var(--text-1)]">Continue Task</h2>
+            </div>
+            <div className="space-y-4 p-4">
+              <label className="block">
+                <span className="mb-1 block text-[0.74rem] font-semibold text-[var(--text-2)]">CLI</span>
+                <select
+                  className="w-full rounded-[8px] border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[0.82rem]"
+                  onChange={(event) => setPromptRunnerCli(event.target.value === "opencode" ? "opencode" : "claude")}
+                  value={promptRunnerCli}
+                >
+                  <option value="claude">Claude Code</option>
+                  <option value="opencode">OpenCode</option>
+                </select>
+              </label>
+              {promptRunnerCli === "opencode" && (
+                <label className="block">
+                  <span className="mb-1 block text-[0.74rem] font-semibold text-[var(--text-2)]">Model</span>
+                  <input
+                    className="w-full rounded-[8px] border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[0.82rem]"
+                    onChange={(event) => setPromptRunnerModel(event.target.value)}
+                    value={promptRunnerModel}
+                  />
+                </label>
+              )}
+              <label className="block">
+                <span className="mb-1 block text-[0.74rem] font-semibold text-[var(--text-2)]">Prompt</span>
+                <textarea
+                  className="min-h-[120px] w-full rounded-[8px] border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[0.82rem] leading-6"
+                  onChange={(event) => setPromptRunnerText(event.target.value)}
+                  onKeyDown={(event) => {
+                    if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+                      event.preventDefault();
+                      if (isPromptBlockedForOpenCode) return;
+                      handleRunPrompt();
+                    }
+                  }}
+                  placeholder="Describe the next prompt to run for this task."
+                  value={promptRunnerText}
+                />
+              </label>
+              <div className="flex justify-end gap-2">
+                <button
+                  className="rounded-[8px] border border-[var(--border)] bg-[var(--surface-2)] px-3 py-1.5 text-[0.78rem] font-semibold"
+                  onClick={() => setIsPromptRunnerOpen(false)}
+                  type="button"
+                >
+                  Cancel
+                </button>
+                <button
+                  className="rounded-[8px] border border-[var(--accent)] bg-[var(--accent-light)] px-3 py-1.5 text-[0.78rem] font-semibold text-[var(--accent)]"
+                  disabled={!promptRunnerText.trim() || isPromptBlockedForOpenCode}
+                  onClick={handleRunPrompt}
+                  type="button"
+                >
+                  Run Prompt
+                </button>
+              </div>
+              {isPromptBlockedForOpenCode && (
+                <p className="m-0 text-[0.74rem] text-[var(--warn)]">
+                  OpenCode Bridge is currently limited for complex research or subagent prompts. Use Claude Code here, or run OpenCode directly in its native environment.
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

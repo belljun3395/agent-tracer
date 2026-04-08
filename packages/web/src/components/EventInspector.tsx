@@ -11,7 +11,10 @@ import {
   useMemo,
   useState
 } from "react";
-import { buildReusableTaskSnapshot } from "@monitor/core";
+import {
+  buildReusableTaskSnapshot,
+  getEventEvidence
+} from "@monitor/core";
 
 import {
   buildCompactInsight,
@@ -19,10 +22,13 @@ import {
   buildInspectorEventTitle,
   buildMentionedFileVerifications,
   buildObservabilityStats,
+  buildRuleCoverage,
   buildQuestionGroups,
+  buildSubagentInsight,
   buildTagInsights,
   buildTaskExtraction,
   buildTodoGroups,
+  collectRecentRuleDecisions,
   collectExploredFiles,
   collectFileActivity,
   collectPlanSteps,
@@ -38,12 +44,16 @@ import {
   type MentionedFileVerification,
   type ModelSummary,
   type QuestionGroup,
+  type RuleDecisionStat,
+  type SubagentInsight,
   type TaskExtraction,
   type TagInsight,
   type TodoGroup,
   type WebLookupStat
 } from "../lib/insights.js";
 import {
+  evidenceTone,
+  formatEvidenceLevel,
   formatCount,
   formatDuration,
   formatPhaseLabel,
@@ -55,6 +65,7 @@ import { cn } from "../lib/ui/cn.js";
 import { Badge } from "./ui/Badge.js";
 import { Button } from "./ui/Button.js";
 import { PanelCard } from "./ui/PanelCard.js";
+import { runtimeObservabilityLabel, runtimeTagLabel } from "./TaskList.js";
 import { TaskHandoffPanel } from "./TaskHandoffPanel.js";
 import { TaskEvaluatePanel } from "./TaskEvaluatePanel.js";
 import { useEvaluation } from "../store/useEvaluation.js";
@@ -130,6 +141,26 @@ function formatActionRegistryGapNote(observability: TaskObservabilityResponse["o
   }
 
   return `${formatCount(observability.actionRegistryGapCount)}/${formatCount(observability.actionRegistryEligibleEventCount)} action events without registry matches`;
+}
+
+function DetailEventEvidence({
+  event,
+  runtimeSource
+}: {
+  readonly event: TimelineEvent;
+  readonly runtimeSource?: string;
+}): React.JSX.Element {
+  const evidence = getEventEvidence(runtimeSource, event);
+  return (
+    <SectionCard title="Evidence" bodyClassName="pt-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge tone={evidenceTone(evidence.level)} size="xs">
+          {formatEvidenceLevel(evidence.level)}
+        </Badge>
+        <span className="text-[0.8rem] text-[var(--text-2)]">{evidence.reason}</span>
+      </div>
+    </SectionCard>
+  );
 }
 
 function SectionCard({
@@ -271,6 +302,7 @@ function ObservabilityList({
     readonly label: string;
     readonly value: string;
     readonly note?: string;
+    readonly tone?: "neutral" | "accent" | "success" | "warning" | "danger";
   }>;
   readonly emptyLabel: string;
 }): React.JSX.Element {
@@ -284,7 +316,7 @@ function ObservabilityList({
         <div key={`${item.label}-${item.value}`} className="rounded-[12px] border border-[var(--border)] bg-[var(--bg)] px-3.5 py-3">
           <div className="flex items-center justify-between gap-3">
             <strong className="min-w-0 truncate text-[0.84rem] text-[var(--text-1)]">{item.label}</strong>
-            <Badge tone="neutral" size="xs">{item.value}</Badge>
+            <Badge tone={item.tone ?? "neutral"} size="xs">{item.value}</Badge>
           </div>
           {item.note && <p className="mt-1.5 mb-0 text-[0.76rem] text-[var(--text-3)]">{item.note}</p>}
         </div>
@@ -1191,6 +1223,11 @@ function WebLookupsCard({
                     {lookup.count > 1 && (
                       <Badge tone="neutral" size="xs">{lookup.count}x</Badge>
                     )}
+                    {compactRelationLabel(lookup.compactRelation) && (
+                      <Badge tone={compactRelationLabel(lookup.compactRelation)?.tone ?? "neutral"} size="xs">
+                        {compactRelationLabel(lookup.compactRelation)?.label}
+                      </Badge>
+                    )}
                   </div>
                   <p className={cn("mt-0.5 break-all text-[0.82rem] text-[var(--text-1)]", monoText)}>
                     {lookup.url}
@@ -1258,6 +1295,40 @@ function ExplorationInsightCard({
               </div>
             )}
 
+            {(insight.preCompactWebLookups > 0 || insight.postCompactWebLookups > 0 || insight.acrossCompactWebLookups > 0) && (
+              <div className="grid grid-cols-3 gap-2 max-md:grid-cols-1">
+                <div className={innerPanel + " p-3"}>
+                  <span className="block text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">Web Pre-compact</span>
+                  <strong className="mt-2 block text-[1.05rem] text-[color-mix(in_srgb,#f59e0b_80%,var(--text-1))]">{insight.preCompactWebLookups}</strong>
+                </div>
+                <div className={innerPanel + " p-3"}>
+                  <span className="block text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">Web Post-compact</span>
+                  <strong className="mt-2 block text-[1.05rem] text-[color-mix(in_srgb,#10b981_80%,var(--text-1))]">{insight.postCompactWebLookups}</strong>
+                </div>
+                <div className={innerPanel + " p-3"}>
+                  <span className="block text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">Web Across compact</span>
+                  <strong className="mt-2 block text-[1.05rem] text-[var(--accent)]">{insight.acrossCompactWebLookups}</strong>
+                </div>
+              </div>
+            )}
+
+            {(insight.preCompactWebLookups > 0 || insight.postCompactWebLookups > 0 || insight.acrossCompactWebLookups > 0) && (
+              <div className="grid grid-cols-3 gap-2 max-md:grid-cols-1">
+                <div className={innerPanel + " p-3"}>
+                  <span className="block text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">Web pre-compact</span>
+                  <strong className="mt-2 block text-[1.05rem] text-[color-mix(in_srgb,#f59e0b_80%,var(--text-1))]">{insight.preCompactWebLookups}</strong>
+                </div>
+                <div className={innerPanel + " p-3"}>
+                  <span className="block text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">Web post-compact</span>
+                  <strong className="mt-2 block text-[1.05rem] text-[color-mix(in_srgb,#10b981_80%,var(--text-1))]">{insight.postCompactWebLookups}</strong>
+                </div>
+                <div className={innerPanel + " p-3"}>
+                  <span className="block text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">Web across compact</span>
+                  <strong className="mt-2 block text-[1.05rem] text-[var(--accent)]">{insight.acrossCompactWebLookups}</strong>
+                </div>
+              </div>
+            )}
+
             {toolEntries.length > 0 && (
               <div>
                 <div className="mb-2 text-[0.7rem] font-bold uppercase tracking-[0.08em] text-[var(--text-3)]">Tool Breakdown</div>
@@ -1282,6 +1353,94 @@ function ExplorationInsightCard({
                 )}
               </div>
             )}
+          </div>
+        )}
+      </div>
+    </PanelCard>
+  );
+}
+
+function SubagentInsightCard({
+  insight
+}: {
+  readonly insight: SubagentInsight;
+}): React.JSX.Element {
+  return (
+    <PanelCard className={cardShell}>
+      <div className={cardHeader}>
+        <span>Subagents & Background</span>
+      </div>
+      <div className={cardBody}>
+        {insight.delegations === 0 && insight.backgroundTransitions === 0 ? (
+          <p className="m-0 text-[0.8rem] text-[var(--text-3)]">No subagent or background activity recorded yet.</p>
+        ) : (
+          <div className="grid grid-cols-3 gap-2 max-md:grid-cols-1">
+            <div className={innerPanel + " p-3"}>
+              <span className="block text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">Delegations</span>
+              <strong className="mt-2 block text-[1.05rem] text-[var(--coordination)]">{insight.delegations}</strong>
+            </div>
+            <div className={innerPanel + " p-3"}>
+              <span className="block text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">Background Events</span>
+              <strong className="mt-2 block text-[1.05rem] text-[var(--text-1)]">{insight.backgroundTransitions}</strong>
+              <p className="mt-1 mb-0 text-[0.74rem] text-[var(--text-3)]">{insight.linkedBackgroundEvents} linked to parent context</p>
+            </div>
+            <div className={innerPanel + " p-3"}>
+              <span className="block text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">Async Tasks</span>
+              <strong className="mt-2 block text-[1.05rem] text-[var(--text-1)]">{insight.uniqueAsyncTasks}</strong>
+              <p className="mt-1 mb-0 text-[0.74rem] text-[var(--text-3)]">
+                {insight.completedAsyncTasks} completed · {insight.unresolvedAsyncTasks} unresolved
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+    </PanelCard>
+  );
+}
+
+function RuleDecisionHistoryCard({
+  decisions
+}: {
+  readonly decisions: readonly RuleDecisionStat[];
+}): React.JSX.Element {
+  return (
+    <PanelCard className={cardShell}>
+      <div className={cardHeader}>
+        <span>Recent Rule Decisions</span>
+        <Badge tone="neutral" size="xs">{decisions.length}</Badge>
+      </div>
+      <div className={cardBody}>
+        {decisions.length === 0 ? (
+          <p className="m-0 text-[0.8rem] text-[var(--text-3)]">No recent rule decisions recorded yet.</p>
+        ) : (
+          <div className="flex flex-col gap-2.5">
+            {decisions.map((decision) => (
+              <div key={decision.id} className="rounded-[12px] border border-[var(--border)] bg-[var(--bg)] px-3.5 py-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <strong className="text-[0.84rem] text-[var(--text-1)]">{decision.ruleId}</strong>
+                  <Badge
+                    tone={
+                      decision.outcome === "approved"
+                        ? "success"
+                        : decision.outcome === "rejected" || decision.outcome === "blocked"
+                          ? "danger"
+                          : decision.outcome === "approval_requested"
+                            ? "warning"
+                            : "accent"
+                    }
+                    size="xs"
+                  >
+                    {decision.outcome ?? decision.status}
+                  </Badge>
+                  {decision.severity && <Badge tone="neutral" size="xs">{decision.severity}</Badge>}
+                </div>
+                <p className="mt-1.5 mb-0 text-[0.8rem] text-[var(--text-2)]">{decision.title}</p>
+                {decision.note && (
+                  <p className="mt-1.5 mb-0 text-[0.76rem] text-[var(--text-3)]">{decision.note}</p>
+                )}
+                <p className="mt-1.5 mb-0 text-[0.72rem] text-[var(--text-3)]">{formatRelativeTime(decision.createdAt)}</p>
+              </div>
+            ))}
           </div>
         )}
       </div>
@@ -1338,6 +1497,18 @@ function CompactActivityCard({
                 <strong className="mt-2 block text-[1.05rem] text-[var(--text-1)]">{insight.eventCount}</strong>
               </div>
             </div>
+            {(insight.beforeCount > 0 || insight.afterCount > 0) && (
+              <div className="grid grid-cols-2 gap-2 max-md:grid-cols-1">
+                <div className={innerPanel + " p-3"}>
+                  <span className="block text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">Before compact</span>
+                  <strong className="mt-2 block text-[1.05rem] text-[color-mix(in_srgb,#f59e0b_80%,var(--text-1))]">{insight.beforeCount}</strong>
+                </div>
+                <div className={innerPanel + " p-3"}>
+                  <span className="block text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">After compact</span>
+                  <strong className="mt-2 block text-[1.05rem] text-[color-mix(in_srgb,#10b981_80%,var(--text-1))]">{insight.afterCount}</strong>
+                </div>
+              </div>
+            )}
             {insight.tagFacets.length > 0 && (
               <div className="flex flex-wrap gap-2">
                 {insight.tagFacets.map((tag) => (
@@ -1702,6 +1873,18 @@ export function EventInspector({
     () => buildTodoGroups(taskTimeline),
     [taskTimeline]
   );
+  const ruleCoverage = useMemo(
+    () => buildRuleCoverage(taskTimeline),
+    [taskTimeline]
+  );
+  const recentRuleDecisions = useMemo(
+    () => collectRecentRuleDecisions(taskTimeline),
+    [taskTimeline]
+  );
+  const subagentInsight = useMemo(
+    () => buildSubagentInsight(taskTimeline),
+    [taskTimeline]
+  );
   const mentionedVerifications = useMemo(
     () => buildMentionedFileVerifications(taskTimeline, exploredFiles, taskDetail?.task.workspacePath),
     [exploredFiles, taskDetail?.task.workspacePath, taskTimeline]
@@ -1772,6 +1955,10 @@ export function EventInspector({
   const eventTime = selectedEvent
     ? new Date(selectedEvent.createdAt).toLocaleTimeString()
     : null;
+  const selectedEventEvidence = useMemo(
+    () => selectedEvent ? getEventEvidence(taskDetail?.task.runtimeSource, selectedEvent) : null,
+    [selectedEvent, taskDetail?.task.runtimeSource]
+  );
   const selectedEventDisplayTitleOverride = selectedEvent && typeof selectedEvent.metadata["displayTitle"] === "string"
     ? selectedEvent.metadata["displayTitle"].trim()
     : null;
@@ -1987,7 +2174,7 @@ export function EventInspector({
                         type="button"
                         variant="ghost"
                       >
-                        Continue Chat
+                        Run Prompt
                       </Button>
                     )}
                     {selectedEvent && (
@@ -2002,6 +2189,11 @@ export function EventInspector({
                     ) : selectedEvent ? (
                       <Badge tone="neutral" size="xs" className="uppercase tracking-[0.06em]">{selectedEvent.kind} · {selectedEvent.lane}</Badge>
                     ) : null}
+                    {selectedEventEvidence && (
+                      <Badge tone={evidenceTone(selectedEventEvidence.level)} size="xs">
+                        {formatEvidenceLevel(selectedEventEvidence.level)}
+                      </Badge>
+                    )}
                     {eventTime && <Badge tone="accent" size="xs">{eventTime}</Badge>}
                     {selectedEvent && canEditSelectedEventTitle && !isEditingEventTitle && (
                       <Button
@@ -2159,6 +2351,7 @@ export function EventInspector({
                   }
                 />
                 <DetailIds event={selectedEvent} />
+                <DetailEventEvidence event={selectedEvent} runtimeSource={taskDetail?.task.runtimeSource} />
                 {selectedEvent.kind === "question.logged" && (() => {
                   const qId = selectedEvent.metadata["questionId"] as string | undefined;
                   const group = qId ? questionGroups.find((g) => g.questionId === qId) : null;
@@ -2328,8 +2521,8 @@ export function EventInspector({
                       },
                       {
                         label: "Runtime Source",
-                        value: observability.runtimeSource ?? "unknown",
-                        note: "task lineage"
+                        value: observability.runtimeSource ? runtimeTagLabel(observability.runtimeSource) : "unknown",
+                        note: runtimeObservabilityLabel(observability.runtimeSource) ?? "task lineage"
                       }
                     ]}
                   />
@@ -2350,6 +2543,183 @@ export function EventInspector({
                     ]}
                   />
                 </SectionCard>
+
+                <SectionCard title="Evidence Strength">
+                  <ObservabilityMetricGrid
+                    items={observability.evidence.breakdown.map((item) => ({
+                      label: formatEvidenceLevel(item.level),
+                      value: formatCount(item.count),
+                      note: item.level === "proven"
+                        ? "runtime-backed capture"
+                        : item.level === "self_reported"
+                          ? "adapter/agent semantic logging"
+                          : item.level === "inferred"
+                            ? "derived from other trace data"
+                            : "not directly captured",
+                      tone: evidenceTone(item.level) === "warning"
+                        ? "warn"
+                        : evidenceTone(item.level) === "danger"
+                          ? "warn"
+                          : evidenceTone(item.level) === "success"
+                            ? "ok"
+                            : "accent"
+                    }))}
+                  />
+                </SectionCard>
+
+                <SectionCard title="Runtime Coverage">
+                  <div className="mb-3 rounded-[12px] border border-[var(--border)] bg-[var(--bg)] px-3.5 py-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <strong className="text-[0.84rem] text-[var(--text-1)]">Default Posture</strong>
+                      <Badge tone={evidenceTone(observability.evidence.defaultLevel)} size="xs">
+                        {formatEvidenceLevel(observability.evidence.defaultLevel)}
+                      </Badge>
+                    </div>
+                    <p className="mt-1.5 mb-0 text-[0.76rem] text-[var(--text-3)]">{observability.evidence.summary}</p>
+                  </div>
+                  <ObservabilityList
+                    emptyLabel="No runtime coverage profile available for this task."
+                    items={observability.evidence.runtimeCoverage.map((item) => ({
+                      label: item.label,
+                      value: formatEvidenceLevel(item.level),
+                      note: item.automatic === undefined
+                        ? item.note
+                        : `${item.note} · ${item.automatic ? "automatic runtime capture" : "cooperative adapter logging"}`,
+                      tone: evidenceTone(item.level)
+                    }))}
+                  />
+                </SectionCard>
+
+                <SectionCard title="Rule Audit">
+                  <div className="flex flex-col gap-3">
+                    <ObservabilityMetricGrid
+                      items={[
+                        {
+                          label: "Rule Events",
+                          value: formatCount(observability.rules.total),
+                          note: "passive rule audit signals",
+                          tone: "accent"
+                        },
+                        {
+                          label: "Pass / Fix",
+                          value: formatCount(observability.rules.passes),
+                          note: "pass or fix-applied",
+                          tone: "ok"
+                        },
+                        {
+                          label: "Violations",
+                          value: formatCount(observability.rules.violations),
+                          note: observability.rules.violations > 0 ? "rules that failed" : "no violations recorded",
+                          tone: observability.rules.violations > 0 ? "warn" : "ok"
+                        },
+                        {
+                          label: "Warnings",
+                          value: formatCount(observability.ruleEnforcement.warnings),
+                          note: "rule outcomes warned",
+                          tone: observability.ruleEnforcement.warnings > 0 ? "warn" : "neutral"
+                        },
+                        {
+                          label: "Blocked",
+                          value: formatCount(observability.ruleEnforcement.blocked),
+                          note: "rule outcomes blocked",
+                          tone: observability.ruleEnforcement.blocked > 0 ? "warn" : "neutral"
+                        },
+                        {
+                          label: "Approval Flow",
+                          value: formatCount(observability.ruleEnforcement.approvalRequested),
+                          note: `${formatCount(observability.ruleEnforcement.approved)} approved · ${formatCount(observability.ruleEnforcement.rejected)} rejected`,
+                          tone: observability.ruleEnforcement.approvalRequested > 0 ? "accent" : "neutral"
+                        }
+                      ]}
+                    />
+                    <ObservabilityList
+                      emptyLabel="No rule audit events recorded yet."
+                      items={ruleCoverage.map((rule) => ({
+                        label: rule.ruleId,
+                        value: `${rule.violationCount}v / ${rule.passCount}p / ${rule.checkCount}c`,
+                        note: [
+                          `${rule.ruleEventCount} events`,
+                          rule.warningCount > 0 ? `${rule.warningCount} warned` : null,
+                          rule.blockedCount > 0 ? `${rule.blockedCount} blocked` : null,
+                          rule.approvalRequestCount > 0 ? `${rule.approvalRequestCount} approval` : null,
+                          rule.lastSeenAt ? `last ${formatRelativeTime(rule.lastSeenAt)}` : null
+                        ].filter((value): value is string => Boolean(value)).join(" · "),
+                        tone: rule.violationCount > 0 ? "danger" : rule.passCount > 0 ? "success" : "neutral"
+                      }))}
+                    />
+                  </div>
+                </SectionCard>
+
+                <SectionCard title="Rule Enforcement">
+                  <div className="mb-3 rounded-[12px] border border-[var(--border)] bg-[var(--bg)] px-3.5 py-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <strong className="text-[0.84rem] text-[var(--text-1)]">Active Guard State</strong>
+                      <Badge
+                        tone={
+                          observability.ruleEnforcement.activeState === "blocked"
+                            ? "danger"
+                            : observability.ruleEnforcement.activeState === "approval_required"
+                              ? "warning"
+                              : observability.ruleEnforcement.activeState === "warning"
+                                ? "accent"
+                                : "success"
+                        }
+                        size="xs"
+                      >
+                        {observability.ruleEnforcement.activeState.replace(/_/g, " ")}
+                      </Badge>
+                    </div>
+                    <p className="mt-1.5 mb-0 text-[0.76rem] text-[var(--text-3)]">
+                      {observability.ruleEnforcement.activeLabel
+                        ? `Current rule: ${observability.ruleEnforcement.activeLabel}`
+                        : "No active rule gate is blocking or waiting on this task."}
+                    </p>
+                  </div>
+                  <ObservabilityMetricGrid
+                    items={[
+                      {
+                        label: "Warnings",
+                        value: formatCount(observability.ruleEnforcement.warnings),
+                        note: "soft enforcement",
+                        tone: observability.ruleEnforcement.warnings > 0 ? "warn" : "neutral"
+                      },
+                      {
+                        label: "Blocked",
+                        value: formatCount(observability.ruleEnforcement.blocked),
+                        note: "hard-stop decisions",
+                        tone: observability.ruleEnforcement.blocked > 0 ? "warn" : "ok"
+                      },
+                      {
+                        label: "Approval Req",
+                        value: formatCount(observability.ruleEnforcement.approvalRequested),
+                        note: "needs explicit approval",
+                        tone: observability.ruleEnforcement.approvalRequested > 0 ? "accent" : "neutral"
+                      },
+                      {
+                        label: "Approved",
+                        value: formatCount(observability.ruleEnforcement.approved),
+                        note: "approved exceptions",
+                        tone: observability.ruleEnforcement.approved > 0 ? "ok" : "neutral"
+                      },
+                      {
+                        label: "Rejected",
+                        value: formatCount(observability.ruleEnforcement.rejected),
+                        note: "rejected exceptions",
+                        tone: observability.ruleEnforcement.rejected > 0 ? "warn" : "neutral"
+                      },
+                      {
+                        label: "Bypassed",
+                        value: formatCount(observability.ruleEnforcement.bypassed),
+                        note: "explicit bypasses",
+                        tone: observability.ruleEnforcement.bypassed > 0 ? "warn" : "neutral"
+                      }
+                    ]}
+                  />
+                </SectionCard>
+
+                <RuleDecisionHistoryCard decisions={recentRuleDecisions} />
+
+                <SubagentInsightCard insight={subagentInsight} />
 
                 <SectionCard title="Phase Breakdown">
                   <ObservabilityPhaseBreakdown phases={observability.phaseBreakdown} />

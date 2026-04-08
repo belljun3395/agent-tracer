@@ -107,6 +107,19 @@ const TASK_STATUS_BUTTON_STYLES = {
   }
 } as const;
 
+function formatTaskStatusLabel(status: "running" | "waiting" | "completed" | "errored"): string {
+  switch (status) {
+    case "running":
+      return "Running";
+    case "waiting":
+      return "Waiting";
+    case "completed":
+      return "Completed";
+    case "errored":
+      return "Errored";
+  }
+}
+
 
 
 interface TimelineProps {
@@ -703,7 +716,7 @@ export function Timeline({
                               TASK_STATUS_BUTTON_STYLES[taskStatus].active
                             )}
                           >
-                            {taskStatus}
+                            {formatTaskStatusLabel(taskStatus)}
                           </span>
                         )}
                       </div>
@@ -720,7 +733,7 @@ export function Timeline({
                     size="sm"
                     type="button"
                   >
-                    {isTaskControlsOpen || isEditingTaskTitle ? "Hide Task Controls" : "Manage Task"}
+                    {isTaskControlsOpen || isEditingTaskTitle ? "Hide Controls" : "Task Controls"}
                   </Button>
                 </div>
                 {(isTaskControlsOpen || isEditingTaskTitle) && (
@@ -732,7 +745,7 @@ export function Timeline({
                             className="task-title-input"
                             disabled={isSavingTaskTitle}
                             onChange={(event) => onTitleDraftChange(event.target.value)}
-                            placeholder="Rename this task"
+                            placeholder="Rename task"
                             type="text"
                             value={taskTitleDraft}
                           />
@@ -762,13 +775,13 @@ export function Timeline({
                       <div className="timeline-task-controls-row">
                         <div className="timeline-title-actions">
                           <Button
-                            className="h-7 rounded-full px-3 text-[0.72rem] font-semibold shadow-none"
-                            onClick={onStartEditTitle}
-                            size="sm"
-                            type="button"
-                          >
-                            Rename
-                          </Button>
+                              className="h-7 rounded-full px-3 text-[0.72rem] font-semibold shadow-none"
+                              onClick={onStartEditTitle}
+                              size="sm"
+                              type="button"
+                            >
+                              Rename Task
+                            </Button>
                           {onOpenTaskWorkspace && (
                             <Button
                               className="h-7 rounded-full px-3 text-[0.72rem] font-semibold shadow-none"
@@ -776,35 +789,29 @@ export function Timeline({
                               size="sm"
                               type="button"
                             >
-                              Workspace
+                              Open Workspace
                             </Button>
                           )}
                         </div>
                       </div>
                     )}
-                    {taskWorkspacePath && (
-                      <span className="timeline-workspace block truncate font-mono">{taskWorkspacePath}</span>
-                    )}
                     {!isEditingTaskTitle && taskStatus && onChangeTaskStatus && (
-                      <div className="task-status-row">
-                        {(["running", "waiting", "completed", "errored"] as const).map((s) => (
-                          <Button
-                            key={s}
-                            className={cn(
-                              "h-7 rounded-full px-3 text-[0.68rem] font-semibold uppercase tracking-[0.06em] shadow-none",
-                              taskStatus === s
-                                ? TASK_STATUS_BUTTON_STYLES[s].active
-                                : TASK_STATUS_BUTTON_STYLES[s].idle
-                            )}
-                            disabled={isUpdatingTaskStatus || taskStatus === s}
-                            onClick={() => onChangeTaskStatus(s)}
-                            size="sm"
-                            type="button"
-                            variant="bare"
-                          >
-                            {s}
-                          </Button>
-                        ))}
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">
+                          Status
+                        </span>
+                        <select
+                          className="h-8 rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 text-[0.74rem] font-semibold text-[var(--text-2)]"
+                          disabled={isUpdatingTaskStatus}
+                          onChange={(event) => onChangeTaskStatus(event.target.value as "running" | "waiting" | "completed" | "errored")}
+                          value={taskStatus}
+                        >
+                          {(["running", "waiting", "completed", "errored"] as const).map((status) => (
+                            <option key={status} value={status}>
+                              {formatTaskStatusLabel(status)}
+                            </option>
+                          ))}
+                        </select>
                       </div>
                     )}
                     <div className="timeline-task-badges">
@@ -813,9 +820,9 @@ export function Timeline({
                         { key: "coordination", label: "Coordination", value: observabilityStats.coordinationActivities },
                         { key: "files", label: "Files", value: observabilityStats.exploredFiles },
                         { key: "compacts", label: "Compact", value: observabilityStats.compactions },
-                        { key: "checks", label: "Check", value: observabilityStats.checks },
-                        { key: "violations", label: "Violation", value: observabilityStats.violations },
-                        { key: "passes", label: "Pass", value: observabilityStats.passes }
+                        { key: "checks", label: "Checks", value: observabilityStats.checks },
+                        { key: "violations", label: "Violations", value: observabilityStats.violations },
+                        { key: "passes", label: "Passes", value: observabilityStats.passes }
                       ].map((badge) => (
                         <div
                           key={badge.key}
@@ -839,8 +846,8 @@ export function Timeline({
         <div className="timeline-stage" style={timelineStageStyle}>
           {filteredTimeline.length === 0 && (
             <div className="timeline-empty-state">
-              <p>아직 이벤트가 없습니다</p>
-              <span>에이전트가 실행되면 여기에 이벤트가 표시됩니다.</span>
+              <p>No events yet</p>
+              <span>Timeline activity will appear here as the agent runs.</span>
             </div>
           )}
           <div className="timeline-edge-fade left" />

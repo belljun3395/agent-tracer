@@ -84,7 +84,8 @@ function chatReducer(state: ChatState, action: ChatAction): ChatState {
     case "UPDATE_SESSION_STATUS": {
       const session = state.sessions.get(action.sessionId);
       if (!session) return state;
-      const { processId: _processId, ...sessionWithoutProcess } = session;
+      const sessionWithoutProcess = { ...session };
+      delete (sessionWithoutProcess as { processId?: string }).processId;
       const updated: ChatSession = {
         ...sessionWithoutProcess,
         status: action.status,
@@ -192,6 +193,8 @@ export function useCliChat(): {
   state: ChatState;
   activeSession: ChatSession | null;
   createSession: (input: StartSessionInput) => string;
+  launchSession: (input: StartSessionInput, message: string) => string;
+  interruptTask: (taskId: string) => void;
   setActiveSession: (sessionId: string | null) => void;
   sendMessage: (sessionId: string, message: string) => void;
   cancelSession: (sessionId: string) => void;
@@ -212,6 +215,8 @@ export function useCliChat(): {
   const pendingSessionQueueRef = useRef<string[]>([]);
   const pendingSessionByRequestIdRef = useRef<Map<string, string>>(new Map());
   const streamMessageRef = useRef<Map<string, string>>(new Map());
+  const pendingPromptBySessionIdRef = useRef<Map<string, string>>(new Map());
+  const pendingInterruptTaskIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     let destroyed = false;
@@ -239,6 +244,10 @@ export function useCliChat(): {
         }
         reconnectAttemptsRef.current = 0;
         dispatch({ type: "CONNECT" });
+        for (const taskId of pendingInterruptTaskIdsRef.current) {
+          ws.send(JSON.stringify({ type: "cli:interrupt-task", taskId }));
+        }
+        pendingInterruptTaskIdsRef.current.clear();
       };
 
       ws.onmessage = (event: MessageEvent<string>) => {
@@ -325,7 +334,7 @@ export function useCliChat(): {
           // CLI exited successfully but never produced any visible content —
           // typically an API/model configuration error where OpenCode exits 0.
           if (!streamingMessageId) {
-            const fallback = "CLI 프로세스가 응답 없이 종료되었습니다. 모델 설정을 확인해 주세요.";
+            const fallback = "The CLI process exited without a visible response. Check the model settings and try again.";
             dispatch({
               type: "ADD_MESSAGE",
               sessionId,
@@ -445,6 +454,12 @@ export function useCliChat(): {
     return session.id;
   }, [dispatch]);
 
+  const launchSession = useCallback((input: StartSessionInput, message: string): string => {
+    const sessionId = createSessionHandler(input);
+    pendingPromptBySessionIdRef.current.set(sessionId, message);
+    return sessionId;
+  }, [createSessionHandler]);
+
   const setActiveSession = useCallback((sessionId: string | null): void => {
     dispatch({ type: "SET_ACTIVE_SESSION", sessionId });
   }, [dispatch]);
@@ -519,6 +534,36 @@ export function useCliChat(): {
     dispatch({ type: "REMOVE_SESSION", sessionId });
   }, [cancelSession, dispatch]);
 
+  const interruptTask = useCallback((taskId: string): void => {
+    const normalizedTaskId = taskId.trim();
+    if (!normalizedTaskId) {
+      return;
+    }
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== SOCKET_READY_STATE.OPEN) {
+      pendingInterruptTaskIdsRef.current.add(normalizedTaskId);
+      triggerConnectRef.current?.();
+      return;
+    }
+    ws.send(JSON.stringify({ type: "cli:interrupt-task", taskId: normalizedTaskId }));
+  }, []);
+
+  useEffect(() => {
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== SOCKET_READY_STATE.OPEN) {
+      return;
+    }
+
+    for (const [sessionId, message] of pendingPromptBySessionIdRef.current.entries()) {
+      const session = state.sessions.get(sessionId);
+      if (!session || session.status !== "idle") {
+        continue;
+      }
+      pendingPromptBySessionIdRef.current.delete(sessionId);
+      sendMessage(sessionId, message);
+    }
+  }, [sendMessage, state.isConnected, state.sessions]);
+
   const activeSession = useMemo(
     () => (state.activeSessionId ? state.sessions.get(state.activeSessionId) ?? null : null),
     [state.activeSessionId, state.sessions]
@@ -528,6 +573,8 @@ export function useCliChat(): {
     state,
     activeSession,
     createSession: createSessionHandler,
+    launchSession,
+    interruptTask,
     setActiveSession,
     sendMessage,
     cancelSession,

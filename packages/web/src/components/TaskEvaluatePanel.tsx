@@ -329,7 +329,7 @@ export function TaskEvaluatePanel({
         <span className={labelClass}>Use case</span>
         <input
           className="rounded-[6px] border border-[var(--border)] bg-[var(--surface-2)] px-2.5 py-1.5 text-[0.8rem] text-[var(--text-1)] outline-none placeholder:text-[var(--text-3)] focus:border-[var(--accent)]"
-          placeholder="이 작업은 어떤 종류였나요? e.g. 타입스크립트 타입 에러 수정"
+          placeholder="What kind of task was this? e.g. TypeScript type error fix"
           value={useCase}
           onChange={(event) => setUseCase(event.target.value)}
         />
@@ -368,7 +368,7 @@ export function TaskEvaluatePanel({
         <span className={labelClass}>Outcome</span>
         <textarea
           className={textareaClass}
-          placeholder="무엇이 해결됐는지 짧게 적어주세요."
+          placeholder="Summarize what this task resolved."
           rows={3}
           value={outcomeNote}
           onChange={(event) => setOutcomeNote(event.target.value)}
@@ -379,7 +379,7 @@ export function TaskEvaluatePanel({
         <span className={labelClass}>What worked</span>
         <textarea
           className={textareaClass}
-          placeholder="어떤 접근이 잘 먹혔는지 적어주세요."
+          placeholder="Describe what worked well."
           rows={3}
           value={approachNote}
           onChange={(event) => setApproachNote(event.target.value)}
@@ -390,7 +390,7 @@ export function TaskEvaluatePanel({
         <span className={labelClass}>Reuse when</span>
         <textarea
           className={textareaClass}
-          placeholder="어떤 상황에서 다시 쓰면 좋은지 적어주세요."
+          placeholder="Describe when this workflow should be reused."
           rows={2}
           value={reuseWhen}
           onChange={(event) => setReuseWhen(event.target.value)}
@@ -401,7 +401,7 @@ export function TaskEvaluatePanel({
         <span className={labelClass}>Watch out</span>
         <textarea
           className={textareaClass}
-          placeholder="주의할 점을 적어주세요."
+          placeholder="List any watchouts for future runs."
           rows={2}
           value={watchouts}
           onChange={(event) => setWatchouts(event.target.value)}
@@ -413,7 +413,7 @@ export function TaskEvaluatePanel({
           <div className="flex flex-col gap-1">
             <span className="text-[0.85rem] font-semibold text-[var(--text-1)]">Workflow Snapshot / Context</span>
             <p className="m-0 text-[0.76rem] leading-relaxed text-[var(--text-3)]">
-              Task activity에서 자동 생성한 workflow content입니다. 저장 전에 확인하고 필요하면 수정할 수 있습니다.
+              This workflow content is generated from task activity. Review it before saving and edit any field that needs to be clearer.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -466,6 +466,9 @@ export function TaskEvaluatePanel({
             <WorkflowPreviewField label="Outcome summary" value={parsedWorkflowSnapshot.outcomeSummary} />
             <WorkflowPreviewField label="Approach summary" value={parsedWorkflowSnapshot.approachSummary} />
             <WorkflowPreviewField label="Reuse when" value={parsedWorkflowSnapshot.reuseWhen} />
+            <WorkflowPreviewField label="Evidence summary" value={parsedWorkflowSnapshot.evidenceSummary} />
+            <WorkflowPreviewField label="Rule audit summary" value={parsedWorkflowSnapshot.ruleAuditSummary} />
+            <WorkflowPreviewField label="Rule enforcement summary" value={parsedWorkflowSnapshot.ruleEnforcementSummary} />
             <WorkflowPreviewField label="Verification summary" value={parsedWorkflowSnapshot.verificationSummary} />
             <WorkflowPreviewList label="Key decisions" items={parsedWorkflowSnapshot.keyDecisions} />
             <WorkflowPreviewList label="Next steps" items={parsedWorkflowSnapshot.nextSteps} />
@@ -538,10 +541,37 @@ export function TaskEvaluatePanel({
               />
             </div>
             <div className={snapshotFieldClass}>
+              <span className={labelClass}>Evidence summary</span>
+              <textarea
+                className={textareaClass}
+                rows={3}
+                value={workflowSnapshotDraft.evidenceSummary}
+                onChange={(event) => updateSnapshotField("evidenceSummary", event.target.value)}
+              />
+            </div>
+            <div className={snapshotFieldClass}>
+              <span className={labelClass}>Rule audit summary</span>
+              <textarea
+                className={textareaClass}
+                rows={3}
+                value={workflowSnapshotDraft.ruleAuditSummary}
+                onChange={(event) => updateSnapshotField("ruleAuditSummary", event.target.value)}
+              />
+            </div>
+            <div className={snapshotFieldClass}>
+              <span className={labelClass}>Rule enforcement summary</span>
+              <textarea
+                className={textareaClass}
+                rows={3}
+                value={workflowSnapshotDraft.ruleEnforcementSummary}
+                onChange={(event) => updateSnapshotField("ruleEnforcementSummary", event.target.value)}
+              />
+            </div>
+            <div className={snapshotFieldClass}>
               <span className={labelClass}>Key decisions</span>
               <textarea
                 className={textareaClass}
-                placeholder="한 줄에 하나씩"
+                placeholder="One item per line"
                 rows={5}
                 value={workflowSnapshotDraft.keyDecisions}
                 onChange={(event) => updateSnapshotField("keyDecisions", event.target.value)}
@@ -551,7 +581,7 @@ export function TaskEvaluatePanel({
               <span className={labelClass}>Next steps</span>
               <textarea
                 className={textareaClass}
-                placeholder="한 줄에 하나씩"
+                placeholder="One item per line"
                 rows={5}
                 value={workflowSnapshotDraft.nextSteps}
                 onChange={(event) => updateSnapshotField("nextSteps", event.target.value)}
@@ -561,7 +591,7 @@ export function TaskEvaluatePanel({
               <span className={labelClass}>Watch items</span>
               <textarea
                 className={textareaClass}
-                placeholder="한 줄에 하나씩"
+                placeholder="One item per line"
                 rows={4}
                 value={workflowSnapshotDraft.watchItems}
                 onChange={(event) => updateSnapshotField("watchItems", event.target.value)}
@@ -571,7 +601,7 @@ export function TaskEvaluatePanel({
               <span className={labelClass}>Key files</span>
               <textarea
                 className={textareaClass}
-                placeholder="한 줄에 하나씩"
+                placeholder="One item per line"
                 rows={4}
                 value={workflowSnapshotDraft.keyFiles}
                 onChange={(event) => updateSnapshotField("keyFiles", event.target.value)}
@@ -581,7 +611,7 @@ export function TaskEvaluatePanel({
               <span className={labelClass}>Modified files</span>
               <textarea
                 className={textareaClass}
-                placeholder="한 줄에 하나씩"
+                placeholder="One item per line"
                 rows={4}
                 value={workflowSnapshotDraft.modifiedFiles}
                 onChange={(event) => updateSnapshotField("modifiedFiles", event.target.value)}

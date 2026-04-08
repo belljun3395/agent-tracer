@@ -1,3 +1,5 @@
+import type { EvidenceLevel } from "../types.js";
+
 /**
  * @module observability
  *
@@ -55,4 +57,30 @@ export function formatPhaseLabel(phase: string): string {
   return phase
     .replace(/[_-]+/g, " ")
     .replace(/\b\w/g, (match) => match.toUpperCase());
+}
+
+export function formatEvidenceLevel(level: EvidenceLevel): string {
+  switch (level) {
+    case "proven":
+      return "Proven";
+    case "self_reported":
+      return "Self Reported";
+    case "inferred":
+      return "Inferred";
+    case "unavailable":
+      return "Unavailable";
+  }
+}
+
+export function evidenceTone(level: EvidenceLevel): "success" | "accent" | "warning" | "danger" | "neutral" {
+  switch (level) {
+    case "proven":
+      return "success";
+    case "self_reported":
+      return "warning";
+    case "inferred":
+      return "accent";
+    case "unavailable":
+      return "danger";
+  }
 }
