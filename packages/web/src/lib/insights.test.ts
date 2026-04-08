@@ -3,7 +3,10 @@ import { describe, expect, it } from "vitest";
 import { EventId, TaskId } from "@monitor/core";
 import type { MonitoringTask, TimelineEvent } from "../types.js";
 import {
+  buildExplorationInsight,
+  collectRecentRuleDecisions,
   buildTaskExtraction,
+  buildSubagentInsight,
   buildHandoffMarkdown,
   buildHandoffPlain,
   buildHandoffXML,
@@ -348,6 +351,9 @@ function makeHandoff(overrides: Partial<HandoffOptions> = {}): HandoffOptions {
       outcomeSummary: "Implemented X and Y",
       approachSummary: "Started from the task snapshot and iterated on the API shape.",
       reuseWhen: null,
+      evidenceSummary: "Evidence: 2 events (2 self-reported)",
+      ruleAuditSummary: null,
+      ruleEnforcementSummary: null,
       watchItems: ["No console.log allowed"],
       keyDecisions: ["Did A", "Did B"],
       nextSteps: ["Write tests"],
@@ -657,7 +663,8 @@ describe("collectWebLookups", () => {
     expect(result[0]).toMatchObject({
       url: "typescript generics",
       toolName: "WebSearch",
-      count: 1
+      count: 1,
+      compactRelation: "no-compact"
     });
   });
 
@@ -704,5 +711,148 @@ describe("collectWebLookups", () => {
     const result = collectWebLookups([event]);
     expect(result[0]!.firstSeenAt).toBe("2026-03-01T10:00:00.000Z");
     expect(result[0]!.lastSeenAt).toBe("2026-03-01T10:00:00.000Z");
+  });
+
+  it("labels web lookups relative to the last compact boundary", () => {
+    const compact = makeEvent({
+      id: "compact-1",
+      kind: "context.saved",
+      lane: "planning",
+      title: "Context compacted",
+      createdAt: "2026-03-01T10:30:00.000Z",
+      metadata: { compactPhase: "after" }
+    });
+    const before = makeWebEvent({
+      id: "before",
+      createdAt: "2026-03-01T10:00:00.000Z",
+      metadata: { toolName: "WebSearch", webUrls: ["before query"] }
+    });
+    const after = makeWebEvent({
+      id: "after",
+      createdAt: "2026-03-01T11:00:00.000Z",
+      metadata: { toolName: "WebSearch", webUrls: ["after query"] }
+    });
+
+    const result = collectWebLookups([before, compact, after]);
+    expect(result).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ url: "before query", compactRelation: "before-compact" }),
+        expect.objectContaining({ url: "after query", compactRelation: "after-compact" })
+      ])
+    );
+  });
+});
+
+describe("exploration + subagent insights", () => {
+  it("counts pre/post compact web lookups in exploration insight", () => {
+    const compact = makeEvent({
+      id: "compact-1",
+      kind: "context.saved",
+      lane: "planning",
+      title: "Context compacted",
+      createdAt: "2026-03-01T10:30:00.000Z",
+      metadata: { compactPhase: "after" }
+    });
+    const before = makeEvent({
+      id: "before",
+      kind: "tool.used",
+      lane: "exploration",
+      title: "WebSearch before",
+      createdAt: "2026-03-01T10:00:00.000Z",
+      metadata: { toolName: "WebSearch", webUrls: ["before query"] }
+    });
+    const after = makeEvent({
+      id: "after",
+      kind: "tool.used",
+      lane: "exploration",
+      title: "WebSearch after",
+      createdAt: "2026-03-01T11:00:00.000Z",
+      metadata: { toolName: "WebSearch", webUrls: ["after query"] }
+    });
+
+    const lookups = collectWebLookups([before, compact, after]);
+    const insight = buildExplorationInsight([before, compact, after], [], lookups);
+
+    expect(insight.preCompactWebLookups).toBe(1);
+    expect(insight.postCompactWebLookups).toBe(1);
+    expect(insight.acrossCompactWebLookups).toBe(0);
+  });
+
+  it("summarizes delegation and async task linkage", () => {
+    const timeline = [
+      makeEvent({
+        id: "delegation",
+        kind: "agent.activity.logged",
+        lane: "coordination",
+        title: "Delegated background task",
+        metadata: { activityType: "delegation" }
+      }),
+      makeEvent({
+        id: "bg-1",
+        kind: "action.logged",
+        lane: "background",
+        title: "Background task running",
+        metadata: { asyncTaskId: "bg-task-1", parentSessionId: "sess-1" }
+      }),
+      makeEvent({
+        id: "bg-2",
+        kind: "action.logged",
+        lane: "background",
+        title: "Background task completed",
+        metadata: { asyncTaskId: "bg-task-1", asyncStatus: "completed", parentSessionId: "sess-1" }
+      })
+    ];
+
+    const insight = buildSubagentInsight(timeline);
+    expect(insight.delegations).toBe(1);
+    expect(insight.backgroundTransitions).toBe(2);
+    expect(insight.linkedBackgroundEvents).toBe(2);
+    expect(insight.uniqueAsyncTasks).toBe(1);
+    expect(insight.completedAsyncTasks).toBe(1);
+    expect(insight.unresolvedAsyncTasks).toBe(0);
+  });
+});
+
+describe("collectRecentRuleDecisions", () => {
+  it("returns recent rule decisions with reviewer notes and outcomes", () => {
+    const decisions = collectRecentRuleDecisions([
+      makeEvent({
+        id: "rule-1",
+        kind: "rule.logged",
+        lane: "implementation",
+        title: "Need approval before answer",
+        createdAt: "2026-03-01T10:00:00.000Z",
+        body: "Approved because this is a trusted repo",
+        metadata: {
+          ruleId: "approval-gate",
+          ruleStatus: "pass",
+          ruleOutcome: "approved",
+          severity: "warn"
+        }
+      }),
+      makeEvent({
+        id: "rule-2",
+        kind: "rule.logged",
+        lane: "implementation",
+        title: "Blocked dangerous command",
+        createdAt: "2026-03-01T11:00:00.000Z",
+        metadata: {
+          ruleId: "dangerous-command",
+          ruleStatus: "violation",
+          ruleOutcome: "blocked",
+          severity: "high"
+        }
+      })
+    ]);
+
+    expect(decisions[0]).toMatchObject({
+      ruleId: "dangerous-command",
+      outcome: "blocked"
+    });
+    expect(decisions[1]).toMatchObject({
+      ruleId: "approval-gate",
+      outcome: "approved",
+      note: "Approved because this is a trusted repo"
+    });
   });
 });

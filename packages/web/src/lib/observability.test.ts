@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  evidenceTone,
+  formatEvidenceLevel,
   formatCount,
   formatDuration,
   formatPhaseLabel,
@@ -22,5 +24,11 @@ describe("observability formatting", () => {
   it("formats counts and phase labels", () => {
     expect(formatCount(1200)).toBe("1,200");
     expect(formatPhaseLabel("follow_up")).toBe("Follow Up");
+  });
+
+  it("formats evidence levels and badge tones", () => {
+    expect(formatEvidenceLevel("self_reported")).toBe("Self Reported");
+    expect(evidenceTone("proven")).toBe("success");
+    expect(evidenceTone("unavailable")).toBe("danger");
   });
 });

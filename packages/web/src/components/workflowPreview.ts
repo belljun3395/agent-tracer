@@ -6,6 +6,9 @@ export interface WorkflowSnapshotDraft {
   readonly outcomeSummary: string;
   readonly approachSummary: string;
   readonly reuseWhen: string;
+  readonly evidenceSummary: string;
+  readonly ruleAuditSummary: string;
+  readonly ruleEnforcementSummary: string;
   readonly watchItems: string;
   readonly keyDecisions: string;
   readonly nextSteps: string;
@@ -40,6 +43,9 @@ export function createWorkflowSnapshotDraft(snapshot: ReusableTaskSnapshot): Wor
     outcomeSummary: snapshot.outcomeSummary ?? "",
     approachSummary: snapshot.approachSummary ?? "",
     reuseWhen: snapshot.reuseWhen ?? "",
+    evidenceSummary: snapshot.evidenceSummary ?? "",
+    ruleAuditSummary: snapshot.ruleAuditSummary ?? "",
+    ruleEnforcementSummary: snapshot.ruleEnforcementSummary ?? "",
     watchItems: joinLines(snapshot.watchItems),
     keyDecisions: joinLines(snapshot.keyDecisions),
     nextSteps: joinLines(snapshot.nextSteps),
@@ -57,6 +63,9 @@ export function parseWorkflowSnapshotDraft(draft: WorkflowSnapshotDraft): Reusab
     outcomeSummary: normalizeText(draft.outcomeSummary),
     approachSummary: normalizeText(draft.approachSummary),
     reuseWhen: normalizeText(draft.reuseWhen),
+    evidenceSummary: normalizeText(draft.evidenceSummary),
+    ruleAuditSummary: normalizeText(draft.ruleAuditSummary),
+    ruleEnforcementSummary: normalizeText(draft.ruleEnforcementSummary),
     watchItems: splitLines(draft.watchItems),
     keyDecisions: splitLines(draft.keyDecisions),
     nextSteps: splitLines(draft.nextSteps),

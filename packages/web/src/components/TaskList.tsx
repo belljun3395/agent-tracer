@@ -634,10 +634,20 @@ function runtimeBadgeClass(source: string): string {
 
 export function runtimeTagLabel(source: string): string {
   if (source === "claude-hook") return "Claude Code";
+  if (source === "claude-bridge") return "Claude Bridge";
   if (source === "codex-skill") return "Codex";
+  if (source === "opencode-bridge") return "OpenCode Bridge";
   if (source === "opencode-plugin") return "OpenCode";
   if (source === "opencode-sse") return "OpenCode SSE";
   return source;
+}
+
+export function runtimeObservabilityLabel(source?: string): string | null {
+  if (!source) return null;
+  if (source === "opencode-bridge") return "Limited observability";
+  if (source === "claude-bridge") return "Bridge observability";
+  if (source === "codex-skill") return "Cooperative logging";
+  return null;
 }
 
 export function runtimeFilterKey(source?: string): string {

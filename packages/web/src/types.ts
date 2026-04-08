@@ -1,8 +1,10 @@
 import type {
+  EvidenceLevel,
   EventClassification,
   EventClassificationMatch,
   EventClassificationReason,
   MonitoringTask,
+  RuntimeCoverageItem,
   TaskEvaluation,
   TimelineEvent,
   TimelineLane,
@@ -10,10 +12,12 @@ import type {
 } from "@monitor/core";
 
 export type {
+  EvidenceLevel,
   EventClassification,
   EventClassificationMatch,
   EventClassificationReason,
   MonitoringTask,
+  RuntimeCoverageItem,
   TaskEvaluation,
   TimelineEvent,
   TimelineLane,
@@ -121,6 +125,8 @@ export interface OverviewObservability {
   readonly tasksWithTodos: number;
   readonly tasksWithCoordination: number;
   readonly tasksWithBackground: number;
+  readonly tasksAwaitingApproval: number;
+  readonly tasksBlockedByRule: number;
   readonly runtimeSources: readonly ObservabilityRuntimeSource[];
 }
 
@@ -179,6 +185,33 @@ export interface TaskObservabilitySummary {
   };
   readonly signals: TaskObservabilitySignalSummary;
   readonly focus: TaskObservabilityFocusSummary;
+  readonly evidence: {
+    readonly defaultLevel: EvidenceLevel;
+    readonly summary: string;
+    readonly breakdown: readonly {
+      readonly level: EvidenceLevel;
+      readonly count: number;
+    }[];
+    readonly runtimeCoverage: readonly RuntimeCoverageItem[];
+  };
+  readonly rules: {
+    readonly total: number;
+    readonly checks: number;
+    readonly passes: number;
+    readonly violations: number;
+    readonly other: number;
+  };
+  readonly ruleEnforcement: {
+    readonly warnings: number;
+    readonly blocked: number;
+    readonly approvalRequested: number;
+    readonly approved: number;
+    readonly rejected: number;
+    readonly bypassed: number;
+    readonly activeState: "clear" | "warning" | "blocked" | "approval_required";
+    readonly activeRuleId: string | undefined;
+    readonly activeLabel: string | undefined;
+  };
 }
 
 export interface TaskObservabilityResponse {

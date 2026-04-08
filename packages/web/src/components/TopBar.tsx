@@ -18,6 +18,9 @@ import { Button } from "./ui/Button.js";
 
 interface TopBarProps {
   readonly isConnected: boolean;
+  readonly pendingApprovalCount?: number;
+  readonly blockedTaskCount?: number;
+  readonly onOpenApprovalQueue?: () => void;
   readonly searchQuery: string;
   readonly searchResults: SearchResponse | null;
   readonly isSearching: boolean;
@@ -36,6 +39,9 @@ interface TopBarProps {
 // ---------------------------------------------------------------------------
 export function TopBar({
   isConnected,
+  pendingApprovalCount = 0,
+  blockedTaskCount = 0,
+  onOpenApprovalQueue,
   searchQuery,
   searchResults,
   isSearching,
@@ -215,6 +221,24 @@ export function TopBar({
 
       {/* Utilities: Theme + Refresh — subdued */}
       <div className="flex shrink-0 items-center gap-1">
+        {pendingApprovalCount > 0 && (
+          <button
+            className="inline-flex h-7 items-center rounded-[8px] border border-[var(--accent-light)] bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] px-2.5 text-[0.72rem] font-semibold text-[var(--accent)]"
+            onClick={onOpenApprovalQueue}
+            type="button"
+          >
+            {pendingApprovalCount} approval
+          </button>
+        )}
+        {blockedTaskCount > 0 && (
+          <button
+            className="inline-flex h-7 items-center rounded-[8px] border border-[var(--err-bg)] bg-[var(--err-bg)] px-2.5 text-[0.72rem] font-semibold text-[var(--err)]"
+            onClick={onOpenApprovalQueue}
+            type="button"
+          >
+            {blockedTaskCount} blocked
+          </button>
+        )}
         <button
           aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
           className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] border border-[var(--border)] bg-[var(--surface-2)] text-[0.88rem] text-[var(--text-3)] opacity-60 transition hover:border-[var(--border-strong)] hover:bg-[var(--surface)] hover:text-[var(--text-1)] hover:opacity-100"

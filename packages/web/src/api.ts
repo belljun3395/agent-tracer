@@ -120,6 +120,10 @@ export function fetchTasks(): Promise<TasksResponse> {
   return getJson<TasksResponse>("/api/tasks");
 }
 
+export function fetchDefaultWorkspace(): Promise<{ workspacePath: string }> {
+  return getJson<{ workspacePath: string }>("/api/default-workspace");
+}
+
 /**
  * 특정 태스크의 상세 정보(타임라인 포함)를 가져옴.
  * @param taskId - 조회할 태스크 ID
@@ -130,6 +134,23 @@ export function fetchTaskDetail(taskId: string): Promise<TaskDetailResponse> {
 
 export function fetchTaskObservability(taskId: string): Promise<TaskObservabilityResponse> {
   return getJson<TaskObservabilityResponse>(`/api/tasks/${taskId}/observability`);
+}
+
+export interface OpenInferenceTaskExport {
+  readonly taskId: string;
+  readonly runtimeSource?: string;
+  readonly spans: readonly {
+    readonly spanId: string;
+    readonly parentSpanId?: string;
+    readonly name: string;
+    readonly kind: string;
+    readonly startTime: string;
+    readonly attributes: Record<string, unknown>;
+  }[];
+}
+
+export function fetchTaskOpenInference(taskId: string): Promise<{ openinference: OpenInferenceTaskExport }> {
+  return getJson<{ openinference: OpenInferenceTaskExport }>(`/api/tasks/${taskId}/openinference`);
 }
 
 export function fetchBookmarks(taskId?: string): Promise<BookmarksResponse> {
@@ -153,6 +174,15 @@ export async function createBookmark(input: {
 }): Promise<BookmarkRecord> {
   const payload = await postJson<{ bookmark: BookmarkRecord }>("/api/bookmarks", input);
   return payload.bookmark;
+}
+
+export async function createMonitoredTask(input: {
+  title: string;
+  workspacePath?: string;
+  runtimeSource?: string;
+}): Promise<MonitoringTask> {
+  const payload = await postJson<{ task: MonitoringTask }>("/api/task-start", input);
+  return payload.task;
 }
 
 /**
@@ -260,6 +290,25 @@ export function fetchTaskEvaluation(taskId: string): Promise<TaskEvaluationRecor
 
 export async function saveTaskEvaluation(taskId: string, payload: TaskEvaluationPayload): Promise<void> {
   await postJson<{ ok: boolean }>(`/api/tasks/${taskId}/evaluate`, payload);
+}
+
+export interface RuleActionPayload {
+  taskId: string;
+  sessionId?: string;
+  action: string;
+  title?: string;
+  body?: string;
+  ruleId: string;
+  severity: string;
+  status: string;
+  source?: string;
+  policy?: "audit" | "warn" | "block" | "approval_required";
+  outcome?: "observed" | "warned" | "blocked" | "approval_requested" | "approved" | "rejected" | "bypassed";
+  metadata?: Record<string, unknown>;
+}
+
+export async function postRuleAction(payload: RuleActionPayload): Promise<void> {
+  await postJson<{ ok?: boolean }>("/api/rule", payload);
 }
 
 export function fetchWorkflowContent(taskId: string): Promise<WorkflowContentRecord> {

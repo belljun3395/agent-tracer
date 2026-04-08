@@ -18,6 +18,8 @@ interface ChatWindowProps {
   readonly session: ChatSession | null;
   /** WebSocket 연결 상태 */
   readonly isConnected: boolean;
+  /** Guard 상태로 인해 입력이 막혔을 때의 이유 */
+  readonly disabledReason?: string | null;
   /** 메시지 전송 핸들러 */
   readonly onSendMessage: (message: string) => void;
   /** 세션 취소 핸들러 */
@@ -59,11 +61,15 @@ function getStatusColor(status: ChatSessionStatus): string {
 export function ChatWindow({
   session,
   isConnected,
+  disabledReason,
   onSendMessage,
   onCancel,
   onClose
 }: ChatWindowProps): React.JSX.Element {
-  const canSend = session !== null && (session.status === "idle" || session.status === "running") && isConnected;
+  const canSend = session !== null
+    && (session.status === "idle" || session.status === "running")
+    && isConnected
+    && !disabledReason;
   const canCancel = session !== null && (session.status === "running" || session.status === "starting");
 
   return (
@@ -155,6 +161,8 @@ export function ChatWindow({
           placeholder={
             !session
               ? "No session active"
+              : disabledReason
+                ? disabledReason
               : !isConnected
                 ? "Reconnecting…"
                 : session.status !== "running"

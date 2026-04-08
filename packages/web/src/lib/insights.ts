@@ -36,6 +36,7 @@ export interface WebLookupStat {
   readonly count: number;
   readonly firstSeenAt: string;
   readonly lastSeenAt: string;
+  readonly compactRelation: CompactRelation;
 }
 
 /**
@@ -70,14 +71,28 @@ export interface ExplorationInsight {
   readonly preCompactFiles: number;
   readonly postCompactFiles: number;
   readonly acrossCompactFiles: number;
+  readonly preCompactWebLookups: number;
+  readonly postCompactWebLookups: number;
+  readonly acrossCompactWebLookups: number;
   readonly firstExplorationAt?: string | undefined;
   readonly lastExplorationAt?: string | undefined;
+}
+
+export interface SubagentInsight {
+  readonly delegations: number;
+  readonly backgroundTransitions: number;
+  readonly linkedBackgroundEvents: number;
+  readonly uniqueAsyncTasks: number;
+  readonly completedAsyncTasks: number;
+  readonly unresolvedAsyncTasks: number;
 }
 
 export interface CompactInsight {
   readonly occurrences: number;
   readonly handoffCount: number;
   readonly eventCount: number;
+  readonly beforeCount: number;
+  readonly afterCount: number;
   readonly lastSeenAt?: string | undefined;
   readonly latestTitle?: string | undefined;
   readonly latestBody?: string | undefined;
@@ -95,7 +110,32 @@ export interface RuleCoverageStat {
   readonly checkCount: number;
   readonly violationCount: number;
   readonly passCount: number;
+  readonly warningCount: number;
+  readonly blockedCount: number;
+  readonly approvalRequestCount: number;
   readonly lastSeenAt?: string | undefined;
+}
+
+export interface RuleDecisionStat {
+  readonly id: string;
+  readonly ruleId: string;
+  readonly title: string;
+  readonly status: string;
+  readonly outcome?: string | undefined;
+  readonly severity?: string | undefined;
+  readonly reviewerId?: string | undefined;
+  readonly reviewerSource?: string | undefined;
+  readonly note?: string | undefined;
+  readonly createdAt: string;
+}
+
+export interface SubagentInsight {
+  readonly delegations: number;
+  readonly backgroundTransitions: number;
+  readonly linkedBackgroundEvents: number;
+  readonly uniqueAsyncTasks: number;
+  readonly completedAsyncTasks: number;
+  readonly unresolvedAsyncTasks: number;
 }
 
 export interface TagInsight {
@@ -315,6 +355,8 @@ export function collectExploredFiles(
 export function collectWebLookups(
   timeline: readonly TimelineEvent[]
 ): readonly WebLookupStat[] {
+  const compactTimestamps = extractCompactTimestamps(timeline);
+  const lastCompactAt = compactTimestamps.at(-1);
   const urlData = new Map<string, { toolName: string; timestamps: string[] }>();
 
   for (const event of timeline) {
@@ -340,7 +382,8 @@ export function collectWebLookups(
       toolName,
       count: sorted.length,
       firstSeenAt: sorted[0]!,
-      lastSeenAt: sorted[sorted.length - 1]!
+      lastSeenAt: sorted[sorted.length - 1]!,
+      compactRelation: deriveCompactRelation(sorted, lastCompactAt)
     });
   }
 
@@ -440,12 +483,23 @@ export function buildExplorationInsight(
   let preCompactFiles = 0;
   let postCompactFiles = 0;
   let acrossCompactFiles = 0;
+  let preCompactWebLookups = 0;
+  let postCompactWebLookups = 0;
+  let acrossCompactWebLookups = 0;
 
   for (const file of exploredFiles) {
     switch (file.compactRelation) {
       case "before-compact": preCompactFiles += 1; break;
       case "after-compact": postCompactFiles += 1; break;
       case "across-compact": acrossCompactFiles += 1; break;
+    }
+  }
+
+  for (const lookup of webLookups) {
+    switch (lookup.compactRelation) {
+      case "before-compact": preCompactWebLookups += 1; break;
+      case "after-compact": postCompactWebLookups += 1; break;
+      case "across-compact": acrossCompactWebLookups += 1; break;
     }
   }
 
@@ -457,6 +511,9 @@ export function buildExplorationInsight(
     preCompactFiles,
     postCompactFiles,
     acrossCompactFiles,
+    preCompactWebLookups,
+    postCompactWebLookups,
+    acrossCompactWebLookups,
     firstExplorationAt,
     lastExplorationAt
   };
@@ -475,6 +532,8 @@ export function buildCompactInsight(
 ): CompactInsight {
   let handoffCount = 0;
   let eventCount = 0;
+  let beforeCount = 0;
+  let afterCount = 0;
   let fallbackCount = 0;
   let lastSeenAt: string | undefined;
   let latestTitle: string | undefined;
@@ -494,6 +553,12 @@ export function buildCompactInsight(
     if (compactPhase === "event") {
       eventCount += 1;
     }
+    if (compactPhase === "before") {
+      beforeCount += 1;
+    }
+    if (compactPhase === "after") {
+      afterCount += 1;
+    }
 
     if (!lastSeenAt || Date.parse(event.createdAt) >= Date.parse(lastSeenAt)) {
       lastSeenAt = event.createdAt;
@@ -512,10 +577,67 @@ export function buildCompactInsight(
     occurrences: eventCount > 0 ? eventCount : fallbackCount,
     handoffCount,
     eventCount,
+    beforeCount,
+    afterCount,
     lastSeenAt,
     latestTitle,
     latestBody,
     tagFacets: [...tagFacets].sort()
+  };
+}
+
+export function buildSubagentInsight(
+  timeline: readonly TimelineEvent[]
+): SubagentInsight {
+  let delegations = 0;
+  let backgroundTransitions = 0;
+  let linkedBackgroundEvents = 0;
+  const taskStates = new Map<string, { completed: boolean }>();
+
+  for (const event of timeline) {
+    const activityType = extractMetadataString(event.metadata, "activityType");
+    if (event.kind === "agent.activity.logged" && activityType === "delegation") {
+      delegations += 1;
+    }
+
+    const asyncTaskId = extractMetadataString(event.metadata, "asyncTaskId");
+    if (event.lane === "background" || asyncTaskId) {
+      backgroundTransitions += 1;
+
+      if (
+        asyncTaskId
+        || extractMetadataString(event.metadata, "parentTaskId")
+        || extractMetadataString(event.metadata, "parentSessionId")
+        || extractMetadataString(event.metadata, "backgroundTaskId")
+      ) {
+        linkedBackgroundEvents += 1;
+      }
+    }
+
+    if (!asyncTaskId) {
+      continue;
+    }
+
+    const existing = taskStates.get(asyncTaskId) ?? { completed: false };
+    const asyncStatus = extractMetadataString(event.metadata, "asyncStatus");
+    const completed = existing.completed
+      || asyncStatus === "completed"
+      || asyncStatus === "error"
+      || asyncStatus === "cancelled"
+      || asyncStatus === "interrupt";
+    taskStates.set(asyncTaskId, { completed });
+  }
+
+  const completedAsyncTasks = [...taskStates.values()].filter((task) => task.completed).length;
+  const uniqueAsyncTasks = taskStates.size;
+
+  return {
+    delegations,
+    backgroundTransitions,
+    linkedBackgroundEvents,
+    uniqueAsyncTasks,
+    completedAsyncTasks,
+    unresolvedAsyncTasks: Math.max(0, uniqueAsyncTasks - completedAsyncTasks)
   };
 }
 
@@ -636,6 +758,9 @@ export function buildRuleCoverage(
     checkCount: number;
     violationCount: number;
     passCount: number;
+    warningCount: number;
+    blockedCount: number;
+    approvalRequestCount: number;
     lastSeenAt: string | undefined;
   }>();
 
@@ -655,10 +780,15 @@ export function buildRuleCoverage(
       checkCount: 0,
       violationCount: 0,
       passCount: 0,
+      warningCount: 0,
+      blockedCount: 0,
+      approvalRequestCount: 0,
       lastSeenAt: undefined as string | undefined
     };
 
     const ruleStatus = extractMetadataString(event.metadata, "ruleStatus");
+    const ruleOutcome = extractMetadataString(event.metadata, "ruleOutcome");
+    const rulePolicy = extractMetadataString(event.metadata, "rulePolicy");
 
     configuredRules.set(metadataRuleId, {
       ...next,
@@ -666,6 +796,9 @@ export function buildRuleCoverage(
       checkCount: next.checkCount + (ruleStatus === "check" ? 1 : 0),
       violationCount: next.violationCount + (ruleStatus === "violation" ? 1 : 0),
       passCount: next.passCount + ((ruleStatus === "pass" || ruleStatus === "fix-applied") ? 1 : 0),
+      warningCount: next.warningCount + (ruleOutcome === "warned" || rulePolicy === "warn" ? 1 : 0),
+      blockedCount: next.blockedCount + (ruleOutcome === "blocked" || rulePolicy === "block" ? 1 : 0),
+      approvalRequestCount: next.approvalRequestCount + (ruleOutcome === "approval_requested" || rulePolicy === "approval_required" ? 1 : 0),
       lastSeenAt: next.lastSeenAt ? latestTimestamp(next.lastSeenAt, event.createdAt) : event.createdAt
     });
   }
@@ -686,6 +819,38 @@ export function buildRuleCoverage(
 
     return left.title.localeCompare(right.title);
   });
+}
+
+export function collectRecentRuleDecisions(
+  timeline: readonly TimelineEvent[],
+  limit = 8
+): readonly RuleDecisionStat[] {
+  return timeline
+    .filter((event) => event.kind === "rule.logged")
+    .map((event) => ({
+      id: event.id,
+      ruleId: extractMetadataString(event.metadata, "ruleId") ?? "rule",
+      title: event.title,
+      status: extractMetadataString(event.metadata, "ruleStatus") ?? "observed",
+      ...(extractMetadataString(event.metadata, "ruleOutcome")
+        ? { outcome: extractMetadataString(event.metadata, "ruleOutcome") }
+        : {}),
+      ...(extractMetadataString(event.metadata, "severity")
+        ? { severity: extractMetadataString(event.metadata, "severity") }
+        : {}),
+      ...(extractMetadataString(event.metadata, "reviewerId")
+        ? { reviewerId: extractMetadataString(event.metadata, "reviewerId") }
+        : {}),
+      ...(extractMetadataString(event.metadata, "reviewerSource")
+        ? { reviewerSource: extractMetadataString(event.metadata, "reviewerSource") }
+        : {}),
+      ...(normalizeSentence(event.body ?? "")
+        ? { note: normalizeSentence(event.body ?? "") ?? undefined }
+        : {}),
+      createdAt: event.createdAt
+    }))
+    .sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt))
+    .slice(0, limit);
 }
 
 /**
@@ -1018,40 +1183,39 @@ function buildTaskSummary(
 ): string {
   const parts: string[] = [];
 
-  // 원래 요청 — 첫 번째 user.message 이벤트
   const firstUserMsg = timeline.find(e => e.kind === "user.message");
   const originalRequest = firstUserMsg?.body ?? firstUserMsg?.title;
   const normalizedOriginalRequest = normalizeSentence(originalRequest);
   if (normalizedOriginalRequest) {
-    parts.push(`원래 요청: ${normalizedOriginalRequest}`);
+    parts.push(`Original request: ${normalizedOriginalRequest}`);
   }
 
-  // 구현 작업 수
   const implCount = timeline.filter(e => e.lane === "implementation").length;
   if (implCount > 0) {
-    parts.push(`구현 작업 ${implCount}개`);
+    parts.push(`${implCount} implementation steps`);
   }
 
-  // 검증 결과
   if (validations.length > 0) {
     const failCount = timeline.filter(e =>
       (e.kind === "verification.logged" && e.metadata["verificationStatus"] === "fail") ||
       (e.kind === "rule.logged" && e.metadata["ruleStatus"] === "violation")
     ).length;
     const passCount = validations.length - failCount;
-    parts.push(failCount > 0 ? `검증 ${validations.length}회 (통과 ${passCount}, 실패 ${failCount})` : `검증 ${validations.length}회 통과`);
+    parts.push(
+      failCount > 0
+        ? `Validation ${validations.length} runs (${passCount} passed, ${failCount} failed)`
+        : `Validation ${validations.length} runs passed`
+    );
   }
 
-  // 수정 파일 수
   if (files.length > 0) {
-    parts.push(`${files.length}개 파일 관련`);
+    parts.push(`${files.length} related files`);
   }
 
   if (parts.length === 0) {
-    // fallback: lane 정보라도
     const laneText = sections.map(s => s.lane).join(", ");
     return laneText
-      ? `${timeline.filter(e => e.kind !== "file.changed").length}개 이벤트 기록 (${laneText}).`
+      ? `${timeline.filter(e => e.kind !== "file.changed").length} recorded events (${laneText}).`
       : "Recorded task activity is available for extraction.";
   }
 
