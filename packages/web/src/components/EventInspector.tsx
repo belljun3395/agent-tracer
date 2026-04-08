@@ -61,6 +61,7 @@ import {
 } from "../lib/observability.js";
 import { formatRelativeTime } from "../lib/timeline.js";
 import type { TimelineConnector } from "../lib/timeline.js";
+import type { ResumeChatContext } from "../lib/chatRoute.js";
 import { cn } from "../lib/ui/cn.js";
 import { Badge } from "./ui/Badge.js";
 import { Button } from "./ui/Button.js";
@@ -148,7 +149,7 @@ function DetailEventEvidence({
   runtimeSource
 }: {
   readonly event: TimelineEvent;
-  readonly runtimeSource?: string;
+  readonly runtimeSource?: string | undefined;
 }): React.JSX.Element {
   const evidence = getEventEvidence(runtimeSource, event);
   return (
@@ -393,7 +394,7 @@ interface EventInspectorProps {
   readonly onToggleCollapse?: () => void;
   readonly onActiveTabChange?: (tab: PanelTabId) => void;
   readonly onOpenTaskWorkspace?: () => void;
-  readonly onContinueChat?: (taskId: string, workspacePath?: string) => void;
+  readonly onContinueChat?: (context: ResumeChatContext) => void;
   readonly onCreateTaskBookmark: () => void;
   readonly onCreateEventBookmark: () => void;
   readonly onUpdateEventDisplayTitle: (eventId: string, displayTitle: string | null) => Promise<void>;
@@ -1823,6 +1824,14 @@ export function EventInspector({
 
   const taskTimeline = taskDetail?.timeline ?? [];
   const observability = taskObservability?.observability ?? null;
+  const resumableChatContext = taskDetail?.runtimeSessionId && taskDetail.task.workspacePath
+    ? {
+      taskId: taskDetail.task.id,
+      sessionId: taskDetail.runtimeSessionId,
+      workdir: taskDetail.task.workspacePath,
+      ...(taskDetail.task.runtimeSource ? { runtimeSource: taskDetail.task.runtimeSource } : {})
+    }
+    : null;
 
   const exploredFiles = useMemo(
     () => collectExploredFiles(taskTimeline),
@@ -2166,15 +2175,15 @@ export function EventInspector({
                     <Button className="h-auto rounded-full px-3 py-1.5 text-[0.72rem] font-semibold" onClick={onCreateTaskBookmark} size="sm" type="button" variant="ghost">
                       {selectedTaskBookmark ? "Task Saved" : "Save Task"}
                     </Button>
-                    {taskDetail?.task && (
+                    {resumableChatContext && onContinueChat && (
                       <Button
                         className="h-auto rounded-full px-3 py-1.5 text-[0.72rem] font-semibold"
-                        onClick={() => onContinueChat?.(taskDetail.task.id, taskDetail.task.workspacePath)}
+                        onClick={() => onContinueChat(resumableChatContext)}
                         size="sm"
                         type="button"
                         variant="ghost"
                       >
-                        Run Prompt
+                        Continue Chat
                       </Button>
                     )}
                     {selectedEvent && (
@@ -2351,7 +2360,10 @@ export function EventInspector({
                   }
                 />
                 <DetailIds event={selectedEvent} />
-                <DetailEventEvidence event={selectedEvent} runtimeSource={taskDetail?.task.runtimeSource} />
+                <DetailEventEvidence
+                  event={selectedEvent}
+                  {...(taskDetail?.task.runtimeSource ? { runtimeSource: taskDetail.task.runtimeSource } : {})}
+                />
                 {selectedEvent.kind === "question.logged" && (() => {
                   const qId = selectedEvent.metadata["questionId"] as string | undefined;
                   const group = qId ? questionGroups.find((g) => g.questionId === qId) : null;
