@@ -1,12 +1,12 @@
 import type React from "react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import { fetchTaskObservability, fetchTaskOpenInference, postRuleAction, updateEventDisplayTitle } from "../api.js";
 import { EventInspector, type PanelTabId } from "../components/EventInspector.js";
 import { runtimeObservabilityLabel, runtimeTagLabel } from "../components/TaskList.js";
-import { isOpenCodeBridgeComplexPrompt } from "../App.js";
 import { Timeline } from "../components/Timeline.js";
+import { buildResumeChatHref } from "../lib/chatRoute.js";
 import {
   buildCompactInsight,
   buildInspectorEventTitle,
@@ -23,7 +23,6 @@ import type { useCliChat } from "../hooks/useCliChat.js";
 import { useMonitorStore } from "../store/useMonitorStore.js";
 import { useWebSocket } from "../store/useWebSocket.js";
 import type { TaskObservabilityResponse } from "../types.js";
-import type { CliType } from "../types/chat.js";
 
 const DEFAULT_WORKSPACE_TAB: PanelTabId = "overview";
 const WORKSPACE_INSPECTOR_MIN_WIDTH = 340;
@@ -70,13 +69,12 @@ function parseConnectorKey(
 
 export function TaskWorkspacePage({
   taskId,
-  launchSession,
   interruptTask
 }: {
   readonly taskId: string;
-  readonly launchSession: ReturnType<typeof useCliChat>["launchSession"];
   readonly interruptTask: ReturnType<typeof useCliChat>["interruptTask"];
 }): React.JSX.Element {
+  const navigate = useNavigate();
   const {
     state,
     dispatch,
@@ -112,14 +110,6 @@ export function TaskWorkspacePage({
   const [reviewerNote, setReviewerNote] = useState("");
   const [isSubmittingRuleReview, setIsSubmittingRuleReview] = useState(false);
   const [reviewerId, setReviewerId] = useState(() => window.localStorage.getItem(REVIEWER_ID_STORAGE_KEY) ?? "local-reviewer");
-  const [isPromptRunnerOpen, setIsPromptRunnerOpen] = useState(false);
-  const [promptRunnerCli, setPromptRunnerCli] = useState<CliType>("claude");
-  const [promptRunnerModel, setPromptRunnerModel] = useState("");
-  const [promptRunnerText, setPromptRunnerText] = useState("");
-  const isPromptBlockedForOpenCode = useMemo(
-    () => promptRunnerCli === "opencode" && isOpenCodeBridgeComplexPrompt(promptRunnerText),
-    [promptRunnerCli, promptRunnerText]
-  );
   const [zoom, setZoom] = useState(1.1);
   const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth);
   const [inspectorWidth, setInspectorWidth] = useState<number>(() => {
@@ -367,35 +357,17 @@ export function TaskWorkspacePage({
     interruptTask(taskId);
   }, [interruptTask, taskId]);
 
-  const handleOpenPromptRunner = useCallback((): void => {
-    const cli: CliType = selectedTaskDetail?.task.runtimeSource?.includes("opencode") ? "opencode" : "claude";
-    setPromptRunnerCli(cli);
-    if (cli === "opencode" && !promptRunnerModel.trim()) {
-      setPromptRunnerModel("openai/gpt-5.4");
-    }
-    setPromptRunnerText("");
-    setIsPromptRunnerOpen(true);
-  }, [promptRunnerModel, selectedTaskDetail?.task.runtimeSource]);
-
-  const handleRunPrompt = useCallback((): void => {
-    const workdir = selectedTaskDetail?.task.workspacePath;
-    const prompt = promptRunnerText.trim();
-    if (!selectedTaskDetail?.task.id || !workdir || !prompt) {
+  const handleContinueChat = useCallback((): void => {
+    if (!selectedTaskDetail?.task.workspacePath || !selectedTaskDetail.runtimeSessionId) {
       return;
     }
-
-    launchSession({
-      cli: promptRunnerCli,
-      workdir,
+    navigate(buildResumeChatHref({
       taskId: selectedTaskDetail.task.id,
-      ...(taskDetail?.runtimeSessionId ? { cliSessionId: taskDetail.runtimeSessionId } : {}),
-      ...(promptRunnerCli === "opencode"
-        ? { model: promptRunnerModel.trim() || "openai/gpt-5.4" }
-        : {})
-    }, prompt);
-    setPromptRunnerText("");
-    setIsPromptRunnerOpen(false);
-  }, [launchSession, promptRunnerCli, promptRunnerModel, promptRunnerText, selectedTaskDetail?.task.id, selectedTaskDetail?.task.workspacePath, taskDetail?.runtimeSessionId]);
+      sessionId: selectedTaskDetail.runtimeSessionId,
+      workdir: selectedTaskDetail.task.workspacePath,
+      ...(selectedTaskDetail.task.runtimeSource ? { runtimeSource: selectedTaskDetail.task.runtimeSource } : {})
+    }));
+  }, [navigate, selectedTaskDetail]);
 
   const handleExportOpenInference = useCallback(async (): Promise<void> => {
     const payload = await fetchTaskOpenInference(taskId);
@@ -724,88 +696,12 @@ export function TaskWorkspacePage({
                 taskDetail={selectedTaskDetail}
                 taskModelSummary={modelSummary}
                 taskObservability={taskObservability}
-                onContinueChat={() => handleOpenPromptRunner()}
+                onContinueChat={handleContinueChat}
               />
             </div>
           </div>
         )}
       </main>
-      {isPromptRunnerOpen && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 backdrop-blur-[2px]" role="dialog" aria-modal="true" aria-label="Workspace prompt runner">
-          <button
-            aria-label="Close workspace prompt runner"
-            className="absolute inset-0"
-            onClick={() => setIsPromptRunnerOpen(false)}
-            type="button"
-          />
-          <div className="relative mt-12 w-full max-w-xl overflow-hidden rounded-[14px] border border-[var(--border)] bg-[var(--surface)] shadow-[0_20px_60px_rgba(0,0,0,0.25)]">
-            <div className="border-b border-[var(--border)] bg-[var(--surface-2)] px-4 py-3">
-              <h2 className="text-[0.92rem] font-semibold text-[var(--text-1)]">Continue Task</h2>
-            </div>
-            <div className="space-y-4 p-4">
-              <label className="block">
-                <span className="mb-1 block text-[0.74rem] font-semibold text-[var(--text-2)]">CLI</span>
-                <select
-                  className="w-full rounded-[8px] border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[0.82rem]"
-                  onChange={(event) => setPromptRunnerCli(event.target.value === "opencode" ? "opencode" : "claude")}
-                  value={promptRunnerCli}
-                >
-                  <option value="claude">Claude Code</option>
-                  <option value="opencode">OpenCode</option>
-                </select>
-              </label>
-              {promptRunnerCli === "opencode" && (
-                <label className="block">
-                  <span className="mb-1 block text-[0.74rem] font-semibold text-[var(--text-2)]">Model</span>
-                  <input
-                    className="w-full rounded-[8px] border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[0.82rem]"
-                    onChange={(event) => setPromptRunnerModel(event.target.value)}
-                    value={promptRunnerModel}
-                  />
-                </label>
-              )}
-              <label className="block">
-                <span className="mb-1 block text-[0.74rem] font-semibold text-[var(--text-2)]">Prompt</span>
-                <textarea
-                  className="min-h-[120px] w-full rounded-[8px] border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[0.82rem] leading-6"
-                  onChange={(event) => setPromptRunnerText(event.target.value)}
-                  onKeyDown={(event) => {
-                    if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
-                      event.preventDefault();
-                      if (isPromptBlockedForOpenCode) return;
-                      handleRunPrompt();
-                    }
-                  }}
-                  placeholder="Describe the next prompt to run for this task."
-                  value={promptRunnerText}
-                />
-              </label>
-              <div className="flex justify-end gap-2">
-                <button
-                  className="rounded-[8px] border border-[var(--border)] bg-[var(--surface-2)] px-3 py-1.5 text-[0.78rem] font-semibold"
-                  onClick={() => setIsPromptRunnerOpen(false)}
-                  type="button"
-                >
-                  Cancel
-                </button>
-                <button
-                  className="rounded-[8px] border border-[var(--accent)] bg-[var(--accent-light)] px-3 py-1.5 text-[0.78rem] font-semibold text-[var(--accent)]"
-                  disabled={!promptRunnerText.trim() || isPromptBlockedForOpenCode}
-                  onClick={handleRunPrompt}
-                  type="button"
-                >
-                  Run Prompt
-                </button>
-              </div>
-              {isPromptBlockedForOpenCode && (
-                <p className="m-0 text-[0.74rem] text-[var(--warn)]">
-                  OpenCode Bridge is currently limited for complex research or subagent prompts. Use Claude Code here, or run OpenCode directly in its native environment.
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
