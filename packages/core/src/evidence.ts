@@ -43,11 +43,7 @@ export function getEventEvidence(
   runtimeSource: string | undefined,
   event: Pick<TimelineEvent, "kind" | "lane" | "metadata">
 ): EventEvidence {
-  const adapterId = normalizeRuntimeAdapterId(runtimeSource);
   const capabilities = getKnownRuntimeCapabilities(runtimeSource);
-  const source = typeof event.metadata["source"] === "string"
-    ? String(event.metadata["source"]).trim().toLowerCase()
-    : "";
   const captureMode = typeof event.metadata["captureMode"] === "string"
     ? String(event.metadata["captureMode"]).trim().toLowerCase()
     : "";
@@ -73,27 +69,15 @@ export function getEventEvidence(
   }
 
   if (event.kind === "user.message") {
-    if (adapterId === "claude-hook" && source === "claude-hook" && captureMode === "raw") {
-      return proven("Claude hook captured the raw prompt directly.");
-    }
-    if ((adapterId === "opencode-plugin" || adapterId === "opencode-sse") && source === "opencode-plugin" && captureMode === "raw") {
-      return proven("OpenCode plugin captured the raw prompt directly.");
-    }
-    if (adapterId === "codex-skill") {
-      return selfReported("Codex records prompts through explicit codex-monitor MCP calls.");
+    if (capabilities?.canCaptureRawUserMessage && captureMode === "raw") {
+      return proven("Runtime adapter captured the raw prompt directly.");
     }
     return selfReported("Prompt capture depends on adapter-side logging rather than an automatic runtime observer.");
   }
 
   if (event.kind === "assistant.response") {
-    if (adapterId === "claude-hook" && source === "claude-hook") {
-      return proven("Claude stop hook emitted the assistant response boundary automatically.");
-    }
-    if ((adapterId === "opencode-plugin" || adapterId === "opencode-sse") && source === "opencode-plugin") {
-      return proven("OpenCode plugin emitted the assistant response boundary automatically.");
-    }
-    if (adapterId === "codex-skill") {
-      return selfReported("Codex records assistant responses through explicit codex-monitor MCP calls.");
+    if (capabilities?.canCaptureRawUserMessage) {
+      return proven("Runtime adapter emitted the assistant response boundary automatically.");
     }
     return selfReported("Assistant boundary depends on adapter-side logging rather than an automatic runtime observer.");
   }
@@ -116,12 +100,10 @@ export function getEventEvidence(
   }
 
   if (event.kind === "task.start" || event.kind === "task.complete" || event.kind === "task.error") {
-    if (adapterId === "claude-hook" || adapterId === "opencode-plugin" || adapterId === "opencode-sse") {
+    if (capabilities?.canCaptureRawUserMessage) {
       return proven("Task lifecycle was emitted by a runtime adapter with automatic session/task handling.");
     }
-    if (adapterId === "codex-skill") {
-      return selfReported("Codex task lifecycle is managed through explicit monitor skill calls.");
-    }
+    return selfReported("Task lifecycle events depend on cooperative adapter logging rather than independent runtime observation.");
   }
 
   if (event.lane === "background" && capabilities?.canObserveSubagents) {
@@ -137,6 +119,9 @@ export function listRuntimeCoverage(runtimeSource: string | undefined): readonly
     return [];
   }
   const profile = getRuntimeEvidenceProfile(adapterId);
+  if (!profile) {
+    return [];
+  }
   const items: RuntimeCoverageItem[] = profile.features.map((feature) => ({
     key: feature.id,
     label: feature.label,
@@ -155,10 +140,8 @@ export function listRuntimeCoverage(runtimeSource: string | undefined): readonly
     {
       key: "semantic_events",
       label: "Semantic Events",
-      level: adapterId === "codex-skill" ? "self_reported" : "self_reported",
-      note: adapterId === "codex-skill"
-        ? "Planning, verification, question, todo, and rule events still depend on cooperative monitor calls."
-        : "Higher-level planning, verification, question, todo, and rule events still depend on semantic logging by the adapter or agent."
+      level: "self_reported",
+      note: "Planning, verification, question, todo, and rule events still depend on semantic logging by the adapter or agent."
     }
   ];
 }
@@ -174,6 +157,14 @@ export function getRuntimeCoverageSummary(runtimeSource: string | undefined): Ru
   }
 
   const profile = getRuntimeEvidenceProfile(adapterId);
+  if (!profile) {
+    return {
+      defaultLevel: "inferred",
+      summary: "No registered runtime coverage profile is available for this task.",
+      items: []
+    };
+  }
+
   return {
     defaultLevel: profile.defaultEvidence,
     summary: profile.summary,

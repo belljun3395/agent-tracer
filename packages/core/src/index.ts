@@ -1,3 +1,5 @@
+import { registerDefaultRuntimeAdapters } from "./runtime-capabilities.defaults.js";
+
 export * from "./action-registry.js";
 export * from "./classifier.js";
 export * from "./domain.js";
@@ -8,3 +10,6 @@ export * from "./runtime-capabilities.js";
 export * from "./openinference.js";
 export * from "./workflow-context.js";
 export * from "./workflow-snapshot.js";
+
+// Initialize default adapters on module load
+registerDefaultRuntimeAdapters();

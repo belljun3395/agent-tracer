@@ -101,18 +101,34 @@ export class MonitorClient {
   }
 
   /**
-   * 지정한 엔드포인트로 GET 요청을 보낸다.
+   * 지정한 엔드포인트로 HTTP 요청을 보낸다 (GET, POST).
+   * 공통된 에러 처리 및 재시도 로직을 담당한다.
    * 네트워크 오류나 비정상 응답 시에도 예외를 던지지 않고 `ok:false`를 반환한다.
    * 5xx 응답과 네트워크/타임아웃 오류는 지수 백오프로 재시도한다.
+   *
+   * @param method   - HTTP 메서드 ("GET" 또는 "POST")
+   * @param endpoint - 요청 경로
+   * @param payload  - POST 요청의 JSON 본문 (GET에는 사용 안 함)
+   * @returns        성공/실패 여부와 응답 정보를 담은 {@link SafePostResult}
    */
-  async get(endpoint: string): Promise<SafePostResult> {
+  private async request(
+    method: "GET" | "POST",
+    endpoint: string,
+    payload?: unknown
+  ): Promise<SafePostResult> {
     try {
       return await withRetry(async () => {
         let response: Response;
         try {
-          response = await fetch(`${this.baseUrl}${endpoint}`, {
-            signal: AbortSignal.timeout(FETCH_TIMEOUT_MS)
-          });
+          const options: RequestInit = {
+            signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+            ...(method === "POST" ? {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify(payload),
+            } : {}),
+          };
+          response = await fetch(`${this.baseUrl}${endpoint}`, options);
         } catch (err) {
           if (err instanceof DOMException && err.name === "TimeoutError") {
             throw new McpClientError("TIMEOUT", `request timed out after ${FETCH_TIMEOUT_MS}ms`);
@@ -134,7 +150,7 @@ export class MonitorClient {
           endpoint,
           status: response.status,
           data: (await response.json()) as unknown,
-          message: "ok"
+          message: method === "POST" ? "monitor event recorded" : "ok",
         };
       });
     } catch (err) {
@@ -155,6 +171,15 @@ export class MonitorClient {
   }
 
   /**
+   * 지정한 엔드포인트로 GET 요청을 보낸다.
+   * 네트워크 오류나 비정상 응답 시에도 예외를 던지지 않고 `ok:false`를 반환한다.
+   * 5xx 응답과 네트워크/타임아웃 오류는 지수 백오프로 재시도한다.
+   */
+  async get(endpoint: string): Promise<SafePostResult> {
+    return this.request("GET", endpoint);
+  }
+
+  /**
    * 지정한 엔드포인트로 JSON payload를 POST한다.
    * 네트워크 오류나 비정상 응답 시에도 예외를 던지지 않고 `ok:false`를 반환한다.
    * 5xx 응답과 네트워크/타임아웃 오류는 지수 백오프로 재시도한다.
@@ -164,56 +189,6 @@ export class MonitorClient {
    * @returns        성공/실패 여부와 응답 정보를 담은 {@link SafePostResult}
    */
   async post(endpoint: string, payload: unknown): Promise<SafePostResult> {
-    try {
-      return await withRetry(async () => {
-        let response: Response;
-        try {
-          response = await fetch(`${this.baseUrl}${endpoint}`, {
-            method: "POST",
-            headers: {
-              "content-type": "application/json"
-            },
-            body: JSON.stringify(payload),
-            signal: AbortSignal.timeout(FETCH_TIMEOUT_MS)
-          });
-        } catch (err) {
-          if (err instanceof DOMException && err.name === "TimeoutError") {
-            throw new McpClientError("TIMEOUT", `request timed out after ${FETCH_TIMEOUT_MS}ms`);
-          }
-          throw new McpClientError("NETWORK", "monitor server unavailable");
-        }
-
-        if (!response.ok) {
-          if (isClientError(response.status)) {
-            // 4xx: convert to HTTP error, will not be retried.
-            throw new McpClientError("HTTP", `monitor server returned ${response.status}`, response.status);
-          }
-          // 5xx: throw retryable network-class error.
-          throw new McpClientError("NETWORK", `monitor server returned ${response.status}`, response.status);
-        }
-
-        return {
-          ok: true,
-          endpoint,
-          status: response.status,
-          data: (await response.json()) as unknown,
-          message: "monitor event recorded"
-        };
-      });
-    } catch (err) {
-      if (err instanceof McpClientError) {
-        return {
-          ok: false,
-          endpoint,
-          ...(err.statusCode !== undefined ? { status: err.statusCode } : {}),
-          message: err.code === "TIMEOUT"
-            ? `monitor server timed out; event ignored`
-            : err.code === "HTTP"
-            ? `monitor server returned ${err.statusCode}; event ignored`
-            : "monitor server unavailable; event ignored"
-        };
-      }
-      return { ok: false, endpoint, message: "monitor server unavailable; event ignored" };
-    }
+    return this.request("POST", endpoint, payload);
   }
 }

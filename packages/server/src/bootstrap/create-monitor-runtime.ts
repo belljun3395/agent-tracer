@@ -11,6 +11,8 @@ import { WebSocketServer } from "ws";
 
 import { MonitorService } from "../application/monitor-service.js";
 import { CliBridgeService } from "../application/cli-bridge/cli-bridge-service.js";
+import { ClaudeCodeAdapter } from "../application/cli-bridge/claude-code-adapter.js";
+import { OpenCodeAdapter } from "../application/cli-bridge/opencode-adapter.js";
 import { createEmbeddingService } from "../infrastructure/embedding/index.js";
 import { createSqliteMonitorPorts } from "../infrastructure/sqlite/index.js";
 import { createApp } from "../presentation/create-app.js";
@@ -40,7 +42,10 @@ export function createMonitorRuntime(options: RuntimeOptions): MonitorRuntime {
     ...(embeddingService ? { embeddingService } : {})
   });
   const service = new MonitorService(ports);
-  const cliBridge = new CliBridgeService();
+  const cliBridge = new CliBridgeService([
+    new ClaudeCodeAdapter(),
+    new OpenCodeAdapter(),
+  ]);
   const app = createApp(service);
   const server = http.createServer(app);
   const wss = new WebSocketServer({ noServer: true });

@@ -1,31 +1,45 @@
-import { RUNTIME_CAPABILITIES_BY_ID } from "./runtime-capabilities.constants.js";
+import {
+  getRegisteredAdapters,
+  getRegisteredAliases,
+} from "./runtime-capabilities.constants.js";
 import type {
-  RuntimeAdapterId,
   RuntimeCapabilities,
   RuntimeEvidenceProfile
 } from "./runtime-capabilities.types.js";
 
-export function getRuntimeCapabilities(id: RuntimeAdapterId): RuntimeCapabilities {
-  return RUNTIME_CAPABILITIES_BY_ID[id];
+export function getRuntimeCapabilities(id: string): RuntimeCapabilities | undefined {
+  const adapters = getRegisteredAdapters();
+  return adapters.get(id);
 }
 
-export function listNativeSkillPaths(id: RuntimeAdapterId): readonly string[] {
-  return getRuntimeCapabilities(id).nativeSkillPaths;
+export function listNativeSkillPaths(id: string): readonly string[] {
+  const capabilities = getRuntimeCapabilities(id);
+  return capabilities?.nativeSkillPaths ?? [];
 }
 
-export function getRuntimeEvidenceProfile(id: RuntimeAdapterId): RuntimeEvidenceProfile {
-  return getRuntimeCapabilities(id).evidenceProfile;
+export function getRuntimeEvidenceProfile(id: string): RuntimeEvidenceProfile | undefined {
+  const capabilities = getRuntimeCapabilities(id);
+  return capabilities?.evidenceProfile;
 }
 
-export function resolveRuntimeAdapterId(runtimeSource?: string): RuntimeAdapterId | undefined {
+export function resolveRuntimeAdapterId(runtimeSource?: string): string | undefined {
   if (!runtimeSource) return undefined;
-  if (runtimeSource in RUNTIME_CAPABILITIES_BY_ID) {
-    return runtimeSource as RuntimeAdapterId;
+
+  const adapters = getRegisteredAdapters();
+  if (adapters.has(runtimeSource)) {
+    return runtimeSource;
   }
 
   const normalized = runtimeSource.trim().toLowerCase();
   if (!normalized) return undefined;
 
+  // Try aliases first
+  const aliases = getRegisteredAliases();
+  if (aliases.has(normalized)) {
+    return aliases.get(normalized);
+  }
+
+  // Fallback: fuzzy matching for backwards compatibility
   if (normalized.includes("claude")) return "claude-hook";
   if (normalized.includes("codex")) return "codex-skill";
   if (normalized.includes("opencode") && normalized.includes("bridge")) return "opencode-bridge";
@@ -34,29 +48,14 @@ export function resolveRuntimeAdapterId(runtimeSource?: string): RuntimeAdapterI
   return undefined;
 }
 
-const RUNTIME_ADAPTER_ALIASES: Readonly<Record<string, RuntimeAdapterId>> = {
-  "claude": "claude-hook",
-  "claude-code": "claude-hook",
-  "claude-hook": "claude-hook",
-  "codex": "codex-skill",
-  "codex-cli": "codex-skill",
-  "codex-skill": "codex-skill",
-  "manual-mcp": "codex-skill",
-  "opencode-bridge": "opencode-bridge",
-  "opencode": "opencode-plugin",
-  "open-code": "opencode-plugin",
-  "opencode-cli": "opencode-plugin",
-  "opencode-plugin": "opencode-plugin",
-  "opencode-sse": "opencode-sse",
-  "seed-script": "codex-skill"
-};
-
-export function normalizeRuntimeAdapterId(value: string | undefined): RuntimeAdapterId | undefined {
+export function normalizeRuntimeAdapterId(value: string | undefined): string | undefined {
   if (!value) {
     return undefined;
   }
 
-  return RUNTIME_ADAPTER_ALIASES[value.trim().toLowerCase()];
+  const normalized = value.trim().toLowerCase();
+  const aliases = getRegisteredAliases();
+  return aliases.get(normalized);
 }
 
 export function getKnownRuntimeCapabilities(value: string | undefined): RuntimeCapabilities | undefined {
