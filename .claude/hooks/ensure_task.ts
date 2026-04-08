@@ -23,9 +23,8 @@ async function main(): Promise<void> {
   if (agentId) {
     const entry = registry[agentId];
     if (entry && !entry.linked) {
-      const parentIds = await ensureRuntimeSession(entry.parentSessionId);
       await ensureRuntimeSession(sessionId, undefined, {
-        parentTaskId: parentIds.taskId,
+        parentTaskId: entry.parentTaskId ?? (await ensureRuntimeSession(entry.parentSessionId)).taskId,
         parentSessionId: entry.parentSessionId
       });
       entry.linked = true;
@@ -34,7 +33,7 @@ async function main(): Promise<void> {
         agentId,
         childSession: sessionId,
         parentSession: entry.parentSessionId,
-        parentTaskId: parentIds.taskId
+        parentTaskId: entry.parentTaskId
       });
       return;
     }

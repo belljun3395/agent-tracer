@@ -432,7 +432,9 @@ describe("Claude hooks", () => {
           title: "Subagent started: Explore",
           metadata: {
             agentId: "agent-123",
-            agentType: "Explore"
+            agentType: "Explore",
+            parentTaskId: "parent-task",
+            parentSessionId: "parent-session"
           }
         }
       },
@@ -456,7 +458,9 @@ describe("Claude hooks", () => {
           body: "Analysis complete.",
           metadata: {
             agentId: "agent-123",
-            agentType: "Explore"
+            agentType: "Explore",
+            parentTaskId: "parent-task",
+            parentSessionId: "parent-session"
           }
         }
       }

@@ -4,7 +4,12 @@ import type {
   MonitoringTask,
   TimelineEvent
 } from "@monitor/core";
-import { EventId } from "@monitor/core";
+import {
+  getEventEvidence,
+  getRuntimeCoverageSummary,
+  type EvidenceLevel,
+  type RuntimeCoverageItem
+} from "@monitor/core";
 
 type ObservabilityPhase =
   | "planning"
@@ -54,6 +59,38 @@ export interface ObservabilityTaskFocus {
   readonly topTags: readonly ObservabilityTagCount[];
 }
 
+export interface ObservabilityEvidenceCount {
+  readonly level: EvidenceLevel;
+  readonly count: number;
+}
+
+export interface ObservabilityTaskEvidence {
+  readonly defaultLevel: EvidenceLevel;
+  readonly summary: string;
+  readonly breakdown: readonly ObservabilityEvidenceCount[];
+  readonly runtimeCoverage: readonly RuntimeCoverageItem[];
+}
+
+export interface ObservabilityRuleAuditSummary {
+  readonly total: number;
+  readonly checks: number;
+  readonly passes: number;
+  readonly violations: number;
+  readonly other: number;
+}
+
+export interface ObservabilityRuleEnforcementSummary {
+  readonly warnings: number;
+  readonly blocked: number;
+  readonly approvalRequested: number;
+  readonly approved: number;
+  readonly rejected: number;
+  readonly bypassed: number;
+  readonly activeState: "clear" | "warning" | "blocked" | "approval_required";
+  readonly activeRuleId: string | undefined;
+  readonly activeLabel: string | undefined;
+}
+
 export interface TaskObservabilitySummary {
   readonly taskId: string;
   readonly runtimeSource?: string;
@@ -74,6 +111,9 @@ export interface TaskObservabilitySummary {
   };
   readonly signals: ObservabilityTaskSignals;
   readonly focus: ObservabilityTaskFocus;
+  readonly evidence: ObservabilityTaskEvidence;
+  readonly rules: ObservabilityRuleAuditSummary;
+  readonly ruleEnforcement: ObservabilityRuleEnforcementSummary;
 }
 
 export interface ObservabilityRuntimeSourceSummary {
@@ -97,6 +137,8 @@ export interface ObservabilityOverviewSummary {
   readonly tasksWithTodos: number;
   readonly tasksWithCoordination: number;
   readonly tasksWithBackground: number;
+  readonly tasksAwaitingApproval: number;
+  readonly tasksBlockedByRule: number;
   readonly runtimeSources: readonly ObservabilityRuntimeSourceSummary[];
 }
 
@@ -207,6 +249,30 @@ export function analyzeTaskObservability(
   const topTags = new Map<string, number>();
   const questionGroups = new Map<string, { readonly concluded: boolean }>();
   const todoGroups = new Map<string, { readonly completed: boolean }>();
+  const ruleAudit = {
+    total: 0,
+    checks: 0,
+    passes: 0,
+    violations: 0,
+    other: 0
+  };
+  const ruleEnforcement = {
+    warnings: 0,
+    blocked: 0,
+    approvalRequested: 0,
+    approved: 0,
+    rejected: 0,
+    bypassed: 0,
+    activeState: "clear" as const,
+    activeRuleId: undefined as string | undefined,
+    activeLabel: undefined as string | undefined
+  };
+  const evidenceCounts = new Map<EvidenceLevel, number>([
+    ["proven", 0],
+    ["self_reported", 0],
+    ["inferred", 0],
+    ["unavailable", 0]
+  ]);
 
   const relationEdges = collectExplicitRelations(timeline);
   const traceLinkEligibleEventIds = new Set<string>(
@@ -233,6 +299,10 @@ export function analyzeTaskObservability(
       topFiles,
       topTags
     });
+    const evidence = getEventEvidence(input.task.runtimeSource, event);
+    evidenceCounts.set(evidence.level, (evidenceCounts.get(evidence.level) ?? 0) + 1);
+    collectRuleAudit(event, ruleAudit);
+    collectRuleEnforcement(event, ruleEnforcement);
   }
 
   let cursorMs = taskStartMs;
@@ -293,6 +363,7 @@ export function analyzeTaskObservability(
     ? signals.todosCompleted / todoGroupCount
     : 0;
   signals.exploredFiles = topFiles.size;
+  const runtimeCoverage = getRuntimeCoverageSummary(input.task.runtimeSource);
 
   return {
     taskId: input.task.id,
@@ -320,7 +391,20 @@ export function analyzeTaskObservability(
     focus: {
       topFiles: topFileCounts(topFiles, TOP_LIST_LIMIT),
       topTags: topTagCounts(topTags, TOP_LIST_LIMIT)
-    }
+    },
+    evidence: {
+      defaultLevel: runtimeCoverage.defaultLevel,
+      summary: runtimeCoverage.summary,
+      breakdown: [
+        { level: "proven", count: evidenceCounts.get("proven") ?? 0 },
+        { level: "self_reported", count: evidenceCounts.get("self_reported") ?? 0 },
+        { level: "inferred", count: evidenceCounts.get("inferred") ?? 0 },
+        { level: "unavailable", count: evidenceCounts.get("unavailable") ?? 0 }
+      ],
+      runtimeCoverage: runtimeCoverage.items
+    },
+    rules: ruleAudit,
+    ruleEnforcement
   };
 }
 
@@ -347,6 +431,8 @@ export function analyzeObservabilityOverview(
   let tasksWithTodos = 0;
   let tasksWithCoordination = 0;
   let tasksWithBackground = 0;
+  let tasksAwaitingApproval = 0;
+  let tasksBlockedByRule = 0;
 
   const runtimeSources = new Map<string, {
     taskCount: number;
@@ -386,6 +472,12 @@ export function analyzeObservabilityOverview(
     }
     if (analysis.signals.backgroundTransitions > 0) {
       tasksWithBackground += 1;
+    }
+    if (analysis.ruleEnforcement.activeState === "approval_required") {
+      tasksAwaitingApproval += 1;
+    }
+    if (analysis.ruleEnforcement.activeState === "blocked") {
+      tasksBlockedByRule += 1;
     }
 
     const runtimeSource = task.runtimeSource ?? UNKNOWN_RUNTIME_SOURCE;
@@ -439,6 +531,8 @@ export function analyzeObservabilityOverview(
     tasksWithTodos,
     tasksWithCoordination,
     tasksWithBackground,
+    tasksAwaitingApproval,
+    tasksBlockedByRule,
     runtimeSources: runtimeSourceSummaries
   };
 }
@@ -574,6 +668,141 @@ function phaseForEvent(event: TimelineEvent): ObservabilityPhaseBucket {
     default:
       return phaseFromLane(event.lane);
   }
+}
+
+function collectRuleAudit(
+  event: TimelineEvent,
+  summary: {
+    total: number;
+    checks: number;
+    passes: number;
+    violations: number;
+    other: number;
+  }
+): void {
+  if (event.kind !== "rule.logged") {
+    return;
+  }
+
+  summary.total += 1;
+  const status = extractString(event.metadata, "ruleStatus");
+  if (status === "check") {
+    summary.checks += 1;
+    return;
+  }
+  if (status === "pass" || status === "fix-applied") {
+    summary.passes += 1;
+    return;
+  }
+  if (status === "violation") {
+    summary.violations += 1;
+    return;
+  }
+  summary.other += 1;
+}
+
+function collectRuleEnforcement(
+  event: TimelineEvent,
+  summary: {
+    warnings: number;
+    blocked: number;
+    approvalRequested: number;
+    approved: number;
+    rejected: number;
+    bypassed: number;
+    activeState: "clear" | "warning" | "blocked" | "approval_required";
+    activeRuleId?: string | undefined;
+    activeLabel?: string | undefined;
+  }
+): void {
+  if (event.kind !== "rule.logged") {
+    return;
+  }
+
+  const outcome = extractString(event.metadata, "ruleOutcome");
+  const policy = extractString(event.metadata, "rulePolicy");
+  const status = extractString(event.metadata, "ruleStatus");
+  const ruleId = extractString(event.metadata, "ruleId");
+  const ruleLabel = normalizeRuleActiveLabel(ruleId, event.title);
+
+  switch (outcome) {
+    case "warned":
+      summary.warnings += 1;
+      summary.activeState = "warning";
+      summary.activeRuleId = ruleId;
+      summary.activeLabel = ruleLabel;
+      return;
+    case "blocked":
+      summary.blocked += 1;
+      summary.activeState = "blocked";
+      summary.activeRuleId = ruleId;
+      summary.activeLabel = ruleLabel;
+      return;
+    case "approval_requested":
+      summary.approvalRequested += 1;
+      summary.activeState = "approval_required";
+      summary.activeRuleId = ruleId;
+      summary.activeLabel = ruleLabel;
+      return;
+    case "approved":
+      summary.approved += 1;
+      summary.activeState = "clear";
+      summary.activeRuleId = ruleId;
+      summary.activeLabel = ruleLabel;
+      return;
+    case "rejected":
+      summary.rejected += 1;
+      summary.activeState = "blocked";
+      summary.activeRuleId = ruleId;
+      summary.activeLabel = ruleLabel;
+      return;
+    case "bypassed":
+      summary.bypassed += 1;
+      summary.activeState = "clear";
+      summary.activeRuleId = ruleId;
+      summary.activeLabel = ruleLabel;
+      return;
+  }
+
+  switch (policy) {
+    case "warn": {
+      summary.warnings += 1;
+      if (status === "violation" || status === "check") {
+        summary.activeState = "warning";
+        summary.activeRuleId = ruleId;
+        summary.activeLabel = ruleLabel;
+      }
+      return;
+    }
+    case "block": {
+      summary.blocked += 1;
+      if (status === "violation" || status === "check") {
+        summary.activeState = "blocked";
+        summary.activeRuleId = ruleId;
+        summary.activeLabel = ruleLabel;
+      }
+      return;
+    }
+    case "approval_required": {
+      summary.approvalRequested += 1;
+      if (status === "violation" || status === "check") {
+        summary.activeState = "approval_required";
+        summary.activeRuleId = ruleId;
+        summary.activeLabel = ruleLabel;
+      }
+      return;
+    }
+  }
+}
+
+function normalizeRuleActiveLabel(ruleId?: string, title?: string): string | undefined {
+  const normalizedRuleId = ruleId?.trim();
+  if (normalizedRuleId) {
+    return normalizedRuleId;
+  }
+
+  const normalizedTitle = title?.trim();
+  return normalizedTitle ? normalizedTitle : undefined;
 }
 
 function phaseFromLane(lane: TimelineEvent["lane"]): ObservabilityPhaseBucket {

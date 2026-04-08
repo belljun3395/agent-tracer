@@ -51,12 +51,19 @@ export interface CliCancelMessage {
   readonly processId: string;
 }
 
+/** taskId 기준 현재 실행 turn interrupt 요청 */
+export interface CliInterruptTaskMessage {
+  readonly type: "cli:interrupt-task";
+  readonly taskId: string;
+}
+
 /** 클라이언트 → 서버 메시지 Union */
 export type CliClientMessage =
   | CliStartMessage
   | CliResumeMessage
   | CliMessageMessage
-  | CliCancelMessage;
+  | CliCancelMessage
+  | CliInterruptTaskMessage;
 
 // ── 서버 → 클라이언트 메시지 ─────────────────────────────────────────────────
 
@@ -118,7 +125,8 @@ export function isCliClientMessage(msg: unknown): msg is CliClientMessage {
     type === "cli:start" ||
     type === "cli:resume" ||
     type === "cli:message" ||
-    type === "cli:cancel"
+    type === "cli:cancel" ||
+    type === "cli:interrupt-task"
   );
 }
 
@@ -136,4 +144,8 @@ export function isCliMessageMessage(msg: CliClientMessage): msg is CliMessageMes
 
 export function isCliCancelMessage(msg: CliClientMessage): msg is CliCancelMessage {
   return msg.type === "cli:cancel";
+}
+
+export function isCliInterruptTaskMessage(msg: CliClientMessage): msg is CliInterruptTaskMessage {
+  return msg.type === "cli:interrupt-task";
 }

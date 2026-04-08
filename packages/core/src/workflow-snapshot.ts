@@ -1,4 +1,5 @@
 import type { ReusableTaskSnapshot, TimelineEvent, WorkflowEvaluationData } from "./domain.js";
+import { getEventEvidence, type EvidenceLevel } from "./evidence.js";
 
 export interface BuildReusableTaskSnapshotInput {
   readonly objective: string;
@@ -14,6 +15,9 @@ export function buildReusableTaskSnapshot({
   const modifiedFiles = collectModifiedFiles(events);
   const keyFiles = collectKeyFiles(events, modifiedFiles);
   const { summary: verificationSummary, failures } = collectVerificationState(events);
+  const evidenceSummary = collectEvidenceSummary(events);
+  const ruleAuditSummary = collectRuleAuditSummary(events);
+  const ruleEnforcementSummary = collectRuleEnforcementSummary(events);
   const decisionLines = collectDecisionLines(events);
   const nextSteps = collectNextSteps(events);
   const watchItems = uniqueStrings([
@@ -33,6 +37,9 @@ export function buildReusableTaskSnapshot({
     outcomeSummary,
     approachSummary,
     reuseWhen,
+    evidenceSummary,
+    ruleAuditSummary,
+    ruleEnforcementSummary,
     workflowTags: evaluation?.workflowTags ?? [],
     useCase: evaluation?.useCase ?? null,
     watchItems,
@@ -46,6 +53,9 @@ export function buildReusableTaskSnapshot({
     outcomeSummary,
     approachSummary,
     reuseWhen,
+    evidenceSummary,
+    ruleAuditSummary,
+    ruleEnforcementSummary,
     watchItems,
     keyDecisions: decisionLines,
     nextSteps,
@@ -132,6 +142,179 @@ function collectVerificationState(events: readonly TimelineEvent[]): {
     summary: `Checks: ${verifications.length} (${passCount} pass, ${failureCount} fail)`,
     failures
   };
+}
+
+function collectEvidenceSummary(events: readonly TimelineEvent[]): string | null {
+  if (events.length === 0) {
+    return null;
+  }
+
+  const runtimeSource = inferRuntimeSource(events);
+  const counts = new Map<EvidenceLevel, number>([
+    ["proven", 0],
+    ["self_reported", 0],
+    ["inferred", 0],
+    ["unavailable", 0]
+  ]);
+
+  for (const event of events) {
+    const evidence = getEventEvidence(runtimeSource, event);
+    counts.set(evidence.level, (counts.get(evidence.level) ?? 0) + 1);
+  }
+
+  const total = events.length;
+  const segments = ([
+    ["proven", "proven"],
+    ["self_reported", "self-reported"],
+    ["inferred", "inferred"],
+    ["unavailable", "unavailable"]
+  ] as const)
+    .map(([level, label]) => {
+      const count = counts.get(level) ?? 0;
+      return count > 0 ? `${count} ${label}` : null;
+    })
+    .filter((value): value is string => Boolean(value));
+
+  return segments.length > 0 ? `Evidence: ${total} events (${segments.join(", ")})` : null;
+}
+
+function collectRuleAuditSummary(events: readonly TimelineEvent[]): string | null {
+  const ruleEvents = events.filter((event) => event.kind === "rule.logged");
+  if (ruleEvents.length === 0) {
+    return null;
+  }
+
+  let checks = 0;
+  let passes = 0;
+  let violations = 0;
+  let other = 0;
+  let warnings = 0;
+  let blocked = 0;
+  let approvalRequested = 0;
+  let approved = 0;
+  let rejected = 0;
+  let bypassed = 0;
+
+  for (const event of ruleEvents) {
+    const status = stringMetadata(event, "ruleStatus");
+    const outcome = stringMetadata(event, "ruleOutcome");
+    const policy = stringMetadata(event, "rulePolicy");
+    if (status === "check") {
+      checks += 1;
+    } else if (status === "pass" || status === "fix-applied") {
+      passes += 1;
+    } else if (status === "violation") {
+      violations += 1;
+    } else {
+      other += 1;
+    }
+
+    switch (outcome) {
+      case "warned":
+        warnings += 1;
+        break;
+      case "blocked":
+        blocked += 1;
+        break;
+      case "approval_requested":
+        approvalRequested += 1;
+        break;
+      case "approved":
+        approved += 1;
+        break;
+      case "rejected":
+        rejected += 1;
+        break;
+      case "bypassed":
+        bypassed += 1;
+        break;
+      default:
+        if (policy === "warn") warnings += 1;
+        if (policy === "block") blocked += 1;
+        if (policy === "approval_required") approvalRequested += 1;
+        break;
+    }
+  }
+
+  const parts = [
+    `${passes} pass/fix`,
+    `${violations} violation`,
+    ...(checks > 0 ? [`${checks} check`] : []),
+    ...(warnings > 0 ? [`${warnings} warned`] : []),
+    ...(blocked > 0 ? [`${blocked} blocked`] : []),
+    ...(approvalRequested > 0 ? [`${approvalRequested} approval-requested`] : []),
+    ...(approved > 0 ? [`${approved} approved`] : []),
+    ...(rejected > 0 ? [`${rejected} rejected`] : []),
+    ...(bypassed > 0 ? [`${bypassed} bypassed`] : []),
+    ...(other > 0 ? [`${other} other`] : [])
+  ];
+  return `Rule audit: ${ruleEvents.length} events (${parts.join(", ")})`;
+}
+
+function collectRuleEnforcementSummary(events: readonly TimelineEvent[]): string | null {
+  const ruleEvents = events.filter((event) => event.kind === "rule.logged");
+  if (ruleEvents.length === 0) {
+    return null;
+  }
+
+  let warnings = 0;
+  let blocked = 0;
+  let approvalRequested = 0;
+  let approved = 0;
+  let rejected = 0;
+  let bypassed = 0;
+
+  for (const event of ruleEvents) {
+    const outcome = stringMetadata(event, "ruleOutcome");
+    switch (outcome) {
+      case "warned":
+        warnings += 1;
+        continue;
+      case "blocked":
+        blocked += 1;
+        continue;
+      case "approval_requested":
+        approvalRequested += 1;
+        continue;
+      case "approved":
+        approved += 1;
+        continue;
+      case "rejected":
+        rejected += 1;
+        continue;
+      case "bypassed":
+        bypassed += 1;
+        continue;
+    }
+
+    const policy = stringMetadata(event, "rulePolicy");
+    switch (policy) {
+      case "warn":
+        warnings += 1;
+        break;
+      case "block":
+        blocked += 1;
+        break;
+      case "approval_required":
+        approvalRequested += 1;
+        break;
+    }
+  }
+
+  const total = warnings + blocked + approvalRequested + approved + rejected + bypassed;
+  if (total === 0) {
+    return null;
+  }
+
+  const parts = [
+    ...(warnings > 0 ? [`${warnings} warned`] : []),
+    ...(blocked > 0 ? [`${blocked} blocked`] : []),
+    ...(approvalRequested > 0 ? [`${approvalRequested} approval-requested`] : []),
+    ...(approved > 0 ? [`${approved} approved`] : []),
+    ...(rejected > 0 ? [`${rejected} rejected`] : []),
+    ...(bypassed > 0 ? [`${bypassed} bypassed`] : [])
+  ];
+  return `Rule enforcement: ${total} decisions (${parts.join(", ")})`;
 }
 
 function collectDecisionLines(events: readonly TimelineEvent[]): readonly string[] {
@@ -234,6 +417,9 @@ function buildSearchText(input: {
   readonly outcomeSummary: string | null;
   readonly approachSummary: string | null;
   readonly reuseWhen: string | null;
+  readonly evidenceSummary: string | null;
+  readonly ruleAuditSummary: string | null;
+  readonly ruleEnforcementSummary: string | null;
   readonly workflowTags: readonly string[];
   readonly useCase: string | null;
   readonly watchItems: readonly string[];
@@ -247,6 +433,9 @@ function buildSearchText(input: {
     input.outcomeSummary,
     input.approachSummary,
     input.reuseWhen,
+    input.evidenceSummary,
+    input.ruleAuditSummary,
+    input.ruleEnforcementSummary,
     input.workflowTags.join(" "),
     input.watchItems.join(" "),
     input.keyDecisions.join(" "),
@@ -285,6 +474,25 @@ function normalizeText(value?: string | null, limit = 160): string | null {
 
   void limit;
   return normalized;
+}
+
+function inferRuntimeSource(events: readonly TimelineEvent[]): string | undefined {
+  for (const event of events) {
+    const runtimeSource = stringMetadata(event, "runtimeSource");
+    if (runtimeSource) {
+      return runtimeSource;
+    }
+
+    const source = stringMetadata(event, "source");
+    if (source === "claude-hook" || source === "opencode-plugin" || source === "codex-skill") {
+      return source;
+    }
+    if (source === "manual-mcp") {
+      return "codex-skill";
+    }
+  }
+
+  return undefined;
 }
 
 function truncateText(value: string, limit: number): string {

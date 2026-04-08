@@ -12,6 +12,7 @@ Claude-specific steps after the shared setup flow.
 The script:
 
 - creates or merges `target-project/.claude/settings.json`
+- adds a repo-local `permissions` block so `WebSearch` and `WebFetch` are allowed by default
 - vendors hook source files into `target-project/.agent-tracer/.claude/hooks/*.ts`
 - points hook commands to the target repo root using `$CLAUDE_PROJECT_DIR` first, then git-root / upward-directory fallback, before resolving `.agent-tracer/.claude/hooks/*.ts`
 - uses `npx --yes tsx` to execute the hook files
@@ -24,6 +25,18 @@ The script does **not**:
 
 - register the Claude MCP server for you
 - bundle a full local clone of the Agent Tracer repository into the target project
+- force a globally unsafe `bypassPermissions` mode
+
+## Permission defaults
+
+The generated Claude settings use a conservative default:
+
+- `permissions.defaultMode = "acceptEdits"`
+- `permissions.allow = ["WebSearch", "WebFetch"]`
+
+This keeps normal edit flows working while avoiding repeated approval prompts for
+web lookups that Agent Tracer wants to observe. If you need a stricter or more
+permissive policy, adjust `.claude/settings.json` after installation.
 
 ## 2. Verify The Monitor Server
 

@@ -33,9 +33,18 @@ async function main(): Promise<void> {
   // SubagentStop: 완료된 항목 정리
   const registry = readSubagentRegistry();
   if (hookEventName === "SubagentStart") {
-    registry[agentId] = { parentSessionId: sessionId, agentType, linked: false };
+    registry[agentId] = {
+      parentSessionId: sessionId,
+      parentTaskId: ids.taskId,
+      agentType,
+      linked: false
+    };
     writeSubagentRegistry(registry);
-    hookLog("subagent_lifecycle", "registry entry written", { agentId, parentSessionId: sessionId });
+    hookLog("subagent_lifecycle", "registry entry written", {
+      agentId,
+      parentSessionId: sessionId,
+      parentTaskId: ids.taskId
+    });
   } else if (hookEventName === "SubagentStop") {
     delete registry[agentId];
     writeSubagentRegistry(registry);
@@ -55,7 +64,9 @@ async function main(): Promise<void> {
       : {}),
     metadata: {
       agentId,
-      agentType
+      agentType,
+      parentTaskId: ids.taskId,
+      parentSessionId: sessionId
     }
   });
   hookLog("subagent_lifecycle", "async-task posted", { hookEventName, agentType, agentId });

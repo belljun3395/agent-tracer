@@ -26,6 +26,10 @@ export function createAdminRoutes(service: MonitorService): Router {
     res.json({ tasks: await service.listTasks() });
   });
 
+  router.get("/api/default-workspace", async (_req, res) => {
+    res.json({ workspacePath: await service.getDefaultWorkspacePath() });
+  });
+
   router.get("/api/tasks/:taskId", async (req, res) => {
     const task = await service.getTask(req.params.taskId);
     if (!task) { res.status(404).json({ error: "Task not found" }); return; }
@@ -47,6 +51,15 @@ export function createAdminRoutes(service: MonitorService): Router {
       return;
     }
     res.json(observability);
+  });
+
+  router.get("/api/tasks/:taskId/openinference", async (req, res) => {
+    const exportPayload = await service.getTaskOpenInference(req.params.taskId);
+    if (!exportPayload) {
+      res.status(404).json({ error: "Task not found" });
+      return;
+    }
+    res.json(exportPayload);
   });
 
   router.get("/api/observability/overview", async (_req, res) => {

@@ -47,9 +47,10 @@ export async function postJson<T = JsonObject>(pathname: string, body: JsonObjec
 export async function ensureRuntimeSession(
     runtimeSessionId: string,
     title: string = defaultTaskTitle(),
-    opts?: { parentTaskId?: string; parentSessionId?: string }
+    opts?: { parentTaskId?: string; parentSessionId?: string; taskId?: string }
 ): Promise<RuntimeSessionEnsureResult> {
     return postJson<RuntimeSessionEnsureResult>("/api/runtime-session-ensure", {
+        ...(opts?.taskId ?? process.env.MONITOR_TASK_ID ? { taskId: opts?.taskId ?? process.env.MONITOR_TASK_ID } : {}),
         runtimeSource: CLAUDE_RUNTIME_SOURCE,
         runtimeSessionId,
         title,

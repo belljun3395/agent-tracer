@@ -159,7 +159,7 @@ describe("observability read model", () => {
         "rule.logged",
         "rules",
         "2026-03-27T00:04:40.000Z",
-        { ruleStatus: "violation", severity: "warn" },
+        { ruleStatus: "violation", severity: "warn", rulePolicy: "block", ruleOutcome: "blocked" },
         ["verification"]
       ),
       makeEvent(
@@ -217,6 +217,39 @@ describe("observability read model", () => {
         expect.objectContaining({ tag: "coordination" })
       ])
     );
+    expect(summary.evidence.breakdown).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ level: "self_reported", count: expect.any(Number) }),
+        expect.objectContaining({ level: "inferred", count: expect.any(Number) })
+      ])
+    );
+    expect(summary.evidence.defaultLevel).toBe("self_reported");
+    expect(summary.evidence.summary).toContain("cooperative self-reporting");
+    expect(summary.evidence.runtimeCoverage).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: "tool_activity",
+          level: "self_reported",
+          automatic: false
+        })
+      ])
+    );
+    expect(summary.rules).toEqual({
+      total: 1,
+      checks: 0,
+      passes: 0,
+      violations: 1,
+      other: 0
+    });
+    expect(summary.ruleEnforcement).toEqual(expect.objectContaining({
+      warnings: 0,
+      blocked: 1,
+      approvalRequested: 0,
+      approved: 0,
+      rejected: 0,
+      bypassed: 0,
+      activeState: "blocked"
+    }));
     expect(summary.phaseBreakdown).toHaveLength(5);
     expect(summary.phaseBreakdown.some((phase) => phase.phase === "waiting")).toBe(false);
   });

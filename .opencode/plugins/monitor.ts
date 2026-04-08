@@ -1849,7 +1849,7 @@ export function createMonitorHooks(workspacePath: string): Hooks {
     const taskTitle = backgroundLink?.title ?? buildTaskTitle(targetWorkspacePath);
     const promise = (async (): Promise<SessionState | undefined> => {
       const result = await post("/api/task-start", {
-        taskId: backgroundLink?.taskId ?? monitorTaskIdForOpenCodeSession(input.sessionId),
+        taskId: backgroundLink?.taskId ?? process.env.MONITOR_TASK_ID ?? monitorTaskIdForOpenCodeSession(input.sessionId),
         title: taskTitle,
         workspacePath: targetWorkspacePath,
         runtimeSource: "opencode-plugin",
@@ -2226,6 +2226,21 @@ export function createMonitorHooks(workspacePath: string): Hooks {
           const parentState = sessionStates.get(parentID) ?? suspendedSessionStates.get(parentID);
           const parentTaskId = parentState?.taskId ?? monitorTaskIdForOpenCodeSession(parentID);
           const parentMonitorSessionId = parentState?.monitorSessionId;
+          if (parentState?.monitorSessionId) {
+            await post("/api/save-context", {
+              taskId: parentState.taskId,
+              sessionId: parentState.monitorSessionId,
+              title: "Context compacting",
+              body: event.properties.info.title ?? "OpenCode started a compact/remember child session.",
+              lane: "planning",
+              metadata: {
+                compactPhase: "before",
+                compactEventType: "session.created",
+                compactSource: "opencode-plugin",
+                childSessionId: event.properties.info.id
+              }
+            });
+          }
           pendingBackgroundLinks.set(event.properties.info.id, {
             childSessionId: event.properties.info.id,
             parentTaskId,
@@ -2420,6 +2435,18 @@ export function createMonitorHooks(workspacePath: string): Hooks {
         const compactedParentId = event.properties.sessionID;
         const parentState = sessionStates.get(compactedParentId) ?? suspendedSessionStates.get(compactedParentId);
         if (parentState) {
+          await post("/api/save-context", {
+            taskId: parentState.taskId,
+            ...(parentState.monitorSessionId ? { sessionId: parentState.monitorSessionId } : {}),
+            title: "Context compacted",
+            body: event.properties.summary ?? "OpenCode compacted the conversation context.",
+            lane: "planning",
+            metadata: {
+              compactPhase: "after",
+              compactEventType: "session.compacted",
+              compactSource: "opencode-plugin"
+            }
+          });
           for (const [candidateSessionId, candidateState] of sessionStates.entries()) {
             if (candidateState.taskKind === "background" && candidateState.parentTaskId === parentState.taskId) {
               if (!finalizingSessionIds.has(candidateSessionId)) {

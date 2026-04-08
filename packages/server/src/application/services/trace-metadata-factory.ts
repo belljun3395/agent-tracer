@@ -76,6 +76,16 @@ export class TraceMetadataFactory {
       tags.add(`severity:${normalizeTagSegment(severity)}`);
     }
 
+    const rulePolicy = extractMetadataString(metadata, "rulePolicy");
+    if (rulePolicy) {
+      tags.add(`policy:${normalizeTagSegment(rulePolicy)}`);
+    }
+
+    const ruleOutcome = extractMetadataString(metadata, "ruleOutcome");
+    if (ruleOutcome) {
+      tags.add(`outcome:${normalizeTagSegment(ruleOutcome)}`);
+    }
+
     const asyncTaskId = extractMetadataString(metadata, "asyncTaskId");
     if (asyncTaskId) {
       tags.add("async-task");

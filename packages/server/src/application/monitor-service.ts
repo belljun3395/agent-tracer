@@ -6,13 +6,14 @@
  */
 
 import {
+  buildOpenInferenceTaskExport,
   buildReusableTaskSnapshot,
   buildWorkflowContext,
   createTaskSlug,
   extractPathLikeTokens,
   normalizeWorkspacePath,
   TaskId,
-  type MonitoringEventKind, type MonitoringTask, type TimelineEvent, type TimelineLane
+  type MonitoringEventKind, type MonitoringTask, type ReusableTaskSnapshot, type TimelineEvent, type TimelineLane
 } from "@monitor/core";
 
 import type { MonitorPorts, BookmarkRecord, SearchResults } from "./ports/index.js";
@@ -219,6 +220,7 @@ export class MonitorService {
 
     // No binding at all — new task + session
     const result = await this.startTask({
+      ...(input.taskId ? { taskId: input.taskId } : {}),
       title: input.title,
       ...(workspacePath ? { workspacePath } : {}),
       runtimeSource: input.runtimeSource,
@@ -318,7 +320,28 @@ export class MonitorService {
   }
 
   async logRule(input: TaskRuleInput): Promise<RecordedEventEnvelope> {
-    return this.withSession(input, (sid) => ({ taskId: input.taskId, kind: "rule.logged", lane: "implementation", title: input.title ?? input.action, body: input.body ?? `${input.ruleId} · ${input.status} · ${input.severity}`, metadata: TMF.build({ ...(input.metadata ?? {}), action: input.action, ruleId: input.ruleId, severity: input.severity, ruleStatus: input.status, ruleSource: input.source ?? "rule-guard" }, input), actionName: input.action, ...this.withSessionId(sid), ...(input.filePaths ? { filePaths: input.filePaths } : {}) }));
+    const result = await this.withSession(input, (sid) => ({
+      taskId: input.taskId,
+      kind: "rule.logged",
+      lane: "implementation",
+      title: input.title ?? input.action,
+      body: input.body ?? `${input.ruleId} · ${input.status} · ${input.severity}`,
+      metadata: TMF.build({
+        ...(input.metadata ?? {}),
+        action: input.action,
+        ruleId: input.ruleId,
+        severity: input.severity,
+        ruleStatus: input.status,
+        ruleSource: input.source ?? "rule-guard",
+        ...(input.policy ? { rulePolicy: input.policy } : {}),
+        ...(input.outcome ? { ruleOutcome: input.outcome } : {})
+      }, input),
+      actionName: input.action,
+      ...this.withSessionId(sid),
+      ...(input.filePaths ? { filePaths: input.filePaths } : {})
+    }));
+    const task = await this.applyRuleEnforcementStatus(input, result.task);
+    return task === result.task ? result : { ...result, task };
   }
 
   async logAsyncLifecycle(input: TaskAsyncLifecycleInput): Promise<RecordedEventEnvelope> {
@@ -399,11 +422,23 @@ export class MonitorService {
   }
 
   async getOverview() { return this.ports.tasks.getOverviewStats(); }
+  async getDefaultWorkspacePath() { return normalizeWorkspacePath(process.cwd()); }
   async listTasks() { return this.ports.tasks.findAll(); }
   async getTask(taskId: string) { return this.ports.tasks.findById(taskId); }
   async getTaskTimeline(taskId: string): Promise<readonly TimelineEvent[]> { return this.ports.events.findByTaskId(taskId); }
   async getTaskLatestRuntimeSession(taskId: string): Promise<{ runtimeSource: string; runtimeSessionId: string } | null> {
     return this.ports.runtimeBindings.findLatestByTaskId(taskId);
+  }
+  async getTaskOpenInference(taskId: string): Promise<{ openinference: ReturnType<typeof buildOpenInferenceTaskExport> } | undefined> {
+    const task = await this.ports.tasks.findById(taskId);
+    if (!task) {
+      return undefined;
+    }
+
+    const timeline = await this.ports.events.findByTaskId(taskId);
+    return {
+      openinference: buildOpenInferenceTaskExport(task, timeline)
+    };
   }
   async getTaskObservability(taskId: string): Promise<TaskObservabilityResponse | undefined> {
     const task = await this.ports.tasks.findById(taskId);
@@ -551,6 +586,35 @@ export class MonitorService {
     this.ports.notifier.publish({ type: "task.updated", payload: task });
     return task;
   }
+  private async applyRuleEnforcementStatus(
+    input: TaskRuleInput,
+    task: MonitoringTask
+  ): Promise<MonitoringTask> {
+    if (task.status === "completed") {
+      return task;
+    }
+
+    const desiredStatus = this.resolveRuleGuardStatus(input);
+    if (!desiredStatus || desiredStatus === task.status) {
+      return task;
+    }
+
+    return this.setTaskStatus(task.id, desiredStatus);
+  }
+  private resolveRuleGuardStatus(input: TaskRuleInput): MonitoringTask["status"] | undefined {
+    const outcome = input.outcome;
+    if (outcome === "approval_requested") return "waiting";
+    if (outcome === "blocked" || outcome === "rejected") return "errored";
+    if (outcome === "approved" || outcome === "bypassed") return "running";
+
+    const violation = input.status === "violation";
+    if (!violation) {
+      return undefined;
+    }
+    if (input.policy === "approval_required") return "waiting";
+    if (input.policy === "block") return "errored";
+    return undefined;
+  }
   private async completeTaskIfIncomplete(input: TaskCompletionInput): Promise<void> {
     const task = await this.ports.tasks.findById(input.taskId);
     if (!task || task.status === "completed" || task.status === "errored") {
@@ -628,7 +692,7 @@ export class MonitorService {
       readonly approachNote?: string;
       readonly reuseWhen?: string;
       readonly watchouts?: string;
-      readonly workflowSnapshot?: import("@monitor/core").ReusableTaskSnapshot | null;
+      readonly workflowSnapshot?: ReusableTaskSnapshot | null;
       readonly workflowContext?: string;
     }
   ): Promise<void> {
