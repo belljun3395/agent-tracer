@@ -11,6 +11,7 @@ import type {
   CliResumeOptions,
   CliType,
 } from "./types.js";
+import type { MonitorService } from "../monitor-service.js";
 
 export interface StartChatOptions {
   readonly cli: CliType;
@@ -33,7 +34,10 @@ export class CliBridgeService {
   private readonly adapters: Map<CliType, CliAdapter>;
   private readonly activeProcesses: Map<string, CliProcess>;
 
-  constructor(adapters: readonly CliAdapter[]) {
+  constructor(
+    adapters: readonly CliAdapter[],
+    private readonly monitorService?: MonitorService
+  ) {
     this.adapters = new Map();
     this.activeProcesses = new Map();
     for (const adapter of adapters) {
@@ -55,6 +59,14 @@ export class CliBridgeService {
       throw new Error(`Unknown CLI type: ${options.cli}`);
     }
 
+    await this.ensureMonitoredTask({
+      cli: options.cli,
+      workdir: options.workdir,
+      prompt: options.prompt,
+      ...(options.taskId ? { taskId: options.taskId } : {}),
+      mode: "start",
+    });
+
     const sessionOptions: Omit<CliSessionOptions, "cli"> = {
       workdir: options.workdir,
       prompt: options.prompt,
@@ -73,6 +85,15 @@ export class CliBridgeService {
     if (!adapter) {
       throw new Error(`Unknown CLI type: ${options.cli}`);
     }
+
+    await this.ensureMonitoredTask({
+      cli: options.cli,
+      workdir: options.workdir,
+      prompt: options.prompt,
+      ...(options.taskId ? { taskId: options.taskId } : {}),
+      sessionId: options.sessionId,
+      mode: "resume",
+    });
 
     const resumeOptions: Omit<CliResumeOptions, "cli"> = {
       sessionId: options.sessionId,
@@ -109,6 +130,38 @@ export class CliBridgeService {
 
   listActiveProcesses(): readonly string[] {
     return Array.from(this.activeProcesses.keys());
+  }
+
+  private async ensureMonitoredTask(input: {
+    cli: CliType;
+    workdir: string;
+    prompt: string;
+    taskId?: string;
+    sessionId?: string;
+    mode: "start" | "resume";
+  }): Promise<void> {
+    if (!this.monitorService || !input.taskId) {
+      return;
+    }
+
+    const promptTitle = input.prompt.trim();
+    const title = promptTitle.length > 80
+      ? `${promptTitle.slice(0, 80)}…`
+      : (promptTitle || `${input.cli} chat`);
+
+    try {
+      await this.monitorService.startTask({
+        taskId: input.taskId,
+        title,
+        workspacePath: input.workdir,
+        runtimeSource: input.cli === "opencode" ? "opencode-bridge" : "claude-code-bridge",
+        summary: input.mode === "resume"
+          ? `Resume ${input.cli} bridge session${input.sessionId ? ` ${input.sessionId}` : ""}`
+          : `Start ${input.cli} bridge session`,
+      });
+    } catch {
+      // Monitor availability must not block CLI bridge execution.
+    }
   }
 
   async shutdownAll(): Promise<void> {

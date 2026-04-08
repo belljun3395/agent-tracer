@@ -45,7 +45,7 @@ export function createMonitorRuntime(options: RuntimeOptions): MonitorRuntime {
   const cliBridge = new CliBridgeService([
     new ClaudeCodeAdapter(),
     new OpenCodeAdapter(),
-  ]);
+  ], service);
   const app = createApp(service);
   const server = http.createServer(app);
   const wss = new WebSocketServer({ noServer: true });
