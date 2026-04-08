@@ -109,16 +109,14 @@ describe("CLI adapters", () => {
 
     expect(spawn).toHaveBeenCalledWith(
       "opencode",
-      ["run", "continue", "--format", "json", "--dir", "/repo", "--session", "ses_existing"],
+      ["run", "continue", "--format", "json", "--dir", "/repo", "--pure", "--session", "ses_existing"],
       expect.objectContaining({ cwd: "/repo" })
     );
 
     mock.stdout.write('{"event":"meta","sessionId":"opencode-session"}\n');
     expect(process.sessionId).toBe("ses_existing");
 
-    const stdinWrite = vi.spyOn(mock.stdin, "write");
-    process.sendMessage("ping");
-    expect(stdinWrite).toHaveBeenCalledWith('{"type":"message","content":"ping"}\n');
+    expect(() => process.sendMessage("ping")).toThrow("OpenCode CLI does not support interactive stdin messages");
 
     process.kill();
     expect(mock.child.kill).toHaveBeenCalledWith("SIGTERM");

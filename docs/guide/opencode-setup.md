@@ -13,6 +13,7 @@ The script:
 
 - writes or merges `target-project/opencode.json`
 - registers the `monitor` MCP entry in that config
+- writes a `permission` block that explicitly allows common read/search/web tools
 - creates `target-project/.opencode/plugins/monitor.ts`
 - creates `target-project/.opencode/tsconfig.json`
 - vendors `.opencode/plugins/monitor.ts` into `target-project/.agent-tracer/.opencode/plugins/monitor.ts`
@@ -51,6 +52,16 @@ After that, the target project should contain:
 
 In the common case, that is enough. Open the target project in OpenCode and the
 plugin path should activate automatically.
+
+## Permission defaults
+
+The generated `opencode.json` now includes explicit defaults for:
+
+- `websearch`, `webfetch`, `read`, `glob`, `grep`, `list` → `allow`
+- `external_directory`, `doom_loop` → `ask`
+
+This matches OpenCode's documented permission model while making the common
+Agent Tracer exploration path explicit in repo-local config.
 
 ## 4. What The Plugin Does
 

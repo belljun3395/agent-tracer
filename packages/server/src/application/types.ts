@@ -145,6 +145,8 @@ export interface TaskRuleInput extends TaskActionBaseInput, TraceRelationInput {
   readonly severity: string;
   readonly status: string;
   readonly source?: string;
+  readonly policy?: "audit" | "warn" | "block" | "approval_required";
+  readonly outcome?: "observed" | "warned" | "blocked" | "approval_requested" | "approved" | "rejected" | "bypassed";
 }
 
 export interface TaskAsyncLifecycleInput {
@@ -310,6 +312,7 @@ export interface TaskAssistantResponseInput {
  * 어떤 런타임 어댑터라도 runtimeSource + runtimeSessionId 쌍으로 task/session을 자동 생성·재개한다.
  */
 export interface RuntimeSessionEnsureInput {
+  readonly taskId?: string;
   readonly runtimeSource: string;
   readonly runtimeSessionId: string;
   readonly title: string;

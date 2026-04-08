@@ -20,15 +20,15 @@ export class ClaudeCodeAdapter implements CliAdapter {
   async startSession(
     options: Omit<CliSessionOptions, "cli">
   ): Promise<CliProcess> {
-    const { workdir, prompt } = options;
+    const { workdir, prompt, taskId } = options;
     const args = ["-p", prompt, "--output-format", "stream-json", "--verbose"];
-    return this.spawnClaude(args, workdir);
+    return this.spawnClaude(args, workdir, undefined, taskId);
   }
 
   async resumeSession(
     options: Omit<CliResumeOptions, "cli">
   ): Promise<CliProcess> {
-    const { sessionId, workdir, prompt } = options;
+    const { sessionId, workdir, prompt, taskId } = options;
     const args = [
       "-p",
       prompt,
@@ -38,13 +38,14 @@ export class ClaudeCodeAdapter implements CliAdapter {
       "--resume",
       sessionId,
     ];
-    return this.spawnClaude(args, workdir, sessionId);
+    return this.spawnClaude(args, workdir, sessionId, taskId);
   }
 
   private spawnClaude(
     args: string[],
     workdir: string,
-    existingSessionId?: string
+    existingSessionId?: string,
+    taskId?: string
   ): CliProcess {
     const processId = globalThis.crypto.randomUUID();
 
@@ -57,6 +58,7 @@ export class ClaudeCodeAdapter implements CliAdapter {
           ...process.env,
           TERM: "dumb",
           CI: "true",
+          ...(taskId ? { MONITOR_TASK_ID: taskId } : {}),
         },
       });
     } catch (error) {

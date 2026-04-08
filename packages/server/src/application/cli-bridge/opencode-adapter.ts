@@ -27,7 +27,7 @@ export class OpenCodeAdapter implements CliAdapter {
     options: Omit<CliSessionOptions, "cli">
   ): Promise<CliProcess> {
     const { workdir, prompt, taskId } = options;
-    const args = ["run", prompt, "--format", "json", "--dir", workdir];
+    const args = ["run", prompt, "--format", "json", "--dir", workdir, "--pure"];
     const model = options.model ?? this.resolveModel();
     if (model) {
       args.push("--model", model);
@@ -46,6 +46,7 @@ export class OpenCodeAdapter implements CliAdapter {
       "json",
       "--dir",
       workdir,
+      "--pure",
       "--session",
       sessionId,
     ];

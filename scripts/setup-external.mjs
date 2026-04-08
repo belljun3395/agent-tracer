@@ -154,6 +154,22 @@ const OPENCODE_TSCONFIG = {
   include: ["plugins/**/*.ts"]
 };
 
+const CLAUDE_PERMISSION_DEFAULTS = {
+  defaultMode: "acceptEdits",
+  allow: ["WebSearch", "WebFetch"]
+};
+
+const OPENCODE_PERMISSION_DEFAULTS = {
+  websearch: "allow",
+  webfetch: "allow",
+  read: "allow",
+  glob: "allow",
+  grep: "allow",
+  list: "allow",
+  external_directory: "ask",
+  doom_loop: "ask"
+};
+
 function ensureHookEntry(list, command, matcher) {
   const entries = Array.isArray(list) ? [...list] : [];
   const duplicate = entries.some((entry) => {
@@ -284,6 +300,10 @@ async function setupOpenCode({ targetDir, tracerRoot, monitorBaseUrl, sourceRepo
   const next = {
     ...existing,
     $schema: existing.$schema || "https://opencode.ai/config.json",
+    permission: {
+      ...OPENCODE_PERMISSION_DEFAULTS,
+      ...(existing.permission || {})
+    },
     mcp: {
       ...(existing.mcp || {}),
       monitor: {
@@ -344,6 +364,10 @@ async function setupClaude({ targetDir, sourceRepo, sourceRef, sourceRoot }) {
 
   await writeJson(settingsPath, {
     ...settings,
+    permissions: {
+      ...CLAUDE_PERMISSION_DEFAULTS,
+      ...(settings.permissions || {})
+    },
     hooks
   });
 }

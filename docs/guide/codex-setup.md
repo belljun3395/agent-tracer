@@ -13,6 +13,10 @@ Supported today:
 - canonical `assistant.response` capture through the Codex skill flow
 - external-project bootstrap through `setup:external --mode codex`
 
+Approval behavior remains a **Codex launch/runtime concern**, not a repo-local
+config file concern. If you want Codex to stop prompting for approvals, use the
+appropriate Codex runtime mode/flag when you launch it.
+
 Still manual:
 
 - global Codex MCP registration on the machine that runs Codex

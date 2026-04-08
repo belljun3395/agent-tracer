@@ -1,4 +1,5 @@
 import type { ReusableTaskSnapshot, TimelineEvent, WorkflowEvaluationData } from "./domain.js";
+import { getEventEvidence, getRuntimeCoverageSummary, type EvidenceLevel } from "./evidence.js";
 import { buildReusableTaskSnapshot } from "./workflow-snapshot.js";
 
 const WORKFLOW_CONTEXT_LANES = [
@@ -72,6 +73,21 @@ export function buildWorkflowContext(
     parts.push(verificationSummarySection);
   }
 
+  const ruleAuditSection = buildRuleAuditSection(events);
+  if (ruleAuditSection) {
+    parts.push(ruleAuditSection);
+  }
+
+  const ruleEnforcementSection = buildRuleEnforcementSection(events);
+  if (ruleEnforcementSection) {
+    parts.push(ruleEnforcementSection);
+  }
+
+  const evidenceSummarySection = buildEvidenceSummarySection(events);
+  if (evidenceSummarySection) {
+    parts.push(evidenceSummarySection);
+  }
+
   return parts.join("");
 }
 
@@ -95,6 +111,15 @@ function buildSnapshotSections(
   }
   if (snapshot.reuseWhen) {
     sections.push(`\n## Reuse When\n${snapshot.reuseWhen}`);
+  }
+  if (snapshot.evidenceSummary) {
+    sections.push(`\n## Evidence Snapshot\n${snapshot.evidenceSummary}`);
+  }
+  if (snapshot.ruleAuditSummary) {
+    sections.push(`\n## Rule Audit Snapshot\n${snapshot.ruleAuditSummary}`);
+  }
+  if (snapshot.ruleEnforcementSummary) {
+    sections.push(`\n## Rule Enforcement Snapshot\n${snapshot.ruleEnforcementSummary}`);
   }
   if (snapshot.keyDecisions.length > 0) {
     sections.push(`\n## Key Decisions\n${snapshot.keyDecisions.map((item) => `- ${item}`).join("\n")}`);
@@ -213,6 +238,216 @@ export function buildVerificationSummarySection(events: readonly TimelineEvent[]
   }
 
   return summary.join("\n");
+}
+
+function buildRuleAuditSection(events: readonly TimelineEvent[]): string | undefined {
+  const ruleStats = new Map<string, {
+    title: string;
+    checkCount: number;
+    violationCount: number;
+    passCount: number;
+    lastSeverity?: string;
+    lastPolicy?: string;
+    lastOutcome?: string;
+  }>();
+
+  for (const event of events) {
+    if (event.kind !== "rule.logged") {
+      continue;
+    }
+
+    const ruleId = stringMetadata(event, "ruleId");
+    if (!ruleId) {
+      continue;
+    }
+
+    const existing = ruleStats.get(ruleId) ?? {
+      title: ruleId,
+      checkCount: 0,
+      violationCount: 0,
+      passCount: 0
+    };
+    const ruleStatus = stringMetadata(event, "ruleStatus");
+    const severity = stringMetadata(event, "severity");
+    const policy = stringMetadata(event, "rulePolicy");
+    const outcome = stringMetadata(event, "ruleOutcome");
+
+    ruleStats.set(ruleId, {
+      title: normalizeContextText(event.title) ?? existing.title,
+      checkCount: existing.checkCount + (ruleStatus === "check" ? 1 : 0),
+      violationCount: existing.violationCount + (ruleStatus === "violation" ? 1 : 0),
+      passCount: existing.passCount + ((ruleStatus === "pass" || ruleStatus === "fix-applied") ? 1 : 0),
+      ...(severity ? { lastSeverity: severity } : existing.lastSeverity ? { lastSeverity: existing.lastSeverity } : {}),
+      ...(policy ? { lastPolicy: policy } : existing.lastPolicy ? { lastPolicy: existing.lastPolicy } : {}),
+      ...(outcome ? { lastOutcome: outcome } : existing.lastOutcome ? { lastOutcome: existing.lastOutcome } : {})
+    });
+  }
+
+  const lines = [...ruleStats.entries()]
+    .sort((left, right) => {
+      const leftValue = left[1];
+      const rightValue = right[1];
+      if (rightValue.violationCount !== leftValue.violationCount) {
+        return rightValue.violationCount - leftValue.violationCount;
+      }
+      return left[0].localeCompare(right[0]);
+    })
+    .map(([ruleId, stat]) => {
+      const counters = `${stat.violationCount} violation · ${stat.passCount} pass · ${stat.checkCount} check`;
+      const qualifiers = [
+        stat.lastSeverity,
+        stat.lastPolicy ? `policy:${stat.lastPolicy}` : null,
+        stat.lastOutcome ? `outcome:${stat.lastOutcome}` : null
+      ].filter((value): value is string => Boolean(value));
+      return qualifiers.length > 0
+        ? `- \`${ruleId}\` (${qualifiers.join(" · ")}) — ${counters}`
+        : `- \`${ruleId}\` — ${counters}`;
+    });
+
+  if (lines.length === 0) {
+    return undefined;
+  }
+
+  return `\n## Rule Audit\n${lines.join("\n")}`;
+}
+
+function buildRuleEnforcementSection(events: readonly TimelineEvent[]): string | undefined {
+  const counters = {
+    warned: 0,
+    blocked: 0,
+    approvalRequested: 0,
+    approved: 0,
+    rejected: 0,
+    bypassed: 0
+  };
+
+  for (const event of events) {
+    if (event.kind !== "rule.logged") continue;
+
+    const outcome = stringMetadata(event, "ruleOutcome");
+    switch (outcome) {
+      case "warned":
+        counters.warned += 1;
+        continue;
+      case "blocked":
+        counters.blocked += 1;
+        continue;
+      case "approval_requested":
+        counters.approvalRequested += 1;
+        continue;
+      case "approved":
+        counters.approved += 1;
+        continue;
+      case "rejected":
+        counters.rejected += 1;
+        continue;
+      case "bypassed":
+        counters.bypassed += 1;
+        continue;
+    }
+
+    const policy = stringMetadata(event, "rulePolicy");
+    switch (policy) {
+      case "warn":
+        counters.warned += 1;
+        break;
+      case "block":
+        counters.blocked += 1;
+        break;
+      case "approval_required":
+        counters.approvalRequested += 1;
+        break;
+    }
+  }
+
+  const lines = [
+    ...(counters.warned > 0 ? [`- warned: ${counters.warned}`] : []),
+    ...(counters.blocked > 0 ? [`- blocked: ${counters.blocked}`] : []),
+    ...(counters.approvalRequested > 0 ? [`- approval requested: ${counters.approvalRequested}`] : []),
+    ...(counters.approved > 0 ? [`- approved: ${counters.approved}`] : []),
+    ...(counters.rejected > 0 ? [`- rejected: ${counters.rejected}`] : []),
+    ...(counters.bypassed > 0 ? [`- bypassed: ${counters.bypassed}`] : [])
+  ];
+
+  if (lines.length === 0) {
+    return undefined;
+  }
+
+  return `\n## Rule Enforcement\n${lines.join("\n")}`;
+}
+
+function buildEvidenceSummarySection(events: readonly TimelineEvent[]): string | undefined {
+  if (events.length === 0) {
+    return undefined;
+  }
+
+  const runtimeSource = inferRuntimeSource(events);
+  const coverage = getRuntimeCoverageSummary(runtimeSource);
+  const counts = new Map<EvidenceLevel, number>([
+    ["proven", 0],
+    ["self_reported", 0],
+    ["inferred", 0],
+    ["unavailable", 0]
+  ]);
+
+  for (const event of events) {
+    const evidence = getEventEvidence(runtimeSource, event);
+    counts.set(evidence.level, (counts.get(evidence.level) ?? 0) + 1);
+  }
+
+  const breakdown = [...counts.entries()]
+    .filter(([, count]) => count > 0)
+    .map(([level, count]) => `${count} ${formatEvidenceLabel(level)}`);
+  const lines = [
+    `- Default posture: ${formatEvidenceLabel(coverage.defaultLevel)}`,
+    `- Summary: ${coverage.summary}`
+  ];
+
+  if (breakdown.length > 0) {
+    lines.push(`- Event breakdown: ${breakdown.join(" · ")}`);
+  }
+
+  if (coverage.items.length > 0) {
+    lines.push("- Runtime coverage:");
+    for (const item of coverage.items) {
+      const suffix = item.automatic === undefined
+        ? ""
+        : item.automatic
+          ? " (automatic)"
+          : " (cooperative logging)";
+      lines.push(`  - ${item.label}: ${formatEvidenceLabel(item.level)}${suffix}`);
+    }
+  }
+
+  return `\n## Evidence Snapshot\n${lines.join("\n")}`;
+}
+
+function inferRuntimeSource(events: readonly TimelineEvent[]): string | undefined {
+  for (const event of events) {
+    const runtimeSource = stringMetadata(event, "runtimeSource");
+    if (runtimeSource) {
+      return runtimeSource;
+    }
+    const source = stringMetadata(event, "source");
+    if (source) {
+      return source;
+    }
+  }
+
+  return undefined;
+}
+
+function formatEvidenceLabel(level: EvidenceLevel): string {
+  switch (level) {
+    case "proven":
+      return "proven";
+    case "self_reported":
+      return "self-reported";
+    case "inferred":
+      return "inferred";
+    case "unavailable":
+      return "unavailable";
+  }
 }
 
 function describeWorkflowEvent(event: TimelineEvent): string | null {

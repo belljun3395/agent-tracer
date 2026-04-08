@@ -1,4 +1,11 @@
 {
+  "permissions": {
+    "defaultMode": "acceptEdits",
+    "allow": [
+      "WebSearch",
+      "WebFetch"
+    ]
+  },
   "hooks": {
     "SessionStart": [
       {

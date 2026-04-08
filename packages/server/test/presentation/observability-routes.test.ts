@@ -128,6 +128,20 @@ describe("observability routes", () => {
         relationType: "implements"
       });
 
+    await request(app)
+      .post("/api/rule")
+      .send({
+        taskId,
+        sessionId,
+        action: "check_rule",
+        ruleId: "docs-first",
+        severity: "warn",
+        status: "violation",
+        policy: "approval_required",
+        outcome: "approval_requested",
+        title: "Docs required before answer"
+      });
+
     const taskObservability = await request(app).get(`/api/tasks/${taskId}/observability`);
 
     expect(taskObservability.status).toBe(200);
@@ -137,13 +151,53 @@ describe("observability routes", () => {
     expect(taskObservability.body.observability.sessions.total).toBe(1);
     expect(taskObservability.body.observability.traceLinkCount).toBe(5);
     expect(taskObservability.body.observability.traceLinkedEventCount).toBe(5);
-    expect(taskObservability.body.observability.traceLinkEligibleEventCount).toBe(6);
-    expect(taskObservability.body.observability.traceLinkCoverageRate).toBeCloseTo(5 / 6);
+    expect(taskObservability.body.observability.traceLinkEligibleEventCount).toBe(7);
+    expect(taskObservability.body.observability.traceLinkCoverageRate).toBeCloseTo(5 / 7);
     expect(taskObservability.body.observability.actionRegistryGapCount).toBe(0);
-    expect(taskObservability.body.observability.actionRegistryEligibleEventCount).toBe(2);
+    expect(taskObservability.body.observability.actionRegistryEligibleEventCount).toBe(3);
     expect(taskObservability.body.observability.signals.rawUserMessages).toBe(1);
     expect(taskObservability.body.observability.signals.questionClosureRate).toBe(1);
     expect(taskObservability.body.observability.signals.todoCompletionRate).toBe(1);
+    expect(taskObservability.body.observability.evidence.defaultLevel).toBe("self_reported");
+    expect(taskObservability.body.observability.evidence.summary).toContain("cooperative self-reporting");
+    expect(taskObservability.body.observability.evidence.breakdown).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ level: "self_reported", count: expect.any(Number) })
+      ])
+    );
+    expect(taskObservability.body.observability.evidence.runtimeCoverage).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: "tool_activity",
+          level: "self_reported",
+          automatic: false
+        }),
+        expect.objectContaining({
+          key: "subagents_background",
+          level: "self_reported",
+          automatic: false
+        })
+      ])
+    );
+    expect(taskObservability.body.observability.rules).toEqual({
+      total: 1,
+      checks: 0,
+      passes: 0,
+      violations: 1,
+      other: 0
+    });
+    expect(taskObservability.body.observability.ruleEnforcement).toEqual(expect.objectContaining({
+      warnings: 0,
+      blocked: 0,
+      approvalRequested: 1,
+      approved: 0,
+      rejected: 0,
+      bypassed: 0,
+      activeState: "approval_required",
+      activeRuleId: "docs-first"
+    }));
+    const taskDetail = await request(app).get(`/api/tasks/${taskId}`);
+    expect(taskDetail.body.task.status).toBe("waiting");
     expect(taskObservability.body.observability.focus.topFiles).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ path: "src/observability.ts" })
@@ -151,14 +205,28 @@ describe("observability routes", () => {
     );
     expect(taskObservability.body.observability.focus.topTags).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ tag: "action:plan" }),
-        expect.objectContaining({ tag: "action:implement" })
+        expect.objectContaining({ tag: "action-registry" }),
+        expect.objectContaining({ tag: "question" })
       ])
     );
     expect(taskObservability.body.observability.phaseBreakdown).toHaveLength(5);
     expect(taskObservability.body.observability.phaseBreakdown.some((phase: { phase: string }) => phase.phase === "waiting")).toBe(false);
 
     const overview = await request(app).get("/api/observability/overview");
+
+    const openinference = await request(app).get(`/api/tasks/${taskId}/openinference`);
+    expect(openinference.status).toBe(200);
+    expect(openinference.body.openinference.taskId).toBe(taskId);
+    expect(openinference.body.openinference.spans).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          spanId: expect.any(String),
+          attributes: expect.objectContaining({
+            "ai.monitor.event.kind": expect.any(String)
+          })
+        })
+      ])
+    );
 
     expect(overview.status).toBe(200);
     expect(overview.body.observability.totalTasks).toBe(2);
@@ -192,5 +260,97 @@ describe("observability routes", () => {
         })
       ])
     );
+  });
+
+  it("updates task status from rule enforcement outcomes", async () => {
+    const runtime = await request(app)
+      .post("/api/runtime-session-ensure")
+      .send({
+        runtimeSource: "codex-cli",
+        runtimeSessionId: "runtime-guard",
+        title: "Rule Guard Task"
+      });
+
+    const taskId = runtime.body.taskId as string;
+    const sessionId = runtime.body.sessionId as string;
+
+    await request(app)
+      .post("/api/rule")
+      .send({
+        taskId,
+        sessionId,
+        action: "guard_docs",
+        ruleId: "docs-first",
+        severity: "warn",
+        status: "violation",
+        policy: "approval_required",
+        outcome: "approval_requested",
+        title: "Approval required"
+      })
+      .expect(200);
+
+    const waitingTask = await request(app).get(`/api/tasks/${taskId}`);
+    expect(waitingTask.body.task.status).toBe("waiting");
+
+    await request(app)
+      .post("/api/rule")
+      .send({
+        taskId,
+        sessionId,
+        action: "approve_docs_exception",
+        ruleId: "docs-first",
+        severity: "warn",
+        status: "pass",
+        policy: "approval_required",
+        outcome: "approved",
+        title: "Approved"
+      })
+      .expect(200);
+
+    const resumedTask = await request(app).get(`/api/tasks/${taskId}`);
+    expect(resumedTask.body.task.status).toBe("running");
+
+    await request(app)
+      .post("/api/rule")
+      .send({
+        taskId,
+        sessionId,
+        action: "block_unsafe_completion",
+        ruleId: "unsafe-complete",
+        severity: "high",
+        status: "violation",
+        policy: "block",
+        outcome: "blocked",
+        title: "Blocked"
+      })
+      .expect(200);
+
+    const blockedTask = await request(app).get(`/api/tasks/${taskId}`);
+    expect(blockedTask.body.task.status).toBe("errored");
+  });
+
+  it("runtime-session-ensure reuses an explicitly supplied taskId when creating the first binding", async () => {
+    await request(app)
+      .post("/api/task-start")
+      .send({
+        taskId: "precreated-task",
+        title: "Precreated task"
+      });
+
+    const runtime = await request(app)
+      .post("/api/runtime-session-ensure")
+      .send({
+        taskId: "precreated-task",
+        runtimeSource: "claude-hook",
+        runtimeSessionId: "runtime-explicit-id",
+        title: "Should reuse task"
+      });
+
+    expect(runtime.status).toBe(200);
+    expect(runtime.body.taskId).toBe("precreated-task");
+
+    const tasks = await request(app).get("/api/tasks");
+    const matching = tasks.body.tasks.filter((task: { id: string }) => task.id === "precreated-task");
+    expect(matching).toHaveLength(1);
   });
 });

@@ -157,7 +157,9 @@ export const ruleSchema = actionEventSchema.extend({
   ruleId: z.string().min(1),
   severity: z.string().min(1),
   status: z.string().min(1),
-  source: z.string().optional()
+  source: z.string().optional(),
+  policy: z.enum(["audit", "warn", "block", "approval_required"]).optional(),
+  outcome: z.enum(["observed", "warned", "blocked", "approval_requested", "approved", "rejected", "bypassed"]).optional()
 });
 
 /**
@@ -295,6 +297,7 @@ export const ccSessionEndSchema = z.object({
 });
 
 export const runtimeSessionEnsureSchema = z.object({
+  taskId: z.string().optional(),
   runtimeSource: z.string().min(1),
   runtimeSessionId: z.string().min(1),
   title: z.string().min(1),
@@ -331,6 +334,9 @@ const reusableTaskSnapshotSchema = z.object({
   outcomeSummary: z.string().nullable(),
   approachSummary: z.string().nullable(),
   reuseWhen: z.string().nullable(),
+  evidenceSummary: z.string().nullable(),
+  ruleAuditSummary: z.string().nullable(),
+  ruleEnforcementSummary: z.string().nullable(),
   watchItems: z.array(z.string()),
   keyDecisions: z.array(z.string()),
   nextSteps: z.array(z.string()),

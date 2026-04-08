@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildOpenInferenceTaskExport,
+  buildWorkflowContext,
   buildReusableTaskSnapshot,
   classifyEvent,
   createTaskSlug,
@@ -60,7 +62,148 @@ describe("buildReusableTaskSnapshot", () => {
 
     expect(snapshot.outcomeSummary).toBe(longSummary);
     expect(snapshot.keyDecisions).toContain(`README refresh summary: ${longDecision}`);
+    expect(snapshot.evidenceSummary).toContain("Evidence:");
     expect(snapshot.searchText).toContain("npm install && npm run build && npm run dev:server");
+  });
+
+  it("includes passive rule-audit summaries when rule events exist", () => {
+    const snapshot = buildReusableTaskSnapshot({
+      objective: "규칙 점검",
+      events: [
+        {
+          id: "rule-1",
+          taskId: "task-1",
+          kind: "rule.logged",
+          lane: "implementation",
+          title: "Read docs first",
+          metadata: { ruleStatus: "violation", rulePolicy: "block", ruleOutcome: "blocked" },
+          classification: { lane: "implementation", tags: [], matches: [] },
+          createdAt: "2026-03-28T00:00:00.000Z"
+        },
+        {
+          id: "rule-2",
+          taskId: "task-1",
+          kind: "rule.logged",
+          lane: "implementation",
+          title: "Search before answer",
+          metadata: { ruleStatus: "pass", rulePolicy: "approval_required", ruleOutcome: "approved" },
+          classification: { lane: "implementation", tags: [], matches: [] },
+          createdAt: "2026-03-28T00:00:01.000Z"
+        }
+      ]
+    });
+
+    expect(snapshot.ruleAuditSummary).toBe("Rule audit: 2 events (1 pass/fix, 1 violation, 1 blocked, 1 approved)");
+    expect(snapshot.ruleEnforcementSummary).toBe("Rule enforcement: 2 decisions (1 blocked, 1 approved)");
+    expect(snapshot.searchText).toContain("Rule audit");
+    expect(snapshot.searchText).toContain("Rule enforcement");
+  });
+});
+
+describe("buildOpenInferenceTaskExport", () => {
+  it("maps timeline events into OpenInference-aligned span records", () => {
+    const exportPayload = buildOpenInferenceTaskExport(
+      {
+        id: "task-1",
+        title: "Inspect task",
+        slug: "inspect-task",
+        status: "running",
+        taskKind: "primary",
+        runtimeSource: "codex-cli",
+        createdAt: "2026-03-28T00:00:00.000Z",
+        updatedAt: "2026-03-28T00:00:01.000Z"
+      },
+      [
+        {
+          id: "evt-1",
+          taskId: "task-1",
+          kind: "tool.used",
+          lane: "implementation",
+          title: "Read file",
+          metadata: { toolName: "Read", filePaths: ["README.md"] },
+          classification: { lane: "implementation", tags: [], matches: [] },
+          createdAt: "2026-03-28T00:00:01.000Z"
+        }
+      ]
+    );
+
+    expect(exportPayload.runtimeSource).toBe("codex-cli");
+    expect(exportPayload.spans[0]).toMatchObject({
+      spanId: "evt-1",
+      kind: "TOOL"
+    });
+    expect(exportPayload.spans[0]?.attributes["tool.name"]).toBe("Read");
+    expect(exportPayload.spans[0]?.attributes["gen_ai.system"]).toBe("openai");
+  });
+});
+
+describe("buildWorkflowContext", () => {
+  it("includes passive rule audit and evidence snapshot sections", () => {
+    const context = buildWorkflowContext(
+      [
+        {
+          id: "task-1",
+          taskId: "task-1",
+          kind: "task.start",
+          lane: "planning",
+          title: "Codex run",
+          metadata: { runtimeSource: "codex-cli" },
+          classification: { lane: "planning", tags: [], matches: [] },
+          createdAt: "2026-04-08T00:00:00.000Z"
+        },
+        {
+          id: "user-1",
+          taskId: "task-1",
+          kind: "user.message",
+          lane: "user",
+          title: "Start",
+          body: "규칙을 확인해줘",
+          metadata: { source: "codex-skill", captureMode: "raw" },
+          classification: { lane: "user", tags: [], matches: [] },
+          createdAt: "2026-04-08T00:00:01.000Z"
+        },
+        {
+          id: "rule-1",
+          taskId: "task-1",
+          kind: "rule.logged",
+          lane: "implementation",
+          title: "Rule violation: missing doc read",
+          metadata: {
+            ruleId: "doc-read-first",
+            ruleStatus: "violation",
+            severity: "high",
+            rulePolicy: "block",
+            ruleOutcome: "blocked"
+          },
+          classification: { lane: "implementation", tags: [], matches: [] },
+          createdAt: "2026-04-08T00:00:02.000Z"
+        },
+        {
+          id: "rule-2",
+          taskId: "task-1",
+          kind: "rule.logged",
+          lane: "implementation",
+          title: "Rule pass: doc read recorded",
+          metadata: {
+            ruleId: "doc-read-first",
+            ruleStatus: "pass",
+            rulePolicy: "approval_required",
+            ruleOutcome: "approved"
+          },
+          classification: { lane: "implementation", tags: [], matches: [] },
+          createdAt: "2026-04-08T00:00:03.000Z"
+        }
+      ],
+      "Rule audit task"
+    );
+
+    expect(context).toContain("## Rule Audit");
+    expect(context).toContain("`doc-read-first` (high · policy:approval_required · outcome:approved) — 1 violation · 1 pass · 0 check");
+    expect(context).toContain("## Evidence Snapshot");
+    expect(context).toContain("Default posture: self-reported");
+    expect(context).toContain("Tool and shell activity: self-reported");
+    expect(context).toContain("## Rule Enforcement Snapshot");
+    expect(context).toContain("Rule enforcement: 2 decisions (1 blocked, 1 approved)");
   });
 });
 
