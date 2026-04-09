@@ -1,12 +1,11 @@
 import type React from "react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 
 import { fetchTaskObservability, fetchTaskOpenInference, postRuleAction, updateEventDisplayTitle } from "../api.js";
 import { EventInspector, type PanelTabId } from "../components/EventInspector.js";
 import { runtimeObservabilityLabel, runtimeTagLabel } from "../components/TaskList.js";
 import { Timeline } from "../components/Timeline.js";
-import { buildResumeChatHref } from "../lib/chatRoute.js";
 import {
   buildCompactInsight,
   buildInspectorEventTitle,
@@ -19,7 +18,6 @@ import {
 import { buildTimelineRelations } from "../lib/timeline.js";
 import { refreshRealtimeMonitorData } from "../lib/realtime.js";
 import { cn } from "../lib/ui/cn.js";
-import type { useCliChat } from "../hooks/useCliChat.js";
 import { useMonitorStore } from "../store/useMonitorStore.js";
 import { useWebSocket } from "../store/useWebSocket.js";
 import type { TaskObservabilityResponse } from "../types.js";
@@ -68,13 +66,10 @@ function parseConnectorKey(
 }
 
 export function TaskWorkspacePage({
-  taskId,
-  interruptTask
+  taskId
 }: {
   readonly taskId: string;
-  readonly interruptTask: ReturnType<typeof useCliChat>["interruptTask"];
 }): React.JSX.Element {
-  const navigate = useNavigate();
   const {
     state,
     dispatch,
@@ -353,21 +348,6 @@ export function TaskWorkspacePage({
     }
   }, [refreshOverview, refreshTaskDetail, refreshTaskObservability, reviewerId, reviewerNote, selectedTaskDetail?.task, taskId, taskObservability?.observability.ruleEnforcement.activeRuleId]);
 
-  const handleInterruptTask = useCallback((): void => {
-    interruptTask(taskId);
-  }, [interruptTask, taskId]);
-
-  const handleContinueChat = useCallback((): void => {
-    if (!selectedTaskDetail?.task.workspacePath || !selectedTaskDetail.runtimeSessionId) {
-      return;
-    }
-    navigate(buildResumeChatHref({
-      taskId: selectedTaskDetail.task.id,
-      sessionId: selectedTaskDetail.runtimeSessionId,
-      workdir: selectedTaskDetail.task.workspacePath,
-      ...(selectedTaskDetail.task.runtimeSource ? { runtimeSource: selectedTaskDetail.task.runtimeSource } : {})
-    }));
-  }, [navigate, selectedTaskDetail]);
 
   const handleExportOpenInference = useCallback(async (): Promise<void> => {
     const payload = await fetchTaskOpenInference(taskId);
@@ -439,15 +419,6 @@ export function TaskWorkspacePage({
           )}
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          {selectedTaskDetail?.task.status === "running" && (
-            <button
-              className="inline-flex h-8 items-center justify-center rounded-full border border-[var(--warn-bg)] bg-[var(--warn-bg)] px-3 text-[0.76rem] font-semibold text-[var(--warn)]"
-              onClick={handleInterruptTask}
-              type="button"
-            >
-              Interrupt
-            </button>
-          )}
           <button
             className="inline-flex h-8 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 text-[0.76rem] font-semibold text-[var(--text-2)]"
             onClick={() => { void handleExportOpenInference(); }}
@@ -696,7 +667,6 @@ export function TaskWorkspacePage({
                 taskDetail={selectedTaskDetail}
                 taskModelSummary={modelSummary}
                 taskObservability={taskObservability}
-                onContinueChat={handleContinueChat}
               />
             </div>
           </div>

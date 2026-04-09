@@ -19,7 +19,6 @@ interface SidebarContainerProps {
   readonly onToggleCollapse: () => void;
   readonly onSidebarResizeStart: (event: React.PointerEvent<HTMLDivElement>) => void;
   readonly onSelectTask: (taskId: string | null) => void;
-  readonly onOpenNewChat?: () => void;
   readonly onOpenLibrary?: () => void;
 }
 
@@ -30,7 +29,6 @@ export function SidebarContainer({
   onToggleCollapse,
   onSidebarResizeStart,
   onSelectTask,
-  onOpenNewChat,
   onOpenLibrary
 }: SidebarContainerProps): React.JSX.Element {
   const {
@@ -101,30 +99,17 @@ export function SidebarContainer({
       )}
     >
       {/* Action buttons — visible when sidebar is expanded */}
-      {!isSidebarCollapsed && (onOpenNewChat || onOpenLibrary) && (
+      {!isSidebarCollapsed && onOpenLibrary && (
         <div className="flex shrink-0 items-center gap-1.5 border-b border-[var(--border)] bg-[var(--surface)] px-3 py-1.5">
-          {onOpenNewChat && (
-            <button
-              className="flex h-7 items-center gap-1.5 rounded-[8px] border border-[var(--border)] bg-[var(--surface-2)] px-2.5 text-[0.74rem] font-medium text-[var(--text-2)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--surface)] hover:text-[var(--text-1)]"
-              onClick={onOpenNewChat}
-              title="New Chat"
-              type="button"
-            >
-              <span className="text-[0.82rem]">✦</span>
-              <span>New Chat</span>
-            </button>
-          )}
-          {onOpenLibrary && (
-            <button
-              className="flex h-7 items-center gap-1.5 rounded-[8px] border border-[var(--border)] bg-[var(--surface-2)] px-2.5 text-[0.74rem] font-medium text-[var(--text-2)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--surface)] hover:text-[var(--text-1)]"
-              onClick={onOpenLibrary}
-              title="Library"
-              type="button"
-            >
-              <span className="text-[0.82rem]">⊞</span>
-              <span>Library</span>
-            </button>
-          )}
+          <button
+            className="flex h-7 items-center gap-1.5 rounded-[8px] border border-[var(--border)] bg-[var(--surface-2)] px-2.5 text-[0.74rem] font-medium text-[var(--text-2)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--surface)] hover:text-[var(--text-1)]"
+            onClick={onOpenLibrary}
+            title="Library"
+            type="button"
+          >
+            <span className="text-[0.82rem]">⊞</span>
+            <span>Library</span>
+          </button>
         </div>
       )}
       <TaskList

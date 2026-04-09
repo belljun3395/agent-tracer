@@ -7,9 +7,7 @@ import type React from "react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { Navigate, Route, Routes, useNavigate, useParams, useSearchParams } from "react-router-dom";
 
-import { createMonitoredTask, fetchDefaultWorkspace } from "./api.js";
 import { refreshRealtimeMonitorData } from "./lib/realtime.js";
-import { buildNewChatHref, buildResumeChatHref, type ResumeChatContext } from "./lib/chatRoute.js";
 import type { BookmarkSearchHit } from "./types.js";
 import { cn } from "./lib/ui/cn.js";
 import { TopBar } from "./components/TopBar.js";
@@ -19,13 +17,10 @@ import { SidebarContainer } from "./components/SidebarContainer.js";
 import { TimelineContainer } from "./components/TimelineContainer.js";
 import { InspectorContainer } from "./components/InspectorContainer.js";
 import { TaskWorkspacePage } from "./pages/TaskWorkspacePage.js";
-import { ChatPage } from "./pages/ChatPage.js";
 import { MonitorProvider, useMonitorStore } from "./store/useMonitorStore.js";
 import { useWebSocket } from "./store/useWebSocket.js";
 import { useSearch } from "./store/useSearch.js";
 import { useResizable } from "./hooks/useResizable.js";
-import { useCliChat } from "./hooks/useCliChat.js";
-import type { CliType } from "./types/chat.js";
 import { useTheme } from "./lib/useTheme.js";
 
 // ---------------------------------------------------------------------------
@@ -36,73 +31,6 @@ const ZOOM_MIN = 0.8;
 const ZOOM_MAX = 2.5;
 const ZOOM_DEFAULT = 1.1;
 const ZOOM_STORAGE_KEY = "agent-tracer.zoom";
-const DEFAULT_OPENCODE_MODEL = "openai/gpt-5.4";
-const NEW_CHAT_WORKDIR_STORAGE_KEY = "agent-tracer.new-chat-workdir";
-const NEW_CHAT_WORKDIR_HISTORY_STORAGE_KEY = "agent-tracer.new-chat-workdir-history";
-const MAX_RECENT_WORKDIRS = 6;
-
-function readRecentWorkdirs(): string[] {
-  try {
-    const raw = window.localStorage.getItem(NEW_CHAT_WORKDIR_HISTORY_STORAGE_KEY);
-    if (!raw) {
-      return [];
-    }
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) {
-      return [];
-    }
-    const unique = new Set<string>();
-    const result: string[] = [];
-    for (const entry of parsed) {
-      if (typeof entry !== "string") continue;
-      const trimmed = entry.trim();
-      if (!trimmed || unique.has(trimmed)) continue;
-      unique.add(trimmed);
-      result.push(trimmed);
-      if (result.length >= MAX_RECENT_WORKDIRS) break;
-    }
-    return result;
-  } catch {
-    return [];
-  }
-}
-
-function rememberRecentWorkdir(workdir: string): string[] {
-  const trimmed = workdir.trim();
-  if (!trimmed) {
-    return readRecentWorkdirs();
-  }
-  const next = [trimmed, ...readRecentWorkdirs().filter((entry) => entry !== trimmed)]
-    .slice(0, MAX_RECENT_WORKDIRS);
-  window.localStorage.setItem(NEW_CHAT_WORKDIR_HISTORY_STORAGE_KEY, JSON.stringify(next));
-  return next;
-}
-
-function buildNewChatTaskTitle(cli: CliType, workdir: string): string {
-  const normalized = workdir.replace(/\/+$/, "");
-  const label = normalized.split("/").filter(Boolean).pop() ?? workdir;
-  return `${cli === "opencode" ? "OpenCode" : "Claude Code"} chat · ${label}`;
-}
-
-function resolveNewChatWorkdir(
-  tasks: readonly { id: string; workspacePath?: string }[],
-  selectedTaskId: string | null
-): string {
-  const selectedTask = selectedTaskId
-    ? tasks.find((task) => task.id === selectedTaskId)
-    : undefined;
-  if (selectedTask?.workspacePath) {
-    return selectedTask.workspacePath;
-  }
-
-  const stored = window.localStorage.getItem(NEW_CHAT_WORKDIR_STORAGE_KEY)?.trim();
-  if (stored) {
-    return stored;
-  }
-
-  const firstTaskWithWorkdir = tasks.find((task) => task.workspacePath)?.workspacePath;
-  return firstTaskWithWorkdir ?? "";
-}
 
 // ---------------------------------------------------------------------------
 // Inner dashboard (consumes context)
@@ -115,7 +43,6 @@ function Dashboard({
   readonly onOpenTaskWorkspace: (taskId: string) => void;
   readonly onSelectTaskRoute: (taskId: string | null) => void;
 }): React.JSX.Element {
-  const navigate = useNavigate();
   const {
     state,
     dispatch,
@@ -173,13 +100,6 @@ function Dashboard({
 
   const [isLibraryOpen, setIsLibraryOpen] = useState(false);
   const [isApprovalQueueOpen, setIsApprovalQueueOpen] = useState(false);
-  const [isNewChatModalOpen, setIsNewChatModalOpen] = useState(false);
-  const [newChatCli, setNewChatCli] = useState<CliType>("claude");
-  const [newChatWorkdir, setNewChatWorkdir] = useState("");
-  const [newChatModel, setNewChatModel] = useState("");
-  const [recentWorkdirs, setRecentWorkdirs] = useState<string[]>([]);
-  const [newChatError, setNewChatError] = useState<string | null>(null);
-  const [isStartingNewChat, setIsStartingNewChat] = useState(false);
 
   const [zoom, setZoom] = useState<number>(() => {
     const raw = window.localStorage.getItem(ZOOM_STORAGE_KEY);
@@ -204,18 +124,6 @@ function Dashboard({
     && selectedTaskDisplayTitle.trim() !== taskDetail.task.title.trim()
   );
 
-  useEffect(() => {
-    if (isNewChatModalOpen) return;
-    const nextWorkdir = resolveNewChatWorkdir(tasks, selectedTaskId);
-    if (!nextWorkdir) return;
-    setNewChatWorkdir(nextWorkdir);
-  }, [isNewChatModalOpen, selectedTaskId, tasks]);
-
-  useEffect(() => {
-    const trimmed = newChatWorkdir.trim();
-    if (!trimmed) return;
-    window.localStorage.setItem(NEW_CHAT_WORKDIR_STORAGE_KEY, trimmed);
-  }, [newChatWorkdir]);
 
   // observabilityStats, exploredFiles, compactInsight are computed inside
   // TimelineContainer — no longer needed at Dashboard level after TopBar simplification.
@@ -257,58 +165,6 @@ function Dashboard({
     }
   }, [bookmarks, dispatch, selectDashboardTask, setSearchQuery]);
 
-  const handleOpenNewChat = useCallback(async (): Promise<void> => {
-    let nextWorkdir = resolveNewChatWorkdir(tasks, selectedTaskId);
-    if (!nextWorkdir) {
-      try {
-        nextWorkdir = (await fetchDefaultWorkspace()).workspacePath;
-      } catch {
-        nextWorkdir = "";
-      }
-    }
-    setNewChatWorkdir(nextWorkdir);
-    setNewChatCli("claude");
-    setNewChatModel("");
-    setNewChatError(null);
-    setIsStartingNewChat(false);
-    setRecentWorkdirs(readRecentWorkdirs());
-    setIsNewChatModalOpen(true);
-  }, [selectedTaskId, tasks]);
-
-  const handleStartNewChat = useCallback(async (): Promise<void> => {
-    const workdir = newChatWorkdir.trim();
-    if (!workdir) return;
-
-    setIsStartingNewChat(true);
-    setNewChatError(null);
-
-    const resolvedModel = newChatCli === "opencode"
-      ? (newChatModel.trim() || DEFAULT_OPENCODE_MODEL)
-      : undefined;
-    try {
-      const task = await createMonitoredTask({
-        title: buildNewChatTaskTitle(newChatCli, workdir),
-        workspacePath: workdir,
-        runtimeSource: newChatCli === "opencode" ? "opencode-bridge" : "claude-code-bridge"
-      });
-      setRecentWorkdirs(rememberRecentWorkdir(workdir));
-      navigate(buildNewChatHref({
-        cli: newChatCli,
-        workdir,
-        taskId: task.id,
-        ...(resolvedModel ? { model: resolvedModel } : {})
-      }));
-      setIsNewChatModalOpen(false);
-    } catch (error) {
-      setNewChatError(error instanceof Error ? error.message : "Failed to prepare chat task");
-    } finally {
-      setIsStartingNewChat(false);
-    }
-  }, [navigate, newChatCli, newChatModel, newChatWorkdir]);
-
-  const handleContinueTaskChat = useCallback((context: ResumeChatContext): void => {
-    navigate(buildResumeChatHref(context));
-  }, [navigate]);
 
   // Layout
   const dashboardStyle = useMemo(
@@ -367,7 +223,6 @@ function Dashboard({
           onToggleCollapse={() => setIsSidebarCollapsed((v) => !v)}
           onSidebarResizeStart={onSidebarResizeStart}
           onSelectTask={selectDashboardTask}
-          onOpenNewChat={() => { void handleOpenNewChat(); }}
           onOpenLibrary={() => setIsLibraryOpen(true)}
         />
 
@@ -388,7 +243,6 @@ function Dashboard({
           onToggleCollapse={() => setIsInspectorCollapsed((v) => !v)}
           onInspectorResizeStart={onInspectorResizeStart}
           onOpenTaskWorkspace={selectedTaskId ? () => onOpenTaskWorkspace(selectedTaskId) : undefined}
-          onContinueChat={handleContinueTaskChat}
         />
       </main>
 
@@ -417,127 +271,6 @@ function Dashboard({
         />
       )}
 
-      {isNewChatModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 backdrop-blur-[2px]" role="dialog" aria-modal="true" aria-label="New chat">
-          <button
-            aria-label="Close new chat"
-            className="absolute inset-0"
-            onClick={() => setIsNewChatModalOpen(false)}
-            type="button"
-          />
-          <div
-            className="relative mt-12 w-full max-w-xl overflow-hidden rounded-[14px] border border-[var(--border)] bg-[var(--surface)] shadow-[0_20px_60px_rgba(0,0,0,0.25)]"
-          >
-            <div className="border-b border-[var(--border)] bg-[var(--surface-2)] px-4 py-3">
-              <h2 className="text-[0.92rem] font-semibold text-[var(--text-1)]">New Chat</h2>
-            </div>
-            <div className="space-y-4 p-4">
-              <label className="block">
-                <span className="mb-1 block text-[0.74rem] font-semibold text-[var(--text-2)]">CLI</span>
-                <select
-                  className="w-full rounded-[8px] border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[0.82rem]"
-                  onChange={(event) => {
-                    const nextCli: CliType = event.target.value === "opencode" ? "opencode" : "claude";
-                    setNewChatCli(nextCli);
-                    if (nextCli === "opencode" && !newChatModel.trim()) {
-                      setNewChatModel(DEFAULT_OPENCODE_MODEL);
-                    }
-                  }}
-                  value={newChatCli}
-                >
-                  <option value="claude">Claude Code</option>
-                  <option value="opencode">OpenCode</option>
-                </select>
-              </label>
-              <label className="block">
-                <span className="mb-1 block text-[0.74rem] font-semibold text-[var(--text-2)]">Workdir</span>
-                <input
-                  className="w-full rounded-[8px] border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[0.82rem]"
-                  onChange={(event) => setNewChatWorkdir(event.target.value)}
-                  placeholder="/absolute/path"
-                  value={newChatWorkdir}
-                />
-              </label>
-              {recentWorkdirs.length > 0 && (
-                <div className="space-y-1.5">
-                  <div className="text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">
-                    Recent workdirs
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {recentWorkdirs.map((workdir) => (
-                      <button
-                        key={workdir}
-                        className="max-w-full truncate rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-2.5 py-1 text-[0.72rem] text-[var(--text-2)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]"
-                        onClick={() => setNewChatWorkdir(workdir)}
-                        title={workdir}
-                        type="button"
-                      >
-                        {workdir}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {newChatCli === "opencode" && (
-                <label className="block">
-                  <span className="mb-1 block text-[0.74rem] font-semibold text-[var(--text-2)]">Model</span>
-                  <select
-                    className="w-full rounded-[8px] border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[0.82rem]"
-                    onChange={(event) => setNewChatModel(event.target.value)}
-                    value={newChatModel}
-                  >
-                    <option value="">-- Select model --</option>
-                    <optgroup label="OpenAI">
-                      <option value="openai/gpt-5.3-codex-spark">openai/gpt-5.3-codex-spark</option>
-                      <option value="openai/gpt-5.3-codex">openai/gpt-5.3-codex</option>
-                      <option value="openai/gpt-5.4">openai/gpt-5.4</option>
-                    </optgroup>
-                    <optgroup label="GitHub Copilot">
-                      <option value="github-copilot/claude-opus-4.6">github-copilot/claude-opus-4.6</option>
-                      <option value="github-copilot/claude-sonnet-4.6">github-copilot/claude-sonnet-4.6</option>
-                      <option value="github-copilot/gpt-5-mini">github-copilot/gpt-5-mini</option>
-                    </optgroup>
-                    <optgroup label="Anthropic">
-                      <option value="anthropic/claude-opus-4-6">anthropic/claude-opus-4-6</option>
-                      <option value="anthropic/claude-sonnet-4-6">anthropic/claude-sonnet-4-6</option>
-                    </optgroup>
-                    <optgroup label="Other">
-                      <option value="opencode/minimax-m2.5-free">opencode/minimax-m2.5-free</option>
-                    </optgroup>
-                  </select>
-                  <span className="mt-0.5 block text-[0.68rem] text-[var(--text-3)]">
-                    {`In headless mode, OpenCode defaults to ${DEFAULT_OPENCODE_MODEL} when no model is selected.`}
-                  </span>
-                </label>
-              )}
-              <p className="m-0 text-[0.72rem] text-[var(--text-3)]">
-                Start on the dedicated chat page. A monitored task will be created before the chat opens.
-              </p>
-              {newChatError && (
-                <p className="m-0 text-[0.72rem] text-rose-400">{newChatError}</p>
-              )}
-              <div className="flex justify-end gap-2">
-                <button
-                  className="rounded-[8px] border border-[var(--border)] bg-[var(--surface-2)] px-3 py-1.5 text-[0.78rem] font-semibold"
-                  disabled={isStartingNewChat}
-                  onClick={() => setIsNewChatModalOpen(false)}
-                  type="button"
-                >
-                  Cancel
-                </button>
-                <button
-                  className="rounded-[8px] border border-[var(--accent)] bg-[var(--accent-light)] px-3 py-1.5 text-[0.78rem] font-semibold text-[var(--accent)]"
-                  disabled={!newChatWorkdir.trim() || isStartingNewChat}
-                  onClick={() => { void handleStartNewChat(); }}
-                  type="button"
-                >
-                  {isStartingNewChat ? "Preparing…" : "Start Chat"}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -575,27 +308,17 @@ function DashboardRoute(): React.JSX.Element {
   );
 }
 
-function TaskWorkspaceRoute({
-  interruptTask
-}: {
-  readonly interruptTask: ReturnType<typeof useCliChat>["interruptTask"];
-}): React.JSX.Element {
+function TaskWorkspaceRoute(): React.JSX.Element {
   const { taskId } = useParams<{ readonly taskId: string }>();
   if (!taskId) return <Navigate replace to="/" />;
-  return <TaskWorkspacePage taskId={taskId} interruptTask={interruptTask} />;
-}
-
-function ChatRoute(): React.JSX.Element {
-  return <ChatPage />;
+  return <TaskWorkspacePage taskId={taskId} />;
 }
 
 function AppRoutes(): React.JSX.Element {
-  const { interruptTask } = useCliChat();
   return (
     <Routes>
       <Route path="/" element={<DashboardRoute />} />
-      <Route path="/tasks/:taskId" element={<TaskWorkspaceRoute interruptTask={interruptTask} />} />
-      <Route path="/chat" element={<ChatRoute />} />
+      <Route path="/tasks/:taskId" element={<TaskWorkspaceRoute />} />
       <Route path="*" element={<Navigate replace to="/" />} />
     </Routes>
   );

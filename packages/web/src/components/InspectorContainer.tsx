@@ -9,7 +9,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { useMonitorStore } from "../store/useMonitorStore.js";
 import { cn } from "../lib/ui/cn.js";
-import type { ResumeChatContext } from "../lib/chatRoute.js";
 import { QuickInspector } from "./QuickInspector.js";
 import { fetchTaskObservability, updateEventDisplayTitle } from "../api.js";
 import {
@@ -45,7 +44,6 @@ interface InspectorContainerProps {
   readonly onToggleCollapse: () => void;
   readonly onInspectorResizeStart: (event: React.PointerEvent<HTMLDivElement>) => void;
   readonly onOpenTaskWorkspace?: (() => void) | undefined;
-  readonly onContinueChat?: (context: ResumeChatContext) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -58,8 +56,7 @@ export function InspectorContainer({
   selectedTaskDisplayTitle,
   onToggleCollapse,
   onInspectorResizeStart,
-  onOpenTaskWorkspace,
-  onContinueChat
+  onOpenTaskWorkspace
 }: InspectorContainerProps): React.JSX.Element {
   const {
     state,
@@ -193,7 +190,6 @@ export function InspectorContainer({
         selectedRuleId={selectedRuleId}
         isCollapsed={isInspectorCollapsed}
         {...(onOpenTaskWorkspace !== undefined ? { onOpenTaskWorkspace } : {})}
-        {...(onContinueChat !== undefined ? { onContinueChat } : {})}
         onToggleCollapse={onToggleCollapse}
         onCreateTaskBookmark={() => {
           void handleCreateTaskBookmark().catch((err) => {
