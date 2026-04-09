@@ -206,9 +206,9 @@ function CompactActivityCard({
 // ---------------------------------------------------------------------------
 
 export interface ActionsTabProps {
-  readonly taskId?: string;
+  readonly taskId?: string | undefined;
   readonly taskTitle: string;
-  readonly workspacePath?: string;
+  readonly workspacePath?: string | undefined;
   readonly taskExtraction: TaskExtraction;
   readonly compactInsight: CompactInsight;
   readonly selectedTag: string | null;
