@@ -23,12 +23,16 @@
     "zod": "^3.0.0"
   },
   "devDependencies": {
+    "@nestjs/common": "^11.1.18",
+    "@nestjs/core": "^11.1.18",
+    "@nestjs/platform-express": "^11.1.18",
     "@types/better-sqlite3": "^7.6.0",
     "@types/express": "^5.0.0",
     "@types/node": "^22.0.0",
-    "@types/ws": "^8.0.0",
-    "supertest": "^7.0.0",
     "@types/supertest": "^6.0.0",
+    "@types/ws": "^8.0.0",
+    "reflect-metadata": "^0.2.2",
+    "supertest": "^7.0.0",
     "tsup": "^8.0.0",
     "vitest": "^3.0.0"
   }
