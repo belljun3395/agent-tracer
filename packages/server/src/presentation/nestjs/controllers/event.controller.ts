@@ -25,7 +25,7 @@ import type {
   TaskThoughtInput,
   TaskAssistantResponseInput,
   EventPatchInput
-} from "../../application/types.js";
+} from "../../../application/types.js";
 import {
   toolUsedSchema,
   terminalCommandSchema,
@@ -42,7 +42,7 @@ import {
   thoughtSchema,
   assistantResponseSchema,
   eventPatchSchema
-} from "../../presentation/schemas.js";
+} from "../../schemas.js";
 
 @Controller()
 export class EventController {

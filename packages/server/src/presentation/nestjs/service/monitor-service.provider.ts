@@ -6,8 +6,8 @@
  * @Inject 데코레이터나 emitDecoratorMetadata가 필요 없다.
  */
 import { Injectable } from "@nestjs/common";
-import { MonitorService } from "../../application/monitor-service.js";
-import type { MonitorPorts } from "../../application/ports/index.js";
+import { MonitorService } from "../../../application/monitor-service.js";
+import type { MonitorPorts } from "../../../application/ports/index.js";
 
 @Injectable()
 export class MonitorServiceProvider extends MonitorService {

@@ -804,12 +804,14 @@ export function EventInspector({
   const collapseControl = showCollapseControl ? (
     <button
       aria-label={isCollapsed ? "Expand inspector" : "Collapse inspector"}
-      className="inspector-toggle-btn inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] border border-[var(--border)] bg-[var(--surface)] text-[0.95rem] font-semibold text-[var(--text-2)] shadow-sm transition-colors hover:border-[var(--border-2)] hover:bg-[var(--surface-2)]"
+      className="inspector-toggle-btn inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] text-[var(--text-2)] shadow-sm transition-colors hover:border-[var(--border-2)] hover:bg-[var(--surface-2)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-1"
       onClick={onToggleCollapse}
       title={isCollapsed ? "Expand inspector" : "Collapse inspector"}
       type="button"
     >
-      {isCollapsed ? "‹" : "›"}
+      <svg aria-hidden="true" fill="none" height="14" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" viewBox="0 0 24 24" width="14">
+        {isCollapsed ? <path d="M15 18l-6-6 6-6" /> : <path d="M9 18l6-6-6-6" />}
+      </svg>
     </button>
   ) : null;
 

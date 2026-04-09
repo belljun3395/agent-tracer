@@ -1,35 +1,27 @@
 /**
- * 사이드바 컨테이너.
- * 태스크 목록 + 사이드바 리사이즈 핸들러를 감싸는 focused 컴포넌트.
+ * 사이드바 플라이아웃 패널.
+ * IconRail에서 Tasks/Saved 버튼 클릭 시 좌측에서 슬라이드되어 나오는 오버레이.
+ * 리사이즈 핸들 없음 — 고정 너비(280px).
  */
 
 import type React from "react";
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 
 import { useMonitorStore } from "../store/useMonitorStore.js";
-import { cn } from "../lib/ui/cn.js";
 import { TaskList } from "./TaskList.js";
 import { buildQuestionGroups, buildTodoGroups } from "../lib/insights.js";
 import type { BookmarkRecord } from "../types.js";
 
 interface SidebarContainerProps {
-  readonly isCompactDashboard: boolean;
-  readonly isStackedDashboard: boolean;
-  readonly isSidebarCollapsed: boolean;
-  readonly onToggleCollapse: () => void;
-  readonly onSidebarResizeStart: (event: React.PointerEvent<HTMLDivElement>) => void;
   readonly onSelectTask: (taskId: string | null) => void;
-  readonly onOpenLibrary?: () => void;
+  readonly onClose: () => void;
+  readonly initialView?: "tasks" | "saved";
 }
 
 export function SidebarContainer({
-  isCompactDashboard,
-  isStackedDashboard,
-  isSidebarCollapsed,
-  onToggleCollapse,
-  onSidebarResizeStart,
   onSelectTask,
-  onOpenLibrary
+  onClose,
+  initialView = "tasks"
 }: SidebarContainerProps): React.JSX.Element {
   const {
     state,
@@ -50,6 +42,32 @@ export function SidebarContainer({
     taskDisplayTitleCache
   } = state;
 
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  // Close on Escape
+  useEffect(() => {
+    const handler = (e: KeyboardEvent): void => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [onClose]);
+
+  // Close on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent): void => {
+      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
+        onClose();
+      }
+    };
+    // Delay so the click that opened the flyout doesn't immediately close it
+    const t = setTimeout(() => window.addEventListener("mousedown", handler), 100);
+    return () => {
+      clearTimeout(t);
+      window.removeEventListener("mousedown", handler);
+    };
+  }, [onClose]);
+
   const selectedTaskBookmark = bookmarks.find(
     (b) => b.taskId === (selectedTaskId ?? "") && !b.eventId
   ) ?? null;
@@ -63,8 +81,9 @@ export function SidebarContainer({
       dispatch({ type: "SELECT_CONNECTOR", connectorKey: null });
       onSelectTask(bookmark.taskId);
       dispatch({ type: "SELECT_EVENT", eventId: bookmark.eventId ?? null });
+      onClose();
     },
-    [dispatch, onSelectTask]
+    [dispatch, onSelectTask, onClose]
   );
 
   const handleDeleteBookmarkWithError = useCallback(
@@ -90,28 +109,34 @@ export function SidebarContainer({
     });
   }, [dispatch, handleCreateTaskBookmark]);
 
+  const handleSelectTask = useCallback(
+    (id: string): void => {
+      onSelectTask(id);
+      onClose();
+    },
+    [onSelectTask, onClose]
+  );
+
   return (
     <div
-      className={cn(
-        "sidebar-slot relative flex min-h-0 min-w-0 flex-col overflow-hidden",
-        isCompactDashboard && "min-h-[21rem]",
-        isStackedDashboard && "order-2 overflow-visible"
-      )}
+      ref={panelRef}
+      className="flex h-full w-[280px] flex-col overflow-hidden border-r border-[var(--border)] bg-[var(--surface)] shadow-[4px_0_24px_rgba(0,0,0,0.12)]"
     >
-      {/* Action buttons — visible when sidebar is expanded */}
-      {!isSidebarCollapsed && onOpenLibrary && (
-        <div className="flex shrink-0 items-center gap-1.5 border-b border-[var(--border)] bg-[var(--surface)] px-3 py-1.5">
-          <button
-            className="flex h-7 items-center gap-1.5 rounded-[8px] border border-[var(--border)] bg-[var(--surface-2)] px-2.5 text-[0.74rem] font-medium text-[var(--text-2)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--surface)] hover:text-[var(--text-1)]"
-            onClick={onOpenLibrary}
-            title="Library"
-            type="button"
-          >
-            <span className="text-[0.82rem]">⊞</span>
-            <span>Library</span>
-          </button>
-        </div>
-      )}
+      {/* Compact flyout header */}
+      <div className="flex h-11 shrink-0 items-center justify-between border-b border-[var(--border)] bg-[var(--surface-2)] px-3">
+        <span className="text-[0.78rem] font-semibold text-[var(--text-1)]">Agent Tracer</span>
+        <button
+          aria-label="Close panel"
+          className="flex h-7 w-7 items-center justify-center rounded-[var(--radius-md)] text-[var(--text-3)] transition-colors hover:bg-[var(--surface)] hover:text-[var(--text-2)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+          onClick={onClose}
+          type="button"
+        >
+          <svg aria-hidden="true" fill="none" height="14" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" viewBox="0 0 24 24" width="14">
+            <path d="M15 18l-6-6 6-6" />
+          </svg>
+        </button>
+      </div>
+
       <TaskList
         tasks={tasks}
         bookmarks={bookmarks}
@@ -123,22 +148,17 @@ export function SidebarContainer({
         selectedTaskTodoCount={todoCount}
         deletingTaskId={deletingTaskId}
         deleteErrorTaskId={deleteErrorTaskId}
-        isCollapsed={isSidebarCollapsed}
-        onToggleCollapse={onToggleCollapse}
-        onSelectTask={(id) => onSelectTask(id)}
+        isCollapsed={false}
+        hideHeader
+        initialView={initialView}
+        onToggleCollapse={onClose}
+        onSelectTask={handleSelectTask}
         onSelectBookmark={handleSelectBookmark}
         onDeleteBookmark={handleDeleteBookmarkWithError}
         onSaveTaskBookmark={handleSaveTaskBookmark}
         onDeleteTask={(id) => void handleDeleteTask(id)}
         onRefresh={() => void refreshOverview()}
       />
-      {!isSidebarCollapsed && (
-        <div
-          aria-hidden="true"
-          className="sidebar-resizer absolute right-[-9px] top-2 bottom-2 z-10 w-3 cursor-col-resize before:absolute before:left-[5px] before:top-0 before:bottom-0 before:w-0.5 before:rounded-full before:bg-[color-mix(in_srgb,var(--border)_74%,transparent)] before:transition-colors hover:before:bg-[color-mix(in_srgb,var(--accent)_75%,transparent)]"
-          onPointerDown={onSidebarResizeStart}
-        />
-      )}
     </div>
   );
 }

@@ -8,8 +8,8 @@ import {
   Query, HttpException, HttpStatus
 } from "@nestjs/common";
 import { MonitorServiceProvider } from "../service/monitor-service.provider.js";
-import type { TaskSearchInput } from "../../application/types.js";
-import { searchSchema } from "../../presentation/schemas.js";
+import type { TaskSearchInput } from "../../../application/types.js";
+import { searchSchema } from "../../schemas.js";
 
 @Controller()
 export class SearchController {

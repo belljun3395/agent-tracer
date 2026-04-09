@@ -1,6 +1,7 @@
 /**
  * 대시보드 루트 컴포넌트.
- * 레이아웃 조합만 담당. 데이터 페칭·소켓·검색은 store hooks에 위임.
+ * 레이아웃: IconRail(48px) + Timeline(flex-1) + Inspector Drawer(슬라이드)
+ * 플라이아웃(태스크/저장) 오버레이는 IconRail 우측에 렌더링된다.
  */
 
 import type React from "react";
@@ -16,6 +17,8 @@ import { ApprovalQueuePanel } from "./components/ApprovalQueuePanel.js";
 import { SidebarContainer } from "./components/SidebarContainer.js";
 import { TimelineContainer } from "./components/TimelineContainer.js";
 import { InspectorContainer } from "./components/InspectorContainer.js";
+import { IconRail } from "./components/IconRail.js";
+import type { RailPanel } from "./components/IconRail.js";
 
 // Code-split page routes
 const TaskWorkspacePage = lazy(() =>
@@ -24,7 +27,6 @@ const TaskWorkspacePage = lazy(() =>
 import { MonitorProvider, useMonitorStore } from "./store/useMonitorStore.js";
 import { useWebSocket } from "./store/useWebSocket.js";
 import { useSearch } from "./store/useSearch.js";
-import { useResizable } from "./hooks/useResizable.js";
 import { useTheme } from "./lib/useTheme.js";
 
 // ---------------------------------------------------------------------------
@@ -35,6 +37,9 @@ const ZOOM_MIN = 0.8;
 const ZOOM_MAX = 2.5;
 const ZOOM_DEFAULT = 1.1;
 const ZOOM_STORAGE_KEY = "agent-tracer.zoom";
+
+// Inspector drawer width
+const INSPECTOR_WIDTH = 360;
 
 // ---------------------------------------------------------------------------
 // Inner dashboard (consumes context)
@@ -64,7 +69,7 @@ function Dashboard({
     taskDisplayTitleCache
   } = state;
 
-  // WebSocket: message 수신 시 overview + taskDetail 새로고침
+  // WebSocket
   const { isConnected: wsConnected } = useWebSocket((message) => {
     void refreshRealtimeMonitorData({
       message,
@@ -89,20 +94,17 @@ function Dashboard({
     setTaskScopeEnabled
   } = useSearch(selectedTaskId ?? undefined);
 
-  // Resize state via hook
-  const {
-    sidebarWidth,
-    inspectorWidth,
-    isSidebarCollapsed,
-    isInspectorCollapsed,
-    viewportWidth,
-    setIsSidebarCollapsed,
-    setIsInspectorCollapsed,
-    onSidebarResizeStart,
-    onInspectorResizeStart
-  } = useResizable();
+  // Rail panel flyout state
+  const [activePanel, setActivePanel] = useState<RailPanel>(null);
 
-  const [isLibraryOpen, setIsLibraryOpen] = useState(false);
+  const togglePanel = useCallback((panel: Exclude<RailPanel, null>): void => {
+    setActivePanel((v) => (v === panel ? null : panel));
+  }, []);
+
+  // Inspector drawer: visible when a task is selected
+  const isInspectorOpen = Boolean(selectedTaskId);
+
+  // Library / Approval queue modals
   const [isApprovalQueueOpen, setIsApprovalQueueOpen] = useState(false);
 
   const [zoom, setZoom] = useState<number>(() => {
@@ -128,9 +130,6 @@ function Dashboard({
     && selectedTaskDisplayTitle.trim() !== taskDetail.task.title.trim()
   );
 
-
-  // observabilityStats, exploredFiles, compactInsight are computed inside
-  // TimelineContainer — no longer needed at Dashboard level after TopBar simplification.
   const selectDashboardTask = useCallback((taskId: string | null): void => {
     onSelectTaskRoute(taskId);
     dispatch({ type: "SELECT_TASK", taskId });
@@ -169,29 +168,9 @@ function Dashboard({
     }
   }, [bookmarks, dispatch, selectDashboardTask, setSearchQuery]);
 
-
-  // Layout
-  const dashboardStyle = useMemo(
-    () => ({
-      "--sidebar-width": `${sidebarWidth}px`,
-      "--inspector-width": `${inspectorWidth}px`
-    }) as React.CSSProperties,
-    [sidebarWidth, inspectorWidth]
-  );
-
-  const isStackedDashboard = viewportWidth < 1024;
-  const isCompactDashboard = viewportWidth < 1280;
-
-  const dashboardColumns = viewportWidth < 1024
-    ? "!grid-cols-1"
-    : viewportWidth < 1280
-      ? (isSidebarCollapsed ? "!grid-cols-[44px_minmax(0,1fr)]" : "!grid-cols-[var(--sidebar-width)_minmax(0,1fr)]")
-      : (isSidebarCollapsed
-        ? (isInspectorCollapsed ? "!grid-cols-[44px_minmax(0,1fr)_44px]" : "!grid-cols-[44px_minmax(0,1fr)_var(--inspector-width)]")
-        : (isInspectorCollapsed ? "!grid-cols-[var(--sidebar-width)_minmax(0,1fr)_44px]" : "!grid-cols-[var(--sidebar-width)_minmax(0,1fr)_var(--inspector-width)]"));
-
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-[var(--bg)]">
+      {/* ── Top bar ── */}
       <TopBar
         isConnected={isConnected}
         pendingApprovalCount={state.overview?.observability?.tasksAwaitingApproval ?? 0}
@@ -210,54 +189,84 @@ function Dashboard({
         onRefresh={() => void refreshOverview()}
       />
 
-      <main
-        className={cn(
-          "dashboard-shell grid flex-1 min-h-0 gap-3 p-2.5 transition-[grid-template-columns] duration-200",
-          dashboardColumns,
-          isStackedDashboard ? "auto-rows-max overflow-y-auto" : "overflow-hidden",
-          isSidebarCollapsed && "sidebar-collapsed",
-          isInspectorCollapsed && "inspector-collapsed"
+      {/* ── Body: icon rail + timeline + drawers ── */}
+      <div className="relative flex flex-1 min-h-0 overflow-hidden">
+
+        {/* Icon rail — always visible */}
+        <IconRail
+          activePanel={activePanel}
+          taskCount={tasks.length}
+          savedCount={bookmarks.length}
+          isConnected={isConnected}
+          onTogglePanel={togglePanel}
+        />
+
+        {/* Task/Saved flyout overlay */}
+        {(activePanel === "tasks" || activePanel === "saved") && (
+          <>
+            {/* Backdrop — semi-transparent, closes flyout on click */}
+            <div
+              aria-hidden="true"
+              className="absolute inset-0 z-20 bg-black/20"
+              onClick={() => setActivePanel(null)}
+            />
+            {/* Panel */}
+            <div className="absolute bottom-0 left-12 top-0 z-30 flex animate-[slideInLeft_150ms_ease-out]">
+              <SidebarContainer
+                onSelectTask={selectDashboardTask}
+                onClose={() => setActivePanel(null)}
+                initialView={activePanel === "saved" ? "saved" : "tasks"}
+              />
+            </div>
+          </>
         )}
-        style={dashboardStyle}
-      >
-        <SidebarContainer
-          isCompactDashboard={isCompactDashboard}
-          isStackedDashboard={isStackedDashboard}
-          isSidebarCollapsed={isSidebarCollapsed}
-          onToggleCollapse={() => setIsSidebarCollapsed((v) => !v)}
-          onSidebarResizeStart={onSidebarResizeStart}
-          onSelectTask={selectDashboardTask}
-          onOpenLibrary={() => setIsLibraryOpen(true)}
-        />
 
-        <TimelineContainer
-          isCompactDashboard={isCompactDashboard}
-          isStackedDashboard={isStackedDashboard}
-          zoom={zoom}
-          selectedTaskDisplayTitle={selectedTaskDisplayTitle}
-          selectedTaskUsesDerivedTitle={selectedTaskUsesDerivedTitle}
-          onZoomChange={setZoom}
-          onOpenTaskWorkspace={selectedTaskId ? () => onOpenTaskWorkspace(selectedTaskId) : undefined}
-        />
+        {/* Timeline — fills all remaining space */}
+        <div
+          className="relative flex min-h-0 min-w-0 flex-1 flex-col p-2.5 transition-[padding-right] duration-200"
+          style={{ paddingRight: isInspectorOpen ? `${INSPECTOR_WIDTH + 10}px` : undefined }}
+        >
+          <TimelineContainer
+            isCompactDashboard={false}
+            isStackedDashboard={false}
+            zoom={zoom}
+            selectedTaskDisplayTitle={selectedTaskDisplayTitle}
+            selectedTaskUsesDerivedTitle={selectedTaskUsesDerivedTitle}
+            onZoomChange={setZoom}
+            onOpenTaskWorkspace={selectedTaskId ? () => onOpenTaskWorkspace(selectedTaskId) : undefined}
+          />
+        </div>
 
-        <InspectorContainer
-          isStackedDashboard={isStackedDashboard}
-          isInspectorCollapsed={isInspectorCollapsed}
-          selectedTaskDisplayTitle={selectedTaskDisplayTitle}
-          onToggleCollapse={() => setIsInspectorCollapsed((v) => !v)}
-          onInspectorResizeStart={onInspectorResizeStart}
-          onOpenTaskWorkspace={selectedTaskId ? () => onOpenTaskWorkspace(selectedTaskId) : undefined}
-        />
-      </main>
+        {/* Inspector drawer — slides in from the right */}
+        <div
+          className={cn(
+            "absolute bottom-0 right-0 top-0 z-10 flex flex-col transition-transform duration-200 ease-out",
+            isInspectorOpen ? "translate-x-0" : "translate-x-full"
+          )}
+          style={{ width: INSPECTOR_WIDTH }}
+        >
+          <InspectorContainer
+            isStackedDashboard={false}
+            isInspectorCollapsed={false}
+            selectedTaskDisplayTitle={selectedTaskDisplayTitle}
+            onToggleCollapse={() => {
+              dispatch({ type: "SELECT_TASK", taskId: null });
+            }}
+            onOpenTaskWorkspace={selectedTaskId ? () => onOpenTaskWorkspace(selectedTaskId) : undefined}
+          />
+        </div>
+      </div>
 
-      {isLibraryOpen && (
+      {/* Library flyout (from icon rail) */}
+      {activePanel === "library" && (
         <WorkflowLibraryPanel
           onSelectTask={(taskId) => {
             dispatch({ type: "SELECT_CONNECTOR", connectorKey: null });
             dispatch({ type: "SELECT_EVENT", eventId: null });
             selectDashboardTask(taskId);
+            setActivePanel(null);
           }}
-          onClose={() => setIsLibraryOpen(false)}
+          onClose={() => setActivePanel(null)}
         />
       )}
 
@@ -274,7 +283,6 @@ function Dashboard({
           }}
         />
       )}
-
     </div>
   );
 }

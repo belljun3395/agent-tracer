@@ -10,7 +10,7 @@ import {
 import type { Response } from "express";
 import { Res } from "@nestjs/common";
 import { MonitorServiceProvider } from "../service/monitor-service.provider.js";
-import { taskEvaluateSchema } from "../../presentation/schemas.js";
+import { taskEvaluateSchema } from "../../schemas.js";
 
 @Controller()
 export class EvaluationController {
