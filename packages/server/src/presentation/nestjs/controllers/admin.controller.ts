@@ -3,7 +3,7 @@
  *
  * Health check, overview, task read, observability, and openinference endpoints.
  */
-import { Controller, Get, Param, NotFoundException } from "@nestjs/common";
+import { Controller, Get, Param, HttpException, HttpStatus } from "@nestjs/common";
 import { MonitorServiceProvider } from "../service/monitor-service.provider.js";
 
 @Controller()
@@ -46,7 +46,7 @@ export class AdminController {
   async taskObservability(@Param("taskId") taskId: string) {
     const observability = await this.service.getTaskObservability(taskId);
     if (!observability) {
-      throw new NotFoundException("Task not found");
+      throw new HttpException({ error: "Task not found" }, HttpStatus.NOT_FOUND);
     }
     return observability;
   }
@@ -55,7 +55,7 @@ export class AdminController {
   async taskOpenInference(@Param("taskId") taskId: string) {
     const exportPayload = await this.service.getTaskOpenInference(taskId);
     if (!exportPayload) {
-      throw new NotFoundException("Task not found");
+      throw new HttpException({ error: "Task not found" }, HttpStatus.NOT_FOUND);
     }
     return exportPayload;
   }
@@ -64,7 +64,7 @@ export class AdminController {
   async getTask(@Param("taskId") taskId: string) {
     const task = await this.service.getTask(taskId);
     if (!task) {
-      throw new NotFoundException("Task not found");
+      throw new HttpException({ error: "Task not found" }, HttpStatus.NOT_FOUND);
     }
     const [timeline, runtimeSession] = await Promise.all([
       this.service.getTaskTimeline(task.id),

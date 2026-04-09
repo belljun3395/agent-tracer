@@ -12,10 +12,6 @@ export default defineConfig({
         target: "ws://127.0.0.1:3847",
         ws: true
       },
-      "/cli": {
-        target: "ws://127.0.0.1:3847",
-        ws: true
-      }
     }
   }
 });
