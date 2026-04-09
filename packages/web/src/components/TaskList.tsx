@@ -65,22 +65,13 @@ interface RuntimeFilterOption {
 type RailView = "tasks" | "saved";
 
 const railSectionHeaderClass =
-  "sticky top-0 z-10 flex items-center justify-between border-b border-[var(--border)] bg-[linear-gradient(180deg,var(--surface-2),var(--surface))] px-[14px] py-2 text-[0.68rem] font-semibold uppercase tracking-[0.1em] text-[var(--text-3)]";
-
-const railTabButtonBaseClass =
-  "inline-flex h-8 min-w-0 w-full items-center justify-center gap-1 whitespace-nowrap rounded-full border px-3 text-[0.74rem] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-1";
-
-const railTabButtonActiveClass =
-  "border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] text-[var(--accent)]";
-
-const railTabButtonIdleClass =
-  "border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-2)] hover:border-[var(--border-2)] hover:bg-[var(--surface)]";
+  "sticky top-0 z-10 flex items-center justify-between border-b border-[var(--border)] bg-[var(--surface)] px-3 py-1.5 text-[0.65rem] font-medium uppercase tracking-[0.06em] text-[var(--text-3)]";
 
 const railRowBaseClass =
-  "group relative shrink-0 overflow-hidden rounded-[var(--radius-lg)] border border-transparent px-3 py-2.5 transition-[background-color,border-color,box-shadow] hover:border-[var(--border)] hover:bg-[var(--surface-2)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-1";
+  "group relative shrink-0 overflow-hidden rounded-[var(--radius-md)] border border-transparent px-2.5 py-2 transition-[background-color,border-color] duration-150 hover:bg-[var(--surface-2)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--accent)] cursor-pointer";
 
 const railSelectedRowClass =
-  "border-[var(--exploration-border)] bg-[var(--exploration-bg)] shadow-[inset_0_0_0_1px_var(--exploration-border)] before:absolute before:inset-y-1.5 before:left-0 before:w-0.5 before:rounded-full before:bg-[var(--exploration)] before:content-['']";
+  "bg-[var(--surface-2)] before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:rounded-full before:bg-[var(--accent)] before:content-['']";
 
 const railContentButtonClass =
   "flex min-w-0 flex-col items-start justify-start rounded-none border-0 bg-transparent p-0 text-left font-normal shadow-none outline-none transition-colors";
@@ -212,55 +203,73 @@ export function TaskList({
           </div>
         )}
 
-        <Button
-          className="mx-3 mt-2 w-[calc(100%-1.5rem)] justify-start gap-1.5 px-3 py-2 text-[0.82rem] font-medium"
-          onClick={onRefresh}
-          size="sm"
-          variant="ghost"
-        >
-          <img alt="" className="icon-adaptive h-3.5 w-3.5 opacity-60" src="/icons/refresh.svg" />
-          Refresh Snapshot
-        </Button>
+        {/* Compact action toolbar */}
+        <div className="flex items-center gap-0.5 border-b border-[var(--border)] px-1.5 py-1">
+          <button
+            className="flex cursor-pointer items-center gap-1.5 rounded-[var(--radius-md)] px-2 py-1.5 text-[0.72rem] font-medium text-[var(--text-3)] transition-colors hover:bg-[var(--surface-2)] hover:text-[var(--text-2)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--accent)]"
+            onClick={onRefresh}
+            title="Refresh snapshot"
+            type="button"
+          >
+            <svg aria-hidden="true" fill="none" height="12" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" width="12">
+              <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+              <path d="M21 3v5h-5" />
+              <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+              <path d="M8 16H3v5" />
+            </svg>
+            <span>Refresh</span>
+          </button>
+          <div className="flex-1" />
+          <button
+            className={cn(
+              "flex items-center gap-1.5 rounded-[var(--radius-md)] px-2 py-1.5 text-[0.72rem] font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--accent)]",
+              selectedTaskBookmarkId
+                ? "cursor-pointer text-[var(--accent)] hover:bg-[color-mix(in_srgb,var(--accent)_8%,transparent)] hover:opacity-80"
+                : selectedTaskId
+                  ? "cursor-pointer text-[var(--text-2)] hover:bg-[var(--surface-2)] hover:text-[var(--text-1)]"
+                  : "cursor-not-allowed text-[var(--text-3)] opacity-40"
+            )}
+            disabled={!selectedTaskId}
+            onClick={selectedTaskBookmarkId ? () => onDeleteBookmark(selectedTaskBookmarkId) : onSaveTaskBookmark}
+            title={selectedTaskBookmarkId ? "Click to remove bookmark" : "Save current task"}
+            type="button"
+          >
+            <svg aria-hidden="true" fill={selectedTaskBookmarkId ? "currentColor" : "none"} height="12" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" width="12">
+              <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+            </svg>
+            <span>{selectedTaskBookmarkId ? "Saved" : "Save task"}</span>
+          </button>
+        </div>
 
-        <Button
-          className="mx-3 mt-2 w-[calc(100%-1.5rem)] justify-start gap-1.5 px-3 py-2 text-[0.82rem] font-medium"
-          disabled={!selectedTaskId || selectedTaskBookmarkId !== null}
-          onClick={onSaveTaskBookmark}
-          size="sm"
-          variant="ghost"
-        >
-          <img alt="" className="icon-adaptive h-3.5 w-3.5 opacity-60" src="/icons/layers.svg" />
-          {selectedTaskBookmarkId ? "Saved Current Task" : "Save Current Task"}
-        </Button>
-
-        <div className="mx-3 mt-3 grid grid-cols-2 gap-1 rounded-full border border-[var(--border)] bg-[var(--surface-2)] p-1">
+        {/* Underline tab switcher */}
+        <div className="flex border-b border-[var(--border)]">
           <button
             aria-pressed={railView === "tasks"}
             className={cn(
-              railTabButtonBaseClass,
-              railView === "tasks" ? railTabButtonActiveClass : railTabButtonIdleClass
+              "relative flex-1 py-2 text-[0.77rem] font-medium transition-colors focus-visible:outline-none cursor-pointer",
+              railView === "tasks" ? "text-[var(--text-1)]" : "text-[var(--text-3)] hover:text-[var(--text-2)]"
             )}
             onClick={() => setRailView("tasks")}
             type="button"
           >
-            <span>Tasks</span>
-            <Badge className="normal-case tracking-normal" size="xs" tone="neutral">
-              {filteredTasks.length}
-            </Badge>
+            Tasks
+            {railView === "tasks" && (
+              <span className="absolute bottom-0 left-4 right-4 h-0.5 rounded-full bg-[var(--accent)]" />
+            )}
           </button>
           <button
             aria-pressed={railView === "saved"}
             className={cn(
-              railTabButtonBaseClass,
-              railView === "saved" ? railTabButtonActiveClass : railTabButtonIdleClass
+              "relative flex-1 py-2 text-[0.77rem] font-medium transition-colors focus-visible:outline-none cursor-pointer",
+              railView === "saved" ? "text-[var(--text-1)]" : "text-[var(--text-3)] hover:text-[var(--text-2)]"
             )}
             onClick={() => setRailView("saved")}
             type="button"
           >
-            <span>Saved</span>
-            <Badge className="normal-case tracking-normal" size="xs" tone="neutral">
-              {bookmarks.length}
-            </Badge>
+            Saved
+            {railView === "saved" && (
+              <span className="absolute bottom-0 left-4 right-4 h-0.5 rounded-full bg-[var(--accent)]" />
+            )}
           </button>
         </div>
 
@@ -268,9 +277,6 @@ export function TaskList({
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
             <div className={railSectionHeaderClass}>
               <span>Saved</span>
-              <Badge className="normal-case tracking-normal" size="xs" tone="neutral">
-                {bookmarks.length}
-              </Badge>
             </div>
 
             {bookmarks.length === 0 ? (
@@ -332,16 +338,11 @@ export function TaskList({
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
             <div className={railSectionHeaderClass}>
               <span>Tracked Tasks</span>
-              <div className="ml-auto flex items-center gap-2">
-                {filteredTasks.length > 10 && (
-                  <span className="text-[0.62rem] font-normal normal-case tracking-normal text-[var(--text-3)]">
-                    Drag to browse
-                  </span>
-                )}
-                <Badge className="normal-case tracking-normal" size="xs" tone="neutral">
-                  {filteredTasks.length === tasks.length ? tasks.length : `${filteredTasks.length}/${tasks.length}`}
-                </Badge>
-              </div>
+              {filteredTasks.length > 10 && (
+                <span className="ml-auto text-[0.62rem] font-normal normal-case tracking-normal text-[var(--text-3)]">
+                  Drag to browse
+                </span>
+              )}
             </div>
 
             {tasks.length === 0 ? (
@@ -355,8 +356,8 @@ export function TaskList({
             ) : (
               <>
                 {runtimeFilterOptions.length > 1 && (
-                  <div className="border-b border-[var(--border)] px-3 py-2">
-                    <div className="flex flex-wrap gap-1.5">
+                  <div className="border-b border-[var(--border)] px-2.5 py-1.5">
+                    <div className="flex flex-wrap gap-1">
                       {runtimeFilterOptions.map((option) => {
                         const isActive = option.key === runtimeFilter;
 
@@ -365,16 +366,15 @@ export function TaskList({
                             key={option.key}
                             aria-pressed={isActive}
                             className={cn(
-                              "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[0.7rem] font-medium transition-colors",
+                              "inline-flex cursor-pointer items-center rounded-md px-2 py-0.5 text-[0.69rem] font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--accent)]",
                               isActive
-                                ? "border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] text-[var(--accent)]"
-                                : "border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-2)] hover:border-[var(--border-2)] hover:bg-[var(--surface)]"
+                                ? "bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] text-[var(--accent)]"
+                                : "text-[var(--text-3)] hover:bg-[var(--surface-2)] hover:text-[var(--text-2)]"
                             )}
                             onClick={() => setRuntimeFilter(option.key)}
                             type="button"
                           >
-                            <span>{option.label}</span>
-                            <span className="text-[0.66rem] text-[inherit]/80">{option.count}</span>
+                            {option.label}
                           </button>
                         );
                       })}
@@ -452,56 +452,47 @@ export function TaskList({
                               title={taskDisplayTitle}
                               type="button"
                             >
-                              <div className="w-full truncate text-[0.89rem] font-semibold leading-5 text-[var(--text-1)]">
+                              <div className="w-full truncate text-[0.84rem] font-medium leading-5 text-[var(--text-1)]">
                                 {taskDisplayTitle}
                               </div>
 
-                              <div className="mt-1 flex w-full min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-[0.7rem] text-[var(--text-3)]">
-                                <Badge
-                                  className="uppercase tracking-[0.06em]"
-                                  size="sm"
-                                  tone={
+                              <div className="mt-1 flex w-full min-w-0 items-center gap-1.5 text-[0.7rem] text-[var(--text-3)]">
+                                {/* Status dot */}
+                                <span
+                                  className={cn(
+                                    "h-1.5 w-1.5 shrink-0 rounded-full",
                                     task.status === "running"
-                                      ? "success"
+                                      ? "animate-pulse bg-[var(--ok)]"
                                       : task.status === "waiting"
-                                        ? "neutral"
+                                        ? "bg-[var(--warn)]"
                                         : task.status === "completed"
-                                          ? "accent"
-                                          : "danger"
-                                  }
-                                >
-                                  {task.status}
-                                </Badge>
-                                {task.taskKind === "background" ? (
-                                  <Badge className="border-[color-mix(in_srgb,#6366f1_30%,transparent)] bg-[color-mix(in_srgb,#6366f1_12%,transparent)] text-[#6366f1]" size="xs" tone="neutral">
-                                    background
-                                  </Badge>
-                                ) : (
-                                  <Badge size="xs" tone="neutral">
-                                    primary
-                                  </Badge>
-                                )}
+                                          ? "bg-[var(--accent)]"
+                                          : "bg-[var(--err)]"
+                                  )}
+                                />
+                                <span className="shrink-0 capitalize">{task.status}</span>
+                                <span className="text-[var(--text-3)]/40">·</span>
+                                <span className="shrink-0">{formatRelativeTime(task.updatedAt)}</span>
                                 {task.runtimeSource && (
                                   <Badge
-                                    className={runtimeBadgeClass(task.runtimeSource)}
+                                    className={cn(runtimeBadgeClass(task.runtimeSource), "ml-auto")}
                                     size="xs"
                                     tone="neutral"
                                   >
                                     {runtimeTagLabel(task.runtimeSource)}
                                   </Badge>
                                 )}
-                                {(task.taskKind ?? "primary") === "primary" && childCount > 0 && (
-                                  <Badge className="border-[var(--planning-border)] bg-[var(--planning-bg)] text-[var(--planning)]" size="xs" tone="neutral">
-                                    {childCount} child{childCount === 1 ? "" : "ren"}
+                                {task.taskKind === "background" && (
+                                  <Badge className="border-[color-mix(in_srgb,#6366f1_30%,transparent)] bg-[color-mix(in_srgb,#6366f1_10%,transparent)] text-[#6366f1]" size="xs" tone="neutral">
+                                    bg
                                   </Badge>
                                 )}
-                                <span className="shrink-0">{formatRelativeTime(task.updatedAt)}</span>
                               </div>
 
                               {task.id === selectedTaskId && (
                                 <div className="mt-1.5 flex w-full min-w-0 flex-col gap-1">
                                   {task.workspacePath && (
-                                    <div className="w-full truncate font-mono text-[0.69rem] text-[var(--text-3)]">
+                                    <div className="w-full truncate font-mono text-[0.67rem] text-[var(--text-3)]/60">
                                       {task.workspacePath}
                                     </div>
                                   )}
