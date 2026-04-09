@@ -98,8 +98,8 @@ describe("observability read model", () => {
                 workItemId: "work-1",
                 filePaths: ["src/a.ts", "src/b.ts"]
             }, ["implementation", "edit"], "session-2"),
-            makeEvent("evt-9", "verification.logged", "rules", "2026-03-27T00:04:30.000Z", { result: "ok", status: "passed" }, ["verification"]),
-            makeEvent("evt-10", "rule.logged", "rules", "2026-03-27T00:04:40.000Z", { ruleStatus: "violation", severity: "warn", rulePolicy: "block", ruleOutcome: "blocked" }, ["verification"]),
+            makeEvent("evt-9", "verification.logged", "implementation", "2026-03-27T00:04:30.000Z", { result: "ok", status: "passed" }, ["verification"]),
+            makeEvent("evt-10", "rule.logged", "implementation", "2026-03-27T00:04:40.000Z", { ruleStatus: "violation", severity: "warn", rulePolicy: "block", ruleOutcome: "blocked" }, ["verification"]),
             makeEvent("evt-11", "agent.activity.logged", "coordination", "2026-03-27T00:04:50.000Z", {
                 workItemId: "work-1",
                 goalId: "goal-1",
@@ -164,7 +164,7 @@ describe("observability read model", () => {
             activeState: "blocked"
         }));
         expect(summary.phaseBreakdown).toHaveLength(5);
-        expect(summary.phaseBreakdown.some((phase) => phase.phase === "waiting")).toBe(false);
+        expect(summary.phaseBreakdown.map((phase) => phase.phase)).not.toContain("waiting");
     });
     it("summarizes overview across runtime sources and stale running tasks", () => {
         const taskA = makeTask({
