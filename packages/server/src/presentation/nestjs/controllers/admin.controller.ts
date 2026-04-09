@@ -73,7 +73,10 @@ export class AdminController {
     return {
       task,
       timeline,
-      ...(runtimeSession ? { runtimeSessionId: runtimeSession.runtimeSessionId } : {})
+      ...(runtimeSession ? {
+        runtimeSessionId: runtimeSession.runtimeSessionId,
+        runtimeSource: runtimeSession.runtimeSource
+      } : {})
     };
   }
 }

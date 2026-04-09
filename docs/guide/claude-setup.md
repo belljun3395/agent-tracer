@@ -9,22 +9,27 @@ Claude-specific steps after the shared setup flow.
 
 ## 1. What `setup:external --mode claude` automates
 
+Agent Tracer is now a Claude Code **plugin** (`.claude/plugin/`). The
+setup script no longer vendors hook scripts; it just prepares the target
+project's `.claude/settings.json` and prints how to launch Claude Code with the
+plugin.
+
 The script:
 
 - creates or merges `target-project/.claude/settings.json`
-- adds a repo-local `permissions` block so `WebSearch` and `WebFetch` are allowed by default
-- vendors hook source files into `target-project/.agent-tracer/.claude/hooks/*.ts`
-- points hook commands to the target repo root using `$CLAUDE_PROJECT_DIR` first, then git-root / upward-directory fallback, before resolving `.agent-tracer/.claude/hooks/*.ts`
-- uses `npx --yes tsx` to execute the hook files
-- defaults to a pinned source ref, using `AGENT_TRACER_SOURCE_REF` when set,
-  then the current git `HEAD`, then `main`
-- can vendor from a local checkout with `--source-root` without changing the
-  local override path
+- adds a `permissions` block so `WebSearch` and `WebFetch` are allowed by default
+- **strips** any legacy `hooks` block from a pre-existing `settings.json` (the
+  plugin owns hook registration now — leaving stale entries would double-fire
+  events)
+- prints the absolute path of the Agent Tracer plugin (`.claude/plugin/`)
+  along with the `claude --plugin-dir <path>` command and an alias suggestion
 
 The script does **not**:
 
 - register the Claude MCP server for you
-- bundle a full local clone of the Agent Tracer repository into the target project
+- vendor any hook source files into the target project
+- install the plugin permanently (use `--plugin-dir` for now; a marketplace
+  install path is tracked separately)
 - force a globally unsafe `bypassPermissions` mode
 
 ## Permission defaults
@@ -61,11 +66,47 @@ npm run build
 npm run setup:external -- --target /path/to/your-project --mode claude
 ```
 
-If you are wiring this into another checkout and want to pin a specific source
-version, pass `--source-ref <commit-or-tag>` or set `AGENT_TRACER_SOURCE_REF`.
-For local source overrides, use `--source-root /path/to/agent-tracer`.
+The script prints the plugin path. Launch Claude Code with the plugin enabled
+either as a one-off:
 
-Then register the same `monitor` MCP server in Claude Code:
+```bash
+claude --plugin-dir /absolute/path/to/agent-tracer/.claude/plugin
+```
+
+…or by aliasing it once in your shell rc:
+
+```bash
+alias claude='claude --plugin-dir /absolute/path/to/agent-tracer/.claude/plugin'
+```
+
+### Permanent install via marketplace
+
+For a persistent install, Agent Tracer publishes a marketplace at the repo root
+(`.claude-plugin/marketplace.json`). From any Claude Code session:
+
+```bash
+/plugin marketplace add belljun3395/agent-tracer
+/plugin install agent-tracer-monitor@agent-tracer
+```
+
+Updates land automatically: every time `.claude/plugin/.claude-plugin/plugin.json#version`
+changes (CI auto-bumps the patch number when hook code lands on `main`), Claude
+Code refreshes the plugin on next session start.
+
+> **Configuration:** the plugin reads `MONITOR_BASE_URL` (full URL, e.g.
+> `http://192.168.1.10:3847`) or `MONITOR_PORT` (host-local, e.g. `4000`) at
+> hook execution time. Marketplace plugins have no install-time configuration
+> hook, so set these in the shell that launches Claude Code (`.zshrc`,
+> `.bashrc`, or a `direnv` `.envrc`). When Claude Code is started from a macOS
+> GUI launcher, environment variables from `.zshrc` are NOT inherited — launch
+> Claude Code from a terminal, or set the env vars at the system level
+> (`launchctl setenv MONITOR_BASE_URL …`).
+
+### MCP server (separate registration)
+
+The marketplace install only registers hook scripts. The `monitor` MCP server
+must still be added separately so Claude can call MCP tools (`monitor_plan`,
+`monitor_user_message`, etc.):
 
 ```bash
 claude mcp add monitor \
@@ -86,20 +127,22 @@ Expected result: `monitor` is listed and connected.
 
 ## 4. What The Hooks Do
 
-Configured hook files in this repository:
+Hook scripts now live under the plugin package, registered through
+`.claude/plugin/hooks/hooks.json` and executed by
+`.claude/plugin/bin/run-hook.sh`:
 
-- `.claude/hooks/session_start.ts`
-- `.claude/hooks/user_prompt.ts`
-- `.claude/hooks/ensure_task.ts`
-- `.claude/hooks/terminal.ts`
-- `.claude/hooks/tool_used.ts`
-- `.claude/hooks/explore.ts`
-- `.claude/hooks/agent_activity.ts`
-- `.claude/hooks/todo.ts`
-- `.claude/hooks/compact.ts`
-- `.claude/hooks/subagent_lifecycle.ts`
-- `.claude/hooks/session_end.ts`
-- `.claude/hooks/stop.ts`
+- `.claude/plugin/hooks/session_start.ts`
+- `.claude/plugin/hooks/user_prompt.ts`
+- `.claude/plugin/hooks/ensure_task.ts`
+- `.claude/plugin/hooks/terminal.ts`
+- `.claude/plugin/hooks/tool_used.ts`
+- `.claude/plugin/hooks/explore.ts`
+- `.claude/plugin/hooks/agent_activity.ts`
+- `.claude/plugin/hooks/todo.ts`
+- `.claude/plugin/hooks/compact.ts`
+- `.claude/plugin/hooks/subagent_lifecycle.ts`
+- `.claude/plugin/hooks/session_end.ts`
+- `.claude/plugin/hooks/stop.ts`
 
 Behavior:
 
@@ -110,7 +153,7 @@ Behavior:
 - capture compaction markers and compact summaries
 - post assistant turn output and complete the task on `Stop`
 - end only the current runtime session on `SessionEnd` and skip clear events
-- store transient subagent registry data in `.claude/.subagent-registry.json`
+- store transient subagent registry data in `${CLAUDE_PROJECT_DIR}/.claude/.subagent-registry.json`
 
 **Session vs. task lifecycle:**
 
@@ -127,25 +170,28 @@ Behavior:
 
 ## 5. Repo-local Setup In This Repository
 
-If you are working inside this repository, `.claude/settings.json` already
-points at the repository hook scripts through the same root-resolution pattern.
-No extra Claude hook wiring is required.
+When working inside this repository, run Claude Code with the bundled plugin:
+
+```bash
+claude --plugin-dir .claude/plugin
+```
+
+`.claude/settings.json` only declares `permissions`. The plugin's
+`hooks/hooks.json` registers every hook event automatically.
 
 You still need the `monitor` MCP server registered in Claude Code.
 
 ## 6. Hook Debug Log
 
-Hook scripts write a debug log to `.claude/hooks.log` **only when
-`NODE_ENV=development`**.
-
-All hook commands in `.claude/settings.json` and the commands generated by
-`setup:external` include `NODE_ENV=development` automatically, so file logging
-is active whenever hooks are wired through either of these paths.
+Hook scripts write a debug log to `${CLAUDE_PROJECT_DIR}/.claude/hooks.log`
+**only when `NODE_ENV=development`**. The plugin's `bin/run-hook.sh` exports
+`NODE_ENV=development` by default, so file logging is active whenever the
+plugin is loaded.
 
 | Environment | Logging |
 |-------------|---------|
-| This repo (Claude Code, via `.claude/settings.json`) | ✅ enabled |
-| External project (wired via `setup:external`) | ✅ enabled when the generated hook commands are used |
+| This repo (Claude Code with plugin) | ✅ enabled |
+| External project (Claude Code with plugin) | ✅ enabled |
 | `scripts/test-hooks.ts` (calls monitor API directly) | ❌ not applicable |
 | Docker (`scripts/start-docker.sh`) | ❌ hooks do not run inside Docker |
 
@@ -192,7 +238,7 @@ Planning / event logging tools:
 1. Start the monitor server.
 2. Run `setup:external --mode claude` for the target project.
 3. Register `monitor` in `claude mcp add`.
-4. Open the target project in Claude Code.
+4. Open the target project with `claude --plugin-dir <agent-tracer>/.claude/plugin` (or your alias).
 5. Perform one read or edit action.
 6. Confirm a task appears in the dashboard.
 7. Stop the Claude turn and confirm the primary task transitions to `completed` unless background descendants are still running.

@@ -42,26 +42,6 @@ async function main(): Promise<void> {
     }
   }
 
-  // OpenCode background session: opencode-plugin이 tool.execute.after 시점에
-  // "opencode:{sessionId}" 키로 레지스트리에 parentTaskId를 기록해둠.
-  // agent_id가 없는 OpenCode sub-agent도 background로 올바르게 연결.
-  const opencodeKey = `opencode:${sessionId}`;
-  const opencodeEntry = registry[opencodeKey];
-  if (opencodeEntry?.parentTaskId && !opencodeEntry.linked) {
-    const result = await ensureRuntimeSession(sessionId, undefined, {
-      parentTaskId: opencodeEntry.parentTaskId,
-      ...(opencodeEntry.parentSessionId ? { parentSessionId: opencodeEntry.parentSessionId } : {})
-    });
-    cacheSessionResult(sessionId, result);
-    opencodeEntry.linked = true;
-    writeSubagentRegistry(registry);
-    hookLog("ensure_task", "background task linked via opencode registry", {
-      sessionId,
-      parentTaskId: opencodeEntry.parentTaskId
-    });
-    return;
-  }
-
   const result = await ensureRuntimeSession(sessionId);
   cacheSessionResult(sessionId, result);
   hookLog("ensure_task", "ensureRuntimeSession ok", { sessionId });

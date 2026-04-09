@@ -332,7 +332,6 @@ export interface RuntimeSessionEndInput {
   readonly runtimeSource: string;
   readonly runtimeSessionId: string;
   readonly summary?: string;
-  /** Claude hook path keeps this unset; OpenCode primary shutdown may set true explicitly. */
   readonly completeTask?: boolean;
   readonly completionReason?: TaskCompletionReason;
   readonly backgroundCompletions?: string[];

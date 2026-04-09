@@ -40,7 +40,10 @@ export function createAdminRoutes(service: MonitorService): Router {
     res.json({
       task,
       timeline,
-      ...(runtimeSession ? { runtimeSessionId: runtimeSession.runtimeSessionId } : {})
+      ...(runtimeSession ? {
+        runtimeSessionId: runtimeSession.runtimeSessionId,
+        runtimeSource: runtimeSession.runtimeSource
+      } : {})
     });
   });
 

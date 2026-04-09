@@ -9,7 +9,12 @@ interface RuntimeSessionEnsureResult {
     readonly sessionId: string;
 }
 
-const API_BASE = `http://127.0.0.1:${process.env.MONITOR_PORT || "3847"}`;
+// Allow full URL override (for remote/Docker monitor servers) and fall back
+// to host-local with a configurable port. Marketplace-installed plugins have
+// no install-time injection point, so env vars are the sole config surface.
+const API_BASE =
+    process.env.MONITOR_BASE_URL ||
+    `http://127.0.0.1:${process.env.MONITOR_PORT || "3847"}`;
 
 export const PROJECT_DIR = process.env.CLAUDE_PROJECT_DIR || process.cwd();
 // CLAUDE_PROJECT_DIR may be absent when hook commands use relative paths.
@@ -107,10 +112,9 @@ export function getToolInput(event: JsonObject): JsonObject {
 
 /**
  * Returns the Claude Code session ID for the current hook invocation.
- * This only returns a session ID for hooks triggered by Claude Code itself
- * (hook_source === "claude-hook" or absent). External triggers (e.g., OpenCode
- * passing hook_source with a different value) return an empty string, so that
- * other agents' sessions are not accidentally attributed to a Claude Code session.
+ * Returns an empty string for hooks triggered by external sources
+ * (hook_source !== "claude-hook"), so that other agents' sessions are not
+ * accidentally attributed to a Claude Code session.
  */
 export function getSessionId(event: JsonObject): string {
     const hookSource = toTrimmedString(event.hook_source);
@@ -542,7 +546,6 @@ export interface SubagentRegistryEntry {
     parentSessionId: string;
     agentType: string;
     linked: boolean;
-    /** OpenCode background session용: monitor task ID of parent (opencode-plugin이 기록) */
     parentTaskId?: string;
 }
 

@@ -8,6 +8,7 @@ import {
   formatCount,
   formatDuration
 } from "../../lib/observability.js";
+import { buildResumeCommand } from "../../lib/resume-command.js";
 import { PanelCard } from "../ui/PanelCard.js";
 import { SectionCard } from "./SectionCard.js";
 import {
@@ -18,6 +19,53 @@ import {
 import { cardShell, cardHeader, cardBody, innerPanel } from "./styles.js";
 import type { SubagentInsight } from "../../lib/insights.js";
 import type { TaskObservabilityResponse } from "../../types.js";
+
+// ---------------------------------------------------------------------------
+// RuntimeSessionCard
+// ---------------------------------------------------------------------------
+
+function RuntimeSessionCard({
+  runtimeSessionId,
+  runtimeSource
+}: {
+  readonly runtimeSessionId?: string | undefined;
+  readonly runtimeSource?: string | undefined;
+}): React.JSX.Element | null {
+  if (!runtimeSessionId) return null;
+  const spec = buildResumeCommand(runtimeSource, runtimeSessionId);
+  const handleCopy = (text: string): void => {
+    void navigator.clipboard?.writeText(text);
+  };
+  return (
+    <SectionCard
+      title={<span>Runtime Session{spec ? ` · ${spec.label}` : ""}</span>}
+      action={spec ? (
+        <button
+          type="button"
+          onClick={() => handleCopy(spec.command)}
+          className="rounded-md border border-[var(--border)] px-2 py-1 text-[0.72rem] text-[var(--text-2)] hover:bg-[var(--bg-hover)]"
+        >
+          Copy command
+        </button>
+      ) : undefined}
+    >
+      <div className={innerPanel + " p-3"}>
+        <span className="block text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">Session ID</span>
+        <code className="mt-1 block break-all font-mono text-[0.8rem] text-[var(--text-1)]">{runtimeSessionId}</code>
+      </div>
+      {spec ? (
+        <div className={innerPanel + " mt-2 p-3"}>
+          <span className="block text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">Resume command</span>
+          <code className="mt-1 block break-all font-mono text-[0.8rem] text-[var(--text-1)]">{spec.command}</code>
+        </div>
+      ) : (
+        <p className="m-0 text-[0.78rem] text-[var(--text-3)]">
+          Unknown runtime source ({runtimeSource ?? "n/a"}) — copy the session ID and resume manually.
+        </p>
+      )}
+    </SectionCard>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // SubagentInsightCard
@@ -68,14 +116,22 @@ function SubagentInsightCard({
 export interface OverviewTabProps {
   readonly observability: TaskObservabilityResponse["observability"] | null;
   readonly subagentInsight: SubagentInsight;
+  readonly runtimeSessionId?: string | undefined;
+  readonly runtimeSource?: string | undefined;
 }
 
 export function OverviewTab({
   observability,
-  subagentInsight
+  subagentInsight,
+  runtimeSessionId,
+  runtimeSource
 }: OverviewTabProps): React.JSX.Element {
   return (
     <div className="panel-tab-inner flex flex-col gap-5 p-4">
+      <RuntimeSessionCard
+        runtimeSessionId={runtimeSessionId}
+        runtimeSource={runtimeSource}
+      />
       {observability ? (
         <>
           <SectionCard title="Task Flow">

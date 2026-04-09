@@ -12,16 +12,16 @@ interface RequestCall {
 }
 
 const tsxCli = fileURLToPath(new URL("../../../node_modules/tsx/dist/cli.mjs", import.meta.url));
-const userPromptHook = fileURLToPath(new URL("../../../.claude/hooks/user_prompt.ts", import.meta.url));
-const sessionStartHook = fileURLToPath(new URL("../../../.claude/hooks/session_start.ts", import.meta.url));
-const sessionEndHook = fileURLToPath(new URL("../../../.claude/hooks/session_end.ts", import.meta.url));
-const agentActivityHook = fileURLToPath(new URL("../../../.claude/hooks/agent_activity.ts", import.meta.url));
-const compactHook = fileURLToPath(new URL("../../../.claude/hooks/compact.ts", import.meta.url));
-const subagentLifecycleHook = fileURLToPath(new URL("../../../.claude/hooks/subagent_lifecycle.ts", import.meta.url));
-const todoHook = fileURLToPath(new URL("../../../.claude/hooks/todo.ts", import.meta.url));
-const toolUsedHook = fileURLToPath(new URL("../../../.claude/hooks/tool_used.ts", import.meta.url));
-const terminalHook = fileURLToPath(new URL("../../../.claude/hooks/terminal.ts", import.meta.url));
-const stopHook = fileURLToPath(new URL("../../../.claude/hooks/stop.ts", import.meta.url));
+const userPromptHook = fileURLToPath(new URL("../../../.claude/plugin/hooks/user_prompt.ts", import.meta.url));
+const sessionStartHook = fileURLToPath(new URL("../../../.claude/plugin/hooks/session_start.ts", import.meta.url));
+const sessionEndHook = fileURLToPath(new URL("../../../.claude/plugin/hooks/session_end.ts", import.meta.url));
+const agentActivityHook = fileURLToPath(new URL("../../../.claude/plugin/hooks/agent_activity.ts", import.meta.url));
+const compactHook = fileURLToPath(new URL("../../../.claude/plugin/hooks/compact.ts", import.meta.url));
+const subagentLifecycleHook = fileURLToPath(new URL("../../../.claude/plugin/hooks/subagent_lifecycle.ts", import.meta.url));
+const todoHook = fileURLToPath(new URL("../../../.claude/plugin/hooks/todo.ts", import.meta.url));
+const toolUsedHook = fileURLToPath(new URL("../../../.claude/plugin/hooks/tool_used.ts", import.meta.url));
+const terminalHook = fileURLToPath(new URL("../../../.claude/plugin/hooks/terminal.ts", import.meta.url));
+const stopHook = fileURLToPath(new URL("../../../.claude/plugin/hooks/stop.ts", import.meta.url));
 
 async function startMonitorStub() {
   const calls: RequestCall[] = [];

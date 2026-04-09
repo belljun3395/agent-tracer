@@ -55,8 +55,9 @@ function mergeTimeline(
  *  - If prev refers to a different task, return the new detail as-is.
  *  - If nothing changed (same task + unchanged timeline), return prev (referential
  *    stability so consumers don't re-render).
- *  - Otherwise, merge timeline events and preserve `runtimeSessionId`, preferring
- *    the freshest non-empty value from `detail` and falling back to `prev`.
+ *  - Otherwise, merge timeline events and preserve `runtimeSessionId` /
+ *    `runtimeSource`, preferring the freshest non-empty value from `detail`
+ *    and falling back to `prev`.
  */
 export function mergeTaskDetail(
   prev: TaskDetailResponse,
@@ -68,10 +69,12 @@ export function mergeTaskDetail(
   const timelineUnchanged = mergedTimeline === prev.timeline;
   if (sameTask && timelineUnchanged) return prev;
   const resolvedRuntimeSessionId = detail.runtimeSessionId ?? prev.runtimeSessionId;
+  const resolvedRuntimeSource = detail.runtimeSource ?? prev.runtimeSource;
   return {
     task: sameTask ? prev.task : detail.task,
     timeline: mergedTimeline,
-    ...(resolvedRuntimeSessionId !== undefined ? { runtimeSessionId: resolvedRuntimeSessionId } : {})
+    ...(resolvedRuntimeSessionId !== undefined ? { runtimeSessionId: resolvedRuntimeSessionId } : {}),
+    ...(resolvedRuntimeSource !== undefined ? { runtimeSource: resolvedRuntimeSource } : {})
   };
 }
 
