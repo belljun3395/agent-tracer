@@ -1,5 +1,5 @@
 import type Database from "better-sqlite3";
-import type { IEvaluationRepository, PersistedTaskEvaluation, StoredTaskEvaluation, WorkflowContentRecord, WorkflowSearchResult, WorkflowSummary } from "../../application/ports/index.js";
+import type { IEvaluationRepository, PersistedTaskEvaluation, StoredTaskEvaluation, WorkflowContentRecord, WorkflowSearchResult, WorkflowSummary } from "../../application/ports";
 import type { MonitoringTask, ReusableTaskSnapshot, TaskId as MonitorTaskId, TimelineEvent, WorkflowEvaluationData } from "@monitor/core";
 import { buildReusableTaskSnapshot, buildWorkflowContext, EventId, SessionId, TaskId, TaskSlug, WorkspacePath } from "@monitor/core";
 import { deriveTaskDisplayTitle, meaningfulTaskTitle } from "../../application/services/task-display-title-resolver.helpers.js";

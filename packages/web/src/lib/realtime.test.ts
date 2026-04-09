@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { EventId, TaskId } from "@monitor/core";
+import { BookmarkId, EventId, TaskId, TaskSlug } from "@monitor/core";
 import { parseRealtimeMessage, refreshRealtimeMonitorData, type MonitorRealtimeMessage } from "./realtime.js";
 function createRefreshFns() {
     return {
@@ -24,9 +24,9 @@ describe("refreshRealtimeMonitorData", () => {
         const message: MonitorRealtimeMessage = {
             type: "bookmark.saved",
             payload: {
-                id: "bookmark-1",
+                id: BookmarkId("bookmark-1"),
                 kind: "task",
-                taskId: "task-1",
+                taskId: TaskId("task-1"),
                 title: "Bookmark",
                 metadata: {},
                 createdAt: "2026-03-25T00:00:00.000Z",
@@ -73,7 +73,7 @@ describe("refreshRealtimeMonitorData", () => {
             payload: {
                 id: TaskId("task-2"),
                 title: "Other task",
-                slug: "other-task",
+                slug: TaskSlug("other-task"),
                 status: "running",
                 createdAt: "2026-03-25T00:00:00.000Z",
                 updatedAt: "2026-03-25T00:00:01.000Z"

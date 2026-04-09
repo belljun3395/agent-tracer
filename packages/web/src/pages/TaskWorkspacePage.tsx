@@ -1,5 +1,6 @@
 import type React from "react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { EventId, TaskId } from "@monitor/core";
 import { Link, useSearchParams } from "react-router-dom";
 import { fetchTaskObservability, fetchTaskOpenInference, postRuleAction, updateEventDisplayTitle } from "../api.js";
 import { EventInspector, type PanelTabId } from "../components/EventInspector.js";
@@ -57,6 +58,7 @@ function parseConnectorKey(key: string): {
 export function TaskWorkspacePage({ taskId }: {
     readonly taskId: string;
 }): React.JSX.Element {
+    const brandedTaskId = useMemo(() => TaskId(taskId), [taskId]);
     const { state, dispatch, refreshOverview, refreshTaskDetail, refreshBookmarksOnly, handleCreateTaskBookmark, handleCreateEventBookmark, handleTaskStatusChange, handleTaskTitleSubmit } = useMonitorStore();
     const { bookmarks, selectedTaskId, selectedEventId, selectedConnectorKey, selectedRuleId, selectedTag, showRuleGapsOnly, taskDetail, nowMs, isEditingTaskTitle, taskTitleDraft, taskTitleError, isSavingTaskTitle, isUpdatingTaskStatus, taskDisplayTitleCache } = state;
     const [searchParams, setSearchParams] = useSearchParams();
@@ -77,13 +79,13 @@ export function TaskWorkspacePage({ taskId }: {
     });
     const refreshTaskObservability = useCallback(async (): Promise<void> => {
         try {
-            const nextObservability = await fetchTaskObservability(taskId);
+            const nextObservability = await fetchTaskObservability(brandedTaskId);
             setTaskObservability(nextObservability);
         }
         catch {
             setTaskObservability(null);
         }
-    }, [taskId]);
+    }, [brandedTaskId]);
     useWebSocket((message) => {
         void refreshRealtimeMonitorData({
             message,
@@ -263,7 +265,7 @@ export function TaskWorkspacePage({ taskId }: {
         }
     }, [refreshOverview, refreshTaskDetail, refreshTaskObservability, reviewerId, reviewerNote, selectedTaskDetail?.task, taskId, taskObservability?.observability.ruleEnforcement.activeRuleId]);
     const handleExportOpenInference = useCallback(async (): Promise<void> => {
-        const payload = await fetchTaskOpenInference(taskId);
+        const payload = await fetchTaskOpenInference(brandedTaskId);
         const blob = new Blob([JSON.stringify(payload.openinference, null, 2)], { type: "application/json" });
         const url = URL.createObjectURL(blob);
         const anchor = document.createElement("a");
@@ -271,7 +273,7 @@ export function TaskWorkspacePage({ taskId }: {
         anchor.download = `${taskId}-openinference.json`;
         anchor.click();
         URL.revokeObjectURL(url);
-    }, [taskId]);
+    }, [brandedTaskId]);
     return (<div className="flex h-dvh flex-col overflow-hidden bg-[var(--bg)]">
       <header className="flex shrink-0 flex-wrap items-start justify-between gap-3 border-b border-[var(--border)] bg-[var(--surface)] px-4 py-3">
         <div className="min-w-0">
@@ -439,9 +441,9 @@ export function TaskWorkspacePage({ taskId }: {
                 dispatch({ type: "SET_SHOW_RULE_GAPS_ONLY", show: false });
                 dispatch({ type: "SELECT_RULE", ruleId });
             }} onSelectTag={(tag) => dispatch({ type: "SELECT_TAG", tag })} onToggleCollapse={() => { }} onUpdateEventDisplayTitle={async (eventId, displayTitle) => {
-                await updateEventDisplayTitle(eventId, displayTitle);
-                await refreshTaskDetail(taskId);
-            }} selectedConnector={selectedConnector} selectedEvent={selectedEvent} selectedEventBookmark={selectedEventBookmark} selectedEventDisplayTitle={selectedEventDisplayTitle} selectedRuleId={selectedRuleId} selectedTag={selectedTag} selectedTaskBookmark={selectedTaskBookmark} selectedTaskTitle={selectedTaskDisplayTitle} showCollapseControl={false} taskDetail={selectedTaskDetail} taskModelSummary={modelSummary} taskObservability={taskObservability}/>
+            await updateEventDisplayTitle(EventId(eventId), displayTitle);
+            await refreshTaskDetail(taskId);
+        }} selectedConnector={selectedConnector} selectedEvent={selectedEvent} selectedEventBookmark={selectedEventBookmark} selectedEventDisplayTitle={selectedEventDisplayTitle} selectedRuleId={selectedRuleId} selectedTag={selectedTag} selectedTaskBookmark={selectedTaskBookmark} selectedTaskTitle={selectedTaskDisplayTitle} showCollapseControl={false} taskDetail={selectedTaskDetail} taskModelSummary={modelSummary} taskObservability={taskObservability}/>
             </div>
           </div>)}
       </main>

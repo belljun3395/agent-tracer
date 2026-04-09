@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { TaskId } from "@monitor/core";
+import { RuntimeSessionId, RuntimeSource, TaskId, TaskSlug } from "@monitor/core";
 import { mergeTaskDetail } from "./useMonitorStore.js";
 import type { TaskDetailResponse } from "../types.js";
 function makeDetail(overrides: Partial<TaskDetailResponse> = {}): TaskDetailResponse {
@@ -8,7 +8,7 @@ function makeDetail(overrides: Partial<TaskDetailResponse> = {}): TaskDetailResp
             id: TaskId("task-1"),
             title: "Test task",
             status: "running",
-            slug: "test-task",
+            slug: TaskSlug("test-task"),
             createdAt: "2026-04-01T00:00:00.000Z",
             updatedAt: "2026-04-01T00:00:00.000Z",
         },
@@ -19,7 +19,7 @@ function makeDetail(overrides: Partial<TaskDetailResponse> = {}): TaskDetailResp
 describe("mergeTaskDetail — runtimeSessionId preservation", () => {
     it("preserves runtimeSessionId from prev when detail omits it and timeline changed", () => {
         const prev = makeDetail({
-            runtimeSessionId: "sess-abc",
+            runtimeSessionId: RuntimeSessionId("sess-abc"),
             timeline: [{ id: "e1" } as never],
         });
         const next = makeDetail({
@@ -27,25 +27,25 @@ describe("mergeTaskDetail — runtimeSessionId preservation", () => {
             timeline: [{ id: "e1" } as never, { id: "e2" } as never],
         });
         const merged = mergeTaskDetail(prev, next);
-        expect(merged.runtimeSessionId).toBe("sess-abc");
+        expect(merged.runtimeSessionId).toBe(RuntimeSessionId("sess-abc"));
     });
     it("uses detail.runtimeSessionId when both are present (prefer freshest)", () => {
-        const prev = makeDetail({ runtimeSessionId: "sess-old" });
+        const prev = makeDetail({ runtimeSessionId: RuntimeSessionId("sess-old") });
         const next = makeDetail({
             task: { ...prev.task, updatedAt: "2026-04-01T00:01:00.000Z" },
-            runtimeSessionId: "sess-new",
+            runtimeSessionId: RuntimeSessionId("sess-new"),
         });
         const merged = mergeTaskDetail(prev, next);
-        expect(merged.runtimeSessionId).toBe("sess-new");
+        expect(merged.runtimeSessionId).toBe(RuntimeSessionId("sess-new"));
     });
     it("propagates runtimeSessionId from detail when prev had none", () => {
         const prev = makeDetail({ timeline: [{ id: "e1" } as never] });
         const next = makeDetail({
             task: { ...prev.task, updatedAt: "2026-04-01T00:01:00.000Z" },
-            runtimeSessionId: "sess-fresh",
+            runtimeSessionId: RuntimeSessionId("sess-fresh"),
         });
         const merged = mergeTaskDetail(prev, next);
-        expect(merged.runtimeSessionId).toBe("sess-fresh");
+        expect(merged.runtimeSessionId).toBe(RuntimeSessionId("sess-fresh"));
     });
     it("omits runtimeSessionId when neither prev nor detail has it", () => {
         const prev = makeDetail({ timeline: [{ id: "e1" } as never] });
@@ -56,14 +56,14 @@ describe("mergeTaskDetail — runtimeSessionId preservation", () => {
         expect(merged.runtimeSessionId).toBeUndefined();
     });
     it("returns prev unchanged (referential) when nothing changed", () => {
-        const prev = makeDetail({ runtimeSessionId: "sess-abc" });
-        const next = makeDetail({ runtimeSessionId: "sess-abc" });
+        const prev = makeDetail({ runtimeSessionId: RuntimeSessionId("sess-abc") });
+        const next = makeDetail({ runtimeSessionId: RuntimeSessionId("sess-abc") });
         const merged = mergeTaskDetail(prev, next);
         expect(merged).toBe(prev);
     });
     it("returns detail directly when task id differs", () => {
-        const prev = makeDetail({ task: { ...(makeDetail().task), id: TaskId("task-1") }, runtimeSessionId: "sess-old" });
-        const next = makeDetail({ task: { ...(makeDetail().task), id: TaskId("task-2") }, runtimeSessionId: "sess-new" });
+        const prev = makeDetail({ task: { ...(makeDetail().task), id: TaskId("task-1") }, runtimeSessionId: RuntimeSessionId("sess-old") });
+        const next = makeDetail({ task: { ...(makeDetail().task), id: TaskId("task-2") }, runtimeSessionId: RuntimeSessionId("sess-new") });
         const merged = mergeTaskDetail(prev, next);
         expect(merged).toBe(next);
     });
@@ -71,7 +71,7 @@ describe("mergeTaskDetail — runtimeSessionId preservation", () => {
 describe("mergeTaskDetail — runtimeSource preservation", () => {
     it("preserves runtimeSource from prev when detail omits it and timeline changed", () => {
         const prev = makeDetail({
-            runtimeSource: "claude-plugin",
+            runtimeSource: RuntimeSource("claude-plugin"),
             timeline: [{ id: "e1" } as never],
         });
         const next = makeDetail({
@@ -79,25 +79,25 @@ describe("mergeTaskDetail — runtimeSource preservation", () => {
             timeline: [{ id: "e1" } as never, { id: "e2" } as never],
         });
         const merged = mergeTaskDetail(prev, next);
-        expect(merged.runtimeSource).toBe("claude-plugin");
+        expect(merged.runtimeSource).toBe(RuntimeSource("claude-plugin"));
     });
     it("uses detail.runtimeSource when both are present (prefer freshest)", () => {
-        const prev = makeDetail({ runtimeSource: "claude-plugin" });
+        const prev = makeDetail({ runtimeSource: RuntimeSource("claude-plugin") });
         const next = makeDetail({
             task: { ...prev.task, updatedAt: "2026-04-01T00:01:00.000Z" },
-            runtimeSource: "claude-plugin",
+            runtimeSource: RuntimeSource("claude-plugin"),
         });
         const merged = mergeTaskDetail(prev, next);
-        expect(merged.runtimeSource).toBe("claude-plugin");
+        expect(merged.runtimeSource).toBe(RuntimeSource("claude-plugin"));
     });
     it("propagates runtimeSource from detail when prev had none", () => {
         const prev = makeDetail({ timeline: [{ id: "e1" } as never] });
         const next = makeDetail({
             task: { ...prev.task, updatedAt: "2026-04-01T00:01:00.000Z" },
-            runtimeSource: "custom-runtime",
+            runtimeSource: RuntimeSource("custom-runtime"),
         });
         const merged = mergeTaskDetail(prev, next);
-        expect(merged.runtimeSource).toBe("custom-runtime");
+        expect(merged.runtimeSource).toBe(RuntimeSource("custom-runtime"));
     });
     it("omits runtimeSource when neither prev nor detail has it", () => {
         const prev = makeDetail({ timeline: [{ id: "e1" } as never] });

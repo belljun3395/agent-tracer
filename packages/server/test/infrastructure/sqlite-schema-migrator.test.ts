@@ -2,9 +2,9 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import BetterSqlite3 from "better-sqlite3";
+import { TaskId } from "@monitor/core";
 import { afterEach, describe, expect, it } from "vitest";
-import { createSchema } from "../../src/infrastructure/sqlite/sqlite-schema.js";
-import { createSqliteMonitorPorts } from "../../src/infrastructure/sqlite";
+import { createSchema, createSqliteMonitorPorts } from "../../src/infrastructure/sqlite";
 describe("sqlite runtimeSource backfill", () => {
     let tempDir: string | null = null;
     let closePorts: (() => void) | null = null;
@@ -71,8 +71,8 @@ describe("sqlite runtimeSource backfill", () => {
         seedDb.close();
         const ports = createSqliteMonitorPorts({ databasePath });
         closePorts = ports.close;
-        const claudeTask = await ports.tasks.findById("task-claude");
-        const importedTask = await ports.tasks.findById("task-imported");
+        const claudeTask = await ports.tasks.findById(TaskId("task-claude"));
+        const importedTask = await ports.tasks.findById(TaskId("task-imported"));
         expect(claudeTask?.runtimeSource).toBe("claude-plugin");
         expect(importedTask?.runtimeSource).toBe("claude-plugin");
     });

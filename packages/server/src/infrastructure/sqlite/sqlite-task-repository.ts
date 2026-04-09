@@ -1,301 +1,362 @@
-import type Database from "better-sqlite3";
-import type { EventClassification, MonitoringEventKind, MonitoringTask, MonitoringTaskKind, TimelineLane } from "@monitor/core";
-import { EventId, SessionId, TaskId } from "@monitor/core";
-import type { ITaskRepository, OverviewStats, TaskUpsertInput } from "../../application/ports";
-import { deriveTaskDisplayTitle } from "../../application/services/task-display-title-resolver.helpers.js";
-import { parseJsonField } from "./sqlite-json.js";
-import { buildTaskSearchText, deleteSearchDocumentsByTaskIds, upsertSearchDocument } from "./sqlite-search-documents.js";
+import { asc, desc, eq, inArray, sql } from "drizzle-orm"
+import type { EventClassification, MonitoringEventKind, MonitoringTask, MonitoringTaskKind, TimelineLane } from "@monitor/core"
+import { EventId, RuntimeSource, SessionId, TaskId, TaskSlug, WorkspacePath } from "@monitor/core"
+
+import type { ITaskRepository, OverviewStats, TaskUpsertInput } from "../../application/ports"
+import { deriveTaskDisplayTitle } from "../../application/services/task-display-title-resolver.helpers.js"
+import { ensureSqliteDatabase, type SqliteDatabase, type SqliteDatabaseInput } from "./drizzle-db.js"
+import { monitoringTasks, timelineEvents } from "./drizzle-schema.js"
+import { parseJsonField } from "./sqlite-json.js"
+import { buildTaskSearchText, deleteSearchDocumentsByTaskIds, upsertSearchDocument } from "./sqlite-search-documents.js"
+
 interface TaskRow {
-    id: string;
-    title: string;
-    slug: string;
-    workspace_path: string | null;
-    status: MonitoringTask["status"];
-    task_kind: MonitoringTaskKind;
-    parent_task_id: string | null;
-    parent_session_id: string | null;
-    background_task_id: string | null;
-    created_at: string;
-    updated_at: string;
-    last_session_started_at: string | null;
-    cli_source: string | null;
+  id: string
+  title: string
+  slug: string
+  workspacePath: string | null
+  status: string
+  taskKind: string
+  parentTaskId: string | null
+  parentSessionId: string | null
+  backgroundTaskId: string | null
+  createdAt: string
+  updatedAt: string
+  lastSessionStartedAt: string | null
+  cliSource: string | null
 }
+
 interface EventKindRow {
-    id: string;
-    lane: string;
-    kind: string;
-    title: string;
-    body: string | null;
-    metadata_json: string;
-    classification_json: string;
-    created_at: string;
-    task_id: string;
-    session_id: string | null;
+  id: string
+  lane: string
+  kind: string
+  title: string
+  body: string | null
+  metadataJson: string
+  classificationJson: string
+  createdAt: string
+  taskId: string
+  sessionId: string | null
 }
+
 function mapTaskRow(row: TaskRow): MonitoringTask {
-    return {
-        id: TaskId(row.id),
-        title: row.title,
-        slug: row.slug,
-        status: row.status,
-        taskKind: row.task_kind,
-        createdAt: row.created_at,
-        updatedAt: row.updated_at,
-        ...(row.workspace_path ? { workspacePath: row.workspace_path } : {}),
-        ...(row.parent_task_id ? { parentTaskId: TaskId(row.parent_task_id) } : {}),
-        ...(row.parent_session_id ? { parentSessionId: SessionId(row.parent_session_id) } : {}),
-        ...(row.background_task_id ? { backgroundTaskId: TaskId(row.background_task_id) } : {}),
-        ...(row.last_session_started_at ? { lastSessionStartedAt: row.last_session_started_at } : {}),
-        ...(row.cli_source ? { runtimeSource: row.cli_source } : {})
-    };
+  return {
+    id: TaskId(row.id),
+    title: row.title,
+    slug: TaskSlug(row.slug),
+    status: row.status as MonitoringTask["status"],
+    taskKind: row.taskKind as MonitoringTaskKind,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+    ...(row.workspacePath ? { workspacePath: WorkspacePath(row.workspacePath) } : {}),
+    ...(row.parentTaskId ? { parentTaskId: TaskId(row.parentTaskId) } : {}),
+    ...(row.parentSessionId ? { parentSessionId: SessionId(row.parentSessionId) } : {}),
+    ...(row.backgroundTaskId ? { backgroundTaskId: TaskId(row.backgroundTaskId) } : {}),
+    ...(row.lastSessionStartedAt ? { lastSessionStartedAt: row.lastSessionStartedAt } : {}),
+    ...(row.cliSource ? { runtimeSource: RuntimeSource(row.cliSource) } : {})
+  }
 }
+
 export class SqliteTaskRepository implements ITaskRepository {
-    constructor(private readonly db: Database.Database) { }
-    private withDisplayTitle(task: MonitoringTask): MonitoringTask {
-        const row = this.db
-            .prepare<{
-            taskId: string;
-        }, {
-            title: string | null;
-        }>("select title from monitoring_tasks where id = @taskId")
-            .get({ taskId: task.id });
-        if (!row)
-            return task;
-        const events = this.loadEventsForTitle(task);
-        const displayTitle = deriveTaskDisplayTitle(task, events);
-        return displayTitle ? { ...task, displayTitle } : task;
+  private readonly db: SqliteDatabase
+
+  constructor(db: SqliteDatabaseInput) {
+    this.db = ensureSqliteDatabase(db)
+  }
+
+  private withDisplayTitle(task: MonitoringTask): MonitoringTask {
+    const events = this.loadEventsForTitle(task)
+    const displayTitle = deriveTaskDisplayTitle(task, events)
+    return displayTitle ? { ...task, displayTitle } : task
+  }
+
+  private loadEventsForTitle(task: MonitoringTask) {
+    const rows = this.db.orm
+      .select({
+        id: timelineEvents.id,
+        taskId: timelineEvents.taskId,
+        sessionId: timelineEvents.sessionId,
+        kind: timelineEvents.kind,
+        lane: timelineEvents.lane,
+        title: timelineEvents.title,
+        body: timelineEvents.body,
+        metadataJson: timelineEvents.metadataJson,
+        classificationJson: timelineEvents.classificationJson,
+        createdAt: timelineEvents.createdAt
+      })
+      .from(timelineEvents)
+      .where(eq(timelineEvents.taskId, task.id))
+      .orderBy(asc(timelineEvents.createdAt))
+      .all() as readonly EventKindRow[]
+
+    return rows.map((row) => ({
+      id: EventId(row.id),
+      taskId: TaskId(row.taskId),
+      kind: row.kind as MonitoringEventKind,
+      lane: row.lane as TimelineLane,
+      title: row.title,
+      metadata: parseJsonField<Record<string, unknown>>(row.metadataJson),
+      classification: parseJsonField<EventClassification>(row.classificationJson),
+      createdAt: row.createdAt,
+      ...(row.sessionId ? { sessionId: SessionId(row.sessionId) } : {}),
+      ...(row.body ? { body: row.body } : {})
+    }))
+  }
+
+  async upsert(input: TaskUpsertInput): Promise<MonitoringTask> {
+    this.db.orm
+      .insert(monitoringTasks)
+      .values({
+        id: input.id,
+        title: input.title,
+        slug: input.slug,
+        workspacePath: input.workspacePath ?? null,
+        status: input.status,
+        taskKind: input.taskKind,
+        parentTaskId: input.parentTaskId ?? null,
+        parentSessionId: input.parentSessionId ?? null,
+        backgroundTaskId: input.backgroundTaskId ?? null,
+        createdAt: input.createdAt,
+        updatedAt: input.updatedAt,
+        lastSessionStartedAt: input.lastSessionStartedAt ?? null,
+        cliSource: input.runtimeSource ?? null
+      })
+      .onConflictDoUpdate({
+        target: monitoringTasks.id,
+        set: {
+          title: input.title,
+          slug: input.slug,
+          workspacePath: input.workspacePath ?? null,
+          status: input.status,
+          taskKind: input.taskKind,
+          parentTaskId: input.parentTaskId ?? null,
+          parentSessionId: input.parentSessionId ?? null,
+          backgroundTaskId: input.backgroundTaskId ?? null,
+          updatedAt: input.updatedAt,
+          lastSessionStartedAt: input.lastSessionStartedAt ?? null,
+          cliSource: sql`coalesce(excluded.cli_source, monitoring_tasks.cli_source)`
+        }
+      })
+      .run()
+
+    this.refreshSearchDocument(input.id)
+    const task = await this.findById(input.id)
+    return task!
+  }
+
+  async findById(id: TaskId): Promise<MonitoringTask | null> {
+    const row = this.db.orm
+      .select({
+        id: monitoringTasks.id,
+        title: monitoringTasks.title,
+        slug: monitoringTasks.slug,
+        workspacePath: monitoringTasks.workspacePath,
+        status: monitoringTasks.status,
+        taskKind: monitoringTasks.taskKind,
+        parentTaskId: monitoringTasks.parentTaskId,
+        parentSessionId: monitoringTasks.parentSessionId,
+        backgroundTaskId: monitoringTasks.backgroundTaskId,
+        createdAt: monitoringTasks.createdAt,
+        updatedAt: monitoringTasks.updatedAt,
+        lastSessionStartedAt: monitoringTasks.lastSessionStartedAt,
+        cliSource: monitoringTasks.cliSource
+      })
+      .from(monitoringTasks)
+      .where(eq(monitoringTasks.id, id))
+      .limit(1)
+      .get() as TaskRow | undefined
+
+    if (!row) {
+      return null
     }
-    private loadEventsForTitle(task: MonitoringTask) {
-        return this.db
-            .prepare<{
-            taskId: string;
-        }, EventKindRow>("select id, task_id, session_id, kind, lane, title, body, metadata_json, classification_json, created_at from timeline_events where task_id = @taskId order by datetime(created_at) asc")
-            .all({ taskId: task.id })
-            .map((r) => ({
-            id: EventId(r.id),
-            taskId: TaskId(r.task_id),
-            kind: r.kind as MonitoringEventKind,
-            lane: r.lane as TimelineLane,
-            title: r.title,
-            metadata: parseJsonField<Record<string, unknown>>(r.metadata_json),
-            classification: parseJsonField<EventClassification>(r.classification_json),
-            createdAt: r.created_at,
-            ...(r.session_id ? { sessionId: SessionId(r.session_id) } : {}),
-            ...(r.body ? { body: r.body } : {})
-        }));
+
+    return this.withDisplayTitle(mapTaskRow(row))
+  }
+
+  async findAll(): Promise<readonly MonitoringTask[]> {
+    const rows = this.db.orm
+      .select({
+        id: monitoringTasks.id,
+        title: monitoringTasks.title,
+        slug: monitoringTasks.slug,
+        workspacePath: monitoringTasks.workspacePath,
+        status: monitoringTasks.status,
+        taskKind: monitoringTasks.taskKind,
+        parentTaskId: monitoringTasks.parentTaskId,
+        parentSessionId: monitoringTasks.parentSessionId,
+        backgroundTaskId: monitoringTasks.backgroundTaskId,
+        createdAt: monitoringTasks.createdAt,
+        updatedAt: monitoringTasks.updatedAt,
+        lastSessionStartedAt: monitoringTasks.lastSessionStartedAt,
+        cliSource: monitoringTasks.cliSource
+      })
+      .from(monitoringTasks)
+      .orderBy(desc(monitoringTasks.updatedAt))
+      .all() as readonly TaskRow[]
+
+    return rows.map((row) => this.withDisplayTitle(mapTaskRow(row)))
+  }
+
+  async findChildren(parentId: TaskId): Promise<readonly MonitoringTask[]> {
+    const rows = this.db.orm
+      .select({
+        id: monitoringTasks.id,
+        title: monitoringTasks.title,
+        slug: monitoringTasks.slug,
+        workspacePath: monitoringTasks.workspacePath,
+        status: monitoringTasks.status,
+        taskKind: monitoringTasks.taskKind,
+        parentTaskId: monitoringTasks.parentTaskId,
+        parentSessionId: monitoringTasks.parentSessionId,
+        backgroundTaskId: monitoringTasks.backgroundTaskId,
+        createdAt: monitoringTasks.createdAt,
+        updatedAt: monitoringTasks.updatedAt,
+        lastSessionStartedAt: monitoringTasks.lastSessionStartedAt,
+        cliSource: monitoringTasks.cliSource
+      })
+      .from(monitoringTasks)
+      .where(eq(monitoringTasks.parentTaskId, parentId))
+      .orderBy(desc(monitoringTasks.updatedAt))
+      .all() as readonly TaskRow[]
+
+    return rows.map((row) => this.withDisplayTitle(mapTaskRow(row)))
+  }
+
+  async updateStatus(id: TaskId, status: MonitoringTask["status"], updatedAt: string): Promise<void> {
+    this.db.orm
+      .update(monitoringTasks)
+      .set({ status, updatedAt })
+      .where(eq(monitoringTasks.id, id))
+      .run()
+
+    this.refreshSearchDocument(id)
+  }
+
+  async updateTitle(id: TaskId, title: string, slug: MonitoringTask["slug"], updatedAt: string): Promise<void> {
+    this.db.orm
+      .update(monitoringTasks)
+      .set({ title, slug, updatedAt })
+      .where(eq(monitoringTasks.id, id))
+      .run()
+
+    this.refreshSearchDocument(id)
+  }
+
+  async delete(id: TaskId): Promise<{ deletedIds: readonly TaskId[] }> {
+    return this.db.client.transaction(() => {
+      const row = this.db.orm
+        .select({ status: monitoringTasks.status })
+        .from(monitoringTasks)
+        .where(eq(monitoringTasks.id, id))
+        .limit(1)
+        .get()
+
+      if (!row) {
+        return { deletedIds: [] }
+      }
+
+      const taskIds = [id, ...this.collectDescendantIds(id)]
+      this.deleteByIds(taskIds)
+      return { deletedIds: taskIds }
+    })()
+  }
+
+  async deleteFinished(): Promise<number> {
+    const finishedIds = this.db.orm
+      .select({ id: monitoringTasks.id })
+      .from(monitoringTasks)
+      .where(sql`${monitoringTasks.status} in ('completed', 'errored')`)
+      .all()
+      .map((row) => TaskId(row.id))
+
+    if (finishedIds.length === 0) {
+      return 0
     }
-    async upsert(input: TaskUpsertInput): Promise<MonitoringTask> {
-        this.db.prepare(`
-      insert into monitoring_tasks (
-        id, title, slug, workspace_path, status, task_kind, parent_task_id, parent_session_id,
-        background_task_id, created_at, updated_at, last_session_started_at, cli_source
-      ) values (
-        @id, @title, @slug, @workspacePath, @status, @taskKind, @parentTaskId, @parentSessionId,
-        @backgroundTaskId, @createdAt, @updatedAt, @lastSessionStartedAt, @runtimeSource
+
+    const allIds = new Set<TaskId>()
+    for (const finishedId of finishedIds) {
+      allIds.add(finishedId)
+      for (const descendantId of this.collectDescendantIds(finishedId)) {
+        allIds.add(descendantId)
+      }
+    }
+
+    this.deleteByIds([...allIds])
+    return allIds.size
+  }
+
+  async getOverviewStats(): Promise<OverviewStats> {
+    const counts = this.db.orm
+      .select({
+        totalTasks: sql<number>`cast(count(*) as int)`,
+        runningTasks: sql<number | null>`cast(sum(case when ${monitoringTasks.status} = 'running' then 1 else 0 end) as int)`,
+        waitingTasks: sql<number | null>`cast(sum(case when ${monitoringTasks.status} = 'waiting' then 1 else 0 end) as int)`,
+        completedTasks: sql<number | null>`cast(sum(case when ${monitoringTasks.status} = 'completed' then 1 else 0 end) as int)`,
+        erroredTasks: sql<number | null>`cast(sum(case when ${monitoringTasks.status} = 'errored' then 1 else 0 end) as int)`,
+        totalEvents: sql<number>`(select cast(count(*) as int) from timeline_events)`
+      })
+      .from(monitoringTasks)
+      .get()
+
+    return {
+      totalTasks: counts?.totalTasks ?? 0,
+      runningTasks: counts?.runningTasks ?? 0,
+      waitingTasks: counts?.waitingTasks ?? 0,
+      completedTasks: counts?.completedTasks ?? 0,
+      erroredTasks: counts?.erroredTasks ?? 0,
+      totalEvents: counts?.totalEvents ?? 0
+    }
+  }
+
+  private collectDescendantIds(taskId: TaskId): readonly TaskId[] {
+    const rows = this.db.orm.all<{ id: string }>(sql`
+      with recursive task_tree(id) as (
+        select id from monitoring_tasks where id = ${taskId}
+        union all
+        select child.id from monitoring_tasks child join task_tree parent on child.parent_task_id = parent.id
       )
-      on conflict(id) do update set
-        title = excluded.title,
-        slug = excluded.slug,
-        workspace_path = excluded.workspace_path,
-        status = excluded.status,
-        task_kind = excluded.task_kind,
-        parent_task_id = excluded.parent_task_id,
-        parent_session_id = excluded.parent_session_id,
-        background_task_id = excluded.background_task_id,
-        updated_at = excluded.updated_at,
-        last_session_started_at = excluded.last_session_started_at,
-        cli_source = coalesce(excluded.cli_source, monitoring_tasks.cli_source)
-    `).run({
-            id: input.id,
-            title: input.title,
-            slug: input.slug,
-            workspacePath: input.workspacePath ?? null,
-            status: input.status,
-            taskKind: input.taskKind,
-            parentTaskId: input.parentTaskId ?? null,
-            parentSessionId: input.parentSessionId ?? null,
-            backgroundTaskId: input.backgroundTaskId ?? null,
-            createdAt: input.createdAt,
-            updatedAt: input.updatedAt,
-            lastSessionStartedAt: input.lastSessionStartedAt ?? null,
-            runtimeSource: input.runtimeSource ?? null
-        });
-        this.refreshSearchDocument(input.id);
-        const task = await this.findById(input.id);
-        return task!;
+      select id from task_tree where id != ${taskId}
+    `)
+
+    return rows.map((row) => TaskId(row.id))
+  }
+
+  private deleteByIds(taskIds: readonly TaskId[]): void {
+    if (taskIds.length === 0) {
+      return
     }
-    async findById(id: string): Promise<MonitoringTask | null> {
-        const row = this.db
-            .prepare<{
-            id: string;
-        }, TaskRow>("select * from monitoring_tasks where id = @id")
-            .get({ id });
-        if (!row)
-            return null;
-        return this.withDisplayTitle(mapTaskRow(row));
+
+    deleteSearchDocumentsByTaskIds(this.db, taskIds)
+    this.db.orm.delete(monitoringTasks).where(inArray(monitoringTasks.id, taskIds)).run()
+  }
+
+  private refreshSearchDocument(taskId: TaskId): void {
+    const row = this.db.orm
+      .select({
+        id: monitoringTasks.id,
+        title: monitoringTasks.title,
+        workspacePath: monitoringTasks.workspacePath,
+        cliSource: monitoringTasks.cliSource,
+        updatedAt: monitoringTasks.updatedAt
+      })
+      .from(monitoringTasks)
+      .where(eq(monitoringTasks.id, taskId))
+      .limit(1)
+      .get()
+
+    if (!row) {
+      return
     }
-    async findAll(): Promise<readonly MonitoringTask[]> {
-        return this.db
-            .prepare<[
-        ], TaskRow>("select * from monitoring_tasks order by datetime(updated_at) desc")
-            .all()
-            .map((row) => this.withDisplayTitle(mapTaskRow(row)));
-    }
-    async findChildren(parentId: string): Promise<readonly MonitoringTask[]> {
-        return this.db
-            .prepare<{
-            parentId: string;
-        }, TaskRow>("select * from monitoring_tasks where parent_task_id = @parentId order by datetime(updated_at) desc")
-            .all({ parentId })
-            .map((row) => this.withDisplayTitle(mapTaskRow(row)));
-    }
-    async updateStatus(id: string, status: MonitoringTask["status"], updatedAt: string): Promise<void> {
-        this.db
-            .prepare<{
-            id: string;
-            status: string;
-            updatedAt: string;
-        }>("update monitoring_tasks set status = @status, updated_at = @updatedAt where id = @id")
-            .run({ id, status, updatedAt });
-        this.refreshSearchDocument(id);
-    }
-    async updateTitle(id: string, title: string, slug: string, updatedAt: string): Promise<void> {
-        this.db
-            .prepare<{
-            id: string;
-            title: string;
-            slug: string;
-            updatedAt: string;
-        }>("update monitoring_tasks set title = @title, slug = @slug, updated_at = @updatedAt where id = @id")
-            .run({ id, title, slug, updatedAt });
-        this.refreshSearchDocument(id);
-    }
-    async delete(id: string): Promise<{
-        deletedIds: readonly string[];
-    }> {
-        return this.db.transaction((): {
-            deletedIds: readonly string[];
-        } => {
-            const row = this.db
-                .prepare<{
-                id: string;
-            }, {
-                status: string;
-            }>("select status from monitoring_tasks where id = @id")
-                .get({ id });
-            if (!row)
-                return { deletedIds: [] };
-            const taskIds = [id, ...this.collectDescendantIds(id)];
-            this.deleteByIds(taskIds);
-            return { deletedIds: taskIds };
-        })();
-    }
-    async deleteFinished(): Promise<number> {
-        const finishedIds = this.db
-            .prepare<[
-        ], {
-            id: string;
-        }>("select id from monitoring_tasks where status in ('completed', 'errored')")
-            .all()
-            .map((r) => r.id);
-        if (finishedIds.length === 0)
-            return 0;
-        const allIds = new Set<string>();
-        for (const fid of finishedIds) {
-            allIds.add(fid);
-            for (const did of this.collectDescendantIds(fid))
-                allIds.add(did);
-        }
-        this.deleteByIds([...allIds]);
-        return allIds.size;
-    }
-    async getOverviewStats(): Promise<OverviewStats> {
-        const counts = this.db
-            .prepare<[
-        ], {
-            total_tasks: number;
-            running_tasks: number | null;
-            waiting_tasks: number | null;
-            completed_tasks: number | null;
-            errored_tasks: number | null;
-            total_events: number;
-        }>(`
-        select
-          count(*) as total_tasks,
-          sum(case when status = 'running' then 1 else 0 end) as running_tasks,
-          sum(case when status = 'waiting' then 1 else 0 end) as waiting_tasks,
-          sum(case when status = 'completed' then 1 else 0 end) as completed_tasks,
-          sum(case when status = 'errored' then 1 else 0 end) as errored_tasks,
-          (select count(*) from timeline_events) as total_events
-        from monitoring_tasks
-      `)
-            .get() ?? { total_tasks: 0, running_tasks: 0, waiting_tasks: 0, completed_tasks: 0, errored_tasks: 0, total_events: 0 };
-        return {
-            totalTasks: counts.total_tasks,
-            runningTasks: counts.running_tasks ?? 0,
-            waitingTasks: counts.waiting_tasks ?? 0,
-            completedTasks: counts.completed_tasks ?? 0,
-            erroredTasks: counts.errored_tasks ?? 0,
-            totalEvents: counts.total_events
-        };
-    }
-    private collectDescendantIds(taskId: string): readonly string[] {
-        return this.db
-            .prepare<{
-            taskId: string;
-        }, {
-            id: string;
-        }>(`
-        with recursive task_tree(id) as (
-          select id from monitoring_tasks where id = @taskId
-          union all
-          select child.id from monitoring_tasks child join task_tree parent on child.parent_task_id = parent.id
-        )
-        select id from task_tree where id != @taskId
-      `)
-            .all({ taskId })
-            .map((r) => r.id);
-    }
-    private deleteByIds(taskIds: readonly string[]): void {
-        if (taskIds.length === 0)
-            return;
-        const ph = taskIds.map(() => "?").join(", ");
-        deleteSearchDocumentsByTaskIds(this.db, taskIds);
-        this.db.prepare(`delete from timeline_events where task_id in (${ph})`).run(...taskIds);
-        this.db.prepare(`delete from task_sessions where task_id in (${ph})`).run(...taskIds);
-        this.db.prepare(`delete from runtime_session_bindings where task_id in (${ph})`).run(...taskIds);
-        this.db.prepare(`delete from bookmarks where task_id in (${ph})`).run(...taskIds);
-        this.db.prepare(`delete from monitoring_tasks where id in (${ph})`).run(...taskIds);
-    }
-    private refreshSearchDocument(taskId: string): void {
-        const row = this.db
-            .prepare<{
-            taskId: string;
-        }, {
-            id: string;
-            title: string;
-            workspace_path: string | null;
-            cli_source: string | null;
-            updated_at: string;
-        }>(`
-        select id, title, workspace_path, cli_source, updated_at
-        from monitoring_tasks
-        where id = @taskId
-      `)
-            .get({ taskId });
-        if (!row) {
-            return;
-        }
-        upsertSearchDocument(this.db, {
-            scope: "task",
-            entityId: row.id,
-            taskId: row.id,
-            searchText: buildTaskSearchText({
-                title: row.title,
-                workspacePath: row.workspace_path,
-                runtimeSource: row.cli_source
-            }),
-            updatedAt: row.updated_at
-        });
-    }
+
+    upsertSearchDocument(this.db, {
+      scope: "task",
+      entityId: row.id,
+      taskId: row.id,
+      searchText: buildTaskSearchText({
+        title: row.title,
+        workspacePath: row.workspacePath,
+        runtimeSource: row.cliSource
+      }),
+      updatedAt: row.updatedAt
+    })
+  }
 }

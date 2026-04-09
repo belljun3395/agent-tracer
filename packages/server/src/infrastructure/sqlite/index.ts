@@ -1,8 +1,9 @@
 import fs from "node:fs";
 import path from "node:path";
 import BetterSqlite3 from "better-sqlite3";
-import type { INotificationPublisher, MonitorPorts } from "../../application/ports/index.js";
-import type { IEmbeddingService } from "../embedding/index.js";
+import type { INotificationPublisher, MonitorPorts } from "../../application/ports";
+import type { IEmbeddingService } from "../embedding";
+import { createSqliteDatabase } from "./drizzle-db.js";
 import { createSchema } from "./sqlite-schema.js";
 import { backfillSearchDocuments } from "./sqlite-search-documents.js";
 import { runMigrations } from "./sqlite-schema-migrator.js";
@@ -18,6 +19,11 @@ export { SqliteEventRepository } from "./sqlite-event-repository.js";
 export { SqliteRuntimeBindingRepository } from "./sqlite-runtime-binding-repository.js";
 export { SqliteBookmarkRepository } from "./sqlite-bookmark-repository.js";
 export { SqliteEvaluationRepository } from "./sqlite-evaluation-repository.js";
+export { createSqliteDatabase, ensureSqliteDatabase } from "./drizzle-db.js";
+export { drizzleSchema } from "./drizzle-schema.js";
+export { createSchema } from "./sqlite-schema.js";
+export { runMigrations } from "./sqlite-schema-migrator.js";
+export { backfillSearchDocuments } from "./sqlite-search-documents.js";
 export interface SqliteMonitorPortsOptions {
     readonly databasePath: string;
     readonly notifier?: INotificationPublisher;
@@ -27,12 +33,13 @@ export function createSqliteMonitorPorts(options: SqliteMonitorPortsOptions): Mo
     close: () => void;
 } {
     fs.mkdirSync(path.dirname(options.databasePath), { recursive: true });
-    const db = new BetterSqlite3(options.databasePath);
-    db.pragma("journal_mode = WAL");
-    db.pragma("case_sensitive_like = OFF");
-    createSchema(db);
-    runMigrations(db);
-    backfillSearchDocuments(db);
+    const client = new BetterSqlite3(options.databasePath);
+    client.pragma("journal_mode = WAL");
+    client.pragma("case_sensitive_like = OFF");
+    createSchema(client);
+    runMigrations(client);
+    backfillSearchDocuments(client);
+    const db = createSqliteDatabase(client);
     const notifier = options.notifier ?? { publish: () => { } };
     return {
         tasks: new SqliteTaskRepository(db),
@@ -42,6 +49,6 @@ export function createSqliteMonitorPorts(options: SqliteMonitorPortsOptions): Mo
         bookmarks: new SqliteBookmarkRepository(db),
         evaluations: new SqliteEvaluationRepository(db, options.embeddingService),
         notifier,
-        close: () => db.close()
+        close: () => client.close()
     };
 }

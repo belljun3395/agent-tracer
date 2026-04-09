@@ -1,4 +1,8 @@
 import type Database from "better-sqlite3";
+import { and, eq, inArray, or, sql } from "drizzle-orm";
+
+import { ensureSqliteDatabase, type SqliteDatabaseInput } from "./drizzle-db.js";
+import { searchDocuments } from "./drizzle-schema.js";
 export type SearchDocumentScope = "task" | "event" | "bookmark";
 export interface SearchDocumentInput {
     readonly scope: SearchDocumentScope;
@@ -50,41 +54,43 @@ export function buildBookmarkSearchText(input: {
         input.eventTitle
     ]);
 }
-export function upsertSearchDocument(db: Database.Database, input: SearchDocumentInput): void {
-    db.prepare(`
-    insert into search_documents (scope, entity_id, task_id, search_text, updated_at)
-    values (@scope, @entityId, @taskId, @searchText, @updatedAt)
-    on conflict(scope, entity_id) do update set
-      task_id = excluded.task_id,
-      search_text = excluded.search_text,
-      updated_at = excluded.updated_at
-  `).run({
+export function upsertSearchDocument(db: SqliteDatabaseInput, input: SearchDocumentInput): void {
+    const { orm } = ensureSqliteDatabase(db);
+    orm.insert(searchDocuments).values({
         scope: input.scope,
         entityId: input.entityId,
         taskId: input.taskId ?? null,
         searchText: input.searchText,
         updatedAt: input.updatedAt
-    });
+    }).onConflictDoUpdate({
+        target: [searchDocuments.scope, searchDocuments.entityId],
+        set: {
+            taskId: input.taskId ?? null,
+            searchText: input.searchText,
+            updatedAt: input.updatedAt
+        }
+    }).run();
 }
-export function deleteSearchDocument(db: Database.Database, scope: SearchDocumentScope, entityId: string): void {
-    db.prepare(`
-    delete from search_documents
-    where scope = @scope and entity_id = @entityId
-  `).run({ scope, entityId });
+export function deleteSearchDocument(db: SqliteDatabaseInput, scope: SearchDocumentScope, entityId: string): void {
+    const { orm } = ensureSqliteDatabase(db);
+    orm.delete(searchDocuments)
+        .where(and(eq(searchDocuments.scope, scope), eq(searchDocuments.entityId, entityId)))
+        .run();
 }
-export function deleteSearchDocumentsByTaskIds(db: Database.Database, taskIds: readonly string[]): void {
+export function deleteSearchDocumentsByTaskIds(db: SqliteDatabaseInput, taskIds: readonly string[]): void {
     if (taskIds.length === 0) {
         return;
     }
-    const placeholders = taskIds.map(() => "?").join(", ");
-    db.prepare(`
-    delete from search_documents
-    where task_id in (${placeholders})
-       or (scope = 'task' and entity_id in (${placeholders}))
-  `).run(...taskIds, ...taskIds);
+
+    const { orm } = ensureSqliteDatabase(db);
+    orm.delete(searchDocuments)
+        .where(or(inArray(searchDocuments.taskId, taskIds), and(eq(searchDocuments.scope, "task"), inArray(searchDocuments.entityId, taskIds))))
+        .run();
 }
 export function backfillSearchDocuments(db: Database.Database): void {
-    db.exec(`
+    const { orm } = ensureSqliteDatabase(db);
+
+    orm.run(sql`
     insert into search_documents (scope, entity_id, task_id, search_text, updated_at)
     select
       'task',
@@ -98,7 +104,9 @@ export function backfillSearchDocuments(db: Database.Database): void {
       from search_documents s
       where s.scope = 'task' and s.entity_id = t.id
     );
+  `);
 
+    orm.run(sql`
     insert into search_documents (scope, entity_id, task_id, search_text, updated_at)
     select
       'event',
@@ -120,7 +128,9 @@ export function backfillSearchDocuments(db: Database.Database): void {
       from search_documents s
       where s.scope = 'event' and s.entity_id = e.id
     );
+  `);
 
+    orm.run(sql`
     insert into search_documents (scope, entity_id, task_id, search_text, updated_at)
     select
       'bookmark',

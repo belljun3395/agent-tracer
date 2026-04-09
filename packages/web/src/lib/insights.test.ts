@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { EventId, TaskId } from "@monitor/core";
+import { EventId, TaskId, TaskSlug, WorkspacePath } from "@monitor/core";
 import type { MonitoringTask, TimelineEvent } from "../types.js";
 import { buildExplorationInsight, collectRecentRuleDecisions, buildTaskExtraction, buildSubagentInsight, buildHandoffMarkdown, buildHandoffPlain, buildHandoffXML, buildHandoffSystemPrompt, buildInspectorEventTitle, buildObservabilityStats, buildQuestionGroups, buildTaskDisplayTitle, buildTodoGroups, collectPlanSteps, collectViolationDescriptions, collectWebLookups, filterTimelineEvents } from "./insights.js";
 import type { HandoffOptions } from "./insights.js";
@@ -10,11 +10,11 @@ function makeTask(overrides: Omit<Partial<MonitoringTask>, "id"> & {
     return {
         id: TaskId(id ?? "task-1"),
         title: rest.title ?? "Claude Code - agent-tracer",
-        slug: rest.slug ?? "claude-code-agent-tracer",
+        slug: rest.slug ?? TaskSlug("claude-code-agent-tracer"),
         status: rest.status ?? "running",
         createdAt: rest.createdAt ?? "2026-03-16T12:00:00.000Z",
         updatedAt: rest.updatedAt ?? "2026-03-16T12:10:00.000Z",
-        workspacePath: rest.workspacePath ?? "/workspace/agent-tracer",
+        workspacePath: rest.workspacePath ?? WorkspacePath("/workspace/agent-tracer"),
         ...rest
     };
 }
@@ -58,7 +58,7 @@ describe("buildTaskDisplayTitle", () => {
     it("이미 의미 있는 작업 제목은 그대로 유지한다", () => {
         const task = makeTask({
             title: "테스트 전략 재정비",
-            slug: "test-strategy-refresh"
+            slug: TaskSlug("test-strategy-refresh")
         });
         expect(buildTaskDisplayTitle(task, [])).toBe("테스트 전략 재정비");
     });

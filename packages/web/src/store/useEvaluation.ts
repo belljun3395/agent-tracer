@@ -25,7 +25,7 @@ export function useEvaluation(taskId: string | null | undefined): UseEvaluationR
         let isActive = true;
         setIsLoading(true);
         setIsSaved(false);
-        void fetchTaskEvaluation(taskId)
+        void fetchTaskEvaluation(TaskId(taskId))
             .then((record) => {
             if (isActive) {
                 setEvaluation(record);
@@ -53,7 +53,7 @@ export function useEvaluation(taskId: string | null | undefined): UseEvaluationR
         }
         setIsSaving(true);
         try {
-            await saveTaskEvaluation(taskId, payload);
+            await saveTaskEvaluation(TaskId(taskId), payload);
             setEvaluation({
                 taskId: TaskId(taskId),
                 ...payload,

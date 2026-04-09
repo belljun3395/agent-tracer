@@ -1,5 +1,6 @@
 import type React from "react";
 import { create } from "zustand";
+import { BookmarkId, EventId, TaskId } from "@monitor/core";
 import { createBookmark, deleteBookmark, deleteTask, fetchBookmarks, fetchOverview, fetchTaskDetail, fetchTasks, updateTaskStatus, updateTaskTitle } from "../api.js";
 import type { BookmarkRecord, MonitoringTask, OverviewResponse, TaskDetailResponse, TimelineEvent } from "../types.js";
 function mergeTimeline(prev: readonly TimelineEvent[], next: readonly TimelineEvent[]): readonly TimelineEvent[] {
@@ -251,7 +252,7 @@ export const _taskStore = create<TaskStoreSlice>((set, get) => {
     }
     async function refreshTaskDetail(taskId: string): Promise<void> {
         try {
-            const detail = await fetchTaskDetail(taskId);
+            const detail = await fetchTaskDetail(TaskId(taskId));
             dispatch({
                 type: "SET_TASK_DETAIL",
                 detail: (() => {
@@ -284,7 +285,7 @@ export const _taskStore = create<TaskStoreSlice>((set, get) => {
     async function handleDeleteTask(taskId: string): Promise<void> {
         dispatch({ type: "SET_DELETING_TASK_ID", taskId });
         try {
-            await deleteTask(taskId);
+            await deleteTask(TaskId(taskId));
             if (getTaskState().selectedTaskId === taskId) {
                 dispatch({ type: "SELECT_TASK", taskId: null });
                 dispatch({ type: "SET_TASK_DETAIL", detail: null });
@@ -306,20 +307,21 @@ export const _taskStore = create<TaskStoreSlice>((set, get) => {
         const displayTitle = taskDetail?.task
             ? (taskDisplayTitleCache[taskDetail.task.id]?.title ?? taskDetail.task.title)
             : undefined;
+        const brandedTaskId = TaskId(selectedTaskId);
         await createBookmark(displayTitle !== undefined
-            ? { taskId: selectedTaskId, title: displayTitle }
-            : { taskId: selectedTaskId });
+            ? { taskId: brandedTaskId, title: displayTitle }
+            : { taskId: brandedTaskId });
         await refreshBookmarksOnly();
     }
     async function handleCreateEventBookmark(eventId: string, eventTitle: string): Promise<void> {
         const { selectedTaskId } = getTaskState();
         if (!selectedTaskId)
             return;
-        await createBookmark({ taskId: selectedTaskId, eventId, title: eventTitle });
+        await createBookmark({ taskId: TaskId(selectedTaskId), eventId: EventId(eventId), title: eventTitle });
         await refreshBookmarksOnly();
     }
     async function handleDeleteBookmark(bookmarkId: string): Promise<void> {
-        await deleteBookmark(bookmarkId);
+        await deleteBookmark(BookmarkId(bookmarkId));
         await refreshBookmarksOnly();
     }
     async function handleTaskStatusChange(status: MonitoringTask["status"]): Promise<void> {

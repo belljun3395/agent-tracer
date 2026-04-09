@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { TaskId } from "@monitor/core";
 import { fetchSearchResults } from "../api.js";
 import type { SearchResponse } from "../types.js";
 export interface UseSearchResult {
@@ -16,7 +17,7 @@ export function useSearch(scopedTaskId?: string): UseSearchResult {
     const [isSearching, setIsSearching] = useState(false);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [taskScopeEnabled, setTaskScopeEnabled] = useState(false);
-    const effectiveTaskId = taskScopeEnabled && scopedTaskId ? scopedTaskId : undefined;
+    const effectiveTaskId = taskScopeEnabled && scopedTaskId ? TaskId(scopedTaskId) : undefined;
     useEffect(() => {
         const normalizedQuery = query.trim();
         if (!normalizedQuery) {

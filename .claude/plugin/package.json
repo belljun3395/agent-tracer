@@ -5,7 +5,8 @@
   "description": "Claude Code plugin that streams hook events to the Agent Tracer monitor server.",
   "type": "module",
   "scripts": {
-    "lint": "eslint hooks"
+    "lint": "eslint hooks && npm run lint:types",
+    "lint:types": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {
     "tsx": "^4.0.0"

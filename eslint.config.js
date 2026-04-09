@@ -38,9 +38,44 @@ export default tseslint.config(
     }
   },
   {
+    files: ["**/*.{ts,tsx,js,jsx}"],
+    rules: {
+      "no-restricted-imports": ["error", {
+        patterns: [
+          {
+            group: ["./**/index.js", "../**/index.js"],
+            message: "Import the directory barrel path instead of '/index.js'."
+          }
+        ]
+      }]
+    }
+  },
+  {
     files: ["packages/server/src/infrastructure/sqlite/**/*.ts"],
     rules: {
       "@typescript-eslint/require-await": "off"
+    }
+  },
+  {
+    files: ["packages/server/**/*.{ts,tsx}"],
+    ignores: ["packages/server/src/infrastructure/sqlite/**/*.ts"],
+    rules: {
+      "no-restricted-imports": ["error", {
+        patterns: [
+          {
+            group: ["./**/index.js", "../**/index.js"],
+            message: "Import the directory barrel path instead of '/index.js'."
+          },
+          {
+            group: ["**/infrastructure/sqlite/index.js"],
+            message: "Import from the sqlite barrel path instead of '/index.js'."
+          },
+          {
+            group: ["**/infrastructure/sqlite/*.js"],
+            message: "Import sqlite symbols from the sqlite barrel."
+          }
+        ]
+      }]
     }
   },
   {
