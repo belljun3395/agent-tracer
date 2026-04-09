@@ -34,17 +34,12 @@ import {
   collectPlanSteps,
   collectViolationDescriptions,
   collectWebLookups,
-  type ModelSummary,
-  type QuestionGroup,
-  type TaskExtraction,
-  type TodoGroup
+  type ModelSummary
 } from "../lib/insights.js";
 import {
   evidenceTone,
-  formatEvidenceLevel,
-  formatCount
+  formatEvidenceLevel
 } from "../lib/observability.js";
-import { formatRelativeTime } from "../lib/timeline.js";
 import type { TimelineConnector } from "../lib/timeline.js";
 import { cn } from "../lib/ui/cn.js";
 import { Badge } from "./ui/Badge.js";
