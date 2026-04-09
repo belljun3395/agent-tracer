@@ -466,9 +466,6 @@ export function TaskEvaluatePanel({
             <WorkflowPreviewField label="Outcome summary" value={parsedWorkflowSnapshot.outcomeSummary} />
             <WorkflowPreviewField label="Approach summary" value={parsedWorkflowSnapshot.approachSummary} />
             <WorkflowPreviewField label="Reuse when" value={parsedWorkflowSnapshot.reuseWhen} />
-            <WorkflowPreviewField label="Evidence summary" value={parsedWorkflowSnapshot.evidenceSummary} />
-            <WorkflowPreviewField label="Rule audit summary" value={parsedWorkflowSnapshot.ruleAuditSummary} />
-            <WorkflowPreviewField label="Rule enforcement summary" value={parsedWorkflowSnapshot.ruleEnforcementSummary} />
             <WorkflowPreviewField label="Verification summary" value={parsedWorkflowSnapshot.verificationSummary} />
             <WorkflowPreviewList label="Key decisions" items={parsedWorkflowSnapshot.keyDecisions} />
             <WorkflowPreviewList label="Next steps" items={parsedWorkflowSnapshot.nextSteps} />
@@ -538,33 +535,6 @@ export function TaskEvaluatePanel({
                 rows={3}
                 value={workflowSnapshotDraft.verificationSummary}
                 onChange={(event) => updateSnapshotField("verificationSummary", event.target.value)}
-              />
-            </div>
-            <div className={snapshotFieldClass}>
-              <span className={labelClass}>Evidence summary</span>
-              <textarea
-                className={textareaClass}
-                rows={3}
-                value={workflowSnapshotDraft.evidenceSummary}
-                onChange={(event) => updateSnapshotField("evidenceSummary", event.target.value)}
-              />
-            </div>
-            <div className={snapshotFieldClass}>
-              <span className={labelClass}>Rule audit summary</span>
-              <textarea
-                className={textareaClass}
-                rows={3}
-                value={workflowSnapshotDraft.ruleAuditSummary}
-                onChange={(event) => updateSnapshotField("ruleAuditSummary", event.target.value)}
-              />
-            </div>
-            <div className={snapshotFieldClass}>
-              <span className={labelClass}>Rule enforcement summary</span>
-              <textarea
-                className={textareaClass}
-                rows={3}
-                value={workflowSnapshotDraft.ruleEnforcementSummary}
-                onChange={(event) => updateSnapshotField("ruleEnforcementSummary", event.target.value)}
               />
             </div>
             <div className={snapshotFieldClass}>
