@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { EventId, SessionId, TaskId, type EventClassification, type MonitoringSession, type MonitoringTask, type TimelineEvent } from "@monitor/core";
+import { EventId, RuntimeSource, SessionId, TaskId, TaskSlug, type EventClassification, type MonitoringSession, type MonitoringTask, type TimelineEvent } from "@monitor/core";
 import { analyzeObservabilityOverview, analyzeTaskObservability } from "../../src/application/observability.js";
 
 function makeClassification(lane: EventClassification["lane"], tags: readonly string[] = []): EventClassification {
@@ -21,12 +21,12 @@ function makeTask(overrides: TaskOverrides = {}): MonitoringTask {
     return {
         id: TaskId(id ?? "task-1"),
         title: "Observability Task",
-        slug: "observability-task",
+        slug: TaskSlug("observability-task"),
         status: "completed",
         createdAt: "2026-03-27T00:00:00.000Z",
         updatedAt: "2026-03-27T00:06:00.000Z",
         taskKind: "primary",
-        runtimeSource: "claude-plugin",
+        runtimeSource: RuntimeSource("claude-plugin"),
         ...(parentTaskId ? { parentTaskId: TaskId(parentTaskId) } : {}),
         ...(backgroundTaskId ? { backgroundTaskId: TaskId(backgroundTaskId) } : {}),
         ...rest
@@ -177,10 +177,10 @@ describe("observability read model", () => {
             title: "Background",
             status: "running",
             taskKind: "background",
-            runtimeSource: "custom-runtime",
+            runtimeSource: RuntimeSource("custom-runtime"),
             createdAt: "2026-03-26T22:00:00.000Z",
             updatedAt: "2026-03-26T22:05:00.000Z",
-            slug: "background"
+            slug: TaskSlug("background")
         });
         const sessionsByTaskId = new Map<string, readonly MonitoringSession[]>([
             ["task-1", [

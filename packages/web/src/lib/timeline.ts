@@ -1,3 +1,4 @@
+import { EventId, GoalId, HandoffId, PlanId, WorkItemId } from "@monitor/core";
 import type { TimelineEvent, TimelineLane, TimelineRelation } from "../types.js";
 import { resolveEventSubtype, type TimelineLaneRow } from "./eventSubtype.js";
 export interface TimelineItemLayout {
@@ -316,18 +317,19 @@ export function buildTimelineRelations(events: readonly TimelineEvent[]): readon
             const goalId = extractMetadataString(event.metadata, "goalId");
             const planId = extractMetadataString(event.metadata, "planId");
             const handoffId = extractMetadataString(event.metadata, "handoffId");
-            pushRelation(relations, seen, {
-                sourceEventId: parentEventId,
+            const relation: TimelineRelation = {
+                sourceEventId: EventId(parentEventId),
                 targetEventId: event.id,
                 isExplicit: true,
                 ...(relationType !== undefined ? { relationType } : {}),
                 ...(label !== undefined ? { label } : {}),
                 ...(explanation !== undefined ? { explanation } : {}),
-                ...(workItemId !== undefined ? { workItemId } : {}),
-                ...(goalId !== undefined ? { goalId } : {}),
-                ...(planId !== undefined ? { planId } : {}),
-                ...(handoffId !== undefined ? { handoffId } : {})
-            });
+                ...(workItemId !== undefined ? { workItemId: WorkItemId(workItemId) } : {}),
+                ...(goalId !== undefined ? { goalId: GoalId(goalId) } : {}),
+                ...(planId !== undefined ? { planId: PlanId(planId) } : {}),
+                ...(handoffId !== undefined ? { handoffId: HandoffId(handoffId) } : {})
+            };
+            pushRelation(relations, seen, relation);
         }
         for (const relatedEventId of extractMetadataStringArray(event.metadata, "relatedEventIds")) {
             if (!eventIds.has(relatedEventId)) {
@@ -340,18 +342,19 @@ export function buildTimelineRelations(events: readonly TimelineEvent[]): readon
             const goalId = extractMetadataString(event.metadata, "goalId");
             const planId = extractMetadataString(event.metadata, "planId");
             const handoffId = extractMetadataString(event.metadata, "handoffId");
-            pushRelation(relations, seen, {
-                sourceEventId: relatedEventId,
+            const relation: TimelineRelation = {
+                sourceEventId: EventId(relatedEventId),
                 targetEventId: event.id,
                 isExplicit: true,
                 ...(relationType !== undefined ? { relationType } : {}),
                 ...(label !== undefined ? { label } : {}),
                 ...(explanation !== undefined ? { explanation } : {}),
-                ...(workItemId !== undefined ? { workItemId } : {}),
-                ...(goalId !== undefined ? { goalId } : {}),
-                ...(planId !== undefined ? { planId } : {}),
-                ...(handoffId !== undefined ? { handoffId } : {})
-            });
+                ...(workItemId !== undefined ? { workItemId: WorkItemId(workItemId) } : {}),
+                ...(goalId !== undefined ? { goalId: GoalId(goalId) } : {}),
+                ...(planId !== undefined ? { planId: PlanId(planId) } : {}),
+                ...(handoffId !== undefined ? { handoffId: HandoffId(handoffId) } : {})
+            };
+            pushRelation(relations, seen, relation);
         }
     }
     return relations;

@@ -1,5 +1,6 @@
 import type React from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { EventId, TaskId } from "@monitor/core";
 import { useMonitorStore } from "../store/useMonitorStore.js";
 import { cn } from "../lib/ui/cn.js";
 import { QuickInspector } from "./QuickInspector.js";
@@ -32,7 +33,7 @@ export function InspectorContainer({ isStackedDashboard, isInspectorCollapsed, s
     const { state, dispatch, refreshTaskDetail, handleCreateTaskBookmark, handleCreateEventBookmark } = useMonitorStore();
     const { bookmarks, selectedTaskId, selectedEventId, selectedConnectorKey, selectedTag, selectedRuleId, showRuleGapsOnly, taskDetail } = state;
     const [taskObservability, setTaskObservability] = useState<TaskObservabilityResponse | null>(null);
-    const refreshTaskObservability = useCallback(async (taskId: string): Promise<void> => {
+    const refreshTaskObservability = useCallback(async (taskId: ReturnType<typeof TaskId>): Promise<void> => {
         try {
             const next = await fetchTaskObservability(taskId);
             setTaskObservability(next);
@@ -46,7 +47,7 @@ export function InspectorContainer({ isStackedDashboard, isInspectorCollapsed, s
             setTaskObservability(null);
             return;
         }
-        void refreshTaskObservability(selectedTaskId);
+        void refreshTaskObservability(TaskId(selectedTaskId));
     }, [refreshTaskObservability, selectedTaskId]);
     const taskTimeline = taskDetail?.timeline ?? [];
     const modelSummary = useMemo(() => buildModelSummary(taskTimeline), [taskTimeline]);
@@ -128,7 +129,7 @@ export function InspectorContainer({ isStackedDashboard, isInspectorCollapsed, s
         }} onUpdateEventDisplayTitle={async (eventId, displayTitle) => {
             if (!selectedTaskId)
                 return;
-            await updateEventDisplayTitle(eventId, displayTitle);
+            await updateEventDisplayTitle(EventId(eventId), displayTitle);
             await refreshTaskDetail(selectedTaskId);
         }} onSelectTag={(tag) => dispatch({ type: "SELECT_TAG", tag })} onSelectRule={(ruleId) => {
             dispatch({ type: "SET_SHOW_RULE_GAPS_ONLY", show: false });

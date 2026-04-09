@@ -1,7 +1,7 @@
 import { desc, eq } from "drizzle-orm"
 import { BookmarkId, EventId, TaskId, type BookmarkId as MonitorBookmarkId, type TaskId as MonitorTaskId } from "@monitor/core"
 
-import type { IBookmarkRepository, BookmarkRecord, BookmarkSaveInput } from "../../application/ports/index.js"
+import type { IBookmarkRepository, BookmarkRecord, BookmarkSaveInput } from "../../application/ports"
 import { ensureSqliteDatabase, type SqliteDatabase, type SqliteDatabaseInput } from "./drizzle-db.js"
 import { bookmarks, monitoringTasks, timelineEvents } from "./drizzle-schema.js"
 import { parseJsonField } from "./sqlite-json.js"

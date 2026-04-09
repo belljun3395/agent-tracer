@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { classifyEvent, createTaskSlug, normalizeWorkspacePath, normalizeLane, tokenizeActionName } from "@monitor/core";
+import { ActionName, classifyEvent, createTaskSlug, normalizeWorkspacePath, normalizeLane, tokenizeActionName } from "@monitor/core";
 describe("normalizeWorkspacePath", () => {
     it("compresses duplicate separators and trims trailing slash", () => {
         expect(normalizeWorkspacePath("/tmp//baden///")).toBe("/tmp/baden");
@@ -14,7 +14,7 @@ describe("classifyEvent", () => {
     it("derives the lane from action-registry match when action name is provided", () => {
         const classification = classifyEvent({
             kind: "tool.used",
-            actionName: "readFile"
+            actionName: ActionName("readFile")
         });
         expect(classification.lane).toBe("exploration");
         expect(classification.tags).toContain("action-registry");
@@ -22,7 +22,7 @@ describe("classifyEvent", () => {
     it("classifies free-form snake_case actions with keyword matches", () => {
         const classification = classifyEvent({
             kind: "action.logged",
-            actionName: "run_test_rule_guard",
+            actionName: ActionName("run_test_rule_guard"),
             title: "run_test_rule_guard"
         });
         expect(classification.lane).toBe("implementation");

@@ -1,2 +1,2 @@
-import { initializeDefaultAdapters } from "../src/index.js";
+import { initializeDefaultAdapters } from "../src";
 initializeDefaultAdapters();

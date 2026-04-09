@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildOpenInferenceTaskExport, buildWorkflowContext, buildReusableTaskSnapshot, classifyEvent, createTaskSlug, normalizeWorkspacePath, normalizeLane, tokenizeActionName } from "@monitor/core";
+import { ActionName, EventId, RuntimeSource, TaskId, TaskSlug, buildOpenInferenceTaskExport, buildWorkflowContext, buildReusableTaskSnapshot, classifyEvent, createTaskSlug, normalizeWorkspacePath, normalizeLane, tokenizeActionName } from "@monitor/core";
 describe("normalizeWorkspacePath", () => {
     it("compresses duplicate separators and trims trailing slash", () => {
         expect(normalizeWorkspacePath("/tmp//baden///")).toBe("/tmp/baden");
@@ -13,8 +13,8 @@ describe("buildReusableTaskSnapshot", () => {
             objective: "README.md 한번 다시 읽어봐.",
             events: [
                 {
-                    id: "user-1",
-                    taskId: "task-1",
+                    id: EventId("user-1"),
+                    taskId: TaskId("task-1"),
                     kind: "user.message",
                     lane: "user",
                     title: "사용자 요청",
@@ -24,8 +24,8 @@ describe("buildReusableTaskSnapshot", () => {
                     createdAt: "2026-03-28T00:00:00.000Z"
                 },
                 {
-                    id: "plan-1",
-                    taskId: "task-1",
+                    id: EventId("plan-1"),
+                    taskId: TaskId("task-1"),
                     kind: "context.saved",
                     lane: "planning",
                     title: "README refresh summary",
@@ -35,8 +35,8 @@ describe("buildReusableTaskSnapshot", () => {
                     createdAt: "2026-03-28T00:00:01.000Z"
                 },
                 {
-                    id: "assistant-1",
-                    taskId: "task-1",
+                    id: EventId("assistant-1"),
+                    taskId: TaskId("task-1"),
                     kind: "assistant.response",
                     lane: "user",
                     title: "README reread summary",
@@ -55,18 +55,18 @@ describe("buildReusableTaskSnapshot", () => {
 describe("buildOpenInferenceTaskExport", () => {
     it("maps timeline events into OpenInference-aligned span records", () => {
         const exportPayload = buildOpenInferenceTaskExport({
-            id: "task-1",
+            id: TaskId("task-1"),
             title: "Inspect task",
-            slug: "inspect-task",
+            slug: TaskSlug("inspect-task"),
             status: "running",
             taskKind: "primary",
-            runtimeSource: "claude-plugin",
+            runtimeSource: RuntimeSource("claude-plugin"),
             createdAt: "2026-03-28T00:00:00.000Z",
             updatedAt: "2026-03-28T00:00:01.000Z"
         }, [
             {
-                id: "evt-1",
-                taskId: "task-1",
+                id: EventId("evt-1"),
+                taskId: TaskId("task-1"),
                 kind: "tool.used",
                 lane: "implementation",
                 title: "Read file",
@@ -88,18 +88,18 @@ describe("buildWorkflowContext", () => {
     it("includes verification summary and lane sections for rule events", () => {
         const context = buildWorkflowContext([
             {
-                id: "task-1",
-                taskId: "task-1",
+                id: EventId("task-1"),
+                taskId: TaskId("task-1"),
                 kind: "task.start",
                 lane: "planning",
                 title: "Claude Code run",
-                metadata: { runtimeSource: "claude-plugin" },
+                metadata: { runtimeSource: RuntimeSource("claude-plugin") },
                 classification: { lane: "planning", tags: [], matches: [] },
                 createdAt: "2026-04-08T00:00:00.000Z"
             },
             {
-                id: "user-1",
-                taskId: "task-1",
+                id: EventId("user-1"),
+                taskId: TaskId("task-1"),
                 kind: "user.message",
                 lane: "user",
                 title: "Start",
@@ -109,8 +109,8 @@ describe("buildWorkflowContext", () => {
                 createdAt: "2026-04-08T00:00:01.000Z"
             },
             {
-                id: "rule-1",
-                taskId: "task-1",
+                id: EventId("rule-1"),
+                taskId: TaskId("task-1"),
                 kind: "rule.logged",
                 lane: "implementation",
                 title: "Rule violation: missing doc read",
@@ -125,8 +125,8 @@ describe("buildWorkflowContext", () => {
                 createdAt: "2026-04-08T00:00:02.000Z"
             },
             {
-                id: "rule-2",
-                taskId: "task-1",
+                id: EventId("rule-2"),
+                taskId: TaskId("task-1"),
                 kind: "rule.logged",
                 lane: "implementation",
                 title: "Rule pass: doc read recorded",
@@ -157,7 +157,7 @@ describe("classifyEvent", () => {
     it("derives the lane from action-registry match", () => {
         const classification = classifyEvent({
             kind: "tool.used",
-            actionName: "readFile"
+            actionName: ActionName("readFile")
         });
         expect(classification.lane).toBe("exploration");
         expect(classification.tags).toContain("action-registry");
@@ -165,7 +165,7 @@ describe("classifyEvent", () => {
     it("classifies free-form snake_case actions with keyword overrides", () => {
         const classification = classifyEvent({
             kind: "action.logged",
-            actionName: "run_test_rule_guard",
+            actionName: ActionName("run_test_rule_guard"),
             title: "run_test_rule_guard"
         });
         expect(classification.lane).toBe("implementation");

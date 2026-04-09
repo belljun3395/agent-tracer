@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { MonitorClient } from "../src/client.js";
-import { createMonitorMcpServer } from "../src/index.js";
+import { createMonitorMcpServer } from "../src";
 describe("MonitorClient", () => {
     beforeEach(() => {
         vi.restoreAllMocks();

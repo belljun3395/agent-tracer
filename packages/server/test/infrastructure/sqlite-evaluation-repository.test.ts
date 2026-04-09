@@ -1,8 +1,8 @@
 import BetterSqlite3 from "better-sqlite3";
+import { TaskId } from "@monitor/core";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { serializeEmbedding } from "../../src/infrastructure/embedding/index.js";
-import { SqliteEvaluationRepository } from "../../src/infrastructure/sqlite/sqlite-evaluation-repository.js";
-import { createSchema } from "../../src/infrastructure/sqlite/sqlite-schema.js";
+import { serializeEmbedding } from "../../src/infrastructure/embedding";
+import { SqliteEvaluationRepository, createSchema } from "../../src/infrastructure/sqlite";
 describe("sqlite evaluation repository search", () => {
     afterEach(() => {
         vi.restoreAllMocks();
@@ -167,7 +167,7 @@ describe("sqlite evaluation repository search", () => {
             body: "workflow content preview"
         });
         const repository = new SqliteEvaluationRepository(db);
-        const result = await repository.getWorkflowContent("task-workflow-content");
+        const result = await repository.getWorkflowContent(TaskId("task-workflow-content"));
         expect(result?.source).toBe("saved");
         expect(result?.workflowSnapshot.outcomeSummary).toBe("saved override");
         expect(result?.workflowContext).toContain("saved override");

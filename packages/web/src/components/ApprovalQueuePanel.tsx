@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { RuleId } from "@monitor/core";
 import { fetchTaskDetail, fetchTaskObservability, postRuleAction } from "../api.js";
 import type { MonitoringTask, TaskObservabilitySummary } from "../types.js";
 import { Button } from "./ui/Button.js";
@@ -76,7 +77,8 @@ export function ApprovalQueuePanel({ tasks, onClose, onSelectTask, onRefresh }: 
                     : outcome === "rejected"
                         ? "Approval rejected"
                         : "Rule bypassed",
-                ruleId: item.observability.ruleEnforcement.activeRuleId ?? item.observability.ruleEnforcement.activeLabel ?? "rule-gate",
+                ruleId: item.observability.ruleEnforcement.activeRuleId
+                    ?? (item.observability.ruleEnforcement.activeLabel ? RuleId(item.observability.ruleEnforcement.activeLabel) : RuleId("rule-gate")),
                 severity: outcome === "approved" ? "info" : "warn",
                 status: outcome === "approved" || outcome === "bypassed" ? "pass" : "violation",
                 source: "reviewer-queue",

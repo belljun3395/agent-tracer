@@ -31,7 +31,8 @@
     "dev": "vite",
     "build": "vite build",
     "prepublishOnly": "npm run build",
-    "lint": "eslint src",
+    "lint": "eslint src && npm run lint:types",
+    "lint:types": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run --passWithNoTests"
   }
 }

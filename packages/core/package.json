@@ -12,7 +12,8 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "lint": "eslint src test",
+    "lint": "eslint src test && npm run lint:types",
+    "lint:types": "tsc -p tsconfig.test.json --noEmit",
     "test": "vitest run"
   },
   "dependencies": {

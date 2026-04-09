@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { TaskId } from "@monitor/core";
+import { RuntimeSource, TaskId, TaskSlug, WorkspacePath } from "@monitor/core";
 import type { MonitoringTask } from "../types.js";
 import { buildRuntimeFilterOptions, buildTaskListRows, filterTasksByRuntime, resolveTaskListItemTitle, runtimeFilterKey, runtimeTagLabel } from "./TaskList.js";
 const BASE_TASK: MonitoringTask = {
     id: TaskId("task-1"),
     title: "Claude Code - agent-tracer",
-    slug: "agent-tracer",
-    workspacePath: "/Users/okestro/Documents/code/agent-tracer",
+    slug: TaskSlug("agent-tracer"),
+    workspacePath: WorkspacePath("/Users/okestro/Documents/code/agent-tracer"),
     status: "running",
     createdAt: "2026-03-16T09:00:00.000Z",
     updatedAt: "2026-03-16T09:01:00.000Z"
@@ -144,8 +144,8 @@ describe("runtimeFilter helpers", () => {
     });
     it("filters tasks by grouped runtime family", () => {
         const tasks: MonitoringTask[] = [
-            { ...BASE_TASK, id: TaskId("claude-1"), runtimeSource: "claude-plugin" },
-            { ...BASE_TASK, id: TaskId("custom-1"), runtimeSource: "custom-runtime" },
+            { ...BASE_TASK, id: TaskId("claude-1"), runtimeSource: RuntimeSource("claude-plugin") },
+            { ...BASE_TASK, id: TaskId("custom-1"), runtimeSource: RuntimeSource("custom-runtime") },
             { ...BASE_TASK, id: TaskId("unknown-1") }
         ];
         expect(filterTasksByRuntime(tasks, "source:custom-runtime").map((task) => task.id)).toEqual(["custom-1"]);
@@ -153,8 +153,8 @@ describe("runtimeFilter helpers", () => {
     });
     it("builds runtime filter options with grouped counts", () => {
         const tasks: MonitoringTask[] = [
-            { ...BASE_TASK, id: TaskId("claude-1"), runtimeSource: "claude-plugin" },
-            { ...BASE_TASK, id: TaskId("custom-1"), runtimeSource: "custom-runtime" },
+            { ...BASE_TASK, id: TaskId("claude-1"), runtimeSource: RuntimeSource("claude-plugin") },
+            { ...BASE_TASK, id: TaskId("custom-1"), runtimeSource: RuntimeSource("custom-runtime") },
             { ...BASE_TASK, id: TaskId("unknown-1") }
         ];
         expect(buildRuntimeFilterOptions(tasks)).toEqual([

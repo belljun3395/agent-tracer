@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { classifyEvent } from "@monitor/core";
+import { ActionName, classifyEvent } from "@monitor/core";
 describe("classifyEvent (action-registry only)", () => {
     it("does not classify generic UI text with no action name", () => {
         const classification = classifyEvent({
@@ -19,7 +19,7 @@ describe("classifyEvent (action-registry only)", () => {
     it("classifies exploration actions by action name prefix", () => {
         const classification = classifyEvent({
             kind: "tool.used",
-            actionName: "readFile"
+            actionName: ActionName("readFile")
         });
         expect(classification.lane).toBe("exploration");
         expect(classification.tags).toContain("action-registry");
@@ -27,7 +27,7 @@ describe("classifyEvent (action-registry only)", () => {
     it("classifies implementation actions by action name prefix", () => {
         const classification = classifyEvent({
             kind: "action.logged",
-            actionName: "createComponent"
+            actionName: ActionName("createComponent")
         });
         expect(classification.lane).toBe("implementation");
         expect(classification.tags).toContain("action-registry");
