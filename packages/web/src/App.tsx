@@ -4,7 +4,7 @@
  */
 
 import type React from "react";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { Navigate, Route, Routes, useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import { refreshRealtimeMonitorData } from "./lib/realtime.js";
@@ -16,7 +16,11 @@ import { ApprovalQueuePanel } from "./components/ApprovalQueuePanel.js";
 import { SidebarContainer } from "./components/SidebarContainer.js";
 import { TimelineContainer } from "./components/TimelineContainer.js";
 import { InspectorContainer } from "./components/InspectorContainer.js";
-import { TaskWorkspacePage } from "./pages/TaskWorkspacePage.js";
+
+// Code-split page routes
+const TaskWorkspacePage = lazy(() =>
+  import("./pages/TaskWorkspacePage.js").then((m) => ({ default: m.TaskWorkspacePage }))
+);
 import { MonitorProvider, useMonitorStore } from "./store/useMonitorStore.js";
 import { useWebSocket } from "./store/useWebSocket.js";
 import { useSearch } from "./store/useSearch.js";
@@ -316,11 +320,13 @@ function TaskWorkspaceRoute(): React.JSX.Element {
 
 function AppRoutes(): React.JSX.Element {
   return (
-    <Routes>
-      <Route path="/" element={<DashboardRoute />} />
-      <Route path="/tasks/:taskId" element={<TaskWorkspaceRoute />} />
-      <Route path="*" element={<Navigate replace to="/" />} />
-    </Routes>
+    <Suspense fallback={<div>Loading…</div>}>
+      <Routes>
+        <Route path="/" element={<DashboardRoute />} />
+        <Route path="/tasks/:taskId" element={<TaskWorkspaceRoute />} />
+        <Route path="*" element={<Navigate replace to="/" />} />
+      </Routes>
+    </Suspense>
   );
 }
 
