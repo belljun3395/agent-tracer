@@ -1,20 +1,20 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-
+import { loadApplicationConfig, resolveMonitorDatabasePath, resolveMonitorHttpBaseUrl, resolveMonitorListenHost, resolveMonitorPort } from "../../../config/load-application-config.js";
 export { createNestMonitorRuntime } from "./bootstrap/create-nestjs-monitor-runtime.js";
 export type { MonitorRuntime, RuntimeOptions } from "./bootstrap/runtime.types.js";
-
 const entryPath = process.argv[1] ? path.resolve(process.argv[1]) : undefined;
 const modulePath = fileURLToPath(import.meta.url);
-
 if (entryPath === modulePath) {
-  const { createNestMonitorRuntime } = await import("./bootstrap/create-nestjs-monitor-runtime.js");
-  const port = Number(process.env.MONITOR_PORT ?? 3847);
-  const databasePath = path.resolve(process.cwd(), ".monitor", "monitor.sqlite");
-
-  const runtime = await createNestMonitorRuntime({ databasePath });
-  runtime.server.listen(port, () => {
-    console.log(`[nestjs-server] listening on http://127.0.0.1:${port}`);
-    console.log(`[nestjs-server] database: ${databasePath}`);
-  });
+    const { createNestMonitorRuntime } = await import("./bootstrap/create-nestjs-monitor-runtime.js");
+    const applicationConfig = loadApplicationConfig();
+    const port = resolveMonitorPort(applicationConfig, process.env);
+    const listenHost = resolveMonitorListenHost(applicationConfig, process.env);
+    const databasePath = resolveMonitorDatabasePath(applicationConfig, { cwd: process.cwd(), env: process.env });
+    const publicBaseUrl = resolveMonitorHttpBaseUrl(applicationConfig, process.env);
+    const runtime = await createNestMonitorRuntime({ databasePath });
+    runtime.server.listen(port, listenHost, () => {
+        console.log(`[nestjs-server] listening on ${publicBaseUrl}`);
+        console.log(`[nestjs-server] database: ${databasePath}`);
+    });
 }

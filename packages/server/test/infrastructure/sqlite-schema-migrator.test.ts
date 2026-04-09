@@ -1,35 +1,27 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-
 import BetterSqlite3 from "better-sqlite3";
 import { afterEach, describe, expect, it } from "vitest";
-
 import { createSchema } from "../../src/infrastructure/sqlite/sqlite-schema.js";
 import { createSqliteMonitorPorts } from "../../src/infrastructure/sqlite";
-
 describe("sqlite runtimeSource backfill", () => {
-  let tempDir: string | null = null;
-  let closePorts: (() => void) | null = null;
-
-  afterEach(() => {
-    closePorts?.();
-    closePorts = null;
-
-    if (tempDir) {
-      fs.rmSync(tempDir, { recursive: true, force: true });
-      tempDir = null;
-    }
-  });
-
-  it("backfills task runtimeSource from bindings first and event metadata second", async () => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "monitor-runtime-source-"));
-    const databasePath = path.join(tempDir, "monitor.sqlite");
-    const seedDb = new BetterSqlite3(databasePath);
-
-    createSchema(seedDb);
-
-    seedDb.prepare(`
+    let tempDir: string | null = null;
+    let closePorts: (() => void) | null = null;
+    afterEach(() => {
+        closePorts?.();
+        closePorts = null;
+        if (tempDir) {
+            fs.rmSync(tempDir, { recursive: true, force: true });
+            tempDir = null;
+        }
+    });
+    it("backfills task runtimeSource from bindings first and event metadata second", async () => {
+        tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "monitor-runtime-source-"));
+        const databasePath = path.join(tempDir, "monitor.sqlite");
+        const seedDb = new BetterSqlite3(databasePath);
+        createSchema(seedDb);
+        seedDb.prepare(`
       insert into monitoring_tasks (
         id, title, slug, workspace_path, status, task_kind, parent_task_id, parent_session_id,
         background_task_id, created_at, updated_at, last_session_started_at, cli_source
@@ -38,14 +30,13 @@ describe("sqlite runtimeSource backfill", () => {
         null, @createdAt, @updatedAt, @updatedAt, null
       )
     `).run({
-      id: "task-claude",
-      title: "Claude Code - agent-tracer",
-      slug: "claude-task",
-      createdAt: "2026-03-20T08:00:00.000Z",
-      updatedAt: "2026-03-20T08:00:00.000Z"
-    });
-
-    seedDb.prepare(`
+            id: "task-claude",
+            title: "Claude Code - agent-tracer",
+            slug: "claude-task",
+            createdAt: "2026-03-20T08:00:00.000Z",
+            updatedAt: "2026-03-20T08:00:00.000Z"
+        });
+        seedDb.prepare(`
       insert into monitoring_tasks (
         id, title, slug, workspace_path, status, task_kind, parent_task_id, parent_session_id,
         background_task_id, created_at, updated_at, last_session_started_at, cli_source
@@ -54,50 +45,42 @@ describe("sqlite runtimeSource backfill", () => {
         null, @createdAt, @updatedAt, @updatedAt, null
       )
     `).run({
-      id: "task-opencode",
-      title: "OpenCode - agent-tracer",
-      slug: "opencode-task",
-      createdAt: "2026-03-20T08:05:00.000Z",
-      updatedAt: "2026-03-20T08:05:00.000Z"
-    });
-
-    seedDb.prepare(`
+            id: "task-imported",
+            title: "Claude Code - imported task",
+            slug: "imported-task",
+            createdAt: "2026-03-20T08:05:00.000Z",
+            updatedAt: "2026-03-20T08:05:00.000Z"
+        });
+        seedDb.prepare(`
       insert into runtime_session_bindings (
         runtime_source, runtime_session_id, task_id, monitor_session_id, created_at, updated_at
       ) values (
-        'claude-hook', 'runtime-1', 'task-claude', null, '2026-03-20T08:00:00.000Z', '2026-03-20T08:01:00.000Z'
+        'claude-plugin', 'runtime-1', 'task-claude', null, '2026-03-20T08:00:00.000Z', '2026-03-20T08:01:00.000Z'
       )
     `).run();
-
-    seedDb.prepare(`
+        seedDb.prepare(`
       insert into timeline_events (
         id, task_id, session_id, kind, lane, title, body, metadata_json, classification_json, created_at
       ) values (
-        'event-1', 'task-opencode', null, 'user.message', 'user', 'OpenCode request', null,
+        'event-1', 'task-imported', null, 'user.message', 'user', 'Imported request', null,
         @metadata, '{"lane":"user","tags":[],"matches":[]}', '2026-03-20T08:05:10.000Z'
       )
     `).run({
-      metadata: JSON.stringify({ source: "opencode-plugin" })
+            metadata: JSON.stringify({ source: "claude-plugin" })
+        });
+        seedDb.close();
+        const ports = createSqliteMonitorPorts({ databasePath });
+        closePorts = ports.close;
+        const claudeTask = await ports.tasks.findById("task-claude");
+        const importedTask = await ports.tasks.findById("task-imported");
+        expect(claudeTask?.runtimeSource).toBe("claude-plugin");
+        expect(importedTask?.runtimeSource).toBe("claude-plugin");
     });
-
-    seedDb.close();
-
-    const ports = createSqliteMonitorPorts({ databasePath });
-    closePorts = ports.close;
-
-    const claudeTask = await ports.tasks.findById("task-claude");
-    const opencodeTask = await ports.tasks.findById("task-opencode");
-
-    expect(claudeTask?.runtimeSource).toBe("claude-hook");
-    expect(opencodeTask?.runtimeSource).toBe("opencode-plugin");
-  });
-
-  it("adds missing workflow search columns for existing evaluation tables", async () => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "monitor-evaluation-migration-"));
-    const databasePath = path.join(tempDir, "monitor.sqlite");
-    const seedDb = new BetterSqlite3(databasePath);
-
-    seedDb.exec(`
+    it("adds missing workflow search columns for existing evaluation tables", async () => {
+        tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "monitor-evaluation-migration-"));
+        const databasePath = path.join(tempDir, "monitor.sqlite");
+        const seedDb = new BetterSqlite3(databasePath);
+        seedDb.exec(`
       create table monitoring_tasks (
         id text primary key,
         title text not null,
@@ -156,20 +139,18 @@ describe("sqlite runtimeSource backfill", () => {
         updated_at text not null
       );
     `);
-    seedDb.close();
-
-    const ports = createSqliteMonitorPorts({ databasePath });
-    closePorts = ports.close;
-
-    const inspectDb = new BetterSqlite3(databasePath, { readonly: true });
-    const columns = inspectDb.pragma("table_info(task_evaluations)") as Array<{ name: string }>;
-
-    expect(columns.some((column) => column.name === "search_text")).toBe(true);
-    expect(columns.some((column) => column.name === "workflow_snapshot_json")).toBe(true);
-    expect(columns.some((column) => column.name === "workflow_context")).toBe(true);
-    expect(columns.some((column) => column.name === "embedding")).toBe(true);
-    expect(columns.some((column) => column.name === "embedding_model")).toBe(true);
-
-    inspectDb.close();
-  });
+        seedDb.close();
+        const ports = createSqliteMonitorPorts({ databasePath });
+        closePorts = ports.close;
+        const inspectDb = new BetterSqlite3(databasePath, { readonly: true });
+        const columns = inspectDb.pragma("table_info(task_evaluations)") as Array<{
+            name: string;
+        }>;
+        expect(columns.some((column) => column.name === "search_text")).toBe(true);
+        expect(columns.some((column) => column.name === "workflow_snapshot_json")).toBe(true);
+        expect(columns.some((column) => column.name === "workflow_context")).toBe(true);
+        expect(columns.some((column) => column.name === "embedding")).toBe(true);
+        expect(columns.some((column) => column.name === "embedding_model")).toBe(true);
+        inspectDb.close();
+    });
 });

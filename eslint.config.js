@@ -27,11 +27,20 @@ export default tseslint.config(
     rules: {
       "@typescript-eslint/consistent-type-imports": "error",
       "@typescript-eslint/no-floating-promises": "error",
+      "@typescript-eslint/no-misused-promises": "error",
+      "@typescript-eslint/no-unnecessary-condition": "error",
+      "@typescript-eslint/return-await": "error",
       "@typescript-eslint/no-unused-vars": ["error", {
         "varsIgnorePattern": "^_",
         "argsIgnorePattern": "^_",
         "caughtErrorsIgnorePattern": "^_"
       }]
+    }
+  },
+  {
+    files: ["packages/server/src/infrastructure/sqlite/**/*.ts"],
+    rules: {
+      "@typescript-eslint/require-await": "off"
     }
   },
   {

@@ -1,241 +1,214 @@
 import BetterSqlite3 from "better-sqlite3";
 import { afterEach, describe, expect, it, vi } from "vitest";
-
 import { serializeEmbedding } from "../../src/infrastructure/embedding/index.js";
 import { SqliteEvaluationRepository } from "../../src/infrastructure/sqlite/sqlite-evaluation-repository.js";
 import { createSchema } from "../../src/infrastructure/sqlite/sqlite-schema.js";
-
 describe("sqlite evaluation repository search", () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  it("returns semantic matches even without lexical overlap", async () => {
-    const db = new BetterSqlite3(":memory:");
-    createSchema(db);
-    seedTask(db, {
-      id: "task-semantic",
-      title: "Refine config migration flow"
+    afterEach(() => {
+        vi.restoreAllMocks();
     });
-    seedEvaluation(db, {
-      taskId: "task-semantic",
-      rating: "good",
-      useCase: "environment variable refactor",
-      outcomeNote: "Rename env readers and keep rollout safe",
-      embedding: serializeEmbedding(new Float32Array([1, 0, 0])),
-      embeddingModel: "fake-model"
+    it("returns semantic matches even without lexical overlap", async () => {
+        const db = new BetterSqlite3(":memory:");
+        createSchema(db);
+        seedTask(db, {
+            id: "task-semantic",
+            title: "Refine config migration flow"
+        });
+        seedEvaluation(db, {
+            taskId: "task-semantic",
+            rating: "good",
+            useCase: "environment variable refactor",
+            outcomeNote: "Rename env readers and keep rollout safe",
+            embedding: serializeEmbedding(new Float32Array([1, 0, 0])),
+            embeddingModel: "fake-model"
+        });
+        seedEvent(db, {
+            id: "event-semantic",
+            taskId: "task-semantic",
+            title: "Context saved",
+            body: "Refine config migration flow before rollout."
+        });
+        const repository = new SqliteEvaluationRepository(db, {
+            embed: async () => new Float32Array([1, 0, 0])
+        });
+        const results = await repository.searchSimilarWorkflows("housekeeping sweep", undefined, 5);
+        expect(results).toHaveLength(1);
+        expect(results[0]?.taskId).toBe("task-semantic");
+        db.close();
     });
-    seedEvent(db, {
-      id: "event-semantic",
-      taskId: "task-semantic",
-      title: "Context saved",
-      body: "Refine config migration flow before rollout."
+    it("falls back to lexical scoring and keeps rating or recency tie-breakers", async () => {
+        const db = new BetterSqlite3(":memory:");
+        createSchema(db);
+        seedTask(db, {
+            id: "task-good",
+            title: "TypeScript cleanup"
+        });
+        seedTask(db, {
+            id: "task-skip",
+            title: "TypeScript cleanup backup"
+        });
+        seedEvaluation(db, {
+            taskId: "task-good",
+            rating: "good",
+            useCase: "typescript refactor",
+            approachNote: "Prefer guard clause exits in shared helpers",
+            evaluatedAt: "2026-03-28T00:00:00.000Z",
+            embedding: serializeEmbedding(new Float32Array([1, 0, 0])),
+            embeddingModel: "fake-model"
+        });
+        seedEvaluation(db, {
+            taskId: "task-skip",
+            rating: "skip",
+            useCase: "typescript refactor",
+            approachNote: "Prefer guard clause exits in shared helpers",
+            evaluatedAt: "2026-03-27T00:00:00.000Z"
+        });
+        seedEvent(db, {
+            id: "event-good",
+            taskId: "task-good",
+            title: "Context saved",
+            body: "Prefer guard clause exits while refactoring TypeScript code."
+        });
+        seedEvent(db, {
+            id: "event-skip",
+            taskId: "task-skip",
+            title: "Context saved",
+            body: "Prefer guard clause exits while refactoring TypeScript code."
+        });
+        const warn = vi.spyOn(console, "warn").mockImplementation(() => { });
+        const repository = new SqliteEvaluationRepository(db, {
+            embed: async () => {
+                throw new Error("query embedding failed");
+            }
+        });
+        const results = await repository.searchSimilarWorkflows("typescript guard clause", undefined, 5);
+        expect(results.map((result) => result.taskId)).toEqual(["task-good", "task-skip"]);
+        expect(warn).toHaveBeenCalled();
+        db.close();
     });
-
-    const repository = new SqliteEvaluationRepository(db, {
-      embed: async () => new Float32Array([1, 0, 0])
+    it("searches workflow library summaries with semantic ranking", async () => {
+        const db = new BetterSqlite3(":memory:");
+        createSchema(db);
+        seedTask(db, {
+            id: "task-library-semantic",
+            title: "Guard clause cleanup"
+        });
+        seedEvaluation(db, {
+            taskId: "task-library-semantic",
+            rating: "good",
+            useCase: "typescript refactor",
+            outcomeNote: "Flattened nested branches",
+            embedding: serializeEmbedding(new Float32Array([0, 1, 0])),
+            embeddingModel: "fake-model"
+        });
+        const repository = new SqliteEvaluationRepository(db, {
+            embed: async () => new Float32Array([0, 1, 0])
+        });
+        const results = await repository.searchWorkflowLibrary("branch simplification", "good", 10);
+        expect(results).toHaveLength(1);
+        expect(results[0]?.taskId).toBe("task-library-semantic");
+        expect(results[0]?.rating).toBe("good");
+        db.close();
     });
-
-    const results = await repository.searchSimilarWorkflows("housekeeping sweep", undefined, 5);
-
-    expect(results).toHaveLength(1);
-    expect(results[0]?.taskId).toBe("task-semantic");
-
-    db.close();
-  });
-
-  it("falls back to lexical scoring and keeps rating or recency tie-breakers", async () => {
-    const db = new BetterSqlite3(":memory:");
-    createSchema(db);
-    seedTask(db, {
-      id: "task-good",
-      title: "TypeScript cleanup"
+    it("hydrates derived displayTitle for workflow summaries when the stored title is generic", async () => {
+        const db = new BetterSqlite3(":memory:");
+        createSchema(db);
+        seedTask(db, {
+            id: "task-library-display-title",
+            title: "Claude Code - agent-tracer",
+            workspacePath: "/tmp/agent-tracer"
+        });
+        seedEvaluation(db, {
+            taskId: "task-library-display-title",
+            rating: "good"
+        });
+        seedUserMessage(db, {
+            id: "event-user-title",
+            taskId: "task-library-display-title",
+            body: "hi?"
+        });
+        const repository = new SqliteEvaluationRepository(db);
+        const results = await repository.listEvaluations("good");
+        expect(results).toHaveLength(1);
+        expect(results[0]?.title).toBe("Claude Code - agent-tracer");
+        expect(results[0]?.displayTitle).toBe("hi?");
+        db.close();
     });
-    seedTask(db, {
-      id: "task-skip",
-      title: "TypeScript cleanup backup"
+    it("returns saved workflow content overrides when available", async () => {
+        const db = new BetterSqlite3(":memory:");
+        createSchema(db);
+        seedTask(db, {
+            id: "task-workflow-content",
+            title: "Claude Code - agent-tracer",
+            workspacePath: "/tmp/agent-tracer"
+        });
+        seedEvaluation(db, {
+            taskId: "task-workflow-content",
+            rating: "good",
+            workflowSnapshotJson: JSON.stringify({
+                objective: "workflow content preview",
+                originalRequest: "workflow content preview",
+                outcomeSummary: "saved override",
+                approachSummary: "manual snapshot edit",
+                reuseWhen: null,
+                watchItems: [],
+                keyDecisions: ["persist override"],
+                nextSteps: [],
+                keyFiles: [],
+                modifiedFiles: [],
+                verificationSummary: null,
+                searchText: "workflow content preview"
+            }),
+            workflowContext: "# Workflow: workflow content preview\n\n## Outcome\nsaved override"
+        });
+        seedUserMessage(db, {
+            id: "event-user-content",
+            taskId: "task-workflow-content",
+            body: "workflow content preview"
+        });
+        const repository = new SqliteEvaluationRepository(db);
+        const result = await repository.getWorkflowContent("task-workflow-content");
+        expect(result?.source).toBe("saved");
+        expect(result?.workflowSnapshot.outcomeSummary).toBe("saved override");
+        expect(result?.workflowContext).toContain("saved override");
+        db.close();
     });
-    seedEvaluation(db, {
-      taskId: "task-good",
-      rating: "good",
-      useCase: "typescript refactor",
-      approachNote: "Prefer guard clause exits in shared helpers",
-      evaluatedAt: "2026-03-28T00:00:00.000Z",
-      embedding: serializeEmbedding(new Float32Array([1, 0, 0])),
-      embeddingModel: "fake-model"
-    });
-    seedEvaluation(db, {
-      taskId: "task-skip",
-      rating: "skip",
-      useCase: "typescript refactor",
-      approachNote: "Prefer guard clause exits in shared helpers",
-      evaluatedAt: "2026-03-27T00:00:00.000Z"
-    });
-    seedEvent(db, {
-      id: "event-good",
-      taskId: "task-good",
-      title: "Context saved",
-      body: "Prefer guard clause exits while refactoring TypeScript code."
-    });
-    seedEvent(db, {
-      id: "event-skip",
-      taskId: "task-skip",
-      title: "Context saved",
-      body: "Prefer guard clause exits while refactoring TypeScript code."
-    });
-
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const repository = new SqliteEvaluationRepository(db, {
-      embed: async () => {
-        throw new Error("query embedding failed");
-      }
-    });
-
-    const results = await repository.searchSimilarWorkflows("typescript guard clause", undefined, 5);
-
-    expect(results.map((result) => result.taskId)).toEqual(["task-good", "task-skip"]);
-    expect(warn).toHaveBeenCalled();
-
-    db.close();
-  });
-
-  it("searches workflow library summaries with semantic ranking", async () => {
-    const db = new BetterSqlite3(":memory:");
-    createSchema(db);
-    seedTask(db, {
-      id: "task-library-semantic",
-      title: "Guard clause cleanup"
-    });
-    seedEvaluation(db, {
-      taskId: "task-library-semantic",
-      rating: "good",
-      useCase: "typescript refactor",
-      outcomeNote: "Flattened nested branches",
-      embedding: serializeEmbedding(new Float32Array([0, 1, 0])),
-      embeddingModel: "fake-model"
-    });
-
-    const repository = new SqliteEvaluationRepository(db, {
-      embed: async () => new Float32Array([0, 1, 0])
-    });
-
-    const results = await repository.searchWorkflowLibrary("branch simplification", "good", 10);
-
-    expect(results).toHaveLength(1);
-    expect(results[0]?.taskId).toBe("task-library-semantic");
-    expect(results[0]?.rating).toBe("good");
-
-    db.close();
-  });
-
-  it("hydrates derived displayTitle for workflow summaries when the stored title is generic", async () => {
-    const db = new BetterSqlite3(":memory:");
-    createSchema(db);
-    seedTask(db, {
-      id: "task-library-display-title",
-      title: "Codex - agent-tracer",
-      workspacePath: "/tmp/agent-tracer"
-    });
-    seedEvaluation(db, {
-      taskId: "task-library-display-title",
-      rating: "good"
-    });
-    seedUserMessage(db, {
-      id: "event-user-title",
-      taskId: "task-library-display-title",
-      body: "hi?"
-    });
-
-    const repository = new SqliteEvaluationRepository(db);
-    const results = await repository.listEvaluations("good");
-
-    expect(results).toHaveLength(1);
-    expect(results[0]?.title).toBe("Codex - agent-tracer");
-    expect(results[0]?.displayTitle).toBe("hi?");
-
-    db.close();
-  });
-
-  it("returns saved workflow content overrides when available", async () => {
-    const db = new BetterSqlite3(":memory:");
-    createSchema(db);
-    seedTask(db, {
-      id: "task-workflow-content",
-      title: "Codex - agent-tracer",
-      workspacePath: "/tmp/agent-tracer"
-    });
-    seedEvaluation(db, {
-      taskId: "task-workflow-content",
-      rating: "good",
-      workflowSnapshotJson: JSON.stringify({
-        objective: "workflow content preview",
-        originalRequest: "workflow content preview",
-        outcomeSummary: "saved override",
-        approachSummary: "manual snapshot edit",
-        reuseWhen: null,
-        watchItems: [],
-        keyDecisions: ["persist override"],
-        nextSteps: [],
-        keyFiles: [],
-        modifiedFiles: [],
-        verificationSummary: null,
-        searchText: "workflow content preview"
-      }),
-      workflowContext: "# Workflow: workflow content preview\n\n## Outcome\nsaved override"
-    });
-    seedUserMessage(db, {
-      id: "event-user-content",
-      taskId: "task-workflow-content",
-      body: "workflow content preview"
-    });
-
-    const repository = new SqliteEvaluationRepository(db);
-    const result = await repository.getWorkflowContent("task-workflow-content");
-
-    expect(result?.source).toBe("saved");
-    expect(result?.workflowSnapshot.outcomeSummary).toBe("saved override");
-    expect(result?.workflowContext).toContain("saved override");
-
-    db.close();
-  });
 });
-
 function seedTask(db: BetterSqlite3.Database, input: {
-  id: string;
-  title: string;
-  slug?: string;
-  workspacePath?: string;
+    id: string;
+    title: string;
+    slug?: string;
+    workspacePath?: string;
 }): void {
-  db.prepare(`
+    db.prepare(`
     insert into monitoring_tasks (
       id, title, slug, workspace_path, status, task_kind, parent_task_id, parent_session_id,
       background_task_id, created_at, updated_at, last_session_started_at, cli_source
     ) values (
       @id, @title, @slug, @workspacePath, 'completed', 'primary', null, null,
       null, '2026-03-28T00:00:00.000Z', '2026-03-28T00:00:00.000Z',
-      '2026-03-28T00:00:00.000Z', 'codex-skill'
+      '2026-03-28T00:00:00.000Z', 'claude-plugin'
     )
   `).run({
-    id: input.id,
-    title: input.title,
-    slug: input.slug ?? input.id,
-    workspacePath: input.workspacePath ?? null
-  });
+        id: input.id,
+        title: input.title,
+        slug: input.slug ?? input.id,
+        workspacePath: input.workspacePath ?? null
+    });
 }
-
 function seedEvaluation(db: BetterSqlite3.Database, input: {
-  taskId: string;
-  rating: "good" | "skip";
-  useCase?: string;
-  outcomeNote?: string;
-  approachNote?: string;
-  evaluatedAt?: string;
-  embedding?: string;
-  embeddingModel?: string;
-  workflowSnapshotJson?: string;
-  workflowContext?: string;
+    taskId: string;
+    rating: "good" | "skip";
+    useCase?: string;
+    outcomeNote?: string;
+    approachNote?: string;
+    evaluatedAt?: string;
+    embedding?: string;
+    embeddingModel?: string;
+    workflowSnapshotJson?: string;
+    workflowContext?: string;
 }): void {
-  db.prepare(`
+    db.prepare(`
     insert into task_evaluations (
       task_id, rating, use_case, workflow_tags, outcome_note, approach_note, reuse_when,
       watchouts, workflow_snapshot_json, workflow_context, search_text, embedding, embedding_model, evaluated_at
@@ -244,26 +217,25 @@ function seedEvaluation(db: BetterSqlite3.Database, input: {
       null, @workflowSnapshotJson, @workflowContext, null, @embedding, @embeddingModel, @evaluatedAt
     )
   `).run({
-    taskId: input.taskId,
-    rating: input.rating,
-    useCase: input.useCase ?? null,
-    outcomeNote: input.outcomeNote ?? null,
-    approachNote: input.approachNote ?? null,
-    workflowSnapshotJson: input.workflowSnapshotJson ?? null,
-    workflowContext: input.workflowContext ?? null,
-    embedding: input.embedding ?? null,
-    embeddingModel: input.embeddingModel ?? null,
-    evaluatedAt: input.evaluatedAt ?? "2026-03-28T00:00:00.000Z"
-  });
+        taskId: input.taskId,
+        rating: input.rating,
+        useCase: input.useCase ?? null,
+        outcomeNote: input.outcomeNote ?? null,
+        approachNote: input.approachNote ?? null,
+        workflowSnapshotJson: input.workflowSnapshotJson ?? null,
+        workflowContext: input.workflowContext ?? null,
+        embedding: input.embedding ?? null,
+        embeddingModel: input.embeddingModel ?? null,
+        evaluatedAt: input.evaluatedAt ?? "2026-03-28T00:00:00.000Z"
+    });
 }
-
 function seedEvent(db: BetterSqlite3.Database, input: {
-  id: string;
-  taskId: string;
-  title: string;
-  body: string;
+    id: string;
+    taskId: string;
+    title: string;
+    body: string;
 }): void {
-  db.prepare(`
+    db.prepare(`
     insert into timeline_events (
       id, task_id, session_id, kind, lane, title, body, metadata_json, classification_json, created_at
     ) values (
@@ -272,13 +244,12 @@ function seedEvent(db: BetterSqlite3.Database, input: {
     )
   `).run(input);
 }
-
 function seedUserMessage(db: BetterSqlite3.Database, input: {
-  id: string;
-  taskId: string;
-  body: string;
+    id: string;
+    taskId: string;
+    body: string;
 }): void {
-  db.prepare(`
+    db.prepare(`
     insert into timeline_events (
       id, task_id, session_id, kind, lane, title, body, metadata_json, classification_json, created_at
     ) values (
