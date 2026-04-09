@@ -3,8 +3,10 @@
 import { execFileSync } from "node:child_process";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { loadApplicationConfig, resolveExternalMonitorBaseUrl, resolveExternalSourceRepo } from "../config/load-application-config.js";
 
-const DEFAULT_SOURCE_REPO = process.env.AGENT_TRACER_SOURCE_REPO || "belljun3395/agent-tracer";
+const APPLICATION_CONFIG = loadApplicationConfig({ env: process.env });
+const DEFAULT_SOURCE_REPO = resolveExternalSourceRepo(APPLICATION_CONFIG, process.env);
 
 function resolveDefaultSourceRef() {
   const explicitRef = String(process.env.AGENT_TRACER_SOURCE_REF || "").trim();
@@ -29,7 +31,7 @@ const DEFAULT_SOURCE_REF = resolveDefaultSourceRef();
 function parseArgs(argv) {
   const args = {
     target: "",
-    monitorBaseUrl: process.env.MONITOR_BASE_URL || "http://127.0.0.1:3847",
+    monitorBaseUrl: resolveExternalMonitorBaseUrl(APPLICATION_CONFIG, process.env),
     sourceRepo: DEFAULT_SOURCE_REPO,
     sourceRef: DEFAULT_SOURCE_REF,
     sourceRoot: process.env.AGENT_TRACER_SOURCE_ROOT || ""
@@ -122,7 +124,7 @@ function printHelp() {
   process.stdout.write(
     [
       "Usage:",
-      "  npm run setup:external -- --target /path/to/your-project [--monitor-base-url http://127.0.0.1:3847] [--source-repo belljun3395/agent-tracer] [--source-ref main] [--source-root /local/agent-tracer]",
+      "  npm run setup:external -- --target /path/to/your-project [--monitor-base-url http://host:port] [--source-repo owner/repo] [--source-ref main] [--source-root /local/agent-tracer]",
       "",
       "Examples:",
       "  npm run setup:external -- --target ../my-app",

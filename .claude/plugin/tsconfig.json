@@ -1,8 +1,7 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "noEmit": true,
-    "types": ["node"]
+    "outDir": "dist"
   },
-  "include": ["hooks/**/*.ts"]
+  "include": ["hooks", "../../config/load-application-config.d.ts"]
 }
