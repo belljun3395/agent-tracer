@@ -1,20 +1,27 @@
 import { describe, expect, it } from "vitest";
-import { buildLaneSections, buildPlanSection, type TimelineEvent } from "@monitor/core";
-function makeEvent(overrides: Partial<TimelineEvent> = {}): TimelineEvent {
+import { buildLaneSections, buildPlanSection, EventId, TaskId, type TimelineEvent } from "@monitor/core";
+
+type EventOverrides = Omit<Partial<TimelineEvent>, "id" | "taskId"> & {
+    id?: string;
+    taskId?: string;
+};
+
+function makeEvent(overrides: EventOverrides = {}): TimelineEvent {
+    const { id, taskId, ...rest } = overrides;
     return {
-        id: overrides.id ?? "event-1",
-        taskId: overrides.taskId ?? "task-1",
-        kind: overrides.kind ?? "context.saved",
-        lane: overrides.lane ?? "planning",
-        title: overrides.title ?? "Context saved",
-        metadata: overrides.metadata ?? {},
-        classification: overrides.classification ?? {
-            lane: overrides.lane ?? "planning",
+        id: EventId(id ?? "event-1"),
+        taskId: TaskId(taskId ?? "task-1"),
+        kind: rest.kind ?? "context.saved",
+        lane: rest.lane ?? "planning",
+        title: rest.title ?? "Context saved",
+        metadata: rest.metadata ?? {},
+        classification: rest.classification ?? {
+            lane: rest.lane ?? "planning",
             tags: [],
             matches: []
         },
-        createdAt: overrides.createdAt ?? "2026-03-28T00:00:00.000Z",
-        ...overrides
+        createdAt: rest.createdAt ?? "2026-03-28T00:00:00.000Z",
+        ...rest
     };
 }
 describe("workflow context builder", () => {
