@@ -7,6 +7,7 @@
 import http from "node:http";
 
 import type express from "express";
+import { initializeDefaultAdapters } from "@monitor/core";
 import { WebSocketServer } from "ws";
 
 import { MonitorService } from "../application/monitor-service.js";
@@ -28,6 +29,7 @@ export interface MonitorRuntime {
 }
 
 export function createMonitorRuntime(options: RuntimeOptions): MonitorRuntime {
+  initializeDefaultAdapters();
   const broadcaster = new EventBroadcaster();
   const embeddingService = createEmbeddingService();
   const ports = createSqliteMonitorPorts({
