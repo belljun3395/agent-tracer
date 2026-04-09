@@ -82,6 +82,7 @@ import {
   innerPanel,
   monoText
 } from "./inspector/styles.js";
+import { SectionCard } from "./inspector/SectionCard.js";
 
 export type PanelTabId = "inspector" | "overview" | "evidence" | "actions";
 
@@ -164,29 +165,6 @@ function DetailEventEvidence({
   );
 }
 
-function SectionCard({
-  title,
-  action,
-  children,
-  bodyClassName,
-  className
-}: {
-  readonly title: React.ReactNode;
-  readonly action?: React.ReactNode;
-  readonly children: React.ReactNode;
-  readonly bodyClassName?: string;
-  readonly className?: string;
-}): React.JSX.Element {
-  return (
-    <PanelCard className={cn(cardShell, className)}>
-      <div className={cardHeader}>
-        <div className="min-w-0">{title}</div>
-        {action}
-      </div>
-      <div className={cn(cardBody, bodyClassName)}>{children}</div>
-    </PanelCard>
-  );
-}
 
 function SectionTitle({
   eyebrow,
