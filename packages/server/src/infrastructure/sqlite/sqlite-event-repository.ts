@@ -34,7 +34,6 @@ import {
 import { parseJsonField } from "./sqlite-json.js";
 import {
   buildEventSearchText,
-  deleteSearchDocument,
   type SearchDocumentScope,
   upsertSearchDocument
 } from "./sqlite-search-documents.js";

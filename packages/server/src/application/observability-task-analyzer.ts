@@ -13,8 +13,6 @@ import {
 import type {
   ObservabilityFileCount,
   ObservabilityPhaseBucket,
-  ObservabilityRuleAuditSummary,
-  ObservabilityRuleEnforcementSummary,
   ObservabilityTagCount,
   ObservabilityTaskSignals,
   TaskObservabilitySummary

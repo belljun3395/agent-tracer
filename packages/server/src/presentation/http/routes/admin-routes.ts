@@ -26,8 +26,8 @@ export function createAdminRoutes(service: MonitorService): Router {
     res.json({ tasks: await service.listTasks() });
   });
 
-  router.get("/api/default-workspace", async (_req, res) => {
-    res.json({ workspacePath: await service.getDefaultWorkspacePath() });
+  router.get("/api/default-workspace", (_req, res) => {
+    res.json({ workspacePath: service.getDefaultWorkspacePath() });
   });
 
   router.get("/api/tasks/:taskId", async (req, res) => {
