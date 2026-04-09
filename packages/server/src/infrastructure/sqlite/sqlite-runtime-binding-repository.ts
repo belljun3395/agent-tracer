@@ -1,82 +1,123 @@
-import type Database from "better-sqlite3";
-import type { IRuntimeBindingRepository, RuntimeBinding, RuntimeBindingUpsertInput } from "../../application/ports";
+import { desc, eq, sql } from "drizzle-orm"
+import { RuntimeSessionId, RuntimeSource, SessionId, TaskId, type RuntimeSessionId as MonitorRuntimeSessionId, type RuntimeSource as MonitorRuntimeSource, type TaskId as MonitorTaskId } from "@monitor/core"
+
+import type { IRuntimeBindingRepository, RuntimeBinding, RuntimeBindingUpsertInput } from "../../application/ports/index.js"
+import { ensureSqliteDatabase, type SqliteDatabase, type SqliteDatabaseInput } from "./drizzle-db.js"
+import { runtimeSessionBindings } from "./drizzle-schema.js"
+
 interface RuntimeSessionBindingRow {
-    runtime_source: string;
-    runtime_session_id: string;
-    task_id: string;
-    monitor_session_id: string | null;
-    created_at: string;
-    updated_at: string;
+  runtimeSource: string
+  runtimeSessionId: string
+  taskId: string
+  monitorSessionId: string | null
+  createdAt: string
+  updatedAt: string
 }
+
 function mapRow(row: RuntimeSessionBindingRow): RuntimeBinding {
-    return {
-        runtimeSource: row.runtime_source,
-        runtimeSessionId: row.runtime_session_id,
-        taskId: row.task_id,
-        monitorSessionId: row.monitor_session_id!,
-        createdAt: row.created_at,
-        updatedAt: row.updated_at
-    };
+  return {
+    runtimeSource: RuntimeSource(row.runtimeSource),
+    runtimeSessionId: RuntimeSessionId(row.runtimeSessionId),
+    taskId: TaskId(row.taskId),
+    monitorSessionId: SessionId(row.monitorSessionId!),
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt
+  }
 }
+
 export class SqliteRuntimeBindingRepository implements IRuntimeBindingRepository {
-    constructor(private readonly db: Database.Database) { }
-    async upsert(input: RuntimeBindingUpsertInput): Promise<RuntimeBinding> {
-        const now = new Date().toISOString();
-        this.db.prepare(`
-      insert into runtime_session_bindings (runtime_source, runtime_session_id, task_id, monitor_session_id, created_at, updated_at)
-      values (@runtimeSource, @runtimeSessionId, @taskId, @monitorSessionId, @createdAt, @updatedAt)
-      on conflict(runtime_source, runtime_session_id) do update set
-        task_id = excluded.task_id,
-        monitor_session_id = excluded.monitor_session_id,
-        updated_at = excluded.updated_at
-    `).run({
-            runtimeSource: input.runtimeSource,
-            runtimeSessionId: input.runtimeSessionId,
-            taskId: input.taskId,
-            monitorSessionId: input.monitorSessionId,
-            createdAt: now,
-            updatedAt: now
-        });
-        return (await this.find(input.runtimeSource, input.runtimeSessionId))!;
-    }
-    async find(runtimeSource: string, runtimeSessionId: string): Promise<RuntimeBinding | null> {
-        const row = this.db
-            .prepare<{
-            runtimeSource: string;
-            runtimeSessionId: string;
-        }, RuntimeSessionBindingRow>("select * from runtime_session_bindings where runtime_source = @runtimeSource and runtime_session_id = @runtimeSessionId and monitor_session_id is not null")
-            .get({ runtimeSource, runtimeSessionId });
-        return row ? mapRow(row) : null;
-    }
-    async findTaskId(runtimeSource: string, runtimeSessionId: string): Promise<string | null> {
-        const row = this.db
-            .prepare<{
-            runtimeSource: string;
-            runtimeSessionId: string;
-        }, {
-            task_id: string;
-        }>("select task_id from runtime_session_bindings where runtime_source = @runtimeSource and runtime_session_id = @runtimeSessionId")
-            .get({ runtimeSource, runtimeSessionId });
-        return row?.task_id ?? null;
-    }
-    async findLatestByTaskId(taskId: string): Promise<{
-        runtimeSource: string;
-        runtimeSessionId: string;
-    } | null> {
-        const row = this.db
-            .prepare<{
-            taskId: string;
-        }, {
-            runtime_source: string;
-            runtime_session_id: string;
-        }>("select runtime_source, runtime_session_id from runtime_session_bindings where task_id = @taskId order by datetime(updated_at) desc limit 1")
-            .get({ taskId });
-        return row ? { runtimeSource: row.runtime_source, runtimeSessionId: row.runtime_session_id } : null;
-    }
-    async clearSession(runtimeSource: string, runtimeSessionId: string): Promise<void> {
-        this.db.prepare("update runtime_session_bindings set monitor_session_id = null, updated_at = @updatedAt where runtime_source = @runtimeSource and runtime_session_id = @runtimeSessionId").run({ runtimeSource, runtimeSessionId, updatedAt: new Date().toISOString() });
-    }
-    async delete(runtimeSource: string, runtimeSessionId: string): Promise<void> {
-        this.db.prepare("delete from runtime_session_bindings where runtime_source = @runtimeSource and runtime_session_id = @runtimeSessionId").run({ runtimeSource, runtimeSessionId });
-    }
+  private readonly db: SqliteDatabase
+
+  constructor(db: SqliteDatabaseInput) {
+    this.db = ensureSqliteDatabase(db)
+  }
+
+  async upsert(input: RuntimeBindingUpsertInput): Promise<RuntimeBinding> {
+    const now = new Date().toISOString()
+
+    this.db.orm
+      .insert(runtimeSessionBindings)
+      .values({
+        runtimeSource: input.runtimeSource,
+        runtimeSessionId: input.runtimeSessionId,
+        taskId: input.taskId,
+        monitorSessionId: input.monitorSessionId,
+        createdAt: now,
+        updatedAt: now
+      })
+      .onConflictDoUpdate({
+        target: [runtimeSessionBindings.runtimeSource, runtimeSessionBindings.runtimeSessionId],
+        set: {
+          taskId: input.taskId,
+          monitorSessionId: input.monitorSessionId,
+          updatedAt: now
+        }
+      })
+      .run()
+
+    return (await this.find(input.runtimeSource, input.runtimeSessionId))!
+  }
+
+  async find(runtimeSource: MonitorRuntimeSource, runtimeSessionId: MonitorRuntimeSessionId): Promise<RuntimeBinding | null> {
+    const row = this.db.orm
+      .select()
+      .from(runtimeSessionBindings)
+      .where(sql`${runtimeSessionBindings.runtimeSource} = ${runtimeSource}
+        and ${runtimeSessionBindings.runtimeSessionId} = ${runtimeSessionId}
+        and ${runtimeSessionBindings.monitorSessionId} is not null`)
+      .limit(1)
+      .get() as RuntimeSessionBindingRow | undefined
+
+    return row ? mapRow(row) : null
+  }
+
+  async findTaskId(runtimeSource: MonitorRuntimeSource, runtimeSessionId: MonitorRuntimeSessionId): Promise<MonitorTaskId | null> {
+    const row = this.db.orm
+      .select({ taskId: runtimeSessionBindings.taskId })
+      .from(runtimeSessionBindings)
+      .where(sql`${runtimeSessionBindings.runtimeSource} = ${runtimeSource}
+        and ${runtimeSessionBindings.runtimeSessionId} = ${runtimeSessionId}`)
+      .limit(1)
+      .get()
+
+    return row?.taskId ? TaskId(row.taskId) : null
+  }
+
+  async findLatestByTaskId(taskId: MonitorTaskId): Promise<{ runtimeSource: MonitorRuntimeSource; runtimeSessionId: MonitorRuntimeSessionId } | null> {
+    const row = this.db.orm
+      .select({
+        runtimeSource: runtimeSessionBindings.runtimeSource,
+        runtimeSessionId: runtimeSessionBindings.runtimeSessionId
+      })
+      .from(runtimeSessionBindings)
+      .where(eq(runtimeSessionBindings.taskId, taskId))
+      .orderBy(desc(runtimeSessionBindings.updatedAt))
+      .limit(1)
+      .get()
+
+    return row ? {
+      runtimeSource: RuntimeSource(row.runtimeSource),
+      runtimeSessionId: RuntimeSessionId(row.runtimeSessionId)
+    } : null
+  }
+
+  async clearSession(runtimeSource: MonitorRuntimeSource, runtimeSessionId: MonitorRuntimeSessionId): Promise<void> {
+    this.db.orm
+      .update(runtimeSessionBindings)
+      .set({
+        monitorSessionId: null,
+        updatedAt: new Date().toISOString()
+      })
+      .where(sql`${runtimeSessionBindings.runtimeSource} = ${runtimeSource}
+        and ${runtimeSessionBindings.runtimeSessionId} = ${runtimeSessionId}`)
+      .run()
+  }
+
+  async delete(runtimeSource: MonitorRuntimeSource, runtimeSessionId: MonitorRuntimeSessionId): Promise<void> {
+    this.db.orm
+      .delete(runtimeSessionBindings)
+      .where(sql`${runtimeSessionBindings.runtimeSource} = ${runtimeSource}
+        and ${runtimeSessionBindings.runtimeSessionId} = ${runtimeSessionId}`)
+      .run()
+  }
 }

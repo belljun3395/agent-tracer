@@ -1,9 +1,10 @@
 import type Database from "better-sqlite3";
-import type { EventClassification, MonitoringEventKind, MonitoringTask, TimelineEvent, TimelineLane } from "@monitor/core";
-import { EventId, normalizeLane, SessionId, TaskId } from "@monitor/core";
-import type { EventInsertInput, IEventRepository, SearchBookmarkHit, SearchEventHit, SearchOptions, SearchResults, SearchTaskHit } from "../../application/ports";
+import type { EventClassification, EventId as MonitorEventId, MonitoringEventKind, MonitoringTask, TaskId as MonitorTaskId, TimelineEvent, TimelineLane } from "@monitor/core";
+import { BookmarkId, EventId, normalizeLane, SessionId, TaskId } from "@monitor/core";
+import type { EventInsertInput, IEventRepository, SearchBookmarkHit, SearchEventHit, SearchOptions, SearchResults, SearchTaskHit } from "../../application/ports/index.js";
 import type { IEmbeddingService } from "../embedding";
 import { cosineSimilarity, deserializeEmbedding, EMBEDDING_MODEL, serializeEmbedding } from "../embedding";
+import { ensureSqliteDatabase, type SqliteDatabaseInput } from "./drizzle-db.js";
 import { parseJsonField } from "./sqlite-json.js";
 import { buildEventSearchText, type SearchDocumentScope, upsertSearchDocument } from "./sqlite-search-documents.js";
 const MIN_SEMANTIC_SCORE = 0.22;
@@ -79,7 +80,10 @@ function escapeLikePattern(value: string): string {
     return value.replace(/[\\%_]/g, "\\$&");
 }
 export class SqliteEventRepository implements IEventRepository {
-    constructor(private readonly db: Database.Database, private readonly embeddingService?: IEmbeddingService) { }
+    private readonly db: Database.Database;
+    constructor(db: SqliteDatabaseInput, private readonly embeddingService?: IEmbeddingService) {
+        this.db = ensureSqliteDatabase(db).client;
+    }
     async insert(input: EventInsertInput): Promise<TimelineEvent> {
         this.db.prepare(`
       insert into timeline_events (id, task_id, session_id, kind, lane, title, body, metadata_json, classification_json, created_at)
@@ -99,7 +103,7 @@ export class SqliteEventRepository implements IEventRepository {
         this.refreshSearchDocument(input.id);
         return (await this.findById(input.id))!;
     }
-    async findById(id: string): Promise<TimelineEvent | null> {
+    async findById(id: MonitorEventId): Promise<TimelineEvent | null> {
         const row = this.db
             .prepare<{
             id: string;
@@ -107,7 +111,7 @@ export class SqliteEventRepository implements IEventRepository {
             .get({ id });
         return row ? mapEventRow(row) : null;
     }
-    async findByTaskId(taskId: string): Promise<readonly TimelineEvent[]> {
+    async findByTaskId(taskId: MonitorTaskId): Promise<readonly TimelineEvent[]> {
         return this.db
             .prepare<{
             taskId: string;
@@ -115,7 +119,7 @@ export class SqliteEventRepository implements IEventRepository {
             .all({ taskId })
             .map(mapEventRow);
     }
-    async updateMetadata(eventId: string, metadata: Record<string, unknown>): Promise<TimelineEvent | null> {
+    async updateMetadata(eventId: MonitorEventId, metadata: Record<string, unknown>): Promise<TimelineEvent | null> {
         const existing = await this.findById(eventId);
         if (!existing) {
             return null;
@@ -131,7 +135,7 @@ export class SqliteEventRepository implements IEventRepository {
         this.refreshSearchDocument(eventId);
         return this.findById(eventId);
     }
-    async countRawUserMessages(taskId: string): Promise<number> {
+    async countRawUserMessages(taskId: MonitorTaskId): Promise<number> {
         const row = this.db
             .prepare<{
             taskId: string;
@@ -245,7 +249,7 @@ export class SqliteEventRepository implements IEventRepository {
             }
             return [{
                     id: row.id,
-                    taskId: row.id,
+                    taskId: TaskId(row.id),
                     title: row.title,
                     status: row.status,
                     updatedAt: row.updated_at,
@@ -274,8 +278,8 @@ export class SqliteEventRepository implements IEventRepository {
             }
             return [{
                     id: row.event_id,
-                    eventId: row.event_id,
-                    taskId: row.task_id,
+                    eventId: EventId(row.event_id),
+                    taskId: TaskId(row.task_id),
                     taskTitle: row.task_title,
                     title: row.title,
                     lane: normalizeLane(row.lane),
@@ -307,19 +311,19 @@ export class SqliteEventRepository implements IEventRepository {
             }
             return [{
                     id: row.id,
-                    bookmarkId: row.id,
-                    taskId: row.task_id,
+                    bookmarkId: BookmarkId(row.id),
+                    taskId: TaskId(row.task_id),
                     kind: row.kind,
                     title: row.title,
                     createdAt: row.created_at,
-                    ...(row.event_id ? { eventId: row.event_id } : {}),
+                    ...(row.event_id ? { eventId: EventId(row.event_id) } : {}),
                     ...(row.note ? { note: row.note } : {}),
                     ...(row.task_title ? { taskTitle: row.task_title } : {}),
                     ...(row.event_title ? { eventTitle: row.event_title } : {})
                 }];
         });
     }
-    private refreshSearchDocument(eventId: string): void {
+    private refreshSearchDocument(eventId: MonitorEventId): void {
         const row = this.db
             .prepare<{
             eventId: string;
@@ -378,7 +382,7 @@ export class SqliteEventRepository implements IEventRepository {
             .all({ pattern, limit: safeLimit })
             .map((row) => ({
             id: row.id,
-            taskId: row.id,
+            taskId: TaskId(row.id),
             title: row.title,
             status: row.status,
             updatedAt: row.updated_at,
@@ -401,8 +405,8 @@ export class SqliteEventRepository implements IEventRepository {
             .all({ pattern, limit: safeLimit, taskId })
             .map((row) => ({
             id: row.event_id,
-            eventId: row.event_id,
-            taskId: row.task_id,
+            eventId: EventId(row.event_id),
+            taskId: TaskId(row.task_id),
             taskTitle: row.task_title,
             title: row.title,
             lane: normalizeLane(row.lane),
@@ -428,12 +432,12 @@ export class SqliteEventRepository implements IEventRepository {
             .all({ pattern, limit: safeLimit, taskId })
             .map((row) => ({
             id: row.id,
-            bookmarkId: row.id,
-            taskId: row.task_id,
+            bookmarkId: BookmarkId(row.id),
+            taskId: TaskId(row.task_id),
             kind: row.kind,
             title: row.title,
             createdAt: row.created_at,
-            ...(row.event_id ? { eventId: row.event_id } : {}),
+            ...(row.event_id ? { eventId: EventId(row.event_id) } : {}),
             ...(row.note ? { note: row.note } : {}),
             ...(row.task_title ? { taskTitle: row.task_title } : {}),
             ...(row.event_title ? { eventTitle: row.event_title } : {})

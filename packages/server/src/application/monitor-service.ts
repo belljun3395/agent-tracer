@@ -1,4 +1,4 @@
-import { buildOpenInferenceTaskExport, normalizeWorkspacePath, type MonitoringEventKind, type MonitoringTask, type ReusableTaskSnapshot, type TimelineEvent, } from "@monitor/core";
+import { BookmarkId, buildOpenInferenceTaskExport, normalizeWorkspacePath, type EventId, type MonitoringEventKind, type MonitoringTask, type ReusableTaskSnapshot, type RuntimeSessionId, type RuntimeSource, type SessionId, type TaskId, type TimelineEvent, } from "@monitor/core";
 import type { MonitorPorts, BookmarkRecord, SearchResults, } from "./ports";
 import type { TaskActionInput, TaskAgentActivityInput, TaskBookmarkDeleteInput, TaskBookmarkInput, TaskCompletionInput, TaskContextSavedInput, TaskErrorInput, TaskExploreInput, TaskAsyncLifecycleInput, TaskPlanInput, TaskLinkInput, TaskQuestionInput, TaskPatchInput, TaskRenameInput, TaskRuleInput, TaskSessionEndInput, TaskStartInput, TaskTerminalCommandInput, TaskThoughtInput, TaskTodoInput, TaskToolUsedInput, TaskUserMessageInput, TaskVerifyInput, RuntimeSessionEnsureInput, RuntimeSessionEnsureResult, RuntimeSessionEndInput, TaskSearchInput, TaskAssistantResponseInput, EventPatchInput, } from "./types.js";
 import { analyzeObservabilityOverview, analyzeTaskObservability, type ObservabilityOverviewResponse, type TaskObservabilityResponse, } from "./observability.js";
@@ -8,9 +8,9 @@ import { WorkflowEvaluationService } from "./services/workflow-evaluation-servic
 export type { BookmarkRecord, SearchResults };
 export interface RecordedEventEnvelope {
     readonly task: MonitoringTask;
-    readonly sessionId?: string;
+    readonly sessionId?: SessionId;
     readonly events: readonly {
-        readonly id: string;
+        readonly id: EventId;
         readonly kind: MonitoringEventKind;
     }[];
 }
@@ -43,7 +43,7 @@ export class MonitorService {
         return { task, ...result };
     }
     async endSession(input: TaskSessionEndInput): Promise<{
-        sessionId: string;
+        sessionId: SessionId;
         task: MonitoringTask;
     }> {
         return this.taskLifecycle.endSession(input);
@@ -167,19 +167,19 @@ export class MonitorService {
     async listTasks() {
         return this.ports.tasks.findAll();
     }
-    async getTask(taskId: string) {
+    async getTask(taskId: TaskId) {
         return this.ports.tasks.findById(taskId);
     }
-    async getTaskTimeline(taskId: string): Promise<readonly TimelineEvent[]> {
+    async getTaskTimeline(taskId: TaskId): Promise<readonly TimelineEvent[]> {
         return this.ports.events.findByTaskId(taskId);
     }
-    async getTaskLatestRuntimeSession(taskId: string): Promise<{
-        runtimeSource: string;
-        runtimeSessionId: string;
+    async getTaskLatestRuntimeSession(taskId: TaskId): Promise<{
+        runtimeSource: RuntimeSource;
+        runtimeSessionId: RuntimeSessionId;
     } | null> {
         return this.ports.runtimeBindings.findLatestByTaskId(taskId);
     }
-    async getTaskOpenInference(taskId: string): Promise<{
+    async getTaskOpenInference(taskId: TaskId): Promise<{
         openinference: ReturnType<typeof buildOpenInferenceTaskExport>;
     } | undefined> {
         const task = await this.ports.tasks.findById(taskId);
@@ -191,7 +191,7 @@ export class MonitorService {
             openinference: buildOpenInferenceTaskExport(task, timeline)
         };
     }
-    async getTaskObservability(taskId: string): Promise<TaskObservabilityResponse | undefined> {
+    async getTaskObservability(taskId: TaskId): Promise<TaskObservabilityResponse | undefined> {
         const task = await this.ports.tasks.findById(taskId);
         if (!task) {
             return undefined;
@@ -220,7 +220,7 @@ export class MonitorService {
             })
         };
     }
-    async listBookmarks(taskId?: string): Promise<readonly BookmarkRecord[]> {
+    async listBookmarks(taskId?: TaskId): Promise<readonly BookmarkRecord[]> {
         return taskId
             ? this.ports.bookmarks.findByTaskId(taskId)
             : this.ports.bookmarks.findAll();
@@ -240,7 +240,7 @@ export class MonitorService {
         const existing = bookmarks.find((b) => b.taskId === task.id &&
             (event ? b.eventId === event.id : !b.eventId));
         const bookmark = await this.ports.bookmarks.save({
-            id: existing?.id ?? globalThis.crypto.randomUUID(),
+            id: existing?.id ?? BookmarkId(globalThis.crypto.randomUUID()),
             taskId: task.id,
             ...(event ? { eventId: event.id } : {}),
             kind: event ? "event" : "task",
@@ -315,13 +315,13 @@ export class MonitorService {
     async linkTask(input: TaskLinkInput): Promise<MonitoringTask> {
         return this.taskLifecycle.linkTask(input);
     }
-    async deleteTask(taskId: string): Promise<"deleted" | "not_found"> {
+    async deleteTask(taskId: TaskId): Promise<"deleted" | "not_found"> {
         return this.taskLifecycle.deleteTask(taskId);
     }
     async deleteFinishedTasks(): Promise<number> {
         return this.taskLifecycle.deleteFinishedTasks();
     }
-    async upsertTaskEvaluation(taskId: string, input: {
+    async upsertTaskEvaluation(taskId: TaskId, input: {
         readonly rating: "good" | "skip";
         readonly useCase?: string;
         readonly workflowTags?: string[];
@@ -334,10 +334,10 @@ export class MonitorService {
     }): Promise<void> {
         return this.workflowEvaluation.upsertTaskEvaluation(taskId, input);
     }
-    async getTaskEvaluation(taskId: string) {
+    async getTaskEvaluation(taskId: TaskId) {
         return this.workflowEvaluation.getTaskEvaluation(taskId);
     }
-    async getWorkflowContent(taskId: string) {
+    async getWorkflowContent(taskId: TaskId) {
         return this.workflowEvaluation.getWorkflowContent(taskId);
     }
     async listEvaluations(rating?: "good" | "skip") {

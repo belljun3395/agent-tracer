@@ -1,10 +1,11 @@
 import type Database from "better-sqlite3";
-import type { IEvaluationRepository, PersistedTaskEvaluation, StoredTaskEvaluation, WorkflowContentRecord, WorkflowSearchResult, WorkflowSummary } from "../../application/ports/evaluation-repository.js";
-import type { MonitoringTask, ReusableTaskSnapshot, TimelineEvent, WorkflowEvaluationData } from "@monitor/core";
-import { buildReusableTaskSnapshot, buildWorkflowContext, EventId, SessionId, TaskId } from "@monitor/core";
+import type { IEvaluationRepository, PersistedTaskEvaluation, StoredTaskEvaluation, WorkflowContentRecord, WorkflowSearchResult, WorkflowSummary } from "../../application/ports/index.js";
+import type { MonitoringTask, ReusableTaskSnapshot, TaskId as MonitorTaskId, TimelineEvent, WorkflowEvaluationData } from "@monitor/core";
+import { buildReusableTaskSnapshot, buildWorkflowContext, EventId, SessionId, TaskId, TaskSlug, WorkspacePath } from "@monitor/core";
 import { deriveTaskDisplayTitle, meaningfulTaskTitle } from "../../application/services/task-display-title-resolver.helpers.js";
 import type { IEmbeddingService } from "../embedding";
 import { cosineSimilarity, deserializeEmbedding, EMBEDDING_MODEL, serializeEmbedding } from "../embedding";
+import { ensureSqliteDatabase, type SqliteDatabaseInput } from "./drizzle-db.js";
 import { parseJsonField } from "./sqlite-json.js";
 const MIN_SEMANTIC_SCORE = 0.22;
 interface EvaluationRow {
@@ -92,7 +93,10 @@ function mapEventRow(row: EventRow): TimelineEvent {
     };
 }
 export class SqliteEvaluationRepository implements IEvaluationRepository {
-    constructor(private readonly db: Database.Database, private readonly embeddingService?: IEmbeddingService) { }
+    private readonly db: Database.Database;
+    constructor(db: SqliteDatabaseInput, private readonly embeddingService?: IEmbeddingService) {
+        this.db = ensureSqliteDatabase(db).client;
+    }
     async upsertEvaluation(evaluation: PersistedTaskEvaluation): Promise<void> {
         this.db.prepare(`
       insert into task_evaluations (
@@ -141,7 +145,7 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
             .sort(compareWorkflowSummaryRows)
             .map((row) => this.hydrateWorkflowSummary(row));
     }
-    async getEvaluation(taskId: string): Promise<StoredTaskEvaluation | null> {
+    async getEvaluation(taskId: MonitorTaskId): Promise<StoredTaskEvaluation | null> {
         const row = this.db
             .prepare<{
             taskId: string;
@@ -149,7 +153,7 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
             .get({ taskId });
         return row ? mapEvaluationRow(row) : null;
     }
-    async getWorkflowContent(taskId: string): Promise<WorkflowContentRecord | null> {
+    async getWorkflowContent(taskId: MonitorTaskId): Promise<WorkflowContentRecord | null> {
         const row = this.db.prepare<{
             taskId: string;
         }, TaskWithEvaluationRow>(`
@@ -329,10 +333,10 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
         if (meaningfulTaskTitle(task)) {
             return undefined;
         }
-        const events = this.loadWorkflowEvents(row.task_id);
+        const events = this.loadWorkflowEvents(TaskId(row.task_id));
         return resolveWorkflowDisplayTitle(row, events);
     }
-    private loadWorkflowEvents(taskId: string): readonly TimelineEvent[] {
+    private loadWorkflowEvents(taskId: MonitorTaskId): readonly TimelineEvent[] {
         const eventRows = this.db
             .prepare<{
             taskId: string;
@@ -341,7 +345,7 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
         return eventRows.map(mapEventRow);
     }
     private buildWorkflowContent(row: TaskWithEvaluationRow): WorkflowContentRecord {
-        const events = this.loadWorkflowEvents(row.task_id);
+        const events = this.loadWorkflowEvents(TaskId(row.task_id));
         const evaluation = buildEvaluationData(row);
         const displayTitle = resolveWorkflowDisplayTitle(row, events);
         const title = displayTitle ?? row.title;
@@ -358,7 +362,7 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
         const workflowContext = row.workflow_context ?? generatedContext;
         const source = row.workflow_snapshot_json || row.workflow_context ? "saved" : "generated";
         return {
-            taskId: row.task_id,
+            taskId: TaskId(row.task_id),
             title: row.title,
             ...(displayTitle ? { displayTitle } : {}),
             workflowSnapshot,
@@ -427,11 +431,11 @@ function buildWorkflowTask(row: Pick<TaskWithEvaluationRow, "task_id" | "title" 
     return {
         id: TaskId(row.task_id),
         title: row.title,
-        slug: row.slug,
+        slug: TaskSlug(row.slug),
         status: "completed",
         createdAt: row.created_at,
         updatedAt: row.evaluated_at,
-        ...(row.workspace_path ? { workspacePath: row.workspace_path } : {})
+        ...(row.workspace_path ? { workspacePath: WorkspacePath(row.workspace_path) } : {})
     };
 }
 function resolveWorkflowDisplayTitle(row: Pick<TaskWithEvaluationRow, "task_id" | "title" | "slug" | "workspace_path" | "created_at" | "evaluated_at">, events: readonly TimelineEvent[]): string | undefined {

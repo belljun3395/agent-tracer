@@ -1,4 +1,4 @@
-import type { EvidenceLevel, RuntimeCoverageItem } from "@monitor/core";
+import type { EvidenceLevel, RuleId, RuntimeCoverageItem, RuntimeSource, TaskId } from "@monitor/core";
 export type ObservabilityPhase = "planning" | "exploration" | "implementation" | "verification" | "coordination";
 export type ObservabilityPhaseBucket = ObservabilityPhase | "waiting";
 export interface ObservabilityPhaseStat {
@@ -60,12 +60,12 @@ export interface ObservabilityRuleEnforcementSummary {
     readonly rejected: number;
     readonly bypassed: number;
     readonly activeState: "clear" | "warning" | "blocked" | "approval_required";
-    readonly activeRuleId: string | undefined;
+    readonly activeRuleId: RuleId | undefined;
     readonly activeLabel: string | undefined;
 }
 export interface TaskObservabilitySummary {
-    readonly taskId: string;
-    readonly runtimeSource?: string;
+    readonly taskId: TaskId;
+    readonly runtimeSource?: RuntimeSource;
     readonly totalDurationMs: number;
     readonly activeDurationMs: number;
     readonly totalEvents: number;
@@ -88,7 +88,7 @@ export interface TaskObservabilitySummary {
     readonly ruleEnforcement: ObservabilityRuleEnforcementSummary;
 }
 export interface ObservabilityRuntimeSourceSummary {
-    readonly runtimeSource: string;
+    readonly runtimeSource: RuntimeSource | "unknown";
     readonly taskCount: number;
     readonly runningTaskCount: number;
     readonly promptCaptureRate: number;

@@ -1,73 +1,100 @@
-import type Database from "better-sqlite3";
-import type { MonitoringSession } from "@monitor/core";
-import { SessionId, TaskId } from "@monitor/core";
-import type { ISessionRepository, SessionCreateInput } from "../../application/ports";
+import { asc, desc, eq, sql } from "drizzle-orm"
+import type { MonitoringSession, SessionId as MonitorSessionId, TaskId as MonitorTaskId } from "@monitor/core"
+import { SessionId, TaskId } from "@monitor/core"
+
+import type { ISessionRepository, SessionCreateInput } from "../../application/ports/index.js"
+import { ensureSqliteDatabase, type SqliteDatabase, type SqliteDatabaseInput } from "./drizzle-db.js"
+import { taskSessions } from "./drizzle-schema.js"
+
 interface SessionRow {
-    id: string;
-    task_id: string;
-    status: MonitoringSession["status"];
-    summary: string | null;
-    started_at: string;
-    ended_at: string | null;
+  id: string
+  taskId: string
+  status: string
+  summary: string | null
+  startedAt: string
+  endedAt: string | null
 }
+
 function mapSessionRow(row: SessionRow): MonitoringSession {
-    return {
-        id: SessionId(row.id),
-        taskId: TaskId(row.task_id),
-        status: row.status,
-        startedAt: row.started_at,
-        ...(row.summary ? { summary: row.summary } : {}),
-        ...(row.ended_at ? { endedAt: row.ended_at } : {})
-    };
+  return {
+    id: SessionId(row.id),
+    taskId: TaskId(row.taskId),
+    status: row.status as MonitoringSession["status"],
+    startedAt: row.startedAt,
+    ...(row.summary ? { summary: row.summary } : {}),
+    ...(row.endedAt ? { endedAt: row.endedAt } : {})
+  }
 }
+
 export class SqliteSessionRepository implements ISessionRepository {
-    constructor(private readonly db: Database.Database) { }
-    async create(input: SessionCreateInput): Promise<MonitoringSession> {
-        this.db.prepare("insert into task_sessions (id, task_id, status, summary, started_at, ended_at) values (@id, @taskId, @status, @summary, @startedAt, @endedAt)").run({
-            id: input.id,
-            taskId: input.taskId,
-            status: input.status,
-            summary: input.summary ?? null,
-            startedAt: input.startedAt,
-            endedAt: null
-        });
-        return (await this.findById(input.id))!;
-    }
-    async findById(id: string): Promise<MonitoringSession | null> {
-        const row = this.db
-            .prepare<{
-            id: string;
-        }, SessionRow>("select * from task_sessions where id = @id")
-            .get({ id });
-        return row ? mapSessionRow(row) : null;
-    }
-    async findByTaskId(taskId: string): Promise<readonly MonitoringSession[]> {
-        return this.db
-            .prepare<{
-            taskId: string;
-        }, SessionRow>("select * from task_sessions where task_id = @taskId order by datetime(started_at) asc")
-            .all({ taskId })
-            .map(mapSessionRow);
-    }
-    async findActiveByTaskId(taskId: string): Promise<MonitoringSession | null> {
-        const row = this.db
-            .prepare<{
-            taskId: string;
-        }, SessionRow>("select * from task_sessions where task_id = @taskId and status = 'running' order by datetime(started_at) desc limit 1")
-            .get({ taskId });
-        return row ? mapSessionRow(row) : null;
-    }
-    async updateStatus(id: string, status: MonitoringSession["status"], endedAt: string, summary?: string): Promise<void> {
-        this.db.prepare("update task_sessions set status = @status, summary = coalesce(@summary, summary), ended_at = coalesce(@endedAt, ended_at) where id = @id").run({ id, status, summary: summary ?? null, endedAt });
-    }
-    async countRunningByTaskId(taskId: string): Promise<number> {
-        const row = this.db
-            .prepare<{
-            taskId: string;
-        }, {
-            count: number;
-        }>("select count(*) as count from task_sessions where task_id = @taskId and status = 'running'")
-            .get({ taskId });
-        return row?.count ?? 0;
-    }
+  private readonly db: SqliteDatabase
+
+  constructor(db: SqliteDatabaseInput) {
+    this.db = ensureSqliteDatabase(db)
+  }
+
+  async create(input: SessionCreateInput): Promise<MonitoringSession> {
+    this.db.orm.insert(taskSessions).values({
+      id: input.id,
+      taskId: input.taskId,
+      status: input.status,
+      summary: input.summary ?? null,
+      startedAt: input.startedAt,
+      endedAt: null
+    }).run()
+
+    return (await this.findById(input.id))!
+  }
+
+  async findById(id: MonitorSessionId): Promise<MonitoringSession | null> {
+    const row = this.db.orm
+      .select()
+      .from(taskSessions)
+      .where(eq(taskSessions.id, id))
+      .limit(1)
+      .get() as SessionRow | undefined
+
+    return row ? mapSessionRow(row) : null
+  }
+
+  async findByTaskId(taskId: MonitorTaskId): Promise<readonly MonitoringSession[]> {
+    const rows = this.db.orm
+      .select()
+      .from(taskSessions)
+      .where(eq(taskSessions.taskId, taskId))
+      .orderBy(asc(taskSessions.startedAt))
+      .all() as readonly SessionRow[]
+
+    return rows.map(mapSessionRow)
+  }
+
+  async findActiveByTaskId(taskId: MonitorTaskId): Promise<MonitoringSession | null> {
+    const row = this.db.orm
+      .select()
+      .from(taskSessions)
+      .where(sql`${taskSessions.taskId} = ${taskId} and ${taskSessions.status} = 'running'`)
+      .orderBy(desc(taskSessions.startedAt))
+      .limit(1)
+      .get() as SessionRow | undefined
+
+    return row ? mapSessionRow(row) : null
+  }
+
+  async updateStatus(id: MonitorSessionId, status: MonitoringSession["status"], endedAt: string, summary?: string): Promise<void> {
+    this.db.orm
+      .update(taskSessions)
+      .set(summary == null ? { status, endedAt } : { status, summary, endedAt })
+      .where(eq(taskSessions.id, id))
+      .run()
+  }
+
+  async countRunningByTaskId(taskId: MonitorTaskId): Promise<number> {
+    const row = this.db.orm
+      .select({ count: sql<number>`cast(count(*) as int)` })
+      .from(taskSessions)
+      .where(sql`${taskSessions.taskId} = ${taskId} and ${taskSessions.status} = 'running'`)
+      .get()
+
+    return row?.count ?? 0
+  }
 }

@@ -1,8 +1,9 @@
+import type { BookmarkId, EventId, TaskId } from "@monitor/core";
 export interface BookmarkRecord {
-    readonly id: string;
+    readonly id: BookmarkId;
     readonly kind: "task" | "event";
-    readonly taskId: string;
-    readonly eventId?: string;
+    readonly taskId: TaskId;
+    readonly eventId?: EventId;
     readonly title: string;
     readonly note?: string;
     readonly metadata: Record<string, unknown>;
@@ -12,9 +13,9 @@ export interface BookmarkRecord {
     readonly eventTitle?: string;
 }
 export interface BookmarkSaveInput {
-    readonly id: string;
-    readonly taskId: string;
-    readonly eventId?: string;
+    readonly id: BookmarkId;
+    readonly taskId: TaskId;
+    readonly eventId?: EventId;
     readonly kind: "task" | "event";
     readonly title: string;
     readonly note?: string;
@@ -22,7 +23,7 @@ export interface BookmarkSaveInput {
 }
 export interface IBookmarkRepository {
     save(input: BookmarkSaveInput): Promise<BookmarkRecord>;
-    findByTaskId(taskId: string): Promise<readonly BookmarkRecord[]>;
+    findByTaskId(taskId: TaskId): Promise<readonly BookmarkRecord[]>;
     findAll(): Promise<readonly BookmarkRecord[]>;
-    delete(bookmarkId: string): Promise<void>;
+    delete(bookmarkId: BookmarkId): Promise<void>;
 }

@@ -1,4 +1,4 @@
-import type { ReusableTaskSnapshot, TaskEvaluation, WorkflowSearchResult, WorkflowSummary } from "@monitor/core";
+import type { ReusableTaskSnapshot, TaskEvaluation, TaskId, WorkflowSearchResult, WorkflowSummary } from "@monitor/core";
 export type { TaskEvaluation, WorkflowSearchResult, WorkflowSummary };
 export interface StoredTaskEvaluation extends TaskEvaluation {
     readonly workflowSnapshot: ReusableTaskSnapshot | null;
@@ -6,7 +6,7 @@ export interface StoredTaskEvaluation extends TaskEvaluation {
     readonly searchText: string | null;
 }
 export interface WorkflowContentRecord {
-    readonly taskId: string;
+    readonly taskId: TaskId;
     readonly title: string;
     readonly displayTitle?: string;
     readonly workflowSnapshot: ReusableTaskSnapshot;
@@ -21,8 +21,8 @@ export interface PersistedTaskEvaluation extends TaskEvaluation {
 }
 export interface IEvaluationRepository {
     upsertEvaluation(evaluation: PersistedTaskEvaluation): Promise<void>;
-    getEvaluation(taskId: string): Promise<StoredTaskEvaluation | null>;
-    getWorkflowContent(taskId: string): Promise<WorkflowContentRecord | null>;
+    getEvaluation(taskId: TaskId): Promise<StoredTaskEvaluation | null>;
+    getWorkflowContent(taskId: TaskId): Promise<WorkflowContentRecord | null>;
     listEvaluations(rating?: "good" | "skip"): Promise<readonly WorkflowSummary[]>;
     searchWorkflowLibrary(query: string, rating?: "good" | "skip", limit?: number): Promise<readonly WorkflowSummary[]>;
     searchSimilarWorkflows(query: string, tags?: readonly string[], limit?: number): Promise<readonly WorkflowSearchResult[]>;

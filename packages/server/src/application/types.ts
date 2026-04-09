@@ -1,80 +1,80 @@
-import type { AgentActivityType, EventRelationType, MonitoringEventKind } from "@monitor/core";
+import type { ActionName, AgentActivityType, AsyncTaskId, BookmarkId, EventId, EventRelationType, MessageId, ModelName, ModelProvider, MonitoringEventKind, QuestionId, QuestionPhase, RuleId, RuntimeSessionId, RuntimeSource, SessionId, TaskId, TimelineLane, TodoId, TodoState, ToolName, WorkspacePath } from "@monitor/core";
 export interface TaskStartInput {
-    readonly taskId?: string;
+    readonly taskId?: TaskId;
     readonly title: string;
-    readonly workspacePath?: string;
-    readonly runtimeSource?: string;
+    readonly workspacePath?: WorkspacePath;
+    readonly runtimeSource?: RuntimeSource;
     readonly summary?: string;
     readonly taskKind?: "primary" | "background";
-    readonly parentTaskId?: string;
-    readonly parentSessionId?: string;
-    readonly backgroundTaskId?: string;
+    readonly parentTaskId?: TaskId;
+    readonly parentSessionId?: SessionId;
+    readonly backgroundTaskId?: TaskId;
     readonly metadata?: Record<string, unknown>;
 }
 export interface TaskLinkInput {
-    readonly taskId: string;
+    readonly taskId: TaskId;
     readonly title?: string;
     readonly taskKind?: "primary" | "background";
-    readonly parentTaskId?: string;
-    readonly parentSessionId?: string;
-    readonly backgroundTaskId?: string;
+    readonly parentTaskId?: TaskId;
+    readonly parentSessionId?: SessionId;
+    readonly backgroundTaskId?: TaskId;
 }
 export interface TaskRenameInput {
-    readonly taskId: string;
+    readonly taskId: TaskId;
     readonly title: string;
 }
 export interface TaskPatchInput {
-    readonly taskId: string;
+    readonly taskId: TaskId;
     readonly title?: string;
     readonly status?: "running" | "waiting" | "completed" | "errored";
 }
 export interface EventPatchInput {
-    readonly eventId: string;
+    readonly eventId: EventId;
     readonly displayTitle?: string | null;
 }
 export type TaskCompletionReason = "idle" | "assistant_turn_complete" | "explicit_exit" | "runtime_terminated";
 export interface TaskTerminalCommandInput {
-    readonly taskId: string;
-    readonly sessionId?: string;
+    readonly taskId: TaskId;
+    readonly sessionId?: SessionId;
     readonly command: string;
     readonly title?: string;
     readonly body?: string;
-    readonly lane?: string;
+    readonly lane?: TimelineLane;
     readonly filePaths?: readonly string[];
     readonly metadata?: Record<string, unknown>;
 }
 export interface TaskToolUsedInput {
-    readonly taskId: string;
-    readonly sessionId?: string;
-    readonly toolName: string;
+    readonly taskId: TaskId;
+    readonly sessionId?: SessionId;
+    readonly toolName: ToolName;
     readonly title?: string;
     readonly body?: string;
-    readonly lane?: string;
+    readonly lane?: TimelineLane;
     readonly filePaths?: readonly string[];
     readonly metadata?: Record<string, unknown>;
 }
 export interface TaskContextSavedInput {
-    readonly taskId: string;
-    readonly sessionId?: string;
+    readonly taskId: TaskId;
+    readonly sessionId?: SessionId;
     readonly title: string;
     readonly body?: string;
-    readonly lane?: string;
+    readonly lane?: TimelineLane;
     readonly filePaths?: readonly string[];
     readonly metadata?: Record<string, unknown>;
 }
 export interface TaskExploreInput {
-    readonly taskId: string;
-    readonly sessionId?: string;
-    readonly toolName: string;
+    readonly taskId: TaskId;
+    readonly sessionId?: SessionId;
+    readonly toolName: ToolName;
     readonly title: string;
     readonly body?: string;
-    readonly lane?: string;
+    readonly lane?: TimelineLane;
     readonly filePaths?: readonly string[];
     readonly metadata?: Record<string, unknown>;
 }
 export interface TraceRelationInput {
-    readonly parentEventId?: string;
-    readonly relatedEventIds?: readonly string[];
+    readonly parentEventId?: EventId;
+    readonly relatedEventIds?: readonly EventId[];
     readonly relationType?: EventRelationType;
     readonly relationLabel?: string;
     readonly relationExplanation?: string;
@@ -88,9 +88,9 @@ export interface TraceActivityInput extends TraceRelationInput {
     readonly mcpTool?: string;
 }
 interface TaskActionBaseInput {
-    readonly taskId: string;
-    readonly sessionId?: string;
-    readonly action: string;
+    readonly taskId: TaskId;
+    readonly sessionId?: SessionId;
+    readonly action: ActionName;
     readonly title?: string;
     readonly body?: string;
     readonly filePaths?: readonly string[];
@@ -103,7 +103,7 @@ export interface TaskVerifyInput extends TaskActionBaseInput, TraceRelationInput
     readonly status?: string;
 }
 export interface TaskRuleInput extends TaskActionBaseInput, TraceRelationInput {
-    readonly ruleId: string;
+    readonly ruleId: RuleId;
     readonly severity: string;
     readonly status: string;
     readonly source?: string;
@@ -111,33 +111,33 @@ export interface TaskRuleInput extends TaskActionBaseInput, TraceRelationInput {
     readonly outcome?: "observed" | "warned" | "blocked" | "approval_requested" | "approved" | "rejected" | "bypassed";
 }
 export interface TaskAsyncLifecycleInput {
-    readonly taskId: string;
-    readonly sessionId?: string;
-    readonly asyncTaskId: string;
+    readonly taskId: TaskId;
+    readonly sessionId?: SessionId;
+    readonly asyncTaskId: AsyncTaskId;
     readonly asyncStatus: "pending" | "running" | "completed" | "error" | "cancelled" | "interrupt";
     readonly title?: string;
     readonly body?: string;
     readonly description?: string;
     readonly agent?: string;
     readonly category?: string;
-    readonly parentSessionId?: string;
+    readonly parentSessionId?: SessionId;
     readonly durationMs?: number;
     readonly filePaths?: readonly string[];
     readonly metadata?: Record<string, unknown>;
 }
 export interface TaskAgentActivityInput extends TraceActivityInput {
-    readonly taskId: string;
-    readonly sessionId?: string;
+    readonly taskId: TaskId;
+    readonly sessionId?: SessionId;
     readonly activityType: AgentActivityType;
     readonly title?: string;
     readonly body?: string;
-    readonly lane?: string;
+    readonly lane?: TimelineLane;
     readonly filePaths?: readonly string[];
     readonly metadata?: Record<string, unknown>;
 }
 export interface TaskCompletionInput {
-    readonly taskId: string;
-    readonly sessionId?: string;
+    readonly taskId: TaskId;
+    readonly sessionId?: SessionId;
     readonly summary?: string;
     readonly metadata?: Record<string, unknown>;
 }
@@ -145,115 +145,115 @@ export interface TaskErrorInput extends TaskCompletionInput {
     readonly errorMessage: string;
 }
 export interface TaskUserMessageInput {
-    readonly taskId: string;
-    readonly sessionId: string;
-    readonly messageId: string;
+    readonly taskId: TaskId;
+    readonly sessionId: SessionId;
+    readonly messageId: MessageId;
     readonly captureMode: "raw" | "derived";
     readonly source: string;
     readonly phase?: "initial" | "follow_up";
     readonly title: string;
     readonly body?: string;
-    readonly sourceEventId?: string;
+    readonly sourceEventId?: EventId;
     readonly metadata?: Record<string, unknown>;
     readonly contractVersion?: string;
 }
 export interface TaskSessionEndInput {
-    readonly taskId: string;
-    readonly sessionId?: string;
+    readonly taskId: TaskId;
+    readonly sessionId?: SessionId;
     readonly completeTask?: boolean;
     readonly completionReason?: TaskCompletionReason;
     readonly summary?: string;
-    readonly backgroundCompletions?: string[];
+    readonly backgroundCompletions?: TaskId[];
     readonly metadata?: Record<string, unknown>;
 }
 export interface TaskQuestionInput extends TraceRelationInput {
-    readonly taskId: string;
-    readonly sessionId?: string;
-    readonly questionId: string;
-    readonly questionPhase: "asked" | "answered" | "concluded";
+    readonly taskId: TaskId;
+    readonly sessionId?: SessionId;
+    readonly questionId: QuestionId;
+    readonly questionPhase: QuestionPhase;
     readonly sequence?: number;
     readonly title: string;
     readonly body?: string;
-    readonly modelName?: string;
-    readonly modelProvider?: string;
+    readonly modelName?: ModelName;
+    readonly modelProvider?: ModelProvider;
     readonly metadata?: Record<string, unknown>;
 }
 export interface TaskTodoInput extends TraceRelationInput {
-    readonly taskId: string;
-    readonly sessionId?: string;
-    readonly todoId: string;
-    readonly todoState: "added" | "in_progress" | "completed" | "cancelled";
+    readonly taskId: TaskId;
+    readonly sessionId?: SessionId;
+    readonly todoId: TodoId;
+    readonly todoState: TodoState;
     readonly sequence?: number;
     readonly title: string;
     readonly body?: string;
     readonly metadata?: Record<string, unknown>;
 }
 export interface TaskThoughtInput extends TraceRelationInput {
-    readonly taskId: string;
-    readonly sessionId?: string;
+    readonly taskId: TaskId;
+    readonly sessionId?: SessionId;
     readonly title: string;
     readonly body?: string;
-    readonly modelName?: string;
-    readonly modelProvider?: string;
+    readonly modelName?: ModelName;
+    readonly modelProvider?: ModelProvider;
     readonly metadata?: Record<string, unknown>;
 }
 export interface GenericEventInput extends TraceActivityInput {
-    readonly taskId: string;
-    readonly sessionId?: string;
+    readonly taskId: TaskId;
+    readonly sessionId?: SessionId;
     readonly kind: MonitoringEventKind;
-    readonly lane?: string;
+    readonly lane?: TimelineLane;
     readonly title: string;
     readonly body?: string;
     readonly command?: string;
-    readonly toolName?: string;
-    readonly actionName?: string;
+    readonly toolName?: ToolName;
+    readonly actionName?: ActionName;
     readonly filePaths?: readonly string[];
     readonly metadata?: Record<string, unknown>;
 }
 export interface TaskBookmarkInput {
-    readonly taskId: string;
-    readonly eventId?: string;
+    readonly taskId: TaskId;
+    readonly eventId?: EventId;
     readonly title?: string;
     readonly note?: string;
     readonly metadata?: Record<string, unknown>;
 }
 export interface TaskBookmarkDeleteInput {
-    readonly bookmarkId: string;
+    readonly bookmarkId: BookmarkId;
 }
 export interface TaskSearchInput {
     readonly query: string;
-    readonly taskId?: string;
+    readonly taskId?: TaskId;
     readonly limit?: number;
 }
 export interface TaskAssistantResponseInput {
-    readonly taskId: string;
-    readonly sessionId?: string;
-    readonly messageId: string;
+    readonly taskId: TaskId;
+    readonly sessionId?: SessionId;
+    readonly messageId: MessageId;
     readonly source: string;
     readonly title: string;
     readonly body?: string;
     readonly metadata?: Record<string, unknown>;
 }
 export interface RuntimeSessionEnsureInput {
-    readonly taskId?: string;
-    readonly runtimeSource: string;
-    readonly runtimeSessionId: string;
+    readonly taskId?: TaskId;
+    readonly runtimeSource: RuntimeSource;
+    readonly runtimeSessionId: RuntimeSessionId;
     readonly title: string;
-    readonly workspacePath?: string;
-    readonly parentTaskId?: string;
-    readonly parentSessionId?: string;
+    readonly workspacePath?: WorkspacePath;
+    readonly parentTaskId?: TaskId;
+    readonly parentSessionId?: SessionId;
 }
 export interface RuntimeSessionEnsureResult {
-    readonly taskId: string;
-    readonly sessionId: string;
+    readonly taskId: TaskId;
+    readonly sessionId: SessionId;
     readonly taskCreated: boolean;
     readonly sessionCreated: boolean;
 }
 export interface RuntimeSessionEndInput {
-    readonly runtimeSource: string;
-    readonly runtimeSessionId: string;
+    readonly runtimeSource: RuntimeSource;
+    readonly runtimeSessionId: RuntimeSessionId;
     readonly summary?: string;
     readonly completeTask?: boolean;
     readonly completionReason?: TaskCompletionReason;
-    readonly backgroundCompletions?: string[];
+    readonly backgroundCompletions?: readonly TaskId[];
 }

@@ -1,4 +1,4 @@
-import type { ReusableTaskSnapshot, TaskEvaluation, WorkflowSummary } from "@monitor/core";
+import type { BookmarkId, EventId, ReusableTaskSnapshot, RuleId, RuntimeSource, SessionId, TaskEvaluation, TaskId, WorkflowSummary, WorkspacePath } from "@monitor/core";
 import type { BookmarksResponse, BookmarkRecord, MonitoringTask, OverviewResponse, SearchResponse, TaskDetailResponse, TaskObservabilityResponse, TimelineEvent, TasksResponse } from "./types.js";
 function normalizeBaseUrl(value: string | undefined): string {
     return value?.replace(/\/+$/g, "") ?? "";
@@ -72,42 +72,42 @@ export function fetchTasks(): Promise<TasksResponse> {
     return getJson<TasksResponse>("/api/tasks");
 }
 export function fetchDefaultWorkspace(): Promise<{
-    workspacePath: string;
+    workspacePath: WorkspacePath;
 }> {
     return getJson<{
-        workspacePath: string;
+        workspacePath: WorkspacePath;
     }>("/api/default-workspace");
 }
-export function fetchTaskDetail(taskId: string): Promise<TaskDetailResponse> {
+export function fetchTaskDetail(taskId: TaskId): Promise<TaskDetailResponse> {
     return getJson<TaskDetailResponse>(`/api/tasks/${taskId}`);
 }
-export function fetchTaskObservability(taskId: string): Promise<TaskObservabilityResponse> {
+export function fetchTaskObservability(taskId: TaskId): Promise<TaskObservabilityResponse> {
     return getJson<TaskObservabilityResponse>(`/api/tasks/${taskId}/observability`);
 }
 export interface OpenInferenceTaskExport {
-    readonly taskId: string;
-    readonly runtimeSource?: string;
+    readonly taskId: TaskId;
+    readonly runtimeSource?: RuntimeSource;
     readonly spans: readonly {
-        readonly spanId: string;
-        readonly parentSpanId?: string;
+        readonly spanId: EventId;
+        readonly parentSpanId?: EventId;
         readonly name: string;
         readonly kind: string;
         readonly startTime: string;
         readonly attributes: Record<string, unknown>;
     }[];
 }
-export function fetchTaskOpenInference(taskId: string): Promise<{
+export function fetchTaskOpenInference(taskId: TaskId): Promise<{
     openinference: OpenInferenceTaskExport;
 }> {
     return getJson<{
         openinference: OpenInferenceTaskExport;
     }>(`/api/tasks/${taskId}/openinference`);
 }
-export function fetchBookmarks(taskId?: string): Promise<BookmarksResponse> {
+export function fetchBookmarks(taskId?: TaskId): Promise<BookmarksResponse> {
     const suffix = taskId ? `?taskId=${encodeURIComponent(taskId)}` : "";
     return getJson<BookmarksResponse>(`/api/bookmarks${suffix}`);
 }
-export function fetchSearchResults(query: string, taskId?: string): Promise<SearchResponse> {
+export function fetchSearchResults(query: string, taskId?: TaskId): Promise<SearchResponse> {
     const params = new URLSearchParams({ q: query });
     if (taskId) {
         params.set("taskId", taskId);
@@ -115,8 +115,8 @@ export function fetchSearchResults(query: string, taskId?: string): Promise<Sear
     return getJson<SearchResponse>(`/api/search?${params.toString()}`);
 }
 export async function createBookmark(input: {
-    taskId: string;
-    eventId?: string;
+    taskId: TaskId;
+    eventId?: EventId;
     title?: string;
     note?: string;
 }): Promise<BookmarkRecord> {
@@ -127,36 +127,36 @@ export async function createBookmark(input: {
 }
 export async function createMonitoredTask(input: {
     title: string;
-    workspacePath?: string;
-    runtimeSource?: string;
+    workspacePath?: WorkspacePath;
+    runtimeSource?: RuntimeSource;
 }): Promise<MonitoringTask> {
     const payload = await postJson<{
         task: MonitoringTask;
     }>("/api/task-start", input);
     return payload.task;
 }
-export async function updateTaskTitle(taskId: string, title: string): Promise<MonitoringTask> {
+export async function updateTaskTitle(taskId: TaskId, title: string): Promise<MonitoringTask> {
     const payload = await patchJson<{
         task: MonitoringTask;
     }>(`/api/tasks/${taskId}`, { title });
     return payload.task;
 }
-export async function updateTaskStatus(taskId: string, status: MonitoringTask["status"]): Promise<MonitoringTask> {
+export async function updateTaskStatus(taskId: TaskId, status: MonitoringTask["status"]): Promise<MonitoringTask> {
     const payload = await patchJson<{
         task: MonitoringTask;
     }>(`/api/tasks/${taskId}`, { status });
     return payload.task;
 }
-export async function updateEventDisplayTitle(eventId: string, displayTitle: string | null): Promise<TimelineEvent> {
+export async function updateEventDisplayTitle(eventId: EventId, displayTitle: string | null): Promise<TimelineEvent> {
     const payload = await patchJson<{
         event: TimelineEvent;
     }>(`/api/events/${eventId}`, { displayTitle });
     return payload.event;
 }
-export async function deleteTask(taskId: string): Promise<void> {
+export async function deleteTask(taskId: TaskId): Promise<void> {
     return deleteRequest(`/api/tasks/${taskId}`);
 }
-export async function deleteBookmark(bookmarkId: string): Promise<void> {
+export async function deleteBookmark(bookmarkId: BookmarkId): Promise<void> {
     return deleteRequest(`/api/bookmarks/${bookmarkId}`);
 }
 export async function purgeFinishedTasks(): Promise<{
@@ -184,7 +184,7 @@ export interface TaskEvaluationRecord extends TaskEvaluation {
 }
 export type WorkflowSummaryRecord = WorkflowSummary;
 export interface WorkflowContentRecord {
-    readonly taskId: string;
+    readonly taskId: TaskId;
     readonly title: string;
     readonly displayTitle?: string;
     readonly workflowSnapshot: ReusableTaskSnapshot;
@@ -206,21 +206,21 @@ export function fetchWorkflowLibrary(rating?: "good" | "skip", query?: string, l
     const suffix = params.size > 0 ? `?${params.toString()}` : "";
     return getJson<WorkflowSummaryRecord[]>(`/api/workflows${suffix}`);
 }
-export function fetchTaskEvaluation(taskId: string): Promise<TaskEvaluationRecord | null> {
+export function fetchTaskEvaluation(taskId: TaskId): Promise<TaskEvaluationRecord | null> {
     return getJson<TaskEvaluationRecord | null>(`/api/tasks/${taskId}/evaluate`);
 }
-export async function saveTaskEvaluation(taskId: string, payload: TaskEvaluationPayload): Promise<void> {
+export async function saveTaskEvaluation(taskId: TaskId, payload: TaskEvaluationPayload): Promise<void> {
     await postJson<{
         ok: boolean;
     }>(`/api/tasks/${taskId}/evaluate`, payload);
 }
 export interface RuleActionPayload {
-    taskId: string;
-    sessionId?: string;
+    taskId: TaskId;
+    sessionId?: SessionId;
     action: string;
     title?: string;
     body?: string;
-    ruleId: string;
+    ruleId: RuleId;
     severity: string;
     status: string;
     source?: string;
@@ -233,7 +233,7 @@ export async function postRuleAction(payload: RuleActionPayload): Promise<void> 
         ok?: boolean;
     }>("/api/rule", payload);
 }
-export function fetchWorkflowContent(taskId: string): Promise<WorkflowContentRecord> {
+export function fetchWorkflowContent(taskId: TaskId): Promise<WorkflowContentRecord> {
     return getJson<WorkflowContentRecord>(`/api/workflows/${taskId}/content`);
 }
 export function createMonitorWebSocket(): WebSocket {

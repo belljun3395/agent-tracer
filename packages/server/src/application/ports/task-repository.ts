@@ -1,6 +1,6 @@
-import type { MonitoringTask } from "@monitor/core";
+import type { MonitoringTask, SessionId, TaskId } from "@monitor/core";
 export interface TaskUpsertInput {
-    readonly id: string;
+    readonly id: TaskId;
     readonly title: string;
     readonly slug: string;
     readonly status: MonitoringTask["status"];
@@ -8,21 +8,21 @@ export interface TaskUpsertInput {
     readonly createdAt: string;
     readonly updatedAt: string;
     readonly lastSessionStartedAt?: string;
-    readonly workspacePath?: string;
-    readonly parentTaskId?: string;
-    readonly parentSessionId?: string;
-    readonly backgroundTaskId?: string;
-    readonly runtimeSource?: string;
+    readonly workspacePath?: MonitoringTask["workspacePath"];
+    readonly parentTaskId?: TaskId;
+    readonly parentSessionId?: SessionId;
+    readonly backgroundTaskId?: TaskId;
+    readonly runtimeSource?: MonitoringTask["runtimeSource"];
 }
 export interface ITaskRepository {
     upsert(input: TaskUpsertInput): Promise<MonitoringTask>;
-    findById(id: string): Promise<MonitoringTask | null>;
+    findById(id: TaskId): Promise<MonitoringTask | null>;
     findAll(): Promise<readonly MonitoringTask[]>;
-    findChildren(parentId: string): Promise<readonly MonitoringTask[]>;
-    updateStatus(id: string, status: MonitoringTask["status"], updatedAt: string): Promise<void>;
-    updateTitle(id: string, title: string, slug: string, updatedAt: string): Promise<void>;
-    delete(id: string): Promise<{
-        deletedIds: readonly string[];
+    findChildren(parentId: TaskId): Promise<readonly MonitoringTask[]>;
+    updateStatus(id: TaskId, status: MonitoringTask["status"], updatedAt: string): Promise<void>;
+    updateTitle(id: TaskId, title: string, slug: MonitoringTask["slug"], updatedAt: string): Promise<void>;
+    delete(id: TaskId): Promise<{
+        deletedIds: readonly TaskId[];
     }>;
     deleteFinished(): Promise<number>;
     getOverviewStats(): Promise<OverviewStats>;
