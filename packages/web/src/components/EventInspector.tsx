@@ -34,29 +34,15 @@ import {
   collectPlanSteps,
   collectViolationDescriptions,
   collectWebLookups,
-  type CompactInsight,
-  type DirectoryMentionVerification,
-  type ExplorationInsight,
-  type ExploredFileStat,
-  type FileActivityStat,
-  type FileMentionVerification,
-  type MentionedFileVerification,
   type ModelSummary,
   type QuestionGroup,
-  type RuleDecisionStat,
-  type SubagentInsight,
   type TaskExtraction,
-  type TagInsight,
-  type TodoGroup,
-  type WebLookupStat
+  type TodoGroup
 } from "../lib/insights.js";
 import {
   evidenceTone,
   formatEvidenceLevel,
-  formatCount,
-  formatDuration,
-  formatPhaseLabel,
-  formatRate
+  formatCount
 } from "../lib/observability.js";
 import { formatRelativeTime } from "../lib/timeline.js";
 import type { TimelineConnector } from "../lib/timeline.js";
@@ -64,9 +50,6 @@ import { cn } from "../lib/ui/cn.js";
 import { Badge } from "./ui/Badge.js";
 import { Button } from "./ui/Button.js";
 import { PanelCard } from "./ui/PanelCard.js";
-import { runtimeObservabilityLabel, runtimeTagLabel } from "./TaskList.js";
-import { TaskHandoffPanel } from "./TaskHandoffPanel.js";
-import { TaskEvaluatePanel } from "./TaskEvaluatePanel.js";
 import { useEvaluation } from "../store/useEvaluation.js";
 import type {
   BookmarkRecord,
@@ -76,31 +59,16 @@ import type {
 } from "../types.js";
 import {
   cardShell,
-  cardHeader,
-  cardBody,
-  innerPanel,
   monoText
 } from "./inspector/styles.js";
 import { SectionCard } from "./inspector/SectionCard.js";
 import { QuestionGroupSection } from "./inspector/QuestionGroupSection.js";
 import { TodoGroupSection } from "./inspector/TodoGroupSection.js";
 import {
-  toRelativePath,
-  summarizePath,
-  dirnameLabel,
-  summarizeDetailText,
-  compactRelationLabel
+  summarizeDetailText
 } from "./inspector/utils.js";
 import { sortExploredFiles, type ExplorationSortKey } from "./inspector/ExploredFilesSection.js";
 import { sortFileActivity, type FileSortKey } from "./inspector/FileActivitySection.js";
-import {
-  ObservabilityMetricGrid,
-  ObservabilityList,
-  ObservabilityPhaseBreakdown,
-  formatTraceLinkCoverageNote,
-  formatTraceLinkHealthNote,
-  formatActionRegistryGapNote
-} from "./inspector/ObservabilitySection.js";
 import { ActionsTab } from "./inspector/ActionsTab.js";
 import { EvidenceTab } from "./inspector/EvidenceTab.js";
 import { OverviewTab } from "./inspector/OverviewTab.js";
