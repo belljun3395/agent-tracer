@@ -91,8 +91,8 @@ import {
   summarizeDetailText,
   compactRelationLabel
 } from "./inspector/utils.js";
-import { ExploredFilesSection, sortExploredFiles, type ExplorationSortKey } from "./inspector/ExploredFilesSection.js";
-import { FileActivitySection, sortFileActivity, type FileSortKey } from "./inspector/FileActivitySection.js";
+import { sortExploredFiles, type ExplorationSortKey } from "./inspector/ExploredFilesSection.js";
+import { sortFileActivity, type FileSortKey } from "./inspector/FileActivitySection.js";
 import {
   ObservabilityMetricGrid,
   ObservabilityList,
@@ -102,6 +102,7 @@ import {
   formatActionRegistryGapNote
 } from "./inspector/ObservabilitySection.js";
 import { ActionsTab } from "./inspector/ActionsTab.js";
+import { EvidenceTab } from "./inspector/EvidenceTab.js";
 
 export type PanelTabId = "inspector" | "overview" | "evidence" | "actions";
 
@@ -566,361 +567,6 @@ function DetailTaskModel({ summary }: { readonly summary: ModelSummary }): React
 }
 
 
-function FileMentionRow({
-  v, workspacePath
-}: {
-  readonly v: FileMentionVerification;
-  readonly workspacePath?: string | undefined;
-}): React.JSX.Element {
-  return (
-    <div className={cn(
-      "rounded-[12px] border px-4 py-3",
-      v.wasExplored
-        ? "border-[var(--border)] bg-[var(--surface-2)]"
-        : "border-[color-mix(in_srgb,#f59e0b_30%,transparent)] bg-[color-mix(in_srgb,#f59e0b_5%,var(--surface-2))]"
-    )}>
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-1.5">
-          <span className="shrink-0 text-[0.72rem] text-[var(--text-3)]">file</span>
-          <strong className={cn("block min-w-0 break-words text-[0.82rem] text-[var(--text-1)]", monoText)} title={v.path}>
-            {toRelativePath(v.path, workspacePath)}
-          </strong>
-        </div>
-        <div className="flex shrink-0 items-center gap-1.5">
-          {v.wasExplored ? (
-            <>
-              {!v.exploredAfterMention && (
-                <Badge tone="warning" size="xs">pre-mention</Badge>
-              )}
-              <Badge tone="success" size="xs">
-                {v.explorationCount > 1 ? `read ${v.explorationCount}x` : "read ✓"}
-              </Badge>
-            </>
-          ) : (
-            <Badge tone="warning" size="xs">not read</Badge>
-          )}
-        </div>
-      </div>
-      <div className="mt-1.5 text-[0.78rem] text-[var(--text-3)]">
-        Mentioned {formatRelativeTime(v.mentionedAt)}
-        {v.wasExplored && v.firstExploredAt
-          ? ` · first read ${formatRelativeTime(v.firstExploredAt)}`
-          : !v.wasExplored ? " · not yet explored" : ""}
-      </div>
-    </div>
-  );
-}
-
-function DirectoryMentionRow({
-  v, workspacePath
-}: {
-  readonly v: DirectoryMentionVerification;
-  readonly workspacePath?: string | undefined;
-}): React.JSX.Element {
-  const [open, setOpen] = useState(false);
-  const count = v.exploredFilesInFolder.length;
-
-  return (
-    <div className={cn(
-      "rounded-[12px] border px-4 py-3",
-      v.wasExplored
-        ? "border-[var(--border)] bg-[var(--surface-2)]"
-        : "border-[color-mix(in_srgb,#f59e0b_30%,transparent)] bg-[color-mix(in_srgb,#f59e0b_5%,var(--surface-2))]"
-    )}>
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-1.5">
-          <span className="shrink-0 text-[0.72rem] text-[var(--text-3)]">dir</span>
-          <strong className={cn("block min-w-0 break-words text-[0.82rem] text-[var(--text-1)]", monoText)} title={v.path}>
-            {toRelativePath(v.path.replace(/\/$/, ""), workspacePath)}/
-          </strong>
-        </div>
-        <div className="flex shrink-0 items-center gap-1.5">
-          {v.wasExplored ? (
-            <>
-              {!v.exploredAfterMention && (
-                <Badge tone="warning" size="xs">pre-mention</Badge>
-              )}
-              <Badge tone="success" size="xs">{count} file{count !== 1 ? "s" : ""} read</Badge>
-            </>
-          ) : (
-            <Badge tone="warning" size="xs">none read</Badge>
-          )}
-        </div>
-      </div>
-      <div className="mt-1.5 text-[0.78rem] text-[var(--text-3)]">
-        Mentioned {formatRelativeTime(v.mentionedAt)}
-        {count > 0 && (
-          <button
-            className="ml-2 text-[var(--accent)] hover:underline"
-            onClick={() => setOpen((c) => !c)}
-            type="button"
-          >
-            {open ? "hide files" : `show ${count} file${count !== 1 ? "s" : ""}`}
-          </button>
-        )}
-      </div>
-      {open && count > 0 && (
-        <div className="mt-2 flex flex-col gap-1">
-          {v.exploredFilesInFolder.map((f) => (
-            <div key={f.path} className="flex items-center justify-between gap-2 rounded-[8px] bg-[var(--surface)] px-3 py-1.5">
-              <span className={cn("min-w-0 break-words text-[0.78rem] text-[var(--text-2)]", monoText)} title={f.path}>
-                {toRelativePath(f.path, workspacePath)}
-              </span>
-              <Badge tone="accent" size="xs">{f.count}x</Badge>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/**
- * MentionedFilesVerificationCard: 사용자가 @ 멘션한 파일·폴더의 실제 탐색 여부를 검증해 표시.
- * 멘션이 없을 때도 항상 카드를 표시 (empty state 안내 포함).
- */
-function MentionedFilesVerificationCard({
-  verifications, workspacePath
-}: {
-  readonly verifications: readonly MentionedFileVerification[];
-  readonly workspacePath?: string | undefined;
-}): React.JSX.Element {
-  const [expanded, setExpanded] = useState(false);
-  const unverifiedCount = verifications.filter((v) => !v.wasExplored).length;
-  const preCount = verifications.filter((v) => v.wasExplored && !v.exploredAfterMention).length;
-
-  const summaryText = verifications.length === 0
-    ? "No @ mentions detected in user messages"
-    : `${verifications.length} mentioned · ${unverifiedCount} not read${preCount > 0 ? ` · ${preCount} pre-mention` : ""}`;
-
-  return (
-    <PanelCard className={cardShell}>
-      <button
-        className="flex w-full items-center justify-between gap-3 border-b border-[var(--border)] bg-[var(--surface-2)] px-4 py-3.5 text-left"
-        onClick={() => setExpanded((c) => !c)}
-        type="button"
-      >
-        <div>
-          <div className="text-[0.72rem] font-semibold uppercase tracking-[0.1em] text-[var(--text-3)]">@ Mentioned Files</div>
-          <div className="mt-1 text-[0.82rem] text-[var(--text-2)]">{summaryText}</div>
-        </div>
-        <span className="text-[0.76rem] font-semibold text-[var(--accent)]">{expanded ? "Hide" : "Show"}</span>
-      </button>
-
-      {/* 접힌 상태: 미리보기 배지 */}
-      {!expanded && verifications.length > 0 && (
-        <div className="px-4 py-3.5">
-          <div className="flex flex-wrap gap-2">
-            {verifications.slice(0, 3).map((v) => (
-              <Badge
-                key={`${v.mentionedInEventId}::${v.path}`}
-                tone={v.wasExplored ? "success" : "warning"}
-                size="xs"
-                className="max-w-full break-words"
-                title={v.path}
-              >
-                {v.mentionType === "directory" ? "📁 " : ""}{summarizePath(v.path, workspacePath)}
-              </Badge>
-            ))}
-            {verifications.length > 3 && (
-              <Badge tone="neutral" size="xs">+{verifications.length - 3} more</Badge>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* 펼친 상태 */}
-      {expanded && (
-        <div className="px-4 py-4">
-          {verifications.length === 0 ? (
-            <p className="m-0 text-[0.8rem] text-[var(--text-3)]">
-              User messages did not contain any @ file or folder references. Mentions are captured from <code className="text-[0.78rem]">@path</code>, backtick paths, and inline path tokens.
-            </p>
-          ) : (
-            <div className="flex flex-col gap-3">
-              {verifications.map((v) =>
-                v.mentionType === "directory" ? (
-                  <DirectoryMentionRow key={`${v.mentionedInEventId}::${v.path}`} v={v} workspacePath={workspacePath} />
-                ) : (
-                  <FileMentionRow key={`${v.mentionedInEventId}::${v.path}`} v={v} workspacePath={workspacePath} />
-                )
-              )}
-            </div>
-          )}
-        </div>
-      )}
-    </PanelCard>
-  );
-}
-
-
-/** WebLookupsCard: WebSearch/WebFetch 조회 URL 목록 카드. */
-function WebLookupsCard({
-  lookups
-}: {
-  readonly lookups: readonly WebLookupStat[];
-}): React.JSX.Element {
-  return (
-    <PanelCard className={cardShell}>
-      <div className={cardHeader}>
-        <span>Web Lookups</span>
-        <Badge tone="neutral" size="xs">{lookups.length}</Badge>
-      </div>
-      <div className={cardBody}>
-        {lookups.length === 0 ? (
-          <p className="m-0 text-[0.8rem] text-[var(--text-3)]">No web lookups recorded yet.</p>
-        ) : (
-          <div className="flex flex-col gap-2">
-            {lookups.map((lookup) => (
-              <div
-                key={`${lookup.url}-${lookup.firstSeenAt}`}
-                className="flex items-start justify-between gap-3 rounded-[8px] bg-[var(--surface-2)] px-3 py-2"
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[0.68rem] font-semibold uppercase tracking-[0.06em] text-[var(--exploration)]">
-                      {lookup.toolName}
-                    </span>
-                    {lookup.count > 1 && (
-                      <Badge tone="neutral" size="xs">{lookup.count}x</Badge>
-                    )}
-                    {compactRelationLabel(lookup.compactRelation) && (
-                      <Badge tone={compactRelationLabel(lookup.compactRelation)?.tone ?? "neutral"} size="xs">
-                        {compactRelationLabel(lookup.compactRelation)?.label}
-                      </Badge>
-                    )}
-                  </div>
-                  <p className={cn("mt-0.5 break-all text-[0.82rem] text-[var(--text-1)]", monoText)}>
-                    {lookup.url}
-                  </p>
-                  <p className="mt-0.5 text-[0.72rem] text-[var(--text-3)]">
-                    {formatRelativeTime(lookup.lastSeenAt)}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </PanelCard>
-  );
-}
-
-/** ExplorationInsightCard: 탐색 통계 인사이트 대시보드 카드. */
-function ExplorationInsightCard({
-  insight
-}: {
-  readonly insight: ExplorationInsight;
-}): React.JSX.Element {
-  const toolEntries = Object.entries(insight.toolBreakdown).sort((a, b) => b[1] - a[1]);
-
-  return (
-    <PanelCard className={cardShell}>
-      <div className={cardHeader}>
-        <span>Exploration Overview</span>
-      </div>
-      <div className={cardBody}>
-        {insight.totalExplorations === 0 ? (
-          <p className="m-0 text-[0.8rem] text-[var(--text-3)]">No exploration activity recorded yet.</p>
-        ) : (
-          <div className="flex flex-col gap-4">
-            <div className="grid grid-cols-3 gap-2 max-md:grid-cols-1">
-              <div className={innerPanel + " p-3"}>
-                <span className="block text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">Total Explorations</span>
-                <strong className="mt-2 block text-[1.05rem] text-[var(--text-1)]">{insight.totalExplorations}</strong>
-              </div>
-              <div className={innerPanel + " p-3"}>
-                <span className="block text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">Unique Files</span>
-                <strong className="mt-2 block text-[1.05rem] text-[var(--text-1)]">{insight.uniqueFiles}</strong>
-              </div>
-              <div className={innerPanel + " p-3"}>
-                <span className="block text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">Web Lookups</span>
-                <strong className="mt-2 block text-[1.05rem] text-[var(--exploration)]">{insight.uniqueWebLookups}</strong>
-              </div>
-            </div>
-
-            {(insight.preCompactFiles > 0 || insight.postCompactFiles > 0 || insight.acrossCompactFiles > 0) && (
-              <div className="grid grid-cols-3 gap-2 max-md:grid-cols-1">
-                <div className={innerPanel + " p-3"}>
-                  <span className="block text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">Pre-compact</span>
-                  <strong className="mt-2 block text-[1.05rem] text-[color-mix(in_srgb,#f59e0b_80%,var(--text-1))]">{insight.preCompactFiles}</strong>
-                </div>
-                <div className={innerPanel + " p-3"}>
-                  <span className="block text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">Post-compact</span>
-                  <strong className="mt-2 block text-[1.05rem] text-[color-mix(in_srgb,#10b981_80%,var(--text-1))]">{insight.postCompactFiles}</strong>
-                </div>
-                <div className={innerPanel + " p-3"}>
-                  <span className="block text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">Across compact</span>
-                  <strong className="mt-2 block text-[1.05rem] text-[var(--accent)]">{insight.acrossCompactFiles}</strong>
-                </div>
-              </div>
-            )}
-
-            {(insight.preCompactWebLookups > 0 || insight.postCompactWebLookups > 0 || insight.acrossCompactWebLookups > 0) && (
-              <div className="grid grid-cols-3 gap-2 max-md:grid-cols-1">
-                <div className={innerPanel + " p-3"}>
-                  <span className="block text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">Web Pre-compact</span>
-                  <strong className="mt-2 block text-[1.05rem] text-[color-mix(in_srgb,#f59e0b_80%,var(--text-1))]">{insight.preCompactWebLookups}</strong>
-                </div>
-                <div className={innerPanel + " p-3"}>
-                  <span className="block text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">Web Post-compact</span>
-                  <strong className="mt-2 block text-[1.05rem] text-[color-mix(in_srgb,#10b981_80%,var(--text-1))]">{insight.postCompactWebLookups}</strong>
-                </div>
-                <div className={innerPanel + " p-3"}>
-                  <span className="block text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">Web Across compact</span>
-                  <strong className="mt-2 block text-[1.05rem] text-[var(--accent)]">{insight.acrossCompactWebLookups}</strong>
-                </div>
-              </div>
-            )}
-
-            {(insight.preCompactWebLookups > 0 || insight.postCompactWebLookups > 0 || insight.acrossCompactWebLookups > 0) && (
-              <div className="grid grid-cols-3 gap-2 max-md:grid-cols-1">
-                <div className={innerPanel + " p-3"}>
-                  <span className="block text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">Web pre-compact</span>
-                  <strong className="mt-2 block text-[1.05rem] text-[color-mix(in_srgb,#f59e0b_80%,var(--text-1))]">{insight.preCompactWebLookups}</strong>
-                </div>
-                <div className={innerPanel + " p-3"}>
-                  <span className="block text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">Web post-compact</span>
-                  <strong className="mt-2 block text-[1.05rem] text-[color-mix(in_srgb,#10b981_80%,var(--text-1))]">{insight.postCompactWebLookups}</strong>
-                </div>
-                <div className={innerPanel + " p-3"}>
-                  <span className="block text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">Web across compact</span>
-                  <strong className="mt-2 block text-[1.05rem] text-[var(--accent)]">{insight.acrossCompactWebLookups}</strong>
-                </div>
-              </div>
-            )}
-
-            {toolEntries.length > 0 && (
-              <div>
-                <div className="mb-2 text-[0.7rem] font-bold uppercase tracking-[0.08em] text-[var(--text-3)]">Tool Breakdown</div>
-                <div className="flex flex-col gap-2">
-                  {toolEntries.map(([tool, count]) => (
-                    <div key={tool} className="flex items-center justify-between gap-3 rounded-[8px] bg-[var(--surface-2)] px-3 py-2">
-                      <span className={cn("min-w-0 break-words text-[0.82rem] text-[var(--text-2)]", monoText)}>{tool}</span>
-                      <Badge tone="neutral" size="xs">{count}x</Badge>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {(insight.firstExplorationAt || insight.lastExplorationAt) && (
-              <div className="flex flex-wrap gap-4 text-[0.78rem] text-[var(--text-3)]">
-                {insight.firstExplorationAt && (
-                  <span>First: {formatRelativeTime(insight.firstExplorationAt)}</span>
-                )}
-                {insight.lastExplorationAt && (
-                  <span>Last: {formatRelativeTime(insight.lastExplorationAt)}</span>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    </PanelCard>
-  );
-}
-
 function SubagentInsightCard({
   insight
 }: {
@@ -1004,93 +650,6 @@ function RuleDecisionHistoryCard({
             ))}
           </div>
         )}
-      </div>
-    </PanelCard>
-  );
-}
-
-
-/** TagExplorerCard: 태그 탐색 인사이트 카드. */
-function TagExplorerCard({
-  tags, selectedTag, onSelectTag
-}: {
-  readonly tags: readonly TagInsight[];
-  readonly selectedTag: string | null;
-  readonly onSelectTag: (tag: string) => void;
-}): React.JSX.Element {
-  const selectedInsight = selectedTag
-    ? tags.find((tag) => tag.tag === selectedTag) ?? null
-    : null;
-
-  return (
-    <PanelCard className={cardShell}>
-      <div className={cardBody}>
-        <SectionTitle
-          action={selectedTag ? (
-            <Button
-              className="h-auto rounded-full px-3 py-1.5 text-[0.72rem] font-semibold"
-              onClick={() => onSelectTag(selectedTag)}
-              size="sm"
-              type="button"
-              variant="bare"
-            >
-              Clear
-            </Button>
-          ) : undefined}
-          description={`${tags.length} distinct tags across the selected task`}
-          eyebrow="Tags"
-          title="Tag Explorer"
-        />
-        <div className="mt-4 flex flex-wrap gap-2">
-          {tags.length === 0 ? (
-            <p className="m-0 text-[0.8rem] text-[var(--text-3)]">No tags observed yet.</p>
-          ) : (
-            tags.map((tag) => (
-              <Button
-                key={tag.tag}
-                className={cn(
-                  "h-auto rounded-full border px-3.5 py-1.5 text-[0.78rem] font-semibold shadow-none",
-                  selectedTag === tag.tag
-                    ? "border-[var(--accent)] bg-[var(--accent-light)] text-[var(--accent)]"
-                    : "border-[var(--border)] bg-[var(--bg)] text-[var(--text-2)] hover:border-[var(--border-2)] hover:bg-[var(--surface-2)]"
-                )}
-                onClick={() => onSelectTag(tag.tag)}
-                size="sm"
-                type="button"
-                variant="bare"
-              >
-                <span className="font-mono">{tag.tag}</span>
-                <span className="ml-2 rounded-full bg-[var(--surface)] px-2 py-0.5 text-[0.7rem] font-semibold text-[var(--text-3)]">{tag.count}</span>
-              </Button>
-            ))
-          )}
-        </div>
-        <div className="mt-4 rounded-[12px] border border-[var(--border)] bg-[var(--surface-2)] p-4">
-          {selectedInsight ? (
-            <>
-              <div className="flex items-center justify-between gap-3">
-                <strong className="font-mono text-[0.9rem] text-[var(--text-1)]">{selectedInsight.tag}</strong>
-                <Badge tone="accent" size="xs">{selectedInsight.count} events</Badge>
-              </div>
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                <div>
-                  <div className="text-[0.7rem] font-bold uppercase tracking-[0.08em] text-[var(--text-3)]">Lanes</div>
-                  <div className="mt-1 text-[0.82rem] text-[var(--text-2)]">{selectedInsight.lanes.join(" · ")}</div>
-                </div>
-                <div>
-                  <div className="text-[0.7rem] font-bold uppercase tracking-[0.08em] text-[var(--text-3)]">Rules</div>
-                  <div className="mt-1 text-[0.82rem] text-[var(--text-2)]">
-                    {selectedInsight.ruleIds.length > 0 ? selectedInsight.ruleIds.join(", ") : "No linked rule"}
-                  </div>
-                </div>
-              </div>
-            </>
-          ) : (
-            <p className="m-0 text-[0.8rem] text-[var(--text-3)]">
-              Pick a tag chip to focus the timeline and inspect where that signal appears.
-            </p>
-          )}
-        </div>
       </div>
     </PanelCard>
   );
@@ -2085,35 +1644,25 @@ export function EventInspector({
           </div>
 
         ) : activeTab === "evidence" ? (
-          <div className="panel-tab-inner flex flex-col gap-5 p-4">
-            <TagExplorerCard
-              tags={tagInsights}
-              selectedTag={selectedTag}
-              onSelectTag={(tag) => onSelectTag(selectedTag === tag ? null : tag)}
-            />
-            <FileActivitySection
-              files={sortedFileActivity}
-              workspacePath={taskDetail?.task.workspacePath}
-              expanded={isFileActivityExpanded}
-              sortKey={fileSortKey}
-              onToggle={() => setIsFileActivityExpanded((current) => !current)}
-              onSortChange={setFileSortKey}
-            />
-            <ExplorationInsightCard insight={explorationInsight} />
-            <WebLookupsCard lookups={webLookups} />
-            <ExploredFilesSection
-              files={sortedExploredFiles}
-              workspacePath={taskDetail?.task.workspacePath}
-              expanded={isExploredFilesExpanded}
-              sortKey={explorationSortKey}
-              onToggle={() => setIsExploredFilesExpanded((current) => !current)}
-              onSortChange={setExplorationSortKey}
-            />
-            <MentionedFilesVerificationCard
-              verifications={mentionedVerifications}
-              workspacePath={taskDetail?.task.workspacePath}
-            />
-          </div>
+          <EvidenceTab
+            tagInsights={tagInsights}
+            selectedTag={selectedTag}
+            sortedFileActivity={sortedFileActivity}
+            workspacePath={taskDetail?.task.workspacePath}
+            isFileActivityExpanded={isFileActivityExpanded}
+            fileSortKey={fileSortKey}
+            explorationInsight={explorationInsight}
+            webLookups={webLookups}
+            sortedExploredFiles={sortedExploredFiles}
+            isExploredFilesExpanded={isExploredFilesExpanded}
+            explorationSortKey={explorationSortKey}
+            mentionedVerifications={mentionedVerifications}
+            onSelectTag={(tag) => onSelectTag(selectedTag === tag ? null : tag)}
+            onToggleFileActivity={() => setIsFileActivityExpanded((current) => !current)}
+            onFileSortChange={setFileSortKey}
+            onToggleExploredFiles={() => setIsExploredFilesExpanded((current) => !current)}
+            onExplorationSortChange={setExplorationSortKey}
+          />
 
         ) : (
           <ActionsTab
