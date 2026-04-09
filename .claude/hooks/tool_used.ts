@@ -39,6 +39,14 @@ async function main(): Promise<void> {
     return;
   }
 
+  // Skip self-referential events from the agent-tracer MCP server to avoid noisy
+  // monitor_* tool calls being recorded as agent-activity events.
+  const mcpToolEarly = parseMcpToolName(toolName);
+  if (mcpToolEarly?.server === "agent-tracer") {
+    hookLog("tool_used", "skipped — agent-tracer MCP self-reference", { toolName });
+    return;
+  }
+
   const ids = await ensureRuntimeSession(sessionId);
   const filePath = filePathFromToolInput(toolInput);
   const relPath = filePath ? relativeProjectPath(filePath) : "";
