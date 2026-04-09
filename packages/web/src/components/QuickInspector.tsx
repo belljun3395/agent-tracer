@@ -1,22 +1,7 @@
 import type React from "react";
 import type { ComponentProps } from "react";
-
 import { EventInspector } from "./EventInspector.js";
-
-type QuickInspectorProps = Omit<
-  ComponentProps<typeof EventInspector>,
-  "allowedTabs" | "initialTab" | "panelLabel" | "showInspectorSummaryFooter" | "singleTabHeaderLayout"
->;
-
+type QuickInspectorProps = Omit<ComponentProps<typeof EventInspector>, "allowedTabs" | "initialTab" | "panelLabel" | "showInspectorSummaryFooter" | "singleTabHeaderLayout">;
 export function QuickInspector(props: QuickInspectorProps): React.JSX.Element {
-  return (
-    <EventInspector
-      {...props}
-      allowedTabs={["inspector"]}
-      initialTab="inspector"
-      panelLabel="Quick Inspect"
-      showInspectorSummaryFooter={false}
-      singleTabHeaderLayout="inline"
-    />
-  );
+    return (<EventInspector {...props} allowedTabs={["inspector"]} initialTab="inspector" panelLabel="Quick Inspect" showInspectorSummaryFooter={false} singleTabHeaderLayout="inline"/>);
 }
