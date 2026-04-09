@@ -11,7 +11,7 @@ import {
   type ReusableTaskSnapshot,
 } from "@monitor/core";
 
-import type { MonitorPorts } from "../ports/index.js";
+import type { MonitorPorts } from "../ports";
 import { deriveTaskDisplayTitle } from "./task-display-title-resolver.helpers.js";
 import type { TaskLifecycleService } from "./task-lifecycle-service.js";
 

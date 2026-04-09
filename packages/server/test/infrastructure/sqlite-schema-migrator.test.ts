@@ -6,7 +6,7 @@ import BetterSqlite3 from "better-sqlite3";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { createSchema } from "../../src/infrastructure/sqlite/sqlite-schema.js";
-import { createSqliteMonitorPorts } from "../../src/infrastructure/sqlite/index.js";
+import { createSqliteMonitorPorts } from "../../src/infrastructure/sqlite";
 
 describe("sqlite runtimeSource backfill", () => {
   let tempDir: string | null = null;

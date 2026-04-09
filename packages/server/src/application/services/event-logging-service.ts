@@ -11,7 +11,7 @@ import {
   type TimelineLane,
 } from "@monitor/core";
 
-import type { MonitorPorts } from "../ports/index.js";
+import type { MonitorPorts } from "../ports";
 import type {
   GenericEventInput,
   TaskActionInput,

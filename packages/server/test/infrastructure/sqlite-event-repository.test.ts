@@ -1,7 +1,7 @@
 import BetterSqlite3 from "better-sqlite3";
 import { describe, expect, it } from "vitest";
 
-import { SqliteEventRepository } from "../../src/infrastructure/sqlite/sqlite-event-repository.js";
+import { SqliteEventRepository } from "../../src/infrastructure/sqlite";
 import { createSchema } from "../../src/infrastructure/sqlite/sqlite-schema.js";
 import { backfillSearchDocuments } from "../../src/infrastructure/sqlite/sqlite-search-documents.js";
 

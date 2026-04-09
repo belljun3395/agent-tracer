@@ -7,7 +7,7 @@
 
 import type Database from "better-sqlite3";
 
-import type { IBookmarkRepository, BookmarkRecord, BookmarkSaveInput } from "../../application/ports/bookmark-repository.js";
+import type { IBookmarkRepository, BookmarkRecord, BookmarkSaveInput } from "../../application/ports";
 import { parseJsonField } from "./sqlite-json.js";
 import {
   buildBookmarkSearchText,

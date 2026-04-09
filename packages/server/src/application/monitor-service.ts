@@ -20,7 +20,7 @@ import type {
   MonitorPorts,
   BookmarkRecord,
   SearchResults,
-} from "./ports/index.js";
+} from "./ports";
 import type {
   TaskActionInput,
   TaskAgentActivityInput,

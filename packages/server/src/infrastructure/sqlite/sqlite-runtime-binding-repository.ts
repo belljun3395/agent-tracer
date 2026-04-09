@@ -8,7 +8,7 @@
 
 import type Database from "better-sqlite3";
 
-import type { IRuntimeBindingRepository, RuntimeBinding, RuntimeBindingUpsertInput } from "../../application/ports/runtime-binding-repository.js";
+import type { IRuntimeBindingRepository, RuntimeBinding, RuntimeBindingUpsertInput } from "../../application/ports";
 
 interface RuntimeSessionBindingRow {
   runtime_source: string;

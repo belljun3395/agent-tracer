@@ -16,6 +16,7 @@ export const TRAILING_SESSION_SUFFIX_PATTERN = /\s+\((?:ses_[^)]+|session[^)]*|s
 
 export const GENERIC_TASK_TITLE_PREFIX_SPLIT_PATTERN = /\s+[—–-]\s+/;
 
+// TODO: remain only claude code
 export function isAgentSessionBoilerplatePrefix(value: string): boolean {
   return /^(claude code|claude|codex|cursor|gemini(?: cli)?|agent|ai cli) session started\b/.test(value)
     || /^(claude code|claude|codex|cursor|gemini(?: cli)?|agent|ai cli) - /.test(value);

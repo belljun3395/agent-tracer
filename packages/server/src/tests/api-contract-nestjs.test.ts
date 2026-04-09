@@ -7,7 +7,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import request from "supertest";
 import type * as http from "node:http";
-import { createNestMonitorRuntime } from "../bootstrap/create-nestjs-monitor-runtime.js";
+import { createNestMonitorRuntime } from "@monitor/server";
 import type { MonitorRuntime } from "../bootstrap/create-monitor-runtime.js";
 
 let runtime: MonitorRuntime;

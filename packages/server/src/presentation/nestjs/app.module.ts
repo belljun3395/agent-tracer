@@ -18,7 +18,7 @@ import { SearchController } from "./controllers/search.controller.js";
 import { EvaluationController } from "./controllers/evaluation.controller.js";
 import { MonitorServiceProvider } from "./service/monitor-service.provider.js";
 import { DatabaseProvider, MONITOR_PORTS_TOKEN } from "./database/database.provider.js";
-import type { MonitorPorts } from "../../application/ports/index.js";
+import type { MonitorPorts } from "../../application/ports";
 
 export interface AppModuleOptions {
   readonly databasePath: string;

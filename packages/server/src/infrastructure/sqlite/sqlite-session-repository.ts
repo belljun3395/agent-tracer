@@ -9,7 +9,7 @@ import type Database from "better-sqlite3";
 import type { MonitoringSession } from "@monitor/core";
 import { SessionId, TaskId } from "@monitor/core";
 
-import type { ISessionRepository, SessionCreateInput } from "../../application/ports/session-repository.js";
+import type { ISessionRepository, SessionCreateInput } from "../../application/ports";
 
 interface SessionRow {
   id: string;

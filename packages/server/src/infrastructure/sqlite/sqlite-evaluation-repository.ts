@@ -28,13 +28,13 @@ import {
   deriveTaskDisplayTitle,
   meaningfulTaskTitle
 } from "../../application/services/task-display-title-resolver.helpers.js";
-import type { IEmbeddingService } from "../embedding/index.js";
+import type { IEmbeddingService } from "../embedding";
 import {
   cosineSimilarity,
   deserializeEmbedding,
   EMBEDDING_MODEL,
   serializeEmbedding
-} from "../embedding/index.js";
+} from "../embedding";
 import { parseJsonField } from "./sqlite-json.js";
 
 const MIN_SEMANTIC_SCORE = 0.22;

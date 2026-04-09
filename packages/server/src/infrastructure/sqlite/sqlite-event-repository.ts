@@ -23,14 +23,14 @@ import type {
   SearchOptions,
   SearchResults,
   SearchTaskHit
-} from "../../application/ports/event-repository.js";
-import type { IEmbeddingService } from "../embedding/index.js";
+} from "../../application/ports";
+import type { IEmbeddingService } from "../embedding";
 import {
   cosineSimilarity,
   deserializeEmbedding,
   EMBEDDING_MODEL,
   serializeEmbedding
-} from "../embedding/index.js";
+} from "../embedding";
 import { parseJsonField } from "./sqlite-json.js";
 import {
   buildEventSearchText,

@@ -2,7 +2,7 @@ import type { Express } from "express";
 import request from "supertest";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { createMonitorRuntime } from "../../src/bootstrap/create-monitor-runtime.js";
+import { createMonitorRuntime } from "@monitor/server";
 
 describe("observability routes", () => {
   let app: Express;

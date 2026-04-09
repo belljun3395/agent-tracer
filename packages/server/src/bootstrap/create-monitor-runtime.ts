@@ -11,8 +11,8 @@ import { initializeDefaultAdapters } from "@monitor/core";
 import { WebSocketServer } from "ws";
 
 import { MonitorService } from "../application/monitor-service.js";
-import { createEmbeddingService } from "../infrastructure/embedding/index.js";
-import { createSqliteMonitorPorts } from "../infrastructure/sqlite/index.js";
+import { createEmbeddingService } from "../infrastructure/embedding";
+import { createSqliteMonitorPorts } from "../infrastructure/sqlite";
 import { createApp } from "../presentation/create-app.js";
 import { EventBroadcaster } from "../presentation/ws/event-broadcaster.js";
 
