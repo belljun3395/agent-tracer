@@ -7,7 +7,7 @@ import {
   EMBEDDING_MODEL,
   hasLocalEmbeddingModel,
   MODEL_DIR
-} from "../../src/infrastructure/embedding/embedding-service.js";
+} from "../../src/infrastructure/embedding";
 
 describe("embedding service configuration", () => {
   it("resolves the bundled local model directory", () => {

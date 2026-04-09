@@ -4,7 +4,7 @@
  * INotificationPublisher 구현 — WebSocket 클라이언트로 알림 브로드캐스트.
  */
 import type WebSocket from "ws";
-import type { INotificationPublisher, MonitorNotification } from "../../application/ports/index.js";
+import type { INotificationPublisher, MonitorNotification } from "../../application/ports";
 
 export class EventBroadcaster implements INotificationPublisher {
   private readonly clients = new Set<WebSocket>();

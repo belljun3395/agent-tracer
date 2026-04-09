@@ -11,8 +11,8 @@ import {
   type TimelineLane
 } from "@monitor/core";
 
-import type { IEventRepository } from "../ports/event-repository.js";
-import type { INotificationPublisher } from "../ports/notification-publisher.js";
+import type { IEventRepository } from "../ports";
+import type { INotificationPublisher } from "../ports";
 import type { GenericEventInput } from "../types.js";
 import { TraceMetadataFactory } from "./trace-metadata-factory.js";
 import { MAX_DERIVED_FILES } from "./event-recorder.constants.js";

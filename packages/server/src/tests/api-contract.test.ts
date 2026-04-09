@@ -8,7 +8,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import request from "supertest";
 import type { MonitorRuntime } from "../bootstrap/create-monitor-runtime.js";
-import { createMonitorRuntime } from "../bootstrap/create-monitor-runtime.js";
+import { createMonitorRuntime } from "@monitor/server";
 
 function createHarness(): MonitorRuntime {
   return createMonitorRuntime({ databasePath: ":memory:" });

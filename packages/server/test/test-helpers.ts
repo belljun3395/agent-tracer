@@ -1,6 +1,6 @@
 import { MonitorService } from "../src/application/monitor-service.js";
-import { createMonitorRuntime } from "../src/bootstrap/create-monitor-runtime.js";
-import { createSqliteMonitorPorts } from "../src/infrastructure/sqlite/index.js";
+import { createMonitorRuntime } from "@monitor/server";
+import { createSqliteMonitorPorts } from "../src/infrastructure/sqlite";
 
 export function createServiceHarness() {
   const ports = createSqliteMonitorPorts({

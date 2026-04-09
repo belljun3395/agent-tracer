@@ -9,7 +9,7 @@ import type Database from "better-sqlite3";
 import type { EventClassification, MonitoringEventKind, MonitoringTask, MonitoringTaskKind, TimelineLane } from "@monitor/core";
 import { EventId, SessionId, TaskId } from "@monitor/core";
 
-import type { ITaskRepository, OverviewStats, TaskUpsertInput } from "../../application/ports/task-repository.js";
+import type { ITaskRepository, OverviewStats, TaskUpsertInput } from "../../application/ports";
 import { deriveTaskDisplayTitle } from "../../application/services/task-display-title-resolver.helpers.js";
 import { parseJsonField } from "./sqlite-json.js";
 import {

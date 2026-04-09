@@ -37,7 +37,7 @@ export function shouldMovePrimaryToWaiting(opts: {
   if (opts.taskKind !== "primary") return false;
   if (opts.runningSessionCount !== 0) return false;
   if (opts.completionReason === "idle") {
-    return opts.completeTask !== true;
+    return !opts.completeTask;
   }
   if (opts.completionReason === "assistant_turn_complete" && opts.hasRunningBackgroundDescendants) {
     return true;
