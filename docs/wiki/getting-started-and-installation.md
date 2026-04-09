@@ -41,7 +41,6 @@ npm run start:mcp
 - [External Setup Hub](../guide/external-setup.md)
 - [LLM Setup Map](../guide/llm-setup.md)
 - [Claude Setup](../guide/claude-setup.md)
-- [OpenCode Setup](../guide/opencode-setup.md)
 - [Codex Setup](../guide/codex-setup.md)
 
 자동 설치 스크립트:

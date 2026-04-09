@@ -105,7 +105,7 @@ describe("buildOpenInferenceTaskExport", () => {
 });
 
 describe("buildWorkflowContext", () => {
-  it("includes passive rule audit and evidence snapshot sections", () => {
+  it("includes verification summary and lane sections for rule events", () => {
     const context = buildWorkflowContext(
       [
         {
@@ -164,13 +164,12 @@ describe("buildWorkflowContext", () => {
       "Rule audit task"
     );
 
-    expect(context).toContain("## Rule Audit");
-    expect(context).toContain("`doc-read-first` (high · policy:approval_required · outcome:approved) — 1 violation · 1 pass · 0 check");
-    expect(context).toContain("## Evidence Snapshot");
-    expect(context).toContain("Default posture: self-reported");
-    expect(context).toContain("Tool and shell activity: self-reported");
-    expect(context).toContain("## Rule Enforcement Snapshot");
-    expect(context).toContain("Rule enforcement: 2 decisions (1 blocked, 1 approved)");
+    expect(context).toContain("# Workflow: Rule audit task");
+    expect(context).toContain("## Plan");
+    expect(context).toContain("## Implementation");
+    expect(context).toContain("## Verification Summary");
+    expect(context).toContain("- [FAIL] Rule violation: missing doc read");
+    expect(context).not.toContain("- [FAIL] Rule pass: doc read recorded");
   });
 });
 

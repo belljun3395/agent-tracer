@@ -9,7 +9,6 @@
 - `scripts/setup-external.mjs`
 - `docs/guide/external-setup.md`
 - `docs/guide/claude-setup.md`
-- `docs/guide/opencode-setup.md`
 - `docs/guide/codex-setup.md`
 
 ## 지원 모드
@@ -75,5 +74,4 @@
 
 - [Getting Started & Installation](./getting-started-and-installation.md)
 - [Claude Code Hooks Adapter](./claude-code-hooks-adapter.md)
-- [OpenCode Plugin Adapter](./opencode-plugin-adapter.md)
 - [Codex Skill Adapter](./codex-skill-adapter.md)

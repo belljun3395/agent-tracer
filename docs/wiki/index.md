@@ -27,7 +27,6 @@
 
 - [Runtime adapters & integration](./runtime-adapters-and-integration.md)
 - [Claude Code hooks adapter](./claude-code-hooks-adapter.md)
-- [OpenCode plugin adapter](./opencode-plugin-adapter.md)
 - [Codex skill adapter](./codex-skill-adapter.md)
 - [MCP server](./mcp-server.md)
 - [MCP tool reference](./mcp-tool-reference.md)

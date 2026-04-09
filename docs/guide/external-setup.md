@@ -19,8 +19,6 @@
 | 런타임 | `setup:external` 자동화 | 추가로 해야 하는 일 | 다음 문서 |
 |--------|--------------------------|---------------------|-----------|
 | Claude Code | 예 (`--mode claude`) | Claude MCP 서버 등록 | [claude-setup.md](./claude-setup.md) |
-| OpenCode | 예 (`--mode opencode`) | 보통 없음. 필요 시 수동 MCP 확인 | [opencode-setup.md](./opencode-setup.md) |
-| Claude + OpenCode | 예 (`--mode both`) | Claude MCP 서버 등록 | [claude-setup.md](./claude-setup.md), [opencode-setup.md](./opencode-setup.md) |
 | Codex | 예 (`--mode codex`) | Codex MCP 서버 등록 + 새 스레드 시작 | [codex-setup.md](./codex-setup.md) |
 
 > `setup:external`은 현재 **Claude Code, OpenCode, Codex**의
@@ -123,8 +121,6 @@ npm run setup:external -- \
 
 - Claude Code: [claude-setup.md](./claude-setup.md)
   - `setup:external` 이후에도 `claude mcp add monitor ...`는 직접 실행해야 합니다.
-- OpenCode: [opencode-setup.md](./opencode-setup.md)
-  - `setup:external`이 `opencode.json`, plugin shim, `.opencode/tsconfig.json`을 써주므로 보통 바로 사용할 수 있습니다.
 - Codex: [codex-setup.md](./codex-setup.md)
   - `setup:external --mode codex` 이후에도 `codex mcp add monitor ...`는 직접 실행해야 합니다.
   - 새 `AGENTS.md` / `.agents/skills`를 읽도록 Codex 스레드를 다시 시작해야 합니다.
