@@ -1,7 +1,7 @@
-import type { MonitoringSession, MonitoringTask, TimelineEvent } from "@monitor/core";
+import type { MonitoringSession, MonitoringTask, RuntimeSource, TimelineEvent } from "@monitor/core";
 import { analyzeTaskObservability, isStaleRunningTask } from "./observability-task-analyzer.js";
 import type { ObservabilityOverviewSummary } from "./observability.types.js";
-const UNKNOWN_RUNTIME_SOURCE = "unknown";
+const UNKNOWN_RUNTIME_SOURCE = "unknown" as const;
 export interface ObservabilityOverviewInput {
     readonly tasks: readonly MonitoringTask[];
     readonly sessionsByTaskId: ReadonlyMap<string, readonly MonitoringSession[]>;
@@ -28,7 +28,7 @@ export function analyzeObservabilityOverview(input: ObservabilityOverviewInput):
     let tasksWithBackground = 0;
     let tasksAwaitingApproval = 0;
     let tasksBlockedByRule = 0;
-    const runtimeSources = new Map<string, {
+    const runtimeSources = new Map<RuntimeSource | typeof UNKNOWN_RUNTIME_SOURCE, {
         taskCount: number;
         runningTaskCount: number;
         promptCaptureCount: number;

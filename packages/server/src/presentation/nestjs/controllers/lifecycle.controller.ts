@@ -1,4 +1,5 @@
 import { Controller, Post, Patch, Delete, Body, Param, HttpException, HttpStatus, HttpCode } from "@nestjs/common";
+import { RuntimeSource, RuntimeSessionId, TaskId } from "@monitor/core";
 import { MonitorServiceProvider } from "../service/monitor-service.provider.js";
 import type { TaskStartInput, TaskLinkInput, TaskCompletionInput, TaskErrorInput, TaskPatchInput, TaskSessionEndInput, RuntimeSessionEnsureInput, RuntimeSessionEndInput } from "../../../application/types.js";
 import { taskStartSchema, taskLinkSchema, taskCompleteSchema, taskErrorSchema, taskPatchSchema, sessionEndSchema, runtimeSessionEnsureSchema, runtimeSessionEndSchema } from "../../schemas.js";
@@ -10,14 +11,14 @@ export class LifecycleController {
     async taskStart(
     @Body()
     body: unknown) {
-        return this.service.startTask(taskStartSchema.parse(body) as TaskStartInput);
+        return this.service.startTask(taskStartSchema.parse(body) as unknown as TaskStartInput);
     }
     @Post("/api/task-link")
     @HttpCode(HttpStatus.OK)
     async taskLink(
     @Body()
     body: unknown) {
-        const task = await this.service.linkTask(taskLinkSchema.parse(body) as TaskLinkInput);
+        const task = await this.service.linkTask(taskLinkSchema.parse(body) as unknown as TaskLinkInput);
         return { task };
     }
     @Post("/api/task-complete")
@@ -25,14 +26,14 @@ export class LifecycleController {
     async taskComplete(
     @Body()
     body: unknown) {
-        return this.service.completeTask(taskCompleteSchema.parse(body) as TaskCompletionInput);
+        return this.service.completeTask(taskCompleteSchema.parse(body) as unknown as TaskCompletionInput);
     }
     @Post("/api/task-error")
     @HttpCode(HttpStatus.OK)
     async taskError(
     @Body()
     body: unknown) {
-        return this.service.errorTask(taskErrorSchema.parse(body) as TaskErrorInput);
+        return this.service.errorTask(taskErrorSchema.parse(body) as unknown as TaskErrorInput);
     }
     @Patch("/api/tasks/:taskId")
     async patchTask(
@@ -45,7 +46,7 @@ export class LifecycleController {
             status?: "running" | "waiting" | "completed" | "errored";
         };
         const patchInput: TaskPatchInput = {
-            taskId,
+            taskId: TaskId(taskId),
             ...(parsed.title !== undefined ? { title: parsed.title } : {}),
             ...(parsed.status !== undefined ? { status: parsed.status } : {})
         };
@@ -64,7 +65,7 @@ export class LifecycleController {
     async deleteTask(
     @Param("taskId")
     taskId: string) {
-        const result = await this.service.deleteTask(taskId);
+        const result = await this.service.deleteTask(TaskId(taskId));
         if (result === "not_found") {
             throw new HttpException({ ok: false, error: "Task not found" }, HttpStatus.NOT_FOUND);
         }
@@ -75,7 +76,7 @@ export class LifecycleController {
     async sessionEnd(
     @Body()
     body: unknown) {
-        return this.service.endSession(sessionEndSchema.parse(body) as TaskSessionEndInput);
+        return this.service.endSession(sessionEndSchema.parse(body) as unknown as TaskSessionEndInput);
     }
     @Post("/api/runtime-session-ensure")
     @HttpCode(HttpStatus.OK)
@@ -86,7 +87,7 @@ export class LifecycleController {
         if (!parsed.success) {
             throw new HttpException({ error: parsed.error.format() }, HttpStatus.BAD_REQUEST);
         }
-        return this.service.ensureRuntimeSession(parsed.data as RuntimeSessionEnsureInput);
+        return this.service.ensureRuntimeSession(parsed.data as unknown as RuntimeSessionEnsureInput);
     }
     @Post("/api/runtime-session-end")
     @HttpCode(HttpStatus.OK)
@@ -97,7 +98,14 @@ export class LifecycleController {
         if (!parsed.success) {
             throw new HttpException({ error: parsed.error.format() }, HttpStatus.BAD_REQUEST);
         }
-        await this.service.endRuntimeSession(parsed.data as RuntimeSessionEndInput);
+        await this.service.endRuntimeSession({
+            ...parsed.data,
+            runtimeSource: RuntimeSource(parsed.data.runtimeSource),
+            runtimeSessionId: RuntimeSessionId(parsed.data.runtimeSessionId),
+            ...(parsed.data.backgroundCompletions
+                ? { backgroundCompletions: parsed.data.backgroundCompletions.map((id) => TaskId(id)) }
+                : {})
+        } as unknown as RuntimeSessionEndInput);
         return { ok: true };
     }
 }

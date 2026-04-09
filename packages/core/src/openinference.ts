@@ -1,16 +1,17 @@
+import type { EventId, RuntimeSource, TaskId } from "./domain/branded.js";
 import type { MonitoringTask, TimelineEvent } from "./domain.js";
 export type OpenInferenceSpanKind = "AGENT" | "CHAIN" | "TOOL" | "LLM" | "RETRIEVER" | "UNKNOWN";
 export interface OpenInferenceSpanRecord {
-    readonly spanId: string;
-    readonly parentSpanId?: string;
+    readonly spanId: EventId;
+    readonly parentSpanId?: EventId;
     readonly name: string;
     readonly kind: OpenInferenceSpanKind;
     readonly startTime: string;
     readonly attributes: Record<string, unknown>;
 }
 export interface OpenInferenceTaskExport {
-    readonly taskId: string;
-    readonly runtimeSource?: string;
+    readonly taskId: TaskId;
+    readonly runtimeSource?: RuntimeSource;
     readonly spans: readonly OpenInferenceSpanRecord[];
 }
 export function buildOpenInferenceTaskExport(task: MonitoringTask, timeline: readonly TimelineEvent[]): OpenInferenceTaskExport {
@@ -20,7 +21,7 @@ export function buildOpenInferenceTaskExport(task: MonitoringTask, timeline: rea
         spans: timeline.map((event) => buildOpenInferenceSpanRecord(task.runtimeSource, event))
     };
 }
-export function buildOpenInferenceSpanRecord(runtimeSource: string | undefined, event: TimelineEvent): OpenInferenceSpanRecord {
+export function buildOpenInferenceSpanRecord(runtimeSource: RuntimeSource | undefined, event: TimelineEvent): OpenInferenceSpanRecord {
     const parentSpanId = extractString(event.metadata, "parentEventId")
         ?? extractString(event.metadata, "sourceEventId");
     const kind = mapEventToOpenInferenceKind(event);
@@ -58,7 +59,7 @@ function mapEventToOpenInferenceKind(event: TimelineEvent): OpenInferenceSpanKin
     }
     return "UNKNOWN";
 }
-function mapRuntimeSourceToGenAiSystem(runtimeSource: string): string {
+function mapRuntimeSourceToGenAiSystem(runtimeSource: RuntimeSource): string {
     const normalized = runtimeSource.toLowerCase();
     if (normalized.includes("claude"))
         return "anthropic";
@@ -88,7 +89,7 @@ function collectAttributeHints(event: TimelineEvent): Record<string, unknown> {
     }
     return hints;
 }
-function extractString(metadata: Record<string, unknown>, key: string): string | undefined {
+function extractString(metadata: Record<string, unknown>, key: string): EventId | undefined {
     const value = metadata[key];
-    return typeof value === "string" ? value : undefined;
+    return typeof value === "string" ? value as EventId : undefined;
 }

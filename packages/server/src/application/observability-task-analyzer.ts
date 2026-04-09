@@ -1,5 +1,5 @@
-import type { EventRelationType, MonitoringSession, MonitoringTask, TimelineEvent } from "@monitor/core";
-import { getEventEvidence, getRuntimeCoverageSummary, type EvidenceLevel } from "@monitor/core";
+import type { EventRelationType, MonitoringSession, MonitoringTask, RuleId as MonitorRuleId, TimelineEvent } from "@monitor/core";
+import { RuleId, getEventEvidence, getRuntimeCoverageSummary, type EvidenceLevel } from "@monitor/core";
 import type { ObservabilityFileCount, ObservabilityPhaseBucket, ObservabilityTagCount, ObservabilityTaskSignals, TaskObservabilitySummary } from "./observability.types.js";
 export type { TaskObservabilitySummary };
 export interface TaskObservabilityInput {
@@ -98,7 +98,7 @@ export function analyzeTaskObservability(input: TaskObservabilityInput): TaskObs
         rejected: 0,
         bypassed: 0,
         activeState: "clear" as const,
-        activeRuleId: undefined as string | undefined,
+        activeRuleId: undefined as MonitorRuleId | undefined,
         activeLabel: undefined as string | undefined
     };
     const evidenceCounts = new Map<EvidenceLevel, number>([
@@ -393,7 +393,7 @@ function collectRuleEnforcement(event: TimelineEvent, summary: {
     rejected: number;
     bypassed: number;
     activeState: "clear" | "warning" | "blocked" | "approval_required";
-    activeRuleId?: string | undefined;
+    activeRuleId?: MonitorRuleId | undefined;
     activeLabel?: string | undefined;
 }): void {
     if (event.kind !== "rule.logged") {
@@ -402,7 +402,8 @@ function collectRuleEnforcement(event: TimelineEvent, summary: {
     const outcome = extractString(event.metadata, "ruleOutcome");
     const policy = extractString(event.metadata, "rulePolicy");
     const status = extractString(event.metadata, "ruleStatus");
-    const ruleId = extractString(event.metadata, "ruleId");
+    const ruleIdRaw = extractString(event.metadata, "ruleId");
+    const ruleId = ruleIdRaw ? RuleId(ruleIdRaw) : undefined;
     const ruleLabel = normalizeRuleActiveLabel(ruleId, event.title);
     switch (outcome) {
         case "warned":
@@ -472,7 +473,7 @@ function collectRuleEnforcement(event: TimelineEvent, summary: {
         }
     }
 }
-function normalizeRuleActiveLabel(ruleId?: string, title?: string): string | undefined {
+function normalizeRuleActiveLabel(ruleId?: MonitorRuleId, title?: string): string | undefined {
     const normalizedRuleId = ruleId?.trim();
     if (normalizedRuleId) {
         return normalizedRuleId;
