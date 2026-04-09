@@ -8,6 +8,7 @@ import type React from "react";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 
 import { useMonitorStore } from "../store/useMonitorStore.js";
+import { cn } from "../lib/ui/cn.js";
 import { TaskList } from "./TaskList.js";
 import { buildQuestionGroups, buildTodoGroups } from "../lib/insights.js";
 import type { BookmarkRecord } from "../types.js";
@@ -16,12 +17,16 @@ interface SidebarContainerProps {
   readonly onSelectTask: (taskId: string | null) => void;
   readonly onClose: () => void;
   readonly initialView?: "tasks" | "saved";
+  readonly isPinned?: boolean;
+  readonly onTogglePin?: () => void;
 }
 
 export function SidebarContainer({
   onSelectTask,
   onClose,
-  initialView = "tasks"
+  initialView = "tasks",
+  isPinned = false,
+  onTogglePin
 }: SidebarContainerProps): React.JSX.Element {
   const {
     state,
@@ -112,9 +117,9 @@ export function SidebarContainer({
   const handleSelectTask = useCallback(
     (id: string): void => {
       onSelectTask(id);
-      onClose();
+      if (!isPinned) onClose();
     },
-    [onSelectTask, onClose]
+    [onSelectTask, onClose, isPinned]
   );
 
   return (
@@ -123,18 +128,41 @@ export function SidebarContainer({
       className="flex h-full w-[280px] flex-col overflow-hidden border-r border-[var(--border)] bg-[var(--surface)] shadow-[4px_0_24px_rgba(0,0,0,0.12)]"
     >
       {/* Compact flyout header */}
-      <div className="flex h-11 shrink-0 items-center justify-between border-b border-[var(--border)] bg-[var(--surface-2)] px-3">
-        <span className="text-[0.78rem] font-semibold text-[var(--text-1)]">Agent Tracer</span>
-        <button
-          aria-label="Close panel"
-          className="flex h-7 w-7 items-center justify-center rounded-[var(--radius-md)] text-[var(--text-3)] transition-colors hover:bg-[var(--surface)] hover:text-[var(--text-2)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
-          onClick={onClose}
-          type="button"
-        >
-          <svg aria-hidden="true" fill="none" height="14" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" viewBox="0 0 24 24" width="14">
-            <path d="M15 18l-6-6 6-6" />
-          </svg>
-        </button>
+      <div className="flex h-10 shrink-0 items-center justify-between border-b border-[var(--border)] bg-[var(--surface)] px-3">
+        <span className="text-[0.72rem] font-semibold tracking-[0.02em] text-[var(--text-2)]">Agent Tracer</span>
+        <div className="flex items-center gap-1">
+          {onTogglePin && (
+            <button
+              aria-label={isPinned ? "Unpin sidebar" : "Pin sidebar"}
+              className={cn(
+                "flex h-7 w-7 items-center justify-center rounded-[var(--radius-md)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]",
+                isPinned
+                  ? "bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] text-[var(--accent)] hover:bg-[color-mix(in_srgb,var(--accent)_20%,transparent)]"
+                  : "text-[var(--text-3)] hover:bg-[var(--surface)] hover:text-[var(--text-2)]"
+              )}
+              onClick={onTogglePin}
+              title={isPinned ? "Unpin sidebar" : "Pin sidebar"}
+              type="button"
+            >
+              {/* Thumbtack icon */}
+              <svg aria-hidden="true" fill="none" height="14" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" width="14">
+                <path d="M12 2L8 8H4l2 6h3v8l3-3 3 3v-8h3l2-6h-4L12 2z" />
+              </svg>
+            </button>
+          )}
+          {!isPinned && (
+            <button
+              aria-label="Close panel"
+              className="flex h-7 w-7 items-center justify-center rounded-[var(--radius-md)] text-[var(--text-3)] transition-colors hover:bg-[var(--surface)] hover:text-[var(--text-2)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+              onClick={onClose}
+              type="button"
+            >
+              <svg aria-hidden="true" fill="none" height="14" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" viewBox="0 0 24 24" width="14">
+                <path d="M15 18l-6-6 6-6" />
+              </svg>
+            </button>
+          )}
+        </div>
       </div>
 
       <TaskList

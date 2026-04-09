@@ -43,16 +43,12 @@ function RailBtn({ label, active, badge, onClick, children }: RailBtnProps): Rea
 
 interface IconRailProps {
   readonly activePanel: RailPanel;
-  readonly taskCount: number;
-  readonly savedCount: number;
   readonly isConnected: boolean;
   readonly onTogglePanel: (panel: Exclude<RailPanel, null>) => void;
 }
 
 export function IconRail({
   activePanel,
-  taskCount,
-  savedCount,
   isConnected,
   onTogglePanel
 }: IconRailProps): React.JSX.Element {
@@ -73,7 +69,6 @@ export function IconRail({
       {/* Tasks */}
       <RailBtn
         active={activePanel === "tasks"}
-        badge={taskCount}
         label="Tasks"
         onClick={() => onTogglePanel("tasks")}
       >
@@ -88,7 +83,6 @@ export function IconRail({
       {/* Saved */}
       <RailBtn
         active={activePanel === "saved"}
-        badge={savedCount}
         label="Saved"
         onClick={() => onTogglePanel("saved")}
       >

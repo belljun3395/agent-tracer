@@ -45,14 +45,14 @@
 .filter-chip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
-  border-radius: 999px;
+  gap: 5px;
+  padding: 4px 8px;
+  border-radius: 6px;
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text-2);
-  font-size: 0.76rem;
-  font-weight: 600;
+  font-size: 0.73rem;
+  font-weight: 500;
   transition: all 0.12s ease;
   user-select: none;
 }
@@ -161,6 +161,8 @@
   min-height: 0;
   flex-direction: column;
   gap: 10px;
+  container-type: inline-size;
+  container-name: timeline;
 }
 
 .timeline-chrome {
@@ -200,6 +202,50 @@
   box-shadow: 0 8px 20px rgba(15, 23, 42, 0.045);
   backdrop-filter: blur(12px);
   animation: timeline-context-strip-enter 160ms ease;
+}
+
+.timeline-task-controls-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px 14px 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04);
+  animation: timeline-context-strip-enter 140ms ease;
+}
+
+.timeline-filters-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 280px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow:
+    0 8px 24px rgba(15, 23, 42, 0.10),
+    0 2px 6px rgba(15, 23, 42, 0.06);
+  animation: timeline-context-strip-enter 140ms ease;
+}
+
+.timeline-filters-popover-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.timeline-filters-popover-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 0 -2px;
 }
 
 .timeline-context-bar::before {
@@ -591,8 +637,8 @@
   height: 100%;
   width: var(--timeline-lane-label-width, 120px);
   padding: 0 14px;
-  font-size: 0.73rem;
-  font-weight: 600;
+  font-size: 0.72rem;
+  font-weight: 500;
   letter-spacing: -0.01em;
   background: linear-gradient(90deg, var(--surface) 0%, var(--surface) 72%, color-mix(in srgb, var(--surface) 88%, transparent) 90%, transparent);
   z-index: 8;
@@ -718,22 +764,42 @@
   display: flex;
   flex-direction: column;
   gap: 3px;
-  padding: 5px 9px;
-  border-radius: 7px;
-  border: 1.5px solid var(--border);
+  padding: 5px 9px 5px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text-1);
   cursor: pointer;
   transform: translateX(-50%);
-  box-shadow: 0 1px 3px rgba(0,0,0,0.07);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 0 0 0 transparent;
   transition: box-shadow 0.12s ease, transform 0.12s ease;
   text-align: left;
   z-index: 4;
   overflow: hidden;
 }
 
+.event-node::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  border-radius: 10px 0 0 10px;
+  background: var(--border-2);
+}
+
+.event-node.exploration::before  { background: var(--exploration); }
+.event-node.implementation::before { background: var(--implementation); }
+.event-node.planning::before     { background: var(--planning); }
+.event-node.user::before         { background: var(--user); }
+.event-node.questions::before    { background: var(--questions); }
+.event-node.todos::before        { background: var(--todos); }
+.event-node.coordination::before { background: var(--coordination); }
+.event-node.background::before   { background: var(--background); }
+
 .event-node:hover {
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  box-shadow: 0 3px 10px rgba(0,0,0,0.1);
   transform: translateX(-50%) translateY(-1px);
 }
 
@@ -771,11 +837,11 @@
 
 /* Dot indicator replacing the icon image */
 .event-node-dot {
-  width: 5px;
-  height: 5px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   flex-shrink: 0;
-  opacity: 0.7;
+  opacity: 0.85;
 }
 
 .event-node.exploration  .event-node-dot { background: var(--exploration); }
@@ -788,15 +854,7 @@
 .event-node.background   .event-node-dot { background: var(--background); }
 
 .event-lane-tag {
-  font-size: 0.62rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  min-width: 0;
-  flex: 1 1 auto;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  display: none;
 }
 
 .event-node-header > [role="img"] {
@@ -942,9 +1000,9 @@
 
 .event-node strong {
   display: block;
-  font-size: 0.76rem;
-  font-weight: 600;
-  line-height: 1.3;
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.35;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -965,13 +1023,13 @@
 .event-semantic-tag {
   display: inline-block;
   font-size: 0.62rem;
-  font-weight: 600;
+  font-weight: 500;
   padding: 1px 5px;
   border-radius: 4px;
-  background: var(--border);
-  color: var(--text-2);
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
+  background: color-mix(in srgb, var(--surface-2) 70%, transparent);
+  border: 1px solid var(--border);
+  color: var(--text-3);
+  letter-spacing: 0;
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1282,12 +1340,14 @@
   .timeline-context-bar {
     flex-direction: column;
     align-items: stretch;
-    gap: 8px;
+    gap: 6px;
   }
 
   .timeline-context-bar-actions {
     width: 100%;
-    justify-content: space-between;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 6px;
   }
 
   .timeline-chrome {
@@ -1453,5 +1513,40 @@
 
   .event-node .event-time {
     font-size: 0.62rem;
+  }
+}
+
+/* ── Very narrow timeline (inspector + sidebar both open) ── */
+/* Use container queries so breakpoint tracks timeline width, not viewport width */
+@container timeline (max-width: 440px) {
+  .timeline-context-bar {
+    margin: 4px 8px 0;
+    padding: 7px 8px 8px 10px;
+    border-radius: 12px;
+    gap: 5px;
+  }
+
+  .timeline-context-title {
+    font-size: 0.76rem;
+  }
+
+  .timeline-context-summary-chip {
+    font-size: 0.64rem;
+    padding: 2px 7px;
+  }
+
+  .timeline-context-status {
+    font-size: 0.60rem;
+    padding: 3px 7px;
+  }
+
+  .timeline-context-toggle {
+    height: 1.65rem;
+    width: 1.65rem;
+  }
+
+  /* Hide observability stats chip — available in controls popup */
+  .timeline-context-obs-stats {
+    display: none;
   }
 }

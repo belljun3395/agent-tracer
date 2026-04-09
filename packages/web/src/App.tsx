@@ -41,6 +41,9 @@ const ZOOM_STORAGE_KEY = "agent-tracer.zoom";
 // Inspector drawer width
 const INSPECTOR_WIDTH = 360;
 
+// Sidebar pinned preference key
+const SIDEBAR_PINNED_KEY = "agent-tracer.sidebar-pinned";
+
 // ---------------------------------------------------------------------------
 // Inner dashboard (consumes context)
 // ---------------------------------------------------------------------------
@@ -101,8 +104,23 @@ function Dashboard({
     setActivePanel((v) => (v === panel ? null : panel));
   }, []);
 
+  // Sidebar pin preference — persisted to localStorage
+  const [sidebarPinned, setSidebarPinned] = useState<boolean>(() => {
+    try { return window.localStorage.getItem(SIDEBAR_PINNED_KEY) === "true"; } catch { return false; }
+  });
+
+  useEffect(() => {
+    try { window.localStorage.setItem(SIDEBAR_PINNED_KEY, String(sidebarPinned)); } catch { /* ignore */ }
+  }, [sidebarPinned]);
+
   // Inspector drawer: visible when a task is selected
   const isInspectorOpen = Boolean(selectedTaskId);
+  const [isInspectorCollapsed, setIsInspectorCollapsed] = useState(false);
+
+  // Reset collapsed state when inspector closes
+  useEffect(() => {
+    if (!isInspectorOpen) setIsInspectorCollapsed(false);
+  }, [isInspectorOpen]);
 
   // Library / Approval queue modals
   const [isApprovalQueueOpen, setIsApprovalQueueOpen] = useState(false);
@@ -195,36 +213,48 @@ function Dashboard({
         {/* Icon rail — always visible */}
         <IconRail
           activePanel={activePanel}
-          taskCount={tasks.length}
-          savedCount={bookmarks.length}
           isConnected={isConnected}
           onTogglePanel={togglePanel}
         />
 
-        {/* Task/Saved flyout overlay */}
+        {/* Sidebar — pinned column (permanent) or flyout overlay */}
         {(activePanel === "tasks" || activePanel === "saved") && (
-          <>
-            {/* Backdrop — semi-transparent, closes flyout on click */}
-            <div
-              aria-hidden="true"
-              className="absolute inset-0 z-20 bg-black/20"
-              onClick={() => setActivePanel(null)}
-            />
-            {/* Panel */}
-            <div className="absolute bottom-0 left-12 top-0 z-30 flex animate-[slideInLeft_150ms_ease-out]">
+          sidebarPinned ? (
+            /* Pinned mode: permanent column, pushes timeline */
+            <div className="flex h-full w-[280px] shrink-0 border-r border-[var(--border)]">
               <SidebarContainer
                 onSelectTask={selectDashboardTask}
                 onClose={() => setActivePanel(null)}
                 initialView={activePanel === "saved" ? "saved" : "tasks"}
+                isPinned
+                onTogglePin={() => setSidebarPinned(false)}
               />
             </div>
-          </>
+          ) : (
+            /* Flyout mode: overlay with backdrop */
+            <>
+              <div
+                aria-hidden="true"
+                className="absolute inset-0 z-20 bg-black/20"
+                onClick={() => setActivePanel(null)}
+              />
+              <div className="absolute bottom-0 left-12 top-0 z-30 flex animate-[slideInLeft_150ms_ease-out]">
+                <SidebarContainer
+                  onSelectTask={selectDashboardTask}
+                  onClose={() => setActivePanel(null)}
+                  initialView={activePanel === "saved" ? "saved" : "tasks"}
+                  isPinned={false}
+                  onTogglePin={() => setSidebarPinned(true)}
+                />
+              </div>
+            </>
+          )
         )}
 
         {/* Timeline — fills all remaining space */}
         <div
           className="relative flex min-h-0 min-w-0 flex-1 flex-col p-2.5 transition-[padding-right] duration-200"
-          style={{ paddingRight: isInspectorOpen ? `${INSPECTOR_WIDTH + 10}px` : undefined }}
+          style={{ paddingRight: isInspectorOpen ? `${(isInspectorCollapsed ? 44 : INSPECTOR_WIDTH) + 10}px` : undefined }}
         >
           <TimelineContainer
             isCompactDashboard={false}
@@ -240,20 +270,34 @@ function Dashboard({
         {/* Inspector drawer — slides in from the right */}
         <div
           className={cn(
-            "absolute bottom-0 right-0 top-0 z-10 flex flex-col transition-transform duration-200 ease-out",
+            "absolute bottom-0 right-0 top-0 z-10 flex flex-col transition-[transform,width] duration-200 ease-out",
             isInspectorOpen ? "translate-x-0" : "translate-x-full"
           )}
-          style={{ width: INSPECTOR_WIDTH }}
+          style={{ width: isInspectorCollapsed ? 44 : INSPECTOR_WIDTH }}
         >
-          <InspectorContainer
-            isStackedDashboard={false}
-            isInspectorCollapsed={false}
-            selectedTaskDisplayTitle={selectedTaskDisplayTitle}
-            onToggleCollapse={() => {
-              dispatch({ type: "SELECT_TASK", taskId: null });
-            }}
-            onOpenTaskWorkspace={selectedTaskId ? () => onOpenTaskWorkspace(selectedTaskId) : undefined}
-          />
+          {isInspectorCollapsed ? (
+            /* Collapsed strip — just the expand toggle */
+            <div className="flex h-full flex-col items-center border-l border-[var(--border)] bg-[var(--surface)] pt-3">
+              <button
+                aria-label="Expand inspector"
+                className="flex h-8 w-8 items-center justify-center rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] text-[var(--text-2)] shadow-sm transition-colors hover:border-[var(--border-2)] hover:bg-[var(--surface-2)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                onClick={() => setIsInspectorCollapsed(false)}
+                type="button"
+              >
+                <svg aria-hidden="true" fill="none" height="14" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" viewBox="0 0 24 24" width="14">
+                  <path d="M15 18l-6-6 6-6" />
+                </svg>
+              </button>
+            </div>
+          ) : (
+            <InspectorContainer
+              isStackedDashboard={false}
+              isInspectorCollapsed={false}
+              selectedTaskDisplayTitle={selectedTaskDisplayTitle}
+              onToggleCollapse={() => setIsInspectorCollapsed(true)}
+              onOpenTaskWorkspace={selectedTaskId ? () => onOpenTaskWorkspace(selectedTaskId) : undefined}
+            />
+          )}
         </div>
       </div>
 
