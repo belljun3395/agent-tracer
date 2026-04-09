@@ -83,6 +83,8 @@ import {
   monoText
 } from "./inspector/styles.js";
 import { SectionCard } from "./inspector/SectionCard.js";
+import { QuestionGroupSection } from "./inspector/QuestionGroupSection.js";
+import { TodoGroupSection } from "./inspector/TodoGroupSection.js";
 
 export type PanelTabId = "inspector" | "overview" | "evidence" | "actions";
 
@@ -604,56 +606,6 @@ function DetailRelatedEvents({
   );
 }
 
-const QUESTION_PHASE_LABELS: Readonly<Record<string, string>> = { asked: "Asked", answered: "Answered", concluded: "Concluded" };
-const TODO_STATE_LABELS: Readonly<Record<string, string>> = { added: "Added", in_progress: "In Progress", completed: "Completed", cancelled: "Cancelled" };
-
-/** DetailQuestionFlow: question.logged 이벤트를 questionId 기준으로 그룹화해 모든 단계를 표시. */
-function DetailQuestionFlow({ group }: { readonly group: QuestionGroup }): React.JSX.Element {
-  return (
-    <SectionCard title="Question Flow" bodyClassName="pt-4">
-      <div className="flex flex-col gap-2">
-        {group.phases.map(({ phase, event }) => (
-          <div key={event.id} className="flex flex-col gap-2 rounded-[12px] border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-            <Badge tone={phase === "concluded" ? "success" : phase === "answered" ? "accent" : "neutral"} size="xs">
-              {QUESTION_PHASE_LABELS[phase] ?? phase}
-            </Badge>
-            <span className="min-w-0 flex-1 text-[0.84rem] font-medium text-[var(--text-1)]">{buildInspectorEventTitle(event) ?? event.title}</span>
-            <span className="text-[0.76rem] font-semibold text-[var(--text-3)]">{new Date(event.createdAt).toLocaleTimeString()}</span>
-          </div>
-        ))}
-      </div>
-      {!group.isComplete && (
-        <p className="mt-2 text-[0.8rem] text-[var(--text-3)]">Awaiting conclusion.</p>
-      )}
-    </SectionCard>
-  );
-}
-
-/** DetailTodoFlow: todo.logged 이벤트를 todoId 기준으로 그룹화해 상태 전이 목록을 표시. */
-function DetailTodoFlow({ group }: { readonly group: TodoGroup }): React.JSX.Element {
-  return (
-    <SectionCard title="Todo Lifecycle" bodyClassName="pt-4">
-      <div className="flex flex-col gap-2">
-        {group.transitions.map(({ state, event }) => (
-          <div key={event.id} className="flex flex-col gap-2 rounded-[12px] border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-            <Badge
-              tone={state === "completed" ? "success" : state === "added" ? "accent" : state === "cancelled" ? "danger" : "warning"}
-              size="xs"
-            >
-              {TODO_STATE_LABELS[state] ?? state}
-            </Badge>
-            <span className="min-w-0 flex-1 text-[0.84rem] font-medium text-[var(--text-1)]">{buildInspectorEventTitle(event) ?? event.title}</span>
-            <span className="text-[0.76rem] font-semibold text-[var(--text-3)]">{new Date(event.createdAt).toLocaleTimeString()}</span>
-          </div>
-        ))}
-      </div>
-      <p className="mt-2 text-[0.8rem] text-[var(--text-3)]">
-        Current: <strong className="text-[var(--text-2)]">{TODO_STATE_LABELS[group.currentState] ?? group.currentState}</strong>
-        {group.isTerminal ? " (terminal)" : ""}
-      </p>
-    </SectionCard>
-  );
-}
 
 /** DetailModelInfo: 이벤트에 있는 모델 식별 정보를 표시. */
 function DetailModelInfo({
@@ -2324,12 +2276,12 @@ export function EventInspector({
                 {selectedEvent.kind === "question.logged" && (() => {
                   const qId = selectedEvent.metadata["questionId"] as string | undefined;
                   const group = qId ? questionGroups.find((g) => g.questionId === qId) : null;
-                  return group ? <DetailQuestionFlow group={group} /> : null;
+                  return group ? <QuestionGroupSection group={group} /> : null;
                 })()}
                 {selectedEvent.kind === "todo.logged" && (() => {
                   const tId = selectedEvent.metadata["todoId"] as string | undefined;
                   const group = tId ? todoGroups.find((g) => g.todoId === tId) : null;
-                  return group ? <DetailTodoFlow group={group} /> : null;
+                  return group ? <TodoGroupSection group={group} /> : null;
                 })()}
                 {selectedEvent.lane === "coordination" && (
                   <DetailSection
