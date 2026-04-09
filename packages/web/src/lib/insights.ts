@@ -1027,9 +1027,7 @@ const GENERIC_TASK_TITLE_PREFIXES = new Set([
   "codex",
   "cursor",
   "gemini",
-  "gemini cli",
-  "open code",
-  "opencode"
+  "gemini cli"
 ]);
 
 function resolvePreferredTaskTitle(
@@ -1135,8 +1133,8 @@ function normalizeTitleToken(value?: string): string {
 function isAgentSessionBoilerplate(value: string): boolean {
   const normalized = normalizeTitleToken(value);
 
-  return /^(claude code|claude|opencode|open code|codex|cursor|gemini(?: cli)?|agent|ai cli) session started\b/.test(normalized)
-    || /^(claude code|claude|opencode|open code|codex|cursor|gemini(?: cli)?|agent|ai cli) - /.test(normalized);
+  return /^(claude code|claude|codex|cursor|gemini(?: cli)?|agent|ai cli) session started\b/.test(normalized)
+    || /^(claude code|claude|codex|cursor|gemini(?: cli)?|agent|ai cli) - /.test(normalized);
 }
 
 function buildTaskProcessSections(

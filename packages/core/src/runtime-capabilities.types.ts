@@ -1,9 +1,6 @@
 export type RuntimeAdapterId =
   | "claude-hook"
-  | "codex-skill"
-  | "opencode-bridge"
-  | "opencode-plugin"
-  | "opencode-sse";
+  | "codex-skill";
 
 export type EvidenceStrength =
   | "proven"

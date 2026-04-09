@@ -81,7 +81,6 @@ function mapEventToOpenInferenceKind(event: TimelineEvent): OpenInferenceSpanKin
 function mapRuntimeSourceToGenAiSystem(runtimeSource: string): string {
   const normalized = runtimeSource.toLowerCase();
   if (normalized.includes("claude")) return "anthropic";
-  if (normalized.includes("opencode")) return "opencode";
   if (normalized.includes("codex")) return "openai";
   return normalized;
 }

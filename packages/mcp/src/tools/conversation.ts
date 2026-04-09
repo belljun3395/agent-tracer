@@ -70,7 +70,7 @@ export function registerConversationTools(server: McpServer, client: MonitorClie
         "End the current runtime session without completing the work item. " +
         "The task remains running; the work item accumulates messages across multiple sessions. " +
         "Use monitor_task_complete to explicitly close the work item when all work is done. " +
-        "Claude hooks should keep completeTask unset; OpenCode primary session shutdown may choose explicit completion through its adapter policy.",
+        "Claude hooks should keep completeTask unset.",
       inputSchema: {
         taskId: z.string(),
         sessionId: z.string().optional(),

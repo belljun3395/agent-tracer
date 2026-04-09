@@ -42,9 +42,6 @@ export function resolveRuntimeAdapterId(runtimeSource?: string): string | undefi
   // Fallback: fuzzy matching for backwards compatibility
   if (normalized.includes("claude")) return "claude-hook";
   if (normalized.includes("codex")) return "codex-skill";
-  if (normalized.includes("opencode") && normalized.includes("bridge")) return "opencode-bridge";
-  if (normalized.includes("opencode") && normalized.includes("sse")) return "opencode-sse";
-  if (normalized.includes("opencode")) return "opencode-plugin";
   return undefined;
 }
 

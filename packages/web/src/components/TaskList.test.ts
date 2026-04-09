@@ -13,7 +13,7 @@ import {
 
 const BASE_TASK: MonitoringTask = {
   id: TaskId("task-1"),
-  title: "OpenCode - agent-tracer",
+  title: "Claude Code - agent-tracer",
   slug: "agent-tracer",
   workspacePath: "/Users/okestro/Documents/code/agent-tracer",
   status: "running",
@@ -23,7 +23,7 @@ const BASE_TASK: MonitoringTask = {
 
 describe("resolveTaskListItemTitle", () => {
   it("keeps the sidebar row title stable for the active row", () => {
-    expect(resolveTaskListItemTitle(BASE_TASK)).toBe("OpenCode - agent-tracer");
+    expect(resolveTaskListItemTitle(BASE_TASK)).toBe("Claude Code - agent-tracer");
   });
 
   it("uses the persisted task title instead of a derived selection title", () => {
@@ -164,8 +164,6 @@ describe("runtimeTagLabel", () => {
   it("renders explicit runtime labels for supported adapters", () => {
     expect(runtimeTagLabel("claude-hook")).toBe("Claude Code");
     expect(runtimeTagLabel("codex-skill")).toBe("Codex");
-    expect(runtimeTagLabel("opencode-plugin")).toBe("OpenCode");
-    expect(runtimeTagLabel("opencode-sse")).toBe("OpenCode SSE");
   });
 
   it("falls back to the raw source for unknown adapters", () => {
@@ -177,8 +175,6 @@ describe("runtimeFilter helpers", () => {
   it("groups known runtime adapters under stable filter keys", () => {
     expect(runtimeFilterKey("claude-hook")).toBe("claude");
     expect(runtimeFilterKey("codex-skill")).toBe("codex");
-    expect(runtimeFilterKey("opencode-plugin")).toBe("opencode");
-    expect(runtimeFilterKey("opencode-sse")).toBe("opencode");
     expect(runtimeFilterKey(undefined)).toBe("unknown");
   });
 
@@ -186,30 +182,24 @@ describe("runtimeFilter helpers", () => {
     const tasks: MonitoringTask[] = [
       { ...BASE_TASK, id: TaskId("claude-1"), runtimeSource: "claude-hook" },
       { ...BASE_TASK, id: TaskId("codex-1"), runtimeSource: "codex-skill" },
-      { ...BASE_TASK, id: TaskId("opencode-1"), runtimeSource: "opencode-plugin" },
-      { ...BASE_TASK, id: TaskId("opencode-2"), runtimeSource: "opencode-sse" },
       { ...BASE_TASK, id: TaskId("unknown-1") }
     ];
 
-    expect(filterTasksByRuntime(tasks, "opencode").map((task) => task.id)).toEqual([
-      "opencode-1",
-      "opencode-2"
-    ]);
+    expect(filterTasksByRuntime(tasks, "codex").map((task) => task.id)).toEqual(["codex-1"]);
     expect(filterTasksByRuntime(tasks, "unknown").map((task) => task.id)).toEqual(["unknown-1"]);
   });
 
   it("builds runtime filter options with grouped counts", () => {
     const tasks: MonitoringTask[] = [
       { ...BASE_TASK, id: TaskId("claude-1"), runtimeSource: "claude-hook" },
-      { ...BASE_TASK, id: TaskId("opencode-1"), runtimeSource: "opencode-plugin" },
-      { ...BASE_TASK, id: TaskId("opencode-2"), runtimeSource: "opencode-sse" },
+      { ...BASE_TASK, id: TaskId("codex-1"), runtimeSource: "codex-skill" },
       { ...BASE_TASK, id: TaskId("unknown-1") }
     ];
 
     expect(buildRuntimeFilterOptions(tasks)).toEqual([
-      { key: "all", label: "All", count: 4 },
+      { key: "all", label: "All", count: 3 },
       { key: "claude", label: "Claude", count: 1 },
-      { key: "opencode", label: "OpenCode", count: 2 },
+      { key: "codex", label: "Codex", count: 1 },
       { key: "unknown", label: "Unknown", count: 1 }
     ]);
   });

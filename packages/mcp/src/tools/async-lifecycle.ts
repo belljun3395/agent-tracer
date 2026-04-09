@@ -2,7 +2,7 @@
  * @module tools/async-lifecycle
  *
  * Async task lifecycle tool registrations.
- * Manages background task lifecycle events in OpenCode-style environments.
+ * Manages background task lifecycle events.
  */
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -19,7 +19,7 @@ export function registerAsyncLifecycleTools(server: McpServer, client: MonitorCl
     "monitor_async_task",
     {
       title: "Monitor Async Task",
-      description: "Record OpenCode-style background task lifecycle events.",
+      description: "Record background task lifecycle events.",
       inputSchema: {
         taskId: z.string(),
         sessionId: z.string().optional(),

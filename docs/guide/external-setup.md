@@ -100,10 +100,10 @@ npm run setup:external -- \
 외부 프로젝트의 `.agent-tracer/` 아래에 vendor 합니다.
 
 - `--mode claude`
-  - 외부 프로젝트의 `.claude/settings.json`을 생성하거나 병합합니다.
-  - `.agent-tracer/.claude/hooks/*.ts`를 받아 저장합니다.
-  - hook command는 `$CLAUDE_PROJECT_DIR`를 우선 사용하고, 없으면 git root 및 상위 디렉터리 탐색으로 `.agent-tracer/.claude/hooks/*.ts`를 찾습니다.
-  - hook 실행은 `npx --yes tsx`를 사용합니다.
+  - 외부 프로젝트의 `.claude/settings.json` 에 `permissions` 만 병합합니다 (기존 hook 키가 있으면 제거합니다).
+  - hook 등록은 더 이상 vendoring 으로 처리하지 않습니다 — Agent Tracer는 이제 Claude Code **plugin** (`.claude/plugin/`) 로 동작합니다.
+  - 스크립트는 plugin 의 절대 경로를 출력하므로, 사용자가 `claude --plugin-dir <plugin-path>` 로 Claude Code 를 실행하거나 `alias claude='claude --plugin-dir <plugin-path>'` 로 등록하면 됩니다.
+  - plugin 내부의 `bin/run-hook.sh` 가 `${CLAUDE_PLUGIN_ROOT}/node_modules/tsx` 를 우선 사용하고, 없으면 `npx --yes tsx` 로 fallback 합니다.
 - `--mode opencode`
   - 외부 프로젝트의 `opencode.json`에 `monitor` MCP 설정을 추가합니다.
   - 외부 프로젝트의 `.opencode/plugins/monitor.ts` shim을 생성합니다.

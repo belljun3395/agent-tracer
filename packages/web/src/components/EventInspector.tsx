@@ -1187,6 +1187,8 @@ export function EventInspector({
           <OverviewTab
             observability={observability}
             subagentInsight={subagentInsight}
+            runtimeSessionId={taskDetail?.runtimeSessionId}
+            runtimeSource={taskDetail?.runtimeSource}
           />
 
         ) : activeTab === "evidence" ? (

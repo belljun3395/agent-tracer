@@ -25,43 +25,9 @@
 
 > 모니터 서버가 응답하지 않으면 이 단계를 건너뛴다.
 
-## Skills
+## 캐노니컬 user.message 경로
 
-A skill is a set of local instructions stored in a `SKILL.md` file.
-
-### Available skills
-
-- monitor: MCP가 있는 모든 환경에서 Agent Tracer 모니터링 기록. Cursor, Windsurf, 웹 IDE 등 CLI 비전용 환경에 적합. (file: skills/monitor/SKILL.md)
-- codex-monitor: Codex CLI 전용 모니터링. apply_patch/view_file 등 Codex 도구명 컨벤션 포함. (file: skills/codex-monitor/SKILL.md)
-
-### How to use skills
-
-- **Trigger rules:**
-  - Codex CLI → `codex-monitor` 스킬을 캐노니컬 경로로 사용 (`monitor`를 직접 쓰지 않음)
-  - 그 외 MCP 지원 환경(자동 hook/plugin 없음) → `monitor` 스킬 사용
-  - OpenCode → 플러그인 훅 자동 동작 (스킬 불필요)
-  - Claude Code → hook 자동 동작 (스킬 불필요)
-- 네이티브 discovery projection:
-  - Codex/OpenCode → `.agents/skills/...` (Codex 런타임이 실제로 읽는 경로)
-  - Claude fallback → `.claude/skills/agent-tracer-monitor/SKILL.md`
-  - human-edited source는 계속 `skills/...` (직접 수정 대상)
-- Codex용 스킬 문구를 수정했다면 다음 순서를 따른다:
-  1. `skills/...` source 수정
-  2. `npm run sync:skills` 실행
-  3. 현재 스레드가 이전 지시를 계속 쓰면 새 스레드에서 다시 시작
-- 자동 트리거가 빗나가면 프롬프트에 `$codex-monitor` 를 명시해 강제 호출.
-  - 예: ``$codex-monitor 이 요청부터 모니터링 시작해줘``
-- Codex에서는 `codex-monitor` 스킬 파일을 열고 흐름을 따른다.
-- Codex 모니터링에서는 `monitor_runtime_session_ensure` 성공 전까지 `taskId`가 필요한 `monitor_*` 호출을 금지한다.
-- Codex 모니터링에서는 `runtimeSessionId`를 명시 전달하는 것을 기본으로 사용한다 (`CODEX_THREAD_ID` 우선).
-- monitor-server MCP 서버 미가용 시 작업 계속하고 마지막에 gap 리포트.
-
-### 캐노니컬 user.message 경로
-
-- 자동 hook/plugin 환경에서는 네이티브 통합이 raw 프롬프트 기록의 캐노니컬 경로다.
-- MCP/수동 환경 → `monitor_user_message` (`captureMode="raw"`) 으로 실제 사용자 프롬프트 기록
+- Claude Code → hook 자동 동작 (별도 스킬 불필요)
+- MCP 지원 환경(자동 hook 없음) → `monitor_user_message` (`captureMode="raw"`) 으로 실제 사용자 프롬프트 기록
 - `monitor_save_context`는 raw 프롬프트 경로가 아닌 계획·체크포인트 전용
 - `monitor_runtime_session_end`는 runtime session 종료 경로다. 작업을 즉시 닫아야 할 때만 `completeTask=true`를 사용하고, 그 외 작업 종료는 `monitor_task_complete`로 명시한다.
-- OpenCode/Claude 자동 통합은 raw 프롬프트를 우선 기록하고, 훅 페이로드에 raw 프롬프트가 없을 경우
-  `ruleId: user-message-capture-unavailable` 규칙 이벤트로 gap을 명시적으로 기록
-- Codex CLI는 `codex-monitor` 스킬 + MCP 경로를 사용한다.

@@ -2,7 +2,7 @@
  * @module index
  *
  * Agent Tracer MCP stdio 서버.
- * 에이전트(Claude, OpenCode, Codex)가 호출할 수 있도록 모니터링 도구를 등록한다.
+ * 에이전트(Claude, Codex)가 호출할 수 있도록 모니터링 도구를 등록한다.
  * 현재 기준으로는 24개 MCP 도구를 노출한다.
  * 빌드 산출물(`dist/index.js`) 또는 패키지 바이너리(`monitor-mcp`)로 stdio MCP 서버를 시작한다.
  */

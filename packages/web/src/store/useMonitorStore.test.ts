@@ -106,3 +106,60 @@ describe("mergeTaskDetail — runtimeSessionId preservation", () => {
     expect(merged).toBe(next);
   });
 });
+
+// ---------------------------------------------------------------------------
+// runtimeSource preservation
+// ---------------------------------------------------------------------------
+
+describe("mergeTaskDetail — runtimeSource preservation", () => {
+  it("preserves runtimeSource from prev when detail omits it and timeline changed", () => {
+    const prev = makeDetail({
+      runtimeSource: "claude-hook",
+      timeline: [{ id: "e1" } as never],
+    });
+    const next = makeDetail({
+      task: { ...prev.task, updatedAt: "2026-04-01T00:01:00.000Z" },
+      timeline: [{ id: "e1" } as never, { id: "e2" } as never],
+      // runtimeSource intentionally absent
+    });
+
+    const merged = mergeTaskDetail(prev, next);
+
+    expect(merged.runtimeSource).toBe("claude-hook");
+  });
+
+  it("uses detail.runtimeSource when both are present (prefer freshest)", () => {
+    const prev = makeDetail({ runtimeSource: "claude-hook" });
+    const next = makeDetail({
+      task: { ...prev.task, updatedAt: "2026-04-01T00:01:00.000Z" },
+      runtimeSource: "claude-plugin",
+    });
+
+    const merged = mergeTaskDetail(prev, next);
+
+    expect(merged.runtimeSource).toBe("claude-plugin");
+  });
+
+  it("propagates runtimeSource from detail when prev had none", () => {
+    const prev = makeDetail({ timeline: [{ id: "e1" } as never] });
+    const next = makeDetail({
+      task: { ...prev.task, updatedAt: "2026-04-01T00:01:00.000Z" },
+      runtimeSource: "opencode-plugin",
+    });
+
+    const merged = mergeTaskDetail(prev, next);
+
+    expect(merged.runtimeSource).toBe("opencode-plugin");
+  });
+
+  it("omits runtimeSource when neither prev nor detail has it", () => {
+    const prev = makeDetail({ timeline: [{ id: "e1" } as never] });
+    const next = makeDetail({
+      task: { ...prev.task, updatedAt: "2026-04-01T00:01:00.000Z" },
+    });
+
+    const merged = mergeTaskDetail(prev, next);
+
+    expect(merged.runtimeSource).toBeUndefined();
+  });
+});

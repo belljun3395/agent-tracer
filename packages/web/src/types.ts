@@ -230,6 +230,8 @@ export interface TasksResponse {
 export interface TaskDetailResponse {
   readonly task: MonitoringTask;
   readonly timeline: readonly TimelineEvent[];
-  /** CLI session ID (e.g. OpenCode session UUID or Claude conversation_id) for the latest runtime binding. */
+  /** CLI session ID (e.g. Claude conversation_id or Codex session UUID) for the latest runtime binding. */
   readonly runtimeSessionId?: string;
+  /** CLI runtime source label (e.g. "claude-hook", "codex-skill"). */
+  readonly runtimeSource?: string;
 }

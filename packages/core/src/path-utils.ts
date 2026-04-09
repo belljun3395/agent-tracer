@@ -69,7 +69,7 @@ export function looksLikePath(value: string): boolean {
  * 경로가 디렉토리(폴더)를 가리키는지 판별.
  * - trailing slash 있음: 명확히 폴더
  * - dotfile 중 secondary extension 없고 길이 >= 4이며 알려진 config 패턴이 없는 경우: 폴더로 간주
- *   (예: .claude, .opencode, .agents, .github, .vscode → 폴더)
+ *   (예: .claude, .agents, .github, .vscode → 폴더)
  *   (예: .env, .gitignore, .npmrc, .eslintrc → 파일)
  * - 확장자 없음: 폴더로 간주
  * - 확장자 있음: 파일로 간주
