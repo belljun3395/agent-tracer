@@ -1,5 +1,7 @@
 import {
+  cacheSessionResult,
   ensureRuntimeSession,
+  getCachedSessionResult,
   getHookEventName,
   getSessionId,
   hookLog,
@@ -27,7 +29,11 @@ async function main(): Promise<void> {
     return;
   }
 
-  const ids = await ensureRuntimeSession(sessionId);
+  const ids = getCachedSessionResult(sessionId) ?? await (async () => {
+    const fresh = await ensureRuntimeSession(sessionId);
+    cacheSessionResult(sessionId, fresh);
+    return fresh;
+  })();
 
   // SubagentStart: agent_id → parentSessionId 매핑을 레지스트리에 저장
   // SubagentStop: 완료된 항목 정리

@@ -1,4 +1,5 @@
 import {
+  cacheSessionResult,
   ensureRuntimeSession,
   getSessionId,
   hookLog,
@@ -23,10 +24,12 @@ async function main(): Promise<void> {
   if (agentId) {
     const entry = registry[agentId];
     if (entry && !entry.linked) {
-      await ensureRuntimeSession(sessionId, undefined, {
-        parentTaskId: entry.parentTaskId ?? (await ensureRuntimeSession(entry.parentSessionId)).taskId,
+      const parentTaskId = entry.parentTaskId ?? (await ensureRuntimeSession(entry.parentSessionId)).taskId;
+      const result = await ensureRuntimeSession(sessionId, undefined, {
+        parentTaskId,
         parentSessionId: entry.parentSessionId
       });
+      cacheSessionResult(sessionId, result);
       entry.linked = true;
       writeSubagentRegistry(registry);
       hookLog("ensure_task", "background task created via registry", {
@@ -45,10 +48,11 @@ async function main(): Promise<void> {
   const opencodeKey = `opencode:${sessionId}`;
   const opencodeEntry = registry[opencodeKey];
   if (opencodeEntry?.parentTaskId && !opencodeEntry.linked) {
-    await ensureRuntimeSession(sessionId, undefined, {
+    const result = await ensureRuntimeSession(sessionId, undefined, {
       parentTaskId: opencodeEntry.parentTaskId,
       ...(opencodeEntry.parentSessionId ? { parentSessionId: opencodeEntry.parentSessionId } : {})
     });
+    cacheSessionResult(sessionId, result);
     opencodeEntry.linked = true;
     writeSubagentRegistry(registry);
     hookLog("ensure_task", "background task linked via opencode registry", {
@@ -58,7 +62,8 @@ async function main(): Promise<void> {
     return;
   }
 
-  await ensureRuntimeSession(sessionId);
+  const result = await ensureRuntimeSession(sessionId);
+  cacheSessionResult(sessionId, result);
   hookLog("ensure_task", "ensureRuntimeSession ok", { sessionId });
 }
 

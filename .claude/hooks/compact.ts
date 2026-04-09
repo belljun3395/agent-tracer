@@ -1,5 +1,7 @@
 import {
+  cacheSessionResult,
   ensureRuntimeSession,
+  getCachedSessionResult,
   getHookEventName,
   getSessionId,
   hookLog,
@@ -21,7 +23,11 @@ async function main(): Promise<void> {
     return;
   }
 
-  const ids = await ensureRuntimeSession(sessionId);
+  const ids = getCachedSessionResult(sessionId) ?? await (async () => {
+    const fresh = await ensureRuntimeSession(sessionId);
+    cacheSessionResult(sessionId, fresh);
+    return fresh;
+  })();
   const trigger = toTrimmedString(payload.trigger) || "auto";
 
   if (hookEventName === "PreCompact") {

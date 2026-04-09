@@ -1,6 +1,8 @@
 import {
+  cacheSessionResult,
   createStableTodoId,
   ensureRuntimeSession,
+  getCachedSessionResult,
   getSessionId,
   getToolInput,
   hookLog,
@@ -101,7 +103,11 @@ async function main(): Promise<void> {
     return;
   }
 
-  const ids = await ensureRuntimeSession(sessionId);
+  const ids = getCachedSessionResult(sessionId) ?? await (async () => {
+    const fresh = await ensureRuntimeSession(sessionId);
+    cacheSessionResult(sessionId, fresh);
+    return fresh;
+  })();
   hookLog("todo", "posting todos", { count: events.length, taskId: ids.taskId });
   for (const event of events) {
     await postJson("/api/todo", {

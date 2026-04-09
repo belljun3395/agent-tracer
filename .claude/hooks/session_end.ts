@@ -1,5 +1,6 @@
 import {
   CLAUDE_RUNTIME_SOURCE,
+  deleteCachedSessionResult,
   getSessionId,
   hookLog,
   hookLogPayload,
@@ -36,6 +37,9 @@ async function main(): Promise<void> {
     completionReason: mapCompletionReason(reason)
   });
   hookLog("session_end", "runtime-session-end posted", { reason });
+
+  deleteCachedSessionResult(sessionId);
+  hookLog("session_end", "session cache cleared", { sessionId });
 }
 
 void main().catch((err: unknown) => {
