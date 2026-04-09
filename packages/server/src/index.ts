@@ -1,8 +1,8 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-export { createMonitorRuntime } from "./bootstrap/create-monitor-runtime.js";
 export { createNestMonitorRuntime } from "./bootstrap/create-nestjs-monitor-runtime.js";
+export type { MonitorRuntime, RuntimeOptions } from "./bootstrap/runtime.types.js";
 
 const entryPath = process.argv[1] ? path.resolve(process.argv[1]) : undefined;
 const modulePath = fileURLToPath(import.meta.url);
