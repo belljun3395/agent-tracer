@@ -1,6 +1,4 @@
-export type RuntimeAdapterId =
-  | "claude-hook"
-  | "codex-skill";
+export type RuntimeAdapterId = "claude-plugin";
 
 export type EvidenceStrength =
   | "proven"
