@@ -130,9 +130,6 @@ export interface ReusableTaskSnapshot {
   readonly outcomeSummary: string | null;
   readonly approachSummary: string | null;
   readonly reuseWhen: string | null;
-  readonly evidenceSummary: string | null;
-  readonly ruleAuditSummary: string | null;
-  readonly ruleEnforcementSummary: string | null;
   readonly watchItems: readonly string[];
   readonly keyDecisions: readonly string[];
   readonly nextSteps: readonly string[];
