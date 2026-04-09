@@ -110,28 +110,6 @@ function DetailEventEvidence({
 }
 
 
-function SectionTitle({
-  eyebrow,
-  title,
-  description,
-  action
-}: {
-  readonly eyebrow: string;
-  readonly title: string;
-  readonly description: React.ReactNode;
-  readonly action?: React.ReactNode;
-}): React.JSX.Element {
-  return (
-    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-      <div className="min-w-0">
-        <p className="mb-1 text-[0.68rem] font-bold uppercase tracking-[0.08em] text-[var(--text-3)]">{eyebrow}</p>
-        <h3 className="text-[0.98rem] font-semibold text-[var(--text-1)]">{title}</h3>
-        <p className="mt-1 text-[0.82rem] leading-6 text-[var(--text-2)]">{description}</p>
-      </div>
-      {action}
-    </div>
-  );
-}
 
 function InspectorHeaderCard({
   eyebrow,
