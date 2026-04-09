@@ -9,9 +9,8 @@
 
 | 런타임 | 외부 설치 자동화 | 기본 통합 방식 | 가이드 |
 |--------|------------------|----------------|--------|
-| Claude Code | 예 | `setup:external` + Claude MCP 등록 + hooks | [claude-setup.md](./claude-setup.md) |
-| Codex | 예 | `setup:external --mode codex` + Codex MCP 등록 + 새 스레드 | [codex-setup.md](./codex-setup.md) |
-| 기타 MCP 환경 | 부분적 | MCP + `monitor` 스킬 수동 구성 (`skills/monitor/SKILL.md`) | [runtime-capabilities.md](./runtime-capabilities.md) |
+| Claude Code | 예 | `setup:external` + Claude plugin 실행 + Claude MCP 등록 | [claude-setup.md](./claude-setup.md) |
+| 기타 런타임 | 아니오 | HTTP/MCP 호출 절차를 직접 구성 | [runtime-capabilities.md](./runtime-capabilities.md) |
 
 ## 공통 구조
 
@@ -21,18 +20,16 @@ Agent Tracer 통합은 항상 두 조각으로 나뉩니다.
    - 대시보드와 저장소 역할을 합니다.
    - 기본 주소는 `http://127.0.0.1:3847` 입니다.
 2. **runtime adapter**
-   - Claude hooks, OpenCode plugin, Codex skill/MCP 같은 런타임별 연결 레이어입니다.
+   - 현재 저장소에 구현된 어댑터는 Claude Code plugin 입니다.
+   - 다른 런타임은 같은 HTTP/MCP surface를 직접 호출하는 방식으로 붙일 수 있습니다.
 
 ## 서버 경계 요약
 
-현재 문서에서 외부 사용자가 알아야 할 서버 경계는 아래 정도면 충분합니다.
+- Claude plugin 은 `runtime-session-*`, `user-message`, `assistant-response`, tool/explore/todo/agent activity 계열을 자동으로 호출합니다.
+- 수동 런타임은 같은 엔드포인트를 직접 호출하면 됩니다.
+- 모델별 / 도구별 상세 capability 차이는 runtime capability registry와 각 가이드가 담당합니다.
 
-- Claude hooks 같은 상태 비저장 어댑터는 `runtime-session-*` helper 엔드포인트를 사용합니다.
-- OpenCode plugin, Codex MCP/skill 같은 경로는 `task-start`, 시맨틱 이벤트, `session-end` 계열 엔드포인트를 사용합니다.
-- 모델별 / 도구별 상세 capability 차이는 runtime capability registry와 각 런타임 가이드가 담당합니다.
-
-즉, 외부 사용자는 서버 내부 엔드포인트 차이를 직접 설계할 필요가 없고,
-자신이 쓰는 런타임 가이드만 따르면 됩니다.
+즉, 외부 사용자는 서버 내부 구현 세부사항보다 자신이 선택한 연결 방식만 맞추면 됩니다.
 
 ## Thought-Flow Read Model
 

@@ -17,6 +17,7 @@ npm run dev
 - 서버: `http://127.0.0.1:3847`
 - 웹: `http://127.0.0.1:5173`
 - `npm run dev`는 `dev:server`와 `dev:web`를 동시에 실행한다.
+- `npm run dev:server`는 `packages/server/src/index.ts`를 통해 NestJS 기반 런타임을 띄운다.
 
 서버만 따로 보고 싶다면:
 
@@ -41,15 +42,15 @@ npm run start:mcp
 - [External Setup Hub](../guide/external-setup.md)
 - [LLM Setup Map](../guide/llm-setup.md)
 - [Claude Setup](../guide/claude-setup.md)
-- [Codex Setup](../guide/codex-setup.md)
 
 자동 설치 스크립트:
 
 ```bash
-npm run setup:external -- --target /path/to/project --mode claude
-npm run setup:external -- --target /path/to/project --mode opencode
-npm run setup:external -- --target /path/to/project --mode codex
+npm run setup:external -- --target /path/to/project
 ```
+
+현재 구현에서 위 스크립트가 실제로 자동화하는 것은 외부 프로젝트의 Claude 설정 정리와
+plugin 실행 경로 안내뿐이다.
 
 ## 로컬에서 확인하면 좋은 엔드포인트
 
@@ -69,7 +70,7 @@ curl -sf http://127.0.0.1:3847/api/overview
 설치보다 구조가 궁금할 때는 아래 순서가 가장 빠르다.
 
 1. `README.md`
-2. `packages/server/src/bootstrap/create-monitor-runtime.ts`
+2. `packages/server/src/index.ts`
 3. `packages/core/src/domain.ts` (barrel, 내부적으로 `packages/core/src/domain/*`)
 4. `packages/mcp/src/index.ts`
 5. `packages/web/src/App.tsx`

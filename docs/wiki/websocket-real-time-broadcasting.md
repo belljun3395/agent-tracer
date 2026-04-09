@@ -7,7 +7,7 @@ Agent Tracer는 서버 변경 사항을 WebSocket으로 브로드캐스트하지
 ## 핵심 파일
 
 - `packages/server/src/presentation/ws/event-broadcaster.ts`
-- `packages/server/src/bootstrap/create-monitor-runtime.ts`
+- `packages/server/src/bootstrap/create-nestjs-monitor-runtime.ts`
 - `packages/web/src/store/useWebSocket.ts`
 - `packages/web/src/lib/realtime.ts`
 - `packages/web/src/store/useMonitorStore.tsx`
@@ -17,7 +17,7 @@ Agent Tracer는 서버 변경 사항을 WebSocket으로 브로드캐스트하지
 `EventBroadcaster`는 `INotificationPublisher` 구현체다.
 알림이 들어오면 `{ type, payload }` JSON을 모든 연결된 클라이언트에 보낸다.
 
-연결 직후에는 `create-monitor-runtime.ts`가 아래 snapshot을 먼저 보낸다.
+연결 직후에는 현재 기본 부트스트랩인 `create-nestjs-monitor-runtime.ts`가 아래 snapshot을 먼저 보낸다.
 
 - `stats` (`/api/overview`에서 보는 요약값)
 - `tasks` (태스크 목록)

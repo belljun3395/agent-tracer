@@ -14,7 +14,6 @@
 ## 런타임별 가이드
 
 - [Claude Code setup](./claude-setup.md)
-- [Codex setup](./codex-setup.md)
 
 ## 레퍼런스
 

@@ -1,83 +1,45 @@
 # Runtime Capabilities Registry
 
-runtime capability registry는 "각 런타임이 무엇을 관찰할 수 있고,
+runtime capability registry 는 "각 런타임이 무엇을 관찰할 수 있고,
 세션 종료 시 어떤 lifecycle 정책을 가져야 하는가"를 코드로 고정한 표다.
-문서보다 먼저 확인해야 하는 실제 source of truth는
-`packages/core/src/runtime-capabilities.ts`다.
+실제 source of truth 는 `packages/core/src/runtime-capabilities.defaults.ts` 와
+`packages/core/src/runtime-capabilities.helpers.ts` 이다.
 
 ## 핵심 파일
 
-- `packages/core/src/runtime-capabilities.ts`
+- `packages/core/src/runtime-capabilities.defaults.ts`
+- `packages/core/src/runtime-capabilities.types.ts`
+- `packages/core/src/runtime-capabilities.helpers.ts`
 - `docs/guide/runtime-capabilities.md`
-- `docs/guide/api-integration-map.md`
 
 ## 현재 등록된 adapter
 
 | Adapter | Raw prompt | Tool calls | Subagents | Native skill discovery | Event stream | Session close policy |
 | --- | --- | --- | --- | --- | --- | --- |
-| `claude-hook` | Yes | Yes | Yes | `.claude/skills` | No | `never` |
-| `codex-skill` | Yes, but manual | No automatic observation | No automatic observation | `.agents/skills` | No | `never` |
-| `opencode-plugin` | Yes | Yes | Yes | `.agents/skills`, `.claude/skills` | No | `primary-only` |
-| `opencode-sse` | Yes | Yes | Yes | `.agents/skills`, `.claude/skills` | Yes | `primary-only` |
+| `claude-plugin` | Yes | Yes | Yes | `.claude/skills` | No | `never` |
 
-참고: 서버 HTTP 스키마의 `runtimeSource`는 확장성을 위해 문자열로 열려 있다.
-이 표는 core capability registry에 사전 등록된 adapter 집합만 설명한다.
+참고:
 
-## capability가 필요한 이유
+- 서버 HTTP 스키마의 `runtimeSource` 는 확장성을 위해 문자열로 열려 있다.
+- `claude-hook` 은 과거 데이터 호환을 위한 alias 이고, 문서와 신규 이벤트의 canonical 값은 `claude-plugin` 이다.
 
-런타임마다 할 수 있는 일이 다르기 때문이다.
+## capability 가 필요한 이유
 
-- Claude hook은 raw prompt와 tool use를 자동으로 볼 수 있다.
-- Codex CLI 는 `codex-skill` + MCP 경로를 캐노니컬로 사용한다.
-- `codex-skill` 은 같은 thread/topic task 를 재사용하고, final `assistant.response` 와 planning context 를 명시적으로 남긴다.
-- OpenCode는 plugin hook과 typed event callback을 통해 assistant-side signal을 비교적 풍부하게 다룰 수 있다.
+- raw user prompt 를 기계적으로 캡처할 수 있는지
+- tool / terminal / MCP activity 를 자동 관찰할 수 있는지
+- subagent/background lineage 를 자동 추적할 수 있는지
+- session close 시 task 를 닫지 않고 `waiting` 으로 둘지
 
-이 차이를 capability registry로 명시해 두면,
-server lifecycle policy와 guide 문서가 같은 기대를 공유할 수 있다.
+이 차이를 registry 로 명시해 두면 server lifecycle policy, observability evidence,
+guide 문서가 같은 기대를 공유할 수 있다.
 
-## 각 필드의 의미
+## 운영 포인트
 
-### `canCaptureRawUserMessage`
-
-실제 사용자 프롬프트를 canonical `user.message`로 남길 수 있는지 나타낸다.
-
-### `canObserveToolCalls`
-
-파일 읽기, 편집, bash, MCP call 같은 구현 행위를 자동으로 감지할 수 있는지 나타낸다.
-
-### `canObserveSubagents`
-
-background task, delegation, agent activity를 자동 추적할 수 있는지 나타낸다.
-
-### `hasNativeSkillDiscovery`
-
-런타임이 리포지토리 내부 skill 파일을 자체 discovery 경로에서 읽을 수 있는지 나타낸다.
-
-### `hasEventStream`
-
-OpenCode SSE처럼 assistant 응답 흐름이나 실시간 state stream을 별도로 구독할 수 있는지 나타낸다.
-
-### `endTaskOnSessionClose`
-
-세션 종료가 task 완료를 의미하는지, 아니면 follow-up을 위해 task를 열어 두는지 결정한다.
-이 값은 `SessionLifecyclePolicy`와 runtime adapter 문서가 함께 참고한다.
-
-## 운영 관점에서 중요한 포인트
-
-- capability table은 "문서의 추천"이 아니라 "실제 지원 범위"를 적어야 한다.
-- 신규 런타임을 추가할 때는 README보다 먼저 이 파일을 갱신해야 drift가 줄어든다.
-- `docs/guide/runtime-capabilities.md`는 이 파일의 요약본이어야 한다.
-
-## 새 adapter를 추가할 때 확인할 질문
-
-1. raw user prompt를 진짜로 볼 수 있는가
-2. tool call을 종류별로 구분할 수 있는가
-3. subagent/background 작업을 parent lineage와 함께 추적할 수 있는가
-4. session close 시 task를 닫아야 하는가, waiting으로 남겨야 하는가
-5. skill file discovery path는 어디인가
+- capability table 은 "문서의 추천"이 아니라 "실제 코드가 보장하는 범위"를 적어야 한다.
+- 신규 런타임을 추가할 때는 README 보다 먼저 registry 를 갱신해야 drift 가 줄어든다.
+- 수동 HTTP/MCP 클라이언트는 registry 에 내장 adapter 로 등록되어 있지 않더라도 서버 API 를 그대로 사용할 수 있다.
 
 ## 관련 문서
 
 - [Runtime Adapters & Integration](./runtime-adapters-and-integration.md)
-- [Claude Code Hooks Adapter](./claude-code-hooks-adapter.md)
-- [Codex Skill Adapter](./codex-skill-adapter.md)
+- [Claude Code Plugin Adapter](./claude-code-plugin-adapter.md)

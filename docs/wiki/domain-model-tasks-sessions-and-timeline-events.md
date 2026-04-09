@@ -25,7 +25,7 @@ task는 "하나의 사용자 목표"를 뜻한다. 예를 들면 "문서 갱신"
 
 ## Session
 
-session은 task 안의 개별 실행 구간이다. Claude hook처럼 turn이 여러 번 나뉘는 런타임에서는
+session은 task 안의 개별 실행 구간이다. Claude plugin 처럼 turn이 여러 번 나뉘는 런타임에서는
 하나의 task에 여러 session이 생긴다.
 
 핵심 필드:
@@ -98,7 +98,7 @@ runtime_session_bindings
 ### Runtime session binding
 
 외부 런타임의 thread/session ID를 monitor session에 연결한다.
-Codex, Claude hook, OpenCode plugin이 각자 다른 session semantics를 가져도
+Claude plugin과 수동 클라이언트가 각자 다른 session semantics를 가져도
 Agent Tracer 안에서는 일관된 task/session 모델로 읽을 수 있는 이유다.
 
 ### Bookmark

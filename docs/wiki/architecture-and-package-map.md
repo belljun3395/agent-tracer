@@ -10,7 +10,7 @@ Agent Tracer는 npm workspace 기반 TypeScript 모노레포이며,
 | Package | 역할 | 대표 파일 |
 | --- | --- | --- |
 | `@monitor/core` | 도메인 타입, event classifier, runtime capability registry | `src/domain.ts`(barrel), `src/domain/*`, `src/classifier.ts`, `src/runtime-capabilities.ts`(barrel) |
-| `@monitor/server` | Express API, application service, SQLite repository, WebSocket broadcaster | `src/bootstrap/create-monitor-runtime.ts`, `src/application/monitor-service.ts` |
+| `@monitor/server` | NestJS 서버 런타임, application service, SQLite repository, WebSocket broadcaster | `src/index.ts`, `src/bootstrap/create-nestjs-monitor-runtime.ts`, `src/application/monitor-service.ts` |
 | `@monitor/mcp` | 서버 API를 MCP tool 집합으로 노출 | `src/index.ts`, `src/client.ts` |
 | `@monitor/web` | 대시보드 UI, overview/task detail fetch, realtime refresh | `src/App.tsx`, `src/store/useMonitorStore.tsx`, `src/components/Timeline.tsx` |
 
@@ -35,8 +35,11 @@ Agent Tracer는 npm workspace 기반 TypeScript 모노레포이며,
 
 ### 서버 런타임 조합
 
-`packages/server/src/bootstrap/create-monitor-runtime.ts`가 단일 composition root다.
-이곳에서 SQLite ports, `MonitorService`, Express app, HTTP server, WebSocket server를 묶는다.
+프로세스 기본 진입점은 `packages/server/src/index.ts`이며, 여기서
+`createNestMonitorRuntime()`를 호출해 NestJS 런타임을 띄운다.
+
+`packages/server/src/bootstrap/create-nestjs-monitor-runtime.ts`는
+NestJS `AppModule`, WebSocket upgrade, 초기 snapshot 전송을 묶는 현재 기본 조합 루트다.
 
 ### MCP 진입점
 
@@ -62,7 +65,7 @@ WebSocket notification은 모두 `@monitor/server`가 책임진다.
 
 ### MCP는 수동/반자동 에이전트 경로를 연다
 
-Codex 같은 환경에서는 자동 hook이 없으므로 MCP layer가 사실상 관측 어댑터 역할을 한다.
+자동 plugin 이 없는 환경에서는 MCP layer가 사실상 관측 어댑터 역할을 한다.
 
 ### Web은 read model과 탐색 경험을 책임진다
 
@@ -80,14 +83,14 @@ Codex 같은 환경에서는 자동 hook이 없으므로 MCP layer가 사실상 
 강점:
 
 - 패키지 경계가 파일 구조와 실제 의존 방향에 잘 드러난다.
-- `create-monitor-runtime.ts` 덕분에 서버 조합 경로가 분명하다.
+- `index.ts` -> `createNestMonitorRuntime.ts` -> controller/module 구조로 현재 실행 경로가 분명하다.
 - `core`가 공통 계약을 묶어 주기 때문에 런타임이 여러 개여도 기본 의미가 흐트러지지 않는다.
 
 주의점:
 
 - 웹이 핵심 타입을 `core`로 다시 수렴했지만, search hit나 read-model 인터페이스는 여전히 웹 전용 shape를 가진다.
 - `MonitorService`, `App.tsx`, `Timeline.tsx`, `insights.ts` 같은 대형 모듈이 책임을 많이 들고 있다.
-- `packages/server/src/infrastructure/monitor-database.ts` 같은 legacy 흔적은 신규 기여자를 혼란스럽게 만든다.
+- 문서와 코드가 쉽게 어긋나는 영역은 runtime integration과 bootstrap 경로다. 현재 저장소는 Claude plugin 중심 구현이므로, 수동 런타임 설명은 일반 HTTP/MCP contract 수준으로 적는 편이 안전하다.
 
 ## 관련 문서
 

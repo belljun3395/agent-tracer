@@ -89,11 +89,10 @@ runtime source backfill을 담당한다.
   `workflowSnapshot`/`workflowContext`를 hydrate한다.
 - 장기적으로는 read model materialization이 필요할 수 있다.
 
-## 실제 경로와 legacy 구분
+## 실제 경로
 
-현재 활성 경로는 `src/infrastructure/sqlite/*`다.
-`packages/server/src/infrastructure/monitor-database.ts`는 현재 조합 루트에서 사용되지 않는
-legacy 성격 파일이므로 신규 작업에서는 이 경로를 기준으로 읽지 않는 편이 낫다.
+현재 활성 저장 경로는 `src/infrastructure/sqlite/*`다.
+문서를 읽을 때도 이 경로를 기준으로 보는 것이 맞다.
 
 ## 관련 문서
 
