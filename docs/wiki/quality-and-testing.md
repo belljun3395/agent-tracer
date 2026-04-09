@@ -44,7 +44,7 @@
 
 현재 확인된 항목:
 
-1. `packages/server/src/presentation/http/routes/evaluation-routes.ts`
+1. `packages/server/src/presentation/nestjs/controllers/evaluation.controller.ts`
 2. `packages/web/src/components/Timeline.tsx`
 
 중요한 점:

@@ -1,7 +1,8 @@
 # Agent Tracer
 
-Claude Code, OpenCode, Codex 같은 AI CLI 에이전트가 작업할 때의 행동을
-실시간으로 추적하는 로컬 monitor server + dashboard 입니다.
+Claude Code 중심의 로컬 monitor server + dashboard 입니다.
+현재 저장소에는 Claude Code plugin 기반 수집 경로가 구현되어 있고,
+서버/MCP 계층은 수동 HTTP/MCP 클라이언트도 받을 수 있도록 열려 있습니다.
 
 ## 외부 프로젝트에 붙이기
 
@@ -27,9 +28,9 @@ npm run dev:server
 - 배포된 최신 가이드: https://belljun3395.github.io/agent-tracer/guide/external-setup
 - 런타임 비교표: [docs/guide/llm-setup.md](docs/guide/llm-setup.md)
 
-> `npm run setup:external`은 현재 Claude Code, OpenCode, Codex의
-> repo-local 설정 파일 생성을 자동화합니다.
-> Codex의 전역 MCP 등록(`codex mcp add monitor ...`)은 여전히 수동입니다.
+> `npm run setup:external`은 현재 외부 프로젝트의 Claude Code 설정만 자동화합니다.
+> 이 스크립트는 `.claude/settings.json`을 정리하고 plugin 실행 경로를 안내합니다.
+> MCP 등록은 여전히 수동입니다.
 
 ## 이 저장소 자체를 실행해 보기
 
@@ -49,8 +50,6 @@ npm run dev
 | 외부 프로젝트 설치 시작점 | [docs/guide/external-setup.md](docs/guide/external-setup.md) |
 | 런타임별 추천 경로 비교 | [docs/guide/llm-setup.md](docs/guide/llm-setup.md) |
 | Claude Code 연결 | [docs/guide/claude-setup.md](docs/guide/claude-setup.md) |
-| OpenCode 연결 | [docs/guide/opencode-setup.md](docs/guide/opencode-setup.md) |
-| Codex 연결 | [docs/guide/codex-setup.md](docs/guide/codex-setup.md) |
 | 런타임 capability 상세 | [docs/guide/runtime-capabilities.md](docs/guide/runtime-capabilities.md) |
 | 코드베이스 위키 / 아키텍처 문서 | [docs/wiki/README.md](docs/wiki/README.md) |
 
@@ -104,6 +103,6 @@ npm run docs:dev
 | 패키지 | 역할 |
 |--------|------|
 | `@monitor/core` | 타입, 규칙, 이벤트 분류 |
-| `@monitor/server` | Express + SQLite + WebSocket API |
+| `@monitor/server` | NestJS 서버 런타임, SQLite + WebSocket API |
 | `@monitor/mcp` | MCP stdio 서버 |
 | `@monitor/web` | React 19 대시보드 |

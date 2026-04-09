@@ -1,14 +1,16 @@
 # Agent Tracer Overview
 
-Agent Tracer는 Claude Code, OpenCode, Codex 같은 AI CLI 에이전트의 작업을
+Agent Tracer는 Claude Code 같은 AI CLI 에이전트의 작업을
 "나중에 다시 읽을 수 있는 실행 기록"으로 바꾸는 로컬 모니터링 시스템이다.
+현재 저장소에는 Claude Code plugin 기반 수집 경로가 들어 있고,
+서버와 MCP 계층은 수동 HTTP/MCP 클라이언트도 받을 수 있게 설계돼 있다.
 핵심은 단순 로그 저장이 아니라, 에이전트 작업을 task, session, timeline event,
 workflow evaluation으로 구조화해 디버깅과 재사용이 가능하게 만든다는 점이다.
 
 ## 이 시스템이 하는 일
 
 - 에이전트 행동을 8개 lane으로 분류해 실시간 타임라인으로 보여준다.
-- 여러 런타임의 hook, plugin, skill, MCP 호출을 하나의 공통 이벤트 모델로 수렴한다.
+- Claude plugin 이벤트와 수동 MCP 호출을 하나의 공통 이벤트 모델로 수렴한다.
 - SQLite에 모든 기록을 저장하고 WebSocket으로 대시보드에 브로드캐스트한다.
 - 완료된 작업을 `good` 또는 `skip`으로 평가해 워크플로우 라이브러리로 재사용한다.
 
@@ -22,13 +24,14 @@ runtime capability registry, event classifier가 모두 여기에 있다.
 
 ### `@monitor/server`
 
-애플리케이션 계층과 인프라 계층이다. Express API, SQLite repository,
-runtime session binding, workflow search, WebSocket broadcast를 담당한다.
+애플리케이션 계층과 인프라 계층이다. 현재 기본 프로세스는 NestJS 컨트롤러를 사용하고,
+Nest의 Express adapter 위에서 HTTP surface를 노출한다. SQLite repository, runtime session binding,
+workflow search, WebSocket broadcast를 담당한다.
 
 ### `@monitor/mcp`
 
 모니터링 HTTP API를 에이전트가 직접 호출할 수 있는 MCP tool surface로 포장한다.
-Codex 같은 수동 경로에서 특히 중요하다.
+자동 plugin 이 없는 런타임에서 특히 중요하다.
 
 ### `@monitor/web`
 
@@ -37,7 +40,7 @@ React 19 기반 대시보드다.
 
 ## End-to-End 흐름
 
-1. 런타임 어댑터가 hook, plugin, skill, MCP 중 하나로 Agent Tracer에 이벤트를 보낸다.
+1. 런타임 어댑터가 Claude plugin hook 또는 수동 MCP 호출로 Agent Tracer에 이벤트를 보낸다.
 2. 서버는 `MonitorService`를 통해 task/session/event를 생성하거나 갱신한다.
 3. SQLite repository가 이를 영속화한다.
 4. `EventBroadcaster`가 변경 사항을 WebSocket으로 브로드캐스트한다.
@@ -52,7 +55,7 @@ React 19 기반 대시보드다.
 
 ### Session
 
-한 task 안의 개별 에이전트 실행 구간이다. Claude hook처럼 turn이 나뉘는 런타임에서는
+한 task 안의 개별 에이전트 실행 구간이다. Claude plugin 처럼 turn이 나뉘는 런타임에서는
 runtime session binding을 통해 같은 task에 여러 session이 이어 붙을 수 있다.
 
 ### Timeline Event
@@ -70,7 +73,8 @@ assistant response 같은 개별 관측 단위다. 모두 lane, metadata, classi
 
 - `README.md`
 - `packages/core/src/domain.ts`(barrel)
-- `packages/server/src/bootstrap/create-monitor-runtime.ts`
+- `packages/server/src/index.ts`
+- `packages/server/src/bootstrap/create-nestjs-monitor-runtime.ts`
 - `packages/server/src/application/monitor-service.ts`
 - `packages/mcp/src/index.ts`
 - `packages/web/src/App.tsx`

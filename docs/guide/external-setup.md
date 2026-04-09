@@ -1,29 +1,27 @@
 # Agent Tracer - 외부 프로젝트 설치 가이드
 
 이 문서는 Agent Tracer를 **다른 프로젝트에 붙일 때 가장 먼저 보는 문서**입니다.
+현재 저장소 기준으로 자동화된 외부 설치 경로는 Claude Code plugin 흐름입니다.
 
 ## 0. 공식 최신 문서 원본
 
-이 가이드는 원본 소스이며, 배포된 최신 문서는 GitHub Pages에서 확인할 수 있습니다.
-
 - 최신 문서: https://belljun3395.github.io/agent-tracer/guide/external-setup
 
-원본 저장소가 업데이트되면 `.github/workflows/deploy-docs.yml`이 자동으로 VitePress 빌드 결과를 재배포하므로, 위 링크는 항상 최신 문서를 제공합니다.
-
-권장 방식은 `setup:external`이 GitHub 공개 저장소(`belljun3395/agent-tracer`)의
-`main` 브랜치 소스 파일을 외부 프로젝트에 vendor 디렉터리(`.agent-tracer/`)로
-가져오고, 설정 파일은 그 vendor 경로를 참조하도록 만드는 것입니다.
+배포 문서는 이 저장소의 `docs/` 원본에서 생성됩니다. 현재 문서의 설명은
+`scripts/setup-external.mjs`와 `.claude/plugin/` 구현을 기준으로 맞춰져 있습니다.
 
 ## 1. 현재 지원 범위
 
-| 런타임 | `setup:external` 자동화 | 추가로 해야 하는 일 | 다음 문서 |
+| 런타임 | 이 저장소에 있는 자동화 | 추가로 해야 하는 일 | 다음 문서 |
 |--------|--------------------------|---------------------|-----------|
-| Claude Code | 예 (`--mode claude`) | Claude MCP 서버 등록 | [claude-setup.md](./claude-setup.md) |
-| Codex | 예 (`--mode codex`) | Codex MCP 서버 등록 + 새 스레드 시작 | [codex-setup.md](./codex-setup.md) |
+| Claude Code | 예 | Claude MCP 서버 등록 | [claude-setup.md](./claude-setup.md) |
+| 기타 런타임 | 아니오 | MCP 또는 HTTP 호출 절차 직접 구성 | [runtime-capabilities.md](./runtime-capabilities.md) |
 
-> `setup:external`은 현재 **Claude Code, OpenCode, Codex**의
-> repo-local 통합 파일 생성을 자동화합니다.
-> 다만 Codex/Claude의 전역 MCP 등록은 각 CLI에서 직접 수행해야 합니다.
+중요한 점:
+
+- `setup:external`은 현재 **Claude Code 설정만** 만집니다.
+- 다른 런타임용 bootstrap 파일을 생성하지 않습니다.
+- 외부 프로젝트에 Agent Tracer 코드를 vendoring 하지도 않습니다.
 
 ## 2. 공통 준비
 
@@ -52,91 +50,58 @@ curl -sf http://127.0.0.1:${MONITOR_PORT:-3847}/api/overview | python3 -m json.t
 
 ## 3. `setup:external` 실행
 
-Claude Code만 연결:
+현재 구현이 실제로 요구하는 필수 인자는 `--target` 하나입니다.
 
 ```bash
-npm run setup:external -- --target /path/to/your-project --mode claude
+npm run setup:external -- --target /path/to/your-project
 ```
 
-OpenCode만 연결:
+스크립트는 외부 프로젝트에 대해 다음을 수행합니다.
+
+1. `target-project/.claude/settings.json`을 생성하거나 병합합니다.
+2. 기존 `hooks` 키가 있으면 제거합니다.
+3. `permissions.defaultMode = "acceptEdits"`와 `permissions.allow = ["WebSearch", "WebFetch"]` 기본값을 넣습니다.
+4. 현재 저장소의 Claude plugin 절대 경로와 `claude --plugin-dir ...` 실행 명령을 출력합니다.
+
+예상 출력의 핵심은 아래와 같습니다.
 
 ```bash
-npm run setup:external -- --target /path/to/your-project --mode opencode
+[claude] Plugin path: /absolute/path/to/agent-tracer/.claude/plugin
+[claude] Run Claude Code with: claude --plugin-dir /absolute/path/to/agent-tracer/.claude/plugin
 ```
 
-둘 다 연결:
+## 4. 스크립트가 하지 않는 일
 
-```bash
-npm run setup:external -- --target /path/to/your-project --mode both
-```
+현재 구현은 아래를 자동화하지 않습니다.
 
-Codex만 연결:
+- Claude MCP 서버 등록
+- plugin 소스 vendoring
+- 다른 런타임용 설정 파일 생성
 
-```bash
-npm run setup:external -- --target /path/to/your-project --mode codex
-```
-
-Claude, OpenCode, Codex를 모두 연결하려면:
-
-```bash
-npm run setup:external -- --target /path/to/your-project --mode both
-npm run setup:external -- --target /path/to/your-project --mode codex
-```
-
-다른 monitor server 주소를 쓰는 경우:
-
-```bash
-npm run setup:external -- \
-  --target /path/to/your-project \
-  --mode both \
-  --monitor-base-url http://127.0.0.1:3847
-```
-
-## 4. 스크립트가 실제로 하는 일
-
-`setup:external`은 기본적으로 GitHub `main`에서 소스 파일을 받아
-외부 프로젝트의 `.agent-tracer/` 아래에 vendor 합니다.
-
-- `--mode claude`
-  - 외부 프로젝트의 `.claude/settings.json` 에 `permissions` 만 병합합니다 (기존 hook 키가 있으면 제거합니다).
-  - hook 등록은 더 이상 vendoring 으로 처리하지 않습니다 — Agent Tracer는 이제 Claude Code **plugin** (`.claude/plugin/`) 로 동작합니다.
-  - 스크립트는 plugin 의 절대 경로를 출력하므로, 사용자가 `claude --plugin-dir <plugin-path>` 로 Claude Code 를 실행하거나 `alias claude='claude --plugin-dir <plugin-path>'` 로 등록하면 됩니다.
-  - plugin 내부의 `bin/run-hook.sh` 가 `${CLAUDE_PLUGIN_ROOT}/node_modules/tsx` 를 우선 사용하고, 없으면 `npx --yes tsx` 로 fallback 합니다.
-- `--mode opencode`
-  - 외부 프로젝트의 `opencode.json`에 `monitor` MCP 설정을 추가합니다.
-  - 외부 프로젝트의 `.opencode/plugins/monitor.ts` shim을 생성합니다.
-  - 외부 프로젝트의 `.opencode/tsconfig.json`을 생성합니다.
-  - `.agent-tracer/.opencode/plugins/monitor.ts`를 받아 저장하고 shim에서 re-export 합니다.
-- `--mode both`
-  - 위 두 작업을 모두 수행합니다.
-- `--mode codex`
-  - 외부 프로젝트의 `AGENTS.md`에 Agent Tracer 관리 블록을 생성하거나 갱신합니다.
-  - 외부 프로젝트의 `.agents/skills/codex-monitor/SKILL.md`를 생성합니다.
-  - skill source는 실행 중인 로컬 저장소의 `skills/codex-monitor/SKILL.md`입니다.
-
-원하면 `--source-repo`, `--source-ref`로 원격 소스를 바꿀 수 있고,
-테스트/오프라인 환경에서는 `--source-root /local/agent-tracer`로 로컬 소스를 쓸 수 있습니다.
+`--monitor-base-url`, `--source-repo`, `--source-ref`, `--source-root` 인자는 파서에 남아 있지만,
+현재 스크립트는 Claude plugin 경로를 로컬 저장소에서 직접 사용하므로 vendoring 동작에는 쓰지 않습니다.
 
 ## 5. 런타임별 다음 단계
 
 - Claude Code: [claude-setup.md](./claude-setup.md)
   - `setup:external` 이후에도 `claude mcp add monitor ...`는 직접 실행해야 합니다.
-- Codex: [codex-setup.md](./codex-setup.md)
-  - `setup:external --mode codex` 이후에도 `codex mcp add monitor ...`는 직접 실행해야 합니다.
-  - 새 `AGENTS.md` / `.agents/skills`를 읽도록 Codex 스레드를 다시 시작해야 합니다.
+  - Claude는 plugin 경로를 붙여서 실행해야 합니다.
+- 기타 런타임:
+  - 이 저장소는 공용 HTTP API와 MCP server 를 제공합니다.
+  - 직접 호출 절차를 구성하려면 [runtime-capabilities.md](./runtime-capabilities.md)와 [api-integration-map.md](./api-integration-map.md)를 참고하세요.
 
 ## 6. 자주 막히는 지점
 
-- `npx --yes tsx`를 사용하므로 최초 실행 시 네트워크 또는 npm 캐시가 필요할 수 있습니다.
-- `packages/mcp` 구현이 바뀌었으면 다시 `npm run build`를 해야 합니다.
+- `packages/mcp` 구현이 바뀌었으면 `npm run build`를 다시 해야 합니다.
 - GUI 앱에서 `node`를 못 찾으면 절대 경로의 Node 실행 파일을 사용해야 합니다.
-- 설정 파일을 바꾼 뒤에는 CLI 앱 또는 스레드를 다시 시작해야 반영됩니다.
+- Claude Code를 GUI에서 띄우면 셸 환경 변수가 안 넘어갈 수 있습니다.
+- `.claude/settings.json`을 바꾼 뒤에는 Claude Code를 다시 시작해야 반영됩니다.
 
 ## 7. 빠른 점검 순서
 
-1. Agent Tracer 서버를 실행한다.
-2. `setup:external`을 실행한다.
-3. 런타임별 후속 설정을 마친다.
-4. 외부 프로젝트를 해당 런타임으로 연다.
-5. 간단한 read/edit/task를 하나 수행한다.
-6. 대시보드에 새로운 task와 event가 들어오는지 확인한다.
+1. Agent Tracer 서버를 실행합니다.
+2. `npm run setup:external -- --target /path/to/project`를 실행합니다.
+3. `claude mcp add monitor ...`로 MCP를 등록합니다.
+4. `claude --plugin-dir /absolute/path/to/agent-tracer/.claude/plugin`로 외부 프로젝트를 엽니다.
+5. 간단한 read/edit/task를 하나 수행합니다.
+6. 대시보드에 새로운 task와 event가 들어오는지 확인합니다.

@@ -32,7 +32,7 @@
 {
   "observability": {
     "taskId": "task-123",
-    "runtimeSource": "codex-skill",
+    "runtimeSource": "claude-plugin",
     "totalDurationMs": 360000,
     "activeDurationMs": 210000,
     "totalEvents": 24,
@@ -100,7 +100,7 @@
     "tasksWithBackground": 2,
     "runtimeSources": [
       {
-        "runtimeSource": "codex-skill",
+        "runtimeSource": "claude-plugin",
         "taskCount": 4,
         "runningTaskCount": 1,
         "promptCaptureRate": 1,

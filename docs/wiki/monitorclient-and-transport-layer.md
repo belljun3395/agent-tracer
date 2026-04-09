@@ -25,7 +25,7 @@
 
 ## 왜 이렇게 설계했나
 
-monitor server는 보조 시스템이다. 서버가 죽었다고 해서 Codex나 Claude의 실제 작업이
+monitor server는 보조 시스템이다. 서버가 죽었다고 해서 Claude나 수동 클라이언트의 실제 작업이
 멈추면 안 되므로, transport layer가 "best effort" 정책을 강하게 가진다.
 
 이 덕분에 skill/hook/plugin 쪽에서는 아래처럼 단순하게 쓸 수 있다.
@@ -49,4 +49,3 @@ monitor server는 보조 시스템이다. 서버가 죽었다고 해서 Codex나
 
 - [MCP Server](./mcp-server.md)
 - [HTTP API Reference](./http-api-reference.md)
-- [Codex Skill Adapter](./codex-skill-adapter.md)

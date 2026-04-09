@@ -1,79 +1,70 @@
 # Runtime Adapters & Integration
 
-Agent Tracer의 큰 장점은 특정 에이전트 하나에 묶이지 않는다는 점이다.
-다만 이 추상화는 "다 똑같이 기록한다"가 아니라, 각 런타임의 capability 차이를
-명시적으로 인정하면서 공통 task/session/event 모델로 수렴시키는 방식으로 구현돼 있다.
+Agent Tracer 는 특정 에이전트 하나에 묶이지 않지만,
+현재 저장소에 구현된 자동 어댑터는 Claude Code plugin 하나다.
+다른 런타임은 같은 HTTP/MCP surface 를 직접 호출하는 방식으로 붙일 수 있다.
 
 ## 현재 지원하는 통합 방식
 
 | 방식 | 대표 런타임 | 특징 |
 | --- | --- | --- |
-| hook | Claude Code | runtime lifecycle을 자동으로 따라가며 이벤트를 관찰 |
-| plugin | OpenCode | typed hook + event callback을 함께 써서 richer signal을 얻기 좋음 |
-| skill + MCP | Codex | thread/topic 단위로 task를 재사용하며 high-signal semantic 이벤트를 명시적으로 기록 |
+| plugin | Claude Code | plugin 이 내부적으로 Claude event 를 등록해 runtime lifecycle 과 tool 사용을 자동 관찰 |
+| manual HTTP/MCP | custom runtime | session/task/event contract 를 직접 호출 |
 
 ## 핵심 파일
 
-- `packages/core/src/runtime-capabilities.ts`
+- `packages/core/src/runtime-capabilities.defaults.ts`
 - `docs/guide/runtime-capabilities.md`
 - `docs/guide/api-integration-map.md`
-- `skills/codex-monitor/SKILL.md`
-- `.claude/hooks/*`
-- `.opencode/plugins/monitor.ts`
+- `.claude/plugin/hooks/*`
+- `.claude/plugin/hooks/hooks.json`
+- `.claude/plugin/bin/run-hook.sh`
 
 ## 공통 설계 원칙
 
-### capability로 차이를 먼저 선언한다
+### capability 로 차이를 먼저 선언한다
 
-raw user prompt를 볼 수 있는지, tool call을 자동 관찰할 수 있는지,
-session close가 task complete를 의미하는지는 런타임마다 다르다.
-이 차이는 `runtime-capabilities.ts`에서 먼저 고정한다.
+raw user prompt 를 볼 수 있는지, tool call 을 자동 관찰할 수 있는지,
+session close 가 task complete 를 의미하는지는 런타임마다 다르다.
+이 차이는 `runtime-capabilities` 에서 먼저 고정한다.
 
-### 서버 API는 가능한 공통 surface를 유지한다
+### 서버 API 는 가능한 공통 surface 를 유지한다
 
-runtime이 달라도 서버에는 가급적 같은 개념으로 들어오게 한다.
-예를 들어 모두 `user.message`, `assistant.response`, `task.start` 같은 canonical event를
+runtime 이 달라도 서버에는 가급적 같은 개념으로 들어오게 한다.
+예를 들어 모두 `user.message`, `assistant.response`, `task.start` 같은 canonical event 를
 만들도록 유도한다.
 
-### lifecycle helper는 두 계열로 나뉜다
+## 현재 코드 기준 포인트
 
-- hook/skill처럼 안정적인 런타임 session ID가 있는 경로: `runtime-session-ensure/end`
-- plugin처럼 task row를 명시적으로 만들고 관리하는 경로: `task-start`, `session-end`, `task-complete`
+### Claude 는 plugin 경로가 캐노니컬이다
 
-## 최근 코드 기준 포인트
+현재 저장소의 Claude 통합은 `.claude/plugin/` 이 캐노니컬 경로이고,
+`.claude/plugin/hooks/hooks.json` 이 plugin 내부에서 Claude Code event에 각 스크립트를 등록한다.
 
-### Claude는 Stop 훅에서 assistant response와 complete를 함께 처리한다
+canonical `runtimeSource` 는 `claude-plugin` 이다.
 
-이제 Claude 쪽은 `stop.ts`가 `/api/assistant-response`와
-`/api/runtime-session-end { completeTask: true }`를 함께 호출한다.
+### `setup:external` 은 현재 Claude 만 자동화한다
 
-### OpenCode는 workflow library UI와 잘 연결되는 read path를 쓴다
+외부 설치 스크립트 `scripts/setup-external.mjs` 는 외부 프로젝트의
+`.claude/settings.json` 만 조정하고 plugin 실행 경로를 출력한다.
+다른 런타임용 bootstrap 파일은 만들지 않는다.
 
-OpenCode plugin이 task를 만들고 나면, 웹은 `/api/workflows`와 typed realtime message를 통해
-workflow panel과 overview를 갱신할 수 있다.
+### 수동 런타임은 공용 API/MCP contract 를 따른다
 
-### Codex는 skill + MCP 경로를 캐노니컬로 사용한다
-
-Codex는 `runtimeSource: "codex-skill"` 경로를 사용한다.
-`monitor_runtime_session_ensure/end`로 thread/topic task를 재사용하고,
-`monitor_user_message`, `monitor_assistant_response`, `monitor_plan`,
-`monitor_verify` 같은 고수준 이벤트를 명시적으로 남긴다.
-
-Codex CLI에서는 `runtimeSessionId`를 명시 전달하는 것을 기본으로 사용하고,
-`CODEX_THREAD_ID`를 그대로 전달하는 방식을 권장한다.
+자동 plugin 이 없는 런타임은 `@monitor/mcp` 도구를 쓰거나
+HTTP endpoint 를 직접 호출하면 된다.
+이 경우 capability 는 자동 관측이 아니라 호출자 책임으로 성립한다.
 
 ## 새 런타임을 추가할 때 체크리스트
 
-1. raw prompt를 캡처할 수 있는가
-2. tool call을 종류별로 관찰할 수 있는가
-3. background/subagent를 추적할 수 있는가
-4. session close가 waiting인지 complete인지 정의할 수 있는가
-5. skill/hook/plugin discovery 경로는 어디인가
-6. 어떤 HTTP endpoint를 최소 구현으로 볼 것인가
+1. raw prompt 를 기계적으로 캡처할 수 있는가
+2. tool call 을 종류별로 관찰할 수 있는가
+3. background/subagent 를 추적할 수 있는가
+4. session close 가 waiting 인지 complete 인지 정의할 수 있는가
+5. 어떤 HTTP endpoint 를 최소 구현으로 볼 것인가
 
 ## 관련 문서
 
 - [Runtime Capabilities Registry](./runtime-capabilities-registry.md)
-- [Claude Code Hooks Adapter](./claude-code-hooks-adapter.md)
-- [Codex Skill Adapter](./codex-skill-adapter.md)
+- [Claude Code Plugin Adapter](./claude-code-plugin-adapter.md)
 - [setup:external Automation Script](./setup-external-automation-script.md)

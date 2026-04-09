@@ -8,12 +8,10 @@ runtime integration 시나리오까지 꽤 넓게 다룬다.
 
 - `packages/server/test/application/monitor-service.test.ts`
 - `packages/server/test/application/session-lifecycle-policy.test.ts`
-- `packages/server/test/presentation/create-app.test.ts`
+- `packages/server/test/presentation/observability-routes.test.ts`
 - `packages/server/test/presentation/assistant-response.test.ts`
 - `packages/server/test/infrastructure/sqlite-schema-migrator.test.ts`
-- `packages/server/test/claude-hooks.test.ts`
-- `packages/server/test/opencode-monitor-plugin.test.ts`
-- `packages/server/test/opencode-native-question.test.ts`
+- `packages/server/test/claude-plugin.test.ts`
 - `packages/server/test/setup-external.test.ts`
 
 ## 무엇을 검증하나
@@ -35,8 +33,7 @@ runtime integration 시나리오까지 꽤 넓게 다룬다.
 
 ### Runtime integration
 
-- Claude hook path
-- OpenCode plugin path
+- Claude plugin path
 - setup:external 결과물
 
 ## 이 테스트 묶음의 특징

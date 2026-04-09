@@ -6,19 +6,13 @@
 
 | Adapter | Raw user prompt | Tool calls | Subagents/background | Native skill paths | Separate event stream | Session close policy |
 |---------|-----------------|------------|----------------------|--------------------|----------------------|----------------------|
-| `claude-hook` | Yes (`UserPromptSubmit`) | Yes | Yes (`Agent|Skill`) | `.claude/skills` | No | `never` |
-| `codex-skill` | Yes (manual MCP) | No automatic observation | No automatic observation | `.agents/skills` | No | `never` |
-| `opencode-plugin` | Yes (`chat.message`) | Yes | Yes | `.agents/skills`, `.claude/skills` | No | `primary-only` |
-| `opencode-sse` | Yes | Yes | Yes | `.agents/skills`, `.claude/skills` | Yes | `primary-only` |
+| `claude-plugin` | Yes (`UserPromptSubmit`) | Yes | Yes (`Agent|Skill`) | `.claude/skills` | No | `never` |
 
 참고: 서버 API 스키마의 `runtimeSource`는 forward-compatibility를 위해 문자열(`z.string`)로 열려 있다.
 위 표는 "현재 내장 capability registry에 등록된 adapter" 목록이다.
 
 정책 요약:
 
-- Claude hooks 는 raw prompt 를 캡처하지만 세션 종료 시 primary task 를 자동 완료하지 않는다.
-- Codex CLI는 `codex-skill` + MCP를 캐노니컬 경로로 사용한다.
-- `codex-skill`은 follow-up turn을 같은 task로 재사용하고, planning/context 같은 고수준 이벤트를 명시적으로 남긴다.
-- Codex의 thread/topic 기준 최종 `assistant.response`는 `monitor_assistant_response` 경로를 사용한다.
-- OpenCode plugin 은 typed hooks 와 `event` callback 을 함께 사용하지만, capability registry 에서는 별도 event-stream 경로가 아닌 `opencode-sse` 만 `hasEventStream: true` 로 본다.
-- `opencode-sse` 는 capability registry 에 예약된 실험 어댑터이며, shadow observer wiring 이 필요할 때 확장한다.
+- Claude plugin 은 raw prompt 를 캡처하지만 세션 종료 시 primary task 를 자동 완료하지 않는다.
+- `claude-hook` 문자열은 과거 데이터 호환을 위한 alias 로만 남아 있고, 문서와 신규 이벤트의 canonical runtimeSource 는 `claude-plugin` 이다.
+- 수동 HTTP/MCP 클라이언트는 capability registry 에 내장 어댑터로 등록되어 있지 않지만, 서버 API 자체는 그대로 사용할 수 있다.

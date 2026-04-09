@@ -21,7 +21,7 @@ features:
   - title: Codebase Wiki
     details: Maintainer-oriented architecture docs for the core domain, monitor server, MCP surface, runtime adapters, web dashboard, and workflow library.
   - title: Runtime Guides
-    details: Practical setup guides for Claude Code, OpenCode, Codex, and other MCP-based environments.
+    details: Practical setup guides for the shipped Claude Code plugin flow, plus manual HTTP/MCP integration references for custom runtimes.
   - title: Local-First Docs
     details: The site is generated directly from the markdown already living in docs/, so local edits and the published docs stay aligned.
 ---
