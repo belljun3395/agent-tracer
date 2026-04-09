@@ -1,4 +1,5 @@
 import { Controller, Get, Post, Body, Param, Query, HttpException, HttpStatus, HttpCode } from "@nestjs/common";
+import { TaskId } from "@monitor/core";
 import type { Response } from "express";
 import { Res } from "@nestjs/common";
 import { MonitorServiceProvider } from "../service/monitor-service.provider.js";
@@ -18,7 +19,7 @@ export class EvaluationController {
             throw new HttpException({ error: "Validation failed", details: parsed.error.errors }, HttpStatus.BAD_REQUEST);
         }
         const { rating, useCase, workflowTags, outcomeNote, approachNote, reuseWhen, watchouts, workflowSnapshot, workflowContext } = parsed.data;
-        await this.service.upsertTaskEvaluation(taskId, {
+        await this.service.upsertTaskEvaluation(TaskId(taskId), {
             rating,
             ...(useCase !== undefined ? { useCase } : {}),
             ...(workflowTags !== undefined ? { workflowTags } : {}),
@@ -37,7 +38,7 @@ export class EvaluationController {
     taskId: string, 
     @Res()
     res: Response) {
-        const evaluation = await this.service.getTaskEvaluation(taskId);
+        const evaluation = await this.service.getTaskEvaluation(TaskId(taskId));
         res.json(evaluation ?? null);
     }
     @Get("/api/workflows/similar")
@@ -64,7 +65,7 @@ export class EvaluationController {
     async getWorkflowContent(
     @Param("id")
     taskId: string) {
-        const content = await this.service.getWorkflowContent(taskId);
+        const content = await this.service.getWorkflowContent(TaskId(taskId));
         if (!content) {
             throw new HttpException({ error: "workflow content not found" }, HttpStatus.NOT_FOUND);
         }

@@ -1,16 +1,10 @@
+import { TaskSlug, WorkspacePath } from "./branded.js";
 import type { MonitoringEventKind, MonitoringTaskInput, TimelineLane } from "./types.js";
-export function normalizeWorkspacePath(path: string): string {
-    const normalized = path.trim().replace(/\/+/g, "/");
-    return normalized.endsWith("/") && normalized !== "/"
-        ? normalized.slice(0, -1)
-        : normalized;
+export function normalizeWorkspacePath(path: string) {
+    return WorkspacePath(path);
 }
-export function createTaskSlug(input: MonitoringTaskInput): string {
-    const source = input.title.trim().toLowerCase();
-    return source
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-+|-+$/g, "")
-        .slice(0, 64);
+export function createTaskSlug(input: MonitoringTaskInput) {
+    return TaskSlug(input.title);
 }
 export function defaultLaneForEventKind(kind: MonitoringEventKind): TimelineLane {
     switch (kind) {

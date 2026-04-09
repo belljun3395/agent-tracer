@@ -1,3 +1,4 @@
+import { RuleId } from "./domain/branded.js";
 import type { EventClassificationMatch, EventClassificationReason } from "./domain/types.js";
 import { ACTION_KEYWORD_RULES, ACTION_PREFIX_RULES, ACTION_SKIP_WORDS } from "./action-registry.constants.js";
 export function classifyActionName(actionName?: string): EventClassificationMatch | null {
@@ -47,7 +48,7 @@ export function classifyActionName(actionName?: string): EventClassificationMatc
         return null;
     }
     return {
-        ruleId: "action-registry",
+        ruleId: RuleId("action-registry"),
         source: "action-registry",
         score,
         lane,
