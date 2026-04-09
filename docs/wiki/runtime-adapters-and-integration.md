@@ -75,6 +75,5 @@ Codex CLI에서는 `runtimeSessionId`를 명시 전달하는 것을 기본으로
 
 - [Runtime Capabilities Registry](./runtime-capabilities-registry.md)
 - [Claude Code Hooks Adapter](./claude-code-hooks-adapter.md)
-- [OpenCode Plugin Adapter](./opencode-plugin-adapter.md)
 - [Codex Skill Adapter](./codex-skill-adapter.md)
 - [setup:external Automation Script](./setup-external-automation-script.md)

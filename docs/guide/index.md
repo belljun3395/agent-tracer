@@ -14,13 +14,11 @@
 ## 런타임별 가이드
 
 - [Claude Code setup](./claude-setup.md)
-- [OpenCode setup](./opencode-setup.md)
 - [Codex setup](./codex-setup.md)
 
 ## 레퍼런스
 
 - [Claude Code hook payload spec](./hook-payload-spec.md)
-- [OpenCode plugin spec](./opencode-plugin-spec.md)
 - [Web styling guide](./web-styling.md)
 
 ## 관련 섹션

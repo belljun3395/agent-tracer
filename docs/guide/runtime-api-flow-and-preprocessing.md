@@ -10,7 +10,6 @@
 - 함께 보면 좋은 문서:
   - [API integration map](./api-integration-map.md)
   - [Claude hook payload spec](./hook-payload-spec.md)
-  - [OpenCode plugin spec](./opencode-plugin-spec.md)
 
 ---
 
