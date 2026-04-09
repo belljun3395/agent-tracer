@@ -35,7 +35,7 @@ export async function postJson<T = JsonObject>(pathname: string, body: JsonObjec
         method: "POST",
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify(body),
-        signal: AbortSignal.timeout(1_000)
+        signal: AbortSignal.timeout(2_000)
     });
     if (!response.ok) {
         throw new Error(`Monitor request failed: ${pathname} (${response.status})`);
@@ -68,6 +68,13 @@ export function getToolInput(event: JsonObject): JsonObject {
     return isRecord(event.tool_input) ? event.tool_input : {};
 }
 
+/**
+ * Returns the Claude Code session ID for the current hook invocation.
+ * This only returns a session ID for hooks triggered by Claude Code itself
+ * (hook_source === "claude-hook" or absent). External triggers (e.g., OpenCode
+ * passing hook_source with a different value) return an empty string, so that
+ * other agents' sessions are not accidentally attributed to a Claude Code session.
+ */
 export function getSessionId(event: JsonObject): string {
     const hookSource = toTrimmedString(event.hook_source);
     if (hookSource && hookSource !== "claude-hook") {
@@ -538,7 +545,8 @@ function appendLog(line: string): void {
  */
 export function hookLog(hookName: string, message: string, data?: Record<string, unknown>): void {
     const ts = new Date().toISOString().slice(11, 23); // HH:MM:SS.mmm
-    const dataStr = data ? ` ${JSON.stringify(data)}` : "";
+    const logData = data ? { timestamp: new Date().toISOString(), ...data } : { timestamp: new Date().toISOString() };
+    const dataStr = ` ${JSON.stringify(logData)}`;
     const line = `[${ts}][HOOK:${hookName}] ${message}${dataStr}`;
     if (process.env["NODE_ENV"] === "development") {
         process.stderr.write(line + "\n");
