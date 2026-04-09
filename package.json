@@ -20,7 +20,7 @@
     "docs:build": "vitepress build docs",
     "docs:preview": "vitepress preview docs --host 0.0.0.0 --port 4174",
     "dev": "touch .opencode/.dev-log && concurrently -k -n server,web \"npm run dev:server\" \"npm run dev:web\"; rm -f .opencode/.dev-log",
-    "dev:server": "NODE_OPTIONS=--conditions=development tsx watch packages/server/src/index.ts",
+    "dev:server": "NODE_OPTIONS=--conditions=development tsx watch --tsconfig packages/server/tsconfig.json packages/server/src/index.ts",
     "dev:web": "npm run dev --workspace @monitor/web -- --host 0.0.0.0",
     "seed": "NODE_OPTIONS=--conditions=development tsx packages/server/src/seed.ts",
     "start:server": "node packages/server/dist/index.js",
