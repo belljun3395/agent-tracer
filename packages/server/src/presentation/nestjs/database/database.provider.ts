@@ -6,9 +6,9 @@
  */
 import { Injectable, OnApplicationShutdown, type Provider } from "@nestjs/common";
 import { initializeDefaultAdapters } from "@monitor/core";
-import { createSqliteMonitorPorts } from "../../infrastructure/sqlite/index.js";
-import type { MonitorPorts } from "../../application/ports/index.js";
-import { createEmbeddingService } from "../../infrastructure/embedding/index.js";
+import { createSqliteMonitorPorts } from "../../../infrastructure/sqlite/index.js";
+import type { MonitorPorts } from "../../../application/ports/index.js";
+import { createEmbeddingService } from "../../../infrastructure/embedding/index.js";
 
 export const MONITOR_PORTS_TOKEN = "MONITOR_PORTS";
 

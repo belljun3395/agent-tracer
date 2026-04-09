@@ -36,6 +36,8 @@ interface TaskListProps {
   readonly deletingTaskId: string | null;
   readonly deleteErrorTaskId: string | null;
   readonly isCollapsed?: boolean;
+  readonly hideHeader?: boolean;
+  readonly initialView?: "tasks" | "saved";
   readonly onToggleCollapse?: () => void;
   readonly onSelectTask: (taskId: string) => void;
   readonly onSelectBookmark: (bookmark: BookmarkRecord) => void;
@@ -66,7 +68,7 @@ const railSectionHeaderClass =
   "sticky top-0 z-10 flex items-center justify-between border-b border-[var(--border)] bg-[linear-gradient(180deg,var(--surface-2),var(--surface))] px-[14px] py-2 text-[0.68rem] font-semibold uppercase tracking-[0.1em] text-[var(--text-3)]";
 
 const railTabButtonBaseClass =
-  "inline-flex h-8 min-w-0 w-full items-center justify-center gap-1 whitespace-nowrap rounded-full border px-3 text-[0.74rem] font-semibold transition-colors";
+  "inline-flex h-8 min-w-0 w-full items-center justify-center gap-1 whitespace-nowrap rounded-full border px-3 text-[0.74rem] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-1";
 
 const railTabButtonActiveClass =
   "border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] text-[var(--accent)]";
@@ -75,7 +77,7 @@ const railTabButtonIdleClass =
   "border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-2)] hover:border-[var(--border-2)] hover:bg-[var(--surface)]";
 
 const railRowBaseClass =
-  "group relative shrink-0 overflow-hidden rounded-[10px] border border-transparent px-3 py-2.5 transition-[background-color,border-color,box-shadow] hover:border-[var(--border)] hover:bg-[var(--surface-2)]";
+  "group relative shrink-0 overflow-hidden rounded-[var(--radius-lg)] border border-transparent px-3 py-2.5 transition-[background-color,border-color,box-shadow] hover:border-[var(--border)] hover:bg-[var(--surface-2)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-1";
 
 const railSelectedRowClass =
   "border-[var(--exploration-border)] bg-[var(--exploration-bg)] shadow-[inset_0_0_0_1px_var(--exploration-border)] before:absolute before:inset-y-1.5 before:left-0 before:w-0.5 before:rounded-full before:bg-[var(--exploration)] before:content-['']";
@@ -101,6 +103,8 @@ export function TaskList({
   deletingTaskId,
   deleteErrorTaskId,
   isCollapsed = false,
+  hideHeader = false,
+  initialView = "tasks",
   onToggleCollapse,
   onSelectTask,
   onSelectBookmark,
@@ -111,7 +115,12 @@ export function TaskList({
 }: TaskListProps): React.JSX.Element {
   const [runtimeFilter, setRuntimeFilter] = useState<string>(ALL_RUNTIME_FILTER_KEY);
   const [collapsedParentIds, setCollapsedParentIds] = useState<ReadonlySet<string>>(new Set());
-  const [railView, setRailView] = useState<RailView>("tasks");
+  const [railView, setRailView] = useState<RailView>(initialView);
+
+  // Sync tab when parent switches the panel (e.g. clicking Saved vs Tasks on the icon rail)
+  useEffect(() => {
+    setRailView(initialView);
+  }, [initialView]);
   const tasksDragScroll = useDragScroll({ axis: "y" });
   const runtimeFilterOptions = useMemo(
     () => buildRuntimeFilterOptions(tasks),
@@ -176,26 +185,32 @@ export function TaskList({
 
   return (
     <PanelCard className={cn("relative flex-1", isCollapsed && "items-center")}>
-      <Button
-        aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-        className={cn(
-          "absolute right-2 top-2 h-7 w-7 rounded-lg border border-[var(--border)] bg-[var(--surface-2)] text-[0.78rem] text-[var(--text-3)] transition-colors hover:border-[var(--border-2)] hover:bg-[var(--surface)] hover:text-[var(--text-2)]",
-          isCollapsed && "static mx-auto mt-2"
-        )}
-        onClick={onToggleCollapse}
-        title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-        variant="bare"
-        size="icon"
-      >
-        {isCollapsed ? "›" : "‹"}
-      </Button>
+      {!hideHeader && (
+        <Button
+          aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          className={cn(
+            "absolute right-2 top-2 h-7 w-7 rounded-lg border border-[var(--border)] bg-[var(--surface-2)] text-[0.78rem] text-[var(--text-3)] transition-colors hover:border-[var(--border-2)] hover:bg-[var(--surface)] hover:text-[var(--text-2)]",
+            isCollapsed && "static mx-auto mt-2"
+          )}
+          onClick={onToggleCollapse}
+          title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          variant="bare"
+          size="icon"
+        >
+          <svg aria-hidden="true" fill="none" height="14" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" viewBox="0 0 24 24" width="14">
+            {isCollapsed ? <path d="M9 18l6-6-6-6" /> : <path d="M15 18l-6-6 6-6" />}
+          </svg>
+        </Button>
+      )}
 
       <div className={cn("flex min-h-0 flex-1 flex-col overflow-hidden", isCollapsed && "hidden")}>
-        <div className="border-b border-[var(--border)] bg-[linear-gradient(180deg,var(--surface-2),var(--surface))] px-4 py-[15px] pr-11">
-          <p className="m-0 text-[0.66rem] font-semibold uppercase tracking-[0.12em] text-[var(--accent)]">Monitor</p>
-          <h1 className="mt-1 text-[1rem] font-semibold tracking-[-0.02em] text-[var(--text-1)]">AI CLI Timeline</h1>
-          <p className="mt-1 text-[0.78rem] leading-5 text-[var(--text-2)]">Live task observability for parallel agent work.</p>
-        </div>
+        {!hideHeader && (
+          <div className="border-b border-[var(--border)] bg-[linear-gradient(180deg,var(--surface-2),var(--surface))] px-4 py-[15px] pr-11">
+            <p className="m-0 text-[0.66rem] font-semibold uppercase tracking-[0.12em] text-[var(--accent)]">Monitor</p>
+            <h1 className="mt-1 text-[1rem] font-semibold tracking-[-0.02em] text-[var(--text-1)]">AI CLI Timeline</h1>
+            <p className="mt-1 text-[0.78rem] leading-5 text-[var(--text-2)]">Live task observability for parallel agent work.</p>
+          </div>
+        )}
 
         <Button
           className="mx-3 mt-2 w-[calc(100%-1.5rem)] justify-start gap-1.5 px-3 py-2 text-[0.82rem] font-medium"
@@ -203,7 +218,7 @@ export function TaskList({
           size="sm"
           variant="ghost"
         >
-          <img alt="" className="h-3.5 w-3.5 opacity-60" src="/icons/refresh.svg" />
+          <img alt="" className="icon-adaptive h-3.5 w-3.5 opacity-60" src="/icons/refresh.svg" />
           Refresh Snapshot
         </Button>
 
@@ -214,7 +229,7 @@ export function TaskList({
           size="sm"
           variant="ghost"
         >
-          <img alt="" className="h-3.5 w-3.5 opacity-60" src="/icons/layers.svg" />
+          <img alt="" className="icon-adaptive h-3.5 w-3.5 opacity-60" src="/icons/layers.svg" />
           {selectedTaskBookmarkId ? "Saved Current Task" : "Save Current Task"}
         </Button>
 
@@ -305,7 +320,7 @@ export function TaskList({
                         title="Remove saved item"
                         variant="bare"
                       >
-                        <img alt="Remove saved item" className="h-3.5 w-3.5" src="/icons/trash.svg" />
+                        <img alt="Remove saved item" className="icon-adaptive h-3.5 w-3.5" src="/icons/trash.svg" />
                       </Button>
                     </div>
                   </div>
@@ -523,7 +538,7 @@ export function TaskList({
                               title="Delete task"
                               variant="bare"
                             >
-                              <img alt="Delete" className="h-3.5 w-3.5" src="/icons/trash.svg" />
+                              <img alt="Delete" className="icon-adaptive h-3.5 w-3.5" src="/icons/trash.svg" />
                             </Button>
                           </div>
                         </div>

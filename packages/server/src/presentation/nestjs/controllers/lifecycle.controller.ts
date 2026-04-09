@@ -17,7 +17,7 @@ import type {
   TaskSessionEndInput,
   RuntimeSessionEnsureInput,
   RuntimeSessionEndInput
-} from "../../application/types.js";
+} from "../../../application/types.js";
 import {
   taskStartSchema,
   taskLinkSchema,
@@ -27,7 +27,7 @@ import {
   sessionEndSchema,
   runtimeSessionEnsureSchema,
   runtimeSessionEndSchema
-} from "../../presentation/schemas.js";
+} from "../../schemas.js";
 
 @Controller()
 export class LifecycleController {

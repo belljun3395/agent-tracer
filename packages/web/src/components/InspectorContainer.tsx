@@ -42,7 +42,8 @@ interface InspectorContainerProps {
   readonly isInspectorCollapsed: boolean;
   readonly selectedTaskDisplayTitle: string | null;
   readonly onToggleCollapse: () => void;
-  readonly onInspectorResizeStart: (event: React.PointerEvent<HTMLDivElement>) => void;
+  /** @deprecated 드로어 모드에서는 사용하지 않음 */
+  readonly onInspectorResizeStart?: ((event: React.PointerEvent<HTMLDivElement>) => void) | undefined;
   readonly onOpenTaskWorkspace?: (() => void) | undefined;
 }
 
@@ -55,7 +56,6 @@ export function InspectorContainer({
   isInspectorCollapsed,
   selectedTaskDisplayTitle,
   onToggleCollapse,
-  onInspectorResizeStart,
   onOpenTaskWorkspace
 }: InspectorContainerProps): React.JSX.Element {
   const {
@@ -167,15 +167,6 @@ export function InspectorContainer({
 
   return (
     <div className={cn("relative flex min-h-0 min-w-0 flex-col", isStackedDashboard && "order-3")}>
-      {!isInspectorCollapsed && !isStackedDashboard && (
-        <div
-          aria-label="Resize inspector panel"
-          aria-orientation="vertical"
-          className="inspector-resizer absolute left-[-9px] top-2 bottom-2 z-10 w-3 cursor-col-resize before:absolute before:left-[5px] before:top-0 before:bottom-0 before:w-0.5 before:rounded-full before:bg-[color-mix(in_srgb,var(--border)_74%,transparent)] before:transition-colors hover:before:bg-[color-mix(in_srgb,var(--accent)_75%,transparent)]"
-          onPointerDown={onInspectorResizeStart}
-          role="separator"
-        />
-      )}
       <QuickInspector
         taskDetail={taskDetail}
         selectedTaskTitle={selectedTaskDisplayTitle}

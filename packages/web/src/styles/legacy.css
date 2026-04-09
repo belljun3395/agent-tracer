@@ -3,6 +3,22 @@
   50% { opacity: 0.3; }
 }
 
+/* Adaptive icon — inverts in dark mode so SVG img tags stay visible */
+:root[data-theme="dark"] .icon-adaptive {
+  filter: invert(1);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .icon-adaptive {
+    filter: invert(1);
+  }
+}
+
+@keyframes slideInLeft {
+  from { transform: translateX(-100%); opacity: 0; }
+  to   { transform: translateX(0);     opacity: 1; }
+}
+
 .panel-tab-bar {
   scrollbar-width: none;
 }

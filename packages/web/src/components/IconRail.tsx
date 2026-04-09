@@ -65,7 +65,7 @@ export function IconRail({
       <div className="mb-2 flex h-8 w-8 shrink-0 items-center justify-center">
         <img
           alt="Agent Tracer"
-          className="h-5 w-5 opacity-70"
+          className="icon-adaptive h-5 w-5 opacity-70"
           src="/icons/activity.svg"
         />
       </div>

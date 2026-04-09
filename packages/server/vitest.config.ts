@@ -6,8 +6,7 @@ export default defineConfig({
     target: "es2022",
     tsconfigRaw: {
       compilerOptions: {
-        experimentalDecorators: true,
-        emitDecoratorMetadata: false
+        experimentalDecorators: true
       }
     }
   },

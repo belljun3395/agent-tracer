@@ -684,11 +684,9 @@ describe("Claude hooks", () => {
     expect((response!.body.metadata as Record<string, unknown>).inputTokens).toBe(100);
     expect((response!.body.metadata as Record<string, unknown>).outputTokens).toBe(40);
 
-    // Stop hook also completes the task via runtime-session-end
+    // Stop hook does NOT call runtime-session-end (session end is handled by session_end.ts)
     const sessionEnd = monitor.calls.find(c => c.endpoint === "/api/runtime-session-end");
-    expect(sessionEnd).toBeDefined();
-    expect(sessionEnd!.body.completeTask).toBe(true);
-    expect(sessionEnd!.body.completionReason).toBe("assistant_turn_complete");
+    expect(sessionEnd).toBeUndefined();
   });
 
   it("Stop hook: last_assistant_message with cache tokens → all token fields populated", async () => {

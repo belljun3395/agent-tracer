@@ -63,8 +63,16 @@
 
   --text-muted: var(--text-3);
 
-  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-sans: 'Fira Sans', 'Inter', system-ui, sans-serif;
   --font-mono: "JetBrains Mono", "Fira Code", monospace;
+
+  /* Border radius scale — use these instead of magic numbers */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
 
   color: var(--text-1);
   background: var(--bg);

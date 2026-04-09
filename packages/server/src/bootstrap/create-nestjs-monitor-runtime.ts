@@ -11,12 +11,12 @@ import type express from "express";
 import { NestFactory } from "@nestjs/core";
 import { WebSocketServer } from "ws";
 
-import { AppModule } from "../nestjs/app.module.js";
+import { AppModule } from "../presentation/nestjs/app.module.js";
 import { EventBroadcaster } from "../presentation/ws/event-broadcaster.js";
-import { GlobalExceptionFilter } from "../nestjs/filters/zod-exception.filter.js";
-import { MonitorServiceProvider } from "../nestjs/service/monitor-service.provider.js";
+import { GlobalExceptionFilter } from "../presentation/nestjs/filters/zod-exception.filter.js";
+import { MonitorServiceProvider } from "../presentation/nestjs/service/monitor-service.provider.js";
 import { MonitorService } from "../application/monitor-service.js";
-import { MONITOR_PORTS_TOKEN, type PortsWithClose } from "../nestjs/database/database.provider.js";
+import { MONITOR_PORTS_TOKEN, type PortsWithClose } from "../presentation/nestjs/database/database.provider.js";
 import type { RuntimeOptions, MonitorRuntime } from "./create-monitor-runtime.js";
 
 /**

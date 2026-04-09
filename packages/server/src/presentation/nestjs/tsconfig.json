@@ -1,0 +1,24 @@
+{
+  "extends": "../../../../../tsconfig.base.json",
+  "compilerOptions": {
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "outDir": "../../../../../../dist/nestjs",
+    "rootDir": "../..",
+    "baseUrl": ".",
+    "paths": {
+      "@monitor/core": ["../../../../../packages/core/src/index.ts"]
+    }
+  },
+  "include": [
+    "./**/*.ts",
+    "../../application/**/*.ts",
+    "../../infrastructure/**/*.ts",
+    "../schemas.ts",
+    "../schemas.constants.ts",
+    "../http/validate.ts",
+    "../ws/event-broadcaster.ts"
+  ]
+}

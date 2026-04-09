@@ -8,8 +8,8 @@ import {
   Body, Param, Query, HttpException, HttpStatus, HttpCode
 } from "@nestjs/common";
 import { MonitorServiceProvider } from "../service/monitor-service.provider.js";
-import type { TaskBookmarkInput, TaskBookmarkDeleteInput } from "../../application/types.js";
-import { bookmarkSchema } from "../../presentation/schemas.js";
+import type { TaskBookmarkInput, TaskBookmarkDeleteInput } from "../../../application/types.js";
+import { bookmarkSchema } from "../../schemas.js";
 
 @Controller()
 export class BookmarkController {

@@ -19,6 +19,14 @@ label {
   font: inherit;
 }
 
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
 code {
   font-family: var(--font-mono);
   font-size: 0.84em;
