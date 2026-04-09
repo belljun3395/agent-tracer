@@ -1,13 +1,13 @@
-import { createTaskSlug, normalizeWorkspacePath, type MonitoringEventKind, type MonitoringTask, } from "@monitor/core";
+import { SessionId, createTaskSlug, normalizeWorkspacePath, TaskId, type EventId, type MonitoringEventKind, type MonitoringTask, type SessionId as MonitorSessionId, type TaskId as MonitorTaskId, } from "@monitor/core";
 import type { MonitorPorts } from "../ports";
 import type { TaskCompletionInput, TaskErrorInput, TaskLinkInput, TaskPatchInput, TaskRenameInput, TaskSessionEndInput, TaskStartInput, RuntimeSessionEnsureInput, RuntimeSessionEnsureResult, RuntimeSessionEndInput, } from "../types.js";
 import { shouldAutoCompleteBackground, shouldAutoCompletePrimary, shouldMovePrimaryToWaiting, } from "./session-lifecycle-policy.js";
 import { EventRecorder } from "./event-recorder.js";
 export interface RecordedEventEnvelope {
     readonly task: MonitoringTask;
-    readonly sessionId?: string;
+    readonly sessionId?: MonitorSessionId;
     readonly events: readonly {
-        readonly id: string;
+        readonly id: EventId;
         readonly kind: MonitoringEventKind;
     }[];
 }
@@ -17,8 +17,8 @@ export class TaskLifecycleService {
         this.recorder = new EventRecorder(ports.events, ports.notifier);
     }
     async startTask(input: TaskStartInput): Promise<RecordedEventEnvelope> {
-        const taskId = input.taskId ?? globalThis.crypto.randomUUID();
-        const sessionId = globalThis.crypto.randomUUID();
+        const taskId = input.taskId ?? TaskId(globalThis.crypto.randomUUID());
+        const sessionId = SessionId(globalThis.crypto.randomUUID());
         const startedAt = new Date().toISOString();
         const existingTask = await this.ports.tasks.findById(taskId);
         const workspacePath = input.workspacePath
@@ -106,7 +106,7 @@ export class TaskLifecycleService {
         return this.finishTask(input, "errored", "task.error", input.errorMessage);
     }
     async endSession(input: TaskSessionEndInput): Promise<{
-        sessionId: string;
+        sessionId: MonitorSessionId;
         task: MonitoringTask;
     }> {
         const task = await this.requireTask(input.taskId);
@@ -191,7 +191,7 @@ export class TaskLifecycleService {
         }
         const existingTaskId = await this.ports.runtimeBindings.findTaskId(input.runtimeSource, input.runtimeSessionId);
         if (existingTaskId) {
-            const sessionId = globalThis.crypto.randomUUID();
+            const sessionId = SessionId(globalThis.crypto.randomUUID());
             const startedAt = new Date().toISOString();
             const task = await this.ports.tasks.findById(existingTaskId);
             if (task &&
@@ -340,7 +340,7 @@ export class TaskLifecycleService {
         this.ports.notifier.publish({ type: "task.updated", payload: updated });
         return updated;
     }
-    async deleteTask(taskId: string): Promise<"deleted" | "not_found"> {
+    async deleteTask(taskId: MonitorTaskId): Promise<"deleted" | "not_found"> {
         if (!(await this.ports.tasks.findById(taskId))) {
             return "not_found";
         }
@@ -405,14 +405,14 @@ export class TaskLifecycleService {
         this.ports.notifier.publish({ type: "task.updated", payload: updated });
         return updated;
     }
-    async requireTask(taskId: string): Promise<MonitoringTask> {
+    async requireTask(taskId: MonitorTaskId): Promise<MonitoringTask> {
         const task = await this.ports.tasks.findById(taskId);
         if (!task) {
             throw new Error(`Task not found: ${taskId}`);
         }
         return task;
     }
-    private async setTaskStatus(taskId: string, status: MonitoringTask["status"]): Promise<MonitoringTask> {
+    private async setTaskStatus(taskId: MonitorTaskId, status: MonitoringTask["status"]): Promise<MonitoringTask> {
         const updatedAt = new Date().toISOString();
         await this.ports.tasks.updateStatus(taskId, status, updatedAt);
         const task = await this.requireTask(taskId);
@@ -428,13 +428,13 @@ export class TaskLifecycleService {
         }
         await this.completeTask(input);
     }
-    private async resolveSessionId(taskId: string, sessionId?: string): Promise<string | undefined> {
+    private async resolveSessionId(taskId: MonitorTaskId, sessionId?: MonitorSessionId): Promise<MonitorSessionId | undefined> {
         if (sessionId) {
             return sessionId;
         }
         return (await this.ports.sessions.findActiveByTaskId(taskId))?.id;
     }
-    private async hasRunningBackgroundDescendants(taskId: string): Promise<boolean> {
+    private async hasRunningBackgroundDescendants(taskId: MonitorTaskId): Promise<boolean> {
         const stack = [taskId];
         while (stack.length > 0) {
             const parentId = stack.pop();
@@ -451,7 +451,7 @@ export class TaskLifecycleService {
         }
         return false;
     }
-    private async completeBgTasks(ids?: readonly string[]): Promise<void> {
+    private async completeBgTasks(ids?: readonly MonitorTaskId[]): Promise<void> {
         if (!ids?.length) {
             return;
         }
@@ -501,8 +501,8 @@ export class TaskLifecycleService {
             events: [{ id: event.id, kind: event.kind }],
         };
     }
-    private withSessionId(sessionId?: string): {
-        sessionId?: string;
+    private withSessionId(sessionId?: MonitorSessionId): {
+        sessionId?: MonitorSessionId;
     } {
         return sessionId ? { sessionId } : {};
     }

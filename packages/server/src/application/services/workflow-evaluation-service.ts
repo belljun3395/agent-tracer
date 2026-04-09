@@ -1,10 +1,10 @@
-import { buildReusableTaskSnapshot, buildWorkflowContext, TaskId, type ReusableTaskSnapshot, } from "@monitor/core";
+import { buildReusableTaskSnapshot, buildWorkflowContext, type ReusableTaskSnapshot, type TaskId, } from "@monitor/core";
 import type { MonitorPorts } from "../ports";
 import { deriveTaskDisplayTitle } from "./task-display-title-resolver.helpers.js";
 import type { TaskLifecycleService } from "./task-lifecycle-service.js";
 export class WorkflowEvaluationService {
     constructor(private readonly ports: MonitorPorts, private readonly taskLifecycle: TaskLifecycleService) { }
-    async upsertTaskEvaluation(taskId: string, input: {
+    async upsertTaskEvaluation(taskId: TaskId, input: {
         readonly rating: "good" | "skip";
         readonly useCase?: string;
         readonly workflowTags?: string[];
@@ -35,7 +35,7 @@ export class WorkflowEvaluationService {
         const workflowContext = normalizeWorkflowContextOverride(input.workflowContext) ??
             buildWorkflowContext(events, workflowTitle, evaluation, snapshot);
         await this.ports.evaluations.upsertEvaluation({
-            taskId: TaskId(taskId),
+            taskId,
             rating: input.rating,
             useCase: evaluation.useCase,
             workflowTags: evaluation.workflowTags,
@@ -49,10 +49,10 @@ export class WorkflowEvaluationService {
             evaluatedAt: new Date().toISOString(),
         });
     }
-    async getTaskEvaluation(taskId: string) {
+    async getTaskEvaluation(taskId: TaskId) {
         return this.ports.evaluations.getEvaluation(taskId);
     }
-    async getWorkflowContent(taskId: string) {
+    async getWorkflowContent(taskId: TaskId) {
         return this.ports.evaluations.getWorkflowContent(taskId);
     }
     async listEvaluations(rating?: "good" | "skip") {

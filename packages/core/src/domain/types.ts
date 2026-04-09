@@ -1,10 +1,10 @@
-import type { TaskId, SessionId, EventId } from "./branded.js";
+import type { ActionName, AsyncTaskId, EventId, GoalId, HandoffId, MessageId, ModelName, ModelProvider, PlanId, QuestionId, RuleId, RuntimeSessionId, RuntimeSource, SessionId, TaskId, TaskSlug, TodoId, ToolName, WorkItemId, WorkspacePath } from "./branded.js";
 export type TimelineLane = "user" | "exploration" | "planning" | "implementation" | "questions" | "todos" | "background" | "coordination";
 export type MonitoringEventKind = "task.start" | "task.complete" | "task.error" | "plan.logged" | "action.logged" | "agent.activity.logged" | "verification.logged" | "rule.logged" | "tool.used" | "terminal.command" | "context.saved" | "file.changed" | "thought.logged" | "user.message" | "question.logged" | "todo.logged" | "assistant.response";
 export type MonitoringTaskKind = "primary" | "background";
 export interface MonitoringTaskInput {
     readonly title: string;
-    readonly workspacePath?: string;
+    readonly workspacePath?: WorkspacePath;
     readonly taskKind?: MonitoringTaskKind;
     readonly parentTaskId?: TaskId;
     readonly parentSessionId?: SessionId;
@@ -12,13 +12,13 @@ export interface MonitoringTaskInput {
 }
 export interface MonitoringTask extends MonitoringTaskInput {
     readonly id: TaskId;
-    readonly slug: string;
+    readonly slug: TaskSlug;
     readonly displayTitle?: string;
     readonly status: "running" | "waiting" | "completed" | "errored";
     readonly createdAt: string;
     readonly updatedAt: string;
     readonly lastSessionStartedAt?: string;
-    readonly runtimeSource?: string;
+    readonly runtimeSource?: RuntimeSource;
     readonly taskKind?: MonitoringTaskKind;
 }
 export interface MonitoringSession {
@@ -34,7 +34,7 @@ export interface EventClassificationReason {
     readonly value: string;
 }
 export interface EventClassificationMatch {
-    readonly ruleId: string;
+    readonly ruleId: RuleId;
     readonly source?: "action-registry";
     readonly score: number;
     readonly lane?: TimelineLane;
@@ -107,3 +107,33 @@ export interface WorkflowSearchResult extends WorkflowEvaluationData {
 }
 export type QuestionPhase = "asked" | "answered" | "concluded";
 export type TodoState = "added" | "in_progress" | "completed" | "cancelled";
+export interface TaskMessageRef {
+    readonly messageId: MessageId;
+    readonly sourceEventId?: EventId;
+}
+export interface TaskAsyncRef {
+    readonly asyncTaskId: AsyncTaskId;
+    readonly parentSessionId?: SessionId;
+}
+export interface TaskQuestionRef {
+    readonly questionId: QuestionId;
+}
+export interface TaskTodoRef {
+    readonly todoId: TodoId;
+}
+export interface EventRelationRef {
+    readonly parentEventId?: EventId;
+    readonly relatedEventIds?: readonly EventId[];
+    readonly workItemId?: WorkItemId;
+    readonly goalId?: GoalId;
+    readonly planId?: PlanId;
+    readonly handoffId?: HandoffId;
+}
+export interface TaskTelemetryLabels {
+    readonly toolName?: ToolName;
+    readonly actionName?: ActionName;
+    readonly ruleId?: RuleId;
+    readonly modelName?: ModelName;
+    readonly modelProvider?: ModelProvider;
+    readonly runtimeSessionId?: RuntimeSessionId;
+}

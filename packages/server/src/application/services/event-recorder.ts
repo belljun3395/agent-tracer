@@ -1,4 +1,4 @@
-import { classifyEvent, type MonitoringEventKind, type TimelineEvent, type TimelineLane } from "@monitor/core";
+import { EventId, classifyEvent, type EventId as MonitorEventId, type MonitoringEventKind, type SessionId, type SessionId as MonitorSessionId, type TimelineEvent } from "@monitor/core";
 import type { IEventRepository } from "../ports";
 import type { INotificationPublisher } from "../ports";
 import type { GenericEventInput } from "../types.js";
@@ -7,8 +7,8 @@ import { MAX_DERIVED_FILES } from "./event-recorder.constants.js";
 import { normalizeFilePaths } from "./event-recorder.helpers.js";
 export class EventRecorder {
     constructor(private readonly events: IEventRepository, private readonly notifier: INotificationPublisher) { }
-    private withSessionId(sessionId?: string): {
-        sessionId?: string;
+    private withSessionId(sessionId?: SessionId): {
+        sessionId?: SessionId;
     } {
         return sessionId ? { sessionId } : {};
     }
@@ -18,7 +18,7 @@ export class EventRecorder {
         const classification = classifyEvent({
             kind: input.kind,
             title: input.title,
-            ...(input.lane ? { lane: input.lane as TimelineLane } : {}),
+            ...(input.lane ? { lane: input.lane } : {}),
             ...(input.body ? { body: input.body } : {}),
             ...(input.command ? { command: input.command } : {}),
             ...(input.toolName ? { toolName: input.toolName } : {}),
@@ -27,7 +27,7 @@ export class EventRecorder {
         });
         const contextualTags = TraceMetadataFactory.deriveTags(input);
         const event = await this.events.insert({
-            id: globalThis.crypto.randomUUID(),
+            id: EventId(globalThis.crypto.randomUUID()),
             taskId: input.taskId,
             kind: input.kind,
             lane: classification.lane,
@@ -48,9 +48,9 @@ export class EventRecorder {
         return event;
     }
     async recordWithDerivedFiles(input: GenericEventInput): Promise<{
-        sessionId?: string;
+        sessionId?: MonitorSessionId;
         events: readonly {
-            id: string;
+            id: MonitorEventId;
             kind: MonitoringEventKind;
         }[];
     }> {

@@ -1,13 +1,13 @@
-import { extractPathLikeTokens, type MonitoringEventKind, type TimelineLane, } from "@monitor/core";
+import { ActionName, extractPathLikeTokens, type EventId, type MonitoringEventKind, type SessionId, type TaskId, } from "@monitor/core";
 import type { MonitorPorts } from "../ports";
 import type { GenericEventInput, TaskActionInput, TaskAgentActivityInput, TaskAsyncLifecycleInput, TaskAssistantResponseInput, TaskContextSavedInput, TaskExploreInput, TaskPlanInput, TaskQuestionInput, TaskRuleInput, TaskTerminalCommandInput, TaskThoughtInput, TaskTodoInput, TaskToolUsedInput, TaskUserMessageInput, TaskVerifyInput, } from "../types.js";
 import { EventRecorder } from "./event-recorder.js";
 import { TraceMetadataFactory as TMF } from "./trace-metadata-factory.js";
 import type { TaskLifecycleService } from "./task-lifecycle-service.js";
 export interface RecordedEventEnvelope {
-    readonly sessionId?: string;
+    readonly sessionId?: SessionId;
     readonly events: readonly {
-        readonly id: string;
+        readonly id: EventId;
         readonly kind: MonitoringEventKind;
     }[];
 }
@@ -122,7 +122,7 @@ export class EventLoggingService {
         return this.withSession(input, (sid) => ({
             taskId: input.taskId,
             kind: "tool.used",
-            lane: (input.lane as TimelineLane | undefined) ?? "exploration",
+            lane: input.lane ?? "exploration",
             title: input.title,
             metadata: TMF.build({ ...(input.metadata ?? {}), toolName: input.toolName }, input),
             toolName: input.toolName,
@@ -230,7 +230,7 @@ export class EventLoggingService {
                     ? { asyncDurationMs: input.durationMs }
                     : {}),
             }, input),
-            actionName: `async_task_${input.asyncStatus}`,
+            actionName: ActionName(`async_task_${input.asyncStatus}`),
             ...this.withSessionId(sid),
             ...(input.body || input.description
                 ? { body: input.body ?? input.description }
@@ -317,7 +317,7 @@ export class EventLoggingService {
         return this.withSession(input, (sid) => ({
             taskId: input.taskId,
             kind: "agent.activity.logged",
-            lane: (input.lane as TimelineLane | undefined) ?? "coordination",
+            lane: input.lane ?? "coordination",
             title: input.title ??
                 TMF.normalizeAgentActivityTitle(input.activityType),
             metadata: TMF.build(input.metadata, input),
@@ -326,21 +326,21 @@ export class EventLoggingService {
             ...(input.filePaths ? { filePaths: input.filePaths } : {}),
         }));
     }
-    private withSessionId(sessionId?: string): {
-        sessionId?: string;
+    private withSessionId(sessionId?: SessionId): {
+        sessionId?: SessionId;
     } {
         return sessionId ? { sessionId } : {};
     }
-    private async resolveSessionId(taskId: string, sessionId?: string): Promise<string | undefined> {
+    private async resolveSessionId(taskId: TaskId, sessionId?: SessionId): Promise<SessionId | undefined> {
         if (sessionId) {
             return sessionId;
         }
         return (await this.ports.sessions.findActiveByTaskId(taskId))?.id;
     }
     private async withSession(input: {
-        taskId: string;
-        sessionId?: string;
-    }, buildEvent: (sessionId: string | undefined) => GenericEventInput): Promise<RecordedEventEnvelope> {
+        taskId: TaskId;
+        sessionId?: SessionId;
+    }, buildEvent: (sessionId: SessionId | undefined) => GenericEventInput): Promise<RecordedEventEnvelope> {
         const sessionId = await this.resolveSessionId(input.taskId, input.sessionId);
         return this.recordWithDerivedFiles(buildEvent(sessionId));
     }

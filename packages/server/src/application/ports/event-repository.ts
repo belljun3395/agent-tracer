@@ -1,8 +1,8 @@
-import type { EventClassification, MonitoringEventKind, MonitoringTask, TimelineEvent, TimelineLane } from "@monitor/core";
+import type { BookmarkId, EventClassification, EventId, MonitoringEventKind, MonitoringTask, TaskId, TimelineEvent, TimelineLane } from "@monitor/core";
 export interface EventInsertInput {
-    readonly id: string;
-    readonly taskId: string;
-    readonly sessionId?: string;
+    readonly id: EventId;
+    readonly taskId: TaskId;
+    readonly sessionId?: TimelineEvent["sessionId"];
     readonly kind: MonitoringEventKind;
     readonly lane: TimelineLane;
     readonly title: string;
@@ -12,12 +12,12 @@ export interface EventInsertInput {
     readonly createdAt: string;
 }
 export interface SearchOptions {
-    readonly taskId?: string;
+    readonly taskId?: TaskId;
     readonly limit?: number;
 }
 export interface SearchTaskHit {
     readonly id: string;
-    readonly taskId: string;
+    readonly taskId: TaskId;
     readonly title: string;
     readonly workspacePath?: string;
     readonly status: MonitoringTask["status"];
@@ -25,8 +25,8 @@ export interface SearchTaskHit {
 }
 export interface SearchEventHit {
     readonly id: string;
-    readonly eventId: string;
-    readonly taskId: string;
+    readonly eventId: EventId;
+    readonly taskId: TaskId;
     readonly taskTitle: string;
     readonly title: string;
     readonly snippet?: string;
@@ -36,9 +36,9 @@ export interface SearchEventHit {
 }
 export interface SearchBookmarkHit {
     readonly id: string;
-    readonly bookmarkId: string;
-    readonly taskId: string;
-    readonly eventId?: string;
+    readonly bookmarkId: BookmarkId;
+    readonly taskId: TaskId;
+    readonly eventId?: EventId;
     readonly kind: "task" | "event";
     readonly title: string;
     readonly note?: string;
@@ -53,9 +53,9 @@ export interface SearchResults {
 }
 export interface IEventRepository {
     insert(input: EventInsertInput): Promise<TimelineEvent>;
-    findById(id: string): Promise<TimelineEvent | null>;
-    findByTaskId(taskId: string): Promise<readonly TimelineEvent[]>;
-    updateMetadata(eventId: string, metadata: Record<string, unknown>): Promise<TimelineEvent | null>;
-    countRawUserMessages(taskId: string): Promise<number>;
+    findById(id: EventId): Promise<TimelineEvent | null>;
+    findByTaskId(taskId: TaskId): Promise<readonly TimelineEvent[]>;
+    updateMetadata(eventId: EventId, metadata: Record<string, unknown>): Promise<TimelineEvent | null>;
+    countRawUserMessages(taskId: TaskId): Promise<number>;
     search(query: string, opts?: SearchOptions): Promise<SearchResults>;
 }

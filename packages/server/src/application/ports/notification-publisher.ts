@@ -1,4 +1,4 @@
-import type { MonitoringTask, MonitoringSession, TimelineEvent } from "@monitor/core";
+import type { BookmarkId, MonitoringSession, MonitoringTask, TaskId, TimelineEvent } from "@monitor/core";
 import type { BookmarkRecord } from "./bookmark-repository.js";
 export type MonitorNotification = {
     readonly type: "task.started";
@@ -12,7 +12,7 @@ export type MonitorNotification = {
 } | {
     readonly type: "task.deleted";
     readonly payload: {
-        taskId: string;
+        taskId: TaskId;
     };
 } | {
     readonly type: "session.started";
@@ -32,7 +32,7 @@ export type MonitorNotification = {
 } | {
     readonly type: "bookmark.deleted";
     readonly payload: {
-        bookmarkId: string;
+        bookmarkId: BookmarkId;
     };
 } | {
     readonly type: "tasks.purged";

@@ -1,22 +1,22 @@
-import type { EvidenceLevel, EventClassification, EventClassificationMatch, EventClassificationReason, MonitoringTask, RuntimeCoverageItem, TaskEvaluation, TimelineEvent, TimelineLane, WorkflowSummary } from "@monitor/core";
+import type { BookmarkId, EvidenceLevel, EventClassification, EventClassificationMatch, EventClassificationReason, EventId, GoalId, HandoffId, MonitoringEventKind, MonitoringTask, PlanId, RuleId, RuntimeCoverageItem, RuntimeSessionId, RuntimeSource, TaskEvaluation, TaskId, TimelineEvent, TimelineLane, WorkItemId, WorkflowSummary } from "@monitor/core";
 export type { EvidenceLevel, EventClassification, EventClassificationMatch, EventClassificationReason, MonitoringTask, RuntimeCoverageItem, TaskEvaluation, TimelineEvent, TimelineLane, WorkflowSummary };
 export interface TimelineRelation {
-    readonly sourceEventId: string;
-    readonly targetEventId: string;
+    readonly sourceEventId: EventId;
+    readonly targetEventId: EventId;
     readonly relationType?: string;
     readonly label?: string;
     readonly explanation?: string;
     readonly isExplicit: boolean;
-    readonly workItemId?: string;
-    readonly goalId?: string;
-    readonly planId?: string;
-    readonly handoffId?: string;
+    readonly workItemId?: WorkItemId;
+    readonly goalId?: GoalId;
+    readonly planId?: PlanId;
+    readonly handoffId?: HandoffId;
 }
 export interface BookmarkRecord {
-    readonly id: string;
+    readonly id: BookmarkId;
     readonly kind: "task" | "event";
-    readonly taskId: string;
-    readonly eventId?: string;
+    readonly taskId: TaskId;
+    readonly eventId?: EventId;
     readonly title: string;
     readonly note?: string;
     readonly metadata: Record<string, unknown>;
@@ -30,28 +30,28 @@ export interface BookmarksResponse {
 }
 export interface TaskSearchHit {
     readonly id: string;
-    readonly taskId: string;
+    readonly taskId: TaskId;
     readonly title: string;
-    readonly workspacePath?: string;
+    readonly workspacePath?: MonitoringTask["workspacePath"];
     readonly status: MonitoringTask["status"];
     readonly updatedAt: string;
 }
 export interface EventSearchHit {
     readonly id: string;
-    readonly eventId: string;
-    readonly taskId: string;
+    readonly eventId: EventId;
+    readonly taskId: TaskId;
     readonly taskTitle: string;
     readonly title: string;
     readonly snippet?: string;
     readonly lane: TimelineLane;
-    readonly kind: string;
+    readonly kind: MonitoringEventKind;
     readonly createdAt: string;
 }
 export interface BookmarkSearchHit {
     readonly id: string;
-    readonly bookmarkId: string;
-    readonly taskId: string;
-    readonly eventId?: string;
+    readonly bookmarkId: BookmarkId;
+    readonly taskId: TaskId;
+    readonly eventId?: EventId;
     readonly kind: "task" | "event";
     readonly title: string;
     readonly note?: string;
@@ -73,7 +73,7 @@ export interface OverviewStats {
     readonly totalEvents: number;
 }
 export interface ObservabilityRuntimeSource {
-    readonly runtimeSource: string;
+    readonly runtimeSource: RuntimeSource | "unknown";
     readonly taskCount: number;
     readonly runningTaskCount: number;
     readonly promptCaptureRate: number;
@@ -129,8 +129,8 @@ export interface TaskObservabilityFocusSummary {
     }[];
 }
 export interface TaskObservabilitySummary {
-    readonly taskId: string;
-    readonly runtimeSource?: string;
+    readonly taskId: TaskId;
+    readonly runtimeSource?: RuntimeSource;
     readonly totalDurationMs: number;
     readonly activeDurationMs: number;
     readonly totalEvents: number;
@@ -172,7 +172,7 @@ export interface TaskObservabilitySummary {
         readonly rejected: number;
         readonly bypassed: number;
         readonly activeState: "clear" | "warning" | "blocked" | "approval_required";
-        readonly activeRuleId: string | undefined;
+        readonly activeRuleId: RuleId | undefined;
         readonly activeLabel: string | undefined;
     };
 }
@@ -189,6 +189,6 @@ export interface TasksResponse {
 export interface TaskDetailResponse {
     readonly task: MonitoringTask;
     readonly timeline: readonly TimelineEvent[];
-    readonly runtimeSessionId?: string;
-    readonly runtimeSource?: string;
+    readonly runtimeSessionId?: RuntimeSessionId;
+    readonly runtimeSource?: RuntimeSource;
 }
