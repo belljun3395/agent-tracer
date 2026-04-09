@@ -43,3 +43,12 @@ export function getRegisteredAliases(): ReadonlyMap<string, string> {
 export function getRegisteredAdapterIds(): readonly string[] {
   return Array.from(registry.keys());
 }
+
+/**
+ * Clears all registered adapters and aliases.
+ * Intended for test isolation — do not call in production code.
+ */
+export function resetRuntimeRegistry(): void {
+  registry.clear();
+  aliasRegistry.clear();
+}
