@@ -1,41 +1,25 @@
-/**
- * @module tools/async-lifecycle
- *
- * Async task lifecycle tool registrations.
- * Manages background task lifecycle events.
- */
-
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { MonitorClient } from "../client.js";
 import { toToolResponse } from "../result.js";
-
-/**
- * Register async lifecycle tools.
- * Includes: monitor_async_task
- */
 export function registerAsyncLifecycleTools(server: McpServer, client: MonitorClient): void {
-  server.registerTool(
-    "monitor_async_task",
-    {
-      title: "Monitor Async Task",
-      description: "Record background task lifecycle events.",
-      inputSchema: {
-        taskId: z.string(),
-        sessionId: z.string().optional(),
-        asyncTaskId: z.string(),
-        asyncStatus: z.enum(["pending", "running", "completed", "error", "cancelled", "interrupt"]),
-        title: z.string().optional(),
-        body: z.string().optional(),
-        description: z.string().optional(),
-        agent: z.string().optional(),
-        category: z.string().optional(),
-        parentSessionId: z.string().optional(),
-        durationMs: z.number().nonnegative().optional(),
-        filePaths: z.array(z.string()).optional(),
-        metadata: z.record(z.unknown()).optional()
-      }
-    },
-    async (input) => toToolResponse(await client.post("/api/async-task", input))
-  );
+    server.registerTool("monitor_async_task", {
+        title: "Monitor Async Task",
+        description: "Record background task lifecycle events.",
+        inputSchema: {
+            taskId: z.string(),
+            sessionId: z.string().optional(),
+            asyncTaskId: z.string(),
+            asyncStatus: z.enum(["pending", "running", "completed", "error", "cancelled", "interrupt"]),
+            title: z.string().optional(),
+            body: z.string().optional(),
+            description: z.string().optional(),
+            agent: z.string().optional(),
+            category: z.string().optional(),
+            parentSessionId: z.string().optional(),
+            durationMs: z.number().nonnegative().optional(),
+            filePaths: z.array(z.string()).optional(),
+            metadata: z.record(z.unknown()).optional()
+        }
+    }, async (input) => toToolResponse(await client.post("/api/async-task", input)));
 }

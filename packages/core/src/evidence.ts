@@ -1,173 +1,141 @@
 import type { TimelineEvent } from "./domain/types.js";
-import {
-  getKnownRuntimeCapabilities,
-  getRuntimeEvidenceProfile,
-  normalizeRuntimeAdapterId
-} from "./runtime-capabilities.helpers.js";
+import { getKnownRuntimeCapabilities, getRuntimeEvidenceProfile, normalizeRuntimeAdapterId } from "./runtime-capabilities.helpers.js";
 import type { RuntimeEvidenceFeatureId } from "./runtime-capabilities.types.js";
-
 export type EvidenceLevel = "proven" | "self_reported" | "inferred" | "unavailable";
-
 export interface EventEvidence {
-  readonly level: EvidenceLevel;
-  readonly reason: string;
+    readonly level: EvidenceLevel;
+    readonly reason: string;
 }
-
 export interface RuntimeCoverageItem {
-  readonly key: RuntimeEvidenceFeatureId | "semantic_events";
-  readonly label: string;
-  readonly level: EvidenceLevel;
-  readonly note: string;
-  readonly automatic?: boolean;
+    readonly key: RuntimeEvidenceFeatureId | "semantic_events";
+    readonly label: string;
+    readonly level: EvidenceLevel;
+    readonly note: string;
+    readonly automatic?: boolean;
 }
-
 export interface RuntimeCoverageSummary {
-  readonly defaultLevel: EvidenceLevel;
-  readonly summary: string;
-  readonly items: readonly RuntimeCoverageItem[];
+    readonly defaultLevel: EvidenceLevel;
+    readonly summary: string;
+    readonly items: readonly RuntimeCoverageItem[];
 }
-
 function selfReported(reason: string): EventEvidence {
-  return { level: "self_reported", reason };
+    return { level: "self_reported", reason };
 }
-
 function proven(reason: string): EventEvidence {
-  return { level: "proven", reason };
+    return { level: "proven", reason };
 }
-
 function inferred(reason: string): EventEvidence {
-  return { level: "inferred", reason };
+    return { level: "inferred", reason };
 }
-
-export function getEventEvidence(
-  runtimeSource: string | undefined,
-  event: Pick<TimelineEvent, "kind" | "lane" | "metadata">
-): EventEvidence {
-  const capabilities = getKnownRuntimeCapabilities(runtimeSource);
-  const captureMode = typeof event.metadata["captureMode"] === "string"
-    ? String(event.metadata["captureMode"]).trim().toLowerCase()
-    : "";
-  const activityType = typeof event.metadata["activityType"] === "string"
-    ? String(event.metadata["activityType"]).trim().toLowerCase()
-    : "";
-
-  if (event.kind === "file.changed") {
-    return inferred("Derived from referenced file paths rather than directly emitted by the runtime.");
-  }
-
-  if (
-    event.kind === "plan.logged"
-    || event.kind === "action.logged"
-    || event.kind === "verification.logged"
-    || event.kind === "rule.logged"
-    || event.kind === "context.saved"
-    || event.kind === "question.logged"
-    || event.kind === "todo.logged"
-    || event.kind === "thought.logged"
-  ) {
-    return selfReported("Semantic event recorded by the agent/adapter instead of directly observed from the runtime.");
-  }
-
-  if (event.kind === "user.message") {
-    if (capabilities?.canCaptureRawUserMessage && captureMode === "raw") {
-      return proven("Runtime adapter captured the raw prompt directly.");
+export function getEventEvidence(runtimeSource: string | undefined, event: Pick<TimelineEvent, "kind" | "lane" | "metadata">): EventEvidence {
+    const capabilities = getKnownRuntimeCapabilities(runtimeSource);
+    const captureMode = typeof event.metadata["captureMode"] === "string"
+        ? String(event.metadata["captureMode"]).trim().toLowerCase()
+        : "";
+    const activityType = typeof event.metadata["activityType"] === "string"
+        ? String(event.metadata["activityType"]).trim().toLowerCase()
+        : "";
+    if (event.kind === "file.changed") {
+        return inferred("Derived from referenced file paths rather than directly emitted by the runtime.");
     }
-    return selfReported("Prompt capture depends on adapter-side logging rather than an automatic runtime observer.");
-  }
-
-  if (event.kind === "assistant.response") {
-    if (capabilities?.canCaptureRawUserMessage) {
-      return proven("Runtime adapter emitted the assistant response boundary automatically.");
+    if (event.kind === "plan.logged"
+        || event.kind === "action.logged"
+        || event.kind === "verification.logged"
+        || event.kind === "rule.logged"
+        || event.kind === "context.saved"
+        || event.kind === "question.logged"
+        || event.kind === "todo.logged"
+        || event.kind === "thought.logged") {
+        return selfReported("Semantic event recorded by the agent/adapter instead of directly observed from the runtime.");
     }
-    return selfReported("Assistant boundary depends on adapter-side logging rather than an automatic runtime observer.");
-  }
-
-  if (event.kind === "tool.used" || event.kind === "terminal.command") {
-    if (capabilities?.canObserveToolCalls) {
-      return proven("The runtime adapter can automatically observe tool and terminal activity.");
+    if (event.kind === "user.message") {
+        if (capabilities?.canCaptureRawUserMessage && captureMode === "raw") {
+            return proven("Runtime adapter captured the raw prompt directly.");
+        }
+        return selfReported("Prompt capture depends on adapter-side logging rather than an automatic runtime observer.");
     }
-    return selfReported("Tool activity was logged, but this runtime does not advertise automatic tool observation.");
-  }
-
-  if (event.kind === "agent.activity.logged") {
-    if (activityType === "mcp_call" && capabilities?.canObserveToolCalls) {
-      return proven("MCP/tool coordination was inferred from an automatically observed tool call.");
+    if (event.kind === "assistant.response") {
+        if (capabilities?.canCaptureRawUserMessage) {
+            return proven("Runtime adapter emitted the assistant response boundary automatically.");
+        }
+        return selfReported("Assistant boundary depends on adapter-side logging rather than an automatic runtime observer.");
     }
-    if ((activityType === "delegation" || activityType === "handoff") && capabilities?.canObserveSubagents) {
-      return proven("The runtime adapter can automatically observe delegation/background activity.");
+    if (event.kind === "tool.used" || event.kind === "terminal.command") {
+        if (capabilities?.canObserveToolCalls) {
+            return proven("The runtime adapter can automatically observe tool and terminal activity.");
+        }
+        return selfReported("Tool activity was logged, but this runtime does not advertise automatic tool observation.");
     }
-    return selfReported("Coordination activity was recorded semantically rather than independently observed.");
-  }
-
-  if (event.kind === "task.start" || event.kind === "task.complete" || event.kind === "task.error") {
-    if (capabilities?.canCaptureRawUserMessage) {
-      return proven("Task lifecycle was emitted by a runtime adapter with automatic session/task handling.");
+    if (event.kind === "agent.activity.logged") {
+        if (activityType === "mcp_call" && capabilities?.canObserveToolCalls) {
+            return proven("MCP/tool coordination was inferred from an automatically observed tool call.");
+        }
+        if ((activityType === "delegation" || activityType === "handoff") && capabilities?.canObserveSubagents) {
+            return proven("The runtime adapter can automatically observe delegation/background activity.");
+        }
+        return selfReported("Coordination activity was recorded semantically rather than independently observed.");
     }
-    return selfReported("Task lifecycle events depend on cooperative adapter logging rather than independent runtime observation.");
-  }
-
-  if (event.lane === "background" && capabilities?.canObserveSubagents) {
-    return proven("Background activity was observed through runtime-native subagent tracking.");
-  }
-
-  return selfReported("Recorded event does not have independent runtime-backed proof metadata.");
+    if (event.kind.startsWith("task.")) {
+        if (capabilities?.canCaptureRawUserMessage) {
+            return proven("Task lifecycle was emitted by a runtime adapter with automatic session/task handling.");
+        }
+        return selfReported("Task lifecycle events depend on cooperative adapter logging rather than independent runtime observation.");
+    }
+    if (event.lane === "background" && capabilities?.canObserveSubagents) {
+        return proven("Background activity was observed through runtime-native subagent tracking.");
+    }
+    return selfReported("Recorded event does not have independent runtime-backed proof metadata.");
 }
-
 export function listRuntimeCoverage(runtimeSource: string | undefined): readonly RuntimeCoverageItem[] {
-  const adapterId = normalizeRuntimeAdapterId(runtimeSource);
-  if (!adapterId) {
-    return [];
-  }
-  const profile = getRuntimeEvidenceProfile(adapterId);
-  if (!profile) {
-    return [];
-  }
-  const items: RuntimeCoverageItem[] = profile.features.map((feature) => ({
-    key: feature.id,
-    label: feature.label,
-    level: feature.evidence,
-    note: feature.note,
-    automatic: feature.automatic
-  }));
-
-  const capabilities = getKnownRuntimeCapabilities(runtimeSource);
-  if (!capabilities) {
-    return items;
-  }
-
-  return [
-    ...items,
-    {
-      key: "semantic_events",
-      label: "Semantic Events",
-      level: "self_reported",
-      note: "Planning, verification, question, todo, and rule events still depend on semantic logging by the adapter or agent."
+    const adapterId = normalizeRuntimeAdapterId(runtimeSource);
+    if (!adapterId) {
+        return [];
     }
-  ];
+    const profile = getRuntimeEvidenceProfile(adapterId);
+    if (!profile) {
+        return [];
+    }
+    const items: RuntimeCoverageItem[] = profile.features.map((feature) => ({
+        key: feature.id,
+        label: feature.label,
+        level: feature.evidence,
+        note: feature.note,
+        automatic: feature.automatic
+    }));
+    const capabilities = getKnownRuntimeCapabilities(runtimeSource);
+    if (!capabilities) {
+        return items;
+    }
+    return [
+        ...items,
+        {
+            key: "semantic_events",
+            label: "Semantic Events",
+            level: "self_reported",
+            note: "Planning, verification, question, todo, and rule events still depend on semantic logging by the adapter or agent."
+        }
+    ];
 }
-
 export function getRuntimeCoverageSummary(runtimeSource: string | undefined): RuntimeCoverageSummary {
-  const adapterId = normalizeRuntimeAdapterId(runtimeSource);
-  if (!adapterId) {
+    const adapterId = normalizeRuntimeAdapterId(runtimeSource);
+    if (!adapterId) {
+        return {
+            defaultLevel: "inferred",
+            summary: "No registered runtime coverage profile is available for this task.",
+            items: []
+        };
+    }
+    const profile = getRuntimeEvidenceProfile(adapterId);
+    if (!profile) {
+        return {
+            defaultLevel: "inferred",
+            summary: "No registered runtime coverage profile is available for this task.",
+            items: []
+        };
+    }
     return {
-      defaultLevel: "inferred",
-      summary: "No registered runtime coverage profile is available for this task.",
-      items: []
+        defaultLevel: profile.defaultEvidence,
+        summary: profile.summary,
+        items: listRuntimeCoverage(runtimeSource)
     };
-  }
-
-  const profile = getRuntimeEvidenceProfile(adapterId);
-  if (!profile) {
-    return {
-      defaultLevel: "inferred",
-      summary: "No registered runtime coverage profile is available for this task.",
-      items: []
-    };
-  }
-
-  return {
-    defaultLevel: profile.defaultEvidence,
-    summary: profile.summary,
-    items: listRuntimeCoverage(runtimeSource)
-  };
 }

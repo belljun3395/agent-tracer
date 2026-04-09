@@ -1,14 +1,6 @@
-/**
- * @module infrastructure/sqlite/sqlite-schema
- *
- * SQLite DDL - CREATE TABLE 문과 인덱스 정의.
- * cc_sessions 테이블은 포함하지 않는다.
- */
-
 import type Database from "better-sqlite3";
-
 export function createSchema(db: Database.Database): void {
-  db.exec(`
+    db.exec(`
     create table if not exists monitoring_tasks (
       id text primary key,
       title text not null,
