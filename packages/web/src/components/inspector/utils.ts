@@ -1,67 +1,50 @@
-/**
- * inspector 컴포넌트 공유 유틸리티 함수.
- */
-
 import type { CompactRelation } from "../../lib/insights.js";
-
 export function toRelativePath(filePath: string, workspacePath?: string): string {
-  if (!workspacePath) {
+    if (!workspacePath) {
+        return filePath;
+    }
+    const normalizedWorkspacePath = workspacePath.endsWith("/") ? workspacePath : `${workspacePath}/`;
+    if (filePath.startsWith(normalizedWorkspacePath)) {
+        return filePath.slice(normalizedWorkspacePath.length);
+    }
+    const withSlash = filePath.startsWith("/") ? filePath : `/${filePath}`;
+    if (withSlash.startsWith(normalizedWorkspacePath)) {
+        return withSlash.slice(normalizedWorkspacePath.length);
+    }
     return filePath;
-  }
-
-  const normalizedWorkspacePath = workspacePath.endsWith("/") ? workspacePath : `${workspacePath}/`;
-
-  if (filePath.startsWith(normalizedWorkspacePath)) {
-    return filePath.slice(normalizedWorkspacePath.length);
-  }
-
-  // leading slash가 누락된 절대 경로 처리 (e.g. file watcher 버그로 "Users/..." 형태로 저장된 경우)
-  const withSlash = filePath.startsWith("/") ? filePath : `/${filePath}`;
-  if (withSlash.startsWith(normalizedWorkspacePath)) {
-    return withSlash.slice(normalizedWorkspacePath.length);
-  }
-
-  return filePath;
 }
-
 export function summarizePath(filePath: string, workspacePath?: string): string {
-  const relative = toRelativePath(filePath, workspacePath);
-  if (relative.length <= 42) {
-    return relative;
-  }
-
-  const parts = relative.split("/");
-  const shortened = parts.length > 3 ? parts.slice(-3).join("/") : relative;
-  return shortened.length > 42 ? `…${shortened.slice(-(42 - 1))}` : shortened;
+    const relative = toRelativePath(filePath, workspacePath);
+    if (relative.length <= 42) {
+        return relative;
+    }
+    const parts = relative.split("/");
+    const shortened = parts.length > 3 ? parts.slice(-3).join("/") : relative;
+    return shortened.length > 42 ? `…${shortened.slice(-(42 - 1))}` : shortened;
 }
-
 export function dirnameLabel(filePath: string, workspacePath?: string): string {
-  const relative = toRelativePath(filePath, workspacePath);
-  const segments = relative.split("/");
-
-  if (segments.length <= 1) {
-    return "Workspace root";
-  }
-
-  return segments.slice(0, -1).join("/");
+    const relative = toRelativePath(filePath, workspacePath);
+    const segments = relative.split("/");
+    if (segments.length <= 1) {
+        return "Workspace root";
+    }
+    return segments.slice(0, -1).join("/");
 }
-
 export function summarizeDetailText(value: string, limit = 180): string {
-  const normalized = value.replace(/\s+/g, " ").trim();
-  if (normalized.length <= limit) {
-    return normalized;
-  }
-
-  return `${normalized.slice(0, limit - 1)}…`;
+    const normalized = value.replace(/\s+/g, " ").trim();
+    if (normalized.length <= limit) {
+        return normalized;
+    }
+    return `${normalized.slice(0, limit - 1)}…`;
 }
-
-export function compactRelationLabel(
-  relation: CompactRelation
-): { label: string; tone: "warning" | "success" | "accent" | "neutral" } | null {
-  switch (relation) {
-    case "before-compact": return { label: "pre-compact", tone: "warning" };
-    case "after-compact": return { label: "post-compact", tone: "success" };
-    case "across-compact": return { label: "across compact", tone: "accent" };
-    case "no-compact": return null;
-  }
+export function compactRelationLabel(relation: CompactRelation): {
+    label: string;
+    tone: "warning" | "success" | "accent" | "neutral";
+} | null {
+    switch (relation) {
+        case "before-compact": return { label: "pre-compact", tone: "warning" };
+        case "after-compact": return { label: "post-compact", tone: "success" };
+        case "across-compact": return { label: "across compact", tone: "accent" };
+        case "no-compact": return null;
+    }
 }
