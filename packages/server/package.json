@@ -10,7 +10,7 @@
     }
   },
   "scripts": {
-    "build": "tsup src/index.ts --format esm --dts --clean --external @huggingface/transformers --external @monitor/core --external better-sqlite3 --external express --external ws --external zod",
+    "build": "tsup",
     "lint": "eslint src",
     "test": "vitest run"
   },
