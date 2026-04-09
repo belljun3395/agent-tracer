@@ -1,5 +1,4 @@
 import {
-  CLAUDE_RUNTIME_SOURCE,
   createMessageId,
   ellipsize,
   ensureRuntimeSession,
@@ -50,17 +49,6 @@ async function main(): Promise<void> {
   });
 
   hookLog("stop", "assistant-response posted", { stopReason, hasText: !!responseText });
-
-  // Complete the task when the assistant finishes a turn.
-  // session_end.ts will fire afterwards but completeTask is unset there (idempotent).
-  await postJson("/api/runtime-session-end", {
-    runtimeSource: CLAUDE_RUNTIME_SOURCE,
-    runtimeSessionId: sessionId,
-    completeTask: true,
-    completionReason: "assistant_turn_complete",
-    summary: responseText ? ellipsize(responseText, 200) : undefined
-  });
-  hookLog("stop", "task completed", { stopReason });
 }
 
 void main().catch((err: unknown) => {
