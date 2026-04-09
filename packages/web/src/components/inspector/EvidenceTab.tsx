@@ -9,7 +9,6 @@ import { formatRelativeTime } from "../../lib/timeline.js";
 import { Badge } from "../ui/Badge.js";
 import { Button } from "../ui/Button.js";
 import { PanelCard } from "../ui/PanelCard.js";
-import { SectionCard } from "./SectionCard.js";
 import { FileActivitySection } from "./FileActivitySection.js";
 import { ExploredFilesSection } from "./ExploredFilesSection.js";
 import { cardShell, cardHeader, cardBody, innerPanel, monoText } from "./styles.js";
@@ -182,40 +181,6 @@ function ExplorationInsightCard({
                 <strong className="mt-2 block text-[1.05rem] text-[var(--exploration)]">{insight.uniqueWebLookups}</strong>
               </div>
             </div>
-
-            {(insight.preCompactFiles > 0 || insight.postCompactFiles > 0 || insight.acrossCompactFiles > 0) && (
-              <div className="grid grid-cols-3 gap-2 max-md:grid-cols-1">
-                <div className={innerPanel + " p-3"}>
-                  <span className="block text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">Pre-compact</span>
-                  <strong className="mt-2 block text-[1.05rem] text-[color-mix(in_srgb,#f59e0b_80%,var(--text-1))]">{insight.preCompactFiles}</strong>
-                </div>
-                <div className={innerPanel + " p-3"}>
-                  <span className="block text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">Post-compact</span>
-                  <strong className="mt-2 block text-[1.05rem] text-[color-mix(in_srgb,#10b981_80%,var(--text-1))]">{insight.postCompactFiles}</strong>
-                </div>
-                <div className={innerPanel + " p-3"}>
-                  <span className="block text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">Across compact</span>
-                  <strong className="mt-2 block text-[1.05rem] text-[var(--accent)]">{insight.acrossCompactFiles}</strong>
-                </div>
-              </div>
-            )}
-
-            {(insight.preCompactWebLookups > 0 || insight.postCompactWebLookups > 0 || insight.acrossCompactWebLookups > 0) && (
-              <div className="grid grid-cols-3 gap-2 max-md:grid-cols-1">
-                <div className={innerPanel + " p-3"}>
-                  <span className="block text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">Web Pre-compact</span>
-                  <strong className="mt-2 block text-[1.05rem] text-[color-mix(in_srgb,#f59e0b_80%,var(--text-1))]">{insight.preCompactWebLookups}</strong>
-                </div>
-                <div className={innerPanel + " p-3"}>
-                  <span className="block text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">Web Post-compact</span>
-                  <strong className="mt-2 block text-[1.05rem] text-[color-mix(in_srgb,#10b981_80%,var(--text-1))]">{insight.postCompactWebLookups}</strong>
-                </div>
-                <div className={innerPanel + " p-3"}>
-                  <span className="block text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">Web Across compact</span>
-                  <strong className="mt-2 block text-[1.05rem] text-[var(--accent)]">{insight.acrossCompactWebLookups}</strong>
-                </div>
-              </div>
-            )}
 
             {toolEntries.length > 0 && (
               <div>

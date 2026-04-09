@@ -22,13 +22,11 @@ import {
   buildInspectorEventTitle,
   buildMentionedFileVerifications,
   buildObservabilityStats,
-  buildRuleCoverage,
   buildQuestionGroups,
   buildSubagentInsight,
   buildTagInsights,
   buildTaskExtraction,
   buildTodoGroups,
-  collectRecentRuleDecisions,
   collectExploredFiles,
   collectFileActivity,
   collectPlanSteps,
@@ -622,14 +620,6 @@ export function EventInspector({
     () => buildTodoGroups(taskTimeline),
     [taskTimeline]
   );
-  const ruleCoverage = useMemo(
-    () => buildRuleCoverage(taskTimeline),
-    [taskTimeline]
-  );
-  const recentRuleDecisions = useMemo(
-    () => collectRecentRuleDecisions(taskTimeline),
-    [taskTimeline]
-  );
   const subagentInsight = useMemo(
     () => buildSubagentInsight(taskTimeline),
     [taskTimeline]
@@ -1196,8 +1186,6 @@ export function EventInspector({
         ) : activeTab === "overview" ? (
           <OverviewTab
             observability={observability}
-            ruleCoverage={ruleCoverage}
-            recentRuleDecisions={recentRuleDecisions}
             subagentInsight={subagentInsight}
           />
 
@@ -1228,8 +1216,6 @@ export function EventInspector({
             taskTitle={selectedTaskTitle ?? taskDetail?.task.title ?? ""}
             workspacePath={taskDetail?.task.workspacePath}
             taskExtraction={taskExtraction}
-            compactInsight={compactInsight}
-            selectedTag={selectedTag}
             taskTimeline={taskTimeline}
             handoffPlans={handoffPlans}
             handoffExploredFiles={handoffExploredFiles}
@@ -1241,7 +1227,6 @@ export function EventInspector({
             evaluation={taskEvaluation}
             isSavingEvaluation={isSavingTaskEvaluation}
             isSavedEvaluation={isSavedTaskEvaluation}
-            onSelectTag={onSelectTag}
             onSaveEvaluation={saveTaskEvaluation}
           />
         )}
