@@ -1,7 +1,9 @@
 import {
   buildSemanticMetadata,
+  cacheSessionResult,
   defaultTaskTitle,
   ensureRuntimeSession,
+  getCachedSessionResult,
   getSessionId,
   getToolInput,
   hookLog,
@@ -35,7 +37,11 @@ async function main(): Promise<void> {
     return;
   }
 
-  const ids = await ensureRuntimeSession(sessionId);
+  const ids = getCachedSessionResult(sessionId) ?? await (async () => {
+    const fresh = await ensureRuntimeSession(sessionId);
+    cacheSessionResult(sessionId, fresh);
+    return fresh;
+  })();
 
   const metadata = {
     toolInput: stringifyToolInput(toolInput)
@@ -103,7 +109,11 @@ async function main(): Promise<void> {
   if (!childSessionId) return;
 
   const childTitle = description || prompt || defaultTaskTitle();
-  const childIds = await ensureRuntimeSession(childSessionId, childTitle);
+  const childIds = getCachedSessionResult(childSessionId) ?? await (async () => {
+    const fresh = await ensureRuntimeSession(childSessionId, childTitle);
+    cacheSessionResult(childSessionId, fresh);
+    return fresh;
+  })();
   await postJson("/api/task-link", {
     taskId: childIds.taskId,
     taskKind: "background",

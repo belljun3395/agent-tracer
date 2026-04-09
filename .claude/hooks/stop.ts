@@ -1,7 +1,9 @@
 import {
+  cacheSessionResult,
   createMessageId,
   ellipsize,
   ensureRuntimeSession,
+  getCachedSessionResult,
   getSessionId,
   hookLog,
   hookLogPayload,
@@ -28,7 +30,11 @@ async function main(): Promise<void> {
     ? ellipsize(responseText, 120)
     : `Response (${stopReason})`;
 
-  const ids = await ensureRuntimeSession(sessionId);
+  const ids = getCachedSessionResult(sessionId) ?? await (async () => {
+    const fresh = await ensureRuntimeSession(sessionId);
+    cacheSessionResult(sessionId, fresh);
+    return fresh;
+  })();
 
   const usage = payload.usage as Record<string, unknown> | undefined;
 

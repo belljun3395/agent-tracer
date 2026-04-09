@@ -60,6 +60,43 @@ export async function ensureRuntimeSession(
     });
 }
 
+// ─── Session Result Cache ─────────────────────────────────────────────────────
+// Caches the result of ensureRuntimeSession keyed by sessionId in a temp file.
+// ensure_task.ts (PreToolUse) writes the cache; PostToolUse hooks read it to
+// avoid a second concurrent server round-trip that can produce duplicate entries.
+
+const SESSION_CACHE_DIR = path.join(PROJECT_DIR, ".claude", ".session-cache");
+
+export function getCachedSessionResult(sessionId: string): RuntimeSessionEnsureResult | null {
+    const cachePath = path.join(SESSION_CACHE_DIR, `${sessionId}.json`);
+    try {
+        return JSON.parse(fs.readFileSync(cachePath, "utf-8")) as RuntimeSessionEnsureResult;
+    } catch {
+        return null;
+    }
+}
+
+export function cacheSessionResult(sessionId: string, result: RuntimeSessionEnsureResult): void {
+    try {
+        fs.mkdirSync(SESSION_CACHE_DIR, { recursive: true });
+        fs.writeFileSync(
+            path.join(SESSION_CACHE_DIR, `${sessionId}.json`),
+            JSON.stringify(result)
+        );
+    } catch {
+        // Cache write failure must not block hook execution
+    }
+}
+
+export function deleteCachedSessionResult(sessionId: string): void {
+    const cachePath = path.join(SESSION_CACHE_DIR, `${sessionId}.json`);
+    try {
+        fs.unlinkSync(cachePath);
+    } catch {
+        // Already gone — ignore
+    }
+}
+
 export function isRecord(value: unknown): value is JsonObject {
     return typeof value === "object" && value !== null && !Array.isArray(value);
 }

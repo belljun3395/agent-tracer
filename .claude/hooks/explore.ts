@@ -2,7 +2,9 @@ import * as path from "node:path";
 
 import {
   buildSemanticMetadata,
+  cacheSessionResult,
   ensureRuntimeSession,
+  getCachedSessionResult,
   getSessionId,
   getToolInput,
   hookLog,
@@ -31,7 +33,11 @@ async function main(): Promise<void> {
     return;
   }
 
-  const ids = await ensureRuntimeSession(sessionId);
+  const ids = getCachedSessionResult(sessionId) ?? await (async () => {
+    const fresh = await ensureRuntimeSession(sessionId);
+    cacheSessionResult(sessionId, fresh);
+    return fresh;
+  })();
   let title = `Explore: ${toolName}`;
   let body = `Used ${toolName} to explore`;
   let filePaths: string[] = [];
