@@ -35,7 +35,6 @@ import {
   collectViolationDescriptions,
   collectWebLookups,
   type CompactInsight,
-  type CompactRelation,
   type DirectoryMentionVerification,
   type ExplorationInsight,
   type ExploredFileStat,
@@ -85,6 +84,13 @@ import {
 import { SectionCard } from "./inspector/SectionCard.js";
 import { QuestionGroupSection } from "./inspector/QuestionGroupSection.js";
 import { TodoGroupSection } from "./inspector/TodoGroupSection.js";
+import {
+  toRelativePath,
+  summarizePath,
+  dirnameLabel,
+  summarizeDetailText,
+  compactRelationLabel
+} from "./inspector/utils.js";
 
 export type PanelTabId = "inspector" | "overview" | "evidence" | "actions";
 
@@ -693,15 +699,6 @@ function DetailTaskModel({ summary }: { readonly summary: ModelSummary }): React
       )}
     </SectionCard>
   );
-}
-
-function compactRelationLabel(relation: CompactRelation): { label: string; tone: "warning" | "success" | "accent" | "neutral" } | null {
-  switch (relation) {
-    case "before-compact": return { label: "pre-compact", tone: "warning" };
-    case "after-compact": return { label: "post-compact", tone: "success" };
-    case "across-compact": return { label: "across compact", tone: "accent" };
-    case "no-compact": return null;
-  }
 }
 
 const EXPLORATION_SORT_OPTIONS: ReadonlyArray<{ readonly key: ExplorationSortKey; readonly label: string }> = [
@@ -1638,56 +1635,6 @@ function TagExplorerCard({
   );
 }
 
-function toRelativePath(filePath: string, workspacePath?: string): string {
-  if (!workspacePath) {
-    return filePath;
-  }
-
-  const normalizedWorkspacePath = workspacePath.endsWith("/") ? workspacePath : `${workspacePath}/`;
-
-  if (filePath.startsWith(normalizedWorkspacePath)) {
-    return filePath.slice(normalizedWorkspacePath.length);
-  }
-
-  // leading slash가 누락된 절대 경로 처리 (e.g. file watcher 버그로 "Users/..." 형태로 저장된 경우)
-  const withSlash = filePath.startsWith("/") ? filePath : `/${filePath}`;
-  if (withSlash.startsWith(normalizedWorkspacePath)) {
-    return withSlash.slice(normalizedWorkspacePath.length);
-  }
-
-  return filePath;
-}
-
-function summarizePath(filePath: string, workspacePath?: string): string {
-  const relative = toRelativePath(filePath, workspacePath);
-  if (relative.length <= 42) {
-    return relative;
-  }
-
-  const parts = relative.split("/");
-  const shortened = parts.length > 3 ? parts.slice(-3).join("/") : relative;
-  return shortened.length > 42 ? `…${shortened.slice(-(42 - 1))}` : shortened;
-}
-
-function dirnameLabel(filePath: string, workspacePath?: string): string {
-  const relative = toRelativePath(filePath, workspacePath);
-  const segments = relative.split("/");
-
-  if (segments.length <= 1) {
-    return "Workspace root";
-  }
-
-  return segments.slice(0, -1).join("/");
-}
-
-function summarizeDetailText(value: string, limit = 180): string {
-  const normalized = value.replace(/\s+/g, " ").trim();
-  if (normalized.length <= limit) {
-    return normalized;
-  }
-
-  return `${normalized.slice(0, limit - 1)}…`;
-}
 
 /**
  * 이벤트 상세 정보 및 지원 패널 전체를 담당하는 inspector 컴포넌트.
