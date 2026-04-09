@@ -7,11 +7,11 @@
  */
 import "reflect-metadata";
 import path from "node:path";
-import http from "node:http";
+import type http from "node:http";
 import { NestFactory } from "@nestjs/core";
 import { WebSocketServer } from "ws";
 import { AppModule } from "./app.module.js";
-import { EventBroadcaster } from "../presentation/ws/event-broadcaster.js";
+import { EventBroadcaster } from "../ws/event-broadcaster.js";
 import { MonitorServiceProvider } from "./service/monitor-service.provider.js";
 import { MONITOR_PORTS_TOKEN, type PortsWithClose } from "./database/database.provider.js";
 
@@ -53,12 +53,11 @@ async function bootstrap() {
   console.log(`[nestjs-server] listening on http://127.0.0.1:${port}`);
   console.log(`[nestjs-server] database: ${databasePath}`);
 
-  process.on("SIGTERM", async () => {
+  process.on("SIGTERM", () => {
     wss.close();
     const ports = nestApp.get<PortsWithClose>(MONITOR_PORTS_TOKEN);
     ports.close();
-    await nestApp.close();
-    process.exit(0);
+    void nestApp.close().then(() => { process.exit(0); });
   });
 }
 

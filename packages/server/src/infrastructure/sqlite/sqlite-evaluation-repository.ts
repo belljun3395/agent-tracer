@@ -181,7 +181,7 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
 
   async listEvaluations(rating?: "good" | "skip"): Promise<readonly WorkflowSummary[]> {
     const rows = this.loadSearchRows(undefined, rating);
-    return rows
+    return [...rows]
       .sort(compareWorkflowSummaryRows)
       .map((row) => this.hydrateWorkflowSummary(row));
   }

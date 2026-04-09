@@ -10,7 +10,7 @@
  * (backward-compat shim) rather than this module directly.
  */
 
-import React from "react";
+import type React from "react";
 import { create } from "zustand";
 
 import {

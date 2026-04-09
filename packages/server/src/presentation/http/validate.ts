@@ -15,7 +15,7 @@
  * so downstream handlers receive the clean, type-safe payload.
  */
 import type { Request, Response, NextFunction, RequestHandler } from "express";
-import { ZodSchema } from "zod";
+import type { ZodSchema } from "zod";
 
 /**
  * Target selects which part of the request to validate.

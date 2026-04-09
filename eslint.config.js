@@ -26,7 +26,12 @@ export default tseslint.config(
     },
     rules: {
       "@typescript-eslint/consistent-type-imports": "error",
-      "@typescript-eslint/no-floating-promises": "error"
+      "@typescript-eslint/no-floating-promises": "error",
+      "@typescript-eslint/no-unused-vars": ["error", {
+        "varsIgnorePattern": "^_",
+        "argsIgnorePattern": "^_",
+        "caughtErrorsIgnorePattern": "^_"
+      }]
     }
   },
   {

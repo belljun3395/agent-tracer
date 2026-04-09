@@ -6,7 +6,7 @@
  * 기존 index.ts의 서버 시작 코드를 수정 없이 재사용할 수 있다.
  */
 import "reflect-metadata";
-import http from "node:http";
+import type http from "node:http";
 import type express from "express";
 import { NestFactory } from "@nestjs/core";
 import { WebSocketServer } from "ws";
@@ -15,7 +15,6 @@ import { AppModule } from "../presentation/nestjs/app.module.js";
 import { EventBroadcaster } from "../presentation/ws/event-broadcaster.js";
 import { GlobalExceptionFilter } from "../presentation/nestjs/filters/zod-exception.filter.js";
 import { MonitorServiceProvider } from "../presentation/nestjs/service/monitor-service.provider.js";
-import { MonitorService } from "../application/monitor-service.js";
 import { MONITOR_PORTS_TOKEN, type PortsWithClose } from "../presentation/nestjs/database/database.provider.js";
 import type { RuntimeOptions, MonitorRuntime } from "./create-monitor-runtime.js";
 
@@ -48,7 +47,7 @@ export async function createNestMonitorRuntime(options: RuntimeOptions): Promise
     socket.destroy();
   });
 
-  const service = nestApp.get(MonitorServiceProvider) as MonitorService;
+  const service = nestApp.get(MonitorServiceProvider);
 
   wss.on("connection", (ws) => {
     broadcaster.addClient(ws);
@@ -68,7 +67,7 @@ export async function createNestMonitorRuntime(options: RuntimeOptions): Promise
   const app = nestApp.getHttpAdapter().getInstance() as ReturnType<typeof express>;
 
   return {
-    service: service as MonitorService,
+    service: service,
     app,
     server,
     wss,
