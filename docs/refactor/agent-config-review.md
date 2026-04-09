@@ -1,194 +1,301 @@
-# Agent Tracer 에이전트 설정 검토 및 세션 Resume 문제 분석
+# Agent Config (Claude Code 훅) 리뷰
 
-> 작성일: 2026-04-09
-> 범위: `.claude/`, `.opencode/`, `skills/`, `.agents/`, `AGENTS.md` 설정 파일 전체 + 세션 resume 동작
+## 개요
 
-## Context
+`.claude/hooks/` 디렉토리의 Claude Code 훅 설정을 리뷰하고 개선한다.
+`packages/` 코드와 독립적이므로 **Core/Server, Web 리팩토링과 완전 병렬로 수행 가능**하다.
 
-Agent Tracer는 Claude Code, OpenCode, Codex 등 AI CLI 에이전트의 활동을 추적하는 모니터링 시스템이다.
-각 에이전트별로 설정 파일(`.claude/`, `.opencode/`, `skills/`, `.agents/`)이 존재하며,
-이들이 `packages/`의 모니터 서버 API와 MCP 도구를 올바르게 사용하는지 검토한다.
-또한 최근 CLI bridge 인프라가 제거(`e1f1b02`)되면서 세션 resume 기능이 깨진 상태를 분석한다.
+### 현재 ��태
 
----
+| 항목 | 현황 |
+|------|------|
+| 훅 파일 | 13개 (`.claude/hooks/*.ts`) |
+| 실행 방식 | `tsx`로 직접 실행 (트랜스파일 없이) |
+| 공유 유틸 | `common.ts` (API 호출, 세션 관리, 로깅) |
+| API timeout | 1,000ms (`postJson` 함수) |
+| 등록 | `.claude/settings.json` (12개 훅 이벤트) |
 
-## 1. 검토 결과: 각 에이전트 설정의 논리적 문제
+### 훅 목록
 
-### 1-A. Claude Code (`.claude/`)
-
-**구조: 양호** — Hook 기반으로 자동 이벤트 캡처. 11개 hook이 `settings.json`에 등록됨.
-
-#### 문제 1: `stop.ts`에서 `completeTask: true`로 매번 태스크를 완료시킴
-
-- `.claude/hooks/stop.ts:56-62` — Stop hook이 `completeTask: true`로 `runtime-session-end`를 호출
-- `.claude/hooks/session_end.ts:32-37` — SessionEnd hook은 `completeTask` 없이 호출
-- **문제**: Stop은 매 assistant turn 종료마다 발생한다.
-  한 세션에서 여러 턴이 있을 때, 첫 턴 완료 시 task가 `completed`로 전환됨.
-  다음 턴의 `session_start.ts`가 `ensureRuntimeSession`을 호출하면 task를 다시 `running`으로 바꾸지만,
-  **task가 completed→running으로 불필요하게 왕복**하게 됨.
-- **영향**: 웹 대시보드에서 task 상태가 깜빡거리고, `task.updated` WebSocket 이벤트가 과도하게 발생.
-
-#### 문제 2: `session_end.ts`와 `stop.ts`의 이중 호출 경합
-
-- Claude Code는 Stop → SessionEnd 순서로 훅을 실행
-- `stop.ts`가 먼저 `runtime-session-end`(completeTask:true)를 보내 세션을 종료+태스크 완료
-- 직후 `session_end.ts`가 같은 `runtimeSessionId`로 `runtime-session-end`를 다시 보냄
-- 서버의 `endRuntimeSession`은 binding을 찾지 못해 (이미 `clearSession`됨) no-op이 되지만, **불필요한 API 호출**이 발생
-
-#### 문제 3: `common.ts`의 API timeout이 1초로 너무 짧음
-
-- `.claude/hooks/common.ts:38` — `AbortSignal.timeout(1_000)`
-- 서버가 바쁠 때 timeout이 쉽게 발생
-- MCP client는 5초 timeout + 3회 retry인데 hook은 1초 단발
-- **영향**: 이벤트 유실 가능
-
-#### 문제 4: `mcp__agent-tracer__*` 도구가 `tool_used.ts`에서 필터링되지 않음
-
-- `settings.json`의 `PostToolUse` 매처 `mcp__.*`가 모든 MCP 도구를 `tool_used.ts`로 보냄
-- `.claude/hooks/tool_used.ts:59-76`에서 MCP 도구를 `agent-activity`로 기록하는데,
-  `agent-tracer` MCP 도구(`monitor_*`)도 포함됨
-- **확인됨**: `tool_used.ts`에 `agent-tracer` 서버 필터링 로직이 없음
-- `monitor_tool_used` 호출 → `tool_used.ts` 발동 → `agent-activity` 기록 → 무한 루프는 아니지만 노이즈 이벤트 생성
-- **수정**: `mcpTool.server === "agent-tracer"` 시 early return 필요
+| 훅 파일 | 이벤트 | `ensureRuntimeSession` 호출 |
+|---------|--------|---------------------------|
+| `session_start.ts` | SessionStart | O |
+| `session_end.ts` | SessionEnd | X (별도 처리) |
+| `ensure_task.ts` | PreToolUse | O |
+| `user_prompt.ts` | UserPromptSubmit | X |
+| `tool_used.ts` | PostToolUse (Edit, Write, mcp) | O |
+| `explore.ts` | PostToolUse (Read, Glob, Grep, Web) | O |
+| `terminal.ts` | PostToolUse (Bash) | O |
+| `agent_activity.ts` | PostToolUse (Agent, Skill) | O |
+| `todo.ts` | PostToolUse (TodoWrite 등) | O |
+| `subagent_lifecycle.ts` | SubagentStart/Stop | O |
+| `compact.ts` | PreCompact/PostCompact | O |
+| `stop.ts` | Stop | O |
 
 ---
 
-### 1-B. OpenCode (`.opencode/plugins/monitor.ts`)
+## P0-a — stop.ts / tool_used.ts 즉시 수정
 
-**구조: 양호** — 가장 복잡한 설정 (2,744줄). 자체 세션 상태 머신 보유.
-
-#### 문제 5: 인메모리 상태만 사용 — 프로세스 재시작 시 세션 상태 유실
-
-- `sessionStates`, `suspendedSessionIds` 등이 모두 인메모리 Map/Set
-- OpenCode 프로세스가 재시작되면 진행 중이던 세션 상태를 복구할 수 없음
-- Claude Code는 `.subagent-registry.json`으로 디스크에 퍼시스트하지만, OpenCode 플러그인은 하지 않음
-
-#### 문제 6: `findReusablePrimarySubagentState()` — title 기반 매칭의 취약성
-
-- 동일 제목의 다른 태스크가 있으면 잘못된 세션을 재사용할 수 있음
-
----
-
-### 1-C. Codex (`skills/codex-monitor/SKILL.md`)
-
-**구조: 양호** — 스킬 문서로 수동 이벤트 기록 안내.
-
-#### 문제 7: `CODEX_THREAD_ID` 환경변수 미보장
-
-- Codex CLI가 실제로 `CODEX_THREAD_ID` 환경변수를 제공하는지 공식 문서에서 확인되지 않음
-- fallback으로 `node -e "console.log('codex-' + crypto.randomUUID())"` 사용하지만,
-  매 호출마다 새 UUID를 생성하면 세션 연속성이 깨짐
-- Codex는 `CODEX_SANDBOX_ID` 등의 환경변수는 있지만 `CODEX_THREAD_ID`는 비공식.
-  실제로 비어있을 가능성이 높음
-
-#### 문제 8: MCP 서버 접근 방식 불일치
-
-- Codex 스킬은 MCP 도구(`monitor_*`)를 사용하라고 안내하지만,
-  Codex CLI에서 MCP 서버를 어떻게 연결하는지 설정이 없음
-- `.agents/skills/codex-monitor/SKILL.md`가 `.agents/` 아래에 projection되지만,
-  Codex가 이를 자동으로 인식하는 메커니즘이 불명확
-
----
-
-### 1-D. 범용 스킬 (`skills/monitor/SKILL.md`)
-
-**구조: 양호** — Cursor, Windsurf 등 MCP 환경용.
-
-#### 문제 9: 모든 이벤트를 수동으로 기록해야 함
-
-- 자동 훅이 없으므로 에이전트가 이벤트 기록을 잊으면 타임라인에 빈 구간 발생
-- 가이드라인이지만 강제성이 없음 (구조적 한계)
-
----
-
-## 2. 세션 Resume 문제 분석
-
-### 현재 상태
-
-최근 커밋 `e1f1b02`에서 CLI bridge 인프라가 완전히 제거됨:
-
-- `packages/server/src/application/cli-bridge/` 전체 삭제
-- `packages/web/src/pages/ChatPage.tsx` 및 관련 컴포넌트 삭제
-- WebSocket CLI 핸들러 삭제
-
-### Resume이 안 되는 근본 원인
-
-**CLI bridge의 resume은 "웹 UI에서 CLI 프로세스를 다시 연결"하는 기능이었다.**
-
-- `resumeChat()`이 Claude Code/OpenCode를 headless 프로세스로 실행하고 stdin/stdout 스트림을 관리
-- 이 기능이 삭제되면서 웹 UI에서 기존 세션을 이어받는 경로가 완전히 사라짐
-
-**그러나 서버 레벨의 세션 모델은 건재하다:**
-
-- `POST /api/runtime-session-ensure`는 여전히 동작
-- `runtimeSource + runtimeSessionId` 조합으로 기존 태스크를 찾아 새 세션을 생성할 수 있음
-- 문제는 **웹 UI에서 이 API를 활용하는 프레젠테이션 레이어가 없다**는 것
-
-### Resume 흐름 분석
-
-```
-[서버 API 계층]          정상 동작 — 변경 불필요
-  POST /api/runtime-session-ensure
-  └─ runtimeSessionId가 기존 binding에 있으면 → 기존 taskId 반환
-  └─ taskId만 있고 session 없으면 → 새 session 생성, task를 running으로 전환
-  └─ 없으면 → 새 task + session 생성
-
-[MCP 도구 계층]          정상 동작 — 변경 불필요
-  monitor_runtime_session_ensure
-
-[Claude Code Hooks]     동작함 — 같은 session_id로 재접속하면 기존 task 재사용
-  session_start.ts → ensureRuntimeSession(sessionId)
-  SessionStart(source=resume) hook 발동 시 기존 binding 탐색
-
-[Web UI]                ChatPage 삭제됨 — 새로운 resume UI 필요
-[CLI → Web bridge]      완전 삭제 — CLI 프로세스 관리 레이어 재구축 필요
-```
-
-### 결론
-
-CLI에서의 resume는 **Claude Code 자체의 `--resume` 플래그**로 동작해야 하고,
-Agent Tracer 측에서는 같은 `runtimeSessionId`가 들어오면 자동으로 기존 task에 연결된다.
-문제는 웹 UI에서 "이 세션을 CLI로 이어서 작업하겠다"라는 브릿지가 삭제된 것.
-
-**Claude Code `--resume` 경로**:
-1. 사용자가 `claude --resume` 실행
-2. `SessionStart(source=resume)` hook 발동
-3. `session_start.ts` → `ensureRuntimeSession(동일 session_id)`
-4. 서버가 기존 binding의 taskId를 찾아 새 monitorSession 생성
-5. **이 경로는 이미 동작해야 함** — 동작하지 않는다면 별도 디버깅 필요
-
----
-
-## 3. 권장 수정 사항
-
-### P0 — 즉시 수정
+이중 호출 경합(P0-b) 이전에 먼저 해결할 단순 버그:
 
 | # | 문제 | 수정 위치 | 수정 내용 |
 |---|------|----------|----------|
-| 1 | stop.ts completeTask 과다 | `.claude/hooks/stop.ts:56-62` | `completeTask: true` 제거. `completionReason: "assistant_turn_complete"`만 보내고 task 완료는 `SessionEnd` hook에 위임 |
-| 2 | agent-tracer MCP 자기 참조 | `.claude/hooks/tool_used.ts` | `mcpTool.server === "agent-tracer"` 시 early return 추가 |
-
-### P1 — 세션 Resume 복구
-
-| # | 옵션 | 설명 |
-|---|------|------|
-| A | "Continue in CLI" 안내 | 웹 UI에서 `claude --resume <session-id>` 명령어를 복사할 수 있게 안내 버튼 추가 |
-| B | 경량 CLI bridge 재구축 | WebSocket 기반 CLI 프로세스 관리 (이전보다 경량화) |
-| C | 모니터링 전용 | CLI resume은 CLI 도구 자체의 기능에 위임하고, 웹은 모니터링 전용으로 유지 |
-
-### P2 — 개선
-
-| # | 문제 | 수정 위치 | 수정 내용 |
-|---|------|----------|----------|
-| 5 | API timeout 너무 짧음 | `.claude/hooks/common.ts:38` | `AbortSignal.timeout(3_000)` 으로 상향 |
-| 6 | Codex CODEX_THREAD_ID 미보장 | `skills/codex-monitor/SKILL.md` | 안정적인 세션 식별자 전략 재설계 (파일 기반 퍼시스트 등) |
-| 7 | OpenCode 세션 상태 유실 | `.opencode/plugins/monitor.ts` | 세션 상태 디스크 퍼시스트 추가 |
+| 1 | stop.ts `completeTask: true` 과다 | `.claude/hooks/stop.ts:56-62` | `completeTask: true` 제거. task 완료는 `SessionEnd` hook에 위임 |
+| 2 | stop.ts/session_end.ts 이중 종료 | `.claude/hooks/stop.ts` | Stop hook에서 `runtime-session-end` 호출 제거. 세션 종료를 `SessionEnd` hook에 일원화 |
+| 3 | agent-tracer MCP 자기 참조 | `.claude/hooks/tool_used.ts:59-76` | `mcpTool.server === "agent-tracer"` 시 early return 추가 |
 
 ---
 
-## 4. 검증 방법
+## P0-b — 이중 호출 경합 (Critical)
 
-1. **Claude Code resume 테스트**: `claude --resume` 실행 후 웹 대시보드에서 같은 task 아래 새 session이 생기는지 확인
-2. **Stop/SessionEnd 이중 호출 확인**: `.claude/hooks.log`에서 Stop → SessionEnd 순서 및 API 응답 확인
-3. **MCP 자기 참조 확인**: `monitor_*` MCP 도구 호출 시 `tool_used` 이벤트가 추가로 기록되는지 확인
-4. **Codex 세션 연속성 테스트**: 같은 thread에서 여러 턴 실행 후 동일 task 아래 기록되는지 확인
+### 문제
+
+`PreToolUse` 이벤트에서 `ensure_task.ts`가 `ensureRuntimeSession(sessionId)`를 호출하고,
+직후 `PostToolUse` 이벤트에서 해당 도구의 훅(`tool_used.ts`, `explore.ts`, `terminal.ts` 등)이
+다시 `ensureRuntimeSession(sessionId)`를 호출한다.
+
+```
+시간축 →
+├─ PreToolUse ─┤├─ [도구 실행] ─┤├─ PostToolUse ─┤
+    │                                   │
+    ensure_task.ts                      tool_used.ts
+    ensureRuntimeSession(sid)           ensureRuntimeSession(sid)
+```
+
+### 경합 시나리오
+
+서버의 `ensureRuntimeSession()` (`task-lifecycle-service.ts:257`)은 다음 순서로 동작:
+
+1. `runtimeBindings.find(source, sessionId)` — binding 존재 시 즉시 반환
+2. `runtimeBindings.findTaskId(source, sessionId)` — task 연결만 있으면 새 session 생성
+3. 위 둘 다 없으면 → 새 task + session 생성
+
+**첫 번째 호출이 binding을 저장하기 전에 두 번째 호출이 1단계에 도달하면**,
+두 호출 모두 3단계로 진행하여 동일 세션에 대해 task/session이 중복 생성된다.
+
+### 해결 방안
+
+#### 방안 A: 클라이언트 측 캐싱 (권장)
+
+`ensure_task.ts`의 결과를 임시파일에 캐싱하여 PostToolUse 훅에서 재사용:
+
+```typescript
+// common.ts에 추가
+const CACHE_DIR = path.join(PROJECT_DIR, ".claude", ".session-cache");
+
+export async function getCachedSessionResult(
+  sessionId: string
+): Promise<RuntimeSessionEnsureResult | null> {
+  const cachePath = path.join(CACHE_DIR, `${sessionId}.json`);
+  try {
+    return JSON.parse(fs.readFileSync(cachePath, "utf-8"));
+  } catch {
+    return null;
+  }
+}
+
+export async function cacheSessionResult(
+  sessionId: string,
+  result: RuntimeSessionEnsureResult
+): Promise<void> {
+  fs.mkdirSync(CACHE_DIR, { recursive: true });
+  fs.writeFileSync(
+    path.join(CACHE_DIR, `${sessionId}.json`),
+    JSON.stringify(result)
+  );
+}
+```
+
+`ensure_task.ts`에서 결과 저장, PostToolUse 훅에서 캐시 우�� 사용.
+
+#### 방안 B: ���버 측 idempotency
+
+서버의 `ensureRuntimeSession`에서 `runtimeBindings.find()` 전에 잠금 또는
+upsert의 원자성을 보장. better-sqlite3의 동기 특성상 실제 DB 레벨 경합은 적지만,
+Node.js 이벤트 루프 내 비동기 간극에서 발생할 수 있다.
+
+---
+
+## P1 — 세션 Resume 처리
+
+### 현재 동작
+
+`session_start.ts`가 4가지 source를 각각 다른 이벤트로 기록:
+
+```typescript
+const TITLES: Record<string, string> = {
+  startup: "Session started",
+  resume: "Session resumed",
+  clear: "Conversation cleared",
+  compact: "Session resumed after compact"
+};
+```
+
+`session_end.ts`는 `clear` 이벤트 시 "double-fire" 방지를 위해 스킵:
+
+```typescript
+// session_end.ts:26
+// session_start.ts records the "Conversation cleared" event — skip here to avoid double-fire.
+if (reason === "clear") {
+  hookLog("session_end", "skipped — clear event handled by session_start");
+  return;
+}
+```
+
+### 옵션 비교
+
+| 기준 | A (CLI 안내 버튼) | B (CLI bridge 재구축) | **C (모니터링 전용)** |
+|------|------------------|----------------------|---------------------|
+| 구현 비용 | 낮음 | 높음 (e1f1b02에서 삭제된 이유: 복잡성) | 없음 |
+| 유지보수 | 낮음 | 높음 (프로세스 관리, 보안) | 없음 |
+| UX | CLI 명령어 복사 필요 | 웹에서 직접 resume | 웹은 읽기 전용 |
+| 제품 방향성 | 절충 | 웹 IDE화 | 모니터링 도구 본연의 역할 |
+
+> 옵션 A는 옵션 C의 보완으로 추후 추가 가능 (낮은 비용).
+
+### 권장: 옵션 C — 모니터링 전용
+
+현재 구조를 유지하되, `session_end.ts`의 "clear skip" 패턴을 다른 경합 시나리오에도 확장:
+
+- `compact` 시에도 유사한 중복 방지 로직 추가
+- `resume` 시 이전 session 자동 종료 여부 확인
+
+**Pros:**
+- 최소 변경량 — 기존 동작 유지
+- 기존 저장 데이터와 호환
+- 대시보드에서 session lifecycle을 정확히 표현
+
+**Cons:**
+- 복잡한 케이스(빠른 clear-resume 반복 등)에서 이벤트 누락 가능
+- 각 source별 엣지 케이스를 개별 처리해야 함
+
+---
+
+## P2 — 구체적 개선 항목
+
+### 2.1 `postJson` timeout 증가
+
+```typescript
+// common.ts:38 — 현재
+signal: AbortSignal.timeout(1_000)
+
+// 변���
+signal: AbortSignal.timeout(2_000)
+```
+
+이유: 개발 환경에서 모니터 서버 콜드스타트 시 1초 timeout으로 빈번하게 실패.
+훅이 Claude 응답을 블로킹하므로 2초가 상한선.
+
+### 2.2 `hookLog`에 타임스탬프 추가
+
+```typescript
+// common.ts — 현재 hookLog 구현을 찾아 아래와 같이 수정
+export function hookLog(hook: string, message: string, data?: Record<string, unknown>): void {
+  const timestamp = new Date().toISOString();
+  const line = JSON.stringify({ timestamp, hook, message, ...data });
+  // .claude/hooks.log에 append
+}
+```
+
+디버깅 시 이벤트 순서와 시간 간격 파악에 필수적.
+
+### 2.3 `getSessionId` hook_source 필터 명확화
+
+```typescript
+// common.ts:71-77 — 현재
+export function getSessionId(event: JsonObject): string {
+  const hookSource = toTrimmedString(event.hook_source);
+  if (hookSource && hookSource !== "claude-hook") {
+    return "";
+  }
+  return toTrimmedString(event.session_id);
+}
+```
+
+`hook_source`가 빈 문자열이거나 `"claude-hook"`일 때만 sessionId를 반환하는 로직이다.
+이는 외부 프로젝트 연동 시 훅이 다른 소스에서 트리거되는 것을 방지하기 위함인데,
+코드만으로는 의도가 불분명하다. 주석으로 의도를 명확히 한다:
+
+```typescript
+/**
+ * Claude Code 자체 훅에서만 sessionId를 추출한다.
+ * 외부 프로젝트(.claude/settings.json 복사)에서 실행될 때
+ * hook_source가 다른 값이면 이 세션은 무시한다.
+ */
+export function getSessionId(event: JsonObject): string {
+  const hookSource = toTrimmedString(event.hook_source);
+  if (hookSource && hookSource !== "claude-hook") {
+    return "";
+  }
+  return toTrimmedString(event.session_id);
+}
+```
+
+### 2.4 Codex 세션 식별자 안정화
+
+`CODEX_THREAD_ID`가 비어있으면 매번 새 UUID 생성 → 세션 연속성 깨짐.
+파일 기반 퍼시스트로 해결:
+
+```bash
+# skills/codex-monitor/SKILL.md 가이드 수정
+SESSION_FILE=".monitor/.codex-session-id"
+if [ -z "$CODEX_THREAD_ID" ]; then
+  if [ -f "$SESSION_FILE" ]; then
+    CODEX_THREAD_ID=$(cat "$SESSION_FILE")
+  else
+    CODEX_THREAD_ID="codex-$(node -e "console.log(crypto.randomUUID())")"
+    mkdir -p .monitor && echo "$CODEX_THREAD_ID" > "$SESSION_FILE"
+  fi
+fi
+```
+
+### 2.5 OpenCode 세션 상태 디스크 퍼시스트
+
+`.opencode/plugins/monitor.ts`의 인메모리 `Map`/`Set`을 디스크에 저장:
+
+```typescript
+const STATE_FILE = path.join(projectRoot, ".monitor", ".opencode-session-state.json");
+
+function persistSessionStates(): void {
+  const data = {
+    sessions: Object.fromEntries(sessionStates),
+    suspended: [...suspendedSessionIds],
+  };
+  fs.mkdirSync(path.dirname(STATE_FILE), { recursive: true });
+  fs.writeFileSync(STATE_FILE, JSON.stringify(data, null, 2));
+}
+
+function restoreSessionStates(): void {
+  try {
+    const raw = fs.readFileSync(STATE_FILE, "utf-8");
+    const data = JSON.parse(raw);
+    for (const [k, v] of Object.entries(data.sessions)) {
+      sessionStates.set(k, v as SessionState);
+    }
+    for (const id of data.suspended) {
+      suspendedSessionIds.add(id);
+    }
+  } catch {
+    // File doesn't exist or is corrupted — start fresh
+  }
+}
+```
+
+`persistSessionStates()`를 세션 상태 변경마다 호출 (debounce 1초).
+플러그인 초기화 시 `restoreSessionStates()` 호출.
+
+---
+
+## 주요 파일 참조
+
+| ���일 | 역할 | 우선순위 |
+|------|------|---------|
+| `.claude/hooks/common.ts` | 공유 유틸 (API, 로깅, 세션) | P0, P2 |
+| `.claude/hooks/ensure_task.ts` | PreToolUse 세션 보장 | P0 |
+| `.claude/hooks/tool_used.ts` | PostToolUse 이벤트 기록 | P0 |
+| `.claude/hooks/explore.ts` | PostToolUse 탐색 이벤트 | P0 |
+| `.claude/hooks/terminal.ts` | PostToolUse Bash 이벤트 | P0 |
+| `.claude/hooks/session_start.ts` | 세션 시작 기록 | P1 |
+| `.claude/hooks/session_end.ts` | 세션 종료 기록 (clear skip 패턴) | P1 |
+| `.claude/settings.json` | 훅 등록 설정 | 전체 |
+| `packages/server/src/application/services/task-lifecycle-service.ts` | 서버 측 `ensureRuntimeSession` | P0 참조 |
