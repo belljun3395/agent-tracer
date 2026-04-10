@@ -1,6 +1,6 @@
-import type { TimelineEvent } from "./domain/types.js";
-import { getKnownRuntimeCapabilities, getRuntimeEvidenceProfile, normalizeRuntimeAdapterId } from "./runtime-capabilities.helpers.js";
-import type { RuntimeEvidenceFeatureId } from "./runtime-capabilities.types.js";
+import type { TimelineEvent } from "../domain.js";
+import { getKnownRuntimeCapabilities, getRuntimeEvidenceProfile, normalizeRuntimeAdapterId } from "./capabilities.helpers.js";
+import type { RuntimeEvidenceFeatureId } from "./capabilities.types.js";
 export type EvidenceLevel = "proven" | "self_reported" | "inferred" | "unavailable";
 export interface EventEvidence {
     readonly level: EvidenceLevel;
@@ -18,15 +18,31 @@ export interface RuntimeCoverageSummary {
     readonly summary: string;
     readonly items: readonly RuntimeCoverageItem[];
 }
+
+/**
+ * Builds a self-reported evidence record for semantically logged events.
+ */
 function selfReported(reason: string): EventEvidence {
     return { level: "self_reported", reason };
 }
+
+/**
+ * Builds a proven evidence record for events backed by runtime observation.
+ */
 function proven(reason: string): EventEvidence {
     return { level: "proven", reason };
 }
+
+/**
+ * Builds an inferred evidence record for data derived from related observations.
+ */
 function inferred(reason: string): EventEvidence {
     return { level: "inferred", reason };
 }
+
+/**
+ * Explains how trustworthy an individual event is based on runtime capabilities and metadata.
+ */
 export function getEventEvidence(runtimeSource: string | undefined, event: Pick<TimelineEvent, "kind" | "lane" | "metadata">): EventEvidence {
     const capabilities = getKnownRuntimeCapabilities(runtimeSource);
     const captureMode = typeof event.metadata["captureMode"] === "string"
@@ -86,6 +102,10 @@ export function getEventEvidence(runtimeSource: string | undefined, event: Pick<
     }
     return selfReported("Recorded event does not have independent runtime-backed proof metadata.");
 }
+
+/**
+ * Lists the evidence coverage claims exposed by a runtime adapter for UI/reporting.
+ */
 export function listRuntimeCoverage(runtimeSource: string | undefined): readonly RuntimeCoverageItem[] {
     const adapterId = normalizeRuntimeAdapterId(runtimeSource);
     if (!adapterId) {
@@ -116,6 +136,10 @@ export function listRuntimeCoverage(runtimeSource: string | undefined): readonly
         }
     ];
 }
+
+/**
+ * Summarizes a runtime adapter's overall evidence posture plus itemized coverage details.
+ */
 export function getRuntimeCoverageSummary(runtimeSource: string | undefined): RuntimeCoverageSummary {
     const adapterId = normalizeRuntimeAdapterId(runtimeSource);
     if (!adapterId) {

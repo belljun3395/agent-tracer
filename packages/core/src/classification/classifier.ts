@@ -1,8 +1,12 @@
-import type { EventClassification, EventClassificationMatch } from "./domain/types.js";
+import type { EventClassification, EventClassificationMatch } from "../domain.js";
 import type { ClassifyEventInput } from "./classifier.types.js";
 import { classifyActionName } from "./action-registry.js";
-import { defaultLaneForEventKind } from "./domain/utils.js";
+import { defaultLaneForEventKind } from "../domain.js";
 import { getCanonicalLane } from "./classifier.helpers.js";
+
+/**
+ * Produces the final event classification by combining explicit, canonical, and inferred lanes.
+ */
 export function classifyEvent(input: ClassifyEventInput): EventClassification {
     const actionMatch = classifyActionName(input.actionName);
     const matches: EventClassificationMatch[] = actionMatch ? [actionMatch] : [];

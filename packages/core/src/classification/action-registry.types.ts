@@ -1,4 +1,4 @@
-import type { TimelineLane } from "./domain/types.js";
+import type { TimelineLane } from "../domain.js";
 export interface ActionPrefixRule {
     readonly lane: TimelineLane;
     readonly prefixes: readonly string[];

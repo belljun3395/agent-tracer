@@ -1,5 +1,5 @@
-import type { ReusableTaskSnapshot, TimelineEvent, WorkflowEvaluationData } from "./domain.js";
-import { buildReusableTaskSnapshot } from "./workflow-snapshot.js";
+import type { ReusableTaskSnapshot, TimelineEvent, WorkflowEvaluationData } from "../domain.js";
+import { buildReusableTaskSnapshot } from "./snapshot.js";
 const WORKFLOW_CONTEXT_LANES = [
     "exploration",
     "implementation",
@@ -31,6 +31,10 @@ const GENERIC_CONTEXT_TITLES = new Set([
     "verification",
     "workflow note"
 ]);
+
+/**
+ * Builds the reusable markdown context block used to summarize a task workflow.
+ */
 export function buildWorkflowContext(events: readonly TimelineEvent[], taskTitle: string, evaluation?: Partial<WorkflowEvaluationData> | null, snapshotOverride?: ReusableTaskSnapshot | null): string {
     const snapshot = snapshotOverride ?? buildReusableTaskSnapshot({
         objective: taskTitle,
@@ -58,6 +62,10 @@ export function buildWorkflowContext(events: readonly TimelineEvent[], taskTitle
     }
     return parts.join("");
 }
+
+/**
+ * Expands snapshot and evaluation fields into the top-level markdown sections.
+ */
 function buildSnapshotSections(snapshot: ReusableTaskSnapshot, evaluation?: Partial<WorkflowEvaluationData> | null): readonly string[] {
     const sections: string[] = [];
     if (snapshot.originalRequest) {
@@ -92,6 +100,10 @@ function buildSnapshotSections(snapshot: ReusableTaskSnapshot, evaluation?: Part
     }
     return sections;
 }
+
+/**
+ * Renders planning-lane events as the workflow's explicit plan section.
+ */
 export function buildPlanSection(events: readonly TimelineEvent[]): string | undefined {
     const planEvents = events.filter((event) => event.lane === "planning");
     if (planEvents.length === 0) {
@@ -105,6 +117,10 @@ export function buildPlanSection(events: readonly TimelineEvent[]): string | und
     }
     return `\n## Plan\n${lines.map((line) => `- ${line}`).join("\n")}`;
 }
+
+/**
+ * Groups non-planning events into lane-specific markdown sections.
+ */
 export function buildLaneSections(events: readonly TimelineEvent[]): readonly string[] {
     const sections: string[] = [];
     for (const lane of WORKFLOW_CONTEXT_LANES) {
@@ -123,6 +139,10 @@ export function buildLaneSections(events: readonly TimelineEvent[]): readonly st
     }
     return sections;
 }
+
+/**
+ * Lists files that were actually written during the workflow.
+ */
 export function buildModifiedFilesSection(events: readonly TimelineEvent[]): string | undefined {
     const modifiedFiles = [...new Set(events
             .filter((event) => event.kind === "file.changed" && (event.metadata["writeCount"] as number | undefined ?? 0) > 0)
@@ -133,6 +153,10 @@ export function buildModifiedFilesSection(events: readonly TimelineEvent[]): str
     }
     return `\n## Modified Files\n${modifiedFiles.map((filePath) => `- \`${filePath}\``).join("\n")}`;
 }
+
+/**
+ * Surfaces TODO items that remain unresolved at the end of the workflow.
+ */
 export function buildOpenTodoSection(events: readonly TimelineEvent[]): string | undefined {
     const openTodos = events
         .filter((event) => event.kind === "todo.logged")
@@ -152,6 +176,10 @@ export function buildOpenTodoSection(events: readonly TimelineEvent[]): string |
     }
     return `\n## Open TODOs\n${openTodoTitles.map((title) => `- ${title}`).join("\n")}`;
 }
+
+/**
+ * Summarizes verification and rule outcomes, including any failing checks.
+ */
 export function buildVerificationSummarySection(events: readonly TimelineEvent[]): string | undefined {
     const verifications = events.filter((event) => event.kind === "verification.logged" || event.kind === "rule.logged");
     if (verifications.length === 0) {
@@ -166,6 +194,10 @@ export function buildVerificationSummarySection(events: readonly TimelineEvent[]
     }
     return summary.join("\n");
 }
+
+/**
+ * Collapses an event into a single readable line for markdown sections.
+ */
 function describeWorkflowEvent(event: TimelineEvent): string | null {
     const title = normalizeContextText(event.title);
     const detail = normalizeContextText(stringMetadata(event, "description")
@@ -183,12 +215,20 @@ function describeWorkflowEvent(event: TimelineEvent): string | null {
     }
     return `${title}: ${detail}`;
 }
+
+/**
+ * Drops generic titles when the detail field communicates the event more clearly.
+ */
 function shouldPreferDetailOnly(event: TimelineEvent, title: string): boolean {
     if (event.kind === "context.saved" || event.kind === "terminal.command") {
         return true;
     }
     return GENERIC_CONTEXT_TITLES.has(title.toLocaleLowerCase());
 }
+
+/**
+ * Normalizes whitespace so stored context lines remain compact and readable.
+ */
 function normalizeContextText(value?: string | null): string | null {
     if (!value) {
         return null;
@@ -196,6 +236,10 @@ function normalizeContextText(value?: string | null): string | null {
     const normalized = value.replace(/\s+/g, " ").trim();
     return normalized || null;
 }
+
+/**
+ * Reads a string metadata field without forcing callers to repeat type checks.
+ */
 function stringMetadata(event: TimelineEvent, key: string): string | null {
     const value = event.metadata[key];
     return typeof value === "string" ? value : null;

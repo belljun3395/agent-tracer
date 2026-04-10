@@ -1,5 +1,12 @@
+/**
+ * Extracts path-like references from free-form text so downstream code can link them.
+ */
 export function extractPathLikeTokens(text: string): readonly string[] {
     const matches = new Set<string>();
+
+    /**
+     * Deduplicates valid path candidates after lightweight normalization.
+     */
     function addCandidate(raw: string | undefined): void {
         const candidate = raw?.trim();
         if (candidate && looksLikePath(candidate)) {
@@ -21,6 +28,10 @@ export function extractPathLikeTokens(text: string): readonly string[] {
     }
     return [...matches];
 }
+
+/**
+ * Heuristically decides whether a token is likely intended to represent a file path.
+ */
 export function looksLikePath(value: string): boolean {
     if (/[\n\r]/.test(value))
         return false;
@@ -34,6 +45,10 @@ export function looksLikePath(value: string): boolean {
         /\.[a-z0-9]{1,15}$/i.test(value) ||
         /^\.[a-z0-9]/i.test(value));
 }
+
+/**
+ * Guesses whether the provided path string points to a directory rather than a file.
+ */
 export function isDirectoryPath(path: string): boolean {
     if (path.endsWith("/")) {
         return true;
@@ -48,6 +63,10 @@ export function isDirectoryPath(path: string): boolean {
     }
     return !/\.[a-z0-9]{1,15}$/i.test(lastSegment);
 }
+
+/**
+ * Normalizes a file path and resolves relative paths against an optional workspace root.
+ */
 export function normalizeFilePath(filePath: string, workspacePath?: string): string {
     const cleaned = filePath.replace(/\/+/g, "/").replace(/\/$/, "").trim();
     if (cleaned.startsWith("/")) {
@@ -59,6 +78,10 @@ export function normalizeFilePath(filePath: string, workspacePath?: string): str
     }
     return cleaned;
 }
+
+/**
+ * Compares two path references while tolerating absolute-vs-relative differences.
+ */
 export function matchFilePaths(mentionedPath: string, exploredPath: string, workspacePath?: string): boolean {
     const normalizedMentioned = normalizeFilePath(mentionedPath, workspacePath);
     const normalizedExplored = normalizeFilePath(exploredPath, workspacePath);
@@ -74,6 +97,10 @@ export function matchFilePaths(mentionedPath: string, exploredPath: string, work
     }
     return false;
 }
+
+/**
+ * Filters a file list down to entries that live inside a target directory.
+ */
 export function filePathsInDirectory(dirPath: string, filePaths: readonly string[], workspacePath?: string): readonly string[] {
     const normalizedDir = normalizeFilePath(dirPath, workspacePath);
     const dirSuffix = toPathSuffix(normalizedDir);
@@ -87,6 +114,10 @@ export function filePathsInDirectory(dirPath: string, filePaths: readonly string
             || normalizedFile.startsWith(`${normalizedDir}/`);
     });
 }
+
+/**
+ * Removes a leading slash so path suffix comparisons can ignore absolute roots.
+ */
 function toPathSuffix(p: string): string {
     return p.replace(/^\/+/, "");
 }
