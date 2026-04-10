@@ -57,8 +57,6 @@ export interface EventSemanticMetadata {
 이 계약이 코드 레벨에서 명시화되면서, 새 subtype 추가 시 hook과 web이
 동시에 업데이트돼야 한다는 요구사항이 타입 체크로 감지된다.
 
-관련 문서: [Modularity Review - Implicit Semantic Metadata Contract Issue](../modularity-review/2026-04-10/modularity-review.md#issue-implicit-semantic-metadata-contract-between-hook-layer-and-web-layer)
-
 ### 5. Branded Types
 
 `domain/types.ts`에서 runtime adapter ID, session ID 등을 nominal type으로 정의해

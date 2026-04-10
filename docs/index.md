@@ -28,17 +28,34 @@ features:
 
 ## Quick Start
 
+Install and run Agent Tracer locally:
+
+```bash
+git clone https://github.com/belljun3395/agent-tracer.git
+cd agent-tracer
+npm install
+npm run build
+npm run dev
+```
+
+- Monitor server: `http://127.0.0.1:3847`
+- Web dashboard: `http://127.0.0.1:5173`
+
+To preview this documentation site locally instead:
+
 ```bash
 npm run docs:dev
 ```
 
 - Site root: `/`
-- Runtime setup guides: `/guide/`
-- DeepWiki-aligned codebase wiki: `/wiki/`
+- Setup guides: `/guide/`
+- Codebase wiki: `/wiki/`
 
 ## Best Entry Points
 
-- [Runtime setup map](/guide/)
-- [Agent Tracer wiki](/wiki/)
+- [Install and Run](/guide/install-and-run) — local clone → running server
+- [External Project Setup](/guide/external-setup) — attach Agent Tracer to a target project
+- [Claude Code Setup](/guide/claude-setup) — Claude Code plugin + MCP wiring
+- [Agent Tracer wiki](/wiki/) — architecture and maintainer notes
 - [Architecture & package map](/wiki/architecture-and-package-map)
 - [Workflow library & evaluation](/wiki/workflow-library-and-evaluation)

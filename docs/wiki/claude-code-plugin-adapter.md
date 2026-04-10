@@ -1,91 +1,121 @@
 # Claude Code Plugin Adapter
 
-Claude Code 통합의 캐노니컬 경로는 `.claude/plugin/` 이다.
-사용자 입장에서는 plugin 기반 통합이고, 내부 구현은 Claude Code가 제공하는 hook event를
-plugin 안에서 등록해 runtime lifecycle과 tool 사용을 자동 추적하는 방식이다.
+The canonical Claude Code integration path is `.claude/plugin/`. From a
+user's point of view it is a plugin; under the hood each Claude Code hook
+event has a dedicated TypeScript file that posts to the monitor server.
 
-## 핵심 파일
+## Key files
 
-- `.claude/plugin/hooks/common.ts`
-- `.claude/plugin/hooks/session_start.ts`
-- `.claude/plugin/hooks/user_prompt.ts`
-- `.claude/plugin/hooks/ensure_task.ts`
-- `.claude/plugin/hooks/terminal.ts`
-- `.claude/plugin/hooks/tool_used.ts`
-- `.claude/plugin/hooks/explore.ts`
-- `.claude/plugin/hooks/agent_activity.ts`
-- `.claude/plugin/hooks/todo.ts`
-- `.claude/plugin/hooks/compact.ts`
-- `.claude/plugin/hooks/subagent_lifecycle.ts`
-- `.claude/plugin/hooks/session_end.ts`
-- `.claude/plugin/hooks/stop.ts`
-- `.claude/plugin/hooks/hooks.json`
-- `.claude/plugin/bin/run-hook.sh`
-- `.claude/settings.json`
-- `docs/guide/claude-setup.md`
+### Plugin root
 
-## 기본 흐름
+- `.claude/plugin/.claude-plugin/plugin.json` — plugin manifest
+- `.claude/plugin/hooks/hooks.json` — event to handler registration
+- `.claude/plugin/bin/run-hook.sh` — `tsx` dispatcher
+- `.claude/settings.json` — repo-local permissions (plugin path is passed via `--plugin-dir`)
 
-1. `.claude/plugin/hooks/hooks.json`이 plugin 내부에서 Claude event와 TypeScript 스크립트를 연결한다.
-2. `run-hook.sh`가 `${CLAUDE_PLUGIN_ROOT}/hooks/<name>.ts`를 `tsx`로 실행한다.
-3. `SessionStart`, `UserPromptSubmit`, `PreToolUse`에서 runtime session을 ensure한다.
-4. `user_prompt.ts`가 canonical `user.message`를 남긴다.
-5. plugin 내부 스크립트가 bash, edit, explore, agent activity, todo, compact를 기록한다.
-6. `subagent_lifecycle.ts`가 background async lifecycle을 기록한다.
-7. `stop.ts`가 assistant response를 남긴다.
-8. `session_end.ts`는 현재 runtime session만 닫는다.
+### Top-level hook handlers
 
-## 최근 코드 기준 중요한 변화
+Each file name mirrors the Claude Code hook event it handles.
 
-### `stop.ts`는 assistant response만 기록한다
+- `.claude/plugin/hooks/SessionStart.ts`
+- `.claude/plugin/hooks/UserPromptSubmit.ts`
+- `.claude/plugin/hooks/PreToolUse.ts`
+- `.claude/plugin/hooks/PostToolUseFailure.ts`
+- `.claude/plugin/hooks/SubagentStart.ts`
+- `.claude/plugin/hooks/SubagentStop.ts`
+- `.claude/plugin/hooks/PreCompact.ts`
+- `.claude/plugin/hooks/PostCompact.ts`
+- `.claude/plugin/hooks/SessionEnd.ts`
+- `.claude/plugin/hooks/Stop.ts`
 
-현재 `stop.ts`는 `payload.last_assistant_message`를 읽어 `/api/assistant-response`를 남긴다.
-runtime session 종료는 `session_end.ts`가 맡고, primary task는 자동 완료하지 않는다.
+### `PostToolUse/` sub-handlers
 
-### subagent runtime state 파일이 있다
+`PostToolUse` is split by matcher, so each tool family has its own file:
 
-plugin 실행 중 transient subagent registry 정보가 `.claude/.subagent-registry.json`에 저장된다.
-이 파일은 제품 데이터가 아니라 plugin coordination용 상태다.
+- `.claude/plugin/hooks/PostToolUse/Bash.ts` — terminal commands → `/api/terminal-command`
+- `.claude/plugin/hooks/PostToolUse/File.ts` — `Edit` / `Write` → `/api/tool-used`
+- `.claude/plugin/hooks/PostToolUse/Explore.ts` — `Read` / `Glob` / `Grep` / `WebSearch` / `WebFetch` → `/api/explore`
+- `.claude/plugin/hooks/PostToolUse/Agent.ts` — `Agent` / `Skill` → `/api/agent-activity`
+- `.claude/plugin/hooks/PostToolUse/Todo.ts` — `TaskCreate` / `TaskUpdate` / `TodoWrite` → `/api/todo`
+- `.claude/plugin/hooks/PostToolUse/Mcp.ts` — `mcp__.*` → `/api/tool-used`
 
-### 개발 로그는 `NODE_ENV=development`일 때 활성화된다
+### Supporting modules
 
-plugin runner `run-hook.sh`는 `NODE_ENV`가 비어 있으면 기본값으로
-`development`를 설정해 plugin 스크립트를 실행한다.
-따라서 `.claude/hooks.log` 같은 개발 로그 경로를 활성화하기 쉽다.
+- `classification/command-semantic.ts` — shell commands to subtype classification
+- `classification/explore-semantic.ts` — file/web tools to exploration subtypes
+- `classification/file-semantic.ts` — file operations to file_ops subtypes
+- `lib/transport.ts` — HTTP client (`postJson`, `readStdinJson`, `ensureRuntimeSession`)
+- `lib/session-cache.ts` — transient per-process session results
+- `lib/session-history.ts` — session lineage append log
+- `lib/session-metadata.ts` — persisted session metadata
+- `lib/subagent-registry.ts` — background subagent tracking
+- `lib/hook-log.ts` — development file logging
+- `common.ts` — re-exports the above for hook scripts
+- `util/lane.ts`, `util/paths.ts`, `util/runtime-identifier.ts`, `util/utils.ts` — framework-agnostic helpers
 
-### `explore.ts`가 웹 조회 URL을 메타데이터에 기록한다
+## Execution flow
 
-`explore.ts`는 plugin 내부 `PostToolUse` 처리에서 `WebSearch` / `WebFetch` 도구 호출을 감지하면,
-`/api/explore` 요청의 `metadata.webUrls` 필드에 쿼리 또는 URL을 저장한다.
+1. `hooks.json` maps every Claude Code event (or `PostToolUse` matcher) to
+   `${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh <EventName>[/SubMatcher]`.
+2. `run-hook.sh` sets `NODE_ENV=development` by default and runs
+   `tsx` on the matching `.ts` file.
+3. `SessionStart.ts`, `UserPromptSubmit.ts`, and `PreToolUse.ts` all call
+   `ensureRuntimeSession()` so a runtime session exists before any event
+   is recorded.
+4. `UserPromptSubmit.ts` records the raw prompt as the canonical
+   `user.message` event.
+5. `PostToolUse/*.ts` handlers record the per-tool activity with semantic
+   metadata built by the `classification/` modules.
+6. `SubagentStart.ts` / `SubagentStop.ts` record background async
+   lifecycle events and update the subagent registry.
+7. `PreCompact.ts` and `PostCompact.ts` record compaction checkpoints to
+   the planning lane.
+8. `Stop.ts` posts the assistant response to `/api/assistant-response`
+   and ends the runtime session with `completeTask: true`.
+9. `SessionEnd.ts` closes only the current runtime session, so a
+   second-turn session does not double-complete the primary task.
 
-```typescript
-const isWebTool = toolName === "WebSearch" || toolName === "WebFetch";
-const webQuery = isWebTool
-  ? (toTrimmedString(toolInput.query) || toTrimmedString(toolInput.url)).slice(0, MAX_PATH_LENGTH)
-  : "";
-// postJson body의 metadata:
-...(isWebTool && webQuery ? { webUrls: [webQuery] } : {})
-```
+## Points worth knowing
 
-이 데이터는 `insights.ts`의 `collectWebLookups()` 함수가 수집해 대시보드
-Exploration 탭의 **Web Lookups** 섹션에 표시된다.
-`metadata.webUrls`는 Claude Code event payload 공식 스펙에 없는 Agent Tracer 자체 확장이며,
-DB 스키마 변경 없이 `metadata` 자유 필드로 저장된다.
+### Canonical runtime source
 
-## 이 경로의 장점
+The plugin always sends `runtimeSource = "claude-plugin"` on every event.
+Older code used `claude-hook`; the server still accepts it as an alias
+but new events use `claude-plugin`.
 
-- raw prompt를 자동 캡처할 수 있다.
-- tool use와 subagent lifecycle을 잘 잡아낸다.
-- compact 이벤트를 구분해 planning lane에 기록할 수 있다.
+### Subagent registry is transient
 
-## 주의할 점
+`${CLAUDE_PROJECT_DIR}/.claude/.subagent-registry.json` stores subagent
+coordination state (parent/child IDs, running status). It is plugin-local
+state, not product data, and it's safe to delete between sessions.
 
-- session lifecycle과 task lifecycle을 혼동하면 중복 complete가 생길 수 있다.
-- clear event를 실제 task 종료로 해석하지 않도록 `session_end.ts`와 `stop.ts`의 역할 구분이 중요하다.
-- Claude event payload 차이는 `docs/guide/hook-payload-spec.md`를 함께 봐야 한다.
+### Development logs opt in via `NODE_ENV`
 
-## 관련 문서
+`bin/run-hook.sh` exports `NODE_ENV=development` by default. Hook
+handlers write to `${CLAUDE_PROJECT_DIR}/.claude/hooks.log` only when
+`NODE_ENV=development`. Unset this env var in production scenarios if
+you want silent execution.
+
+### Web-tool URLs go into a free-form metadata field
+
+`PostToolUse/Explore.ts` detects `WebSearch` / `WebFetch` calls and
+stuffs the query/URL into `metadata.webUrls` on the `/api/explore`
+request. This field is not part of the Claude Code hook payload spec —
+it is an Agent Tracer extension stored in the event `metadata` column.
+The web dashboard surfaces it via the Exploration tab's "Web Lookups"
+section.
+
+### Hooks cannot block execution
+
+Claude Code `PostToolUse` hooks cannot block the caller — exit code 2
+prints to stderr but execution continues. The plugin intentionally never
+returns non-zero on tracking failures; a monitor-server outage produces
+a warning in the hook log but does not interrupt the user.
+
+## Related
 
 - [Runtime Adapters & Integration](./runtime-adapters-and-integration.md)
 - [HTTP API Reference](./http-api-reference.md)
-- [Testing & Development](./testing-and-development.md)
+- [Runtime Capabilities Registry](./runtime-capabilities-registry.md)
+- [Setup guide — Claude Code](/guide/claude-setup)
+- [Hook payload spec](/guide/hook-payload-spec)

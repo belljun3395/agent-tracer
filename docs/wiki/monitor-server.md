@@ -1,65 +1,131 @@
 # Monitor Server
 
-`@monitor/server` 는 Agent Tracer 의 중심 패키지다.
-에이전트가 보낸 관측 이벤트를 task/session/timeline event 로 정리해 저장하고,
-HTTP 와 WebSocket 을 통해 읽기 모델을 노출한다.
+`@monitor/server` is the core package of Agent Tracer. It ingests events
+emitted by runtime adapters, structures them into tasks / sessions /
+timeline events, persists them to SQLite, and exposes HTTP + WebSocket
+surfaces for the dashboard and MCP layer.
 
-## 이 패키지가 담당하는 것
+## Responsibilities
 
-- task, session, runtime-session lifecycle
-- timeline event 기록과 분류 결과 저장
+- task, session, and runtime-session lifecycle
+- timeline event ingestion and classification result storage
 - bookmark CRUD
-- workflow evaluation 저장과 유사 워크플로우 검색
-- overview/task detail/observability read model 제공
-- WebSocket 실시간 알림 브로드캐스트
+- workflow evaluation storage and similarity search
+- read models for overview, task detail, and observability
+- WebSocket broadcast of every change
 
-## 핵심 파일
+## Key files
 
-- `packages/server/src/index.ts`
-- `packages/server/src/bootstrap/create-nestjs-monitor-runtime.ts`
+- `packages/server/src/index.ts` — process entrypoint
+- `packages/server/src/bootstrap/create-nestjs-monitor-runtime.ts` — composition root
 - `packages/server/src/presentation/nestjs/app.module.ts`
 - `packages/server/src/presentation/nestjs/controllers/*.ts`
 - `packages/server/src/application/monitor-service.ts`
-- `packages/server/src/infrastructure/sqlite/index.ts`
+- `packages/server/src/application/services/*` — policy + metadata helpers
+- `packages/server/src/application/ports/*` — repository + broadcaster interfaces
+- `packages/server/src/infrastructure/sqlite/*` — SQLite repository
 - `packages/server/src/presentation/ws/event-broadcaster.ts`
-- `packages/server/src/presentation/schemas.ts`
+- `packages/server/src/presentation/schemas.ts` — Zod request schemas
 
-## 부트스트랩 흐름
+## Layering
 
-현재 서버 조합 루트는 `createNestMonitorRuntime()` 하나다.
-
-1. `EventBroadcaster` 를 만든다.
-2. `NestFactory.create(AppModule.forRoot(...))` 로 SQLite ports 와 `MonitorServiceProvider` 를 조합한다.
-3. HTTP server 와 `WebSocketServer` 를 붙인다.
-4. `/ws` 업그레이드 요청만 받아 WebSocket 연결을 연다.
-5. 새 WebSocket 연결에는 overview + task list snapshot 을 즉시 보낸다.
-
-## 내부 레이어
+```text
+bootstrap/
+  create-nestjs-monitor-runtime.ts     # server composition root
+  runtime.types.ts                     # public runtime types
+application/
+  monitor-service.ts                   # use case entrypoint
+  services/                            # policy + metadata helpers
+  ports/                               # repository + broadcaster interfaces
+presentation/
+  nestjs/controllers/                  # HTTP surface (Nest controllers)
+  nestjs/app.module.ts
+  schemas.ts                           # Zod DTOs
+  ws/event-broadcaster.ts              # WebSocket notifications
+infrastructure/
+  sqlite/                              # SQLite-backed repository
+```
 
 ### Application
 
-`MonitorService` 와 helper service 들이 유스케이스를 담당한다.
-task start/complete, runtime-session ensure/end, event logging, bookmark,
-evaluation, search 가 모두 여기서 처리된다.
+`MonitorService` is the single entrypoint for use cases. It handles task
+start / complete, runtime session ensure / end, event logging, bookmark
+CRUD, evaluation, and search. Supporting policy and metadata logic lives
+in `application/services/*` (e.g. `session-lifecycle-policy.ts`,
+`trace-metadata-factory.ts`).
 
 ### Presentation
 
-NestJS controller 집합과 WebSocket broadcaster 가 여기에 있다.
-HTTP 표면은 controller 들이, realtime 알림은 `EventBroadcaster` 가 맡는다.
+NestJS controllers handle the HTTP surface. `presentation/schemas.ts`
+validates request bodies with Zod before delegating to `MonitorService`.
+`EventBroadcaster` in `presentation/ws/` handles real-time notifications.
+
+Controllers currently registered:
+
+- `admin.controller.ts` — overview / read model
+- `lifecycle.controller.ts` — task / session lifecycle
+- `event.controller.ts` — generic event logging
+- `bookmark.controller.ts` — bookmark CRUD
+- `search.controller.ts` — search read model
+- `evaluation.controller.ts` — workflow library evaluation + search
 
 ### Infrastructure
 
-SQLite repository 구현과 schema/migration 로직이 여기에 있다.
-현재 실제 활성 저장 경로는 `src/infrastructure/sqlite/*` 다.
+SQLite is the only storage backend that currently runs. Repositories
+live in `infrastructure/sqlite/*.repository.ts` and are composed in
+`infrastructure/sqlite/index.ts`. Because the application layer only
+depends on the port interfaces, swapping storage is a matter of
+providing a new adapter.
 
-## 최근 코드 기준 포인트
+## Bootstrap flow
 
-- 기본 실행 경로는 NestJS 다.
-- canonical `runtimeSource` 는 `claude-plugin` 이다.
-- workflow library read path 와 observability read model 이 정식 API 로 제공된다.
-- runtime session 과 explicit session-end 가 공존하므로 자동 plugin 과 수동 클라이언트를 함께 받을 수 있다.
+1. `EventBroadcaster` is constructed.
+2. `NestFactory.create(AppModule.forRoot(...))` wires SQLite ports,
+   `MonitorServiceProvider`, and the controllers.
+3. HTTP server and `WebSocketServer` are attached to the same Nest
+   instance.
+4. `/ws` upgrade requests are accepted; overview + task list snapshots
+   are sent to new WebSocket clients immediately.
 
-## 이 패키지를 읽을 때의 추천 순서
+## Points worth knowing
+
+- The default runtime is NestJS — there is no alternative composition
+  root in the current code.
+- Canonical `runtimeSource` is `claude-plugin` (with `claude-hook`
+  kept as a legacy alias).
+- The workflow library read path and the observability read model are
+  first-class API surfaces, not ad-hoc debugging endpoints.
+- Runtime session and explicit session-end coexist so auto-plugins and
+  manual clients can both bind to the same task.
+
+## Maintenance notes
+
+### `MonitorService` responsibility spread
+
+Lifecycle, runtime-session binding, generic event logging, bookmark
+CRUD, search, and evaluation all live under one service. It works today
+but the next structural improvement is to split it into use-case-level
+services (lifecycle / event logging / bookmark / evaluation).
+
+### Schema / DTO drift risk
+
+`presentation/schemas.ts` (Zod) and `application/types.ts` (TS
+interfaces) must stay in sync. Every new field is two edits, so
+consider descriptor-level sharing if this becomes a bottleneck.
+
+### Read-path cost
+
+The task list read path rebuilds display titles from event history,
+which scales linearly with event count per task. At higher volume a
+cached write-model / read-model split will become worthwhile.
+
+### Async dedupe map
+
+The monitor service uses an in-memory dedupe map for async events.
+There is no cleanup policy yet; for long-running servers a TTL or LRU
+eviction should be added before the map grows unbounded.
+
+## Reading order
 
 1. `src/index.ts`
 2. `src/bootstrap/create-nestjs-monitor-runtime.ts`
@@ -67,10 +133,10 @@ SQLite repository 구현과 schema/migration 로직이 여기에 있다.
 4. `src/application/monitor-service.ts`
 5. `src/infrastructure/sqlite/index.ts`
 
-## 관련 문서
+## Related
 
 - [MonitorService: Application Layer](./monitorservice-application-layer.md)
 - [HTTP API Reference](./http-api-reference.md)
 - [SQLite Infrastructure & Schema](./sqlite-infrastructure-and-schema.md)
 - [WebSocket Real-Time Broadcasting](./websocket-real-time-broadcasting.md)
-- [Backend Server](./backend-server.md)
+- [Quality and Testing](./quality-and-testing.md)

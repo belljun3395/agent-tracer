@@ -39,9 +39,9 @@ npm run start:mcp
 
 핵심 진입점:
 
-- [External Setup Hub](../guide/external-setup.md)
-- [LLM Setup Map](../guide/llm-setup.md)
-- [Claude Setup](../guide/claude-setup.md)
+- [Install and Run](/guide/install-and-run)
+- [External Project Setup](/guide/external-setup)
+- [Claude Code Setup](/guide/claude-setup)
 
 자동 설치 스크립트:
 
@@ -79,7 +79,6 @@ curl -sf http://127.0.0.1:3847/api/overview
 
 - 설정 절차와 런타임별 운영 규칙은 `docs/guide/*`
 - 코드 구조와 책임 분해는 `docs/wiki/*`
-- 심화 구조 평가는 `backend-server.md`, `frontend-dashboard.md`, `runtime-integrations.md`
 
 즉, 무언가를 "동작하게 만드는 법"은 guide를 먼저 보고, "왜 이렇게 구성되어 있는가"는
 wiki를 읽는 것이 맞다.
