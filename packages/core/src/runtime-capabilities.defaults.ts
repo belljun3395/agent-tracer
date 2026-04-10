@@ -1,9 +1,9 @@
 import { registerRuntimeAdapter, registerRuntimeAdapterAlias } from "./runtime-capabilities.constants.js";
-import type { RuntimeCapabilities } from "./runtime-capabilities.types.js";
+import { CLAUDE_PLUGIN_ADAPTER_ID, RuntimeAdapterId, type RuntimeCapabilities } from "./runtime-capabilities.types.js";
 
 const DEFAULT_ADAPTERS: readonly RuntimeCapabilities[] = [
   {
-    adapterId: "claude-plugin",
+    adapterId: CLAUDE_PLUGIN_ADAPTER_ID,
     canCaptureRawUserMessage: true,
     canObserveToolCalls: true,
     canObserveSubagents: true,
@@ -63,11 +63,11 @@ const DEFAULT_ADAPTERS: readonly RuntimeCapabilities[] = [
   }
 ];
 
-const DEFAULT_ALIASES: readonly [string, string][] = [
-  ["claude", "claude-plugin"],
-  ["claude-code", "claude-plugin"],
-  ["claude-hook", "claude-plugin"],
-  ["claude-plugin", "claude-plugin"]
+const DEFAULT_ALIASES: readonly [string, RuntimeAdapterId][] = [
+  ["claude", CLAUDE_PLUGIN_ADAPTER_ID],
+  ["claude-code", CLAUDE_PLUGIN_ADAPTER_ID],
+  ["claude-hook", CLAUDE_PLUGIN_ADAPTER_ID],
+  ["claude-plugin", CLAUDE_PLUGIN_ADAPTER_ID]
 ];
 
 export function registerDefaultRuntimeAdapters(): void {
@@ -79,4 +79,4 @@ export function registerDefaultRuntimeAdapters(): void {
   }
 }
 
-export const RUNTIME_ADAPTER_IDS: readonly string[] = DEFAULT_ADAPTERS.map((adapter) => adapter.adapterId);
+export const RUNTIME_ADAPTER_IDS: readonly RuntimeAdapterId[] = DEFAULT_ADAPTERS.map((adapter) => adapter.adapterId);

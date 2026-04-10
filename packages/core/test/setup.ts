@@ -1,2 +1,3 @@
-import { initializeDefaultAdapters } from "../src";
+import { initializeDefaultAdapters } from "@monitor/core";
 initializeDefaultAdapters();
+

@@ -142,6 +142,7 @@ describe("NestJS API Contract Parity Tests", () => {
             messageId: "parity-msg-1",
             captureMode: "raw",
             source: "test",
+            phase: "initial",
             title: "Parity message"
         });
         expect(res.status).toBe(200);
@@ -158,6 +159,7 @@ describe("NestJS API Contract Parity Tests", () => {
             messageId: "parity-msg-no-session",
             captureMode: "raw",
             source: "test",
+            phase: "initial",
             title: "No session"
         });
         expect(res.status).toBe(400);
@@ -176,6 +178,7 @@ describe("NestJS API Contract Parity Tests", () => {
             messageId: "parity-msg-patch",
             captureMode: "raw",
             source: "test",
+            phase: "initial",
             title: "Original"
         });
         const eventId = msg.body.events[0].id as string;
@@ -232,6 +235,7 @@ describe("NestJS API Contract Parity Tests", () => {
             messageId: "search-parity-msg",
             captureMode: "raw",
             source: "test",
+            phase: "initial",
             title: "zxqwertyparity"
         });
         const res = await request(httpServer).get("/api/search?q=zxqwertyparity");

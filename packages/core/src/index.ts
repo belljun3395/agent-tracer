@@ -2,6 +2,7 @@ import { registerDefaultRuntimeAdapters } from "./runtime-capabilities.defaults.
 export * from "./action-registry.js";
 export * from "./classifier.js";
 export * from "./domain.js";
+export * from "./event-semantic.js";
 export * from "./evidence.js";
 export * from "./errors.js";
 export * from "./path-utils.js";
