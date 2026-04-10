@@ -4,21 +4,21 @@
       {
         "matcher": "startup|resume|clear|compact",
         "hooks": [
-          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh session_start" }
+          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh SessionStart" }
         ]
       }
     ],
     "UserPromptSubmit": [
       {
         "hooks": [
-          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh user_prompt" }
+          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh UserPromptSubmit" }
         ]
       }
     ],
     "PreToolUse": [
       {
         "hooks": [
-          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh ensure_task" }
+          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PreToolUse" }
         ]
       }
     ],
@@ -26,37 +26,37 @@
       {
         "matcher": "Bash",
         "hooks": [
-          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh terminal" }
+          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostToolUse/Bash" }
         ]
       },
       {
         "matcher": "Edit|Write",
         "hooks": [
-          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh tool_used" }
+          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostToolUse/File" }
         ]
       },
       {
         "matcher": "Read|Glob|Grep|WebSearch|WebFetch",
         "hooks": [
-          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh explore" }
+          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostToolUse/Explore" }
         ]
       },
       {
         "matcher": "Agent|Skill",
         "hooks": [
-          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh agent_activity" }
+          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostToolUse/Agent" }
         ]
       },
       {
         "matcher": "TaskCreate|TaskUpdate|TodoWrite",
         "hooks": [
-          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh todo" }
+          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostToolUse/Todo" }
         ]
       },
       {
         "matcher": "mcp__.*",
         "hooks": [
-          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh tool_used" }
+          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostToolUse/Mcp" }
         ]
       }
     ],
@@ -64,49 +64,49 @@
       {
         "matcher": "Bash|Edit|Write|Agent|Skill|TaskCreate|TaskUpdate|TodoWrite|mcp__.*",
         "hooks": [
-          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh tool_used" }
+          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostToolUseFailure" }
         ]
       }
     ],
     "SubagentStart": [
       {
         "hooks": [
-          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh subagent_lifecycle" }
+          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh SubagentStart" }
         ]
       }
     ],
     "SubagentStop": [
       {
         "hooks": [
-          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh subagent_lifecycle" }
+          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh SubagentStop" }
         ]
       }
     ],
     "PreCompact": [
       {
         "hooks": [
-          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh compact" }
+          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PreCompact" }
         ]
       }
     ],
     "PostCompact": [
       {
         "hooks": [
-          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh compact" }
+          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostCompact" }
         ]
       }
     ],
     "SessionEnd": [
       {
         "hooks": [
-          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh session_end" }
+          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh SessionEnd" }
         ]
       }
     ],
     "Stop": [
       {
         "hooks": [
-          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh stop" }
+          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh Stop" }
         ]
       }
     ]

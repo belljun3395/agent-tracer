@@ -3,5 +3,6 @@
   "compilerOptions": {
     "outDir": "dist"
   },
-  "include": ["hooks", "../../config/load-application-config.d.ts"]
+  "include": ["hooks", "../../config/load-application-config.d.ts"],
+  "exclude": ["hooks/lib", "hooks/util", "hooks/classification"]
 }

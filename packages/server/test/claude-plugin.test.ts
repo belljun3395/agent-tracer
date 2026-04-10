@@ -9,16 +9,18 @@ interface RequestCall {
     readonly body: Record<string, unknown>;
 }
 const tsxCli = fileURLToPath(new URL("../../../node_modules/tsx/dist/cli.mjs", import.meta.url));
-const userPromptHook = fileURLToPath(new URL("../../../.claude/plugin/hooks/user_prompt.ts", import.meta.url));
-const sessionStartHook = fileURLToPath(new URL("../../../.claude/plugin/hooks/session_start.ts", import.meta.url));
-const sessionEndHook = fileURLToPath(new URL("../../../.claude/plugin/hooks/session_end.ts", import.meta.url));
-const agentActivityHook = fileURLToPath(new URL("../../../.claude/plugin/hooks/agent_activity.ts", import.meta.url));
-const compactHook = fileURLToPath(new URL("../../../.claude/plugin/hooks/compact.ts", import.meta.url));
-const subagentLifecycleHook = fileURLToPath(new URL("../../../.claude/plugin/hooks/subagent_lifecycle.ts", import.meta.url));
-const todoHook = fileURLToPath(new URL("../../../.claude/plugin/hooks/todo.ts", import.meta.url));
-const toolUsedHook = fileURLToPath(new URL("../../../.claude/plugin/hooks/tool_used.ts", import.meta.url));
-const terminalHook = fileURLToPath(new URL("../../../.claude/plugin/hooks/terminal.ts", import.meta.url));
-const stopHook = fileURLToPath(new URL("../../../.claude/plugin/hooks/stop.ts", import.meta.url));
+const userPromptHook = fileURLToPath(new URL("../../../.claude/plugin/hooks/UserPromptSubmit.ts", import.meta.url));
+const sessionStartHook = fileURLToPath(new URL("../../../.claude/plugin/hooks/SessionStart.ts", import.meta.url));
+const sessionEndHook = fileURLToPath(new URL("../../../.claude/plugin/hooks/SessionEnd.ts", import.meta.url));
+const agentActivityHook = fileURLToPath(new URL("../../../.claude/plugin/hooks/PostToolUse/Agent.ts", import.meta.url));
+const compactHook = fileURLToPath(new URL("../../../.claude/plugin/hooks/PostCompact.ts", import.meta.url));
+const subagentLifecycleHook = fileURLToPath(new URL("../../../.claude/plugin/hooks/SubagentStart.ts", import.meta.url));
+const subagentStopHook = fileURLToPath(new URL("../../../.claude/plugin/hooks/SubagentStop.ts", import.meta.url));
+const todoHook = fileURLToPath(new URL("../../../.claude/plugin/hooks/PostToolUse/Todo.ts", import.meta.url));
+const toolUsedHook = fileURLToPath(new URL("../../../.claude/plugin/hooks/PostToolUseFailure.ts", import.meta.url));
+const mcpHook = fileURLToPath(new URL("../../../.claude/plugin/hooks/PostToolUse/Mcp.ts", import.meta.url));
+const terminalHook = fileURLToPath(new URL("../../../.claude/plugin/hooks/PostToolUse/Bash.ts", import.meta.url));
+const stopHook = fileURLToPath(new URL("../../../.claude/plugin/hooks/Stop.ts", import.meta.url));
 async function startMonitorStub() {
     const calls: RequestCall[] = [];
     const childRuntimeSessionId = "deadbeef-1234";
@@ -365,7 +367,7 @@ describe("Claude plugin", () => {
             agent_id: "agent-123",
             agent_type: "Explore"
         }, monitor.port);
-        await runClaudeHook(subagentLifecycleHook, {
+        await runClaudeHook(subagentStopHook, {
             hook_event_name: "SubagentStop",
             session_id: "parent-session",
             agent_id: "agent-123",
@@ -566,7 +568,7 @@ describe("Claude plugin", () => {
     it("records MCP tool usage with parsed server and tool metadata", async () => {
         const monitor = await startMonitorStub();
         servers.push(monitor);
-        await runClaudeHook(toolUsedHook, {
+        await runClaudeHook(mcpHook, {
             hook_event_name: "PostToolUse",
             tool_name: "mcp__github__search_repositories",
             session_id: "parent-session",

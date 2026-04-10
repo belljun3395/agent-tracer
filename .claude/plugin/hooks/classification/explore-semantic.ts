@@ -1,6 +1,22 @@
-import { relativeProjectPath } from "../lib/paths.js";
-import { toTrimmedString } from "../lib/utils.js";
-import type { JsonObject } from "../lib/utils.js";
+/**
+ * Explore tool semantic classifier.
+ *
+ * Maps Claude Code explore tool names to SemanticMetadata for the Agent Tracer
+ * monitor. Tool names correspond to the `tool_name` field in PostToolUse payloads.
+ *
+ * Supported tools and their subtypeKey:
+ *   Read / (view/open variants) → read_file   (toolFamily: explore, group: files)
+ *   Glob                         → glob_files  (toolFamily: explore, group: search)
+ *   Grep                         → grep_code   (toolFamily: explore, group: search)
+ *   WebFetch                     → web_fetch   (toolFamily: explore, group: web)
+ *   WebSearch                    → web_search  (toolFamily: explore, group: web)
+ *   *(default)*                  → list_files  (toolFamily: explore, group: search)
+ *
+ * Tool name matching is case-insensitive on the normalized lower-cased name.
+ */
+import { relativeProjectPath } from "../util/paths.js";
+import { toTrimmedString } from "../util/utils.js";
+import type { JsonObject } from "../util/utils.js";
 import { extractToolFilePath } from "./command-semantic.js";
 import type { SemanticMetadata } from "./command-semantic.js";
 

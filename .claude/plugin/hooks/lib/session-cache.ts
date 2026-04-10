@@ -1,9 +1,17 @@
+/**
+ * File-system backed session result cache.
+ *
+ * Hook processes are short-lived (one process per event). This cache persists
+ * the taskId/sessionId returned by ensureRuntimeSession across invocations so
+ * subsequent hooks for the same session avoid redundant API calls.
+ *
+ * Cache location: <PROJECT_DIR>/.claude/.session-cache/<session_id>.json
+ * Entries are deleted by session_end.ts when the session terminates.
+ */
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { PROJECT_DIR } from "./paths.js";
+import { SESSION_CACHE_DIR } from "../util/paths.js";
 import type { RuntimeSessionEnsureResult } from "./transport.js";
-
-const SESSION_CACHE_DIR = path.join(PROJECT_DIR, ".claude", ".session-cache");
 
 export function getCachedSessionResult(sessionId: string): RuntimeSessionEnsureResult | null {
     const cachePath = path.join(SESSION_CACHE_DIR, `${sessionId}.json`);

@@ -1,4 +1,39 @@
-import { buildSemanticMetadata, cacheSessionResult, defaultTaskTitle, ensureRuntimeSession, getCachedSessionResult, getSessionId, getToolInput, hookLog, hookLogPayload, postJson, readStdinJson, stringifyToolInput, toBoolean, toTrimmedString } from "./common.js";
+/**
+ * Claude Code Hook: PostToolUse — matcher: "Agent|Skill"
+ *
+ * Fires after an Agent or Skill tool call succeeds.
+ *
+ * Stdin payload fields (ref: https://code.claude.com/docs/en/hooks#posttooluse):
+ *   session_id       string  — unique session identifier
+ *   hook_event_name  string  — "PostToolUse"
+ *   tool_name        string  — "Agent" or "Skill"
+ *   tool_input       object  — tool-specific input (see below)
+ *   tool_response    any     — agent/skill output text or structured result
+ *   tool_use_id      string  — unique ID for this tool invocation
+ *   cwd              string  — current working directory
+ *   transcript_path  string  — path to the session transcript JSONL
+ *   permission_mode  string  — current permission mode
+ *   agent_id         string? — set when inside a subagent
+ *
+ * Agent tool_input fields:
+ *   prompt           string   — task description for the spawned agent
+ *   description      string?  — short human-readable description
+ *   subagent_type    string?  — named agent type (e.g. "Explore", "code-reviewer")
+ *   run_in_background boolean? — if true, agent runs async; tool_response contains session_id
+ *   model            string?  — model override
+ *
+ * Skill tool_input fields:
+ *   skill            string   — skill name to invoke
+ *   args             string?  — optional arguments passed to the skill
+ *
+ * Blocking: PostToolUse cannot block (exit 2 shows stderr but execution continues).
+ *
+ * This handler posts an /api/agent-activity event (activityType: "delegation" or
+ * "skill_use"). For background agents, it additionally posts /api/task-link to
+ * connect the child session task to the parent task in the monitor.
+ */
+import { buildSemanticMetadata, defaultTaskTitle, getSessionId, getToolInput, hookLog, hookLogPayload, postJson, readStdinJson, resolveSessionIds, stringifyToolInput, toBoolean, toTrimmedString } from "../common.js";
+
 function extractChildSessionId(toolResponse: unknown): string {
     const text = typeof toolResponse === "string"
         ? toolResponse
@@ -6,25 +41,23 @@ function extractChildSessionId(toolResponse: unknown): string {
     const match = /session_id[:\s]+([a-f0-9-]{8,})/i.exec(text);
     return match?.[1]?.trim() ?? "";
 }
+
 async function main(): Promise<void> {
     const payload = await readStdinJson();
-    hookLogPayload("agent_activity", payload);
+    hookLogPayload("PostToolUse/Agent", payload);
     const toolName = toTrimmedString(payload.tool_name);
     const toolInput = getToolInput(payload);
     const sessionId = getSessionId(payload);
-    hookLog("agent_activity", "fired", { toolName, sessionId: sessionId || "(none)" });
+    hookLog("PostToolUse/Agent", "fired", { toolName, sessionId: sessionId || "(none)" });
+
     if (!sessionId || (toolName !== "Agent" && toolName !== "Skill")) {
-        hookLog("agent_activity", "skipped — not Agent/Skill or no sessionId");
+        hookLog("PostToolUse/Agent", "skipped — not Agent/Skill or no sessionId");
         return;
     }
-    const ids = getCachedSessionResult(sessionId) ?? await (async () => {
-        const fresh = await ensureRuntimeSession(sessionId);
-        cacheSessionResult(sessionId, fresh);
-        return fresh;
-    })();
-    const metadata = {
-        toolInput: stringifyToolInput(toolInput)
-    };
+
+    const ids = await resolveSessionIds(sessionId);
+    const metadata = { toolInput: stringifyToolInput(toolInput) };
+
     if (toolName === "Skill") {
         const skillName = toTrimmedString(toolInput.skill);
         await postJson("/api/agent-activity", {
@@ -50,11 +83,13 @@ async function main(): Promise<void> {
         });
         return;
     }
+
     const description = toTrimmedString(toolInput.description);
     const prompt = toTrimmedString(toolInput.prompt, 400);
     const runInBackground = toBoolean(toolInput.run_in_background);
     const agentName = toTrimmedString(toolInput.subagent_type);
     const title = description ? `Agent: ${description.slice(0, 80)}` : "Agent dispatch";
+
     await postJson("/api/agent-activity", {
         taskId: ids.taskId,
         sessionId: ids.sessionId,
@@ -76,18 +111,15 @@ async function main(): Promise<void> {
         },
         ...(agentName ? { agentName } : {})
     });
-    hookLog("agent_activity", "agent-activity posted", { activityType: "delegation", title });
-    if (!runInBackground)
-        return;
+    hookLog("PostToolUse/Agent", "agent-activity posted", { activityType: "delegation", title });
+
+    if (!runInBackground) return;
+
     const childSessionId = extractChildSessionId(payload.tool_response);
-    if (!childSessionId)
-        return;
+    if (!childSessionId) return;
+
     const childTitle = description || prompt || defaultTaskTitle();
-    const childIds = getCachedSessionResult(childSessionId) ?? await (async () => {
-        const fresh = await ensureRuntimeSession(childSessionId, childTitle);
-        cacheSessionResult(childSessionId, fresh);
-        return fresh;
-    })();
+    const childIds = await resolveSessionIds(childSessionId, childTitle);
     await postJson("/api/task-link", {
         taskId: childIds.taskId,
         taskKind: "background",
@@ -95,8 +127,9 @@ async function main(): Promise<void> {
         parentSessionId: ids.sessionId,
         title: childTitle
     });
-    hookLog("agent_activity", "task-link posted", { childSessionId, childTitle });
+    hookLog("PostToolUse/Agent", "task-link posted", { childSessionId, childTitle });
 }
+
 void main().catch((err: unknown) => {
-    hookLog("agent_activity", "ERROR", { error: String(err) });
+    hookLog("PostToolUse/Agent", "ERROR", { error: String(err) });
 });
