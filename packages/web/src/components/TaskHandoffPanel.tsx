@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReusableTaskSnapshot } from "@monitor/core";
-import type { HandoffMode, TaskProcessSection } from "../lib/insights.js";
-import { buildHandoffPlain, buildHandoffMarkdown, buildHandoffXML, buildHandoffSystemPrompt } from "../lib/insights.js";
+import type { HandoffMode, TaskProcessSection } from "@monitor/web-core";
+import { buildHandoffPlain, buildHandoffMarkdown, buildHandoffXML, buildHandoffSystemPrompt } from "@monitor/web-core";
 import { copyToClipboard } from "../lib/ui/clipboard.js";
 import { cn } from "../lib/ui/cn.js";
 import { loadHandoffDraft, saveHandoffDraft, type HandoffFormat, type HandoffPrefs } from "../lib/ui/handoffStorage.js";
+import { Button } from "./ui/Button.js";
+import { Eyebrow } from "./ui/Eyebrow.js";
+import { Textarea } from "./ui/Textarea.js";
 interface TaskHandoffPanelProps {
     readonly taskId?: string;
     readonly objective: string;
@@ -17,6 +20,42 @@ interface TaskHandoffPanelProps {
     readonly openQuestions: readonly string[];
     readonly violations: readonly string[];
     readonly snapshot: ReusableTaskSnapshot;
+}
+const panelSectionClass = "flex flex-col gap-1.5";
+const toggleButtonBaseClass = "rounded-[6px] px-2.5 py-1 text-[0.72rem] font-medium transition-colors";
+const toggleButtonInactiveClass = "text-[var(--text-2)] hover:text-[var(--text-1)]";
+const chipBaseClass = "rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-2 py-0.5 text-[0.73rem] cursor-pointer select-none transition-colors";
+const chipActiveClass = "border-[var(--accent)] bg-[var(--accent-light)] text-[var(--accent)]";
+function SectionLabel({ children }: {
+    readonly children: React.ReactNode;
+}): React.JSX.Element {
+    return <Eyebrow className="text-[0.72rem] tracking-[0.06em]">{children}</Eyebrow>;
+}
+function ToggleGroup<T extends string>({ options, value, onChange }: {
+    readonly options: readonly {
+        readonly value: T;
+        readonly label: string;
+    }[];
+    readonly value: T;
+    readonly onChange: (value: T) => void;
+}): React.JSX.Element {
+    return (<div className="flex w-fit overflow-hidden rounded-[6px] border border-[var(--border)]">
+      {options.map((option) => (<button key={option.value} className={cn(toggleButtonBaseClass, value === option.value
+                ? "bg-[var(--accent)] text-[#fff]"
+                : toggleButtonInactiveClass)} type="button" onClick={() => onChange(option.value)}>
+          {option.label}
+        </button>))}
+    </div>);
+}
+function IncludeChip({ checked, label, onChange }: {
+    readonly checked: boolean;
+    readonly label: string;
+    readonly onChange: () => void;
+}): React.JSX.Element {
+    return (<label className={cn(chipBaseClass, "has-[:checked]:" + chipActiveClass, checked && chipActiveClass)}>
+      <input checked={checked} className="sr-only" type="checkbox" onChange={onChange}/>
+      {label}
+    </label>);
 }
 export function TaskHandoffPanel({ taskId, objective, summary, plans, sections, exploredFiles, modifiedFiles, openTodos, openQuestions, violations, snapshot }: TaskHandoffPanelProps): React.JSX.Element {
     const initialDraft = useMemo(() => loadHandoffDraft(taskId, violations.length), [taskId, violations.length]);
@@ -94,9 +133,6 @@ export function TaskHandoffPanel({ taskId, objective, summary, plans, sections, 
     const setMode = useCallback((mode: HandoffMode): void => {
         setPrefs({ ...prefs, mode });
     }, [prefs]);
-    const labelClass = "text-[0.72rem] font-semibold uppercase tracking-[0.06em] text-[var(--text-3)]";
-    const pillBase = "rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-2 py-0.5 text-[0.73rem] cursor-pointer select-none transition-colors";
-    const pillChecked = "border-[var(--accent)] bg-[var(--accent-light)] text-[var(--accent)]";
     const includeItems: {
         key: keyof HandoffPrefs["include"];
         label: string;
@@ -129,62 +165,39 @@ export function TaskHandoffPanel({ taskId, objective, summary, plans, sections, 
     ];
     const canCopyLast = Boolean(lastCopiedText && lastCopiedText !== preview);
     return (<div className="rounded-[10px] border border-[var(--border)] bg-[var(--surface)]">
-      
       <button className="flex w-full items-center gap-2 px-3 py-2.5 text-left" onClick={() => setIsOpen((v) => !v)} type="button">
-        <span className="text-[0.75rem] text-[var(--text-3)] transition-transform duration-150" style={{ display: "inline-block", transform: isOpen ? "rotate(0deg)" : "rotate(-90deg)" }}>
+        <span className={cn("inline-block text-[0.75rem] text-[var(--text-3)] transition-transform duration-150", isOpen ? "rotate-0" : "-rotate-90")}>
           ▼
         </span>
         <span className="text-[0.82rem] font-semibold text-[var(--text-1)]">Copy for AI</span>
       </button>
 
-      
       {isOpen && (<div className="flex flex-col gap-3 border-t border-[var(--border)] px-3 py-3">
-
-          
-          <div className="flex flex-col gap-1.5">
-            <span className={labelClass}>Include</span>
+          <div className={panelSectionClass}>
+            <SectionLabel>Include</SectionLabel>
             <div className="flex flex-wrap gap-1.5">
-              {includeItems.map(({ key, label }) => (<label key={key} className={cn(pillBase, "has-[:checked]:" + pillChecked, prefs.include[key] ? pillChecked : "")}>
-                  <input checked={prefs.include[key]} className="sr-only" type="checkbox" onChange={() => toggleInclude(key)}/>
-                  {label}
-                </label>))}
+              {includeItems.map(({ key, label }) => (<IncludeChip key={key} checked={prefs.include[key]} label={label} onChange={() => toggleInclude(key)}/>))}
             </div>
           </div>
 
-          
-          <div className="flex flex-col gap-1.5">
-            <span className={labelClass}>Handoff note</span>
-            <textarea className="rounded-[6px] border border-[var(--border)] bg-[var(--surface-2)] px-2.5 py-1.5 text-[0.8rem] text-[var(--text-1)] outline-none placeholder:text-[var(--text-3)] focus:border-[var(--accent)] resize-none" placeholder="Add a note for the next session…" rows={2} value={memo} onChange={(e) => setMemo(e.target.value)}/>
+          <div className={panelSectionClass}>
+            <SectionLabel>Handoff note</SectionLabel>
+            <Textarea className="resize-none rounded-[6px] bg-[var(--surface-2)] px-2.5 py-1.5 text-[0.8rem]" placeholder="Add a note for the next session…" rows={2} value={memo} onChange={(e) => setMemo(e.target.value)}/>
           </div>
 
-          
-          <div className="flex flex-col gap-1.5">
-            <span className={labelClass}>Mode</span>
-            <div className="flex rounded-[6px] border border-[var(--border)] overflow-hidden w-fit">
-              {modes.map(({ value, label }) => (<button key={value} className={cn("px-2.5 py-1 text-[0.72rem] font-medium transition-colors", prefs.mode === value
-                    ? "bg-[var(--accent)] text-[#fff]"
-                    : "text-[var(--text-2)] hover:text-[var(--text-1)]")} type="button" onClick={() => setMode(value)}>
-                  {label}
-                </button>))}
-            </div>
+          <div className={panelSectionClass}>
+            <SectionLabel>Mode</SectionLabel>
+            <ToggleGroup options={modes} value={prefs.mode} onChange={setMode}/>
           </div>
 
-          
-          <div className="flex flex-col gap-1.5">
-            <span className={labelClass}>Format</span>
-            <div className="flex rounded-[6px] border border-[var(--border)] overflow-hidden w-fit">
-              {formats.map(({ value, label }) => (<button key={value} className={cn("px-2.5 py-1 text-[0.72rem] font-medium transition-colors", prefs.format === value
-                    ? "bg-[var(--accent)] text-[#fff]"
-                    : "text-[var(--text-2)] hover:text-[var(--text-1)]")} type="button" onClick={() => setFormat(value)}>
-                  {label}
-                </button>))}
-            </div>
+          <div className={panelSectionClass}>
+            <SectionLabel>Format</SectionLabel>
+            <ToggleGroup options={formats} value={prefs.format} onChange={setFormat}/>
           </div>
 
-          
-          <div className="flex flex-col gap-1.5">
+          <div className={panelSectionClass}>
             <div className="flex items-center justify-between gap-3">
-              <span className={labelClass}>Preview</span>
+              <SectionLabel>Preview</SectionLabel>
               <div className="flex items-center gap-2 text-[0.7rem] text-[var(--text-3)]">
                 {lastCopiedAt ? <span>Last copy saved locally</span> : null}
                 <span>{preview.length} chars</span>
@@ -197,11 +210,10 @@ export function TaskHandoffPanel({ taskId, objective, summary, plans, sections, 
             </pre>
           </div>
 
-          
           <div className="flex justify-end gap-2">
-            {canCopyLast && lastCopiedText ? (<button className="rounded-[7px] border border-[var(--border)] bg-[var(--surface-2)] px-3 py-1.5 text-[0.78rem] font-semibold text-[var(--text-2)] transition-colors hover:text-[var(--text-1)]" type="button" onClick={() => handleCopy(lastCopiedText)}>
+            {canCopyLast && lastCopiedText ? (<Button className="rounded-[7px] bg-[var(--surface-2)] px-3 py-1.5 text-[0.78rem] font-semibold text-[var(--text-2)]" size="sm" type="button" onClick={() => handleCopy(lastCopiedText)}>
                 Copy last
-              </button>) : null}
+              </Button>) : null}
             <button className={cn("rounded-[7px] border px-3 py-1.5 text-[0.78rem] font-semibold transition-all", copied
                 ? "border-[var(--ok-bg)] bg-[var(--ok-bg)] text-[var(--ok)]"
                 : isDisabled
@@ -210,7 +222,6 @@ export function TaskHandoffPanel({ taskId, objective, summary, plans, sections, 
               {copied ? "Copied ✓" : "Copy for AI"}
             </button>
           </div>
-
         </div>)}
     </div>);
 }

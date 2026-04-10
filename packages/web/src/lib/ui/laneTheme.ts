@@ -1,4 +1,4 @@
-import type { TimelineLane } from "../../types.js";
+import type { TimelineLane } from "@monitor/web-core";
 export interface LaneTheme {
     readonly label: string;
     readonly description: string;

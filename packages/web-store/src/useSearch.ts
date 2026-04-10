@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { TaskId } from "@monitor/core";
-import { fetchSearchResults } from "../api.js";
-import type { SearchResponse } from "../types.js";
+import { fetchSearchResults } from "@monitor/web-core";
+import type { SearchResponse } from "@monitor/web-core";
 export interface UseSearchResult {
     readonly query: string;
     readonly setQuery: (query: string) => void;
@@ -23,29 +23,31 @@ export function useSearch(scopedTaskId?: string): UseSearchResult {
         if (!normalizedQuery) {
             setResults(null);
             setIsSearching(false);
+            setErrorMessage(null);
             return;
         }
-        let cancelled = false;
+        const controller = new AbortController();
         const timer = setTimeout(() => {
             setIsSearching(true);
-            void fetchSearchResults(normalizedQuery, effectiveTaskId)
+            setErrorMessage(null);
+            void fetchSearchResults(normalizedQuery, effectiveTaskId, { signal: controller.signal })
                 .then((result) => {
-                if (!cancelled)
+                if (!controller.signal.aborted) {
                     setResults(result);
+                }
             })
                 .catch((err) => {
-                if (!cancelled) {
+                if (!controller.signal.aborted) {
                     setErrorMessage(err instanceof Error ? err.message : "Failed to search monitor data.");
                 }
             })
                 .finally(() => {
-                if (!cancelled)
-                    setIsSearching(false);
+                setIsSearching(false);
             });
         }, 180);
         return (): void => {
-            cancelled = true;
             clearTimeout(timer);
+            controller.abort();
         };
     }, [query, effectiveTaskId]);
     return { query, setQuery, results, isSearching, errorMessage, taskScopeEnabled, setTaskScopeEnabled };

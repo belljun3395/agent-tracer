@@ -1,5 +1,26 @@
 import type { MonitoringSession } from "@monitor/core";
 import type { BookmarkRecord, MonitoringTask, OverviewResponse, TimelineEvent } from "../types.js";
+type RealtimeDispatch =
+    | {
+        type: "UPSERT_TASK";
+        task: MonitoringTask;
+    }
+    | {
+        type: "REMOVE_TASK";
+        taskId: string;
+    }
+    | {
+        type: "UPSERT_BOOKMARK";
+        bookmark: BookmarkRecord;
+    }
+    | {
+        type: "REMOVE_BOOKMARK";
+        bookmarkId: string;
+    }
+    | {
+        type: "UPSERT_TASK_DETAIL_EVENT";
+        event: TimelineEvent;
+    };
 export type MonitorRealtimeMessage = {
     readonly type: "snapshot";
     readonly payload: {
@@ -78,6 +99,7 @@ export async function refreshRealtimeMonitorData(input: {
     refreshOverview: () => Promise<void>;
     refreshTaskDetail: (taskId: string) => Promise<void>;
     refreshBookmarksOnly: () => Promise<void>;
+    dispatch?: (action: RealtimeDispatch) => void;
 }): Promise<void> {
     if (!input.message) {
         const tasks: Promise<void>[] = [input.refreshOverview()];
@@ -89,15 +111,29 @@ export async function refreshRealtimeMonitorData(input: {
     }
     switch (input.message.type) {
         case "bookmark.saved":
+            input.dispatch?.({ type: "UPSERT_BOOKMARK", bookmark: input.message.payload });
+            return;
         case "bookmark.deleted":
-            await input.refreshBookmarksOnly();
+            input.dispatch?.({ type: "REMOVE_BOOKMARK", bookmarkId: input.message.payload.bookmarkId });
             return;
         case "event.updated":
-            if (shouldRefreshSelectedTaskDetail(input.message, input.selectedTaskId) && input.selectedTaskId) {
-                await input.refreshTaskDetail(input.selectedTaskId);
+            if (shouldRefreshSelectedTaskDetail(input.message, input.selectedTaskId)) {
+                input.dispatch?.({ type: "UPSERT_TASK_DETAIL_EVENT", event: input.message.payload });
             }
             return;
         case "event.logged": {
+            if (shouldRefreshSelectedTaskDetail(input.message, input.selectedTaskId)) {
+                input.dispatch?.({ type: "UPSERT_TASK_DETAIL_EVENT", event: input.message.payload });
+            }
+            await input.refreshOverview();
+            return;
+        }
+        case "task.updated":
+            input.dispatch?.({ type: "UPSERT_TASK", task: input.message.payload });
+            return;
+        case "task.started":
+        case "task.completed": {
+            input.dispatch?.({ type: "UPSERT_TASK", task: input.message.payload });
             const tasks: Promise<void>[] = [input.refreshOverview()];
             if (shouldRefreshSelectedTaskDetail(input.message, input.selectedTaskId) && input.selectedTaskId) {
                 tasks.push(input.refreshTaskDetail(input.selectedTaskId));
@@ -106,13 +142,13 @@ export async function refreshRealtimeMonitorData(input: {
             return;
         }
         case "task.deleted":
+            input.dispatch?.({ type: "REMOVE_TASK", taskId: input.message.payload.taskId });
+            await input.refreshOverview();
+            return;
         case "tasks.purged":
             await input.refreshOverview();
             return;
         case "snapshot":
-        case "task.started":
-        case "task.completed":
-        case "task.updated":
         case "session.started":
         case "session.ended": {
             const tasks: Promise<void>[] = [input.refreshOverview()];

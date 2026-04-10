@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { SOCKET_READY_STATE, cleanupSocketOnUnmount } from "./useWebSocket.js";
+import { SOCKET_READY_STATE, cleanupSocketOnUnmount } from "@monitor/web-store";
 describe("cleanupSocketOnUnmount", () => {
     it("아직 연결 중인 소켓은 바로 닫지 않고 deferClose로 넘긴다", () => {
         const close = vi.fn();

@@ -1,8 +1,8 @@
 import type React from "react";
 import { create } from "zustand";
 import { BookmarkId, EventId, TaskId } from "@monitor/core";
-import { createBookmark, deleteBookmark, deleteTask, fetchBookmarks, fetchOverview, fetchTaskDetail, fetchTasks, updateTaskStatus, updateTaskTitle } from "../api.js";
-import type { BookmarkRecord, MonitoringTask, OverviewResponse, TaskDetailResponse, TimelineEvent } from "../types.js";
+import { createBookmark, deleteBookmark, deleteTask, fetchBookmarks, fetchOverview, fetchTaskDetail, fetchTasks, updateTaskStatus, updateTaskTitle } from "@monitor/web-core";
+import type { BookmarkRecord, MonitoringTask, OverviewResponse, TaskDetailResponse, TimelineEvent } from "@monitor/web-core";
 function mergeTimeline(prev: readonly TimelineEvent[], next: readonly TimelineEvent[]): readonly TimelineEvent[] {
     const prevById = new Map(prev.map((e) => [e.id, e]));
     const merged = next.map((e) => prevById.get(e.id) ?? e);
@@ -100,6 +100,21 @@ export type TaskAction = {
     validTaskIds: ReadonlySet<string>;
 } | {
     type: "RESET_TASK_FILTERS";
+} | {
+    type: "UPSERT_TASK";
+    task: MonitoringTask;
+} | {
+    type: "REMOVE_TASK";
+    taskId: string;
+} | {
+    type: "UPSERT_BOOKMARK";
+    bookmark: BookmarkRecord;
+} | {
+    type: "REMOVE_BOOKMARK";
+    bookmarkId: string;
+} | {
+    type: "UPSERT_TASK_DETAIL_EVENT";
+    event: TimelineEvent;
 };
 export interface TaskStoreSlice {
     taskState: TaskState;
@@ -183,6 +198,57 @@ function applyTaskAction(state: TaskState, action: TaskAction): TaskState {
                 taskTitleError: null,
                 isSavingTaskTitle: false
             };
+        case "UPSERT_TASK": {
+            const existingIndex = state.tasks.findIndex((task) => task.id === action.task.id);
+            const nextTasks = existingIndex === -1
+                ? [action.task, ...state.tasks]
+                : state.tasks.map((task, index) => index === existingIndex ? action.task : task);
+            const nextTaskDetail = state.taskDetail?.task.id === action.task.id
+                ? { ...state.taskDetail, task: action.task }
+                : state.taskDetail;
+            return {
+                ...state,
+                tasks: nextTasks,
+                ...(nextTaskDetail !== state.taskDetail ? { taskDetail: nextTaskDetail } : {})
+            };
+        }
+        case "REMOVE_TASK": {
+            const nextTasks = state.tasks.filter((task) => task.id !== action.taskId);
+            return {
+                ...state,
+                tasks: nextTasks,
+                ...(state.selectedTaskId === action.taskId ? { selectedTaskId: null } : {}),
+                ...(state.taskDetail?.task.id === action.taskId ? { taskDetail: null } : {})
+            };
+        }
+        case "UPSERT_BOOKMARK": {
+            const existingIndex = state.bookmarks.findIndex((bookmark) => bookmark.id === action.bookmark.id);
+            const nextBookmarks = existingIndex === -1
+                ? [action.bookmark, ...state.bookmarks]
+                : state.bookmarks.map((bookmark, index) => index === existingIndex ? action.bookmark : bookmark);
+            return { ...state, bookmarks: nextBookmarks };
+        }
+        case "REMOVE_BOOKMARK":
+            return {
+                ...state,
+                bookmarks: state.bookmarks.filter((bookmark) => bookmark.id !== action.bookmarkId)
+            };
+        case "UPSERT_TASK_DETAIL_EVENT": {
+            const currentTaskDetail = state.taskDetail;
+            if (!currentTaskDetail || currentTaskDetail.task.id !== action.event.taskId) {
+                return state;
+            }
+            const existingIndex = currentTaskDetail.timeline.findIndex((event) => event.id === action.event.id);
+            const nextTimeline = existingIndex === -1
+                ? [...currentTaskDetail.timeline, action.event]
+                : currentTaskDetail.timeline.map((event, index) => index === existingIndex ? action.event : event);
+            nextTimeline.sort((left, right) => Date.parse(left.createdAt) - Date.parse(right.createdAt));
+            const timelineUnchanged = nextTimeline.length === currentTaskDetail.timeline.length
+                && nextTimeline.every((event, index) => event === currentTaskDetail.timeline[index]);
+            return timelineUnchanged
+                ? state
+                : { ...state, taskDetail: { ...currentTaskDetail, timeline: nextTimeline } };
+        }
         default:
             return state;
     }

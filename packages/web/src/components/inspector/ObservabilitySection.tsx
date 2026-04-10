@@ -1,7 +1,7 @@
 import type React from "react";
 import { cn } from "../../lib/ui/cn.js";
-import { formatCount, formatDuration, formatPhaseLabel, formatRate } from "../../lib/observability.js";
-import type { TaskObservabilityResponse } from "../../types.js";
+import { formatCount, formatDuration, formatPhaseLabel, formatRate } from "@monitor/web-core";
+import type { TaskObservabilityResponse } from "@monitor/web-core";
 import { Badge } from "../ui/Badge.js";
 export function formatTraceLinkCoverageNote(observability: TaskObservabilityResponse["observability"]): string {
     if (observability.traceLinkEligibleEventCount === 0) {

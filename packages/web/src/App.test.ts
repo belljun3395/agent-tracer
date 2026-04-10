@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { refreshRealtimeMonitorData } from "./lib/realtime.js";
+import { refreshRealtimeMonitorData } from "@monitor/web-core";
 describe("refreshRealtimeMonitorData", () => {
     it("refreshes overview and the selected task detail together", async () => {
         const refreshOverview = vi.fn().mockResolvedValue(undefined);
@@ -9,7 +9,8 @@ describe("refreshRealtimeMonitorData", () => {
             selectedTaskId: "task-1",
             refreshOverview,
             refreshTaskDetail,
-            refreshBookmarksOnly: vi.fn().mockResolvedValue(undefined)
+            refreshBookmarksOnly: vi.fn().mockResolvedValue(undefined),
+            dispatch: vi.fn()
         });
         expect(refreshOverview).toHaveBeenCalledTimes(1);
         expect(refreshTaskDetail).toHaveBeenCalledTimes(1);
@@ -23,7 +24,8 @@ describe("refreshRealtimeMonitorData", () => {
             selectedTaskId: null,
             refreshOverview,
             refreshTaskDetail,
-            refreshBookmarksOnly: vi.fn().mockResolvedValue(undefined)
+            refreshBookmarksOnly: vi.fn().mockResolvedValue(undefined),
+            dispatch: vi.fn()
         });
         expect(refreshOverview).toHaveBeenCalledTimes(1);
         expect(refreshTaskDetail).not.toHaveBeenCalled();

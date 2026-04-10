@@ -1,7 +1,8 @@
 import type React from "react";
 import { useCallback, useEffect, useState } from "react";
-import { fetchWorkflowContent, fetchWorkflowLibrary, type WorkflowContentRecord, type WorkflowSummaryRecord } from "../api.js";
+import { fetchWorkflowContent, fetchWorkflowLibrary, type WorkflowContentRecord, type WorkflowSummaryRecord } from "@monitor/web-core";
 import { cn } from "../lib/ui/cn.js";
+import { Eyebrow } from "./ui/Eyebrow.js";
 interface WorkflowLibraryPanelProps {
     readonly onSelectTask: (taskId: string) => void;
     readonly onClose: () => void;
@@ -19,7 +20,7 @@ function SnapshotField({ label, value }: {
         return null;
     }
     return (<div className="flex flex-col gap-1.5 rounded-[10px] border border-[var(--border)] bg-[var(--surface)] px-3.5 py-3">
-      <span className="text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">{label}</span>
+      <Eyebrow>{label}</Eyebrow>
       <p className="m-0 whitespace-pre-wrap break-words text-[0.84rem] leading-7 text-[var(--text-1)]">{value}</p>
     </div>);
 }
@@ -31,7 +32,7 @@ function SnapshotList({ label, items }: {
         return null;
     }
     return (<div className="flex flex-col gap-2 rounded-[10px] border border-[var(--border)] bg-[var(--surface)] px-3.5 py-3">
-      <span className="text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">{label}</span>
+      <Eyebrow>{label}</Eyebrow>
       <div className="flex flex-col gap-1.5">
         {items.map((item) => (<p key={item} className="m-0 whitespace-pre-wrap break-words text-[0.84rem] leading-7 text-[var(--text-1)]">
             - {item}
@@ -69,7 +70,7 @@ function WorkflowContentDetail({ content }: {
       </div>
 
       <div className="mt-3 flex flex-col gap-1.5">
-        <span className="text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">Workflow Context</span>
+        <Eyebrow>Workflow Context</Eyebrow>
         <pre className="m-0 max-h-[30rem] overflow-auto whitespace-pre-wrap break-words rounded-[10px] border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-[0.8rem] leading-7 text-[var(--text-2)]">
           {content.workflowContext}
         </pre>
@@ -209,7 +210,7 @@ export function WorkflowLibraryPanel({ onSelectTask, onClose }: WorkflowLibraryP
                   {expandedTaskId === item.taskId && (<>
                       {loadingTaskId === item.taskId ? (<div className="border-t border-[var(--border)] bg-[var(--surface-2)] px-4 py-3 text-[0.76rem] text-[var(--text-3)]">
                           Loading workflow content…
-                        </div>) : failedTaskId === item.taskId ? (<div className="border-t border-[var(--border)] bg-[var(--surface-2)] px-4 py-3 text-[0.76rem] text-[var(--danger)]">
+                        </div>) : failedTaskId === item.taskId ? (<div className="border-t border-[var(--border)] bg-[var(--surface-2)] px-4 py-3 text-[0.76rem] text-[var(--err)]">
                           Failed to load workflow content.
                         </div>) : content ? (<WorkflowContentDetail content={content}/>) : null}
                     </>)}

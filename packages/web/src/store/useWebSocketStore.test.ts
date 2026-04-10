@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { _wsStore } from "./useWebSocketStore.js";
+import { _wsStore } from "@monitor/web-store";
 beforeEach(() => {
     _wsStore.getState().setConnected(false);
 });

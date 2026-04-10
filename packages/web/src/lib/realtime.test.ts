@@ -1,13 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 import { BookmarkId, EventId, TaskId, TaskSlug } from "@monitor/core";
-import { parseRealtimeMessage, refreshRealtimeMonitorData, type MonitorRealtimeMessage } from "./realtime.js";
+import { parseRealtimeMessage, refreshRealtimeMonitorData, type MonitorRealtimeMessage } from "@monitor/web-core";
 function createRefreshFns() {
     return {
         refreshOverview: vi.fn(async () => { }),
         refreshTaskDetail: vi.fn(async (taskId: string) => {
             void taskId;
         }),
-        refreshBookmarksOnly: vi.fn(async () => { })
+        refreshBookmarksOnly: vi.fn(async () => { }),
+        dispatch: vi.fn()
     };
 }
 describe("parseRealtimeMessage", () => {
@@ -38,7 +39,11 @@ describe("refreshRealtimeMonitorData", () => {
             selectedTaskId: "task-1",
             ...fns
         });
-        expect(fns.refreshBookmarksOnly).toHaveBeenCalledTimes(1);
+        expect(fns.refreshBookmarksOnly).not.toHaveBeenCalled();
+        expect(fns.dispatch).toHaveBeenCalledWith({
+            type: "UPSERT_BOOKMARK",
+            bookmark: message.payload
+        });
         expect(fns.refreshOverview).not.toHaveBeenCalled();
         expect(fns.refreshTaskDetail).not.toHaveBeenCalled();
     });
@@ -63,7 +68,11 @@ describe("refreshRealtimeMonitorData", () => {
             ...fns
         });
         expect(fns.refreshOverview).toHaveBeenCalledTimes(1);
-        expect(fns.refreshTaskDetail).toHaveBeenCalledWith("task-1");
+        expect(fns.dispatch).toHaveBeenCalledWith({
+            type: "UPSERT_TASK_DETAIL_EVENT",
+            event: message.payload
+        });
+        expect(fns.refreshTaskDetail).not.toHaveBeenCalled();
         expect(fns.refreshBookmarksOnly).not.toHaveBeenCalled();
     });
     it("skips detail refresh for unrelated task updates", async () => {
@@ -84,7 +93,11 @@ describe("refreshRealtimeMonitorData", () => {
             selectedTaskId: "task-1",
             ...fns
         });
-        expect(fns.refreshOverview).toHaveBeenCalledTimes(1);
+        expect(fns.dispatch).toHaveBeenCalledWith({
+            type: "UPSERT_TASK",
+            task: message.payload
+        });
+        expect(fns.refreshOverview).not.toHaveBeenCalled();
         expect(fns.refreshTaskDetail).not.toHaveBeenCalled();
         expect(fns.refreshBookmarksOnly).not.toHaveBeenCalled();
     });

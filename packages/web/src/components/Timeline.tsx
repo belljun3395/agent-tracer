@@ -1,12 +1,12 @@
 import type React from "react";
 import { type FormEvent as ReactFormEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import type { TimelineItemLayout, TimelineNodeBounds } from "../lib/timeline.js";
-import { buildDisplayLaneRows, countLaneSubtypes, isExpandableLane, resolveEventSubtype, type ExpandableTimelineLane, type TimelineLaneRow } from "../lib/eventSubtype.js";
-import { buildTimelineContextSummary, buildTimelineConnectors, buildTimelineLayout, buildTimestampTicks, formatRelativeTime, LANE_HEIGHT, NODE_WIDTH, ROW_VERTICAL_OFFSET, RULER_HEIGHT, TIMELINE_LANES } from "../lib/timeline.js";
-import { filterTimelineEvents } from "../lib/insights.js";
+import type { TimelineItemLayout, TimelineNodeBounds } from "@monitor/web-core";
+import { buildDisplayLaneRows, countLaneSubtypes, isExpandableLane, resolveEventSubtype, type ExpandableTimelineLane, type TimelineLaneRow } from "@monitor/web-core";
+import { buildTimelineContextSummary, buildTimelineConnectors, buildTimelineLayout, buildTimestampTicks, formatRelativeTime, LANE_HEIGHT, NODE_WIDTH, ROW_VERTICAL_OFFSET, RULER_HEIGHT, TIMELINE_LANES } from "@monitor/web-core";
+import { filterTimelineEvents } from "@monitor/web-core";
 import { cn } from "../lib/ui/cn.js";
 import { getLaneTheme } from "../lib/ui/laneTheme.js";
-import type { TimelineEvent, TimelineLane } from "../types.js";
+import type { TimelineEvent, TimelineLane } from "@monitor/web-core";
 import { Button } from "./ui/Button.js";
 import "./Timeline.css";
 interface NodeBounds {
@@ -63,6 +63,7 @@ const TASK_STATUS_BUTTON_STYLES = {
         idle: "border-[var(--border)] bg-[var(--surface)] text-[var(--text-3)] hover:border-[var(--err)] hover:bg-[var(--err-bg)]/70 hover:text-[var(--err)]"
     }
 } as const;
+type TimelineObservabilityStats = TimelineProps["observabilityStats"];
 function formatTaskStatusLabel(status: "running" | "waiting" | "completed" | "errored"): string {
     switch (status) {
         case "running":
@@ -74,6 +75,207 @@ function formatTaskStatusLabel(status: "running" | "waiting" | "completed" | "er
         case "errored":
             return "Errored";
     }
+}
+function TimelineContextBar({ taskTitle, taskUsesDerivedTitle, contextSummary, showRuleGapsOnly, onToggleRuleGap, selectedRuleId, onClearRuleId, selectedTag, onClearTag, observabilityStats, taskStatus, isTaskControlsOpen, isEditingTaskTitle, controlsButtonRef, setControlsPopoverPos, setIsTaskControlsOpen, isFiltersOpen, filtersButtonRef, setFiltersPopoverPos, setIsFiltersOpen, activeLaneCount, totalLaneCount }: {
+    readonly taskTitle: string | null;
+    readonly taskUsesDerivedTitle: boolean;
+    readonly contextSummary: ReturnType<typeof buildTimelineContextSummary>;
+    readonly showRuleGapsOnly: boolean;
+    readonly onToggleRuleGap: (show: boolean) => void;
+    readonly selectedRuleId: string | null;
+    readonly onClearRuleId: () => void;
+    readonly selectedTag: string | null;
+    readonly onClearTag: () => void;
+    readonly observabilityStats: TimelineObservabilityStats;
+    readonly taskStatus?: TimelineProps["taskStatus"];
+    readonly isTaskControlsOpen: boolean;
+    readonly isEditingTaskTitle: boolean;
+    readonly controlsButtonRef: React.RefObject<HTMLButtonElement | null>;
+    readonly setControlsPopoverPos: (value: {
+        top: number;
+        right: number;
+    }) => void;
+    readonly setIsTaskControlsOpen: React.Dispatch<React.SetStateAction<boolean>>;
+    readonly isFiltersOpen: boolean;
+    readonly filtersButtonRef: React.RefObject<HTMLButtonElement | null>;
+    readonly setFiltersPopoverPos: (value: {
+        top: number;
+        right: number;
+    }) => void;
+    readonly setIsFiltersOpen: React.Dispatch<React.SetStateAction<boolean>>;
+    readonly activeLaneCount: number;
+    readonly totalLaneCount: number;
+}): React.JSX.Element {
+    return (<div className="timeline-context-bar" style={{ position: "relative" }}>
+      <div className="timeline-context-bar-main">
+        <div className="timeline-context-copy">
+          <div className="timeline-context-title-row">
+            <strong className="timeline-context-title">{taskTitle ?? "Waiting for task data…"}</strong>
+            {taskUsesDerivedTitle && taskTitle && (<span className="timeline-context-summary-chip accent">Suggested</span>)}
+          </div>
+          <div className="timeline-context-summary-row">
+            <span className="timeline-context-summary-chip">{contextSummary.eventSummary}</span>
+            {contextSummary.focusSummary && (<span className="timeline-context-summary-chip emphasis">{contextSummary.focusSummary}</span>)}
+            {showRuleGapsOnly && (<button className="timeline-context-summary-chip emphasis" onClick={() => onToggleRuleGap(false)} type="button">
+                Gaps only ×
+              </button>)}
+            {selectedRuleId && (<button className="timeline-context-summary-chip emphasis" onClick={onClearRuleId} type="button">
+                Rule: {selectedRuleId} ×
+              </button>)}
+            {selectedTag && (<button className="timeline-context-summary-chip emphasis" onClick={onClearTag} type="button">
+                Tag: {selectedTag} ×
+              </button>)}
+          </div>
+        </div>
+      </div>
+
+      <div className="timeline-context-bar-actions">
+        {(observabilityStats.violations > 0 || observabilityStats.checks > 0) && (<span className="timeline-context-summary-chip timeline-context-obs-stats" style={{ gap: 4, fontSize: "0.66rem" }}>
+            {observabilityStats.violations > 0 && <span style={{ color: "var(--err)" }}>{observabilityStats.violations}v</span>}
+            {observabilityStats.checks > 0 && <span>{observabilityStats.checks}c</span>}
+            {observabilityStats.passes > 0 && <span style={{ color: "var(--ok)" }}>{observabilityStats.passes}p</span>}
+          </span>)}
+
+        {taskStatus && (<span className={cn("timeline-context-status", TASK_STATUS_BUTTON_STYLES[taskStatus].active)}>
+            {taskStatus}
+          </span>)}
+
+        <button ref={controlsButtonRef} aria-expanded={isTaskControlsOpen || isEditingTaskTitle} className={cn("timeline-context-toggle", (isTaskControlsOpen || isEditingTaskTitle) && "border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] text-[var(--accent)]")} onClick={() => {
+            if (controlsButtonRef.current) {
+                const rect = controlsButtonRef.current.getBoundingClientRect();
+                setControlsPopoverPos({ top: rect.bottom + 6, right: window.innerWidth - rect.right });
+            }
+            setIsTaskControlsOpen((value) => !value);
+        }} title="Task controls" type="button">
+          <svg aria-hidden="true" fill="none" height="13" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" width="13">
+            <circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>
+          </svg>
+        </button>
+
+        <button ref={filtersButtonRef} aria-expanded={isFiltersOpen} className={cn("timeline-context-toggle", isFiltersOpen && "border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] text-[var(--accent)]")} onClick={() => {
+            if (filtersButtonRef.current) {
+                const rect = filtersButtonRef.current.getBoundingClientRect();
+                setFiltersPopoverPos({ top: rect.bottom + 6, right: window.innerWidth - rect.right });
+            }
+            setIsFiltersOpen((value) => !value);
+        }} title="Filters & Zoom" type="button">
+          <svg aria-hidden="true" fill="none" height="13" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" width="13">
+            <line x1="4" x2="20" y1="6" y2="6"/><line x1="8" x2="16" y1="12" y2="12"/><line x1="11" x2="13" y1="18" y2="18"/>
+          </svg>
+          {activeLaneCount < totalLaneCount && (<span style={{ fontSize: "0.58rem", fontWeight: 700, lineHeight: 1 }}>
+              {activeLaneCount}
+            </span>)}
+        </button>
+      </div>
+    </div>);
+}
+function TimelineFiltersPopover({ filtersPopoverRef, filtersPopoverPos, zoom, onZoomChange, activeLaneCount, totalLaneCount, filters, setFilters }: {
+    readonly filtersPopoverRef: React.RefObject<HTMLDivElement | null>;
+    readonly filtersPopoverPos: {
+        top: number;
+        right: number;
+    };
+    readonly zoom: number;
+    readonly onZoomChange: (zoom: number) => void;
+    readonly activeLaneCount: number;
+    readonly totalLaneCount: number;
+    readonly filters: Record<TimelineLane, boolean>;
+    readonly setFilters: React.Dispatch<React.SetStateAction<Record<TimelineLane, boolean>>>;
+}): React.JSX.Element {
+    return (<div ref={filtersPopoverRef} className="timeline-filters-popover" style={{ position: "fixed", top: filtersPopoverPos.top, right: filtersPopoverPos.right, zIndex: 200 }}>
+      <div className="timeline-filters-popover-section">
+        <span className="toolbar-label">Zoom</span>
+        <div className="toolbar-group" style={{ flex: 1 }}>
+          <input max={2.5} min={0.8} step={0.1} style={{ flex: 1 }} type="range" value={zoom} onChange={(event) => onZoomChange(Number(event.target.value))}/>
+          <span className="toolbar-value">{zoom.toFixed(1)}×</span>
+        </div>
+      </div>
+
+      <div className="timeline-filters-popover-divider"/>
+
+      <div className="timeline-filters-popover-section" style={{ flexWrap: "wrap" }}>
+        <button className={`filter-chip all-toggle${activeLaneCount === totalLaneCount ? " active" : ""}`} type="button" onClick={() => {
+            const allOn = activeLaneCount === totalLaneCount;
+            const next = Object.fromEntries(TIMELINE_LANES.map((lane) => [lane, !allOn])) as Record<TimelineLane, boolean>;
+            setFilters(next);
+        }}>
+          {activeLaneCount === totalLaneCount ? "All" : `${activeLaneCount}/${totalLaneCount}`}
+        </button>
+        {TIMELINE_LANES.map((lane) => (<label key={lane} className={`filter-chip ${lane}${filters[lane] ? " active" : ""}`}>
+            <input checked={filters[lane]} type="checkbox" onChange={() => setFilters((current) => ({ ...current, [lane]: !current[lane] }))}/>
+            <span className="filter-dot"/>
+            {getLaneTheme(lane).label}
+          </label>))}
+      </div>
+    </div>);
+}
+function TimelineTaskControlsPanel({ controlsPopoverRef, controlsPopoverPos, isEditingTaskTitle, onSubmitTitle, isSavingTaskTitle, onTitleDraftChange, taskTitleDraft, onCancelEditTitle, taskTitleError, onStartEditTitle, onOpenTaskWorkspace, taskStatus, onChangeTaskStatus, isUpdatingTaskStatus, observabilityStats }: {
+    readonly controlsPopoverRef: React.RefObject<HTMLDivElement | null>;
+    readonly controlsPopoverPos: {
+        top: number;
+        right: number;
+    };
+    readonly isEditingTaskTitle: boolean;
+    readonly onSubmitTitle: (event: ReactFormEvent<HTMLFormElement>) => void;
+    readonly isSavingTaskTitle: boolean;
+    readonly onTitleDraftChange: (value: string) => void;
+    readonly taskTitleDraft: string;
+    readonly onCancelEditTitle: () => void;
+    readonly taskTitleError: string | null;
+    readonly onStartEditTitle: () => void;
+    readonly onOpenTaskWorkspace: (() => void) | undefined;
+    readonly taskStatus: TimelineProps["taskStatus"] | undefined;
+    readonly onChangeTaskStatus: ((status: "running" | "waiting" | "completed" | "errored") => void) | undefined;
+    readonly isUpdatingTaskStatus: boolean | undefined;
+    readonly observabilityStats: TimelineObservabilityStats;
+}): React.JSX.Element {
+    const observabilityBadges = [
+        { key: "actions", label: "Actions", value: observabilityStats.actions },
+        { key: "coordination", label: "Coordination", value: observabilityStats.coordinationActivities },
+        { key: "files", label: "Files", value: observabilityStats.exploredFiles },
+        { key: "compacts", label: "Compact", value: observabilityStats.compactions },
+        { key: "checks", label: "Checks", value: observabilityStats.checks },
+        { key: "violations", label: "Violations", value: observabilityStats.violations },
+        { key: "passes", label: "Passes", value: observabilityStats.passes }
+    ] as const;
+
+    return (<div ref={controlsPopoverRef} className="timeline-task-controls-panel" style={{ position: "fixed", top: controlsPopoverPos.top, right: controlsPopoverPos.right, zIndex: 200, minWidth: 260 }}>
+      {isEditingTaskTitle ? (<form className="task-title-form" onSubmit={onSubmitTitle}>
+          <div className="task-title-form-row">
+            <input className="task-title-input" disabled={isSavingTaskTitle} onChange={(event) => onTitleDraftChange(event.target.value)} placeholder="Rename task" type="text" value={taskTitleDraft}/>
+            <div className="task-title-actions">
+              <Button className="h-7 rounded-full border-[var(--accent)] bg-[var(--accent-light)] px-3 text-[0.72rem] font-semibold text-[var(--accent)] shadow-none hover:border-[var(--accent)] hover:bg-[var(--accent-light)] hover:text-[var(--accent)]" disabled={isSavingTaskTitle} size="sm" type="submit">
+                {isSavingTaskTitle ? "Saving..." : "Save"}
+              </Button>
+              <Button className="h-7 rounded-full px-3 text-[0.72rem] font-semibold shadow-none" disabled={isSavingTaskTitle} onClick={onCancelEditTitle} size="sm" type="button">
+                Cancel
+              </Button>
+            </div>
+          </div>
+          {taskTitleError && <p className="task-title-error">{taskTitleError}</p>}
+        </form>) : (<div className="timeline-task-controls-row">
+          <div className="timeline-title-actions">
+            <Button className="h-7 rounded-full px-3 text-[0.72rem] font-semibold shadow-none" onClick={onStartEditTitle} size="sm" type="button">
+              Rename Task
+            </Button>
+            {onOpenTaskWorkspace && (<Button className="h-7 rounded-full px-3 text-[0.72rem] font-semibold shadow-none" onClick={onOpenTaskWorkspace} size="sm" type="button">
+                Open Workspace
+              </Button>)}
+          </div>
+        </div>)}
+      {!isEditingTaskTitle && taskStatus && onChangeTaskStatus && (<div className="flex flex-wrap items-center gap-2">
+          <span className="text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">Status</span>
+          <select className="h-8 rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 text-[0.74rem] font-semibold text-[var(--text-2)]" disabled={isUpdatingTaskStatus} onChange={(event) => onChangeTaskStatus(event.target.value as "running" | "waiting" | "completed" | "errored")} value={taskStatus}>
+            {(["running", "waiting", "completed", "errored"] as const).map((status) => (<option key={status} value={status}>{formatTaskStatusLabel(status)}</option>))}
+          </select>
+        </div>)}
+      <div className="timeline-task-badges">
+        {observabilityBadges.map((badge) => (<div key={badge.key} className={cn("inline-flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-[0.72rem] font-semibold tracking-[0.02em]", OBSERVABILITY_BADGE_STYLES[badge.key])}>
+            <span className="text-[0.78rem] font-bold leading-none">{badge.value}</span>
+            <span className="leading-none">{badge.label}</span>
+          </div>))}
+      </div>
+    </div>);
 }
 interface TimelineProps {
     readonly timeline: readonly TimelineEvent[];
@@ -414,150 +616,13 @@ export function Timeline({ timeline, taskTitle, taskId, taskStatus, taskUpdatedA
 
       <div className="timeline-panel">
         
-        <div className="timeline-context-bar" style={{ position: "relative" }}>
-          <div className="timeline-context-bar-main">
-            <div className="timeline-context-copy">
-              <div className="timeline-context-title-row">
-                <strong className="timeline-context-title">{taskTitle ?? "Waiting for task data…"}</strong>
-                {taskUsesDerivedTitle && taskTitle && (<span className="timeline-context-summary-chip accent">Suggested</span>)}
-              </div>
-              <div className="timeline-context-summary-row">
-                <span className="timeline-context-summary-chip">{contextSummary.eventSummary}</span>
-                {contextSummary.focusSummary && (<span className="timeline-context-summary-chip emphasis">{contextSummary.focusSummary}</span>)}
-                {showRuleGapsOnly && (<button className="timeline-context-summary-chip emphasis" onClick={() => onToggleRuleGap(false)} type="button">
-                    Gaps only ×
-                  </button>)}
-                {selectedRuleId && (<button className="timeline-context-summary-chip emphasis" onClick={onClearRuleId} type="button">
-                    Rule: {selectedRuleId} ×
-                  </button>)}
-                {selectedTag && (<button className="timeline-context-summary-chip emphasis" onClick={onClearTag} type="button">
-                    Tag: {selectedTag} ×
-                  </button>)}
-              </div>
-            </div>
-          </div>
-
-          <div className="timeline-context-bar-actions">
-            
-            {(observabilityStats.violations > 0 || observabilityStats.checks > 0) && (<span className="timeline-context-summary-chip timeline-context-obs-stats" style={{ gap: 4, fontSize: "0.66rem" }}>
-                {observabilityStats.violations > 0 && <span style={{ color: "var(--err)" }}>{observabilityStats.violations}v</span>}
-                {observabilityStats.checks > 0 && <span>{observabilityStats.checks}c</span>}
-                {observabilityStats.passes > 0 && <span style={{ color: "var(--ok)" }}>{observabilityStats.passes}p</span>}
-              </span>)}
-
-            
-            {taskStatus && (<span className={cn("timeline-context-status", TASK_STATUS_BUTTON_STYLES[taskStatus].active)}>
-                {taskStatus}
-              </span>)}
-
-            
-            <button ref={controlsButtonRef} aria-expanded={isTaskControlsOpen || isEditingTaskTitle} className={cn("timeline-context-toggle", (isTaskControlsOpen || isEditingTaskTitle) && "border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] text-[var(--accent)]")} onClick={() => {
-            if (controlsButtonRef.current) {
-                const rect = controlsButtonRef.current.getBoundingClientRect();
-                setControlsPopoverPos({ top: rect.bottom + 6, right: window.innerWidth - rect.right });
-            }
-            setIsTaskControlsOpen((v) => !v);
-        }} title="Task controls" type="button">
-              <svg aria-hidden="true" fill="none" height="13" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" width="13">
-                <circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>
-              </svg>
-            </button>
-
-            
-            <button ref={filtersButtonRef} aria-expanded={isFiltersOpen} className={cn("timeline-context-toggle", isFiltersOpen && "border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] text-[var(--accent)]")} onClick={() => {
-            if (filtersButtonRef.current) {
-                const rect = filtersButtonRef.current.getBoundingClientRect();
-                setFiltersPopoverPos({ top: rect.bottom + 6, right: window.innerWidth - rect.right });
-            }
-            setIsFiltersOpen((v) => !v);
-        }} title="Filters & Zoom" type="button">
-              <svg aria-hidden="true" fill="none" height="13" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" width="13">
-                <line x1="4" x2="20" y1="6" y2="6"/><line x1="8" x2="16" y1="12" y2="12"/><line x1="11" x2="13" y1="18" y2="18"/>
-              </svg>
-              {activeBaseLanes.length < TIMELINE_LANES.length && (<span style={{ fontSize: "0.58rem", fontWeight: 700, lineHeight: 1 }}>
-                  {activeBaseLanes.length}
-                </span>)}
-            </button>
-          </div>
-
-        </div>
+        <TimelineContextBar taskTitle={taskTitle} taskUsesDerivedTitle={taskUsesDerivedTitle} contextSummary={contextSummary} showRuleGapsOnly={showRuleGapsOnly} onToggleRuleGap={onToggleRuleGap} selectedRuleId={selectedRuleId} onClearRuleId={onClearRuleId} selectedTag={selectedTag} onClearTag={onClearTag} observabilityStats={observabilityStats} taskStatus={taskStatus} isTaskControlsOpen={isTaskControlsOpen} isEditingTaskTitle={isEditingTaskTitle} controlsButtonRef={controlsButtonRef} setControlsPopoverPos={setControlsPopoverPos} setIsTaskControlsOpen={setIsTaskControlsOpen} isFiltersOpen={isFiltersOpen} filtersButtonRef={filtersButtonRef} setFiltersPopoverPos={setFiltersPopoverPos} setIsFiltersOpen={setIsFiltersOpen} activeLaneCount={activeBaseLanes.length} totalLaneCount={TIMELINE_LANES.length}/>
 
         
-        {isFiltersOpen && (<div ref={filtersPopoverRef} className="timeline-filters-popover" style={{ position: "fixed", top: filtersPopoverPos.top, right: filtersPopoverPos.right, zIndex: 200 }}>
-            
-            <div className="timeline-filters-popover-section">
-              <span className="toolbar-label">Zoom</span>
-              <div className="toolbar-group" style={{ flex: 1 }}>
-                <input max={2.5} min={0.8} step={0.1} style={{ flex: 1 }} type="range" value={zoom} onChange={(e) => onZoomChange(Number(e.target.value))}/>
-                <span className="toolbar-value">{zoom.toFixed(1)}×</span>
-              </div>
-            </div>
-
-            <div className="timeline-filters-popover-divider"/>
-
-            
-            <div className="timeline-filters-popover-section" style={{ flexWrap: "wrap" }}>
-              <button className={`filter-chip all-toggle${activeBaseLanes.length === TIMELINE_LANES.length ? " active" : ""}`} type="button" onClick={() => {
-                const allOn = activeBaseLanes.length === TIMELINE_LANES.length;
-                const next = Object.fromEntries(TIMELINE_LANES.map((l) => [l, !allOn])) as Record<TimelineLane, boolean>;
-                setFilters(next);
-            }}>
-                {activeBaseLanes.length === TIMELINE_LANES.length ? "All" : `${activeBaseLanes.length}/${TIMELINE_LANES.length}`}
-              </button>
-              {TIMELINE_LANES.map((lane) => (<label key={lane} className={`filter-chip ${lane}${filters[lane] ? " active" : ""}`}>
-                  <input checked={filters[lane]} type="checkbox" onChange={() => setFilters((c) => ({ ...c, [lane]: !c[lane] }))}/>
-                  <span className="filter-dot"/>
-                  {getLaneTheme(lane).label}
-                </label>))}
-            </div>
-          </div>)}
+        {isFiltersOpen && (<TimelineFiltersPopover filtersPopoverRef={filtersPopoverRef} filtersPopoverPos={filtersPopoverPos} zoom={zoom} onZoomChange={onZoomChange} activeLaneCount={activeBaseLanes.length} totalLaneCount={TIMELINE_LANES.length} filters={filters} setFilters={setFilters}/>)}
 
         
-        {(isTaskControlsOpen || isEditingTaskTitle) && (<div ref={controlsPopoverRef} className="timeline-task-controls-panel" style={{ position: "fixed", top: controlsPopoverPos.top, right: controlsPopoverPos.right, zIndex: 200, minWidth: 260 }}>
-            {isEditingTaskTitle ? (<form className="task-title-form" onSubmit={onSubmitTitle}>
-                <div className="task-title-form-row">
-                  <input className="task-title-input" disabled={isSavingTaskTitle} onChange={(event) => onTitleDraftChange(event.target.value)} placeholder="Rename task" type="text" value={taskTitleDraft}/>
-                  <div className="task-title-actions">
-                    <Button className="h-7 rounded-full border-[var(--accent)] bg-[var(--accent-light)] px-3 text-[0.72rem] font-semibold text-[var(--accent)] shadow-none hover:border-[var(--accent)] hover:bg-[var(--accent-light)] hover:text-[var(--accent)]" disabled={isSavingTaskTitle} size="sm" type="submit">
-                      {isSavingTaskTitle ? "Saving..." : "Save"}
-                    </Button>
-                    <Button className="h-7 rounded-full px-3 text-[0.72rem] font-semibold shadow-none" disabled={isSavingTaskTitle} onClick={onCancelEditTitle} size="sm" type="button">
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
-                {taskTitleError && <p className="task-title-error">{taskTitleError}</p>}
-              </form>) : (<div className="timeline-task-controls-row">
-                <div className="timeline-title-actions">
-                  <Button className="h-7 rounded-full px-3 text-[0.72rem] font-semibold shadow-none" onClick={onStartEditTitle} size="sm" type="button">
-                    Rename Task
-                  </Button>
-                  {onOpenTaskWorkspace && (<Button className="h-7 rounded-full px-3 text-[0.72rem] font-semibold shadow-none" onClick={onOpenTaskWorkspace} size="sm" type="button">
-                      Open Workspace
-                    </Button>)}
-                </div>
-              </div>)}
-            {!isEditingTaskTitle && taskStatus && onChangeTaskStatus && (<div className="flex flex-wrap items-center gap-2">
-                <span className="text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">Status</span>
-                <select className="h-8 rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 text-[0.74rem] font-semibold text-[var(--text-2)]" disabled={isUpdatingTaskStatus} onChange={(event) => onChangeTaskStatus(event.target.value as "running" | "waiting" | "completed" | "errored")} value={taskStatus}>
-                  {(["running", "waiting", "completed", "errored"] as const).map((status) => (<option key={status} value={status}>{formatTaskStatusLabel(status)}</option>))}
-                </select>
-              </div>)}
-            <div className="timeline-task-badges">
-              {[
-                { key: "actions", label: "Actions", value: observabilityStats.actions },
-                { key: "coordination", label: "Coordination", value: observabilityStats.coordinationActivities },
-                { key: "files", label: "Files", value: observabilityStats.exploredFiles },
-                { key: "compacts", label: "Compact", value: observabilityStats.compactions },
-                { key: "checks", label: "Checks", value: observabilityStats.checks },
-                { key: "violations", label: "Violations", value: observabilityStats.violations },
-                { key: "passes", label: "Passes", value: observabilityStats.passes }
-            ].map((badge) => (<div key={badge.key} className={cn("inline-flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-[0.72rem] font-semibold tracking-[0.02em]", OBSERVABILITY_BADGE_STYLES[badge.key as keyof typeof OBSERVABILITY_BADGE_STYLES])}>
-                  <span className="text-[0.78rem] font-bold leading-none">{badge.value}</span>
-                  <span className="leading-none">{badge.label}</span>
-                </div>))}
-            </div>
-          </div>)}
+        {(isTaskControlsOpen || isEditingTaskTitle) && (<TimelineTaskControlsPanel controlsPopoverRef={controlsPopoverRef} controlsPopoverPos={controlsPopoverPos} isEditingTaskTitle={isEditingTaskTitle} onSubmitTitle={onSubmitTitle} isSavingTaskTitle={isSavingTaskTitle} onTitleDraftChange={onTitleDraftChange} taskTitleDraft={taskTitleDraft} onCancelEditTitle={onCancelEditTitle} taskTitleError={taskTitleError} onStartEditTitle={onStartEditTitle} onOpenTaskWorkspace={onOpenTaskWorkspace} taskStatus={taskStatus} onChangeTaskStatus={onChangeTaskStatus} isUpdatingTaskStatus={isUpdatingTaskStatus} observabilityStats={observabilityStats}/>)}
 
         <div className="timeline-stage" style={timelineStageStyle}>
           {filteredTimeline.length === 0 && (<div className="timeline-empty-state">

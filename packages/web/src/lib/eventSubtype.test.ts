@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { EventId, TaskId } from "@monitor/core";
-import type { TimelineEvent } from "../types.js";
-import { buildDisplayLaneRows, countLaneSubtypes, resolveEventSubtype, resolveTimelineRowKey } from "./eventSubtype.js";
+import type { TimelineEvent } from "@monitor/web-core";
+import { buildDisplayLaneRows, countLaneSubtypes, resolveEventSubtype, resolveTimelineRowKey } from "@monitor/web-core";
 type EventOverrides = Omit<Partial<TimelineEvent>, "id" | "taskId"> & {
     id?: string;
     taskId?: string;

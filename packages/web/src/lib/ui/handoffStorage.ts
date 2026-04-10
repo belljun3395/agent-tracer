@@ -1,4 +1,4 @@
-import type { HandoffMode } from "../insights.js";
+import type { HandoffMode } from "@monitor/web-core";
 export type HandoffFormat = "plain" | "markdown" | "xml" | "system-prompt";
 export interface HandoffPrefs {
     format: HandoffFormat;
@@ -24,6 +24,10 @@ export interface StorageLike {
     getItem(key: string): string | null;
     setItem(key: string, value: string): void;
 }
+interface HandoffStorages {
+    readonly prefsStorage?: StorageLike;
+    readonly draftStorage?: StorageLike;
+}
 export const DEFAULT_HANDOFF_PREFS: HandoffPrefs = {
     format: "markdown",
     mode: "compact",
@@ -40,7 +44,7 @@ export const DEFAULT_HANDOFF_PREFS: HandoffPrefs = {
 };
 const PREFS_STORAGE_KEY = "agent-tracer.handoff-prefs";
 const DRAFT_STORAGE_PREFIX = "agent-tracer.handoff-draft.v1";
-export function loadHandoffDraft(taskId: string | undefined, violationCount: number, storage = getLocalStorage()): HandoffDraft {
+export function loadHandoffDraft(taskId: string | undefined, violationCount: number, storages = getHandoffStorages()): HandoffDraft {
     const fallbackPrefs = {
         ...DEFAULT_HANDOFF_PREFS,
         include: {
@@ -48,8 +52,8 @@ export function loadHandoffDraft(taskId: string | undefined, violationCount: num
             violations: violationCount > 0
         }
     };
-    const globalPrefs = parsePrefs(storage?.getItem(PREFS_STORAGE_KEY));
-    const taskDraft = taskId ? parseDraft(storage?.getItem(getTaskDraftKey(taskId))) : null;
+    const globalPrefs = parsePrefs(storages.prefsStorage?.getItem(PREFS_STORAGE_KEY));
+    const taskDraft = taskId ? parseDraft(storages.draftStorage?.getItem(getTaskDraftKey(taskId))) : null;
     return {
         prefs: {
             ...fallbackPrefs,
@@ -66,14 +70,14 @@ export function loadHandoffDraft(taskId: string | undefined, violationCount: num
         lastCopiedAt: taskDraft?.lastCopiedAt ?? null
     };
 }
-export function saveHandoffDraft(taskId: string | undefined, draft: HandoffDraft, storage = getLocalStorage()): void {
-    if (!storage) {
+export function saveHandoffDraft(taskId: string | undefined, draft: HandoffDraft, storages = getHandoffStorages()): void {
+    if (!storages.prefsStorage && !storages.draftStorage) {
         return;
     }
     try {
-        storage.setItem(PREFS_STORAGE_KEY, JSON.stringify(draft.prefs));
-        if (taskId) {
-            storage.setItem(getTaskDraftKey(taskId), JSON.stringify(draft));
+        storages.prefsStorage?.setItem(PREFS_STORAGE_KEY, JSON.stringify(draft.prefs));
+        if (taskId && storages.draftStorage) {
+            storages.draftStorage.setItem(getTaskDraftKey(taskId), JSON.stringify(draft));
         }
     }
     catch {
@@ -83,11 +87,14 @@ export function saveHandoffDraft(taskId: string | undefined, draft: HandoffDraft
 export function getTaskDraftKey(taskId: string): string {
     return `${DRAFT_STORAGE_PREFIX}:${taskId}`;
 }
-function getLocalStorage(): StorageLike | undefined {
+function getHandoffStorages(): HandoffStorages {
     if (typeof window === "undefined") {
-        return undefined;
+        return {};
     }
-    return window.localStorage;
+    return {
+        prefsStorage: window.localStorage,
+        draftStorage: window.sessionStorage
+    };
 }
 function parsePrefs(raw?: string | null): Partial<HandoffPrefs> | null {
     if (!raw) {

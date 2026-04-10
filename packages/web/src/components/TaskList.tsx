@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import type React from "react";
-import type { BookmarkRecord, MonitoringTask, TaskDetailResponse } from "../types.js";
-import { formatRelativeTime } from "../lib/timeline.js";
-import { buildTaskDisplayTitle } from "../lib/insights.js";
+import type { BookmarkRecord, MonitoringTask, TaskDetailResponse } from "@monitor/web-core";
+import { formatRelativeTime } from "@monitor/web-core";
+import { buildTaskDisplayTitle } from "@monitor/web-core";
 import { useDragScroll } from "../lib/useDragScroll.js";
 import { cn } from "../lib/ui/cn.js";
 import { Badge } from "./ui/Badge.js";
@@ -52,6 +52,156 @@ const railRowBaseClass = "group relative shrink-0 overflow-hidden rounded-[var(-
 const railSelectedRowClass = "bg-[var(--surface-2)] before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:rounded-full before:bg-[var(--accent)] before:content-['']";
 const railContentButtonClass = "flex min-w-0 flex-col items-start justify-start rounded-none border-0 bg-transparent p-0 text-left font-normal shadow-none outline-none transition-colors";
 const ALL_RUNTIME_FILTER_KEY = "all";
+const railTabButtonClass = "relative flex-1 py-2 text-[0.77rem] font-medium transition-colors focus-visible:outline-none cursor-pointer";
+const emptyStateCardClass = "m-3 rounded-lg border border-dashed border-[var(--border)] bg-[var(--bg)]/40 p-3";
+
+function EmptyRailState({ title, description, action }: {
+    readonly title: string;
+    readonly description: React.ReactNode;
+    readonly action?: React.ReactNode;
+}): React.JSX.Element {
+    return (<div className={emptyStateCardClass}>
+      <p className="m-0 text-[0.84rem] text-[var(--text-2)]">{title}</p>
+      <p className="mt-1 m-0 text-[0.79rem] text-[var(--text-2)]">{description}</p>
+      {action}
+    </div>);
+}
+
+function RailTabButton({ active, children, onClick }: {
+    readonly active: boolean;
+    readonly children: React.ReactNode;
+    readonly onClick: () => void;
+}): React.JSX.Element {
+    return (<button aria-pressed={active} className={cn(railTabButtonClass, active ? "text-[var(--text-1)]" : "text-[var(--text-3)] hover:text-[var(--text-2)]")} onClick={onClick} type="button">
+      {children}
+      {active && <span className="absolute bottom-0 left-4 right-4 h-0.5 rounded-full bg-[var(--accent)]"/>}
+    </button>);
+}
+
+function SavedBookmarkRow({ bookmark, isSelected, onSelectBookmark, onDeleteBookmark }: {
+    readonly bookmark: BookmarkRecord;
+    readonly isSelected: boolean;
+    readonly onSelectBookmark: (bookmark: BookmarkRecord) => void;
+    readonly onDeleteBookmark: (bookmarkId: string) => void;
+}): React.JSX.Element {
+    return (<div className={cn(railRowBaseClass, isSelected && railSelectedRowClass)}>
+      <div className="flex items-start gap-2.5">
+        <span aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0"/>
+        <button className={cn(railContentButtonClass, "min-w-0 flex-1")} onClick={() => onSelectBookmark(bookmark)} title={bookmark.title} type="button">
+          <div className="w-full truncate text-[0.89rem] font-semibold leading-5 text-[var(--text-1)]">
+            {bookmark.title}
+          </div>
+          <div className="mt-1 flex w-full min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-[0.7rem] text-[var(--text-3)]">
+            <Badge className="uppercase tracking-[0.06em]" size="sm" tone="accent">
+              {bookmark.kind}
+            </Badge>
+            <span className="min-w-0 truncate font-mono text-[0.71rem]">
+              {bookmark.eventTitle ?? bookmark.taskTitle ?? bookmark.taskId}
+            </span>
+            <span className="shrink-0">·</span>
+            <span className="shrink-0">{formatRelativeTime(bookmark.updatedAt)}</span>
+          </div>
+        </button>
+        <Button className="h-6 w-6 shrink-0 self-start rounded-md p-1 text-[var(--text-3)] opacity-0 transition-opacity hover:bg-[var(--err-bg)] hover:text-[var(--err)] group-hover:opacity-100" onClick={(event) => {
+            event.stopPropagation();
+            onDeleteBookmark(bookmark.id);
+        }} size="icon" title="Remove saved item" variant="bare">
+          <img alt="Remove saved item" className="icon-adaptive h-3.5 w-3.5" src="/icons/trash.svg"/>
+        </Button>
+      </div>
+    </div>);
+}
+
+function TaskRuntimeMeta({ task }: {
+    readonly task: MonitoringTask;
+}): React.JSX.Element {
+    return (<div className="mt-1 flex w-full min-w-0 items-center gap-1.5 text-[0.7rem] text-[var(--text-3)]">
+      <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", task.status === "running"
+            ? "animate-pulse bg-[var(--ok)]"
+            : task.status === "waiting"
+                ? "bg-[var(--warn)]"
+                : task.status === "completed"
+                    ? "bg-[var(--accent)]"
+                    : "bg-[var(--err)]")}/>
+      <span className="shrink-0 capitalize">{task.status}</span>
+      <span className="text-[var(--text-3)]/40">·</span>
+      <span className="shrink-0">{formatRelativeTime(task.updatedAt)}</span>
+      {task.runtimeSource && (<Badge className={cn(runtimeBadgeClass(task.runtimeSource), "ml-auto")} size="xs" tone="neutral">
+          {runtimeTagLabel(task.runtimeSource)}
+        </Badge>)}
+      {task.taskKind === "background" && (<Badge className="border-[color-mix(in_srgb,#6366f1_30%,transparent)] bg-[color-mix(in_srgb,#6366f1_10%,transparent)] text-[#6366f1]" size="xs" tone="neutral">
+          bg
+        </Badge>)}
+    </div>);
+}
+
+function SelectedTaskMeta({ task, taskDetail, selectedTaskId, selectedTaskQuestionCount, selectedTaskTodoCount }: {
+    readonly task: MonitoringTask;
+    readonly taskDetail: TaskDetailResponse | null;
+    readonly selectedTaskId: string | null;
+    readonly selectedTaskQuestionCount?: number | undefined;
+    readonly selectedTaskTodoCount?: number | undefined;
+}): React.JSX.Element | null {
+    if (task.id !== selectedTaskId) {
+        return null;
+    }
+    return (<div className="mt-1.5 flex w-full min-w-0 flex-col gap-1">
+      {task.workspacePath && <div className="w-full truncate font-mono text-[0.67rem] text-[var(--text-3)]/60">{task.workspacePath}</div>}
+      {task.id === taskDetail?.task.id && (<div className="flex flex-wrap gap-1.5">
+          {selectedTaskQuestionCount !== undefined && selectedTaskQuestionCount > 0 && (<Badge className="border-[var(--user-border)] bg-[var(--user-bg)] text-[var(--user)]" size="xs" tone="neutral">
+              {selectedTaskQuestionCount}Q
+            </Badge>)}
+          {selectedTaskTodoCount !== undefined && selectedTaskTodoCount > 0 && (<Badge className="border-[var(--planning-border)] bg-[var(--planning-bg)] text-[var(--planning)]" size="xs" tone="neutral">
+              {selectedTaskTodoCount} todo{selectedTaskTodoCount === 1 ? "" : "s"}
+            </Badge>)}
+        </div>)}
+    </div>);
+}
+
+function TaskRow({ task, depth, isSelected, isCollapsedParent, hasChildren, taskDisplayTitle, taskDetail, selectedTaskId, selectedTaskQuestionCount, selectedTaskTodoCount, deletingTaskId, deleteErrorTaskId, onSelectTask, onDeleteTask, onToggleCollapsedParent }: {
+    readonly task: MonitoringTask;
+    readonly depth: 0 | 1;
+    readonly isSelected: boolean;
+    readonly isCollapsedParent: boolean;
+    readonly hasChildren: boolean;
+    readonly taskDisplayTitle: string;
+    readonly taskDetail: TaskDetailResponse | null;
+    readonly selectedTaskId: string | null;
+    readonly selectedTaskQuestionCount?: number | undefined;
+    readonly selectedTaskTodoCount?: number | undefined;
+    readonly deletingTaskId: string | null;
+    readonly deleteErrorTaskId: string | null;
+    readonly onSelectTask: (taskId: string) => void;
+    readonly onDeleteTask: (taskId: string) => void;
+    readonly onToggleCollapsedParent: (taskId: string) => void;
+}): React.JSX.Element {
+    return (<div className={cn(railRowBaseClass, depth > 0 &&
+            "ml-3.5 pl-3.5 before:absolute before:bottom-2.5 before:left-1 before:top-2.5 before:w-0.5 before:rounded-full before:bg-[color-mix(in_srgb,var(--implementation-border)_66%,transparent)] before:content-['']", isSelected && railSelectedRowClass)}>
+      <div className="flex items-start gap-2.5">
+        <div className="pt-0.5">
+          {hasChildren ? (<Button aria-label={isCollapsedParent ? "Expand child tasks" : "Collapse child tasks"} className="mt-0.5 h-4 w-4 shrink-0 justify-start rounded-none p-0 text-[0.8rem] text-[var(--text-3)] hover:text-[var(--accent)]" onClick={() => onToggleCollapsedParent(task.id)} title={isCollapsedParent ? "Expand children" : "Collapse children"} variant="bare" size="icon">
+              {isCollapsedParent ? "▸" : "▾"}
+            </Button>) : (<span aria-hidden="true" className="mt-0.5 inline-block h-4 w-4 shrink-0"/>)}
+        </div>
+
+        <button className={cn(railContentButtonClass, "min-w-0 flex-1")} onClick={() => onSelectTask(task.id)} title={taskDisplayTitle} type="button">
+          <div className="w-full truncate text-[0.84rem] font-medium leading-5 text-[var(--text-1)]">
+            {taskDisplayTitle}
+          </div>
+          <TaskRuntimeMeta task={task}/>
+          <SelectedTaskMeta task={task} taskDetail={taskDetail} selectedTaskId={selectedTaskId} selectedTaskQuestionCount={selectedTaskQuestionCount} selectedTaskTodoCount={selectedTaskTodoCount}/>
+        </button>
+
+        <Button className={cn("h-6 w-6 shrink-0 rounded-md p-1 opacity-0 transition-opacity hover:bg-[var(--err-bg)] hover:opacity-100 group-hover:opacity-35", deleteErrorTaskId === task.id ? "text-[var(--err)] hover:text-[var(--err)]" : "text-[var(--text-3)]", deletingTaskId === task.id && "opacity-30")} disabled={deletingTaskId === task.id} onClick={(event) => {
+            event.stopPropagation();
+            onDeleteTask(task.id);
+        }} size="icon" title="Delete task" variant="bare">
+          <img alt="Delete" className="icon-adaptive h-3.5 w-3.5" src="/icons/trash.svg"/>
+        </Button>
+      </div>
+    </div>);
+}
+
 export function TaskList({ tasks, bookmarks, taskDisplayTitleCache, selectedTaskBookmarkId, selectedTaskId, taskDetail, selectedTaskQuestionCount, selectedTaskTodoCount, deletingTaskId, deleteErrorTaskId, isCollapsed = false, hideHeader = false, initialView = "tasks", onToggleCollapse, onSelectTask, onSelectBookmark, onDeleteBookmark, onSaveTaskBookmark, onDeleteTask, onRefresh }: TaskListProps): React.JSX.Element {
     const [runtimeFilter, setRuntimeFilter] = useState<string>(ALL_RUNTIME_FILTER_KEY);
     const [collapsedParentIds, setCollapsedParentIds] = useState<ReadonlySet<string>>(new Set());
@@ -147,14 +297,8 @@ export function TaskList({ tasks, bookmarks, taskDisplayTitleCache, selectedTask
 
         
         <div className="flex border-b border-[var(--border)]">
-          <button aria-pressed={railView === "tasks"} className={cn("relative flex-1 py-2 text-[0.77rem] font-medium transition-colors focus-visible:outline-none cursor-pointer", railView === "tasks" ? "text-[var(--text-1)]" : "text-[var(--text-3)] hover:text-[var(--text-2)]")} onClick={() => setRailView("tasks")} type="button">
-            Tasks
-            {railView === "tasks" && (<span className="absolute bottom-0 left-4 right-4 h-0.5 rounded-full bg-[var(--accent)]"/>)}
-          </button>
-          <button aria-pressed={railView === "saved"} className={cn("relative flex-1 py-2 text-[0.77rem] font-medium transition-colors focus-visible:outline-none cursor-pointer", railView === "saved" ? "text-[var(--text-1)]" : "text-[var(--text-3)] hover:text-[var(--text-2)]")} onClick={() => setRailView("saved")} type="button">
-            Saved
-            {railView === "saved" && (<span className="absolute bottom-0 left-4 right-4 h-0.5 rounded-full bg-[var(--accent)]"/>)}
-          </button>
+          <RailTabButton active={railView === "tasks"} onClick={() => setRailView("tasks")}>Tasks</RailTabButton>
+          <RailTabButton active={railView === "saved"} onClick={() => setRailView("saved")}>Saved</RailTabButton>
         </div>
 
         {railView === "saved" ? (<div className="flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -162,36 +306,8 @@ export function TaskList({ tasks, bookmarks, taskDisplayTitleCache, selectedTask
               <span>Saved</span>
             </div>
 
-            {bookmarks.length === 0 ? (<div className="m-3 rounded-lg border border-dashed border-[var(--border)] bg-[var(--bg)]/40 p-3">
-                <p className="m-0 text-[0.84rem] text-[var(--text-2)]">No saved cards yet.</p>
-                <p className="mt-1 m-0 text-[0.79rem] text-[var(--text-2)]">Save the current task or a selected event to come back to it quickly.</p>
-              </div>) : (<div className="flex max-h-[calc(100%-2.5rem)] flex-col gap-1 overflow-y-auto p-1.5">
-                {bookmarks.map((bookmark) => (<div key={bookmark.id} className={cn(railRowBaseClass, bookmark.id === selectedTaskBookmarkId && railSelectedRowClass)}>
-                    <div className="flex items-start gap-2.5">
-                      <span aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0"/>
-                      <button className={cn(railContentButtonClass, "min-w-0 flex-1")} onClick={() => onSelectBookmark(bookmark)} title={bookmark.title} type="button">
-                        <div className="w-full truncate text-[0.89rem] font-semibold leading-5 text-[var(--text-1)]">
-                          {bookmark.title}
-                        </div>
-                        <div className="mt-1 flex w-full min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-[0.7rem] text-[var(--text-3)]">
-                          <Badge className="uppercase tracking-[0.06em]" size="sm" tone="accent">
-                            {bookmark.kind}
-                          </Badge>
-                          <span className="min-w-0 truncate font-mono text-[0.71rem]">
-                            {bookmark.eventTitle ?? bookmark.taskTitle ?? bookmark.taskId}
-                          </span>
-                          <span className="shrink-0">·</span>
-                          <span className="shrink-0">{formatRelativeTime(bookmark.updatedAt)}</span>
-                        </div>
-                      </button>
-                      <Button className="h-6 w-6 shrink-0 self-start rounded-md p-1 text-[var(--text-3)] opacity-0 transition-opacity hover:bg-[var(--err-bg)] hover:text-[var(--err)] group-hover:opacity-100" onClick={(event) => {
-                        event.stopPropagation();
-                        onDeleteBookmark(bookmark.id);
-                    }} size="icon" title="Remove saved item" variant="bare">
-                        <img alt="Remove saved item" className="icon-adaptive h-3.5 w-3.5" src="/icons/trash.svg"/>
-                      </Button>
-                    </div>
-                  </div>))}
+            {bookmarks.length === 0 ? (<EmptyRailState title="No saved cards yet." description="Save the current task or a selected event to come back to it quickly."/>) : (<div className="flex max-h-[calc(100%-2.5rem)] flex-col gap-1 overflow-y-auto p-1.5">
+                {bookmarks.map((bookmark) => (<SavedBookmarkRow key={bookmark.id} bookmark={bookmark} isSelected={bookmark.id === selectedTaskBookmarkId} onSelectBookmark={onSelectBookmark} onDeleteBookmark={onDeleteBookmark}/>))}
               </div>)}
           </div>) : (<div className="flex min-h-0 flex-1 flex-col overflow-hidden">
             <div className={railSectionHeaderClass}>
@@ -201,13 +317,10 @@ export function TaskList({ tasks, bookmarks, taskDisplayTitleCache, selectedTask
                 </span>)}
             </div>
 
-            {tasks.length === 0 ? (<div className="m-3 rounded-lg border border-dashed border-[var(--border)] bg-[var(--bg)]/40 p-3">
-                <p className="m-0 text-[0.84rem] text-[var(--text-2)]">No tasks yet.</p>
-                <p className="mt-1 m-0 text-[0.79rem] text-[var(--text-2)]">
+            {tasks.length === 0 ? (<EmptyRailState title="No tasks yet." description={<>
                   Send <code>monitor_task_start</code> through the MCP server or POST to{" "}
                   <code>/api/task-start</code>.
-                </p>
-              </div>) : (<>
+                </>}/>) : (<>
                 {runtimeFilterOptions.length > 1 && (<div className="border-b border-[var(--border)] px-2.5 py-1.5">
                     <div className="flex flex-wrap gap-1">
                       {runtimeFilterOptions.map((option) => {
@@ -221,12 +334,9 @@ export function TaskList({ tasks, bookmarks, taskDisplayTitleCache, selectedTask
                     </div>
                   </div>)}
 
-                {filteredTasks.length === 0 ? (<div className="m-3 rounded-lg border border-dashed border-[var(--border)] bg-[var(--bg)]/40 p-3">
-                    <p className="m-0 text-[0.84rem] text-[var(--text-2)]">No tasks match this runtime.</p>
-                    <button className="mt-2 rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-2.5 py-1 text-[0.72rem] font-medium text-[var(--text-2)] transition-colors hover:border-[var(--border-2)] hover:bg-[var(--surface)]" onClick={() => setRuntimeFilter(ALL_RUNTIME_FILTER_KEY)} type="button">
+                {filteredTasks.length === 0 ? (<EmptyRailState title="No tasks match this runtime." description="" action={<button className="mt-2 rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-2.5 py-1 text-[0.72rem] font-medium text-[var(--text-2)] transition-colors hover:border-[var(--border-2)] hover:bg-[var(--surface)]" onClick={() => setRuntimeFilter(ALL_RUNTIME_FILTER_KEY)} type="button">
                       Show all tasks
-                    </button>
-                  </div>) : (<div className="flex flex-1 flex-col gap-1 overflow-y-auto p-1.5" style={{
+                    </button>}/>) : (<div className="flex flex-1 flex-col gap-1 overflow-y-auto p-1.5" style={{
                         cursor: tasksDragScroll.isDragging ? "grabbing" : "grab",
                         userSelect: tasksDragScroll.isDragging ? "none" : undefined
                     }} {...tasksDragScroll.handlers}>
@@ -235,74 +345,18 @@ export function TaskList({ tasks, bookmarks, taskDisplayTitleCache, selectedTask
                         const childCount = childCountByParentId.get(task.id) ?? 0;
                         const hasChildren = childCount > 0;
                         const isCollapsedParent = collapsedParentIds.has(task.id);
-                        return (<div key={task.id} className={cn(railRowBaseClass, depth > 0 &&
-                                "ml-3.5 pl-3.5 before:absolute before:bottom-2.5 before:left-1 before:top-2.5 before:w-0.5 before:rounded-full before:bg-[color-mix(in_srgb,var(--implementation-border)_66%,transparent)] before:content-['']", task.id === selectedTaskId && railSelectedRowClass)}>
-                          <div className="flex items-start gap-2.5">
-                            <div className="pt-0.5">
-                              {hasChildren ? (<Button aria-label={isCollapsedParent ? "Expand child tasks" : "Collapse child tasks"} className="mt-0.5 h-4 w-4 shrink-0 justify-start rounded-none p-0 text-[0.8rem] text-[var(--text-3)] hover:text-[var(--accent)]" onClick={() => {
-                                    setCollapsedParentIds((current) => {
-                                        const next = new Set(current);
-                                        if (next.has(task.id)) {
-                                            next.delete(task.id);
-                                        }
-                                        else {
-                                            next.add(task.id);
-                                        }
-                                        return next;
-                                    });
-                                }} title={isCollapsedParent ? "Expand children" : "Collapse children"} variant="bare" size="icon">
-                                  {isCollapsedParent ? "▸" : "▾"}
-                                </Button>) : (<span aria-hidden="true" className="mt-0.5 inline-block h-4 w-4 shrink-0"/>)}
-                            </div>
-
-                            <button className={cn(railContentButtonClass, "min-w-0 flex-1")} onClick={() => onSelectTask(task.id)} title={taskDisplayTitle} type="button">
-                              <div className="w-full truncate text-[0.84rem] font-medium leading-5 text-[var(--text-1)]">
-                                {taskDisplayTitle}
-                              </div>
-
-                              <div className="mt-1 flex w-full min-w-0 items-center gap-1.5 text-[0.7rem] text-[var(--text-3)]">
-                                
-                                <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", task.status === "running"
-                                ? "animate-pulse bg-[var(--ok)]"
-                                : task.status === "waiting"
-                                    ? "bg-[var(--warn)]"
-                                    : task.status === "completed"
-                                        ? "bg-[var(--accent)]"
-                                        : "bg-[var(--err)]")}/>
-                                <span className="shrink-0 capitalize">{task.status}</span>
-                                <span className="text-[var(--text-3)]/40">·</span>
-                                <span className="shrink-0">{formatRelativeTime(task.updatedAt)}</span>
-                                {task.runtimeSource && (<Badge className={cn(runtimeBadgeClass(task.runtimeSource), "ml-auto")} size="xs" tone="neutral">
-                                    {runtimeTagLabel(task.runtimeSource)}
-                                  </Badge>)}
-                                {task.taskKind === "background" && (<Badge className="border-[color-mix(in_srgb,#6366f1_30%,transparent)] bg-[color-mix(in_srgb,#6366f1_10%,transparent)] text-[#6366f1]" size="xs" tone="neutral">
-                                    bg
-                                  </Badge>)}
-                              </div>
-
-                              {task.id === selectedTaskId && (<div className="mt-1.5 flex w-full min-w-0 flex-col gap-1">
-                                  {task.workspacePath && (<div className="w-full truncate font-mono text-[0.67rem] text-[var(--text-3)]/60">
-                                      {task.workspacePath}
-                                    </div>)}
-                                  {task.id === taskDetail?.task.id && (<div className="flex flex-wrap gap-1.5">
-                                      {selectedTaskQuestionCount !== undefined && selectedTaskQuestionCount > 0 && (<Badge className="border-[var(--user-border)] bg-[var(--user-bg)] text-[var(--user)]" size="xs" tone="neutral">
-                                          {selectedTaskQuestionCount}Q
-                                        </Badge>)}
-                                      {selectedTaskTodoCount !== undefined && selectedTaskTodoCount > 0 && (<Badge className="border-[var(--planning-border)] bg-[var(--planning-bg)] text-[var(--planning)]" size="xs" tone="neutral">
-                                          {selectedTaskTodoCount} todo{selectedTaskTodoCount === 1 ? "" : "s"}
-                                        </Badge>)}
-                                    </div>)}
-                                </div>)}
-                            </button>
-
-                            <Button className={cn("h-6 w-6 shrink-0 rounded-md p-1 opacity-0 transition-opacity hover:bg-[var(--err-bg)] hover:opacity-100 group-hover:opacity-35", deleteErrorTaskId === task.id ? "text-[var(--err)] hover:text-[var(--err)]" : "text-[var(--text-3)]", deletingTaskId === task.id && "opacity-30")} disabled={deletingTaskId === task.id} onClick={(event) => {
-                                event.stopPropagation();
-                                onDeleteTask(task.id);
-                            }} size="icon" title="Delete task" variant="bare">
-                              <img alt="Delete" className="icon-adaptive h-3.5 w-3.5" src="/icons/trash.svg"/>
-                            </Button>
-                          </div>
-                        </div>);
+                        return (<TaskRow key={task.id} task={task} depth={depth} isSelected={task.id === selectedTaskId} isCollapsedParent={isCollapsedParent} hasChildren={hasChildren} taskDisplayTitle={taskDisplayTitle} taskDetail={taskDetail} selectedTaskId={selectedTaskId} selectedTaskQuestionCount={selectedTaskQuestionCount} selectedTaskTodoCount={selectedTaskTodoCount} deletingTaskId={deletingTaskId} deleteErrorTaskId={deleteErrorTaskId} onSelectTask={onSelectTask} onDeleteTask={onDeleteTask} onToggleCollapsedParent={(taskId) => {
+                                setCollapsedParentIds((current) => {
+                                    const next = new Set(current);
+                                    if (next.has(taskId)) {
+                                        next.delete(taskId);
+                                    }
+                                    else {
+                                        next.add(taskId);
+                                    }
+                                    return next;
+                                });
+                            }}/>);
                     })}
                   </div>)}
               </>)}

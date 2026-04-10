@@ -1,10 +1,10 @@
 import type React from "react";
 import { useCallback, useEffect, useMemo, useRef } from "react";
-import { useMonitorStore } from "../store/useMonitorStore.js";
+import { useMonitorStore } from "@monitor/web-store";
 import { cn } from "../lib/ui/cn.js";
 import { TaskList } from "./TaskList.js";
-import { buildQuestionGroups, buildTodoGroups } from "../lib/insights.js";
-import type { BookmarkRecord } from "../types.js";
+import { buildQuestionGroups, buildTodoGroups } from "@monitor/web-core";
+import type { BookmarkRecord } from "@monitor/web-core";
 interface SidebarContainerProps {
     readonly onSelectTask: (taskId: string | null) => void;
     readonly onClose: () => void;

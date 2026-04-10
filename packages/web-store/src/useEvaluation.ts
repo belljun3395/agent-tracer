@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { TaskId } from "@monitor/core";
-import { fetchTaskEvaluation, saveTaskEvaluation } from "../api.js";
-import type { TaskEvaluationPayload, TaskEvaluationRecord } from "../api.js";
+import { fetchTaskEvaluation, saveTaskEvaluation } from "@monitor/web-core";
+import type { TaskEvaluationPayload, TaskEvaluationRecord } from "@monitor/web-core";
 export interface UseEvaluationResult {
     readonly evaluation: TaskEvaluationRecord | null;
     readonly isLoading: boolean;

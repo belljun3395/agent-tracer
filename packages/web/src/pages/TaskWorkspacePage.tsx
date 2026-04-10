@@ -2,17 +2,16 @@ import type React from "react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { EventId, TaskId } from "@monitor/core";
 import { Link, useSearchParams } from "react-router-dom";
-import { fetchTaskObservability, fetchTaskOpenInference, postRuleAction, updateEventDisplayTitle } from "../api.js";
+import { fetchTaskOpenInference, postRuleAction, updateEventDisplayTitle } from "@monitor/web-core";
 import { EventInspector, type PanelTabId } from "../components/EventInspector.js";
 import { runtimeObservabilityLabel, runtimeTagLabel } from "../components/TaskList.js";
 import { Timeline } from "../components/Timeline.js";
-import { buildCompactInsight, buildInspectorEventTitle, buildModelSummary, buildObservabilityStats, collectRecentRuleDecisions, collectExploredFiles, filterTimelineEvents } from "../lib/insights.js";
-import { buildTimelineRelations } from "../lib/timeline.js";
-import { refreshRealtimeMonitorData } from "../lib/realtime.js";
+import { buildTaskTimelineSummary } from "@monitor/web-core";
+import { buildTaskWorkspaceSelection, useTaskObservability } from "@monitor/web-core";
+import { refreshRealtimeMonitorData } from "@monitor/web-core";
 import { cn } from "../lib/ui/cn.js";
-import { useMonitorStore } from "../store/useMonitorStore.js";
-import { useWebSocket } from "../store/useWebSocket.js";
-import type { TaskObservabilityResponse } from "../types.js";
+import { useMonitorStore } from "@monitor/web-store";
+import { useWebSocket } from "@monitor/web-store";
 const DEFAULT_WORKSPACE_TAB: PanelTabId = "overview";
 const WORKSPACE_INSPECTOR_MIN_WIDTH = 340;
 const WORKSPACE_INSPECTOR_MAX_WIDTH = 680;
@@ -42,19 +41,6 @@ export function normalizeWorkspaceTab(value: string | null): PanelTabId {
 function isTaskNotFound(errorMessage: string | null): boolean {
     return errorMessage === "Task not found.";
 }
-function parseConnectorKey(key: string): {
-    sourceEventId: string;
-    targetEventId: string;
-    relationType?: string;
-} | null {
-    const [sourceEventId, targetPart] = key.split("→");
-    if (!sourceEventId || !targetPart)
-        return null;
-    const [targetEventId, relationType] = targetPart.split(":");
-    if (!targetEventId)
-        return null;
-    return { sourceEventId, targetEventId, ...(relationType ? { relationType } : {}) };
-}
 export function TaskWorkspacePage({ taskId }: {
     readonly taskId: string;
 }): React.JSX.Element {
@@ -62,7 +48,7 @@ export function TaskWorkspacePage({ taskId }: {
     const { state, dispatch, refreshOverview, refreshTaskDetail, refreshBookmarksOnly, handleCreateTaskBookmark, handleCreateEventBookmark, handleTaskStatusChange, handleTaskTitleSubmit } = useMonitorStore();
     const { bookmarks, selectedTaskId, selectedEventId, selectedConnectorKey, selectedRuleId, selectedTag, showRuleGapsOnly, taskDetail, nowMs, isEditingTaskTitle, taskTitleDraft, taskTitleError, isSavingTaskTitle, isUpdatingTaskStatus, taskDisplayTitleCache } = state;
     const [searchParams, setSearchParams] = useSearchParams();
-    const [taskObservability, setTaskObservability] = useState<TaskObservabilityResponse | null>(null);
+    const { taskObservability, refreshTaskObservability } = useTaskObservability(taskId);
     const [reviewerNote, setReviewerNote] = useState("");
     const [isSubmittingRuleReview, setIsSubmittingRuleReview] = useState(false);
     const [reviewerId, setReviewerId] = useState(() => window.localStorage.getItem(REVIEWER_ID_STORAGE_KEY) ?? "local-reviewer");
@@ -77,19 +63,11 @@ export function TaskWorkspacePage({ taskId }: {
             return WORKSPACE_INSPECTOR_DEFAULT_WIDTH;
         return Math.max(WORKSPACE_INSPECTOR_MIN_WIDTH, Math.min(WORKSPACE_INSPECTOR_MAX_WIDTH, parsed));
     });
-    const refreshTaskObservability = useCallback(async (): Promise<void> => {
-        try {
-            const nextObservability = await fetchTaskObservability(brandedTaskId);
-            setTaskObservability(nextObservability);
-        }
-        catch {
-            setTaskObservability(null);
-        }
-    }, [brandedTaskId]);
     useWebSocket((message) => {
         void refreshRealtimeMonitorData({
             message,
             selectedTaskId: taskId,
+            dispatch,
             refreshOverview,
             refreshTaskDetail,
             refreshBookmarksOnly
@@ -102,9 +80,6 @@ export function TaskWorkspacePage({ taskId }: {
         }
         dispatch({ type: "SELECT_TASK", taskId });
     }, [dispatch, selectedTaskId, taskId]);
-    useEffect(() => {
-        void refreshTaskObservability();
-    }, [refreshTaskObservability]);
     useEffect(() => {
         window.localStorage.setItem(REVIEWER_ID_STORAGE_KEY, reviewerId);
     }, [reviewerId]);
@@ -134,62 +109,18 @@ export function TaskWorkspacePage({ taskId }: {
     const selectedTaskUsesDerivedTitle = Boolean(selectedTaskDetail?.task
         && selectedTaskDisplayTitle
         && selectedTaskDisplayTitle.trim() !== selectedTaskDetail.task.title.trim());
-    const exploredFiles = useMemo(() => collectExploredFiles(taskTimeline), [taskTimeline]);
-    const compactInsight = useMemo(() => buildCompactInsight(taskTimeline), [taskTimeline]);
-    const recentRuleDecisions = useMemo(() => collectRecentRuleDecisions(taskTimeline), [taskTimeline]);
-    const observabilityStats = useMemo(() => buildObservabilityStats(taskTimeline, exploredFiles.length, compactInsight.occurrences), [compactInsight.occurrences, exploredFiles.length, taskTimeline]);
-    const modelSummary = useMemo(() => buildModelSummary(taskTimeline), [taskTimeline]);
-    const filteredTimeline = useMemo(() => filterTimelineEvents(taskTimeline, {
-        laneFilters: { user: true, questions: true, todos: true, background: true, coordination: true, exploration: true, planning: true, implementation: true },
+    const { recentRuleDecisions, observabilityStats, modelSummary } = useMemo(() => buildTaskTimelineSummary(taskTimeline), [taskTimeline]);
+    const workspaceSelection = useMemo(() => buildTaskWorkspaceSelection({
+        timeline: taskTimeline,
+        selectedConnectorKey,
+        selectedEventId,
         selectedRuleId,
         selectedTag,
-        showRuleGapsOnly
-    }), [selectedRuleId, selectedTag, showRuleGapsOnly, taskTimeline]);
-    const selectedConnector = useMemo(() => {
-        if (!selectedConnectorKey)
-            return null;
-        const parsed = parseConnectorKey(selectedConnectorKey);
-        if (!parsed)
-            return null;
-        const source = taskTimeline.find((event) => event.id === parsed.sourceEventId);
-        const target = taskTimeline.find((event) => event.id === parsed.targetEventId);
-        if (!source || !target)
-            return null;
-        const relation = buildTimelineRelations(taskTimeline).find((item) => item.sourceEventId === source.id
-            && item.targetEventId === target.id
-            && (item.relationType ?? undefined) === parsed.relationType);
-        return {
-            connector: {
-                key: selectedConnectorKey,
-                path: "",
-                lane: target.lane,
-                cross: source.lane !== target.lane,
-                sourceEventId: source.id,
-                targetEventId: target.id,
-                sourceLane: source.lane,
-                targetLane: target.lane,
-                isExplicit: relation?.isExplicit ?? parsed.relationType !== "sequence",
-                ...((relation?.relationType ?? parsed.relationType) !== undefined
-                    ? { relationType: relation?.relationType ?? parsed.relationType }
-                    : {}),
-                ...(relation?.label !== undefined ? { label: relation.label } : {}),
-                ...(relation?.explanation !== undefined ? { explanation: relation.explanation } : {}),
-                ...(relation?.workItemId !== undefined ? { workItemId: relation.workItemId } : {}),
-                ...(relation?.goalId !== undefined ? { goalId: relation.goalId } : {}),
-                ...(relation?.planId !== undefined ? { planId: relation.planId } : {}),
-                ...(relation?.handoffId !== undefined ? { handoffId: relation.handoffId } : {})
-            },
-            source,
-            target
-        };
-    }, [selectedConnectorKey, taskTimeline]);
+        showRuleGapsOnly,
+        taskDisplayTitle: selectedTaskDisplayTitle
+    }), [selectedConnectorKey, selectedEventId, selectedRuleId, selectedTag, selectedTaskDisplayTitle, showRuleGapsOnly, taskTimeline]);
+    const { selectedConnector, selectedEvent, selectedEventDisplayTitle } = workspaceSelection;
     const selectedTaskBookmark = useMemo(() => bookmarks.find((bookmark) => bookmark.taskId === taskId && !bookmark.eventId) ?? null, [bookmarks, taskId]);
-    const selectedEvent = selectedConnector
-        ? null
-        : filteredTimeline.find((event) => event.id === selectedEventId) ?? filteredTimeline[0] ?? null;
-    const selectedEventDisplayTitle = selectedEvent
-        ? buildInspectorEventTitle(selectedEvent, { taskDisplayTitle: selectedTaskDisplayTitle })
-        : null;
     const selectedEventBookmark = selectedEvent
         ? bookmarks.find((bookmark) => bookmark.eventId === selectedEvent.id) ?? null
         : null;

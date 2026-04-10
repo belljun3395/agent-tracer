@@ -62,8 +62,10 @@
   --accent-light: #DBEAFE;
 
   --text-muted: var(--text-3);
+  --danger: var(--err);
+  --danger-bg: var(--err-bg);
 
-  --font-sans: 'Fira Sans', 'Inter', system-ui, sans-serif;
+  --font-sans: 'Inter', system-ui, sans-serif;
   --font-mono: "JetBrains Mono", "Fira Code", monospace;
 
   /* Border radius scale — use these instead of magic numbers */

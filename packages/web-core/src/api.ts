@@ -1,5 +1,7 @@
 import type { BookmarkId, EventId, ReusableTaskSnapshot, RuleId, RuntimeSource, SessionId, TaskEvaluation, TaskId, WorkflowSummary } from "@monitor/core";
 import type { BookmarksResponse, BookmarkRecord, MonitoringTask, OverviewResponse, SearchResponse, TaskDetailResponse, TaskObservabilityResponse, TimelineEvent, TasksResponse } from "./types.js";
+const DEFAULT_REQUEST_TIMEOUT_MS = 30000;
+
 function normalizeBaseUrl(value: string | undefined): string {
     return value?.replace(/\/+$/g, "") ?? "";
 }
@@ -21,8 +23,83 @@ function resolveWebSocketBaseUrl(): string {
     }
     return window.location.origin;
 }
-async function getJson<T>(pathname: string): Promise<T> {
-    const response = await fetch(`${API_BASE}${pathname}`);
+interface RequestOptions {
+    readonly signal?: AbortSignal;
+    readonly timeoutMs?: number;
+}
+
+function createRequestSignal(options?: RequestOptions): {
+    readonly signal: AbortSignal | null;
+    readonly cleanup: () => void;
+} {
+    const externalSignal = options?.signal;
+    const timeoutMs = options?.timeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
+    if (!externalSignal && timeoutMs <= 0) {
+        return {
+            signal: null,
+            cleanup: () => {
+                void 0;
+            }
+        };
+    }
+
+    const controller = new AbortController();
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    const abortFromExternal = (): void => {
+        controller.abort(externalSignal?.reason);
+    };
+
+    if (externalSignal) {
+        if (externalSignal.aborted) {
+            controller.abort(externalSignal.reason);
+        }
+        else {
+            externalSignal.addEventListener("abort", abortFromExternal, { once: true });
+        }
+    }
+
+    if (timeoutMs > 0) {
+        timeoutId = setTimeout(() => {
+            controller.abort(new DOMException(`Request timed out after ${timeoutMs}ms`, "TimeoutError"));
+        }, timeoutMs);
+    }
+
+    return {
+        signal: controller.signal,
+        cleanup: () => {
+            if (timeoutId !== null) {
+                clearTimeout(timeoutId);
+            }
+            if (externalSignal) {
+                externalSignal.removeEventListener("abort", abortFromExternal);
+            }
+        }
+    };
+}
+
+async function request(pathname: string, init?: RequestInit, options?: RequestOptions): Promise<Response> {
+    const { signal, cleanup } = createRequestSignal(options);
+    const requestInit: RequestInit = {
+        credentials: "include",
+        ...init,
+        ...(signal ? { signal } : {})
+    };
+    try {
+        return await fetch(`${API_BASE}${pathname}`, requestInit);
+    }
+    catch (error) {
+        if (signal?.aborted && signal.reason instanceof DOMException && signal.reason.name === "TimeoutError") {
+            throw new Error(`Request timed out for ${pathname}`);
+        }
+        throw error;
+    }
+    finally {
+        cleanup();
+    }
+}
+
+async function getJson<T>(pathname: string, options?: RequestOptions): Promise<T> {
+    const response = await request(pathname, undefined, options);
     if (!response.ok) {
         const error = new Error(`Failed to load ${pathname}: ${response.status}`) as Error & {
             status?: number;
@@ -34,28 +111,28 @@ async function getJson<T>(pathname: string): Promise<T> {
     }
     return (await response.json()) as T;
 }
-async function patchJson<T>(pathname: string, body: unknown): Promise<T> {
-    const response = await fetch(`${API_BASE}${pathname}`, {
+async function patchJson<T>(pathname: string, body: unknown, options?: RequestOptions): Promise<T> {
+    const response = await request(pathname, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body)
-    });
+    }, options);
     if (!response.ok)
         throw new Error(`PATCH ${pathname}: ${response.status}`);
     return await response.json() as Promise<T>;
 }
-async function postJson<T>(pathname: string, body: unknown): Promise<T> {
-    const response = await fetch(`${API_BASE}${pathname}`, {
+async function postJson<T>(pathname: string, body: unknown, options?: RequestOptions): Promise<T> {
+    const response = await request(pathname, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body)
-    });
+    }, options);
     if (!response.ok)
         throw new Error(`POST ${pathname}: ${response.status}`);
     return await response.json() as Promise<T>;
 }
-async function deleteRequest(pathname: string): Promise<void> {
-    const response = await fetch(`${API_BASE}${pathname}`, { method: "DELETE" });
+async function deleteRequest(pathname: string, options?: RequestOptions): Promise<void> {
+    const response = await request(pathname, { method: "DELETE" }, options);
     if (!response.ok)
         throw new Error(`DELETE ${pathname}: ${response.status}`);
 }
@@ -94,12 +171,12 @@ export function fetchBookmarks(taskId?: TaskId): Promise<BookmarksResponse> {
     const suffix = taskId ? `?taskId=${encodeURIComponent(taskId)}` : "";
     return getJson<BookmarksResponse>(`/api/bookmarks${suffix}`);
 }
-export function fetchSearchResults(query: string, taskId?: TaskId): Promise<SearchResponse> {
+export function fetchSearchResults(query: string, taskId?: TaskId, options?: RequestOptions): Promise<SearchResponse> {
     const params = new URLSearchParams({ q: query });
     if (taskId) {
         params.set("taskId", taskId);
     }
-    return getJson<SearchResponse>(`/api/search?${params.toString()}`);
+    return getJson<SearchResponse>(`/api/search?${params.toString()}`, options);
 }
 export async function createBookmark(input: {
     taskId: TaskId;

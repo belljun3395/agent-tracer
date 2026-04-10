@@ -1,6 +1,6 @@
 import type React from "react";
 import { useEffect, useRef } from "react";
-import type { BookmarkSearchHit, SearchResponse } from "../types.js";
+import type { BookmarkSearchHit, SearchResponse } from "@monitor/web-core";
 import { cn } from "../lib/ui/cn.js";
 import { useTheme } from "../lib/useTheme.js";
 import { Button } from "./ui/Button.js";
