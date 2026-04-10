@@ -16,6 +16,12 @@
       ],
       "@monitor/web": [
         "packages/web/src/main.tsx"
+      ],
+      "@monitor/web-core": [
+        "packages/web-core/src/index.ts"
+      ],
+      "@monitor/web-store": [
+        "packages/web-store/src/index.ts"
       ]
     },
     "resolveJsonModule": true,
