@@ -1,7 +1,7 @@
 import { Controller, Get, Query, HttpException, HttpStatus } from "@nestjs/common";
-import { MonitorServiceProvider } from "../service/monitor-service.provider.js";
-import type { TaskSearchInput } from "../../../application/types.js";
-import { searchSchema } from "../../schemas.js";
+import type { MonitorServiceProvider } from "../service/monitor-service.provider.js";
+import type { TaskSearchInput } from "../../application/types.js";
+import { searchSchema } from "../schemas.js";
 @Controller()
 export class SearchController {
     constructor(private readonly service: MonitorServiceProvider) { }

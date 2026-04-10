@@ -1,8 +1,8 @@
 import { Controller, Get, Post, Delete, Body, Param, Query, HttpException, HttpStatus, HttpCode } from "@nestjs/common";
 import { BookmarkId, TaskId } from "@monitor/core";
-import { MonitorServiceProvider } from "../service/monitor-service.provider.js";
-import type { TaskBookmarkInput, TaskBookmarkDeleteInput } from "../../../application/types.js";
-import { bookmarkSchema } from "../../schemas.js";
+import type { MonitorServiceProvider } from "../service/monitor-service.provider.js";
+import type { TaskBookmarkInput, TaskBookmarkDeleteInput } from "../../application/types.js";
+import { bookmarkSchema } from "../schemas.js";
 @Controller()
 export class BookmarkController {
     constructor(private readonly service: MonitorServiceProvider) { }

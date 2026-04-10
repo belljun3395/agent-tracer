@@ -3,11 +3,11 @@ import type http from "node:http";
 import type express from "express";
 import { NestFactory } from "@nestjs/core";
 import { WebSocketServer } from "ws";
-import { AppModule } from "../presentation/nestjs/app.module.js";
+import { AppModule } from "../presentation/app.module.js";
 import { EventBroadcaster } from "../presentation/ws/event-broadcaster.js";
-import { GlobalExceptionFilter } from "../presentation/nestjs/filters/zod-exception.filter.js";
-import { MonitorServiceProvider } from "../presentation/nestjs/service/monitor-service.provider.js";
-import { MONITOR_PORTS_TOKEN, type PortsWithClose } from "../presentation/nestjs/database/database.provider.js";
+import { GlobalExceptionFilter } from "../presentation/filters/zod-exception.filter.js";
+import { MonitorServiceProvider } from "../presentation/service/monitor-service.provider.js";
+import { MONITOR_PORTS_TOKEN, type PortsWithClose } from "../presentation/database/database.provider.js";
 import type { RuntimeOptions, MonitorRuntime } from "./runtime.types.js";
 export async function createNestMonitorRuntime(options: RuntimeOptions): Promise<MonitorRuntime> {
     const broadcaster = new EventBroadcaster();

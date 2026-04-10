@@ -1,6 +1,6 @@
 import { Controller, Get, Param, HttpException, HttpStatus } from "@nestjs/common";
 import { TaskId } from "@monitor/core";
-import { MonitorServiceProvider } from "../service/monitor-service.provider.js";
+import type { MonitorServiceProvider } from "../service/monitor-service.provider.js";
 @Controller()
 export class AdminController {
     constructor(private readonly service: MonitorServiceProvider) { }
