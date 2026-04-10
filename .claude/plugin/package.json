@@ -1,6 +1,6 @@
 {
   "name": "@monitor/claude-plugin",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "private": true,
   "description": "Claude Code plugin that streams hook events to the Agent Tracer monitor server.",
   "type": "module",
