@@ -4,17 +4,11 @@ Claude Code 중심의 로컬 monitor server + dashboard 입니다.
 현재 저장소에는 Claude Code plugin 기반 수집 경로가 구현되어 있고,
 서버/MCP 계층은 수동 HTTP/MCP 클라이언트도 받을 수 있도록 열려 있습니다.
 
-## 외부 프로젝트에 붙이기
+## Quick Start (Claude Code plugin)
 
-이 저장소의 1차 목표는 Agent Tracer를 **다른 프로젝트에 연결해서 쓰는 것**입니다.
-
-권장 방식:
-
-- Agent Tracer 코드를 외부 프로젝트에 복사하지 않습니다.
-- 이 저장소를 monitor server / MCP / hook / plugin source로 유지합니다.
-- 외부 프로젝트에는 설정 파일이나 shim만 생성합니다.
-
-시작 순서:
+Agent Tracer는 Claude Code **plugin** 방식의 설치를 권장합니다.
+Plugin이 모든 hook 이벤트를 자동 등록하고 monitor 서버로 전송하므로,
+hook 파일을 대상 프로젝트에 복사할 필요가 없습니다.
 
 ```bash
 npm install
@@ -22,16 +16,23 @@ npm run build
 npm run dev
 ```
 
-그 다음 외부 설치 흐름을 순서대로 따라가세요:
+### 최소 설치 경로
 
-- 로컬 설치: [docs/guide/install-and-run.md](docs/guide/install-and-run.md)
-- 외부 프로젝트 연결: [docs/guide/external-setup.md](docs/guide/external-setup.md)
-- Claude Code 연결: [docs/guide/claude-setup.md](docs/guide/claude-setup.md)
-- 배포된 최신 가이드: https://belljun3395.github.io/agent-tracer/guide/
+1. **[Install and Run](docs/guide/install-and-run.md)** — clone, 의존성 설치, 서버 + 대시보드 기동
+2. **[Claude Code Setup](docs/guide/claude-setup.md)** — plugin 로드 + MCP 서버 등록
 
-> `npm run setup:external`은 현재 외부 프로젝트의 Claude Code 설정만 자동화합니다.
-> 이 스크립트는 `.claude/settings.json`을 정리하고 plugin 실행 경로를 안내합니다.
-> MCP 등록은 여전히 수동입니다.
+이 두 단계로 Claude Code 연동이 완료됩니다.
+
+### 외부 프로젝트에 붙이기 (선택)
+
+Agent Tracer 저장소 바깥의 프로젝트에서 사용하려면 추가 단계가 있습니다.
+
+3. **[External Project Setup](docs/guide/external-setup.md)** — `npm run setup:external`로 대상 프로젝트의 `.claude/settings.json` 생성
+
+> Agent Tracer 저장소 안에서 Claude Code를 실행하는 경우 `setup:external`은
+> 필요 없습니다. `claude --plugin-dir .claude/plugin`으로 바로 시작할 수 있습니다.
+
+배포된 최신 가이드: https://belljun3395.github.io/agent-tracer/guide/
 
 ## 이 저장소 자체를 실행해 보기
 
@@ -49,8 +50,8 @@ npm run dev
 | 목적 | 문서 |
 |------|------|
 | 로컬 설치 및 실행 | [docs/guide/install-and-run.md](docs/guide/install-and-run.md) |
-| 외부 프로젝트 설치 시작점 | [docs/guide/external-setup.md](docs/guide/external-setup.md) |
-| Claude Code 연결 | [docs/guide/claude-setup.md](docs/guide/claude-setup.md) |
+| Claude Code plugin 연결 | [docs/guide/claude-setup.md](docs/guide/claude-setup.md) |
+| 외부 프로젝트 설정 (선택) | [docs/guide/external-setup.md](docs/guide/external-setup.md) |
 | 런타임 capability 상세 | [docs/guide/runtime-capabilities.md](docs/guide/runtime-capabilities.md) |
 | 코드베이스 위키 / 아키텍처 문서 | [docs/wiki/index.md](docs/wiki/index.md) |
 

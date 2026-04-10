@@ -1,48 +1,24 @@
 # Claude Code Setup
 
-This page covers the Claude Code specific steps needed after the shared
-[install-and-run](./install-and-run.md) and
-[external-setup](./external-setup.md) flow.
+Agent Tracer는 Claude Code **plugin** (`.claude/plugin/`)으로 배포됩니다.
+Plugin이 모든 hook 이벤트를 자동 등록하고 monitor 서버로 전송하므로,
+hook 파일을 대상 프로젝트에 복사할 필요가 없습니다.
 
-Agent Tracer ships as a Claude Code **plugin** (`.claude/plugin/`). The plugin
-registers every hook event for you and posts events to the local monitor
-server. You do not copy hook source files into your target project.
+이 페이지는 [Install and Run](./install-and-run.md)을 마친 직후에
+바로 진행할 수 있습니다.
 
 ## 1. Prerequisites
 
-Before following this page, make sure that:
+- monitor 서버가 실행 중 (`npm run dev:server`, [install-and-run](./install-and-run.md) 참고)
+- Claude Code가 설치되어 있음
 
-- the monitor server is running (`npm run dev:server`, see [install-and-run](./install-and-run.md))
-- you have a target project you want to attach Agent Tracer to
-- you have Claude Code installed and working in that project
+> **외부 프로젝트에 붙이는 경우:** 대상 프로젝트의
+> `.claude/settings.json`을 자동 생성하려면 먼저
+> [External Project Setup](./external-setup.md)의 `setup:external`을
+> 실행하세요. Agent Tracer 저장소 안에서 작업하는 경우에는 이 단계가
+> 필요 없습니다.
 
-## 2. Run `setup:external`
-
-From the Agent Tracer repository root:
-
-```bash
-npm run build
-npm run setup:external -- --target /absolute/path/to/your-project
-```
-
-What the script does for the target project:
-
-- creates or merges `target-project/.claude/settings.json`
-- sets `permissions.defaultMode = "acceptEdits"` and
-  `permissions.allow = ["WebSearch", "WebFetch"]`
-- strips any legacy `hooks` block from a pre-existing `settings.json`
-  (the plugin owns hook registration now — leaving stale entries would
-  double-fire events)
-- prints the absolute path of the Agent Tracer plugin and the
-  `claude --plugin-dir <path>` command
-
-What the script does **not** do:
-
-- register the Claude MCP server for you
-- copy plugin source files into your target project
-- install the plugin permanently (use `--plugin-dir` or the marketplace flow below)
-
-## 3. Launch Claude Code with the plugin
+## 2. Launch Claude Code with the plugin
 
 As a one-off from your target project:
 
@@ -80,7 +56,7 @@ plugin on next session start.
 > inherited — launch Claude Code from a terminal, or set the env vars at
 > the system level (`launchctl setenv MONITOR_BASE_URL …`).
 
-## 4. Register the MCP server (separate step)
+## 3. Register the MCP server (separate step)
 
 The plugin only wires hook scripts. The `monitor` MCP server must still be
 added separately so Claude can call MCP tools (`monitor_plan`,
@@ -103,7 +79,7 @@ claude mcp list
 
 Expected result: `monitor` is listed and connected.
 
-## 5. What the hooks do
+## 4. What the hooks do
 
 Hook scripts live under `.claude/plugin/hooks/`, registered through
 `.claude/plugin/hooks/hooks.json` and executed by
@@ -160,7 +136,7 @@ hook event name.
 | Session end | `SessionEnd.ts` | Ends only the current runtime session unless `Stop.ts` already completed the primary task |
 | Work item complete | `monitor_task_complete` MCP tool | Marks the task `completed` |
 
-## 6. Working inside this repository
+## 5. Working inside this repository
 
 If you are running Claude Code *inside* the Agent Tracer repo itself, you
 don't need `setup:external`. Just launch:
@@ -171,9 +147,9 @@ claude --plugin-dir .claude/plugin
 
 `.claude/settings.json` only declares `permissions`. The plugin's
 `hooks/hooks.json` registers every hook event automatically. You still need
-to register the `monitor` MCP server as shown in section 4.
+to register the `monitor` MCP server as shown in section 3.
 
-## 7. Hook debug log
+## 6. Hook debug log
 
 Hook scripts write a debug log to `${CLAUDE_PROJECT_DIR}/.claude/hooks.log`
 **only when `NODE_ENV=development`**. The plugin's `bin/run-hook.sh` exports
@@ -195,7 +171,7 @@ Clear the log:
 For the payload schema and known differences from the official spec, see
 [hook-payload-spec.md](./hook-payload-spec.md).
 
-## 8. Manual MCP tools
+## 7. Manual MCP tools
 
 When hooks aren't enough, the `monitor` MCP server exposes 24 tools you can
 call directly. A few of the most useful ones:
@@ -209,7 +185,7 @@ call directly. A few of the most useful ones:
 
 See [MCP Tool Reference](/wiki/mcp-tool-reference) for the full list.
 
-## 9. End-to-end check
+## 8. End-to-end check
 
 1. Monitor server is running (`curl -sf http://127.0.0.1:3847/api/overview`).
 2. `setup:external` has been run for the target project.
