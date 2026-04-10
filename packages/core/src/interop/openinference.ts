@@ -1,5 +1,4 @@
-import type { EventId, RuntimeSource, TaskId } from "./domain/branded.js";
-import type { MonitoringTask, TimelineEvent } from "./domain.js";
+import type { EventId, MonitoringTask, RuntimeSource, TaskId, TimelineEvent } from "../domain.js";
 export type OpenInferenceSpanKind = "AGENT" | "CHAIN" | "TOOL" | "LLM" | "RETRIEVER" | "UNKNOWN";
 export interface OpenInferenceSpanRecord {
     readonly spanId: EventId;
@@ -14,6 +13,10 @@ export interface OpenInferenceTaskExport {
     readonly runtimeSource?: RuntimeSource;
     readonly spans: readonly OpenInferenceSpanRecord[];
 }
+
+/**
+ * Converts a task timeline into an OpenInference-shaped export payload.
+ */
 export function buildOpenInferenceTaskExport(task: MonitoringTask, timeline: readonly TimelineEvent[]): OpenInferenceTaskExport {
     return {
         taskId: task.id,
@@ -21,6 +24,10 @@ export function buildOpenInferenceTaskExport(task: MonitoringTask, timeline: rea
         spans: timeline.map((event) => buildOpenInferenceSpanRecord(task.runtimeSource, event))
     };
 }
+
+/**
+ * Maps a single timeline event to an OpenInference span with monitor-specific attributes.
+ */
 export function buildOpenInferenceSpanRecord(runtimeSource: RuntimeSource | undefined, event: TimelineEvent): OpenInferenceSpanRecord {
     const parentSpanId = extractString(event.metadata, "parentEventId")
         ?? extractString(event.metadata, "sourceEventId");
@@ -41,6 +48,10 @@ export function buildOpenInferenceSpanRecord(runtimeSource: RuntimeSource | unde
         }
     };
 }
+
+/**
+ * Chooses the closest OpenInference span kind for a monitor timeline event.
+ */
 function mapEventToOpenInferenceKind(event: TimelineEvent): OpenInferenceSpanKind {
     if (event.kind === "assistant.response" || event.kind === "user.message") {
         return "LLM";
@@ -59,12 +70,20 @@ function mapEventToOpenInferenceKind(event: TimelineEvent): OpenInferenceSpanKin
     }
     return "UNKNOWN";
 }
+
+/**
+ * Translates runtime identifiers into the provider label expected by OpenInference consumers.
+ */
 function mapRuntimeSourceToGenAiSystem(runtimeSource: RuntimeSource): string {
     const normalized = runtimeSource.toLowerCase();
     if (normalized.includes("claude"))
         return "anthropic";
     return normalized;
 }
+
+/**
+ * Copies event metadata into the attribute names used by the export format.
+ */
 function collectAttributeHints(event: TimelineEvent): Record<string, unknown> {
     const hints: Record<string, unknown> = {};
     const copyKey = (sourceKey: string, targetKey: string): void => {
@@ -89,6 +108,10 @@ function collectAttributeHints(event: TimelineEvent): Record<string, unknown> {
     }
     return hints;
 }
+
+/**
+ * Reads an event id-like string from metadata when present.
+ */
 function extractString(metadata: Record<string, unknown>, key: string): EventId | undefined {
     const value = metadata[key];
     return typeof value === "string" ? value as EventId : undefined;

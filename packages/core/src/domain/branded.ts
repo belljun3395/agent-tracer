@@ -12,18 +12,30 @@ abstract class StringValueObject<B extends string> {
     }
 }
 
+/**
+ * Casts a validated string into a branded string type without changing content.
+ */
 function brandString<B extends string>(value: string): StringBrand<B> {
     return value as StringBrand<B>;
 }
 
+/**
+ * Guards parsing helpers by accepting only non-empty strings.
+ */
 function hasText(value: unknown): value is string {
     return typeof value === "string" && value.trim().length > 0;
 }
 
+/**
+ * Centralizes trimming so identifier factories stay consistent.
+ */
 function trimValue(value: string): string {
     return value.trim();
 }
 
+/**
+ * Converts a task title into a URL-safe slug with a bounded length.
+ */
 function slugify(value: string): string {
     return value
         .trim()
@@ -33,6 +45,9 @@ function slugify(value: string): string {
         .slice(0, 64);
 }
 
+/**
+ * Cleans workspace paths by collapsing repeated separators and trimming a tailing slash.
+ */
 function normalizeWorkspacePathValue(value: string): string {
     const normalized = value.trim().replace(/\/+/g, "/");
     return normalized.endsWith("/") && normalized !== "/"
@@ -162,6 +177,9 @@ export class TaskSlugValue extends StringValueObject<"TaskSlug"> {
     }
 }
 
+/**
+ * Reuses trim-before-brand logic for identifiers that should preserve original casing.
+ */
 function createTrimmedBrand<B extends string>(value: string): StringBrand<B> {
     return brandString<B>(trimValue(value));
 }

@@ -1,6 +1,10 @@
-import { RuleId } from "./domain/branded.js";
-import type { EventClassificationMatch, EventClassificationReason } from "./domain/types.js";
+import { RuleId } from "../domain.js";
+import type { EventClassificationMatch, EventClassificationReason } from "../domain.js";
 import { ACTION_KEYWORD_RULES, ACTION_PREFIX_RULES, ACTION_SKIP_WORDS } from "./action-registry.constants.js";
+
+/**
+ * Scores an action name against the action registry and returns the best lane hint.
+ */
 export function classifyActionName(actionName?: string): EventClassificationMatch | null {
     if (!actionName) {
         return null;
@@ -56,6 +60,10 @@ export function classifyActionName(actionName?: string): EventClassificationMatc
         reasons
     };
 }
+
+/**
+ * Splits an action name into normalized tokens while discarding ignorable prefixes.
+ */
 export function tokenizeActionName(actionName: string): readonly string[] {
     const tokens = actionName
         .trim()

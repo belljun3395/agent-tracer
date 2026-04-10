@@ -65,6 +65,9 @@ export interface EventSemanticMetadata {
   readonly importance?: string;
 }
 
+/**
+ * Validates that a subtype key belongs to the shared event-semantic contract.
+ */
 export function isKnownEventSubtypeKey(value: string): value is EventSubtypeKey {
   return (EVENT_SUBTYPE_KEYS as readonly string[]).includes(value);
 }

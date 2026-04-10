@@ -1,9 +1,13 @@
-import type { ReusableTaskSnapshot, TimelineEvent, WorkflowEvaluationData } from "./domain.js";
+import type { ReusableTaskSnapshot, TimelineEvent, WorkflowEvaluationData } from "../domain.js";
 export interface BuildReusableTaskSnapshotInput {
     readonly objective: string;
     readonly events: readonly TimelineEvent[];
     readonly evaluation?: Partial<WorkflowEvaluationData> | null;
 }
+
+/**
+ * Distills a raw event timeline into the reusable snapshot stored with evaluations and previews.
+ */
 export function buildReusableTaskSnapshot({ objective, events, evaluation }: BuildReusableTaskSnapshotInput): ReusableTaskSnapshot {
     const modifiedFiles = collectModifiedFiles(events);
     const keyFiles = collectKeyFiles(events, modifiedFiles);
@@ -47,10 +51,18 @@ export function buildReusableTaskSnapshot({ objective, events, evaluation }: Bui
         searchText
     };
 }
+
+/**
+ * Finds the earliest user-visible text for a particular event kind.
+ */
 function findFirstBody(events: readonly TimelineEvent[], kind: TimelineEvent["kind"]): string | null {
     const event = events.find((item) => item.kind === kind);
     return normalizeText(event?.body ?? event?.title, 320);
 }
+
+/**
+ * Infers a fallback outcome summary when no explicit evaluation note exists.
+ */
 function inferOutcomeSummary(events: readonly TimelineEvent[], modifiedFiles: readonly string[], verificationSummary: string | null): string | null {
     const assistantResponse = [...events]
         .reverse()
@@ -68,12 +80,20 @@ function inferOutcomeSummary(events: readonly TimelineEvent[], modifiedFiles: re
     }
     return parts.length > 0 ? parts.join(" ") : null;
 }
+
+/**
+ * Collects the written file paths that best represent the workflow's output.
+ */
 function collectModifiedFiles(events: readonly TimelineEvent[]): readonly string[] {
     return uniqueStrings(events
         .filter((event) => event.kind === "file.changed" && numericMetadata(event, "writeCount") > 0)
         .map((event) => stringMetadata(event, "filePath") ?? normalizeText(event.title, 240))
         .filter((value): value is string => Boolean(value))).slice(0, 8);
 }
+
+/**
+ * Merges changed files and referenced files into the key-file shortlist.
+ */
 function collectKeyFiles(events: readonly TimelineEvent[], modifiedFiles: readonly string[]): readonly string[] {
     const discovered = events.flatMap((event) => stringArrayMetadata(event, "filePaths"));
     return uniqueStrings([
@@ -81,6 +101,10 @@ function collectKeyFiles(events: readonly TimelineEvent[], modifiedFiles: readon
         ...discovered
     ]).slice(0, 8);
 }
+
+/**
+ * Computes verification summary text plus the failure lines that deserve watchout status.
+ */
 function collectVerificationState(events: readonly TimelineEvent[]): {
     readonly summary: string | null;
     readonly failures: readonly string[];
@@ -101,6 +125,10 @@ function collectVerificationState(events: readonly TimelineEvent[]): {
         failures
     };
 }
+
+/**
+ * Extracts a small set of planning and implementation decisions worth preserving.
+ */
 function collectDecisionLines(events: readonly TimelineEvent[]): readonly string[] {
     const candidates = events
         .filter((event) => event.lane === "planning"
@@ -110,6 +138,10 @@ function collectDecisionLines(events: readonly TimelineEvent[]): readonly string
         .filter((value): value is string => Boolean(value));
     return uniqueStrings(candidates).slice(0, 4);
 }
+
+/**
+ * Converts a single event into a compact decision-oriented summary line.
+ */
 function describeDecisionEvent(event: TimelineEvent): string | null {
     if (event.kind === "file.changed" || event.kind === "task.complete" || event.kind === "task.error") {
         return null;
@@ -128,6 +160,10 @@ function describeDecisionEvent(event: TimelineEvent): string | null {
     const title = normalizeText(event.title, 120);
     return title ? `${title}: ${detail}` : detail;
 }
+
+/**
+ * Builds the actionable follow-up list from open todos and unresolved questions.
+ */
 function collectNextSteps(events: readonly TimelineEvent[]): readonly string[] {
     const openTodos = collectOpenTodoTitles(events);
     const openQuestions = collectOpenQuestionTitles(events);
@@ -136,6 +172,10 @@ function collectNextSteps(events: readonly TimelineEvent[]): readonly string[] {
         ...openQuestions
     ]).slice(0, 4);
 }
+
+/**
+ * Returns todo titles whose latest known state is still open.
+ */
 function collectOpenTodoTitles(events: readonly TimelineEvent[]): readonly string[] {
     const states = new Map<string, string>();
     for (const event of events) {
@@ -152,6 +192,10 @@ function collectOpenTodoTitles(events: readonly TimelineEvent[]): readonly strin
         .filter(([, state]) => state !== "completed" && state !== "cancelled")
         .map(([title]) => title);
 }
+
+/**
+ * Returns question prompts that were asked but never concluded.
+ */
 function collectOpenQuestionTitles(events: readonly TimelineEvent[]): readonly string[] {
     const groups = new Map<string, {
         latestPrompt: string | null;
@@ -179,6 +223,10 @@ function collectOpenQuestionTitles(events: readonly TimelineEvent[]): readonly s
         .filter((group) => !group.concluded && group.latestPrompt)
         .map((group) => group.latestPrompt as string);
 }
+
+/**
+ * Builds the plain-text search corpus used for workflow library indexing.
+ */
 function buildSearchText(input: {
     readonly objective: string;
     readonly originalRequest: string | null;
@@ -210,6 +258,10 @@ function buildSearchText(input: {
         .filter((value): value is string => Boolean(value))
         .join(" ");
 }
+
+/**
+ * Splits semi-structured list fields from evaluations into normalized items.
+ */
 function splitListField(value?: string | null): readonly string[] {
     if (!value) {
         return [];
@@ -219,6 +271,10 @@ function splitListField(value?: string | null): readonly string[] {
         .map((entry) => normalizeText(entry, 160))
         .filter((entry): entry is string => Boolean(entry)));
 }
+
+/**
+ * Normalizes free-form text while preserving the caller's chosen truncation strategy.
+ */
 function normalizeText(value?: string | null, limit = 160): string | null {
     if (!value) {
         return null;
@@ -230,12 +286,20 @@ function normalizeText(value?: string | null, limit = 160): string | null {
     void limit;
     return normalized;
 }
+
+/**
+ * Truncates long strings without returning an empty prefix.
+ */
 function truncateText(value: string, limit: number): string {
     if (value.length <= limit) {
         return value;
     }
     return `${value.slice(0, Math.max(1, limit - 1)).trimEnd()}…`;
 }
+
+/**
+ * Deduplicates strings case-insensitively while preserving first-seen ordering.
+ */
 function uniqueStrings(values: readonly string[]): readonly string[] {
     const seen = new Set<string>();
     const result: string[] = [];
@@ -249,14 +313,26 @@ function uniqueStrings(values: readonly string[]): readonly string[] {
     }
     return result;
 }
+
+/**
+ * Reads string metadata fields for snapshot helper functions.
+ */
 function stringMetadata(event: TimelineEvent, key: string): string | null {
     const value = event.metadata[key];
     return typeof value === "string" ? value : null;
 }
+
+/**
+ * Reads numeric metadata fields while defaulting missing values to zero.
+ */
 function numericMetadata(event: TimelineEvent, key: string): number {
     const value = event.metadata[key];
     return typeof value === "number" ? value : 0;
 }
+
+/**
+ * Reads string-array metadata fields without leaking non-string entries.
+ */
 function stringArrayMetadata(event: TimelineEvent, key: string): readonly string[] {
     const value = event.metadata[key];
     return Array.isArray(value)

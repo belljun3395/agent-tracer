@@ -1,5 +1,5 @@
-import { registerRuntimeAdapter, registerRuntimeAdapterAlias } from "./runtime-capabilities.constants.js";
-import { CLAUDE_PLUGIN_ADAPTER_ID, type RuntimeAdapterId, type RuntimeCapabilities } from "./runtime-capabilities.types.js";
+import { registerRuntimeAdapter, registerRuntimeAdapterAlias } from "./capabilities.constants.js";
+import { CLAUDE_PLUGIN_ADAPTER_ID, type RuntimeAdapterId, type RuntimeCapabilities } from "./capabilities.types.js";
 
 const DEFAULT_ADAPTERS: readonly RuntimeCapabilities[] = [
   {
@@ -70,6 +70,9 @@ const DEFAULT_ALIASES: readonly [string, RuntimeAdapterId][] = [
   ["claude-plugin", CLAUDE_PLUGIN_ADAPTER_ID]
 ];
 
+/**
+ * Seeds the runtime registry with the package's built-in adapter definitions and aliases.
+ */
 export function registerDefaultRuntimeAdapters(): void {
   for (const adapter of DEFAULT_ADAPTERS) {
     registerRuntimeAdapter(adapter);
