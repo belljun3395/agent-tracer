@@ -6,9 +6,9 @@ it forms the basis for lane placement, tag filtering, action-registry gap viewin
 
 ## Core Files
 
-- `packages/core/src/classifier.ts`
-- `packages/core/src/action-registry.ts`
-- `packages/core/src/domain.ts`
+- `packages/core/src/classification/classifier.ts`
+- `packages/core/src/classification/action-registry.ts`
+- `packages/core/src/domain/index.ts`
 - `packages/server/src/application/services/event-recorder.ts`
 - `packages/server/src/application/services/trace-metadata-factory.ts`
 

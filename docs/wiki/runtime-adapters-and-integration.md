@@ -13,13 +13,13 @@ runtimes attach by calling the shared HTTP + MCP surface directly.
 
 ## Key files
 
-- `packages/core/src/runtime-capabilities.ts` (barrel)
-- `packages/core/src/runtime-capabilities.constants.ts`
-- `packages/core/src/runtime-capabilities.types.ts`
-- `packages/core/src/runtime-capabilities.defaults.ts`
-- `packages/core/src/runtime-capabilities.helpers.ts`
-- `packages/core/src/event-semantic.ts` — explicit hook/web semantic contract
-- `packages/core/src/classifier.ts`
+- `packages/core/src/runtime/index.ts` (barrel)
+- `packages/core/src/runtime/capabilities.constants.ts`
+- `packages/core/src/runtime/capabilities.types.ts`
+- `packages/core/src/runtime/capabilities.defaults.ts`
+- `packages/core/src/runtime/capabilities.helpers.ts`
+- `packages/core/src/interop/event-semantic.ts` — explicit hook/web semantic contract
+- `packages/core/src/classification/classifier.ts`
 - `packages/mcp/src/index.ts`
 - `.claude/plugin/hooks/*` — hook implementations
 - `.claude/plugin/hooks/PostToolUse/*` — per-tool sub-handlers

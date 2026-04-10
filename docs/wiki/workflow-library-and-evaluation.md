@@ -7,8 +7,8 @@ and leaving those results in a re-searchable form.
 ## Core Files
 
 - `packages/core/src/domain/types.ts`
-- `packages/core/src/workflow-snapshot.ts`
-- `packages/core/src/workflow-context.ts`
+- `packages/core/src/workflow/snapshot.ts`
+- `packages/core/src/workflow/context.ts`
 - `packages/server/src/application/monitor-service.ts`
 - `packages/server/src/application/ports/evaluation-repository.ts`
 - `packages/server/src/infrastructure/sqlite/sqlite-evaluation-repository.ts`
@@ -74,7 +74,7 @@ In other words, listings and search results are lightweight summary types, while
 
 ## Workflow Snapshot Generation Rules
 
-`buildReusableTaskSnapshot()` in `packages/core/src/workflow-snapshot.ts` is the source of truth for generation rules.
+`buildReusableTaskSnapshot()` in `packages/core/src/workflow/snapshot.ts` is the source of truth for generation rules.
 
 ### Inputs
 
@@ -109,7 +109,7 @@ In other words, listings and search results are lightweight summary types, while
 
 ## Workflow Context Generation Rules
 
-`buildWorkflowContext()` in `packages/core/src/workflow-context.ts` is the source of truth for markdown assembly.
+`buildWorkflowContext()` in `packages/core/src/workflow/context.ts` is the source of truth for markdown assembly.
 
 Generation order is:
 

@@ -111,7 +111,7 @@ Evaluates task as `good` or `skip` to add to workflow library.
 
 ## Related Files
 
-- `packages/core/src/domain.ts`
+- `packages/core/src/domain/index.ts`
 - `packages/server/src/application/monitor-service.ts`
 - `packages/server/src/application/services/session-lifecycle-policy.ts`
 - `packages/server/src/infrastructure/sqlite/sqlite-task-repository.ts`

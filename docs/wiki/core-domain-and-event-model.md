@@ -6,17 +6,17 @@ share the same semantic system.
 
 ## Core Files
 
-- `packages/core/src/domain.ts` (barrel export)
+- `packages/core/src/domain/index.ts` (barrel export)
 - `packages/core/src/domain/types.ts` (includes branded types: RuntimeAdapterId, SessionIdBrand, etc.)
 - `packages/core/src/domain/utils.ts`
-- `packages/core/src/classifier.ts`
-- `packages/core/src/action-registry.ts`
-- `packages/core/src/event-semantic.ts` (hook-web semantic metadata contract)
-- `packages/core/src/runtime-capabilities.ts` (barrel export)
-- `packages/core/src/runtime-capabilities.constants.ts`
-- `packages/core/src/runtime-capabilities.types.ts`
-- `packages/core/src/runtime-capabilities.helpers.ts`
-- `packages/core/src/path-utils.ts`
+- `packages/core/src/classification/classifier.ts`
+- `packages/core/src/classification/action-registry.ts`
+- `packages/core/src/interop/event-semantic.ts` (hook-web semantic metadata contract)
+- `packages/core/src/runtime/index.ts` (barrel export)
+- `packages/core/src/runtime/capabilities.constants.ts`
+- `packages/core/src/runtime/capabilities.types.ts`
+- `packages/core/src/runtime/capabilities.helpers.ts`
+- `packages/core/src/paths/utils.ts`
 
 ## What This Package Defines
 
