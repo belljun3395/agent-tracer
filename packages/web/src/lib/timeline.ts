@@ -191,7 +191,6 @@ export interface TimelineContextSummary {
     readonly laneSummary: string;
     readonly focusSummary: string | null;
 }
-export const DEFAULT_TIMELINE_VIEWPORT_HEIGHT = RULER_HEIGHT + LANE_HEIGHT * 7;
 export function resolveTimelineViewportHeight(contentHeight: number, preferredMaxHeight: number): number {
     return Math.min(contentHeight, preferredMaxHeight);
 }

@@ -41,12 +41,10 @@ export function isDirectoryPath(path: string): boolean {
     const lastSegment = path.split("/").filter(Boolean).at(-1) ?? "";
     if (/^\.[a-z0-9]/i.test(lastSegment)) {
         const afterDot = lastSegment.slice(1);
-        if (afterDot.length <= 3 ||
+        return !(afterDot.length <= 3 ||
             afterDot.includes(".") ||
-            /(?:rc|ignore|config|lock|keep|list|sum|sig)$/i.test(afterDot)) {
-            return false;
-        }
-        return true;
+            /(?:rc|ignore|config|lock|keep|list|sum|sig)$/i.test(afterDot));
+
     }
     return !/\.[a-z0-9]{1,15}$/i.test(lastSegment);
 }

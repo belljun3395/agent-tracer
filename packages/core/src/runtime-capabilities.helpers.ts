@@ -12,20 +12,6 @@ export function getRuntimeEvidenceProfile(id: RuntimeAdapterId | string): Runtim
     const capabilities = getRuntimeCapabilities(id);
     return capabilities?.evidenceProfile;
 }
-export function resolveRuntimeAdapterId(runtimeSource?: string): RuntimeAdapterId | undefined {
-    if (!runtimeSource)
-        return undefined;
-    const adapters = getRegisteredAdapters();
-    const asAdapterId = runtimeSource as RuntimeAdapterId;
-    if (adapters.has(asAdapterId)) {
-        return asAdapterId;
-    }
-    const normalized = runtimeSource.trim().toLowerCase();
-    if (!normalized)
-        return undefined;
-    const aliases = getRegisteredAliases();
-    return aliases.get(normalized);
-}
 export function normalizeRuntimeAdapterId(value: string | undefined): RuntimeAdapterId | undefined {
     if (!value) {
         return undefined;

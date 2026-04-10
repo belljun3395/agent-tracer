@@ -29,7 +29,7 @@ export class EventLoggingService {
             contractVersion: input.contractVersion ?? "1",
         };
         const existingFilePaths = Array.isArray(input.metadata?.["filePaths"])
-            ? (input.metadata["filePaths"] as string[]).filter((p): p is string => typeof p === "string")
+            ? (input.metadata["filePaths"] as string[])
             : undefined;
         const filePaths = existingFilePaths && existingFilePaths.length > 0
             ? existingFilePaths

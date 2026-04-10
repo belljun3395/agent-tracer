@@ -1,4 +1,4 @@
-import type { BookmarkId, EventId, ReusableTaskSnapshot, RuleId, RuntimeSource, SessionId, TaskEvaluation, TaskId, WorkflowSummary, WorkspacePath } from "@monitor/core";
+import type { BookmarkId, EventId, ReusableTaskSnapshot, RuleId, RuntimeSource, SessionId, TaskEvaluation, TaskId, WorkflowSummary } from "@monitor/core";
 import type { BookmarksResponse, BookmarkRecord, MonitoringTask, OverviewResponse, SearchResponse, TaskDetailResponse, TaskObservabilityResponse, TimelineEvent, TasksResponse } from "./types.js";
 function normalizeBaseUrl(value: string | undefined): string {
     return value?.replace(/\/+$/g, "") ?? "";
@@ -59,24 +59,11 @@ async function deleteRequest(pathname: string): Promise<void> {
     if (!response.ok)
         throw new Error(`DELETE ${pathname}: ${response.status}`);
 }
-async function deleteJson<T>(pathname: string): Promise<T> {
-    const response = await fetch(`${API_BASE}${pathname}`, { method: "DELETE" });
-    if (!response.ok)
-        throw new Error(`DELETE ${pathname}: ${response.status}`);
-    return await response.json() as Promise<T>;
-}
 export function fetchOverview(): Promise<OverviewResponse> {
     return getJson<OverviewResponse>("/api/overview");
 }
 export function fetchTasks(): Promise<TasksResponse> {
     return getJson<TasksResponse>("/api/tasks");
-}
-export function fetchDefaultWorkspace(): Promise<{
-    workspacePath: WorkspacePath;
-}> {
-    return getJson<{
-        workspacePath: WorkspacePath;
-    }>("/api/default-workspace");
 }
 export function fetchTaskDetail(taskId: TaskId): Promise<TaskDetailResponse> {
     return getJson<TaskDetailResponse>(`/api/tasks/${taskId}`);
@@ -125,16 +112,6 @@ export async function createBookmark(input: {
     }>("/api/bookmarks", input);
     return payload.bookmark;
 }
-export async function createMonitoredTask(input: {
-    title: string;
-    workspacePath?: WorkspacePath;
-    runtimeSource?: RuntimeSource;
-}): Promise<MonitoringTask> {
-    const payload = await postJson<{
-        task: MonitoringTask;
-    }>("/api/task-start", input);
-    return payload.task;
-}
 export async function updateTaskTitle(taskId: TaskId, title: string): Promise<MonitoringTask> {
     const payload = await patchJson<{
         task: MonitoringTask;
@@ -158,13 +135,6 @@ export async function deleteTask(taskId: TaskId): Promise<void> {
 }
 export async function deleteBookmark(bookmarkId: BookmarkId): Promise<void> {
     return deleteRequest(`/api/bookmarks/${bookmarkId}`);
-}
-export async function purgeFinishedTasks(): Promise<{
-    deleted: number;
-}> {
-    return deleteJson<{
-        deleted: number;
-    }>("/api/tasks/finished");
 }
 export interface TaskEvaluationPayload {
     rating: "good" | "skip";

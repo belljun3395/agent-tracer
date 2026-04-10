@@ -13,10 +13,3 @@ export function getRegisteredAdapters(): ReadonlyMap<RuntimeAdapterId, RuntimeCa
 export function getRegisteredAliases(): ReadonlyMap<string, RuntimeAdapterId> {
     return new Map(aliasRegistry);
 }
-export function getRegisteredAdapterIds(): readonly RuntimeAdapterId[] {
-    return Array.from(registry.keys());
-}
-export function resetRuntimeRegistry(): void {
-    registry.clear();
-    aliasRegistry.clear();
-}

@@ -408,6 +408,3 @@ export const _taskStore = create<TaskStoreSlice>((set, get) => {
         handleTaskTitleSubmit
     };
 });
-export function useTaskStore(): TaskStoreSlice {
-    return _taskStore();
-}

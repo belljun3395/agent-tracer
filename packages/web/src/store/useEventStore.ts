@@ -67,6 +67,3 @@ export const _eventStore = create<EventStoreSlice>((set) => {
         dispatchEventAction: dispatch
     };
 });
-export function useEventStore(): EventStoreSlice {
-    return _eventStore();
-}
