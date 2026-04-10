@@ -51,6 +51,56 @@ export default tseslint.config(
     }
   },
   {
+    files: ["packages/core/src/**/*.{ts,tsx}", "packages/core/test/**/*.{ts,tsx}"],
+    ignores: [
+      "packages/core/src/index.ts",
+      "packages/core/src/classification.ts",
+      "packages/core/src/domain.ts",
+      "packages/core/src/interop.ts",
+      "packages/core/src/paths.ts",
+      "packages/core/src/runtime.ts",
+      "packages/core/src/workflow.ts"
+    ],
+    rules: {
+      "no-restricted-imports": ["error", {
+        patterns: [
+          {
+            group: ["./**/index.js", "../**/index.js"],
+            message: "Import the directory barrel path instead of '/index.js'."
+          },
+          {
+            group: [
+              "**/classification/*.js",
+              "**/domain/*.js",
+              "**/interop/*.js",
+              "**/paths/*.js",
+              "**/runtime/*.js",
+              "**/workflow/*.js"
+            ],
+            message: "Import from the nearest core module barrel (for example '../domain.js') instead of a deep module file."
+          }
+        ]
+      }]
+    }
+  },
+  {
+    files: ["packages/mcp/src/**/*.{ts,tsx}", "packages/mcp/test/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": ["error", {
+        patterns: [
+          {
+            group: ["./**/index.js", "../**/index.js"],
+            message: "Import the directory barrel path instead of '/index.js'."
+          },
+          {
+            group: ["**/tools/*.js"],
+            message: "Import from the tools barrel instead of a deep tools module when crossing directories."
+          }
+        ]
+      }]
+    }
+  },
+  {
     files: ["packages/server/src/infrastructure/sqlite/**/*.ts"],
     rules: {
       "@typescript-eslint/require-await": "off"
@@ -67,12 +117,16 @@ export default tseslint.config(
             message: "Import the directory barrel path instead of '/index.js'."
           },
           {
-            group: ["**/infrastructure/sqlite/index.js"],
-            message: "Import from the sqlite barrel path instead of '/index.js'."
+            group: ["**/application/ports/*.js"],
+            message: "Import application ports from the ports barrel."
           },
           {
             group: ["**/infrastructure/sqlite/*.js"],
             message: "Import sqlite symbols from the sqlite barrel."
+          },
+          {
+            group: ["**/infrastructure/embedding/*.js"],
+            message: "Import embedding symbols from the embedding barrel."
           }
         ]
       }]
