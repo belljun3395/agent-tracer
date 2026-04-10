@@ -98,5 +98,4 @@ WebSocket notification은 모두 `@monitor/server`가 책임진다.
 - [Monitor Server](./monitor-server.md)
 - [MCP Server](./mcp-server.md)
 - [Web Dashboard](./web-dashboard.md)
-- [Backend Server](./backend-server.md)
-- [Frontend Dashboard](./frontend-dashboard.md)
+- [Runtime Adapters & Integration](./runtime-adapters-and-integration.md)

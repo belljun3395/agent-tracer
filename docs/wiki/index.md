@@ -48,8 +48,4 @@
 
 ## Maintainer Notes
 
-- [System overview](./system-overview.md)
-- [Backend server](./backend-server.md)
-- [Frontend dashboard](./frontend-dashboard.md)
-- [Runtime integrations](./runtime-integrations.md)
 - [Quality and testing](./quality-and-testing.md)

@@ -1,27 +1,43 @@
-# Runtime Setup Guides
+# Setup Guides
 
-이 섹션은 Agent Tracer를 다른 프로젝트나 에이전트 런타임에 연결할 때 보는 운영 문서 모음이다.
-설정 절차와 런타임별 차이는 여기서 보고, 코드 구조와 내부 설계는 `/wiki/`에서 보면 된다.
+Practical setup guides for Agent Tracer. If you want to understand how
+the code is organised instead of how to install it, go to the
+[codebase wiki](/wiki/).
 
-## 먼저 볼 문서
+## Linear install path
 
-- [External setup hub](./external-setup.md)
-- [런타임 설정 맵](./llm-setup.md)
-- [Runtime capabilities](./runtime-capabilities.md)
-- [API integration map](./api-integration-map.md)
+Follow these pages in order the first time.
+
+1. **[Install and Run](./install-and-run.md)** — clone the repo, install
+   dependencies, start the monitor server and web dashboard, verify the
+   install.
+2. **[External Project Setup](./external-setup.md)** — attach Agent
+   Tracer to a target project with `npm run setup:external`.
+3. **[Claude Code Setup](./claude-setup.md)** — the Claude-specific
+   plugin + MCP steps, including what each hook does.
+
+## Reference
+
+Once you're set up, these pages describe the event surface and runtime
+model in more detail.
+
+- [Runtime capabilities](./runtime-capabilities.md) — how the capability
+  registry tracks per-runtime differences
+- [API integration map](./api-integration-map.md) — every HTTP endpoint
+  mapped to hooks and manual-runtime use
 - [Runtime API flow & preprocessing](./runtime-api-flow-and-preprocessing.md)
+  — preprocessing applied inside each endpoint
+- [Claude Code hook payload spec](./hook-payload-spec.md) — exact JSON
+  shape of each hook payload consumed by the plugin
+- [Task observability](./task-observability.md) — `Flow` and `Health`
+  read model used by the dashboard
+- [Web styling guide](./web-styling.md) — CSS / Tailwind conventions
+  used by `@monitor/web`
 
-## 런타임별 가이드
+## Related
 
-- [Claude Code setup](./claude-setup.md)
-
-## 레퍼런스
-
-- [Claude Code hook payload spec](./hook-payload-spec.md)
-- [Web styling guide](./web-styling.md)
-
-## 관련 섹션
-
-- [Codebase wiki](/wiki/)
-- [Runtime adapters & integration](/wiki/runtime-adapters-and-integration)
-- [Setup:external automation script](/wiki/setup-external-automation-script)
+- [Codebase wiki](/wiki/) — architecture, packages, and maintainer notes
+- [Claude Code plugin adapter](/wiki/claude-code-plugin-adapter) —
+  internal view of the plugin you installed in step 3
+- [`setup:external` automation script](/wiki/setup-external-automation-script)
+  — what the setup script actually does

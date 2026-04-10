@@ -19,14 +19,15 @@ Claude Code 중심의 로컬 monitor server + dashboard 입니다.
 ```bash
 npm install
 npm run build
-npm run dev:server
+npm run dev
 ```
 
-그 다음 외부 설치 허브 문서로 이동하세요:
+그 다음 외부 설치 흐름을 순서대로 따라가세요:
 
-- 외부 설치 허브: [docs/guide/external-setup.md](docs/guide/external-setup.md)
-- 배포된 최신 가이드: https://belljun3395.github.io/agent-tracer/guide/external-setup
-- 런타임 비교표: [docs/guide/llm-setup.md](docs/guide/llm-setup.md)
+- 로컬 설치: [docs/guide/install-and-run.md](docs/guide/install-and-run.md)
+- 외부 프로젝트 연결: [docs/guide/external-setup.md](docs/guide/external-setup.md)
+- Claude Code 연결: [docs/guide/claude-setup.md](docs/guide/claude-setup.md)
+- 배포된 최신 가이드: https://belljun3395.github.io/agent-tracer/guide/
 
 > `npm run setup:external`은 현재 외부 프로젝트의 Claude Code 설정만 자동화합니다.
 > 이 스크립트는 `.claude/settings.json`을 정리하고 plugin 실행 경로를 안내합니다.
@@ -47,11 +48,11 @@ npm run dev
 
 | 목적 | 문서 |
 |------|------|
+| 로컬 설치 및 실행 | [docs/guide/install-and-run.md](docs/guide/install-and-run.md) |
 | 외부 프로젝트 설치 시작점 | [docs/guide/external-setup.md](docs/guide/external-setup.md) |
-| 런타임별 추천 경로 비교 | [docs/guide/llm-setup.md](docs/guide/llm-setup.md) |
 | Claude Code 연결 | [docs/guide/claude-setup.md](docs/guide/claude-setup.md) |
 | 런타임 capability 상세 | [docs/guide/runtime-capabilities.md](docs/guide/runtime-capabilities.md) |
-| 코드베이스 위키 / 아키텍처 문서 | [docs/wiki/README.md](docs/wiki/README.md) |
+| 코드베이스 위키 / 아키텍처 문서 | [docs/wiki/index.md](docs/wiki/index.md) |
 
 ## 문서 사이트
 

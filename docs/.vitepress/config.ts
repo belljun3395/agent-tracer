@@ -13,14 +13,9 @@ const guideSidebar = [
     {
         text: "Guide Home",
         items: [
-            { text: "Runtime Setup Guides", link: "/guide/" },
-            { text: "External Setup Hub", link: "/guide/external-setup" },
-            { text: "Runtime Setup Map", link: "/guide/llm-setup" }
-        ]
-    },
-    {
-        text: "Runtime Guides",
-        items: [
+            { text: "Setup Guides", link: "/guide/" },
+            { text: "Install and Run", link: "/guide/install-and-run" },
+            { text: "External Project Setup", link: "/guide/external-setup" },
             { text: "Claude Code Setup", link: "/guide/claude-setup" }
         ]
     },
@@ -31,6 +26,7 @@ const guideSidebar = [
             { text: "API Integration Map", link: "/guide/api-integration-map" },
             { text: "Claude Hook Payload Spec", link: "/guide/hook-payload-spec" },
             { text: "Runtime API Flow", link: "/guide/runtime-api-flow-and-preprocessing" },
+            { text: "Task Observability", link: "/guide/task-observability" },
             { text: "Web Styling Guide", link: "/guide/web-styling" }
         ]
     }
@@ -110,10 +106,6 @@ const wikiSidebar = [
     {
         text: "Maintainer Notes",
         items: [
-            { text: "System Overview", link: "/wiki/system-overview" },
-            { text: "Backend Server", link: "/wiki/backend-server" },
-            { text: "Frontend Dashboard", link: "/wiki/frontend-dashboard" },
-            { text: "Runtime Integrations", link: "/wiki/runtime-integrations" },
             { text: "Quality and Testing", link: "/wiki/quality-and-testing" }
         ]
     }
@@ -124,12 +116,12 @@ export default defineConfig({
     description: "Codebase wiki, runtime setup guides, and maintainer notes for Agent Tracer.",
     cleanUrls: true,
     lastUpdated: enableLastUpdated,
+    appearance: true,
     head: [
         ["meta", { name: "theme-color", content: "#b45309" }]
     ],
     themeConfig: {
         siteTitle: "Agent Tracer Docs",
-        appearance: true,
         search: {
             provider: "local"
         },

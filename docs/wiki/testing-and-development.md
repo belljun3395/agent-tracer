@@ -45,7 +45,6 @@ npm run build --workspace @monitor/web
 - core contract를 바꿨으면 web/types import와 server schema를 같이 확인
 - runtime adapter를 바꿨으면 guide 문서와 capability registry를 같이 갱신
 - workflow library를 바꿨으면 evaluation route, repository, web panel을 같이 확인
-- 스킬을 바꿨으면 `npm run sync:skills`도 필요할 수 있다
 
 ## 관련 문서
 

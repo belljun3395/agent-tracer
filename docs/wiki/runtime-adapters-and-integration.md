@@ -1,106 +1,174 @@
 # Runtime Adapters & Integration
 
-Agent Tracer 는 특정 에이전트 하나에 묶이지 않지만,
-현재 저장소에 구현된 자동 어댑터는 Claude Code plugin 하나다.
-다른 런타임은 같은 HTTP/MCP surface 를 직접 호출하는 방식으로 붙일 수 있다.
+Agent Tracer is not tied to a single agent runtime, but the only
+automated adapter in this repository is the Claude Code plugin. Other
+runtimes attach by calling the shared HTTP + MCP surface directly.
 
-## 현재 지원하는 통합 방식
+## Supported integration paths
 
-| 방식 | 대표 런타임 | 특징 |
-| --- | --- | --- |
-| plugin | Claude Code | plugin 이 내부적으로 Claude event 를 등록해 runtime lifecycle 과 tool 사용을 자동 관찰 |
-| manual HTTP/MCP | custom runtime | session/task/event contract 를 직접 호출 |
+| Path | Representative runtime | Notes |
+|------|-----------------------|-------|
+| Plugin | Claude Code | Plugin internally registers every Claude Code hook event and observes runtime lifecycle + tool activity automatically |
+| Manual HTTP / MCP | any custom runtime | Caller explicitly invokes session / task / event endpoints |
 
-## 핵심 파일
+## Key files
 
+- `packages/core/src/runtime-capabilities.ts` (barrel)
+- `packages/core/src/runtime-capabilities.constants.ts`
+- `packages/core/src/runtime-capabilities.types.ts`
 - `packages/core/src/runtime-capabilities.defaults.ts`
-- `packages/core/src/event-semantic.ts` — hook/web 간 명시적 semantic contract
-- `docs/guide/runtime-capabilities.md`
-- `docs/guide/api-integration-map.md`
+- `packages/core/src/runtime-capabilities.helpers.ts`
+- `packages/core/src/event-semantic.ts` — explicit hook/web semantic contract
+- `packages/core/src/classifier.ts`
+- `packages/mcp/src/index.ts`
 - `.claude/plugin/hooks/*` — hook implementations
+- `.claude/plugin/hooks/PostToolUse/*` — per-tool sub-handlers
 - `.claude/plugin/hooks/classification/*` — semantic inference engines
 - `.claude/plugin/hooks/lib/*` — shared utilities (transport, caching, logging)
-- `.claude/plugin/hooks/common.ts` — re-exports (re-organized as of 2026-04-10)
+- `.claude/plugin/hooks/common.ts` — re-exports for hook scripts
 - `.claude/plugin/hooks/hooks.json`
 - `.claude/plugin/bin/run-hook.sh`
+- `docs/guide/runtime-capabilities.md`
+- `docs/guide/api-integration-map.md`
 
-## Hook Layer 구조 (as of 2026-04-10)
+## Hook layer structure
 
-`.claude/plugin/hooks/` 는 5가지 책임을 명확히 분리했다:
+`.claude/plugin/hooks/` separates five responsibilities:
 
-```
+```text
 .claude/plugin/hooks/
-├── classification/        # semantic inference engines
+├── classification/           # pure semantic inference
 │   ├── command-semantic.ts       # shell commands → subtype classification
 │   ├── explore-semantic.ts       # file/web tools → exploration subtypes
 │   └── file-semantic.ts          # file operations → file_ops subtypes
-├── lib/                   # shared utilities
-│   ├── transport.ts              # HTTP client (postJson, readStdinJson)
-│   ├── session-cache.ts          # session state caching
+├── lib/                      # shared utilities
+│   ├── transport.ts              # HTTP client
+│   ├── session-cache.ts          # per-process session cache
+│   ├── session-history.ts        # session lineage log
+│   ├── session-metadata.ts       # persisted session metadata
 │   ├── subagent-registry.ts      # background subagent tracking
-│   └── hook-log.ts               # logging utilities
-├── common.ts              # re-exports main hook dependencies
-├── agent_activity.ts      # agent coordination event hook
-├── tool_used.ts           # tool invocation hook + semantic metadata
-├── user_prompt.ts         # user message hook
-├── hooks.json             # hook registration manifest
-└── ... (other event hooks)
+│   └── hook-log.ts               # development logging
+├── util/                     # framework-agnostic helpers
+│   ├── lane.ts                   # TimelineLane constants
+│   ├── paths.ts                  # project path utilities
+│   ├── runtime-identifier.ts     # resume ID generation
+│   └── utils.ts                  # JSON payload helpers
+├── PostToolUse/              # per-tool sub-handlers
+│   ├── Bash.ts                   # terminal commands
+│   ├── File.ts                   # Edit / Write
+│   ├── Explore.ts                # Read / Glob / Grep / WebSearch / WebFetch
+│   ├── Agent.ts                  # Agent / Skill
+│   ├── Todo.ts                   # TaskCreate / TaskUpdate / TodoWrite
+│   └── Mcp.ts                    # mcp__.*
+├── SessionStart.ts
+├── UserPromptSubmit.ts
+├── PreToolUse.ts
+├── PostToolUseFailure.ts
+├── SubagentStart.ts / SubagentStop.ts
+├── PreCompact.ts / PostCompact.ts
+├── SessionEnd.ts / Stop.ts
+├── common.ts                 # re-exports used by hook scripts
+├── hooks.json                # event → handler registration
+└── (executed via bin/run-hook.sh)
 ```
 
-**이점:**
-- `classification/` 로직은 pure function으로 테스트 가능
-- `lib/` 유틸리티는 새 런타임 어댑터에서 재사용 가능
-- 변경 범위가 명확하고, 코드 응집도 높음
+This split lets new runtime adapters reuse `lib/` transport and cache
+code without inheriting Claude-specific semantic logic, while
+`classification/` stays independently testable as pure functions.
 
-**마이그레이션 배경:**
-기존 `common.ts`는 525줄에서 5가지 책임을 혼합했다.
-새 런타임이 자체 semantic inference를 작성할 때, 관련 없는 transport/caching 코드를 모두 이해해야 했다.
+## Design principles
 
-## 공통 설계 원칙
+### Capability first
 
-### capability 로 차이를 먼저 선언한다
+Raw-prompt access, tool-call observation, subagent tracking, and
+"session close means task complete" differ per runtime. The shared
+contract in `runtime-capabilities` pins the differences before any
+code takes advantage of them.
 
-raw user prompt 를 볼 수 있는지, tool call 을 자동 관찰할 수 있는지,
-session close 가 task complete 를 의미하는지는 런타임마다 다르다.
-이 차이는 `runtime-capabilities` 에서 먼저 고정한다.
+### Shared server surface
 
-### 서버 API 는 가능한 공통 surface 를 유지한다
+Regardless of how an event enters the server, it must conform to the
+same canonical events (`user.message`, `assistant.response`,
+`task.start`, etc.). The server layer stays runtime-agnostic.
 
-runtime 이 달라도 서버에는 가급적 같은 개념으로 들어오게 한다.
-예를 들어 모두 `user.message`, `assistant.response`, `task.start` 같은 canonical event 를
-만들도록 유도한다.
+### Core as the contract owner
 
-## 현재 코드 기준 포인트
+`@monitor/core` owns the event types, lanes, classification results,
+runtime capabilities, and workflow evaluation types. The server, MCP,
+and web all import from core — nothing else should define the same
+shapes.
 
-### Claude 는 plugin 경로가 캐노니컬이다
+## Points worth knowing
 
-현재 저장소의 Claude 통합은 `.claude/plugin/` 이 캐노니컬 경로이고,
-`.claude/plugin/hooks/hooks.json` 이 plugin 내부에서 Claude Code event에 각 스크립트를 등록한다.
+### Claude uses the plugin path
 
-canonical `runtimeSource` 는 `claude-plugin` 이다.
+The only auto-instrumented Claude integration in this repo is
+`.claude/plugin/`. The canonical `runtimeSource` value is
+`claude-plugin` (with `claude-hook` preserved as a legacy alias).
 
-### `setup:external` 은 현재 Claude 만 자동화한다
+### `setup:external` only automates Claude today
 
-외부 설치 스크립트 `scripts/setup-external.mjs` 는 외부 프로젝트의
-`.claude/settings.json` 만 조정하고 plugin 실행 경로를 출력한다.
-다른 런타임용 bootstrap 파일은 만들지 않는다.
+`scripts/setup-external.mjs` writes `.claude/settings.json` for the
+target project and prints the plugin launch command. It does not
+generate bootstrap files for other runtimes.
 
-### 수동 런타임은 공용 API/MCP contract 를 따른다
+### Manual runtimes drive the API explicitly
 
-자동 plugin 이 없는 런타임은 `@monitor/mcp` 도구를 쓰거나
-HTTP endpoint 를 직접 호출하면 된다.
-이 경우 capability 는 자동 관측이 아니라 호출자 책임으로 성립한다.
+Runtimes without an auto-plugin use `@monitor/mcp` tools or call the
+HTTP endpoints directly. Capability then becomes a caller contract —
+the server has no way to infer it.
 
-## 새 런타임을 추가할 때 체크리스트
+## Maintenance notes
 
-1. raw prompt 를 기계적으로 캡처할 수 있는가
-2. tool call 을 종류별로 관찰할 수 있는가
-3. background/subagent 를 추적할 수 있는가
-4. session close 가 waiting 인지 complete 인지 정의할 수 있는가
-5. 어떤 HTTP endpoint 를 최소 구현으로 볼 것인가
+### Contracts leak when consumers re-declare types
 
-## 관련 문서
+Core is the source of truth, but every consumer that re-declares an
+event type is a drift risk. `packages/web/src/types.ts` now re-exports
+from core, which helps, but search hit shapes and UI view models still
+diverge.
+
+### Phase semantics aren't fully enforced
+
+Events like `question.logged` and `user.message` carry richer semantics
+in the docs and MCP input than the core classifier enforces. A future
+iteration should make the canonical event contract a discriminated
+union and validate it at the server boundary.
+
+### MCP registration grows linearly
+
+`packages/mcp/src/index.ts` works today but registering tools is
+essentially a manual list. Moving to a descriptor-based registration
+would cut drift as more tools are added.
+
+### Runtime lineage across platforms
+
+`slug` handling collapses non-ASCII titles to empty strings, and path
+normalization only partially handles Windows paths. Neither is a
+production issue today; both should be addressed as soon as a non-POSIX
+runtime is attached.
+
+### Route / schema / MCP triple edit
+
+Adding an event today typically requires changes in: `@monitor/core`,
+`application/types.ts`, `presentation/schemas.ts`, a server controller,
+`packages/mcp/src/*`, and the guide docs. A published "new event
+checklist" would reduce orphan edits.
+
+## Checklist for adding a new runtime
+
+1. Can raw user prompts be captured mechanically?
+2. Can tool calls be observed per type?
+3. Can background / subagent activity be tracked?
+4. Does session close mean `waiting` or `completed`?
+5. What is the minimum HTTP endpoint set this runtime needs?
+
+`docs/guide/api-integration-map.md` and
+`docs/guide/runtime-capabilities.md` are the right starting points for
+that decision.
+
+## Related
 
 - [Runtime Capabilities Registry](./runtime-capabilities-registry.md)
 - [Claude Code Plugin Adapter](./claude-code-plugin-adapter.md)
 - [setup:external Automation Script](./setup-external-automation-script.md)
+- [API integration map](/guide/api-integration-map)

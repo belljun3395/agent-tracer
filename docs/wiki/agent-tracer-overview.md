@@ -1,85 +1,133 @@
 # Agent Tracer Overview
 
-Agent Tracer는 Claude Code 같은 AI CLI 에이전트의 작업을
-"나중에 다시 읽을 수 있는 실행 기록"으로 바꾸는 로컬 모니터링 시스템이다.
-현재 저장소에는 Claude Code plugin 기반 수집 경로가 들어 있고,
-서버와 MCP 계층은 수동 HTTP/MCP 클라이언트도 받을 수 있게 설계돼 있다.
-핵심은 단순 로그 저장이 아니라, 에이전트 작업을 task, session, timeline event,
-workflow evaluation으로 구조화해 디버깅과 재사용이 가능하게 만든다는 점이다.
+Agent Tracer turns AI agent activity into a structured, re-readable
+execution record. The repo ships a local monitor server, a React
+dashboard, an MCP surface, and a Claude Code plugin adapter. Everything
+is wired around a shared event contract in `@monitor/core`, so the
+server, MCP, and web can evolve in lockstep.
 
-## 이 시스템이 하는 일
+## One-page picture
 
-- 에이전트 행동을 8개 lane으로 분류해 실시간 타임라인으로 보여준다.
-- Claude plugin 이벤트와 수동 MCP 호출을 하나의 공통 이벤트 모델로 수렴한다.
-- SQLite에 모든 기록을 저장하고 WebSocket으로 대시보드에 브로드캐스트한다.
-- 완료된 작업을 `good` 또는 `skip`으로 평가해 워크플로우 라이브러리로 재사용한다.
+```mermaid
+flowchart LR
+  A["AI runtime / plugin / manual client"] --> B["@monitor/mcp or direct HTTP calls"]
+  B --> C["@monitor/server"]
+  C --> D["SQLite"]
+  C --> E["WebSocket broadcaster"]
+  E --> F["@monitor/web dashboard"]
+  C --> G["Workflow library / evaluations"]
+  H["@monitor/core"] --> B
+  H --> C
+  H --> F
+```
 
-## 주요 구성 요소
+## What the system does
+
+- Classifies agent activity into 8 timeline lanes (`user`, `exploration`,
+  `planning`, `implementation`, `questions`, `todos`, `background`,
+  `coordination`) in real time.
+- Funnels Claude plugin hook events and manual MCP calls into a single
+  canonical event model.
+- Persists everything to SQLite and broadcasts change notifications over
+  WebSocket to the dashboard.
+- Lets you evaluate completed tasks (`good` / `skip`) and store them in
+  a workflow library that other sessions can search for reuse.
+
+## Packages
 
 ### `@monitor/core`
 
-공통 언어 계층이다. `TimelineLane`, `MonitoringTask`, `TimelineEvent`,
-runtime capability registry, event classifier가 모두 여기에 있다.
-서버, MCP, 웹이 같은 타입 체계를 공유해야 하므로 사실상의 source of truth다.
+The shared contract layer. `TimelineLane`, `MonitoringTask`,
+`TimelineEvent`, the runtime capability registry, the event classifier,
+and workflow evaluation types all live here. Everyone else imports from
+core, so it is the source of truth.
+
+- Entry points: `packages/core/src/domain.ts` (barrel),
+  `packages/core/src/event-semantic.ts`,
+  `packages/core/src/runtime-capabilities.ts`
 
 ### `@monitor/server`
 
-애플리케이션 계층과 인프라 계층이다. 현재 기본 프로세스는 NestJS 컨트롤러를 사용하고,
-Nest의 Express adapter 위에서 HTTP surface를 노출한다. SQLite repository, runtime session binding,
-workflow search, WebSocket broadcast를 담당한다.
+The application + infrastructure layer. Runs on NestJS with an Express
+adapter, using SQLite for persistence and a WebSocket broadcaster for
+real-time notifications. Responsible for:
+
+- task / session / runtime-session lifecycle
+- timeline event ingestion + classification
+- bookmark CRUD
+- workflow evaluation and similarity search
+- read models for overview, task detail, and observability
+- WebSocket broadcast of every change
+
+- Entry points: `packages/server/src/index.ts`,
+  `packages/server/src/bootstrap/create-nestjs-monitor-runtime.ts`,
+  `packages/server/src/application/monitor-service.ts`
 
 ### `@monitor/mcp`
 
-모니터링 HTTP API를 에이전트가 직접 호출할 수 있는 MCP tool surface로 포장한다.
-자동 plugin 이 없는 런타임에서 특히 중요하다.
+Wraps the monitor server's HTTP API as a 24-tool MCP surface so agent
+runtimes can call it directly when there is no auto-tracing plugin.
+
+- Entry points: `packages/mcp/src/index.ts`, `packages/mcp/src/client.ts`
 
 ### `@monitor/web`
 
-태스크 목록, 타임라인, 이벤트 인스펙터, 워크플로우 라이브러리를 제공하는
-React 19 기반 대시보드다.
+React 19 dashboard. Renders the task list, timeline, event inspector,
+and workflow library in one view. Uses WebSocket hints plus REST read
+models to refresh state.
 
-## End-to-End 흐름
+- Entry points: `packages/web/src/App.tsx`,
+  `packages/web/src/store/useMonitorStore.tsx`,
+  `packages/web/src/lib/eventSubtype.ts`
 
-1. 런타임 어댑터가 Claude plugin hook 또는 수동 MCP 호출로 Agent Tracer에 이벤트를 보낸다.
-2. 서버는 `MonitorService`를 통해 task/session/event를 생성하거나 갱신한다.
-3. SQLite repository가 이를 영속화한다.
-4. `EventBroadcaster`가 변경 사항을 WebSocket으로 브로드캐스트한다.
-5. 웹 대시보드는 overview, selected task detail, bookmark/evaluation 상태를 새로고친다.
+## End-to-end flow
 
-## 핵심 개념
+1. A runtime adapter (Claude plugin or a manual HTTP/MCP caller) posts
+   an event to Agent Tracer.
+2. The server routes it through `MonitorService`, which creates or
+   updates a task, session, or timeline event.
+3. The SQLite repository persists the change.
+4. `EventBroadcaster` ships a typed notification over WebSocket.
+5. The dashboard refreshes the relevant read model (overview, task
+   detail, bookmarks, or observability).
+
+## Core concepts
 
 ### Task
 
-사용자 목표 단위다. 하나의 "작업 주제"를 표현하며 상태는 `running`, `waiting`,
-`completed`, `errored` 중 하나다. background task와 parent-child 관계도 지원한다.
+A unit of user intent. State is `running`, `waiting`, `completed`, or
+`errored`. Supports parent/child relationships and background lineage.
 
 ### Session
 
-한 task 안의 개별 에이전트 실행 구간이다. Claude plugin 처럼 turn이 나뉘는 런타임에서는
-runtime session binding을 통해 같은 task에 여러 session이 이어 붙을 수 있다.
+An individual agent execution segment inside a task. Claude Code turns
+map to runtime sessions — multiple runtime sessions can bind to the
+same task, which is how long-running work survives a turn boundary.
 
-### Timeline Event
+### Timeline event
 
-user message, tool usage, terminal command, verification, todo, question,
-assistant response 같은 개별 관측 단위다. 모두 lane, metadata, classification을 가진다.
+The atomic observation unit: user message, tool use, terminal command,
+verification, todo, question, or assistant response. Every event
+carries a lane, metadata, and classification.
 
-### Workflow Library
+### Workflow library
 
-작업이 끝난 뒤 평가된 task를 검색 가능한 예시 집합으로 남기는 계층이다.
-이 저장소의 차별점은 "실시간 추적"뿐 아니라 "좋았던 작업 방식을 다음에 다시 찾는 것"까지
-한 제품 안에서 지원한다는 데 있다.
+After a task finishes you can evaluate it and keep it as a reusable
+example. The workflow library stores a snapshot + context markdown +
+similarity read model so future sessions can search for "how did I
+solve something like this last time".
 
-## 먼저 읽을 파일
+## Where to read the code first
 
-- `README.md`
-- `packages/core/src/domain.ts`(barrel)
-- `packages/server/src/index.ts`
 - `packages/server/src/bootstrap/create-nestjs-monitor-runtime.ts`
 - `packages/server/src/application/monitor-service.ts`
+- `packages/core/src/domain.ts`
+- `packages/core/src/event-semantic.ts`
 - `packages/mcp/src/index.ts`
 - `packages/web/src/App.tsx`
+- `packages/web/src/store/useMonitorStore.tsx`
 
-## 다음 문서
+## Next
 
 - [Getting Started & Installation](./getting-started-and-installation.md)
 - [Architecture & Package Map](./architecture-and-package-map.md)
