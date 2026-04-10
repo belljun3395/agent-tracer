@@ -1,8 +1,8 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { PROJECT_DIR } from "./paths.js";
-import { isRecord } from "./utils.js";
-import type { JsonObject } from "./utils.js";
+import { PROJECT_DIR } from "../util/paths.js";
+import { isRecord } from "../util/utils.js";
+import type { JsonObject } from "../util/utils.js";
 
 const LOG_FILE = path.join(PROJECT_DIR, ".claude", "hooks.log");
 const LOG_ENABLED = process.env.NODE_ENV === "development";

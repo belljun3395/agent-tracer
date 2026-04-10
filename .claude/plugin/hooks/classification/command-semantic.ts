@@ -1,11 +1,33 @@
+/**
+ * Bash command semantic classifier.
+ *
+ * Maps shell command strings to structured SemanticMetadata so the Agent Tracer
+ * monitor can categorize terminal events into exploration vs. implementation lanes.
+ *
+ * Classification rules (in precedence order):
+ *   shell_probe   — read-only inspection commands (ls, find, git status/diff/log, …)
+ *   rule_check    — policy/conformance commands
+ *   run_test      — test runner invocations (jest, pytest, cargo test, …)
+ *   run_lint      — linter invocations (eslint, ruff, biome, …)
+ *   verify        — type-checker/validator invocations (tsc --noemit, mypy, …)
+ *   run_build     — build tool invocations (npm run build, cargo build, tsc, …)
+ *   run_command   — everything else (default)
+ *
+ * SemanticMetadata is typed against EventSemanticMetadata from @monitor/core,
+ * which is the shared contract between the plugin and the monitor server.
+ */
 import type { EventSemanticMetadata } from "@monitor/core";
-import { toTrimmedString } from "../lib/utils.js";
-import type { JsonObject } from "../lib/utils.js";
+import { toTrimmedString } from "../util/utils.js";
+import type { JsonObject } from "../util/utils.js";
+import type { TimelineLane } from "../util/lane.js";
 
 export type SemanticMetadata = EventSemanticMetadata;
 
+/** Bash commands can only classify into exploration or implementation lanes. */
+export type CommandLane = Extract<TimelineLane, "exploration" | "implementation">;
+
 export interface CommandSemantic {
-    readonly lane: "exploration" | "implementation";
+    readonly lane: CommandLane;
     readonly metadata: SemanticMetadata;
 }
 
@@ -23,9 +45,6 @@ export function buildSemanticMetadata(input: SemanticMetadata): JsonObject {
     };
 }
 
-export function inferCommandLane(command: string): "exploration" | "implementation" {
-    return inferCommandSemantic(command).lane;
-}
 
 export function inferCommandSemantic(command: string): CommandSemantic {
     const normalized = command.trim().toLowerCase();
@@ -175,7 +194,7 @@ function firstCommandToken(command: string): string {
     return first.replace(/^['"]+|['"]+$/g, "");
 }
 
-export function humanizeSubtypeKey(value: string): string {
+function humanizeSubtypeKey(value: string): string {
     return value
         .split("_")
         .filter(Boolean)

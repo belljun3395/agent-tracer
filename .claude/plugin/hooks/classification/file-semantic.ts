@@ -1,5 +1,22 @@
-import { relativeProjectPath } from "../lib/paths.js";
-import type { JsonObject } from "../lib/utils.js";
+/**
+ * File operation tool semantic classifier.
+ *
+ * Maps Claude Code file-mutation tool names to SemanticMetadata for the Agent Tracer
+ * monitor. Tool names correspond to the `tool_name` field in PostToolUse payloads.
+ *
+ * Supported subtypeKeys (all in toolFamily: file, subtypeGroup: file_ops):
+ *   apply_patch  — tool name contains "patch"
+ *   rename_file  — tool name contains "rename" or "move"
+ *   delete_file  — tool name contains "delete" or "remove"
+ *   create_file  — tool name contains "write" or "create"
+ *   modify_file  — everything else (default; covers Edit, MultiEdit, etc.)
+ *
+ * Tool name matching is case-insensitive on the normalized lower-cased name.
+ * File path is extracted from tool_input.file_path, tool_input.path, or
+ * tool_input.pattern (in that order) to populate entityName.
+ */
+import { relativeProjectPath } from "../util/paths.js";
+import type { JsonObject } from "../util/utils.js";
 import { extractToolFilePath } from "./command-semantic.js";
 import type { SemanticMetadata } from "./command-semantic.js";
 

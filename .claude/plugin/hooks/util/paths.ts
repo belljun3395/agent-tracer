@@ -1,7 +1,21 @@
 import * as path from "node:path";
 
+/**
+ * Absolute path of the project root.
+ * Populated from the $CLAUDE_PROJECT_DIR environment variable that Claude Code
+ * exports to every hook subprocess. Falls back to cwd() in development.
+ * Ref: https://code.claude.com/docs/en/hooks#environmental-variables-paths
+ */
 export const PROJECT_DIR = process.env.CLAUDE_PROJECT_DIR || process.cwd();
+
+/** Identifies events originating from this plugin in the Agent Tracer monitor. */
 export const CLAUDE_RUNTIME_SOURCE = "claude-plugin";
+
+/**
+ * Directory for per-session FS cache files (session result + metadata).
+ * Shared by session-cache.ts and session-metadata.ts to avoid duplication.
+ */
+export const SESSION_CACHE_DIR = `${PROJECT_DIR}/.claude/.session-cache`;
 
 export function defaultTaskTitle(): string {
     return `Claude Code — ${path.basename(PROJECT_DIR)}`;

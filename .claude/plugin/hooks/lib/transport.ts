@@ -1,8 +1,12 @@
 import { loadApplicationConfig, resolveMonitorHttpBaseUrl } from "../../../../config/load-application-config.js";
-import { CLAUDE_RUNTIME_SOURCE, PROJECT_DIR, defaultTaskTitle } from "./paths.js";
-import type { JsonObject } from "./utils.js";
-import { isRecord } from "./utils.js";
+import { CLAUDE_RUNTIME_SOURCE, PROJECT_DIR, defaultTaskTitle } from "../util/paths.js";
+import type { JsonObject } from "../util/utils.js";
+import { isRecord } from "../util/utils.js";
 
+/**
+ * Shape of the JSON body returned by POST /api/runtime-session-ensure.
+ * Indicates whether a new task or session was created during this call.
+ */
 export interface RuntimeSessionEnsureResult {
     readonly taskId: string;
     readonly sessionId: string;
@@ -13,6 +17,12 @@ export interface RuntimeSessionEnsureResult {
 const APPLICATION_CONFIG = loadApplicationConfig({ env: process.env });
 const API_BASE = resolveMonitorHttpBaseUrl(APPLICATION_CONFIG, process.env);
 
+/**
+ * Reads the complete stdin stream and parses it as JSON.
+ * Claude Code sends the hook payload as a single JSON object on stdin.
+ * Returns an empty object if stdin is empty or the payload is not a plain object.
+ * Ref: https://code.claude.com/docs/en/hooks#command-hooks (stdin/stdout protocol)
+ */
 export async function readStdinJson(): Promise<JsonObject> {
     let raw = "";
     for await (const chunk of process.stdin) {

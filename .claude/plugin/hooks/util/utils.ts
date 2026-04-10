@@ -1,13 +1,32 @@
+/** Alias for the JSON object type used throughout hook payloads. */
 export type JsonObject = Record<string, unknown>;
 
+/** Type guard: returns true if `value` is a plain (non-null, non-array) object. */
 export function isRecord(value: unknown): value is JsonObject {
     return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+/**
+ * Extracts the `tool_input` field from a hook payload.
+ * Returns an empty object when the field is absent or not a plain object.
+ * Ref: tool_input is present on PreToolUse, PostToolUse, PostToolUseFailure,
+ *      PermissionRequest, PermissionDenied payloads.
+ */
 export function getToolInput(event: JsonObject): JsonObject {
     return isRecord(event.tool_input) ? event.tool_input : {};
 }
 
+/**
+ * Returns the session_id from a hook payload, or an empty string if the
+ * event originates from a non-Claude runtime source.
+ *
+ * `hook_source` is an undocumented extension field that may indicate events
+ * injected by other systems. We only process events from the official Claude
+ * runtime ("claude-hook") to avoid double-counting.
+ *
+ * Ref: session_id is part of every hook payload's standard base fields.
+ * https://code.claude.com/docs/en/hooks#stdin-stdout-protocol
+ */
 export function getSessionId(event: JsonObject): string {
     const hookSource = toTrimmedString(event.hook_source);
     if (hookSource && hookSource !== "claude-hook") {
@@ -16,6 +35,10 @@ export function getSessionId(event: JsonObject): string {
     return toTrimmedString(event.session_id);
 }
 
+/**
+ * Returns the hook_event_name from a payload (e.g. "PostToolUse", "SessionStart").
+ * Ref: https://code.claude.com/docs/en/hooks#stdin-stdout-protocol
+ */
 export function getHookEventName(event: JsonObject): string {
     return toTrimmedString(event.hook_event_name);
 }
