@@ -2,8 +2,8 @@ import { Controller, Get, Post, Body, Param, Query, HttpException, HttpStatus, H
 import { TaskId } from "@monitor/core";
 import type { Response } from "express";
 import { Res } from "@nestjs/common";
-import { MonitorServiceProvider } from "../service/monitor-service.provider.js";
-import { taskEvaluateSchema } from "../../schemas.js";
+import type { MonitorServiceProvider } from "../service/monitor-service.provider.js";
+import { taskEvaluateSchema } from "../schemas.js";
 @Controller()
 export class EvaluationController {
     constructor(private readonly service: MonitorServiceProvider) { }

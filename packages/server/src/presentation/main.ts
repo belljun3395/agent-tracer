@@ -2,11 +2,12 @@ import "reflect-metadata";
 import type http from "node:http";
 import { NestFactory } from "@nestjs/core";
 import { WebSocketServer } from "ws";
-import { loadApplicationConfig, resolveMonitorDatabasePath, resolveMonitorHttpBaseUrl, resolveMonitorListenHost, resolveMonitorPort } from "../../../../../config/load-application-config.js";
+import { loadApplicationConfig, resolveMonitorDatabasePath, resolveMonitorHttpBaseUrl, resolveMonitorListenHost, resolveMonitorPort } from "../../../../config/load-application-config.js";
 import { AppModule } from "./app.module.js";
-import { EventBroadcaster } from "../ws/event-broadcaster.js";
+import { EventBroadcaster } from "./ws/event-broadcaster.js";
 import { MonitorServiceProvider } from "./service/monitor-service.provider.js";
-import { MONITOR_PORTS_TOKEN, type PortsWithClose } from "./database/database.provider.js";
+import { MONITOR_PORTS_TOKEN } from "./database/database.provider.js";
+import type { PortsWithClose } from "./database/database.provider.js";
 async function bootstrap() {
     const applicationConfig = loadApplicationConfig();
     const databasePath = resolveMonitorDatabasePath(applicationConfig, { cwd: process.cwd(), env: process.env });

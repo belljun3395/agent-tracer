@@ -8,7 +8,7 @@ import { EvaluationController } from "./controllers/evaluation.controller.js";
 import { IngestController } from "./controllers/ingest.controller.js";
 import { MonitorServiceProvider } from "./service/monitor-service.provider.js";
 import { DatabaseProvider, MONITOR_PORTS_TOKEN } from "./database/database.provider.js";
-import type { MonitorPorts } from "../../application/ports";
+import type { MonitorPorts } from "../application/ports";
 export interface AppModuleOptions {
     readonly databasePath: string;
     readonly notifier?: MonitorPorts["notifier"];

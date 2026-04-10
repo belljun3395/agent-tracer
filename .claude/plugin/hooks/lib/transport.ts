@@ -1,4 +1,3 @@
-import { loadApplicationConfig, resolveMonitorHttpBaseUrl } from "../../../../config/load-application-config.js";
 import { CLAUDE_RUNTIME_SOURCE, PROJECT_DIR, defaultTaskTitle } from "../util/paths.js";
 import type { JsonObject } from "../util/utils.js";
 import { isRecord } from "../util/utils.js";
@@ -14,8 +13,21 @@ export interface RuntimeSessionEnsureResult {
     readonly sessionCreated?: boolean;
 }
 
-const APPLICATION_CONFIG = loadApplicationConfig({ env: process.env });
-const API_BASE = resolveMonitorHttpBaseUrl(APPLICATION_CONFIG, process.env);
+/**
+ * Resolves the Agent Tracer monitor base URL.
+ * Priority: MONITOR_BASE_URL env var → default http://127.0.0.1:3847
+ * Avoids importing project-root config files so the plugin works when
+ * running from the Claude Code plugin cache directory.
+ */
+function resolveApiBase(): string {
+    const explicit = (process.env.MONITOR_BASE_URL ?? "").trim();
+    if (explicit) return explicit.replace(/\/$/, "");
+    const port = parseInt(process.env.MONITOR_PORT ?? "", 10) || 3847;
+    const host = (process.env.MONITOR_PUBLIC_HOST ?? "127.0.0.1").trim();
+    return `http://${host}:${port}`;
+}
+
+const API_BASE = resolveApiBase();
 
 /**
  * Reads the complete stdin stream and parses it as JSON.
