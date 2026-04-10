@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { TimelineEvent } from "../types.js";
-import { resolveExplorationCategory } from "./explorationCategory.js";
+import type { TimelineEvent } from "@monitor/web-core";
+import { resolveExplorationCategory } from "@monitor/web-core";
 function makeEvent(overrides: {
     metadata?: Record<string, unknown>;
     title?: string;

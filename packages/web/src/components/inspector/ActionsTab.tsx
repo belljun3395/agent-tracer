@@ -5,10 +5,10 @@ import { TaskHandoffPanel } from "../TaskHandoffPanel.js";
 import { TaskEvaluatePanel } from "../TaskEvaluatePanel.js";
 import { cardShell, cardHeader, cardBody } from "./styles.js";
 import { summarizePath } from "./utils.js";
-import type { TaskExtraction } from "../../lib/insights.js";
-import type { TimelineEvent } from "../../types.js";
+import type { TaskExtraction } from "@monitor/web-core";
+import type { TimelineEvent } from "@monitor/web-core";
 import type { ReusableTaskSnapshot } from "@monitor/core";
-import type { TaskEvaluationPayload, TaskEvaluationRecord } from "../../api.js";
+import type { TaskEvaluationPayload, TaskEvaluationRecord } from "@monitor/web-core";
 function TaskExtractionCard({ extraction, workspacePath }: {
     readonly extraction: TaskExtraction;
     readonly workspacePath?: string | undefined;

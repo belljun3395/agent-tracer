@@ -5,8 +5,8 @@ import { _wsStore } from "./useWebSocketStore.js";
 import type { TaskStoreSlice } from "./useTaskStore.js";
 import type { EventStoreSlice } from "./useEventStore.js";
 import type { WebSocketStoreSlice } from "./useWebSocketStore.js";
-import { buildTaskDisplayTitle } from "../lib/insights.js";
-import type { BookmarkRecord, MonitoringTask, OverviewResponse, SearchResponse, TaskDetailResponse } from "../types.js";
+import { buildTaskDisplayTitle } from "@monitor/web-core";
+import type { BookmarkRecord, MonitoringTask, OverviewResponse, SearchResponse, TaskDetailResponse, TimelineEvent } from "@monitor/web-core";
 export { mergeTaskDetail };
 export interface MonitorState {
     readonly tasks: readonly MonitoringTask[];
@@ -106,6 +106,21 @@ export type MonitorAction = {
     validTaskIds: ReadonlySet<string>;
 } | {
     type: "RESET_TASK_FILTERS";
+} | {
+    type: "UPSERT_TASK";
+    task: MonitoringTask;
+} | {
+    type: "REMOVE_TASK";
+    taskId: string;
+} | {
+    type: "UPSERT_BOOKMARK";
+    bookmark: BookmarkRecord;
+} | {
+    type: "REMOVE_BOOKMARK";
+    bookmarkId: string;
+} | {
+    type: "UPSERT_TASK_DETAIL_EVENT";
+    event: TimelineEvent;
 };
 function dispatchToSlices(action: MonitorAction): void {
     switch (action.type) {
@@ -192,6 +207,13 @@ function dispatchToSlices(action: MonitorAction): void {
         case "RESET_TASK_FILTERS":
             _taskStore.getState().dispatchTaskAction({ type: "RESET_TASK_FILTERS" });
             _eventStore.getState().dispatchEventAction({ type: "RESET_EVENT_FILTERS" });
+            return;
+        case "UPSERT_TASK":
+        case "REMOVE_TASK":
+        case "UPSERT_BOOKMARK":
+        case "REMOVE_BOOKMARK":
+        case "UPSERT_TASK_DETAIL_EVENT":
+            _taskStore.getState().dispatchTaskAction(action);
             return;
         default:
             return;

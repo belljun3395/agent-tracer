@@ -1,21 +1,21 @@
 import type React from "react";
 import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { Navigate, Route, Routes, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { refreshRealtimeMonitorData } from "./lib/realtime.js";
-import type { BookmarkSearchHit } from "./types.js";
+import { refreshRealtimeMonitorData } from "@monitor/web-core";
+import type { BookmarkSearchHit } from "@monitor/web-core";
 import { cn } from "./lib/ui/cn.js";
 import { TopBar } from "./components/TopBar.js";
-import { WorkflowLibraryPanel } from "./components/WorkflowLibraryPanel.js";
-import { ApprovalQueuePanel } from "./components/ApprovalQueuePanel.js";
 import { SidebarContainer } from "./components/SidebarContainer.js";
 import { TimelineContainer } from "./components/TimelineContainer.js";
-import { InspectorContainer } from "./components/InspectorContainer.js";
 import { IconRail } from "./components/IconRail.js";
 import type { RailPanel } from "./components/IconRail.js";
+const WorkflowLibraryPanel = lazy(() => import("./components/WorkflowLibraryPanel.js").then((m) => ({ default: m.WorkflowLibraryPanel })));
+const ApprovalQueuePanel = lazy(() => import("./components/ApprovalQueuePanel.js").then((m) => ({ default: m.ApprovalQueuePanel })));
+const InspectorContainer = lazy(() => import("./components/InspectorContainer.js").then((m) => ({ default: m.InspectorContainer })));
 const TaskWorkspacePage = lazy(() => import("./pages/TaskWorkspacePage.js").then((m) => ({ default: m.TaskWorkspacePage })));
-import { MonitorProvider, useMonitorStore } from "./store/useMonitorStore.js";
-import { useWebSocket } from "./store/useWebSocket.js";
-import { useSearch } from "./store/useSearch.js";
+import { MonitorProvider, useMonitorStore } from "@monitor/web-store";
+import { useWebSocket } from "@monitor/web-store";
+import { useSearch } from "@monitor/web-store";
 import { useTheme } from "./lib/useTheme.js";
 const ZOOM_MIN = 0.8;
 const ZOOM_MAX = 2.5;
@@ -33,6 +33,7 @@ function Dashboard({ onOpenTaskWorkspace, onSelectTaskRoute }: {
         void refreshRealtimeMonitorData({
             message,
             selectedTaskId,
+            dispatch,
             refreshOverview,
             refreshTaskDetail,
             refreshBookmarksOnly
@@ -153,24 +154,30 @@ function Dashboard({ onOpenTaskWorkspace, onSelectTaskRoute }: {
                   <path d="M15 18l-6-6 6-6"/>
                 </svg>
               </button>
-            </div>) : (<InspectorContainer isStackedDashboard={false} isInspectorCollapsed={false} selectedTaskDisplayTitle={selectedTaskDisplayTitle} onToggleCollapse={() => setIsInspectorCollapsed(true)} onOpenTaskWorkspace={selectedTaskId ? () => onOpenTaskWorkspace(selectedTaskId) : undefined}/>)}
+            </div>) : (<Suspense fallback={<div className="h-full border-l border-[var(--border)] bg-[var(--surface)]"/>}>
+                <InspectorContainer isStackedDashboard={false} isInspectorCollapsed={false} selectedTaskDisplayTitle={selectedTaskDisplayTitle} onToggleCollapse={() => setIsInspectorCollapsed(true)} onOpenTaskWorkspace={selectedTaskId ? () => onOpenTaskWorkspace(selectedTaskId) : undefined}/>
+              </Suspense>)}
         </div>
       </div>
 
       
-      {activePanel === "library" && (<WorkflowLibraryPanel onSelectTask={(taskId) => {
+      {activePanel === "library" && (<Suspense fallback={null}>
+          <WorkflowLibraryPanel onSelectTask={(taskId) => {
                 dispatch({ type: "SELECT_CONNECTOR", connectorKey: null });
                 dispatch({ type: "SELECT_EVENT", eventId: null });
                 selectDashboardTask(taskId);
                 setActivePanel(null);
-            }} onClose={() => setActivePanel(null)}/>)}
+            }} onClose={() => setActivePanel(null)}/>
+        </Suspense>)}
 
-      {isApprovalQueueOpen && (<ApprovalQueuePanel tasks={tasks} onClose={() => setIsApprovalQueueOpen(false)} onRefresh={refreshOverview} onSelectTask={(taskId) => {
+      {isApprovalQueueOpen && (<Suspense fallback={null}>
+          <ApprovalQueuePanel tasks={tasks} onClose={() => setIsApprovalQueueOpen(false)} onRefresh={refreshOverview} onSelectTask={(taskId) => {
                 dispatch({ type: "SELECT_CONNECTOR", connectorKey: null });
                 dispatch({ type: "SELECT_EVENT", eventId: null });
                 selectDashboardTask(taskId);
                 setIsApprovalQueueOpen(false);
-            }}/>)}
+            }}/>
+        </Suspense>)}
     </div>);
 }
 function DashboardRoute(): React.JSX.Element {

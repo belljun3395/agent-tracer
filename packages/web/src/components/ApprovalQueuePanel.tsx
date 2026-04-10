@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { RuleId } from "@monitor/core";
-import { fetchTaskDetail, fetchTaskObservability, postRuleAction } from "../api.js";
-import type { MonitoringTask, TaskObservabilitySummary } from "../types.js";
+import { fetchTaskDetail, fetchTaskObservability, postRuleAction } from "@monitor/web-core";
+import type { MonitoringTask, TaskObservabilitySummary } from "@monitor/web-core";
 import { Button } from "./ui/Button.js";
 import { Badge } from "./ui/Badge.js";
 import { PanelCard } from "./ui/PanelCard.js";
-import { collectRecentRuleDecisions, type RuleDecisionStat } from "../lib/insights.js";
+import { collectRecentRuleDecisions, type RuleDecisionStat } from "@monitor/web-core";
 const REVIEWER_ID_STORAGE_KEY = "agent-tracer.reviewer-id";
 interface ApprovalQueuePanelProps {
     readonly tasks: readonly MonitoringTask[];
@@ -36,16 +36,20 @@ export function ApprovalQueuePanel({ tasks, onClose, onSelectTask, onRefresh }: 
         const load = async () => {
             setLoading(true);
             try {
-                const responses = await Promise.all(queueTasks.map(async (task) => ({
+                const observabilityResponses = await Promise.all(queueTasks.map(async (task) => ({
                     task,
-                    observability: (await fetchTaskObservability(task.id)).observability,
-                    timeline: (await fetchTaskDetail(task.id)).timeline
+                    observability: (await fetchTaskObservability(task.id)).observability
                 })));
+                const activeItems = observabilityResponses.filter((item) => item.observability.ruleEnforcement.activeState !== "clear");
+                const detailResponses = await Promise.all(activeItems.map(async (item) => ({
+                    taskId: item.task.id,
+                    timeline: (await fetchTaskDetail(item.task.id)).timeline
+                })));
+                const timelineByTaskId = new Map(detailResponses.map((item) => [item.taskId, item.timeline]));
                 if (!cancelled) {
-                    const filtered = responses.filter((item) => item.observability.ruleEnforcement.activeState !== "clear");
-                    setItems(filtered.map(({ task, observability }) => ({ task, observability })));
-                    setRecentDecisions(filtered
-                        .flatMap((item) => collectRecentRuleDecisions(item.timeline, 4))
+                    setItems(activeItems.map(({ task, observability }) => ({ task, observability })));
+                    setRecentDecisions(activeItems
+                        .flatMap((item) => collectRecentRuleDecisions(timelineByTaskId.get(item.task.id) ?? [], 4))
                         .sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt))
                         .slice(0, 12));
                 }

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { _eventStore } from "./useEventStore.js";
+import { _eventStore } from "@monitor/web-store";
 beforeEach(() => {
     const dispatch = _eventStore.getState().dispatchEventAction;
     dispatch({ type: "RESET_EVENT_FILTERS" });

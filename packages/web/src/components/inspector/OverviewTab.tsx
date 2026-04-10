@@ -1,13 +1,14 @@
 import type React from "react";
-import { formatCount, formatDuration } from "../../lib/observability.js";
-import { buildResumeCommand } from "../../lib/resume-command.js";
+import { formatCount, formatDuration } from "@monitor/web-core";
+import { buildResumeCommand } from "@monitor/web-core";
 import { copyToClipboard } from "../../lib/ui/clipboard.js";
+import { Eyebrow } from "../ui/Eyebrow.js";
 import { PanelCard } from "../ui/PanelCard.js";
 import { SectionCard } from "./SectionCard.js";
 import { ObservabilityMetricGrid, ObservabilityList, ObservabilityPhaseBreakdown } from "./ObservabilitySection.js";
 import { cardShell, cardHeader, cardBody, innerPanel } from "./styles.js";
-import type { SubagentInsight } from "../../lib/insights.js";
-import type { TaskObservabilityResponse } from "../../types.js";
+import type { SubagentInsight } from "@monitor/web-core";
+import type { TaskObservabilityResponse } from "@monitor/web-core";
 function RuntimeSessionCard({ runtimeSessionId, runtimeSource }: {
     readonly runtimeSessionId?: string | undefined;
     readonly runtimeSource?: string | undefined;
@@ -18,15 +19,15 @@ function RuntimeSessionCard({ runtimeSessionId, runtimeSource }: {
     const handleCopy = (text: string): void => {
         void copyToClipboard(text);
     };
-    return (<SectionCard title={<span>Runtime Session{spec ? ` · ${spec.label}` : ""}</span>} action={spec ? (<button type="button" onClick={() => handleCopy(spec.command)} className="rounded-md border border-[var(--border)] px-2 py-1 text-[0.72rem] text-[var(--text-2)] hover:bg-[var(--bg-hover)]">
+    return (<SectionCard title={<span>Runtime Session{spec ? ` · ${spec.label}` : ""}</span>} action={spec ? (<button type="button" onClick={() => handleCopy(spec.command)} className="rounded-md border border-[var(--border)] px-2 py-1 text-[0.72rem] text-[var(--text-2)] hover:bg-[var(--surface-2)]">
           Copy command
         </button>) : undefined}>
       <div className={innerPanel + " p-3"}>
-        <span className="block text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">Session ID</span>
+        <Eyebrow className="block">Session ID</Eyebrow>
         <code className="mt-1 block break-all font-mono text-[0.8rem] text-[var(--text-1)]">{runtimeSessionId}</code>
       </div>
       {spec ? (<div className={innerPanel + " mt-2 p-3"}>
-          <span className="block text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">Resume command</span>
+          <Eyebrow className="block">Resume command</Eyebrow>
           <code className="mt-1 block break-all font-mono text-[0.8rem] text-[var(--text-1)]">{spec.command}</code>
         </div>) : (<p className="m-0 text-[0.78rem] text-[var(--text-3)]">
           Unknown runtime source ({runtimeSource ?? "n/a"}) — copy the session ID and resume manually.
@@ -43,16 +44,16 @@ function SubagentInsightCard({ insight }: {
       <div className={cardBody}>
         {insight.delegations === 0 && insight.backgroundTransitions === 0 ? (<p className="m-0 text-[0.8rem] text-[var(--text-3)]">No subagent or background activity recorded yet.</p>) : (<div className="grid grid-cols-3 gap-2 max-md:grid-cols-1">
             <div className={innerPanel + " p-3"}>
-              <span className="block text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">Delegations</span>
+              <Eyebrow className="block">Delegations</Eyebrow>
               <strong className="mt-2 block text-[1.05rem] text-[var(--coordination)]">{insight.delegations}</strong>
             </div>
             <div className={innerPanel + " p-3"}>
-              <span className="block text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">Background Events</span>
+              <Eyebrow className="block">Background Events</Eyebrow>
               <strong className="mt-2 block text-[1.05rem] text-[var(--text-1)]">{insight.backgroundTransitions}</strong>
               <p className="mt-1 mb-0 text-[0.74rem] text-[var(--text-3)]">{insight.linkedBackgroundEvents} linked to parent context</p>
             </div>
             <div className={innerPanel + " p-3"}>
-              <span className="block text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">Async Tasks</span>
+              <Eyebrow className="block">Async Tasks</Eyebrow>
               <strong className="mt-2 block text-[1.05rem] text-[var(--text-1)]">{insight.uniqueAsyncTasks}</strong>
               <p className="mt-1 mb-0 text-[0.74rem] text-[var(--text-3)]">
                 {insight.completedAsyncTasks} completed · {insight.unresolvedAsyncTasks} unresolved

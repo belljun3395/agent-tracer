@@ -10,8 +10,9 @@ class MemoryStorage implements StorageLike {
     }
 }
 describe("handoffStorage", () => {
-    it("stores task-scoped memo and last copied prompt while keeping prefs reusable", () => {
-        const storage = new MemoryStorage();
+    it("stores task-scoped memo and last copied prompt in session-scoped draft storage while keeping prefs reusable", () => {
+        const prefsStorage = new MemoryStorage();
+        const draftStorage = new MemoryStorage();
         saveHandoffDraft("task-1", {
             prefs: {
                 format: "xml",
@@ -30,20 +31,22 @@ describe("handoffStorage", () => {
             memo: "follow up with server tests",
             lastCopiedText: "<task-context />",
             lastCopiedAt: "2026-03-28T00:00:00.000Z"
-        }, storage);
-        const taskDraft = loadHandoffDraft("task-1", 0, storage);
-        const anotherTaskDraft = loadHandoffDraft("task-2", 0, storage);
+        }, { prefsStorage, draftStorage });
+        const taskDraft = loadHandoffDraft("task-1", 0, { prefsStorage, draftStorage });
+        const anotherTaskDraft = loadHandoffDraft("task-2", 0, { prefsStorage, draftStorage });
         expect(taskDraft.memo).toBe("follow up with server tests");
         expect(taskDraft.lastCopiedText).toBe("<task-context />");
         expect(taskDraft.prefs.format).toBe("xml");
         expect(anotherTaskDraft.memo).toBe("");
         expect(anotherTaskDraft.lastCopiedText).toBeNull();
         expect(anotherTaskDraft.prefs.format).toBe("xml");
+        expect(prefsStorage.getItem(getTaskDraftKey("task-1"))).toBeNull();
+        expect(draftStorage.getItem(getTaskDraftKey("task-1"))).not.toBeNull();
     });
     it("falls back safely when stored JSON is malformed", () => {
-        const storage = new MemoryStorage();
-        storage.setItem(getTaskDraftKey("task-1"), "{broken");
-        const draft = loadHandoffDraft("task-1", 2, storage);
+        const draftStorage = new MemoryStorage();
+        draftStorage.setItem(getTaskDraftKey("task-1"), "{broken");
+        const draft = loadHandoffDraft("task-1", 2, { draftStorage });
         expect(draft.memo).toBe("");
         expect(draft.lastCopiedText).toBeNull();
         expect(draft.prefs.include.violations).toBe(true);

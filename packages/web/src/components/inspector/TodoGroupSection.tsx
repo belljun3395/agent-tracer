@@ -1,6 +1,6 @@
 import type React from "react";
-import { buildInspectorEventTitle } from "../../lib/insights.js";
-import type { TodoGroup } from "../../lib/insights.js";
+import { buildInspectorEventTitle } from "@monitor/web-core";
+import type { TodoGroup } from "@monitor/web-core";
 import { Badge } from "../ui/Badge.js";
 import { SectionCard } from "./SectionCard.js";
 const TODO_STATE_LABELS: Readonly<Record<string, string>> = {

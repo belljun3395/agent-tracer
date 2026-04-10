@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useTransition } from "react";
-import { createMonitorWebSocket } from "../api.js";
-import { parseRealtimeMessage, type MonitorRealtimeMessage } from "../lib/realtime.js";
+import { createMonitorWebSocket } from "@monitor/web-core";
+import { parseRealtimeMessage, type MonitorRealtimeMessage } from "@monitor/web-core";
 export const SOCKET_READY_STATE = {
     CONNECTING: 0,
     OPEN: 1
