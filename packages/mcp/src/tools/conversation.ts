@@ -8,7 +8,7 @@ export function registerConversationTools(server: McpServer, client: MonitorClie
         description: "Record a canonical user.message event (contractVersion 1). " +
             "Use captureMode='raw' for actual user prompt text. " +
             "Use captureMode='derived' for inferred/enriched records — sourceEventId is required. " +
-            "All callers must provide sessionId. " +
+            "All callers must provide sessionId and phase ('initial' for the first user message in the task, 'follow_up' otherwise). " +
             "If raw prompt text is unavailable, use monitor_rule with ruleId='user-message-capture-unavailable' instead.",
         inputSchema: {
             taskId: z.string(),
@@ -16,7 +16,7 @@ export function registerConversationTools(server: McpServer, client: MonitorClie
             messageId: z.string(),
             captureMode: z.enum(["raw", "derived"]),
             source: z.string(),
-            phase: z.enum(["initial", "follow_up"]).optional(),
+            phase: z.enum(["initial", "follow_up"]),
             title: z.string(),
             body: z.string().optional(),
             sourceEventId: z.string().optional(),

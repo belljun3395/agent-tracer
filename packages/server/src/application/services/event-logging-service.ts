@@ -19,20 +19,12 @@ export class EventLoggingService {
     }
     async logUserMessage(input: TaskUserMessageInput): Promise<RecordedEventEnvelope> {
         await this.taskLifecycle.requireTask(input.taskId);
-        if (input.captureMode === "derived" &&
-            !input.sourceEventId) {
-            throw new Error("sourceEventId is required when captureMode is 'derived'.");
-        }
-        const phase = input.phase ??
-            ((await this.ports.events.countRawUserMessages(input.taskId)) === 0
-                ? "initial"
-                : "follow_up");
         const meta = {
             ...(input.metadata ?? {}),
             messageId: input.messageId,
             captureMode: input.captureMode,
             source: input.source,
-            phase,
+            phase: input.phase,
             ...(input.sourceEventId ? { sourceEventId: input.sourceEventId } : {}),
             contractVersion: input.contractVersion ?? "1",
         };

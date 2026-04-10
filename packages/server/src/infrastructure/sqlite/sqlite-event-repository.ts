@@ -135,16 +135,6 @@ export class SqliteEventRepository implements IEventRepository {
         this.refreshSearchDocument(eventId);
         return this.findById(eventId);
     }
-    async countRawUserMessages(taskId: MonitorTaskId): Promise<number> {
-        const row = this.db
-            .prepare<{
-            taskId: string;
-        }, {
-            count: number;
-        }>("select count(*) as count from timeline_events where task_id = @taskId and kind = 'user.message' and json_extract(metadata_json, '$.captureMode') = 'raw'")
-            .get({ taskId });
-        return row?.count ?? 0;
-    }
     async search(query: string, opts?: SearchOptions): Promise<SearchResults> {
         const safeLimit = Math.max(1, Math.min(50, opts?.limit ?? 8));
         const taskId = opts?.taskId ?? null;

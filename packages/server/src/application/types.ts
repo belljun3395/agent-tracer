@@ -150,7 +150,7 @@ export interface TaskUserMessageInput {
     readonly messageId: MessageId;
     readonly captureMode: "raw" | "derived";
     readonly source: string;
-    readonly phase?: "initial" | "follow_up";
+    readonly phase: "initial" | "follow_up";
     readonly title: string;
     readonly body?: string;
     readonly sourceEventId?: EventId;

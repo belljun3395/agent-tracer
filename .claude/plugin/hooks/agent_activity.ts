@@ -37,7 +37,7 @@ async function main(): Promise<void> {
                 ...buildSemanticMetadata({
                     subtypeKey: "skill_use",
                     subtypeLabel: "Skill use",
-                    subtypeGroup: "external",
+                    subtypeGroup: "coordination",
                     toolFamily: "coordination",
                     operation: "invoke",
                     entityType: "skill",
@@ -65,7 +65,7 @@ async function main(): Promise<void> {
             ...buildSemanticMetadata({
                 subtypeKey: "delegation",
                 subtypeLabel: "Delegation",
-                subtypeGroup: "agent",
+                subtypeGroup: "coordination",
                 toolFamily: "coordination",
                 operation: "delegate",
                 entityType: "agent",

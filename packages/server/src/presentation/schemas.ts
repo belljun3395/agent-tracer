@@ -121,7 +121,7 @@ export const userMessageSchema = z.object({
     messageId: z.string().min(1),
     captureMode: z.enum(CAPTURE_MODES),
     source: z.string().min(1),
-    phase: z.enum(["initial", "follow_up"]).optional(),
+    phase: z.enum(["initial", "follow_up"]),
     title: z.string().min(1),
     body: z.string().optional(),
     sourceEventId: z.string().optional(),
@@ -218,19 +218,6 @@ export const searchSchema = z.object({
     query: z.string().trim().min(1),
     taskId: z.string().min(1).optional(),
     limit: z.coerce.number().int().positive().max(100).optional()
-});
-export const ccSessionEnsureSchema = z.object({
-    ccSessionId: z.string().min(1),
-    title: z.string().min(1),
-    workspacePath: z.string().optional(),
-    bumpMessageCount: z.boolean().optional()
-});
-export const ccSessionEndSchema = z.object({
-    ccSessionId: z.string().min(1),
-    summary: z.string().optional(),
-    completeTask: z.boolean().optional(),
-    completionReason: z.enum(COMPLETION_REASONS).optional(),
-    backgroundCompletions: z.array(z.string().min(1)).optional()
 });
 export const runtimeSessionEnsureSchema = z.object({
     taskId: z.string().optional(),

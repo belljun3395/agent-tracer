@@ -1,4 +1,9 @@
-export type RuntimeAdapterId = "claude-plugin";
+export type RuntimeAdapterId = string & { readonly __brand: "RuntimeAdapterId" };
+
+export const RuntimeAdapterId = (value: string): RuntimeAdapterId =>
+    value.trim().toLowerCase() as RuntimeAdapterId;
+
+export const CLAUDE_PLUGIN_ADAPTER_ID: RuntimeAdapterId = RuntimeAdapterId("claude-plugin");
 
 export type EvidenceStrength =
   | "proven"

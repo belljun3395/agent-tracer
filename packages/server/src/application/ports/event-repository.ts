@@ -56,6 +56,5 @@ export interface IEventRepository {
     findById(id: EventId): Promise<TimelineEvent | null>;
     findByTaskId(taskId: TaskId): Promise<readonly TimelineEvent[]>;
     updateMetadata(eventId: EventId, metadata: Record<string, unknown>): Promise<TimelineEvent | null>;
-    countRawUserMessages(taskId: TaskId): Promise<number>;
     search(query: string, opts?: SearchOptions): Promise<SearchResults>;
 }

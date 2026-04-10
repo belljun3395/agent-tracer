@@ -1,7 +1,9 @@
+import type { EventSubtypeKey } from "@monitor/core";
+import { isKnownEventSubtypeKey } from "@monitor/core";
 import type { TimelineEvent, TimelineLane } from "../types.js";
 export type ExpandableTimelineLane = "exploration" | "implementation" | "coordination";
 export interface EventSubtype {
-    readonly key: string;
+    readonly key: EventSubtypeKey;
     readonly label: string;
     readonly icon?: string;
     readonly group?: string;
@@ -12,11 +14,11 @@ export interface TimelineLaneRow {
     readonly key: string;
     readonly baseLane: TimelineLane;
     readonly isSubtype: boolean;
-    readonly subtypeKey?: string;
+    readonly subtypeKey?: EventSubtypeKey;
     readonly subtypeLabel?: string;
 }
 const EXPANDABLE_LANES = ["exploration", "implementation", "coordination"] as const satisfies readonly ExpandableTimelineLane[];
-const SUBTYPE_DEFINITIONS: Record<string, {
+const SUBTYPE_DEFINITIONS: Record<EventSubtypeKey, {
     label: string;
     icon?: string;
 }> = {
@@ -45,7 +47,7 @@ const SUBTYPE_DEFINITIONS: Record<string, {
     bookmark: { label: "Bookmark", icon: "⌂" },
     uncategorized: { label: "Other", icon: "•" }
 };
-const SUBTYPE_ORDER: Record<ExpandableTimelineLane, readonly string[]> = {
+const SUBTYPE_ORDER: Record<ExpandableTimelineLane, readonly EventSubtypeKey[]> = {
     exploration: ["read_file", "glob_files", "grep_code", "list_files", "web_search", "web_fetch", "shell_probe", "uncategorized"],
     implementation: [
         "create_file",
@@ -67,15 +69,16 @@ export function isExpandableLane(lane: TimelineLane): lane is ExpandableTimeline
     return (EXPANDABLE_LANES as readonly string[]).includes(lane);
 }
 export function resolveEventSubtype(event: Pick<TimelineEvent, "lane" | "metadata" | "title">): EventSubtype | null {
-    const explicitKey = extractMetadataString(event.metadata, "subtypeKey");
-    if (explicitKey) {
+    const rawKey = extractMetadataString(event.metadata, "subtypeKey");
+    if (rawKey) {
+        const key: EventSubtypeKey = isKnownEventSubtypeKey(rawKey) ? rawKey : "uncategorized";
         const group = extractMetadataString(event.metadata, "subtypeGroup");
         const entityType = extractMetadataString(event.metadata, "entityType");
         const entityName = extractMetadataString(event.metadata, "entityName");
-        const icon = subtypeIcon(explicitKey);
+        const icon = subtypeIcon(key);
         return {
-            key: explicitKey,
-            label: extractMetadataString(event.metadata, "subtypeLabel") ?? subtypeLabel(explicitKey),
+            key,
+            label: extractMetadataString(event.metadata, "subtypeLabel") ?? subtypeLabel(key),
             ...(icon ? { icon } : {}),
             ...(group ? { group } : {}),
             ...(entityType ? { entityType } : {}),
@@ -137,7 +140,7 @@ export function resolveTimelineRowKey(event: TimelineEvent, expandedLanes: Reado
     return `${event.lane}:${subtype?.key ?? "uncategorized"}`;
 }
 function buildSubtypeRowsForLane(events: readonly TimelineEvent[], lane: ExpandableTimelineLane): readonly TimelineLaneRow[] {
-    const subtypeMap = new Map<string, string>();
+    const subtypeMap = new Map<EventSubtypeKey, string>();
     let hasUncategorized = false;
     for (const event of events) {
         const subtype = resolveEventSubtype(event);
@@ -175,7 +178,7 @@ function buildSubtypeRowsForLane(events: readonly TimelineEvent[], lane: Expanda
     }
     return rows;
 }
-function inferLegacySubtypeKey(event: Pick<TimelineEvent, "lane" | "metadata" | "title">): string | null {
+function inferLegacySubtypeKey(event: Pick<TimelineEvent, "lane" | "metadata" | "title">): EventSubtypeKey | null {
     const toolName = extractMetadataString(event.metadata, "toolName");
     const command = extractMetadataString(event.metadata, "command");
     const activityType = extractMetadataString(event.metadata, "activityType");
@@ -184,7 +187,7 @@ function inferLegacySubtypeKey(event: Pick<TimelineEvent, "lane" | "metadata" | 
     if (!normalized) {
         return null;
     }
-    if (event.lane === "coordination" && activityType) {
+    if (event.lane === "coordination" && activityType && isKnownEventSubtypeKey(activityType)) {
         return activityType;
     }
     if (event.lane === "exploration") {
@@ -229,10 +232,10 @@ function inferLegacySubtypeKey(event: Pick<TimelineEvent, "lane" | "metadata" | 
     }
     return null;
 }
-function subtypeLabel(key: string): string {
+function subtypeLabel(key: EventSubtypeKey): string {
     return SUBTYPE_DEFINITIONS[key]?.label ?? humanizeSubtypeKey(key);
 }
-function subtypeIcon(key: string): string | undefined {
+function subtypeIcon(key: EventSubtypeKey): string | undefined {
     return SUBTYPE_DEFINITIONS[key]?.icon;
 }
 function extractMetadataString(metadata: Record<string, unknown>, key: string): string | null {

@@ -284,7 +284,7 @@ describe("Claude plugin", () => {
                     metadata: {
                         subtypeKey: "delegation",
                         subtypeLabel: "Delegation",
-                        subtypeGroup: "agent",
+                        subtypeGroup: "coordination",
                         toolFamily: "coordination",
                         operation: "delegate",
                         entityType: "agent",
@@ -598,7 +598,7 @@ describe("Claude plugin", () => {
                     metadata: {
                         subtypeKey: "mcp_call",
                         subtypeLabel: "MCP call",
-                        subtypeGroup: "external",
+                        subtypeGroup: "coordination",
                         toolFamily: "coordination",
                         operation: "invoke",
                         entityType: "mcp",

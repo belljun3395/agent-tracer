@@ -18,16 +18,18 @@ async function main(): Promise<void> {
     hookLog("user_prompt", "ensureRuntimeSession ok", { taskId: ids.taskId });
     if (!prompt)
         return;
+    const phase: "initial" | "follow_up" = ids.taskCreated ? "initial" : "follow_up";
     await postJson("/api/user-message", {
         taskId: ids.taskId,
         sessionId: ids.sessionId,
         messageId: createMessageId(),
         captureMode: "raw",
         source: "claude-plugin",
+        phase,
         title,
         body: prompt
     });
-    hookLog("user_prompt", "user-message posted", { title });
+    hookLog("user_prompt", "user-message posted", { title, phase });
 }
 void main().catch((err: unknown) => {
     hookLog("user_prompt", "ERROR", { error: String(err) });
