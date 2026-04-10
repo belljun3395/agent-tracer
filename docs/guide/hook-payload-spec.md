@@ -115,7 +115,7 @@ mcp__*:      Varies by MCP server/tool
 Explicit metadata added by the hook layer to all exploration/file/execution tools:
 
 ```typescript
-// Defined in packages/core/src/event-semantic.ts
+// Defined in packages/core/src/interop/event-semantic.ts
 interface EventSemanticMetadata {
   readonly subtypeKey: EventSubtypeKey;  // "read_file", "run_test", "mcp_call", ...
   readonly subtypeLabel?: string;        // UI-friendly label

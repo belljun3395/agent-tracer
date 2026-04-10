@@ -1,6 +1,6 @@
 # Agent Tracer - Runtime Capabilities
 
-`packages/core/src/runtime-capabilities.ts` is the single source of truth defining
+`packages/core/src/runtime/index.ts` is the single source of truth defining
 observability scope and session closure policy per runtime adapter. The table below
 summarizes the current code values as-is.
 

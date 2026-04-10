@@ -99,7 +99,7 @@ core contract is shared.
 ### Semantic metadata is consumed through `eventSubtype`
 
 `lib/eventSubtype.ts` is the single consumer of the `SemanticMetadata`
-contract defined in `packages/core/src/event-semantic.ts`. Components
+contract defined in `packages/core/src/interop/event-semantic.ts`. Components
 and insights should go through it instead of reading raw `metadata`
 keys.
 

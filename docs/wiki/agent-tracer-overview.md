@@ -42,9 +42,9 @@ The shared contract layer. `TimelineLane`, `MonitoringTask`,
 and workflow evaluation types all live here. Everyone else imports from
 core, so it is the source of truth.
 
-- Entry points: `packages/core/src/domain.ts` (barrel),
-  `packages/core/src/event-semantic.ts`,
-  `packages/core/src/runtime-capabilities.ts`
+- Entry points: `packages/core/src/domain/index.ts` (barrel),
+  `packages/core/src/interop/event-semantic.ts`,
+  `packages/core/src/runtime/index.ts`
 
 ### `@monitor/server`
 
@@ -121,8 +121,8 @@ solve something like this last time".
 
 - `packages/server/src/bootstrap/create-nestjs-monitor-runtime.ts`
 - `packages/server/src/application/monitor-service.ts`
-- `packages/core/src/domain.ts`
-- `packages/core/src/event-semantic.ts`
+- `packages/core/src/domain/index.ts`
+- `packages/core/src/interop/event-semantic.ts`
 - `packages/mcp/src/index.ts`
 - `packages/web/src/App.tsx`
 - `packages/web/src/store/useMonitorStore.tsx`
