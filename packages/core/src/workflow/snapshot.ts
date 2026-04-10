@@ -1,4 +1,5 @@
-import type { ReusableTaskSnapshot, TimelineEvent, WorkflowEvaluationData } from "../domain.js";
+import type { TimelineEvent } from "../monitoring/types.js";
+import type { ReusableTaskSnapshot, WorkflowEvaluationData } from "./types.js";
 export interface BuildReusableTaskSnapshotInput {
     readonly objective: string;
     readonly events: readonly TimelineEvent[];

@@ -1,4 +1,5 @@
-import type { EventId, MonitoringTask, RuntimeSource, TaskId, TimelineEvent } from "../domain.js";
+import type { EventId, RuntimeSource, TaskId } from "../monitoring/ids.js";
+import type { MonitoringTask, TimelineEvent } from "../monitoring/types.js";
 export type OpenInferenceSpanKind = "AGENT" | "CHAIN" | "TOOL" | "LLM" | "RETRIEVER" | "UNKNOWN";
 export interface OpenInferenceSpanRecord {
     readonly spanId: EventId;
