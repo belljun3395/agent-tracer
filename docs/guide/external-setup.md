@@ -58,7 +58,7 @@ Expected output:
 
 ## 4. Attach Claude Code
 
-Follow [claude-setup.md](./claude-setup.md) sections 3 and 4 to:
+Follow [claude-setup.md](./claude-setup.md) sections 2 and 3 to:
 
 1. Launch Claude Code with `claude --plugin-dir …` (or via the marketplace).
 2. Register the `monitor` MCP server with `claude mcp add monitor …`.
