@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ActionName, EventId, RuntimeSource, TaskId, TaskSlug, buildOpenInferenceTaskExport, buildWorkflowContext, buildReusableTaskSnapshot, classifyEvent, createTaskSlug, normalizeWorkspacePath, normalizeLane, tokenizeActionName } from "@monitor/core";
+import { ActionName, EventId, RuleId, RuntimeSource, TaskId, TaskSlug, buildOpenInferenceTaskExport, buildWorkflowContext, buildReusableTaskSnapshot, classifyEvent, createTaskSlug, normalizeWorkspacePath, normalizeLane, tokenizeActionName, type EventClassificationMatch, type WorkflowSummary } from "@monitor/core";
 describe("normalizeWorkspacePath", () => {
     it("compresses duplicate separators and trims trailing slash", () => {
         expect(normalizeWorkspacePath("/tmp//baden///")).toBe("/tmp/baden");
@@ -239,5 +239,34 @@ describe("normalizeLane - 추가 케이스", () => {
         for (const lane of lanes) {
             expect(normalizeLane(lane)).toBe(lane);
         }
+    });
+});
+
+describe("public root exports", () => {
+    it("keeps representative factories and types available from @monitor/core", () => {
+        const ruleId = RuleId(" action-registry ");
+        const match: EventClassificationMatch = {
+            ruleId,
+            score: 1,
+            tags: ["action-registry"],
+            reasons: []
+        };
+        const summary: WorkflowSummary = {
+            taskId: TaskId("task-1"),
+            title: "Workflow title",
+            rating: "good",
+            eventCount: 2,
+            createdAt: "2026-04-10T00:00:00.000Z",
+            evaluatedAt: "2026-04-10T00:00:01.000Z",
+            useCase: null,
+            workflowTags: [],
+            outcomeNote: null,
+            approachNote: null,
+            reuseWhen: null,
+            watchouts: null
+        };
+        expect(ruleId).toBe("action-registry");
+        expect(match.ruleId).toBe("action-registry");
+        expect(summary.rating).toBe("good");
     });
 });

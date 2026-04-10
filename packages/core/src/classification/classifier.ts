@@ -1,7 +1,7 @@
-import type { EventClassification, EventClassificationMatch } from "../domain.js";
+import type { EventClassification, EventClassificationMatch } from "./types.js";
 import type { ClassifyEventInput } from "./classifier.types.js";
 import { classifyActionName } from "./action-registry.js";
-import { defaultLaneForEventKind } from "../domain.js";
+import { defaultLaneForEventKind } from "../monitoring/utils.js";
 import { getCanonicalLane } from "./classifier.helpers.js";
 
 /**
