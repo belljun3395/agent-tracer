@@ -80,10 +80,11 @@ export async function refreshRealtimeMonitorData(input: {
     refreshBookmarksOnly: () => Promise<void>;
 }): Promise<void> {
     if (!input.message) {
-        await Promise.all([
-            input.refreshOverview(),
-            ...(input.selectedTaskId ? [input.refreshTaskDetail(input.selectedTaskId)] : [])
-        ]);
+        const tasks: Promise<void>[] = [input.refreshOverview()];
+        if (input.selectedTaskId) {
+            tasks.push(input.refreshTaskDetail(input.selectedTaskId));
+        }
+        await Promise.all(tasks);
         return;
     }
     switch (input.message.type) {
@@ -96,14 +97,14 @@ export async function refreshRealtimeMonitorData(input: {
                 await input.refreshTaskDetail(input.selectedTaskId);
             }
             return;
-        case "event.logged":
-            await Promise.all([
-                input.refreshOverview(),
-                ...(shouldRefreshSelectedTaskDetail(input.message, input.selectedTaskId) && input.selectedTaskId
-                    ? [input.refreshTaskDetail(input.selectedTaskId)]
-                    : [])
-            ]);
+        case "event.logged": {
+            const tasks: Promise<void>[] = [input.refreshOverview()];
+            if (shouldRefreshSelectedTaskDetail(input.message, input.selectedTaskId) && input.selectedTaskId) {
+                tasks.push(input.refreshTaskDetail(input.selectedTaskId));
+            }
+            await Promise.all(tasks);
             return;
+        }
         case "task.deleted":
         case "tasks.purged":
             await input.refreshOverview();
@@ -113,13 +114,13 @@ export async function refreshRealtimeMonitorData(input: {
         case "task.completed":
         case "task.updated":
         case "session.started":
-        case "session.ended":
-            await Promise.all([
-                input.refreshOverview(),
-                ...(shouldRefreshSelectedTaskDetail(input.message, input.selectedTaskId) && input.selectedTaskId
-                    ? [input.refreshTaskDetail(input.selectedTaskId)]
-                    : [])
-            ]);
+        case "session.ended": {
+            const tasks: Promise<void>[] = [input.refreshOverview()];
+            if (shouldRefreshSelectedTaskDetail(input.message, input.selectedTaskId) && input.selectedTaskId) {
+                tasks.push(input.refreshTaskDetail(input.selectedTaskId));
+            }
+            await Promise.all(tasks);
             return;
+        }
     }
 }

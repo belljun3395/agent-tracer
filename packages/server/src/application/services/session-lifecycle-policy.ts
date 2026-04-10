@@ -17,10 +17,8 @@ export function shouldAutoCompletePrimary(opts: {
         return false;
     if (opts.runningSessionCount !== 0)
         return false;
-    if (opts.completionReason === "assistant_turn_complete" && opts.hasRunningBackgroundDescendants) {
-        return false;
-    }
-    return true;
+    return !(opts.completionReason === "assistant_turn_complete" && opts.hasRunningBackgroundDescendants);
+
 }
 export function shouldMovePrimaryToWaiting(opts: {
     taskKind: string;

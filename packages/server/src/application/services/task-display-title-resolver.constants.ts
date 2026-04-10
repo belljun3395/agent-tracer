@@ -12,9 +12,3 @@ export function isAgentSessionBoilerplatePrefix(value: string): boolean {
     return /^(claude code|claude|agent|ai cli) session started\b/.test(value)
         || /^(claude code|claude|agent|ai cli) - /.test(value);
 }
-export function normalizeTaskTitleToken(title: string): string {
-    return title
-        .trim()
-        .toLowerCase()
-        .replace(/\s+/g, " ");
-}

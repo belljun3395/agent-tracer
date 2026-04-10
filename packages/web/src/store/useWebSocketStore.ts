@@ -17,6 +17,3 @@ export const _wsStore = create<WebSocketStoreSlice>((set) => ({
         return { wsState: { isConnected } };
     })
 }));
-export function useWebSocketStore(): WebSocketStoreSlice {
-    return _wsStore();
-}

@@ -69,22 +69,6 @@ export interface CompactInsight {
     readonly latestBody?: string | undefined;
     readonly tagFacets: readonly string[];
 }
-export interface RuleCoverageStat {
-    readonly ruleId: string;
-    readonly title: string;
-    readonly configured: boolean;
-    readonly lane?: TimelineLane | undefined;
-    readonly tags: readonly string[];
-    readonly matchCount: number;
-    readonly ruleEventCount: number;
-    readonly checkCount: number;
-    readonly violationCount: number;
-    readonly passCount: number;
-    readonly warningCount: number;
-    readonly blockedCount: number;
-    readonly approvalRequestCount: number;
-    readonly lastSeenAt?: string | undefined;
-}
 export interface RuleDecisionStat {
     readonly id: string;
     readonly ruleId: string;
@@ -554,73 +538,6 @@ export function buildInspectorEventTitle(event: TimelineEvent | null | undefined
     }
     const fallback = firstMeaningfulInspectorLine(event.title, event.body, extractMetadataString(event.metadata, "description"), extractMetadataString(event.metadata, "command"), extractMetadataString(event.metadata, "result"), extractMetadataString(event.metadata, "action"), extractMetadataString(event.metadata, "ruleId")) ?? normalizeInspectorDisplayTitle(event.title);
     return fallback ? truncateInspectorTitle(fallback, limit) : null;
-}
-export function buildRuleCoverage(timeline: readonly TimelineEvent[]): readonly RuleCoverageStat[] {
-    const configuredRules = new Map<string, {
-        ruleId: string;
-        title: string;
-        configured: boolean;
-        lane: TimelineLane | undefined;
-        tags: string[];
-        matchCount: number;
-        ruleEventCount: number;
-        checkCount: number;
-        violationCount: number;
-        passCount: number;
-        warningCount: number;
-        blockedCount: number;
-        approvalRequestCount: number;
-        lastSeenAt: string | undefined;
-    }>();
-    for (const event of timeline) {
-        const metadataRuleId = extractMetadataString(event.metadata, "ruleId");
-        if (!metadataRuleId)
-            continue;
-        const existing = configuredRules.get(metadataRuleId);
-        const next = existing ?? {
-            ruleId: metadataRuleId,
-            title: metadataRuleId,
-            configured: false,
-            lane: undefined,
-            tags: [] as string[],
-            matchCount: 0,
-            ruleEventCount: 0,
-            checkCount: 0,
-            violationCount: 0,
-            passCount: 0,
-            warningCount: 0,
-            blockedCount: 0,
-            approvalRequestCount: 0,
-            lastSeenAt: undefined as string | undefined
-        };
-        const ruleStatus = extractMetadataString(event.metadata, "ruleStatus");
-        const ruleOutcome = extractMetadataString(event.metadata, "ruleOutcome");
-        const rulePolicy = extractMetadataString(event.metadata, "rulePolicy");
-        configuredRules.set(metadataRuleId, {
-            ...next,
-            ruleEventCount: next.ruleEventCount + 1,
-            checkCount: next.checkCount + (ruleStatus === "check" ? 1 : 0),
-            violationCount: next.violationCount + (ruleStatus === "violation" ? 1 : 0),
-            passCount: next.passCount + ((ruleStatus === "pass" || ruleStatus === "fix-applied") ? 1 : 0),
-            warningCount: next.warningCount + (ruleOutcome === "warned" || rulePolicy === "warn" ? 1 : 0),
-            blockedCount: next.blockedCount + (ruleOutcome === "blocked" || rulePolicy === "block" ? 1 : 0),
-            approvalRequestCount: next.approvalRequestCount + (ruleOutcome === "approval_requested" || rulePolicy === "approval_required" ? 1 : 0),
-            lastSeenAt: next.lastSeenAt ? latestTimestamp(next.lastSeenAt, event.createdAt) : event.createdAt
-        });
-    }
-    return [...configuredRules.values()].sort((left, right) => {
-        if (right.violationCount !== left.violationCount) {
-            return right.violationCount - left.violationCount;
-        }
-        if (right.ruleEventCount !== left.ruleEventCount) {
-            return right.ruleEventCount - left.ruleEventCount;
-        }
-        if ((right.lastSeenAt ?? "") !== (left.lastSeenAt ?? "")) {
-            return Date.parse(right.lastSeenAt ?? "1970-01-01T00:00:00.000Z")
-                - Date.parse(left.lastSeenAt ?? "1970-01-01T00:00:00.000Z");
-        }
-        return left.title.localeCompare(right.title);
-    });
 }
 export function collectRecentRuleDecisions(timeline: readonly TimelineEvent[], limit = 8): readonly RuleDecisionStat[] {
     return timeline
@@ -1239,7 +1156,6 @@ export function buildTodoGroups(timeline: readonly TimelineEvent[]): readonly To
         };
     });
 }
-export type MentionType = "file" | "directory";
 export interface FileMentionVerification {
     readonly mentionType: "file";
     readonly path: string;

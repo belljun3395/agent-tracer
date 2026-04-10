@@ -1,6 +1,6 @@
 import { BookmarkId, buildOpenInferenceTaskExport, normalizeWorkspacePath, type EventId, type MonitoringEventKind, type MonitoringTask, type ReusableTaskSnapshot, type RuntimeSessionId, type RuntimeSource, type SessionId, type TaskId, type TimelineEvent, } from "@monitor/core";
 import type { MonitorPorts, BookmarkRecord, SearchResults, } from "./ports";
-import type { TaskActionInput, TaskAgentActivityInput, TaskBookmarkDeleteInput, TaskBookmarkInput, TaskCompletionInput, TaskContextSavedInput, TaskErrorInput, TaskExploreInput, TaskAsyncLifecycleInput, TaskPlanInput, TaskLinkInput, TaskQuestionInput, TaskPatchInput, TaskRenameInput, TaskRuleInput, TaskSessionEndInput, TaskStartInput, TaskTerminalCommandInput, TaskThoughtInput, TaskTodoInput, TaskToolUsedInput, TaskUserMessageInput, TaskVerifyInput, RuntimeSessionEnsureInput, RuntimeSessionEnsureResult, RuntimeSessionEndInput, TaskSearchInput, TaskAssistantResponseInput, EventPatchInput, } from "./types.js";
+import type { TaskActionInput, TaskAgentActivityInput, TaskBookmarkDeleteInput, TaskBookmarkInput, TaskCompletionInput, TaskContextSavedInput, TaskErrorInput, TaskExploreInput, TaskAsyncLifecycleInput, TaskPlanInput, TaskLinkInput, TaskQuestionInput, TaskPatchInput, TaskRuleInput, TaskSessionEndInput, TaskStartInput, TaskTerminalCommandInput, TaskThoughtInput, TaskTodoInput, TaskToolUsedInput, TaskUserMessageInput, TaskVerifyInput, RuntimeSessionEnsureInput, RuntimeSessionEnsureResult, RuntimeSessionEndInput, TaskSearchInput, TaskAssistantResponseInput, EventPatchInput, } from "./types.js";
 import { analyzeObservabilityOverview, analyzeTaskObservability, type ObservabilityOverviewResponse, type TaskObservabilityResponse, } from "./observability.js";
 import { TaskLifecycleService } from "./services/task-lifecycle-service.js";
 import { EventLoggingService } from "./services/event-logging-service.js";
@@ -271,9 +271,6 @@ export class MonitorService {
             ...(input.taskId ? { taskId: input.taskId } : {}),
             ...(input.limit ? { limit: input.limit } : {}),
         });
-    }
-    async renameTask(input: TaskRenameInput): Promise<MonitoringTask | null> {
-        return this.taskLifecycle.renameTask(input);
     }
     async updateTask(input: TaskPatchInput): Promise<MonitoringTask | null> {
         return this.taskLifecycle.updateTask(input);

@@ -7,7 +7,7 @@ import { ingestEventsBatchSchema } from "../schemas.ingest.js"
 export class IngestController {
     private readonly ingestionService: EventIngestionService
 
-    constructor(private readonly service: MonitorServiceProvider) {
+    constructor(service: MonitorServiceProvider) {
         this.ingestionService = new EventIngestionService(service)
     }
 
