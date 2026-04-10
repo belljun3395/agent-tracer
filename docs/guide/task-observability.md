@@ -1,6 +1,6 @@
 # Agent Thought-Flow Observability
 
-이 문서는 현재 브랜치에서 추가된 task observability read model과 UI를 설명한다.
+This document describes the task observability read model and UI added in the current branch.
 
 ## UI Surface
 
@@ -10,23 +10,23 @@
   - `Stale Running`
   - `Avg Duration`
 - Runtime source chips
-  - 런타임별 task 수와 trace-linked task 비율
-- Inspector `Flow` 탭
-  - phase breakdown
-  - total / active duration
-  - sessions 요약
-  - work items / goals / plans / handoffs
-  - top files / top tags
-- Inspector `Health` 탭
-  - trace links / trace link coverage
-  - action-registry gap count
-  - raw prompt / follow-up / question / todo / thought / tool / verification / coordination / background counts
+  - Task count per runtime and trace-linked task ratio
+- Inspector `Flow` tab
+  - Phase breakdown
+  - Total / active duration
+  - Sessions summary
+  - Work items / goals / plans / handoffs
+  - Top files / top tags
+- Inspector `Health` tab
+  - Trace links / trace link coverage
+  - Action-registry gap count
+  - Raw prompt / follow-up / question / todo / thought / tool / verification / coordination / background counts
 
 ## HTTP API
 
 ### `GET /api/tasks/:taskId/observability`
 
-응답:
+Response:
 
 ```json
 {
@@ -81,7 +81,7 @@
 
 ### `GET /api/observability/overview`
 
-응답:
+Response:
 
 ```json
 {
@@ -113,28 +113,28 @@
 
 ### `GET /api/overview`
 
-기존 overview 응답에도 `observability` 스냅샷이 포함된다. 웹 top bar는 이 payload를 사용한다.
+The existing overview response also includes an `observability` snapshot. The web top bar uses this payload.
 
 ## Metric Semantics
 
 - `traceLinkCount`
-  - `parentEventId`, `relatedEventIds`, `sourceEventId` 로 복원된 explicit trace edge 수
-  - `filePaths`로부터 생성된 derived `file.changed` 이벤트의 `sourceEventId`도 여기에 포함된다.
+  - Count of explicit trace edges recovered from `parentEventId`, `relatedEventIds`, `sourceEventId`
+  - Also includes derived `file.changed` events' `sourceEventId` generated from `filePaths`.
 - `traceLinkedEventCount`
-  - link-eligible 이벤트 중 실제 explicit trace link에 연결된 이벤트 수
+  - Count of link-eligible events that are actually connected to explicit trace links
 - `traceLinkEligibleEventCount`
-  - coverage 분모. 현재는 `plan.logged`, `action.logged`, `verification.logged`, `rule.logged`, `agent.activity.logged`, `file.changed` 만 포함한다.
+  - Coverage denominator. Currently includes only `plan.logged`, `action.logged`, `verification.logged`, `rule.logged`, `agent.activity.logged`, `file.changed`.
 - `traceLinkCoverageRate`
-  - 전체 이벤트 대비 비율이 아니라, link-eligible 이벤트 중 실제 explicit trace link에 연결된 이벤트 비율
+  - Not a ratio versus all events, but the ratio of link-eligible events actually connected to explicit trace links
 - `actionRegistryGapCount`
-  - `plan.logged`, foreground `action.logged`, `verification.logged`, `rule.logged` 중 `action-registry` match가 없는 이벤트 수
-  - WebSearch, MCP call, delegation 같은 coordination 이벤트나 background async lifecycle 이벤트는 여기에 포함하지 않는다.
+  - Count of events in `plan.logged`, foreground `action.logged`, `verification.logged`, `rule.logged` without an `action-registry` match
+  - Coordination events like WebSearch, MCP call, delegation, or background async lifecycle events are not included here.
 - `actionRegistryEligibleEventCount`
-  - `actionRegistryGapCount`의 분모. 현재는 gap 대상이 되는 action-like 이벤트 수만 센다.
+  - Denominator for `actionRegistryGapCount`. Currently counts only action-like events that are gap targets.
 
 ## Phase Mapping
 
-phase breakdown은 별도 stopwatch가 아니라 timeline event와 session window를 기반으로 추정한다.
+Phase breakdown is estimated based on timeline events and session windows, not a separate stopwatch.
 
 - `planning`
   - `plan.logged`, `context.saved`, `thought.logged`, `question.logged` concluded, `todo.logged`, `task.start`
@@ -144,38 +144,38 @@ phase breakdown은 별도 stopwatch가 아니라 timeline event와 session windo
   - `action.logged`, `tool.used`, `terminal.command` on implementation lane
 - `verification`
   - `verification.logged`, `rule.logged`, `task.complete`, `task.error`
-  - verification 관련 이벤트 종류를 별도 phase로 읽지만, 현재 core lane 집합에는 전용 `rules` lane이 없다
+  - Verification-related event types are read as a separate phase, but currently the core lane set has no dedicated `rules` lane
 - `coordination`
   - `agent.activity.logged`, background lane activity
 
-idle gap과 세션 사이 공백은 public phase breakdown에 직접 노출하지 않고,
-`activeDurationMs` 계산에서 제외되는 비활성 시간으로만 사용한다.
+Idle gaps and gaps between sessions are not directly exposed in the public phase breakdown,
+but are used only as inactive time excluded from `activeDurationMs` calculations.
 
 ## What This Is For
 
-- 사용자가 task 하나를 열었을 때 “어디에 시간을 썼는지”를 빠르게 파악
-- 유지보수자가 runtime별 prompt capture / trace-linked task 비율 / stale running task를 확인
-- raw `/metrics`가 아니라 UI에 바로 맞는 JSON read model 제공
+- Quickly understand “where time was spent” when a user opens a single task
+- Maintainers can check per-runtime prompt capture / trace-linked task ratio / stale running tasks
+- Provides a JSON read model tailored directly to the UI, not just raw `/metrics`
 
 ## UI Helper Functions
 
-`packages/web/src/lib/observability.ts`에 UI 전용 포매팅 유틸이 있다.
-이 함수들은 서버 응답의 숫자를 카드·표시용 문자열로 변환한다.
+UI-only formatting utilities are in `packages/web/src/lib/observability.ts`.
+These functions convert numbers from server responses to card and display strings.
 
-| 함수 | 입력 | 출력 예시 | 설명 |
-|------|------|-----------|------|
-| `formatDuration(ms)` | `number` (밀리초) | `"42ms"`, `"1.5s"`, `"1m 1s"`, `"2h 3m"` | ms → 사람이 읽기 쉬운 기간 |
-| `formatRate(rate)` | `number` (0~1 또는 0~100) | `"87.5%"`, `"87%"` | 소수 또는 백분율 → `%` 문자열 |
-| `formatCount(value)` | `number` | `"1,200"`, `"0"` | 정수 → 로케일 천 단위 구분 문자열 |
+| Function | Input | Example Output | Description |
+|----------|-------|-----------------|-------------|
+| `formatDuration(ms)` | `number` (milliseconds) | `"42ms"`, `"1.5s"`, `"1m 1s"`, `"2h 3m"` | ms → human-readable duration |
+| `formatRate(rate)` | `number` (0~1 or 0~100) | `"87.5%"`, `"87%"` | Decimal or percentage → `%` string |
+| `formatCount(value)` | `number` | `"1,200"`, `"0"` | Integer → locale-aware thousand-separator string |
 | `formatPhaseLabel(phase)` | `string` (snake/kebab-case) | `"Follow Up"`, `"Planning"` | snake/kebab-case → Title Case |
 
-> `formatRate`는 `rate <= 1`이면 `× 100`해서 퍼센트로 표시한다.
-> 비유한 값 (`Infinity`, `NaN`)은 모두 기본값(`"0ms"`, `"0%"`, `"0"`)으로 처리한다.
+> `formatRate` multiplies by `× 100` when `rate <= 1` to display as percentage.
+> Exceptional values (`Infinity`, `NaN`) are all handled with defaults (`"0ms"`, `"0%"`, `"0"`).
 
 ## Current Limits
 
-- duration은 runtime 내부 stopwatch가 아니라 event timing 기반 추정치다.
-- raw prompt capture는 해당 runtime adapter가 실제 prompt를 보내는 경우에만 정확하다.
-- trace link coverage는 explicit relation metadata가 들어온 이벤트 집합에만 의미가 있다.
-- action-registry gap count는 전체 trace 품질 점수가 아니라 action-name 분류 누락 탐지용 진단치다.
-- idle/wait gap은 내부 active duration 계산에만 쓰고, 현재 UI/API의 phase 목록에는 노출하지 않는다.
+- Duration is an estimate based on event timing, not a runtime internal stopwatch.
+- Raw prompt capture is only accurate when the runtime adapter actually sends the prompt.
+- Trace link coverage is meaningful only for event sets with explicit relation metadata.
+- Action-registry gap count is a diagnostic tool for detecting missing action-name classifications, not an overall trace quality score.
+- Idle/wait gaps are used only in internal active duration calculations and are not currently exposed in the UI/API phase list.

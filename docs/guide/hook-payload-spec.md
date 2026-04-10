@@ -1,12 +1,12 @@
 # Claude Code Hook Payload Spec
 
-공식 문서: https://code.claude.com/docs/en/hooks
+Official documentation: https://code.claude.com/docs/en/hooks
 
-이 문서는 Agent Tracer가 현재 사용하는 Claude hook subset을 중심으로
-stdin payload를 정리한다.
-`[실측]` 표기는 공식 스펙과 실제 동작이 다른 부분을 나타낸다.
+This document organizes stdin payloads focusing on the Claude hook subset currently
+used by Agent Tracer.
+The `[Observed]` notation indicates parts where official spec and actual behavior differ.
 
-현재 공식 문서에 있지만 이 페이지에서 상세 payload를 다루지 않는 이벤트:
+Events currently in official docs but not covered in detail on this page:
 `InstructionsLoaded`, `PermissionRequest`, `Notification`, `TaskCreated`,
 `TaskCompleted`, `StopFailure`, `ConfigChange`, `CwdChanged`, `FileChanged`,
 `WorktreeCreate`, `WorktreeRemove`, `Elicitation`, `ElicitationResult`,
@@ -14,82 +14,82 @@ stdin payload를 정리한다.
 
 ---
 
-## 공통 필드 (Common Fields)
+## Common Fields
 
-공식 스펙상 모든 hook event에 포함되는 필드:
+Fields included in all hook events per official spec:
 
-| 필드 | 타입 | 설명 |
-|------|------|------|
-| `session_id` | string | 현재 Claude Code 세션 ID |
-| `transcript_path` | string | 대화 트랜스크립트 JSONL 파일 경로 |
-| `cwd` | string | 현재 작업 디렉토리 |
-| `hook_event_name` | string | 이벤트 이름 |
+| Field | Type | Description |
+|-------|------|-------------|
+| `session_id` | string | Current Claude Code session ID |
+| `transcript_path` | string | Path to conversation transcript JSONL file |
+| `cwd` | string | Current working directory |
+| `hook_event_name` | string | Event name |
 | `permission_mode` | string | `"default"` \| `"plan"` \| `"acceptEdits"` \| `"dontAsk"` \| `"bypassPermissions"` |
-| `agent_id` | string? | subagent 내부에서만 포함 |
-| `agent_type` | string? | `--agent` 플래그 또는 subagent 사용 시 포함 |
+| `agent_id` | string? | Included only inside subagent |
+| `agent_type` | string? | Included when `--agent` flag or subagent is used |
 
-> **[실측] `transcript_path`와 `permission_mode`는 실제로 일부 이벤트에서 누락됨.**
-> 누락 이벤트: `SessionStart`, `SessionEnd`, `SubagentStart`, `PreCompact`, `PostCompact`
-> hook 코드에서 이 필드에 의존하면 안 됨.
+> **[Observed]** `transcript_path` and `permission_mode` are actually missing in some events.
+> Missing events: `SessionStart`, `SessionEnd`, `SubagentStart`, `PreCompact`, `PostCompact`
+> Hook code should not depend on these fields.
 
 ---
 
-## 이벤트별 Payload
+## Per-Event Payloads
 
 ### SessionStart
 
-트리거: Claude Code 시작, 재개, `/clear`, `/compact` 직후
+Trigger: After Claude Code startup, resume, `/clear`, `/compact`
 
-| 필드 | 타입 | 값 |
-|------|------|----|
+| Field | Type | Value |
+|-------|------|-------|
 | `hook_event_name` | string | `"SessionStart"` |
 | `source` | string | `"startup"` \| `"resume"` \| `"clear"` \| `"compact"` |
-| `model` | string | 사용 중인 모델 ID (**[실측] 스펙 미문서 필드**) |
+| `model` | string | Model ID in use (**[Observed]** undocumented in spec) |
 
-> **[실측]** `transcript_path`, `permission_mode` 없음.
-> **[실측]** `model` 필드 실제 존재 (`"claude-sonnet-4-6"` 등).
+> **[Observed]** No `transcript_path`, `permission_mode`.
+> **[Observed]** `model` field actually exists (e.g., `"claude-sonnet-4-6"`).
 
 ---
 
 ### SessionEnd
 
-트리거: 세션 종료
+Trigger: On session closure
 
-| 필드 | 타입 | 값 |
-|------|------|----|
+| Field | Type | Value |
+|-------|------|-------|
 | `hook_event_name` | string | `"SessionEnd"` |
 | `reason` | string | `"clear"` \| `"resume"` \| `"logout"` \| `"prompt_input_exit"` \| `"bypass_permissions_disabled"` \| `"other"` |
 
-> **[실측]** `transcript_path`, `permission_mode` 없음.
+> **[Observed]** No `transcript_path`, `permission_mode`.
 
 ---
 
 ### UserPromptSubmit
 
-트리거: 사용자 메시지 제출 시
+Trigger: When user message is submitted
 
-| 필드 | 타입 | 값 |
-|------|------|----|
+| Field | Type | Value |
+|-------|------|-------|
 | `hook_event_name` | string | `"UserPromptSubmit"` |
-| `prompt` | string | 사용자 입력 전문 |
+| `prompt` | string | Full user input text |
 
 ---
 
 ### PreToolUse
 
-트리거: 도구 실행 직전
+Trigger: Just before tool execution
 
-| 필드 | 타입 | 값 |
-|------|------|----|
+| Field | Type | Value |
+|-------|------|-------|
 | `hook_event_name` | string | `"PreToolUse"` |
-| `tool_name` | string | 도구 이름 (`Bash`, `Edit`, `Write`, `Read`, `Glob`, `Grep`, `Agent`, `Skill`, `mcp__*` 등) |
-| `tool_input` | object | 도구별 입력 (아래 참조) |
-| `tool_use_id` | string | 도구 호출 고유 ID |
+| `tool_name` | string | Tool name (`Bash`, `Edit`, `Write`, `Read`, `Glob`, `Grep`, `Agent`, `Skill`, `mcp__*`, etc.) |
+| `tool_input` | object | Per-tool input (see below) |
+| `tool_use_id` | string | Unique tool call ID |
 
-> **[실측]** subagent 내부 도구 호출 시 `agent_id`, `agent_type` 추가 포함됨.
-> 이를 통해 어느 subagent가 호출했는지 식별 가능.
+> **[Observed]** When tool is called inside subagent, `agent_id` and `agent_type` are additionally included.
+> This allows identifying which subagent made the call.
 
-**tool_input 구조 (도구별):**
+**tool_input structure (per tool):**
 
 ```
 Bash:        { command, description?, timeout?, run_in_background? }
@@ -102,186 +102,186 @@ WebSearch:   { query }
 WebFetch:    { url, prompt? }
 Agent:       { description?, prompt, subagent_type?, model?, run_in_background? }
 Skill:       { skill, args? }
-mcp__*:      MCP 서버/툴별 상이
+mcp__*:      Varies by MCP server/tool
 ```
 
-> 위 구조는 Agent Tracer가 현재 주로 쓰는 필드를 요약한 것이다.
-> exhaustive schema는 공식 hooks reference를 우선 본다.
+> The structure above summarizes fields currently used by Agent Tracer.
+> For exhaustive schema, consult the official hooks reference first.
 
-## Agent Tracer 커스텀 메타데이터
+## Agent Tracer Custom Metadata
 
 ### Semantic Metadata Contract
 
-hook layer가 모든 탐색/파일/실행 도구에 추가하는 명시적 메타데이터:
+Explicit metadata added by the hook layer to all exploration/file/execution tools:
 
 ```typescript
-// packages/core/src/event-semantic.ts에서 정의
+// Defined in packages/core/src/event-semantic.ts
 interface EventSemanticMetadata {
   readonly subtypeKey: EventSubtypeKey;  // "read_file", "run_test", "mcp_call", ...
-  readonly subtypeLabel?: string;        // UI 친화적 레이블
+  readonly subtypeLabel?: string;        // UI-friendly label
   readonly subtypeGroup: EventSubtypeGroup;  // "files", "execution", "coordination", ...
   readonly toolFamily: EventToolFamily;  // "explore", "file", "terminal", "coordination"
   readonly operation: string;            // "search", "modify", "execute", "delegate"
   readonly entityType?: string;          // "file", "directory", "command", ...
-  readonly entityName?: string;          // 구체적 파일명, 커맨드명 등
-  readonly sourceTool?: string;          // 원본 도구명
+  readonly entityName?: string;          // Specific filename, command name, etc.
+  readonly sourceTool?: string;          // Original tool name
   readonly importance?: string;          // "critical", "normal", "minor"
 }
 ```
 
-이 계약은 `.claude/plugin/hooks/classification/` 에서 도구별로 구현되고,
-`packages/web/src/lib/eventSubtype.ts`에서 UI 렌더링에 사용된다.
+This contract is implemented per-tool in `.claude/plugin/hooks/classification/` and
+used for UI rendering in `packages/web/src/lib/eventSubtype.ts`.
 
-### 도구별 추가 메타데이터
+### Per-Tool Additional Metadata
 
-`explore.ts`와 `tool_used.ts`는 도구별 추가 정보를 `metadata` 필드에 삽입한다:
+`explore.ts` and `tool_used.ts` inject per-tool additional information into the `metadata` field:
 
-| 도구 | 추가 메타데이터 | 설명 |
-|------|-----------------|------|
-| `WebSearch` | `metadata.webUrls: string[]` | 검색 쿼리를 최대 300자까지 저장. 대시보드 Exploration 탭 Web Lookups 섹션에서 표시됨 |
-| `WebFetch` | `metadata.webUrls: string[]` | 페치한 URL을 최대 300자까지 저장 |
-| 전체 explore 도구 | `metadata.toolInput` | `tool_input` 원본을 JSON 문자열로 저장 (디버깅용) |
-| `mcp__*` | 도구별 사용자정의 필드 | MCP 도구별 고유 메타데이터 |
+| Tool | Additional Metadata | Description |
+|------|--------------------| ------------|
+| `WebSearch` | `metadata.webUrls: string[]` | Search query stored up to 300 chars. Displayed in Dashboard Exploration tab Web Lookups section |
+| `WebFetch` | `metadata.webUrls: string[]` | Fetched URL stored up to 300 chars |
+| All explore tools | `metadata.toolInput` | Original `tool_input` stored as JSON string (for debugging) |
+| `mcp__*` | Per-tool custom fields | Unique metadata per MCP tool |
 
-이 필드들은 Claude Code hook payload 공식 스펙에 없는 **Agent Tracer 자체 확장**이다.
+These fields are **Agent Tracer's own extensions** not present in the official Claude Code hook payload spec.
 
 ---
 
 ### PostToolUse
 
-트리거: 도구 실행 성공 후
+Trigger: After successful tool execution
 
-| 필드 | 타입 | 값 |
-|------|------|----|
+| Field | Type | Value |
+|-------|------|-------|
 | `hook_event_name` | string | `"PostToolUse"` |
-| `tool_name` | string | 도구 이름 |
-| `tool_input` | object | PreToolUse와 동일 |
-| `tool_response` | object | 도구 실행 결과 (도구별 상이, 용량 클 수 있음) |
-| `tool_use_id` | string | 도구 호출 고유 ID |
+| `tool_name` | string | Tool name |
+| `tool_input` | object | Same as PreToolUse |
+| `tool_response` | object | Tool execution result (varies per tool, can be large) |
+| `tool_use_id` | string | Unique tool call ID |
 
-> **[실측]** `tool_response`는 Read/Edit 등에서 파일 전체 내용을 포함해 매우 클 수 있음.
-> 로그 기록 시 제거 또는 truncate 권장.
+> **[Observed]** `tool_response` can be very large, including full file contents in Read/Edit, etc.
+> Recommended to remove or truncate when logging.
 
 ---
 
 ### PostToolUseFailure
 
-트리거: 도구 실행 실패 후
+Trigger: After tool execution failure
 
-| 필드 | 타입 | 값 |
-|------|------|----|
+| Field | Type | Value |
+|-------|------|-------|
 | `hook_event_name` | string | `"PostToolUseFailure"` |
-| `tool_name` | string | 도구 이름 |
-| `tool_input` | object | PreToolUse와 동일 |
-| `tool_use_id` | string | 도구 호출 고유 ID |
-| `error` | string | 에러 메시지 |
-| `is_interrupt` | boolean? | 사용자 중단 여부 |
+| `tool_name` | string | Tool name |
+| `tool_input` | object | Same as PreToolUse |
+| `tool_use_id` | string | Unique tool call ID |
+| `error` | string | Error message |
+| `is_interrupt` | boolean? | Whether interrupted by user |
 
 ---
 
 ### SubagentStart
 
-트리거: subagent 시작 시
+Trigger: When subagent starts
 
-| 필드 | 타입 | 값 |
-|------|------|----|
+| Field | Type | Value |
+|-------|------|-------|
 | `hook_event_name` | string | `"SubagentStart"` |
-| `agent_id` | string | subagent 고유 ID |
-| `agent_type` | string | subagent 타입 이름 (e.g. `"general-purpose"`) |
+| `agent_id` | string | Unique subagent ID |
+| `agent_type` | string | Subagent type name (e.g., `"general-purpose"`) |
 
-> **[실측]** `transcript_path`, `permission_mode` 없음.
+> **[Observed]** No `transcript_path`, `permission_mode`.
 
 ---
 
 ### SubagentStop
 
-트리거: subagent 종료 시
-**발동 순서: `SubagentStop` → `PostToolUse(Agent)`**
+Trigger: When subagent stops
+**Fire order: `SubagentStop` → `PostToolUse(Agent)`**
 
-| 필드 | 타입 | 값 |
-|------|------|----|
+| Field | Type | Value |
+|-------|------|-------|
 | `hook_event_name` | string | `"SubagentStop"` |
-| `agent_id` | string | subagent 고유 ID |
-| `agent_type` | string | subagent 타입 이름 |
-| `stop_hook_active` | boolean | stop hook 활성 여부 |
-| `agent_transcript_path` | string | subagent 트랜스크립트 경로 |
-| `last_assistant_message` | string | subagent 마지막 응답 전문 |
+| `agent_id` | string | Unique subagent ID |
+| `agent_type` | string | Subagent type name |
+| `stop_hook_active` | boolean | Whether stop hook is active |
+| `agent_transcript_path` | string | Subagent transcript path |
+| `last_assistant_message` | string | Full last response from subagent |
 
-> **[실측]** `/compact` 수행 시 내부적으로 compact 전용 subagent가 실행됨.
-> 이 경우 `agent_type`이 **빈 문자열 `""`** 로 옴 (일반 subagent는 타입명 있음).
-> 현재 코드에서 `|| "unknown"` 처리 중이나, `""` 그대로 보존해야 compact 에이전트 식별 가능.
+> **[Observed]** When `/compact` is performed, a compact-specific subagent runs internally.
+> In this case, `agent_type` comes as **empty string `""`** (regular subagents have a type name).
+> Current code treats this with `|| "unknown"`, but preserving `""` as-is is needed to identify compact agents.
 
 ---
 
 ### PreCompact
 
-트리거: context 압축 직전 (`/compact` 또는 자동)
+Trigger: Just before context compression (`/compact` or automatic)
 
-| 필드 | 타입 | 값 |
-|------|------|----|
+| Field | Type | Value |
+|-------|------|-------|
 | `hook_event_name` | string | `"PreCompact"` |
 | `trigger` | string | `"manual"` \| `"auto"` |
-| `custom_instructions` | string | 사용자 compact 지시사항 (미입력 시 `""`) |
+| `custom_instructions` | string | User compact instructions (empty string `""` if not provided) |
 
-> **[실측]** `transcript_path`, `permission_mode` 없음.
-> **[실측]** `custom_instructions` 미입력 시 `null`이 아닌 빈 문자열 `""`.
+> **[Observed]** No `transcript_path`, `permission_mode`.
+> **[Observed]** `custom_instructions` is empty string `""` if not provided, not `null`.
 
 ---
 
 ### PostCompact
 
-트리거: context 압축 완료 후
+Trigger: After context compression completes
 
-| 필드 | 타입 | 값 |
-|------|------|----|
+| Field | Type | Value |
+|-------|------|-------|
 | `hook_event_name` | string | `"PostCompact"` |
 | `trigger` | string | `"manual"` \| `"auto"` |
-| `compact_summary` | string | 압축 요약 전문 (`<analysis>...</analysis><summary>...</summary>` 형식, 매우 길 수 있음) |
+| `compact_summary` | string | Full compression summary (`<analysis>...</analysis><summary>...</summary>` format, can be very long) |
 
-> **[실측]** `transcript_path`, `permission_mode` 없음.
-> **[실측]** `compact_summary`는 XML 형식의 분석+요약 텍스트이며 수 KB 규모.
+> **[Observed]** No `transcript_path`, `permission_mode`.
+> **[Observed]** `compact_summary` is XML-formatted analysis + summary text, several KB in size.
 
 ---
 
-## 이벤트 발동 순서
+## Event Fire Order
 
 ```
-세션 시작
+Session start
   └─ SessionStart
 
-사용자 입력
+User input
   └─ UserPromptSubmit
 
-도구 실행
+Tool execution
   ├─ PreToolUse
-  ├─ (도구 실행)
+  ├─ (tool execution)
   └─ PostToolUse | PostToolUseFailure
 
-Agent 도구 실행
+Agent tool execution
   ├─ PreToolUse (tool_name: "Agent")
   ├─ SubagentStart
-  ├─ (subagent 내부 도구들: PreToolUse / PostToolUse 반복)
+  ├─ (tools inside subagent: PreToolUse / PostToolUse repeating)
   ├─ SubagentStop
-  └─ PostToolUse (tool_name: "Agent")   ← SubagentStop 이후
+  └─ PostToolUse (tool_name: "Agent")   ← after SubagentStop
 
-/compact 실행
+/compact execution
   ├─ PreCompact
-  ├─ SubagentStart (agent_type: "")     ← compact 전용 내부 에이전트
+  ├─ SubagentStart (agent_type: "")     ← compact-specific internal agent
   ├─ SubagentStop  (agent_type: "")
   └─ PostCompact
 
-세션 종료
+Session end
   └─ SessionEnd
 ```
 
 ---
 
-## 코드 대응 주의사항
+## Code Implementation Notes
 
-| 상황 | 현재 | 권장 |
-|------|------|------|
-| `transcript_path` 사용 | - | 사용하지 말 것, 없을 수 있음 |
-| `agent_type` 기본값 | `\|\| "unknown"` | `\|\| ""` 로 유지해 compact 에이전트 구분 |
-| `custom_instructions` 빈값 | `\|\| ""` (이미 처리) | 현재 코드 그대로 |
-| `compact_summary` 로깅 | - | 길이 제한 필요 (수 KB) |
-| `tool_response` 로깅 | hookLogPayload에서 제거 중 | 유지 |
+| Situation | Current | Recommended |
+|-----------|---------|------------|
+| `transcript_path` usage | - | Do not use, may be missing |
+| `agent_type` default | `\|\| "unknown"` | Preserve as `\|\| ""` to distinguish compact agents |
+| `custom_instructions` empty | `\|\| ""` (already handled) | Keep current code |
+| `compact_summary` logging | - | Length limit required (several KB) |
+| `tool_response` logging | Being removed in hookLogPayload | Preserve |

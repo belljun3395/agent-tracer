@@ -1,22 +1,21 @@
 # Architecture & Package Map
 
-Agent Tracer는 npm workspace 기반 TypeScript 모노레포이며,
-전체 구조는 "공통 계약(core) + 애플리케이션 서버(server) + 에이전트 어댑터(mcp)
-+ 프레젠테이션(web)"로 읽는 것이 가장 쉽다. 전형적인 ports-and-adapters 성향이 있지만,
-실제 운영은 composition root와 shared domain contract가 중심축 역할을 한다.
+Agent Tracer is a TypeScript monorepo based on npm workspaces, and the overall structure is easiest to read as
+"shared contract (core) + application server (server) + agent adapters (mcp) + presentation (web)".
+It has typical ports-and-adapters characteristics, but its actual operation is centered on the composition root and shared domain contract.
 
-## 패키지 맵
+## Package Map
 
-| Package | 역할 | 대표 파일 |
+| Package | Role | Key Files |
 | --- | --- | --- |
-| `@monitor/core` | 도메인 타입, event classifier, runtime capability registry | `src/domain.ts`(barrel), `src/domain/*`, `src/classifier.ts`, `src/runtime-capabilities.ts`(barrel) |
-| `@monitor/server` | NestJS 서버 런타임, application service, SQLite repository, WebSocket broadcaster | `src/index.ts`, `src/bootstrap/create-nestjs-monitor-runtime.ts`, `src/application/monitor-service.ts` |
-| `@monitor/mcp` | 서버 API를 MCP tool 집합으로 노출 | `src/index.ts`, `src/client.ts` |
-| `@monitor/web` | 대시보드 UI, overview/task detail fetch, realtime refresh | `src/App.tsx`, `src/store/useMonitorStore.tsx`, `src/components/Timeline.tsx` |
+| `@monitor/core` | Domain types, event classifier, runtime capability registry | `src/domain.ts` (barrel), `src/domain/*`, `src/classifier.ts`, `src/runtime-capabilities.ts` (barrel) |
+| `@monitor/server` | NestJS server runtime, application service, SQLite repository, WebSocket broadcaster | `src/index.ts`, `src/bootstrap/create-nestjs-monitor-runtime.ts`, `src/application/monitor-service.ts` |
+| `@monitor/mcp` | Expose server API as MCP tool set | `src/index.ts`, `src/client.ts` |
+| `@monitor/web` | Dashboard UI, overview/task detail fetch, realtime refresh | `src/App.tsx`, `src/store/useMonitorStore.tsx`, `src/components/Timeline.tsx` |
 
-## 의존 방향
+## Dependency Direction
 
-코드 의존성은 대체로 아래 방향을 따른다.
+Code dependencies generally follow the direction below:
 
 ```text
 @monitor/core
@@ -28,71 +27,71 @@ Agent Tracer는 npm workspace 기반 TypeScript 모노레포이며,
 @monitor/mcp ----HTTP-------------------> @monitor/server
 ```
 
-중요한 점은 `server`가 `web` 패키지를 import하지 않는다는 것이다.
-두 패키지는 런타임 통신으로만 연결되고, 공통 타입 의미는 `core`가 잡아 준다.
+The important point is that `server` does not import the `web` package.
+The two packages are connected only via runtime communication, and `core` provides the shared type semantics.
 
-## 조합 루트
+## Composition Root
 
-### 서버 런타임 조합
+### Server Runtime Composition
 
-프로세스 기본 진입점은 `packages/server/src/index.ts`이며, 여기서
-`createNestMonitorRuntime()`를 호출해 NestJS 런타임을 띄운다.
+The default process entry point is `packages/server/src/index.ts`, which calls
+`createNestMonitorRuntime()` to launch the NestJS runtime.
 
-`packages/server/src/bootstrap/create-nestjs-monitor-runtime.ts`는
-NestJS `AppModule`, WebSocket upgrade, 초기 snapshot 전송을 묶는 현재 기본 조합 루트다.
+`packages/server/src/bootstrap/create-nestjs-monitor-runtime.ts` is
+the current default composition root that bundles NestJS `AppModule`, WebSocket upgrade, and initial snapshot transmission.
 
-### MCP 진입점
+### MCP Entry Point
 
-`packages/mcp/src/index.ts`는 24개의 monitoring tool을 등록하고,
-각 도구를 monitor server의 HTTP endpoint로 매핑한다.
+`packages/mcp/src/index.ts` registers 24 monitoring tools and
+maps each tool to a monitor server HTTP endpoint.
 
-### 웹 진입점
+### Web Entry Point
 
-`packages/web/src/main.tsx`와 `packages/web/src/App.tsx`가 프레젠테이션 조합 루트다.
-상태 관리는 `useMonitorStore`, 실시간 동기화는 `useWebSocket`과 `lib/realtime.ts`가 맡는다.
+`packages/web/src/main.tsx` and `packages/web/src/App.tsx` are the presentation composition root.
+State management is handled by `useMonitorStore`, and realtime synchronization by `useWebSocket` and `lib/realtime.ts`.
 
-## 패키지 간 책임 분리
+## Responsibility Separation Between Packages
 
-### Core는 의미를 정의한다
+### Core Defines Semantics
 
-새 이벤트 종류, lane semantics, runtime adapter capability처럼 시스템 전체가 공유해야 할 의미는
-먼저 `@monitor/core`에서 확정해야 한다.
+New event types, lane semantics, runtime adapter capabilities—any semantics the entire system must share
+must first be finalized in `@monitor/core`.
 
-### Server는 lifecycle과 persistence를 책임진다
+### Server Owns Lifecycle and Persistence
 
-task/session/event 저장, runtime session binding, evaluation 저장과 검색,
-WebSocket notification은 모두 `@monitor/server`가 책임진다.
+Task/session/event storage, runtime session binding, evaluation storage and search,
+WebSocket notification are all responsibilities of `@monitor/server`.
 
-### MCP는 수동/반자동 에이전트 경로를 연다
+### MCP Opens Manual/Semi-Automated Agent Paths
 
-자동 plugin 이 없는 환경에서는 MCP layer가 사실상 관측 어댑터 역할을 한다.
+In environments without automatic plugins, the MCP layer effectively acts as an observability adapter.
 
-### Web은 read model과 탐색 경험을 책임진다
+### Web Owns Read Model and Exploration Experience
 
-웹은 서버의 canonical state를 소비해 타임라인, 인스펙터, 워크플로우 라이브러리 경험을 만든다.
-도메인 계산 일부는 `lib/insights.ts`, `lib/timeline.ts`에 모여 있다.
+Web consumes the server's canonical state to create timeline, inspector, and workflow library experiences.
+Some domain calculations are concentrated in `lib/insights.ts` and `lib/timeline.ts`.
 
-## 확장 포인트
+## Extension Points
 
-- 새 runtime adapter 추가: `@monitor/core` capability registry, server endpoint 사용 전략, guide 문서까지 같이 갱신
-- 새 monitoring event 추가: core type, server schema/route/service, MCP registration, web rendering 영향 확인
-- 새 read model 추가: server API와 web fetch/store 경로를 함께 설계
+- Adding new runtime adapter: Update `@monitor/core` capability registry, server endpoint strategy, and guide docs together
+- Adding new monitoring event: Verify impact on core type, server schema/route/service, MCP registration, and web rendering
+- Adding new read model: Design server API and web fetch/store paths together
 
-## 현재 구조의 강점과 주의점
+## Strengths and Cautions of Current Structure
 
-강점:
+Strengths:
 
-- 패키지 경계가 파일 구조와 실제 의존 방향에 잘 드러난다.
-- `index.ts` -> `createNestMonitorRuntime.ts` -> controller/module 구조로 현재 실행 경로가 분명하다.
-- `core`가 공통 계약을 묶어 주기 때문에 런타임이 여러 개여도 기본 의미가 흐트러지지 않는다.
+- Package boundaries are well-reflected in file structure and actual dependency directions.
+- Execution path is clear through `index.ts` → `createNestMonitorRuntime.ts` → controller/module structure.
+- `core` bundles shared contract, so multiple runtimes don't disrupt basic semantics.
 
-주의점:
+Cautions:
 
-- 웹이 핵심 타입을 `core`로 다시 수렴했지만, search hit나 read-model 인터페이스는 여전히 웹 전용 shape를 가진다.
-- `MonitorService`, `App.tsx`, `Timeline.tsx`, `insights.ts` 같은 대형 모듈이 책임을 많이 들고 있다.
-- 문서와 코드가 쉽게 어긋나는 영역은 runtime integration과 bootstrap 경로다. 현재 저장소는 Claude plugin 중심 구현이므로, 수동 런타임 설명은 일반 HTTP/MCP contract 수준으로 적는 편이 안전하다.
+- Web has converged key types back to `core`, but search hits and read-model interfaces still have web-only shapes.
+- Large modules like `MonitorService`, `App.tsx`, `Timeline.tsx`, `insights.ts` carry heavy responsibilities.
+- Areas where docs and code easily drift: runtime integration and bootstrap paths. Since this repository is Claude-plugin-focused, it's safer to describe manual runtimes at the level of generic HTTP/MCP contracts.
 
-## 관련 문서
+## Related Documentation
 
 - [Core Domain & Event Model](./core-domain-and-event-model.md)
 - [Monitor Server](./monitor-server.md)

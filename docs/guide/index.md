@@ -6,58 +6,60 @@ the code is organised instead of how to install it, go to the
 
 ## Quick start (Claude Code plugin)
 
-Agent Tracer는 Claude Code **plugin** 방식의 설치를 권장합니다.
-Plugin은 모든 hook 이벤트를 자동 등록하고, monitor 서버로 이벤트를
-전송합니다. 별도 hook 파일 복사나 수동 설정이 필요 없습니다.
+Agent Tracer is distributed as a Claude Code **plugin** (`.claude/plugin/`).
+The plugin automatically registers all hook events and posts them to the
+monitor server. You do not need to copy hook source files or perform manual
+configuration.
 
-### 최소 설치 경로
+### Minimal setup path
 
-1. **[Install and Run](./install-and-run.md)** — 저장소 clone, 의존성
-   설치, monitor 서버 + 대시보드 기동, 설치 확인.
-2. **[Claude Code Setup](./claude-setup.md)** — plugin 로드 +
-   MCP 서버 등록. 이 한 페이지로 Claude Code 연동이 완료됩니다.
+1. **[Install and Run](./install-and-run.md)** — clone the repo, install
+   dependencies, start the monitor server and web dashboard, verify the
+   installation.
+2. **[Claude Code Setup](./claude-setup.md)** — load the plugin and register
+   the MCP server. Claude Code integration is complete after these two steps.
 
-### 외부 프로젝트에 붙이기 (선택)
+### Attach to external projects (optional)
 
-Agent Tracer 저장소 바깥의 프로젝트에서 사용하려면 추가 단계가
-있습니다.
+If you want to use Agent Tracer with a project outside this repository, follow
+an additional step:
 
-3. **[External Project Setup](./external-setup.md)** — `npm run
-   setup:external`로 대상 프로젝트의 `.claude/settings.json`을
-   생성하고, `--plugin-dir` 경로를 확인합니다.
+3. **[External Project Setup](./external-setup.md)** — run
+   `npm run setup:external` to generate `.claude/settings.json` in your target
+   project and confirm the `--plugin-dir` path.
 
-> **참고:** Agent Tracer 저장소 안에서 Claude Code를 실행하는 경우
-> `setup:external`은 필요 없습니다. `claude --plugin-dir .claude/plugin`
-> 으로 바로 시작할 수 있습니다.
+> **Note:** When running Claude Code inside the Agent Tracer repository itself,
+> `setup:external` is not needed. You can start with
+> `claude --plugin-dir .claude/plugin` directly.
 
-### 다른 런타임 (수동 HTTP/MCP)
+### Other runtimes (manual HTTP/MCP)
 
-Claude Code 이외의 런타임은 자동 어댑터가 없습니다.
+Runtimes other than Claude Code do not have automatic adapters. See
 [External Project Setup § 5](./external-setup.md#5-attach-other-runtimes-manual)
-에서 HTTP API를 직접 호출하는 최소 구현 순서를 참고하세요.
+for the minimal implementation order to call the HTTP API directly.
 
 ## Reference
 
-연동이 끝난 뒤 이벤트 표면과 런타임 모델을 더 깊이 살펴보려면
-아래 문서를 참고하세요.
+Once you're set up, these pages describe the event surface and runtime
+model in more detail.
 
-- [Runtime capabilities](./runtime-capabilities.md) — 런타임 어댑터별
-  관찰 가능 범위와 세션 종료 정책
-- [API integration map](./api-integration-map.md) — 모든 HTTP 엔드포인트와
-  hook · 수동 런타임 매핑
+- [Runtime capabilities](./runtime-capabilities.md) — how the capability
+  registry tracks per-runtime differences
+- [API integration map](./api-integration-map.md) — every HTTP endpoint
+  mapped to hooks and manual-runtime use
 - [Runtime API flow & preprocessing](./runtime-api-flow-and-preprocessing.md)
-  — 각 엔드포인트 내부 전처리 규칙
-- [Claude Code hook payload spec](./hook-payload-spec.md) — plugin이
-  소비하는 hook payload의 정확한 JSON 구조
-- [Task observability](./task-observability.md) — 대시보드가 사용하는
-  `Flow` · `Health` read model
-- [Web styling guide](./web-styling.md) — `@monitor/web`의
-  CSS / Tailwind 컨벤션
+  — preprocessing applied inside each endpoint
+- [Claude Code hook payload spec](./hook-payload-spec.md) — exact JSON
+  shape of each hook payload consumed by the plugin
+- [Task observability](./task-observability.md) — `Flow` and `Health`
+  read model used by the dashboard
+- [Web styling guide](./web-styling.md) — CSS / Tailwind conventions
+  used by `@monitor/web`
 
 ## Related
 
-- [Codebase wiki](/wiki/) — 아키텍처, 패키지, 유지보수 노트
+- [Codebase wiki](/wiki/) — architecture, packages, and maintainer notes
 - [Claude Code plugin adapter](/wiki/claude-code-plugin-adapter) —
-  plugin 내부 구조
+  internal view of the plugin you installed
 - [`setup:external` automation script](/wiki/setup-external-automation-script)
-  — setup 스크립트가 실제로 하는 일
+  — what the setup script actually does

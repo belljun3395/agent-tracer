@@ -1,9 +1,9 @@
 # Timeline Canvas
 
-timeline canvas는 Agent Tracer UI의 핵심 시각화다.
-저장된 timeline event를 단순 리스트가 아니라 "lane을 가진 공간적 흐름"으로 보여 준다.
+The timeline canvas is the core visualization of Agent Tracer's UI.
+It displays stored timeline events not as a simple list, but as a "spatial flow with lanes".
 
-## 핵심 파일
+## Core Files
 
 - `packages/web/src/components/Timeline.tsx`
 - `packages/web/src/lib/timeline.ts`
@@ -11,27 +11,27 @@ timeline canvas는 Agent Tracer UI의 핵심 시각화다.
 - `packages/web/src/components/Timeline.css`
 - `packages/web/src/lib/ui/laneTheme.ts`
 
-## 무엇을 하는가
+## What It Does
 
-- base lane별 카드 렌더링
-- subtype 기반 lane row 확장
-- connector와 relation path 계산
-- timestamp ruler와 relative time 표시
-- zoom, filter, auto-follow, drag scroll
-- minimap과 observability badge 표시
-- task title/status 편집 UI 제공
+- Renders cards per base lane
+- Expands lane rows based on subtype
+- Calculates connectors and relation paths
+- Displays timestamp ruler and relative time
+- Supports zoom, filter, auto-follow, drag scroll
+- Displays minimap and observability badge
+- Provides task title/status editing UI
 
-## lane 구조
+## Lane Structure
 
-core에는 8개 canonical lane이 있지만, canvas는 여기에 subtype row 개념을 더 얹는다.
-특히 `exploration`, `implementation`, `coordination`은 `eventSubtype.ts`를 통해
-더 세분화된 row로 확장될 수 있다.
+Core has 8 canonical lanes, but the canvas adds the subtype row concept on top.
+In particular, `exploration`, `implementation`, and `coordination` can be further expanded
+into more granular rows through `eventSubtype.ts`.
 
-즉, 문서상 "8 lanes"와 화면상 "더 많은 줄"은 서로 모순이 아니라 레이어가 다르다.
+In other words, "8 lanes" in documentation and "more rows" on screen are not contradictory but at different layers.
 
-## 레이아웃 계산
+## Layout Calculation
 
-`lib/timeline.ts`는 아래 계산을 담당한다.
+`lib/timeline.ts` is responsible for the following calculations:
 
 - `buildTimelineLayout()`
 - `buildTimestampTicks()`
@@ -39,31 +39,32 @@ core에는 8개 canonical lane이 있지만, canvas는 여기에 subtype row 개
 - `buildTimelineRelations()`
 - `buildTimelineContextSummary()`
 
-UI 컴포넌트가 복잡해 보이는 이유는 렌더링뿐 아니라 상당한 도메인 계산도 함께 들고 있기 때문이다.
+The reason UI components appear complex is that they handle not just rendering
+but also significant domain calculations.
 
-## 사용성 기능
+## Usability Features
 
-- running task에서는 오른쪽 끝을 따라가는 auto-follow
-- task가 바뀌면 selected event가 유효한지 확인 후 follow reset
-- lane filter toggle
-- zoom slider 연동
-- minimap에서 현재 viewport 위치 확인
-- selection에 따른 connector 강조
+- Auto-follow that tracks the right end in running tasks
+- Follow reset after checking if selected event is valid when task changes
+- Lane filter toggle
+- Zoom slider integration
+- Current viewport position confirmation in minimap
+- Connector highlighting based on selection
 
-## 최근 코드 기준 포인트
+## Current Code Reference Points
 
-- minimap과 follow 동작은 여전히 component 내부에 강하게 묶여 있다.
-- timeline은 task status 변경과 title 편집 UI까지 함께 품고 있다.
-- typed realtime message 도입으로 refresh 입력은 더 명확해졌지만,
-  timeline 자체는 여전히 refresh된 task detail 전체를 기준으로 다시 계산한다.
+- Minimap and follow behavior are still tightly bound within the component.
+- Timeline includes task status changes and title editing UI as well.
+- Typed real-time messages have made refresh input clearer,
+  but timeline itself still recalculates based on the entire refreshed task detail.
 
-## 유지보수 관점의 리스크
+## Maintenance Perspective Risks
 
-- layout 계산과 보기 로직이 같은 파일에 몰려 있다.
-- connector/path 계산은 이벤트 수가 많을수록 비용이 커질 수 있다.
-- subtype row, filter, selection, follow 상태가 모두 얽혀 있어 변경이 쉽지 않다.
+- Layout calculation and viewing logic are concentrated in the same file.
+- Connector/path calculation cost can increase with more events.
+- Subtype row, filter, selection, and follow states are all intertwined, making changes difficult.
 
-## 관련 문서
+## Related Documentation
 
 - [Event Classification Engine](./event-classification-engine.md)
 - [Event Inspector & Insights Engine](./event-inspector-and-insights-engine.md)

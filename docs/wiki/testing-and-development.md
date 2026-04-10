@@ -1,9 +1,9 @@
 # Testing & Development
 
-이 문서는 Agent Tracer를 수정할 때 가장 자주 쓰는 명령과,
-어떤 종류의 테스트가 어디에 있는지 정리한 개발용 시작점이다.
+This document is a development starting point that organizes the most frequently used commands when modifying Agent Tracer
+and clarifies what kinds of tests exist and where.
 
-## 루트 명령
+## Root Commands
 
 ```bash
 npm run build
@@ -12,41 +12,41 @@ npm test
 npm run dev
 ```
 
-## 패키지별 명령
+## Per-Package Commands
 
 - `@monitor/core`: `npm run test --workspace @monitor/core`
 - `@monitor/server`: `npm run test --workspace @monitor/server`
 - `@monitor/mcp`: `npm run test --workspace @monitor/mcp`
 - `@monitor/web`: `npm run test --workspace @monitor/web`
 
-## 자주 쓰는 개발 루프
+## Common Development Loops
 
-### 로컬 앱 개발
+### Local App Development
 
 ```bash
 npm run dev
 ```
 
-### 서버만 보기
+### Server Only
 
 ```bash
 npm run dev:server
 ```
 
-### 특정 패키지 빌드 확인
+### Verify Specific Package Build
 
 ```bash
 npm run build --workspace @monitor/server
 npm run build --workspace @monitor/web
 ```
 
-## 코드 수정 시 체크포인트
+## Checkpoints When Modifying Code
 
-- core contract를 바꿨으면 web/types import와 server schema를 같이 확인
-- runtime adapter를 바꿨으면 guide 문서와 capability registry를 같이 갱신
-- workflow library를 바꿨으면 evaluation route, repository, web panel을 같이 확인
+- If changing core contract, verify web/types imports and server schema together
+- If changing runtime adapter, update guide documentation and capability registry together
+- If changing workflow library, verify evaluation route, repository, and web panel together
 
-## 관련 문서
+## Related Documentation
 
 - [Server-Side Tests](./server-side-tests.md)
 - [Web & Core Tests](./web-and-core-tests.md)

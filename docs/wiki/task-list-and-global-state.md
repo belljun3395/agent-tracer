@@ -1,10 +1,10 @@
 # Task List & Global State
 
-task selection, bookmark 상태, URL hash sync, overview fetch orchestration은 현재
-`useMonitorStore` 중심 전역 상태 계층에서 관리된다. 이 레이어는 단순 reducer가 아니라,
-"대시보드 read model 조정자"에 가깝다.
+Task selection, bookmark state, URL hash sync, and overview fetch orchestration are currently
+managed in a `useMonitorStore`-centered global state layer. This layer is not just a simple reducer,
+but rather a "dashboard read model coordinator".
 
-## 핵심 파일
+## Core Files
 
 - `packages/web/src/store/useMonitorStore.tsx`
 - `packages/web/src/components/TaskList.tsx`
@@ -12,62 +12,62 @@ task selection, bookmark 상태, URL hash sync, overview fetch orchestration은 
 - `packages/web/src/store/useSearch.ts`
 - `packages/web/src/store/useWebSocket.ts`
 
-## `useMonitorStore`가 들고 있는 것
+## What `useMonitorStore` Holds
 
 - `tasks`, `bookmarks`, `overview`
 - `selectedTaskId`, `selectedEventId`, `selectedConnectorKey`
 - `selectedRuleId`, `selectedTag`, `showRuleGapsOnly`
 - `taskDetail`
 - `isConnected`, `status`, `errorMessage`
-- task title/status 편집 상태
+- Task title/status editing state
 - `taskDisplayTitleCache`
 
-즉, 목록 상태와 상세 상태, 일부 UI 편집 상태가 한 provider에 같이 들어 있다.
+In other words, list state, detail state, and some UI editing state all exist in one provider.
 
-## 주요 액션과 흐름
+## Key Actions and Flows
 
-### 초기 로드
+### Initial Load
 
-overview, tasks, bookmarks를 불러오고 URL hash의 task ID를 선택 상태에 반영한다.
+Loads overview, tasks, bookmarks, and reflects task ID from URL hash to selection state.
 
-### task 선택
+### Task Selection
 
-selected task가 바뀌면 detail을 읽고, timeline/inspector가 이에 따라 다시 계산된다.
+When selected task changes, detail is fetched and timeline/inspector are recalculated accordingly.
 
-### bookmark 갱신
+### Bookmark Refresh
 
-최근 realtime 처리 변경으로 bookmark message는 `refreshBookmarksOnly()`로 따로 갱신된다.
-이 덕분에 event/task 갱신과 bookmark 갱신 경로가 조금 더 분리됐다.
+Due to recent real-time processing changes, bookmark messages are refreshed separately via `refreshBookmarksOnly()`.
+This separates event/task update path and bookmark update path somewhat.
 
-### title/status 편집
+### Title/Status Editing
 
-task title submit과 status change는 store action + API 호출을 통해 처리된다.
-`taskDisplayTitleCache`는 표시 제목 파생값을 재계산 없이 유지하는 역할을 한다.
+Task title submit and status change are handled via store action + API call.
+`taskDisplayTitleCache` maintains display title derived values without recalculation.
 
-## TopBar와의 연결
+## Connection with TopBar
 
-TopBar는 단순 헤더가 아니라 아래 기능을 가진다.
+TopBar is not just a header but has the following features:
 
-- search query 입력
-- task-scope search toggle
-- zoom slider
-- workflow library 열기
-- WebSocket 연결 상태 표시
+- Search query input
+- Task-scope search toggle
+- Zoom slider
+- Workflow library opening
+- WebSocket connection status display
 
-즉, 전역 상태와 UI 제어의 접점이 상당히 크다.
+In other words, the interface between global state and UI control is quite substantial.
 
-## 현재 구조의 장점
+## Strengths of Current Structure
 
-- 대시보드 상태가 한곳에 모여 추적하기 쉽다.
-- task selection, hash sync, refresh orchestration이 분산돼 있지 않다.
+- Dashboard state is centralized in one place, making it easy to track.
+- Task selection, hash sync, and refresh orchestration are not dispersed.
 
-## 현재 구조의 한계
+## Limitations of Current Structure
 
-- reducer, effect, async fetch, hash sync, optimistic UI가 한 provider에 결합돼 있다.
-- selection/UI state와 server-state 성격 데이터가 섞여 있다.
-- 기능이 더 늘어나면 feature 단위 분해가 필요하다.
+- Reducer, effect, async fetch, hash sync, and optimistic UI are coupled in one provider.
+- Selection/UI state and server-state nature data are mixed.
+- Further feature expansion will require feature-unit decomposition.
 
-## 관련 문서
+## Related Documentation
 
 - [Web Dashboard](./web-dashboard.md)
 - [API Client & UI Utilities](./api-client-and-ui-utilities.md)
