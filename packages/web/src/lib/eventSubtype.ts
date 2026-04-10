@@ -233,21 +233,14 @@ function inferLegacySubtypeKey(event: Pick<TimelineEvent, "lane" | "metadata" | 
     return null;
 }
 function subtypeLabel(key: EventSubtypeKey): string {
-    return SUBTYPE_DEFINITIONS[key]?.label ?? humanizeSubtypeKey(key);
+    return SUBTYPE_DEFINITIONS[key].label;
 }
 function subtypeIcon(key: EventSubtypeKey): string | undefined {
-    return SUBTYPE_DEFINITIONS[key]?.icon;
+    return SUBTYPE_DEFINITIONS[key].icon;
 }
 function extractMetadataString(metadata: Record<string, unknown>, key: string): string | null {
     const value = metadata[key];
     return typeof value === "string" && value.length > 0 ? value : null;
-}
-function humanizeSubtypeKey(value: string): string {
-    return value
-        .split("_")
-        .filter(Boolean)
-        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-        .join(" ");
 }
 function normalizeCandidate(value: string | null | undefined): string {
     return (value ?? "").toLowerCase().replace(/[\s_-]+/g, "");
