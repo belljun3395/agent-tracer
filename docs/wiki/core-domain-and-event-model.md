@@ -7,11 +7,12 @@
 ## 핵심 파일
 
 - `packages/core/src/domain.ts` (barrel export)
-- `packages/core/src/domain/types.ts`
+- `packages/core/src/domain/types.ts` (branded types 포함: RuntimeAdapterId, SessionIdBrand, etc.)
 - `packages/core/src/domain/constants.ts`
 - `packages/core/src/domain/utils.ts`
 - `packages/core/src/classifier.ts`
 - `packages/core/src/action-registry.ts`
+- `packages/core/src/event-semantic.ts` (hook-web semantic metadata contract)
 - `packages/core/src/runtime-capabilities.ts` (barrel export)
 - `packages/core/src/runtime-capabilities.constants.ts`
 - `packages/core/src/runtime-capabilities.types.ts`
@@ -37,14 +38,35 @@ canonical event 이름을 정의한다.
 `MonitoringTask`, `MonitoringSession`, `TimelineEvent`는 서버 저장소와 웹 응답의
 기본 shape다. task status, background lineage, classification payload도 이 타입들에 묶여 있다.
 
-### 4. Metadata contract
+### 4. Event Semantic Metadata Contract
 
-`domain.ts`에는 단순 타입 선언뿐 아니라 `user.message`, `question.logged`,
-`todo.logged` 같은 이벤트의 canonical metadata contract도 문서화돼 있다.
-특히 `USER_MESSAGE_CONTRACT_VERSION`과 `captureMode`, `phase`, `sourceEventId`
-규칙은 runtime adapter가 반드시 따라야 하는 경계다.
+`event-semantic.ts` (추가: 2026-04-10)는 hook layer가 생산하고 web UI가 소비하는
+의미적 메타데이터의 명시적 계약을 정의한다.
 
-### 5. Runtime capability registry
+```typescript
+export interface EventSemanticMetadata {
+  readonly subtypeKey: EventSubtypeKey;  // "read_file", "run_test", "mcp_call", ...
+  readonly subtypeGroup: EventSubtypeGroup;  // "files", "execution", "coordination"
+  readonly toolFamily: EventToolFamily;  // "explore", "file", "terminal"
+  readonly operation: string;            // "search", "modify", "execute", "delegate"
+  readonly entityType?: string;          // "file", "directory", "command"
+  readonly entityName?: string;          // 구체적 파일명, 커맨드명 등
+}
+```
+
+이 계약이 코드 레벨에서 명시화되면서, 새 subtype 추가 시 hook과 web이
+동시에 업데이트돼야 한다는 요구사항이 타입 체크로 감지된다.
+
+관련 문서: [Modularity Review - Implicit Semantic Metadata Contract Issue](../modularity-review/2026-04-10/modularity-review.md#issue-implicit-semantic-metadata-contract-between-hook-layer-and-web-layer)
+
+### 5. Branded Types
+
+`domain/types.ts`에서 runtime adapter ID, session ID 등을 nominal type으로 정의해
+서버-MCP-web 간 타입 안전성을 높였다 (추가: 2026-04-10).
+
+예시: `RuntimeAdapterId` (string이 아닌 명시적 branded type)
+
+### 6. Runtime capability registry
 
 런타임별 관찰 가능 범위, session close policy, native skill path는
 `runtime-capabilities.ts`가 source of truth다.
