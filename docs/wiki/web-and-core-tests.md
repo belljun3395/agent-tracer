@@ -1,26 +1,26 @@
 # Web & Core Tests
 
-웹과 코어는 빠른 단위 테스트 비중이 높다.
-즉, 복잡한 도메인 계산과 view helper를 먼저 고정하고,
-큰 UI 흐름은 상대적으로 적게 검증하는 구조다.
+Web and core tests have a high proportion of fast unit tests.
+In other words, complex domain calculations and view helpers are fixed first,
+and large UI flows are verified relatively less.
 
-## core 테스트
+## Core Tests
 
-주요 파일:
+Key files:
 
 - `packages/core/test/core.test.ts`
 - `packages/core/test/runtime-capabilities.test.ts`
 - `packages/core/test/rules-index.test.ts`
 
-검증 대상:
+Verification targets:
 
-- domain contract 기본 동작
+- domain contract basic behavior
 - runtime capability registry
-- rule/action registry 인덱스
+- rule/action registry index
 
-## web 테스트
+## Web Tests
 
-주요 파일:
+Key files:
 
 - `packages/web/src/App.test.ts`
 - `packages/web/src/store/useWebSocket.test.ts`
@@ -33,26 +33,26 @@
 - `packages/web/src/lib/realtime.test.ts`
 - `packages/web/src/lib/ui/laneTheme.test.ts`
 
-검증 대상:
+Verification targets:
 
-- timeline follow/viewport 계산
-- subtype/lane theme 해석
-- insights 파생 계산
-- realtime parsing과 refresh logic
-- websocket cleanup와 reconnect 보조 로직
+- timeline follow/viewport calculation
+- subtype/lane theme interpretation
+- insights derived calculations
+- realtime parsing and refresh logic
+- websocket cleanup and reconnect helper logic
 
-## 현재 테스트 전략의 장점
+## Advantages of Current Test Strategy
 
-- 순수 함수와 파생 계산은 비교적 빠르게 회귀를 잡을 수 있다.
-- runtime capability나 realtime message 같은 계약성 로직을 작게 검증하기 좋다.
+- Pure functions and derived calculations can catch regressions relatively quickly.
+- Good at small-scale verification of contract logic like runtime capability or realtime messages.
 
-## 보강해 볼 만한 지점
+## Areas Worth Strengthening
 
-- workflow library UI 흐름
-- inspector 탭 간 상호작용
-- MCP registry contract와 web read-model 연결 경계
+- workflow library UI flow
+- interactions between inspector tabs
+- connection boundary between MCP registry contract and web read-model
 
-## 관련 문서
+## Related Documentation
 
 - [Core Domain & Event Model](./core-domain-and-event-model.md)
 - [Web Dashboard](./web-dashboard.md)

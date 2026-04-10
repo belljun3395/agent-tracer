@@ -1,33 +1,33 @@
 # Searching Similar Workflows
 
-유사 workflow 검색은 과거 task evaluation 중 현재 작업과 가까운 예시를 다시 찾는 기능이다.
-현재 구현은 "lexical scoring + optional semantic ranking" 구조이며, semantic 검색이 없더라도 lexical fallback만으로 동작한다.
+Similar workflow search is a feature that finds past examples close to the current task among past task evaluations.
+The current implementation uses a "lexical scoring + optional semantic ranking" structure and works with lexical fallback alone even without semantic search.
 
 ## API
 
 - `GET /api/workflows/similar?q=&tags=&limit=`
 - `GET /api/workflows/:id/content`
-- MCP 도구: `monitor_find_similar_workflows`
+- MCP tool: `monitor_find_similar_workflows`
 
-`/api/workflows/similar`은 검색 결과용 요약 + `workflowContext`를 반환하고,
-`/api/workflows/:id/content`는 전체 `workflowSnapshot`과 `workflowContext` 상세를 반환한다.
+`/api/workflows/similar` returns a summary for search results + `workflowContext`,
+while `/api/workflows/:id/content` returns the full `workflowSnapshot` and `workflowContext` details.
 
-## 현재 검색 경로
+## Current Search Path
 
-`SqliteEvaluationRepository.searchSimilarWorkflows()`는 내부적으로 아래 순서로 동작한다.
+`SqliteEvaluationRepository.searchSimilarWorkflows()` internally operates in the following order:
 
-1. `task_evaluations`, `monitoring_tasks`, `timeline_events`를 조합한 검색 row를 읽는다.
-2. 필요하면 `tags` 필터를 적용한다.
-3. lexical score를 계산한다.
-4. embedding service가 있으면 semantic score도 계산한다.
-5. semantic/lexical 결과를 합쳐 최종 순위를 정한다.
-6. 상위 결과마다 workflow content를 hydrate해 `workflowContext`를 붙인다.
+1. Read search rows from combined `task_evaluations`, `monitoring_tasks`, and `timeline_events`.
+2. Apply `tags` filter if needed.
+3. Calculate lexical score.
+4. If embedding service exists, calculate semantic score as well.
+5. Combine semantic/lexical results to determine final ranking.
+6. For top results, hydrate workflow content and attach `workflowContext`.
 
-## lexical score에 쓰이는 필드
+## Fields Used in Lexical Score
 
-현재 lexical match는 아래 필드를 대상으로 계산된다.
+Current lexical matching is calculated against the following fields:
 
-- task `title`
+- Task `title`
 - `use_case`
 - `workflow_tags`
 - `outcome_note`
@@ -36,21 +36,21 @@
 - `watchouts`
 - `search_text`
 
-특히 `search_text`는 snapshot 생성 단계에서 objective, request, outcome, approach, reuse hint, tags, key decisions, key files 등을 합쳐 만든다.
+In particular, `search_text` is created during snapshot generation by combining objective, request, outcome, approach, reuse hint, tags, key decisions, key files, etc.
 
-## semantic ranking
+## Semantic Ranking
 
-embedding service가 연결돼 있고 query가 비어 있지 않으면 semantic ranking을 추가한다.
+If embedding service is connected and query is not empty, semantic ranking is added.
 
-- 각 evaluation row의 embedding이 있으면 cosine similarity를 계산한다.
-- 최소 임계값 이상인 결과만 semantic match로 본다.
-- semantic 검색이 실패하면 경고만 남기고 lexical search로 폴백한다.
+- If embedding exists for each evaluation row, cosine similarity is calculated.
+- Only results above minimum threshold are considered semantic matches.
+- If semantic search fails, only a warning is logged and lexical search is used as fallback.
 
-즉, semantic search는 선택 기능이고, 기본 안전망은 lexical search다.
+In other words, semantic search is optional, and the basic safety net is lexical search.
 
-## 결과에 포함되는 것
+## What is Included in Results
 
-`WorkflowSearchResult`에는 아래가 포함된다.
+`WorkflowSearchResult` includes the following:
 
 - `taskId`
 - `title`
@@ -66,34 +66,34 @@ embedding service가 연결돼 있고 query가 비어 있지 않으면 semantic 
 - `createdAt`
 - `workflowContext`
 
-검색 결과에는 `workflowSnapshot` 전체가 바로 포함되지 않는다.
-클라이언트가 상세 보기를 열면 `/api/workflows/:id/content`로 snapshot/context 전체를 다시 가져온다.
+The search results do not directly include the entire `workflowSnapshot`.
+When the client opens the detail view, the full snapshot/context is fetched again via `/api/workflows/:id/content`.
 
-## 질의 작성 팁
+## Query Writing Tips
 
-- 긴 자연어 문장보다 짧은 핵심 키워드가 더 잘 맞는다.
-- 예: `typescript refactor`, `workflow`, `documentation`
-- lexical fallback이 항상 있으므로, query는 token이 또렷한 짧은 표현일수록 유리하다.
-- `tags`는 부분 문자열 기준의 추가 필터라서, 확실할 때만 쓰는 편이 낫다.
+- Short key terms work better than long natural language sentences.
+- Example: `typescript refactor`, `workflow`, `documentation`
+- Since lexical fallback always exists, queries with clear tokens and short expressions are better.
+- `tags` is an additional substring-based filter, so use it only when confident.
 
-에이전트 운영 규칙이 `tags`를 기본적으로 비워두는 이유도 recall을 불필요하게 줄이지 않기 위해서다.
+The reason agent management rules keep `tags` empty by default is to avoid unnecessarily reducing recall.
 
-## 왜 짧은 키워드가 중요한가
+## Why Short Keywords Matter
 
-현재 lexical scoring은 정규화된 텍스트에 대해 query 전체 일치와 token 단위 일치를 함께 본다.
-문장이 길어질수록 전체 일치도 약해지고, token 수가 늘어 lexical fallback 품질도 흔들릴 수 있다.
+Current lexical scoring considers both full query match and token-level match against normalized text.
+The longer the sentence, the weaker the full match, and increasing token count can shake lexical fallback quality.
 
-semantic ranking이 없는 환경에서도 잘 동작해야 하므로 짧은 핵심 키워드가 가장 안전하다.
+Since it must work well even in environments without semantic ranking, short key terms are safest.
 
-## 비용 관점
+## Cost Perspective
 
-- 검색 row 자체는 evaluation 테이블 중심으로 읽지만, 결과를 hydrate할 때는 task별 전체 timeline을 다시 읽는다.
-- workflow content 생성에는 `displayTitle` 파생, snapshot 생성, context markdown 조립이 함께 들어간다.
-- embedding 생성/저장은 비동기이며, 없거나 실패하면 lexical only 결과가 나온다.
+- Search rows themselves are read primarily from the evaluation table, but when hydrating results, the full timeline per task is read again.
+- Workflow content creation includes `displayTitle` derivation, snapshot generation, and context markdown assembly.
+- Embedding creation/storage is asynchronous, and without it or on failure, lexical-only results are returned.
 
-라이브러리가 커지면 검색용 read model, precomputed content, lazy expansion 같은 최적화가 필요해질 수 있다.
+As the library grows, optimizations like search read models, precomputed content, and lazy expansion may become necessary.
 
-## 관련 문서
+## Related Documentation
 
 - [Workflow Library & Evaluation](./workflow-library-and-evaluation.md)
 - [Saving & Rating Workflows](./saving-and-rating-workflows.md)

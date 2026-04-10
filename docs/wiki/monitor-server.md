@@ -18,8 +18,8 @@ surfaces for the dashboard and MCP layer.
 
 - `packages/server/src/index.ts` — process entrypoint
 - `packages/server/src/bootstrap/create-nestjs-monitor-runtime.ts` — composition root
-- `packages/server/src/presentation/nestjs/app.module.ts`
-- `packages/server/src/presentation/nestjs/controllers/*.ts`
+- `packages/server/src/presentation/app.module.ts`
+- `packages/server/src/presentation/controllers/*.ts`
 - `packages/server/src/application/monitor-service.ts`
 - `packages/server/src/application/services/*` — policy + metadata helpers
 - `packages/server/src/application/ports/*` — repository + broadcaster interfaces
@@ -38,8 +38,8 @@ application/
   services/                            # policy + metadata helpers
   ports/                               # repository + broadcaster interfaces
 presentation/
-  nestjs/controllers/                  # HTTP surface (Nest controllers)
-  nestjs/app.module.ts
+  controllers/                         # HTTP surface (Nest controllers)
+  app.module.ts
   schemas.ts                           # Zod DTOs
   ws/event-broadcaster.ts              # WebSocket notifications
 infrastructure/
@@ -129,7 +129,7 @@ eviction should be added before the map grows unbounded.
 
 1. `src/index.ts`
 2. `src/bootstrap/create-nestjs-monitor-runtime.ts`
-3. `src/presentation/nestjs/controllers/*.ts`
+3. `src/presentation/controllers/*.ts`
 4. `src/application/monitor-service.ts`
 5. `src/infrastructure/sqlite/index.ts`
 

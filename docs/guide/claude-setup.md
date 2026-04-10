@@ -1,22 +1,23 @@
 # Claude Code Setup
 
-Agent Tracer는 Claude Code **plugin** (`.claude/plugin/`)으로 배포됩니다.
-Plugin이 모든 hook 이벤트를 자동 등록하고 monitor 서버로 전송하므로,
-hook 파일을 대상 프로젝트에 복사할 필요가 없습니다.
+This page covers the Claude Code specific steps needed after the shared
+[install-and-run](./install-and-run.md) flow.
 
-이 페이지는 [Install and Run](./install-and-run.md)을 마친 직후에
-바로 진행할 수 있습니다.
+Agent Tracer ships as a Claude Code **plugin** (`.claude/plugin/`). The plugin
+registers every hook event for you and posts events to the local monitor
+server. You do not copy hook source files into your target project.
 
 ## 1. Prerequisites
 
-- monitor 서버가 실행 중 (`npm run dev:server`, [install-and-run](./install-and-run.md) 참고)
-- Claude Code가 설치되어 있음
+Before following this page, make sure that:
 
-> **외부 프로젝트에 붙이는 경우:** 대상 프로젝트의
-> `.claude/settings.json`을 자동 생성하려면 먼저
-> [External Project Setup](./external-setup.md)의 `setup:external`을
-> 실행하세요. Agent Tracer 저장소 안에서 작업하는 경우에는 이 단계가
-> 필요 없습니다.
+- the monitor server is running (`npm run dev:server`, see [install-and-run](./install-and-run.md))
+- you have Claude Code installed and working
+
+> **For external projects:** If you want to attach Agent Tracer to a project
+> outside this repository, run [External Project Setup](./external-setup.md)'s
+> `setup:external` first to auto-generate `.claude/settings.json`. When running
+> Claude Code inside the Agent Tracer repository itself, this step is not needed.
 
 ## 2. Launch Claude Code with the plugin
 

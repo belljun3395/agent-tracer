@@ -37,7 +37,7 @@ All handlers post to `POST /ingest/v1/events` with the appropriate `kind` field.
 - `.claude/plugin/hooks/PostToolUse/File.ts` — `Edit` / `Write` → `kind: "tool.used"`
 - `.claude/plugin/hooks/PostToolUse/Explore.ts` — `Read` / `Glob` / `Grep` / `WebSearch` / `WebFetch` → `kind: "tool.used"` + `lane: "exploration"`
 - `.claude/plugin/hooks/PostToolUse/Agent.ts` — `Agent` → `kind: "agent.activity.logged"` (`activityType: "delegation"`); `Skill` → `kind: "agent.activity.logged"` (`activityType: "skill_use"`)
-- `.claude/plugin/hooks/PostToolUse/Todo.ts` — `TaskCreate` / `TaskUpdate` / `TodoWrite` → `kind: "todo.logged"` (배치 전송)
+- `.claude/plugin/hooks/PostToolUse/Todo.ts` — `TaskCreate` / `TaskUpdate` / `TodoWrite` → `kind: "todo.logged"` (batch send)
 - `.claude/plugin/hooks/PostToolUse/Mcp.ts` — `mcp__.*` → `kind: "agent.activity.logged"` (`activityType: "mcp_call"`)
 
 ### Supporting modules

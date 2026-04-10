@@ -1,19 +1,19 @@
 # HTTP API Reference
 
-Agent Tracer 서버는 admin/read API, lifecycle API, event ingestion API,
-bookmark API, search API, workflow library API 로 나뉜다.
-현재 HTTP 표면은 NestJS controller 로 구현되어 있고,
-실제 의미는 `MonitorService` 한곳으로 수렴한다.
+The Agent Tracer server is divided into admin/read API, lifecycle API, event ingestion API,
+bookmark API, search API, and workflow library API.
+The current HTTP surface is implemented as a NestJS controller,
+with actual semantics converging in a single `MonitorService`.
 
-## 핵심 파일
+## Core Files
 
-- `packages/server/src/presentation/nestjs/controllers/admin.controller.ts`
-- `packages/server/src/presentation/nestjs/controllers/lifecycle.controller.ts`
-- `packages/server/src/presentation/nestjs/controllers/event.controller.ts`
-- `packages/server/src/presentation/nestjs/controllers/ingest.controller.ts`
-- `packages/server/src/presentation/nestjs/controllers/bookmark.controller.ts`
-- `packages/server/src/presentation/nestjs/controllers/search.controller.ts`
-- `packages/server/src/presentation/nestjs/controllers/evaluation.controller.ts`
+- `packages/server/src/presentation/controllers/admin.controller.ts`
+- `packages/server/src/presentation/controllers/lifecycle.controller.ts`
+- `packages/server/src/presentation/controllers/event.controller.ts`
+- `packages/server/src/presentation/controllers/ingest.controller.ts`
+- `packages/server/src/presentation/controllers/bookmark.controller.ts`
+- `packages/server/src/presentation/controllers/search.controller.ts`
+- `packages/server/src/presentation/controllers/evaluation.controller.ts`
 - `packages/server/src/presentation/schemas.ts`
 - `packages/server/src/presentation/schemas.ingest.ts`
 - `packages/server/src/application/services/event-ingestion-service.ts`
@@ -31,8 +31,8 @@ bookmark API, search API, workflow library API 로 나뉜다.
 
 ## 2. Lifecycle API
 
-생성·종료·연결 등 상태 변이가 명시적인 경로다.
-이 경로들은 event ingestion으로 통합되지 않는다.
+Routes where state transitions (creation, termination, linking, etc.) are explicit.
+These routes are not integrated into event ingestion.
 
 - `POST /api/task-start`
 - `POST /api/task-link`
@@ -45,9 +45,9 @@ bookmark API, search API, workflow library API 로 나뉜다.
 - `POST /api/runtime-session-ensure`
 - `POST /api/runtime-session-end`
 
-## 3. Unified Event Ingestion API (권장)
+## 3. Unified Event Ingestion API (Recommended)
 
-v0.1.4 이후 신규 클라이언트는 단일 엔드포인트로 모든 이벤트를 전송한다.
+As of v0.1.4, new clients send all events to a single endpoint.
 
 ### `POST /ingest/v1/events`
 
@@ -70,28 +70,28 @@ Content-Type: application/json
 }
 ```
 
-한 번에 최대 100개 이벤트를 배치로 보낼 수 있다.
-각 이벤트는 `kind` 필드로 분기한다.
+Up to 100 events can be sent in a batch at once.
+Each event is dispatched based on its `kind` field.
 
-#### 지원 kind 목록
+#### Supported kind List
 
-| kind | 설명 |
-|------|------|
-| `tool.used` | 파일 편집, 도구 사용 (lane 필드로 exploration 구분) |
-| `terminal.command` | Bash 명령 실행 |
-| `context.saved` | 컨텍스트 압축/저장 (compaction, session 시작) |
-| `plan.logged` | 계획 단계 기록 |
-| `action.logged` | 액션 기록; `asyncTaskId` 있으면 async lifecycle |
-| `verification.logged` | 검증 결과 기록 |
-| `rule.logged` | 규칙/정책 적용 기록 |
-| `agent.activity.logged` | delegation, skill_use, mcp_call 기록 |
-| `user.message` | 사용자 입력 |
-| `question.logged` | 질문 플로우 |
-| `todo.logged` | Todo 항목 상태 변화 |
-| `thought.logged` | 요약 사고/추론 기록 |
-| `assistant.response` | 어시스턴트 응답 |
+| kind | Description |
+|------|-------------|
+| `tool.used` | File edit, tool usage (exploration distinguished by lane field) |
+| `terminal.command` | Bash command execution |
+| `context.saved` | Context compression/saving (compaction, session start) |
+| `plan.logged` | Plan phase logging |
+| `action.logged` | Action logging; if `asyncTaskId` present, async lifecycle |
+| `verification.logged` | Verification result logging |
+| `rule.logged` | Rule/policy application logging |
+| `agent.activity.logged` | Logging delegation, skill_use, mcp_call |
+| `user.message` | User input |
+| `question.logged` | Question flow |
+| `todo.logged` | Todo item status change |
+| `thought.logged` | Summary thought/reasoning logging |
+| `assistant.response` | Assistant response |
 
-#### 응답
+#### Response
 
 ```json
 {
@@ -103,17 +103,17 @@ Content-Type: application/json
 }
 ```
 
-유효성 검사 실패 시 `400` + `{ ok: false, error: { code, message, details } }`.
+On validation failure: `400` + `{ ok: false, error: { code, message, details } }`.
 
-#### 스키마 위치
+#### Schema Location
 
-- 요청 schema: `packages/server/src/presentation/schemas.ingest.ts`
-- 서비스 dispatch: `packages/server/src/application/services/event-ingestion-service.ts`
+- Request schema: `packages/server/src/presentation/schemas.ingest.ts`
+- Service dispatch: `packages/server/src/application/services/event-ingestion-service.ts`
 
-## 4. Legacy Event Logging API (하위 호환 유지)
+## 4. Legacy Event Logging API (Backward Compatibility)
 
-개별 엔드포인트는 기존 클라이언트를 위해 그대로 존재한다.
-새 클라이언트는 `/ingest/v1/events` 를 사용할 것을 권장한다.
+Individual endpoints remain for existing clients.
+New clients are recommended to use `/ingest/v1/events`.
 
 - `POST /api/tool-used`
 - `POST /api/terminal-command`
@@ -147,13 +147,13 @@ Content-Type: application/json
 - `GET /api/workflows/similar`
 - `GET /api/workflows/:id/content`
 
-## Request validation
+## Request Validation
 
-모든 쓰기 경로는 Zod schema 를 통해 request body 를 검증한다.
-`/ingest/v1/events` 는 `ingestEventsBatchSchema` (schemas.ingest.ts),
-기존 경로들은 `presentation/schemas.ts` 를 사용한다.
+All write paths validate request body through Zod schema.
+`/ingest/v1/events` uses `ingestEventsBatchSchema` (schemas.ingest.ts),
+while legacy paths use `presentation/schemas.ts`.
 
-## 관련 문서
+## Related Documentation
 
 - [Monitor Server](./monitor-server.md)
 - [MonitorService: Application Layer](./monitorservice-application-layer.md)

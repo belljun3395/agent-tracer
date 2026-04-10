@@ -1,9 +1,10 @@
 # Agent Tracer Wiki
 
-이 섹션은 DeepWiki에 맞춘 구조를 로컬 저장소 안에 유지하기 위한 코드베이스 위키다.
-설치 가이드가 아니라, 현재 코드가 어떤 책임으로 나뉘고 어떻게 연결되는지 이해하는 데 초점을 둔다.
+This section is a codebase wiki maintained in the local repository with a structure matching DeepWiki.
+Rather than an installation guide, it focuses on understanding how current code is divided in responsibility
+and how it connects.
 
-## 읽는 순서
+## Reading Order
 
 1. [Agent Tracer overview](./agent-tracer-overview.md)
 2. [Getting started & installation](./getting-started-and-installation.md)
@@ -13,7 +14,7 @@
 6. [Web dashboard](./web-dashboard.md)
 7. [Workflow library & evaluation](./workflow-library-and-evaluation.md)
 
-## 주요 묶음
+## Key Sections
 
 ### Core and Server
 

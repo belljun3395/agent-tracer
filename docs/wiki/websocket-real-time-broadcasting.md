@@ -1,10 +1,10 @@
 # WebSocket Real-Time Broadcasting
 
-Agent Tracer는 서버 변경 사항을 WebSocket으로 브로드캐스트하지만,
-웹은 이 payload를 그대로 store에 머지하기보다 필요한 read model을 다시 조회하는 전략을 쓴다.
-즉, WebSocket은 "canonical data stream"이라기보다 "갱신 신호"에 가깝다.
+Agent Tracer broadcasts server changes via WebSocket, but
+the web uses a strategy of re-querying needed read models rather than merging the payload directly into the store.
+In other words, WebSocket is more like an "update signal" than a "canonical data stream".
 
-## 핵심 파일
+## Core Files
 
 - `packages/server/src/presentation/ws/event-broadcaster.ts`
 - `packages/server/src/bootstrap/create-nestjs-monitor-runtime.ts`
@@ -12,21 +12,21 @@ Agent Tracer는 서버 변경 사항을 WebSocket으로 브로드캐스트하지
 - `packages/web/src/lib/realtime.ts`
 - `packages/web/src/store/useMonitorStore.tsx`
 
-## 서버 쪽 동작
+## Server-Side Behavior
 
-`EventBroadcaster`는 `INotificationPublisher` 구현체다.
-알림이 들어오면 `{ type, payload }` JSON을 모든 연결된 클라이언트에 보낸다.
+`EventBroadcaster` is an implementation of `INotificationPublisher`.
+When a notification arrives, it sends a `{ type, payload }` JSON to all connected clients.
 
-연결 직후에는 현재 기본 부트스트랩인 `create-nestjs-monitor-runtime.ts`가 아래 snapshot을 먼저 보낸다.
+Right after connection, the current default bootstrap `create-nestjs-monitor-runtime.ts` sends the following snapshot first.
 
-- `stats` (`/api/overview`에서 보는 요약값)
-- `tasks` (태스크 목록)
+- `stats` (summary value seen in `/api/overview`)
+- `tasks` (task list)
 
-즉, 첫 연결은 snapshot, 이후는 delta notification으로 생각하면 된다.
+In other words, the initial connection is a snapshot, and subsequent ones are delta notifications.
 
-## 현재 message 종류
+## Current Message Types
 
-웹의 `MonitorRealtimeMessage` 타입 기준으로 현재 다루는 이벤트는 아래와 같다.
+Based on the web's `MonitorRealtimeMessage` type, the current events handled are as follows.
 
 - `snapshot`
 - `task.started`, `task.completed`, `task.updated`
@@ -36,42 +36,42 @@ Agent Tracer는 서버 변경 사항을 WebSocket으로 브로드캐스트하지
 - `bookmark.saved`, `bookmark.deleted`
 - `tasks.purged`
 
-최근 코드에서 이 타입이 `lib/realtime.ts`로 명시적으로 올라와,
-`useWebSocket()`이 raw string 대신 파싱된 typed message를 콜백으로 넘긴다.
+In recent code, this type was explicitly moved up to `lib/realtime.ts`,
+and `useWebSocket()` passes parsed typed messages to the callback instead of raw strings.
 
-## 웹 쪽 처리 전략
+## Web-Side Processing Strategy
 
-1. `useWebSocket()`이 메시지를 파싱한다.
-2. 짧은 debounce 뒤에 `refreshRealtimeMonitorData()`를 호출한다.
-3. message type에 따라 overview, selected task detail, bookmark만 부분 갱신한다.
+1. `useWebSocket()` parses the message.
+2. After a short debounce, it calls `refreshRealtimeMonitorData()`.
+3. Partially updates only overview, selected task detail, and bookmark depending on message type.
 
-특징:
+Characteristics:
 
-- bookmark 변경은 `refreshBookmarksOnly()`만 호출한다.
-- `event.updated`는 selected task detail만 새로 읽는다.
-- `task.deleted`나 `tasks.purged`는 overview만 새로 읽는다.
+- Bookmark changes only call `refreshBookmarksOnly()`.
+- `event.updated` only re-reads selected task detail.
+- `task.deleted` or `tasks.purged` only re-reads overview.
 
-즉, 예전보다 message type별 refresh 전략이 조금 더 세분화됐다.
+In other words, the refresh strategy per message type is slightly more granular than before.
 
-## 장점
+## Advantages
 
-- 단순하고 안전하다.
-- 서버 payload 구조가 바뀌어도 웹이 직접 state patch를 많이 하지 않아도 된다.
-- 잘못된 부분 머지보다 전체 read model 재조회에 가까워 디버깅이 쉽다.
+- Simple and safe.
+- The web doesn't need to do much direct state patching even if the server payload structure changes.
+- Debugging is easier since it's closer to re-querying the entire read model than incorrect merging.
 
-## 한계
+## Limitations
 
-- 이벤트가 많아질수록 재조회 비용이 커진다.
-- WebSocket payload 안에 이미 충분한 정보가 있어도 현재는 많이 활용하지 않는다.
-- overview와 selected task detail을 계속 다시 읽는 구조라 네트워크 비용이 누적된다.
+- As events increase, the cost of re-querying grows.
+- Even though there is already sufficient information in the WebSocket payload, it is not currently utilized much.
+- Network costs accumulate due to the structure of constantly re-reading overview and selected task detail.
 
-## 중기 개선 아이디어
+## Mid-Term Improvement Ideas
 
-- task list/store에 대한 incremental patch 도입
-- selected task timeline의 append/update 경로 분리
-- bookmark/evaluation/read model을 message type별로 더 정밀하게 갱신
+- Introduce incremental patching for task list/store
+- Separate append/update paths for selected task timeline
+- More precise updates to bookmark/evaluation/read model by message type
 
-## 관련 문서
+## Related Documentation
 
 - [Web Dashboard](./web-dashboard.md)
 - [Task List & Global State](./task-list-and-global-state.md)
