@@ -110,13 +110,38 @@ mcp__*:      MCP 서버/툴별 상이
 
 ## Agent Tracer 커스텀 메타데이터
 
-`explore.ts`는 PostToolUse 이후 `/api/explore`를 호출할 때 `metadata` 필드에 도구별 추가 정보를 삽입한다.
+### Semantic Metadata Contract
+
+hook layer가 모든 탐색/파일/실행 도구에 추가하는 명시적 메타데이터:
+
+```typescript
+// packages/core/src/event-semantic.ts에서 정의
+interface EventSemanticMetadata {
+  readonly subtypeKey: EventSubtypeKey;  // "read_file", "run_test", "mcp_call", ...
+  readonly subtypeLabel?: string;        // UI 친화적 레이블
+  readonly subtypeGroup: EventSubtypeGroup;  // "files", "execution", "coordination", ...
+  readonly toolFamily: EventToolFamily;  // "explore", "file", "terminal", "coordination"
+  readonly operation: string;            // "search", "modify", "execute", "delegate"
+  readonly entityType?: string;          // "file", "directory", "command", ...
+  readonly entityName?: string;          // 구체적 파일명, 커맨드명 등
+  readonly sourceTool?: string;          // 원본 도구명
+  readonly importance?: string;          // "critical", "normal", "minor"
+}
+```
+
+이 계약은 `.claude/plugin/hooks/classification/` 에서 도구별로 구현되고,
+`packages/web/src/lib/eventSubtype.ts`에서 UI 렌더링에 사용된다.
+
+### 도구별 추가 메타데이터
+
+`explore.ts`와 `tool_used.ts`는 도구별 추가 정보를 `metadata` 필드에 삽입한다:
 
 | 도구 | 추가 메타데이터 | 설명 |
 |------|-----------------|------|
 | `WebSearch` | `metadata.webUrls: string[]` | 검색 쿼리를 최대 300자까지 저장. 대시보드 Exploration 탭 Web Lookups 섹션에서 표시됨 |
 | `WebFetch` | `metadata.webUrls: string[]` | 페치한 URL을 최대 300자까지 저장 |
 | 전체 explore 도구 | `metadata.toolInput` | `tool_input` 원본을 JSON 문자열로 저장 (디버깅용) |
+| `mcp__*` | 도구별 사용자정의 필드 | MCP 도구별 고유 메타데이터 |
 
 이 필드들은 Claude Code hook payload 공식 스펙에 없는 **Agent Tracer 자체 확장**이다.
 

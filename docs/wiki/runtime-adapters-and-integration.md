@@ -14,11 +14,47 @@ Agent Tracer 는 특정 에이전트 하나에 묶이지 않지만,
 ## 핵심 파일
 
 - `packages/core/src/runtime-capabilities.defaults.ts`
+- `packages/core/src/event-semantic.ts` — hook/web 간 명시적 semantic contract
 - `docs/guide/runtime-capabilities.md`
 - `docs/guide/api-integration-map.md`
-- `.claude/plugin/hooks/*`
+- `.claude/plugin/hooks/*` — hook implementations
+- `.claude/plugin/hooks/classification/*` — semantic inference engines
+- `.claude/plugin/hooks/lib/*` — shared utilities (transport, caching, logging)
+- `.claude/plugin/hooks/common.ts` — re-exports (re-organized as of 2026-04-10)
 - `.claude/plugin/hooks/hooks.json`
 - `.claude/plugin/bin/run-hook.sh`
+
+## Hook Layer 구조 (as of 2026-04-10)
+
+`.claude/plugin/hooks/` 는 5가지 책임을 명확히 분리했다:
+
+```
+.claude/plugin/hooks/
+├── classification/        # semantic inference engines
+│   ├── command-semantic.ts       # shell commands → subtype classification
+│   ├── explore-semantic.ts       # file/web tools → exploration subtypes
+│   └── file-semantic.ts          # file operations → file_ops subtypes
+├── lib/                   # shared utilities
+│   ├── transport.ts              # HTTP client (postJson, readStdinJson)
+│   ├── session-cache.ts          # session state caching
+│   ├── subagent-registry.ts      # background subagent tracking
+│   └── hook-log.ts               # logging utilities
+├── common.ts              # re-exports main hook dependencies
+├── agent_activity.ts      # agent coordination event hook
+├── tool_used.ts           # tool invocation hook + semantic metadata
+├── user_prompt.ts         # user message hook
+├── hooks.json             # hook registration manifest
+└── ... (other event hooks)
+```
+
+**이점:**
+- `classification/` 로직은 pure function으로 테스트 가능
+- `lib/` 유틸리티는 새 런타임 어댑터에서 재사용 가능
+- 변경 범위가 명확하고, 코드 응집도 높음
+
+**마이그레이션 배경:**
+기존 `common.ts`는 525줄에서 5가지 책임을 혼합했다.
+새 런타임이 자체 semantic inference를 작성할 때, 관련 없는 transport/caching 코드를 모두 이해해야 했다.
 
 ## 공통 설계 원칙
 

@@ -77,25 +77,36 @@
 - [Web & Core Tests](./web-and-core-tests.md)
 - [Glossary](./glossary.md)
 
-## Deep Dives
+## Deep Dives & Architecture Reviews
 
 아래 문서는 위 목록을 보강하는 maintainer용 확장 문서다. 특정 영역의 부채나 설계
 리뷰까지 같이 보고 싶을 때 읽는다.
 
+### Architecture & Design
 - [System Overview](./system-overview.md)
 - [Backend Server](./backend-server.md)
 - [Frontend Dashboard](./frontend-dashboard.md)
 - [Runtime Integrations](./runtime-integrations.md)
+
+### Modularity & Technical Debt
+- [Modularity Review (2026-04-10)](../modularity-review/2026-04-10/modularity-review.md) — 
+  현재 코드베이스의 커플링 분석 및 개선안. 새 런타임 추가 시 주의점 정리.
+  **관련 개선사항:**
+  - hook layer 구조 개선 (`classification/`, `lib/` 분리)
+  - `packages/core/src/event-semantic.ts` 도입 (hook-web 계약 명시화)
+  - branded types 추가 (runtime adapter 타입 강화)
+
+### Quality & Testing
 - [Quality And Testing](./quality-and-testing.md)
 
 ## 패키지 지도
 
 | Package | 역할 | 지금 읽어야 할 파일 |
 | --- | --- | --- |
-| `packages/core` | 공통 도메인 타입, 이벤트 분류, 런타임 capability registry | `src/domain.ts`, `src/domain/*`, `src/classifier.ts`, `src/runtime-capabilities.ts` |
+| `packages/core` | 공통 도메인 타입, 이벤트 분류, 런타임 capability registry, semantic metadata contract | `src/domain.ts`, `src/domain/*`, `src/event-semantic.ts` (hook-web 계약), `src/runtime-capabilities.ts` |
 | `packages/server` | NestJS 서버 런타임, SQLite repository, runtime session 관리, WebSocket broadcast | `src/index.ts`, `src/bootstrap/create-nestjs-monitor-runtime.ts`, `src/application/monitor-service.ts` |
 | `packages/mcp` | monitor-server HTTP API를 MCP tool surface로 노출 | `src/index.ts`, `src/client.ts` |
-| `packages/web` | React 19 기반 실시간 대시보드와 워크플로우 라이브러리 UI | `src/App.tsx`, `src/store/useMonitorStore.tsx`, `src/components/Timeline.tsx` |
+| `packages/web` | React 19 기반 실시간 대시보드와 워크플로우 라이브러리 UI | `src/App.tsx`, `src/store/useMonitorStore.tsx`, `src/lib/eventSubtype.ts` (semantic metadata 소비) |
 
 ## 이 위키를 업데이트할 때의 기준
 
