@@ -1,5 +1,5 @@
 import { registerRuntimeAdapter, registerRuntimeAdapterAlias } from "./runtime-capabilities.constants.js";
-import { CLAUDE_PLUGIN_ADAPTER_ID, RuntimeAdapterId, type RuntimeCapabilities } from "./runtime-capabilities.types.js";
+import { CLAUDE_PLUGIN_ADAPTER_ID, type RuntimeAdapterId, type RuntimeCapabilities } from "./runtime-capabilities.types.js";
 
 const DEFAULT_ADAPTERS: readonly RuntimeCapabilities[] = [
   {
