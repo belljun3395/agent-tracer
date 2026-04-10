@@ -65,13 +65,16 @@ async function main(): Promise<void> {
     });
     hookLog("SessionStart", "session metadata saved", { source, projectDir });
 
-    await postJson("/api/save-context", {
-        taskId: ids.taskId,
-        sessionId: ids.sessionId,
-        title: TITLES[source],
-        body: BODIES[source],
-        lane: LANE.planning,
-        metadata: { trigger: source }
+    await postJson("/ingest/v1/events", {
+        events: [{
+            kind: "context.saved",
+            taskId: ids.taskId,
+            sessionId: ids.sessionId,
+            title: TITLES[source],
+            body: BODIES[source],
+            lane: LANE.planning,
+            metadata: { trigger: source }
+        }]
     });
     hookLog("SessionStart", "save-context posted", { title: TITLES[source] });
 }

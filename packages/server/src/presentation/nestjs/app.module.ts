@@ -5,6 +5,7 @@ import { EventController } from "./controllers/event.controller.js";
 import { BookmarkController } from "./controllers/bookmark.controller.js";
 import { SearchController } from "./controllers/search.controller.js";
 import { EvaluationController } from "./controllers/evaluation.controller.js";
+import { IngestController } from "./controllers/ingest.controller.js";
 import { MonitorServiceProvider } from "./service/monitor-service.provider.js";
 import { DatabaseProvider, MONITOR_PORTS_TOKEN } from "./database/database.provider.js";
 import type { MonitorPorts } from "../../application/ports";
@@ -31,6 +32,7 @@ export class AppModule {
         setParamTypes(BookmarkController, MonitorServiceProvider);
         setParamTypes(SearchController, MonitorServiceProvider);
         setParamTypes(EvaluationController, MonitorServiceProvider);
+        setParamTypes(IngestController, MonitorServiceProvider);
         return {
             module: AppModule,
             imports: [],
@@ -44,7 +46,8 @@ export class AppModule {
                 EventController,
                 BookmarkController,
                 SearchController,
-                EvaluationController
+                EvaluationController,
+                IngestController
             ],
             exports: [MONITOR_PORTS_TOKEN, MonitorServiceProvider]
         };

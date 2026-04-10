@@ -45,21 +45,24 @@ async function main(): Promise<void> {
     writeSubagentRegistry(registry);
     hookLog("SubagentStop", "registry entry removed", { agentId });
 
-    await postJson("/api/async-task", {
-        taskId: ids.taskId,
-        sessionId: ids.sessionId,
-        asyncTaskId: agentId,
-        asyncStatus: "completed",
-        title: `Subagent finished: ${agentType}`,
-        ...(toTrimmedString(payload.last_assistant_message)
-            ? { body: toTrimmedString(payload.last_assistant_message, 400) }
-            : {}),
-        metadata: {
-            agentId,
-            agentType,
-            parentTaskId: ids.taskId,
-            parentSessionId: sessionId
-        }
+    await postJson("/ingest/v1/events", {
+        events: [{
+            kind: "action.logged",
+            taskId: ids.taskId,
+            sessionId: ids.sessionId,
+            asyncTaskId: agentId,
+            asyncStatus: "completed",
+            title: `Subagent finished: ${agentType}`,
+            ...(toTrimmedString(payload.last_assistant_message)
+                ? { body: toTrimmedString(payload.last_assistant_message, 400) }
+                : {}),
+            metadata: {
+                agentId,
+                agentType,
+                parentTaskId: ids.taskId,
+                parentSessionId: sessionId
+            }
+        }]
     });
     hookLog("SubagentStop", "async-task posted", { agentType, agentId });
 }

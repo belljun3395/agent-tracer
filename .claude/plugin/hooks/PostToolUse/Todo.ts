@@ -116,16 +116,17 @@ async function main(): Promise<void> {
     const ids = await resolveSessionIds(sessionId);
     hookLog("PostToolUse/Todo", "posting todos", { count: events.length, taskId: ids.taskId });
 
-    for (const event of events) {
-        await postJson("/api/todo", {
+    await postJson("/ingest/v1/events", {
+        events: events.map((event) => ({
+            kind: "todo.logged",
             taskId: ids.taskId,
             sessionId: ids.sessionId,
             todoId: event.todoId,
             todoState: event.todoState,
             title: event.title,
             metadata: event.metadata
-        });
-    }
+        }))
+    });
     hookLog("PostToolUse/Todo", "todos posted", { count: events.length });
 }
 

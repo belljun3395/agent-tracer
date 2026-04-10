@@ -56,16 +56,19 @@ async function main(): Promise<void> {
     };
 
     if (mcpTool) {
-        await postJson("/api/agent-activity", {
-            taskId: ids.taskId,
-            sessionId: ids.sessionId,
-            activityType: "mcp_call",
-            title,
-            body,
-            lane: LANE.coordination,
-            mcpServer: mcpTool.server,
-            mcpTool: mcpTool.tool,
-            metadata: { ...failureMetadata, mcpServer: mcpTool.server, mcpTool: mcpTool.tool }
+        await postJson("/ingest/v1/events", {
+            events: [{
+                kind: "agent.activity.logged",
+                taskId: ids.taskId,
+                sessionId: ids.sessionId,
+                activityType: "mcp_call",
+                title,
+                body,
+                lane: LANE.coordination,
+                mcpServer: mcpTool.server,
+                mcpTool: mcpTool.tool,
+                metadata: { ...failureMetadata, mcpServer: mcpTool.server, mcpTool: mcpTool.tool }
+            }]
         });
     } else {
         // Include semantic metadata for Bash failures so downstream consumers can
@@ -75,18 +78,21 @@ async function main(): Promise<void> {
             : {};
         const description = toolName === "Bash" ? toTrimmedString(toolInput.description) : undefined;
 
-        await postJson("/api/tool-used", {
-            taskId: ids.taskId,
-            sessionId: ids.sessionId,
-            toolName,
-            title,
-            body,
-            lane: LANE.implementation,
-            metadata: {
-                ...(description ? { description } : {}),
-                ...semanticMetadata,
-                ...failureMetadata
-            }
+        await postJson("/ingest/v1/events", {
+            events: [{
+                kind: "tool.used",
+                taskId: ids.taskId,
+                sessionId: ids.sessionId,
+                toolName,
+                title,
+                body,
+                lane: LANE.implementation,
+                metadata: {
+                    ...(description ? { description } : {}),
+                    ...semanticMetadata,
+                    ...failureMetadata
+                }
+            }]
         });
     }
     hookLog("PostToolUseFailure", "failure posted", { toolName, title });

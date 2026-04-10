@@ -46,18 +46,21 @@ async function main(): Promise<void> {
     const ids = await resolveSessionIds(sessionId);
     const semantic = inferCommandSemantic(command);
 
-    await postJson("/api/terminal-command", {
-        taskId: ids.taskId,
-        sessionId: ids.sessionId,
-        command,
-        title: description || command.slice(0, 80),
-        body: description ? `${description}\n\n$ ${command}` : command,
-        lane: semantic.lane,
-        metadata: {
-            description,
+    await postJson("/ingest/v1/events", {
+        events: [{
+            kind: "terminal.command",
+            taskId: ids.taskId,
+            sessionId: ids.sessionId,
             command,
-            ...buildSemanticMetadata(semantic.metadata)
-        }
+            title: description || command.slice(0, 80),
+            body: description ? `${description}\n\n$ ${command}` : command,
+            lane: semantic.lane,
+            metadata: {
+                description,
+                command,
+                ...buildSemanticMetadata(semantic.metadata)
+            }
+        }]
     });
     hookLog("PostToolUse/Bash", "terminal-command posted", { description: description || command.slice(0, 60) });
 }

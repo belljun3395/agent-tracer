@@ -60,26 +60,29 @@ async function main(): Promise<void> {
 
     if (toolName === "Skill") {
         const skillName = toTrimmedString(toolInput.skill);
-        await postJson("/api/agent-activity", {
-            taskId: ids.taskId,
-            sessionId: ids.sessionId,
-            activityType: "skill_use",
-            title: skillName ? `Skill: ${skillName}` : "Skill invoked",
-            ...(toTrimmedString(toolInput.args) ? { body: `args: ${toTrimmedString(toolInput.args, 400)}` } : {}),
-            metadata: {
-                ...buildSemanticMetadata({
-                    subtypeKey: "skill_use",
-                    subtypeLabel: "Skill use",
-                    subtypeGroup: "coordination",
-                    toolFamily: "coordination",
-                    operation: "invoke",
-                    entityType: "skill",
-                    entityName: skillName,
-                    sourceTool: toolName
-                }),
-                ...metadata
-            },
-            ...(skillName ? { skillName } : {})
+        await postJson("/ingest/v1/events", {
+            events: [{
+                kind: "agent.activity.logged",
+                taskId: ids.taskId,
+                sessionId: ids.sessionId,
+                activityType: "skill_use",
+                title: skillName ? `Skill: ${skillName}` : "Skill invoked",
+                ...(toTrimmedString(toolInput.args) ? { body: `args: ${toTrimmedString(toolInput.args, 400)}` } : {}),
+                metadata: {
+                    ...buildSemanticMetadata({
+                        subtypeKey: "skill_use",
+                        subtypeLabel: "Skill use",
+                        subtypeGroup: "coordination",
+                        toolFamily: "coordination",
+                        operation: "invoke",
+                        entityType: "skill",
+                        entityName: skillName,
+                        sourceTool: toolName
+                    }),
+                    ...metadata
+                },
+                ...(skillName ? { skillName } : {})
+            }]
         });
         return;
     }
@@ -90,26 +93,29 @@ async function main(): Promise<void> {
     const agentName = toTrimmedString(toolInput.subagent_type);
     const title = description ? `Agent: ${description.slice(0, 80)}` : "Agent dispatch";
 
-    await postJson("/api/agent-activity", {
-        taskId: ids.taskId,
-        sessionId: ids.sessionId,
-        activityType: "delegation",
-        title,
-        ...(prompt || description ? { body: prompt || description } : {}),
-        metadata: {
-            ...buildSemanticMetadata({
-                subtypeKey: "delegation",
-                subtypeLabel: "Delegation",
-                subtypeGroup: "coordination",
-                toolFamily: "coordination",
-                operation: "delegate",
-                entityType: "agent",
-                entityName: agentName || description,
-                sourceTool: toolName
-            }),
-            ...metadata
-        },
-        ...(agentName ? { agentName } : {})
+    await postJson("/ingest/v1/events", {
+        events: [{
+            kind: "agent.activity.logged",
+            taskId: ids.taskId,
+            sessionId: ids.sessionId,
+            activityType: "delegation",
+            title,
+            ...(prompt || description ? { body: prompt || description } : {}),
+            metadata: {
+                ...buildSemanticMetadata({
+                    subtypeKey: "delegation",
+                    subtypeLabel: "Delegation",
+                    subtypeGroup: "coordination",
+                    toolFamily: "coordination",
+                    operation: "delegate",
+                    entityType: "agent",
+                    entityName: agentName || description,
+                    sourceTool: toolName
+                }),
+                ...metadata
+            },
+            ...(agentName ? { agentName } : {})
+        }]
     });
     hookLog("PostToolUse/Agent", "agent-activity posted", { activityType: "delegation", title });
 

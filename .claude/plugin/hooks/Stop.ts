@@ -52,20 +52,23 @@ async function main(): Promise<void> {
     const ids = await resolveSessionIds(sessionId);
     const usage = payload.usage as Record<string, unknown> | undefined;
 
-    await postJson("/api/assistant-response", {
-        taskId: ids.taskId,
-        sessionId: ids.sessionId,
-        messageId: createMessageId(),
-        source: "claude-plugin",
-        title,
-        ...(responseText ? { body: responseText } : {}),
-        metadata: {
-            stopReason,
-            ...(usage?.input_tokens != null ? { inputTokens: usage.input_tokens } : {}),
-            ...(usage?.output_tokens != null ? { outputTokens: usage.output_tokens } : {}),
-            ...(usage?.cache_read_input_tokens != null ? { cacheReadTokens: usage.cache_read_input_tokens } : {}),
-            ...(usage?.cache_creation_input_tokens != null ? { cacheCreateTokens: usage.cache_creation_input_tokens } : {})
-        }
+    await postJson("/ingest/v1/events", {
+        events: [{
+            kind: "assistant.response",
+            taskId: ids.taskId,
+            sessionId: ids.sessionId,
+            messageId: createMessageId(),
+            source: "claude-plugin",
+            title,
+            ...(responseText ? { body: responseText } : {}),
+            metadata: {
+                stopReason,
+                ...(usage?.input_tokens != null ? { inputTokens: usage.input_tokens } : {}),
+                ...(usage?.output_tokens != null ? { outputTokens: usage.output_tokens } : {}),
+                ...(usage?.cache_read_input_tokens != null ? { cacheReadTokens: usage.cache_read_input_tokens } : {}),
+                ...(usage?.cache_creation_input_tokens != null ? { cacheCreateTokens: usage.cache_creation_input_tokens } : {})
+            }
+        }]
     });
     hookLog("Stop", "assistant-response posted", { stopReason, hasText: !!responseText });
 }

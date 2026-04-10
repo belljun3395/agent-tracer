@@ -30,14 +30,15 @@ Each file name mirrors the Claude Code hook event it handles.
 
 ### `PostToolUse/` sub-handlers
 
-`PostToolUse` is split by matcher, so each tool family has its own file:
+`PostToolUse` is split by matcher, so each tool family has its own file.
+All handlers post to `POST /ingest/v1/events` with the appropriate `kind` field.
 
-- `.claude/plugin/hooks/PostToolUse/Bash.ts` — terminal commands → `/api/terminal-command`
-- `.claude/plugin/hooks/PostToolUse/File.ts` — `Edit` / `Write` → `/api/tool-used`
-- `.claude/plugin/hooks/PostToolUse/Explore.ts` — `Read` / `Glob` / `Grep` / `WebSearch` / `WebFetch` → `/api/explore`
-- `.claude/plugin/hooks/PostToolUse/Agent.ts` — `Agent` / `Skill` → `/api/agent-activity`
-- `.claude/plugin/hooks/PostToolUse/Todo.ts` — `TaskCreate` / `TaskUpdate` / `TodoWrite` → `/api/todo`
-- `.claude/plugin/hooks/PostToolUse/Mcp.ts` — `mcp__.*` → `/api/tool-used`
+- `.claude/plugin/hooks/PostToolUse/Bash.ts` — terminal commands → `kind: "terminal.command"`
+- `.claude/plugin/hooks/PostToolUse/File.ts` — `Edit` / `Write` → `kind: "tool.used"`
+- `.claude/plugin/hooks/PostToolUse/Explore.ts` — `Read` / `Glob` / `Grep` / `WebSearch` / `WebFetch` → `kind: "tool.used"` + `lane: "exploration"`
+- `.claude/plugin/hooks/PostToolUse/Agent.ts` — `Agent` → `kind: "agent.activity.logged"` (`activityType: "delegation"`); `Skill` → `kind: "agent.activity.logged"` (`activityType: "skill_use"`)
+- `.claude/plugin/hooks/PostToolUse/Todo.ts` — `TaskCreate` / `TaskUpdate` / `TodoWrite` → `kind: "todo.logged"` (배치 전송)
+- `.claude/plugin/hooks/PostToolUse/Mcp.ts` — `mcp__.*` → `kind: "agent.activity.logged"` (`activityType: "mcp_call"`)
 
 ### Supporting modules
 
@@ -65,12 +66,13 @@ Each file name mirrors the Claude Code hook event it handles.
 4. `UserPromptSubmit.ts` records the raw prompt as the canonical
    `user.message` event.
 5. `PostToolUse/*.ts` handlers record the per-tool activity with semantic
-   metadata built by the `classification/` modules.
+   metadata built by the `classification/` modules. All handlers send to
+   `POST /ingest/v1/events` with a `kind`-tagged batch envelope.
 6. `SubagentStart.ts` / `SubagentStop.ts` record background async
-   lifecycle events and update the subagent registry.
-7. `PreCompact.ts` and `PostCompact.ts` record compaction checkpoints to
-   the planning lane.
-8. `Stop.ts` posts the assistant response to `/api/assistant-response`
+   lifecycle events (`kind: "action.logged"` with `asyncTaskId`) and update the subagent registry.
+7. `PreCompact.ts` and `PostCompact.ts` record compaction checkpoints
+   (`kind: "context.saved"`) to the planning lane.
+8. `Stop.ts` posts the assistant response (`kind: "assistant.response"`)
    and ends the runtime session with `completeTask: true`.
 9. `SessionEnd.ts` closes only the current runtime session, so a
    second-turn session does not double-complete the primary task.
@@ -99,8 +101,9 @@ you want silent execution.
 ### Web-tool URLs go into a free-form metadata field
 
 `PostToolUse/Explore.ts` detects `WebSearch` / `WebFetch` calls and
-stuffs the query/URL into `metadata.webUrls` on the `/api/explore`
-request. This field is not part of the Claude Code hook payload spec —
+stuffs the query/URL into `metadata.webUrls` on the `/ingest/v1/events`
+request (`kind: "tool.used"`, `lane: "exploration"`).
+This field is not part of the Claude Code hook payload spec —
 it is an Agent Tracer extension stored in the event `metadata` column.
 The web dashboard surfaces it via the Exploration tab's "Web Lookups"
 section.

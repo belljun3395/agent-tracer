@@ -15,7 +15,7 @@ export function registerEventLoggingTools(server: McpServer, client: MonitorClie
             filePaths: z.array(z.string()).optional(),
             metadata: z.record(z.unknown()).optional()
         }
-    }, async (input) => toToolResponse(await client.post("/api/tool-used", input)));
+    }, async (input) => toToolResponse(await client.post("/ingest/v1/events", { events: [{ kind: "tool.used", ...input }] })));
     server.registerTool("monitor_terminal_command", {
         title: "Monitor Terminal Command",
         description: "Record a terminal command executed during a task. Use lane='implementation' for commands.",
@@ -29,7 +29,7 @@ export function registerEventLoggingTools(server: McpServer, client: MonitorClie
             filePaths: z.array(z.string()).optional(),
             metadata: z.record(z.unknown()).optional()
         }
-    }, async (input) => toToolResponse(await client.post("/api/terminal-command", input)));
+    }, async (input) => toToolResponse(await client.post("/ingest/v1/events", { events: [{ kind: "terminal.command", ...input }] })));
     server.registerTool("monitor_save_context", {
         title: "Monitor Save Context",
         description: "Record a planning thought, analysis, or context snapshot. " +
@@ -44,7 +44,7 @@ export function registerEventLoggingTools(server: McpServer, client: MonitorClie
             filePaths: z.array(z.string()).optional(),
             metadata: z.record(z.unknown()).optional()
         }
-    }, async (input) => toToolResponse(await client.post("/api/save-context", input)));
+    }, async (input) => toToolResponse(await client.post("/ingest/v1/events", { events: [{ kind: "context.saved", ...input }] })));
     server.registerTool("monitor_plan", {
         title: "Monitor Plan",
         description: "Record a planning step or approach decision using a free-form snake_case action name.",
@@ -57,7 +57,7 @@ export function registerEventLoggingTools(server: McpServer, client: MonitorClie
             filePaths: z.array(z.string()).optional(),
             metadata: z.record(z.unknown()).optional()
         }
-    }, async (input) => toToolResponse(await client.post("/api/plan", input)));
+    }, async (input) => toToolResponse(await client.post("/ingest/v1/events", { events: [{ kind: "plan.logged", ...input }] })));
     server.registerTool("monitor_action", {
         title: "Monitor Action",
         description: "Record an agent action before execution using a free-form snake_case action name.",
@@ -70,7 +70,7 @@ export function registerEventLoggingTools(server: McpServer, client: MonitorClie
             filePaths: z.array(z.string()).optional(),
             metadata: z.record(z.unknown()).optional()
         }
-    }, async (input) => toToolResponse(await client.post("/api/action", input)));
+    }, async (input) => toToolResponse(await client.post("/ingest/v1/events", { events: [{ kind: "action.logged", ...input }] })));
     server.registerTool("monitor_verify", {
         title: "Monitor Verify",
         description: "Record a verification step such as tests, build, or lint with a structured result.",
@@ -85,7 +85,7 @@ export function registerEventLoggingTools(server: McpServer, client: MonitorClie
             filePaths: z.array(z.string()).optional(),
             metadata: z.record(z.unknown()).optional()
         }
-    }, async (input) => toToolResponse(await client.post("/api/verify", input)));
+    }, async (input) => toToolResponse(await client.post("/ingest/v1/events", { events: [{ kind: "verification.logged", ...input }] })));
     server.registerTool("monitor_rule", {
         title: "Monitor Rule",
         description: "Record a rule-related event such as a check, violation, or fix with rule metadata.",
@@ -102,7 +102,7 @@ export function registerEventLoggingTools(server: McpServer, client: MonitorClie
             filePaths: z.array(z.string()).optional(),
             metadata: z.record(z.unknown()).optional()
         }
-    }, async (input) => toToolResponse(await client.post("/api/rule", input)));
+    }, async (input) => toToolResponse(await client.post("/ingest/v1/events", { events: [{ kind: "rule.logged", ...input }] })));
     server.registerTool("monitor_explore", {
         title: "Monitor Explore",
         description: "Record an exploration action: file read, code search, dependency check, or documentation lookup.",
@@ -115,7 +115,7 @@ export function registerEventLoggingTools(server: McpServer, client: MonitorClie
             filePaths: z.array(z.string()).optional(),
             metadata: z.record(z.unknown()).optional()
         }
-    }, async (input) => toToolResponse(await client.post("/api/explore", input)));
+    }, async (input) => toToolResponse(await client.post("/ingest/v1/events", { events: [{ kind: "tool.used", lane: "exploration", ...input }] })));
     server.registerTool("monitor_question", {
         title: "Monitor Question",
         description: "Record a question flow event. " +
@@ -135,7 +135,7 @@ export function registerEventLoggingTools(server: McpServer, client: MonitorClie
             modelProvider: z.string().optional(),
             metadata: z.record(z.unknown()).optional()
         }
-    }, async (input) => toToolResponse(await client.post("/api/question", input)));
+    }, async (input) => toToolResponse(await client.post("/ingest/v1/events", { events: [{ kind: "question.logged", ...input }] })));
     server.registerTool("monitor_todo", {
         title: "Monitor Todo",
         description: "Record a todo item lifecycle transition. " +
@@ -152,7 +152,7 @@ export function registerEventLoggingTools(server: McpServer, client: MonitorClie
             body: z.string().optional(),
             metadata: z.record(z.unknown()).optional()
         }
-    }, async (input) => toToolResponse(await client.post("/api/todo", input)));
+    }, async (input) => toToolResponse(await client.post("/ingest/v1/events", { events: [{ kind: "todo.logged", ...input }] })));
     server.registerTool("monitor_thought", {
         title: "Monitor Thought",
         description: "Record a summarized reasoning step in the planning lane. " +
@@ -167,7 +167,7 @@ export function registerEventLoggingTools(server: McpServer, client: MonitorClie
             modelProvider: z.string().optional(),
             metadata: z.record(z.unknown()).optional()
         }
-    }, async (input) => toToolResponse(await client.post("/api/thought", input)));
+    }, async (input) => toToolResponse(await client.post("/ingest/v1/events", { events: [{ kind: "thought.logged", ...input }] })));
     server.registerTool("monitor_agent_activity", {
         title: "Monitor Agent Activity",
         description: "Record coordination-lane activity such as MCP calls, skill usage, delegation, handoff, search, and bookmarks. " +
@@ -202,5 +202,5 @@ export function registerEventLoggingTools(server: McpServer, client: MonitorClie
             filePaths: z.array(z.string()).optional(),
             metadata: z.record(z.unknown()).optional()
         }
-    }, async (input) => toToolResponse(await client.post("/api/agent-activity", input)));
+    }, async (input) => toToolResponse(await client.post("/ingest/v1/events", { events: [{ kind: "agent.activity.logged", ...input }] })));
 }

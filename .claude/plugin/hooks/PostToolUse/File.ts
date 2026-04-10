@@ -46,18 +46,21 @@ async function main(): Promise<void> {
     const title = relPath ? `${toolName}: ${path.basename(relPath)}` : toolName;
     const body = relPath ? `Modified ${relPath}` : `Used ${toolName}`;
 
-    await postJson("/api/tool-used", {
-        taskId: ids.taskId,
-        sessionId: ids.sessionId,
-        toolName,
-        title,
-        body,
-        lane: LANE.implementation,
-        ...(filePath ? { filePaths: [filePath] } : {}),
-        metadata: {
-            ...buildSemanticMetadata(inferFileToolSemantic(toolName, toolInput)),
-            ...(filePath ? { filePath, relPath } : {})
-        }
+    await postJson("/ingest/v1/events", {
+        events: [{
+            kind: "tool.used",
+            taskId: ids.taskId,
+            sessionId: ids.sessionId,
+            toolName,
+            title,
+            body,
+            lane: LANE.implementation,
+            ...(filePath ? { filePaths: [filePath] } : {}),
+            metadata: {
+                ...buildSemanticMetadata(inferFileToolSemantic(toolName, toolInput)),
+                ...(filePath ? { filePath, relPath } : {})
+            }
+        }]
     });
     hookLog("PostToolUse/File", "tool-used posted", { toolName, title });
 }
