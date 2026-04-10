@@ -52,18 +52,21 @@ async function main(): Promise<void> {
         parentTaskId: ids.taskId
     });
 
-    await postJson("/api/async-task", {
-        taskId: ids.taskId,
-        sessionId: ids.sessionId,
-        asyncTaskId: agentId,
-        asyncStatus: "running",
-        title: `Subagent started: ${agentType}`,
-        metadata: {
-            agentId,
-            agentType,
-            parentTaskId: ids.taskId,
-            parentSessionId: sessionId
-        }
+    await postJson("/ingest/v1/events", {
+        events: [{
+            kind: "action.logged",
+            taskId: ids.taskId,
+            sessionId: ids.sessionId,
+            asyncTaskId: agentId,
+            asyncStatus: "running",
+            title: `Subagent started: ${agentType}`,
+            metadata: {
+                agentId,
+                agentType,
+                parentTaskId: ids.taskId,
+                parentSessionId: sessionId
+            }
+        }]
     });
     hookLog("SubagentStart", "async-task posted", { agentType, agentId });
 }

@@ -23,7 +23,7 @@ export function registerConversationTools(server: McpServer, client: MonitorClie
             metadata: z.record(z.unknown()).optional(),
             contractVersion: z.string().optional()
         }
-    }, async (input) => toToolResponse(await client.post("/api/user-message", input)));
+    }, async (input) => toToolResponse(await client.post("/ingest/v1/events", { events: [{ kind: "user.message", ...input }] })));
     server.registerTool("monitor_assistant_response", {
         title: "Monitor Assistant Response",
         description: "Record the assistant's user-facing response as a canonical assistant.response event. " +
@@ -37,7 +37,7 @@ export function registerConversationTools(server: McpServer, client: MonitorClie
             body: z.string().optional(),
             metadata: z.record(z.unknown()).optional()
         }
-    }, async (input) => toToolResponse(await client.post("/api/assistant-response", input)));
+    }, async (input) => toToolResponse(await client.post("/ingest/v1/events", { events: [{ kind: "assistant.response", ...input }] })));
     server.registerTool("monitor_session_end", {
         title: "Monitor Session End",
         description: "End the current runtime session without completing the work item. " +

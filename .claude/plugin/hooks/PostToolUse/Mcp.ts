@@ -51,29 +51,32 @@ async function main(): Promise<void> {
     const title = `MCP: ${mcpTool.server}/${mcpTool.tool}`;
     const body = `Used MCP tool ${mcpTool.server}/${mcpTool.tool}`;
 
-    await postJson("/api/agent-activity", {
-        taskId: ids.taskId,
-        sessionId: ids.sessionId,
-        activityType: "mcp_call",
-        title,
-        body,
-        lane: LANE.coordination,
-        mcpServer: mcpTool.server,
-        mcpTool: mcpTool.tool,
-        metadata: {
-            ...buildSemanticMetadata({
-                subtypeKey: "mcp_call",
-                subtypeLabel: "MCP call",
-                subtypeGroup: "coordination",
-                toolFamily: "coordination",
-                operation: "invoke",
-                entityType: "mcp",
-                entityName: `${mcpTool.server}/${mcpTool.tool}`,
-                sourceTool: toolName
-            }),
+    await postJson("/ingest/v1/events", {
+        events: [{
+            kind: "agent.activity.logged",
+            taskId: ids.taskId,
+            sessionId: ids.sessionId,
+            activityType: "mcp_call",
+            title,
+            body,
+            lane: LANE.coordination,
             mcpServer: mcpTool.server,
-            mcpTool: mcpTool.tool
-        }
+            mcpTool: mcpTool.tool,
+            metadata: {
+                ...buildSemanticMetadata({
+                    subtypeKey: "mcp_call",
+                    subtypeLabel: "MCP call",
+                    subtypeGroup: "coordination",
+                    toolFamily: "coordination",
+                    operation: "invoke",
+                    entityType: "mcp",
+                    entityName: `${mcpTool.server}/${mcpTool.tool}`,
+                    sourceTool: toolName
+                }),
+                mcpServer: mcpTool.server,
+                mcpTool: mcpTool.tool
+            }
+        }]
     });
     hookLog("PostToolUse/Mcp", "agent-activity posted", { title });
 }

@@ -50,15 +50,18 @@ async function main(): Promise<void> {
     if (!prompt) return;
 
     const phase: "initial" | "follow_up" = ids.taskCreated ? "initial" : "follow_up";
-    await postJson("/api/user-message", {
-        taskId: ids.taskId,
-        sessionId: ids.sessionId,
-        messageId: createMessageId(),
-        captureMode: "raw",
-        source: "claude-plugin",
-        phase,
-        title,
-        body: prompt
+    await postJson("/ingest/v1/events", {
+        events: [{
+            kind: "user.message",
+            taskId: ids.taskId,
+            sessionId: ids.sessionId,
+            messageId: createMessageId(),
+            captureMode: "raw",
+            source: "claude-plugin",
+            phase,
+            title,
+            body: prompt
+        }]
     });
     hookLog("UserPromptSubmit", "user-message posted", { title, phase });
 }

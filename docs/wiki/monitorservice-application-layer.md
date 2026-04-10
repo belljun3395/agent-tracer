@@ -7,6 +7,7 @@
 
 - `packages/server/src/application/monitor-service.ts`
 - `packages/server/src/application/types.ts`
+- `packages/server/src/application/services/event-ingestion-service.ts` — 통합 ingestion 진입점
 - `packages/server/src/application/services/event-recorder.ts`
 - `packages/server/src/application/services/session-lifecycle-policy.ts`
 - `packages/server/src/application/services/trace-metadata-factory.ts`
@@ -32,19 +33,26 @@
 
 ### Event logging
 
-- `logToolUsed()`
-- `logTerminalCommand()`
-- `saveContext()`
-- `logExploration()`
-- `logPlan()`
-- `logAction()`
-- `logVerification()`
-- `logRule()`
-- `logQuestion()`
-- `logAssistantResponse()`
-- `logQuestion()`
-- `logTodo()`
-- `logThought()`
+외부 클라이언트(hook, MCP tool)는 직접 `MonitorService` 메서드를 호출하지 않는다.
+`POST /ingest/v1/events` → `EventIngestionService.ingest()` → `MonitorService.log*()` 순서로 흐른다.
+
+`EventIngestionService`는 `kind` 필드로 분기해 아래 메서드를 호출한다:
+
+- `logToolUsed()` — `kind: "tool.used"`
+- `logExploration()` — `kind: "tool.used"` + `lane: "exploration"`
+- `logTerminalCommand()` — `kind: "terminal.command"`
+- `saveContext()` — `kind: "context.saved"`
+- `logPlan()` — `kind: "plan.logged"`
+- `logAction()` — `kind: "action.logged"` (asyncTaskId 없을 때)
+- `logAsyncLifecycle()` — `kind: "action.logged"` + `asyncTaskId` 있을 때
+- `logVerification()` — `kind: "verification.logged"`
+- `logRule()` — `kind: "rule.logged"`
+- `logAgentActivity()` — `kind: "agent.activity.logged"`
+- `logUserMessage()` — `kind: "user.message"`
+- `logQuestion()` — `kind: "question.logged"`
+- `logTodo()` — `kind: "todo.logged"`
+- `logThought()` — `kind: "thought.logged"`
+- `logAssistantResponse()` — `kind: "assistant.response"`
 
 ### SessionId 결합 규칙
 

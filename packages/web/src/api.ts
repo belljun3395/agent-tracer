@@ -229,9 +229,23 @@ export interface RuleActionPayload {
     metadata?: Record<string, unknown>;
 }
 export async function postRuleAction(payload: RuleActionPayload): Promise<void> {
-    await postJson<{
-        ok?: boolean;
-    }>("/api/rule", payload);
+    await postJson<{ ok?: boolean }>("/ingest/v1/events", {
+        events: [{
+            kind: "rule.logged",
+            taskId: payload.taskId,
+            ...(payload.sessionId ? { sessionId: payload.sessionId } : {}),
+            action: payload.action,
+            ...(payload.title ? { title: payload.title } : {}),
+            ...(payload.body ? { body: payload.body } : {}),
+            ruleId: payload.ruleId,
+            severity: payload.severity,
+            status: payload.status,
+            ...(payload.source ? { source: payload.source } : {}),
+            ...(payload.policy ? { policy: payload.policy } : {}),
+            ...(payload.outcome ? { outcome: payload.outcome } : {}),
+            ...(payload.metadata ? { metadata: payload.metadata } : {}),
+        }],
+    });
 }
 export function fetchWorkflowContent(taskId: TaskId): Promise<WorkflowContentRecord> {
     return getJson<WorkflowContentRecord>(`/api/workflows/${taskId}/content`);

@@ -40,13 +40,16 @@ async function main(): Promise<void> {
     const summary = toTrimmedString(payload.compact_summary, 1000)
         || "Claude Code compacted the conversation history.";
 
-    await postJson("/api/save-context", {
-        taskId: ids.taskId,
-        sessionId: ids.sessionId,
-        title: "Context compacted",
-        body: summary,
-        lane: LANE.planning,
-        metadata: { trigger, compactPhase: "after" }
+    await postJson("/ingest/v1/events", {
+        events: [{
+            kind: "context.saved",
+            taskId: ids.taskId,
+            sessionId: ids.sessionId,
+            title: "Context compacted",
+            body: summary,
+            lane: LANE.planning,
+            metadata: { trigger, compactPhase: "after" }
+        }]
     });
     hookLog("PostCompact", "save-context posted", { trigger });
 }

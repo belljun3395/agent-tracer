@@ -79,18 +79,22 @@ async function main(): Promise<void> {
         ? (toTrimmedString(toolInput.query) || toTrimmedString(toolInput.url)).slice(0, MAX_PATH_LENGTH)
         : "";
 
-    await postJson("/api/explore", {
-        taskId: ids.taskId,
-        sessionId: ids.sessionId,
-        toolName,
-        title,
-        body,
-        filePaths: filePaths.map((fp) => fp.slice(0, MAX_PATH_LENGTH)),
-        metadata: {
-            ...buildSemanticMetadata(semantic),
-            toolInput: stringifyToolInput(toolInput),
-            ...(isWebTool && webQuery ? { webUrls: [webQuery] } : {})
-        }
+    await postJson("/ingest/v1/events", {
+        events: [{
+            kind: "tool.used",
+            lane: "exploration",
+            taskId: ids.taskId,
+            sessionId: ids.sessionId,
+            toolName,
+            title,
+            body,
+            filePaths: filePaths.map((fp) => fp.slice(0, MAX_PATH_LENGTH)),
+            metadata: {
+                ...buildSemanticMetadata(semantic),
+                toolInput: stringifyToolInput(toolInput),
+                ...(isWebTool && webQuery ? { webUrls: [webQuery] } : {})
+            }
+        }]
     });
     hookLog("PostToolUse/Explore", "explore posted", { toolName, title });
 }

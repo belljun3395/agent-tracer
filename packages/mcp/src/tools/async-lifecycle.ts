@@ -21,5 +21,5 @@ export function registerAsyncLifecycleTools(server: McpServer, client: MonitorCl
             filePaths: z.array(z.string()).optional(),
             metadata: z.record(z.unknown()).optional()
         }
-    }, async (input) => toToolResponse(await client.post("/api/async-task", input)));
+    }, async (input) => toToolResponse(await client.post("/ingest/v1/events", { events: [{ kind: "action.logged", ...input }] })));
 }

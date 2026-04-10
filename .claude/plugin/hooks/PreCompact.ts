@@ -39,13 +39,16 @@ async function main(): Promise<void> {
     const trigger = toTrimmedString(payload.trigger) || "auto";
     const customInstructions = toTrimmedString(payload.custom_instructions);
 
-    await postJson("/api/save-context", {
-        taskId: ids.taskId,
-        sessionId: ids.sessionId,
-        title: "Context compacting",
-        ...(customInstructions ? { body: customInstructions } : {}),
-        lane: LANE.planning,
-        metadata: { trigger, compactPhase: "before" }
+    await postJson("/ingest/v1/events", {
+        events: [{
+            kind: "context.saved",
+            taskId: ids.taskId,
+            sessionId: ids.sessionId,
+            title: "Context compacting",
+            ...(customInstructions ? { body: customInstructions } : {}),
+            lane: LANE.planning,
+            metadata: { trigger, compactPhase: "before" }
+        }]
     });
     hookLog("PreCompact", "save-context posted", { trigger });
 }
