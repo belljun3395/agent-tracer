@@ -147,14 +147,17 @@ describe("Claude plugin", () => {
                 }
             },
             {
-                endpoint: "/api/save-context",
+                endpoint: "/ingest/v1/events",
                 body: {
-                    taskId: "parent-task",
-                    sessionId: "parent-monitor-session",
-                    title: "Session started",
-                    body: "Claude Code session started.",
-                    lane: "planning",
-                    metadata: { trigger: "startup" }
+                    events: [{
+                        kind: "context.saved",
+                        taskId: "parent-task",
+                        sessionId: "parent-monitor-session",
+                        title: "Session started",
+                        body: "Claude Code session started.",
+                        lane: "planning",
+                        metadata: { trigger: "startup" }
+                    }]
                 }
             }
         ]);
@@ -181,14 +184,17 @@ describe("Claude plugin", () => {
                 }
             },
             {
-                endpoint: "/api/save-context",
+                endpoint: "/ingest/v1/events",
                 body: {
-                    taskId: "parent-task",
-                    sessionId: "parent-monitor-session",
-                    title: "Session started",
-                    body: "Claude Code session started.",
-                    lane: "planning",
-                    metadata: { trigger: "startup" }
+                    events: [{
+                        kind: "context.saved",
+                        taskId: "parent-task",
+                        sessionId: "parent-monitor-session",
+                        title: "Session started",
+                        body: "Claude Code session started.",
+                        lane: "planning",
+                        metadata: { trigger: "startup" }
+                    }]
                 }
             }
         ]);
@@ -211,14 +217,17 @@ describe("Claude plugin", () => {
                 }
             },
             {
-                endpoint: "/api/save-context",
+                endpoint: "/ingest/v1/events",
                 body: {
-                    taskId: "parent-task",
-                    sessionId: "parent-monitor-session",
-                    title: "Session resumed",
-                    body: "Claude Code session resumed.",
-                    lane: "planning",
-                    metadata: { trigger: "resume" }
+                    events: [{
+                        kind: "context.saved",
+                        taskId: "parent-task",
+                        sessionId: "parent-monitor-session",
+                        title: "Session resumed",
+                        body: "Claude Code session resumed.",
+                        lane: "planning",
+                        metadata: { trigger: "resume" }
+                    }]
                 }
             }
         ]);
@@ -276,30 +285,33 @@ describe("Claude plugin", () => {
                 }
             },
             {
-                endpoint: "/api/agent-activity",
+                endpoint: "/ingest/v1/events",
                 body: {
-                    taskId: "parent-task",
-                    sessionId: "parent-monitor-session",
-                    activityType: "delegation",
-                    title: "Agent: Review child monitor flow",
-                    body: "Inspect the child task",
-                    metadata: {
-                        subtypeKey: "delegation",
-                        subtypeLabel: "Delegation",
-                        subtypeGroup: "coordination",
-                        toolFamily: "coordination",
-                        operation: "delegate",
-                        entityType: "agent",
-                        entityName: "default",
-                        sourceTool: "Agent",
-                        toolInput: {
-                            description: "Review child monitor flow",
-                            prompt: "Inspect the child task",
-                            run_in_background: "true",
-                            subagent_type: "default"
-                        }
-                    },
-                    agentName: "default"
+                    events: [{
+                        kind: "agent.activity.logged",
+                        taskId: "parent-task",
+                        sessionId: "parent-monitor-session",
+                        activityType: "delegation",
+                        title: "Agent: Review child monitor flow",
+                        body: "Inspect the child task",
+                        metadata: {
+                            subtypeKey: "delegation",
+                            subtypeLabel: "Delegation",
+                            subtypeGroup: "coordination",
+                            toolFamily: "coordination",
+                            operation: "delegate",
+                            entityType: "agent",
+                            entityName: "default",
+                            sourceTool: "Agent",
+                            toolInput: {
+                                description: "Review child monitor flow",
+                                prompt: "Inspect the child task",
+                                run_in_background: "true",
+                                subagent_type: "default"
+                            }
+                        },
+                        agentName: "default"
+                    }]
                 }
             },
             {
@@ -343,17 +355,20 @@ describe("Claude plugin", () => {
                 }
             },
             {
-                endpoint: "/api/save-context",
+                endpoint: "/ingest/v1/events",
                 body: {
-                    taskId: "parent-task",
-                    sessionId: "parent-monitor-session",
-                    title: "Context compacted",
-                    body: "Compacted summary",
-                    lane: "planning",
-                    metadata: {
-                        trigger: "manual",
-                        compactPhase: "after"
-                    }
+                    events: [{
+                        kind: "context.saved",
+                        taskId: "parent-task",
+                        sessionId: "parent-monitor-session",
+                        title: "Context compacted",
+                        body: "Compacted summary",
+                        lane: "planning",
+                        metadata: {
+                            trigger: "manual",
+                            compactPhase: "after"
+                        }
+                    }]
                 }
             }
         ]);
@@ -385,19 +400,22 @@ describe("Claude plugin", () => {
                 }
             },
             {
-                endpoint: "/api/async-task",
+                endpoint: "/ingest/v1/events",
                 body: {
-                    taskId: "parent-task",
-                    sessionId: "parent-monitor-session",
-                    asyncTaskId: "agent-123",
-                    asyncStatus: "running",
-                    title: "Subagent started: Explore",
-                    metadata: {
-                        agentId: "agent-123",
-                        agentType: "Explore",
-                        parentTaskId: "parent-task",
-                        parentSessionId: "parent-session"
-                    }
+                    events: [{
+                        kind: "action.logged",
+                        taskId: "parent-task",
+                        sessionId: "parent-monitor-session",
+                        asyncTaskId: "agent-123",
+                        asyncStatus: "running",
+                        title: "Subagent started: Explore",
+                        metadata: {
+                            agentId: "agent-123",
+                            agentType: "Explore",
+                            parentTaskId: "parent-task",
+                            parentSessionId: "parent-session"
+                        }
+                    }]
                 }
             },
             {
@@ -410,20 +428,23 @@ describe("Claude plugin", () => {
                 }
             },
             {
-                endpoint: "/api/async-task",
+                endpoint: "/ingest/v1/events",
                 body: {
-                    taskId: "parent-task",
-                    sessionId: "parent-monitor-session",
-                    asyncTaskId: "agent-123",
-                    asyncStatus: "completed",
-                    title: "Subagent finished: Explore",
-                    body: "Analysis complete.",
-                    metadata: {
-                        agentId: "agent-123",
-                        agentType: "Explore",
-                        parentTaskId: "parent-task",
-                        parentSessionId: "parent-session"
-                    }
+                    events: [{
+                        kind: "action.logged",
+                        taskId: "parent-task",
+                        sessionId: "parent-monitor-session",
+                        asyncTaskId: "agent-123",
+                        asyncStatus: "completed",
+                        title: "Subagent finished: Explore",
+                        body: "Analysis complete.",
+                        metadata: {
+                            agentId: "agent-123",
+                            agentType: "Explore",
+                            parentTaskId: "parent-task",
+                            parentSessionId: "parent-session"
+                        }
+                    }]
                 }
             }
         ]);
@@ -452,18 +473,21 @@ describe("Claude plugin", () => {
                 }
             },
             {
-                endpoint: "/api/todo",
+                endpoint: "/ingest/v1/events",
                 body: {
-                    taskId: "parent-task",
-                    sessionId: "parent-monitor-session",
-                    todoId: "task-123",
-                    todoState: "in_progress",
-                    title: "Implement auth",
-                    metadata: {
-                        priority: "high",
-                        status: "in_progress",
-                        toolName: "TaskCreate"
-                    }
+                    events: [{
+                        kind: "todo.logged",
+                        taskId: "parent-task",
+                        sessionId: "parent-monitor-session",
+                        todoId: "task-123",
+                        todoState: "in_progress",
+                        title: "Implement auth",
+                        metadata: {
+                            priority: "high",
+                            status: "in_progress",
+                            toolName: "TaskCreate"
+                        }
+                    }]
                 }
             }
         ]);
@@ -493,28 +517,31 @@ describe("Claude plugin", () => {
                 }
             },
             {
-                endpoint: "/api/tool-used",
+                endpoint: "/ingest/v1/events",
                 body: {
-                    taskId: "parent-task",
-                    sessionId: "parent-monitor-session",
-                    toolName: "Bash",
-                    title: "Failed Bash",
-                    body: "Command exited with non-zero status code 1",
-                    lane: "implementation",
-                    metadata: {
-                        description: "Run tests",
-                        subtypeKey: "run_test",
-                        subtypeLabel: "Run test",
-                        subtypeGroup: "execution",
-                        toolFamily: "terminal",
-                        operation: "execute",
-                        entityType: "command",
-                        entityName: "npm",
-                        sourceTool: "Bash",
-                        failed: true,
-                        error: "Command exited with non-zero status code 1",
-                        isInterrupt: false
-                    }
+                    events: [{
+                        kind: "tool.used",
+                        taskId: "parent-task",
+                        sessionId: "parent-monitor-session",
+                        toolName: "Bash",
+                        title: "Failed Bash",
+                        body: "Command exited with non-zero status code 1",
+                        lane: "implementation",
+                        metadata: {
+                            description: "Run tests",
+                            subtypeKey: "run_test",
+                            subtypeLabel: "Run test",
+                            subtypeGroup: "execution",
+                            toolFamily: "terminal",
+                            operation: "execute",
+                            entityType: "command",
+                            entityName: "npm",
+                            sourceTool: "Bash",
+                            failed: true,
+                            error: "Command exited with non-zero status code 1",
+                            isInterrupt: false
+                        }
+                    }]
                 }
             }
         ]);
@@ -541,26 +568,29 @@ describe("Claude plugin", () => {
                 }
             },
             {
-                endpoint: "/api/terminal-command",
+                endpoint: "/ingest/v1/events",
                 body: {
-                    taskId: "parent-task",
-                    sessionId: "parent-monitor-session",
-                    command: "npm run lint",
-                    title: "Run lint",
-                    body: "Run lint\n\n$ npm run lint",
-                    lane: "implementation",
-                    metadata: {
-                        description: "Run lint",
+                    events: [{
+                        kind: "terminal.command",
+                        taskId: "parent-task",
+                        sessionId: "parent-monitor-session",
                         command: "npm run lint",
-                        subtypeKey: "run_lint",
-                        subtypeLabel: "Run lint",
-                        subtypeGroup: "execution",
-                        toolFamily: "terminal",
-                        operation: "execute",
-                        entityType: "command",
-                        entityName: "npm",
-                        sourceTool: "Bash"
-                    }
+                        title: "Run lint",
+                        body: "Run lint\n\n$ npm run lint",
+                        lane: "implementation",
+                        metadata: {
+                            description: "Run lint",
+                            command: "npm run lint",
+                            subtypeKey: "run_lint",
+                            subtypeLabel: "Run lint",
+                            subtypeGroup: "execution",
+                            toolFamily: "terminal",
+                            operation: "execute",
+                            entityType: "command",
+                            entityName: "npm",
+                            sourceTool: "Bash"
+                        }
+                    }]
                 }
             }
         ]);
@@ -587,28 +617,31 @@ describe("Claude plugin", () => {
                 }
             },
             {
-                endpoint: "/api/agent-activity",
+                endpoint: "/ingest/v1/events",
                 body: {
-                    taskId: "parent-task",
-                    sessionId: "parent-monitor-session",
-                    activityType: "mcp_call",
-                    title: "MCP: github/search_repositories",
-                    body: "Used MCP tool github/search_repositories",
-                    lane: "coordination",
-                    mcpServer: "github",
-                    mcpTool: "search_repositories",
-                    metadata: {
-                        subtypeKey: "mcp_call",
-                        subtypeLabel: "MCP call",
-                        subtypeGroup: "coordination",
-                        toolFamily: "coordination",
-                        operation: "invoke",
-                        entityType: "mcp",
-                        entityName: "github/search_repositories",
-                        sourceTool: "mcp__github__search_repositories",
+                    events: [{
+                        kind: "agent.activity.logged",
+                        taskId: "parent-task",
+                        sessionId: "parent-monitor-session",
+                        activityType: "mcp_call",
+                        title: "MCP: github/search_repositories",
+                        body: "Used MCP tool github/search_repositories",
+                        lane: "coordination",
                         mcpServer: "github",
-                        mcpTool: "search_repositories"
-                    }
+                        mcpTool: "search_repositories",
+                        metadata: {
+                            subtypeKey: "mcp_call",
+                            subtypeLabel: "MCP call",
+                            subtypeGroup: "coordination",
+                            toolFamily: "coordination",
+                            operation: "invoke",
+                            entityType: "mcp",
+                            entityName: "github/search_repositories",
+                            sourceTool: "mcp__github__search_repositories",
+                            mcpServer: "github",
+                            mcpTool: "search_repositories"
+                        }
+                    }]
                 }
             }
         ]);
@@ -622,14 +655,17 @@ describe("Claude plugin", () => {
             last_assistant_message: "I'll fix the bug by editing the file.",
             usage: { input_tokens: 100, output_tokens: 40 }
         }, monitor.port);
-        const response = monitor.calls.find(c => c.endpoint === "/api/assistant-response");
+        const ingestCall = monitor.calls.find(c => c.endpoint === "/ingest/v1/events");
+        expect(ingestCall).toBeDefined();
+        const events = ingestCall!.body.events as Array<Record<string, unknown>>;
+        const response = events.find(e => e.kind === "assistant.response");
         expect(response).toBeDefined();
-        expect(response!.body.source).toBe("claude-plugin");
-        expect(response!.body.body).toBe("I'll fix the bug by editing the file.");
-        expect(response!.body.title).toBe("I'll fix the bug by editing the file.");
-        expect((response!.body.metadata as Record<string, unknown>).stopReason).toBe("end_turn");
-        expect((response!.body.metadata as Record<string, unknown>).inputTokens).toBe(100);
-        expect((response!.body.metadata as Record<string, unknown>).outputTokens).toBe(40);
+        expect(response!.source).toBe("claude-plugin");
+        expect(response!.body).toBe("I'll fix the bug by editing the file.");
+        expect(response!.title).toBe("I'll fix the bug by editing the file.");
+        expect((response!.metadata as Record<string, unknown>).stopReason).toBe("end_turn");
+        expect((response!.metadata as Record<string, unknown>).inputTokens).toBe(100);
+        expect((response!.metadata as Record<string, unknown>).outputTokens).toBe(40);
         const sessionEnd = monitor.calls.find(c => c.endpoint === "/api/runtime-session-end");
         expect(sessionEnd).toBeUndefined();
     });
@@ -647,10 +683,13 @@ describe("Claude plugin", () => {
                 cache_creation_input_tokens: 300
             }
         }, monitor.port);
-        const response = monitor.calls.find(c => c.endpoint === "/api/assistant-response");
+        const ingestCall = monitor.calls.find(c => c.endpoint === "/ingest/v1/events");
+        expect(ingestCall).toBeDefined();
+        const events = ingestCall!.body.events as Array<Record<string, unknown>>;
+        const response = events.find(e => e.kind === "assistant.response");
         expect(response).toBeDefined();
-        expect(response!.body.body).toBe("The answer is 4.");
-        const meta = response!.body.metadata as Record<string, unknown>;
+        expect(response!.body).toBe("The answer is 4.");
+        const meta = response!.metadata as Record<string, unknown>;
         expect(meta.cacheReadTokens).toBe(200);
         expect(meta.cacheCreateTokens).toBe(300);
     });
@@ -661,10 +700,13 @@ describe("Claude plugin", () => {
             session_id: "parent-session",
             stop_reason: "max_turns"
         }, monitor.port);
-        const response = monitor.calls.find(c => c.endpoint === "/api/assistant-response");
+        const ingestCall = monitor.calls.find(c => c.endpoint === "/ingest/v1/events");
+        expect(ingestCall).toBeDefined();
+        const events = ingestCall!.body.events as Array<Record<string, unknown>>;
+        const response = events.find(e => e.kind === "assistant.response");
         expect(response).toBeDefined();
-        expect(response!.body.body).toBeUndefined();
-        expect(response!.body.title).toBe("Response (max_turns)");
+        expect(response!.body).toBeUndefined();
+        expect(response!.title).toBe("Response (max_turns)");
     });
     it("Stop hook: missing usage → no token metadata fields", async () => {
         const monitor = await startMonitorStub();
@@ -674,9 +716,12 @@ describe("Claude plugin", () => {
             stop_reason: "end_turn",
             last_assistant_message: "Done."
         }, monitor.port);
-        const response = monitor.calls.find(c => c.endpoint === "/api/assistant-response");
+        const ingestCall = monitor.calls.find(c => c.endpoint === "/ingest/v1/events");
+        expect(ingestCall).toBeDefined();
+        const events = ingestCall!.body.events as Array<Record<string, unknown>>;
+        const response = events.find(e => e.kind === "assistant.response");
         expect(response).toBeDefined();
-        const meta = response!.body.metadata as Record<string, unknown>;
+        const meta = response!.metadata as Record<string, unknown>;
         expect(meta).not.toHaveProperty("inputTokens");
         expect(meta).not.toHaveProperty("outputTokens");
     });
