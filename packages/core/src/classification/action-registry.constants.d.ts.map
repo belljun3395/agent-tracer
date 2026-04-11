@@ -1,0 +1,1 @@
+{"version":3,"file":"action-registry.constants.d.ts","sourceRoot":"","sources":["action-registry.constants.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,EAAE,gBAAgB,EAAE,iBAAiB,EAAE,MAAM,4BAA4B,CAAC;AACtF,eAAO,MAAM,iBAAiB,aAAmB,CAAC;AAClD,eAAO,MAAM,mBAAmB,EAAE,SAAS,gBAAgB,EAqB1D,CAAC;AACF,eAAO,MAAM,oBAAoB,EAAE,SAAS,iBAAiB,EAgB5D,CAAC"}

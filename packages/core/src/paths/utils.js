@@ -1,0 +1,116 @@
+/**
+ * Extracts path-like references from free-form text so downstream code can link them.
+ */
+export function extractPathLikeTokens(text) {
+    const matches = new Set();
+    /**
+     * Deduplicates valid path candidates after lightweight normalization.
+     */
+    function addCandidate(raw) {
+        const candidate = raw?.trim();
+        if (candidate && looksLikePath(candidate)) {
+            matches.add(candidate);
+        }
+    }
+    const stripped = text.replace(/```[\s\S]*?```/g, "");
+    const backtickRegex = /`([^`\n]+)`/g;
+    for (const match of stripped.matchAll(backtickRegex)) {
+        addCandidate(match[1]);
+    }
+    const atPathRegex = /@([A-Za-z0-9_./-]+\/?)/g;
+    for (const match of stripped.matchAll(atPathRegex)) {
+        addCandidate(match[1]);
+    }
+    const plainPathRegex = /(?:[A-Za-z0-9_.-]+\/)+[A-Za-z0-9_.-]*/g;
+    for (const match of stripped.matchAll(plainPathRegex)) {
+        addCandidate(match[0]);
+    }
+    return [...matches];
+}
+/**
+ * Heuristically decides whether a token is likely intended to represent a file path.
+ */
+export function looksLikePath(value) {
+    if (/[\n\r]/.test(value))
+        return false;
+    if (value.length > 260)
+        return false;
+    if (/\s/.test(value))
+        return false;
+    if (/[=(){};,\x5b\x5d<>!?#&|+*^~"']/.test(value))
+        return false;
+    return (/[/\\]/.test(value) ||
+        /\.[a-z0-9]{1,15}$/i.test(value) ||
+        /^\.[a-z0-9]/i.test(value));
+}
+/**
+ * Guesses whether the provided path string points to a directory rather than a file.
+ */
+export function isDirectoryPath(path) {
+    if (path.endsWith("/")) {
+        return true;
+    }
+    const lastSegment = path.split("/").filter(Boolean).at(-1) ?? "";
+    if (/^\.[a-z0-9]/i.test(lastSegment)) {
+        const afterDot = lastSegment.slice(1);
+        return !(afterDot.length <= 3 ||
+            afterDot.includes(".") ||
+            /(?:rc|ignore|config|lock|keep|list|sum|sig)$/i.test(afterDot));
+    }
+    return !/\.[a-z0-9]{1,15}$/i.test(lastSegment);
+}
+/**
+ * Normalizes a file path and resolves relative paths against an optional workspace root.
+ */
+export function normalizeFilePath(filePath, workspacePath) {
+    const cleaned = filePath.replace(/\/+/g, "/").replace(/\/$/, "").trim();
+    if (cleaned.startsWith("/")) {
+        return cleaned;
+    }
+    if (workspacePath) {
+        const base = workspacePath.replace(/\/+/g, "/").replace(/\/$/, "");
+        return `${base}/${cleaned}`;
+    }
+    return cleaned;
+}
+/**
+ * Compares two path references while tolerating absolute-vs-relative differences.
+ */
+export function matchFilePaths(mentionedPath, exploredPath, workspacePath) {
+    const normalizedMentioned = normalizeFilePath(mentionedPath, workspacePath);
+    const normalizedExplored = normalizeFilePath(exploredPath, workspacePath);
+    if (normalizedMentioned === normalizedExplored) {
+        return true;
+    }
+    const suffixA = toPathSuffix(normalizedMentioned);
+    const suffixB = toPathSuffix(normalizedExplored);
+    if (suffixA && suffixB) {
+        return suffixA === suffixB
+            || suffixB.endsWith(`/${suffixA}`)
+            || suffixA.endsWith(`/${suffixB}`);
+    }
+    return false;
+}
+/**
+ * Filters a file list down to entries that live inside a target directory.
+ */
+export function filePathsInDirectory(dirPath, filePaths, workspacePath) {
+    const normalizedDir = normalizeFilePath(dirPath, workspacePath);
+    const dirSuffix = toPathSuffix(normalizedDir);
+    return filePaths.filter((filePath) => {
+        const normalizedFile = normalizeFilePath(filePath, workspacePath);
+        const fileSuffix = toPathSuffix(normalizedFile);
+        if (fileSuffix === dirSuffix || normalizedFile === normalizedDir) {
+            return true;
+        }
+        return fileSuffix.startsWith(`${dirSuffix}/`)
+            || normalizedFile.startsWith(`${normalizedDir}/`);
+    });
+}
+/**
+ * Removes a leading slash so path suffix comparisons can ignore absolute roots.
+ */
+function toPathSuffix(p) {
+    return p.replace(/^\/+/, "");
+}
+//# sourceMappingURL=utils.js.map

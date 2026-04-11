@@ -1703,6 +1703,75 @@ function appendXmlHandoffSection(lines: string[], key: HandoffSectionKey, option
             break;
     }
 }
+const HANDOFF_PROMPT_PREAMBLE: Record<HandoffPurpose, string> = {
+    continue: "이전에 진행하던 작업을 이어받습니다. 아래 briefing을 읽고 작업을 재개하세요.",
+    handoff: "다른 개발자가 진행하던 작업을 인수받습니다. 아래 briefing을 읽고 현재 상태를 파악하세요.",
+    review: "완료된 작업을 리뷰합니다. 아래 briefing을 읽고 목표 대비 완성도를 평가하세요.",
+    reference: "과거 작업의 참조 워크플로우입니다. 유사한 작업 시 참고용으로 활용하세요."
+};
+const HANDOFF_PROMPT_ACTION: Record<HandoffPurpose, string> = {
+    continue: "가장 긴급한 미완료 항목부터 작업을 시작하세요.",
+    handoff: "인수 사항을 확인하고, 첫 번째 행동을 결정하세요.",
+    review: "작업을 plan 대비 검토하고, 품질 이슈나 개선점을 정리하세요.",
+    reference: "monitor_find_similar_workflows MCP 도구로 유사 워크플로우를 검색하여 비교하세요."
+};
+export function buildHandoffPrompt(options: HandoffOptions): string {
+    const { objective, purpose } = options;
+    const view = prepareHandoffView(options);
+    const parts: string[] = [
+        HANDOFF_PROMPT_PREAMBLE[purpose],
+        `\n## Task\n${objective}`
+    ];
+    for (const key of HANDOFF_SECTION_ORDER[purpose]) {
+        appendSystemPromptHandoffSection(parts, key, options, view);
+    }
+    parts.push(`\n## Action\n${HANDOFF_PROMPT_ACTION[purpose]}`);
+    return parts.join("");
+}
+export interface EvaluatePromptOptions {
+    readonly taskId: string;
+    readonly objective: string;
+    readonly summary: string;
+    readonly sections: readonly TaskProcessSection[];
+    readonly plans: readonly string[];
+    readonly exploredFiles: readonly string[];
+    readonly modifiedFiles: readonly string[];
+    readonly openTodos: readonly string[];
+    readonly openQuestions: readonly string[];
+    readonly violations: readonly string[];
+    readonly snapshot: ReusableTaskSnapshot;
+}
+export function buildEvaluatePrompt(options: EvaluatePromptOptions): string {
+    const { taskId, objective, summary, sections, modifiedFiles, violations } = options;
+    const parts: string[] = [
+        "완료된 작업을 평가하고 monitor_evaluate_task MCP 도구를 호출하여 워크플로우 라이브러리에 저장하세요."
+    ];
+    parts.push(`\n## Task Context`);
+    if (objective) parts.push(`\n- Objective: ${objective}`);
+    if (summary) parts.push(`\n- Summary: ${summary}`);
+    if (sections.length > 0) {
+        const items = sections.flatMap((s) => s.items.slice(0, 2).map((item) => `  - ${s.lane}: ${item}`));
+        parts.push(`\n- Process:\n${items.join("\n")}`);
+    }
+    if (modifiedFiles.length > 0) {
+        parts.push(`\n- Modified files: ${modifiedFiles.slice(0, 6).join(", ")}`);
+    }
+    if (violations.length > 0) {
+        parts.push(`\n- Watchouts: ${violations.slice(0, 4).join("; ")}`);
+    }
+    parts.push(`\n## Instructions`);
+    parts.push(`\n아래 context를 바탕으로 monitor_evaluate_task MCP 도구를 호출하세요:\n`);
+    parts.push(`- taskId: "${taskId}"`);
+    parts.push(`- rating: 접근법이 효과적이었으면 "good", 아니면 "skip"`);
+    parts.push(`- useCase: 이 작업의 유형 (예: "TypeScript 타입 에러 수정")`);
+    parts.push(`- outcomeNote: 달성한 결과 요약`);
+    parts.push(`- approachNote: 효과적이었던 접근법과 이유`);
+    parts.push(`- reuseWhen: 이 워크플로우를 재사용할 상황`);
+    parts.push(`- watchouts: 유사 작업 시 주의사항`);
+    parts.push(`- workflowTags: 분류 태그 (예: ["typescript", "refactor"])`);
+    parts.push(`\n확인을 구하지 말고 바로 도구를 호출하세요.`);
+    return parts.join("\n");
+}
 function appendSystemPromptHandoffSection(parts: string[], key: HandoffSectionKey, options: HandoffOptions, view: PreparedHandoffView): void {
     switch (key) {
         case "summary":

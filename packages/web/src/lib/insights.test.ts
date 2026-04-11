@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { EventId, TaskId, TaskSlug, WorkspacePath } from "@monitor/core";
 import type { MonitoringTask, TimelineEvent } from "@monitor/web-core";
-import { buildExplorationInsight, collectRecentRuleDecisions, buildTaskExtraction, buildSubagentInsight, buildHandoffMarkdown, buildHandoffPlain, buildHandoffXML, buildHandoffSystemPrompt, buildInspectorEventTitle, buildObservabilityStats, buildQuestionGroups, buildTaskDisplayTitle, buildTodoGroups, collectPlanSteps, collectViolationDescriptions, collectWebLookups, filterTimelineEvents } from "@monitor/web-core";
-import type { HandoffOptions } from "@monitor/web-core";
+import { buildExplorationInsight, collectRecentRuleDecisions, buildTaskExtraction, buildSubagentInsight, buildHandoffMarkdown, buildHandoffPlain, buildHandoffXML, buildHandoffSystemPrompt, buildHandoffPrompt, buildEvaluatePrompt, buildInspectorEventTitle, buildObservabilityStats, buildQuestionGroups, buildTaskDisplayTitle, buildTodoGroups, collectPlanSteps, collectViolationDescriptions, collectWebLookups, filterTimelineEvents } from "@monitor/web-core";
+import type { HandoffOptions, EvaluatePromptOptions } from "@monitor/web-core";
 function makeTask(overrides: Omit<Partial<MonitoringTask>, "id"> & {
     id?: string;
 } = {}): MonitoringTask {
@@ -396,6 +396,77 @@ describe("buildHandoffPlain", () => {
         expect(result.indexOf("Summary:")).toBeLessThan(result.indexOf("Current State:"));
         expect(result.indexOf("Watchouts:")).toBeLessThan(result.indexOf("Process:"));
     });
+    it("uses ready-for-review currentState text when openTodos is empty", () => {
+        const result = buildHandoffPlain(makeHandoff({ purpose: "review", openTodos: [] }));
+        expect(result).toContain("The task is ready for review.");
+    });
+    it("omits todos section for review purpose", () => {
+        const result = buildHandoffPlain(makeHandoff({ purpose: "review" }));
+        expect(result).not.toContain("Open TODOs:");
+    });
+    it("uses no-todos text when openTodos is empty for continue purpose", () => {
+        const result = buildHandoffPlain(makeHandoff({ purpose: "continue", openTodos: [] }));
+        expect(result).toContain("No open todos were detected in the selected briefing view.");
+    });
+    it("compact mode with empty snapshot produces minimal output without empty sections", () => {
+        const emptySnapshot = {
+            objective: "Fix the bug",
+            originalRequest: null,
+            outcomeSummary: null,
+            approachSummary: null,
+            reuseWhen: null,
+            watchItems: [] as readonly string[],
+            keyDecisions: [] as readonly string[],
+            nextSteps: [] as readonly string[],
+            keyFiles: [] as readonly string[],
+            modifiedFiles: [] as readonly string[],
+            verificationSummary: null,
+            searchText: ""
+        };
+        const result = buildHandoffPlain(makeHandoff({
+            mode: "compact",
+            snapshot: emptySnapshot,
+            summary: "",
+            plans: [],
+            sections: [],
+            exploredFiles: [],
+            modifiedFiles: [],
+            openTodos: [],
+            violations: [],
+            openQuestions: [],
+            memo: ""
+        }));
+        expect(result).toContain("Briefing: Build the feature");
+        expect(result).toContain("Current State:");
+        expect(result).not.toContain("Summary:");
+        expect(result).not.toContain("Plan:");
+        expect(result).not.toContain("Process:");
+        expect(result).not.toContain("Explored Files:");
+    });
+});
+describe("buildHandoffPlain - handoff purpose", () => {
+    it("reorders sections: summary appears before currentState", () => {
+        const result = buildHandoffPlain(makeHandoff({ purpose: "handoff" }));
+        expect(result.indexOf("Summary:")).toBeLessThan(result.indexOf("Current State:"));
+    });
+    it("includes purpose label for handoff", () => {
+        const result = buildHandoffPlain(makeHandoff({ purpose: "handoff" }));
+        expect(result).toContain("Purpose: Hand off to someone else");
+    });
+});
+describe("buildHandoffPlain - reference purpose", () => {
+    it("reorders sections: summary appears before reuseWhen before currentState", () => {
+        const result = buildHandoffPlain(makeHandoff({
+            purpose: "reference",
+            snapshot: { ...makeHandoff().snapshot, reuseWhen: "When building similar features" }
+        }));
+        expect(result.indexOf("Summary:")).toBeLessThan(result.indexOf("Reuse When:"));
+        expect(result.indexOf("Reuse When:")).toBeLessThan(result.indexOf("Current State:"));
+    });
+    it("uses reference-specific currentState text when openTodos is empty", () => {
+        const result = buildHandoffPlain(makeHandoff({ purpose: "reference", openTodos: [] }));
+        expect(result).toContain("This briefing captures the task as a reusable reference.");
+    });
 });
 describe("buildHandoffMarkdown", () => {
     it("produces markdown structure for all enabled sections", () => {
@@ -769,5 +840,79 @@ describe("collectRecentRuleDecisions", () => {
             outcome: "approved",
             note: "Approved because this is a trusted repo"
         });
+    });
+});
+describe("buildHandoffPrompt", () => {
+    it("includes continue preamble and action for continue purpose", () => {
+        const result = buildHandoffPrompt(makeHandoff({ purpose: "continue" }));
+        expect(result).toContain("이전에 진행하던 작업을 이어받습니다");
+        expect(result).toContain("가장 긴급한 미완료 항목부터 작업을 시작하세요");
+    });
+    it("includes handoff preamble for handoff purpose", () => {
+        const result = buildHandoffPrompt(makeHandoff({ purpose: "handoff" }));
+        expect(result).toContain("인수받습니다");
+        expect(result).toContain("인수 사항을 확인하고");
+    });
+    it("includes review instruction for review purpose", () => {
+        const result = buildHandoffPrompt(makeHandoff({ purpose: "review" }));
+        expect(result).toContain("완료된 작업을 리뷰합니다");
+        expect(result).toContain("품질 이슈나 개선점을 정리하세요");
+    });
+    it("includes MCP tool hint for reference purpose", () => {
+        const result = buildHandoffPrompt(makeHandoff({ purpose: "reference" }));
+        expect(result).toContain("monitor_find_similar_workflows");
+    });
+    it("includes objective in Task section", () => {
+        const result = buildHandoffPrompt(makeHandoff());
+        expect(result).toContain("## Task\nBuild the feature");
+    });
+    it("ends with Action section", () => {
+        const result = buildHandoffPrompt(makeHandoff());
+        expect(result).toContain("## Action\n");
+    });
+});
+describe("buildEvaluatePrompt", () => {
+    function makeEvaluateOptions(overrides: Partial<EvaluatePromptOptions> = {}): EvaluatePromptOptions {
+        return {
+            taskId: "task-abc-123",
+            objective: "Fix TypeScript errors",
+            summary: "Fixed 3 type errors in api.ts",
+            sections: [],
+            plans: [],
+            exploredFiles: [],
+            modifiedFiles: ["src/api.ts"],
+            openTodos: [],
+            openQuestions: [],
+            violations: [],
+            snapshot: makeHandoff().snapshot,
+            ...overrides
+        };
+    }
+    it("includes taskId literal in the instructions", () => {
+        const result = buildEvaluatePrompt(makeEvaluateOptions());
+        expect(result).toContain('"task-abc-123"');
+    });
+    it("includes monitor_evaluate_task tool name", () => {
+        const result = buildEvaluatePrompt(makeEvaluateOptions());
+        expect(result).toContain("monitor_evaluate_task");
+    });
+    it("includes evaluation field names", () => {
+        const result = buildEvaluatePrompt(makeEvaluateOptions());
+        expect(result).toContain("outcomeNote");
+        expect(result).toContain("approachNote");
+        expect(result).toContain("reuseWhen");
+    });
+    it("includes task context in output", () => {
+        const result = buildEvaluatePrompt(makeEvaluateOptions());
+        expect(result).toContain("Fix TypeScript errors");
+        expect(result).toContain("Fixed 3 type errors in api.ts");
+    });
+    it("includes modified files when present", () => {
+        const result = buildEvaluatePrompt(makeEvaluateOptions());
+        expect(result).toContain("src/api.ts");
+    });
+    it("does not include modified files line when empty", () => {
+        const result = buildEvaluatePrompt(makeEvaluateOptions({ modifiedFiles: [] }));
+        expect(result).not.toContain("Modified files:");
     });
 });
