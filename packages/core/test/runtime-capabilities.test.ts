@@ -4,7 +4,7 @@ describe("runtime capabilities", () => {
     it("defines the supported adapter ids", () => {
         expect(RUNTIME_ADAPTER_IDS).toEqual(["claude-plugin"]);
     });
-    it("keeps Claude raw capture enabled without auto-completing primary tasks", () => {
+    it("keeps Claude raw capture enabled and leaves bare session-close auto-completion disabled", () => {
         const capabilities = getRuntimeCapabilities("claude-plugin")!;
         expect(capabilities.canCaptureRawUserMessage).toBe(true);
         expect(capabilities.canObserveToolCalls).toBe(true);

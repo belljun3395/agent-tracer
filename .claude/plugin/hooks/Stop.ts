@@ -32,7 +32,7 @@
  * This handler records the assistant's response and token usage in the
  * Agent Tracer monitor via /api/assistant-response.
  */
-import { createMessageId, ellipsize, getSessionId, hookLog, hookLogPayload, postJson, readStdinJson, resolveSessionIds, toTrimmedString } from "./common.js";
+import { CLAUDE_RUNTIME_SOURCE, createMessageId, ellipsize, getSessionId, hookLog, hookLogPayload, postJson, readStdinJson, resolveSessionIds, toTrimmedString } from "./common.js";
 
 async function main(): Promise<void> {
     const payload = await readStdinJson();
@@ -43,6 +43,7 @@ async function main(): Promise<void> {
         return;
     }
 
+    const agentId = toTrimmedString(payload.agent_id);
     const stopReason = toTrimmedString(payload.stop_reason) || "end_turn";
     const responseText = toTrimmedString(payload.last_assistant_message) || "";
     const title = responseText
@@ -71,6 +72,20 @@ async function main(): Promise<void> {
         }]
     });
     hookLog("Stop", "assistant-response posted", { stopReason, hasText: !!responseText });
+
+    if (agentId) {
+        hookLog("Stop", "runtime-session-end skipped for subagent", { agentId });
+        return;
+    }
+
+    await postJson("/api/runtime-session-end", {
+        runtimeSource: CLAUDE_RUNTIME_SOURCE,
+        runtimeSessionId: sessionId,
+        summary: `Assistant turn completed (${stopReason})`,
+        completeTask: true,
+        completionReason: "assistant_turn_complete"
+    });
+    hookLog("Stop", "runtime-session-end posted", { stopReason, completeTask: true });
 }
 
 void main().catch((err: unknown) => {

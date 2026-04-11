@@ -117,6 +117,30 @@ describe("NestJS API Contract Parity Tests", () => {
         expect(res.status).toBe(200);
         expect(res.body.ok).toBe(true);
     });
+    it("POST /api/runtime-session-end with completeTask=true — completes the task", async () => {
+        const ensured = await request(httpServer)
+            .post("/api/runtime-session-ensure")
+            .send({
+            runtimeSource: "claude-plugin",
+            runtimeSessionId: "nestjs-parity-session-end-2",
+            title: "Runtime completion test"
+        });
+        const taskId = ensured.body.taskId as string;
+        const end = await request(httpServer)
+            .post("/api/runtime-session-end")
+            .send({
+            runtimeSource: "claude-plugin",
+            runtimeSessionId: "nestjs-parity-session-end-2",
+            completeTask: true,
+            completionReason: "assistant_turn_complete",
+            summary: "Assistant turn completed (end_turn)"
+        });
+        expect(end.status).toBe(200);
+        expect(end.body.ok).toBe(true);
+        const task = await request(httpServer).get(`/api/tasks/${taskId}`);
+        expect(task.status).toBe(200);
+        expect(task.body.task.status).toBe("completed");
+    });
     it("POST /api/tool-used — logs event", async () => {
         const start = await request(httpServer)
             .post("/api/task-start")
