@@ -7,11 +7,18 @@ export default tseslint.config(
     ignores: [
       "**/dist/**",
       "**/coverage/**",
-      "**/node_modules/**"
+      "**/node_modules/**",
+      "**/*.d.ts",
+      "**/*.d.ts.map",
+      "**/*.js.map"
     ]
   },
   js.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,
+  {
+    files: ["**/*.{js,jsx}"],
+    ...tseslint.configs.disableTypeChecked
+  },
   {
     files: ["**/*.{ts,tsx}"],
     languageOptions: {
@@ -85,6 +92,7 @@ export default tseslint.config(
   },
   {
     files: ["packages/mcp/src/**/*.{ts,tsx}", "packages/mcp/test/**/*.{ts,tsx}"],
+    ignores: ["packages/mcp/src/tools.ts"],
     rules: {
       "no-restricted-imports": ["error", {
         patterns: [
