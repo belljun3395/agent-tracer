@@ -27,13 +27,15 @@
  * This handler classifies the shell command semantically (probe, test, build, lint,
  * verify, or generic run) and posts a /api/terminal-command event to the monitor.
  */
-import { buildSemanticMetadata, getSessionId, getToolInput, hookLog, hookLogPayload, inferCommandSemantic, postJson, readStdinJson, resolveSessionIds, toTrimmedString } from "../common.js";
+import { buildSemanticMetadata, getSessionId, getToolInput, hookLog, hookLogPayload, inferCommandSemantic, postJson, readStdinJson, resolveEventSessionIds, toTrimmedString } from "../common.js";
 
 async function main(): Promise<void> {
     const payload = await readStdinJson();
     hookLogPayload("PostToolUse/Bash", payload);
     const toolInput = getToolInput(payload);
     const sessionId = getSessionId(payload);
+    const agentId = toTrimmedString(payload.agent_id) || undefined;
+    const agentType = toTrimmedString(payload.agent_type) || undefined;
     const command = toTrimmedString(toolInput.command);
     const description = toTrimmedString(toolInput.description);
     hookLog("PostToolUse/Bash", "fired", { sessionId: sessionId || "(none)", cmdPreview: command.slice(0, 60) });
@@ -43,7 +45,7 @@ async function main(): Promise<void> {
         return;
     }
 
-    const ids = await resolveSessionIds(sessionId);
+    const ids = await resolveEventSessionIds(sessionId, agentId, agentType);
     const semantic = inferCommandSemantic(command);
 
     await postJson("/ingest/v1/events", {

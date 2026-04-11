@@ -25,7 +25,7 @@
  * a /api/tool-used event to the Agent Tracer monitor.
  */
 import * as path from "node:path";
-import { buildSemanticMetadata, getSessionId, getToolInput, hookLog, hookLogPayload, inferFileToolSemantic, LANE, postJson, readStdinJson, relativeProjectPath, resolveSessionIds, toTrimmedString } from "../common.js";
+import { buildSemanticMetadata, getSessionId, getToolInput, hookLog, hookLogPayload, inferFileToolSemantic, LANE, postJson, readStdinJson, relativeProjectPath, resolveEventSessionIds, toTrimmedString } from "../common.js";
 
 async function main(): Promise<void> {
     const payload = await readStdinJson();
@@ -33,6 +33,8 @@ async function main(): Promise<void> {
     const toolName = toTrimmedString(payload.tool_name);
     const toolInput = getToolInput(payload);
     const sessionId = getSessionId(payload);
+    const agentId = toTrimmedString(payload.agent_id) || undefined;
+    const agentType = toTrimmedString(payload.agent_type) || undefined;
     hookLog("PostToolUse/File", "fired", { toolName, sessionId: sessionId || "(none)" });
 
     if (!sessionId || !toolName) {
@@ -40,7 +42,7 @@ async function main(): Promise<void> {
         return;
     }
 
-    const ids = await resolveSessionIds(sessionId);
+    const ids = await resolveEventSessionIds(sessionId, agentId, agentType);
     const filePath = toTrimmedString(toolInput.file_path) || toTrimmedString(toolInput.path) || "";
     const relPath = filePath ? relativeProjectPath(filePath) : "";
     const title = relPath ? `${toolName}: ${path.basename(relPath)}` : toolName;

@@ -34,7 +34,7 @@
  * This handler extracts individual todo events from the tool payload and posts
  * each one to /api/todo in the Agent Tracer monitor.
  */
-import { createStableTodoId, getSessionId, getToolInput, hookLog, hookLogPayload, postJson, readStdinJson, resolveSessionIds, toTrimmedString } from "../common.js";
+import { createStableTodoId, getSessionId, getToolInput, hookLog, hookLogPayload, postJson, readStdinJson, resolveEventSessionIds, toTrimmedString } from "../common.js";
 
 type TodoState = "added" | "in_progress" | "completed" | "cancelled";
 
@@ -100,6 +100,8 @@ async function main(): Promise<void> {
     const toolName = toTrimmedString(payload.tool_name);
     const toolInput = getToolInput(payload);
     const sessionId = getSessionId(payload);
+    const agentId = toTrimmedString(payload.agent_id) || undefined;
+    const agentType = toTrimmedString(payload.agent_type) || undefined;
     hookLog("PostToolUse/Todo", "fired", { toolName, sessionId: sessionId || "(none)" });
 
     if (!sessionId) {
@@ -113,7 +115,7 @@ async function main(): Promise<void> {
         return;
     }
 
-    const ids = await resolveSessionIds(sessionId);
+    const ids = await resolveEventSessionIds(sessionId, agentId, agentType);
     hookLog("PostToolUse/Todo", "posting todos", { count: events.length, taskId: ids.taskId });
 
     await postJson("/ingest/v1/events", {

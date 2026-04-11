@@ -32,7 +32,7 @@
  * "skill_use"). For background agents, it additionally posts /api/task-link to
  * connect the child session task to the parent task in the monitor.
  */
-import { buildSemanticMetadata, defaultTaskTitle, getSessionId, getToolInput, hookLog, hookLogPayload, postJson, readStdinJson, resolveSessionIds, stringifyToolInput, toBoolean, toTrimmedString } from "../common.js";
+import { buildSemanticMetadata, defaultTaskTitle, getSessionId, getToolInput, hookLog, hookLogPayload, postJson, readStdinJson, resolveEventSessionIds, resolveSessionIds, stringifyToolInput, toBoolean, toTrimmedString } from "../common.js";
 
 function extractChildSessionId(toolResponse: unknown): string {
     const text = typeof toolResponse === "string"
@@ -48,6 +48,8 @@ async function main(): Promise<void> {
     const toolName = toTrimmedString(payload.tool_name);
     const toolInput = getToolInput(payload);
     const sessionId = getSessionId(payload);
+    const agentId = toTrimmedString(payload.agent_id) || undefined;
+    const agentType = toTrimmedString(payload.agent_type) || undefined;
     hookLog("PostToolUse/Agent", "fired", { toolName, sessionId: sessionId || "(none)" });
 
     if (!sessionId || (toolName !== "Agent" && toolName !== "Skill")) {
@@ -55,7 +57,7 @@ async function main(): Promise<void> {
         return;
     }
 
-    const ids = await resolveSessionIds(sessionId);
+    const ids = await resolveEventSessionIds(sessionId, agentId, agentType);
     const metadata = { toolInput: stringifyToolInput(toolInput) };
 
     if (toolName === "Skill") {
