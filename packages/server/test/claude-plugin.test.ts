@@ -667,6 +667,29 @@ describe("Claude plugin", () => {
         expect((response!.metadata as Record<string, unknown>).inputTokens).toBe(100);
         expect((response!.metadata as Record<string, unknown>).outputTokens).toBe(40);
         const sessionEnd = monitor.calls.find(c => c.endpoint === "/api/runtime-session-end");
+        expect(sessionEnd).toEqual({
+            endpoint: "/api/runtime-session-end",
+            body: {
+                runtimeSource: "claude-plugin",
+                runtimeSessionId: "parent-session",
+                summary: "Assistant turn completed (end_turn)",
+                completeTask: true,
+                completionReason: "assistant_turn_complete"
+            }
+        });
+    });
+    it("Stop hook: subagent responses do not complete the parent task", async () => {
+        const monitor = await startMonitorStub();
+        servers.push(monitor);
+        await runClaudeHook(stopHook, {
+            session_id: "parent-session",
+            agent_id: "agent-123",
+            stop_reason: "end_turn",
+            last_assistant_message: "Subagent report"
+        }, monitor.port);
+        const ingestCall = monitor.calls.find(c => c.endpoint === "/ingest/v1/events");
+        expect(ingestCall).toBeDefined();
+        const sessionEnd = monitor.calls.find(c => c.endpoint === "/api/runtime-session-end");
         expect(sessionEnd).toBeUndefined();
     });
     it("Stop hook: last_assistant_message with cache tokens → all token fields populated", async () => {
