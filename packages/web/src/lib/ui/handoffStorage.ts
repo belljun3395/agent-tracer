@@ -1,5 +1,5 @@
 import type { HandoffMode, HandoffPurpose } from "@monitor/web-core";
-export type HandoffFormat = "plain" | "markdown" | "xml" | "system-prompt";
+export type HandoffFormat = "plain" | "markdown" | "xml" | "system-prompt" | "prompt";
 export interface HandoffPrefs {
     format: HandoffFormat;
     mode: HandoffMode;

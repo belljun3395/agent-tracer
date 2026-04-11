@@ -2,7 +2,7 @@ import type { TaskId } from "../monitoring/ids.js";
 export type WorkflowLayer = "snapshot" | "playbook";
 export type PlaybookStatus = "draft" | "active" | "archived";
 export type BriefingPurpose = "continue" | "handoff" | "review" | "reference";
-export type BriefingFormat = "plain" | "markdown" | "xml" | "system-prompt";
+export type BriefingFormat = "plain" | "markdown" | "xml" | "system-prompt" | "prompt";
 
 export interface QualitySignals {
     readonly reuseCount: number;

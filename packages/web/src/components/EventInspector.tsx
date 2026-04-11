@@ -128,14 +128,15 @@ function DetailSection({ label, mono = false, resizable = false, value }: {
       </pre>
     </SectionCard>);
 }
-function DetailIds({ event }: {
+function DetailIds({ event, runtimeSessionId }: {
     readonly event: TimelineEvent;
+    readonly runtimeSessionId?: string | undefined;
 }): React.JSX.Element {
     return (<SectionCard title="IDs" bodyClassName="pt-4">
       <KeyValueTable rows={[
             { key: "Event", value: event.id },
             { key: "Task", value: event.taskId },
-            ...(event.sessionId ? [{ key: "Session", value: event.sessionId }] : []),
+            ...(runtimeSessionId ? [{ key: "Session", value: runtimeSessionId }] : []),
             { key: "Time", value: new Date(event.createdAt).toLocaleTimeString() }
         ]}/>
     </SectionCard>);
@@ -600,7 +601,7 @@ export function EventInspector({ taskDetail, selectedTaskTitle = null, taskObser
                     ?? (selectedEvent.metadata["action"] as string | undefined)
                     ?? (selectedEvent.metadata["ruleId"] as string | undefined)
                     ?? "—"}/>
-                <DetailIds event={selectedEvent}/>
+                <DetailIds event={selectedEvent} runtimeSessionId={taskDetail?.runtimeSessionId}/>
                 <DetailEventEvidence event={selectedEvent} {...(taskDetail?.task.runtimeSource ? { runtimeSource: taskDetail.task.runtimeSource } : {})}/>
                 {selectedEvent.kind === "question.logged" && (() => {
                     const qId = selectedEvent.metadata["questionId"] as string | undefined;

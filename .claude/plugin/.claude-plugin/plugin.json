@@ -13,6 +13,5 @@
     "observability",
     "tracing",
     "hooks"
-  ],
-  "hooks": "./hooks/hooks.json"
+  ]
 }

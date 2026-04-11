@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { TaskId, type ReusableTaskSnapshot } from "@monitor/core";
 import type { HandoffMode, HandoffPurpose, TaskProcessSection } from "@monitor/web-core";
-import { buildHandoffPlain, buildHandoffMarkdown, buildHandoffXML, buildHandoffSystemPrompt } from "@monitor/web-core";
+import { buildHandoffPlain, buildHandoffMarkdown, buildHandoffXML, buildHandoffSystemPrompt, buildHandoffPrompt } from "@monitor/web-core";
 import { fetchTaskBriefings, recordBriefingCopy, saveTaskBriefing, type SavedBriefingRecord } from "@monitor/web-core";
 import { copyToClipboard } from "../lib/ui/clipboard.js";
 import { cn } from "../lib/ui/cn.js";
@@ -43,7 +43,8 @@ const formatOptions: readonly {
     { value: "plain", label: "Plain" },
     { value: "markdown", label: "Markdown" },
     { value: "xml", label: "XML" },
-    { value: "system-prompt", label: "SP" }
+    { value: "system-prompt", label: "SP" },
+    { value: "prompt", label: "Prompt" }
 ] as const;
 const modeOptions: readonly {
     readonly value: HandoffMode;
@@ -146,6 +147,8 @@ export function TaskHandoffPanel({ taskId, objective, summary, plans, sections, 
             case "markdown": return buildHandoffMarkdown(options);
             case "xml": return buildHandoffXML(options);
             case "system-prompt": return buildHandoffSystemPrompt(options);
+            case "prompt": return buildHandoffPrompt(options);
+            default: return buildHandoffPlain(options);
         }
     }, [prefs.format, prefs.include, prefs.mode, prefs.purpose, objective, summary, plans, sections, exploredFiles, modifiedFiles, openTodos, openQuestions, violations, snapshot, memo]);
     const isDisabled = preview.trim().length === 0;
