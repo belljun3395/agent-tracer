@@ -1295,6 +1295,7 @@ export interface HandoffOptions {
     readonly violations: readonly string[];
     readonly memo: string;
     readonly snapshot: ReusableTaskSnapshot;
+    readonly purpose: HandoffPurpose;
     readonly mode: HandoffMode;
     readonly include: {
         readonly summary: boolean;
@@ -1308,217 +1309,21 @@ export interface HandoffOptions {
     };
 }
 export type HandoffMode = "compact" | "standard" | "full";
-export function buildHandoffPlain(options: HandoffOptions): string {
-    const { objective, memo, include, snapshot, mode } = options;
-    const { summary, sections, plans, exploredFiles, modifiedFiles, openTodos, openQuestions, violations } = selectHandoffViewData(options);
-    const lines: string[] = [];
-    lines.push(`Task: ${objective}`);
-    lines.push(`Mode: ${mode}`);
-    if (include.summary && summary) {
-        lines.push(`Summary: ${summary}`);
-    }
-    if (snapshot.reuseWhen) {
-        lines.push(`Reuse When: ${snapshot.reuseWhen}`);
-    }
-    if (include.plans && plans.length > 0) {
-        lines.push("Plan:");
-        for (const step of plans)
-            lines.push(`- ${step}`);
-    }
-    if (include.process && sections.length > 0) {
-        lines.push("Process:");
-        for (const section of sections) {
-            for (const item of section.items) {
-                lines.push(`- ${section.lane}: ${item}`);
-            }
-        }
-    }
-    if (include.files && exploredFiles.length > 0) {
-        lines.push(`Explored Files: ${exploredFiles.join(", ")}`);
-    }
-    if (include.modifiedFiles && modifiedFiles.length > 0) {
-        lines.push(`Modified Files: ${modifiedFiles.join(", ")}`);
-    }
-    if (include.todos && openTodos.length > 0) {
-        lines.push("Open TODOs:");
-        for (const todo of openTodos)
-            lines.push(`- ${todo}`);
-    }
-    if (include.violations && violations.length > 0) {
-        lines.push("Violations:");
-        for (const v of violations)
-            lines.push(`- ${v}`);
-    }
-    if (snapshot.verificationSummary) {
-        lines.push(`Verification: ${snapshot.verificationSummary}`);
-    }
-    if (include.questions && openQuestions.length > 0) {
-        lines.push("Open Questions:");
-        for (const q of openQuestions)
-            lines.push(`- ${q}`);
-    }
-    if (memo.trim()) {
-        lines.push(`Note: ${memo.trim()}`);
-    }
-    return lines.join("\n");
-}
-export function buildHandoffMarkdown(options: HandoffOptions): string {
-    const { objective, memo, include, snapshot, mode } = options;
-    const { summary, sections, plans, exploredFiles, modifiedFiles, openTodos, openQuestions, violations } = selectHandoffViewData(options);
-    const parts: string[] = ["# Task Context", `\n## Objective\n${objective}`, `\n## Mode\n${mode}`];
-    if (include.summary && summary) {
-        parts.push(`\n## Summary\n${summary}`);
-    }
-    if (snapshot.reuseWhen) {
-        parts.push(`\n## Reuse When\n${snapshot.reuseWhen}`);
-    }
-    if (include.plans && plans.length > 0) {
-        parts.push(`\n## Plan\n${plans.map(p => `- ${p}`).join("\n")}`);
-    }
-    if (include.process && sections.length > 0) {
-        const sectionLines = sections.map(s => `### ${s.title}\n${s.items.map(i => `- ${i}`).join("\n")}`);
-        parts.push(`\n## Process\n${sectionLines.join("\n\n")}`);
-    }
-    if (include.files && exploredFiles.length > 0) {
-        parts.push(`\n## Explored Files\n${exploredFiles.map(f => `- \`${f}\``).join("\n")}`);
-    }
-    if (include.modifiedFiles && modifiedFiles.length > 0) {
-        parts.push(`\n## Modified Files\n${modifiedFiles.map(f => `- \`${f}\``).join("\n")}`);
-    }
-    if (include.todos && openTodos.length > 0) {
-        parts.push(`\n## Open TODOs\n${openTodos.map(t => `- ${t}`).join("\n")}`);
-    }
-    if (include.violations && violations.length > 0) {
-        parts.push(`\n## Violations\n${violations.map(v => `- ${v}`).join("\n")}`);
-    }
-    if (snapshot.verificationSummary) {
-        parts.push(`\n## Verification\n- ${snapshot.verificationSummary}`);
-    }
-    if (include.questions && openQuestions.length > 0) {
-        parts.push(`\n## Open Questions\n${openQuestions.map(q => `- ${q}`).join("\n")}`);
-    }
-    if (memo.trim()) {
-        parts.push(`\n## Handoff Note\n${memo.trim()}`);
-    }
-    return parts.join("");
-}
-function cdata(s: string): string {
-    return `<![CDATA[${s}]]>`;
-}
-export function buildHandoffXML(options: HandoffOptions): string {
-    const { objective, memo, include, snapshot, mode } = options;
-    const { summary, sections, plans, exploredFiles, modifiedFiles, openTodos, openQuestions, violations } = selectHandoffViewData(options);
-    const lines: string[] = ["<context>"];
-    lines.push(`  <objective>${cdata(objective)}</objective>`);
-    lines.push(`  <mode>${cdata(mode)}</mode>`);
-    if (include.summary && summary) {
-        lines.push(`  <summary>${cdata(summary)}</summary>`);
-    }
-    if (snapshot.reuseWhen) {
-        lines.push(`  <reuse_when>${cdata(snapshot.reuseWhen)}</reuse_when>`);
-    }
-    if (include.plans && plans.length > 0) {
-        lines.push("  <plan>");
-        for (const step of plans)
-            lines.push(`    <step>${cdata(step)}</step>`);
-        lines.push("  </plan>");
-    }
-    if (include.process && sections.length > 0) {
-        lines.push("  <process>");
-        for (const section of sections) {
-            lines.push(`    <section lane="${section.lane}" title="${section.title}">`);
-            for (const item of section.items) {
-                lines.push(`      <step>${cdata(item)}</step>`);
-            }
-            lines.push("    </section>");
-        }
-        lines.push("  </process>");
-    }
-    if (include.files && exploredFiles.length > 0) {
-        lines.push("  <explored_files>");
-        for (const f of exploredFiles)
-            lines.push(`    <file>${cdata(f)}</file>`);
-        lines.push("  </explored_files>");
-    }
-    if (include.modifiedFiles && modifiedFiles.length > 0) {
-        lines.push("  <modified_files>");
-        for (const f of modifiedFiles)
-            lines.push(`    <file>${cdata(f)}</file>`);
-        lines.push("  </modified_files>");
-    }
-    if (include.todos && openTodos.length > 0) {
-        lines.push("  <open_todos>");
-        for (const t of openTodos)
-            lines.push(`    <todo>${cdata(t)}</todo>`);
-        lines.push("  </open_todos>");
-    }
-    if (include.violations && violations.length > 0) {
-        lines.push(`  <violations count="${violations.length}">`);
-        for (const v of violations)
-            lines.push(`    <violation>${cdata(v)}</violation>`);
-        lines.push("  </violations>");
-    }
-    if (snapshot.verificationSummary) {
-        lines.push(`  <verification>${cdata(snapshot.verificationSummary)}</verification>`);
-    }
-    if (include.questions && openQuestions.length > 0) {
-        lines.push("  <open_questions>");
-        for (const q of openQuestions)
-            lines.push(`    <question>${cdata(q)}</question>`);
-        lines.push("  </open_questions>");
-    }
-    if (memo.trim()) {
-        lines.push(`  <handoff_note>${cdata(memo.trim())}</handoff_note>`);
-    }
-    lines.push("</context>");
-    return lines.join("\n");
-}
-export function buildHandoffSystemPrompt(options: HandoffOptions): string {
-    const { objective, memo, include, snapshot, mode } = options;
-    const { summary, sections, plans, exploredFiles, modifiedFiles, openTodos, openQuestions, violations } = selectHandoffViewData(options);
-    const parts: string[] = [
-        "You are continuing a software development task. Below is the full context from the previous session.",
-        `\n## Task\n${objective}`,
-        `\n## Handoff Mode\n${mode}`
-    ];
-    if (include.summary && summary) {
-        parts.push(`\n## What was done\n${summary}`);
-    }
-    if (snapshot.reuseWhen) {
-        parts.push(`\n## Reuse When\n${snapshot.reuseWhen}`);
-    }
-    if (include.plans && plans.length > 0) {
-        parts.push(`\n## Plan\n${plans.map(p => `- ${p}`).join("\n")}`);
-    }
-    if (include.process && sections.length > 0) {
-        const items = sections.flatMap(s => s.items.map(i => `- ${s.lane}: ${i}`));
-        parts.push(`\n## Process steps\n${items.join("\n")}`);
-    }
-    if (include.files && exploredFiles.length > 0) {
-        parts.push(`\n## Files explored\n${exploredFiles.map(f => `- ${f}`).join("\n")}`);
-    }
-    if (include.modifiedFiles && modifiedFiles.length > 0) {
-        parts.push(`\n## Files modified\n${modifiedFiles.map(f => `- ${f}`).join("\n")}`);
-    }
-    if (include.todos && openTodos.length > 0) {
-        parts.push(`\n## What still needs to be done\n${openTodos.map(t => `- ${t}`).join("\n")}`);
-    }
-    if (include.violations && violations.length > 0) {
-        parts.push(`\n## Watch out for\n${violations.map(v => `- ${v}`).join("\n")}`);
-    }
-    if (snapshot.verificationSummary) {
-        parts.push(`\n## Verification\n- ${snapshot.verificationSummary}`);
-    }
-    if (include.questions && openQuestions.length > 0) {
-        parts.push(`\n## Open questions\n${openQuestions.map(q => `- ${q}`).join("\n")}`);
-    }
-    if (memo.trim()) {
-        parts.push(`\n## Note from previous session\n${memo.trim()}`);
-    }
-    parts.push("\nBegin by acknowledging you have read this context, then ask what to tackle first.");
-    return parts.join("");
-}
-function selectHandoffViewData(options: HandoffOptions): {
+export type HandoffPurpose = "continue" | "handoff" | "review" | "reference";
+type HandoffSectionKey = "summary" | "currentState" | "reuseWhen" | "plans" | "process" | "files" | "modifiedFiles" | "todos" | "violations" | "verification" | "questions" | "memo";
+const HANDOFF_PURPOSE_LABELS: Record<HandoffPurpose, string> = {
+    continue: "Continue this task",
+    handoff: "Hand off to someone else",
+    review: "Create a review summary",
+    reference: "Save as reference"
+};
+const HANDOFF_SECTION_ORDER: Record<HandoffPurpose, readonly HandoffSectionKey[]> = {
+    continue: ["currentState", "todos", "questions", "violations", "summary", "reuseWhen", "plans", "process", "files", "modifiedFiles", "verification", "memo"],
+    handoff: ["summary", "currentState", "reuseWhen", "plans", "process", "todos", "violations", "files", "modifiedFiles", "verification", "questions", "memo"],
+    review: ["summary", "currentState", "violations", "verification", "process", "plans", "modifiedFiles", "files", "questions", "memo"],
+    reference: ["summary", "reuseWhen", "currentState", "process", "plans", "files", "modifiedFiles", "verification", "todos", "violations", "questions", "memo"]
+};
+interface PreparedHandoffView {
     readonly summary: string;
     readonly sections: readonly TaskProcessSection[];
     readonly plans: readonly string[];
@@ -1527,7 +1332,69 @@ function selectHandoffViewData(options: HandoffOptions): {
     readonly openTodos: readonly string[];
     readonly openQuestions: readonly string[];
     readonly violations: readonly string[];
-} {
+    readonly currentState: string;
+}
+export function buildHandoffPlain(options: HandoffOptions): string {
+    const { objective, mode, purpose } = options;
+    const view = prepareHandoffView(options);
+    const lines: string[] = [];
+    lines.push(`Briefing: ${objective}`);
+    lines.push(`Purpose: ${HANDOFF_PURPOSE_LABELS[purpose]}`);
+    lines.push(`Mode: ${mode}`);
+    for (const key of HANDOFF_SECTION_ORDER[purpose]) {
+        appendPlainHandoffSection(lines, key, options, view);
+    }
+    return lines.join("\n");
+}
+export function buildHandoffMarkdown(options: HandoffOptions): string {
+    const { objective, mode, purpose } = options;
+    const view = prepareHandoffView(options);
+    const parts: string[] = ["# Briefing", `\n## Purpose\n${HANDOFF_PURPOSE_LABELS[purpose]}`, `\n## Objective\n${objective}`, `\n## Detail Level\n${mode}`];
+    for (const key of HANDOFF_SECTION_ORDER[purpose]) {
+        appendMarkdownHandoffSection(parts, key, options, view);
+    }
+    return parts.join("");
+}
+function cdata(s: string): string {
+    return `<![CDATA[${s}]]>`;
+}
+export function buildHandoffXML(options: HandoffOptions): string {
+    const { objective, mode, purpose } = options;
+    const view = prepareHandoffView(options);
+    const lines: string[] = ["<briefing>"];
+    lines.push(`  <objective>${cdata(objective)}</objective>`);
+    lines.push(`  <purpose>${cdata(purpose)}</purpose>`);
+    lines.push(`  <purpose_label>${cdata(HANDOFF_PURPOSE_LABELS[purpose])}</purpose_label>`);
+    lines.push(`  <mode>${cdata(mode)}</mode>`);
+    for (const key of HANDOFF_SECTION_ORDER[purpose]) {
+        appendXmlHandoffSection(lines, key, options, view);
+    }
+    lines.push("</briefing>");
+    return lines.join("\n");
+}
+export function buildHandoffSystemPrompt(options: HandoffOptions): string {
+    const { objective, mode, purpose } = options;
+    const view = prepareHandoffView(options);
+    const parts: string[] = [
+        "You are receiving a briefing for a software development task. Use it to orient quickly and continue with the most appropriate next action.",
+        `\n## Briefing Purpose\n${HANDOFF_PURPOSE_LABELS[purpose]}`,
+        `\n## Task\n${objective}`,
+        `\n## Handoff Mode\n${mode}`
+    ];
+    for (const key of HANDOFF_SECTION_ORDER[purpose]) {
+        appendSystemPromptHandoffSection(parts, key, options, view);
+    }
+    parts.push("\nBegin by acknowledging you have read this briefing, then state the most useful next action.");
+    return parts.join("");
+}
+function prepareHandoffView(options: HandoffOptions): PreparedHandoffView {
+    const selected = selectHandoffViewData(options);
+    return {
+        ...selected,
+        currentState: buildCurrentState(selected, options.snapshot.verificationSummary, options.purpose)
+    };
+}
+function selectHandoffViewData(options: HandoffOptions): Omit<PreparedHandoffView, "currentState"> {
     if (options.mode === "full") {
         return {
             summary: options.summary,
@@ -1584,4 +1451,318 @@ function selectHandoffViewData(options: HandoffOptions): {
             ...options.violations
         ]).slice(0, options.mode === "compact" ? 4 : 6)
     };
+}
+function buildCurrentState(view: Omit<PreparedHandoffView, "currentState">, verificationSummary: string | null, purpose: HandoffPurpose): string {
+    const phrases: string[] = [];
+    if (view.openTodos.length > 0) {
+        phrases.push(`Open work remains: ${view.openTodos.length} todo${view.openTodos.length === 1 ? "" : "s"}.`);
+    }
+    else if (purpose === "review") {
+        phrases.push("The task is ready for review.");
+    }
+    else if (purpose === "reference") {
+        phrases.push("This briefing captures the task as a reusable reference.");
+    }
+    else {
+        phrases.push("No open todos were detected in the selected briefing view.");
+    }
+    if (view.openQuestions.length > 0) {
+        phrases.push(`${view.openQuestions.length} open question${view.openQuestions.length === 1 ? "" : "s"} ${view.openQuestions.length === 1 ? "still needs" : "still need"} clarification.`);
+    }
+    if (view.violations.length > 0) {
+        phrases.push(`${view.violations.length} watchout${view.violations.length === 1 ? "" : "s"} should be kept in mind.`);
+    }
+    if (verificationSummary) {
+        phrases.push(`Verification status: ${verificationSummary}`);
+    }
+    return phrases.join(" ");
+}
+function appendPlainHandoffSection(lines: string[], key: HandoffSectionKey, options: HandoffOptions, view: PreparedHandoffView): void {
+    switch (key) {
+        case "summary":
+            if (options.include.summary && view.summary) {
+                lines.push(`Summary: ${view.summary}`);
+            }
+            break;
+        case "currentState":
+            lines.push(`Current State: ${view.currentState}`);
+            break;
+        case "reuseWhen":
+            if (options.snapshot.reuseWhen) {
+                lines.push(`Reuse When: ${options.snapshot.reuseWhen}`);
+            }
+            break;
+        case "plans":
+            if (options.include.plans && view.plans.length > 0) {
+                lines.push("Plan:");
+                for (const step of view.plans)
+                    lines.push(`- ${step}`);
+            }
+            break;
+        case "process":
+            if (options.include.process && view.sections.length > 0) {
+                lines.push("Process:");
+                for (const section of view.sections) {
+                    for (const item of section.items) {
+                        lines.push(`- ${section.lane}: ${item}`);
+                    }
+                }
+            }
+            break;
+        case "files":
+            if (options.include.files && view.exploredFiles.length > 0) {
+                lines.push(`Explored Files: ${view.exploredFiles.join(", ")}`);
+            }
+            break;
+        case "modifiedFiles":
+            if (options.include.modifiedFiles && view.modifiedFiles.length > 0) {
+                lines.push(`Modified Files: ${view.modifiedFiles.join(", ")}`);
+            }
+            break;
+        case "todos":
+            if (options.include.todos && view.openTodos.length > 0) {
+                lines.push("Open TODOs:");
+                for (const todo of view.openTodos)
+                    lines.push(`- ${todo}`);
+            }
+            break;
+        case "violations":
+            if (options.include.violations && view.violations.length > 0) {
+                lines.push("Watchouts:");
+                for (const violation of view.violations)
+                    lines.push(`- ${violation}`);
+            }
+            break;
+        case "verification":
+            if (options.snapshot.verificationSummary) {
+                lines.push(`Verification: ${options.snapshot.verificationSummary}`);
+            }
+            break;
+        case "questions":
+            if (options.include.questions && view.openQuestions.length > 0) {
+                lines.push("Open Questions:");
+                for (const question of view.openQuestions)
+                    lines.push(`- ${question}`);
+            }
+            break;
+        case "memo":
+            if (options.memo.trim()) {
+                lines.push(`Memo: ${options.memo.trim()}`);
+            }
+            break;
+    }
+}
+function appendMarkdownHandoffSection(parts: string[], key: HandoffSectionKey, options: HandoffOptions, view: PreparedHandoffView): void {
+    switch (key) {
+        case "summary":
+            if (options.include.summary && view.summary) {
+                parts.push(`\n## Summary\n${view.summary}`);
+            }
+            break;
+        case "currentState":
+            parts.push(`\n## Current State\n${view.currentState}`);
+            break;
+        case "reuseWhen":
+            if (options.snapshot.reuseWhen) {
+                parts.push(`\n## Reuse When\n${options.snapshot.reuseWhen}`);
+            }
+            break;
+        case "plans":
+            if (options.include.plans && view.plans.length > 0) {
+                parts.push(`\n## Plan\n${view.plans.map((plan) => `- ${plan}`).join("\n")}`);
+            }
+            break;
+        case "process":
+            if (options.include.process && view.sections.length > 0) {
+                const sectionLines = view.sections.map((section) => `### ${section.title}\n${section.items.map((item) => `- ${item}`).join("\n")}`);
+                parts.push(`\n## Process\n${sectionLines.join("\n\n")}`);
+            }
+            break;
+        case "files":
+            if (options.include.files && view.exploredFiles.length > 0) {
+                parts.push(`\n## Explored Files\n${view.exploredFiles.map((filePath) => `- \`${filePath}\``).join("\n")}`);
+            }
+            break;
+        case "modifiedFiles":
+            if (options.include.modifiedFiles && view.modifiedFiles.length > 0) {
+                parts.push(`\n## Modified Files\n${view.modifiedFiles.map((filePath) => `- \`${filePath}\``).join("\n")}`);
+            }
+            break;
+        case "todos":
+            if (options.include.todos && view.openTodos.length > 0) {
+                parts.push(`\n## Open TODOs\n${view.openTodos.map((todo) => `- ${todo}`).join("\n")}`);
+            }
+            break;
+        case "violations":
+            if (options.include.violations && view.violations.length > 0) {
+                parts.push(`\n## Watchouts\n${view.violations.map((violation) => `- ${violation}`).join("\n")}`);
+            }
+            break;
+        case "verification":
+            if (options.snapshot.verificationSummary) {
+                parts.push(`\n## Verification\n- ${options.snapshot.verificationSummary}`);
+            }
+            break;
+        case "questions":
+            if (options.include.questions && view.openQuestions.length > 0) {
+                parts.push(`\n## Open Questions\n${view.openQuestions.map((question) => `- ${question}`).join("\n")}`);
+            }
+            break;
+        case "memo":
+            if (options.memo.trim()) {
+                parts.push(`\n## Memo\n${options.memo.trim()}`);
+            }
+            break;
+    }
+}
+function appendXmlHandoffSection(lines: string[], key: HandoffSectionKey, options: HandoffOptions, view: PreparedHandoffView): void {
+    switch (key) {
+        case "summary":
+            if (options.include.summary && view.summary) {
+                lines.push(`  <summary>${cdata(view.summary)}</summary>`);
+            }
+            break;
+        case "currentState":
+            lines.push(`  <current_state>${cdata(view.currentState)}</current_state>`);
+            break;
+        case "reuseWhen":
+            if (options.snapshot.reuseWhen) {
+                lines.push(`  <reuse_when>${cdata(options.snapshot.reuseWhen)}</reuse_when>`);
+            }
+            break;
+        case "plans":
+            if (options.include.plans && view.plans.length > 0) {
+                lines.push("  <plan>");
+                for (const step of view.plans)
+                    lines.push(`    <step>${cdata(step)}</step>`);
+                lines.push("  </plan>");
+            }
+            break;
+        case "process":
+            if (options.include.process && view.sections.length > 0) {
+                lines.push("  <process>");
+                for (const section of view.sections) {
+                    lines.push(`    <section lane="${section.lane}" title="${section.title}">`);
+                    for (const item of section.items) {
+                        lines.push(`      <step>${cdata(item)}</step>`);
+                    }
+                    lines.push("    </section>");
+                }
+                lines.push("  </process>");
+            }
+            break;
+        case "files":
+            if (options.include.files && view.exploredFiles.length > 0) {
+                lines.push("  <explored_files>");
+                for (const filePath of view.exploredFiles)
+                    lines.push(`    <file>${cdata(filePath)}</file>`);
+                lines.push("  </explored_files>");
+            }
+            break;
+        case "modifiedFiles":
+            if (options.include.modifiedFiles && view.modifiedFiles.length > 0) {
+                lines.push("  <modified_files>");
+                for (const filePath of view.modifiedFiles)
+                    lines.push(`    <file>${cdata(filePath)}</file>`);
+                lines.push("  </modified_files>");
+            }
+            break;
+        case "todos":
+            if (options.include.todos && view.openTodos.length > 0) {
+                lines.push("  <open_todos>");
+                for (const todo of view.openTodos)
+                    lines.push(`    <todo>${cdata(todo)}</todo>`);
+                lines.push("  </open_todos>");
+            }
+            break;
+        case "violations":
+            if (options.include.violations && view.violations.length > 0) {
+                lines.push(`  <watchouts count="${view.violations.length}">`);
+                for (const violation of view.violations)
+                    lines.push(`    <watchout>${cdata(violation)}</watchout>`);
+                lines.push("  </watchouts>");
+            }
+            break;
+        case "verification":
+            if (options.snapshot.verificationSummary) {
+                lines.push(`  <verification>${cdata(options.snapshot.verificationSummary)}</verification>`);
+            }
+            break;
+        case "questions":
+            if (options.include.questions && view.openQuestions.length > 0) {
+                lines.push("  <open_questions>");
+                for (const question of view.openQuestions)
+                    lines.push(`    <question>${cdata(question)}</question>`);
+                lines.push("  </open_questions>");
+            }
+            break;
+        case "memo":
+            if (options.memo.trim()) {
+                lines.push(`  <memo>${cdata(options.memo.trim())}</memo>`);
+            }
+            break;
+    }
+}
+function appendSystemPromptHandoffSection(parts: string[], key: HandoffSectionKey, options: HandoffOptions, view: PreparedHandoffView): void {
+    switch (key) {
+        case "summary":
+            if (options.include.summary && view.summary) {
+                parts.push(`\n## Summary\n${view.summary}`);
+            }
+            break;
+        case "currentState":
+            parts.push(`\n## Current State\n${view.currentState}`);
+            break;
+        case "reuseWhen":
+            if (options.snapshot.reuseWhen) {
+                parts.push(`\n## Reuse When\n${options.snapshot.reuseWhen}`);
+            }
+            break;
+        case "plans":
+            if (options.include.plans && view.plans.length > 0) {
+                parts.push(`\n## Plan\n${view.plans.map((plan) => `- ${plan}`).join("\n")}`);
+            }
+            break;
+        case "process":
+            if (options.include.process && view.sections.length > 0) {
+                const items = view.sections.flatMap((section) => section.items.map((item) => `- ${section.lane}: ${item}`));
+                parts.push(`\n## Process steps\n${items.join("\n")}`);
+            }
+            break;
+        case "files":
+            if (options.include.files && view.exploredFiles.length > 0) {
+                parts.push(`\n## Files explored\n${view.exploredFiles.map((filePath) => `- ${filePath}`).join("\n")}`);
+            }
+            break;
+        case "modifiedFiles":
+            if (options.include.modifiedFiles && view.modifiedFiles.length > 0) {
+                parts.push(`\n## Files modified\n${view.modifiedFiles.map((filePath) => `- ${filePath}`).join("\n")}`);
+            }
+            break;
+        case "todos":
+            if (options.include.todos && view.openTodos.length > 0) {
+                parts.push(`\n## What still needs to be done\n${view.openTodos.map((todo) => `- ${todo}`).join("\n")}`);
+            }
+            break;
+        case "violations":
+            if (options.include.violations && view.violations.length > 0) {
+                parts.push(`\n## Watchouts\n${view.violations.map((violation) => `- ${violation}`).join("\n")}`);
+            }
+            break;
+        case "verification":
+            if (options.snapshot.verificationSummary) {
+                parts.push(`\n## Verification\n- ${options.snapshot.verificationSummary}`);
+            }
+            break;
+        case "questions":
+            if (options.include.questions && view.openQuestions.length > 0) {
+                parts.push(`\n## Open questions\n${view.openQuestions.map((question) => `- ${question}`).join("\n")}`);
+            }
+            break;
+        case "memo":
+            if (options.memo.trim()) {
+                parts.push(`\n## Memo\n${options.memo.trim()}`);
+            }
+            break;
+    }
 }

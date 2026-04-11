@@ -301,6 +301,7 @@ function makeHandoff(overrides: Partial<HandoffOptions> = {}): HandoffOptions {
         openQuestions: ["Should we use Redux?"],
         violations: ["No console.log allowed"],
         memo: "Start from the tests",
+        purpose: "continue",
         mode: "full",
         snapshot: {
             objective: "Build the feature",
@@ -323,7 +324,9 @@ function makeHandoff(overrides: Partial<HandoffOptions> = {}): HandoffOptions {
 describe("buildHandoffPlain", () => {
     it("includes all enabled sections when fully populated", () => {
         const result = buildHandoffPlain(makeHandoff());
-        expect(result).toContain("Task: Build the feature");
+        expect(result).toContain("Briefing: Build the feature");
+        expect(result).toContain("Purpose: Continue this task");
+        expect(result).toContain("Current State: Open work remains: 1 todo.");
         expect(result).toContain("Summary: Implemented X and Y");
         expect(result).toContain("Process:");
         expect(result).toContain("- implementation: Did A");
@@ -331,9 +334,9 @@ describe("buildHandoffPlain", () => {
         expect(result).toContain("Modified Files: src/App.tsx");
         expect(result).toContain("Open TODOs:");
         expect(result).toContain("- Write tests");
-        expect(result).toContain("Violations:");
+        expect(result).toContain("Watchouts:");
         expect(result).toContain("- No console.log allowed");
-        expect(result).toContain("Note: Start from the tests");
+        expect(result).toContain("Memo: Start from the tests");
     });
     it("excludes questions when include.questions = false", () => {
         const result = buildHandoffPlain(makeHandoff());
@@ -372,7 +375,8 @@ describe("buildHandoffPlain", () => {
         const result = buildHandoffPlain(makeHandoff({
             include: { summary: false, plans: false, process: false, files: false, modifiedFiles: false, todos: false, violations: false, questions: false }
         }));
-        expect(result).toContain("Task: Build the feature");
+        expect(result).toContain("Briefing: Build the feature");
+        expect(result).toContain("Current State:");
     });
     it("uses snapshot-driven compact mode for short handoff output", () => {
         const result = buildHandoffPlain(makeHandoff({
@@ -387,19 +391,26 @@ describe("buildHandoffPlain", () => {
         expect(result).toContain("Reuse When: When you need a short AI handoff");
         expect(result).toContain("Verification: Checks: 1 (1 pass, 0 fail)");
     });
+    it("reorders sections for review briefings", () => {
+        const result = buildHandoffPlain(makeHandoff({ purpose: "review" }));
+        expect(result.indexOf("Summary:")).toBeLessThan(result.indexOf("Current State:"));
+        expect(result.indexOf("Watchouts:")).toBeLessThan(result.indexOf("Process:"));
+    });
 });
 describe("buildHandoffMarkdown", () => {
     it("produces markdown structure for all enabled sections", () => {
         const result = buildHandoffMarkdown(makeHandoff());
-        expect(result).toContain("# Task Context");
+        expect(result).toContain("# Briefing");
+        expect(result).toContain("## Purpose\nContinue this task");
         expect(result).toContain("## Objective\nBuild the feature");
+        expect(result).toContain("## Current State\nOpen work remains: 1 todo.");
         expect(result).toContain("## Summary\nImplemented X and Y");
         expect(result).toContain("## Process\n### Implementation\n- Did A\n- Did B");
         expect(result).toContain("## Explored Files\n- `src/App.tsx`\n- `src/lib/insights.ts`");
         expect(result).toContain("## Modified Files\n- `src/App.tsx`");
         expect(result).toContain("## Open TODOs\n- Write tests");
-        expect(result).toContain("## Violations\n- No console.log allowed");
-        expect(result).toContain("## Handoff Note\nStart from the tests");
+        expect(result).toContain("## Watchouts\n- No console.log allowed");
+        expect(result).toContain("## Memo\nStart from the tests");
     });
     it("omits questions section when include.questions = false", () => {
         const result = buildHandoffMarkdown(makeHandoff());
@@ -418,7 +429,7 @@ describe("buildHandoffMarkdown", () => {
     });
     it("omits handoff note section when memo is blank", () => {
         const result = buildHandoffMarkdown(makeHandoff({ memo: "" }));
-        expect(result).not.toContain("## Handoff Note");
+        expect(result).not.toContain("## Memo");
     });
     it("always includes objective", () => {
         const result = buildHandoffMarkdown(makeHandoff({
@@ -434,7 +445,7 @@ describe("buildHandoffMarkdown", () => {
                 reuseWhen: "When workflow context keeps getting too long"
             }
         }));
-        expect(result).toContain("## Mode\ncompact");
+        expect(result).toContain("## Detail Level\ncompact");
         expect(result).toContain("## Reuse When\nWhen workflow context keeps getting too long");
         expect(result).toContain("## Verification\n- Checks: 1 (1 pass, 0 fail)");
     });
@@ -484,9 +495,11 @@ describe("buildHandoffMarkdown", () => {
 describe("buildHandoffXML", () => {
     it("produces valid XML structure with CDATA wrappers", () => {
         const result = buildHandoffXML(makeHandoff());
-        expect(result).toContain("<context>");
-        expect(result).toContain("</context>");
+        expect(result).toContain("<briefing>");
+        expect(result).toContain("</briefing>");
         expect(result).toContain("<objective><![CDATA[Build the feature]]></objective>");
+        expect(result).toContain("<purpose><![CDATA[continue]]></purpose>");
+        expect(result).toContain("<current_state><![CDATA[Open work remains: 1 todo.");
         expect(result).toContain("<summary><![CDATA[Implemented X and Y]]></summary>");
         expect(result).toContain("<process>");
         expect(result).toContain('lane="implementation"');
@@ -496,9 +509,9 @@ describe("buildHandoffXML", () => {
         expect(result).toContain("<modified_files>");
         expect(result).toContain("<open_todos>");
         expect(result).toContain("<todo><![CDATA[Write tests]]></todo>");
-        expect(result).toContain('<violations count="1">');
-        expect(result).toContain("<violation><![CDATA[No console.log allowed]]></violation>");
-        expect(result).toContain("<handoff_note><![CDATA[Start from the tests]]></handoff_note>");
+        expect(result).toContain('<watchouts count="1">');
+        expect(result).toContain("<watchout><![CDATA[No console.log allowed]]></watchout>");
+        expect(result).toContain("<memo><![CDATA[Start from the tests]]></memo>");
     });
     it("omits questions when include.questions = false", () => {
         const result = buildHandoffXML(makeHandoff());
@@ -515,31 +528,32 @@ describe("buildHandoffXML", () => {
         const result = buildHandoffXML(makeHandoff({ openTodos: [] }));
         expect(result).not.toContain("<open_todos>");
     });
-    it("omits handoff_note when memo is blank", () => {
+    it("omits memo when blank", () => {
         const result = buildHandoffXML(makeHandoff({ memo: "" }));
-        expect(result).not.toContain("<handoff_note>");
+        expect(result).not.toContain("<memo>");
     });
 });
 describe("buildHandoffSystemPrompt", () => {
     it("starts with the continuity preamble", () => {
         const result = buildHandoffSystemPrompt(makeHandoff());
-        expect(result).toContain("You are continuing a software development task");
+        expect(result).toContain("You are receiving a briefing for a software development task");
     });
     it("includes objective under ## Task", () => {
         const result = buildHandoffSystemPrompt(makeHandoff());
+        expect(result).toContain("## Briefing Purpose\nContinue this task");
         expect(result).toContain("## Task\nBuild the feature");
     });
     it("includes todos under ## What still needs to be done", () => {
         const result = buildHandoffSystemPrompt(makeHandoff());
         expect(result).toContain("## What still needs to be done\n- Write tests");
     });
-    it("includes violations under ## Watch out for", () => {
+    it("includes violations under ## Watchouts", () => {
         const result = buildHandoffSystemPrompt(makeHandoff());
-        expect(result).toContain("## Watch out for\n- No console.log allowed");
+        expect(result).toContain("## Watchouts\n- No console.log allowed");
     });
     it("ends with acknowledgement request", () => {
         const result = buildHandoffSystemPrompt(makeHandoff());
-        expect(result).toContain("Begin by acknowledging you have read this context");
+        expect(result).toContain("Begin by acknowledging you have read this briefing");
     });
     it("omits empty sections", () => {
         const result = buildHandoffSystemPrompt(makeHandoff({ openTodos: [] }));
@@ -547,7 +561,7 @@ describe("buildHandoffSystemPrompt", () => {
     });
     it("omits note section when memo is blank", () => {
         const result = buildHandoffSystemPrompt(makeHandoff({ memo: "" }));
-        expect(result).not.toContain("## Note from previous session");
+        expect(result).not.toContain("## Memo");
     });
 });
 describe("collectWebLookups", () => {

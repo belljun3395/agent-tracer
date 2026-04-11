@@ -66,6 +66,14 @@ export function useEvaluation(taskId: string | null | undefined): UseEvaluationR
                 workflowSnapshot: payload.workflowSnapshot ?? null,
                 workflowContext: payload.workflowContext ?? null,
                 searchText: payload.workflowSnapshot?.searchText ?? null,
+                version: (evaluation?.version ?? 0) + 1,
+                promotedTo: evaluation?.promotedTo ?? null,
+                qualitySignals: evaluation?.qualitySignals ?? {
+                    reuseCount: 0,
+                    lastReusedAt: null,
+                    briefingCopyCount: 0,
+                    manualRating: payload.rating
+                },
                 evaluatedAt: new Date().toISOString()
             });
             setIsSaved(true);

@@ -48,7 +48,7 @@ export function IconRail({ activePanel, isConnected, onTogglePanel }: IconRailPr
       </RailBtn>
 
       
-      <RailBtn active={activePanel === "library"} label="Library" onClick={() => onTogglePanel("library")}>
+      <RailBtn active={activePanel === "library"} label="Knowledge" onClick={() => onTogglePanel("library")}>
         <svg fill="none" height="18" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" viewBox="0 0 24 24" width="18">
           <rect height="7" rx="1" width="7" x="3" y="3"/>
           <rect height="7" rx="1" width="7" x="14" y="3"/>

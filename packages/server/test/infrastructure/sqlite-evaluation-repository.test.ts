@@ -173,6 +173,58 @@ describe("sqlite evaluation repository search", () => {
         expect(result?.workflowContext).toContain("saved override");
         db.close();
     });
+    it("creates playbooks and marks their source snapshots as promoted", async () => {
+        const db = new BetterSqlite3(":memory:");
+        createSchema(db);
+        seedTask(db, {
+            id: "task-playbook-source",
+            title: "Knowledge promotion flow"
+        });
+        seedEvaluation(db, {
+            taskId: "task-playbook-source",
+            rating: "good"
+        });
+        const repository = new SqliteEvaluationRepository(db);
+        const playbook = await repository.createPlaybook({
+            title: "Promote reusable workflow",
+            status: "active",
+            whenToUse: "When a snapshot becomes a durable pattern",
+            approach: "Start from the saved snapshot and refine the reusable parts.",
+            keySteps: ["Review the snapshot", "Extract reusable steps"],
+            watchouts: ["Do not overfit to a single task"],
+            sourceSnapshotIds: ["task-playbook-source:v1"],
+            tags: ["knowledge", "playbook"]
+        });
+        expect(playbook.status).toBe("active");
+        expect(playbook.sourceSnapshotIds).toContain("task-playbook-source:v1");
+        const summaries = await repository.listPlaybooks(undefined, "active", 10);
+        expect(summaries).toHaveLength(1);
+        expect(summaries[0]?.title).toBe("Promote reusable workflow");
+        const evaluation = await repository.getEvaluation(TaskId("task-playbook-source"));
+        expect(evaluation?.promotedTo).toBe(playbook.id);
+        db.close();
+    });
+    it("saves and lists task briefings", async () => {
+        const db = new BetterSqlite3(":memory:");
+        createSchema(db);
+        seedTask(db, {
+            id: "task-briefing-source",
+            title: "Briefing persistence flow"
+        });
+        const repository = new SqliteEvaluationRepository(db);
+        const saved = await repository.saveBriefing(TaskId("task-briefing-source"), {
+            purpose: "continue",
+            format: "markdown",
+            memo: "Resume from tests",
+            content: "# Briefing\nContinue from the failing tests",
+            generatedAt: "2026-03-28T00:00:00.000Z"
+        });
+        expect(saved.taskId).toBe("task-briefing-source");
+        const briefings = await repository.listBriefings(TaskId("task-briefing-source"));
+        expect(briefings).toHaveLength(1);
+        expect(briefings[0]?.content).toContain("Continue from the failing tests");
+        db.close();
+    });
 });
 function seedTask(db: BetterSqlite3.Database, input: {
     id: string;
@@ -211,10 +263,11 @@ function seedEvaluation(db: BetterSqlite3.Database, input: {
     db.prepare(`
     insert into task_evaluations (
       task_id, rating, use_case, workflow_tags, outcome_note, approach_note, reuse_when,
-      watchouts, workflow_snapshot_json, workflow_context, search_text, embedding, embedding_model, evaluated_at
+      watchouts, version, promoted_to, reuse_count, last_reused_at, briefing_copy_count,
+      workflow_snapshot_json, workflow_context, search_text, embedding, embedding_model, evaluated_at
     ) values (
       @taskId, @rating, @useCase, '["search"]', @outcomeNote, @approachNote, null,
-      null, @workflowSnapshotJson, @workflowContext, null, @embedding, @embeddingModel, @evaluatedAt
+      null, 1, null, 0, null, 0, @workflowSnapshotJson, @workflowContext, null, @embedding, @embeddingModel, @evaluatedAt
     )
   `).run({
         taskId: input.taskId,

@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { ReusableTaskSnapshot } from "@monitor/core";
-import type { HandoffMode, TaskProcessSection } from "@monitor/web-core";
+import { TaskId, type ReusableTaskSnapshot } from "@monitor/core";
+import type { HandoffMode, HandoffPurpose, TaskProcessSection } from "@monitor/web-core";
 import { buildHandoffPlain, buildHandoffMarkdown, buildHandoffXML, buildHandoffSystemPrompt } from "@monitor/web-core";
+import { fetchTaskBriefings, recordBriefingCopy, saveTaskBriefing, type SavedBriefingRecord } from "@monitor/web-core";
 import { copyToClipboard } from "../lib/ui/clipboard.js";
 import { cn } from "../lib/ui/cn.js";
 import { loadHandoffDraft, saveHandoffDraft, type HandoffFormat, type HandoffPrefs } from "../lib/ui/handoffStorage.js";
@@ -26,6 +27,35 @@ const toggleButtonBaseClass = "rounded-[6px] px-2.5 py-1 text-[0.72rem] font-med
 const toggleButtonInactiveClass = "text-[var(--text-2)] hover:text-[var(--text-1)]";
 const chipBaseClass = "rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-2 py-0.5 text-[0.73rem] cursor-pointer select-none transition-colors";
 const chipActiveClass = "border-[var(--accent)] bg-[var(--accent-light)] text-[var(--accent)]";
+const purposeOptions: readonly {
+    readonly value: HandoffPurpose;
+    readonly label: string;
+}[] = [
+    { value: "continue", label: "Continue" },
+    { value: "handoff", label: "Handoff" },
+    { value: "review", label: "Review" },
+    { value: "reference", label: "Reference" }
+] as const;
+const formatOptions: readonly {
+    readonly value: HandoffFormat;
+    readonly label: string;
+}[] = [
+    { value: "plain", label: "Plain" },
+    { value: "markdown", label: "Markdown" },
+    { value: "xml", label: "XML" },
+    { value: "system-prompt", label: "SP" }
+] as const;
+const modeOptions: readonly {
+    readonly value: HandoffMode;
+    readonly label: string;
+}[] = [
+    { value: "compact", label: "Compact" },
+    { value: "standard", label: "Standard" },
+    { value: "full", label: "Full" }
+] as const;
+function formatSavedTime(iso: string): string {
+    return new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+}
 function SectionLabel({ children }: {
     readonly children: React.ReactNode;
 }): React.JSX.Element {
@@ -65,6 +95,9 @@ export function TaskHandoffPanel({ taskId, objective, summary, plans, sections, 
     const [prefs, setPrefs] = useState<HandoffPrefs>(initialDraft.prefs);
     const [lastCopiedText, setLastCopiedText] = useState<string | null>(initialDraft.lastCopiedText);
     const [lastCopiedAt, setLastCopiedAt] = useState<string | null>(initialDraft.lastCopiedAt);
+    const [savedBriefings, setSavedBriefings] = useState<readonly SavedBriefingRecord[]>([]);
+    const [isLoadingSavedBriefings, setIsLoadingSavedBriefings] = useState(false);
+    const [isSavingBriefing, setIsSavingBriefing] = useState(false);
     useEffect(() => {
         const draft = loadHandoffDraft(taskId, violations.length);
         setMemo(draft.memo);
@@ -81,6 +114,16 @@ export function TaskHandoffPanel({ taskId, objective, summary, plans, sections, 
             lastCopiedAt
         });
     }, [lastCopiedAt, lastCopiedText, memo, prefs, taskId]);
+    useEffect(() => {
+        if (!isOpen || !taskId) {
+            return;
+        }
+        setIsLoadingSavedBriefings(true);
+        void fetchTaskBriefings(TaskId(taskId))
+            .then((items) => setSavedBriefings(items))
+            .catch(() => setSavedBriefings([]))
+            .finally(() => setIsLoadingSavedBriefings(false));
+    }, [isOpen, taskId]);
     const preview = useMemo(() => {
         const options = {
             objective,
@@ -93,6 +136,7 @@ export function TaskHandoffPanel({ taskId, objective, summary, plans, sections, 
             openQuestions,
             violations,
             snapshot,
+            purpose: prefs.purpose,
             mode: prefs.mode,
             memo,
             include: prefs.include
@@ -103,24 +147,39 @@ export function TaskHandoffPanel({ taskId, objective, summary, plans, sections, 
             case "xml": return buildHandoffXML(options);
             case "system-prompt": return buildHandoffSystemPrompt(options);
         }
-    }, [prefs.format, prefs.include, prefs.mode, objective, summary, plans, sections, exploredFiles, modifiedFiles, openTodos, openQuestions, violations, snapshot, memo]);
-    const isDisabled = !prefs.include.summary &&
-        !prefs.include.plans &&
-        !prefs.include.process &&
-        !prefs.include.files &&
-        !prefs.include.modifiedFiles &&
-        !prefs.include.todos &&
-        !prefs.include.violations &&
-        !prefs.include.questions &&
-        memo.trim() === "";
+    }, [prefs.format, prefs.include, prefs.mode, prefs.purpose, objective, summary, plans, sections, exploredFiles, modifiedFiles, openTodos, openQuestions, violations, snapshot, memo]);
+    const isDisabled = preview.trim().length === 0;
     const handleCopy = useCallback((text: string): void => {
         void copyToClipboard(text).then(() => {
             setLastCopiedText(text);
             setLastCopiedAt(new Date().toISOString());
             setCopied(true);
+            if (taskId) {
+                void recordBriefingCopy(TaskId(taskId)).catch(() => {
+                    void 0;
+                });
+            }
             setTimeout(() => setCopied(false), 2000);
         });
-    }, []);
+    }, [taskId]);
+    const handleSaveBriefing = useCallback((): void => {
+        if (!taskId || !preview.trim()) {
+            return;
+        }
+        setIsSavingBriefing(true);
+        const generatedAt = new Date().toISOString();
+        void saveTaskBriefing(TaskId(taskId), {
+            purpose: prefs.purpose,
+            format: prefs.format,
+            ...(memo.trim() ? { memo: memo.trim() } : {}),
+            content: preview,
+            generatedAt
+        })
+            .then((saved) => {
+            setSavedBriefings((current) => [saved, ...current.filter((item) => item.id !== saved.id)]);
+        })
+            .finally(() => setIsSavingBriefing(false));
+    }, [memo, prefs.format, prefs.purpose, preview, taskId]);
     const toggleInclude = useCallback((key: keyof HandoffPrefs["include"]): void => {
         setPrefs({
             ...prefs,
@@ -133,6 +192,9 @@ export function TaskHandoffPanel({ taskId, objective, summary, plans, sections, 
     const setMode = useCallback((mode: HandoffMode): void => {
         setPrefs({ ...prefs, mode });
     }, [prefs]);
+    const setPurpose = useCallback((purpose: HandoffPurpose): void => {
+        setPrefs({ ...prefs, purpose });
+    }, [prefs]);
     const includeItems: {
         key: keyof HandoffPrefs["include"];
         label: string;
@@ -143,25 +205,8 @@ export function TaskHandoffPanel({ taskId, objective, summary, plans, sections, 
         { key: "files", label: "Files" },
         { key: "modifiedFiles", label: "Modified" },
         { key: "todos", label: "TODOs" },
-        { key: "violations", label: "Violations" },
+        { key: "violations", label: "Watchouts" },
         { key: "questions", label: "Questions" }
-    ];
-    const formats: {
-        value: HandoffFormat;
-        label: string;
-    }[] = [
-        { value: "plain", label: "Plain" },
-        { value: "markdown", label: "Markdown" },
-        { value: "xml", label: "XML" },
-        { value: "system-prompt", label: "SP" }
-    ];
-    const modes: {
-        value: HandoffMode;
-        label: string;
-    }[] = [
-        { value: "compact", label: "Compact" },
-        { value: "standard", label: "Standard" },
-        { value: "full", label: "Full" }
     ];
     const canCopyLast = Boolean(lastCopiedText && lastCopiedText !== preview);
     return (<div className="rounded-[10px] border border-[var(--border)] bg-[var(--surface)]">
@@ -169,10 +214,19 @@ export function TaskHandoffPanel({ taskId, objective, summary, plans, sections, 
         <span className={cn("inline-block text-[0.75rem] text-[var(--text-3)] transition-transform duration-150", isOpen ? "rotate-0" : "-rotate-90")}>
           ▼
         </span>
-        <span className="text-[0.82rem] font-semibold text-[var(--text-1)]">Copy for AI</span>
+        <span className="text-[0.82rem] font-semibold text-[var(--text-1)]">Generate Briefing</span>
       </button>
 
       {isOpen && (<div className="flex flex-col gap-3 border-t border-[var(--border)] px-3 py-3">
+          <div className="flex flex-col gap-1">
+            <span className="text-[0.78rem] text-[var(--text-2)]">Generate a structured context packet for AI or human handoff.</span>
+          </div>
+
+          <div className={panelSectionClass}>
+            <SectionLabel>Briefing purpose</SectionLabel>
+            <ToggleGroup options={purposeOptions} value={prefs.purpose} onChange={setPurpose}/>
+          </div>
+
           <div className={panelSectionClass}>
             <SectionLabel>Include</SectionLabel>
             <div className="flex flex-wrap gap-1.5">
@@ -181,23 +235,23 @@ export function TaskHandoffPanel({ taskId, objective, summary, plans, sections, 
           </div>
 
           <div className={panelSectionClass}>
-            <SectionLabel>Handoff note</SectionLabel>
-            <Textarea className="resize-none rounded-[6px] bg-[var(--surface-2)] px-2.5 py-1.5 text-[0.8rem]" placeholder="Add a note for the next session…" rows={2} value={memo} onChange={(e) => setMemo(e.target.value)}/>
+            <SectionLabel>Memo</SectionLabel>
+            <Textarea className="resize-none rounded-[6px] bg-[var(--surface-2)] px-2.5 py-1.5 text-[0.8rem]" placeholder="Add context the recipient should know…" rows={2} value={memo} onChange={(e) => setMemo(e.target.value)}/>
           </div>
 
           <div className={panelSectionClass}>
-            <SectionLabel>Mode</SectionLabel>
-            <ToggleGroup options={modes} value={prefs.mode} onChange={setMode}/>
+            <SectionLabel>Detail level</SectionLabel>
+            <ToggleGroup options={modeOptions} value={prefs.mode} onChange={setMode}/>
           </div>
 
           <div className={panelSectionClass}>
-            <SectionLabel>Format</SectionLabel>
-            <ToggleGroup options={formats} value={prefs.format} onChange={setFormat}/>
+            <SectionLabel>Output format</SectionLabel>
+            <ToggleGroup options={formatOptions} value={prefs.format} onChange={setFormat}/>
           </div>
 
           <div className={panelSectionClass}>
             <div className="flex items-center justify-between gap-3">
-              <SectionLabel>Preview</SectionLabel>
+              <SectionLabel>Briefing Preview</SectionLabel>
               <div className="flex items-center gap-2 text-[0.7rem] text-[var(--text-3)]">
                 {lastCopiedAt ? <span>Last copy saved locally</span> : null}
                 <span>{preview.length} chars</span>
@@ -206,22 +260,48 @@ export function TaskHandoffPanel({ taskId, objective, summary, plans, sections, 
             <pre className="max-h-48 overflow-auto rounded-[6px] border border-[var(--border)] bg-[var(--surface-2)] p-2 font-mono text-[0.72rem] text-[var(--text-1)] whitespace-pre">
               {preview
                 ? preview
-                : <span className="text-[var(--text-3)]">Nothing to preview — enable at least one section.</span>}
+                : <span className="text-[var(--text-3)]">Nothing to preview yet.</span>}
             </pre>
           </div>
 
           <div className="flex justify-end gap-2">
             {canCopyLast && lastCopiedText ? (<Button className="rounded-[7px] bg-[var(--surface-2)] px-3 py-1.5 text-[0.78rem] font-semibold text-[var(--text-2)]" size="sm" type="button" onClick={() => handleCopy(lastCopiedText)}>
-                Copy last
+                Copy last briefing
+              </Button>) : null}
+            {taskId ? (<Button className="rounded-[7px] bg-[var(--surface-2)] px-3 py-1.5 text-[0.78rem] font-semibold text-[var(--text-2)]" size="sm" type="button" disabled={isSavingBriefing || isDisabled} onClick={handleSaveBriefing}>
+                {isSavingBriefing ? "Saving…" : "Save to Task"}
               </Button>) : null}
             <button className={cn("rounded-[7px] border px-3 py-1.5 text-[0.78rem] font-semibold transition-all", copied
                 ? "border-[var(--ok-bg)] bg-[var(--ok-bg)] text-[var(--ok)]"
                 : isDisabled
                     ? "cursor-not-allowed border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-3)] opacity-50"
                     : "border-[var(--accent)] bg-[var(--accent)] text-[#fff] hover:opacity-90")} disabled={isDisabled} type="button" onClick={() => handleCopy(preview)}>
-              {copied ? "Copied ✓" : "Copy for AI"}
+              {copied ? "Copied ✓" : "Copy Briefing"}
             </button>
           </div>
+
+          {taskId ? (<div className={panelSectionClass}>
+              <div className="flex items-center justify-between gap-3">
+                <SectionLabel>Saved briefings</SectionLabel>
+                {isLoadingSavedBriefings ? <span className="text-[0.7rem] text-[var(--text-3)]">Loading…</span> : null}
+              </div>
+              {savedBriefings.length === 0 ? (<div className="rounded-[6px] border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-[0.76rem] text-[var(--text-3)]">
+                  No saved briefings yet.
+                </div>) : (<div className="flex max-h-40 flex-col gap-2 overflow-auto rounded-[6px] border border-[var(--border)] bg-[var(--surface-2)] p-2">
+                  {savedBriefings.map((briefing) => (<div key={briefing.id} className="rounded-[6px] border border-[var(--border)] bg-[var(--surface)] px-3 py-2">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex min-w-0 flex-col gap-1">
+                          <span className="text-[0.76rem] font-semibold text-[var(--text-1)]">
+                            {briefing.purpose} · {briefing.format}
+                          </span>
+                          <span className="text-[0.7rem] text-[var(--text-3)]">{formatSavedTime(briefing.generatedAt)}</span>
+                          {briefing.memo ? <span className="line-clamp-1 text-[0.72rem] text-[var(--text-2)]">{briefing.memo}</span> : null}
+                        </div>
+                        <Button size="sm" className="px-2.5 text-[0.72rem]" onClick={() => handleCopy(briefing.content)}>Copy</Button>
+                      </div>
+                    </div>))}
+                </div>)}
+            </div>) : null}
         </div>)}
     </div>);
 }

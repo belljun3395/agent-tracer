@@ -151,6 +151,21 @@ describe("sqlite runtimeSource backfill", () => {
         expect(columns.some((column) => column.name === "workflow_context")).toBe(true);
         expect(columns.some((column) => column.name === "embedding")).toBe(true);
         expect(columns.some((column) => column.name === "embedding_model")).toBe(true);
+        expect(columns.some((column) => column.name === "version")).toBe(true);
+        expect(columns.some((column) => column.name === "promoted_to")).toBe(true);
+        expect(columns.some((column) => column.name === "reuse_count")).toBe(true);
+        expect(columns.some((column) => column.name === "last_reused_at")).toBe(true);
+        expect(columns.some((column) => column.name === "briefing_copy_count")).toBe(true);
+        const playbookColumns = inspectDb.pragma("table_info(playbooks)") as Array<{
+            name: string;
+        }>;
+        expect(playbookColumns.some((column) => column.name === "title")).toBe(true);
+        expect(playbookColumns.some((column) => column.name === "status")).toBe(true);
+        const briefingColumns = inspectDb.pragma("table_info(briefings)") as Array<{
+            name: string;
+        }>;
+        expect(briefingColumns.some((column) => column.name === "task_id")).toBe(true);
+        expect(briefingColumns.some((column) => column.name === "content")).toBe(true);
         inspectDb.close();
     });
 });

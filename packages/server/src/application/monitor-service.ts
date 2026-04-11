@@ -1,4 +1,4 @@
-import { BookmarkId, buildOpenInferenceTaskExport, normalizeWorkspacePath, type EventId, type MonitoringEventKind, type MonitoringTask, type ReusableTaskSnapshot, type RuntimeSessionId, type RuntimeSource, type SessionId, type TaskId, type TimelineEvent, } from "@monitor/core";
+import { BookmarkId, buildOpenInferenceTaskExport, normalizeWorkspacePath, type EventId, type MonitoringEventKind, type MonitoringTask, type PlaybookStatus, type ReusableTaskSnapshot, type RuntimeSessionId, type RuntimeSource, type SessionId, type TaskId, type TimelineEvent, } from "@monitor/core";
 import type { MonitorPorts, BookmarkRecord, SearchResults, } from "./ports";
 import type { TaskActionInput, TaskAgentActivityInput, TaskBookmarkDeleteInput, TaskBookmarkInput, TaskCompletionInput, TaskContextSavedInput, TaskErrorInput, TaskExploreInput, TaskAsyncLifecycleInput, TaskPlanInput, TaskLinkInput, TaskQuestionInput, TaskPatchInput, TaskRuleInput, TaskSessionEndInput, TaskStartInput, TaskTerminalCommandInput, TaskThoughtInput, TaskTodoInput, TaskToolUsedInput, TaskUserMessageInput, TaskVerifyInput, RuntimeSessionEnsureInput, RuntimeSessionEnsureResult, RuntimeSessionEndInput, TaskSearchInput, TaskAssistantResponseInput, EventPatchInput, } from "./types.js";
 import { analyzeObservabilityOverview, analyzeTaskObservability, type ObservabilityOverviewResponse, type TaskObservabilityResponse, } from "./observability.js";
@@ -334,6 +334,15 @@ export class MonitorService {
     async getTaskEvaluation(taskId: TaskId) {
         return this.workflowEvaluation.getTaskEvaluation(taskId);
     }
+    async recordBriefingCopy(taskId: TaskId) {
+        return this.workflowEvaluation.recordBriefingCopy(taskId);
+    }
+    async saveBriefing(taskId: TaskId, input: Parameters<WorkflowEvaluationService["saveBriefing"]>[1]) {
+        return this.workflowEvaluation.saveBriefing(taskId, input);
+    }
+    async listBriefings(taskId: TaskId) {
+        return this.workflowEvaluation.listBriefings(taskId);
+    }
     async getWorkflowContent(taskId: TaskId) {
         return this.workflowEvaluation.getWorkflowContent(taskId);
     }
@@ -345,5 +354,17 @@ export class MonitorService {
     }
     async searchSimilarWorkflows(query: string, tags?: string[], limit?: number) {
         return this.workflowEvaluation.searchSimilarWorkflows(query, tags, limit);
+    }
+    async listPlaybooks(query?: string, status?: PlaybookStatus, limit?: number) {
+        return this.workflowEvaluation.listPlaybooks(query, status, limit);
+    }
+    async getPlaybook(playbookId: string) {
+        return this.workflowEvaluation.getPlaybook(playbookId);
+    }
+    async createPlaybook(input: Parameters<WorkflowEvaluationService["createPlaybook"]>[0]) {
+        return this.workflowEvaluation.createPlaybook(input);
+    }
+    async updatePlaybook(playbookId: string, input: Parameters<WorkflowEvaluationService["updatePlaybook"]>[1]) {
+        return this.workflowEvaluation.updatePlaybook(playbookId, input);
     }
 }

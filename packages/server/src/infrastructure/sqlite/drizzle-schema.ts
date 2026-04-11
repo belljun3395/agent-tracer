@@ -1,4 +1,4 @@
-import { index, primaryKey, sqliteTable, text, type AnySQLiteColumn } from "drizzle-orm/sqlite-core"
+import { index, integer, primaryKey, sqliteTable, text, type AnySQLiteColumn } from "drizzle-orm/sqlite-core"
 
 export const monitoringTasks = sqliteTable("monitoring_tasks", {
   id: text("id").primaryKey(),
@@ -88,6 +88,11 @@ export const taskEvaluations = sqliteTable("task_evaluations", {
   approachNote: text("approach_note"),
   reuseWhen: text("reuse_when"),
   watchouts: text("watchouts"),
+  version: integer("version").notNull(),
+  promotedTo: text("promoted_to"),
+  reuseCount: integer("reuse_count").notNull(),
+  lastReusedAt: text("last_reused_at"),
+  briefingCopyCount: integer("briefing_copy_count").notNull(),
   workflowSnapshotJson: text("workflow_snapshot_json"),
   workflowContext: text("workflow_context"),
   searchText: text("search_text"),
@@ -98,6 +103,45 @@ export const taskEvaluations = sqliteTable("task_evaluations", {
   index("idx_task_evaluations_rating").on(table.rating)
 ])
 
+export const playbooks = sqliteTable("playbooks", {
+  id: text("id").primaryKey(),
+  title: text("title").notNull(),
+  slug: text("slug").notNull(),
+  status: text("status").notNull(),
+  whenToUse: text("when_to_use"),
+  prerequisites: text("prerequisites"),
+  approach: text("approach"),
+  keySteps: text("key_steps"),
+  watchouts: text("watchouts"),
+  antiPatterns: text("anti_patterns"),
+  failureModes: text("failure_modes"),
+  variants: text("variants"),
+  relatedPlaybookIds: text("related_playbook_ids"),
+  sourceSnapshotIds: text("source_snapshot_ids"),
+  tags: text("tags"),
+  searchText: text("search_text"),
+  embedding: text("embedding"),
+  embeddingModel: text("embedding_model"),
+  useCount: integer("use_count").notNull(),
+  lastUsedAt: text("last_used_at"),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull()
+}, (table) => [
+  index("idx_playbooks_status").on(table.status)
+])
+
+export const briefings = sqliteTable("briefings", {
+  id: text("id").primaryKey(),
+  taskId: text("task_id").notNull().references(() => monitoringTasks.id, { onDelete: "cascade" }),
+  generatedAt: text("generated_at").notNull(),
+  purpose: text("purpose").notNull(),
+  format: text("format").notNull(),
+  memo: text("memo"),
+  content: text("content").notNull()
+}, (table) => [
+  index("idx_briefings_task_generated").on(table.taskId, table.generatedAt)
+])
+
 export const drizzleSchema = {
   monitoringTasks,
   taskSessions,
@@ -105,7 +149,9 @@ export const drizzleSchema = {
   runtimeSessionBindings,
   bookmarks,
   searchDocuments,
-  taskEvaluations
+  taskEvaluations,
+  playbooks,
+  briefings
 }
 
 export type DrizzleSchema = typeof drizzleSchema

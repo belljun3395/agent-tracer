@@ -236,6 +236,36 @@ export const runtimeSessionEndSchema = z.object({
     completionReason: z.enum(COMPLETION_REASONS).optional(),
     backgroundCompletions: z.array(z.string().min(1)).optional()
 });
+const playbookVariantSchema = z.object({
+    label: z.string().trim().min(1),
+    description: z.string().trim().min(1),
+    differenceFromBase: z.string().trim().min(1)
+});
+export const playbookUpsertSchema = z.object({
+    title: z.string().trim().min(1),
+    status: z.enum(["draft", "active", "archived"]).optional(),
+    whenToUse: z.string().trim().min(1).nullable().optional(),
+    prerequisites: z.array(z.string().trim().min(1)).optional(),
+    approach: z.string().trim().min(1).nullable().optional(),
+    keySteps: z.array(z.string().trim().min(1)).optional(),
+    watchouts: z.array(z.string().trim().min(1)).optional(),
+    antiPatterns: z.array(z.string().trim().min(1)).optional(),
+    failureModes: z.array(z.string().trim().min(1)).optional(),
+    variants: z.array(playbookVariantSchema).optional(),
+    relatedPlaybookIds: z.array(z.string().trim().min(1)).optional(),
+    sourceSnapshotIds: z.array(z.string().trim().min(1)).optional(),
+    tags: z.array(z.string().trim().min(1)).optional()
+});
+export const playbookPatchSchema = playbookUpsertSchema.partial().refine((data) => Object.keys(data).length > 0, {
+    message: "At least one playbook field must be provided"
+});
+export const briefingSaveSchema = z.object({
+    purpose: z.enum(["continue", "handoff", "review", "reference"]),
+    format: z.enum(["plain", "markdown", "xml", "system-prompt"]),
+    memo: z.string().optional(),
+    content: z.string().min(1),
+    generatedAt: z.string().min(1)
+});
 export const assistantResponseSchema = z.object({
     taskId: z.string().min(1),
     sessionId: z.string().min(1).optional(),
