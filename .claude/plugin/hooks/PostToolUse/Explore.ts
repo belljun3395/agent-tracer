@@ -28,7 +28,7 @@
  * an /api/explore event to the Agent Tracer monitor.
  */
 import * as path from "node:path";
-import { buildSemanticMetadata, getSessionId, getToolInput, hookLog, hookLogPayload, inferExploreSemantic, postJson, readStdinJson, relativeProjectPath, resolveSessionIds, stringifyToolInput, toTrimmedString } from "../common.js";
+import { buildSemanticMetadata, getSessionId, getToolInput, hookLog, hookLogPayload, inferExploreSemantic, postJson, readStdinJson, relativeProjectPath, resolveEventSessionIds, stringifyToolInput, toTrimmedString } from "../common.js";
 
 const MAX_PATH_LENGTH = 300;
 
@@ -36,6 +36,8 @@ async function main(): Promise<void> {
     const payload = await readStdinJson();
     hookLogPayload("PostToolUse/Explore", payload);
     const sessionId = getSessionId(payload);
+    const agentId = toTrimmedString(payload.agent_id) || undefined;
+    const agentType = toTrimmedString(payload.agent_type) || undefined;
     const toolName = toTrimmedString(payload.tool_name);
     const toolInput = getToolInput(payload);
     hookLog("PostToolUse/Explore", "fired", { toolName, sessionId: sessionId || "(none)" });
@@ -45,7 +47,7 @@ async function main(): Promise<void> {
         return;
     }
 
-    const ids = await resolveSessionIds(sessionId);
+    const ids = await resolveEventSessionIds(sessionId, agentId, agentType);
     let title = `Explore: ${toolName}`;
     let body = `Used ${toolName} to explore`;
     let filePaths: string[] = [];

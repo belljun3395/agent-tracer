@@ -50,6 +50,7 @@ All handlers post to `POST /ingest/v1/events` with the appropriate `kind` field.
 - `lib/session-history.ts` — session lineage append log
 - `lib/session-metadata.ts` — persisted session metadata
 - `lib/subagent-registry.ts` — background subagent tracking
+- `lib/subagent-session.ts` — virtual session ID resolution for subagent event routing (`resolveSubagentSessionIds`, `resolveEventSessionIds`)
 - `lib/hook-log.ts` — development file logging
 - `common.ts` — re-exports the above for hook scripts
 - `util/lane.ts`, `util/paths.ts`, `util/runtime-identifier.ts`, `util/utils.ts` — framework-agnostic helpers
@@ -68,8 +69,14 @@ All handlers post to `POST /ingest/v1/events` with the appropriate `kind` field.
 5. `PostToolUse/*.ts` handlers record the per-tool activity with semantic
    metadata built by the `classification/` modules. All handlers send to
    `POST /ingest/v1/events` with a `kind`-tagged batch envelope.
-6. `SubagentStart.ts` / `SubagentStop.ts` record background async
-   lifecycle events (`kind: "action.logged"` with `asyncTaskId`) and update the subagent registry.
+6. `SubagentStart.ts` calls `resolveSubagentSessionIds(sessionId, agentId, agentType)` to
+   **eagerly create a background child task** (via `ensureRuntimeSession` with `parentTaskId`).
+   The child's `taskId`/`sessionId` are stored in the subagent registry so all subsequent
+   hooks from inside the subagent can route their events to the child timeline.
+   A `kind: "action.logged"` (`asyncStatus: "running"`) event is also posted to the parent task
+   so the parent timeline shows the delegation.
+   `SubagentStop.ts` posts `asyncStatus: "completed"` to the parent, ends the virtual session
+   (`POST /api/runtime-session-end` on `sub--{agentId}`) for auto-completion, and clears the cache.
 7. `PreCompact.ts` and `PostCompact.ts` record compaction checkpoints
    (`kind: "context.saved"`) to the planning lane.
 8. `Stop.ts` posts the assistant response (`kind: "assistant.response"`)
@@ -85,10 +92,29 @@ The plugin always sends `runtimeSource = "claude-plugin"` on every event.
 Older code used `claude-hook`; the server still accepts it as an alias
 but new events use `claude-plugin`.
 
+### Subagent event routing
+
+**All hooks that fire inside a subagent still carry the parent's `session_id`.**
+`agent_id` is the only field that distinguishes subagent context. Agent Tracer solves
+this with a virtual session ID:
+
+```
+virtualId = `sub--${agentId}`
+```
+
+`resolveEventSessionIds(sessionId, agentId?, agentType?)` in `lib/subagent-session.ts`
+is the canonical dispatcher used by every PostToolUse handler, `PreToolUse`, `Stop`, and
+`PostToolUseFailure`. When `agentId` is present it maps through the virtual session to the
+child task; otherwise it falls through to the normal parent session lookup.
+
+See [Hook Payload Spec — Subagent Event Routing](/guide/hook-payload-spec#subagent-event-routing)
+for the full pattern description.
+
 ### Subagent registry is transient
 
 `${CLAUDE_PROJECT_DIR}/.claude/.subagent-registry.json` stores subagent
-coordination state (parent/child IDs, running status). It is plugin-local
+coordination state (parent/child IDs, running status, and the child task's
+`childTaskId`/`childSessionId` created at `SubagentStart`). It is plugin-local
 state, not product data, and it's safe to delete between sessions.
 
 ### Development logs opt in via `NODE_ENV`

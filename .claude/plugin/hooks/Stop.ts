@@ -31,8 +31,11 @@
  *
  * This handler records the assistant's response and token usage in the
  * Agent Tracer monitor via /api/assistant-response.
+ * When agent_id is present (subagent turn), the response is recorded on the
+ * child task timeline via resolveEventSessionIds, and runtime-session-end
+ * is skipped (SubagentStop.ts handles child task completion).
  */
-import { CLAUDE_RUNTIME_SOURCE, createMessageId, ellipsize, getSessionId, hookLog, hookLogPayload, postJson, readStdinJson, resolveSessionIds, toTrimmedString } from "./common.js";
+import { CLAUDE_RUNTIME_SOURCE, createMessageId, ellipsize, getSessionId, hookLog, hookLogPayload, postJson, readStdinJson, resolveEventSessionIds, toTrimmedString } from "./common.js";
 
 async function main(): Promise<void> {
     const payload = await readStdinJson();
@@ -43,14 +46,15 @@ async function main(): Promise<void> {
         return;
     }
 
-    const agentId = toTrimmedString(payload.agent_id);
+    const agentId = toTrimmedString(payload.agent_id) || undefined;
+    const agentType = toTrimmedString(payload.agent_type) || undefined;
     const stopReason = toTrimmedString(payload.stop_reason) || "end_turn";
     const responseText = toTrimmedString(payload.last_assistant_message) || "";
     const title = responseText
         ? ellipsize(responseText, 120)
         : `Response (${stopReason})`;
 
-    const ids = await resolveSessionIds(sessionId);
+    const ids = await resolveEventSessionIds(sessionId, agentId, agentType);
     const usage = payload.usage as Record<string, unknown> | undefined;
 
     await postJson("/ingest/v1/events", {
@@ -71,7 +75,7 @@ async function main(): Promise<void> {
             }
         }]
     });
-    hookLog("Stop", "assistant-response posted", { stopReason, hasText: !!responseText });
+    hookLog("Stop", "assistant-response posted", { stopReason, hasText: !!responseText, agentId: agentId ?? "(none)" });
 
     if (agentId) {
         hookLog("Stop", "runtime-session-end skipped for subagent", { agentId });

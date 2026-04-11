@@ -25,7 +25,7 @@
  * This handler records the failure in the Agent Tracer monitor. MCP tool failures
  * are posted to /api/agent-activity; all other tool failures go to /api/tool-used.
  */
-import { buildSemanticMetadata, getSessionId, getToolInput, hookLog, hookLogPayload, inferCommandSemantic, LANE, parseMcpToolName, postJson, readStdinJson, resolveSessionIds, toBoolean, toTrimmedString } from "./common.js";
+import { buildSemanticMetadata, getSessionId, getToolInput, hookLog, hookLogPayload, inferCommandSemantic, LANE, parseMcpToolName, postJson, readStdinJson, resolveEventSessionIds, toBoolean, toTrimmedString } from "./common.js";
 
 async function main(): Promise<void> {
     const payload = await readStdinJson();
@@ -33,6 +33,8 @@ async function main(): Promise<void> {
     const toolName = toTrimmedString(payload.tool_name);
     const toolInput = getToolInput(payload);
     const sessionId = getSessionId(payload);
+    const agentId = toTrimmedString(payload.agent_id) || undefined;
+    const agentType = toTrimmedString(payload.agent_type) || undefined;
     hookLog("PostToolUseFailure", "fired", { toolName, sessionId: sessionId || "(none)" });
 
     if (!sessionId || !toolName) {
@@ -46,7 +48,7 @@ async function main(): Promise<void> {
         return;
     }
 
-    const ids = await resolveSessionIds(sessionId);
+    const ids = await resolveEventSessionIds(sessionId, agentId, agentType);
     const title = `Failed ${toolName}`;
     const body = toTrimmedString(payload.error) || `Tool failed: ${toolName}`;
     const failureMetadata = {

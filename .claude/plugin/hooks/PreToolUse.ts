@@ -28,10 +28,11 @@
  *       unreachable the hook exits 0 and Claude proceeds unblocked.
  *
  * Purpose: guarantees that a runtime session and task exist in the monitor
- * before any tool event is posted. For subagent sessions, links the child
- * session to its parent via the subagent registry written by SubagentStart.ts.
+ * before any tool event is posted. For subagent sessions, resolveEventSessionIds
+ * transparently creates a virtual child task via "sub--{agent_id}" on first call
+ * (or returns the cached result on subsequent calls).
  */
-import { getSessionId, hookLog, hookLogPayload, readStdinJson, readSubagentRegistry, resolveSessionIds, toTrimmedString, writeSubagentRegistry } from "./common.js";
+import { getSessionId, hookLog, hookLogPayload, readStdinJson, resolveEventSessionIds, toTrimmedString } from "./common.js";
 
 async function main(): Promise<void> {
     const payload = await readStdinJson();
@@ -39,31 +40,11 @@ async function main(): Promise<void> {
     const sessionId = getSessionId(payload);
     if (!sessionId) return;
 
-    const registry = readSubagentRegistry();
-    const agentId = toTrimmedString(payload.agent_id);
+    const agentId = toTrimmedString(payload.agent_id) || undefined;
+    const agentType = toTrimmedString(payload.agent_type) || undefined;
 
-    if (agentId) {
-        const entry = registry[agentId];
-        if (entry && !entry.linked) {
-            const parentTaskId = entry.parentTaskId ?? (await resolveSessionIds(entry.parentSessionId)).taskId;
-            await resolveSessionIds(sessionId, undefined, {
-                parentTaskId,
-                parentSessionId: entry.parentSessionId
-            });
-            entry.linked = true;
-            writeSubagentRegistry(registry);
-            hookLog("PreToolUse", "background task created via registry", {
-                agentId,
-                childSession: sessionId,
-                parentSession: entry.parentSessionId,
-                parentTaskId: entry.parentTaskId
-            });
-            return;
-        }
-    }
-
-    await resolveSessionIds(sessionId);
-    hookLog("PreToolUse", "ensureRuntimeSession ok", { sessionId });
+    await resolveEventSessionIds(sessionId, agentId, agentType);
+    hookLog("PreToolUse", "ensureRuntimeSession ok", { sessionId, agentId: agentId ?? "(none)" });
 }
 
 void main().catch((err: unknown) => {

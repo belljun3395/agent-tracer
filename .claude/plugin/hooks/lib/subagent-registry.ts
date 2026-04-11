@@ -22,6 +22,8 @@ export interface SubagentRegistryEntry {
     agentType: string;
     linked: boolean;
     parentTaskId?: string;
+    childTaskId?: string;
+    childSessionId?: string;
 }
 
 export type SubagentRegistry = Record<string, SubagentRegistryEntry>;

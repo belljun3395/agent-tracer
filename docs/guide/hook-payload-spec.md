@@ -276,6 +276,49 @@ Session end
 
 ---
 
+## Subagent Event Routing
+
+### The session_id problem
+
+**All hooks — including those that fire inside a subagent — receive the parent session's `session_id`.**
+The `session_id` field does not change when Claude Code dispatches a subagent. This means a naive
+`resolveSessionIds(session_id)` call always returns the parent task's IDs, causing subagent tool
+events to be recorded under the parent instead of a separate child task.
+
+`agent_id` is the **only** field that distinguishes subagent context from parent context.
+
+### Virtual session ID pattern (Agent Tracer solution)
+
+Agent Tracer resolves this by mapping every `agent_id` to a **virtual session ID**:
+
+```
+virtualId = `sub--${agentId}`
+```
+
+`resolveEventSessionIds(sessionId, agentId?, agentType?)` is the canonical dispatcher:
+
+- `agentId` absent → falls through to `resolveSessionIds(sessionId)` (parent task, unchanged)
+- `agentId` present → calls `resolveSubagentSessionIds(sessionId, agentId, agentType)`:
+  1. Cache-check `sub--{agentId}` → return cached child IDs on hit
+  2. On miss: resolve parent session to obtain `parentTaskId`
+  3. Call `ensureRuntimeSession(virtualId, title, { parentTaskId })` → server creates background child task
+  4. Cache result under `sub--{agentId}` for the remainder of the hook process lifetime
+
+This reuses the existing FS-backed session cache (`.claude/.session-cache/<sessionId>.json`) and the
+idempotent `ensureRuntimeSession` server endpoint without any server-side changes.
+
+### Lifecycle
+
+| Event | Behaviour |
+|-------|-----------|
+| `SubagentStart` | Eagerly calls `resolveSubagentSessionIds` → child background task created immediately; stores `childTaskId`/`childSessionId` in subagent registry |
+| `PreToolUse` (inside subagent) | Calls `resolveEventSessionIds(sessionId, agentId)` → ensures session exists before first tool fires |
+| `PostToolUse/*` (inside subagent) | All tool events routed to child task timeline via `resolveEventSessionIds` |
+| `Stop` (inside subagent) | `assistant.response` recorded on child task; session-end skipped (SubagentStop handles it) |
+| `SubagentStop` | Calls `POST /api/runtime-session-end` for virtual session to trigger auto-completion; clears `sub--{agentId}` from cache |
+
+---
+
 ## Code Implementation Notes
 
 | Situation | Current | Recommended |
@@ -285,3 +328,4 @@ Session end
 | `custom_instructions` empty | `\|\| ""` (already handled) | Keep current code |
 | `compact_summary` logging | - | Length limit required (several KB) |
 | `tool_response` logging | Being removed in hookLogPayload | Preserve |
+| `session_id` in subagent hooks | Parent's session_id is always sent | Use `agent_id` + `resolveEventSessionIds` to route to child task |

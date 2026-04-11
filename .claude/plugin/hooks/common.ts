@@ -7,6 +7,7 @@ export { createResumeId } from "./util/runtime-identifier.js";
 export type { RuntimeSessionEnsureResult } from "./lib/transport.js";
 export { readStdinJson, postJson, ensureRuntimeSession } from "./lib/transport.js";
 export { resolveSessionIds } from "./lib/session.js";
+export { resolveSubagentSessionIds, resolveEventSessionIds } from "./lib/subagent-session.js";
 export { getCachedSessionResult, cacheSessionResult, deleteCachedSessionResult } from "./lib/session-cache.js";
 export type { SessionMetadata } from "./lib/session-metadata.js";
 export { getSessionMetadata, saveSessionMetadata, deleteSessionMetadata } from "./lib/session-metadata.js";

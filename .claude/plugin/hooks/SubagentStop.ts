@@ -21,10 +21,14 @@
  * Blocking: SubagentStop CAN block (exit 2 prevents the subagent from completing).
  *           Ref: https://code.claude.com/docs/en/hooks#exit-code-2-behavior-matrix
  *
- * This handler removes the registry entry written by SubagentStart.ts and posts
- * an async-task "completed" event to the monitor.
+ * This handler:
+ *   1. Posts an async-task "completed" event to the parent task.
+ *   2. Ends the virtual monitor session for the subagent (sub--{agentId}) so the
+ *      server can auto-complete the background child task.
+ *   3. Cleans up the virtual session cache entry.
+ *   4. Removes the registry entry written by SubagentStart.ts.
  */
-import { getSessionId, hookLog, hookLogPayload, postJson, readStdinJson, readSubagentRegistry, resolveSessionIds, toTrimmedString, writeSubagentRegistry } from "./common.js";
+import { CLAUDE_RUNTIME_SOURCE, deleteCachedSessionResult, getSessionId, hookLog, hookLogPayload, postJson, readStdinJson, readSubagentRegistry, resolveSessionIds, toTrimmedString, writeSubagentRegistry } from "./common.js";
 
 async function main(): Promise<void> {
     const payload = await readStdinJson();
@@ -40,11 +44,8 @@ async function main(): Promise<void> {
     }
 
     const ids = await resolveSessionIds(sessionId);
-    const registry = readSubagentRegistry();
-    delete registry[agentId];
-    writeSubagentRegistry(registry);
-    hookLog("SubagentStop", "registry entry removed", { agentId });
 
+    // Post "completed" async-task event to parent task for parent timeline visibility.
     await postJson("/ingest/v1/events", {
         events: [{
             kind: "action.logged",
@@ -65,6 +66,26 @@ async function main(): Promise<void> {
         }]
     });
     hookLog("SubagentStop", "async-task posted", { agentType, agentId });
+
+    // End the virtual session so the server auto-completes the background child task.
+    const virtualId = `sub--${agentId}`;
+    await postJson("/api/runtime-session-end", {
+        runtimeSource: CLAUDE_RUNTIME_SOURCE,
+        runtimeSessionId: virtualId,
+        summary: `Subagent finished: ${agentType}`,
+        completeTask: false,
+        completionReason: "assistant_turn_complete"
+    });
+    hookLog("SubagentStop", "virtual session ended", { virtualId });
+
+    // Clean up virtual session cache so the ID can be reused by future agents.
+    deleteCachedSessionResult(virtualId);
+
+    // Remove registry entry.
+    const registry = readSubagentRegistry();
+    delete registry[agentId];
+    writeSubagentRegistry(registry);
+    hookLog("SubagentStop", "registry entry removed", { agentId });
 }
 
 void main().catch((err: unknown) => {

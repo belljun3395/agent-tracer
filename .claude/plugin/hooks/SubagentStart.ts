@@ -18,11 +18,11 @@
  *
  * Blocking: SubagentStart cannot block (exit 2 shows stderr but execution continues).
  *
- * This handler writes a registry entry mapping agent_id → parent session so that
- * PreToolUse.ts can link the subagent's session to its parent task when the first
- * tool call arrives. Also posts an async-task "running" event to the monitor.
+ * This handler eagerly creates a background child task in the monitor via
+ * resolveSubagentSessionIds, stores the child taskId/sessionId in the registry
+ * for reference, and posts an async-task "running" event to the parent task.
  */
-import { getSessionId, hookLog, hookLogPayload, postJson, readStdinJson, readSubagentRegistry, resolveSessionIds, toTrimmedString, writeSubagentRegistry } from "./common.js";
+import { getSessionId, hookLog, hookLogPayload, postJson, readStdinJson, readSubagentRegistry, resolveSessionIds, resolveSubagentSessionIds, toTrimmedString, writeSubagentRegistry } from "./common.js";
 
 async function main(): Promise<void> {
     const payload = await readStdinJson();
@@ -38,19 +38,27 @@ async function main(): Promise<void> {
     }
 
     const ids = await resolveSessionIds(sessionId);
+
+    // Eagerly create the child background task so subsequent PostToolUse hooks
+    // inside the subagent get a cache hit and route to the correct task.
+    const childIds = await resolveSubagentSessionIds(sessionId, agentId, agentType);
+    hookLog("SubagentStart", "child task created", {
+        agentId,
+        childTaskId: childIds.taskId,
+        childSessionId: childIds.sessionId,
+        parentTaskId: ids.taskId
+    });
+
     const registry = readSubagentRegistry();
     registry[agentId] = {
         parentSessionId: sessionId,
         parentTaskId: ids.taskId,
+        childTaskId: childIds.taskId,
+        childSessionId: childIds.sessionId,
         agentType,
-        linked: false
+        linked: true
     };
     writeSubagentRegistry(registry);
-    hookLog("SubagentStart", "registry entry written", {
-        agentId,
-        parentSessionId: sessionId,
-        parentTaskId: ids.taskId
-    });
 
     await postJson("/ingest/v1/events", {
         events: [{
@@ -64,7 +72,8 @@ async function main(): Promise<void> {
                 agentId,
                 agentType,
                 parentTaskId: ids.taskId,
-                parentSessionId: sessionId
+                parentSessionId: sessionId,
+                childTaskId: childIds.taskId
             }
         }]
     });
