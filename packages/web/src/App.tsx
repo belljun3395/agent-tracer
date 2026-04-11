@@ -20,6 +20,7 @@ const ZOOM_MAX = 2.5;
 const ZOOM_DEFAULT = 1.1;
 const ZOOM_STORAGE_KEY = "agent-tracer.zoom";
 const INSPECTOR_WIDTH = 360;
+const DASHBOARD_STACKED_BREAKPOINT = 1024;
 function Dashboard({ onOpenTaskWorkspace, onSelectTaskRoute }: {
     readonly onOpenTaskWorkspace: (taskId: string) => void;
     readonly onSelectTaskRoute: (taskId: string | null) => void;
@@ -41,12 +42,30 @@ function Dashboard({ onOpenTaskWorkspace, onSelectTaskRoute }: {
     }, [dispatch, wsConnected]);
     const { query: searchQuery, setQuery: setSearchQuery, results: searchResults, isSearching, taskScopeEnabled, setTaskScopeEnabled } = useSearch(selectedTaskId ?? undefined);
     const [sidebarView, setSidebarView] = useState<"tasks" | "saved">("tasks");
+    const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth);
     const isInspectorOpen = Boolean(selectedTaskId);
     const [isInspectorCollapsed, setIsInspectorCollapsed] = useState(false);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const isStackedDashboard = viewportWidth < DASHBOARD_STACKED_BREAKPOINT;
     useEffect(() => {
         if (!isInspectorOpen)
             setIsInspectorCollapsed(false);
     }, [isInspectorOpen]);
+    useEffect(() => {
+        const handleResize = (): void => setViewportWidth(window.innerWidth);
+        window.addEventListener("resize", handleResize);
+        return () => window.removeEventListener("resize", handleResize);
+    }, []);
+    useEffect(() => {
+        if (!isStackedDashboard) {
+            setIsSidebarOpen(false);
+        }
+    }, [isStackedDashboard]);
+    useEffect(() => {
+        if (isStackedDashboard && isInspectorCollapsed) {
+            setIsInspectorCollapsed(false);
+        }
+    }, [isInspectorCollapsed, isStackedDashboard]);
     const [isApprovalQueueOpen, setIsApprovalQueueOpen] = useState(false);
     const [zoom, setZoom] = useState<number>(() => {
         const raw = window.localStorage.getItem(ZOOM_STORAGE_KEY);
@@ -68,15 +87,30 @@ function Dashboard({ onOpenTaskWorkspace, onSelectTaskRoute }: {
         onSelectTaskRoute(taskId);
         dispatch({ type: "SELECT_TASK", taskId });
     }, [dispatch, onSelectTaskRoute]);
+    const handleSidebarViewChange = useCallback((view: "tasks" | "saved"): void => {
+        setSidebarView(view);
+        if (isStackedDashboard) {
+            setIsSidebarOpen(false);
+        }
+    }, [isStackedDashboard]);
+    const handleSelectDashboardTask = useCallback((taskId: string): void => {
+        if (isStackedDashboard) {
+            setIsSidebarOpen(false);
+        }
+        selectDashboardTask(taskId);
+    }, [isStackedDashboard, selectDashboardTask]);
     const selectedTaskBookmark = bookmarks.find((b) => b.taskId === (selectedTaskId ?? "") && !b.eventId) ?? null;
     const taskTimeline = taskDetail?.timeline ?? [];
     const questionCount = useMemo(() => buildQuestionGroups(taskTimeline).length, [taskTimeline]);
     const todoCount = useMemo(() => buildTodoGroups(taskTimeline).length, [taskTimeline]);
     const handleSelectBookmark = useCallback((bookmark: BookmarkRecord): void => {
+        if (isStackedDashboard) {
+            setIsSidebarOpen(false);
+        }
         dispatch({ type: "SELECT_CONNECTOR", connectorKey: null });
         selectDashboardTask(bookmark.taskId);
         dispatch({ type: "SELECT_EVENT", eventId: bookmark.eventId ?? null });
-    }, [dispatch, selectDashboardTask]);
+    }, [dispatch, isStackedDashboard, selectDashboardTask]);
     const handleDeleteBookmarkWithError = useCallback((bookmarkId: string): void => {
         void handleDeleteBookmark(bookmarkId).catch((err) => {
             dispatch({
@@ -128,47 +162,87 @@ function Dashboard({ onOpenTaskWorkspace, onSelectTaskRoute }: {
     }, [bookmarks, dispatch, selectDashboardTask, setSearchQuery]);
     return (<div className="flex h-dvh flex-col overflow-hidden bg-[var(--bg)]">
 
-      <TopBar isConnected={isConnected} pendingApprovalCount={state.overview?.observability?.tasksAwaitingApproval ?? 0} blockedTaskCount={state.overview?.observability?.tasksBlockedByRule ?? 0} onOpenApprovalQueue={() => setIsApprovalQueueOpen(true)} searchQuery={searchQuery} searchResults={searchResults} isSearching={isSearching} selectedTaskTitle={selectedTaskDisplayTitle ?? taskDetail?.task.title ?? null} taskScopeEnabled={taskScopeEnabled} onTaskScopeToggle={setTaskScopeEnabled} onSearchQueryChange={setSearchQuery} onSelectSearchTask={handleSelectSearchTask} onSelectSearchEvent={handleSelectSearchEvent} onSelectSearchBookmark={handleSelectSearchBookmark} onRefresh={() => void refreshOverview()}/>
+      <TopBar isConnected={isConnected} {...(isStackedDashboard ? {
+            isNavigationOpen: isSidebarOpen,
+            onToggleNavigation: () => setIsSidebarOpen((value) => !value)
+        } : {})} pendingApprovalCount={state.overview?.observability?.tasksAwaitingApproval ?? 0} blockedTaskCount={state.overview?.observability?.tasksBlockedByRule ?? 0} onOpenApprovalQueue={() => setIsApprovalQueueOpen(true)} searchQuery={searchQuery} searchResults={searchResults} isSearching={isSearching} selectedTaskTitle={selectedTaskDisplayTitle ?? taskDetail?.task.title ?? null} taskScopeEnabled={taskScopeEnabled} onTaskScopeToggle={setTaskScopeEnabled} onSearchQueryChange={setSearchQuery} onSelectSearchTask={handleSelectSearchTask} onSelectSearchEvent={handleSelectSearchEvent} onSelectSearchBookmark={handleSelectSearchBookmark} onRefresh={() => void refreshOverview()}/>
 
       <div className="relative flex flex-1 min-h-0 overflow-hidden">
+        {isStackedDashboard ? (<>
+            {isSidebarOpen && (<button aria-label="Close navigation" className="absolute inset-0 z-20 bg-[color-mix(in_srgb,var(--text-1)_18%,transparent)] backdrop-blur-[1px]" onClick={() => setIsSidebarOpen(false)} type="button"/>)}
 
-        <NavigationSidebar
-          isConnected={isConnected}
-          activeView={sidebarView}
-          onChangeView={setSidebarView}
-          tasks={tasks}
-          bookmarks={bookmarks}
-          taskDisplayTitleCache={taskDisplayTitleCache}
-          selectedTaskBookmarkId={selectedTaskBookmark?.id ?? null}
-          selectedTaskId={selectedTaskId}
-          taskDetail={taskDetail}
-          selectedTaskQuestionCount={questionCount}
-          selectedTaskTodoCount={todoCount}
-          deletingTaskId={deletingTaskId}
-          deleteErrorTaskId={deleteErrorTaskId}
-          onSelectTask={selectDashboardTask}
-          onSelectBookmark={handleSelectBookmark}
-          onDeleteBookmark={handleDeleteBookmarkWithError}
-          onSaveTaskBookmark={handleSaveTaskBookmark}
-          onDeleteTask={(id) => void handleDeleteTask(id)}
-          onRefresh={() => void refreshOverview()}
-        />
+            <div className={cn("absolute inset-y-0 left-0 z-30 transition-transform duration-200 ease-out", isSidebarOpen ? "translate-x-0" : "-translate-x-full")}>
+              <NavigationSidebar
+                className="w-[min(18rem,calc(100vw-1rem))] shadow-[0_18px_48px_rgba(15,23,42,0.18)]"
+                isConnected={isConnected}
+                activeView={sidebarView}
+                onNavigate={() => setIsSidebarOpen(false)}
+                onChangeView={handleSidebarViewChange}
+                tasks={tasks}
+                bookmarks={bookmarks}
+                taskDisplayTitleCache={taskDisplayTitleCache}
+                selectedTaskBookmarkId={selectedTaskBookmark?.id ?? null}
+                selectedTaskId={selectedTaskId}
+                taskDetail={taskDetail}
+                selectedTaskQuestionCount={questionCount}
+                selectedTaskTodoCount={todoCount}
+                deletingTaskId={deletingTaskId}
+                deleteErrorTaskId={deleteErrorTaskId}
+                onSelectTask={handleSelectDashboardTask}
+                onSelectBookmark={handleSelectBookmark}
+                onDeleteBookmark={handleDeleteBookmarkWithError}
+                onSaveTaskBookmark={handleSaveTaskBookmark}
+                onDeleteTask={(id) => void handleDeleteTask(id)}
+                onRefresh={() => void refreshOverview()}
+              />
+            </div>
 
-        <div className="relative flex min-h-0 min-w-0 flex-1 flex-col p-2.5 transition-[padding-right] duration-200" style={{ paddingRight: isInspectorOpen ? `${(isInspectorCollapsed ? 44 : INSPECTOR_WIDTH) + 10}px` : undefined }}>
-          <TimelineContainer isCompactDashboard={false} isStackedDashboard={false} zoom={zoom} selectedTaskDisplayTitle={selectedTaskDisplayTitle} selectedTaskUsesDerivedTitle={selectedTaskUsesDerivedTitle} onZoomChange={setZoom} onOpenTaskWorkspace={selectedTaskId ? () => onOpenTaskWorkspace(selectedTaskId) : undefined}/>
-        </div>
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2.5 p-2.5">
+              <TimelineContainer isCompactDashboard={false} isStackedDashboard={true} zoom={zoom} selectedTaskDisplayTitle={selectedTaskDisplayTitle} selectedTaskUsesDerivedTitle={selectedTaskUsesDerivedTitle} onZoomChange={setZoom} onOpenTaskWorkspace={selectedTaskId ? () => onOpenTaskWorkspace(selectedTaskId) : undefined}/>
 
-        <div className={cn("absolute bottom-0 right-0 top-0 z-10 flex flex-col transition-[transform,width] duration-200 ease-out", isInspectorOpen ? "translate-x-0" : "translate-x-full")} style={{ width: isInspectorCollapsed ? 44 : INSPECTOR_WIDTH }}>
-          {isInspectorCollapsed ? (<div className="flex h-full flex-col items-center border-l border-[var(--border)] bg-[var(--surface)] pt-3">
-              <button aria-label="Expand inspector" className="flex h-8 w-8 items-center justify-center rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] text-[var(--text-2)] shadow-sm transition-colors hover:border-[var(--border-2)] hover:bg-[var(--surface-2)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]" onClick={() => setIsInspectorCollapsed(false)} type="button">
-                <svg aria-hidden="true" fill="none" height="14" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" viewBox="0 0 24 24" width="14">
-                  <path d="M15 18l-6-6 6-6"/>
-                </svg>
-              </button>
-            </div>) : (<Suspense fallback={<div className="h-full border-l border-[var(--border)] bg-[var(--surface)]"/>}>
-                <InspectorContainer isStackedDashboard={false} isInspectorCollapsed={false} selectedTaskDisplayTitle={selectedTaskDisplayTitle} onToggleCollapse={() => setIsInspectorCollapsed(true)} onOpenTaskWorkspace={selectedTaskId ? () => onOpenTaskWorkspace(selectedTaskId) : undefined}/>
-              </Suspense>)}
-        </div>
+              {isInspectorOpen && (<Suspense fallback={<div className="min-h-[20rem] rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)]"/>}>
+                  <InspectorContainer isStackedDashboard={true} isInspectorCollapsed={false} selectedTaskDisplayTitle={selectedTaskDisplayTitle} onToggleCollapse={() => { }} onOpenTaskWorkspace={selectedTaskId ? () => onOpenTaskWorkspace(selectedTaskId) : undefined}/>
+                </Suspense>)}
+            </div>
+          </>) : (<>
+            <NavigationSidebar
+              isConnected={isConnected}
+              activeView={sidebarView}
+              onChangeView={handleSidebarViewChange}
+              tasks={tasks}
+              bookmarks={bookmarks}
+              taskDisplayTitleCache={taskDisplayTitleCache}
+              selectedTaskBookmarkId={selectedTaskBookmark?.id ?? null}
+              selectedTaskId={selectedTaskId}
+              taskDetail={taskDetail}
+              selectedTaskQuestionCount={questionCount}
+              selectedTaskTodoCount={todoCount}
+              deletingTaskId={deletingTaskId}
+              deleteErrorTaskId={deleteErrorTaskId}
+              onSelectTask={handleSelectDashboardTask}
+              onSelectBookmark={handleSelectBookmark}
+              onDeleteBookmark={handleDeleteBookmarkWithError}
+              onSaveTaskBookmark={handleSaveTaskBookmark}
+              onDeleteTask={(id) => void handleDeleteTask(id)}
+              onRefresh={() => void refreshOverview()}
+            />
+
+            <div className="relative flex min-h-0 min-w-0 flex-1 flex-col p-2.5 transition-[padding-right] duration-200" style={{ paddingRight: isInspectorOpen ? `${(isInspectorCollapsed ? 44 : INSPECTOR_WIDTH) + 10}px` : undefined }}>
+              <TimelineContainer isCompactDashboard={false} isStackedDashboard={false} zoom={zoom} selectedTaskDisplayTitle={selectedTaskDisplayTitle} selectedTaskUsesDerivedTitle={selectedTaskUsesDerivedTitle} onZoomChange={setZoom} onOpenTaskWorkspace={selectedTaskId ? () => onOpenTaskWorkspace(selectedTaskId) : undefined}/>
+            </div>
+
+            <div className={cn("absolute bottom-0 right-0 top-0 z-10 flex flex-col transition-[transform,width] duration-200 ease-out", isInspectorOpen ? "translate-x-0" : "translate-x-full")} style={{ width: isInspectorCollapsed ? 44 : INSPECTOR_WIDTH }}>
+              {isInspectorCollapsed ? (<div className="flex h-full flex-col items-center border-l border-[var(--border)] bg-[var(--surface)] pt-3">
+                  <button aria-label="Expand inspector" className="flex h-8 w-8 items-center justify-center rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] text-[var(--text-2)] shadow-sm transition-colors hover:border-[var(--border-2)] hover:bg-[var(--surface-2)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]" onClick={() => setIsInspectorCollapsed(false)} type="button">
+                    <svg aria-hidden="true" fill="none" height="14" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" viewBox="0 0 24 24" width="14">
+                      <path d="M15 18l-6-6 6-6"/>
+                    </svg>
+                  </button>
+                </div>) : (<Suspense fallback={<div className="h-full border-l border-[var(--border)] bg-[var(--surface)]"/>}>
+                    <InspectorContainer isStackedDashboard={false} isInspectorCollapsed={false} selectedTaskDisplayTitle={selectedTaskDisplayTitle} onToggleCollapse={() => setIsInspectorCollapsed(true)} onOpenTaskWorkspace={selectedTaskId ? () => onOpenTaskWorkspace(selectedTaskId) : undefined}/>
+                  </Suspense>)}
+            </div>
+          </>)}
       </div>
 
       {isApprovalQueueOpen && (<Suspense fallback={null}>

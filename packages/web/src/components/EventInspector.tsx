@@ -64,7 +64,7 @@ function InspectorHeaderCard({ eyebrow, title, description, actions, children }:
           <p className="mt-1 text-[0.82rem] leading-6 text-[var(--text-2)]">{description}</p>
           {children}
         </div>
-        <div className="flex flex-wrap items-center gap-2">{actions}</div>
+        <div className="flex flex-col gap-2">{actions}</div>
       </div>
     </PanelCard>);
 }
@@ -414,6 +414,7 @@ export function EventInspector({ taskDetail, selectedTaskTitle = null, taskObser
     const isInlineSingleTabHeader = isSingleTabMode && singleTabHeaderLayout === "inline";
     const resolvedPanelLabel = panelLabel ?? visibleTabs[0]?.label ?? "Inspector";
     const openWorkspaceLabel = isSingleTabMode ? "Workspace" : "Open Workspace";
+    const hasWorkspaceAction = onOpenTaskWorkspace !== undefined;
     async function handleEventTitleSubmit(event: React.SyntheticEvent<HTMLFormElement>): Promise<void> {
         event.preventDefault();
         if (!selectedEvent || !canEditSelectedEventTitle) {
@@ -459,14 +460,18 @@ export function EventInspector({ taskDetail, selectedTaskTitle = null, taskObser
         {isCollapsed ? <path d="M15 18l-6-6 6-6"/> : <path d="M9 18l6-6-6-6"/>}
       </svg>
     </button>) : null;
-    const openWorkspaceButton = onOpenTaskWorkspace ? (<Button className={cn("h-8 rounded-full px-3 text-[0.74rem] font-semibold shadow-none whitespace-nowrap", isSingleTabMode
+    const openWorkspaceButton = onOpenTaskWorkspace ? (<Button className={cn("h-8 rounded-[var(--radius-md)] px-3 text-[0.74rem] font-semibold shadow-none whitespace-nowrap", isSingleTabMode
             ? (isInlineSingleTabHeader ? "h-7 shrink-0 px-2.5 text-[0.72rem]" : "w-full justify-center")
             : "ml-auto shrink-0")} onClick={onOpenTaskWorkspace} size="sm" type="button">
       {openWorkspaceLabel}
     </Button>) : null;
-    return (<aside className={cn("detail-panel flex min-h-0 flex-1 flex-col overflow-hidden rounded-[12px] border border-[var(--border)] bg-[var(--surface)] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_12px_rgba(0,0,0,0.03)]", className)}>
+    return (<aside className={cn("detail-panel flex min-h-0 flex-1 flex-col overflow-hidden rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_12px_rgba(0,0,0,0.03)]", className)}>
       
-      <div className={cn("panel-tab-bar border-b border-[var(--border)] bg-[var(--surface)] px-3 py-2", isSingleTabMode ? "flex flex-col gap-2" : "flex items-center gap-1 overflow-x-auto")} {...(isSingleTabMode ? {} : { "aria-label": "Inspector panels" })} role={isSingleTabMode ? undefined : "tablist"}>
+      <div className={cn("panel-tab-bar border-b border-[var(--border)] bg-[var(--surface)] px-3 py-2", isSingleTabMode
+            ? "flex flex-col gap-2"
+            : hasWorkspaceAction
+                ? "flex items-center gap-1 overflow-x-auto"
+                : "grid grid-cols-2 gap-1 sm:flex sm:flex-wrap sm:items-center")} {...(isSingleTabMode ? {} : { "aria-label": "Inspector panels" })} role={isSingleTabMode ? undefined : "tablist"}>
         {isSingleTabMode ? (isInlineSingleTabHeader ? (<div className="flex flex-wrap items-center gap-2">
               <div className="flex min-w-0 flex-1 items-center gap-2">
                 {collapseControl}
@@ -485,7 +490,7 @@ export function EventInspector({ taskDetail, selectedTaskTitle = null, taskObser
               {openWorkspaceButton}
             </>)) : (<>
             {collapseControl}
-            {visibleTabs.map((tab) => (<button key={tab.id} aria-selected={activeTab === tab.id} className={cn("panel-tab inline-flex h-8 items-center rounded-[8px] border px-3 text-[0.76rem] font-semibold transition-colors", activeTab === tab.id
+            {visibleTabs.map((tab) => (<button key={tab.id} aria-selected={activeTab === tab.id} className={cn("panel-tab inline-flex h-8 items-center rounded-[var(--radius-md)] border px-3 text-[0.76rem] font-semibold transition-colors", !hasWorkspaceAction && "w-full justify-center px-2.5 sm:w-auto sm:px-3", activeTab === tab.id
                     ? "border-[var(--accent)] bg-[var(--accent-light)] text-[var(--accent)]"
                     : "border-transparent bg-transparent text-[var(--text-3)] hover:border-[var(--border)] hover:bg-[var(--surface-2)] hover:text-[var(--text-2)]")} onClick={() => {
                     if (controlledActiveTab === undefined) {
@@ -506,12 +511,25 @@ export function EventInspector({ taskDetail, selectedTaskTitle = null, taskObser
         {activeTab === "inspector" ? (<>
             <div className="px-4 pt-4">
               <InspectorHeaderCard actions={(<>
-                    <Button className="h-auto rounded-full px-3 py-1.5 text-[0.72rem] font-semibold" onClick={onCreateTaskBookmark} size="sm" type="button" variant="ghost">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button className="h-8 rounded-[var(--radius-md)] px-3 text-[0.74rem] font-semibold shadow-none" onClick={onCreateTaskBookmark} size="sm" type="button" variant="ghost">
                       {selectedTaskBookmark ? "Task Saved" : "Save Task"}
-                    </Button>
-                    {selectedEvent && (<Button className="h-auto rounded-full px-3 py-1.5 text-[0.72rem] font-semibold" onClick={onCreateEventBookmark} size="sm" type="button" variant="ghost">
-                        {selectedEventBookmark ? "Card Saved" : "Save Card"}
-                      </Button>)}
+                      </Button>
+                      {selectedEvent && (<Button className="h-8 rounded-[var(--radius-md)] px-3 text-[0.74rem] font-semibold shadow-none" onClick={onCreateEventBookmark} size="sm" type="button" variant="ghost">
+                          {selectedEventBookmark ? "Card Saved" : "Save Card"}
+                        </Button>)}
+                      {selectedEvent && canEditSelectedEventTitle && !isEditingEventTitle && (<Button className="h-8 rounded-[var(--radius-md)] px-3 text-[0.74rem] font-semibold shadow-none" onClick={() => {
+                        setEventTitleDraft(selectedEventDisplayTitle ?? "");
+                        setEventTitleError(null);
+                        setIsEditingEventTitle(true);
+                    }} size="sm" type="button" variant="ghost">
+                          Rename Card
+                        </Button>)}
+                      {selectedEvent && canEditSelectedEventTitle && selectedEventDisplayTitleOverride && !isEditingEventTitle && (<Button className="h-8 rounded-[var(--radius-md)] px-3 text-[0.74rem] font-semibold shadow-none" onClick={() => { void handleResetEventTitle(); }} size="sm" type="button" variant="ghost">
+                          Reset Title
+                        </Button>)}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
                     {selectedConnector ? (<Badge tone="neutral" size="xs" className="uppercase tracking-[0.06em]">
                         {selectedConnector.connector.isExplicit ? "relation" : "transition"} · {selectedConnector.connector.cross ? "cross-lane" : "same-lane"}
                       </Badge>) : selectedEvent ? (<Badge tone="neutral" size="xs" className="uppercase tracking-[0.06em]">{selectedEvent.kind} · {selectedEvent.lane}</Badge>) : null}
@@ -519,16 +537,7 @@ export function EventInspector({ taskDetail, selectedTaskTitle = null, taskObser
                         {formatEvidenceLevel(selectedEventEvidence.level)}
                       </Badge>)}
                     {eventTime && <Badge tone="accent" size="xs">{eventTime}</Badge>}
-                    {selectedEvent && canEditSelectedEventTitle && !isEditingEventTitle && (<Button className="h-auto rounded-full px-3 py-1.5 text-[0.72rem] font-semibold" onClick={() => {
-                        setEventTitleDraft(selectedEventDisplayTitle ?? "");
-                        setEventTitleError(null);
-                        setIsEditingEventTitle(true);
-                    }} size="sm" type="button" variant="ghost">
-                        Rename Card
-                      </Button>)}
-                    {selectedEvent && canEditSelectedEventTitle && selectedEventDisplayTitleOverride && !isEditingEventTitle && (<Button className="h-auto rounded-full px-3 py-1.5 text-[0.72rem] font-semibold" onClick={() => { void handleResetEventTitle(); }} size="sm" type="button" variant="ghost">
-                        Reset Title
-                      </Button>)}
+                    </div>
                   </>)} description={selectedConnector
                 ? `${selectedConnector.connector.isExplicit ? "Explicit relation" : "Fallback sequence"} linking ${selectedConnector.source.lane} to ${selectedConnector.target.lane}.`
                 : selectedEvent
@@ -539,17 +548,17 @@ export function EventInspector({ taskDetail, selectedTaskTitle = null, taskObser
                 {selectedEvent && canEditSelectedEventTitle && isEditingEventTitle && (<form className="mt-4 flex flex-col gap-2" onSubmit={(event) => { void handleEventTitleSubmit(event); }}>
                     <input className="w-full rounded-[10px] border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-[0.84rem] text-[var(--text-1)] outline-none transition-colors focus:border-[var(--accent)]" disabled={isSavingEventTitle} onChange={(event) => setEventTitleDraft(event.target.value)} placeholder="Short title for this card" type="text" value={eventTitleDraft}/>
                     <div className="flex flex-wrap items-center gap-2">
-                      <Button className="h-7 rounded-full border-[var(--accent)] bg-[var(--accent-light)] px-3 text-[0.72rem] font-semibold text-[var(--accent)] shadow-none hover:border-[var(--accent)] hover:bg-[var(--accent-light)] hover:text-[var(--accent)]" disabled={isSavingEventTitle} size="sm" type="submit">
+                      <Button className="h-8 rounded-[var(--radius-md)] border-[var(--accent)] bg-[var(--accent-light)] px-3 text-[0.74rem] font-semibold text-[var(--accent)] shadow-none hover:border-[var(--accent)] hover:bg-[var(--accent-light)] hover:text-[var(--accent)]" disabled={isSavingEventTitle} size="sm" type="submit">
                         {isSavingEventTitle ? "Saving..." : "Save"}
                       </Button>
-                      <Button className="h-7 rounded-full px-3 text-[0.72rem] font-semibold shadow-none" disabled={isSavingEventTitle} onClick={() => {
+                      <Button className="h-8 rounded-[var(--radius-md)] px-3 text-[0.74rem] font-semibold shadow-none" disabled={isSavingEventTitle} onClick={() => {
                     setEventTitleDraft(selectedEventDisplayTitle ?? "");
                     setEventTitleError(null);
                     setIsEditingEventTitle(false);
                 }} size="sm" type="button">
                         Cancel
                       </Button>
-                      {selectedEventDisplayTitleOverride && (<Button className="h-7 rounded-full px-3 text-[0.72rem] font-semibold shadow-none" disabled={isSavingEventTitle} onClick={() => { void handleResetEventTitle(); }} size="sm" type="button">
+                      {selectedEventDisplayTitleOverride && (<Button className="h-8 rounded-[var(--radius-md)] px-3 text-[0.74rem] font-semibold shadow-none" disabled={isSavingEventTitle} onClick={() => { void handleResetEventTitle(); }} size="sm" type="button">
                           Reset to Raw
                         </Button>)}
                     </div>

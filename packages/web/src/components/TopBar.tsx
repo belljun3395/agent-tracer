@@ -8,7 +8,9 @@ interface TopBarProps {
     readonly isConnected: boolean;
     readonly pendingApprovalCount?: number;
     readonly blockedTaskCount?: number;
+    readonly isNavigationOpen?: boolean;
     readonly onOpenApprovalQueue?: () => void;
+    readonly onToggleNavigation?: () => void;
     readonly searchQuery: string;
     readonly searchResults: SearchResponse | null;
     readonly isSearching: boolean;
@@ -21,7 +23,7 @@ interface TopBarProps {
     readonly onSelectSearchBookmark: (bookmark: BookmarkSearchHit) => void;
     readonly onRefresh: () => void;
 }
-export function TopBar({ isConnected, pendingApprovalCount = 0, blockedTaskCount = 0, onOpenApprovalQueue, searchQuery, searchResults, isSearching, selectedTaskTitle, taskScopeEnabled, onTaskScopeToggle, onSearchQueryChange, onSelectSearchTask, onSelectSearchEvent, onSelectSearchBookmark, onRefresh }: TopBarProps): React.JSX.Element {
+export function TopBar({ isConnected, pendingApprovalCount = 0, blockedTaskCount = 0, isNavigationOpen, onOpenApprovalQueue, onToggleNavigation, searchQuery, searchResults, isSearching, selectedTaskTitle, taskScopeEnabled, onTaskScopeToggle, onSearchQueryChange, onSelectSearchTask, onSelectSearchEvent, onSelectSearchBookmark, onRefresh }: TopBarProps): React.JSX.Element {
     const { theme, toggle: toggleTheme } = useTheme();
     const searchRef = useRef<HTMLInputElement>(null);
     const totalResults = (searchResults?.tasks.length ?? 0)
@@ -41,44 +43,62 @@ export function TopBar({ isConnected, pendingApprovalCount = 0, blockedTaskCount
     const searchPlaceholder = taskScopeEnabled && hasTaskScope
         ? "Search in task… ⌘K"
         : "Search… ⌘K";
-    return (<header className="z-10 flex h-10 shrink-0 items-center gap-2.5 border-b border-[var(--border)] bg-[var(--surface)] px-4 shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
+    return (<header className="z-10 flex min-h-11 shrink-0 flex-wrap items-center gap-2 border-b border-[var(--border)] bg-[color-mix(in_srgb,var(--surface)_92%,var(--bg))] px-3 py-2 shadow-[var(--shadow-1)] sm:h-11 sm:flex-nowrap sm:gap-2.5 sm:px-4 sm:py-0">
 
       
-      <div className="flex shrink-0 items-center gap-2">
-        <span className="flex h-7 w-7 items-center justify-center rounded-[8px] border border-[var(--border)] bg-[var(--surface-2)]">
+      <div className="flex min-w-0 shrink-0 items-center gap-2">
+        {onToggleNavigation && (<button aria-label={isNavigationOpen ? "Close navigation" : "Open navigation"} className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-3)] transition hover:border-[var(--border-strong)] hover:bg-[var(--surface)] hover:text-[var(--text-1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-1" onClick={onToggleNavigation} title={isNavigationOpen ? "Close navigation" : "Open navigation"} type="button">
+            <svg aria-hidden="true" fill="none" height="14" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" width="14">
+              {isNavigationOpen ? (<>
+                  <path d="M6 6l12 12"/>
+                  <path d="M18 6L6 18"/>
+                </>) : (<>
+                  <path d="M4 7h16"/>
+                  <path d="M4 12h16"/>
+                  <path d="M4 17h16"/>
+                </>)}
+            </svg>
+          </button>)}
+        <span className="flex h-8 w-8 items-center justify-center rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-1)]">
           <img alt="" className="h-[15px] w-[15px] [filter:brightness(0)_saturate(100%)_invert(27%)_sepia(98%)_saturate(1500%)_hue-rotate(215deg)_brightness(95%)]" src="/icons/activity.svg"/>
         </span>
-        <span className="hidden text-[0.82rem] font-semibold tracking-[-0.02em] text-[var(--text-1)] xl:inline">
+        <span className="hidden text-[0.8rem] font-semibold tracking-[0.01em] text-[var(--text-2)] xl:inline">
           Agent Tracer
         </span>
       </div>
 
       
-      <div className="relative flex-1" style={{ maxWidth: 400 }}>
+      <div className="relative order-3 basis-full sm:order-none sm:flex-1 sm:basis-auto sm:max-w-[400px]">
         <div className="relative flex items-center">
           
           {hasTaskScope && (<button aria-label={taskScopeEnabled ? "Search all tasks" : "Limit search to this task"} className={cn("absolute left-2 top-1/2 z-[1] flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-[var(--radius-xs)] text-[0.7rem] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--accent)]", taskScopeEnabled
                 ? "bg-[color-mix(in_srgb,var(--accent)_14%,transparent)] text-[var(--accent)]"
                 : "text-[var(--text-3)] hover:text-[var(--text-2)]")} onClick={() => onTaskScopeToggle(!taskScopeEnabled)} title={taskScopeEnabled ? `Scoped to: ${selectedTaskTitle}` : "Click to scope search to current task"} type="button">
-              ⊕
+              <svg aria-hidden="true" fill="none" height="12" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" width="12">
+                <circle cx="12" cy="12" r="7"/>
+                <path d="M12 3v3"/>
+                <path d="M12 18v3"/>
+                <path d="M3 12h3"/>
+                <path d="M18 12h3"/>
+              </svg>
             </button>)}
-          <input ref={searchRef} aria-label="Search tasks, events, and bookmarks" className={cn("w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface-2)] py-1.5 pr-14 text-[0.8rem] text-[var(--text-1)] outline-none transition placeholder:text-[var(--text-3)] focus:border-[var(--accent)] focus:bg-[var(--surface)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-1", hasTaskScope ? "pl-8" : "pl-3")} onChange={(event) => onSearchQueryChange(event.target.value)} onKeyDown={(event) => {
+          <input ref={searchRef} aria-label="Search tasks, events, and bookmarks" className={cn("w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface-2)] py-2 pr-14 text-[0.8rem] text-[var(--text-1)] outline-none transition-[background-color,border-color,box-shadow] duration-200 placeholder:text-[var(--text-3)] focus:border-[var(--accent)] focus:bg-[var(--surface)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-1", hasTaskScope ? "pl-8" : "pl-3")} onChange={(event) => onSearchQueryChange(event.target.value)} onKeyDown={(event) => {
             if (event.key === "Escape") {
                 onSearchQueryChange("");
                 searchRef.current?.blur();
             }
         }} placeholder={searchPlaceholder} type="search" value={searchQuery}/>
-          {searchQuery && (<button className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-[var(--border)] px-2 py-0.5 text-[0.68rem] font-semibold text-[var(--text-3)] transition hover:text-[var(--text-2)]" onClick={() => onSearchQueryChange("")} type="button">
+          {searchQuery && (<button className="absolute right-2 top-1/2 -translate-y-1/2 rounded-[var(--radius-sm)] bg-[var(--surface)] px-2 py-0.5 text-[0.68rem] font-semibold text-[var(--text-3)] shadow-[var(--shadow-1)] transition hover:text-[var(--text-2)]" onClick={() => onSearchQueryChange("")} type="button">
               Clear
             </button>)}
         </div>
         
-        {searchQuery.trim() && (<div className="absolute left-0 right-0 top-[calc(100%+6px)] z-20 max-h-[26rem] overflow-y-auto rounded-[var(--radius-xl)] border border-[var(--border)] bg-[var(--surface)] shadow-[0_20px_50px_rgba(15,23,42,0.14)]">
+        {searchQuery.trim() && (<div className="absolute left-0 right-0 top-[calc(100%+8px)] z-20 max-h-[26rem] overflow-y-auto rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-2)]">
             <div className="flex items-center justify-between border-b border-[var(--border)] px-3 py-2">
               <span className="text-[0.72rem] font-bold uppercase tracking-[0.08em] text-[var(--text-3)]">
                 {isSearching ? "Searching…" : `${totalResults} results`}
               </span>
-              {taskScopeEnabled && selectedTaskTitle && (<span className="max-w-[14rem] truncate rounded-full bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] px-2 py-0.5 text-[0.68rem] font-semibold text-[var(--accent)]">
+              {taskScopeEnabled && selectedTaskTitle && (<span className="max-w-[14rem] truncate rounded-[var(--radius-sm)] bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] px-2 py-0.5 text-[0.68rem] font-semibold text-[var(--accent)]">
                   in: {selectedTaskTitle}
                 </span>)}
             </div>
@@ -114,10 +134,10 @@ export function TopBar({ isConnected, pendingApprovalCount = 0, blockedTaskCount
       </div>
 
       
-      <div className="flex-1"/>
+      <div className="hidden flex-1 sm:block"/>
 
       
-      <div className="flex shrink-0 items-center gap-1">
+      <div className="ml-auto flex shrink-0 items-center gap-1">
         {pendingApprovalCount > 0 && (<button className="inline-flex h-7 items-center rounded-[var(--radius-md)] border border-[var(--accent-light)] bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] px-2.5 text-[0.72rem] font-semibold text-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-1" onClick={onOpenApprovalQueue} type="button">
             {pendingApprovalCount} approval
           </button>)}
@@ -133,7 +153,7 @@ export function TopBar({ isConnected, pendingApprovalCount = 0, blockedTaskCount
             </svg>)}
         </button>
 
-        <Button className="shrink-0 gap-1 rounded-[8px] px-2 opacity-60 hover:opacity-100" onClick={onRefresh} size="sm" variant="ghost">
+        <Button className="shrink-0 gap-1 rounded-[var(--radius-md)] px-2 text-[var(--text-3)]" onClick={onRefresh} size="sm" variant="ghost">
           <img alt="" className="icon-adaptive h-3.5 w-3.5 opacity-50" src="/icons/refresh.svg"/>
         </Button>
       </div>

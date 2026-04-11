@@ -414,7 +414,7 @@ export function Timeline({ timeline, taskTitle, taskId, taskStatus, taskUpdatedA
     }, [displayLaneRows]);
     const hasExpandedSubtypeRows = useMemo(() => displayLaneRows.some((row) => row.isSubtype), [displayLaneRows]);
     const timelineLeftGutter = hasExpandedSubtypeRows ? 236 : 212;
-    const laneLabelWidth = hasExpandedSubtypeRows ? 180 : 156;
+    const laneLabelWidth = hasExpandedSubtypeRows ? 212 : 188;
     const timelineStageStyle = useMemo(() => ({
         "--timeline-left-gutter": `${timelineLeftGutter}px`,
         "--timeline-lane-label-width": `${laneLabelWidth}px`,

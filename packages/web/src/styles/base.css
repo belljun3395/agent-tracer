@@ -4,6 +4,9 @@
 
 html {
   font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 body {
@@ -11,6 +14,7 @@ body {
   color: var(--text-1);
   background: var(--bg);
   font-family: var(--font-sans);
+  font-feature-settings: "ss03" 1, "cv05" 1;
 }
 
 button,
