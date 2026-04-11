@@ -390,6 +390,7 @@ describe("Claude plugin", () => {
             last_assistant_message: "Analysis complete."
         }, monitor.port);
         expect(monitor.calls).toEqual([
+            // SubagentStart: resolveSessionIds(parent)
             {
                 endpoint: "/api/runtime-session-ensure",
                 body: {
@@ -399,6 +400,29 @@ describe("Claude plugin", () => {
                     workspacePath: "/repo"
                 }
             },
+            // SubagentStart: resolveSubagentSessionIds → resolveSessionIds(parent) [FS cache miss in test env]
+            {
+                endpoint: "/api/runtime-session-ensure",
+                body: {
+                    runtimeSource: "claude-plugin",
+                    runtimeSessionId: "parent-session",
+                    title: "Claude Code — repo",
+                    workspacePath: "/repo"
+                }
+            },
+            // SubagentStart: resolveSubagentSessionIds → ensureRuntimeSession(sub--agent-123)
+            {
+                endpoint: "/api/runtime-session-ensure",
+                body: {
+                    runtimeSource: "claude-plugin",
+                    runtimeSessionId: "sub--agent-123",
+                    title: "Subagent: Explore",
+                    workspacePath: "/repo",
+                    parentTaskId: "parent-task",
+                    parentSessionId: "parent-monitor-session"
+                }
+            },
+            // SubagentStart: running async-task event (includes childTaskId)
             {
                 endpoint: "/ingest/v1/events",
                 body: {
@@ -413,11 +437,13 @@ describe("Claude plugin", () => {
                             agentId: "agent-123",
                             agentType: "Explore",
                             parentTaskId: "parent-task",
-                            parentSessionId: "parent-session"
+                            parentSessionId: "parent-session",
+                            childTaskId: "parent-task"
                         }
                     }]
                 }
             },
+            // SubagentStop: resolveSessionIds(parent) [FS cache miss — new process]
             {
                 endpoint: "/api/runtime-session-ensure",
                 body: {
@@ -427,6 +453,7 @@ describe("Claude plugin", () => {
                     workspacePath: "/repo"
                 }
             },
+            // SubagentStop: completed async-task event
             {
                 endpoint: "/ingest/v1/events",
                 body: {
@@ -445,6 +472,17 @@ describe("Claude plugin", () => {
                             parentSessionId: "parent-session"
                         }
                     }]
+                }
+            },
+            // SubagentStop: end virtual session for auto-completion
+            {
+                endpoint: "/api/runtime-session-end",
+                body: {
+                    runtimeSource: "claude-plugin",
+                    runtimeSessionId: "sub--agent-123",
+                    summary: "Subagent finished: Explore",
+                    completeTask: false,
+                    completionReason: "assistant_turn_complete"
                 }
             }
         ]);
