@@ -206,70 +206,70 @@ export function TaskWorkspacePage({ taskId }: {
         URL.revokeObjectURL(url);
     }, [brandedTaskId]);
     return (<div className="flex h-dvh flex-col overflow-hidden bg-[var(--bg)]">
-      <header className="flex shrink-0 flex-wrap items-start justify-between gap-3 border-b border-[var(--border)] bg-[var(--surface)] px-4 py-3">
+      <header className="flex shrink-0 flex-wrap items-start justify-between gap-3 border-b border-[var(--border)] bg-[color-mix(in_srgb,var(--surface)_94%,var(--bg))] px-4 py-3 shadow-[var(--shadow-1)]">
         <div className="min-w-0">
-          <p className="m-0 text-[0.68rem] font-semibold uppercase tracking-[0.1em] text-[var(--accent)]">
+          <p className="m-0 text-[0.66rem] font-semibold uppercase tracking-[0.12em] text-[var(--accent)]">
             Task Workspace
           </p>
-          <h1 className="mt-1 truncate text-[1rem] font-semibold tracking-[-0.02em] text-[var(--text-1)]">
+          <h1 className="mt-1 break-words text-[1.02rem] leading-tight font-semibold tracking-[-0.02em] text-[var(--text-1)] sm:truncate">
             {selectedTaskDisplayTitle ?? selectedTaskDetail?.task.title ?? taskId}
           </h1>
           {selectedTaskDetail?.task && (<div className="mt-2 flex flex-wrap items-center gap-2 text-[0.72rem]">
-              {selectedTaskDetail.task.runtimeSource && (<span className="inline-flex items-center rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-2.5 py-1 font-semibold text-[var(--text-2)]">
+              {selectedTaskDetail.task.runtimeSource && (<span className="inline-flex items-center rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] px-2.5 py-1 font-semibold text-[var(--text-2)] shadow-[var(--shadow-1)]">
                   {runtimeTagLabel(selectedTaskDetail.task.runtimeSource)}
                 </span>)}
-              <span className={cn("inline-flex items-center rounded-full border px-2.5 py-1 font-semibold uppercase tracking-[0.06em]", selectedTaskDetail.task.status === "running"
+              <span className={cn("inline-flex items-center rounded-[var(--radius-md)] border px-2.5 py-1 font-semibold uppercase tracking-[0.06em]", selectedTaskDetail.task.status === "running"
                 ? "border-[var(--ok-bg)] bg-[var(--ok-bg)] text-[var(--ok)]"
                 : selectedTaskDetail.task.status === "waiting"
-                    ? "border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-2)]"
+                    ? "border-[var(--border)] bg-[var(--surface)] text-[var(--text-2)]"
                     : selectedTaskDetail.task.status === "completed"
                         ? "border-[var(--accent-light)] bg-[var(--accent-light)] text-[var(--accent)]"
                         : "border-[var(--err-bg)] bg-[var(--err-bg)] text-[var(--err)]")}>
                 {selectedTaskDetail.task.status}
               </span>
-              {runtimeObservabilityLabel(selectedTaskDetail.task.runtimeSource) && (<span className="inline-flex items-center rounded-full border border-[var(--warn-bg)] bg-[var(--warn-bg)] px-2.5 py-1 font-semibold text-[var(--warn)]">
+              {runtimeObservabilityLabel(selectedTaskDetail.task.runtimeSource) && (<span className="inline-flex items-center rounded-[var(--radius-md)] border border-[var(--warn-bg)] bg-[var(--warn-bg)] px-2.5 py-1 font-semibold text-[var(--warn)]">
                   {runtimeObservabilityLabel(selectedTaskDetail.task.runtimeSource)}
                 </span>)}
               {taskObservability?.observability.ruleEnforcement.activeState === "approval_required"
-                && selectedTaskDetail.task.status === "waiting" ? (<span className="inline-flex items-center rounded-full border border-[var(--accent-light)] bg-[var(--accent-light)] px-2.5 py-1 font-semibold text-[var(--accent)]">
+                && selectedTaskDetail.task.status === "waiting" ? (<span className="inline-flex items-center rounded-[var(--radius-md)] border border-[var(--accent-light)] bg-[var(--accent-light)] px-2.5 py-1 font-semibold text-[var(--accent)]">
                     {taskObservability.observability.ruleEnforcement.activeLabel
                     ? `approval required · ${taskObservability.observability.ruleEnforcement.activeLabel}`
                     : "approval required"}
                   </span>) : null}
               {taskObservability?.observability.ruleEnforcement.activeState === "blocked"
-                && selectedTaskDetail.task.status === "errored" ? (<span className="inline-flex items-center rounded-full border border-[var(--err-bg)] bg-[var(--err-bg)] px-2.5 py-1 font-semibold text-[var(--err)]">
+                && selectedTaskDetail.task.status === "errored" ? (<span className="inline-flex items-center rounded-[var(--radius-md)] border border-[var(--err-bg)] bg-[var(--err-bg)] px-2.5 py-1 font-semibold text-[var(--err)]">
                     {taskObservability.observability.ruleEnforcement.activeLabel
                     ? `blocked by rule · ${taskObservability.observability.ruleEnforcement.activeLabel}`
                     : "blocked by rule"}
                   </span>) : null}
             </div>)}
-          {selectedTaskDetail?.task.workspacePath && (<p className="mt-1 truncate font-mono text-[0.78rem] text-[var(--text-3)]">
+          {selectedTaskDetail?.task.workspacePath && (<p className="mt-1 break-all font-mono text-[0.78rem] text-[var(--text-3)] sm:truncate">
               {selectedTaskDetail.task.workspacePath}
             </p>)}
         </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <button className="inline-flex h-8 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 text-[0.76rem] font-semibold text-[var(--text-2)]" onClick={() => { void handleExportOpenInference(); }} type="button">
+        <div className="flex w-full shrink-0 flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
+          <button className="inline-flex h-8 w-full items-center justify-center rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] px-3 text-[0.76rem] font-semibold text-[var(--text-2)] shadow-[var(--shadow-1)] transition-[background-color,border-color,color] duration-200 hover:border-[var(--border-strong)] hover:bg-[var(--surface-2)] hover:text-[var(--text-1)] sm:w-auto" onClick={() => { void handleExportOpenInference(); }} type="button">
             Export Trace
           </button>
-          {taskObservability?.observability.ruleEnforcement.activeState === "approval_required" && (<button className="inline-flex h-8 items-center justify-center rounded-full border border-[var(--accent-light)] bg-[var(--accent-light)] px-3 text-[0.76rem] font-semibold text-[var(--accent)]" onClick={() => void handleRuleReview("approved")} type="button" disabled={isSubmittingRuleReview}>
+          {taskObservability?.observability.ruleEnforcement.activeState === "approval_required" && (<button className="inline-flex h-8 w-full items-center justify-center rounded-[var(--radius-md)] border border-[var(--accent-light)] bg-[var(--accent-light)] px-3 text-[0.76rem] font-semibold text-[var(--accent)] shadow-[var(--shadow-1)] sm:w-auto" onClick={() => void handleRuleReview("approved")} type="button" disabled={isSubmittingRuleReview}>
               Approve
             </button>)}
           {(taskObservability?.observability.ruleEnforcement.activeState === "approval_required"
-            || taskObservability?.observability.ruleEnforcement.activeState === "blocked") && (<button className="inline-flex h-8 items-center justify-center rounded-full border border-[var(--err-bg)] bg-[var(--err-bg)] px-3 text-[0.76rem] font-semibold text-[var(--err)]" onClick={() => void handleRuleReview("rejected")} type="button" disabled={isSubmittingRuleReview}>
+            || taskObservability?.observability.ruleEnforcement.activeState === "blocked") && (<button className="inline-flex h-8 w-full items-center justify-center rounded-[var(--radius-md)] border border-[var(--err-bg)] bg-[var(--err-bg)] px-3 text-[0.76rem] font-semibold text-[var(--err)] shadow-[var(--shadow-1)] sm:w-auto" onClick={() => void handleRuleReview("rejected")} type="button" disabled={isSubmittingRuleReview}>
               Reject
             </button>)}
           {(taskObservability?.observability.ruleEnforcement.activeState === "approval_required"
-            || taskObservability?.observability.ruleEnforcement.activeState === "blocked") && (<button className="inline-flex h-8 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 text-[0.76rem] font-semibold text-[var(--text-2)]" onClick={() => void handleRuleReview("bypassed")} type="button" disabled={isSubmittingRuleReview}>
+            || taskObservability?.observability.ruleEnforcement.activeState === "blocked") && (<button className="inline-flex h-8 w-full items-center justify-center rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] px-3 text-[0.76rem] font-semibold text-[var(--text-2)] shadow-[var(--shadow-1)] transition-[background-color,border-color,color] duration-200 hover:border-[var(--border-strong)] hover:bg-[var(--surface-2)] hover:text-[var(--text-1)] sm:w-auto" onClick={() => void handleRuleReview("bypassed")} type="button" disabled={isSubmittingRuleReview}>
               Bypass
             </button>)}
-          <Link className="inline-flex h-8 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 text-[0.76rem] font-semibold text-[var(--text-2)] shadow-sm transition-colors hover:border-[var(--accent)] hover:bg-[var(--accent-light)] hover:text-[var(--accent)]" to={`/?task=${encodeURIComponent(taskId)}`}>
+          <Link className="inline-flex h-8 w-full items-center justify-center rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] px-3 text-[0.76rem] font-semibold text-[var(--text-2)] shadow-[var(--shadow-1)] transition-[background-color,border-color,color] duration-200 hover:border-[var(--border-strong)] hover:bg-[var(--surface-2)] hover:text-[var(--text-1)] sm:w-auto" to={`/?task=${encodeURIComponent(taskId)}`}>
             Back to Timeline
           </Link>
         </div>
       </header>
 
       <main className="flex flex-1 min-h-0 flex-col gap-3 p-3">
-        {workspaceLoading ? (<section className="flex min-h-0 flex-1 items-center justify-center rounded-[10px] border border-[var(--border)] bg-[var(--surface)] px-6 py-10 shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_12px_rgba(0,0,0,0.03)]">
+        {workspaceLoading ? (<section className="flex min-h-0 flex-1 items-center justify-center rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] px-6 py-10 shadow-[var(--shadow-1)]">
             <div className="text-center">
               <p className="text-[0.68rem] font-semibold uppercase tracking-[0.1em] text-[var(--accent)]">
                 Loading Workspace
@@ -281,7 +281,7 @@ export function TaskWorkspacePage({ taskId }: {
                 Fetching the task timeline and observability state from the local database.
               </p>
             </div>
-          </section>) : workspaceMissingTask ? (<section className="flex min-h-0 flex-1 items-center justify-center rounded-[10px] border border-[var(--border)] bg-[var(--surface)] px-6 py-10 shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_12px_rgba(0,0,0,0.03)]">
+          </section>) : workspaceMissingTask ? (<section className="flex min-h-0 flex-1 items-center justify-center rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] px-6 py-10 shadow-[var(--shadow-1)]">
             <div className="max-w-xl text-center">
               <p className="text-[0.68rem] font-semibold uppercase tracking-[0.1em] text-[var(--accent)]">
                 Task Not Found
@@ -293,13 +293,13 @@ export function TaskWorkspacePage({ taskId }: {
                 This task does not exist in the current local database. The URL is preserved, but the workspace cannot load a timeline for it.
               </p>
               <div className="mt-5 flex justify-center">
-                <Link className="inline-flex h-9 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface)] px-4 text-[0.78rem] font-semibold text-[var(--text-2)] shadow-sm transition-colors hover:border-[var(--accent)] hover:bg-[var(--accent-light)] hover:text-[var(--accent)]" to={`/?task=${encodeURIComponent(taskId)}`}>
+                <Link className="inline-flex h-9 items-center justify-center rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] px-4 text-[0.78rem] font-semibold text-[var(--text-2)] shadow-sm transition-colors hover:border-[var(--accent)] hover:bg-[var(--accent-light)] hover:text-[var(--accent)]" to={`/?task=${encodeURIComponent(taskId)}`}>
                   Back to Timeline
                 </Link>
               </div>
             </div>
           </section>) : (<div className="grid flex-1 min-h-0 gap-3" style={workspaceLayoutStyle}>
-            <section className={cn("flex min-h-0 min-w-0 flex-col overflow-hidden rounded-[10px] border border-[var(--border)] bg-[var(--surface)] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_12px_rgba(0,0,0,0.03)]", "min-h-[24rem]")}>
+            <section className={cn("flex min-h-0 min-w-0 flex-col overflow-hidden rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-1)]", "min-h-[24rem]")}>
               <Timeline zoom={zoom} onZoomChange={setZoom} timeline={taskTimeline} taskTitle={selectedTaskDisplayTitle} taskWorkspacePath={selectedTaskDetail?.task.workspacePath} taskStatus={selectedTaskDetail?.task.status} taskUpdatedAt={selectedTaskDetail?.task.updatedAt} taskUsesDerivedTitle={selectedTaskUsesDerivedTitle} isEditingTaskTitle={isEditingTaskTitle} taskTitleDraft={taskTitleDraft} taskTitleError={taskTitleError} isSavingTaskTitle={isSavingTaskTitle} isUpdatingTaskStatus={isUpdatingTaskStatus} selectedEventId={selectedEventId} selectedConnectorKey={selectedConnectorKey} selectedRuleId={selectedRuleId} selectedTag={selectedTag} showRuleGapsOnly={showRuleGapsOnly} nowMs={nowMs} observabilityStats={observabilityStats} onSelectEvent={(id) => {
                 dispatch({ type: "SELECT_CONNECTOR", connectorKey: null });
                 dispatch({ type: "SELECT_EVENT", eventId: id });
@@ -323,7 +323,7 @@ export function TaskWorkspacePage({ taskId }: {
 
             <div className="relative flex min-h-0 min-w-0 flex-col">
               {(taskObservability?.observability.ruleEnforcement.activeState === "approval_required"
-                || taskObservability?.observability.ruleEnforcement.activeState === "blocked") && (<section className="mb-3 rounded-[10px] border border-[var(--border)] bg-[var(--surface)] px-4 py-3 shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_12px_rgba(0,0,0,0.03)]">
+                || taskObservability?.observability.ruleEnforcement.activeState === "blocked") && (<section className="mb-3 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] px-4 py-3 shadow-[var(--shadow-1)]">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <p className="m-0 text-[0.72rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">Review decision</p>

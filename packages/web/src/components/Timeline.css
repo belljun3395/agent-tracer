@@ -169,9 +169,9 @@
   flex-shrink: 0;
   overflow: hidden;
   border: 1px solid var(--border);
-  border-radius: 18px;
+  border-radius: var(--radius-md);
   background: var(--surface);
-  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.05);
+  box-shadow: var(--shadow-1);
 }
 
 .timeline-toolbar {
@@ -197,9 +197,9 @@
   margin: 8px 12px 0;
   padding: 9px 12px 10px 14px;
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: var(--radius-md);
   background: var(--surface);
-  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.045);
+  box-shadow: var(--shadow-1);
   backdrop-filter: blur(12px);
   animation: timeline-context-strip-enter 160ms ease;
 }
@@ -210,9 +210,9 @@
   gap: 10px;
   padding: 10px 14px 12px;
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: var(--radius-md);
   background: var(--surface);
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04);
+  box-shadow: var(--shadow-1);
   animation: timeline-context-strip-enter 140ms ease;
 }
 
@@ -227,11 +227,9 @@
   min-width: 280px;
   padding: 12px;
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: var(--radius-lg);
   background: var(--surface);
-  box-shadow:
-    0 8px 24px rgba(15, 23, 42, 0.10),
-    0 2px 6px rgba(15, 23, 42, 0.06);
+  box-shadow: var(--shadow-2);
   animation: timeline-context-strip-enter 140ms ease;
 }
 

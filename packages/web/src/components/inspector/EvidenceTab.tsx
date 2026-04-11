@@ -1,5 +1,5 @@
 import type React from "react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { cn } from "../../lib/ui/cn.js";
 import { formatRelativeTime } from "@monitor/web-core";
 import { Badge } from "../ui/Badge.js";
@@ -32,22 +32,44 @@ function TagExplorerCard({ tags, selectedTag, onSelectTag }: {
     readonly selectedTag: string | null;
     readonly onSelectTag: (tag: string) => void;
 }): React.JSX.Element {
+    const [isExpanded, setIsExpanded] = useState(false);
+    const collapsedLimit = 12;
     const selectedInsight = selectedTag
         ? tags.find((tag) => tag.tag === selectedTag) ?? null
         : null;
+    const visibleTags = useMemo(() => {
+        if (isExpanded || tags.length <= collapsedLimit) {
+            return tags;
+        }
+        const initial = tags.slice(0, collapsedLimit);
+        if (!selectedTag || initial.some((tag) => tag.tag === selectedTag)) {
+            return initial;
+        }
+        const selected = tags.find((tag) => tag.tag === selectedTag);
+        return selected ? [...initial.slice(0, collapsedLimit - 1), selected] : initial;
+    }, [isExpanded, selectedTag, tags]);
+    const hiddenCount = Math.max(tags.length - visibleTags.length, 0);
     return (<PanelCard className={cardShell}>
       <div className={cardBody}>
-        <SectionTitle action={selectedTag ? (<Button className="h-auto rounded-full px-3 py-1.5 text-[0.72rem] font-semibold" onClick={() => onSelectTag(selectedTag)} size="sm" type="button" variant="bare">
-              Clear
-            </Button>) : undefined} description={`${tags.length} distinct tags across the selected task`} eyebrow="Tags" title="Tag Explorer"/>
+        <SectionTitle action={(selectedTag || tags.length > collapsedLimit) ? (<div className="flex flex-wrap items-center justify-end gap-2">
+              {tags.length > collapsedLimit && (<Button className="h-8 rounded-[var(--radius-md)] px-3 text-[0.72rem] font-semibold shadow-none" onClick={() => setIsExpanded((current) => !current)} size="sm" type="button" variant="bare">
+                  {isExpanded ? "Show top" : `Show all ${tags.length}`}
+                </Button>)}
+              {selectedTag && (<Button className="h-8 rounded-[var(--radius-md)] px-3 text-[0.72rem] font-semibold shadow-none" onClick={() => onSelectTag(selectedTag)} size="sm" type="button" variant="bare">
+                  Clear
+                </Button>)}
+            </div>) : undefined} description={`${tags.length} distinct tags across the selected task`} eyebrow="Tags" title="Tag Explorer"/>
         <div className="mt-4 flex flex-wrap gap-2">
-          {tags.length === 0 ? (<p className="m-0 text-[0.8rem] text-[var(--text-3)]">No tags observed yet.</p>) : (tags.map((tag) => (<Button key={tag.tag} className={cn("h-auto rounded-full border px-3.5 py-1.5 text-[0.78rem] font-semibold shadow-none", selectedTag === tag.tag
+          {tags.length === 0 ? (<p className="m-0 text-[0.8rem] text-[var(--text-3)]">No tags observed yet.</p>) : (visibleTags.map((tag) => (<Button key={tag.tag} className={cn("h-auto rounded-full border px-3.5 py-1.5 text-[0.78rem] font-semibold shadow-none", selectedTag === tag.tag
                 ? "border-[var(--accent)] bg-[var(--accent-light)] text-[var(--accent)]"
                 : "border-[var(--border)] bg-[var(--bg)] text-[var(--text-2)] hover:border-[var(--border-2)] hover:bg-[var(--surface-2)]")} onClick={() => onSelectTag(tag.tag)} size="sm" type="button" variant="bare">
                 <span className="font-mono">{tag.tag}</span>
                 <span className="ml-2 rounded-full bg-[var(--surface)] px-2 py-0.5 text-[0.7rem] font-semibold text-[var(--text-3)]">{tag.count}</span>
               </Button>)))}
         </div>
+        {visibleTags.length > 0 && visibleTags.length !== tags.length && (<p className="mt-3 mb-0 text-[0.76rem] text-[var(--text-3)]">
+            Showing top {visibleTags.length} tags by frequency{hiddenCount > 0 ? ` · ${hiddenCount} more hidden` : ""}
+          </p>)}
         <div className="mt-4 rounded-[12px] border border-[var(--border)] bg-[var(--surface-2)] p-4">
           {selectedInsight ? (<>
               <div className="flex items-center justify-between gap-3">

@@ -36,7 +36,7 @@ export function InspectorContainer({ isStackedDashboard, isInspectorCollapsed, s
         ? bookmarks.find((b) => b.eventId === selectedEvent.id) ?? null
         : null;
     return (<div className={cn("relative flex min-h-0 min-w-0 flex-col", isStackedDashboard && "order-3")}>
-      <QuickInspector taskDetail={taskDetail} selectedTaskTitle={selectedTaskDisplayTitle} taskObservability={taskObservability} taskModelSummary={modelSummary} selectedEvent={selectedEvent} selectedConnector={selectedConnector} selectedEventDisplayTitle={selectedEventDisplayTitle} selectedTaskBookmark={selectedTaskBookmark} selectedEventBookmark={selectedEventBookmark} selectedTag={selectedTag} selectedRuleId={selectedRuleId} isCollapsed={isInspectorCollapsed} {...(onOpenTaskWorkspace !== undefined ? { onOpenTaskWorkspace } : {})} onToggleCollapse={onToggleCollapse} onCreateTaskBookmark={() => {
+      <QuickInspector className={cn(isStackedDashboard && "min-h-[20rem]")} showCollapseControl={!isStackedDashboard} taskDetail={taskDetail} selectedTaskTitle={selectedTaskDisplayTitle} taskObservability={taskObservability} taskModelSummary={modelSummary} selectedEvent={selectedEvent} selectedConnector={selectedConnector} selectedEventDisplayTitle={selectedEventDisplayTitle} selectedTaskBookmark={selectedTaskBookmark} selectedEventBookmark={selectedEventBookmark} selectedTag={selectedTag} selectedRuleId={selectedRuleId} isCollapsed={isInspectorCollapsed} {...(onOpenTaskWorkspace !== undefined ? { onOpenTaskWorkspace } : {})} onToggleCollapse={onToggleCollapse} onCreateTaskBookmark={() => {
             void handleCreateTaskBookmark().catch((err) => {
                 dispatch({
                     type: "SET_STATUS",

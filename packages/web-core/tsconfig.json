@@ -2,11 +2,7 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "outDir": "dist",
-    "rootDir": "src",
-    "types": ["vite/client", "react"],
-    "paths": {
-      "@monitor/core": ["../core/dist/index.d.ts"]
-    }
+    "types": ["vite/client", "react"]
   },
   "include": ["src"]
 }
