@@ -93,6 +93,11 @@ export function createSchema(db: Database.Database): void {
       approach_note text,
       reuse_when    text,
       watchouts     text,
+      version       integer not null default 1,
+      promoted_to   text,
+      reuse_count   integer not null default 0,
+      last_reused_at text,
+      briefing_copy_count integer not null default 0,
       workflow_snapshot_json text,
       workflow_context text,
       search_text   text,
@@ -103,5 +108,46 @@ export function createSchema(db: Database.Database): void {
 
     create index if not exists idx_task_evaluations_rating
       on task_evaluations(rating);
+
+    create table if not exists playbooks (
+      id text primary key,
+      title text not null,
+      slug text unique not null,
+      status text not null default 'draft',
+      when_to_use text,
+      prerequisites text,
+      approach text,
+      key_steps text,
+      watchouts text,
+      anti_patterns text,
+      failure_modes text,
+      variants text,
+      related_playbook_ids text,
+      source_snapshot_ids text,
+      tags text,
+      search_text text,
+      embedding text,
+      embedding_model text,
+      use_count integer not null default 0,
+      last_used_at text,
+      created_at text not null,
+      updated_at text not null
+    );
+
+    create index if not exists idx_playbooks_status
+      on playbooks(status);
+
+    create table if not exists briefings (
+      id text primary key,
+      task_id text not null references monitoring_tasks(id) on delete cascade,
+      generated_at text not null,
+      purpose text not null,
+      format text not null,
+      memo text,
+      content text not null
+    );
+
+    create index if not exists idx_briefings_task_generated
+      on briefings(task_id, generated_at desc);
   `);
 }

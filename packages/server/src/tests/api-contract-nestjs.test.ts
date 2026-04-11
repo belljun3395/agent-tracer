@@ -283,6 +283,39 @@ describe("NestJS API Contract Parity Tests", () => {
         expect(res.status).toBe(200);
         expect(Array.isArray(res.body)).toBe(true);
     });
+    it("POST /api/tasks/:id/briefing/copied — records a copy without error", async () => {
+        const start = await request(httpServer)
+            .post("/api/task-start")
+            .send({ title: "Briefing copy parity" });
+        const taskId = start.body.task.id as string;
+        const evaluate = await request(httpServer)
+            .post(`/api/tasks/${taskId}/evaluate`)
+            .send({ rating: "good" });
+        expect(evaluate.status).toBe(200);
+        const res = await request(httpServer).post(`/api/tasks/${taskId}/briefing/copied`).send({});
+        expect(res.status).toBe(200);
+        expect(res.body.ok).toBe(true);
+    });
+    it("POST /api/tasks/:id/briefings and GET /api/tasks/:id/briefings — persist task briefings", async () => {
+        const start = await request(httpServer)
+            .post("/api/task-start")
+            .send({ title: "Briefing persistence parity" });
+        const taskId = start.body.task.id as string;
+        const create = await request(httpServer)
+            .post(`/api/tasks/${taskId}/briefings`)
+            .send({
+            purpose: "continue",
+            format: "markdown",
+            memo: "Continue from the last failing test",
+            content: "# Briefing\nResume from test failures",
+            generatedAt: "2026-04-11T00:00:00.000Z"
+        });
+        expect(create.status).toBe(200);
+        const list = await request(httpServer).get(`/api/tasks/${taskId}/briefings`);
+        expect(list.status).toBe(200);
+        expect(Array.isArray(list.body)).toBe(true);
+        expect(list.body[0]).toHaveProperty("purpose", "continue");
+    });
     it("GET /api/workflows/similar — 400 when q missing", async () => {
         const res = await request(httpServer).get("/api/workflows/similar");
         expect(res.status).toBe(400);
@@ -294,6 +327,27 @@ describe("NestJS API Contract Parity Tests", () => {
     it("GET /api/workflows/:id/content — 404 for nonexistent", async () => {
         const res = await request(httpServer).get("/api/workflows/nonexistent-id/content");
         expect(res.status).toBe(404);
+    });
+    it("POST /api/playbooks and GET /api/playbooks — round-trips playbook data", async () => {
+        const create = await request(httpServer)
+            .post("/api/playbooks")
+            .send({
+            title: "Promote proven workflow",
+            status: "active",
+            whenToUse: "When a workflow becomes reusable knowledge",
+            keySteps: ["Review the snapshot", "Refine the approach"],
+            watchouts: ["Avoid one-off details"],
+            tags: ["knowledge", "playbook"]
+        });
+        expect(create.status).toBe(200);
+        expect(create.body).toHaveProperty("id");
+        const list = await request(httpServer).get("/api/playbooks");
+        expect(list.status).toBe(200);
+        expect(Array.isArray(list.body)).toBe(true);
+        expect(list.body[0]).toHaveProperty("layer", "playbook");
+        const detail = await request(httpServer).get(`/api/playbooks/${create.body.id as string}`);
+        expect(detail.status).toBe(200);
+        expect(detail.body).toHaveProperty("title", "Promote proven workflow");
     });
     it("GET /api/tasks/:taskId — 404 for nonexistent", async () => {
         const res = await request(httpServer).get("/api/tasks/nonexistent-id");

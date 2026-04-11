@@ -30,6 +30,21 @@ export function runMigrations(db: Database.Database): void {
     if (evaluationCols.length > 0 && !evaluationCols.some((c) => c.name === "watchouts")) {
         db.exec("alter table task_evaluations add column watchouts text");
     }
+    if (evaluationCols.length > 0 && !evaluationCols.some((c) => c.name === "version")) {
+        db.exec("alter table task_evaluations add column version integer not null default 1");
+    }
+    if (evaluationCols.length > 0 && !evaluationCols.some((c) => c.name === "promoted_to")) {
+        db.exec("alter table task_evaluations add column promoted_to text");
+    }
+    if (evaluationCols.length > 0 && !evaluationCols.some((c) => c.name === "reuse_count")) {
+        db.exec("alter table task_evaluations add column reuse_count integer not null default 0");
+    }
+    if (evaluationCols.length > 0 && !evaluationCols.some((c) => c.name === "last_reused_at")) {
+        db.exec("alter table task_evaluations add column last_reused_at text");
+    }
+    if (evaluationCols.length > 0 && !evaluationCols.some((c) => c.name === "briefing_copy_count")) {
+        db.exec("alter table task_evaluations add column briefing_copy_count integer not null default 0");
+    }
     if (evaluationCols.length > 0 && !evaluationCols.some((c) => c.name === "workflow_snapshot_json")) {
         db.exec("alter table task_evaluations add column workflow_snapshot_json text");
     }
@@ -45,6 +60,45 @@ export function runMigrations(db: Database.Database): void {
     if (evaluationCols.length > 0 && !evaluationCols.some((c) => c.name === "embedding_model")) {
         db.exec("alter table task_evaluations add column embedding_model text");
     }
+    db.exec(`
+      create table if not exists playbooks (
+        id text primary key,
+        title text not null,
+        slug text unique not null,
+        status text not null default 'draft',
+        when_to_use text,
+        prerequisites text,
+        approach text,
+        key_steps text,
+        watchouts text,
+        anti_patterns text,
+        failure_modes text,
+        variants text,
+        related_playbook_ids text,
+        source_snapshot_ids text,
+        tags text,
+        search_text text,
+        embedding text,
+        embedding_model text,
+        use_count integer not null default 0,
+        last_used_at text,
+        created_at text not null,
+        updated_at text not null
+      )
+    `);
+    db.exec("create index if not exists idx_playbooks_status on playbooks(status)");
+    db.exec(`
+      create table if not exists briefings (
+        id text primary key,
+        task_id text not null references monitoring_tasks(id) on delete cascade,
+        generated_at text not null,
+        purpose text not null,
+        format text not null,
+        memo text,
+        content text not null
+      )
+    `);
+    db.exec("create index if not exists idx_briefings_task_generated on briefings(task_id, generated_at desc)");
     backfillTaskRuntimeSources(db);
 }
 function backfillTaskRuntimeSources(db: Database.Database): void {

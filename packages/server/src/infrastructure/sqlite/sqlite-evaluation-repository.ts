@@ -1,6 +1,7 @@
 import type Database from "better-sqlite3";
-import type { IEvaluationRepository, PersistedTaskEvaluation, StoredTaskEvaluation, WorkflowContentRecord, WorkflowSearchResult, WorkflowSummary } from "../../application/ports";
-import type { MonitoringTask, ReusableTaskSnapshot, TaskId as MonitorTaskId, TimelineEvent, WorkflowEvaluationData } from "@monitor/core";
+import { randomUUID } from "node:crypto";
+import type { BriefingSaveInput, IEvaluationRepository, PersistedTaskEvaluation, PlaybookUpsertInput, StoredTaskEvaluation, WorkflowContentRecord, WorkflowSearchResult, WorkflowSummary } from "../../application/ports";
+import type { MonitoringTask, PlaybookRecord, PlaybookStatus, PlaybookSummary, ReusableTaskSnapshot, SavedBriefing, TaskId as MonitorTaskId, TimelineEvent, WorkflowEvaluationData } from "@monitor/core";
 import { buildReusableTaskSnapshot, buildWorkflowContext, EventId, SessionId, TaskId, TaskSlug, WorkspacePath } from "@monitor/core";
 import { deriveTaskDisplayTitle, meaningfulTaskTitle } from "../../application/services/task-display-title-resolver.helpers.js";
 import type { IEmbeddingService } from "../embedding";
@@ -17,6 +18,11 @@ interface EvaluationRow {
     approach_note: string | null;
     reuse_when: string | null;
     watchouts: string | null;
+    version: number;
+    promoted_to: string | null;
+    reuse_count: number;
+    last_reused_at: string | null;
+    briefing_copy_count: number;
     workflow_snapshot_json: string | null;
     workflow_context: string | null;
     search_text: string | null;
@@ -33,6 +39,11 @@ interface TaskWithEvaluationRow {
     approach_note: string | null;
     reuse_when: string | null;
     watchouts: string | null;
+    version: number;
+    promoted_to: string | null;
+    reuse_count: number;
+    last_reused_at: string | null;
+    briefing_copy_count: number;
     workflow_snapshot_json: string | null;
     workflow_context: string | null;
     search_text: string | null;
@@ -60,6 +71,44 @@ interface RankedWorkflowRow {
     readonly lexicalScore: number;
     readonly semanticScore: number | null;
 }
+interface PlaybookRow {
+    id: string;
+    title: string;
+    slug: string;
+    status: string;
+    when_to_use: string | null;
+    prerequisites: string | null;
+    approach: string | null;
+    key_steps: string | null;
+    watchouts: string | null;
+    anti_patterns: string | null;
+    failure_modes: string | null;
+    variants: string | null;
+    related_playbook_ids: string | null;
+    source_snapshot_ids: string | null;
+    tags: string | null;
+    search_text: string | null;
+    embedding: string | null;
+    embedding_model: string | null;
+    use_count: number;
+    last_used_at: string | null;
+    created_at: string;
+    updated_at: string;
+}
+interface RankedPlaybookRow {
+    readonly row: PlaybookRow;
+    readonly lexicalScore: number;
+    readonly semanticScore: number | null;
+}
+interface BriefingRow {
+    id: string;
+    task_id: string;
+    generated_at: string;
+    purpose: string;
+    format: string;
+    memo: string | null;
+    content: string;
+}
 function mapEvaluationRow(row: EvaluationRow): StoredTaskEvaluation {
     return {
         taskId: TaskId(row.task_id),
@@ -70,6 +119,9 @@ function mapEvaluationRow(row: EvaluationRow): StoredTaskEvaluation {
         approachNote: row.approach_note,
         reuseWhen: row.reuse_when,
         watchouts: row.watchouts,
+        version: row.version,
+        promotedTo: row.promoted_to,
+        qualitySignals: buildQualitySignals(row),
         workflowSnapshot: row.workflow_snapshot_json
             ? parseJsonField<ReusableTaskSnapshot>(row.workflow_snapshot_json)
             : null,
@@ -90,6 +142,17 @@ function mapEventRow(row: EventRow): TimelineEvent {
         metadata: parseJsonField(row.metadata_json),
         classification: parseJsonField(row.classification_json),
         createdAt: row.created_at
+    };
+}
+function mapBriefingRow(row: BriefingRow): SavedBriefing {
+    return {
+        id: row.id,
+        taskId: TaskId(row.task_id),
+        generatedAt: row.generated_at,
+        purpose: row.purpose as SavedBriefing["purpose"],
+        format: row.format as SavedBriefing["format"],
+        memo: row.memo,
+        content: row.content
     };
 }
 export class SqliteEvaluationRepository implements IEvaluationRepository {
@@ -118,7 +181,8 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
         workflow_snapshot_json = excluded.workflow_snapshot_json,
         workflow_context = excluded.workflow_context,
         search_text     = excluded.search_text,
-        evaluated_at    = excluded.evaluated_at
+        evaluated_at    = excluded.evaluated_at,
+        version         = task_evaluations.version + 1
     `).run({
             taskId: evaluation.taskId,
             rating: evaluation.rating,
@@ -138,6 +202,54 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
         if (this.embeddingService) {
             void this.generateAndSaveEmbedding(evaluation);
         }
+    }
+    async recordBriefingCopy(taskId: MonitorTaskId, copiedAt: string): Promise<void> {
+        const result = this.db.prepare(`
+          update task_evaluations
+          set briefing_copy_count = coalesce(briefing_copy_count, 0) + 1,
+              last_reused_at = @copiedAt
+          where task_id = @taskId
+        `).run({ taskId, copiedAt });
+        if (result.changes === 0) {
+            throw new Error(`No evaluation record found for task ${taskId}`);
+        }
+    }
+    async saveBriefing(taskId: MonitorTaskId, briefing: BriefingSaveInput): Promise<SavedBriefing> {
+        const id = `briefing-${randomUUID()}`;
+        this.db.prepare(`
+          insert into briefings (
+            id, task_id, generated_at, purpose, format, memo, content
+          ) values (
+            @id, @taskId, @generatedAt, @purpose, @format, @memo, @content
+          )
+        `).run({
+            id,
+            taskId,
+            generatedAt: briefing.generatedAt,
+            purpose: briefing.purpose,
+            format: briefing.format,
+            memo: briefing.memo ?? null,
+            content: briefing.content
+        });
+        return {
+            id,
+            taskId: TaskId(taskId),
+            generatedAt: briefing.generatedAt,
+            purpose: briefing.purpose,
+            format: briefing.format,
+            memo: briefing.memo ?? null,
+            content: briefing.content
+        };
+    }
+    async listBriefings(taskId: MonitorTaskId): Promise<readonly SavedBriefing[]> {
+        const rows = this.db.prepare<{
+            taskId: string;
+        }, BriefingRow>(`
+          select * from briefings
+          where task_id = @taskId
+          order by generated_at desc
+        `).all({ taskId });
+        return rows.map(mapBriefingRow);
     }
     async listEvaluations(rating?: "good" | "skip"): Promise<readonly WorkflowSummary[]> {
         const rows = this.loadSearchRows(undefined, rating);
@@ -168,6 +280,11 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
         e.approach_note,
         e.reuse_when,
         e.watchouts,
+        e.version,
+        e.promoted_to,
+        e.reuse_count,
+        e.last_reused_at,
+        e.briefing_copy_count,
         e.workflow_snapshot_json,
         e.workflow_context,
         e.search_text,
@@ -197,6 +314,158 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
         const effectiveLimit = Math.min(limit, 10);
         const rankedRows = await this.rankWorkflowRows(query, tags, effectiveLimit);
         return rankedRows.map((row) => this.hydrateSearchResult(row));
+    }
+    async listPlaybooks(query?: string, status?: PlaybookStatus, limit = 50): Promise<readonly PlaybookSummary[]> {
+        const effectiveLimit = Math.min(Math.max(limit, 1), 100);
+        const rows: readonly PlaybookRow[] = query?.trim()
+            ? await this.rankPlaybookRows(query, effectiveLimit, status)
+            : [...this.loadPlaybookRows(status)]
+                .sort((left, right) => comparePlaybookRows(left, right))
+                .slice(0, effectiveLimit);
+        return rows.map((row) => mapPlaybookSummary(row));
+    }
+    async getPlaybook(playbookId: string): Promise<PlaybookRecord | null> {
+        const row = this.db.prepare<{
+            playbookId: string;
+        }, PlaybookRow>("select * from playbooks where id = @playbookId").get({ playbookId });
+        return row ? mapPlaybookRecord(row) : null;
+    }
+    async createPlaybook(input: PlaybookUpsertInput): Promise<PlaybookRecord> {
+        const id = `playbook-${randomUUID()}`;
+        const now = new Date().toISOString();
+        const title = input.title.trim();
+        const slug = this.ensureUniquePlaybookSlug(createPlaybookSlug(title));
+        const payload = normalizePlaybookPayload(input, now);
+        this.db.prepare(`
+          insert into playbooks (
+            id, title, slug, status, when_to_use, prerequisites, approach, key_steps, watchouts,
+            anti_patterns, failure_modes, variants, related_playbook_ids, source_snapshot_ids, tags,
+            search_text, embedding, embedding_model, use_count, last_used_at, created_at, updated_at
+          ) values (
+            @id, @title, @slug, @status, @whenToUse, @prerequisites, @approach, @keySteps, @watchouts,
+            @antiPatterns, @failureModes, @variants, @relatedPlaybookIds, @sourceSnapshotIds, @tags,
+            @searchText, null, null, 0, null, @createdAt, @updatedAt
+          )
+        `).run({
+            id,
+            title,
+            slug,
+            ...payload
+        });
+        this.updatePromotedSnapshots(payload.sourceSnapshotIdsList, id);
+        if (this.embeddingService) {
+            void this.generateAndSavePlaybookEmbedding(id, buildPlaybookEmbeddingText({
+                id,
+                title,
+                slug,
+                ...payload
+            }));
+        }
+        return (await this.getPlaybook(id)) as PlaybookRecord;
+    }
+    async updatePlaybook(playbookId: string, input: Partial<PlaybookUpsertInput>): Promise<PlaybookRecord | null> {
+        const existing = await this.getPlaybook(playbookId);
+        if (!existing) {
+            return null;
+        }
+        const title = input.title?.trim() || existing.title;
+        const slug = title === existing.title ? existing.slug : this.ensureUniquePlaybookSlug(createPlaybookSlug(title), playbookId);
+        const merged = normalizePlaybookPayload({
+            title,
+            status: input.status ?? existing.status,
+            whenToUse: input.whenToUse ?? existing.whenToUse,
+            prerequisites: input.prerequisites ?? existing.prerequisites,
+            approach: input.approach ?? existing.approach,
+            keySteps: input.keySteps ?? existing.keySteps,
+            watchouts: input.watchouts ?? existing.watchouts,
+            antiPatterns: input.antiPatterns ?? existing.antiPatterns,
+            failureModes: input.failureModes ?? existing.failureModes,
+            variants: input.variants ?? existing.variants,
+            relatedPlaybookIds: input.relatedPlaybookIds ?? existing.relatedPlaybookIds,
+            sourceSnapshotIds: input.sourceSnapshotIds ?? existing.sourceSnapshotIds,
+            tags: input.tags ?? existing.tags
+        }, new Date().toISOString(), existing.createdAt);
+        this.db.prepare(`
+          update playbooks
+          set title = @title,
+              slug = @slug,
+              status = @status,
+              when_to_use = @whenToUse,
+              prerequisites = @prerequisites,
+              approach = @approach,
+              key_steps = @keySteps,
+              watchouts = @watchouts,
+              anti_patterns = @antiPatterns,
+              failure_modes = @failureModes,
+              variants = @variants,
+              related_playbook_ids = @relatedPlaybookIds,
+              source_snapshot_ids = @sourceSnapshotIds,
+              tags = @tags,
+              search_text = @searchText,
+              updated_at = @updatedAt
+          where id = @id
+        `).run({
+            id: playbookId,
+            title,
+            slug,
+            ...merged
+        });
+        this.updatePromotedSnapshots(merged.sourceSnapshotIdsList, playbookId);
+        if (this.embeddingService) {
+            void this.generateAndSavePlaybookEmbedding(playbookId, buildPlaybookEmbeddingText({
+                id: playbookId,
+                title,
+                slug,
+                ...merged
+            }));
+        }
+        return this.getPlaybook(playbookId);
+    }
+    private loadPlaybookRows(status?: PlaybookStatus): readonly PlaybookRow[] {
+        const whereClause = status ? "where status = @status" : "";
+        return this.db.prepare<{
+            status?: PlaybookStatus;
+        }, PlaybookRow>(`
+          select * from playbooks
+          ${whereClause}
+        `).all(status ? { status } : {});
+    }
+    private async rankPlaybookRows(query: string, limit: number, status?: PlaybookStatus): Promise<readonly PlaybookRow[]> {
+        const rows = this.loadPlaybookRows(status);
+        if (rows.length === 0) {
+            return [];
+        }
+        const lexicalMatches = scoreLexicalMatches(rows, query);
+        let semanticMatches: readonly {
+            row: PlaybookRow;
+            score: number;
+        }[] = [];
+        if (this.embeddingService && query.trim().length > 0) {
+            try {
+                semanticMatches = await this.scoreSemanticPlaybookMatches(rows, query);
+            }
+            catch (error) {
+                console.warn("[monitor-server] semantic playbook search failed; falling back to lexical search:", error instanceof Error ? error.message : error);
+            }
+        }
+        return mergeRankedPlaybookRows(semanticMatches, lexicalMatches, limit);
+    }
+    private async scoreSemanticPlaybookMatches(rows: readonly PlaybookRow[], query: string): Promise<readonly {
+        row: PlaybookRow;
+        score: number;
+    }[]> {
+        const embeddedRows = rows.filter((row) => typeof row.embedding === "string" && row.embedding.length > 0);
+        if (embeddedRows.length === 0) {
+            return [];
+        }
+        const queryVector = await this.embeddingService!.embed(query);
+        return embeddedRows
+            .map((row) => ({
+            row,
+            score: cosineSimilarity(queryVector, deserializeEmbedding(row.embedding as string))
+        }))
+            .filter((entry) => entry.score >= MIN_SEMANTIC_SCORE)
+            .sort((left, right) => right.score - left.score || comparePlaybookRows(left.row, right.row));
     }
     private async generateAndSaveEmbedding(evaluation: PersistedTaskEvaluation): Promise<void> {
         try {
@@ -228,6 +497,63 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
             console.warn("[monitor-server] embedding generation failed:", error instanceof Error ? error.message : error);
         }
     }
+    private async generateAndSavePlaybookEmbedding(playbookId: string, embeddingText: string): Promise<void> {
+        try {
+            const vector = await this.embeddingService!.embed(embeddingText);
+            this.db.prepare(`
+              update playbooks
+              set embedding = @embedding,
+                  embedding_model = @embeddingModel
+              where id = @playbookId
+            `).run({
+                playbookId,
+                embedding: serializeEmbedding(vector),
+                embeddingModel: EMBEDDING_MODEL
+            });
+        }
+        catch (error) {
+            if (isClosedDatabaseError(error)) {
+                return;
+            }
+            console.warn("[monitor-server] playbook embedding generation failed:", error instanceof Error ? error.message : error);
+        }
+    }
+    private ensureUniquePlaybookSlug(baseSlug: string, ignoreId?: string): string {
+        const fallbackSlug = baseSlug || "playbook";
+        let slug = fallbackSlug;
+        let suffix = 2;
+        const MAX_SLUG_ATTEMPTS = 200;
+        for (let attempt = 0; attempt < MAX_SLUG_ATTEMPTS; attempt++) {
+            const existing = this.db.prepare<{
+                slug: string;
+                ignoreId?: string;
+            }, {
+                id: string;
+            }>(ignoreId
+                ? "select id from playbooks where slug = @slug and id != @ignoreId"
+                : "select id from playbooks where slug = @slug")
+                .get(ignoreId ? { slug, ignoreId } : { slug });
+            if (!existing) {
+                return slug;
+            }
+            slug = `${fallbackSlug}-${suffix++}`;
+        }
+        throw new Error(`Could not generate a unique slug for "${baseSlug}" after ${MAX_SLUG_ATTEMPTS} attempts`);
+    }
+    private updatePromotedSnapshots(snapshotIds: readonly string[], playbookId: string): void {
+        const taskIds = uniqueStrings(snapshotIds.map(parseSnapshotTaskId).filter((value): value is string => Boolean(value)));
+        if (taskIds.length === 0) {
+            return;
+        }
+        const statement = this.db.prepare(`
+          update task_evaluations
+          set promoted_to = @playbookId
+          where task_id = @taskId
+        `);
+        for (const taskId of taskIds) {
+            statement.run({ playbookId, taskId });
+        }
+    }
     private loadSearchRows(tags?: readonly string[], rating?: "good" | "skip"): readonly TaskWithEvaluationRow[] {
         const whereConditions = [
             rating ? "e.rating = @rating" : null
@@ -249,6 +575,11 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
         e.approach_note,
         e.reuse_when,
         e.watchouts,
+        e.version,
+        e.promoted_to,
+        e.reuse_count,
+        e.last_reused_at,
+        e.briefing_copy_count,
         e.workflow_snapshot_json,
         e.workflow_context,
         e.search_text,
@@ -307,6 +638,7 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
     private hydrateSearchResult(row: TaskWithEvaluationRow): WorkflowSearchResult {
         const content = this.buildWorkflowContent(row);
         return {
+            layer: "snapshot",
             taskId: TaskId(row.task_id),
             title: row.title,
             ...(content.displayTitle ? { displayTitle: content.displayTitle } : {}),
@@ -319,7 +651,10 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
             rating: row.rating as "good" | "skip",
             eventCount: row.event_count,
             createdAt: row.created_at,
-            workflowContext: content.workflowContext
+            workflowContext: content.workflowContext,
+            version: row.version,
+            promotedTo: row.promoted_to,
+            qualitySignals: buildQualitySignals(row)
         };
     }
     private hydrateWorkflowSummary(row: TaskWithEvaluationRow): WorkflowSummary {
@@ -368,7 +703,10 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
             workflowSnapshot,
             workflowContext,
             searchText: row.search_text ?? workflowSnapshot.searchText,
-            source
+            source,
+            version: row.version,
+            promotedTo: row.promoted_to,
+            qualitySignals: buildQualitySignals(row)
         };
     }
 }
@@ -410,8 +748,47 @@ function mergeRankedRows(semanticMatches: readonly {
         .slice(0, limit)
         .map((entry) => entry.row);
 }
+function mergeRankedPlaybookRows(semanticMatches: readonly {
+    row: PlaybookRow;
+    score: number;
+}[], lexicalMatches: readonly {
+    row: PlaybookRow;
+    score: number;
+}[], limit: number): readonly PlaybookRow[] {
+    const ranked = new Map<string, RankedPlaybookRow>();
+    for (const semantic of semanticMatches) {
+        ranked.set(semantic.row.id, {
+            row: semantic.row,
+            lexicalScore: 0,
+            semanticScore: semantic.score
+        });
+    }
+    for (const lexical of lexicalMatches) {
+        const existing = ranked.get(lexical.row.id);
+        if (existing) {
+            ranked.set(lexical.row.id, {
+                ...existing,
+                lexicalScore: Math.max(existing.lexicalScore, lexical.score)
+            });
+            continue;
+        }
+        ranked.set(lexical.row.id, {
+            row: lexical.row,
+            lexicalScore: lexical.score,
+            semanticScore: null
+        });
+    }
+    return [...ranked.values()]
+        .sort((left, right) => combinedPlaybookRankScore(right) - combinedPlaybookRankScore(left)
+        || (right.semanticScore ?? 0) - (left.semanticScore ?? 0)
+        || right.lexicalScore - left.lexicalScore
+        || comparePlaybookRows(left.row, right.row))
+        .slice(0, limit)
+        .map((entry) => entry.row);
+}
 function mapWorkflowSummary(row: TaskWithEvaluationRow, displayTitle?: string): WorkflowSummary {
     return {
+        layer: "snapshot",
         taskId: TaskId(row.task_id),
         title: row.title,
         ...(displayTitle ? { displayTitle } : {}),
@@ -424,7 +801,40 @@ function mapWorkflowSummary(row: TaskWithEvaluationRow, displayTitle?: string): 
         rating: row.rating as "good" | "skip",
         eventCount: row.event_count,
         createdAt: row.created_at,
-        evaluatedAt: row.evaluated_at
+        evaluatedAt: row.evaluated_at,
+        version: row.version,
+        promotedTo: row.promoted_to,
+        qualitySignals: buildQualitySignals(row)
+    };
+}
+function mapPlaybookSummary(row: PlaybookRow): PlaybookSummary {
+    return {
+        layer: "playbook",
+        id: row.id,
+        title: row.title,
+        slug: row.slug,
+        status: row.status as PlaybookStatus,
+        whenToUse: row.when_to_use,
+        tags: parseJsonList(row.tags),
+        useCount: row.use_count,
+        lastUsedAt: row.last_used_at,
+        sourceSnapshotIds: parseJsonList(row.source_snapshot_ids),
+        createdAt: row.created_at,
+        updatedAt: row.updated_at
+    };
+}
+function mapPlaybookRecord(row: PlaybookRow): PlaybookRecord {
+    return {
+        ...mapPlaybookSummary(row),
+        prerequisites: parseJsonList(row.prerequisites),
+        approach: row.approach,
+        keySteps: parseJsonList(row.key_steps),
+        watchouts: parseJsonList(row.watchouts),
+        antiPatterns: parseJsonList(row.anti_patterns),
+        failureModes: parseJsonList(row.failure_modes),
+        variants: row.variants ? parseJsonField<PlaybookRecord["variants"]>(row.variants) : [],
+        relatedPlaybookIds: parseJsonList(row.related_playbook_ids),
+        searchText: row.search_text
     };
 }
 function buildWorkflowTask(row: Pick<TaskWithEvaluationRow, "task_id" | "title" | "slug" | "workspace_path" | "created_at" | "evaluated_at">): MonitoringTask {
@@ -447,8 +857,11 @@ function resolveWorkflowDisplayTitle(row: Pick<TaskWithEvaluationRow, "task_id" 
 function combinedRankScore(entry: RankedWorkflowRow): number {
     return (entry.semanticScore ?? 0) * 100 + entry.lexicalScore;
 }
-function scoreLexicalMatches(rows: readonly TaskWithEvaluationRow[], query: string): readonly {
-    row: TaskWithEvaluationRow;
+function combinedPlaybookRankScore(entry: RankedPlaybookRow): number {
+    return (entry.semanticScore ?? 0) * 100 + entry.lexicalScore;
+}
+function scoreLexicalMatches<T extends TaskWithEvaluationRow | PlaybookRow>(rows: readonly T[], query: string): readonly {
+    row: T;
     score: number;
 }[] {
     const normalizedQuery = normalizeSearchText(query);
@@ -463,9 +876,9 @@ function scoreLexicalMatches(rows: readonly TaskWithEvaluationRow[], query: stri
     }))
         .filter((entry) => entry.score > 0)
         .sort((left, right) => right.score - left.score
-        || compareRatedRows(left.row, right.row));
+        || compareSearchRows(left.row, right.row));
 }
-function computeLexicalScore(row: TaskWithEvaluationRow, normalizedQuery: string, queryTokens: readonly string[]): number {
+function computeLexicalScore<T extends TaskWithEvaluationRow | PlaybookRow>(row: T, normalizedQuery: string, queryTokens: readonly string[]): number {
     const fields = buildSearchFields(row);
     const combinedText = fields
         .map((field) => field.value)
@@ -496,19 +909,32 @@ function computeLexicalScore(row: TaskWithEvaluationRow, normalizedQuery: string
     }
     return score;
 }
-function buildSearchFields(row: TaskWithEvaluationRow): ReadonlyArray<{
+function buildSearchFields(row: TaskWithEvaluationRow | PlaybookRow): ReadonlyArray<{
     value: string;
     weight: number;
 }> {
-    const workflowTags = row.workflow_tags ? parseJsonField<string[]>(row.workflow_tags).join(" ") : "";
+    if ("task_id" in row) {
+        const workflowTags = row.workflow_tags ? parseJsonField<string[]>(row.workflow_tags).join(" ") : "";
+        return [
+            { value: normalizeSearchText(row.title) ?? "", weight: 12 },
+            { value: normalizeSearchText(row.use_case) ?? "", weight: 10 },
+            { value: normalizeSearchText(workflowTags) ?? "", weight: 8 },
+            { value: normalizeSearchText(row.outcome_note) ?? "", weight: 7 },
+            { value: normalizeSearchText(row.approach_note) ?? "", weight: 7 },
+            { value: normalizeSearchText(row.reuse_when) ?? "", weight: 5 },
+            { value: normalizeSearchText(row.watchouts) ?? "", weight: 5 },
+            { value: normalizeSearchText(row.search_text) ?? "", weight: 6 }
+        ];
+    }
+    const tags = row.tags ? parseJsonField<string[]>(row.tags).join(" ") : "";
     return [
         { value: normalizeSearchText(row.title) ?? "", weight: 12 },
-        { value: normalizeSearchText(row.use_case) ?? "", weight: 10 },
-        { value: normalizeSearchText(workflowTags) ?? "", weight: 8 },
-        { value: normalizeSearchText(row.outcome_note) ?? "", weight: 7 },
-        { value: normalizeSearchText(row.approach_note) ?? "", weight: 7 },
-        { value: normalizeSearchText(row.reuse_when) ?? "", weight: 5 },
-        { value: normalizeSearchText(row.watchouts) ?? "", weight: 5 },
+        { value: normalizeSearchText(row.when_to_use) ?? "", weight: 10 },
+        { value: normalizeSearchText(tags) ?? "", weight: 8 },
+        { value: normalizeSearchText(row.approach) ?? "", weight: 7 },
+        { value: normalizeSearchText(row.watchouts) ?? "", weight: 6 },
+        { value: normalizeSearchText(row.key_steps) ?? "", weight: 6 },
+        { value: normalizeSearchText(row.failure_modes) ?? "", weight: 5 },
         { value: normalizeSearchText(row.search_text) ?? "", weight: 6 }
     ];
 }
@@ -536,6 +962,46 @@ function tokenizeText(value: string): readonly string[] {
     }
     return tokens.length > 0 ? tokens : [value];
 }
+function compareSearchRows(left: TaskWithEvaluationRow | PlaybookRow, right: TaskWithEvaluationRow | PlaybookRow): number {
+    if ("task_id" in left && "task_id" in right) {
+        return compareRatedRows(left, right);
+    }
+    if (!("task_id" in left) && !("task_id" in right)) {
+        return comparePlaybookRows(left, right);
+    }
+    return "task_id" in left ? 1 : -1;
+}
+function compareRatedRows(left: TaskWithEvaluationRow, right: TaskWithEvaluationRow): number {
+    return Number(right.rating === "good") - Number(left.rating === "good")
+        || compareIsoDatesDesc(left.evaluated_at, right.evaluated_at);
+}
+function comparePlaybookRows(left: PlaybookRow, right: PlaybookRow): number {
+    return playbookStatusRank(right.status) - playbookStatusRank(left.status)
+        || compareIsoDatesDesc(left.updated_at, right.updated_at);
+}
+function playbookStatusRank(status: string): number {
+    switch (status) {
+        case "active":
+            return 3;
+        case "draft":
+            return 2;
+        case "archived":
+            return 1;
+        default:
+            return 0;
+    }
+}
+function buildQualitySignals(row: Pick<TaskWithEvaluationRow, "reuse_count" | "last_reused_at" | "briefing_copy_count" | "rating"> | EvaluationRow): WorkflowSummary["qualitySignals"] {
+    return {
+        reuseCount: row.reuse_count,
+        lastReusedAt: row.last_reused_at,
+        briefingCopyCount: row.briefing_copy_count,
+        manualRating: row.rating as "good" | "skip"
+    };
+}
+function parseJsonList(raw: string | null | undefined): readonly string[] {
+    return raw ? parseJsonField<string[]>(raw) : [];
+}
 function applyTagFilter<T extends {
     workflow_tags: string | null;
 }>(rows: readonly T[], tags: readonly string[] | undefined): readonly T[] {
@@ -549,10 +1015,6 @@ function applyTagFilter<T extends {
         const rowTags = parseJsonField<string[]>(row.workflow_tags);
         return tags.some((tag) => rowTags.some((rowTag) => rowTag.toLocaleLowerCase().includes(tag.toLocaleLowerCase())));
     });
-}
-function compareRatedRows(left: TaskWithEvaluationRow, right: TaskWithEvaluationRow): number {
-    return Number(right.rating === "good") - Number(left.rating === "good")
-        || compareIsoDatesDesc(left.evaluated_at, right.evaluated_at);
 }
 function compareWorkflowSummaryRows(left: TaskWithEvaluationRow, right: TaskWithEvaluationRow): number {
     return compareRatedRows(left, right);
@@ -603,6 +1065,155 @@ function buildEmbeddingText(evaluation: PersistedTaskEvaluation, events: readonl
         .map((part) => normalizeEmbeddingSection(part))
         .filter((part): part is string => Boolean(part))
         .join("\n\n");
+}
+function normalizePlaybookPayload(input: Partial<PlaybookUpsertInput>, updatedAt: string, createdAt = updatedAt) {
+    const title = input.title?.trim() ?? "Untitled playbook";
+    const whenToUse = normalizeOptionalText(input.whenToUse);
+    const approach = normalizeOptionalText(input.approach);
+    const prerequisites = normalizeStringList(input.prerequisites);
+    const keySteps = normalizeStringList(input.keySteps);
+    const watchouts = normalizeStringList(input.watchouts);
+    const antiPatterns = normalizeStringList(input.antiPatterns);
+    const failureModes = normalizeStringList(input.failureModes);
+    const relatedPlaybookIds = normalizeStringList(input.relatedPlaybookIds);
+    const sourceSnapshotIds = normalizeStringList(input.sourceSnapshotIds);
+    const tags = normalizeStringList(input.tags);
+    const variants = normalizeVariants(input.variants);
+    return {
+        status: input.status ?? "draft",
+        whenToUse,
+        prerequisites: prerequisites.length > 0 ? JSON.stringify(prerequisites) : null,
+        approach,
+        keySteps: keySteps.length > 0 ? JSON.stringify(keySteps) : null,
+        watchouts: watchouts.length > 0 ? JSON.stringify(watchouts) : null,
+        antiPatterns: antiPatterns.length > 0 ? JSON.stringify(antiPatterns) : null,
+        failureModes: failureModes.length > 0 ? JSON.stringify(failureModes) : null,
+        variants: variants.length > 0 ? JSON.stringify(variants) : null,
+        relatedPlaybookIds: relatedPlaybookIds.length > 0 ? JSON.stringify(relatedPlaybookIds) : null,
+        sourceSnapshotIds: sourceSnapshotIds.length > 0 ? JSON.stringify(sourceSnapshotIds) : null,
+        sourceSnapshotIdsList: sourceSnapshotIds,
+        tags: tags.length > 0 ? JSON.stringify(tags) : null,
+        searchText: buildPlaybookSearchText({
+            title,
+            whenToUse,
+            approach,
+            prerequisites,
+            keySteps,
+            watchouts,
+            antiPatterns,
+            failureModes,
+            tags
+        }),
+        createdAt,
+        updatedAt
+    };
+}
+function buildPlaybookEmbeddingText(input: {
+    id?: string;
+    title: string;
+    slug: string;
+    whenToUse?: string | null;
+    approach?: string | null;
+    prerequisites?: string | null;
+    keySteps?: string | null;
+    watchouts?: string | null;
+    antiPatterns?: string | null;
+    failureModes?: string | null;
+    tags?: string | null;
+    searchText?: string | null;
+}): string {
+    return [
+        input.title,
+        input.slug,
+        input.whenToUse,
+        input.approach,
+        input.prerequisites,
+        input.keySteps,
+        input.watchouts,
+        input.antiPatterns,
+        input.failureModes,
+        input.tags,
+        input.searchText
+    ]
+        .map((part) => normalizeEmbeddingSection(part))
+        .filter((part): part is string => Boolean(part))
+        .join("\n\n");
+}
+function buildPlaybookSearchText(input: {
+    title: string;
+    whenToUse: string | null;
+    approach: string | null;
+    prerequisites: readonly string[];
+    keySteps: readonly string[];
+    watchouts: readonly string[];
+    antiPatterns: readonly string[];
+    failureModes: readonly string[];
+    tags: readonly string[];
+}): string {
+    return [
+        input.title,
+        input.whenToUse,
+        input.approach,
+        input.prerequisites.join(" "),
+        input.keySteps.join(" "),
+        input.watchouts.join(" "),
+        input.antiPatterns.join(" "),
+        input.failureModes.join(" "),
+        input.tags.join(" ")
+    ]
+        .map((part) => normalizeOptionalText(part))
+        .filter((part): part is string => Boolean(part))
+        .join(" ");
+}
+function normalizeStringList(values?: readonly string[] | null): readonly string[] {
+    if (!values) {
+        return [];
+    }
+    return uniqueStrings(values
+        .map((value) => normalizeOptionalText(value))
+        .filter((value): value is string => Boolean(value)));
+}
+function normalizeVariants(values?: PlaybookRecord["variants"] | null): PlaybookRecord["variants"] {
+    if (!values) {
+        return [];
+    }
+    return values
+        .map((variant) => ({
+        label: normalizeOptionalText(variant.label),
+        description: normalizeOptionalText(variant.description),
+        differenceFromBase: normalizeOptionalText(variant.differenceFromBase)
+    }))
+        .filter((variant): variant is {
+        label: string;
+        description: string;
+        differenceFromBase: string;
+    } => Boolean(variant.label && variant.description && variant.differenceFromBase));
+}
+function normalizeOptionalText(value?: string | null): string | null {
+    if (!value) {
+        return null;
+    }
+    const normalized = value.trim();
+    return normalized.length > 0 ? normalized : null;
+}
+function createPlaybookSlug(title: string): string {
+    return title
+        .toLocaleLowerCase()
+        .normalize("NFKC")
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 80);
+}
+function parseSnapshotTaskId(snapshotId: string): string | null {
+    const trimmed = snapshotId.trim();
+    if (!trimmed) {
+        return null;
+    }
+    const versionSeparator = trimmed.indexOf(":v");
+    return versionSeparator >= 0 ? trimmed.slice(0, versionSeparator) : trimmed;
+}
+function uniqueStrings(values: readonly string[]): readonly string[] {
+    return [...new Set(values)];
 }
 function normalizeEmbeddingSection(value?: string | null): string | null {
     if (!value) {

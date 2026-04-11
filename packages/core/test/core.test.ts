@@ -252,12 +252,21 @@ describe("public root exports", () => {
             reasons: []
         };
         const summary: WorkflowSummary = {
+            layer: "snapshot",
             taskId: TaskId("task-1"),
             title: "Workflow title",
             rating: "good",
             eventCount: 2,
             createdAt: "2026-04-10T00:00:00.000Z",
             evaluatedAt: "2026-04-10T00:00:01.000Z",
+            version: 1,
+            promotedTo: null,
+            qualitySignals: {
+                reuseCount: 0,
+                lastReusedAt: null,
+                briefingCopyCount: 0,
+                manualRating: "good"
+            },
             useCase: null,
             workflowTags: [],
             outcomeNote: null,

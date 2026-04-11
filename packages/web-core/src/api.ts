@@ -1,4 +1,4 @@
-import type { BookmarkId, EventId, ReusableTaskSnapshot, RuleId, RuntimeSource, SessionId, TaskEvaluation, TaskId, WorkflowSummary } from "@monitor/core";
+import type { BookmarkId, EventId, PlaybookRecord, PlaybookStatus, PlaybookSummary, ReusableTaskSnapshot, RuleId, RuntimeSource, SavedBriefing, SessionId, TaskEvaluation, TaskId, WorkflowSearchResult, WorkflowSummary } from "@monitor/core";
 import type { BookmarksResponse, BookmarkRecord, MonitoringTask, OverviewResponse, SearchResponse, TaskDetailResponse, TaskObservabilityResponse, TimelineEvent, TasksResponse } from "./types.js";
 const DEFAULT_REQUEST_TIMEOUT_MS = 30000;
 
@@ -228,8 +228,15 @@ export interface TaskEvaluationRecord extends TaskEvaluation {
     readonly workflowSnapshot: ReusableTaskSnapshot | null;
     readonly workflowContext: string | null;
     readonly searchText: string | null;
+    readonly version: number;
+    readonly promotedTo: string | null;
+    readonly qualitySignals: WorkflowSummary["qualitySignals"];
 }
 export type WorkflowSummaryRecord = WorkflowSummary;
+export type WorkflowSearchResultRecord = WorkflowSearchResult;
+export type PlaybookSummaryRecord = PlaybookSummary;
+export type PlaybookRecordResponse = PlaybookRecord;
+export type SavedBriefingRecord = SavedBriefing;
 export interface WorkflowContentRecord {
     readonly taskId: TaskId;
     readonly title: string;
@@ -238,6 +245,9 @@ export interface WorkflowContentRecord {
     readonly workflowContext: string;
     readonly searchText: string | null;
     readonly source: "saved" | "generated";
+    readonly version: number;
+    readonly promotedTo: string | null;
+    readonly qualitySignals: WorkflowSummary["qualitySignals"];
 }
 export function fetchWorkflowLibrary(rating?: "good" | "skip", query?: string, limit?: number): Promise<WorkflowSummaryRecord[]> {
     const params = new URLSearchParams();
@@ -256,10 +266,36 @@ export function fetchWorkflowLibrary(rating?: "good" | "skip", query?: string, l
 export function fetchTaskEvaluation(taskId: TaskId): Promise<TaskEvaluationRecord | null> {
     return getJson<TaskEvaluationRecord | null>(`/api/tasks/${taskId}/evaluate`);
 }
+export async function recordBriefingCopy(taskId: TaskId): Promise<void> {
+    await postJson<{ ok: boolean }>(`/api/tasks/${taskId}/briefing/copied`, {});
+}
+export interface SaveBriefingPayload {
+    purpose: SavedBriefing["purpose"];
+    format: SavedBriefing["format"];
+    memo?: string;
+    content: string;
+    generatedAt: string;
+}
+export function saveTaskBriefing(taskId: TaskId, payload: SaveBriefingPayload): Promise<SavedBriefingRecord> {
+    return postJson<SavedBriefingRecord>(`/api/tasks/${taskId}/briefings`, payload);
+}
+export function fetchTaskBriefings(taskId: TaskId): Promise<SavedBriefingRecord[]> {
+    return getJson<SavedBriefingRecord[]>(`/api/tasks/${taskId}/briefings`);
+}
 export async function saveTaskEvaluation(taskId: TaskId, payload: TaskEvaluationPayload): Promise<void> {
     await postJson<{
         ok: boolean;
     }>(`/api/tasks/${taskId}/evaluate`, payload);
+}
+export function fetchSimilarWorkflows(query: string, tags?: readonly string[], limit?: number): Promise<WorkflowSearchResultRecord[]> {
+    const params = new URLSearchParams({ q: query });
+    if (tags && tags.length > 0) {
+        params.set("tags", tags.join(","));
+    }
+    if (typeof limit === "number") {
+        params.set("limit", String(limit));
+    }
+    return getJson<WorkflowSearchResultRecord[]>(`/api/workflows/similar?${params.toString()}`);
 }
 export interface RuleActionPayload {
     taskId: TaskId;
@@ -296,6 +332,44 @@ export async function postRuleAction(payload: RuleActionPayload): Promise<void> 
 }
 export function fetchWorkflowContent(taskId: TaskId): Promise<WorkflowContentRecord> {
     return getJson<WorkflowContentRecord>(`/api/workflows/${taskId}/content`);
+}
+export interface PlaybookPayload {
+    title: string;
+    status?: PlaybookStatus;
+    whenToUse?: string | null;
+    prerequisites?: string[];
+    approach?: string | null;
+    keySteps?: string[];
+    watchouts?: string[];
+    antiPatterns?: string[];
+    failureModes?: string[];
+    variants?: PlaybookRecord["variants"];
+    relatedPlaybookIds?: string[];
+    sourceSnapshotIds?: string[];
+    tags?: string[];
+}
+export function fetchPlaybooks(query?: string, status?: PlaybookStatus, limit?: number): Promise<PlaybookSummaryRecord[]> {
+    const params = new URLSearchParams();
+    if (query?.trim()) {
+        params.set("q", query.trim());
+    }
+    if (status) {
+        params.set("status", status);
+    }
+    if (typeof limit === "number") {
+        params.set("limit", String(limit));
+    }
+    const suffix = params.size > 0 ? `?${params.toString()}` : "";
+    return getJson<PlaybookSummaryRecord[]>(`/api/playbooks${suffix}`);
+}
+export function fetchPlaybook(playbookId: string): Promise<PlaybookRecordResponse> {
+    return getJson<PlaybookRecordResponse>(`/api/playbooks/${playbookId}`);
+}
+export function createPlaybook(payload: PlaybookPayload): Promise<PlaybookRecordResponse> {
+    return postJson<PlaybookRecordResponse>("/api/playbooks", payload);
+}
+export function updatePlaybook(playbookId: string, payload: Partial<PlaybookPayload>): Promise<PlaybookRecordResponse> {
+    return postJson<PlaybookRecordResponse>(`/api/playbooks/${playbookId}`, payload);
 }
 export function createMonitorWebSocket(): WebSocket {
     const baseUrl = resolveWebSocketBaseUrl();

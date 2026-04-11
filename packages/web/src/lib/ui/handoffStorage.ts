@@ -1,8 +1,9 @@
-import type { HandoffMode } from "@monitor/web-core";
+import type { HandoffMode, HandoffPurpose } from "@monitor/web-core";
 export type HandoffFormat = "plain" | "markdown" | "xml" | "system-prompt";
 export interface HandoffPrefs {
     format: HandoffFormat;
     mode: HandoffMode;
+    purpose: HandoffPurpose;
     include: {
         summary: boolean;
         plans: boolean;
@@ -31,6 +32,7 @@ interface HandoffStorages {
 export const DEFAULT_HANDOFF_PREFS: HandoffPrefs = {
     format: "markdown",
     mode: "compact",
+    purpose: "continue",
     include: {
         summary: true,
         plans: true,

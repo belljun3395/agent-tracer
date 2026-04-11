@@ -1,4 +1,4 @@
-import { buildReusableTaskSnapshot, buildWorkflowContext, type ReusableTaskSnapshot, type TaskId, } from "@monitor/core";
+import { buildReusableTaskSnapshot, buildWorkflowContext, type PlaybookStatus, type ReusableTaskSnapshot, type TaskId, } from "@monitor/core";
 import type { MonitorPorts } from "../ports";
 import { deriveTaskDisplayTitle } from "./task-display-title-resolver.helpers.js";
 import type { TaskLifecycleService } from "./task-lifecycle-service.js";
@@ -52,6 +52,15 @@ export class WorkflowEvaluationService {
     async getTaskEvaluation(taskId: TaskId) {
         return this.ports.evaluations.getEvaluation(taskId);
     }
+    async recordBriefingCopy(taskId: TaskId) {
+        await this.ports.evaluations.recordBriefingCopy(taskId, new Date().toISOString());
+    }
+    async saveBriefing(taskId: TaskId, input: Parameters<MonitorPorts["evaluations"]["saveBriefing"]>[1]) {
+        return this.ports.evaluations.saveBriefing(taskId, input);
+    }
+    async listBriefings(taskId: TaskId) {
+        return this.ports.evaluations.listBriefings(taskId);
+    }
     async getWorkflowContent(taskId: TaskId) {
         return this.ports.evaluations.getWorkflowContent(taskId);
     }
@@ -63,6 +72,18 @@ export class WorkflowEvaluationService {
     }
     async searchSimilarWorkflows(query: string, tags?: string[], limit?: number) {
         return this.ports.evaluations.searchSimilarWorkflows(query, tags, limit);
+    }
+    async listPlaybooks(query?: string, status?: PlaybookStatus, limit?: number) {
+        return this.ports.evaluations.listPlaybooks(query, status, limit);
+    }
+    async getPlaybook(playbookId: string) {
+        return this.ports.evaluations.getPlaybook(playbookId);
+    }
+    async createPlaybook(input: Parameters<MonitorPorts["evaluations"]["createPlaybook"]>[0]) {
+        return this.ports.evaluations.createPlaybook(input);
+    }
+    async updatePlaybook(playbookId: string, input: Parameters<MonitorPorts["evaluations"]["updatePlaybook"]>[1]) {
+        return this.ports.evaluations.updatePlaybook(playbookId, input);
     }
 }
 function normalizeWorkflowContextOverride(value?: string | null): string | null {

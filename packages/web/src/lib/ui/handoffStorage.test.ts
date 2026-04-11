@@ -17,6 +17,7 @@ describe("handoffStorage", () => {
             prefs: {
                 format: "xml",
                 mode: "full",
+                purpose: "review",
                 include: {
                     summary: true,
                     plans: true,
@@ -37,9 +38,11 @@ describe("handoffStorage", () => {
         expect(taskDraft.memo).toBe("follow up with server tests");
         expect(taskDraft.lastCopiedText).toBe("<task-context />");
         expect(taskDraft.prefs.format).toBe("xml");
+        expect(taskDraft.prefs.purpose).toBe("review");
         expect(anotherTaskDraft.memo).toBe("");
         expect(anotherTaskDraft.lastCopiedText).toBeNull();
         expect(anotherTaskDraft.prefs.format).toBe("xml");
+        expect(anotherTaskDraft.prefs.purpose).toBe("review");
         expect(prefsStorage.getItem(getTaskDraftKey("task-1"))).toBeNull();
         expect(draftStorage.getItem(getTaskDraftKey("task-1"))).not.toBeNull();
     });
@@ -49,6 +52,7 @@ describe("handoffStorage", () => {
         const draft = loadHandoffDraft("task-1", 2, { draftStorage });
         expect(draft.memo).toBe("");
         expect(draft.lastCopiedText).toBeNull();
+        expect(draft.prefs.purpose).toBe("continue");
         expect(draft.prefs.include.violations).toBe(true);
     });
 });
