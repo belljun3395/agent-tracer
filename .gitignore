@@ -17,6 +17,7 @@ application.local.yaml
 .claude/.msg-count-*
 .claude/.subagent-registry.json
 .claude/.session-cache/
+.claude/settings.json
 .codex/.current-task-id*
 .codex/.current-task-id
 .codex/hook-debug/

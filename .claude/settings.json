@@ -1,9 +1,0 @@
-{
-  "permissions": {
-    "defaultMode": "acceptEdits",
-    "allow": [
-      "WebSearch",
-      "WebFetch"
-    ]
-  }
-}
