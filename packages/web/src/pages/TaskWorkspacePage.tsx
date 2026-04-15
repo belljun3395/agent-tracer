@@ -217,7 +217,7 @@ export function TaskWorkspacePage({ taskId, embedded = false }: {
             <button
               aria-label="Back to task list"
               className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] text-[var(--text-3)] transition-colors hover:border-[color-mix(in_srgb,var(--accent)_36%,var(--border))] hover:text-[var(--text-2)]"
-              onClick={() => navigate(`/?task=${encodeURIComponent(taskId)}`)}
+              onClick={() => void navigate(`/?task=${encodeURIComponent(taskId)}`)}
               title="Back to task list"
               type="button"
             >
@@ -344,7 +344,7 @@ export function TaskWorkspacePage({ taskId, embedded = false }: {
               || taskObservability?.observability.ruleEnforcement.activeState === "blocked") && (<Button size="sm" onClick={() => void handleRuleReview("bypassed")} disabled={isSubmittingRuleReview}>
                 Bypass
               </Button>)}
-            <Button size="sm" onClick={() => navigate(`/?task=${encodeURIComponent(taskId)}`)}>
+            <Button size="sm" onClick={() => void navigate(`/?task=${encodeURIComponent(taskId)}`)}>
               Dashboard
             </Button>
           </div>
@@ -376,7 +376,7 @@ export function TaskWorkspacePage({ taskId, embedded = false }: {
                 This task does not exist in the current local database. The URL is preserved, but the workspace cannot load a timeline for it.
               </p>
               <div className="mt-5 flex justify-center">
-                <Button size="sm" onClick={() => navigate(`/?task=${encodeURIComponent(taskId)}`)}>
+                <Button size="sm" onClick={() => void navigate(`/?task=${encodeURIComponent(taskId)}`)}>
                   Back to Timeline
                 </Button>
               </div>
