@@ -46,19 +46,21 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 4px 8px;
-  border-radius: 6px;
+  padding: 5px 10px;
+  border-radius: var(--radius-md);
   border: 1px solid var(--border);
-  background: var(--surface);
+  background: color-mix(in srgb, var(--surface) 92%, var(--bg-subtle));
   color: var(--text-2);
-  font-size: 0.73rem;
-  font-weight: 500;
-  transition: all 0.12s ease;
+  font-size: 0.72rem;
+  font-weight: 600;
+  transition: all 0.16s ease;
   user-select: none;
+  box-shadow: var(--shadow-1);
 }
 
 .filter-chip:hover {
-  border-color: var(--border-2);
+  border-color: var(--border-strong);
+  background: var(--surface);
 }
 
 .filter-chip.all-toggle {
@@ -69,8 +71,8 @@
 }
 
 .filter-chip.all-toggle.active {
-  border-color: var(--border-2);
-  background: var(--bg-2);
+  border-color: color-mix(in srgb, var(--accent) 22%, var(--border));
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
   color: var(--text-1);
 }
 
@@ -208,11 +210,11 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 10px 14px 12px;
+  padding: 10px 12px 12px;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--surface);
-  box-shadow: var(--shadow-1);
+  box-shadow: var(--shadow-2);
   animation: timeline-context-strip-enter 140ms ease;
 }
 
@@ -224,13 +226,22 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
-  min-width: 280px;
+  min-width: 320px;
+  max-width: min(720px, calc(100vw - 32px));
   padding: 12px;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: var(--surface);
   box-shadow: var(--shadow-2);
   animation: timeline-context-strip-enter 140ms ease;
+}
+
+.timeline-popover-summary {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text-2);
 }
 
 .timeline-filters-popover-section {
@@ -267,15 +278,17 @@
 
 .timeline-context-toggle {
   display: inline-flex;
-  height: 1.9rem;
-  width: 1.9rem;
+  gap: 6px;
+  height: 1.75rem;
   align-items: center;
   justify-content: center;
-  border-radius: 999px;
+  min-width: 1.75rem;
+  padding: 0 0.6rem;
+  border-radius: var(--radius-md);
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text-2);
-  font-size: 0.82rem;
+  font-size: 0.76rem;
   box-shadow: none;
   transition: transform 0.14s ease, border-color 0.14s ease, background 0.14s ease;
 }
@@ -306,7 +319,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   font-weight: 600;
   letter-spacing: -0.01em;
   color: var(--text-1);
@@ -323,13 +336,13 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  min-height: 1.4rem;
-  padding: 3px 9px;
+  min-height: 1.3rem;
+  padding: 2px 8px;
   border-radius: 999px;
   border: 1px solid var(--border);
   background: var(--surface-2);
   color: var(--text-2);
-  font-size: 0.69rem;
+  font-size: 0.66rem;
   font-weight: 600;
   line-height: 1;
   opacity: 0.78;
@@ -352,18 +365,18 @@
 .timeline-context-bar-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   flex-shrink: 0;
 }
 
 .timeline-context-status {
   display: inline-flex;
   align-items: center;
-  min-height: 1.5rem;
-  padding: 4px 10px;
+  min-height: 1.35rem;
+  padding: 3px 9px;
   border-radius: 999px;
   border: 1px solid var(--border);
-  font-size: 0.66rem;
+  font-size: 0.64rem;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -395,8 +408,8 @@
 .timeline-header {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 14px 16px 12px;
+  gap: 8px;
+  padding: 12px 14px 10px;
 }
 
 .timeline-summary-bar {
@@ -426,8 +439,8 @@
 .timeline-task-controls {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding-top: 10px;
+  gap: 8px;
+  padding-top: 8px;
   border-top: 1px solid var(--border);
 }
 
@@ -435,7 +448,7 @@
   display: flex;
   min-width: 0;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
 }
 
 .timeline-task-badges {
@@ -544,14 +557,16 @@
   flex: 1;
   overflow: auto;
   background:
+    radial-gradient(circle, color-mix(in srgb, var(--border) 70%, transparent) 1px, transparent 1px),
     repeating-linear-gradient(
       90deg,
       transparent,
       transparent 95px,
-      color-mix(in srgb, var(--border) 38%, transparent) 95px,
-      color-mix(in srgb, var(--border) 38%, transparent) 96px
+      color-mix(in srgb, var(--border) 28%, transparent) 95px,
+      color-mix(in srgb, var(--border) 28%, transparent) 96px
     ),
     linear-gradient(180deg, color-mix(in srgb, var(--surface) 97%, white 3%), var(--surface));
+  background-size: 24px 24px, 100% 100%, 100% 100%;
   min-height: 0;
   overscroll-behavior: contain;
   scrollbar-gutter: stable both-edges;
@@ -675,13 +690,13 @@
 .lane-expand-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
+  gap: 5px;
   margin-left: 4px;
-  min-width: 1.55rem;
-  height: 1.3rem;
-  padding: 0 6px;
+  min-width: 1.8rem;
+  height: 1.45rem;
+  padding: 0 7px;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--radius-md);
   background: var(--surface);
   color: var(--text-3);
   font-size: 0.64rem;
@@ -721,6 +736,12 @@
   text-align: center;
 }
 
+.lane-expand-label {
+  font-size: 0.6rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 .lane-label.exploration { color: var(--exploration); }
 .lane-label.implementation { color: var(--implementation); }
 .lane-label.planning { color: var(--planning); }
@@ -758,19 +779,19 @@
 
 .event-node {
   position: absolute;
-  width: 152px;
+  width: 164px;
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  padding: 5px 9px 5px 12px;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  background: var(--surface);
+  gap: 5px;
+  padding: 8px 10px 8px 12px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--border) 86%, transparent);
+  background: color-mix(in srgb, var(--surface) 94%, white);
   color: var(--text-1);
   cursor: pointer;
   transform: translateX(-50%);
-  box-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 0 0 0 transparent;
-  transition: box-shadow 0.12s ease, transform 0.12s ease;
+  box-shadow: var(--shadow-1);
+  transition: box-shadow 0.16s ease, transform 0.16s ease, border-color 0.16s ease, background-color 0.16s ease;
   text-align: left;
   z-index: 4;
   overflow: hidden;
@@ -782,8 +803,8 @@
   left: 0;
   top: 0;
   bottom: 0;
-  width: 3px;
-  border-radius: 10px 0 0 10px;
+  width: 2px;
+  border-radius: 12px 0 0 12px;
   background: var(--border-2);
 }
 
@@ -797,32 +818,32 @@
 .event-node.background::before   { background: var(--background); }
 
 .event-node:hover {
-  box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+  box-shadow: var(--shadow-2);
   transform: translateX(-50%) translateY(-1px);
 }
 
 .event-node.linked {
-  box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.1), 0 2px 8px rgba(15, 23, 42, 0.07);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent), var(--shadow-2);
 }
 
 .event-node.active {
-  outline: 2.5px solid var(--accent);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
-  box-shadow: 0 2px 8px rgba(37,99,235,0.12);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 24%, transparent), var(--shadow-2);
 }
 
 /* Lane-specific border + background */
-.event-node.exploration  { border-color: var(--exploration-border);  background: var(--exploration-bg); }
-.event-node.implementation { border-color: var(--implementation-border); background: var(--implementation-bg); }
-.event-node.planning     { border-color: var(--planning-border);     background: var(--planning-bg); }
-.event-node.user         { border-color: var(--user-border);         background: var(--user-bg); }
-.event-node.questions    { border-color: var(--questions-border);    background: var(--questions-bg); }
-.event-node.todos        { border-color: var(--todos-border);        background: var(--todos-bg); }
-.event-node.coordination { border-color: var(--coordination-border); background: var(--coordination-bg); }
-.event-node.background   { border-color: var(--background-border);   background: var(--background-bg); }
+.event-node.exploration  { border-color: color-mix(in srgb, var(--exploration) 18%, var(--border));  background: color-mix(in srgb, var(--surface) 88%, var(--exploration-bg)); }
+.event-node.implementation { border-color: color-mix(in srgb, var(--implementation) 18%, var(--border)); background: color-mix(in srgb, var(--surface) 88%, var(--implementation-bg)); }
+.event-node.planning     { border-color: color-mix(in srgb, var(--planning) 18%, var(--border));     background: color-mix(in srgb, var(--surface) 88%, var(--planning-bg)); }
+.event-node.user         { border-color: color-mix(in srgb, var(--user) 18%, var(--border));         background: color-mix(in srgb, var(--surface) 88%, var(--user-bg)); }
+.event-node.questions    { border-color: color-mix(in srgb, var(--questions) 18%, var(--border));    background: color-mix(in srgb, var(--surface) 88%, var(--questions-bg)); }
+.event-node.todos        { border-color: color-mix(in srgb, var(--todos) 18%, var(--border));        background: color-mix(in srgb, var(--surface) 88%, var(--todos-bg)); }
+.event-node.coordination { border-color: color-mix(in srgb, var(--coordination) 18%, var(--border)); background: color-mix(in srgb, var(--surface) 88%, var(--coordination-bg)); }
+.event-node.background   { border-color: color-mix(in srgb, var(--background) 18%, var(--border));   background: color-mix(in srgb, var(--surface) 88%, var(--background-bg)); }
 
 /* Event-kind overrides (higher specificity than lane) */
-.event-node.kind-assistant-response { border-color: var(--assistant-border); background: var(--assistant-bg); }
+.event-node.kind-assistant-response { border-color: color-mix(in srgb, var(--assistant) 18%, var(--border)); background: color-mix(in srgb, var(--surface) 88%, var(--assistant-bg)); }
 .event-node.kind-assistant-response .event-node-dot { background: var(--assistant); }
 
 .event-node-header {
@@ -881,13 +902,13 @@
   align-items: center;
   justify-content: center;
   margin-left: auto;
-  min-width: 1.3rem;
-  height: 1.15rem;
-  padding: 0 5px;
-  border-radius: 999px;
-  border: none;
-  background: var(--accent);
-  color: #fff;
+  min-width: 1.5rem;
+  height: 1.3rem;
+  padding: 0 6px;
+  border-radius: var(--radius-sm);
+  border: 1px solid color-mix(in srgb, var(--accent) 20%, var(--border));
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+  color: var(--accent);
   font-size: 0.58rem;
   font-weight: 700;
   letter-spacing: 0.02em;
@@ -898,8 +919,8 @@
 }
 
 .stack-badge-btn:hover {
-  background: color-mix(in srgb, var(--accent) 82%, black);
-  transform: scale(1.1);
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  transform: translateY(-1px);
 }
 
 .stack-popover {
@@ -998,13 +1019,19 @@
 
 .event-node strong {
   display: block;
-  font-size: 0.75rem;
-  font-weight: 500;
-  line-height: 1.35;
+  font-size: 0.76rem;
+  font-weight: 600;
+  line-height: 1.4;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   color: var(--text-1);
+}
+
+.event-node-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .event-node-chips {
@@ -1014,18 +1041,19 @@
 }
 
 .event-node .event-time {
-  font-size: 0.67rem;
+  font-size: 0.64rem;
+  font-weight: 500;
   color: var(--text-3);
 }
 
 .event-semantic-tag {
   display: inline-block;
-  font-size: 0.62rem;
-  font-weight: 500;
-  padding: 1px 5px;
-  border-radius: 4px;
-  background: color-mix(in srgb, var(--surface-2) 70%, transparent);
-  border: 1px solid var(--border);
+  font-size: 0.6rem;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--surface-2) 76%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
   color: var(--text-3);
   letter-spacing: 0;
   max-width: 100%;
@@ -1035,9 +1063,22 @@
 }
 
 .event-semantic-tag.subtle {
-  background: color-mix(in srgb, var(--surface-2) 84%, white);
-  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface-2) 88%, white);
+  border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
   text-transform: none;
+}
+
+.timeline-popover-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 4px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-3);
 }
 
 .timeline-empty-state {

@@ -1,8 +1,8 @@
 import type React from "react";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
-import { EventId, TaskId } from "@monitor/core";
-import { Link, useSearchParams } from "react-router-dom";
-import { fetchTaskOpenInference, postRuleAction, updateEventDisplayTitle } from "@monitor/web-core";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { EventId } from "@monitor/core";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { postRuleAction, updateEventDisplayTitle } from "@monitor/web-core";
 import { EventInspector, type PanelTabId } from "../components/EventInspector.js";
 import { runtimeObservabilityLabel, runtimeTagLabel } from "../components/TaskList.js";
 import { Timeline } from "../components/Timeline.js";
@@ -10,6 +10,7 @@ import { buildTaskTimelineSummary } from "@monitor/web-core";
 import { buildTaskWorkspaceSelection, useTaskObservability } from "@monitor/web-core";
 import { refreshRealtimeMonitorData } from "@monitor/web-core";
 import { cn } from "../lib/ui/cn.js";
+import { Button } from "../components/ui/Button.js";
 import { useMonitorStore } from "@monitor/web-store";
 import { useWebSocket } from "@monitor/web-store";
 const DEFAULT_WORKSPACE_TAB: PanelTabId = "overview";
@@ -41,19 +42,27 @@ export function normalizeWorkspaceTab(value: string | null): PanelTabId {
 function isTaskNotFound(errorMessage: string | null): boolean {
     return errorMessage === "Task not found.";
 }
-export function TaskWorkspacePage({ taskId }: {
+export function TaskWorkspacePage({ taskId, embedded = false }: {
     readonly taskId: string;
+    readonly embedded?: boolean;
 }): React.JSX.Element {
-    const brandedTaskId = useMemo(() => TaskId(taskId), [taskId]);
     const { state, dispatch, refreshOverview, refreshTaskDetail, refreshBookmarksOnly, handleCreateTaskBookmark, handleCreateEventBookmark, handleTaskStatusChange, handleTaskTitleSubmit } = useMonitorStore();
     const { bookmarks, selectedTaskId, selectedEventId, selectedConnectorKey, selectedRuleId, selectedTag, showRuleGapsOnly, taskDetail, nowMs, isEditingTaskTitle, taskTitleDraft, taskTitleError, isSavingTaskTitle, isUpdatingTaskStatus, taskDisplayTitleCache } = state;
     const [searchParams, setSearchParams] = useSearchParams();
+    const navigate = useNavigate();
     const { taskObservability, refreshTaskObservability } = useTaskObservability(taskId);
     const [reviewerNote, setReviewerNote] = useState("");
     const [isSubmittingRuleReview, setIsSubmittingRuleReview] = useState(false);
     const [reviewerId, setReviewerId] = useState(() => window.localStorage.getItem(REVIEWER_ID_STORAGE_KEY) ?? "local-reviewer");
     const [zoom, setZoom] = useState(1.1);
     const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth);
+    // Controls/Filters state for embedded workspace header buttons
+    const [isWorkspaceControlsOpen, setIsWorkspaceControlsOpen] = useState(false);
+    const [isWorkspaceFiltersOpen, setIsWorkspaceFiltersOpen] = useState(false);
+    const [workspaceControlsPos, setWorkspaceControlsPos] = useState({ top: 0, right: 0 });
+    const [workspaceFiltersPos, setWorkspaceFiltersPos] = useState({ top: 0, right: 0 });
+    const workspaceControlsButtonRef = useRef<HTMLButtonElement>(null);
+    const workspaceFiltersButtonRef = useRef<HTMLButtonElement>(null);
     const [inspectorWidth, setInspectorWidth] = useState<number>(() => {
         const raw = window.localStorage.getItem(WORKSPACE_INSPECTOR_WIDTH_STORAGE_KEY);
         if (!raw)
@@ -195,77 +204,151 @@ export function TaskWorkspacePage({ taskId }: {
             setIsSubmittingRuleReview(false);
         }
     }, [refreshOverview, refreshTaskDetail, refreshTaskObservability, reviewerId, reviewerNote, selectedTaskDetail?.task, taskId, taskObservability?.observability.ruleEnforcement.activeRuleId]);
-    const handleExportOpenInference = useCallback(async (): Promise<void> => {
-        const payload = await fetchTaskOpenInference(brandedTaskId);
-        const blob = new Blob([JSON.stringify(payload.openinference, null, 2)], { type: "application/json" });
-        const url = URL.createObjectURL(blob);
-        const anchor = document.createElement("a");
-        anchor.href = url;
-        anchor.download = `${taskId}-openinference.json`;
-        anchor.click();
-        URL.revokeObjectURL(url);
-    }, [brandedTaskId]);
-    return (<div className="flex h-dvh flex-col overflow-hidden bg-[var(--bg)]">
-      <header className="flex shrink-0 flex-wrap items-start justify-between gap-3 border-b border-[var(--border)] bg-[color-mix(in_srgb,var(--surface)_94%,var(--bg))] px-4 py-3 shadow-[var(--shadow-1)]">
-        <div className="min-w-0">
-          <p className="m-0 text-[0.66rem] font-semibold uppercase tracking-[0.12em] text-[var(--accent)]">
-            Task Workspace
-          </p>
-          <h1 className="mt-1 break-words text-[1.02rem] leading-tight font-semibold tracking-[-0.02em] text-[var(--text-1)] sm:truncate">
-            {selectedTaskDisplayTitle ?? selectedTaskDetail?.task.title ?? taskId}
-          </h1>
-          {selectedTaskDetail?.task && (<div className="mt-2 flex flex-wrap items-center gap-2 text-[0.72rem]">
-              {selectedTaskDetail.task.runtimeSource && (<span className="inline-flex items-center rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] px-2.5 py-1 font-semibold text-[var(--text-2)] shadow-[var(--shadow-1)]">
-                  {runtimeTagLabel(selectedTaskDetail.task.runtimeSource)}
-                </span>)}
-              <span className={cn("inline-flex items-center rounded-[var(--radius-md)] border px-2.5 py-1 font-semibold uppercase tracking-[0.06em]", selectedTaskDetail.task.status === "running"
+    const timelineEmbeddedProps = embedded ? {
+        externalControlsState: { isOpen: isWorkspaceControlsOpen, setIsOpen: setIsWorkspaceControlsOpen, popoverPos: workspaceControlsPos, setPopoverPos: setWorkspaceControlsPos, buttonRef: workspaceControlsButtonRef },
+        externalFiltersState: { isOpen: isWorkspaceFiltersOpen, setIsOpen: setIsWorkspaceFiltersOpen, popoverPos: workspaceFiltersPos, setPopoverPos: setWorkspaceFiltersPos, buttonRef: workspaceFiltersButtonRef }
+    } : {};
+    return (<div className={embedded ? "flex min-h-0 flex-1 flex-col overflow-hidden" : "flex h-dvh flex-col overflow-hidden bg-[var(--bg)]"}>
+      <header className={embedded
+          ? "flex shrink-0 flex-wrap items-center gap-2 border-b border-[var(--border)] px-4 py-3"
+          : "flex shrink-0 flex-wrap items-start justify-between gap-3 border-b border-[var(--border)] bg-[color-mix(in_srgb,var(--surface)_94%,var(--bg))] px-4 py-2.5 shadow-[var(--shadow-1)]"}>
+        {embedded ? (<>
+          <div className="min-w-0 flex flex-1 items-center gap-2 overflow-hidden">
+            <button
+              aria-label="Back to task list"
+              className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] text-[var(--text-3)] transition-colors hover:border-[color-mix(in_srgb,var(--accent)_36%,var(--border))] hover:text-[var(--text-2)]"
+              onClick={() => navigate(`/?task=${encodeURIComponent(taskId)}`)}
+              title="Back to task list"
+              type="button"
+            >
+              <svg aria-hidden="true" fill="none" height="12" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" viewBox="0 0 24 24" width="12">
+                <polyline points="15 18 9 12 15 6"/>
+              </svg>
+            </button>
+            <span className="truncate text-[0.88rem] font-semibold text-[var(--text-1)]">
+              {selectedTaskDisplayTitle ?? selectedTaskDetail?.task.title ?? taskId}
+            </span>
+            {selectedTaskDetail?.task && (<span className={cn("inline-flex shrink-0 items-center rounded-[var(--radius-md)] border px-2 py-0.5 text-[0.64rem] font-semibold uppercase tracking-[0.06em]", selectedTaskDetail.task.status === "running"
                 ? "border-[var(--ok-bg)] bg-[var(--ok-bg)] text-[var(--ok)]"
                 : selectedTaskDetail.task.status === "waiting"
-                    ? "border-[var(--border)] bg-[var(--surface)] text-[var(--text-2)]"
+                    ? "border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-2)]"
                     : selectedTaskDetail.task.status === "completed"
                         ? "border-[var(--accent-light)] bg-[var(--accent-light)] text-[var(--accent)]"
                         : "border-[var(--err-bg)] bg-[var(--err-bg)] text-[var(--err)]")}>
-                {selectedTaskDetail.task.status}
-              </span>
-              {runtimeObservabilityLabel(selectedTaskDetail.task.runtimeSource) && (<span className="inline-flex items-center rounded-[var(--radius-md)] border border-[var(--warn-bg)] bg-[var(--warn-bg)] px-2.5 py-1 font-semibold text-[var(--warn)]">
-                  {runtimeObservabilityLabel(selectedTaskDetail.task.runtimeSource)}
-                </span>)}
-              {taskObservability?.observability.ruleEnforcement.activeState === "approval_required"
-                && selectedTaskDetail.task.status === "waiting" ? (<span className="inline-flex items-center rounded-[var(--radius-md)] border border-[var(--accent-light)] bg-[var(--accent-light)] px-2.5 py-1 font-semibold text-[var(--accent)]">
-                    {taskObservability.observability.ruleEnforcement.activeLabel
-                    ? `approval required · ${taskObservability.observability.ruleEnforcement.activeLabel}`
-                    : "approval required"}
-                  </span>) : null}
-              {taskObservability?.observability.ruleEnforcement.activeState === "blocked"
-                && selectedTaskDetail.task.status === "errored" ? (<span className="inline-flex items-center rounded-[var(--radius-md)] border border-[var(--err-bg)] bg-[var(--err-bg)] px-2.5 py-1 font-semibold text-[var(--err)]">
-                    {taskObservability.observability.ruleEnforcement.activeLabel
-                    ? `blocked by rule · ${taskObservability.observability.ruleEnforcement.activeLabel}`
-                    : "blocked by rule"}
-                  </span>) : null}
-            </div>)}
-          {selectedTaskDetail?.task.workspacePath && (<p className="mt-1 break-all font-mono text-[0.78rem] text-[var(--text-3)] sm:truncate">
-              {selectedTaskDetail.task.workspacePath}
-            </p>)}
-        </div>
-        <div className="flex w-full shrink-0 flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
-          <button className="inline-flex h-8 w-full items-center justify-center rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] px-3 text-[0.76rem] font-semibold text-[var(--text-2)] shadow-[var(--shadow-1)] transition-[background-color,border-color,color] duration-200 hover:border-[var(--border-strong)] hover:bg-[var(--surface-2)] hover:text-[var(--text-1)] sm:w-auto" onClick={() => { void handleExportOpenInference(); }} type="button">
-            Export Trace
-          </button>
-          {taskObservability?.observability.ruleEnforcement.activeState === "approval_required" && (<button className="inline-flex h-8 w-full items-center justify-center rounded-[var(--radius-md)] border border-[var(--accent-light)] bg-[var(--accent-light)] px-3 text-[0.76rem] font-semibold text-[var(--accent)] shadow-[var(--shadow-1)] sm:w-auto" onClick={() => void handleRuleReview("approved")} type="button" disabled={isSubmittingRuleReview}>
-              Approve
-            </button>)}
-          {(taskObservability?.observability.ruleEnforcement.activeState === "approval_required"
-            || taskObservability?.observability.ruleEnforcement.activeState === "blocked") && (<button className="inline-flex h-8 w-full items-center justify-center rounded-[var(--radius-md)] border border-[var(--err-bg)] bg-[var(--err-bg)] px-3 text-[0.76rem] font-semibold text-[var(--err)] shadow-[var(--shadow-1)] sm:w-auto" onClick={() => void handleRuleReview("rejected")} type="button" disabled={isSubmittingRuleReview}>
-              Reject
-            </button>)}
-          {(taskObservability?.observability.ruleEnforcement.activeState === "approval_required"
-            || taskObservability?.observability.ruleEnforcement.activeState === "blocked") && (<button className="inline-flex h-8 w-full items-center justify-center rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] px-3 text-[0.76rem] font-semibold text-[var(--text-2)] shadow-[var(--shadow-1)] transition-[background-color,border-color,color] duration-200 hover:border-[var(--border-strong)] hover:bg-[var(--surface-2)] hover:text-[var(--text-1)] sm:w-auto" onClick={() => void handleRuleReview("bypassed")} type="button" disabled={isSubmittingRuleReview}>
-              Bypass
-            </button>)}
-          <Link className="inline-flex h-8 w-full items-center justify-center rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] px-3 text-[0.76rem] font-semibold text-[var(--text-2)] shadow-[var(--shadow-1)] transition-[background-color,border-color,color] duration-200 hover:border-[var(--border-strong)] hover:bg-[var(--surface-2)] hover:text-[var(--text-1)] sm:w-auto" to={`/?task=${encodeURIComponent(taskId)}`}>
-            Back to Timeline
-          </Link>
-        </div>
+              {selectedTaskDetail.task.status}
+            </span>)}
+          </div>
+          <div className="flex shrink-0 items-center gap-1.5">
+            <button
+              ref={workspaceControlsButtonRef}
+              aria-expanded={isWorkspaceControlsOpen || isEditingTaskTitle}
+              aria-label="Open task controls"
+              className={cn("timeline-context-toggle", (isWorkspaceControlsOpen || isEditingTaskTitle) && "border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] text-[var(--accent)]")}
+              onClick={() => {
+                if (workspaceControlsButtonRef.current) {
+                    const rect = workspaceControlsButtonRef.current.getBoundingClientRect();
+                    setWorkspaceControlsPos({ top: rect.bottom + 6, right: window.innerWidth - rect.right });
+                }
+                setIsWorkspaceControlsOpen((v) => !v);
+              }}
+              title="Task controls"
+              type="button"
+            >
+              <svg aria-hidden="true" fill="none" height="13" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" width="13">
+                <circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>
+              </svg>
+              <span className="hidden text-[0.72rem] font-medium sm:inline">Controls</span>
+            </button>
+            <button
+              ref={workspaceFiltersButtonRef}
+              aria-expanded={isWorkspaceFiltersOpen}
+              aria-label="Open filters and zoom"
+              className={cn("timeline-context-toggle", isWorkspaceFiltersOpen && "border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] text-[var(--accent)]")}
+              onClick={() => {
+                if (workspaceFiltersButtonRef.current) {
+                    const rect = workspaceFiltersButtonRef.current.getBoundingClientRect();
+                    setWorkspaceFiltersPos({ top: rect.bottom + 6, right: window.innerWidth - rect.right });
+                }
+                setIsWorkspaceFiltersOpen((v) => !v);
+              }}
+              title="Filters & Zoom"
+              type="button"
+            >
+              <svg aria-hidden="true" fill="none" height="13" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" width="13">
+                <line x1="4" x2="20" y1="6" y2="6"/><line x1="8" x2="16" y1="12" y2="12"/><line x1="11" x2="13" y1="18" y2="18"/>
+              </svg>
+              <span className="hidden text-[0.72rem] font-medium sm:inline">Filters</span>
+            </button>
+            {taskObservability?.observability.ruleEnforcement.activeState === "approval_required" && (<Button size="sm" variant="accent" onClick={() => void handleRuleReview("approved")} disabled={isSubmittingRuleReview}>
+                Approve
+              </Button>)}
+            {(taskObservability?.observability.ruleEnforcement.activeState === "approval_required"
+              || taskObservability?.observability.ruleEnforcement.activeState === "blocked") && (<Button size="sm" variant="destructive" onClick={() => void handleRuleReview("rejected")} disabled={isSubmittingRuleReview}>
+                Reject
+              </Button>)}
+            {(taskObservability?.observability.ruleEnforcement.activeState === "approval_required"
+              || taskObservability?.observability.ruleEnforcement.activeState === "blocked") && (<Button size="sm" onClick={() => void handleRuleReview("bypassed")} disabled={isSubmittingRuleReview}>
+                Bypass
+              </Button>)}
+          </div>
+        </>) : (<>
+          <div className="min-w-0">
+            <p className="m-0 text-[0.66rem] font-semibold uppercase tracking-[0.12em] text-[var(--accent)]">
+              Task Workspace
+            </p>
+            <h1 className="mt-1 break-words text-[0.96rem] leading-tight font-semibold tracking-[-0.02em] text-[var(--text-1)] sm:truncate">
+              {selectedTaskDisplayTitle ?? selectedTaskDetail?.task.title ?? taskId}
+            </h1>
+            {selectedTaskDetail?.task && (<div className="mt-2 flex flex-wrap items-center gap-2 text-[0.72rem]">
+                {selectedTaskDetail.task.runtimeSource && (<span className="inline-flex items-center rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] px-2.5 py-1 font-semibold text-[var(--text-2)] shadow-[var(--shadow-1)]">
+                    {runtimeTagLabel(selectedTaskDetail.task.runtimeSource)}
+                  </span>)}
+                <span className={cn("inline-flex items-center rounded-[var(--radius-md)] border px-2.5 py-1 font-semibold uppercase tracking-[0.06em]", selectedTaskDetail.task.status === "running"
+                  ? "border-[var(--ok-bg)] bg-[var(--ok-bg)] text-[var(--ok)]"
+                  : selectedTaskDetail.task.status === "waiting"
+                      ? "border-[var(--border)] bg-[var(--surface)] text-[var(--text-2)]"
+                      : selectedTaskDetail.task.status === "completed"
+                          ? "border-[var(--accent-light)] bg-[var(--accent-light)] text-[var(--accent)]"
+                          : "border-[var(--err-bg)] bg-[var(--err-bg)] text-[var(--err)]")}>
+                  {selectedTaskDetail.task.status}
+                </span>
+                {runtimeObservabilityLabel(selectedTaskDetail.task.runtimeSource) && (<span className="inline-flex items-center rounded-[var(--radius-md)] border border-[var(--warn-bg)] bg-[var(--warn-bg)] px-2.5 py-1 font-semibold text-[var(--warn)]">
+                    {runtimeObservabilityLabel(selectedTaskDetail.task.runtimeSource)}
+                  </span>)}
+                {taskObservability?.observability.ruleEnforcement.activeState === "approval_required"
+                  && selectedTaskDetail.task.status === "waiting" ? (<span className="inline-flex items-center rounded-[var(--radius-md)] border border-[var(--accent-light)] bg-[var(--accent-light)] px-2.5 py-1 font-semibold text-[var(--accent)]">
+                      {taskObservability.observability.ruleEnforcement.activeLabel
+                      ? `approval required · ${taskObservability.observability.ruleEnforcement.activeLabel}`
+                      : "approval required"}
+                    </span>) : null}
+                {taskObservability?.observability.ruleEnforcement.activeState === "blocked"
+                  && selectedTaskDetail.task.status === "errored" ? (<span className="inline-flex items-center rounded-[var(--radius-md)] border border-[var(--err-bg)] bg-[var(--err-bg)] px-2.5 py-1 font-semibold text-[var(--err)]">
+                      {taskObservability.observability.ruleEnforcement.activeLabel
+                      ? `blocked by rule · ${taskObservability.observability.ruleEnforcement.activeLabel}`
+                      : "blocked by rule"}
+                    </span>) : null}
+              </div>)}
+            {selectedTaskDetail?.task.workspacePath && (<p className="mt-1 break-all font-mono text-[0.74rem] text-[var(--text-3)] sm:truncate">
+                {selectedTaskDetail.task.workspacePath}
+              </p>)}
+          </div>
+          <div className="grid w-full shrink-0 grid-cols-1 gap-2 sm:grid-cols-2 lg:flex lg:w-auto lg:flex-wrap lg:justify-end">
+            {taskObservability?.observability.ruleEnforcement.activeState === "approval_required" && (<Button size="sm" variant="accent" onClick={() => void handleRuleReview("approved")} disabled={isSubmittingRuleReview}>
+                Approve
+              </Button>)}
+            {(taskObservability?.observability.ruleEnforcement.activeState === "approval_required"
+              || taskObservability?.observability.ruleEnforcement.activeState === "blocked") && (<Button size="sm" variant="destructive" onClick={() => void handleRuleReview("rejected")} disabled={isSubmittingRuleReview}>
+                Reject
+              </Button>)}
+            {(taskObservability?.observability.ruleEnforcement.activeState === "approval_required"
+              || taskObservability?.observability.ruleEnforcement.activeState === "blocked") && (<Button size="sm" onClick={() => void handleRuleReview("bypassed")} disabled={isSubmittingRuleReview}>
+                Bypass
+              </Button>)}
+            <Button size="sm" onClick={() => navigate(`/?task=${encodeURIComponent(taskId)}`)}>
+              Dashboard
+            </Button>
+          </div>
+        </>)}
       </header>
 
       <main className="flex flex-1 min-h-0 flex-col gap-3 p-3">
@@ -293,9 +376,9 @@ export function TaskWorkspacePage({ taskId }: {
                 This task does not exist in the current local database. The URL is preserved, but the workspace cannot load a timeline for it.
               </p>
               <div className="mt-5 flex justify-center">
-                <Link className="inline-flex h-9 items-center justify-center rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] px-4 text-[0.78rem] font-semibold text-[var(--text-2)] shadow-sm transition-colors hover:border-[var(--accent)] hover:bg-[var(--accent-light)] hover:text-[var(--accent)]" to={`/?task=${encodeURIComponent(taskId)}`}>
+                <Button size="sm" onClick={() => navigate(`/?task=${encodeURIComponent(taskId)}`)}>
                   Back to Timeline
-                </Link>
+                </Button>
               </div>
             </div>
           </section>) : (<div className="grid flex-1 min-h-0 gap-3" style={workspaceLayoutStyle}>
@@ -318,7 +401,7 @@ export function TaskWorkspacePage({ taskId }: {
                 dispatch({ type: "SELECT_RULE", ruleId: null });
                 dispatch({ type: "SELECT_TAG", tag: null });
                 dispatch({ type: "SET_SHOW_RULE_GAPS_ONLY", show: false });
-            }} onToggleRuleGap={(show) => dispatch({ type: "SET_SHOW_RULE_GAPS_ONLY", show })} onClearRuleId={() => dispatch({ type: "SELECT_RULE", ruleId: null })} onClearTag={() => dispatch({ type: "SELECT_TAG", tag: null })} onChangeTaskStatus={(status) => void handleTaskStatusChange(status)}/>
+            }} onToggleRuleGap={(show) => dispatch({ type: "SET_SHOW_RULE_GAPS_ONLY", show })} onClearRuleId={() => dispatch({ type: "SELECT_RULE", ruleId: null })} onClearTag={() => dispatch({ type: "SELECT_TAG", tag: null })} onChangeTaskStatus={(status) => void handleTaskStatusChange(status)} embedded={embedded} {...timelineEmbeddedProps}/>
             </section>
 
             <div className="relative flex min-h-0 min-w-0 flex-col">

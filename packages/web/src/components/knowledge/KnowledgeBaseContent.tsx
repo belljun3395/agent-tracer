@@ -87,9 +87,9 @@ export function KnowledgeBaseContent({ onSelectTask }: KnowledgeBaseContentProps
 
     const items = useMemo<KnowledgeItem[]>(() => {
         if (activeTab === "playbooks") {
-            return playbooks;
+            return [...sortPlaybooks(playbooks)];
         }
-        return [...sortPlaybooks(playbooks), ...sortSnapshots(snapshots)];
+        return [...sortSnapshots(snapshots)];
     }, [activeTab, playbooks, snapshots]);
 
     const openSnapshotDetail = useCallback(async (taskId: string) => {
@@ -196,9 +196,9 @@ export function KnowledgeBaseContent({ onSelectTask }: KnowledgeBaseContentProps
 
     return (
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[var(--surface)]">
-            <div className="flex shrink-0 items-center gap-3 border-b border-[var(--border)] px-4 py-3.5">
-                <span className="text-[0.95rem] font-semibold text-[var(--text-1)]">Knowledge Base</span>
-                <span className="rounded-full border border-[var(--border)] px-2 py-0.5 text-[0.7rem] font-semibold text-[var(--text-3)]">
+            <div className="flex shrink-0 items-center gap-2.5 border-b border-[var(--border)] px-4 py-3">
+                <span className="text-[0.88rem] font-semibold text-[var(--text-1)]">Knowledge Base</span>
+                <span className="rounded-[var(--radius-md)] border border-[var(--border)] px-2 py-0.5 text-[0.64rem] font-semibold text-[var(--text-3)]">
                     {items.length}
                 </span>
                 <div className="flex gap-1">
@@ -220,7 +220,7 @@ export function KnowledgeBaseContent({ onSelectTask }: KnowledgeBaseContentProps
                 </div>
                 <div className="flex-1"/>
                 {activeTab === "playbooks" ? (
-                    <Button size="sm" onClick={handleStartCreate}>
+                    <Button size="sm" variant="accent" onClick={handleStartCreate}>
                         Create Playbook
                     </Button>
                 ) : null}
@@ -228,8 +228,8 @@ export function KnowledgeBaseContent({ onSelectTask }: KnowledgeBaseContentProps
 
             <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_360px]">
                 <div className="flex min-h-0 flex-col border-r border-[var(--border)]">
-                    <div className="shrink-0 border-b border-[var(--border)] px-4 py-3">
-                        <div className="flex flex-col gap-2">
+                    <div className="shrink-0 border-b border-[var(--border)] px-4 py-2.5">
+                        <div className="flex flex-col gap-1.5">
                             <Input
                                 placeholder="Search snapshots, playbooks, tags…"
                                 type="search"
@@ -272,10 +272,10 @@ export function KnowledgeBaseContent({ onSelectTask }: KnowledgeBaseContentProps
 
                     <div className="min-h-0 flex-1 overflow-y-auto">
                         {isLoading ? (
-                            <div className="flex items-center justify-center py-12 text-[0.82rem] text-[var(--text-3)]">Loading…</div>
+                            <div className="flex items-center justify-center py-10 text-[0.78rem] text-[var(--text-3)]">Loading…</div>
                         ) : items.length === 0 ? (
                             <div className="flex flex-col items-center justify-center gap-2 py-12 text-center">
-                                <span className="text-[0.82rem] text-[var(--text-3)]">
+                                <span className="text-[0.78rem] text-[var(--text-3)]">
                                     {search.trim()
                                         ? "No matches. Try different keywords or browse all items."
                                         : activeTab === "playbooks"

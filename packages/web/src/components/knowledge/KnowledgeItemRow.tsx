@@ -42,14 +42,14 @@ export function KnowledgeItemRow(props: KnowledgeItemRowProps): React.JSX.Elemen
 
     return (
         <div className="border-b border-[var(--border)] last:border-0">
-            <div className="flex items-start gap-3 px-4 py-3.5 transition-colors hover:bg-[var(--surface-2)]">
+            <div className="flex items-start gap-3 px-4 py-3 transition-colors hover:bg-[var(--surface-2)]">
                 <div className="min-w-0 flex flex-1 flex-col gap-2">
                     <div className="flex items-start gap-2">
                         <Badge tone={item.layer === "playbook" ? "warning" : "accent"} size="xs">
                             {item.layer === "playbook" ? "Playbook" : "Snapshot"}
                         </Badge>
                         {item.layer === "snapshot" ? (
-                            <span className={cn("mt-0.5 shrink-0 rounded-full px-2 py-0.5 text-[0.67rem] font-semibold", item.rating === "good"
+                            <span className={cn("mt-0.5 shrink-0 rounded-[var(--radius-md)] px-2 py-0.5 text-[0.63rem] font-semibold", item.rating === "good"
                                 ? "bg-[var(--ok-bg)] text-[var(--ok)]"
                                 : "bg-[var(--surface-2)] text-[var(--text-3)]")}>
                                 {item.rating === "good" ? "Good" : "Skip"}
@@ -60,16 +60,16 @@ export function KnowledgeItemRow(props: KnowledgeItemRowProps): React.JSX.Elemen
                             </Badge>
                         )}
                         <div className="min-w-0 flex flex-1 flex-col gap-0.5">
-                            <span className="truncate text-[0.85rem] font-semibold text-[var(--text-1)]">
+                            <span className="truncate text-[0.8rem] font-semibold text-[var(--text-1)]">
                                 {item.layer === "snapshot" ? (item.displayTitle ?? item.title) : item.title}
                             </span>
                             {item.layer === "snapshot" ? (
-                                item.useCase ? <span className="text-[0.78rem] text-[var(--text-2)]">{item.useCase}</span> : null
+                                item.useCase ? <span className="text-[0.74rem] text-[var(--text-2)]">{item.useCase}</span> : null
                             ) : (
-                                item.whenToUse ? <span className="text-[0.78rem] text-[var(--text-2)]">{item.whenToUse}</span> : null
+                                item.whenToUse ? <span className="text-[0.74rem] text-[var(--text-2)]">{item.whenToUse}</span> : null
                             )}
                         </div>
-                        <span className="shrink-0 text-[0.72rem] text-[var(--text-3)]">
+                        <span className="shrink-0 text-[0.66rem] text-[var(--text-3)]">
                             {item.layer === "snapshot" ? formatDate(item.evaluatedAt) : formatDate(item.updatedAt)}
                         </span>
                     </div>
@@ -77,7 +77,7 @@ export function KnowledgeItemRow(props: KnowledgeItemRowProps): React.JSX.Elemen
                     {"workflowTags" in item && item.workflowTags.length > 0 ? (
                         <div className="flex flex-wrap gap-1">
                             {item.workflowTags.map((tag) => (
-                                <span key={tag} className="rounded-full border border-[var(--accent)] bg-[var(--accent-light)] px-2 py-0.5 text-[0.68rem] text-[var(--accent)]">
+                                <span key={tag} className="rounded-[var(--radius-md)] border border-[var(--accent)] bg-[var(--accent-light)] px-2 py-0.5 text-[0.64rem] text-[var(--accent)]">
                                     {tag}
                                 </span>
                             ))}
@@ -85,7 +85,7 @@ export function KnowledgeItemRow(props: KnowledgeItemRowProps): React.JSX.Elemen
                     ) : "tags" in item && item.tags.length > 0 ? (
                         <div className="flex flex-wrap gap-1">
                             {item.tags.map((tag) => (
-                                <span key={tag} className="rounded-full border border-[var(--accent)] bg-[var(--accent-light)] px-2 py-0.5 text-[0.68rem] text-[var(--accent)]">
+                                <span key={tag} className="rounded-[var(--radius-md)] border border-[var(--accent)] bg-[var(--accent-light)] px-2 py-0.5 text-[0.64rem] text-[var(--accent)]">
                                     {tag}
                                 </span>
                             ))}
@@ -107,20 +107,20 @@ export function KnowledgeItemRow(props: KnowledgeItemRowProps): React.JSX.Elemen
                     )}
                 </div>
 
-                <div className="flex shrink-0 flex-col gap-2">
+                    <div className="flex shrink-0 items-center gap-1.5">
                     {item.layer === "snapshot" ? (
                         <>
-                            <Button size="sm" onClick={() => { onSelectTask(item.taskId); }}>
-                                Open Task
+                            <Button size="icon" title="Open task" variant="bare" className="h-7 w-7 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-2)] hover:border-[var(--border-strong)] hover:bg-[var(--surface)] hover:text-[var(--text-1)]" onClick={() => { onSelectTask(item.taskId); }}>
+                                <svg fill="none" height="13" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" width="13"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" x2="21" y1="14" y2="3"/></svg>
                             </Button>
-                            <Button size="sm" onClick={() => { onOpenSnapshotDetail(item.taskId); }}>
-                                {isExpanded ? "Hide Snapshot" : "View Snapshot"}
+                            <Button size="sm" variant={isExpanded ? "accent" : "default"} onClick={() => { onOpenSnapshotDetail(item.taskId); }}>
+                                {isExpanded ? "Close" : "Detail"}
                             </Button>
                         </>
                     ) : (
                         <>
-                            <Button size="sm" onClick={() => { onOpenPlaybookDetail(item.id); }}>
-                                {isExpanded ? "Hide Playbook" : "View Playbook"}
+                            <Button size="sm" variant={isExpanded ? "accent" : "default"} onClick={() => { onOpenPlaybookDetail(item.id); }}>
+                                {isExpanded ? "Close" : "Detail"}
                             </Button>
                         </>
                     )}

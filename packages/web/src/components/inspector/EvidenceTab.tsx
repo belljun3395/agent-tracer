@@ -18,13 +18,13 @@ function SectionTitle({ eyebrow, title, description, action }: {
     readonly description?: string;
     readonly action?: React.ReactNode;
 }): React.JSX.Element {
-    return (<div className="flex items-start justify-between gap-3">
-      <div>
+    return (<div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <div className="min-w-0">
         {eyebrow && (<div className="mb-1 text-[0.68rem] font-bold uppercase tracking-[0.1em] text-[var(--text-3)]">{eyebrow}</div>)}
         <strong className="text-[0.95rem] text-[var(--text-1)]">{title}</strong>
         {description && (<p className="mt-0.5 mb-0 text-[0.78rem] text-[var(--text-3)]">{description}</p>)}
       </div>
-      {action}
+      {action ? <div className="min-w-0 sm:shrink-0">{action}</div> : null}
     </div>);
 }
 function TagExplorerCard({ tags, selectedTag, onSelectTag }: {
@@ -51,11 +51,11 @@ function TagExplorerCard({ tags, selectedTag, onSelectTag }: {
     const hiddenCount = Math.max(tags.length - visibleTags.length, 0);
     return (<PanelCard className={cardShell}>
       <div className={cardBody}>
-        <SectionTitle action={(selectedTag || tags.length > collapsedLimit) ? (<div className="flex flex-wrap items-center justify-end gap-2">
-              {tags.length > collapsedLimit && (<Button className="h-8 rounded-[var(--radius-md)] px-3 text-[0.72rem] font-semibold shadow-none" onClick={() => setIsExpanded((current) => !current)} size="sm" type="button" variant="bare">
+        <SectionTitle action={(selectedTag || tags.length > collapsedLimit) ? (<div className="flex flex-wrap items-center gap-2 sm:justify-end">
+              {tags.length > collapsedLimit && (<Button className="h-8 whitespace-nowrap rounded-[var(--radius-md)] px-3 text-[0.72rem] font-semibold shadow-none" onClick={() => setIsExpanded((current) => !current)} size="sm" type="button" variant="bare">
                   {isExpanded ? "Show top" : `Show all ${tags.length}`}
                 </Button>)}
-              {selectedTag && (<Button className="h-8 rounded-[var(--radius-md)] px-3 text-[0.72rem] font-semibold shadow-none" onClick={() => onSelectTag(selectedTag)} size="sm" type="button" variant="bare">
+              {selectedTag && (<Button className="h-8 whitespace-nowrap rounded-[var(--radius-md)] px-3 text-[0.72rem] font-semibold shadow-none" onClick={() => onSelectTag(selectedTag)} size="sm" type="button" variant="bare">
                   Clear
                 </Button>)}
             </div>) : undefined} description={`${tags.length} distinct tags across the selected task`} eyebrow="Tags" title="Tag Explorer"/>

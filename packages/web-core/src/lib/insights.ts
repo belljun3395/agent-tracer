@@ -1275,6 +1275,38 @@ export function collectViolationDescriptions(timeline: readonly TimelineEvent[])
         (e.kind === "rule.logged" && e.metadata["ruleStatus"] === "violation"))
         .map(e => e.title);
 }
+export interface VerificationCycleItem {
+    readonly id: string;
+    readonly title: string;
+    readonly status: "pass" | "issue";
+    readonly kind: "verification" | "rule";
+    readonly ruleId?: string | undefined;
+    readonly createdAt: string;
+}
+export function buildVerificationCycles(timeline: readonly TimelineEvent[]): readonly VerificationCycleItem[] {
+    return timeline
+        .filter(e => e.kind === "verification.logged" || e.kind === "rule.logged")
+        .map((e): VerificationCycleItem => {
+        const isVerification = e.kind === "verification.logged";
+        const verificationStatus = extractMetadataString(e.metadata, "verificationStatus");
+        const ruleStatus = extractMetadataString(e.metadata, "ruleStatus");
+        const ruleId = isVerification ? undefined : (extractMetadataString(e.metadata, "ruleId") ?? undefined);
+        const status: "pass" | "issue" = isVerification
+            ? (verificationStatus === "pass" ? "pass" : "issue")
+            : (ruleStatus === "pass" || ruleStatus === "fix-applied" ? "pass" : "issue");
+        const title = e.title
+            || (isVerification ? "Verification" : (ruleId ?? "Rule check"));
+        return {
+            id: e.id,
+            title,
+            status,
+            kind: isVerification ? "verification" : "rule",
+            ...(ruleId ? { ruleId } : {}),
+            createdAt: e.createdAt
+        };
+    })
+        .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
+}
 export function collectPlanSteps(timeline: readonly TimelineEvent[]): readonly string[] {
     const planningEvents = timeline.filter(e => e.lane === "planning");
     const describedTerminals = timeline.filter(e => e.kind === "terminal.command"

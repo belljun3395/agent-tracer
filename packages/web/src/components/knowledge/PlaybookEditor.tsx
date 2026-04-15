@@ -22,12 +22,12 @@ export function PlaybookEditor(props: PlaybookEditorProps): React.JSX.Element {
     const { draft, mode, isSaving, saveError, onChange, onSave, onCancel } = props;
 
     return (
-        <div className="flex min-h-0 flex-col overflow-y-auto bg-[var(--surface-2)] p-4">
+        <div className="flex min-h-0 flex-col overflow-y-auto bg-[var(--surface-2)] p-3.5">
             <div className="mb-3 flex flex-col gap-1">
-                <span className="text-[0.9rem] font-semibold text-[var(--text-1)]">
+                <span className="text-[0.84rem] font-semibold text-[var(--text-1)]">
                     {mode === "edit" ? "Edit Playbook" : "Create Playbook"}
                 </span>
-                <span className="text-[0.76rem] leading-relaxed text-[var(--text-3)]">
+                <span className="text-[0.72rem] leading-relaxed text-[var(--text-3)]">
                     {mode
                         ? "Turn a proven workflow into durable, reusable knowledge."
                         : "Select a snapshot to promote it, or create a playbook from scratch."}
@@ -100,19 +100,19 @@ export function PlaybookEditor(props: PlaybookEditorProps): React.JSX.Element {
                         </div>
                     ) : null}
                     {saveError ? (
-                        <p className="mt-1 text-[0.75rem] text-red-500">{saveError}</p>
+                        <p className="mt-1 text-[0.72rem] text-red-500">{saveError}</p>
                     ) : null}
                     <div className="mt-2 flex justify-end gap-2">
                         <Button size="sm" onClick={onCancel}>
                             Cancel
                         </Button>
-                        <Button size="sm" disabled={!draft.title.trim() || isSaving} onClick={onSave}>
-                            {isSaving ? "Saving…" : mode === "edit" ? "Update Playbook" : "Publish Playbook"}
+                        <Button size="sm" variant="accent" disabled={!draft.title.trim() || isSaving} onClick={onSave}>
+                            {isSaving ? "Saving…" : mode === "edit" ? "Update" : "Publish"}
                         </Button>
                     </div>
                 </div>
             ) : (
-                <div className="rounded-[12px] border border-dashed border-[var(--border)] bg-[var(--surface)] px-4 py-6 text-[0.8rem] leading-6 text-[var(--text-3)]">
+                <div className="rounded-[var(--radius-lg)] border border-dashed border-[var(--border)] bg-[var(--surface)] px-4 py-5 text-[0.76rem] leading-6 text-[var(--text-3)]">
                     Select a snapshot and click <strong>Promote to Playbook</strong>, or open the Playbooks tab and start a new playbook.
                 </div>
             )}

@@ -24,7 +24,7 @@ const snapshotFieldClass = "flex flex-col gap-1.5";
 function SectionLabel({ children }: {
     readonly children: React.ReactNode;
 }): React.JSX.Element {
-    return <Eyebrow className="text-[0.72rem] tracking-[0.06em]">{children}</Eyebrow>;
+    return <Eyebrow className="text-[0.68rem] tracking-[0.06em]">{children}</Eyebrow>;
 }
 function TextareaField({ label, value, rows, placeholder, onChange }: {
     readonly label: string;
@@ -43,7 +43,7 @@ function ModeButton({ active, children, onClick }: {
     readonly children: React.ReactNode;
     readonly onClick: () => void;
 }): React.JSX.Element {
-    return (<button type="button" className={cn("rounded-[7px] border px-2.5 py-1 text-[0.74rem] font-semibold transition-colors", active
+    return (<button type="button" className={cn("rounded-[var(--radius-md)] border px-2.5 py-1 text-[0.74rem] font-semibold transition-colors", active
             ? "border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] text-[var(--accent)]"
             : "border-[var(--border)] bg-[var(--surface)] text-[var(--text-2)] hover:text-[var(--text-1)]")} onClick={onClick}>
       {children}
@@ -57,9 +57,9 @@ function WorkflowPreviewField({ label, value, mono = false }: {
     if (!value) {
         return null;
     }
-    return (<div className="flex flex-col gap-1.5 rounded-[10px] border border-[var(--border)] bg-[var(--surface)] px-3.5 py-3">
+    return (<div className="flex flex-col gap-1.5 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5">
       <Eyebrow>{label}</Eyebrow>
-      <p className={cn("m-0 whitespace-pre-wrap break-words text-[0.84rem] leading-7 text-[var(--text-1)]", mono ? "font-mono text-[0.78rem] text-[var(--text-2)]" : "")}>
+      <p className={cn("m-0 whitespace-pre-wrap break-words text-[0.8rem] leading-6 text-[var(--text-1)]", mono ? "font-mono text-[0.76rem] text-[var(--text-2)]" : "")}>
         {value}
       </p>
     </div>);
@@ -71,10 +71,10 @@ function WorkflowPreviewList({ label, items }: {
     if (items.length === 0) {
         return null;
     }
-    return (<div className="flex flex-col gap-2 rounded-[10px] border border-[var(--border)] bg-[var(--surface)] px-3.5 py-3">
+    return (<div className="flex flex-col gap-2 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5">
       <Eyebrow>{label}</Eyebrow>
       <div className="flex flex-col gap-1.5">
-        {items.map((item) => (<p key={item} className="m-0 whitespace-pre-wrap break-words text-[0.84rem] leading-7 text-[var(--text-1)]">
+        {items.map((item) => (<p key={item} className="m-0 whitespace-pre-wrap break-words text-[0.8rem] leading-6 text-[var(--text-1)]">
             - {item}
           </p>))}
       </div>
@@ -241,15 +241,15 @@ export function TaskEvaluatePanel({ taskId, taskTitle, taskTimeline, evaluation,
         workflowSnapshotDraft
     ]);
     const workflowContentState = isSnapshotCustom || isWorkflowContextCustom ? "Edited" : "Generated";
-    return (<div className="flex flex-col gap-4 rounded-[12px] border border-[var(--border)] bg-[var(--surface)] p-4">
+    return (<div className="flex flex-col gap-3 rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--surface)] p-3.5">
       <div className="flex flex-col gap-1">
         <div className="flex items-center gap-2">
-          <span className="text-[0.85rem] font-semibold text-[var(--text-1)]">Save to Library</span>
+          <span className="text-[0.82rem] font-semibold text-[var(--text-1)]">Save to Library</span>
         {evaluation && (<Badge className="px-2 py-0.5 text-[0.68rem]" tone={evaluation.rating === "good" ? "success" : "neutral"}>
             {evaluation.rating === "good" ? "Worth reusing" : "Not reusable"}
           </Badge>)}
         </div>
-        <p className="m-0 text-[0.76rem] leading-relaxed text-[var(--text-3)]">
+        <p className="m-0 text-[0.74rem] leading-relaxed text-[var(--text-3)]">
           Capture this task as a reusable workflow snapshot.
         </p>
       </div>
@@ -257,15 +257,15 @@ export function TaskEvaluatePanel({ taskId, taskTitle, taskTimeline, evaluation,
       <div className={fieldClass}>
         <SectionLabel>Was this workflow worth reusing?</SectionLabel>
         <div className="flex gap-2">
-          <button type="button" className={cn("rounded-[7px] border px-3 py-1.5 text-[0.78rem] font-semibold transition-colors", rating === "good"
+          <button type="button" className={cn("rounded-[var(--radius-md)] border px-2.5 py-1.25 text-[0.74rem] font-semibold transition-colors", rating === "good"
             ? "border-[var(--ok-bg)] bg-[var(--ok-bg)] text-[var(--ok)]"
             : "border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-2)] hover:text-[var(--text-1)]")} onClick={() => setRating("good")}>
-            Worth reusing
+            Reuse
           </button>
-          <button type="button" className={cn("rounded-[7px] border px-3 py-1.5 text-[0.78rem] font-semibold transition-colors", rating === "skip"
+          <button type="button" className={cn("rounded-[var(--radius-md)] border px-2.5 py-1.25 text-[0.74rem] font-semibold transition-colors", rating === "skip"
             ? "border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-1)]"
             : "border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-3)] hover:text-[var(--text-2)]")} onClick={() => setRating("skip")}>
-            Not reusable
+            Skip
           </button>
         </div>
       </div>
@@ -277,14 +277,14 @@ export function TaskEvaluatePanel({ taskId, taskTitle, taskTimeline, evaluation,
 
       <div className={fieldClass}>
         <SectionLabel>Tags</SectionLabel>
-        <div className="flex flex-wrap gap-1.5 rounded-[6px] border border-[var(--border)] bg-[var(--surface-2)] px-2.5 py-1.5 focus-within:border-[var(--accent)]">
-          {tags.map((tag) => (<span key={tag} className="flex items-center gap-1 rounded-full border border-[var(--accent)] bg-[var(--accent-light)] px-2 py-0.5 text-[0.72rem] text-[var(--accent)]">
+        <div className="flex flex-wrap gap-1.5 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface-2)] px-2.5 py-1.5 focus-within:border-[var(--accent)]">
+          {tags.map((tag) => (<span key={tag} className="flex items-center gap-1 rounded-[var(--radius-md)] border border-[var(--accent)] bg-[var(--accent-light)] px-2 py-0.5 text-[0.68rem] text-[var(--accent)]">
               {tag}
               <button type="button" className="hover:text-[var(--text-1)]" onClick={() => removeTag(tag)}>
                 ×
               </button>
             </span>))}
-          <input className="min-w-[80px] flex-1 bg-transparent text-[0.8rem] text-[var(--text-1)] outline-none placeholder:text-[var(--text-3)]" placeholder={tags.length === 0 ? "typescript, bug-fix, refactor…" : ""} value={tagInput} onChange={(event) => setTagInput(event.target.value)} onKeyDown={handleTagKeyDown} onBlur={handleTagBlur}/>
+          <input className="min-w-[80px] flex-1 bg-transparent text-[0.78rem] text-[var(--text-1)] outline-none placeholder:text-[var(--text-3)]" placeholder={tags.length === 0 ? "typescript, bug-fix, refactor…" : ""} value={tagInput} onChange={(event) => setTagInput(event.target.value)} onKeyDown={handleTagKeyDown} onBlur={handleTagBlur}/>
         </div>
       </div>
 
@@ -293,21 +293,21 @@ export function TaskEvaluatePanel({ taskId, taskTitle, taskTimeline, evaluation,
       <TextareaField label="Reuse when" placeholder="Describe when this workflow should be reused." rows={2} value={reuseWhen} onChange={setReuseWhen}/>
       <TextareaField label="Watch out" placeholder="List any watchouts for future runs." rows={2} value={watchouts} onChange={setWatchouts}/>
 
-      <div className="flex flex-col gap-3 rounded-[12px] border border-[var(--border)] bg-[var(--surface-2)] p-4">
+      <div className="flex flex-col gap-3 rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--surface-2)] p-3">
         <div className="flex flex-col gap-3">
           <div className="flex flex-col gap-1">
-            <span className="text-[0.85rem] font-semibold text-[var(--text-1)]">Snapshot Preview</span>
-            <p className="m-0 text-[0.76rem] leading-relaxed text-[var(--text-3)]">
+            <span className="text-[0.82rem] font-semibold text-[var(--text-1)]">Snapshot Preview</span>
+            <p className="m-0 text-[0.74rem] leading-relaxed text-[var(--text-3)]">
               This snapshot is generated from task activity. Review it before saving and edit any field that needs to be clearer.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Badge className="px-2.5 py-1 text-[0.68rem]" tone={workflowContentState === "Edited" ? "accent" : "neutral"}>
+            <Badge className="px-2 py-0.75 text-[0.64rem]" tone={workflowContentState === "Edited" ? "accent" : "neutral"}>
               {workflowContentState}
             </Badge>
             <ModeButton active={workflowContentMode === "preview"} onClick={() => setWorkflowContentMode("preview")}>Preview</ModeButton>
-            <ModeButton active={workflowContentMode === "edit"} onClick={() => setWorkflowContentMode("edit")}>Edit fields</ModeButton>
-            <Button className="px-3 py-1.5 text-[0.74rem] font-semibold text-[var(--text-2)]" size="sm" onClick={handleRegenerateWorkflowContent}>
+            <ModeButton active={workflowContentMode === "edit"} onClick={() => setWorkflowContentMode("edit")}>Edit</ModeButton>
+            <Button size="sm" variant="ghost" onClick={handleRegenerateWorkflowContent}>
               Regenerate
             </Button>
           </div>
@@ -329,7 +329,7 @@ export function TaskEvaluatePanel({ taskId, taskTitle, taskTimeline, evaluation,
 
             <div className={fieldClass}>
               <SectionLabel>Workflow context</SectionLabel>
-              <pre className="m-0 max-h-[30rem] overflow-auto whitespace-pre-wrap break-words rounded-[10px] border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-[0.8rem] leading-7 text-[var(--text-2)]">
+              <pre className="m-0 max-h-[30rem] overflow-auto whitespace-pre-wrap break-words rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-[0.76rem] leading-6 text-[var(--text-2)]">
                 {effectiveWorkflowContext}
               </pre>
             </div>
@@ -380,12 +380,12 @@ export function TaskEvaluatePanel({ taskId, taskTitle, taskTimeline, evaluation,
             </div>
             <div className={snapshotFieldClass}>
               <SectionLabel>Search text</SectionLabel>
-              <Textarea className="resize-y font-mono text-[0.78rem]" rows={5} value={workflowSnapshotDraft.searchText} onChange={(event) => updateSnapshotField("searchText", event.target.value)}/>
+              <Textarea className="resize-y font-mono text-[0.76rem]" rows={5} value={workflowSnapshotDraft.searchText} onChange={(event) => updateSnapshotField("searchText", event.target.value)}/>
             </div>
 
             <div className={fieldClass}>
               <SectionLabel>Workflow context</SectionLabel>
-              <Textarea className="min-h-[28rem] font-mono text-[0.78rem] leading-7 resize-y" value={workflowContextDraft} onChange={(event) => {
+              <Textarea className="min-h-[28rem] font-mono text-[0.76rem] leading-6 resize-y" value={workflowContextDraft} onChange={(event) => {
                     setIsWorkflowContextCustom(true);
                     setWorkflowContextDraft(event.target.value);
                 }}/>
@@ -393,32 +393,39 @@ export function TaskEvaluatePanel({ taskId, taskTitle, taskTimeline, evaluation,
           </div>)}
       </div>
 
-      {similarWorkflows.length > 0 ? (<div className="rounded-[10px] border border-[color-mix(in_srgb,var(--warn)_35%,var(--border))] bg-[color-mix(in_srgb,var(--warn)_10%,var(--surface))] px-3.5 py-3">
+      {similarWorkflows.length > 0 ? (<div className="rounded-[var(--radius-md)] border border-[color-mix(in_srgb,var(--warn)_35%,var(--border))] bg-[color-mix(in_srgb,var(--warn)_10%,var(--surface))] px-3 py-2.5">
           <div className="flex flex-col gap-1">
-            <span className="text-[0.8rem] font-semibold text-[var(--text-1)]">Similar knowledge already exists</span>
-            <span className="text-[0.76rem] leading-relaxed text-[var(--text-2)]">
+            <span className="text-[0.78rem] font-semibold text-[var(--text-1)]">Similar knowledge already exists</span>
+            <span className="text-[0.74rem] leading-relaxed text-[var(--text-2)]">
               Consider updating an existing snapshot instead of saving a duplicate.
             </span>
           </div>
           <div className="mt-2 flex flex-col gap-1.5">
-            {similarWorkflows.map((workflow) => (<div key={workflow.taskId} className="rounded-[8px] border border-[var(--border)] bg-[var(--surface)] px-3 py-2">
+            {similarWorkflows.map((workflow) => (<div key={workflow.taskId} className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] px-3 py-2">
                 <div className="flex items-center gap-2">
                   <Badge tone="accent" size="xs">Snapshot</Badge>
-                  <span className="text-[0.78rem] font-semibold text-[var(--text-1)]">{workflow.displayTitle ?? workflow.title}</span>
+                  <span className="text-[0.76rem] font-semibold text-[var(--text-1)]">{workflow.displayTitle ?? workflow.title}</span>
                 </div>
-                {workflow.useCase ? <div className="mt-1 text-[0.74rem] text-[var(--text-2)]">{workflow.useCase}</div> : null}
+                {workflow.useCase ? <div className="mt-1 text-[0.72rem] text-[var(--text-2)]">{workflow.useCase}</div> : null}
               </div>))}
           </div>
         </div>) : null}
 
       <div className="flex justify-end">
-        <button type="button" disabled={!rating || isSaving} className={cn("rounded-[7px] border px-4 py-1.5 text-[0.78rem] font-semibold transition-all", isSaved
-            ? "border-[var(--ok-bg)] bg-[var(--ok-bg)] text-[var(--ok)]"
-            : !rating || isSaving
-                ? "cursor-not-allowed border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-3)] opacity-50"
-                : "border-[var(--accent)] bg-[var(--accent)] text-[#fff] hover:opacity-90")} onClick={() => { void handleSave(); }}>
-          {isSaved ? "Saved ✓" : isSaving ? "Saving…" : "Save Snapshot"}
-        </button>
+        <Button
+          disabled={!rating || isSaving}
+          size="sm"
+          variant="bare"
+          className={cn(
+            "border px-3",
+            isSaved
+              ? "border-[var(--ok-bg)] bg-[var(--ok-bg)] text-[var(--ok)] hover:text-[var(--ok)]"
+              : "border-[var(--accent)] bg-[var(--accent)] text-[#fff] hover:text-[#fff] hover:opacity-90"
+          )}
+          onClick={() => { void handleSave(); }}
+        >
+          {isSaved ? "Saved ✓" : isSaving ? "Saving…" : "Save"}
+        </Button>
       </div>
     </div>);
 }

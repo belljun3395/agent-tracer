@@ -15,9 +15,9 @@ const badgeTones: Record<BadgeTone, string> = {
     danger: "border-[color-mix(in_srgb,var(--err)_18%,var(--border))] bg-[var(--err-bg)] text-[var(--err)]"
 };
 const badgeSizes: Record<BadgeSize, string> = {
-    xs: "px-1.5 py-0.5 text-[0.62rem]",
-    sm: "px-2 py-0.5 text-[0.68rem]",
-    md: "px-2.5 py-1 text-[0.75rem]"
+    xs: "px-1.5 py-0.5 text-[0.58rem]",
+    sm: "px-1.75 py-0.5 text-[0.64rem]",
+    md: "px-2.25 py-0.75 text-[0.71rem]"
 };
 export const Badge = forwardRef<HTMLSpanElement, BadgeProps>(function Badge({ className, tone = "neutral", size = "sm", ...props }, ref) {
     return (<span ref={ref} className={cn("inline-flex items-center justify-center rounded-[var(--radius-md)] border font-semibold leading-none whitespace-nowrap", badgeTones[tone], badgeSizes[size], className)} {...props}/>);
