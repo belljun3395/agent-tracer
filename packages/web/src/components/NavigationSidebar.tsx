@@ -23,9 +23,7 @@ interface NavigationSidebarProps {
   readonly onSelectTask: (taskId: string) => void;
   readonly onSelectBookmark: (bookmark: BookmarkRecord) => void;
   readonly onDeleteBookmark: (bookmarkId: string) => void;
-  readonly onSaveTaskBookmark: () => void;
   readonly onDeleteTask: (taskId: string) => void;
-  readonly onRefresh: () => void;
 }
 
 function SidebarLink({ active, to, onClick, icon, label }: {
@@ -99,7 +97,7 @@ export function NavigationSidebar(props: NavigationSidebarProps): React.JSX.Elem
         <SidebarLink
           to="/knowledge"
           active={isKnowledgePage}
-          onClick={onNavigate}
+          onClick={() => onNavigate?.()}
           icon={
             <svg fill="none" height="16" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" viewBox="0 0 24 24" width="16">
               <rect height="7" rx="1" width="7" x="3" y="3"/>

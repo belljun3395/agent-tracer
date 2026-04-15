@@ -28,7 +28,7 @@ function Dashboard({ view = "timeline", workspaceTaskId, onOpenTaskWorkspace, on
     readonly onOpenTaskWorkspace: (taskId: string) => void;
     readonly onSelectTaskRoute: (taskId: string | null) => void;
 }): React.JSX.Element {
-    const { state, dispatch, refreshOverview, refreshTaskDetail, refreshBookmarksOnly, handleDeleteTask, handleCreateTaskBookmark, handleDeleteBookmark } = useMonitorStore();
+    const { state, dispatch, refreshOverview, refreshTaskDetail, refreshBookmarksOnly, handleDeleteTask, handleDeleteBookmark } = useMonitorStore();
     const { bookmarks, tasks, selectedTaskId, taskDetail, isConnected, taskDisplayTitleCache, deletingTaskId, deleteErrorTaskId } = state;
     const { isConnected: wsConnected } = useWebSocket((message) => {
         void refreshRealtimeMonitorData({
@@ -123,15 +123,6 @@ function Dashboard({ view = "timeline", workspaceTaskId, onOpenTaskWorkspace, on
             });
         });
     }, [dispatch, handleDeleteBookmark]);
-    const handleSaveTaskBookmark = useCallback((): void => {
-        void handleCreateTaskBookmark().catch((err) => {
-            dispatch({
-                type: "SET_STATUS",
-                status: "error",
-                errorMessage: err instanceof Error ? err.message : "Failed to save task bookmark."
-            });
-        });
-    }, [dispatch, handleCreateTaskBookmark]);
     const handleSelectSearchTask = useCallback((taskId: string): void => {
         setSearchQuery("");
         dispatch({ type: "SELECT_CONNECTOR", connectorKey: null });
@@ -194,9 +185,7 @@ function Dashboard({ view = "timeline", workspaceTaskId, onOpenTaskWorkspace, on
                 onSelectTask={handleSelectDashboardTask}
                 onSelectBookmark={handleSelectBookmark}
                 onDeleteBookmark={handleDeleteBookmarkWithError}
-                onSaveTaskBookmark={handleSaveTaskBookmark}
                 onDeleteTask={(id) => void handleDeleteTask(id)}
-                onRefresh={() => void refreshOverview()}
               />
             </div>
 
@@ -233,9 +222,7 @@ function Dashboard({ view = "timeline", workspaceTaskId, onOpenTaskWorkspace, on
               onSelectTask={handleSelectDashboardTask}
               onSelectBookmark={handleSelectBookmark}
               onDeleteBookmark={handleDeleteBookmarkWithError}
-              onSaveTaskBookmark={handleSaveTaskBookmark}
               onDeleteTask={(id) => void handleDeleteTask(id)}
-              onRefresh={() => void refreshOverview()}
             />
 
             <div className="relative flex min-h-0 min-w-0 flex-1 flex-col p-2.5 transition-[padding-right] duration-200" style={{ paddingRight: (view === "timeline" && isInspectorOpen) ? `${(isInspectorCollapsed ? 44 : INSPECTOR_WIDTH) + 10}px` : undefined }}>

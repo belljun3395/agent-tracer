@@ -113,13 +113,13 @@ export function KnowledgeItemRow(props: KnowledgeItemRowProps): React.JSX.Elemen
                             <Button size="icon" title="Open task" variant="bare" className="h-7 w-7 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-2)] hover:border-[var(--border-strong)] hover:bg-[var(--surface)] hover:text-[var(--text-1)]" onClick={() => { onSelectTask(item.taskId); }}>
                                 <svg fill="none" height="13" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" width="13"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" x2="21" y1="14" y2="3"/></svg>
                             </Button>
-                            <Button size="sm" variant={isExpanded ? "accent" : "default"} onClick={() => { onOpenSnapshotDetail(item.taskId); }}>
+                            <Button size="sm" variant={isExpanded ? "accent" : "ghost"} onClick={() => { onOpenSnapshotDetail(item.taskId); }}>
                                 {isExpanded ? "Close" : "Detail"}
                             </Button>
                         </>
                     ) : (
                         <>
-                            <Button size="sm" variant={isExpanded ? "accent" : "default"} onClick={() => { onOpenPlaybookDetail(item.id); }}>
+                            <Button size="sm" variant={isExpanded ? "accent" : "ghost"} onClick={() => { onOpenPlaybookDetail(item.id); }}>
                                 {isExpanded ? "Close" : "Detail"}
                             </Button>
                         </>

@@ -31,9 +31,7 @@ interface TaskListProps {
     readonly onSelectTask: (taskId: string) => void;
     readonly onSelectBookmark: (bookmark: BookmarkRecord) => void;
     readonly onDeleteBookmark: (bookmarkId: string) => void;
-    readonly onSaveTaskBookmark: () => void;
     readonly onDeleteTask: (taskId: string) => void;
-    readonly onRefresh: () => void;
 }
 interface DisplayTaskRow {
     readonly task: MonitoringTask;
@@ -203,7 +201,7 @@ function TaskRow({ task, depth, isSelected, isCollapsedParent, hasChildren, task
     </div>);
 }
 
-export function TaskList({ tasks, bookmarks, taskDisplayTitleCache, selectedTaskBookmarkId, selectedTaskId, taskDetail, selectedTaskQuestionCount, selectedTaskTodoCount, deletingTaskId, deleteErrorTaskId, isCollapsed = false, hideHeader = false, hideTabs = false, initialView = "tasks", onToggleCollapse, onSelectTask, onSelectBookmark, onDeleteBookmark, onSaveTaskBookmark, onDeleteTask, onRefresh }: TaskListProps): React.JSX.Element {
+export function TaskList({ tasks, bookmarks, taskDisplayTitleCache, selectedTaskBookmarkId, selectedTaskId, taskDetail, selectedTaskQuestionCount, selectedTaskTodoCount, deletingTaskId, deleteErrorTaskId, isCollapsed = false, hideHeader = false, hideTabs = false, initialView = "tasks", onToggleCollapse, onSelectTask, onSelectBookmark, onDeleteBookmark, onDeleteTask }: TaskListProps): React.JSX.Element {
     const [runtimeFilter, setRuntimeFilter] = useState<string>(ALL_RUNTIME_FILTER_KEY);
     const [collapsedParentIds, setCollapsedParentIds] = useState<ReadonlySet<string>>(new Set());
     const [railView, setRailView] = useState<RailView>(initialView);
