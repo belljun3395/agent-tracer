@@ -23,9 +23,9 @@ interface TaskHandoffPanelProps {
     readonly snapshot: ReusableTaskSnapshot;
 }
 const panelSectionClass = "flex flex-col gap-1.5";
-const toggleButtonBaseClass = "rounded-[6px] px-2.5 py-1 text-[0.72rem] font-medium transition-colors";
+const toggleButtonBaseClass = "rounded-[var(--radius-md)] px-2 py-0.75 text-[0.68rem] font-medium transition-colors";
 const toggleButtonInactiveClass = "text-[var(--text-2)] hover:text-[var(--text-1)]";
-const chipBaseClass = "rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-2 py-0.5 text-[0.73rem] cursor-pointer select-none transition-colors";
+const chipBaseClass = "rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface-2)] px-2 py-0.5 text-[0.68rem] cursor-pointer select-none transition-colors";
 const chipActiveClass = "border-[var(--accent)] bg-[var(--accent-light)] text-[var(--accent)]";
 const purposeOptions: readonly {
     readonly value: HandoffPurpose;
@@ -60,7 +60,7 @@ function formatSavedTime(iso: string): string {
 function SectionLabel({ children }: {
     readonly children: React.ReactNode;
 }): React.JSX.Element {
-    return <Eyebrow className="text-[0.72rem] tracking-[0.06em]">{children}</Eyebrow>;
+    return <Eyebrow className="text-[0.68rem] tracking-[0.06em]">{children}</Eyebrow>;
 }
 function ToggleGroup<T extends string>({ options, value, onChange }: {
     readonly options: readonly {
@@ -212,17 +212,17 @@ export function TaskHandoffPanel({ taskId, objective, summary, plans, sections, 
         { key: "questions", label: "Questions" }
     ];
     const canCopyLast = Boolean(lastCopiedText && lastCopiedText !== preview);
-    return (<div className="rounded-[10px] border border-[var(--border)] bg-[var(--surface)]">
-      <button className="flex w-full items-center gap-2 px-3 py-2.5 text-left" onClick={() => setIsOpen((v) => !v)} type="button">
-        <span className={cn("inline-block text-[0.75rem] text-[var(--text-3)] transition-transform duration-150", isOpen ? "rotate-0" : "-rotate-90")}>
+    return (<div className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-1)]">
+      <button className="flex w-full items-center gap-2 px-3 py-2 text-left" onClick={() => setIsOpen((v) => !v)} type="button">
+        <span className={cn("inline-block text-[0.72rem] text-[var(--text-3)] transition-transform duration-150", isOpen ? "rotate-0" : "-rotate-90")}>
           ▼
         </span>
-        <span className="text-[0.82rem] font-semibold text-[var(--text-1)]">Generate Briefing</span>
+        <span className="text-[0.78rem] font-semibold text-[var(--text-1)]">Generate Briefing</span>
       </button>
 
-      {isOpen && (<div className="flex flex-col gap-3 border-t border-[var(--border)] px-3 py-3">
+      {isOpen && (<div className="flex flex-col gap-3 border-t border-[var(--border)] px-3 py-2.5">
           <div className="flex flex-col gap-1">
-            <span className="text-[0.78rem] text-[var(--text-2)]">Generate a structured context packet for AI or human handoff.</span>
+            <span className="text-[0.74rem] text-[var(--text-2)]">Generate a structured context packet for AI or human handoff.</span>
           </div>
 
           <div className={panelSectionClass}>
@@ -239,7 +239,7 @@ export function TaskHandoffPanel({ taskId, objective, summary, plans, sections, 
 
           <div className={panelSectionClass}>
             <SectionLabel>Memo</SectionLabel>
-            <Textarea className="resize-none rounded-[6px] bg-[var(--surface-2)] px-2.5 py-1.5 text-[0.8rem]" placeholder="Add context the recipient should know…" rows={2} value={memo} onChange={(e) => setMemo(e.target.value)}/>
+            <Textarea className="resize-none rounded-[var(--radius-md)] bg-[var(--surface-2)] text-[0.78rem]" placeholder="Add context the recipient should know…" rows={2} value={memo} onChange={(e) => setMemo(e.target.value)}/>
           </div>
 
           <div className={panelSectionClass}>
@@ -255,12 +255,12 @@ export function TaskHandoffPanel({ taskId, objective, summary, plans, sections, 
           <div className={panelSectionClass}>
             <div className="flex items-center justify-between gap-3">
               <SectionLabel>Briefing Preview</SectionLabel>
-              <div className="flex items-center gap-2 text-[0.7rem] text-[var(--text-3)]">
+              <div className="flex items-center gap-2 text-[0.66rem] text-[var(--text-3)]">
                 {lastCopiedAt ? <span>Last copy saved locally</span> : null}
                 <span>{preview.length} chars</span>
               </div>
             </div>
-            <pre className="max-h-48 overflow-auto rounded-[6px] border border-[var(--border)] bg-[var(--surface-2)] p-2 font-mono text-[0.72rem] text-[var(--text-1)] whitespace-pre">
+            <pre className="max-h-48 overflow-auto rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface-2)] p-2.5 font-mono text-[0.68rem] text-[var(--text-1)] whitespace-pre">
               {preview
                 ? preview
                 : <span className="text-[var(--text-3)]">Nothing to preview yet.</span>}
@@ -268,19 +268,27 @@ export function TaskHandoffPanel({ taskId, objective, summary, plans, sections, 
           </div>
 
           <div className="flex justify-end gap-2">
-            {canCopyLast && lastCopiedText ? (<Button className="rounded-[7px] bg-[var(--surface-2)] px-3 py-1.5 text-[0.78rem] font-semibold text-[var(--text-2)]" size="sm" type="button" onClick={() => handleCopy(lastCopiedText)}>
-                Copy last briefing
+            {canCopyLast && lastCopiedText ? (<Button size="sm" variant="ghost" type="button" onClick={() => handleCopy(lastCopiedText)}>
+                Copy prev
               </Button>) : null}
-            {taskId ? (<Button className="rounded-[7px] bg-[var(--surface-2)] px-3 py-1.5 text-[0.78rem] font-semibold text-[var(--text-2)]" size="sm" type="button" disabled={isSavingBriefing || isDisabled} onClick={handleSaveBriefing}>
-                {isSavingBriefing ? "Saving…" : "Save to Task"}
+            {taskId ? (<Button size="sm" variant="ghost" type="button" disabled={isSavingBriefing || isDisabled} onClick={handleSaveBriefing}>
+                {isSavingBriefing ? "Saving…" : "Save"}
               </Button>) : null}
-            <button className={cn("rounded-[7px] border px-3 py-1.5 text-[0.78rem] font-semibold transition-all", copied
-                ? "border-[var(--ok-bg)] bg-[var(--ok-bg)] text-[var(--ok)]"
-                : isDisabled
-                    ? "cursor-not-allowed border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-3)] opacity-50"
-                    : "border-[var(--accent)] bg-[var(--accent)] text-[#fff] hover:opacity-90")} disabled={isDisabled} type="button" onClick={() => handleCopy(preview)}>
-              {copied ? "Copied ✓" : "Copy Briefing"}
-            </button>
+            <Button
+              size="sm"
+              variant="bare"
+              className={cn(
+                "border",
+                copied
+                  ? "border-[var(--ok-bg)] bg-[var(--ok-bg)] text-[var(--ok)] hover:text-[var(--ok)]"
+                  : "border-[var(--accent)] bg-[var(--accent)] text-[#fff] hover:text-[#fff] hover:opacity-90"
+              )}
+              disabled={isDisabled}
+              type="button"
+              onClick={() => handleCopy(preview)}
+            >
+              {copied ? "Copied ✓" : "Copy"}
+            </Button>
           </div>
 
           {taskId ? (<div className={panelSectionClass}>
@@ -288,19 +296,19 @@ export function TaskHandoffPanel({ taskId, objective, summary, plans, sections, 
                 <SectionLabel>Saved briefings</SectionLabel>
                 {isLoadingSavedBriefings ? <span className="text-[0.7rem] text-[var(--text-3)]">Loading…</span> : null}
               </div>
-              {savedBriefings.length === 0 ? (<div className="rounded-[6px] border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-[0.76rem] text-[var(--text-3)]">
+              {savedBriefings.length === 0 ? (<div className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-[0.72rem] text-[var(--text-3)]">
                   No saved briefings yet.
-                </div>) : (<div className="flex max-h-40 flex-col gap-2 overflow-auto rounded-[6px] border border-[var(--border)] bg-[var(--surface-2)] p-2">
-                  {savedBriefings.map((briefing) => (<div key={briefing.id} className="rounded-[6px] border border-[var(--border)] bg-[var(--surface)] px-3 py-2">
+                </div>) : (<div className="flex max-h-40 flex-col gap-2 overflow-auto rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface-2)] p-2">
+                  {savedBriefings.map((briefing) => (<div key={briefing.id} className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] px-3 py-2">
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex min-w-0 flex-col gap-1">
-                          <span className="text-[0.76rem] font-semibold text-[var(--text-1)]">
+                          <span className="text-[0.72rem] font-semibold text-[var(--text-1)]">
                             {briefing.purpose} · {briefing.format}
                           </span>
-                          <span className="text-[0.7rem] text-[var(--text-3)]">{formatSavedTime(briefing.generatedAt)}</span>
-                          {briefing.memo ? <span className="line-clamp-1 text-[0.72rem] text-[var(--text-2)]">{briefing.memo}</span> : null}
+                          <span className="text-[0.66rem] text-[var(--text-3)]">{formatSavedTime(briefing.generatedAt)}</span>
+                          {briefing.memo ? <span className="line-clamp-1 text-[0.68rem] text-[var(--text-2)]">{briefing.memo}</span> : null}
                         </div>
-                        <Button size="sm" className="px-2.5 text-[0.72rem]" onClick={() => handleCopy(briefing.content)}>Copy</Button>
+                        <Button size="sm" className="px-2 text-[0.68rem]" onClick={() => handleCopy(briefing.content)}>Copy</Button>
                       </div>
                     </div>))}
                 </div>)}

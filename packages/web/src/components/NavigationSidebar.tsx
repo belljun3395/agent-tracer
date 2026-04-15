@@ -28,43 +28,19 @@ interface NavigationSidebarProps {
   readonly onRefresh: () => void;
 }
 
-function NavItem({ active, onClick, icon, label }: {
+function SidebarLink({ active, to, onClick, icon, label }: {
   readonly active: boolean;
-  readonly onClick: () => void;
-  readonly icon: React.ReactNode;
-  readonly label: string;
-}): React.JSX.Element {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "flex w-full items-center gap-2.5 rounded-[var(--radius-md)] px-2.5 py-2 text-[0.82rem] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]",
-        active
-          ? "bg-[color-mix(in_srgb,var(--accent)_14%,transparent)] text-[var(--accent)]"
-          : "text-[var(--text-2)] hover:bg-[var(--surface-2)] hover:text-[var(--text-1)]"
-      )}
-    >
-      {icon}
-      <span>{label}</span>
-    </button>
-  );
-}
-
-function NavLinkItem({ to, icon, label, onNavigate }: {
   readonly to: string;
+  readonly onClick?: () => void;
   readonly icon: React.ReactNode;
   readonly label: string;
-  readonly onNavigate?: () => void;
 }): React.JSX.Element {
-  const { pathname } = useLocation();
-  const active = pathname === to || pathname.startsWith(to + "/");
   return (
     <Link
       to={to}
-      onClick={onNavigate}
+      onClick={onClick}
       className={cn(
-        "flex w-full items-center gap-2.5 rounded-[var(--radius-md)] px-2.5 py-2 text-[0.82rem] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]",
+        "flex w-full items-center gap-2 rounded-[var(--radius-md)] px-2.5 py-1.5 text-[0.78rem] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]",
         active
           ? "bg-[color-mix(in_srgb,var(--accent)_14%,transparent)] text-[var(--accent)]"
           : "text-[var(--text-2)] hover:bg-[var(--surface-2)] hover:text-[var(--text-1)]"
@@ -79,28 +55,19 @@ function NavLinkItem({ to, icon, label, onNavigate }: {
 export function NavigationSidebar(props: NavigationSidebarProps): React.JSX.Element {
   const { className, isConnected, activeView, onChangeView, onNavigate, ...taskListProps } = props;
 
+  const { pathname } = useLocation();
+  const isKnowledgePage = pathname.startsWith("/knowledge");
+
   return (
     <nav
       aria-label="Main navigation"
       className={cn("flex h-full w-[240px] shrink-0 flex-col overflow-hidden border-r border-[var(--border)] bg-[color-mix(in_srgb,var(--surface)_94%,var(--bg))] shadow-[var(--shadow-1)]", className)}
     >
-      {/* Brand header */}
-      <div className="flex h-12 shrink-0 items-center gap-2.5 border-b border-[var(--border)] px-3">
-        <img
-          alt="Agent Tracer"
-          className="icon-adaptive h-5 w-5 opacity-80"
-          src="/icons/activity.svg"
-        />
-        <div className="min-w-0">
-          <div className="text-[0.66rem] font-semibold uppercase tracking-[0.1em] text-[var(--text-3)]">Monitor</div>
-          <div className="truncate text-[0.82rem] font-semibold text-[var(--text-1)]">Agent Tracer</div>
-        </div>
-      </div>
-
       {/* Navigation items */}
-      <div className="flex shrink-0 flex-col gap-0.5 px-2 py-2">
-        <NavItem
-          active={activeView === "tasks"}
+      <div className="flex shrink-0 flex-col gap-0.5 px-2 py-1.5">
+        <SidebarLink
+          to="/"
+          active={!isKnowledgePage && activeView === "tasks"}
           onClick={() => {
             onChangeView("tasks");
             onNavigate?.();
@@ -115,8 +82,9 @@ export function NavigationSidebar(props: NavigationSidebarProps): React.JSX.Elem
           }
           label="Tasks"
         />
-        <NavItem
-          active={activeView === "saved"}
+        <SidebarLink
+          to="/"
+          active={!isKnowledgePage && activeView === "saved"}
           onClick={() => {
             onChangeView("saved");
             onNavigate?.();
@@ -128,9 +96,10 @@ export function NavigationSidebar(props: NavigationSidebarProps): React.JSX.Elem
           }
           label="Saved"
         />
-        <NavLinkItem
+        <SidebarLink
           to="/knowledge"
-          {...(onNavigate ? { onNavigate } : {})}
+          active={isKnowledgePage}
+          onClick={onNavigate}
           icon={
             <svg fill="none" height="16" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" viewBox="0 0 24 24" width="16">
               <rect height="7" rx="1" width="7" x="3" y="3"/>
@@ -147,18 +116,24 @@ export function NavigationSidebar(props: NavigationSidebarProps): React.JSX.Elem
       <div className="mx-3 shrink-0 border-b border-[var(--border)]" />
 
       {/* Task/Saved list */}
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <TaskList
-          {...taskListProps}
-          hideHeader={true}
-          isCollapsed={false}
-          initialView={activeView}
-          onToggleCollapse={() => { /* no-op, header hidden */ }}
-        />
-      </div>
+      {!isKnowledgePage && (
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <TaskList
+            {...taskListProps}
+            hideHeader={true}
+            hideTabs={true}
+            isCollapsed={false}
+            initialView={activeView}
+            onToggleCollapse={() => { /* no-op, header hidden */ }}
+          />
+        </div>
+      )}
+      {isKnowledgePage && (
+        <div className="flex-1" />
+      )}
 
       {/* Connection status footer */}
-      <div className="flex shrink-0 items-center gap-2 border-t border-[var(--border)] bg-[var(--surface-2)] px-3 py-2">
+      <div className="flex shrink-0 items-center gap-2 border-t border-[var(--border)] bg-[var(--surface-2)] px-3 py-1.5">
         <span
           aria-label={isConnected ? "Connected" : "Reconnecting"}
           className={cn(
@@ -166,7 +141,7 @@ export function NavigationSidebar(props: NavigationSidebarProps): React.JSX.Elem
             isConnected ? "bg-[var(--ok)]" : "animate-pulse bg-[var(--warn)]"
           )}
         />
-        <span className="text-[0.72rem] text-[var(--text-3)]">
+        <span className="text-[0.68rem] text-[var(--text-3)]">
           {isConnected ? "Connected" : "Reconnecting…"}
         </span>
       </div>

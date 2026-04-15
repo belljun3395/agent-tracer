@@ -18,7 +18,7 @@ export function TimelineContainer({ isCompactDashboard, isStackedDashboard, zoom
     const { status, errorMessage, taskDetail, selectedEventId, selectedConnectorKey, selectedRuleId, selectedTag, showRuleGapsOnly, nowMs, isEditingTaskTitle, taskTitleDraft, taskTitleError, isSavingTaskTitle, isUpdatingTaskStatus } = state;
     const taskTimeline = taskDetail?.timeline ?? [];
     const { observabilityStats } = useMemo(() => buildTaskTimelineSummary(taskTimeline), [taskTimeline]);
-    return (<section className={cn("flex min-h-0 min-w-0 flex-col overflow-hidden rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_12px_rgba(0,0,0,0.03)]", isCompactDashboard && "min-h-[22rem]", isStackedDashboard && "order-1 min-h-[28rem]")}>
+    return (<section className={cn("flex min-h-0 min-w-0 flex-col overflow-hidden rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-1)]", isCompactDashboard && "min-h-[22rem]", isStackedDashboard && "order-1 min-h-[28rem]")}>
       {status === "error" && (<div className="error-banner flex-shrink-0 border-b border-[#fca5a5] bg-[var(--err-bg)] px-3.5 py-2 text-[0.82rem] text-[var(--err)]">
           <strong>Monitor unavailable</strong>
           <p className="m-0">{errorMessage}</p>

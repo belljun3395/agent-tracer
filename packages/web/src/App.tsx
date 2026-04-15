@@ -10,7 +10,6 @@ import { TimelineContainer } from "./components/TimelineContainer.js";
 const ApprovalQueuePanel = lazy(() => import("./components/ApprovalQueuePanel.js").then((m) => ({ default: m.ApprovalQueuePanel })));
 const InspectorContainer = lazy(() => import("./components/InspectorContainer.js").then((m) => ({ default: m.InspectorContainer })));
 const TaskWorkspacePage = lazy(() => import("./pages/TaskWorkspacePage.js").then((m) => ({ default: m.TaskWorkspacePage })));
-const KnowledgeBasePage = lazy(() => import("./pages/KnowledgeBasePage.js").then((m) => ({ default: m.KnowledgeBasePage })));
 import { MonitorProvider, useMonitorStore } from "@monitor/web-store";
 import { useWebSocket } from "@monitor/web-store";
 import { useSearch } from "@monitor/web-store";
@@ -21,7 +20,11 @@ const ZOOM_DEFAULT = 1.1;
 const ZOOM_STORAGE_KEY = "agent-tracer.zoom";
 const INSPECTOR_WIDTH = 360;
 const DASHBOARD_STACKED_BREAKPOINT = 1024;
-function Dashboard({ onOpenTaskWorkspace, onSelectTaskRoute }: {
+import { KnowledgeBaseContent } from "./components/knowledge/KnowledgeBaseContent.js";
+
+function Dashboard({ view = "timeline", workspaceTaskId, onOpenTaskWorkspace, onSelectTaskRoute }: {
+    readonly view?: "timeline" | "knowledge" | "workspace";
+    readonly workspaceTaskId?: string;
     readonly onOpenTaskWorkspace: (taskId: string) => void;
     readonly onSelectTaskRoute: (taskId: string | null) => void;
 }): React.JSX.Element {
@@ -198,9 +201,17 @@ function Dashboard({ onOpenTaskWorkspace, onSelectTaskRoute }: {
             </div>
 
             <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2.5 p-2.5">
-              <TimelineContainer isCompactDashboard={false} isStackedDashboard={true} zoom={zoom} selectedTaskDisplayTitle={selectedTaskDisplayTitle} selectedTaskUsesDerivedTitle={selectedTaskUsesDerivedTitle} onZoomChange={setZoom} onOpenTaskWorkspace={selectedTaskId ? () => onOpenTaskWorkspace(selectedTaskId) : undefined}/>
+              {view === "knowledge" ? (
+                <KnowledgeBaseContent onSelectTask={handleSelectDashboardTask} />
+              ) : view === "workspace" && workspaceTaskId ? (
+                <Suspense fallback={<div className="flex min-h-0 flex-1 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-1)]"/>}>
+                  <TaskWorkspacePage taskId={workspaceTaskId} embedded />
+                </Suspense>
+              ) : (
+                <TimelineContainer isCompactDashboard={false} isStackedDashboard={true} zoom={zoom} selectedTaskDisplayTitle={selectedTaskDisplayTitle} selectedTaskUsesDerivedTitle={selectedTaskUsesDerivedTitle} onZoomChange={setZoom} onOpenTaskWorkspace={selectedTaskId ? () => onOpenTaskWorkspace(selectedTaskId) : undefined}/>
+              )}
 
-              {isInspectorOpen && (<Suspense fallback={<div className="min-h-[20rem] rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)]"/>}>
+              {view === "timeline" && isInspectorOpen && (<Suspense fallback={<div className="min-h-[20rem] rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)]"/>}>
                   <InspectorContainer isStackedDashboard={true} isInspectorCollapsed={false} selectedTaskDisplayTitle={selectedTaskDisplayTitle} onToggleCollapse={() => { }} onOpenTaskWorkspace={selectedTaskId ? () => onOpenTaskWorkspace(selectedTaskId) : undefined}/>
                 </Suspense>)}
             </div>
@@ -227,21 +238,31 @@ function Dashboard({ onOpenTaskWorkspace, onSelectTaskRoute }: {
               onRefresh={() => void refreshOverview()}
             />
 
-            <div className="relative flex min-h-0 min-w-0 flex-1 flex-col p-2.5 transition-[padding-right] duration-200" style={{ paddingRight: isInspectorOpen ? `${(isInspectorCollapsed ? 44 : INSPECTOR_WIDTH) + 10}px` : undefined }}>
-              <TimelineContainer isCompactDashboard={false} isStackedDashboard={false} zoom={zoom} selectedTaskDisplayTitle={selectedTaskDisplayTitle} selectedTaskUsesDerivedTitle={selectedTaskUsesDerivedTitle} onZoomChange={setZoom} onOpenTaskWorkspace={selectedTaskId ? () => onOpenTaskWorkspace(selectedTaskId) : undefined}/>
+            <div className="relative flex min-h-0 min-w-0 flex-1 flex-col p-2.5 transition-[padding-right] duration-200" style={{ paddingRight: (view === "timeline" && isInspectorOpen) ? `${(isInspectorCollapsed ? 44 : INSPECTOR_WIDTH) + 10}px` : undefined }}>
+              {view === "knowledge" ? (
+                <KnowledgeBaseContent onSelectTask={handleSelectDashboardTask} />
+              ) : view === "workspace" && workspaceTaskId ? (
+                <Suspense fallback={<div className="flex min-h-0 flex-1 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-1)]"/>}>
+                  <TaskWorkspacePage taskId={workspaceTaskId} embedded />
+                </Suspense>
+              ) : (
+                <TimelineContainer isCompactDashboard={false} isStackedDashboard={false} zoom={zoom} selectedTaskDisplayTitle={selectedTaskDisplayTitle} selectedTaskUsesDerivedTitle={selectedTaskUsesDerivedTitle} onZoomChange={setZoom} onOpenTaskWorkspace={selectedTaskId ? () => onOpenTaskWorkspace(selectedTaskId) : undefined}/>
+              )}
             </div>
 
-            <div className={cn("absolute bottom-0 right-0 top-0 z-10 flex flex-col transition-[transform,width] duration-200 ease-out", isInspectorOpen ? "translate-x-0" : "translate-x-full")} style={{ width: isInspectorCollapsed ? 44 : INSPECTOR_WIDTH }}>
-              {isInspectorCollapsed ? (<div className="flex h-full flex-col items-center border-l border-[var(--border)] bg-[var(--surface)] pt-3">
-                  <button aria-label="Expand inspector" className="flex h-8 w-8 items-center justify-center rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] text-[var(--text-2)] shadow-sm transition-colors hover:border-[var(--border-2)] hover:bg-[var(--surface-2)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]" onClick={() => setIsInspectorCollapsed(false)} type="button">
-                    <svg aria-hidden="true" fill="none" height="14" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" viewBox="0 0 24 24" width="14">
-                      <path d="M15 18l-6-6 6-6"/>
-                    </svg>
-                  </button>
-                </div>) : (<Suspense fallback={<div className="h-full border-l border-[var(--border)] bg-[var(--surface)]"/>}>
-                    <InspectorContainer isStackedDashboard={false} isInspectorCollapsed={false} selectedTaskDisplayTitle={selectedTaskDisplayTitle} onToggleCollapse={() => setIsInspectorCollapsed(true)} onOpenTaskWorkspace={selectedTaskId ? () => onOpenTaskWorkspace(selectedTaskId) : undefined}/>
-                  </Suspense>)}
-            </div>
+            {view === "timeline" && (
+                <div className={cn("absolute bottom-0 right-0 top-0 z-10 flex flex-col transition-[transform,width] duration-200 ease-out", isInspectorOpen ? "translate-x-0" : "translate-x-full")} style={{ width: isInspectorCollapsed ? 44 : INSPECTOR_WIDTH }}>
+                  {isInspectorCollapsed ? (<div className="flex h-full flex-col items-center border-l border-[var(--border)] bg-[var(--surface)] pt-3">
+                      <button aria-label="Expand inspector" className="flex h-8 w-8 items-center justify-center rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] text-[var(--text-2)] shadow-sm transition-colors hover:border-[var(--border-2)] hover:bg-[var(--surface-2)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]" onClick={() => setIsInspectorCollapsed(false)} type="button">
+                        <svg aria-hidden="true" fill="none" height="14" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" viewBox="0 0 24 24" width="14">
+                          <path d="M15 18l-6-6 6-6"/>
+                        </svg>
+                      </button>
+                    </div>) : (<Suspense fallback={<div className="h-full border-l border-[var(--border)] bg-[var(--surface)]"/>}>
+                        <InspectorContainer isStackedDashboard={false} isInspectorCollapsed={false} selectedTaskDisplayTitle={selectedTaskDisplayTitle} onToggleCollapse={() => setIsInspectorCollapsed(true)} onOpenTaskWorkspace={selectedTaskId ? () => onOpenTaskWorkspace(selectedTaskId) : undefined}/>
+                      </Suspense>)}
+                </div>
+            )}
           </>)}
       </div>
 
@@ -255,7 +276,7 @@ function Dashboard({ onOpenTaskWorkspace, onSelectTaskRoute }: {
         </Suspense>)}
     </div>);
 }
-function DashboardRoute(): React.JSX.Element {
+function DashboardRoute({ view = "timeline" }: { readonly view?: "timeline" | "knowledge" }): React.JSX.Element {
     const { state, dispatch } = useMonitorStore();
     const [searchParams, setSearchParams] = useSearchParams();
     const navigate = useNavigate();
@@ -277,7 +298,7 @@ function DashboardRoute(): React.JSX.Element {
         next.set("task", state.selectedTaskId);
         setSearchParams(next, { replace: true });
     }, [searchParams, setSearchParams, state.selectedTaskId]);
-    return (<Dashboard onSelectTaskRoute={(taskId) => {
+    return (<Dashboard view={view} onSelectTaskRoute={(taskId) => {
             const next = new URLSearchParams(searchParams);
             if (taskId) {
                 next.set("task", taskId);
@@ -292,16 +313,22 @@ function TaskWorkspaceRoute(): React.JSX.Element {
     const { taskId } = useParams<{
         readonly taskId: string;
     }>();
+    const navigate = useNavigate();
     if (!taskId)
         return <Navigate replace to="/"/>;
-    return <TaskWorkspacePage taskId={taskId}/>;
+    return (<Dashboard
+        view="workspace"
+        workspaceTaskId={taskId}
+        onOpenTaskWorkspace={(newTaskId) => { void navigate(`/tasks/${encodeURIComponent(newTaskId)}`); }}
+        onSelectTaskRoute={(tid) => { if (tid) void navigate(`/?task=${encodeURIComponent(tid)}`); else void navigate("/"); }}
+    />);
 }
 function AppRoutes(): React.JSX.Element {
     return (<Suspense fallback={<div>Loading…</div>}>
       <Routes>
         <Route path="/" element={<DashboardRoute />}/>
         <Route path="/tasks/:taskId" element={<TaskWorkspaceRoute />}/>
-        <Route path="/knowledge" element={<KnowledgeBasePage />}/>
+        <Route path="/knowledge" element={<DashboardRoute view="knowledge" />}/>
         <Route path="*" element={<Navigate replace to="/"/>}/>
       </Routes>
     </Suspense>);

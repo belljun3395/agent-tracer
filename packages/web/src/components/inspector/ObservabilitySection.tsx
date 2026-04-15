@@ -30,16 +30,16 @@ export function ObservabilityMetricGrid({ items }: {
     }>;
 }): React.JSX.Element {
     const toneClassName: Record<"neutral" | "accent" | "ok" | "warn" | "danger", string> = {
-        neutral: "border-[var(--border)] bg-[var(--bg)]",
-        accent: "border-[color-mix(in_srgb,var(--accent)_22%,var(--border))] bg-[color-mix(in_srgb,var(--accent)_8%,transparent)]",
-        ok: "border-[color-mix(in_srgb,var(--ok)_24%,var(--border))] bg-[var(--ok-bg)]",
-        warn: "border-[color-mix(in_srgb,var(--warn)_24%,var(--border))] bg-[var(--warn-bg)]",
-        danger: "border-[color-mix(in_srgb,var(--err)_24%,var(--border))] bg-[var(--err-bg)]"
+        neutral: "border-[var(--border)] bg-[var(--bg-subtle)]",
+        accent: "border-[color-mix(in_srgb,var(--accent)_20%,var(--border))] bg-[color-mix(in_srgb,var(--accent)_7%,transparent)]",
+        ok: "border-[color-mix(in_srgb,var(--ok)_18%,var(--border))] bg-[var(--ok-bg)]",
+        warn: "border-[color-mix(in_srgb,var(--warn)_20%,var(--border))] bg-[var(--warn-bg)]",
+        danger: "border-[color-mix(in_srgb,var(--err)_18%,var(--border))] bg-[var(--err-bg)]"
     };
     return (<div className="grid gap-3 sm:grid-cols-2">
-      {items.map((item) => (<div key={`${item.label}-${item.value}`} className={cn("rounded-[12px] border px-3.5 py-3", toneClassName[item.tone ?? "neutral"])}>
+      {items.map((item) => (<div key={`${item.label}-${item.value}`} className={cn("rounded-[var(--radius-md)] border px-3.5 py-3 shadow-[var(--shadow-1)]", toneClassName[item.tone ?? "neutral"])}>
           <div className="text-[0.68rem] font-bold uppercase tracking-[0.08em] text-[var(--text-3)]">{item.label}</div>
-          <div className="mt-1 text-[0.98rem] font-semibold text-[var(--text-1)]">{item.value}</div>
+          <div className="mt-1.5 text-[1rem] font-semibold text-[var(--text-1)]">{item.value}</div>
           {item.note && <p className="mt-1 m-0 text-[0.74rem] text-[var(--text-3)]">{item.note}</p>}
         </div>))}
     </div>);
@@ -57,7 +57,7 @@ export function ObservabilityList({ emptyLabel, items }: {
         return <p className="m-0 text-[0.8rem] text-[var(--text-3)]">{emptyLabel}</p>;
     }
     return (<div className="flex flex-col gap-2.5">
-      {items.map((item) => (<div key={`${item.label}-${item.value}`} className="rounded-[12px] border border-[var(--border)] bg-[var(--bg)] px-3.5 py-3">
+      {items.map((item) => (<div key={`${item.label}-${item.value}`} className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--bg-subtle)] px-3.5 py-3 shadow-[var(--shadow-1)]">
           <div className="flex items-center justify-between gap-3">
             <strong className="min-w-0 truncate text-[0.84rem] text-[var(--text-1)]">{item.label}</strong>
             <Badge tone={item.tone ?? "neutral"} size="xs">{item.value}</Badge>
@@ -79,7 +79,7 @@ export function ObservabilityPhaseBreakdown({ phases }: {
     return (<div className="flex flex-col gap-3">
       {phases.map((phase) => {
             const share = phase.share > 1 ? phase.share / 100 : phase.share;
-            return (<div key={phase.phase} className="rounded-[12px] border border-[var(--border)] bg-[var(--bg)] px-3.5 py-3">
+            return (<div key={phase.phase} className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--bg-subtle)] px-3.5 py-3 shadow-[var(--shadow-1)]">
             <div className="flex items-center justify-between gap-3">
               <strong className="text-[0.84rem] text-[var(--text-1)]">{formatPhaseLabel(phase.phase)}</strong>
               <Badge tone="accent" size="xs">{formatRate(phase.share)}</Badge>

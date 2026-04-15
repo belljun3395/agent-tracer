@@ -1,7 +1,7 @@
 import type React from "react";
 import { useEffect, useMemo, useState } from "react";
 import { buildReusableTaskSnapshot, getEventEvidence } from "@monitor/core";
-import { buildExplorationInsight, buildInspectorEventTitle, buildMentionedFileVerifications, buildQuestionGroups, buildSubagentInsight, buildTagInsights, buildTaskExtraction, buildTodoGroups, collectFileActivity, collectPlanSteps, collectViolationDescriptions, collectWebLookups, type ModelSummary } from "@monitor/web-core";
+import { buildExplorationInsight, buildInspectorEventTitle, buildMentionedFileVerifications, buildQuestionGroups, buildSubagentInsight, buildTagInsights, buildTaskExtraction, buildTodoGroups, buildVerificationCycles, collectFileActivity, collectPlanSteps, collectViolationDescriptions, collectWebLookups, type ModelSummary } from "@monitor/web-core";
 import { evidenceTone, formatEvidenceLevel } from "@monitor/web-core";
 import { buildTaskTimelineSummary } from "@monitor/web-core";
 import type { TimelineConnector } from "@monitor/web-core";
@@ -336,6 +336,7 @@ export function EventInspector({ taskDetail, selectedTaskTitle = null, taskObser
     const questionGroups = useMemo(() => buildQuestionGroups(taskTimeline), [taskTimeline]);
     const todoGroups = useMemo(() => buildTodoGroups(taskTimeline), [taskTimeline]);
     const subagentInsight = useMemo(() => buildSubagentInsight(taskTimeline), [taskTimeline]);
+    const verificationCycles = useMemo(() => buildVerificationCycles(taskTimeline), [taskTimeline]);
     const mentionedVerifications = useMemo(() => buildMentionedFileVerifications(taskTimeline, exploredFiles, taskDetail?.task.workspacePath), [exploredFiles, taskDetail?.task.workspacePath, taskTimeline]);
     const handoffExploredFiles = useMemo(() => exploredFiles.map((file) => file.path), [exploredFiles]);
     const handoffModifiedFiles = useMemo(() => collectFileActivity(taskTimeline).filter(f => f.writeCount > 0).map(f => f.path), [taskTimeline]);
@@ -460,7 +461,7 @@ export function EventInspector({ taskDetail, selectedTaskTitle = null, taskObser
         {isCollapsed ? <path d="M15 18l-6-6 6-6"/> : <path d="M9 18l6-6-6-6"/>}
       </svg>
     </button>) : null;
-    const openWorkspaceButton = onOpenTaskWorkspace ? (<Button className={cn("h-8 rounded-[var(--radius-md)] px-3 text-[0.74rem] font-semibold shadow-none whitespace-nowrap", isSingleTabMode
+    const openWorkspaceButton = onOpenTaskWorkspace ? (<Button className={cn("h-7 rounded-[var(--radius-md)] px-2.5 text-[0.72rem] font-semibold shadow-none whitespace-nowrap", isSingleTabMode
             ? (isInlineSingleTabHeader ? "h-7 shrink-0 px-2.5 text-[0.72rem]" : "w-full justify-center")
             : "ml-auto shrink-0")} onClick={onOpenTaskWorkspace} size="sm" type="button">
       {openWorkspaceLabel}
@@ -512,20 +513,20 @@ export function EventInspector({ taskDetail, selectedTaskTitle = null, taskObser
             <div className="px-4 pt-4">
               <InspectorHeaderCard actions={(<>
                     <div className="flex flex-wrap items-center gap-2">
-                      <Button className="h-8 rounded-[var(--radius-md)] px-3 text-[0.74rem] font-semibold shadow-none" onClick={onCreateTaskBookmark} size="sm" type="button" variant="ghost">
+              <Button className="h-7 rounded-[var(--radius-md)] px-2.5 text-[0.72rem] font-semibold shadow-none" onClick={onCreateTaskBookmark} size="sm" type="button" variant="ghost">
                       {selectedTaskBookmark ? "Task Saved" : "Save Task"}
                       </Button>
-                      {selectedEvent && (<Button className="h-8 rounded-[var(--radius-md)] px-3 text-[0.74rem] font-semibold shadow-none" onClick={onCreateEventBookmark} size="sm" type="button" variant="ghost">
+                      {selectedEvent && (<Button className="h-7 rounded-[var(--radius-md)] px-2.5 text-[0.72rem] font-semibold shadow-none" onClick={onCreateEventBookmark} size="sm" type="button" variant="ghost">
                           {selectedEventBookmark ? "Card Saved" : "Save Card"}
                         </Button>)}
-                      {selectedEvent && canEditSelectedEventTitle && !isEditingEventTitle && (<Button className="h-8 rounded-[var(--radius-md)] px-3 text-[0.74rem] font-semibold shadow-none" onClick={() => {
+                      {selectedEvent && canEditSelectedEventTitle && !isEditingEventTitle && (<Button className="h-7 rounded-[var(--radius-md)] px-2.5 text-[0.72rem] font-semibold shadow-none" onClick={() => {
                         setEventTitleDraft(selectedEventDisplayTitle ?? "");
                         setEventTitleError(null);
                         setIsEditingEventTitle(true);
                     }} size="sm" type="button" variant="ghost">
                           Rename Card
                         </Button>)}
-                      {selectedEvent && canEditSelectedEventTitle && selectedEventDisplayTitleOverride && !isEditingEventTitle && (<Button className="h-8 rounded-[var(--radius-md)] px-3 text-[0.74rem] font-semibold shadow-none" onClick={() => { void handleResetEventTitle(); }} size="sm" type="button" variant="ghost">
+                      {selectedEvent && canEditSelectedEventTitle && selectedEventDisplayTitleOverride && !isEditingEventTitle && (<Button className="h-7 rounded-[var(--radius-md)] px-2.5 text-[0.72rem] font-semibold shadow-none" onClick={() => { void handleResetEventTitle(); }} size="sm" type="button" variant="ghost">
                           Reset Title
                         </Button>)}
                     </div>
@@ -548,17 +549,17 @@ export function EventInspector({ taskDetail, selectedTaskTitle = null, taskObser
                 {selectedEvent && canEditSelectedEventTitle && isEditingEventTitle && (<form className="mt-4 flex flex-col gap-2" onSubmit={(event) => { void handleEventTitleSubmit(event); }}>
                     <input className="w-full rounded-[10px] border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-[0.84rem] text-[var(--text-1)] outline-none transition-colors focus:border-[var(--accent)]" disabled={isSavingEventTitle} onChange={(event) => setEventTitleDraft(event.target.value)} placeholder="Short title for this card" type="text" value={eventTitleDraft}/>
                     <div className="flex flex-wrap items-center gap-2">
-                      <Button className="h-8 rounded-[var(--radius-md)] border-[var(--accent)] bg-[var(--accent-light)] px-3 text-[0.74rem] font-semibold text-[var(--accent)] shadow-none hover:border-[var(--accent)] hover:bg-[var(--accent-light)] hover:text-[var(--accent)]" disabled={isSavingEventTitle} size="sm" type="submit">
+                      <Button className="h-7 rounded-[var(--radius-md)] border-[var(--accent)] bg-[var(--accent-light)] px-2.5 text-[0.72rem] font-semibold text-[var(--accent)] shadow-none hover:border-[var(--accent)] hover:bg-[var(--accent-light)] hover:text-[var(--accent)]" disabled={isSavingEventTitle} size="sm" type="submit">
                         {isSavingEventTitle ? "Saving..." : "Save"}
                       </Button>
-                      <Button className="h-8 rounded-[var(--radius-md)] px-3 text-[0.74rem] font-semibold shadow-none" disabled={isSavingEventTitle} onClick={() => {
+                      <Button className="h-7 rounded-[var(--radius-md)] px-2.5 text-[0.72rem] font-semibold shadow-none" disabled={isSavingEventTitle} onClick={() => {
                     setEventTitleDraft(selectedEventDisplayTitle ?? "");
                     setEventTitleError(null);
                     setIsEditingEventTitle(false);
                 }} size="sm" type="button">
                         Cancel
                       </Button>
-                      {selectedEventDisplayTitleOverride && (<Button className="h-8 rounded-[var(--radius-md)] px-3 text-[0.74rem] font-semibold shadow-none" disabled={isSavingEventTitle} onClick={() => { void handleResetEventTitle(); }} size="sm" type="button">
+                      {selectedEventDisplayTitleOverride && (<Button className="h-7 rounded-[var(--radius-md)] px-2.5 text-[0.72rem] font-semibold shadow-none" disabled={isSavingEventTitle} onClick={() => { void handleResetEventTitle(); }} size="sm" type="button">
                           Reset to Raw
                         </Button>)}
                     </div>
@@ -672,7 +673,7 @@ export function EventInspector({ taskDetail, selectedTaskTitle = null, taskObser
             {showInspectorSummaryFooter && taskModelSummary && (<div className="px-4 pb-4">
                 <DetailTaskModel summary={taskModelSummary}/>
               </div>)}
-          </>) : activeTab === "overview" ? (<OverviewTab observability={observability} subagentInsight={subagentInsight} runtimeSessionId={taskDetail?.runtimeSessionId} runtimeSource={taskDetail?.runtimeSource}/>) : activeTab === "evidence" ? (<EvidenceTab tagInsights={tagInsights} selectedTag={selectedTag} sortedFileActivity={sortedFileActivity} workspacePath={taskDetail?.task.workspacePath} isFileActivityExpanded={isFileActivityExpanded} fileSortKey={fileSortKey} explorationInsight={explorationInsight} webLookups={webLookups} sortedExploredFiles={sortedExploredFiles} isExploredFilesExpanded={isExploredFilesExpanded} explorationSortKey={explorationSortKey} mentionedVerifications={mentionedVerifications} onSelectTag={(tag) => onSelectTag(selectedTag === tag ? null : tag)} onToggleFileActivity={() => setIsFileActivityExpanded((current) => !current)} onFileSortChange={setFileSortKey} onToggleExploredFiles={() => setIsExploredFilesExpanded((current) => !current)} onExplorationSortChange={setExplorationSortKey}/>) : (<ActionsTab taskId={taskDetail?.task.id} taskTitle={selectedTaskTitle ?? taskDetail?.task.title ?? ""} workspacePath={taskDetail?.task.workspacePath} taskExtraction={taskExtraction} taskTimeline={taskTimeline} handoffPlans={handoffPlans} handoffExploredFiles={handoffExploredFiles} handoffModifiedFiles={handoffModifiedFiles} handoffOpenTodos={handoffOpenTodos} handoffOpenQuestions={handoffOpenQuestions} handoffViolations={handoffViolations} handoffSnapshot={handoffSnapshot} evaluation={taskEvaluation} isSavingEvaluation={isSavingTaskEvaluation} isSavedEvaluation={isSavedTaskEvaluation} onSaveEvaluation={saveTaskEvaluation}/>)}
+          </>) : activeTab === "overview" ? (<OverviewTab observability={observability} subagentInsight={subagentInsight} verificationCycles={verificationCycles} runtimeSessionId={taskDetail?.runtimeSessionId} runtimeSource={taskDetail?.runtimeSource}/>) : activeTab === "evidence" ? (<EvidenceTab tagInsights={tagInsights} selectedTag={selectedTag} sortedFileActivity={sortedFileActivity} workspacePath={taskDetail?.task.workspacePath} isFileActivityExpanded={isFileActivityExpanded} fileSortKey={fileSortKey} explorationInsight={explorationInsight} webLookups={webLookups} sortedExploredFiles={sortedExploredFiles} isExploredFilesExpanded={isExploredFilesExpanded} explorationSortKey={explorationSortKey} mentionedVerifications={mentionedVerifications} onSelectTag={(tag) => onSelectTag(selectedTag === tag ? null : tag)} onToggleFileActivity={() => setIsFileActivityExpanded((current) => !current)} onFileSortChange={setFileSortKey} onToggleExploredFiles={() => setIsExploredFilesExpanded((current) => !current)} onExplorationSortChange={setExplorationSortKey}/>) : (<ActionsTab taskId={taskDetail?.task.id} taskTitle={selectedTaskTitle ?? taskDetail?.task.title ?? ""} workspacePath={taskDetail?.task.workspacePath} taskExtraction={taskExtraction} taskTimeline={taskTimeline} handoffPlans={handoffPlans} handoffExploredFiles={handoffExploredFiles} handoffModifiedFiles={handoffModifiedFiles} handoffOpenTodos={handoffOpenTodos} handoffOpenQuestions={handoffOpenQuestions} handoffViolations={handoffViolations} handoffSnapshot={handoffSnapshot} evaluation={taskEvaluation} isSavingEvaluation={isSavingTaskEvaluation} isSavedEvaluation={isSavedTaskEvaluation} onSaveEvaluation={saveTaskEvaluation}/>)}
       </div>
     </aside>);
 }

@@ -11,11 +11,11 @@ interface PlaybookDetailViewProps {
 
 export function PlaybookDetailView({ playbook, onEdit }: PlaybookDetailViewProps): React.JSX.Element {
     return (
-        <div className="border-t border-[var(--border)] bg-[var(--surface-2)] px-4 py-3">
+        <div className="border-t border-[var(--border)] bg-[var(--surface-2)] px-4 py-2.5">
             <div className="mb-3 flex items-start justify-between gap-3">
                 <div className="flex flex-col gap-1">
-                    <span className="text-[0.78rem] font-semibold text-[var(--text-1)]">Playbook</span>
-                    <span className="text-[0.73rem] leading-relaxed text-[var(--text-3)]">
+                    <span className="text-[0.74rem] font-semibold text-[var(--text-1)]">Playbook</span>
+                    <span className="text-[0.7rem] leading-relaxed text-[var(--text-3)]">
                         Curated knowledge for repeating this kind of work.
                     </span>
                 </div>
@@ -24,11 +24,11 @@ export function PlaybookDetailView({ playbook, onEdit }: PlaybookDetailViewProps
                         {playbook.status}
                     </Badge>
                     <Badge tone="neutral" size="xs">used {playbook.useCount}</Badge>
-                    <Button size="sm" onClick={onEdit}>Edit Playbook</Button>
+                    <Button size="sm" onClick={onEdit}>Edit</Button>
                 </div>
             </div>
 
-            <div className="flex flex-col gap-2.5">
+            <div className="flex flex-col gap-2">
                 <SnapshotField label="When to Use" value={playbook.whenToUse}/>
                 <SnapshotField label="Approach" value={playbook.approach}/>
                 <SnapshotField label="Search Text" value={playbook.searchText}/>

@@ -22,7 +22,7 @@ export type EditorDraft = {
 };
 export type KnowledgeItem = WorkflowSummaryRecord | PlaybookSummaryRecord;
 
-export const tabButtonClass = "rounded-[7px] border px-2.5 py-1 text-[0.72rem] font-semibold transition-colors";
+export const tabButtonClass = "rounded-[var(--radius-md)] border px-2 py-0.75 text-[0.68rem] font-semibold transition-colors";
 export const editorFieldClass = "flex flex-col gap-1.5";
 
 export function formatDate(iso: string | null | undefined): string | null {
@@ -122,7 +122,7 @@ export function sortPlaybooks(items: readonly PlaybookSummaryRecord[]): readonly
 }
 
 export function SectionLabel({ children }: { readonly children: React.ReactNode; }): React.JSX.Element {
-    return React.createElement(Eyebrow, { className: "text-[0.72rem] tracking-[0.06em]" }, children);
+    return React.createElement(Eyebrow, { className: "text-[0.68rem] tracking-[0.06em]" }, children);
 }
 
 export function SnapshotField({ label, value }: {
@@ -134,9 +134,9 @@ export function SnapshotField({ label, value }: {
     }
     return React.createElement(
         "div",
-        { className: "flex flex-col gap-1.5 rounded-[10px] border border-[var(--border)] bg-[var(--surface)] px-3.5 py-3" },
+        { className: "flex flex-col gap-1.5 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5" },
         React.createElement(Eyebrow, null, label),
-        React.createElement("p", { className: "m-0 whitespace-pre-wrap break-words text-[0.84rem] leading-7 text-[var(--text-1)]" }, value)
+        React.createElement("p", { className: "m-0 whitespace-pre-wrap break-words text-[0.8rem] leading-6 text-[var(--text-1)]" }, value)
     );
 }
 
@@ -149,13 +149,13 @@ export function SnapshotList({ label, items }: {
     }
     return React.createElement(
         "div",
-        { className: "flex flex-col gap-2 rounded-[10px] border border-[var(--border)] bg-[var(--surface)] px-3.5 py-3" },
+        { className: "flex flex-col gap-2 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5" },
         React.createElement(Eyebrow, null, label),
         React.createElement(
             "div",
             { className: "flex flex-col gap-1.5" },
             ...items.map((item) =>
-                React.createElement("p", { key: item, className: "m-0 whitespace-pre-wrap break-words text-[0.84rem] leading-7 text-[var(--text-1)]" }, `- ${item}`)
+                React.createElement("p", { key: item, className: "m-0 whitespace-pre-wrap break-words text-[0.8rem] leading-6 text-[var(--text-1)]" }, `- ${item}`)
             )
         )
     );
