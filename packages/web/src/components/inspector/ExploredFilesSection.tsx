@@ -1,7 +1,6 @@
 import type React from "react";
 import { cn } from "../../lib/ui/cn.js";
-import type { ExploredFileStat } from "@monitor/web-core";
-import { formatRelativeTime } from "@monitor/web-core";
+import { formatRelativeTime, type ExploredFileStat } from "@monitor/web-domain";
 import { PanelCard } from "../ui/PanelCard.js";
 import { Badge } from "../ui/Badge.js";
 import { cardShell, monoText } from "./styles.js";

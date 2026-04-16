@@ -1,7 +1,6 @@
 import type React from "react";
 import { getEventEvidence } from "@monitor/core";
-import { buildInspectorEventTitle, evidenceTone, formatEvidenceLevel, type ModelSummary } from "@monitor/web-core";
-import type { TimelineConnector, TimelineEvent } from "@monitor/web-core";
+import { buildInspectorEventTitle, evidenceTone, formatEvidenceLevel, type ModelSummary, type TimelineConnector, type TimelineEvent } from "@monitor/web-domain";
 
 import { cn } from "../../lib/ui/cn.js";
 import { Badge } from "../ui/Badge.js";

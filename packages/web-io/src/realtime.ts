@@ -1,5 +1,5 @@
 import type { MonitoringSession } from "@monitor/core";
-import type { BookmarkRecord, MonitoringTask, OverviewResponse, TimelineEvent } from "../types.js";
+import type { BookmarkRecord, MonitoringTask, OverviewResponse, TimelineEvent } from "@monitor/web-domain";
 type RealtimeDispatch =
     | {
         type: "UPSERT_TASK";

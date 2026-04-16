@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { TIMELINE_LANES } from "@monitor/web-core";
+import { TIMELINE_LANES } from "@monitor/web-domain";
 import { LANE_THEME, getLaneTheme } from "./laneTheme.js";
 describe("LANE_THEME", () => {
     it("defines a theme entry for every timeline lane", () => {

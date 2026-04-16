@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { RuleId } from "@monitor/core";
-import { fetchTaskDetail, fetchTaskObservability, postRuleAction } from "@monitor/web-core";
-import type { MonitoringTask, TaskObservabilitySummary } from "@monitor/web-core";
+import { collectRecentRuleDecisions, type MonitoringTask, type RuleDecisionStat, type TaskObservabilitySummary } from "@monitor/web-domain";
+import { fetchTaskDetail, fetchTaskObservability, postRuleAction } from "@monitor/web-io";
 import { Button } from "./ui/Button.js";
 import { Badge } from "./ui/Badge.js";
 import { PanelCard } from "./ui/PanelCard.js";
-import { collectRecentRuleDecisions, type RuleDecisionStat } from "@monitor/web-core";
 const REVIEWER_ID_STORAGE_KEY = "agent-tracer.reviewer-id";
 interface ApprovalQueuePanelProps {
     readonly tasks: readonly MonitoringTask[];

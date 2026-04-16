@@ -1,4 +1,4 @@
-import type { HandoffMode, HandoffPurpose } from "@monitor/web-core";
+import type { HandoffMode, HandoffPurpose } from "@monitor/web-domain";
 export type HandoffFormat = "plain" | "markdown" | "xml" | "system-prompt" | "prompt";
 export interface HandoffPrefs {
     format: HandoffFormat;

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { BookmarkId, EventId, TaskId, TaskSlug } from "@monitor/core";
-import { parseRealtimeMessage, refreshRealtimeMonitorData, type MonitorRealtimeMessage } from "@monitor/web-core";
+import { parseRealtimeMessage, refreshRealtimeMonitorData, type MonitorRealtimeMessage } from "@monitor/web-io";
 function createRefreshFns() {
     return {
         refreshOverview: vi.fn(async () => { }),

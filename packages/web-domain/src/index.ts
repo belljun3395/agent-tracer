@@ -1,10 +1,9 @@
-// @monitor/web-domain — pure domain layer for the web surface.
-//
-// This package holds framework-free code: domain types, timeline layout math,
-// insight aggregation, event subtype classification, and formatting utilities.
-// It must not depend on React, zustand, the DOM, or the network. Upstream layers
-// (web-io, web-state, web) consume this package; nothing here reaches back out.
-//
-// Modules are registered here as they migrate from the retiring @monitor/web-core
-// package during the S1–S6 stripes of the web blackbox redesign.
-export {};
+export * from "./types.js";
+export * from "./lib/eventSubtype.js";
+export * from "./lib/explorationCategory.js";
+export * from "./lib/insights.js";
+export * from "./lib/observability.js";
+export * from "./lib/resume-command.js";
+export * from "./lib/taskTimelineSummary.js";
+export * from "./lib/taskWorkspace.js";
+export * from "./lib/timeline.js";

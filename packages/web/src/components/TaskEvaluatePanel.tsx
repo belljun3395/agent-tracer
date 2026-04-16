@@ -1,8 +1,7 @@
 import { buildReusableTaskSnapshot, buildWorkflowContext } from "@monitor/core";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { fetchSimilarWorkflows } from "@monitor/web-core";
-import type { TaskEvaluationPayload, TaskEvaluationRecord, WorkflowSearchResultRecord } from "@monitor/web-core";
-import type { TimelineEvent } from "@monitor/web-core";
+import type { TimelineEvent } from "@monitor/web-domain";
+import { fetchSimilarWorkflows, type TaskEvaluationPayload, type TaskEvaluationRecord, type WorkflowSearchResultRecord } from "@monitor/web-io";
 import { cn } from "../lib/ui/cn.js";
 import { buildWorkflowEvaluationData, createWorkflowSnapshotDraft, parseWorkflowSnapshotDraft, type WorkflowSnapshotDraft } from "./workflowPreview.js";
 import { Badge } from "./ui/Badge.js";

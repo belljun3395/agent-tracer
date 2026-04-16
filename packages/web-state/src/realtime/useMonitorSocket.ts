@@ -1,6 +1,5 @@
 import { TaskId } from "@monitor/core";
-// eslint-disable-next-line no-restricted-imports -- legacy realtime parser pending move to web-io (plan S6/S7)
-import { parseRealtimeMessage, type MonitorRealtimeMessage } from "@monitor/web-core";
+import { MonitorSocket, parseRealtimeMessage, type MonitorRealtimeMessage } from "@monitor/web-io";
 import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 
@@ -18,28 +17,19 @@ export function useMonitorSocket(options: UseMonitorSocketOptions): void {
     const queryClient = useQueryClient();
 
     useEffect(() => {
-        let socket: WebSocket | null = null;
+        const socket = new MonitorSocket({ url });
         let closed = false;
 
-        try {
-            socket = new WebSocket(url);
-        } catch {
-            onConnectionChange?.(false);
-            return;
-        }
-
-        socket.addEventListener("open", () => {
-            if (!closed) onConnectionChange?.(true);
+        const offConnection = socket.on("connectionChange", (connected) => {
+            if (!closed) {
+                onConnectionChange?.(connected);
+            }
         });
-        socket.addEventListener("close", () => {
-            if (!closed) onConnectionChange?.(false);
-        });
-        socket.addEventListener("error", () => {
-            if (!closed) onConnectionChange?.(false);
-        });
-        socket.addEventListener("message", (ev) => {
-            if (closed) return;
-            const message = parseRealtimeMessage(ev.data as string);
+        const offMessage = socket.on("message", (raw) => {
+            if (closed) {
+                return;
+            }
+            const message = parseRealtimeMessage(raw);
             if (!message) return;
             applyInvalidations(queryClient, message, selectedTaskId ?? null);
             onMessage?.(message);
@@ -47,6 +37,8 @@ export function useMonitorSocket(options: UseMonitorSocketOptions): void {
 
         return () => {
             closed = true;
+            offConnection();
+            offMessage();
             socket.close();
         };
     }, [url, queryClient, selectedTaskId, onConnectionChange, onMessage]);

@@ -1,7 +1,7 @@
 import type React from "react";
 import { useMemo, useState } from "react";
 import { cn } from "../../lib/ui/cn.js";
-import { formatRelativeTime } from "@monitor/web-core";
+import { formatRelativeTime, type DirectoryMentionVerification, type ExplorationInsight, type ExploredFileStat, type FileActivityStat, type FileMentionVerification, type MentionedFileVerification, type TagInsight, type WebLookupStat } from "@monitor/web-domain";
 import { Badge } from "../ui/Badge.js";
 import { Button } from "../ui/Button.js";
 import { PanelCard } from "../ui/PanelCard.js";
@@ -11,7 +11,6 @@ import { cardShell, cardHeader, cardBody, innerPanel, monoText } from "./styles.
 import { toRelativePath, summarizePath, compactRelationLabel } from "./utils.js";
 import type { FileSortKey } from "./FileActivitySection.js";
 import type { ExplorationSortKey } from "./ExploredFilesSection.js";
-import type { ExplorationInsight, ExploredFileStat, FileActivityStat, FileMentionVerification, DirectoryMentionVerification, MentionedFileVerification, TagInsight, WebLookupStat } from "@monitor/web-core";
 function SectionTitle({ eyebrow, title, description, action }: {
     readonly eyebrow?: string;
     readonly title: string;

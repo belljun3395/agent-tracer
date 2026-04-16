@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { _taskStore } from "@monitor/web-store";
+import { _taskStore } from "@monitor/web-state";
 beforeEach(() => {
     const dispatch = _taskStore.getState().dispatchTaskAction;
     dispatch({ type: "SELECT_TASK", taskId: null });

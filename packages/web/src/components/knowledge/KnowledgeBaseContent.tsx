@@ -12,7 +12,7 @@ import {
     type PlaybookSummaryRecord,
     type WorkflowContentRecord,
     type WorkflowSummaryRecord
-} from "@monitor/web-core";
+} from "@monitor/web-io";
 import { cn } from "../../lib/ui/cn.js";
 import { Button } from "../ui/Button.js";
 import { Input } from "../ui/Input.js";

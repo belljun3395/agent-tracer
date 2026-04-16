@@ -14,8 +14,6 @@ export default defineConfig(({ mode }) => {
         plugins: [react(), tailwindcss()],
         resolve: {
             alias: {
-                "@monitor/web-core": fileURLToPath(new URL("../web-core/src/index.ts", import.meta.url)),
-                "@monitor/web-store": fileURLToPath(new URL("../web-store/src/index.ts", import.meta.url)),
                 "@monitor/web-domain": fileURLToPath(new URL("../web-domain/src/index.ts", import.meta.url)),
                 "@monitor/web-io": fileURLToPath(new URL("../web-io/src/index.ts", import.meta.url)),
                 "@monitor/web-state": fileURLToPath(new URL("../web-state/src/index.ts", import.meta.url))

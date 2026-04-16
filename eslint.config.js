@@ -157,9 +157,7 @@ export default tseslint.config(
               "react-router-dom",
               "@monitor/web-io",
               "@monitor/web-state",
-              "@monitor/web",
-              "@monitor/web-core",
-              "@monitor/web-store"
+              "@monitor/web"
             ],
             message: "web-domain must stay framework-free — depend only on @monitor/core."
           }
@@ -183,9 +181,7 @@ export default tseslint.config(
               "@tanstack/*",
               "react-router-dom",
               "@monitor/web-state",
-              "@monitor/web",
-              "@monitor/web-core",
-              "@monitor/web-store"
+              "@monitor/web"
             ],
             message: "web-io is the browser-boundary adapter layer — no React, no state libs, no upward imports."
           }
@@ -199,12 +195,8 @@ export default tseslint.config(
       "no-restricted-imports": ["error", {
         patterns: [
           {
-            group: [
-              "@monitor/web",
-              "@monitor/web-core",
-              "@monitor/web-store"
-            ],
-            message: "web-state must not import from web or the legacy web-core/web-store packages."
+            group: ["@monitor/web"],
+            message: "web-state must not import from web."
           }
         ]
       }]

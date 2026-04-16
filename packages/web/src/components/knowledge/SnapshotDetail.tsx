@@ -1,5 +1,5 @@
 import type React from "react";
-import type { WorkflowContentRecord } from "@monitor/web-core";
+import type { WorkflowContentRecord } from "@monitor/web-io";
 import { Badge } from "../ui/Badge.js";
 import { Button } from "../ui/Button.js";
 import { Eyebrow } from "../ui/Eyebrow.js";

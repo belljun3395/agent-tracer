@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { TaskId } from "@monitor/core";
-import { fetchSearchResults } from "@monitor/web-core";
-import type { SearchResponse } from "@monitor/web-core";
+import { fetchSearchResults } from "@monitor/web-io";
+import type { SearchResponse } from "@monitor/web-domain";
 export interface UseSearchResult {
     readonly query: string;
     readonly setQuery: (query: string) => void;

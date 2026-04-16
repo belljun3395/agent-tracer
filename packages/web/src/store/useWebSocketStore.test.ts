@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { _wsStore } from "@monitor/web-store";
+import { _wsStore } from "@monitor/web-state";
 beforeEach(() => {
     _wsStore.getState().setConnected(false);
 });

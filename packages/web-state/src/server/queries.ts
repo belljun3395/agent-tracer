@@ -1,15 +1,16 @@
 import type { TaskId } from "@monitor/core";
-// eslint-disable-next-line no-restricted-imports -- legacy api surface pending move to web-io (plan S6/S7)
+import type {
+    BookmarksResponse,
+    OverviewResponse,
+    TaskDetailResponse,
+    TasksResponse
+} from "@monitor/web-domain";
 import {
     fetchBookmarks,
     fetchOverview,
     fetchTaskDetail,
-    fetchTasks,
-    type BookmarksResponse,
-    type OverviewResponse,
-    type TaskDetailResponse,
-    type TasksResponse
-} from "@monitor/web-core";
+    fetchTasks
+} from "@monitor/web-io";
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 
 import { monitorQueryKeys } from "./queryKeys.js";
