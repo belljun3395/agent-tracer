@@ -36,7 +36,17 @@ export function useWebSocket(onMessage: (message: MonitorRealtimeMessage | null)
             return Math.min(delay, RECONNECT_MAX_MS);
         }
         function connect(): void {
-            ws = createMonitorWebSocket();
+            try {
+                ws = createMonitorWebSocket();
+            } catch {
+                setIsConnected(false);
+                if (!destroyed) {
+                    const delay = getReconnectDelay();
+                    reconnectAttempts += 1;
+                    reconnectTimer = setTimeout(connect, delay);
+                }
+                return;
+            }
             ws.onopen = (): void => {
                 if (destroyed || closeAfterConnect) {
                     closeAfterConnect = false;
