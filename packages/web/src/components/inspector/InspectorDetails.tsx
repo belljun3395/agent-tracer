@@ -6,6 +6,7 @@ import { cn } from "../../lib/ui/cn.js";
 import { Badge } from "../ui/Badge.js";
 import { Button } from "../ui/Button.js";
 import { PanelCard } from "../ui/PanelCard.js";
+import { CacheEfficiencyBar } from "./CacheEfficiencyBar.js";
 import { SectionCard } from "./SectionCard.js";
 import { cardShell, monoText } from "./styles.js";
 import { summarizeDetailText } from "./utils.js";
@@ -217,7 +218,18 @@ export function DetailTokenUsage({ event }: {
     ];
     if (rows.length === 0)
         return <></>;
+    const hasCacheData = inputTokens != null || outputTokens != null;
     return (<SectionCard title="Token Usage" bodyClassName="pt-4">
+      {hasCacheData && (
+        <div className="mb-3">
+          <CacheEfficiencyBar
+            inputTokens={inputTokens ?? 0}
+            cacheReadTokens={cacheReadTokens ?? 0}
+            cacheCreateTokens={cacheCreateTokens ?? 0}
+            outputTokens={outputTokens ?? 0}
+          />
+        </div>
+      )}
       <KeyValueTable rows={rows}/>
     </SectionCard>);
 }
