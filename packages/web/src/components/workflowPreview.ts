@@ -11,6 +11,7 @@ export interface WorkflowSnapshotDraft {
     readonly keyFiles: string;
     readonly modifiedFiles: string;
     readonly verificationSummary: string;
+    readonly activeInstructions: string;  // newline-separated list
     readonly searchText: string;
 }
 export function buildWorkflowEvaluationData(input: {
@@ -43,6 +44,7 @@ export function createWorkflowSnapshotDraft(snapshot: ReusableTaskSnapshot): Wor
         keyFiles: joinLines(snapshot.keyFiles),
         modifiedFiles: joinLines(snapshot.modifiedFiles),
         verificationSummary: snapshot.verificationSummary ?? "",
+        activeInstructions: joinLines(snapshot.activeInstructions),
         searchText: snapshot.searchText
     };
 }
@@ -59,6 +61,7 @@ export function parseWorkflowSnapshotDraft(draft: WorkflowSnapshotDraft): Reusab
         keyFiles: splitLines(draft.keyFiles),
         modifiedFiles: splitLines(draft.modifiedFiles),
         verificationSummary: normalizeText(draft.verificationSummary),
+        activeInstructions: splitLines(draft.activeInstructions),
         searchText: normalizeText(draft.searchText) ?? ""
     };
 }

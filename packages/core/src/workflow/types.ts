@@ -32,6 +32,7 @@ export interface ReusableTaskSnapshot {
     readonly keyFiles: readonly string[];
     readonly modifiedFiles: readonly string[];
     readonly verificationSummary: string | null;
+    readonly activeInstructions: readonly string[];
     readonly searchText: string;
 }
 
