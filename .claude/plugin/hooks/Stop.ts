@@ -11,16 +11,12 @@
  *   transcript_path  string  — path to the session transcript JSONL
  *   permission_mode  string  — current permission mode
  *   agent_id         string? — set when inside a subagent
- *
- * NOTE: The following fields are used below but are NOT in the official schema.
- * They appear to be implementation extensions available in practice:
- *   stop_reason             string? — e.g. "end_turn", "max_tokens"
  *   last_assistant_message  string? — the final assistant message text
- *   usage                   object? — token usage counters:
- *     input_tokens                  number
- *     output_tokens                 number
- *     cache_read_input_tokens       number
- *     cache_creation_input_tokens   number
+ *
+ * NOTE: The current Claude Code version does NOT include usage or stop_reason
+ * in the hook payload. Both are read from the transcript JSONL at transcript_path.
+ * Each line in the transcript is a JSON object; the last entry with
+ * message.role === "assistant" carries message.usage and message.stop_reason.
  *
  * Stdout (optional JSON on exit 0):
  *   decision  "block"  — prevents Claude from stopping (re-runs the turn)
@@ -38,6 +34,38 @@
 import * as fs from "node:fs";
 import { CLAUDE_RUNTIME_SOURCE, createMessageId, ellipsize, getSessionId, hookLog, hookLogPayload, postJson, readStdinJson, resolveEventSessionIds, toTrimmedString } from "./common.js";
 
+interface TranscriptUsage {
+    input_tokens?: number;
+    output_tokens?: number;
+    cache_creation_input_tokens?: number;
+    cache_read_input_tokens?: number;
+}
+
+interface TranscriptEntry {
+    message?: {
+        role?: string;
+        stop_reason?: string;
+        usage?: TranscriptUsage;
+    };
+}
+
+/** Read the last assistant message entry from the transcript JSONL file. */
+function readLastAssistantEntry(transcriptPath: string): TranscriptEntry | undefined {
+    try {
+        const content = fs.readFileSync(transcriptPath, "utf8");
+        const lines = content.trimEnd().split("\n");
+        for (let i = lines.length - 1; i >= 0; i--) {
+            const line = lines[i]?.trim();
+            if (!line) continue;
+            try {
+                const entry = JSON.parse(line) as TranscriptEntry;
+                if (entry?.message?.role === "assistant") return entry;
+            } catch { continue; }
+        }
+    } catch { /* transcript not readable — proceed without usage */ }
+    return undefined;
+}
+
 async function main(): Promise<void> {
     const payload = await readStdinJson();
     hookLogPayload("Stop", payload);
@@ -49,17 +77,20 @@ async function main(): Promise<void> {
 
     const agentId = toTrimmedString(payload.agent_id) || undefined;
     const agentType = toTrimmedString(payload.agent_type) || undefined;
-    const stopReason = toTrimmedString(payload.stop_reason) || "end_turn";
     const responseText = toTrimmedString(payload.last_assistant_message) || "";
+
+    // Read stop_reason and usage from the transcript JSONL — the Stop hook
+    // payload in the current Claude Code version does not include these fields.
+    const transcriptPath = toTrimmedString(payload.transcript_path);
+    const lastEntry = transcriptPath ? readLastAssistantEntry(transcriptPath) : undefined;
+    const stopReason = toTrimmedString(lastEntry?.message?.stop_reason) || toTrimmedString(payload.stop_reason) || "end_turn";
+    const usage = lastEntry?.message?.usage;
+
     const title = responseText
         ? ellipsize(responseText, 120)
         : `Response (${stopReason})`;
 
     const ids = await resolveEventSessionIds(sessionId, agentId, agentType);
-    const usage = payload.usage as Record<string, unknown> | undefined;
-
-    // DEBUG: write raw payload to temp file to diagnose missing usage data
-    try { fs.writeFileSync("/tmp/stop-hook-debug.json", JSON.stringify({ keys: Object.keys(payload), usage, payload }, null, 2)); } catch { void 0; }
 
     await postJson("/ingest/v1/events", {
         events: [{
@@ -79,7 +110,7 @@ async function main(): Promise<void> {
             }
         }]
     });
-    hookLog("Stop", "assistant-response posted", { stopReason, hasText: !!responseText, agentId: agentId ?? "(none)" });
+    hookLog("Stop", "assistant-response posted", { stopReason, hasText: !!responseText, agentId: agentId ?? "(none)", hasUsage: !!usage });
 
     if (agentId) {
         hookLog("Stop", "runtime-session-end skipped for subagent", { agentId });
