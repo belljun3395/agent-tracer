@@ -35,6 +35,7 @@
  * child task timeline via resolveEventSessionIds, and runtime-session-end
  * is skipped (SubagentStop.ts handles child task completion).
  */
+import * as fs from "node:fs";
 import { CLAUDE_RUNTIME_SOURCE, createMessageId, ellipsize, getSessionId, hookLog, hookLogPayload, postJson, readStdinJson, resolveEventSessionIds, toTrimmedString } from "./common.js";
 
 async function main(): Promise<void> {
@@ -56,6 +57,9 @@ async function main(): Promise<void> {
 
     const ids = await resolveEventSessionIds(sessionId, agentId, agentType);
     const usage = payload.usage as Record<string, unknown> | undefined;
+
+    // DEBUG: write raw payload to temp file to diagnose missing usage data
+    try { fs.writeFileSync("/tmp/stop-hook-debug.json", JSON.stringify({ keys: Object.keys(payload), usage, payload }, null, 2)); } catch { void 0; }
 
     await postJson("/ingest/v1/events", {
         events: [{
