@@ -307,7 +307,7 @@ function TaskWorkspaceRoute(): React.JSX.Element {
         view="workspace"
         workspaceTaskId={taskId}
         onOpenTaskWorkspace={(newTaskId) => { void navigate(`/tasks/${encodeURIComponent(newTaskId)}`); }}
-        onSelectTaskRoute={(tid) => { if (tid) void navigate(`/?task=${encodeURIComponent(tid)}`); else void navigate("/"); }}
+        onSelectTaskRoute={(tid) => { if (tid) void navigate(`/tasks/${encodeURIComponent(tid)}`); else void navigate("/"); }}
     />);
 }
 function AppRoutes(): React.JSX.Element {
