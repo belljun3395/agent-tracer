@@ -297,17 +297,14 @@ export function MonitorProvider({ children }: {
         };
     }, []);
     const taskState = _taskStore((s) => s.taskState);
+    // Clear-on-empty only. Auto-select of the first task now lives at the URL
+    // layer (see DashboardRoute in packages/web/src/App.tsx) so the URL stays
+    // the single source of truth for selection.
     React.useEffect(() => {
-        const { tasks, selectedTaskId, status } = taskState;
-        if (tasks.length === 0) {
-            if (status === "ready") {
-                _taskStore.getState().dispatchTaskAction({ type: "SELECT_TASK", taskId: null });
-                _taskStore.getState().dispatchTaskAction({ type: "SET_TASK_DETAIL", detail: null });
-            }
-            return;
-        }
-        if (!selectedTaskId) {
-            _taskStore.getState().dispatchTaskAction({ type: "SELECT_TASK", taskId: tasks[0]?.id ?? null });
+        const { tasks, status } = taskState;
+        if (tasks.length === 0 && status === "ready") {
+            _taskStore.getState().dispatchTaskAction({ type: "SELECT_TASK", taskId: null });
+            _taskStore.getState().dispatchTaskAction({ type: "SET_TASK_DETAIL", detail: null });
         }
     }, [taskState.status, taskState.tasks]);
     React.useEffect(() => {

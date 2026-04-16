@@ -141,6 +141,76 @@ export default tseslint.config(
     }
   },
   {
+    files: ["packages/web-domain/src/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": ["error", {
+        patterns: [
+          {
+            group: [
+              "react",
+              "react-dom",
+              "react/*",
+              "react-dom/*",
+              "zustand",
+              "zustand/*",
+              "@tanstack/*",
+              "react-router-dom",
+              "@monitor/web-io",
+              "@monitor/web-state",
+              "@monitor/web",
+              "@monitor/web-core",
+              "@monitor/web-store"
+            ],
+            message: "web-domain must stay framework-free — depend only on @monitor/core."
+          }
+        ]
+      }]
+    }
+  },
+  {
+    files: ["packages/web-io/src/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": ["error", {
+        patterns: [
+          {
+            group: [
+              "react",
+              "react-dom",
+              "react/*",
+              "react-dom/*",
+              "zustand",
+              "zustand/*",
+              "@tanstack/*",
+              "react-router-dom",
+              "@monitor/web-state",
+              "@monitor/web",
+              "@monitor/web-core",
+              "@monitor/web-store"
+            ],
+            message: "web-io is the browser-boundary adapter layer — no React, no state libs, no upward imports."
+          }
+        ]
+      }]
+    }
+  },
+  {
+    files: ["packages/web-state/src/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": ["error", {
+        patterns: [
+          {
+            group: [
+              "@monitor/web",
+              "@monitor/web-core",
+              "@monitor/web-store"
+            ],
+            message: "web-state must not import from web or the legacy web-core/web-store packages."
+          }
+        ]
+      }]
+    }
+  },
+  {
     files: ["**/*.test.ts", "**/*.test.tsx", "**/test/**/*.ts", "**/test/**/*.tsx"],
     rules: {
       "@typescript-eslint/require-await": "off",

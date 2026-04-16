@@ -22,6 +22,15 @@
       ],
       "@monitor/web-store": [
         "packages/web-store/src/index.ts"
+      ],
+      "@monitor/web-domain": [
+        "packages/web-domain/src/index.ts"
+      ],
+      "@monitor/web-io": [
+        "packages/web-io/src/index.ts"
+      ],
+      "@monitor/web-state": [
+        "packages/web-state/src/index.ts"
       ]
     },
     "resolveJsonModule": true,

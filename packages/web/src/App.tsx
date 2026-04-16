@@ -1,6 +1,7 @@
 import type React from "react";
-import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Navigate, Route, Routes, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { Navigate, Route, Routes, useNavigate, useParams } from "react-router-dom";
+import { useUrlSearchParam } from "./shared/lib/urlState.js";
 import { refreshRealtimeMonitorData, buildQuestionGroups, buildTodoGroups } from "@monitor/web-core";
 import type { BookmarkRecord, BookmarkSearchHit } from "@monitor/web-core";
 import { cn } from "./lib/ui/cn.js";
@@ -269,44 +270,28 @@ function Dashboard({ view = "timeline", workspaceTaskId, onOpenTaskWorkspace, on
 }
 function DashboardRoute({ view = "timeline" }: { readonly view?: "timeline" | "knowledge" }): React.JSX.Element {
     const { state, dispatch } = useMonitorStore();
-    const [searchParams, setSearchParams] = useSearchParams();
+    const [routeTaskId, setRouteTaskId] = useUrlSearchParam("task");
     const navigate = useNavigate();
-    const routeTaskId = searchParams.get("task");
+    // One-way: URL is the source of truth, mirror it into the store on change.
+    // No back-write effect — if the user strips ?task= we honor it by clearing
+    // the selection instead of restoring the URL from the store.
     useLayoutEffect(() => {
-        if (!routeTaskId || routeTaskId === state.selectedTaskId)
+        if (routeTaskId === state.selectedTaskId)
             return;
         dispatch({ type: "SELECT_TASK", taskId: routeTaskId });
     }, [dispatch, routeTaskId, state.selectedTaskId]);
-    // Sync store→URL only on initial auto-selection (when no task param in URL yet).
-    // Once synced, stop overwriting URL to avoid fighting user navigation (e.g. removing ?task=).
-    const hasAutoSyncedTaskRef = useRef(false);
+    // URL-driven auto-select: once tasks are ready and no task is in the URL,
+    // promote the first task into ?task=. The URL change round-trips through
+    // the mirror above, so the store ends up selecting the same task without
+    // the store ever having to write the URL.
     useEffect(() => {
-        const currentTaskId = searchParams.get("task");
-        if (!state.selectedTaskId)
-            return;
-        if (currentTaskId === state.selectedTaskId) {
-            hasAutoSyncedTaskRef.current = true;
-            return;
-        }
-        if (currentTaskId && currentTaskId !== state.selectedTaskId)
-            return;
-        if (hasAutoSyncedTaskRef.current)
-            return;
-        hasAutoSyncedTaskRef.current = true;
-        const next = new URLSearchParams(searchParams);
-        next.set("task", state.selectedTaskId);
-        setSearchParams(next, { replace: true });
-    }, [searchParams, setSearchParams, state.selectedTaskId]);
-    return (<Dashboard view={view} onSelectTaskRoute={(taskId) => {
-            const next = new URLSearchParams(searchParams);
-            if (taskId) {
-                next.set("task", taskId);
-            }
-            else {
-                next.delete("task");
-            }
-            setSearchParams(next, { replace: true });
-        }} onOpenTaskWorkspace={(taskId) => { void navigate(`/tasks/${encodeURIComponent(taskId)}?tab=overview`); }}/>);
+        if (routeTaskId !== null) return;
+        if (state.status !== "ready") return;
+        const firstTask = state.tasks[0];
+        if (!firstTask) return;
+        setRouteTaskId(firstTask.id);
+    }, [routeTaskId, setRouteTaskId, state.status, state.tasks]);
+    return (<Dashboard view={view} onSelectTaskRoute={setRouteTaskId} onOpenTaskWorkspace={(taskId) => { void navigate(`/tasks/${encodeURIComponent(taskId)}?tab=overview`); }}/>);
 }
 function TaskWorkspaceRoute(): React.JSX.Element {
     const { taskId } = useParams<{
