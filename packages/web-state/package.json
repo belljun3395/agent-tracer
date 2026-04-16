@@ -1,0 +1,31 @@
+{
+  "name": "@monitor/web-state",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "development": "./src/index.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "lint": "eslint src && npm run lint:types",
+    "lint:types": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@monitor/core": "*",
+    "@monitor/web-domain": "*",
+    "@monitor/web-io": "*",
+    "@tanstack/react-query": "^5.0.0",
+    "react": "^19.0.0",
+    "zustand": "^5.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "vitest": "^3.0.0"
+  }
+}
