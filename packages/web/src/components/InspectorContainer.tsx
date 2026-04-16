@@ -1,11 +1,21 @@
 import type React from "react";
 import { useMemo } from "react";
+import type { TaskId } from "@monitor/core";
 import { EventId } from "@monitor/core";
 import { buildTaskWorkspaceSelection } from "@monitor/web-domain";
-import { updateEventDisplayTitle } from "@monitor/web-io";
-import { useMonitorStore, useTaskObservability } from "@monitor/web-state";
+import { createBookmark, updateEventDisplayTitle } from "@monitor/web-io";
+import {
+    monitorQueryKeys,
+    useBookmarksQuery,
+    useSelectionStore,
+    useTaskDetailQuery,
+    useTaskObservability
+} from "@monitor/web-state";
+import { useQueryClient } from "@tanstack/react-query";
+import { InspectorProvider } from "../features/inspector/context/InspectorContext.js";
 import { cn } from "../lib/ui/cn.js";
 import { QuickInspector } from "./QuickInspector.js";
+
 interface InspectorContainerProps {
     readonly isStackedDashboard: boolean;
     readonly isInspectorCollapsed: boolean;
@@ -14,54 +24,101 @@ interface InspectorContainerProps {
     readonly onInspectorResizeStart?: ((event: React.PointerEvent<HTMLDivElement>) => void) | undefined;
     readonly onOpenTaskWorkspace?: (() => void) | undefined;
 }
-export function InspectorContainer({ isStackedDashboard, isInspectorCollapsed, selectedTaskDisplayTitle, onToggleCollapse, onOpenTaskWorkspace }: InspectorContainerProps): React.JSX.Element {
-    const { state, dispatch, refreshTaskDetail, handleCreateTaskBookmark, handleCreateEventBookmark } = useMonitorStore();
-    const { bookmarks, selectedTaskId, selectedEventId, selectedConnectorKey, selectedTag, selectedRuleId, showRuleGapsOnly, taskDetail } = state;
+
+export function InspectorContainer({
+    isStackedDashboard,
+    isInspectorCollapsed,
+    selectedTaskDisplayTitle,
+    onToggleCollapse,
+    onOpenTaskWorkspace,
+}: InspectorContainerProps): React.JSX.Element {
+    const selectedTaskId = useSelectionStore((s) => s.selectedTaskId);
+    const selectedEventId = useSelectionStore((s) => s.selectedEventId);
+    const selectedConnectorKey = useSelectionStore((s) => s.selectedConnectorKey);
+    const selectedTag = useSelectionStore((s) => s.selectedTag);
+    const selectedRuleId = useSelectionStore((s) => s.selectedRuleId);
+    const showRuleGapsOnly = useSelectionStore((s) => s.showRuleGapsOnly);
+    const selectTag = useSelectionStore((s) => s.selectTag);
+    const selectRule = useSelectionStore((s) => s.selectRule);
+    const setShowRuleGapsOnly = useSelectionStore((s) => s.setShowRuleGapsOnly);
+
+    const { data: taskDetail } = useTaskDetailQuery(
+        selectedTaskId != null ? (selectedTaskId as TaskId) : null
+    );
+    const { data: bookmarksData } = useBookmarksQuery();
+    const bookmarks = bookmarksData?.bookmarks ?? [];
     const { taskObservability } = useTaskObservability(selectedTaskId);
+    const queryClient = useQueryClient();
+
     const taskTimeline = taskDetail?.timeline ?? [];
-    const workspaceSelection = useMemo(() => buildTaskWorkspaceSelection({
-        timeline: taskTimeline,
-        selectedConnectorKey,
-        selectedEventId,
-        selectedRuleId,
-        selectedTag,
-        showRuleGapsOnly,
-        taskDisplayTitle: selectedTaskDisplayTitle
-    }), [selectedConnectorKey, selectedEventId, selectedRuleId, selectedTag, selectedTaskDisplayTitle, showRuleGapsOnly, taskTimeline]);
+    const workspaceSelection = useMemo(
+        () =>
+            buildTaskWorkspaceSelection({
+                timeline: taskTimeline,
+                selectedConnectorKey,
+                selectedEventId,
+                selectedRuleId,
+                selectedTag,
+                showRuleGapsOnly,
+                taskDisplayTitle: selectedTaskDisplayTitle,
+            }),
+        [selectedConnectorKey, selectedEventId, selectedRuleId, selectedTag, selectedTaskDisplayTitle, showRuleGapsOnly, taskTimeline]
+    );
     const { selectedConnector, selectedEvent, selectedEventDisplayTitle, modelSummary } = workspaceSelection;
-    const selectedTaskBookmark = selectedTaskId
-        ? bookmarks.find((b) => b.taskId === selectedTaskId && !b.eventId) ?? null
-        : null;
+    const selectedTaskBookmark =
+        selectedTaskId ? (bookmarks.find((b) => b.taskId === selectedTaskId && !b.eventId) ?? null) : null;
     const selectedEventBookmark = selectedEvent
-        ? bookmarks.find((b) => b.eventId === selectedEvent.id) ?? null
+        ? (bookmarks.find((b) => b.eventId === selectedEvent.id) ?? null)
         : null;
-    return (<div className={cn("relative flex min-h-0 min-w-0 flex-col", isStackedDashboard && "order-3")}>
-      <QuickInspector className={cn(isStackedDashboard && "min-h-[20rem]")} showCollapseControl={!isStackedDashboard} taskDetail={taskDetail} selectedTaskTitle={selectedTaskDisplayTitle} taskObservability={taskObservability} taskModelSummary={modelSummary} selectedEvent={selectedEvent} selectedConnector={selectedConnector} selectedEventDisplayTitle={selectedEventDisplayTitle} selectedTaskBookmark={selectedTaskBookmark} selectedEventBookmark={selectedEventBookmark} selectedTag={selectedTag} selectedRuleId={selectedRuleId} isCollapsed={isInspectorCollapsed} {...(onOpenTaskWorkspace !== undefined ? { onOpenTaskWorkspace } : {})} onToggleCollapse={onToggleCollapse} onCreateTaskBookmark={() => {
-            void handleCreateTaskBookmark().catch((err) => {
-                dispatch({
-                    type: "SET_STATUS",
-                    status: "error",
-                    errorMessage: err instanceof Error ? err.message : "Failed to save task bookmark."
-                });
-            });
-        }} onCreateEventBookmark={() => {
-            if (!selectedEvent)
-                return;
-            void handleCreateEventBookmark(selectedEvent.id, selectedEventDisplayTitle ?? selectedEvent.title).catch((err) => {
-                dispatch({
-                    type: "SET_STATUS",
-                    status: "error",
-                    errorMessage: err instanceof Error ? err.message : "Failed to save event bookmark."
-                });
-            });
-        }} onUpdateEventDisplayTitle={async (eventId, displayTitle) => {
-            if (!selectedTaskId)
-                return;
-            await updateEventDisplayTitle(EventId(eventId), displayTitle);
-            await refreshTaskDetail(selectedTaskId);
-        }} onSelectTag={(tag) => dispatch({ type: "SELECT_TAG", tag })} onSelectRule={(ruleId) => {
-            dispatch({ type: "SET_SHOW_RULE_GAPS_ONLY", show: false });
-            dispatch({ type: "SELECT_RULE", ruleId });
-        }}/>
-    </div>);
+
+    return (
+        <div className={cn("relative flex min-h-0 min-w-0 flex-col", isStackedDashboard && "order-3")}>
+            <InspectorProvider value={{
+                taskDetail: taskDetail ?? null,
+                selectedTaskTitle: selectedTaskDisplayTitle,
+                taskObservability,
+                taskModelSummary: modelSummary,
+                selectedEvent,
+                selectedConnector,
+                selectedEventDisplayTitle,
+                selectedTaskBookmark,
+                selectedEventBookmark,
+                selectedTag,
+                selectedRuleId,
+                onCreateTaskBookmark: () => {
+                    if (!selectedTaskId) return;
+                    void createBookmark({ taskId: selectedTaskId as TaskId })
+                        .then(() => queryClient.invalidateQueries({ queryKey: monitorQueryKeys.bookmarks() }));
+                },
+                onCreateEventBookmark: () => {
+                    if (!selectedEvent || !selectedTaskId) return;
+                    void createBookmark({
+                        taskId: selectedTaskId as TaskId,
+                        eventId: EventId(selectedEvent.id),
+                        title: selectedEventDisplayTitle ?? selectedEvent.title,
+                    }).then(() => queryClient.invalidateQueries({ queryKey: monitorQueryKeys.bookmarks() }));
+                },
+                onUpdateEventDisplayTitle: async (eventId, displayTitle) => {
+                    if (!selectedTaskId) return;
+                    await updateEventDisplayTitle(EventId(eventId), displayTitle ?? "");
+                    await queryClient.invalidateQueries({
+                        queryKey: monitorQueryKeys.taskDetail(selectedTaskId as TaskId),
+                    });
+                },
+                onSelectTag: selectTag,
+                onSelectRule: (ruleId) => {
+                    setShowRuleGapsOnly(false);
+                    selectRule(ruleId);
+                },
+                ...(onOpenTaskWorkspace !== undefined ? { onOpenTaskWorkspace } : {}),
+            }}>
+                <QuickInspector
+                    className={cn(isStackedDashboard && "min-h-[20rem]")}
+                    showCollapseControl={!isStackedDashboard}
+                    isCollapsed={isInspectorCollapsed}
+                    onToggleCollapse={onToggleCollapse}
+                />
+            </InspectorProvider>
+        </div>
+    );
 }
