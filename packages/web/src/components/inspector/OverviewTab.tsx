@@ -1,7 +1,6 @@
 import type React from "react";
 import { useState } from "react";
-import { formatCount, formatDuration } from "@monitor/web-core";
-import { buildResumeCommand } from "@monitor/web-core";
+import { buildResumeCommand, formatCount, formatDuration, type SubagentInsight, type TaskObservabilityResponse, type VerificationCycleItem } from "@monitor/web-domain";
 import { copyToClipboard } from "../../lib/ui/clipboard.js";
 import { cn } from "../../lib/ui/cn.js";
 import { Eyebrow } from "../ui/Eyebrow.js";
@@ -10,8 +9,6 @@ import { SectionCard } from "./SectionCard.js";
 import { ObservabilityMetricGrid, ObservabilityList, ObservabilityPhaseBreakdown } from "./ObservabilitySection.js";
 import { cardShell, cardHeader, cardBody, innerPanel } from "./styles.js";
 import { toRelativePath } from "./utils.js";
-import type { SubagentInsight, VerificationCycleItem } from "@monitor/web-core";
-import type { TaskObservabilityResponse } from "@monitor/web-core";
 function RuntimeSessionCard({ runtimeSessionId, runtimeSource }: {
     readonly runtimeSessionId?: string | undefined;
     readonly runtimeSource?: string | undefined;

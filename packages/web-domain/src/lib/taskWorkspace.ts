@@ -1,7 +1,3 @@
-import { useCallback, useEffect, useState } from "react";
-import { TaskId as toTaskId } from "@monitor/core";
-import type { TaskId } from "@monitor/core";
-import { fetchTaskObservability } from "../api.js";
 import { buildInspectorEventTitle, buildModelSummary, filterTimelineEvents } from "./insights.js";
 import { buildTimelineRelations, type TimelineConnector } from "./timeline.js";
 import type { TaskObservabilityResponse, TimelineEvent, TimelineLane, TimelineRelation } from "../types.js";
@@ -29,6 +25,11 @@ export interface SelectedTimelineConnector {
     readonly target: TimelineEvent;
 }
 
+export interface TaskObservabilityState {
+    readonly taskObservability: TaskObservabilityResponse | null;
+    readonly refreshTaskObservability: () => Promise<void>;
+}
+
 export function parseConnectorKey(key: string): ParsedConnectorKey | null {
     const [sourceEventId, targetPart] = key.split("→");
     if (!sourceEventId || !targetPart) {
@@ -39,36 +40,6 @@ export function parseConnectorKey(key: string): ParsedConnectorKey | null {
         return null;
     }
     return { sourceEventId, targetEventId, ...(relationType ? { relationType } : {}) };
-}
-
-export async function fetchTaskObservabilitySafe(taskId: TaskId): Promise<TaskObservabilityResponse | null> {
-    try {
-        return await fetchTaskObservability(taskId);
-    }
-    catch {
-        return null;
-    }
-}
-
-export function useTaskObservability(taskId: string | null | undefined): {
-    readonly taskObservability: TaskObservabilityResponse | null;
-    readonly refreshTaskObservability: () => Promise<void>;
-} {
-    const [taskObservability, setTaskObservability] = useState<TaskObservabilityResponse | null>(null);
-    const refreshTaskObservability = useCallback(async (): Promise<void> => {
-        if (!taskId) {
-            setTaskObservability(null);
-            return;
-        }
-        setTaskObservability(await fetchTaskObservabilitySafe(toTaskId(taskId)));
-    }, [taskId]);
-    useEffect(() => {
-        void refreshTaskObservability();
-    }, [refreshTaskObservability]);
-    return {
-        taskObservability,
-        refreshTaskObservability
-    };
 }
 
 export function buildFilteredTimeline(input: {
@@ -85,7 +56,10 @@ export function buildFilteredTimeline(input: {
     });
 }
 
-export function buildSelectedConnector(timeline: readonly TimelineEvent[], selectedConnectorKey: string | null): SelectedTimelineConnector | null {
+export function buildSelectedConnector(
+    timeline: readonly TimelineEvent[],
+    selectedConnectorKey: string | null
+): SelectedTimelineConnector | null {
     if (!selectedConnectorKey) {
         return null;
     }
@@ -98,9 +72,11 @@ export function buildSelectedConnector(timeline: readonly TimelineEvent[], selec
     if (!source || !target) {
         return null;
     }
-    const relation = buildTimelineRelations(timeline).find((item) => item.sourceEventId === source.id
+    const relation = buildTimelineRelations(timeline).find((item) =>
+        item.sourceEventId === source.id
         && item.targetEventId === target.id
-        && (item.relationType ?? undefined) === parsed.relationType);
+        && (item.relationType ?? undefined) === parsed.relationType
+    );
     return {
         connector: buildTimelineConnector(selectedConnectorKey, source, target, parsed, relation),
         source,
@@ -108,7 +84,13 @@ export function buildSelectedConnector(timeline: readonly TimelineEvent[], selec
     };
 }
 
-function buildTimelineConnector(key: string, source: TimelineEvent, target: TimelineEvent, parsed: ParsedConnectorKey, relation: TimelineRelation | undefined): TimelineConnector {
+function buildTimelineConnector(
+    key: string,
+    source: TimelineEvent,
+    target: TimelineEvent,
+    parsed: ParsedConnectorKey,
+    relation: TimelineRelation | undefined
+): TimelineConnector {
     return {
         key,
         path: "",

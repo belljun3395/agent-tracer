@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildResumeCommand } from "@monitor/web-core";
+import { buildResumeCommand } from "@monitor/web-domain";
 describe("buildResumeCommand", () => {
     it("returns null when sessionId is missing", () => {
         expect(buildResumeCommand("claude-plugin", undefined)).toBeNull();

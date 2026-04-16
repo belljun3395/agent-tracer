@@ -5,10 +5,9 @@ import { TaskEvaluatePanel } from "../TaskEvaluatePanel.js";
 import { EvaluatePromptButton } from "../EvaluatePromptButton.js";
 import { cardShell, cardHeader, cardBody } from "./styles.js";
 import { summarizePath } from "./utils.js";
-import type { TaskExtraction } from "@monitor/web-core";
-import type { TimelineEvent } from "@monitor/web-core";
 import type { ReusableTaskSnapshot } from "@monitor/core";
-import type { TaskEvaluationPayload, TaskEvaluationRecord } from "@monitor/web-core";
+import type { TaskExtraction, TimelineEvent } from "@monitor/web-domain";
+import type { TaskEvaluationPayload, TaskEvaluationRecord } from "@monitor/web-io";
 function TaskExtractionCard({ extraction, workspacePath }: {
     readonly extraction: TaskExtraction;
     readonly workspacePath?: string | undefined;

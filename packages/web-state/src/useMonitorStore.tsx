@@ -5,8 +5,8 @@ import { _wsStore } from "./useWebSocketStore.js";
 import type { TaskStoreSlice } from "./useTaskStore.js";
 import type { EventStoreSlice } from "./useEventStore.js";
 import type { WebSocketStoreSlice } from "./useWebSocketStore.js";
-import { buildTaskDisplayTitle } from "@monitor/web-core";
-import type { BookmarkRecord, MonitoringTask, OverviewResponse, SearchResponse, TaskDetailResponse, TimelineEvent } from "@monitor/web-core";
+import { buildTaskDisplayTitle } from "@monitor/web-domain";
+import type { BookmarkRecord, MonitoringTask, OverviewResponse, SearchResponse, TaskDetailResponse, TimelineEvent } from "@monitor/web-domain";
 export { mergeTaskDetail };
 export interface MonitorState {
     readonly tasks: readonly MonitoringTask[];

@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { EventId, TaskId } from "@monitor/core";
-import type { TimelineEvent } from "@monitor/web-core";
-import { TIMELINE_LANES, buildTimelineConnectors, buildTimelineContextSummary, buildTimelineLayout, buildTimelineRelations, buildTimestampTicks, resolveTimelineViewportHeight } from "@monitor/web-core";
+import { TIMELINE_LANES, buildTimelineConnectors, buildTimelineContextSummary, buildTimelineLayout, buildTimelineRelations, buildTimestampTicks, resolveTimelineViewportHeight, type TimelineEvent } from "@monitor/web-domain";
 type EventOverrides = Omit<Partial<TimelineEvent>, "id" | "taskId"> & {
     id?: string;
     taskId?: string;

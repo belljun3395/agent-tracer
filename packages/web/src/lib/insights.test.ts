@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { EventId, TaskId, TaskSlug, WorkspacePath } from "@monitor/core";
-import type { MonitoringTask, TimelineEvent } from "@monitor/web-core";
-import { buildExplorationInsight, collectRecentRuleDecisions, buildTaskExtraction, buildSubagentInsight, buildHandoffMarkdown, buildHandoffPlain, buildHandoffXML, buildHandoffSystemPrompt, buildHandoffPrompt, buildEvaluatePrompt, buildInspectorEventTitle, buildObservabilityStats, buildQuestionGroups, buildTaskDisplayTitle, buildTodoGroups, collectPlanSteps, collectViolationDescriptions, collectWebLookups, filterTimelineEvents } from "@monitor/web-core";
-import type { HandoffOptions, EvaluatePromptOptions } from "@monitor/web-core";
+import { buildExplorationInsight, buildEvaluatePrompt, buildHandoffMarkdown, buildHandoffPlain, buildHandoffPrompt, buildHandoffSystemPrompt, buildHandoffXML, buildInspectorEventTitle, buildObservabilityStats, buildQuestionGroups, buildSubagentInsight, buildTaskDisplayTitle, buildTaskExtraction, buildTodoGroups, collectPlanSteps, collectRecentRuleDecisions, collectViolationDescriptions, collectWebLookups, filterTimelineEvents, type EvaluatePromptOptions, type HandoffOptions, type MonitoringTask, type TimelineEvent } from "@monitor/web-domain";
 function makeTask(overrides: Omit<Partial<MonitoringTask>, "id"> & {
     id?: string;
 } = {}): MonitoringTask {

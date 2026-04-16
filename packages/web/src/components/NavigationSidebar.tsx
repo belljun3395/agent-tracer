@@ -1,8 +1,8 @@
 import type React from "react";
+import type { BookmarkRecord, MonitoringTask, TaskDetailResponse } from "@monitor/web-domain";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "../lib/ui/cn.js";
 import { TaskList } from "./TaskList.js";
-import type { BookmarkRecord, MonitoringTask, TaskDetailResponse } from "@monitor/web-core";
 
 interface NavigationSidebarProps {
   readonly className?: string;

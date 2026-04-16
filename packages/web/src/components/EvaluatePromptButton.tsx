@@ -1,7 +1,6 @@
 import type React from "react";
 import { useCallback, useState } from "react";
-import type { EvaluatePromptOptions } from "@monitor/web-core";
-import { buildEvaluatePrompt } from "@monitor/web-core";
+import { buildEvaluatePrompt, type EvaluatePromptOptions } from "@monitor/web-domain";
 import { copyToClipboard } from "../lib/ui/clipboard.js";
 import { cn } from "../lib/ui/cn.js";
 

@@ -1,5 +1,5 @@
 import React from "react";
-import type { WorkflowContentRecord, PlaybookRecordResponse, WorkflowSummaryRecord, PlaybookSummaryRecord } from "@monitor/web-core";
+import type { WorkflowContentRecord, PlaybookRecordResponse, WorkflowSummaryRecord, PlaybookSummaryRecord } from "@monitor/web-io";
 import { Eyebrow } from "../ui/Eyebrow.js";
 
 export type SnapshotFilter = "all" | "good" | "skip";

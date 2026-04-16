@@ -1,7 +1,7 @@
 import type React from "react";
 import { useEffect, useRef } from "react";
+import type { BookmarkSearchHit, SearchResponse } from "@monitor/web-domain";
 import { Link } from "react-router-dom";
-import type { BookmarkSearchHit, SearchResponse } from "@monitor/web-core";
 import { cn } from "../lib/ui/cn.js";
 import { useTheme } from "../lib/useTheme.js";
 import { Button } from "./ui/Button.js";
@@ -181,4 +181,3 @@ export function TopBar({ isConnected, pendingApprovalCount = 0, blockedTaskCount
 
     </header>);
 }
-

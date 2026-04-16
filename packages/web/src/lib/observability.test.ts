@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { evidenceTone, formatEvidenceLevel, formatCount, formatDuration, formatPhaseLabel, formatRate } from "@monitor/web-core";
+import { evidenceTone, formatEvidenceLevel, formatCount, formatDuration, formatPhaseLabel, formatRate } from "@monitor/web-domain";
 describe("observability formatting", () => {
     it("formats durations across common ranges", () => {
         expect(formatDuration(42)).toBe("42ms");

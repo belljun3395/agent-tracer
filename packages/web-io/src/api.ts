@@ -1,5 +1,30 @@
-import type { BookmarkId, EventId, PlaybookRecord, PlaybookStatus, PlaybookSummary, ReusableTaskSnapshot, RuleId, RuntimeSource, SavedBriefing, SessionId, TaskEvaluation, TaskId, WorkflowSearchResult, WorkflowSummary } from "@monitor/core";
-import type { BookmarksResponse, BookmarkRecord, MonitoringTask, OverviewResponse, SearchResponse, TaskDetailResponse, TaskObservabilityResponse, TimelineEvent, TasksResponse } from "./types.js";
+import type {
+    BookmarkId,
+    EventId,
+    PlaybookRecord,
+    PlaybookStatus,
+    PlaybookSummary,
+    ReusableTaskSnapshot,
+    RuleId,
+    RuntimeSource,
+    SavedBriefing,
+    SessionId,
+    TaskEvaluation,
+    TaskId,
+    WorkflowSearchResult,
+    WorkflowSummary
+} from "@monitor/core";
+import type {
+    BookmarksResponse,
+    BookmarkRecord,
+    MonitoringTask,
+    OverviewResponse,
+    SearchResponse,
+    TaskDetailResponse,
+    TaskObservabilityResponse,
+    TimelineEvent,
+    TasksResponse
+} from "@monitor/web-domain";
 const DEFAULT_REQUEST_TIMEOUT_MS = 30000;
 
 function normalizeBaseUrl(value: string | undefined): string {

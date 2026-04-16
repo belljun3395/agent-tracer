@@ -1,5 +1,5 @@
 import type React from "react";
-import type { PlaybookRecordResponse } from "@monitor/web-core";
+import type { PlaybookRecordResponse } from "@monitor/web-io";
 import { Badge } from "../ui/Badge.js";
 import { Button } from "../ui/Button.js";
 import { SnapshotField, SnapshotList } from "./helpers.js";

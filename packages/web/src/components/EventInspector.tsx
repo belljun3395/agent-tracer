@@ -1,15 +1,11 @@
 import type React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { buildReusableTaskSnapshot, getEventEvidence } from "@monitor/core";
-import { buildExplorationInsight, buildInspectorEventTitle, buildMentionedFileVerifications, buildQuestionGroups, buildSubagentInsight, buildTagInsights, buildTaskExtraction, buildTodoGroups, buildVerificationCycles, collectFileActivity, collectPlanSteps, collectViolationDescriptions, collectWebLookups, type ModelSummary } from "@monitor/web-core";
-import { evidenceTone, formatEvidenceLevel } from "@monitor/web-core";
-import { buildTaskTimelineSummary } from "@monitor/web-core";
-import type { TimelineConnector } from "@monitor/web-core";
+import { buildExplorationInsight, buildInspectorEventTitle, buildMentionedFileVerifications, buildQuestionGroups, buildSubagentInsight, buildTagInsights, buildTaskExtraction, buildTodoGroups, buildVerificationCycles, collectFileActivity, collectPlanSteps, collectViolationDescriptions, collectWebLookups, evidenceTone, formatEvidenceLevel, buildTaskTimelineSummary, type BookmarkRecord, type ModelSummary, type TaskObservabilityResponse, type TaskDetailResponse, type TimelineConnector, type TimelineEvent } from "@monitor/web-domain";
+import { useEvaluation } from "@monitor/web-state";
 import { cn } from "../lib/ui/cn.js";
 import { Badge } from "./ui/Badge.js";
 import { Button } from "./ui/Button.js";
-import { useEvaluation } from "@monitor/web-store";
-import type { BookmarkRecord, TaskObservabilityResponse, TaskDetailResponse, TimelineEvent } from "@monitor/web-core";
 import { QuestionGroupSection } from "./inspector/QuestionGroupSection.js";
 import { TodoGroupSection } from "./inspector/TodoGroupSection.js";
 import { sortExploredFiles, type ExplorationSortKey } from "./inspector/ExploredFilesSection.js";

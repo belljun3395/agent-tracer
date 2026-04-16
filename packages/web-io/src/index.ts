@@ -13,6 +13,9 @@ export type {
     StorageWriteResult
 } from "./storage.js";
 
+export * from "./api.js";
+export * from "./realtime.js";
+
 export { MonitorSocket } from "./websocket.js";
 export type {
     MonitorSocketOptions,

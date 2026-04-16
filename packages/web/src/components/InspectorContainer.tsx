@@ -1,11 +1,11 @@
 import type React from "react";
 import { useMemo } from "react";
 import { EventId } from "@monitor/core";
-import { useMonitorStore } from "@monitor/web-store";
+import { buildTaskWorkspaceSelection } from "@monitor/web-domain";
+import { updateEventDisplayTitle } from "@monitor/web-io";
+import { useMonitorStore, useTaskObservability } from "@monitor/web-state";
 import { cn } from "../lib/ui/cn.js";
 import { QuickInspector } from "./QuickInspector.js";
-import { updateEventDisplayTitle } from "@monitor/web-core";
-import { buildTaskWorkspaceSelection, useTaskObservability } from "@monitor/web-core";
 interface InspectorContainerProps {
     readonly isStackedDashboard: boolean;
     readonly isInspectorCollapsed: boolean;

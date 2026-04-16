@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { RuntimeSessionId, RuntimeSource, TaskId, TaskSlug } from "@monitor/core";
-import { mergeTaskDetail } from "@monitor/web-store";
-import type { TaskDetailResponse } from "@monitor/web-core";
+import type { TaskDetailResponse } from "@monitor/web-domain";
+import { mergeTaskDetail } from "@monitor/web-state";
 function makeDetail(overrides: Partial<TaskDetailResponse> = {}): TaskDetailResponse {
     return {
         task: {

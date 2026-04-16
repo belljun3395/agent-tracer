@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { TaskId, type ReusableTaskSnapshot } from "@monitor/core";
-import type { HandoffMode, HandoffPurpose, TaskProcessSection } from "@monitor/web-core";
-import { buildHandoffPlain, buildHandoffMarkdown, buildHandoffXML, buildHandoffSystemPrompt, buildHandoffPrompt } from "@monitor/web-core";
-import { fetchTaskBriefings, recordBriefingCopy, saveTaskBriefing, type SavedBriefingRecord } from "@monitor/web-core";
+import type { HandoffMode, HandoffPurpose, TaskProcessSection } from "@monitor/web-domain";
+import { buildHandoffPlain, buildHandoffMarkdown, buildHandoffXML, buildHandoffSystemPrompt, buildHandoffPrompt } from "@monitor/web-domain";
+import { fetchTaskBriefings, recordBriefingCopy, saveTaskBriefing, type SavedBriefingRecord } from "@monitor/web-io";
 import { copyToClipboard } from "../lib/ui/clipboard.js";
 import { cn } from "../lib/ui/cn.js";
 import { loadHandoffDraft, saveHandoffDraft, type HandoffFormat, type HandoffPrefs } from "../lib/ui/handoffStorage.js";

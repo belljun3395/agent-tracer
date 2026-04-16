@@ -1,8 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type React from "react";
-import type { BookmarkRecord, MonitoringTask, TaskDetailResponse } from "@monitor/web-core";
-import { formatRelativeTime } from "@monitor/web-core";
-import { buildTaskDisplayTitle } from "@monitor/web-core";
+import { buildTaskDisplayTitle, formatRelativeTime, type BookmarkRecord, type MonitoringTask, type TaskDetailResponse } from "@monitor/web-domain";
 import { useDragScroll } from "../lib/useDragScroll.js";
 import { cn } from "../lib/ui/cn.js";
 import { Badge } from "./ui/Badge.js";

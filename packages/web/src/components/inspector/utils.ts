@@ -1,4 +1,4 @@
-import type { CompactRelation } from "@monitor/web-core";
+import type { CompactRelation } from "@monitor/web-domain";
 export function toRelativePath(filePath: string, workspacePath?: string): string {
     if (!workspacePath) {
         return filePath;

@@ -1,4 +1,4 @@
-import type { TimelineLane } from "@monitor/web-core";
+import type { TimelineLane } from "@monitor/web-domain";
 export interface LaneTheme {
     readonly label: string;
     readonly description: string;

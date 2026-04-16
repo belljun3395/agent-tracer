@@ -1,12 +1,8 @@
 import type React from "react";
 import { type FormEvent as ReactFormEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import type { TimelineItemLayout, TimelineNodeBounds } from "@monitor/web-core";
-import { buildDisplayLaneRows, countLaneSubtypes, isExpandableLane, resolveEventSubtype, type ExpandableTimelineLane } from "@monitor/web-core";
-import { buildTimelineContextSummary, buildTimelineConnectors, buildTimelineLayout, buildTimestampTicks, formatRelativeTime, LANE_HEIGHT, NODE_WIDTH, ROW_VERTICAL_OFFSET, RULER_HEIGHT, TIMELINE_LANES } from "@monitor/web-core";
-import { filterTimelineEvents } from "@monitor/web-core";
+import { buildDisplayLaneRows, buildTimelineContextSummary, buildTimelineConnectors, buildTimelineLayout, buildTimestampTicks, countLaneSubtypes, filterTimelineEvents, formatRelativeTime, isExpandableLane, LANE_HEIGHT, NODE_WIDTH, resolveEventSubtype, ROW_VERTICAL_OFFSET, RULER_HEIGHT, TIMELINE_LANES, type ExpandableTimelineLane, type TimelineEvent, type TimelineItemLayout, type TimelineLane, type TimelineNodeBounds } from "@monitor/web-domain";
 import { cn } from "../lib/ui/cn.js";
 import { getLaneTheme } from "../lib/ui/laneTheme.js";
-import type { TimelineEvent, TimelineLane } from "@monitor/web-core";
 import { Button } from "./ui/Button.js";
 import { TimelineMinimap } from "../features/timeline/TimelineMinimap.js";
 import "./Timeline.css";

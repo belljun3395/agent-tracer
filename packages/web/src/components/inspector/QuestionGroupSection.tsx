@@ -1,6 +1,5 @@
 import type React from "react";
-import { buildInspectorEventTitle } from "@monitor/web-core";
-import type { QuestionGroup } from "@monitor/web-core";
+import { buildInspectorEventTitle, type QuestionGroup } from "@monitor/web-domain";
 import { Badge } from "../ui/Badge.js";
 import { SectionCard } from "./SectionCard.js";
 const QUESTION_PHASE_LABELS: Readonly<Record<string, string>> = {

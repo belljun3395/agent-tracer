@@ -1,5 +1,5 @@
 import type React from "react";
-import type { WorkflowContentRecord, PlaybookRecordResponse } from "@monitor/web-core";
+import type { WorkflowContentRecord, PlaybookRecordResponse } from "@monitor/web-io";
 import { cn } from "../../lib/ui/cn.js";
 import { Badge } from "../ui/Badge.js";
 import { Button } from "../ui/Button.js";

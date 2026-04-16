@@ -1,9 +1,9 @@
 import type React from "react";
 import { useMemo } from "react";
-import { useMonitorStore } from "@monitor/web-store";
+import { buildTaskTimelineSummary } from "@monitor/web-domain";
+import { useMonitorStore } from "@monitor/web-state";
 import { cn } from "../lib/ui/cn.js";
 import { Timeline } from "./Timeline.js";
-import { buildTaskTimelineSummary } from "@monitor/web-core";
 interface TimelineContainerProps {
     readonly isCompactDashboard: boolean;
     readonly isStackedDashboard: boolean;

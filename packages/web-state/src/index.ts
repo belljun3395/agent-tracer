@@ -19,6 +19,15 @@ export {
     useTaskDetailQuery,
     useBookmarksQuery
 } from "./server/queries.js";
+export { useTaskObservability } from "./server/observability.js";
 
 export { useMonitorSocket } from "./realtime/useMonitorSocket.js";
 export type { UseMonitorSocketOptions } from "./realtime/useMonitorSocket.js";
+
+export * from "./useEventStore.js";
+export * from "./useEvaluation.js";
+export * from "./useMonitorStore.js";
+export * from "./useSearch.js";
+export * from "./useTaskStore.js";
+export * from "./useWebSocket.js";
+export * from "./useWebSocketStore.js";

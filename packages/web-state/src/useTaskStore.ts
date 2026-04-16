@@ -1,8 +1,8 @@
 import type React from "react";
 import { create } from "zustand";
 import { BookmarkId, EventId, TaskId } from "@monitor/core";
-import { createBookmark, deleteBookmark, deleteTask, fetchBookmarks, fetchOverview, fetchTaskDetail, fetchTasks, updateTaskStatus, updateTaskTitle } from "@monitor/web-core";
-import type { BookmarkRecord, MonitoringTask, OverviewResponse, TaskDetailResponse, TimelineEvent } from "@monitor/web-core";
+import { createBookmark, deleteBookmark, deleteTask, fetchBookmarks, fetchOverview, fetchTaskDetail, fetchTasks, updateTaskStatus, updateTaskTitle } from "@monitor/web-io";
+import type { BookmarkRecord, MonitoringTask, OverviewResponse, TaskDetailResponse, TimelineEvent } from "@monitor/web-domain";
 function mergeTimeline(prev: readonly TimelineEvent[], next: readonly TimelineEvent[]): readonly TimelineEvent[] {
     const prevById = new Map(prev.map((e) => [e.id, e]));
     const merged = next.map((e) => prevById.get(e.id) ?? e);

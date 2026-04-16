@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { refreshRealtimeMonitorData } from "@monitor/web-core";
+import { refreshRealtimeMonitorData } from "@monitor/web-io";
 describe("refreshRealtimeMonitorData", () => {
     it("refreshes overview and the selected task detail together", async () => {
         const refreshOverview = vi.fn().mockResolvedValue(undefined);
