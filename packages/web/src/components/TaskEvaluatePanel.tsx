@@ -324,6 +324,7 @@ export function TaskEvaluatePanel({ taskId, taskTitle, taskTimeline, evaluation,
             <WorkflowPreviewList label="Watch items" items={parsedWorkflowSnapshot.watchItems}/>
             <WorkflowPreviewList label="Key files" items={parsedWorkflowSnapshot.keyFiles}/>
             <WorkflowPreviewList label="Modified files" items={parsedWorkflowSnapshot.modifiedFiles}/>
+            <WorkflowPreviewList label="Active instructions" items={parsedWorkflowSnapshot.activeInstructions}/>
             <WorkflowPreviewField label="Search text" value={parsedWorkflowSnapshot.searchText} mono/>
 
             <div className={fieldClass}>
@@ -376,6 +377,10 @@ export function TaskEvaluatePanel({ taskId, taskTitle, taskTimeline, evaluation,
             <div className={snapshotFieldClass}>
               <SectionLabel>Modified files</SectionLabel>
               <Textarea className="resize-y" placeholder="One item per line" rows={4} value={workflowSnapshotDraft.modifiedFiles} onChange={(event) => updateSnapshotField("modifiedFiles", event.target.value)}/>
+            </div>
+            <div className={snapshotFieldClass}>
+              <SectionLabel>Active instructions</SectionLabel>
+              <Textarea className="resize-y" placeholder="One item per line" rows={3} value={workflowSnapshotDraft.activeInstructions} onChange={(event) => updateSnapshotField("activeInstructions", event.target.value)}/>
             </div>
             <div className={snapshotFieldClass}>
               <SectionLabel>Search text</SectionLabel>
