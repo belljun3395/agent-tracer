@@ -48,6 +48,8 @@ export function defaultLaneForEventKind(kind: MonitoringEventKind): TimelineLane
             return "planning";
         case "assistant.response":
             return "user";
+        case "instructions.loaded":
+            return "exploration";
     }
 }
 
