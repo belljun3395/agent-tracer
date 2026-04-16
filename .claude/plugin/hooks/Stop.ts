@@ -59,7 +59,7 @@ function readLastAssistantEntry(transcriptPath: string): TranscriptEntry | undef
             if (!line) continue;
             try {
                 const entry = JSON.parse(line) as TranscriptEntry;
-                if (entry?.message?.role === "assistant") return entry;
+                if (entry.message?.role === "assistant") return entry;
             } catch { continue; }
         }
     } catch { /* transcript not readable — proceed without usage */ }
