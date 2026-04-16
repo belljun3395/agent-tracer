@@ -22,25 +22,25 @@ export const KO_HANDOFF_ACTION_REFERENCE =
 
 // Evaluate prompt strings
 export const KO_EVALUATE_INTRO =
-    "완료된 작업을 평가하고 monitor_evaluate_task MCP 도구를 호출하여 워크플로우 라이브러리에 저장하세요.";
+    "Evaluate the completed task and call the monitor_evaluate_task MCP tool to save it to the workflow library.";
 export const KO_EVALUATE_INSTRUCTIONS_HEADER =
-    "\n아래 context를 바탕으로 monitor_evaluate_task MCP 도구를 호출하세요:\n";
+    "\nCall the monitor_evaluate_task MCP tool using the context above:\n";
 export const KO_EVALUATE_FIELD_RATING =
-    "- rating: 접근법이 효과적이었으면 \"good\", 아니면 \"skip\"";
+    "- rating: \"good\" if the approach worked well, \"skip\" otherwise";
 export const KO_EVALUATE_FIELD_USE_CASE =
-    "- useCase: 이 작업의 유형 (예: \"TypeScript 타입 에러 수정\")";
+    "- useCase: type of task (e.g. \"Fix TypeScript type errors\")";
 export const KO_EVALUATE_FIELD_OUTCOME_NOTE =
-    "- outcomeNote: 달성한 결과 요약";
+    "- outcomeNote: summary of what was achieved";
 export const KO_EVALUATE_FIELD_APPROACH_NOTE =
-    "- approachNote: 효과적이었던 접근법과 이유";
+    "- approachNote: what approach worked and why";
 export const KO_EVALUATE_FIELD_REUSE_WHEN =
-    "- reuseWhen: 이 워크플로우를 재사용할 상황";
+    "- reuseWhen: when to reuse this workflow";
 export const KO_EVALUATE_FIELD_WATCHOUTS =
-    "- watchouts: 유사 작업 시 주의사항";
+    "- watchouts: what to watch out for in similar tasks";
 export const KO_EVALUATE_FIELD_WORKFLOW_TAGS =
-    "- workflowTags: 분류 태그 (예: [\"typescript\", \"refactor\"])";
+    "- workflowTags: classification tags (e.g. [\"typescript\", \"refactor\"])";
 export const KO_EVALUATE_CALL_NOW =
-    "\n확인을 구하지 말고 바로 도구를 호출하세요.";
+    "\nCall the tool immediately without asking for confirmation.";
 
 // Timeline UI strings
 export const KO_TIMELINE_STACKED_EVENTS = (count: number): string =>
