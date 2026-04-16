@@ -110,6 +110,18 @@ export class EventLoggingService {
             metadata: TMF.build(input.metadata, input),
         }));
     }
+    async logInstructionsLoaded(input: TaskContextSavedInput): Promise<RecordedEventEnvelope> {
+        return this.withSession(input, (sid) => ({
+            taskId: input.taskId,
+            kind: "instructions.loaded",
+            title: input.title,
+            ...this.withSessionId(sid),
+            ...(input.body ? { body: input.body } : {}),
+            ...(input.lane ? { lane: input.lane } : {}),
+            ...(input.filePaths ? { filePaths: input.filePaths } : {}),
+            metadata: TMF.build(input.metadata, input),
+        }));
+    }
     async logExploration(input: TaskExploreInput): Promise<RecordedEventEnvelope> {
         return this.withSession(input, (sid) => ({
             taskId: input.taskId,

@@ -167,7 +167,7 @@ function describeDecisionEvent(event: TimelineEvent): string | null {
 
 /**
  * Collects relative paths of instruction files loaded during the session.
- * Skips compact re-loads (load_reason === "compact") to avoid duplicates.
+ * Skips compact re-loads (loadReason === "compact") to avoid duplicates.
  */
 function collectActiveInstructions(events: readonly TimelineEvent[]): readonly string[] {
     return uniqueStrings(
