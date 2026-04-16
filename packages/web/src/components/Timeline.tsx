@@ -1,371 +1,17 @@
 import type React from "react";
-import { type FormEvent as ReactFormEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { buildDisplayLaneRows, buildTimelineContextSummary, buildTimelineConnectors, buildTimelineLayout, buildTimestampTicks, countLaneSubtypes, filterTimelineEvents, formatRelativeTime, isExpandableLane, LANE_HEIGHT, NODE_WIDTH, resolveEventSubtype, ROW_VERTICAL_OFFSET, RULER_HEIGHT, TIMELINE_LANES, type ExpandableTimelineLane, type TimelineEvent, type TimelineItemLayout, type TimelineLane, type TimelineNodeBounds } from "@monitor/web-domain";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { buildDisplayLaneRows, buildTimelineContextSummary, buildTimelineConnectors, buildTimelineLayout, buildTimestampTicks, countLaneSubtypes, filterTimelineEvents, formatRelativeTime, isExpandableLane, LANE_HEIGHT, NODE_WIDTH, resolveEventSubtype, ROW_VERTICAL_OFFSET, RULER_HEIGHT, TIMELINE_LANES, type ExpandableTimelineLane, type TimelineItemLayout, type TimelineLane, type TimelineNodeBounds } from "@monitor/web-domain";
 import { cn } from "../lib/ui/cn.js";
 import { getLaneTheme } from "../lib/ui/laneTheme.js";
-import { Button } from "./ui/Button.js";
 import { TimelineMinimap } from "../features/timeline/TimelineMinimap.js";
+import { TimelineContextBar } from "../features/timeline/TimelineContextBar.js";
+import { TimelineFiltersPopover } from "../features/timeline/TimelineFiltersPopover.js";
+import { TimelineTaskControlsPanel } from "../features/timeline/TimelineTaskControlsPanel.js";
+import { areNodeBoundsEqual, type NodeBounds } from "../features/timeline/utils.js";
+import { shouldResetTimelineFollowForTaskChange, computeTimelineFollowScrollLeft } from "../features/timeline/useTimelineFollow.js";
+import type { TimelineProps } from "../features/timeline/types.js";
 import "./Timeline.css";
-interface NodeBounds {
-    readonly left: number;
-    readonly top: number;
-    readonly width: number;
-    readonly height: number;
-}
-function areNodeBoundsEqual(current: Readonly<Record<string, NodeBounds>>, next: Readonly<Record<string, NodeBounds>>): boolean {
-    const currentKeys = Object.keys(current);
-    const nextKeys = Object.keys(next);
-    if (currentKeys.length !== nextKeys.length) {
-        return false;
-    }
-    for (const key of nextKeys) {
-        const currentBounds = current[key];
-        const nextBounds = next[key];
-        if (!currentBounds || !nextBounds) {
-            return false;
-        }
-        if (Math.abs(currentBounds.left - nextBounds.left) > 0.5 ||
-            Math.abs(currentBounds.top - nextBounds.top) > 0.5 ||
-            Math.abs(currentBounds.width - nextBounds.width) > 0.5 ||
-            Math.abs(currentBounds.height - nextBounds.height) > 0.5) {
-            return false;
-        }
-    }
-    return true;
-}
-const OBSERVABILITY_BADGE_STYLES = {
-    actions: "border-[var(--implementation-border)] bg-[var(--implementation-bg)] text-[var(--implementation)]",
-    coordination: "border-[var(--coordination-border)] bg-[var(--coordination-bg)] text-[var(--coordination)]",
-    files: "border-[var(--exploration-border)] bg-[var(--exploration-bg)] text-[var(--exploration)]",
-    compacts: "border-[color-mix(in_srgb,var(--planning)_28%,white)] bg-[color-mix(in_srgb,var(--planning)_10%,white)] text-[var(--planning)]",
-    checks: "border-[var(--coordination-border)] bg-[var(--coordination-bg)] text-[var(--coordination)]",
-    violations: "border-[#fecaca] bg-[#fef2f2] text-[var(--err)]",
-    passes: "border-[#bbf7d0] bg-[#f0fdf4] text-[var(--ok)]"
-} as const;
-const TASK_STATUS_BUTTON_STYLES = {
-    running: {
-        active: "border-[var(--ok)] bg-[var(--ok-bg)] text-[var(--ok)]",
-        idle: "border-[var(--border)] bg-[var(--surface)] text-[var(--text-3)] hover:border-[var(--ok)] hover:bg-[var(--ok-bg)]/70 hover:text-[var(--ok)]"
-    },
-    waiting: {
-        active: "border-[#d97706] bg-[#fef3c7] text-[#b45309]",
-        idle: "border-[var(--border)] bg-[var(--surface)] text-[var(--text-3)] hover:border-[#d97706] hover:bg-[#fef3c7] hover:text-[#b45309]"
-    },
-    completed: {
-        active: "border-[var(--done)] bg-[var(--done-bg)] text-[var(--done)]",
-        idle: "border-[var(--border)] bg-[var(--surface)] text-[var(--text-3)] hover:border-[var(--done)] hover:bg-[var(--done-bg)]/70 hover:text-[var(--done)]"
-    },
-    errored: {
-        active: "border-[var(--err)] bg-[var(--err-bg)] text-[var(--err)]",
-        idle: "border-[var(--border)] bg-[var(--surface)] text-[var(--text-3)] hover:border-[var(--err)] hover:bg-[var(--err-bg)]/70 hover:text-[var(--err)]"
-    }
-} as const;
-type TimelineObservabilityStats = TimelineProps["observabilityStats"];
-function formatTaskStatusLabel(status: "running" | "waiting" | "completed" | "errored"): string {
-    switch (status) {
-        case "running":
-            return "Running";
-        case "waiting":
-            return "Waiting";
-        case "completed":
-            return "Completed";
-        case "errored":
-            return "Errored";
-    }
-}
-function TimelineContextBar({ taskTitle, taskUsesDerivedTitle, contextSummary, showRuleGapsOnly, onToggleRuleGap, selectedRuleId, onClearRuleId, selectedTag, onClearTag, observabilityStats, taskStatus, isTaskControlsOpen, isEditingTaskTitle, controlsButtonRef, setControlsPopoverPos, setIsTaskControlsOpen, isFiltersOpen, filtersButtonRef, setFiltersPopoverPos, setIsFiltersOpen, activeLaneCount, totalLaneCount, embedded }: {
-    readonly taskTitle: string | null;
-    readonly taskUsesDerivedTitle: boolean;
-    readonly contextSummary: ReturnType<typeof buildTimelineContextSummary>;
-    readonly showRuleGapsOnly: boolean;
-    readonly onToggleRuleGap: (show: boolean) => void;
-    readonly selectedRuleId: string | null;
-    readonly onClearRuleId: () => void;
-    readonly selectedTag: string | null;
-    readonly onClearTag: () => void;
-    readonly observabilityStats: TimelineObservabilityStats;
-    readonly taskStatus?: TimelineProps["taskStatus"];
-    readonly isTaskControlsOpen: boolean;
-    readonly isEditingTaskTitle: boolean;
-    readonly controlsButtonRef: React.RefObject<HTMLButtonElement | null>;
-    readonly setControlsPopoverPos: (value: {
-        top: number;
-        right: number;
-    }) => void;
-    readonly setIsTaskControlsOpen: React.Dispatch<React.SetStateAction<boolean>>;
-    readonly isFiltersOpen: boolean;
-    readonly filtersButtonRef: React.RefObject<HTMLButtonElement | null>;
-    readonly setFiltersPopoverPos: (value: {
-        top: number;
-        right: number;
-    }) => void;
-    readonly setIsFiltersOpen: React.Dispatch<React.SetStateAction<boolean>>;
-    readonly activeLaneCount: number;
-    readonly totalLaneCount: number;
-    readonly embedded?: boolean;
-}): React.JSX.Element {
-    return (<div className="timeline-context-bar" style={{ position: "relative" }}>
-      <div className="timeline-context-bar-main">
-        <div className="timeline-context-copy">
-          {!embedded && (<div className="timeline-context-title-row">
-            <strong className="timeline-context-title">{taskTitle ?? "Waiting for task data…"}</strong>
-            {taskUsesDerivedTitle && taskTitle && (<span className="timeline-context-summary-chip accent">Suggested</span>)}
-          </div>)}
-          <div className="timeline-context-summary-row">
-            <span className="timeline-context-summary-chip">{contextSummary.eventSummary}</span>
-            {contextSummary.focusSummary && (<span className="timeline-context-summary-chip emphasis">{contextSummary.focusSummary}</span>)}
-            {showRuleGapsOnly && (<button className="timeline-context-summary-chip emphasis" onClick={() => onToggleRuleGap(false)} type="button">
-                Gaps only ×
-              </button>)}
-            {selectedRuleId && (<button className="timeline-context-summary-chip emphasis" onClick={onClearRuleId} type="button">
-                Rule: {selectedRuleId} ×
-              </button>)}
-            {selectedTag && (<button className="timeline-context-summary-chip emphasis" onClick={onClearTag} type="button">
-                Tag: {selectedTag} ×
-              </button>)}
-          </div>
-        </div>
-      </div>
 
-      <div className="timeline-context-bar-actions">
-        {(observabilityStats.violations > 0 || observabilityStats.checks > 0) && (<span className="timeline-context-summary-chip timeline-context-obs-stats" style={{ gap: 4, fontSize: "0.66rem" }}>
-            {observabilityStats.violations > 0 && <span style={{ color: "var(--err)" }}>{observabilityStats.violations}v</span>}
-            {observabilityStats.checks > 0 && <span>{observabilityStats.checks}c</span>}
-            {observabilityStats.passes > 0 && <span style={{ color: "var(--ok)" }}>{observabilityStats.passes}p</span>}
-          </span>)}
-
-        {!embedded && taskStatus && (<span className={cn("timeline-context-status", TASK_STATUS_BUTTON_STYLES[taskStatus].active)}>
-            {taskStatus}
-          </span>)}
-
-        {!embedded && (<button ref={controlsButtonRef} aria-expanded={isTaskControlsOpen || isEditingTaskTitle} aria-label="Open task controls" className={cn("timeline-context-toggle", (isTaskControlsOpen || isEditingTaskTitle) && "border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] text-[var(--accent)]")} onClick={() => {
-            if (controlsButtonRef.current) {
-                const rect = controlsButtonRef.current.getBoundingClientRect();
-                setControlsPopoverPos({ top: rect.bottom + 6, right: window.innerWidth - rect.right });
-            }
-            setIsTaskControlsOpen((value) => !value);
-        }} title="Task controls" type="button">
-          <svg aria-hidden="true" fill="none" height="13" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" width="13">
-            <circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>
-          </svg>
-          <span className="hidden text-[0.72rem] font-medium sm:inline">Controls</span>
-        </button>)}
-
-        {!embedded && (<button ref={filtersButtonRef} aria-expanded={isFiltersOpen} aria-label="Open filters and zoom" className={cn("timeline-context-toggle", isFiltersOpen && "border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] text-[var(--accent)]")} onClick={() => {
-            if (filtersButtonRef.current) {
-                const rect = filtersButtonRef.current.getBoundingClientRect();
-                setFiltersPopoverPos({ top: rect.bottom + 6, right: window.innerWidth - rect.right });
-            }
-            setIsFiltersOpen((value) => !value);
-        }} title="Filters & Zoom" type="button">
-          <svg aria-hidden="true" fill="none" height="13" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" width="13">
-            <line x1="4" x2="20" y1="6" y2="6"/><line x1="8" x2="16" y1="12" y2="12"/><line x1="11" x2="13" y1="18" y2="18"/>
-          </svg>
-          <span className="hidden text-[0.72rem] font-medium sm:inline">Filters</span>
-          {activeLaneCount < totalLaneCount && (<span style={{ fontSize: "0.58rem", fontWeight: 700, lineHeight: 1 }}>
-              {activeLaneCount}
-            </span>)}
-        </button>)}
-      </div>
-    </div>);
-}
-function TimelineFiltersPopover({ filtersPopoverRef, filtersPopoverPos, zoom, onZoomChange, activeLaneCount, totalLaneCount, filters, setFilters }: {
-    readonly filtersPopoverRef: React.RefObject<HTMLDivElement | null>;
-    readonly filtersPopoverPos: {
-        top: number;
-        right: number;
-    };
-    readonly zoom: number;
-    readonly onZoomChange: (zoom: number) => void;
-    readonly activeLaneCount: number;
-    readonly totalLaneCount: number;
-    readonly filters: Record<TimelineLane, boolean>;
-    readonly setFilters: React.Dispatch<React.SetStateAction<Record<TimelineLane, boolean>>>;
-}): React.JSX.Element {
-    return (<div ref={filtersPopoverRef} className="timeline-filters-popover" style={{ position: "fixed", top: filtersPopoverPos.top, right: filtersPopoverPos.right, zIndex: 200 }}>
-      <div className="timeline-popover-header">
-        <span>Filters & Zoom</span>
-        <span className="timeline-popover-summary">{activeLaneCount}/{totalLaneCount} lanes</span>
-      </div>
-      <div className="timeline-filters-popover-section">
-        <span className="toolbar-label">Zoom</span>
-        <div className="toolbar-group" style={{ flex: 1 }}>
-          <input max={2.5} min={0.8} step={0.1} style={{ flex: 1 }} type="range" value={zoom} onChange={(event) => onZoomChange(Number(event.target.value))}/>
-          <span className="toolbar-value">{zoom.toFixed(1)}×</span>
-        </div>
-      </div>
-
-      <div className="timeline-filters-popover-divider"/>
-
-      <div className="timeline-filters-popover-section" style={{ flexWrap: "wrap" }}>
-        <button className={`filter-chip all-toggle${activeLaneCount === totalLaneCount ? " active" : ""}`} type="button" onClick={() => {
-            const allOn = activeLaneCount === totalLaneCount;
-            const next = Object.fromEntries(TIMELINE_LANES.map((lane) => [lane, !allOn])) as Record<TimelineLane, boolean>;
-            setFilters(next);
-        }}>
-          {activeLaneCount === totalLaneCount ? "All lanes" : `${activeLaneCount}/${totalLaneCount} lanes`}
-        </button>
-        {TIMELINE_LANES.map((lane) => (<label key={lane} className={`filter-chip ${lane}${filters[lane] ? " active" : ""}`}>
-            <input checked={filters[lane]} type="checkbox" onChange={() => setFilters((current) => ({ ...current, [lane]: !current[lane] }))}/>
-            <span className="filter-dot"/>
-            {getLaneTheme(lane).label}
-          </label>))}
-      </div>
-    </div>);
-}
-function TimelineTaskControlsPanel({ controlsPopoverRef, controlsPopoverPos, isEditingTaskTitle, onSubmitTitle, isSavingTaskTitle, onTitleDraftChange, taskTitleDraft, onCancelEditTitle, taskTitleError, onStartEditTitle, onOpenTaskWorkspace, taskStatus, onChangeTaskStatus, isUpdatingTaskStatus, observabilityStats }: {
-    readonly controlsPopoverRef: React.RefObject<HTMLDivElement | null>;
-    readonly controlsPopoverPos: {
-        top: number;
-        right: number;
-    };
-    readonly isEditingTaskTitle: boolean;
-    readonly onSubmitTitle: (event: ReactFormEvent<HTMLFormElement>) => void;
-    readonly isSavingTaskTitle: boolean;
-    readonly onTitleDraftChange: (value: string) => void;
-    readonly taskTitleDraft: string;
-    readonly onCancelEditTitle: () => void;
-    readonly taskTitleError: string | null;
-    readonly onStartEditTitle: () => void;
-    readonly onOpenTaskWorkspace: (() => void) | undefined;
-    readonly taskStatus: TimelineProps["taskStatus"] | undefined;
-    readonly onChangeTaskStatus: ((status: "running" | "waiting" | "completed" | "errored") => void) | undefined;
-    readonly isUpdatingTaskStatus: boolean | undefined;
-    readonly observabilityStats: TimelineObservabilityStats;
-}): React.JSX.Element {
-    const observabilityBadges = [
-        { key: "actions", label: "Actions", value: observabilityStats.actions },
-        { key: "coordination", label: "Coordination", value: observabilityStats.coordinationActivities },
-        { key: "files", label: "Files", value: observabilityStats.exploredFiles },
-        { key: "compacts", label: "Compact", value: observabilityStats.compactions },
-        { key: "checks", label: "Checks", value: observabilityStats.checks },
-        { key: "violations", label: "Violations", value: observabilityStats.violations },
-        { key: "passes", label: "Passes", value: observabilityStats.passes }
-    ] as const;
-
-    return (<div ref={controlsPopoverRef} className="timeline-task-controls-panel" style={{ position: "fixed", top: controlsPopoverPos.top, right: controlsPopoverPos.right, zIndex: 200, minWidth: 260 }}>
-      <div className="timeline-popover-header">
-        <span>Task controls</span>
-        <span className="timeline-popover-summary">{taskStatus ? formatTaskStatusLabel(taskStatus) : "Task"}</span>
-      </div>
-      {isEditingTaskTitle ? (<form className="task-title-form" onSubmit={onSubmitTitle}>
-          <div className="task-title-form-row">
-            <input className="task-title-input" disabled={isSavingTaskTitle} onChange={(event) => onTitleDraftChange(event.target.value)} placeholder="Rename task" type="text" value={taskTitleDraft}/>
-            <div className="task-title-actions">
-              <Button variant="accent" className="h-8 px-3 text-[0.72rem] font-semibold shadow-none" disabled={isSavingTaskTitle} size="sm" type="submit">
-                {isSavingTaskTitle ? "Saving..." : "Save"}
-              </Button>
-              <Button className="h-8 px-3 text-[0.72rem] font-semibold shadow-none" disabled={isSavingTaskTitle} onClick={onCancelEditTitle} size="sm" type="button">
-                Cancel
-              </Button>
-            </div>
-          </div>
-          {taskTitleError && <p className="task-title-error">{taskTitleError}</p>}
-        </form>) : (<div className="timeline-task-controls-row">
-          <div className="timeline-title-actions">
-            <Button className="h-8 px-3 text-[0.72rem] font-semibold shadow-none" onClick={onStartEditTitle} size="sm" type="button">
-              Rename
-            </Button>
-            {onOpenTaskWorkspace && (<Button className="h-8 px-3 text-[0.72rem] font-semibold shadow-none" onClick={onOpenTaskWorkspace} size="sm" type="button">
-                Workspace
-              </Button>)}
-          </div>
-        </div>)}
-      {!isEditingTaskTitle && taskStatus && onChangeTaskStatus && (<div className="flex flex-wrap items-center gap-2">
-          <span className="text-[0.66rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">Status</span>
-          <select className="h-8 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] px-3 text-[0.74rem] font-semibold text-[var(--text-2)] shadow-[var(--shadow-1)]" disabled={isUpdatingTaskStatus} onChange={(event) => onChangeTaskStatus(event.target.value as "running" | "waiting" | "completed" | "errored")} value={taskStatus}>
-            {(["running", "waiting", "completed", "errored"] as const).map((status) => (<option key={status} value={status}>{formatTaskStatusLabel(status)}</option>))}
-          </select>
-        </div>)}
-      <div className="timeline-task-badges">
-        {observabilityBadges.map((badge) => (<div key={badge.key} className={cn("inline-flex h-8 items-center gap-1.5 rounded-[var(--radius-md)] border px-2.5 text-[0.71rem] font-semibold tracking-[0.01em] shadow-[var(--shadow-1)]", OBSERVABILITY_BADGE_STYLES[badge.key])}>
-            <span className="text-[0.78rem] font-bold leading-none">{badge.value}</span>
-            <span className="leading-none">{badge.label}</span>
-          </div>))}
-      </div>
-    </div>);
-}
-interface TimelineProps {
-    readonly timeline: readonly TimelineEvent[];
-    readonly taskTitle: string | null;
-    readonly taskId?: string | null;
-    readonly taskWorkspacePath?: string | undefined;
-    readonly taskStatus?: "running" | "waiting" | "completed" | "errored" | undefined;
-    readonly taskUpdatedAt?: string | undefined;
-    readonly taskUsesDerivedTitle: boolean;
-    readonly isEditingTaskTitle: boolean;
-    readonly taskTitleDraft: string;
-    readonly taskTitleError: string | null;
-    readonly isSavingTaskTitle: boolean;
-    readonly isUpdatingTaskStatus?: boolean;
-    readonly selectedEventId: string | null;
-    readonly selectedConnectorKey: string | null;
-    readonly selectedRuleId: string | null;
-    readonly selectedTag: string | null;
-    readonly showRuleGapsOnly: boolean;
-    readonly nowMs: number;
-    readonly zoom: number;
-    readonly onZoomChange: (zoom: number) => void;
-    readonly observabilityStats: {
-        readonly actions: number;
-        readonly coordinationActivities: number;
-        readonly exploredFiles: number;
-        readonly compactions: number;
-        readonly checks: number;
-        readonly violations: number;
-        readonly passes: number;
-    };
-    readonly onSelectEvent: (eventId: string) => void;
-    readonly onSelectConnector: (key: string) => void;
-    readonly onStartEditTitle: () => void;
-    readonly onCancelEditTitle: () => void;
-    readonly onSubmitTitle: (event: ReactFormEvent<HTMLFormElement>) => void;
-    readonly onTitleDraftChange: (value: string) => void;
-    readonly onClearFilters: () => void;
-    readonly onToggleRuleGap: (show: boolean) => void;
-    readonly onClearRuleId: () => void;
-    readonly onClearTag: () => void;
-    readonly onOpenTaskWorkspace?: () => void;
-    readonly onChangeTaskStatus?: (status: "running" | "waiting" | "completed" | "errored") => void;
-    readonly embedded?: boolean;
-    readonly externalControlsState?: {
-        readonly isOpen: boolean;
-        readonly setIsOpen: React.Dispatch<React.SetStateAction<boolean>>;
-        readonly popoverPos: { top: number; right: number };
-        readonly setPopoverPos: (value: { top: number; right: number }) => void;
-        readonly buttonRef: React.RefObject<HTMLButtonElement | null>;
-    } | undefined;
-    readonly externalFiltersState?: {
-        readonly isOpen: boolean;
-        readonly setIsOpen: React.Dispatch<React.SetStateAction<boolean>>;
-        readonly popoverPos: { top: number; right: number };
-        readonly setPopoverPos: (value: { top: number; right: number }) => void;
-        readonly buttonRef: React.RefObject<HTMLButtonElement | null>;
-    } | undefined;
-}
-export function shouldResetTimelineFollowForTaskChange(input: {
-    previousTaskId: string | null | undefined;
-    nextTaskId: string | null | undefined;
-    selectedEventId: string | null;
-    timeline: readonly TimelineEvent[];
-}): boolean {
-    if (!input.nextTaskId || input.previousTaskId === input.nextTaskId) {
-        return false;
-    }
-    if (!input.selectedEventId) {
-        return true;
-    }
-    return !input.timeline.some((event) => event.id === input.selectedEventId);
-}
-export function computeTimelineFollowScrollLeft(input: {
-    clientWidth: number;
-    scrollWidth: number;
-    timelineFocusRight: number;
-}): number {
-    const rightPadding = Math.max(72, Math.round(input.clientWidth * 0.08));
-    const maxScrollLeft = Math.max(0, input.scrollWidth - input.clientWidth);
-    return Math.max(0, Math.min(maxScrollLeft, input.timelineFocusRight - input.clientWidth + rightPadding));
-}
 export function Timeline({ timeline, taskTitle, taskId, taskStatus, taskUpdatedAt, taskUsesDerivedTitle, isEditingTaskTitle, taskTitleDraft, taskTitleError, isSavingTaskTitle, isUpdatingTaskStatus = false, selectedEventId, selectedConnectorKey, selectedRuleId, selectedTag, showRuleGapsOnly, nowMs, observabilityStats, onSelectEvent, onSelectConnector, onStartEditTitle, onCancelEditTitle, onSubmitTitle, onTitleDraftChange, onToggleRuleGap, onClearRuleId, onClearTag, onOpenTaskWorkspace, onChangeTaskStatus, zoom, onZoomChange, embedded, externalControlsState, externalFiltersState, }: TimelineProps): React.JSX.Element {
     const [filters, setFilters] = useState<Record<TimelineLane, boolean>>({
         user: true, exploration: true, planning: true, coordination: true, background: true,
@@ -646,16 +292,16 @@ export function Timeline({ timeline, taskTitle, taskId, taskStatus, taskUpdatedA
         };
     }, [isFiltersOpen, isTaskControlsOpen]);
     return (<section className="flex h-full min-h-0 flex-col">
-      
+
 
       <div className="timeline-panel">
-        
+
         {!embedded && (<TimelineContextBar taskTitle={taskTitle} taskUsesDerivedTitle={taskUsesDerivedTitle} contextSummary={contextSummary} showRuleGapsOnly={showRuleGapsOnly} onToggleRuleGap={onToggleRuleGap} selectedRuleId={selectedRuleId} onClearRuleId={onClearRuleId} selectedTag={selectedTag} onClearTag={onClearTag} observabilityStats={observabilityStats} taskStatus={taskStatus} isTaskControlsOpen={isTaskControlsOpen} isEditingTaskTitle={isEditingTaskTitle} controlsButtonRef={controlsButtonRef} setControlsPopoverPos={setControlsPopoverPos} setIsTaskControlsOpen={setIsTaskControlsOpen} isFiltersOpen={isFiltersOpen} filtersButtonRef={filtersButtonRef} setFiltersPopoverPos={setFiltersPopoverPos} setIsFiltersOpen={setIsFiltersOpen} activeLaneCount={activeBaseLanes.length} totalLaneCount={TIMELINE_LANES.length}/>)}
 
-        
+
         {isFiltersOpen && (<TimelineFiltersPopover filtersPopoverRef={filtersPopoverRef} filtersPopoverPos={filtersPopoverPos} zoom={zoom} onZoomChange={onZoomChange} activeLaneCount={activeBaseLanes.length} totalLaneCount={TIMELINE_LANES.length} filters={filters} setFilters={setFilters}/>)}
 
-        
+
         {(isTaskControlsOpen || isEditingTaskTitle) && (<TimelineTaskControlsPanel controlsPopoverRef={controlsPopoverRef} controlsPopoverPos={controlsPopoverPos} isEditingTaskTitle={isEditingTaskTitle} onSubmitTitle={onSubmitTitle} isSavingTaskTitle={isSavingTaskTitle} onTitleDraftChange={onTitleDraftChange} taskTitleDraft={taskTitleDraft} onCancelEditTitle={onCancelEditTitle} taskTitleError={taskTitleError} onStartEditTitle={onStartEditTitle} onOpenTaskWorkspace={onOpenTaskWorkspace} taskStatus={taskStatus} onChangeTaskStatus={onChangeTaskStatus} isUpdatingTaskStatus={isUpdatingTaskStatus} observabilityStats={observabilityStats}/>)}
 
         <div className="timeline-stage" style={timelineStageStyle}>
@@ -710,7 +356,7 @@ export function Timeline({ timeline, taskTitle, taskId, taskStatus, taskUpdatedA
         }}>
             <div className="timeline-canvas" ref={timelineCanvasRef} style={{ width: `${timelineLayout.width}px`, minHeight: `${canvasHeight}px` }}>
 
-              
+
               <svg className="timeline-overlay" style={{ width: timelineLayout.width, height: canvasHeight }} xmlns="http://www.w3.org/2000/svg">
                 <title>Timeline overlay</title>
                 <defs>
@@ -721,11 +367,11 @@ export function Timeline({ timeline, taskTitle, taskId, taskStatus, taskUpdatedA
         })()))}
                 </defs>
 
-                
+
                 <rect x="0" y="0" width={timelineLayout.width} height={RULER_HEIGHT} className="ruler-bg"/>
                 <line x1="0" y1={RULER_HEIGHT} x2={timelineLayout.width} y2={RULER_HEIGHT} className="ruler-baseline"/>
 
-                
+
                 {timestampTicks.map((tick) => (<g key={tick.label + tick.x}>
                     <line x1={tick.x} y1={RULER_HEIGHT - 6} x2={tick.x} y2={RULER_HEIGHT} className="ruler-tick"/>
                     <text x={tick.x + 4} y={RULER_HEIGHT - 8} className="ruler-label">
@@ -734,19 +380,19 @@ export function Timeline({ timeline, taskTitle, taskId, taskStatus, taskUpdatedA
                     <line x1={tick.x} y1={RULER_HEIGHT} x2={tick.x} y2={canvasHeight} className="grid-line"/>
                   </g>))}
 
-                
+
                 {connectors.filter((c) => c.cross).map((c) => (<g key={c.key}>
                     <path d={c.path} className={`connector-hitbox${selectedConnector?.connector.key === c.key ? " active" : ""}`} onClick={() => onSelectConnector(c.key)}/>
                     <path d={c.path} className={`connector ${c.lane} cross-lane${selectedConnector?.connector.key === c.key ? " active" : ""}`} onClick={() => onSelectConnector(c.key)}/>
                   </g>))}
-                
+
                 {connectors.filter((c) => !c.cross).map((c) => (<g key={c.key}>
                     <path d={c.path} className={`connector-hitbox${selectedConnector?.connector.key === c.key ? " active" : ""}`} onClick={() => onSelectConnector(c.key)}/>
                     <path d={c.path} className={`connector ${c.lane}${selectedConnector?.connector.key === c.key ? " active" : ""}`} markerEnd={`url(#arrow-${c.lane})`} onClick={() => onSelectConnector(c.key)}/>
                   </g>))}
               </svg>
 
-              
+
               {displayLaneRows.map((row, index) => ((() => {
             const laneTheme = getLaneTheme(row.baseLane);
             const expandableLane = isExpandableLane(row.baseLane) ? row.baseLane : null;
@@ -790,12 +436,12 @@ export function Timeline({ timeline, taskTitle, taskId, taskStatus, taskUpdatedA
                     </div>);
         })()))}
 
-              
+
               <div className="now-line" style={{ left: `${timelineLayout.nowLeft}px`, top: `${RULER_HEIGHT}px` }}>
                 <span className="now-label">now</span>
               </div>
 
-              
+
               {[...timelineLayout.items]
             .sort((a, b) => b.rowIndex - a.rowIndex)
             .map((item) => ((() => {
@@ -889,7 +535,7 @@ export function Timeline({ timeline, taskTitle, taskId, taskStatus, taskUpdatedA
                       </div>);
         })()))}
 
-              
+
               {openStackEventId && (() => {
             const frontItem = timelineLayout.items.find((i) => i.event.id === openStackEventId);
             if (!frontItem)
@@ -943,5 +589,8 @@ export function Timeline({ timeline, taskTitle, taskId, taskStatus, taskUpdatedA
       </div>
     </section>);
 }
+
 export type { NodeBounds };
 export { areNodeBoundsEqual };
+export type { TimelineProps };
+export { shouldResetTimelineFollowForTaskChange, computeTimelineFollowScrollLeft };
