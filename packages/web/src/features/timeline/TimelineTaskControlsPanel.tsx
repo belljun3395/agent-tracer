@@ -2,7 +2,7 @@ import type React from "react";
 import { type FormEvent as ReactFormEvent } from "react";
 import { cn } from "../../lib/ui/cn.js";
 import { Button } from "../../components/ui/Button.js";
-import { OBSERVABILITY_BADGE_STYLES, TASK_STATUS_BUTTON_STYLES, formatTaskStatusLabel, type TimelineObservabilityStats } from "./utils.js";
+import { OBSERVABILITY_BADGE_STYLES, formatTaskStatusLabel, type TimelineObservabilityStats } from "./utils.js";
 
 export function TimelineTaskControlsPanel({ controlsPopoverRef, controlsPopoverPos, isEditingTaskTitle, onSubmitTitle, isSavingTaskTitle, onTitleDraftChange, taskTitleDraft, onCancelEditTitle, taskTitleError, onStartEditTitle, onOpenTaskWorkspace, taskStatus, onChangeTaskStatus, isUpdatingTaskStatus, observabilityStats }: {
     readonly controlsPopoverRef: React.RefObject<HTMLDivElement | null>;

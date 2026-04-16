@@ -1,16 +1,20 @@
 import { describe, expect, it } from "vitest";
 import { buildReusableTaskSnapshot } from "./snapshot.js";
 import type { TimelineEvent } from "../monitoring/types.js";
+import { EventId, TaskId } from "../monitoring/ids.js";
+import type { EventClassification } from "../classification.js";
+
+const emptyClassification: EventClassification = { lane: "exploration", tags: [], matches: [] };
 
 function makeExploreEvent(filePath: string, createdAt: string): TimelineEvent {
     return {
-        id: `evt-${filePath}-${createdAt}` as any,
-        taskId: "task-1" as any,
+        id: EventId(`evt-${filePath}-${createdAt}`),
+        taskId: TaskId("task-1"),
         kind: "tool.used",
         lane: "exploration",
         title: `Read: ${filePath}`,
         metadata: { filePaths: [filePath] },
-        classification: {} as any,
+        classification: emptyClassification,
         createdAt,
     };
 }
