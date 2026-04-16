@@ -15,6 +15,7 @@ export function buildReusableTaskSnapshot({ objective, events, evaluation }: Bui
     const { summary: verificationSummary, failures } = collectVerificationState(events);
     const decisionLines = collectDecisionLines(events);
     const nextSteps = collectNextSteps(events);
+    const activeInstructions = collectActiveInstructions(events);
     const watchItems = uniqueStrings([
         ...splitListField(evaluation?.watchouts),
         ...failures
@@ -35,7 +36,8 @@ export function buildReusableTaskSnapshot({ objective, events, evaluation }: Bui
         useCase: evaluation?.useCase ?? null,
         watchItems,
         keyDecisions: decisionLines,
-        keyFiles
+        keyFiles,
+        activeInstructions
     });
     return {
         objective: normalizeText(objective, 220) ?? "Reusable task",
@@ -49,6 +51,7 @@ export function buildReusableTaskSnapshot({ objective, events, evaluation }: Bui
         keyFiles,
         modifiedFiles,
         verificationSummary,
+        activeInstructions,
         searchText
     };
 }
@@ -163,6 +166,19 @@ function describeDecisionEvent(event: TimelineEvent): string | null {
 }
 
 /**
+ * Collects relative paths of instruction files loaded during the session.
+ * Skips compact re-loads (load_reason === "compact") to avoid duplicates.
+ */
+function collectActiveInstructions(events: readonly TimelineEvent[]): readonly string[] {
+    return uniqueStrings(
+        events
+            .filter((e) => e.kind === "instructions.loaded" && stringMetadata(e, "loadReason") !== "compact")
+            .map((e) => stringMetadata(e, "relPath") ?? normalizeText(e.body ?? e.title))
+            .filter((v): v is string => Boolean(v))
+    );
+}
+
+/**
  * Builds the actionable follow-up list from open todos and unresolved questions.
  */
 function collectNextSteps(events: readonly TimelineEvent[]): readonly string[] {
@@ -239,6 +255,7 @@ function buildSearchText(input: {
     readonly watchItems: readonly string[];
     readonly keyDecisions: readonly string[];
     readonly keyFiles: readonly string[];
+    readonly activeInstructions: readonly string[];
 }): string {
     return [
         input.objective,
@@ -250,7 +267,8 @@ function buildSearchText(input: {
         input.workflowTags.join(" "),
         input.watchItems.join(" "),
         input.keyDecisions.join(" "),
-        input.keyFiles.join(" ")
+        input.keyFiles.join(" "),
+        input.activeInstructions.join(" ")
     ]
         .map((value) => {
         const normalized = normalizeText(value);

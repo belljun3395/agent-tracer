@@ -33,7 +33,8 @@ describe("workflow snapshot draft conversion", () => {
             keyFiles: ["packages/web/src/components/TaskEvaluatePanel.tsx"],
             modifiedFiles: ["packages/server/src/application/monitor-service.ts"],
             verificationSummary: "Checks: 2 (2 pass, 0 fail)",
-            searchText: "workflow visibility improvement generated workflow content"
+            searchText: "workflow visibility improvement generated workflow content",
+            activeInstructions: ["CLAUDE.md", ".claude/rules/typescript.md"]
         } as const;
         expect(parseWorkflowSnapshotDraft(createWorkflowSnapshotDraft(snapshot))).toEqual(snapshot);
     });
