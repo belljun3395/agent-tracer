@@ -96,13 +96,24 @@ function collectModifiedFiles(events: readonly TimelineEvent[]): readonly string
 }
 
 /**
- * Merges changed files and referenced files into the key-file shortlist.
+ * Merges changed files and referenced files into the key-file shortlist,
+ * sorted by read frequency (most-referenced first).
  */
 function collectKeyFiles(events: readonly TimelineEvent[], modifiedFiles: readonly string[]): readonly string[] {
-    const discovered = events.flatMap((event) => stringArrayMetadata(event, "filePaths"));
+    const frequency = new Map<string, number>();
+    for (const event of events) {
+        for (const fp of stringArrayMetadata(event, "filePaths")) {
+            frequency.set(fp, (frequency.get(fp) ?? 0) + 1);
+        }
+    }
+
+    const discovered = [...frequency.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .map(([fp]) => fp);
+
     return uniqueStrings([
         ...modifiedFiles,
-        ...discovered
+        ...discovered,
     ]).slice(0, 8);
 }
 
