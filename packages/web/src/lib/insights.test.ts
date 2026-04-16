@@ -313,7 +313,8 @@ function makeHandoff(overrides: Partial<HandoffOptions> = {}): HandoffOptions {
             keyFiles: ["src/App.tsx", "src/lib/insights.ts"],
             modifiedFiles: ["src/App.tsx"],
             verificationSummary: "Checks: 1 (1 pass, 0 fail)",
-            searchText: "Build the feature Implemented X and Y"
+            searchText: "Build the feature Implemented X and Y",
+            activeInstructions: [] as readonly string[]
         },
         include: { ...defaultInclude, ...(overrides.include ?? {}) },
         ...overrides
@@ -419,7 +420,8 @@ describe("buildHandoffPlain", () => {
             keyFiles: [] as readonly string[],
             modifiedFiles: [] as readonly string[],
             verificationSummary: null,
-            searchText: ""
+            searchText: "",
+            activeInstructions: [] as readonly string[]
         };
         const result = buildHandoffPlain(makeHandoff({
             mode: "compact",
@@ -882,6 +884,7 @@ describe("buildEvaluatePrompt", () => {
             openTodos: [],
             openQuestions: [],
             violations: [],
+            activeInstructions: [],
             snapshot: makeHandoff().snapshot,
             ...overrides
         };
@@ -912,5 +915,31 @@ describe("buildEvaluatePrompt", () => {
     it("does not include modified files line when empty", () => {
         const result = buildEvaluatePrompt(makeEvaluateOptions({ modifiedFiles: [] }));
         expect(result).not.toContain("Modified files:");
+    });
+    it("includes exploredFiles in the prompt when provided", () => {
+        const result = buildEvaluatePrompt(makeEvaluateOptions({
+            exploredFiles: ["src/auth.ts", "src/session.ts"],
+        }));
+        expect(result).toContain("src/auth.ts");
+        expect(result).toContain("src/session.ts");
+    });
+    it("includes openTodos in the prompt when provided", () => {
+        const result = buildEvaluatePrompt(makeEvaluateOptions({
+            openTodos: ["Write migration tests", "Update README"],
+        }));
+        expect(result).toContain("Write migration tests");
+        expect(result).toContain("Update README");
+    });
+    it("includes plans in the prompt when provided", () => {
+        const result = buildEvaluatePrompt(makeEvaluateOptions({
+            plans: ["Step 1: analyze schema", "Step 2: write migration"],
+        }));
+        expect(result).toContain("Step 1: analyze schema");
+    });
+    it("includes activeInstructions in the prompt when provided", () => {
+        const result = buildEvaluatePrompt(makeEvaluateOptions({
+            activeInstructions: ["CLAUDE.md", ".claude/rules/typescript.md"],
+        }));
+        expect(result).toContain("CLAUDE.md");
     });
 });

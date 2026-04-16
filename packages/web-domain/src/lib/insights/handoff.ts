@@ -479,23 +479,47 @@ export interface EvaluatePromptOptions {
     readonly openQuestions: readonly string[];
     readonly violations: readonly string[];
     readonly snapshot: ReusableTaskSnapshot;
+    readonly activeInstructions: readonly string[];
 }
 export function buildEvaluatePrompt(options: EvaluatePromptOptions): string {
-    const { taskId, objective, summary, sections, modifiedFiles, violations } = options;
+    const {
+        taskId, objective, summary, sections,
+        modifiedFiles, violations,
+        exploredFiles, openTodos, openQuestions, plans,
+        activeInstructions,
+    } = options;
+
     const parts: string[] = [KO_EVALUATE_INTRO];
     parts.push(`\n## Task Context`);
     if (objective) parts.push(`\n- Objective: ${objective}`);
     if (summary) parts.push(`\n- Summary: ${summary}`);
+
     if (sections.length > 0) {
         const items = sections.flatMap((s) => s.items.slice(0, 2).map((item) => `  - ${s.lane}: ${item}`));
         parts.push(`\n- Process:\n${items.join("\n")}`);
     }
+    if (plans.length > 0) {
+        parts.push(`\n- Plan steps:\n${plans.slice(0, 5).map((p) => `  - ${p}`).join("\n")}`);
+    }
     if (modifiedFiles.length > 0) {
         parts.push(`\n- Modified files: ${modifiedFiles.slice(0, 6).join(", ")}`);
+    }
+    if (exploredFiles.length > 0) {
+        parts.push(`\n- Key explored files: ${exploredFiles.slice(0, 8).join(", ")}`);
+    }
+    if (openTodos.length > 0) {
+        parts.push(`\n- Open todos: ${openTodos.slice(0, 5).map((t) => `"${t}"`).join(", ")}`);
+    }
+    if (openQuestions.length > 0) {
+        parts.push(`\n- Open questions: ${openQuestions.slice(0, 3).map((q) => `"${q}"`).join(", ")}`);
     }
     if (violations.length > 0) {
         parts.push(`\n- Watchouts: ${violations.slice(0, 4).join("; ")}`);
     }
+    if (activeInstructions.length > 0) {
+        parts.push(`\n- Active instruction files: ${activeInstructions.join(", ")}`);
+    }
+
     parts.push(`\n## Instructions`);
     parts.push(KO_EVALUATE_INSTRUCTIONS_HEADER);
     parts.push(`- taskId: "${taskId}"`);

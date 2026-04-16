@@ -164,6 +164,23 @@ export function EventInspector({
     const handoffViolations = useMemo(() => collectViolationDescriptions(taskTimeline), [taskTimeline]);
     const handoffPlans = useMemo(() => collectPlanSteps(taskTimeline), [taskTimeline]);
     const handoffSnapshot = useMemo(() => buildReusableTaskSnapshot({ objective: taskExtraction.objective, events: taskTimeline, evaluation: taskEvaluation ?? null }), [taskExtraction.objective, taskTimeline, taskEvaluation]);
+    const handoffActiveInstructions = useMemo(
+        () => {
+            const seen = new Set<string>();
+            const result: string[] = [];
+            for (const e of taskTimeline) {
+                if (e.kind === "instructions.loaded" && e.metadata["loadReason"] !== "compact") {
+                    const val = String(e.metadata["relPath"] ?? e.body ?? e.title);
+                    if (val && !seen.has(val)) {
+                        seen.add(val);
+                        result.push(val);
+                    }
+                }
+            }
+            return result;
+        },
+        [taskTimeline]
+    );
 
     const relatedEvents = useMemo(() => {
         if (!selectedEvent) return [];
@@ -307,6 +324,7 @@ export function EventInspector({
                         handoffExploredFiles={handoffExploredFiles} handoffModifiedFiles={handoffModifiedFiles}
                         handoffOpenTodos={handoffOpenTodos} handoffOpenQuestions={handoffOpenQuestions}
                         handoffViolations={handoffViolations} handoffSnapshot={handoffSnapshot}
+                        handoffActiveInstructions={handoffActiveInstructions}
                         evaluation={taskEvaluation} isSavingEvaluation={isSavingTaskEvaluation}
                         isSavedEvaluation={isSavedTaskEvaluation} onSaveEvaluation={saveTaskEvaluation}
                     />

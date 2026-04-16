@@ -71,12 +71,13 @@ export interface ActionsTabProps {
     readonly handoffOpenQuestions: readonly string[];
     readonly handoffViolations: readonly string[];
     readonly handoffSnapshot: ReusableTaskSnapshot;
+    readonly handoffActiveInstructions: readonly string[];
     readonly evaluation: TaskEvaluationRecord | null;
     readonly isSavingEvaluation: boolean;
     readonly isSavedEvaluation: boolean;
     readonly onSaveEvaluation: (data: TaskEvaluationPayload) => Promise<void>;
 }
-export function ActionsTab({ taskId, taskTitle, workspacePath, taskExtraction, taskTimeline, handoffPlans, handoffExploredFiles, handoffModifiedFiles, handoffOpenTodos, handoffOpenQuestions, handoffViolations, handoffSnapshot, evaluation, isSavingEvaluation, isSavedEvaluation, onSaveEvaluation }: ActionsTabProps): React.JSX.Element {
+export function ActionsTab({ taskId, taskTitle, workspacePath, taskExtraction, taskTimeline, handoffPlans, handoffExploredFiles, handoffModifiedFiles, handoffOpenTodos, handoffOpenQuestions, handoffViolations, handoffSnapshot, handoffActiveInstructions, evaluation, isSavingEvaluation, isSavedEvaluation, onSaveEvaluation }: ActionsTabProps): React.JSX.Element {
     return (<div className="panel-tab-inner flex flex-col gap-5 p-4">
       <TaskExtractionCard extraction={taskExtraction} workspacePath={workspacePath}/>
       {taskId && taskExtraction.objective && (
@@ -92,6 +93,7 @@ export function ActionsTab({ taskId, taskTitle, workspacePath, taskExtraction, t
           openQuestions={handoffOpenQuestions}
           violations={handoffViolations}
           snapshot={handoffSnapshot}
+          activeInstructions={handoffActiveInstructions}
         />
       )}
       {taskId
