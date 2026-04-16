@@ -12,6 +12,8 @@
  *   load_reason       string  — "session_start" | "nested_traversal" | "path_glob_match" | "include" | "compact"
  *   cwd               string  — current working directory
  *   transcript_path   string  — path to the session transcript JSONL
+ *   agent_id          string?  — set when inside a subagent
+ *   agent_type        string?  — subagent type when agent_id is present
  *   globs             string[]? — path glob patterns (for path_glob_match reason)
  *   trigger_file_path string?  — file that triggered lazy load
  *   parent_file_path  string?  — file that included this one
@@ -45,6 +47,8 @@ async function main(): Promise<void> {
         return;
     }
 
+    const agentId = toTrimmedString(payload.agent_id) || undefined;
+    const agentType = toTrimmedString(payload.agent_type) || undefined;
     const filePath = toTrimmedString(payload.file_path);
     const loadReason = toTrimmedString(payload.load_reason) || "session_start";
     const memoryType = toTrimmedString(payload.memory_type) || "Project";
@@ -62,7 +66,7 @@ async function main(): Promise<void> {
         ? `Instructions reloaded: ${fileName}`
         : `Instructions loaded: ${fileName}`;
 
-    const ids = await resolveEventSessionIds(sessionId, undefined, undefined);
+    const ids = await resolveEventSessionIds(sessionId, agentId, agentType);
 
     await postJson("/ingest/v1/events", {
         events: [{
