@@ -79,12 +79,13 @@ async function main(): Promise<void> {
     const agentType = toTrimmedString(payload.agent_type) || undefined;
     const responseText = toTrimmedString(payload.last_assistant_message) || "";
 
-    // Read stop_reason and usage from the transcript JSONL — the Stop hook
-    // payload in the current Claude Code version does not include these fields.
+    // Prefer usage/stop_reason from the transcript JSONL (the current Claude Code
+    // version does not include these in the payload). Fall back to payload fields
+    // so that integration tests that inject payload.usage still work correctly.
     const transcriptPath = toTrimmedString(payload.transcript_path);
     const lastEntry = transcriptPath ? readLastAssistantEntry(transcriptPath) : undefined;
     const stopReason = toTrimmedString(lastEntry?.message?.stop_reason) || toTrimmedString(payload.stop_reason) || "end_turn";
-    const usage = lastEntry?.message?.usage;
+    const usage = lastEntry?.message?.usage ?? (payload.usage as TranscriptUsage | undefined);
 
     const title = responseText
         ? ellipsize(responseText, 120)

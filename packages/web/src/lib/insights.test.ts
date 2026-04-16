@@ -845,18 +845,18 @@ describe("collectRecentRuleDecisions", () => {
 describe("buildHandoffPrompt", () => {
     it("includes continue preamble and action for continue purpose", () => {
         const result = buildHandoffPrompt(makeHandoff({ purpose: "continue" }));
-        expect(result).toContain("이전에 진행하던 작업을 이어받습니다");
-        expect(result).toContain("가장 긴급한 미완료 항목부터 작업을 시작하세요");
+        expect(result).toContain("You are resuming a task that was in progress.");
+        expect(result).toContain("Start with the most urgent incomplete item.");
     });
     it("includes handoff preamble for handoff purpose", () => {
         const result = buildHandoffPrompt(makeHandoff({ purpose: "handoff" }));
-        expect(result).toContain("인수받습니다");
-        expect(result).toContain("인수 사항을 확인하고");
+        expect(result).toContain("You are taking over a task from another developer.");
+        expect(result).toContain("Confirm the handoff details");
     });
     it("includes review instruction for review purpose", () => {
         const result = buildHandoffPrompt(makeHandoff({ purpose: "review" }));
-        expect(result).toContain("완료된 작업을 리뷰합니다");
-        expect(result).toContain("품질 이슈나 개선점을 정리하세요");
+        expect(result).toContain("You are reviewing a completed task.");
+        expect(result).toContain("identify any quality issues or improvements");
     });
     it("includes MCP tool hint for reference purpose", () => {
         const result = buildHandoffPrompt(makeHandoff({ purpose: "reference" }));
