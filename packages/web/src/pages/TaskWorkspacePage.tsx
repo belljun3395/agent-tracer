@@ -48,7 +48,7 @@ export function TaskWorkspacePage({ taskId, embedded = false }: {
 }): React.JSX.Element {
     const { state, dispatch, refreshOverview, refreshTaskDetail, refreshBookmarksOnly, handleCreateTaskBookmark, handleCreateEventBookmark, handleTaskStatusChange, handleTaskTitleSubmit } = useMonitorStore();
     const { bookmarks, selectedTaskId, selectedEventId, selectedConnectorKey, selectedRuleId, selectedTag, showRuleGapsOnly, taskDetail, nowMs, isEditingTaskTitle, taskTitleDraft, taskTitleError, isSavingTaskTitle, isUpdatingTaskStatus, taskDisplayTitleCache } = state;
-    const [searchParams, setSearchParams] = useSearchParams();
+    const [searchParams] = useSearchParams();
     const navigate = useNavigate();
     const { taskObservability, refreshTaskObservability } = useTaskObservability(taskId);
     const [reviewerNote, setReviewerNote] = useState("");
@@ -106,10 +106,8 @@ export function TaskWorkspacePage({ taskId, embedded = false }: {
         if (currentTab === activeTab) {
             return;
         }
-        const next = new URLSearchParams(searchParams);
-        next.set("tab", activeTab);
-        setSearchParams(next, { replace: true });
-    }, [activeTab, searchParams, setSearchParams]);
+        navigate(`/tasks/${encodeURIComponent(taskId)}?tab=${activeTab}`, { replace: true });
+    }, [activeTab, searchParams, navigate, taskId]);
     const selectedTaskDetail = taskDetail?.task.id === taskId ? taskDetail : null;
     const taskTimeline = selectedTaskDetail?.timeline ?? [];
     const selectedTaskDisplayTitle = useMemo(() => selectedTaskDetail?.task
@@ -164,10 +162,8 @@ export function TaskWorkspacePage({ taskId, embedded = false }: {
         event.preventDefault();
     }, [inspectorWidth, isStackedWorkspace]);
     const handleActiveTabChange = useCallback((tab: PanelTabId): void => {
-        const next = new URLSearchParams(searchParams);
-        next.set("tab", tab);
-        setSearchParams(next, { replace: true });
-    }, [searchParams, setSearchParams]);
+        navigate(`/tasks/${encodeURIComponent(taskId)}?tab=${tab}`, { replace: true });
+    }, [navigate, taskId]);
     const handleRuleReview = useCallback(async (outcome: "approved" | "rejected" | "bypassed"): Promise<void> => {
         if (!selectedTaskDetail?.task || !taskObservability?.observability.ruleEnforcement.activeRuleId) {
             return;
