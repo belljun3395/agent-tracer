@@ -10,3 +10,15 @@
 export { createMonitorQueryClient } from "./query/client.js";
 export { QueryProvider } from "./query/QueryProvider.js";
 export type { QueryProviderProps } from "./query/QueryProvider.js";
+
+export { monitorQueryKeys } from "./server/queryKeys.js";
+export type { MonitorQueryKey } from "./server/queryKeys.js";
+export {
+    useOverviewQuery,
+    useTasksQuery,
+    useTaskDetailQuery,
+    useBookmarksQuery
+} from "./server/queries.js";
+
+export { useMonitorSocket } from "./realtime/useMonitorSocket.js";
+export type { UseMonitorSocketOptions } from "./realtime/useMonitorSocket.js";

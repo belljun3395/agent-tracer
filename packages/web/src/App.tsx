@@ -14,6 +14,7 @@ const TaskWorkspacePage = lazy(() => import("./pages/TaskWorkspacePage.js").then
 import { MonitorProvider, useMonitorStore } from "@monitor/web-store";
 import { useWebSocket } from "@monitor/web-store";
 import { useSearch } from "@monitor/web-store";
+import { QueryProvider } from "@monitor/web-state";
 import { useTheme } from "./lib/useTheme.js";
 const ZOOM_MIN = 0.8;
 const ZOOM_MAX = 2.5;
@@ -319,7 +320,9 @@ function AppRoutes(): React.JSX.Element {
 }
 export function App(): React.JSX.Element {
     useTheme();
-    return (<MonitorProvider>
-      <AppRoutes />
-    </MonitorProvider>);
+    return (<QueryProvider>
+      <MonitorProvider>
+        <AppRoutes />
+      </MonitorProvider>
+    </QueryProvider>);
 }
