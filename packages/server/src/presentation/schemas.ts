@@ -287,6 +287,7 @@ const reusableTaskSnapshotSchema = z.object({
     keyFiles: z.array(z.string()),
     modifiedFiles: z.array(z.string()),
     verificationSummary: z.string().nullable(),
+    activeInstructions: z.array(z.string()),
     searchText: z.string()
 });
 export const taskEvaluateSchema = z.object({

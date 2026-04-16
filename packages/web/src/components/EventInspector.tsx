@@ -170,7 +170,8 @@ export function EventInspector({
             const result: string[] = [];
             for (const e of taskTimeline) {
                 if (e.kind === "instructions.loaded" && e.metadata["loadReason"] !== "compact") {
-                    const val = String(e.metadata["relPath"] ?? e.body ?? e.title);
+                    const relPath = e.metadata["relPath"];
+                    const val = typeof relPath === "string" ? relPath : (e.body ?? e.title);
                     if (val && !seen.has(val)) {
                         seen.add(val);
                         result.push(val);

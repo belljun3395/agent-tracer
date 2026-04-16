@@ -411,8 +411,8 @@ export function Timeline({
                                         onSelectEvent={onSelectEvent}
                                         onOpenStack={setOpenStackEventId}
                                         onRegisterNode={(id, node) => {
-                                            if (node) nodeRefs.current!.set(id, node);
-                                            else nodeRefs.current!.delete(id);
+                                            if (node) nodeRefs.current.set(id, node);
+                                            else nodeRefs.current.delete(id);
                                         }}
                                     />
                                 ))}

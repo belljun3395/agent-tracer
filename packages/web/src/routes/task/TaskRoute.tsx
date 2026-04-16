@@ -1,6 +1,6 @@
 import type React from "react";
 import { Navigate, useParams } from "react-router-dom";
-import { TaskWorkspace } from "../../features/task-workspace/index.js";
+import { TaskWorkspace } from "../../features/task-workspace/";
 
 /**
  * Standalone task workspace route at /tasks/:taskId.

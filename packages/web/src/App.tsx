@@ -13,7 +13,7 @@ import { NavigationSidebar } from "./components/NavigationSidebar.js";
 import { TimelineContainer } from "./components/TimelineContainer.js";
 const ApprovalQueuePanel = lazy(() => import("./components/ApprovalQueuePanel.js").then((m) => ({ default: m.ApprovalQueuePanel })));
 const InspectorContainer = lazy(() => import("./components/InspectorContainer.js").then((m) => ({ default: m.InspectorContainer })));
-import { TaskWorkspace } from "./features/task-workspace/index.js";
+import { TaskWorkspace } from "./features/task-workspace/";
 import { TaskRoute } from "./routes/task/TaskRoute.js";
 import {
     QueryProvider,
@@ -480,13 +480,11 @@ function AppInner(): React.JSX.Element {
         if (next !== current) {
             selectEvent(next);
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [taskDetail?.task.id]);
 
     // Reset timeline filters whenever the selected task changes.
     useEffect(() => {
         resetFilters();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedTaskId]);
 
     return <AppRoutes />;
