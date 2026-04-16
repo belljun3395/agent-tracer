@@ -106,6 +106,13 @@ export class EventIngestionService {
                     ...relations,
                 })
 
+            case "instructions.loaded":
+                return this.monitor.saveContext({
+                    ...base,
+                    title: e.title ?? "Instructions loaded",
+                    ...relations,
+                })
+
             case "plan.logged":
                 return this.monitor.logPlan({
                     ...base,
