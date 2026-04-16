@@ -106,7 +106,7 @@ export function TaskWorkspacePage({ taskId, embedded = false }: {
         if (currentTab === activeTab) {
             return;
         }
-        navigate(`/tasks/${encodeURIComponent(taskId)}?tab=${activeTab}`, { replace: true });
+        void navigate(`/tasks/${encodeURIComponent(taskId)}?tab=${activeTab}`, { replace: true });
     }, [activeTab, searchParams, navigate, taskId]);
     const selectedTaskDetail = taskDetail?.task.id === taskId ? taskDetail : null;
     const taskTimeline = selectedTaskDetail?.timeline ?? [];
@@ -162,7 +162,7 @@ export function TaskWorkspacePage({ taskId, embedded = false }: {
         event.preventDefault();
     }, [inspectorWidth, isStackedWorkspace]);
     const handleActiveTabChange = useCallback((tab: PanelTabId): void => {
-        navigate(`/tasks/${encodeURIComponent(taskId)}?tab=${tab}`, { replace: true });
+        void navigate(`/tasks/${encodeURIComponent(taskId)}?tab=${tab}`, { replace: true });
     }, [navigate, taskId]);
     const handleRuleReview = useCallback(async (outcome: "approved" | "rejected" | "bypassed"): Promise<void> => {
         if (!selectedTaskDetail?.task || !taskObservability?.observability.ruleEnforcement.activeRuleId) {
