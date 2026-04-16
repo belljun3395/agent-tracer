@@ -1,5 +1,5 @@
 import type React from "react";
-import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Navigate, Route, Routes, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { refreshRealtimeMonitorData, buildQuestionGroups, buildTodoGroups } from "@monitor/web-core";
 import type { BookmarkRecord, BookmarkSearchHit } from "@monitor/web-core";
@@ -71,16 +71,20 @@ function Dashboard({ view = "timeline", workspaceTaskId, onOpenTaskWorkspace, on
     }, [isInspectorCollapsed, isStackedDashboard]);
     const [isApprovalQueueOpen, setIsApprovalQueueOpen] = useState(false);
     const [zoom, setZoom] = useState<number>(() => {
-        const raw = window.localStorage.getItem(ZOOM_STORAGE_KEY);
-        if (!raw)
+        try {
+            const raw = window.localStorage.getItem(ZOOM_STORAGE_KEY);
+            if (!raw)
+                return ZOOM_DEFAULT;
+            const parsed = Number.parseFloat(raw);
+            if (!Number.isFinite(parsed))
+                return ZOOM_DEFAULT;
+            return Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, parsed));
+        } catch {
             return ZOOM_DEFAULT;
-        const parsed = Number.parseFloat(raw);
-        if (!Number.isFinite(parsed))
-            return ZOOM_DEFAULT;
-        return Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, parsed));
+        }
     });
     useEffect(() => {
-        window.localStorage.setItem(ZOOM_STORAGE_KEY, String(zoom));
+        try { window.localStorage.setItem(ZOOM_STORAGE_KEY, String(zoom)); } catch { /* storage unavailable */ }
     }, [zoom]);
     const selectedTaskDisplayTitle = useMemo(() => taskDetail?.task ? (taskDisplayTitleCache[taskDetail.task.id]?.title ?? taskDetail.task.title) : null, [taskDetail, taskDisplayTitleCache]);
     const selectedTaskUsesDerivedTitle = Boolean(taskDetail?.task
@@ -273,14 +277,22 @@ function DashboardRoute({ view = "timeline" }: { readonly view?: "timeline" | "k
             return;
         dispatch({ type: "SELECT_TASK", taskId: routeTaskId });
     }, [dispatch, routeTaskId, state.selectedTaskId]);
+    // Sync store→URL only on initial auto-selection (when no task param in URL yet).
+    // Once synced, stop overwriting URL to avoid fighting user navigation (e.g. removing ?task=).
+    const hasAutoSyncedTaskRef = useRef(false);
     useEffect(() => {
         const currentTaskId = searchParams.get("task");
         if (!state.selectedTaskId)
             return;
-        if (currentTaskId === state.selectedTaskId)
+        if (currentTaskId === state.selectedTaskId) {
+            hasAutoSyncedTaskRef.current = true;
             return;
+        }
         if (currentTaskId && currentTaskId !== state.selectedTaskId)
             return;
+        if (hasAutoSyncedTaskRef.current)
+            return;
+        hasAutoSyncedTaskRef.current = true;
         const next = new URLSearchParams(searchParams);
         next.set("task", state.selectedTaskId);
         setSearchParams(next, { replace: true });

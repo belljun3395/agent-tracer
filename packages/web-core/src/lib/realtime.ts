@@ -128,9 +128,13 @@ export async function refreshRealtimeMonitorData(input: {
             await input.refreshOverview();
             return;
         }
-        case "task.updated":
+        case "task.updated": {
             input.dispatch?.({ type: "UPSERT_TASK", task: input.message.payload });
+            if (shouldRefreshSelectedTaskDetail(input.message, input.selectedTaskId) && input.selectedTaskId) {
+                await input.refreshTaskDetail(input.selectedTaskId);
+            }
             return;
+        }
         case "task.started":
         case "task.completed": {
             input.dispatch?.({ type: "UPSERT_TASK", task: input.message.payload });

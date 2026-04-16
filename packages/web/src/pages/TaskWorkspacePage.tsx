@@ -54,7 +54,7 @@ export function TaskWorkspacePage({ taskId, embedded = false }: {
     const { taskObservability, refreshTaskObservability } = useTaskObservability(taskId);
     const [reviewerNote, setReviewerNote] = useState("");
     const [isSubmittingRuleReview, setIsSubmittingRuleReview] = useState(false);
-    const [reviewerId, setReviewerId] = useState(() => window.localStorage.getItem(REVIEWER_ID_STORAGE_KEY) ?? "local-reviewer");
+    const [reviewerId, setReviewerId] = useState(() => { try { return window.localStorage.getItem(REVIEWER_ID_STORAGE_KEY) ?? "local-reviewer"; } catch { return "local-reviewer"; } });
     const [zoom, setZoom] = useState(1.1);
     const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth);
     // Controls/Filters state for embedded workspace header buttons
@@ -65,13 +65,17 @@ export function TaskWorkspacePage({ taskId, embedded = false }: {
     const workspaceControlsButtonRef = useRef<HTMLButtonElement>(null);
     const workspaceFiltersButtonRef = useRef<HTMLButtonElement>(null);
     const [inspectorWidth, setInspectorWidth] = useState<number>(() => {
-        const raw = window.localStorage.getItem(WORKSPACE_INSPECTOR_WIDTH_STORAGE_KEY);
-        if (!raw)
+        try {
+            const raw = window.localStorage.getItem(WORKSPACE_INSPECTOR_WIDTH_STORAGE_KEY);
+            if (!raw)
+                return WORKSPACE_INSPECTOR_DEFAULT_WIDTH;
+            const parsed = Number.parseInt(raw, 10);
+            if (!Number.isFinite(parsed))
+                return WORKSPACE_INSPECTOR_DEFAULT_WIDTH;
+            return Math.max(WORKSPACE_INSPECTOR_MIN_WIDTH, Math.min(WORKSPACE_INSPECTOR_MAX_WIDTH, parsed));
+        } catch {
             return WORKSPACE_INSPECTOR_DEFAULT_WIDTH;
-        const parsed = Number.parseInt(raw, 10);
-        if (!Number.isFinite(parsed))
-            return WORKSPACE_INSPECTOR_DEFAULT_WIDTH;
-        return Math.max(WORKSPACE_INSPECTOR_MIN_WIDTH, Math.min(WORKSPACE_INSPECTOR_MAX_WIDTH, parsed));
+        }
     });
     useWebSocket((message) => {
         void refreshRealtimeMonitorData({
@@ -91,10 +95,10 @@ export function TaskWorkspacePage({ taskId, embedded = false }: {
         dispatch({ type: "SELECT_TASK", taskId });
     }, [dispatch, selectedTaskId, taskId]);
     useEffect(() => {
-        window.localStorage.setItem(REVIEWER_ID_STORAGE_KEY, reviewerId);
+        try { window.localStorage.setItem(REVIEWER_ID_STORAGE_KEY, reviewerId); } catch { /* storage unavailable */ }
     }, [reviewerId]);
     useEffect(() => {
-        window.localStorage.setItem(WORKSPACE_INSPECTOR_WIDTH_STORAGE_KEY, String(inspectorWidth));
+        try { window.localStorage.setItem(WORKSPACE_INSPECTOR_WIDTH_STORAGE_KEY, String(inspectorWidth)); } catch { /* storage unavailable */ }
     }, [inspectorWidth]);
     useEffect(() => {
         const handleResize = (): void => setViewportWidth(window.innerWidth);
