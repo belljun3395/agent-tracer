@@ -9,6 +9,7 @@ import { PanelCard } from "../ui/PanelCard.js";
 import { SectionCard } from "./SectionCard.js";
 import { ObservabilityMetricGrid, ObservabilityList, ObservabilityPhaseBreakdown } from "./ObservabilitySection.js";
 import { cardShell, cardHeader, cardBody, innerPanel } from "./styles.js";
+import { toRelativePath } from "./utils.js";
 import type { SubagentInsight, VerificationCycleItem } from "@monitor/web-core";
 import type { TaskObservabilityResponse } from "@monitor/web-core";
 function RuntimeSessionCard({ runtimeSessionId, runtimeSource }: {
@@ -98,8 +99,9 @@ export interface OverviewTabProps {
     readonly verificationCycles?: readonly VerificationCycleItem[];
     readonly runtimeSessionId?: string | undefined;
     readonly runtimeSource?: string | undefined;
+    readonly workspacePath?: string | undefined;
 }
-export function OverviewTab({ observability, subagentInsight, verificationCycles, runtimeSessionId, runtimeSource }: OverviewTabProps): React.JSX.Element {
+export function OverviewTab({ observability, subagentInsight, verificationCycles, runtimeSessionId, runtimeSource, workspacePath }: OverviewTabProps): React.JSX.Element {
     return (<div className="panel-tab-inner flex flex-col gap-5 p-4">
       <RuntimeSessionCard runtimeSessionId={runtimeSessionId} runtimeSource={runtimeSource}/>
       {observability ? (<>
@@ -154,7 +156,7 @@ export function OverviewTab({ observability, subagentInsight, verificationCycles
 
           <SectionCard title="Top Files">
             <ObservabilityList emptyLabel="No file focus recorded yet." items={observability.focus.topFiles.map((file) => ({
-                label: file.path,
+                label: toRelativePath(file.path, workspacePath),
                 value: `${formatCount(file.count)}x`
             }))}/>
           </SectionCard>
