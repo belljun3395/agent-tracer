@@ -1,9 +1,20 @@
 import type React from "react";
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
+import type { TaskId } from "@monitor/core";
 import { buildTaskTimelineSummary } from "@monitor/web-domain";
-import { useMonitorStore } from "@monitor/web-state";
+import type { MonitoringTask } from "@monitor/web-domain";
+import { updateTaskStatus, updateTaskTitle } from "@monitor/web-io";
+import {
+    monitorQueryKeys,
+    useEditStore,
+    useNowMs,
+    useSelectionStore,
+    useTaskDetailQuery
+} from "@monitor/web-state";
+import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "../lib/ui/cn.js";
 import { Timeline } from "./Timeline.js";
+
 interface TimelineContainerProps {
     readonly isCompactDashboard: boolean;
     readonly isStackedDashboard: boolean;
@@ -13,35 +24,163 @@ interface TimelineContainerProps {
     readonly onZoomChange: (zoom: number) => void;
     readonly onOpenTaskWorkspace?: (() => void) | undefined;
 }
-export function TimelineContainer({ isCompactDashboard, isStackedDashboard, zoom, selectedTaskDisplayTitle, selectedTaskUsesDerivedTitle, onZoomChange, onOpenTaskWorkspace }: TimelineContainerProps): React.JSX.Element {
-    const { state, dispatch, handleTaskStatusChange, handleTaskTitleSubmit } = useMonitorStore();
-    const { status, errorMessage, taskDetail, selectedEventId, selectedConnectorKey, selectedRuleId, selectedTag, showRuleGapsOnly, nowMs, isEditingTaskTitle, taskTitleDraft, taskTitleError, isSavingTaskTitle, isUpdatingTaskStatus } = state;
+
+export function TimelineContainer({
+    isCompactDashboard,
+    isStackedDashboard,
+    zoom,
+    selectedTaskDisplayTitle,
+    selectedTaskUsesDerivedTitle,
+    onZoomChange,
+    onOpenTaskWorkspace
+}: TimelineContainerProps): React.JSX.Element {
+    const selectedTaskId = useSelectionStore((s) => s.selectedTaskId);
+    const selectedEventId = useSelectionStore((s) => s.selectedEventId);
+    const selectedConnectorKey = useSelectionStore((s) => s.selectedConnectorKey);
+    const selectedRuleId = useSelectionStore((s) => s.selectedRuleId);
+    const selectedTag = useSelectionStore((s) => s.selectedTag);
+    const showRuleGapsOnly = useSelectionStore((s) => s.showRuleGapsOnly);
+    const selectEvent = useSelectionStore((s) => s.selectEvent);
+    const selectConnector = useSelectionStore((s) => s.selectConnector);
+    const selectRule = useSelectionStore((s) => s.selectRule);
+    const selectTag = useSelectionStore((s) => s.selectTag);
+    const setShowRuleGapsOnly = useSelectionStore((s) => s.setShowRuleGapsOnly);
+    const resetFilters = useSelectionStore((s) => s.resetFilters);
+
+    const isEditingTaskTitle = useEditStore((s) => s.isEditingTaskTitle);
+    const taskTitleDraft = useEditStore((s) => s.taskTitleDraft);
+    const taskTitleError = useEditStore((s) => s.taskTitleError);
+    const isSavingTaskTitle = useEditStore((s) => s.isSavingTaskTitle);
+    const isUpdatingTaskStatus = useEditStore((s) => s.isUpdatingTaskStatus);
+    const startEditing = useEditStore((s) => s.startEditing);
+    const updateDraft = useEditStore((s) => s.updateDraft);
+    const setTitleError = useEditStore((s) => s.setTitleError);
+    const finishEditing = useEditStore((s) => s.finishEditing);
+    const setSavingTitle = useEditStore((s) => s.setSavingTitle);
+    const setUpdatingStatus = useEditStore((s) => s.setUpdatingStatus);
+
+    const { data: taskDetail, isError, error } = useTaskDetailQuery(
+        selectedTaskId != null ? (selectedTaskId as TaskId) : null
+    );
+    const nowMs = useNowMs();
+    const queryClient = useQueryClient();
+
     const taskTimeline = taskDetail?.timeline ?? [];
     const { observabilityStats } = useMemo(() => buildTaskTimelineSummary(taskTimeline), [taskTimeline]);
-    return (<section className={cn("flex min-h-0 min-w-0 flex-col overflow-hidden rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-1)]", isCompactDashboard && "min-h-[22rem]", isStackedDashboard && "order-1 min-h-[28rem]")}>
-      {status === "error" && (<div className="error-banner flex-shrink-0 border-b border-[#fca5a5] bg-[var(--err-bg)] px-3.5 py-2 text-[0.82rem] text-[var(--err)]">
-          <strong>Monitor unavailable</strong>
-          <p className="m-0">{errorMessage}</p>
-        </div>)}
 
-      <Timeline zoom={zoom} onZoomChange={onZoomChange} timeline={taskTimeline} taskTitle={selectedTaskDisplayTitle} taskWorkspacePath={taskDetail?.task.workspacePath} taskStatus={taskDetail?.task.status} taskUpdatedAt={taskDetail?.task.updatedAt} taskUsesDerivedTitle={selectedTaskUsesDerivedTitle} isEditingTaskTitle={isEditingTaskTitle} taskTitleDraft={taskTitleDraft} taskTitleError={taskTitleError} isSavingTaskTitle={isSavingTaskTitle} isUpdatingTaskStatus={isUpdatingTaskStatus} selectedEventId={selectedEventId} selectedConnectorKey={selectedConnectorKey} selectedRuleId={selectedRuleId} selectedTag={selectedTag} showRuleGapsOnly={showRuleGapsOnly} nowMs={nowMs} observabilityStats={observabilityStats} onSelectEvent={(id) => {
-            dispatch({ type: "SELECT_CONNECTOR", connectorKey: null });
-            dispatch({ type: "SELECT_EVENT", eventId: id });
-        }} onSelectConnector={(key) => {
-            dispatch({ type: "SELECT_CONNECTOR", connectorKey: key });
-            dispatch({ type: "SELECT_EVENT", eventId: null });
-        }} onStartEditTitle={() => {
-            dispatch({ type: "SET_TASK_TITLE_DRAFT", draft: selectedTaskDisplayTitle ?? taskDetail?.task.title ?? "" });
-            dispatch({ type: "SET_TASK_TITLE_ERROR", error: null });
-            dispatch({ type: "SET_EDITING_TASK_TITLE", isEditing: true });
-        }} onCancelEditTitle={() => {
-            dispatch({ type: "SET_TASK_TITLE_DRAFT", draft: selectedTaskDisplayTitle ?? taskDetail?.task.title ?? "" });
-            dispatch({ type: "SET_TASK_TITLE_ERROR", error: null });
-            dispatch({ type: "SET_EDITING_TASK_TITLE", isEditing: false });
-        }} onSubmitTitle={(e) => void handleTaskTitleSubmit(e, taskTitleDraft)} onTitleDraftChange={(val) => dispatch({ type: "SET_TASK_TITLE_DRAFT", draft: val })} onClearFilters={() => {
-            dispatch({ type: "SELECT_RULE", ruleId: null });
-            dispatch({ type: "SELECT_TAG", tag: null });
-            dispatch({ type: "SET_SHOW_RULE_GAPS_ONLY", show: false });
-        }} onToggleRuleGap={(show) => dispatch({ type: "SET_SHOW_RULE_GAPS_ONLY", show })} onClearRuleId={() => dispatch({ type: "SELECT_RULE", ruleId: null })} onClearTag={() => dispatch({ type: "SELECT_TAG", tag: null })} {...(onOpenTaskWorkspace !== undefined ? { onOpenTaskWorkspace } : {})} onChangeTaskStatus={(s) => void handleTaskStatusChange(s)}/>
-    </section>);
+    const handleTaskStatusChange = useCallback(
+        async (status: MonitoringTask["status"]): Promise<void> => {
+            if (!taskDetail?.task) return;
+            setUpdatingStatus(true);
+            try {
+                await updateTaskStatus(taskDetail.task.id, status);
+                await Promise.all([
+                    queryClient.invalidateQueries({ queryKey: monitorQueryKeys.tasks() }),
+                    queryClient.invalidateQueries({ queryKey: monitorQueryKeys.taskDetail(taskDetail.task.id) }),
+                ]);
+            } finally {
+                setUpdatingStatus(false);
+            }
+        },
+        [taskDetail?.task, setUpdatingStatus, queryClient]
+    );
+
+    const handleTaskTitleSubmit = useCallback(
+        async (event: React.SyntheticEvent<HTMLFormElement>, nextTitle: string): Promise<void> => {
+            event.preventDefault();
+            if (!taskDetail?.task) return;
+            const trimmed = nextTitle.trim();
+            if (!trimmed) {
+                setTitleError("Title cannot be empty.");
+                return;
+            }
+            if (trimmed === taskDetail.task.title.trim()) {
+                setTitleError(null);
+                finishEditing();
+                return;
+            }
+            setSavingTitle(true);
+            setTitleError(null);
+            try {
+                await updateTaskTitle(taskDetail.task.id, trimmed);
+                await Promise.all([
+                    queryClient.invalidateQueries({ queryKey: monitorQueryKeys.tasks() }),
+                    queryClient.invalidateQueries({ queryKey: monitorQueryKeys.taskDetail(taskDetail.task.id) }),
+                ]);
+                finishEditing();
+            } catch (err) {
+                setTitleError(err instanceof Error ? err.message : "Failed to save task title.");
+            } finally {
+                setSavingTitle(false);
+            }
+        },
+        [taskDetail?.task, setTitleError, finishEditing, setSavingTitle, queryClient]
+    );
+
+    return (
+        <section
+            className={cn(
+                "flex min-h-0 min-w-0 flex-col overflow-hidden rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-1)]",
+                isCompactDashboard && "min-h-[22rem]",
+                isStackedDashboard && "order-1 min-h-[28rem]"
+            )}
+        >
+            {isError && (
+                <div className="error-banner flex-shrink-0 border-b border-[#fca5a5] bg-[var(--err-bg)] px-3.5 py-2 text-[0.82rem] text-[var(--err)]">
+                    <strong>Monitor unavailable</strong>
+                    <p className="m-0">{error instanceof Error ? error.message : "Failed to load monitor data."}</p>
+                </div>
+            )}
+            <Timeline
+                zoom={zoom}
+                onZoomChange={onZoomChange}
+                timeline={taskTimeline}
+                taskTitle={selectedTaskDisplayTitle}
+                taskWorkspacePath={taskDetail?.task.workspacePath}
+                taskStatus={taskDetail?.task.status}
+                taskUpdatedAt={taskDetail?.task.updatedAt}
+                taskUsesDerivedTitle={selectedTaskUsesDerivedTitle}
+                isEditingTaskTitle={isEditingTaskTitle}
+                taskTitleDraft={taskTitleDraft}
+                taskTitleError={taskTitleError}
+                isSavingTaskTitle={isSavingTaskTitle}
+                isUpdatingTaskStatus={isUpdatingTaskStatus}
+                selectedEventId={selectedEventId}
+                selectedConnectorKey={selectedConnectorKey}
+                selectedRuleId={selectedRuleId}
+                selectedTag={selectedTag}
+                showRuleGapsOnly={showRuleGapsOnly}
+                nowMs={nowMs}
+                observabilityStats={observabilityStats}
+                onSelectEvent={(id) => {
+                    selectConnector(null);
+                    selectEvent(id);
+                }}
+                onSelectConnector={(key) => {
+                    selectConnector(key);
+                    selectEvent(null);
+                }}
+                onStartEditTitle={() => {
+                    startEditing(selectedTaskDisplayTitle ?? taskDetail?.task.title ?? "");
+                }}
+                onCancelEditTitle={() => {
+                    updateDraft(selectedTaskDisplayTitle ?? taskDetail?.task.title ?? "");
+                    setTitleError(null);
+                    finishEditing();
+                }}
+                onSubmitTitle={(e) => void handleTaskTitleSubmit(e, taskTitleDraft)}
+                onTitleDraftChange={updateDraft}
+                onClearFilters={() => {
+                    selectRule(null);
+                    selectTag(null);
+                    resetFilters();
+                }}
+                onToggleRuleGap={setShowRuleGapsOnly}
+                onClearRuleId={() => selectRule(null)}
+                onClearTag={() => selectTag(null)}
+                {...(onOpenTaskWorkspace !== undefined ? { onOpenTaskWorkspace } : {})}
+                onChangeTaskStatus={(s) => void handleTaskStatusChange(s)}
+            />
+        </section>
+    );
 }

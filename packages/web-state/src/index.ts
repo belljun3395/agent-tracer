@@ -24,10 +24,12 @@ export { useTaskObservability } from "./server/observability.js";
 export { useMonitorSocket } from "./realtime/useMonitorSocket.js";
 export type { UseMonitorSocketOptions } from "./realtime/useMonitorSocket.js";
 
-export * from "./useEventStore.js";
+// Ephemeral UI stores (Zustand)
+export { useSelectionStore } from "./ui/useSelectionStore.js";
+export type { SelectionState } from "./ui/useSelectionStore.js";
+export { useEditStore } from "./ui/useEditStore.js";
+export type { EditState } from "./ui/useEditStore.js";
+export { useNowMs } from "./ui/useNowMs.js";
+
 export * from "./useEvaluation.js";
-export * from "./useMonitorStore.js";
 export * from "./useSearch.js";
-export * from "./useTaskStore.js";
-export * from "./useWebSocket.js";
-export * from "./useWebSocketStore.js";

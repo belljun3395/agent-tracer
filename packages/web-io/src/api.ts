@@ -396,9 +396,12 @@ export function createPlaybook(payload: PlaybookPayload): Promise<PlaybookRecord
 export function updatePlaybook(playbookId: string, payload: Partial<PlaybookPayload>): Promise<PlaybookRecordResponse> {
     return postJson<PlaybookRecordResponse>(`/api/playbooks/${playbookId}`, payload);
 }
-export function createMonitorWebSocket(): WebSocket {
+export function getMonitorWsUrl(): string {
     const baseUrl = resolveWebSocketBaseUrl();
     const wsUrl = new URL(baseUrl.replace(/^http/, "ws"));
     wsUrl.pathname = "/ws";
-    return new WebSocket(wsUrl);
+    return wsUrl.toString();
+}
+export function createMonitorWebSocket(): WebSocket {
+    return new WebSocket(getMonitorWsUrl());
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeWorkspaceTab } from "./TaskWorkspacePage.js";
+import { normalizeWorkspaceTab } from "./constants.js";
 describe("normalizeWorkspaceTab", () => {
     it("keeps inspector as a valid workspace tab", () => {
         expect(normalizeWorkspaceTab("inspector")).toBe("inspector");
