@@ -1,5 +1,5 @@
 import type React from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { buildReusableTaskSnapshot, getEventEvidence } from "@monitor/core";
 import { buildExplorationInsight, buildInspectorEventTitle, buildMentionedFileVerifications, buildQuestionGroups, buildSubagentInsight, buildTagInsights, buildTaskExtraction, buildTodoGroups, buildVerificationCycles, collectFileActivity, collectPlanSteps, collectViolationDescriptions, collectWebLookups, type ModelSummary } from "@monitor/web-core";
 import { evidenceTone, formatEvidenceLevel } from "@monitor/web-core";
@@ -407,9 +407,11 @@ export function EventInspector({ taskDetail, selectedTaskTitle = null, taskObser
         }
         setUncontrolledActiveTab((current) => (current === initialTab ? current : initialTab));
     }, [initialTab, resolvedAllowedTabs]);
+    const onActiveTabChangeRef = useRef(onActiveTabChange);
+    onActiveTabChangeRef.current = onActiveTabChange;
     useEffect(() => {
-        onActiveTabChange?.(activeTab);
-    }, [activeTab, onActiveTabChange]);
+        onActiveTabChangeRef.current?.(activeTab);
+    }, [activeTab]);
     const visibleTabs = useMemo(() => PANEL_TABS.filter((tab) => resolvedAllowedTabs.includes(tab.id)), [resolvedAllowedTabs]);
     const isSingleTabMode = visibleTabs.length <= 1;
     const isInlineSingleTabHeader = isSingleTabMode && singleTabHeaderLayout === "inline";

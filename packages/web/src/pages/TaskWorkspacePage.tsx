@@ -1,7 +1,7 @@
 import type React from "react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { EventId } from "@monitor/core";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { postRuleAction, updateEventDisplayTitle } from "@monitor/web-core";
 import { EventInspector, type PanelTabId } from "../components/EventInspector.js";
 import { runtimeObservabilityLabel, runtimeTagLabel } from "../components/TaskList.js";
@@ -50,6 +50,7 @@ export function TaskWorkspacePage({ taskId, embedded = false }: {
     const { bookmarks, selectedTaskId, selectedEventId, selectedConnectorKey, selectedRuleId, selectedTag, showRuleGapsOnly, taskDetail, nowMs, isEditingTaskTitle, taskTitleDraft, taskTitleError, isSavingTaskTitle, isUpdatingTaskStatus, taskDisplayTitleCache } = state;
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
+    const { taskId: routeTaskId } = useParams<{ readonly taskId: string }>();
     const { taskObservability, refreshTaskObservability } = useTaskObservability(taskId);
     const [reviewerNote, setReviewerNote] = useState("");
     const [isSubmittingRuleReview, setIsSubmittingRuleReview] = useState(false);
@@ -102,12 +103,17 @@ export function TaskWorkspacePage({ taskId, embedded = false }: {
     }, []);
     const activeTab = useMemo(() => normalizeWorkspaceTab(searchParams.get("tab")), [searchParams]);
     useEffect(() => {
+        // Guard: skip if the URL has already transitioned to a different task.
+        // Without this, stale taskId prop fires a replace() that reverts the new URL.
+        if (routeTaskId !== taskId) {
+            return;
+        }
         const currentTab = searchParams.get("tab");
         if (currentTab === activeTab) {
             return;
         }
         void navigate(`/tasks/${encodeURIComponent(taskId)}?tab=${activeTab}`, { replace: true });
-    }, [activeTab, searchParams, navigate, taskId]);
+    }, [activeTab, searchParams, navigate, taskId, routeTaskId]);
     const selectedTaskDetail = taskDetail?.task.id === taskId ? taskDetail : null;
     const taskTimeline = selectedTaskDetail?.timeline ?? [];
     const selectedTaskDisplayTitle = useMemo(() => selectedTaskDetail?.task
@@ -162,6 +168,9 @@ export function TaskWorkspacePage({ taskId, embedded = false }: {
         event.preventDefault();
     }, [inspectorWidth, isStackedWorkspace]);
     const handleActiveTabChange = useCallback((tab: PanelTabId): void => {
+        // Guard: if the browser has already navigated to a different task (e.g. during
+        // React Suspense reconnect of a stale fiber), don't revert the URL.
+        if (window.location.pathname !== `/tasks/${encodeURIComponent(taskId)}`) return;
         void navigate(`/tasks/${encodeURIComponent(taskId)}?tab=${tab}`, { replace: true });
     }, [navigate, taskId]);
     const handleRuleReview = useCallback(async (outcome: "approved" | "rejected" | "bypassed"): Promise<void> => {
