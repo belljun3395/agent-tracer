@@ -10,6 +10,8 @@
   "scripts": {
     "build": "npm run build --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
+    "lint:deps": "depcruise --config .dependency-cruiser.cjs packages",
+    "depgraph": "depcruise --config .dependency-cruiser.cjs --output-type dot packages | dot -T svg -o docs/deps.svg",
     "test": "npm run test --workspaces --if-present",
     "publish:core": "npm publish --workspace @monitor/core --access public",
     "publish:server": "npm publish --workspace @monitor/server --access public",
