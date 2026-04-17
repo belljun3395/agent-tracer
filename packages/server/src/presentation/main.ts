@@ -5,7 +5,7 @@ import { WebSocketServer } from "ws";
 import { loadApplicationConfig, resolveMonitorDatabasePath, resolveMonitorHttpBaseUrl, resolveMonitorListenHost, resolveMonitorPort } from "../../../../config/load-application-config.js";
 import { AppModule } from "./app.module.js";
 import { EventBroadcaster } from "./ws/event-broadcaster.js";
-import { MonitorServiceProvider } from "./service/monitor-service.provider.js";
+import { MonitorService } from "@monitor/application";
 import { MONITOR_PORTS_TOKEN } from "./database/database.provider.js";
 import type { PortsWithClose } from "./database/database.provider.js";
 async function bootstrap() {
@@ -29,7 +29,7 @@ async function bootstrap() {
         }
         socket.destroy();
     });
-    const service = nestApp.get(MonitorServiceProvider);
+    const service = nestApp.get(MonitorService);
     wss.on("connection", (ws) => {
         broadcaster.addClient(ws);
         ws.on("close", () => broadcaster.removeClient(ws));

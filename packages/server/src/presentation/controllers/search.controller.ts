@@ -1,10 +1,16 @@
 import { Controller, Get, Query, HttpException, HttpStatus } from "@nestjs/common";
-import type { MonitorServiceProvider } from "../service/monitor-service.provider.js";
+import { z } from "zod";
+import { MonitorService } from "@monitor/application";
 import type { TaskSearchInput } from "@monitor/application";
-import { searchSchema } from "../schemas.js";
+
+const searchSchema = z.object({
+    query: z.string().trim().min(1),
+    taskId: z.string().min(1).optional(),
+    limit: z.coerce.number().int().positive().max(100).optional()
+});
 @Controller()
 export class SearchController {
-    constructor(private readonly service: MonitorServiceProvider) { }
+    constructor(private readonly service: MonitorService) { }
     @Get("/api/search")
     async search(
     @Query("q")

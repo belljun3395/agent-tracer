@@ -23,6 +23,15 @@
       "@monitor/adapter-embedding": [
         "packages/adapter-embedding/src/index.ts"
       ],
+      "@monitor/adapter-http-ingest": [
+        "packages/adapter-http-ingest/src/index.ts"
+      ],
+      "@monitor/adapter-http-query": [
+        "packages/adapter-http-query/src/index.ts"
+      ],
+      "@monitor/adapter-ws": [
+        "packages/adapter-ws/src/index.ts"
+      ],
       "@monitor/server": [
         "packages/server/src/index.ts"
       ],

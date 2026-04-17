@@ -1,11 +1,11 @@
 import { Controller, Post, Patch, Delete, Body, Param, HttpException, HttpStatus, HttpCode } from "@nestjs/common";
 import { RuntimeSource, RuntimeSessionId, TaskId } from "@monitor/core";
-import type { MonitorServiceProvider } from "../service/monitor-service.provider.js";
+import { MonitorService } from "@monitor/application";
 import type { TaskStartInput, TaskLinkInput, TaskCompletionInput, TaskErrorInput, TaskPatchInput, TaskSessionEndInput, RuntimeSessionEnsureInput, RuntimeSessionEndInput } from "@monitor/application";
-import { taskStartSchema, taskLinkSchema, taskCompleteSchema, taskErrorSchema, taskPatchSchema, sessionEndSchema, runtimeSessionEnsureSchema, runtimeSessionEndSchema } from "../schemas.js";
+import { taskStartSchema, taskLinkSchema, taskCompleteSchema, taskErrorSchema, taskPatchSchema, sessionEndSchema, runtimeSessionEnsureSchema, runtimeSessionEndSchema } from "./schemas.js";
 @Controller()
 export class LifecycleController {
-    constructor(private readonly service: MonitorServiceProvider) { }
+    constructor(private readonly service: MonitorService) { }
     @Post("/api/task-start")
     @HttpCode(HttpStatus.OK)
     async taskStart(

@@ -1,11 +1,11 @@
 import { Controller, Post, Patch, Body, Param, HttpException, HttpStatus, HttpCode } from "@nestjs/common";
 import { EventId } from "@monitor/core";
-import type { MonitorServiceProvider } from "../service/monitor-service.provider.js";
+import { MonitorService } from "@monitor/application";
 import type { TaskToolUsedInput, TaskTerminalCommandInput, TaskContextSavedInput, TaskExploreInput, TaskPlanInput, TaskActionInput, TaskVerifyInput, TaskRuleInput, TaskAsyncLifecycleInput, TaskAgentActivityInput, TaskUserMessageInput, TaskQuestionInput, TaskTodoInput, TaskThoughtInput, TaskAssistantResponseInput, EventPatchInput } from "@monitor/application";
-import { toolUsedSchema, terminalCommandSchema, contextSavedSchema, exploreSchema, actionEventSchema, verifySchema, ruleSchema, asyncLifecycleSchema, agentActivitySchema, userMessageSchema, questionSchema, todoSchema, thoughtSchema, assistantResponseSchema, eventPatchSchema } from "../schemas.js";
+import { toolUsedSchema, terminalCommandSchema, contextSavedSchema, exploreSchema, actionEventSchema, verifySchema, ruleSchema, asyncLifecycleSchema, agentActivitySchema, userMessageSchema, questionSchema, todoSchema, thoughtSchema, assistantResponseSchema, eventPatchSchema } from "./schemas.js";
 @Controller()
 export class EventController {
-    constructor(private readonly service: MonitorServiceProvider) { }
+    constructor(private readonly service: MonitorService) { }
     @Post("/api/tool-used")
     @HttpCode(HttpStatus.OK)
     async toolUsed(

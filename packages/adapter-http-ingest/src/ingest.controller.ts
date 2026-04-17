@@ -1,13 +1,12 @@
 import { Controller, Post, Body, HttpException, HttpStatus, HttpCode } from "@nestjs/common"
-import type { MonitorServiceProvider } from "../service/monitor-service.provider.js"
-import { EventIngestionService } from "@monitor/application"
-import { ingestEventsBatchSchema } from "../schemas.ingest.js"
+import { EventIngestionService, MonitorService } from "@monitor/application"
+import { ingestEventsBatchSchema } from "./schemas.ingest.js"
 
 @Controller("ingest/v1")
 export class IngestController {
     private readonly ingestionService: EventIngestionService
 
-    constructor(service: MonitorServiceProvider) {
+    constructor(service: MonitorService) {
         this.ingestionService = new EventIngestionService(service)
     }
 

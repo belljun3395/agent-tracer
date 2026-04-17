@@ -1,9 +1,9 @@
 import { Controller, Get, Param, HttpException, HttpStatus } from "@nestjs/common";
 import { TaskId } from "@monitor/core";
-import type { MonitorServiceProvider } from "../service/monitor-service.provider.js";
+import { MonitorService } from "@monitor/application";
 @Controller()
 export class AdminController {
-    constructor(private readonly service: MonitorServiceProvider) { }
+    constructor(private readonly service: MonitorService) { }
     @Get("/health")
     health() {
         return { ok: true };
