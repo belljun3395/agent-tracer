@@ -11,6 +11,9 @@
       "@monitor/domain": [
         "packages/domain/src/index.ts"
       ],
+      "@monitor/classification": [
+        "packages/classification/src/index.ts"
+      ],
       "@monitor/server": [
         "packages/server/src/index.ts"
       ],

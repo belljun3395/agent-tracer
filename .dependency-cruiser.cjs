@@ -10,6 +10,13 @@ module.exports = {
       to:   { path: "^packages/(?!domain/)" },
     },
     {
+      name: "classification-depends-on-domain-only",
+      severity: "error",
+      comment: "@monitor/classification may only depend on @monitor/domain.",
+      from: { path: "^packages/classification/" },
+      to:   { path: "^packages/(?!(domain|classification)/)" },
+    },
+    {
       name: "no-cross-adapter",
       severity: "warn",
       comment: "adapter-X must not depend on adapter-Y.",

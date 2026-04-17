@@ -1,7 +1,7 @@
 # Architecture — Package Dependency Rules
 
 > Authoritative source: `docs/superpowers/specs/2026-04-17-package-boundary-redesign-design.md`
-> Current migration phase: **Phase 1 (domain carve-out in progress)**
+> Current migration phase: **Phase 2 (classification carve-out complete)**
 
 ## Dependency graph (target state)
 
@@ -46,6 +46,7 @@ During the Phase 0–9 migration these rules roll out gradually as **warnings fi
 
 ## Current phase notes
 
-- `@monitor/domain` exists; `@monitor/core` re-exports from it.
-- Full rule set is warning-mode until Phase 9 lock.
-- New code should import from `@monitor/domain` directly when possible. Existing imports via `@monitor/core` remain functional.
+- `@monitor/domain` and `@monitor/classification` exist; `@monitor/core` re-exports from both.
+- `domain-is-pure` and `classification-depends-on-domain-only` are enforced as errors.
+- Remaining rules stay in warning-mode until Phase 9 lock.
+- New code should import from `@monitor/domain` / `@monitor/classification` directly when possible. Existing imports via `@monitor/core` remain functional.
