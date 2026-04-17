@@ -57,14 +57,16 @@ export function TimelineEventNode({
     const stackCount = stackGroup ? stackGroup.length - 1 : 0;
     const nodeTop = item.top + item.rowIndex * ROW_VERTICAL_OFFSET;
     const isActive = item.event.id === selectedEvent?.id;
+    const linkedSourceId = selectedConnector?.source.id;
+    const linkedTargetId = selectedConnector?.target.id;
     const isLinked =
         Boolean(selectedConnector) &&
-        (item.event.id === selectedConnector!.source.id ||
-            item.event.id === selectedConnector!.target.id);
+        (item.event.id === linkedSourceId ||
+            item.event.id === linkedTargetId);
     const isFailed = isFailedToolLayoutEvent(item.event);
     const isRedactedThought = isRedactedThoughtLayoutEvent(item.event);
     const signatureLength = typeof item.event.metadata["signatureLength"] === "number"
-        ? (item.event.metadata["signatureLength"] as number)
+        ? item.event.metadata["signatureLength"]
         : undefined;
 
     return (

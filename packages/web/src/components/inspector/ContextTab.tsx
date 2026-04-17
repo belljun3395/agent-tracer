@@ -5,6 +5,8 @@ import { cn } from "../../lib/ui/cn.js";
 import { Badge } from "../ui/Badge.js";
 import { PanelCard } from "../ui/PanelCard.js";
 import { cardShell, cardHeader, cardBody, monoText } from "./styles.js";
+import { HelpTooltip } from "../ui/HelpTooltip.js";
+import { inspectorHelpText } from "./helpText.js";
 
 interface ContextTabProps {
     readonly timeline: readonly TimelineEvent[];
@@ -58,7 +60,10 @@ function InstructionsCard({ rows }: { readonly rows: readonly InstructionRow[] }
     return (
         <PanelCard className={cardShell}>
             <div className={cardHeader}>
-                <span>Instructions Loaded</span>
+                <div className="flex items-start gap-2">
+                    <span>Instructions Loaded</span>
+                    <HelpTooltip text={inspectorHelpText.instructionsLoaded} className="mt-0.5" />
+                </div>
                 <Badge tone="neutral" size="xs">{rows.length}</Badge>
             </div>
             <div className={cardBody}>
@@ -137,7 +142,10 @@ function ContextSavedCard({ rows }: { readonly rows: readonly ContextRow[] }): R
     return (
         <PanelCard className={cardShell}>
             <div className={cardHeader}>
-                <span>Context Saved</span>
+                <div className="flex items-start gap-2">
+                    <span>Context Saved</span>
+                    <HelpTooltip text={inspectorHelpText.contextSaved} className="mt-0.5" />
+                </div>
                 <Badge tone="neutral" size="xs">{rows.length}</Badge>
             </div>
             <div className={cardBody}>

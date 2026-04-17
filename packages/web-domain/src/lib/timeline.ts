@@ -42,6 +42,8 @@ export interface TimelineConnector {
 }
 export const TIMELINE_LANES: readonly TimelineLane[] = [
     "user",
+    "questions",
+    "todos",
     "planning",
     "coordination",
     "exploration",

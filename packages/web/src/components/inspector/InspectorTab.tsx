@@ -21,6 +21,7 @@ import {
     DetailTokenUsage,
     InspectorHeaderCard
 } from "./InspectorDetails.js";
+import { inspectorHelpText } from "./helpText.js";
 
 /**
  * True when a tool.used event (or agent.activity.logged mcp_call) was recorded
@@ -223,7 +224,7 @@ export function InspectorTab({
         </div>
 
         {selectedConnector ? (<div className="flex flex-col gap-5 px-4 py-5">
-            <DetailSection label="Full Context" resizable value={[
+            <DetailSection label="Full Context" helpText={inspectorHelpText.fullContext} resizable value={[
                 `${selectedConnector.connector.isExplicit ? "Explicit relation" : "Fallback sequence"} from ${selectedConnector.source.lane} to ${selectedConnector.target.lane}.`,
                 selectedConnector.connector.label ? `Label: ${selectedConnector.connector.label}` : undefined,
                 selectedConnector.connector.explanation,
@@ -232,7 +233,7 @@ export function InspectorTab({
             ].filter((value): value is string => Boolean(value)).join("\n")}/>
             <DetailConnectorIds connector={selectedConnector.connector} source={selectedConnector.source} target={selectedConnector.target}/>
             <DetailConnectorEvents source={selectedConnector.source} target={selectedConnector.target}/>
-            <DetailSection label="Metadata" mono value={JSON.stringify({
+            <DetailSection label="Metadata" helpText={inspectorHelpText.metadata} mono value={JSON.stringify({
                 connectorKey: selectedConnector.connector.key,
                 sourceEventId: selectedConnector.source.id,
                 targetEventId: selectedConnector.target.id,
@@ -250,7 +251,7 @@ export function InspectorTab({
           </div>) : selectedEvent ? (<div className="flex flex-col gap-5 px-4 py-5">
             {/* Common: applies to every event, in a stable top-of-panel order. */}
             {!isRedactedThinking(selectedEvent) && (
-              <DetailSection label="Full Context" resizable value={selectedEvent.body
+              <DetailSection label="Full Context" helpText={inspectorHelpText.fullContext} resizable value={selectedEvent.body
                 ?? (selectedEvent.metadata["description"] as string | undefined)
                 ?? (selectedEvent.metadata["command"] as string | undefined)
                 ?? (selectedEvent.metadata["result"] as string | undefined)
@@ -280,7 +281,7 @@ export function InspectorTab({
             {selectedEvent.kind === "user.message" && <DetailCaptureInfo event={selectedEvent}/>}
             {selectedEvent.kind === "assistant.response" && <DetailTokenUsage event={selectedEvent}/>}
             {(selectedEvent.metadata["modelName"] as string | undefined) && (<DetailModelInfo modelName={selectedEvent.metadata["modelName"] as string} modelProvider={selectedEvent.metadata["modelProvider"] as string | undefined}/>)}
-            {selectedEvent.lane === "coordination" && (<DetailSection label="Agent Activity" resizable value={[
+            {selectedEvent.lane === "coordination" && (<DetailSection label="Agent Activity" helpText={inspectorHelpText.agentActivity} resizable value={[
                     typeof selectedEvent.metadata["activityType"] === "string"
                         ? `Activity: ${selectedEvent.metadata["activityType"]}`
                         : undefined,
@@ -303,7 +304,7 @@ export function InspectorTab({
             {relatedEvents.length > 0 && <DetailRelatedEvents events={relatedEvents}/>}
 
             {/* Raw payload — always last. */}
-            <DetailSection label="Metadata" mono value={JSON.stringify(selectedEvent.metadata, null, 2)}/>
+            <DetailSection label="Metadata" helpText={inspectorHelpText.metadata} mono value={JSON.stringify(selectedEvent.metadata, null, 2)}/>
           </div>) : (<div className="px-4 py-8 text-center">
             <p className="m-0 text-[0.9rem] font-medium text-[var(--text-2)]">No event selected.</p>
             <p className="mt-2 text-[0.8rem] text-[var(--text-3)]">

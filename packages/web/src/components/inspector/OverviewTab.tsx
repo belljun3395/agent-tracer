@@ -5,11 +5,13 @@ import { copyToClipboard } from "../../lib/ui/clipboard.js";
 import { cn } from "../../lib/ui/cn.js";
 import { Badge } from "../ui/Badge.js";
 import { Eyebrow } from "../ui/Eyebrow.js";
+import { HelpTooltip } from "../ui/HelpTooltip.js";
 import { PanelCard } from "../ui/PanelCard.js";
 import { SectionCard } from "./SectionCard.js";
 import { HookCoveragePanel } from "./HookCoveragePanel.js";
 import { ObservabilityMetricGrid, ObservabilityList, ObservabilityPhaseBreakdown } from "./ObservabilitySection.js";
 import { cardShell, cardHeader, cardBody, innerPanel } from "./styles.js";
+import { inspectorHelpText } from "./helpText.js";
 import { toRelativePath } from "./utils.js";
 
 /**
@@ -72,7 +74,7 @@ function CacheEfficiencyCard({ summary }: { readonly summary: CacheHitSummary })
         : summary.hitRate >= 30
             ? "text-[var(--warn)]"
             : "text-[var(--text-2)]";
-    return (<SectionCard title="Cache Efficiency">
+    return (<SectionCard title="Cache Efficiency" helpText={inspectorHelpText.cacheEfficiency}>
       <div className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-5">
         <div className="flex flex-col items-start">
           <Eyebrow className="block">Hit rate</Eyebrow>
@@ -126,7 +128,7 @@ function RuntimeSessionCard({ runtimeSessionId, runtimeSource }: {
             window.setTimeout(() => setCopyStatus("idle"), 1600);
         });
     };
-    return (<SectionCard title={<span>Runtime Session{spec ? ` · ${spec.label}` : ""}</span>} action={spec ? (<button type="button" onClick={() => handleCopy(spec.command)} className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] px-2.5 py-1.5 text-[0.72rem] font-medium text-[var(--text-2)] shadow-[var(--shadow-1)] transition-[background-color,border-color,color] duration-200 hover:border-[var(--border-strong)] hover:bg-[var(--surface-2)] hover:text-[var(--text-1)]">
+    return (<SectionCard title={<span>Runtime Session{spec ? ` · ${spec.label}` : ""}</span>} helpText={inspectorHelpText.runtimeSession} action={spec ? (<button type="button" onClick={() => handleCopy(spec.command)} className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] px-2.5 py-1.5 text-[0.72rem] font-medium text-[var(--text-2)] shadow-[var(--shadow-1)] transition-[background-color,border-color,color] duration-200 hover:border-[var(--border-strong)] hover:bg-[var(--surface-2)] hover:text-[var(--text-1)]">
           {copyStatus === "idle" ? "Copy command" : copyStatus === "copied" ? "Copied" : "Copy failed"}
         </button>) : undefined}>
       <div className={innerPanel + " p-3"}>
@@ -146,7 +148,10 @@ function SubagentInsightCard({ insight }: {
 }): React.JSX.Element {
     return (<PanelCard className={cardShell}>
       <div className={cardHeader}>
-        <span>Subagents & Background</span>
+        <div className="flex items-start gap-2">
+          <span>Subagents & Background</span>
+          <HelpTooltip text={inspectorHelpText.subagentsBackground} className="mt-0.5"/>
+        </div>
       </div>
       <div className={cardBody}>
         {insight.delegations === 0 && insight.backgroundTransitions === 0 ? (<p className="m-0 text-[0.8rem] text-[var(--text-3)]">No subagent or background activity recorded yet.</p>) : (<div className="grid grid-cols-3 gap-3 max-md:grid-cols-1">
@@ -174,7 +179,7 @@ function VerificationCyclesCard({ items }: {
     readonly items: readonly VerificationCycleItem[];
 }): React.JSX.Element | null {
     if (items.length === 0) return null;
-    return (<SectionCard title="Verification Cycles">
+    return (<SectionCard title="Verification Cycles" helpText={inspectorHelpText.verificationCycles}>
       <div className="flex flex-col divide-y divide-[var(--border)]">
         {items.map((item) => (<div key={item.id} className="flex items-start gap-3 py-2 first:pt-0 last:pb-0">
             <span className={cn(
@@ -257,7 +262,7 @@ function TodosSummaryCard({ todoGroups }: { readonly todoGroups: readonly TodoGr
         .filter((g) => g.isTerminal)
         .slice()
         .sort((a, b) => lastTransitionMs(b) - lastTransitionMs(a));
-    return (<SectionCard title={<span>Todos <span className="ml-1 text-[var(--text-3)] font-normal text-[0.78rem]">({completed}/{todoGroups.length} completed)</span></span>}>
+    return (<SectionCard title={<span>Todos <span className="ml-1 text-[var(--text-3)] font-normal text-[0.78rem]">({completed}/{todoGroups.length} completed)</span></span>} helpText={inspectorHelpText.todosSummary}>
       <div className="flex flex-col gap-3">
         {openGroups.length > 0 && (
           <div className="flex flex-col gap-2">
@@ -300,7 +305,7 @@ function QuestionsSummaryCard({ questionGroups }: { readonly questionGroups: rea
     if (questionGroups.length === 0) return null;
     const complete = questionGroups.filter((g) => g.isAnswered).length;
     const open = questionGroups.filter((g) => !g.isAnswered).length;
-    return (<SectionCard title={<span>Questions <span className="ml-1 text-[var(--text-3)] font-normal text-[0.78rem]">({complete}/{questionGroups.length} resolved)</span></span>}>
+    return (<SectionCard title={<span>Questions <span className="ml-1 text-[var(--text-3)] font-normal text-[0.78rem]">({complete}/{questionGroups.length} resolved)</span></span>} helpText={inspectorHelpText.questionsSummary}>
       <div className="flex flex-col gap-2">
         {questionGroups.map((group) => {
             const latestPhase = group.phases[group.phases.length - 1];
@@ -345,7 +350,7 @@ function summarizeSkillListing(timeline: readonly TimelineEvent[]): SkillListing
 
 function SkillListingCard({ summary }: { readonly summary: SkillListingSummary }): React.JSX.Element | null {
     if (summary.loads === 0) return null;
-    return (<SectionCard title="Skill listing">
+    return (<SectionCard title="Skill listing" helpText={inspectorHelpText.skillListing}>
       <div className="flex flex-wrap items-baseline gap-2">
         <strong className="text-[1.3rem] font-semibold tabular-nums text-[var(--text-1)]">
           {summary.latestCount !== null ? summary.latestCount.toLocaleString() : "—"}
@@ -363,7 +368,7 @@ function SkillListingCard({ summary }: { readonly summary: SkillListingSummary }
 function AIModelCard({ summary }: { readonly summary: ModelSummary }): React.JSX.Element | null {
     const entries = Object.entries(summary.modelCounts).sort((a, b) => b[1] - a[1]);
     if (entries.length === 0) return null;
-    return (<SectionCard title="AI Model">
+    return (<SectionCard title="AI Model" helpText={inspectorHelpText.aiModel}>
       <div className="flex flex-col gap-2">
         {entries.map(([name, count]) => (<div key={name} className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-3">
             <div className="min-w-0 break-words text-[0.83rem] text-[var(--text-2)]">
@@ -398,7 +403,7 @@ export function OverviewTab({ observability, subagentInsight, verificationCycles
       {taskModelSummary && <AIModelCard summary={taskModelSummary}/>}
       <SkillListingCard summary={skillSummary}/>
       {observability ? (<>
-          <SectionCard title="Task Flow">
+          <SectionCard title="Task Flow" helpText={inspectorHelpText.taskFlow}>
             <ObservabilityMetricGrid items={[
                 {
                     label: "Total Duration",
@@ -425,7 +430,7 @@ export function OverviewTab({ observability, subagentInsight, verificationCycles
             ]}/>
           </SectionCard>
 
-          <SectionCard title="Signals">
+          <SectionCard title="Signals" helpText={inspectorHelpText.signals}>
             <ObservabilityMetricGrid items={[
                 { label: "Raw Prompts", value: formatCount(observability.signals.rawUserMessages), note: "captured user turns" },
                 { label: "Follow-ups", value: formatCount(observability.signals.followUpMessages), note: "additional user turns" },
@@ -448,11 +453,11 @@ export function OverviewTab({ observability, subagentInsight, verificationCycles
           <TodosSummaryCard todoGroups={todoGroups}/>
           <QuestionsSummaryCard questionGroups={questionGroups}/>
 
-          <SectionCard title="Phase Breakdown">
+          <SectionCard title="Phase Breakdown" helpText={inspectorHelpText.phaseBreakdown}>
             <ObservabilityPhaseBreakdown phases={observability.phaseBreakdown}/>
           </SectionCard>
 
-          <SectionCard title="Top Files">
+          <SectionCard title="Top Files" helpText={inspectorHelpText.topFiles}>
             <ObservabilityList emptyLabel="No file focus recorded yet." items={observability.focus.topFiles.map((file) => ({
                 label: toRelativePath(file.path, workspacePath),
                 value: `${formatCount(file.count)}x`
