@@ -4,7 +4,7 @@ import type { Response } from "express";
 import { Res } from "@nestjs/common";
 import type { MonitorServiceProvider } from "../service/monitor-service.provider.js";
 import { briefingSaveSchema, playbookPatchSchema, playbookUpsertSchema, taskEvaluateSchema } from "../schemas.js";
-import type { PlaybookUpsertInput } from "../../application/ports";
+import type { PlaybookUpsertInput } from "@monitor/application";
 @Controller()
 export class EvaluationController {
     constructor(private readonly service: MonitorServiceProvider) { }

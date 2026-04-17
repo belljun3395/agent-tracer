@@ -16,3 +16,9 @@ export * from "./workflow/types.js";
 
 // Path utilities (pure)
 export * from "./paths/utils.js";
+
+// Runtime adapter value types (pure)
+export * from "./runtime/capabilities.types.js";
+
+// Interop / event-subtype shared contract (pure)
+export * from "./interop/event-semantic.js";

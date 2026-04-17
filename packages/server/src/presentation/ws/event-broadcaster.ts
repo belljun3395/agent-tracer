@@ -1,5 +1,5 @@
 import type WebSocket from "ws";
-import type { INotificationPublisher, MonitorNotification } from "../../application/ports";
+import type { INotificationPublisher, MonitorNotification } from "@monitor/application";
 export class EventBroadcaster implements INotificationPublisher {
     private readonly clients = new Set<WebSocket>();
     addClient(ws: WebSocket): void { this.clients.add(ws); }

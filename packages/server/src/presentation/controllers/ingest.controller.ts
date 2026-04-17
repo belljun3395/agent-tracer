@@ -1,6 +1,6 @@
 import { Controller, Post, Body, HttpException, HttpStatus, HttpCode } from "@nestjs/common"
 import type { MonitorServiceProvider } from "../service/monitor-service.provider.js"
-import { EventIngestionService } from "../../application/services/event-ingestion-service.js"
+import { EventIngestionService } from "@monitor/application"
 import { ingestEventsBatchSchema } from "../schemas.ingest.js"
 
 @Controller("ingest/v1")

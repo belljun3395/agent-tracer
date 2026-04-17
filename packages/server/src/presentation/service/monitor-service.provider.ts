@@ -1,6 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { MonitorService } from "../../application/monitor-service.js";
-import type { MonitorPorts } from "../../application/ports";
+import { MonitorService, type MonitorPorts } from "@monitor/application";
 @Injectable()
 export class MonitorServiceProvider extends MonitorService {
     constructor(ports: MonitorPorts) {

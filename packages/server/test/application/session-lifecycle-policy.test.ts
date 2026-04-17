@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { shouldAutoCompletePrimary, shouldMovePrimaryToWaiting } from "../../src/application/services/session-lifecycle-policy.js";
+import { shouldAutoCompletePrimary, shouldMovePrimaryToWaiting } from "@monitor/application";
 describe("SessionLifecyclePolicy", () => {
     it("background 자식이 남아 있으면 primary assistant turn을 자동 완료하지 않는다", () => {
         expect(shouldAutoCompletePrimary({

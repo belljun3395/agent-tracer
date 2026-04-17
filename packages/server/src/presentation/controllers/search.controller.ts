@@ -1,6 +1,6 @@
 import { Controller, Get, Query, HttpException, HttpStatus } from "@nestjs/common";
 import type { MonitorServiceProvider } from "../service/monitor-service.provider.js";
-import type { TaskSearchInput } from "../../application/types.js";
+import type { TaskSearchInput } from "@monitor/application";
 import { searchSchema } from "../schemas.js";
 @Controller()
 export class SearchController {

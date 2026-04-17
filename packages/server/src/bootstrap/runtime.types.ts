@@ -1,7 +1,7 @@
 import type http from "node:http";
 import type express from "express";
 import type { WebSocketServer } from "ws";
-import type { MonitorService } from "../application/monitor-service.js";
+import type { MonitorService } from "@monitor/application";
 
 export interface RuntimeOptions {
     readonly databasePath: string;

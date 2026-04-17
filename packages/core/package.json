@@ -17,6 +17,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@monitor/application": "*",
     "@monitor/classification": "*",
     "@monitor/domain": "*",
     "yaml": "^2.0.0",

@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import BetterSqlite3 from "better-sqlite3";
-import type { INotificationPublisher, MonitorPorts } from "../../application/ports";
+import type { INotificationPublisher, MonitorPorts } from "@monitor/application";
 import type { IEmbeddingService } from "../embedding";
 import { createSqliteDatabase } from "./drizzle-db.js";
 import { createSchema } from "./sqlite-schema.js";

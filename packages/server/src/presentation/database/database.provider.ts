@@ -2,7 +2,7 @@ import type { OnApplicationShutdown} from "@nestjs/common";
 import { Injectable, type Provider } from "@nestjs/common";
 import { initializeDefaultAdapters } from "@monitor/core";
 import { createSqliteMonitorPorts } from "../../infrastructure/sqlite";
-import type { MonitorPorts } from "../../application/ports";
+import type { MonitorPorts } from "@monitor/application";
 import { createEmbeddingService } from "../../infrastructure/embedding";
 export const MONITOR_PORTS_TOKEN = "MONITOR_PORTS";
 export interface PortsWithClose extends MonitorPorts {

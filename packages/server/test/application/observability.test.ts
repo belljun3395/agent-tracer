@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { EventId, RuntimeSource, SessionId, TaskId, TaskSlug, type EventClassification, type MonitoringSession, type MonitoringTask, type TimelineEvent } from "@monitor/core";
-import { analyzeObservabilityOverview, analyzeTaskObservability } from "../../src/application/observability.js";
+import { analyzeObservabilityOverview, analyzeTaskObservability } from "@monitor/application";
 
 function makeClassification(lane: EventClassification["lane"], tags: readonly string[] = []): EventClassification {
     return {

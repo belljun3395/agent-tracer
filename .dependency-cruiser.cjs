@@ -31,6 +31,13 @@ module.exports = {
       to:   { path: "^packages/adapter-" },
     },
     {
+      name: "application-inner-ring",
+      severity: "error",
+      comment: "@monitor/application may only depend on @monitor/domain and @monitor/classification.",
+      from: { path: "^packages/application/" },
+      to:   { path: "^packages/(?!(domain|classification|application)/)" },
+    },
+    {
       name: "hook-plugin-wire-only",
       severity: "warn",
       comment: "hook-plugin may only depend on @monitor/domain (wire schemas).",

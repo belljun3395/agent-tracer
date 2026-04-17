@@ -1,7 +1,7 @@
 import { Controller, Post, Patch, Delete, Body, Param, HttpException, HttpStatus, HttpCode } from "@nestjs/common";
 import { RuntimeSource, RuntimeSessionId, TaskId } from "@monitor/core";
 import type { MonitorServiceProvider } from "../service/monitor-service.provider.js";
-import type { TaskStartInput, TaskLinkInput, TaskCompletionInput, TaskErrorInput, TaskPatchInput, TaskSessionEndInput, RuntimeSessionEnsureInput, RuntimeSessionEndInput } from "../../application/types.js";
+import type { TaskStartInput, TaskLinkInput, TaskCompletionInput, TaskErrorInput, TaskPatchInput, TaskSessionEndInput, RuntimeSessionEnsureInput, RuntimeSessionEndInput } from "@monitor/application";
 import { taskStartSchema, taskLinkSchema, taskCompleteSchema, taskErrorSchema, taskPatchSchema, sessionEndSchema, runtimeSessionEnsureSchema, runtimeSessionEndSchema } from "../schemas.js";
 @Controller()
 export class LifecycleController {
