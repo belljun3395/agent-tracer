@@ -1,6 +1,7 @@
 import type React from "react";
 import { buildInspectorEventTitle, type TodoGroup } from "@monitor/web-domain";
 import { Badge } from "../ui/Badge.js";
+import { inspectorHelpText } from "./helpText.js";
 import { SectionCard } from "./SectionCard.js";
 const TODO_STATE_LABELS: Readonly<Record<string, string>> = {
     added: "Added",
@@ -11,7 +12,7 @@ const TODO_STATE_LABELS: Readonly<Record<string, string>> = {
 export function TodoGroupSection({ group }: {
     readonly group: TodoGroup;
 }): React.JSX.Element {
-    return (<SectionCard title="Todo Lifecycle" bodyClassName="pt-4">
+    return (<SectionCard title="Todo Lifecycle" helpText={inspectorHelpText.todoLifecycle} bodyClassName="pt-4">
       <div className="flex flex-col gap-2">
         {group.transitions.map(({ state, event }) => (<div key={event.id} className="flex flex-col gap-2 rounded-[12px] border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
             <Badge tone={state === "completed" ? "success" : state === "added" ? "accent" : state === "cancelled" ? "danger" : "warning"} size="xs">

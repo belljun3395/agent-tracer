@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import type { TimelineEvent } from "@monitor/web-domain";
 import { cn } from "../../lib/ui/cn.js";
 import { Badge } from "../ui/Badge.js";
+import { inspectorHelpText } from "./helpText.js";
 import { SectionCard } from "./SectionCard.js";
 
 /**
@@ -205,6 +206,7 @@ export function HookCoveragePanel({ timeline }: HookCoveragePanelProps): React.J
     return (
       <SectionCard
         title={<span>Hook Coverage <span className="ml-1.5 text-[0.7rem] font-normal normal-case tracking-normal text-[var(--text-3)]">({firedCount}/{rows.length} fired)</span></span>}
+        helpText={inspectorHelpText.hookCoverage}
       >
         <ul className="m-0 grid grid-cols-1 gap-1.5 p-0 list-none md:grid-cols-2">
           {rows.map((row) => (

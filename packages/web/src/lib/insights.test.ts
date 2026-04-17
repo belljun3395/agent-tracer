@@ -185,6 +185,30 @@ describe("buildQuestionGroups", () => {
             "concluded"
         ]);
     });
+
+    it("concluded가 없어도 answered가 있으면 resolved로 본다", () => {
+        const grouped = buildQuestionGroups([
+            makeEvent({
+                id: "answered-first",
+                kind: "question.logged",
+                lane: "questions",
+                metadata: { questionId: "q-2", questionPhase: "answered", sequence: 20 },
+                createdAt: "2026-03-16T12:01:02.000Z"
+            }),
+            makeEvent({
+                id: "asked-later-sort-fix",
+                kind: "question.logged",
+                lane: "questions",
+                metadata: { questionId: "q-2", questionPhase: "asked", sequence: 10 },
+                createdAt: "2026-03-16T12:01:01.000Z"
+            })
+        ]);
+
+        expect(grouped[0]?.phases.map((phase) => phase.phase)).toEqual(["asked", "answered"]);
+        expect(grouped[0]?.isAnswered).toBe(true);
+        expect(grouped[0]?.isConcluded).toBe(false);
+        expect(grouped[0]?.isComplete).toBe(true);
+    });
 });
 describe("buildTodoGroups", () => {
     it("같은 todoId의 진행 상태를 묶고 마지막 상태를 현재 상태로 본다", () => {
@@ -222,6 +246,43 @@ describe("buildTodoGroups", () => {
             "in_progress",
             "completed"
         ]);
+    });
+
+    it("completed 이후 다시 in_progress 되면 마지막 상태를 현재 상태로 본다", () => {
+        const grouped = buildTodoGroups([
+            makeEvent({
+                id: "todo-completed",
+                kind: "todo.logged",
+                lane: "todos",
+                title: "재활성화 확인",
+                metadata: { todoId: "todo-2", todoState: "completed", sequence: 30 },
+                createdAt: "2026-03-16T12:02:03.000Z"
+            }),
+            makeEvent({
+                id: "todo-added",
+                kind: "todo.logged",
+                lane: "todos",
+                title: "재활성화 확인",
+                metadata: { todoId: "todo-2", todoState: "added", sequence: 10 },
+                createdAt: "2026-03-16T12:02:01.000Z"
+            }),
+            makeEvent({
+                id: "todo-reopened",
+                kind: "todo.logged",
+                lane: "todos",
+                title: "재활성화 확인",
+                metadata: { todoId: "todo-2", todoState: "in_progress", sequence: 40 },
+                createdAt: "2026-03-16T12:02:04.000Z"
+            })
+        ]);
+
+        expect(grouped[0]?.transitions.map((transition) => transition.state)).toEqual([
+            "added",
+            "completed",
+            "in_progress"
+        ]);
+        expect(grouped[0]?.currentState).toBe("in_progress");
+        expect(grouped[0]?.isTerminal).toBe(false);
     });
 });
 describe("collectViolationDescriptions", () => {

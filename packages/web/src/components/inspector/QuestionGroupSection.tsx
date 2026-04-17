@@ -1,6 +1,7 @@
 import type React from "react";
 import { buildInspectorEventTitle, type QuestionGroup } from "@monitor/web-domain";
 import { Badge } from "../ui/Badge.js";
+import { inspectorHelpText } from "./helpText.js";
 import { SectionCard } from "./SectionCard.js";
 const QUESTION_PHASE_LABELS: Readonly<Record<string, string>> = {
     asked: "Asked",
@@ -10,7 +11,7 @@ const QUESTION_PHASE_LABELS: Readonly<Record<string, string>> = {
 export function QuestionGroupSection({ group }: {
     readonly group: QuestionGroup;
 }): React.JSX.Element {
-    return (<SectionCard title="Question Flow" bodyClassName="pt-4">
+    return (<SectionCard title="Question Flow" helpText={inspectorHelpText.questionFlow} bodyClassName="pt-4">
       <div className="flex flex-col gap-2">
         {group.phases.map(({ phase, event }) => (<div key={event.id} className="flex flex-col gap-2 rounded-[12px] border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
             <Badge tone={phase === "concluded" ? "success" : phase === "answered" ? "accent" : "neutral"} size="xs">
