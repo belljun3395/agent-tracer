@@ -29,10 +29,16 @@
  * Blocking: PostToolUse cannot block (exit 2 shows stderr but execution continues).
  *
  * This handler posts an /api/agent-activity event (activityType: "delegation" or
- * "skill_use"). For background agents, it additionally posts /api/task-link to
- * connect the child session task to the parent task in the monitor.
+ * "skill_use"). For background agents, it resolves the child runtime session with
+ * parentTaskId/parentSessionId so the monitor creates the child as a background task
+ * on first ensure.
  */
-import { buildSemanticMetadata, defaultTaskTitle, getSessionId, getToolInput, hookLog, hookLogPayload, postJson, readStdinJson, resolveEventSessionIds, resolveSessionIds, stringifyToolInput, toBoolean, toTrimmedString } from "../common.js";
+import { defaultTaskTitle } from "../util/paths.js";
+import { getAgentContext, getSessionId, getToolInput, getToolName, getToolUseId, stringifyToolInput, toBoolean, toTrimmedString } from "../util/utils.js";
+import { postJson, readStdinJson } from "../lib/transport.js";
+import { resolveBackgroundSessionIds, resolveEventSessionIds } from "../lib/subagent-session.js";
+import { hookLog, hookLogPayload } from "../lib/hook-log.js";
+import { buildSemanticMetadata } from "../classification/command-semantic.js";
 
 function extractChildSessionId(toolResponse: unknown): string {
     const text = typeof toolResponse === "string"
@@ -45,11 +51,10 @@ function extractChildSessionId(toolResponse: unknown): string {
 async function main(): Promise<void> {
     const payload = await readStdinJson();
     hookLogPayload("PostToolUse/Agent", payload);
-    const toolName = toTrimmedString(payload.tool_name);
+    const toolName = getToolName(payload);
     const toolInput = getToolInput(payload);
     const sessionId = getSessionId(payload);
-    const agentId = toTrimmedString(payload.agent_id) || undefined;
-    const agentType = toTrimmedString(payload.agent_type) || undefined;
+    const { agentId, agentType } = getAgentContext(payload);
     hookLog("PostToolUse/Agent", "fired", { toolName, sessionId: sessionId || "(none)" });
 
     if (!sessionId || (toolName !== "Agent" && toolName !== "Skill")) {
@@ -58,7 +63,7 @@ async function main(): Promise<void> {
     }
 
     const ids = await resolveEventSessionIds(sessionId, agentId, agentType);
-    const toolUseId = toTrimmedString(payload.tool_use_id) || undefined;
+    const toolUseId = getToolUseId(payload);
     const metadata = {
         toolInput: stringifyToolInput(toolInput),
         ...(toolUseId ? { toolUseId } : {})
@@ -131,15 +136,12 @@ async function main(): Promise<void> {
     if (!childSessionId) return;
 
     const childTitle = description || prompt || defaultTaskTitle();
-    const childIds = await resolveSessionIds(childSessionId, childTitle);
-    await postJson("/api/task-link", {
-        taskId: childIds.taskId,
-        taskKind: "background",
-        parentTaskId: ids.taskId,
-        parentSessionId: ids.sessionId,
-        title: childTitle
+    await resolveBackgroundSessionIds(sessionId, childSessionId, childTitle, ids);
+    hookLog("PostToolUse/Agent", "background child session ensured", {
+        childSessionId,
+        childTitle,
+        parentTaskId: ids.taskId
     });
-    hookLog("PostToolUse/Agent", "task-link posted", { childSessionId, childTitle });
 }
 
 void main().catch((err: unknown) => {

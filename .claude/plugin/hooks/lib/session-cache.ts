@@ -8,34 +8,29 @@
  * Cache location: <PROJECT_DIR>/.claude/.session-cache/<session_id>.json
  * Entries are deleted by session_end.ts when the session terminates.
  */
-import * as fs from "node:fs";
 import * as path from "node:path";
 import { SESSION_CACHE_DIR } from "../util/paths.js";
 import type { RuntimeSessionEnsureResult } from "./transport.js";
+import { deleteJsonFile, readJsonFile, writeJsonFile } from "./json-file-store.js";
+
+function isRuntimeSessionEnsureResult(value: unknown): value is RuntimeSessionEnsureResult {
+    if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+    const candidate = value as Partial<RuntimeSessionEnsureResult>;
+    return typeof candidate.taskId === "string" && typeof candidate.sessionId === "string";
+}
+
+function cachePath(sessionId: string): string {
+    return path.join(SESSION_CACHE_DIR, `${sessionId}.json`);
+}
 
 export function getCachedSessionResult(sessionId: string): RuntimeSessionEnsureResult | null {
-    const cachePath = path.join(SESSION_CACHE_DIR, `${sessionId}.json`);
-    try {
-        return JSON.parse(fs.readFileSync(cachePath, "utf-8")) as RuntimeSessionEnsureResult;
-    } catch {
-        return null;
-    }
+    return readJsonFile(cachePath(sessionId), isRuntimeSessionEnsureResult);
 }
 
 export function cacheSessionResult(sessionId: string, result: RuntimeSessionEnsureResult): void {
-    try {
-        fs.mkdirSync(SESSION_CACHE_DIR, { recursive: true });
-        fs.writeFileSync(path.join(SESSION_CACHE_DIR, `${sessionId}.json`), JSON.stringify(result));
-    } catch {
-        void 0;
-    }
+    writeJsonFile(cachePath(sessionId), result);
 }
 
 export function deleteCachedSessionResult(sessionId: string): void {
-    const cachePath = path.join(SESSION_CACHE_DIR, `${sessionId}.json`);
-    try {
-        fs.unlinkSync(cachePath);
-    } catch {
-        void 0;
-    }
+    deleteJsonFile(cachePath(sessionId));
 }

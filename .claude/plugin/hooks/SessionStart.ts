@@ -26,7 +26,12 @@
  * This handler creates or resumes the runtime session in the Agent Tracer monitor
  * and posts a save-context event recording the session lifecycle trigger.
  */
-import { ensureRuntimeSession, getSessionId, hookLog, hookLogPayload, LANE, postJson, readStdinJson, toTrimmedString, saveSessionMetadata } from "./common.js";
+import { LANE } from "./util/lane.js";
+import { getSessionId, toTrimmedString } from "./util/utils.js";
+import { postJson, readStdinJson } from "./lib/transport.js";
+import { resolveSessionIds } from "./lib/session.js";
+import { saveSessionMetadata } from "./lib/session-metadata.js";
+import { hookLog, hookLogPayload } from "./lib/hook-log.js";
 
 async function main(): Promise<void> {
     const payload = await readStdinJson();
@@ -53,7 +58,7 @@ async function main(): Promise<void> {
         return;
     }
 
-    const ids = await ensureRuntimeSession(sessionId);
+    const ids = await resolveSessionIds(sessionId);
     hookLog("SessionStart", "ensureRuntimeSession ok", { taskId: ids.taskId });
 
     const projectDir = toTrimmedString(payload.cwd) || process.cwd();

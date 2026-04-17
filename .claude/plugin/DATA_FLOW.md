@@ -19,7 +19,6 @@ Claude Code                  Plugin (tsx)                  Monitor API
                                ├─ stdin: JSON payload (from Claude Code)
                                │
                                ├─ reads: session cache (.session-cache/)
-                               │         subagent registry (.subagent-registry.json)
                                │         session metadata (.session-cache/*-metadata.json)
                                │         session history (~/.claude/.session-history.json)
                                │
@@ -293,26 +292,20 @@ tool_name   — name of the tool about to run
 agent_id    — set when running inside a subagent
 ```
 
-**Plugin reads [CACHE]:**
-```
-.claude/.subagent-registry.json
-  → entry for agent_id (if present): { parentSessionId, parentTaskId, linked }
-```
-
 **Two paths:**
 
-**Path A — subagent linking (agent_id is in the registry and not yet linked):**
+**Path A — subagent event (agent_id is present):**
 ```
 POST /api/runtime-session-ensure
-  runtimeSessionId  [CC]    session_id
-  parentTaskId      [CACHE] registry entry parentTaskId
-  parentSessionId   [CACHE] registry entry parentSessionId
+  runtimeSessionId  [GEN]   "sub--<agent_id>"
+  parentTaskId      [CACHE] parent task ID (resolved from parent session_id)
+  parentSessionId   [CACHE] parent monitor session ID
 
-→ writes updated cache entry + marks registry entry as linked
+→ writes child session result to .session-cache/sub--<agent_id>.json
 (no metadata object)
 ```
 
-**Path B — normal session (no agent_id, or already linked):**
+**Path B — normal session (no agent_id):**
 ```
 POST /api/runtime-session-ensure
   runtimeSessionId  [CC]  session_id
@@ -495,13 +488,12 @@ POST /api/agent-activity
                               operation: "invoke", entityType: "agent"|"skill",
                               entityName: agentType|skillName, sourceTool: toolName)
 
-# Background agents only: link child task to parent
-POST /api/task-link
-  taskId          [CACHE] child task ID (from ensureRuntimeSession on child session)
-  taskKind        [GEN]   "background"
-  parentTaskId    [CACHE] parent task ID
-  parentSessionId [CACHE] parent session ID
-  title           [GEN]   childTitle
+# Background agents only: create child runtime session with parent linkage
+POST /api/runtime-session-ensure
+  runtimeSessionId [CC]   child session_id parsed from tool_response
+  title            [GEN]  childTitle
+  parentTaskId     [CACHE] parent task ID
+  parentSessionId  [CACHE] parent monitor session ID
   (no metadata object)
 ```
 
@@ -650,38 +642,37 @@ POST /api/tool-used
 
 ## Subagent session linking
 
-The plugin tracks subagent sessions across three hooks using a shared registry file.
+The plugin tracks subagent sessions with a virtual runtime session ID:
+`sub--<agent_id>`.
 
 ```
-SubagentStart fires → SubagentStart.ts writes:
-  .subagent-registry.json[agent_id] = {
-    parentSessionId: session_id,   [CC]
-    parentTaskId:    taskId,        [CACHE]
-    agentType:       agent_type,    [CC]
-    linked:          false          [GEN]
-  }
+SubagentStart fires → SubagentStart.ts eagerly resolves:
+  parent session_id                [CC]
+  child runtimeSessionId           [GEN] "sub--<agent_id>"
 
   POST /api/async-task  (asyncStatus: "running")
     metadata:
       agentId      [CC]    agent_id
       agentType    [CC]    agent_type
       parentTaskId [CACHE] parent task ID
+      childTaskId  [CACHE] child task ID
 
-Next PreToolUse inside the subagent fires (agent_id is in the registry):
-  PreToolUse.ts reads the registry entry
-  POST /api/runtime-session-ensure (child session, with parentTaskId + parentSessionId)
-  marks entry.linked = true
+Next PreToolUse / PostToolUse inside the subagent fires:
+  resolveEventSessionIds(...)
+  → resolveSubagentSessionIds(...)
+  → cache hit on .session-cache/sub--<agent_id>.json
 
-SubagentStop fires → SubagentStop.ts deletes registry entry
+SubagentStop fires:
   POST /api/async-task  (asyncStatus: "completed")
     metadata:
       agentId      [CC]    agent_id
-      agentType    [CC]    agent_type (read from registry before deletion)
+      agentType    [CC]    agent_type
       parentTaskId [CACHE] parent task ID
 ```
 
-This three-step handshake ensures the child session's task is linked to the parent
-task in the monitor before any tool events from the child are posted.
+This eager child-session creation keeps the subagent's task linked to the parent
+before any tool events from the child are posted, without needing a separate
+registry file.
 
 ---
 
@@ -785,11 +776,11 @@ next-turn `thought.logged` event cites via `metadata.parentUuid` /
 ```
 <PROJECT_DIR>/.claude/
 ├── .session-cache/
-│   ├── <sessionId>.json                        # taskId + sessionId (set by PreToolUse, deleted by SessionEnd)
+│   ├── <sessionId>.json                        # taskId + sessionId (set by resolveSessionIds, deleted by Stop/SessionEnd)
 │   ├── <sessionId>-metadata.json               # startedAt + source + projectDir (set by SessionStart, deleted by SessionEnd)
 │   ├── <sessionId>-transcript-cursor.json      # lastEmittedUuid + byteOffset + fileSize (set by Stop, deleted by SessionEnd)
+│   ├── sub--<agentId>.json                     # child taskId + sessionId cache for subagent events
 │   └── sub--<agentId>-transcript-cursor.json   # subagent transcript cursor (set/cleared by SubagentStop)
-└── .subagent-registry.json                     # in-flight agent_id → parent info (managed by SubagentStart/Stop + PreToolUse)
 
 ~/.claude/
 └── .session-history.json                       # completed sessions for resume support (appended by SessionEnd)
@@ -801,11 +792,9 @@ next-turn `thought.logged` event cites via `metadata.parentUuid` /
 
 ```
 hooks/
-├── common.ts                  # barrel re-export — single import point for all handlers
 ├── util/                      # pure helpers: no I/O, no side effects
 │   ├── lane.ts                # TimelineLane type + LANE constants
 │   ├── paths.ts               # project dir, runtime source, default title, parseMcpToolName
-│   ├── runtime-identifier.ts  # createResumeId
 │   └── utils.ts               # getToolInput, toTrimmedString, ellipsize, createMessageId, …
 ├── lib/                       # infrastructure: I/O, caching, logging, HTTP transport
 │   ├── hook-log.ts            # file-based debug logging
@@ -813,7 +802,7 @@ hooks/
 │   ├── session-cache.ts       # read/write/delete .session-cache/*.json
 │   ├── session-history.ts     # append/lookup ~/.claude/.session-history.json
 │   ├── session-metadata.ts    # read/write/delete .session-cache/*-metadata.json
-│   ├── subagent-registry.ts   # read/write .subagent-registry.json
+│   ├── subagent-session.ts    # parent/subagent-aware runtime session resolution
 │   └── transport.ts           # readStdinJson, postJson, ensureRuntimeSession
 ├── classification/            # pure functions that build API payload data (SemanticMetadata)
 │   ├── command-semantic.ts    # Bash command → subtypeKey + lane
@@ -839,9 +828,9 @@ hooks/
 ```
 
 > `util/`, `lib/`, and `classification/` are excluded from `tsconfig.json` direct
-> analysis (`exclude: ["hooks/util", "hooks/lib", "hooks/classification"]`) to prevent
-> LSP from resolving the same files twice — once directly and once via `common.ts`
-> re-exports.
+> analysis (`exclude: ["hooks/util", "hooks/lib", "hooks/classification"]`) because
+> handlers import them directly as shared internal modules rather than compiling them
+> as standalone hook entrypoints.
 
 ---
 

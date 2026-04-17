@@ -22,7 +22,11 @@
  * This handler records a pre-compaction marker in the Agent Tracer monitor
  * so the UI can mark compaction boundaries in the session timeline.
  */
-import { getSessionId, hookLog, hookLogPayload, LANE, postJson, readStdinJson, resolveSessionIds, toTrimmedString } from "./common.js";
+import { LANE } from "./util/lane.js";
+import { getSessionId, toTrimmedString } from "./util/utils.js";
+import { postJson, readStdinJson } from "./lib/transport.js";
+import { resolveSessionIds } from "./lib/session.js";
+import { hookLog, hookLogPayload } from "./lib/hook-log.js";
 
 async function main(): Promise<void> {
     const payload = await readStdinJson();

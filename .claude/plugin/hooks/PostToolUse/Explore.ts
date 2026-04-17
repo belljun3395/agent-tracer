@@ -28,7 +28,13 @@
  * an /api/explore event to the Agent Tracer monitor.
  */
 import * as path from "node:path";
-import { buildSemanticMetadata, getSessionId, getToolInput, hookLog, hookLogPayload, inferExploreSemantic, postJson, readStdinJson, relativeProjectPath, resolveEventSessionIds, stringifyToolInput, toTrimmedString } from "../common.js";
+import { relativeProjectPath } from "../util/paths.js";
+import { getAgentContext, getSessionId, getToolInput, getToolName, getToolUseId, stringifyToolInput, toTrimmedString } from "../util/utils.js";
+import { postJson, readStdinJson } from "../lib/transport.js";
+import { resolveEventSessionIds } from "../lib/subagent-session.js";
+import { hookLog, hookLogPayload } from "../lib/hook-log.js";
+import { inferExploreSemantic } from "../classification/explore-semantic.js";
+import { buildSemanticMetadata } from "../classification/command-semantic.js";
 
 const MAX_PATH_LENGTH = 300;
 
@@ -36,9 +42,8 @@ async function main(): Promise<void> {
     const payload = await readStdinJson();
     hookLogPayload("PostToolUse/Explore", payload);
     const sessionId = getSessionId(payload);
-    const agentId = toTrimmedString(payload.agent_id) || undefined;
-    const agentType = toTrimmedString(payload.agent_type) || undefined;
-    const toolName = toTrimmedString(payload.tool_name);
+    const { agentId, agentType } = getAgentContext(payload);
+    const toolName = getToolName(payload);
     const toolInput = getToolInput(payload);
     hookLog("PostToolUse/Explore", "fired", { toolName, sessionId: sessionId || "(none)" });
 
@@ -48,7 +53,7 @@ async function main(): Promise<void> {
     }
 
     const ids = await resolveEventSessionIds(sessionId, agentId, agentType);
-    const toolUseId = toTrimmedString(payload.tool_use_id) || undefined;
+    const toolUseId = getToolUseId(payload);
     let title = `Explore: ${toolName}`;
     let body = `Used ${toolName} to explore`;
     let filePaths: string[] = [];

@@ -26,22 +26,17 @@
  * "clear" events are intentionally skipped because SessionStart handles them.
  */
 import {
-    CLAUDE_RUNTIME_SOURCE,
-    deleteCachedSessionResult,
-    deleteCursor,
     getSessionId,
-    hookLog,
-    hookLogPayload,
-    LANE,
-    readStdinJson,
     toTrimmedString,
-    postJson,
-    getCachedSessionResult,
-    createResumeId,
-    appendSessionRecord,
-    getSessionMetadata,
-    deleteSessionMetadata
-} from "./common.js";
+} from "./util/utils.js";
+import { CLAUDE_RUNTIME_SOURCE } from "./util/paths.js";
+import { LANE } from "./util/lane.js";
+import { postJson, readStdinJson } from "./lib/transport.js";
+import { getCachedSessionResult, deleteCachedSessionResult } from "./lib/session-cache.js";
+import { getSessionMetadata, deleteSessionMetadata } from "./lib/session-metadata.js";
+import { deleteCursor } from "./lib/transcript-cursor.js";
+import { appendSessionRecord } from "./lib/session-history.js";
+import { hookLog, hookLogPayload } from "./lib/hook-log.js";
 
 function mapCompletionReason(reason: string): "explicit_exit" | "runtime_terminated" {
     return reason === "prompt_input_exit" ? "explicit_exit" : "runtime_terminated";
@@ -58,6 +53,10 @@ function buildSessionEndedTitle(reason: string): string {
         default:
             return `Session ended (${reason})`;
     }
+}
+
+function createResumeId(runtimeSource: string, sessionId: string): string {
+    return `${runtimeSource}::${sessionId}`;
 }
 
 async function main(): Promise<void> {

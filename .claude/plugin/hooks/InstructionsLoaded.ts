@@ -25,17 +25,12 @@
  * so the dashboard can show which instruction files are active in the session.
  */
 import * as path from "node:path";
-import {
-    getSessionId,
-    hookLog,
-    hookLogPayload,
-    LANE,
-    postJson,
-    readStdinJson,
-    relativeProjectPath,
-    resolveEventSessionIds,
-    toTrimmedString,
-} from "./common.js";
+import { LANE } from "./util/lane.js";
+import { relativeProjectPath } from "./util/paths.js";
+import { getAgentContext, getSessionId, toTrimmedString } from "./util/utils.js";
+import { postJson, readStdinJson } from "./lib/transport.js";
+import { resolveEventSessionIds } from "./lib/subagent-session.js";
+import { hookLog, hookLogPayload } from "./lib/hook-log.js";
 
 async function main(): Promise<void> {
     const payload = await readStdinJson();
@@ -47,8 +42,7 @@ async function main(): Promise<void> {
         return;
     }
 
-    const agentId = toTrimmedString(payload.agent_id) || undefined;
-    const agentType = toTrimmedString(payload.agent_type) || undefined;
+    const { agentId, agentType } = getAgentContext(payload);
     const filePath = toTrimmedString(payload.file_path);
     const loadReason = toTrimmedString(payload.load_reason) || "session_start";
     const memoryType = toTrimmedString(payload.memory_type) || "Project";

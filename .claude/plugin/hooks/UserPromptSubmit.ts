@@ -25,7 +25,11 @@
  * and records the user message in the Agent Tracer monitor. The "initial" vs "follow_up"
  * phase is derived from whether ensureRuntimeSession created a new task.
  */
-import { createMessageId, defaultTaskTitle, ellipsize, ensureRuntimeSession, getSessionId, hookLog, hookLogPayload, postJson, readStdinJson, toTrimmedString } from "./common.js";
+import { createMessageId, ellipsize, getSessionId, toTrimmedString } from "./util/utils.js";
+import { defaultTaskTitle } from "./util/paths.js";
+import { postJson, readStdinJson } from "./lib/transport.js";
+import { resolveSessionIds } from "./lib/session.js";
+import { hookLog, hookLogPayload } from "./lib/hook-log.js";
 
 async function main(): Promise<void> {
     const payload = await readStdinJson();
@@ -44,7 +48,7 @@ async function main(): Promise<void> {
     }
 
     const title = prompt ? ellipsize(prompt, 120) : defaultTaskTitle();
-    const ids = await ensureRuntimeSession(sessionId, title);
+    const ids = await resolveSessionIds(sessionId, title);
     hookLog("UserPromptSubmit", "ensureRuntimeSession ok", { taskId: ids.taskId });
 
     if (!prompt) return;

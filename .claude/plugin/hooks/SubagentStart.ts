@@ -19,20 +19,25 @@
  * Blocking: SubagentStart cannot block (exit 2 shows stderr but execution continues).
  *
  * This handler eagerly creates a background child task in the monitor via
- * resolveSubagentSessionIds, stores the child taskId/sessionId in the registry
- * for reference, and posts an async-task "running" event to the parent task.
+ * resolveSubagentSessionIds so subsequent subagent tool hooks hit the same
+ * virtual child session, then posts an async-task "running" event to the parent task.
  */
-import { getSessionId, hookLog, hookLogPayload, postJson, readStdinJson, readSubagentRegistry, resolveSessionIds, resolveSubagentSessionIds, toTrimmedString, writeSubagentRegistry } from "./common.js";
+import { getAgentContext, getSessionId } from "./util/utils.js";
+import { postJson, readStdinJson } from "./lib/transport.js";
+import { resolveSessionIds } from "./lib/session.js";
+import { resolveSubagentSessionIds } from "./lib/subagent-session.js";
+import { hookLog, hookLogPayload } from "./lib/hook-log.js";
 
 async function main(): Promise<void> {
     const payload = await readStdinJson();
     hookLogPayload("SubagentStart", payload);
     const sessionId = getSessionId(payload);
-    const agentId = toTrimmedString(payload.agent_id);
-    const agentType = typeof payload.agent_type === "string" ? payload.agent_type : "";
-    hookLog("SubagentStart", "fired", { agentId: agentId || "(none)", agentType, sessionId: sessionId || "(none)" });
+    const { agentId, agentType } = getAgentContext(payload);
+    const normalizedAgentId = agentId ?? "";
+    const normalizedAgentType = agentType ?? "";
+    hookLog("SubagentStart", "fired", { agentId: normalizedAgentId || "(none)", agentType: normalizedAgentType, sessionId: sessionId || "(none)" });
 
-    if (!sessionId || !agentId) {
+    if (!sessionId || !normalizedAgentId) {
         hookLog("SubagentStart", "skipped — missing sessionId or agentId");
         return;
     }
@@ -41,43 +46,32 @@ async function main(): Promise<void> {
 
     // Eagerly create the child background task so subsequent PostToolUse hooks
     // inside the subagent get a cache hit and route to the correct task.
-    const childIds = await resolveSubagentSessionIds(sessionId, agentId, agentType);
+    const childIds = await resolveSubagentSessionIds(sessionId, normalizedAgentId, normalizedAgentType);
     hookLog("SubagentStart", "child task created", {
-        agentId,
+        agentId: normalizedAgentId,
         childTaskId: childIds.taskId,
         childSessionId: childIds.sessionId,
         parentTaskId: ids.taskId
     });
-
-    const registry = readSubagentRegistry();
-    registry[agentId] = {
-        parentSessionId: sessionId,
-        parentTaskId: ids.taskId,
-        childTaskId: childIds.taskId,
-        childSessionId: childIds.sessionId,
-        agentType,
-        linked: true
-    };
-    writeSubagentRegistry(registry);
 
     await postJson("/ingest/v1/events", {
         events: [{
             kind: "action.logged",
             taskId: ids.taskId,
             sessionId: ids.sessionId,
-            asyncTaskId: agentId,
+            asyncTaskId: normalizedAgentId,
             asyncStatus: "running",
-            title: `Subagent started: ${agentType}`,
+            title: `Subagent started: ${normalizedAgentType}`,
             metadata: {
-                agentId,
-                agentType,
+                agentId: normalizedAgentId,
+                agentType: normalizedAgentType,
                 parentTaskId: ids.taskId,
                 parentSessionId: sessionId,
                 childTaskId: childIds.taskId
             }
         }]
     });
-    hookLog("SubagentStart", "async-task posted", { agentType, agentId });
+    hookLog("SubagentStart", "async-task posted", { agentType: normalizedAgentType, agentId: normalizedAgentId });
 }
 
 void main().catch((err: unknown) => {

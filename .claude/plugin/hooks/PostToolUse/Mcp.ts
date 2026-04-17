@@ -23,15 +23,20 @@
  * to the Agent Tracer monitor. Self-referential calls to the "agent-tracer" MCP
  * server are skipped to avoid infinite loops.
  */
-import { buildSemanticMetadata, getSessionId, hookLog, hookLogPayload, LANE, parseMcpToolName, postJson, readStdinJson, resolveEventSessionIds, toTrimmedString } from "../common.js";
+import { LANE } from "../util/lane.js";
+import { parseMcpToolName } from "../util/paths.js";
+import { getAgentContext, getSessionId, getToolName, getToolUseId } from "../util/utils.js";
+import { postJson, readStdinJson } from "../lib/transport.js";
+import { resolveEventSessionIds } from "../lib/subagent-session.js";
+import { hookLog, hookLogPayload } from "../lib/hook-log.js";
+import { buildSemanticMetadata } from "../classification/command-semantic.js";
 
 async function main(): Promise<void> {
     const payload = await readStdinJson();
     hookLogPayload("PostToolUse/Mcp", payload);
-    const toolName = toTrimmedString(payload.tool_name);
+    const toolName = getToolName(payload);
     const sessionId = getSessionId(payload);
-    const agentId = toTrimmedString(payload.agent_id) || undefined;
-    const agentType = toTrimmedString(payload.agent_type) || undefined;
+    const { agentId, agentType } = getAgentContext(payload);
     hookLog("PostToolUse/Mcp", "fired", { toolName, sessionId: sessionId || "(none)" });
 
     if (!sessionId || !toolName) {
@@ -50,7 +55,7 @@ async function main(): Promise<void> {
     }
 
     const ids = await resolveEventSessionIds(sessionId, agentId, agentType);
-    const toolUseId = toTrimmedString(payload.tool_use_id) || undefined;
+    const toolUseId = getToolUseId(payload);
     const title = `MCP: ${mcpTool.server}/${mcpTool.tool}`;
     const body = `Used MCP tool ${mcpTool.server}/${mcpTool.tool}`;
 
