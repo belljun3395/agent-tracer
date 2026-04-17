@@ -20,6 +20,7 @@ export function QuestionGroupSection({ group }: {
             <span className="text-[0.76rem] font-semibold text-[var(--text-3)]">{new Date(event.createdAt).toLocaleTimeString()}</span>
           </div>))}
       </div>
-      {!group.isComplete && (<p className="mt-2 text-[0.8rem] text-[var(--text-3)]">Awaiting conclusion.</p>)}
+      {!group.isAnswered && (<p className="mt-2 text-[0.8rem] text-[var(--text-3)]">Awaiting reply.</p>)}
+      {group.isAnswered && !group.isConcluded && (<p className="mt-2 text-[0.8rem] text-[var(--text-3)]">Awaiting conclusion.</p>)}
     </SectionCard>);
 }

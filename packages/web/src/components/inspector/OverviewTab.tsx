@@ -1,14 +1,117 @@
 import type React from "react";
-import { useState } from "react";
-import { buildResumeCommand, formatCount, formatDuration, type SubagentInsight, type TaskObservabilityResponse, type VerificationCycleItem } from "@monitor/web-domain";
+import { useMemo, useState } from "react";
+import { buildInspectorEventTitle, buildResumeCommand, formatCount, formatDuration, formatRelativeTime, type ModelSummary, type QuestionGroup, type SubagentInsight, type TaskObservabilityResponse, type TimelineEvent, type TodoGroup, type VerificationCycleItem } from "@monitor/web-domain";
 import { copyToClipboard } from "../../lib/ui/clipboard.js";
 import { cn } from "../../lib/ui/cn.js";
+import { Badge } from "../ui/Badge.js";
 import { Eyebrow } from "../ui/Eyebrow.js";
 import { PanelCard } from "../ui/PanelCard.js";
 import { SectionCard } from "./SectionCard.js";
+import { HookCoveragePanel } from "./HookCoveragePanel.js";
 import { ObservabilityMetricGrid, ObservabilityList, ObservabilityPhaseBreakdown } from "./ObservabilitySection.js";
 import { cardShell, cardHeader, cardBody, innerPanel } from "./styles.js";
 import { toRelativePath } from "./utils.js";
+
+/**
+ * Rolls the assistant.response events' token-usage metadata into a single
+ * cache-efficiency summary for the whole task. Uses the SAME denominator
+ * semantics as CacheEfficiencyBar: new input + cache reads + cache creates.
+ */
+interface CacheHitSummary {
+    readonly cacheReadTokens: number;
+    readonly cacheCreateTokens: number;
+    readonly newInputTokens: number;
+    readonly outputTokens: number;
+    readonly totalInputTokens: number;
+    readonly hitRate: number;
+    readonly turns: number;
+}
+
+function summarizeCacheUsage(timeline: readonly TimelineEvent[]): CacheHitSummary {
+    let cacheReadTokens = 0;
+    let cacheCreateTokens = 0;
+    let newInputTokens = 0;
+    let outputTokens = 0;
+    let turns = 0;
+    for (const event of timeline) {
+        if (event.kind !== "assistant.response") continue;
+        const md = event.metadata;
+        const inputVal = md["inputTokens"];
+        const readVal = md["cacheReadTokens"];
+        const createVal = md["cacheCreateTokens"];
+        const outputVal = md["outputTokens"];
+        let counted = false;
+        if (typeof inputVal === "number" && Number.isFinite(inputVal)) {
+            newInputTokens += Math.max(0, inputVal);
+            counted = true;
+        }
+        if (typeof readVal === "number" && Number.isFinite(readVal)) {
+            cacheReadTokens += Math.max(0, readVal);
+            counted = true;
+        }
+        if (typeof createVal === "number" && Number.isFinite(createVal)) {
+            cacheCreateTokens += Math.max(0, createVal);
+            counted = true;
+        }
+        if (typeof outputVal === "number" && Number.isFinite(outputVal)) {
+            outputTokens += Math.max(0, outputVal);
+        }
+        if (counted) turns += 1;
+    }
+    const totalInputTokens = newInputTokens + cacheReadTokens + cacheCreateTokens;
+    const hitRate = totalInputTokens > 0
+        ? Math.round((cacheReadTokens / totalInputTokens) * 100)
+        : 0;
+    return { cacheReadTokens, cacheCreateTokens, newInputTokens, outputTokens, totalInputTokens, hitRate, turns };
+}
+
+function CacheEfficiencyCard({ summary }: { readonly summary: CacheHitSummary }): React.JSX.Element | null {
+    if (summary.turns === 0 || summary.totalInputTokens === 0) return null;
+    const toneClass = summary.hitRate >= 70
+        ? "text-[var(--ok)]"
+        : summary.hitRate >= 30
+            ? "text-[var(--warn)]"
+            : "text-[var(--text-2)]";
+    return (<SectionCard title="Cache Efficiency">
+      <div className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-5">
+        <div className="flex flex-col items-start">
+          <Eyebrow className="block">Hit rate</Eyebrow>
+          <strong className={cn("mt-1 block text-[2rem] leading-none font-semibold tabular-nums", toneClass)}>
+            {summary.hitRate}%
+          </strong>
+          <p className="mt-1.5 mb-0 text-[0.7rem] text-[var(--text-3)]">
+            across {formatCount(summary.turns)} turn{summary.turns === 1 ? "" : "s"}
+          </p>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <CacheStat label="Cache read" value={summary.cacheReadTokens} tone="ok"/>
+          <CacheStat label="Cache write" value={summary.cacheCreateTokens} tone="accent"/>
+          <CacheStat label="New input" value={summary.newInputTokens} tone="neutral"/>
+          <CacheStat label="Output" value={summary.outputTokens} tone="neutral"/>
+        </div>
+      </div>
+    </SectionCard>);
+}
+
+function CacheStat({ label, value, tone }: {
+    readonly label: string;
+    readonly value: number;
+    readonly tone: "ok" | "accent" | "neutral";
+}): React.JSX.Element {
+    const toneClass = tone === "ok"
+        ? "text-[var(--ok)]"
+        : tone === "accent"
+            ? "text-[var(--accent)]"
+            : "text-[var(--text-1)]";
+    return (
+      <div className={innerPanel + " p-2.5"}>
+        <Eyebrow className="block">{label}</Eyebrow>
+        <strong className={cn("mt-1 block text-[0.95rem] font-semibold tabular-nums", toneClass)}>
+          {value.toLocaleString()}
+        </strong>
+      </div>
+    );
+}
 function RuntimeSessionCard({ runtimeSessionId, runtimeSource }: {
     readonly runtimeSessionId?: string | undefined;
     readonly runtimeSource?: string | undefined;
@@ -90,6 +193,190 @@ function VerificationCyclesCard({ items }: {
       </div>
     </SectionCard>);
 }
+const TODO_STATE_LABELS: Readonly<Record<string, string>> = {
+    added: "Added",
+    in_progress: "In Progress",
+    completed: "Completed",
+    cancelled: "Cancelled",
+};
+const TODO_STATE_TONE: Readonly<Record<string, "accent" | "success" | "warning" | "danger" | "neutral">> = {
+    added: "accent",
+    in_progress: "warning",
+    completed: "success",
+    cancelled: "danger",
+};
+
+/** Rank used to sort "Open" todos: in_progress before added before anything else. */
+const OPEN_STATE_RANK: Readonly<Record<string, number>> = {
+    in_progress: 0,
+    added: 1,
+};
+
+function lastTransitionMs(group: TodoGroup): number {
+    const last = group.transitions[group.transitions.length - 1];
+    return last ? Date.parse(last.event.createdAt) : 0;
+}
+
+function TodoRow({ group, muted }: { readonly group: TodoGroup; readonly muted: boolean }): React.JSX.Element {
+    const last = group.transitions[group.transitions.length - 1];
+    return (
+      <div className={cn(
+        "flex items-center gap-3 rounded-[10px] border px-3 py-2.5",
+        muted
+          ? "border-[var(--border)] bg-[var(--bg-subtle)] opacity-75"
+          : "border-[var(--border)] bg-[var(--surface-2)]"
+      )}>
+        <Badge tone={TODO_STATE_TONE[group.currentState] ?? "neutral"} size="xs">
+          {TODO_STATE_LABELS[group.currentState] ?? group.currentState}
+        </Badge>
+        <span className={cn(
+          "min-w-0 flex-1 truncate text-[0.82rem]",
+          muted ? "text-[var(--text-2)] line-through decoration-[var(--text-3)]/40" : "text-[var(--text-1)]"
+        )}>{group.title}</span>
+        {last && (
+          <span className="shrink-0 text-[0.68rem] tabular-nums text-[var(--text-3)]">
+            {formatRelativeTime(last.event.createdAt)}
+          </span>
+        )}
+      </div>
+    );
+}
+
+function TodosSummaryCard({ todoGroups }: { readonly todoGroups: readonly TodoGroup[] }): React.JSX.Element | null {
+    if (todoGroups.length === 0) return null;
+    const completed = todoGroups.filter((g) => g.currentState === "completed").length;
+    const openGroups = todoGroups
+        .filter((g) => !g.isTerminal)
+        .slice()
+        .sort((a, b) => {
+            const rank = (OPEN_STATE_RANK[a.currentState] ?? 9) - (OPEN_STATE_RANK[b.currentState] ?? 9);
+            if (rank !== 0) return rank;
+            return lastTransitionMs(b) - lastTransitionMs(a);
+        });
+    const doneGroups = todoGroups
+        .filter((g) => g.isTerminal)
+        .slice()
+        .sort((a, b) => lastTransitionMs(b) - lastTransitionMs(a));
+    return (<SectionCard title={<span>Todos <span className="ml-1 text-[var(--text-3)] font-normal text-[0.78rem]">({completed}/{todoGroups.length} completed)</span></span>}>
+      <div className="flex flex-col gap-3">
+        {openGroups.length > 0 && (
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <Eyebrow className="block">Open</Eyebrow>
+              <span className="text-[0.7rem] text-[var(--text-3)] tabular-nums">{openGroups.length}</span>
+            </div>
+            {openGroups.map((group) => (
+              <TodoRow key={group.todoId} group={group} muted={false}/>
+            ))}
+          </div>
+        )}
+        {doneGroups.length > 0 && (
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <Eyebrow className="block">Done</Eyebrow>
+              <span className="text-[0.7rem] text-[var(--text-3)] tabular-nums">{doneGroups.length}</span>
+            </div>
+            {doneGroups.map((group) => (
+              <TodoRow key={group.todoId} group={group} muted/>
+            ))}
+          </div>
+        )}
+      </div>
+    </SectionCard>);
+}
+
+const QUESTION_PHASE_LABELS: Readonly<Record<string, string>> = {
+    asked: "Asked",
+    answered: "Answered",
+    concluded: "Concluded",
+};
+const QUESTION_PHASE_TONE: Readonly<Record<string, "neutral" | "accent" | "success">> = {
+    asked: "neutral",
+    answered: "accent",
+    concluded: "success",
+};
+
+function QuestionsSummaryCard({ questionGroups }: { readonly questionGroups: readonly QuestionGroup[] }): React.JSX.Element | null {
+    if (questionGroups.length === 0) return null;
+    const complete = questionGroups.filter((g) => g.isAnswered).length;
+    const open = questionGroups.filter((g) => !g.isAnswered).length;
+    return (<SectionCard title={<span>Questions <span className="ml-1 text-[var(--text-3)] font-normal text-[0.78rem]">({complete}/{questionGroups.length} resolved)</span></span>}>
+      <div className="flex flex-col gap-2">
+        {questionGroups.map((group) => {
+            const latestPhase = group.phases[group.phases.length - 1];
+            const questionText = group.phases[0]?.event.body ?? buildInspectorEventTitle(group.phases[0]?.event) ?? group.phases[0]?.event.title ?? "—";
+            return (<div key={group.questionId} className="flex items-start gap-3 rounded-[10px] border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2.5">
+                <Badge tone={QUESTION_PHASE_TONE[latestPhase?.phase ?? "asked"] ?? "neutral"} size="xs" className="mt-0.5 shrink-0">
+                  {QUESTION_PHASE_LABELS[latestPhase?.phase ?? "asked"] ?? (latestPhase?.phase ?? "asked")}
+                </Badge>
+                <span className="min-w-0 flex-1 text-[0.82rem] text-[var(--text-1)] line-clamp-2">{questionText}</span>
+              </div>);
+        })}
+        {open > 0 && (<p className="m-0 text-[0.74rem] text-[var(--text-3)]">{open} unanswered question{open === 1 ? "" : "s"}</p>)}
+      </div>
+    </SectionCard>);
+}
+
+interface SkillListingSummary {
+    readonly latestCount: number | null;
+    readonly latestAt: string | null;
+    readonly loads: number;
+    readonly hasInitialLoad: boolean;
+}
+
+function summarizeSkillListing(timeline: readonly TimelineEvent[]): SkillListingSummary {
+    let latestCount: number | null = null;
+    let latestAt: string | null = null;
+    let loads = 0;
+    let hasInitialLoad = false;
+    for (const event of timeline) {
+        if (event.kind !== "instructions.loaded") continue;
+        if (event.metadata["attachmentType"] !== "skill_listing") continue;
+        loads += 1;
+        if (event.metadata["isInitial"] === true) hasInitialLoad = true;
+        const count = event.metadata["skillCount"];
+        if (typeof count === "number" && Number.isFinite(count)) {
+            latestCount = count;
+            latestAt = event.createdAt;
+        }
+    }
+    return { latestCount, latestAt, loads, hasInitialLoad };
+}
+
+function SkillListingCard({ summary }: { readonly summary: SkillListingSummary }): React.JSX.Element | null {
+    if (summary.loads === 0) return null;
+    return (<SectionCard title="Skill listing">
+      <div className="flex flex-wrap items-baseline gap-2">
+        <strong className="text-[1.3rem] font-semibold tabular-nums text-[var(--text-1)]">
+          {summary.latestCount !== null ? summary.latestCount.toLocaleString() : "—"}
+        </strong>
+        <span className="text-[0.78rem] text-[var(--text-3)]">skills available</span>
+        {summary.hasInitialLoad && <Badge tone="accent" size="xs">initial load</Badge>}
+      </div>
+      <p className="mt-1.5 mb-0 text-[0.72rem] text-[var(--text-3)]">
+        {summary.loads} load{summary.loads === 1 ? "" : "s"} recorded
+        {summary.latestAt ? ` · last ${formatRelativeTime(summary.latestAt)}` : ""}
+      </p>
+    </SectionCard>);
+}
+
+function AIModelCard({ summary }: { readonly summary: ModelSummary }): React.JSX.Element | null {
+    const entries = Object.entries(summary.modelCounts).sort((a, b) => b[1] - a[1]);
+    if (entries.length === 0) return null;
+    return (<SectionCard title="AI Model">
+      <div className="flex flex-col gap-2">
+        {entries.map(([name, count]) => (<div key={name} className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-3">
+            <div className="min-w-0 break-words text-[0.83rem] text-[var(--text-2)]">
+              <span className={cn("font-mono", name === summary.defaultModelName && "font-semibold text-[var(--text-1)]")}>{name}</span>
+              {name === summary.defaultModelName && (<span className="ml-1.5 text-[0.72rem] font-normal text-[var(--text-3)]">default</span>)}
+            </div>
+            <div className="text-right text-[0.72rem] uppercase tracking-[0.04em] text-[var(--text-3)] tabular-nums">{count} events</div>
+          </div>))}
+      </div>
+      {summary.defaultModelProvider && (<p className="mt-2 mb-0 text-[0.78rem] text-[var(--text-3)]">Provider: {summary.defaultModelProvider}</p>)}
+    </SectionCard>);
+}
+
 export interface OverviewTabProps {
     readonly observability: TaskObservabilityResponse["observability"] | null;
     readonly subagentInsight: SubagentInsight;
@@ -97,10 +384,19 @@ export interface OverviewTabProps {
     readonly runtimeSessionId?: string | undefined;
     readonly runtimeSource?: string | undefined;
     readonly workspacePath?: string | undefined;
+    readonly timeline?: readonly TimelineEvent[];
+    readonly todoGroups?: readonly TodoGroup[];
+    readonly questionGroups?: readonly QuestionGroup[];
+    readonly taskModelSummary?: ModelSummary | undefined;
 }
-export function OverviewTab({ observability, subagentInsight, verificationCycles, runtimeSessionId, runtimeSource, workspacePath }: OverviewTabProps): React.JSX.Element {
+export function OverviewTab({ observability, subagentInsight, verificationCycles, runtimeSessionId, runtimeSource, workspacePath, timeline = [], todoGroups = [], questionGroups = [], taskModelSummary }: OverviewTabProps): React.JSX.Element {
+    const cacheSummary = useMemo(() => summarizeCacheUsage(timeline), [timeline]);
+    const skillSummary = useMemo(() => summarizeSkillListing(timeline), [timeline]);
     return (<div className="panel-tab-inner flex flex-col gap-5 p-4">
       <RuntimeSessionCard runtimeSessionId={runtimeSessionId} runtimeSource={runtimeSource}/>
+      <CacheEfficiencyCard summary={cacheSummary}/>
+      {taskModelSummary && <AIModelCard summary={taskModelSummary}/>}
+      <SkillListingCard summary={skillSummary}/>
       {observability ? (<>
           <SectionCard title="Task Flow">
             <ObservabilityMetricGrid items={[
@@ -145,7 +441,12 @@ export function OverviewTab({ observability, subagentInsight, verificationCycles
 
           <SubagentInsightCard insight={subagentInsight}/>
 
+          <HookCoveragePanel timeline={timeline}/>
+
           {verificationCycles && verificationCycles.length > 0 && (<VerificationCyclesCard items={verificationCycles}/>)}
+
+          <TodosSummaryCard todoGroups={todoGroups}/>
+          <QuestionsSummaryCard questionGroups={questionGroups}/>
 
           <SectionCard title="Phase Breakdown">
             <ObservabilityPhaseBreakdown phases={observability.phaseBreakdown}/>

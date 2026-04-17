@@ -13,9 +13,13 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "lint": "eslint src && npm run lint:types",
-    "lint:types": "tsc -p tsconfig.json --noEmit"
+    "lint:types": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
     "@monitor/core": "*"
+  },
+  "devDependencies": {
+    "vitest": "^3.0.0"
   }
 }

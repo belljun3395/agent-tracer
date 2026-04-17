@@ -612,6 +612,43 @@
   background: linear-gradient(90deg, var(--surface) 0%, var(--surface) 76%, color-mix(in srgb, var(--surface) 80%, transparent) 92%, transparent 100%);
 }
 
+/* Floating Jump button — toggles between "jump to start" (when auto-follow is
+   locked to the tail) and "jump to latest" (when the user has scrolled away). */
+.timeline-jump-btn {
+  position: absolute;
+  top: 8px;
+  right: 56px;
+  z-index: 22;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text-2);
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1;
+  box-shadow: var(--shadow-1);
+  cursor: pointer;
+  transition: background-color 160ms, color 160ms, border-color 160ms, transform 160ms;
+}
+.timeline-jump-btn:hover {
+  background: var(--surface-2);
+  border-color: var(--border-strong);
+  color: var(--text-1);
+}
+.timeline-jump-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.timeline-jump-btn[aria-pressed="true"] {
+  background: var(--accent-light);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 .timeline-canvas {
   position: relative;
 }
@@ -850,6 +887,56 @@
 .event-node.kind-thought-logged { border-style: dashed; }
 .event-node.kind-context-saved { border-style: dashed; }
 .event-node.kind-instructions-loaded { border-style: dashed; }
+
+/* Failed tool events: red border + tinted background so the failure is obvious
+   on the timeline without needing to open the inspector. Overrides the per-lane
+   styling above because it appears later in the cascade. */
+.event-node.failed {
+  border-color: var(--err);
+  background: color-mix(in srgb, var(--surface) 82%, var(--err-bg));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--err) 22%, transparent);
+}
+.event-node.failed .event-node-dot { background: var(--err); }
+.event-node.failed .event-lane-tag { color: var(--err); }
+.event-node.failed::before { background: var(--err); }
+.event-failed-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--err);
+  color: #fff;
+  font-size: 0.6rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+/* Redacted thinking: low-signal events (encrypted signature only). Muted to
+   keep the timeline focused on meaningful activity. Hover/active still pop to
+   show they're interactive. */
+.event-node.redacted-thought {
+  opacity: 0.55;
+  border-style: dotted;
+  background: color-mix(in srgb, var(--surface) 90%, transparent);
+}
+.event-node.redacted-thought strong {
+  font-weight: 500;
+  color: var(--text-2);
+}
+.event-node.redacted-thought:hover,
+.event-node.redacted-thought.active {
+  opacity: 1;
+}
+.event-node.redacted-thought .event-redacted-subtext {
+  font-size: 0.66rem;
+  line-height: 1.1;
+  color: var(--text-3);
+  font-style: italic;
+  margin-top: 2px;
+}
 
 .event-node-header {
   display: flex;

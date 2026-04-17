@@ -24,6 +24,7 @@ export const INGEST_EVENT_KINDS = [
     "thought.logged",
     "assistant.response",
     "instructions.loaded",
+    "session.ended",
 ] as const
 
 export const ingestEventItemSchema = z.object({

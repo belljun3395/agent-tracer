@@ -1,7 +1,7 @@
 import type React from "react";
 import { useEffect, useState } from "react";
 import { getEventEvidence } from "@monitor/core";
-import { buildInspectorEventTitle, evidenceTone, formatEvidenceLevel, type BookmarkRecord, type ModelSummary, type QuestionGroup, type TaskDetailResponse, type TimelineConnector, type TimelineEvent, type TodoGroup } from "@monitor/web-domain";
+import { buildInspectorEventTitle, evidenceTone, formatEvidenceLevel, type BookmarkRecord, type QuestionGroup, type TaskDetailResponse, type TimelineConnector, type TimelineEvent, type TodoGroup } from "@monitor/web-domain";
 import { Badge } from "../ui/Badge.js";
 import { Button } from "../ui/Button.js";
 import { QuestionGroupSection } from "./QuestionGroupSection.js";
@@ -12,16 +12,40 @@ import {
     DetailConnectorIds,
     DetailEventEvidence,
     DetailIds,
-    DetailInstructionsBurst,
     DetailMatchList,
     DetailModelInfo,
     DetailRelatedEvents,
     DetailSection,
-    DetailTaskModel,
+    DetailSubagentAction,
+    DetailTaskReminder,
     DetailTokenUsage,
-    DetailTranscriptContext,
     InspectorHeaderCard
 } from "./InspectorDetails.js";
+
+/**
+ * True when a tool.used event (or agent.activity.logged mcp_call) was recorded
+ * as a failure by the PostToolUseFailure hook — that hook sets metadata.failed
+ * to `true`. We also accept an explicit status === "failed" or errored === true
+ * for forward compatibility.
+ */
+function isFailedToolEvent(event: TimelineEvent): boolean {
+    if (event.kind !== "tool.used" && event.kind !== "agent.activity.logged") return false;
+    const md = event.metadata;
+    if (md["failed"] === true) return true;
+    if (md["errored"] === true) return true;
+    const status = md["status"];
+    if (typeof status === "string" && status.toLowerCase() === "failed") return true;
+    return false;
+}
+
+/**
+ * Redacted thinking blocks carry an encrypted signature but no readable body.
+ * The `[redacted thinking]` placeholder has zero information value, so we skip
+ * the Full Context panel entirely for these events.
+ */
+function isRedactedThinking(event: TimelineEvent): boolean {
+    return event.kind === "thought.logged" && event.metadata["redacted"] === true;
+}
 
 interface SelectedConnectorData {
     readonly connector: TimelineConnector;
@@ -48,9 +72,6 @@ export interface InspectorTabProps {
     readonly onSelectRule: (ruleId: string | null) => void;
     readonly onOpenTaskWorkspace?: () => void;
     readonly openWorkspaceLabel: string;
-    readonly obsBadges: ReadonlyArray<{ key: string; label: string; value: number; tone: "accent" | "success" | "neutral" | "warning" | "danger" }>;
-    readonly showInspectorSummaryFooter: boolean;
-    readonly taskModelSummary?: ModelSummary | undefined;
     readonly taskDetail: TaskDetailResponse | null;
 }
 
@@ -73,9 +94,6 @@ export function InspectorTab({
     onSelectRule,
     onOpenTaskWorkspace,
     openWorkspaceLabel,
-    obsBadges,
-    showInspectorSummaryFooter,
-    taskModelSummary,
     taskDetail,
 }: InspectorTabProps): React.JSX.Element {
     const [isEditingEventTitle, setIsEditingEventTitle] = useState(false);
@@ -161,6 +179,12 @@ export function InspectorTab({
                 {selectedConnector ? (<Badge tone="neutral" size="xs" className="uppercase tracking-[0.06em]">
                     {selectedConnector.connector.isExplicit ? "relation" : "transition"} · {selectedConnector.connector.cross ? "cross-lane" : "same-lane"}
                   </Badge>) : selectedEvent ? (<Badge tone="neutral" size="xs" className="uppercase tracking-[0.06em]">{selectedEvent.kind} · {selectedEvent.lane}</Badge>) : null}
+                {selectedEvent && isFailedToolEvent(selectedEvent) && (
+                  <Badge tone="danger" size="xs" className="gap-1 uppercase tracking-[0.06em]">
+                    <span aria-hidden="true">✕</span>
+                    <span>failed</span>
+                  </Badge>
+                )}
                 {selectedEventEvidence && (<Badge tone={evidenceTone(selectedEventEvidence.level)} size="xs">
                     {formatEvidenceLevel(selectedEventEvidence.level)}
                   </Badge>)}
@@ -224,17 +248,25 @@ export function InspectorTab({
                 handoffId: selectedConnector.connector.handoffId
             }, null, 2)}/>
           </div>) : selectedEvent ? (<div className="flex flex-col gap-5 px-4 py-5">
-            <DetailSection label="Full Context" resizable value={selectedEvent.body
+            {/* Common: applies to every event, in a stable top-of-panel order. */}
+            {!isRedactedThinking(selectedEvent) && (
+              <DetailSection label="Full Context" resizable value={selectedEvent.body
                 ?? (selectedEvent.metadata["description"] as string | undefined)
                 ?? (selectedEvent.metadata["command"] as string | undefined)
                 ?? (selectedEvent.metadata["result"] as string | undefined)
                 ?? (selectedEvent.metadata["action"] as string | undefined)
                 ?? (selectedEvent.metadata["ruleId"] as string | undefined)
                 ?? "—"}/>
+            )}
             <DetailIds event={selectedEvent} runtimeSessionId={taskDetail?.runtimeSessionId}/>
-            <DetailTranscriptContext event={selectedEvent}/>
-            <DetailInstructionsBurst event={selectedEvent}/>
             <DetailEventEvidence event={selectedEvent} {...(taskDetail?.task.runtimeSource ? { runtimeSource: taskDetail.task.runtimeSource } : {})}/>
+            <DetailMatchList event={selectedEvent} activeRuleId={selectedRuleId} onSelectRule={(ruleId) => {
+                onSelectRule(selectedRuleId === ruleId ? null : ruleId);
+            }}/>
+
+            {/* Card-specific: gated by event kind / lane. */}
+            <DetailTaskReminder event={selectedEvent}/>
+            <DetailSubagentAction event={selectedEvent}/>
             {selectedEvent.kind === "question.logged" && (() => {
                 const qId = selectedEvent.metadata["questionId"] as string | undefined;
                 const group = qId ? questionGroups.find((g) => g.questionId === qId) : null;
@@ -245,6 +277,9 @@ export function InspectorTab({
                 const group = tId ? todoGroups.find((g) => g.todoId === tId) : null;
                 return group ? <TodoGroupSection group={group}/> : null;
             })()}
+            {selectedEvent.kind === "user.message" && <DetailCaptureInfo event={selectedEvent}/>}
+            {selectedEvent.kind === "assistant.response" && <DetailTokenUsage event={selectedEvent}/>}
+            {(selectedEvent.metadata["modelName"] as string | undefined) && (<DetailModelInfo modelName={selectedEvent.metadata["modelName"] as string} modelProvider={selectedEvent.metadata["modelProvider"] as string | undefined}/>)}
             {selectedEvent.lane === "coordination" && (<DetailSection label="Agent Activity" resizable value={[
                     typeof selectedEvent.metadata["activityType"] === "string"
                         ? `Activity: ${selectedEvent.metadata["activityType"]}`
@@ -266,12 +301,8 @@ export function InspectorTab({
                         : undefined
                 ].filter((value): value is string => Boolean(value)).join("\n") || "No coordination metadata"}/>)}
             {relatedEvents.length > 0 && <DetailRelatedEvents events={relatedEvents}/>}
-            {selectedEvent.kind === "user.message" && <DetailCaptureInfo event={selectedEvent}/>}
-            {selectedEvent.kind === "assistant.response" && <DetailTokenUsage event={selectedEvent}/>}
-            {(selectedEvent.metadata["modelName"] as string | undefined) && (<DetailModelInfo modelName={selectedEvent.metadata["modelName"] as string} modelProvider={selectedEvent.metadata["modelProvider"] as string | undefined}/>)}
-            <DetailMatchList event={selectedEvent} activeRuleId={selectedRuleId} onSelectRule={(ruleId) => {
-                onSelectRule(selectedRuleId === ruleId ? null : ruleId);
-            }}/>
+
+            {/* Raw payload — always last. */}
             <DetailSection label="Metadata" mono value={JSON.stringify(selectedEvent.metadata, null, 2)}/>
           </div>) : (<div className="px-4 py-8 text-center">
             <p className="m-0 text-[0.9rem] font-medium text-[var(--text-2)]">No event selected.</p>
@@ -283,16 +314,6 @@ export function InspectorTab({
                   {openWorkspaceLabel}
                 </Button>
               </div>)}
-          </div>)}
-
-        {showInspectorSummaryFooter && obsBadges.length > 0 && (<div className="flex flex-wrap gap-2 border-t border-[var(--border)] px-4 py-3">
-            {obsBadges.map((b) => (<Badge key={b.key} tone={b.tone} size="xs" className="gap-1 px-2.5 py-1 text-[0.68rem]">
-                <strong>{b.value}</strong>
-                <span>{b.label}</span>
-              </Badge>))}
-          </div>)}
-        {showInspectorSummaryFooter && taskModelSummary && (<div className="px-4 pb-4">
-            <DetailTaskModel summary={taskModelSummary}/>
           </div>)}
       </>);
 }

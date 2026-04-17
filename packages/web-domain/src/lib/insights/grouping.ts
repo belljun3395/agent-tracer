@@ -14,6 +14,14 @@ export interface QuestionGroup {
         readonly phase: string;
         readonly event: TimelineEvent;
     }[];
+    /** True once the asker replied or closed the thread — treat as "resolved". */
+    readonly isAnswered: boolean;
+    /** True only when a final `concluded` phase was emitted. */
+    readonly isConcluded: boolean;
+    /**
+     * Back-compat flag — equal to {@link isAnswered}. Prefer `isAnswered` /
+     * `isConcluded` directly for new code.
+     */
     readonly isComplete: boolean;
 }
 export interface TodoGroup {
@@ -31,8 +39,18 @@ export interface ModelSummary {
     readonly defaultModelProvider?: string;
     readonly modelCounts: Readonly<Record<string, number>>;
 }
+
+function sortByChronology<T extends { event: TimelineEvent }>(items: readonly T[]): T[] {
+    return [...items].sort((a, b) => {
+        const aSeq = typeof a.event.metadata["sequence"] === "number" ? a.event.metadata["sequence"] : Infinity;
+        const bSeq = typeof b.event.metadata["sequence"] === "number" ? b.event.metadata["sequence"] : Infinity;
+        if (aSeq !== bSeq)
+            return aSeq - bSeq;
+        return Date.parse(a.event.createdAt) - Date.parse(b.event.createdAt);
+    });
+}
+
 export function buildQuestionGroups(timeline: readonly TimelineEvent[]): readonly QuestionGroup[] {
-    const PHASE_ORDER: Record<string, number> = { asked: 0, answered: 1, concluded: 2 };
     const groups = new Map<string, {
         phases: Array<{
             phase: string;
@@ -51,25 +69,19 @@ export function buildQuestionGroups(timeline: readonly TimelineEvent[]): readonl
         groups.set(questionId, existing);
     }
     return [...groups.entries()].map(([questionId, group]) => {
-        const sorted = [...group.phases].sort((a, b) => {
-            const pDiff = (PHASE_ORDER[a.phase] ?? 99) - (PHASE_ORDER[b.phase] ?? 99);
-            if (pDiff !== 0)
-                return pDiff;
-            const aSeq = typeof a.event.metadata["sequence"] === "number" ? a.event.metadata["sequence"] : Infinity;
-            const bSeq = typeof b.event.metadata["sequence"] === "number" ? b.event.metadata["sequence"] : Infinity;
-            if (aSeq !== bSeq)
-                return aSeq - bSeq;
-            return Date.parse(a.event.createdAt) - Date.parse(b.event.createdAt);
-        });
+        const sorted = sortByChronology(group.phases);
+        const isAnswered = sorted.some(p => p.phase === "answered" || p.phase === "concluded");
+        const isConcluded = sorted.some(p => p.phase === "concluded");
         return {
             questionId,
             phases: sorted,
-            isComplete: sorted.some(p => p.phase === "concluded")
+            isAnswered,
+            isConcluded,
+            isComplete: isAnswered
         };
     });
 }
 const TODO_TERMINAL_STATES = new Set(["completed", "cancelled"]);
-const TODO_STATE_ORDER: Record<string, number> = { added: 0, in_progress: 1, completed: 2, cancelled: 2 };
 export function buildTodoGroups(timeline: readonly TimelineEvent[]): readonly TodoGroup[] {
     const groups = new Map<string, {
         title: string;
@@ -90,16 +102,7 @@ export function buildTodoGroups(timeline: readonly TimelineEvent[]): readonly To
         groups.set(todoId, existing);
     }
     return [...groups.entries()].map(([todoId, group]) => {
-        const sorted = [...group.transitions].sort((a, b) => {
-            const sDiff = (TODO_STATE_ORDER[a.state] ?? 99) - (TODO_STATE_ORDER[b.state] ?? 99);
-            if (sDiff !== 0)
-                return sDiff;
-            const aSeq = typeof a.event.metadata["sequence"] === "number" ? a.event.metadata["sequence"] : Infinity;
-            const bSeq = typeof b.event.metadata["sequence"] === "number" ? b.event.metadata["sequence"] : Infinity;
-            if (aSeq !== bSeq)
-                return aSeq - bSeq;
-            return Date.parse(a.event.createdAt) - Date.parse(b.event.createdAt);
-        });
+        const sorted = sortByChronology(group.transitions);
         const last = sorted[sorted.length - 1];
         const currentState = last?.state ?? "added";
         return {

@@ -14,6 +14,35 @@ export const FULL_TIMELINE_LANE_FILTERS: Readonly<Record<TimelineLane, boolean>>
     implementation: true
 };
 
+function hasCompactPhase(event: TimelineEvent): boolean {
+    const value = event.metadata["compactPhase"];
+    return typeof value === "string" && value.length > 0;
+}
+
+/**
+ * Returns true for events that hydrate context (instructions files, saved
+ * memories, stray thoughts) rather than participate in the task narrative.
+ * The main timeline hides these; the Context tab surfaces them on its own.
+ * Compact-phase context.saved events stay visible because they mark the
+ * boundary between compactions on the timeline.
+ */
+export function isContextHydrationEvent(event: TimelineEvent): boolean {
+    if (event.kind === "thought.logged") return true;
+    if (event.kind === "instructions.loaded") return true;
+    if (event.kind === "context.saved" && !hasCompactPhase(event)) return true;
+    return false;
+}
+
+/**
+ * Pulls the instructions/context events out of the timeline for the
+ * dedicated Context tab. Compact-phase saves are left on the main
+ * timeline and are intentionally excluded here.
+ */
+export function selectContextHydrationEvents(timeline: readonly TimelineEvent[]): readonly TimelineEvent[] {
+    return timeline.filter((event) => event.kind === "instructions.loaded"
+        || (event.kind === "context.saved" && !hasCompactPhase(event)));
+}
+
 export interface ParsedConnectorKey {
     readonly sourceEventId: string;
     readonly targetEventId: string;
@@ -49,7 +78,8 @@ export function buildFilteredTimeline(input: {
     readonly selectedTag: string | null;
     readonly showRuleGapsOnly: boolean;
 }): readonly TimelineEvent[] {
-    return filterTimelineEvents(input.timeline, {
+    const withoutContextNoise = input.timeline.filter((event) => !isContextHydrationEvent(event));
+    return filterTimelineEvents(withoutContextNoise, {
         laneFilters: FULL_TIMELINE_LANE_FILTERS,
         selectedRuleId: input.selectedRuleId,
         selectedTag: null,
