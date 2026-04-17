@@ -13,6 +13,8 @@ export class EvaluationController {
     async upsertEvaluation(
     @Param("id")
     taskId: string, 
+    @Query("scopeKey")
+    scopeKey: string | undefined,
     @Body()
     body: unknown) {
         const parsed = taskEvaluateSchema.safeParse(body);
@@ -21,6 +23,7 @@ export class EvaluationController {
         }
         const { rating, useCase, workflowTags, outcomeNote, approachNote, reuseWhen, watchouts, workflowSnapshot, workflowContext } = parsed.data;
         await this.service.upsertTaskEvaluation(TaskId(taskId), {
+            ...(scopeKey ? { scopeKey } : {}),
             rating,
             ...(useCase !== undefined ? { useCase } : {}),
             ...(workflowTags !== undefined ? { workflowTags } : {}),
@@ -37,17 +40,21 @@ export class EvaluationController {
     async getEvaluation(
     @Param("id")
     taskId: string, 
+    @Query("scopeKey")
+    scopeKey: string | undefined,
     @Res()
     res: Response) {
-        const evaluation = await this.service.getTaskEvaluation(TaskId(taskId));
+        const evaluation = await this.service.getTaskEvaluation(TaskId(taskId), scopeKey);
         res.json(evaluation ?? null);
     }
     @Post("/api/tasks/:id/briefing/copied")
     @HttpCode(HttpStatus.OK)
     async recordBriefingCopy(
     @Param("id")
-    taskId: string) {
-        await this.service.recordBriefingCopy(TaskId(taskId));
+    taskId: string,
+    @Query("scopeKey")
+    scopeKey: string | undefined) {
+        await this.service.recordBriefingCopy(TaskId(taskId), scopeKey);
         return { ok: true };
     }
     @Post("/api/tasks/:id/briefings")
@@ -98,8 +105,10 @@ export class EvaluationController {
     @Get("/api/workflows/:id/content")
     async getWorkflowContent(
     @Param("id")
-    taskId: string) {
-        const content = await this.service.getWorkflowContent(TaskId(taskId));
+    taskId: string,
+    @Query("scopeKey")
+    scopeKey: string | undefined) {
+        const content = await this.service.getWorkflowContent(TaskId(taskId), scopeKey);
         if (!content) {
             throw new HttpException({ error: "workflow content not found" }, HttpStatus.NOT_FOUND);
         }

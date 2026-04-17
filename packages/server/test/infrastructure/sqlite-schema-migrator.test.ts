@@ -146,6 +146,10 @@ describe("sqlite runtimeSource backfill", () => {
         const columns = inspectDb.pragma("table_info(task_evaluations)") as Array<{
             name: string;
         }>;
+        expect(columns.some((column) => column.name === "scope_key")).toBe(true);
+        expect(columns.some((column) => column.name === "scope_kind")).toBe(true);
+        expect(columns.some((column) => column.name === "scope_label")).toBe(true);
+        expect(columns.some((column) => column.name === "turn_index")).toBe(true);
         expect(columns.some((column) => column.name === "search_text")).toBe(true);
         expect(columns.some((column) => column.name === "workflow_snapshot_json")).toBe(true);
         expect(columns.some((column) => column.name === "workflow_context")).toBe(true);

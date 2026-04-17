@@ -302,6 +302,28 @@ describe("NestJS API Contract Parity Tests", () => {
         expect(res.status).toBe(200);
         expect(res.body).toBeNull();
     });
+    it("POST/GET /api/tasks/:id/evaluate — keeps separate scoped evaluations", async () => {
+        const start = await request(httpServer)
+            .post("/api/task-start")
+            .send({ title: "Scoped eval parity" });
+        const taskId = start.body.task.id as string;
+        await request(httpServer)
+            .post(`/api/tasks/${taskId}/evaluate?scopeKey=task`)
+            .send({ rating: "good", useCase: "whole task" })
+            .expect(200);
+        await request(httpServer)
+            .post(`/api/tasks/${taskId}/evaluate?scopeKey=turn:2`)
+            .send({ rating: "good", useCase: "turn snapshot" })
+            .expect(200);
+        const taskEvaluation = await request(httpServer).get(`/api/tasks/${taskId}/evaluate?scopeKey=task`);
+        const turnEvaluation = await request(httpServer).get(`/api/tasks/${taskId}/evaluate?scopeKey=turn:2`);
+        expect(taskEvaluation.body.scopeKey).toBe("task");
+        expect(taskEvaluation.body.useCase).toBe("whole task");
+        expect(turnEvaluation.body.scopeKey).toBe("turn:2");
+        expect(turnEvaluation.body.scopeKind).toBe("turn");
+        expect(turnEvaluation.body.scopeLabel).toBe("Turn 2");
+        expect(turnEvaluation.body.useCase).toBe("turn snapshot");
+    });
     it("GET /api/workflows — returns array", async () => {
         const res = await request(httpServer).get("/api/workflows");
         expect(res.status).toBe(200);
@@ -319,6 +341,22 @@ describe("NestJS API Contract Parity Tests", () => {
         const res = await request(httpServer).post(`/api/tasks/${taskId}/briefing/copied`).send({});
         expect(res.status).toBe(200);
         expect(res.body.ok).toBe(true);
+    });
+    it("POST /api/tasks/:id/briefing/copied — records copies for a scoped snapshot", async () => {
+        const start = await request(httpServer)
+            .post("/api/task-start")
+            .send({ title: "Scoped briefing copy parity" });
+        const taskId = start.body.task.id as string;
+        await request(httpServer)
+            .post(`/api/tasks/${taskId}/evaluate?scopeKey=turn:2`)
+            .send({ rating: "good", useCase: "turn snapshot" })
+            .expect(200);
+        await request(httpServer)
+            .post(`/api/tasks/${taskId}/briefing/copied?scopeKey=turn:2`)
+            .send({})
+            .expect(200);
+        const evaluation = await request(httpServer).get(`/api/tasks/${taskId}/evaluate?scopeKey=turn:2`);
+        expect(evaluation.body.qualitySignals.briefingCopyCount).toBe(1);
     });
     it("POST /api/tasks/:id/briefings and GET /api/tasks/:id/briefings — persist task briefings", async () => {
         const start = await request(httpServer)

@@ -6,8 +6,17 @@ import {
     segmentEventsByTurn,
     type ReusableTaskSnapshot,
 } from "@monitor/core";
-import type { TaskExtraction, TimelineEvent } from "@monitor/web-domain";
-import type { TaskEvaluationPayload, TaskEvaluationRecord } from "@monitor/web-io";
+import {
+    buildQuestionGroups,
+    buildTaskExtraction,
+    buildTodoGroups,
+    collectPlanSteps,
+    collectViolationDescriptions,
+    type TaskExtraction,
+    type TimelineEvent,
+} from "@monitor/web-domain";
+import { useEvaluation } from "@monitor/web-state";
+import { TaskHandoffPanel } from "../TaskHandoffPanel.js";
 import { TaskEvaluatePanel } from "../TaskEvaluatePanel.js";
 import { EvaluatePromptButton } from "../EvaluatePromptButton.js";
 import { Badge } from "../ui/Badge.js";
@@ -18,6 +27,30 @@ type TurnRangeSelection =
     | { readonly kind: "all" }
     | { readonly kind: "turn"; readonly turnIndex: number }
     | { readonly kind: "last" };
+
+export function buildTaskEvaluatePanelScopeKey(taskId: string, selection: TurnRangeSelection): string {
+    switch (selection.kind) {
+        case "all":
+            return `${taskId}:all`;
+        case "last":
+            return `${taskId}:last`;
+        case "turn":
+            return `${taskId}:turn:${selection.turnIndex}`;
+    }
+}
+
+export function buildWorkflowScopeKey(selection: TurnRangeSelection, lastTurnIndex?: number | null): string {
+    switch (selection.kind) {
+        case "all":
+            return "task";
+        case "last":
+            return typeof lastTurnIndex === "number" && Number.isFinite(lastTurnIndex)
+                ? `turn:${lastTurnIndex}`
+                : "task";
+        case "turn":
+            return `turn:${selection.turnIndex}`;
+    }
+}
 
 export interface SaveToLibraryCardProps {
     readonly taskId: string;
@@ -32,10 +65,6 @@ export interface SaveToLibraryCardProps {
     readonly handoffViolations: readonly string[];
     readonly handoffSnapshot: ReusableTaskSnapshot;
     readonly handoffActiveInstructions: readonly string[];
-    readonly evaluation: TaskEvaluationRecord | null;
-    readonly isSavingEvaluation: boolean;
-    readonly isSavedEvaluation: boolean;
-    readonly onSaveEvaluation: (data: TaskEvaluationPayload) => Promise<void>;
 }
 
 export function SaveToLibraryCard({
@@ -51,10 +80,6 @@ export function SaveToLibraryCard({
     handoffViolations,
     handoffSnapshot,
     handoffActiveInstructions,
-    evaluation,
-    isSavingEvaluation,
-    isSavedEvaluation,
-    onSaveEvaluation,
 }: SaveToLibraryCardProps): React.JSX.Element {
     const [mode, setMode] = useState<SaveMode>("direct");
     const [selection, setSelection] = useState<TurnRangeSelection>({ kind: "all" });
@@ -95,8 +120,45 @@ export function SaveToLibraryCard({
         if (selection.kind === "turn") return `Turn ${selection.turnIndex}`;
         return "Last turn";
     }, [selection]);
+    const workflowScopeKey = useMemo(
+        () => buildWorkflowScopeKey(selection, turnRange.to),
+        [selection, turnRange.to],
+    );
+    const taskEvaluatePanelScopeKey = useMemo(
+        () => buildTaskEvaluatePanelScopeKey(taskId, selection),
+        [selection, taskId],
+    );
+    const {
+        evaluation,
+        isSaving: isSavingEvaluation,
+        isSaved: isSavedEvaluation,
+        saveEvaluation: saveEvaluationForScope,
+    } = useEvaluation(taskId, workflowScopeKey);
 
     const scopedEventCount = scopedTimeline.length;
+    const scopedExtraction = useMemo(
+        () => buildTaskExtraction(undefined, scopedTimeline, []),
+        [scopedTimeline],
+    );
+    const scopedHandoffPlans = useMemo(() => collectPlanSteps(scopedTimeline), [scopedTimeline]);
+    const scopedTodoGroups = useMemo(() => buildTodoGroups(scopedTimeline), [scopedTimeline]);
+    const scopedQuestionGroups = useMemo(() => buildQuestionGroups(scopedTimeline), [scopedTimeline]);
+    const scopedHandoffOpenTodos = useMemo(
+        () => scopedTodoGroups.filter((group) => !group.isTerminal).map((group) => group.title),
+        [scopedTodoGroups],
+    );
+    const scopedHandoffOpenQuestions = useMemo(
+        () => scopedQuestionGroups
+            .filter((group) => !group.isComplete)
+            .flatMap((group) => group.phases)
+            .filter((phase) => phase.phase === "asked")
+            .map((phase) => phase.event.body ?? phase.event.title)
+            .filter((value): value is string => Boolean(value)),
+        [scopedQuestionGroups],
+    );
+    const scopedHandoffViolations = useMemo(() => collectViolationDescriptions(scopedTimeline), [scopedTimeline]);
+    const scopedExploredFiles = useMemo(() => scopedSnapshot.keyFiles, [scopedSnapshot]);
+    const scopedModifiedFiles = useMemo(() => scopedSnapshot.modifiedFiles, [scopedSnapshot]);
 
     return (
         <section className="flex flex-col gap-4 rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--surface)] p-4">
@@ -160,13 +222,15 @@ export function SaveToLibraryCard({
 
             {mode === "direct" ? (
                 <TaskEvaluatePanel
+                    key={taskEvaluatePanelScopeKey}
                     taskId={taskId}
+                    scopeKey={workflowScopeKey}
                     taskTitle={taskTitle}
                     taskTimeline={scopedTimeline}
                     evaluation={evaluation}
                     isSaving={isSavingEvaluation}
                     isSaved={isSavedEvaluation}
-                    onSave={onSaveEvaluation}
+                    onSave={saveEvaluationForScope}
                 />
             ) : (
                 <EvaluatePromptButton
@@ -184,6 +248,21 @@ export function SaveToLibraryCard({
                     activeInstructions={handoffActiveInstructions}
                 />
             )}
+
+            <TaskHandoffPanel
+                taskId={taskId}
+                scopeKey={workflowScopeKey}
+                objective={scopedExtraction.objective}
+                summary={scopedExtraction.summary}
+                plans={scopedHandoffPlans}
+                sections={scopedExtraction.sections}
+                exploredFiles={scopedExploredFiles}
+                modifiedFiles={scopedModifiedFiles}
+                openTodos={scopedHandoffOpenTodos}
+                openQuestions={scopedHandoffOpenQuestions}
+                violations={scopedHandoffViolations}
+                snapshot={scopedSnapshot}
+            />
         </section>
     );
 }

@@ -253,7 +253,12 @@ describe("public root exports", () => {
         };
         const summary: WorkflowSummary = {
             layer: "snapshot",
+            snapshotId: "task-1#task",
             taskId: TaskId("task-1"),
+            scopeKey: "task",
+            scopeKind: "task",
+            scopeLabel: "Whole task",
+            turnIndex: null,
             title: "Workflow title",
             rating: "good",
             eventCount: 2,

@@ -173,6 +173,60 @@ describe("sqlite evaluation repository search", () => {
         expect(result?.workflowContext).toContain("saved override");
         db.close();
     });
+    it("stores separate snapshot rows for task and turn scopes", async () => {
+        const db = new BetterSqlite3(":memory:");
+        createSchema(db);
+        seedTask(db, {
+            id: "task-scoped-evaluation",
+            title: "Scoped workflow storage"
+        });
+        const repository = new SqliteEvaluationRepository(db);
+        await repository.upsertEvaluation({
+            taskId: TaskId("task-scoped-evaluation"),
+            scopeKey: "task",
+            scopeKind: "task",
+            scopeLabel: "Whole task",
+            turnIndex: null,
+            rating: "good",
+            useCase: "task snapshot",
+            workflowTags: ["workflow"],
+            outcomeNote: null,
+            approachNote: null,
+            reuseWhen: null,
+            watchouts: null,
+            evaluatedAt: "2026-03-28T00:00:00.000Z",
+        });
+        await repository.upsertEvaluation({
+            taskId: TaskId("task-scoped-evaluation"),
+            scopeKey: "turn:2",
+            scopeKind: "turn",
+            scopeLabel: "Turn 2",
+            turnIndex: 2,
+            rating: "good",
+            useCase: "turn snapshot",
+            workflowTags: ["workflow", "turn"],
+            outcomeNote: null,
+            approachNote: null,
+            reuseWhen: null,
+            watchouts: null,
+            evaluatedAt: "2026-03-28T00:01:00.000Z",
+        });
+        const taskEvaluation = await repository.getEvaluation(TaskId("task-scoped-evaluation"), "task");
+        const turnEvaluation = await repository.getEvaluation(TaskId("task-scoped-evaluation"), "turn:2");
+        await repository.recordBriefingCopy(TaskId("task-scoped-evaluation"), "2026-03-28T00:02:00.000Z", "turn:2");
+        const turnEvaluationAfterCopy = await repository.getEvaluation(TaskId("task-scoped-evaluation"), "turn:2");
+        const summaries = await repository.listEvaluations("good");
+        expect(taskEvaluation?.scopeKey).toBe("task");
+        expect(turnEvaluation?.scopeKey).toBe("turn:2");
+        expect(turnEvaluation?.scopeLabel).toBe("Turn 2");
+        expect(turnEvaluationAfterCopy?.qualitySignals.briefingCopyCount).toBe(1);
+        expect(taskEvaluation?.qualitySignals.briefingCopyCount).toBe(0);
+        expect(summaries.map((summary) => summary.snapshotId)).toEqual([
+            "task-scoped-evaluation#turn:2",
+            "task-scoped-evaluation#task",
+        ]);
+        db.close();
+    });
     it("creates playbooks and marks their source snapshots as promoted", async () => {
         const db = new BetterSqlite3(":memory:");
         createSchema(db);

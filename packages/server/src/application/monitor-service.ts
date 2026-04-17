@@ -324,6 +324,7 @@ export class MonitorService {
         return this.taskLifecycle.deleteFinishedTasks();
     }
     async upsertTaskEvaluation(taskId: TaskId, input: {
+        readonly scopeKey?: string;
         readonly rating: "good" | "skip";
         readonly useCase?: string;
         readonly workflowTags?: string[];
@@ -336,11 +337,11 @@ export class MonitorService {
     }): Promise<void> {
         return this.workflowEvaluation.upsertTaskEvaluation(taskId, input);
     }
-    async getTaskEvaluation(taskId: TaskId) {
-        return this.workflowEvaluation.getTaskEvaluation(taskId);
+    async getTaskEvaluation(taskId: TaskId, scopeKey?: string) {
+        return this.workflowEvaluation.getTaskEvaluation(taskId, scopeKey);
     }
-    async recordBriefingCopy(taskId: TaskId) {
-        return this.workflowEvaluation.recordBriefingCopy(taskId);
+    async recordBriefingCopy(taskId: TaskId, scopeKey?: string) {
+        return this.workflowEvaluation.recordBriefingCopy(taskId, scopeKey);
     }
     async saveBriefing(taskId: TaskId, input: Parameters<WorkflowEvaluationService["saveBriefing"]>[1]) {
         return this.workflowEvaluation.saveBriefing(taskId, input);
@@ -348,8 +349,8 @@ export class MonitorService {
     async listBriefings(taskId: TaskId) {
         return this.workflowEvaluation.listBriefings(taskId);
     }
-    async getWorkflowContent(taskId: TaskId) {
-        return this.workflowEvaluation.getWorkflowContent(taskId);
+    async getWorkflowContent(taskId: TaskId, scopeKey?: string) {
+        return this.workflowEvaluation.getWorkflowContent(taskId, scopeKey);
     }
     async listEvaluations(rating?: "good" | "skip") {
         return this.workflowEvaluation.listEvaluations(rating);

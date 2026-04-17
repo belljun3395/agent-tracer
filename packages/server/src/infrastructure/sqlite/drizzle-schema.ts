@@ -80,7 +80,11 @@ export const searchDocuments = sqliteTable("search_documents", {
 ])
 
 export const taskEvaluations = sqliteTable("task_evaluations", {
-  taskId: text("task_id").primaryKey().references(() => monitoringTasks.id, { onDelete: "cascade" }),
+  taskId: text("task_id").notNull().references(() => monitoringTasks.id, { onDelete: "cascade" }),
+  scopeKey: text("scope_key").notNull(),
+  scopeKind: text("scope_kind").notNull(),
+  scopeLabel: text("scope_label").notNull(),
+  turnIndex: integer("turn_index"),
   rating: text("rating").notNull(),
   useCase: text("use_case"),
   workflowTags: text("workflow_tags"),
@@ -100,6 +104,7 @@ export const taskEvaluations = sqliteTable("task_evaluations", {
   embeddingModel: text("embedding_model"),
   evaluatedAt: text("evaluated_at").notNull()
 }, (table) => [
+  primaryKey({ columns: [table.taskId, table.scopeKey] }),
   index("idx_task_evaluations_rating").on(table.rating)
 ])
 

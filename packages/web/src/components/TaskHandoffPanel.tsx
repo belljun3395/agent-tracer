@@ -11,6 +11,7 @@ import { Eyebrow } from "./ui/Eyebrow.js";
 import { Textarea } from "./ui/Textarea.js";
 interface TaskHandoffPanelProps {
     readonly taskId?: string;
+    readonly scopeKey?: string;
     readonly objective: string;
     readonly summary: string;
     readonly plans: readonly string[];
@@ -88,7 +89,7 @@ function IncludeChip({ checked, label, onChange }: {
       {label}
     </label>);
 }
-export function TaskHandoffPanel({ taskId, objective, summary, plans, sections, exploredFiles, modifiedFiles, openTodos, openQuestions, violations, snapshot }: TaskHandoffPanelProps): React.JSX.Element {
+export function TaskHandoffPanel({ taskId, scopeKey, objective, summary, plans, sections, exploredFiles, modifiedFiles, openTodos, openQuestions, violations, snapshot }: TaskHandoffPanelProps): React.JSX.Element {
     const initialDraft = useMemo(() => loadHandoffDraft(taskId, violations.length), [taskId, violations.length]);
     const [isOpen, setIsOpen] = useState(false);
     const [memo, setMemo] = useState(initialDraft.memo);
@@ -158,13 +159,13 @@ export function TaskHandoffPanel({ taskId, objective, summary, plans, sections, 
             setLastCopiedAt(new Date().toISOString());
             setCopied(true);
             if (taskId) {
-                void recordBriefingCopy(TaskId(taskId)).catch(() => {
+                void recordBriefingCopy(TaskId(taskId), scopeKey).catch(() => {
                     void 0;
                 });
             }
             setTimeout(() => setCopied(false), 2000);
         });
-    }, [taskId]);
+    }, [scopeKey, taskId]);
     const handleSaveBriefing = useCallback((): void => {
         if (!taskId || !preview.trim()) {
             return;
@@ -212,12 +213,23 @@ export function TaskHandoffPanel({ taskId, objective, summary, plans, sections, 
         { key: "questions", label: "Questions" }
     ];
     const canCopyLast = Boolean(lastCopiedText && lastCopiedText !== preview);
+    const scopeLabel = useMemo(() => {
+        if (!scopeKey || scopeKey === "task") {
+            return null;
+        }
+        const turnMatch = /^turn:(\d+)$/.exec(scopeKey);
+        if (turnMatch) {
+            return `Turn ${turnMatch[1]}`;
+        }
+        return scopeKey;
+    }, [scopeKey]);
     return (<div className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-1)]">
       <button className="flex w-full items-center gap-2 px-3 py-2 text-left" onClick={() => setIsOpen((v) => !v)} type="button">
         <span className={cn("inline-block text-[0.72rem] text-[var(--text-3)] transition-transform duration-150", isOpen ? "rotate-0" : "-rotate-90")}>
           ▼
         </span>
         <span className="text-[0.78rem] font-semibold text-[var(--text-1)]">Generate Briefing</span>
+        {scopeLabel ? <span className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface-2)] px-2 py-0.5 text-[0.64rem] font-medium text-[var(--text-2)]">{scopeLabel}</span> : null}
       </button>
 
       {isOpen && (<div className="flex flex-col gap-3 border-t border-[var(--border)] px-3 py-2.5">

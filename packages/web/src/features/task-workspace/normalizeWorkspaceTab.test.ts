@@ -8,6 +8,7 @@ describe("normalizeWorkspaceTab", () => {
         expect(normalizeWorkspaceTab("flow")).toBe("overview");
         expect(normalizeWorkspaceTab("files")).toBe("evidence");
         expect(normalizeWorkspaceTab("evaluate")).toBe("actions");
+        expect(normalizeWorkspaceTab("save")).toBe("actions");
     });
     it("falls back to overview for unknown values", () => {
         expect(normalizeWorkspaceTab("unknown")).toBe("overview");

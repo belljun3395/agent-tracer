@@ -15,7 +15,7 @@ interface KnowledgeItemRowProps {
     readonly failedKey: string | null;
     readonly workflowContentByTaskId: Record<string, WorkflowContentRecord>;
     readonly playbookById: Record<string, PlaybookRecordResponse>;
-    readonly onOpenSnapshotDetail: (taskId: string) => void;
+    readonly onOpenSnapshotDetail: (snapshotId: string, taskId: string, scopeKey: string) => void;
     readonly onOpenPlaybookDetail: (playbookId: string) => void;
     readonly onSelectTask: (taskId: string) => void;
     readonly onPromoteSnapshot: (content: WorkflowContentRecord) => void;
@@ -37,7 +37,7 @@ export function KnowledgeItemRow(props: KnowledgeItemRowProps): React.JSX.Elemen
         onEditPlaybook
     } = props;
 
-    const key = item.layer === "snapshot" ? `snapshot:${item.taskId}` : `playbook:${item.id}`;
+    const key = item.layer === "snapshot" ? `snapshot:${item.snapshotId}` : `playbook:${item.id}`;
     const isExpanded = expandedKey === key;
 
     return (
@@ -94,6 +94,7 @@ export function KnowledgeItemRow(props: KnowledgeItemRowProps): React.JSX.Elemen
 
                     {"qualitySignals" in item ? (
                         <div className="flex flex-wrap gap-1">
+                            {item.scopeKind === "turn" ? <Badge tone="neutral" size="xs">{item.scopeLabel}</Badge> : null}
                             <Badge tone="neutral" size="xs">v{item.version}</Badge>
                             <Badge tone="neutral" size="xs">reuse {item.qualitySignals.reuseCount}</Badge>
                             <Badge tone="neutral" size="xs">briefings {item.qualitySignals.briefingCopyCount}</Badge>
@@ -113,7 +114,7 @@ export function KnowledgeItemRow(props: KnowledgeItemRowProps): React.JSX.Elemen
                             <Button size="icon" title="Open task" variant="bare" className="h-7 w-7 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-2)] hover:border-[var(--border-strong)] hover:bg-[var(--surface)] hover:text-[var(--text-1)]" onClick={() => { onSelectTask(item.taskId); }}>
                                 <svg fill="none" height="13" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" width="13"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" x2="21" y1="14" y2="3"/></svg>
                             </Button>
-                            <Button size="sm" variant={isExpanded ? "accent" : "ghost"} onClick={() => { onOpenSnapshotDetail(item.taskId); }}>
+                            <Button size="sm" variant={isExpanded ? "accent" : "ghost"} onClick={() => { onOpenSnapshotDetail(item.snapshotId, item.taskId, item.scopeKey); }}>
                                 {isExpanded ? "Close" : "Detail"}
                             </Button>
                         </>
@@ -136,10 +137,10 @@ export function KnowledgeItemRow(props: KnowledgeItemRowProps): React.JSX.Elemen
                     <div className="border-t border-[var(--border)] bg-[var(--surface-2)] px-4 py-3 text-[0.76rem] text-[var(--err)]">
                         Failed to load detail.
                     </div>
-                ) : item.layer === "snapshot" && workflowContentByTaskId[item.taskId] ? (
+                ) : item.layer === "snapshot" && workflowContentByTaskId[item.snapshotId] ? (
                     <SnapshotDetail
-                        content={workflowContentByTaskId[item.taskId]!}
-                        onPromote={() => { onPromoteSnapshot(workflowContentByTaskId[item.taskId]!); }}
+                        content={workflowContentByTaskId[item.snapshotId]!}
+                        onPromote={() => { onPromoteSnapshot(workflowContentByTaskId[item.snapshotId]!); }}
                     />
                 ) : item.layer === "playbook" && playbookById[item.id] ? (
                     <PlaybookDetailView

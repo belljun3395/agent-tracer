@@ -2,7 +2,7 @@ import type Database from "better-sqlite3";
 import { randomUUID } from "node:crypto";
 import type { BriefingSaveInput, IEvaluationRepository, PersistedTaskEvaluation, PlaybookUpsertInput, StoredTaskEvaluation, WorkflowContentRecord, WorkflowSearchResult, WorkflowSummary } from "../../application/ports";
 import type { MonitoringTask, PlaybookRecord, PlaybookStatus, PlaybookSummary, ReusableTaskSnapshot, SavedBriefing, TaskId as MonitorTaskId, TimelineEvent, WorkflowEvaluationData } from "@monitor/core";
-import { buildReusableTaskSnapshot, buildWorkflowContext, EventId, SessionId, TaskId, TaskSlug, WorkspacePath } from "@monitor/core";
+import { buildReusableTaskSnapshot, buildWorkflowContext, EventId, filterEventsByTurnRange, segmentEventsByTurn, SessionId, TaskId, TaskSlug, WorkspacePath } from "@monitor/core";
 import { deriveTaskDisplayTitle, meaningfulTaskTitle } from "../../application/services/task-display-title-resolver.helpers.js";
 import type { IEmbeddingService } from "../embedding";
 import { cosineSimilarity, deserializeEmbedding, EMBEDDING_MODEL, serializeEmbedding } from "../embedding";
@@ -11,6 +11,10 @@ import { parseJsonField } from "./sqlite-json.js";
 const MIN_SEMANTIC_SCORE = 0.22;
 interface EvaluationRow {
     task_id: string;
+    scope_key: string;
+    scope_kind: string;
+    scope_label: string;
+    turn_index: number | null;
     rating: string;
     use_case: string | null;
     workflow_tags: string | null;
@@ -30,6 +34,10 @@ interface EvaluationRow {
 }
 interface TaskWithEvaluationRow {
     task_id: string;
+    scope_key: string;
+    scope_kind: string;
+    scope_label: string;
+    turn_index: number | null;
     title: string;
     slug: string;
     workspace_path: string | null;
@@ -112,6 +120,10 @@ interface BriefingRow {
 function mapEvaluationRow(row: EvaluationRow): StoredTaskEvaluation {
     return {
         taskId: TaskId(row.task_id),
+        scopeKey: row.scope_key,
+        scopeKind: row.scope_kind as "task" | "turn",
+        scopeLabel: row.scope_label,
+        turnIndex: row.turn_index,
         rating: row.rating as "good" | "skip",
         useCase: row.use_case,
         workflowTags: row.workflow_tags ? parseJsonField<string[]>(row.workflow_tags) : [],
@@ -163,14 +175,17 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
     async upsertEvaluation(evaluation: PersistedTaskEvaluation): Promise<void> {
         this.db.prepare(`
       insert into task_evaluations (
-        task_id, rating, use_case, workflow_tags, outcome_note, approach_note, reuse_when, watchouts,
+        task_id, scope_key, scope_kind, scope_label, turn_index, rating, use_case, workflow_tags, outcome_note, approach_note, reuse_when, watchouts,
         workflow_snapshot_json, workflow_context, search_text, evaluated_at
       )
       values (
-        @taskId, @rating, @useCase, @workflowTags, @outcomeNote, @approachNote, @reuseWhen, @watchouts,
+        @taskId, @scopeKey, @scopeKind, @scopeLabel, @turnIndex, @rating, @useCase, @workflowTags, @outcomeNote, @approachNote, @reuseWhen, @watchouts,
         @workflowSnapshotJson, @workflowContext, @searchText, @evaluatedAt
       )
-      on conflict(task_id) do update set
+      on conflict(task_id, scope_key) do update set
+        scope_kind      = excluded.scope_kind,
+        scope_label     = excluded.scope_label,
+        turn_index      = excluded.turn_index,
         rating          = excluded.rating,
         use_case        = excluded.use_case,
         workflow_tags   = excluded.workflow_tags,
@@ -185,6 +200,10 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
         version         = task_evaluations.version + 1
     `).run({
             taskId: evaluation.taskId,
+            scopeKey: evaluation.scopeKey,
+            scopeKind: evaluation.scopeKind,
+            scopeLabel: evaluation.scopeLabel,
+            turnIndex: evaluation.turnIndex,
             rating: evaluation.rating,
             useCase: evaluation.useCase ?? null,
             workflowTags: evaluation.workflowTags.length > 0 ? JSON.stringify(evaluation.workflowTags) : null,
@@ -203,15 +222,16 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
             void this.generateAndSaveEmbedding(evaluation);
         }
     }
-    async recordBriefingCopy(taskId: MonitorTaskId, copiedAt: string): Promise<void> {
+    async recordBriefingCopy(taskId: MonitorTaskId, copiedAt: string, scopeKey = "task"): Promise<void> {
         const result = this.db.prepare(`
           update task_evaluations
           set briefing_copy_count = coalesce(briefing_copy_count, 0) + 1,
               last_reused_at = @copiedAt
           where task_id = @taskId
-        `).run({ taskId, copiedAt });
+            and scope_key = @scopeKey
+        `).run({ taskId, copiedAt, scopeKey });
         if (result.changes === 0) {
-            throw new Error(`No evaluation record found for task ${taskId}`);
+            throw new Error(`No evaluation record found for task ${taskId} and scope ${scopeKey}`);
         }
     }
     async saveBriefing(taskId: MonitorTaskId, briefing: BriefingSaveInput): Promise<SavedBriefing> {
@@ -257,20 +277,26 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
             .sort(compareWorkflowSummaryRows)
             .map((row) => this.hydrateWorkflowSummary(row));
     }
-    async getEvaluation(taskId: MonitorTaskId): Promise<StoredTaskEvaluation | null> {
+    async getEvaluation(taskId: MonitorTaskId, scopeKey = "task"): Promise<StoredTaskEvaluation | null> {
         const row = this.db
             .prepare<{
             taskId: string;
-        }, EvaluationRow>("select * from task_evaluations where task_id = @taskId")
-            .get({ taskId });
+            scopeKey: string;
+        }, EvaluationRow>("select * from task_evaluations where task_id = @taskId and scope_key = @scopeKey")
+            .get({ taskId, scopeKey });
         return row ? mapEvaluationRow(row) : null;
     }
-    async getWorkflowContent(taskId: MonitorTaskId): Promise<WorkflowContentRecord | null> {
+    async getWorkflowContent(taskId: MonitorTaskId, scopeKey = "task"): Promise<WorkflowContentRecord | null> {
         const row = this.db.prepare<{
             taskId: string;
+            scopeKey: string;
         }, TaskWithEvaluationRow>(`
       select
         e.task_id,
+        e.scope_key,
+        e.scope_kind,
+        e.scope_label,
+        e.turn_index,
         t.title,
         t.slug,
         t.workspace_path,
@@ -297,9 +323,9 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
       from task_evaluations e
       join monitoring_tasks t on t.id = e.task_id
       left join timeline_events ev on ev.task_id = e.task_id
-      where e.task_id = @taskId
-      group by e.task_id
-    `).get({ taskId });
+      where e.task_id = @taskId and e.scope_key = @scopeKey
+      group by e.task_id, e.scope_key
+    `).get({ taskId, scopeKey });
         if (!row) {
             return null;
         }
@@ -541,17 +567,17 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
         throw new Error(`Could not generate a unique slug for "${baseSlug}" after ${MAX_SLUG_ATTEMPTS} attempts`);
     }
     private updatePromotedSnapshots(snapshotIds: readonly string[], playbookId: string): void {
-        const taskIds = uniqueStrings(snapshotIds.map(parseSnapshotTaskId).filter((value): value is string => Boolean(value)));
-        if (taskIds.length === 0) {
+        const snapshotRefs = uniqueSnapshotRefs(snapshotIds.map(parseSnapshotReference).filter((value): value is SnapshotReference => Boolean(value)));
+        if (snapshotRefs.length === 0) {
             return;
         }
         const statement = this.db.prepare(`
           update task_evaluations
           set promoted_to = @playbookId
-          where task_id = @taskId
+          where task_id = @taskId and scope_key = @scopeKey
         `);
-        for (const taskId of taskIds) {
-            statement.run({ playbookId, taskId });
+        for (const ref of snapshotRefs) {
+            statement.run({ playbookId, taskId: ref.taskId, scopeKey: ref.scopeKey });
         }
     }
     private loadSearchRows(tags?: readonly string[], rating?: "good" | "skip"): readonly TaskWithEvaluationRow[] {
@@ -566,6 +592,10 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
         }, TaskWithEvaluationRow>(`
       select
         e.task_id,
+        e.scope_key,
+        e.scope_kind,
+        e.scope_label,
+        e.turn_index,
         t.title,
         t.slug,
         t.workspace_path,
@@ -593,7 +623,7 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
       join monitoring_tasks t on t.id = e.task_id
       left join timeline_events ev on ev.task_id = e.task_id
       ${whereClause}
-      group by e.task_id
+      group by e.task_id, e.scope_key
     `).all(rating ? { rating } : {});
         return applyTagFilter(rows, tags);
     }
@@ -637,9 +667,15 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
     }
     private hydrateSearchResult(row: TaskWithEvaluationRow): WorkflowSearchResult {
         const content = this.buildWorkflowContent(row);
+        const eventCount = this.loadWorkflowEvents(TaskId(row.task_id), row.scope_key).length;
         return {
             layer: "snapshot",
+            snapshotId: buildSnapshotId(row.task_id, row.scope_key),
             taskId: TaskId(row.task_id),
+            scopeKey: row.scope_key,
+            scopeKind: row.scope_kind as "task" | "turn",
+            scopeLabel: row.scope_label,
+            turnIndex: row.turn_index,
             title: row.title,
             ...(content.displayTitle ? { displayTitle: content.displayTitle } : {}),
             useCase: row.use_case,
@@ -649,7 +685,7 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
             reuseWhen: row.reuse_when,
             watchouts: row.watchouts,
             rating: row.rating as "good" | "skip",
-            eventCount: row.event_count,
+            eventCount,
             createdAt: row.created_at,
             workflowContext: content.workflowContext,
             version: row.version,
@@ -658,7 +694,8 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
         };
     }
     private hydrateWorkflowSummary(row: TaskWithEvaluationRow): WorkflowSummary {
-        return mapWorkflowSummary(row, this.resolveWorkflowDisplayTitle(row));
+        const eventCount = this.loadWorkflowEvents(TaskId(row.task_id), row.scope_key).length;
+        return mapWorkflowSummary(row, eventCount, this.resolveWorkflowDisplayTitle(row));
     }
     private hydrateWorkflowContent(row: TaskWithEvaluationRow): WorkflowContentRecord {
         return this.buildWorkflowContent(row);
@@ -668,19 +705,20 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
         if (meaningfulTaskTitle(task)) {
             return undefined;
         }
-        const events = this.loadWorkflowEvents(TaskId(row.task_id));
+        const events = this.loadWorkflowEvents(TaskId(row.task_id), row.scope_key);
         return resolveWorkflowDisplayTitle(row, events);
     }
-    private loadWorkflowEvents(taskId: MonitorTaskId): readonly TimelineEvent[] {
+    private loadWorkflowEvents(taskId: MonitorTaskId, scopeKey = "task"): readonly TimelineEvent[] {
         const eventRows = this.db
             .prepare<{
             taskId: string;
         }, EventRow>("select * from timeline_events where task_id = @taskId order by created_at asc")
             .all({ taskId });
-        return eventRows.map(mapEventRow);
+        const events = eventRows.map(mapEventRow);
+        return filterWorkflowEventsForScopeKey(events, scopeKey);
     }
     private buildWorkflowContent(row: TaskWithEvaluationRow): WorkflowContentRecord {
-        const events = this.loadWorkflowEvents(TaskId(row.task_id));
+        const events = this.loadWorkflowEvents(TaskId(row.task_id), row.scope_key);
         const evaluation = buildEvaluationData(row);
         const displayTitle = resolveWorkflowDisplayTitle(row, events);
         const title = displayTitle ?? row.title;
@@ -697,7 +735,12 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
         const workflowContext = row.workflow_context ?? generatedContext;
         const source = row.workflow_snapshot_json || row.workflow_context ? "saved" : "generated";
         return {
+            snapshotId: buildSnapshotId(row.task_id, row.scope_key),
             taskId: TaskId(row.task_id),
+            scopeKey: row.scope_key,
+            scopeKind: row.scope_kind as "task" | "turn",
+            scopeLabel: row.scope_label,
+            turnIndex: row.turn_index,
             title: row.title,
             ...(displayTitle ? { displayTitle } : {}),
             workflowSnapshot,
@@ -719,22 +762,23 @@ function mergeRankedRows(semanticMatches: readonly {
 }[], limit: number): readonly TaskWithEvaluationRow[] {
     const ranked = new Map<string, RankedWorkflowRow>();
     for (const semantic of semanticMatches) {
-        ranked.set(semantic.row.task_id, {
+        ranked.set(buildSnapshotId(semantic.row.task_id, semantic.row.scope_key), {
             row: semantic.row,
             lexicalScore: 0,
             semanticScore: semantic.score
         });
     }
     for (const lexical of lexicalMatches) {
-        const existing = ranked.get(lexical.row.task_id);
+        const rankKey = buildSnapshotId(lexical.row.task_id, lexical.row.scope_key);
+        const existing = ranked.get(rankKey);
         if (existing) {
-            ranked.set(lexical.row.task_id, {
+            ranked.set(rankKey, {
                 ...existing,
                 lexicalScore: Math.max(existing.lexicalScore, lexical.score)
             });
             continue;
         }
-        ranked.set(lexical.row.task_id, {
+        ranked.set(rankKey, {
             row: lexical.row,
             lexicalScore: lexical.score,
             semanticScore: null
@@ -786,10 +830,15 @@ function mergeRankedPlaybookRows(semanticMatches: readonly {
         .slice(0, limit)
         .map((entry) => entry.row);
 }
-function mapWorkflowSummary(row: TaskWithEvaluationRow, displayTitle?: string): WorkflowSummary {
+function mapWorkflowSummary(row: TaskWithEvaluationRow, eventCount: number, displayTitle?: string): WorkflowSummary {
     return {
         layer: "snapshot",
+        snapshotId: buildSnapshotId(row.task_id, row.scope_key),
         taskId: TaskId(row.task_id),
+        scopeKey: row.scope_key,
+        scopeKind: row.scope_kind as "task" | "turn",
+        scopeLabel: row.scope_label,
+        turnIndex: row.turn_index,
         title: row.title,
         ...(displayTitle ? { displayTitle } : {}),
         useCase: row.use_case,
@@ -799,7 +848,7 @@ function mapWorkflowSummary(row: TaskWithEvaluationRow, displayTitle?: string): 
         reuseWhen: row.reuse_when,
         watchouts: row.watchouts,
         rating: row.rating as "good" | "skip",
-        eventCount: row.event_count,
+        eventCount,
         createdAt: row.created_at,
         evaluatedAt: row.evaluated_at,
         version: row.version,
@@ -1204,14 +1253,74 @@ function createPlaybookSlug(title: string): string {
         .replace(/^-+|-+$/g, "")
         .slice(0, 80);
 }
-function parseSnapshotTaskId(snapshotId: string): string | null {
+type SnapshotReference = {
+    readonly taskId: string;
+    readonly scopeKey: string;
+};
+
+function buildSnapshotId(taskId: string, scopeKey: string): string {
+    return `${taskId}#${scopeKey}`;
+}
+
+function parseSnapshotReference(snapshotId: string): SnapshotReference | null {
     const trimmed = snapshotId.trim();
     if (!trimmed) {
         return null;
     }
-    const versionSeparator = trimmed.indexOf(":v");
-    return versionSeparator >= 0 ? trimmed.slice(0, versionSeparator) : trimmed;
+    const versionSeparator = trimmed.lastIndexOf(":v");
+    const withoutVersion = versionSeparator >= 0 ? trimmed.slice(0, versionSeparator) : trimmed;
+    const scopeSeparator = withoutVersion.indexOf("#");
+    if (scopeSeparator === -1) {
+        return {
+            taskId: withoutVersion,
+            scopeKey: "task",
+        };
+    }
+    const taskId = withoutVersion.slice(0, scopeSeparator);
+    const scopeKey = withoutVersion.slice(scopeSeparator + 1);
+    if (!taskId || !scopeKey) {
+        return null;
+    }
+    return { taskId, scopeKey };
 }
+
+function uniqueSnapshotRefs(values: readonly SnapshotReference[]): readonly SnapshotReference[] {
+    const seen = new Set<string>();
+    const result: SnapshotReference[] = [];
+    for (const value of values) {
+        const key = `${value.taskId}#${value.scopeKey}`;
+        if (seen.has(key)) {
+            continue;
+        }
+        seen.add(key);
+        result.push(value);
+    }
+    return result;
+}
+
+function filterWorkflowEventsForScopeKey(events: readonly TimelineEvent[], scopeKey: string): readonly TimelineEvent[] {
+    if (scopeKey === "task") {
+        return events;
+    }
+    if (scopeKey === "last-turn") {
+        const segments = segmentEventsByTurn(events).filter((segment) => !segment.isPrelude);
+        const lastTurn = segments[segments.length - 1];
+        if (!lastTurn) {
+            return events;
+        }
+        return filterEventsByTurnRange(events, { from: lastTurn.turnIndex, to: lastTurn.turnIndex });
+    }
+    const turnMatch = /^turn:(\d+)$/.exec(scopeKey);
+    if (!turnMatch) {
+        return events;
+    }
+    const turnIndex = Number.parseInt(turnMatch[1] ?? "", 10);
+    if (!Number.isFinite(turnIndex)) {
+        return events;
+    }
+    return filterEventsByTurnRange(events, { from: turnIndex, to: turnIndex });
+}
+
 function uniqueStrings(values: readonly string[]): readonly string[] {
     return [...new Set(values)];
 }
