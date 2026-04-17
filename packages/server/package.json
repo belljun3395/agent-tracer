@@ -18,6 +18,7 @@
   "dependencies": {
     "@monitor/adapter-embedding": "*",
     "@monitor/adapter-http-ingest": "*",
+    "@monitor/adapter-http-query": "*",
     "@monitor/adapter-sqlite": "*",
     "@monitor/application": "*",
     "@monitor/core": "*",

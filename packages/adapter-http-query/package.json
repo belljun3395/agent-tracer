@@ -1,5 +1,5 @@
 {
-  "name": "@monitor/adapter-http-ingest",
+  "name": "@monitor/adapter-http-query",
   "version": "0.1.0",
   "type": "module",
   "main": "./dist/index.js",
