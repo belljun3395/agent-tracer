@@ -54,7 +54,7 @@ describe("taskWorkspace helpers", () => {
         expect(selection?.connector.targetLane).toBe("implementation");
     });
 
-    it("uses shared full-lane filters for workspace timeline selection", () => {
+    it("uses shared full-lane filters for workspace timeline selection and ignores tag filters", () => {
         const filtered = buildFilteredTimeline({
             timeline: [
             makeEvent({
@@ -77,12 +77,12 @@ describe("taskWorkspace helpers", () => {
                 }
             })
         ],
-            selectedRuleId: "policy-1",
+            selectedRuleId: null,
             selectedTag: "backend",
             showRuleGapsOnly: false
         });
         expect(FULL_TIMELINE_LANE_FILTERS.implementation).toBe(true);
-        expect(filtered.map((event) => event.id)).toEqual([EventId("rule")]);
+        expect(filtered.map((event) => event.id)).toEqual([EventId("rule"), EventId("other")]);
     });
 
     it("returns connector-aware workspace selection and suppresses selected event when a connector is active", () => {

@@ -1,15 +1,20 @@
 import type React from "react";
-import { Navigate, useParams } from "react-router-dom";
-import { TaskWorkspace } from "../../features/task-workspace/";
+import { Navigate, useParams, useSearchParams } from "react-router-dom";
 
 /**
  * Standalone task workspace route at /tasks/:taskId.
- * Renders the workspace without the dashboard sidebar shell.
+ * Redirects into the in-app workspace view so the dashboard shell stays shared.
  */
 export function TaskRoute(): React.JSX.Element {
     const { taskId } = useParams<{ readonly taskId: string }>();
+    const [searchParams] = useSearchParams();
 
     if (!taskId) return <Navigate replace to="/"/>;
+    const next = new URLSearchParams();
+    next.set("task", taskId);
+    next.set("view", "workspace");
+    const tab = searchParams.get("tab");
+    if (tab) next.set("tab", tab);
 
-    return <TaskWorkspace taskId={taskId} embedded={false} />;
+    return <Navigate replace to={`/?${next.toString()}`}/>;
 }

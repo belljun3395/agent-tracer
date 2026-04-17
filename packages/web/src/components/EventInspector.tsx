@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { buildReusableTaskSnapshot } from "@monitor/core";
 import {
     buildExplorationInsight, buildMentionedFileVerifications,
-    buildQuestionGroups, buildSubagentInsight, buildTagInsights, buildTaskExtraction,
+    buildQuestionGroups, buildSubagentInsight, buildTaskExtraction,
     buildTodoGroups, buildVerificationCycles, collectFileActivity, collectPlanSteps,
     collectViolationDescriptions, collectWebLookups, buildTaskTimelineSummary,
     type BookmarkRecord, type ModelSummary, type TaskObservabilityResponse,
@@ -12,8 +12,7 @@ import {
 import { useEvaluation } from "@monitor/web-state";
 import { cn } from "../lib/ui/cn.js";
 import { Button } from "./ui/Button.js";
-import { sortExploredFiles, type ExplorationSortKey } from "./inspector/ExploredFilesSection.js";
-import { sortFileActivity, type FileSortKey } from "./inspector/FileActivitySection.js";
+import { buildFileEvidenceRows, sortFileEvidenceRows, type FileEvidenceSortKey } from "./inspector/FileEvidenceSection.js";
 import { ActionsTab } from "./inspector/ActionsTab.js";
 import { EvidenceTab } from "./inspector/EvidenceTab.js";
 import { InspectorTab } from "./inspector/InspectorTab.js";
@@ -24,7 +23,7 @@ export type PanelTabId = "inspector" | "overview" | "evidence" | "actions";
 const PANEL_TABS = [
     { id: "inspector", label: "Inspector" },
     { id: "overview", label: "Overview" },
-    { id: "evidence", label: "Evidence" },
+    { id: "evidence", label: "Exploration" },
     { id: "actions", label: "Actions" },
 ] as const;
 export const TASK_WORKSPACE_TAB_IDS: readonly PanelTabId[] = ["overview", "evidence", "actions"];
@@ -49,14 +48,12 @@ interface EventInspectorProps {
     readonly selectedEventDisplayTitle?: string | null;
     readonly selectedTaskBookmark?: BookmarkRecord | null;
     readonly selectedEventBookmark?: BookmarkRecord | null;
-    readonly selectedTag?: string | null;
     readonly selectedRuleId?: string | null;
     readonly taskModelSummary?: ModelSummary | undefined;
     // Handlers — optional when provided via InspectorProvider
     readonly onCreateTaskBookmark?: (() => void) | undefined;
     readonly onCreateEventBookmark?: (() => void) | undefined;
     readonly onUpdateEventDisplayTitle?: ((eventId: string, displayTitle: string | null) => Promise<void>) | undefined;
-    readonly onSelectTag?: ((tag: string | null) => void) | undefined;
     readonly onSelectRule?: ((ruleId: string | null) => void) | undefined;
     readonly onOpenTaskWorkspace?: (() => void) | undefined;
     // UI config — always explicit on the component
@@ -82,13 +79,11 @@ export function EventInspector({
     selectedEventDisplayTitle: selectedEventDisplayTitleProp,
     selectedTaskBookmark: selectedTaskBookmarkProp,
     selectedEventBookmark: selectedEventBookmarkProp,
-    selectedTag: selectedTagProp,
     selectedRuleId: selectedRuleIdProp,
     taskModelSummary: taskModelSummaryProp,
     onCreateTaskBookmark: onCreateTaskBookmarkProp,
     onCreateEventBookmark: onCreateEventBookmarkProp,
     onUpdateEventDisplayTitle: onUpdateEventDisplayTitleProp,
-    onSelectTag: onSelectTagProp,
     onSelectRule: onSelectRuleProp,
     onOpenTaskWorkspace: onOpenTaskWorkspaceProp,
     isCollapsed = false,
@@ -112,13 +107,11 @@ export function EventInspector({
     const selectedConnector = selectedConnectorProp !== undefined ? selectedConnectorProp : (ctx?.selectedConnector ?? null);
     const selectedTaskBookmark = selectedTaskBookmarkProp !== undefined ? selectedTaskBookmarkProp : (ctx?.selectedTaskBookmark ?? null);
     const selectedEventBookmark = selectedEventBookmarkProp !== undefined ? selectedEventBookmarkProp : (ctx?.selectedEventBookmark ?? null);
-    const selectedTag = selectedTagProp !== undefined ? selectedTagProp : (ctx?.selectedTag ?? null);
     const selectedRuleId = selectedRuleIdProp !== undefined ? selectedRuleIdProp : (ctx?.selectedRuleId ?? null);
     const taskModelSummary = taskModelSummaryProp ?? ctx?.taskModelSummary;
     const onCreateTaskBookmark = onCreateTaskBookmarkProp ?? ctx?.onCreateTaskBookmark ?? (() => undefined);
     const onCreateEventBookmark = onCreateEventBookmarkProp ?? ctx?.onCreateEventBookmark ?? (() => undefined);
     const onUpdateEventDisplayTitle = onUpdateEventDisplayTitleProp ?? ctx?.onUpdateEventDisplayTitle ?? (() => Promise.resolve());
-    const onSelectTag = onSelectTagProp ?? ctx?.onSelectTag ?? (() => undefined);
     const onSelectRule = onSelectRuleProp ?? ctx?.onSelectRule ?? (() => undefined);
     const onOpenTaskWorkspace = onOpenTaskWorkspaceProp ?? ctx?.onOpenTaskWorkspace;
 
@@ -135,10 +128,8 @@ export function EventInspector({
     const activeTab = controlledActiveTab && resolvedAllowedTabs.includes(controlledActiveTab)
         ? controlledActiveTab
         : uncontrolledActiveTab;
-    const [isExploredFilesExpanded, setIsExploredFilesExpanded] = useState(true);
-    const [isFileActivityExpanded, setIsFileActivityExpanded] = useState(true);
-    const [explorationSortKey, setExplorationSortKey] = useState<ExplorationSortKey>("recent");
-    const [fileSortKey, setFileSortKey] = useState<FileSortKey>("recent");
+    const [isFileEvidenceExpanded, setIsFileEvidenceExpanded] = useState(true);
+    const [fileEvidenceSortKey, setFileEvidenceSortKey] = useState<FileEvidenceSortKey>("recent");
 
     const { evaluation: taskEvaluation, isSaving: isSavingTaskEvaluation, isSaved: isSavedTaskEvaluation, saveEvaluation: saveTaskEvaluation } = useEvaluation(taskDetail?.task.id ?? null);
 
@@ -146,12 +137,11 @@ export function EventInspector({
     const observability = taskObservability?.observability ?? null;
     const { exploredFiles, observabilityStats } = useMemo(() => buildTaskTimelineSummary(taskTimeline), [taskTimeline]);
     const fileActivity = useMemo(() => collectFileActivity(taskTimeline), [taskTimeline]);
-    const sortedExploredFiles = useMemo(() => sortExploredFiles(exploredFiles, explorationSortKey), [exploredFiles, explorationSortKey]);
-    const sortedFileActivity = useMemo(() => sortFileActivity(fileActivity, fileSortKey), [fileActivity, fileSortKey]);
+    const fileEvidence = useMemo(() => buildFileEvidenceRows(fileActivity, exploredFiles), [exploredFiles, fileActivity]);
+    const sortedFileEvidence = useMemo(() => sortFileEvidenceRows(fileEvidence, fileEvidenceSortKey), [fileEvidence, fileEvidenceSortKey]);
     const webLookups = useMemo(() => collectWebLookups(taskTimeline), [taskTimeline]);
     const explorationInsight = useMemo(() => buildExplorationInsight(taskTimeline, exploredFiles, webLookups), [exploredFiles, taskTimeline, webLookups]);
     const taskExtraction = useMemo(() => buildTaskExtraction(taskDetail?.task, taskTimeline, exploredFiles), [exploredFiles, taskDetail?.task, taskTimeline]);
-    const tagInsights = useMemo(() => buildTagInsights(taskTimeline), [taskTimeline]);
     const questionGroups = useMemo(() => buildQuestionGroups(taskTimeline), [taskTimeline]);
     const todoGroups = useMemo(() => buildTodoGroups(taskTimeline), [taskTimeline]);
     const subagentInsight = useMemo(() => buildSubagentInsight(taskTimeline), [taskTimeline]);
@@ -288,10 +278,10 @@ export function EventInspector({
                         canEditSelectedEventTitle={canEditSelectedEventTitle}
                         selectedTaskBookmark={selectedTaskBookmark} selectedEventBookmark={selectedEventBookmark}
                         eventTime={eventTime} questionGroups={questionGroups} todoGroups={todoGroups}
-                        relatedEvents={relatedEvents} selectedTag={selectedTag} selectedRuleId={selectedRuleId}
+                        relatedEvents={relatedEvents} selectedRuleId={selectedRuleId}
                         onCreateTaskBookmark={onCreateTaskBookmark} onCreateEventBookmark={onCreateEventBookmark}
                         onUpdateEventDisplayTitle={onUpdateEventDisplayTitle}
-                        onSelectTag={onSelectTag} onSelectRule={onSelectRule}
+                        onSelectRule={onSelectRule}
                         {...(onOpenTaskWorkspace !== undefined ? { onOpenTaskWorkspace } : {})}
                         openWorkspaceLabel={openWorkspaceLabel} obsBadges={obsBadges}
                         showInspectorSummaryFooter={showInspectorSummaryFooter}
@@ -305,17 +295,12 @@ export function EventInspector({
                     />
                 ) : activeTab === "evidence" ? (
                     <EvidenceTab
-                        tagInsights={tagInsights} selectedTag={selectedTag}
-                        sortedFileActivity={sortedFileActivity} workspacePath={taskDetail?.task.workspacePath}
-                        isFileActivityExpanded={isFileActivityExpanded} fileSortKey={fileSortKey}
+                        sortedFileEvidence={sortedFileEvidence} workspacePath={taskDetail?.task.workspacePath}
+                        isFileEvidenceExpanded={isFileEvidenceExpanded} fileEvidenceSortKey={fileEvidenceSortKey}
                         explorationInsight={explorationInsight} webLookups={webLookups}
-                        sortedExploredFiles={sortedExploredFiles} isExploredFilesExpanded={isExploredFilesExpanded}
-                        explorationSortKey={explorationSortKey} mentionedVerifications={mentionedVerifications}
-                        onSelectTag={(tag) => onSelectTag(selectedTag === tag ? null : tag)}
-                        onToggleFileActivity={() => setIsFileActivityExpanded((v) => !v)}
-                        onFileSortChange={setFileSortKey}
-                        onToggleExploredFiles={() => setIsExploredFilesExpanded((v) => !v)}
-                        onExplorationSortChange={setExplorationSortKey}
+                        mentionedVerifications={mentionedVerifications}
+                        onToggleFileEvidence={() => setIsFileEvidenceExpanded((v) => !v)}
+                        onFileEvidenceSortChange={setFileEvidenceSortKey}
                     />
                 ) : (
                     <ActionsTab

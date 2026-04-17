@@ -5,14 +5,18 @@ import { WorkspaceContent } from "./WorkspaceContent.js";
 import { WorkspaceHeader } from "./WorkspaceHeader.js";
 import { useWorkspace } from "./useWorkspace.js";
 import { normalizeWorkspaceTab, REVIEWER_ID_STORAGE_KEY, WORKSPACE_INSPECTOR_DEFAULT_WIDTH, WORKSPACE_INSPECTOR_MAX_WIDTH, WORKSPACE_INSPECTOR_MIN_WIDTH, WORKSPACE_INSPECTOR_WIDTH_STORAGE_KEY } from "./constants.js";
+import type { TimelineProps } from "../timeline/types.js";
+import { writeSearchParam } from "../../shared/lib/urlState.js";
 
-export function TaskWorkspace({ taskId, embedded = false }: {
+export function TaskWorkspace({ taskId, embedded = false, externalFiltersState, externalTimelineFilters }: {
     readonly taskId: string;
     readonly embedded?: boolean;
+    readonly externalFiltersState?: TimelineProps["externalFiltersState"];
+    readonly externalTimelineFilters?: TimelineProps["externalTimelineFilters"];
 }): React.JSX.Element {
     const workspace = useWorkspace(taskId);
     const navigate = useNavigate();
-    const [searchParams] = useSearchParams();
+    const [searchParams, setSearchParams] = useSearchParams();
 
     const [reviewerNote, setReviewerNote] = useState("");
     const [isSubmittingRuleReview, setIsSubmittingRuleReview] = useState(false);
@@ -21,11 +25,8 @@ export function TaskWorkspace({ taskId, embedded = false }: {
     });
     const [zoom, setZoom] = useState(1.1);
     const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth);
-    const [isWorkspaceControlsOpen, setIsWorkspaceControlsOpen] = useState(false);
     const [isWorkspaceFiltersOpen, setIsWorkspaceFiltersOpen] = useState(false);
-    const [workspaceControlsPos, setWorkspaceControlsPos] = useState({ top: 0, right: 0 });
     const [workspaceFiltersPos, setWorkspaceFiltersPos] = useState({ top: 0, right: 0 });
-    const workspaceControlsButtonRef = useRef<HTMLButtonElement>(null);
     const workspaceFiltersButtonRef = useRef<HTMLButtonElement>(null);
     const [inspectorWidth, setInspectorWidth] = useState<number>(() => {
         try {
@@ -83,10 +84,9 @@ export function TaskWorkspace({ taskId, embedded = false }: {
 
     const handleActiveTabChange = useCallback(
         (tab: string): void => {
-            if (window.location.pathname !== `/tasks/${encodeURIComponent(taskId)}`) return;
-            void navigate(`/tasks/${encodeURIComponent(taskId)}?tab=${tab}`, { replace: true });
+            setSearchParams((prev) => writeSearchParam(prev, "tab", tab), { replace: true });
         },
-        [navigate, taskId]
+        [setSearchParams]
     );
 
     const handleRuleReviewWithState = useCallback(
@@ -102,9 +102,17 @@ export function TaskWorkspace({ taskId, embedded = false }: {
         [workspace, reviewerId, reviewerNote]
     );
 
+    const resolvedExternalFiltersState = externalFiltersState ?? {
+        isOpen: isWorkspaceFiltersOpen,
+        setIsOpen: setIsWorkspaceFiltersOpen,
+        popoverPos: workspaceFiltersPos,
+        setPopoverPos: setWorkspaceFiltersPos,
+        buttonRef: workspaceFiltersButtonRef,
+    };
+
     const timelineEmbeddedProps = embedded ? {
-        externalControlsState: { isOpen: isWorkspaceControlsOpen, setIsOpen: setIsWorkspaceControlsOpen, popoverPos: workspaceControlsPos, setPopoverPos: setWorkspaceControlsPos, buttonRef: workspaceControlsButtonRef },
-        externalFiltersState: { isOpen: isWorkspaceFiltersOpen, setIsOpen: setIsWorkspaceFiltersOpen, popoverPos: workspaceFiltersPos, setPopoverPos: setWorkspaceFiltersPos, buttonRef: workspaceFiltersButtonRef },
+        externalFiltersState: resolvedExternalFiltersState,
+        ...(externalTimelineFilters !== undefined ? { externalTimelineFilters } : {}),
     } : {};
 
     return (
@@ -118,25 +126,18 @@ export function TaskWorkspace({ taskId, embedded = false }: {
                 onNavigateBack={() => void navigate(`/?task=${encodeURIComponent(taskId)}`)}
                 onNavigateDashboard={() => void navigate(`/?task=${encodeURIComponent(taskId)}`)}
                 embeddedExtras={embedded ? {
-                    isEditingTaskTitle: workspace.isEditingTaskTitle,
-                    isWorkspaceControlsOpen,
-                    isWorkspaceFiltersOpen,
-                    workspaceControlsButtonRef,
-                    workspaceFiltersButtonRef,
-                    onWorkspaceControlsToggle: () => {
-                        if (workspaceControlsButtonRef.current) {
-                            const rect = workspaceControlsButtonRef.current.getBoundingClientRect();
-                            setWorkspaceControlsPos({ top: rect.bottom + 6, right: window.innerWidth - rect.right });
-                        }
-                        setIsWorkspaceControlsOpen((v) => !v);
-                    },
-                    onWorkspaceFiltersToggle: () => {
-                        if (workspaceFiltersButtonRef.current) {
-                            const rect = workspaceFiltersButtonRef.current.getBoundingClientRect();
-                            setWorkspaceFiltersPos({ top: rect.bottom + 6, right: window.innerWidth - rect.right });
-                        }
-                        setIsWorkspaceFiltersOpen((v) => !v);
-                    },
+                    showFiltersButton: externalFiltersState === undefined,
+                    ...(externalFiltersState === undefined ? {
+                        isWorkspaceFiltersOpen,
+                        workspaceFiltersButtonRef,
+                        onWorkspaceFiltersToggle: () => {
+                            if (workspaceFiltersButtonRef.current) {
+                                const rect = workspaceFiltersButtonRef.current.getBoundingClientRect();
+                                setWorkspaceFiltersPos({ top: rect.bottom + 6, right: window.innerWidth - rect.right });
+                            }
+                            setIsWorkspaceFiltersOpen((v) => !v);
+                        },
+                    } : { showFiltersButton: false }),
                 } : undefined}
             />
             <main className="flex flex-1 min-h-0 flex-col gap-3 p-3">

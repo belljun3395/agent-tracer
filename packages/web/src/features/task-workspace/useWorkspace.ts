@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import type { TaskId } from "@monitor/core";
 import { EventId } from "@monitor/core";
 import type { MonitoringTask } from "@monitor/web-domain";
@@ -23,7 +23,6 @@ export function useWorkspace(taskId: string) {
     const selectedRuleId = useSelectionStore((s) => s.selectedRuleId);
     const selectedTag = useSelectionStore((s) => s.selectedTag);
     const showRuleGapsOnly = useSelectionStore((s) => s.showRuleGapsOnly);
-    const selectTask = useSelectionStore((s) => s.selectTask);
     const selectEvent = useSelectionStore((s) => s.selectEvent);
     const selectConnector = useSelectionStore((s) => s.selectConnector);
     const selectRule = useSelectionStore((s) => s.selectRule);
@@ -50,12 +49,6 @@ export function useWorkspace(taskId: string) {
     const { taskObservability, refreshTaskObservability } = useTaskObservability(taskId);
     const queryClient = useQueryClient();
     const nowMs = useNowMs();
-
-    // Keep selection store in sync with the mounted taskId
-    useLayoutEffect(() => {
-        if (selectedTaskId === taskId) return;
-        selectTask(taskId);
-    }, [selectedTaskId, taskId, selectTask]);
 
     const selectedTaskDetail = taskDetail?.task.id === taskId ? taskDetail : null;
     const taskTimeline = selectedTaskDetail?.timeline ?? [];

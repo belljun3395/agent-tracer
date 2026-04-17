@@ -1,99 +1,12 @@
 import type React from "react";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { cn } from "../../lib/ui/cn.js";
-import { formatRelativeTime, type DirectoryMentionVerification, type ExplorationInsight, type ExploredFileStat, type FileActivityStat, type FileMentionVerification, type MentionedFileVerification, type TagInsight, type WebLookupStat } from "@monitor/web-domain";
+import { formatRelativeTime, type DirectoryMentionVerification, type ExplorationInsight, type FileMentionVerification, type MentionedFileVerification, type WebLookupStat } from "@monitor/web-domain";
 import { Badge } from "../ui/Badge.js";
-import { Button } from "../ui/Button.js";
 import { PanelCard } from "../ui/PanelCard.js";
-import { FileActivitySection } from "./FileActivitySection.js";
-import { ExploredFilesSection } from "./ExploredFilesSection.js";
+import { FileEvidenceSection, type FileEvidenceSortKey, type FileEvidenceStat } from "./FileEvidenceSection.js";
 import { cardShell, cardHeader, cardBody, innerPanel, monoText } from "./styles.js";
 import { toRelativePath, summarizePath, compactRelationLabel } from "./utils.js";
-import type { FileSortKey } from "./FileActivitySection.js";
-import type { ExplorationSortKey } from "./ExploredFilesSection.js";
-function SectionTitle({ eyebrow, title, description, action }: {
-    readonly eyebrow?: string;
-    readonly title: string;
-    readonly description?: string;
-    readonly action?: React.ReactNode;
-}): React.JSX.Element {
-    return (<div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-      <div className="min-w-0">
-        {eyebrow && (<div className="mb-1 text-[0.68rem] font-bold uppercase tracking-[0.1em] text-[var(--text-3)]">{eyebrow}</div>)}
-        <strong className="text-[0.95rem] text-[var(--text-1)]">{title}</strong>
-        {description && (<p className="mt-0.5 mb-0 text-[0.78rem] text-[var(--text-3)]">{description}</p>)}
-      </div>
-      {action ? <div className="min-w-0 sm:shrink-0">{action}</div> : null}
-    </div>);
-}
-function TagExplorerCard({ tags, selectedTag, onSelectTag }: {
-    readonly tags: readonly TagInsight[];
-    readonly selectedTag: string | null;
-    readonly onSelectTag: (tag: string) => void;
-}): React.JSX.Element {
-    const [isExpanded, setIsExpanded] = useState(false);
-    const collapsedLimit = 12;
-    const selectedInsight = selectedTag
-        ? tags.find((tag) => tag.tag === selectedTag) ?? null
-        : null;
-    const visibleTags = useMemo(() => {
-        if (isExpanded || tags.length <= collapsedLimit) {
-            return tags;
-        }
-        const initial = tags.slice(0, collapsedLimit);
-        if (!selectedTag || initial.some((tag) => tag.tag === selectedTag)) {
-            return initial;
-        }
-        const selected = tags.find((tag) => tag.tag === selectedTag);
-        return selected ? [...initial.slice(0, collapsedLimit - 1), selected] : initial;
-    }, [isExpanded, selectedTag, tags]);
-    const hiddenCount = Math.max(tags.length - visibleTags.length, 0);
-    return (<PanelCard className={cardShell}>
-      <div className={cardBody}>
-        <SectionTitle action={(selectedTag || tags.length > collapsedLimit) ? (<div className="flex flex-wrap items-center gap-2 sm:justify-end">
-              {tags.length > collapsedLimit && (<Button className="h-8 whitespace-nowrap rounded-[var(--radius-md)] px-3 text-[0.72rem] font-semibold shadow-none" onClick={() => setIsExpanded((current) => !current)} size="sm" type="button" variant="bare">
-                  {isExpanded ? "Show top" : `Show all ${tags.length}`}
-                </Button>)}
-              {selectedTag && (<Button className="h-8 whitespace-nowrap rounded-[var(--radius-md)] px-3 text-[0.72rem] font-semibold shadow-none" onClick={() => onSelectTag(selectedTag)} size="sm" type="button" variant="bare">
-                  Clear
-                </Button>)}
-            </div>) : undefined} description={`${tags.length} distinct tags across the selected task`} eyebrow="Tags" title="Tag Explorer"/>
-        <div className="mt-4 flex flex-wrap gap-2">
-          {tags.length === 0 ? (<p className="m-0 text-[0.8rem] text-[var(--text-3)]">No tags observed yet.</p>) : (visibleTags.map((tag) => (<Button key={tag.tag} className={cn("h-auto rounded-full border px-3.5 py-1.5 text-[0.78rem] font-semibold shadow-none", selectedTag === tag.tag
-                ? "border-[var(--accent)] bg-[var(--accent-light)] text-[var(--accent)]"
-                : "border-[var(--border)] bg-[var(--bg)] text-[var(--text-2)] hover:border-[var(--border-2)] hover:bg-[var(--surface-2)]")} onClick={() => onSelectTag(tag.tag)} size="sm" type="button" variant="bare">
-                <span className="font-mono">{tag.tag}</span>
-                <span className="ml-2 rounded-full bg-[var(--surface)] px-2 py-0.5 text-[0.7rem] font-semibold text-[var(--text-3)]">{tag.count}</span>
-              </Button>)))}
-        </div>
-        {visibleTags.length > 0 && visibleTags.length !== tags.length && (<p className="mt-3 mb-0 text-[0.76rem] text-[var(--text-3)]">
-            Showing top {visibleTags.length} tags by frequency{hiddenCount > 0 ? ` · ${hiddenCount} more hidden` : ""}
-          </p>)}
-        <div className="mt-4 rounded-[12px] border border-[var(--border)] bg-[var(--surface-2)] p-4">
-          {selectedInsight ? (<>
-              <div className="flex items-center justify-between gap-3">
-                <strong className="font-mono text-[0.9rem] text-[var(--text-1)]">{selectedInsight.tag}</strong>
-                <Badge tone="accent" size="xs">{selectedInsight.count} events</Badge>
-              </div>
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                <div>
-                  <div className="text-[0.7rem] font-bold uppercase tracking-[0.08em] text-[var(--text-3)]">Lanes</div>
-                  <div className="mt-1 text-[0.82rem] text-[var(--text-2)]">{selectedInsight.lanes.join(" · ")}</div>
-                </div>
-                <div>
-                  <div className="text-[0.7rem] font-bold uppercase tracking-[0.08em] text-[var(--text-3)]">Rules</div>
-                  <div className="mt-1 text-[0.82rem] text-[var(--text-2)]">
-                    {selectedInsight.ruleIds.length > 0 ? selectedInsight.ruleIds.join(", ") : "No linked rule"}
-                  </div>
-                </div>
-              </div>
-            </>) : (<p className="m-0 text-[0.8rem] text-[var(--text-3)]">
-              Pick a tag chip to focus the timeline and inspect where that signal appears.
-            </p>)}
-        </div>
-      </div>
-    </PanelCard>);
-}
 function ExplorationInsightCard({ insight }: {
     readonly insight: ExplorationInsight;
 }): React.JSX.Element {
@@ -278,31 +191,21 @@ function MentionedFilesVerificationCard({ verifications, workspacePath }: {
     </PanelCard>);
 }
 export interface EvidenceTabProps {
-    readonly tagInsights: readonly TagInsight[];
-    readonly selectedTag: string | null;
-    readonly sortedFileActivity: readonly FileActivityStat[];
+    readonly sortedFileEvidence: readonly FileEvidenceStat[];
     readonly workspacePath?: string | undefined;
-    readonly isFileActivityExpanded: boolean;
-    readonly fileSortKey: FileSortKey;
+    readonly isFileEvidenceExpanded: boolean;
+    readonly fileEvidenceSortKey: FileEvidenceSortKey;
     readonly explorationInsight: ExplorationInsight;
     readonly webLookups: readonly WebLookupStat[];
-    readonly sortedExploredFiles: readonly ExploredFileStat[];
-    readonly isExploredFilesExpanded: boolean;
-    readonly explorationSortKey: ExplorationSortKey;
     readonly mentionedVerifications: readonly MentionedFileVerification[];
-    readonly onSelectTag: (tag: string) => void;
-    readonly onToggleFileActivity: () => void;
-    readonly onFileSortChange: (key: FileSortKey) => void;
-    readonly onToggleExploredFiles: () => void;
-    readonly onExplorationSortChange: (key: ExplorationSortKey) => void;
+    readonly onToggleFileEvidence: () => void;
+    readonly onFileEvidenceSortChange: (key: FileEvidenceSortKey) => void;
 }
-export function EvidenceTab({ tagInsights, selectedTag, sortedFileActivity, workspacePath, isFileActivityExpanded, fileSortKey, explorationInsight, webLookups, sortedExploredFiles, isExploredFilesExpanded, explorationSortKey, mentionedVerifications, onSelectTag, onToggleFileActivity, onFileSortChange, onToggleExploredFiles, onExplorationSortChange }: EvidenceTabProps): React.JSX.Element {
+export function EvidenceTab({ sortedFileEvidence, workspacePath, isFileEvidenceExpanded, fileEvidenceSortKey, explorationInsight, webLookups, mentionedVerifications, onToggleFileEvidence, onFileEvidenceSortChange }: EvidenceTabProps): React.JSX.Element {
     return (<div className="panel-tab-inner flex flex-col gap-5 p-4">
-      <TagExplorerCard tags={tagInsights} selectedTag={selectedTag} onSelectTag={onSelectTag}/>
-      <FileActivitySection files={sortedFileActivity} workspacePath={workspacePath} expanded={isFileActivityExpanded} sortKey={fileSortKey} onToggle={onToggleFileActivity} onSortChange={onFileSortChange}/>
       <ExplorationInsightCard insight={explorationInsight}/>
+      <FileEvidenceSection files={sortedFileEvidence} workspacePath={workspacePath} expanded={isFileEvidenceExpanded} sortKey={fileEvidenceSortKey} onToggle={onToggleFileEvidence} onSortChange={onFileEvidenceSortChange}/>
       <WebLookupsCard lookups={webLookups}/>
-      <ExploredFilesSection files={sortedExploredFiles} workspacePath={workspacePath} expanded={isExploredFilesExpanded} sortKey={explorationSortKey} onToggle={onToggleExploredFiles} onSortChange={onExplorationSortChange}/>
       <MentionedFilesVerificationCard verifications={mentionedVerifications} workspacePath={workspacePath}/>
     </div>);
 }
