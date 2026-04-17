@@ -293,9 +293,15 @@ describe("Claude plugin", () => {
         }, monitor.port, { projectDir: "/repo" });
 
         const ingestCall = monitor.calls.find((call) => call.endpoint === "/ingest/v1/events");
-        const event = ingestCall?.body.events?.[0] as Record<string, unknown> | undefined;
+        const events = Array.isArray(ingestCall?.body["events"])
+            ? ingestCall.body["events"] as unknown[]
+            : [];
+        const event = events[0] as Record<string, unknown> | undefined;
+        const metadata = event && typeof event.metadata === "object" && event.metadata !== null
+            ? event.metadata as Record<string, unknown>
+            : undefined;
         expect(event?.filePaths).toEqual(["/repo-other/src/index.ts"]);
-        expect((event?.metadata as Record<string, unknown>)?.relPath).toBe("/repo-other/src/index.ts");
+        expect(metadata?.relPath).toBe("/repo-other/src/index.ts");
     });
     it("SessionStart startup records a session-started planning event", async () => {
         const monitor = await startMonitorStub();
