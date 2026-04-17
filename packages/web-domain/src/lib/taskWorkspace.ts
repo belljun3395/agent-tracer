@@ -52,7 +52,7 @@ export function buildFilteredTimeline(input: {
     return filterTimelineEvents(input.timeline, {
         laneFilters: FULL_TIMELINE_LANE_FILTERS,
         selectedRuleId: input.selectedRuleId,
-        selectedTag: input.selectedTag,
+        selectedTag: null,
         showRuleGapsOnly: input.showRuleGapsOnly
     });
 }

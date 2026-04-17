@@ -9,7 +9,7 @@ import { cn } from "../../lib/ui/cn.js";
 import type { WorkspaceState } from "./useWorkspace.js";
 import { WorkspaceReviewPanel } from "./WorkspaceReviewPanel.js";
 
-type TimelineEmbeddedProps = Pick<TimelineProps, "externalControlsState" | "externalFiltersState">;
+type TimelineEmbeddedProps = Pick<TimelineProps, "externalFiltersState" | "externalTimelineFilters">;
 
 interface WorkspaceContentProps {
     readonly taskId: string;
@@ -112,7 +112,6 @@ export function WorkspaceContent({
                     selectedEventId={selectedEventId}
                     selectedConnectorKey={selectedConnectorKey}
                     selectedRuleId={selectedRuleId}
-                    selectedTag={selectedTag}
                     showRuleGapsOnly={showRuleGapsOnly}
                     nowMs={nowMs}
                     observabilityStats={observabilityStats}
@@ -125,7 +124,6 @@ export function WorkspaceContent({
                     onClearFilters={() => { selectRule(null); selectTag(null); resetFilters(); }}
                     onToggleRuleGap={setShowRuleGapsOnly}
                     onClearRuleId={() => selectRule(null)}
-                    onClearTag={() => selectTag(null)}
                     onChangeTaskStatus={(s) => void handleTaskStatusChange(s)}
                     embedded={embedded}
                     {...timelineEmbeddedProps}

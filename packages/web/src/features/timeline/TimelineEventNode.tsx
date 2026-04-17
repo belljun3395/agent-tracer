@@ -37,103 +37,10 @@ export function TimelineEventNode({
     onOpenStack,
     onRegisterNode,
 }: TimelineEventNodeProps): React.JSX.Element {
-    const questionPhase =
-        typeof item.event.metadata["questionPhase"] === "string"
-            ? item.event.metadata["questionPhase"]
-            : undefined;
-    const todoState =
-        typeof item.event.metadata["todoState"] === "string"
-            ? item.event.metadata["todoState"]
-            : undefined;
-    const relationLabel =
-        typeof item.event.metadata["relationLabel"] === "string"
-            ? item.event.metadata["relationLabel"]
-            : typeof item.event.metadata["relationType"] === "string"
-              ? String(item.event.metadata["relationType"]).replace(/_/g, " ")
-              : undefined;
-    const activityType =
-        typeof item.event.metadata["activityType"] === "string"
-            ? item.event.metadata["activityType"]
-            : undefined;
-    const agentName =
-        typeof item.event.metadata["agentName"] === "string"
-            ? item.event.metadata["agentName"]
-            : undefined;
-    const skillName =
-        typeof item.event.metadata["skillName"] === "string"
-            ? item.event.metadata["skillName"]
-            : undefined;
-    const mcpTool =
-        typeof item.event.metadata["mcpTool"] === "string"
-            ? item.event.metadata["mcpTool"]
-            : undefined;
-    const workItemId =
-        typeof item.event.metadata["workItemId"] === "string"
-            ? item.event.metadata["workItemId"]
-            : typeof item.event.metadata["todoId"] === "string"
-              ? item.event.metadata["todoId"]
-              : undefined;
-    const attachmentType =
-        typeof item.event.metadata["attachmentType"] === "string"
-            ? item.event.metadata["attachmentType"]
-            : undefined;
-    const assistantPhase =
-        typeof item.event.metadata["phase"] === "string"
-            ? item.event.metadata["phase"]
-            : undefined;
     const subtype = resolveEventSubtype(item.event);
     const stackGroup = stackGroups.get(item.event.id);
     const stackCount = stackGroup ? stackGroup.length - 1 : 0;
     const nodeTop = item.top + item.rowIndex * ROW_VERTICAL_OFFSET;
-    const semanticChips = [
-        subtype ? { label: subtype.label, subtle: false } : null,
-        activityType ? { label: activityType.replace(/_/g, " "), subtle: false } : null,
-        relationLabel ? { label: relationLabel, subtle: true } : null,
-        agentName ? { label: agentName, subtle: true } : null,
-        skillName
-            ? { label: `skill:${skillName}`, subtle: true }
-            : !skillName && mcpTool
-              ? { label: `mcp:${mcpTool}`, subtle: true }
-              : null,
-        workItemId ? { label: `work:${workItemId}`, subtle: true } : null,
-        item.event.kind === "assistant.response"
-            ? {
-                  label: assistantPhase === "intermediate" ? "mid-turn" : "response",
-                  subtle: false,
-              }
-            : null,
-        item.event.kind === "thought.logged"
-            ? {
-                  label:
-                      item.event.metadata["redacted"] === true ? "thinking (redacted)" : "thinking",
-                  subtle: false,
-              }
-            : null,
-        (item.event.kind === "context.saved" || item.event.kind === "instructions.loaded") &&
-        attachmentType
-            ? { label: attachmentType.replace(/_/g, " "), subtle: false }
-            : null,
-        item.event.kind === "instructions.loaded" &&
-        item.event.metadata["instructionsBurst"] === true
-            ? {
-                  label:
-                      typeof item.event.metadata["burstSize"] === "number"
-                          ? `batch ×${item.event.metadata["burstSize"]}`
-                          : "batch",
-                  subtle: false,
-              }
-            : null,
-        item.event.kind === "question.logged" && questionPhase
-            ? { label: questionPhase, subtle: false }
-            : null,
-        item.event.kind === "todo.logged" && todoState
-            ? { label: todoState.replace("_", " "), subtle: false }
-            : null,
-    ].filter(
-        (chip): chip is { readonly label: string; readonly subtle: boolean } => chip !== null,
-    );
-    const visibleSemanticChips = semanticChips.slice(0, 2);
-    const hiddenSemanticChipCount = Math.max(semanticChips.length - visibleSemanticChips.length, 0);
     const isActive = item.event.id === selectedEvent?.id;
     const isLinked =
         Boolean(selectedConnector) &&
@@ -204,23 +111,6 @@ export function TimelineEventNode({
             </strong>
             <div className="event-node-meta">
                 <span className="event-time">{formatRelativeTime(item.event.createdAt)}</span>
-                {visibleSemanticChips.length > 0 && (
-                    <div className="event-node-chips">
-                        {visibleSemanticChips.map((chip) => (
-                            <span
-                                key={chip.label}
-                                className={cn("event-semantic-tag", chip.subtle && "subtle")}
-                            >
-                                {chip.label}
-                            </span>
-                        ))}
-                        {hiddenSemanticChipCount > 0 && (
-                            <span className="event-semantic-tag subtle">
-                                +{hiddenSemanticChipCount}
-                            </span>
-                        )}
-                    </div>
-                )}
             </div>
         </div>
     );

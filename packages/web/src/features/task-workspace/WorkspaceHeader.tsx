@@ -3,21 +3,19 @@ import { runtimeObservabilityLabel, runtimeTagLabel } from "../../components/Tas
 import { Button } from "../../components/ui/Button.js";
 import { cn } from "../../lib/ui/cn.js";
 import type { WorkspaceState } from "./useWorkspace.js";
+import { formatTaskStatusLabel, TASK_STATUS_BUTTON_STYLES } from "../timeline/utils.js";
 
 interface WorkspaceHeaderEmbeddedExtras {
-    isEditingTaskTitle: boolean;
-    isWorkspaceControlsOpen: boolean;
-    isWorkspaceFiltersOpen: boolean;
-    workspaceControlsButtonRef: React.RefObject<HTMLButtonElement | null>;
-    workspaceFiltersButtonRef: React.RefObject<HTMLButtonElement | null>;
-    onWorkspaceControlsToggle: () => void;
-    onWorkspaceFiltersToggle: () => void;
+    showFiltersButton?: boolean;
+    isWorkspaceFiltersOpen?: boolean;
+    workspaceFiltersButtonRef?: React.RefObject<HTMLButtonElement | null>;
+    onWorkspaceFiltersToggle?: () => void;
 }
 
 interface WorkspaceHeaderProps {
     readonly embedded: boolean;
     readonly taskId: string;
-    readonly workspace: Pick<WorkspaceState, "selectedTaskDetail" | "taskObservability" | "selectedTaskDisplayTitle" | "isEditingTaskTitle">;
+    readonly workspace: Pick<WorkspaceState, "selectedTaskDetail" | "taskObservability" | "selectedTaskDisplayTitle" | "isEditingTaskTitle" | "taskTitleDraft" | "taskTitleError" | "isSavingTaskTitle" | "isUpdatingTaskStatus" | "updateDraft" | "startEditing" | "finishEditing" | "setTitleError" | "handleTaskStatusChange" | "handleTaskTitleSubmit">;
     readonly isSubmittingRuleReview: boolean;
     readonly onRuleReview: (outcome: "approved" | "rejected" | "bypassed") => void;
     readonly onNavigateBack: () => void;
@@ -35,7 +33,7 @@ export function WorkspaceHeader({
     onNavigateDashboard,
     embeddedExtras,
 }: WorkspaceHeaderProps): React.JSX.Element {
-    const { selectedTaskDetail, taskObservability, selectedTaskDisplayTitle } = workspace;
+    const { selectedTaskDetail, taskObservability, selectedTaskDisplayTitle, isEditingTaskTitle, taskTitleDraft, taskTitleError, isSavingTaskTitle, isUpdatingTaskStatus, updateDraft, startEditing, finishEditing, setTitleError, handleTaskStatusChange, handleTaskTitleSubmit } = workspace;
     const ruleState = taskObservability?.observability.ruleEnforcement.activeState;
 
     const approvalButtons = (
@@ -56,9 +54,9 @@ export function WorkspaceHeader({
     );
 
     if (embedded && embeddedExtras) {
-        const { isEditingTaskTitle, isWorkspaceControlsOpen, isWorkspaceFiltersOpen,
-            workspaceControlsButtonRef, workspaceFiltersButtonRef,
-            onWorkspaceControlsToggle, onWorkspaceFiltersToggle } = embeddedExtras;
+        const { isWorkspaceFiltersOpen,
+            workspaceFiltersButtonRef,
+            onWorkspaceFiltersToggle, showFiltersButton = true } = embeddedExtras;
 
         return (
             <header className="flex shrink-0 flex-wrap items-center gap-2 border-b border-[var(--border)] px-4 py-3">
@@ -70,40 +68,61 @@ export function WorkspaceHeader({
                             <polyline points="15 18 9 12 15 6"/>
                         </svg>
                     </button>
-                    <span className="truncate text-[0.88rem] font-semibold text-[var(--text-1)]">
-                        {selectedTaskDisplayTitle ?? selectedTaskDetail?.task.title ?? taskId}
-                    </span>
+                    {isEditingTaskTitle ? (
+                        <form className="flex min-w-0 flex-1 flex-wrap items-center gap-2" onSubmit={(event) => void handleTaskTitleSubmit(event, taskTitleDraft)}>
+                            <input className="min-w-[18rem] flex-1 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] px-3 py-1.5 text-[0.86rem] font-semibold text-[var(--text-1)] outline-none focus:border-[var(--accent)]" disabled={isSavingTaskTitle} onChange={(event) => updateDraft(event.target.value)} placeholder="Rename task" type="text" value={taskTitleDraft}/>
+                            <div className="flex items-center gap-1.5">
+                                <button className="inline-flex h-7 items-center rounded-[var(--radius-md)] border border-[var(--accent)] bg-[var(--accent-light)] px-2.5 text-[0.72rem] font-semibold text-[var(--accent)]" disabled={isSavingTaskTitle} type="submit">
+                                    {isSavingTaskTitle ? "Saving..." : "Save"}
+                                </button>
+                                <button className="inline-flex h-7 items-center rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] px-2.5 text-[0.72rem] font-semibold text-[var(--text-2)]" disabled={isSavingTaskTitle} onClick={() => {
+                                    updateDraft(selectedTaskDisplayTitle ?? selectedTaskDetail?.task.title ?? "");
+                                    setTitleError(null);
+                                    finishEditing();
+                                }} type="button">
+                                    Cancel
+                                </button>
+                            </div>
+                            {taskTitleError && <span className="basis-full text-[0.72rem] font-medium text-[var(--err)]">{taskTitleError}</span>}
+                        </form>
+                    ) : (
+                        <>
+                            <span className="truncate text-[0.88rem] font-semibold text-[var(--text-1)]">
+                                {selectedTaskDisplayTitle ?? selectedTaskDetail?.task.title ?? taskId}
+                            </span>
+                            <button aria-label="Rename task" className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] text-[var(--text-3)] transition hover:border-[var(--border-strong)] hover:bg-[var(--surface-2)] hover:text-[var(--text-1)]" onClick={() => startEditing(selectedTaskDisplayTitle ?? selectedTaskDetail?.task.title ?? "")} title="Rename task" type="button">
+                                <svg aria-hidden="true" fill="none" height="13" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" width="13">
+                                    <path d="M12 20h9"/>
+                                    <path d="M16.5 3.5a2.12 2.12 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>
+                                </svg>
+                            </button>
+                        </>
+                    )}
                     {selectedTaskDetail?.task && (
-                        <span className={cn("inline-flex shrink-0 items-center rounded-[var(--radius-md)] border px-2 py-0.5 text-[0.64rem] font-semibold uppercase tracking-[0.06em]",
-                            selectedTaskDetail.task.status === "running" ? "border-[var(--ok-bg)] bg-[var(--ok-bg)] text-[var(--ok)]"
-                            : selectedTaskDetail.task.status === "waiting" ? "border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-2)]"
-                            : selectedTaskDetail.task.status === "completed" ? "border-[var(--accent-light)] bg-[var(--accent-light)] text-[var(--accent)]"
-                            : "border-[var(--err-bg)] bg-[var(--err-bg)] text-[var(--err)]")}>
-                            {selectedTaskDetail.task.status}
+                        <span className={cn("inline-flex shrink-0 items-center rounded-[var(--radius-md)] border px-2 py-0.5 text-[0.64rem] font-semibold uppercase tracking-[0.06em]", TASK_STATUS_BUTTON_STYLES[selectedTaskDetail.task.status].active)}>
+                            <span className="relative inline-flex items-center">
+                                <span>{formatTaskStatusLabel(selectedTaskDetail.task.status)}</span>
+                                <span className="ml-1 text-[0.58rem] opacity-70">v</span>
+                                <select aria-label="Change task status" className="absolute inset-0 cursor-pointer opacity-0" disabled={isUpdatingTaskStatus} onChange={(event) => void handleTaskStatusChange(event.target.value as "running" | "waiting" | "completed" | "errored")} value={selectedTaskDetail.task.status}>
+                                    {(["running", "waiting", "completed", "errored"] as const).map((status) => (<option key={status} value={status}>{formatTaskStatusLabel(status)}</option>))}
+                                </select>
+                            </span>
                         </span>
                     )}
                 </div>
                 <div className="flex shrink-0 items-center gap-1.5">
-                    <button ref={workspaceControlsButtonRef} type="button"
-                        aria-expanded={isWorkspaceControlsOpen || isEditingTaskTitle}
-                        aria-label="Open task controls"
-                        className={cn("timeline-context-toggle", (isWorkspaceControlsOpen || isEditingTaskTitle) && "border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] text-[var(--accent)]")}
-                        onClick={onWorkspaceControlsToggle} title="Task controls">
-                        <svg aria-hidden="true" fill="none" height="13" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" width="13">
-                            <circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>
-                        </svg>
-                        <span className="hidden text-[0.72rem] font-medium sm:inline">Controls</span>
-                    </button>
-                    <button ref={workspaceFiltersButtonRef} type="button"
-                        aria-expanded={isWorkspaceFiltersOpen}
-                        aria-label="Open filters and zoom"
-                        className={cn("timeline-context-toggle", isWorkspaceFiltersOpen && "border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] text-[var(--accent)]")}
-                        onClick={onWorkspaceFiltersToggle} title="Filters & Zoom">
-                        <svg aria-hidden="true" fill="none" height="13" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" width="13">
-                            <line x1="4" x2="20" y1="6" y2="6"/><line x1="8" x2="16" y1="12" y2="12"/><line x1="11" x2="13" y1="18" y2="18"/>
-                        </svg>
-                        <span className="hidden text-[0.72rem] font-medium sm:inline">Filters</span>
-                    </button>
+                    {showFiltersButton && workspaceFiltersButtonRef && onWorkspaceFiltersToggle && (
+                        <button ref={workspaceFiltersButtonRef} type="button"
+                            aria-expanded={isWorkspaceFiltersOpen}
+                            aria-label="Open filters and zoom"
+                            className={cn("timeline-context-toggle", isWorkspaceFiltersOpen && "border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] text-[var(--accent)]")}
+                            onClick={onWorkspaceFiltersToggle} title="Filters & Zoom">
+                            <svg aria-hidden="true" fill="none" height="13" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" width="13">
+                                <line x1="4" x2="20" y1="6" y2="6"/><line x1="8" x2="16" y1="12" y2="12"/><line x1="11" x2="13" y1="18" y2="18"/>
+                            </svg>
+                            <span className="hidden text-[0.72rem] font-medium sm:inline">Filters</span>
+                        </button>
+                    )}
                     {approvalButtons}
                 </div>
             </header>

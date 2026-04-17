@@ -29,6 +29,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { useTheme } from "./lib/useTheme.js";
 import { KnowledgeBaseContent } from "./components/knowledge/KnowledgeBaseContent.js";
+import type { TimelineLane } from "@monitor/web-domain";
 
 const ZOOM_MIN = 0.8;
 const ZOOM_MAX = 2.5;
@@ -44,7 +45,7 @@ function Dashboard({
     onSelectTaskRoute,
 }: {
     readonly view?: "timeline" | "knowledge" | "workspace";
-    readonly workspaceTaskId?: string;
+    readonly workspaceTaskId?: string | undefined;
     readonly onOpenTaskWorkspace: (taskId: string) => void;
     readonly onSelectTaskRoute: (taskId: string | null) => void;
 }): React.JSX.Element {
@@ -91,6 +92,19 @@ function Dashboard({
     }, [isInspectorCollapsed, isStackedDashboard]);
 
     const [isApprovalQueueOpen, setIsApprovalQueueOpen] = useState(false);
+    const [isGlobalFiltersOpen, setIsGlobalFiltersOpen] = useState(false);
+    const [globalFiltersPos, setGlobalFiltersPos] = useState({ top: 0, right: 0 });
+    const globalFiltersButtonRef = useRef<HTMLButtonElement>(null);
+    const [timelineFilters, setTimelineFilters] = useState<Record<TimelineLane, boolean>>({
+        user: true,
+        exploration: true,
+        planning: true,
+        coordination: true,
+        background: true,
+        implementation: true,
+        questions: true,
+        todos: true,
+    });
     const [zoom, setZoom] = useState<number>(() => {
         try {
             const raw = window.localStorage.getItem(ZOOM_STORAGE_KEY);
@@ -105,6 +119,12 @@ function Dashboard({
     useEffect(() => {
         try { window.localStorage.setItem(ZOOM_STORAGE_KEY, String(zoom)); } catch { /* storage unavailable */ }
     }, [zoom]);
+    const showGlobalFiltersButton = (view === "timeline" && Boolean(selectedTaskId)) || (view === "workspace" && Boolean(workspaceTaskId));
+    useEffect(() => {
+        if (!showGlobalFiltersButton) {
+            setIsGlobalFiltersOpen(false);
+        }
+    }, [showGlobalFiltersButton]);
 
     const selectedTaskDisplayTitle = useMemo(
         () => (taskDetail?.task ? buildTaskDisplayTitle(taskDetail.task, taskDetail.timeline) : null),
@@ -119,9 +139,8 @@ function Dashboard({
     const selectDashboardTask = useCallback(
         (taskId: string | null): void => {
             onSelectTaskRoute(taskId);
-            selectTask(taskId);
         },
-        [onSelectTaskRoute, selectTask]
+        [onSelectTaskRoute]
     );
 
     const handleDeleteTask = useCallback(
@@ -254,6 +273,16 @@ function Dashboard({
                 onSelectSearchEvent={handleSelectSearchEvent}
                 onSelectSearchBookmark={handleSelectSearchBookmark}
                 onRefresh={() => void queryClient.invalidateQueries({ queryKey: monitorQueryKeys.overview() })}
+                showFiltersButton={showGlobalFiltersButton}
+                isFiltersOpen={isGlobalFiltersOpen}
+                filtersButtonRef={globalFiltersButtonRef}
+                onToggleFilters={() => {
+                    if (globalFiltersButtonRef.current) {
+                        const rect = globalFiltersButtonRef.current.getBoundingClientRect();
+                        setGlobalFiltersPos({ top: rect.bottom + 6, right: window.innerWidth - rect.right });
+                    }
+                    setIsGlobalFiltersOpen((value) => !value);
+                }}
             />
 
             <div className="relative flex flex-1 min-h-0 overflow-hidden">
@@ -294,10 +323,15 @@ function Dashboard({
                                 <KnowledgeBaseContent onSelectTask={handleSelectDashboardTask} />
                             ) : view === "workspace" && workspaceTaskId ? (
                                 <Suspense fallback={<div className="flex min-h-0 flex-1 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-1)]"/>}>
-                                    <TaskWorkspace taskId={workspaceTaskId} embedded />
+                                    <TaskWorkspace
+                                        taskId={workspaceTaskId}
+                                        embedded
+                                        externalFiltersState={{ isOpen: isGlobalFiltersOpen, setIsOpen: setIsGlobalFiltersOpen, popoverPos: globalFiltersPos, setPopoverPos: setGlobalFiltersPos, buttonRef: globalFiltersButtonRef }}
+                                        externalTimelineFilters={{ filters: timelineFilters, setFilters: setTimelineFilters }}
+                                    />
                                 </Suspense>
                             ) : (
-                                <TimelineContainer isCompactDashboard={false} isStackedDashboard={true} zoom={zoom} selectedTaskDisplayTitle={selectedTaskDisplayTitle} selectedTaskUsesDerivedTitle={selectedTaskUsesDerivedTitle} onZoomChange={setZoom} onOpenTaskWorkspace={selectedTaskId ? () => onOpenTaskWorkspace(selectedTaskId) : undefined}/>
+                                <TimelineContainer isCompactDashboard={false} isStackedDashboard={true} zoom={zoom} selectedTaskDisplayTitle={selectedTaskDisplayTitle} selectedTaskUsesDerivedTitle={selectedTaskUsesDerivedTitle} onZoomChange={setZoom} externalFiltersState={{ isOpen: isGlobalFiltersOpen, setIsOpen: setIsGlobalFiltersOpen, popoverPos: globalFiltersPos, setPopoverPos: setGlobalFiltersPos, buttonRef: globalFiltersButtonRef }} externalTimelineFilters={{ filters: timelineFilters, setFilters: setTimelineFilters }}/>
                             )}
                             {view === "timeline" && isInspectorOpen && (
                                 <Suspense fallback={<div className="min-h-[20rem] rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)]"/>}>
@@ -334,10 +368,15 @@ function Dashboard({
                                 <KnowledgeBaseContent onSelectTask={handleSelectDashboardTask} />
                             ) : view === "workspace" && workspaceTaskId ? (
                                 <Suspense fallback={<div className="flex min-h-0 flex-1 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-1)]"/>}>
-                                    <TaskWorkspace taskId={workspaceTaskId} embedded />
+                                    <TaskWorkspace
+                                        taskId={workspaceTaskId}
+                                        embedded
+                                        externalFiltersState={{ isOpen: isGlobalFiltersOpen, setIsOpen: setIsGlobalFiltersOpen, popoverPos: globalFiltersPos, setPopoverPos: setGlobalFiltersPos, buttonRef: globalFiltersButtonRef }}
+                                        externalTimelineFilters={{ filters: timelineFilters, setFilters: setTimelineFilters }}
+                                    />
                                 </Suspense>
                             ) : (
-                                <TimelineContainer isCompactDashboard={false} isStackedDashboard={false} zoom={zoom} selectedTaskDisplayTitle={selectedTaskDisplayTitle} selectedTaskUsesDerivedTitle={selectedTaskUsesDerivedTitle} onZoomChange={setZoom} onOpenTaskWorkspace={selectedTaskId ? () => onOpenTaskWorkspace(selectedTaskId) : undefined}/>
+                                <TimelineContainer isCompactDashboard={false} isStackedDashboard={false} zoom={zoom} selectedTaskDisplayTitle={selectedTaskDisplayTitle} selectedTaskUsesDerivedTitle={selectedTaskUsesDerivedTitle} onZoomChange={setZoom} externalFiltersState={{ isOpen: isGlobalFiltersOpen, setIsOpen: setIsGlobalFiltersOpen, popoverPos: globalFiltersPos, setPopoverPos: setGlobalFiltersPos, buttonRef: globalFiltersButtonRef }} externalTimelineFilters={{ filters: timelineFilters, setFilters: setTimelineFilters }}/>
                             )}
                         </div>
                         {view === "timeline" && (
@@ -392,9 +431,15 @@ function DashboardRoute({ view = "timeline" }: { readonly view?: "timeline" | "k
     const selectedTaskId = useSelectionStore((s) => s.selectedTaskId);
     const selectTask = useSelectionStore((s) => s.selectTask);
     const [routeTaskId, setRouteTaskId] = useUrlSearchParam("task");
+    const [routeView, setRouteView] = useUrlSearchParam("view");
     const { data: tasksData, isSuccess: tasksReady } = useTasksQuery();
     const tasks = tasksData?.tasks ?? [];
     const navigate = useNavigate();
+    const resolvedView = view === "knowledge"
+        ? "knowledge"
+        : routeView === "workspace"
+            ? "workspace"
+            : "timeline";
 
     // One-way: URL is the source of truth, mirror into store on change.
     useLayoutEffect(() => {
@@ -413,9 +458,14 @@ function DashboardRoute({ view = "timeline" }: { readonly view?: "timeline" | "k
 
     return (
         <Dashboard
-            view={view}
+            view={resolvedView}
+            {...(resolvedView === "workspace" && (routeTaskId ?? selectedTaskId) ? { workspaceTaskId: routeTaskId ?? selectedTaskId ?? undefined } : {})}
             onSelectTaskRoute={setRouteTaskId}
-            onOpenTaskWorkspace={(taskId) => { void navigate(`/tasks/${encodeURIComponent(taskId)}?tab=overview`); }}
+            onOpenTaskWorkspace={(taskId) => {
+                setRouteTaskId(taskId);
+                setRouteView("workspace");
+                void navigate(`/?task=${encodeURIComponent(taskId)}&view=workspace&tab=overview`, { replace: true });
+            }}
         />
     );
 }

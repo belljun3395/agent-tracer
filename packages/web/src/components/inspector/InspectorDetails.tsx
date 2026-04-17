@@ -4,7 +4,6 @@ import { buildInspectorEventTitle, evidenceTone, formatEvidenceLevel, getInstruc
 
 import { cn } from "../../lib/ui/cn.js";
 import { Badge } from "../ui/Badge.js";
-import { Button } from "../ui/Button.js";
 import { PanelCard } from "../ui/PanelCard.js";
 import { CacheEfficiencyBar } from "./CacheEfficiencyBar.js";
 import { SectionCard } from "./SectionCard.js";
@@ -220,27 +219,6 @@ export function DetailConnectorIds({ connector, source, target }: {
     </SectionCard>);
 }
 
-export function DetailTags({ title, values, activeValue, onSelect }: {
-    readonly title: string;
-    readonly values: readonly string[];
-    readonly activeValue?: string | null;
-    readonly onSelect?: (value: string) => void;
-}): React.JSX.Element {
-    return (<SectionCard title={title} bodyClassName="pt-4">
-      <div className="flex flex-wrap gap-2">
-        {values.length === 0
-            ? <span className="text-[0.8rem] text-[var(--text-3)]">No tags</span>
-            : values.map((v) => (onSelect ? (<Button key={v} className={cn("h-auto rounded-full border px-3.5 py-1.5 text-[0.78rem] font-semibold shadow-none transition-colors", activeValue === v
-                    ? "border-[var(--accent)] bg-[var(--accent-light)] text-[var(--accent)]"
-                    : "border-[var(--border)] bg-[var(--bg)] text-[var(--text-2)] hover:border-[var(--border-2)] hover:bg-[var(--surface-2)]")} onClick={() => onSelect(v)} size="sm" type="button" variant="bare">
-                  {v}
-                </Button>) : (<Badge key={v} className="max-w-full break-words px-3 py-1.5 text-[0.78rem] font-medium">
-                  {v}
-                </Badge>)))}
-      </div>
-    </SectionCard>);
-}
-
 export function DetailMatchList({ event, activeRuleId, onSelectRule }: {
     readonly event: TimelineEvent;
     readonly activeRuleId?: string | null;
@@ -256,11 +234,6 @@ export function DetailMatchList({ event, activeRuleId, onSelectRule }: {
                 <Badge tone="accent" size="xs">
                   {match.score} · {match.source ?? "action-registry"}
                 </Badge>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {match.tags.map((tag) => (<Badge key={tag} tone="neutral" size="xs" className="max-w-full break-words">
-                    {tag}
-                  </Badge>))}
               </div>
               <ul className="mt-2 flex flex-col gap-1 pl-4 text-[0.76rem] leading-6 text-[var(--text-2)]">
                 {match.reasons.map((reason) => (<li key={`${reason.kind}-${reason.value}`}>

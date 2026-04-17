@@ -14,6 +14,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "../lib/ui/cn.js";
 import { Timeline } from "./Timeline.js";
+import type { TimelineProps } from "../features/timeline/types.js";
 
 interface TimelineContainerProps {
     readonly isCompactDashboard: boolean;
@@ -22,7 +23,8 @@ interface TimelineContainerProps {
     readonly selectedTaskDisplayTitle: string | null;
     readonly selectedTaskUsesDerivedTitle: boolean;
     readonly onZoomChange: (zoom: number) => void;
-    readonly onOpenTaskWorkspace?: (() => void) | undefined;
+    readonly externalFiltersState?: TimelineProps["externalFiltersState"];
+    readonly externalTimelineFilters?: TimelineProps["externalTimelineFilters"];
 }
 
 export function TimelineContainer({
@@ -32,13 +34,13 @@ export function TimelineContainer({
     selectedTaskDisplayTitle,
     selectedTaskUsesDerivedTitle,
     onZoomChange,
-    onOpenTaskWorkspace
+    externalFiltersState,
+    externalTimelineFilters
 }: TimelineContainerProps): React.JSX.Element {
     const selectedTaskId = useSelectionStore((s) => s.selectedTaskId);
     const selectedEventId = useSelectionStore((s) => s.selectedEventId);
     const selectedConnectorKey = useSelectionStore((s) => s.selectedConnectorKey);
     const selectedRuleId = useSelectionStore((s) => s.selectedRuleId);
-    const selectedTag = useSelectionStore((s) => s.selectedTag);
     const showRuleGapsOnly = useSelectionStore((s) => s.showRuleGapsOnly);
     const selectEvent = useSelectionStore((s) => s.selectEvent);
     const selectConnector = useSelectionStore((s) => s.selectConnector);
@@ -148,7 +150,6 @@ export function TimelineContainer({
                 selectedEventId={selectedEventId}
                 selectedConnectorKey={selectedConnectorKey}
                 selectedRuleId={selectedRuleId}
-                selectedTag={selectedTag}
                 showRuleGapsOnly={showRuleGapsOnly}
                 nowMs={nowMs}
                 observabilityStats={observabilityStats}
@@ -177,9 +178,9 @@ export function TimelineContainer({
                 }}
                 onToggleRuleGap={setShowRuleGapsOnly}
                 onClearRuleId={() => selectRule(null)}
-                onClearTag={() => selectTag(null)}
-                {...(onOpenTaskWorkspace !== undefined ? { onOpenTaskWorkspace } : {})}
                 onChangeTaskStatus={(s) => void handleTaskStatusChange(s)}
+                {...(externalFiltersState !== undefined ? { externalFiltersState } : {})}
+                {...(externalTimelineFilters !== undefined ? { externalTimelineFilters } : {})}
             />
         </section>
     );

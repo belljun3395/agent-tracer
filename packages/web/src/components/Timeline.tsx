@@ -22,7 +22,6 @@ import {
 import { TimelineMinimap } from "../features/timeline/TimelineMinimap.js";
 import { TimelineContextBar } from "../features/timeline/TimelineContextBar.js";
 import { TimelineFiltersPopover } from "../features/timeline/TimelineFiltersPopover.js";
-import { TimelineTaskControlsPanel } from "../features/timeline/TimelineTaskControlsPanel.js";
 import { TimelineEventNode } from "../features/timeline/TimelineEventNode.js";
 import { TimelineLaneRow } from "../features/timeline/TimelineLaneRow.js";
 import { TimelineOverlaySvg } from "../features/timeline/TimelineOverlaySvg.js";
@@ -42,24 +41,22 @@ export function Timeline({
     timeline, taskTitle, taskId, taskStatus, taskUpdatedAt,
     taskUsesDerivedTitle, isEditingTaskTitle, taskTitleDraft, taskTitleError,
     isSavingTaskTitle, isUpdatingTaskStatus = false,
-    selectedEventId, selectedConnectorKey, selectedRuleId, selectedTag, showRuleGapsOnly,
+    selectedEventId, selectedConnectorKey, selectedRuleId, showRuleGapsOnly,
     nowMs, observabilityStats,
     onSelectEvent, onSelectConnector,
     onStartEditTitle, onCancelEditTitle, onSubmitTitle, onTitleDraftChange,
-    onToggleRuleGap, onClearRuleId, onClearTag, onOpenTaskWorkspace, onChangeTaskStatus,
-    zoom, onZoomChange, embedded, externalControlsState, externalFiltersState,
+    onToggleRuleGap, onClearRuleId, onChangeTaskStatus,
+    zoom, onZoomChange, embedded, externalFiltersState, externalTimelineFilters,
 }: TimelineProps): React.JSX.Element {
-    const [filters, setFilters] = useState<Record<TimelineLane, boolean>>({
+    const [localFilters, setLocalFilters] = useState<Record<TimelineLane, boolean>>({
         user: true, exploration: true, planning: true, coordination: true,
         background: true, implementation: true, questions: true, todos: true,
     });
     const [expandedSubtypeLanes, setExpandedSubtypeLanes] = useState<Record<ExpandableTimelineLane, boolean>>({
         exploration: false, implementation: false, coordination: false,
     });
-    const [localIsTaskControlsOpen, setLocalIsTaskControlsOpen] = useState(false);
     const [localIsFiltersOpen, setLocalIsFiltersOpen] = useState(false);
     const [localFiltersPopoverPos, setLocalFiltersPopoverPos] = useState({ top: 0, right: 0 });
-    const [localControlsPopoverPos, setLocalControlsPopoverPos] = useState({ top: 0, right: 0 });
     const [openStackEventId, setOpenStackEventId] = useState<string | null>(null);
     const timelineCanvasRef = useRef<HTMLDivElement | null>(null);
     const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -68,21 +65,15 @@ export function Timeline({
     const lastScrolledEventId = useRef<string | null>(null);
     const filtersPopoverRef = useRef<HTMLDivElement>(null);
     const localFiltersButtonRef = useRef<HTMLButtonElement>(null);
-    const localControlsButtonRef = useRef<HTMLButtonElement>(null);
-    const controlsPopoverRef = useRef<HTMLDivElement>(null);
     const { isDragging: isTimelineDragging, dragHandlers } = useTimelineDrag();
 
-    // When external state is provided (embedded mode), use it; otherwise use local state
-    const isTaskControlsOpen = externalControlsState?.isOpen ?? localIsTaskControlsOpen;
-    const setIsTaskControlsOpen = externalControlsState?.setIsOpen ?? setLocalIsTaskControlsOpen;
-    const controlsPopoverPos = externalControlsState?.popoverPos ?? localControlsPopoverPos;
-    const setControlsPopoverPos = externalControlsState?.setPopoverPos ?? setLocalControlsPopoverPos;
-    const controlsButtonRef = externalControlsState?.buttonRef ?? localControlsButtonRef;
     const isFiltersOpen = externalFiltersState?.isOpen ?? localIsFiltersOpen;
     const setIsFiltersOpen = externalFiltersState?.setIsOpen ?? setLocalIsFiltersOpen;
     const filtersPopoverPos = externalFiltersState?.popoverPos ?? localFiltersPopoverPos;
     const setFiltersPopoverPos = externalFiltersState?.setPopoverPos ?? setLocalFiltersPopoverPos;
     const filtersButtonRef = externalFiltersState?.buttonRef ?? localFiltersButtonRef;
+    const filters = externalTimelineFilters?.filters ?? localFilters;
+    const setFilters = externalTimelineFilters?.setFilters ?? setLocalFilters;
 
     const anchorMs = useMemo(() => {
         if (!taskStatus || taskStatus === "running") return nowMs;
@@ -91,8 +82,8 @@ export function Timeline({
     const activeBaseLanes = useMemo(() => TIMELINE_LANES.filter((l) => filters[l]), [filters]);
     const groupedTimeline = useMemo(() => groupInstructionsBursts(timeline), [timeline]);
     const filteredTimeline = useMemo(
-        () => filterTimelineEvents(groupedTimeline, { laneFilters: filters, selectedRuleId, selectedTag, showRuleGapsOnly }),
-        [filters, selectedRuleId, selectedTag, showRuleGapsOnly, groupedTimeline],
+        () => filterTimelineEvents(groupedTimeline, { laneFilters: filters, selectedRuleId, selectedTag: null, showRuleGapsOnly }),
+        [filters, selectedRuleId, showRuleGapsOnly, groupedTimeline],
     );
     const expandedLaneSet = useMemo(() => {
         const active = Object.entries(expandedSubtypeLanes)
@@ -195,9 +186,9 @@ export function Timeline({
             totalEventCount: timeline.length,
             activeLaneCount: activeBaseLanes.length,
             totalLaneCount: TIMELINE_LANES.length,
-            selectedRuleId, selectedTag, showRuleGapsOnly,
+            selectedRuleId, selectedTag: null, showRuleGapsOnly,
         }),
-        [activeBaseLanes.length, filteredTimeline.length, selectedRuleId, selectedTag, showRuleGapsOnly, timeline.length],
+        [activeBaseLanes.length, filteredTimeline.length, selectedRuleId, showRuleGapsOnly, timeline.length],
     );
 
     // Follow scroll: keep latest event in view
@@ -266,23 +257,16 @@ export function Timeline({
         };
     }, [openStackEventId]);
 
-    // Open controls panel when title editing starts
-    useEffect(() => {
-        if (isEditingTaskTitle && !isTaskControlsOpen) setIsTaskControlsOpen(true);
-    }, [isEditingTaskTitle, isTaskControlsOpen, setIsTaskControlsOpen]);
-
     // Close popovers on outside click / Escape
     useEffect(() => {
-        if (!isFiltersOpen && !isTaskControlsOpen) return;
+        if (!isFiltersOpen) return;
         const handleMouse = (e: MouseEvent): void => {
             const t = e.target as Node;
-            if (isFiltersOpen && filtersPopoverRef.current && !filtersPopoverRef.current.contains(t) && filtersButtonRef.current && !filtersButtonRef.current.contains(t))
+            if (filtersPopoverRef.current && !filtersPopoverRef.current.contains(t) && filtersButtonRef.current && !filtersButtonRef.current.contains(t))
                 setIsFiltersOpen(false);
-            if (isTaskControlsOpen && controlsPopoverRef.current && !controlsPopoverRef.current.contains(t) && controlsButtonRef.current && !controlsButtonRef.current.contains(t))
-                setIsTaskControlsOpen(false);
         };
         const handleKey = (e: KeyboardEvent): void => {
-            if (e.key === "Escape") { setIsFiltersOpen(false); setIsTaskControlsOpen(false); }
+            if (e.key === "Escape") { setIsFiltersOpen(false); }
         };
         window.addEventListener("mousedown", handleMouse);
         window.addEventListener("keydown", handleKey);
@@ -290,7 +274,7 @@ export function Timeline({
             window.removeEventListener("mousedown", handleMouse);
             window.removeEventListener("keydown", handleKey);
         };
-    }, [isFiltersOpen, isTaskControlsOpen, controlsButtonRef, controlsPopoverRef, filtersButtonRef, filtersPopoverRef, setIsFiltersOpen, setIsTaskControlsOpen]);
+    }, [isFiltersOpen, filtersButtonRef, filtersPopoverRef, setIsFiltersOpen]);
 
     return (
         <section className="flex h-full min-h-0 flex-col">
@@ -304,21 +288,25 @@ export function Timeline({
                         onToggleRuleGap={onToggleRuleGap}
                         selectedRuleId={selectedRuleId}
                         onClearRuleId={onClearRuleId}
-                        selectedTag={selectedTag}
-                        onClearTag={onClearTag}
                         observabilityStats={observabilityStats}
                         taskStatus={taskStatus}
-                        isTaskControlsOpen={isTaskControlsOpen}
+                        isUpdatingTaskStatus={isUpdatingTaskStatus}
                         isEditingTaskTitle={isEditingTaskTitle}
-                        controlsButtonRef={controlsButtonRef}
-                        setControlsPopoverPos={setControlsPopoverPos}
-                        setIsTaskControlsOpen={setIsTaskControlsOpen}
+                        taskTitleDraft={taskTitleDraft}
+                        taskTitleError={taskTitleError}
+                        isSavingTaskTitle={isSavingTaskTitle}
+                        onTitleDraftChange={onTitleDraftChange}
+                        onSubmitTitle={onSubmitTitle}
+                        onCancelEditTitle={onCancelEditTitle}
+                        onStartEditTitle={onStartEditTitle}
+                        showInlineFiltersButton={externalFiltersState === undefined}
                         isFiltersOpen={isFiltersOpen}
                         filtersButtonRef={filtersButtonRef}
                         setFiltersPopoverPos={setFiltersPopoverPos}
                         setIsFiltersOpen={setIsFiltersOpen}
                         activeLaneCount={activeBaseLanes.length}
                         totalLaneCount={TIMELINE_LANES.length}
+                        {...(onChangeTaskStatus !== undefined ? { onChangeTaskStatus } : {})}
                     />
                 )}
                 {isFiltersOpen && (
@@ -331,25 +319,6 @@ export function Timeline({
                         totalLaneCount={TIMELINE_LANES.length}
                         filters={filters}
                         setFilters={setFilters}
-                    />
-                )}
-                {(isTaskControlsOpen || isEditingTaskTitle) && (
-                    <TimelineTaskControlsPanel
-                        controlsPopoverRef={controlsPopoverRef}
-                        controlsPopoverPos={controlsPopoverPos}
-                        isEditingTaskTitle={isEditingTaskTitle}
-                        onSubmitTitle={onSubmitTitle}
-                        isSavingTaskTitle={isSavingTaskTitle}
-                        onTitleDraftChange={onTitleDraftChange}
-                        taskTitleDraft={taskTitleDraft}
-                        onCancelEditTitle={onCancelEditTitle}
-                        taskTitleError={taskTitleError}
-                        onStartEditTitle={onStartEditTitle}
-                        onOpenTaskWorkspace={onOpenTaskWorkspace}
-                        taskStatus={taskStatus}
-                        onChangeTaskStatus={onChangeTaskStatus}
-                        isUpdatingTaskStatus={isUpdatingTaskStatus}
-                        observabilityStats={observabilityStats}
                     />
                 )}
 

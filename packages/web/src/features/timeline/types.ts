@@ -1,6 +1,6 @@
 import type React from "react";
 import type { FormEvent as ReactFormEvent } from "react";
-import type { TimelineEvent } from "@monitor/web-domain";
+import type { TimelineEvent, TimelineLane } from "@monitor/web-domain";
 
 export interface TimelineObservabilityStats {
     readonly actions: number;
@@ -28,7 +28,6 @@ export interface TimelineProps {
     readonly selectedEventId: string | null;
     readonly selectedConnectorKey: string | null;
     readonly selectedRuleId: string | null;
-    readonly selectedTag: string | null;
     readonly showRuleGapsOnly: boolean;
     readonly nowMs: number;
     readonly zoom: number;
@@ -43,22 +42,17 @@ export interface TimelineProps {
     readonly onClearFilters: () => void;
     readonly onToggleRuleGap: (show: boolean) => void;
     readonly onClearRuleId: () => void;
-    readonly onClearTag: () => void;
-    readonly onOpenTaskWorkspace?: () => void;
     readonly onChangeTaskStatus?: (status: "running" | "waiting" | "completed" | "errored") => void;
     readonly embedded?: boolean;
-    readonly externalControlsState?: {
-        readonly isOpen: boolean;
-        readonly setIsOpen: React.Dispatch<React.SetStateAction<boolean>>;
-        readonly popoverPos: { top: number; right: number };
-        readonly setPopoverPos: (value: { top: number; right: number }) => void;
-        readonly buttonRef: React.RefObject<HTMLButtonElement | null>;
-    } | undefined;
     readonly externalFiltersState?: {
         readonly isOpen: boolean;
         readonly setIsOpen: React.Dispatch<React.SetStateAction<boolean>>;
         readonly popoverPos: { top: number; right: number };
         readonly setPopoverPos: (value: { top: number; right: number }) => void;
         readonly buttonRef: React.RefObject<HTMLButtonElement | null>;
+    } | undefined;
+    readonly externalTimelineFilters?: {
+        readonly filters: Record<TimelineLane, boolean>;
+        readonly setFilters: React.Dispatch<React.SetStateAction<Record<TimelineLane, boolean>>>;
     } | undefined;
 }

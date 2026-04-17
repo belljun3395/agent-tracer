@@ -17,7 +17,6 @@ import {
     DetailModelInfo,
     DetailRelatedEvents,
     DetailSection,
-    DetailTags,
     DetailTaskModel,
     DetailTokenUsage,
     DetailTranscriptContext,
@@ -42,12 +41,10 @@ export interface InspectorTabProps {
     readonly questionGroups: readonly QuestionGroup[];
     readonly todoGroups: readonly TodoGroup[];
     readonly relatedEvents: readonly TimelineEvent[];
-    readonly selectedTag: string | null;
     readonly selectedRuleId: string | null;
     readonly onCreateTaskBookmark: () => void;
     readonly onCreateEventBookmark: () => void;
     readonly onUpdateEventDisplayTitle: (eventId: string, displayTitle: string | null) => Promise<void>;
-    readonly onSelectTag: (tag: string | null) => void;
     readonly onSelectRule: (ruleId: string | null) => void;
     readonly onOpenTaskWorkspace?: () => void;
     readonly openWorkspaceLabel: string;
@@ -69,12 +66,10 @@ export function InspectorTab({
     questionGroups,
     todoGroups,
     relatedEvents,
-    selectedTag,
     selectedRuleId,
     onCreateTaskBookmark,
     onCreateEventBookmark,
     onUpdateEventDisplayTitle,
-    onSelectTag,
     onSelectRule,
     onOpenTaskWorkspace,
     openWorkspaceLabel,
@@ -212,13 +207,6 @@ export function InspectorTab({
                 `To: ${buildInspectorEventTitle(selectedConnector.target) ?? selectedConnector.target.title}`
             ].filter((value): value is string => Boolean(value)).join("\n")}/>
             <DetailConnectorIds connector={selectedConnector.connector} source={selectedConnector.source} target={selectedConnector.target}/>
-            <DetailTags title="Transition Tags" values={[
-                selectedConnector.connector.isExplicit ? "explicit" : "inferred",
-                selectedConnector.connector.cross ? "cross-lane" : "same-lane",
-                selectedConnector.source.lane,
-                selectedConnector.target.lane,
-                selectedConnector.connector.relationType ?? "relates_to"
-            ]}/>
             <DetailConnectorEvents source={selectedConnector.source} target={selectedConnector.target}/>
             <DetailSection label="Metadata" mono value={JSON.stringify({
                 connectorKey: selectedConnector.connector.key,
@@ -281,7 +269,6 @@ export function InspectorTab({
             {selectedEvent.kind === "user.message" && <DetailCaptureInfo event={selectedEvent}/>}
             {selectedEvent.kind === "assistant.response" && <DetailTokenUsage event={selectedEvent}/>}
             {(selectedEvent.metadata["modelName"] as string | undefined) && (<DetailModelInfo modelName={selectedEvent.metadata["modelName"] as string} modelProvider={selectedEvent.metadata["modelProvider"] as string | undefined}/>)}
-            <DetailTags title="Tags" values={selectedEvent.classification.tags} activeValue={selectedTag} onSelect={(tag) => onSelectTag(selectedTag === tag ? null : tag)}/>
             <DetailMatchList event={selectedEvent} activeRuleId={selectedRuleId} onSelectRule={(ruleId) => {
                 onSelectRule(selectedRuleId === ruleId ? null : ruleId);
             }}/>

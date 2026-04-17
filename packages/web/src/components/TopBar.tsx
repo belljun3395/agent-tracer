@@ -23,8 +23,12 @@ interface TopBarProps {
     readonly onSelectSearchEvent: (taskId: string, eventId: string) => void;
     readonly onSelectSearchBookmark: (bookmark: BookmarkSearchHit) => void;
     readonly onRefresh: () => void;
+    readonly showFiltersButton?: boolean;
+    readonly isFiltersOpen?: boolean;
+    readonly filtersButtonRef?: React.RefObject<HTMLButtonElement | null>;
+    readonly onToggleFilters?: () => void;
 }
-export function TopBar({ isConnected, pendingApprovalCount = 0, blockedTaskCount = 0, isNavigationOpen, onOpenApprovalQueue, onToggleNavigation, searchQuery, searchResults, isSearching, selectedTaskTitle, taskScopeEnabled, onTaskScopeToggle, onSearchQueryChange, onSelectSearchTask, onSelectSearchEvent, onSelectSearchBookmark, onRefresh }: TopBarProps): React.JSX.Element {
+export function TopBar({ isConnected, pendingApprovalCount = 0, blockedTaskCount = 0, isNavigationOpen, onOpenApprovalQueue, onToggleNavigation, searchQuery, searchResults, isSearching, selectedTaskTitle, taskScopeEnabled, onTaskScopeToggle, onSearchQueryChange, onSelectSearchTask, onSelectSearchEvent, onSelectSearchBookmark, onRefresh, showFiltersButton = false, isFiltersOpen = false, filtersButtonRef, onToggleFilters }: TopBarProps): React.JSX.Element {
     const { theme, toggle: toggleTheme } = useTheme();
     const searchRef = useRef<HTMLInputElement>(null);
     const totalResults = (searchResults?.tasks.length ?? 0)
@@ -162,6 +166,16 @@ export function TopBar({ isConnected, pendingApprovalCount = 0, blockedTaskCount
         {blockedTaskCount > 0 && (<button className="inline-flex h-6.5 items-center rounded-[var(--radius-md)] border border-[var(--err-bg)] bg-[var(--err-bg)] px-2 text-[0.68rem] font-semibold text-[var(--err)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--err)] focus-visible:ring-offset-1" onClick={onOpenApprovalQueue} type="button">
             {blockedTaskCount} blocked
           </button>)}
+        {showFiltersButton && onToggleFilters && (
+          <button ref={filtersButtonRef} aria-expanded={isFiltersOpen} aria-label="Open filters and zoom" className={cn("inline-flex h-7 shrink-0 items-center gap-1.5 rounded-[var(--radius-md)] border px-2.5 text-[0.72rem] font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-1", isFiltersOpen
+              ? "border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] text-[var(--accent)]"
+              : "border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-3)] hover:border-[var(--border-strong)] hover:bg-[var(--surface)] hover:text-[var(--text-1)]")} onClick={onToggleFilters} title="Filters & Zoom" type="button">
+            <svg aria-hidden="true" fill="none" height="13" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" width="13">
+              <line x1="4" x2="20" y1="6" y2="6"/><line x1="8" x2="16" y1="12" y2="12"/><line x1="11" x2="13" y1="18" y2="18"/>
+            </svg>
+            <span className="hidden sm:inline">Filters</span>
+          </button>
+        )}
         <button aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"} className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-3)] opacity-60 transition hover:border-[var(--border-strong)] hover:bg-[var(--surface)] hover:text-[var(--text-1)] hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-1" onClick={toggleTheme} title={theme === "dark" ? "Light mode" : "Dark mode"} type="button">
           {theme === "dark" ? (<svg aria-hidden="true" fill="none" height="14" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" width="14">
               <circle cx="12" cy="12" r="4"/>
