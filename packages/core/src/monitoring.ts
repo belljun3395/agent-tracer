@@ -1,3 +1,1 @@
-export * from "./monitoring/ids.js";
-export * from "./monitoring/types.js";
-export * from "./monitoring/utils.js";
+export * from "@monitor/domain";

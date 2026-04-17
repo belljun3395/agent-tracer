@@ -17,6 +17,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@monitor/domain": "*",
     "yaml": "^2.0.0",
     "zod": "^3.0.0"
   },

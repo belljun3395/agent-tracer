@@ -4,7 +4,7 @@ module.exports = {
   forbidden: [
     {
       name: "domain-is-pure",
-      severity: "warn",
+      severity: "error",
       comment: "packages/domain must not import any other @monitor/* package.",
       from: { path: "^packages/domain/" },
       to:   { path: "^packages/(?!domain/)" },

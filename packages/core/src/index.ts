@@ -1,5 +1,5 @@
 import { registerDefaultRuntimeAdapters } from "./runtime.js";
-export * from "./monitoring.js";
+export * from "@monitor/domain";
 export * from "./classification.js";
 export * from "./interop.js";
 export * from "./paths.js";

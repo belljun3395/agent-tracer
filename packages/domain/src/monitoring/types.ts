@@ -1,4 +1,4 @@
-import type { EventClassification } from "../classification.js";
+import type { EventClassification } from "../classification/types.js";
 import type { EventId, RuntimeSource, SessionId, TaskId, TaskSlug, WorkspacePath } from "./ids.js";
 
 export type TimelineLane = "user" | "exploration" | "planning" | "implementation" | "questions" | "todos" | "background" | "coordination";

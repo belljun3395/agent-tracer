@@ -1,5 +1,5 @@
-import type { MonitoringEventKind, TimelineLane } from "../monitoring/types.js";
-import type { ActionName, ToolName } from "./ids.js";
+import type { MonitoringEventKind, TimelineLane } from "@monitor/domain";
+import type { ActionName, ToolName } from "@monitor/domain";
 export interface ClassifyEventInput {
     readonly kind: MonitoringEventKind;
     readonly title?: string;

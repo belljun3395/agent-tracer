@@ -8,6 +8,9 @@
       "@monitor/core": [
         "packages/core/src/index.ts"
       ],
+      "@monitor/domain": [
+        "packages/domain/src/index.ts"
+      ],
       "@monitor/server": [
         "packages/server/src/index.ts"
       ],

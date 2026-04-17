@@ -1,4 +1,4 @@
-import type { MonitoringEventKind, TimelineLane } from "../monitoring/types.js";
+import type { MonitoringEventKind, TimelineLane } from "@monitor/domain";
 
 /**
  * Pins lifecycle and user-facing event kinds to non-overridable canonical lanes.

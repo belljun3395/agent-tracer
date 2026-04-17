@@ -1,1 +1,1 @@
-export * from "./paths/utils.js";
+export * from "@monitor/domain";

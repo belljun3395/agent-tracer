@@ -1,4 +1,4 @@
-import type { TimelineEvent } from "../monitoring/types.js";
+import type { TimelineEvent } from "@monitor/domain";
 
 const REQUEST_PREVIEW_LIMIT = 120;
 

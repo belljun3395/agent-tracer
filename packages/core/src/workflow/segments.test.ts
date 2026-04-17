@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { segmentEventsByTurn } from "./segments.js";
-import type { TimelineEvent } from "../monitoring/types.js";
-import { EventId, TaskId } from "../monitoring/ids.js";
-import type { EventClassification } from "../classification.js";
+import type { TimelineEvent } from "@monitor/domain";
+import { EventId, TaskId } from "@monitor/domain";
+import type { EventClassification } from "@monitor/domain";
 
 const classification: EventClassification = { lane: "exploration", tags: [], matches: [] };
 

@@ -1,4 +1,4 @@
-import type { TimelineEvent } from "../monitoring/types.js";
+import type { TimelineEvent } from "@monitor/domain";
 import { getKnownRuntimeCapabilities, getRuntimeEvidenceProfile, normalizeRuntimeAdapterId } from "./capabilities.helpers.js";
 import type { RuntimeEvidenceFeatureId, RuntimeEvidenceProfile } from "./capabilities.types.js";
 export type EvidenceLevel = "proven" | "self_reported" | "inferred" | "unavailable";

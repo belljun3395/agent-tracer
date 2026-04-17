@@ -1,5 +1,5 @@
-import { RuleId } from "./ids.js";
-import type { EventClassificationMatch, EventClassificationReason } from "./types.js";
+import { RuleId } from "@monitor/domain";
+import type { EventClassificationMatch, EventClassificationReason } from "@monitor/domain";
 import { ACTION_KEYWORD_RULES, ACTION_PREFIX_RULES, ACTION_SKIP_WORDS } from "./action-registry.constants.js";
 
 /**
