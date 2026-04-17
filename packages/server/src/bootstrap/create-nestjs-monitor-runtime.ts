@@ -4,7 +4,7 @@ import type express from "express";
 import { NestFactory } from "@nestjs/core";
 import { WebSocketServer } from "ws";
 import { AppModule } from "../presentation/app.module.js";
-import { EventBroadcaster } from "../presentation/ws/event-broadcaster.js";
+import { EventBroadcaster } from "@monitor/adapter-ws";
 import { GlobalExceptionFilter } from "../presentation/filters/zod-exception.filter.js";
 import { MonitorService } from "@monitor/application";
 import { MONITOR_PORTS_TOKEN, type PortsWithClose } from "../presentation/database/database.provider.js";

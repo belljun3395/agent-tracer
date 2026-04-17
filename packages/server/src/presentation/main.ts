@@ -4,7 +4,7 @@ import { NestFactory } from "@nestjs/core";
 import { WebSocketServer } from "ws";
 import { loadApplicationConfig, resolveMonitorDatabasePath, resolveMonitorHttpBaseUrl, resolveMonitorListenHost, resolveMonitorPort } from "../../../../config/load-application-config.js";
 import { AppModule } from "./app.module.js";
-import { EventBroadcaster } from "./ws/event-broadcaster.js";
+import { EventBroadcaster } from "@monitor/adapter-ws";
 import { MonitorService } from "@monitor/application";
 import { MONITOR_PORTS_TOKEN } from "./database/database.provider.js";
 import type { PortsWithClose } from "./database/database.provider.js";
