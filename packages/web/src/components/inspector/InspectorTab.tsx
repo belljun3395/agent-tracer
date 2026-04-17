@@ -19,6 +19,7 @@ import {
     DetailTags,
     DetailTaskModel,
     DetailTokenUsage,
+    DetailTranscriptContext,
     InspectorHeaderCard
 } from "./InspectorDetails.js";
 
@@ -242,6 +243,7 @@ export function InspectorTab({
                 ?? (selectedEvent.metadata["ruleId"] as string | undefined)
                 ?? "—"}/>
             <DetailIds event={selectedEvent} runtimeSessionId={taskDetail?.runtimeSessionId}/>
+            <DetailTranscriptContext event={selectedEvent}/>
             <DetailEventEvidence event={selectedEvent} {...(taskDetail?.task.runtimeSource ? { runtimeSource: taskDetail.task.runtimeSource } : {})}/>
             {selectedEvent.kind === "question.logged" && (() => {
                 const qId = selectedEvent.metadata["questionId"] as string | undefined;

@@ -846,6 +846,11 @@
 .event-node.kind-assistant-response { border-color: color-mix(in srgb, var(--assistant) 18%, var(--border)); background: color-mix(in srgb, var(--surface) 88%, var(--assistant-bg)); }
 .event-node.kind-assistant-response .event-node-dot { background: var(--assistant); }
 
+/* Transcript-sourced events: dashed border signals model-internal / system context */
+.event-node.kind-thought-logged { border-style: dashed; }
+.event-node.kind-context-saved { border-style: dashed; }
+.event-node.kind-instructions-loaded { border-style: dashed; }
+
 .event-node-header {
   display: flex;
   align-items: center;

@@ -73,6 +73,14 @@ export function TimelineEventNode({
             : typeof item.event.metadata["todoId"] === "string"
               ? item.event.metadata["todoId"]
               : undefined;
+    const attachmentType =
+        typeof item.event.metadata["attachmentType"] === "string"
+            ? item.event.metadata["attachmentType"]
+            : undefined;
+    const assistantPhase =
+        typeof item.event.metadata["phase"] === "string"
+            ? item.event.metadata["phase"]
+            : undefined;
     const subtype = resolveEventSubtype(item.event);
     const stackGroup = stackGroups.get(item.event.id);
     const stackCount = stackGroup ? stackGroup.length - 1 : 0;
@@ -88,7 +96,17 @@ export function TimelineEventNode({
               ? { label: `mcp:${mcpTool}`, subtle: true }
               : null,
         workItemId ? { label: `work:${workItemId}`, subtle: true } : null,
-        item.event.kind === "assistant.response" ? { label: "response", subtle: false } : null,
+        item.event.kind === "assistant.response"
+            ? {
+                  label: assistantPhase === "intermediate" ? "mid-turn" : "response",
+                  subtle: false,
+              }
+            : null,
+        item.event.kind === "thought.logged" ? { label: "thinking", subtle: false } : null,
+        (item.event.kind === "context.saved" || item.event.kind === "instructions.loaded") &&
+        attachmentType
+            ? { label: attachmentType.replace(/_/g, " "), subtle: false }
+            : null,
         item.event.kind === "question.logged" && questionPhase
             ? { label: questionPhase, subtle: false }
             : null,
