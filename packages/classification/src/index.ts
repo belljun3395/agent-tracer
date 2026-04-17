@@ -4,3 +4,6 @@ export type { ActionPrefixRule, ActionKeywordRule } from "./action-registry.type
 
 // Classifier (public function + input type)
 export * from "./classifier.js";
+
+// Semantic-metadata derivation (subtypeKey/toolFamily/operation/…)
+export * from "./semantic-metadata.js";

@@ -19,7 +19,7 @@ import {
     type TimelineLane,
     type TodoState,
 } from "@monitor/domain"
-import { classifyEvent } from "@monitor/classification"
+import { classifyEvent, deriveSemanticMetadata, buildSemanticMetadata } from "@monitor/classification"
 
 /**
  * Structural input contract for batch event ingestion. Adapters (HTTP, WS, etc.)
@@ -135,6 +135,30 @@ export class EventIngestionService {
             ...(e.lane ? { lane: e.lane } : {}),
         })
         const resolvedLane: TimelineLane = classification.lane
+
+        // Derive semantic metadata (subtypeKey/toolFamily/operation/…) from the
+        // raw ingest payload. Phase 6b: plugin still sends these fields, so we
+        // merge with caller-wins semantics (explicit metadata overrides derived).
+        // Phase 6c strips the plugin pipeline and server-derived becomes the
+        // sole source.
+        const derived = deriveSemanticMetadata({
+            kind: e.kind,
+            ...(e.toolName ? { toolName: e.toolName } : {}),
+            ...(e.command ? { command: e.command } : {}),
+            ...(e.filePaths ? { filePaths: e.filePaths } : {}),
+            ...(e.metadata ? { metadata: e.metadata } : {}),
+            ...(e.activityType ? { activityType: e.activityType } : {}),
+            ...(e.mcpServer ? { mcpServer: e.mcpServer } : {}),
+            ...(e.mcpTool ? { mcpTool: e.mcpTool } : {}),
+            ...(e.agentName ? { agentName: e.agentName } : {}),
+            ...(e.skillName ? { skillName: e.skillName } : {}),
+        })
+        const mergedMetadata: Record<string, unknown> | undefined = (() => {
+            if (!derived && !e.metadata) return undefined
+            const derivedRecord = derived ? buildSemanticMetadata(derived) : {}
+            return { ...derivedRecord, ...(e.metadata ?? {}) }
+        })()
+
         const base = {
             taskId,
             ...(sessionId ? { sessionId } : {}),
@@ -142,7 +166,7 @@ export class EventIngestionService {
             ...(e.body ? { body: e.body } : {}),
             lane: resolvedLane,
             ...(e.filePaths ? { filePaths: e.filePaths } : {}),
-            ...(e.metadata ? { metadata: e.metadata } : {}),
+            ...(mergedMetadata ? { metadata: mergedMetadata } : {}),
         }
         const relations = {
             ...(e.parentEventId ? { parentEventId: e.parentEventId as EventId } : {}),
