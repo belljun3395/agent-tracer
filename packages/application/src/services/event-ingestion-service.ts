@@ -14,10 +14,12 @@ import {
     type AgentActivityType,
     type EventId,
     type EventRelationType,
+    type MonitoringEventKind,
     type QuestionPhase,
     type TimelineLane,
     type TodoState,
 } from "@monitor/domain"
+import { classifyEvent } from "@monitor/classification"
 
 /**
  * Structural input contract for batch event ingestion. Adapters (HTTP, WS, etc.)
@@ -118,12 +120,27 @@ export class EventIngestionService {
     private async dispatchEvent(e: IngestEventInput) {
         const taskId = TaskId(e.taskId)
         const sessionId = e.sessionId ? SessionId(e.sessionId) : undefined
+        // For tool.used events the tool name is the closest signal we have to
+        // an action verb — fall back to it so "Read"/"Grep"/"Glob" etc. still
+        // classify as exploration when the caller omits an explicit action.
+        const actionHint = e.action ?? (e.kind === "tool.used" ? e.toolName : undefined)
+        const classification = classifyEvent({
+            kind: e.kind as MonitoringEventKind,
+            ...(e.title ? { title: e.title } : {}),
+            ...(e.body ? { body: e.body } : {}),
+            ...(e.command ? { command: e.command } : {}),
+            ...(e.toolName ? { toolName: ToolName(e.toolName) } : {}),
+            ...(actionHint ? { actionName: ActionName(actionHint) } : {}),
+            ...(e.filePaths ? { filePaths: e.filePaths } : {}),
+            ...(e.lane ? { lane: e.lane } : {}),
+        })
+        const resolvedLane: TimelineLane = classification.lane
         const base = {
             taskId,
             ...(sessionId ? { sessionId } : {}),
             ...(e.title ? { title: e.title } : {}),
             ...(e.body ? { body: e.body } : {}),
-            ...(e.lane ? { lane: e.lane } : {}),
+            lane: resolvedLane,
             ...(e.filePaths ? { filePaths: e.filePaths } : {}),
             ...(e.metadata ? { metadata: e.metadata } : {}),
         }
@@ -137,7 +154,7 @@ export class EventIngestionService {
 
         switch (e.kind) {
             case "tool.used":
-                if (e.lane === "exploration") {
+                if (resolvedLane === "exploration") {
                     return this.monitor.logExploration({
                         ...base,
                         title: e.title ?? e.toolName ?? "Explore",
