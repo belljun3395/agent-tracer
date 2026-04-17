@@ -22,10 +22,21 @@ export function defaultTaskTitle(): string {
 }
 
 export function relativeProjectPath(filePath: string): string {
-    if (filePath.startsWith(PROJECT_DIR)) {
-        return filePath.slice(PROJECT_DIR.length).replace(/^\/+/, "");
+    if (!filePath) return filePath;
+
+    const relative = path.relative(PROJECT_DIR, filePath);
+    if (!relative) return "";
+
+    const normalizedRelative = relative.split(path.sep).join("/");
+    if (
+        normalizedRelative === ".." ||
+        normalizedRelative.startsWith("../") ||
+        path.isAbsolute(relative)
+    ) {
+        return filePath;
     }
-    return filePath;
+
+    return normalizedRelative.replace(/^\/+/, "");
 }
 
 export function parseMcpToolName(toolName: string): { server: string; tool: string } | null {

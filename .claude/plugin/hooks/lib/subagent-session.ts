@@ -5,6 +5,8 @@
  * hooks that fire inside a subagent. The agent_id field is the only discriminator.
  *
  * This module provides:
+ *   resolveBackgroundSessionIds — creates/resolves a child runtime session that
+ *                                 should be linked to the parent as a background task
  *   resolveSubagentSessionIds — creates/resolves a virtual monitor session keyed
  *                               by "sub--{agent_id}" so subagent events land on a
  *                               separate background child task.
@@ -23,6 +25,24 @@ import { resolveSessionIds } from "./session.js";
 import { ensureRuntimeSession } from "./transport.js";
 import type { RuntimeSessionEnsureResult } from "./transport.js";
 
+export async function resolveBackgroundSessionIds(
+    parentRuntimeSessionId: string,
+    childRuntimeSessionId: string,
+    childTitle: string,
+    parentIds?: Pick<RuntimeSessionEnsureResult, "taskId" | "sessionId">
+): Promise<RuntimeSessionEnsureResult> {
+    const cached = getCachedSessionResult(childRuntimeSessionId);
+    if (cached) return cached;
+
+    const resolvedParentIds = parentIds ?? await resolveSessionIds(parentRuntimeSessionId);
+    const fresh = await ensureRuntimeSession(childRuntimeSessionId, childTitle, {
+        parentTaskId: resolvedParentIds.taskId,
+        parentSessionId: resolvedParentIds.sessionId
+    });
+    cacheSessionResult(childRuntimeSessionId, fresh);
+    return fresh;
+}
+
 /**
  * Resolve (or create) a monitor task/session for a subagent identified by agent_id.
  *
@@ -39,19 +59,8 @@ export async function resolveSubagentSessionIds(
     agentType?: string
 ): Promise<RuntimeSessionEnsureResult> {
     const virtualId = `sub--${agentId}`;
-
-    const cached = getCachedSessionResult(virtualId);
-    if (cached) return cached;
-
-    const parentIds = await resolveSessionIds(parentSessionId);
     const title = agentType ? `Subagent: ${agentType}` : `Subagent: ${agentId}`;
-
-    const fresh = await ensureRuntimeSession(virtualId, title, {
-        parentTaskId: parentIds.taskId,
-        parentSessionId: parentIds.sessionId
-    });
-    cacheSessionResult(virtualId, fresh);
-    return fresh;
+    return resolveBackgroundSessionIds(parentSessionId, virtualId, title);
 }
 
 /**

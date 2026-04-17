@@ -27,18 +27,21 @@
  * This handler classifies the shell command semantically (probe, test, build, lint,
  * verify, or generic run) and posts a /api/terminal-command event to the monitor.
  */
-import { buildSemanticMetadata, getSessionId, getToolInput, hookLog, hookLogPayload, inferCommandSemantic, postJson, readStdinJson, resolveEventSessionIds, toTrimmedString } from "../common.js";
+import { getAgentContext, getSessionId, getToolInput, getToolUseId, toTrimmedString } from "../util/utils.js";
+import { postJson, readStdinJson } from "../lib/transport.js";
+import { resolveEventSessionIds } from "../lib/subagent-session.js";
+import { hookLog, hookLogPayload } from "../lib/hook-log.js";
+import { buildSemanticMetadata, inferCommandSemantic } from "../classification/command-semantic.js";
 
 async function main(): Promise<void> {
     const payload = await readStdinJson();
     hookLogPayload("PostToolUse/Bash", payload);
     const toolInput = getToolInput(payload);
     const sessionId = getSessionId(payload);
-    const agentId = toTrimmedString(payload.agent_id) || undefined;
-    const agentType = toTrimmedString(payload.agent_type) || undefined;
+    const { agentId, agentType } = getAgentContext(payload);
     const command = toTrimmedString(toolInput.command);
     const description = toTrimmedString(toolInput.description);
-    const toolUseId = toTrimmedString(payload.tool_use_id) || undefined;
+    const toolUseId = getToolUseId(payload);
     hookLog("PostToolUse/Bash", "fired", { sessionId: sessionId || "(none)", cmdPreview: command.slice(0, 60) });
 
     if (!sessionId || !command) {

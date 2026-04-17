@@ -1,6 +1,8 @@
 import { createServer } from "node:http";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
+import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
@@ -13,6 +15,7 @@ const userPromptHook = fileURLToPath(new URL("../../../.claude/plugin/hooks/User
 const sessionStartHook = fileURLToPath(new URL("../../../.claude/plugin/hooks/SessionStart.ts", import.meta.url));
 const sessionEndHook = fileURLToPath(new URL("../../../.claude/plugin/hooks/SessionEnd.ts", import.meta.url));
 const agentActivityHook = fileURLToPath(new URL("../../../.claude/plugin/hooks/PostToolUse/Agent.ts", import.meta.url));
+const fileToolHook = fileURLToPath(new URL("../../../.claude/plugin/hooks/PostToolUse/File.ts", import.meta.url));
 const compactHook = fileURLToPath(new URL("../../../.claude/plugin/hooks/PostCompact.ts", import.meta.url));
 const subagentLifecycleHook = fileURLToPath(new URL("../../../.claude/plugin/hooks/SubagentStart.ts", import.meta.url));
 const subagentStopHook = fileURLToPath(new URL("../../../.claude/plugin/hooks/SubagentStop.ts", import.meta.url));
@@ -72,15 +75,126 @@ async function startMonitorStub() {
         port: address.port
     };
 }
+
+async function startStatefulMonitorStub() {
+    const calls: RequestCall[] = [];
+    const taskIds = new Map<string, string>();
+    const bindings = new Map<string, string>();
+    let nextTaskIndex = 1;
+    let nextSessionIndex = 1;
+
+    const server = createServer((req, res) => {
+        void (async () => {
+            const chunks: Buffer[] = [];
+            for await (const chunk of req) {
+                chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : chunk);
+            }
+            const body = chunks.length > 0
+                ? JSON.parse(Buffer.concat(chunks).toString("utf8")) as Record<string, unknown>
+                : {};
+            const endpoint = req.url ?? "";
+            calls.push({ endpoint, body });
+            res.setHeader("content-type", "application/json");
+
+            if (endpoint === "/api/runtime-session-ensure") {
+                const runtimeSessionId = String(body.runtimeSessionId ?? "");
+                if (!taskIds.has(runtimeSessionId)) {
+                    taskIds.set(runtimeSessionId, `task-${nextTaskIndex++}`);
+                }
+                if (!bindings.has(runtimeSessionId)) {
+                    bindings.set(runtimeSessionId, `monitor-session-${nextSessionIndex++}`);
+                }
+                res.end(JSON.stringify({
+                    taskId: taskIds.get(runtimeSessionId),
+                    sessionId: bindings.get(runtimeSessionId),
+                    taskCreated: false,
+                    sessionCreated: true
+                }));
+                return;
+            }
+
+            if (endpoint === "/api/runtime-session-end") {
+                const runtimeSessionId = String(body.runtimeSessionId ?? "");
+                bindings.delete(runtimeSessionId);
+                res.end(JSON.stringify({ ok: true }));
+                return;
+            }
+
+            res.end(JSON.stringify({ ok: true }));
+        })().catch((error: unknown) => {
+            res.statusCode = 500;
+            res.setHeader("content-type", "application/json");
+            res.end(JSON.stringify({
+                error: error instanceof Error ? error.message : "Unknown error"
+            }));
+        });
+    });
+
+    server.listen(0, "127.0.0.1");
+    await once(server, "listening");
+    const address = server.address();
+    if (!address || typeof address === "string") {
+        throw new Error("Failed to resolve stub server port");
+    }
+
+    return {
+        calls,
+        close: async () => {
+            server.close();
+            await once(server, "close");
+        },
+        port: address.port
+    };
+}
 interface RunClaudeHookOptions {
     readonly cwd?: string;
     readonly omitProjectDir?: boolean;
     readonly projectDir?: string;
 }
+
+function extractEmbeddedSessionIds(payload: Record<string, unknown>): string[] {
+    const sessionIds = new Set<string>();
+    const runtimeSessionId = typeof payload.session_id === "string" ? payload.session_id.trim() : "";
+    if (runtimeSessionId) sessionIds.add(runtimeSessionId);
+
+    const agentId = typeof payload.agent_id === "string" ? payload.agent_id.trim() : "";
+    if (agentId) sessionIds.add(`sub--${agentId}`);
+
+    const toolResponse = payload.tool_response;
+    const toolResponseText = typeof toolResponse === "string"
+        ? toolResponse
+        : JSON.stringify(toolResponse ?? {});
+    const childMatch = /session_id[:\s]+([a-f0-9-]{8,})/i.exec(toolResponseText);
+    if (childMatch?.[1]) sessionIds.add(childMatch[1].trim());
+
+    return [...sessionIds];
+}
+
+function cleanupHookState(projectDir: string, payload: Record<string, unknown>): void {
+    const sessionCacheDir = path.join(projectDir, ".claude", ".session-cache");
+    for (const sessionId of extractEmbeddedSessionIds(payload)) {
+        for (const suffix of [".json", "-metadata.json", "-transcript-cursor.json"]) {
+            try {
+                fs.unlinkSync(path.join(sessionCacheDir, `${sessionId}${suffix}`));
+            } catch {
+                void 0;
+            }
+        }
+    }
+}
+
 async function runClaudeHook(scriptPath: string, payload: Record<string, unknown>, port: number, options: RunClaudeHookOptions = {}) {
+    const fallbackProjectDir = options.omitProjectDir
+        ? (options.cwd ?? process.cwd())
+        : (options.projectDir ?? "/repo");
+    cleanupHookState(fallbackProjectDir, payload);
+    const isolatedHome = fs.mkdtempSync(path.join(os.tmpdir(), "agent-tracer-hook-test-"));
+
     const env: NodeJS.ProcessEnv = {
         ...process.env,
-        MONITOR_PORT: String(port)
+        MONITOR_PORT: String(port),
+        HOME: isolatedHome,
+        USERPROFILE: isolatedHome
     };
     if (options.omitProjectDir) {
         delete env.CLAUDE_PROJECT_DIR;
@@ -107,6 +221,7 @@ async function runClaudeHook(scriptPath: string, payload: Record<string, unknown
     const [code] = await once(child, "close") as [
         number | null
     ];
+    fs.rmSync(isolatedHome, { recursive: true, force: true });
     expect(code).toBe(0);
     expect(stdout).toBe("");
     expect(stderr).toBe("");
@@ -128,7 +243,60 @@ describe("Claude plugin", () => {
             session_id: "parent-session"
         }, monitor.port);
         expect(monitor.calls).toEqual([]);
-    }, 60000);
+        }, 60000);
+    it("turn-ending runtime-session-end does not leave later tool events attached to a stale monitor session", async () => {
+        const monitor = await startStatefulMonitorStub();
+        servers.push(monitor);
+        const sessionId = "stale-session-cache-turn-boundary";
+
+        await runClaudeHook(userPromptHook, {
+            session_id: sessionId,
+            prompt: "first turn"
+        }, monitor.port);
+        await runClaudeHook(terminalHook, {
+            session_id: sessionId,
+            tool_name: "Bash",
+            tool_input: { command: "echo 1" }
+        }, monitor.port);
+        await runClaudeHook(stopHook, {
+            session_id: sessionId,
+            stop_reason: "end_turn",
+            last_assistant_message: "done"
+        }, monitor.port);
+        await runClaudeHook(userPromptHook, {
+            session_id: sessionId,
+            prompt: "second turn"
+        }, monitor.port);
+        await runClaudeHook(terminalHook, {
+            session_id: sessionId,
+            tool_name: "Bash",
+            tool_input: { command: "echo 2" }
+        }, monitor.port);
+
+        const ingestEvents = monitor.calls
+            .filter((call) => call.endpoint === "/ingest/v1/events")
+            .flatMap((call) => call.body.events as Array<Record<string, unknown>>);
+        const secondUserMessage = ingestEvents.find((event) => event.kind === "user.message" && event.body === "second turn");
+        const secondTerminalCommand = ingestEvents.find((event) => event.kind === "terminal.command" && event.command === "echo 2");
+
+        expect(secondUserMessage).toBeDefined();
+        expect(secondTerminalCommand).toBeDefined();
+        expect(secondTerminalCommand?.sessionId).toBe(secondUserMessage?.sessionId);
+    });
+    it("file hook preserves paths outside the workspace boundary instead of slicing by prefix", async () => {
+        const monitor = await startMonitorStub();
+        servers.push(monitor);
+        await runClaudeHook(fileToolHook, {
+            session_id: "outside-workspace-path-session",
+            tool_name: "Edit",
+            tool_input: { file_path: "/repo-other/src/index.ts" }
+        }, monitor.port, { projectDir: "/repo" });
+
+        const ingestCall = monitor.calls.find((call) => call.endpoint === "/ingest/v1/events");
+        const event = ingestCall?.body.events?.[0] as Record<string, unknown> | undefined;
+        expect(event?.filePaths).toEqual(["/repo-other/src/index.ts"]);
+        expect((event?.metadata as Record<string, unknown>)?.relPath).toBe("/repo-other/src/index.ts");
+    });
     it("SessionStart startup records a session-started planning event", async () => {
         const monitor = await startMonitorStub();
         servers.push(monitor);
@@ -166,8 +334,9 @@ describe("Claude plugin", () => {
         const monitor = await startMonitorStub();
         servers.push(monitor);
         const repoRoot = path.resolve(fileURLToPath(new URL("../../..", import.meta.url)));
+        const sessionId = `session-start-no-project-dir-${Date.now()}`;
         await runClaudeHook(sessionStartHook, {
-            session_id: "parent-session",
+            session_id: sessionId,
             source: "startup"
         }, monitor.port, {
             cwd: repoRoot,
@@ -178,7 +347,7 @@ describe("Claude plugin", () => {
                 endpoint: "/api/runtime-session-ensure",
                 body: {
                     runtimeSource: "claude-plugin",
-                    runtimeSessionId: "parent-session",
+                    runtimeSessionId: sessionId,
                     title: `Claude Code — ${path.basename(repoRoot)}`,
                     workspacePath: repoRoot
                 }
@@ -260,7 +429,7 @@ describe("Claude plugin", () => {
             }
         ]);
     });
-    it("links background Agent runs through the child runtime session instead of a fabricated task id", async () => {
+    it("creates background Agent child sessions with parent linkage on first ensure", async () => {
         const monitor = await startMonitorStub();
         servers.push(monitor);
         await runClaudeHook(agentActivityHook, {
@@ -270,7 +439,9 @@ describe("Claude plugin", () => {
                 description: "Review child monitor flow",
                 prompt: "Inspect the child task",
                 run_in_background: true,
-                subagent_type: "default"
+                subagent_type: "default",
+                items: [{ type: "text", text: "nested payload" }],
+                options: { strict: true }
             },
             tool_response: `session_id: ${monitor.childRuntimeSessionId}`
         }, monitor.port);
@@ -306,8 +477,10 @@ describe("Claude plugin", () => {
                             toolInput: {
                                 description: "Review child monitor flow",
                                 prompt: "Inspect the child task",
-                                run_in_background: "true",
-                                subagent_type: "default"
+                                run_in_background: true,
+                                subagent_type: "default",
+                                items: [{ type: "text", text: "nested payload" }],
+                                options: { strict: true }
                             }
                         },
                         agentName: "default"
@@ -320,17 +493,9 @@ describe("Claude plugin", () => {
                     runtimeSource: "claude-plugin",
                     runtimeSessionId: monitor.childRuntimeSessionId,
                     title: "Review child monitor flow",
-                    workspacePath: "/repo"
-                }
-            },
-            {
-                endpoint: "/api/task-link",
-                body: {
-                    taskId: "child-task",
-                    taskKind: "background",
+                    workspacePath: "/repo",
                     parentTaskId: "parent-task",
-                    parentSessionId: "parent-monitor-session",
-                    title: "Review child monitor flow"
+                    parentSessionId: "parent-monitor-session"
                 }
             }
         ]);

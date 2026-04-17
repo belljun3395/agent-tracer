@@ -37,21 +37,20 @@
  * is skipped (SubagentStop.ts handles child task completion).
  */
 import {
-    CLAUDE_RUNTIME_SOURCE,
-    commitCursor,
+    getAgentContext,
     createMessageId,
     ellipsize,
     getSessionId,
-    hookLog,
-    hookLogPayload,
-    postJson,
-    readLastAssistantEntry,
-    readStdinJson,
-    resolveEventSessionIds,
-    tailTranscriptAsEvents,
     toTrimmedString
-} from "./common.js";
-import type { TranscriptUsage } from "./common.js";
+} from "./util/utils.js";
+import { CLAUDE_RUNTIME_SOURCE } from "./util/paths.js";
+import { postJson, readStdinJson } from "./lib/transport.js";
+import { resolveEventSessionIds } from "./lib/subagent-session.js";
+import { deleteCachedSessionResult } from "./lib/session-cache.js";
+import { commitCursor, tailTranscriptAsEvents } from "./lib/transcript-tail.js";
+import { hookLog, hookLogPayload } from "./lib/hook-log.js";
+import { readLastAssistantEntry } from "./lib/transcript-emit.js";
+import type { TranscriptUsage } from "./lib/transcript-emit.js";
 
 async function main(): Promise<void> {
     const payload = await readStdinJson();
@@ -62,8 +61,7 @@ async function main(): Promise<void> {
         return;
     }
 
-    const agentId = toTrimmedString(payload.agent_id) || undefined;
-    const agentType = toTrimmedString(payload.agent_type) || undefined;
+    const { agentId, agentType } = getAgentContext(payload);
     const responseText = toTrimmedString(payload.last_assistant_message) || "";
 
     // Prefer usage/stop_reason from the transcript JSONL (the current Claude Code
@@ -134,6 +132,7 @@ async function main(): Promise<void> {
         completeTask: true,
         completionReason: "assistant_turn_complete"
     });
+    deleteCachedSessionResult(sessionId);
     hookLog("Stop", "runtime-session-end posted", { stopReason, completeTask: true });
 }
 

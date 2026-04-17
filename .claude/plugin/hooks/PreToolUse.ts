@@ -32,7 +32,10 @@
  * transparently creates a virtual child task via "sub--{agent_id}" on first call
  * (or returns the cached result on subsequent calls).
  */
-import { getSessionId, hookLog, hookLogPayload, readStdinJson, resolveEventSessionIds, toTrimmedString } from "./common.js";
+import { getAgentContext, getSessionId } from "./util/utils.js";
+import { readStdinJson } from "./lib/transport.js";
+import { resolveEventSessionIds } from "./lib/subagent-session.js";
+import { hookLog, hookLogPayload } from "./lib/hook-log.js";
 
 async function main(): Promise<void> {
     const payload = await readStdinJson();
@@ -40,8 +43,7 @@ async function main(): Promise<void> {
     const sessionId = getSessionId(payload);
     if (!sessionId) return;
 
-    const agentId = toTrimmedString(payload.agent_id) || undefined;
-    const agentType = toTrimmedString(payload.agent_type) || undefined;
+    const { agentId, agentType } = getAgentContext(payload);
 
     await resolveEventSessionIds(sessionId, agentId, agentType);
     hookLog("PreToolUse", "ensureRuntimeSession ok", { sessionId, agentId: agentId ?? "(none)" });

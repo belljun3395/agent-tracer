@@ -29,35 +29,31 @@
  *   3. Ends the virtual monitor session for the subagent (sub--{agentId}) so the
  *      server can auto-complete the background child task.
  *   4. Cleans up the virtual session cache entry and transcript cursor.
- *   5. Removes the registry entry written by SubagentStart.ts.
  */
 import {
-    CLAUDE_RUNTIME_SOURCE,
-    commitCursor,
-    deleteCachedSessionResult,
-    deleteCursor,
+    getAgentContext,
     getSessionId,
-    hookLog,
-    hookLogPayload,
-    postJson,
-    readStdinJson,
-    readSubagentRegistry,
-    resolveEventSessionIds,
-    resolveSessionIds,
-    tailTranscriptAsEvents,
-    toTrimmedString,
-    writeSubagentRegistry
-} from "./common.js";
+    toTrimmedString
+} from "./util/utils.js";
+import { CLAUDE_RUNTIME_SOURCE } from "./util/paths.js";
+import { postJson, readStdinJson } from "./lib/transport.js";
+import { resolveEventSessionIds } from "./lib/subagent-session.js";
+import { resolveSessionIds } from "./lib/session.js";
+import { deleteCachedSessionResult } from "./lib/session-cache.js";
+import { deleteCursor } from "./lib/transcript-cursor.js";
+import { commitCursor, tailTranscriptAsEvents } from "./lib/transcript-tail.js";
+import { hookLog, hookLogPayload } from "./lib/hook-log.js";
 
 async function main(): Promise<void> {
     const payload = await readStdinJson();
     hookLogPayload("SubagentStop", payload);
     const sessionId = getSessionId(payload);
-    const agentId = toTrimmedString(payload.agent_id);
-    const agentType = typeof payload.agent_type === "string" ? payload.agent_type : "";
-    hookLog("SubagentStop", "fired", { agentId: agentId || "(none)", agentType, sessionId: sessionId || "(none)" });
+    const { agentId, agentType } = getAgentContext(payload);
+    const normalizedAgentId = agentId ?? "";
+    const normalizedAgentType = agentType ?? "";
+    hookLog("SubagentStop", "fired", { agentId: normalizedAgentId || "(none)", agentType: normalizedAgentType, sessionId: sessionId || "(none)" });
 
-    if (!sessionId || !agentId) {
+    if (!sessionId || !normalizedAgentId) {
         hookLog("SubagentStop", "skipped — missing sessionId or agentId");
         return;
     }
@@ -70,28 +66,28 @@ async function main(): Promise<void> {
             kind: "action.logged",
             taskId: ids.taskId,
             sessionId: ids.sessionId,
-            asyncTaskId: agentId,
+            asyncTaskId: normalizedAgentId,
             asyncStatus: "completed",
-            title: `Subagent finished: ${agentType}`,
+            title: `Subagent finished: ${normalizedAgentType}`,
             ...(toTrimmedString(payload.last_assistant_message)
                 ? { body: toTrimmedString(payload.last_assistant_message, 400) }
                 : {}),
             metadata: {
-                agentId,
-                agentType,
+                agentId: normalizedAgentId,
+                agentType: normalizedAgentType,
                 parentTaskId: ids.taskId,
                 parentSessionId: sessionId
             }
         }]
     });
-    hookLog("SubagentStop", "async-task posted", { agentType, agentId });
+    hookLog("SubagentStop", "async-task posted", { agentType: normalizedAgentType, agentId: normalizedAgentId });
 
     // Tail the subagent's transcript onto the child task timeline.
     const agentTranscriptPath = toTrimmedString(payload.agent_transcript_path);
-    const virtualId = `sub--${agentId}`;
+    const virtualId = `sub--${normalizedAgentId}`;
     if (agentTranscriptPath) {
         try {
-            const childIds = await resolveEventSessionIds(sessionId, agentId, agentType);
+            const childIds = await resolveEventSessionIds(sessionId, normalizedAgentId, normalizedAgentType);
             const { events, nextCursor, totalNewEntries } = tailTranscriptAsEvents(
                 virtualId,
                 agentTranscriptPath,
@@ -115,7 +111,7 @@ async function main(): Promise<void> {
     await postJson("/api/runtime-session-end", {
         runtimeSource: CLAUDE_RUNTIME_SOURCE,
         runtimeSessionId: virtualId,
-        summary: `Subagent finished: ${agentType}`,
+        summary: `Subagent finished: ${normalizedAgentType}`,
         completeTask: false,
         completionReason: "assistant_turn_complete"
     });
@@ -124,12 +120,6 @@ async function main(): Promise<void> {
     // Clean up virtual session cache and transcript cursor so the ID can be reused by future agents.
     deleteCachedSessionResult(virtualId);
     deleteCursor(virtualId);
-
-    // Remove registry entry.
-    const registry = readSubagentRegistry();
-    delete registry[agentId];
-    writeSubagentRegistry(registry);
-    hookLog("SubagentStop", "registry entry removed", { agentId });
 }
 
 void main().catch((err: unknown) => {

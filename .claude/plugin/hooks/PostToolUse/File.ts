@@ -25,16 +25,22 @@
  * a /api/tool-used event to the Agent Tracer monitor.
  */
 import * as path from "node:path";
-import { buildSemanticMetadata, getSessionId, getToolInput, hookLog, hookLogPayload, inferFileToolSemantic, LANE, postJson, readStdinJson, relativeProjectPath, resolveEventSessionIds, toTrimmedString } from "../common.js";
+import { LANE } from "../util/lane.js";
+import { relativeProjectPath } from "../util/paths.js";
+import { getAgentContext, getSessionId, getToolInput, getToolName, getToolUseId, toTrimmedString } from "../util/utils.js";
+import { postJson, readStdinJson } from "../lib/transport.js";
+import { resolveEventSessionIds } from "../lib/subagent-session.js";
+import { hookLog, hookLogPayload } from "../lib/hook-log.js";
+import { inferFileToolSemantic } from "../classification/file-semantic.js";
+import { buildSemanticMetadata } from "../classification/command-semantic.js";
 
 async function main(): Promise<void> {
     const payload = await readStdinJson();
     hookLogPayload("PostToolUse/File", payload);
-    const toolName = toTrimmedString(payload.tool_name);
+    const toolName = getToolName(payload);
     const toolInput = getToolInput(payload);
     const sessionId = getSessionId(payload);
-    const agentId = toTrimmedString(payload.agent_id) || undefined;
-    const agentType = toTrimmedString(payload.agent_type) || undefined;
+    const { agentId, agentType } = getAgentContext(payload);
     hookLog("PostToolUse/File", "fired", { toolName, sessionId: sessionId || "(none)" });
 
     if (!sessionId || !toolName) {
@@ -43,7 +49,7 @@ async function main(): Promise<void> {
     }
 
     const ids = await resolveEventSessionIds(sessionId, agentId, agentType);
-    const toolUseId = toTrimmedString(payload.tool_use_id) || undefined;
+    const toolUseId = getToolUseId(payload);
     const filePath = toTrimmedString(toolInput.file_path) || toTrimmedString(toolInput.path) || "";
     const relPath = filePath ? relativeProjectPath(filePath) : "";
     const title = relPath ? `${toolName}: ${path.basename(relPath)}` : toolName;

@@ -7,9 +7,8 @@
  * File: ~/.claude/.session-history.json
  * Structure: { sessions: SessionRecord[] }
  */
-
-import * as fs from "node:fs";
 import * as path from "node:path";
+import { readJsonFile, writeJsonFile } from "./json-file-store.js";
 
 const SESSION_HISTORY_DIR = path.join(
     process.env.HOME || process.env.USERPROFILE || "/tmp",
@@ -40,31 +39,32 @@ interface SessionHistory {
     sessions: SessionRecord[];
 }
 
+function isSessionRecord(value: unknown): value is SessionRecord {
+    if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+    const candidate = value as Partial<SessionRecord>;
+    return (
+        typeof candidate.resumeId === "string" &&
+        typeof candidate.sessionId === "string" &&
+        typeof candidate.runtimeSource === "string" &&
+        typeof candidate.taskId === "string" &&
+        typeof candidate.projectDir === "string" &&
+        typeof candidate.startedAt === "number" &&
+        typeof candidate.endedAt === "number"
+    );
+}
+
+function isSessionHistory(value: unknown): value is SessionHistory {
+    if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+    const candidate = value as { sessions?: unknown };
+    return Array.isArray(candidate.sessions) && candidate.sessions.every(isSessionRecord);
+}
+
 function readSessionHistory(): SessionHistory {
-    try {
-        const content = fs.readFileSync(SESSION_HISTORY_FILE, "utf-8");
-        const parsed = JSON.parse(content) as unknown;
-        if (
-            typeof parsed === "object" &&
-            parsed !== null &&
-            "sessions" in parsed &&
-            Array.isArray((parsed as Record<string, unknown>).sessions)
-        ) {
-            return parsed as SessionHistory;
-        }
-    } catch {
-        // File doesn't exist or is invalid; return empty structure
-    }
-    return { sessions: [] };
+    return readJsonFile(SESSION_HISTORY_FILE, isSessionHistory) ?? { sessions: [] };
 }
 
 function writeSessionHistory(history: SessionHistory): void {
-    try {
-        fs.mkdirSync(SESSION_HISTORY_DIR, { recursive: true });
-        fs.writeFileSync(SESSION_HISTORY_FILE, JSON.stringify(history, null, 2));
-    } catch {
-        // Silently fail if unable to write
-    }
+    writeJsonFile(SESSION_HISTORY_FILE, history, 2);
 }
 
 /**
@@ -76,4 +76,3 @@ export function appendSessionRecord(record: SessionRecord): void {
     history.sessions.push(record);
     writeSessionHistory(history);
 }
-
