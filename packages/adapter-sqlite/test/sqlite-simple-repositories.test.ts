@@ -1,7 +1,7 @@
 import BetterSqlite3 from "better-sqlite3";
 import { BookmarkId, EventId, RuntimeSessionId, RuntimeSource, SessionId, TaskId } from "@monitor/core";
 import { afterEach, describe, expect, it } from "vitest";
-import { SqliteBookmarkRepository, SqliteRuntimeBindingRepository, SqliteSessionRepository, createSchema } from "../../src/infrastructure/sqlite";
+import { SqliteBookmarkRepository, SqliteRuntimeBindingRepository, SqliteSessionRepository, createSchema } from "@monitor/adapter-sqlite";
 
 describe("sqlite simple repositories", () => {
   let db: BetterSqlite3.Database | null = null;

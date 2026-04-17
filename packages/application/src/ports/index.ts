@@ -5,6 +5,7 @@ export type { IRuntimeBindingRepository, RuntimeBinding, RuntimeBindingUpsertInp
 export type { IBookmarkRepository, BookmarkRecord, BookmarkSaveInput } from "./bookmark-repository.js";
 export type { INotificationPublisher, MonitorNotification } from "./notification-publisher.js";
 export type { BriefingSaveInput, IEvaluationRepository, PersistedTaskEvaluation, PlaybookUpsertInput, StoredTaskEvaluation, TaskEvaluation, WorkflowContentRecord, WorkflowSearchResult, WorkflowSummary } from "./evaluation-repository.js";
+export type { IEmbeddingService } from "./embedding-service.js";
 import type { ITaskRepository } from "./task-repository.js";
 import type { ISessionRepository } from "./session-repository.js";
 import type { IEventRepository } from "./event-repository.js";

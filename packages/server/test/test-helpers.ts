@@ -1,6 +1,6 @@
 import { MonitorService } from "@monitor/application";
 import { createNestMonitorRuntime } from "@monitor/server";
-import { createSqliteMonitorPorts } from "../src/infrastructure/sqlite";
+import { createSqliteMonitorPorts } from "@monitor/adapter-sqlite";
 export function createServiceHarness() {
     const ports = createSqliteMonitorPorts({
         databasePath: ":memory:"

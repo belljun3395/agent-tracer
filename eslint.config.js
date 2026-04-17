@@ -109,14 +109,13 @@ export default tseslint.config(
     }
   },
   {
-    files: ["packages/server/src/infrastructure/sqlite/**/*.ts"],
+    files: ["packages/adapter-sqlite/src/**/*.ts"],
     rules: {
       "@typescript-eslint/require-await": "off"
     }
   },
   {
     files: ["packages/server/**/*.{ts,tsx}"],
-    ignores: ["packages/server/src/infrastructure/sqlite/**/*.ts"],
     rules: {
       "no-restricted-imports": ["error", {
         patterns: [
@@ -127,14 +126,6 @@ export default tseslint.config(
           {
             group: ["**/application/ports/*.js"],
             message: "Import application ports from the ports barrel."
-          },
-          {
-            group: ["**/infrastructure/sqlite/*.js"],
-            message: "Import sqlite symbols from the sqlite barrel."
-          },
-          {
-            group: ["**/infrastructure/embedding/*.js"],
-            message: "Import embedding symbols from the embedding barrel."
           }
         ]
       }]

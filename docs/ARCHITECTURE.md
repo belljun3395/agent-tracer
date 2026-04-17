@@ -1,7 +1,7 @@
 # Architecture — Package Dependency Rules
 
 > Authoritative source: `docs/superpowers/specs/2026-04-17-package-boundary-redesign-design.md`
-> Current migration phase: **Phase 3 (application carve-out complete)**
+> Current migration phase: **Phase 4 (driven-side adapters carved: `adapter-sqlite`, `adapter-embedding`)**
 
 ## Dependency graph (target state)
 
@@ -46,8 +46,9 @@ During the Phase 0–9 migration these rules roll out gradually as **warnings fi
 
 ## Current phase notes
 
-- `@monitor/domain`, `@monitor/classification`, and `@monitor/application` exist; `@monitor/core` re-exports from all three as a transitional facade.
-- Enforced as errors: `domain-is-pure`, `classification-depends-on-domain-only`, `application-inner-ring`.
-- Remaining rules (`no-cross-adapter`, `application-no-adapter`, `hook-plugin-wire-only`, `web-isolated`, `no-subpath-imports`) stay in warning-mode until Phase 9 lock.
-- New code should import from `@monitor/domain` / `@monitor/classification` / `@monitor/application` directly when possible. Existing imports via `@monitor/core` remain functional.
+- `@monitor/domain`, `@monitor/classification`, `@monitor/application`, `@monitor/adapter-sqlite`, and `@monitor/adapter-embedding` exist; `@monitor/core` re-exports from the first three as a transitional facade.
+- `IEmbeddingService` is now an `@monitor/application` port (carries a `modelId` identifier so persisted rows declare which model produced their vectors). `adapter-sqlite` consumes it; `adapter-embedding` provides the local `LocalEmbeddingService` implementation.
+- Enforced as errors: `domain-is-pure`, `classification-depends-on-domain-only`, `application-inner-ring`, `no-cross-adapter`.
+- Remaining rules (`application-no-adapter`, `hook-plugin-wire-only`, `web-isolated`, `no-subpath-imports`) stay in warning-mode until Phase 9 lock.
+- New code should import from `@monitor/domain` / `@monitor/classification` / `@monitor/application` / `@monitor/adapter-*` directly. Existing imports via `@monitor/core` remain functional.
 - Pre-existing tech debt: several packages suffer "leaky dist" — `tsc`'s `rootDir` inflates when `paths` mapping leads out of `src/`, so `dist/<pkg>/src/*.js` layout diverges from each `package.json`'s `main: "./dist/index.js"`. This blocks production `vite build` but has no effect on `lint`/`lint:deps`/`test`, which is what CI gates on. Phase 9 will resolve via TypeScript project references and/or per-package bundling.

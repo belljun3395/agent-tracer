@@ -1,11 +1,10 @@
 import type Database from "better-sqlite3";
 import { randomUUID } from "node:crypto";
-import type { BriefingSaveInput, IEvaluationRepository, PersistedTaskEvaluation, PlaybookUpsertInput, StoredTaskEvaluation, WorkflowContentRecord, WorkflowSearchResult, WorkflowSummary } from "@monitor/application";
+import type { BriefingSaveInput, IEmbeddingService, IEvaluationRepository, PersistedTaskEvaluation, PlaybookUpsertInput, StoredTaskEvaluation, WorkflowContentRecord, WorkflowSearchResult, WorkflowSummary } from "@monitor/application";
 import type { MonitoringTask, PlaybookRecord, PlaybookStatus, PlaybookSummary, ReusableTaskSnapshot, SavedBriefing, TaskId as MonitorTaskId, TimelineEvent, WorkflowEvaluationData } from "@monitor/core";
 import { buildReusableTaskSnapshot, buildWorkflowContext, EventId, filterEventsByTurnRange, segmentEventsByTurn, SessionId, TaskId, TaskSlug, WorkspacePath } from "@monitor/core";
 import { deriveTaskDisplayTitle, meaningfulTaskTitle } from "@monitor/application";
-import type { IEmbeddingService } from "../embedding";
-import { cosineSimilarity, deserializeEmbedding, EMBEDDING_MODEL, serializeEmbedding } from "../embedding";
+import { cosineSimilarity, deserializeEmbedding, serializeEmbedding } from "./embedding-codec.js";
 import { ensureSqliteDatabase, type SqliteDatabaseInput } from "./drizzle-db.js";
 import { parseJsonField } from "./sqlite-json.js";
 const MIN_SEMANTIC_SCORE = 0.22;
@@ -513,7 +512,7 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
       `).run({
                 taskId: evaluation.taskId,
                 embedding: serializeEmbedding(vector),
-                embeddingModel: EMBEDDING_MODEL
+                embeddingModel: this.embeddingService!.modelId
             });
         }
         catch (error) {
@@ -534,7 +533,7 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
             `).run({
                 playbookId,
                 embedding: serializeEmbedding(vector),
-                embeddingModel: EMBEDDING_MODEL
+                embeddingModel: this.embeddingService!.modelId
             });
         }
         catch (error) {

@@ -1,9 +1,8 @@
 import type Database from "better-sqlite3";
 import type { EventClassification, EventId as MonitorEventId, MonitoringEventKind, MonitoringTask, TaskId as MonitorTaskId, TimelineEvent, TimelineLane } from "@monitor/core";
 import { BookmarkId, EventId, normalizeLane, SessionId, TaskId } from "@monitor/core";
-import type { EventInsertInput, IEventRepository, SearchBookmarkHit, SearchEventHit, SearchOptions, SearchResults, SearchTaskHit } from "@monitor/application";
-import type { IEmbeddingService } from "../embedding";
-import { cosineSimilarity, deserializeEmbedding, EMBEDDING_MODEL, serializeEmbedding } from "../embedding";
+import type { EventInsertInput, IEmbeddingService, IEventRepository, SearchBookmarkHit, SearchEventHit, SearchOptions, SearchResults, SearchTaskHit } from "@monitor/application";
+import { cosineSimilarity, deserializeEmbedding, serializeEmbedding } from "./embedding-codec.js";
 import { ensureSqliteDatabase, type SqliteDatabaseInput } from "./drizzle-db.js";
 import { parseJsonField } from "./sqlite-json.js";
 import { buildEventSearchText, type SearchDocumentScope, upsertSearchDocument } from "./sqlite-search-documents.js";
@@ -204,7 +203,7 @@ export class SqliteEventRepository implements IEventRepository {
                     scope: row.scope,
                     entityId: row.entity_id,
                     embedding: serialized,
-                    embeddingModel: EMBEDDING_MODEL
+                    embeddingModel: this.embeddingService.modelId
                 });
                 (row as {
                     embedding: string | null;

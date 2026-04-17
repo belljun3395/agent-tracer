@@ -18,10 +18,10 @@ module.exports = {
     },
     {
       name: "no-cross-adapter",
-      severity: "warn",
-      comment: "adapter-X must not depend on adapter-Y.",
-      from: { path: "^packages/adapter-" },
-      to:   { path: "^packages/adapter-" },
+      severity: "error",
+      comment: "adapter-X must not depend on adapter-Y (intra-adapter imports are fine).",
+      from: { path: "^packages/(adapter-[^/]+)/" },
+      to:   { path: "^packages/adapter-", pathNot: "^packages/$1/" },
     },
     {
       name: "application-no-adapter",

@@ -1,4 +1,4 @@
-import { buildReusableTaskSnapshot, buildWorkflowContext, filterEventsByTurnRange, segmentEventsByTurn } from "../workflow/index.js";
+import { buildReusableTaskSnapshot, buildWorkflowContext, filterEventsByTurnRange, segmentEventsByTurn } from "../workflow";
 import type { PlaybookStatus, ReusableTaskSnapshot, TaskId, TimelineEvent } from "@monitor/domain";
 import type { MonitorPorts } from "../ports";
 import { deriveTaskDisplayTitle } from "./task-display-title-resolver.helpers.js";

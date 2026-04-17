@@ -1,8 +1,7 @@
 import BetterSqlite3 from "better-sqlite3";
 import { TaskId } from "@monitor/core";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { serializeEmbedding } from "../../src/infrastructure/embedding";
-import { SqliteEvaluationRepository, createSchema } from "../../src/infrastructure/sqlite";
+import { SqliteEvaluationRepository, createSchema, serializeEmbedding } from "@monitor/adapter-sqlite";
 describe("sqlite evaluation repository search", () => {
     afterEach(() => {
         vi.restoreAllMocks();
@@ -29,6 +28,7 @@ describe("sqlite evaluation repository search", () => {
             body: "Refine config migration flow before rollout."
         });
         const repository = new SqliteEvaluationRepository(db, {
+            modelId: "test-model",
             embed: async () => new Float32Array([1, 0, 0])
         });
         const results = await repository.searchSimilarWorkflows("housekeeping sweep", undefined, 5);
@@ -77,6 +77,7 @@ describe("sqlite evaluation repository search", () => {
         });
         const warn = vi.spyOn(console, "warn").mockImplementation(() => { });
         const repository = new SqliteEvaluationRepository(db, {
+            modelId: "test-model",
             embed: async () => {
                 throw new Error("query embedding failed");
             }
@@ -102,6 +103,7 @@ describe("sqlite evaluation repository search", () => {
             embeddingModel: "fake-model"
         });
         const repository = new SqliteEvaluationRepository(db, {
+            modelId: "test-model",
             embed: async () => new Float32Array([0, 1, 0])
         });
         const results = await repository.searchWorkflowLibrary("branch simplification", "good", 10);

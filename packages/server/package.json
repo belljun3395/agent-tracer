@@ -16,7 +16,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@huggingface/transformers": "^3.8.1",
+    "@monitor/adapter-embedding": "*",
+    "@monitor/adapter-sqlite": "*",
     "@monitor/application": "*",
     "@monitor/core": "*",
     "better-sqlite3": "^12.0.0",

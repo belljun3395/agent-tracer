@@ -17,6 +17,12 @@
       "@monitor/application": [
         "packages/application/src/index.ts"
       ],
+      "@monitor/adapter-sqlite": [
+        "packages/adapter-sqlite/src/index.ts"
+      ],
+      "@monitor/adapter-embedding": [
+        "packages/adapter-embedding/src/index.ts"
+      ],
       "@monitor/server": [
         "packages/server/src/index.ts"
       ],

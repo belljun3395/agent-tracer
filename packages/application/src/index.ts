@@ -11,16 +11,16 @@ export * from "./observability-overview-analyzer.js";
 export * from "./observability-task-analyzer.js";
 
 // Workflow builders (pure)
-export * from "./workflow/index.js";
+export * from "./workflow";
 
 // Runtime registry + evidence
-export * from "./runtime/index.js";
+export * from "./runtime";
 
 // Outbound adapter DTOs (OpenInference, etc.)
-export * from "./interop/index.js";
+export * from "./interop";
 
 // Ports
-export * from "./ports/index.js";
+export * from "./ports";
 
 // Services
 export * from "./services/event-ingestion-service.js";

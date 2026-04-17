@@ -1,8 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import BetterSqlite3 from "better-sqlite3";
-import type { INotificationPublisher, MonitorPorts } from "@monitor/application";
-import type { IEmbeddingService } from "../embedding";
+import type { IEmbeddingService, INotificationPublisher, MonitorPorts } from "@monitor/application";
 import { createSqliteDatabase } from "./drizzle-db.js";
 import { createSchema } from "./sqlite-schema.js";
 import { backfillSearchDocuments } from "./sqlite-search-documents.js";
@@ -24,6 +23,7 @@ export { drizzleSchema } from "./drizzle-schema.js";
 export { createSchema } from "./sqlite-schema.js";
 export { runMigrations } from "./sqlite-schema-migrator.js";
 export { backfillSearchDocuments } from "./sqlite-search-documents.js";
+export { cosineSimilarity, deserializeEmbedding, serializeEmbedding } from "./embedding-codec.js";
 export interface SqliteMonitorPortsOptions {
     readonly databasePath: string;
     readonly notifier?: INotificationPublisher;

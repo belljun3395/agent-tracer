@@ -1,7 +1,7 @@
 import BetterSqlite3 from "better-sqlite3";
 import { EventId, TaskId } from "@monitor/core";
 import { describe, expect, it } from "vitest";
-import { SqliteEventRepository, backfillSearchDocuments, createSchema } from "../../src/infrastructure/sqlite";
+import { SqliteEventRepository, backfillSearchDocuments, createSchema } from "@monitor/adapter-sqlite";
 describe("sqlite event repository search", () => {
     it("returns semantic event hits even without lexical overlap", async () => {
         const db = new BetterSqlite3(":memory:");
@@ -29,6 +29,7 @@ describe("sqlite event repository search", () => {
     `).run({ eventId, taskId });
         backfillSearchDocuments(db);
         const repository = new SqliteEventRepository(db, {
+            modelId: "test-model",
             embed: async (text: string) => text.includes("branch simplification")
                 ? new Float32Array([1, 0, 0])
                 : new Float32Array([1, 0, 0])
