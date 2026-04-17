@@ -11,6 +11,25 @@ export { resolveSubagentSessionIds, resolveEventSessionIds } from "./lib/subagen
 export { getCachedSessionResult, cacheSessionResult, deleteCachedSessionResult } from "./lib/session-cache.js";
 export type { SessionMetadata } from "./lib/session-metadata.js";
 export { getSessionMetadata, saveSessionMetadata, deleteSessionMetadata } from "./lib/session-metadata.js";
+export type { TranscriptCursor } from "./lib/transcript-cursor.js";
+export { loadCursor, saveCursor, deleteCursor } from "./lib/transcript-cursor.js";
+export type {
+    EventIds,
+    IngestEvent,
+    TranscriptEntry,
+    TranscriptAssistantContentBlock,
+    TranscriptAssistantMessage,
+    TranscriptUsage
+} from "./lib/transcript-emit.js";
+export {
+    buildEventsFromEntries,
+    findNewSince,
+    makeTranscriptEventId,
+    parseJsonlLines,
+    readLastAssistantEntry
+} from "./lib/transcript-emit.js";
+export type { TailAndBuildResult } from "./lib/transcript-tail.js";
+export { commitCursor, readNewTranscriptEntries, tailTranscriptAsEvents } from "./lib/transcript-tail.js";
 export type { SubagentRegistryEntry, SubagentRegistry } from "./lib/subagent-registry.js";
 export { readSubagentRegistry, writeSubagentRegistry } from "./lib/subagent-registry.js";
 export { hookLog, hookLogPayload } from "./lib/hook-log.js";

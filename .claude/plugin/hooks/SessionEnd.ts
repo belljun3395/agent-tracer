@@ -27,6 +27,7 @@
 import {
     CLAUDE_RUNTIME_SOURCE,
     deleteCachedSessionResult,
+    deleteCursor,
     getSessionId,
     hookLog,
     hookLogPayload,
@@ -92,6 +93,9 @@ async function main(): Promise<void> {
 
     deleteSessionMetadata(sessionId);
     hookLog("SessionEnd", "session metadata deleted", { sessionId });
+
+    deleteCursor(sessionId);
+    hookLog("SessionEnd", "transcript cursor deleted", { sessionId });
 }
 
 void main().catch((err: unknown) => {

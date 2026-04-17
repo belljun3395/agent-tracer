@@ -48,6 +48,7 @@ async function main(): Promise<void> {
     }
 
     const ids = await resolveEventSessionIds(sessionId, agentId, agentType);
+    const toolUseId = toTrimmedString(payload.tool_use_id) || undefined;
     let title = `Explore: ${toolName}`;
     let body = `Used ${toolName} to explore`;
     let filePaths: string[] = [];
@@ -94,7 +95,8 @@ async function main(): Promise<void> {
             metadata: {
                 ...buildSemanticMetadata(semantic),
                 toolInput: stringifyToolInput(toolInput),
-                ...(isWebTool && webQuery ? { webUrls: [webQuery] } : {})
+                ...(isWebTool && webQuery ? { webUrls: [webQuery] } : {}),
+                ...(toolUseId ? { toolUseId } : {})
             }
         }]
     });

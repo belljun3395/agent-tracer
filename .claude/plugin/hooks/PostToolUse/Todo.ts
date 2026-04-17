@@ -116,6 +116,7 @@ async function main(): Promise<void> {
     }
 
     const ids = await resolveEventSessionIds(sessionId, agentId, agentType);
+    const toolUseId = toTrimmedString(payload.tool_use_id) || undefined;
     hookLog("PostToolUse/Todo", "posting todos", { count: events.length, taskId: ids.taskId });
 
     await postJson("/ingest/v1/events", {
@@ -126,7 +127,10 @@ async function main(): Promise<void> {
             todoId: event.todoId,
             todoState: event.todoState,
             title: event.title,
-            metadata: event.metadata
+            metadata: {
+                ...event.metadata,
+                ...(toolUseId ? { toolUseId } : {})
+            }
         }))
     });
     hookLog("PostToolUse/Todo", "todos posted", { count: events.length });

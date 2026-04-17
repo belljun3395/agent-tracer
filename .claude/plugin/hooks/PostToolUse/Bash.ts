@@ -38,6 +38,7 @@ async function main(): Promise<void> {
     const agentType = toTrimmedString(payload.agent_type) || undefined;
     const command = toTrimmedString(toolInput.command);
     const description = toTrimmedString(toolInput.description);
+    const toolUseId = toTrimmedString(payload.tool_use_id) || undefined;
     hookLog("PostToolUse/Bash", "fired", { sessionId: sessionId || "(none)", cmdPreview: command.slice(0, 60) });
 
     if (!sessionId || !command) {
@@ -60,7 +61,8 @@ async function main(): Promise<void> {
             metadata: {
                 description,
                 command,
-                ...buildSemanticMetadata(semantic.metadata)
+                ...buildSemanticMetadata(semantic.metadata),
+                ...(toolUseId ? { toolUseId } : {})
             }
         }]
     });
