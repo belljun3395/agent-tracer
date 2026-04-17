@@ -74,6 +74,11 @@ export class MonitorService {
         const result = await this.eventLogging.logInstructionsLoaded(input);
         return { task, ...result };
     }
+    async logSessionEnded(input: TaskContextSavedInput): Promise<RecordedEventEnvelope> {
+        const task = await this.taskLifecycle.requireTask(input.taskId);
+        const result = await this.eventLogging.logSessionEnded(input);
+        return { task, ...result };
+    }
     async logExploration(input: TaskExploreInput): Promise<RecordedEventEnvelope> {
         const task = await this.taskLifecycle.requireTask(input.taskId);
         const result = await this.eventLogging.logExploration(input);

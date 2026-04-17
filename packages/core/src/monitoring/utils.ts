@@ -38,6 +38,7 @@ export function defaultLaneForEventKind(kind: MonitoringEventKind): TimelineLane
         case "task.start":
         case "task.complete":
         case "task.error":
+        case "session.ended":
         case "user.message":
             return "user";
         case "question.logged":

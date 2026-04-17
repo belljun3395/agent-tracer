@@ -13,19 +13,21 @@ import { cn } from "../lib/ui/cn.js";
 import { Button } from "./ui/Button.js";
 import { buildFileEvidenceRows, sortFileEvidenceRows, type FileEvidenceSortKey } from "./inspector/FileEvidenceSection.js";
 import { ActionsTab } from "./inspector/ActionsTab.js";
+import { ContextTab } from "./inspector/ContextTab.js";
 import { EvidenceTab } from "./inspector/EvidenceTab.js";
 import { InspectorTab } from "./inspector/InspectorTab.js";
 import { OverviewTab } from "./inspector/OverviewTab.js";
 import { useOptionalInspectorContext } from "../features/inspector/context/InspectorContext.js";
 
-export type PanelTabId = "inspector" | "overview" | "evidence" | "actions";
+export type PanelTabId = "inspector" | "overview" | "evidence" | "context" | "actions";
 const PANEL_TABS = [
     { id: "inspector", label: "Inspector" },
     { id: "overview", label: "Overview" },
     { id: "evidence", label: "Exploration" },
+    { id: "context", label: "Context" },
     { id: "actions", label: "Save" },
 ] as const;
-export const TASK_WORKSPACE_TAB_IDS: readonly PanelTabId[] = ["overview", "evidence", "actions"];
+export const TASK_WORKSPACE_TAB_IDS: readonly PanelTabId[] = ["overview", "evidence", "context", "actions"];
 
 interface SelectedConnectorData {
     readonly connector: TimelineConnector;
@@ -63,7 +65,6 @@ interface EventInspectorProps {
     readonly activeTab?: PanelTabId;
     readonly panelLabel?: string;
     readonly showCollapseControl?: boolean;
-    readonly showInspectorSummaryFooter?: boolean;
     readonly singleTabHeaderLayout?: "stacked" | "inline";
     readonly onToggleCollapse?: () => void;
     readonly onActiveTabChange?: (tab: PanelTabId) => void;
@@ -92,7 +93,6 @@ export function EventInspector({
     activeTab: controlledActiveTab,
     panelLabel,
     showCollapseControl = true,
-    showInspectorSummaryFooter = true,
     singleTabHeaderLayout = "stacked",
     onToggleCollapse,
     onActiveTabChange,
@@ -132,7 +132,7 @@ export function EventInspector({
 
     const taskTimeline = taskDetail?.timeline ?? [];
     const observability = taskObservability?.observability ?? null;
-    const { exploredFiles, observabilityStats } = useMemo(() => buildTaskTimelineSummary(taskTimeline), [taskTimeline]);
+    const { exploredFiles } = useMemo(() => buildTaskTimelineSummary(taskTimeline), [taskTimeline]);
     const fileActivity = useMemo(() => collectFileActivity(taskTimeline), [taskTimeline]);
     const fileEvidence = useMemo(() => buildFileEvidenceRows(fileActivity, exploredFiles), [exploredFiles, fileActivity]);
     const sortedFileEvidence = useMemo(() => sortFileEvidenceRows(fileEvidence, fileEvidenceSortKey), [fileEvidence, fileEvidenceSortKey]);
@@ -147,7 +147,7 @@ export function EventInspector({
     const handoffExploredFiles = useMemo(() => exploredFiles.map((f) => f.path), [exploredFiles]);
     const handoffModifiedFiles = useMemo(() => collectFileActivity(taskTimeline).filter((f) => f.writeCount > 0).map((f) => f.path), [taskTimeline]);
     const handoffOpenTodos = useMemo(() => todoGroups.filter((g) => !g.isTerminal).map((g) => g.title), [todoGroups]);
-    const handoffOpenQuestions = useMemo(() => questionGroups.filter((g) => !g.isComplete).flatMap((g) => g.phases).filter((p) => p.phase === "asked").map((p) => p.event.body ?? p.event.title).filter(Boolean), [questionGroups]);
+    const handoffOpenQuestions = useMemo(() => questionGroups.filter((g) => !g.isAnswered).flatMap((g) => g.phases).filter((p) => p.phase === "asked").map((p) => p.event.body ?? p.event.title).filter(Boolean), [questionGroups]);
     const handoffViolations = useMemo(() => collectViolationDescriptions(taskTimeline), [taskTimeline]);
     const handoffPlans = useMemo(() => collectPlanSteps(taskTimeline), [taskTimeline]);
     const handoffSnapshot = useMemo(() => buildReusableTaskSnapshot({ objective: taskExtraction.objective, events: taskTimeline }), [taskExtraction.objective, taskTimeline]);
@@ -190,15 +190,6 @@ export function EventInspector({
         : null;
     const selectedEventDisplayTitle = selectedEventDisplayTitleFromCtxOrProp ?? selectedEventDisplayTitleOverride;
     const canEditSelectedEventTitle = Boolean(selectedEvent && selectedEvent.kind !== "task.start");
-    const obsBadges = taskDetail ? [
-        { key: "actions", label: "Activity", value: observabilityStats.actions, tone: "accent" as const },
-        { key: "coordination", label: "Coordination", value: observabilityStats.coordinationActivities, tone: "success" as const },
-        { key: "files", label: "Files", value: observabilityStats.exploredFiles, tone: "neutral" as const },
-        { key: "compacts", label: "Compact", value: observabilityStats.compactions, tone: "warning" as const },
-        { key: "checks", label: "Check", value: observabilityStats.checks, tone: "accent" as const },
-        { key: "violations", label: "Violation", value: observabilityStats.violations, tone: "danger" as const },
-        { key: "passes", label: "Pass", value: observabilityStats.passes, tone: "success" as const },
-    ].filter((b) => b.value > 0) : [];
 
     useEffect(() => {
         if (!resolvedAllowedTabs.includes(uncontrolledActiveTab)) {
@@ -279,15 +270,15 @@ export function EventInspector({
                         onUpdateEventDisplayTitle={onUpdateEventDisplayTitle}
                         onSelectRule={onSelectRule}
                         {...(onOpenTaskWorkspace !== undefined ? { onOpenTaskWorkspace } : {})}
-                        openWorkspaceLabel={openWorkspaceLabel} obsBadges={obsBadges}
-                        showInspectorSummaryFooter={showInspectorSummaryFooter}
-                        taskModelSummary={taskModelSummary} taskDetail={taskDetail}
+                        openWorkspaceLabel={openWorkspaceLabel} taskDetail={taskDetail}
                     />
                 ) : activeTab === "overview" ? (
                     <OverviewTab
                         observability={observability} subagentInsight={subagentInsight}
                         verificationCycles={verificationCycles} runtimeSessionId={taskDetail?.runtimeSessionId}
                         runtimeSource={taskDetail?.runtimeSource} workspacePath={taskDetail?.task.workspacePath}
+                        timeline={taskTimeline} todoGroups={todoGroups} questionGroups={questionGroups}
+                        {...(taskModelSummary ? { taskModelSummary } : {})}
                     />
                 ) : activeTab === "evidence" ? (
                     <EvidenceTab
@@ -298,6 +289,8 @@ export function EventInspector({
                         onToggleFileEvidence={() => setIsFileEvidenceExpanded((v) => !v)}
                         onFileEvidenceSortChange={setFileEvidenceSortKey}
                     />
+                ) : activeTab === "context" ? (
+                    <ContextTab timeline={taskTimeline} />
                 ) : (
                     <ActionsTab
                         taskId={taskDetail?.task.id} taskTitle={selectedTaskTitle ?? taskDetail?.task.title ?? ""}

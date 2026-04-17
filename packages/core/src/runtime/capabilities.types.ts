@@ -17,7 +17,12 @@ export type RuntimeEvidenceFeatureId =
   | "exploration_activity"
   | "tool_activity"
   | "mcp_coordination"
-  | "subagents_background";
+  | "subagents_background"
+  | "todo_tracking"
+  | "context_checkpoints"
+  | "agent_thinking"
+  | "instruction_context"
+  | "session_lifecycle";
 
 export interface RuntimeEvidenceFeature {
   readonly id: RuntimeEvidenceFeatureId;

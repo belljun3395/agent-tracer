@@ -113,6 +113,13 @@ export class EventIngestionService {
                     ...relations,
                 })
 
+            case "session.ended":
+                return this.monitor.logSessionEnded({
+                    ...base,
+                    title: e.title ?? "Session ended",
+                    ...relations,
+                })
+
             case "plan.logged":
                 return this.monitor.logPlan({
                     ...base,

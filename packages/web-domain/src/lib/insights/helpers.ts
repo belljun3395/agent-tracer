@@ -17,6 +17,14 @@ export function extractMetadataStringArray(metadata: Record<string, unknown>, ke
     return value.filter((entry): entry is string => typeof entry === "string");
 }
 
+export function extractMetadataNumber(metadata: Record<string, unknown>, key: string): number | undefined {
+    const value = metadata[key];
+    if (typeof value !== "number" || !Number.isFinite(value)) {
+        return undefined;
+    }
+    return value;
+}
+
 export function uniqueStrings(values: readonly string[]): readonly string[] {
     const deduped = new Map<string, string>();
     for (const value of values) {

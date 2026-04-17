@@ -32,4 +32,20 @@ describe("evidence helpers", () => {
             metadata: {}
         }).level).toBe("proven");
     });
+    it("marks session.ended from Claude plugin as proven via the session_lifecycle capability", () => {
+        const evidence = getEventEvidence("claude-plugin", {
+            kind: "session.ended",
+            lane: "user",
+            metadata: { source: "session-end", reason: "prompt_input_exit" }
+        });
+        expect(evidence.level).toBe("proven");
+    });
+    it("marks session.ended without a session_lifecycle capability as self-reported", () => {
+        const evidence = getEventEvidence("custom-runtime", {
+            kind: "session.ended",
+            lane: "user",
+            metadata: { source: "session-end", reason: "prompt_input_exit" }
+        });
+        expect(evidence.level).toBe("self_reported");
+    });
 });

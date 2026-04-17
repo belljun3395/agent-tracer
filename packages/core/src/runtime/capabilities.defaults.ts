@@ -57,6 +57,41 @@ const DEFAULT_ADAPTERS: readonly RuntimeCapabilities[] = [
           evidence: "proven",
           note: "Subagent lifecycle hooks emit async task transitions automatically.",
           automatic: true
+        },
+        {
+          id: "todo_tracking",
+          label: "Todo tracking",
+          evidence: "proven",
+          note: "Todo changes are observed mechanically via the TodoWrite PostToolUse hook.",
+          automatic: true
+        },
+        {
+          id: "context_checkpoints",
+          label: "Context checkpoints",
+          evidence: "proven",
+          note: "SessionStart attachments, PreCompact, and PostCompact hooks capture context events automatically.",
+          automatic: true
+        },
+        {
+          id: "agent_thinking",
+          label: "Agent thinking",
+          evidence: "proven",
+          note: "Thinking blocks are read directly from the transcript JSONL tail by the Stop hook.",
+          automatic: true
+        },
+        {
+          id: "instruction_context",
+          label: "Instruction context",
+          evidence: "proven",
+          note: "Instruction deltas, skill listings, and MCP instructions are parsed from transcript attachments.",
+          automatic: true
+        },
+        {
+          id: "session_lifecycle",
+          label: "Session lifecycle",
+          evidence: "proven",
+          note: "SessionStart and SessionEnd hooks bound every session with an emitted lifecycle event.",
+          automatic: true
         }
       ]
     }

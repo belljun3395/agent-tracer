@@ -149,7 +149,7 @@ export function SaveToLibraryCard({
     );
     const scopedHandoffOpenQuestions = useMemo(
         () => scopedQuestionGroups
-            .filter((group) => !group.isComplete)
+            .filter((group) => !group.isAnswered)
             .flatMap((group) => group.phases)
             .filter((phase) => phase.phase === "asked")
             .map((phase) => phase.event.body ?? phase.event.title)

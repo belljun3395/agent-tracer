@@ -1,7 +1,22 @@
 import type { TimelineEvent } from "../monitoring/types.js";
 import { getKnownRuntimeCapabilities, getRuntimeEvidenceProfile, normalizeRuntimeAdapterId } from "./capabilities.helpers.js";
-import type { RuntimeEvidenceFeatureId } from "./capabilities.types.js";
+import type { RuntimeEvidenceFeatureId, RuntimeEvidenceProfile } from "./capabilities.types.js";
 export type EvidenceLevel = "proven" | "self_reported" | "inferred" | "unavailable";
+
+/**
+ * Checks whether the adapter advertises a given evidence feature as automatic.
+ */
+function hasAutomaticFeature(
+    profile: RuntimeEvidenceProfile | undefined,
+    featureId: RuntimeEvidenceFeatureId
+): boolean {
+    if (!profile) {
+        return false;
+    }
+    return profile.features.some(
+        (feature) => feature.id === featureId && feature.automatic && feature.evidence === "proven"
+    );
+}
 export interface EventEvidence {
     readonly level: EvidenceLevel;
     readonly reason: string;
@@ -45,14 +60,41 @@ function inferred(reason: string): EventEvidence {
  */
 export function getEventEvidence(runtimeSource: string | undefined, event: Pick<TimelineEvent, "kind" | "lane" | "metadata">): EventEvidence {
     const capabilities = getKnownRuntimeCapabilities(runtimeSource);
+    const adapterId = normalizeRuntimeAdapterId(runtimeSource);
+    const profile = adapterId ? getRuntimeEvidenceProfile(adapterId) : undefined;
     const captureMode = typeof event.metadata["captureMode"] === "string"
         ? String(event.metadata["captureMode"]).trim().toLowerCase()
         : "";
     const activityType = typeof event.metadata["activityType"] === "string"
         ? String(event.metadata["activityType"]).trim().toLowerCase()
         : "";
+    const source = typeof event.metadata["source"] === "string"
+        ? String(event.metadata["source"]).trim().toLowerCase()
+        : "";
     if (event.kind === "file.changed") {
         return inferred("Derived from referenced file paths rather than directly emitted by the runtime.");
+    }
+    if (event.kind === "todo.logged" && hasAutomaticFeature(profile, "todo_tracking")) {
+        return proven("Todo changes were emitted directly by the TodoWrite PostToolUse hook.");
+    }
+    if (event.kind === "context.saved" && hasAutomaticFeature(profile, "context_checkpoints")) {
+        return proven("Context checkpoint was emitted by a session/compact hook.");
+    }
+    if (event.kind === "thought.logged" && hasAutomaticFeature(profile, "agent_thinking")) {
+        return proven("Thinking block was parsed directly from the transcript tail.");
+    }
+    if (event.kind === "instructions.loaded" && hasAutomaticFeature(profile, "instruction_context")) {
+        return proven("Instruction context delta was parsed from transcript attachments.");
+    }
+    if (event.kind === "action.logged" && hasAutomaticFeature(profile, "subagents_background")) {
+        const isSubagentAction = source === "subagent-start" || source === "subagent-stop"
+            || source === "subagent_start" || source === "subagent_stop";
+        if (isSubagentAction) {
+            return proven("Subagent action was emitted by a subagent lifecycle hook.");
+        }
+    }
+    if (event.kind === "session.ended" && hasAutomaticFeature(profile, "session_lifecycle")) {
+        return proven("Session end was emitted by the SessionEnd hook.");
     }
     if (event.kind === "plan.logged"
         || event.kind === "action.logged"
@@ -61,7 +103,9 @@ export function getEventEvidence(runtimeSource: string | undefined, event: Pick<
         || event.kind === "context.saved"
         || event.kind === "question.logged"
         || event.kind === "todo.logged"
-        || event.kind === "thought.logged") {
+        || event.kind === "thought.logged"
+        || event.kind === "instructions.loaded"
+        || event.kind === "session.ended") {
         return selfReported("Semantic event recorded by the agent/adapter instead of directly observed from the runtime.");
     }
     if (event.kind === "user.message") {

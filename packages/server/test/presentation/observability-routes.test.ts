@@ -284,6 +284,51 @@ describe("observability routes", () => {
         const blockedTask = await request(app).get(`/api/tasks/${taskId}`);
         expect(blockedTask.body.task.status).toBe("errored");
     });
+    it("round-trips a session.ended timeline event via /ingest/v1/events", async () => {
+        const runtime = await request(app)
+            .post("/api/runtime-session-ensure")
+            .send({
+            runtimeSource: "claude-plugin",
+            runtimeSessionId: "runtime-session-end",
+            title: "Session End Round Trip"
+        });
+        expect(runtime.status).toBe(200);
+        const taskId = runtime.body.taskId as string;
+        const sessionId = runtime.body.sessionId as string;
+        const ingest = await request(app)
+            .post("/ingest/v1/events")
+            .send({
+            events: [{
+                kind: "session.ended",
+                taskId,
+                sessionId,
+                title: "Session ended (user exit)",
+                body: "Claude Code session ended (prompt_input_exit).",
+                lane: "user",
+                metadata: {
+                    reason: "prompt_input_exit",
+                    completionReason: "explicit_exit",
+                    source: "session-end",
+                    durationMs: 1234
+                }
+            }]
+        });
+        expect(ingest.status).toBe(200);
+        expect(ingest.body.ok).toBe(true);
+        expect(ingest.body.data.accepted).toHaveLength(1);
+        expect(ingest.body.data.accepted[0].kind).toBe("session.ended");
+        expect(ingest.body.data.rejected).toHaveLength(0);
+        const taskDetail = await request(app).get(`/api/tasks/${taskId}`);
+        expect(taskDetail.status).toBe(200);
+        const sessionEndedEvent = taskDetail.body.timeline.find((event: { kind: string }) => event.kind === "session.ended");
+        expect(sessionEndedEvent).toBeTruthy();
+        expect(sessionEndedEvent.lane).toBe("user");
+        expect(sessionEndedEvent.title).toBe("Session ended (user exit)");
+        expect(sessionEndedEvent.metadata.reason).toBe("prompt_input_exit");
+        expect(sessionEndedEvent.metadata.durationMs).toBe(1234);
+        expect(sessionEndedEvent.metadata.source).toBe("session-end");
+        expect(sessionEndedEvent.classification.lane).toBe("user");
+    });
     it("runtime-session-ensure reuses an explicitly supplied taskId when creating the first binding", async () => {
         await request(app)
             .post("/api/task-start")

@@ -8,14 +8,33 @@ import type {
     FileActivityStat,
     ObservabilityStats,
     SubagentInsight,
+    TokenSummary,
     WebLookupStat
 } from "./types.js";
 import {
     extractMetadataBoolean,
+    extractMetadataNumber,
     extractMetadataString,
     extractMetadataStringArray,
     isCompactEvent
 } from "./helpers.js";
+
+/**
+ * Event kinds that route to the "exploration" lane but are NOT real exploration
+ * tool usage — e.g., transcript attachments (deferred tools, MCP instructions,
+ * skill listings, nested memory). These pollute exploration aggregations.
+ */
+const NON_EXPLORATION_TOOL_KINDS: ReadonlySet<TimelineEvent["kind"]> = new Set([
+    "instructions.loaded",
+    "user.message"
+]);
+
+function isExplorationToolEvent(event: TimelineEvent): boolean {
+    if (event.lane !== "exploration") {
+        return false;
+    }
+    return !NON_EXPLORATION_TOOL_KINDS.has(event.kind);
+}
 
 export function buildObservabilityStats(timeline: readonly TimelineEvent[], exploredFiles: number, compactOccurrences = 0): ObservabilityStats {
     let actions = 0;
@@ -95,7 +114,11 @@ export function collectExploredFiles(timeline: readonly TimelineEvent[]): readon
     const lastCompactAt = compactTimestamps.at(-1);
     const fileTimestamps = new Map<string, string[]>();
     for (const event of timeline) {
-        if (event.lane !== "exploration") {
+        // Only count real exploration tool usage (reads, greps, etc.) or file.changed
+        // events within the exploration lane. Exclude transcript-attachment kinds
+        // (instructions.loaded) and regex-extracted user.message filePaths so the
+        // number is coherent with the evidence surfaces that render it.
+        if (!isExplorationToolEvent(event)) {
             continue;
         }
         if (event.kind === "file.changed" && extractMetadataStringArray(event.metadata, "filePaths").length === 0) {
@@ -231,7 +254,10 @@ export function buildExplorationInsight(timeline: readonly TimelineEvent[], expl
     let firstExplorationAt: string | undefined;
     let lastExplorationAt: string | undefined;
     for (const event of timeline) {
-        if (event.lane !== "exploration")
+        // Skip anything that routes to exploration but isn't real tool usage —
+        // transcript-attachment deltas (instructions.loaded) and user-message
+        // regex mentions pollute the breakdown and must not be counted here.
+        if (!isExplorationToolEvent(event))
             continue;
         if (event.kind === "file.changed")
             continue;
@@ -387,5 +413,62 @@ export function buildSubagentInsight(timeline: readonly TimelineEvent[]): Subage
         uniqueAsyncTasks,
         completedAsyncTasks,
         unresolvedAsyncTasks: Math.max(0, uniqueAsyncTasks - completedAsyncTasks)
+    };
+}
+
+/**
+ * Canonical unique-file count.
+ *
+ * Routes through {@link collectExploredFiles} so that every surface that shows
+ * a "Unique Files" number pulls from the same strict source (file.changed +
+ * tool.used file-touching in the exploration lane), rather than regex-extracted
+ * user.message filePaths or transcript attachments. Use this in place of any
+ * ad-hoc `filePaths`-sum to keep Overview and Exploration numbers consistent.
+ */
+export function countUniqueExploredFiles(timeline: readonly TimelineEvent[]): number {
+    return collectExploredFiles(timeline).length;
+}
+
+/**
+ * Aggregates assistant.response token usage across the whole task timeline.
+ *
+ * The Anthropic usage payload reports `input_tokens` as the *new* (uncached)
+ * input tokens, separate from cache-read and cache-create. This helper sums
+ * each channel independently so Overview surfaces can show a coherent
+ * single-number cache hit rate across the entire task rather than a misleading
+ * per-turn rate (early turns have no cache to hit).
+ */
+export function getTokenSummary(timeline: readonly TimelineEvent[]): TokenSummary {
+    let totalNewInput = 0;
+    let totalCacheRead = 0;
+    let totalCacheCreate = 0;
+    let totalOutput = 0;
+    let turnCount = 0;
+    for (const event of timeline) {
+        if (event.kind !== "assistant.response") {
+            continue;
+        }
+        const inputTokens = extractMetadataNumber(event.metadata, "inputTokens") ?? 0;
+        const cacheReadTokens = extractMetadataNumber(event.metadata, "cacheReadTokens") ?? 0;
+        const cacheCreateTokens = extractMetadataNumber(event.metadata, "cacheCreateTokens") ?? 0;
+        const outputTokens = extractMetadataNumber(event.metadata, "outputTokens") ?? 0;
+        // Guard against negative values from corrupt metadata.
+        totalNewInput += Math.max(0, inputTokens);
+        totalCacheRead += Math.max(0, cacheReadTokens);
+        totalCacheCreate += Math.max(0, cacheCreateTokens);
+        totalOutput += Math.max(0, outputTokens);
+        turnCount += 1;
+    }
+    const totalInputSide = totalNewInput + totalCacheRead + totalCacheCreate;
+    const overallHitRate = totalInputSide > 0
+        ? (totalCacheRead / totalInputSide) * 100
+        : 0;
+    return {
+        totalNewInput,
+        totalCacheRead,
+        totalCacheCreate,
+        totalOutput,
+        overallHitRate,
+        turnCount
     };
 }

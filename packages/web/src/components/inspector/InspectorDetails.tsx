@@ -1,4 +1,5 @@
 import type React from "react";
+import { useMemo, useState } from "react";
 import { getEventEvidence } from "@monitor/core";
 import { buildInspectorEventTitle, evidenceTone, formatEvidenceLevel, getInstructionsBurstFiles, isInstructionsBurstEvent, type ModelSummary, type TimelineConnector, type TimelineEvent } from "@monitor/web-domain";
 
@@ -359,5 +360,433 @@ export function DetailTaskModel({ summary }: {
           </div>))}
       </div>
       {summary.defaultModelProvider && (<p className="mt-2 text-[0.8rem] text-[var(--text-3)]">Provider: {summary.defaultModelProvider}</p>)}
+    </SectionCard>);
+}
+
+function metaNumber(metadata: Record<string, unknown>, key: string): number | undefined {
+    const value = metadata[key];
+    return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+/**
+ * Renders a compact meta strip for `thought.logged` events, surfacing model,
+ * request/message IDs, signature length, and redaction state when present.
+ * Previously the UI showed only "Thinking (redacted)" as body text and hid
+ * the rich metadata Anthropic returns on redacted thinking blocks.
+ */
+export function DetailThoughtMeta({ event }: {
+    readonly event: TimelineEvent;
+}): React.JSX.Element | null {
+    if (event.kind !== "thought.logged") return null;
+    const md = event.metadata;
+    const model = metaString(md, "model");
+    const requestId = metaString(md, "requestId");
+    const messageId = metaString(md, "messageId");
+    const signatureLength = metaNumber(md, "signatureLength");
+    const contentIndex = metaNumber(md, "contentIndex");
+    const parentUuid = metaString(md, "parentUuid");
+    const redacted = md["redacted"] === true;
+    if (!model && !requestId && !messageId && signatureLength === undefined && contentIndex === undefined && !parentUuid && !redacted) {
+        return null;
+    }
+
+    const description = redacted
+        ? `Redacted thinking block — the model returned a signature only${
+            signatureLength !== undefined ? ` (${signatureLength.toLocaleString()} chars)` : ""
+        }.`
+        : "Thinking metadata";
+
+    return (<SectionCard title="Thinking" bodyClassName="pt-4">
+      <p className="m-0 mb-3 text-[0.82rem] leading-6 text-[var(--text-2)]">{description}</p>
+      <div className="mb-3 flex flex-wrap items-center gap-1.5">
+        {redacted && <Badge tone="warning" size="xs">Redacted</Badge>}
+        {model && <Badge tone="accent" size="xs">{model}</Badge>}
+        {signatureLength !== undefined && (
+          <Badge tone="neutral" size="xs">sig {signatureLength.toLocaleString()}</Badge>
+        )}
+        {contentIndex !== undefined && (
+          <Badge tone="neutral" size="xs">idx {contentIndex}</Badge>
+        )}
+      </div>
+      {(requestId || messageId || parentUuid) && (
+        <KeyValueTable rows={[
+          ...(requestId ? [{ key: "Request", value: requestId }] : []),
+          ...(messageId ? [{ key: "Message", value: messageId }] : []),
+          ...(parentUuid ? [{ key: "Parent", value: parentUuid }] : [])
+        ]}/>
+      )}
+    </SectionCard>);
+}
+
+interface TaskReminderItem {
+    readonly id?: string;
+    readonly subject?: string;
+    readonly description?: string;
+    readonly status?: string;
+    readonly blocks?: readonly string[];
+    readonly blockedBy?: readonly string[];
+}
+
+/**
+ * Normalizes task_reminder `content` into an array of entries. The live
+ * Claude Code transcript emits this field as an array of objects, but
+ * ingestion layers (or older payloads) sometimes store it as a JSON-encoded
+ * string. Accept both so downstream rendering does not silently drop a real
+ * reminder list.
+ */
+function coerceTaskReminderArray(value: unknown): readonly unknown[] {
+    if (Array.isArray(value)) return value;
+    if (typeof value === "string") {
+        const trimmed = value.trim();
+        if (!trimmed) return [];
+        try {
+            const parsed: unknown = JSON.parse(trimmed);
+            if (Array.isArray(parsed)) return parsed;
+        } catch {
+            return [];
+        }
+    }
+    return [];
+}
+
+function parseTaskReminderItems(value: unknown): readonly TaskReminderItem[] {
+    const rawItems = coerceTaskReminderArray(value);
+    if (rawItems.length === 0) return [];
+    return rawItems.filter((entry): entry is Record<string, unknown> => typeof entry === "object" && entry !== null)
+        .map((entry) => {
+            const id = typeof entry["id"] === "string" ? entry["id"] : undefined;
+            const subject = typeof entry["subject"] === "string" ? entry["subject"] : undefined;
+            const description = typeof entry["description"] === "string" ? entry["description"] : undefined;
+            const status = typeof entry["status"] === "string" ? entry["status"] : undefined;
+            const blocks = Array.isArray(entry["blocks"])
+                ? entry["blocks"].filter((v): v is string => typeof v === "string")
+                : undefined;
+            const blockedBy = Array.isArray(entry["blockedBy"])
+                ? entry["blockedBy"].filter((v): v is string => typeof v === "string")
+                : undefined;
+            const out: TaskReminderItem = {};
+            if (id !== undefined) Object.assign(out, { id });
+            if (subject !== undefined) Object.assign(out, { subject });
+            if (description !== undefined) Object.assign(out, { description });
+            if (status !== undefined) Object.assign(out, { status });
+            if (blocks !== undefined) Object.assign(out, { blocks });
+            if (blockedBy !== undefined) Object.assign(out, { blockedBy });
+            return out;
+        });
+}
+
+function reminderStatusTone(status: string | undefined): "success" | "accent" | "warning" | "neutral" | "danger" {
+    const normalized = (status ?? "").toLowerCase();
+    if (normalized === "completed" || normalized === "done") return "success";
+    if (normalized === "in_progress" || normalized === "in-progress" || normalized === "active") return "accent";
+    if (normalized === "blocked" || normalized === "failed" || normalized === "error") return "danger";
+    if (normalized === "pending" || normalized === "waiting") return "warning";
+    return "neutral";
+}
+
+/**
+ * Renders a `context.saved` event with `attachmentType="task_reminder"` as a
+ * checklist: status-colored badge, subject, optional description, and any
+ * blocking relationships.
+ */
+export function DetailTaskReminder({ event }: {
+    readonly event: TimelineEvent;
+}): React.JSX.Element | null {
+    if (event.kind !== "context.saved") return null;
+    if (metaString(event.metadata, "attachmentType") !== "task_reminder") return null;
+    const items = parseTaskReminderItems(event.metadata["content"]);
+    if (items.length === 0) return null;
+    const itemCount = metaNumber(event.metadata, "itemCount") ?? items.length;
+
+    return (<SectionCard title={`Task reminders (${itemCount})`} bodyClassName="pt-4">
+      <ul className="m-0 flex flex-col gap-2 p-0 list-none">
+        {items.map((item, index) => {
+            const key = item.id ?? `${item.subject ?? "reminder"}-${index}`;
+            return (
+              <li key={key} className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--bg-subtle)] px-3 py-2.5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge tone={reminderStatusTone(item.status)} size="xs">
+                    {(item.status ?? "pending").replace(/[_-]/g, " ")}
+                  </Badge>
+                  <strong className="min-w-0 text-[0.84rem] text-[var(--text-1)]">
+                    {item.subject ?? "Untitled reminder"}
+                  </strong>
+                </div>
+                {item.description && (
+                  <p className="mt-1.5 mb-0 text-[0.78rem] leading-5 text-[var(--text-2)]">{item.description}</p>
+                )}
+                {(item.blockedBy && item.blockedBy.length > 0) && (
+                  <p className={cn("mt-1.5 mb-0 text-[0.72rem] text-[var(--text-3)]", monoText)}>
+                    Blocked by: {item.blockedBy.join(", ")}
+                  </p>
+                )}
+                {(item.blocks && item.blocks.length > 0) && (
+                  <p className={cn("mt-1 mb-0 text-[0.72rem] text-[var(--text-3)]", monoText)}>
+                    Blocks: {item.blocks.join(", ")}
+                  </p>
+                )}
+              </li>
+            );
+        })}
+      </ul>
+    </SectionCard>);
+}
+
+const DEFERRED_TOOLS_PREVIEW = 10;
+const DEFERRED_TOOLS_SEARCH_THRESHOLD = 20;
+
+/**
+ * Renders a `instructions.loaded` event with `attachmentType="deferred_tools_delta"`
+ * as a collapsible tool-name list. When the total exceeds
+ * DEFERRED_TOOLS_SEARCH_THRESHOLD, a client-side filter input is shown.
+ */
+export function DetailDeferredToolsDelta({ event }: {
+    readonly event: TimelineEvent;
+}): React.JSX.Element | null {
+    if (event.kind !== "instructions.loaded") return null;
+    if (metaString(event.metadata, "attachmentType") !== "deferred_tools_delta") return null;
+    const addedNames = metaStringArray(event.metadata, "addedNames");
+    if (!addedNames) return null;
+
+    return (<DeferredToolsDeltaBody names={addedNames}/>);
+}
+
+function DeferredToolsDeltaBody({ names }: {
+    readonly names: readonly string[];
+}): React.JSX.Element {
+    const [expanded, setExpanded] = useState(false);
+    const [filter, setFilter] = useState("");
+    const filtered = useMemo(() => {
+        const needle = filter.trim().toLowerCase();
+        if (!needle) return names;
+        return names.filter((name) => name.toLowerCase().includes(needle));
+    }, [filter, names]);
+    const showSearch = names.length > DEFERRED_TOOLS_SEARCH_THRESHOLD;
+    const preview = filtered.slice(0, DEFERRED_TOOLS_PREVIEW);
+    const overflow = filtered.length - preview.length;
+    const displayed = expanded ? filtered : preview;
+
+    return (<SectionCard title={`Deferred tools (${names.length})`} bodyClassName="pt-4">
+      {showSearch && (
+        <input
+          className="mb-3 w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--bg)] px-3 py-1.5 text-[0.78rem] text-[var(--text-1)] outline-none transition-colors focus:border-[var(--accent)]"
+          onChange={(event) => setFilter(event.target.value)}
+          placeholder={`Filter ${names.length} tools...`}
+          type="search"
+          value={filter}
+        />
+      )}
+      <ul className={cn("m-0 flex flex-col gap-0.5 p-0 list-none rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--bg)] px-3 py-2", monoText)}>
+        {displayed.length === 0 ? (
+          <li className="py-1 text-[0.76rem] text-[var(--text-3)]">No matches.</li>
+        ) : (
+          displayed.map((name) => (
+            <li key={name} className="py-0.5 text-[0.78rem] text-[var(--text-2)]">{name}</li>
+          ))
+        )}
+      </ul>
+      {!expanded && overflow > 0 && !filter && (
+        <button
+          type="button"
+          className="mt-2 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] px-2.5 py-1 text-[0.72rem] font-semibold text-[var(--text-2)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--surface-2)] hover:text-[var(--text-1)]"
+          onClick={() => setExpanded(true)}
+        >
+          Show {overflow} more
+        </button>
+      )}
+      {expanded && (
+        <button
+          type="button"
+          className="mt-2 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] px-2.5 py-1 text-[0.72rem] font-semibold text-[var(--text-2)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--surface-2)] hover:text-[var(--text-1)]"
+          onClick={() => setExpanded(false)}
+        >
+          Collapse
+        </button>
+      )}
+    </SectionCard>);
+}
+
+/**
+ * Renders a `instructions.loaded` event with
+ * `attachmentType="mcp_instructions_delta"`. Names are shown as badges and
+ * each instruction block is rendered as a collapsible text panel.
+ */
+export function DetailMcpInstructionsDelta({ event }: {
+    readonly event: TimelineEvent;
+}): React.JSX.Element | null {
+    if (event.kind !== "instructions.loaded") return null;
+    if (metaString(event.metadata, "attachmentType") !== "mcp_instructions_delta") return null;
+    const addedNames = metaStringArray(event.metadata, "addedNames");
+    const rawBlocks = event.metadata["addedBlocks"];
+    const addedBlocks: readonly string[] = Array.isArray(rawBlocks)
+        ? rawBlocks.filter((v): v is string => typeof v === "string")
+        : [];
+    if (!addedNames && addedBlocks.length === 0) return null;
+
+    return (<SectionCard title={`MCP instructions (${addedNames?.length ?? addedBlocks.length})`} bodyClassName="pt-4">
+      {addedNames && addedNames.length > 0 && (
+        <div className="mb-3 flex flex-wrap gap-1.5">
+          {addedNames.map((name) => (
+            <Badge key={name} tone="accent" size="xs">{name}</Badge>
+          ))}
+        </div>
+      )}
+      {addedBlocks.length > 0 && (
+        <div className="flex flex-col gap-2">
+          {addedBlocks.map((block, index) => (
+            <McpInstructionBlock key={index} index={index} content={block} name={addedNames?.[index]}/>
+          ))}
+        </div>
+      )}
+    </SectionCard>);
+}
+
+function McpInstructionBlock({ index, content, name }: {
+    readonly index: number;
+    readonly content: string;
+    readonly name: string | undefined;
+}): React.JSX.Element {
+    const [expanded, setExpanded] = useState(false);
+    const isLong = content.length > 240;
+    const label = name ?? `Block ${index + 1}`;
+    return (
+      <details
+        className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--bg-subtle)]"
+        open={expanded || !isLong}
+        onToggle={(event) => setExpanded((event.target as HTMLDetailsElement).open)}
+      >
+        <summary className="cursor-pointer list-none px-3 py-2 text-[0.78rem] font-semibold text-[var(--text-1)] outline-none hover:text-[var(--accent)]">
+          {label}
+          <span className="ml-2 text-[0.68rem] font-normal text-[var(--text-3)]">
+            {content.length.toLocaleString()} chars
+          </span>
+        </summary>
+        <pre className={cn("m-0 max-h-[clamp(180px,28vh,320px)] overflow-auto whitespace-pre-wrap break-words border-t border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-[0.76rem] leading-5 text-[var(--text-2)]", monoText)}>
+          {content}
+        </pre>
+      </details>
+    );
+}
+
+/**
+ * Renders a `instructions.loaded` event with `attachmentType="skill_listing"`.
+ * Shows the skill count with an "(initial load)" tag when `isInitial` is true,
+ * plus the body if present.
+ */
+export function DetailSkillListing({ event }: {
+    readonly event: TimelineEvent;
+}): React.JSX.Element | null {
+    if (event.kind !== "instructions.loaded") return null;
+    if (metaString(event.metadata, "attachmentType") !== "skill_listing") return null;
+    const skillCount = metaNumber(event.metadata, "skillCount");
+    const isInitial = event.metadata["isInitial"] === true;
+    const body = event.body?.trim();
+
+    return (<SectionCard title="Skill listing" bodyClassName="pt-4">
+      <div className="mb-2 flex flex-wrap items-center gap-2">
+        <strong className="text-[1.05rem] text-[var(--text-1)]">
+          {skillCount !== undefined ? skillCount.toLocaleString() : "—"}
+        </strong>
+        <span className="text-[0.78rem] text-[var(--text-3)]">skills available</span>
+        {isInitial && <Badge tone="accent" size="xs">initial load</Badge>}
+      </div>
+      {body && (
+        <pre className={cn("m-0 max-h-[clamp(200px,30vh,360px)] overflow-auto whitespace-pre-wrap break-words rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-[0.78rem] leading-5 text-[var(--text-2)]", monoText)}>
+          {body}
+        </pre>
+      )}
+    </SectionCard>);
+}
+
+function formatMemoryType(value: string): string {
+    return value.replace(/[_-]/g, " ");
+}
+
+/**
+ * Renders a `context.saved` event with `attachmentType="nested_memory"`:
+ * highlights memoryType as a badge and shows the (display) path prominently.
+ */
+export function DetailNestedMemory({ event }: {
+    readonly event: TimelineEvent;
+}): React.JSX.Element | null {
+    if (event.kind !== "context.saved") return null;
+    if (metaString(event.metadata, "attachmentType") !== "nested_memory") return null;
+    const path = metaString(event.metadata, "path");
+    const displayPath = metaString(event.metadata, "displayPath") ?? path;
+    const memoryType = metaString(event.metadata, "memoryType");
+    if (!displayPath && !memoryType) return null;
+
+    return (<SectionCard title="Nested memory" bodyClassName="pt-4">
+      <div className="mb-2 flex flex-wrap items-center gap-2">
+        {memoryType && <Badge tone="accent" size="xs">{formatMemoryType(memoryType)}</Badge>}
+      </div>
+      {displayPath && (
+        <code className={cn("block break-all rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-[0.8rem] text-[var(--text-1)]", monoText)}>
+          {displayPath}
+        </code>
+      )}
+      {path && path !== displayPath && (
+        <p className={cn("mt-1.5 mb-0 text-[0.72rem] text-[var(--text-3)]", monoText)}>
+          Absolute: {path}
+        </p>
+      )}
+    </SectionCard>);
+}
+
+/**
+ * Renders a subagent `action.logged` event. Surfaces agentType, agentId,
+ * parent/child taskIds, and async task info. When a childTaskId is present,
+ * a link to the child task workspace is provided so users can dive in.
+ */
+export function DetailSubagentAction({ event }: {
+    readonly event: TimelineEvent;
+}): React.JSX.Element | null {
+    if (event.kind !== "action.logged") return null;
+    const md = event.metadata;
+    const agentType = metaString(md, "agentType");
+    const agentId = metaString(md, "agentId");
+    const parentTaskId = metaString(md, "parentTaskId");
+    const childTaskId = metaString(md, "childTaskId");
+    const asyncTaskId = metaString(md, "asyncTaskId");
+    const asyncStatus = metaString(md, "asyncStatus");
+    if (!agentType && !agentId && !parentTaskId && !childTaskId && !asyncTaskId && !asyncStatus) {
+        return null;
+    }
+
+    const childHref = childTaskId
+        ? `/?task=${encodeURIComponent(childTaskId)}&view=workspace&tab=inspector`
+        : null;
+
+    return (<SectionCard title="Subagent" bodyClassName="pt-4">
+      <div className="mb-3 flex flex-wrap items-center gap-1.5">
+        {agentType && <Badge tone="accent" size="xs">{agentType}</Badge>}
+        {asyncStatus && (
+          <Badge
+            tone={asyncStatus === "completed" ? "success" : asyncStatus === "failed" ? "danger" : "warning"}
+            size="xs"
+          >
+            {asyncStatus}
+          </Badge>
+        )}
+      </div>
+      <KeyValueTable rows={[
+        ...(agentId ? [{ key: "Agent ID", value: agentId }] : []),
+        ...(parentTaskId ? [{ key: "Parent task", value: parentTaskId }] : []),
+        ...(childTaskId
+          ? [{
+              key: "Child task",
+              value: childHref ? (
+                <a
+                  className="inline-flex items-center gap-1 rounded-[var(--radius-sm)] border border-[var(--accent)] bg-[var(--accent-light)] px-2 py-0.5 text-[0.76rem] font-semibold text-[var(--accent)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--bg)]"
+                  href={childHref}
+                >
+                  {childTaskId}
+                  <span aria-hidden="true">→</span>
+                </a>
+              ) : childTaskId
+            }]
+          : []),
+        ...(asyncTaskId ? [{ key: "Async task", value: asyncTaskId }] : [])
+      ]}/>
     </SectionCard>);
 }

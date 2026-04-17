@@ -26,6 +26,21 @@ interface TimelineEventNodeProps {
     readonly onRegisterNode: (id: string, node: HTMLElement | null) => void;
 }
 
+/** Marker that the PostToolUseFailure hook sets on failed tool events. */
+function isFailedToolLayoutEvent(event: { kind: string; metadata: Record<string, unknown> }): boolean {
+    if (event.kind !== "tool.used" && event.kind !== "agent.activity.logged") return false;
+    const md = event.metadata;
+    if (md["failed"] === true) return true;
+    if (md["errored"] === true) return true;
+    const status = md["status"];
+    return typeof status === "string" && status.toLowerCase() === "failed";
+}
+
+/** Redacted thinking blocks have no readable body — only a cryptographic signature. */
+function isRedactedThoughtLayoutEvent(event: { kind: string; metadata: Record<string, unknown> }): boolean {
+    return event.kind === "thought.logged" && event.metadata["redacted"] === true;
+}
+
 export function TimelineEventNode({
     item,
     selectedEvent,
@@ -46,6 +61,11 @@ export function TimelineEventNode({
         Boolean(selectedConnector) &&
         (item.event.id === selectedConnector!.source.id ||
             item.event.id === selectedConnector!.target.id);
+    const isFailed = isFailedToolLayoutEvent(item.event);
+    const isRedactedThought = isRedactedThoughtLayoutEvent(item.event);
+    const signatureLength = typeof item.event.metadata["signatureLength"] === "number"
+        ? (item.event.metadata["signatureLength"] as number)
+        : undefined;
 
     return (
         <div
@@ -56,6 +76,8 @@ export function TimelineEventNode({
                 `event-node ${item.baseLane} kind-${item.event.kind.replace(/\./g, "-")}`,
                 isActive && "active",
                 isLinked && "linked",
+                isFailed && "failed",
+                isRedactedThought && "redacted-thought",
                 item.rowIndex > 0 && "stacked-behind",
             )}
             onClick={() => {
@@ -77,6 +99,16 @@ export function TimelineEventNode({
             <div className="event-node-header">
                 <span className="event-node-dot" />
                 <span className="event-lane-tag">{item.baseLane}</span>
+                {isFailed && (
+                    <span
+                        aria-label="Failed"
+                        role="img"
+                        title="Tool call failed"
+                        className="event-failed-icon select-none"
+                    >
+                        ✕
+                    </span>
+                )}
                 {subtype?.icon && (
                     <span
                         aria-label={subtype.label}
@@ -109,6 +141,12 @@ export function TimelineEventNode({
                     ? (taskTitle ?? item.event.title)
                     : item.event.title}
             </strong>
+            {isRedactedThought && (
+                <div className="event-redacted-subtext">
+                    cryptographic signature only
+                    {signatureLength !== undefined && ` · ${signatureLength.toLocaleString()} chars`}
+                </div>
+            )}
             <div className="event-node-meta">
                 <span className="event-time">{formatRelativeTime(item.event.createdAt)}</span>
             </div>

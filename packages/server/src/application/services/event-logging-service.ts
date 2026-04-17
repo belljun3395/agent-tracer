@@ -122,6 +122,18 @@ export class EventLoggingService {
             metadata: TMF.build(input.metadata, input),
         }));
     }
+    async logSessionEnded(input: TaskContextSavedInput): Promise<RecordedEventEnvelope> {
+        return this.withSession(input, (sid) => ({
+            taskId: input.taskId,
+            kind: "session.ended",
+            lane: input.lane ?? "user",
+            title: input.title,
+            ...this.withSessionId(sid),
+            ...(input.body ? { body: input.body } : {}),
+            ...(input.filePaths ? { filePaths: input.filePaths } : {}),
+            metadata: TMF.build(input.metadata, input),
+        }));
+    }
     async logExploration(input: TaskExploreInput): Promise<RecordedEventEnvelope> {
         return this.withSession(input, (sid) => ({
             taskId: input.taskId,

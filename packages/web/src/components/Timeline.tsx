@@ -50,7 +50,7 @@ export function Timeline({
 }: TimelineProps): React.JSX.Element {
     const [localFilters, setLocalFilters] = useState<Record<TimelineLane, boolean>>({
         user: true, exploration: true, planning: true, coordination: true,
-        background: true, implementation: true, questions: true, todos: true,
+        background: true, implementation: true, questions: false, todos: false,
     });
     const [expandedSubtypeLanes, setExpandedSubtypeLanes] = useState<Record<ExpandableTimelineLane, boolean>>({
         exploration: false, implementation: false, coordination: false,
@@ -61,6 +61,7 @@ export function Timeline({
     const timelineCanvasRef = useRef<HTMLDivElement | null>(null);
     const scrollRef = useRef<HTMLDivElement | null>(null);
     const isFollowing = useRef(true);
+    const [isFollowingLatest, setIsFollowingLatest] = useState(true);
     const previousTaskId = useRef<string | null | undefined>(taskId);
     const lastScrolledEventId = useRef<string | null>(null);
     const filtersPopoverRef = useRef<HTMLDivElement>(null);
@@ -213,6 +214,7 @@ export function Timeline({
         previousTaskId.current = taskId;
         if (!shouldReset) return;
         isFollowing.current = true;
+        setIsFollowingLatest(true);
         const el = scrollRef.current;
         if (!el) return;
         el.scrollLeft = computeTimelineFollowScrollLeft({
@@ -235,6 +237,7 @@ export function Timeline({
         const targetScroll = nodeCenter - el.clientWidth / 2;
         el.scrollLeft = Math.max(0, Math.min(el.scrollWidth - el.clientWidth, targetScroll));
         isFollowing.current = false;
+        setIsFollowingLatest(false);
     }, [selectedEventId, timelineLayout.items]);
 
     // Stack popover keyboard/outside dismiss
@@ -332,13 +335,53 @@ export function Timeline({
                     <div className="timeline-edge-fade left" />
                     <div className="timeline-edge-fade right" />
                     <div className="timeline-gutter-scrim" />
+                    {filteredTimeline.length > 0 && (
+                        <button
+                            type="button"
+                            className="timeline-jump-btn"
+                            aria-pressed={!isFollowingLatest}
+                            onClick={() => {
+                                const el = scrollRef.current;
+                                if (!el) return;
+                                if (isFollowingLatest) {
+                                    // Already following → jump to start
+                                    isFollowing.current = false;
+                                    setIsFollowingLatest(false);
+                                    el.scrollLeft = 0;
+                                } else {
+                                    // Jump to latest and re-enable follow
+                                    isFollowing.current = true;
+                                    setIsFollowingLatest(true);
+                                    el.scrollLeft = computeTimelineFollowScrollLeft({
+                                        clientWidth: el.clientWidth,
+                                        scrollWidth: el.scrollWidth,
+                                        timelineFocusRight,
+                                    });
+                                }
+                            }}
+                        >
+                            {isFollowingLatest ? (
+                                <>
+                                    <span aria-hidden="true">⇤</span>
+                                    <span>Jump to start</span>
+                                </>
+                            ) : (
+                                <>
+                                    <span aria-hidden="true">⇥</span>
+                                    <span>Jump to latest</span>
+                                </>
+                            )}
+                        </button>
+                    )}
                     <div
                         className={`timeline-scroll${isTimelineDragging ? " is-dragging" : ""}`}
                         ref={scrollRef}
                         style={{ cursor: isTimelineDragging ? "grabbing" : "grab" }}
                         onScroll={(e) => {
                             const el = e.currentTarget;
-                            isFollowing.current = el.scrollLeft + el.clientWidth >= timelineFocusRight + 24;
+                            const atEnd = el.scrollLeft + el.clientWidth >= timelineFocusRight + 24;
+                            isFollowing.current = atEnd;
+                            setIsFollowingLatest((prev) => (prev === atEnd ? prev : atEnd));
                         }}
                         {...dragHandlers}
                     >
