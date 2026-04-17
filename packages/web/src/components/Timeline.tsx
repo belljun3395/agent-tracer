@@ -1,5 +1,6 @@
 import type React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { segmentEventsByTurn } from "@monitor/core";
 import {
     buildDisplayLaneRows,
     buildTimelineConnectors,
@@ -8,6 +9,7 @@ import {
     buildTimestampTicks,
     countLaneSubtypes,
     filterTimelineEvents,
+    groupInstructionsBursts,
     isExpandableLane,
     LANE_HEIGHT,
     NODE_WIDTH,
@@ -25,6 +27,7 @@ import { TimelineEventNode } from "../features/timeline/TimelineEventNode.js";
 import { TimelineLaneRow } from "../features/timeline/TimelineLaneRow.js";
 import { TimelineOverlaySvg } from "../features/timeline/TimelineOverlaySvg.js";
 import { TimelineStackPopover } from "../features/timeline/TimelineStackPopover.js";
+import { TimelineTurnOverlay } from "../features/timeline/TimelineTurnOverlay.js";
 import { useNodeBounds } from "../features/timeline/useNodeBounds.js";
 import { useTimelineDrag } from "../features/timeline/useTimelineDrag.js";
 import { areNodeBoundsEqual, type NodeBounds } from "../features/timeline/utils.js";
@@ -86,9 +89,10 @@ export function Timeline({
         return taskUpdatedAt ? Date.parse(taskUpdatedAt) : nowMs;
     }, [taskStatus, taskUpdatedAt, nowMs]);
     const activeBaseLanes = useMemo(() => TIMELINE_LANES.filter((l) => filters[l]), [filters]);
+    const groupedTimeline = useMemo(() => groupInstructionsBursts(timeline), [timeline]);
     const filteredTimeline = useMemo(
-        () => filterTimelineEvents(timeline, { laneFilters: filters, selectedRuleId, selectedTag, showRuleGapsOnly }),
-        [filters, selectedRuleId, selectedTag, showRuleGapsOnly, timeline],
+        () => filterTimelineEvents(groupedTimeline, { laneFilters: filters, selectedRuleId, selectedTag, showRuleGapsOnly }),
+        [filters, selectedRuleId, selectedTag, showRuleGapsOnly, groupedTimeline],
     );
     const expandedLaneSet = useMemo(() => {
         const active = Object.entries(expandedSubtypeLanes)
@@ -181,6 +185,10 @@ export function Timeline({
         : (filteredTimeline.find((e) => e.id === selectedEventId) ??
           filteredTimeline[filteredTimeline.length - 1] ??
           null);
+    const turnSegments = useMemo(
+        () => segmentEventsByTurn(filteredTimeline),
+        [filteredTimeline],
+    );
     const contextSummary = useMemo(
         () => buildTimelineContextSummary({
             filteredEventCount: filteredTimeline.length,
@@ -377,6 +385,13 @@ export function Timeline({
                                 connectors={connectors}
                                 selectedConnectorKey={selectedConnectorKey}
                                 onSelectConnector={onSelectConnector}
+                            />
+
+                            <TimelineTurnOverlay
+                                segments={turnSegments}
+                                layout={timelineLayout}
+                                canvasHeight={canvasHeight}
+                                canvasWidth={timelineLayout.width}
                             />
 
                             {displayLaneRows.map((row, index) => (

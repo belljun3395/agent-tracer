@@ -12,6 +12,7 @@ import {
     DetailConnectorIds,
     DetailEventEvidence,
     DetailIds,
+    DetailInstructionsBurst,
     DetailMatchList,
     DetailModelInfo,
     DetailRelatedEvents,
@@ -244,6 +245,7 @@ export function InspectorTab({
                 ?? "—"}/>
             <DetailIds event={selectedEvent} runtimeSessionId={taskDetail?.runtimeSessionId}/>
             <DetailTranscriptContext event={selectedEvent}/>
+            <DetailInstructionsBurst event={selectedEvent}/>
             <DetailEventEvidence event={selectedEvent} {...(taskDetail?.task.runtimeSource ? { runtimeSource: taskDetail.task.runtimeSource } : {})}/>
             {selectedEvent.kind === "question.logged" && (() => {
                 const qId = selectedEvent.metadata["questionId"] as string | undefined;

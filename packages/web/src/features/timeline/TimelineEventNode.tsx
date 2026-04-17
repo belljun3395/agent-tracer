@@ -102,10 +102,26 @@ export function TimelineEventNode({
                   subtle: false,
               }
             : null,
-        item.event.kind === "thought.logged" ? { label: "thinking", subtle: false } : null,
+        item.event.kind === "thought.logged"
+            ? {
+                  label:
+                      item.event.metadata["redacted"] === true ? "thinking (redacted)" : "thinking",
+                  subtle: false,
+              }
+            : null,
         (item.event.kind === "context.saved" || item.event.kind === "instructions.loaded") &&
         attachmentType
             ? { label: attachmentType.replace(/_/g, " "), subtle: false }
+            : null,
+        item.event.kind === "instructions.loaded" &&
+        item.event.metadata["instructionsBurst"] === true
+            ? {
+                  label:
+                      typeof item.event.metadata["burstSize"] === "number"
+                          ? `batch ×${item.event.metadata["burstSize"]}`
+                          : "batch",
+                  subtle: false,
+              }
             : null,
         item.event.kind === "question.logged" && questionPhase
             ? { label: questionPhase, subtle: false }

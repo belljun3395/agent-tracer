@@ -1594,3 +1594,110 @@
     display: none;
   }
 }
+
+.timeline-turn-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.timeline-turn-band {
+  position: absolute;
+  background: color-mix(in srgb, var(--accent) 3%, transparent);
+  border-left: 1px dashed color-mix(in srgb, var(--accent) 35%, transparent);
+  pointer-events: none;
+  transition: background 160ms ease;
+}
+
+.timeline-turn-band.is-alt {
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+
+.timeline-turn-band.is-prelude {
+  background: color-mix(in srgb, var(--text-3) 6%, transparent);
+  border-left: 1px dashed color-mix(in srgb, var(--text-3) 30%, transparent);
+}
+
+.timeline-turn-band.is-active {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+.timeline-turn-divider {
+  position: absolute;
+  width: 1px;
+  background: color-mix(in srgb, var(--accent) 45%, transparent);
+  pointer-events: none;
+  z-index: 3;
+}
+
+.timeline-turn-ruler {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  pointer-events: none;
+  z-index: 12;
+}
+
+.timeline-turn-badge {
+  position: absolute;
+  top: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 280px;
+  padding: 2px 8px;
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  border-radius: 999px;
+  cursor: pointer;
+  pointer-events: auto;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: background 120ms ease, border-color 120ms ease, transform 120ms ease;
+}
+
+.timeline-turn-badge:hover {
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+}
+
+.timeline-turn-badge.is-active {
+  color: var(--surface);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.timeline-turn-badge.is-prelude {
+  color: var(--text-2);
+  border-color: color-mix(in srgb, var(--text-3) 40%, transparent);
+}
+
+.timeline-turn-badge:disabled {
+  cursor: default;
+}
+
+.timeline-turn-badge-label {
+  font-weight: 700;
+}
+
+.timeline-turn-badge-preview {
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.timeline-turn-badge.is-active .timeline-turn-badge-preview {
+  color: color-mix(in srgb, var(--surface) 80%, transparent);
+}
