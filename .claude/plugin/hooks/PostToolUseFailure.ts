@@ -49,12 +49,14 @@ async function main(): Promise<void> {
     }
 
     const ids = await resolveEventSessionIds(sessionId, agentId, agentType);
+    const toolUseId = toTrimmedString(payload.tool_use_id) || undefined;
     const title = `Failed ${toolName}`;
     const body = toTrimmedString(payload.error) || `Tool failed: ${toolName}`;
     const failureMetadata = {
         failed: true,
         error: toTrimmedString(payload.error),
-        isInterrupt: toBoolean(payload.is_interrupt)
+        isInterrupt: toBoolean(payload.is_interrupt),
+        ...(toolUseId ? { toolUseId } : {})
     };
 
     if (mcpTool) {

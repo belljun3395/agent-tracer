@@ -58,7 +58,11 @@ async function main(): Promise<void> {
     }
 
     const ids = await resolveEventSessionIds(sessionId, agentId, agentType);
-    const metadata = { toolInput: stringifyToolInput(toolInput) };
+    const toolUseId = toTrimmedString(payload.tool_use_id) || undefined;
+    const metadata = {
+        toolInput: stringifyToolInput(toolInput),
+        ...(toolUseId ? { toolUseId } : {})
+    };
 
     if (toolName === "Skill") {
         const skillName = toTrimmedString(toolInput.skill);

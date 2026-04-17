@@ -18,6 +18,11 @@
  * Each line in the transcript is a JSON object; the last entry with
  * message.role === "assistant" carries message.usage and message.stop_reason.
  *
+ * After posting the primary assistant.response event we also tail the transcript
+ * for new thinking blocks, intermediate narration text, and system-attached
+ * context (task_reminder, plan_mode, skill_listing, deferred_tools_delta,
+ * mcp_instructions_delta, nested_memory) — content hooks cannot see directly.
+ *
  * Stdout (optional JSON on exit 0):
  *   decision  "block"  — prevents Claude from stopping (re-runs the turn)
  *   reason    string   — shown to user if blocked
@@ -31,40 +36,22 @@
  * child task timeline via resolveEventSessionIds, and runtime-session-end
  * is skipped (SubagentStop.ts handles child task completion).
  */
-import * as fs from "node:fs";
-import { CLAUDE_RUNTIME_SOURCE, createMessageId, ellipsize, getSessionId, hookLog, hookLogPayload, postJson, readStdinJson, resolveEventSessionIds, toTrimmedString } from "./common.js";
-
-interface TranscriptUsage {
-    input_tokens?: number;
-    output_tokens?: number;
-    cache_creation_input_tokens?: number;
-    cache_read_input_tokens?: number;
-}
-
-interface TranscriptEntry {
-    message?: {
-        role?: string;
-        stop_reason?: string;
-        usage?: TranscriptUsage;
-    };
-}
-
-/** Read the last assistant message entry from the transcript JSONL file. */
-function readLastAssistantEntry(transcriptPath: string): TranscriptEntry | undefined {
-    try {
-        const content = fs.readFileSync(transcriptPath, "utf8");
-        const lines = content.trimEnd().split("\n");
-        for (let i = lines.length - 1; i >= 0; i--) {
-            const line = lines[i]?.trim();
-            if (!line) continue;
-            try {
-                const entry = JSON.parse(line) as TranscriptEntry;
-                if (entry.message?.role === "assistant") return entry;
-            } catch { continue; }
-        }
-    } catch { /* transcript not readable — proceed without usage */ }
-    return undefined;
-}
+import {
+    CLAUDE_RUNTIME_SOURCE,
+    commitCursor,
+    createMessageId,
+    ellipsize,
+    getSessionId,
+    hookLog,
+    hookLogPayload,
+    postJson,
+    readLastAssistantEntry,
+    readStdinJson,
+    resolveEventSessionIds,
+    tailTranscriptAsEvents,
+    toTrimmedString
+} from "./common.js";
+import type { TranscriptUsage } from "./common.js";
 
 async function main(): Promise<void> {
     const payload = await readStdinJson();
@@ -112,6 +99,28 @@ async function main(): Promise<void> {
         }]
     });
     hookLog("Stop", "assistant-response posted", { stopReason, hasText: !!responseText, agentId: agentId ?? "(none)", hasUsage: !!usage });
+
+    // Tail the transcript for thinking/intermediate-text/attachment events that
+    // hooks can't see directly. Failures here must not break the Stop hook.
+    if (transcriptPath) {
+        try {
+            const { events, nextCursor, totalNewEntries } = tailTranscriptAsEvents(
+                sessionId,
+                transcriptPath,
+                ids
+            );
+            if (events.length > 0) {
+                await postJson("/ingest/v1/events", { events });
+            }
+            commitCursor(sessionId, nextCursor);
+            hookLog("Stop", "transcript-tail emitted", {
+                newEntries: totalNewEntries,
+                events: events.length
+            });
+        } catch (err: unknown) {
+            hookLog("Stop", "transcript-tail error", { error: String(err) });
+        }
+    }
 
     if (agentId) {
         hookLog("Stop", "runtime-session-end skipped for subagent", { agentId });

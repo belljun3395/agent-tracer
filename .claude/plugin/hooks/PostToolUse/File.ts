@@ -43,6 +43,7 @@ async function main(): Promise<void> {
     }
 
     const ids = await resolveEventSessionIds(sessionId, agentId, agentType);
+    const toolUseId = toTrimmedString(payload.tool_use_id) || undefined;
     const filePath = toTrimmedString(toolInput.file_path) || toTrimmedString(toolInput.path) || "";
     const relPath = filePath ? relativeProjectPath(filePath) : "";
     const title = relPath ? `${toolName}: ${path.basename(relPath)}` : toolName;
@@ -60,7 +61,8 @@ async function main(): Promise<void> {
             ...(filePath ? { filePaths: [filePath] } : {}),
             metadata: {
                 ...buildSemanticMetadata(inferFileToolSemantic(toolName, toolInput)),
-                ...(filePath ? { filePath, relPath } : {})
+                ...(filePath ? { filePath, relPath } : {}),
+                ...(toolUseId ? { toolUseId } : {})
             }
         }]
     });

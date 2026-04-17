@@ -50,6 +50,7 @@ async function main(): Promise<void> {
     }
 
     const ids = await resolveEventSessionIds(sessionId, agentId, agentType);
+    const toolUseId = toTrimmedString(payload.tool_use_id) || undefined;
     const title = `MCP: ${mcpTool.server}/${mcpTool.tool}`;
     const body = `Used MCP tool ${mcpTool.server}/${mcpTool.tool}`;
 
@@ -76,7 +77,8 @@ async function main(): Promise<void> {
                     sourceTool: toolName
                 }),
                 mcpServer: mcpTool.server,
-                mcpTool: mcpTool.tool
+                mcpTool: mcpTool.tool,
+                ...(toolUseId ? { toolUseId } : {})
             }
         }]
     });
