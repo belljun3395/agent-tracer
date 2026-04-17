@@ -263,7 +263,12 @@ export type PlaybookSummaryRecord = PlaybookSummary;
 export type PlaybookRecordResponse = PlaybookRecord;
 export type SavedBriefingRecord = SavedBriefing;
 export interface WorkflowContentRecord {
+    readonly snapshotId: string;
     readonly taskId: TaskId;
+    readonly scopeKey: string;
+    readonly scopeKind: "task" | "turn";
+    readonly scopeLabel: string;
+    readonly turnIndex: number | null;
     readonly title: string;
     readonly displayTitle?: string;
     readonly workflowSnapshot: ReusableTaskSnapshot;
@@ -288,11 +293,13 @@ export function fetchWorkflowLibrary(rating?: "good" | "skip", query?: string, l
     const suffix = params.size > 0 ? `?${params.toString()}` : "";
     return getJson<WorkflowSummaryRecord[]>(`/api/workflows${suffix}`);
 }
-export function fetchTaskEvaluation(taskId: TaskId): Promise<TaskEvaluationRecord | null> {
-    return getJson<TaskEvaluationRecord | null>(`/api/tasks/${taskId}/evaluate`);
+export function fetchTaskEvaluation(taskId: TaskId, scopeKey?: string): Promise<TaskEvaluationRecord | null> {
+    const suffix = scopeKey ? `?scopeKey=${encodeURIComponent(scopeKey)}` : "";
+    return getJson<TaskEvaluationRecord | null>(`/api/tasks/${taskId}/evaluate${suffix}`);
 }
-export async function recordBriefingCopy(taskId: TaskId): Promise<void> {
-    await postJson<{ ok: boolean }>(`/api/tasks/${taskId}/briefing/copied`, {});
+export async function recordBriefingCopy(taskId: TaskId, scopeKey?: string): Promise<void> {
+    const suffix = scopeKey ? `?scopeKey=${encodeURIComponent(scopeKey)}` : "";
+    await postJson<{ ok: boolean }>(`/api/tasks/${taskId}/briefing/copied${suffix}`, {});
 }
 export interface SaveBriefingPayload {
     purpose: SavedBriefing["purpose"];
@@ -307,10 +314,11 @@ export function saveTaskBriefing(taskId: TaskId, payload: SaveBriefingPayload): 
 export function fetchTaskBriefings(taskId: TaskId): Promise<SavedBriefingRecord[]> {
     return getJson<SavedBriefingRecord[]>(`/api/tasks/${taskId}/briefings`);
 }
-export async function saveTaskEvaluation(taskId: TaskId, payload: TaskEvaluationPayload): Promise<void> {
+export async function saveTaskEvaluation(taskId: TaskId, payload: TaskEvaluationPayload, scopeKey?: string): Promise<void> {
+    const suffix = scopeKey ? `?scopeKey=${encodeURIComponent(scopeKey)}` : "";
     await postJson<{
         ok: boolean;
-    }>(`/api/tasks/${taskId}/evaluate`, payload);
+    }>(`/api/tasks/${taskId}/evaluate${suffix}`, payload);
 }
 export function fetchSimilarWorkflows(query: string, tags?: readonly string[], limit?: number): Promise<WorkflowSearchResultRecord[]> {
     const params = new URLSearchParams({ q: query });
@@ -355,8 +363,9 @@ export async function postRuleAction(payload: RuleActionPayload): Promise<void> 
         }],
     });
 }
-export function fetchWorkflowContent(taskId: TaskId): Promise<WorkflowContentRecord> {
-    return getJson<WorkflowContentRecord>(`/api/workflows/${taskId}/content`);
+export function fetchWorkflowContent(taskId: TaskId, scopeKey?: string): Promise<WorkflowContentRecord> {
+    const suffix = scopeKey ? `?scopeKey=${encodeURIComponent(scopeKey)}` : "";
+    return getJson<WorkflowContentRecord>(`/api/workflows/${taskId}/content${suffix}`);
 }
 export interface PlaybookPayload {
     title: string;

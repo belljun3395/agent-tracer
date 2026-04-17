@@ -49,7 +49,7 @@ export function KnowledgeBaseContent({ onSelectTask }: KnowledgeBaseContentProps
     const [playbooks, setPlaybooks] = useState<PlaybookSummaryRecord[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [expandedKey, setExpandedKey] = useState<string | null>(null);
-    const [workflowContentByTaskId, setWorkflowContentByTaskId] = useState<Record<string, WorkflowContentRecord>>({});
+    const [workflowContentBySnapshotId, setWorkflowContentBySnapshotId] = useState<Record<string, WorkflowContentRecord>>({});
     const [playbookById, setPlaybookById] = useState<Record<string, PlaybookRecordResponse>>({});
     const [loadingKey, setLoadingKey] = useState<string | null>(null);
     const [failedKey, setFailedKey] = useState<string | null>(null);
@@ -92,21 +92,21 @@ export function KnowledgeBaseContent({ onSelectTask }: KnowledgeBaseContentProps
         return [...sortSnapshots(snapshots)];
     }, [activeTab, playbooks, snapshots]);
 
-    const openSnapshotDetail = useCallback(async (taskId: string) => {
-        const key = `snapshot:${taskId}`;
+    const openSnapshotDetail = useCallback(async (snapshotId: string, taskId: string, scopeKey: string) => {
+        const key = `snapshot:${snapshotId}`;
         if (expandedKey === key) {
             setExpandedKey(null);
             return;
         }
         setExpandedKey(key);
         setFailedKey(null);
-        if (workflowContentByTaskId[taskId]) {
+        if (workflowContentBySnapshotId[snapshotId]) {
             return;
         }
         setLoadingKey(key);
         try {
-            const content = await fetchWorkflowContent(TaskId(taskId));
-            setWorkflowContentByTaskId((prev) => ({ ...prev, [taskId]: content }));
+            const content = await fetchWorkflowContent(TaskId(taskId), scopeKey);
+            setWorkflowContentBySnapshotId((prev) => ({ ...prev, [snapshotId]: content }));
         }
         catch {
             setFailedKey(key);
@@ -114,7 +114,7 @@ export function KnowledgeBaseContent({ onSelectTask }: KnowledgeBaseContentProps
         finally {
             setLoadingKey((current) => current === key ? null : current);
         }
-    }, [expandedKey, workflowContentByTaskId]);
+    }, [expandedKey, workflowContentBySnapshotId]);
 
     const openPlaybookDetail = useCallback(async (playbookId: string) => {
         const key = `playbook:${playbookId}`;
@@ -284,7 +284,7 @@ export function KnowledgeBaseContent({ onSelectTask }: KnowledgeBaseContentProps
                                 </span>
                             </div>
                         ) : items.map((item) => {
-                            const rowKey = item.layer === "snapshot" ? `snapshot:${item.taskId}` : `playbook:${item.id}`;
+                            const rowKey = item.layer === "snapshot" ? `snapshot:${item.snapshotId}` : `playbook:${item.id}`;
                             return (
                                 <KnowledgeItemRow
                                     key={rowKey}
@@ -292,9 +292,9 @@ export function KnowledgeBaseContent({ onSelectTask }: KnowledgeBaseContentProps
                                     expandedKey={expandedKey}
                                     loadingKey={loadingKey}
                                     failedKey={failedKey}
-                                    workflowContentByTaskId={workflowContentByTaskId}
+                                    workflowContentByTaskId={workflowContentBySnapshotId}
                                     playbookById={playbookById}
-                                    onOpenSnapshotDetail={(taskId) => { void openSnapshotDetail(taskId); }}
+                                    onOpenSnapshotDetail={(snapshotId, taskId, scopeKey) => { void openSnapshotDetail(snapshotId, taskId, scopeKey); }}
                                     onOpenPlaybookDetail={(playbookId) => { void openPlaybookDetail(playbookId); }}
                                     onSelectTask={onSelectTask}
                                     onPromoteSnapshot={handlePromoteSnapshot}

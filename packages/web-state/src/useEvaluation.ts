@@ -9,7 +9,7 @@ export interface UseEvaluationResult {
     readonly isSaved: boolean;
     readonly saveEvaluation: (payload: TaskEvaluationPayload) => Promise<void>;
 }
-export function useEvaluation(taskId: string | null | undefined): UseEvaluationResult {
+export function useEvaluation(taskId: string | null | undefined, scopeKey?: string): UseEvaluationResult {
     const [evaluation, setEvaluation] = useState<TaskEvaluationRecord | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
@@ -25,7 +25,7 @@ export function useEvaluation(taskId: string | null | undefined): UseEvaluationR
         let isActive = true;
         setIsLoading(true);
         setIsSaved(false);
-        void fetchTaskEvaluation(TaskId(taskId))
+        void fetchTaskEvaluation(TaskId(taskId), scopeKey)
             .then((record) => {
             if (isActive) {
                 setEvaluation(record);
@@ -46,16 +46,20 @@ export function useEvaluation(taskId: string | null | undefined): UseEvaluationR
         return () => {
             isActive = false;
         };
-    }, [taskId]);
+    }, [scopeKey, taskId]);
     const saveEvaluation = useCallback(async (payload: TaskEvaluationPayload): Promise<void> => {
         if (!taskId) {
             return;
         }
         setIsSaving(true);
         try {
-            await saveTaskEvaluation(TaskId(taskId), payload);
+            await saveTaskEvaluation(TaskId(taskId), payload, scopeKey);
             setEvaluation({
                 taskId: TaskId(taskId),
+                scopeKey: evaluation?.scopeKey ?? scopeKey ?? "task",
+                scopeKind: evaluation?.scopeKind ?? (scopeKey && scopeKey !== "task" ? "turn" : "task"),
+                scopeLabel: evaluation?.scopeLabel ?? (scopeKey === "last-turn" ? "Last turn" : scopeKey?.startsWith("turn:") ? `Turn ${scopeKey.slice("turn:".length)}` : "Whole task"),
+                turnIndex: evaluation?.turnIndex ?? (scopeKey?.startsWith("turn:") ? Number.parseInt(scopeKey.slice("turn:".length), 10) || null : null),
                 ...payload,
                 workflowTags: payload.workflowTags ?? [],
                 useCase: payload.useCase ?? null,
@@ -82,6 +86,6 @@ export function useEvaluation(taskId: string | null | undefined): UseEvaluationR
         finally {
             setIsSaving(false);
         }
-    }, [taskId]);
+    }, [evaluation, scopeKey, taskId]);
     return { evaluation, isLoading, isSaving, isSaved, saveEvaluation };
 }

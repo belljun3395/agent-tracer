@@ -61,7 +61,7 @@ export function createDraftFromSnapshot(content: WorkflowContentRecord): EditorD
         antiPatterns: "",
         failureModes: "",
         tags: "",
-        sourceSnapshotIds: [`${content.taskId}:v${content.version}`]
+        sourceSnapshotIds: [`${content.snapshotId}:v${content.version}`]
     };
 }
 

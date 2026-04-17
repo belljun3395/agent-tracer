@@ -38,13 +38,22 @@ export interface ReusableTaskSnapshot {
 
 export interface TaskEvaluation extends WorkflowEvaluationData {
     readonly taskId: TaskId;
+    readonly scopeKey: string;
+    readonly scopeKind: "task" | "turn";
+    readonly scopeLabel: string;
+    readonly turnIndex: number | null;
     readonly rating: "good" | "skip";
     readonly evaluatedAt: string;
 }
 
 export interface WorkflowSummary extends WorkflowEvaluationData {
     readonly layer: "snapshot";
+    readonly snapshotId: string;
     readonly taskId: TaskId;
+    readonly scopeKey: string;
+    readonly scopeKind: "task" | "turn";
+    readonly scopeLabel: string;
+    readonly turnIndex: number | null;
     readonly title: string;
     readonly displayTitle?: string;
     readonly rating: "good" | "skip";
@@ -58,7 +67,12 @@ export interface WorkflowSummary extends WorkflowEvaluationData {
 
 export interface WorkflowSearchResult extends WorkflowEvaluationData {
     readonly layer: "snapshot";
+    readonly snapshotId: string;
     readonly taskId: TaskId;
+    readonly scopeKey: string;
+    readonly scopeKind: "task" | "turn";
+    readonly scopeLabel: string;
+    readonly turnIndex: number | null;
     readonly title: string;
     readonly displayTitle?: string;
     readonly rating: "good" | "skip";

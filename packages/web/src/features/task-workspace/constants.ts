@@ -12,6 +12,7 @@ const WORKSPACE_TAB_MAP: Record<string, PanelTabId> = {
     overview: "overview",
     evidence: "evidence",
     actions: "actions",
+    save: "actions",
     flow: "overview",
     health: "overview",
     tags: "evidence",

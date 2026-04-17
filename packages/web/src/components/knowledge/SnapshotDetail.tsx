@@ -24,6 +24,7 @@ export function SnapshotDetail({ content, onPromote }: SnapshotDetailProps): Rea
                     </span>
                 </div>
                 <div className="flex items-center gap-2">
+                    {content.scopeKind === "turn" ? <Badge tone="neutral" size="xs">{content.scopeLabel}</Badge> : null}
                     <Badge tone="accent" size="xs">v{content.version}</Badge>
                     <Badge tone="neutral" size="xs">reuse {content.qualitySignals.reuseCount}</Badge>
                     {content.promotedTo ? <Badge tone="warning" size="xs">Promoted</Badge> : null}

@@ -9,7 +9,12 @@ export interface StoredTaskEvaluation extends TaskEvaluation {
     readonly qualitySignals: WorkflowSummary["qualitySignals"];
 }
 export interface WorkflowContentRecord {
+    readonly snapshotId: string;
     readonly taskId: TaskId;
+    readonly scopeKey: string;
+    readonly scopeKind: "task" | "turn";
+    readonly scopeLabel: string;
+    readonly turnIndex: number | null;
     readonly title: string;
     readonly displayTitle?: string;
     readonly workflowSnapshot: ReusableTaskSnapshot;
@@ -49,11 +54,11 @@ export interface BriefingSaveInput {
 }
 export interface IEvaluationRepository {
     upsertEvaluation(evaluation: PersistedTaskEvaluation): Promise<void>;
-    recordBriefingCopy(taskId: TaskId, copiedAt: string): Promise<void>;
+    recordBriefingCopy(taskId: TaskId, copiedAt: string, scopeKey?: string): Promise<void>;
     saveBriefing(taskId: TaskId, briefing: BriefingSaveInput): Promise<SavedBriefing>;
     listBriefings(taskId: TaskId): Promise<readonly SavedBriefing[]>;
-    getEvaluation(taskId: TaskId): Promise<StoredTaskEvaluation | null>;
-    getWorkflowContent(taskId: TaskId): Promise<WorkflowContentRecord | null>;
+    getEvaluation(taskId: TaskId, scopeKey?: string): Promise<StoredTaskEvaluation | null>;
+    getWorkflowContent(taskId: TaskId, scopeKey?: string): Promise<WorkflowContentRecord | null>;
     listEvaluations(rating?: "good" | "skip"): Promise<readonly WorkflowSummary[]>;
     searchWorkflowLibrary(query: string, rating?: "good" | "skip", limit?: number): Promise<readonly WorkflowSummary[]>;
     searchSimilarWorkflows(query: string, tags?: readonly string[], limit?: number): Promise<readonly WorkflowSearchResult[]>;

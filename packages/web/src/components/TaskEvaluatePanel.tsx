@@ -11,6 +11,7 @@ import { Input } from "./ui/Input.js";
 import { Textarea } from "./ui/Textarea.js";
 interface TaskEvaluatePanelProps {
     readonly taskId?: string | null;
+    readonly scopeKey?: string | null;
     readonly taskTitle: string;
     readonly taskTimeline: readonly TimelineEvent[];
     readonly evaluation: TaskEvaluationRecord | null;
@@ -79,7 +80,7 @@ function WorkflowPreviewList({ label, items }: {
       </div>
     </div>);
 }
-export function TaskEvaluatePanel({ taskId, taskTitle, taskTimeline, evaluation, isSaving, isSaved, onSave }: TaskEvaluatePanelProps): React.JSX.Element {
+export function TaskEvaluatePanel({ taskId, scopeKey, taskTitle, taskTimeline, evaluation, isSaving, isSaved, onSave }: TaskEvaluatePanelProps): React.JSX.Element {
     const [rating, setRating] = useState<"good" | "skip" | null>(null);
     const [useCase, setUseCase] = useState("");
     const [tagInput, setTagInput] = useState("");
@@ -194,13 +195,14 @@ export function TaskEvaluatePanel({ taskId, taskTitle, taskTimeline, evaluation,
             setSimilarWorkflows([]);
             return;
         }
+        const currentSnapshotId = taskId && scopeKey ? `${taskId}#${scopeKey}` : null;
         const timer = setTimeout(() => {
             void fetchSimilarWorkflows(query, tags, 3)
-                .then((results) => setSimilarWorkflows(results.filter((result) => result.taskId !== taskId)))
+                .then((results) => setSimilarWorkflows(results.filter((result) => result.snapshotId !== currentSnapshotId)))
                 .catch(() => setSimilarWorkflows([]));
         }, 180);
         return (): void => clearTimeout(timer);
-    }, [parsedWorkflowSnapshot.searchText, rating, tags, taskId]);
+    }, [parsedWorkflowSnapshot.searchText, rating, scopeKey, tags, taskId]);
     const handleRegenerateWorkflowContent = useCallback(() => {
         setIsSnapshotCustom(false);
         setWorkflowSnapshotDraft(createWorkflowSnapshotDraft(generatedWorkflowSnapshot));
@@ -405,9 +407,10 @@ export function TaskEvaluatePanel({ taskId, taskTitle, taskTimeline, evaluation,
             </span>
           </div>
           <div className="mt-2 flex flex-col gap-1.5">
-            {similarWorkflows.map((workflow) => (<div key={workflow.taskId} className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] px-3 py-2">
+            {similarWorkflows.map((workflow) => (<div key={workflow.snapshotId} className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] px-3 py-2">
                 <div className="flex items-center gap-2">
                   <Badge tone="accent" size="xs">Snapshot</Badge>
+                  {workflow.scopeKind === "turn" ? <Badge tone="neutral" size="xs">{workflow.scopeLabel}</Badge> : null}
                   <span className="text-[0.76rem] font-semibold text-[var(--text-1)]">{workflow.displayTitle ?? workflow.title}</span>
                 </div>
                 {workflow.useCase ? <div className="mt-1 text-[0.72rem] text-[var(--text-2)]">{workflow.useCase}</div> : null}

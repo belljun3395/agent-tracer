@@ -85,7 +85,11 @@ export function createSchema(db: Database.Database): void {
       on search_documents(scope, task_id, updated_at desc);
 
     create table if not exists task_evaluations (
-      task_id       text primary key references monitoring_tasks(id) on delete cascade,
+      task_id       text not null references monitoring_tasks(id) on delete cascade,
+      scope_key     text not null default 'task',
+      scope_kind    text not null default 'task' check(scope_kind in ('task', 'turn')),
+      scope_label   text not null default 'Whole task',
+      turn_index    integer,
       rating        text not null check(rating in ('good', 'skip')),
       use_case      text,
       workflow_tags text,
@@ -103,7 +107,8 @@ export function createSchema(db: Database.Database): void {
       search_text   text,
       embedding     text,
       embedding_model text,
-      evaluated_at  text not null
+      evaluated_at  text not null,
+      primary key (task_id, scope_key)
     );
 
     create index if not exists idx_task_evaluations_rating

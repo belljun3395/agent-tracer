@@ -9,7 +9,6 @@ import {
     type BookmarkRecord, type ModelSummary, type TaskObservabilityResponse,
     type TaskDetailResponse, type TimelineConnector, type TimelineEvent,
 } from "@monitor/web-domain";
-import { useEvaluation } from "@monitor/web-state";
 import { cn } from "../lib/ui/cn.js";
 import { Button } from "./ui/Button.js";
 import { buildFileEvidenceRows, sortFileEvidenceRows, type FileEvidenceSortKey } from "./inspector/FileEvidenceSection.js";
@@ -24,7 +23,7 @@ const PANEL_TABS = [
     { id: "inspector", label: "Inspector" },
     { id: "overview", label: "Overview" },
     { id: "evidence", label: "Exploration" },
-    { id: "actions", label: "Actions" },
+    { id: "actions", label: "Save" },
 ] as const;
 export const TASK_WORKSPACE_TAB_IDS: readonly PanelTabId[] = ["overview", "evidence", "actions"];
 
@@ -131,8 +130,6 @@ export function EventInspector({
     const [isFileEvidenceExpanded, setIsFileEvidenceExpanded] = useState(true);
     const [fileEvidenceSortKey, setFileEvidenceSortKey] = useState<FileEvidenceSortKey>("recent");
 
-    const { evaluation: taskEvaluation, isSaving: isSavingTaskEvaluation, isSaved: isSavedTaskEvaluation, saveEvaluation: saveTaskEvaluation } = useEvaluation(taskDetail?.task.id ?? null);
-
     const taskTimeline = taskDetail?.timeline ?? [];
     const observability = taskObservability?.observability ?? null;
     const { exploredFiles, observabilityStats } = useMemo(() => buildTaskTimelineSummary(taskTimeline), [taskTimeline]);
@@ -153,7 +150,7 @@ export function EventInspector({
     const handoffOpenQuestions = useMemo(() => questionGroups.filter((g) => !g.isComplete).flatMap((g) => g.phases).filter((p) => p.phase === "asked").map((p) => p.event.body ?? p.event.title).filter(Boolean), [questionGroups]);
     const handoffViolations = useMemo(() => collectViolationDescriptions(taskTimeline), [taskTimeline]);
     const handoffPlans = useMemo(() => collectPlanSteps(taskTimeline), [taskTimeline]);
-    const handoffSnapshot = useMemo(() => buildReusableTaskSnapshot({ objective: taskExtraction.objective, events: taskTimeline, evaluation: taskEvaluation ?? null }), [taskExtraction.objective, taskTimeline, taskEvaluation]);
+    const handoffSnapshot = useMemo(() => buildReusableTaskSnapshot({ objective: taskExtraction.objective, events: taskTimeline }), [taskExtraction.objective, taskTimeline]);
     const handoffActiveInstructions = useMemo(
         () => {
             const seen = new Set<string>();
@@ -194,7 +191,7 @@ export function EventInspector({
     const selectedEventDisplayTitle = selectedEventDisplayTitleFromCtxOrProp ?? selectedEventDisplayTitleOverride;
     const canEditSelectedEventTitle = Boolean(selectedEvent && selectedEvent.kind !== "task.start");
     const obsBadges = taskDetail ? [
-        { key: "actions", label: "Actions", value: observabilityStats.actions, tone: "accent" as const },
+        { key: "actions", label: "Activity", value: observabilityStats.actions, tone: "accent" as const },
         { key: "coordination", label: "Coordination", value: observabilityStats.coordinationActivities, tone: "success" as const },
         { key: "files", label: "Files", value: observabilityStats.exploredFiles, tone: "neutral" as const },
         { key: "compacts", label: "Compact", value: observabilityStats.compactions, tone: "warning" as const },
@@ -262,7 +259,6 @@ export function EventInspector({
                         {visibleTabs.map((tab) => (
                             <button key={tab.id} aria-selected={activeTab === tab.id} className={cn("panel-tab inline-flex h-8 items-center rounded-[var(--radius-md)] border px-3 text-[0.76rem] font-semibold transition-colors", !hasWorkspaceAction && "w-full justify-center px-2.5 sm:w-auto sm:px-3", activeTab === tab.id ? "border-[var(--accent)] bg-[var(--accent-light)] text-[var(--accent)]" : "border-transparent bg-transparent text-[var(--text-3)] hover:border-[var(--border)] hover:bg-[var(--surface-2)] hover:text-[var(--text-2)]")} onClick={() => { if (controlledActiveTab === undefined) setUncontrolledActiveTab(tab.id); onActiveTabChange?.(tab.id); }} role="tab" type="button">
                                 {tab.label}
-                                {tab.id === "actions" && taskEvaluation && (<span className={cn("ml-1.5 h-1.5 w-1.5 rounded-full", taskEvaluation.rating === "good" ? "bg-[var(--ok)]" : "bg-[var(--text-3)]")}/>)}
                             </button>
                         ))}
                         {openWorkspaceButton}
@@ -311,8 +307,6 @@ export function EventInspector({
                         handoffOpenTodos={handoffOpenTodos} handoffOpenQuestions={handoffOpenQuestions}
                         handoffViolations={handoffViolations} handoffSnapshot={handoffSnapshot}
                         handoffActiveInstructions={handoffActiveInstructions}
-                        evaluation={taskEvaluation} isSavingEvaluation={isSavingTaskEvaluation}
-                        isSavedEvaluation={isSavedTaskEvaluation} onSaveEvaluation={saveTaskEvaluation}
                     />
                 )}
             </div>
