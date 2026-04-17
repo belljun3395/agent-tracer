@@ -89,6 +89,61 @@ export function DetailIds({ event, runtimeSessionId }: {
     </SectionCard>);
 }
 
+function metaString(metadata: Record<string, unknown>, key: string): string | undefined {
+    const value = metadata[key];
+    return typeof value === "string" && value.length > 0 ? value : undefined;
+}
+
+function metaStringArray(metadata: Record<string, unknown>, key: string): readonly string[] | undefined {
+    const value = metadata[key];
+    if (!Array.isArray(value)) return undefined;
+    const out = value.filter((v): v is string => typeof v === "string");
+    return out.length > 0 ? out : undefined;
+}
+
+export function DetailTranscriptContext({ event }: {
+    readonly event: TimelineEvent;
+}): React.JSX.Element | null {
+    const md = event.metadata;
+    const isTranscript = metaString(md, "source") === "claude-transcript";
+    const attachmentType = metaString(md, "attachmentType");
+    const phase = metaString(md, "phase");
+    const assistantUuid = metaString(md, "assistantUuid");
+    const parentUuid = metaString(md, "parentUuid");
+    const requestId = metaString(md, "requestId");
+    const model = metaString(md, "model");
+    const toolUseId = metaString(md, "toolUseId");
+    const addedNames = metaStringArray(md, "addedNames");
+    const removedNames = metaStringArray(md, "removedNames");
+    const planFilePath = metaString(md, "planFilePath");
+    const displayPath = metaString(md, "displayPath") ?? metaString(md, "path");
+    const skillCount = typeof md["skillCount"] === "number" ? (md["skillCount"]) : undefined;
+    const itemCount = typeof md["itemCount"] === "number" ? (md["itemCount"]) : undefined;
+
+    if (!isTranscript && !toolUseId && !attachmentType && !phase) return null;
+
+    const rows: Array<{ key: string; value: React.ReactNode }> = [];
+    if (attachmentType) rows.push({ key: "Attachment", value: attachmentType });
+    if (phase) rows.push({ key: "Phase", value: phase });
+    if (displayPath) rows.push({ key: "Path", value: displayPath });
+    if (planFilePath) rows.push({ key: "Plan file", value: planFilePath });
+    if (typeof skillCount === "number") rows.push({ key: "Skills", value: String(skillCount) });
+    if (typeof itemCount === "number") rows.push({ key: "Items", value: String(itemCount) });
+    if (addedNames) rows.push({ key: "Added", value: addedNames.join(", ") });
+    if (removedNames) rows.push({ key: "Removed", value: removedNames.join(", ") });
+    if (model) rows.push({ key: "Model", value: model });
+    if (assistantUuid) rows.push({ key: "Assistant UUID", value: assistantUuid });
+    if (parentUuid) rows.push({ key: "Parent UUID", value: parentUuid });
+    if (requestId) rows.push({ key: "Request", value: requestId });
+    if (toolUseId) rows.push({ key: "Tool use", value: toolUseId });
+
+    if (rows.length === 0) return null;
+
+    return (<SectionCard title="Transcript context" bodyClassName="pt-4">
+      <KeyValueTable rows={rows}/>
+    </SectionCard>);
+}
+
 export function DetailConnectorIds({ connector, source, target }: {
     readonly connector: TimelineConnector;
     readonly source: TimelineEvent;
