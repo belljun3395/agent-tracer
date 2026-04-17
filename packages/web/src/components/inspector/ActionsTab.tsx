@@ -1,8 +1,7 @@
 import type React from "react";
 import { Badge } from "../ui/Badge.js";
 import { PanelCard } from "../ui/PanelCard.js";
-import { TaskEvaluatePanel } from "../TaskEvaluatePanel.js";
-import { EvaluatePromptButton } from "../EvaluatePromptButton.js";
+import { SaveToLibraryCard } from "./SaveToLibraryCard.js";
 import { cardShell, cardHeader, cardBody } from "./styles.js";
 import { summarizePath } from "./utils.js";
 import type { ReusableTaskSnapshot } from "@monitor/core";
@@ -80,24 +79,25 @@ export interface ActionsTabProps {
 export function ActionsTab({ taskId, taskTitle, workspacePath, taskExtraction, taskTimeline, handoffPlans, handoffExploredFiles, handoffModifiedFiles, handoffOpenTodos, handoffOpenQuestions, handoffViolations, handoffSnapshot, handoffActiveInstructions, evaluation, isSavingEvaluation, isSavedEvaluation, onSaveEvaluation }: ActionsTabProps): React.JSX.Element {
     return (<div className="panel-tab-inner flex flex-col gap-5 p-4">
       <TaskExtractionCard extraction={taskExtraction} workspacePath={workspacePath}/>
-      {taskId && taskExtraction.objective && (
-        <EvaluatePromptButton
-          taskId={taskId}
-          objective={taskExtraction.objective}
-          summary={taskExtraction.summary}
-          sections={taskExtraction.sections}
-          plans={handoffPlans}
-          exploredFiles={handoffExploredFiles}
-          modifiedFiles={handoffModifiedFiles}
-          openTodos={handoffOpenTodos}
-          openQuestions={handoffOpenQuestions}
-          violations={handoffViolations}
-          snapshot={handoffSnapshot}
-          activeInstructions={handoffActiveInstructions}
-        />
-      )}
       {taskId
-            ? (<TaskEvaluatePanel taskId={taskId} taskTitle={taskTitle} taskTimeline={taskTimeline} evaluation={evaluation} isSaving={isSavingEvaluation} isSaved={isSavedEvaluation} onSave={onSaveEvaluation}/>)
+            ? (<SaveToLibraryCard
+                taskId={taskId}
+                taskTitle={taskTitle}
+                taskExtraction={taskExtraction}
+                taskTimeline={taskTimeline}
+                handoffPlans={handoffPlans}
+                handoffExploredFiles={handoffExploredFiles}
+                handoffModifiedFiles={handoffModifiedFiles}
+                handoffOpenTodos={handoffOpenTodos}
+                handoffOpenQuestions={handoffOpenQuestions}
+                handoffViolations={handoffViolations}
+                handoffSnapshot={handoffSnapshot}
+                handoffActiveInstructions={handoffActiveInstructions}
+                evaluation={evaluation}
+                isSavingEvaluation={isSavingEvaluation}
+                isSavedEvaluation={isSavedEvaluation}
+                onSaveEvaluation={onSaveEvaluation}
+              />)
             : (<div className="flex items-center justify-center py-8 text-[0.82rem] text-[var(--text-3)]">
             Select a task to evaluate it.
           </div>)}

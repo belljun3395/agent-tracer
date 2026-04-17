@@ -8,3 +8,4 @@ export * from "./lib/resume-command.js";
 export * from "./lib/taskTimelineSummary.js";
 export * from "./lib/taskWorkspace.js";
 export * from "./lib/timeline.js";
+export * from "./lib/instructionsBurst.js";

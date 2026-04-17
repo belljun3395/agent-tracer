@@ -1,6 +1,6 @@
 import type React from "react";
 import { getEventEvidence } from "@monitor/core";
-import { buildInspectorEventTitle, evidenceTone, formatEvidenceLevel, type ModelSummary, type TimelineConnector, type TimelineEvent } from "@monitor/web-domain";
+import { buildInspectorEventTitle, evidenceTone, formatEvidenceLevel, getInstructionsBurstFiles, isInstructionsBurstEvent, type ModelSummary, type TimelineConnector, type TimelineEvent } from "@monitor/web-domain";
 
 import { cn } from "../../lib/ui/cn.js";
 import { Badge } from "../ui/Badge.js";
@@ -119,10 +119,19 @@ export function DetailTranscriptContext({ event }: {
     const displayPath = metaString(md, "displayPath") ?? metaString(md, "path");
     const skillCount = typeof md["skillCount"] === "number" ? (md["skillCount"]) : undefined;
     const itemCount = typeof md["itemCount"] === "number" ? (md["itemCount"]) : undefined;
+    const redacted = md["redacted"] === true;
+    const signatureLength =
+        typeof md["signatureLength"] === "number" ? md["signatureLength"] : undefined;
 
-    if (!isTranscript && !toolUseId && !attachmentType && !phase) return null;
+    if (!isTranscript && !toolUseId && !attachmentType && !phase && !redacted) return null;
 
     const rows: Array<{ key: string; value: React.ReactNode }> = [];
+    if (redacted) {
+        rows.push({ key: "Thinking", value: "Redacted (signature-only)" });
+        if (typeof signatureLength === "number") {
+            rows.push({ key: "Signature", value: `${signatureLength} chars` });
+        }
+    }
     if (attachmentType) rows.push({ key: "Attachment", value: attachmentType });
     if (phase) rows.push({ key: "Phase", value: phase });
     if (displayPath) rows.push({ key: "Path", value: displayPath });
@@ -142,6 +151,58 @@ export function DetailTranscriptContext({ event }: {
     return (<SectionCard title="Transcript context" bodyClassName="pt-4">
       <KeyValueTable rows={rows}/>
     </SectionCard>);
+}
+
+export function DetailInstructionsBurst({ event }: {
+    readonly event: TimelineEvent;
+}): React.JSX.Element | null {
+    if (!isInstructionsBurstEvent(event)) return null;
+    const files = getInstructionsBurstFiles(event);
+    if (files.length === 0) return null;
+    const firstAt = metaString(event.metadata, "firstCreatedAt") ?? event.createdAt;
+    const lastAt = metaString(event.metadata, "lastCreatedAt") ?? event.createdAt;
+    const firstMs = Date.parse(firstAt);
+    const lastMs = Date.parse(lastAt);
+    const spanSeconds = Math.max(0, Math.round((lastMs - firstMs) / 100) / 10);
+    const reasonCounts = event.metadata["loadReasonCounts"];
+    const memoryCounts = event.metadata["memoryTypeCounts"];
+    return (<SectionCard title={`Instruction files (${files.length})`} bodyClassName="pt-4">
+      <div className="flex flex-col gap-3">
+        <KeyValueTable rows={[
+            { key: "Span", value: `${spanSeconds.toFixed(1)}s` },
+            { key: "First", value: new Date(firstMs).toLocaleTimeString() },
+            { key: "Last", value: new Date(lastMs).toLocaleTimeString() },
+            ...(isCountRecord(reasonCounts)
+                ? [{ key: "Reasons", value: formatCountRecord(reasonCounts) }]
+                : []),
+            ...(isCountRecord(memoryCounts)
+                ? [{ key: "Memory", value: formatCountRecord(memoryCounts) }]
+                : [])
+        ]}/>
+        <ul className={cn("m-0 max-h-[clamp(220px,36vh,360px)] overflow-auto rounded-[10px] border border-[var(--border)] bg-[var(--bg)] px-4 py-3 text-[0.8rem] leading-6 text-[var(--text-2)] list-none", monoText)}>
+          {files.map((file) => (<li key={file.eventId} className="flex items-baseline justify-between gap-3 py-0.5">
+            <span className="min-w-0 break-all">{file.relPath}</span>
+            <span className="shrink-0 text-[0.7rem] uppercase tracking-[0.04em] text-[var(--text-3)]">
+              {file.loadReason}
+            </span>
+          </li>))}
+        </ul>
+      </div>
+    </SectionCard>);
+}
+
+function isCountRecord(value: unknown): value is Record<string, number> {
+    if (!value || typeof value !== "object") return false;
+    return Object.values(value as Record<string, unknown>).every(
+        (entry) => typeof entry === "number"
+    );
+}
+
+function formatCountRecord(record: Record<string, number>): string {
+    return Object.entries(record)
+        .sort((a, b) => b[1] - a[1])
+        .map(([key, count]) => `${key} (${count})`)
+        .join(", ");
 }
 
 export function DetailConnectorIds({ connector, source, target }: {

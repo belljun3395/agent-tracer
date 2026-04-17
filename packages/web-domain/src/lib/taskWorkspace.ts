@@ -1,4 +1,5 @@
 import { buildInspectorEventTitle, buildModelSummary, filterTimelineEvents } from "./insights.js";
+import { groupInstructionsBursts } from "./instructionsBurst.js";
 import { buildTimelineRelations, type TimelineConnector } from "./timeline.js";
 import type { TaskObservabilityResponse, TimelineEvent, TimelineLane, TimelineRelation } from "../types.js";
 
@@ -128,13 +129,14 @@ export function buildTaskWorkspaceSelection(input: {
     readonly selectedEventDisplayTitle: string | null;
     readonly modelSummary: ReturnType<typeof buildModelSummary>;
 } {
+    const groupedTimeline = groupInstructionsBursts(input.timeline);
     const filteredTimeline = buildFilteredTimeline({
-        timeline: input.timeline,
+        timeline: groupedTimeline,
         selectedRuleId: input.selectedRuleId,
         selectedTag: input.selectedTag,
         showRuleGapsOnly: input.showRuleGapsOnly
     });
-    const selectedConnector = buildSelectedConnector(input.timeline, input.selectedConnectorKey);
+    const selectedConnector = buildSelectedConnector(groupedTimeline, input.selectedConnectorKey);
     const selectedEvent = selectedConnector
         ? null
         : filteredTimeline.find((event) => event.id === input.selectedEventId) ?? filteredTimeline[0] ?? null;

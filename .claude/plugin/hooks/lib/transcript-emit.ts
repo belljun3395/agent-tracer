@@ -31,6 +31,7 @@ export interface TranscriptUsage {
 export interface TranscriptAssistantContentBlock {
     type?: string;
     thinking?: string;
+    signature?: string;
     text?: string;
     id?: string;
     name?: string;
@@ -184,16 +185,23 @@ function mapAssistantContentBlock(
 
     if (block.type === "thinking") {
         const text = toTrimmedString(block.thinking);
-        if (!text) return null;
+        const signatureLength = typeof block.signature === "string" ? block.signature.length : 0;
+        if (!text && signatureLength === 0) return null;
+        const redacted = !text && signatureLength > 0;
+        const body = redacted ? "[redacted thinking]" : text;
+        const title = redacted ? "Thinking (redacted)" : ellipsize(text, 120);
+        const meta: JsonObject = redacted
+            ? { ...baseMeta, redacted: true, signatureLength }
+            : baseMeta;
         return {
             kind: "thought.logged",
             taskId: ctx.ids.taskId,
             sessionId: ctx.ids.sessionId,
             messageId: makeTranscriptEventId(entry.sessionId ?? ctx.ids.sessionId, uuid, contentIndex),
             source: SOURCE,
-            title: ellipsize(text, 120),
-            body: text,
-            metadata: baseMeta,
+            title,
+            body,
+            metadata: meta,
             ...(entry.timestamp ? { createdAt: entry.timestamp } : {})
         };
     }
