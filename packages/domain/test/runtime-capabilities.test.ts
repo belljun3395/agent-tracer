@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getRuntimeEvidenceProfile, getRuntimeCapabilities, listNativeSkillPaths, normalizeRuntimeAdapterId, RUNTIME_ADAPTER_IDS } from "@monitor/core";
+import { getRuntimeEvidenceProfile, getRuntimeCapabilities, listNativeSkillPaths, normalizeRuntimeAdapterId, RUNTIME_ADAPTER_IDS } from "@monitor/domain";
 describe("runtime capabilities", () => {
     it("defines the supported adapter ids", () => {
         expect(RUNTIME_ADAPTER_IDS).toEqual(["claude-plugin"]);

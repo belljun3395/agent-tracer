@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { ActionName, classifyEvent } from "@monitor/core";
+import { ActionName } from "@monitor/domain";
+import { classifyEvent } from "@monitor/classification";
 describe("classifyEvent (action-registry only)", () => {
     it("does not classify generic UI text with no action name", () => {
         const classification = classifyEvent({

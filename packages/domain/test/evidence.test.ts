@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getEventEvidence, getRuntimeCoverageSummary, listRuntimeCoverage } from "@monitor/core";
+import { getEventEvidence, getRuntimeCoverageSummary, listRuntimeCoverage } from "@monitor/domain";
 describe("evidence helpers", () => {
     it("treats Claude plugin coverage as proven for automatically observed surfaces", () => {
         const summary = getRuntimeCoverageSummary("claude-plugin");

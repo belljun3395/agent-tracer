@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extractPathLikeTokens, looksLikePath, looksLikePathStrict } from "@monitor/core";
+import { extractPathLikeTokens, looksLikePath, looksLikePathStrict } from "@monitor/domain";
 
 describe("looksLikePathStrict", () => {
     it("accepts tokens with a recognizable file extension", () => {

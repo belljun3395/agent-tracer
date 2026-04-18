@@ -58,39 +58,6 @@ export default tseslint.config(
     }
   },
   {
-    files: ["packages/core/src/**/*.{ts,tsx}", "packages/core/test/**/*.{ts,tsx}"],
-    ignores: [
-      "packages/core/src/index.ts",
-      "packages/core/src/classification.ts",
-      "packages/core/src/domain.ts",
-      "packages/core/src/interop.ts",
-      "packages/core/src/paths.ts",
-      "packages/core/src/runtime.ts",
-      "packages/core/src/workflow.ts"
-    ],
-    rules: {
-      "no-restricted-imports": ["error", {
-        patterns: [
-          {
-            group: ["./**/index.js", "../**/index.js"],
-            message: "Import the directory barrel path instead of '/index.js'."
-          },
-          {
-            group: [
-              "**/classification/*.js",
-              "**/domain/*.js",
-              "**/interop/*.js",
-              "**/paths/*.js",
-              "**/runtime/*.js",
-              "**/workflow/*.js"
-            ],
-            message: "Import from the nearest core module barrel (for example '../domain.js') instead of a deep module file."
-          }
-        ]
-      }]
-    }
-  },
-  {
     files: ["packages/adapter-mcp/src/**/*.{ts,tsx}", "packages/adapter-mcp/test/**/*.{ts,tsx}"],
     ignores: ["packages/adapter-mcp/src/tools.ts"],
     rules: {
@@ -150,7 +117,7 @@ export default tseslint.config(
               "@monitor/web-state",
               "@monitor/web"
             ],
-            message: "web-domain must stay framework-free — depend only on @monitor/core."
+            message: "web-domain must stay framework-free — depend only on @monitor/domain."
           }
         ]
       }]
