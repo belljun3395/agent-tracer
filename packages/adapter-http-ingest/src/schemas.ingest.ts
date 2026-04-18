@@ -25,6 +25,7 @@ export const INGEST_EVENT_KINDS = [
     "assistant.response",
     "instructions.loaded",
     "session.ended",
+    "token.usage",
 ] as const
 
 export const ingestEventItemSchema = z.object({

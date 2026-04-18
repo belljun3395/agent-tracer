@@ -347,6 +347,20 @@ export class EventIngestionService {
                     title: e.title ?? "",
                 })
 
+            case "token.usage":
+                return this.monitor.logTokenUsage({
+                    taskId,
+                    ...(sessionId ? { sessionId } : {}),
+                    inputTokens: typeof e.metadata?.["inputTokens"] === "number" ? e.metadata["inputTokens"] : 0,
+                    outputTokens: typeof e.metadata?.["outputTokens"] === "number" ? e.metadata["outputTokens"] : 0,
+                    cacheReadTokens: typeof e.metadata?.["cacheReadTokens"] === "number" ? e.metadata["cacheReadTokens"] : 0,
+                    cacheCreateTokens: typeof e.metadata?.["cacheCreateTokens"] === "number" ? e.metadata["cacheCreateTokens"] : 0,
+                    ...(typeof e.metadata?.["costUsd"] === "number" ? { costUsd: e.metadata["costUsd"] } : {}),
+                    ...(typeof e.metadata?.["durationMs"] === "number" ? { durationMs: e.metadata["durationMs"] } : {}),
+                    ...(typeof e.metadata?.["model"] === "string" ? { model: e.metadata["model"] } : {}),
+                    ...(typeof e.metadata?.["promptId"] === "string" ? { promptId: e.metadata["promptId"] } : {}),
+                })
+
             default:
                 throw new Error(`Unsupported event kind: ${String(e.kind)}`)
         }
