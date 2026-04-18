@@ -1,5 +1,5 @@
 import { Controller, Get, Param, HttpException, HttpStatus } from "@nestjs/common";
-import { TaskId } from "@monitor/core";
+import { TaskId } from "@monitor/domain";
 import { MonitorService } from "@monitor/application";
 @Controller()
 export class AdminController {

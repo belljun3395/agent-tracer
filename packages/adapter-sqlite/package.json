@@ -18,7 +18,6 @@
   },
   "dependencies": {
     "@monitor/application": "*",
-    "@monitor/core": "*",
     "@monitor/domain": "*",
     "better-sqlite3": "^12.0.0",
     "drizzle-orm": "^0.45.2"

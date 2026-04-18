@@ -1,6 +1,6 @@
 import { Controller, Get, HttpException, HttpStatus, Param, Query, Res } from "@nestjs/common";
 import type { Response } from "express";
-import { TaskId } from "@monitor/core";
+import { TaskId } from "@monitor/domain";
 import { MonitorService } from "@monitor/application";
 
 @Controller()

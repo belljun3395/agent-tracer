@@ -28,9 +28,7 @@ export * from "./runtime/evidence.js";
 export * from "./runtime/capabilities.defaults.js";
 
 // Auto-register built-in runtime adapters so consumers (server, adapters,
-// web-app) don't need an explicit init call. Previously this lived in the
-// @monitor/core shim; promoting it to domain preserves the behaviour now
-// that callers import leaf packages directly.
+// web-app) don't need an explicit init call.
 import { registerDefaultRuntimeAdapters } from "./runtime/capabilities.defaults.js";
 registerDefaultRuntimeAdapters();
 

@@ -1,5 +1,5 @@
 import BetterSqlite3 from "better-sqlite3";
-import { EventId, TaskId } from "@monitor/core";
+import { EventId, TaskId } from "@monitor/domain";
 import { describe, expect, it } from "vitest";
 import { SqliteEventRepository, backfillSearchDocuments, createSchema } from "@monitor/adapter-sqlite";
 describe("sqlite event repository search", () => {

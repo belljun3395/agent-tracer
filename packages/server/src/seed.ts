@@ -1,5 +1,5 @@
 import path from "node:path";
-import { ActionName, MessageId, RuleId, TodoId, ToolName, WorkspacePath, type EventId, type SessionId as MonitorSessionId } from "@monitor/core";
+import { ActionName, MessageId, RuleId, TodoId, ToolName, WorkspacePath, type EventId, type SessionId as MonitorSessionId } from "@monitor/domain";
 import { MonitorService } from "@monitor/application";
 import { createSqliteMonitorPorts } from "@monitor/adapter-sqlite";
 const databasePath = path.resolve(process.cwd(), ".monitor", "monitor.sqlite");

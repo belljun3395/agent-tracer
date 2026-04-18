@@ -1,2 +1,2 @@
-import { initializeDefaultAdapters } from "@monitor/core";
-initializeDefaultAdapters();
+import { registerDefaultRuntimeAdapters } from "@monitor/domain";
+registerDefaultRuntimeAdapters();

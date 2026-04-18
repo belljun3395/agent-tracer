@@ -1,6 +1,6 @@
 import type { OnApplicationShutdown} from "@nestjs/common";
 import { Injectable, type Provider } from "@nestjs/common";
-import { initializeDefaultAdapters } from "@monitor/core";
+import { registerDefaultRuntimeAdapters } from "@monitor/domain";
 import { createSqliteMonitorPorts } from "@monitor/adapter-sqlite";
 import type { MonitorPorts } from "@monitor/application";
 import { createEmbeddingService } from "@monitor/adapter-embedding";
@@ -22,7 +22,7 @@ export function DatabaseProvider(options: {
     return {
         provide: MONITOR_PORTS_TOKEN,
         useFactory: (): PortsWithClose => {
-            initializeDefaultAdapters();
+            registerDefaultRuntimeAdapters();
             const embeddingService = createEmbeddingService();
             return createSqliteMonitorPorts({
                 databasePath: options.databasePath,

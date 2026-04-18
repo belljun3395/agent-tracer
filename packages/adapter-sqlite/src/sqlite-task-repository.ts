@@ -1,6 +1,6 @@
 import { asc, desc, eq, inArray, sql } from "drizzle-orm"
-import type { EventClassification, MonitoringEventKind, MonitoringTask, MonitoringTaskKind, TimelineLane } from "@monitor/core"
-import { EventId, RuntimeSource, SessionId, TaskId, TaskSlug, WorkspacePath } from "@monitor/core"
+import type { EventClassification, MonitoringEventKind, MonitoringTask, MonitoringTaskKind, TimelineLane } from "@monitor/domain"
+import { EventId, RuntimeSource, SessionId, TaskId, TaskSlug, WorkspacePath } from "@monitor/domain"
 
 import type { ITaskRepository, OverviewStats, TaskUpsertInput } from "@monitor/application"
 import { deriveTaskDisplayTitle } from "@monitor/application"

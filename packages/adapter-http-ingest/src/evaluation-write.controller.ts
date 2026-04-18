@@ -1,5 +1,5 @@
 import { Body, Controller, HttpCode, HttpException, HttpStatus, Param, Post, Query } from "@nestjs/common";
-import { TaskId } from "@monitor/core";
+import { TaskId } from "@monitor/domain";
 import { MonitorService } from "@monitor/application";
 import type { PlaybookUpsertInput } from "@monitor/application";
 import { briefingSaveSchema, playbookPatchSchema, playbookUpsertSchema, taskEvaluateSchema } from "./schemas.js";

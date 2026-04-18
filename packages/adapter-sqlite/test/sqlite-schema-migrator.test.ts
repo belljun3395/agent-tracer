@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import BetterSqlite3 from "better-sqlite3";
-import { TaskId } from "@monitor/core";
+import { TaskId } from "@monitor/domain";
 import { afterEach, describe, expect, it } from "vitest";
 import { createSchema, createSqliteMonitorPorts } from "@monitor/adapter-sqlite";
 describe("sqlite runtimeSource backfill", () => {

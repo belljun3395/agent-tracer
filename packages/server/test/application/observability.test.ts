@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { EventId, RuntimeSource, SessionId, TaskId, TaskSlug, type EventClassification, type MonitoringSession, type MonitoringTask, type TimelineEvent } from "@monitor/core";
+import { EventId, RuntimeSource, SessionId, TaskId, TaskSlug, type EventClassification, type MonitoringSession, type MonitoringTask, type TimelineEvent } from "@monitor/domain";
 import { analyzeObservabilityOverview, analyzeTaskObservability } from "@monitor/application";
 
 function makeClassification(lane: EventClassification["lane"], tags: readonly string[] = []): EventClassification {

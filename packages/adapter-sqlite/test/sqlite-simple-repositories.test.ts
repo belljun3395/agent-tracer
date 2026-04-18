@@ -1,5 +1,5 @@
 import BetterSqlite3 from "better-sqlite3";
-import { BookmarkId, EventId, RuntimeSessionId, RuntimeSource, SessionId, TaskId } from "@monitor/core";
+import { BookmarkId, EventId, RuntimeSessionId, RuntimeSource, SessionId, TaskId } from "@monitor/domain";
 import { afterEach, describe, expect, it } from "vitest";
 import { SqliteBookmarkRepository, SqliteRuntimeBindingRepository, SqliteSessionRepository, createSchema } from "@monitor/adapter-sqlite";
 

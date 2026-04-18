@@ -1,6 +1,6 @@
 import { asc, desc, eq, sql } from "drizzle-orm"
-import type { MonitoringSession, SessionId as MonitorSessionId, TaskId as MonitorTaskId } from "@monitor/core"
-import { SessionId, TaskId } from "@monitor/core"
+import type { MonitoringSession, SessionId as MonitorSessionId, TaskId as MonitorTaskId } from "@monitor/domain"
+import { SessionId, TaskId } from "@monitor/domain"
 
 import type { ISessionRepository, SessionCreateInput } from "@monitor/application"
 import { ensureSqliteDatabase, type SqliteDatabase, type SqliteDatabaseInput } from "./drizzle-db.js"

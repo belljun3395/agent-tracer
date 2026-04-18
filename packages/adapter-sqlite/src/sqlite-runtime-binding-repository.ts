@@ -1,5 +1,5 @@
 import { desc, eq, sql } from "drizzle-orm"
-import { RuntimeSessionId, RuntimeSource, SessionId, TaskId, type RuntimeSessionId as MonitorRuntimeSessionId, type RuntimeSource as MonitorRuntimeSource, type TaskId as MonitorTaskId } from "@monitor/core"
+import { RuntimeSessionId, RuntimeSource, SessionId, TaskId, type RuntimeSessionId as MonitorRuntimeSessionId, type RuntimeSource as MonitorRuntimeSource, type TaskId as MonitorTaskId } from "@monitor/domain"
 
 import type { IRuntimeBindingRepository, RuntimeBinding, RuntimeBindingUpsertInput } from "@monitor/application"
 import { ensureSqliteDatabase, type SqliteDatabase, type SqliteDatabaseInput } from "./drizzle-db.js"

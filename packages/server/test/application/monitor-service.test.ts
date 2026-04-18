@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { ActionName, classifyEvent, createTaskSlug, normalizeWorkspacePath, normalizeLane, tokenizeActionName } from "@monitor/core";
+import { ActionName, createTaskSlug, normalizeWorkspacePath, normalizeLane } from "@monitor/domain";
+import { classifyEvent, tokenizeActionName } from "@monitor/classification";
 describe("normalizeWorkspacePath", () => {
     it("compresses duplicate separators and trims trailing slash", () => {
         expect(normalizeWorkspacePath("/tmp//baden///")).toBe("/tmp/baden");

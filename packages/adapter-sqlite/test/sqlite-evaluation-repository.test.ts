@@ -1,5 +1,5 @@
 import BetterSqlite3 from "better-sqlite3";
-import { TaskId } from "@monitor/core";
+import { TaskId } from "@monitor/domain";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { SqliteEvaluationRepository, createSchema, serializeEmbedding } from "@monitor/adapter-sqlite";
 describe("sqlite evaluation repository search", () => {

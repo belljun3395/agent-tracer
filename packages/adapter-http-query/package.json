@@ -18,7 +18,7 @@
   },
   "dependencies": {
     "@monitor/application": "*",
-    "@monitor/core": "*",
+    "@monitor/domain": "*",
     "zod": "^3.0.0"
   },
   "peerDependencies": {

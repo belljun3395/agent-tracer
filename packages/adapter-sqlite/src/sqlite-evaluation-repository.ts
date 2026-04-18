@@ -1,8 +1,8 @@
 import type Database from "better-sqlite3";
 import { randomUUID } from "node:crypto";
 import type { BriefingSaveInput, IEmbeddingService, IEvaluationRepository, PersistedTaskEvaluation, PlaybookUpsertInput, StoredTaskEvaluation, WorkflowContentRecord, WorkflowSearchResult, WorkflowSummary } from "@monitor/application";
-import type { MonitoringTask, PlaybookRecord, PlaybookStatus, PlaybookSummary, ReusableTaskSnapshot, SavedBriefing, TaskId as MonitorTaskId, TimelineEvent, WorkflowEvaluationData } from "@monitor/core";
-import { buildReusableTaskSnapshot, buildWorkflowContext, EventId, filterEventsByTurnRange, segmentEventsByTurn, SessionId, TaskId, TaskSlug, WorkspacePath } from "@monitor/core";
+import type { MonitoringTask, PlaybookRecord, PlaybookStatus, PlaybookSummary, ReusableTaskSnapshot, SavedBriefing, TaskId as MonitorTaskId, TimelineEvent, WorkflowEvaluationData } from "@monitor/domain";
+import { buildReusableTaskSnapshot, buildWorkflowContext, EventId, filterEventsByTurnRange, segmentEventsByTurn, SessionId, TaskId, TaskSlug, WorkspacePath } from "@monitor/domain";
 import { deriveTaskDisplayTitle, meaningfulTaskTitle } from "@monitor/application";
 import { cosineSimilarity, deserializeEmbedding, serializeEmbedding } from "./embedding-codec.js";
 import { ensureSqliteDatabase, type SqliteDatabaseInput } from "./drizzle-db.js";

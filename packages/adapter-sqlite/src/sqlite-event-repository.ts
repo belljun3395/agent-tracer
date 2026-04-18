@@ -1,6 +1,6 @@
 import type Database from "better-sqlite3";
-import type { EventClassification, EventId as MonitorEventId, MonitoringEventKind, MonitoringTask, TaskId as MonitorTaskId, TimelineEvent, TimelineLane } from "@monitor/core";
-import { BookmarkId, EventId, normalizeLane, SessionId, TaskId } from "@monitor/core";
+import type { EventClassification, EventId as MonitorEventId, MonitoringEventKind, MonitoringTask, TaskId as MonitorTaskId, TimelineEvent, TimelineLane } from "@monitor/domain";
+import { BookmarkId, EventId, normalizeLane, SessionId, TaskId } from "@monitor/domain";
 import type { EventInsertInput, IEmbeddingService, IEventRepository, SearchBookmarkHit, SearchEventHit, SearchOptions, SearchResults, SearchTaskHit } from "@monitor/application";
 import { cosineSimilarity, deserializeEmbedding, serializeEmbedding } from "./embedding-codec.js";
 import { ensureSqliteDatabase, type SqliteDatabaseInput } from "./drizzle-db.js";

@@ -6,7 +6,9 @@ export default defineConfig({
     clean: true,
     external: [
         "@huggingface/transformers",
-        "@monitor/core",
+        "@monitor/domain",
+        "@monitor/classification",
+        "@monitor/application",
         "better-sqlite3",
         "express",
         "ws",
