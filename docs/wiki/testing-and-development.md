@@ -1,53 +1,77 @@
 # Testing & Development
 
-This document is a development starting point that organizes the most frequently used commands when modifying Agent Tracer
-and clarifies what kinds of tests exist and where.
+This page is the practical starting point for day-to-day development. It
+lists the commands you will actually run and points out the package
+boundaries that matter while editing.
 
-## Root Commands
+## Root commands
 
 ```bash
 npm run build
 npm run lint
+npm run lint:deps
 npm test
 npm run dev
 ```
 
-## Per-Package Commands
+## Common per-package commands
 
-- `@monitor/core`: `npm run test --workspace @monitor/core`
-- `@monitor/server`: `npm run test --workspace @monitor/server`
-- `@monitor/adapter-mcp`: `npm run test --workspace @monitor/adapter-mcp`
-- `@monitor/web-app`: `npm run test --workspace @monitor/web-app`
+- `npm run test --workspace @monitor/domain`
+- `npm run test --workspace @monitor/classification`
+- `npm run test --workspace @monitor/application`
+- `npm run test --workspace @monitor/server`
+- `npm run test --workspace @monitor/adapter-mcp`
+- `npm run test --workspace @monitor/web-app`
 
-## Common Development Loops
+Useful targeted builds:
 
-### Local App Development
+```bash
+npm run build --workspace @monitor/server
+npm run build --workspace @monitor/web-app
+```
+
+## Common development loops
+
+### Full local app
 
 ```bash
 npm run dev
 ```
 
-### Server Only
+Runs the monitor server and the dashboard together.
+
+### Server only
 
 ```bash
 npm run dev:server
 ```
 
-### Verify Specific Package Build
+### Dashboard only
 
 ```bash
-npm run build --workspace @monitor/server
-npm run build --workspace @monitor/web
+npm run dev:web
 ```
 
-## Checkpoints When Modifying Code
+Assumes the server is already running.
 
-- If changing core contract, verify web/types imports and server schema together
-- If changing runtime adapter, update guide documentation and capability registry together
-- If changing workflow library, verify evaluation route, repository, and web panel together
+### Docs only
 
-## Related Documentation
+```bash
+npm run docs:dev
+```
 
-- [Server-Side Tests](./server-side-tests.md)
-- [Web & Core Tests](./web-and-core-tests.md)
-- [Quality And Testing](./quality-and-testing.md)
+## Checkpoints when modifying code
+
+- If you change domain or classification contracts, verify the server and
+  web still agree on the shared shape
+- If you change a runtime adapter, update the relevant guide/wiki page in
+  the same change
+- If you change a package boundary, run `npm run lint:deps`
+- If you change workflow evaluation or search, verify both the backend
+  and the knowledge/playbook UI
+
+## Related documentation
+
+- [Server-side tests](./server-side-tests.md)
+- [Web & core tests](./web-and-core-tests.md)
+- [Quality and Testing](./quality-and-testing.md)

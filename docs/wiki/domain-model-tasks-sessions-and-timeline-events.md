@@ -111,13 +111,13 @@ Evaluates task as `good` or `skip` to add to workflow library.
 
 ## Related Files
 
-- `packages/core/src/domain/index.ts`
-- `packages/server/src/application/monitor-service.ts`
-- `packages/server/src/application/services/session-lifecycle-policy.ts`
-- `packages/server/src/infrastructure/sqlite/sqlite-task-repository.ts`
-- `packages/server/src/infrastructure/sqlite/sqlite-session-repository.ts`
-- `packages/server/src/infrastructure/sqlite/sqlite-event-repository.ts`
-- `packages/server/src/infrastructure/sqlite/sqlite-runtime-binding-repository.ts`
+- `packages/domain/src/index.ts`
+- `packages/application/src/monitor-service.ts`
+- `packages/application/src/services/session-lifecycle-policy.ts`
+- `packages/adapter-sqlite/src/sqlite-task-repository.ts`
+- `packages/adapter-sqlite/src/sqlite-session-repository.ts`
+- `packages/adapter-sqlite/src/sqlite-event-repository.ts`
+- `packages/adapter-sqlite/src/sqlite-runtime-binding-repository.ts`
 
 ## Related Documentation
 

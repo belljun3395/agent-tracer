@@ -87,7 +87,6 @@ npm run docs:dev
 ### NPM release
 
 - Publish individual packages:
-  - `npm run publish:core`
   - `npm run publish:server`
   - `npm run publish:mcp`
   - `npm run publish:web`
@@ -97,7 +96,7 @@ npm run docs:dev
   - Set `dryRun` to `true` to run with `--dry-run` (no upload)
 - Tag-based release deployment:
   - Push a tag in the format `v*` (e.g., `v0.1.0`) to automatically trigger
-    publish jobs for all 4 packages.
+    publish jobs for the published packages above.
 - Requires `NPM_TOKEN` secret in your repository
   (`Settings > Secrets and variables > Actions`).
 
@@ -118,7 +117,10 @@ See `docs/guide/task-observability.md` for detailed contracts and API specs.
 
 | Package | Role |
 |---------|------|
-| `@monitor/core` | Types, event rules, and semantic classification |
-| `@monitor/server` | NestJS server runtime, SQLite + WebSocket API |
+| `@monitor/domain` | Pure ids, task/session/event types, workflow shapes, and runtime capability registry |
+| `@monitor/classification` | Server-side event classification and semantic metadata derivation |
+| `@monitor/application` | Use cases, observability analyzers, and port interfaces |
+| `@monitor/server` | NestJS runtime composition that wires HTTP adapters, SQLite ports, and WebSocket broadcast |
 | `@monitor/adapter-mcp` | MCP stdio server (driving adapter) |
 | `@monitor/web-app` | React 19 dashboard |
+| `@monitor/claude-plugin` | Claude Code hook plugin package exposed locally via `.claude/plugin` |

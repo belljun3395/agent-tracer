@@ -112,10 +112,10 @@ mcp__*:      Varies by MCP server/tool
 
 ### Semantic Metadata Contract
 
-Explicit metadata added by the hook layer to all exploration/file/execution tools:
+Shared semantic metadata consumed by the UI:
 
 ```typescript
-// Defined in packages/core/src/interop/event-semantic.ts
+// Defined in packages/domain/src/interop/event-semantic.ts
 interface EventSemanticMetadata {
   readonly subtypeKey: EventSubtypeKey;  // "read_file", "run_test", "mcp_call", ...
   readonly subtypeLabel?: string;        // UI-friendly label

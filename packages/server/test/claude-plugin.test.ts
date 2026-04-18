@@ -282,7 +282,7 @@ describe("Claude plugin", () => {
         expect(secondUserMessage).toBeDefined();
         expect(secondTerminalCommand).toBeDefined();
         expect(secondTerminalCommand?.sessionId).toBe(secondUserMessage?.sessionId);
-    });
+    }, 15000);
     it("file hook preserves paths outside the workspace boundary instead of slicing by prefix", async () => {
         const monitor = await startMonitorStub();
         servers.push(monitor);

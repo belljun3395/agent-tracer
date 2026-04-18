@@ -1,100 +1,135 @@
 # Architecture & Package Map
 
-Agent Tracer is a TypeScript monorepo based on npm workspaces, and the overall structure is easiest to read as
-"shared contract (core) + application server (server) + agent adapters (mcp) + presentation (web)".
-It has typical ports-and-adapters characteristics, but its actual operation is centered on the composition root and shared domain contract.
-
-## Package Map
-
-| Package | Role | Key Files |
-| --- | --- | --- |
-| `@monitor/core` | Domain types, event classifier, runtime capability registry | `src/domain.ts` (barrel), `src/domain/*`, `src/classifier.ts`, `src/runtime-capabilities.ts` (barrel) |
-| `@monitor/server` | NestJS server runtime, application service, SQLite repository, WebSocket broadcaster | `src/index.ts`, `src/bootstrap/create-nestjs-monitor-runtime.ts`, `src/application/monitor-service.ts` |
-| `@monitor/adapter-mcp` | Expose server API as MCP tool set | `src/index.ts`, `src/client.ts` |
-| `@monitor/web-app` | Dashboard UI, overview/task detail fetch, realtime refresh | `src/App.tsx`, `src/store/useMonitorStore.tsx`, `src/components/Timeline.tsx` |
-
-## Dependency Direction
-
-Code dependencies generally follow the direction below:
+Agent Tracer is an npm-workspaces TypeScript monorepo with a clear
+inner-to-outer dependency direction:
 
 ```text
-@monitor/core
-  ├─> @monitor/server
-  ├─> @monitor/adapter-mcp
-  └─> @monitor/web-app
-
-@monitor/server <----HTTP/WebSocket----> @monitor/web-app
-@monitor/adapter-mcp ----HTTP-------------------> @monitor/server
+domain -> classification -> application -> adapter-* -> server
+domain -> web-domain -> web-io -> web-state -> web-app
+hook-plugin -> HTTP only (no application imports)
+adapter-mcp -> HTTP only (no inner-ring logic)
 ```
 
-The important point is that `server` does not import the `web-app` package.
-The two packages are connected only via runtime communication, and `core` provides the shared type semantics.
+The important correction to older docs is that `@monitor/core` no longer
+exists. The shared model now lives in three packages: `domain`,
+`classification`, and `application`.
 
-## Composition Root
+## Package map
 
-### Server Runtime Composition
+| Package | Role | Key files |
+| --- | --- | --- |
+| `@monitor/domain` | Pure ids, types, workflow shapes, runtime capability registry, shared interop contracts | `packages/domain/src/index.ts`, `packages/domain/src/monitoring/*`, `packages/domain/src/runtime/*`, `packages/domain/src/interop/event-semantic.ts` |
+| `@monitor/classification` | Event classifier and semantic metadata derivation | `packages/classification/src/classifier.ts`, `packages/classification/src/action-registry.ts`, `packages/classification/src/semantic-metadata.ts` |
+| `@monitor/application` | Use cases, observability analyzers, workflow evaluation logic, and ports | `packages/application/src/monitor-service.ts`, `packages/application/src/services/*`, `packages/application/src/ports/*` |
+| `@monitor/adapter-http-ingest` | Write-side Nest controllers | `packages/adapter-http-ingest/src/*.ts` |
+| `@monitor/adapter-http-query` | Read-side Nest controllers | `packages/adapter-http-query/src/*.ts` |
+| `@monitor/adapter-sqlite` | SQLite-backed port implementations | `packages/adapter-sqlite/src/index.ts`, `packages/adapter-sqlite/src/sqlite-*.ts` |
+| `@monitor/adapter-ws` | WebSocket broadcaster | `packages/adapter-ws/src/event-broadcaster.ts` |
+| `@monitor/adapter-mcp` | MCP stdio server that forwards to the monitor HTTP API | `packages/adapter-mcp/src/index.ts`, `packages/adapter-mcp/src/client.ts`, `packages/adapter-mcp/src/tools/*` |
+| `@monitor/adapter-embedding` | Local embedding service used for workflow similarity | `packages/adapter-embedding/src/index.ts` |
+| `@monitor/claude-plugin` | Claude Code hook adapter surfaced as `.claude/plugin` | `packages/hook-plugin/hooks/*`, `packages/hook-plugin/bin/run-hook.sh` |
+| `@monitor/server` | NestJS composition root and runtime bootstrap | `packages/server/src/index.ts`, `packages/server/src/bootstrap/create-nestjs-monitor-runtime.ts`, `packages/server/src/presentation/app.module.ts` |
+| `@monitor/web-domain` | Web-facing read-model types and pure selectors | `packages/web-domain/src/*` |
+| `@monitor/web-io` | Browser-boundary adapters for HTTP, WebSocket, and safe storage | `packages/web-io/src/api.ts`, `packages/web-io/src/realtime.ts`, `packages/web-io/src/websocket.ts`, `packages/web-io/src/storage.ts` |
+| `@monitor/web-state` | React Query and Zustand-based UI state | `packages/web-state/src/query/*`, `packages/web-state/src/server/*`, `packages/web-state/src/realtime/*`, `packages/web-state/src/ui/*` |
+| `@monitor/web-app` | React 19 dashboard | `packages/web-app/src/App.tsx`, `packages/web-app/src/components/*`, `packages/web-app/src/features/*` |
 
-The default process entry point is `packages/server/src/index.ts`, which calls
-`createNestMonitorRuntime()` to launch the NestJS runtime.
+## Dependency direction
 
-`packages/server/src/bootstrap/create-nestjs-monitor-runtime.ts` is
-the current default composition root that bundles NestJS `AppModule`, WebSocket upgrade, and initial snapshot transmission.
+### Inner ring
 
-### MCP Entry Point
+- `@monitor/domain` is pure and imports no other `@monitor/*` packages.
+- `@monitor/classification` depends only on `@monitor/domain`.
+- `@monitor/application` depends on `@monitor/domain` and
+  `@monitor/classification`.
 
-`packages/adapter-mcp/src/index.ts` registers 24 monitoring tools and
-maps each tool to a monitor server HTTP endpoint.
+### Adapters and runtime edges
 
-### Web Entry Point
+- HTTP controllers, SQLite persistence, WebSocket broadcast, embeddings,
+  and the MCP adapter are all adapters around `@monitor/application`.
+- `@monitor/server` is intentionally thin: it composes adapters and the
+  Nest runtime, but business logic stays in `@monitor/application`.
+- `@monitor/claude-plugin` does not import the application layer. It
+  posts raw payloads over HTTP and lets the server classify them.
 
-`packages/web-app/src/main.tsx` and `packages/web-app/src/App.tsx` are the presentation composition root.
-State management is handled by `useMonitorStore`, and realtime synchronization by `useWebSocket` and `lib/realtime.ts`.
+### Web stack
 
-## Responsibility Separation Between Packages
+- `@monitor/web-domain` depends only on `@monitor/domain`.
+- `@monitor/web-io` wraps HTTP, WebSocket, and safe storage concerns.
+- `@monitor/web-state` owns query invalidation, socket wiring, and UI
+  stores.
+- `@monitor/web-app` is the React composition layer and does not import
+  `@monitor/application`, server internals, or adapters directly.
 
-### Core Defines Semantics
+## Composition root
 
-New event types, lane semantics, runtime adapter capabilities—any semantics the entire system must share
-must first be finalized in `@monitor/core`.
+### Server runtime composition
 
-### Server Owns Lifecycle and Persistence
+`packages/server/src/index.ts` is the runtime entrypoint. It resolves the
+config, then calls `createNestMonitorRuntime()`.
 
-Task/session/event storage, runtime session binding, evaluation storage and search,
-WebSocket notification are all responsibilities of `@monitor/server`.
+`packages/server/src/bootstrap/create-nestjs-monitor-runtime.ts` wires:
 
-### MCP Opens Manual/Semi-Automated Agent Paths
+1. `AppModule.forRoot(...)`
+2. `DatabaseProvider(...)`, which creates the SQLite-backed ports and
+   optional embedding service
+3. Read/write HTTP controllers from the adapter packages
+4. `MonitorService` from `@monitor/application`
+5. A `WebSocketServer` bridged through `EventBroadcaster`
 
-In environments without automatic plugins, the MCP layer effectively acts as an observability adapter.
+### MCP entrypoint
 
-### Web Owns Read Model and Exploration Experience
+`packages/adapter-mcp/src/index.ts` registers the MCP tool set and uses
+`MonitorClient` to forward calls to the server's HTTP API.
 
-Web consumes the server's canonical state to create timeline, inspector, and workflow library experiences.
-Some domain calculations are concentrated in `lib/insights.ts` and `lib/timeline.ts`.
+### Web entrypoint
 
-## Extension Points
+`packages/web-app/src/main.tsx` mounts the React app.
+`packages/web-app/src/App.tsx` composes routing, dashboard layout,
+selection plumbing, and workspace/knowledge views. Data fetching and UI
+stores are provided by `@monitor/web-state`.
 
-- Adding new runtime adapter: Update `@monitor/core` capability registry, server endpoint strategy, and guide docs together
-- Adding new monitoring event: Verify impact on core type, server schema/route/service, MCP registration, and web rendering
-- Adding new read model: Design server API and web fetch/store paths together
+## Responsibility boundaries
 
-## Strengths and Cautions of Current Structure
+### Domain defines value types and registries
 
-Strengths:
+Task/session/event types, workflow shapes, runtime capability registry,
+and shared interop contracts all start in `@monitor/domain`.
 
-- Package boundaries are well-reflected in file structure and actual dependency directions.
-- Execution path is clear through `index.ts` → `createNestMonitorRuntime.ts` → controller/module structure.
-- `core` bundles shared contract, so multiple runtimes don't disrupt basic semantics.
+### Classification derives semantics
 
-Cautions:
+Lane/subtype/tool-family derivation happens in `@monitor/classification`.
+The Claude plugin no longer does client-side semantic classification.
 
-- Web has converged key types back to `core`, but search hits and read-model interfaces still have web-only shapes.
-- Large modules like `MonitorService`, `App.tsx`, `Timeline.tsx`, `insights.ts` carry heavy responsibilities.
-- Areas where docs and code easily drift: runtime integration and bootstrap paths. Since this repository is Claude-plugin-focused, it's safer to describe manual runtimes at the level of generic HTTP/MCP contracts.
+### Application owns use cases
 
-## Related Documentation
+Lifecycle management, event logging, workflow evaluation, search, and
+observability analysis live in `@monitor/application`.
+
+### Adapters speak the outside world's protocol
+
+HTTP controllers, SQLite, WebSocket, MCP, and embeddings are all
+adapter surfaces around the application layer.
+
+### Web packages stay isolated from the server
+
+The dashboard consumes the HTTP/WebSocket contract only. It should never
+reach into server/application internals to share logic.
+
+## Extension points
+
+- Add a new runtime event: update `@monitor/domain`,
+  `@monitor/classification`, the relevant adapter/controller surface, and
+  the guide docs together
+- Add a new persistence backend: implement the application ports in a new
+  adapter package
+- Add a new dashboard read model: evolve `web-domain`, `web-io`,
+  `web-state`, and the server read endpoint together
+
+## Related documentation
 
 - [Core Domain & Event Model](./core-domain-and-event-model.md)
 - [Monitor Server](./monitor-server.md)
-- [MCP Server](./mcp-server.md)
-- [Web Dashboard](./web-dashboard.md)
 - [Runtime Adapters & Integration](./runtime-adapters-and-integration.md)
+- [Web Dashboard](./web-dashboard.md)
+- [Quality and Testing](./quality-and-testing.md)

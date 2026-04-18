@@ -7,16 +7,18 @@ with actual semantics converging in a single `MonitorService`.
 
 ## Core Files
 
-- `packages/server/src/presentation/controllers/admin.controller.ts`
-- `packages/server/src/presentation/controllers/lifecycle.controller.ts`
-- `packages/server/src/presentation/controllers/event.controller.ts`
-- `packages/server/src/presentation/controllers/ingest.controller.ts`
-- `packages/server/src/presentation/controllers/bookmark.controller.ts`
-- `packages/server/src/presentation/controllers/search.controller.ts`
-- `packages/server/src/presentation/controllers/evaluation.controller.ts`
-- `packages/server/src/presentation/schemas.ts`
-- `packages/server/src/presentation/schemas.ingest.ts`
-- `packages/server/src/application/services/event-ingestion-service.ts`
+- `packages/adapter-http-query/src/admin.controller.ts`
+- `packages/adapter-http-query/src/bookmark.controller.ts`
+- `packages/adapter-http-query/src/search.controller.ts`
+- `packages/adapter-http-query/src/evaluation.controller.ts`
+- `packages/adapter-http-ingest/src/lifecycle.controller.ts`
+- `packages/adapter-http-ingest/src/event.controller.ts`
+- `packages/adapter-http-ingest/src/ingest.controller.ts`
+- `packages/adapter-http-ingest/src/bookmark-write.controller.ts`
+- `packages/adapter-http-ingest/src/evaluation-write.controller.ts`
+- `packages/adapter-http-ingest/src/schemas.ts`
+- `packages/adapter-http-ingest/src/schemas.ingest.ts`
+- `packages/application/src/services/event-ingestion-service.ts`
 
 ## 1. Admin / Read API
 
@@ -105,10 +107,10 @@ Each event is dispatched based on its `kind` field.
 
 On validation failure: `400` + `{ ok: false, error: { code, message, details } }`.
 
-#### Schema Location
+#### Schema location
 
-- Request schema: `packages/server/src/presentation/schemas.ingest.ts`
-- Service dispatch: `packages/server/src/application/services/event-ingestion-service.ts`
+- Request schema: `packages/adapter-http-ingest/src/schemas.ingest.ts`
+- Service dispatch: `packages/application/src/services/event-ingestion-service.ts`
 
 ## 4. Legacy Event Logging API (Backward Compatibility)
 

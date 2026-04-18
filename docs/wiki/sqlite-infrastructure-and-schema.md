@@ -1,20 +1,21 @@
 # SQLite Infrastructure & Schema
 
-The actual storage path for Agent Tracer is `packages/server/src/infrastructure/sqlite`.
-This directory includes schema, migration, repository implementation, and port composition.
+The SQLite implementation now lives in `@monitor/adapter-sqlite`, not
+inside `packages/server/src/infrastructure/sqlite`. This adapter owns the
+schema, migrations, repository implementations, and port composition.
 
 ## Core Files
 
-- `packages/server/src/infrastructure/sqlite/index.ts`
-- `packages/server/src/infrastructure/sqlite/sqlite-schema.ts`
-- `packages/server/src/infrastructure/sqlite/sqlite-schema-migrator.ts`
-- `packages/server/src/infrastructure/sqlite/sqlite-task-repository.ts`
-- `packages/server/src/infrastructure/sqlite/sqlite-session-repository.ts`
-- `packages/server/src/infrastructure/sqlite/sqlite-event-repository.ts`
-- `packages/server/src/infrastructure/sqlite/sqlite-runtime-binding-repository.ts`
-- `packages/server/src/infrastructure/sqlite/sqlite-bookmark-repository.ts`
-- `packages/server/src/infrastructure/sqlite/sqlite-evaluation-repository.ts`
-- `packages/server/src/infrastructure/sqlite/sqlite-json.ts`
+- `packages/adapter-sqlite/src/index.ts`
+- `packages/adapter-sqlite/src/sqlite-schema.ts`
+- `packages/adapter-sqlite/src/sqlite-schema-migrator.ts`
+- `packages/adapter-sqlite/src/sqlite-task-repository.ts`
+- `packages/adapter-sqlite/src/sqlite-session-repository.ts`
+- `packages/adapter-sqlite/src/sqlite-event-repository.ts`
+- `packages/adapter-sqlite/src/sqlite-runtime-binding-repository.ts`
+- `packages/adapter-sqlite/src/sqlite-bookmark-repository.ts`
+- `packages/adapter-sqlite/src/sqlite-evaluation-repository.ts`
+- `packages/adapter-sqlite/src/sqlite-json.ts`
 
 ## Composition Method
 
@@ -89,10 +90,10 @@ JSON string parsing in this context is unified via the common repository utility
   to hydrate `workflowSnapshot`/`workflowContext`.
 - Long-term, read model materialization may become necessary.
 
-## Actual Path
+## Actual path
 
-The currently active storage path is `src/infrastructure/sqlite/*`.
-When reading documentation, it's best to use this path as the reference.
+The currently active storage path is `packages/adapter-sqlite/src/*`.
+Server composition reaches it through `createSqliteMonitorPorts()`.
 
 ## Related Documentation
 

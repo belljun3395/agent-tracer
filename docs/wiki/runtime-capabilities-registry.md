@@ -2,14 +2,14 @@
 
 The runtime capability registry is a table that encodes in code "what each runtime can observe,
 and what lifecycle policy it should have when the session ends".
-The actual source of truth is `packages/core/src/runtime/capabilities.defaults.ts` and
-`packages/core/src/runtime/capabilities.helpers.ts`.
+The actual source of truth is `packages/domain/src/runtime/capabilities.defaults.ts` and
+`packages/domain/src/runtime/capabilities.helpers.ts`.
 
 ## Core Files
 
-- `packages/core/src/runtime/capabilities.defaults.ts`
-- `packages/core/src/runtime/capabilities.types.ts`
-- `packages/core/src/runtime/capabilities.helpers.ts`
+- `packages/domain/src/runtime/capabilities.defaults.ts`
+- `packages/domain/src/runtime/capabilities.types.ts`
+- `packages/domain/src/runtime/capabilities.helpers.ts`
 - `docs/guide/runtime-capabilities.md`
 
 ## Currently Registered Adapters

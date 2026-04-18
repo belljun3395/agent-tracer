@@ -1,64 +1,68 @@
 # API Client & UI Utilities
 
-Web's API calls, realtime parsing, search/evaluation helpers, and shared UI utilities are
-gathered in a separate utility layer. Looking at this layer quickly reveals what server contracts
-the dashboard expects.
+The web-facing adapter layer is split between `@monitor/web-io` and a
+small set of UI helpers inside `@monitor/web-app`. Together they define
+how the dashboard talks to the server and how shared UI behaviors stay
+consistent.
 
-## Core Files
+## Core files
 
-- `packages/web-app/src/api.ts`
-- `packages/web-app/src/types.ts`
-- `packages/web-app/src/lib/realtime.ts`
-- `packages/web-app/src/store/useWebSocket.ts`
-- `packages/web-app/src/store/useSearch.ts`
-- `packages/web-app/src/store/useEvaluation.ts`
+- `packages/web-io/src/api.ts`
+- `packages/web-io/src/realtime.ts`
+- `packages/web-io/src/websocket.ts`
+- `packages/web-io/src/storage.ts`
 - `packages/web-app/src/lib/ui/cn.ts`
 - `packages/web-app/src/lib/ui/clipboard.ts`
 - `packages/web-app/src/lib/ui/laneTheme.ts`
+- `packages/web-app/src/lib/useTheme.ts`
+- `packages/web-app/src/lib/useDragScroll.ts`
 
-## What `api.ts` Provides
+## What `web-io` provides
 
-- Overview/tasks/task detail queries
-- Bookmark CRUD
-- Search
-- Task title/status modification
-- Event display title modification
-- Finished task purge
-- Task evaluation save/query
-- Workflow library list query (`fetchWorkflowLibrary`)
-- WebSocket URL generation
+### HTTP API helpers
 
-As of recent code, `TaskEvaluationRecord` and `WorkflowSummaryRecord`
-now reuse `@monitor/core` types.
+`packages/web-io/src/api.ts` wraps the monitor HTTP endpoints used by the
+dashboard, including:
 
-## Evolution of `types.ts` Role
+- overview/task/task-detail reads
+- bookmark CRUD
+- task deletion
+- search
+- workflow evaluation and saved items
+- monitor WebSocket URL resolution
 
-Previously, the web defined types like `MonitoringTask` and `TimelineEvent` on its own, but
-now core contracts are imported/exported from `@monitor/core`, with only web-exclusive
-read models or search hit types kept separate.
+### Realtime message parsing
 
-This is also an important change from a documentation perspective. "Web type drift" is reduced
-compared to before, and the remaining differences are now more toward view-model nature interfaces.
+`packages/web-io/src/realtime.ts` defines the realtime message contract
+and parses the raw socket payload into typed messages for `web-state`.
 
-## Realtime Utilities
+### Socket abstraction
 
-`lib/realtime.ts` provides:
+`packages/web-io/src/websocket.ts` wraps browser WebSocket behavior in a
+small evented adapter so the rest of the app does not directly manage raw
+socket lifecycle details.
 
-- `MonitorRealtimeMessage` type
-- `parseRealtimeMessage()`
-- `refreshRealtimeMonitorData()` with per-message-type refresh strategies
+### Safe storage
 
-`useWebSocket()` uses this type to pass parsed messages as callbacks instead of raw strings.
+`packages/web-io/src/storage.ts` wraps localStorage-like access so private
+mode or storage failures do not blow up the UI.
 
-## UI Utilities
+## Shared UI utilities
 
-- `cn()` - class merge helper
-- `copyToClipboard()` - clipboard utility for handoff/export
-- `getLaneTheme()` - maintain lane color/style consistency
-- `useTheme()` - light/dark theme toggle
-- `useDragScroll()` - drag-scroll auxiliary for areas like timeline
+- `cn()` merges class names
+- `copyToClipboard()` wraps clipboard interactions
+- `getLaneTheme()` keeps lane colors/styles consistent across the UI
+- `useTheme()` manages light/dark theme preference
+- `useDragScroll()` provides drag-to-scroll behavior for large surfaces
 
-## Related Documentation
+## Why this separation matters
+
+- `web-io` stays React-free and handles failure-prone browser boundaries
+- `web-state` can compose those adapters without duplicating transport
+  code
+- `web-app` stays focused on rendering and interaction
+
+## Related documentation
 
 - [Web Dashboard](./web-dashboard.md)
 - [Task List & Global State](./task-list-and-global-state.md)

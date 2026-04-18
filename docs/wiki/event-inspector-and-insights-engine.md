@@ -6,9 +6,9 @@ Since it would be difficult to understand if only raw timeline events are listed
 ## Core Files
 
 - `packages/web-app/src/components/EventInspector.tsx`
-- `packages/web-app/src/lib/insights.ts`
-- `packages/server/src/application/observability.ts`
-- `packages/web-app/src/store/useEvaluation.ts`
+- `packages/web-domain/src/lib/insights.ts`
+- `packages/application/src/observability.ts`
+- `packages/web-state/src/useEvaluation.ts`
 - `packages/web-app/src/components/TaskEvaluatePanel.tsx`
 - `packages/web-app/src/components/TaskHandoffPanel.tsx`
 
@@ -81,13 +81,16 @@ and initializes safely without empty ID calls when no task is selected.
 
 ### Evaluation UI and library UI are separated
 
-Task-internal evaluation is handled by `TaskEvaluatePanel`, while library-wide exploration is handled by `WorkflowLibraryPanel`.
+Task-internal evaluation is handled by `TaskEvaluatePanel`, while
+library-wide exploration is handled by the knowledge-base view rooted at
+`KnowledgeBaseContent`.
 The roles are now clearer.
 
 ### Core type reuse increased
 
-Since the web imports `TaskEvaluation`, `WorkflowSummary`, and `TimelineEvent` directly from `@monitor/core`,
-the distance between the data shape that the inspector reads and the server contract has narrowed.
+The web now reads shared types from `@monitor/domain` and the web-facing
+packages layered on top of it, which keeps inspector data closer to the
+server contract than the older duplicated-type setup.
 
 ### Task observability read model attached
 

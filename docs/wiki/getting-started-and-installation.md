@@ -71,7 +71,7 @@ When structure is more interesting than installation, this order is fastest:
 
 1. `README.md`
 2. `packages/server/src/index.ts`
-3. `packages/core/src/domain/index.ts` (barrel, internally `packages/core/src/domain/*`)
+3. `packages/domain/src/index.ts`
 4. `packages/adapter-mcp/src/index.ts`
 5. `packages/web-app/src/App.tsx`
 

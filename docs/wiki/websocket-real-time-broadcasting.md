@@ -6,11 +6,11 @@ In other words, WebSocket is more like an "update signal" than a "canonical data
 
 ## Core Files
 
-- `packages/server/src/presentation/ws/event-broadcaster.ts`
+- `packages/adapter-ws/src/event-broadcaster.ts`
 - `packages/server/src/bootstrap/create-nestjs-monitor-runtime.ts`
-- `packages/web-app/src/store/useWebSocket.ts`
-- `packages/web-app/src/lib/realtime.ts`
-- `packages/web-app/src/store/useMonitorStore.tsx`
+- `packages/web-state/src/realtime/useMonitorSocket.ts`
+- `packages/web-io/src/realtime.ts`
+- `packages/web-state/src/server/queryKeys.ts`
 
 ## Server-Side Behavior
 
@@ -41,15 +41,15 @@ and `useWebSocket()` passes parsed typed messages to the callback instead of raw
 
 ## Web-Side Processing Strategy
 
-1. `useWebSocket()` parses the message.
-2. After a short debounce, it calls `refreshRealtimeMonitorData()`.
-3. Partially updates only overview, selected task detail, and bookmark depending on message type.
+1. `useMonitorSocket()` parses the message.
+2. It invalidates the relevant React Query keys by message type.
+3. The dashboard re-fetches overview, selected task detail, or bookmarks as needed.
 
 Characteristics:
 
-- Bookmark changes only call `refreshBookmarksOnly()`.
-- `event.updated` only re-reads selected task detail.
-- `task.deleted` or `tasks.purged` only re-reads overview.
+- bookmark changes invalidate bookmark queries
+- `event.updated` only invalidates the selected task detail query
+- `task.deleted` removes the deleted task detail query and refreshes the task list/overview
 
 In other words, the refresh strategy per message type is slightly more granular than before.
 

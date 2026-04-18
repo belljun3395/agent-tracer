@@ -16,14 +16,14 @@ target project.
 ## 2. Clone and install
 
 ```bash
-git clone https://github.com/belljung3395/agent-tracer.git
+git clone https://github.com/belljun3395/agent-tracer.git
 cd agent-tracer
 npm install
 ```
 
 The repo is an npm workspaces monorepo. `npm install` hydrates every
-workspace under `packages/*` and the Claude plugin workspace at
-`.claude/plugin`.
+workspace under `packages/*`, including `packages/hook-plugin` (also
+exposed locally via the `.claude/plugin` symlink).
 
 ## 3. Build every package
 

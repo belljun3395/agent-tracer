@@ -1,73 +1,103 @@
 # Task List & Global State
 
-Task selection, bookmark state, URL hash sync, and overview fetch orchestration are currently
-managed in a `useMonitorStore`-centered global state layer. This layer is not just a simple reducer,
-but rather a "dashboard read model coordinator".
+The dashboard no longer revolves around a single `useMonitorStore`.
+Current state is intentionally split into three concerns:
 
-## Core Files
+1. server state via React Query
+2. ephemeral UI state via per-mount Zustand stores
+3. realtime invalidation via the WebSocket hook
 
-- `packages/web-app/src/store/useMonitorStore.tsx`
+That split lives in `@monitor/web-state`.
+
+## Core files
+
+- `packages/web-state/src/query/QueryProvider.tsx`
+- `packages/web-state/src/server/queries.ts`
+- `packages/web-state/src/server/queryKeys.ts`
+- `packages/web-state/src/ui/UiStoreProvider.tsx`
+- `packages/web-state/src/ui/createUiStore.ts`
+- `packages/web-state/src/realtime/useMonitorSocket.ts`
+- `packages/web-state/src/useSearch.ts`
 - `packages/web-app/src/components/TaskList.tsx`
 - `packages/web-app/src/components/TopBar.tsx`
-- `packages/web-app/src/store/useSearch.ts`
-- `packages/web-app/src/store/useWebSocket.ts`
 
-## What `useMonitorStore` Holds
+## What lives where
 
-- `tasks`, `bookmarks`, `overview`
-- `selectedTaskId`, `selectedEventId`, `selectedConnectorKey`
-- `selectedRuleId`, `selectedTag`, `showRuleGapsOnly`
-- `taskDetail`
-- `isConnected`, `status`, `errorMessage`
-- Task title/status editing state
-- `taskDisplayTitleCache`
+### React Query state
 
-In other words, list state, detail state, and some UI editing state all exist in one provider.
+Query hooks own:
 
-## Key Actions and Flows
+- overview
+- task list
+- task detail
+- bookmarks
+- task observability
 
-### Initial Load
+These values are fetched through `@monitor/web-io` and keyed by
+`monitorQueryKeys`.
 
-Loads overview, tasks, bookmarks, and reflects task ID from URL hash to selection state.
+### UI stores
 
-### Task Selection
+`UiStoreProvider` owns a bundle of Zustand stores:
 
-When selected task changes, detail is fetched and timeline/inspector are recalculated accordingly.
+- selection store
+- edit store
 
-### Bookmark Refresh
+Selection includes things like the selected task, selected event, active
+connector, connection state, and delete/edit UI flags. The provider
+creates a fresh bundle per mount, which avoids module-scope singleton
+state leaking across tests.
 
-Due to recent real-time processing changes, bookmark messages are refreshed separately via `refreshBookmarksOnly()`.
-This separates event/task update path and bookmark update path somewhat.
+### Search flow
 
-### Title/Status Editing
+`useSearch()` manages debounced search text, task scoping, loading/error
+state, and the search results payload.
 
-Task title submit and status change are handled via store action + API call.
-`taskDisplayTitleCache` maintains display title derived values without recalculation.
+### Realtime invalidation
 
-## Connection with TopBar
+`useMonitorSocket()` listens to WebSocket messages and invalidates the
+right query keys based on the message type.
 
-TopBar is not just a header but has the following features:
+## Main flows
 
-- Search query input
-- Task-scope search toggle
-- Zoom slider
-- Workflow library opening
-- WebSocket connection status display
+### Initial load
 
-In other words, the interface between global state and UI control is quite substantial.
+`QueryProvider` mounts the client; query hooks fetch the overview, task
+list, and bookmarks on demand.
 
-## Strengths of Current Structure
+### Task selection
 
-- Dashboard state is centralized in one place, making it easy to track.
-- Task selection, hash sync, and refresh orchestration are not dispersed.
+The selection store tracks the current task/event. When the selected task
+changes, `useTaskDetailQuery()` and observability queries fetch the
+detail view.
 
-## Limitations of Current Structure
+### Socket updates
 
-- Reducer, effect, async fetch, hash sync, and optimistic UI are coupled in one provider.
-- Selection/UI state and server-state nature data are mixed.
-- Further feature expansion will require feature-unit decomposition.
+The WebSocket hook invalidates:
 
-## Related Documentation
+- overview/tasks on task lifecycle changes
+- task detail on event changes for the selected task
+- bookmarks on bookmark changes
+
+### Search scope
+
+The search hook can optionally scope to the current task before calling
+the server search endpoint.
+
+## Strengths of the current structure
+
+- Server data and UI state are clearly separated
+- Tests can mount isolated UI stores without shared global state
+- Search and realtime logic are decoupled from the app root
+
+## Limitations of the current structure
+
+- Selection wiring still passes through `App.tsx`
+- Some connection/error flags still live in the selection store because
+  the UI needs immediate access to them
+- Query invalidation is coarse-grained rather than patch-based
+
+## Related documentation
 
 - [Web Dashboard](./web-dashboard.md)
 - [API Client & UI Utilities](./api-client-and-ui-utilities.md)

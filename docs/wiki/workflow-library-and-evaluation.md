@@ -6,17 +6,18 @@ and leaving those results in a re-searchable form.
 
 ## Core Files
 
-- `packages/core/src/domain/types.ts`
-- `packages/core/src/workflow/snapshot.ts`
-- `packages/core/src/workflow/context.ts`
-- `packages/server/src/application/monitor-service.ts`
-- `packages/server/src/application/ports/evaluation-repository.ts`
-- `packages/server/src/infrastructure/sqlite/sqlite-evaluation-repository.ts`
-- `packages/server/src/presentation/controllers/evaluation.controller.ts`
-- `packages/web-app/src/api.ts`
+- `packages/domain/src/workflow/types.ts`
+- `packages/domain/src/workflow/snapshot.ts`
+- `packages/domain/src/workflow/context.ts`
+- `packages/application/src/monitor-service.ts`
+- `packages/application/src/ports/evaluation-repository.ts`
+- `packages/adapter-sqlite/src/sqlite-evaluation-repository.ts`
+- `packages/adapter-http-query/src/evaluation.controller.ts`
+- `packages/adapter-http-ingest/src/evaluation-write.controller.ts`
+- `packages/web-io/src/api.ts`
 - `packages/web-app/src/components/TaskEvaluatePanel.tsx`
 - `packages/web-app/src/components/workflowPreview.ts`
-- `packages/web-app/src/components/WorkflowLibraryPanel.tsx`
+- `packages/web-app/src/components/knowledge/KnowledgeBaseContent.tsx`
 
 ## Data Model
 
@@ -74,7 +75,8 @@ In other words, listings and search results are lightweight summary types, while
 
 ## Workflow Snapshot Generation Rules
 
-`buildReusableTaskSnapshot()` in `packages/core/src/workflow/snapshot.ts` is the source of truth for generation rules.
+`buildReusableTaskSnapshot()` in `packages/domain/src/workflow/snapshot.ts`
+is the source of truth for generation rules.
 
 ### Inputs
 
@@ -109,7 +111,8 @@ In other words, listings and search results are lightweight summary types, while
 
 ## Workflow Context Generation Rules
 
-`buildWorkflowContext()` in `packages/core/src/workflow/context.ts` is the source of truth for markdown assembly.
+`buildWorkflowContext()` in `packages/domain/src/workflow/context.ts` is
+the source of truth for markdown assembly.
 
 Generation order is:
 
@@ -180,7 +183,7 @@ to make the context markdown appear less verbose.
 
 `SqliteEvaluationRepository.getWorkflowContent()` prioritizes using stored snapshot/context if available.
 Otherwise returns re-generated value from current timeline.
-So `WorkflowLibraryPanel` detail view exposes `source: "saved" | "generated"` together.
+So the knowledge/library detail view exposes `source: "saved" | "generated"` together.
 
 ## Server Endpoints
 
@@ -202,12 +205,12 @@ Full snapshot/context detail is handled by `/api/workflows/:id/content`.
 - Preview / Edit fields / Regenerate
 - Final save
 
-### `WorkflowLibraryPanel`
+### `KnowledgeBaseContent`
 
 - Query library listings
-- Rating / text filter
-- Detailed snapshot/context view of selected workflow
-- Show if saved or generated
+- Search/filter saved snapshots and playbooks
+- Open detailed snapshot/context view for a saved workflow
+- Promote saved workflow content into a playbook
 
 ## Current Risks
 

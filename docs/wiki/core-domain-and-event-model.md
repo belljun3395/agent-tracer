@@ -1,111 +1,127 @@
 # Core Domain & Event Model
 
-`@monitor/core` defines a common language for the entire Agent Tracer. The purpose of this package is
-to ensure that "what the server stores", "what MCP sends", and "what the web displays" all
-share the same semantic system.
+This wiki page keeps the historical "core" label, but the actual code is
+now split across two packages:
 
-## Core Files
+- `@monitor/domain` owns pure value types, ids, workflow shapes, runtime
+  capability registry, and shared interop contracts
+- `@monitor/classification` owns event classification and semantic
+  metadata derivation
 
-- `packages/core/src/domain/index.ts` (barrel export)
-- `packages/core/src/domain/types.ts` (includes branded types: RuntimeAdapterId, SessionIdBrand, etc.)
-- `packages/core/src/domain/utils.ts`
-- `packages/core/src/classification/classifier.ts`
-- `packages/core/src/classification/action-registry.ts`
-- `packages/core/src/interop/event-semantic.ts` (hook-web semantic metadata contract)
-- `packages/core/src/runtime/index.ts` (barrel export)
-- `packages/core/src/runtime/capabilities.constants.ts`
-- `packages/core/src/runtime/capabilities.types.ts`
-- `packages/core/src/runtime/capabilities.helpers.ts`
-- `packages/core/src/paths/utils.ts`
+Together they define the language that the server stores, the MCP layer
+transports, and the web renders.
 
-## What This Package Defines
+## Core files
 
-### 1. Timeline lane
+- `packages/domain/src/index.ts`
+- `packages/domain/src/monitoring/ids.ts`
+- `packages/domain/src/monitoring/types.ts`
+- `packages/domain/src/workflow/*`
+- `packages/domain/src/runtime/capabilities.*.ts`
+- `packages/domain/src/interop/event-semantic.ts`
+- `packages/classification/src/classifier.ts`
+- `packages/classification/src/action-registry.ts`
+- `packages/classification/src/semantic-metadata.ts`
 
-`TimelineLane` divides events into `user`, `exploration`, `planning`, `implementation`,
-`questions`, `todos`, `background`, and `coordination`.
-This is where the dashboard's vertical lane structure begins.
+## What the shared model defines
 
-### 2. Event kind
+### 1. Timeline lanes
 
-`MonitoringEventKind` defines canonical event names such as `task.start`, `user.message`, `tool.used`,
-`terminal.command`, `verification.logged`, and `assistant.response`.
+`TimelineLane` divides events into `user`, `exploration`, `planning`,
+`implementation`, `questions`, `todos`, `background`, and
+`coordination`. That lane model drives the dashboard layout and the
+observability summaries.
 
-### 3. Task, session, timeline event
+### 2. Canonical event kinds
 
-`MonitoringTask`, `MonitoringSession`, and `TimelineEvent` are the base shapes for server storage and web responses.
-Task status, background lineage, and classification payload are all bound to these types.
+Domain types define canonical event kinds such as `task.start`,
+`user.message`, `terminal.command`, `verification.logged`,
+`question.logged`, `todo.logged`, and `assistant.response`.
 
-### 4. Event Semantic Metadata Contract
+### 3. Tasks, sessions, and timeline events
 
-`event-semantic.ts` (added: 2026-04-10) defines an explicit contract for semantic metadata
-produced by the hook layer and consumed by the web UI.
+`MonitoringTask`, `MonitoringSession`, and `TimelineEvent` are the
+shared record shapes used by persistence, API responses, and the web.
 
-```typescript
-export interface EventSemanticMetadata {
-  readonly subtypeKey: EventSubtypeKey;  // "read_file", "run_test", "mcp_call", ...
-  readonly subtypeGroup: EventSubtypeGroup;  // "files", "execution", "coordination"
-  readonly toolFamily: EventToolFamily;  // "explore", "file", "terminal"
-  readonly operation: string;            // "search", "modify", "execute", "delegate"
-  readonly entityType?: string;          // "file", "directory", "command"
-  readonly entityName?: string;          // specific filename, command name, etc.
-}
-```
+### 4. Event semantic contract
 
-By making this contract explicit at the code level, the requirement that hook and web
-must be updated simultaneously when a new subtype is added is detected via type checking.
+`packages/domain/src/interop/event-semantic.ts` defines the shared
+semantic metadata contract used by classification and consumed by the
+dashboard.
 
-### 5. Branded Types
+This includes concepts such as:
 
-In `domain/types.ts`, runtime adapter IDs, session IDs, etc. are defined as nominal types
-to enhance type safety between server, MCP, and web (added: 2026-04-10).
+- subtype key/group
+- tool family
+- operation
+- entity type/name
 
-Example: `RuntimeAdapterId` (explicit branded type, not just string)
+### 5. Workflow value types
+
+Reusable workflow snapshots, context markdown, and related ids live in
+`packages/domain/src/workflow/*`. This keeps workflow evaluation from
+becoming a web-only concern.
 
 ### 6. Runtime capability registry
 
-The observability scope per runtime, session close policy, and native skill path
-have `runtime-capabilities.ts` as source of truth.
+Runtime adapter capabilities and evidence profiles live in
+`packages/domain/src/runtime/*`. The domain barrel auto-registers the
+built-in runtime adapters so the rest of the system does not need a
+separate init step.
 
-## Why This Matters
+## Where classification begins
 
-A common mistake when adding new features is "only adding server routes while missing core semantic definitions".
-However, since Agent Tracer has multiple runtimes, the first thing to decide when adding a feature is
-"what kind and lane does this event have?", "what metadata should be considered canonical contract?"
+`@monitor/domain` defines the shapes; `@monitor/classification` turns raw
+events into semantic meaning.
 
-In other words, the change order is roughly as follows:
+Key pieces:
 
-1. Define event semantics and types in `@monitor/core`.
-2. Align server schema/service/repository.
-3. Align MCP tool registration or runtime adapters.
-4. Enhance web display and insight calculations.
+- `classifyEvent(...)` applies action-registry rules and lane defaults
+- `semantic-metadata.ts` derives subtype/tool-family/operation fields
+- `action-registry.ts` is the searchable registry of command/file/tool
+  patterns
 
-## Current Model Characteristics
+This split is intentional: domain stays pure and reusable, while
+classification holds the rule engine.
 
-### Default lane and explicit override coexist
+## Why this matters
 
-`defaultLaneForEventKind()` provides a default lane for each event kind,
-but explicit lane and action registry matching can correct this during actual recording.
+When adding a new feature, the order is usually:
 
-### Extensive support for relational metadata
+1. Define or extend the shared event/value shape in `@monitor/domain`
+2. Teach `@monitor/classification` how to derive semantics for it
+3. Update the relevant server/controller/adapter code
+4. Update the web read path and docs
 
-Event metadata can include connection information like `parentEventId`, `relatedEventIds`, `planId`, `workItemId`,
-`relationType`, and `relationLabel`.
-This enables creating timeline connectors and task handoff summaries.
+Skipping step 1 or 2 is the most common way docs and code drift.
 
-### Workflow evaluation is part of core
+## Current model characteristics
 
-`TaskEvaluation`, `WorkflowSummary`, and `WorkflowSearchResult` are not just UI types
-but part of product-level functionality, so they are located in `core`.
+### Explicit runtime lineage
 
-## Checklist When Changing
+Runtime session ids, runtime sources, and capability evidence are all
+first-class types, not loose strings.
 
-- Verify that the web doesn't confuse the boundary between core types re-exported in `packages/web-app/src/types.ts` and web-only view-models
-- Verify that MCP input schema and server request schema don't contradict the core contract
-- Verify that slug generation rules are sufficient for non-ASCII titles
-- Verify that path normalization absorbs differences between external runtimes and operating systems
+### Shared workflow vocabulary
 
-## Related Documentation
+Workflow snapshots and context live in the shared model so evaluation,
+search, and reuse can be implemented in multiple surfaces without type
+duplication.
+
+### Paths are normalized centrally
+
+Path utility helpers in `packages/domain/src/paths/utils.ts` exist so
+server, plugin, and web are not each inventing their own path rules.
+
+## Checklist when changing the shared model
+
+- Verify `@monitor/classification` still derives the right semantics
+- Verify server request schemas and domain types still align
+- Verify the web reads through `web-domain` or `domain`, not local type
+  copies
+- Verify the related guide/wiki page changed in the same PR
+
+## Related documentation
 
 - [Domain Model: Tasks, Sessions & Timeline Events](./domain-model-tasks-sessions-and-timeline-events.md)
 - [Event Classification Engine](./event-classification-engine.md)

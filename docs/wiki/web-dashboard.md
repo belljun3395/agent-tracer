@@ -1,176 +1,134 @@
 # Web Dashboard
 
-`@monitor/web-app` is Agent Tracer's read experience — a React 19 dashboard
-that renders the task list, timeline, event inspector, and workflow
-library in a single view. It combines WebSocket hints with REST read
-models to keep the UI in sync.
+`@monitor/web-app` is the dashboard composition layer for Agent Tracer.
+It renders the task list, timeline, inspector, task workspace, and
+knowledge/playbook views. The app no longer owns a monolithic
+`useMonitorStore`; state is split across `@monitor/web-state`,
+`@monitor/web-io`, and `@monitor/web-domain`.
 
 ## Key files
 
-- `packages/web-app/src/App.tsx` — root composition, layout, search, panel state
-- `packages/web-app/src/store/useMonitorStore.tsx` — reducer + fetch orchestration
-- `packages/web-app/src/store/useWebSocket.ts` — socket reconnect + debounce
-- `packages/web-app/src/store/useSearch.ts` — search state
+- `packages/web-app/src/App.tsx`
+- `packages/web-app/src/main.tsx`
 - `packages/web-app/src/components/TaskList.tsx`
-- `packages/web-app/src/components/Timeline.tsx`
-- `packages/web-app/src/components/EventInspector.tsx`
-- `packages/web-app/src/components/WorkflowLibraryPanel.tsx`
+- `packages/web-app/src/components/TimelineContainer.tsx`
+- `packages/web-app/src/components/InspectorContainer.tsx`
+- `packages/web-app/src/components/NavigationSidebar.tsx`
 - `packages/web-app/src/components/TopBar.tsx`
-- `packages/web-app/src/lib/insights.ts` — timeline-derived computations
-- `packages/web-app/src/lib/timeline.ts` — layout + connector math
-- `packages/web-app/src/lib/eventSubtype.ts` — semantic metadata consumer
+- `packages/web-app/src/components/knowledge/KnowledgeBaseContent.tsx`
+- `packages/web-app/src/features/task-workspace/*`
+- `packages/web-app/src/features/timeline/*`
+- `packages/web-state/src/index.ts`
 
 ## Layout
 
 ```text
-src/
-  App.tsx                     # root composition
-  store/
-    useMonitorStore.tsx       # global state + server fetch orchestration
-    useWebSocket.ts           # socket reconnect + message debounce
-    useSearch.ts              # search state
-  components/
-    TaskList.tsx              # left sidebar
-    Timeline.tsx              # center canvas
-    EventInspector.tsx        # right panel
-    WorkflowLibraryPanel.tsx  # workflow library UI
-    TopBar.tsx                # top diagnostics bar
-  lib/
-    insights.ts               # derived computations
-    timeline.ts               # layout + connector math
-    eventSubtype.ts           # semantic metadata consumer
+web-app/
+  App.tsx                         # routing + dashboard composition
+  components/                     # reusable dashboard pieces
+  features/
+    task-workspace/*              # focused task workspace flow
+    timeline/*                    # lane rows, overlays, popovers, minimap
+  routes/task/TaskRoute.tsx       # route-scoped task selection
+
+web-state/
+  query/*                         # React Query provider and client
+  server/*                        # data queries
+  realtime/*                      # WebSocket invalidation hook
+  ui/*                            # selection/edit stores
+  useSearch.ts                    # debounced search flow
 ```
 
-## UI areas
+## Main UI areas
 
-### Task list
+### Navigation and task list
 
-Left sidebar — lists tasks, status, and selection state.
+`NavigationSidebar` and `TaskList` provide task selection, saved-item
+navigation, and search entry points.
 
-### Timeline canvas
+### Timeline
 
-Center — lane cards, connectors, zoom, follow, observability badges.
-Layout math lives in `lib/timeline.ts` and derived insights in
-`lib/insights.ts`.
+`TimelineContainer` hosts the main timeline canvas. The detailed lane and
+overlay logic lives in `packages/web-app/src/features/timeline/*`.
 
-### Event inspector
+### Inspector
 
-Right panel — reorganises the selected event/task into readable
-sections across the `Inspector`, `Flow`, `Health`, `Tags`, `Task`,
-`Evaluate`, `Compact`, `Files`, and `Exploration` tabs. `Flow` and
-`Health` consume `/api/tasks/:taskId/observability`.
+`InspectorContainer` and the `components/inspector/*` subtree render the
+selected task/event detail, including observability, evidence, question,
+todo, and action views.
 
-### TopBar
+### Task workspace
 
-Two different chip components coexist on the TopBar:
+`packages/web-app/src/features/task-workspace/*` provides the focused
+workspace mode used when drilling into a task.
 
-| Component | Data source | Purpose |
-|-----------|-------------|---------|
-| `TopBarMetricChip` | `GET /api/observability/overview` | Global diagnostics (prompt capture, linked tasks, stale running, avg duration) |
-| `ObservabilityChip` | Selected task `ObservabilityBadgeCounts` | Per-task badges (exploration / planning / implementation counts) |
+### Knowledge / playbooks
 
-### Workflow library
-
-A dedicated panel opened from the TopBar `Library` button. It calls
-`GET /api/workflows` to browse saved evaluations.
+`packages/web-app/src/components/knowledge/*` renders saved workflow
+artifacts, playbook detail, and snapshot views.
 
 ## Data flow
 
-1. `useMonitorStore` owns overview, tasks, task detail, and bookmarks.
-2. `useWebSocket` receives typed `MonitorRealtimeMessage | null` values.
-3. `refreshRealtimeMonitorData()` picks the right refresh path
-   (overview / task detail / bookmark) per message type.
-4. `App.tsx` derives insights and passes selection state downstream.
+1. `QueryProvider` supplies the shared React Query client.
+2. `UiStoreProvider` supplies the per-mount selection/edit Zustand
+   stores.
+3. `useOverviewQuery`, `useTasksQuery`, `useTaskDetailQuery`, and
+   `useBookmarksQuery` fetch server data.
+4. `useMonitorSocket()` listens to the WebSocket stream and invalidates
+   the right query keys.
+5. `App.tsx` composes the fetched data with UI selection and layout
+   state.
 
 ## Points worth knowing
 
-### Workflow library is a first-class UI
+### Server state and UI state are separate now
 
-It's no longer just a concept doc — `WorkflowLibraryPanel` is mounted
-from the TopBar and reads `/api/workflows` directly.
+Server data lives in React Query. Selection/edit state lives in the
+local UI-store bundle from `@monitor/web-state`.
 
-### Types converge in `@monitor/core`
+### Search is a dedicated hook
 
-`packages/web-app/src/types.ts` re-exports `MonitoringTask`, `TimelineEvent`,
-`TaskEvaluation`, and `WorkflowSummary` from `@monitor/core`. Web-only
-view models still exist (search hits, UI-specific shapes) but the
-core contract is shared.
+`useSearch()` in `@monitor/web-state` manages the debounced search flow
+instead of mixing that logic into a global store.
 
-### Semantic metadata is consumed through `eventSubtype`
+### The app has multiple operating modes
 
-`lib/eventSubtype.ts` is the single consumer of the `SemanticMetadata`
-contract defined in `packages/core/src/interop/event-semantic.ts`. Components
-and insights should go through it instead of reading raw `metadata`
-keys.
+The dashboard can be in timeline, knowledge, or workspace mode, and the
+route layer can deep-link directly into a task.
 
-### Realtime is message-aware
+### Web packages stay server-agnostic
 
-`useWebSocket()` produces typed messages. Bookmark / event / task
-notifications each trigger different refresh paths.
-
-### Observability read model powers TopBar + Inspector
-
-`App.tsx` reads `/api/observability/overview` for the TopBar, and
-`/api/tasks/:taskId/observability` on selection change to populate
-the `Flow` and `Health` tabs.
-
-## Strengths
-
-- One app contains the full product experience — task list, timeline,
-  inspector, and workflow library.
-- Most derivation is centralised in `lib/insights.ts` and `lib/timeline.ts`.
-- Tests exist for the derivation utilities.
+The dashboard depends on `web-state`, `web-io`, `web-domain`, and
+`domain`. It should not import `application`, server internals, or
+adapter packages directly.
 
 ## Maintenance notes
 
-### Root component holds too much
+### `App.tsx` still carries a lot of composition work
 
-`App.tsx` owns layout, WebSocket reaction, search, panel resize, local
-storage, and selection routing. A reasonable split is
-`useDashboardLayout`, `useResizablePanels`, `useSelectionState`,
-`useRealtimeRefresh`.
+The app root owns routing, layout state, zoom, stacked/mobile behavior,
+socket connection state, and some selection wiring. It is better than the
+old single-store design, but still a high-change surface.
 
-### `useMonitorStore` bundles reducer + effects + fetch orchestration
+### Timeline and inspector remain large feature areas
 
-Reducer, cache merge, initial load, URL hash sync, CRUD, and passive
-refresh all live in one file. Splitting state reducer, async actions,
-URL sync, and derived caches would make effects easier to trace.
+The feature split is better than before, but `timeline/*` and
+`components/inspector/*` are still where review cost accumulates fastest.
 
-### Two "mini applications"
+### Query invalidation is simple, not minimal
 
-`components/Timeline.tsx` and `components/EventInspector.tsx` each mix
-view, filter, selection, edit, summary, and tab controls. Feature
-additions are possible but review cost is climbing.
-
-### `lib/insights.ts` is oversized
-
-File statistics, compact analysis, tag insights, question/todo groups,
-model summaries, and task extraction all share one file. Consider
-splitting into `insights/observability`, `insights/files`,
-`insights/compact`, `insights/questions`, `insights/todos`,
-`insights/task-extraction`.
-
-### WebSocket notifications aren't fully exploited
-
-`useWebSocket.ts` debounces then re-fetches. The server already sends
-typed notification payloads — a move to incremental updates would
-remove redundant overview/detail round-trips at higher event rates.
-
-### Style system is split
-
-Tailwind classes coexist with `Timeline.css` and `legacy.css`. Font
-imports live in several places. Picking a single source of truth for
-visual changes would reduce edit scope.
+The socket path invalidates queries by message type. That keeps the code
+easy to reason about, but it means the UI often re-fetches more than the
+exact changed entity.
 
 ## Reading order
 
 1. `packages/web-app/src/App.tsx`
-2. `packages/web-app/src/store/useMonitorStore.tsx`
-3. `packages/web-app/src/components/Timeline.tsx`
-4. `packages/web-app/src/components/EventInspector.tsx`
-5. `packages/web-app/src/lib/insights.ts`
-6. `packages/web-app/src/lib/timeline.ts`
-7. `packages/web-app/src/lib/eventSubtype.ts`
+2. `packages/web-state/src/index.ts`
+3. `packages/web-state/src/server/queries.ts`
+4. `packages/web-state/src/realtime/useMonitorSocket.ts`
+5. `packages/web-app/src/features/timeline/*`
+6. `packages/web-app/src/components/inspector/*`
 
 ## Related
 

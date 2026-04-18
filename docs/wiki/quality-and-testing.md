@@ -1,66 +1,61 @@
 # Quality and Testing
 
-For how to actually run tests, see
-[Testing & Development](./testing-and-development.md). This page is the
-maintainer view — what the quality system covers well today and where
-it still has gaps.
+For the command list, see [Testing & Development](./testing-and-development.md).
+This page is the maintainer view: what the quality system already covers
+well and where it still needs help.
 
 ## Scripts
 
-From `package.json` at the repo root:
+From the repo root:
 
-- `npm run build` — build every workspace
-- `npm run lint` — lint every workspace (`typescript-eslint` type-checked)
-- `npm test` — run every workspace's test suite
-- `npm run dev` — run server + dashboard concurrently
-- `npm run docs:dev` / `npm run docs:build` — VitePress site
+- `npm run build` - build every workspace
+- `npm run lint` - eslint plus type-aware lint rules
+- `npm run lint:deps` - dependency-cruiser package-boundary checks
+- `npm test` - run every workspace test suite
+- `npm run docs:build` - build the VitePress site
 
-## What's working well
+## What is working well
 
-- Every package ships a test script; `@monitor/core`, `@monitor/server`,
-  `@monitor/adapter-mcp`, and `@monitor/web-app` each have real coverage.
-- Lint config uses `typescript-eslint` with type-checked rules.
-- Rules like `no-floating-promises` and `consistent-type-imports` are on,
-  which catches real issues instead of only style.
-- Server and web tests exercise real flows — not just unit stubs.
+- Every shipped package participates in the build/test loop, and the core
+  packages (`domain`, `classification`, `application`, `server`,
+  `adapter-mcp`, `web-app`) all have real coverage
+- The server and dashboard have integration-style tests, not just tiny
+  unit tests
+- Package boundary rules are enforced with dependency-cruiser, not left
+  to convention alone
+- The web state split (`web-io`, `web-state`, `web-app`) is testable in
+  isolation
 
 ## Gaps worth closing
 
-### Structural rules aren't automated
+### Docs still drift after architecture changes
 
-The current lint setup is syntax + type-safety. It does not yet enforce:
+The package-boundary redesign landed faster than some wiki pages were
+updated. That is exactly the kind of drift this repo should keep out.
 
-- maximum file size per layer
-- no circular imports
-- layer boundary enforcement (presentation ↔ application ↔ infrastructure)
-- banning type duplication between `@monitor/web-app` and `@monitor/core`
+### Hook integration tests have real startup cost
 
-### Doc update discipline isn't automated
+The Claude plugin tests spawn hook processes repeatedly. That gives good
+coverage, but it also means those tests are more sensitive to timeout
+budgets than ordinary unit tests.
 
-Setup guides have been good for a while, but there's no checklist that
-fires when someone adds a new event, a new runtime, or a new UI panel.
-Right now that discipline is maintained by convention, not by tooling.
+### Query invalidation is verified more than incremental updates
 
-### CI / PR entry criteria aren't documented in-repo
-
-`npm test`, `npm run lint`, and `npm run build` should all pass before
-a PR lands. That expectation is known to contributors but isn't
-captured in a single file a new contributor can find.
+The current web tests do a good job around invalidation and derived UI
+logic, but there is less coverage around future incremental-update
+strategies if the socket path becomes more granular.
 
 ## Suggested quality playbook
 
-1. **Document the PR checklist** — `npm test`, `npm run lint`,
-   `npm run build`, plus "update the relevant guide / wiki page".
-2. **Add structural guards** — file size ceiling, layer import rules,
-   and a web-side import rule forbidding duplicated core types.
-3. **Add change-type checklists** — "new event", "new runtime adapter",
-   "new UI panel", "schema / route / API change" each deserve their own
-   short checklist.
-4. **Keep docs and code in lockstep** — guide / wiki updates should be
-   part of the PR that adds or changes behaviour, not a follow-up.
+1. Run `build`, `lint`, `lint:deps`, and `test` before merging
+2. Update the relevant guide/wiki page in the same change as the code
+3. Treat package-boundary regressions as architectural bugs, not style
+   issues
+4. Add targeted test timeouts only when the test is intentionally
+   integration-heavy
 
 ## Related
 
 - [Testing & Development](./testing-and-development.md)
-- [Server-Side Tests](./server-side-tests.md)
-- [Web & Core Tests](./web-and-core-tests.md)
+- [Server-side tests](./server-side-tests.md)
+- [Web & core tests](./web-and-core-tests.md)

@@ -1,16 +1,18 @@
-# Web & Core Tests
+# Web & Shared-Model Tests
 
 Web and core tests have a high proportion of fast unit tests.
 In other words, complex domain calculations and view helpers are fixed first,
 and large UI flows are verified relatively less.
 
-## Core Tests
+## Shared-model tests
 
 Key files:
 
-- `packages/core/test/core.test.ts`
-- `packages/core/test/runtime-capabilities.test.ts`
-- `packages/core/test/rules-index.test.ts`
+- `packages/domain/src/workflow/snapshot.test.ts`
+- `packages/domain/src/workflow/segments.test.ts`
+- `packages/domain/test/runtime-capabilities.test.ts`
+- `packages/classification/test/rules-index.test.ts`
+- `packages/classification/test/semantic-metadata.test.ts`
 
 Verification targets:
 
@@ -23,7 +25,6 @@ Verification targets:
 Key files:
 
 - `packages/web-app/src/App.test.ts`
-- `packages/web-app/src/store/useWebSocket.test.ts`
 - `packages/web-app/src/components/TaskList.test.ts`
 - `packages/web-app/src/components/Timeline.follow.test.ts`
 - `packages/web-app/src/lib/timeline.test.ts`

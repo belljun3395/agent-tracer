@@ -1,25 +1,26 @@
 # MonitorService: Application Layer
 
-`MonitorService` is an application service that handles nearly all major use cases of the current server.
-Most requests from task start through workflow evaluation search eventually flow into this class.
+`MonitorService` is the main service entrypoint in `@monitor/application`.
+HTTP controllers, the MCP adapter, and tests generally flow into this
+class, but the implementation is now split across a few narrower helper
+services instead of one large monolith.
 
-## Core Files
+## Core files
 
-- `packages/server/src/application/monitor-service.ts`
-- `packages/server/src/application/types.ts`
-- `packages/server/src/application/services/event-ingestion-service.ts` — unified ingestion entry point
-- `packages/server/src/application/services/event-recorder.ts`
-- `packages/server/src/application/services/session-lifecycle-policy.ts`
-- `packages/server/src/application/services/trace-metadata-factory.ts`
-- `packages/server/src/application/services/task-display-title-resolver.helpers.ts`
-- `packages/server/src/application/services/task-display-title-resolver.constants.ts`
-- `packages/server/src/application/services/event-recorder.helpers.ts`
-- `packages/server/src/application/services/trace-metadata-factory.helpers.ts`
-- `packages/server/src/application/workflow-context-builder.constants.ts`
+- `packages/application/src/monitor-service.ts`
+- `packages/application/src/types.ts`
+- `packages/application/src/services/task-lifecycle-service.ts`
+- `packages/application/src/services/event-logging-service.ts`
+- `packages/application/src/services/workflow-evaluation-service.ts`
+- `packages/application/src/services/session-lifecycle-policy.ts`
+- `packages/application/src/services/trace-metadata-factory.ts`
+- `packages/application/src/ports/*`
 
-## Key Responsibilities
+## Key responsibilities
 
-### Task/session lifecycle
+### Task and session lifecycle
+
+`MonitorService` exposes task/session lifecycle operations such as:
 
 - `startTask()`
 - `completeTask()`
@@ -27,119 +28,66 @@ Most requests from task start through workflow evaluation search eventually flow
 - `endSession()`
 - `ensureRuntimeSession()`
 - `endRuntimeSession()`
-- `linkTask()`
 
-These routes handle task state, running session count, and background lineage together.
+Those flows delegate to `TaskLifecycleService`.
 
 ### Event logging
 
-External clients (hooks, MCP tools) do not directly call `MonitorService` methods.
-The flow is: `POST /ingest/v1/events` → `EventIngestionService.ingest()` → `MonitorService.log*()`.
+Event writes such as:
 
-`EventIngestionService` dispatches based on the `kind` field and calls the following methods:
+- `logUserMessage()`
+- `logAssistantResponse()`
+- `logTerminalCommand()`
+- `logToolUsed()`
+- `logExploration()`
+- `logQuestion()`
+- `logTodo()`
+- `logThought()`
+- `logAgentActivity()`
+- `logVerification()`
 
-- `logToolUsed()` — `kind: "tool.used"`
-- `logExploration()` — `kind: "tool.used"` + `lane: "exploration"`
-- `logTerminalCommand()` — `kind: "terminal.command"`
-- `saveContext()` — `kind: "context.saved"`
-- `logPlan()` — `kind: "plan.logged"`
-- `logAction()` — `kind: "action.logged"` (when asyncTaskId is absent)
-- `logAsyncLifecycle()` — `kind: "action.logged"` + `asyncTaskId` present
-- `logVerification()` — `kind: "verification.logged"`
-- `logRule()` — `kind: "rule.logged"`
-- `logAgentActivity()` — `kind: "agent.activity.logged"`
-- `logUserMessage()` — `kind: "user.message"`
-- `logQuestion()` — `kind: "question.logged"`
-- `logTodo()` — `kind: "todo.logged"`
-- `logThought()` — `kind: "thought.logged"`
-- `logAssistantResponse()` — `kind: "assistant.response"`
+delegate to `EventLoggingService`.
 
-### SessionId Combination Rules
+### Workflow evaluation and library reads
 
-`MonitorService` handles event logging input in two ways:
+Evaluation save/query and workflow-library operations delegate to
+`WorkflowEvaluationService`.
 
-- `user.message` series requires `sessionId`, so it is used directly.
-- Some events like `assistant.response`, `question`, `todo`, `thought`, and `tool-used` 
-  may omit `sessionId`. When omitted, `resolveSessionId(taskId, sessionId)` queries
-  the task's current active session.
-- When including in actual event payload, the common helper `withSessionId()` ensures
-  unified recording as `...(resolvedSessionId ? { sessionId: resolvedSessionId } : {})`.
+## Typical write path
 
-This rule ensures consistent session binding, especially for events like `question`, `todo`, and `thought`
-where context-based calls from the runtime are frequent.
+```text
+controller -> MonitorService -> helper service -> ports -> adapter
+```
 
-Actual event insertion is handled by `EventRecorder`, while `MonitorService` coordinates
-use cases and lifecycle context after input validation.
+Examples:
 
-### Bookmark, search, workflow library
+- HTTP write controller -> `MonitorService.logTerminalCommand()` ->
+  `EventLoggingService` -> event repository/notifier
+- `runtime-session-ensure` endpoint -> `MonitorService.ensureRuntimeSession()`
+  -> `TaskLifecycleService`
 
-- Bookmark save/delete/query
-- Full-text search
-- Task evaluation save/query
-- Workflow library list query
-- Similar workflow search
+## Why the split matters
 
-As of recent code, `listEvaluations()` has been added to directly support
-`GET /api/workflows` and the web workflow library panel.
+This package is now the actual use-case layer. Older docs referenced
+`packages/server/src/application/*`, but that ownership moved into the
+dedicated `@monitor/application` package.
 
-## Role of Helper Services
+The split also means:
 
-### `EventRecorder`
+- classification stays outside the server composition root
+- repositories remain ports rather than direct SQLite calls
+- tests can target the use-case layer without booting Nest
 
-Combines classification and persistence. Calls `classifyEvent()` and,
-if necessary, creates derived `file.changed` events.
+## Current risks
 
-### `SessionLifecyclePolicy`
+- `MonitorService` is still a wide façade, so changes here can have broad
+  blast radius
+- Event logging and lifecycle rules still share a lot of implicit
+  coupling through task/session state
+- Workflow and observability reads can still become read-heavy for large
+  timelines
 
-Determines when primary/background tasks should be auto-completed or moved to waiting state.
-
-### `TraceMetadataFactory`
-
-Organizes relation, activity, compact, verification, and question/todo metadata, and derives tags.
-
-### `deriveTaskDisplayTitle`
-
-When task title is too generic, infers a more meaningful display title based on user prompt
-and initial events. `task-display-title-resolver.ts` has been decomposed into
-`task-display-title-resolver.helpers.ts` + `task-display-title-resolver.constants.ts`
-and is used in `session/task` repository.
-
-## Read Paths and Write Paths
-
-### Write Path
-
-route -> schema -> `MonitorService` -> `EventRecorder`/repository -> notifier
-
-### Read Path
-
-route -> `MonitorService` -> repository aggregation -> read-model response
-
-Since the read path contains significant derived calculations like workflow search and display title
-computation, this class also serves as a "small read-model service" beyond just a command handler.
-
-## Strengths
-
-- Server use cases are centralized in one entry point, making tracking easy.
-- Based on port interfaces, making testing relatively straightforward.
-- Can tie together runtime session helpers and workflow library under the same task model.
-
-## Current Risks
-
-- Heavy concentration of responsibility leads to wide change impact.
-- Read path cost and lifecycle decision-making are concentrated in one class.
-- Async dedupe state (`seenAsyncEvents`) persists in memory.
-- Includes bookmark/search/evaluation, resulting in low cohesion.
-
-## Separation Candidates
-
-- `TaskLifecycleService`
-- `RuntimeSessionService`
-- `EventLoggingService`
-- `BookmarkService`
-- `WorkflowEvaluationService`
-- `TaskQueryService`
-
-## Related Documentation
+## Related documentation
 
 - [Monitor Server](./monitor-server.md)
 - [HTTP API Reference](./http-api-reference.md)

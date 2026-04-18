@@ -16,7 +16,7 @@ and how it connects.
 
 ## Key Sections
 
-### Core and Server
+### Domain, application, and server
 
 - [Core domain & event model](./core-domain-and-event-model.md)
 - [Domain model: tasks, sessions & timeline events](./domain-model-tasks-sessions-and-timeline-events.md)
