@@ -1,6 +1,6 @@
 {
   "name": "@monitor/runtime-claude",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "private": true,
   "description": "Claude Code runtime adapter that streams hook events to the Agent Tracer monitor server.",
   "type": "module",
