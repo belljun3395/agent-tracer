@@ -23,13 +23,11 @@
  * to the Agent Tracer monitor. Self-referential calls to the "agent-tracer" MCP
  * server are skipped to avoid infinite loops.
  */
-import { LANE } from "../util/lane.js";
 import { parseMcpToolName } from "../util/paths.js";
 import { getAgentContext, getSessionId, getToolName, getToolUseId } from "../util/utils.js";
 import { postJson, readStdinJson } from "../lib/transport.js";
 import { resolveEventSessionIds } from "../lib/subagent-session.js";
 import { hookLog, hookLogPayload } from "../lib/hook-log.js";
-import { buildSemanticMetadata } from "../classification/command-semantic.js";
 
 async function main(): Promise<void> {
     const payload = await readStdinJson();
@@ -67,20 +65,9 @@ async function main(): Promise<void> {
             activityType: "mcp_call",
             title,
             body,
-            lane: LANE.coordination,
             mcpServer: mcpTool.server,
             mcpTool: mcpTool.tool,
             metadata: {
-                ...buildSemanticMetadata({
-                    subtypeKey: "mcp_call",
-                    subtypeLabel: "MCP call",
-                    subtypeGroup: "coordination",
-                    toolFamily: "coordination",
-                    operation: "invoke",
-                    entityType: "mcp",
-                    entityName: `${mcpTool.server}/${mcpTool.tool}`,
-                    sourceTool: toolName
-                }),
                 mcpServer: mcpTool.server,
                 mcpTool: mcpTool.tool,
                 ...(toolUseId ? { toolUseId } : {})

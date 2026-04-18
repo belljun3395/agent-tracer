@@ -472,14 +472,6 @@ describe("Claude plugin", () => {
                         title: "Agent: Review child monitor flow",
                         body: "Inspect the child task",
                         metadata: {
-                            subtypeKey: "delegation",
-                            subtypeLabel: "Delegation",
-                            subtypeGroup: "coordination",
-                            toolFamily: "coordination",
-                            operation: "delegate",
-                            entityType: "agent",
-                            entityName: "default",
-                            sourceTool: "Agent",
                             toolInput: {
                                 description: "Review child monitor flow",
                                 prompt: "Inspect the child task",
@@ -735,17 +727,9 @@ describe("Claude plugin", () => {
                         toolName: "Bash",
                         title: "Failed Bash",
                         body: "Command exited with non-zero status code 1",
-                        lane: "implementation",
+                        command: "npm test",
                         metadata: {
                             description: "Run tests",
-                            subtypeKey: "run_test",
-                            subtypeLabel: "Run test",
-                            subtypeGroup: "execution",
-                            toolFamily: "terminal",
-                            operation: "execute",
-                            entityType: "command",
-                            entityName: "npm",
-                            sourceTool: "Bash",
                             failed: true,
                             error: "Command exited with non-zero status code 1",
                             isInterrupt: false
@@ -786,18 +770,9 @@ describe("Claude plugin", () => {
                         command: "npm run lint",
                         title: "Run lint",
                         body: "Run lint\n\n$ npm run lint",
-                        lane: "implementation",
                         metadata: {
                             description: "Run lint",
-                            command: "npm run lint",
-                            subtypeKey: "run_lint",
-                            subtypeLabel: "Run lint",
-                            subtypeGroup: "execution",
-                            toolFamily: "terminal",
-                            operation: "execute",
-                            entityType: "command",
-                            entityName: "npm",
-                            sourceTool: "Bash"
+                            command: "npm run lint"
                         }
                     }]
                 }
@@ -835,18 +810,9 @@ describe("Claude plugin", () => {
                         activityType: "mcp_call",
                         title: "MCP: github/search_repositories",
                         body: "Used MCP tool github/search_repositories",
-                        lane: "coordination",
                         mcpServer: "github",
                         mcpTool: "search_repositories",
                         metadata: {
-                            subtypeKey: "mcp_call",
-                            subtypeLabel: "MCP call",
-                            subtypeGroup: "coordination",
-                            toolFamily: "coordination",
-                            operation: "invoke",
-                            entityType: "mcp",
-                            entityName: "github/search_repositories",
-                            sourceTool: "mcp__github__search_repositories",
                             mcpServer: "github",
                             mcpTool: "search_repositories"
                         }

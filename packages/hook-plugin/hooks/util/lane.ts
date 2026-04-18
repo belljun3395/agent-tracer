@@ -1,7 +1,7 @@
 /**
  * Timeline lane constants.
  *
- * Re-exports TimelineLane from @monitor/core and provides a LANE constants object
+ * Re-exports TimelineLane from @monitor/domain and provides a LANE constants object
  * so hook handlers can reference lanes without raw string literals.
  *
  * TimelineLane values:
@@ -14,7 +14,7 @@
  *   background     — background agent tasks
  *   coordination   — agent delegation, MCP calls, skill invocations
  */
-import type { TimelineLane } from "@monitor/core";
+import type { TimelineLane } from "@monitor/domain";
 
 export type { TimelineLane };
 

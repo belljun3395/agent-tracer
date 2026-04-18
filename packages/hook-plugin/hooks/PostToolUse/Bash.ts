@@ -24,14 +24,14 @@
  *
  * Blocking: PostToolUse cannot block (exit 2 shows stderr but execution continues).
  *
- * This handler classifies the shell command semantically (probe, test, build, lint,
- * verify, or generic run) and posts a /api/terminal-command event to the monitor.
+ * This handler posts a /ingest/v1/events event with kind "terminal.command".
+ * The server classifies the command semantically (probe, test, build, lint,
+ * verify, or generic run) at ingestion time — plugin sends raw payload only.
  */
 import { getAgentContext, getSessionId, getToolInput, getToolUseId, toTrimmedString } from "../util/utils.js";
 import { postJson, readStdinJson } from "../lib/transport.js";
 import { resolveEventSessionIds } from "../lib/subagent-session.js";
 import { hookLog, hookLogPayload } from "../lib/hook-log.js";
-import { buildSemanticMetadata, inferCommandSemantic } from "../classification/command-semantic.js";
 
 async function main(): Promise<void> {
     const payload = await readStdinJson();
@@ -50,8 +50,9 @@ async function main(): Promise<void> {
     }
 
     const ids = await resolveEventSessionIds(sessionId, agentId, agentType);
-    const semantic = inferCommandSemantic(command);
 
+    // Plugin sends raw payload only — server classifies lane + semantic metadata
+    // at ingestion via @monitor/classification.
     await postJson("/ingest/v1/events", {
         events: [{
             kind: "terminal.command",
@@ -60,11 +61,9 @@ async function main(): Promise<void> {
             command,
             title: description || command.slice(0, 80),
             body: description ? `${description}\n\n$ ${command}` : command,
-            lane: semantic.lane,
             metadata: {
                 description,
                 command,
-                ...buildSemanticMetadata(semantic.metadata),
                 ...(toolUseId ? { toolUseId } : {})
             }
         }]

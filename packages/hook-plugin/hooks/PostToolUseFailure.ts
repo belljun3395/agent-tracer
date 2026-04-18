@@ -25,13 +25,11 @@
  * This handler records the failure in the Agent Tracer monitor. MCP tool failures
  * are posted to /api/agent-activity; all other tool failures go to /api/tool-used.
  */
-import { LANE } from "./util/lane.js";
 import { parseMcpToolName } from "./util/paths.js";
 import { getAgentContext, getSessionId, getToolInput, getToolName, getToolUseId, toBoolean, toTrimmedString } from "./util/utils.js";
 import { postJson, readStdinJson } from "./lib/transport.js";
 import { resolveEventSessionIds } from "./lib/subagent-session.js";
 import { hookLog, hookLogPayload } from "./lib/hook-log.js";
-import { buildSemanticMetadata, inferCommandSemantic } from "./classification/command-semantic.js";
 
 async function main(): Promise<void> {
     const payload = await readStdinJson();
@@ -73,19 +71,17 @@ async function main(): Promise<void> {
                 activityType: "mcp_call",
                 title,
                 body,
-                lane: LANE.coordination,
                 mcpServer: mcpTool.server,
                 mcpTool: mcpTool.tool,
                 metadata: { ...failureMetadata, mcpServer: mcpTool.server, mcpTool: mcpTool.tool }
             }]
         });
     } else {
-        // Include semantic metadata for Bash failures so downstream consumers can
-        // classify what kind of command failed (test run, build, lint, etc.).
-        const semanticMetadata = toolName === "Bash"
-            ? buildSemanticMetadata(inferCommandSemantic(toTrimmedString(toolInput.command)).metadata)
-            : {};
+        // Semantic classification happens server-side via @monitor/classification.
+        // Plugin passes the command through so the ingestion service can infer the
+        // failure's subtype (test run / build / lint / verify / run_command).
         const description = toolName === "Bash" ? toTrimmedString(toolInput.description) : undefined;
+        const command = toolName === "Bash" ? toTrimmedString(toolInput.command) : undefined;
 
         await postJson("/ingest/v1/events", {
             events: [{
@@ -95,10 +91,9 @@ async function main(): Promise<void> {
                 toolName,
                 title,
                 body,
-                lane: LANE.implementation,
+                ...(command ? { command } : {}),
                 metadata: {
                     ...(description ? { description } : {}),
-                    ...semanticMetadata,
                     ...failureMetadata
                 }
             }]

@@ -46,31 +46,14 @@ invocations. Continuity across invocations is maintained via the session cache f
 
 ## Semantic metadata
 
-Several handlers attach a `metadata` object to their API calls. Some fields
-are handler-specific; others come from the shared `buildSemanticMetadata` helper
-(sourced from `classification/`).
+The plugin sends **raw payloads only** — it does not compute `subtypeKey`,
+`toolFamily`, `lane`, or any other semantic classification. All semantic
+derivation happens server-side in `@monitor/classification` via
+`classifyEvent()` + `deriveSemanticMetadata()` during event ingestion.
 
-### Shared semantic fields (from `buildSemanticMetadata`)
-
-These fields are included when a handler calls `inferCommandSemantic`,
-`inferExploreSemantic`, or `inferFileToolSemantic`:
-
-```
-subtypeKey    string  — machine-readable event subtype (e.g. "run_test", "read_file")
-subtypeLabel  string  — human-readable label (e.g. "Run test", "Read file")
-subtypeGroup  string  — logical grouping ("shell", "execution", "file", "explore", "coordination")
-toolFamily    string  — broad tool category ("terminal", "file", "explore", "coordination")
-operation     string  — verb ("probe", "execute", "read", "create", "modify", "invoke")
-entityType    string? — type of entity acted on ("command", "file", "mcp")
-entityName    string? — specific name (command token, file basename, mcp server/tool)
-sourceTool    string? — Claude Code tool name that triggered this event
-importance    string? — "high" | "medium" | "low" (set selectively)
-```
-
-### Handler-specific metadata fields
-
-Each section below lists the additional fields sent alongside (or instead of)
-the shared semantic fields.
+The only metadata the plugin attaches is handler-specific context required
+to reconstruct the event on the server (tool inputs, file paths, mcp server/tool,
+tool-use IDs, etc.). Each section below lists the exact fields each handler emits.
 
 ---
 
@@ -329,38 +312,26 @@ tool_input.description — human-readable description (optional)
 
 **Plugin generates [GEN]:**
 ```
-lane      — "exploration" | "implementation"  (inferred by inferCommandSemantic)
 title     — description || first 80 chars of command
 body      — "description\n\n$ command" or just command
-semantic  — inferCommandSemantic → shared semantic fields
 ```
 
-**Semantic classification subtypeKeys:**
-| Command pattern | subtypeKey | lane |
-|----------------|-----------|------|
-| ls, find, git status/diff/log, … | `shell_probe` | exploration |
-| rule/policy/guard keywords | `rule_check` | implementation |
-| jest, pytest, cargo test, … | `run_test` | implementation |
-| eslint, ruff, biome, … | `run_lint` | implementation |
-| tsc --noemit, mypy, … | `verify` | implementation |
-| npm run build, cargo build, … | `run_build` | implementation |
-| anything else | `run_command` | implementation |
+Lane (exploration vs implementation) and subtype classification (`run_test`,
+`run_lint`, `verify`, `shell_probe`, …) are derived server-side by
+`inferCommandSemantic()` in `@monitor/classification` during ingestion.
 
 **API call:**
 ```
-POST /api/terminal-command
+POST /ingest/v1/events  { kind: "terminal.command", … }
   taskId    [CACHE]
   sessionId [CACHE]
   command   [CC]   tool_input.command
   title     [GEN]
   body      [GEN]
-  lane      [GEN]  "exploration" | "implementation"
   metadata:
     description  [CC]  tool_input.description  (omitted if absent)
     command      [CC]  tool_input.command
     toolUseId    [CC]  tool_use_id             (omitted if absent — correlates with transcript tool_use.id)
-    + shared semantic fields (subtypeKey, subtypeLabel, subtypeGroup,
-                              toolFamily, operation, entityType, entityName, sourceTool)
 ```
 
 ---
@@ -382,27 +353,24 @@ tool_input.new_string  — (Edit) replacement text
 title    — "<toolName>: <filename>"  (basename of file_path)
 body     — "Modified <relPath>"
 relPath  — file_path relative to $CLAUDE_PROJECT_DIR
-semantic — inferFileToolSemantic → subtypeKey:
-             Write → create_file
-             Edit  → modify_file   (default)
 ```
+
+Subtype classification (`create_file` / `modify_file`) is derived server-side
+by `inferFileToolSemantic()` in `@monitor/classification` from `toolName`.
 
 **API call:**
 ```
-POST /api/tool-used
+POST /ingest/v1/events  { kind: "tool.used", … }
   taskId    [CACHE]
   sessionId [CACHE]
   toolName  [CC]    tool_name
   title     [GEN]
   body      [GEN]
-  lane      [GEN]   "implementation"
   filePaths [CC]    [tool_input.file_path]
   metadata:
     filePath  [CC]  tool_input.file_path
     relPath   [GEN] path relative to project root
     toolUseId [CC]  tool_use_id  (omitted if absent)
-    + shared semantic fields (subtypeKey, subtypeLabel, subtypeGroup,
-                              toolFamily, operation, entityType, entityName, sourceTool)
 ```
 
 ---
@@ -420,18 +388,15 @@ tool_input    — tool-specific fields (file_path, pattern, query, url, …)
 ```
 title    — tool-specific summary ("Read: filename", "Grep: pattern", …)
 body     — human description of the operation
-semantic — inferExploreSemantic → subtypeKey:
-             Read       → read_file
-             Glob       → glob_files
-             Grep       → grep_code
-             WebFetch   → web_fetch   (entityName = url)
-             WebSearch  → web_search  (entityName = query)
-             default    → list_files
 ```
+
+Subtype classification (`read_file`/`glob_files`/`grep_code`/`web_fetch`/
+`web_search`/`list_files`) is derived server-side by `inferExploreSemantic()`
+in `@monitor/classification` from `toolName` + metadata.
 
 **API call:**
 ```
-POST /api/explore
+POST /ingest/v1/events  { kind: "tool.used", … }
   taskId    [CACHE]
   sessionId [CACHE]
   toolName  [CC]    tool_name
@@ -442,8 +407,6 @@ POST /api/explore
     toolInput  [CC]  stringified tool_input object
     webUrls    [CC]  [url | query]  (only for WebFetch/WebSearch)
     toolUseId  [CC]  tool_use_id  (omitted if absent)
-    + shared semantic fields (subtypeKey, subtypeLabel, subtypeGroup,
-                              toolFamily, operation, entityType, entityName, sourceTool)
 ```
 
 ---
@@ -472,21 +435,17 @@ childTitle    — description | prompt | defaultTaskTitle()
 
 **API calls:**
 ```
-POST /api/agent-activity
+POST /ingest/v1/events  { kind: "agent.activity.logged", … }
   taskId       [CACHE]
   sessionId    [CACHE]
   activityType [GEN]   "delegation" | "skill_use"
   title        [GEN]
   body         [CC]    prompt | skill args
+  agentName    [CC]    tool_input.subagent_type  (Agent only, omitted if absent)
+  skillName    [CC]    tool_input.skill          (Skill only, omitted if absent)
   metadata:
     toolInput  [CC]  stringified tool_input object
-    agentName  [CC]  tool_input.subagent_type  (Agent only, omitted if absent)
-    skillName  [CC]  tool_input.skill          (Skill only, omitted if absent)
     toolUseId  [CC]  tool_use_id               (omitted if absent)
-    + shared semantic fields (subtypeKey: "delegation"|"skill_use",
-                              subtypeGroup: "coordination", toolFamily: "coordination",
-                              operation: "invoke", entityType: "agent"|"skill",
-                              entityName: agentType|skillName, sourceTool: toolName)
 
 # Background agents only: create child runtime session with parent linkage
 POST /api/runtime-session-ensure
@@ -496,6 +455,10 @@ POST /api/runtime-session-ensure
   parentSessionId  [CACHE] parent monitor session ID
   (no metadata object)
 ```
+
+Subtype classification (`delegation`/`skill_use` with `coordination` group) is
+derived server-side by `inferAgentSemantic()`/`inferSkillSemantic()` in
+`@monitor/classification`.
 
 ---
 
@@ -519,24 +482,22 @@ activityType — "mcp_call"
 
 **API call:**
 ```
-POST /api/agent-activity
+POST /ingest/v1/events  { kind: "agent.activity.logged", … }
   taskId       [CACHE]
   sessionId    [CACHE]
   activityType [GEN]   "mcp_call"
   title        [GEN]
   body         [GEN]
-  lane         [GEN]   "coordination"
   mcpServer    [GEN]   parsed server name
   mcpTool      [GEN]   parsed tool name
   metadata:
     mcpServer  [GEN]  parsed server name
     mcpTool    [GEN]  parsed tool name
     toolUseId  [CC]   tool_use_id  (omitted if absent)
-    + shared semantic fields (subtypeKey: "mcp_call",
-                              subtypeGroup: "coordination", toolFamily: "coordination",
-                              operation: "invoke", entityType: "mcp",
-                              entityName: "<server>/<tool>", sourceTool: toolName)
 ```
+
+Lane (`coordination`) and subtype classification (`mcp_call`) are derived
+server-side by `inferMcpSemantic()` in `@monitor/classification`.
 
 > **Self-reference guard**: MCP calls to `mcp__agent-tracer__*` are skipped to prevent
 > the monitor itself from generating recursive monitoring events.
@@ -804,10 +765,6 @@ hooks/
 │   ├── session-metadata.ts    # read/write/delete .session-cache/*-metadata.json
 │   ├── subagent-session.ts    # parent/subagent-aware runtime session resolution
 │   └── transport.ts           # readStdinJson, postJson, ensureRuntimeSession
-├── classification/            # pure functions that build API payload data (SemanticMetadata)
-│   ├── command-semantic.ts    # Bash command → subtypeKey + lane
-│   ├── explore-semantic.ts    # Read/Glob/Grep/Web → subtypeKey
-│   └── file-semantic.ts       # Edit/Write → subtypeKey
 ├── SessionStart.ts
 ├── UserPromptSubmit.ts
 ├── PreToolUse.ts
@@ -827,10 +784,12 @@ hooks/
 └── Stop.ts
 ```
 
-> `util/`, `lib/`, and `classification/` are excluded from `tsconfig.json` direct
-> analysis (`exclude: ["hooks/util", "hooks/lib", "hooks/classification"]`) because
-> handlers import them directly as shared internal modules rather than compiling them
-> as standalone hook entrypoints.
+> `util/` and `lib/` are excluded from `tsconfig.json` direct analysis
+> (`exclude: ["hooks/util", "hooks/lib"]`) because handlers import them directly
+> as shared internal modules rather than compiling them as standalone hook
+> entrypoints. Semantic classification (previously in `classification/`) has
+> moved to the server: `@monitor/classification` derives subtype/lane/toolFamily
+> from the raw payloads at ingestion time.
 
 ---
 

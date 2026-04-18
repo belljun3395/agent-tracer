@@ -38,7 +38,6 @@ import { getAgentContext, getSessionId, getToolInput, getToolName, getToolUseId,
 import { postJson, readStdinJson } from "../lib/transport.js";
 import { resolveBackgroundSessionIds, resolveEventSessionIds } from "../lib/subagent-session.js";
 import { hookLog, hookLogPayload } from "../lib/hook-log.js";
-import { buildSemanticMetadata } from "../classification/command-semantic.js";
 
 function extractChildSessionId(toolResponse: unknown): string {
     const text = typeof toolResponse === "string"
@@ -79,19 +78,7 @@ async function main(): Promise<void> {
                 activityType: "skill_use",
                 title: skillName ? `Skill: ${skillName}` : "Skill invoked",
                 ...(toTrimmedString(toolInput.args) ? { body: `args: ${toTrimmedString(toolInput.args, 400)}` } : {}),
-                metadata: {
-                    ...buildSemanticMetadata({
-                        subtypeKey: "skill_use",
-                        subtypeLabel: "Skill use",
-                        subtypeGroup: "coordination",
-                        toolFamily: "coordination",
-                        operation: "invoke",
-                        entityType: "skill",
-                        entityName: skillName,
-                        sourceTool: toolName
-                    }),
-                    ...metadata
-                },
+                metadata,
                 ...(skillName ? { skillName } : {})
             }]
         });
@@ -112,19 +99,7 @@ async function main(): Promise<void> {
             activityType: "delegation",
             title,
             ...(prompt || description ? { body: prompt || description } : {}),
-            metadata: {
-                ...buildSemanticMetadata({
-                    subtypeKey: "delegation",
-                    subtypeLabel: "Delegation",
-                    subtypeGroup: "coordination",
-                    toolFamily: "coordination",
-                    operation: "delegate",
-                    entityType: "agent",
-                    entityName: agentName || description,
-                    sourceTool: toolName
-                }),
-                ...metadata
-            },
+            metadata,
             ...(agentName ? { agentName } : {})
         }]
     });

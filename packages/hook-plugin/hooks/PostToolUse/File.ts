@@ -21,18 +21,16 @@
  *
  * Blocking: PostToolUse cannot block (exit 2 shows stderr but execution continues).
  *
- * This handler classifies the file operation semantically and posts
- * a /api/tool-used event to the Agent Tracer monitor.
+ * This handler posts a raw /ingest/v1/events event with kind "tool.used" —
+ * the server classifies the file operation semantically at ingestion time via
+ * @monitor/classification. Plugin sends raw payload only.
  */
 import * as path from "node:path";
-import { LANE } from "../util/lane.js";
 import { relativeProjectPath } from "../util/paths.js";
 import { getAgentContext, getSessionId, getToolInput, getToolName, getToolUseId, toTrimmedString } from "../util/utils.js";
 import { postJson, readStdinJson } from "../lib/transport.js";
 import { resolveEventSessionIds } from "../lib/subagent-session.js";
 import { hookLog, hookLogPayload } from "../lib/hook-log.js";
-import { inferFileToolSemantic } from "../classification/file-semantic.js";
-import { buildSemanticMetadata } from "../classification/command-semantic.js";
 
 async function main(): Promise<void> {
     const payload = await readStdinJson();
@@ -63,10 +61,8 @@ async function main(): Promise<void> {
             toolName,
             title,
             body,
-            lane: LANE.implementation,
             ...(filePath ? { filePaths: [filePath] } : {}),
             metadata: {
-                ...buildSemanticMetadata(inferFileToolSemantic(toolName, toolInput)),
                 ...(filePath ? { filePath, relPath } : {}),
                 ...(toolUseId ? { toolUseId } : {})
             }

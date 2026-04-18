@@ -19,7 +19,12 @@ import {
     type TimelineLane,
     type TodoState,
 } from "@monitor/domain"
-import { classifyEvent, deriveSemanticMetadata, buildSemanticMetadata } from "@monitor/classification"
+import {
+    classifyEvent,
+    deriveSemanticMetadata,
+    buildSemanticMetadata,
+    inferCommandSemantic,
+} from "@monitor/classification"
 
 /**
  * Structural input contract for batch event ingestion. Adapters (HTTP, WS, etc.)
@@ -124,6 +129,14 @@ export class EventIngestionService {
         // an action verb — fall back to it so "Read"/"Grep"/"Glob" etc. still
         // classify as exploration when the caller omits an explicit action.
         const actionHint = e.action ?? (e.kind === "tool.used" ? e.toolName : undefined)
+        // Terminal commands carry a stronger lane signal than the generic default:
+        // read-only probes (`ls`, `git status`) belong on exploration; everything
+        // else on implementation. Use inferCommandSemantic to pre-seed the lane
+        // when the caller didn't pin it explicitly.
+        const commandLaneHint: TimelineLane | undefined =
+            !e.lane && e.kind === "terminal.command" && e.command
+                ? inferCommandSemantic(e.command).lane
+                : undefined
         const classification = classifyEvent({
             kind: e.kind as MonitoringEventKind,
             ...(e.title ? { title: e.title } : {}),
@@ -132,7 +145,7 @@ export class EventIngestionService {
             ...(e.toolName ? { toolName: ToolName(e.toolName) } : {}),
             ...(actionHint ? { actionName: ActionName(actionHint) } : {}),
             ...(e.filePaths ? { filePaths: e.filePaths } : {}),
-            ...(e.lane ? { lane: e.lane } : {}),
+            ...(e.lane ?? commandLaneHint ? { lane: e.lane ?? commandLaneHint! } : {}),
         })
         const resolvedLane: TimelineLane = classification.lane
 

@@ -24,8 +24,9 @@
  *
  * Blocking: PostToolUse cannot block (exit 2 shows stderr but execution continues).
  *
- * This handler classifies the explore operation semantically and posts
- * an /api/explore event to the Agent Tracer monitor.
+ * This handler posts a raw /ingest/v1/events event with kind "tool.used" —
+ * the server classifies the explore operation semantically at ingestion time
+ * via @monitor/classification. Plugin sends raw payload only.
  */
 import * as path from "node:path";
 import { relativeProjectPath } from "../util/paths.js";
@@ -33,8 +34,6 @@ import { getAgentContext, getSessionId, getToolInput, getToolName, getToolUseId,
 import { postJson, readStdinJson } from "../lib/transport.js";
 import { resolveEventSessionIds } from "../lib/subagent-session.js";
 import { hookLog, hookLogPayload } from "../lib/hook-log.js";
-import { inferExploreSemantic } from "../classification/explore-semantic.js";
-import { buildSemanticMetadata } from "../classification/command-semantic.js";
 
 const MAX_PATH_LENGTH = 300;
 
@@ -81,7 +80,6 @@ async function main(): Promise<void> {
         body = `Web lookup: ${query}`;
     }
 
-    const semantic = inferExploreSemantic(toolName, toolInput);
     const isWebTool = toolName === "WebSearch" || toolName === "WebFetch";
     const webQuery = isWebTool
         ? (toTrimmedString(toolInput.query) || toTrimmedString(toolInput.url)).slice(0, MAX_PATH_LENGTH)
@@ -90,7 +88,6 @@ async function main(): Promise<void> {
     await postJson("/ingest/v1/events", {
         events: [{
             kind: "tool.used",
-            lane: "exploration",
             taskId: ids.taskId,
             sessionId: ids.sessionId,
             toolName,
@@ -98,7 +95,6 @@ async function main(): Promise<void> {
             body,
             filePaths: filePaths.map((fp) => fp.slice(0, MAX_PATH_LENGTH)),
             metadata: {
-                ...buildSemanticMetadata(semantic),
                 toolInput: stringifyToolInput(toolInput),
                 ...(isWebTool && webQuery ? { webUrls: [webQuery] } : {}),
                 ...(toolUseId ? { toolUseId } : {})
