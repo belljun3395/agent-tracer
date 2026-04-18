@@ -45,6 +45,13 @@ module.exports = {
       to:   { path: "^packages/(?!(domain|hook-plugin)/)" },
     },
     {
+      name: "adapter-mcp-inner-ring",
+      severity: "error",
+      comment: "@monitor/adapter-mcp may only depend on @monitor/domain or @monitor/application. Intra-package imports are allowed.",
+      from: { path: "^packages/adapter-mcp/" },
+      to:   { path: "^packages/(?!(domain|application|adapter-mcp)/)" },
+    },
+    {
       name: "web-isolated",
       severity: "warn",
       comment: "web-* must not import server, adapters, or application.",
