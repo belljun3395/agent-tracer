@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     ".": {
+      "development": "./development.ts",
       "types": "./index.d.ts",
       "default": "./index.js"
     }
