@@ -11,7 +11,6 @@ function makeTokenUsageEvent(overrides: Partial<TimelineEvent> & { metadata: Rec
         createdAt: new Date().toISOString(),
         lane: "background",
         classification: { tags: [], confidence: 1 },
-        metadata: overrides.metadata,
         ...overrides,
     } as unknown as TimelineEvent;
 }
