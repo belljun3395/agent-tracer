@@ -35,8 +35,8 @@
       "@monitor/server": [
         "packages/server/src/index.ts"
       ],
-      "@monitor/mcp": [
-        "packages/mcp/src/index.ts"
+      "@monitor/adapter-mcp": [
+        "packages/adapter-mcp/src/index.ts"
       ],
       "@monitor/web": [
         "packages/web/src/main.tsx"

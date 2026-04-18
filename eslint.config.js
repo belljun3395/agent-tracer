@@ -91,8 +91,8 @@ export default tseslint.config(
     }
   },
   {
-    files: ["packages/mcp/src/**/*.{ts,tsx}", "packages/mcp/test/**/*.{ts,tsx}"],
-    ignores: ["packages/mcp/src/tools.ts"],
+    files: ["packages/adapter-mcp/src/**/*.{ts,tsx}", "packages/adapter-mcp/test/**/*.{ts,tsx}"],
+    ignores: ["packages/adapter-mcp/src/tools.ts"],
     rules: {
       "no-restricted-imports": ["error", {
         patterns: [

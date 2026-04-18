@@ -120,5 +120,5 @@ See `docs/guide/task-observability.md` for detailed contracts and API specs.
 |---------|------|
 | `@monitor/core` | Types, event rules, and semantic classification |
 | `@monitor/server` | NestJS server runtime, SQLite + WebSocket API |
-| `@monitor/mcp` | MCP stdio server |
+| `@monitor/adapter-mcp` | MCP stdio server (driving adapter) |
 | `@monitor/web` | React 19 dashboard |

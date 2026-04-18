@@ -38,7 +38,7 @@ async function seedDashboardTask(): Promise<void> {
         sessionId,
         action: ActionName("read_auth_logic"),
         body: "Inspected auth flows before wiring new guard events.",
-        filePaths: ["packages/server/src/application/monitor-service.ts", "packages/mcp/src/index.ts"]
+        filePaths: ["packages/server/src/application/monitor-service.ts", "packages/adapter-mcp/src/index.ts"]
     });
     await service.logVerification({
         taskId: started.task.id,

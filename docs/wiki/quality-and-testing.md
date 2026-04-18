@@ -18,7 +18,7 @@ From `package.json` at the repo root:
 ## What's working well
 
 - Every package ships a test script; `@monitor/core`, `@monitor/server`,
-  `@monitor/mcp`, and `@monitor/web` each have real coverage.
+  `@monitor/adapter-mcp`, and `@monitor/web` each have real coverage.
 - Lint config uses `typescript-eslint` with type-checked rules.
 - Rules like `no-floating-promises` and `consistent-type-imports` are on,
   which catches real issues instead of only style.

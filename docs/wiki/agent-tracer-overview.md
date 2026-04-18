@@ -10,7 +10,7 @@ server, MCP, and web can evolve in lockstep.
 
 ```mermaid
 flowchart LR
-  A["AI runtime / plugin / manual client"] --> B["@monitor/mcp or direct HTTP calls"]
+  A["AI runtime / plugin / manual client"] --> B["@monitor/adapter-mcp or direct HTTP calls"]
   B --> C["@monitor/server"]
   C --> D["SQLite"]
   C --> E["WebSocket broadcaster"]
@@ -63,12 +63,12 @@ real-time notifications. Responsible for:
   `packages/server/src/bootstrap/create-nestjs-monitor-runtime.ts`,
   `packages/server/src/application/monitor-service.ts`
 
-### `@monitor/mcp`
+### `@monitor/adapter-mcp`
 
 Wraps the monitor server's HTTP API as a 24-tool MCP surface so agent
 runtimes can call it directly when there is no auto-tracing plugin.
 
-- Entry points: `packages/mcp/src/index.ts`, `packages/mcp/src/client.ts`
+- Entry points: `packages/adapter-mcp/src/index.ts`, `packages/adapter-mcp/src/client.ts`
 
 ### `@monitor/web`
 
@@ -123,7 +123,7 @@ solve something like this last time".
 - `packages/server/src/application/monitor-service.ts`
 - `packages/core/src/domain/index.ts`
 - `packages/core/src/interop/event-semantic.ts`
-- `packages/mcp/src/index.ts`
+- `packages/adapter-mcp/src/index.ts`
 - `packages/web/src/App.tsx`
 - `packages/web/src/store/useMonitorStore.tsx`
 

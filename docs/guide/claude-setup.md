@@ -66,7 +66,7 @@ added separately so Claude can call MCP tools (`monitor_plan`,
 ```bash
 claude mcp add monitor \
   -e MONITOR_BASE_URL=http://127.0.0.1:3847 \
-  node /absolute/path/to/agent-tracer/packages/mcp/dist/index.js
+  node /absolute/path/to/agent-tracer/packages/adapter-mcp/dist/index.js
 ```
 
 If Claude is launched from a GUI and `node` is not on the GUI PATH, use an

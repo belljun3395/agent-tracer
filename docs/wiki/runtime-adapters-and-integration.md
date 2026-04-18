@@ -21,7 +21,7 @@ runtimes attach by calling the shared HTTP + MCP surface directly.
 - `packages/domain/src/interop/event-semantic.ts` — explicit hook/web semantic contract
 - `packages/classification/src/classifier.ts` — server-side ingestion classifier
 - `packages/classification/src/semantic-metadata.ts` — shared semantic metadata derivation
-- `packages/mcp/src/index.ts`
+- `packages/adapter-mcp/src/index.ts`
 - `packages/hook-plugin/hooks/*` — hook implementations
 - `packages/hook-plugin/hooks/PostToolUse/*` — per-tool sub-handlers
 - `packages/hook-plugin/hooks/lib/*` — shared utilities (transport, transcript, logging)
@@ -119,7 +119,7 @@ generate bootstrap files for other runtimes.
 
 ### Manual runtimes drive the API explicitly
 
-Runtimes without an auto-plugin use `@monitor/mcp` tools or call the
+Runtimes without an auto-plugin use `@monitor/adapter-mcp` tools or call the
 HTTP endpoints directly. Capability then becomes a caller contract —
 the server has no way to infer it.
 
@@ -141,7 +141,7 @@ union and validate it at the server boundary.
 
 ### MCP registration grows linearly
 
-`packages/mcp/src/index.ts` works today but registering tools is
+`packages/adapter-mcp/src/index.ts` works today but registering tools is
 essentially a manual list. Moving to a descriptor-based registration
 would cut drift as more tools are added.
 
@@ -157,7 +157,7 @@ runtime is attached.
 Adding an event today typically requires changes in: `@monitor/domain`
 (wire schema), `@monitor/classification` (lane/subtype derivation),
 `@monitor/application` (use case + types), a server controller,
-`packages/mcp/src/*`, and the guide docs. A published "new event
+`packages/adapter-mcp/src/*`, and the guide docs. A published "new event
 checklist" would reduce orphan edits.
 
 ## Checklist for adding a new runtime
