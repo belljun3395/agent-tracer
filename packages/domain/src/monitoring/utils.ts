@@ -52,7 +52,7 @@ export function defaultLaneForEventKind(kind: MonitoringEventKind): TimelineLane
         case "instructions.loaded":
             return "exploration";
         case "token.usage":
-            return "background";
+            return "telemetry";
     }
 }
 
@@ -81,6 +81,7 @@ export function normalizeLane(raw: string): TimelineLane {
         case "todos":
         case "background":
         case "coordination":
+        case "telemetry":
             return raw as TimelineLane;
         default:
             return "user";

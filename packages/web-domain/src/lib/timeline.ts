@@ -42,8 +42,6 @@ export interface TimelineConnector {
 }
 export const TIMELINE_LANES: readonly TimelineLane[] = [
     "user",
-    "questions",
-    "todos",
     "planning",
     "coordination",
     "exploration",
@@ -83,18 +81,19 @@ export function buildTimelineLayout(events: readonly TimelineEvent[], zoom: numb
     const trackEnd = trackStart + Math.max(1, trackWidth - NODE_HALF * 2);
     const usableTrack = Math.max(1, trackWidth - NODE_HALF * 2);
     const nowLeft = trackStart + Math.round(((nowMs - min) / span) * usableTrack);
-    const rawItems = events.map((event) => {
+    const rawItems = events.flatMap((event) => {
         const laneKey = resolveLaneKeyForEvent(event, laneRows);
         const laneIndex = laneRows.findIndex((row) => row.key === laneKey);
+        const laneRow = laneRows[laneIndex];
+        if (laneIndex === -1 || !laneRow) return [];
         const timePosition = (Date.parse(event.createdAt) - min) / span;
-        const laneRow = laneRows[laneIndex] ?? { key: event.lane, baseLane: event.lane, isSubtype: false };
-        return {
+        return [{
             event,
             laneKey,
             baseLane: laneRow.baseLane,
             left: trackStart + Math.round(timePosition * usableTrack),
             top: RULER_HEIGHT + laneIndex * LANE_HEIGHT + 18
-        };
+        }];
     });
     const byLane = new Map<string, typeof rawItems>();
     for (const item of rawItems) {

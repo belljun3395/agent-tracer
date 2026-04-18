@@ -93,9 +93,12 @@ describe("normalizeLane - 추가 케이스", () => {
         expect(normalizeLane("unknown-lane")).toBe("user");
     });
     it("현재 유효한 레인은 그대로 통과한다", () => {
-        const lanes = ["user", "exploration", "planning", "implementation"] as const;
+        const lanes = ["user", "exploration", "planning", "implementation", "telemetry"] as const;
         for (const lane of lanes) {
             expect(normalizeLane(lane)).toBe(lane);
         }
+    });
+    it("'telemetry' → 'telemetry' (token.usage 레인)", () => {
+        expect(normalizeLane("telemetry")).toBe("telemetry");
     });
 });
