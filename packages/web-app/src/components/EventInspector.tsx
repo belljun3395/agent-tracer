@@ -155,13 +155,13 @@ export function EventInspector({
             const seen = new Set<string>();
             const result: string[] = [];
             for (const e of taskTimeline) {
-                if (e.kind === "instructions.loaded" && e.metadata["loadReason"] !== "compact") {
-                    const relPath = e.metadata["relPath"];
-                    const val = typeof relPath === "string" ? relPath : (e.body ?? e.title);
-                    if (val && !seen.has(val)) {
-                        seen.add(val);
-                        result.push(val);
-                    }
+                if (e.kind !== "instructions.loaded") continue;
+                if (e.metadata["loadReason"] === "compact") continue;
+                const relPath = e.metadata["relPath"];
+                if (typeof relPath !== "string" || !relPath) continue;
+                if (!seen.has(relPath)) {
+                    seen.add(relPath);
+                    result.push(relPath);
                 }
             }
             return result;

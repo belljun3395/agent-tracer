@@ -184,7 +184,7 @@ function collectActiveInstructions(events: readonly TimelineEvent[]): readonly s
     return uniqueStrings(
         events
             .filter((e) => e.kind === "instructions.loaded" && stringMetadata(e, "loadReason") !== "compact")
-            .map((e) => stringMetadata(e, "relPath") ?? normalizeText(e.body ?? e.title))
+            .map((e) => stringMetadata(e, "relPath"))
             .filter((v): v is string => Boolean(v))
     );
 }

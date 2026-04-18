@@ -37,4 +37,22 @@ describe("SessionLifecyclePolicy", () => {
             hasRunningBackgroundDescendants: true
         })).toBe(false);
     });
+    it("explicit_exit + completeTask=true는 primary를 자동 완료한다", () => {
+        expect(shouldAutoCompletePrimary({
+            taskKind: "primary",
+            completeTask: true,
+            runningSessionCount: 0,
+            completionReason: "explicit_exit",
+            hasRunningBackgroundDescendants: false
+        })).toBe(true);
+    });
+    it("explicit_exit + completeTask=true는 background 자식이 있어도 자동 완료한다", () => {
+        expect(shouldAutoCompletePrimary({
+            taskKind: "primary",
+            completeTask: true,
+            runningSessionCount: 0,
+            completionReason: "explicit_exit",
+            hasRunningBackgroundDescendants: true
+        })).toBe(true);
+    });
 });

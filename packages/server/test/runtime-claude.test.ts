@@ -442,7 +442,8 @@ describe("Runtime Claude", () => {
                     runtimeSource: "claude-plugin",
                     runtimeSessionId: "parent-session",
                     summary: "Claude Code session ended (prompt_input_exit)",
-                    completionReason: "explicit_exit"
+                    completionReason: "explicit_exit",
+                    completeTask: true
                 }
             },
             {

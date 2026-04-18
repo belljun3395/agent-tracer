@@ -1,5 +1,5 @@
 import type React from "react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { formatRelativeTime, selectContextHydrationEvents, type TimelineEvent } from "@monitor/web-domain";
 import { cn } from "../../lib/ui/cn.js";
 import { Badge } from "../ui/Badge.js";
@@ -30,13 +30,31 @@ interface InstructionRow {
     readonly loadReason: string | null;
     readonly memoryType: string | null;
     readonly skillCount: number | null;
-    readonly addedCount: number | null;
-    readonly removedCount: number | null;
+    readonly addedNames: readonly string[] | null;
+    readonly removedNames: readonly string[] | null;
+    readonly skillNames: readonly string[] | null;
+}
+
+function toStringList(val: unknown): readonly string[] | null {
+    return Array.isArray(val) && val.every((v) => typeof v === "string")
+        ? (val as string[])
+        : null;
+}
+
+function parseSkillNames(body: string | null): readonly string[] | null {
+    if (!body) return null;
+    const names: string[] = [];
+    for (const line of body.split("\n")) {
+        const m = /^-\s+([\w:./-]+)/.exec(line.trim());
+        if (m?.[1]) names.push(m[1]);
+    }
+    return names.length > 0 ? names : null;
 }
 
 function buildInstructionRow(event: TimelineEvent): InstructionRow {
     const relPath = metaString(event.metadata, "relPath");
     const filePath = metaString(event.metadata, "filePath");
+    const attachmentType = metaString(event.metadata, "attachmentType");
     return {
         event,
         title: event.title,
@@ -45,15 +63,83 @@ function buildInstructionRow(event: TimelineEvent): InstructionRow {
         loadReason: metaString(event.metadata, "loadReason"),
         memoryType: metaString(event.metadata, "memoryType"),
         skillCount: metaNumber(event.metadata, "skillCount"),
-        addedCount: (() => {
-            const added = event.metadata["addedNames"];
-            return Array.isArray(added) ? added.length : null;
-        })(),
-        removedCount: (() => {
-            const removed = event.metadata["removedNames"];
-            return Array.isArray(removed) ? removed.length : null;
-        })(),
+        addedNames: toStringList(event.metadata["addedNames"]),
+        removedNames: toStringList(event.metadata["removedNames"]),
+        skillNames: attachmentType === "skill_listing" ? parseSkillNames(event.body ?? null) : null,
     };
+}
+
+function ExpandableNameList({ names, label }: { readonly names: readonly string[]; readonly label: string }): React.JSX.Element {
+    const [expanded, setExpanded] = useState(false);
+    return (
+        <div>
+            <button
+                type="button"
+                onClick={() => setExpanded((v) => !v)}
+                className="flex items-center gap-1 text-[0.68rem] text-[var(--text-3)] hover:text-[var(--text-2)] transition-colors"
+            >
+                <span className="font-semibold">{label} ({names.length})</span>
+                <span>{expanded ? "▲" : "▼"}</span>
+            </button>
+            {expanded && (
+                <ul className="mt-1.5 flex flex-col gap-0.5 pl-2">
+                    {names.map((name) => (
+                        <li key={name} className={cn("truncate text-[0.72rem] text-[var(--text-2)]", monoText)}>
+                            {name}
+                        </li>
+                    ))}
+                </ul>
+            )}
+        </div>
+    );
+}
+
+function InstructionRowItem({ row }: { readonly row: InstructionRow }): React.JSX.Element {
+    const expandableNames = row.skillNames ?? row.addedNames;
+    const expandLabel = row.skillNames ? "skills" : "added";
+    return (
+        <div className="flex flex-col gap-1.5 rounded-[10px] border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2.5">
+            <div className="flex items-start justify-between gap-3">
+                <strong className="min-w-0 flex-1 break-words text-[0.82rem] text-[var(--text-1)]">
+                    {row.title}
+                </strong>
+                <span className="shrink-0 text-[0.68rem] tabular-nums text-[var(--text-3)]">
+                    {formatRelativeTime(row.event.createdAt)}
+                </span>
+            </div>
+            {row.pathHint && (
+                <span className={cn("break-all text-[0.76rem] text-[var(--text-2)]", monoText)} title={row.pathHint}>
+                    {row.pathHint}
+                </span>
+            )}
+            <div className="flex flex-wrap items-center gap-1.5">
+                {row.loadReason && (
+                    <Badge tone={row.loadReason === "compact" ? "warning" : "neutral"} size="xs">
+                        {row.loadReason}
+                    </Badge>
+                )}
+                {row.memoryType && (
+                    <Badge tone="accent" size="xs">{row.memoryType}</Badge>
+                )}
+                {row.skillCount != null && (
+                    <Badge tone="neutral" size="xs">{row.skillCount} skills</Badge>
+                )}
+                {(row.addedNames != null || row.removedNames != null) && !row.skillNames && (
+                    <Badge tone="neutral" size="xs">
+                        +{row.addedNames?.length ?? 0} / -{row.removedNames?.length ?? 0}
+                    </Badge>
+                )}
+            </div>
+            {expandableNames && expandableNames.length > 0 && (
+                <ExpandableNameList names={expandableNames} label={expandLabel} />
+            )}
+            {row.body && !row.pathHint && !expandableNames && (
+                <p className="m-0 max-h-28 overflow-hidden whitespace-pre-wrap break-words text-[0.76rem] text-[var(--text-3)]">
+                    {row.body}
+                </p>
+            )}
+        </div>
+    );
 }
 
 function InstructionsCard({ rows }: { readonly rows: readonly InstructionRow[] }): React.JSX.Element {
@@ -72,44 +158,7 @@ function InstructionsCard({ rows }: { readonly rows: readonly InstructionRow[] }
                 ) : (
                     <div className="flex flex-col gap-2">
                         {rows.map((row) => (
-                            <div key={row.event.id} className="flex flex-col gap-1.5 rounded-[10px] border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2.5">
-                                <div className="flex items-start justify-between gap-3">
-                                    <strong className="min-w-0 flex-1 break-words text-[0.82rem] text-[var(--text-1)]">
-                                        {row.title}
-                                    </strong>
-                                    <span className="shrink-0 text-[0.68rem] tabular-nums text-[var(--text-3)]">
-                                        {formatRelativeTime(row.event.createdAt)}
-                                    </span>
-                                </div>
-                                {row.pathHint && (
-                                    <span className={cn("break-all text-[0.76rem] text-[var(--text-2)]", monoText)} title={row.pathHint}>
-                                        {row.pathHint}
-                                    </span>
-                                )}
-                                <div className="flex flex-wrap items-center gap-1.5">
-                                    {row.loadReason && (
-                                        <Badge tone={row.loadReason === "compact" ? "warning" : "neutral"} size="xs">
-                                            {row.loadReason}
-                                        </Badge>
-                                    )}
-                                    {row.memoryType && (
-                                        <Badge tone="accent" size="xs">{row.memoryType}</Badge>
-                                    )}
-                                    {row.skillCount != null && (
-                                        <Badge tone="neutral" size="xs">{row.skillCount} skills</Badge>
-                                    )}
-                                    {(row.addedCount != null || row.removedCount != null) && (
-                                        <Badge tone="neutral" size="xs">
-                                            +{row.addedCount ?? 0} / -{row.removedCount ?? 0}
-                                        </Badge>
-                                    )}
-                                </div>
-                                {row.body && !row.pathHint && (
-                                    <p className="m-0 max-h-28 overflow-hidden whitespace-pre-wrap break-words text-[0.76rem] text-[var(--text-3)]">
-                                        {row.body}
-                                    </p>
-                                )}
-                            </div>
+                            <InstructionRowItem key={row.event.id} row={row} />
                         ))}
                     </div>
                 )}

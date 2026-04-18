@@ -74,6 +74,7 @@ function CacheEfficiencyCard({ summary }: { readonly summary: CacheHitSummary })
         : summary.hitRate >= 30
             ? "text-[var(--warn)]"
             : "text-[var(--text-2)]";
+    const isLowSample = summary.turns < 3;
     return (<SectionCard title="Cache Efficiency" helpText={inspectorHelpText.cacheEfficiency}>
       <div className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-5">
         <div className="flex flex-col items-start">
@@ -84,6 +85,11 @@ function CacheEfficiencyCard({ summary }: { readonly summary: CacheHitSummary })
           <p className="mt-1.5 mb-0 text-[0.7rem] text-[var(--text-3)]">
             across {formatCount(summary.turns)} turn{summary.turns === 1 ? "" : "s"}
           </p>
+          {isLowSample && (
+            <p className="mt-1 mb-0 text-[0.68rem] text-[var(--warn)]">
+              low sample — first-turn cache is typically inflated by system preamble
+            </p>
+          )}
         </div>
         <div className="grid grid-cols-2 gap-2">
           <CacheStat label="Cache read" value={summary.cacheReadTokens} tone="ok"/>
@@ -114,14 +120,22 @@ function CacheStat({ label, value, tone }: {
       </div>
     );
 }
-function RuntimeSessionCard({ runtimeSessionId, runtimeSource }: {
+function countCompactions(timeline: readonly TimelineEvent[]): number {
+    return timeline.filter(
+        (e) => e.kind === "context.saved" && e.metadata["compactPhase"] === "before"
+    ).length;
+}
+
+function RuntimeSessionCard({ runtimeSessionId, runtimeSource, timeline = [] }: {
     readonly runtimeSessionId?: string | undefined;
     readonly runtimeSource?: string | undefined;
+    readonly timeline?: readonly TimelineEvent[];
 }): React.JSX.Element | null {
     const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "failed">("idle");
     if (!runtimeSessionId)
         return null;
     const spec = buildResumeCommand(runtimeSource, runtimeSessionId);
+    const compactions = countCompactions(timeline);
     const handleCopy = (text: string): void => {
         void copyToClipboard(text).then((copied) => {
             setCopyStatus(copied ? "copied" : "failed");
@@ -134,6 +148,11 @@ function RuntimeSessionCard({ runtimeSessionId, runtimeSource }: {
       <div className={innerPanel + " p-3"}>
         <Eyebrow className="block">Session ID</Eyebrow>
         <code className="mt-1 block break-all font-mono text-[0.8rem] text-[var(--text-1)]">{runtimeSessionId}</code>
+        {compactions > 0 && (
+          <p className="mt-1.5 mb-0 text-[0.68rem] text-[var(--warn)]">
+            {compactions} context compact{compactions === 1 ? "" : "s"} — session ID updated after compact; previous segments no longer resumable from this ID
+          </p>
+        )}
       </div>
       {spec ? (<div className={innerPanel + " mt-2 p-3"}>
           <Eyebrow className="block">Resume command</Eyebrow>
@@ -222,7 +241,11 @@ function lastTransitionMs(group: TodoGroup): number {
     return last ? Date.parse(last.event.createdAt) : 0;
 }
 
-function TodoRow({ group, muted }: { readonly group: TodoGroup; readonly muted: boolean }): React.JSX.Element {
+function isSessionEnded(timeline: readonly TimelineEvent[]): boolean {
+    return timeline.some((e) => e.kind === "session.ended");
+}
+
+function TodoRow({ group, muted, stale }: { readonly group: TodoGroup; readonly muted: boolean; readonly stale: boolean }): React.JSX.Element {
     const last = group.transitions[group.transitions.length - 1];
     return (
       <div className={cn(
@@ -234,6 +257,7 @@ function TodoRow({ group, muted }: { readonly group: TodoGroup; readonly muted: 
         <Badge tone={TODO_STATE_TONE[group.currentState] ?? "neutral"} size="xs">
           {TODO_STATE_LABELS[group.currentState] ?? group.currentState}
         </Badge>
+        {stale && <Badge tone="neutral" size="xs">stale</Badge>}
         <span className={cn(
           "min-w-0 flex-1 truncate text-[0.82rem]",
           muted ? "text-[var(--text-2)] line-through decoration-[var(--text-3)]/40" : "text-[var(--text-1)]"
@@ -247,8 +271,9 @@ function TodoRow({ group, muted }: { readonly group: TodoGroup; readonly muted: 
     );
 }
 
-function TodosSummaryCard({ todoGroups }: { readonly todoGroups: readonly TodoGroup[] }): React.JSX.Element | null {
+function TodosSummaryCard({ todoGroups, timeline }: { readonly todoGroups: readonly TodoGroup[]; readonly timeline: readonly TimelineEvent[] }): React.JSX.Element | null {
     if (todoGroups.length === 0) return null;
+    const sessionEnded = isSessionEnded(timeline);
     const completed = todoGroups.filter((g) => g.currentState === "completed").length;
     const openGroups = todoGroups
         .filter((g) => !g.isTerminal)
@@ -271,7 +296,7 @@ function TodosSummaryCard({ todoGroups }: { readonly todoGroups: readonly TodoGr
               <span className="text-[0.7rem] text-[var(--text-3)] tabular-nums">{openGroups.length}</span>
             </div>
             {openGroups.map((group) => (
-              <TodoRow key={group.todoId} group={group} muted={false}/>
+              <TodoRow key={group.todoId} group={group} muted={false} stale={sessionEnded}/>
             ))}
           </div>
         )}
@@ -282,7 +307,7 @@ function TodosSummaryCard({ todoGroups }: { readonly todoGroups: readonly TodoGr
               <span className="text-[0.7rem] text-[var(--text-3)] tabular-nums">{doneGroups.length}</span>
             </div>
             {doneGroups.map((group) => (
-              <TodoRow key={group.todoId} group={group} muted/>
+              <TodoRow key={group.todoId} group={group} muted stale={false}/>
             ))}
           </div>
         )}
@@ -398,7 +423,7 @@ export function OverviewTab({ observability, subagentInsight, verificationCycles
     const cacheSummary = useMemo(() => summarizeCacheUsage(timeline), [timeline]);
     const skillSummary = useMemo(() => summarizeSkillListing(timeline), [timeline]);
     return (<div className="panel-tab-inner flex flex-col gap-5 p-4">
-      <RuntimeSessionCard runtimeSessionId={runtimeSessionId} runtimeSource={runtimeSource}/>
+      <RuntimeSessionCard runtimeSessionId={runtimeSessionId} runtimeSource={runtimeSource} timeline={timeline}/>
       <CacheEfficiencyCard summary={cacheSummary}/>
       {taskModelSummary && <AIModelCard summary={taskModelSummary}/>}
       <SkillListingCard summary={skillSummary}/>
@@ -450,7 +475,7 @@ export function OverviewTab({ observability, subagentInsight, verificationCycles
 
           {verificationCycles && verificationCycles.length > 0 && (<VerificationCyclesCard items={verificationCycles}/>)}
 
-          <TodosSummaryCard todoGroups={todoGroups}/>
+          <TodosSummaryCard todoGroups={todoGroups} timeline={timeline}/>
           <QuestionsSummaryCard questionGroups={questionGroups}/>
 
           <SectionCard title="Phase Breakdown" helpText={inspectorHelpText.phaseBreakdown}>

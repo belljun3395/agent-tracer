@@ -40,6 +40,7 @@ import { postJson, readStdinJson } from "./lib/transport.js";
 import { resolveEventSessionIds } from "./lib/subagent-session.js";
 import { resolveSessionIds } from "./lib/session.js";
 import { deleteCursor } from "./lib/transcript-cursor.js";
+import { deleteTodoState } from "./lib/todo-state.js";
 import { commitCursor, tailTranscriptAsEvents } from "./lib/transcript-tail.js";
 import { hookLog, hookLogPayload } from "./lib/hook-log.js";
 
@@ -116,8 +117,9 @@ async function main(): Promise<void> {
     });
     hookLog("SubagentStop", "virtual session ended", { virtualId });
 
-    // Clean up the virtual session's transcript cursor so the ID can be reused by future agents.
+    // Clean up the virtual session's transcript cursor and todo state.
     deleteCursor(virtualId);
+    deleteTodoState(virtualId);
 }
 
 void main().catch((err: unknown) => {

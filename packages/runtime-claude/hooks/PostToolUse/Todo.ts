@@ -31,13 +31,14 @@
  *
  * Blocking: PostToolUse cannot block (exit 2 shows stderr but execution continues).
  *
- * This handler extracts individual todo events from the tool payload and posts
- * each one to /api/todo in the Agent Tracer monitor.
+ * For TodoWrite: reconciles the new list against the previously stored list to
+ * emit explicit "cancelled" transitions for items removed from the list.
  */
 import { createStableTodoId, getAgentContext, getSessionId, getToolInput, getToolName, getToolUseId, toTrimmedString } from "../util/utils.js";
 import { postJson, readStdinJson } from "../lib/transport.js";
 import { resolveEventSessionIds } from "../lib/subagent-session.js";
 import { hookLog, hookLogPayload } from "../lib/hook-log.js";
+import { loadTodoState, saveTodoState, type PersistedTodo } from "../lib/todo-state.js";
 
 type TodoState = "added" | "in_progress" | "completed" | "cancelled";
 
@@ -55,6 +56,8 @@ const STATUS_MAP: Record<string, TodoState> = {
     cancelled: "cancelled"
 };
 
+const TERMINAL_STATES = new Set<string>(["completed", "cancelled"]);
+
 function firstString(input: Record<string, unknown>, keys: string[]): string {
     for (const key of keys) {
         const value = toTrimmedString(input[key]);
@@ -63,38 +66,91 @@ function firstString(input: Record<string, unknown>, keys: string[]): string {
     return "";
 }
 
-function extractTodoEvents(toolName: string, toolInput: Record<string, unknown>): TodoEvent[] {
-    if (toolName === "TodoWrite" && Array.isArray(toolInput.todos)) {
-        return toolInput.todos.flatMap((todo) => {
-            if (!todo || typeof todo !== "object" || Array.isArray(todo)) return [];
-            const entry = todo as Record<string, unknown>;
-            const title = toTrimmedString(entry.content);
-            if (!title) return [];
-            const status = toTrimmedString(entry.status) || "pending";
-            const priority = toTrimmedString(entry.priority) || "medium";
-            return [{
-                todoId: createStableTodoId(title, priority),
-                title,
-                todoState: STATUS_MAP[status] ?? "added",
-                metadata: { priority, status, toolName }
-            }];
-        });
+/**
+ * Builds the current todo events from a TodoWrite payload and reconciles
+ * with the previous snapshot to emit cancellations for removed items.
+ */
+function reconcileTodoWrite(
+    toolInput: Record<string, unknown>,
+    sessionId: string
+): { events: TodoEvent[]; newSnapshot: PersistedTodo[] } {
+    const rawTodos = Array.isArray(toolInput["todos"]) ? toolInput["todos"] : [];
+
+    const currentItems: PersistedTodo[] = rawTodos.flatMap((todo) => {
+        if (!todo || typeof todo !== "object" || Array.isArray(todo)) return [];
+        const entry = todo as Record<string, unknown>;
+        const title = toTrimmedString(entry["content"]);
+        if (!title) return [];
+        const status = toTrimmedString(entry["status"]) || "pending";
+        const priority = toTrimmedString(entry["priority"]) || "medium";
+        return [{ todoId: createStableTodoId(title, priority), title, state: STATUS_MAP[status] ?? "added" }];
+    });
+
+    const previousSnapshot = loadTodoState(sessionId);
+    const previousByTodoId = new Map<string, PersistedTodo>(
+        (previousSnapshot?.todos ?? []).map((t) => [t.todoId, t])
+    );
+    const currentIds = new Set(currentItems.map((t) => t.todoId));
+
+    const events: TodoEvent[] = [];
+
+    // Emit cancellations for items removed from the list (only if not already terminal)
+    for (const prev of previousByTodoId.values()) {
+        if (!currentIds.has(prev.todoId) && !TERMINAL_STATES.has(prev.state)) {
+            events.push({
+                todoId: prev.todoId,
+                title: prev.title,
+                todoState: "cancelled",
+                metadata: { priority: "medium", status: "cancelled", toolName: "TodoWrite", autoReconciled: true }
+            });
+        }
     }
 
-    if (toolName !== "TaskCreate" && toolName !== "TaskUpdate") return [];
+    // Emit current items — only if the state changed or the item is new
+    for (const item of currentItems) {
+        const prev = previousByTodoId.get(item.todoId);
+        if (!prev || prev.state !== item.state) {
+            events.push({
+                todoId: item.todoId,
+                title: item.title,
+                todoState: item.state as TodoState,
+                metadata: { priority: "medium", status: item.state, toolName: "TodoWrite" }
+            });
+        }
+    }
+
+    return { events, newSnapshot: currentItems };
+}
+
+function extractTodoEvents(
+    toolName: string,
+    toolInput: Record<string, unknown>,
+    sessionId: string
+): { events: TodoEvent[]; newSnapshot: PersistedTodo[] | null } {
+    if (toolName === "TodoWrite") {
+        const { events, newSnapshot } = reconcileTodoWrite(toolInput, sessionId);
+        return { events, newSnapshot };
+    }
+
+    if (toolName !== "TaskCreate" && toolName !== "TaskUpdate") {
+        return { events: [], newSnapshot: null };
+    }
 
     const taskId = firstString(toolInput, ["task_id", "taskId", "id"]);
     const title = firstString(toolInput, ["task_subject", "subject", "title", "content"]) || taskId;
-    if (!title) return [];
+    if (!title) return { events: [], newSnapshot: null };
 
     const status = firstString(toolInput, ["status"]) || (toolName === "TaskCreate" ? "pending" : "in_progress");
     const priority = firstString(toolInput, ["priority"]) || "medium";
-    return [{
-        todoId: taskId || createStableTodoId(title, priority),
-        title,
-        todoState: STATUS_MAP[status] ?? "added",
-        metadata: { priority, status, toolName }
-    }];
+    return {
+        events: [{
+            todoId: taskId || createStableTodoId(title, priority),
+            title,
+            todoState: STATUS_MAP[status] ?? "added",
+            metadata: { priority, status, toolName }
+        }],
+        newSnapshot: null
+    };
 }
 
 async function main(): Promise<void> {
@@ -111,8 +167,12 @@ async function main(): Promise<void> {
         return;
     }
 
-    const events = extractTodoEvents(toolName, toolInput);
+    const { events, newSnapshot } = extractTodoEvents(toolName, toolInput, sessionId);
     if (events.length === 0) {
+        // Still persist empty snapshot if it's a TodoWrite clearing the list
+        if (toolName === "TodoWrite" && newSnapshot !== null) {
+            saveTodoState(sessionId, { todos: newSnapshot });
+        }
         hookLog("PostToolUse/Todo", "skipped — no events extracted");
         return;
     }
@@ -136,6 +196,11 @@ async function main(): Promise<void> {
         }))
     });
     hookLog("PostToolUse/Todo", "todos posted", { count: events.length });
+
+    // Persist new snapshot after successful post
+    if (newSnapshot !== null) {
+        saveTodoState(sessionId, { todos: newSnapshot });
+    }
 }
 
 void main().catch((err: unknown) => {

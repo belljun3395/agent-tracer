@@ -37,6 +37,7 @@ import { LANE } from "./util/lane.js";
 import { postJson, readStdinJson } from "./lib/transport.js";
 import { resolveSessionIds } from "./lib/session.js";
 import { deleteCursor } from "./lib/transcript-cursor.js";
+import { deleteTodoState } from "./lib/todo-state.js";
 import { hookLog, hookLogPayload } from "./lib/hook-log.js";
 
 function mapCompletionReason(reason: string): "explicit_exit" | "runtime_terminated" {
@@ -84,7 +85,8 @@ async function main(): Promise<void> {
         runtimeSource: CLAUDE_RUNTIME_SOURCE,
         runtimeSessionId: sessionId,
         summary: `Claude Code session ended (${reason})`,
-        completionReason: mapCompletionReason(reason)
+        completionReason: mapCompletionReason(reason),
+        ...(reason === "prompt_input_exit" ? { completeTask: true } : {})
     });
     hookLog("SessionEnd", "runtime-session-end posted", { reason });
 
@@ -112,7 +114,8 @@ async function main(): Promise<void> {
     hookLog("SessionEnd", "session-ended event posted", { reason });
 
     deleteCursor(sessionId);
-    hookLog("SessionEnd", "transcript cursor deleted", { sessionId });
+    deleteTodoState(sessionId);
+    hookLog("SessionEnd", "transcript cursor and todo state deleted", { sessionId });
 }
 
 void main().catch((err: unknown) => {
