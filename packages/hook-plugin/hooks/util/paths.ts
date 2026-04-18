@@ -12,10 +12,22 @@ export const PROJECT_DIR = process.env.CLAUDE_PROJECT_DIR || process.cwd();
 export const CLAUDE_RUNTIME_SOURCE = "claude-plugin";
 
 /**
- * Directory for per-session FS cache files (session result + metadata).
- * Shared by session-cache.ts and session-metadata.ts to avoid duplication.
+ * Directory for per-session transcript cursor files.
+ *
+ * The transcript cursor is the only FS state the plugin still maintains:
+ * it tracks the last-processed byte offset in Claude Code's append-only
+ * transcript JSONL so each Stop/SubagentStop hook can tail only new
+ * entries. Session-result caches and session-history were removed in
+ * Phase 6 (server is the single source of truth); the cursor keeps its
+ * own dedicated directory so the old `.session-cache/` concept is fully
+ * retired.
+ *
+ * Legacy location (pre-v0.2.0): `<PROJECT_DIR>/.claude/.session-cache/<sessionId>-transcript-cursor.json`.
+ * transcript-cursor.ts still reads that path as a migration fallback.
  */
-export const SESSION_CACHE_DIR = `${PROJECT_DIR}/.claude/.session-cache`;
+export const TRANSCRIPT_CURSOR_DIR = `${PROJECT_DIR}/.claude/.transcript-cursors`;
+/** Legacy session-cache directory; read-only fallback used during migration. */
+export const LEGACY_SESSION_CACHE_DIR = `${PROJECT_DIR}/.claude/.session-cache`;
 
 export function defaultTaskTitle(): string {
     return `Claude Code — ${path.basename(PROJECT_DIR)}`;

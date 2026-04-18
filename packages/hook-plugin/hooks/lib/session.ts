@@ -1,15 +1,14 @@
 /**
- * Session resolution with FS-backed cache.
+ * Session resolution.
  *
- * Encapsulates the single repeated pattern across all hook handlers:
- *   cache hit  → return cached RuntimeSessionEnsureResult
- *   cache miss → call monitor API → write to cache → return result
- *
- * The function is deterministic for a given session state: the same sessionId
- * always resolves to the same taskId once the task exists. The I/O effects
- * (FS read/write, HTTP) are necessary and explicit in the name.
+ * Thin wrapper around ensureRuntimeSession. The server's
+ * EnsureRuntimeSessionUseCase is idempotent for a given runtimeSessionId, so
+ * every hook process can safely re-ensure on each invocation. Previous
+ * versions cached the (taskId, sessionId) pair on disk to avoid N+1 ensure
+ * calls; that FS state was removed in Phase 6 because the server is the
+ * single source of truth and localhost round trips are cheap compared to
+ * hook subprocess startup.
  */
-import { getCachedSessionResult, cacheSessionResult } from "./session-cache.js";
 import { ensureRuntimeSession } from "./transport.js";
 import type { RuntimeSessionEnsureResult } from "./transport.js";
 
@@ -18,9 +17,5 @@ export async function resolveSessionIds(
     title?: string,
     opts?: { parentTaskId?: string; parentSessionId?: string; taskId?: string }
 ): Promise<RuntimeSessionEnsureResult> {
-    const cached = getCachedSessionResult(sessionId);
-    if (cached) return cached;
-    const fresh = await ensureRuntimeSession(sessionId, title, opts);
-    cacheSessionResult(sessionId, fresh);
-    return fresh;
+    return ensureRuntimeSession(sessionId, title, opts);
 }

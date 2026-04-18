@@ -416,14 +416,26 @@ describe("Claude plugin", () => {
         }, monitor.port);
         expect(monitor.calls).toEqual([]);
     });
-    it("SessionEnd hook ends only the runtime session and leaves the task open", async () => {
+    it("SessionEnd hook re-ensures the runtime session, ends it, and emits session.ended", async () => {
         const monitor = await startMonitorStub();
         servers.push(monitor);
         await runClaudeHook(sessionEndHook, {
             session_id: "parent-session",
-            reason: "prompt_input_exit"
+            reason: "prompt_input_exit",
+            transcript_path: "/tmp/transcript.jsonl",
+            permission_mode: "acceptAll",
+            cwd: "/repo"
         }, monitor.port);
         expect(monitor.calls).toEqual([
+            {
+                endpoint: "/api/runtime-session-ensure",
+                body: {
+                    runtimeSource: "claude-plugin",
+                    runtimeSessionId: "parent-session",
+                    title: "Claude Code — repo",
+                    workspacePath: "/repo"
+                }
+            },
             {
                 endpoint: "/api/runtime-session-end",
                 body: {
@@ -431,6 +443,28 @@ describe("Claude plugin", () => {
                     runtimeSessionId: "parent-session",
                     summary: "Claude Code session ended (prompt_input_exit)",
                     completionReason: "explicit_exit"
+                }
+            },
+            {
+                endpoint: "/ingest/v1/events",
+                body: {
+                    events: [{
+                        kind: "session.ended",
+                        taskId: "parent-task",
+                        sessionId: "parent-monitor-session",
+                        title: "Session ended (user exit)",
+                        body: "Claude Code session ended (prompt_input_exit).",
+                        lane: "user",
+                        metadata: {
+                            reason: "prompt_input_exit",
+                            completionReason: "explicit_exit",
+                            source: "session-end",
+                            sessionEndedAt: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/) as unknown as string,
+                            transcriptPath: "/tmp/transcript.jsonl",
+                            permissionMode: "acceptAll",
+                            cwd: "/repo"
+                        }
+                    }]
                 }
             }
         ]);

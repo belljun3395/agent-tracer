@@ -46,7 +46,6 @@ import {
 import { CLAUDE_RUNTIME_SOURCE } from "./util/paths.js";
 import { postJson, readStdinJson } from "./lib/transport.js";
 import { resolveEventSessionIds } from "./lib/subagent-session.js";
-import { deleteCachedSessionResult } from "./lib/session-cache.js";
 import { commitCursor, tailTranscriptAsEvents } from "./lib/transcript-tail.js";
 import { hookLog, hookLogPayload } from "./lib/hook-log.js";
 import { readLastAssistantEntry } from "./lib/transcript-emit.js";
@@ -132,7 +131,6 @@ async function main(): Promise<void> {
         completeTask: true,
         completionReason: "assistant_turn_complete"
     });
-    deleteCachedSessionResult(sessionId);
     hookLog("Stop", "runtime-session-end posted", { stopReason, completeTask: true });
 }
 

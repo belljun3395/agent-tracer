@@ -16,11 +16,12 @@
  *
  * Virtual session ID format: "sub--{agent_id}"
  *   • Avoids collisions with real UUID session IDs.
- *   • Compatible with the FS session cache (no special characters that cause
- *     issues on POSIX file systems).
- *   • Cleaned up by SubagentStop.ts via deleteCachedSessionResult.
+ *   • Stable across hook invocations so server-side idempotent ensure dedupes.
+ *
+ * Phase 6 removed the on-disk session-result cache; every resolution now calls
+ * `/api/runtime-session-ensure` directly. The server's use case is idempotent on
+ * `runtimeSessionId`, so repeated calls return the same `(taskId, sessionId)`.
  */
-import { getCachedSessionResult, cacheSessionResult } from "./session-cache.js";
 import { resolveSessionIds } from "./session.js";
 import { ensureRuntimeSession } from "./transport.js";
 import type { RuntimeSessionEnsureResult } from "./transport.js";
@@ -31,23 +32,18 @@ export async function resolveBackgroundSessionIds(
     childTitle: string,
     parentIds?: Pick<RuntimeSessionEnsureResult, "taskId" | "sessionId">
 ): Promise<RuntimeSessionEnsureResult> {
-    const cached = getCachedSessionResult(childRuntimeSessionId);
-    if (cached) return cached;
-
     const resolvedParentIds = parentIds ?? await resolveSessionIds(parentRuntimeSessionId);
-    const fresh = await ensureRuntimeSession(childRuntimeSessionId, childTitle, {
+    return ensureRuntimeSession(childRuntimeSessionId, childTitle, {
         parentTaskId: resolvedParentIds.taskId,
         parentSessionId: resolvedParentIds.sessionId
     });
-    cacheSessionResult(childRuntimeSessionId, fresh);
-    return fresh;
 }
 
 /**
  * Resolve (or create) a monitor task/session for a subagent identified by agent_id.
  *
- * On cache miss, resolves the parent session first to obtain parentTaskId, then
- * calls ensureRuntimeSession with the virtual session ID so the server creates a
+ * Resolves the parent session first to obtain parentTaskId, then calls
+ * ensureRuntimeSession with the virtual session ID so the server creates a
  * background child task linked to the parent.
  *
  * Idempotent: concurrent calls for the same agent_id are safe because

@@ -18,10 +18,13 @@
  * Blocking: SessionEnd cannot block (exit 2 shows stderr but execution continues).
  *
  * This handler:
- * 1. Posts a runtime-session-end event to the Agent Tracer monitor
- * 2. Emits a session.ended timeline event so the dashboard records the lifecycle moment
- * 3. Clears the in-process session cache
- * 4. Persists the session record to ~/.claude/.session-history.json for resume support
+ * 1. Re-ensures the runtime session so we can emit a session.ended timeline event
+ * 2. Posts runtime-session-end (server persists lifecycle + any resume state)
+ * 3. Deletes the transcript cursor (only surviving plugin-local state)
+ *
+ * Phase 6 removed the on-disk session cache, metadata file, and session history.
+ * The server already has startedAt from the original ensure call, so it can
+ * derive duration from its own record if needed; the plugin no longer ships it.
  *
  * "clear" events are intentionally skipped because SessionStart handles them.
  */
@@ -32,10 +35,8 @@ import {
 import { CLAUDE_RUNTIME_SOURCE } from "./util/paths.js";
 import { LANE } from "./util/lane.js";
 import { postJson, readStdinJson } from "./lib/transport.js";
-import { getCachedSessionResult, deleteCachedSessionResult } from "./lib/session-cache.js";
-import { getSessionMetadata, deleteSessionMetadata } from "./lib/session-metadata.js";
+import { resolveSessionIds } from "./lib/session.js";
 import { deleteCursor } from "./lib/transcript-cursor.js";
-import { appendSessionRecord } from "./lib/session-history.js";
 import { hookLog, hookLogPayload } from "./lib/hook-log.js";
 
 function mapCompletionReason(reason: string): "explicit_exit" | "runtime_terminated" {
@@ -55,10 +56,6 @@ function buildSessionEndedTitle(reason: string): string {
     }
 }
 
-function createResumeId(runtimeSource: string, sessionId: string): string {
-    return `${runtimeSource}::${sessionId}`;
-}
-
 async function main(): Promise<void> {
     const payload = await readStdinJson();
     hookLogPayload("SessionEnd", payload);
@@ -74,14 +71,14 @@ async function main(): Promise<void> {
     }
 
     const endedAt = Date.now();
-    // Read cached IDs + metadata BEFORE clearing them so we can emit the
-    // session.ended timeline event and persist the session-history record.
-    const cached = getCachedSessionResult(sessionId);
-    const metadata = getSessionMetadata(sessionId);
-    const durationMs = metadata ? Math.max(0, endedAt - metadata.startedAt) : undefined;
     const transcriptPath = toTrimmedString(payload.transcript_path);
     const permissionMode = toTrimmedString(payload.permission_mode);
     const cwd = toTrimmedString(payload.cwd);
+
+    // Re-ensure the runtime session so we have (taskId, sessionId) for the
+    // session.ended timeline event. The server's ensure use case is idempotent,
+    // so this returns the same pair the session was created with.
+    const ids = await resolveSessionIds(sessionId);
 
     await postJson("/api/runtime-session-end", {
         runtimeSource: CLAUDE_RUNTIME_SOURCE,
@@ -91,58 +88,28 @@ async function main(): Promise<void> {
     });
     hookLog("SessionEnd", "runtime-session-end posted", { reason });
 
-    if (cached) {
-        const metadataPayload: Record<string, unknown> = {
-            reason,
-            completionReason: mapCompletionReason(reason),
-            source: "session-end",
-            sessionEndedAt: new Date(endedAt).toISOString()
-        };
-        if (typeof durationMs === "number") metadataPayload["durationMs"] = durationMs;
-        if (metadata?.startedAt) metadataPayload["sessionStartedAt"] = new Date(metadata.startedAt).toISOString();
-        if (transcriptPath) metadataPayload["transcriptPath"] = transcriptPath;
-        if (permissionMode) metadataPayload["permissionMode"] = permissionMode;
-        if (cwd) metadataPayload["cwd"] = cwd;
+    const metadataPayload: Record<string, unknown> = {
+        reason,
+        completionReason: mapCompletionReason(reason),
+        source: "session-end",
+        sessionEndedAt: new Date(endedAt).toISOString()
+    };
+    if (transcriptPath) metadataPayload["transcriptPath"] = transcriptPath;
+    if (permissionMode) metadataPayload["permissionMode"] = permissionMode;
+    if (cwd) metadataPayload["cwd"] = cwd;
 
-        await postJson("/ingest/v1/events", {
-            events: [{
-                kind: "session.ended",
-                taskId: cached.taskId,
-                sessionId: cached.sessionId,
-                title: buildSessionEndedTitle(reason),
-                body: `Claude Code session ended (${reason}).`,
-                lane: LANE.user,
-                metadata: metadataPayload
-            }]
-        });
-        hookLog("SessionEnd", "session-ended event posted", { reason });
-    } else {
-        hookLog("SessionEnd", "skipped session-ended event — no cached runtime session");
-    }
-
-    if (cached && metadata) {
-        const projectDir = metadata.projectDir || cwd || process.cwd();
-        const resumeId = createResumeId(CLAUDE_RUNTIME_SOURCE, sessionId);
-        appendSessionRecord({
-            resumeId,
-            sessionId,
-            runtimeSource: CLAUDE_RUNTIME_SOURCE,
-            taskId: cached.taskId,
-            projectDir,
-            startedAt: metadata.startedAt,
-            endedAt,
-            reason
-        });
-        hookLog("SessionEnd", "session record persisted", { resumeId });
-    } else {
-        hookLog("SessionEnd", "skipped history persist — missing cached result or metadata");
-    }
-
-    deleteCachedSessionResult(sessionId);
-    hookLog("SessionEnd", "session cache cleared", { sessionId });
-
-    deleteSessionMetadata(sessionId);
-    hookLog("SessionEnd", "session metadata deleted", { sessionId });
+    await postJson("/ingest/v1/events", {
+        events: [{
+            kind: "session.ended",
+            taskId: ids.taskId,
+            sessionId: ids.sessionId,
+            title: buildSessionEndedTitle(reason),
+            body: `Claude Code session ended (${reason}).`,
+            lane: LANE.user,
+            metadata: metadataPayload
+        }]
+    });
+    hookLog("SessionEnd", "session-ended event posted", { reason });
 
     deleteCursor(sessionId);
     hookLog("SessionEnd", "transcript cursor deleted", { sessionId });

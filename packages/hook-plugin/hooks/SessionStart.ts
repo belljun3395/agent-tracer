@@ -30,7 +30,6 @@ import { LANE } from "./util/lane.js";
 import { getSessionId, toTrimmedString } from "./util/utils.js";
 import { postJson, readStdinJson } from "./lib/transport.js";
 import { resolveSessionIds } from "./lib/session.js";
-import { saveSessionMetadata } from "./lib/session-metadata.js";
 import { hookLog, hookLogPayload } from "./lib/hook-log.js";
 
 async function main(): Promise<void> {
@@ -60,15 +59,6 @@ async function main(): Promise<void> {
 
     const ids = await resolveSessionIds(sessionId);
     hookLog("SessionStart", "ensureRuntimeSession ok", { taskId: ids.taskId });
-
-    const projectDir = toTrimmedString(payload.cwd) || process.cwd();
-    saveSessionMetadata({
-        sessionId,
-        startedAt: Date.now(),
-        source,
-        projectDir
-    });
-    hookLog("SessionStart", "session metadata saved", { source, projectDir });
 
     await postJson("/ingest/v1/events", {
         events: [{

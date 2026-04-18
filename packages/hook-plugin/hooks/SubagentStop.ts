@@ -28,7 +28,7 @@
  *      subagent timeline captures model reasoning.
  *   3. Ends the virtual monitor session for the subagent (sub--{agentId}) so the
  *      server can auto-complete the background child task.
- *   4. Cleans up the virtual session cache entry and transcript cursor.
+ *   4. Cleans up the transcript cursor for the virtual session.
  */
 import {
     getAgentContext,
@@ -39,7 +39,6 @@ import { CLAUDE_RUNTIME_SOURCE } from "./util/paths.js";
 import { postJson, readStdinJson } from "./lib/transport.js";
 import { resolveEventSessionIds } from "./lib/subagent-session.js";
 import { resolveSessionIds } from "./lib/session.js";
-import { deleteCachedSessionResult } from "./lib/session-cache.js";
 import { deleteCursor } from "./lib/transcript-cursor.js";
 import { commitCursor, tailTranscriptAsEvents } from "./lib/transcript-tail.js";
 import { hookLog, hookLogPayload } from "./lib/hook-log.js";
@@ -117,8 +116,7 @@ async function main(): Promise<void> {
     });
     hookLog("SubagentStop", "virtual session ended", { virtualId });
 
-    // Clean up virtual session cache and transcript cursor so the ID can be reused by future agents.
-    deleteCachedSessionResult(virtualId);
+    // Clean up the virtual session's transcript cursor so the ID can be reused by future agents.
     deleteCursor(virtualId);
 }
 
