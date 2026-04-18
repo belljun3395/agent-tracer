@@ -1,0 +1,64 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "paths": {
+      "@monitor/domain": [
+        "packages/domain/src/index.ts"
+      ],
+      "@monitor/classification": [
+        "packages/classification/src/index.ts"
+      ],
+      "@monitor/application": [
+        "packages/application/src/index.ts"
+      ],
+      "@monitor/adapter-sqlite": [
+        "packages/adapter-sqlite/src/index.ts"
+      ],
+      "@monitor/adapter-embedding": [
+        "packages/adapter-embedding/src/index.ts"
+      ],
+      "@monitor/adapter-http-ingest": [
+        "packages/adapter-http-ingest/src/index.ts"
+      ],
+      "@monitor/adapter-http-query": [
+        "packages/adapter-http-query/src/index.ts"
+      ],
+      "@monitor/adapter-ws": [
+        "packages/adapter-ws/src/index.ts"
+      ],
+      "@monitor/server": [
+        "packages/server/src/index.ts"
+      ],
+      "@monitor/adapter-mcp": [
+        "packages/adapter-mcp/src/index.ts"
+      ],
+      "@monitor/web-app": [
+        "packages/web-app/src/main.tsx"
+      ],
+      "@monitor/web-domain": [
+        "packages/web-domain/src/index.ts"
+      ],
+      "@monitor/web-io": [
+        "packages/web-io/src/index.ts"
+      ],
+      "@monitor/web-state": [
+        "packages/web-state/src/index.ts"
+      ]
+    },
+    "resolveJsonModule": true,
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "exactOptionalPropertyTypes": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true
+  }
+}
