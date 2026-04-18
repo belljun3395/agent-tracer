@@ -1,6 +1,6 @@
 import type React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { segmentEventsByTurn } from "@monitor/core";
+import { segmentEventsByTurn } from "@monitor/domain";
 import {
     buildDisplayLaneRows,
     buildTimelineConnectors,

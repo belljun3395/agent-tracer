@@ -1,6 +1,6 @@
 import type React from "react";
 import { useMemo } from "react";
-import type { TurnSegment } from "@monitor/core";
+import type { TurnSegment } from "@monitor/domain";
 import { RULER_HEIGHT, type TimelineLayout } from "@monitor/web-domain";
 import { cn } from "../../lib/ui/cn.js";
 

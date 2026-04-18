@@ -1,4 +1,4 @@
-import type { ReusableTaskSnapshot, WorkflowEvaluationData } from "@monitor/core";
+import type { ReusableTaskSnapshot, WorkflowEvaluationData } from "@monitor/domain";
 export interface WorkflowSnapshotDraft {
     readonly objective: string;
     readonly originalRequest: string;

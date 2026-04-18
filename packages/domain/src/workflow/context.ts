@@ -1,5 +1,5 @@
-import type { TimelineEvent } from "@monitor/domain";
-import type { ReusableTaskSnapshot, WorkflowEvaluationData } from "@monitor/domain";
+import type { TimelineEvent } from "../monitoring/types.js";
+import type { ReusableTaskSnapshot, WorkflowEvaluationData } from "./types.js";
 import { buildReusableTaskSnapshot } from "./snapshot.js";
 const WORKFLOW_CONTEXT_LANES = [
     "exploration",

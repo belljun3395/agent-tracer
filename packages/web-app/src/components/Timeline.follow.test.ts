@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { EventId, TaskId } from "@monitor/core";
+import { EventId, TaskId } from "@monitor/domain";
 import { computeTimelineFollowScrollLeft, shouldResetTimelineFollowForTaskChange } from "./Timeline.js";
 describe("timeline follow reset", () => {
     it("resets follow mode when the selected task changes", () => {

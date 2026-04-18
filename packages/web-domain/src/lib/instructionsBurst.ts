@@ -1,4 +1,4 @@
-import { EventId } from "@monitor/core";
+import { EventId } from "@monitor/domain";
 import type { TimelineEvent } from "../types.js";
 
 export interface InstructionsBurstFile {

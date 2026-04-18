@@ -17,7 +17,7 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "@monitor/core": "*",
+    "@monitor/domain": "*",
     "@monitor/web-domain": "*"
   },
   "devDependencies": {

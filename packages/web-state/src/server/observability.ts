@@ -1,5 +1,5 @@
-import { TaskId as toTaskId } from "@monitor/core";
-import type { TaskId } from "@monitor/core";
+import { TaskId as toTaskId } from "@monitor/domain";
+import type { TaskId } from "@monitor/domain";
 import type { TaskObservabilityResponse } from "@monitor/web-domain";
 import { fetchTaskObservability } from "@monitor/web-io";
 import { useCallback, useEffect, useState } from "react";

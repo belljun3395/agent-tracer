@@ -1,7 +1,6 @@
-import type { TimelineEvent } from "@monitor/domain";
+import type { EvidenceLevel, RuntimeCoverageItem, RuntimeEvidenceFeatureId, RuntimeEvidenceProfile } from "./capabilities.types.js";
+import type { TimelineEvent } from "../monitoring/types.js";
 import { getKnownRuntimeCapabilities, getRuntimeEvidenceProfile, normalizeRuntimeAdapterId } from "./capabilities.helpers.js";
-import type { RuntimeEvidenceFeatureId, RuntimeEvidenceProfile } from "@monitor/domain";
-export type EvidenceLevel = "proven" | "self_reported" | "inferred" | "unavailable";
 
 /**
  * Checks whether the adapter advertises a given evidence feature as automatic.
@@ -20,13 +19,6 @@ function hasAutomaticFeature(
 export interface EventEvidence {
     readonly level: EvidenceLevel;
     readonly reason: string;
-}
-export interface RuntimeCoverageItem {
-    readonly key: RuntimeEvidenceFeatureId | "semantic_events";
-    readonly label: string;
-    readonly level: EvidenceLevel;
-    readonly note: string;
-    readonly automatic?: boolean;
 }
 export interface RuntimeCoverageSummary {
     readonly defaultLevel: EvidenceLevel;

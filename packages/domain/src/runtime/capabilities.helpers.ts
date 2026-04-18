@@ -1,5 +1,5 @@
-import { getRegisteredAdapters, getRegisteredAliases, } from "./capabilities.constants.js";
-import { RuntimeAdapterId, type RuntimeCapabilities, type RuntimeEvidenceProfile } from "@monitor/domain";
+import { getRegisteredAdapters, getRegisteredAliases, } from "./capabilities.registry.js";
+import { RuntimeAdapterId, type RuntimeCapabilities, type RuntimeEvidenceProfile } from "./capabilities.types.js";
 
 /**
  * Looks up the registered capability record for a runtime adapter id.

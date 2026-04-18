@@ -4,7 +4,7 @@ import { PanelCard } from "../ui/PanelCard.js";
 import { SaveToLibraryCard } from "./SaveToLibraryCard.js";
 import { cardShell, cardHeader, cardBody } from "./styles.js";
 import { summarizePath } from "./utils.js";
-import type { ReusableTaskSnapshot } from "@monitor/core";
+import type { ReusableTaskSnapshot } from "@monitor/domain";
 import type { TaskExtraction, TimelineEvent } from "@monitor/web-domain";
 function TaskExtractionCard({ extraction, workspacePath }: {
     readonly extraction: TaskExtraction;

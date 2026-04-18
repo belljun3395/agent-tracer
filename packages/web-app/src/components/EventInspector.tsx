@@ -1,6 +1,6 @@
 import type React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { buildReusableTaskSnapshot } from "@monitor/core";
+import { buildReusableTaskSnapshot } from "@monitor/domain";
 import {
     buildExplorationInsight, buildMentionedFileVerifications,
     buildQuestionGroups, buildSubagentInsight, buildTaskExtraction,

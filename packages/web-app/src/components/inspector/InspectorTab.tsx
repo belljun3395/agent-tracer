@@ -1,6 +1,6 @@
 import type React from "react";
 import { useEffect, useState } from "react";
-import { getEventEvidence } from "@monitor/core";
+import { getEventEvidence } from "@monitor/domain";
 import { buildInspectorEventTitle, evidenceTone, formatEvidenceLevel, type BookmarkRecord, type QuestionGroup, type TaskDetailResponse, type TimelineConnector, type TimelineEvent, type TodoGroup } from "@monitor/web-domain";
 import { Badge } from "../ui/Badge.js";
 import { Button } from "../ui/Button.js";

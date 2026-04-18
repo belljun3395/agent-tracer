@@ -1,6 +1,6 @@
 import type React from "react";
 import { useCallback, useMemo } from "react";
-import type { TaskId } from "@monitor/core";
+import type { TaskId } from "@monitor/domain";
 import { buildTaskTimelineSummary } from "@monitor/web-domain";
 import type { MonitoringTask } from "@monitor/web-domain";
 import { updateTaskStatus, updateTaskTitle } from "@monitor/web-io";

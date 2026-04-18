@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { RuntimeSource, TaskId, TaskSlug, WorkspacePath } from "@monitor/core";
+import { RuntimeSource, TaskId, TaskSlug, WorkspacePath } from "@monitor/domain";
 import type { MonitoringTask } from "@monitor/web-domain";
 import { buildRuntimeFilterOptions, buildTaskListRows, filterTasksByRuntime, resolveTaskListItemTitle, runtimeFilterKey, runtimeTagLabel } from "./TaskList.js";
 const BASE_TASK: MonitoringTask = {

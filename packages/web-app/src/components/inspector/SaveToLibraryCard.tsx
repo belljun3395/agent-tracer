@@ -5,7 +5,7 @@ import {
     filterEventsByTurnRange,
     segmentEventsByTurn,
     type ReusableTaskSnapshot,
-} from "@monitor/core";
+} from "@monitor/domain";
 import {
     buildQuestionGroups,
     buildTaskExtraction,

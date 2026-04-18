@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { RuleId } from "@monitor/core";
+import { RuleId } from "@monitor/domain";
 import { collectRecentRuleDecisions, type MonitoringTask, type RuleDecisionStat, type TaskObservabilitySummary } from "@monitor/web-domain";
 import { fetchTaskDetail, fetchTaskObservability, postRuleAction } from "@monitor/web-io";
 import { Button } from "./ui/Button.js";

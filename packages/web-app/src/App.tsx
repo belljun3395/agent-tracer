@@ -1,8 +1,8 @@
 import type React from "react";
 import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Navigate, Route, Routes, useNavigate } from "react-router-dom";
-import type { TaskId } from "@monitor/core";
-import { BookmarkId, TaskId as toTaskId } from "@monitor/core";
+import type { TaskId } from "@monitor/domain";
+import { BookmarkId, TaskId as toTaskId } from "@monitor/domain";
 import { buildQuestionGroups, buildTaskDisplayTitle, buildTodoGroups } from "@monitor/web-domain";
 import type { BookmarkRecord, BookmarkSearchHit } from "@monitor/web-domain";
 import { deleteBookmark, deleteTask, getMonitorWsUrl } from "@monitor/web-io";

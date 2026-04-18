@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { BookmarkId, EventId, TaskId, TaskSlug } from "@monitor/core";
+import { BookmarkId, EventId, TaskId, TaskSlug } from "@monitor/domain";
 import { parseRealtimeMessage, refreshRealtimeMonitorData, type MonitorRealtimeMessage } from "@monitor/web-io";
 function createRefreshFns() {
     return {

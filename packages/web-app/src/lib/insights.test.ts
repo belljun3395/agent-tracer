@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { EventId, TaskId, TaskSlug, WorkspacePath } from "@monitor/core";
+import { EventId, TaskId, TaskSlug, WorkspacePath } from "@monitor/domain";
 import { buildExplorationInsight, buildEvaluatePrompt, buildHandoffMarkdown, buildHandoffPlain, buildHandoffPrompt, buildHandoffSystemPrompt, buildHandoffXML, buildInspectorEventTitle, buildObservabilityStats, buildQuestionGroups, buildSubagentInsight, buildTaskDisplayTitle, buildTaskExtraction, buildTodoGroups, collectPlanSteps, collectRecentRuleDecisions, collectViolationDescriptions, collectWebLookups, filterTimelineEvents, type EvaluatePromptOptions, type HandoffOptions, type MonitoringTask, type TimelineEvent } from "@monitor/web-domain";
 function makeTask(overrides: Omit<Partial<MonitoringTask>, "id"> & {
     id?: string;

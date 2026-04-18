@@ -1,4 +1,4 @@
-import { filePathsInDirectory, isDirectoryPath, matchFilePaths } from "@monitor/core";
+import { filePathsInDirectory, isDirectoryPath, matchFilePaths } from "@monitor/domain";
 import type { TimelineEvent } from "../../types.js";
 import type { ExploredFileStat } from "./types.js";
 import {

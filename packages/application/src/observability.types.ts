@@ -1,5 +1,5 @@
 import type { RuleId, RuntimeSource, TaskId } from "@monitor/domain";
-import type { EvidenceLevel, RuntimeCoverageItem } from "./runtime/evidence.js";
+import type { EvidenceLevel, RuntimeCoverageItem } from "@monitor/domain";
 export type ObservabilityPhase = "planning" | "exploration" | "implementation" | "verification" | "coordination";
 export type ObservabilityPhaseBucket = ObservabilityPhase | "waiting";
 export interface ObservabilityPhaseStat {

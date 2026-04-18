@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { TaskId, type ReusableTaskSnapshot } from "@monitor/core";
+import { TaskId, type ReusableTaskSnapshot } from "@monitor/domain";
 import type { HandoffMode, HandoffPurpose, TaskProcessSection } from "@monitor/web-domain";
 import { buildHandoffPlain, buildHandoffMarkdown, buildHandoffXML, buildHandoffSystemPrompt, buildHandoffPrompt } from "@monitor/web-domain";
 import { fetchTaskBriefings, recordBriefingCopy, saveTaskBriefing, type SavedBriefingRecord } from "@monitor/web-io";

@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { buildReusableTaskSnapshot } from "./snapshot.js";
-import type { TimelineEvent } from "@monitor/domain";
-import { EventId, TaskId } from "@monitor/domain";
-import type { EventClassification } from "@monitor/domain";
+import type { TimelineEvent } from "../monitoring/types.js";
+import { EventId, TaskId } from "../monitoring/ids.js";
+import type { EventClassification } from "../classification/types.js";
 
 const emptyClassification: EventClassification = { lane: "exploration", tags: [], matches: [] };
 

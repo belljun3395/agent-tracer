@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from "react";
-import type { TaskId } from "@monitor/core";
-import { EventId } from "@monitor/core";
+import type { TaskId } from "@monitor/domain";
+import { EventId } from "@monitor/domain";
 import type { MonitoringTask } from "@monitor/web-domain";
 import { buildTaskDisplayTitle, buildTaskTimelineSummary, buildTaskWorkspaceSelection } from "@monitor/web-domain";
 import { createBookmark, postRuleAction, updateEventDisplayTitle } from "@monitor/web-io";

@@ -1,4 +1,4 @@
-import type { RuntimeAdapterId, RuntimeCapabilities } from "@monitor/domain";
+import type { RuntimeAdapterId, RuntimeCapabilities } from "./capabilities.types.js";
 const registry = new Map<RuntimeAdapterId, RuntimeCapabilities>();
 const aliasRegistry = new Map<string, RuntimeAdapterId>();
 

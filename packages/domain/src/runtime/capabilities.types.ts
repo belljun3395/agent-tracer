@@ -38,6 +38,26 @@ export interface RuntimeEvidenceProfile {
   readonly features: readonly RuntimeEvidenceFeature[];
 }
 
+/**
+ * Alias for {@link EvidenceStrength}. Retained so consumers that previously
+ * imported `EvidenceLevel` from the application layer can migrate to the
+ * domain without renaming. Both types describe the same four-value union.
+ */
+export type EvidenceLevel = EvidenceStrength;
+
+/**
+ * Per-feature evidence coverage row surfaced to UI and reporting consumers.
+ * Kept in domain so `web-domain` can depend on this shape without importing
+ * from the application layer.
+ */
+export interface RuntimeCoverageItem {
+  readonly key: RuntimeEvidenceFeatureId | "semantic_events";
+  readonly label: string;
+  readonly level: EvidenceLevel;
+  readonly note: string;
+  readonly automatic?: boolean;
+}
+
 export interface RuntimeCapabilities {
   readonly adapterId: RuntimeAdapterId;
   readonly canCaptureRawUserMessage: boolean;

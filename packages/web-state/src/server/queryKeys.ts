@@ -1,4 +1,4 @@
-import type { TaskId } from "@monitor/core";
+import type { TaskId } from "@monitor/domain";
 
 export const monitorQueryKeys = {
     overview: () => ["monitor", "overview"] as const,

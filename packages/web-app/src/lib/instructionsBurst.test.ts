@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { EventId, TaskId } from "@monitor/core";
+import { EventId, TaskId } from "@monitor/domain";
 import {
     getInstructionsBurstFiles,
     groupInstructionsBursts,

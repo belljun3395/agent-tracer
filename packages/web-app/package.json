@@ -11,7 +11,7 @@
     "access": "public"
   },
   "dependencies": {
-    "@monitor/core": "*",
+    "@monitor/domain": "*",
     "@monitor/web-domain": "*",
     "@monitor/web-io": "*",
     "@monitor/web-state": "*",

@@ -1,6 +1,5 @@
-import type { EventRelationType, MonitoringSession, MonitoringTask, RuleId as MonitorRuleId, TimelineEvent } from "@monitor/domain";
-import { RuleId } from "@monitor/domain";
-import { getEventEvidence, getRuntimeCoverageSummary, type EvidenceLevel } from "./runtime/evidence.js";
+import type { EventRelationType, MonitoringSession, MonitoringTask, RuleId as MonitorRuleId, TimelineEvent, EvidenceLevel } from "@monitor/domain";
+import { RuleId, getEventEvidence, getRuntimeCoverageSummary } from "@monitor/domain";
 import type { ObservabilityFileCount, ObservabilityPhaseBucket, ObservabilityTagCount, ObservabilityTaskSignals, TaskObservabilitySummary } from "./observability.types.js";
 export type { TaskObservabilitySummary };
 export interface TaskObservabilityInput {

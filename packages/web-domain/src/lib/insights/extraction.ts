@@ -1,4 +1,4 @@
-import { buildReusableTaskSnapshot } from "@monitor/core";
+import { buildReusableTaskSnapshot } from "@monitor/domain";
 import type { MonitoringTask, TimelineEvent, TimelineLane } from "../../types.js";
 import type {
     ExploredFileStat,

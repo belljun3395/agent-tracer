@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { TaskId } from "@monitor/core";
+import { TaskId } from "@monitor/domain";
 import { fetchSearchResults } from "@monitor/web-io";
 import type { SearchResponse } from "@monitor/web-domain";
 export interface UseSearchResult {

@@ -1,4 +1,4 @@
-import type { MonitoringSession } from "@monitor/core";
+import type { MonitoringSession } from "@monitor/domain";
 import type { BookmarkRecord, MonitoringTask, OverviewResponse, TimelineEvent } from "@monitor/web-domain";
 type RealtimeDispatch =
     | {

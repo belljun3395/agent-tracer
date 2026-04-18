@@ -1,6 +1,6 @@
 import type React from "react";
 import { useMemo, useState } from "react";
-import { getEventEvidence } from "@monitor/core";
+import { getEventEvidence } from "@monitor/domain";
 import { buildInspectorEventTitle, evidenceTone, formatEvidenceLevel, getInstructionsBurstFiles, isInstructionsBurstEvent, type ModelSummary, type TimelineConnector, type TimelineEvent } from "@monitor/web-domain";
 
 import { cn } from "../../lib/ui/cn.js";

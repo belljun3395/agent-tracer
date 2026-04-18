@@ -1,4 +1,4 @@
-import { buildReusableTaskSnapshot, buildWorkflowContext } from "@monitor/core";
+import { buildReusableTaskSnapshot, buildWorkflowContext } from "@monitor/domain";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { TimelineEvent } from "@monitor/web-domain";
 import { fetchSimilarWorkflows, type TaskEvaluationPayload, type TaskEvaluationRecord, type WorkflowSearchResultRecord } from "@monitor/web-io";

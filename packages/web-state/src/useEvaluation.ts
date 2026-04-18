@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { TaskId } from "@monitor/core";
+import { TaskId } from "@monitor/domain";
 import { fetchTaskEvaluation, saveTaskEvaluation } from "@monitor/web-io";
 import type { TaskEvaluationPayload, TaskEvaluationRecord } from "@monitor/web-io";
 export interface UseEvaluationResult {
