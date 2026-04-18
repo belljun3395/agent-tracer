@@ -1,6 +1,6 @@
 import { ActionName, extractPathLikeTokens, type EventId, type MonitoringEventKind, type SessionId, type TaskId, } from "@monitor/domain";
 import type { MonitorPorts } from "../ports";
-import type { GenericEventInput, TaskActionInput, TaskAgentActivityInput, TaskAsyncLifecycleInput, TaskAssistantResponseInput, TaskContextSavedInput, TaskExploreInput, TaskPlanInput, TaskQuestionInput, TaskRuleInput, TaskTerminalCommandInput, TaskThoughtInput, TaskTodoInput, TaskToolUsedInput, TaskUserMessageInput, TaskVerifyInput, } from "../types.js";
+import type { GenericEventInput, TaskActionInput, TaskAgentActivityInput, TaskAsyncLifecycleInput, TaskAssistantResponseInput, TaskContextSavedInput, TaskExploreInput, TaskPlanInput, TaskQuestionInput, TaskRuleInput, TaskTerminalCommandInput, TaskThoughtInput, TaskTodoInput, TaskTokenUsageInput, TaskToolUsedInput, TaskUserMessageInput, TaskVerifyInput, } from "../types.js";
 import { EventRecorder } from "./event-recorder.js";
 import { TraceMetadataFactory as TMF } from "./trace-metadata-factory.js";
 import type { TaskLifecycleService } from "./task-lifecycle-service.js";
@@ -62,6 +62,30 @@ export class EventLoggingService {
                 ...(input.metadata ?? {}),
                 messageId: input.messageId,
                 source: input.source,
+            },
+        });
+        return {
+            ...this.withSessionId(input.sessionId),
+            events: [{ id: event.id, kind: event.kind }],
+        };
+    }
+    async logTokenUsage(input: TaskTokenUsageInput): Promise<RecordedEventEnvelope> {
+        await this.taskLifecycle.requireTask(input.taskId);
+        const event = await this.recorder.record({
+            taskId: input.taskId,
+            kind: "token.usage",
+            title: input.model ? `API call (${input.model})` : "API call",
+            ...this.withSessionId(input.sessionId),
+            metadata: {
+                inputTokens: input.inputTokens,
+                outputTokens: input.outputTokens,
+                cacheReadTokens: input.cacheReadTokens,
+                cacheCreateTokens: input.cacheCreateTokens,
+                ...(input.costUsd != null ? { costUsd: input.costUsd } : {}),
+                ...(input.durationMs != null ? { durationMs: input.durationMs } : {}),
+                ...(input.model ? { model: input.model } : {}),
+                ...(input.promptId ? { promptId: input.promptId } : {}),
+                source: "otlp",
             },
         });
         return {

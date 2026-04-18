@@ -1,7 +1,7 @@
 import { BookmarkId, normalizeWorkspacePath, type EventId, type MonitoringEventKind, type MonitoringTask, type PlaybookStatus, type ReusableTaskSnapshot, type RuntimeSessionId, type RuntimeSource, type SessionId, type TaskId, type TimelineEvent, } from "@monitor/domain";
 import { buildOpenInferenceTaskExport } from "./interop/openinference.js";
 import type { MonitorPorts, BookmarkRecord, SearchResults, } from "./ports";
-import type { TaskActionInput, TaskAgentActivityInput, TaskBookmarkDeleteInput, TaskBookmarkInput, TaskCompletionInput, TaskContextSavedInput, TaskErrorInput, TaskExploreInput, TaskAsyncLifecycleInput, TaskPlanInput, TaskLinkInput, TaskQuestionInput, TaskPatchInput, TaskRuleInput, TaskSessionEndInput, TaskStartInput, TaskTerminalCommandInput, TaskThoughtInput, TaskTodoInput, TaskToolUsedInput, TaskUserMessageInput, TaskVerifyInput, RuntimeSessionEnsureInput, RuntimeSessionEnsureResult, RuntimeSessionEndInput, TaskSearchInput, TaskAssistantResponseInput, EventPatchInput, } from "./types.js";
+import type { TaskActionInput, TaskAgentActivityInput, TaskBookmarkDeleteInput, TaskBookmarkInput, TaskCompletionInput, TaskContextSavedInput, TaskErrorInput, TaskExploreInput, TaskAsyncLifecycleInput, TaskPlanInput, TaskLinkInput, TaskQuestionInput, TaskPatchInput, TaskRuleInput, TaskSessionEndInput, TaskStartInput, TaskTerminalCommandInput, TaskThoughtInput, TaskTodoInput, TaskTokenUsageInput, TaskToolUsedInput, TaskUserMessageInput, TaskVerifyInput, RuntimeSessionEnsureInput, RuntimeSessionEnsureResult, RuntimeSessionEndInput, TaskSearchInput, TaskAssistantResponseInput, EventPatchInput, } from "./types.js";
 import { analyzeObservabilityOverview, analyzeTaskObservability, type ObservabilityOverviewResponse, type TaskObservabilityResponse, } from "./observability.js";
 import { TaskLifecycleService } from "./services/task-lifecycle-service.js";
 import { EventLoggingService } from "./services/event-logging-service.js";
@@ -41,6 +41,11 @@ export class MonitorService {
     async logAssistantResponse(input: TaskAssistantResponseInput): Promise<RecordedEventEnvelope> {
         const task = await this.taskLifecycle.requireTask(input.taskId);
         const result = await this.eventLogging.logAssistantResponse(input);
+        return { task, ...result };
+    }
+    async logTokenUsage(input: TaskTokenUsageInput): Promise<RecordedEventEnvelope> {
+        const task = await this.taskLifecycle.requireTask(input.taskId);
+        const result = await this.eventLogging.logTokenUsage(input);
         return { task, ...result };
     }
     async endSession(input: TaskSessionEndInput): Promise<{

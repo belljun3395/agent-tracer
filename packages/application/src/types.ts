@@ -234,6 +234,18 @@ export interface TaskAssistantResponseInput {
     readonly body?: string;
     readonly metadata?: Record<string, unknown>;
 }
+export interface TaskTokenUsageInput {
+    readonly taskId: TaskId;
+    readonly sessionId?: SessionId;
+    readonly inputTokens: number;
+    readonly outputTokens: number;
+    readonly cacheReadTokens: number;
+    readonly cacheCreateTokens: number;
+    readonly costUsd?: number;
+    readonly durationMs?: number;
+    readonly model?: string;
+    readonly promptId?: string;
+}
 export interface RuntimeSessionEnsureInput {
     readonly taskId?: TaskId;
     readonly runtimeSource: RuntimeSource;
