@@ -60,6 +60,17 @@ export class MonitorService {
     async endRuntimeSession(input: RuntimeSessionEndInput): Promise<void> {
         return this.taskLifecycle.endRuntimeSession(input);
     }
+    async resolveRuntimeBinding(
+        runtimeSource: string,
+        runtimeSessionId: string,
+    ): Promise<{ taskId: string; sessionId: string } | null> {
+        const binding = await this.ports.runtimeBindings.find(
+            runtimeSource as import("@monitor/domain").RuntimeSource,
+            runtimeSessionId as import("@monitor/domain").RuntimeSessionId,
+        );
+        if (!binding) return null;
+        return { taskId: String(binding.taskId), sessionId: String(binding.monitorSessionId) };
+    }
     async logTerminalCommand(input: TaskTerminalCommandInput): Promise<RecordedEventEnvelope> {
         const task = await this.taskLifecycle.requireTask(input.taskId);
         const result = await this.eventLogging.logTerminalCommand(input);
