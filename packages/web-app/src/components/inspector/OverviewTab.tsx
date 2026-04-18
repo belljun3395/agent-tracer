@@ -8,7 +8,6 @@ import { Eyebrow } from "../ui/Eyebrow.js";
 import { HelpTooltip } from "../ui/HelpTooltip.js";
 import { PanelCard } from "../ui/PanelCard.js";
 import { SectionCard } from "./SectionCard.js";
-import { HookCoveragePanel } from "./HookCoveragePanel.js";
 import { ObservabilityMetricGrid, ObservabilityList, ObservabilityPhaseBreakdown } from "./ObservabilitySection.js";
 import { cardShell, cardHeader, cardBody, innerPanel } from "./styles.js";
 import { inspectorHelpText } from "./helpText.js";
@@ -470,8 +469,6 @@ export function OverviewTab({ observability, subagentInsight, verificationCycles
           </SectionCard>
 
           <SubagentInsightCard insight={subagentInsight}/>
-
-          <HookCoveragePanel timeline={timeline}/>
 
           {verificationCycles && verificationCycles.length > 0 && (<VerificationCyclesCard items={verificationCycles}/>)}
 
