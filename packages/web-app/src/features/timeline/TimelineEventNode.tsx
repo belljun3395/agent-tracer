@@ -10,6 +10,8 @@ import {
 } from "@monitor/web-domain";
 import { cn } from "../../lib/ui/cn.js";
 
+const MAX_BADGE_ICONS = 3;
+
 interface TimelineEventNodeProps {
     readonly item: TimelineItemLayout;
     readonly selectedEvent: TimelineEvent | null;
@@ -21,6 +23,7 @@ interface TimelineEventNodeProps {
     readonly taskTitle: string | null;
     readonly openStackEventId: string | null;
     readonly stackGroups: ReadonlyMap<string, readonly TimelineItemLayout[]>;
+    readonly tokenBadges?: readonly TimelineEvent[] | undefined;
     readonly onSelectEvent: (id: string) => void;
     readonly onOpenStack: (id: string | null) => void;
     readonly onRegisterNode: (id: string, node: HTMLElement | null) => void;
@@ -48,6 +51,7 @@ export function TimelineEventNode({
     taskTitle,
     openStackEventId,
     stackGroups,
+    tokenBadges,
     onSelectEvent,
     onOpenStack,
     onRegisterNode,
@@ -147,6 +151,39 @@ export function TimelineEventNode({
                 <div className="event-redacted-subtext">
                     cryptographic signature only
                     {signatureLength !== undefined && ` · ${signatureLength.toLocaleString()} chars`}
+                </div>
+            )}
+            {tokenBadges && tokenBadges.length > 0 && (
+                <div className="token-badge-row">
+                    {tokenBadges.slice(0, MAX_BADGE_ICONS).map((te) => (
+                        <button
+                            key={te.id}
+                            type="button"
+                            className="token-badge"
+                            title={te.body ?? te.title}
+                            aria-label={`Token usage: ${te.title}`}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onSelectEvent(te.id);
+                            }}
+                        >
+                            💰
+                        </button>
+                    ))}
+                    {tokenBadges.length > MAX_BADGE_ICONS && (
+                        <button
+                            type="button"
+                            className="token-badge token-badge-overflow"
+                            title={`${tokenBadges.length} API calls`}
+                            aria-label={`${tokenBadges.length} API calls — click to inspect first`}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onSelectEvent(tokenBadges[MAX_BADGE_ICONS]!.id);
+                            }}
+                        >
+                            +{tokenBadges.length - MAX_BADGE_ICONS}
+                        </button>
+                    )}
                 </div>
             )}
             <div className="event-node-meta">

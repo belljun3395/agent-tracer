@@ -2,6 +2,7 @@ import type { OtlpKeyValue, OtlpLogsRequest } from "./schemas.otlp.js";
 
 export interface OtlpApiRequestRecord {
     readonly sessionId: string;
+    readonly apiCalledAt?: string;
     readonly inputTokens: number;
     readonly outputTokens: number;
     readonly cacheReadTokens: number;
@@ -60,6 +61,11 @@ export function extractApiRequestRecords(req: OtlpLogsRequest): OtlpApiRequestRe
                 const sessionId = toString(readAttr(attrs, "session.id")) ?? resourceSessionId;
                 if (!sessionId) continue;
 
+                const timeNano = logRecord.timeUnixNano;
+                const apiCalledAt = timeNano
+                    ? new Date(parseInt(timeNano, 10) / 1_000_000).toISOString()
+                    : undefined;
+
                 const inputTokens = toNumber(readAttr(attrs, "input_tokens")) ?? 0;
                 const outputTokens = toNumber(readAttr(attrs, "output_tokens")) ?? 0;
                 const cacheReadTokens = toNumber(readAttr(attrs, "cache_read_tokens")) ?? 0;
@@ -71,6 +77,7 @@ export function extractApiRequestRecords(req: OtlpLogsRequest): OtlpApiRequestRe
 
                 records.push({
                     sessionId,
+                    ...(apiCalledAt ? { apiCalledAt } : {}),
                     inputTokens,
                     outputTokens,
                     cacheReadTokens,

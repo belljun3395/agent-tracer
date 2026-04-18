@@ -68,8 +68,21 @@ export class MonitorService {
             runtimeSource as RuntimeSource,
             runtimeSessionId as RuntimeSessionId,
         );
-        if (!binding) return null;
-        return { taskId: String(binding.taskId), sessionId: String(binding.monitorSessionId) };
+        if (binding) {
+            return { taskId: String(binding.taskId), sessionId: String(binding.monitorSessionId) };
+        }
+        // Session may have ended before OTLP batch was flushed (5s export interval races SessionEnd).
+        // Fall back: resolve taskId from the binding row (which survives clearSession), then find
+        // the most recently started session for that task.
+        const taskId = await this.ports.runtimeBindings.findTaskId(
+            runtimeSource as RuntimeSource,
+            runtimeSessionId as RuntimeSessionId,
+        );
+        if (!taskId) return null;
+        const sessions = await this.ports.sessions.findByTaskId(taskId);
+        const latest = [...sessions].sort((a, b) => b.startedAt.localeCompare(a.startedAt))[0];
+        if (!latest) return null;
+        return { taskId: String(taskId), sessionId: String(latest.id) };
     }
     async logTerminalCommand(input: TaskTerminalCommandInput): Promise<RecordedEventEnvelope> {
         const task = await this.taskLifecycle.requireTask(input.taskId);

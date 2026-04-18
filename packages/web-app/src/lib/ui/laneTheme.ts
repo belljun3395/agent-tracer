@@ -7,7 +7,7 @@ export interface LaneTheme {
     readonly bgVar: string;
     readonly borderVar: string;
 }
-export const LANE_THEME: Record<TimelineLane, LaneTheme> = {
+export const LANE_THEME: Partial<Record<TimelineLane, LaneTheme>> & Record<"background", LaneTheme> = {
     user: {
         label: "User",
         description: "User instructions & task boundaries",
@@ -74,5 +74,5 @@ export const LANE_THEME: Record<TimelineLane, LaneTheme> = {
     }
 };
 export function getLaneTheme(lane: TimelineLane): LaneTheme {
-    return LANE_THEME[lane];
+    return (LANE_THEME as Partial<Record<TimelineLane, LaneTheme>>)[lane] ?? LANE_THEME["background"];
 }

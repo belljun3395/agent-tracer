@@ -106,6 +106,7 @@ function Dashboard({
         implementation: true,
         questions: true,
         todos: true,
+        telemetry: false,
     });
     const [zoom, setZoom] = useState<number>(() => {
         try {

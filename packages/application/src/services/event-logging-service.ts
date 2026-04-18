@@ -74,8 +74,11 @@ export class EventLoggingService {
         const event = await this.recorder.record({
             taskId: input.taskId,
             kind: "token.usage",
+            lane: "telemetry",
             title: input.model ? `API call (${input.model})` : "API call",
+            body: buildTokenUsageBody(input),
             ...this.withSessionId(input.sessionId),
+            ...(input.apiCalledAt ? { createdAt: input.apiCalledAt } : {}),
             metadata: {
                 inputTokens: input.inputTokens,
                 outputTokens: input.outputTokens,
@@ -387,4 +390,18 @@ export class EventLoggingService {
     private async recordWithDerivedFiles(input: GenericEventInput): Promise<RecordedEventEnvelope> {
         return this.recorder.recordWithDerivedFiles(input);
     }
+}
+
+function buildTokenUsageBody(input: TaskTokenUsageInput): string {
+    const parts: string[] = [];
+    if (input.model) parts.push(input.model);
+    if (input.durationMs != null) parts.push(`${(input.durationMs / 1000).toFixed(1)}s`);
+    const tokenParts: string[] = [];
+    if (input.inputTokens) tokenParts.push(`${input.inputTokens.toLocaleString()} in`);
+    if (input.outputTokens) tokenParts.push(`${input.outputTokens.toLocaleString()} out`);
+    if (input.cacheReadTokens) tokenParts.push(`${input.cacheReadTokens.toLocaleString()} cache read`);
+    if (input.cacheCreateTokens) tokenParts.push(`${input.cacheCreateTokens.toLocaleString()} cache write`);
+    if (tokenParts.length > 0) parts.push(tokenParts.join(" / "));
+    if (input.costUsd != null) parts.push(`$${input.costUsd.toFixed(4)}`);
+    return parts.join(" · ");
 }

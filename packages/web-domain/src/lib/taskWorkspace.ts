@@ -11,7 +11,8 @@ export const FULL_TIMELINE_LANE_FILTERS: Readonly<Record<TimelineLane, boolean>>
     coordination: true,
     exploration: true,
     planning: true,
-    implementation: true
+    implementation: true,
+    telemetry: true
 };
 
 function hasCompactPhase(event: TimelineEvent): boolean {

@@ -136,7 +136,8 @@ describe("filterTimelineEvents", () => {
             coordination: false,
             exploration: false,
             implementation: true,
-            background: false
+            background: false,
+            telemetry: false
         } as const;
         expect(filterTimelineEvents([matched, gap], {
             laneFilters,

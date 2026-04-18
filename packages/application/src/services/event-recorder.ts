@@ -14,7 +14,7 @@ export class EventRecorder {
         return sessionId ? { sessionId } : {};
     }
     async record(input: GenericEventInput): Promise<TimelineEvent> {
-        const createdAt = new Date().toISOString();
+        const createdAt = input.createdAt ?? new Date().toISOString();
         const filePaths = normalizeFilePaths(input.filePaths);
         const classification = classifyEvent({
             kind: input.kind,

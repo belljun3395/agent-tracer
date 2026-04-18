@@ -209,6 +209,7 @@ export interface GenericEventInput extends TraceActivityInput {
     readonly actionName?: ActionName;
     readonly filePaths?: readonly string[];
     readonly metadata?: Record<string, unknown>;
+    readonly createdAt?: string;
 }
 export interface TaskBookmarkInput {
     readonly taskId: TaskId;
@@ -237,6 +238,7 @@ export interface TaskAssistantResponseInput {
 export interface TaskTokenUsageInput {
     readonly taskId: TaskId;
     readonly sessionId?: SessionId;
+    readonly apiCalledAt?: string;
     readonly inputTokens: number;
     readonly outputTokens: number;
     readonly cacheReadTokens: number;

@@ -232,15 +232,10 @@ agent_id                — set when inside a subagent (routes response to the c
 
 **Plugin reads from transcript JSONL [TX]:**
 ```
-message.stop_reason           — "end_turn" | "tool_use" | "max_tokens" | …
-message.usage.input_tokens    — token counters from the last assistant entry
-message.usage.output_tokens
-message.usage.cache_read_input_tokens
-message.usage.cache_creation_input_tokens
+message.stop_reason  — "end_turn" | "tool_use" | "max_tokens" | …
 ```
-> Current Claude Code versions do NOT include usage/stop_reason in the hook
-> payload. The Stop handler reads them from the last `role:"assistant"` entry in
-> the transcript JSONL (fallback: payload.usage / payload.stop_reason for tests).
+> Token usage (`input_tokens`, `output_tokens`, cache counters) is **not read
+> here**. It is collected independently via the OTLP exporter (see §15).
 
 **Plugin generates [GEN]:**
 ```
@@ -260,11 +255,7 @@ POST /ingest/v1/events                          (one assistant.response event)
   body      [CC]    last_assistant_message
   source    [GEN]   "claude-plugin"
   metadata:
-    stopReason        [TX]  message.stop_reason
-    inputTokens       [TX]  usage.input_tokens        (omitted if absent)
-    outputTokens      [TX]  usage.output_tokens       (omitted if absent)
-    cacheReadTokens   [TX]  usage.cache_read_input_tokens    (omitted if absent)
-    cacheCreateTokens [TX]  usage.cache_creation_input_tokens (omitted if absent)
+    stopReason  [TX]  message.stop_reason
 
 POST /ingest/v1/events                          (transcript tail batch — see §14)
 POST /api/runtime-session-end                    (skipped when agent_id is present)
@@ -738,6 +729,106 @@ same id lives on the transcript's `tool_use.id` block — the field that the
 next-turn `thought.logged` event cites via `metadata.parentUuid` /
 `assistantUuid` chaining — so downstream consumers can rebuild the
 `thought → tool_use → tool_result` chain without guessing.
+
+---
+
+## 15. OTLP token collection — `adapter-otlp-logs`
+
+Token usage is **not** read by the plugin hooks. Instead, Claude Code's built-in
+OpenTelemetry exporter pushes per-API-call telemetry to the monitor's OTLP
+endpoint, which converts it into `token.usage` timeline events.
+
+### Activation (`.claude/settings.json`)
+
+```json
+{
+  "env": {
+    "CLAUDE_CODE_ENABLE_TELEMETRY": "1",
+    "OTEL_LOGS_EXPORTER": "otlp",
+    "OTEL_EXPORTER_OTLP_PROTOCOL": "http/json",
+    "OTEL_EXPORTER_OTLP_LOGS_ENDPOINT": "http://127.0.0.1:3847/v1/logs",
+    "OTEL_LOGS_EXPORT_INTERVAL": "5000"
+  }
+}
+```
+
+`CLAUDE_CODE_ENABLE_TELEMETRY=1` is the master switch — all other OTEL vars are
+ignored without it. Requires a Claude Code restart to take effect.
+
+### Data flow
+
+```
+Claude Code  ──OTLP HTTP/JSON──►  POST /v1/logs  (OtlpLogsController)
+                                       │
+                                       ▼
+                               extractApiRequestRecords()
+                               (filter: event.name === "api_request")
+                                       │
+                                       ▼
+                        for each record: resolveRuntimeBinding(
+                            "claude-plugin", record.sessionId
+                        )
+                                       │
+                          ┌────────────┴─────────────┐
+                     binding found               not found
+                          │                          │
+                          ▼                          ▼
+                  logTokenUsage(...)             skipped: +1
+                  accepted: +1
+```
+
+### Session → task routing
+
+Each OTLP log record carries a `session.id` attribute (the Claude Code session
+UUID). This is the same value that `SessionStart.ts` registers via
+`/api/runtime-session-ensure`, so it directly maps to a `taskId` through the
+`runtime_session_bindings` table:
+
+```
+OTLP attrs["session.id"]  =  runtimeSessionId
+  └─► runtime_session_bindings(runtimeSource="claude-plugin", runtimeSessionId)
+        └─► taskId  +  monitorSessionId
+```
+
+**Late-arrival fallback**: `SessionEnd` clears `monitorSessionId` in the binding
+before the OTLP batch window (5 s) expires. `resolveRuntimeBinding` handles this
+by falling back to `findTaskId()` + most-recent session lookup when the primary
+`find()` (which filters `monitorSessionId IS NOT NULL`) returns null.
+
+### OTLP attributes extracted (`event.name === "api_request"`)
+
+| Attribute | Field | Notes |
+|---|---|---|
+| `session.id` | `sessionId` | Required — record skipped if absent |
+| `input_tokens` | `inputTokens` | Defaults to 0 |
+| `output_tokens` | `outputTokens` | Defaults to 0 |
+| `cache_read_tokens` | `cacheReadTokens` | Defaults to 0 |
+| `cache_creation_tokens` | `cacheCreateTokens` | Defaults to 0 |
+| `cost_usd` | `costUsd` | Optional |
+| `duration_ms` | `durationMs` | Optional |
+| `model` | `model` | e.g. `"claude-sonnet-4-6"` |
+| `prompt.id` | `promptId` | UUID identifying the API request; stored as metadata, not used for routing |
+
+`session.id` falls back to the resource-level attribute if not present on the
+individual log record.
+
+### Resulting `token.usage` event
+
+```
+kind:  "token.usage"
+lane:  "background"
+title: "API call (<model>)"   or "API call" when model is absent
+metadata:
+  inputTokens        number
+  outputTokens       number
+  cacheReadTokens    number
+  cacheCreateTokens  number
+  costUsd            number?
+  durationMs         number?
+  model              string?
+  promptId           string?   — Anthropic API request UUID (for future correlation)
+  source             "otlp"
+```
 
 ---
 

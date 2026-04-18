@@ -188,7 +188,8 @@ const TASK_EXTRACTION_LANE_TITLES: Readonly<Record<TimelineLane, string>> = {
     planning: "Plan the approach",
     coordination: "Coordinate tools and agents",
     implementation: "Implement the change",
-    background: "Observe background work"
+    background: "Observe background work",
+    telemetry: "API call telemetry"
 };
 function inferTaskObjective(task: MonitoringTask | null | undefined, timeline: readonly TimelineEvent[]): string {
     return resolvePreferredTaskTitle(task, timeline) ?? "Reconstruct the selected task into a reusable process.";

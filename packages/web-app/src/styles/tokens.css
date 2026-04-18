@@ -49,6 +49,10 @@
   --background-bg: #eef1ff;
   --background-border: #cad3fd;
 
+  --telemetry: #b45309;
+  --telemetry-bg: #fffbeb;
+  --telemetry-border: #fde68a;
+
   --ok: #0c8f61;
   --ok-bg: #D9F7E9;
   --done: #2B63DC;
@@ -129,6 +133,9 @@
     --background-bg:     #141B39;
     --background-border: #3A4B89;
 
+    --telemetry-bg:      #1c1400;
+    --telemetry-border:  #5c3800;
+
     --ok-bg:        #0D2A1D;
     --done-bg:      #15233F;
     --err-bg:       #2A0808;
@@ -183,6 +190,9 @@
 
   --background-bg:     #141B39;
   --background-border: #3A4B89;
+
+  --telemetry-bg:      #1c1400;
+  --telemetry-border:  #5c3800;
 
   --ok-bg:        #0D2A1D;
   --done-bg:      #15233F;

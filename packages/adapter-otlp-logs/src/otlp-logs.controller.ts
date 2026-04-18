@@ -41,6 +41,7 @@ export class OtlpLogsController {
             await this.monitor.logTokenUsage({
                 taskId: TaskId(binding.taskId),
                 sessionId: SessionId(binding.sessionId),
+                ...(record.apiCalledAt ? { apiCalledAt: record.apiCalledAt } : {}),
                 inputTokens: record.inputTokens,
                 outputTokens: record.outputTokens,
                 cacheReadTokens: record.cacheReadTokens,

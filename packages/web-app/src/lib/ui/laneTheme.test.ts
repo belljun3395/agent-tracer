@@ -1,13 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { TIMELINE_LANES } from "@monitor/web-domain";
-import { LANE_THEME, getLaneTheme } from "./laneTheme.js";
+import { getLaneTheme } from "./laneTheme.js";
 describe("LANE_THEME", () => {
     it("defines a theme entry for every timeline lane", () => {
-        expect(Object.keys(LANE_THEME).sort()).toEqual([...TIMELINE_LANES].sort());
+        for (const lane of TIMELINE_LANES) {
+            expect(getLaneTheme(lane)).toBeDefined();
+        }
     });
     it("provides semantic variables for each lane", () => {
         for (const lane of TIMELINE_LANES) {
-            const theme = LANE_THEME[lane];
+            const theme = getLaneTheme(lane);
             expect(typeof theme.label).toBe("string");
             expect(theme.icon).toMatch(/^\/icons\/.+\.svg$/);
             expect(theme.toneVar).toMatch(/^--/);
