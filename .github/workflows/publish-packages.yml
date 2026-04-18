@@ -1,0 +1,70 @@
+name: Publish npm packages
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      dryRun:
+        description: "Run npm publish commands with --dry-run"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    env:
+      NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org/
+          cache: npm
+
+      - name: Validate npm authentication
+        if: github.event_name != 'workflow_dispatch' || github.event.inputs.dryRun != 'true'
+        run: |
+          if [ -z "${NODE_AUTH_TOKEN}" ]; then
+            echo "::error::NPM_TOKEN secret is required for publish runs."
+            echo "Set repository secret NPM_TOKEN and rerun this workflow."
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests before publish
+        run: npm test
+
+      - name: Build packages before publish
+        run: npm run build --workspaces --if-present
+
+      - name: Verify publish payloads
+        run: |
+          npm pack --workspace @monitor/core --dry-run
+          npm pack --workspace @monitor/server --dry-run
+          npm pack --workspace @monitor/adapter-mcp --dry-run
+          npm pack --workspace @monitor/web-app --dry-run
+
+      - name: Publish packages
+        run: |
+          if [[ "${{ github.event.inputs.dryRun }}" == "true" ]]; then
+            for pkg in @monitor/core @monitor/server @monitor/adapter-mcp @monitor/web-app; do
+              npm publish --workspace "$pkg" --access public --dry-run
+            done
+          else
+            npm run publish:all
+          fi
