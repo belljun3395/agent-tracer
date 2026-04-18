@@ -20,7 +20,9 @@ Current implementation focuses on refining Claude settings in external projects 
 
 - Creates or merges `.claude/settings.json`
 - Removes existing `hooks` block if present
-- Outputs absolute path to `.claude/plugin/` in current repository
+- Outputs absolute path to the plugin directory in the current repository.
+  The canonical source is `packages/hook-plugin/`; `.claude/plugin` is a
+  relative symlink to it, so either path resolves to the same tree.
 - Guides execution command `claude --plugin-dir <path>`
 
 ## Important Changes Based on Recent Code
@@ -28,7 +30,8 @@ Current implementation focuses on refining Claude settings in external projects 
 ### No Longer Vendors Files
 
 Unlike previous documentation, the current script does not copy hook/plugin sources to external projects.
-Instead, it directly references the running local repository's `.claude/plugin/`.
+Instead, it directly references the running local repository's `packages/hook-plugin/` (via the
+`.claude/plugin` symlink).
 
 ### Source-Related Arguments Still Exist But Are Not Used for Core Behavior
 

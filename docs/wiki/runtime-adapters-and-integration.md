@@ -13,47 +13,45 @@ runtimes attach by calling the shared HTTP + MCP surface directly.
 
 ## Key files
 
-- `packages/core/src/runtime/index.ts` (barrel)
-- `packages/core/src/runtime/capabilities.constants.ts`
-- `packages/core/src/runtime/capabilities.types.ts`
-- `packages/core/src/runtime/capabilities.defaults.ts`
-- `packages/core/src/runtime/capabilities.helpers.ts`
-- `packages/core/src/interop/event-semantic.ts` — explicit hook/web semantic contract
-- `packages/core/src/classification/classifier.ts`
+- `packages/domain/src/runtime/capabilities.types.ts` — capability contract types
+- `packages/application/src/runtime/capabilities.constants.ts`
+- `packages/application/src/runtime/capabilities.defaults.ts`
+- `packages/application/src/runtime/capabilities.helpers.ts`
+- `packages/application/src/runtime/index.ts` (barrel)
+- `packages/domain/src/interop/event-semantic.ts` — explicit hook/web semantic contract
+- `packages/classification/src/classifier.ts` — server-side ingestion classifier
+- `packages/classification/src/semantic-metadata.ts` — shared semantic metadata derivation
 - `packages/mcp/src/index.ts`
-- `.claude/plugin/hooks/*` — hook implementations
-- `.claude/plugin/hooks/PostToolUse/*` — per-tool sub-handlers
-- `.claude/plugin/hooks/classification/*` — semantic inference engines
-- `.claude/plugin/hooks/lib/*` — shared utilities (transport, caching, logging)
-- `.claude/plugin/hooks/common.ts` — re-exports for hook scripts
-- `.claude/plugin/hooks/hooks.json`
-- `.claude/plugin/bin/run-hook.sh`
+- `packages/hook-plugin/hooks/*` — hook implementations
+- `packages/hook-plugin/hooks/PostToolUse/*` — per-tool sub-handlers
+- `packages/hook-plugin/hooks/lib/*` — shared utilities (transport, transcript, logging)
+- `packages/hook-plugin/hooks/util/*` — framework-agnostic helpers
+- `packages/hook-plugin/hooks/hooks.json`
+- `packages/hook-plugin/bin/run-hook.sh`
+- `.claude/plugin` — relative symlink to `packages/hook-plugin` so `${CLAUDE_PLUGIN_ROOT}` still resolves
 - `docs/guide/runtime-capabilities.md`
 - `docs/guide/api-integration-map.md`
 
 ## Hook layer structure
 
-`.claude/plugin/hooks/` separates five responsibilities:
+`packages/hook-plugin/hooks/` separates three responsibilities:
 
 ```text
-.claude/plugin/hooks/
-├── classification/           # pure semantic inference
-│   ├── command-semantic.ts       # shell commands → subtype classification
-│   ├── explore-semantic.ts       # file/web tools → exploration subtypes
-│   └── file-semantic.ts          # file operations → file_ops subtypes
-├── lib/                      # shared utilities
-│   ├── transport.ts              # HTTP client
-│   ├── session-cache.ts          # per-process session cache
-│   ├── session-history.ts        # session lineage log
-│   ├── session-metadata.ts       # persisted session metadata
-│   ├── subagent-registry.ts      # background subagent tracking
+packages/hook-plugin/hooks/
+├── lib/                      # shared runtime utilities
+│   ├── transport.ts              # HTTP client + ensureRuntimeSession
+│   ├── session.ts                # resolveSessionIds thin wrapper
+│   ├── subagent-session.ts       # virtual session routing for subagents
+│   ├── transcript-cursor.ts      # per-session byte-offset persistence
+│   ├── transcript-tail.ts        # incremental transcript tailing
+│   ├── transcript-emit.ts        # emit tailed messages as events
+│   ├── json-file-store.ts        # safe atomic JSON read/write
 │   └── hook-log.ts               # development logging
 ├── util/                     # framework-agnostic helpers
 │   ├── lane.ts                   # TimelineLane constants
 │   ├── paths.ts                  # project path utilities
-│   ├── runtime-identifier.ts     # resume ID generation
 │   └── utils.ts                  # JSON payload helpers
-├── PostToolUse/              # per-tool sub-handlers
+├── PostToolUse/              # per-tool sub-handlers (raw payloads)
 │   ├── Bash.ts                   # terminal commands
 │   ├── File.ts                   # Edit / Write
 │   ├── Explore.ts                # Read / Glob / Grep / WebSearch / WebFetch
@@ -67,14 +65,16 @@ runtimes attach by calling the shared HTTP + MCP surface directly.
 ├── SubagentStart.ts / SubagentStop.ts
 ├── PreCompact.ts / PostCompact.ts
 ├── SessionEnd.ts / Stop.ts
-├── common.ts                 # re-exports used by hook scripts
 ├── hooks.json                # event → handler registration
 └── (executed via bin/run-hook.sh)
 ```
 
-This split lets new runtime adapters reuse `lib/` transport and cache
-code without inheriting Claude-specific semantic logic, while
-`classification/` stays independently testable as pure functions.
+Semantic classification (lane / subtype / toolFamily / operation) was
+removed from the plugin in v0.2.0; it now happens server-side in
+`@monitor/classification` at ingestion. The plugin layer is limited to
+transport, transcript bookkeeping, and subagent session routing, which
+lets new runtime adapters reuse `lib/` without inheriting Claude-specific
+semantic logic.
 
 ## Design principles
 
@@ -91,20 +91,25 @@ Regardless of how an event enters the server, it must conform to the
 same canonical events (`user.message`, `assistant.response`,
 `task.start`, etc.). The server layer stays runtime-agnostic.
 
-### Core as the contract owner
+### Domain as the contract owner
 
-`@monitor/core` owns the event types, lanes, classification results,
-runtime capabilities, and workflow evaluation types. The server, MCP,
-and web all import from core — nothing else should define the same
-shapes.
+`@monitor/domain` owns the event types, lanes, runtime capability
+contracts, and workflow evaluation types; `@monitor/classification`
+owns server-side lane/subtype/toolFamily/operation derivation; and
+`@monitor/application` owns use cases and ports. The server, MCP, and
+web all depend on these inner-ring packages — nothing else should
+define the same shapes. `@monitor/core` remains as a transitional
+facade that re-exports from the first three.
 
 ## Points worth knowing
 
 ### Claude uses the plugin path
 
 The only auto-instrumented Claude integration in this repo is
-`.claude/plugin/`. The canonical `runtimeSource` value is
-`claude-plugin` (with `claude-hook` preserved as a legacy alias).
+`packages/hook-plugin/` (surfaced as `.claude/plugin` via a relative
+symlink so `${CLAUDE_PLUGIN_ROOT}` still resolves). The canonical
+`runtimeSource` value is `claude-plugin` (with `claude-hook` preserved
+as a legacy alias).
 
 ### `setup:external` only automates Claude today
 
@@ -122,10 +127,10 @@ the server has no way to infer it.
 
 ### Contracts leak when consumers re-declare types
 
-Core is the source of truth, but every consumer that re-declares an
-event type is a drift risk. `packages/web/src/types.ts` now re-exports
-from core, which helps, but search hit shapes and UI view models still
-diverge.
+Domain is the source of truth, but every consumer that re-declares an
+event type is a drift risk. Web packages now re-export from
+`@monitor/domain` (via the `web-domain` layer), which helps, but search
+hit shapes and UI view models still diverge.
 
 ### Phase semantics aren't fully enforced
 
@@ -149,8 +154,9 @@ runtime is attached.
 
 ### Route / schema / MCP triple edit
 
-Adding an event today typically requires changes in: `@monitor/core`,
-`application/types.ts`, `presentation/schemas.ts`, a server controller,
+Adding an event today typically requires changes in: `@monitor/domain`
+(wire schema), `@monitor/classification` (lane/subtype derivation),
+`@monitor/application` (use case + types), a server controller,
 `packages/mcp/src/*`, and the guide docs. A published "new event
 checklist" would reduce orphan edits.
 

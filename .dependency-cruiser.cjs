@@ -39,10 +39,10 @@ module.exports = {
     },
     {
       name: "hook-plugin-wire-only",
-      severity: "warn",
-      comment: "hook-plugin may only depend on @monitor/domain (wire schemas).",
+      severity: "error",
+      comment: "hook-plugin may only depend on @monitor/domain (wire schemas). Intra-package imports (within packages/hook-plugin) are allowed.",
       from: { path: "^packages/hook-plugin/" },
-      to:   { path: "^packages/(?!domain/)" },
+      to:   { path: "^packages/(?!(domain|hook-plugin)/)" },
     },
     {
       name: "web-isolated",

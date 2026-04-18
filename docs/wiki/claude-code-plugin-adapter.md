@@ -1,59 +1,65 @@
 # Claude Code Plugin Adapter
 
-The canonical Claude Code integration path is `.claude/plugin/`. From a
-user's point of view it is a plugin; under the hood each Claude Code hook
-event has a dedicated TypeScript file that posts to the monitor server.
+The Claude Code plugin lives at `packages/hook-plugin/` (as of plugin
+v0.2.0). A relative symlink at `.claude/plugin → ../packages/hook-plugin`
+preserves the canonical Claude Code discovery path so `${CLAUDE_PLUGIN_ROOT}`
+still resolves. From a user's point of view it is a plugin; under the hood
+each Claude Code hook event has a dedicated TypeScript file that posts to
+the monitor server.
 
 ## Key files
 
-### Plugin root
+### Plugin root (`packages/hook-plugin/`)
 
-- `.claude/plugin/.claude-plugin/plugin.json` — plugin manifest
-- `.claude/plugin/hooks/hooks.json` — event to handler registration
-- `.claude/plugin/bin/run-hook.sh` — `tsx` dispatcher
-- `.claude/settings.json` — repo-local permissions (plugin path is passed via `--plugin-dir`)
+- `.claude-plugin/plugin.json` — plugin manifest (`agent-tracer-monitor`, v0.2.0)
+- `hooks/hooks.json` — event to handler registration
+- `bin/run-hook.sh` — `tsx` dispatcher
+- `.claude/settings.json` (repo root) — repo-local permissions (plugin path is passed via `--plugin-dir`)
 
 ### Top-level hook handlers
 
 Each file name mirrors the Claude Code hook event it handles.
 
-- `.claude/plugin/hooks/SessionStart.ts`
-- `.claude/plugin/hooks/UserPromptSubmit.ts`
-- `.claude/plugin/hooks/PreToolUse.ts`
-- `.claude/plugin/hooks/PostToolUseFailure.ts`
-- `.claude/plugin/hooks/SubagentStart.ts`
-- `.claude/plugin/hooks/SubagentStop.ts`
-- `.claude/plugin/hooks/PreCompact.ts`
-- `.claude/plugin/hooks/PostCompact.ts`
-- `.claude/plugin/hooks/SessionEnd.ts`
-- `.claude/plugin/hooks/Stop.ts`
+- `hooks/SessionStart.ts`
+- `hooks/UserPromptSubmit.ts`
+- `hooks/PreToolUse.ts`
+- `hooks/PostToolUseFailure.ts`
+- `hooks/SubagentStart.ts`
+- `hooks/SubagentStop.ts`
+- `hooks/PreCompact.ts`
+- `hooks/PostCompact.ts`
+- `hooks/SessionEnd.ts`
+- `hooks/Stop.ts`
 
 ### `PostToolUse/` sub-handlers
 
 `PostToolUse` is split by matcher, so each tool family has its own file.
 All handlers post to `POST /ingest/v1/events` with the appropriate `kind` field.
+The plugin sends **raw payloads only** — lane/subtype/toolFamily classification
+happens server-side in `@monitor/classification` at ingestion time.
 
-- `.claude/plugin/hooks/PostToolUse/Bash.ts` — terminal commands → `kind: "terminal.command"`
-- `.claude/plugin/hooks/PostToolUse/File.ts` — `Edit` / `Write` → `kind: "tool.used"`
-- `.claude/plugin/hooks/PostToolUse/Explore.ts` — `Read` / `Glob` / `Grep` / `WebSearch` / `WebFetch` → `kind: "tool.used"` + `lane: "exploration"`
-- `.claude/plugin/hooks/PostToolUse/Agent.ts` — `Agent` → `kind: "agent.activity.logged"` (`activityType: "delegation"`); `Skill` → `kind: "agent.activity.logged"` (`activityType: "skill_use"`)
-- `.claude/plugin/hooks/PostToolUse/Todo.ts` — `TaskCreate` / `TaskUpdate` / `TodoWrite` → `kind: "todo.logged"` (batch send)
-- `.claude/plugin/hooks/PostToolUse/Mcp.ts` — `mcp__.*` → `kind: "agent.activity.logged"` (`activityType: "mcp_call"`)
+- `hooks/PostToolUse/Bash.ts` — terminal commands → `kind: "terminal.command"`
+- `hooks/PostToolUse/File.ts` — `Edit` / `Write` → `kind: "tool.used"`
+- `hooks/PostToolUse/Explore.ts` — `Read` / `Glob` / `Grep` / `WebSearch` / `WebFetch` → `kind: "tool.used"`
+- `hooks/PostToolUse/Agent.ts` — `Agent` → `kind: "agent.activity.logged"` (`activityType: "delegation"`); `Skill` → `kind: "agent.activity.logged"` (`activityType: "skill_use"`)
+- `hooks/PostToolUse/Todo.ts` — `TaskCreate` / `TaskUpdate` / `TodoWrite` → `kind: "todo.logged"` (batch send)
+- `hooks/PostToolUse/Mcp.ts` — `mcp__.*` → `kind: "agent.activity.logged"` (`activityType: "mcp_call"`)
 
 ### Supporting modules
 
-- `classification/command-semantic.ts` — shell commands to subtype classification
-- `classification/explore-semantic.ts` — file/web tools to exploration subtypes
-- `classification/file-semantic.ts` — file operations to file_ops subtypes
 - `lib/transport.ts` — HTTP client (`postJson`, `readStdinJson`, `ensureRuntimeSession`)
-- `lib/session-cache.ts` — transient per-process session results
-- `lib/session-history.ts` — session lineage append log
-- `lib/session-metadata.ts` — persisted session metadata
-- `lib/subagent-registry.ts` — background subagent tracking
+- `lib/session.ts` — `resolveSessionIds` (thin idempotent wrapper around `ensureRuntimeSession`)
 - `lib/subagent-session.ts` — virtual session ID resolution for subagent event routing (`resolveSubagentSessionIds`, `resolveEventSessionIds`)
+- `lib/transcript-cursor.ts` — `.claude/.transcript-cursors/<sid>.json` byte-offset persistence
+- `lib/transcript-tail.ts` / `lib/transcript-emit.ts` — incremental transcript tailing used by `Stop` / `SubagentStop`
+- `lib/json-file-store.ts` — safe atomic JSON read/write
 - `lib/hook-log.ts` — development file logging
-- `common.ts` — re-exports the above for hook scripts
-- `util/lane.ts`, `util/paths.ts`, `util/runtime-identifier.ts`, `util/utils.ts` — framework-agnostic helpers
+- `util/lane.ts`, `util/paths.ts`, `util/utils.ts` — framework-agnostic helpers
+
+> Historical note: pre-v0.2.0 the plugin maintained `lib/session-cache.ts`,
+> `lib/session-history.ts`, `lib/session-metadata.ts`, and a
+> `classification/` directory. All four were removed in Phase 6 — the server
+> owns session state (idempotent ensure) and semantic classification.
 
 ## Execution flow
 
@@ -66,9 +72,10 @@ All handlers post to `POST /ingest/v1/events` with the appropriate `kind` field.
    is recorded.
 4. `UserPromptSubmit.ts` records the raw prompt as the canonical
    `user.message` event.
-5. `PostToolUse/*.ts` handlers record the per-tool activity with semantic
-   metadata built by the `classification/` modules. All handlers send to
-   `POST /ingest/v1/events` with a `kind`-tagged batch envelope.
+5. `PostToolUse/*.ts` handlers record the per-tool activity as raw payloads.
+   All handlers send to `POST /ingest/v1/events` with a `kind`-tagged batch
+   envelope; lane, subtype, toolFamily, and operation are derived server-side
+   by `@monitor/classification` at ingestion.
 6. `SubagentStart.ts` calls `resolveSubagentSessionIds(sessionId, agentId, agentType)` to
    **eagerly create a background child task** (via `ensureRuntimeSession` with `parentTaskId`).
    The child's `taskId`/`sessionId` are stored in the subagent registry so all subsequent
@@ -110,12 +117,15 @@ child task; otherwise it falls through to the normal parent session lookup.
 See [Hook Payload Spec — Subagent Event Routing](/guide/hook-payload-spec#subagent-event-routing)
 for the full pattern description.
 
-### Subagent registry is transient
+### No plugin-local session state
 
-`${CLAUDE_PROJECT_DIR}/.claude/.subagent-registry.json` stores subagent
-coordination state (parent/child IDs, running status, and the child task's
-`childTaskId`/`childSessionId` created at `SubagentStart`). It is plugin-local
-state, not product data, and it's safe to delete between sessions.
+As of v0.2.0 the plugin does not persist session IDs, metadata, or history
+to disk. Each hook subprocess calls `/api/runtime-session-ensure` directly;
+the server's use case is idempotent on `runtimeSessionId` so repeated calls
+return the same `(taskId, sessionId)` without creating duplicates. The only
+file the plugin still writes is the transcript cursor at
+`${CLAUDE_PROJECT_DIR}/.claude/.transcript-cursors/<sessionId>.json`,
+which is safe to delete between sessions.
 
 ### Development logs opt in via `NODE_ENV`
 

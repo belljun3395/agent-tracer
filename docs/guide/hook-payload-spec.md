@@ -129,8 +129,11 @@ interface EventSemanticMetadata {
 }
 ```
 
-This contract is implemented per-tool in `.claude/plugin/hooks/classification/` and
-used for UI rendering in `packages/web/src/lib/eventSubtype.ts`.
+This contract is derived **server-side** at ingestion in
+`@monitor/classification` (see `packages/classification/src/classifier.ts`
+and `packages/classification/src/semantic-metadata.ts`). The plugin sends
+raw payloads only. The derived fields are used for UI rendering in
+`packages/web/src/lib/eventSubtype.ts`.
 
 ### Per-Tool Additional Metadata
 
@@ -299,23 +302,25 @@ virtualId = `sub--${agentId}`
 
 - `agentId` absent → falls through to `resolveSessionIds(sessionId)` (parent task, unchanged)
 - `agentId` present → calls `resolveSubagentSessionIds(sessionId, agentId, agentType)`:
-  1. Cache-check `sub--{agentId}` → return cached child IDs on hit
-  2. On miss: resolve parent session to obtain `parentTaskId`
-  3. Call `ensureRuntimeSession(virtualId, title, { parentTaskId })` → server creates background child task
-  4. Cache result under `sub--{agentId}` for the remainder of the hook process lifetime
+  1. Resolve parent session to obtain `parentTaskId`
+  2. Call `ensureRuntimeSession(virtualId, title, { parentTaskId })` → server creates (or reuses) the background child task
+  3. Return the child `(taskId, sessionId)` for this hook invocation
 
-This reuses the existing FS-backed session cache (`.claude/.session-cache/<sessionId>.json`) and the
-idempotent `ensureRuntimeSession` server endpoint without any server-side changes.
+This relies entirely on the server's idempotent `ensureRuntimeSession`
+endpoint (`EnsureRuntimeSessionUseCase`). Since v0.2.0 the plugin no
+longer persists a session cache to disk — every hook subprocess calls
+the endpoint directly; repeated calls with the same `runtimeSessionId`
+return the same `(taskId, sessionId)` without creating duplicates.
 
 ### Lifecycle
 
 | Event | Behaviour |
 |-------|-----------|
-| `SubagentStart` | Eagerly calls `resolveSubagentSessionIds` → child background task created immediately; stores `childTaskId`/`childSessionId` in subagent registry |
+| `SubagentStart` | Eagerly calls `resolveSubagentSessionIds` → child background task created immediately via idempotent `ensureRuntimeSession(virtualId, …, { parentTaskId })` |
 | `PreToolUse` (inside subagent) | Calls `resolveEventSessionIds(sessionId, agentId)` → ensures session exists before first tool fires |
 | `PostToolUse/*` (inside subagent) | All tool events routed to child task timeline via `resolveEventSessionIds` |
 | `Stop` (inside subagent) | `assistant.response` recorded on child task; session-end skipped (SubagentStop handles it) |
-| `SubagentStop` | Calls `POST /api/runtime-session-end` for virtual session to trigger auto-completion; clears `sub--{agentId}` from cache |
+| `SubagentStop` | Calls `POST /api/runtime-session-end` for the virtual session to trigger auto-completion; cursor for `sub--{agentId}` is deleted |
 
 ---
 
