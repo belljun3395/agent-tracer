@@ -36,7 +36,7 @@ function summarizeCacheUsage(timeline: readonly TimelineEvent[]): CacheHitSummar
     let outputTokens = 0;
     let turns = 0;
     for (const event of timeline) {
-        if (event.kind !== "assistant.response") continue;
+        if (event.kind !== "assistant.response" && event.kind !== "token.usage") continue;
         const md = event.metadata;
         const inputVal = md["inputTokens"];
         const readVal = md["cacheReadTokens"];

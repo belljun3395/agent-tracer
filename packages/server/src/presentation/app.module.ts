@@ -8,6 +8,10 @@ import {
     registerWriteControllerMetadata,
 } from "@monitor/adapter-http-ingest";
 import {
+    OtlpLogsController,
+    registerOtlpControllerMetadata,
+} from "@monitor/adapter-otlp-logs";
+import {
     AdminController,
     BookmarkController,
     EvaluationController,
@@ -31,6 +35,7 @@ export class AppModule {
         };
         registerWriteControllerMetadata(MonitorService);
         registerQueryControllerMetadata(MonitorService);
+        registerOtlpControllerMetadata(MonitorService);
         return {
             module: AppModule,
             imports: [],
@@ -47,7 +52,8 @@ export class AppModule {
                 EventController,
                 LifecycleController,
                 BookmarkWriteController,
-                EvaluationWriteController
+                EvaluationWriteController,
+                OtlpLogsController,
             ],
             exports: [MONITOR_PORTS_TOKEN, MonitorService]
         };

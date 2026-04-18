@@ -13,10 +13,9 @@
  *   agent_id         string? — set when inside a subagent
  *   last_assistant_message  string? — the final assistant message text
  *
- * NOTE: The current Claude Code version does NOT include usage or stop_reason
- * in the hook payload. Both are read from the transcript JSONL at transcript_path.
- * Each line in the transcript is a JSON object; the last entry with
- * message.role === "assistant" carries message.usage and message.stop_reason.
+ * NOTE: stop_reason is not in the hook payload — read from transcript JSONL
+ * (last entry with message.role === "assistant"). Token usage is collected
+ * independently via the OTLP exporter and is NOT read here.
  *
  * After posting the primary assistant.response event we also tail the transcript
  * for new thinking blocks, intermediate narration text, and system-attached
@@ -30,8 +29,8 @@
  * Blocking: Stop CAN block (exit 2 forces Claude to continue the turn).
  *           Ref: https://code.claude.com/docs/en/hooks#exit-code-2-behavior-matrix
  *
- * This handler records the assistant's response and token usage in the
- * Agent Tracer monitor via /api/assistant-response.
+ * This handler records the assistant's response in the Agent Tracer monitor.
+ * Token usage is collected separately via the OTLP exporter (POST /v1/logs).
  * When agent_id is present (subagent turn), the response is recorded on the
  * child task timeline via resolveEventSessionIds, and runtime-session-end
  * is skipped (SubagentStop.ts handles child task completion).
@@ -49,7 +48,6 @@ import { resolveEventSessionIds } from "./lib/subagent-session.js";
 import { commitCursor, tailTranscriptAsEvents } from "./lib/transcript-tail.js";
 import { hookLog, hookLogPayload } from "./lib/hook-log.js";
 import { readLastAssistantEntry } from "./lib/transcript-emit.js";
-import type { TranscriptUsage } from "./lib/transcript-emit.js";
 
 async function main(): Promise<void> {
     const payload = await readStdinJson();
@@ -63,13 +61,9 @@ async function main(): Promise<void> {
     const { agentId, agentType } = getAgentContext(payload);
     const responseText = toTrimmedString(payload.last_assistant_message) || "";
 
-    // Prefer usage/stop_reason from the transcript JSONL (the current Claude Code
-    // version does not include these in the payload). Fall back to payload fields
-    // so that integration tests that inject payload.usage still work correctly.
     const transcriptPath = toTrimmedString(payload.transcript_path);
     const lastEntry = transcriptPath ? readLastAssistantEntry(transcriptPath) : undefined;
     const stopReason = toTrimmedString(lastEntry?.message?.stop_reason) || toTrimmedString(payload.stop_reason) || "end_turn";
-    const usage = lastEntry?.message?.usage ?? (payload.usage as TranscriptUsage | undefined);
 
     const title = responseText
         ? ellipsize(responseText, 120)
@@ -88,14 +82,10 @@ async function main(): Promise<void> {
             ...(responseText ? { body: responseText } : {}),
             metadata: {
                 stopReason,
-                ...(usage?.input_tokens != null ? { inputTokens: usage.input_tokens } : {}),
-                ...(usage?.output_tokens != null ? { outputTokens: usage.output_tokens } : {}),
-                ...(usage?.cache_read_input_tokens != null ? { cacheReadTokens: usage.cache_read_input_tokens } : {}),
-                ...(usage?.cache_creation_input_tokens != null ? { cacheCreateTokens: usage.cache_creation_input_tokens } : {})
             }
         }]
     });
-    hookLog("Stop", "assistant-response posted", { stopReason, hasText: !!responseText, agentId: agentId ?? "(none)", hasUsage: !!usage });
+    hookLog("Stop", "assistant-response posted", { stopReason, hasText: !!responseText, agentId: agentId ?? "(none)" });
 
     // Tail the transcript for thinking/intermediate-text/attachment events that
     // hooks can't see directly. Failures here must not break the Stop hook.

@@ -874,8 +874,8 @@ describe("Runtime Claude", () => {
         expect(response!.body).toBe("I'll fix the bug by editing the file.");
         expect(response!.title).toBe("I'll fix the bug by editing the file.");
         expect((response!.metadata as Record<string, unknown>).stopReason).toBe("end_turn");
-        expect((response!.metadata as Record<string, unknown>).inputTokens).toBe(100);
-        expect((response!.metadata as Record<string, unknown>).outputTokens).toBe(40);
+        expect((response!.metadata as Record<string, unknown>).inputTokens).toBeUndefined();
+        expect((response!.metadata as Record<string, unknown>).outputTokens).toBeUndefined();
         const sessionEnd = monitor.calls.find(c => c.endpoint === "/api/runtime-session-end");
         expect(sessionEnd).toEqual({
             endpoint: "/api/runtime-session-end",
@@ -902,7 +902,7 @@ describe("Runtime Claude", () => {
         const sessionEnd = monitor.calls.find(c => c.endpoint === "/api/runtime-session-end");
         expect(sessionEnd).toBeUndefined();
     });
-    it("Stop hook: last_assistant_message with cache tokens → all token fields populated", async () => {
+    it("Stop hook: token fields from payload are NOT included in assistant.response (tokens via OTLP)", async () => {
         const monitor = await startMonitorStub();
         servers.push(monitor);
         await runClaudeHook(stopHook, {
@@ -923,8 +923,10 @@ describe("Runtime Claude", () => {
         expect(response).toBeDefined();
         expect(response!.body).toBe("The answer is 4.");
         const meta = response!.metadata as Record<string, unknown>;
-        expect(meta.cacheReadTokens).toBe(200);
-        expect(meta.cacheCreateTokens).toBe(300);
+        expect(meta).not.toHaveProperty("inputTokens");
+        expect(meta).not.toHaveProperty("outputTokens");
+        expect(meta).not.toHaveProperty("cacheReadTokens");
+        expect(meta).not.toHaveProperty("cacheCreateTokens");
     });
     it("Stop hook: missing last_assistant_message → empty body, fallback title", async () => {
         const monitor = await startMonitorStub();
