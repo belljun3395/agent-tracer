@@ -22,16 +22,16 @@ Verification targets:
 
 Key files:
 
-- `packages/web/src/App.test.ts`
-- `packages/web/src/store/useWebSocket.test.ts`
-- `packages/web/src/components/TaskList.test.ts`
-- `packages/web/src/components/Timeline.follow.test.ts`
-- `packages/web/src/lib/timeline.test.ts`
-- `packages/web/src/lib/explorationCategory.test.ts`
-- `packages/web/src/lib/eventSubtype.test.ts`
-- `packages/web/src/lib/insights.test.ts`
-- `packages/web/src/lib/realtime.test.ts`
-- `packages/web/src/lib/ui/laneTheme.test.ts`
+- `packages/web-app/src/App.test.ts`
+- `packages/web-app/src/store/useWebSocket.test.ts`
+- `packages/web-app/src/components/TaskList.test.ts`
+- `packages/web-app/src/components/Timeline.follow.test.ts`
+- `packages/web-app/src/lib/timeline.test.ts`
+- `packages/web-app/src/lib/explorationCategory.test.ts`
+- `packages/web-app/src/lib/eventSubtype.test.ts`
+- `packages/web-app/src/lib/insights.test.ts`
+- `packages/web-app/src/lib/realtime.test.ts`
+- `packages/web-app/src/lib/ui/laneTheme.test.ts`
 
 Verification targets:
 

@@ -5,7 +5,7 @@
 // state via Zustand slices, (3) WebSocket → query invalidation plumbing.
 //
 // Depends on web-io for browser-boundary adapters and on web-domain for
-// pure domain logic. May import React. Must not import from @monitor/web.
+// pure domain logic. May import React. Must not import from @monitor/web-app.
 
 export { createMonitorQueryClient } from "./query/client.js";
 export { QueryProvider } from "./query/QueryProvider.js";

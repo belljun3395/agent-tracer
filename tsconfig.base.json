@@ -38,8 +38,8 @@
       "@monitor/adapter-mcp": [
         "packages/adapter-mcp/src/index.ts"
       ],
-      "@monitor/web": [
-        "packages/web/src/main.tsx"
+      "@monitor/web-app": [
+        "packages/web-app/src/main.tsx"
       ],
       "@monitor/web-domain": [
         "packages/web-domain/src/index.ts"

@@ -133,7 +133,7 @@ This contract is derived **server-side** at ingestion in
 `@monitor/classification` (see `packages/classification/src/classifier.ts`
 and `packages/classification/src/semantic-metadata.ts`). The plugin sends
 raw payloads only. The derived fields are used for UI rendering in
-`packages/web/src/lib/eventSubtype.ts`.
+`packages/web-app/src/lib/eventSubtype.ts`.
 
 ### Per-Tool Additional Metadata
 

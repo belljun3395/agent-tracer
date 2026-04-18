@@ -57,12 +57,12 @@ jobs:
           npm pack --workspace @monitor/core --dry-run
           npm pack --workspace @monitor/server --dry-run
           npm pack --workspace @monitor/adapter-mcp --dry-run
-          npm pack --workspace @monitor/web --dry-run
+          npm pack --workspace @monitor/web-app --dry-run
 
       - name: Publish packages
         run: |
           if [[ "${{ github.event.inputs.dryRun }}" == "true" ]]; then
-            for pkg in @monitor/core @monitor/server @monitor/adapter-mcp @monitor/web; do
+            for pkg in @monitor/core @monitor/server @monitor/adapter-mcp @monitor/web-app; do
               npm publish --workspace "$pkg" --access public --dry-run
             done
           else

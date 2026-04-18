@@ -6,15 +6,15 @@ the dashboard expects.
 
 ## Core Files
 
-- `packages/web/src/api.ts`
-- `packages/web/src/types.ts`
-- `packages/web/src/lib/realtime.ts`
-- `packages/web/src/store/useWebSocket.ts`
-- `packages/web/src/store/useSearch.ts`
-- `packages/web/src/store/useEvaluation.ts`
-- `packages/web/src/lib/ui/cn.ts`
-- `packages/web/src/lib/ui/clipboard.ts`
-- `packages/web/src/lib/ui/laneTheme.ts`
+- `packages/web-app/src/api.ts`
+- `packages/web-app/src/types.ts`
+- `packages/web-app/src/lib/realtime.ts`
+- `packages/web-app/src/store/useWebSocket.ts`
+- `packages/web-app/src/store/useSearch.ts`
+- `packages/web-app/src/store/useEvaluation.ts`
+- `packages/web-app/src/lib/ui/cn.ts`
+- `packages/web-app/src/lib/ui/clipboard.ts`
+- `packages/web-app/src/lib/ui/laneTheme.ts`
 
 ## What `api.ts` Provides
 

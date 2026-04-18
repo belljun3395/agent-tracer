@@ -14,7 +14,7 @@ flowchart LR
   B --> C["@monitor/server"]
   C --> D["SQLite"]
   C --> E["WebSocket broadcaster"]
-  E --> F["@monitor/web dashboard"]
+  E --> F["@monitor/web-app dashboard"]
   C --> G["Workflow library / evaluations"]
   H["@monitor/core"] --> B
   H --> C
@@ -70,15 +70,15 @@ runtimes can call it directly when there is no auto-tracing plugin.
 
 - Entry points: `packages/adapter-mcp/src/index.ts`, `packages/adapter-mcp/src/client.ts`
 
-### `@monitor/web`
+### `@monitor/web-app`
 
 React 19 dashboard. Renders the task list, timeline, event inspector,
 and workflow library in one view. Uses WebSocket hints plus REST read
 models to refresh state.
 
-- Entry points: `packages/web/src/App.tsx`,
-  `packages/web/src/store/useMonitorStore.tsx`,
-  `packages/web/src/lib/eventSubtype.ts`
+- Entry points: `packages/web-app/src/App.tsx`,
+  `packages/web-app/src/store/useMonitorStore.tsx`,
+  `packages/web-app/src/lib/eventSubtype.ts`
 
 ## End-to-end flow
 
@@ -124,8 +124,8 @@ solve something like this last time".
 - `packages/core/src/domain/index.ts`
 - `packages/core/src/interop/event-semantic.ts`
 - `packages/adapter-mcp/src/index.ts`
-- `packages/web/src/App.tsx`
-- `packages/web/src/store/useMonitorStore.tsx`
+- `packages/web-app/src/App.tsx`
+- `packages/web-app/src/store/useMonitorStore.tsx`
 
 ## Next
 

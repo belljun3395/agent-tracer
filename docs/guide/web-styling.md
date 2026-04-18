@@ -3,7 +3,7 @@
 ## Ownership Rules
 
 - Use Tailwind utility classes for layout, spacing, typography, borders, shadows, and standard control styling.
-- Use CSS variables from `packages/web/src/styles/tokens.css` for semantic colors and global theme values.
+- Use CSS variables from `packages/web-app/src/styles/tokens.css` for semantic colors and global theme values.
 - Use scoped CSS modules only for geometry-heavy, SVG-heavy, or coordinate-driven UI such as the timeline canvas.
 - Use inline styles only for runtime numeric values that come from layout calculations or drag state.
 - Do not introduce semantic color names ad hoc in JSX; add or reuse a token first.
@@ -11,12 +11,12 @@
 
 ## Source of Truth
 
-- `packages/web/src/styles.css` is the root style entrypoint only.
-- `packages/web/src/styles/tokens.css` owns theme variables.
-- `packages/web/src/styles/base.css` owns reset and element defaults.
-- `packages/web/src/components/Timeline.css` owns coordinate-heavy timeline canvas styling.
-- `packages/web/src/styles/legacy.css` is now limited to shared layout hooks that are still easier to express as global selectors, such as inspector collapse and responsive grid behavior.
-- `packages/web/src/lib/ui/laneTheme.ts` is the only source of truth for lane labels, icons, and semantic tone variables.
+- `packages/web-app/src/styles.css` is the root style entrypoint only.
+- `packages/web-app/src/styles/tokens.css` owns theme variables.
+- `packages/web-app/src/styles/base.css` owns reset and element defaults.
+- `packages/web-app/src/components/Timeline.css` owns coordinate-heavy timeline canvas styling.
+- `packages/web-app/src/styles/legacy.css` is now limited to shared layout hooks that are still easier to express as global selectors, such as inspector collapse and responsive grid behavior.
+- `packages/web-app/src/lib/ui/laneTheme.ts` is the only source of truth for lane labels, icons, and semantic tone variables.
 - Font loading must use one intentional source of truth. The current default font stack is `Inter` + system sans, with `JetBrains Mono` for code.
 
 ## Component Guidance

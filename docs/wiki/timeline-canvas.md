@@ -5,11 +5,11 @@ It displays stored timeline events not as a simple list, but as a "spatial flow 
 
 ## Core Files
 
-- `packages/web/src/components/Timeline.tsx`
-- `packages/web/src/lib/timeline.ts`
-- `packages/web/src/lib/eventSubtype.ts`
-- `packages/web/src/components/Timeline.css`
-- `packages/web/src/lib/ui/laneTheme.ts`
+- `packages/web-app/src/components/Timeline.tsx`
+- `packages/web-app/src/lib/timeline.ts`
+- `packages/web-app/src/lib/eventSubtype.ts`
+- `packages/web-app/src/components/Timeline.css`
+- `packages/web-app/src/lib/ui/laneTheme.ts`
 
 ## What It Does
 

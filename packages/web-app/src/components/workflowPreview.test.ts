@@ -30,7 +30,7 @@ describe("workflow snapshot draft conversion", () => {
             watchItems: ["migration compatibility", "keep generated fallback"],
             keyDecisions: ["add workflow content route", "persist context override"],
             nextSteps: ["verify end-to-end"],
-            keyFiles: ["packages/web/src/components/TaskEvaluatePanel.tsx"],
+            keyFiles: ["packages/web-app/src/components/TaskEvaluatePanel.tsx"],
             modifiedFiles: ["packages/server/src/application/monitor-service.ts"],
             verificationSummary: "Checks: 2 (2 pass, 0 fail)",
             searchText: "workflow visibility improvement generated workflow content",

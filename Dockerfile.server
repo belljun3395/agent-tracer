@@ -5,7 +5,7 @@ COPY package*.json ./
 COPY packages/core/package.json packages/core/
 COPY packages/server/package.json packages/server/
 COPY packages/adapter-mcp/package.json packages/adapter-mcp/
-COPY packages/web/package.json packages/web/
+COPY packages/web-app/package.json packages/web-app/
 
 # Optional: Install build tools if native modules like better-sqlite3 need them
 RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*

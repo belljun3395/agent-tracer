@@ -306,8 +306,8 @@ permission-mode 엔트리는 `uuid` 가 없어 Phase 1 cursor 가 처리 못 함
 - `packages/server/src/presentation/schemas.ingest.ts` — `"turn.metrics"` 추가
 - `packages/core/src/types/events.ts` (또는 kind union 정의 위치) — `"turn.metrics"` 추가
 - `packages/web-domain/src/types.ts` / `timeline.ts` — `turn.metrics` 의 기본 lane 매핑 (`background` 추천)
-- `packages/web/src/features/timeline/TimelineEventNode.tsx` — `turn.metrics` 렌더 칩 (durationMs 표시)
-- `packages/web/src/components/inspector/InspectorDetails.tsx` — `DetailTurnMetrics` 섹션 (선택)
+- `packages/web-app/src/features/timeline/TimelineEventNode.tsx` — `turn.metrics` 렌더 칩 (durationMs 표시)
+- `packages/web-app/src/components/inspector/InspectorDetails.tsx` — `DetailTurnMetrics` 섹션 (선택)
 - `.claude/plugin/DATA_FLOW.md` — 신규 시그널 매핑 표 추가
 
 ### New (테스트)

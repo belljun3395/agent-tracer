@@ -5,12 +5,12 @@ Since it would be difficult to understand if only raw timeline events are listed
 
 ## Core Files
 
-- `packages/web/src/components/EventInspector.tsx`
-- `packages/web/src/lib/insights.ts`
+- `packages/web-app/src/components/EventInspector.tsx`
+- `packages/web-app/src/lib/insights.ts`
 - `packages/server/src/application/observability.ts`
-- `packages/web/src/store/useEvaluation.ts`
-- `packages/web/src/components/TaskEvaluatePanel.tsx`
-- `packages/web/src/components/TaskHandoffPanel.tsx`
+- `packages/web-app/src/store/useEvaluation.ts`
+- `packages/web-app/src/components/TaskEvaluatePanel.tsx`
+- `packages/web-app/src/components/TaskHandoffPanel.tsx`
 
 ## Tab Structure
 

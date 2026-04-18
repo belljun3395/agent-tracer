@@ -73,7 +73,7 @@ When structure is more interesting than installation, this order is fastest:
 2. `packages/server/src/index.ts`
 3. `packages/core/src/domain/index.ts` (barrel, internally `packages/core/src/domain/*`)
 4. `packages/adapter-mcp/src/index.ts`
-5. `packages/web/src/App.tsx`
+5. `packages/web-app/src/App.tsx`
 
 ## Separation of Roles Between Installation and Wiki
 

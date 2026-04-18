@@ -15,7 +15,7 @@ import { SectionCard } from "./SectionCard.js";
  *
  * See .claude/plugin/hooks/*.ts for the source of truth. We intentionally
  * do NOT import from the plugin package — this module must stay under
- * packages/web and work even when the plugin isn't installed on the
+ * packages/web-app and work even when the plugin isn't installed on the
  * runtime being viewed.
  */
 export interface HookCoverageEntry {

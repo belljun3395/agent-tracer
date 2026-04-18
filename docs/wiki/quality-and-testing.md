@@ -18,7 +18,7 @@ From `package.json` at the repo root:
 ## What's working well
 
 - Every package ships a test script; `@monitor/core`, `@monitor/server`,
-  `@monitor/adapter-mcp`, and `@monitor/web` each have real coverage.
+  `@monitor/adapter-mcp`, and `@monitor/web-app` each have real coverage.
 - Lint config uses `typescript-eslint` with type-checked rules.
 - Rules like `no-floating-promises` and `consistent-type-imports` are on,
   which catches real issues instead of only style.
@@ -33,7 +33,7 @@ The current lint setup is syntax + type-safety. It does not yet enforce:
 - maximum file size per layer
 - no circular imports
 - layer boundary enforcement (presentation ↔ application ↔ infrastructure)
-- banning type duplication between `@monitor/web` and `@monitor/core`
+- banning type duplication between `@monitor/web-app` and `@monitor/core`
 
 ### Doc update discipline isn't automated
 

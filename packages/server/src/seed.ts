@@ -23,8 +23,8 @@ async function seedDashboardTask(): Promise<void> {
         title: "Implement dashboard shell",
         body: "Built counters, timeline lanes, and inspector drawer.",
         filePaths: [
-            "packages/web/src/App.tsx",
-            "packages/web/src/styles.css"
+            "packages/web-app/src/App.tsx",
+            "packages/web-app/src/styles.css"
         ]
     });
     await service.logPlan({
@@ -45,7 +45,7 @@ async function seedDashboardTask(): Promise<void> {
         sessionId,
         action: ActionName("run_test_dashboard_rules"),
         result: "PASS 12/12",
-        filePaths: ["packages/server/test/application/monitor-service.test.ts", "packages/web/src/App.tsx"]
+        filePaths: ["packages/server/test/application/monitor-service.test.ts", "packages/web-app/src/App.tsx"]
     });
     await service.logRule({
         taskId: started.task.id,
@@ -62,7 +62,7 @@ async function seedDashboardTask(): Promise<void> {
         command: "npm run test",
         filePaths: [
             "packages/server/test/application/monitor-service.test.ts",
-            "packages/web/src/lib/timeline.test.ts"
+            "packages/web-app/src/lib/timeline.test.ts"
         ]
     });
     await service.saveContext({
@@ -112,7 +112,7 @@ async function seedCoordinationTask(): Promise<void> {
         parentEventId: skillUseId, relationType: "implements",
         relationLabel: "repo inspection started",
         relationExplanation: "The MCP exploration call gathers the context needed to shape the seeded example.",
-        filePaths: ["packages/server/src/seed.ts", "packages/web/src/components/EventInspector.tsx"]
+        filePaths: ["packages/server/src/seed.ts", "packages/web-app/src/components/EventInspector.tsx"]
     }), "coordination MCP call");
     const delegationId = firstEventId(await service.logAgentActivity({
         taskId, sessionId, activityType: "delegation", title: "Delegated server package review to Leibniz",
@@ -149,7 +149,7 @@ async function seedCoordinationTask(): Promise<void> {
         result: "PASS coordination flow visible", parentEventId: actionId,
         relationType: "verifies", relationLabel: "seed verified",
         relationExplanation: "Verification checks that the example produces the intended coordination narrative in the UI.",
-        filePaths: ["packages/server/src/seed.ts", "packages/web/src/components/Timeline.tsx", "packages/web/src/components/EventInspector.tsx"]
+        filePaths: ["packages/server/src/seed.ts", "packages/web-app/src/components/Timeline.tsx", "packages/web-app/src/components/EventInspector.tsx"]
     }), "coordination verification");
     const searchId = firstEventId(await service.logAgentActivity({
         taskId, sessionId, activityType: "search", title: "Searched saved cards for relationType",

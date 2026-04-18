@@ -8,9 +8,9 @@ In other words, WebSocket is more like an "update signal" than a "canonical data
 
 - `packages/server/src/presentation/ws/event-broadcaster.ts`
 - `packages/server/src/bootstrap/create-nestjs-monitor-runtime.ts`
-- `packages/web/src/store/useWebSocket.ts`
-- `packages/web/src/lib/realtime.ts`
-- `packages/web/src/store/useMonitorStore.tsx`
+- `packages/web-app/src/store/useWebSocket.ts`
+- `packages/web-app/src/lib/realtime.ts`
+- `packages/web-app/src/store/useMonitorStore.tsx`
 
 ## Server-Side Behavior
 

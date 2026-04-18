@@ -1,5 +1,5 @@
 {
-  "name": "@monitor/web",
+  "name": "@monitor/web-app",
   "version": "0.1.0",
   "type": "module",
   "files": [
