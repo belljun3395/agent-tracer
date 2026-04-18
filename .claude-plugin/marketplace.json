@@ -1,0 +1,25 @@
+{
+  "name": "agent-tracer",
+  "owner": {
+    "name": "belljun3395",
+    "email": "195850@jnu.ac.kr"
+  },
+  "metadata": {
+    "description": "Agent Tracer monitoring plugin for Claude Code (single-plugin marketplace).",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "agent-tracer-monitor",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/belljun3395/agent-tracer.git",
+        "path": "packages/runtime-claude"
+      },
+      "description": "Agent Tracer hooks for Claude Code. Requires the local Agent Tracer monitor server (set MONITOR_BASE_URL or MONITOR_PORT env var; defaults to http://127.0.0.1:3847).",
+      "homepage": "https://github.com/belljun3395/agent-tracer",
+      "category": "observability",
+      "tags": ["monitoring", "observability", "hooks", "tracing"]
+    }
+  ]
+}
