@@ -22,8 +22,7 @@ npm install
 ```
 
 The repo is an npm workspaces monorepo. `npm install` hydrates every
-workspace under `packages/*`, including `packages/hook-plugin` (also
-exposed locally via the `.claude/plugin` symlink).
+workspace under `packages/*`, including `packages/runtime-claude`.
 
 ## 3. Build every package
 

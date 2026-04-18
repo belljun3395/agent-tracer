@@ -11,7 +11,7 @@ and runtime integration scenarios.
 - `packages/server/test/presentation/observability-routes.test.ts`
 - `packages/server/test/presentation/assistant-response.test.ts`
 - `packages/server/test/infrastructure/sqlite-schema-migrator.test.ts`
-- `packages/server/test/claude-plugin.test.ts`
+- `packages/server/test/runtime-claude.test.ts`
 - `packages/server/test/setup-external.test.ts`
 
 ## What is Verified
@@ -33,7 +33,7 @@ and runtime integration scenarios.
 
 ### Runtime integration
 
-- Claude plugin path
+- Runtime Claude path
 - setup:external artifacts
 
 ## Characteristics of This Test Suite

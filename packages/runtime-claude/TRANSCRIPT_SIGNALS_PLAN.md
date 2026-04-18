@@ -298,7 +298,7 @@ permission-mode 엔트리는 `uuid` 가 없어 Phase 1 cursor 가 처리 못 함
 ## Files to modify / create
 
 ### Modify
-- `.claude/plugin/hooks/lib/transcript-emit.ts`
+- `packages/runtime-claude/hooks/lib/transcript-emit.ts`
   - 새 분기 함수 3개 추가 (`mapSystemEntry`, `mapPermissionModeEntry`, `mapFileHistorySnapshotEntry`)
   - `buildEventsFromEntries` 루프에 분기 라우팅 + `prevUuid` 추적
   - `baseMeta` / `commonMeta` 에 `isSidechain`, `promptId` 공통 주입
@@ -308,10 +308,10 @@ permission-mode 엔트리는 `uuid` 가 없어 Phase 1 cursor 가 처리 못 함
 - `packages/web-domain/src/types.ts` / `timeline.ts` — `turn.metrics` 의 기본 lane 매핑 (`background` 추천)
 - `packages/web-app/src/features/timeline/TimelineEventNode.tsx` — `turn.metrics` 렌더 칩 (durationMs 표시)
 - `packages/web-app/src/components/inspector/InspectorDetails.tsx` — `DetailTurnMetrics` 섹션 (선택)
-- `.claude/plugin/DATA_FLOW.md` — 신규 시그널 매핑 표 추가
+- `packages/runtime-claude/DATA_FLOW.md` — 신규 시그널 매핑 표 추가
 
 ### New (테스트)
-- `.claude/plugin/hooks/lib/__tests__/transcript-emit.signals.test.ts`
+- `packages/runtime-claude/hooks/lib/__tests__/transcript-emit.signals.test.ts`
   - turn_duration 1건 → `turn.metrics` 이벤트 1개
   - permission-mode 연속 2건 (같은 모드) → 이벤트 1개 (idempotent)
   - assistant message 3건 → 각각 usage metadata 붙음
@@ -324,11 +324,11 @@ permission-mode 엔트리는 `uuid` 가 없어 Phase 1 cursor 가 처리 못 함
 
 ### 단위
 ```bash
-cd .claude/plugin
+cd packages/runtime-claude
 pnpm tsc --noEmit
 pnpm eslint hooks/lib/transcript-emit.ts
 # 새 테스트
-./node_modules/.bin/vitest run .claude/plugin/hooks/lib/__tests__/transcript-emit.signals.test.ts
+./node_modules/.bin/vitest run packages/runtime-claude/hooks/lib/__tests__/transcript-emit.signals.test.ts
 ```
 
 ### 통합 (로컬)

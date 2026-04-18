@@ -14,7 +14,7 @@
       "source": {
         "source": "git-subdir",
         "url": "https://github.com/belljun3395/agent-tracer.git",
-        "path": ".claude/plugin"
+        "path": "packages/runtime-claude"
       },
       "description": "Agent Tracer hooks for Claude Code. Requires the local Agent Tracer monitor server (set MONITOR_BASE_URL or MONITOR_PORT env var; defaults to http://127.0.0.1:3847).",
       "homepage": "https://github.com/belljun3395/agent-tracer",

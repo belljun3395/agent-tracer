@@ -6,7 +6,7 @@ The server and MCP layers are also open to manual HTTP/MCP clients.
 
 ## Quick Start (Claude Code plugin)
 
-Agent Tracer is distributed as a Claude Code **plugin** (`.claude/plugin/`).
+Agent Tracer is distributed as a Claude Code **plugin** (`packages/runtime-claude/`).
 The plugin automatically registers all hook events and posts them to the monitor
 server. You do not need to copy hook source files to your target project.
 
@@ -36,7 +36,7 @@ an additional step:
 
 > When running Claude Code inside the Agent Tracer repository itself,
 > `setup:external` is not needed. You can start with
-> `claude --plugin-dir .claude/plugin` directly.
+> `claude --plugin-dir packages/runtime-claude` directly.
 
 Latest guide: https://belljun3395.github.io/agent-tracer/guide/
 
@@ -123,4 +123,4 @@ See `docs/guide/task-observability.md` for detailed contracts and API specs.
 | `@monitor/server` | NestJS runtime composition that wires HTTP adapters, SQLite ports, and WebSocket broadcast |
 | `@monitor/adapter-mcp` | MCP stdio server (driving adapter) |
 | `@monitor/web-app` | React 19 dashboard |
-| `@monitor/claude-plugin` | Claude Code hook plugin package exposed locally via `.claude/plugin` |
+| `@monitor/runtime-claude` | Claude Code hook plugin package exposed locally via `packages/runtime-claude` |

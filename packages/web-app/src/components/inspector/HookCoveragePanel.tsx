@@ -13,7 +13,7 @@ import { SectionCard } from "./SectionCard.js";
  *  - derive "fired" status from event kind + metadata heuristics when the
  *    upstream hook doesn't stamp a hookName tag.
  *
- * See .claude/plugin/hooks/*.ts for the source of truth. We intentionally
+ * See packages/runtime-claude/hooks/*.ts for the source of truth. We intentionally
  * do NOT import from the plugin package — this module must stay under
  * packages/web-app and work even when the plugin isn't installed on the
  * runtime being viewed.

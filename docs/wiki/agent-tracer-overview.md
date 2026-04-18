@@ -63,8 +63,8 @@ flowchart LR
   HTTP API
 - `@monitor/adapter-embedding`: local embedding service used by workflow
   similarity search
-- `@monitor/claude-plugin`: Claude Code hook plugin package surfaced in
-  this repo as `.claude/plugin`
+- `@monitor/runtime-claude`: Claude Code hook plugin package surfaced in
+  this repo as `packages/runtime-claude`
 
 ### Server and web
 
@@ -118,7 +118,7 @@ the dashboard.
 - `packages/classification/src/index.ts`
 - `packages/application/src/monitor-service.ts`
 - `packages/server/src/bootstrap/create-nestjs-monitor-runtime.ts`
-- `packages/hook-plugin/hooks/`
+- `packages/runtime-claude/hooks/`
 - `packages/adapter-mcp/src/index.ts`
 - `packages/web-app/src/App.tsx`
 - `packages/web-state/src/index.ts`

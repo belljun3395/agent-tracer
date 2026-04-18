@@ -1,15 +1,13 @@
 # Claude Code Plugin Adapter
 
-The Claude Code plugin lives at `packages/hook-plugin/` (as of plugin
-v0.2.0). A relative symlink at `.claude/plugin → ../packages/hook-plugin`
-preserves the canonical Claude Code discovery path so `${CLAUDE_PLUGIN_ROOT}`
-still resolves. From a user's point of view it is a plugin; under the hood
-each Claude Code hook event has a dedicated TypeScript file that posts to
-the monitor server.
+The Claude Code plugin lives at `packages/runtime-claude/` (as of plugin
+v0.2.0). That package is passed directly to `claude --plugin-dir`. From a
+user's point of view it is a plugin; under the hood each Claude Code hook
+event has a dedicated TypeScript file that posts to the monitor server.
 
 ## Key files
 
-### Plugin root (`packages/hook-plugin/`)
+### Plugin root (`packages/runtime-claude/`)
 
 - `.claude-plugin/plugin.json` — plugin manifest (`agent-tracer-monitor`, v0.2.0)
 - `hooks/hooks.json` — event to handler registration

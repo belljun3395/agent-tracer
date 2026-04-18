@@ -5,7 +5,7 @@ This document is an operational reference explaining what preprocessing the Clau
 before calling Agent Tracer API, and how manual runtimes should follow the same surface.
 
 Implementation basis:
-- Claude plugin hooks: `.claude/plugin/hooks/*.ts`
+- Claude plugin hooks: `packages/runtime-claude/hooks/*.ts`
 - Public API surface: `packages/server/src/presentation/controllers/*.ts`
 
 Related documentation:

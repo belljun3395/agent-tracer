@@ -5,9 +5,9 @@
 
 ## Goal
 
-Move the Claude Code hook plugin from `.claude/plugin/` to `packages/hook-plugin/`, strip
+Move the Claude Code hook plugin from `.claude/plugin/` to `packages/runtime-claude/`, strip
 its client-side classification, delete per-session file-system caches, and lock the
-`hook-plugin-wire-only` dependency rule so the plugin can only see
+`runtime-claude-wire-only` dependency rule so the plugin can only see
 `@monitor/domain` wire schemas.
 
 ## Architectural decisions
@@ -15,10 +15,10 @@ its client-side classification, delete per-session file-system caches, and lock 
 1. **`.claude/plugin/` becomes a symlink, not a deletion.** Claude Code resolves
    `${CLAUDE_PLUGIN_ROOT}` from the directory it discovers. `.claude/plugin/` is the
    conventional discovery path for repo-local plugins. Replacing the directory with
-   a relative symlink (`.claude/plugin → ../packages/hook-plugin`) keeps Claude Code
+   a relative symlink (`.claude/plugin → ../packages/runtime-claude`) keeps Claude Code
    runtime hooks functional without any client-side configuration change, and the
    spec explicitly endorses this (`".claude/plugin/ becomes build output
-   (copied/linked from packages/hook-plugin/)"`). Git tracks symlinks natively.
+   (copied/linked from packages/runtime-claude/)"`). Git tracks symlinks natively.
 2. **Client-side classification is fully removed, not gated.** Phase 5d already runs
    `classifyEvent()` inside `EventIngestionService` with "explicit caller input wins"
    semantics. Leaving pre-classified fields on the wire would mean phase-6 plugin
@@ -40,7 +40,7 @@ its client-side classification, delete per-session file-system caches, and lock 
    lifecycle via `session.started` / `session.ended` events (Phase 5d). Adding a
    dedicated read endpoint without a consumer is YAGNI; defer to Phase 9 or when a
    caller materializes. Phase 6 only removes the write-side.
-6. **`hook-plugin` package.json declares `@monitor/domain` as a real dep.** Today the
+6. **`runtime-claude` package.json declares `@monitor/domain` as a real dep.** Today the
    plugin imports `TimelineLane` and `EventSemanticMetadata` as types from
    `@monitor/core`. Phase 6 retargets those to `@monitor/domain` (where the types
    already live after Phase 1) so the dep-cruiser rule passes. `@monitor/core`
@@ -51,32 +51,32 @@ its client-side classification, delete per-session file-system caches, and lock 
 
 ## Sub-phase sequence
 
-### 6a — Relocate plugin to `packages/hook-plugin/`
+### 6a — Relocate plugin to `packages/runtime-claude/`
 
 **Scope:**
 
-- Create `packages/hook-plugin/` via `git mv` of the existing tree. Required sequence
+- Create `packages/runtime-claude/` via `git mv` of the existing tree. Required sequence
   (order matters — `.claude/plugin` must stop being a directory *before* the symlink
   is created):
 
   ```bash
-  mkdir -p packages/hook-plugin
-  git mv .claude/plugin/hooks          packages/hook-plugin/hooks
-  git mv .claude/plugin/bin            packages/hook-plugin/bin
-  git mv .claude/plugin/.claude-plugin packages/hook-plugin/.claude-plugin
-  git mv .claude/plugin/package.json   packages/hook-plugin/package.json
-  git mv .claude/plugin/tsconfig.json  packages/hook-plugin/tsconfig.json
-  git mv .claude/plugin/DATA_FLOW.md   packages/hook-plugin/DATA_FLOW.md
-  git mv .claude/plugin/TRANSCRIPT_SIGNALS_PLAN.md packages/hook-plugin/TRANSCRIPT_SIGNALS_PLAN.md
+  mkdir -p packages/runtime-claude
+  git mv .claude/plugin/hooks          packages/runtime-claude/hooks
+  git mv .claude/plugin/bin            packages/runtime-claude/bin
+  git mv .claude/plugin/.claude-plugin packages/runtime-claude/.claude-plugin
+  git mv .claude/plugin/package.json   packages/runtime-claude/package.json
+  git mv .claude/plugin/tsconfig.json  packages/runtime-claude/tsconfig.json
+  git mv .claude/plugin/DATA_FLOW.md   packages/runtime-claude/DATA_FLOW.md
+  git mv .claude/plugin/TRANSCRIPT_SIGNALS_PLAN.md packages/runtime-claude/TRANSCRIPT_SIGNALS_PLAN.md
   rmdir .claude/plugin
-  ln -s ../packages/hook-plugin .claude/plugin
+  ln -s ../packages/runtime-claude .claude/plugin
   git add .claude/plugin
   ```
 
-  > Note: symlink target is `../packages/hook-plugin` (one `..` — from `.claude/plugin`'s
-  > parent `.claude/` up to the repo root, then into `packages/hook-plugin`).
+  > Note: symlink target is `../packages/runtime-claude` (one `..` — from `.claude/plugin`'s
+  > parent `.claude/` up to the repo root, then into `packages/runtime-claude`).
 
-- Update root `package.json` workspaces array (`.claude/plugin` → `packages/hook-plugin`):
+- Update root `package.json` workspaces array (`.claude/plugin` → `packages/runtime-claude`):
 
   ```json
   "workspaces": [
@@ -87,31 +87,31 @@ its client-side classification, delete per-session file-system caches, and lock 
   (`.claude/plugin` is no longer a workspace; it's a symlink to one that's already
   matched by `packages/*`.)
 
-- Update `packages/hook-plugin/tsconfig.json` `include` paths so the
+- Update `packages/runtime-claude/tsconfig.json` `include` paths so the
   `../../config/load-application-config.d.ts` reference still resolves from the new
   depth (two levels deep under `packages/`, same depth as `.claude/plugin/` was →
-  the relative path is identical; verify by running `npm run -w @monitor/claude-plugin lint:types`).
+  the relative path is identical; verify by running `npm run -w @monitor/runtime-claude lint:types`).
 
-- Update `packages/hook-plugin/package.json` `name` stays `@monitor/claude-plugin`
+- Update `packages/runtime-claude/package.json` `name` stays `@monitor/runtime-claude`
   (no rename — the package name is public-facing to the Claude Code plugin
   marketplace). Confirm the package.json `name` field remains.
 
 - Run `npm install` at the repo root so the new workspace layout is reflected in
   `package-lock.json`. Expect the lockfile to show `.claude/plugin` dropped and
-  `packages/hook-plugin` added, but no other changes.
+  `packages/runtime-claude` added, but no other changes.
 
 **Verification:**
 
-- `npm run lint -w @monitor/claude-plugin` → green.
+- `npm run lint -w @monitor/runtime-claude` → green.
 - `npm run lint:deps` → warnings only on the existing non-domain deps (those get fixed
   in 6b/6d).
 - `npm test` → green (no plugin tests exist; ensures other workspaces unaffected).
-- `ls -la .claude/plugin` → shows symlink to `../packages/hook-plugin`.
+- `ls -la .claude/plugin` → shows symlink to `../packages/runtime-claude`.
 - Manually: `.claude/plugin/bin/run-hook.sh --help` resolves through the symlink (if
   there's no `--help` flag, run `cat .claude/plugin/bin/run-hook.sh` to verify it
   reads through the symlink).
 
-**Commit:** `refactor(phase-6a): relocate hook plugin to packages/hook-plugin`
+**Commit:** `refactor(phase-6a): relocate hook plugin to packages/runtime-claude`
 
 ---
 
@@ -119,7 +119,7 @@ its client-side classification, delete per-session file-system caches, and lock 
 
 **Scope:**
 
-- Delete directory `packages/hook-plugin/hooks/classification/` (three files):
+- Delete directory `packages/runtime-claude/hooks/classification/` (three files):
   - `command-semantic.ts`
   - `explore-semantic.ts`
   - `file-semantic.ts`
@@ -132,21 +132,21 @@ its client-side classification, delete per-session file-system caches, and lock 
 
   | File | Changes |
   |---|---|
-  | `packages/hook-plugin/hooks/PostToolUse/Bash.ts` | Remove line 34 import. Drop `semantic` lookup and `buildSemanticMetadata(...)` spread from the `metadata` field. Do **not** set `lane` on the payload — let the server infer it. Keep `command`, `title`, `body`, `toolUseId`. |
-  | `packages/hook-plugin/hooks/PostToolUse/File.ts` | Remove imports on lines 34–35. Drop `buildSemanticMetadata(inferFileToolSemantic(...))` from the metadata spread. Keep `toolName`, `title`, `body`, `filePaths` (the server classifier uses `filePaths`). |
-  | `packages/hook-plugin/hooks/PostToolUse/Explore.ts` | Remove imports on lines 36–37. Drop `buildSemanticMetadata(semantic)` from metadata. Keep `toolName`, `title`, `body`. |
-  | `packages/hook-plugin/hooks/PostToolUse/Mcp.ts` | Remove import on line 32. Drop `buildSemanticMetadata({ ... })`. Keep `mcpServer`, `mcpTool`, `title`, `body`. |
-  | `packages/hook-plugin/hooks/PostToolUse/Agent.ts` | Remove import on line 41. Drop both `buildSemanticMetadata({...})` spreads (invocation and completion paths). Keep `agentName`, `skillName`, `title`, `body`. |
-  | `packages/hook-plugin/hooks/PostToolUseFailure.ts` | Remove import on line 34. Drop `semanticMetadata` from the Bash-failure payload and `inferCommandSemantic` usage. Keep `toolName`, `command`, `error`, `isInterrupt`, `failed: true`. |
+  | `packages/runtime-claude/hooks/PostToolUse/Bash.ts` | Remove line 34 import. Drop `semantic` lookup and `buildSemanticMetadata(...)` spread from the `metadata` field. Do **not** set `lane` on the payload — let the server infer it. Keep `command`, `title`, `body`, `toolUseId`. |
+  | `packages/runtime-claude/hooks/PostToolUse/File.ts` | Remove imports on lines 34–35. Drop `buildSemanticMetadata(inferFileToolSemantic(...))` from the metadata spread. Keep `toolName`, `title`, `body`, `filePaths` (the server classifier uses `filePaths`). |
+  | `packages/runtime-claude/hooks/PostToolUse/Explore.ts` | Remove imports on lines 36–37. Drop `buildSemanticMetadata(semantic)` from metadata. Keep `toolName`, `title`, `body`. |
+  | `packages/runtime-claude/hooks/PostToolUse/Mcp.ts` | Remove import on line 32. Drop `buildSemanticMetadata({ ... })`. Keep `mcpServer`, `mcpTool`, `title`, `body`. |
+  | `packages/runtime-claude/hooks/PostToolUse/Agent.ts` | Remove import on line 41. Drop both `buildSemanticMetadata({...})` spreads (invocation and completion paths). Keep `agentName`, `skillName`, `title`, `body`. |
+  | `packages/runtime-claude/hooks/PostToolUseFailure.ts` | Remove import on line 34. Drop `semanticMetadata` from the Bash-failure payload and `inferCommandSemantic` usage. Keep `toolName`, `command`, `error`, `isInterrupt`, `failed: true`. |
 
-- `packages/hook-plugin/hooks/util/lane.ts` currently re-exports `TimelineLane` and
+- `packages/runtime-claude/hooks/util/lane.ts` currently re-exports `TimelineLane` and
   defines the `LANE` constant. After this phase, the plugin no longer sets `lane` on
   outbound events — but `LANE` is still referenced for internal categorization
   decisions (e.g., which hook stream a payload belongs to). Audit remaining `LANE.*`
   references after the edits above:
 
   ```bash
-  grep -rn "LANE\." packages/hook-plugin/hooks
+  grep -rn "LANE\." packages/runtime-claude/hooks
   ```
 
   Any remaining references should be examined case-by-case: if they land on the wire
@@ -155,11 +155,11 @@ its client-side classification, delete per-session file-system caches, and lock 
   entirely in a later cleanup.
 
 - Retarget type imports from `@monitor/core` to `@monitor/domain`:
-  - `packages/hook-plugin/hooks/util/lane.ts:17` — `TimelineLane` import.
+  - `packages/runtime-claude/hooks/util/lane.ts:17` — `TimelineLane` import.
   - Any remaining `EventSemanticMetadata` import (should be gone after classification
-    strip; verify with `grep -rn "@monitor/core" packages/hook-plugin`).
+    strip; verify with `grep -rn "@monitor/core" packages/runtime-claude`).
 
-- Update `packages/hook-plugin/package.json` dependencies: add
+- Update `packages/runtime-claude/package.json` dependencies: add
   `"@monitor/domain": "*"` (or `workspace:*` — match the convention used by other
   packages in this repo), remove any `@monitor/core` dep if present (the current
   package.json shows none — type imports resolve via project references, so this may
@@ -167,10 +167,10 @@ its client-side classification, delete per-session file-system caches, and lock 
 
 **Verification:**
 
-- `grep -rn "classification/" packages/hook-plugin/hooks` → no matches.
-- `grep -rn "buildSemanticMetadata\|inferCommandSemantic\|inferExploreSemantic\|inferFileToolSemantic" packages/hook-plugin` → no matches.
-- `grep -rn "@monitor/core" packages/hook-plugin` → no matches.
-- `npm run lint -w @monitor/claude-plugin` → green.
+- `grep -rn "classification/" packages/runtime-claude/hooks` → no matches.
+- `grep -rn "buildSemanticMetadata\|inferCommandSemantic\|inferExploreSemantic\|inferFileToolSemantic" packages/runtime-claude` → no matches.
+- `grep -rn "@monitor/core" packages/runtime-claude` → no matches.
+- `npm run lint -w @monitor/runtime-claude` → green.
 - **Manual smoke test:** run a Bash hook by invoking Claude Code interactively and
   running any shell command. Check server logs that the ingested event has
   `metadata.subtypeKey` populated (now set by the server classifier, not the
@@ -186,24 +186,24 @@ its client-side classification, delete per-session file-system caches, and lock 
 **Scope:**
 
 - Delete files:
-  - `packages/hook-plugin/hooks/lib/session-cache.ts`
-  - `packages/hook-plugin/hooks/lib/session-metadata.ts`
-  - `packages/hook-plugin/hooks/lib/session-history.ts`
+  - `packages/runtime-claude/hooks/lib/session-cache.ts`
+  - `packages/runtime-claude/hooks/lib/session-metadata.ts`
+  - `packages/runtime-claude/hooks/lib/session-history.ts`
 
 - Remove call sites. Grep before editing to get the full list:
 
   ```bash
-  grep -rn "session-cache\|session-metadata\|session-history\|appendSessionRecord\|getCachedSessionResult\|cacheSessionResult\|deleteCachedSessionResult" packages/hook-plugin/hooks
+  grep -rn "session-cache\|session-metadata\|session-history\|appendSessionRecord\|getCachedSessionResult\|cacheSessionResult\|deleteCachedSessionResult" packages/runtime-claude/hooks
   ```
 
   Expected consumers (from Phase 6 explore report):
 
   | File | Action |
   |---|---|
-  | `packages/hook-plugin/hooks/lib/session.ts` | Rewrite `ensureRuntimeSessionForPayload()` to always call `/api/runtime-session-ensure` without consulting/writing the cache. The use case is idempotent. |
-  | `packages/hook-plugin/hooks/lib/subagent-session.ts` | Same treatment for the subagent variant: always re-ensure, no `sub--<agentId>.json` cache read/write. |
-  | `packages/hook-plugin/hooks/SessionEnd.ts:38` | Remove `appendSessionRecord(...)` call. Remove the subsequent `deleteCachedSessionResult(...)` cleanup (no cache to clean). Keep the `session.ended` event POST. |
-  | `packages/hook-plugin/hooks/util/paths.ts:18` | Delete `SESSION_CACHE_DIR` constant if no other consumer remains. Transcript cursor resolves its own path via `transcript-cursor.ts`; check what directory it uses and make it independent of `SESSION_CACHE_DIR`. |
+  | `packages/runtime-claude/hooks/lib/session.ts` | Rewrite `ensureRuntimeSessionForPayload()` to always call `/api/runtime-session-ensure` without consulting/writing the cache. The use case is idempotent. |
+  | `packages/runtime-claude/hooks/lib/subagent-session.ts` | Same treatment for the subagent variant: always re-ensure, no `sub--<agentId>.json` cache read/write. |
+  | `packages/runtime-claude/hooks/SessionEnd.ts:38` | Remove `appendSessionRecord(...)` call. Remove the subsequent `deleteCachedSessionResult(...)` cleanup (no cache to clean). Keep the `session.ended` event POST. |
+  | `packages/runtime-claude/hooks/util/paths.ts:18` | Delete `SESSION_CACHE_DIR` constant if no other consumer remains. Transcript cursor resolves its own path via `transcript-cursor.ts`; check what directory it uses and make it independent of `SESSION_CACHE_DIR`. |
 
 - `transcript-cursor.ts` currently lives at
   `.session-cache/<sessionId>-transcript-cursor.json` (per Phase 6 explore). Move
@@ -213,7 +213,7 @@ its client-side classification, delete per-session file-system caches, and lock 
   constant and add a one-time migration fallback that, if the old path exists,
   reads it then unlinks it (so users mid-upgrade don't lose their cursor).
 
-- Add a prominent cleanup note in `packages/hook-plugin/DATA_FLOW.md` (or the
+- Add a prominent cleanup note in `packages/runtime-claude/DATA_FLOW.md` (or the
   relevant section) stating: "`.session-cache/` and `~/.claude/.session-history.json`
   are no longer written as of plugin v0.2.0. Safe to delete any existing files."
   Do **not** add auto-deletion logic — users with old plugin versions installed
@@ -221,10 +221,10 @@ its client-side classification, delete per-session file-system caches, and lock 
 
 **Verification:**
 
-- `grep -rn "session-cache\|session-metadata\|session-history\|\.session-cache" packages/hook-plugin` →
+- `grep -rn "session-cache\|session-metadata\|session-history\|\.session-cache" packages/runtime-claude` →
   no matches outside documentation.
-- `grep -rn "\.session-history\.json" packages/hook-plugin` → no matches outside docs.
-- `npm run lint -w @monitor/claude-plugin` → green.
+- `grep -rn "\.session-history\.json" packages/runtime-claude` → no matches outside docs.
+- `npm run lint -w @monitor/runtime-claude` → green.
 - **Manual smoke test:** run `rm -rf .claude/.session-cache ~/.claude/.session-history.json`
   (clean slate), then trigger a Claude Code hook flow (start session → run a command →
   end session). Verify:
@@ -242,22 +242,22 @@ its client-side classification, delete per-session file-system caches, and lock 
 
 **Scope:**
 
-- Promote `hook-plugin-wire-only` in `.dependency-cruiser.cjs` from
+- Promote `runtime-claude-wire-only` in `.dependency-cruiser.cjs` from
   `severity: "warn"` to `severity: "error"`. With 6b complete the rule must now pass.
 
-- Bump `packages/hook-plugin/package.json` version to `0.2.0` (major — wire contract
+- Bump `packages/runtime-claude/package.json` version to `0.2.0` (major — wire contract
   change: server now mandatory for classification; plugin does not write
   filesystem caches).
 
 - Update `.claude/plugin/.claude-plugin/plugin.json` version to match if it carries
   one (`.claude/plugin` is a symlink so editing resolves to
-  `packages/hook-plugin/.claude-plugin/plugin.json`).
+  `packages/runtime-claude/.claude-plugin/plugin.json`).
 
 - Update `docs/ARCHITECTURE.md` phase-status table to mark Phase 6 complete.
 
 - Update `docs/wiki/claude-code-plugin-adapter.md` and
   `docs/wiki/runtime-adapters-and-integration.md`: wherever `.claude/plugin/...` paths
-  appear, add a line noting the canonical source is `packages/hook-plugin/` and
+  appear, add a line noting the canonical source is `packages/runtime-claude/` and
   `.claude/plugin/` is a symlink. Update any lingering references to
   `.session-history.json` as a live data store — it's gone.
 
@@ -266,16 +266,16 @@ its client-side classification, delete per-session file-system caches, and lock 
 
 **Verification:**
 
-- `npm run lint:deps` → green at **error** severity (no warnings from hook-plugin).
+- `npm run lint:deps` → green at **error** severity (no warnings from runtime-claude).
 - `npm run lint` → green.
 - `npm test` → green.
 - `git ls-files .claude/plugin` → shows only the symlink entry, no tracked files
   inside.
 - Intentional negative test: temporarily add `import { something } from "@monitor/application";`
-  to any `packages/hook-plugin/hooks/**.ts`, run `npm run lint:deps`, confirm
-  **exit code 1** with `hook-plugin-wire-only` error. Revert the test edit.
+  to any `packages/runtime-claude/hooks/**.ts`, run `npm run lint:deps`, confirm
+  **exit code 1** with `runtime-claude-wire-only` error. Revert the test edit.
 
-**Commit:** `refactor(phase-6d): lock hook-plugin-wire-only rule, bump to v0.2.0`
+**Commit:** `refactor(phase-6d): lock runtime-claude-wire-only rule, bump to v0.2.0`
 
 ---
 
@@ -285,7 +285,7 @@ its client-side classification, delete per-session file-system caches, and lock 
   defer to Phase 9 or a future read-side feature.
 - **MCP adapter renaming** (Phase 7).
 - **Web normalization** (Phase 8).
-- **`exports` field lock on hook-plugin** (Phase 9 — final lock across all packages).
+- **`exports` field lock on runtime-claude** (Phase 9 — final lock across all packages).
 - **Tests for the hook plugin.** The spec proposes "golden tests: stdin JSON fixture
   → HTTP call assertion" but no such test harness exists today. Creating it is its
   own scoped effort; Phase 6 keeps the manual smoke-test path from the original
@@ -295,7 +295,7 @@ its client-side classification, delete per-session file-system caches, and lock 
 
 - **Claude Code mis-resolves the symlink.** If `CLAUDE_PLUGIN_ROOT` does not follow
   symlinks on some platforms, hooks break silently during 6a. Rollback: `rm
-  .claude/plugin && git mv packages/hook-plugin/* .claude/plugin/` and revert
+  .claude/plugin && git mv packages/runtime-claude/* .claude/plugin/` and revert
   workspaces change. Pre-commit smoke test in 6a verification catches this.
 - **Server classifier has gaps** the client classifier was masking. Phase 5d is
   marked done but may not cover every `subtypeKey` the plugin computed. 6b's

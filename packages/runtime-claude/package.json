@@ -1,8 +1,8 @@
 {
-  "name": "@monitor/claude-plugin",
+  "name": "@monitor/runtime-claude",
   "version": "0.2.0",
   "private": true,
-  "description": "Claude Code plugin that streams hook events to the Agent Tracer monitor server.",
+  "description": "Claude Code runtime adapter that streams hook events to the Agent Tracer monitor server.",
   "type": "module",
   "scripts": {
     "lint": "eslint hooks && npm run lint:types",

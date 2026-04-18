@@ -6,7 +6,7 @@ inner-to-outer dependency direction:
 ```text
 domain -> classification -> application -> adapter-* -> server
 domain -> web-domain -> web-io -> web-state -> web-app
-hook-plugin -> HTTP only (no application imports)
+runtime-claude -> HTTP only (no application imports)
 adapter-mcp -> HTTP only (no inner-ring logic)
 ```
 
@@ -27,7 +27,7 @@ exists. The shared model now lives in three packages: `domain`,
 | `@monitor/adapter-ws` | WebSocket broadcaster | `packages/adapter-ws/src/event-broadcaster.ts` |
 | `@monitor/adapter-mcp` | MCP stdio server that forwards to the monitor HTTP API | `packages/adapter-mcp/src/index.ts`, `packages/adapter-mcp/src/client.ts`, `packages/adapter-mcp/src/tools/*` |
 | `@monitor/adapter-embedding` | Local embedding service used for workflow similarity | `packages/adapter-embedding/src/index.ts` |
-| `@monitor/claude-plugin` | Claude Code hook adapter surfaced as `.claude/plugin` | `packages/hook-plugin/hooks/*`, `packages/hook-plugin/bin/run-hook.sh` |
+| `@monitor/runtime-claude` | Claude Code hook adapter surfaced as `packages/runtime-claude` | `packages/runtime-claude/hooks/*`, `packages/runtime-claude/bin/run-hook.sh` |
 | `@monitor/server` | NestJS composition root and runtime bootstrap | `packages/server/src/index.ts`, `packages/server/src/bootstrap/create-nestjs-monitor-runtime.ts`, `packages/server/src/presentation/app.module.ts` |
 | `@monitor/web-domain` | Web-facing read-model types and pure selectors | `packages/web-domain/src/*` |
 | `@monitor/web-io` | Browser-boundary adapters for HTTP, WebSocket, and safe storage | `packages/web-io/src/api.ts`, `packages/web-io/src/realtime.ts`, `packages/web-io/src/websocket.ts`, `packages/web-io/src/storage.ts` |
@@ -49,7 +49,7 @@ exists. The shared model now lives in three packages: `domain`,
   and the MCP adapter are all adapters around `@monitor/application`.
 - `@monitor/server` is intentionally thin: it composes adapters and the
   Nest runtime, but business logic stays in `@monitor/application`.
-- `@monitor/claude-plugin` does not import the application layer. It
+- `@monitor/runtime-claude` does not import the application layer. It
   posts raw payloads over HTTP and lets the server classify them.
 
 ### Web stack

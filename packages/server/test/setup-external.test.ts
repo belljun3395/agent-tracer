@@ -36,7 +36,7 @@ describe("setup:external Claude integration", () => {
         expect(generatedSettings.permissions?.allow).toEqual(expect.arrayContaining(["WebSearch", "WebFetch"]));
         await expect(readFile(path.join(targetDir, ".agent-tracer", ".claude", "hooks", "common.ts"), "utf8")).rejects.toThrow();
         await expect(readFile(path.join(targetDir, ".agent-tracer", ".claude", "hooks", "session_start.ts"), "utf8")).rejects.toThrow();
-        const expectedPluginPath = path.join(repoRoot, ".claude", "plugin");
+        const expectedPluginPath = path.join(repoRoot, "packages", "runtime-claude");
         expect(stdout).toContain(expectedPluginPath);
         expect(stdout).toContain("claude --plugin-dir");
     }, 60000);

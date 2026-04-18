@@ -3,7 +3,7 @@
 This page covers the Claude Code specific steps needed after the shared
 [install-and-run](./install-and-run.md) flow.
 
-Agent Tracer ships as a Claude Code **plugin** (`.claude/plugin/`). The plugin
+Agent Tracer ships as a Claude Code **plugin** (`packages/runtime-claude/`). The plugin
 registers every hook event for you and posts events to the local monitor
 server. You do not copy hook source files into your target project.
 
@@ -24,13 +24,13 @@ Before following this page, make sure that:
 As a one-off from your target project:
 
 ```bash
-claude --plugin-dir /absolute/path/to/agent-tracer/.claude/plugin
+claude --plugin-dir /absolute/path/to/agent-tracer/packages/runtime-claude
 ```
 
 As a shell alias:
 
 ```bash
-alias claude='claude --plugin-dir /absolute/path/to/agent-tracer/.claude/plugin'
+alias claude='claude --plugin-dir /absolute/path/to/agent-tracer/packages/runtime-claude'
 ```
 
 ### Permanent install via marketplace
@@ -44,7 +44,7 @@ root (`.claude-plugin/marketplace.json`). From any Claude Code session:
 ```
 
 Updates land automatically. Whenever
-`.claude/plugin/.claude-plugin/plugin.json#version` changes (CI auto-bumps
+`packages/runtime-claude/.claude-plugin/plugin.json#version` changes (CI auto-bumps
 the patch number when hook code lands on `main`), Claude Code refreshes the
 plugin on next session start.
 
@@ -82,9 +82,9 @@ Expected result: `monitor` is listed and connected.
 
 ## 4. What the hooks do
 
-Hook scripts live under `.claude/plugin/hooks/`, registered through
-`.claude/plugin/hooks/hooks.json` and executed by
-`.claude/plugin/bin/run-hook.sh`. Each file name matches the Claude Code
+Hook scripts live under `packages/runtime-claude/hooks/`, registered through
+`packages/runtime-claude/hooks/hooks.json` and executed by
+`packages/runtime-claude/bin/run-hook.sh`. Each file name matches the Claude Code
 hook event name.
 
 ### Top-level hook files
@@ -149,7 +149,7 @@ If you are running Claude Code *inside* the Agent Tracer repo itself, you
 don't need `setup:external`. Just launch:
 
 ```bash
-claude --plugin-dir .claude/plugin
+claude --plugin-dir packages/runtime-claude
 ```
 
 `.claude/settings.json` only declares `permissions`. The plugin's
@@ -198,7 +198,7 @@ See [MCP Tool Reference](/wiki/mcp-tool-reference) for the full list.
 2. `setup:external` has been run for the target project.
 3. `monitor` is registered in `claude mcp list`.
 4. Open the target project with
-   `claude --plugin-dir /absolute/path/to/agent-tracer/.claude/plugin` (or
+   `claude --plugin-dir /absolute/path/to/agent-tracer/packages/runtime-claude` (or
    your alias).
 5. Perform one read or edit.
 6. Confirm a task appears in the dashboard at `http://127.0.0.1:5173`.

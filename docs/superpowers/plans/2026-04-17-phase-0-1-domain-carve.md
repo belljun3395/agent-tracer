@@ -94,7 +94,7 @@ domain ← classification ← application ← adapter-* ← server
 | `@monitor/classification` | `domain` |
 | `@monitor/application` | `domain`, `classification` |
 | `@monitor/adapter-*` | `domain`, `application` |
-| `@monitor/hook-plugin` | `domain` (wire schemas only) |
+| `@monitor/runtime-claude` | `domain` (wire schemas only) |
 | `@monitor/server` | all adapters + `application` + `domain` |
 | `@monitor/web-domain` | `domain` |
 | `@monitor/web-io` | `web-domain`, `domain` |
@@ -107,7 +107,7 @@ domain ← classification ← application ← adapter-* ← server
 - Reverse direction (`application → adapter-*`)
 - Subpath imports (`@monitor/foo/src/bar`)
 - `domain` importing any other `@monitor/*` package
-- `hook-plugin` importing `application` or `classification`
+- `runtime-claude` importing `application` or `classification`
 - `web-*` importing `server` or adapters
 
 ## Enforcement
@@ -178,10 +178,10 @@ module.exports = {
       to:   { path: "^packages/adapter-" },
     },
     {
-      name: "hook-plugin-wire-only",
+      name: "runtime-claude-wire-only",
       severity: "warn",
-      comment: "hook-plugin may only depend on @monitor/domain (wire schemas).",
-      from: { path: "^packages/hook-plugin/" },
+      comment: "runtime-claude may only depend on @monitor/domain (wire schemas).",
+      from: { path: "^packages/runtime-claude/" },
       to:   { path: "^packages/(?!domain/)" },
     },
     {
@@ -942,7 +942,7 @@ Carve @monitor/domain out of @monitor/core (hexagonal Phase 1)
 Extracts pure types, branded IDs, wire schemas, and utility functions
 into a new @monitor/domain package. @monitor/core retains its public
 API by re-exporting from @monitor/domain, so downstream packages
-(server, mcp, web-*, hook-plugin) continue to work unchanged.
+(server, mcp, web-*, runtime-claude) continue to work unchanged.
 
 - packages/domain/: new package with shared/, monitoring/, classification/ids+types,
   workflow/ids+types, paths/utils

@@ -101,7 +101,7 @@ async function seedCoordinationTask(): Promise<void> {
     }), "coordination todo added");
     const skillUseId = firstEventId(await service.logAgentActivity({
         taskId, sessionId, activityType: "skill_use", title: "Loaded monitoring workflow",
-        skillName: "monitor-workflow", skillPath: ".claude/plugin",
+        skillName: "monitor-workflow", skillPath: "packages/runtime-claude",
         parentEventId: todoAddedId, relationType: "implements",
         relationLabel: "monitoring workflow loaded",
         relationExplanation: "The monitoring workflow is loaded before the todo is carried out."

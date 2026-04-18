@@ -108,7 +108,7 @@ async function setupClaude({ targetDir, tracerRoot }) {
     }
   });
 
-  const pluginPath = path.join(tracerRoot, ".claude", "plugin");
+  const pluginPath = path.join(tracerRoot, "packages", "runtime-claude");
   process.stdout.write(
     [
       "",

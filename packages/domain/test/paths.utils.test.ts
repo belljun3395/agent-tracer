@@ -10,7 +10,7 @@ describe("looksLikePathStrict", () => {
 
     it("accepts dotfile/dot-directory rooted paths", () => {
         expect(looksLikePathStrict(".github/workflows/ci.yml")).toBe(true);
-        expect(looksLikePathStrict(".claude/plugin/foo.json")).toBe(true);
+        expect(looksLikePathStrict(".claude/settings.json")).toBe(true);
     });
 
     it("accepts explicitly relative or absolute path prefixes", () => {

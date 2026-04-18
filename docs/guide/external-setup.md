@@ -48,8 +48,8 @@ The only required argument is `--target`. The script:
 Expected output:
 
 ```text
-[claude] Plugin path: /absolute/path/to/agent-tracer/.claude/plugin
-[claude] Run Claude Code with: claude --plugin-dir /absolute/path/to/agent-tracer/.claude/plugin
+[claude] Plugin path: /absolute/path/to/agent-tracer/packages/runtime-claude
+[claude] Run Claude Code with: claude --plugin-dir /absolute/path/to/agent-tracer/packages/runtime-claude
 ```
 
 > The script also parses `--monitor-base-url`, `--source-repo`,

@@ -107,7 +107,7 @@ describe("observability routes", () => {
             activityType: "skill_use",
             title: "Load monitor workflow",
             skillName: "monitor-workflow",
-            skillPath: ".claude/plugin",
+            skillPath: "packages/runtime-claude",
             workItemId: "work-1",
             relationType: "implements"
         });

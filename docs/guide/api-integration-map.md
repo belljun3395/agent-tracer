@@ -6,7 +6,7 @@ other runtimes can be attached by calling the same API directly.
 
 Implementation basis:
 - Claude Code hooks: https://code.claude.com/docs/en/hooks
-- Claude plugin implementation: `.claude/plugin/hooks/*.ts`
+- Claude plugin implementation: `packages/runtime-claude/hooks/*.ts`
 
 Related documentation:
 - [Runtime API flow & preprocessing](./runtime-api-flow-and-preprocessing.md)

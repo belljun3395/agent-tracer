@@ -21,22 +21,22 @@ surface.
 - `packages/classification/src/semantic-metadata.ts`
 - `packages/adapter-mcp/src/index.ts`
 - `packages/adapter-mcp/src/tools/*`
-- `packages/hook-plugin/hooks/*`
-- `packages/hook-plugin/hooks/PostToolUse/*`
-- `packages/hook-plugin/hooks/lib/*`
-- `packages/hook-plugin/hooks/util/*`
-- `packages/hook-plugin/hooks/hooks.json`
-- `packages/hook-plugin/bin/run-hook.sh`
+- `packages/runtime-claude/hooks/*`
+- `packages/runtime-claude/hooks/PostToolUse/*`
+- `packages/runtime-claude/hooks/lib/*`
+- `packages/runtime-claude/hooks/util/*`
+- `packages/runtime-claude/hooks/hooks.json`
+- `packages/runtime-claude/bin/run-hook.sh`
 - `docs/guide/runtime-capabilities.md`
 - `docs/guide/api-integration-map.md`
 
 ## Hook layer structure
 
-`packages/hook-plugin/hooks/` separates transport, payload parsing, and
+`packages/runtime-claude/hooks/` separates transport, payload parsing, and
 per-event logic:
 
 ```text
-packages/hook-plugin/hooks/
+packages/runtime-claude/hooks/
 ├── lib/
 │   ├── transport.ts
 │   ├── session.ts
@@ -94,9 +94,9 @@ which keeps runtime adapters thinner and more reusable.
 
 ### Claude integration path
 
-The automated Claude integration lives in `packages/hook-plugin/` and is
-surfaced locally as `.claude/plugin` through a symlink. The canonical
-runtime source is `claude-plugin`.
+The automated Claude integration lives in `packages/runtime-claude/`.
+That package is the canonical Claude runtime adapter, and its runtime source
+value is `claude-plugin`.
 
 ### `setup:external` only automates Claude
 
@@ -114,7 +114,7 @@ subagent details the client never sent.
 
 ### The plugin is intentionally not an inner-ring package
 
-`@monitor/claude-plugin` does not import `@monitor/application` or
+`@monitor/runtime-claude` does not import `@monitor/application` or
 `@monitor/classification`. That guard matters because the plugin is a
 transport adapter, not a second backend.
 

@@ -1,7 +1,7 @@
-name: Release Claude Code Plugin
+name: Release Runtime Claude
 
-# Auto-bumps `.claude/plugin/.claude-plugin/plugin.json#version` whenever
-# plugin source lands on main, then tags `claude-plugin-v<version>`. Marketplace
+# Auto-bumps `packages/runtime-claude/.claude-plugin/plugin.json#version` whenever
+# plugin source lands on main, then tags `runtime-claude-v<version>`. Marketplace
 # clients (`/plugin marketplace add belljun3395/agent-tracer`) treat the
 # plugin.json version as the sole update signal — no checksums, no separate
 # release artifact required.
@@ -22,7 +22,7 @@ on:
     branches:
       - main
     paths:
-      - ".claude/plugin/**"
+      - "packages/runtime-claude/**"
       - ".claude-plugin/marketplace.json"
   workflow_dispatch:
     inputs:
@@ -40,7 +40,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: release-claude-plugin
+  group: release-runtime-claude
   cancel-in-progress: false
 
 jobs:
@@ -62,7 +62,7 @@ jobs:
         id: detect
         run: |
           set -euo pipefail
-          MANIFEST=".claude/plugin/.claude-plugin/plugin.json"
+          MANIFEST="packages/runtime-claude/.claude-plugin/plugin.json"
           CURRENT=$(jq -r '.version' "$MANIFEST")
           if git rev-parse HEAD~1 >/dev/null 2>&1; then
             PREVIOUS=$(git show HEAD~1:"$MANIFEST" 2>/dev/null | jq -r '.version' || echo "$CURRENT")
@@ -93,8 +93,8 @@ jobs:
           BUMP_TYPE: ${{ github.event.inputs.bump || 'patch' }}
         run: |
           set -euo pipefail
-          MANIFEST=".claude/plugin/.claude-plugin/plugin.json"
-          PKG=".claude/plugin/package.json"
+          MANIFEST="packages/runtime-claude/.claude-plugin/plugin.json"
+          PKG="packages/runtime-claude/package.json"
 
           # Reject any bump type other than the three we accept — this bounds
           # workflow_dispatch input even if the choice constraint is bypassed.
@@ -115,7 +115,7 @@ jobs:
           mv "${MANIFEST}.tmp" "$MANIFEST"
 
           # Mirror the version into the workspace package.json so npm ls and
-          # any future @monitor/claude-plugin references stay in sync.
+          # any future @monitor/runtime-claude references stay in sync.
           jq --arg v "$NEW_VERSION" '.version = $v' "$PKG" > "${PKG}.tmp"
           mv "${PKG}.tmp" "$PKG"
 
@@ -129,13 +129,13 @@ jobs:
           NEW_VERSION: ${{ steps.bump.outputs.new_version }}
         run: |
           set -euo pipefail
-          git add .claude/plugin/.claude-plugin/plugin.json .claude/plugin/package.json
+          git add packages/runtime-claude/.claude-plugin/plugin.json packages/runtime-claude/package.json
           if git diff --cached --quiet; then
             echo "::warning::No changes to commit after bump — skipping push."
             echo "pushed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          git commit -m "chore(claude-plugin): release v${NEW_VERSION} [skip ci]"
+          git commit -m "chore(runtime-claude): release v${NEW_VERSION} [skip ci]"
           git push origin HEAD:main
           echo "pushed=true" >> "$GITHUB_OUTPUT"
 
@@ -162,11 +162,11 @@ jobs:
             echo "::error::Resolved version is not strict semver: $VERSION"
             exit 1
           fi
-          TAG="claude-plugin-v${VERSION}"
+          TAG="runtime-claude-v${VERSION}"
           if git ls-remote --tags origin "refs/tags/${TAG}" | grep -q "refs/tags/${TAG}$"; then
             echo "::warning::Tag ${TAG} already exists on origin — skipping."
             exit 0
           fi
-          git tag -a "${TAG}" -m "Agent Tracer Claude plugin v${VERSION}"
+          git tag -a "${TAG}" -m "Agent Tracer runtime-claude v${VERSION}"
           git push origin "${TAG}"
           echo "Tagged ${TAG}"

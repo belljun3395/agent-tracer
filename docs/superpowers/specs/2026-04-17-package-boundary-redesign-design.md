@@ -68,7 +68,7 @@ after this one ships.
 
 | Package | Note |
 |---|---|
-| `@monitor/hook-plugin` | Claude Code hook handlers. Runs in Claude's process. Depends only on `@monitor/domain` (wire schemas). Must NOT import `application` or other adapters. |
+| `@monitor/runtime-claude` | Claude Code hook handlers. Runs in Claude's process. Depends only on `@monitor/domain` (wire schemas). Must NOT import `application` or other adapters. |
 
 #### Composition root
 
@@ -114,7 +114,7 @@ adapter-sqlite  adapter-http-* adapter-ws adapter-mcp adapter-embedding
                     │ server  │ ← unique composition root
                     └─────────┘
 
-hook-plugin ──────► domain (wire schemas only) ──HTTP──► adapter-http-ingest
+runtime-claude ──────► domain (wire schemas only) ──HTTP──► adapter-http-ingest
 
 web-app → web-state → web-io → web-domain → domain
                                                  ▲
@@ -140,7 +140,7 @@ web-app → web-state → web-io → web-domain → domain
 | `packages/server/src/presentation/ws/*` | `@monitor/adapter-ws` |
 | `packages/server/src/bootstrap/*` + `main.ts` + `app.module.ts` | `@monitor/server` |
 | `packages/mcp/*` | `@monitor/adapter-mcp` |
-| `.claude/plugin/hooks/*` | `@monitor/hook-plugin` (formally added to workspaces) |
+| `.claude/plugin/hooks/*` | `@monitor/runtime-claude` (formally added to workspaces) |
 | `packages/web*` | renamed to `web-app`, else unchanged in rename-only sense |
 
 ---
@@ -160,7 +160,7 @@ web-app → web-state → web-io → web-domain → domain
 | `adapter-http-query` | `domain`, `application` |
 | `adapter-ws` | `domain`, `application` |
 | `adapter-mcp` | `domain`, `application` |
-| `hook-plugin` | `domain` (wire schemas only) |
+| `runtime-claude` | `domain` (wire schemas only) |
 | `server` | all adapters + `application` + `domain` |
 | `web-domain` | `domain` |
 | `web-io` | `domain`, `web-domain` |
@@ -173,7 +173,7 @@ web-app → web-state → web-io → web-domain → domain
 - `application → adapter-*` (reverse direction)
 - `classification → application`
 - `domain → anything @monitor/*`
-- `hook-plugin → application | adapter-*`
+- `runtime-claude → application | adapter-*`
 - `web-* → server | adapter-* | application`
 - Subpath imports (`@monitor/foo/src/bar`)
 
@@ -195,8 +195,8 @@ forbidden: [
   { name: "domain-is-pure",
     from: { path: "^packages/domain" },
     to:   { path: "^packages/(?!domain)" } },
-  { name: "hook-plugin-wire-only",
-    from: { path: "^packages/hook-plugin" },
+  { name: "runtime-claude-wire-only",
+    from: { path: "^packages/runtime-claude" },
     to:   { path: "^packages/(?!domain)" } },
   { name: "web-isolated",
     from: { path: "^packages/web-" },
@@ -276,7 +276,7 @@ All adapter packages follow the same pattern:
 - Internal layout: `src/index.ts` (barrel), `src/<impl>.ts`, `src/<types>.ts`.
 - No business logic; adapters are translation layers between transport and use cases.
 
-### 4.5 `@monitor/hook-plugin`
+### 4.5 `@monitor/runtime-claude`
 **One-liner:** Claude Code hook runners that POST raw payloads to
 `adapter-http-ingest`.
 
@@ -312,7 +312,7 @@ Rule: contains zero business logic. Adding a feature here is a design smell.
 
 ```
 Claude Code hook
-  → hook-plugin (validate + POST raw)
+  → runtime-claude (validate + POST raw)
   → adapter-http-ingest (re-validate zod)
   → application.IngestEventUseCase
      ├─ classification.buildSemanticMetadata(raw)
@@ -367,7 +367,7 @@ multi-process later without touching application.
 | `adapter-http-*` | Only layer that translates to HTTP status (NestJS exception filters) |
 | `adapter-sqlite` | Wraps raw DB errors into `RepositoryError` |
 | `adapter-ws` | Swallows per-connection errors + logs; never propagates to other subscribers |
-| `hook-plugin` | **Never crashes Claude Code.** All errors → `.claude/hooks.log`, exit 0 |
+| `runtime-claude` | **Never crashes Claude Code.** All errors → `.claude/hooks.log`, exit 0 |
 
 ---
 
@@ -419,15 +419,15 @@ multi-process later without touching application.
 **Exit:** server-side classification works on raw payloads. Wire is backwards-compatible.
 
 ### Phase 6 — Hook plugin formalization
-- Move `.claude/plugin/` → `packages/hook-plugin/` (add to workspaces)
-- Delete `hook-plugin/classification/` directory
+- Move `.claude/plugin/` → `packages/runtime-claude/` (add to workspaces)
+- Delete `runtime-claude/classification/` directory
 - Plugin refactored to send raw payloads
 - Delete `.session-cache/*-metadata.json`, `~/.claude/.session-history.json` usage
-- `.claude/plugin/` becomes build output (copied/linked from `packages/hook-plugin/`)
+- `.claude/plugin/` becomes build output (copied/linked from `packages/runtime-claude/`)
 - Plugin version: `v0.2.0` (major — wire contract change)
 
-**Exit:** add rule `hook-plugin-wire-only`; CI fails if classification directory
-exists inside hook-plugin.
+**Exit:** add rule `runtime-claude-wire-only`; CI fails if classification directory
+exists inside runtime-claude.
 
 ### Phase 7 — MCP adapter normalization
 - Rename `packages/mcp` → `packages/adapter-mcp`
@@ -479,7 +479,7 @@ exists inside hook-plugin.
 | `adapter-http-*` | `supertest` against real Express router |
 | `adapter-ws` | Real WS client integration |
 | `adapter-mcp` | stdio pipe fixture |
-| `hook-plugin` | Golden tests: stdin JSON fixture → HTTP call assertion |
+| `runtime-claude` | Golden tests: stdin JSON fixture → HTTP call assertion |
 | `web-*` | `vitest` + testing-library; inject fake client into `web-io` factory |
 
 ### CI gates (final)
@@ -492,7 +492,7 @@ exists inside hook-plugin.
 
 ### End-to-end acceptance (Phase 9)
 
-Boot server → hook-plugin sends synthetic ingest → web dashboard displays →
+Boot server → runtime-claude sends synthetic ingest → web dashboard displays →
 MCP query returns identical data. Three intentional rule violations confirmed
 to fail CI, then reverted.
 

@@ -6,7 +6,7 @@
  * whose kind/toolName/activityType combination carries a canonical subtype in
  * the shared event-semantic contract (`@monitor/domain`).
  *
- * Ported from the hook-plugin's `hooks/classification/*` modules so that this
+ * Ported from the runtime-claude adapter's former `hooks/classification/*` modules so that this
  * logic runs server-side at ingest time instead of client-side in the plugin.
  * The plugin still sends these fields during phase 6b; phase 6c strips the
  * plugin pipeline and the server becomes authoritative.

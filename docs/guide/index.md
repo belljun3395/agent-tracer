@@ -6,7 +6,7 @@ the code is organised instead of how to install it, go to the
 
 ## Quick start (Claude Code plugin)
 
-Agent Tracer is distributed as a Claude Code **plugin** (`.claude/plugin/`).
+Agent Tracer is distributed as a Claude Code **plugin** (`packages/runtime-claude/`).
 The plugin automatically registers all hook events and posts them to the
 monitor server. You do not need to copy hook source files or perform manual
 configuration.
@@ -30,7 +30,7 @@ an additional step:
 
 > **Note:** When running Claude Code inside the Agent Tracer repository itself,
 > `setup:external` is not needed. You can start with
-> `claude --plugin-dir .claude/plugin` directly.
+> `claude --plugin-dir packages/runtime-claude` directly.
 
 ### Other runtimes (manual HTTP/MCP)
 

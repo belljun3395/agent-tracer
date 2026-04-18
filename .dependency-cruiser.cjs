@@ -38,11 +38,11 @@ module.exports = {
       to:   { path: "^packages/(?!(domain|classification|application)/)" },
     },
     {
-      name: "hook-plugin-wire-only",
+      name: "runtime-claude-wire-only",
       severity: "error",
-      comment: "hook-plugin may only depend on @monitor/domain (wire schemas). Intra-package imports (within packages/hook-plugin) are allowed.",
-      from: { path: "^packages/hook-plugin/" },
-      to:   { path: "^packages/(?!(domain|hook-plugin)/)" },
+      comment: "runtime-claude may only depend on @monitor/domain (wire schemas). Intra-package imports (within packages/runtime-claude) are allowed.",
+      from: { path: "^packages/runtime-claude/" },
+      to:   { path: "^packages/(?!(domain|runtime-claude)/)" },
     },
     {
       name: "adapter-mcp-inner-ring",

@@ -11,19 +11,19 @@ interface RequestCall {
     readonly body: Record<string, unknown>;
 }
 const tsxCli = fileURLToPath(new URL("../../../node_modules/tsx/dist/cli.mjs", import.meta.url));
-const userPromptHook = fileURLToPath(new URL("../../../.claude/plugin/hooks/UserPromptSubmit.ts", import.meta.url));
-const sessionStartHook = fileURLToPath(new URL("../../../.claude/plugin/hooks/SessionStart.ts", import.meta.url));
-const sessionEndHook = fileURLToPath(new URL("../../../.claude/plugin/hooks/SessionEnd.ts", import.meta.url));
-const agentActivityHook = fileURLToPath(new URL("../../../.claude/plugin/hooks/PostToolUse/Agent.ts", import.meta.url));
-const fileToolHook = fileURLToPath(new URL("../../../.claude/plugin/hooks/PostToolUse/File.ts", import.meta.url));
-const compactHook = fileURLToPath(new URL("../../../.claude/plugin/hooks/PostCompact.ts", import.meta.url));
-const subagentLifecycleHook = fileURLToPath(new URL("../../../.claude/plugin/hooks/SubagentStart.ts", import.meta.url));
-const subagentStopHook = fileURLToPath(new URL("../../../.claude/plugin/hooks/SubagentStop.ts", import.meta.url));
-const todoHook = fileURLToPath(new URL("../../../.claude/plugin/hooks/PostToolUse/Todo.ts", import.meta.url));
-const toolUsedHook = fileURLToPath(new URL("../../../.claude/plugin/hooks/PostToolUseFailure.ts", import.meta.url));
-const mcpHook = fileURLToPath(new URL("../../../.claude/plugin/hooks/PostToolUse/Mcp.ts", import.meta.url));
-const terminalHook = fileURLToPath(new URL("../../../.claude/plugin/hooks/PostToolUse/Bash.ts", import.meta.url));
-const stopHook = fileURLToPath(new URL("../../../.claude/plugin/hooks/Stop.ts", import.meta.url));
+const userPromptHook = fileURLToPath(new URL("../../../packages/runtime-claude/hooks/UserPromptSubmit.ts", import.meta.url));
+const sessionStartHook = fileURLToPath(new URL("../../../packages/runtime-claude/hooks/SessionStart.ts", import.meta.url));
+const sessionEndHook = fileURLToPath(new URL("../../../packages/runtime-claude/hooks/SessionEnd.ts", import.meta.url));
+const agentActivityHook = fileURLToPath(new URL("../../../packages/runtime-claude/hooks/PostToolUse/Agent.ts", import.meta.url));
+const fileToolHook = fileURLToPath(new URL("../../../packages/runtime-claude/hooks/PostToolUse/File.ts", import.meta.url));
+const compactHook = fileURLToPath(new URL("../../../packages/runtime-claude/hooks/PostCompact.ts", import.meta.url));
+const subagentLifecycleHook = fileURLToPath(new URL("../../../packages/runtime-claude/hooks/SubagentStart.ts", import.meta.url));
+const subagentStopHook = fileURLToPath(new URL("../../../packages/runtime-claude/hooks/SubagentStop.ts", import.meta.url));
+const todoHook = fileURLToPath(new URL("../../../packages/runtime-claude/hooks/PostToolUse/Todo.ts", import.meta.url));
+const toolUsedHook = fileURLToPath(new URL("../../../packages/runtime-claude/hooks/PostToolUseFailure.ts", import.meta.url));
+const mcpHook = fileURLToPath(new URL("../../../packages/runtime-claude/hooks/PostToolUse/Mcp.ts", import.meta.url));
+const terminalHook = fileURLToPath(new URL("../../../packages/runtime-claude/hooks/PostToolUse/Bash.ts", import.meta.url));
+const stopHook = fileURLToPath(new URL("../../../packages/runtime-claude/hooks/Stop.ts", import.meta.url));
 async function startMonitorStub() {
     const calls: RequestCall[] = [];
     const childRuntimeSessionId = "deadbeef-1234";
@@ -226,7 +226,7 @@ async function runClaudeHook(scriptPath: string, payload: Record<string, unknown
     expect(stdout).toBe("");
     expect(stderr).toBe("");
 }
-describe("Claude plugin", () => {
+describe("Runtime Claude", () => {
     const servers: Array<{
         close: () => Promise<void>;
     }> = [];
