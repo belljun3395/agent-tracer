@@ -15,11 +15,22 @@ export interface OtlpApiRequestRecord {
 function readAttr(attrs: OtlpKeyValue[], key: string): string | number | boolean | undefined {
     const found = attrs.find(a => a.key === key);
     if (!found) return undefined;
-    const v = found.value;
-    if ("stringValue" in v) return v.stringValue;
-    if ("intValue" in v) return typeof v.intValue === "string" ? parseInt(v.intValue, 10) : v.intValue;
-    if ("doubleValue" in v) return v.doubleValue;
-    if ("boolValue" in v) return v.boolValue;
+    const v: unknown = found.value;
+    if (typeof v !== "object" || v === null) return undefined;
+    if ("stringValue" in v && typeof (v as { stringValue: unknown }).stringValue === "string") {
+        return (v as { stringValue: string }).stringValue;
+    }
+    if ("intValue" in v) {
+        const iv = (v as { intValue: unknown }).intValue;
+        if (typeof iv === "string") return parseInt(iv, 10);
+        if (typeof iv === "number") return iv;
+    }
+    if ("doubleValue" in v && typeof (v as { doubleValue: unknown }).doubleValue === "number") {
+        return (v as { doubleValue: number }).doubleValue;
+    }
+    if ("boolValue" in v && typeof (v as { boolValue: unknown }).boolValue === "boolean") {
+        return (v as { boolValue: boolean }).boolValue;
+    }
     return undefined;
 }
 

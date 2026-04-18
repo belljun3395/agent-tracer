@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { extractApiRequestRecords } from "../src/otlp-mapper.js";
+import type { OtlpApiRequestRecord } from "../src/otlp-mapper.js";
 import type { OtlpLogsRequest } from "../src/schemas.otlp.js";
 
 const validRequest: OtlpLogsRequest = {
@@ -63,7 +64,7 @@ describe("extractApiRequestRecords", () => {
 
     it("skips non-api_request records", () => {
         const records = extractApiRequestRecords(validRequest);
-        expect(records.every(r => r.inputTokens !== undefined)).toBe(true);
+        expect(records.every((r: OtlpApiRequestRecord) => r.inputTokens !== undefined)).toBe(true);
     });
 
     it("returns empty array for empty resourceLogs", () => {
