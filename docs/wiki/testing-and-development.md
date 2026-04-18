@@ -16,8 +16,8 @@ npm run dev
 
 - `@monitor/core`: `npm run test --workspace @monitor/core`
 - `@monitor/server`: `npm run test --workspace @monitor/server`
-- `@monitor/mcp`: `npm run test --workspace @monitor/mcp`
-- `@monitor/web`: `npm run test --workspace @monitor/web`
+- `@monitor/adapter-mcp`: `npm run test --workspace @monitor/adapter-mcp`
+- `@monitor/web-app`: `npm run test --workspace @monitor/web-app`
 
 ## Common Development Loops
 

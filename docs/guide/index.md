@@ -54,7 +54,7 @@ model in more detail.
 - [Task observability](./task-observability.md) — `Flow` and `Health`
   read model used by the dashboard
 - [Web styling guide](./web-styling.md) — CSS / Tailwind conventions
-  used by `@monitor/web`
+  used by `@monitor/web-app`
 
 ## Related
 

@@ -6,11 +6,11 @@ but rather a "dashboard read model coordinator".
 
 ## Core Files
 
-- `packages/web/src/store/useMonitorStore.tsx`
-- `packages/web/src/components/TaskList.tsx`
-- `packages/web/src/components/TopBar.tsx`
-- `packages/web/src/store/useSearch.ts`
-- `packages/web/src/store/useWebSocket.ts`
+- `packages/web-app/src/store/useMonitorStore.tsx`
+- `packages/web-app/src/components/TaskList.tsx`
+- `packages/web-app/src/components/TopBar.tsx`
+- `packages/web-app/src/store/useSearch.ts`
+- `packages/web-app/src/store/useWebSocket.ts`
 
 ## What `useMonitorStore` Holds
 

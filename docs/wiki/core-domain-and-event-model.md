@@ -100,7 +100,7 @@ but part of product-level functionality, so they are located in `core`.
 
 ## Checklist When Changing
 
-- Verify that the web doesn't confuse the boundary between core types re-exported in `packages/web/src/types.ts` and web-only view-models
+- Verify that the web doesn't confuse the boundary between core types re-exported in `packages/web-app/src/types.ts` and web-only view-models
 - Verify that MCP input schema and server request schema don't contradict the core contract
 - Verify that slug generation rules are sufficient for non-ASCII titles
 - Verify that path normalization absorbs differences between external runtimes and operating systems

@@ -1,4 +1,4 @@
-import { TaskId } from "@monitor/core";
+import { TaskId } from "@monitor/domain";
 import { MonitorSocket, parseRealtimeMessage, type MonitorRealtimeMessage } from "@monitor/web-io";
 import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";

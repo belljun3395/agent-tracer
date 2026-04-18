@@ -1,4 +1,4 @@
-import { EventId, GoalId, HandoffId, PlanId, WorkItemId } from "@monitor/core";
+import { EventId, GoalId, HandoffId, PlanId, WorkItemId } from "@monitor/domain";
 import type { TimelineEvent, TimelineLane, TimelineRelation } from "../types.js";
 import { resolveEventSubtype, type TimelineLaneRow } from "./eventSubtype.js";
 export interface TimelineItemLayout {

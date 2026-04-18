@@ -5,8 +5,8 @@ The most important goal of this layer is "to ensure that monitoring failures do 
 
 ## Core Files
 
-- `packages/mcp/src/client.ts`
-- `packages/mcp/src/result.ts`
+- `packages/adapter-mcp/src/client.ts`
+- `packages/adapter-mcp/src/result.ts`
 
 ## Current Role
 

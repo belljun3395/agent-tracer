@@ -10,11 +10,11 @@ server, MCP, and web can evolve in lockstep.
 
 ```mermaid
 flowchart LR
-  A["AI runtime / plugin / manual client"] --> B["@monitor/mcp or direct HTTP calls"]
+  A["AI runtime / plugin / manual client"] --> B["@monitor/adapter-mcp or direct HTTP calls"]
   B --> C["@monitor/server"]
   C --> D["SQLite"]
   C --> E["WebSocket broadcaster"]
-  E --> F["@monitor/web dashboard"]
+  E --> F["@monitor/web-app dashboard"]
   C --> G["Workflow library / evaluations"]
   H["@monitor/core"] --> B
   H --> C
@@ -63,22 +63,22 @@ real-time notifications. Responsible for:
   `packages/server/src/bootstrap/create-nestjs-monitor-runtime.ts`,
   `packages/server/src/application/monitor-service.ts`
 
-### `@monitor/mcp`
+### `@monitor/adapter-mcp`
 
 Wraps the monitor server's HTTP API as a 24-tool MCP surface so agent
 runtimes can call it directly when there is no auto-tracing plugin.
 
-- Entry points: `packages/mcp/src/index.ts`, `packages/mcp/src/client.ts`
+- Entry points: `packages/adapter-mcp/src/index.ts`, `packages/adapter-mcp/src/client.ts`
 
-### `@monitor/web`
+### `@monitor/web-app`
 
 React 19 dashboard. Renders the task list, timeline, event inspector,
 and workflow library in one view. Uses WebSocket hints plus REST read
 models to refresh state.
 
-- Entry points: `packages/web/src/App.tsx`,
-  `packages/web/src/store/useMonitorStore.tsx`,
-  `packages/web/src/lib/eventSubtype.ts`
+- Entry points: `packages/web-app/src/App.tsx`,
+  `packages/web-app/src/store/useMonitorStore.tsx`,
+  `packages/web-app/src/lib/eventSubtype.ts`
 
 ## End-to-end flow
 
@@ -123,9 +123,9 @@ solve something like this last time".
 - `packages/server/src/application/monitor-service.ts`
 - `packages/core/src/domain/index.ts`
 - `packages/core/src/interop/event-semantic.ts`
-- `packages/mcp/src/index.ts`
-- `packages/web/src/App.tsx`
-- `packages/web/src/store/useMonitorStore.tsx`
+- `packages/adapter-mcp/src/index.ts`
+- `packages/web-app/src/App.tsx`
+- `packages/web-app/src/store/useMonitorStore.tsx`
 
 ## Next
 

@@ -91,7 +91,7 @@ References:
 
 ## 6. Common pitfalls
 
-- **Stale `npm run build`** — after modifying `packages/mcp` or the
+- **Stale `npm run build`** — after modifying `packages/adapter-mcp` or the
   plugin, rebuild before launching Claude.
 - **Missing `node` on GUI PATH** — when launching Claude Code from a
   macOS launcher, use the absolute node binary path in `claude mcp add`.

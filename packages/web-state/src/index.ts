@@ -5,7 +5,7 @@
 // state via Zustand slices, (3) WebSocket → query invalidation plumbing.
 //
 // Depends on web-io for browser-boundary adapters and on web-domain for
-// pure domain logic. May import React. Must not import from @monitor/web.
+// pure domain logic. May import React. Must not import from @monitor/web-app.
 
 export { createMonitorQueryClient } from "./query/client.js";
 export { QueryProvider } from "./query/QueryProvider.js";
@@ -24,11 +24,31 @@ export { useTaskObservability } from "./server/observability.js";
 export { useMonitorSocket } from "./realtime/useMonitorSocket.js";
 export type { UseMonitorSocketOptions } from "./realtime/useMonitorSocket.js";
 
-// Ephemeral UI stores (Zustand)
-export { useSelectionStore } from "./ui/useSelectionStore.js";
-export type { SelectionState } from "./ui/useSelectionStore.js";
-export { useEditStore } from "./ui/useEditStore.js";
-export type { EditState } from "./ui/useEditStore.js";
+// Ephemeral UI stores (Zustand, factory + React context)
+export {
+    UiStoreProvider,
+    useSelectionStore,
+    useSelectionStoreApi,
+    useEditStore,
+    useEditStoreApi
+} from "./ui/UiStoreProvider.js";
+export type { UiStoreProviderProps } from "./ui/UiStoreProvider.js";
+export {
+    createUiStore,
+    createSelectionStore,
+    createEditStore
+} from "./ui/createUiStore.js";
+export type {
+    SelectionState,
+    SelectionActions,
+    SelectionStoreState,
+    SelectionStore,
+    EditState,
+    EditActions,
+    EditStoreState,
+    EditStore,
+    UiStoreBundle
+} from "./ui/createUiStore.js";
 export { useNowMs } from "./ui/useNowMs.js";
 
 export * from "./useEvaluation.js";

@@ -10,8 +10,8 @@ It has typical ports-and-adapters characteristics, but its actual operation is c
 | --- | --- | --- |
 | `@monitor/core` | Domain types, event classifier, runtime capability registry | `src/domain.ts` (barrel), `src/domain/*`, `src/classifier.ts`, `src/runtime-capabilities.ts` (barrel) |
 | `@monitor/server` | NestJS server runtime, application service, SQLite repository, WebSocket broadcaster | `src/index.ts`, `src/bootstrap/create-nestjs-monitor-runtime.ts`, `src/application/monitor-service.ts` |
-| `@monitor/mcp` | Expose server API as MCP tool set | `src/index.ts`, `src/client.ts` |
-| `@monitor/web` | Dashboard UI, overview/task detail fetch, realtime refresh | `src/App.tsx`, `src/store/useMonitorStore.tsx`, `src/components/Timeline.tsx` |
+| `@monitor/adapter-mcp` | Expose server API as MCP tool set | `src/index.ts`, `src/client.ts` |
+| `@monitor/web-app` | Dashboard UI, overview/task detail fetch, realtime refresh | `src/App.tsx`, `src/store/useMonitorStore.tsx`, `src/components/Timeline.tsx` |
 
 ## Dependency Direction
 
@@ -20,14 +20,14 @@ Code dependencies generally follow the direction below:
 ```text
 @monitor/core
   ├─> @monitor/server
-  ├─> @monitor/mcp
-  └─> @monitor/web
+  ├─> @monitor/adapter-mcp
+  └─> @monitor/web-app
 
-@monitor/server <----HTTP/WebSocket----> @monitor/web
-@monitor/mcp ----HTTP-------------------> @monitor/server
+@monitor/server <----HTTP/WebSocket----> @monitor/web-app
+@monitor/adapter-mcp ----HTTP-------------------> @monitor/server
 ```
 
-The important point is that `server` does not import the `web` package.
+The important point is that `server` does not import the `web-app` package.
 The two packages are connected only via runtime communication, and `core` provides the shared type semantics.
 
 ## Composition Root
@@ -42,12 +42,12 @@ the current default composition root that bundles NestJS `AppModule`, WebSocket 
 
 ### MCP Entry Point
 
-`packages/mcp/src/index.ts` registers 24 monitoring tools and
+`packages/adapter-mcp/src/index.ts` registers 24 monitoring tools and
 maps each tool to a monitor server HTTP endpoint.
 
 ### Web Entry Point
 
-`packages/web/src/main.tsx` and `packages/web/src/App.tsx` are the presentation composition root.
+`packages/web-app/src/main.tsx` and `packages/web-app/src/App.tsx` are the presentation composition root.
 State management is handled by `useMonitorStore`, and realtime synchronization by `useWebSocket` and `lib/realtime.ts`.
 
 ## Responsibility Separation Between Packages

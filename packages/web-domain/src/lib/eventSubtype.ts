@@ -1,5 +1,5 @@
-import type { EventSubtypeKey } from "@monitor/core";
-import { isKnownEventSubtypeKey } from "@monitor/core";
+import type { EventSubtypeKey } from "@monitor/domain";
+import { isKnownEventSubtypeKey } from "@monitor/domain";
 import type { TimelineEvent, TimelineLane } from "../types.js";
 export type ExpandableTimelineLane = "exploration" | "implementation" | "coordination";
 export interface EventSubtype {

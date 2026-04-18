@@ -1,15 +1,15 @@
 # MCP Server
 
-`@monitor/mcp` transforms the monitor server's HTTP API into an agent-friendly MCP tool surface.
+`@monitor/adapter-mcp` is the driving adapter that transforms the monitor server's HTTP API into an agent-friendly MCP tool surface.
 It can be used as a supplementary method for automatic collection paths like Claude plugins,
 and in manual client environments, it serves as a core adapter.
 
 ## Core Files
 
-- `packages/mcp/src/index.ts`
-- `packages/mcp/src/client.ts`
-- `packages/mcp/src/result.ts`
-- `packages/mcp/test/client.test.ts`
+- `packages/adapter-mcp/src/index.ts`
+- `packages/adapter-mcp/src/client.ts`
+- `packages/adapter-mcp/src/result.ts`
+- `packages/adapter-mcp/test/client.test.ts`
 
 ## Current Number of Tools
 
@@ -19,7 +19,7 @@ These tools are divided into lifecycle, event logging, semantic flow, and workfl
 ## How It Works
 
 1. MCP client invokes a tool.
-2. The handler in `packages/mcp/src/index.ts` validates input schema.
+2. The handler in `packages/adapter-mcp/src/index.ts` validates input schema.
 3. `MonitorClient` sends an HTTP request to the corresponding `/api/*` endpoint.
 4. The result is wrapped in MCP response format via `toToolResponse()`.
 

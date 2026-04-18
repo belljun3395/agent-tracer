@@ -13,10 +13,10 @@ and leaving those results in a re-searchable form.
 - `packages/server/src/application/ports/evaluation-repository.ts`
 - `packages/server/src/infrastructure/sqlite/sqlite-evaluation-repository.ts`
 - `packages/server/src/presentation/controllers/evaluation.controller.ts`
-- `packages/web/src/api.ts`
-- `packages/web/src/components/TaskEvaluatePanel.tsx`
-- `packages/web/src/components/workflowPreview.ts`
-- `packages/web/src/components/WorkflowLibraryPanel.tsx`
+- `packages/web-app/src/api.ts`
+- `packages/web-app/src/components/TaskEvaluatePanel.tsx`
+- `packages/web-app/src/components/workflowPreview.ts`
+- `packages/web-app/src/components/WorkflowLibraryPanel.tsx`
 
 ## Data Model
 

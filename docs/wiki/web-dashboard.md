@@ -1,24 +1,24 @@
 # Web Dashboard
 
-`@monitor/web` is Agent Tracer's read experience — a React 19 dashboard
+`@monitor/web-app` is Agent Tracer's read experience — a React 19 dashboard
 that renders the task list, timeline, event inspector, and workflow
 library in a single view. It combines WebSocket hints with REST read
 models to keep the UI in sync.
 
 ## Key files
 
-- `packages/web/src/App.tsx` — root composition, layout, search, panel state
-- `packages/web/src/store/useMonitorStore.tsx` — reducer + fetch orchestration
-- `packages/web/src/store/useWebSocket.ts` — socket reconnect + debounce
-- `packages/web/src/store/useSearch.ts` — search state
-- `packages/web/src/components/TaskList.tsx`
-- `packages/web/src/components/Timeline.tsx`
-- `packages/web/src/components/EventInspector.tsx`
-- `packages/web/src/components/WorkflowLibraryPanel.tsx`
-- `packages/web/src/components/TopBar.tsx`
-- `packages/web/src/lib/insights.ts` — timeline-derived computations
-- `packages/web/src/lib/timeline.ts` — layout + connector math
-- `packages/web/src/lib/eventSubtype.ts` — semantic metadata consumer
+- `packages/web-app/src/App.tsx` — root composition, layout, search, panel state
+- `packages/web-app/src/store/useMonitorStore.tsx` — reducer + fetch orchestration
+- `packages/web-app/src/store/useWebSocket.ts` — socket reconnect + debounce
+- `packages/web-app/src/store/useSearch.ts` — search state
+- `packages/web-app/src/components/TaskList.tsx`
+- `packages/web-app/src/components/Timeline.tsx`
+- `packages/web-app/src/components/EventInspector.tsx`
+- `packages/web-app/src/components/WorkflowLibraryPanel.tsx`
+- `packages/web-app/src/components/TopBar.tsx`
+- `packages/web-app/src/lib/insights.ts` — timeline-derived computations
+- `packages/web-app/src/lib/timeline.ts` — layout + connector math
+- `packages/web-app/src/lib/eventSubtype.ts` — semantic metadata consumer
 
 ## Layout
 
@@ -91,7 +91,7 @@ from the TopBar and reads `/api/workflows` directly.
 
 ### Types converge in `@monitor/core`
 
-`packages/web/src/types.ts` re-exports `MonitoringTask`, `TimelineEvent`,
+`packages/web-app/src/types.ts` re-exports `MonitoringTask`, `TimelineEvent`,
 `TaskEvaluation`, and `WorkflowSummary` from `@monitor/core`. Web-only
 view models still exist (search hits, UI-specific shapes) but the
 core contract is shared.
@@ -164,13 +164,13 @@ visual changes would reduce edit scope.
 
 ## Reading order
 
-1. `packages/web/src/App.tsx`
-2. `packages/web/src/store/useMonitorStore.tsx`
-3. `packages/web/src/components/Timeline.tsx`
-4. `packages/web/src/components/EventInspector.tsx`
-5. `packages/web/src/lib/insights.ts`
-6. `packages/web/src/lib/timeline.ts`
-7. `packages/web/src/lib/eventSubtype.ts`
+1. `packages/web-app/src/App.tsx`
+2. `packages/web-app/src/store/useMonitorStore.tsx`
+3. `packages/web-app/src/components/Timeline.tsx`
+4. `packages/web-app/src/components/EventInspector.tsx`
+5. `packages/web-app/src/lib/insights.ts`
+6. `packages/web-app/src/lib/timeline.ts`
+7. `packages/web-app/src/lib/eventSubtype.ts`
 
 ## Related
 

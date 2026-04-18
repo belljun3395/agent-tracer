@@ -1,4 +1,4 @@
-import type { ReusableTaskSnapshot } from "@monitor/core";
+import type { ReusableTaskSnapshot } from "@monitor/domain";
 import {
     KO_EVALUATE_CALL_NOW,
     KO_EVALUATE_FIELD_APPROACH_NOTE,

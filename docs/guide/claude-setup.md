@@ -66,7 +66,7 @@ added separately so Claude can call MCP tools (`monitor_plan`,
 ```bash
 claude mcp add monitor \
   -e MONITOR_BASE_URL=http://127.0.0.1:3847 \
-  node /absolute/path/to/agent-tracer/packages/mcp/dist/index.js
+  node /absolute/path/to/agent-tracer/packages/adapter-mcp/dist/index.js
 ```
 
 If Claude is launched from a GUI and `node` is not on the GUI PATH, use an
@@ -105,23 +105,29 @@ hook event name.
 ### `PostToolUse/` — per-tool subhandlers
 
 `PostToolUse` is routed to one of six sub-handlers via the matchers in
-`hooks.json`:
+`hooks.json`. All sub-handlers post to `POST /ingest/v1/events` with a
+`kind`-tagged envelope; lane, subtype, toolFamily, and operation are
+derived **server-side** by `@monitor/classification` at ingestion
+(v0.2.0+).
 
-| Matcher | File | Records |
-|---------|------|---------|
-| `Bash` | `PostToolUse/Bash.ts` | `/api/terminal-command` |
-| `Edit\|Write` | `PostToolUse/File.ts` | `/api/tool-used` with file semantic metadata |
-| `Read\|Glob\|Grep\|WebSearch\|WebFetch` | `PostToolUse/Explore.ts` | `/api/explore` with file/web semantic metadata |
-| `Agent\|Skill` | `PostToolUse/Agent.ts` | `/api/agent-activity` |
-| `TaskCreate\|TaskUpdate\|TodoWrite` | `PostToolUse/Todo.ts` | `/api/todo` |
-| `mcp__.*` | `PostToolUse/Mcp.ts` | `/api/tool-used` with MCP metadata |
+| Matcher | File | `kind` |
+|---------|------|--------|
+| `Bash` | `PostToolUse/Bash.ts` | `terminal.command` |
+| `Edit\|Write` | `PostToolUse/File.ts` | `tool.used` |
+| `Read\|Glob\|Grep\|WebSearch\|WebFetch` | `PostToolUse/Explore.ts` | `tool.used` |
+| `Agent\|Skill` | `PostToolUse/Agent.ts` | `agent.activity.logged` |
+| `TaskCreate\|TaskUpdate\|TodoWrite` | `PostToolUse/Todo.ts` | `todo.logged` (batch) |
+| `mcp__.*` | `PostToolUse/Mcp.ts` | `agent.activity.logged` |
 
 ### Supporting modules
 
-- `classification/` — pure-function semantic inference (`command-semantic`, `explore-semantic`, `file-semantic`)
-- `lib/` — shared utilities (`transport`, `session-cache`, `session-history`, `session-metadata`, `subagent-registry`, `hook-log`)
-- `common.ts` — re-exports the above for hook scripts
-- `util/` — framework-agnostic helpers (`lane`, `paths`, `runtime-identifier`, `utils`)
+- `lib/` — shared utilities (`transport`, `session`, `subagent-session`, `transcript-cursor`, `transcript-tail`, `transcript-emit`, `json-file-store`, `hook-log`)
+- `util/` — framework-agnostic helpers (`lane`, `paths`, `utils`)
+
+> Pre-v0.2.0 the plugin also maintained `lib/session-cache.ts`,
+> `lib/session-history.ts`, `lib/session-metadata.ts`, and a
+> `classification/` directory. All were removed in Phase 6 — the server
+> owns session state (idempotent ensure) and semantic classification.
 
 ### Session vs. task lifecycle
 
@@ -129,7 +135,7 @@ hook event name.
 |-------|------|--------|
 | Session cleared / resumed / first prompt | `SessionStart.ts` + `UserPromptSubmit.ts` | Ensure runtime session, record raw user prompt |
 | First tool use | `PreToolUse.ts` | Reuses the ensured runtime session |
-| Tool success | `PostToolUse/*.ts` | Capture per-tool activity with semantic metadata |
+| Tool success | `PostToolUse/*.ts` | Capture per-tool activity as raw payload (server classifies) |
 | Tool failure | `PostToolUseFailure.ts` | Record the failed tool call |
 | Subagent lifecycle | `SubagentStart.ts`, `SubagentStop.ts` | Record background running / completed markers |
 | Pre/Post compact | `PreCompact.ts`, `PostCompact.ts` | Record compaction checkpoint and compact summary |

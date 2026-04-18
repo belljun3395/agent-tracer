@@ -4,9 +4,9 @@ import type express from "express";
 import { NestFactory } from "@nestjs/core";
 import { WebSocketServer } from "ws";
 import { AppModule } from "../presentation/app.module.js";
-import { EventBroadcaster } from "../presentation/ws/event-broadcaster.js";
+import { EventBroadcaster } from "@monitor/adapter-ws";
 import { GlobalExceptionFilter } from "../presentation/filters/zod-exception.filter.js";
-import { MonitorServiceProvider } from "../presentation/service/monitor-service.provider.js";
+import { MonitorService } from "@monitor/application";
 import { MONITOR_PORTS_TOKEN, type PortsWithClose } from "../presentation/database/database.provider.js";
 import type { RuntimeOptions, MonitorRuntime } from "./runtime.types.js";
 export async function createNestMonitorRuntime(options: RuntimeOptions): Promise<MonitorRuntime> {
@@ -26,7 +26,7 @@ export async function createNestMonitorRuntime(options: RuntimeOptions): Promise
         }
         socket.destroy();
     });
-    const service = nestApp.get(MonitorServiceProvider);
+    const service = nestApp.get(MonitorService);
     wss.on("connection", (ws) => {
         broadcaster.addClient(ws);
         ws.on("close", () => broadcaster.removeClient(ws));

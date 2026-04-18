@@ -1,4 +1,4 @@
-import type { BookmarkId, EvidenceLevel, EventClassification, EventClassificationMatch, EventClassificationReason, EventId, GoalId, HandoffId, MonitoringEventKind, MonitoringTask, PlanId, RuleId, RuntimeCoverageItem, RuntimeSessionId, RuntimeSource, TaskEvaluation, TaskId, TimelineEvent, TimelineLane, WorkItemId, WorkflowSummary } from "@monitor/core";
+import type { BookmarkId, EventClassification, EventClassificationMatch, EventClassificationReason, EventId, EvidenceLevel, GoalId, HandoffId, MonitoringEventKind, MonitoringTask, PlanId, RuleId, RuntimeCoverageItem, RuntimeSessionId, RuntimeSource, TaskEvaluation, TaskId, TimelineEvent, TimelineLane, WorkItemId, WorkflowSummary } from "@monitor/domain";
 export type { EvidenceLevel, EventClassification, EventClassificationMatch, EventClassificationReason, MonitoringTask, RuntimeCoverageItem, TaskEvaluation, TimelineEvent, TimelineLane, WorkflowSummary };
 export interface TimelineRelation {
     readonly sourceEventId: EventId;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildLaneSections, buildPlanSection, EventId, TaskId, type TimelineEvent } from "@monitor/core";
+import { buildLaneSections, buildPlanSection, EventId, TaskId, type TimelineEvent } from "@monitor/domain";
 
 type EventOverrides = Omit<Partial<TimelineEvent>, "id" | "taskId"> & {
     id?: string;

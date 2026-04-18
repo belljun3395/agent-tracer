@@ -17,7 +17,7 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "@monitor/core": "*",
+    "@monitor/domain": "*",
     "@monitor/web-domain": "*",
     "@monitor/web-io": "*",
     "@tanstack/react-query": "^5.0.0",

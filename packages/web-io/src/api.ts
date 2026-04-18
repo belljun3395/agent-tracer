@@ -13,7 +13,7 @@ import type {
     TaskId,
     WorkflowSearchResult,
     WorkflowSummary
-} from "@monitor/core";
+} from "@monitor/domain";
 import type {
     BookmarksResponse,
     BookmarkRecord,

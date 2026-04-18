@@ -1,4 +1,4 @@
-import type { TaskId } from "@monitor/core";
+import type { TaskId } from "@monitor/domain";
 import type {
     BookmarksResponse,
     OverviewResponse,
