@@ -65,8 +65,8 @@ export class MonitorService {
         runtimeSessionId: string,
     ): Promise<{ taskId: string; sessionId: string } | null> {
         const binding = await this.ports.runtimeBindings.find(
-            runtimeSource as import("@monitor/domain").RuntimeSource,
-            runtimeSessionId as import("@monitor/domain").RuntimeSessionId,
+            runtimeSource as RuntimeSource,
+            runtimeSessionId as RuntimeSessionId,
         );
         if (!binding) return null;
         return { taskId: String(binding.taskId), sessionId: String(binding.monitorSessionId) };
