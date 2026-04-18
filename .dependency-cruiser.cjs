@@ -53,8 +53,8 @@ module.exports = {
     },
     {
       name: "web-isolated",
-      severity: "warn",
-      comment: "web-* must not import server, adapters, or application.",
+      severity: "error",
+      comment: "web-* must not import server, adapters, or application. Promoted to error in Phase 8c.",
       from: { path: "^packages/web-" },
       to:   { path: "^packages/(application|adapter-|server)/" },
     },
