@@ -6,7 +6,7 @@ const RETRY_DELAYS_MS: readonly [
     number,
     number
 ] = [200, 400, 800];
-export class McpClientError extends Error {
+class McpClientError extends Error {
     readonly code: "TIMEOUT" | "NETWORK" | "HTTP";
     readonly statusCode?: number;
     constructor(code: "TIMEOUT" | "NETWORK" | "HTTP", message: string, statusCode?: number) {

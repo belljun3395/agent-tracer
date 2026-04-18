@@ -1,25 +1,7 @@
 import type React from "react";
 import { cn } from "../../lib/ui/cn.js";
-import { formatCount, formatDuration, formatPhaseLabel, formatRate, type TaskObservabilityResponse } from "@monitor/web-domain";
+import { formatDuration, formatPhaseLabel, formatRate } from "@monitor/web-domain";
 import { Badge } from "../ui/Badge.js";
-export function formatTraceLinkCoverageNote(observability: TaskObservabilityResponse["observability"]): string {
-    if (observability.traceLinkEligibleEventCount === 0) {
-        return "no link-eligible events";
-    }
-    return `${formatCount(observability.traceLinkedEventCount)}/${formatCount(observability.traceLinkEligibleEventCount)} eligible events linked`;
-}
-export function formatTraceLinkHealthNote(observability: TaskObservabilityResponse["observability"]): string {
-    if (observability.traceLinkEligibleEventCount === 0) {
-        return "no eligible events to link";
-    }
-    return `${formatCount(observability.traceLinkedEventCount)}/${formatCount(observability.traceLinkEligibleEventCount)} eligible events linked`;
-}
-export function formatActionRegistryGapNote(observability: TaskObservabilityResponse["observability"]): string {
-    if (observability.actionRegistryEligibleEventCount === 0) {
-        return "no action events to classify";
-    }
-    return `${formatCount(observability.actionRegistryGapCount)}/${formatCount(observability.actionRegistryEligibleEventCount)} action events without registry matches`;
-}
 export function ObservabilityMetricGrid({ items }: {
     readonly items: ReadonlyArray<{
         readonly label: string;

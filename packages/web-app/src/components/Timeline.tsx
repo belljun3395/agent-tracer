@@ -29,7 +29,6 @@ import { TimelineStackPopover } from "../features/timeline/TimelineStackPopover.
 import { TimelineTurnOverlay } from "../features/timeline/TimelineTurnOverlay.js";
 import { useNodeBounds } from "../features/timeline/useNodeBounds.js";
 import { useTimelineDrag } from "../features/timeline/useTimelineDrag.js";
-import { areNodeBoundsEqual, type NodeBounds } from "../features/timeline/utils.js";
 import {
     computeTimelineFollowScrollLeft,
     shouldResetTimelineFollowForTaskChange,
@@ -482,7 +481,3 @@ export function Timeline({
     );
 }
 
-export type { NodeBounds };
-export { areNodeBoundsEqual };
-export type { TimelineProps };
-export { shouldResetTimelineFollowForTaskChange, computeTimelineFollowScrollLeft };

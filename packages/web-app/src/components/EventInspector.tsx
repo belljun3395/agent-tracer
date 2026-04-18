@@ -27,7 +27,6 @@ const PANEL_TABS = [
     { id: "context", label: "Context" },
     { id: "actions", label: "Save" },
 ] as const;
-export const TASK_WORKSPACE_TAB_IDS: readonly PanelTabId[] = ["overview", "evidence", "context", "actions"];
 
 interface SelectedConnectorData {
     readonly connector: TimelineConnector;

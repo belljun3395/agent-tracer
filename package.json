@@ -27,12 +27,15 @@
     "start:mcp": "node packages/adapter-mcp/dist/index.js",
     "setup:external": "node scripts/setup-external.mjs"
   },
+  "dependencies": {
+    "yaml": "^2.0.0"
+  },
   "devDependencies": {
     "@eslint/js": "^9.0.0",
     "concurrently": "^9.0.0",
     "dependency-cruiser": "^16.10.4",
     "eslint": "^9.0.0",
-    "mermaid": "^11.13.0",
+    "globals": "^15.0.0",
     "tsx": "^4.0.0",
     "typescript": "^5.0.0",
     "typescript-eslint": "^8.0.0",

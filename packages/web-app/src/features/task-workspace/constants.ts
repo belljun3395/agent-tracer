@@ -1,6 +1,6 @@
 import type { PanelTabId } from "../../components/EventInspector.js";
 
-export const DEFAULT_WORKSPACE_TAB: PanelTabId = "overview";
+const DEFAULT_WORKSPACE_TAB: PanelTabId = "overview";
 export const WORKSPACE_INSPECTOR_MIN_WIDTH = 340;
 export const WORKSPACE_INSPECTOR_MAX_WIDTH = 680;
 export const WORKSPACE_INSPECTOR_DEFAULT_WIDTH = 360;

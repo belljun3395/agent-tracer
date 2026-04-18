@@ -9,7 +9,6 @@ export default defineConfig({
         "@monitor/domain",
         "@monitor/classification",
         "@monitor/application",
-        "better-sqlite3",
         "express",
         "ws",
         "zod",
@@ -18,7 +17,6 @@ export default defineConfig({
         "@nestjs/platform-express",
         "reflect-metadata",
         "class-transformer",
-        "class-validator",
-        "yaml"
+        "class-validator"
     ]
 });

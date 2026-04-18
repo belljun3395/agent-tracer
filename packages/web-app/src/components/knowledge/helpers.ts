@@ -82,14 +82,14 @@ export function createDraftFromPlaybook(playbook: PlaybookRecordResponse): Edito
     };
 }
 
-export function normalizeLines(value: string): string[] {
+function normalizeLines(value: string): string[] {
     return value
         .split(/\r?\n/)
         .map((item) => item.trim())
         .filter(Boolean);
 }
 
-export function normalizeTags(value: string): string[] {
+function normalizeTags(value: string): string[] {
     return value
         .split(",")
         .map((item) => item.trim())

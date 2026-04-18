@@ -424,7 +424,7 @@ export function runtimeFilterKey(source?: string): string {
     const slug = runtimeTagSlug(source);
     return slug === "other" ? `source:${source}` : slug;
 }
-export function runtimeFilterLabel(key: string): string {
+function runtimeFilterLabel(key: string): string {
     if (key === ALL_RUNTIME_FILTER_KEY)
         return "All";
     if (key === "claude")

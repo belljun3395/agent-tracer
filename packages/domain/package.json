@@ -16,9 +16,6 @@
     "lint:types": "tsc -p tsconfig.test.json --noEmit",
     "test": "vitest run --passWithNoTests"
   },
-  "dependencies": {
-    "zod": "^3.0.0"
-  },
   "devDependencies": {
     "@types/node": "^22.0.0",
     "vitest": "^3.0.0"

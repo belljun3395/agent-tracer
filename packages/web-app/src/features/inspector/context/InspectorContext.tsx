@@ -19,14 +19,13 @@ import type {
     TimelineEvent,
 } from "@monitor/web-domain";
 
-export interface InspectorSelectedConnector {
+interface InspectorSelectedConnector {
     readonly connector: TimelineConnector;
     readonly source: TimelineEvent;
     readonly target: TimelineEvent;
 }
 
-/** Domain state consumed by inspector tabs. All callers provide this via InspectorProvider. */
-export interface InspectorContextValue {
+interface InspectorContextValue {
     // Task data
     readonly taskDetail: TaskDetailResponse | null;
     readonly selectedTaskTitle: string | null;
@@ -62,13 +61,6 @@ export function InspectorProvider({
     return <InspectorContext.Provider value={value}>{children}</InspectorContext.Provider>;
 }
 
-export function useInspectorContext(): InspectorContextValue {
-    const ctx = useContext(InspectorContext);
-    if (!ctx) throw new Error("useInspectorContext must be used inside <InspectorProvider>");
-    return ctx;
-}
-
-/** Returns context if available, null otherwise. Use in EventInspector to support both patterns. */
 export function useOptionalInspectorContext(): InspectorContextValue | null {
     return useContext(InspectorContext);
 }
