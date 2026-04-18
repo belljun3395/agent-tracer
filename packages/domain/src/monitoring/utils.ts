@@ -51,6 +51,8 @@ export function defaultLaneForEventKind(kind: MonitoringEventKind): TimelineLane
             return "user";
         case "instructions.loaded":
             return "exploration";
+        case "token.usage":
+            return "background";
     }
 }
 

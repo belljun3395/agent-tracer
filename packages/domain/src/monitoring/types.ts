@@ -2,7 +2,7 @@ import type { EventClassification } from "../classification/types.js";
 import type { EventId, RuntimeSource, SessionId, TaskId, TaskSlug, WorkspacePath } from "./ids.js";
 
 export type TimelineLane = "user" | "exploration" | "planning" | "implementation" | "questions" | "todos" | "background" | "coordination";
-export type MonitoringEventKind = "task.start" | "task.complete" | "task.error" | "session.ended" | "plan.logged" | "action.logged" | "agent.activity.logged" | "verification.logged" | "rule.logged" | "tool.used" | "terminal.command" | "context.saved" | "file.changed" | "thought.logged" | "user.message" | "question.logged" | "todo.logged" | "assistant.response" | "instructions.loaded";
+export type MonitoringEventKind = "task.start" | "task.complete" | "task.error" | "session.ended" | "plan.logged" | "action.logged" | "agent.activity.logged" | "verification.logged" | "rule.logged" | "tool.used" | "terminal.command" | "context.saved" | "file.changed" | "thought.logged" | "user.message" | "question.logged" | "todo.logged" | "assistant.response" | "instructions.loaded" | "token.usage";
 export type MonitoringTaskKind = "primary" | "background";
 
 export interface MonitoringTaskInput {
