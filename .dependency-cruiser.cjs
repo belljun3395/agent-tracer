@@ -25,8 +25,8 @@ module.exports = {
     },
     {
       name: "application-no-adapter",
-      severity: "warn",
-      comment: "application layer must not import adapters.",
+      severity: "error",
+      comment: "application layer must not import adapters. Promoted to error in Phase 9a.",
       from: { path: "^packages/application/" },
       to:   { path: "^packages/adapter-" },
     },
@@ -60,8 +60,8 @@ module.exports = {
     },
     {
       name: "no-subpath-imports",
-      severity: "warn",
-      comment: "Import packages via their public barrel only.",
+      severity: "error",
+      comment: "Import packages via their public barrel only. Promoted to error in Phase 9a.",
       from: {},
       to:   { path: "@monitor/[^/]+/(src|dist)/" },
     },
