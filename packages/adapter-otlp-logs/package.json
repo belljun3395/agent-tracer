@@ -1,0 +1,35 @@
+{
+  "name": "@monitor/adapter-otlp-logs",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "development": "./src/index.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "lint:types": "tsc -p tsconfig.test.json --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@monitor/application": "*",
+    "@monitor/domain": "*",
+    "zod": "^3.0.0"
+  },
+  "peerDependencies": {
+    "@nestjs/common": "^11.0.0"
+  },
+  "devDependencies": {
+    "@nestjs/common": "^11.1.18",
+    "@monitor/server": "*",
+    "@types/node": "^22.0.0",
+    "reflect-metadata": "^0.2.2",
+    "supertest": "^7.0.0",
+    "@types/supertest": "^6.0.0",
+    "vitest": "^3.0.0"
+  }
+}

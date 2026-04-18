@@ -49,6 +49,9 @@
       ],
       "@monitor/web-state": [
         "packages/web-state/src/index.ts"
+      ],
+      "@monitor/adapter-otlp-logs": [
+        "packages/adapter-otlp-logs/src/index.ts"
       ]
     },
     "resolveJsonModule": true,
