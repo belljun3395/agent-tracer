@@ -17,11 +17,13 @@ import { TaskWorkspace } from "./features/task-workspace/";
 import { TaskRoute } from "./routes/task/TaskRoute.js";
 import {
     QueryProvider,
+    UiStoreProvider,
     monitorQueryKeys,
     useBookmarksQuery,
     useMonitorSocket,
     useOverviewQuery,
     useSelectionStore,
+    useSelectionStoreApi,
     useTaskDetailQuery,
     useTasksQuery,
     useSearch,
@@ -485,6 +487,7 @@ function AppRoutes(): React.JSX.Element {
 
 /** Mounted inside QueryProvider so it can use useQueryClient. */
 function AppInner(): React.JSX.Element {
+    const selectionStore = useSelectionStoreApi();
     const selectedTaskId = useSelectionStore((s) => s.selectedTaskId);
     const setConnected = useSelectionStore((s) => s.setConnected);
     const selectEvent = useSelectionStore((s) => s.selectEvent);
@@ -507,7 +510,7 @@ function AppInner(): React.JSX.Element {
         if (taskDetail.task.id === prevTaskIdRef.current) return;
         prevTaskIdRef.current = taskDetail.task.id;
 
-        const store = useSelectionStore.getState();
+        const store = selectionStore.getState();
         // Invalidate connector if its events are no longer in the new timeline.
         const { selectedConnectorKey: ck } = store;
         if (ck) {
@@ -544,7 +547,9 @@ export function App(): React.JSX.Element {
     useTheme();
     return (
         <QueryProvider>
-            <AppInner />
+            <UiStoreProvider>
+                <AppInner />
+            </UiStoreProvider>
         </QueryProvider>
     );
 }
