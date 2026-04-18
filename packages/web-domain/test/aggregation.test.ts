@@ -382,7 +382,7 @@ describe("getTokenSummary", () => {
         expect(summary.overallHitRate).toBe(0);
     });
 
-    it("ignores missing / non-numeric token metadata (treats as 0)", () => {
+    it("ignores missing / non-numeric token metadata (treats as 0, skips zero-token events)", () => {
         const timeline = [
             makeAssistantResponse({
                 id: "missing",
@@ -403,7 +403,9 @@ describe("getTokenSummary", () => {
         expect(summary.totalCacheCreate).toBe(0);
         expect(summary.totalOutput).toBe(0);
         expect(summary.overallHitRate).toBe(0);
-        expect(summary.turnCount).toBe(2);
+        // Events with all-zero token fields are skipped (handles new-style
+        // assistant.response that no longer carries token metadata).
+        expect(summary.turnCount).toBe(0);
     });
 
     it("ignores non-assistant events when aggregating tokens", () => {

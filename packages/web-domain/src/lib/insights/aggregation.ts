@@ -445,14 +445,17 @@ export function getTokenSummary(timeline: readonly TimelineEvent[]): TokenSummar
     let totalOutput = 0;
     let turnCount = 0;
     for (const event of timeline) {
-        if (event.kind !== "assistant.response") {
+        if (event.kind !== "assistant.response" && event.kind !== "token.usage") {
             continue;
         }
         const inputTokens = extractMetadataNumber(event.metadata, "inputTokens") ?? 0;
         const cacheReadTokens = extractMetadataNumber(event.metadata, "cacheReadTokens") ?? 0;
         const cacheCreateTokens = extractMetadataNumber(event.metadata, "cacheCreateTokens") ?? 0;
         const outputTokens = extractMetadataNumber(event.metadata, "outputTokens") ?? 0;
-        // Guard against negative values from corrupt metadata.
+        // Skip events with no token data (e.g., new-style assistant.response without tokens).
+        if (inputTokens === 0 && outputTokens === 0 && cacheReadTokens === 0 && cacheCreateTokens === 0) {
+            continue;
+        }
         totalNewInput += Math.max(0, inputTokens);
         totalCacheRead += Math.max(0, cacheReadTokens);
         totalCacheCreate += Math.max(0, cacheCreateTokens);
