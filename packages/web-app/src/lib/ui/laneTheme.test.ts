@@ -23,10 +23,5 @@ describe("LANE_THEME", () => {
             icon: "/icons/tool.svg",
             toneVar: "--implementation"
         });
-        expect(getLaneTheme("questions")).toMatchObject({
-            label: "Questions",
-            icon: "/icons/bell.svg",
-            bgVar: "--questions-bg"
-        });
     });
 });

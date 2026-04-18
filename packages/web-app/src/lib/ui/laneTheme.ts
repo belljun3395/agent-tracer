@@ -16,22 +16,6 @@ export const LANE_THEME: Partial<Record<TimelineLane, LaneTheme>> & Record<"back
         bgVar: "--user-bg",
         borderVar: "--user-border"
     },
-    questions: {
-        label: "Questions",
-        description: "Agent question flows (asked → answered → concluded)",
-        icon: "/icons/bell.svg",
-        toneVar: "--questions",
-        bgVar: "--questions-bg",
-        borderVar: "--questions-border"
-    },
-    todos: {
-        label: "Todos",
-        description: "Task item lifecycle (added → in progress → done)",
-        icon: "/icons/check-circle.svg",
-        toneVar: "--todos",
-        bgVar: "--todos-bg",
-        borderVar: "--todos-border"
-    },
     planning: {
         label: "Planning",
         description: "Analysis, approach decisions, context checkpoints",

@@ -52,7 +52,7 @@ describe("buildTimelineRelations", () => {
             makeEvent({
                 id: "todo-added",
                 kind: "todo.logged",
-                lane: "todos",
+                lane: "planning",
                 title: "할 일 추가",
                 metadata: { todoId: "todo-1" }
             }),
@@ -85,7 +85,7 @@ describe("buildTimelineConnectors", () => {
             makeEvent({
                 id: "todo-added",
                 kind: "todo.logged",
-                lane: "todos",
+                lane: "planning",
                 title: "할 일 추가",
                 metadata: { todoId: "todo-1" }
             }),

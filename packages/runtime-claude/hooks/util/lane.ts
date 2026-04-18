@@ -13,6 +13,7 @@
  *   todos          — task / todo management
  *   background     — background agent tasks
  *   coordination   — agent delegation, MCP calls, skill invocations
+ *   telemetry      — API call telemetry and usage metrics
  */
 import type { TimelineLane } from "@monitor/domain";
 
@@ -27,4 +28,5 @@ export const LANE = {
     todos: "todos",
     background: "background",
     coordination: "coordination",
+    telemetry: "telemetry",
 } as const satisfies Record<TimelineLane, TimelineLane>;
