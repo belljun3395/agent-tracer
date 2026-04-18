@@ -37,7 +37,7 @@ interface InstructionRow {
 
 function toStringList(val: unknown): readonly string[] | null {
     return Array.isArray(val) && val.every((v) => typeof v === "string")
-        ? (val as string[])
+        ? val
         : null;
 }
 
