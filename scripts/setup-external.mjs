@@ -3,7 +3,7 @@
 import { execFileSync } from "node:child_process";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { loadApplicationConfig, resolveExternalMonitorBaseUrl, resolveExternalSourceRepo } from "../config/load-application-config.js";
+import { loadApplicationConfig, resolveExternalMonitorBaseUrl, resolveExternalSourceRepo } from "@monitor/runtime-config";
 
 const APPLICATION_CONFIG = loadApplicationConfig({ env: process.env });
 const DEFAULT_SOURCE_REPO = resolveExternalSourceRepo(APPLICATION_CONFIG, process.env);

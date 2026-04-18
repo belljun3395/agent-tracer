@@ -1,7 +1,7 @@
 import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 import { fileURLToPath, URL } from "node:url";
-import { loadApplicationConfig, resolveMonitorHttpBaseUrl, resolveMonitorWsBaseUrl, resolveWebApiBaseUrl, resolveWebWsBaseUrl } from "../../config/load-application-config.js";
+import { loadApplicationConfig, resolveMonitorHttpBaseUrl, resolveMonitorWsBaseUrl, resolveWebApiBaseUrl, resolveWebWsBaseUrl } from "@monitor/runtime-config";
 export default defineConfig(async ({ mode }) => {
     const env = { ...process.env, ...loadEnv(mode, process.cwd(), "") };
     const applicationConfig = loadApplicationConfig({ env });

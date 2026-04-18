@@ -27,9 +27,6 @@
     "start:mcp": "node packages/adapter-mcp/dist/index.js",
     "setup:external": "node scripts/setup-external.mjs"
   },
-  "dependencies": {
-    "yaml": "^2.0.0"
-  },
   "devDependencies": {
     "@eslint/js": "^9.0.0",
     "concurrently": "^9.0.0",

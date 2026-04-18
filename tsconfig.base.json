@@ -35,6 +35,9 @@
       "@monitor/adapter-mcp": [
         "packages/adapter-mcp/src/index.ts"
       ],
+      "@monitor/runtime-config": [
+        "packages/runtime-config/index.d.ts"
+      ],
       "@monitor/web-app": [
         "packages/web-app/src/main.tsx"
       ],

@@ -3,9 +3,10 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse } from "yaml";
 
-const CONFIG_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const APPLICATION_YAML_PATH = path.join(CONFIG_ROOT, "application.yaml");
-const APPLICATION_LOCAL_YAML_PATH = path.join(CONFIG_ROOT, "application.local.yaml");
+const PACKAGE_ROOT = path.dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = path.resolve(PACKAGE_ROOT, "../..");
+const APPLICATION_YAML_PATH = path.join(REPO_ROOT, "application.yaml");
+const APPLICATION_LOCAL_YAML_PATH = path.join(REPO_ROOT, "application.local.yaml");
 
 const DEFAULT_APPLICATION_CONFIG = Object.freeze({
   monitor: {

@@ -45,11 +45,18 @@ module.exports = {
       to:   { path: "^packages/(?!(domain|runtime-claude)/)" },
     },
     {
+      name: "runtime-config-isolated",
+      severity: "error",
+      comment: "runtime-config must stay independent from other @monitor packages.",
+      from: { path: "^packages/runtime-config/" },
+      to:   { path: "^packages/(?!(runtime-config)/)" },
+    },
+    {
       name: "adapter-mcp-inner-ring",
       severity: "error",
-      comment: "@monitor/adapter-mcp may only depend on @monitor/domain or @monitor/application. Intra-package imports are allowed.",
+      comment: "@monitor/adapter-mcp may only depend on @monitor/domain, @monitor/application, or @monitor/runtime-config. Intra-package imports are allowed.",
       from: { path: "^packages/adapter-mcp/" },
-      to:   { path: "^packages/(?!(domain|application|adapter-mcp)/)" },
+      to:   { path: "^packages/(?!(domain|application|runtime-config|adapter-mcp)/)" },
     },
     {
       name: "web-isolated",

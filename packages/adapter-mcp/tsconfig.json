@@ -3,5 +3,5 @@
   "compilerOptions": {
     "outDir": "dist"
   },
-  "include": ["src", "../../config/load-application-config.d.ts"]
+  "include": ["src"]
 }

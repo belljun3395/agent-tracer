@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
+    "@monitor/runtime-config": "*",
     "zod": "^3.0.0"
   },
   "devDependencies": {
