@@ -1,0 +1,60 @@
+# Web & Shared-Model Tests
+
+Web and core tests have a high proportion of fast unit tests.
+In other words, complex domain calculations and view helpers are fixed first,
+and large UI flows are verified relatively less.
+
+## Shared-model tests
+
+Key files:
+
+- `packages/domain/src/workflow/snapshot.test.ts`
+- `packages/domain/src/workflow/segments.test.ts`
+- `packages/domain/test/runtime-capabilities.test.ts`
+- `packages/classification/test/rules-index.test.ts`
+- `packages/classification/test/semantic-metadata.test.ts`
+
+Verification targets:
+
+- domain contract basic behavior
+- runtime capability registry
+- rule/action registry index
+
+## Web Tests
+
+Key files:
+
+- `packages/web-app/src/App.test.ts`
+- `packages/web-app/src/components/TaskList.test.ts`
+- `packages/web-app/src/components/Timeline.follow.test.ts`
+- `packages/web-app/src/lib/timeline.test.ts`
+- `packages/web-app/src/lib/explorationCategory.test.ts`
+- `packages/web-app/src/lib/eventSubtype.test.ts`
+- `packages/web-app/src/lib/insights.test.ts`
+- `packages/web-app/src/lib/realtime.test.ts`
+- `packages/web-app/src/lib/ui/laneTheme.test.ts`
+
+Verification targets:
+
+- timeline follow/viewport calculation
+- subtype/lane theme interpretation
+- insights derived calculations
+- realtime parsing and refresh logic
+- websocket cleanup and reconnect helper logic
+
+## Advantages of Current Test Strategy
+
+- Pure functions and derived calculations can catch regressions relatively quickly.
+- Good at small-scale verification of contract logic like runtime capability or realtime messages.
+
+## Areas Worth Strengthening
+
+- workflow library UI flow
+- interactions between inspector tabs
+- connection boundary between MCP registry contract and web read-model
+
+## Related Documentation
+
+- [Core Domain & Event Model](./core-domain-and-event-model.md)
+- [Web Dashboard](./web-dashboard.md)
+- [Timeline Canvas](./timeline-canvas.md)
