@@ -1,0 +1,48 @@
+{
+  "name": "@monitor/server",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "exports": {
+    ".": {
+      "development": "./src/index.ts",
+      "default": "./dist/index.js"
+    },
+    "./mcp": {
+      "development": "./src/adapters/mcp/index.ts",
+      "default": "./dist/mcp.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "lint": "eslint . && npm run lint:types",
+    "lint:fix": "eslint . --fix",
+    "lint:types": "tsc -p tsconfig.test.json --noEmit",
+    "start:mcp": "node ./dist/mcp.js",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "^3.8.1",
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "better-sqlite3": "^12.0.0",
+    "drizzle-orm": "^0.45.2",
+    "express": "^5.0.0",
+    "ws": "^8.0.0",
+    "yaml": "^2.0.0",
+    "zod": "^3.0.0"
+  },
+  "devDependencies": {
+    "@nestjs/common": "^11.1.18",
+    "@nestjs/core": "^11.1.18",
+    "@nestjs/platform-express": "^11.1.18",
+    "@types/better-sqlite3": "^7.6.0",
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.0.0",
+    "@types/supertest": "^6.0.0",
+    "@types/ws": "^8.0.0",
+    "reflect-metadata": "^0.2.2",
+    "supertest": "^7.0.0",
+    "tsup": "^8.0.0",
+    "vitest": "^3.0.0"
+  }
+}

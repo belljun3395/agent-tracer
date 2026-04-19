@@ -1,0 +1,53 @@
+import "reflect-metadata";
+import type http from "node:http";
+import type express from "express";
+import { NestFactory } from "@nestjs/core";
+import { WebSocketServer } from "ws";
+import { AppModule } from "../presentation/app.module.js";
+import { EventBroadcasterService } from "~adapters/realtime/ws/index.js";
+import { GlobalExceptionFilter } from "../presentation/filters/zod-exception.filter.js";
+import { GetOverviewUseCase, ListTasksUseCase } from "~application/index.js";
+import { MONITOR_PORTS_TOKEN, type PortsWithClose } from "../presentation/database/database.provider.js";
+import type { RuntimeOptions, MonitorRuntime } from "./runtime.type.js";
+export async function createNestMonitorRuntime(options: RuntimeOptions): Promise<MonitorRuntime> {
+    const broadcaster = new EventBroadcasterService();
+    const nestApp = await NestFactory.create(AppModule.forRoot({ databasePath: options.databasePath, notifier: broadcaster }), { logger: false });
+    nestApp.useGlobalFilters(new GlobalExceptionFilter());
+    const server = nestApp.getHttpServer() as http.Server;
+    const wss = new WebSocketServer({ noServer: true });
+    server.on("upgrade", (request, socket, head) => {
+        const requestUrl = request.url ?? "/";
+        const { pathname } = new URL(requestUrl, "http://localhost");
+        if (pathname === "/ws") {
+            wss.handleUpgrade(request, socket, head, (ws) => {
+                wss.emit("connection", ws, request);
+            });
+            return;
+        }
+        socket.destroy();
+    });
+    const getOverview = nestApp.get(GetOverviewUseCase);
+    const listTasks = nestApp.get(ListTasksUseCase);
+    wss.on("connection", (ws) => {
+        broadcaster.addClient(ws);
+        ws.on("close", () => broadcaster.removeClient(ws));
+        void Promise.all([getOverview.execute(), listTasks.execute()]).then(([stats, tasks]) => {
+            ws.send(JSON.stringify({ type: "snapshot", payload: { stats, tasks } }));
+        });
+    });
+    await nestApp.init();
+    const ports = nestApp.get<PortsWithClose>(MONITOR_PORTS_TOKEN);
+    const app = nestApp.getHttpAdapter().getInstance() as ReturnType<typeof express>;
+    return {
+        app,
+        server,
+        wss,
+        close: async () => {
+            await nestApp.close();
+            await new Promise<void>((resolve) => {
+                wss.close(() => resolve());
+            });
+            ports.close();
+        }
+    };
+}
