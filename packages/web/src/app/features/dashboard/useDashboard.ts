@@ -1,0 +1,290 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { TaskId } from "../../../types.js";
+import { BookmarkId, TaskId as toTaskId } from "../../../types.js";
+import { buildQuestionGroups, buildTaskDisplayTitle, buildTodoGroups } from "../../../types.js";
+import type { BookmarkRecord, BookmarkSearchHit, TimelineLane } from "../../../types.js";
+import { deleteBookmark, deleteTask } from "../../../io.js";
+import {
+    monitorQueryKeys,
+    useBookmarksQuery,
+    useOverviewQuery,
+    useSearch,
+    useSelectionStore,
+    useTaskDetailQuery,
+    useTasksQuery,
+} from "../../../state.js";
+import { useQueryClient } from "@tanstack/react-query";
+
+const ZOOM_MIN = 0.8;
+const ZOOM_MAX = 2.5;
+const ZOOM_DEFAULT = 1.1;
+const ZOOM_STORAGE_KEY = "agent-tracer.zoom";
+export const INSPECTOR_WIDTH = 360;
+export const DASHBOARD_STACKED_BREAKPOINT = 1024;
+
+export function useDashboard(
+    view: "timeline" | "knowledge" | "workspace",
+    { onSelectTaskRoute, onOpenTaskWorkspace }: {
+        onSelectTaskRoute: (taskId: string | null) => void;
+        onOpenTaskWorkspace: (taskId: string) => void;
+    }
+) {
+    const selectedTaskId = useSelectionStore((s) => s.selectedTaskId);
+    const isConnected = useSelectionStore((s) => s.isConnected);
+    const deletingTaskId = useSelectionStore((s) => s.deletingTaskId);
+    const deleteErrorTaskId = useSelectionStore((s) => s.deleteErrorTaskId);
+    const selectTask = useSelectionStore((s) => s.selectTask);
+    const selectEvent = useSelectionStore((s) => s.selectEvent);
+    const selectConnector = useSelectionStore((s) => s.selectConnector);
+    const setDeletingTaskId = useSelectionStore((s) => s.setDeletingTaskId);
+    const setDeleteErrorTaskId = useSelectionStore((s) => s.setDeleteErrorTaskId);
+
+    const { data: tasksData } = useTasksQuery();
+    const { data: bookmarksData } = useBookmarksQuery();
+    const { data: overviewData } = useOverviewQuery();
+    const { data: taskDetail } = useTaskDetailQuery(selectedTaskId != null ? (selectedTaskId as TaskId) : null);
+    const queryClient = useQueryClient();
+
+    const tasks = tasksData?.tasks ?? [];
+    const bookmarks = bookmarksData?.bookmarks ?? [];
+
+    const search = useSearch(selectedTaskId ?? undefined);
+    const clearSearchQuery = search.setQuery;
+
+    const [sidebarView, setSidebarView] = useState<"tasks" | "saved">("tasks");
+    const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth);
+    const [isInspectorCollapsed, setIsInspectorCollapsed] = useState(false);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [isApprovalQueueOpen, setIsApprovalQueueOpen] = useState(false);
+    const [isGlobalFiltersOpen, setIsGlobalFiltersOpen] = useState(false);
+    const [globalFiltersPos, setGlobalFiltersPos] = useState({ top: 0, right: 0 });
+    const globalFiltersButtonRef = useRef<HTMLButtonElement>(null);
+    const [timelineFilters, setTimelineFilters] = useState<Record<TimelineLane, boolean>>({
+        user: true, exploration: true, planning: true, coordination: true,
+        background: true, implementation: true, questions: true, todos: true, telemetry: false,
+    });
+    const [zoom, setZoom] = useState<number>(() => {
+        try {
+            const raw = window.localStorage.getItem(ZOOM_STORAGE_KEY);
+            if (!raw) return ZOOM_DEFAULT;
+            const parsed = Number.parseFloat(raw);
+            if (!Number.isFinite(parsed)) return ZOOM_DEFAULT;
+            return Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, parsed));
+        } catch { return ZOOM_DEFAULT; }
+    });
+
+    const isInspectorOpen = Boolean(selectedTaskId);
+    const isStackedDashboard = viewportWidth < DASHBOARD_STACKED_BREAKPOINT;
+    const showGlobalFiltersButton = (view === "timeline" || view === "workspace") && selectedTaskId != null;
+
+    useEffect(() => {
+        if (!isInspectorOpen) setIsInspectorCollapsed(false);
+    }, [isInspectorOpen]);
+
+    useEffect(() => {
+        const handleResize = (): void => setViewportWidth(window.innerWidth);
+        window.addEventListener("resize", handleResize);
+        return () => window.removeEventListener("resize", handleResize);
+    }, []);
+
+    useEffect(() => {
+        if (!isStackedDashboard) setIsSidebarOpen(false);
+    }, [isStackedDashboard]);
+
+    useEffect(() => {
+        if (isStackedDashboard && isInspectorCollapsed) setIsInspectorCollapsed(false);
+    }, [isInspectorCollapsed, isStackedDashboard]);
+
+    useEffect(() => {
+        try { window.localStorage.setItem(ZOOM_STORAGE_KEY, String(zoom)); } catch { /* storage unavailable */ }
+    }, [zoom]);
+
+    useEffect(() => {
+        if (!showGlobalFiltersButton) setIsGlobalFiltersOpen(false);
+    }, [showGlobalFiltersButton]);
+
+    const taskTimeline = taskDetail?.timeline ?? [];
+    const questionCount = useMemo(() => buildQuestionGroups(taskTimeline).length, [taskTimeline]);
+    const todoCount = useMemo(() => buildTodoGroups(taskTimeline).length, [taskTimeline]);
+    const selectedTaskDisplayTitle = useMemo(
+        () => (taskDetail?.task ? buildTaskDisplayTitle(taskDetail.task, taskDetail.timeline) : null),
+        [taskDetail]
+    );
+    const selectedTaskUsesDerivedTitle = Boolean(
+        taskDetail?.task &&
+        selectedTaskDisplayTitle &&
+        selectedTaskDisplayTitle.trim() !== taskDetail.task.title.trim()
+    );
+    const selectedTaskBookmark = bookmarks.find((b) => b.taskId === (selectedTaskId ?? "") && !b.eventId) ?? null;
+
+    const selectDashboardTask = useCallback(
+        (taskId: string | null): void => { onSelectTaskRoute(taskId); },
+        [onSelectTaskRoute]
+    );
+
+    const handleDeleteTask = useCallback(
+        async (taskId: string): Promise<void> => {
+            setDeletingTaskId(taskId);
+            try {
+                await deleteTask(toTaskId(taskId));
+                if (selectedTaskId === taskId) {
+                    selectTask(null);
+                    onSelectTaskRoute(null);
+                }
+                await Promise.all([
+                    queryClient.invalidateQueries({ queryKey: monitorQueryKeys.tasks() }),
+                    queryClient.invalidateQueries({ queryKey: monitorQueryKeys.overview() }),
+                ]);
+            } catch {
+                setDeleteErrorTaskId(taskId);
+                setTimeout(() => setDeleteErrorTaskId(null), 2000);
+            } finally {
+                setDeletingTaskId(null);
+            }
+        },
+        [selectedTaskId, selectTask, onSelectTaskRoute, setDeletingTaskId, setDeleteErrorTaskId, queryClient]
+    );
+
+    const handleDeleteBookmark = useCallback(
+        async (bookmarkId: string): Promise<void> => {
+            try {
+                await deleteBookmark(BookmarkId(bookmarkId));
+                await queryClient.invalidateQueries({ queryKey: monitorQueryKeys.bookmarks() });
+            } catch { /* deletion failure is not surfaced — no bookmark error state yet */ }
+        },
+        [queryClient]
+    );
+
+    const handleSidebarViewChange = useCallback(
+        (view: "tasks" | "saved"): void => {
+            setSidebarView(view);
+            if (isStackedDashboard) setIsSidebarOpen(false);
+        },
+        [isStackedDashboard]
+    );
+
+    const handleSelectDashboardTask = useCallback(
+        (taskId: string): void => {
+            if (isStackedDashboard) setIsSidebarOpen(false);
+            selectDashboardTask(taskId);
+        },
+        [isStackedDashboard, selectDashboardTask]
+    );
+
+    const handleSelectBookmark = useCallback(
+        (bookmark: BookmarkRecord): void => {
+            if (isStackedDashboard) setIsSidebarOpen(false);
+            selectConnector(null);
+            selectDashboardTask(bookmark.taskId);
+            selectEvent(bookmark.eventId ?? null);
+        },
+        [isStackedDashboard, selectConnector, selectDashboardTask, selectEvent]
+    );
+
+    const handleDeleteBookmarkWithError = useCallback(
+        (bookmarkId: string): void => { void handleDeleteBookmark(bookmarkId); },
+        [handleDeleteBookmark]
+    );
+
+    const handleSelectSearchTask = useCallback(
+        (taskId: string): void => {
+            clearSearchQuery("");
+            selectConnector(null);
+            selectEvent(null);
+            selectDashboardTask(taskId);
+        },
+        [clearSearchQuery, selectConnector, selectDashboardTask, selectEvent]
+    );
+
+    const handleSelectSearchEvent = useCallback(
+        (taskId: string, eventId: string): void => {
+            clearSearchQuery("");
+            selectConnector(null);
+            selectDashboardTask(taskId);
+            selectEvent(eventId);
+        },
+        [clearSearchQuery, selectConnector, selectDashboardTask, selectEvent]
+    );
+
+    const handleSelectSearchBookmark = useCallback(
+        (bookmark: BookmarkSearchHit): void => {
+            clearSearchQuery("");
+            const target = bookmarks.find((item) => item.id === bookmark.bookmarkId);
+            if (target) {
+                selectConnector(null);
+                selectDashboardTask(target.taskId);
+                selectEvent(target.eventId ?? null);
+                return;
+            }
+            selectConnector(null);
+            if (bookmark.eventId) {
+                selectDashboardTask(bookmark.taskId);
+                selectEvent(bookmark.eventId);
+            } else {
+                selectEvent(null);
+                selectDashboardTask(bookmark.taskId);
+            }
+        },
+        [bookmarks, clearSearchQuery, selectConnector, selectDashboardTask, selectEvent]
+    );
+
+    const handleToggleFilters = useCallback((): void => {
+        if (globalFiltersButtonRef.current) {
+            const rect = globalFiltersButtonRef.current.getBoundingClientRect();
+            setGlobalFiltersPos({ top: rect.bottom + 6, right: window.innerWidth - rect.right });
+        }
+        setIsGlobalFiltersOpen((value) => !value);
+    }, []);
+
+    const handleOpenTaskWorkspace = useCallback(
+        (taskId: string): void => { onOpenTaskWorkspace(taskId); },
+        [onOpenTaskWorkspace]
+    );
+
+    const externalFiltersState = useMemo(() => ({
+        isOpen: isGlobalFiltersOpen,
+        setIsOpen: setIsGlobalFiltersOpen,
+        popoverPos: globalFiltersPos,
+        setPopoverPos: setGlobalFiltersPos,
+        buttonRef: globalFiltersButtonRef,
+    }), [isGlobalFiltersOpen, globalFiltersPos]);
+
+    const externalTimelineFilters = useMemo(() => ({
+        filters: timelineFilters,
+        setFilters: setTimelineFilters,
+    }), [timelineFilters]);
+
+    return {
+        // State
+        selectedTaskId, isConnected, deletingTaskId, deleteErrorTaskId,
+        sidebarView, isStackedDashboard, isInspectorOpen, isInspectorCollapsed,
+        isSidebarOpen, isApprovalQueueOpen, showGlobalFiltersButton, isGlobalFiltersOpen,
+        globalFiltersButtonRef, zoom,
+        // Data
+        tasks, bookmarks, overviewData, taskDetail,
+        selectedTaskDisplayTitle, selectedTaskUsesDerivedTitle,
+        selectedTaskBookmark, questionCount, todoCount,
+        // Search
+        search,
+        // Shared filter props
+        externalFiltersState,
+        externalTimelineFilters,
+        // Setters
+        setIsInspectorCollapsed, setIsSidebarOpen, setIsApprovalQueueOpen, setZoom,
+        // Handlers
+        handleDeleteTask,
+        handleDeleteBookmarkWithError,
+        handleSidebarViewChange,
+        handleSelectDashboardTask,
+        handleSelectBookmark,
+        handleSelectSearchTask,
+        handleSelectSearchEvent,
+        handleSelectSearchBookmark,
+        handleToggleFilters,
+        handleOpenTaskWorkspace,
+        selectDashboardTask,
+        queryClient,
+    };
+}
+
+export type DashboardState = ReturnType<typeof useDashboard>;

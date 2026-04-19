@@ -1,0 +1,128 @@
+import { useCallback } from "react";
+import type { SyntheticEvent } from "react";
+import type { TaskId } from "../../../types.js";
+import { EventId } from "../../../types.js";
+import type { MonitoringTask } from "../../../types.js";
+import {
+    createBookmark,
+    postRuleAction,
+    updateEventDisplayTitle,
+    updateTaskStatus,
+    updateTaskTitle,
+} from "../../../io.js";
+import { monitorQueryKeys, useEditStore } from "../../../state.js";
+import { useQueryClient } from "@tanstack/react-query";
+import type { WorkspaceData } from "./useWorkspaceData.js";
+
+export function useWorkspaceMutations(taskId: string, data: WorkspaceData) {
+    const { selectedTaskDetail, taskObservability, refreshTaskObservability, selectedEvent, selectedEventDisplayTitle } = data;
+
+    const setTitleError = useEditStore((s) => s.setTitleError);
+    const finishEditing = useEditStore((s) => s.finishEditing);
+    const setSavingTitle = useEditStore((s) => s.setSavingTitle);
+    const setUpdatingStatus = useEditStore((s) => s.setUpdatingStatus);
+
+    const queryClient = useQueryClient();
+
+    const handleRuleReview = useCallback(
+        async (outcome: "approved" | "rejected" | "bypassed", reviewerId: string, reviewerNote: string): Promise<void> => {
+            if (!selectedTaskDetail?.task || !taskObservability?.observability.ruleEnforcement.activeRuleId) return;
+            await postRuleAction({
+                taskId: selectedTaskDetail.task.id,
+                action: "review_rule_gate",
+                title: outcome === "approved" ? "Approval granted"
+                    : outcome === "rejected" ? "Approval rejected"
+                    : "Rule bypassed",
+                ruleId: taskObservability.observability.ruleEnforcement.activeRuleId,
+                severity: outcome === "approved" ? "info" : "warn",
+                status: outcome === "approved" || outcome === "bypassed" ? "pass" : "violation",
+                source: "workspace-review",
+                metadata: { reviewerId, reviewerSource: "workspace-review" },
+                ...(reviewerNote.trim() ? { body: reviewerNote.trim() } : {}),
+                outcome,
+            });
+            await Promise.all([
+                queryClient.invalidateQueries({ queryKey: monitorQueryKeys.overview() }),
+                queryClient.invalidateQueries({ queryKey: monitorQueryKeys.taskDetail(taskId as TaskId) }),
+                refreshTaskObservability(),
+            ]);
+        },
+        [queryClient, refreshTaskObservability, selectedTaskDetail?.task, taskId, taskObservability?.observability.ruleEnforcement.activeRuleId]
+    );
+
+    const handleTaskStatusChange = useCallback(
+        async (status: MonitoringTask["status"]): Promise<void> => {
+            if (!selectedTaskDetail?.task) return;
+            setUpdatingStatus(true);
+            try {
+                await updateTaskStatus(selectedTaskDetail.task.id, status);
+                await Promise.all([
+                    queryClient.invalidateQueries({ queryKey: monitorQueryKeys.tasks() }),
+                    queryClient.invalidateQueries({ queryKey: monitorQueryKeys.taskDetail(taskId as TaskId) }),
+                ]);
+            } finally {
+                setUpdatingStatus(false);
+            }
+        },
+        [selectedTaskDetail?.task, setUpdatingStatus, queryClient, taskId]
+    );
+
+    const handleTaskTitleSubmit = useCallback(
+        async (event: SyntheticEvent<HTMLFormElement>, nextTitle: string): Promise<void> => {
+            event.preventDefault();
+            if (!selectedTaskDetail?.task) return;
+            const trimmed = nextTitle.trim();
+            if (!trimmed) { setTitleError("Title cannot be empty."); return; }
+            if (trimmed === selectedTaskDetail.task.title.trim()) { setTitleError(null); finishEditing(); return; }
+            setSavingTitle(true);
+            setTitleError(null);
+            try {
+                await updateTaskTitle(selectedTaskDetail.task.id, trimmed);
+                await Promise.all([
+                    queryClient.invalidateQueries({ queryKey: monitorQueryKeys.tasks() }),
+                    queryClient.invalidateQueries({ queryKey: monitorQueryKeys.taskDetail(taskId as TaskId) }),
+                ]);
+                finishEditing();
+            } catch (err) {
+                setTitleError(err instanceof Error ? err.message : "Failed to save task title.");
+            } finally {
+                setSavingTitle(false);
+            }
+        },
+        [selectedTaskDetail?.task, setTitleError, finishEditing, setSavingTitle, queryClient, taskId]
+    );
+
+    const handleCreateTaskBookmark = useCallback(async (): Promise<void> => {
+        await createBookmark({ taskId: taskId as TaskId });
+        await queryClient.invalidateQueries({ queryKey: monitorQueryKeys.bookmarks() });
+    }, [taskId, queryClient]);
+
+    const handleCreateEventBookmark = useCallback(async (): Promise<void> => {
+        if (!selectedEvent) return;
+        await createBookmark({
+            taskId: taskId as TaskId,
+            eventId: EventId(selectedEvent.id),
+            title: selectedEventDisplayTitle ?? selectedEvent.title,
+        });
+        await queryClient.invalidateQueries({ queryKey: monitorQueryKeys.bookmarks() });
+    }, [taskId, selectedEvent, selectedEventDisplayTitle, queryClient]);
+
+    const handleUpdateEventDisplayTitle = useCallback(
+        async (eventId: string, displayTitle: string | null): Promise<void> => {
+            await updateEventDisplayTitle(EventId(eventId), displayTitle ?? "");
+            await queryClient.invalidateQueries({ queryKey: monitorQueryKeys.taskDetail(taskId as TaskId) });
+        },
+        [taskId, queryClient]
+    );
+
+    return {
+        handleRuleReview,
+        handleTaskStatusChange,
+        handleTaskTitleSubmit,
+        handleCreateTaskBookmark,
+        handleCreateEventBookmark,
+        handleUpdateEventDisplayTitle,
+    };
+}
+
+export type WorkspaceMutations = ReturnType<typeof useWorkspaceMutations>;
