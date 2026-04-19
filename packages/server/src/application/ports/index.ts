@@ -1,0 +1,27 @@
+export type { ITaskRepository, TaskUpsertInput, OverviewStats } from "./repository/task.repository.js";
+export type { ISessionRepository, SessionCreateInput } from "./repository/session.repository.js";
+export type { IEventRepository, EventInsertInput, SearchOptions, SearchResults, SearchTaskHit, SearchEventHit, SearchBookmarkHit } from "./repository/event.repository.js";
+export type { IRuntimeBindingRepository, RuntimeBinding, RuntimeBindingUpsertInput } from "./repository/runtime.binding.repository.js";
+export type { IBookmarkRepository, BookmarkRecord, BookmarkSaveInput } from "./repository/bookmark.repository.js";
+export type { INotificationPublisher, MonitorNotification } from "./event/notification.publisher.js";
+export type { BriefingSaveInput, IEvaluationRepository, PersistedTaskEvaluation, StoredTaskEvaluation, TaskEvaluation, WorkflowContentRecord, WorkflowSearchResult, WorkflowSummary } from "./repository/evaluation.repository.js";
+export type { IPlaybookRepository, PlaybookUpsertInput } from "./repository/playbook.repository.js";
+export type { IEmbeddingService } from "./service/embedding.service.js";
+import type { ITaskRepository } from "./repository/task.repository.js";
+import type { ISessionRepository } from "./repository/session.repository.js";
+import type { IEventRepository } from "./repository/event.repository.js";
+import type { IRuntimeBindingRepository } from "./repository/runtime.binding.repository.js";
+import type { IBookmarkRepository } from "./repository/bookmark.repository.js";
+import type { INotificationPublisher } from "./event/notification.publisher.js";
+import type { IEvaluationRepository } from "./repository/evaluation.repository.js";
+import type { IPlaybookRepository } from "./repository/playbook.repository.js";
+export interface MonitorPorts {
+    readonly tasks: ITaskRepository;
+    readonly sessions: ISessionRepository;
+    readonly events: IEventRepository;
+    readonly runtimeBindings: IRuntimeBindingRepository;
+    readonly bookmarks: IBookmarkRepository;
+    readonly evaluations: IEvaluationRepository;
+    readonly playbooks: IPlaybookRepository;
+    readonly notifier: INotificationPublisher;
+}
