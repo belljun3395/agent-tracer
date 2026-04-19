@@ -1,0 +1,23 @@
+services:
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile.server
+    ports:
+      - "3847:3847"
+    volumes:
+      - monitor-data:/app/.monitor
+    environment:
+      - NODE_ENV=production
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    ports:
+      - "5173:80"
+    depends_on:
+      - server
+
+volumes:
+  monitor-data:
