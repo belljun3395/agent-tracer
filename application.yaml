@@ -1,0 +1,14 @@
+monitor:
+  protocol: http
+  listenHost: 0.0.0.0
+  publicHost: 127.0.0.1
+  port: 3847
+  databasePath: .monitor/monitor.sqlite
+
+web:
+  apiBaseUrl: ""
+  wsBaseUrl: ""
+
+externalSetup:
+  monitorBaseUrl: ""
+  sourceRepo: belljun3395/agent-tracer

@@ -1,0 +1,10 @@
+node_modules
+packages/*/node_modules
+packages/*/dist
+.monitor
+.git
+.idea
+.vscode
+.claude
+npm-debug.log
+.DS_Store
