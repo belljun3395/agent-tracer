@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "baseUrl": ".",
+    "paths": {
+      "~shared/*": ["src/shared/*"],
+      "~claude-code/*": ["src/claude-code/*"]
+    }
+  },
+  "include": ["src", "test", "*.config.ts"]
+}

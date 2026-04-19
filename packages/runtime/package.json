@@ -1,0 +1,27 @@
+{
+  "name": "@monitor/runtime",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Agent Tracer runtime adapters — Claude Code, Codex, OpenCode.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./dist/index.js"
+    },
+    "./*": {
+      "types": "./src/*",
+      "default": "./dist/*"
+    }
+  },
+  "scripts": {
+    "lint": "eslint . && npm run lint:types",
+    "lint:fix": "eslint . --fix",
+    "lint:types": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "tsx": "^4.0.0",
+    "vitest": "^3.0.0"
+  }
+}
