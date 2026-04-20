@@ -1,3 +1,31 @@
+/**
+ * Codex App-Server Notification Normalizer
+ *
+ * Converts raw Codex app-server JSON-RPC notifications into RuntimeIngestEvent
+ * objects for the Agent Tracer monitor ingest API.
+ *
+ * Codex app-server sends notifications (JSON-RPC objects without an id field)
+ * over its SSE or WebSocket stream. Handled notification methods:
+ *   thread/started       — a new agent thread has been created
+ *   turn/started         — a model turn has started within a thread
+ *   turn/completed       — a model turn has finished (completed|interrupted|failed)
+ *   turn/plan/updated    — the plan steps for a turn have changed
+ *   item/started         — a thread item has started (skips userMessage/hookPrompt)
+ *   item/completed       — a thread item has finished; carries the final item state
+ *
+ * Item types handled on item/completed:
+ *   agentMessage     → KIND.assistantResponse
+ *   plan             → KIND.planLogged
+ *   reasoning        → KIND.thoughtLogged
+ *   commandExecution → KIND.terminalCommand  (with semantic lane inference)
+ *   fileChange       → KIND.toolUsed         (with file-op semantic inference)
+ *   mcpToolCall      → KIND.agentActivityLogged
+ *   userMessage      → skipped  (captured upstream by UserPromptSubmit hook)
+ *   hookPrompt       → skipped  (internal Codex hook prompt; not user-visible)
+ *   (other)          → KIND.actionLogged     (generic fallback)
+ *
+ * Entry point: normalizeCodexAppServerNotification(notification, context)
+ */
 import * as path from "node:path";
 import type { RuntimeIngestEvent } from "~shared/events/kinds.js";
 import { KIND } from "~shared/events/kinds.js";

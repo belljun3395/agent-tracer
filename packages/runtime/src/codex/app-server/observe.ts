@@ -1,3 +1,35 @@
+/**
+ * Codex App-Server Observer
+ *
+ * A long-running background process that tails the Codex rollout JSONL file
+ * and forwards token-usage and rate-limit snapshots to the Agent Tracer monitor.
+ *
+ * Codex writes rollout events to:
+ *   ~/.codex/sessions/<YYYY>/<MM>/<DD>/rollout-<timestamp>-<sessionId>.jsonl
+ *
+ * Rollout line types consumed here:
+ *   event_msg    { type: "event_msg", payload: { type: "token_count", info, rate_limits } }
+ *     Carries cumulative and per-turn token counts and rate-limit windows.
+ *   turn_context { type: "turn_context", payload: { turn_id, model } }
+ *     Carries the current turn ID and model identifier.
+ *
+ * On each state change (new token counts, new rate limits, or new turn ID),
+ * this process posts a contextSnapshot event via the Agent Tracer ingest API.
+ *
+ * The observer is launched by the SessionStart hook and terminates on SIGINT
+ * or SIGTERM. It writes its PID to observer.json so subsequent SessionStart
+ * invocations can detect and replace a stale observer.
+ *
+ * CLI options:
+ *   --thread-id <id>      Observe a specific Codex session id
+ *   --latest-in <dir>     Read hint from .codex/agent-tracer/latest-session.json
+ *   --project-dir <dir>   Alias of --latest-in
+ *   --session-marker <id> Runtime session marker (overrides hint file)
+ *   --model <modelId>     Override model id when rollout metadata is unavailable
+ *   --rollout <path>      Explicit rollout .jsonl path (skip sessions-tree lookup)
+ *   --quiet               Do not print [monitor] status text to stdout
+ *   --help, -h            Show this help text
+ */
 import {
     ensureRuntimeSession,
     postTaggedEvent,
@@ -139,6 +171,14 @@ async function main(): Promise<void> {
     }
 }
 
+/**
+ * Applies a single rollout event to the mutable observer state.
+ * Returns true if any field changed (triggering a snapshot emit).
+ *
+ * tokenCount events update tokenUsage and rateLimits independently.
+ * turnContext events update turnId and modelId only when they change,
+ * avoiding redundant snapshot posts for repeated identical values.
+ */
 export function applyRolloutPayloadToObserverState(
     payload: RolloutEvent,
     state: ObserverState,
@@ -248,6 +288,11 @@ interface ResolvedTarget {
     readonly modelId?: string;
 }
 
+/**
+ * Resolves which session to observe.
+ * Priority: --session-marker / --thread-id > latest-session hint file.
+ * Returns { sessionId: undefined } when no session can be determined.
+ */
 async function resolveObserverTarget(args: ObserveArgs): Promise<ResolvedTarget> {
     const explicitId = args.sessionMarker ?? args.threadId;
     if (explicitId) {

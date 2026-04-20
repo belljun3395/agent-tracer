@@ -1,3 +1,24 @@
+/**
+ * Codex Hook: UserPromptSubmit
+ *
+ * Fires when the user submits a prompt, before Codex processes it.
+ * No matcher — fires on every user prompt.
+ *
+ * Stdin payload fields (ref: https://github.com/openai/codex#hooks):
+ *   session_id       string  — unique session / thread identifier
+ *   hook_event_name  string  — "UserPromptSubmit"
+ *   prompt           string  — the raw prompt text submitted by the user
+ *   model            string? — current model identifier
+ *
+ * Stdout: not consumed by Codex for UserPromptSubmit hooks.
+ *
+ * Blocking: UserPromptSubmit hooks cannot block execution in Codex.
+ *
+ * This handler ensures the runtime session exists (creating a new task on the
+ * first message) and records the user message in the Agent Tracer monitor.
+ * The "initial" vs "follow_up" phase is derived from whether ensureRuntimeSession
+ * created a new task (ids.taskCreated === true).
+ */
 import { ensureRuntimeSession, postTaggedEvent, readStdinJson } from "~codex/lib/transport/transport.js";
 import { createMessageId, ellipsize, toTrimmedString } from "~codex/util/utils.js";
 import { KIND } from "~shared/events/kinds.js";
