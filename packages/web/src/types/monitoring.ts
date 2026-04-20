@@ -35,8 +35,16 @@ export const WorkspacePath = (value: string): WorkspacePath => brand<'WorkspaceP
 export const TaskSlug = (value: string): TaskSlug => brand<'TaskSlug'>(value)
 
 export type TimelineLane =
-  | 'user' | 'exploration' | 'planning' | 'implementation'
+  | 'user' | 'exploration' | 'planning' | 'implementation' | 'rule'
   | 'questions' | 'todos' | 'background' | 'coordination' | 'telemetry'
+
+export interface RuleCommandRecord {
+  readonly id: string
+  readonly pattern: string
+  readonly label: string
+  readonly taskId?: string
+  readonly createdAt: string
+}
 
 export type MonitoringEventKind =
   | 'task.start' | 'task.complete' | 'task.error' | 'session.ended'

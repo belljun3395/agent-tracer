@@ -18,6 +18,8 @@ export const monitorQueryKeys = {
             string,
             ...(readonly TaskId[])
         ],
+    ruleCommands: (taskId?: TaskId) =>
+        (taskId ? ["monitor", "rule-commands", taskId] : ["monitor", "rule-commands"]) as readonly string[],
 } as const;
 
 export type MonitorQueryKey =

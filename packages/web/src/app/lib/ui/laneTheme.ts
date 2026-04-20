@@ -48,6 +48,14 @@ export const LANE_THEME: Partial<Record<TimelineLane, LaneTheme>> & Record<"back
         bgVar: "--implementation-bg",
         borderVar: "--implementation-border"
     },
+    rule: {
+        label: "Rule",
+        description: "User-defined rule commands and compliance checks",
+        icon: "/icons/shield-check.svg",
+        toneVar: "--rule",
+        bgVar: "--rule-bg",
+        borderVar: "--rule-border"
+    },
     background: {
         label: "Background",
         description: "Subagent and background lifecycle activity",
