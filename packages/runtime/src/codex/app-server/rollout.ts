@@ -1,3 +1,26 @@
+/**
+ * Codex Rollout File Reader
+ *
+ * Utilities for discovering and streaming events from Codex rollout JSONL files.
+ *
+ * Codex writes session data to:
+ *   ~/.codex/sessions/<YYYY>/<MM>/<DD>/rollout-<timestamp>-<sessionId>.jsonl
+ *
+ * Each line is a JSON object with a "type" field. Lines consumed here:
+ *   session_meta  { type: "session_meta", payload: { id, model, model_provider, cwd } }
+ *     First line of the file; contains session-level metadata.
+ *   event_msg     { type: "event_msg", payload: { type: "token_count", info, rate_limits } }
+ *     Token-usage snapshot; emitted after each model response turn.
+ *   turn_context  { type: "turn_context", payload: { turn_id, model } }
+ *     Identifies the current turn and the model used for it.
+ *
+ * Exports:
+ *   resolveRolloutPath        — locates the rollout file by session ID, with retry
+ *   readRolloutSessionMeta    — reads the session_meta line from the file header
+ *   tailRolloutEvents         — async generator that streams events as they are appended
+ *   normalizeRolloutTokenCount — normalizes a raw event_msg payload into a RolloutEvent
+ *   normalizeRolloutTurnContext — normalizes a raw turn_context payload into a RolloutEvent
+ */
 import { createReadStream, promises as fs } from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -47,6 +70,18 @@ export function defaultSessionsRoot(): string {
     return path.join(os.homedir(), ".codex", "sessions");
 }
 
+/**
+ * Resolves the rollout JSONL file path for `sessionId`.
+ *
+ * If `opts.rolloutPath` is provided it is used directly (after confirming the
+ * file exists). Otherwise the sessions tree at `~/.codex/sessions` is searched
+ * for a file matching `rollout-*-<sessionId>.jsonl`, scanning year/month/day
+ * directories in reverse-chronological order.
+ *
+ * Retries every `intervalMs` (default 250ms) up to `timeoutMs` (default 30 s)
+ * to handle the case where Codex creates the file after the observer starts.
+ * Throws if the file is not found within the timeout or if `signal` is aborted.
+ */
 export async function resolveRolloutPath(
     sessionId: string,
     opts: ResolveRolloutOptions = {},
@@ -76,6 +111,11 @@ export async function resolveRolloutPath(
     throw new Error(`Codex rollout file not found for session ${trimmed} within ${timeoutMs}ms`);
 }
 
+/**
+ * Reads the first `session_meta` line from the rollout file.
+ * Returns null if no matching line is found (e.g. file is still being written).
+ * Only reads forward through the file — stops at the first session_meta record.
+ */
 export async function readRolloutSessionMeta(filePath: string): Promise<RolloutSessionMeta | null> {
     const stream = createReadStream(filePath, { encoding: "utf8" });
     const rl = readline.createInterface({ input: stream });
@@ -134,6 +174,16 @@ export function normalizeRolloutTurnContext(
     };
 }
 
+/**
+ * Async generator that tails `filePath` and yields typed RolloutEvents as new
+ * lines are appended. Reads in 64 KB chunks, reassembles lines across chunks,
+ * and polls every 250ms when no new data is available.
+ *
+ * Terminates when `signal` is aborted. The file handle is always closed in the
+ * finally block, even if the generator is abandoned mid-iteration.
+ *
+ * Lines that do not map to a known event type are silently skipped.
+ */
 export async function* tailRolloutEvents(
     filePath: string,
     signal?: AbortSignal,

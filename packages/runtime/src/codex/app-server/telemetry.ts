@@ -1,3 +1,24 @@
+/**
+ * Codex App-Server Telemetry Builder
+ *
+ * Builds Agent Tracer contextSnapshot events and human-readable status text
+ * from Codex token-usage and rate-limit data.
+ *
+ * Token usage is sourced from:
+ *   - Rollout JSONL: event_msg → info field (cumulative and per-turn breakdown)
+ *   - App-server notification: thread/tokenUsage/updated → tokenUsage field
+ *
+ * Rate limits are sourced from:
+ *   - Rollout JSONL: event_msg → rate_limits field
+ *   - App-server notification: account/rateLimits/updated → rateLimits field
+ *
+ * Rate-limit windows are represented as windowDurationMins. Well-known values
+ * (300 min = 5 h, 10 080 min = 7 d) are also written to legacy metadata fields
+ * for backward compatibility with monitor versions that expect named fields.
+ *
+ * contextWindowUsedPct is derived from total.totalTokens / modelContextWindow * 100,
+ * computed only when modelContextWindow is a positive finite number.
+ */
 import type { RuntimeIngestEvent } from "~shared/events/kinds.js";
 import { KIND } from "~shared/events/kinds.js";
 import type { ContextSnapshotMetadata } from "~shared/events/metadata.js";
@@ -27,6 +48,10 @@ interface StatusTextInput {
 
 const APP_SERVER_SOURCE = "codex-app-server";
 
+/**
+ * Builds a contextSnapshot RuntimeIngestEvent from the current observer state.
+ * The event title includes the context window utilization percentage when available.
+ */
 export function buildCodexContextSnapshotEvent(
     input: CodexContextSnapshotInput,
 ): RuntimeIngestEvent {
@@ -57,6 +82,11 @@ export function buildCodexContextSnapshotEvent(
     };
 }
 
+/**
+ * Formats a short human-readable status string for stdout (e.g. "[monitor] ctx 42% · 5h 18%").
+ * Returns an empty string when no data is available to display.
+ * Used by the observer when --quiet is not set.
+ */
 export function formatCodexStatusText(input: StatusTextInput): string {
     const parts: string[] = [];
     const ctxPct = getContextUsedPct(input.tokenUsage);
@@ -162,6 +192,10 @@ function roundPct(value: number): number {
     return Math.round(value * 100) / 100;
 }
 
+/**
+ * Converts a windowDurationMins value into a display label (e.g. 60→"1h", 1440→"1d", 10→"10m").
+ * Returns "quota" when the value is null, undefined, or non-positive.
+ */
 export function formatWindowLabel(windowDurationMins: number | null | undefined): string {
     if (windowDurationMins == null || windowDurationMins <= 0) return "quota";
     if (windowDurationMins < 60) return `${windowDurationMins}m`;

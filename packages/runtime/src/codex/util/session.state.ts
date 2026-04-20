@@ -20,6 +20,12 @@ export interface CodexObserverState {
     readonly startedAt: string;
 }
 
+/**
+ * Writes the latest-session hint file to
+ * `<projectDir>/.codex/agent-tracer/latest-session.json`.
+ * The observer reads this file to determine which rollout to tail when
+ * no explicit --session-marker is provided.
+ */
 export async function writeLatestSessionState(
     input: {
         readonly sessionId: string;
@@ -42,6 +48,10 @@ export async function writeLatestSessionState(
     return file;
 }
 
+/**
+ * Reads the latest-session hint file. Returns null if the file is missing,
+ * malformed, or does not contain a valid sessionId.
+ */
 export async function readLatestSessionState(
     projectDir: string = PROJECT_DIR,
 ): Promise<CodexLatestSessionState | null> {
@@ -70,6 +80,12 @@ export async function readLatestSessionState(
     }
 }
 
+/**
+ * Persists observer PID and session info to
+ * `<projectDir>/.codex/agent-tracer/observer.json`.
+ * Written by the observer on startup so the SessionStart hook can detect
+ * whether a compatible observer is already running.
+ */
 export async function writeObserverState(
     input: CodexObserverState,
     projectDir: string = PROJECT_DIR,
@@ -83,6 +99,10 @@ export async function writeObserverState(
     return file;
 }
 
+/**
+ * Reads the observer state file. Returns null if missing, malformed,
+ * or if pid is not a positive finite integer.
+ */
 export async function readObserverState(
     projectDir: string = PROJECT_DIR,
 ): Promise<CodexObserverState | null> {
@@ -108,6 +128,11 @@ export async function readObserverState(
     }
 }
 
+/**
+ * Overwrites the observer state file with `{}` to signal that no observer
+ * is running. Called in the observer's finally block and on SIGINT/SIGTERM.
+ * Errors are swallowed — cleanup is best-effort.
+ */
 export async function clearObserverState(
     projectDir: string = PROJECT_DIR,
 ): Promise<void> {
@@ -119,6 +144,10 @@ export async function clearObserverState(
     }
 }
 
+/**
+ * Checks whether a process is alive by sending signal 0 (no-op).
+ * Returns false if the process does not exist or permission is denied.
+ */
 export function isPidRunning(pid: number): boolean {
     try {
         process.kill(pid, 0);

@@ -1,3 +1,27 @@
+/**
+ * Codex Hook: PostToolUse — matcher: "Bash"
+ *
+ * Fires after a Bash command completes (success or failure).
+ * Matcher (hooks.json): "Bash" — runs only for Bash tool invocations.
+ *
+ * Stdin payload fields (ref: https://github.com/openai/codex#hooks):
+ *   session_id       string  — unique session / thread identifier
+ *   hook_event_name  string  — "PostToolUse"
+ *   tool_name        string  — "Bash"
+ *   tool_input       object  — Bash tool input (see below)
+ *   tool_response    any     — stdout/stderr of the command (not used here)
+ *
+ * Bash tool_input fields:
+ *   command          string  — shell command that was executed
+ *
+ * Stdout: not consumed by Codex for PostToolUse hooks.
+ *
+ * Blocking: PostToolUse cannot block execution.
+ *
+ * This handler posts a terminalCommand event with kind "terminal.command"
+ * and attaches the runtime-derived lane and semantic metadata inferred from
+ * the command string (e.g. read vs. write vs. test vs. build).
+ */
 import { ensureRuntimeSession, postTaggedEvent, readStdinJson } from "~codex/lib/transport/transport.js";
 import { toTrimmedString } from "~codex/util/utils.js";
 import { KIND } from "~shared/events/kinds.js";
