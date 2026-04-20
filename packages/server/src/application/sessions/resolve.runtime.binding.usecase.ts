@@ -16,7 +16,6 @@ export class ResolveRuntimeBindingUseCase {
             return { taskId: String(binding.taskId), sessionId: String(binding.monitorSessionId) };
         }
 
-        // Session may have ended before OTLP batch was flushed (5s export interval races SessionEnd).
         // Fall back: resolve taskId from the binding row (which survives clearSession), then find
         // the most recently started session for that task.
         const taskId = await this.runtimeBindings.findTaskId(runtimeSource, runtimeSessionId);

@@ -40,8 +40,6 @@ import {hookLog} from "~claude-code/hooks/lib/hook/hook.log.js";
 import {ensureRuntimeSession, postJson, postTaggedEvent} from "~claude-code/hooks/lib/transport/transport.js";
 
 import {deleteTodoState} from "~claude-code/hooks/PostToolUse/Todo/todo.state.js";
-import {deleteCursor} from "~claude-code/hooks/lib/transcript/transcript.cursor.js";
-
 function mapCompletionReason(reason: string): "explicit_exit" | "runtime_terminated" {
     return reason === "prompt_input_exit" ? "explicit_exit" : "runtime_terminated";
 }
@@ -111,9 +109,8 @@ async function main(): Promise<void> {
     });
     hookLog("SessionEnd", "session-ended event posted", {reason});
 
-    deleteCursor(sessionId);
     deleteTodoState(sessionId);
-    hookLog("SessionEnd", "transcript cursor and todo state deleted", {sessionId});
+    hookLog("SessionEnd", "todo state deleted", {sessionId});
 }
 
 void main().catch((err: unknown) => {

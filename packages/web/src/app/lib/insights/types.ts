@@ -114,18 +114,3 @@ export interface TimelineFilterOptions {
     readonly selectedRuleId?: string | null;
     readonly showRuleGapsOnly?: boolean;
 }
-export interface TokenSummary {
-    readonly totalNewInput: number;
-    readonly totalCacheRead: number;
-    readonly totalCacheCreate: number;
-    readonly totalOutput: number;
-    /**
-     * Aggregate cache hit rate across all assistant.response events, expressed
-     * as a percentage (0-100). Computed from the sum of cache-read tokens over
-     * the sum of all input-side tokens (new + cache-read + cache-create).
-     * Per-turn hit rates are misleading because early turns have no cache to
-     * hit; this aggregate is more useful for Overview surfaces.
-     */
-    readonly overallHitRate: number;
-    readonly turnCount: number;
-}

@@ -18,7 +18,6 @@ import {
     DetailSection,
     DetailSubagentAction,
     DetailTaskReminder,
-    DetailTokenUsage,
     InspectorHeaderCard
 } from "./InspectorDetails.js";
 import { inspectorHelpText } from "./helpText.js";
@@ -279,7 +278,6 @@ export function InspectorTab({
                 return group ? <TodoGroupSection group={group}/> : null;
             })()}
             {selectedEvent.kind === "user.message" && <DetailCaptureInfo event={selectedEvent}/>}
-            {(selectedEvent.kind === "assistant.response" || selectedEvent.kind === "token.usage") && <DetailTokenUsage event={selectedEvent}/>}
             {(selectedEvent.metadata["modelName"] as string | undefined) && (<DetailModelInfo modelName={selectedEvent.metadata["modelName"] as string} modelProvider={selectedEvent.metadata["modelProvider"] as string | undefined}/>)}
             {selectedEvent.lane === "coordination" && (<DetailSection label="Agent Activity" helpText={inspectorHelpText.agentActivity} resizable value={[
                     typeof selectedEvent.metadata["activityType"] === "string"

@@ -91,26 +91,6 @@ export function Timeline({
         [filters, selectedRuleId, showRuleGapsOnly, groupedTimeline],
     );
     const sessionMarkers = useMemo(() => selectSessionMarkerEvents(timeline), [timeline]);
-    const tokenBadgesMap = useMemo(() => {
-        const telemetryEvents = timeline.filter((e) => e.lane === "telemetry");
-        if (telemetryEvents.length === 0) return new Map<string, readonly typeof timeline[number][]>();
-        const mainSorted = [...filteredTimeline].sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
-        const map = new Map<string, typeof timeline[number][]>();
-        for (const te of telemetryEvents) {
-            const teTime = Date.parse(te.createdAt);
-            let nearest = mainSorted[0];
-            for (const me of mainSorted) {
-                if (Date.parse(me.createdAt) <= teTime + 5000) nearest = me;
-                else break;
-            }
-            if (nearest) {
-                const arr = map.get(nearest.id) ?? [];
-                arr.push(te);
-                map.set(nearest.id, arr);
-            }
-        }
-        return map as Map<string, readonly typeof timeline[number][]>;
-    }, [timeline, filteredTimeline]);
     const expandedLaneSet = useMemo(() => {
         const active = Object.entries(expandedSubtypeLanes)
             .filter(([, enabled]) => enabled)
@@ -474,7 +454,6 @@ export function Timeline({
                                         taskTitle={taskTitle}
                                         openStackEventId={openStackEventId}
                                         stackGroups={stackGroups}
-                                        tokenBadges={tokenBadgesMap.get(item.event.id)}
                                         onSelectEvent={onSelectEvent}
                                         onOpenStack={setOpenStackEventId}
                                         onRegisterNode={(id, node) => {

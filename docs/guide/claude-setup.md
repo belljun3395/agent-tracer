@@ -121,7 +121,7 @@ derived **server-side** by `@monitor/classification` at ingestion
 
 ### Supporting modules
 
-- `lib/` — shared utilities (`transport`, `session`, `subagent-session`, `transcript-cursor`, `transcript-tail`, `transcript-emit`, `json-file-store`, `hook-log`)
+- `lib/` — shared utilities (`transport`, `session`, `subagent-session`, `json-file-store`, `hook-log`)
 - `util/` — framework-agnostic helpers (`lane`, `paths`, `utils`)
 
 > Pre-v0.2.0 the plugin also maintained `lib/session-cache.ts`,
@@ -190,30 +190,7 @@ call directly. A few of the most useful ones:
 - Background: `monitor_async_task`
 - Workflow library: `monitor_evaluate_task`, `monitor_find_similar_workflows`
 
-## 8. Enable token telemetry (optional)
-
-Token usage data (input/output tokens, cache tokens, estimated cost) is
-collected through Claude Code's built-in OpenTelemetry exporter. The
-exporter is **opt-in** and requires additional environment variables.
-Without them Claude Code works normally but the Token Summary panel in
-the dashboard stays empty.
-
-Run the setup script once:
-
-```bash
-bash scripts/setup-telemetry.sh
-```
-
-Then reload your shell and restart Claude Code:
-
-```bash
-source ~/.zshrc
-```
-
-For full details, troubleshooting, and known limitations see
-[Token Telemetry Setup](./token-telemetry.md).
-
-## 9. End-to-end check
+## 8. End-to-end check
 
 1. Monitor server is running (`curl -sf http://127.0.0.1:3847/api/overview`).
 2. `setup:external` has been run for the target project.

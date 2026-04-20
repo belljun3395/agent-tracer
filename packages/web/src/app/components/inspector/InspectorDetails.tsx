@@ -5,7 +5,6 @@ import { buildInspectorEventTitle, evidenceTone, formatEvidenceLevel, type Timel
 import { cn } from "../../lib/ui/cn.js";
 import { Badge } from "../ui/Badge.js";
 import { PanelCard } from "../ui/PanelCard.js";
-import { CacheEfficiencyBar } from "./CacheEfficiencyBar.js";
 import { inspectorHelpText } from "./helpText.js";
 import { SectionCard } from "./SectionCard.js";
 import { cardShell, monoText } from "./styles.js";
@@ -182,38 +181,6 @@ export function DetailModelInfo({ modelName, modelProvider }: {
     </SectionCard>);
 }
 
-export function DetailTokenUsage({ event }: {
-    readonly event: TimelineEventRecord;
-}): React.JSX.Element {
-    const inputTokens = event.metadata["inputTokens"] as number | undefined;
-    const outputTokens = event.metadata["outputTokens"] as number | undefined;
-    const cacheReadTokens = event.metadata["cacheReadTokens"] as number | undefined;
-    const cacheCreateTokens = event.metadata["cacheCreateTokens"] as number | undefined;
-    const stopReason = event.metadata["stopReason"] as string | undefined;
-    const rows = [
-        ...(inputTokens != null ? [{ key: "Input Tokens", value: inputTokens.toLocaleString() }] : []),
-        ...(outputTokens != null ? [{ key: "Output Tokens", value: outputTokens.toLocaleString() }] : []),
-        ...(cacheReadTokens != null ? [{ key: "Cache Read Tokens", value: cacheReadTokens.toLocaleString() }] : []),
-        ...(cacheCreateTokens != null ? [{ key: "Cache Create Tokens", value: cacheCreateTokens.toLocaleString() }] : []),
-        ...(stopReason ? [{ key: "Stop Reason", value: stopReason }] : [])
-    ];
-    if (rows.length === 0)
-        return <></>;
-    const hasCacheData = inputTokens != null || outputTokens != null;
-    return (<SectionCard title="Token Usage" helpText={inspectorHelpText.tokenUsage} bodyClassName="pt-4">
-      {hasCacheData && (
-        <div className="mb-3">
-          <CacheEfficiencyBar
-            inputTokens={inputTokens ?? 0}
-            cacheReadTokens={cacheReadTokens ?? 0}
-            cacheCreateTokens={cacheCreateTokens ?? 0}
-            outputTokens={outputTokens ?? 0}
-          />
-        </div>
-      )}
-      <KeyValueTable rows={rows}/>
-    </SectionCard>);
-}
 
 export function DetailCaptureInfo({ event }: {
     readonly event: TimelineEventRecord;

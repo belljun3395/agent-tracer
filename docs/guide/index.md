@@ -19,12 +19,6 @@ configuration.
 2. **[Claude Code Setup](./claude-setup.md)** — load the plugin and register
    the MCP server. Claude Code integration is complete after these two steps.
 
-### Enable token telemetry (optional)
-
-3. **[Token Telemetry Setup](./token-telemetry.md)** — configure Claude
-   Code's OpenTelemetry exporter so token usage, cache hit rate, and
-   estimated cost appear in the dashboard Token Summary panel.
-
 ### Attach to external projects (optional)
 
 If you want to use Agent Tracer with a project outside this repository, follow
@@ -49,8 +43,6 @@ for the minimal implementation order to call the HTTP API directly.
 Once you're set up, these pages describe the event surface and runtime
 model in more detail.
 
-- [Token telemetry setup](./token-telemetry.md) — OTel env vars, setup
-  script, verification, and known limitations
 - [Runtime capabilities](./runtime-capabilities.md) — how the capability
   registry tracks per-runtime differences
 - [API integration map](./api-integration-map.md) — every HTTP endpoint

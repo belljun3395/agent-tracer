@@ -8,12 +8,10 @@ import type {
     FileActivityStat,
     ObservabilityStats,
     SubagentInsight,
-    TokenSummary,
     WebLookupStat
 } from "./types.js";
 import {
     extractMetadataBoolean,
-    extractMetadataNumber,
     extractMetadataString,
     extractMetadataStringArray,
     isCompactEvent
@@ -427,51 +425,4 @@ export function buildSubagentInsight(timeline: readonly TimelineEventRecord[]): 
  */
 export function countUniqueExploredFiles(timeline: readonly TimelineEventRecord[]): number {
     return collectExploredFiles(timeline).length;
-}
-
-/**
- * Aggregates assistant.response token usage across the whole task timeline.
- *
- * The Anthropic usage payload reports `input_tokens` as the *new* (uncached)
- * input tokens, separate from cache-read and cache-create. This helper sums
- * each channel independently so Overview surfaces can show a coherent
- * single-number cache hit rate across the entire task rather than a misleading
- * per-turn rate (early turns have no cache to hit).
- */
-export function getTokenSummary(timeline: readonly TimelineEventRecord[]): TokenSummary {
-    let totalNewInput = 0;
-    let totalCacheRead = 0;
-    let totalCacheCreate = 0;
-    let totalOutput = 0;
-    let turnCount = 0;
-    for (const event of timeline) {
-        if (event.kind !== "assistant.response" && event.kind !== "token.usage") {
-            continue;
-        }
-        const inputTokens = extractMetadataNumber(event.metadata, "inputTokens") ?? 0;
-        const cacheReadTokens = extractMetadataNumber(event.metadata, "cacheReadTokens") ?? 0;
-        const cacheCreateTokens = extractMetadataNumber(event.metadata, "cacheCreateTokens") ?? 0;
-        const outputTokens = extractMetadataNumber(event.metadata, "outputTokens") ?? 0;
-        // Skip events with no token data (e.g., new-style assistant.response without tokens).
-        if (inputTokens === 0 && outputTokens === 0 && cacheReadTokens === 0 && cacheCreateTokens === 0) {
-            continue;
-        }
-        totalNewInput += Math.max(0, inputTokens);
-        totalCacheRead += Math.max(0, cacheReadTokens);
-        totalCacheCreate += Math.max(0, cacheCreateTokens);
-        totalOutput += Math.max(0, outputTokens);
-        turnCount += 1;
-    }
-    const totalInputSide = totalNewInput + totalCacheRead + totalCacheCreate;
-    const overallHitRate = totalInputSide > 0
-        ? (totalCacheRead / totalInputSide) * 100
-        : 0;
-    return {
-        totalNewInput,
-        totalCacheRead,
-        totalCacheCreate,
-        totalOutput,
-        overallHitRate,
-        turnCount
-    };
 }
