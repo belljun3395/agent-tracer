@@ -2,7 +2,7 @@
 
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse } from "yaml";
@@ -121,6 +121,10 @@ async function writeJson(filePath, value) {
   await writeFile(filePath, next, "utf8");
 }
 
+function shQuote(value) {
+  return `'${String(value).replace(/'/g, `'\"'\"'`)}'`;
+}
+
 const CLAUDE_PERMISSION_DEFAULTS = {
   defaultMode: "acceptEdits",
   allow: ["WebSearch", "WebFetch"]
@@ -152,6 +156,144 @@ async function setupClaude({ targetDir, tracerRoot }) {
       `[claude] Plugin path: ${pluginPath}`,
       `[claude] Run Claude Code with: claude --plugin-dir ${pluginPath}`,
       `[claude] Or alias it: alias claude='claude --plugin-dir ${pluginPath}'`,
+      ""
+    ].join("\n")
+  );
+}
+
+async function writeCodexConfig({ targetDir }) {
+  const codexConfigPath = path.join(targetDir, ".codex", "config.toml");
+  const existing = fs.existsSync(codexConfigPath)
+    ? await readFile(codexConfigPath, "utf8")
+    : "";
+
+  const next = upsertTomlBooleanSetting(existing, "features", "codex_hooks", true);
+  await writeFile(codexConfigPath, next, "utf8");
+  return codexConfigPath;
+}
+
+function upsertTomlBooleanSetting(raw, tableName, key, value) {
+  const normalized = raw.replace(/\r\n/g, "\n");
+  const lines = normalized.split("\n");
+  const tableHeader = new RegExp(`^\\s*\\[${escapeRegExp(tableName)}\\]\\s*$`);
+  const anyTableHeader = /^\s*\[[^\]]+\]\s*$/;
+  const keyLine = new RegExp(`^\\s*${escapeRegExp(key)}\\s*=`);
+  const rendered = `${key} = ${value ? "true" : "false"}`;
+
+  const tableIndex = lines.findIndex((line) => tableHeader.test(line));
+
+  if (tableIndex === -1) {
+    const prefix = normalized.trimEnd();
+    return `${prefix}${prefix ? "\n\n" : ""}[${tableName}]\n${rendered}\n`;
+  }
+
+  let tableEnd = lines.length;
+  for (let index = tableIndex + 1; index < lines.length; index += 1) {
+    if (anyTableHeader.test(lines[index])) {
+      tableEnd = index;
+      break;
+    }
+  }
+
+  for (let index = tableIndex + 1; index < tableEnd; index += 1) {
+    if (keyLine.test(lines[index])) {
+      lines[index] = rendered;
+      return `${lines.join("\n").replace(/\n*$/g, "")}\n`;
+    }
+  }
+
+  lines.splice(tableEnd, 0, rendered);
+  return `${lines.join("\n").replace(/\n*$/g, "")}\n`;
+}
+
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function buildCodexHookConfig({ tracerRoot, monitorBaseUrl }) {
+  const runHook = path.join(tracerRoot, "packages", "runtime", "src", "codex", "bin", "run-hook.sh");
+  const monitoredHookCommand = (hookName) =>
+    `MONITOR_BASE_URL=${shQuote(monitorBaseUrl)} /usr/bin/env bash ${shQuote(runHook)} ${shQuote(hookName)}`;
+
+  return {
+    hooks: {
+      SessionStart: [
+        {
+          matcher: "startup|resume",
+          hooks: [{ type: "command", command: monitoredHookCommand("SessionStart") }]
+        }
+      ],
+      UserPromptSubmit: [
+        {
+          hooks: [{ type: "command", command: monitoredHookCommand("UserPromptSubmit") }]
+        }
+      ],
+      PreToolUse: [
+        {
+          matcher: "Bash",
+          hooks: [{ type: "command", command: monitoredHookCommand("PreToolUse") }]
+        }
+      ],
+      PostToolUse: [
+        {
+          matcher: "Bash",
+          hooks: [{ type: "command", command: monitoredHookCommand("PostToolUse/Bash") }]
+        }
+      ],
+      Stop: [
+        {
+          hooks: [{ type: "command", command: monitoredHookCommand("Stop") }]
+        }
+      ]
+    }
+  };
+}
+
+function mergeCodexHookConfig(existingConfig, generatedConfig) {
+  const existingHooks = existingConfig && typeof existingConfig === "object" && existingConfig !== null
+    ? (existingConfig.hooks && typeof existingConfig.hooks === "object" ? existingConfig.hooks : {})
+    : {};
+
+  const mergedHooks = { ...existingHooks };
+
+  for (const [eventName, generatedGroups] of Object.entries(generatedConfig.hooks)) {
+    const priorGroups = Array.isArray(existingHooks[eventName]) ? existingHooks[eventName] : [];
+    const seen = new Set(priorGroups.map((group) => JSON.stringify(group)));
+    const nextGroups = [...priorGroups];
+    for (const group of generatedGroups) {
+      const signature = JSON.stringify(group);
+      if (seen.has(signature)) continue;
+      nextGroups.push(group);
+      seen.add(signature);
+    }
+    mergedHooks[eventName] = nextGroups;
+  }
+
+  return {
+    ...(existingConfig && typeof existingConfig === "object" && existingConfig !== null ? existingConfig : {}),
+    hooks: mergedHooks
+  };
+}
+
+async function setupCodex({ targetDir, tracerRoot, monitorBaseUrl }) {
+  const codexDir = path.join(targetDir, ".codex");
+  const codexHooksPath = path.join(codexDir, "hooks.json");
+
+  await mkdir(codexDir, { recursive: true });
+  const codexConfigPath = await writeCodexConfig({ targetDir });
+
+  const existingHooks = await readJson(codexHooksPath, {});
+  const generatedHooks = buildCodexHookConfig({ tracerRoot, monitorBaseUrl });
+  const mergedHooks = mergeCodexHookConfig(existingHooks, generatedHooks);
+  await writeJson(codexHooksPath, mergedHooks);
+  await rm(path.join(codexDir, "agent-tracer"), { recursive: true, force: true });
+
+  process.stdout.write(
+    [
+      "",
+      `[codex] Config path: ${codexConfigPath}`,
+      `[codex] Hooks config: ${codexHooksPath}`,
+      `[codex] Run plain Codex in the target project: (cd ${targetDir} && codex)`,
       ""
     ].join("\n")
   );
@@ -189,9 +331,10 @@ async function main() {
   const targetDir = path.resolve(args.target);
 
   await setupClaude({ targetDir, tracerRoot });
+  await setupCodex({ targetDir, tracerRoot, monitorBaseUrl: args.monitorBaseUrl });
 
   process.stdout.write(
-    `Configured Claude monitor integration in ${targetDir} (source: ${args.sourceRepo}@${args.sourceRef}${args.sourceRoot ? `, sourceRoot=${args.sourceRoot}` : ""})\n`
+    `Configured Agent Tracer external integration in ${targetDir} (source: ${args.sourceRepo}@${args.sourceRef}${args.sourceRoot ? `, sourceRoot=${args.sourceRoot}` : ""})\n`
   );
 }
 
