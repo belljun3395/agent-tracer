@@ -69,6 +69,32 @@ function buildInstructionRow(event: TimelineEventRecord): InstructionRow {
     };
 }
 
+function ExpandableBody({ body, className }: { readonly body: string; readonly className?: string }): React.JSX.Element {
+    const [expanded, setExpanded] = useState(false);
+    const isLong = body.length > 200 || body.includes("\n");
+    if (!isLong) {
+        return (
+            <p className={cn("m-0 whitespace-pre-wrap break-words", className)}>
+                {body}
+            </p>
+        );
+    }
+    return (
+        <div className="flex flex-col gap-1">
+            <p className={cn("m-0 whitespace-pre-wrap break-words", expanded ? "" : "max-h-28 overflow-hidden", className)}>
+                {body}
+            </p>
+            <button
+                type="button"
+                onClick={() => setExpanded((v) => !v)}
+                className="self-start text-[0.68rem] text-[var(--text-3)] hover:text-[var(--text-2)] transition-colors"
+            >
+                {expanded ? "show less ▲" : "show more ▼"}
+            </button>
+        </div>
+    );
+}
+
 function ExpandableNameList({ names, label }: { readonly names: readonly string[]; readonly label: string }): React.JSX.Element {
     const [expanded, setExpanded] = useState(false);
     return (
@@ -134,9 +160,7 @@ function InstructionRowItem({ row }: { readonly row: InstructionRow }): React.JS
                 <ExpandableNameList names={expandableNames} label={expandLabel} />
             )}
             {row.body && !row.pathHint && !expandableNames && (
-                <p className="m-0 max-h-28 overflow-hidden whitespace-pre-wrap break-words text-[0.76rem] text-[var(--text-3)]">
-                    {row.body}
-                </p>
+                <ExpandableBody body={row.body} className="text-[0.76rem] text-[var(--text-3)]" />
             )}
         </div>
     );
@@ -226,9 +250,7 @@ function ContextSavedCard({ rows }: { readonly rows: readonly ContextRow[] }): R
                                     )}
                                 </div>
                                 {row.body && (
-                                    <p className="m-0 max-h-28 overflow-hidden whitespace-pre-wrap break-words text-[0.78rem] text-[var(--text-2)]">
-                                        {row.body}
-                                    </p>
+                                    <ExpandableBody body={row.body} className="text-[0.78rem] text-[var(--text-2)]" />
                                 )}
                             </div>
                         ))}
