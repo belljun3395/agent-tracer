@@ -4,7 +4,7 @@ export default defineConfig({
         target: "es2022",
     },
     test: {
-        include: ["test/**/*.test.ts"],
+        include: ["test/**/*.test.ts", "src/**/*.test.ts"],
         passWithNoTests: true,
     }
 });

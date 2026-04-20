@@ -3,6 +3,7 @@ export const EVENT_LANES = [
     "exploration",
     "planning",
     "implementation",
+    "rule",
     "questions",
     "todos",
     "background",

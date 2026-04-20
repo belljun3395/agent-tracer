@@ -5,6 +5,7 @@ export const LANE = {
     exploration: "exploration",
     planning: "planning",
     implementation: "implementation",
+    rule: "rule",
     questions: "questions",
     todos: "todos",
     background: "background",
