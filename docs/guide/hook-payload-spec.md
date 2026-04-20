@@ -129,11 +129,11 @@ interface EventSemanticMetadata {
 }
 ```
 
-This contract is derived **server-side** at ingestion in
-`@monitor/classification` (see `packages/classification/src/classifier.ts`
-and `packages/classification/src/semantic-metadata.ts`). The plugin sends
-raw payloads only. The derived fields are used for UI rendering in
-`packages/web-app/src/lib/eventSubtype.ts`.
+This contract is derived **server-side** at ingestion inside
+`@monitor/server` (see the classification paths under
+`packages/server/src/application/events/`). The plugin sends raw payloads
+only. The derived fields are consumed by the web dashboard through
+`packages/web/src/app/lib/timeline.ts`.
 
 ### Per-Tool Additional Metadata
 

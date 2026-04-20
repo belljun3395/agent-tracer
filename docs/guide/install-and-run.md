@@ -22,7 +22,8 @@ npm install
 ```
 
 The repo is an npm workspaces monorepo. `npm install` hydrates every
-workspace under `packages/*`, including `packages/runtime-claude`.
+workspace under `packages/*`, including the Claude Code plugin at
+`packages/runtime/src/claude-code`.
 
 ## 3. Build every package
 
@@ -95,11 +96,12 @@ Claude Code via `claude mcp add monitor`). If you want to exercise it
 manually after a build:
 
 ```bash
-npm run start:mcp
+npm run start:mcp --workspace @monitor/server
 ```
 
-It listens on stdio and forwards tool calls to the monitor server over
-HTTP.
+(`start:mcp` is defined in `packages/server/package.json` and runs
+`node ./dist/mcp.js`.) It listens on stdio and forwards tool calls to the
+monitor server over HTTP.
 
 ## 7. Troubleshooting
 

@@ -48,8 +48,8 @@ The only required argument is `--target`. The script:
 Expected output:
 
 ```text
-[claude] Plugin path: /absolute/path/to/agent-tracer/packages/runtime-claude
-[claude] Run Claude Code with: claude --plugin-dir /absolute/path/to/agent-tracer/packages/runtime-claude
+[claude] Plugin path: /absolute/path/to/agent-tracer/packages/runtime/src/claude-code
+[claude] Run Claude Code with: claude --plugin-dir /absolute/path/to/agent-tracer/packages/runtime/src/claude-code
 ```
 
 > The script also parses `--monitor-base-url`, `--source-repo`,
@@ -91,7 +91,7 @@ References:
 
 ## 6. Common pitfalls
 
-- **Stale `npm run build`** — after modifying `packages/adapter-mcp` or the
+- **Stale `npm run build`** — after modifying `packages/mcp` or the
   plugin, rebuild before launching Claude.
 - **Missing `node` on GUI PATH** — when launching Claude Code from a
   macOS launcher, use the absolute node binary path in `claude mcp add`.

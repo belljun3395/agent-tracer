@@ -6,7 +6,7 @@ reference pages below.
 
 ## Quick start (Claude Code plugin)
 
-Agent Tracer is distributed as a Claude Code **plugin** (`packages/runtime-claude/`).
+Agent Tracer is distributed as a Claude Code **plugin** (`packages/runtime/`).
 The plugin automatically registers all hook events and posts them to the
 monitor server. You do not need to copy hook source files or perform manual
 configuration.
@@ -30,7 +30,7 @@ an additional step:
 
 > **Note:** When running Claude Code inside the Agent Tracer repository itself,
 > `setup:external` is not needed. You can start with
-> `claude --plugin-dir packages/runtime-claude` directly.
+> `claude --plugin-dir packages/runtime/src/claude-code` directly.
 
 ### Other runtimes (manual HTTP/MCP)
 
@@ -54,7 +54,7 @@ model in more detail.
 - [Task observability](./task-observability.md) — `Flow` and `Health`
   read model used by the dashboard
 - [Web styling guide](./web-styling.md) — CSS / Tailwind conventions
-  used by `@monitor/web-app`
+  used by `@monitor/web`
 
 ## Related
 
