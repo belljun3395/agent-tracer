@@ -1,12 +1,14 @@
 import type React from "react";
 import { useCallback, useMemo, useRef, useState } from "react";
 import type { TimelineItemLayout } from "../../../types.js";
+import type { ContextWarningPrefs } from "../../lib/contextWarningPrefs.js";
 
 export interface ContextChartProps {
     readonly timelineWidth: number;
     readonly allItems: readonly TimelineItemLayout[];
     readonly snapshotItems: readonly TimelineItemLayout[];
     readonly compactItems: readonly TimelineItemLayout[];
+    readonly contextWarningPrefs: ContextWarningPrefs;
 }
 
 interface CompactMarker {
@@ -115,6 +117,82 @@ function buildLinePath(points: readonly DataPoint[]): string {
     return points.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${toY(p.pct)}`).join(" ");
 }
 
+function buildThresholdAreaPath(points: readonly DataPoint[], thresholdPct: number): string {
+    if (points.length < 2) return "";
+    const toY = (pct: number): number => PADDING_TOP + INNER_H - (pct / 100) * INNER_H;
+    const first = points[0]!;
+    const last = points[points.length - 1]!;
+    let d = `M ${first.x} ${toY(first.pct)}`;
+    for (let index = 1; index < points.length; index++) {
+        d += ` L ${points[index]!.x} ${toY(points[index]!.pct)}`;
+    }
+    d += ` L ${last.x} ${toY(thresholdPct)} L ${first.x} ${toY(thresholdPct)} Z`;
+    return d;
+}
+
+function interpolatePoint(a: DataPoint, b: DataPoint, thresholdPct: number): DataPoint {
+    if (a.pct === b.pct) return { x: b.x, pct: thresholdPct };
+    const ratio = (thresholdPct - a.pct) / (b.pct - a.pct);
+    return {
+        x: a.x + ((b.x - a.x) * ratio),
+        pct: thresholdPct,
+    };
+}
+
+function splitLineByThreshold(
+    points: readonly DataPoint[],
+    thresholdPct: number,
+): { readonly normal: readonly DataPoint[][]; readonly warning: readonly DataPoint[][] } {
+    if (points.length < 2) return { normal: [], warning: [] };
+    const normal: DataPoint[][] = [];
+    const warning: DataPoint[][] = [];
+    let activeNormal: DataPoint[] = [];
+    let activeWarning: DataPoint[] = [];
+    const flushNormal = (): void => {
+        if (activeNormal.length >= 2) normal.push(activeNormal);
+        activeNormal = [];
+    };
+    const flushWarning = (): void => {
+        if (activeWarning.length >= 2) warning.push(activeWarning);
+        activeWarning = [];
+    };
+
+    for (let index = 0; index < points.length - 1; index++) {
+        const start = points[index]!;
+        const end = points[index + 1]!;
+        const startWarn = start.pct >= thresholdPct;
+        const endWarn = end.pct >= thresholdPct;
+
+        if (startWarn === endWarn) {
+            if (startWarn) {
+                if (activeWarning.length === 0) activeWarning.push(start);
+                activeWarning.push(end);
+            } else {
+                if (activeNormal.length === 0) activeNormal.push(start);
+                activeNormal.push(end);
+            }
+            continue;
+        }
+
+        const crossing = interpolatePoint(start, end, thresholdPct);
+        if (startWarn) {
+            if (activeWarning.length === 0) activeWarning.push(start);
+            activeWarning.push(crossing);
+            flushWarning();
+            activeNormal = [crossing, end];
+        } else {
+            if (activeNormal.length === 0) activeNormal.push(start);
+            activeNormal.push(crossing);
+            flushNormal();
+            activeWarning = [crossing, end];
+        }
+    }
+
+    flushNormal();
+    flushWarning();
+    return { normal, warning };
+}
+
 function shortenModelId(modelId: string): string {
     const lower = modelId.toLowerCase();
     if (lower.includes("opus")) return "Opus";
@@ -190,14 +268,25 @@ interface ChartRowProps {
     readonly compactMarkers: readonly CompactMarker[];
     readonly hoverSvgX: number | null;
     readonly onHoverChange: (svgX: number | null) => void;
+    readonly contextWarningPrefs: ContextWarningPrefs;
 }
 
-function ChartRow({ points, chartWidth, label, fillId, strokeColor, fillColor, fillOpacity, labelColor, modelChangeXs, compactMarkers, hoverSvgX, onHoverChange }: ChartRowProps): React.JSX.Element {
+function ChartRow({ points, chartWidth, label, fillId, strokeColor, fillColor, fillOpacity, labelColor, modelChangeXs, compactMarkers, hoverSvgX, onHoverChange, contextWarningPrefs }: ChartRowProps): React.JSX.Element {
     const latestPct = points.length > 0 ? points[points.length - 1]!.pct : null;
     const areaPath = buildAreaPath(points, CHART_HEIGHT);
     const linePath = buildLinePath(points);
     const midY = PADDING_TOP + INNER_H / 2;
     const svgWrapRef = useRef<HTMLDivElement>(null);
+    const thresholdSegments = useMemo(
+        () => contextWarningPrefs.enabled
+            ? splitLineByThreshold(points, contextWarningPrefs.thresholdPct)
+            : { normal: [], warning: [] },
+        [contextWarningPrefs, points],
+    );
+    const thresholdY = PADDING_TOP + INNER_H - ((contextWarningPrefs.thresholdPct / 100) * INNER_H);
+    const effectiveLabelColor = latestPct !== null && contextWarningPrefs.enabled && latestPct >= contextWarningPrefs.thresholdPct
+        ? "var(--warn)"
+        : labelColor;
 
     const handleMouseMove = useCallback((clientX: number): void => {
         const el = svgWrapRef.current;
@@ -220,7 +309,7 @@ function ChartRow({ points, chartWidth, label, fillId, strokeColor, fillColor, f
 
     return (
         <div className="timeline-context-chart-row">
-            <div className="timeline-context-chart-label" style={{ color: labelColor }}>
+            <div className="timeline-context-chart-label" style={{ color: effectiveLabelColor }}>
                 <span>{label}</span>
                 <span className="timeline-context-chart-pct">
                     {hoverPct !== null ? `${Math.round(hoverPct.pct)}%` : latestPct !== null ? `${Math.round(latestPct)}%` : ""}
@@ -251,6 +340,18 @@ function ChartRow({ points, chartWidth, label, fillId, strokeColor, fillColor, f
                     {/* 50% guide */}
                     <line x1={0} y1={midY} x2={chartWidth} y2={midY}
                         stroke="var(--border)" strokeWidth={0.5} strokeDasharray="3 3" />
+                    {contextWarningPrefs.enabled && (
+                        <line
+                            x1={0}
+                            y1={thresholdY}
+                            x2={chartWidth}
+                            y2={thresholdY}
+                            stroke="var(--warn)"
+                            strokeWidth={0.75}
+                            strokeDasharray="2 3"
+                            opacity={0.75}
+                        />
+                    )}
                     {/* model change markers */}
                     {modelChangeXs.map((x, i) => (
                         <g key={`m-${i}`}>
@@ -280,23 +381,58 @@ function ChartRow({ points, chartWidth, label, fillId, strokeColor, fillColor, f
                     {areaPath && (
                         <path d={areaPath} fill={`url(#${fillId})`} />
                     )}
-                    {linePath && (
+                    {thresholdSegments.warning.map((segment, index) => (
+                        <path
+                            key={`fill-warning-${index}`}
+                            d={buildThresholdAreaPath(segment, contextWarningPrefs.thresholdPct)}
+                            fill="var(--warn)"
+                            opacity={0.16}
+                        />
+                    ))}
+                    {linePath && !contextWarningPrefs.enabled && (
                         <path d={linePath} fill="none" stroke={strokeColor} strokeWidth={1.5}
                             strokeLinejoin="round" strokeLinecap="round" />
                     )}
+                    {thresholdSegments.normal.map((segment, index) => (
+                        <path
+                            key={`line-normal-${index}`}
+                            d={buildLinePath(segment)}
+                            fill="none"
+                            stroke={strokeColor}
+                            strokeWidth={1.75}
+                            strokeLinejoin="round"
+                            strokeLinecap="round"
+                        />
+                    ))}
+                    {thresholdSegments.warning.map((segment, index) => (
+                        <path
+                            key={`line-warning-${index}`}
+                            d={buildLinePath(segment)}
+                            fill="none"
+                            stroke="var(--warn)"
+                            strokeWidth={1.85}
+                            strokeLinejoin="round"
+                            strokeLinecap="round"
+                        />
+                    ))}
                     {points.map((p, i) => (
                         <circle key={i} cx={p.x} cy={PADDING_TOP + INNER_H - (p.pct / 100) * INNER_H}
-                            r={2.5} fill={strokeColor} opacity={0.9} />
+                            r={2.5}
+                            fill={contextWarningPrefs.enabled && p.pct >= contextWarningPrefs.thresholdPct ? "var(--warn)" : strokeColor}
+                            opacity={0.95}
+                        />
                     ))}
                     {/* hover crosshair */}
                     {hoverPct !== null && (
                         <>
                             <line x1={hoverPct.svgX} y1={0} x2={hoverPct.svgX} y2={CHART_HEIGHT}
-                                stroke={strokeColor} strokeWidth={1} opacity={0.5} />
+                                stroke={contextWarningPrefs.enabled && hoverPct.pct >= contextWarningPrefs.thresholdPct ? "var(--warn)" : strokeColor} strokeWidth={1} opacity={0.5} />
                             <circle
                                 cx={hoverPct.svgX}
                                 cy={PADDING_TOP + INNER_H - (hoverPct.pct / 100) * INNER_H}
-                                r={4} fill={strokeColor} opacity={1}
+                                r={4}
+                                fill={contextWarningPrefs.enabled && hoverPct.pct >= contextWarningPrefs.thresholdPct ? "var(--warn)" : strokeColor}
+                                opacity={1}
                             />
                         </>
                     )}
@@ -409,7 +545,7 @@ function ModelBar({ spans, chartWidth, currentModel, hoverSvgX, onHoverChange }:
     );
 }
 
-export function TimelineContextChart({ timelineWidth, allItems, snapshotItems, compactItems }: ContextChartProps): React.JSX.Element | null {
+export function TimelineContextChart({ timelineWidth, allItems, snapshotItems, compactItems, contextWarningPrefs }: ContextChartProps): React.JSX.Element | null {
     const sortedLefts = useMemo(
         () => [...allItems].map(i => i.left).sort((a, b) => a - b),
         [allItems],
@@ -476,6 +612,7 @@ export function TimelineContextChart({ timelineWidth, allItems, snapshotItems, c
                 compactMarkers={compactMarkers}
                 hoverSvgX={hoverSvgX}
                 onHoverChange={setHoverSvgX}
+                contextWarningPrefs={contextWarningPrefs}
             />
             {hasModel && (
                 <ModelBar

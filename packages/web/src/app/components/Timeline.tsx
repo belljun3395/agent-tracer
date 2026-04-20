@@ -1,6 +1,7 @@
 import type React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { segmentEventsByTurn } from "../../types.js";
+import { useContextWarningPrefs } from "../lib/useContextWarningPrefs.js";
 import {
     buildDisplayLaneRows,
     buildTimelineConnectors,
@@ -70,6 +71,7 @@ export function Timeline({
     const filtersPopoverRef = useRef<HTMLDivElement>(null);
     const localFiltersButtonRef = useRef<HTMLButtonElement>(null);
     const { isDragging: isTimelineDragging, dragHandlers } = useTimelineDrag();
+    const { prefs: contextWarningPrefs } = useContextWarningPrefs();
 
     const isFiltersOpen = externalFiltersState?.isOpen ?? localIsFiltersOpen;
     const setIsFiltersOpen = externalFiltersState?.setIsOpen ?? setLocalIsFiltersOpen;
@@ -530,6 +532,7 @@ export function Timeline({
                             allItems={timelineLayout.items}
                             snapshotItems={snapshotItems}
                             compactItems={compactItems}
+                            contextWarningPrefs={contextWarningPrefs}
                         />
                     </>
                 )}
@@ -537,4 +540,3 @@ export function Timeline({
         </section>
     );
 }
-
