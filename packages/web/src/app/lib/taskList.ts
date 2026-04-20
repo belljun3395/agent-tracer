@@ -18,9 +18,19 @@ export interface RuntimeFilterOption {
     readonly count: number;
 }
 
+export interface StatusFilterOption {
+    readonly key: ConcreteTaskStatus;
+    readonly count: number;
+}
+
 export type RailView = "tasks" | "saved";
+export type ConcreteTaskStatus = MonitoringTask["status"];
+export type StatusFilterKey = "all" | ConcreteTaskStatus;
+export type StatusFilterState = Record<ConcreteTaskStatus, boolean>;
 
 export const ALL_RUNTIME_FILTER_KEY = "all";
+export const ALL_STATUS_FILTER_KEY: StatusFilterKey = "all";
+export const TASK_STATUS_FILTER_KEYS = ["running", "waiting", "completed", "errored"] as const satisfies readonly ConcreteTaskStatus[];
 
 interface TaskDisplayTitleCacheEntry {
     readonly title: string;
@@ -77,6 +87,10 @@ export function buildTaskListRows(tasks: readonly MonitoringTask[], options: Bui
         rows.push({ task, depth: task.parentTaskId && taskById.has(task.parentTaskId) ? 1 : 0 });
     }
     return rows;
+}
+
+export function isPrimaryTask(task: MonitoringTask): boolean {
+    return task.taskKind !== "background";
 }
 
 function runtimeTagSlug(source: string): string {
@@ -137,4 +151,32 @@ export function buildRuntimeFilterOptions(tasks: readonly MonitoringTask[]): rea
         { key: ALL_RUNTIME_FILTER_KEY, label: runtimeFilterLabel(ALL_RUNTIME_FILTER_KEY), count: tasks.length },
         ...orderedKeys.map((key) => ({ key, label: runtimeFilterLabel(key), count: counts.get(key) ?? 0 })),
     ];
+}
+
+export function filterTasksByPrimaryStatus(tasks: readonly MonitoringTask[], filters: Readonly<StatusFilterState>): readonly MonitoringTask[] {
+    const enabledStatuses = new Set(
+        TASK_STATUS_FILTER_KEYS.filter((status) => filters[status])
+    );
+
+    if (enabledStatuses.size === TASK_STATUS_FILTER_KEYS.length) return tasks;
+
+    const visiblePrimaryIds = new Set(
+        tasks
+            .filter((task) => isPrimaryTask(task) && enabledStatuses.has(task.status))
+            .map((task) => task.id)
+    );
+
+    return tasks.filter((task) => isPrimaryTask(task)
+        ? visiblePrimaryIds.has(task.id)
+        : Boolean(task.parentTaskId && visiblePrimaryIds.has(task.parentTaskId)));
+}
+
+export function buildStatusFilterOptions(tasks: readonly MonitoringTask[]): readonly StatusFilterOption[] {
+    const counts = new Map<ConcreteTaskStatus, number>();
+    for (const task of tasks) {
+        if (!isPrimaryTask(task)) continue;
+        counts.set(task.status, (counts.get(task.status) ?? 0) + 1);
+    }
+
+    return TASK_STATUS_FILTER_KEYS.map((key) => ({ key, count: counts.get(key) ?? 0 }));
 }

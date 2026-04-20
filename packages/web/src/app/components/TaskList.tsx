@@ -5,21 +5,29 @@ import { useDragScroll } from "../lib/useDragScroll.js";
 import { cn } from "../lib/ui/cn.js";
 import {
     ALL_RUNTIME_FILTER_KEY,
+    TASK_STATUS_FILTER_KEYS,
+    buildStatusFilterOptions,
     buildRuntimeFilterOptions,
     buildTaskListRows,
+    type ConcreteTaskStatus,
+    filterTasksByPrimaryStatus,
     filterTasksByRuntime,
     resolveTaskListItemTitle,
     runtimeBadgeClass,
     runtimeTagLabel,
     type RailView,
+    type StatusFilterState,
 } from "../lib/taskList.js";
+import { formatTaskStatusLabel, TASK_STATUS_BUTTON_STYLES } from "../features/timeline/status-styles.js";
 import { Badge } from "./ui/Badge.js";
 import { Button } from "./ui/Button.js";
 import { PanelCard } from "./ui/PanelCard.js";
 
 export {
+    buildStatusFilterOptions,
     buildRuntimeFilterOptions,
     buildTaskListRows,
+    filterTasksByPrimaryStatus,
     filterTasksByRuntime,
     resolveTaskListItemTitle,
     runtimeFilterKey,
@@ -59,6 +67,33 @@ const railSelectedRowClass = "border-[color-mix(in_srgb,var(--accent)_18%,var(--
 const railContentButtonClass = "flex min-w-0 flex-col items-start justify-start rounded-none border-0 bg-transparent p-0 text-left font-normal shadow-none outline-none transition-colors";
 const railTabButtonClass = "relative flex-1 py-1.5 text-[0.74rem] font-medium transition-colors focus-visible:outline-none cursor-pointer";
 const emptyStateCardClass = "m-3 rounded-[var(--radius-md)] border border-dashed border-[var(--border)] bg-[var(--bg-subtle)] p-3.5";
+const DEFAULT_STATUS_FILTERS: StatusFilterState = {
+    running: true,
+    waiting: true,
+    completed: true,
+    errored: true,
+};
+
+function resolveStatusFilterButtonClass(filterKey: ConcreteTaskStatus, isActive: boolean): string {
+    return isActive ? TASK_STATUS_BUTTON_STYLES[filterKey].active : TASK_STATUS_BUTTON_STYLES[filterKey].idle;
+}
+
+function areAllStatusFiltersEnabled(filters: Readonly<StatusFilterState>): boolean {
+    return TASK_STATUS_FILTER_KEYS.every((status) => filters[status]);
+}
+
+function createDefaultStatusFilters(): StatusFilterState {
+    return { ...DEFAULT_STATUS_FILTERS };
+}
+
+function createDisabledStatusFilters(): StatusFilterState {
+    return {
+        running: false,
+        waiting: false,
+        completed: false,
+        errored: false,
+    };
+}
 
 function EmptyRailState({ title, description, action }: {
     readonly title: string;
@@ -207,6 +242,8 @@ function TaskRow({ task, depth, isSelected, isCollapsedParent, hasChildren, task
 
 export function TaskList({ tasks, bookmarks, taskDisplayTitleCache, selectedTaskBookmarkId, selectedTaskId, taskDetail, selectedTaskQuestionCount, selectedTaskTodoCount, deletingTaskId, deleteErrorTaskId, isCollapsed = false, hideHeader = false, hideTabs = false, initialView = "tasks", onToggleCollapse, onSelectTask, onSelectBookmark, onDeleteBookmark, onDeleteTask }: TaskListProps): React.JSX.Element {
     const [runtimeFilter, setRuntimeFilter] = useState<string>(ALL_RUNTIME_FILTER_KEY);
+    const [statusFilters, setStatusFilters] = useState<StatusFilterState>(createDefaultStatusFilters);
+    const [isStatusFilterExpanded, setIsStatusFilterExpanded] = useState(false);
     const [collapsedParentIds, setCollapsedParentIds] = useState<ReadonlySet<string>>(new Set());
     const [railView, setRailView] = useState<RailView>(initialView);
 
@@ -214,7 +251,17 @@ export function TaskList({ tasks, bookmarks, taskDisplayTitleCache, selectedTask
 
     const tasksDragScroll = useDragScroll({ axis: "y" });
     const runtimeFilterOptions = useMemo(() => buildRuntimeFilterOptions(tasks), [tasks]);
-    const filteredTasks = useMemo(() => filterTasksByRuntime(tasks, runtimeFilter), [tasks, runtimeFilter]);
+    const runtimeFilteredTasks = useMemo(() => filterTasksByRuntime(tasks, runtimeFilter), [tasks, runtimeFilter]);
+    const statusFilterOptions = useMemo(() => buildStatusFilterOptions(runtimeFilteredTasks), [runtimeFilteredTasks]);
+    const filteredTasks = useMemo(
+        () => filterTasksByPrimaryStatus(runtimeFilteredTasks, statusFilters),
+        [runtimeFilteredTasks, statusFilters]
+    );
+    const allStatusesEnabled = useMemo(() => areAllStatusFiltersEnabled(statusFilters), [statusFilters]);
+    const activeStatusCount = useMemo(
+        () => TASK_STATUS_FILTER_KEYS.filter((status) => statusFilters[status]).length,
+        [statusFilters]
+    );
     const childCountByParentId = useMemo(() => {
         const counts = new Map<string, number>();
         for (const task of filteredTasks) {
@@ -310,7 +357,56 @@ export function TaskList({ tasks, bookmarks, taskDisplayTitleCache, selectedTask
                     </div>
                   </div>)}
 
-                {filteredTasks.length === 0 ? (<EmptyRailState title="No tasks match this runtime." description="" action={<button className="mt-2 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] px-2.5 py-1.5 text-[0.72rem] font-medium text-[var(--text-2)] transition-colors hover:border-[var(--border-2)] hover:bg-[var(--surface-2)]" onClick={() => setRuntimeFilter(ALL_RUNTIME_FILTER_KEY)} type="button">
+                {statusFilterOptions.length > 1 && (<div className="border-b border-[var(--border)] bg-[var(--surface-2)]">
+                    <button aria-expanded={isStatusFilterExpanded} className="flex w-full cursor-pointer items-center justify-between px-2.5 py-2 text-left transition-colors hover:bg-[var(--surface)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--accent)]" onClick={() => setIsStatusFilterExpanded((current) => !current)} type="button">
+                      <div className="min-w-0">
+                        <div className="text-[0.62rem] font-medium uppercase tracking-[0.08em] text-[var(--text-3)]">
+                          Main agent status
+                        </div>
+                        <div className="mt-0.5 text-[0.68rem] text-[var(--text-2)]">
+                          {allStatusesEnabled ? "All statuses" : `${activeStatusCount}/${TASK_STATUS_FILTER_KEYS.length} selected`}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 text-[0.68rem] text-[var(--text-3)]">
+                        <span>{statusFilterOptions.reduce((sum, option) => sum + option.count, 0)}</span>
+                        <span aria-hidden="true" className="text-[0.78rem]">{isStatusFilterExpanded ? "▾" : "▸"}</span>
+                      </div>
+                    </button>
+
+                    {isStatusFilterExpanded && (<div className="border-t border-[var(--border)] px-2.5 py-2">
+                        <div className="flex flex-col gap-1">
+                          <button aria-pressed={allStatusesEnabled} className={cn("flex cursor-pointer items-center justify-between rounded-[var(--radius-sm)] border px-2.5 py-2 text-left text-[0.72rem] font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--accent)]", allStatusesEnabled
+                                    ? "border-[color-mix(in_srgb,var(--accent)_16%,var(--border))] bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] text-[var(--accent)]"
+                                    : "border-transparent text-[var(--text-2)] hover:border-[var(--border)] hover:bg-[var(--surface)] hover:text-[var(--text-1)]")} onClick={() => setStatusFilters(allStatusesEnabled ? createDisabledStatusFilters() : createDefaultStatusFilters())} type="button">
+                            <span>All statuses</span>
+                            <span className="text-[0.66rem] opacity-70">{statusFilterOptions.reduce((sum, option) => sum + option.count, 0)}</span>
+                          </button>
+
+                          {statusFilterOptions.map((option) => {
+                            const isActive = statusFilters[option.key];
+                            return (<button key={option.key} aria-pressed={isActive} className={cn("flex cursor-pointer items-center justify-between rounded-[var(--radius-sm)] border px-2.5 py-2 text-left text-[0.72rem] font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--accent)]", resolveStatusFilterButtonClass(option.key, isActive))} onClick={() => setStatusFilters((current) => ({
+                                    ...current,
+                                    [option.key]: !current[option.key],
+                                }))} type="button">
+                                <span className="flex items-center gap-2">
+                                  <span aria-hidden="true" className={cn("inline-flex h-4 w-4 items-center justify-center rounded-[4px] border text-[0.62rem]", isActive
+                                            ? "border-current bg-current/10"
+                                            : "border-[var(--border)] text-transparent")}>
+                                    ✓
+                                  </span>
+                                  <span>{formatTaskStatusLabel(option.key)}</span>
+                                </span>
+                                <span className="text-[0.66rem] opacity-70">{option.count}</span>
+                              </button>);
+                        })}
+                        </div>
+                      </div>)}
+                  </div>)}
+
+                {filteredTasks.length === 0 ? (<EmptyRailState title="No tasks match these filters." description="" action={<button className="mt-2 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] px-2.5 py-1.5 text-[0.72rem] font-medium text-[var(--text-2)] transition-colors hover:border-[var(--border-2)] hover:bg-[var(--surface-2)]" onClick={() => {
+                        setRuntimeFilter(ALL_RUNTIME_FILTER_KEY);
+                        setStatusFilters(createDefaultStatusFilters());
+                    }} type="button">
                       Show all tasks
                     </button>}/>) : (<div className="flex flex-1 flex-col gap-1 overflow-y-auto p-1.5" style={{
                         cursor: tasksDragScroll.isDragging ? "grabbing" : "grab",
