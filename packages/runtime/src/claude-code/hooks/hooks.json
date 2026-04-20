@@ -1,4 +1,8 @@
 {
+  "statusLine": {
+    "type": "command",
+    "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh StatusLine"
+  },
   "hooks": {
     "SessionStart": [
       {

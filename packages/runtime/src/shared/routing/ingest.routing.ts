@@ -9,6 +9,7 @@ export const WORKFLOW_EVENT_KINDS = [
     KIND.ruleLogged,
     KIND.thoughtLogged,
     KIND.contextSaved,
+    KIND.contextSnapshot,
 ] as const;
 export const CONVERSATION_EVENT_KINDS = [KIND.userMessage, KIND.assistantResponse, KIND.questionLogged, KIND.todoLogged] as const;
 export const COORDINATION_EVENT_KINDS = [KIND.agentActivityLogged] as const;

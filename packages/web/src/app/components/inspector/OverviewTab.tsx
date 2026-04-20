@@ -29,6 +29,134 @@ import { inspectorHelpText } from "./helpText.js";
 import { toRelativePath } from "./utils.js";
 
 
+function UsageBar({ pct, color }: { readonly pct: number; readonly color: string }): React.JSX.Element {
+    const clamped = Math.max(0, Math.min(100, pct));
+    const warn = clamped >= 80;
+    const critical = clamped >= 95;
+    const barColor = critical ? "var(--err)" : warn ? "var(--warn)" : color;
+    return (
+        <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-[var(--border)]">
+            <div
+                className="h-full rounded-full transition-[width] duration-300"
+                style={{ width: `${clamped}%`, background: barColor }}
+            />
+        </div>
+    );
+}
+
+function formatResetsAt(unixSeconds: number): string {
+    const diff = unixSeconds * 1000 - Date.now();
+    if (diff <= 0) return "reset soon";
+    const totalMin = Math.round(diff / 60_000);
+    if (totalMin < 60) return `resets in ${totalMin}m`;
+    const h = Math.floor(totalMin / 60);
+    const m = totalMin % 60;
+    return `resets in ${h}h${m > 0 ? ` ${m}m` : ""}`;
+}
+
+function ContextSnapshotCard({ timeline }: { readonly timeline: readonly TimelineEventRecord[] }): React.JSX.Element | null {
+    const latest = useMemo(() => {
+        let found: TimelineEventRecord | null = null;
+        for (const e of timeline) {
+            if (e.kind !== "context.snapshot") continue;
+            if (!found || Date.parse(e.createdAt) > Date.parse(found.createdAt)) found = e;
+        }
+        return found;
+    }, [timeline]);
+
+    if (!latest) return null;
+
+    const md = latest.metadata;
+    const usedPct = typeof md["contextWindowUsedPct"] === "number" ? md["contextWindowUsedPct"] : null;
+    const windowSize = typeof md["contextWindowSize"] === "number" ? md["contextWindowSize"] : null;
+    const totalTokens = typeof md["contextWindowTotalTokens"] === "number" ? md["contextWindowTotalTokens"] : null;
+    const costUsd = typeof md["costTotalUsd"] === "number" ? md["costTotalUsd"] : null;
+    const fiveHourPct = typeof md["rateLimitFiveHourUsedPct"] === "number" ? md["rateLimitFiveHourUsedPct"] : null;
+    const fiveHourResets = typeof md["rateLimitFiveHourResetsAt"] === "number" ? md["rateLimitFiveHourResetsAt"] : null;
+    const sevenDayPct = typeof md["rateLimitSevenDayUsedPct"] === "number" ? md["rateLimitSevenDayUsedPct"] : null;
+    const sevenDayResets = typeof md["rateLimitSevenDayResetsAt"] === "number" ? md["rateLimitSevenDayResetsAt"] : null;
+    const modelId = typeof md["modelId"] === "string" ? md["modelId"] : null;
+
+    const hasCtx = usedPct !== null;
+    const hasRl = fiveHourPct !== null || sevenDayPct !== null;
+
+    if (!hasCtx && !hasRl) return null;
+
+    return (
+        <PanelCard className={cardShell}>
+            <div className={cardHeader}>
+                <span>Context &amp; Rate Limits</span>
+                {modelId && (
+                    <span className="ml-auto font-mono text-[0.65rem] text-[var(--text-3)] font-normal">{modelId}</span>
+                )}
+            </div>
+            <div className={cardBody}>
+                {hasCtx && (
+                    <div className={innerPanel + " p-3"}>
+                        <Eyebrow className="block">Context Window</Eyebrow>
+                        <div className="mt-2 flex items-baseline gap-2">
+                            <strong className="text-[1.1rem] text-[var(--accent)]">{Math.round(usedPct)}%</strong>
+                            <span className="text-[0.72rem] text-[var(--text-3)]">used</span>
+                        </div>
+                        <UsageBar pct={usedPct} color="var(--accent)" />
+                        <div className="mt-1.5 flex gap-3 text-[0.68rem] text-[var(--text-3)]">
+                            {totalTokens !== null && (
+                                <span>{totalTokens.toLocaleString()} tokens</span>
+                            )}
+                            {windowSize !== null && (
+                                <span>/ {(windowSize / 1000).toFixed(0)}k limit</span>
+                            )}
+                            {costUsd !== null && costUsd > 0 && (
+                                <span className="ml-auto">${costUsd.toFixed(3)}</span>
+                            )}
+                        </div>
+                    </div>
+                )}
+                {hasRl && (
+                    <div className={innerPanel + " p-3 mt-2"}>
+                        <Eyebrow className="block">Rate Limits</Eyebrow>
+                        {fiveHourPct !== null && (
+                            <div className="mt-2">
+                                <div className="flex items-baseline justify-between">
+                                    <span className="text-[0.72rem] text-[var(--text-2)] font-medium">5-hour</span>
+                                    <div className="flex items-baseline gap-1.5">
+                                        <strong className="text-[0.9rem]" style={{
+                                            color: fiveHourPct >= 95 ? "var(--err)" : fiveHourPct >= 80 ? "var(--warn)" : "var(--text-1)"
+                                        }}>{Math.round(fiveHourPct)}%</strong>
+                                        {fiveHourResets !== null && (
+                                            <span className="text-[0.65rem] text-[var(--text-3)]">{formatResetsAt(fiveHourResets)}</span>
+                                        )}
+                                    </div>
+                                </div>
+                                <UsageBar pct={fiveHourPct} color="var(--warn)" />
+                            </div>
+                        )}
+                        {sevenDayPct !== null && (
+                            <div className="mt-2">
+                                <div className="flex items-baseline justify-between">
+                                    <span className="text-[0.72rem] text-[var(--text-2)] font-medium">7-day</span>
+                                    <div className="flex items-baseline gap-1.5">
+                                        <strong className="text-[0.9rem]" style={{
+                                            color: sevenDayPct >= 95 ? "var(--err)" : sevenDayPct >= 80 ? "var(--warn)" : "var(--text-1)"
+                                        }}>{Math.round(sevenDayPct)}%</strong>
+                                        {sevenDayResets !== null && (
+                                            <span className="text-[0.65rem] text-[var(--text-3)]">{formatResetsAt(sevenDayResets)}</span>
+                                        )}
+                                    </div>
+                                </div>
+                                <UsageBar pct={sevenDayPct} color="var(--coordination)" />
+                            </div>
+                        )}
+                    </div>
+                )}
+                <p className="mt-1.5 mb-0 text-[0.65rem] text-[var(--text-3)]">
+                    Snapshot from {formatRelativeTime(latest.createdAt)}
+                </p>
+            </div>
+        </PanelCard>
+    );
+}
+
 function RuntimeSessionCard({ runtimeSessionId, runtimeSource, timeline = [] }: {
     readonly runtimeSessionId?: string | undefined;
     readonly runtimeSource?: string | undefined;
@@ -303,6 +431,7 @@ export function OverviewTab({ observability, subagentInsight, verificationCycles
     return (<div className="panel-tab-inner flex flex-col gap-5 p-4">
       <RuntimeSessionCard runtimeSessionId={runtimeSessionId} runtimeSource={runtimeSource} timeline={timeline}/>
       {taskModelSummary && <AIModelCard summary={taskModelSummary}/>}
+      <ContextSnapshotCard timeline={timeline}/>
       <SkillListingCard summary={skillSummary}/>
       {observability ? (<>
           <SectionCard title="Task Flow" helpText={inspectorHelpText.taskFlow}>

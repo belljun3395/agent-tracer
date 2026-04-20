@@ -131,10 +131,12 @@ async function setupClaude({ targetDir, tracerRoot }) {
   await mkdir(path.dirname(settingsPath), { recursive: true });
 
   const settings = await readJson(settingsPath, {});
-  // Strip any legacy hooks block — the plugin (registered below) now owns hook
-  // registration. Leaving stale entries here would double-fire each event.
-  const { hooks: _legacyHooks, ...settingsWithoutHooks } = settings;
+  // Strip any legacy hooks / statusLine blocks — the plugin (registered below) now owns
+  // hook and statusLine registration via ${CLAUDE_PLUGIN_ROOT}. Leaving stale entries
+  // here would double-fire events or point at stale absolute paths after a repo move.
+  const { hooks: _legacyHooks, statusLine: _legacyStatusLine, ...settingsWithoutHooks } = settings;
   void _legacyHooks;
+  void _legacyStatusLine;
   await writeJson(settingsPath, {
     ...settingsWithoutHooks,
     permissions: {
