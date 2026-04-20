@@ -4,6 +4,7 @@ const ensureRuntimeSession = vi.fn();
 const postTaggedEvent = vi.fn();
 const postJson = vi.fn();
 const readStdinJson = vi.fn();
+const writeLatestSessionState = vi.fn();
 const createMessageId = vi.fn(() => "assistant_msg_1");
 const ellipsize = vi.fn((value: string) => value);
 const toTrimmedString = vi.fn((value: unknown) => (typeof value === "string" ? value.trim() : ""));
@@ -21,6 +22,10 @@ vi.mock("~codex/util/utils.js", () => ({
     toTrimmedString,
 }));
 
+vi.mock("~codex/util/session.state.js", () => ({
+    writeLatestSessionState,
+}));
+
 describe("Codex Stop hook", () => {
     beforeEach(() => {
         vi.resetModules();
@@ -31,6 +36,7 @@ describe("Codex Stop hook", () => {
         });
         postTaggedEvent.mockResolvedValue(undefined);
         postJson.mockResolvedValue({});
+        writeLatestSessionState.mockResolvedValue("");
     });
 
     it("records assistant response and completes the runtime session", async () => {

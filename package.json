@@ -20,6 +20,7 @@
     "dev:web": "npm run dev --workspace @monitor/web -- --host 0.0.0.0",
     "seed": "NODE_OPTIONS=--conditions=development tsx --tsconfig tsconfig.dev.json packages/server/src/main/seed.ts",
     "start:server": "node packages/server/dist/index.js",
+    "codex:observe": "npm --prefix packages/runtime run codex:observe --",
     "setup:external": "node scripts/setup-external.mjs",
     "setup:statusline": "bash scripts/install-statusline.sh",
     "publish:all": "npm publish --workspace @monitor/server --access public"

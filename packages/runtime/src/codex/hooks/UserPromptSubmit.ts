@@ -3,11 +3,13 @@ import { createMessageId, ellipsize, toTrimmedString } from "~codex/util/utils.j
 import { KIND } from "~shared/events/kinds.js";
 import { LANE } from "~shared/events/lanes.js";
 import { provenEvidence } from "~shared/semantics/evidence.js";
+import { writeLatestSessionState } from "~codex/util/session.state.js";
 
 async function main(): Promise<void> {
     const payload = await readStdinJson();
     const sessionId = toTrimmedString(payload.session_id);
     const prompt = toTrimmedString(payload.prompt);
+    const modelId = toTrimmedString(payload.model);
     if (!sessionId || !prompt) return;
 
     const ids = await ensureRuntimeSession(sessionId);
@@ -26,6 +28,12 @@ async function main(): Promise<void> {
             phase: ids.taskCreated ? "initial" : "follow_up",
         },
     });
+
+    await writeLatestSessionState({
+        sessionId,
+        ...(modelId ? { modelId } : {}),
+        source: "user_prompt_submit",
+    }).catch(() => undefined);
 }
 
 void main().catch((error: unknown) => {
