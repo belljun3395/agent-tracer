@@ -113,6 +113,19 @@ npm run docs:dev
 - Requires `NPM_TOKEN` secret in your repository
   (`Settings > Secrets and variables > Actions`).
 
+## Rule Lane
+
+The dashboard supports a **rule lane** — a distinct timeline lane (orange) for commands you
+designate as mandatory checks (e.g. `npm run lint`, `npm run typecheck`).
+
+- Open the shield icon in the top bar to manage rule patterns
+- Patterns are matched by **case-insensitive substring** against the executed command string
+- Patterns can be **global** (apply to all tasks) or **task-scoped**
+- Matching `terminal.command` events are reclassified to the `rule` lane server-side at ingest
+
+See [API integration map § Rule Commands](docs/guide/api-integration-map.md#rule-commands) for
+the REST endpoints.
+
 ## Thought-Flow Observability
 
 The dashboard now displays diagnostic information alongside event timelines:

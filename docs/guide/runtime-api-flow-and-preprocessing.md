@@ -90,6 +90,13 @@ Related documentation:
 }
 ```
 
+> **Rule lane reclassification:** At `/ingest/v1/tool-activity`, `terminal.command` events are
+> checked against user-defined rule patterns stored in the `rule_commands` table (global +
+> task-scoped). If the command string contains a matching pattern (case-insensitive substring),
+> the event's `lane` is replaced with `"rule"` before persistence. The plugin itself always
+> emits `"exploration"` or `"implementation"`; the `"rule"` lane is assigned exclusively
+> server-side. See [API integration map § Rule Commands](./api-integration-map.md#rule-commands).
+
 ### `Stop` → `/api/assistant-response`
 
 ```json

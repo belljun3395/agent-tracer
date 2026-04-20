@@ -53,6 +53,28 @@ Related documentation:
 | `/api/async-task` | Background task state | `SubagentStart`, `SubagentStop` | Use if background execution exists |
 | `/api/task-link` | Link parent-child tasks | When child runtime session is acquired | Use if background lineage exists |
 
+## Rule Commands
+
+Rule commands are user-defined patterns that cause matching `terminal.command` events to be
+re-classified into the `rule` lane at ingest time. Patterns are stored in SQLite and applied
+per-task or globally.
+
+| API | Role |
+|-----|------|
+| `POST /api/rule-commands` | Register a global rule pattern |
+| `DELETE /api/rule-commands/:id` | Delete a global rule pattern |
+| `GET /api/rule-commands` | List all global rule patterns |
+| `POST /api/tasks/:taskId/rule-commands` | Register a task-scoped rule pattern |
+| `DELETE /api/tasks/:taskId/rule-commands/:id` | Delete a task-scoped rule pattern |
+| `GET /api/tasks/:taskId/rule-commands` | List task-scoped rule patterns |
+
+Pattern matching is **substring / includes** (case-insensitive). A pattern like `"npm run lint"`
+matches any command string that contains that substring (e.g. `npm run lint --fix`).
+
+At ingest (`/ingest/v1/tool-activity`), global patterns and the event's task-specific patterns
+are merged and tested against each `terminal.command` event. Matching events have their `lane`
+field replaced with `"rule"` before the events are persisted.
+
 ## Minimum Implementation Order for New Runtime
 
 ```text
