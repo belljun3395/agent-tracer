@@ -53,7 +53,7 @@ export function Timeline({
 }: TimelineProps): React.JSX.Element {
     const [localFilters, setLocalFilters] = useState<Record<TimelineLane, boolean>>({
         user: true, exploration: true, planning: true, coordination: true,
-        background: true, implementation: true, questions: false, todos: false, telemetry: false,
+        background: true, implementation: true, rule: true, questions: false, todos: false, telemetry: false,
     });
     const [expandedSubtypeLanes, setExpandedSubtypeLanes] = useState<Record<ExpandableTimelineLane, boolean>>({
         exploration: false, implementation: false, coordination: false,

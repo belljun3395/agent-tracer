@@ -12,6 +12,7 @@ export const FULL_TIMELINE_LANE_FILTERS: Readonly<Record<TimelineLane, boolean>>
     exploration: true,
     planning: true,
     implementation: true,
+    rule: true,
     telemetry: true
 };
 
