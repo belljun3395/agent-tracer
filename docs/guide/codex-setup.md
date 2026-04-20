@@ -88,6 +88,56 @@ before the Bash command is logged.
    - `terminal.command`
    - `assistant.response`
 
+## 5. Context / model observer
+
+Codex does not currently expose a Claude-style `statusLine` hook. The closest
+equivalent is the app-server surface.
+
+Agent Tracer now includes a small observer that:
+
+- reads the latest Codex session hint written by hooks
+- starts `codex app-server`
+- resumes that thread
+- emits `context.snapshot` events from app-server status telemetry
+- prints a compact status string such as `[monitor] ctx 30% · 15m 25%`
+
+This observer is now started automatically by the Codex `SessionStart` hook.
+In the normal path you do **not** need to launch a second command manually.
+
+If you want to debug or run it by hand, use:
+
+```bash
+cd /absolute/path/to/agent-tracer
+npm run codex:observe -- --latest-in /absolute/path/to/your-project
+```
+
+You can also target a specific thread directly:
+
+```bash
+npm run codex:observe -- --thread-id <codex-thread-id>
+```
+
+The observer posts:
+
+- `context.snapshot`
+  - `contextWindowUsedPct` when token-usage updates are available on the observer connection
+  - `contextWindowSize`
+  - `contextWindowTotalTokens`
+  - `modelId`
+  - generic primary/secondary rate-limit windows when available
+
+This is the current Codex path for Claude `statusLine`-style telemetry.
+
+Important limitation:
+
+- The observer runs through a separate `codex app-server` connection from the
+  plain `codex` CLI session.
+- Per the official app-server contract, live `thread/tokenUsage/updated`
+  notifications are tied to the active transport stream that owns the running
+  turn.
+- In plain `codex` mode, that means model and rate-limit telemetry are reliable,
+  while context usage may be unavailable.
+
 ## 6. End-to-end check
 
 1. Monitor server is running
@@ -99,14 +149,16 @@ before the Bash command is logged.
    - `user.message`
    - `terminal.command`
    - `assistant.response`
+6. Confirm the dashboard starts receiving `context.snapshot` events automatically
 
 ## 7. Current limitations
 
-- No app-server integration yet
+- No full app-server lifecycle integration yet
 - No dedicated `SessionEnd` hook mapping
 - No subagent hierarchy mapping in v1
 - No hook-time interception for non-Bash tools
-- No richer item-level capture yet; that is deferred to the app-server stage
+- Full item-level capture is still deferred to the app-server stage; the current observer only collects status-style telemetry
 
 For the adapter internals and exact event mapping, see
-[../../packages/runtime/CODEX_DATA_FLOW.md](../../packages/runtime/CODEX_DATA_FLOW.md).
+[`packages/runtime/CODEX_DATA_FLOW.md`](https://github.com/belljun3395/agent-tracer/blob/main/packages/runtime/CODEX_DATA_FLOW.md)
+in the repository.

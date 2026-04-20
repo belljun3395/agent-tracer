@@ -18,7 +18,8 @@
     "lint": "eslint . && npm run lint:types",
     "lint:fix": "eslint . --fix",
     "lint:types": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "codex:observe": "tsx --tsconfig tsconfig.json src/codex/app-server/observe.ts"
   },
   "devDependencies": {
     "tsx": "^4.0.0",

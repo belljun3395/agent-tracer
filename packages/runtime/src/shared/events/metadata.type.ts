@@ -182,6 +182,9 @@ export type PlanLoggedMetadata = RequiredEventMetadata
 export type ThoughtLoggedMetadata = RequiredEventMetadata
 
 export type ContextSnapshotMetadata = RequiredEventMetadata & {
+    readonly source?: string
+    readonly threadId?: string
+    readonly turnId?: string
     readonly contextWindowUsedPct?: number
     readonly contextWindowRemainingPct?: number
     readonly contextWindowTotalTokens?: number
@@ -190,11 +193,23 @@ export type ContextSnapshotMetadata = RequiredEventMetadata & {
     readonly contextWindowOutputTokens?: number
     readonly contextWindowCacheCreationTokens?: number
     readonly contextWindowCacheReadTokens?: number
+    readonly reasoningOutputTokens?: number
+    readonly lastTurnInputTokens?: number
+    readonly lastTurnOutputTokens?: number
+    readonly lastTurnCachedInputTokens?: number
+    readonly lastTurnReasoningOutputTokens?: number
     readonly rateLimitFiveHourUsedPct?: number
     readonly rateLimitFiveHourResetsAt?: number
     readonly rateLimitSevenDayUsedPct?: number
     readonly rateLimitSevenDayResetsAt?: number
+    readonly rateLimitPrimaryUsedPct?: number
+    readonly rateLimitPrimaryWindowDurationMins?: number
+    readonly rateLimitPrimaryResetsAt?: number
+    readonly rateLimitSecondaryUsedPct?: number
+    readonly rateLimitSecondaryWindowDurationMins?: number
+    readonly rateLimitSecondaryResetsAt?: number
     readonly costTotalUsd?: number
     readonly modelId?: string
+    readonly modelProvider?: string
     readonly sessionVersion?: string
 }

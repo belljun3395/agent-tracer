@@ -2,12 +2,15 @@ import { ensureRuntimeSession, postTaggedEvent, readStdinJson } from "~codex/lib
 import { KIND } from "~shared/events/kinds.js";
 import { LANE } from "~shared/events/lanes.js";
 import { provenEvidence } from "~shared/semantics/evidence.js";
+import { ensureObserverRunning } from "~codex/util/observer.js";
 import { toTrimmedString } from "~codex/util/utils.js";
+import { writeLatestSessionState } from "~codex/util/session.state.js";
 
 async function main(): Promise<void> {
     const payload = await readStdinJson();
     const sessionId = toTrimmedString(payload.session_id);
     const source = toTrimmedString(payload.source).toLowerCase();
+    const modelId = toTrimmedString(payload.model);
     if (!sessionId || (source !== "startup" && source !== "resume")) return;
 
     const ids = await ensureRuntimeSession(sessionId);
@@ -26,6 +29,13 @@ async function main(): Promise<void> {
             trigger: source,
         },
     });
+
+    await writeLatestSessionState({
+        sessionId,
+        ...(modelId ? { modelId } : {}),
+        source,
+    }).catch(() => undefined);
+    await ensureObserverRunning(sessionId).catch(() => undefined);
 }
 
 void main().catch((error: unknown) => {

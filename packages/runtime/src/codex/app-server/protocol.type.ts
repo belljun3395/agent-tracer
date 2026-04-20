@@ -27,6 +27,33 @@ export interface CodexAppServerTurnPlanStep {
     readonly status: "pending" | "inProgress" | "completed";
 }
 
+export interface CodexAppServerTokenUsageBreakdown {
+    readonly totalTokens: number;
+    readonly inputTokens: number;
+    readonly cachedInputTokens: number;
+    readonly outputTokens: number;
+    readonly reasoningOutputTokens: number;
+}
+
+export interface CodexAppServerThreadTokenUsage {
+    readonly total: CodexAppServerTokenUsageBreakdown;
+    readonly last: CodexAppServerTokenUsageBreakdown;
+    readonly modelContextWindow: number | null;
+}
+
+export interface CodexAppServerRateLimitWindow {
+    readonly usedPercent: number;
+    readonly windowDurationMins: number | null;
+    readonly resetsAt: number | null;
+}
+
+export interface CodexAppServerRateLimitSnapshot {
+    readonly limitId: string | null;
+    readonly limitName: string | null;
+    readonly primary: CodexAppServerRateLimitWindow | null;
+    readonly secondary: CodexAppServerRateLimitWindow | null;
+}
+
 export type CodexAppServerPatchChangeKind =
     | { readonly type: "add" }
     | { readonly type: "delete" }
@@ -146,5 +173,25 @@ export type CodexAppServerNotification =
             readonly threadId: string;
             readonly turnId: string;
             readonly item: CodexAppServerThreadItem;
+        };
+    }
+    | {
+        readonly method: "thread/tokenUsage/updated";
+        readonly params: {
+            readonly threadId: string;
+            readonly turnId: string;
+            readonly tokenUsage: CodexAppServerThreadTokenUsage;
+        };
+    }
+    | {
+        readonly method: "account/rateLimits/updated";
+        readonly params: {
+            readonly rateLimits: CodexAppServerRateLimitSnapshot;
+        };
+    }
+    | {
+        readonly method: "thread/closed";
+        readonly params: {
+            readonly threadId: string;
         };
     };

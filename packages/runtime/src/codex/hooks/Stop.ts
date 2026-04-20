@@ -4,11 +4,13 @@ import { createMessageId, ellipsize, toTrimmedString } from "~codex/util/utils.j
 import { KIND } from "~shared/events/kinds.js";
 import { LANE } from "~shared/events/lanes.js";
 import { provenEvidence } from "~shared/semantics/evidence.js";
+import { writeLatestSessionState } from "~codex/util/session.state.js";
 
 async function main(): Promise<void> {
     const payload = await readStdinJson();
     const sessionId = toTrimmedString(payload.session_id);
     const responseText = toTrimmedString(payload.last_assistant_message);
+    const modelId = toTrimmedString(payload.model);
     if (!sessionId) return;
 
     const stopReason = "stop_hook";
@@ -39,6 +41,12 @@ async function main(): Promise<void> {
         completeTask: true,
         completionReason: "assistant_turn_complete",
     });
+
+    await writeLatestSessionState({
+        sessionId,
+        ...(modelId ? { modelId } : {}),
+        source: "stop",
+    }).catch(() => undefined);
 }
 
 void main().catch((error: unknown) => {
