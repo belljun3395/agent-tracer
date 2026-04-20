@@ -69,6 +69,12 @@ export interface RuntimeSessionEnsureInput {
     readonly workspacePath?: string;
     readonly parentTaskId?: string;
     readonly parentSessionId?: string;
+    // When false, the ensure call is read-only: it never resumes a terminal task or
+    // creates a new session — it just resolves the most recent (taskId, sessionId).
+    // Trailing telemetry/ending hooks (StatusLine, SessionEnd, PreCompact, …) must
+    // pass false so that late-firing events don't flip a completed task to "running".
+    // Default (true) preserves existing behavior for UserPromptSubmit et al.
+    readonly resume?: boolean;
 }
 
 export interface RuntimeSessionEnsureResult {

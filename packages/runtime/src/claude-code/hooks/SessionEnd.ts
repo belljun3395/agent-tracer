@@ -77,7 +77,7 @@ async function main(): Promise<void> {
     // Re-ensure the runtime session so we have (taskId, sessionId) for the
     // session.ended timeline event. The server's ensure use case is idempotent,
     // so this returns the same pair the session was created with.
-    const ids = await ensureRuntimeSession(sessionId);
+    const ids = await ensureRuntimeSession(sessionId, undefined, { resume: false });
 
     await postJson("/api/runtime-session-end", {
         runtimeSource: CLAUDE_RUNTIME_SOURCE,

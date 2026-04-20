@@ -6,6 +6,7 @@ export interface EnsureRuntimeSessionUseCaseIn {
     readonly workspacePath?: string;
     readonly parentTaskId?: string;
     readonly parentSessionId?: string;
+    readonly resume?: boolean;
 }
 
 export interface EnsureRuntimeSessionUseCaseOut {

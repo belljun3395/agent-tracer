@@ -61,7 +61,8 @@ export const runtimeSessionEnsureSchema = z.object({
     title: z.string().min(1),
     workspacePath: z.string().optional(),
     parentTaskId: z.string().optional(),
-    parentSessionId: z.string().optional()
+    parentSessionId: z.string().optional(),
+    resume: z.boolean().optional()
 });
 export const runtimeSessionEndSchema = z.object({
     runtimeSource: z.string().min(1),

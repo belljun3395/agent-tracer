@@ -42,9 +42,25 @@ export async function ensureRuntimeSession(
 
     const existingTaskId = await context.ports.runtimeBindings.findTaskId(input.runtimeSource, input.runtimeSessionId);
     if (existingTaskId) {
+        const task = await context.ports.tasks.findById(existingTaskId);
+        // Read-only callers (resume === false) never resume or create a new session.
+        // They just resolve the latest session so trailing events (StatusLine after
+        // /exit, SessionEnd re-ensure) tag the correct timeline without flipping a
+        // terminal task back to "running".
+        if (input.resume === false) {
+            const sessions = await context.ports.sessions.findByTaskId(existingTaskId);
+            const latest = [...sessions].sort((a, b) => b.startedAt.localeCompare(a.startedAt))[0];
+            if (latest) {
+                return {
+                    taskId: existingTaskId,
+                    sessionId: latest.id,
+                    taskCreated: false,
+                    sessionCreated: false,
+                };
+            }
+        }
         const sessionId = globalThis.crypto.randomUUID();
         const startedAt = new Date().toISOString();
-        const task = await context.ports.tasks.findById(existingTaskId);
         if (task && (task.status !== "running" || task.runtimeSource !== input.runtimeSource)) {
             const resumedTask = await context.ports.tasks.upsert({
                 ...task,

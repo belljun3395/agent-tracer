@@ -91,7 +91,7 @@ export async function postTaggedEvents(events: RuntimeIngestEvent[]): Promise<vo
 export async function ensureRuntimeSession(
     runtimeSessionId: string,
     title: string = defaultTaskTitle(),
-    opts?: { parentTaskId?: string; parentSessionId?: string; taskId?: string }
+    opts?: { parentTaskId?: string; parentSessionId?: string; taskId?: string; resume?: boolean }
 ): Promise<RuntimeSessionEnsureResult> {
     return postJson<RuntimeSessionEnsureResult>("/api/runtime-session-ensure", {
         ...(opts?.taskId ?? process.env.MONITOR_TASK_ID
@@ -102,6 +102,7 @@ export async function ensureRuntimeSession(
         title,
         workspacePath: PROJECT_DIR,
         ...(opts?.parentTaskId ? {parentTaskId: opts.parentTaskId} : {}),
-        ...(opts?.parentSessionId ? {parentSessionId: opts.parentSessionId} : {})
+        ...(opts?.parentSessionId ? {parentSessionId: opts.parentSessionId} : {}),
+        ...(opts?.resume === false ? {resume: false} : {})
     });
 }
