@@ -17,7 +17,9 @@ export {
     useOverviewQuery,
     useTasksQuery,
     useTaskDetailQuery,
-    useBookmarksQuery
+    useBookmarksQuery,
+    useGlobalRuleCommandsQuery,
+    useTaskRuleCommandsQuery
 } from "./server/queries.js";
 export { useTaskObservability } from "./server/observability.js";
 

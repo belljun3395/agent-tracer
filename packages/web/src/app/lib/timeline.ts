@@ -46,6 +46,7 @@ export const TIMELINE_LANES: readonly TimelineLane[] = [
     "coordination",
     "exploration",
     "implementation",
+    "rule",
     "background"
 ];
 export const LANE_HEIGHT = 80;

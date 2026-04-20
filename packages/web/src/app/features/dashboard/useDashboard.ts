@@ -61,7 +61,7 @@ export function useDashboard(
     const globalFiltersButtonRef = useRef<HTMLButtonElement>(null);
     const [timelineFilters, setTimelineFilters] = useState<Record<TimelineLane, boolean>>({
         user: true, exploration: true, planning: true, coordination: true,
-        background: true, implementation: true, questions: true, todos: true, telemetry: false,
+        background: true, implementation: true, rule: true, questions: true, todos: true, telemetry: false,
     });
     const [zoom, setZoom] = useState<number>(() => {
         try {

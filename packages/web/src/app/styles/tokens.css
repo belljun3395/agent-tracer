@@ -33,6 +33,10 @@
   --implementation-bg: #f5f3ff;
   --implementation-border: #d9cffc;
 
+  --rule: #c2410c;
+  --rule-bg: #fff7ed;
+  --rule-border: #fed7aa;
+
   --questions: #b347c4;
   --questions-bg: #fdf4ff;
   --questions-border: #efc6f5;
@@ -121,6 +125,9 @@
     --implementation-bg:  #1D1836;
     --implementation-border: #4D4280;
 
+    --rule-bg:           #1c1008;
+    --rule-border:       #7c3500;
+
     --questions-bg:      #28182E;
     --questions-border:  #644477;
 
@@ -178,6 +185,9 @@
 
   --implementation-bg:  #1D1836;
   --implementation-border: #4D4280;
+
+  --rule-bg:           #1c1008;
+  --rule-border:       #7c3500;
 
   --questions-bg:      #28182E;
   --questions-border:  #644477;

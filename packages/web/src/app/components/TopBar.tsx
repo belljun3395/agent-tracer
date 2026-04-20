@@ -27,8 +27,10 @@ interface TopBarProps {
     readonly isFiltersOpen?: boolean;
     readonly filtersButtonRef?: React.RefObject<HTMLButtonElement | null>;
     readonly onToggleFilters?: () => void;
+    readonly onToggleRules?: () => void;
+    readonly isRulesOpen?: boolean;
 }
-export function TopBar({ isConnected, pendingApprovalCount = 0, blockedTaskCount = 0, isNavigationOpen, onOpenApprovalQueue, onToggleNavigation, searchQuery, searchResults, isSearching, selectedTaskTitle, taskScopeEnabled, onTaskScopeToggle, onSearchQueryChange, onSelectSearchTask, onSelectSearchEvent, onSelectSearchBookmark, onRefresh, showFiltersButton = false, isFiltersOpen = false, filtersButtonRef, onToggleFilters }: TopBarProps): React.JSX.Element {
+export function TopBar({ isConnected, pendingApprovalCount = 0, blockedTaskCount = 0, isNavigationOpen, onOpenApprovalQueue, onToggleNavigation, searchQuery, searchResults, isSearching, selectedTaskTitle, taskScopeEnabled, onTaskScopeToggle, onSearchQueryChange, onSelectSearchTask, onSelectSearchEvent, onSelectSearchBookmark, onRefresh, showFiltersButton = false, isFiltersOpen = false, filtersButtonRef, onToggleFilters, onToggleRules, isRulesOpen = false }: TopBarProps): React.JSX.Element {
     const { theme, toggle: toggleTheme } = useTheme();
     const searchRef = useRef<HTMLInputElement>(null);
     const totalResults = (searchResults?.tasks.length ?? 0)
@@ -174,6 +176,21 @@ export function TopBar({ isConnected, pendingApprovalCount = 0, blockedTaskCount
               <line x1="4" x2="20" y1="6" y2="6"/><line x1="8" x2="16" y1="12" y2="12"/><line x1="11" x2="13" y1="18" y2="18"/>
             </svg>
             <span className="hidden sm:inline">Filters</span>
+          </button>
+        )}
+        {onToggleRules && (
+          <button
+            aria-label="Rule commands"
+            className={cn("flex h-7 w-7 shrink-0 items-center justify-center rounded-[var(--radius-md)] border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-1",
+              isRulesOpen
+                ? "border-[var(--rule)] bg-[var(--rule-bg)] text-[var(--rule)]"
+                : "border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-3)] hover:border-[var(--border-strong)] hover:bg-[var(--surface)] hover:text-[var(--text-1)]"
+            )}
+            onClick={onToggleRules}
+            title="Rule Commands"
+            type="button"
+          >
+            <img alt="" className="icon-adaptive h-3.5 w-3.5" src="/icons/shield-check.svg" />
           </button>
         )}
         <button aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"} className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-3)] opacity-60 transition hover:border-[var(--border-strong)] hover:bg-[var(--surface)] hover:text-[var(--text-1)] hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-1" onClick={toggleTheme} title={theme === "dark" ? "Light mode" : "Dark mode"} type="button">

@@ -2,13 +2,16 @@ import type { TaskId } from "../../types.js";
 import type {
     BookmarksResponse,
     OverviewResponse,
+    RuleCommandRecord,
     TaskDetailResponse,
     TasksResponse
 } from "../../types.js";
 import {
     fetchBookmarks,
+    fetchGlobalRuleCommands,
     fetchOverview,
     fetchTaskDetail,
+    fetchTaskRuleCommands,
     fetchTasks
 } from "../../io.js";
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
@@ -48,5 +51,23 @@ export function useBookmarksQuery(taskId?: TaskId): UseQueryResult<BookmarksResp
     return useQuery({
         queryKey: monitorQueryKeys.bookmarks(taskId),
         queryFn: () => fetchBookmarks(taskId)
+    });
+}
+
+export function useGlobalRuleCommandsQuery(): UseQueryResult<{ ruleCommands: RuleCommandRecord[] }> {
+    return useQuery({
+        queryKey: monitorQueryKeys.ruleCommands(),
+        queryFn: fetchGlobalRuleCommands,
+    });
+}
+
+export function useTaskRuleCommandsQuery(taskId: TaskId | null): UseQueryResult<{ ruleCommands: RuleCommandRecord[] }> {
+    return useQuery({
+        queryKey: monitorQueryKeys.ruleCommands(taskId ?? undefined),
+        queryFn: () => {
+            if (!taskId) throw new Error("useTaskRuleCommandsQuery called without taskId");
+            return fetchTaskRuleCommands(taskId);
+        },
+        enabled: taskId !== null,
     });
 }
