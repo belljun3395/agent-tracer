@@ -45,6 +45,7 @@ interface InspectorContextValue {
     readonly onUpdateEventDisplayTitle: (eventId: string, displayTitle: string | null) => Promise<void>;
     readonly onSelectTag: (tag: string | null) => void;
     readonly onSelectRule: (ruleId: string | null) => void;
+    readonly onSelectEvent?: ((eventId: string) => void) | undefined;
     readonly onOpenTaskWorkspace?: (() => void) | undefined;
 }
 
