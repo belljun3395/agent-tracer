@@ -139,7 +139,7 @@ export function RuleCommandsPanel({ taskId }: RuleCommandsPanelProps) {
   );
 }
 
-function RuleCommandRow({ rule, onDelete }: { rule: RuleCommandRecord; onDelete: (id: string) => void }) {
+function RuleCommandRow({ rule, onDelete }: { rule: RuleCommandRecord; onDelete: (id: string) => void | Promise<void> }) {
   return (
     <div className="flex items-center justify-between gap-2 rounded-[var(--radius-sm)] border border-[var(--rule-border)] bg-[var(--rule-bg)] px-2.5 py-2">
       <div className="flex flex-col gap-0.5 min-w-0">
@@ -148,7 +148,7 @@ function RuleCommandRow({ rule, onDelete }: { rule: RuleCommandRecord; onDelete:
       </div>
       <button
         className="shrink-0 text-[var(--text-3)] hover:text-[var(--err)] transition"
-        onClick={() => onDelete(rule.id)}
+        onClick={() => { void onDelete(rule.id); }}
         type="button"
         aria-label="Delete rule"
       >
