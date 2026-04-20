@@ -7,7 +7,6 @@ import {
     EvaluationWriteController,
     TypedIngestController,
 } from "~adapters/http/ingest/index.js";
-import { OtlpLogsController } from "~adapters/http/otlp/index.js";
 import {
     AdminController,
     BookmarkController,
@@ -28,7 +27,6 @@ import {
 } from "~application/sessions/index.js";
 import {
     LogEventUseCase,
-    LogTokenUsageUseCase,
     UpdateEventUseCase,
     IngestEventsUseCase,
     SearchEventsUseCase,
@@ -128,12 +126,6 @@ export class AppModule {
                 new LogEventUseCase(ports.tasks, ports.events, ports.notifier),
             inject: [MONITOR_PORTS_TOKEN],
         };
-        const logTokenUsageProvider: Provider = {
-            provide: LogTokenUsageUseCase,
-            useFactory: (ports: MonitorPorts) =>
-                new LogTokenUsageUseCase(ports.tasks, ports.events, ports.notifier),
-            inject: [MONITOR_PORTS_TOKEN],
-        };
         const updateEventProvider: Provider = {
             provide: UpdateEventUseCase,
             useFactory: (ports: MonitorPorts) => new UpdateEventUseCase(ports.events, ports.notifier),
@@ -141,9 +133,8 @@ export class AppModule {
         };
         const ingestEventsProvider: Provider = {
             provide: IngestEventsUseCase,
-            useFactory: (logEvent: LogEventUseCase, logTokenUsage: LogTokenUsageUseCase) =>
-                new IngestEventsUseCase(logEvent, logTokenUsage),
-            inject: [LogEventUseCase, LogTokenUsageUseCase],
+            useFactory: (logEvent: LogEventUseCase) => new IngestEventsUseCase(logEvent),
+            inject: [LogEventUseCase],
         };
         const searchEventsProvider: Provider = {
             provide: SearchEventsUseCase,
@@ -320,7 +311,6 @@ export class AppModule {
                 endRuntimeSessionProvider,
                 resolveRuntimeBindingProvider,
                 logEventProvider,
-                logTokenUsageProvider,
                 updateEventProvider,
                 ingestEventsProvider,
                 searchEventsProvider,
@@ -365,7 +355,6 @@ export class AppModule {
                 LifecycleController,
                 BookmarkWriteController,
                 EvaluationWriteController,
-                OtlpLogsController,
             ],
             exports: [MONITOR_PORTS_TOKEN],
         };

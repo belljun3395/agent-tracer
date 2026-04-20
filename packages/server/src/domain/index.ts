@@ -1,7 +1,6 @@
 // Runtime protocol definitions (what runtimes send)
 export * from "./runtime/metadata.keys.js";
 export * from "./runtime/event.subtype.keys.js";
-export * from "./runtime/otlp.attributes.js";
 
 // Monitoring — event kinds, lanes, conversation states
 export * from "./monitoring/event.kind.js";

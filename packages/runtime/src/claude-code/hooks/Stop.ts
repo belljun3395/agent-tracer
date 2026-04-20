@@ -38,14 +38,12 @@
 import {createMessageId, ellipsize, toTrimmedString} from "~claude-code/hooks/util/utils.js";
 import {CLAUDE_RUNTIME_SOURCE} from "~claude-code/hooks/util/paths.const.js";
 import {readHookSessionContext} from "~claude-code/hooks/lib/hook/hook.context.js";
-import {postEvent, postJson, postTaggedEvent} from "~claude-code/hooks/lib/transport/transport.js";
+import {postJson, postTaggedEvent} from "~claude-code/hooks/lib/transport/transport.js";
 import {KIND} from "~shared/events/kinds.js";
 import {type AssistantResponseMetadata} from "~shared/events/metadata.js";
 import {provenEvidence} from "~shared/semantics/evidence.js";
 import {resolveEventSessionIds} from "~claude-code/hooks/Agent/session.js";
-import {commitCursor, tailTranscriptAsEvents} from "~claude-code/hooks/lib/transcript/transcript.tail.js";
 import {hookLog} from "~claude-code/hooks/lib/hook/hook.log.js";
-import {readLastAssistantEntry} from "~claude-code/hooks/lib/transcript/transcript.emit.js";
 import {LANE} from "~shared/events/lanes.js";
 
 async function main(): Promise<void> {
@@ -56,10 +54,7 @@ async function main(): Promise<void> {
     }
 
     const responseText = toTrimmedString(payload.last_assistant_message) || "";
-
-    const transcriptPath = toTrimmedString(payload.transcript_path);
-    const lastEntry = transcriptPath ? readLastAssistantEntry(transcriptPath) : undefined;
-    const stopReason = toTrimmedString(lastEntry?.message?.stop_reason) || toTrimmedString(payload.stop_reason) || "end_turn";
+    const stopReason = toTrimmedString(payload.stop_reason) || "end_turn";
 
     const title = responseText
         ? ellipsize(responseText, 120)
@@ -83,28 +78,6 @@ async function main(): Promise<void> {
         metadata: baseMeta,
     });
     hookLog("Stop", "assistant-response posted", {stopReason, hasText: !!responseText, agentId: agentId ?? "(none)"});
-
-    // Tail the transcript for thinking/intermediate-text/attachment events that
-    // hooks can't see directly. Failures here must not break the Stop hook.
-    if (transcriptPath) {
-        try {
-            const {events, nextCursor, totalNewEntries} = tailTranscriptAsEvents(
-                sessionId,
-                transcriptPath,
-                ids
-            );
-            if (events.length > 0) {
-                await postEvent(events);
-            }
-            commitCursor(sessionId, nextCursor);
-            hookLog("Stop", "transcript-tail emitted", {
-                newEntries: totalNewEntries,
-                events: events.length
-            });
-        } catch (err: unknown) {
-            hookLog("Stop", "transcript-tail error", {error: String(err)});
-        }
-    }
 
     if (agentId) {
         hookLog("Stop", "runtime-session-end skipped for subagent", {agentId});

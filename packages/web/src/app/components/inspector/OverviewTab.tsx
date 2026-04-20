@@ -14,10 +14,8 @@ import {
     type TodoGroup,
     type VerificationCycleItem,
 } from "../../../types.js";
-import { getTokenSummary } from "../../lib/insights/aggregation.js";
 import { countCompactions } from "../../lib/insights/helpers.js";
 import { summarizeSkillListing } from "../../lib/insights/skillListing.js";
-import type { TokenSummary } from "../../lib/insights/types.js";
 import { copyToClipboard } from "../../lib/ui/clipboard.js";
 import { cn } from "../../lib/ui/cn.js";
 import { Badge } from "../ui/Badge.js";
@@ -30,60 +28,6 @@ import { cardShell, cardHeader, cardBody, innerPanel } from "./styles.js";
 import { inspectorHelpText } from "./helpText.js";
 import { toRelativePath } from "./utils.js";
 
-function CacheEfficiencyCard({ summary }: { readonly summary: TokenSummary }): React.JSX.Element | null {
-    const totalInput = summary.totalNewInput + summary.totalCacheRead + summary.totalCacheCreate;
-    if (summary.turnCount === 0 || totalInput === 0) return null;
-    const toneClass = summary.overallHitRate >= 70
-        ? "text-[var(--ok)]"
-        : summary.overallHitRate >= 30
-            ? "text-[var(--warn)]"
-            : "text-[var(--text-2)]";
-    const isLowSample = summary.turnCount < 3;
-    return (<SectionCard title="Cache Efficiency" helpText={inspectorHelpText.cacheEfficiency}>
-      <div className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-5">
-        <div className="flex flex-col items-start">
-          <Eyebrow className="block">Hit rate</Eyebrow>
-          <strong className={cn("mt-1 block text-[2rem] leading-none font-semibold tabular-nums", toneClass)}>
-            {summary.overallHitRate.toFixed(2)}%
-          </strong>
-          <p className="mt-1.5 mb-0 text-[0.7rem] text-[var(--text-3)]">
-            across {formatCount(summary.turnCount)} turn{summary.turnCount === 1 ? "" : "s"}
-          </p>
-          {isLowSample && (
-            <p className="mt-1 mb-0 text-[0.68rem] text-[var(--warn)]">
-              low sample — first-turn cache is typically inflated by system preamble
-            </p>
-          )}
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          <CacheStat label="Cache read" value={summary.totalCacheRead} tone="ok"/>
-          <CacheStat label="Cache write" value={summary.totalCacheCreate} tone="accent"/>
-          <CacheStat label="New input" value={summary.totalNewInput} tone="neutral"/>
-          <CacheStat label="Output" value={summary.totalOutput} tone="neutral"/>
-        </div>
-      </div>
-    </SectionCard>);
-}
-
-function CacheStat({ label, value, tone }: {
-    readonly label: string;
-    readonly value: number;
-    readonly tone: "ok" | "accent" | "neutral";
-}): React.JSX.Element {
-    const toneClass = tone === "ok"
-        ? "text-[var(--ok)]"
-        : tone === "accent"
-            ? "text-[var(--accent)]"
-            : "text-[var(--text-1)]";
-    return (
-      <div className={innerPanel + " p-2.5"}>
-        <Eyebrow className="block">{label}</Eyebrow>
-        <strong className={cn("mt-1 block text-[0.95rem] font-semibold tabular-nums", toneClass)}>
-          {value.toLocaleString()}
-        </strong>
-      </div>
-    );
-}
 
 function RuntimeSessionCard({ runtimeSessionId, runtimeSource, timeline = [] }: {
     readonly runtimeSessionId?: string | undefined;
@@ -355,11 +299,9 @@ export interface OverviewTabProps {
 }
 
 export function OverviewTab({ observability, subagentInsight, verificationCycles, runtimeSessionId, runtimeSource, workspacePath, timeline = [], todoGroups = [], questionGroups = [], taskModelSummary }: OverviewTabProps): React.JSX.Element {
-    const cacheSummary = useMemo(() => getTokenSummary(timeline), [timeline]);
     const skillSummary = useMemo(() => summarizeSkillListing(timeline), [timeline]);
     return (<div className="panel-tab-inner flex flex-col gap-5 p-4">
       <RuntimeSessionCard runtimeSessionId={runtimeSessionId} runtimeSource={runtimeSource} timeline={timeline}/>
-      <CacheEfficiencyCard summary={cacheSummary}/>
       {taskModelSummary && <AIModelCard summary={taskModelSummary}/>}
       <SkillListingCard summary={skillSummary}/>
       {observability ? (<>
