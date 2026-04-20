@@ -154,5 +154,16 @@ export function createSchema(db: Database.Database): void {
 
     create index if not exists idx_briefings_task_generated
       on briefings(task_id, generated_at desc);
+
+    create table if not exists rule_commands (
+      id text primary key,
+      pattern text not null,
+      label text not null,
+      task_id text references monitoring_tasks(id) on delete cascade,
+      created_at text not null
+    );
+
+    create index if not exists idx_rule_commands_task_id
+      on rule_commands(task_id);
   `);
 }
