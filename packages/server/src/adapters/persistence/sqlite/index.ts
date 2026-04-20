@@ -13,6 +13,7 @@ import { SqliteRuntimeBindingRepository } from "./repositories/sqlite.runtime.bi
 import { SqliteBookmarkRepository } from "./repositories/sqlite.bookmark.repository.js";
 import { SqliteEvaluationRepository } from "./repositories/sqlite.evaluation.repository.js";
 import { SqlitePlaybookRepository } from "./repositories/sqlite.playbook.repository.js";
+import { SqliteRuleCommandRepository } from "./repositories/sqlite.rule-command.repository.js";
 export { SqliteTaskRepository } from "./repositories/sqlite.task.repository.js";
 export { SqliteSessionRepository } from "./repositories/sqlite.session.repository.js";
 export { SqliteEventRepository } from "./repositories/sqlite.event.repository.js";
@@ -20,6 +21,7 @@ export { SqliteRuntimeBindingRepository } from "./repositories/sqlite.runtime.bi
 export { SqliteBookmarkRepository } from "./repositories/sqlite.bookmark.repository.js";
 export { SqliteEvaluationRepository } from "./repositories/sqlite.evaluation.repository.js";
 export { SqlitePlaybookRepository } from "./repositories/sqlite.playbook.repository.js";
+export { SqliteRuleCommandRepository } from "./repositories/sqlite.rule-command.repository.js";
 export { createSqliteDatabase, ensureSqliteDatabase } from "./shared/drizzle.db.js";
 export { drizzleSchema } from "./schema/drizzle.schema.js";
 export { createSchema } from "./schema/sqlite.schema.js";
@@ -51,6 +53,7 @@ export function createSqliteMonitorPorts(options: SqliteMonitorPortsOptions): Mo
         bookmarks: new SqliteBookmarkRepository(db),
         evaluations: new SqliteEvaluationRepository(db, options.embeddingService),
         playbooks: new SqlitePlaybookRepository(db, options.embeddingService),
+        ruleCommands: new SqliteRuleCommandRepository(db),
         notifier,
         close: () => client.close()
     };

@@ -6,6 +6,7 @@ export type { IBookmarkRepository, BookmarkRecord, BookmarkSaveInput } from "./r
 export type { INotificationPublisher, MonitorNotification } from "./event/notification.publisher.js";
 export type { BriefingSaveInput, IEvaluationRepository, PersistedTaskEvaluation, StoredTaskEvaluation, TaskEvaluation, WorkflowContentRecord, WorkflowSearchResult, WorkflowSummary } from "./repository/evaluation.repository.js";
 export type { IPlaybookRepository, PlaybookUpsertInput } from "./repository/playbook.repository.js";
+export type { IRuleCommandRepository, RuleCommandRecord, RuleCommandCreateInput } from "./repository/rule-command.repository.js";
 export type { IEmbeddingService } from "./service/embedding.service.js";
 import type { ITaskRepository } from "./repository/task.repository.js";
 import type { ISessionRepository } from "./repository/session.repository.js";
@@ -15,6 +16,7 @@ import type { IBookmarkRepository } from "./repository/bookmark.repository.js";
 import type { INotificationPublisher } from "./event/notification.publisher.js";
 import type { IEvaluationRepository } from "./repository/evaluation.repository.js";
 import type { IPlaybookRepository } from "./repository/playbook.repository.js";
+import type { IRuleCommandRepository } from "./repository/rule-command.repository.js";
 export interface MonitorPorts {
     readonly tasks: ITaskRepository;
     readonly sessions: ISessionRepository;
@@ -23,5 +25,6 @@ export interface MonitorPorts {
     readonly bookmarks: IBookmarkRepository;
     readonly evaluations: IEvaluationRepository;
     readonly playbooks: IPlaybookRepository;
+    readonly ruleCommands: IRuleCommandRepository;
     readonly notifier: INotificationPublisher;
 }

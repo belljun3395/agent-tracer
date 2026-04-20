@@ -148,6 +148,16 @@ export const briefings = sqliteTable("briefings", {
   index("idx_briefings_task_generated").on(table.taskId, table.generatedAt)
 ])
 
+export const ruleCommands = sqliteTable("rule_commands", {
+  id: text("id").primaryKey(),
+  pattern: text("pattern").notNull(),
+  label: text("label").notNull(),
+  taskId: text("task_id").references(() => monitoringTasks.id, { onDelete: "cascade" }),
+  createdAt: text("created_at").notNull(),
+}, (table) => [
+  index("idx_rule_commands_task_id").on(table.taskId)
+])
+
 export const monitoringTasksRelations = relations(monitoringTasks, ({ one, many }) => ({
   parent: one(monitoringTasks, {
     fields: [monitoringTasks.parentTaskId],
@@ -160,7 +170,8 @@ export const monitoringTasksRelations = relations(monitoringTasks, ({ one, many 
   runtimeBindings: many(runtimeSessionBindings),
   bookmarks: many(bookmarks),
   evaluations: many(taskEvaluations),
-  briefings: many(briefings)
+  briefings: many(briefings),
+  ruleCommands: many(ruleCommands)
 }))
 
 export const taskSessionsRelations = relations(taskSessions, ({ one, many }) => ({
@@ -220,6 +231,13 @@ export const briefingsRelations = relations(briefings, ({ one }) => ({
   })
 }))
 
+export const ruleCommandsRelations = relations(ruleCommands, ({ one }) => ({
+  task: one(monitoringTasks, {
+    fields: [ruleCommands.taskId],
+    references: [monitoringTasks.id]
+  })
+}))
+
 export const drizzleSchema = {
   monitoringTasks,
   monitoringTasksRelations,
@@ -236,7 +254,9 @@ export const drizzleSchema = {
   taskEvaluationsRelations,
   playbooks,
   briefings,
-  briefingsRelations
+  briefingsRelations,
+  ruleCommands,
+  ruleCommandsRelations,
 }
 
 export type DrizzleSchema = typeof drizzleSchema
