@@ -1,14 +1,16 @@
 # Agent Tracer
 
-A Claude Code-centric local monitor server and dashboard.
-This repository implements a Claude Code plugin-based event collection path.
+A local monitor server and dashboard for coding-agent runtimes.
+This repository ships a Claude Code plugin-based event collection path and a
+Codex bootstrap path based on official hooks.
 The server and MCP layers are also open to manual HTTP/MCP clients.
 
-## Quick Start (Claude Code plugin)
+## Quick Start
 
-Agent Tracer is distributed as a Claude Code **plugin** (`packages/runtime/`).
-The plugin automatically registers all hook events and posts them to the monitor
-server. You do not need to copy hook source files to your target project.
+Agent Tracer currently supports:
+
+- Claude Code via plugin
+- Codex via generated repo-local hooks and repo-local config
 
 ```bash
 npm install
@@ -24,6 +26,8 @@ npm run dev
 2. **[Claude Code Setup](docs/guide/claude-setup.md)** — load the plugin and
    register the MCP server. Claude Code integration is complete after these
    two steps.
+3. **[Codex Setup](docs/guide/codex-setup.md)** — use plain `codex` with the
+   generated repo-local hooks and config.
 
 ### Attach to external projects (optional)
 
@@ -31,8 +35,8 @@ If you want to use Agent Tracer with a project outside this repository, follow
 an additional step:
 
 3. **[External Project Setup](docs/guide/external-setup.md)** — run
-   `npm run setup:external` to generate `.claude/settings.json` in your target
-   project.
+   `npm run setup:external` to generate `.claude/settings.json`, `.codex/config.toml`,
+   and `.codex/hooks.json` in your target project.
 
 ### Global status line (optional, recommended)
 
@@ -76,6 +80,7 @@ npm run dev
 |---------|----------|
 | Local installation and running | [docs/guide/install-and-run.md](docs/guide/install-and-run.md) |
 | Claude Code plugin setup | [docs/guide/claude-setup.md](docs/guide/claude-setup.md) |
+| Codex setup | [docs/guide/codex-setup.md](docs/guide/codex-setup.md) |
 | External project setup (optional) | [docs/guide/external-setup.md](docs/guide/external-setup.md) |
 | Runtime capabilities reference | [docs/guide/runtime-capabilities.md](docs/guide/runtime-capabilities.md) |
 

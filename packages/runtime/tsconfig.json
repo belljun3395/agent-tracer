@@ -5,7 +5,8 @@
     "baseUrl": ".",
     "paths": {
       "~shared/*": ["src/shared/*"],
-      "~claude-code/*": ["src/claude-code/*"]
+      "~claude-code/*": ["src/claude-code/*"],
+      "~codex/*": ["src/codex/*"]
     }
   },
   "include": ["src", "test", "*.config.ts"]

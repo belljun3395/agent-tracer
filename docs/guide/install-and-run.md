@@ -116,4 +116,5 @@ monitor server over HTTP.
 
 - Attach Agent Tracer to an external project: [external-setup.md](./external-setup.md)
 - Claude Code specific flow: [claude-setup.md](./claude-setup.md)
+- Codex specific flow: [codex-setup.md](./codex-setup.md)
 - HTTP + event surface overview: [api-integration-map.md](./api-integration-map.md)

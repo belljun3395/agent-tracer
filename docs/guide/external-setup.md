@@ -9,16 +9,16 @@ agent-tracer repo itself.
 | Runtime | Automated setup | Still manual | Next doc |
 |---------|-----------------|--------------|----------|
 | Claude Code | yes (`npm run setup:external`) | MCP server registration | [claude-setup.md](./claude-setup.md) |
+| Codex | yes (`npm run setup:external`) | app-server integration | [codex-setup.md](./codex-setup.md) |
 | Other runtimes | no | HTTP + MCP calls directly | [runtime-capabilities.md](./runtime-capabilities.md) |
 
 Important points:
 
-- `setup:external` only touches Claude Code settings today.
-- It does **not** copy hook source files, bootstrap custom runtimes, or
-  install the plugin permanently into the target project.
-- The Agent Tracer source stays in *this* repository. The target project
-  only gets a `.claude/settings.json` and (via `--plugin-dir`) a runtime
-  reference to the plugin path.
+- `setup:external` now bootstraps both Claude Code and Codex.
+- It does **not** vendor hook source files or install a permanent Codex plugin,
+  because Codex does not expose an equivalent plugin surface today.
+- The Agent Tracer source stays in *this* repository. The target project gets
+  generated config files and runtime references back to this checkout.
 
 ## 2. Prerequisites
 
@@ -36,14 +36,19 @@ npm run build                       # only needed if you haven't built yet
 npm run setup:external -- --target /absolute/path/to/your-project
 ```
 
-The only required argument is `--target`. The script:
+The only required argument is `--target`. The script currently bootstraps:
 
-1. creates or merges `target-project/.claude/settings.json`
-2. strips any legacy `hooks` block (the plugin owns registration now)
-3. sets `permissions.defaultMode = "acceptEdits"` and
-   `permissions.allow = ["WebSearch", "WebFetch"]`
-4. prints the absolute path of the Agent Tracer plugin and the
-   `claude --plugin-dir …` command to use
+1. Claude Code
+   - creates or merges `target-project/.claude/settings.json`
+   - strips any legacy `hooks` block (the plugin owns registration now)
+   - sets `permissions.defaultMode = "acceptEdits"` and
+     `permissions.allow = ["WebSearch", "WebFetch"]`
+   - prints the absolute path of the Agent Tracer plugin and the
+     `claude --plugin-dir …` command to use
+2. Codex
+   - creates or merges `target-project/.codex/config.toml`
+   - creates or merges `target-project/.codex/hooks.json`
+   - enables repo-local Codex hooks for plain `codex` usage
 
 Expected output:
 
@@ -63,7 +68,21 @@ Follow [claude-setup.md](./claude-setup.md) sections 2 and 3 to:
 1. Launch Claude Code with `claude --plugin-dir …` (or via the marketplace).
 2. Register the `monitor` MCP server with `claude mcp add monitor …`.
 
-## 5. Attach other runtimes (manual)
+## 5. Attach Codex
+
+Follow [codex-setup.md](./codex-setup.md).
+
+After setup, the intended flow is simply:
+
+```bash
+cd /abs/path/to/target
+codex
+```
+
+The generated `.codex/config.toml` enables `codex_hooks`, and `.codex/hooks.json`
+provides the monitor hook commands.
+
+## 6. Attach other runtimes (manual)
 
 There is no automated bootstrap for non-Claude runtimes. Instead, call
 Agent Tracer's HTTP API or MCP tools directly. Minimum implementation
@@ -89,7 +108,7 @@ References:
 - [runtime-capabilities.md](./runtime-capabilities.md) — what capability
   flags mean when you register a new runtime
 
-## 6. Common pitfalls
+## 7. Common pitfalls
 
 - **Stale `npm run build`** — after modifying `packages/mcp` or the
   plugin, rebuild before launching Claude.
@@ -100,13 +119,19 @@ References:
   `launchctl setenv` on macOS.
 - **Changes to `.claude/settings.json`** — restart Claude Code after
   editing so it picks up the new permissions and plugin path.
+- **Running plain `codex` without repo-local config** — hooks are only
+  guaranteed when `codex_hooks` is enabled. `setup:external` writes
+  `.codex/config.toml` so plain `codex` in the target project uses hooks by default.
+- **Expecting hook parity with Claude Code** — Codex hooks currently only expose
+  Bash pre/post interception. Richer capture requires a future app-server path.
 
-## 7. Quick end-to-end check
+## 8. Quick end-to-end check
 
 1. Monitor server running and healthy.
 2. `npm run setup:external -- --target /abs/path/to/target`.
 3. `claude mcp add monitor …` completed.
-4. Open the target project with `claude --plugin-dir …`.
-5. Do one read or edit inside Claude.
-6. The dashboard at `http://127.0.0.1:5173` shows a new task with the
+4. Run `codex` inside the target project and trigger one Bash command.
+5. Open the target project with `claude --plugin-dir …`.
+6. Do one read or edit inside Claude.
+7. The dashboard at `http://127.0.0.1:5173` shows a new task with the
    matching event in its timeline.
