@@ -121,7 +121,7 @@ async function main(): Promise<void> {
     let taskId: string;
     let monitorSessionId: string;
     try {
-        const result = await ensureRuntimeSession(sessionId);
+        const result = await ensureRuntimeSession(sessionId, undefined, { resume: false });
         taskId = result.taskId;
         monitorSessionId = result.sessionId;
     } catch (err) {
