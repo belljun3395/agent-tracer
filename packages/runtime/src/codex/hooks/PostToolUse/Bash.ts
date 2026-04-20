@@ -13,6 +13,7 @@
  *
  * Bash tool_input fields:
  *   command          string  — shell command that was executed
+ *   description      string? — human-readable description of the command
  *
  * Stdout: not consumed by Codex for PostToolUse hooks.
  *
@@ -22,39 +23,48 @@
  * and attaches the runtime-derived lane and semantic metadata inferred from
  * the command string (e.g. read vs. write vs. test vs. build).
  */
-import { ensureRuntimeSession, postTaggedEvent, readStdinJson } from "~codex/lib/transport/transport.js";
-import { toTrimmedString } from "~codex/util/utils.js";
-import { KIND } from "~shared/events/kinds.js";
-import { provenEvidence } from "~shared/semantics/evidence.js";
-import { buildSemanticMetadata, inferCommandSemantic } from "~shared/semantics/inference.js";
+import {toTrimmedString} from "~codex/util/utils.js";
+import {readToolHookContext} from "~codex/lib/hook/hook.context.js";
+import {ensureRuntimeSession, postTaggedEvent} from "~codex/lib/transport/transport.js";
+import {KIND} from "~shared/events/kinds.js";
+import {type TerminalCommandMetadata} from "~shared/events/metadata.js";
+import {provenEvidence} from "~shared/semantics/evidence.js";
+import {buildSemanticMetadata, inferCommandSemantic} from "~shared/semantics/inference.js";
+import {hookLog} from "~codex/lib/hook/hook.log.js";
 
 async function main(): Promise<void> {
-    const payload = await readStdinJson();
-    const sessionId = toTrimmedString(payload.session_id);
-    const command = toTrimmedString(
-        payload.tool_input && typeof payload.tool_input === "object" && "command" in payload.tool_input
-            ? (payload.tool_input as { command?: unknown }).command
-            : undefined,
-    );
-    if (!sessionId || !command) return;
+    const {sessionId, toolInput, toolUseId} = await readToolHookContext("PostToolUse/Bash");
+    const command = toTrimmedString(toolInput.command);
+    const description = toTrimmedString(toolInput.description);
+    hookLog("PostToolUse/Bash", "fired", {sessionId: sessionId || "(none)", cmdPreview: command.slice(0, 60)});
+
+    if (!sessionId || !command) {
+        hookLog("PostToolUse/Bash", "skipped — no sessionId or command");
+        return;
+    }
 
     const ids = await ensureRuntimeSession(sessionId);
-    const semantic = inferCommandSemantic(command);
+    const {lane, metadata: semantic} = inferCommandSemantic(command);
+
+    const baseMeta: TerminalCommandMetadata = {
+        ...provenEvidence("Observed directly by the Codex PostToolUse/Bash hook."),
+        ...buildSemanticMetadata(semantic),
+        command,
+        ...(description ? {description} : {}),
+        ...(toolUseId ? {toolUseId} : {}),
+    };
     await postTaggedEvent({
         kind: KIND.terminalCommand,
         taskId: ids.taskId,
         sessionId: ids.sessionId,
-        title: command.slice(0, 80),
-        body: command,
-        lane: semantic.lane,
-        metadata: {
-            ...provenEvidence("Observed directly by the Codex PostToolUse hook."),
-            ...buildSemanticMetadata(semantic.metadata),
-            command,
-        },
+        lane,
+        title: description || command.slice(0, 80),
+        body: description ? `${description}\n\n$ ${command}` : command,
+        metadata: baseMeta,
     });
+    hookLog("PostToolUse/Bash", "terminal-command posted", {description: description || command.slice(0, 60)});
 }
 
-void main().catch((error: unknown) => {
-    console.error(String(error));
+void main().catch((err: unknown) => {
+    hookLog("PostToolUse/Bash", "ERROR", {error: String(err)});
 });

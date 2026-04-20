@@ -1,11 +1,11 @@
-import { CODEX_RUNTIME_SOURCE, PROJECT_DIR } from "~codex/util/paths.const.js";
-import { defaultTaskTitle } from "~codex/util/paths.js";
-import type { JsonObject } from "~codex/util/utils.js";
-import { isRecord } from "~codex/util/utils.js";
-import type { RuntimeIngestEvent } from "~shared/events/kinds.js";
-import { resolveIngestEndpoint } from "~shared/routing/ingest.routing.js";
-import { withTags } from "~shared/semantics/tags.js";
-import type { RuntimeSessionEnsureResult } from "./transport.type.js";
+import {CODEX_RUNTIME_SOURCE, PROJECT_DIR} from "~codex/util/paths.const.js";
+import {defaultTaskTitle} from "~codex/util/paths.js";
+import type {JsonObject} from "~codex/util/utils.js";
+import {isRecord} from "~codex/util/utils.js";
+import type {RuntimeIngestEvent} from "~shared/events/kinds.js";
+import {resolveIngestEndpoint} from "~shared/routing/ingest.routing.js";
+import {withTags} from "~shared/semantics/tags.js";
+import type {RuntimeSessionEnsureResult} from "./transport.type.js";
 
 // Resolves the monitor base URL from environment variables, falling back to
 // http://127.0.0.1:3847. MONITOR_BASE_URL takes priority; otherwise
@@ -39,7 +39,7 @@ export async function readStdinJson(): Promise<JsonObject> {
 export async function postJson<T = JsonObject>(pathname: string, body: unknown): Promise<T> {
     const response = await fetch(`${resolveApiBase()}${pathname}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {"Content-Type": "application/json"},
         body: JSON.stringify(body),
         signal: AbortSignal.timeout(2000),
     });
@@ -63,7 +63,7 @@ export async function postEvent(events: RuntimeIngestEvent[]): Promise<void> {
         groups.set(endpoint, group);
     }
     await Promise.all(
-        [...groups.entries()].map(([endpoint, batch]) => postJson(endpoint, { events: batch })),
+        [...groups.entries()].map(([endpoint, batch]) => postJson(endpoint, {events: batch})),
     );
 }
 
@@ -71,7 +71,7 @@ export async function postEvent(events: RuntimeIngestEvent[]): Promise<void> {
  * Applies `withTags` to the event's metadata, then posts it via `postEvent`.
  */
 export async function postTaggedEvent(event: RuntimeIngestEvent): Promise<void> {
-    await postEvent([{ ...event, metadata: withTags(event.metadata) }]);
+    await postEvent([{...event, metadata: withTags(event.metadata)}]);
 }
 
 /**
@@ -79,7 +79,7 @@ export async function postTaggedEvent(event: RuntimeIngestEvent): Promise<void> 
  * grouping by ingest endpoint.
  */
 export async function postTaggedEvents(events: RuntimeIngestEvent[]): Promise<void> {
-    await postEvent(events.map((event) => ({ ...event, metadata: withTags(event.metadata) })));
+    await postEvent(events.map((event) => ({...event, metadata: withTags(event.metadata)})));
 }
 
 /**

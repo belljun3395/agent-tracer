@@ -22,46 +22,63 @@
  *   3. Persists a latest-session hint to .codex/agent-tracer/latest-session.json.
  *   4. Launches the observer process (observe.ts) in the background if not running.
  */
-import { ensureRuntimeSession, postTaggedEvent, readStdinJson } from "~codex/lib/transport/transport.js";
-import { KIND } from "~shared/events/kinds.js";
-import { LANE } from "~shared/events/lanes.js";
-import { provenEvidence } from "~shared/semantics/evidence.js";
-import { ensureObserverRunning } from "~codex/util/observer.js";
-import { toTrimmedString } from "~codex/util/utils.js";
-import { writeLatestSessionState } from "~codex/util/session.state.js";
+import {KIND} from "~shared/events/kinds.js";
+import {LANE} from "~shared/events/lanes.js";
+import {type ContextSavedMetadata} from "~shared/events/metadata.js";
+import {toTrimmedString} from "~codex/util/utils.js";
+import {readHookSessionContext} from "~codex/lib/hook/hook.context.js";
+import {ensureRuntimeSession, postTaggedEvent} from "~codex/lib/transport/transport.js";
+import {provenEvidence} from "~shared/semantics/evidence.js";
+import {hookLog} from "~codex/lib/hook/hook.log.js";
+import {ensureObserverRunning} from "~codex/util/observer.js";
+import {writeLatestSessionState} from "~codex/util/session.state.js";
 
 async function main(): Promise<void> {
-    const payload = await readStdinJson();
-    const sessionId = toTrimmedString(payload.session_id);
+    const {payload, sessionId} = await readHookSessionContext("SessionStart");
     const source = toTrimmedString(payload.source).toLowerCase();
     const modelId = toTrimmedString(payload.model);
-    if (!sessionId || (source !== "startup" && source !== "resume")) return;
+    hookLog("SessionStart", "fired", {sessionId: sessionId || "(none)", source});
+
+    if (!sessionId || (source !== "startup" && source !== "resume")) {
+        hookLog("SessionStart", "skipped — no sessionId or unknown source");
+        return;
+    }
+
+    const TITLES: Record<string, string> = {
+        startup: "Session started",
+        resume: "Session resumed",
+    };
+    const BODIES: Record<string, string> = {
+        startup: "Codex CLI session started.",
+        resume: "Codex CLI session resumed.",
+    };
 
     const ids = await ensureRuntimeSession(sessionId);
-    const title = source === "resume" ? "Session resumed" : "Session started";
-    const body = source === "resume" ? "Codex CLI session resumed." : "Codex CLI session started.";
+    hookLog("SessionStart", "ensureRuntimeSession ok", {taskId: ids.taskId});
 
+    const baseMeta: ContextSavedMetadata = {
+        ...provenEvidence("Emitted by the Codex SessionStart hook."),
+        trigger: source,
+    };
     await postTaggedEvent({
         kind: KIND.contextSaved,
         taskId: ids.taskId,
         sessionId: ids.sessionId,
-        title,
-        body,
+        title: TITLES[source]!,
+        body: BODIES[source]!,
         lane: LANE.planning,
-        metadata: {
-            ...provenEvidence("Emitted by the Codex SessionStart hook."),
-            trigger: source,
-        },
+        metadata: baseMeta,
     });
+    hookLog("SessionStart", "save-context posted", {title: TITLES[source]});
 
     await writeLatestSessionState({
         sessionId,
-        ...(modelId ? { modelId } : {}),
+        ...(modelId ? {modelId} : {}),
         source,
     }).catch(() => undefined);
     await ensureObserverRunning(sessionId).catch(() => undefined);
 }
 
-void main().catch((error: unknown) => {
-    console.error(String(error));
+void main().catch((err: unknown) => {
+    hookLog("SessionStart", "ERROR", {error: String(err)});
 });

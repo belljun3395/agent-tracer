@@ -8,11 +8,11 @@
  * short-lived hook process. Only one observer per project directory is allowed;
  * if a stale observer from a different session is detected it is replaced.
  */
-import { spawn } from "node:child_process";
+import {spawn} from "node:child_process";
 import * as path from "node:path";
-import { fileURLToPath } from "node:url";
-import { PROJECT_DIR } from "./paths.const.js";
-import { isPidRunning, readObserverState } from "./session.state.js";
+import {fileURLToPath} from "node:url";
+import {PROJECT_DIR} from "./paths.const.js";
+import {isPidRunning, readObserverState} from "./session.state.js";
 
 const RUN_OBSERVER_SCRIPT = path.resolve(
     path.dirname(fileURLToPath(import.meta.url)),

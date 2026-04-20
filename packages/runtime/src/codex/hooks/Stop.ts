@@ -23,41 +23,50 @@
  * payload. A synthetic "stop_hook" value is used as the stopReason field in
  * the emitted event metadata.
  */
-import { ensureRuntimeSession, postJson, postTaggedEvent, readStdinJson } from "~codex/lib/transport/transport.js";
-import { CODEX_RUNTIME_SOURCE } from "~codex/util/paths.const.js";
-import { createMessageId, ellipsize, toTrimmedString } from "~codex/util/utils.js";
-import { KIND } from "~shared/events/kinds.js";
-import { LANE } from "~shared/events/lanes.js";
-import { provenEvidence } from "~shared/semantics/evidence.js";
-import { writeLatestSessionState } from "~codex/util/session.state.js";
+import {createMessageId, ellipsize, toTrimmedString} from "~codex/util/utils.js";
+import {CODEX_RUNTIME_SOURCE} from "~codex/util/paths.const.js";
+import {readHookSessionContext} from "~codex/lib/hook/hook.context.js";
+import {ensureRuntimeSession, postJson, postTaggedEvent} from "~codex/lib/transport/transport.js";
+import {KIND} from "~shared/events/kinds.js";
+import {type AssistantResponseMetadata} from "~shared/events/metadata.js";
+import {provenEvidence} from "~shared/semantics/evidence.js";
+import {hookLog} from "~codex/lib/hook/hook.log.js";
+import {LANE} from "~shared/events/lanes.js";
+import {writeLatestSessionState} from "~codex/util/session.state.js";
 
 async function main(): Promise<void> {
-    const payload = await readStdinJson();
-    const sessionId = toTrimmedString(payload.session_id);
+    const {payload, sessionId} = await readHookSessionContext("Stop");
+    if (!sessionId) {
+        hookLog("Stop", "skipped — no sessionId");
+        return;
+    }
+
     const responseText = toTrimmedString(payload.last_assistant_message);
     const modelId = toTrimmedString(payload.model);
-    if (!sessionId) return;
-
     const stopReason = "stop_hook";
+
     const title = responseText
         ? ellipsize(responseText, 120)
         : `Response (${stopReason})`;
 
     const ids = await ensureRuntimeSession(sessionId);
+
+    const baseMeta: AssistantResponseMetadata = {
+        ...provenEvidence("Emitted by the Codex Stop hook."),
+        messageId: createMessageId(),
+        source: CODEX_RUNTIME_SOURCE,
+        stopReason,
+    };
     await postTaggedEvent({
         kind: KIND.assistantResponse,
         taskId: ids.taskId,
         sessionId: ids.sessionId,
-        title,
-        ...(responseText ? { body: responseText } : {}),
         lane: LANE.user,
-        metadata: {
-            ...provenEvidence("Emitted by the Codex Stop hook."),
-            messageId: createMessageId("assistant"),
-            source: "codex-hooks",
-            stopReason,
-        },
+        title,
+        ...(responseText ? {body: responseText} : {}),
+        metadata: baseMeta,
     });
+    hookLog("Stop", "assistant-response posted", {stopReason, hasText: !!responseText});
 
     await postJson("/api/runtime-session-end", {
         runtimeSource: CODEX_RUNTIME_SOURCE,
@@ -66,14 +75,15 @@ async function main(): Promise<void> {
         completeTask: true,
         completionReason: "assistant_turn_complete",
     });
+    hookLog("Stop", "runtime-session-end posted", {stopReason, completeTask: true});
 
     await writeLatestSessionState({
         sessionId,
-        ...(modelId ? { modelId } : {}),
+        ...(modelId ? {modelId} : {}),
         source: "stop",
     }).catch(() => undefined);
 }
 
-void main().catch((error: unknown) => {
-    console.error(String(error));
+void main().catch((err: unknown) => {
+    hookLog("Stop", "ERROR", {error: String(err)});
 });

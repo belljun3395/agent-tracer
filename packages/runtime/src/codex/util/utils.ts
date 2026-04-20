@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import {randomUUID} from "node:crypto";
 
 export type JsonObject = Record<string, unknown>;
 
@@ -8,15 +8,17 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 /**
- * Converts `value` to a trimmed string. Non-string values yield "".
- * If `maxLength` is provided the result is sliced to that length before return.
+ * Coerces any value to a trimmed string, converting numbers, booleans, and bigints.
+ * Non-coercible values become `""`. Optionally truncates the result to `maxLength` characters.
  */
 export function toTrimmedString(value: unknown, maxLength?: number): string {
-    const normalized = typeof value === "string" ? value.trim() : "";
-    if (!normalized) return "";
-    return typeof maxLength === "number" && maxLength >= 0
-        ? normalized.slice(0, maxLength)
-        : normalized;
+    const next = typeof value === "string"
+        ? value.trim()
+        : (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint")
+            ? String(value).trim()
+            : "";
+    if (!maxLength || next.length <= maxLength) return next;
+    return next.slice(0, maxLength);
 }
 
 /** Truncates `value` to `maxLength` chars, appending "…" if trimmed. */
@@ -26,9 +28,9 @@ export function ellipsize(value: string, maxLength: number): string {
     return `${value.slice(0, Math.max(0, maxLength - 1))}…`;
 }
 
-/** Generates a unique message ID of the form `<prefix>_<uuid>`. */
-export function createMessageId(prefix: string = "msg"): string {
-    return `${prefix}_${randomUUID()}`;
+/** Generates a random UUID for use as a unique message identifier. */
+export function createMessageId(): string {
+    return randomUUID();
 }
 
 /**
