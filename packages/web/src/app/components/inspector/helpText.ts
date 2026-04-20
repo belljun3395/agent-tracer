@@ -27,4 +27,5 @@ export const inspectorHelpText = {
     topFiles: "이 task에서 가장 자주 읽거나 수정한 파일입니다. 실제로 작업이 집중된 코드 위치를 빠르게 찾는 용도입니다.",
     instructionsLoaded: "Claude Code가 세션 시작, 재개, compact 이후에 컨텍스트로 불러온 instruction 계열 이벤트입니다. 어떤 규칙, skill, deferred tools, nested memory가 활성화됐는지 확인할 수 있습니다.",
     contextSaved: "compact 경계 외에 별도로 저장된 context입니다. task_reminder, nested memory 같은 보조 컨텍스트가 언제 어떤 내용으로 들어왔는지 보여줍니다.",
+    ruleTab: "설정된 rule command가 이 task에서 실제로 실행됐는지 보여줍니다. rule lane 이벤트 중 패턴이 일치하는 것을 찾아 실행 여부와 횟수를 표시합니다. 항목을 클릭하면 해당 타임라인 이벤트로 이동합니다.",
 } as const;

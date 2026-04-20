@@ -11,6 +11,7 @@ const WORKSPACE_TAB_MAP: Record<string, PanelTabId> = {
     inspector: "inspector",
     overview: "overview",
     evidence: "evidence",
+    rules: "rules",
     context: "context",
     actions: "actions",
     save: "actions",

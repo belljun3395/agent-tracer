@@ -163,6 +163,7 @@ export function WorkspaceContent({
                     onCreateTaskBookmark: () => void handleCreateTaskBookmark(),
                     onCreateEventBookmark: () => void handleCreateEventBookmark(),
                     onSelectRule: (ruleId) => { setShowRuleGapsOnly(false); selectRule(ruleId); },
+                    onSelectEvent: (eventId) => { selectConnector(null); selectEvent(eventId); },
                     onSelectTag: selectTag,
                     onUpdateEventDisplayTitle: handleUpdateEventDisplayTitle,
                 }}>

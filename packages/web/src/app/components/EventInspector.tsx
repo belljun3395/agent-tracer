@@ -17,13 +17,15 @@ import { ContextTab } from "./inspector/ContextTab.js";
 import { EvidenceTab } from "./inspector/EvidenceTab.js";
 import { InspectorTab } from "./inspector/InspectorTab.js";
 import { OverviewTab } from "./inspector/OverviewTab.js";
+import { RuleTab } from "./inspector/RuleTab.js";
 import { useOptionalInspectorContext } from "../features/inspector/context/InspectorContext.js";
 
-export type PanelTabId = "inspector" | "overview" | "evidence" | "context" | "actions";
+export type PanelTabId = "inspector" | "overview" | "evidence" | "context" | "actions" | "rules";
 const PANEL_TABS = [
     { id: "inspector", label: "Inspector" },
     { id: "overview", label: "Overview" },
     { id: "evidence", label: "Exploration" },
+    { id: "rules", label: "Rules" },
     { id: "context", label: "Context" },
     { id: "actions", label: "Save" },
 ] as const;
@@ -111,6 +113,7 @@ export function EventInspector({
     const onCreateEventBookmark = onCreateEventBookmarkProp ?? ctx?.onCreateEventBookmark ?? (() => undefined);
     const onUpdateEventDisplayTitle = onUpdateEventDisplayTitleProp ?? ctx?.onUpdateEventDisplayTitle ?? (() => Promise.resolve());
     const onSelectRule = onSelectRuleProp ?? ctx?.onSelectRule ?? (() => undefined);
+    const onSelectEvent = ctx?.onSelectEvent;
     const onOpenTaskWorkspace = onOpenTaskWorkspaceProp ?? ctx?.onOpenTaskWorkspace;
 
     // selectedEventDisplayTitle: check prop, then context, then infer from event metadata
@@ -268,6 +271,12 @@ export function EventInspector({
                     />
                 ) : activeTab === "context" ? (
                     <ContextTab timeline={taskTimeline} />
+                ) : activeTab === "rules" ? (
+                    <RuleTab
+                        timeline={taskTimeline}
+                        taskId={taskDetail?.task.id}
+                        onSelectEvent={onSelectEvent}
+                    />
                 ) : (
                     <ActionsTab
                         taskId={taskDetail?.task.id} taskTitle={selectedTaskTitle ?? taskDetail?.task.title ?? ""}
