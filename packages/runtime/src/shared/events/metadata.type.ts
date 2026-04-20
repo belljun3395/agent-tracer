@@ -180,3 +180,21 @@ export type QuestionLoggedMetadata = RequiredEventMetadata & {
 
 export type PlanLoggedMetadata = RequiredEventMetadata
 export type ThoughtLoggedMetadata = RequiredEventMetadata
+
+export type ContextSnapshotMetadata = RequiredEventMetadata & {
+    readonly contextWindowUsedPct?: number
+    readonly contextWindowRemainingPct?: number
+    readonly contextWindowTotalTokens?: number
+    readonly contextWindowSize?: number
+    readonly contextWindowInputTokens?: number
+    readonly contextWindowOutputTokens?: number
+    readonly contextWindowCacheCreationTokens?: number
+    readonly contextWindowCacheReadTokens?: number
+    readonly rateLimitFiveHourUsedPct?: number
+    readonly rateLimitFiveHourResetsAt?: number
+    readonly rateLimitSevenDayUsedPct?: number
+    readonly rateLimitSevenDayResetsAt?: number
+    readonly costTotalUsd?: number
+    readonly modelId?: string
+    readonly sessionVersion?: string
+}

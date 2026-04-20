@@ -65,6 +65,7 @@ export const KIND = {
     sessionEnded: "session.ended",
     instructionsLoaded: "instructions.loaded",
     tokenUsage: "token.usage",
+    contextSnapshot: "context.snapshot",
 } as const;
 
 export const INGEST_ENDPOINTS = {

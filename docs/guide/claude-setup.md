@@ -101,6 +101,25 @@ hook event name.
 | `PostCompact.ts` | `PostCompact` | Record compaction summary |
 | `SessionEnd.ts` | `SessionEnd` | Close the current runtime session only |
 | `Stop.ts` | `Stop` | Record assistant response and end runtime session with `completeTask: true` |
+| `StatusLine.ts` | `statusLine` | Post a `context.snapshot` per API refresh (context/rate-limit/cost/model) and render a status bar string |
+
+### StatusLine setup
+
+`StatusLine.ts` is wired via the plugin's `hooks.json` top-level `statusLine`
+entry using `${CLAUDE_PLUGIN_ROOT}`, so it resolves automatically for both
+marketplace installs and `--plugin-dir` usage. **No local agent-tracer clone is
+required.**
+
+The plugin's `statusLine`:
+
+- Writes a compact one-line status string (e.g., `[monitor] ctx 42% · 5h 13% · $0.120`) for Claude Code's status bar.
+- Posts a `context.snapshot` event (lane `telemetry`) to the monitor with the model ID, context-window usage, rate-limit usage, and cost.
+- The web dashboard's timeline renders this as the bottom context chart with a per-model band and compact markers.
+
+Legacy `.claude/settings.json` files that contain an absolute-path `statusLine`
+entry are stripped by `npm run setup:external` on next run, because the plugin
+now owns `statusLine` registration. If you maintain such a file manually, it
+takes precedence over the plugin entry.
 
 ### `PostToolUse/` — per-tool subhandlers
 

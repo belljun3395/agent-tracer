@@ -17,12 +17,14 @@ export type QuestionLoggedInput     = BaseIngestEventInput & { readonly kind: "q
 export type TodoLoggedInput         = BaseIngestEventInput & { readonly kind: "todo.logged" }
 export type ThoughtLoggedInput      = BaseIngestEventInput & { readonly kind: "thought.logged" }
 export type TokenUsageInput         = BaseIngestEventInput & { readonly kind: "token.usage" }
+export type ContextSnapshotInput    = BaseIngestEventInput & { readonly kind: "context.snapshot" }
 
 export type IngestEventInput =
     | ToolUsedInput | TerminalCommandInput | PlanLoggedInput | ActionLoggedInput
     | VerificationLoggedInput | RuleLoggedInput | ContextSavedInput | InstructionsLoadedInput
     | SessionEndedInput | AgentActivityLoggedInput | UserMessageInput | AssistantResponseInput
     | QuestionLoggedInput | TodoLoggedInput | ThoughtLoggedInput | TokenUsageInput
+    | ContextSnapshotInput
 
 export interface IngestAccepted {
     readonly eventId: string

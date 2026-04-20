@@ -246,6 +246,56 @@ Trigger: After context compression completes
 
 ---
 
+### StatusLine
+
+Trigger: After every API request and on session start. Unlike the other hook
+events, `statusLine` is declared as a top-level key (not nested under `hooks`)
+in the plugin's `hooks.json`, so the plugin itself owns registration via
+`${CLAUDE_PLUGIN_ROOT}` — no project `.claude/settings.json` entry is needed
+(see [claude-setup.md](./claude-setup.md#statusline-setup)).
+
+Ref: https://code.claude.com/docs/en/statusline
+
+| Field | Type | Value |
+|-------|------|-------|
+| `session_id` | string | Current Claude Code session ID |
+| `version` | string | Claude Code client version |
+| `model.id` | string | Model ID (e.g., `"claude-sonnet-4-6"`) |
+| `model.display_name` | string | Human-readable model name |
+| `context_window.used_percentage` | number \| null | Context usage as % of the active model's window |
+| `context_window.remaining_percentage` | number \| null | Remaining % of the active model's window |
+| `context_window.total_input_tokens` | number | Accumulated input tokens |
+| `context_window.total_output_tokens` | number | Accumulated output tokens |
+| `context_window.context_window_size` | number | Active model's total window size (varies by model) |
+| `context_window.current_usage` | object \| null | Latest API call breakdown (input / output / cache-creation / cache-read) |
+| `cost.total_cost_usd` | number | Cumulative session cost in USD |
+| `rate_limits.five_hour.used_percentage` | number | 5-hour rate-limit usage (Pro/Max only) |
+| `rate_limits.five_hour.resets_at` | number | Unix seconds; reset timestamp for 5-hour window |
+| `rate_limits.seven_day.used_percentage` | number | 7-day rate-limit usage (Pro/Max only) |
+| `rate_limits.seven_day.resets_at` | number | Unix seconds; reset timestamp for 7-day window |
+
+> **[Observed]** `rate_limits` is only present for Pro/Max plans.
+> **[Observed]** `used_percentage` is already normalized against the active
+> model's window size, so UI does not need to re-scale when switching between
+> Opus (1M) and Sonnet (200K).
+
+**Agent Tracer behavior:**
+- Posts a `context.snapshot` event (lane `telemetry`) on every status refresh.
+- Metadata keys mirror the payload: `contextWindowUsedPct`,
+  `contextWindowRemainingPct`, `contextWindowSize`,
+  `contextWindowInputTokens`, `contextWindowOutputTokens`,
+  `contextWindowCacheCreationTokens`, `contextWindowCacheReadTokens`,
+  `rateLimitFiveHourUsedPct`, `rateLimitFiveHourResetsAt`,
+  `rateLimitSevenDayUsedPct`, `rateLimitSevenDayResetsAt`, `costTotalUsd`,
+  `modelId`, `sessionVersion`.
+- Writes `[monitor] ctx N% · 5h N% · $X.XXX` to stdout for Claude Code's status
+  bar. Skips posting (but still writes stdout) when there is no meaningful
+  `used_percentage` or `rate_limits` payload yet.
+- The Timeline's bottom context chart consumes `context.snapshot` events to
+  render the context-usage curve, the per-model band, and model-change markers.
+
+---
+
 ## Event Fire Order
 
 ```

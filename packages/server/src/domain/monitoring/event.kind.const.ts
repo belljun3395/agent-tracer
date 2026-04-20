@@ -39,6 +39,7 @@ export const KIND = {
     sessionEnded: "session.ended",
     instructionsLoaded: "instructions.loaded",
     tokenUsage: "token.usage",
+    contextSnapshot: "context.snapshot",
     taskStart: "task.start",
     taskComplete: "task.complete",
     taskError: "task.error",
@@ -53,6 +54,7 @@ export const WORKFLOW_EVENT_KINDS = [
     KIND.ruleLogged,
     KIND.thoughtLogged,
     KIND.contextSaved,
+    KIND.contextSnapshot,
 ] as const;
 export const CONVERSATION_EVENT_KINDS = [KIND.userMessage, KIND.assistantResponse, KIND.questionLogged, KIND.todoLogged] as const;
 export const COORDINATION_EVENT_KINDS = [KIND.agentActivityLogged] as const;

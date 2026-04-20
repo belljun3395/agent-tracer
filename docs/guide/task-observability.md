@@ -21,6 +21,12 @@ This document describes the task observability read model and UI added in the cu
   - Trace links / trace link coverage
   - Action-registry gap count
   - Raw prompt / follow-up / question / todo / thought / tool / verification / coordination / background counts
+- Timeline context chart (bottom of the timeline canvas)
+  - Context-usage curve sourced from `context.snapshot` events (the `StatusLine` hook)
+  - Hover crosshair shows the context % at the hovered timestamp
+  - Model bar band shows which model family (Opus / Sonnet / Haiku) was active over each interval; hovering syncs the model label with the hovered timestamp
+  - Dashed vertical markers indicate model family transitions; amber vertical bands indicate `PreCompact` boundaries
+  - Percentages from `StatusLine` are already normalized against the active model's context window, so switching between Opus (1M) and Sonnet (200K) is rendered on a shared 0–100% axis without rescaling
 
 ## HTTP API
 

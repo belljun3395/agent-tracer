@@ -22,6 +22,7 @@ import {
     type TimelineNodeBounds,
 } from "../../types.js";
 import { TimelineMinimap } from "../features/timeline/TimelineMinimap.js";
+import { TimelineContextChart } from "../features/timeline/TimelineContextChart.js";
 import { TimelineContextBar } from "../features/timeline/TimelineContextBar.js";
 import { TimelineFiltersPopover } from "../features/timeline/TimelineFiltersPopover.js";
 import { TimelineEventNode } from "../features/timeline/TimelineEventNode.js";
@@ -142,6 +143,36 @@ export function Timeline({
     const timestampTicks = useMemo(
         () => buildTimestampTicks(filteredTimeline, timelineLayout, anchorMs),
         [filteredTimeline, timelineLayout, anchorMs],
+    );
+    const snapshotItems = useMemo(
+        () => groupedTimeline
+            .filter((e) => e.kind === "context.snapshot")
+            .map((e) => ({
+                event: e,
+                laneKey: "telemetry",
+                baseLane: "telemetry" as const,
+                left: timelineLayout.tsToLeft(Date.parse(e.createdAt)),
+                top: 0,
+                rowIndex: 0,
+            })),
+        [groupedTimeline, timelineLayout],
+    );
+    const compactItems = useMemo(
+        () => groupedTimeline
+            .filter((e) => {
+                if (e.kind !== "context.saved") return false;
+                const meta = e.metadata as Record<string, unknown> | undefined;
+                return typeof meta?.["compactPhase"] === "string";
+            })
+            .map((e) => ({
+                event: e,
+                laneKey: "telemetry",
+                baseLane: "telemetry" as const,
+                left: timelineLayout.tsToLeft(Date.parse(e.createdAt)),
+                top: 0,
+                rowIndex: 0,
+            })),
+        [groupedTimeline, timelineLayout],
     );
     const { nodeBounds, nodeRefs } = useNodeBounds(timelineCanvasRef, timelineLayout.items);
     const connectors = useMemo(
@@ -493,6 +524,12 @@ export function Timeline({
                             items={timelineLayout.items}
                             laneRows={displayLaneRows}
                             scrollRef={scrollRef}
+                        />
+                        <TimelineContextChart
+                            timelineWidth={timelineLayout.width}
+                            allItems={timelineLayout.items}
+                            snapshotItems={snapshotItems}
+                            compactItems={compactItems}
                         />
                     </>
                 )}
