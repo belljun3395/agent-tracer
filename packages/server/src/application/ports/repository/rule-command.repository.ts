@@ -18,5 +18,5 @@ export interface IRuleCommandRepository {
   findAll(): Promise<readonly RuleCommandRecord[]>;
   findByTaskId(taskId: string): Promise<readonly RuleCommandRecord[]>;
   findGlobal(): Promise<readonly RuleCommandRecord[]>;
-  delete(id: string): Promise<void>;
+  delete(id: string): Promise<boolean>;
 }

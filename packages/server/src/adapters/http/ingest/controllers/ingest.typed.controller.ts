@@ -1,6 +1,7 @@
 import { Controller, Post, Body, HttpException, HttpStatus, HttpCode, Inject } from "@nestjs/common";
 import { IngestEventsUseCase } from "~application/events/index.js";
 import type { IngestEventInput } from "~application/events/index.js";
+import { GetRulePatternsUseCase } from "~application/rule-commands/index.js";
 import {
     toolActivityBatchSchema,
     workflowBatchSchema,
@@ -25,12 +26,46 @@ type TypedEvent =
 
 @Controller("ingest/v1")
 export class TypedIngestController {
-    constructor(@Inject(IngestEventsUseCase) private readonly ingestEvents: IngestEventsUseCase) {}
+    constructor(
+        @Inject(IngestEventsUseCase) private readonly ingestEvents: IngestEventsUseCase,
+        @Inject(GetRulePatternsUseCase) private readonly getRulePatterns: GetRulePatternsUseCase,
+    ) {}
 
     @Post("tool-activity")
     @HttpCode(HttpStatus.OK)
     async ingestToolActivity(@Body() body: unknown) {
-        return this.handleBatch(body, toolActivityBatchSchema);
+        const parsed = toolActivityBatchSchema.safeParse(body);
+        if (!parsed.success) {
+            throw new HttpException(
+                {
+                    ok: false,
+                    error: {
+                        code: "validation_error",
+                        message: "Invalid request body",
+                        details: parsed.error.format(),
+                    },
+                },
+                HttpStatus.BAD_REQUEST,
+            );
+        }
+        const terminalEvents = parsed.data.events.filter((e) => e.kind === "terminal.command");
+        const uniqueTaskIds = [...new Set(terminalEvents.map((e) => e.taskId))];
+        const patternsByTask = new Map(
+            await Promise.all(
+                uniqueTaskIds.map(async (taskId) => [taskId, await this.getRulePatterns.execute(taskId)] as const),
+            ),
+        );
+
+        const events = parsed.data.events.map((event) => {
+            if (event.kind !== "terminal.command") return event;
+            const command = event.metadata?.["command"];
+            if (typeof command !== "string") return event;
+            const patterns = patternsByTask.get(event.taskId) ?? [];
+            const matches = patterns.some((p) => command.toLowerCase().includes(p.trim().toLowerCase()));
+            return matches ? { ...event, lane: "rule" as const } : event;
+        });
+        const result = await this.ingestEvents.execute(events);
+        return { ok: true, data: result };
     }
 
     @Post("workflow")

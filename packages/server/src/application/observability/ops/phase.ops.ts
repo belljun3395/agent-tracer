@@ -161,6 +161,7 @@ function phaseFromLane(lane: TimelineEvent["lane"]): ObservabilityPhaseBucket {
         case "user":
         case "questions":
         case "todos":
-        case "telemetry":      return "waiting";
+        case "telemetry":
+        case "rule":           return "waiting";
     }
 }
