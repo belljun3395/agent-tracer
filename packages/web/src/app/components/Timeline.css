@@ -362,6 +362,13 @@
   color: var(--implementation);
 }
 
+.timeline-context-summary-chip-warning {
+  border-color: color-mix(in srgb, var(--warn) 24%, var(--border));
+  background: var(--warn-bg);
+  color: var(--warn);
+  opacity: 1;
+}
+
 .timeline-context-bar-actions {
   display: flex;
   align-items: center;

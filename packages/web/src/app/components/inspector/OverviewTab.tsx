@@ -1,5 +1,5 @@
 import type React from "react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
     buildInspectorEventTitle,
     buildResumeCommand,
@@ -16,6 +16,8 @@ import {
 } from "../../../types.js";
 import { countCompactions } from "../../lib/insights/helpers.js";
 import { summarizeSkillListing } from "../../lib/insights/skillListing.js";
+import { normalizeContextWarningThreshold } from "../../lib/contextWarningPrefs.js";
+import { useContextWarningPrefs } from "../../lib/useContextWarningPrefs.js";
 import { copyToClipboard } from "../../lib/ui/clipboard.js";
 import { cn } from "../../lib/ui/cn.js";
 import { Badge } from "../ui/Badge.js";
@@ -55,6 +57,8 @@ function formatResetsAt(unixSeconds: number): string {
 }
 
 function ContextSnapshotCard({ timeline }: { readonly timeline: readonly TimelineEventRecord[] }): React.JSX.Element | null {
+    const { prefs, setEnabled, setThresholdPct } = useContextWarningPrefs();
+    const [thresholdInput, setThresholdInput] = useState(() => String(prefs.thresholdPct));
     const latest = useMemo(() => {
         let found: TimelineEventRecord | null = null;
         for (const e of timeline) {
@@ -63,6 +67,10 @@ function ContextSnapshotCard({ timeline }: { readonly timeline: readonly Timelin
         }
         return found;
     }, [timeline]);
+
+    useEffect(() => {
+        setThresholdInput(String(prefs.thresholdPct));
+    }, [prefs.thresholdPct]);
 
     if (!latest) return null;
 
@@ -82,6 +90,17 @@ function ContextSnapshotCard({ timeline }: { readonly timeline: readonly Timelin
 
     if (!hasCtx && !hasRl) return null;
 
+    const commitThresholdInput = (): void => {
+        if (thresholdInput.trim() === "") {
+            setThresholdInput(String(prefs.thresholdPct));
+            return;
+        }
+        const parsed = Number(thresholdInput);
+        const normalized = normalizeContextWarningThreshold(parsed);
+        setThresholdPct(normalized);
+        setThresholdInput(String(normalized));
+    };
+
     return (
         <PanelCard className={cardShell}>
             <div className={cardHeader}>
@@ -93,10 +112,49 @@ function ContextSnapshotCard({ timeline }: { readonly timeline: readonly Timelin
             <div className={cardBody}>
                 {hasCtx && (
                     <div className={innerPanel + " p-3"}>
-                        <Eyebrow className="block">Context Window</Eyebrow>
-                        <div className="mt-2 flex items-baseline gap-2">
-                            <strong className="text-[1.1rem] text-[var(--accent)]">{Math.round(usedPct)}%</strong>
-                            <span className="text-[0.72rem] text-[var(--text-3)]">used</span>
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div className="min-w-0 flex-1">
+                                <Eyebrow className="block">Context Window</Eyebrow>
+                                <div className="mt-2 flex items-baseline gap-2">
+                                    <strong className="text-[1.1rem] text-[var(--accent)]">{Math.round(usedPct)}%</strong>
+                                    <span className="text-[0.72rem] text-[var(--text-3)]">used</span>
+                                </div>
+                            </div>
+                            <div className="flex flex-col items-end gap-2">
+                                <label className="flex items-center gap-2 text-[0.72rem] font-medium text-[var(--text-2)]">
+                                    <input
+                                        checked={prefs.enabled}
+                                        onChange={(event) => setEnabled(event.target.checked)}
+                                        type="checkbox"
+                                    />
+                                    <span>Alert</span>
+                                </label>
+                                <label className="flex items-center gap-2 text-[0.68rem] text-[var(--text-3)]">
+                                    <span>Threshold</span>
+                                    <input
+                                        className="w-14 rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-right text-[0.74rem] font-semibold text-[var(--text-1)] outline-none focus:border-[var(--accent)]"
+                                        disabled={!prefs.enabled}
+                                        max={100}
+                                        min={1}
+                                        onBlur={commitThresholdInput}
+                                        onChange={(event) => setThresholdInput(event.target.value)}
+                                        onKeyDown={(event) => {
+                                            if (event.key === "Enter") {
+                                                event.preventDefault();
+                                                commitThresholdInput();
+                                                event.currentTarget.blur();
+                                            }
+                                            if (event.key === "Escape") {
+                                                setThresholdInput(String(prefs.thresholdPct));
+                                                event.currentTarget.blur();
+                                            }
+                                        }}
+                                        type="number"
+                                        value={thresholdInput}
+                                    />
+                                    <span>%</span>
+                                </label>
+                            </div>
                         </div>
                         <UsageBar pct={usedPct} color="var(--accent)" />
                         <div className="mt-1.5 flex gap-3 text-[0.68rem] text-[var(--text-3)]">
@@ -110,6 +168,11 @@ function ContextSnapshotCard({ timeline }: { readonly timeline: readonly Timelin
                                 <span className="ml-auto">${costUsd.toFixed(3)}</span>
                             )}
                         </div>
+                        <p className="mt-2 mb-0 text-[0.68rem] text-[var(--text-3)]">
+                            {prefs.enabled
+                                ? `Warn when usage reaches ${prefs.thresholdPct}%.`
+                                : "Context usage alerts are off."}
+                        </p>
                     </div>
                 )}
                 {hasRl && (
