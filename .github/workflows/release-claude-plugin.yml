@@ -1,0 +1,170 @@
+name: Release Claude Code Plugin
+
+# Auto-bumps `packages/runtime/.claude-plugin/plugin.json#version` whenever
+# plugin source lands on main, then tags `runtime-claude-v<version>`.
+# Marketplace clients (`/plugin marketplace add belljun3395/agent-tracer`)
+# treat the plugin.json version as the sole update signal.
+#
+# Recursion safety: this workflow pushes commits using the default GITHUB_TOKEN.
+# By GitHub policy those commits do not re-trigger workflow runs, so the bump
+# commit cannot loop. The `[skip ci]` marker is a belt-and-suspenders guard for
+# any workflow that might be re-armed via a non-default token in future.
+#
+# Injection safety: every value derived from repo content or workflow inputs is
+# passed into shell steps via `env:` rather than `${{ ... }}` interpolation, so
+# a malicious version string in plugin.json or a tampered workflow_dispatch
+# input cannot break out into the shell.
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "packages/runtime/**"
+      - ".claude-plugin/marketplace.json"
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "Version bump type"
+        required: true
+        type: choice
+        default: "patch"
+        options:
+          - patch
+          - minor
+          - major
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-claude-plugin
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Detect manual version bump
+        id: detect
+        run: |
+          set -euo pipefail
+          MANIFEST="packages/runtime/.claude-plugin/plugin.json"
+          CURRENT=$(jq -r '.version' "$MANIFEST")
+          if git rev-parse HEAD~1 >/dev/null 2>&1; then
+            PREVIOUS=$(git show HEAD~1:"$MANIFEST" 2>/dev/null | jq -r '.version' || echo "$CURRENT")
+          else
+            PREVIOUS="$CURRENT"
+          fi
+          # Refuse anything that doesn't match strict semver — defends against
+          # injected shell metacharacters via plugin.json content.
+          if ! [[ "$CURRENT" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::plugin.json version is not strict semver: $CURRENT"
+            exit 1
+          fi
+          echo "current=$CURRENT" >> "$GITHUB_OUTPUT"
+          echo "previous=$PREVIOUS" >> "$GITHUB_OUTPUT"
+          if [ "$CURRENT" != "$PREVIOUS" ]; then
+            echo "manual_bump=true" >> "$GITHUB_OUTPUT"
+            echo "Manual bump detected: $PREVIOUS -> $CURRENT"
+          else
+            echo "manual_bump=false" >> "$GITHUB_OUTPUT"
+            echo "No manual bump (still at $CURRENT)"
+          fi
+
+      - name: Auto-bump version
+        id: bump
+        if: steps.detect.outputs.manual_bump == 'false'
+        env:
+          CURRENT: ${{ steps.detect.outputs.current }}
+          BUMP_TYPE: ${{ github.event.inputs.bump || 'patch' }}
+        run: |
+          set -euo pipefail
+          MANIFEST="packages/runtime/.claude-plugin/plugin.json"
+          PKG="packages/runtime/package.json"
+
+          # Reject any bump type other than the three we accept — this bounds
+          # workflow_dispatch input even if the choice constraint is bypassed.
+          case "$BUMP_TYPE" in
+            major|minor|patch) ;;
+            *) echo "::error::Unknown bump type: $BUMP_TYPE"; exit 1 ;;
+          esac
+
+          IFS='.' read -r MAJOR MINOR PATCH <<<"$CURRENT"
+          case "$BUMP_TYPE" in
+            major) MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0 ;;
+            minor) MINOR=$((MINOR + 1)); PATCH=0 ;;
+            patch) PATCH=$((PATCH + 1)) ;;
+          esac
+          NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}"
+
+          jq --arg v "$NEW_VERSION" '.version = $v' "$MANIFEST" > "${MANIFEST}.tmp"
+          mv "${MANIFEST}.tmp" "$MANIFEST"
+
+          # Mirror the version into the workspace package.json so npm ls and
+          # any future @monitor/runtime references stay in sync.
+          jq --arg v "$NEW_VERSION" '.version = $v' "$PKG" > "${PKG}.tmp"
+          mv "${PKG}.tmp" "$PKG"
+
+          echo "new_version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+          echo "Bumped: $CURRENT -> $NEW_VERSION ($BUMP_TYPE)"
+
+      - name: Commit and push bump
+        id: commit
+        if: steps.detect.outputs.manual_bump == 'false'
+        env:
+          NEW_VERSION: ${{ steps.bump.outputs.new_version }}
+        run: |
+          set -euo pipefail
+          git add packages/runtime/.claude-plugin/plugin.json packages/runtime/package.json
+          if git diff --cached --quiet; then
+            echo "::warning::No changes to commit after bump — skipping push."
+            echo "pushed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git commit -m "chore(claude-plugin): release v${NEW_VERSION} [skip ci]"
+          git push origin HEAD:main
+          echo "pushed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve release version
+        id: version
+        env:
+          MANUAL_BUMP: ${{ steps.detect.outputs.manual_bump }}
+          CURRENT: ${{ steps.detect.outputs.current }}
+          NEW_VERSION: ${{ steps.bump.outputs.new_version }}
+        run: |
+          set -euo pipefail
+          if [ "$MANUAL_BUMP" = "true" ]; then
+            echo "value=$CURRENT" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create release tag
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          set -euo pipefail
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Resolved version is not strict semver: $VERSION"
+            exit 1
+          fi
+          TAG="runtime-claude-v${VERSION}"
+          if git ls-remote --tags origin "refs/tags/${TAG}" | grep -q "refs/tags/${TAG}$"; then
+            echo "::warning::Tag ${TAG} already exists on origin — skipping."
+            exit 0
+          fi
+          git tag -a "${TAG}" -m "Agent Tracer Claude plugin v${VERSION}"
+          git push origin "${TAG}"
+          echo "Tagged ${TAG}"
