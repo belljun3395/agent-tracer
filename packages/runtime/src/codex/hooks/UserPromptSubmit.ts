@@ -19,44 +19,60 @@
  * The "initial" vs "follow_up" phase is derived from whether ensureRuntimeSession
  * created a new task (ids.taskCreated === true).
  */
-import { ensureRuntimeSession, postTaggedEvent, readStdinJson } from "~codex/lib/transport/transport.js";
-import { createMessageId, ellipsize, toTrimmedString } from "~codex/util/utils.js";
-import { KIND } from "~shared/events/kinds.js";
-import { LANE } from "~shared/events/lanes.js";
-import { provenEvidence } from "~shared/semantics/evidence.js";
-import { writeLatestSessionState } from "~codex/util/session.state.js";
+import {createMessageId, ellipsize, toTrimmedString} from "~codex/util/utils.js";
+import {readHookSessionContext} from "~codex/lib/hook/hook.context.js";
+import {ensureRuntimeSession, postTaggedEvent} from "~codex/lib/transport/transport.js";
+import {KIND} from "~shared/events/kinds.js";
+import {type UserMessageMetadata} from "~shared/events/metadata.js";
+import {provenEvidence} from "~shared/semantics/evidence.js";
+import {hookLog} from "~codex/lib/hook/hook.log.js";
+import {LANE} from "~shared/events/lanes.js";
+import {writeLatestSessionState} from "~codex/util/session.state.js";
 
 async function main(): Promise<void> {
-    const payload = await readStdinJson();
-    const sessionId = toTrimmedString(payload.session_id);
+    const {payload, sessionId} = await readHookSessionContext("UserPromptSubmit");
     const prompt = toTrimmedString(payload.prompt);
     const modelId = toTrimmedString(payload.model);
-    if (!sessionId || !prompt) return;
+    hookLog("UserPromptSubmit", "fired", {sessionId: sessionId || "(none)", promptLen: prompt.length});
 
-    const ids = await ensureRuntimeSession(sessionId);
+    if (!sessionId) {
+        hookLog("UserPromptSubmit", "skipped — no sessionId");
+        return;
+    }
+    if (!prompt) {
+        hookLog("UserPromptSubmit", "skipped — empty prompt");
+        return;
+    }
+
+    const ids = await ensureRuntimeSession(sessionId, ellipsize(prompt, 120));
+    hookLog("UserPromptSubmit", "ensureRuntimeSession ok", {taskId: ids.taskId});
+
+    const phase: "initial" | "follow_up" = ids.taskCreated ? "initial" : "follow_up";
+    const baseMeta: UserMessageMetadata = {
+        ...provenEvidence("Emitted by the Codex UserPromptSubmit hook."),
+        messageId: createMessageId(),
+        captureMode: "raw",
+        source: "codex-hooks",
+        phase,
+    };
     await postTaggedEvent({
         kind: KIND.userMessage,
         taskId: ids.taskId,
         sessionId: ids.sessionId,
+        lane: LANE.user,
         title: ellipsize(prompt, 120),
         body: prompt,
-        lane: LANE.user,
-        metadata: {
-            ...provenEvidence("Emitted by the Codex UserPromptSubmit hook."),
-            messageId: createMessageId("user"),
-            captureMode: "raw",
-            source: "codex-hooks",
-            phase: ids.taskCreated ? "initial" : "follow_up",
-        },
+        metadata: baseMeta,
     });
+    hookLog("UserPromptSubmit", "user-message posted", {phase});
 
     await writeLatestSessionState({
         sessionId,
-        ...(modelId ? { modelId } : {}),
+        ...(modelId ? {modelId} : {}),
         source: "user_prompt_submit",
     }).catch(() => undefined);
 }
 
-void main().catch((error: unknown) => {
-    console.error(String(error));
+void main().catch((err: unknown) => {
+    hookLog("UserPromptSubmit", "ERROR", {error: String(err)});
 });

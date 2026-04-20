@@ -21,16 +21,20 @@
  * avoids a race condition where PostToolUse could arrive before the session
  * is created.
  */
-import { ensureRuntimeSession, readStdinJson } from "~codex/lib/transport/transport.js";
-import { toTrimmedString } from "~codex/util/utils.js";
+import {readToolHookContext} from "~codex/lib/hook/hook.context.js";
+import {ensureRuntimeSession} from "~codex/lib/transport/transport.js";
+import {hookLog} from "~codex/lib/hook/hook.log.js";
 
 async function main(): Promise<void> {
-    const payload = await readStdinJson();
-    const sessionId = toTrimmedString(payload.session_id);
-    if (!sessionId) return;
+    const {sessionId} = await readToolHookContext("PreToolUse");
+    if (!sessionId) {
+        hookLog("PreToolUse", "skipped — no sessionId");
+        return;
+    }
     await ensureRuntimeSession(sessionId);
+    hookLog("PreToolUse", "ensureRuntimeSession ok", {sessionId});
 }
 
-void main().catch((error: unknown) => {
-    console.error(String(error));
+void main().catch((err: unknown) => {
+    hookLog("PreToolUse", "ERROR", {error: String(err)});
 });

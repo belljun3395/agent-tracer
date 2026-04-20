@@ -1,7 +1,7 @@
 import * as path from "node:path";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { PROJECT_DIR } from "./paths.const.js";
-import { isRecord, toTrimmedString } from "./utils.js";
+import {mkdir, readFile, writeFile} from "node:fs/promises";
+import {PROJECT_DIR} from "./paths.const.js";
+import {isRecord, toTrimmedString} from "./utils.js";
 
 const SESSION_STATE_DIR = "agent-tracer";
 const SESSION_STATE_FILE = "latest-session.json";
