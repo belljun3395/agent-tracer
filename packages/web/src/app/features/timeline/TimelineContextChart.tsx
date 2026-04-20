@@ -595,25 +595,27 @@ export function TimelineContextChart({ timelineWidth, allItems, snapshotItems, c
 
     const [hoverSvgX, setHoverSvgX] = useState<number | null>(null);
 
-    if (!hasCtx) return null;
+    if (!hasCtx && !hasModel) return null;
 
     return (
         <div className="timeline-context-charts">
-            <ChartRow
-                points={ctxPoints}
-                chartWidth={CHART_WIDTH}
-                label="Context"
-                fillId="ctx-fill"
-                strokeColor="var(--accent)"
-                fillColor="var(--accent)"
-                fillOpacity={0.18}
-                labelColor="var(--accent)"
-                modelChangeXs={modelChangeXs}
-                compactMarkers={compactMarkers}
-                hoverSvgX={hoverSvgX}
-                onHoverChange={setHoverSvgX}
-                contextWarningPrefs={contextWarningPrefs}
-            />
+            {hasCtx && (
+                <ChartRow
+                    points={ctxPoints}
+                    chartWidth={CHART_WIDTH}
+                    label="Context"
+                    fillId="ctx-fill"
+                    strokeColor="var(--accent)"
+                    fillColor="var(--accent)"
+                    fillOpacity={0.18}
+                    labelColor="var(--accent)"
+                    modelChangeXs={modelChangeXs}
+                    compactMarkers={compactMarkers}
+                    hoverSvgX={hoverSvgX}
+                    onHoverChange={setHoverSvgX}
+                    contextWarningPrefs={contextWarningPrefs}
+                />
+            )}
             {hasModel && (
                 <ModelBar
                     spans={modelSpans}
