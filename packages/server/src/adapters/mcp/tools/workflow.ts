@@ -6,10 +6,11 @@ import { toToolResponse } from "../result.js";
 export function registerWorkflowTools(server: McpServer, client: MonitorClient): void {
     server.registerTool("monitor_evaluate_task", {
         title: "Monitor Evaluate Task",
-        description: "Mark a completed task as a workflow example for future reference. " +
-            "Use rating='good' for tasks where the approach worked well and should be referenced later. " +
-            "Use rating='skip' to exclude a task from future suggestions. " +
-            "Fill outcomeNote, approachNote, reuseWhen, and watchouts when possible so the saved workflow is reusable later.",
+        description: "Save a completed task to the workflow library as a reusable example. " +
+            "You will receive a prompt that includes task context and the user's partial assessment. " +
+            "Use the user's assessment as the primary basis and fill any empty fields by reasoning over the task context. " +
+            "rating='good' means the approach worked well and should be referenced later; rating='skip' excludes it. " +
+            "Always fill outcomeNote, approachNote, reuseWhen, and watchouts — infer from context if the user left them empty.",
         inputSchema: {
             taskId: z.string(),
             rating: z.enum(WORKFLOW_RATINGS),
