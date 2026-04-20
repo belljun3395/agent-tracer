@@ -90,15 +90,16 @@ before the Bash command is logged.
 
 ## 5. Context / model observer
 
-Codex does not currently expose a Claude-style `statusLine` hook. The closest
-equivalent is the app-server surface.
+Codex does not currently expose a Claude-style `statusLine` hook. Agent Tracer
+now derives status telemetry from the session rollout `.jsonl` that plain
+`codex` already writes under `~/.codex/sessions/<YYYY>/<MM>/<DD>/`.
 
-Agent Tracer now includes a small observer that:
+The observer:
 
 - reads the latest Codex session hint written by hooks
-- starts `codex app-server`
-- resumes that thread
-- emits `context.snapshot` events from app-server status telemetry
+- locates the matching `rollout-*.jsonl` for that session id
+- tails it for `event_msg` / `token_count` entries
+- emits `context.snapshot` events from the rollout's token-usage and rate-limit fields
 - prints a compact status string such as `[monitor] ctx 30% · 15m 25%`
 
 This observer is now started automatically by the Codex `SessionStart` hook.
@@ -120,23 +121,15 @@ npm run codex:observe -- --thread-id <codex-thread-id>
 The observer posts:
 
 - `context.snapshot`
-  - `contextWindowUsedPct` when token-usage updates are available on the observer connection
+  - `contextWindowUsedPct` as soon as Codex writes a `token_count` event
   - `contextWindowSize`
   - `contextWindowTotalTokens`
-  - `modelId`
-  - generic primary/secondary rate-limit windows when available
+  - `modelId` (hint from `SessionStart`; provider from rollout `session_meta`)
+  - generic primary/secondary rate-limit windows
 
-This is the current Codex path for Claude `statusLine`-style telemetry.
-
-Important limitation:
-
-- The observer runs through a separate `codex app-server` connection from the
-  plain `codex` CLI session.
-- Per the official app-server contract, live `thread/tokenUsage/updated`
-  notifications are tied to the active transport stream that owns the running
-  turn.
-- In plain `codex` mode, that means model and rate-limit telemetry are reliable,
-  while context usage may be unavailable.
+Since the observer tails the same rollout file that plain `codex` writes, it
+does not need to share a transport with the running turn — both context and
+rate-limit telemetry are now populated in plain `codex` mode.
 
 ## 6. End-to-end check
 
