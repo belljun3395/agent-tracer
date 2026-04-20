@@ -73,7 +73,6 @@ export interface EditActions {
     finishEditing: () => void;
     setSavingTitle: (saving: boolean) => void;
     setUpdatingStatus: (updating: boolean) => void;
-    resetEdit: () => void;
 }
 
 export type EditStoreState = EditState & EditActions;
@@ -93,14 +92,7 @@ export function createEditStore(): EditStore {
         setTitleError: (taskTitleError) => set({ taskTitleError }),
         finishEditing: () => set({ isEditingTaskTitle: false, taskTitleError: null }),
         setSavingTitle: (isSavingTaskTitle) => set({ isSavingTaskTitle }),
-        setUpdatingStatus: (isUpdatingTaskStatus) => set({ isUpdatingTaskStatus }),
-        resetEdit: () =>
-            set({
-                isEditingTaskTitle: false,
-                taskTitleDraft: "",
-                taskTitleError: null,
-                isSavingTaskTitle: false
-            })
+        setUpdatingStatus: (isUpdatingTaskStatus) => set({ isUpdatingTaskStatus })
     }));
 }
 
