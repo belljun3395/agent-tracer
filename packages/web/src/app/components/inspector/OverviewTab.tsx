@@ -56,6 +56,16 @@ function formatResetsAt(unixSeconds: number): string {
     return `resets in ${h}h${m > 0 ? ` ${m}m` : ""}`;
 }
 
+function formatWindowLabel(windowDurationMins: number | null): string {
+    if (windowDurationMins == null || windowDurationMins <= 0) return "quota";
+    if (windowDurationMins < 60) return `${windowDurationMins}m`;
+    if (windowDurationMins % 1440 === 0) return `${windowDurationMins / 1440}d`;
+    if (windowDurationMins % 60 === 0) return `${windowDurationMins / 60}h`;
+    const hours = Math.floor(windowDurationMins / 60);
+    const minutes = windowDurationMins % 60;
+    return `${hours}h${minutes}m`;
+}
+
 function ContextSnapshotCard({ timeline }: { readonly timeline: readonly TimelineEventRecord[] }): React.JSX.Element | null {
     const { prefs, setEnabled, setThresholdPct } = useContextWarningPrefs();
     const [thresholdInput, setThresholdInput] = useState(() => String(prefs.thresholdPct));
@@ -83,10 +93,27 @@ function ContextSnapshotCard({ timeline }: { readonly timeline: readonly Timelin
     const fiveHourResets = typeof md["rateLimitFiveHourResetsAt"] === "number" ? md["rateLimitFiveHourResetsAt"] : null;
     const sevenDayPct = typeof md["rateLimitSevenDayUsedPct"] === "number" ? md["rateLimitSevenDayUsedPct"] : null;
     const sevenDayResets = typeof md["rateLimitSevenDayResetsAt"] === "number" ? md["rateLimitSevenDayResetsAt"] : null;
+    const primaryPct = typeof md["rateLimitPrimaryUsedPct"] === "number" ? md["rateLimitPrimaryUsedPct"] : null;
+    const primaryWindow = typeof md["rateLimitPrimaryWindowDurationMins"] === "number"
+        ? md["rateLimitPrimaryWindowDurationMins"]
+        : null;
+    const primaryResets = typeof md["rateLimitPrimaryResetsAt"] === "number" ? md["rateLimitPrimaryResetsAt"] : null;
+    const secondaryPct = typeof md["rateLimitSecondaryUsedPct"] === "number" ? md["rateLimitSecondaryUsedPct"] : null;
+    const secondaryWindow = typeof md["rateLimitSecondaryWindowDurationMins"] === "number"
+        ? md["rateLimitSecondaryWindowDurationMins"]
+        : null;
+    const secondaryResets = typeof md["rateLimitSecondaryResetsAt"] === "number" ? md["rateLimitSecondaryResetsAt"] : null;
     const modelId = typeof md["modelId"] === "string" ? md["modelId"] : null;
 
+    const primaryLabel = fiveHourPct !== null ? "5-hour" : primaryPct !== null ? formatWindowLabel(primaryWindow) : null;
+    const primaryUsage = fiveHourPct ?? primaryPct;
+    const primaryReset = fiveHourResets ?? primaryResets;
+    const secondaryLabel = sevenDayPct !== null ? "7-day" : secondaryPct !== null ? formatWindowLabel(secondaryWindow) : null;
+    const secondaryUsage = sevenDayPct ?? secondaryPct;
+    const secondaryReset = sevenDayResets ?? secondaryResets;
+
     const hasCtx = usedPct !== null;
-    const hasRl = fiveHourPct !== null || sevenDayPct !== null;
+    const hasRl = primaryUsage !== null || secondaryUsage !== null;
 
     if (!hasCtx && !hasRl) return null;
 
@@ -178,39 +205,44 @@ function ContextSnapshotCard({ timeline }: { readonly timeline: readonly Timelin
                 {hasRl && (
                     <div className={innerPanel + " p-3 mt-2"}>
                         <Eyebrow className="block">Rate Limits</Eyebrow>
-                        {fiveHourPct !== null && (
+                        {primaryUsage !== null && primaryLabel && (
                             <div className="mt-2">
                                 <div className="flex items-baseline justify-between">
-                                    <span className="text-[0.72rem] text-[var(--text-2)] font-medium">5-hour</span>
+                                    <span className="text-[0.72rem] text-[var(--text-2)] font-medium">{primaryLabel}</span>
                                     <div className="flex items-baseline gap-1.5">
                                         <strong className="text-[0.9rem]" style={{
-                                            color: fiveHourPct >= 95 ? "var(--err)" : fiveHourPct >= 80 ? "var(--warn)" : "var(--text-1)"
-                                        }}>{Math.round(fiveHourPct)}%</strong>
-                                        {fiveHourResets !== null && (
-                                            <span className="text-[0.65rem] text-[var(--text-3)]">{formatResetsAt(fiveHourResets)}</span>
+                                            color: primaryUsage >= 95 ? "var(--err)" : primaryUsage >= 80 ? "var(--warn)" : "var(--text-1)"
+                                        }}>{Math.round(primaryUsage)}%</strong>
+                                        {primaryReset !== null && (
+                                            <span className="text-[0.65rem] text-[var(--text-3)]">{formatResetsAt(primaryReset)}</span>
                                         )}
                                     </div>
                                 </div>
-                                <UsageBar pct={fiveHourPct} color="var(--warn)" />
+                                <UsageBar pct={primaryUsage} color="var(--warn)" />
                             </div>
                         )}
-                        {sevenDayPct !== null && (
+                        {secondaryUsage !== null && secondaryLabel && (
                             <div className="mt-2">
                                 <div className="flex items-baseline justify-between">
-                                    <span className="text-[0.72rem] text-[var(--text-2)] font-medium">7-day</span>
+                                    <span className="text-[0.72rem] text-[var(--text-2)] font-medium">{secondaryLabel}</span>
                                     <div className="flex items-baseline gap-1.5">
                                         <strong className="text-[0.9rem]" style={{
-                                            color: sevenDayPct >= 95 ? "var(--err)" : sevenDayPct >= 80 ? "var(--warn)" : "var(--text-1)"
-                                        }}>{Math.round(sevenDayPct)}%</strong>
-                                        {sevenDayResets !== null && (
-                                            <span className="text-[0.65rem] text-[var(--text-3)]">{formatResetsAt(sevenDayResets)}</span>
+                                            color: secondaryUsage >= 95 ? "var(--err)" : secondaryUsage >= 80 ? "var(--warn)" : "var(--text-1)"
+                                        }}>{Math.round(secondaryUsage)}%</strong>
+                                        {secondaryReset !== null && (
+                                            <span className="text-[0.65rem] text-[var(--text-3)]">{formatResetsAt(secondaryReset)}</span>
                                         )}
                                     </div>
                                 </div>
-                                <UsageBar pct={sevenDayPct} color="var(--coordination)" />
+                                <UsageBar pct={secondaryUsage} color="var(--coordination)" />
                             </div>
                         )}
                     </div>
+                )}
+                {!hasCtx && hasRl && (
+                    <p className="mt-2 mb-0 text-[0.68rem] text-[var(--text-3)]">
+                        Context usage is unavailable for this Codex snapshot. The current plain `codex` observer path is only receiving model and rate-limit telemetry.
+                    </p>
                 )}
                 <p className="mt-1.5 mb-0 text-[0.65rem] text-[var(--text-3)]">
                     Snapshot from {formatRelativeTime(latest.createdAt)}
