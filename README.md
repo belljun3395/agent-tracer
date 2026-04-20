@@ -6,7 +6,7 @@ The server and MCP layers are also open to manual HTTP/MCP clients.
 
 ## Quick Start (Claude Code plugin)
 
-Agent Tracer is distributed as a Claude Code **plugin** (`packages/runtime-claude/`).
+Agent Tracer is distributed as a Claude Code **plugin** (`packages/runtime/`).
 The plugin automatically registers all hook events and posts them to the monitor
 server. You do not need to copy hook source files to your target project.
 
@@ -36,7 +36,7 @@ an additional step:
 
 > When running Claude Code inside the Agent Tracer repository itself,
 > `setup:external` is not needed. You can start with
-> `claude --plugin-dir packages/runtime-claude` directly.
+> `claude --plugin-dir packages/runtime/src/claude-code` directly.
 
 Latest guide: https://belljun3395.github.io/agent-tracer/guide/
 
@@ -84,17 +84,13 @@ npm run docs:dev
 
 ### NPM release
 
-- Publish individual packages:
-  - `npm run publish:server`
-  - `npm run publish:mcp`
-  - `npm run publish:web`
-- Publish all at once: `npm run publish:all`
+- Publish: `npm run publish:all` (publishes `@monitor/server` to npm with
+  public access; other workspaces are currently private).
 - Manual GitHub Actions run:
   - Select `Run workflow` in `.github/workflows/publish-packages.yml`
   - Set `dryRun` to `true` to run with `--dry-run` (no upload)
 - Tag-based release deployment:
-  - Push a tag in the format `v*` (e.g., `v0.1.0`) to automatically trigger
-    publish jobs for the published packages above.
+  - Push a tag in the format `v*` (e.g., `v0.1.0`) to trigger the publish job.
 - Requires `NPM_TOKEN` secret in your repository
   (`Settings > Secrets and variables > Actions`).
 
@@ -113,12 +109,8 @@ See `docs/guide/task-observability.md` for detailed contracts and API specs.
 
 ## Packages
 
-| Package | Role |
-|---------|------|
-| `@monitor/domain` | Pure ids, task/session/event types, workflow shapes, and runtime capability registry |
-| `@monitor/classification` | Server-side event classification and semantic metadata derivation |
-| `@monitor/application` | Use cases, observability analyzers, and port interfaces |
-| `@monitor/server` | NestJS runtime composition that wires HTTP adapters, SQLite ports, and WebSocket broadcast |
-| `@monitor/adapter-mcp` | MCP stdio server (driving adapter) |
-| `@monitor/web-app` | React 19 dashboard |
-| `@monitor/runtime-claude` | Claude Code hook plugin package exposed locally via `packages/runtime-claude` |
+| Package | Path | Role |
+|---------|------|------|
+| `@monitor/server` | `packages/server` | NestJS monitor server (HTTP + WebSocket + SQLite) with an MCP stdio adapter exposed through the `./mcp` subpath export |
+| `@monitor/web` | `packages/web` | React 19 dashboard |
+| `@monitor/runtime` | `packages/runtime` | Runtime adapters. Ships the Claude Code plugin at `packages/runtime/src/claude-code` (also mounted at `packages/runtime/` for marketplace installs) |

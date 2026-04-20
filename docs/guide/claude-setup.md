@@ -3,7 +3,7 @@
 This page covers the Claude Code specific steps needed after the shared
 [install-and-run](./install-and-run.md) flow.
 
-Agent Tracer ships as a Claude Code **plugin** (`packages/runtime-claude/`). The plugin
+Agent Tracer ships as a Claude Code **plugin** (`packages/runtime/`). The plugin
 registers every hook event for you and posts events to the local monitor
 server. You do not copy hook source files into your target project.
 
@@ -24,13 +24,13 @@ Before following this page, make sure that:
 As a one-off from your target project:
 
 ```bash
-claude --plugin-dir /absolute/path/to/agent-tracer/packages/runtime-claude
+claude --plugin-dir /absolute/path/to/agent-tracer/packages/runtime/src/claude-code
 ```
 
 As a shell alias:
 
 ```bash
-alias claude='claude --plugin-dir /absolute/path/to/agent-tracer/packages/runtime-claude'
+alias claude='claude --plugin-dir /absolute/path/to/agent-tracer/packages/runtime/src/claude-code'
 ```
 
 ### Permanent install via marketplace
@@ -44,7 +44,7 @@ root (`.claude-plugin/marketplace.json`). From any Claude Code session:
 ```
 
 Updates land automatically. Whenever
-`packages/runtime-claude/.claude-plugin/plugin.json#version` changes (CI auto-bumps
+`packages/runtime/.claude-plugin/plugin.json#version` changes (CI auto-bumps
 the patch number when hook code lands on `main`), Claude Code refreshes the
 plugin on next session start.
 
@@ -66,7 +66,7 @@ added separately so Claude can call MCP tools (`monitor_plan`,
 ```bash
 claude mcp add monitor \
   -e MONITOR_BASE_URL=http://127.0.0.1:3847 \
-  node /absolute/path/to/agent-tracer/packages/adapter-mcp/dist/index.js
+  node /absolute/path/to/agent-tracer/packages/mcp/dist/index.js
 ```
 
 If Claude is launched from a GUI and `node` is not on the GUI PATH, use an
@@ -82,10 +82,17 @@ Expected result: `monitor` is listed and connected.
 
 ## 4. What the hooks do
 
-Hook scripts live under `packages/runtime-claude/hooks/`, registered through
-`packages/runtime-claude/hooks/hooks.json` and executed by
-`packages/runtime-claude/bin/run-hook.sh`. Each file name matches the Claude Code
+Hook scripts live under `packages/runtime/src/claude-code/hooks/`, registered through
+`packages/runtime/src/claude-code/hooks/hooks.json` and executed by
+`packages/runtime/src/claude-code/bin/run-hook.sh`. Each file name matches the Claude Code
 hook event name.
+
+> Marketplace installs see the same files under a different root: the
+> marketplace entry in `.claude-plugin/marketplace.json` points to
+> `packages/runtime`, and `packages/runtime/hooks/hooks.json` +
+> `packages/runtime/bin/run-hook.sh` resolve the same `.ts` files in
+> `src/claude-code/hooks/` at runtime. Only the `--plugin-dir` variant targets
+> `src/claude-code` directly.
 
 ### Top-level hook files
 
@@ -126,8 +133,7 @@ takes precedence over the plugin entry.
 `PostToolUse` is routed to one of six sub-handlers via the matchers in
 `hooks.json`. All sub-handlers post to `POST /ingest/v1/events` with a
 `kind`-tagged envelope; lane, subtype, toolFamily, and operation are
-derived **server-side** by `@monitor/classification` at ingestion
-(v0.2.0+).
+derived **server-side** inside `@monitor/server` at ingestion (v0.2.0+).
 
 | Matcher | File | `kind` |
 |---------|------|--------|
@@ -168,7 +174,7 @@ If you are running Claude Code *inside* the Agent Tracer repo itself, you
 don't need `setup:external`. Just launch:
 
 ```bash
-claude --plugin-dir packages/runtime-claude
+claude --plugin-dir packages/runtime/src/claude-code
 ```
 
 `.claude/settings.json` only declares `permissions`. The plugin's
@@ -215,7 +221,7 @@ call directly. A few of the most useful ones:
 2. `setup:external` has been run for the target project.
 3. `monitor` is registered in `claude mcp list`.
 4. Open the target project with
-   `claude --plugin-dir /absolute/path/to/agent-tracer/packages/runtime-claude` (or
+   `claude --plugin-dir /absolute/path/to/agent-tracer/packages/runtime/src/claude-code` (or
    your alias).
 5. Perform one read or edit.
 6. Confirm a task appears in the dashboard at `http://127.0.0.1:5173`.

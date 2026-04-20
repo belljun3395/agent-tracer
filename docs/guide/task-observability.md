@@ -165,7 +165,7 @@ but are used only as inactive time excluded from `activeDurationMs` calculations
 
 ## UI Helper Functions
 
-UI-only formatting utilities are in `packages/web-app/src/lib/observability.ts`.
+UI-only formatting utilities are in `packages/web/src/app/lib/observability.ts`.
 These functions convert numbers from server responses to card and display strings.
 
 | Function | Input | Example Output | Description |
