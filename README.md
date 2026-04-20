@@ -34,6 +34,25 @@ an additional step:
    `npm run setup:external` to generate `.claude/settings.json` in your target
    project.
 
+### Global status line (optional, recommended)
+
+Claude Code plugins can register hook events but **cannot** register a
+`statusLine` (it is a `settings.json`-only field). To get the
+`[monitor] ctx N% · 5h N% · $X` segment in *every* project, install the
+wrapper once globally:
+
+```bash
+# After installing the agent-tracer-monitor plugin via Claude Code
+npm run setup:statusline
+# or, without npm:
+bash ~/.claude/plugins/marketplaces/agent-tracer/scripts/install-statusline.sh
+```
+
+The script is idempotent and preserves any existing status line script
+(backed up to `*.bak.<ts>` and re-sourced as `statusline-original.sh`).
+Then add the printed `statusLine` block to `~/.claude/settings.json` and
+restart Claude Code.
+
 > When running Claude Code inside the Agent Tracer repository itself,
 > `setup:external` is not needed. You can start with
 > `claude --plugin-dir packages/runtime/src/claude-code` directly.
