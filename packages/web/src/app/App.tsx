@@ -79,7 +79,7 @@ function Dashboard({
                         </button>
                     </div>
                     <div className="max-h-[70vh] overflow-y-auto">
-                        <RuleCommandsPanel taskId={db.selectedTaskId != null ? (db.selectedTaskId as TaskId) : undefined} />
+                        <RuleCommandsPanel {...(db.selectedTaskId != null ? { taskId: db.selectedTaskId as TaskId } : {})} />
                     </div>
                 </div>
             )}

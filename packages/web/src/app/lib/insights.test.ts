@@ -136,6 +136,7 @@ describe("filterTimelineEvents", () => {
             coordination: false,
             exploration: false,
             implementation: true,
+            rule: false,
             background: false,
             telemetry: false
         } as const;

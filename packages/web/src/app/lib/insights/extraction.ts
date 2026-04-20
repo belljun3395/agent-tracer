@@ -188,6 +188,7 @@ const TASK_EXTRACTION_LANE_TITLES: Readonly<Record<TimelineLane, string>> = {
     planning: "Plan the approach",
     coordination: "Coordinate tools and agents",
     implementation: "Implement the change",
+    rule: "Verify rule compliance",
     background: "Observe background work",
     telemetry: "API call telemetry"
 };
