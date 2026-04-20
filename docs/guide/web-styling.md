@@ -16,7 +16,7 @@
 - `packages/web/src/app/styles/base.css` owns reset and element defaults.
 - `packages/web/src/app/components/Timeline.css` owns coordinate-heavy timeline canvas styling.
 - `packages/web/src/app/styles/legacy.css` is now limited to shared layout hooks that are still easier to express as global selectors, such as inspector collapse and responsive grid behavior.
-- `packages/web/src/app/lib/ui/laneTheme.ts` is the only source of truth for lane labels, icons, and semantic tone variables.
+- `packages/web/src/app/lib/ui/laneTheme.ts` is the only source of truth for lane labels, icons, and semantic tone variables. The `rule` lane uses `--rule` (`#c2410c`, orange-red) with light/dark mode variants defined in `tokens.css`.
 - Font loading must use one intentional source of truth. The current default font stack is `Inter` + system sans, with `JetBrains Mono` for code.
 
 ## Component Guidance

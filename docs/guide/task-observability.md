@@ -148,9 +148,11 @@ Phase breakdown is estimated based on timeline events and session windows, not a
   - `file.changed`, exploration lane activity
 - `implementation`
   - `action.logged`, `tool.used`, `terminal.command` on implementation lane
+- `rule`
+  - `terminal.command` events re-classified to the `rule` lane when the command matches a user-defined rule pattern
+  - Rule patterns are stored per-task or globally in the `rule_commands` table; see [API integration map](./api-integration-map.md) for the management endpoints
 - `verification`
   - `verification.logged`, `rule.logged`, `task.complete`, `task.error`
-  - Verification-related event types are read as a separate phase, but currently the core lane set has no dedicated `rules` lane
 - `coordination`
   - `agent.activity.logged`, background lane activity
 
