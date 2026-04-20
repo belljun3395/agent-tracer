@@ -62,16 +62,11 @@ export interface ActionsTabProps {
     readonly workspacePath?: string | undefined;
     readonly taskExtraction: TaskExtraction;
     readonly taskTimeline: readonly TimelineEventRecord[];
-    readonly handoffPlans: readonly string[];
-    readonly handoffExploredFiles: readonly string[];
     readonly handoffModifiedFiles: readonly string[];
-    readonly handoffOpenTodos: readonly string[];
-    readonly handoffOpenQuestions: readonly string[];
     readonly handoffViolations: readonly string[];
     readonly handoffSnapshot: ReusableTaskSnapshot;
-    readonly handoffActiveInstructions: readonly string[];
 }
-export function ActionsTab({ taskId, taskTitle, workspacePath, taskExtraction, taskTimeline, handoffPlans, handoffExploredFiles, handoffModifiedFiles, handoffOpenTodos, handoffOpenQuestions, handoffViolations, handoffSnapshot, handoffActiveInstructions }: ActionsTabProps): React.JSX.Element {
+export function ActionsTab({ taskId, taskTitle, workspacePath, taskExtraction, taskTimeline, handoffModifiedFiles, handoffViolations, handoffSnapshot }: ActionsTabProps): React.JSX.Element {
     return (<div className="panel-tab-inner flex flex-col gap-5 p-4">
       <TaskExtractionCard extraction={taskExtraction} workspacePath={workspacePath}/>
       {taskId
@@ -80,14 +75,9 @@ export function ActionsTab({ taskId, taskTitle, workspacePath, taskExtraction, t
                 taskTitle={taskTitle}
                 taskExtraction={taskExtraction}
                 taskTimeline={taskTimeline}
-                handoffPlans={handoffPlans}
-                handoffExploredFiles={handoffExploredFiles}
                 handoffModifiedFiles={handoffModifiedFiles}
-                handoffOpenTodos={handoffOpenTodos}
-                handoffOpenQuestions={handoffOpenQuestions}
                 handoffViolations={handoffViolations}
                 handoffSnapshot={handoffSnapshot}
-                handoffActiveInstructions={handoffActiveInstructions}
               />)
             : (<div className="flex items-center justify-center py-8 text-[0.82rem] text-[var(--text-3)]">
             Select a task to evaluate it.

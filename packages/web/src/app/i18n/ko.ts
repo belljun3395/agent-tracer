@@ -23,22 +23,24 @@ export const KO_HANDOFF_ACTION_REFERENCE =
 // Evaluate prompt strings
 export const KO_EVALUATE_INTRO =
     "Evaluate the completed task and call the monitor_evaluate_task MCP tool to save it to the workflow library.";
+export const KO_EVALUATE_USER_ASSESSMENT_HEADER =
+    "\n## User's Assessment\nThe user has filled in the following notes. Use them as the primary basis and expand or infer any empty fields from the task context above.\n";
 export const KO_EVALUATE_INSTRUCTIONS_HEADER =
-    "\nCall the monitor_evaluate_task MCP tool using the context above:\n";
+    "\nCall the monitor_evaluate_task MCP tool using the context and user assessment above:\n";
 export const KO_EVALUATE_FIELD_RATING =
-    "- rating: \"good\" if the approach worked well, \"skip\" otherwise";
+    "- rating: use the user's value if set; otherwise decide from task context";
 export const KO_EVALUATE_FIELD_USE_CASE =
-    "- useCase: type of task (e.g. \"Fix TypeScript type errors\")";
+    "- useCase: use the user's value; refine if imprecise (e.g. \"Fix TypeScript type errors\")";
 export const KO_EVALUATE_FIELD_OUTCOME_NOTE =
-    "- outcomeNote: summary of what was achieved";
+    "- outcomeNote: expand the user's note into a full sentence; if empty, infer from task context";
 export const KO_EVALUATE_FIELD_APPROACH_NOTE =
-    "- approachNote: what approach worked and why";
+    "- approachNote: expand the user's note; if empty, describe the main approach used";
 export const KO_EVALUATE_FIELD_REUSE_WHEN =
-    "- reuseWhen: when to reuse this workflow";
+    "- reuseWhen: expand the user's note; if empty, infer a clear trigger condition";
 export const KO_EVALUATE_FIELD_WATCHOUTS =
-    "- watchouts: what to watch out for in similar tasks";
+    "- watchouts: expand the user's note; if empty, infer from violations or task context";
 export const KO_EVALUATE_FIELD_WORKFLOW_TAGS =
-    "- workflowTags: classification tags (e.g. [\"typescript\", \"refactor\"])";
+    "- workflowTags: use the user's tags; add technical tags if missing (e.g. [\"typescript\", \"refactor\"])";
 export const KO_EVALUATE_CALL_NOW =
     "\nCall the tool immediately without asking for confirmation.";
 

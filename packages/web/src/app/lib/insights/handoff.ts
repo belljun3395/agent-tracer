@@ -1,4 +1,4 @@
-import type { ReusableTaskSnapshot } from "../../../types.js";
+import type { ReusableTaskSnapshot, TimelineEventRecord } from "../../../types.js";
 import {
     KO_EVALUATE_CALL_NOW,
     KO_EVALUATE_FIELD_APPROACH_NOTE,
@@ -10,6 +10,7 @@ import {
     KO_EVALUATE_FIELD_WORKFLOW_TAGS,
     KO_EVALUATE_INSTRUCTIONS_HEADER,
     KO_EVALUATE_INTRO,
+    KO_EVALUATE_USER_ASSESSMENT_HEADER,
     KO_HANDOFF_ACTION_CONTINUE,
     KO_HANDOFF_ACTION_HANDOFF,
     KO_HANDOFF_ACTION_REFERENCE,
@@ -467,57 +468,133 @@ export function buildHandoffPrompt(options: HandoffOptions): string {
     parts.push(`\n## Action\n${HANDOFF_PROMPT_ACTION[purpose]}`);
     return parts.join("");
 }
+export interface UserAssessment {
+    readonly rating?: "good" | "skip" | null;
+    readonly useCase?: string;
+    readonly workflowTags?: readonly string[];
+    readonly outcomeNote?: string;
+    readonly approachNote?: string;
+    readonly reuseWhen?: string;
+    readonly watchouts?: string;
+}
+
+export interface AgentTrace {
+    readonly userRequest: string | null;
+    readonly keyResponses: readonly string[];
+    readonly filesRead: readonly string[];
+    readonly filesWritten: readonly string[];
+    readonly commands: readonly string[];
+}
+
+export function buildAgentTrace(events: readonly TimelineEventRecord[]): AgentTrace {
+    const userRequest = events
+        .find((e) => e.kind === "user.message")
+        ?.body ?? events.find((e) => e.kind === "user.message")?.title ?? null;
+
+    const responses = events.filter((e) => e.kind === "assistant.response" && e.body);
+    const first = responses[0]?.body;
+    const last = responses[responses.length - 1]?.body;
+    const keyResponses: string[] = [];
+    if (first) keyResponses.push(first.slice(0, 350));
+    if (last && last !== first) keyResponses.push(last.slice(0, 350));
+
+    const readPaths = new Set<string>();
+    for (const e of events) {
+        if (e.kind === "tool.used" && e.paths && e.paths.filePaths.length > 0) {
+            for (const p of e.paths.filePaths) {
+                readPaths.add(p);
+                if (readPaths.size >= 10) break;
+            }
+        }
+        if (readPaths.size >= 10) break;
+    }
+
+    const writtenPaths = new Set<string>();
+    for (const e of events) {
+        if (e.kind === "file.changed" && (e.metadata["writeCount"] as number | undefined ?? 0) > 0) {
+            const p = e.paths?.primaryPath ?? e.title;
+            if (p) writtenPaths.add(p);
+        }
+        if (writtenPaths.size >= 8) break;
+    }
+
+    const commandTitles: string[] = [];
+    for (const e of events) {
+        if (e.kind === "terminal.command" && commandTitles.length < 6) {
+            commandTitles.push(e.title);
+        }
+    }
+
+    return {
+        userRequest,
+        keyResponses,
+        filesRead: Array.from(readPaths),
+        filesWritten: Array.from(writtenPaths),
+        commands: commandTitles,
+    };
+}
+
 export interface EvaluatePromptOptions {
     readonly taskId: string;
     readonly objective: string;
-    readonly summary: string;
-    readonly sections: readonly TaskProcessSection[];
-    readonly plans: readonly string[];
-    readonly exploredFiles: readonly string[];
     readonly modifiedFiles: readonly string[];
-    readonly openTodos: readonly string[];
-    readonly openQuestions: readonly string[];
     readonly violations: readonly string[];
     readonly snapshot: ReusableTaskSnapshot;
-    readonly activeInstructions: readonly string[];
+    readonly agentTrace?: AgentTrace;
+    readonly userAssessment?: UserAssessment;
 }
+
 export function buildEvaluatePrompt(options: EvaluatePromptOptions): string {
-    const {
-        taskId, objective, summary, sections,
-        modifiedFiles, violations,
-        exploredFiles, openTodos, openQuestions, plans,
-        activeInstructions,
-    } = options;
+    const { taskId, objective, modifiedFiles, violations, agentTrace, userAssessment } = options;
 
     const parts: string[] = [KO_EVALUATE_INTRO];
-    parts.push(`\n## Task Context`);
-    if (objective) parts.push(`\n- Objective: ${objective}`);
-    if (summary) parts.push(`\n- Summary: ${summary}`);
+    parts.push(`\n## Task`);
+    if (objective) parts.push(`\n${objective}`);
 
-    if (sections.length > 0) {
-        const items = sections.flatMap((s) => s.items.slice(0, 2).map((item) => `  - ${s.lane}: ${item}`));
-        parts.push(`\n- Process:\n${items.join("\n")}`);
+    if (agentTrace) {
+        parts.push(`\n## What the Agent Did`);
+        if (agentTrace.userRequest) {
+            parts.push(`\n**User request:** ${agentTrace.userRequest.slice(0, 400)}`);
+        }
+        if (agentTrace.keyResponses.length > 0) {
+            parts.push(`\n**Key responses:**`);
+            for (const r of agentTrace.keyResponses) {
+                parts.push(`- ${r.replaceAll("\n", " ")}`);
+            }
+        }
+        if (agentTrace.filesRead.length > 0) {
+            parts.push(`\n**Files read:**\n${agentTrace.filesRead.map((f) => `- ${f}`).join("\n")}`);
+        }
+        if (agentTrace.filesWritten.length > 0) {
+            parts.push(`\n**Files written:**\n${agentTrace.filesWritten.map((f) => `- ${f}`).join("\n")}`);
+        }
+        if (agentTrace.commands.length > 0) {
+            parts.push(`\n**Commands run:**\n${agentTrace.commands.map((c) => `- ${c}`).join("\n")}`);
+        }
     }
-    if (plans.length > 0) {
-        parts.push(`\n- Plan steps:\n${plans.slice(0, 5).map((p) => `  - ${p}`).join("\n")}`);
-    }
+
     if (modifiedFiles.length > 0) {
-        parts.push(`\n- Modified files: ${modifiedFiles.slice(0, 6).join(", ")}`);
-    }
-    if (exploredFiles.length > 0) {
-        parts.push(`\n- Key explored files: ${exploredFiles.slice(0, 8).join(", ")}`);
-    }
-    if (openTodos.length > 0) {
-        parts.push(`\n- Open todos: ${openTodos.slice(0, 5).map((t) => `"${t}"`).join(", ")}`);
-    }
-    if (openQuestions.length > 0) {
-        parts.push(`\n- Open questions: ${openQuestions.slice(0, 3).map((q) => `"${q}"`).join(", ")}`);
+        parts.push(`\n**Modified files:** ${modifiedFiles.slice(0, 6).join(", ")}`);
     }
     if (violations.length > 0) {
-        parts.push(`\n- Watchouts: ${violations.slice(0, 4).join("; ")}`);
+        parts.push(`\n**Watchouts:** ${violations.slice(0, 4).join("; ")}`);
     }
-    if (activeInstructions.length > 0) {
-        parts.push(`\n- Active instruction files: ${activeInstructions.join(", ")}`);
+
+    if (userAssessment) {
+        parts.push(KO_EVALUATE_USER_ASSESSMENT_HEADER);
+        const fmt = (val: string | undefined, fallback: string): string =>
+            val?.trim() ? val.trim() : `[not provided — ${fallback}]`;
+        parts.push(`- Rating: ${userAssessment.rating ?? "[not set — decide from task context]"}`);
+        parts.push(`- Use case: ${fmt(userAssessment.useCase, "infer from task context")}`);
+        parts.push(`- Outcome: ${fmt(userAssessment.outcomeNote, "infer from task context")}`);
+        parts.push(`- Approach: ${fmt(userAssessment.approachNote, "infer from task context")}`);
+        parts.push(`- Reuse when: ${fmt(userAssessment.reuseWhen, "infer a clear trigger condition")}`);
+        parts.push(`- Watch out: ${fmt(userAssessment.watchouts, "infer from violations or task context")}`);
+        if (userAssessment.workflowTags && userAssessment.workflowTags.length > 0) {
+            parts.push(`- Tags: ${userAssessment.workflowTags.join(", ")}`);
+        } else {
+            parts.push(`- Tags: [not set — suggest appropriate tags]`);
+        }
     }
 
     parts.push(`\n## Instructions`);

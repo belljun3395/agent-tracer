@@ -939,15 +939,8 @@ describe("buildEvaluatePrompt", () => {
         return {
             taskId: "task-abc-123",
             objective: "Fix TypeScript errors",
-            summary: "Fixed 3 type errors in api.ts",
-            sections: [],
-            plans: [],
-            exploredFiles: [],
             modifiedFiles: ["src/api.ts"],
-            openTodos: [],
-            openQuestions: [],
             violations: [],
-            activeInstructions: [],
             snapshot: makeHandoff().snapshot,
             ...overrides
         };
@@ -966,10 +959,9 @@ describe("buildEvaluatePrompt", () => {
         expect(result).toContain("approachNote");
         expect(result).toContain("reuseWhen");
     });
-    it("includes task context in output", () => {
+    it("includes objective in output", () => {
         const result = buildEvaluatePrompt(makeEvaluateOptions());
         expect(result).toContain("Fix TypeScript errors");
-        expect(result).toContain("Fixed 3 type errors in api.ts");
     });
     it("includes modified files when present", () => {
         const result = buildEvaluatePrompt(makeEvaluateOptions());
@@ -979,30 +971,29 @@ describe("buildEvaluatePrompt", () => {
         const result = buildEvaluatePrompt(makeEvaluateOptions({ modifiedFiles: [] }));
         expect(result).not.toContain("Modified files:");
     });
-    it("includes exploredFiles in the prompt when provided", () => {
+    it("includes agentTrace files read when provided", () => {
         const result = buildEvaluatePrompt(makeEvaluateOptions({
-            exploredFiles: ["src/auth.ts", "src/session.ts"],
+            agentTrace: { userRequest: null, keyResponses: [], filesRead: ["src/auth.ts", "src/session.ts"], filesWritten: [], commands: [] },
         }));
         expect(result).toContain("src/auth.ts");
         expect(result).toContain("src/session.ts");
     });
-    it("includes openTodos in the prompt when provided", () => {
+    it("includes agentTrace commands when provided", () => {
         const result = buildEvaluatePrompt(makeEvaluateOptions({
-            openTodos: ["Write migration tests", "Update README"],
+            agentTrace: { userRequest: null, keyResponses: [], filesRead: [], filesWritten: [], commands: ["pnpm tsc --noEmit"] },
         }));
-        expect(result).toContain("Write migration tests");
-        expect(result).toContain("Update README");
+        expect(result).toContain("pnpm tsc --noEmit");
     });
-    it("includes plans in the prompt when provided", () => {
+    it("includes agentTrace user request when provided", () => {
         const result = buildEvaluatePrompt(makeEvaluateOptions({
-            plans: ["Step 1: analyze schema", "Step 2: write migration"],
+            agentTrace: { userRequest: "Fix the login bug", keyResponses: [], filesRead: [], filesWritten: [], commands: [] },
         }));
-        expect(result).toContain("Step 1: analyze schema");
+        expect(result).toContain("Fix the login bug");
     });
-    it("includes activeInstructions in the prompt when provided", () => {
+    it("includes agentTrace key responses when provided", () => {
         const result = buildEvaluatePrompt(makeEvaluateOptions({
-            activeInstructions: ["CLAUDE.md", ".claude/rules/typescript.md"],
+            agentTrace: { userRequest: null, keyResponses: ["I fixed the issue by updating the auth handler"], filesRead: [], filesWritten: [], commands: [] },
         }));
-        expect(result).toContain("CLAUDE.md");
+        expect(result).toContain("I fixed the issue by updating the auth handler");
     });
 });

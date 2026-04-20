@@ -4,7 +4,7 @@ import { buildReusableTaskSnapshot } from "../../types.js";
 import {
     buildExplorationInsight,
     buildQuestionGroups, buildSubagentInsight, buildTaskExtraction,
-    buildTodoGroups, buildVerificationCycles, collectFileActivity, collectPlanSteps,
+    buildTodoGroups, buildVerificationCycles, collectFileActivity,
     collectViolationDescriptions, collectWebLookups, buildTaskTimelineSummary,
     type BookmarkRecord, type ModelSummary, type TaskObservabilityResponse,
     type TaskDetailResponse, type TimelineConnector, type TimelineEventRecord,
@@ -143,31 +143,9 @@ export function EventInspector({
     const subagentInsight = useMemo(() => buildSubagentInsight(taskTimeline), [taskTimeline]);
     const verificationCycles = useMemo(() => buildVerificationCycles(taskTimeline), [taskTimeline]);
     const mentionedVerifications = taskObservability?.mentionedFileVerifications ?? [];
-    const handoffExploredFiles = useMemo(() => exploredFiles.map((f) => f.path), [exploredFiles]);
     const handoffModifiedFiles = useMemo(() => collectFileActivity(taskTimeline).filter((f) => f.writeCount > 0).map((f) => f.path), [taskTimeline]);
-    const handoffOpenTodos = useMemo(() => todoGroups.filter((g) => !g.isTerminal).map((g) => g.title), [todoGroups]);
-    const handoffOpenQuestions = useMemo(() => questionGroups.filter((g) => !g.isAnswered).flatMap((g) => g.phases).filter((p) => p.phase === "asked").map((p) => p.event.body ?? p.event.title).filter(Boolean), [questionGroups]);
     const handoffViolations = useMemo(() => collectViolationDescriptions(taskTimeline), [taskTimeline]);
-    const handoffPlans = useMemo(() => collectPlanSteps(taskTimeline), [taskTimeline]);
     const handoffSnapshot = useMemo(() => buildReusableTaskSnapshot({ objective: taskExtraction.objective, events: taskTimeline }), [taskExtraction.objective, taskTimeline]);
-    const handoffActiveInstructions = useMemo(
-        () => {
-            const seen = new Set<string>();
-            const result: string[] = [];
-            for (const e of taskTimeline) {
-                if (e.kind !== "instructions.loaded") continue;
-                if (e.metadata["loadReason"] === "compact") continue;
-                const relPath = e.metadata["relPath"];
-                if (typeof relPath !== "string" || !relPath) continue;
-                if (!seen.has(relPath)) {
-                    seen.add(relPath);
-                    result.push(relPath);
-                }
-            }
-            return result;
-        },
-        [taskTimeline]
-    );
 
     const relatedEvents = useMemo(() => {
         if (!selectedEvent) return [];
@@ -294,11 +272,9 @@ export function EventInspector({
                     <ActionsTab
                         taskId={taskDetail?.task.id} taskTitle={selectedTaskTitle ?? taskDetail?.task.title ?? ""}
                         workspacePath={taskDetail?.task.workspacePath} taskExtraction={taskExtraction}
-                        taskTimeline={taskTimeline} handoffPlans={handoffPlans}
-                        handoffExploredFiles={handoffExploredFiles} handoffModifiedFiles={handoffModifiedFiles}
-                        handoffOpenTodos={handoffOpenTodos} handoffOpenQuestions={handoffOpenQuestions}
+                        taskTimeline={taskTimeline}
+                        handoffModifiedFiles={handoffModifiedFiles}
                         handoffViolations={handoffViolations} handoffSnapshot={handoffSnapshot}
-                        handoffActiveInstructions={handoffActiveInstructions}
                     />
                 )}
             </div>
