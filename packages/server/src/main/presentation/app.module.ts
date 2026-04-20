@@ -6,12 +6,14 @@ import {
     BookmarkWriteController,
     EvaluationWriteController,
     TypedIngestController,
+    RuleCommandWriteController,
 } from "~adapters/http/ingest/index.js";
 import {
     AdminController,
     BookmarkController,
     EvaluationController,
     SearchController,
+    RuleCommandController,
 } from "~adapters/http/query/index.js";
 import type { MonitorPorts } from "~application/index.js";
 import {
@@ -66,6 +68,12 @@ import {
     CreatePlaybookUseCase,
     UpdatePlaybookUseCase,
 } from "~application/workflow/usecases.index.js";
+import {
+    CreateRuleCommandUseCase,
+    DeleteRuleCommandUseCase,
+    ListRuleCommandsUseCase,
+    GetRulePatternsUseCase,
+} from "~application/rule-commands/index.js";
 import { DatabaseProvider, MONITOR_PORTS_TOKEN } from "./database/database.provider.js";
 
 export interface AppModuleOptions {
@@ -298,6 +306,28 @@ export class AppModule {
             inject: [MONITOR_PORTS_TOKEN],
         };
 
+        // Rule Command UseCases
+        const createRuleCommandProvider: Provider = {
+            provide: CreateRuleCommandUseCase,
+            useFactory: (ports: MonitorPorts) => new CreateRuleCommandUseCase(ports.ruleCommands),
+            inject: [MONITOR_PORTS_TOKEN],
+        };
+        const deleteRuleCommandProvider: Provider = {
+            provide: DeleteRuleCommandUseCase,
+            useFactory: (ports: MonitorPorts) => new DeleteRuleCommandUseCase(ports.ruleCommands),
+            inject: [MONITOR_PORTS_TOKEN],
+        };
+        const listRuleCommandsProvider: Provider = {
+            provide: ListRuleCommandsUseCase,
+            useFactory: (ports: MonitorPorts) => new ListRuleCommandsUseCase(ports.ruleCommands),
+            inject: [MONITOR_PORTS_TOKEN],
+        };
+        const getRulePatternsProvider: Provider = {
+            provide: GetRulePatternsUseCase,
+            useFactory: (ports: MonitorPorts) => new GetRulePatternsUseCase(ports.ruleCommands),
+            inject: [MONITOR_PORTS_TOKEN],
+        };
+
         return {
             module: AppModule,
             imports: [],
@@ -343,6 +373,10 @@ export class AppModule {
                 getPlaybookProvider,
                 createPlaybookProvider,
                 updatePlaybookProvider,
+                createRuleCommandProvider,
+                deleteRuleCommandProvider,
+                listRuleCommandsProvider,
+                getRulePatternsProvider,
             ],
             controllers: [
                 AdminController,
@@ -355,6 +389,8 @@ export class AppModule {
                 LifecycleController,
                 BookmarkWriteController,
                 EvaluationWriteController,
+                RuleCommandController,
+                RuleCommandWriteController,
             ],
             exports: [MONITOR_PORTS_TOKEN],
         };

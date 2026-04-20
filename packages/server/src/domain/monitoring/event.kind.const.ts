@@ -8,6 +8,7 @@ export const EVENT_LANES = [
     "background",
     "coordination",
     "telemetry",
+    "rule",
 ] as const;
 
 export const LANE = {
@@ -20,6 +21,7 @@ export const LANE = {
     background: "background",
     coordination: "coordination",
     telemetry: "telemetry",
+    rule: "rule",
 } as const satisfies Record<(typeof EVENT_LANES)[number], (typeof EVENT_LANES)[number]>;
 
 export const KIND = {

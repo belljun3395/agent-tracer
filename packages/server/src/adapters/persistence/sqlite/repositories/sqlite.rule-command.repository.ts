@@ -60,7 +60,8 @@ export class SqliteRuleCommandRepository implements IRuleCommandRepository {
     return rows.map(mapRuleCommandRow);
   }
 
-  async delete(id: string): Promise<void> {
-    this.db.orm.delete(ruleCommands).where(eq(ruleCommands.id, id)).run();
+  async delete(id: string): Promise<boolean> {
+    const result = this.db.orm.delete(ruleCommands).where(eq(ruleCommands.id, id)).run();
+    return result.changes > 0;
   }
 }
