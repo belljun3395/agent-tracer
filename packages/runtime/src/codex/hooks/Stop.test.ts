@@ -1,0 +1,100 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const ensureRuntimeSession = vi.fn();
+const postTaggedEvent = vi.fn();
+const postJson = vi.fn();
+const readStdinJson = vi.fn();
+const createMessageId = vi.fn(() => "assistant_msg_1");
+const ellipsize = vi.fn((value: string) => value);
+const toTrimmedString = vi.fn((value: unknown) => (typeof value === "string" ? value.trim() : ""));
+
+vi.mock("~codex/lib/transport/transport.js", () => ({
+    ensureRuntimeSession,
+    postTaggedEvent,
+    postJson,
+    readStdinJson,
+}));
+
+vi.mock("~codex/util/utils.js", () => ({
+    createMessageId,
+    ellipsize,
+    toTrimmedString,
+}));
+
+describe("Codex Stop hook", () => {
+    beforeEach(() => {
+        vi.resetModules();
+        vi.clearAllMocks();
+        ensureRuntimeSession.mockResolvedValue({
+            taskId: "task_1",
+            sessionId: "session_1",
+        });
+        postTaggedEvent.mockResolvedValue(undefined);
+        postJson.mockResolvedValue({});
+    });
+
+    it("records assistant response and completes the runtime session", async () => {
+        readStdinJson.mockResolvedValue({
+            session_id: "runtime_1",
+            last_assistant_message: "Done. Tests are green.",
+        });
+
+        await import("./Stop.js");
+        await vi.waitFor(() => {
+            expect(postTaggedEvent).toHaveBeenCalledTimes(1);
+        });
+
+        expect(postTaggedEvent).toHaveBeenCalledWith(expect.objectContaining({
+            kind: "assistant.response",
+            taskId: "task_1",
+            sessionId: "session_1",
+            title: "Done. Tests are green.",
+            body: "Done. Tests are green.",
+            metadata: expect.objectContaining({
+                messageId: "assistant_msg_1",
+                source: "codex-hooks",
+                stopReason: "stop_hook",
+            }),
+        }));
+
+        expect(postJson).toHaveBeenCalledWith("/api/runtime-session-end", {
+            runtimeSource: "codex-cli",
+            runtimeSessionId: "runtime_1",
+            summary: "Assistant turn completed (stop_hook)",
+            completeTask: true,
+            completionReason: "assistant_turn_complete",
+        });
+    });
+
+    it("completes the runtime session even when there is no assistant message", async () => {
+        readStdinJson.mockResolvedValue({
+            session_id: "runtime_2",
+            last_assistant_message: "   ",
+        });
+
+        await import("./Stop.js");
+        await vi.waitFor(() => {
+            expect(postJson).toHaveBeenCalledTimes(1);
+        });
+
+        expect(ensureRuntimeSession).toHaveBeenCalledWith("runtime_2");
+        expect(postTaggedEvent).toHaveBeenCalledWith(expect.objectContaining({
+            kind: "assistant.response",
+            taskId: "task_1",
+            sessionId: "session_1",
+            title: "Response (stop_hook)",
+            metadata: expect.objectContaining({
+                messageId: "assistant_msg_1",
+                source: "codex-hooks",
+                stopReason: "stop_hook",
+            }),
+        }));
+        expect(postJson).toHaveBeenCalledWith("/api/runtime-session-end", {
+            runtimeSource: "codex-cli",
+            runtimeSessionId: "runtime_2",
+            summary: "Assistant turn completed (stop_hook)",
+            completeTask: true,
+            completionReason: "assistant_turn_complete",
+        });
+    });
+});
