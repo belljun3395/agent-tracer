@@ -64,11 +64,11 @@ Interactive Codex currently captures:
 `PreToolUse` is also wired, but it only ensures the runtime session exists
 before the Bash command is logged.
 
-## 4. 현재 capture 범위
+## 4. Current capture scope
 
-현재 Codex integration은 interactive hooks 중심이다.
+The current Codex integration focuses on interactive hooks.
 
-수집 가능한 기본 이벤트:
+Default events that can be captured:
 
 - `context.saved`
 - `user.message`
@@ -77,17 +77,17 @@ before the Bash command is logged.
 - `tool.used` (`apply_patch`, web search/fetch via rollout)
 - `agent.activity.logged` (MCP calls via rollout)
 
-즉, 이번 단계는 “Codex를 평소처럼 `codex`로 실행하는 사용자”의 기본 활동을
-캡처하는 데 초점을 둔다.
+In other words, this stage focuses on capturing the baseline activity of users
+who run Codex normally with `codex`.
 
 ### Smoke test
 
-다음 순서로 확인한다.
+Verify the setup in this order:
 
-1. 대상 프로젝트에서 `codex` 실행
-2. 짧은 프롬프트 하나 제출
-3. Bash 명령이 한 번 실행되도록 유도
-4. 대시보드에서 아래 이벤트 확인
+1. Run `codex` in the target project
+2. Submit one short prompt
+3. Trigger one Bash command
+4. Confirm the following events in the dashboard
    - `context.saved`
    - `user.message`
    - `terminal.command`
