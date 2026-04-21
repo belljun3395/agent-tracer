@@ -76,7 +76,7 @@ async function main(): Promise<void> {
         ...(modelId ? {modelId} : {}),
         source,
     }).catch(() => undefined);
-    await ensureObserverRunning(sessionId).catch(() => undefined);
+    await ensureObserverRunning(sessionId, undefined, modelId || undefined).catch(() => undefined);
 }
 
 void main().catch((err: unknown) => {

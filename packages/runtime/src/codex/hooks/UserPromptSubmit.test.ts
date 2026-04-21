@@ -23,56 +23,36 @@ vi.mock("~codex/util/observer.js", () => ({
     ensureObserverRunning,
 }));
 
-describe("Codex SessionStart hook", () => {
+describe("Codex UserPromptSubmit hook", () => {
     beforeEach(() => {
         vi.resetModules();
         vi.clearAllMocks();
         ensureRuntimeSession.mockResolvedValue({
             taskId: "task_1",
             sessionId: "session_1",
+            taskCreated: false,
         });
         postTaggedEvent.mockResolvedValue(undefined);
         writeLatestSessionState.mockResolvedValue("");
         ensureObserverRunning.mockResolvedValue("started");
     });
 
-    it("records startup, persists the session hint, and starts the observer", async () => {
+    it("records the prompt and ensures the observer for the active model", async () => {
         readHookSessionContext.mockResolvedValue({
-            payload: { session_id: "runtime_1", source: "startup", model: "gpt-5.4" },
+            payload: { session_id: "runtime_1", prompt: "왜 gpt 모델은 없지?", model: "gpt-5.4" },
             sessionId: "runtime_1",
         });
 
-        await import("./SessionStart.js");
+        await import("./UserPromptSubmit.js");
         await vi.waitFor(() => {
             expect(postTaggedEvent).toHaveBeenCalledTimes(1);
         });
 
-        expect(postTaggedEvent).toHaveBeenCalledWith(expect.objectContaining({
-            kind: "context.saved",
-            taskId: "task_1",
-            sessionId: "session_1",
-            title: "Session started",
-        }));
-
         expect(writeLatestSessionState).toHaveBeenCalledWith({
             sessionId: "runtime_1",
             modelId: "gpt-5.4",
-            source: "startup",
+            source: "user_prompt_submit",
         });
         expect(ensureObserverRunning).toHaveBeenCalledWith("runtime_1", undefined, "gpt-5.4");
-    });
-
-    it("ignores unsupported SessionStart reasons", async () => {
-        readHookSessionContext.mockResolvedValue({
-            payload: { session_id: "runtime_1", source: "clear" },
-            sessionId: "runtime_1",
-        });
-
-        await import("./SessionStart.js");
-        await new Promise((resolve) => setTimeout(resolve, 0));
-
-        expect(postTaggedEvent).not.toHaveBeenCalled();
-        expect(writeLatestSessionState).not.toHaveBeenCalled();
-        expect(ensureObserverRunning).not.toHaveBeenCalled();
     });
 });
