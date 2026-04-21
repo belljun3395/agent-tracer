@@ -341,14 +341,14 @@ POST /ingest/v1/events  { kind: "context.snapshot", … }
     threadId                      [FILE]  Codex session id from rollout session_meta
     modelId                       [FILE]  model from turn_context
     modelProvider                 [FILE]  model_provider from rollout session_meta
-    contextWindowUsedPct          [GEN]   total.totalTokens / modelContextWindow × 100
+    contextWindowUsedPct          [GEN]   last.totalTokens / modelContextWindow × 100
     contextWindowRemainingPct     [GEN]   100 − contextWindowUsedPct
-    contextWindowTotalTokens      [FILE]  total_token_usage.total_tokens
+    contextWindowTotalTokens      [FILE]  last_token_usage.total_tokens
     contextWindowSize             [FILE]  model_context_window
-    contextWindowInputTokens      [FILE]  total_token_usage.input_tokens
-    contextWindowOutputTokens     [FILE]  total_token_usage.output_tokens
-    contextWindowCacheReadTokens  [FILE]  total_token_usage.cached_input_tokens
-    reasoningOutputTokens         [FILE]  total_token_usage.reasoning_output_tokens
+    contextWindowInputTokens      [FILE]  last_token_usage.input_tokens
+    contextWindowOutputTokens     [FILE]  last_token_usage.output_tokens
+    contextWindowCacheReadTokens  [FILE]  last_token_usage.cached_input_tokens
+    reasoningOutputTokens         [FILE]  last_token_usage.reasoning_output_tokens
     lastTurnInputTokens           [FILE]  last_token_usage.input_tokens
     lastTurnOutputTokens          [FILE]  last_token_usage.output_tokens
     lastTurnCachedInputTokens     [FILE]  last_token_usage.cached_input_tokens

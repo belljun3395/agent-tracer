@@ -21,11 +21,11 @@ describe("Codex app-server telemetry", () => {
                     reasoningOutputTokens: 20000,
                 },
                 last: {
-                    totalTokens: 20000,
-                    inputTokens: 12000,
-                    cachedInputTokens: 1000,
-                    outputTokens: 7000,
-                    reasoningOutputTokens: 1000,
+                    totalTokens: 420000,
+                    inputTokens: 300000,
+                    cachedInputTokens: 20000,
+                    outputTokens: 100000,
+                    reasoningOutputTokens: 20000,
                 },
                 modelContextWindow: 1050000,
             },
@@ -71,6 +71,44 @@ describe("Codex app-server telemetry", () => {
         });
     });
 
+    it("uses latest request usage, not cumulative session usage, for context window percentage", () => {
+        const event = buildCodexContextSnapshotEvent({
+            taskId: "task_1",
+            sessionId: "session_1",
+            modelId: "gpt-5.4",
+            tokenUsage: {
+                total: {
+                    totalTokens: 20662952,
+                    inputTokens: 20587672,
+                    cachedInputTokens: 20002304,
+                    outputTokens: 75280,
+                    reasoningOutputTokens: 14192,
+                },
+                last: {
+                    totalTokens: 213203,
+                    inputTokens: 212839,
+                    cachedInputTokens: 210304,
+                    outputTokens: 364,
+                    reasoningOutputTokens: 0,
+                },
+                modelContextWindow: 950000,
+            },
+        });
+
+        expect(event).toMatchObject({
+            title: "Context 22% used",
+            metadata: expect.objectContaining({
+                contextWindowUsedPct: 22.44,
+                contextWindowRemainingPct: 77.56,
+                contextWindowTotalTokens: 213203,
+                contextWindowInputTokens: 212839,
+                contextWindowOutputTokens: 364,
+                contextWindowCacheReadTokens: 210304,
+                reasoningOutputTokens: 0,
+            }),
+        });
+    });
+
     it("can build a rate-limit-only context snapshot", () => {
         const event = buildCodexContextSnapshotEvent({
             taskId: "task_1",
@@ -106,15 +144,15 @@ describe("Codex app-server telemetry", () => {
         const text = formatCodexStatusText({
             tokenUsage: {
                 total: {
-                    totalTokens: 315000,
-                    inputTokens: 250000,
-                    cachedInputTokens: 15000,
-                    outputTokens: 50000,
+                    totalTokens: 1000000,
+                    inputTokens: 900000,
+                    cachedInputTokens: 250000,
+                    outputTokens: 100000,
                     reasoningOutputTokens: 15000,
                 },
                 last: {
-                    totalTokens: 10000,
-                    inputTokens: 7000,
+                    totalTokens: 315000,
+                    inputTokens: 312000,
                     cachedInputTokens: 500,
                     outputTokens: 2500,
                     reasoningOutputTokens: 500,

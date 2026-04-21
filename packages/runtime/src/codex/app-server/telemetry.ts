@@ -16,7 +16,7 @@
  * (300 min = 5 h, 10 080 min = 7 d) are also written to legacy metadata fields
  * for backward compatibility with monitor versions that expect named fields.
  *
- * contextWindowUsedPct is derived from total.totalTokens / modelContextWindow * 100,
+ * contextWindowUsedPct is derived from last.totalTokens / modelContextWindow * 100,
  * computed only when modelContextWindow is a positive finite number.
  */
 import type {RuntimeIngestEvent} from "~shared/events/kinds.js";
@@ -108,6 +108,7 @@ function buildTokenUsageMetadata(
 ): Partial<ContextSnapshotMetadata> {
     if (!tokenUsage) return {};
 
+    const contextUsage = tokenUsage.last;
     const contextWindowUsedPct = getContextUsedPct(tokenUsage);
     const contextWindowRemainingPct = contextWindowUsedPct !== null
         ? roundPct(100 - contextWindowUsedPct)
@@ -116,12 +117,12 @@ function buildTokenUsageMetadata(
     return {
         ...(contextWindowUsedPct !== null ? { contextWindowUsedPct } : {}),
         ...(contextWindowRemainingPct !== undefined ? { contextWindowRemainingPct } : {}),
-        contextWindowTotalTokens: tokenUsage.total.totalTokens,
+        contextWindowTotalTokens: contextUsage.totalTokens,
         ...(tokenUsage.modelContextWindow !== null ? { contextWindowSize: tokenUsage.modelContextWindow } : {}),
-        contextWindowInputTokens: tokenUsage.total.inputTokens,
-        contextWindowOutputTokens: tokenUsage.total.outputTokens,
-        contextWindowCacheReadTokens: tokenUsage.total.cachedInputTokens,
-        reasoningOutputTokens: tokenUsage.total.reasoningOutputTokens,
+        contextWindowInputTokens: contextUsage.inputTokens,
+        contextWindowOutputTokens: contextUsage.outputTokens,
+        contextWindowCacheReadTokens: contextUsage.cachedInputTokens,
+        reasoningOutputTokens: contextUsage.reasoningOutputTokens,
         lastTurnInputTokens: tokenUsage.last.inputTokens,
         lastTurnOutputTokens: tokenUsage.last.outputTokens,
         lastTurnCachedInputTokens: tokenUsage.last.cachedInputTokens,
@@ -185,7 +186,7 @@ function getContextUsedPct(tokenUsage: CodexAppServerThreadTokenUsage | undefine
     if (!tokenUsage || tokenUsage.modelContextWindow == null || tokenUsage.modelContextWindow <= 0) {
         return null;
     }
-    return roundPct((tokenUsage.total.totalTokens / tokenUsage.modelContextWindow) * 100);
+    return roundPct((tokenUsage.last.totalTokens / tokenUsage.modelContextWindow) * 100);
 }
 
 function roundPct(value: number): number {
