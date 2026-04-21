@@ -1,4 +1,4 @@
-import { CLAUDE_BRIDGE_SOURCE, CLAUDE_HOOK_SOURCE, CLAUDE_PLUGIN_SOURCE } from "../../types/runtime-capabilities.types.js";
+import { CLAUDE_BRIDGE_SOURCE, CLAUDE_HOOK_SOURCE, CLAUDE_PLUGIN_SOURCE, CODEX_CLI_SOURCE } from "../../types/runtime-capabilities.types.js";
 import { buildTaskDisplayTitle } from "../../types.js";
 import type { MonitoringTask } from "../../types.js";
 import { cn } from "./ui/cn.js";
@@ -95,6 +95,7 @@ export function isPrimaryTask(task: MonitoringTask): boolean {
 
 function runtimeTagSlug(source: string): string {
     if (source === CLAUDE_PLUGIN_SOURCE || source === CLAUDE_HOOK_SOURCE) return "claude";
+    if (source === CODEX_CLI_SOURCE) return "codex";
     return "other";
 }
 
@@ -103,6 +104,7 @@ export function runtimeBadgeClass(source: string): string {
     return cn(
         "ml-0 text-[0.6rem] normal-case",
         slug === "claude" && "border-[color-mix(in_srgb,var(--accent)_20%,var(--border))] bg-[color-mix(in_srgb,var(--accent)_8%,transparent)] text-[var(--accent)]",
+        slug === "codex" && "border-[color-mix(in_srgb,#10b981_22%,var(--border))] bg-[color-mix(in_srgb,#10b981_8%,transparent)] text-[#047857]",
         slug === "other" && "border-[var(--border-1)] bg-[var(--bg-subtle)] text-[var(--text-2)]",
     );
 }
@@ -110,6 +112,7 @@ export function runtimeBadgeClass(source: string): string {
 export function runtimeTagLabel(source: string): string {
     if (source === CLAUDE_PLUGIN_SOURCE || source === CLAUDE_HOOK_SOURCE) return "Claude Code";
     if (source === CLAUDE_BRIDGE_SOURCE) return "Claude Bridge";
+    if (source === CODEX_CLI_SOURCE) return "Codex";
     return source;
 }
 
@@ -128,6 +131,7 @@ export function runtimeFilterKey(source?: string): string {
 function runtimeFilterLabel(key: string): string {
     if (key === ALL_RUNTIME_FILTER_KEY) return "All";
     if (key === "claude") return "Claude";
+    if (key === "codex") return "Codex";
     if (key === "unknown") return "Unknown";
     return key.startsWith("source:") ? runtimeTagLabel(key.slice("source:".length)) : key;
 }
@@ -144,9 +148,9 @@ export function buildRuntimeFilterOptions(tasks: readonly MonitoringTask[]): rea
         counts.set(key, (counts.get(key) ?? 0) + 1);
     }
     const customKeys = [...counts.keys()]
-        .filter((key) => !["claude", "unknown"].includes(key))
+        .filter((key) => !["claude", "codex", "unknown"].includes(key))
         .sort((a, b) => runtimeFilterLabel(a).localeCompare(runtimeFilterLabel(b)));
-    const orderedKeys = ["claude", ...customKeys, "unknown"].filter((key) => counts.has(key));
+    const orderedKeys = ["claude", "codex", ...customKeys, "unknown"].filter((key) => counts.has(key));
     return [
         { key: ALL_RUNTIME_FILTER_KEY, label: runtimeFilterLabel(ALL_RUNTIME_FILTER_KEY), count: tasks.length },
         ...orderedKeys.map((key) => ({ key, label: runtimeFilterLabel(key), count: counts.get(key) ?? 0 })),
