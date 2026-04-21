@@ -97,6 +97,31 @@ export interface ResolveRolloutOptions {
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 const DEFAULT_INTERVAL_MS = 250;
+const CODEX_BARE_MCP_TOOL_NAMES = new Map<string, { server: string; tool: string }>([
+    ["resolve_library_id", { server: "context7", tool: "resolve_library_id" }],
+    ["query_docs", { server: "context7", tool: "query_docs" }],
+    ["browser_take_screenshot", { server: "playwright", tool: "browser_take_screenshot" }],
+    ["browser_snapshot", { server: "playwright", tool: "browser_snapshot" }],
+    ["browser_install", { server: "playwright", tool: "browser_install" }],
+    ["browser_resize", { server: "playwright", tool: "browser_resize" }],
+    ["browser_tabs", { server: "playwright", tool: "browser_tabs" }],
+    ["browser_close", { server: "playwright", tool: "browser_close" }],
+    ["browser_navigate_back", { server: "playwright", tool: "browser_navigate_back" }],
+    ["browser_hover", { server: "playwright", tool: "browser_hover" }],
+    ["browser_navigate", { server: "playwright", tool: "browser_navigate" }],
+    ["browser_network_requests", { server: "playwright", tool: "browser_network_requests" }],
+    ["browser_evaluate", { server: "playwright", tool: "browser_evaluate" }],
+    ["browser_click", { server: "playwright", tool: "browser_click" }],
+    ["_resolve_review_thread", { server: "github", tool: "_resolve_review_thread" }],
+    ["_lock_issue_conversation", { server: "github", tool: "_lock_issue_conversation" }],
+    ["_list_pull_request_review_threads", { server: "github", tool: "_list_pull_request_review_threads" }],
+    ["_list_installed_accounts", { server: "github", tool: "_list_installed_accounts" }],
+    ["_list_installations", { server: "github", tool: "_list_installations" }],
+    ["_fetch_pr_comments", { server: "github", tool: "_fetch_pr_comments" }],
+    ["_bulk_label_matching_emails", { server: "gmail", tool: "_bulk_label_matching_emails" }],
+    ["_batch_read_email_threads", { server: "gmail", tool: "_batch_read_email_threads" }],
+    ["_get_metadata", { server: "figma", tool: "_get_metadata" }],
+]);
 
 export function defaultSessionsRoot(): string {
     return path.join(os.homedir(), ".codex", "sessions");
@@ -310,7 +335,7 @@ function normalizeFunctionCall(payload: Record<string, unknown>): RolloutMcpCall
     return {
         kind: "mcpCall",
         callId: callId || undefined,
-        name,
+        name: parsedName.sourceName,
         server: parsedName.server,
         tool: parsedName.tool,
         arguments: parseJsonValue(payload["arguments"]),
@@ -342,13 +367,21 @@ function normalizeWebSearchCall(payload: Record<string, unknown>): RolloutWebSea
     };
 }
 
-function parseMcpToolName(name: string): { server: string; tool: string } | null {
-    if (!name.startsWith("mcp__")) return null;
-    const parts = name.split("__");
-    const server = parts[1]?.trim();
-    const tool = parts.slice(2).join("__").trim();
-    if (!server || !tool) return null;
-    return { server, tool };
+function parseMcpToolName(name: string): { server: string; tool: string; sourceName: string } | null {
+    if (name.startsWith("mcp__")) {
+        const parts = name.split("__");
+        const server = parts[1]?.trim();
+        const tool = parts.slice(2).join("__").trim();
+        if (!server || !tool) return null;
+        return { server, tool, sourceName: name };
+    }
+
+    const bareTool = CODEX_BARE_MCP_TOOL_NAMES.get(name);
+    if (!bareTool) return null;
+    return {
+        ...bareTool,
+        sourceName: `mcp__${bareTool.server}__${bareTool.tool}`,
+    };
 }
 
 function parseJsonValue(value: unknown): unknown {
