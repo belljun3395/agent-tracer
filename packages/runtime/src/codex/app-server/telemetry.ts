@@ -46,7 +46,7 @@ interface StatusTextInput {
     readonly rateLimits?: CodexAppServerRateLimitSnapshot;
 }
 
-const APP_SERVER_SOURCE = "codex-app-server";
+const ROLLOUT_SOURCE = "codex-rollout";
 
 /**
  * Builds a contextSnapshot RuntimeIngestEvent from the current observer state.
@@ -56,8 +56,8 @@ export function buildCodexContextSnapshotEvent(
     input: CodexContextSnapshotInput,
 ): RuntimeIngestEvent {
     const metadata: ContextSnapshotMetadata = {
-        ...provenEvidence("Captured by the Codex app-server observer."),
-        source: APP_SERVER_SOURCE,
+        ...provenEvidence("Captured by the Codex rollout observer."),
+        source: ROLLOUT_SOURCE,
         ...(input.threadId ? { threadId: input.threadId } : {}),
         ...(input.turnId ? { turnId: input.turnId } : {}),
         ...(input.modelId ? { modelId: input.modelId } : {}),

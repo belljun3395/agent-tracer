@@ -46,7 +46,39 @@ export interface RolloutTurnContextPayload {
     readonly modelId: string | undefined;
 }
 
-export type RolloutEvent = RolloutTokenCountPayload | RolloutTurnContextPayload;
+export interface RolloutApplyPatchPayload {
+    readonly kind: "applyPatch";
+    readonly callId: string | undefined;
+    readonly input: string;
+    readonly filePaths: readonly string[];
+}
+
+export interface RolloutMcpCallPayload {
+    readonly kind: "mcpCall";
+    readonly callId: string | undefined;
+    readonly name: string;
+    readonly server: string;
+    readonly tool: string;
+    readonly arguments: unknown;
+}
+
+export interface RolloutWebSearchPayload {
+    readonly kind: "webSearch";
+    readonly callId: string | undefined;
+    readonly status: string | undefined;
+    readonly actionType: string | undefined;
+    readonly query: string | undefined;
+    readonly queries: readonly string[];
+    readonly url: string | undefined;
+    readonly pattern: string | undefined;
+}
+
+export type RolloutEvent =
+    | RolloutTokenCountPayload
+    | RolloutTurnContextPayload
+    | RolloutApplyPatchPayload
+    | RolloutMcpCallPayload
+    | RolloutWebSearchPayload;
 
 export interface RolloutSessionMeta {
     readonly sessionId: string;
@@ -174,6 +206,22 @@ export function normalizeRolloutTurnContext(
     };
 }
 
+export function normalizeRolloutResponseItem(raw: unknown): RolloutEvent | null {
+    const payload = isRecord(raw) ? raw : null;
+    if (!payload) return null;
+
+    if (payload["type"] === "custom_tool_call") {
+        return normalizeCustomToolCall(payload);
+    }
+    if (payload["type"] === "function_call") {
+        return normalizeFunctionCall(payload);
+    }
+    if (payload["type"] === "web_search_call") {
+        return normalizeWebSearchCall(payload);
+    }
+    return null;
+}
+
 /**
  * Async generator that tails `filePath` and yields typed RolloutEvents as new
  * lines are appended. Reads in 64 KB chunks, reassembles lines across chunks,
@@ -234,7 +282,95 @@ function extractRolloutEvent(line: string): RolloutEvent | null {
     if (type === "turn_context") {
         return normalizeRolloutTurnContext(parsed["payload"]);
     }
+    if (type === "response_item") {
+        return normalizeRolloutResponseItem(parsed["payload"]);
+    }
     return null;
+}
+
+function normalizeCustomToolCall(payload: Record<string, unknown>): RolloutApplyPatchPayload | null {
+    const name = toTrimmedString(payload["name"]);
+    if (name !== "apply_patch") return null;
+    const input = toTrimmedString(payload["input"]);
+    if (!input) return null;
+    const callId = toTrimmedString(payload["call_id"]);
+    return {
+        kind: "applyPatch",
+        callId: callId || undefined,
+        input,
+        filePaths: extractPatchFilePaths(input),
+    };
+}
+
+function normalizeFunctionCall(payload: Record<string, unknown>): RolloutMcpCallPayload | null {
+    const name = toTrimmedString(payload["name"]);
+    const parsedName = parseMcpToolName(name);
+    if (!parsedName) return null;
+    const callId = toTrimmedString(payload["call_id"]);
+    return {
+        kind: "mcpCall",
+        callId: callId || undefined,
+        name,
+        server: parsedName.server,
+        tool: parsedName.tool,
+        arguments: parseJsonValue(payload["arguments"]),
+    };
+}
+
+function normalizeWebSearchCall(payload: Record<string, unknown>): RolloutWebSearchPayload | null {
+    const action = isRecord(payload["action"]) ? payload["action"] : {};
+    const callId = toTrimmedString(payload["call_id"]);
+    const status = toTrimmedString(payload["status"]);
+    const actionType = toTrimmedString(action["type"]);
+    const query = toTrimmedString(action["query"]);
+    const url = toTrimmedString(action["url"]);
+    const pattern = toTrimmedString(action["pattern"]);
+    const queries = Array.isArray(action["queries"])
+        ? action["queries"].map((value) => toTrimmedString(value)).filter(Boolean)
+        : [];
+
+    if (!actionType && !query && !url && !pattern && queries.length === 0) return null;
+    return {
+        kind: "webSearch",
+        callId: callId || undefined,
+        status: status || undefined,
+        actionType: actionType || undefined,
+        query: query || undefined,
+        queries,
+        url: url || undefined,
+        pattern: pattern || undefined,
+    };
+}
+
+function parseMcpToolName(name: string): { server: string; tool: string } | null {
+    if (!name.startsWith("mcp__")) return null;
+    const parts = name.split("__");
+    const server = parts[1]?.trim();
+    const tool = parts.slice(2).join("__").trim();
+    if (!server || !tool) return null;
+    return { server, tool };
+}
+
+function parseJsonValue(value: unknown): unknown {
+    if (typeof value !== "string") return value;
+    try {
+        return JSON.parse(value) as unknown;
+    } catch {
+        return value;
+    }
+}
+
+function extractPatchFilePaths(input: string): readonly string[] {
+    const seen = new Set<string>();
+    const filePaths: string[] = [];
+    for (const line of input.split(/\r?\n/)) {
+        const match = /^\*\*\* (?:Add File|Update File|Delete File|Move to):\s+(.+?)\s*$/.exec(line);
+        const filePath = match?.[1]?.trim();
+        if (!filePath || seen.has(filePath)) continue;
+        seen.add(filePath);
+        filePaths.push(filePath);
+    }
+    return filePaths;
 }
 
 function buildTokenUsage(info: Record<string, unknown>): CodexAppServerThreadTokenUsage | undefined {

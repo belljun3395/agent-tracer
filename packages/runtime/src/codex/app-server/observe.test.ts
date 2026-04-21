@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
     applyRolloutPayloadToObserverState,
+    buildRolloutObservedEvents,
     type ObserverState,
 } from "./observe.js";
 
@@ -104,5 +105,92 @@ describe("applyRolloutPayloadToObserverState", () => {
         }, state);
 
         expect(changed).toBe(false);
+    });
+});
+
+describe("buildRolloutObservedEvents", () => {
+    const context = {
+        taskId: "task_codex",
+        sessionId: "sess_codex",
+        threadId: "thread_codex",
+        turnId: "turn_codex",
+    };
+
+    it("maps plain Codex rollout apply_patch events to tool.used", () => {
+        const events = buildRolloutObservedEvents({
+            kind: "applyPatch",
+            callId: "call_patch",
+            input: "*** Begin Patch\n*** Update File: src/index.ts\n@@\n-old\n+new\n*** End Patch\n",
+            filePaths: ["src/index.ts"],
+        }, context);
+
+        expect(events).toHaveLength(1);
+        expect(events[0]).toMatchObject({
+            kind: "tool.used",
+            lane: "implementation",
+            title: "Apply patch: index.ts",
+            filePaths: ["src/index.ts"],
+            metadata: expect.objectContaining({
+                source: "codex-rollout",
+                toolName: "apply_patch",
+                subtypeKey: "apply_patch",
+                toolUseId: "call_patch",
+                threadId: "thread_codex",
+                turnId: "turn_codex",
+            }),
+        });
+    });
+
+    it("maps plain Codex rollout MCP calls to agent.activity.logged", () => {
+        const events = buildRolloutObservedEvents({
+            kind: "mcpCall",
+            callId: "call_mcp",
+            name: "mcp__github__fetch_pr",
+            server: "github",
+            tool: "fetch_pr",
+            arguments: { repo: "openai/codex" },
+        }, context);
+
+        expect(events).toHaveLength(1);
+        expect(events[0]).toMatchObject({
+            kind: "agent.activity.logged",
+            lane: "coordination",
+            title: "MCP: github/fetch_pr",
+            metadata: expect.objectContaining({
+                source: "codex-rollout",
+                activityType: "mcp_call",
+                mcpServer: "github",
+                mcpTool: "fetch_pr",
+                toolUseId: "call_mcp",
+            }),
+        });
+    });
+
+    it("maps plain Codex rollout web search calls to tool.used", () => {
+        const events = buildRolloutObservedEvents({
+            kind: "webSearch",
+            callId: undefined,
+            status: "completed",
+            actionType: "open_page",
+            query: undefined,
+            queries: [],
+            url: "https://developers.openai.com/codex/hooks",
+            pattern: undefined,
+        }, context);
+
+        expect(events).toHaveLength(1);
+        expect(events[0]).toMatchObject({
+            kind: "tool.used",
+            lane: "exploration",
+            title: "Web fetch: https://developers.openai.com/codex/hooks",
+            body: "https://developers.openai.com/codex/hooks",
+            metadata: expect.objectContaining({
+                source: "codex-rollout",
+                toolName: "web_search_call",
+                subtypeKey: "web_fetch",
+                operation: "fetch",
+                entityType: "url",
+            }),
+        });
     });
 });

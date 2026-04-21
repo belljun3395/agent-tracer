@@ -12,9 +12,13 @@
  *     Carries cumulative and per-turn token counts and rate-limit windows.
  *   turn_context { type: "turn_context", payload: { turn_id, model } }
  *     Carries the current turn ID and model identifier.
+ *   response_item { type: "custom_tool_call" | "function_call" | "web_search_call", ... }
+ *     Carries plain Codex tool activity for apply_patch, MCP calls, and web search/fetch.
  *
  * On each state change (new token counts, new rate limits, or new turn ID),
  * this process posts a contextSnapshot event via the Agent Tracer ingest API.
+ * Tool response items are forwarded as tool/activity events so normal `codex`
+ * sessions get non-Bash observation without going through app-server mode.
  *
  * The observer is launched by the SessionStart hook and terminates on SIGINT
  * or SIGTERM. It writes its PID to observer.json so subsequent SessionStart
@@ -30,11 +34,22 @@
  *   --quiet               Do not print [monitor] status text to stdout
  *   --help, -h            Show this help text
  */
+import * as path from "node:path";
+import type {RuntimeIngestEvent} from "~shared/events/kinds.js";
+import {KIND} from "~shared/events/kinds.js";
+import {LANE} from "~shared/events/lanes.js";
+import {provenEvidence} from "~shared/semantics/evidence.js";
+import {
+    buildSemanticMetadata,
+    inferExploreSemantic,
+    inferFileToolSemantic,
+    inferMcpSemantic,
+} from "~shared/semantics/inference.js";
 import {
     ensureRuntimeSession,
     postTaggedEvent,
 } from "~codex/lib/transport/transport.js";
-import {toTrimmedString} from "~codex/util/utils.js";
+import {ellipsize, toTrimmedString} from "~codex/util/utils.js";
 import {readLatestSessionState} from "~codex/util/session.state.js";
 import {
     clearObserverState,
@@ -74,6 +89,13 @@ export interface ObserverState {
     rateLimits: CodexAppServerRateLimitSnapshot | undefined;
     turnId: string | undefined;
     observedThreadId: string | undefined;
+}
+
+export interface RolloutObservedEventContext {
+    readonly taskId: string;
+    readonly sessionId: string;
+    readonly threadId?: string;
+    readonly turnId?: string;
 }
 
 async function main(): Promise<void> {
@@ -163,6 +185,15 @@ async function main(): Promise<void> {
             if (applyRolloutPayloadToObserverState(payload, state)) {
                 await emitSnapshot();
             }
+            const observedEvents = buildRolloutObservedEvents(payload, {
+                taskId: runtime.taskId,
+                sessionId: runtime.sessionId,
+                ...(state.observedThreadId ? { threadId: state.observedThreadId } : {}),
+                ...(state.turnId ? { turnId: state.turnId } : {}),
+            });
+            for (const event of observedEvents) {
+                await postTaggedEvent(event);
+            }
         }
     } catch (error) {
         if (!abort.signal.aborted) throw error;
@@ -195,6 +226,7 @@ export function applyRolloutPayloadToObserverState(
         }
         return changed;
     }
+    if (payload.kind !== "turnContext") return false;
     if (payload.turnId && payload.turnId !== state.turnId) {
         state.turnId = payload.turnId;
         changed = true;
@@ -204,6 +236,128 @@ export function applyRolloutPayloadToObserverState(
         changed = true;
     }
     return changed;
+}
+
+export function buildRolloutObservedEvents(
+    payload: RolloutEvent,
+    context: RolloutObservedEventContext,
+): RuntimeIngestEvent[] {
+    switch (payload.kind) {
+        case "applyPatch":
+            return [buildApplyPatchEvent(payload, context)];
+        case "mcpCall":
+            return [buildMcpCallEvent(payload, context)];
+        case "webSearch":
+            return [buildWebSearchEvent(payload, context)];
+        default:
+            return [];
+    }
+}
+
+function buildApplyPatchEvent(
+    payload: Extract<RolloutEvent, { kind: "applyPatch" }>,
+    context: RolloutObservedEventContext,
+): RuntimeIngestEvent {
+    const primaryPath = payload.filePaths[0] ?? "";
+    const semantic = inferFileToolSemantic("apply_patch", primaryPath || undefined);
+    return {
+        kind: KIND.toolUsed,
+        taskId: context.taskId,
+        sessionId: context.sessionId,
+        title: primaryPath ? `Apply patch: ${path.basename(primaryPath)}` : "Apply patch",
+        body: primaryPath ? `Codex applied a patch touching ${primaryPath}.` : "Codex applied a patch.",
+        lane: LANE.implementation,
+        ...(payload.filePaths.length > 0 ? { filePaths: payload.filePaths } : {}),
+        metadata: {
+            ...baseRolloutMetadata("Observed directly from the plain Codex rollout response_item custom_tool_call."),
+            ...buildSemanticMetadata(semantic),
+            toolName: "apply_patch",
+            ...(payload.callId ? { toolUseId: payload.callId } : {}),
+            ...(context.threadId ? { threadId: context.threadId } : {}),
+            ...(context.turnId ? { turnId: context.turnId } : {}),
+            changeCount: payload.filePaths.length,
+            patchLineCount: payload.input.split(/\r?\n/).length,
+            ...(primaryPath ? { filePath: primaryPath, relPath: primaryPath } : {}),
+        },
+    };
+}
+
+function buildMcpCallEvent(
+    payload: Extract<RolloutEvent, { kind: "mcpCall" }>,
+    context: RolloutObservedEventContext,
+): RuntimeIngestEvent {
+    return {
+        kind: KIND.agentActivityLogged,
+        taskId: context.taskId,
+        sessionId: context.sessionId,
+        title: `MCP: ${payload.server}/${payload.tool}`,
+        body: `Used MCP tool ${payload.server}/${payload.tool}`,
+        lane: LANE.coordination,
+        metadata: {
+            ...baseRolloutMetadata("Observed directly from the plain Codex rollout response_item function_call."),
+            ...buildSemanticMetadata(inferMcpSemantic(payload.server, payload.tool, payload.name)),
+            activityType: "mcp_call",
+            mcpServer: payload.server,
+            mcpTool: payload.tool,
+            toolInput: isRecord(payload.arguments) ? payload.arguments : { value: payload.arguments },
+            ...(payload.callId ? { toolUseId: payload.callId } : {}),
+            ...(context.threadId ? { threadId: context.threadId } : {}),
+            ...(context.turnId ? { turnId: context.turnId } : {}),
+        },
+    };
+}
+
+function buildWebSearchEvent(
+    payload: Extract<RolloutEvent, { kind: "webSearch" }>,
+    context: RolloutObservedEventContext,
+): RuntimeIngestEvent {
+    const target = resolveWebTarget(payload);
+    const semantic = inferExploreSemantic(target.toolName, { queryOrUrl: target.value });
+    return {
+        kind: KIND.toolUsed,
+        taskId: context.taskId,
+        sessionId: context.sessionId,
+        title: `${target.label}: ${ellipsize(target.value, 100)}`,
+        body: target.value,
+        lane: LANE.exploration,
+        metadata: {
+            ...baseRolloutMetadata("Observed directly from the plain Codex rollout response_item web_search_call."),
+            ...buildSemanticMetadata(semantic),
+            toolName: "web_search_call",
+            ...(payload.callId ? { toolUseId: payload.callId } : {}),
+            ...(context.threadId ? { threadId: context.threadId } : {}),
+            ...(context.turnId ? { turnId: context.turnId } : {}),
+            ...(payload.status ? { itemStatus: payload.status } : {}),
+            ...(payload.actionType ? { actionType: payload.actionType } : {}),
+            ...(payload.url ? { webUrls: [payload.url] } : {}),
+            ...(payload.queries.length > 0 ? { queries: payload.queries } : {}),
+            ...(payload.pattern ? { pattern: payload.pattern } : {}),
+        },
+    };
+}
+
+function baseRolloutMetadata(reason: string): Record<string, unknown> {
+    return {
+        ...provenEvidence(reason),
+        source: "codex-rollout",
+    };
+}
+
+function resolveWebTarget(payload: Extract<RolloutEvent, { kind: "webSearch" }>): { label: string; toolName: "WebFetch" | "WebSearch"; value: string } {
+    const actionType = payload.actionType?.toLowerCase() ?? "";
+    const isFetch = Boolean(payload.url && (actionType.includes("open") || actionType.includes("find") || actionType.includes("fetch")));
+    if (isFetch && payload.url) {
+        return { label: "Web fetch", toolName: "WebFetch", value: payload.url };
+    }
+    return {
+        label: "Web search",
+        toolName: "WebSearch",
+        value: payload.query ?? payload.queries[0] ?? payload.pattern ?? payload.url ?? "web search",
+    };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function parseArgs(argv: readonly string[]): ObserveArgs {
