@@ -200,7 +200,11 @@ const GENERIC_TASK_TITLE_PREFIXES = new Set([
     "ai cli",
     "aider",
     "claude",
-    "claude code"
+    "claude code",
+    "codex",
+    "codex app server",
+    "codex app-server",
+    "codex cli"
 ]);
 function resolvePreferredTaskTitle(task: MonitoringTask | null | undefined, timeline: readonly TimelineEventRecord[]): string | null {
     return meaningfulTaskTitle(task) ?? inferTaskTitleSignal(timeline) ?? normalizeFallbackTaskTitle(task?.title);
@@ -274,8 +278,8 @@ function normalizeTitleToken(value?: string): string {
 }
 function isAgentSessionBoilerplate(value: string): boolean {
     const normalized = normalizeTitleToken(value);
-    return /^(claude code|claude|agent|ai cli) session started\b/.test(normalized)
-        || /^(claude code|claude|agent|ai cli) - /.test(normalized);
+    return /^(claude code|claude|codex app-server|codex app server|codex cli|codex|agent|ai cli) session started\b/.test(normalized)
+        || /^(claude code|claude|codex app-server|codex app server|codex cli|codex|agent|ai cli) - /.test(normalized);
 }
 function buildTaskProcessSections(timeline: readonly TimelineEventRecord[]): readonly TaskProcessSection[] {
     return TASK_EXTRACTION_LANES

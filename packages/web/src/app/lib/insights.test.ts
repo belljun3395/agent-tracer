@@ -53,6 +53,23 @@ describe("buildTaskDisplayTitle", () => {
         expect(buildTaskDisplayTitle(task, timeline))
             .toBe("테스트를 비즈니스 규칙 중심의 문서로 정리한다");
     });
+    it("Codex CLI 기본 제목보다 실제 사용자 요청을 우선한다", () => {
+        const task = makeTask({
+            title: "Codex CLI — agent-tracer",
+            slug: TaskSlug("codex-cli-agent-tracer")
+        });
+        const timeline = [
+            makeEvent({
+                id: "user-goal",
+                kind: "user.message",
+                lane: "user",
+                title: "사용자 요청",
+                body: "Claude 쪽 title 동작을 보고 Codex title을 개선할 수 있는지 검토해줘"
+            })
+        ];
+        expect(buildTaskDisplayTitle(task, timeline))
+            .toBe("Claude 쪽 title 동작을 보고 Codex title을 개선할 수 있는지 검토해줘");
+    });
     it("이미 의미 있는 작업 제목은 그대로 유지한다", () => {
         const task = makeTask({
             title: "테스트 전략 재정비",
