@@ -75,14 +75,6 @@ export async function postTaggedEvent(event: RuntimeIngestEvent): Promise<void> 
 }
 
 /**
- * Applies `withTags` to each event's metadata and posts all events,
- * grouping by ingest endpoint.
- */
-export async function postTaggedEvents(events: RuntimeIngestEvent[]): Promise<void> {
-    await postEvent(events.map((event) => ({...event, metadata: withTags(event.metadata)})));
-}
-
-/**
  * Calls `/api/runtime-session-ensure` to create or resume a monitor session.
  * Returns `{ taskId, sessionId, taskCreated, sessionCreated }`.
  */
