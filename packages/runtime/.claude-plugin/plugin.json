@@ -1,6 +1,6 @@
 {
   "name": "agent-tracer-monitor",
-  "version": "0.2.12",
+  "version": "0.2.13",
   "description": "Agent Tracer hooks for Claude Code — captures session, prompt, tool, subagent, and lifecycle events. Requires the Agent Tracer monitor server (set MONITOR_BASE_URL or MONITOR_PORT env var; defaults to http://127.0.0.1:3847).",
   "author": {
     "name": "belljun3395",
