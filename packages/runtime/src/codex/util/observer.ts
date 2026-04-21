@@ -32,6 +32,7 @@ const RUN_OBSERVER_SCRIPT = path.resolve(
 export async function ensureObserverRunning(
     sessionId: string,
     projectDir: string = PROJECT_DIR,
+    modelId?: string,
 ): Promise<"started" | "restarted" | "unchanged"> {
     const existing = await readObserverState(projectDir);
     if (existing && isPidRunning(existing.pid)) {
@@ -52,6 +53,7 @@ export async function ensureObserverRunning(
         projectDir,
         "--session-marker",
         sessionId,
+        ...(modelId ? ["--model", modelId] : []),
         "--quiet",
     ], {
         detached: true,

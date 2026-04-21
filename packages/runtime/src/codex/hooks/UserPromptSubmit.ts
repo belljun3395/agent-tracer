@@ -28,6 +28,7 @@ import {provenEvidence} from "~shared/semantics/evidence.js";
 import {hookLog} from "~codex/lib/hook/hook.log.js";
 import {LANE} from "~shared/events/lanes.js";
 import {writeLatestSessionState} from "~codex/util/session.state.js";
+import {ensureObserverRunning} from "~codex/util/observer.js";
 
 async function main(): Promise<void> {
     const {payload, sessionId} = await readHookSessionContext("UserPromptSubmit");
@@ -71,6 +72,7 @@ async function main(): Promise<void> {
         ...(modelId ? {modelId} : {}),
         source: "user_prompt_submit",
     }).catch(() => undefined);
+    await ensureObserverRunning(sessionId, undefined, modelId || undefined).catch(() => undefined);
 }
 
 void main().catch((err: unknown) => {
