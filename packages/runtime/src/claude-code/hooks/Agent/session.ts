@@ -22,7 +22,7 @@
  * `/api/runtime-session-ensure` directly. The server's use case is idempotent on
  * `runtimeSessionId`, so repeated calls return the same `(taskId, sessionId)`.
  */
-import type {RuntimeSessionEnsureResult} from "~claude-code/hooks/lib/transport/transport.type.js";
+import type {RuntimeSessionEnsureResult} from "~shared/transport/transport.js";
 import {ensureRuntimeSession} from "~claude-code/hooks/lib/transport/transport.js";
 
 
