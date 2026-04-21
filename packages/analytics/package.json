@@ -1,0 +1,38 @@
+{
+  "name": "@monitor/analytics",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "prepare:plugins": "node scripts/link-evidence-plugins.mjs",
+    "clean:evidence": "node scripts/clean-evidence-cache.mjs",
+    "sync:data": "node scripts/sync-portable-data.mjs",
+    "watch:data": "node scripts/watch-sync.mjs",
+    "dev": "npm run sources && npm run clean:evidence && concurrently -k -n evidence,sync \"EVIDENCE_DATA_DIR=.evidence/template/static/data EVIDENCE_DATA_URL_PREFIX=static/data evidence dev --host 0.0.0.0 --port 5175\" \"npm run watch:data\"",
+    "build": "npm run sources && npm run clean:evidence && EVIDENCE_BUILD_DIR=.evidence/template/build EVIDENCE_DATA_DIR=.evidence/template/static/data EVIDENCE_DATA_URL_PREFIX=static/data evidence build",
+    "preview": "evidence preview --host 0.0.0.0 --port 4175",
+    "patch:sidebar": "node scripts/patch-evidence-sidebar.mjs",
+    "patch:layout": "node scripts/patch-evidence-layout.mjs",
+    "sources": "npm run prepare:plugins && npm run patch:sidebar && npm run patch:layout && npm run sync:data",
+    "test": "npm run build"
+  },
+  "dependencies": {
+    "@evidence-dev/core-components": "4.8.10",
+    "@evidence-dev/duckdb": "1.0.13",
+    "@evidence-dev/evidence": "39.1.13",
+    "@sveltejs/kit": "2.5.4",
+    "@sveltejs/vite-plugin-svelte": "3.1.2",
+    "autoprefixer": "^10.4.7",
+    "debounce": "^1.2.1",
+    "git-remote-origin-url": "4.0.0",
+    "postcss": "^8.4.14",
+    "postcss-load-config": "^4.0.1",
+    "svelte": "4.2.19",
+    "svelte-preprocess": "5.1.3",
+    "svelte2tsx": "0.7.4",
+    "tailwindcss": "^3.3.1",
+    "typescript": "5.4.2",
+    "unist-util-visit": "4.1.2",
+    "vite": "5.4.6"
+  }
+}

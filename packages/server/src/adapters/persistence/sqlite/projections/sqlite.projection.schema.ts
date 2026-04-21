@@ -90,10 +90,16 @@ export function backfillCurrentProjections(db: Database.Database): void {
 }
 
 export function dropLegacyTaskSessionTables(db: Database.Database): void {
-    db.exec(`
-      drop table if exists task_sessions;
-      drop table if exists monitoring_tasks;
-    `);
+    const foreignKeys = db.pragma("foreign_keys", { simple: true }) as number;
+    db.pragma("foreign_keys = OFF");
+    try {
+        db.exec(`
+          drop table if exists task_sessions;
+          drop table if exists monitoring_tasks;
+        `);
+    } finally {
+        db.pragma(`foreign_keys = ${foreignKeys ? "ON" : "OFF"}`);
+    }
 }
 
 function tableExists(db: Database.Database, tableName: string): boolean {

@@ -28,6 +28,9 @@ const guideSidebar = [
             { text: "Runtime API Flow", link: "/guide/runtime-api-flow-and-preprocessing" },
             { text: "Task Observability", link: "/guide/task-observability" },
             { text: "SQLite Schema", link: "/guide/sqlite-schema" },
+            { text: "Analytics Tier", link: "/guide/analytics-tier" },
+            { text: "BI Analysis Design", link: "/guide/bi-analysis-design" },
+            { text: "DuckDB Analytics Schema", link: "/guide/duckdb-analytics-schema" },
             { text: "Web Styling Guide", link: "/guide/web-styling" }
         ]
     }

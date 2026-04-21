@@ -1,0 +1,4 @@
+name: agent_tracer
+type: duckdb
+options:
+  filename: ":memory:"

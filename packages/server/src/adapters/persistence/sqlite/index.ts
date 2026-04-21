@@ -15,6 +15,7 @@ import { SqliteEvaluationRepository } from "./repositories/sqlite.evaluation.rep
 import { SqlitePlaybookRepository } from "./repositories/sqlite.playbook.repository.js";
 import { SqliteRuleCommandRepository } from "./repositories/sqlite.rule-command.repository.js";
 import { SqliteEventStore } from "./events/index.js";
+import { createDuckDbAnalyticsService } from "~adapters/analytics/duckdb/index.js";
 export { SqliteTaskRepository } from "./repositories/sqlite.task.repository.js";
 export { SqliteSessionRepository } from "./repositories/sqlite.session.repository.js";
 export { SqliteEventRepository } from "./repositories/sqlite.event.repository.js";
@@ -45,6 +46,8 @@ export function createSqliteMonitorPorts(options: SqliteMonitorPortsOptions): Mo
     createSchema(client);
     runMigrations(client);
     backfillSearchDocuments(client);
+    const analytics = createDuckDbAnalyticsService({ sqliteDatabasePath: options.databasePath });
+    analytics.start();
     const db = createSqliteDatabase(client);
     const notifier = options.notifier ?? { publish: () => { } };
     return {
@@ -58,6 +61,9 @@ export function createSqliteMonitorPorts(options: SqliteMonitorPortsOptions): Mo
         playbooks: new SqlitePlaybookRepository(db, options.embeddingService),
         ruleCommands: new SqliteRuleCommandRepository(db),
         notifier,
-        close: () => client.close()
+        close: () => {
+            analytics.close();
+            client.close();
+        }
     };
 }

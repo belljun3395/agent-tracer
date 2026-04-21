@@ -57,6 +57,10 @@ model in more detail.
   read model used by the dashboard
 - [SQLite schema](./sqlite-schema.md) — normalized SQLite table structure,
   event log, current/view tables, and migration rules
+- [Analytics tier](./analytics-tier.md) — DuckDB ETL, bronze/silver/gold
+  table, seed analysis queries, Parquet archive 정책
+- [DuckDB analytics schema](./duckdb-analytics-schema.md) — DuckDB
+  bronze/silver/fact/dimension table reference
 - [Web styling guide](./web-styling.md) — CSS / Tailwind conventions
   used by `@monitor/web`
 

@@ -1,0 +1,6 @@
+node_modules/
+.evidence/
+.svelte-kit/
+build/
+static/data/
+sources/agent_tracer/data/

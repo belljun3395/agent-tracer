@@ -20,6 +20,8 @@ export default defineConfig({
         "@nestjs/platform-express",
         "reflect-metadata",
         "class-transformer",
-        "class-validator"
+        "class-validator",
+        "@duckdb/node-api",
+        "@duckdb/node-bindings"
     ]
 });
