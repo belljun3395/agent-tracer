@@ -122,7 +122,7 @@ describe("resolveRolloutPath", () => {
     it("throws when no matching rollout is found within the timeout", async () => {
         const root = await createTempRoot("agent-tracer-rollout-miss-");
         await expect(
-            resolveRolloutPath("missing", { sessionsRoot: root, timeoutMs: 400, intervalMs: 100 }),
+            resolveRolloutPath("missing", {sessionsRoot: root, timeoutMs: 400, intervalMs: 100}),
         ).rejects.toThrow(/rollout file not found/i);
     });
 });
