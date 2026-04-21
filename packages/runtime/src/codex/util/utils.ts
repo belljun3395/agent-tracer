@@ -1,6 +1,7 @@
 import {isRecord} from "~shared/util/utils.js";
 
-export {JsonObject, isRecord, toTrimmedString, ellipsize, createMessageId} from "~shared/util/utils.js";
+export type {JsonObject} from "~shared/util/utils.js";
+export {isRecord, toTrimmedString, ellipsize, createMessageId} from "~shared/util/utils.js";
 
 /**
  * Parses a single JSONL line. Returns null if the line is blank, fails to
