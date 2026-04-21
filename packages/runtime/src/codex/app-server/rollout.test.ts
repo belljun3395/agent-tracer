@@ -143,6 +143,36 @@ describe("normalizeRolloutResponseItem", () => {
         });
     });
 
+    it("extracts known bare MCP function calls emitted by Codex rollout", () => {
+        const out = normalizeRolloutResponseItem({
+            type: "function_call",
+            call_id: "call_context7",
+            name: "query_docs",
+            arguments: "{\"libraryId\":\"/openai/codex\",\"query\":\"hooks\"}",
+        });
+
+        expect(out).toMatchObject({
+            kind: "mcpCall",
+            callId: "call_context7",
+            name: "mcp__context7__query_docs",
+            server: "context7",
+            tool: "query_docs",
+            arguments: {
+                libraryId: "/openai/codex",
+                query: "hooks",
+            },
+        });
+    });
+
+    it("does not classify ordinary Codex function calls as MCP calls", () => {
+        expect(normalizeRolloutResponseItem({
+            type: "function_call",
+            call_id: "call_shell",
+            name: "exec_command",
+            arguments: "{\"cmd\":\"pwd\"}",
+        })).toBeNull();
+    });
+
     it("extracts web search and page-open calls", () => {
         expect(normalizeRolloutResponseItem({
             type: "web_search_call",
