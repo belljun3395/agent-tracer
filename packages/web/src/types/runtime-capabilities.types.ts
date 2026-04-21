@@ -6,8 +6,10 @@ export const RuntimeAdapterId = (value: string): RuntimeAdapterId =>
 export const CLAUDE_PLUGIN_SOURCE = "claude-plugin" as const;
 export const CLAUDE_HOOK_SOURCE = "claude-hook" as const;
 export const CLAUDE_BRIDGE_SOURCE = "claude-bridge" as const;
+export const CODEX_CLI_SOURCE = "codex-cli" as const;
 
 export const CLAUDE_PLUGIN_ADAPTER_ID: RuntimeAdapterId = RuntimeAdapterId(CLAUDE_PLUGIN_SOURCE);
+export const CODEX_CLI_ADAPTER_ID: RuntimeAdapterId = RuntimeAdapterId(CODEX_CLI_SOURCE);
 
 export type EvidenceStrength =
   | "proven"

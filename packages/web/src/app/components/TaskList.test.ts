@@ -131,6 +131,7 @@ describe("runtimeTagLabel", () => {
     it("renders explicit runtime labels for supported adapters", () => {
         expect(runtimeTagLabel("claude-plugin")).toBe("Claude Code");
         expect(runtimeTagLabel("claude-hook")).toBe("Claude Code");
+        expect(runtimeTagLabel("codex-cli")).toBe("Codex");
     });
     it("falls back to the raw source for unknown adapters", () => {
         expect(runtimeTagLabel("custom-runtime")).toBe("custom-runtime");
@@ -139,6 +140,7 @@ describe("runtimeTagLabel", () => {
 describe("runtimeFilter helpers", () => {
     it("groups known runtime adapters under stable filter keys", () => {
         expect(runtimeFilterKey("claude-plugin")).toBe("claude");
+        expect(runtimeFilterKey("codex-cli")).toBe("codex");
         expect(runtimeFilterKey("custom-runtime")).toBe("source:custom-runtime");
         expect(runtimeFilterKey(undefined)).toBe("unknown");
     });

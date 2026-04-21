@@ -1,4 +1,12 @@
-import { CLAUDE_HOOK_SOURCE, CLAUDE_PLUGIN_ADAPTER_ID, CLAUDE_PLUGIN_SOURCE, type RuntimeAdapterId, type RuntimeCapabilities } from "./runtime-capabilities.types.js";
+import {
+  CLAUDE_HOOK_SOURCE,
+  CLAUDE_PLUGIN_ADAPTER_ID,
+  CLAUDE_PLUGIN_SOURCE,
+  CODEX_CLI_ADAPTER_ID,
+  CODEX_CLI_SOURCE,
+  type RuntimeAdapterId,
+  type RuntimeCapabilities
+} from "./runtime-capabilities.types.js";
 import { registerRuntimeAdapter, registerRuntimeAdapterAlias } from "./runtime-capabilities.registry.js";
 
 const DEFAULT_ADAPTERS: readonly RuntimeCapabilities[] = [
@@ -95,6 +103,65 @@ const DEFAULT_ADAPTERS: readonly RuntimeCapabilities[] = [
         }
       ]
     }
+  },
+  {
+    adapterId: CODEX_CLI_ADAPTER_ID,
+    canCaptureRawUserMessage: true,
+    canObserveToolCalls: true,
+    canObserveSubagents: false,
+    hasNativeSkillDiscovery: true,
+    hasEventStream: true,
+    endTaskOnSessionClose: "primary-only",
+    nativeSkillPaths: [".agents/skills"],
+    evidenceProfile: {
+      defaultEvidence: "proven",
+      summary:
+        "Codex CLI hook mode captures prompts, assistant boundaries, Bash commands, rollout telemetry, and rollout-backed file/MCP/web tool activity.",
+      features: [
+        {
+          id: "raw_user_prompt",
+          label: "Raw user prompts",
+          evidence: "proven",
+          note: "Captured directly from Codex UserPromptSubmit hook payloads.",
+          automatic: true
+        },
+        {
+          id: "assistant_response",
+          label: "Assistant responses",
+          evidence: "proven",
+          note: "Recorded from the Codex Stop hook before the turn is closed.",
+          automatic: true
+        },
+        {
+          id: "exploration_activity",
+          label: "Read/search/web activity",
+          evidence: "proven",
+          note: "Web search and page-open calls are observed from plain Codex rollout response items.",
+          automatic: true
+        },
+        {
+          id: "tool_activity",
+          label: "Tool and shell activity",
+          evidence: "proven",
+          note: "Bash hooks capture terminal commands, and rollout response items capture apply_patch file edits.",
+          automatic: true
+        },
+        {
+          id: "mcp_coordination",
+          label: "MCP coordination",
+          evidence: "proven",
+          note: "MCP function calls are observed from plain Codex rollout response items.",
+          automatic: true
+        },
+        {
+          id: "context_checkpoints",
+          label: "Context checkpoints",
+          evidence: "proven",
+          note: "Rollout telemetry is tailed from Codex session JSONL files.",
+          automatic: true
+        }
+      ]
+    }
   }
 ];
 
@@ -102,7 +169,9 @@ const DEFAULT_ALIASES: readonly [string, RuntimeAdapterId][] = [
   ["claude", CLAUDE_PLUGIN_ADAPTER_ID],
   ["claude-code", CLAUDE_PLUGIN_ADAPTER_ID],
   [CLAUDE_HOOK_SOURCE, CLAUDE_PLUGIN_ADAPTER_ID],
-  [CLAUDE_PLUGIN_SOURCE, CLAUDE_PLUGIN_ADAPTER_ID]
+  [CLAUDE_PLUGIN_SOURCE, CLAUDE_PLUGIN_ADAPTER_ID],
+  ["codex", CODEX_CLI_ADAPTER_ID],
+  [CODEX_CLI_SOURCE, CODEX_CLI_ADAPTER_ID]
 ];
 
 /**
