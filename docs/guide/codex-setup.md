@@ -57,6 +57,9 @@ Interactive Codex currently captures:
 - `UserPromptSubmit` -> `user.message`
 - `PostToolUse` (`Bash` only) -> `terminal.command`
 - `Stop` -> `assistant.response`
+- rollout `response_item.custom_tool_call(apply_patch)` -> `tool.used`
+- rollout `response_item.function_call(mcp__...)` -> `agent.activity.logged`
+- rollout `response_item.web_search_call` -> `tool.used`
 
 `PreToolUse` is also wired, but it only ensures the runtime session exists
 before the Bash command is logged.
@@ -71,6 +74,8 @@ before the Bash command is logged.
 - `user.message`
 - `terminal.command` (`Bash` only)
 - `assistant.response`
+- `tool.used` (`apply_patch`, web search/fetch via rollout)
+- `agent.activity.logged` (MCP calls via rollout)
 
 즉, 이번 단계는 “Codex를 평소처럼 `codex`로 실행하는 사용자”의 기본 활동을
 캡처하는 데 초점을 둔다.
@@ -87,6 +92,8 @@ before the Bash command is logged.
    - `user.message`
    - `terminal.command`
    - `assistant.response`
+   - `tool.used` if Codex used `apply_patch` or web search/fetch
+   - `agent.activity.logged` if Codex used an MCP tool
 
 ## 5. Context / model observer
 
@@ -100,6 +107,8 @@ The observer:
 - locates the matching `rollout-*.jsonl` for that session id
 - tails it for `event_msg` / `token_count` entries
 - emits `context.snapshot` events from the rollout's token-usage and rate-limit fields
+- emits `tool.used` for rollout `apply_patch` and `web_search_call` entries
+- emits `agent.activity.logged` for rollout `mcp__...` function calls
 - prints a compact status string such as `[monitor] ctx 30% · 15m 25%`
 
 This observer is now started automatically by the Codex `SessionStart` hook.
@@ -142,15 +151,20 @@ rate-limit telemetry are now populated in plain `codex` mode.
    - `user.message`
    - `terminal.command`
    - `assistant.response`
-6. Confirm the dashboard starts receiving `context.snapshot` events automatically
+6. If the prompt causes file edits, MCP calls, or web search/fetch, confirm:
+   - `tool.used`
+   - `agent.activity.logged`
+7. Confirm the dashboard starts receiving `context.snapshot` events automatically
 
 ## 7. Current limitations
 
-- No full app-server lifecycle integration yet
 - No dedicated `SessionEnd` hook mapping
 - No subagent hierarchy mapping in v1
 - No hook-time interception for non-Bash tools
-- Full item-level capture is still deferred to the app-server stage; the current observer only collects status-style telemetry
+- Non-Bash tool activity is observed after Codex writes rollout response items;
+  it is not a pre-execution policy/interception hook.
+- Rollout-backed observation covers `apply_patch`, MCP function calls, and
+  web search/fetch. Other future Codex item types need explicit parser support.
 
 For the adapter internals and exact event mapping, see
 [`packages/runtime/CODEX_DATA_FLOW.md`](https://github.com/belljun3395/agent-tracer/blob/main/packages/runtime/CODEX_DATA_FLOW.md)

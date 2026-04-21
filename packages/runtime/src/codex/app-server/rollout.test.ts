@@ -3,6 +3,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
+    normalizeRolloutResponseItem,
     normalizeRolloutTokenCount,
     normalizeRolloutTurnContext,
     resolveRolloutPath,
@@ -96,6 +97,83 @@ describe("normalizeRolloutTurnContext", () => {
     });
 });
 
+describe("normalizeRolloutResponseItem", () => {
+    it("extracts apply_patch custom tool calls with touched file paths", () => {
+        const out = normalizeRolloutResponseItem({
+            type: "custom_tool_call",
+            status: "completed",
+            call_id: "call_patch",
+            name: "apply_patch",
+            input: [
+                "*** Begin Patch",
+                "*** Update File: /repo/src/index.ts",
+                "@@",
+                "-old",
+                "+new",
+                "*** Add File: /repo/src/new.ts",
+                "+export {};",
+                "*** End Patch",
+            ].join("\n"),
+        });
+
+        expect(out).toMatchObject({
+            kind: "applyPatch",
+            callId: "call_patch",
+            filePaths: ["/repo/src/index.ts", "/repo/src/new.ts"],
+        });
+    });
+
+    it("extracts MCP function calls from mcp__ tool names", () => {
+        const out = normalizeRolloutResponseItem({
+            type: "function_call",
+            call_id: "call_mcp",
+            name: "mcp__github__fetch_pr",
+            arguments: "{\"repo\":\"openai/codex\",\"pr_number\":1}",
+        });
+
+        expect(out).toMatchObject({
+            kind: "mcpCall",
+            callId: "call_mcp",
+            server: "github",
+            tool: "fetch_pr",
+            arguments: {
+                repo: "openai/codex",
+                pr_number: 1,
+            },
+        });
+    });
+
+    it("extracts web search and page-open calls", () => {
+        expect(normalizeRolloutResponseItem({
+            type: "web_search_call",
+            status: "completed",
+            action: {
+                type: "search",
+                query: "Codex hooks",
+                queries: ["Codex hooks", "Codex app-server"],
+            },
+        })).toMatchObject({
+            kind: "webSearch",
+            actionType: "search",
+            query: "Codex hooks",
+            queries: ["Codex hooks", "Codex app-server"],
+        });
+
+        expect(normalizeRolloutResponseItem({
+            type: "web_search_call",
+            status: "completed",
+            action: {
+                type: "open_page",
+                url: "https://developers.openai.com/codex/hooks",
+            },
+        })).toMatchObject({
+            kind: "webSearch",
+            actionType: "open_page",
+            url: "https://developers.openai.com/codex/hooks",
+        });
+    });
+});
+
 describe("resolveRolloutPath", () => {
     it("locates the most recent rollout by session id across year/month/day folders", async () => {
         const root = await createTempRoot("agent-tracer-rollout-");
@@ -179,5 +257,54 @@ describe("tailRolloutEvents", () => {
         await consume;
         expect(collected.length).toBe(3);
         expect(collected.map((x) => x.kind)).toEqual(["turnContext", "tokenCount", "tokenCount"]);
+    }, 10_000);
+
+    it("streams response_item apply_patch, MCP, and web_search_call events", async () => {
+        const root = await createTempRoot("agent-tracer-rollout-tool-tail-");
+        const file = path.join(root, "rollout.jsonl");
+        await writeFile(
+            file,
+            [
+                {
+                    type: "response_item",
+                    payload: {
+                        type: "custom_tool_call",
+                        call_id: "call_patch",
+                        name: "apply_patch",
+                        input: "*** Begin Patch\n*** Update File: src/index.ts\n@@\n-old\n+new\n*** End Patch\n",
+                    },
+                },
+                {
+                    type: "response_item",
+                    payload: {
+                        type: "function_call",
+                        call_id: "call_mcp",
+                        name: "mcp__github__fetch_pr",
+                        arguments: "{\"repo\":\"openai/codex\"}",
+                    },
+                },
+                {
+                    type: "response_item",
+                    payload: {
+                        type: "web_search_call",
+                        status: "completed",
+                        action: { type: "search", query: "Codex hooks" },
+                    },
+                },
+            ].map((entry) => JSON.stringify(entry)).join("\n") + "\n",
+            "utf8",
+        );
+
+        const controller = new AbortController();
+        const collected: Array<{ kind: string }> = [];
+        const consume = (async (): Promise<void> => {
+            for await (const payload of tailRolloutEvents(file, controller.signal)) {
+                collected.push(payload);
+                if (collected.length >= 3) controller.abort();
+            }
+        })();
+
+        await consume;
+        expect(collected.map((x) => x.kind)).toEqual(["applyPatch", "mcpCall", "webSearch"]);
     }, 10_000);
 });

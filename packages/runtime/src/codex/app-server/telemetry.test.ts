@@ -4,7 +4,7 @@ import {
     formatCodexStatusText,
 } from "./telemetry.js";
 
-describe("Codex app-server telemetry", () => {
+describe("Codex rollout telemetry", () => {
     it("builds a context snapshot from token usage and rate limits", () => {
         const event = buildCodexContextSnapshotEvent({
             taskId: "task_1",
@@ -50,7 +50,7 @@ describe("Codex app-server telemetry", () => {
             lane: "telemetry",
             title: "Context 40% used",
             metadata: expect.objectContaining({
-                source: "codex-app-server",
+                source: "codex-rollout",
                 modelId: "gpt-5.4",
                 contextWindowUsedPct: 40,
                 contextWindowRemainingPct: 60,

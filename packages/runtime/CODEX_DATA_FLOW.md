@@ -31,7 +31,7 @@ Codex CLI                 Adapter (tsx)                   Monitor API
                                     │   (~/.codex/sessions/YYYY/MM/DD/rollout-*-<id>.jsonl)
                                     │
                                     └─ POST ─────────────────────────► /ingest/v1/events
-                                         (context.snapshot on each token/rate-limit change)
+                                         (context.snapshot, apply_patch, MCP, web search)
 ```
 
 Each hook process is short-lived. Every handler calls `/api/runtime-session-ensure`
@@ -292,8 +292,9 @@ POST /ingest/v1/events  { kind: "terminal.command", … }
 ### 6. Background observer → `app-server/observe.ts`
 
 The observer is a long-running Node process spawned by `SessionStart` via
-`run-observer.sh`. It tails the Codex rollout JSONL file and forwards token-usage
-and rate-limit snapshots to the monitor.
+`run-observer.sh`. It tails the Codex rollout JSONL file and forwards token-usage,
+rate-limit, and non-Bash tool snapshots to the monitor. This is still the normal
+plain `codex` path; no app-server runner is required.
 
 **Rollout JSONL path:**
 ```
@@ -304,6 +305,9 @@ and rate-limit snapshots to the monitor.
 ```
 event_msg    { type: "event_msg",    payload: { type: "token_count", info, rate_limits } }
 turn_context { type: "turn_context", payload: { turn_id, model } }
+response_item { payload: { type: "custom_tool_call", name: "apply_patch", input } }
+response_item { payload: { type: "function_call", name: "mcp__<server>__<tool>", arguments } }
+response_item { payload: { type: "web_search_call", action } }
 ```
 
 **Observer reads from disk [FILE]:**
@@ -325,6 +329,11 @@ Emits a contextSnapshot event when any of the following change:
   rateLimits  — new rate-limit window snapshots       (from event_msg / token_count)
   turnId      — new turn identifier                   (from turn_context)
   modelId     — new model identifier                  (from turn_context)
+
+Emits tool/activity events when these response items appear:
+  applyPatch  — custom_tool_call name "apply_patch"   → tool.used
+  mcpCall     — function_call name "mcp__..."         → agent.activity.logged
+  webSearch   — web_search_call action                → tool.used
 ```
 
 **API calls (on each state change):**
@@ -337,7 +346,7 @@ POST /ingest/v1/events  { kind: "context.snapshot", … }
   title     [GEN]   "Context <N>% used" | "Codex status snapshot"
   lane      [GEN]   "telemetry"
   metadata:
-    source                        [GEN]   "codex-app-server"
+    source                        [GEN]   "codex-rollout"
     threadId                      [FILE]  Codex session id from rollout session_meta
     modelId                       [FILE]  model from turn_context
     modelProvider                 [FILE]  model_provider from rollout session_meta
@@ -361,6 +370,20 @@ POST /ingest/v1/events  { kind: "context.snapshot", … }
     rateLimitSecondaryResetsAt    [FILE]  rate_limits.secondary.resets_at
     rateLimitFiveHourUsedPct      [GEN]   legacy alias when windowDurationMins === 300
     rateLimitSevenDayUsedPct      [GEN]   legacy alias when windowDurationMins === 10080
+```
+
+**Additional API calls (on response items):**
+```
+POST /ingest/v1/events { kind: "tool.used", … }
+  source     [GEN] "codex-rollout"
+  toolName   [FILE] "apply_patch" | "web_search_call"
+  filePaths  [FILE] parsed from patch headers when present
+
+POST /ingest/v1/events { kind: "agent.activity.logged", … }
+  source      [GEN] "codex-rollout"
+  activityType [GEN] "mcp_call"
+  mcpServer   [FILE] parsed from mcp__<server>__<tool>
+  mcpTool     [FILE] parsed from mcp__<server>__<tool>
 ```
 
 ---
@@ -407,14 +430,12 @@ src/codex/
 │   ├── rollout.ts              # resolveRolloutPath, readRolloutSessionMeta, tailRolloutEvents,
 │   │                           #   normalizeRolloutTokenCount, normalizeRolloutTurnContext
 │   ├── telemetry.ts            # buildCodexContextSnapshotEvent, formatCodexStatusText
-│   ├── normalize.ts            # normalizeCodexAppServerNotification (app-server JSON-RPC; not yet wired)
-│   └── protocol.type.ts        # Codex app-server TypeScript types
+│   ├── normalize.ts            # normalizeCodexAppServerNotification (app-server JSON-RPC)
+│   └── protocol.type.ts        # Codex app-server / rollout-compatible TypeScript types
 └── bin/
     ├── run-hook.sh             # hook launcher (invoked by Codex for each hook event)
     └── run-observer.sh         # observer launcher (invoked by SessionStart hook)
 ```
-
----
 
 ## Scope comparison vs Claude Code adapter
 
@@ -423,19 +444,19 @@ src/codex/
 | Session start | supported | supported |
 | User prompt capture | supported | supported |
 | Bash command capture | supported | supported |
-| File tool capture | supported | not supported (no Codex hook) |
-| MCP tool capture | supported | not supported (no Codex hook) |
-| Web tool capture | supported | not supported (no Codex hook) |
+| File tool capture | supported | supported via rollout observer (`apply_patch`) |
+| MCP tool capture | supported | supported via rollout observer (`mcp__...`) |
+| Web tool capture | supported | supported via rollout observer (`web_search_call`) |
 | Token / context usage | supported | supported (via rollout observer) |
 | Rate-limit snapshot | supported | supported (via rollout observer) |
 | Instructions lifecycle | supported | not supported |
 | Compact lifecycle | supported | not supported |
 | Subagent lifecycle | supported | not supported |
-| App-server notifications | N/A | ready (`normalize.ts`) — no live connection yet |
+| App-server notifications | N/A | normalizer ready, but plain `codex` path uses rollout observer |
 
-Current Codex hook coverage is intentionally narrower than Claude Code. The expansion
-path for file/MCP/web capture is the Codex app-server JSON-RPC stream (`normalize.ts`),
-not a wider hook surface.
+Current Codex hook coverage is intentionally narrower than Claude Code. File/MCP/web
+capture is implemented by tailing the rollout JSONL that plain `codex` already
+writes, not by widening the official Codex hook surface.
 
 ---
 
