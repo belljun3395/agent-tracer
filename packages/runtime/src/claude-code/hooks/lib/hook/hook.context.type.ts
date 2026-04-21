@@ -1,4 +1,4 @@
-import type {JsonObject} from "~claude-code/hooks/util/utils.type.js";
+import type {JsonObject} from "~shared/util/utils.type.js";
 
 export interface HookSessionContext {
     readonly payload: JsonObject;

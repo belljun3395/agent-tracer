@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import {PROJECT_DIR} from "~claude-code/hooks/util/paths.const.js";
-import type {JsonObject} from "~claude-code/hooks/util/utils.type.js";
+import type {JsonObject} from "~shared/util/utils.type.js";
 import {isRecord} from "~claude-code/hooks/util/utils.js";
 
 const LOG_FILE = path.join(PROJECT_DIR, ".claude", "hooks.log");

@@ -1,4 +1,4 @@
-import type {JsonObject} from "~claude-code/hooks/util/utils.type.js";
+import type {JsonObject} from "~shared/util/utils.type.js";
 import {isRecord, toOptionalTrimmedString, toTrimmedString} from "~claude-code/hooks/util/utils.js";
 import type {HookAgentContext} from "~claude-code/hooks/util/payload.type.js";
 
