@@ -1,16 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+const readHookSessionContext = vi.fn();
 const ensureRuntimeSession = vi.fn();
 const postTaggedEvent = vi.fn();
-const readStdinJson = vi.fn();
 const writeLatestSessionState = vi.fn();
 const ensureObserverRunning = vi.fn();
-const toTrimmedString = vi.fn((value: unknown) => (typeof value === "string" ? value.trim() : ""));
+
+vi.mock("~codex/lib/hook/hook.context.js", () => ({
+    readHookSessionContext,
+}));
 
 vi.mock("~codex/lib/transport/transport.js", () => ({
     ensureRuntimeSession,
     postTaggedEvent,
-    readStdinJson,
 }));
 
 vi.mock("~codex/util/session.state.js", () => ({
@@ -19,10 +21,6 @@ vi.mock("~codex/util/session.state.js", () => ({
 
 vi.mock("~codex/util/observer.js", () => ({
     ensureObserverRunning,
-}));
-
-vi.mock("~codex/util/utils.js", () => ({
-    toTrimmedString,
 }));
 
 describe("Codex SessionStart hook", () => {
@@ -39,10 +37,9 @@ describe("Codex SessionStart hook", () => {
     });
 
     it("records startup, persists the session hint, and starts the observer", async () => {
-        readStdinJson.mockResolvedValue({
-            session_id: "runtime_1",
-            source: "startup",
-            model: "gpt-5.4",
+        readHookSessionContext.mockResolvedValue({
+            payload: { session_id: "runtime_1", source: "startup", model: "gpt-5.4" },
+            sessionId: "runtime_1",
         });
 
         await import("./SessionStart.js");
@@ -66,9 +63,9 @@ describe("Codex SessionStart hook", () => {
     });
 
     it("ignores unsupported SessionStart reasons", async () => {
-        readStdinJson.mockResolvedValue({
-            session_id: "runtime_1",
-            source: "clear",
+        readHookSessionContext.mockResolvedValue({
+            payload: { session_id: "runtime_1", source: "clear" },
+            sessionId: "runtime_1",
         });
 
         await import("./SessionStart.js");
