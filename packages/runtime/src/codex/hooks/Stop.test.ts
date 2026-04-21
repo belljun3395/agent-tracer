@@ -1,19 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+const readHookSessionContext = vi.fn();
 const ensureRuntimeSession = vi.fn();
 const postTaggedEvent = vi.fn();
 const postJson = vi.fn();
-const readStdinJson = vi.fn();
 const writeLatestSessionState = vi.fn();
 const createMessageId = vi.fn(() => "assistant_msg_1");
 const ellipsize = vi.fn((value: string) => value);
 const toTrimmedString = vi.fn((value: unknown) => (typeof value === "string" ? value.trim() : ""));
 
+vi.mock("~codex/lib/hook/hook.context.js", () => ({
+    readHookSessionContext,
+}));
+
 vi.mock("~codex/lib/transport/transport.js", () => ({
     ensureRuntimeSession,
     postTaggedEvent,
     postJson,
-    readStdinJson,
 }));
 
 vi.mock("~codex/util/utils.js", () => ({
@@ -40,9 +43,9 @@ describe("Codex Stop hook", () => {
     });
 
     it("records assistant response and completes the runtime session", async () => {
-        readStdinJson.mockResolvedValue({
-            session_id: "runtime_1",
-            last_assistant_message: "Done. Tests are green.",
+        readHookSessionContext.mockResolvedValue({
+            payload: { last_assistant_message: "Done. Tests are green." },
+            sessionId: "runtime_1",
         });
 
         await import("./Stop.js");
@@ -58,7 +61,7 @@ describe("Codex Stop hook", () => {
             body: "Done. Tests are green.",
             metadata: expect.objectContaining({
                 messageId: "assistant_msg_1",
-                source: "codex-hooks",
+                source: "codex-cli",
                 stopReason: "stop_hook",
             }),
         }));
@@ -73,9 +76,9 @@ describe("Codex Stop hook", () => {
     });
 
     it("completes the runtime session even when there is no assistant message", async () => {
-        readStdinJson.mockResolvedValue({
-            session_id: "runtime_2",
-            last_assistant_message: "   ",
+        readHookSessionContext.mockResolvedValue({
+            payload: { last_assistant_message: "   " },
+            sessionId: "runtime_2",
         });
 
         await import("./Stop.js");
@@ -91,7 +94,7 @@ describe("Codex Stop hook", () => {
             title: "Response (stop_hook)",
             metadata: expect.objectContaining({
                 messageId: "assistant_msg_1",
-                source: "codex-hooks",
+                source: "codex-cli",
                 stopReason: "stop_hook",
             }),
         }));
