@@ -6,6 +6,7 @@ import type { PlaybookRecord, PlaybookStatus, PlaybookSummary } from "~domain/in
 import { cosineSimilarity, deserializeEmbedding, serializeEmbedding } from "../shared/embedding.codec.js";
 import { normalizeEmbeddingSection, normalizeSearchText } from "../shared/text.normalizers.js";
 import { ensureSqliteDatabase, type SqliteDatabaseInput } from "../shared/drizzle.db.js";
+import { appendDomainEvent, eventTimeFromIso } from "../events/index.js";
 import { type PlaybookRow, type RankedPlaybookRow, mapPlaybookRecord, mapPlaybookSummary, parseJsonList } from "./sqlite.playbook.row.type.js";
 
 const MIN_SEMANTIC_SCORE = 0.22;
@@ -31,7 +32,7 @@ export class SqlitePlaybookRepository implements IPlaybookRepository {
 
     async getPlaybook(playbookId: string): Promise<PlaybookRecord | null> {
         const row = this.db.prepare<{ playbookId: string }, PlaybookRow>(
-            "select * from playbooks where id = @playbookId",
+            "select * from playbooks_current where id = @playbookId",
         ).get({ playbookId });
         return row ? mapPlaybookRecord(row) : null;
     }
@@ -43,19 +44,34 @@ export class SqlitePlaybookRepository implements IPlaybookRepository {
         const slug = ensureUniquePlaybookSlug(this.db, createPlaybookSlug(title));
         const payload = normalizePlaybookPayload(input, now);
 
-        this.db.prepare(`
-            insert into playbooks (
-              id, title, slug, status, when_to_use, prerequisites, approach, key_steps, watchouts,
-              anti_patterns, failure_modes, variants, related_playbook_ids, source_snapshot_ids, tags,
-              search_text, embedding, embedding_model, use_count, last_used_at, created_at, updated_at
-            ) values (
-              @id, @title, @slug, @status, @whenToUse, @prerequisites, @approach, @keySteps, @watchouts,
-              @antiPatterns, @failureModes, @variants, @relatedPlaybookIds, @sourceSnapshotIds, @tags,
-              @searchText, null, null, 0, null, @createdAt, @updatedAt
-            )
-        `).run({ id, title, slug, ...payload });
+        this.db.transaction(() => {
+            this.db.prepare(`
+                insert into playbooks_current (
+                  id, title, slug, status, when_to_use, prerequisites, approach, key_steps, watchouts,
+                  anti_patterns, failure_modes, variants, related_playbook_ids, source_snapshot_ids, tags,
+                  search_text, embedding, embedding_model, use_count, last_used_at, created_at, updated_at
+                ) values (
+                  @id, @title, @slug, @status, @whenToUse, @prerequisites, @approach, @keySteps, @watchouts,
+                  @antiPatterns, @failureModes, @variants, @relatedPlaybookIds, @sourceSnapshotIds, @tags,
+                  @searchText, null, null, 0, null, @createdAt, @updatedAt
+                )
+            `).run({ id, title, slug, ...payload });
 
-        updatePromotedSnapshots(this.db, payload.sourceSnapshotIdsList, id);
+            updatePromotedSnapshots(this.db, payload.sourceSnapshotIdsList, id);
+            appendDomainEvent(this.db, {
+                eventTime: eventTimeFromIso(now),
+                eventType: "playbook.drafted",
+                schemaVer: 1,
+                aggregateId: id,
+                actor: "user",
+                payload: {
+                    playbook_id: id,
+                    title,
+                    slug,
+                    source_evaluation_refs: payload.sourceSnapshotIdsList
+                }
+            });
+        })();
         if (this.embeddingService) {
             void this.generateAndSaveEmbedding(id, buildPlaybookEmbeddingText({ title, slug, ...payload }));
         }
@@ -87,19 +103,34 @@ export class SqlitePlaybookRepository implements IPlaybookRepository {
             tags: input.tags ?? existing.tags,
         }, new Date().toISOString(), existing.createdAt);
 
-        this.db.prepare(`
-            update playbooks
-            set title = @title, slug = @slug, status = @status,
-                when_to_use = @whenToUse, prerequisites = @prerequisites,
-                approach = @approach, key_steps = @keySteps, watchouts = @watchouts,
-                anti_patterns = @antiPatterns, failure_modes = @failureModes,
-                variants = @variants, related_playbook_ids = @relatedPlaybookIds,
-                source_snapshot_ids = @sourceSnapshotIds, tags = @tags,
-                search_text = @searchText, updated_at = @updatedAt
-            where id = @id
-        `).run({ id: playbookId, title, slug, ...merged });
+        this.db.transaction(() => {
+            this.db.prepare(`
+                update playbooks_current
+                set title = @title, slug = @slug, status = @status,
+                    when_to_use = @whenToUse, prerequisites = @prerequisites,
+                    approach = @approach, key_steps = @keySteps, watchouts = @watchouts,
+                    anti_patterns = @antiPatterns, failure_modes = @failureModes,
+                    variants = @variants, related_playbook_ids = @relatedPlaybookIds,
+                    source_snapshot_ids = @sourceSnapshotIds, tags = @tags,
+                    search_text = @searchText, updated_at = @updatedAt
+                where id = @id
+            `).run({ id: playbookId, title, slug, ...merged });
 
-        updatePromotedSnapshots(this.db, merged.sourceSnapshotIdsList, playbookId);
+            updatePromotedSnapshots(this.db, merged.sourceSnapshotIdsList, playbookId);
+            if (existing.status !== "active" && merged.status === "active") {
+                appendDomainEvent(this.db, {
+                    eventTime: eventTimeFromIso(merged.updatedAt),
+                    eventType: "playbook.published",
+                    schemaVer: 1,
+                    aggregateId: playbookId,
+                    actor: "user",
+                    payload: {
+                        playbook_id: playbookId,
+                        version: "1"
+                    }
+                });
+            }
+        })();
         if (this.embeddingService) {
             void this.generateAndSaveEmbedding(playbookId, buildPlaybookEmbeddingText({ title, slug, ...merged }));
         }
@@ -110,7 +141,7 @@ export class SqlitePlaybookRepository implements IPlaybookRepository {
     private loadPlaybookRows(status?: PlaybookStatus): readonly PlaybookRow[] {
         const whereClause = status ? "where status = @status" : "";
         return this.db.prepare<{ status?: PlaybookStatus }, PlaybookRow>(
-            `select * from playbooks ${whereClause}`,
+            `select * from playbooks_current ${whereClause}`,
         ).all(status ? { status } : {});
     }
 
@@ -143,7 +174,7 @@ export class SqlitePlaybookRepository implements IPlaybookRepository {
         try {
             const vector = await this.embeddingService!.embed(embeddingText);
             this.db.prepare(`
-                update playbooks
+                update playbooks_current
                 set embedding = @embedding, embedding_model = @embeddingModel
                 where id = @playbookId
             `).run({ playbookId, embedding: serializeEmbedding(vector), embeddingModel: this.embeddingService!.modelId });
@@ -161,8 +192,8 @@ function ensureUniquePlaybookSlug(db: Database.Database, baseSlug: string, ignor
     for (let attempt = 0; attempt < 200; attempt += 1) {
         const existing = db.prepare<{ slug: string; ignoreId?: string }, { id: string }>(
             ignoreId
-                ? "select id from playbooks where slug = @slug and id != @ignoreId"
-                : "select id from playbooks where slug = @slug",
+                ? "select id from playbooks_current where slug = @slug and id != @ignoreId"
+                : "select id from playbooks_current where slug = @slug",
         ).get(ignoreId ? { slug, ignoreId } : { slug });
         if (!existing) return slug;
         slug = `${fallbackSlug}-${suffix++}`;
@@ -176,7 +207,7 @@ function updatePromotedSnapshots(db: Database.Database, snapshotIds: readonly st
     );
     if (snapshotRefs.length === 0) return;
     const statement = db.prepare(`
-        update task_evaluations
+        update evaluations_current
         set promoted_to = @playbookId
         where task_id = @taskId and scope_key = @scopeKey
     `);

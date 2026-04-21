@@ -1,0 +1,152 @@
+import type Database from "better-sqlite3";
+import type { DomainEvent } from "~domain/events/index.js";
+
+function isoFromMs(value: number): string {
+    return new Date(value).toISOString();
+}
+
+function getString(payload: Record<string, unknown>, key: string): string | null {
+    const value = payload[key];
+    return typeof value === "string" ? value : null;
+}
+
+export function projectDomainEvent(db: Database.Database, event: DomainEvent): void {
+    switch (event.eventType) {
+        case "task.created":
+            projectTaskCreated(db, event);
+            return;
+        case "task.renamed":
+            projectTaskRenamed(db, event);
+            return;
+        case "task.status_changed":
+            projectTaskStatusChanged(db, event);
+            return;
+        case "task.hierarchy_changed":
+            projectTaskHierarchyChanged(db, event);
+            return;
+        case "session.started":
+            projectSessionStarted(db, event);
+            return;
+        case "session.ended":
+            projectSessionEnded(db, event);
+            return;
+        default:
+            return;
+    }
+}
+
+function projectTaskCreated(db: Database.Database, event: DomainEvent): void {
+    db.prepare(`
+      insert into tasks_current (
+        id, title, slug, workspace_path, status, task_kind, parent_task_id,
+        parent_session_id, background_task_id, created_at, updated_at,
+        last_session_started_at, cli_source
+      ) values (
+        @id, @title, @slug, @workspacePath, @status, @taskKind, @parentTaskId,
+        null, null, @createdAt, @updatedAt, null, @cliSource
+      )
+      on conflict(id) do update set
+        title = excluded.title,
+        slug = excluded.slug,
+        workspace_path = excluded.workspace_path,
+        task_kind = excluded.task_kind,
+        parent_task_id = excluded.parent_task_id,
+        updated_at = excluded.updated_at,
+        cli_source = coalesce(excluded.cli_source, tasks_current.cli_source)
+    `).run({
+        id: getString(event.payload, "task_id") ?? event.aggregateId,
+        title: getString(event.payload, "title") ?? "Untitled task",
+        slug: getString(event.payload, "slug") ?? event.aggregateId,
+        workspacePath: getString(event.payload, "workspace_path"),
+        status: "running",
+        taskKind: getString(event.payload, "kind") ?? "primary",
+        parentTaskId: getString(event.payload, "parent_task_id"),
+        createdAt: isoFromMs(event.eventTime),
+        updatedAt: isoFromMs(event.eventTime),
+        cliSource: getString(event.payload, "cli_source"),
+    });
+}
+
+function projectTaskRenamed(db: Database.Database, event: DomainEvent): void {
+    db.prepare(`
+      update tasks_current
+      set title = @title,
+          slug = coalesce(@slug, slug),
+          updated_at = @updatedAt
+      where id = @id
+    `).run({
+        id: getString(event.payload, "task_id") ?? event.aggregateId,
+        title: getString(event.payload, "to") ?? "Untitled task",
+        slug: getString(event.payload, "slug"),
+        updatedAt: isoFromMs(event.eventTime),
+    });
+}
+
+function projectTaskStatusChanged(db: Database.Database, event: DomainEvent): void {
+    db.prepare(`
+      update tasks_current
+      set status = @status,
+          updated_at = @updatedAt
+      where id = @id
+    `).run({
+        id: getString(event.payload, "task_id") ?? event.aggregateId,
+        status: getString(event.payload, "to") ?? "running",
+        updatedAt: isoFromMs(event.eventTime),
+    });
+}
+
+function projectTaskHierarchyChanged(db: Database.Database, event: DomainEvent): void {
+    db.prepare(`
+      update tasks_current
+      set parent_task_id = @parentTaskId,
+          updated_at = @updatedAt
+      where id = @id
+    `).run({
+        id: getString(event.payload, "task_id") ?? event.aggregateId,
+        parentTaskId: getString(event.payload, "parent_task_id_to"),
+        updatedAt: isoFromMs(event.eventTime),
+    });
+}
+
+function projectSessionStarted(db: Database.Database, event: DomainEvent): void {
+    db.prepare(`
+      insert into sessions_current (
+        id, task_id, status, summary, started_at, ended_at
+      ) values (
+        @id, @taskId, 'running', null, @startedAt, null
+      )
+      on conflict(id) do update set
+        task_id = excluded.task_id,
+        status = excluded.status,
+        started_at = excluded.started_at
+    `).run({
+        id: getString(event.payload, "session_id") ?? event.sessionId,
+        taskId: getString(event.payload, "task_id") ?? event.aggregateId,
+        startedAt: isoFromMs(event.eventTime),
+    });
+
+    db.prepare(`
+      update tasks_current
+      set last_session_started_at = @startedAt,
+          updated_at = case when updated_at < @startedAt then @startedAt else updated_at end
+      where id = @taskId
+    `).run({
+        taskId: getString(event.payload, "task_id") ?? event.aggregateId,
+        startedAt: isoFromMs(event.eventTime),
+    });
+}
+
+function projectSessionEnded(db: Database.Database, event: DomainEvent): void {
+    db.prepare(`
+      update sessions_current
+      set status = @status,
+          summary = coalesce(@summary, summary),
+          ended_at = @endedAt
+      where id = @id
+    `).run({
+        id: getString(event.payload, "session_id") ?? event.sessionId,
+        status: getString(event.payload, "outcome") ?? "completed",
+        summary: getString(event.payload, "summary"),
+        endedAt: isoFromMs(event.eventTime),
+    });
+}

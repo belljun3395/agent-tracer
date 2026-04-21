@@ -55,6 +55,8 @@ model in more detail.
   shape of each hook payload consumed by the plugin
 - [Task observability](./task-observability.md) — `Flow` and `Health`
   read model used by the dashboard
+- [SQLite schema](./sqlite-schema.md) — 정리된 SQLite table 구조,
+  event log, current/view table, migration 규칙
 - [Web styling guide](./web-styling.md) — CSS / Tailwind conventions
   used by `@monitor/web`
 
