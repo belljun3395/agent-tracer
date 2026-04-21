@@ -27,6 +27,7 @@ const guideSidebar = [
             { text: "Claude Hook Payload Spec", link: "/guide/hook-payload-spec" },
             { text: "Runtime API Flow", link: "/guide/runtime-api-flow-and-preprocessing" },
             { text: "Task Observability", link: "/guide/task-observability" },
+            { text: "SQLite Schema", link: "/guide/sqlite-schema" },
             { text: "Web Styling Guide", link: "/guide/web-styling" }
         ]
     }

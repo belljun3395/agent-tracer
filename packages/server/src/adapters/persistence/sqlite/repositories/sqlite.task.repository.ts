@@ -3,8 +3,9 @@ import type { MonitoringTask } from "~domain/monitoring/monitoring.task.model.js
 import type { ITaskRepository, OverviewStats, TaskUpsertInput } from "~application/ports/repository/task.repository.js"
 import { deriveTaskDisplayTitle } from "~application/tasks/services/task.display.title.service.js"
 import { ensureSqliteDatabase, type SqliteDatabase, type SqliteDatabaseInput } from "../shared/drizzle.db.js"
-import { monitoringTasks, timelineEvents } from "../schema/drizzle.schema.js"
+import { sessionsCurrent, tasksCurrent, timelineEvents } from "../schema/drizzle.schema.js"
 import { buildTaskSearchText, deleteSearchDocumentsByTaskIds, upsertSearchDocument } from "../search/sqlite.search.documents.js"
+import { appendDomainEvent, eventTimeFromIso } from "../events/index.js"
 import { type EventKindRow, type TaskRow, mapEventKindRow, mapTaskRow } from "./sqlite.task.row.type.js"
 
 export class SqliteTaskRepository implements ITaskRepository {
@@ -43,42 +44,11 @@ export class SqliteTaskRepository implements ITaskRepository {
   }
 
   async upsert(input: TaskUpsertInput): Promise<MonitoringTask> {
-    this.db.orm
-      .insert(monitoringTasks)
-      .values({
-        id: input.id,
-        title: input.title,
-        slug: input.slug,
-        workspacePath: input.workspacePath ?? null,
-        status: input.status,
-        taskKind: input.taskKind,
-        parentTaskId: input.parentTaskId ?? null,
-        parentSessionId: input.parentSessionId ?? null,
-        backgroundTaskId: input.backgroundTaskId ?? null,
-        createdAt: input.createdAt,
-        updatedAt: input.updatedAt,
-        lastSessionStartedAt: input.lastSessionStartedAt ?? null,
-        cliSource: input.runtimeSource ?? null
-      })
-      .onConflictDoUpdate({
-        target: monitoringTasks.id,
-        set: {
-          title: input.title,
-          slug: input.slug,
-          workspacePath: input.workspacePath ?? null,
-          status: input.status,
-          taskKind: input.taskKind,
-          parentTaskId: input.parentTaskId ?? null,
-          parentSessionId: input.parentSessionId ?? null,
-          backgroundTaskId: input.backgroundTaskId ?? null,
-          updatedAt: input.updatedAt,
-          lastSessionStartedAt: input.lastSessionStartedAt ?? null,
-          cliSource: sql`coalesce(excluded.cli_source, monitoring_tasks.cli_source)`
-        }
-      })
-      .run()
-
-    this.refreshSearchDocument(input.id)
+    const existing = this.selectTaskRow(input.id)
+    this.db.client.transaction(() => {
+      this.appendTaskUpsertEvents(existing, input)
+      this.refreshSearchDocument(input.id)
+    })()
     const task = await this.findById(input.id)
     return task!
   }
@@ -86,22 +56,22 @@ export class SqliteTaskRepository implements ITaskRepository {
   async findById(id: string): Promise<MonitoringTask | null> {
     const row = this.db.orm
       .select({
-        id: monitoringTasks.id,
-        title: monitoringTasks.title,
-        slug: monitoringTasks.slug,
-        workspacePath: monitoringTasks.workspacePath,
-        status: monitoringTasks.status,
-        taskKind: monitoringTasks.taskKind,
-        parentTaskId: monitoringTasks.parentTaskId,
-        parentSessionId: monitoringTasks.parentSessionId,
-        backgroundTaskId: monitoringTasks.backgroundTaskId,
-        createdAt: monitoringTasks.createdAt,
-        updatedAt: monitoringTasks.updatedAt,
-        lastSessionStartedAt: monitoringTasks.lastSessionStartedAt,
-        cliSource: monitoringTasks.cliSource
+        id: tasksCurrent.id,
+        title: tasksCurrent.title,
+        slug: tasksCurrent.slug,
+        workspacePath: tasksCurrent.workspacePath,
+        status: tasksCurrent.status,
+        taskKind: tasksCurrent.taskKind,
+        parentTaskId: tasksCurrent.parentTaskId,
+        parentSessionId: tasksCurrent.parentSessionId,
+        backgroundTaskId: tasksCurrent.backgroundTaskId,
+        createdAt: tasksCurrent.createdAt,
+        updatedAt: tasksCurrent.updatedAt,
+        lastSessionStartedAt: tasksCurrent.lastSessionStartedAt,
+        cliSource: tasksCurrent.cliSource
       })
-      .from(monitoringTasks)
-      .where(eq(monitoringTasks.id, id))
+      .from(tasksCurrent)
+      .where(eq(tasksCurrent.id, id))
       .limit(1)
       .get() as TaskRow | undefined
 
@@ -115,22 +85,22 @@ export class SqliteTaskRepository implements ITaskRepository {
   async findAll(): Promise<readonly MonitoringTask[]> {
     const rows = this.db.orm
       .select({
-        id: monitoringTasks.id,
-        title: monitoringTasks.title,
-        slug: monitoringTasks.slug,
-        workspacePath: monitoringTasks.workspacePath,
-        status: monitoringTasks.status,
-        taskKind: monitoringTasks.taskKind,
-        parentTaskId: monitoringTasks.parentTaskId,
-        parentSessionId: monitoringTasks.parentSessionId,
-        backgroundTaskId: monitoringTasks.backgroundTaskId,
-        createdAt: monitoringTasks.createdAt,
-        updatedAt: monitoringTasks.updatedAt,
-        lastSessionStartedAt: monitoringTasks.lastSessionStartedAt,
-        cliSource: monitoringTasks.cliSource
+        id: tasksCurrent.id,
+        title: tasksCurrent.title,
+        slug: tasksCurrent.slug,
+        workspacePath: tasksCurrent.workspacePath,
+        status: tasksCurrent.status,
+        taskKind: tasksCurrent.taskKind,
+        parentTaskId: tasksCurrent.parentTaskId,
+        parentSessionId: tasksCurrent.parentSessionId,
+        backgroundTaskId: tasksCurrent.backgroundTaskId,
+        createdAt: tasksCurrent.createdAt,
+        updatedAt: tasksCurrent.updatedAt,
+        lastSessionStartedAt: tasksCurrent.lastSessionStartedAt,
+        cliSource: tasksCurrent.cliSource
       })
-      .from(monitoringTasks)
-      .orderBy(desc(monitoringTasks.updatedAt))
+      .from(tasksCurrent)
+      .orderBy(desc(tasksCurrent.updatedAt))
       .all() as readonly TaskRow[]
 
     return rows.map((row) => this.withDisplayTitle(mapTaskRow(row)))
@@ -139,54 +109,68 @@ export class SqliteTaskRepository implements ITaskRepository {
   async findChildren(parentId: string): Promise<readonly MonitoringTask[]> {
     const rows = this.db.orm
       .select({
-        id: monitoringTasks.id,
-        title: monitoringTasks.title,
-        slug: monitoringTasks.slug,
-        workspacePath: monitoringTasks.workspacePath,
-        status: monitoringTasks.status,
-        taskKind: monitoringTasks.taskKind,
-        parentTaskId: monitoringTasks.parentTaskId,
-        parentSessionId: monitoringTasks.parentSessionId,
-        backgroundTaskId: monitoringTasks.backgroundTaskId,
-        createdAt: monitoringTasks.createdAt,
-        updatedAt: monitoringTasks.updatedAt,
-        lastSessionStartedAt: monitoringTasks.lastSessionStartedAt,
-        cliSource: monitoringTasks.cliSource
+        id: tasksCurrent.id,
+        title: tasksCurrent.title,
+        slug: tasksCurrent.slug,
+        workspacePath: tasksCurrent.workspacePath,
+        status: tasksCurrent.status,
+        taskKind: tasksCurrent.taskKind,
+        parentTaskId: tasksCurrent.parentTaskId,
+        parentSessionId: tasksCurrent.parentSessionId,
+        backgroundTaskId: tasksCurrent.backgroundTaskId,
+        createdAt: tasksCurrent.createdAt,
+        updatedAt: tasksCurrent.updatedAt,
+        lastSessionStartedAt: tasksCurrent.lastSessionStartedAt,
+        cliSource: tasksCurrent.cliSource
       })
-      .from(monitoringTasks)
-      .where(eq(monitoringTasks.parentTaskId, parentId))
-      .orderBy(desc(monitoringTasks.updatedAt))
+      .from(tasksCurrent)
+      .where(eq(tasksCurrent.parentTaskId, parentId))
+      .orderBy(desc(tasksCurrent.updatedAt))
       .all() as readonly TaskRow[]
 
     return rows.map((row) => this.withDisplayTitle(mapTaskRow(row)))
   }
 
   async updateStatus(id: string, status: MonitoringTask["status"], updatedAt: string): Promise<void> {
-    this.db.orm
-      .update(monitoringTasks)
-      .set({ status, updatedAt })
-      .where(eq(monitoringTasks.id, id))
-      .run()
-
-    this.refreshSearchDocument(id)
+    const existing = this.selectTaskRow(id)
+    this.db.client.transaction(() => {
+      if (existing && existing.status !== status) {
+        appendDomainEvent(this.db.client, {
+          eventTime: eventTimeFromIso(updatedAt),
+          eventType: "task.status_changed",
+          schemaVer: 1,
+          aggregateId: id,
+          actor: "system",
+          payload: { task_id: id, from: existing.status, to: status }
+        })
+      }
+      this.refreshSearchDocument(id)
+    })()
   }
 
   async updateTitle(id: string, title: string, slug: MonitoringTask["slug"], updatedAt: string): Promise<void> {
-    this.db.orm
-      .update(monitoringTasks)
-      .set({ title, slug, updatedAt })
-      .where(eq(monitoringTasks.id, id))
-      .run()
-
-    this.refreshSearchDocument(id)
+    const existing = this.selectTaskRow(id)
+    this.db.client.transaction(() => {
+      if (existing && existing.title !== title) {
+        appendDomainEvent(this.db.client, {
+          eventTime: eventTimeFromIso(updatedAt),
+          eventType: "task.renamed",
+          schemaVer: 1,
+          aggregateId: id,
+          actor: "user",
+          payload: { task_id: id, from: existing.title, to: title, slug }
+        })
+      }
+      this.refreshSearchDocument(id)
+    })()
   }
 
   async delete(id: string): Promise<{ deletedIds: readonly string[] }> {
     return this.db.client.transaction(() => {
       const row = this.db.orm
-        .select({ status: monitoringTasks.status })
-        .from(monitoringTasks)
-        .where(eq(monitoringTasks.id, id))
+        .select({ status: tasksCurrent.status })
+        .from(tasksCurrent)
+        .where(eq(tasksCurrent.id, id))
         .limit(1)
         .get()
 
@@ -202,9 +186,9 @@ export class SqliteTaskRepository implements ITaskRepository {
 
   async deleteFinished(): Promise<number> {
     const finishedIds = this.db.orm
-      .select({ id: monitoringTasks.id })
-      .from(monitoringTasks)
-      .where(sql`${monitoringTasks.status} in ('completed', 'errored')`)
+      .select({ id: tasksCurrent.id })
+      .from(tasksCurrent)
+      .where(sql`${tasksCurrent.status} in ('completed', 'errored')`)
       .all()
       .map((row) => row.id)
 
@@ -228,13 +212,13 @@ export class SqliteTaskRepository implements ITaskRepository {
     const counts = this.db.orm
       .select({
         totalTasks: sql<number>`cast(count(*) as int)`,
-        runningTasks: sql<number | null>`cast(sum(case when ${monitoringTasks.status} = 'running' then 1 else 0 end) as int)`,
-        waitingTasks: sql<number | null>`cast(sum(case when ${monitoringTasks.status} = 'waiting' then 1 else 0 end) as int)`,
-        completedTasks: sql<number | null>`cast(sum(case when ${monitoringTasks.status} = 'completed' then 1 else 0 end) as int)`,
-        erroredTasks: sql<number | null>`cast(sum(case when ${monitoringTasks.status} = 'errored' then 1 else 0 end) as int)`,
-        totalEvents: sql<number>`(select cast(count(*) as int) from timeline_events)`
+        runningTasks: sql<number | null>`cast(sum(case when ${tasksCurrent.status} = 'running' then 1 else 0 end) as int)`,
+        waitingTasks: sql<number | null>`cast(sum(case when ${tasksCurrent.status} = 'waiting' then 1 else 0 end) as int)`,
+        completedTasks: sql<number | null>`cast(sum(case when ${tasksCurrent.status} = 'completed' then 1 else 0 end) as int)`,
+        erroredTasks: sql<number | null>`cast(sum(case when ${tasksCurrent.status} = 'errored' then 1 else 0 end) as int)`,
+        totalEvents: sql<number>`(select cast(count(*) as int) from timeline_events_view)`
       })
-      .from(monitoringTasks)
+      .from(tasksCurrent)
       .get()
 
     return {
@@ -250,9 +234,9 @@ export class SqliteTaskRepository implements ITaskRepository {
   private collectDescendantIds(taskId: string): readonly string[] {
     const rows = this.db.orm.all<{ id: string }>(sql`
       with recursive task_tree(id) as (
-        select id from monitoring_tasks where id = ${taskId}
+        select id from tasks_current where id = ${taskId}
         union all
-        select child.id from monitoring_tasks child join task_tree parent on child.parent_task_id = parent.id
+        select child.id from tasks_current child join task_tree parent on child.parent_task_id = parent.id
       )
       select id from task_tree where id != ${taskId}
     `)
@@ -266,20 +250,115 @@ export class SqliteTaskRepository implements ITaskRepository {
     }
 
     deleteSearchDocumentsByTaskIds(this.db, taskIds)
-    this.db.orm.delete(monitoringTasks).where(inArray(monitoringTasks.id, taskIds)).run()
+    this.db.orm.delete(sessionsCurrent).where(inArray(sessionsCurrent.taskId, taskIds)).run()
+    this.db.orm.delete(tasksCurrent).where(inArray(tasksCurrent.id, taskIds)).run()
+  }
+
+  private selectTaskRow(id: string): TaskRow | undefined {
+    return this.db.orm
+      .select({
+        id: tasksCurrent.id,
+        title: tasksCurrent.title,
+        slug: tasksCurrent.slug,
+        workspacePath: tasksCurrent.workspacePath,
+        status: tasksCurrent.status,
+        taskKind: tasksCurrent.taskKind,
+        parentTaskId: tasksCurrent.parentTaskId,
+        parentSessionId: tasksCurrent.parentSessionId,
+        backgroundTaskId: tasksCurrent.backgroundTaskId,
+        createdAt: tasksCurrent.createdAt,
+        updatedAt: tasksCurrent.updatedAt,
+        lastSessionStartedAt: tasksCurrent.lastSessionStartedAt,
+        cliSource: tasksCurrent.cliSource
+      })
+      .from(tasksCurrent)
+      .where(eq(tasksCurrent.id, id))
+      .limit(1)
+      .get() as TaskRow | undefined
+  }
+
+  private appendTaskUpsertEvents(existing: TaskRow | undefined, input: TaskUpsertInput): void {
+    const eventTime = eventTimeFromIso(input.updatedAt)
+    if (!existing) {
+      appendDomainEvent(this.db.client, {
+        eventTime: eventTimeFromIso(input.createdAt),
+        eventType: "task.created",
+        schemaVer: 1,
+        aggregateId: input.id,
+        actor: "user",
+        payload: {
+          task_id: input.id,
+          title: input.title,
+          slug: input.slug,
+          kind: input.taskKind,
+          ...(input.parentTaskId ? { parent_task_id: input.parentTaskId } : {}),
+          ...(input.workspacePath ? { workspace_path: input.workspacePath } : {}),
+          ...(input.runtimeSource ? { cli_source: input.runtimeSource } : {})
+        }
+      })
+      if (input.status !== "running") {
+        appendDomainEvent(this.db.client, {
+          eventTime,
+          eventType: "task.status_changed",
+          schemaVer: 1,
+          aggregateId: input.id,
+          actor: "system",
+          payload: { task_id: input.id, from: "running", to: input.status }
+        })
+      }
+      return
+    }
+
+    if (existing.status !== input.status) {
+      appendDomainEvent(this.db.client, {
+        eventTime,
+        eventType: "task.status_changed",
+        schemaVer: 1,
+        aggregateId: input.id,
+        actor: "system",
+        payload: { task_id: input.id, from: existing.status, to: input.status }
+      })
+    }
+
+    if (existing.title !== input.title) {
+      appendDomainEvent(this.db.client, {
+        eventTime,
+        eventType: "task.renamed",
+        schemaVer: 1,
+        aggregateId: input.id,
+        actor: "user",
+        payload: { task_id: input.id, from: existing.title, to: input.title }
+      })
+    }
+
+    const nextParent = input.parentTaskId ?? null
+    if (existing.parentTaskId !== nextParent) {
+      appendDomainEvent(this.db.client, {
+        eventTime,
+        eventType: "task.hierarchy_changed",
+        schemaVer: 1,
+        aggregateId: input.id,
+        actor: "user",
+        payload: {
+          task_id: input.id,
+          ...(existing.parentTaskId ? { parent_task_id_from: existing.parentTaskId } : {}),
+          ...(nextParent ? { parent_task_id_to: nextParent } : {})
+        }
+      })
+    }
   }
 
   private refreshSearchDocument(taskId: string): void {
     const row = this.db.orm
       .select({
-        id: monitoringTasks.id,
-        title: monitoringTasks.title,
-        workspacePath: monitoringTasks.workspacePath,
-        cliSource: monitoringTasks.cliSource,
-        updatedAt: monitoringTasks.updatedAt
+        id: tasksCurrent.id,
+        title: tasksCurrent.title,
+        workspacePath: tasksCurrent.workspacePath,
+        cliSource: tasksCurrent.cliSource,
+        updatedAt: tasksCurrent.updatedAt
       })
-      .from(monitoringTasks)
-      .where(eq(monitoringTasks.id, taskId))
+      .from(tasksCurrent)
+      .where(eq(tasksCurrent.id, taskId))
       .limit(1)
       .get()
 

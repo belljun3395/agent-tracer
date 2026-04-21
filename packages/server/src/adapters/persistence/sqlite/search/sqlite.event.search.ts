@@ -171,7 +171,7 @@ function hydrateTaskHits(db: Database.Database, taskIds: readonly string[]): rea
     const rows = db
         .prepare<string[], SearchTaskRow>(`
             select id, title, workspace_path, status, updated_at
-            from monitoring_tasks
+            from tasks_current
             where id in (${placeholders})
         `)
         .all(...taskIds);
@@ -200,8 +200,8 @@ function hydrateEventHits(db: Database.Database, eventIds: readonly string[]): r
     const rows = db
         .prepare<string[], SearchEventRow>(`
             select e.id as event_id, e.task_id, t.title as task_title, e.title, e.body, e.lane, e.kind, e.created_at
-            from timeline_events e
-            join monitoring_tasks t on t.id = e.task_id
+            from timeline_events_view e
+            join tasks_current t on t.id = e.task_id
             where e.id in (${placeholders})
         `)
         .all(...eventIds);
@@ -233,9 +233,9 @@ function hydrateBookmarkHits(db: Database.Database, bookmarkIds: readonly string
     const rows = db
         .prepare<string[], SearchBookmarkRow>(`
             select b.id, b.task_id, b.event_id, b.kind, b.title, b.note, b.created_at, t.title as task_title, e.title as event_title
-            from bookmarks b
-            join monitoring_tasks t on t.id = b.task_id
-            left join timeline_events e on e.id = b.event_id
+            from bookmarks_current b
+            join tasks_current t on t.id = b.task_id
+            left join timeline_events_view e on e.id = b.event_id
             where b.id in (${placeholders})
         `)
         .all(...bookmarkIds);
@@ -271,7 +271,7 @@ function legacySearch(db: Database.Database, query: string, opts?: SearchOptions
             limit: number;
         }, SearchTaskRow>(`
             select id, title, workspace_path, status, updated_at
-            from monitoring_tasks
+            from tasks_current
             where lower(title) like @pattern escape '\\'
                or lower(coalesce(workspace_path, '')) like @pattern escape '\\'
             order by datetime(updated_at) desc
@@ -294,8 +294,8 @@ function legacySearch(db: Database.Database, query: string, opts?: SearchOptions
             taskId: string | null;
         }, SearchEventRow>(`
             select e.id as event_id, e.task_id, t.title as task_title, e.title, e.body, e.lane, e.kind, e.created_at
-            from timeline_events e
-            join monitoring_tasks t on t.id = e.task_id
+            from timeline_events_view e
+            join tasks_current t on t.id = e.task_id
             where (lower(e.title) like @pattern escape '\\' or lower(coalesce(e.body, '')) like @pattern escape '\\' or lower(e.metadata_json) like @pattern escape '\\')
               and (@taskId is null or e.task_id = @taskId)
             order by datetime(e.created_at) desc
@@ -321,9 +321,9 @@ function legacySearch(db: Database.Database, query: string, opts?: SearchOptions
             taskId: string | null;
         }, SearchBookmarkRow>(`
             select b.id, b.task_id, b.event_id, b.kind, b.title, b.note, b.created_at, t.title as task_title, e.title as event_title
-            from bookmarks b
-            join monitoring_tasks t on t.id = b.task_id
-            left join timeline_events e on e.id = b.event_id
+            from bookmarks_current b
+            join tasks_current t on t.id = b.task_id
+            left join timeline_events_view e on e.id = b.event_id
             where (lower(b.title) like @pattern escape '\\' or lower(coalesce(b.note, '')) like @pattern escape '\\' or lower(t.title) like @pattern escape '\\' or lower(coalesce(e.title, '')) like @pattern escape '\\')
               and (@taskId is null or b.task_id = @taskId)
             order by datetime(b.created_at) desc

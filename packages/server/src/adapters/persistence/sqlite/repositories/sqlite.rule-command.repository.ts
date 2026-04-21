@@ -2,6 +2,7 @@ import { eq, isNull } from "drizzle-orm";
 import type { IRuleCommandRepository, RuleCommandRecord, RuleCommandCreateInput } from "~application/ports/repository/rule-command.repository.js";
 import { ensureSqliteDatabase, type SqliteDatabase, type SqliteDatabaseInput } from "../shared/drizzle.db.js";
 import { ruleCommands } from "../schema/drizzle.schema.js";
+import { appendDomainEvent, eventTimeFromIso } from "../events/index.js";
 import { type RuleCommandRow, mapRuleCommandRow } from "./sqlite.rule-command.row.type.js";
 
 export class SqliteRuleCommandRepository implements IRuleCommandRepository {
@@ -13,16 +14,32 @@ export class SqliteRuleCommandRepository implements IRuleCommandRepository {
 
   async create(input: RuleCommandCreateInput): Promise<RuleCommandRecord> {
     const now = new Date().toISOString();
-    this.db.orm
-      .insert(ruleCommands)
-      .values({
-        id: input.id,
-        pattern: input.pattern,
-        label: input.label,
-        taskId: input.taskId ?? null,
-        createdAt: now,
-      })
-      .run();
+    this.db.client.transaction(() => {
+      this.db.orm
+        .insert(ruleCommands)
+        .values({
+          id: input.id,
+          pattern: input.pattern,
+          label: input.label,
+          taskId: input.taskId ?? null,
+          createdAt: now,
+        })
+        .run();
+
+      appendDomainEvent(this.db.client, {
+        eventTime: eventTimeFromIso(now),
+        eventType: "rule_command.registered",
+        schemaVer: 1,
+        aggregateId: input.taskId ?? input.id,
+        actor: "user",
+        payload: {
+          rule_id: input.id,
+          pattern: input.pattern,
+          label: input.label,
+          ...(input.taskId ? { task_id: input.taskId } : {})
+        }
+      });
+    })();
 
     const row = this.db.orm
       .select()

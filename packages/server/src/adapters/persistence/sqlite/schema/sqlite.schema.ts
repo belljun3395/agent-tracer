@@ -1,35 +1,13 @@
 import type Database from "better-sqlite3";
+import { createEventLogSchema } from "../events/index.js";
+import { createProjectionSchema } from "../projections/index.js";
 export function createSchema(db: Database.Database): void {
+    createProjectionSchema(db);
     db.exec(`
-    create table if not exists monitoring_tasks (
+    create table if not exists timeline_events_view (
       id text primary key,
-      title text not null,
-      slug text not null,
-      workspace_path text,
-      status text not null,
-      task_kind text not null default 'primary',
-      parent_task_id text references monitoring_tasks(id) on delete cascade,
-      parent_session_id text,
-      background_task_id text,
-      created_at text not null,
-      updated_at text not null,
-      last_session_started_at text,
-      cli_source text
-    );
-
-    create table if not exists task_sessions (
-      id text primary key,
-      task_id text not null references monitoring_tasks(id) on delete cascade,
-      status text not null,
-      summary text,
-      started_at text not null,
-      ended_at text
-    );
-
-    create table if not exists timeline_events (
-      id text primary key,
-      task_id text not null references monitoring_tasks(id) on delete cascade,
-      session_id text references task_sessions(id) on delete set null,
+      task_id text not null references tasks_current(id) on delete cascade,
+      session_id text references sessions_current(id) on delete set null,
       kind text not null,
       lane text not null,
       title text not null,
@@ -39,23 +17,23 @@ export function createSchema(db: Database.Database): void {
       created_at text not null
     );
 
-    create index if not exists idx_timeline_events_task_created
-      on timeline_events(task_id, created_at);
+    create index if not exists idx_timeline_events_view_task_created
+      on timeline_events_view(task_id, created_at);
 
-    create table if not exists runtime_session_bindings (
+    create table if not exists runtime_bindings_current (
       runtime_source text not null,
       runtime_session_id text not null,
-      task_id text not null references monitoring_tasks(id) on delete cascade,
-      monitor_session_id text,
+      task_id text not null references tasks_current(id) on delete cascade,
+      monitor_session_id text references sessions_current(id) on delete set null,
       created_at text not null,
       updated_at text not null,
       primary key (runtime_source, runtime_session_id)
     );
 
-    create table if not exists bookmarks (
+    create table if not exists bookmarks_current (
       id text primary key,
-      task_id text not null references monitoring_tasks(id) on delete cascade,
-      event_id text references timeline_events(id) on delete cascade,
+      task_id text not null references tasks_current(id) on delete cascade,
+      event_id text references timeline_events_view(id) on delete cascade,
       kind text not null,
       title text not null,
       note text,
@@ -64,11 +42,11 @@ export function createSchema(db: Database.Database): void {
       updated_at text not null
     );
 
-    create index if not exists idx_bookmarks_task_created
-      on bookmarks(task_id, updated_at desc);
+    create index if not exists idx_bookmarks_current_task_created
+      on bookmarks_current(task_id, updated_at desc);
 
-    create index if not exists idx_bookmarks_event
-      on bookmarks(event_id);
+    create index if not exists idx_bookmarks_current_event
+      on bookmarks_current(event_id);
 
     create table if not exists search_documents (
       scope text not null check(scope in ('task', 'event', 'bookmark')),
@@ -84,8 +62,8 @@ export function createSchema(db: Database.Database): void {
     create index if not exists idx_search_documents_scope_task_updated
       on search_documents(scope, task_id, updated_at desc);
 
-    create table if not exists task_evaluations (
-      task_id       text not null references monitoring_tasks(id) on delete cascade,
+    create table if not exists evaluations_current (
+      task_id       text not null references tasks_current(id) on delete cascade,
       scope_key     text not null default 'task',
       scope_kind    text not null default 'task' check(scope_kind in ('task', 'turn')),
       scope_label   text not null default 'Whole task',
@@ -111,10 +89,10 @@ export function createSchema(db: Database.Database): void {
       primary key (task_id, scope_key)
     );
 
-    create index if not exists idx_task_evaluations_rating
-      on task_evaluations(rating);
+    create index if not exists idx_evaluations_current_rating
+      on evaluations_current(rating);
 
-    create table if not exists playbooks (
+    create table if not exists playbooks_current (
       id text primary key,
       title text not null,
       slug text unique not null,
@@ -139,12 +117,12 @@ export function createSchema(db: Database.Database): void {
       updated_at text not null
     );
 
-    create index if not exists idx_playbooks_status
-      on playbooks(status);
+    create index if not exists idx_playbooks_current_status
+      on playbooks_current(status);
 
-    create table if not exists briefings (
+    create table if not exists briefings_current (
       id text primary key,
-      task_id text not null references monitoring_tasks(id) on delete cascade,
+      task_id text not null references tasks_current(id) on delete cascade,
       generated_at text not null,
       purpose text not null,
       format text not null,
@@ -152,18 +130,20 @@ export function createSchema(db: Database.Database): void {
       content text not null
     );
 
-    create index if not exists idx_briefings_task_generated
-      on briefings(task_id, generated_at desc);
+    create index if not exists idx_briefings_current_task_generated
+      on briefings_current(task_id, generated_at desc);
 
-    create table if not exists rule_commands (
+    create table if not exists rule_commands_current (
       id text primary key,
       pattern text not null,
       label text not null,
-      task_id text references monitoring_tasks(id) on delete cascade,
+      -- null means global rule; non-null scopes the rule to one task.
+      task_id text references tasks_current(id) on delete cascade,
       created_at text not null
     );
 
-    create index if not exists idx_rule_commands_task_id
-      on rule_commands(task_id);
+    create index if not exists idx_rule_commands_current_task_id
+      on rule_commands_current(task_id);
   `);
+    createEventLogSchema(db);
 }

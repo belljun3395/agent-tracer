@@ -98,7 +98,7 @@ export function backfillSearchDocuments(db: Database.Database): void {
       t.id,
       trim(coalesce(t.title, '') || ' ' || coalesce(t.workspace_path, '') || ' ' || coalesce(t.cli_source, '')),
       t.updated_at
-    from monitoring_tasks t
+    from tasks_current t
     where not exists (
       select 1
       from search_documents s
@@ -121,8 +121,8 @@ export function backfillSearchDocuments(db: Database.Database): void {
         coalesce(e.metadata_json, '')
       ),
       e.created_at
-    from timeline_events e
-    join monitoring_tasks t on t.id = e.task_id
+    from timeline_events_view e
+    join tasks_current t on t.id = e.task_id
     where not exists (
       select 1
       from search_documents s
@@ -144,9 +144,9 @@ export function backfillSearchDocuments(db: Database.Database): void {
         coalesce(e.title, '')
       ),
       b.updated_at
-    from bookmarks b
-    join monitoring_tasks t on t.id = b.task_id
-    left join timeline_events e on e.id = b.event_id
+    from bookmarks_current b
+    join tasks_current t on t.id = b.task_id
+    left join timeline_events_view e on e.id = b.event_id
     where not exists (
       select 1
       from search_documents s

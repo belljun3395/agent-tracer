@@ -5,6 +5,7 @@ import type { IEmbeddingService } from "~application/ports/service/embedding.ser
 import { ensureSqliteDatabase, type SqliteDatabase, type SqliteDatabaseInput } from "../shared/drizzle.db.js";
 import { timelineEvents } from "../schema/drizzle.schema.js";
 import { refreshEventSearchDocument, searchEvents } from "../search/sqlite.event.search.js";
+import { appendDomainEvent, mapTimelineInsertToDomainEvent } from "../events/index.js";
 import { type EventRow, mapEventRow } from "./sqlite.event.row.type.js";
 
 export class SqliteEventRepository implements IEventRepository {
@@ -15,20 +16,27 @@ export class SqliteEventRepository implements IEventRepository {
     }
 
     async insert(input: EventInsertInput): Promise<TimelineEvent> {
-        this.db.orm.insert(timelineEvents).values({
-            id: input.id,
-            taskId: input.taskId,
-            sessionId: input.sessionId ?? null,
-            kind: input.kind,
-            lane: input.lane,
-            title: input.title,
-            body: input.body ?? null,
-            metadataJson: JSON.stringify(input.metadata),
-            classificationJson: JSON.stringify(input.classification),
-            createdAt: input.createdAt
-        }).run();
+        this.db.client.transaction(() => {
+            this.db.orm.insert(timelineEvents).values({
+                id: input.id,
+                taskId: input.taskId,
+                sessionId: input.sessionId ?? null,
+                kind: input.kind,
+                lane: input.lane,
+                title: input.title,
+                body: input.body ?? null,
+                metadataJson: JSON.stringify(input.metadata),
+                classificationJson: JSON.stringify(input.classification),
+                createdAt: input.createdAt
+            }).run();
 
-        refreshEventSearchDocument(this.db, input.id);
+            const domainEvent = mapTimelineInsertToDomainEvent(input);
+            if (domainEvent) {
+                appendDomainEvent(this.db.client, domainEvent);
+            }
+
+            refreshEventSearchDocument(this.db, input.id);
+        })();
         return (await this.findById(input.id))!;
     }
 

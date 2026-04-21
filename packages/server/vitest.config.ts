@@ -18,7 +18,6 @@ export default defineConfig({
         }
     },
     test: {
-        setupFiles: ["./test/vitest-setup.ts"],
         passWithNoTests: true,
     }
 });
