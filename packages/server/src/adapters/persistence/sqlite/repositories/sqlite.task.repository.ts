@@ -371,6 +371,7 @@ export class SqliteTaskRepository implements ITaskRepository {
       entityId: row.id,
       taskId: row.id,
       searchText: buildTaskSearchText({
+        taskId: row.id,
         title: row.title,
         workspacePath: row.workspacePath,
         runtimeSource: row.cliSource

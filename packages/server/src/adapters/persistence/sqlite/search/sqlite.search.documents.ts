@@ -12,11 +12,13 @@ export interface SearchDocumentInput {
     readonly updatedAt: string;
 }
 export function buildTaskSearchText(input: {
+    readonly taskId: string;
     readonly title: string;
     readonly workspacePath?: string | null;
     readonly runtimeSource?: string | null;
 }): string {
     return joinSearchTextParts([
+        input.taskId,
         input.title,
         input.workspacePath,
         input.runtimeSource
@@ -96,7 +98,7 @@ export function backfillSearchDocuments(db: Database.Database): void {
       'task',
       t.id,
       t.id,
-      trim(coalesce(t.title, '') || ' ' || coalesce(t.workspace_path, '') || ' ' || coalesce(t.cli_source, '')),
+      trim(t.id || ' ' || coalesce(t.title, '') || ' ' || coalesce(t.workspace_path, '') || ' ' || coalesce(t.cli_source, '')),
       t.updated_at
     from tasks_current t
     where not exists (
