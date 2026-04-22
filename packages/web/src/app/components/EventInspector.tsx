@@ -267,11 +267,11 @@ export function EventInspector({
                         focusedGroupId={ctx?.focusedTurnGroupId ?? null}
                         isSaving={ctx?.turnPartitionSaving ?? false}
                         onFocusGroup={ctx?.onFocusTurnGroup ?? (() => undefined)}
-                        onMergeNext={ctx?.onMergeTurnGroup ?? (async () => undefined)}
-                        onSplit={ctx?.onSplitTurnGroup ?? (async () => undefined)}
-                        onToggleVisibility={ctx?.onToggleTurnGroupVisibility ?? (async () => undefined)}
-                        onRename={ctx?.onRenameTurnGroup ?? (async () => undefined)}
-                        onReset={ctx?.onResetTurnPartition ?? (async () => undefined)}
+                        onMergeNext={ctx?.onMergeTurnGroup ?? (() => Promise.resolve())}
+                        onSplit={ctx?.onSplitTurnGroup ?? (() => Promise.resolve())}
+                        onToggleVisibility={ctx?.onToggleTurnGroupVisibility ?? (() => Promise.resolve())}
+                        onRename={ctx?.onRenameTurnGroup ?? (() => Promise.resolve())}
+                        onReset={ctx?.onResetTurnPartition ?? (() => Promise.resolve())}
                     />
                 ) : activeTab === "evidence" ? (
                     <EvidenceTab

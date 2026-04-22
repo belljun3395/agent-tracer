@@ -32,7 +32,6 @@ function normalizeBaseUrl(value: string | undefined): string {
     return value?.replace(/\/+$/g, "") ?? "";
 }
 const API_BASE = normalizeBaseUrl((import.meta.env.VITE_MONITOR_BASE_URL as string | undefined)
-    ?? (import.meta.env.VITE_BADEN_BASE_URL as string | undefined)
     ?? (import.meta.env.DEV
         ? (import.meta.env.VITE_MONITOR_DEV_BASE_URL as string | undefined)
         : undefined));
