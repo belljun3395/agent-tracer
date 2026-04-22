@@ -1,8 +1,3 @@
-export interface WebConfig {
-  readonly apiBaseUrl: string
-  readonly wsBaseUrl: string
-}
-
 export interface ViteMonitorConfig {
   readonly monitorHttpBaseUrl: string
   readonly monitorWsBaseUrl: string
@@ -40,11 +35,3 @@ export function resolveViteMonitorConfig(env: Record<string, string | undefined>
   }
 }
 
-export function loadWebConfig(): WebConfig {
-  const apiBase = import.meta.env['VITE_MONITOR_BASE_URL'] as string | undefined
-  const wsBase = import.meta.env['VITE_MONITOR_WS_BASE_URL'] as string | undefined
-  return {
-    apiBaseUrl: apiBase ?? 'http://127.0.0.1:3847',
-    wsBaseUrl: wsBase ?? 'ws://127.0.0.1:3847',
-  }
-}

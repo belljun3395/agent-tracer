@@ -587,7 +587,7 @@ export function OverviewTab({ observability, subagentInsight, verificationCycles
             aria-label="Scope"
             className="w-full max-w-full truncate rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface-2)] px-2.5 py-1.5 text-[0.78rem] font-semibold text-[var(--text-1)] transition-colors hover:border-[var(--border-2)] focus-visible:outline-none focus-visible:border-[var(--accent)]"
             value={focusedGroupId ?? ""}
-            onChange={(e) => onFocusGroup?.(e.target.value ? e.target.value : null)}
+            onChange={(e) => onFocusGroup(e.target.value ? e.target.value : null)}
           >
             <option value="">Whole task</option>
             {groups.map((group) => (

@@ -1,32 +1,10 @@
 import type Database from "better-sqlite3";
-import { createEventLogSchema } from "../events/index.js";
-import { backfillCurrentProjections, createProjectionSchema, dropLegacyTaskSessionTables } from "../projections/index.js";
+
 export function runMigrations(db: Database.Database): void {
-    createProjectionSchema(db);
-    addTimelineEventsLaneColumnIfMissing(db);
-    const cols = db.pragma("table_info(monitoring_tasks)") as Array<{
-        name: string;
-        pk?: number;
-    }>;
     let evaluationCols = db.pragma("table_info(evaluations_current)") as Array<{
         name: string;
         pk?: number;
     }>;
-    if (cols.length > 0 && !cols.some((c) => c.name === "cli_source")) {
-        db.exec("alter table monitoring_tasks add column cli_source text");
-    }
-    if (cols.length > 0 && !cols.some((c) => c.name === "task_kind")) {
-        db.exec("alter table monitoring_tasks add column task_kind text not null default 'primary'");
-    }
-    if (cols.length > 0 && !cols.some((c) => c.name === "parent_task_id")) {
-        db.exec("alter table monitoring_tasks add column parent_task_id text references tasks_current(id) on delete set null");
-    }
-    if (cols.length > 0 && !cols.some((c) => c.name === "parent_session_id")) {
-        db.exec("alter table monitoring_tasks add column parent_session_id text");
-    }
-    if (cols.length > 0 && !cols.some((c) => c.name === "background_task_id")) {
-        db.exec("alter table monitoring_tasks add column background_task_id text");
-    }
     if (evaluationCols.length > 0 && needsTaskEvaluationScopeMigration(evaluationCols)) {
         rebuildTaskEvaluationsWithScopes(db, evaluationCols);
         evaluationCols = db.pragma("table_info(evaluations_current)") as Array<{
@@ -73,70 +51,6 @@ export function runMigrations(db: Database.Database): void {
     if (evaluationCols.length > 0 && !evaluationCols.some((c) => c.name === "embedding_model")) {
         db.exec("alter table evaluations_current add column embedding_model text");
     }
-    db.exec(`
-      create table if not exists playbooks_current (
-        id text primary key,
-        title text not null,
-        slug text unique not null,
-        status text not null default 'draft',
-        when_to_use text,
-        prerequisites text,
-        approach text,
-        key_steps text,
-        watchouts text,
-        anti_patterns text,
-        failure_modes text,
-        variants text,
-        related_playbook_ids text,
-        source_snapshot_ids text,
-        tags text,
-        search_text text,
-        embedding text,
-        embedding_model text,
-        use_count integer not null default 0,
-        last_used_at text,
-        created_at text not null,
-        updated_at text not null
-      )
-    `);
-    db.exec("create index if not exists idx_playbooks_current_status on playbooks_current(status)");
-    db.exec(`
-      create table if not exists briefings_current (
-        id text primary key,
-        task_id text not null references tasks_current(id) on delete cascade,
-        generated_at text not null,
-        purpose text not null,
-        format text not null,
-        memo text,
-        content text not null
-      )
-    `);
-    db.exec("create index if not exists idx_briefings_current_task_generated on briefings_current(task_id, generated_at desc)");
-    db.exec(`
-      create table if not exists turn_partitions_current (
-        task_id     text primary key references tasks_current(id) on delete cascade,
-        groups_json text not null,
-        version     integer not null default 1,
-        updated_at  text not null
-      )
-    `);
-    createEventLogSchema(db);
-    backfillCurrentProjections(db);
-    backfillTaskRuntimeSources(db);
-    dropLegacyTaskSessionTables(db);
-}
-
-function addTimelineEventsLaneColumnIfMissing(db: Database.Database): void {
-    const timelineCols = db.pragma("table_info(timeline_events_view)") as Array<{ name: string }>;
-    if (timelineCols.length === 0) return; // table not created yet
-    if (timelineCols.some((c) => c.name === "lane")) return;
-    // Add nullable first, backfill from classification_json, then enforce via application-side writes.
-    db.exec("alter table timeline_events_view add column lane text");
-    db.exec(`
-        update timeline_events_view
-        set lane = coalesce(json_extract(classification_json, '$.lane'), 'implementation')
-        where lane is null
-    `);
 }
 
 function needsTaskEvaluationScopeMigration(columns: Array<{ name: string; pk?: number }>): boolean {
@@ -217,52 +131,4 @@ function rebuildTaskEvaluationsWithScopes(db: Database.Database, columns: Array<
     db.exec("drop table evaluations_current");
     db.exec("alter table evaluations_current_v2 rename to evaluations_current");
     db.exec("create index if not exists idx_evaluations_current_rating on evaluations_current(rating)");
-}
-
-function backfillTaskRuntimeSources(db: Database.Database): void {
-    db.exec(`
-    update tasks_current
-    set cli_source = (
-      select b.runtime_source
-      from runtime_bindings_current b
-      where b.task_id = tasks_current.id
-        and coalesce(trim(b.runtime_source), '') <> ''
-      order by datetime(b.updated_at) desc, datetime(b.created_at) desc
-      limit 1
-    )
-    where coalesce(trim(cli_source), '') = ''
-      and exists (
-        select 1
-        from runtime_bindings_current b
-        where b.task_id = tasks_current.id
-          and coalesce(trim(b.runtime_source), '') <> ''
-      );
-  `);
-    db.exec(`
-    update tasks_current
-    set cli_source = (
-      select coalesce(
-        json_extract(e.metadata_json, '$.runtimeSource'),
-        json_extract(e.metadata_json, '$.source')
-      )
-      from timeline_events_view e
-      where e.task_id = tasks_current.id
-        and coalesce(
-          json_extract(e.metadata_json, '$.runtimeSource'),
-          json_extract(e.metadata_json, '$.source')
-        ) is not null
-      order by datetime(e.created_at) asc, e.id asc
-      limit 1
-    )
-    where coalesce(trim(cli_source), '') = ''
-      and exists (
-        select 1
-        from timeline_events_view e
-        where e.task_id = tasks_current.id
-          and coalesce(
-            json_extract(e.metadata_json, '$.runtimeSource'),
-            json_extract(e.metadata_json, '$.source')
-          ) is not null
-      );
-  `);
 }

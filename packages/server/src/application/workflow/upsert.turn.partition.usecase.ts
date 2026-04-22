@@ -40,7 +40,7 @@ export class UpsertTurnPartitionUseCase {
                 id: g.id,
                 from: g.from,
                 to: g.to,
-                label: g.label === null ? null : (g.label?.trim() || null),
+                label: g.label === null ? null : (g.label.trim() || null),
                 visible: g.visible,
             })),
             version: nextVersion,
