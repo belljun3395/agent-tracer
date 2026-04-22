@@ -122,7 +122,7 @@ export function TimelineContainer({
     return (
         <section
             className={cn(
-                "flex min-h-0 min-w-0 flex-col overflow-hidden rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-1)]",
+                "flex min-h-0 min-w-0 flex-col overflow-hidden rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] shadow-none",
                 isCompactDashboard && "min-h-[22rem]",
                 isStackedDashboard && "order-1 min-h-[28rem]"
             )}

@@ -19,10 +19,10 @@ interface PlaybookEditorProps {
 }
 
 export function PlaybookEditor(props: PlaybookEditorProps): React.JSX.Element {
-    const { draft, mode, isSaving, saveError, onChange, onSave, onCancel } = props;
+    const { draft, mode, isSaving, saveError, onChange, onSave, onCancel, onStartCreate } = props;
 
     return (
-        <div className="flex min-h-0 flex-col overflow-y-auto bg-[var(--surface-2)] p-3.5">
+        <div className="flex min-h-0 flex-col overflow-y-auto bg-[color-mix(in_srgb,var(--surface-2)_72%,var(--bg))] p-3.5">
             <div className="mb-3 flex flex-col gap-1">
                 <span className="text-[0.84rem] font-semibold text-[var(--text-1)]">
                     {mode === "edit" ? "Edit Playbook" : "Create Playbook"}
@@ -112,8 +112,20 @@ export function PlaybookEditor(props: PlaybookEditorProps): React.JSX.Element {
                     </div>
                 </div>
             ) : (
-                <div className="rounded-[var(--radius-lg)] border border-dashed border-[var(--border)] bg-[var(--surface)] px-4 py-5 text-[0.76rem] leading-6 text-[var(--text-3)]">
-                    Select a snapshot and click <strong>Promote to Playbook</strong>, or open the Playbooks tab and start a new playbook.
+                <div className="flex min-h-[10rem] flex-col items-start justify-center rounded-[var(--radius-md)] border border-dashed border-[var(--border)] bg-[color-mix(in_srgb,var(--surface)_90%,var(--bg))] px-4 py-5">
+                    <div className="mb-3 flex h-8 w-8 items-center justify-center rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] text-[var(--text-3)]">
+                        <svg aria-hidden="true" fill="none" height="15" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" viewBox="0 0 24 24" width="15">
+                            <path d="M12 5v14"/>
+                            <path d="M5 12h14"/>
+                        </svg>
+                    </div>
+                    <p className="m-0 text-[0.82rem] font-semibold text-[var(--text-1)]">Ready for a reusable workflow</p>
+                    <p className="m-0 mt-1 text-[0.74rem] leading-6 text-[var(--text-3)]">
+                        Select a snapshot to promote it, or start a clean playbook draft.
+                    </p>
+                    <Button className="mt-4" size="sm" variant="accent" onClick={onStartCreate}>
+                        Create Playbook
+                    </Button>
                 </div>
             )}
         </div>

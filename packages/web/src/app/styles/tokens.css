@@ -1,17 +1,17 @@
 :root {
-  --bg: #F5F7FB;
-  --bg-2: #eef2f8;        /* deprecated — use --bg-subtle */
-  --bg-subtle: #EEF2F8;
+  --bg: #F6F8FC;
+  --bg-2: #F0F3F8;        /* deprecated — use --bg-subtle */
+  --bg-subtle: #F0F3F8;
   --surface: #ffffff;
-  --surface-2: #F8FAFD;
-  --border: #D9E0EC;
-  --border-1: #D9E0EC;
-  --border-2: #c3ccd9;    /* deprecated — use --border-strong */
-  --border-strong: #BAC5D5;
+  --surface-2: #FAFBFD;
+  --border: #E0E6EF;
+  --border-1: #E0E6EF;
+  --border-2: #C9D3E1;    /* deprecated — use --border-strong */
+  --border-strong: #B8C4D3;
 
   --text-1: #121826;
-  --text-2: #566074;
-  --text-3: #7B8598;
+  --text-2: #586276;
+  --text-3: #858FA1;
 
   --user: #be123c;
   --user-bg: #fff1f2;
@@ -29,7 +29,7 @@
   --planning-bg: #f1fbf4;
   --planning-border: #b7e6c2;
 
-  --implementation: #5b3cc4;
+  --implementation: #6845B8;
   --implementation-bg: #f5f3ff;
   --implementation-border: #d9cffc;
 
@@ -45,11 +45,11 @@
   --todos-bg: #eef5ff;
   --todos-border: #c7dafd;
 
-  --coordination: #7250da;
+  --coordination: #7A5BC8;
   --coordination-bg: #f5f3ff;
   --coordination-border: #d7d1fb;
 
-  --background: #5b6cf0;
+  --background: #4C6EDB;
   --background-bg: #eef1ff;
   --background-border: #cad3fd;
 
@@ -66,8 +66,8 @@
   --warn: #B7791F;
   --warn-bg: #FEF1D2;
 
-  --accent: #315EFB;
-  --accent-light: #E8EEFF;
+  --accent: #2F5BEA;
+  --accent-light: #EEF3FF;
 
   --text-muted: var(--text-3);
   --danger: var(--err);
@@ -83,8 +83,8 @@
   --radius-lg: 10px;
   --radius-xl: 12px;
   --radius-2xl: 16px;
-  --shadow-1: 0 1px 2px rgba(17, 24, 38, 0.05), 0 8px 24px rgba(17, 24, 38, 0.04);
-  --shadow-2: 0 10px 28px rgba(17, 24, 38, 0.08), 0 2px 8px rgba(17, 24, 38, 0.04);
+  --shadow-1: 0 1px 2px rgba(17, 24, 38, 0.04), 0 6px 18px rgba(17, 24, 38, 0.025);
+  --shadow-2: 0 14px 34px rgba(17, 24, 38, 0.08), 0 2px 8px rgba(17, 24, 38, 0.035);
 
   color: var(--text-1);
   background: var(--bg);
