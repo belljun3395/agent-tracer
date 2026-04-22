@@ -140,7 +140,14 @@ export function filterWorkflowEventsForScopeKey(events: readonly TimelineEvent[]
         if (!lastTurn) return events;
         return filterEventsByTurnRange(events, { from: lastTurn.turnIndex, to: lastTurn.turnIndex });
     }
-    const turnMatch = /^turn:(\d+)$/.exec(scopeKey);
+    const rangeMatch = scopeKey.match(/^turns:(\d+)-(\d+)$/);
+    if (rangeMatch) {
+        const from = Number.parseInt(rangeMatch[1] ?? "", 10);
+        const to = Number.parseInt(rangeMatch[2] ?? "", 10);
+        if (!Number.isFinite(from) || !Number.isFinite(to)) return events;
+        return filterEventsByTurnRange(events, { from, to });
+    }
+    const turnMatch = scopeKey.match(/^turn:(\d+)$/);
     if (!turnMatch) return events;
     const turnIndex = Number.parseInt(turnMatch[1] ?? "", 10);
     if (!Number.isFinite(turnIndex)) return events;

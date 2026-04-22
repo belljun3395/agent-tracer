@@ -7,6 +7,7 @@ export type { INotificationPublisher, MonitorNotification } from "./event/notifi
 export type { BriefingSaveInput, IEvaluationRepository, PersistedTaskEvaluation, StoredTaskEvaluation, TaskEvaluation, WorkflowContentRecord, WorkflowSearchResult, WorkflowSummary } from "./repository/evaluation.repository.js";
 export type { IPlaybookRepository, PlaybookUpsertInput } from "./repository/playbook.repository.js";
 export type { IRuleCommandRepository, RuleCommandRecord, RuleCommandCreateInput } from "./repository/rule-command.repository.js";
+export type { ITurnPartitionRepository } from "./repository/turn.partition.repository.js";
 export type { IEmbeddingService } from "./service/embedding.service.js";
 export type { ContentBlobRecord, ContentBlobWriteInput, IEventStore } from "./repository/domain-event.repository.js";
 import type { ITaskRepository } from "./repository/task.repository.js";
@@ -18,6 +19,7 @@ import type { INotificationPublisher } from "./event/notification.publisher.js";
 import type { IEvaluationRepository } from "./repository/evaluation.repository.js";
 import type { IPlaybookRepository } from "./repository/playbook.repository.js";
 import type { IRuleCommandRepository } from "./repository/rule-command.repository.js";
+import type { ITurnPartitionRepository } from "./repository/turn.partition.repository.js";
 import type { IEventStore } from "./repository/domain-event.repository.js";
 export interface MonitorPorts {
     readonly tasks: ITaskRepository;
@@ -29,5 +31,6 @@ export interface MonitorPorts {
     readonly evaluations: IEvaluationRepository;
     readonly playbooks: IPlaybookRepository;
     readonly ruleCommands: IRuleCommandRepository;
+    readonly turnPartitions: ITurnPartitionRepository;
     readonly notifier: INotificationPublisher;
 }

@@ -133,6 +133,13 @@ export function createSchema(db: Database.Database): void {
     create index if not exists idx_briefings_current_task_generated
       on briefings_current(task_id, generated_at desc);
 
+    create table if not exists turn_partitions_current (
+      task_id     text primary key references tasks_current(id) on delete cascade,
+      groups_json text not null,
+      version     integer not null default 1,
+      updated_at  text not null
+    );
+
     create table if not exists rule_commands_current (
       id text primary key,
       pattern text not null,

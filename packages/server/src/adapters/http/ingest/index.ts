@@ -5,3 +5,4 @@ export { BookmarkWriteController } from "./controllers/bookmark.write.controller
 export { EvaluationWriteController } from "./controllers/evaluation.write.controller.js";
 export { TypedIngestController } from "./controllers/ingest.typed.controller.js";
 export { RuleCommandWriteController } from "./controllers/rule-command.write.controller.js";
+export { TurnPartitionWriteController } from "./controllers/turn.partition.write.controller.js";

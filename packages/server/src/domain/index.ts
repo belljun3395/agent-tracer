@@ -28,6 +28,7 @@ export * from "./workflow/briefing.js";
 // Workflow — builders
 export * from "./workflow/workflow.context.js";
 export * from "./workflow/segments.js";
+export * from "./workflow/turn.partition.js";
 
 // Event log
 export * from "./events/index.js";

@@ -1,4 +1,4 @@
-import { defineEventType, optionalNumber, optionalObject, optionalString, requireString } from "./event.type.js";
+import { defineEventType, optionalArray, optionalNumber, optionalObject, optionalString, requireNumber, requireString } from "./event.type.js";
 
 export const CURATION_EVENT_DEFINITIONS = [
     defineEventType("bookmark.added", (payload) => {
@@ -25,6 +25,14 @@ export const CURATION_EVENT_DEFINITIONS = [
         requireString(payload, "task_id");
         requireString(payload, "scope_key");
         optionalString(payload, "target_context");
+    }),
+    defineEventType("turn.partition_updated", (payload) => {
+        requireString(payload, "task_id");
+        requireNumber(payload, "version");
+        optionalArray(payload, "groups");
+    }),
+    defineEventType("turn.partition_reset", (payload) => {
+        requireString(payload, "task_id");
     }),
 ] as const;
 

@@ -154,6 +154,20 @@ export const briefings = sqliteTable("briefings_current", {
   index("idx_briefings_task_generated").on(table.taskId, table.generatedAt)
 ])
 
+export const turnPartitions = sqliteTable("turn_partitions_current", {
+  taskId: text("task_id").primaryKey().references(() => tasksCurrent.id, { onDelete: "cascade" }),
+  groupsJson: text("groups_json").notNull(),
+  version: integer("version").notNull(),
+  updatedAt: text("updated_at").notNull()
+})
+
+export const turnPartitionsRelations = relations(turnPartitions, ({ one }) => ({
+  task: one(tasksCurrent, {
+    fields: [turnPartitions.taskId],
+    references: [tasksCurrent.id]
+  })
+}))
+
 export const ruleCommands = sqliteTable("rule_commands_current", {
   id: text("id").primaryKey(),
   pattern: text("pattern").notNull(),
@@ -264,6 +278,8 @@ export const drizzleSchema = {
   briefingsRelations,
   ruleCommands,
   ruleCommandsRelations,
+  turnPartitions,
+  turnPartitionsRelations,
 }
 
 export type DrizzleSchema = typeof drizzleSchema

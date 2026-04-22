@@ -3,6 +3,7 @@ import { createEventLogSchema } from "../events/index.js";
 import { backfillCurrentProjections, createProjectionSchema, dropLegacyTaskSessionTables } from "../projections/index.js";
 export function runMigrations(db: Database.Database): void {
     createProjectionSchema(db);
+    addTimelineEventsLaneColumnIfMissing(db);
     const cols = db.pragma("table_info(monitoring_tasks)") as Array<{
         name: string;
         pk?: number;
@@ -111,10 +112,31 @@ export function runMigrations(db: Database.Database): void {
       )
     `);
     db.exec("create index if not exists idx_briefings_current_task_generated on briefings_current(task_id, generated_at desc)");
+    db.exec(`
+      create table if not exists turn_partitions_current (
+        task_id     text primary key references tasks_current(id) on delete cascade,
+        groups_json text not null,
+        version     integer not null default 1,
+        updated_at  text not null
+      )
+    `);
     createEventLogSchema(db);
     backfillCurrentProjections(db);
     backfillTaskRuntimeSources(db);
     dropLegacyTaskSessionTables(db);
+}
+
+function addTimelineEventsLaneColumnIfMissing(db: Database.Database): void {
+    const timelineCols = db.pragma("table_info(timeline_events_view)") as Array<{ name: string }>;
+    if (timelineCols.length === 0) return; // table not created yet
+    if (timelineCols.some((c) => c.name === "lane")) return;
+    // Add nullable first, backfill from classification_json, then enforce via application-side writes.
+    db.exec("alter table timeline_events_view add column lane text");
+    db.exec(`
+        update timeline_events_view
+        set lane = coalesce(json_extract(classification_json, '$.lane'), 'implementation')
+        where lane is null
+    `);
 }
 
 function needsTaskEvaluationScopeMigration(columns: Array<{ name: string; pk?: number }>): boolean {
