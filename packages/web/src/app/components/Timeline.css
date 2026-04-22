@@ -200,8 +200,8 @@
   padding: 9px 12px 10px 14px;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  background: var(--surface);
-  box-shadow: var(--shadow-1);
+  background: color-mix(in srgb, var(--surface) 96%, var(--bg));
+  box-shadow: none;
   backdrop-filter: blur(12px);
   animation: timeline-context-strip-enter 160ms ease;
 }
@@ -340,12 +340,12 @@
   padding: 2px 8px;
   border-radius: 999px;
   border: 1px solid var(--border);
-  background: var(--surface-2);
+  background: color-mix(in srgb, var(--surface-2) 74%, transparent);
   color: var(--text-2);
   font-size: 0.66rem;
   font-weight: 600;
   line-height: 1;
-  opacity: 0.78;
+  opacity: 0.86;
 }
 
 .timeline-context-summary-chip.accent {
@@ -564,15 +564,15 @@
   flex: 1;
   overflow: auto;
   background:
-    radial-gradient(circle, color-mix(in srgb, var(--border) 70%, transparent) 1px, transparent 1px),
+    radial-gradient(circle, color-mix(in srgb, var(--border) 42%, transparent) 1px, transparent 1px),
     repeating-linear-gradient(
       90deg,
       transparent,
       transparent 95px,
-      color-mix(in srgb, var(--border) 28%, transparent) 95px,
-      color-mix(in srgb, var(--border) 28%, transparent) 96px
+      color-mix(in srgb, var(--border) 16%, transparent) 95px,
+      color-mix(in srgb, var(--border) 16%, transparent) 96px
     ),
-    linear-gradient(180deg, color-mix(in srgb, var(--surface) 97%, white 3%), var(--surface));
+    linear-gradient(180deg, color-mix(in srgb, var(--surface) 98%, var(--bg) 2%), var(--surface));
   background-size: 24px 24px, 100% 100%, 100% 100%;
   min-height: 0;
   overscroll-behavior: contain;
@@ -593,7 +593,7 @@
   position: absolute;
   top: 0;
   bottom: 0;
-  width: 44px;
+  width: 36px;
   pointer-events: none;
   z-index: 14;
 }
@@ -616,7 +616,7 @@
   width: var(--timeline-gutter-scrim-width, 204px);
   pointer-events: none;
   z-index: 6;
-  background: linear-gradient(90deg, var(--surface) 0%, var(--surface) 76%, color-mix(in srgb, var(--surface) 80%, transparent) 92%, transparent 100%);
+  background: linear-gradient(90deg, var(--surface) 0%, var(--surface) 70%, color-mix(in srgb, var(--surface) 72%, transparent) 90%, transparent 100%);
 }
 
 /* Floating Jump button — toggles between "jump to start" (when auto-follow is
@@ -637,7 +637,7 @@
   font-size: 0.72rem;
   font-weight: 600;
   line-height: 1;
-  box-shadow: var(--shadow-1);
+  box-shadow: none;
   cursor: pointer;
   transition: background-color 160ms, color 160ms, border-color 160ms, transform 160ms;
 }
@@ -669,7 +669,7 @@
 }
 
 .lane-row.striped {
-  background: rgba(0,0,0,0.01);
+  background: color-mix(in srgb, var(--bg-subtle) 28%, transparent);
 }
 
 .lane-row-tail {
@@ -682,7 +682,7 @@
   right: 0;
   bottom: 0;
   height: 1px;
-  background: var(--border);
+  background: color-mix(in srgb, var(--border) 58%, transparent);
 }
 
 .lane-label {
@@ -695,7 +695,7 @@
   width: var(--timeline-lane-label-width, 120px);
   padding: 0 14px;
   font-size: 0.72rem;
-  font-weight: 500;
+  font-weight: 600;
   letter-spacing: -0.01em;
   background: linear-gradient(90deg, var(--surface) 0%, var(--surface) 72%, color-mix(in srgb, var(--surface) 88%, transparent) 90%, transparent);
   z-index: 8;
@@ -816,8 +816,8 @@
   right: 16px;
   top: 44px;
   height: 1px;
-  background: var(--border-2);
-  opacity: 0.7;
+  background: color-mix(in srgb, var(--border-2) 66%, transparent);
+  opacity: 0.48;
   pointer-events: none;
 }
 
@@ -828,13 +828,13 @@
   flex-direction: column;
   gap: 5px;
   padding: 8px 10px 8px 12px;
-  border-radius: 12px;
-  border: 1px solid color-mix(in srgb, var(--border) 86%, transparent);
-  background: color-mix(in srgb, var(--surface) 94%, white);
+  border-radius: var(--radius-md);
+  border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
+  background: color-mix(in srgb, var(--surface) 96%, white);
   color: var(--text-1);
   cursor: pointer;
   transform: translateX(-50%);
-  box-shadow: var(--shadow-1);
+  box-shadow: 0 1px 2px rgba(17, 24, 38, 0.045);
   transition: box-shadow 0.16s ease, transform 0.16s ease, border-color 0.16s ease, background-color 0.16s ease;
   text-align: left;
   z-index: 4;
@@ -848,7 +848,7 @@
   top: 0;
   bottom: 0;
   width: 2px;
-  border-radius: 12px 0 0 12px;
+  border-radius: var(--radius-md) 0 0 var(--radius-md);
   background: var(--border-2);
 }
 
@@ -862,7 +862,7 @@
 .event-node.background::before   { background: var(--background); }
 
 .event-node:hover {
-  box-shadow: var(--shadow-2);
+  box-shadow: 0 8px 20px rgba(17, 24, 38, 0.075), 0 1px 2px rgba(17, 24, 38, 0.04);
   transform: translateX(-50%) translateY(-1px);
 }
 
@@ -871,20 +871,20 @@
 }
 
 .event-node.active {
-  outline: 2px solid var(--accent);
+  outline: 1px solid var(--accent);
   outline-offset: 2px;
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 24%, transparent), var(--shadow-2);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent), 0 10px 24px rgba(17, 24, 38, 0.08);
 }
 
 /* Lane-specific border + background */
-.event-node.exploration  { border-color: color-mix(in srgb, var(--exploration) 18%, var(--border));  background: color-mix(in srgb, var(--surface) 88%, var(--exploration-bg)); }
-.event-node.implementation { border-color: color-mix(in srgb, var(--implementation) 18%, var(--border)); background: color-mix(in srgb, var(--surface) 88%, var(--implementation-bg)); }
-.event-node.planning     { border-color: color-mix(in srgb, var(--planning) 18%, var(--border));     background: color-mix(in srgb, var(--surface) 88%, var(--planning-bg)); }
-.event-node.user         { border-color: color-mix(in srgb, var(--user) 18%, var(--border));         background: color-mix(in srgb, var(--surface) 88%, var(--user-bg)); }
-.event-node.questions    { border-color: color-mix(in srgb, var(--questions) 18%, var(--border));    background: color-mix(in srgb, var(--surface) 88%, var(--questions-bg)); }
-.event-node.todos        { border-color: color-mix(in srgb, var(--todos) 18%, var(--border));        background: color-mix(in srgb, var(--surface) 88%, var(--todos-bg)); }
-.event-node.coordination { border-color: color-mix(in srgb, var(--coordination) 18%, var(--border)); background: color-mix(in srgb, var(--surface) 88%, var(--coordination-bg)); }
-.event-node.background   { border-color: color-mix(in srgb, var(--background) 18%, var(--border));   background: color-mix(in srgb, var(--surface) 88%, var(--background-bg)); }
+.event-node.exploration  { border-color: color-mix(in srgb, var(--exploration) 14%, var(--border));  background: color-mix(in srgb, var(--surface) 94%, var(--exploration-bg)); }
+.event-node.implementation { border-color: color-mix(in srgb, var(--implementation) 14%, var(--border)); background: color-mix(in srgb, var(--surface) 94%, var(--implementation-bg)); }
+.event-node.planning     { border-color: color-mix(in srgb, var(--planning) 14%, var(--border));     background: color-mix(in srgb, var(--surface) 94%, var(--planning-bg)); }
+.event-node.user         { border-color: color-mix(in srgb, var(--user) 14%, var(--border));         background: color-mix(in srgb, var(--surface) 94%, var(--user-bg)); }
+.event-node.questions    { border-color: color-mix(in srgb, var(--questions) 14%, var(--border));    background: color-mix(in srgb, var(--surface) 94%, var(--questions-bg)); }
+.event-node.todos        { border-color: color-mix(in srgb, var(--todos) 14%, var(--border));        background: color-mix(in srgb, var(--surface) 94%, var(--todos-bg)); }
+.event-node.coordination { border-color: color-mix(in srgb, var(--coordination) 14%, var(--border)); background: color-mix(in srgb, var(--surface) 94%, var(--coordination-bg)); }
+.event-node.background   { border-color: color-mix(in srgb, var(--background) 14%, var(--border));   background: color-mix(in srgb, var(--surface) 94%, var(--background-bg)); }
 
 /* Event-kind overrides (higher specificity than lane) */
 .event-node.kind-assistant-response { border-color: color-mix(in srgb, var(--assistant) 18%, var(--border)); background: color-mix(in srgb, var(--surface) 88%, var(--assistant-bg)); }
@@ -1118,13 +1118,13 @@
 
 .event-node strong {
   display: block;
-  font-size: 0.76rem;
+  font-size: 0.78rem;
   font-weight: 600;
   line-height: 1.4;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  color: var(--text-1);
+  color: color-mix(in srgb, var(--text-1) 96%, black);
 }
 
 .token-badge-row {
@@ -1263,21 +1263,21 @@
 }
 
 .grid-line {
-  stroke: color-mix(in srgb, var(--border) 38%, transparent);
+  stroke: color-mix(in srgb, var(--border) 24%, transparent);
   stroke-width: 1;
   stroke-dasharray: 3 4;
-  opacity: 0.42;
+  opacity: 0.28;
 }
 
 .connector {
   stroke-width: 1.5;
   fill: none;
-  opacity: 0.52;
+  opacity: 0.42;
 }
 
 .connector.cross-lane {
   stroke-width: 1.2;
-  opacity: 0.34;
+  opacity: 0.24;
   stroke-dasharray: 5 3;
 }
 
@@ -1361,9 +1361,9 @@
 .timeline-minimap {
   position: relative;
   flex-shrink: 0;
-  height: 44px;
+  height: 36px;
   border-top: 1px solid var(--border);
-  background: var(--bg-subtle);
+  background: color-mix(in srgb, var(--bg-subtle) 68%, var(--surface));
   cursor: pointer;
   overflow: hidden;
   user-select: none;
@@ -1373,24 +1373,25 @@
   display: flex;
   flex-wrap: wrap;
   gap: 6px 12px;
-  padding: 8px 12px;
+  padding: 6px 12px;
   border-top: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
-  background: color-mix(in srgb, var(--surface-2) 86%, white);
+  background: color-mix(in srgb, var(--surface-2) 70%, var(--surface));
 }
 
 .timeline-visual-legend-item {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  min-height: 22px;
-  padding: 2px 8px;
+  min-height: 20px;
+  padding: 1px 7px;
   border-radius: 999px;
   border: 1px solid var(--border);
-  background: var(--surface);
+  background: transparent;
   color: var(--text-2);
-  font-size: 0.69rem;
+  font-size: 0.66rem;
   font-weight: 600;
+  opacity: 0.78;
   letter-spacing: 0.01em;
 }
 
@@ -1413,14 +1414,14 @@
   pointer-events: none;
 }
 
-.minimap-lane.exploration  { background: var(--exploration-bg);  opacity: 0.55; }
-.minimap-lane.implementation { background: var(--implementation-bg); opacity: 0.55; }
-.minimap-lane.planning     { background: var(--planning-bg);     opacity: 0.55; }
-.minimap-lane.user         { background: var(--user-bg);         opacity: 0.55; }
-.minimap-lane.questions    { background: var(--questions-bg);    opacity: 0.55; }
-.minimap-lane.todos        { background: var(--todos-bg);        opacity: 0.55; }
-.minimap-lane.coordination { background: var(--coordination-bg); opacity: 0.55; }
-.minimap-lane.background   { background: var(--background-bg);   opacity: 0.55; }
+.minimap-lane.exploration  { background: var(--exploration-bg);  opacity: 0.38; }
+.minimap-lane.implementation { background: var(--implementation-bg); opacity: 0.38; }
+.minimap-lane.planning     { background: var(--planning-bg);     opacity: 0.38; }
+.minimap-lane.user         { background: var(--user-bg);         opacity: 0.38; }
+.minimap-lane.questions    { background: var(--questions-bg);    opacity: 0.38; }
+.minimap-lane.todos        { background: var(--todos-bg);        opacity: 0.38; }
+.minimap-lane.coordination { background: var(--coordination-bg); opacity: 0.38; }
+.minimap-lane.background   { background: var(--background-bg);   opacity: 0.38; }
 
 .minimap-dot {
   position: absolute;
@@ -1472,7 +1473,7 @@
 .timeline-context-charts {
   flex-shrink: 0;
   border-top: 1px solid var(--border);
-  background: var(--bg-subtle);
+  background: color-mix(in srgb, var(--bg-subtle) 68%, var(--surface));
   overflow: hidden;
 }
 

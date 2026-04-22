@@ -278,14 +278,34 @@ export function KnowledgeBaseContent({ onSelectTask }: KnowledgeBaseContentProps
                         {isLoading ? (
                             <div className="flex items-center justify-center py-10 text-[0.78rem] text-[var(--text-3)]">Loading…</div>
                         ) : items.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center gap-2 py-12 text-center">
-                                <span className="text-[0.78rem] text-[var(--text-3)]">
+                            <div className="flex min-h-[22rem] flex-col items-center justify-center px-6 py-12 text-center">
+                                <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-[var(--radius-md)] border border-[var(--border)] bg-[color-mix(in_srgb,var(--surface-2)_72%,var(--surface))] text-[var(--text-3)]">
+                                    <svg aria-hidden="true" fill="none" height="18" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" viewBox="0 0 24 24" width="18">
+                                        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+                                        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+                                        <path d="M8 7h8"/>
+                                        <path d="M8 11h6"/>
+                                    </svg>
+                                </div>
+                                <p className="m-0 text-[0.9rem] font-semibold text-[var(--text-1)]">
                                     {search.trim()
-                                        ? "No matches. Try different keywords or browse all items."
+                                        ? "No matching knowledge"
                                         : activeTab === "playbooks"
-                                            ? "No playbooks yet. Promote a proven snapshot to create your first playbook."
-                                            : "No snapshots yet. Complete a task and save it to start building your knowledge base."}
-                                </span>
+                                            ? "No playbooks yet"
+                                            : "No snapshots yet"}
+                                </p>
+                                <p className="m-0 mt-1 max-w-[24rem] text-[0.78rem] leading-6 text-[var(--text-3)]">
+                                    {search.trim()
+                                        ? "Try a broader keyword or clear the current filters."
+                                        : activeTab === "playbooks"
+                                            ? "Promote a proven snapshot or draft a reusable workflow from scratch."
+                                            : "Complete a task and save the useful outcome to start building the library."}
+                                </p>
+                                {activeTab === "playbooks" && !search.trim() ? (
+                                    <Button className="mt-4" size="sm" variant="accent" onClick={handleStartCreate}>
+                                        Create Playbook
+                                    </Button>
+                                ) : null}
                             </div>
                         ) : items.map((item) => {
                             const rowKey = item.layer === "snapshot" ? `snapshot:${item.snapshotId}` : `playbook:${item.id}`;

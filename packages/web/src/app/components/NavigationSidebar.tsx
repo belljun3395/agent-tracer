@@ -59,7 +59,7 @@ export function NavigationSidebar(props: NavigationSidebarProps): React.JSX.Elem
   return (
     <nav
       aria-label="Main navigation"
-      className={cn("flex h-full w-[240px] shrink-0 flex-col overflow-hidden border-r border-[var(--border)] bg-[color-mix(in_srgb,var(--surface)_94%,var(--bg))] shadow-[var(--shadow-1)]", className)}
+      className={cn("flex h-full w-[240px] shrink-0 flex-col overflow-hidden border-r border-[var(--border)] bg-[color-mix(in_srgb,var(--surface)_72%,var(--bg))] shadow-none", className)}
     >
       {/* Navigation items */}
       <div className="flex shrink-0 flex-col gap-0.5 px-2 py-1.5">

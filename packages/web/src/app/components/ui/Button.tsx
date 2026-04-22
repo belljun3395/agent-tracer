@@ -8,10 +8,10 @@ interface ButtonProps extends React.ComponentPropsWithoutRef<"button"> {
     readonly size?: ButtonSize;
 }
 const buttonVariants: Record<ButtonVariant, string> = {
-    ghost: "border border-[var(--border)] bg-[var(--surface)] text-[var(--text-2)] shadow-[var(--shadow-1)] hover:border-[var(--border-strong)] hover:bg-[var(--surface-2)] hover:text-[var(--text-1)]",
+    ghost: "border border-[var(--border)] bg-[var(--surface)] text-[var(--text-2)] shadow-none hover:border-[var(--border-strong)] hover:bg-[var(--surface-2)] hover:text-[var(--text-1)]",
     bare: "border border-transparent bg-transparent text-inherit shadow-none hover:bg-[var(--surface-2)] text-[var(--text-2)] hover:text-[var(--text-1)]",
     destructive: "border border-[color-mix(in_srgb,var(--err)_16%,var(--border))] bg-[var(--err-bg)] text-[var(--err)] shadow-[var(--shadow-1)] hover:border-[color-mix(in_srgb,var(--err)_28%,var(--border))] hover:bg-[color-mix(in_srgb,var(--err-bg)_88%,white)] hover:text-[var(--err)]",
-    accent: "border border-[color-mix(in_srgb,var(--accent)_24%,var(--border))] bg-[var(--accent-light)] text-[var(--accent)] shadow-[var(--shadow-1)] hover:border-[var(--accent)] hover:bg-[color-mix(in_srgb,var(--accent)_8%,var(--accent-light))] hover:text-[var(--accent)]"
+    accent: "border border-[color-mix(in_srgb,var(--accent)_24%,var(--border))] bg-[var(--accent-light)] text-[var(--accent)] shadow-none hover:border-[var(--accent)] hover:bg-[color-mix(in_srgb,var(--accent)_8%,var(--accent-light))] hover:text-[var(--accent)]"
 };
 const buttonSizes: Record<ButtonSize, string> = {
     sm: "h-7 px-2.5 text-[0.76rem]",

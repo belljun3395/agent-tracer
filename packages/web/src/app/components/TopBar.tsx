@@ -57,7 +57,7 @@ export function TopBar({ isConnected, pendingApprovalCount = 0, blockedTaskCount
             {taskScopeEnabled ? "Task" : "All"}
           </button>)
         : null;
-    return (<header className="z-10 flex h-11 shrink-0 items-center border-b border-[var(--border)] bg-[color-mix(in_srgb,var(--surface)_92%,var(--bg))] shadow-[var(--shadow-1)] sm:px-0">
+    return (<header className="z-10 flex h-11 shrink-0 items-center border-b border-[var(--border)] bg-[color-mix(in_srgb,var(--surface)_88%,var(--bg))] shadow-none sm:px-0">
 
       {/* Left: Logo / nav toggle */}
       <div className="flex h-full shrink-0 items-center gap-2 px-3 lg:w-[240px] lg:border-r lg:border-[var(--border)] lg:px-4">
@@ -74,7 +74,7 @@ export function TopBar({ isConnected, pendingApprovalCount = 0, blockedTaskCount
             </svg>
           </button>)}
         <Link className="flex items-center gap-2 outline-none rounded-[var(--radius-md)] transition-opacity hover:opacity-80 focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface)]" to="/">
-          <span className="flex h-7 w-7 items-center justify-center rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-1)]">
+          <span className="flex h-7 w-7 items-center justify-center rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] shadow-none">
             <img alt="" className="h-[15px] w-[15px] [filter:brightness(0)_saturate(100%)_invert(27%)_sepia(98%)_saturate(1500%)_hue-rotate(215deg)_brightness(95%)]" src="/icons/activity.svg"/>
           </span>
           <span className="hidden text-[0.78rem] font-semibold tracking-[0.01em] text-[var(--text-2)] xl:inline">
@@ -86,7 +86,7 @@ export function TopBar({ isConnected, pendingApprovalCount = 0, blockedTaskCount
       {/* Center: Search — takes all remaining space, search pill is capped */}
       <div className="relative flex flex-1 items-center justify-center px-4">
         <div className="relative w-full max-w-[440px]">
-          <div className="group flex w-full items-center gap-2 rounded-full border border-[var(--border)] bg-[color-mix(in_srgb,var(--surface)_80%,transparent)] px-3 py-1.5 shadow-[var(--shadow-1)] transition-[border-color,box-shadow] duration-200 focus-within:border-[color-mix(in_srgb,var(--accent)_35%,var(--border))] focus-within:shadow-[var(--shadow-2)]">
+          <div className="group flex w-full items-center gap-2 rounded-[var(--radius-lg)] border border-[var(--border)] bg-[color-mix(in_srgb,var(--surface)_82%,transparent)] px-3 py-1.5 shadow-none transition-[border-color,background-color] duration-200 focus-within:border-[color-mix(in_srgb,var(--accent)_35%,var(--border))] focus-within:bg-[var(--surface)]">
             <span className="flex h-4 w-4 shrink-0 items-center justify-center text-[var(--text-3)] transition-colors group-focus-within:text-[var(--accent)]">
               <svg aria-hidden="true" fill="none" height="13" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" viewBox="0 0 24 24" width="13">
                 <circle cx="11" cy="11" r="7"/>
