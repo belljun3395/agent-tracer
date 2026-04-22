@@ -10,20 +10,21 @@ export const REVIEWER_ID_STORAGE_KEY = "agent-tracer.reviewer-id";
 const WORKSPACE_TAB_MAP: Record<string, PanelTabId> = {
     inspector: "inspector",
     overview: "overview",
+    turns: "turns",
     evidence: "evidence",
     rules: "rules",
     context: "context",
-    actions: "actions",
-    save: "actions",
+    actions: "turns",
+    save: "turns",
     flow: "overview",
     health: "overview",
     tags: "evidence",
     files: "evidence",
     exploration: "evidence",
     instructions: "context",
-    task: "actions",
-    compact: "actions",
-    evaluate: "actions",
+    task: "turns",
+    compact: "turns",
+    evaluate: "turns",
 };
 
 export function normalizeWorkspaceTab(value: string | null): PanelTabId {

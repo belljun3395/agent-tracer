@@ -1468,6 +1468,17 @@
   transition: left 0.05s linear, width 0.05s linear;
 }
 
+.minimap-focus-band {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  border-left: 1.5px solid color-mix(in srgb, var(--accent) 70%, transparent);
+  border-right: 1.5px solid color-mix(in srgb, var(--accent) 70%, transparent);
+  pointer-events: none;
+  transition: left 0.12s ease-out, width 0.12s ease-out;
+}
+
 /* ─── Context / Rate-limit charts ───────────────────────────────────────── */
 
 .timeline-context-charts {

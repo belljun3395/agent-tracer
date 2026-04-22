@@ -1,33 +1,32 @@
 import type React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { buildReusableTaskSnapshot } from "../../types.js";
 import {
     buildExplorationInsight,
-    buildQuestionGroups, buildSubagentInsight, buildTaskExtraction,
+    buildQuestionGroups, buildSubagentInsight,
     buildTodoGroups, buildVerificationCycles, collectFileActivity,
-    collectViolationDescriptions, collectWebLookups, buildTaskTimelineSummary,
+    collectWebLookups, buildTaskTimelineSummary,
     type BookmarkRecord, type ModelSummary, type TaskObservabilityResponse,
     type TaskDetailResponse, type TimelineConnector, type TimelineEventRecord,
 } from "../../types.js";
 import { cn } from "../lib/ui/cn.js";
 import { Button } from "./ui/Button.js";
 import { buildFileEvidenceRows, sortFileEvidenceRows, type FileEvidenceSortKey } from "./inspector/FileEvidenceSection.js";
-import { ActionsTab } from "./inspector/ActionsTab.js";
 import { ContextTab } from "./inspector/ContextTab.js";
 import { EvidenceTab } from "./inspector/EvidenceTab.js";
 import { InspectorTab } from "./inspector/InspectorTab.js";
 import { OverviewTab } from "./inspector/OverviewTab.js";
 import { RuleTab } from "./inspector/RuleTab.js";
+import { TurnsTab } from "./inspector/TurnsTab.js";
 import { useOptionalInspectorContext } from "../features/inspector/context/InspectorContext.js";
 
-export type PanelTabId = "inspector" | "overview" | "evidence" | "context" | "actions" | "rules";
+export type PanelTabId = "inspector" | "overview" | "evidence" | "context" | "rules" | "turns";
 const PANEL_TABS = [
     { id: "inspector", label: "Inspector" },
     { id: "overview", label: "Overview" },
+    { id: "turns", label: "Turns" },
     { id: "evidence", label: "Exploration" },
     { id: "rules", label: "Rules" },
     { id: "context", label: "Context" },
-    { id: "actions", label: "Save" },
 ] as const;
 
 interface SelectedConnectorData {
@@ -140,15 +139,11 @@ export function EventInspector({
     const sortedFileEvidence = useMemo(() => sortFileEvidenceRows(fileEvidence, fileEvidenceSortKey), [fileEvidence, fileEvidenceSortKey]);
     const webLookups = useMemo(() => collectWebLookups(taskTimeline), [taskTimeline]);
     const explorationInsight = useMemo(() => buildExplorationInsight(taskTimeline, exploredFiles, webLookups), [exploredFiles, taskTimeline, webLookups]);
-    const taskExtraction = useMemo(() => buildTaskExtraction(taskDetail?.task, taskTimeline, exploredFiles), [exploredFiles, taskDetail?.task, taskTimeline]);
     const questionGroups = useMemo(() => buildQuestionGroups(taskTimeline), [taskTimeline]);
     const todoGroups = useMemo(() => buildTodoGroups(taskTimeline), [taskTimeline]);
     const subagentInsight = useMemo(() => buildSubagentInsight(taskTimeline), [taskTimeline]);
     const verificationCycles = useMemo(() => buildVerificationCycles(taskTimeline), [taskTimeline]);
     const mentionedVerifications = taskObservability?.mentionedFileVerifications ?? [];
-    const handoffModifiedFiles = useMemo(() => collectFileActivity(taskTimeline).filter((f) => f.writeCount > 0).map((f) => f.path), [taskTimeline]);
-    const handoffViolations = useMemo(() => collectViolationDescriptions(taskTimeline), [taskTimeline]);
-    const handoffSnapshot = useMemo(() => buildReusableTaskSnapshot({ objective: taskExtraction.objective, events: taskTimeline }), [taskExtraction.objective, taskTimeline]);
 
     const relatedEvents = useMemo(() => {
         if (!selectedEvent) return [];
@@ -259,6 +254,24 @@ export function EventInspector({
                         runtimeSource={taskDetail?.runtimeSource} workspacePath={taskDetail?.task.workspacePath}
                         timeline={taskTimeline} todoGroups={todoGroups} questionGroups={questionGroups}
                         {...(taskModelSummary ? { taskModelSummary } : {})}
+                        partition={ctx?.turnPartition ?? null}
+                        focusedGroupId={ctx?.focusedTurnGroupId ?? null}
+                        onFocusGroup={ctx?.onFocusTurnGroup}
+                    />
+                ) : activeTab === "turns" ? (
+                    <TurnsTab
+                        taskId={taskDetail?.task.id}
+                        taskTitle={selectedTaskTitle ?? taskDetail?.task.title ?? ""}
+                        taskTimeline={taskTimeline}
+                        partition={ctx?.turnPartition ?? null}
+                        focusedGroupId={ctx?.focusedTurnGroupId ?? null}
+                        isSaving={ctx?.turnPartitionSaving ?? false}
+                        onFocusGroup={ctx?.onFocusTurnGroup ?? (() => undefined)}
+                        onMergeNext={ctx?.onMergeTurnGroup ?? (async () => undefined)}
+                        onSplit={ctx?.onSplitTurnGroup ?? (async () => undefined)}
+                        onToggleVisibility={ctx?.onToggleTurnGroupVisibility ?? (async () => undefined)}
+                        onRename={ctx?.onRenameTurnGroup ?? (async () => undefined)}
+                        onReset={ctx?.onResetTurnPartition ?? (async () => undefined)}
                     />
                 ) : activeTab === "evidence" ? (
                     <EvidenceTab
@@ -271,19 +284,11 @@ export function EventInspector({
                     />
                 ) : activeTab === "context" ? (
                     <ContextTab timeline={taskTimeline} />
-                ) : activeTab === "rules" ? (
+                ) : (
                     <RuleTab
                         timeline={taskTimeline}
                         taskId={taskDetail?.task.id}
                         onSelectEvent={onSelectEvent}
-                    />
-                ) : (
-                    <ActionsTab
-                        taskId={taskDetail?.task.id} taskTitle={selectedTaskTitle ?? taskDetail?.task.title ?? ""}
-                        workspacePath={taskDetail?.task.workspacePath} taskExtraction={taskExtraction}
-                        taskTimeline={taskTimeline}
-                        handoffModifiedFiles={handoffModifiedFiles}
-                        handoffViolations={handoffViolations} handoffSnapshot={handoffSnapshot}
                     />
                 )}
             </div>

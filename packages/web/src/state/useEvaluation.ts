@@ -54,12 +54,21 @@ export function useEvaluation(taskId: string | null | undefined, scopeKey?: stri
         setIsSaving(true);
         try {
             await saveTaskEvaluation(TaskId(taskId), payload, scopeKey);
+            const rangeMatch = scopeKey?.match(/^turns:(\d+)-(\d+)$/);
+            const turnMatch = scopeKey?.match(/^turn:(\d+)$/);
+            const derivedScopeLabel = scopeKey === "last-turn"
+                ? "Last turn"
+                : rangeMatch
+                    ? `Turns ${rangeMatch[1]}–${rangeMatch[2]}`
+                    : turnMatch
+                        ? `Turn ${turnMatch[1]}`
+                        : "Whole task";
             setEvaluation({
                 taskId: TaskId(taskId),
                 scopeKey: evaluation?.scopeKey ?? scopeKey ?? "task",
                 scopeKind: evaluation?.scopeKind ?? (scopeKey && scopeKey !== "task" ? "turn" : "task"),
-                scopeLabel: evaluation?.scopeLabel ?? (scopeKey === "last-turn" ? "Last turn" : scopeKey?.startsWith("turn:") ? `Turn ${scopeKey.slice("turn:".length)}` : "Whole task"),
-                turnIndex: evaluation?.turnIndex ?? (scopeKey?.startsWith("turn:") ? Number.parseInt(scopeKey.slice("turn:".length), 10) || null : null),
+                scopeLabel: evaluation?.scopeLabel ?? derivedScopeLabel,
+                turnIndex: evaluation?.turnIndex ?? (turnMatch ? Number.parseInt(turnMatch[1] ?? "", 10) || null : null),
                 ...payload,
                 workflowTags: payload.workflowTags ?? [],
                 useCase: payload.useCase ?? null,

@@ -8,6 +8,7 @@ export interface MinimapProps {
     readonly items: readonly TimelineItemLayout[];
     readonly laneRows: readonly TimelineLaneRow[];
     readonly scrollRef: React.RefObject<HTMLDivElement | null>;
+    readonly focusedRange?: { readonly left: number; readonly right: number } | null;
 }
 
 const GAP_THRESHOLD_RATIO = 0.10;
@@ -84,7 +85,7 @@ function compressedToReal(ratio: number, segments: readonly MapSegment[]): numbe
     return segments[segments.length - 1]?.realEnd ?? 1;
 }
 
-export function TimelineMinimap({ timelineWidth, items, laneRows, scrollRef }: MinimapProps): React.JSX.Element | null {
+export function TimelineMinimap({ timelineWidth, items, laneRows, scrollRef, focusedRange }: MinimapProps): React.JSX.Element | null {
     const containerRef = useRef<HTMLDivElement>(null);
     const [scrollState, setScrollState] = useState({ left: 0, viewWidth: 0, totalWidth: 1 });
     const isDragging = useRef(false);
@@ -155,6 +156,19 @@ export function TimelineMinimap({ timelineWidth, items, laneRows, scrollRef }: M
             const topPct = ((laneIndex + 0.5) / laneCount) * 100;
             return (<div key={item.event.id} className={`minimap-dot ${item.baseLane}`} style={{ left: `${leftPct}%`, top: `${topPct}%` }}/>);
         })}
+
+      {focusedRange && (() => {
+            const focusLeftPct = realToCompressed(focusedRange.left, segments) * 100;
+            const focusRightPct = realToCompressed(focusedRange.right, segments) * 100;
+            const widthPct = Math.max(focusRightPct - focusLeftPct, 1);
+            return (
+                <div
+                    className="minimap-focus-band"
+                    style={{ left: `${focusLeftPct}%`, width: `${widthPct}%` }}
+                    title="Focused turn group"
+                />
+            );
+        })()}
 
       <div className="minimap-viewport" style={{ left: `${viewportLeftPct}%`, width: `${Math.max(viewportWidthPct, 2)}%` }} title="Currently visible timeline range"/>
     </div>);

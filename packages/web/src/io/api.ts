@@ -162,6 +162,16 @@ async function deleteRequest(pathname: string, options?: RequestOptions): Promis
     if (!response.ok)
         throw new Error(`DELETE ${pathname}: ${response.status}`);
 }
+async function putJson<T>(pathname: string, body: unknown, options?: RequestOptions): Promise<T> {
+    const response = await request(pathname, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+    }, options);
+    if (!response.ok)
+        throw new Error(`PUT ${pathname}: ${response.status}`);
+    return await response.json() as Promise<T>;
+}
 export function fetchOverview(): Promise<OverviewResponse> {
     return getJson<OverviewResponse>("/api/overview");
 }
@@ -420,6 +430,37 @@ export function createPlaybook(payload: PlaybookPayload): Promise<PlaybookRecord
 }
 export function updatePlaybook(playbookId: string, payload: Partial<PlaybookPayload>): Promise<PlaybookRecordResponse> {
     return postJson<PlaybookRecordResponse>(`/api/playbooks/${playbookId}`, payload);
+}
+export interface TurnPartitionRecord {
+    readonly taskId: TaskId;
+    readonly groups: ReadonlyArray<{
+        readonly id: string;
+        readonly from: number;
+        readonly to: number;
+        readonly label: string | null;
+        readonly visible: boolean;
+    }>;
+    readonly version: number;
+    readonly updatedAt: string;
+}
+export interface TurnPartitionUpsertPayload {
+    readonly groups: ReadonlyArray<{
+        readonly id: string;
+        readonly from: number;
+        readonly to: number;
+        readonly label?: string | null;
+        readonly visible: boolean;
+    }>;
+    readonly baseVersion?: number;
+}
+export function fetchTurnPartition(taskId: TaskId): Promise<TurnPartitionRecord> {
+    return getJson<TurnPartitionRecord>(`/api/tasks/${taskId}/turn-partition`);
+}
+export function saveTurnPartition(taskId: TaskId, payload: TurnPartitionUpsertPayload): Promise<TurnPartitionRecord> {
+    return putJson<TurnPartitionRecord>(`/api/tasks/${taskId}/turn-partition`, payload);
+}
+export async function resetTurnPartition(taskId: TaskId): Promise<void> {
+    await postJson<{ ok: boolean }>(`/api/tasks/${taskId}/turn-partition/reset`, {});
 }
 export function getMonitorWsUrl(): string {
     const baseUrl = resolveWebSocketBaseUrl();

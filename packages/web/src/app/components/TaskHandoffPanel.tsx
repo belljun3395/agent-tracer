@@ -217,10 +217,15 @@ export function TaskHandoffPanel({ taskId, scopeKey, objective, summary, plans, 
         if (!scopeKey || scopeKey === "task") {
             return null;
         }
-        const turnMatch = /^turn:(\d+)$/.exec(scopeKey);
+        const rangeMatch = scopeKey.match(/^turns:(\d+)-(\d+)$/);
+        if (rangeMatch) {
+            return `Turns ${rangeMatch[1]}–${rangeMatch[2]}`;
+        }
+        const turnMatch = scopeKey.match(/^turn:(\d+)$/);
         if (turnMatch) {
             return `Turn ${turnMatch[1]}`;
         }
+        if (scopeKey === "last-turn") return "Last turn";
         return scopeKey;
     }, [scopeKey]);
     return (<div className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-1)]">
