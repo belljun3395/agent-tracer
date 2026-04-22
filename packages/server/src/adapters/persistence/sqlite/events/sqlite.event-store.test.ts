@@ -129,7 +129,7 @@ describe("SQLite event log", () => {
     });
 
     it("defines the Phase 0 event type catalog", () => {
-        expect(DOMAIN_EVENT_DEFINITIONS).toHaveLength(22);
+        expect(DOMAIN_EVENT_DEFINITIONS).toHaveLength(24);
     });
 });
 

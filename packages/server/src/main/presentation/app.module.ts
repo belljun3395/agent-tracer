@@ -7,6 +7,7 @@ import {
     EvaluationWriteController,
     TypedIngestController,
     RuleCommandWriteController,
+    TurnPartitionWriteController,
 } from "~adapters/http/ingest/index.js";
 import {
     AdminController,
@@ -14,6 +15,7 @@ import {
     EvaluationController,
     SearchController,
     RuleCommandController,
+    TurnPartitionController,
 } from "~adapters/http/query/index.js";
 import type { MonitorPorts } from "~application/index.js";
 import {
@@ -67,6 +69,9 @@ import {
     GetPlaybookUseCase,
     CreatePlaybookUseCase,
     UpdatePlaybookUseCase,
+    GetTurnPartitionUseCase,
+    UpsertTurnPartitionUseCase,
+    ResetTurnPartitionUseCase,
 } from "~application/workflow/usecases.index.js";
 import {
     CreateRuleCommandUseCase,
@@ -306,6 +311,26 @@ export class AppModule {
             inject: [MONITOR_PORTS_TOKEN],
         };
 
+        // Turn partition UseCases
+        const getTurnPartitionProvider: Provider = {
+            provide: GetTurnPartitionUseCase,
+            useFactory: (ports: MonitorPorts) =>
+                new GetTurnPartitionUseCase(ports.tasks, ports.events, ports.turnPartitions),
+            inject: [MONITOR_PORTS_TOKEN],
+        };
+        const upsertTurnPartitionProvider: Provider = {
+            provide: UpsertTurnPartitionUseCase,
+            useFactory: (ports: MonitorPorts) =>
+                new UpsertTurnPartitionUseCase(ports.tasks, ports.events, ports.turnPartitions),
+            inject: [MONITOR_PORTS_TOKEN],
+        };
+        const resetTurnPartitionProvider: Provider = {
+            provide: ResetTurnPartitionUseCase,
+            useFactory: (ports: MonitorPorts) =>
+                new ResetTurnPartitionUseCase(ports.tasks, ports.turnPartitions),
+            inject: [MONITOR_PORTS_TOKEN],
+        };
+
         // Rule Command UseCases
         const createRuleCommandProvider: Provider = {
             provide: CreateRuleCommandUseCase,
@@ -377,6 +402,9 @@ export class AppModule {
                 deleteRuleCommandProvider,
                 listRuleCommandsProvider,
                 getRulePatternsProvider,
+                getTurnPartitionProvider,
+                upsertTurnPartitionProvider,
+                resetTurnPartitionProvider,
             ],
             controllers: [
                 AdminController,
@@ -391,6 +419,8 @@ export class AppModule {
                 EvaluationWriteController,
                 RuleCommandController,
                 RuleCommandWriteController,
+                TurnPartitionController,
+                TurnPartitionWriteController,
             ],
             exports: [MONITOR_PORTS_TOKEN],
         };

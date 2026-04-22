@@ -14,6 +14,7 @@ import { SqliteBookmarkRepository } from "./repositories/sqlite.bookmark.reposit
 import { SqliteEvaluationRepository } from "./repositories/sqlite.evaluation.repository.js";
 import { SqlitePlaybookRepository } from "./repositories/sqlite.playbook.repository.js";
 import { SqliteRuleCommandRepository } from "./repositories/sqlite.rule-command.repository.js";
+import { SqliteTurnPartitionRepository } from "./repositories/sqlite.turn.partition.repository.js";
 import { SqliteEventStore } from "./events/index.js";
 export { SqliteTaskRepository } from "./repositories/sqlite.task.repository.js";
 export { SqliteSessionRepository } from "./repositories/sqlite.session.repository.js";
@@ -23,6 +24,7 @@ export { SqliteBookmarkRepository } from "./repositories/sqlite.bookmark.reposit
 export { SqliteEvaluationRepository } from "./repositories/sqlite.evaluation.repository.js";
 export { SqlitePlaybookRepository } from "./repositories/sqlite.playbook.repository.js";
 export { SqliteRuleCommandRepository } from "./repositories/sqlite.rule-command.repository.js";
+export { SqliteTurnPartitionRepository } from "./repositories/sqlite.turn.partition.repository.js";
 export { SqliteEventStore } from "./events/index.js";
 export { createSqliteDatabase, ensureSqliteDatabase } from "./shared/drizzle.db.js";
 export { drizzleSchema } from "./schema/drizzle.schema.js";
@@ -57,6 +59,7 @@ export function createSqliteMonitorPorts(options: SqliteMonitorPortsOptions): Mo
         evaluations: new SqliteEvaluationRepository(db, options.embeddingService),
         playbooks: new SqlitePlaybookRepository(db, options.embeddingService),
         ruleCommands: new SqliteRuleCommandRepository(db),
+        turnPartitions: new SqliteTurnPartitionRepository(db),
         notifier,
         close: () => client.close()
     };

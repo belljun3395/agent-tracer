@@ -12,8 +12,18 @@ export {
     buildVerificationSummarySection,
     segmentEventsByTurn,
     filterEventsByTurnRange,
+    buildDefaultPartition,
+    countNonPreludeTurns,
+    mergeAdjacentGroups,
+    resolveTurnPartition,
+    setGroupLabel,
+    setGroupVisibility,
+    splitGroup,
+    validatePartition,
 } from "~domain/index.js";
 export type {
     BuildReusableTaskSnapshotInput,
     TurnSegment,
+    TurnGroup,
+    TurnPartition,
 } from "~domain/index.js";
