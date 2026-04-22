@@ -7,8 +7,8 @@ describe("normalizeWorkspaceTab", () => {
     it("maps legacy tab ids into grouped workspace tabs", () => {
         expect(normalizeWorkspaceTab("flow")).toBe("overview");
         expect(normalizeWorkspaceTab("files")).toBe("evidence");
-        expect(normalizeWorkspaceTab("evaluate")).toBe("actions");
-        expect(normalizeWorkspaceTab("save")).toBe("actions");
+        expect(normalizeWorkspaceTab("evaluate")).toBe("turns");
+        expect(normalizeWorkspaceTab("save")).toBe("turns");
     });
     it("falls back to overview for unknown values", () => {
         expect(normalizeWorkspaceTab("unknown")).toBe("overview");

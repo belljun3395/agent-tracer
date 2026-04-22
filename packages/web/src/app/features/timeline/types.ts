@@ -1,6 +1,6 @@
 import type React from "react";
 import type { FormEvent as ReactFormEvent } from "react";
-import type { TimelineEventRecord, TimelineLane } from "../../../types.js";
+import type { TimelineEventRecord, TimelineLane, TurnPartition } from "../../../types.js";
 
 export interface TimelineObservabilityStats {
     readonly actions: number;
@@ -55,4 +55,7 @@ export interface TimelineProps {
         readonly filters: Record<TimelineLane, boolean>;
         readonly setFilters: React.Dispatch<React.SetStateAction<Record<TimelineLane, boolean>>>;
     } | undefined;
+    readonly turnPartition?: TurnPartition | null;
+    readonly focusedTurnGroupId?: string | null;
+    readonly onSelectTurnGroup?: ((groupId: string | null) => void) | undefined;
 }

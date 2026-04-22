@@ -2,16 +2,25 @@ import type React from "react";
 import { useEffect, useMemo, useState } from "react";
 import {
     buildInspectorEventTitle,
+    buildQuestionGroups,
     buildResumeCommand,
+    buildSubagentInsight,
+    buildTodoGroups,
+    buildVerificationCycles,
+    filterEventsByGroup,
     formatCount,
     formatDuration,
     formatRelativeTime,
+    scopeLabelForGroup,
+    segmentEventsByTurn,
     type ModelSummary,
     type QuestionGroup,
     type SubagentInsight,
     type TaskObservabilityResponse,
     type TimelineEventRecord,
     type TodoGroup,
+    type TurnGroup,
+    type TurnPartition,
     type VerificationCycleItem,
 } from "../../../types.js";
 import { countCompactions } from "../../lib/insights/helpers.js";
@@ -30,6 +39,11 @@ import { cardShell, cardHeader, cardBody, innerPanel } from "./styles.js";
 import { inspectorHelpText } from "./helpText.js";
 import { toRelativePath } from "./utils.js";
 
+
+function truncate(value: string, limit: number): string {
+    if (value.length <= limit) return value;
+    return `${value.slice(0, limit - 1).trimEnd()}…`;
+}
 
 function UsageBar({ pct, color }: { readonly pct: number; readonly color: string }): React.JSX.Element {
     const clamped = Math.max(0, Math.min(100, pct));
@@ -519,14 +533,79 @@ export interface OverviewTabProps {
     readonly todoGroups?: readonly TodoGroup[];
     readonly questionGroups?: readonly QuestionGroup[];
     readonly taskModelSummary?: ModelSummary | undefined;
+    readonly partition?: TurnPartition | null;
+    readonly focusedGroupId?: string | null;
+    readonly onFocusGroup?: ((groupId: string | null) => void) | undefined;
 }
 
-export function OverviewTab({ observability, subagentInsight, verificationCycles, runtimeSessionId, runtimeSource, workspacePath, timeline = [], todoGroups = [], questionGroups = [], taskModelSummary }: OverviewTabProps): React.JSX.Element {
-    const skillSummary = useMemo(() => summarizeSkillListing(timeline), [timeline]);
+export function OverviewTab({ observability, subagentInsight, verificationCycles, runtimeSessionId, runtimeSource, workspacePath, timeline = [], todoGroups = [], questionGroups = [], taskModelSummary, partition = null, focusedGroupId = null, onFocusGroup }: OverviewTabProps): React.JSX.Element {
+    const focusedGroup: TurnGroup | null = partition?.groups.find((g) => g.id === focusedGroupId) ?? null;
+    const scopedTimeline = useMemo(
+        () => (focusedGroup ? filterEventsByGroup(timeline, focusedGroup) : timeline),
+        [focusedGroup, timeline],
+    );
+    const scopedTodoGroups = useMemo(
+        () => (focusedGroup ? buildTodoGroups(scopedTimeline) : todoGroups),
+        [focusedGroup, scopedTimeline, todoGroups],
+    );
+    const scopedQuestionGroups = useMemo(
+        () => (focusedGroup ? buildQuestionGroups(scopedTimeline) : questionGroups),
+        [focusedGroup, scopedTimeline, questionGroups],
+    );
+    const scopedSubagentInsight = useMemo<SubagentInsight>(
+        () => (focusedGroup ? buildSubagentInsight(scopedTimeline) : subagentInsight),
+        [focusedGroup, scopedTimeline, subagentInsight],
+    );
+    const scopedVerificationCycles = useMemo(
+        () => (focusedGroup ? buildVerificationCycles(scopedTimeline) : (verificationCycles ?? [])),
+        [focusedGroup, scopedTimeline, verificationCycles],
+    );
+    const skillSummary = useMemo(() => summarizeSkillListing(scopedTimeline), [scopedTimeline]);
+    const groups = partition?.groups ?? [];
+    const showScopePicker = groups.length > 0 && onFocusGroup !== undefined;
+    const turnPreviewByIndex = useMemo(() => {
+      const map = new Map<number, string>();
+      for (const segment of segmentEventsByTurn(timeline)) {
+        if (segment.isPrelude) continue;
+        if (segment.requestPreview) map.set(segment.turnIndex, segment.requestPreview);
+      }
+      return map;
+    }, [timeline]);
+    const buildGroupOptionLabel = (group: TurnGroup): string => {
+      const base = scopeLabelForGroup(group);
+      const preview = group.label?.trim()
+        ? null
+        : turnPreviewByIndex.get(group.from) ?? null;
+      const suffix = preview ? ` — ${truncate(preview, 48)}` : "";
+      return `${group.visible ? "" : "○ "}${base}${suffix}`;
+    };
     return (<div className="panel-tab-inner flex flex-col gap-5 p-4">
-      <RuntimeSessionCard runtimeSessionId={runtimeSessionId} runtimeSource={runtimeSource} timeline={timeline}/>
+      {showScopePicker && (
+        <section className="flex flex-col gap-1.5">
+          <Eyebrow>Scope</Eyebrow>
+          <select
+            aria-label="Scope"
+            className="w-full max-w-full truncate rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface-2)] px-2.5 py-1.5 text-[0.78rem] font-semibold text-[var(--text-1)] transition-colors hover:border-[var(--border-2)] focus-visible:outline-none focus-visible:border-[var(--accent)]"
+            value={focusedGroupId ?? ""}
+            onChange={(e) => onFocusGroup?.(e.target.value ? e.target.value : null)}
+          >
+            <option value="">Whole task</option>
+            {groups.map((group) => (
+              <option key={group.id} value={group.id}>
+                {buildGroupOptionLabel(group)}
+              </option>
+            ))}
+          </select>
+          {focusedGroup && (
+            <span className="text-[0.7rem] leading-snug text-[var(--text-3)]">
+              Showing derived sections for {scopeLabelForGroup(focusedGroup)}. Task Flow / Signals remain whole-task.
+            </span>
+          )}
+        </section>
+      )}
+      <RuntimeSessionCard runtimeSessionId={runtimeSessionId} runtimeSource={runtimeSource} timeline={scopedTimeline}/>
       {taskModelSummary && <AIModelCard summary={taskModelSummary}/>}
-      <ContextSnapshotCard timeline={timeline}/>
+      <ContextSnapshotCard timeline={scopedTimeline}/>
       <SkillListingCard summary={skillSummary}/>
       {observability ? (<>
           <SectionCard title="Task Flow" helpText={inspectorHelpText.taskFlow}>
@@ -570,12 +649,12 @@ export function OverviewTab({ observability, subagentInsight, verificationCycles
             ]}/>
           </SectionCard>
 
-          <SubagentInsightCard insight={subagentInsight}/>
+          <SubagentInsightCard insight={scopedSubagentInsight}/>
 
-          {verificationCycles && verificationCycles.length > 0 && (<VerificationCyclesCard items={verificationCycles}/>)}
+          {scopedVerificationCycles.length > 0 && (<VerificationCyclesCard items={scopedVerificationCycles}/>)}
 
-          <TodosSummaryCard todoGroups={todoGroups} timeline={timeline}/>
-          <QuestionsSummaryCard questionGroups={questionGroups}/>
+          <TodosSummaryCard todoGroups={scopedTodoGroups} timeline={scopedTimeline}/>
+          <QuestionsSummaryCard questionGroups={scopedQuestionGroups}/>
 
           <SectionCard title="Phase Breakdown" helpText={inspectorHelpText.phaseBreakdown}>
             <ObservabilityPhaseBreakdown phases={observability.phaseBreakdown}/>

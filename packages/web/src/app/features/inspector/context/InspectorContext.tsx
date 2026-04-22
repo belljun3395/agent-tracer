@@ -17,6 +17,8 @@ import type {
     TaskObservabilityResponse,
     TimelineConnector,
     TimelineEventRecord,
+    TurnGroup,
+    TurnPartition,
 } from "../../../../types.js";
 
 interface InspectorSelectedConnector {
@@ -47,6 +49,17 @@ interface InspectorContextValue {
     readonly onSelectRule: (ruleId: string | null) => void;
     readonly onSelectEvent?: ((eventId: string) => void) | undefined;
     readonly onOpenTaskWorkspace?: (() => void) | undefined;
+    // Turn partition (optional — only present when a task is loaded)
+    readonly turnPartition?: TurnPartition | null;
+    readonly focusedTurnGroupId?: string | null;
+    readonly onFocusTurnGroup?: ((groupId: string | null) => void) | undefined;
+    readonly onMergeTurnGroup?: ((groupId: string) => Promise<void>) | undefined;
+    readonly onSplitTurnGroup?: ((groupId: string, atTurnIndex: number) => Promise<void>) | undefined;
+    readonly onToggleTurnGroupVisibility?: ((groupId: string) => Promise<void>) | undefined;
+    readonly onRenameTurnGroup?: ((groupId: string, label: string | null) => Promise<void>) | undefined;
+    readonly onResetTurnPartition?: (() => Promise<void>) | undefined;
+    readonly turnPartitionSaving?: boolean;
+    readonly focusedGroup?: TurnGroup | null;
 }
 
 const InspectorContext = createContext<InspectorContextValue | null>(null);

@@ -1,6 +1,6 @@
 import type React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { segmentEventsByTurn } from "../../types.js";
+import { filterEventsByGroup, segmentEventsByTurn } from "../../types.js";
 import { useContextWarningPrefs } from "../lib/useContextWarningPrefs.js";
 import {
     buildDisplayLaneRows,
@@ -51,6 +51,7 @@ export function Timeline({
     onStartEditTitle, onCancelEditTitle, onSubmitTitle, onTitleDraftChange,
     onToggleRuleGap, onClearRuleId, onChangeTaskStatus,
     zoom, onZoomChange, embedded, externalFiltersState, externalTimelineFilters,
+    turnPartition = null, focusedTurnGroupId = null, onSelectTurnGroup,
 }: TimelineProps): React.JSX.Element {
     const [localFilters, setLocalFilters] = useState<Record<TimelineLane, boolean>>({
         user: true, exploration: true, planning: true, coordination: true,
@@ -87,11 +88,24 @@ export function Timeline({
     }, [taskStatus, taskUpdatedAt, nowMs]);
     const activeBaseLanes = useMemo(() => TIMELINE_LANES.filter((l) => filters[l]), [filters]);
     const groupedTimeline = useMemo(() => groupInstructionsBursts(timeline), [timeline]);
+    const hiddenEventIds = useMemo(() => {
+        if (!turnPartition) return new Set<string>();
+        const hidden = turnPartition.groups.filter((g) => !g.visible);
+        if (hidden.length === 0) return new Set<string>();
+        const ids = new Set<string>();
+        for (const group of hidden) {
+            for (const event of filterEventsByGroup(timeline, group)) {
+                ids.add(event.id);
+            }
+        }
+        return ids;
+    }, [timeline, turnPartition]);
     const filteredTimeline = useMemo(
         () => filterTimelineEvents(groupedTimeline, { laneFilters: filters, selectedRuleId, selectedTag: null, showRuleGapsOnly })
             .filter((e) => e.lane !== "telemetry")
-            .filter((e) => !isContextHydrationEvent(e)),
-        [filters, selectedRuleId, showRuleGapsOnly, groupedTimeline],
+            .filter((e) => !isContextHydrationEvent(e))
+            .filter((e) => !hiddenEventIds.has(e.id)),
+        [filters, selectedRuleId, showRuleGapsOnly, groupedTimeline, hiddenEventIds],
     );
     const sessionMarkers = useMemo(() => selectSessionMarkerEvents(timeline), [timeline]);
     const expandedLaneSet = useMemo(() => {
@@ -222,9 +236,26 @@ export function Timeline({
           filteredTimeline[filteredTimeline.length - 1] ??
           null);
     const turnSegments = useMemo(
-        () => segmentEventsByTurn(filteredTimeline),
-        [filteredTimeline],
+        () => segmentEventsByTurn(timeline),
+        [timeline],
     );
+    const focusedGroupRange = useMemo(() => {
+        if (!turnPartition || !focusedTurnGroupId) return null;
+        const group = turnPartition.groups.find((g) => g.id === focusedTurnGroupId);
+        if (!group) return null;
+        const segmentByTurn = new Map<number, typeof turnSegments[number]>();
+        for (const s of turnSegments) segmentByTurn.set(s.turnIndex, s);
+        const first = segmentByTurn.get(group.from);
+        const last = segmentByTurn.get(group.to);
+        if (!first || !last) return null;
+        const nextAfter = segmentByTurn.get(group.to + 1);
+        const startMs = Date.parse(first.startAt);
+        const endMs = Date.parse(nextAfter ? nextAfter.startAt : last.endAt);
+        return {
+            left: timelineLayout.tsToLeft(startMs),
+            right: timelineLayout.tsToLeft(endMs),
+        };
+    }, [focusedTurnGroupId, timelineLayout, turnPartition, turnSegments]);
     const contextSummary = useMemo(
         () => buildTimelineContextSummary({
             filteredEventCount: filteredTimeline.length,
@@ -449,6 +480,9 @@ export function Timeline({
                                 canvasHeight={canvasHeight}
                                 canvasWidth={timelineLayout.width}
                                 sessionMarkerLefts={sessionMarkerLefts}
+                                partition={turnPartition}
+                                focusedGroupId={focusedTurnGroupId}
+                                onSelectGroup={onSelectTurnGroup}
                             />
 
                             <TimelineSessionMarkers
@@ -526,6 +560,7 @@ export function Timeline({
                             items={timelineLayout.items}
                             laneRows={displayLaneRows}
                             scrollRef={scrollRef}
+                            focusedRange={focusedGroupRange}
                         />
                         <TimelineContextChart
                             timelineWidth={timelineLayout.width}

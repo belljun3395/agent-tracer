@@ -1,4 +1,5 @@
 import type React from "react";
+import { useCallback, useState } from "react";
 import type { PanelTabId } from "../../components/EventInspector.js";
 import { EventInspector } from "../../components/EventInspector.js";
 import { Timeline } from "../../components/Timeline.js";
@@ -6,6 +7,7 @@ import type { TimelineProps } from "../../features/timeline/types.js";
 import { InspectorProvider } from "../../features/inspector/context/InspectorContext.js";
 import { Button } from "../../components/ui/Button.js";
 import { cn } from "../../lib/ui/cn.js";
+import { useTurnPartition } from "../../../state.js";
 import type { WorkspaceState } from "./useWorkspace.js";
 import { WorkspaceReviewPanel } from "./WorkspaceReviewPanel.js";
 
@@ -64,6 +66,18 @@ export function WorkspaceContent({
         handleTaskStatusChange, handleTaskTitleSubmit,
         handleCreateTaskBookmark, handleCreateEventBookmark, handleUpdateEventDisplayTitle,
     } = workspace;
+
+    const {
+        partition: turnPartition, isSaving: turnPartitionSaving,
+        mergeNext: onMergeTurnGroup, split: onSplitTurnGroup,
+        toggleVisibility: onToggleTurnGroupVisibility, rename: onRenameTurnGroup,
+        reset: onResetTurnPartition,
+    } = useTurnPartition(taskId, taskTimeline);
+    const [focusedTurnGroupId, setFocusedTurnGroupId] = useState<string | null>(null);
+    const onFocusTurnGroup = useCallback((groupId: string | null) => {
+        setFocusedTurnGroupId((current) => (current === groupId ? null : groupId));
+    }, []);
+    const focusedGroup = turnPartition?.groups.find((g) => g.id === focusedTurnGroupId) ?? null;
 
     if (workspaceLoading) {
         return (
@@ -126,6 +140,9 @@ export function WorkspaceContent({
                     onClearRuleId={() => selectRule(null)}
                     onChangeTaskStatus={(s) => void handleTaskStatusChange(s)}
                     embedded={embedded}
+                    turnPartition={turnPartition}
+                    focusedTurnGroupId={focusedTurnGroupId}
+                    onSelectTurnGroup={onFocusTurnGroup}
                     {...timelineEmbeddedProps}
                 />
             </section>
@@ -166,6 +183,16 @@ export function WorkspaceContent({
                     onSelectEvent: (eventId) => { selectConnector(null); selectEvent(eventId); },
                     onSelectTag: selectTag,
                     onUpdateEventDisplayTitle: handleUpdateEventDisplayTitle,
+                    turnPartition,
+                    focusedTurnGroupId,
+                    onFocusTurnGroup,
+                    onMergeTurnGroup,
+                    onSplitTurnGroup,
+                    onToggleTurnGroupVisibility,
+                    onRenameTurnGroup,
+                    onResetTurnPartition,
+                    turnPartitionSaving,
+                    focusedGroup,
                 }}>
                     <EventInspector
                         activeTab={activeTab}
