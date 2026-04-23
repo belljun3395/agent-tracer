@@ -1,22 +1,34 @@
 import { normalizeWorkspacePath } from "~domain/index.js";
-import type { MonitorPorts } from "~application/ports/index.js";
+import type {
+    IEventRepository,
+    INotificationPublisher,
+    IRuntimeBindingRepository,
+    ISessionRepository,
+    ITaskRepository,
+} from "~application/ports/index.js";
 import type { EnsureRuntimeSessionUseCaseIn, EnsureRuntimeSessionUseCaseOut } from "./ensure.runtime.session.usecase.dto.js";
 import { startTask } from "../tasks/services/task.lifecycle.service.js";
 
 export class EnsureRuntimeSessionUseCase {
-    constructor(private readonly ports: MonitorPorts) {}
+    constructor(
+        private readonly tasks: ITaskRepository,
+        private readonly sessions: ISessionRepository,
+        private readonly events: IEventRepository,
+        private readonly runtimeBindings: IRuntimeBindingRepository,
+        private readonly notifier: INotificationPublisher,
+    ) {}
 
     async execute(input: EnsureRuntimeSessionUseCaseIn): Promise<EnsureRuntimeSessionUseCaseOut> {
         const workspacePath = input.workspacePath
             ? normalizeWorkspacePath(input.workspacePath)
             : undefined;
-        const binding = await this.ports.runtimeBindings.find(input.runtimeSource, input.runtimeSessionId);
+        const binding = await this.runtimeBindings.find(input.runtimeSource, input.runtimeSessionId);
         // Active binding: this runtime session is already attached to an open monitor session.
         // Reuse it so repeated runtime events do not create duplicate sessions.
         if (binding) {
-            const session = await this.ports.sessions.findById(binding.monitorSessionId);
+            const session = await this.sessions.findById(binding.monitorSessionId);
             if (!session || session.status !== "running") {
-                await this.ports.runtimeBindings.clearSession(input.runtimeSource, input.runtimeSessionId);
+                await this.runtimeBindings.clearSession(input.runtimeSource, input.runtimeSessionId);
             } else {
                 return {
                     taskId: binding.taskId,
@@ -27,14 +39,14 @@ export class EnsureRuntimeSessionUseCase {
             }
         }
 
-        const existingTaskId = await this.ports.runtimeBindings.findTaskId(input.runtimeSource, input.runtimeSessionId);
+        const existingTaskId = await this.runtimeBindings.findTaskId(input.runtimeSource, input.runtimeSessionId);
         if (existingTaskId) {
-            const task = await this.ports.tasks.findById(existingTaskId);
+            const task = await this.tasks.findById(existingTaskId);
             // Historical binding only: the runtime session is known, but no monitor session
             // is currently active. Read-only callers should attach to the latest session
             // without reopening the task.
             if (input.resume === false) {
-                const sessions = await this.ports.sessions.findByTaskId(existingTaskId);
+                const sessions = await this.sessions.findByTaskId(existingTaskId);
                 const latest = [...sessions].sort((a, b) => b.startedAt.localeCompare(a.startedAt))[0];
                 if (latest) {
                     return {
@@ -50,7 +62,7 @@ export class EnsureRuntimeSessionUseCase {
             const sessionId = globalThis.crypto.randomUUID();
             const startedAt = new Date().toISOString();
             if (task && (task.status !== "running" || task.runtimeSource !== input.runtimeSource)) {
-                const resumedTask = await this.ports.tasks.upsert({
+                const resumedTask = await this.tasks.upsert({
                     ...task,
                     taskKind: task.taskKind ?? "primary",
                     status: "running",
@@ -58,23 +70,23 @@ export class EnsureRuntimeSessionUseCase {
                     lastSessionStartedAt: startedAt,
                     runtimeSource: input.runtimeSource,
                 });
-                this.ports.notifier.publish({
+                this.notifier.publish({
                     type: "task.updated",
                     payload: resumedTask,
                 });
             }
 
-            const session = await this.ports.sessions.create({
+            const session = await this.sessions.create({
                 id: sessionId,
                 taskId: existingTaskId,
                 status: "running",
                 startedAt,
             });
-            this.ports.notifier.publish({
+            this.notifier.publish({
                 type: "session.started",
                 payload: session,
             });
-            await this.ports.runtimeBindings.upsert({
+            await this.runtimeBindings.upsert({
                 runtimeSource: input.runtimeSource,
                 runtimeSessionId: input.runtimeSessionId,
                 taskId: existingTaskId,
@@ -90,7 +102,7 @@ export class EnsureRuntimeSessionUseCase {
 
         // First sighting: this runtime session has no active or historical binding, so
         // create both the task and its initial monitor session.
-        const result = await startTask(this.ports, {
+        const result = await startTask(this.tasks, this.sessions, this.events, this.notifier, {
             ...(input.taskId ? { taskId: input.taskId } : {}),
             title: input.title,
             ...(workspacePath ? { workspacePath } : {}),
@@ -104,7 +116,7 @@ export class EnsureRuntimeSessionUseCase {
         });
         const taskId = result.task.id;
         const sessionId = result.sessionId!;
-        await this.ports.runtimeBindings.upsert({
+        await this.runtimeBindings.upsert({
             runtimeSource: input.runtimeSource,
             runtimeSessionId: input.runtimeSessionId,
             taskId,

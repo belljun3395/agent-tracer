@@ -10,27 +10,3 @@ export type { IRuleCommandRepository, RuleCommandRecord, RuleCommandCreateInput 
 export type { ITurnPartitionRepository } from "./repository/turn.partition.repository.js";
 export type { IEmbeddingService } from "./service/embedding.service.js";
 export type { ContentBlobRecord, ContentBlobWriteInput, IEventStore } from "./repository/domain-event.repository.js";
-import type { ITaskRepository } from "./repository/task.repository.js";
-import type { ISessionRepository } from "./repository/session.repository.js";
-import type { IEventRepository } from "./repository/event.repository.js";
-import type { IRuntimeBindingRepository } from "./repository/runtime.binding.repository.js";
-import type { IBookmarkRepository } from "./repository/bookmark.repository.js";
-import type { INotificationPublisher } from "./event/notification.publisher.js";
-import type { IEvaluationRepository } from "./repository/evaluation.repository.js";
-import type { IPlaybookRepository } from "./repository/playbook.repository.js";
-import type { IRuleCommandRepository } from "./repository/rule-command.repository.js";
-import type { ITurnPartitionRepository } from "./repository/turn.partition.repository.js";
-import type { IEventStore } from "./repository/domain-event.repository.js";
-export interface MonitorPorts {
-    readonly tasks: ITaskRepository;
-    readonly sessions: ISessionRepository;
-    readonly events: IEventRepository;
-    readonly eventStore: IEventStore;
-    readonly runtimeBindings: IRuntimeBindingRepository;
-    readonly bookmarks: IBookmarkRepository;
-    readonly evaluations: IEvaluationRepository;
-    readonly playbooks: IPlaybookRepository;
-    readonly ruleCommands: IRuleCommandRepository;
-    readonly turnPartitions: ITurnPartitionRepository;
-    readonly notifier: INotificationPublisher;
-}

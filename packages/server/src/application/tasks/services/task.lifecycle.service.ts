@@ -1,22 +1,33 @@
 import { createTaskSlug, normalizeWorkspacePath } from "~domain/index.js";
 import { mapTimelineEventToRecord } from "~application/views/index.js";
-import type { MonitorPorts } from "~application/ports/index.js";
+import type {
+    IEventRepository,
+    INotificationPublisher,
+    ISessionRepository,
+    ITaskRepository,
+} from "~application/ports/index.js";
 import { buildEventRecord } from "~application/events/event.recording.ops.js";
 import type { TaskFinalizationInput, TaskStartInput } from "~application/tasks/task.lifecycle.input.js";
 import type { RecordedEventEnvelope } from "~application/tasks/task.lifecycle.result.js";
 
-export async function finalizeTask(ports: MonitorPorts, input: TaskFinalizationInput): Promise<RecordedEventEnvelope> {
-    const task = await ports.tasks.findById(input.taskId);
+export async function finalizeTask(
+    tasks: ITaskRepository,
+    sessions: ISessionRepository,
+    events: IEventRepository,
+    notifier: INotificationPublisher,
+    input: TaskFinalizationInput,
+): Promise<RecordedEventEnvelope> {
+    const task = await tasks.findById(input.taskId);
     if (!task) throw new Error(`Task not found: ${input.taskId}`);
 
     const endedAt = new Date().toISOString();
-    const sessionId = input.sessionId ?? (await ports.sessions.findActiveByTaskId(input.taskId))?.id;
+    const sessionId = input.sessionId ?? (await sessions.findActiveByTaskId(input.taskId))?.id;
     const status = input.outcome;
     if (sessionId) {
-        const previousSession = await ports.sessions.findById(sessionId);
-        await ports.sessions.updateStatus(sessionId, status, endedAt, input.summary);
+        const previousSession = await sessions.findById(sessionId);
+        await sessions.updateStatus(sessionId, status, endedAt, input.summary);
         if (previousSession) {
-            ports.notifier.publish({
+            notifier.publish({
                 type: "session.ended",
                 payload: { ...previousSession, status, endedAt },
             });
@@ -27,9 +38,9 @@ export async function finalizeTask(ports: MonitorPorts, input: TaskFinalizationI
         return { task, ...(sessionId ? { sessionId } : {}), events: [] };
     }
 
-    await ports.tasks.updateStatus(input.taskId, status, endedAt);
-    const finalTask = (await ports.tasks.findById(input.taskId)) ?? task;
-    ports.notifier.publish(
+    await tasks.updateStatus(input.taskId, status, endedAt);
+    const finalTask = (await tasks.findById(input.taskId)) ?? task;
+    notifier.publish(
         status === "completed"
             ? { type: "task.completed", payload: finalTask }
             : { type: "task.updated", payload: finalTask },
@@ -45,20 +56,26 @@ export async function finalizeTask(ports: MonitorPorts, input: TaskFinalizationI
         ...(body ? { body } : {}),
         ...(input.metadata ? { metadata: input.metadata } : {}),
     });
-    const event = await ports.events.insert({ id: globalThis.crypto.randomUUID(), ...record });
-    ports.notifier.publish({ type: "event.logged", payload: mapTimelineEventToRecord(event) });
+    const event = await events.insert({ id: globalThis.crypto.randomUUID(), ...record });
+    notifier.publish({ type: "event.logged", payload: mapTimelineEventToRecord(event) });
     return { task: finalTask, ...(sessionId ? { sessionId } : {}), events: [{ id: event.id, kind: event.kind }] };
 }
 
-export async function startTask(ports: MonitorPorts, input: TaskStartInput): Promise<RecordedEventEnvelope> {
+export async function startTask(
+    tasks: ITaskRepository,
+    sessions: ISessionRepository,
+    events: IEventRepository,
+    notifier: INotificationPublisher,
+    input: TaskStartInput,
+): Promise<RecordedEventEnvelope> {
     const taskId = input.taskId ?? globalThis.crypto.randomUUID();
     const sessionId = globalThis.crypto.randomUUID();
     const startedAt = new Date().toISOString();
-    const existingTask = await ports.tasks.findById(taskId);
+    const existingTask = await tasks.findById(taskId);
     const workspacePath = input.workspacePath ? normalizeWorkspacePath(input.workspacePath) : undefined;
     const taskKind = input.taskKind ?? existingTask?.taskKind ?? "primary";
     const runtimeSource = input.runtimeSource ?? existingTask?.runtimeSource;
-    const task = await ports.tasks.upsert({
+    const task = await tasks.upsert({
         id: taskId,
         title: input.title,
         slug: createTaskSlug({ title: input.title }),
@@ -73,7 +90,7 @@ export async function startTask(ports: MonitorPorts, input: TaskStartInput): Pro
         ...(workspacePath ? { workspacePath } : {}),
         ...(runtimeSource ? { runtimeSource } : {}),
     });
-    const session = await ports.sessions.create({
+    const session = await sessions.create({
         id: sessionId,
         taskId: task.id,
         status: "running",
@@ -81,10 +98,10 @@ export async function startTask(ports: MonitorPorts, input: TaskStartInput): Pro
         ...(input.summary ? { summary: input.summary } : {}),
     });
     if (existingTask && (existingTask.status !== "running" || existingTask.runtimeSource !== task.runtimeSource)) {
-        ports.notifier.publish({ type: "task.updated", payload: task });
+        notifier.publish({ type: "task.updated", payload: task });
     }
-    ports.notifier.publish({ type: "task.started", payload: task });
-    ports.notifier.publish({ type: "session.started", payload: session });
+    notifier.publish({ type: "task.started", payload: task });
+    notifier.publish({ type: "session.started", payload: session });
     if (!existingTask) {
         const startMeta = {
             ...(input.metadata ?? {}),
@@ -104,8 +121,8 @@ export async function startTask(ports: MonitorPorts, input: TaskStartInput): Pro
             metadata: startMeta,
             ...(input.summary ? { body: input.summary } : {}),
         });
-        const event = await ports.events.insert({ id: globalThis.crypto.randomUUID(), ...record });
-        ports.notifier.publish({ type: "event.logged", payload: mapTimelineEventToRecord(event) });
+        const event = await events.insert({ id: globalThis.crypto.randomUUID(), ...record });
+        notifier.publish({ type: "event.logged", payload: mapTimelineEventToRecord(event) });
         return { task, sessionId, events: [{ id: event.id, kind: event.kind }] };
     }
     return { task, sessionId, events: [] };

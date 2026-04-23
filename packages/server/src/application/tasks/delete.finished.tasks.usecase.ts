@@ -1,11 +1,14 @@
-import type { MonitorPorts } from "~application/ports/index.js";
+import type { INotificationPublisher, ITaskRepository } from "~application/ports/index.js";
 
 export class DeleteFinishedTasksUseCase {
-    constructor(private readonly ports: MonitorPorts) {}
+    constructor(
+        private readonly tasks: ITaskRepository,
+        private readonly notifier: INotificationPublisher,
+    ) {}
 
     async execute(): Promise<number> {
-        const count = await this.ports.tasks.deleteFinished();
-        this.ports.notifier.publish({ type: "tasks.purged", payload: { count } });
+        const count = await this.tasks.deleteFinished();
+        this.notifier.publish({ type: "tasks.purged", payload: { count } });
         return count;
     }
 }
