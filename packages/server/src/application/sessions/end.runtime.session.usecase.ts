@@ -1,5 +1,4 @@
 import type {
-    IEventRepository,
     INotificationPublisher,
     IRuntimeBindingRepository,
     ISessionRepository,
@@ -7,7 +6,7 @@ import type {
 } from "~application/ports/index.js";
 import type { MonitoringTask } from "~domain/index.js";
 import type { EndRuntimeSessionUseCaseIn } from "./end.runtime.session.usecase.dto.js";
-import { finalizeTask } from "../tasks/services/task.lifecycle.service.js";
+import type { TaskLifecycleService } from "../tasks/services/task.lifecycle.service.js";
 
 interface SessionTaskCompletionInput {
     readonly taskId: string;
@@ -19,9 +18,9 @@ export class EndRuntimeSessionUseCase {
     constructor(
         private readonly tasks: ITaskRepository,
         private readonly sessions: ISessionRepository,
-        private readonly events: IEventRepository,
         private readonly runtimeBindings: IRuntimeBindingRepository,
         private readonly notifier: INotificationPublisher,
+        private readonly taskLifecycle: TaskLifecycleService,
     ) {}
 
     async execute(input: EndRuntimeSessionUseCaseIn): Promise<void> {
@@ -33,7 +32,7 @@ export class EndRuntimeSessionUseCase {
             if (input.completeTask === true) {
                 const taskId = await this.runtimeBindings.findTaskId(input.runtimeSource, input.runtimeSessionId);
                 if (taskId) {
-                    await completeTaskIfIncomplete(this.tasks, this.sessions, this.events, this.notifier, {
+                    await completeTaskIfIncomplete(this.tasks, this.taskLifecycle, {
                         taskId,
                         summary: input.summary ?? "Runtime session ended",
                     });
@@ -50,7 +49,7 @@ export class EndRuntimeSessionUseCase {
         if (!session || session.status !== "running") {
             await this.runtimeBindings.clearSession(input.runtimeSource, input.runtimeSessionId);
             if (input.completeTask === true) {
-                await completeTaskIfIncomplete(this.tasks, this.sessions, this.events, this.notifier, {
+                await completeTaskIfIncomplete(this.tasks, this.taskLifecycle, {
                     taskId: binding.taskId,
                     summary: input.summary ?? "Runtime session ended",
                 });
@@ -65,7 +64,7 @@ export class EndRuntimeSessionUseCase {
             payload: { ...session, status: "completed" as const, endedAt },
         });
         await this.runtimeBindings.clearSession(input.runtimeSource, input.runtimeSessionId);
-        await completeBgTasks(this.tasks, this.sessions, this.events, this.notifier, input.backgroundCompletions);
+        await completeBgTasks(this.tasks, this.taskLifecycle, input.backgroundCompletions);
 
         const task = await this.tasks.findById(binding.taskId);
         const hasRunningBackgroundChildren = task?.taskKind === "primary"
@@ -82,7 +81,7 @@ export class EndRuntimeSessionUseCase {
                 completionReason: input.completionReason,
                 hasRunningBackgroundDescendants: hasRunningBackgroundChildren,
             })) {
-                await completeTaskIfIncomplete(this.tasks, this.sessions, this.events, this.notifier, {
+                await completeTaskIfIncomplete(this.tasks, this.taskLifecycle, {
                     taskId: binding.taskId,
                     sessionId: binding.monitorSessionId,
                     summary: input.summary ?? "Runtime session ended",
@@ -98,7 +97,7 @@ export class EndRuntimeSessionUseCase {
             && task.status === "running"
             && (await this.sessions.countRunningByTaskId(binding.taskId)) === 0
         ) {
-            await completeTaskIfIncomplete(this.tasks, this.sessions, this.events, this.notifier, {
+            await completeTaskIfIncomplete(this.tasks, this.taskLifecycle, {
                 taskId: binding.taskId,
                 sessionId: binding.monitorSessionId,
                 summary: input.summary ?? "Background task completed",
@@ -153,28 +152,24 @@ async function setTaskStatus(
 
 async function completeTaskIfIncomplete(
     tasks: ITaskRepository,
-    sessions: ISessionRepository,
-    events: IEventRepository,
-    notifier: INotificationPublisher,
+    taskLifecycle: TaskLifecycleService,
     input: SessionTaskCompletionInput,
 ): Promise<void> {
     const task = await tasks.findById(input.taskId);
     if (!task || task.status === "completed" || task.status === "errored") return;
-    await finalizeTask(tasks, sessions, events, notifier, { ...input, outcome: "completed" });
+    await taskLifecycle.finalizeTask({ ...input, outcome: "completed" });
 }
 
 async function completeBgTasks(
     tasks: ITaskRepository,
-    sessions: ISessionRepository,
-    events: IEventRepository,
-    notifier: INotificationPublisher,
+    taskLifecycle: TaskLifecycleService,
     ids?: readonly string[],
 ): Promise<void> {
     if (!ids?.length) return;
     for (const bgTaskId of ids) {
         const bgTask = await tasks.findById(bgTaskId);
         if (bgTask?.status === "running") {
-            await finalizeTask(tasks, sessions, events, notifier, {
+            await taskLifecycle.finalizeTask({
                 taskId: bgTask.id,
                 summary: "Background task completed",
                 outcome: "completed",

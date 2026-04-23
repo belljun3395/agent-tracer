@@ -1,21 +1,20 @@
 import { normalizeWorkspacePath } from "~domain/index.js";
 import type {
-    IEventRepository,
     INotificationPublisher,
     IRuntimeBindingRepository,
     ISessionRepository,
     ITaskRepository,
 } from "~application/ports/index.js";
 import type { EnsureRuntimeSessionUseCaseIn, EnsureRuntimeSessionUseCaseOut } from "./ensure.runtime.session.usecase.dto.js";
-import { startTask } from "../tasks/services/task.lifecycle.service.js";
+import type { TaskLifecycleService } from "../tasks/services/task.lifecycle.service.js";
 
 export class EnsureRuntimeSessionUseCase {
     constructor(
         private readonly tasks: ITaskRepository,
         private readonly sessions: ISessionRepository,
-        private readonly events: IEventRepository,
         private readonly runtimeBindings: IRuntimeBindingRepository,
         private readonly notifier: INotificationPublisher,
+        private readonly taskLifecycle: TaskLifecycleService,
     ) {}
 
     async execute(input: EnsureRuntimeSessionUseCaseIn): Promise<EnsureRuntimeSessionUseCaseOut> {
@@ -102,7 +101,7 @@ export class EnsureRuntimeSessionUseCase {
 
         // First sighting: this runtime session has no active or historical binding, so
         // create both the task and its initial monitor session.
-        const result = await startTask(this.tasks, this.sessions, this.events, this.notifier, {
+        const result = await this.taskLifecycle.startTask({
             ...(input.taskId ? { taskId: input.taskId } : {}),
             title: input.title,
             ...(workspacePath ? { workspacePath } : {}),

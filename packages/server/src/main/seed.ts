@@ -9,7 +9,7 @@ import {
     SqliteSessionRepository,
     SqliteTaskRepository,
 } from "~adapters/persistence/sqlite/index.js";
-import { StartTaskUseCase, CompleteTaskUseCase } from "~application/tasks/index.js";
+import { StartTaskUseCase, CompleteTaskUseCase, TaskLifecycleService } from "~application/tasks/index.js";
 import type { INotificationPublisher } from "~application/index.js";
 
 const databasePath = path.resolve(process.cwd(), ".monitor", "monitor.sqlite");
@@ -20,9 +20,10 @@ const tasks = new SqliteTaskRepository(databaseContext.db);
 const sessions = new SqliteSessionRepository(databaseContext.db);
 const events = new SqliteEventRepository(databaseContext.db);
 const bookmarks = new SqliteBookmarkRepository(databaseContext.db);
+const taskLifecycle = new TaskLifecycleService(tasks, sessions, events, notifier);
 const logEvent = new LogEventUseCase(tasks, events, notifier);
-const startTask = new StartTaskUseCase(tasks, sessions, events, notifier);
-const completeTask = new CompleteTaskUseCase(tasks, sessions, events, notifier);
+const startTask = new StartTaskUseCase(taskLifecycle);
+const completeTask = new CompleteTaskUseCase(taskLifecycle);
 const saveBookmark = new SaveBookmarkUseCase(tasks, events, bookmarks, notifier);
 
 try {

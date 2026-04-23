@@ -8,6 +8,7 @@ import type {
     ITaskRepository,
     RuntimeBinding,
 } from "~application/ports/index.js";
+import { TaskLifecycleService } from "~application/tasks/services/task.lifecycle.service.js";
 
 export interface TestPorts {
     readonly tasks: ITaskRepository;
@@ -206,6 +207,7 @@ export function createPorts(seed?: {
 
     return {
         ports,
+        taskLifecycle: new TaskLifecycleService(ports.tasks, ports.sessions, ports.events, ports.notifier),
         tasks,
         sessions,
         bindings,

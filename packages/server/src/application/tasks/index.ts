@@ -11,6 +11,7 @@ export { GetTaskTimelineUseCase } from "./get.task.timeline.usecase.js";
 export { GetTaskLatestRuntimeSessionUseCase } from "./get.task.latest.runtime.session.usecase.js";
 export { GetTaskOpenInferenceUseCase } from "./get.task.open.inference.usecase.js";
 export { GetDefaultWorkspacePathUseCase } from "./get.default.workspace.path.usecase.js";
+export { TaskLifecycleService } from "./services/task.lifecycle.service.js";
 export type {
     TaskCompletionInput,
     TaskErrorInput,

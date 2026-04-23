@@ -14,7 +14,7 @@ describe("ErrorTaskUseCase", () => {
             sessions: [session({ id: "session-1", taskId: "task-1" })],
         });
 
-        const result = await new ErrorTaskUseCase(state.ports.tasks, state.ports.sessions, state.ports.events, state.ports.notifier).execute({
+        const result = await new ErrorTaskUseCase(state.taskLifecycle).execute({
             taskId: "task-1",
             errorMessage: "build failed",
             summary: "failed during build",
@@ -47,7 +47,7 @@ describe("ErrorTaskUseCase", () => {
             sessions: [session({ id: "session-1", taskId: "task-1" })],
         });
 
-        const result = await new ErrorTaskUseCase(state.ports.tasks, state.ports.sessions, state.ports.events, state.ports.notifier).execute({
+        const result = await new ErrorTaskUseCase(state.taskLifecycle).execute({
             taskId: "task-1",
             errorMessage: "already failed",
             summary: "already errored",
@@ -68,7 +68,7 @@ describe("ErrorTaskUseCase", () => {
     it("throws when the task does not exist", async () => {
         const state = createPorts();
 
-        await expect(new ErrorTaskUseCase(state.ports.tasks, state.ports.sessions, state.ports.events, state.ports.notifier).execute({
+        await expect(new ErrorTaskUseCase(state.taskLifecycle).execute({
             taskId: "missing",
             errorMessage: "missing task",
         })).rejects.toThrow("Task not found: missing");

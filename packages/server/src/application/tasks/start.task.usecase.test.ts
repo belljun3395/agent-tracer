@@ -13,7 +13,7 @@ describe("StartTaskUseCase", () => {
             .mockReturnValueOnce("00000000-0000-4000-8000-000000000202");
         const state = createPorts();
 
-        const result = await new StartTaskUseCase(state.ports.tasks, state.ports.sessions, state.ports.events, state.ports.notifier).execute({
+        const result = await new StartTaskUseCase(state.taskLifecycle).execute({
             taskId: "task-1",
             title: "First prompt",
             workspacePath: "/tmp/project/",
@@ -63,7 +63,7 @@ describe("StartTaskUseCase", () => {
             .mockReturnValueOnce("00000000-0000-4000-8000-000000000205");
         const state = createPorts();
 
-        const result = await new StartTaskUseCase(state.ports.tasks, state.ports.sessions, state.ports.events, state.ports.notifier).execute({
+        const result = await new StartTaskUseCase(state.taskLifecycle).execute({
             title: "Background worker",
             taskKind: "background",
             parentTaskId: "parent-task",
@@ -97,7 +97,7 @@ describe("StartTaskUseCase", () => {
             tasks: [task({ id: "task-1", status: "completed", runtimeSource: "old-source" })],
         });
 
-        const result = await new StartTaskUseCase(state.ports.tasks, state.ports.sessions, state.ports.events, state.ports.notifier).execute({
+        const result = await new StartTaskUseCase(state.taskLifecycle).execute({
             taskId: "task-1",
             title: "Resume task",
             runtimeSource: "codex",
