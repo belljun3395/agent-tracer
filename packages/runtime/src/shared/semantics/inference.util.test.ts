@@ -56,6 +56,11 @@ describe("buildSemanticMetadata", () => {
         expect(result.sourceTool).toBe("Read")
     })
 
+    it("preserves zero importance values", () => {
+        const result = buildSemanticMetadata({ subtypeKey: "read_file", importance: 0 })
+        expect(result.importance).toBe(0)
+    })
+
     it("returns a new object (does not mutate input)", () => {
         const input = { subtypeKey: "read_file" as const, subtypeLabel: "Read file" }
         const result = buildSemanticMetadata(input)

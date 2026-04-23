@@ -11,7 +11,7 @@ export function buildSemanticMetadata(input: EventSemanticMetadata): EventSemant
         ...(input.entityType ? { entityType: input.entityType } : {}),
         ...(input.entityName ? { entityName: input.entityName } : {}),
         ...(input.sourceTool ? { sourceTool: input.sourceTool } : {}),
-        ...(input.importance ? { importance: input.importance } : {}),
+        ...(input.importance !== undefined ? { importance: input.importance } : {}),
     }
 }
 
