@@ -3,6 +3,8 @@ import type {
     TaskStatus,
 } from "~domain/index.js";
 
+export type TaskFinalizationOutcome = "completed" | "errored";
+
 export interface TaskStartInput {
     readonly taskId?: string;
     readonly title: string;
@@ -40,4 +42,9 @@ export interface TaskCompletionInput {
 
 export interface TaskErrorInput extends TaskCompletionInput {
     readonly errorMessage: string;
+}
+
+export interface TaskFinalizationInput extends TaskCompletionInput {
+    readonly outcome: TaskFinalizationOutcome;
+    readonly errorMessage?: string;
 }

@@ -1,12 +1,12 @@
 import type { MonitorPorts } from "~application/ports/index.js";
 import type { TaskCompletionInput } from "./task.lifecycle.input.js";
 import type { RecordedEventEnvelope } from "./task.lifecycle.result.js";
-import { finishTask } from "./services/task.lifecycle.service.js";
+import { finalizeTask } from "./services/task.lifecycle.service.js";
 
 export class CompleteTaskUseCase {
     constructor(private readonly ports: MonitorPorts) {}
 
     async execute(input: TaskCompletionInput): Promise<RecordedEventEnvelope> {
-        return finishTask(this.ports, input, "completed", "task.complete", input.summary);
+        return finalizeTask(this.ports, { ...input, outcome: "completed" });
     }
 }

@@ -20,6 +20,7 @@ Related documentation:
 |---|---|
 | `/api/runtime-session-ensure` | Runtime session upsert + task/session binding |
 | `/api/runtime-session-end` | Runtime session closure |
+| `/api/task-complete`, `/api/task-error` | Direct task finalization by task id |
 | `/api/user-message` | Store user raw prompt |
 | `/ingest/v1/conversation` (`assistant.response`) | Store assistant final response |
 | `/api/tool-used` | Record implementation action |
@@ -137,6 +138,27 @@ Related documentation:
   "summary": "Updated the documentation as requested."
 }
 ```
+
+### Direct task finalization
+
+Use these endpoints only when the caller already knows the monitor `taskId` and
+wants to finalize that task directly. Do not send runtime-session policy fields
+(`completeTask`, `completionReason`, `backgroundCompletions`) here; those are
+only meaningful for `/api/runtime-session-end`.
+
+```json
+{
+  "taskId": "task_01J...",
+  "sessionId": "sess_01J...",
+  "summary": "Work item completed.",
+  "metadata": {
+    "source": "manual"
+  }
+}
+```
+
+For task failure, call `/api/task-error` with the same base fields plus
+`errorMessage`.
 
 ## Minimum Rules Manual Runtime Must Follow
 
