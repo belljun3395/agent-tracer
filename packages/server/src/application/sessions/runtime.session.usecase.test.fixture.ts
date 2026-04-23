@@ -1,6 +1,21 @@
 import { vi } from "vitest";
 import type { MonitoringSession, MonitoringTask, TimelineEvent } from "~domain/index.js";
-import type { MonitorPorts, RuntimeBinding } from "~application/ports/index.js";
+import type {
+    IEventRepository,
+    INotificationPublisher,
+    IRuntimeBindingRepository,
+    ISessionRepository,
+    ITaskRepository,
+    RuntimeBinding,
+} from "~application/ports/index.js";
+
+export interface TestPorts {
+    readonly tasks: ITaskRepository;
+    readonly sessions: ISessionRepository;
+    readonly events: IEventRepository;
+    readonly runtimeBindings: IRuntimeBindingRepository;
+    readonly notifier: INotificationPublisher;
+}
 
 export type RuntimeBindingRow = Omit<RuntimeBinding, "monitorSessionId"> & {
     monitorSessionId: string | null;
@@ -187,7 +202,7 @@ export function createPorts(seed?: {
         ruleCommands: {},
         turnPartitions: {},
         notifier,
-    } as unknown as MonitorPorts;
+    } as unknown as TestPorts;
 
     return {
         ports,

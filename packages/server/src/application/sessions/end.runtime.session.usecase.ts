@@ -1,4 +1,10 @@
-import type { MonitorPorts } from "~application/ports/index.js";
+import type {
+    IEventRepository,
+    INotificationPublisher,
+    IRuntimeBindingRepository,
+    ISessionRepository,
+    ITaskRepository,
+} from "~application/ports/index.js";
 import type { MonitoringTask } from "~domain/index.js";
 import type { EndRuntimeSessionUseCaseIn } from "./end.runtime.session.usecase.dto.js";
 import { finalizeTask } from "../tasks/services/task.lifecycle.service.js";
@@ -10,35 +16,41 @@ interface SessionTaskCompletionInput {
 }
 
 export class EndRuntimeSessionUseCase {
-    constructor(private readonly ports: MonitorPorts) {}
+    constructor(
+        private readonly tasks: ITaskRepository,
+        private readonly sessions: ISessionRepository,
+        private readonly events: IEventRepository,
+        private readonly runtimeBindings: IRuntimeBindingRepository,
+        private readonly notifier: INotificationPublisher,
+    ) {}
 
     async execute(input: EndRuntimeSessionUseCaseIn): Promise<void> {
-        const binding = await this.ports.runtimeBindings.find(input.runtimeSource, input.runtimeSessionId);
+        const binding = await this.runtimeBindings.find(input.runtimeSource, input.runtimeSessionId);
         // No active binding: the runtime session is already unbound or was never
         // observed. If the caller explicitly completes the task, fall back to the
         // historical task association and then remove that stale binding row.
         if (!binding) {
             if (input.completeTask === true) {
-                const taskId = await this.ports.runtimeBindings.findTaskId(input.runtimeSource, input.runtimeSessionId);
+                const taskId = await this.runtimeBindings.findTaskId(input.runtimeSource, input.runtimeSessionId);
                 if (taskId) {
-                    await completeTaskIfIncomplete(this.ports, {
+                    await completeTaskIfIncomplete(this.tasks, this.sessions, this.events, this.notifier, {
                         taskId,
                         summary: input.summary ?? "Runtime session ended",
                     });
-                    await this.ports.runtimeBindings.delete(input.runtimeSource, input.runtimeSessionId);
+                    await this.runtimeBindings.delete(input.runtimeSource, input.runtimeSessionId);
                 }
             }
             return;
         }
 
-        const session = await this.ports.sessions.findById(binding.monitorSessionId);
+        const session = await this.sessions.findById(binding.monitorSessionId);
         // Stale active binding: the binding points at a missing or already-ended
         // monitor session. Clear it so a later ensure can resume with a fresh
         // observation window instead of reusing a closed session.
         if (!session || session.status !== "running") {
-            await this.ports.runtimeBindings.clearSession(input.runtimeSource, input.runtimeSessionId);
+            await this.runtimeBindings.clearSession(input.runtimeSource, input.runtimeSessionId);
             if (input.completeTask === true) {
-                await completeTaskIfIncomplete(this.ports, {
+                await completeTaskIfIncomplete(this.tasks, this.sessions, this.events, this.notifier, {
                     taskId: binding.taskId,
                     summary: input.summary ?? "Runtime session ended",
                 });
@@ -47,17 +59,17 @@ export class EndRuntimeSessionUseCase {
         }
 
         const endedAt = new Date().toISOString();
-        await this.ports.sessions.updateStatus(binding.monitorSessionId, "completed", endedAt, input.summary);
-        this.ports.notifier.publish({
+        await this.sessions.updateStatus(binding.monitorSessionId, "completed", endedAt, input.summary);
+        this.notifier.publish({
             type: "session.ended",
             payload: { ...session, status: "completed" as const, endedAt },
         });
-        await this.ports.runtimeBindings.clearSession(input.runtimeSource, input.runtimeSessionId);
-        await completeBgTasks(this.ports, input.backgroundCompletions);
+        await this.runtimeBindings.clearSession(input.runtimeSource, input.runtimeSessionId);
+        await completeBgTasks(this.tasks, this.sessions, this.events, this.notifier, input.backgroundCompletions);
 
-        const task = await this.ports.tasks.findById(binding.taskId);
+        const task = await this.tasks.findById(binding.taskId);
         const hasRunningBackgroundChildren = task?.taskKind === "primary"
-            ? await hasRunningBackgroundDescendants(this.ports, binding.taskId)
+            ? await hasRunningBackgroundDescendants(this.tasks, binding.taskId)
             : false;
 
         if (input.completeTask === true && task) {
@@ -66,11 +78,11 @@ export class EndRuntimeSessionUseCase {
             if (shouldAutoCompletePrimary({
                 taskKind: task.taskKind ?? "primary",
                 completeTask: true,
-                runningSessionCount: await this.ports.sessions.countRunningByTaskId(binding.taskId),
+                runningSessionCount: await this.sessions.countRunningByTaskId(binding.taskId),
                 completionReason: input.completionReason,
                 hasRunningBackgroundDescendants: hasRunningBackgroundChildren,
             })) {
-                await completeTaskIfIncomplete(this.ports, {
+                await completeTaskIfIncomplete(this.tasks, this.sessions, this.events, this.notifier, {
                     taskId: binding.taskId,
                     sessionId: binding.monitorSessionId,
                     summary: input.summary ?? "Runtime session ended",
@@ -84,9 +96,9 @@ export class EndRuntimeSessionUseCase {
         if (
             task?.taskKind === "background"
             && task.status === "running"
-            && (await this.ports.sessions.countRunningByTaskId(binding.taskId)) === 0
+            && (await this.sessions.countRunningByTaskId(binding.taskId)) === 0
         ) {
-            await completeTaskIfIncomplete(this.ports, {
+            await completeTaskIfIncomplete(this.tasks, this.sessions, this.events, this.notifier, {
                 taskId: binding.taskId,
                 sessionId: binding.monitorSessionId,
                 summary: input.summary ?? "Background task completed",
@@ -101,22 +113,22 @@ export class EndRuntimeSessionUseCase {
             && shouldMovePrimaryToWaiting({
                 taskKind: task.taskKind ?? "primary",
                 completeTask: input.completeTask ?? false,
-                runningSessionCount: await this.ports.sessions.countRunningByTaskId(binding.taskId),
+                runningSessionCount: await this.sessions.countRunningByTaskId(binding.taskId),
                 completionReason: input.completionReason,
                 hasRunningBackgroundDescendants: hasRunningBackgroundChildren,
             })
         ) {
-            await setTaskStatus(this.ports, binding.taskId, "waiting");
+            await setTaskStatus(this.tasks, this.notifier, binding.taskId, "waiting");
         }
     }
 }
 
-async function hasRunningBackgroundDescendants(ports: MonitorPorts, taskId: string): Promise<boolean> {
+async function hasRunningBackgroundDescendants(tasks: ITaskRepository, taskId: string): Promise<boolean> {
     const stack = [taskId];
     while (stack.length > 0) {
         const parentId = stack.pop();
         if (!parentId) continue;
-        const children = await ports.tasks.findChildren(parentId);
+        const children = await tasks.findChildren(parentId);
         for (const child of children) {
             if (child.taskKind === "background" && child.status === "running") return true;
             stack.push(child.id);
@@ -125,33 +137,44 @@ async function hasRunningBackgroundDescendants(ports: MonitorPorts, taskId: stri
     return false;
 }
 
-async function setTaskStatus(ports: MonitorPorts, taskId: string, status: MonitoringTask["status"]): Promise<MonitoringTask> {
+async function setTaskStatus(
+    tasks: ITaskRepository,
+    notifier: INotificationPublisher,
+    taskId: string,
+    status: MonitoringTask["status"],
+): Promise<MonitoringTask> {
     const updatedAt = new Date().toISOString();
-    await ports.tasks.updateStatus(taskId, status, updatedAt);
-    const task = await ports.tasks.findById(taskId);
+    await tasks.updateStatus(taskId, status, updatedAt);
+    const task = await tasks.findById(taskId);
     if (!task) throw new Error(`Task not found: ${taskId}`);
-    ports.notifier.publish({ type: "task.updated", payload: task });
+    notifier.publish({ type: "task.updated", payload: task });
     return task;
 }
 
 async function completeTaskIfIncomplete(
-    ports: MonitorPorts,
+    tasks: ITaskRepository,
+    sessions: ISessionRepository,
+    events: IEventRepository,
+    notifier: INotificationPublisher,
     input: SessionTaskCompletionInput,
 ): Promise<void> {
-    const task = await ports.tasks.findById(input.taskId);
+    const task = await tasks.findById(input.taskId);
     if (!task || task.status === "completed" || task.status === "errored") return;
-    await finalizeTask(ports, { ...input, outcome: "completed" });
+    await finalizeTask(tasks, sessions, events, notifier, { ...input, outcome: "completed" });
 }
 
 async function completeBgTasks(
-    ports: MonitorPorts,
+    tasks: ITaskRepository,
+    sessions: ISessionRepository,
+    events: IEventRepository,
+    notifier: INotificationPublisher,
     ids?: readonly string[],
 ): Promise<void> {
     if (!ids?.length) return;
     for (const bgTaskId of ids) {
-        const bgTask = await ports.tasks.findById(bgTaskId);
+        const bgTask = await tasks.findById(bgTaskId);
         if (bgTask?.status === "running") {
-            await finalizeTask(ports, {
+            await finalizeTask(tasks, sessions, events, notifier, {
                 taskId: bgTask.id,
                 summary: "Background task completed",
                 outcome: "completed",

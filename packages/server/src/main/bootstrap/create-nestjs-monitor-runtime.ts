@@ -7,7 +7,8 @@ import { AppModule } from "../presentation/app.module.js";
 import { EventBroadcasterService } from "~adapters/realtime/ws/index.js";
 import { GlobalExceptionFilter } from "../presentation/filters/zod-exception.filter.js";
 import { GetOverviewUseCase, ListTasksUseCase } from "~application/index.js";
-import { MONITOR_PORTS_TOKEN, type PortsWithClose } from "../presentation/database/database.provider.js";
+import { SQLITE_DATABASE_CONTEXT_TOKEN } from "../presentation/database/database.provider.js";
+import type { SqliteDatabaseContext } from "~adapters/persistence/sqlite/index.js";
 import type { RuntimeOptions, MonitorRuntime } from "./runtime.type.js";
 export async function createNestMonitorRuntime(options: RuntimeOptions): Promise<MonitorRuntime> {
     const broadcaster = new EventBroadcasterService();
@@ -36,7 +37,7 @@ export async function createNestMonitorRuntime(options: RuntimeOptions): Promise
         });
     });
     await nestApp.init();
-    const ports = nestApp.get<PortsWithClose>(MONITOR_PORTS_TOKEN);
+    const databaseContext = nestApp.get<SqliteDatabaseContext>(SQLITE_DATABASE_CONTEXT_TOKEN);
     const app = nestApp.getHttpAdapter().getInstance() as ReturnType<typeof express>;
     return {
         app,
@@ -47,7 +48,7 @@ export async function createNestMonitorRuntime(options: RuntimeOptions): Promise
             await new Promise<void>((resolve) => {
                 wss.close(() => resolve());
             });
-            ports.close();
+            databaseContext.close();
         }
     };
 }

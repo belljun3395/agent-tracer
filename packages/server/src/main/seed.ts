@@ -2,20 +2,36 @@ import path from "node:path";
 import { normalizeWorkspacePath } from "~domain/index.js";
 import { SaveBookmarkUseCase } from "~application/bookmarks/index.js";
 import { LogEventUseCase } from "~application/events/index.js";
-import { createSqliteMonitorPorts } from "~adapters/persistence/sqlite/index.js";
+import {
+    createSqliteDatabaseContext,
+    SqliteBookmarkRepository,
+    SqliteEventRepository,
+    SqliteSessionRepository,
+    SqliteTaskRepository,
+} from "~adapters/persistence/sqlite/index.js";
 import { StartTaskUseCase, CompleteTaskUseCase } from "~application/tasks/index.js";
+import type { INotificationPublisher } from "~application/index.js";
 
 const databasePath = path.resolve(process.cwd(), ".monitor", "monitor.sqlite");
 const workspacePath = normalizeWorkspacePath(process.cwd());
-const ports = createSqliteMonitorPorts({ databasePath });
-const logEvent = new LogEventUseCase(ports.tasks, ports.events, ports.notifier);
-const startTask = new StartTaskUseCase(ports);
-const completeTask = new CompleteTaskUseCase(ports);
-const saveBookmark = new SaveBookmarkUseCase(ports.tasks, ports.events, ports.bookmarks, ports.notifier);
+const databaseContext = createSqliteDatabaseContext(databasePath);
+const notifier: INotificationPublisher = { publish: () => { } };
+const tasks = new SqliteTaskRepository(databaseContext.db);
+const sessions = new SqliteSessionRepository(databaseContext.db);
+const events = new SqliteEventRepository(databaseContext.db);
+const bookmarks = new SqliteBookmarkRepository(databaseContext.db);
+const logEvent = new LogEventUseCase(tasks, events, notifier);
+const startTask = new StartTaskUseCase(tasks, sessions, events, notifier);
+const completeTask = new CompleteTaskUseCase(tasks, sessions, events, notifier);
+const saveBookmark = new SaveBookmarkUseCase(tasks, events, bookmarks, notifier);
 
-await seedDashboardTask();
-await seedCoordinationTask();
-console.log("Seeded Monitor demo data.");
+try {
+    await seedDashboardTask();
+    await seedCoordinationTask();
+    console.log("Seeded Monitor demo data.");
+} finally {
+    databaseContext.close();
+}
 
 async function seedDashboardTask(): Promise<void> {
     const started = await startTask.execute({

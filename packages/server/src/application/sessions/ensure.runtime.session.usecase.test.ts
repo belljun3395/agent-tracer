@@ -14,7 +14,7 @@ describe("EnsureRuntimeSessionUseCase", () => {
             bindings: [binding({ taskId: "task-1", monitorSessionId: "session-1" })],
         });
 
-        const result = await new EnsureRuntimeSessionUseCase(state.ports).execute({
+        const result = await new EnsureRuntimeSessionUseCase(state.ports.tasks, state.ports.sessions, state.ports.events, state.ports.runtimeBindings, state.ports.notifier).execute({
             runtimeSource: "codex",
             runtimeSessionId: "runtime-1",
             title: "ignored",
@@ -38,7 +38,7 @@ describe("EnsureRuntimeSessionUseCase", () => {
             bindings: [binding({ taskId: "task-1", monitorSessionId: "session-1" })],
         });
 
-        const result = await new EnsureRuntimeSessionUseCase(state.ports).execute({
+        const result = await new EnsureRuntimeSessionUseCase(state.ports.tasks, state.ports.sessions, state.ports.events, state.ports.runtimeBindings, state.ports.notifier).execute({
             runtimeSource: "codex",
             runtimeSessionId: "runtime-1",
             title: "Resume",
@@ -64,7 +64,7 @@ describe("EnsureRuntimeSessionUseCase", () => {
             bindings: [binding({ taskId: "task-1", monitorSessionId: null })],
         });
 
-        const result = await new EnsureRuntimeSessionUseCase(state.ports).execute({
+        const result = await new EnsureRuntimeSessionUseCase(state.ports.tasks, state.ports.sessions, state.ports.events, state.ports.runtimeBindings, state.ports.notifier).execute({
             runtimeSource: "codex",
             runtimeSessionId: "runtime-1",
             title: "ignored",
@@ -88,7 +88,7 @@ describe("EnsureRuntimeSessionUseCase", () => {
             bindings: [binding({ taskId: "task-1", monitorSessionId: null })],
         });
 
-        const result = await new EnsureRuntimeSessionUseCase(state.ports).execute({
+        const result = await new EnsureRuntimeSessionUseCase(state.ports.tasks, state.ports.sessions, state.ports.events, state.ports.runtimeBindings, state.ports.notifier).execute({
             runtimeSource: "codex",
             runtimeSessionId: "runtime-1",
             title: "Resume",
@@ -117,7 +117,7 @@ describe("EnsureRuntimeSessionUseCase", () => {
             .mockReturnValueOnce("00000000-0000-4000-8000-000000000003");
         const state = createPorts();
 
-        const result = await new EnsureRuntimeSessionUseCase(state.ports).execute({
+        const result = await new EnsureRuntimeSessionUseCase(state.ports.tasks, state.ports.sessions, state.ports.events, state.ports.runtimeBindings, state.ports.notifier).execute({
             taskId: "task-1",
             runtimeSource: "codex",
             runtimeSessionId: "runtime-1",

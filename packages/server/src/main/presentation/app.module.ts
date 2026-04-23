@@ -17,7 +17,18 @@ import {
     RuleCommandController,
     TurnPartitionController,
 } from "~adapters/http/query/index.js";
-import type { MonitorPorts } from "~application/index.js";
+import type {
+    IBookmarkRepository,
+    IEvaluationRepository,
+    IEventRepository,
+    INotificationPublisher,
+    IPlaybookRepository,
+    IRuleCommandRepository,
+    IRuntimeBindingRepository,
+    ISessionRepository,
+    ITaskRepository,
+    ITurnPartitionRepository,
+} from "~application/index.js";
 import {
     ListBookmarksUseCase,
     SaveBookmarkUseCase,
@@ -77,58 +88,101 @@ import {
     ListRuleCommandsUseCase,
     GetRulePatternsUseCase,
 } from "~application/rule-commands/index.js";
-import { DatabaseProvider, MONITOR_PORTS_TOKEN } from "./database/database.provider.js";
+import {
+    BOOKMARK_REPOSITORY_TOKEN,
+    DATABASE_PORT_TOKENS,
+    DatabaseProviders,
+    EVALUATION_REPOSITORY_TOKEN,
+    EVENT_REPOSITORY_TOKEN,
+    NOTIFICATION_PUBLISHER_TOKEN,
+    PLAYBOOK_REPOSITORY_TOKEN,
+    RULE_COMMAND_REPOSITORY_TOKEN,
+    RUNTIME_BINDING_REPOSITORY_TOKEN,
+    SESSION_REPOSITORY_TOKEN,
+    TASK_REPOSITORY_TOKEN,
+    TURN_PARTITION_REPOSITORY_TOKEN,
+} from "./database/database.provider.js";
 
 export interface AppModuleOptions {
     readonly databasePath: string;
-    readonly notifier?: MonitorPorts["notifier"];
+    readonly notifier?: INotificationPublisher;
 }
 
 @Module({})
 export class AppModule {
     static forRoot(options: AppModuleOptions): DynamicModule {
-        const dbProvider = DatabaseProvider(options);
+        const databaseProviders = DatabaseProviders(options);
 
         // Bookmark UseCases
         const listBookmarksProvider: Provider = {
             provide: ListBookmarksUseCase,
-            useFactory: (ports: MonitorPorts) => new ListBookmarksUseCase(ports.bookmarks),
-            inject: [MONITOR_PORTS_TOKEN],
+            useFactory: (bookmarks: IBookmarkRepository) => new ListBookmarksUseCase(bookmarks),
+            inject: [BOOKMARK_REPOSITORY_TOKEN],
         };
         const saveBookmarkProvider: Provider = {
             provide: SaveBookmarkUseCase,
-            useFactory: (ports: MonitorPorts) =>
-                new SaveBookmarkUseCase(ports.tasks, ports.events, ports.bookmarks, ports.notifier),
-            inject: [MONITOR_PORTS_TOKEN],
+            useFactory: (
+                tasks: ITaskRepository,
+                events: IEventRepository,
+                bookmarks: IBookmarkRepository,
+                notifier: INotificationPublisher,
+            ) => new SaveBookmarkUseCase(tasks, events, bookmarks, notifier),
+            inject: [TASK_REPOSITORY_TOKEN, EVENT_REPOSITORY_TOKEN, BOOKMARK_REPOSITORY_TOKEN, NOTIFICATION_PUBLISHER_TOKEN],
         };
         const deleteBookmarkProvider: Provider = {
             provide: DeleteBookmarkUseCase,
-            useFactory: (ports: MonitorPorts) => new DeleteBookmarkUseCase(ports.bookmarks, ports.notifier),
-            inject: [MONITOR_PORTS_TOKEN],
+            useFactory: (bookmarks: IBookmarkRepository, notifier: INotificationPublisher) =>
+                new DeleteBookmarkUseCase(bookmarks, notifier),
+            inject: [BOOKMARK_REPOSITORY_TOKEN, NOTIFICATION_PUBLISHER_TOKEN],
         };
 
         // Session UseCases
         const ensureRuntimeSessionProvider: Provider = {
             provide: EnsureRuntimeSessionUseCase,
-            useFactory: (ports: MonitorPorts) => new EnsureRuntimeSessionUseCase(ports),
-            inject: [MONITOR_PORTS_TOKEN],
+            useFactory: (
+                tasks: ITaskRepository,
+                sessions: ISessionRepository,
+                events: IEventRepository,
+                runtimeBindings: IRuntimeBindingRepository,
+                notifier: INotificationPublisher,
+            ) => new EnsureRuntimeSessionUseCase(tasks, sessions, events, runtimeBindings, notifier),
+            inject: [
+                TASK_REPOSITORY_TOKEN,
+                SESSION_REPOSITORY_TOKEN,
+                EVENT_REPOSITORY_TOKEN,
+                RUNTIME_BINDING_REPOSITORY_TOKEN,
+                NOTIFICATION_PUBLISHER_TOKEN,
+            ],
         };
         const endRuntimeSessionProvider: Provider = {
             provide: EndRuntimeSessionUseCase,
-            useFactory: (ports: MonitorPorts) => new EndRuntimeSessionUseCase(ports),
-            inject: [MONITOR_PORTS_TOKEN],
+            useFactory: (
+                tasks: ITaskRepository,
+                sessions: ISessionRepository,
+                events: IEventRepository,
+                runtimeBindings: IRuntimeBindingRepository,
+                notifier: INotificationPublisher,
+            ) => new EndRuntimeSessionUseCase(tasks, sessions, events, runtimeBindings, notifier),
+            inject: [
+                TASK_REPOSITORY_TOKEN,
+                SESSION_REPOSITORY_TOKEN,
+                EVENT_REPOSITORY_TOKEN,
+                RUNTIME_BINDING_REPOSITORY_TOKEN,
+                NOTIFICATION_PUBLISHER_TOKEN,
+            ],
         };
         // Event UseCases
         const logEventProvider: Provider = {
             provide: LogEventUseCase,
-            useFactory: (ports: MonitorPorts) =>
-                new LogEventUseCase(ports.tasks, ports.events, ports.notifier),
-            inject: [MONITOR_PORTS_TOKEN],
+            useFactory: (tasks: ITaskRepository, events: IEventRepository, notifier: INotificationPublisher) =>
+                new LogEventUseCase(tasks, events, notifier),
+            inject: [TASK_REPOSITORY_TOKEN, EVENT_REPOSITORY_TOKEN, NOTIFICATION_PUBLISHER_TOKEN],
         };
         const updateEventProvider: Provider = {
             provide: UpdateEventUseCase,
-            useFactory: (ports: MonitorPorts) => new UpdateEventUseCase(ports.events, ports.notifier),
-            inject: [MONITOR_PORTS_TOKEN],
+            useFactory: (events: IEventRepository, notifier: INotificationPublisher) =>
+                new UpdateEventUseCase(events, notifier),
+            inject: [EVENT_REPOSITORY_TOKEN, NOTIFICATION_PUBLISHER_TOKEN],
         };
         const ingestEventsProvider: Provider = {
             provide: IngestEventsUseCase,
@@ -137,91 +191,112 @@ export class AppModule {
         };
         const searchEventsProvider: Provider = {
             provide: SearchEventsUseCase,
-            useFactory: (ports: MonitorPorts) => new SearchEventsUseCase(ports.events),
-            inject: [MONITOR_PORTS_TOKEN],
+            useFactory: (events: IEventRepository) => new SearchEventsUseCase(events),
+            inject: [EVENT_REPOSITORY_TOKEN],
         };
 
         // Observability UseCases
         const getOverviewProvider: Provider = {
             provide: GetOverviewUseCase,
-            useFactory: (ports: MonitorPorts) => new GetOverviewUseCase(ports.tasks),
-            inject: [MONITOR_PORTS_TOKEN],
+            useFactory: (tasks: ITaskRepository) => new GetOverviewUseCase(tasks),
+            inject: [TASK_REPOSITORY_TOKEN],
         };
         const getObservabilityOverviewProvider: Provider = {
             provide: GetObservabilityOverviewUseCase,
-            useFactory: (ports: MonitorPorts) =>
-                new GetObservabilityOverviewUseCase(ports.tasks, ports.sessions, ports.events),
-            inject: [MONITOR_PORTS_TOKEN],
+            useFactory: (tasks: ITaskRepository, sessions: ISessionRepository, events: IEventRepository) =>
+                new GetObservabilityOverviewUseCase(tasks, sessions, events),
+            inject: [TASK_REPOSITORY_TOKEN, SESSION_REPOSITORY_TOKEN, EVENT_REPOSITORY_TOKEN],
         };
         const getTaskObservabilityProvider: Provider = {
             provide: GetTaskObservabilityUseCase,
-            useFactory: (ports: MonitorPorts) =>
-                new GetTaskObservabilityUseCase(ports.tasks, ports.sessions, ports.events),
-            inject: [MONITOR_PORTS_TOKEN],
+            useFactory: (tasks: ITaskRepository, sessions: ISessionRepository, events: IEventRepository) =>
+                new GetTaskObservabilityUseCase(tasks, sessions, events),
+            inject: [TASK_REPOSITORY_TOKEN, SESSION_REPOSITORY_TOKEN, EVENT_REPOSITORY_TOKEN],
         };
 
         // Task lifecycle UseCases
         const startTaskProvider: Provider = {
             provide: StartTaskUseCase,
-            useFactory: (ports: MonitorPorts) => new StartTaskUseCase(ports),
-            inject: [MONITOR_PORTS_TOKEN],
+            useFactory: (
+                tasks: ITaskRepository,
+                sessions: ISessionRepository,
+                events: IEventRepository,
+                notifier: INotificationPublisher,
+            ) => new StartTaskUseCase(tasks, sessions, events, notifier),
+            inject: [TASK_REPOSITORY_TOKEN, SESSION_REPOSITORY_TOKEN, EVENT_REPOSITORY_TOKEN, NOTIFICATION_PUBLISHER_TOKEN],
         };
         const completeTaskProvider: Provider = {
             provide: CompleteTaskUseCase,
-            useFactory: (ports: MonitorPorts) => new CompleteTaskUseCase(ports),
-            inject: [MONITOR_PORTS_TOKEN],
+            useFactory: (
+                tasks: ITaskRepository,
+                sessions: ISessionRepository,
+                events: IEventRepository,
+                notifier: INotificationPublisher,
+            ) => new CompleteTaskUseCase(tasks, sessions, events, notifier),
+            inject: [TASK_REPOSITORY_TOKEN, SESSION_REPOSITORY_TOKEN, EVENT_REPOSITORY_TOKEN, NOTIFICATION_PUBLISHER_TOKEN],
         };
         const errorTaskProvider: Provider = {
             provide: ErrorTaskUseCase,
-            useFactory: (ports: MonitorPorts) => new ErrorTaskUseCase(ports),
-            inject: [MONITOR_PORTS_TOKEN],
+            useFactory: (
+                tasks: ITaskRepository,
+                sessions: ISessionRepository,
+                events: IEventRepository,
+                notifier: INotificationPublisher,
+            ) => new ErrorTaskUseCase(tasks, sessions, events, notifier),
+            inject: [TASK_REPOSITORY_TOKEN, SESSION_REPOSITORY_TOKEN, EVENT_REPOSITORY_TOKEN, NOTIFICATION_PUBLISHER_TOKEN],
         };
         const updateTaskProvider: Provider = {
             provide: UpdateTaskUseCase,
-            useFactory: (ports: MonitorPorts) => new UpdateTaskUseCase(ports),
-            inject: [MONITOR_PORTS_TOKEN],
+            useFactory: (tasks: ITaskRepository, notifier: INotificationPublisher) =>
+                new UpdateTaskUseCase(tasks, notifier),
+            inject: [TASK_REPOSITORY_TOKEN, NOTIFICATION_PUBLISHER_TOKEN],
         };
         const linkTaskProvider: Provider = {
             provide: LinkTaskUseCase,
-            useFactory: (ports: MonitorPorts) => new LinkTaskUseCase(ports),
-            inject: [MONITOR_PORTS_TOKEN],
+            useFactory: (tasks: ITaskRepository, notifier: INotificationPublisher) =>
+                new LinkTaskUseCase(tasks, notifier),
+            inject: [TASK_REPOSITORY_TOKEN, NOTIFICATION_PUBLISHER_TOKEN],
         };
         const deleteTaskProvider: Provider = {
             provide: DeleteTaskUseCase,
-            useFactory: (ports: MonitorPorts) => new DeleteTaskUseCase(ports),
-            inject: [MONITOR_PORTS_TOKEN],
+            useFactory: (tasks: ITaskRepository, notifier: INotificationPublisher) =>
+                new DeleteTaskUseCase(tasks, notifier),
+            inject: [TASK_REPOSITORY_TOKEN, NOTIFICATION_PUBLISHER_TOKEN],
         };
         const deleteFinishedTasksProvider: Provider = {
             provide: DeleteFinishedTasksUseCase,
-            useFactory: (ports: MonitorPorts) => new DeleteFinishedTasksUseCase(ports),
-            inject: [MONITOR_PORTS_TOKEN],
+            useFactory: (tasks: ITaskRepository, notifier: INotificationPublisher) =>
+                new DeleteFinishedTasksUseCase(tasks, notifier),
+            inject: [TASK_REPOSITORY_TOKEN, NOTIFICATION_PUBLISHER_TOKEN],
         };
 
         // Task query UseCases
         const listTasksProvider: Provider = {
             provide: ListTasksUseCase,
-            useFactory: (ports: MonitorPorts) => new ListTasksUseCase(ports.tasks),
-            inject: [MONITOR_PORTS_TOKEN],
+            useFactory: (tasks: ITaskRepository) => new ListTasksUseCase(tasks),
+            inject: [TASK_REPOSITORY_TOKEN],
         };
         const getTaskProvider: Provider = {
             provide: GetTaskUseCase,
-            useFactory: (ports: MonitorPorts) => new GetTaskUseCase(ports.tasks),
-            inject: [MONITOR_PORTS_TOKEN],
+            useFactory: (tasks: ITaskRepository) => new GetTaskUseCase(tasks),
+            inject: [TASK_REPOSITORY_TOKEN],
         };
         const getTaskTimelineProvider: Provider = {
             provide: GetTaskTimelineUseCase,
-            useFactory: (ports: MonitorPorts) => new GetTaskTimelineUseCase(ports.events),
-            inject: [MONITOR_PORTS_TOKEN],
+            useFactory: (events: IEventRepository) => new GetTaskTimelineUseCase(events),
+            inject: [EVENT_REPOSITORY_TOKEN],
         };
         const getTaskLatestRuntimeSessionProvider: Provider = {
             provide: GetTaskLatestRuntimeSessionUseCase,
-            useFactory: (ports: MonitorPorts) => new GetTaskLatestRuntimeSessionUseCase(ports.runtimeBindings),
-            inject: [MONITOR_PORTS_TOKEN],
+            useFactory: (runtimeBindings: IRuntimeBindingRepository) =>
+                new GetTaskLatestRuntimeSessionUseCase(runtimeBindings),
+            inject: [RUNTIME_BINDING_REPOSITORY_TOKEN],
         };
         const getTaskOpenInferenceProvider: Provider = {
             provide: GetTaskOpenInferenceUseCase,
-            useFactory: (ports: MonitorPorts) => new GetTaskOpenInferenceUseCase(ports.tasks, ports.events),
-            inject: [MONITOR_PORTS_TOKEN],
+            useFactory: (tasks: ITaskRepository, events: IEventRepository) =>
+                new GetTaskOpenInferenceUseCase(tasks, events),
+            inject: [TASK_REPOSITORY_TOKEN, EVENT_REPOSITORY_TOKEN],
         };
         const getDefaultWorkspacePathProvider: Provider = {
             provide: GetDefaultWorkspacePathUseCase,
@@ -232,118 +307,127 @@ export class AppModule {
         // Workflow UseCases
         const upsertTaskEvaluationProvider: Provider = {
             provide: UpsertTaskEvaluationUseCase,
-            useFactory: (ports: MonitorPorts) =>
-                new UpsertTaskEvaluationUseCase(ports.tasks, ports.events, ports.evaluations),
-            inject: [MONITOR_PORTS_TOKEN],
+            useFactory: (
+                tasks: ITaskRepository,
+                events: IEventRepository,
+                evaluations: IEvaluationRepository,
+            ) => new UpsertTaskEvaluationUseCase(tasks, events, evaluations),
+            inject: [TASK_REPOSITORY_TOKEN, EVENT_REPOSITORY_TOKEN, EVALUATION_REPOSITORY_TOKEN],
         };
         const getTaskEvaluationProvider: Provider = {
             provide: GetTaskEvaluationUseCase,
-            useFactory: (ports: MonitorPorts) => new GetTaskEvaluationUseCase(ports.evaluations),
-            inject: [MONITOR_PORTS_TOKEN],
+            useFactory: (evaluations: IEvaluationRepository) => new GetTaskEvaluationUseCase(evaluations),
+            inject: [EVALUATION_REPOSITORY_TOKEN],
         };
         const recordBriefingCopyProvider: Provider = {
             provide: RecordBriefingCopyUseCase,
-            useFactory: (ports: MonitorPorts) => new RecordBriefingCopyUseCase(ports.evaluations),
-            inject: [MONITOR_PORTS_TOKEN],
+            useFactory: (evaluations: IEvaluationRepository) => new RecordBriefingCopyUseCase(evaluations),
+            inject: [EVALUATION_REPOSITORY_TOKEN],
         };
         const saveBriefingProvider: Provider = {
             provide: SaveBriefingUseCase,
-            useFactory: (ports: MonitorPorts) => new SaveBriefingUseCase(ports.evaluations),
-            inject: [MONITOR_PORTS_TOKEN],
+            useFactory: (evaluations: IEvaluationRepository) => new SaveBriefingUseCase(evaluations),
+            inject: [EVALUATION_REPOSITORY_TOKEN],
         };
         const listBriefingsProvider: Provider = {
             provide: ListBriefingsUseCase,
-            useFactory: (ports: MonitorPorts) => new ListBriefingsUseCase(ports.evaluations),
-            inject: [MONITOR_PORTS_TOKEN],
+            useFactory: (evaluations: IEvaluationRepository) => new ListBriefingsUseCase(evaluations),
+            inject: [EVALUATION_REPOSITORY_TOKEN],
         };
         const getWorkflowContentProvider: Provider = {
             provide: GetWorkflowContentUseCase,
-            useFactory: (ports: MonitorPorts) => new GetWorkflowContentUseCase(ports.evaluations),
-            inject: [MONITOR_PORTS_TOKEN],
+            useFactory: (evaluations: IEvaluationRepository) => new GetWorkflowContentUseCase(evaluations),
+            inject: [EVALUATION_REPOSITORY_TOKEN],
         };
         const listEvaluationsProvider: Provider = {
             provide: ListEvaluationsUseCase,
-            useFactory: (ports: MonitorPorts) => new ListEvaluationsUseCase(ports.evaluations),
-            inject: [MONITOR_PORTS_TOKEN],
+            useFactory: (evaluations: IEvaluationRepository) => new ListEvaluationsUseCase(evaluations),
+            inject: [EVALUATION_REPOSITORY_TOKEN],
         };
         const searchWorkflowLibraryProvider: Provider = {
             provide: SearchWorkflowLibraryUseCase,
-            useFactory: (ports: MonitorPorts) => new SearchWorkflowLibraryUseCase(ports.evaluations),
-            inject: [MONITOR_PORTS_TOKEN],
+            useFactory: (evaluations: IEvaluationRepository) => new SearchWorkflowLibraryUseCase(evaluations),
+            inject: [EVALUATION_REPOSITORY_TOKEN],
         };
         const searchSimilarWorkflowsProvider: Provider = {
             provide: SearchSimilarWorkflowsUseCase,
-            useFactory: (ports: MonitorPorts) => new SearchSimilarWorkflowsUseCase(ports.evaluations),
-            inject: [MONITOR_PORTS_TOKEN],
+            useFactory: (evaluations: IEvaluationRepository) => new SearchSimilarWorkflowsUseCase(evaluations),
+            inject: [EVALUATION_REPOSITORY_TOKEN],
         };
         const listPlaybooksProvider: Provider = {
             provide: ListPlaybooksUseCase,
-            useFactory: (ports: MonitorPorts) => new ListPlaybooksUseCase(ports.playbooks),
-            inject: [MONITOR_PORTS_TOKEN],
+            useFactory: (playbooks: IPlaybookRepository) => new ListPlaybooksUseCase(playbooks),
+            inject: [PLAYBOOK_REPOSITORY_TOKEN],
         };
         const getPlaybookProvider: Provider = {
             provide: GetPlaybookUseCase,
-            useFactory: (ports: MonitorPorts) => new GetPlaybookUseCase(ports.playbooks),
-            inject: [MONITOR_PORTS_TOKEN],
+            useFactory: (playbooks: IPlaybookRepository) => new GetPlaybookUseCase(playbooks),
+            inject: [PLAYBOOK_REPOSITORY_TOKEN],
         };
         const createPlaybookProvider: Provider = {
             provide: CreatePlaybookUseCase,
-            useFactory: (ports: MonitorPorts) => new CreatePlaybookUseCase(ports.playbooks),
-            inject: [MONITOR_PORTS_TOKEN],
+            useFactory: (playbooks: IPlaybookRepository) => new CreatePlaybookUseCase(playbooks),
+            inject: [PLAYBOOK_REPOSITORY_TOKEN],
         };
         const updatePlaybookProvider: Provider = {
             provide: UpdatePlaybookUseCase,
-            useFactory: (ports: MonitorPorts) => new UpdatePlaybookUseCase(ports.playbooks),
-            inject: [MONITOR_PORTS_TOKEN],
+            useFactory: (playbooks: IPlaybookRepository) => new UpdatePlaybookUseCase(playbooks),
+            inject: [PLAYBOOK_REPOSITORY_TOKEN],
         };
 
         // Turn partition UseCases
         const getTurnPartitionProvider: Provider = {
             provide: GetTurnPartitionUseCase,
-            useFactory: (ports: MonitorPorts) =>
-                new GetTurnPartitionUseCase(ports.tasks, ports.events, ports.turnPartitions),
-            inject: [MONITOR_PORTS_TOKEN],
+            useFactory: (
+                tasks: ITaskRepository,
+                events: IEventRepository,
+                turnPartitions: ITurnPartitionRepository,
+            ) => new GetTurnPartitionUseCase(tasks, events, turnPartitions),
+            inject: [TASK_REPOSITORY_TOKEN, EVENT_REPOSITORY_TOKEN, TURN_PARTITION_REPOSITORY_TOKEN],
         };
         const upsertTurnPartitionProvider: Provider = {
             provide: UpsertTurnPartitionUseCase,
-            useFactory: (ports: MonitorPorts) =>
-                new UpsertTurnPartitionUseCase(ports.tasks, ports.events, ports.turnPartitions),
-            inject: [MONITOR_PORTS_TOKEN],
+            useFactory: (
+                tasks: ITaskRepository,
+                events: IEventRepository,
+                turnPartitions: ITurnPartitionRepository,
+            ) => new UpsertTurnPartitionUseCase(tasks, events, turnPartitions),
+            inject: [TASK_REPOSITORY_TOKEN, EVENT_REPOSITORY_TOKEN, TURN_PARTITION_REPOSITORY_TOKEN],
         };
         const resetTurnPartitionProvider: Provider = {
             provide: ResetTurnPartitionUseCase,
-            useFactory: (ports: MonitorPorts) =>
-                new ResetTurnPartitionUseCase(ports.tasks, ports.turnPartitions),
-            inject: [MONITOR_PORTS_TOKEN],
+            useFactory: (tasks: ITaskRepository, turnPartitions: ITurnPartitionRepository) =>
+                new ResetTurnPartitionUseCase(tasks, turnPartitions),
+            inject: [TASK_REPOSITORY_TOKEN, TURN_PARTITION_REPOSITORY_TOKEN],
         };
 
         // Rule Command UseCases
         const createRuleCommandProvider: Provider = {
             provide: CreateRuleCommandUseCase,
-            useFactory: (ports: MonitorPorts) => new CreateRuleCommandUseCase(ports.ruleCommands),
-            inject: [MONITOR_PORTS_TOKEN],
+            useFactory: (ruleCommands: IRuleCommandRepository) => new CreateRuleCommandUseCase(ruleCommands),
+            inject: [RULE_COMMAND_REPOSITORY_TOKEN],
         };
         const deleteRuleCommandProvider: Provider = {
             provide: DeleteRuleCommandUseCase,
-            useFactory: (ports: MonitorPorts) => new DeleteRuleCommandUseCase(ports.ruleCommands),
-            inject: [MONITOR_PORTS_TOKEN],
+            useFactory: (ruleCommands: IRuleCommandRepository) => new DeleteRuleCommandUseCase(ruleCommands),
+            inject: [RULE_COMMAND_REPOSITORY_TOKEN],
         };
         const listRuleCommandsProvider: Provider = {
             provide: ListRuleCommandsUseCase,
-            useFactory: (ports: MonitorPorts) => new ListRuleCommandsUseCase(ports.ruleCommands),
-            inject: [MONITOR_PORTS_TOKEN],
+            useFactory: (ruleCommands: IRuleCommandRepository) => new ListRuleCommandsUseCase(ruleCommands),
+            inject: [RULE_COMMAND_REPOSITORY_TOKEN],
         };
         const getRulePatternsProvider: Provider = {
             provide: GetRulePatternsUseCase,
-            useFactory: (ports: MonitorPorts) => new GetRulePatternsUseCase(ports.ruleCommands),
-            inject: [MONITOR_PORTS_TOKEN],
+            useFactory: (ruleCommands: IRuleCommandRepository) => new GetRulePatternsUseCase(ruleCommands),
+            inject: [RULE_COMMAND_REPOSITORY_TOKEN],
         };
 
         return {
             module: AppModule,
             imports: [],
             providers: [
-                dbProvider,
+                ...databaseProviders,
                 listBookmarksProvider,
                 saveBookmarkProvider,
                 deleteBookmarkProvider,
@@ -406,7 +490,7 @@ export class AppModule {
                 TurnPartitionController,
                 TurnPartitionWriteController,
             ],
-            exports: [MONITOR_PORTS_TOKEN],
+            exports: [...DATABASE_PORT_TOKENS],
         };
     }
 }
