@@ -57,7 +57,7 @@ interface ShellState {
 const READ_COMMANDS = new Set(["cat", "head", "tail", "wc", "stat", "file", "which", "whereis"])
 const LIST_COMMANDS = new Set(["pwd", "ls", "tree"])
 const SEARCH_COMMANDS = new Set(["rg", "grep", "fd", "find"])
-const LIMIT_COMMANDS = new Set(["head", "tail", "wc"])
+const STREAM_TRANSFORM_COMMANDS = new Set(["head", "tail", "wc", "sort"])
 const DESTRUCTIVE_COMMANDS = new Set(["rm", "rmdir"])
 const WRITE_COMMANDS = new Set(["mv", "cp", "chmod", "chown", "mkdir", "touch"])
 const NETWORK_COMMANDS = new Set(["curl", "wget"])
@@ -123,7 +123,9 @@ function analyzeSimpleCommand(part: SequencePart): CommandStep {
     if (commandName === "vitest") return withStep(base, { operation: "run_test", effect: "execute_check", confidence: "high" })
     if (commandName === "tsc") return withStep(base, { operation: "run_build", effect: "execute_check", confidence: "high" })
     if (commandName === "eslint") return withStep(base, { operation: "run_lint", effect: "execute_check", confidence: "high" })
-    if (LIMIT_COMMANDS.has(commandName)) return analyzeStreamTransform(base, args)
+    if (STREAM_TRANSFORM_COMMANDS.has(commandName)) return analyzeStreamTransform(base, args)
+    if (commandName === "find") return analyzeFind(base, args)
+    if (commandName === "rg") return analyzeRipgrep(base, args)
     if (SEARCH_COMMANDS.has(commandName)) return analyzeSearch(base, args)
     if (READ_COMMANDS.has(commandName)) return analyzeRead(base, args)
     if (LIST_COMMANDS.has(commandName)) return analyzeList(base, args)
@@ -238,6 +240,42 @@ function analyzeSearch(base: CommandStep, args: readonly string[]): CommandStep 
     })
 }
 
+function analyzeFind(base: CommandStep, args: readonly string[]): CommandStep {
+    const targets: CommandTarget[] = []
+    for (const arg of args) {
+        if (arg.startsWith("-") || isFindExpressionValue(arg)) break
+        targets.push({ type: targetTypeForPath(arg), value: arg })
+    }
+    return withStep(base, {
+        operation: "search",
+        effect: "read_only",
+        targets: targets.length > 0 ? targets : [{ type: "directory", value: "." }],
+        confidence: "high",
+    })
+}
+
+function analyzeRipgrep(base: CommandStep, args: readonly string[]): CommandStep {
+    const filesMode = args.includes("--files")
+    const positional = stripOptionArguments(args, new Set(["-g", "--glob", "--type", "-t", "--type-not", "-T", "-e", "--regexp"]))
+        .filter((arg) => !arg.startsWith("-"))
+    if (filesMode) {
+        return withStep(base, {
+            operation: "list",
+            effect: "read_only",
+            targets: positional.length > 0 ? pathTargets(positional) : [{ type: "directory", value: "." }],
+            confidence: "high",
+        })
+    }
+    const [pattern, ...targetArgs] = positional
+    return withStep(base, {
+        operation: "search",
+        effect: "read_only",
+        targets: targetArgs.length > 0 ? pathTargets(targetArgs) : [],
+        confidence: "high",
+        ...(pattern ? { selectors: { pattern } } : {}),
+    })
+}
+
 function analyzeRead(base: CommandStep, args: readonly string[]): CommandStep {
     const targets = pathTargets(args)
     return withStep(base, {
@@ -260,7 +298,7 @@ function analyzeList(base: CommandStep, args: readonly string[]): CommandStep {
 
 function analyzeStreamTransform(base: CommandStep, args: readonly string[]): CommandStep {
     return withStep(base, {
-        operation: "limit_output",
+        operation: base.commandName === "sort" ? "sort_output" : "limit_output",
         effect: "read_only",
         targets: pathTargets(args).length > 0 ? pathTargets(args) : [{ type: "stream", value: "stdin" }],
         confidence: "medium",
@@ -286,7 +324,7 @@ function splitSequence(command: string): readonly SequencePart[] {
         const next = command[index + 1] ?? ""
         updateShellState(state, char)
 
-        if (!state.quote && state.parenDepth === 0) {
+        if (!state.quote && state.parenDepth === 0 && command[index - 1] !== "\\") {
             const operator = char === "&" && next === "&" ? "&&" : char === "|" && next === "|" ? "||" : char === ";" ? ";" : null
             if (operator) {
                 pushSequencePart(parts, current, pendingOperator)
@@ -311,7 +349,7 @@ function splitPipeline(command: string): readonly string[] {
         const char = command[index] ?? ""
         const next = command[index + 1] ?? ""
         updateShellState(state, char)
-        if (!state.quote && state.parenDepth === 0 && char === "|" && next !== "|") {
+        if (!state.quote && state.parenDepth === 0 && char === "|" && next !== "|" && command[index - 1] !== "\\") {
             const trimmed = current.trim()
             if (trimmed) parts.push(trimmed)
             current = ""
@@ -510,6 +548,24 @@ function pathTargets(args: readonly string[]): readonly CommandTarget[] {
     return args
         .filter((arg) => arg.length > 0 && !arg.startsWith("-") && !isLikelyExpression(arg))
         .map((arg) => ({ type: targetTypeForPath(arg), value: arg }))
+}
+
+function stripOptionArguments(args: readonly string[], optionsWithValue: ReadonlySet<string>): readonly string[] {
+    const result: string[] = []
+    for (let index = 0; index < args.length; index += 1) {
+        const arg = args[index] ?? ""
+        if (optionsWithValue.has(arg)) {
+            index += 1
+            continue
+        }
+        if ([...optionsWithValue].some((option) => arg.startsWith(`${option}=`))) continue
+        result.push(arg)
+    }
+    return result
+}
+
+function isFindExpressionValue(arg: string): boolean {
+    return arg === "!" || arg === "(" || arg === ")" || arg === "{}" || arg === ";"
 }
 
 function urlTargets(args: readonly string[]): readonly CommandTarget[] {
