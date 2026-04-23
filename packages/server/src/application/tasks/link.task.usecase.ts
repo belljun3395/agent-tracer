@@ -1,13 +1,13 @@
 import { createTaskSlug, type MonitoringTask } from "~domain/index.js";
 import type { MonitorPorts } from "~application/ports/index.js";
 import type { TaskLinkInput } from "./task.lifecycle.type.js";
-import { requireTask } from "./task.lifecycle.ops.js";
 
 export class LinkTaskUseCase {
     constructor(private readonly ports: MonitorPorts) {}
 
     async execute(input: TaskLinkInput): Promise<MonitoringTask> {
-        const task = await requireTask(this.ports, input.taskId);
+        const task = await this.ports.tasks.findById(input.taskId);
+        if (!task) throw new Error(`Task not found: ${input.taskId}`);
         const t = input.title?.trim();
         const updated = await this.ports.tasks.upsert({
             ...task,

@@ -1,15 +1,9 @@
-import { createTaskSlug, normalizeWorkspacePath, type MonitoringTask, type MonitoringEventKind } from "~domain/index.js";
+import { createTaskSlug, normalizeWorkspacePath, type MonitoringEventKind } from "~domain/index.js";
 import { mapTimelineEventToRecord } from "~application/views/index.js";
 import type { MonitorPorts } from "~application/ports/index.js";
 import { buildEventRecord } from "~application/events/event.recording.ops.js";
 import type { TaskCompletionInput, TaskStartInput } from "./task.lifecycle.type.js";
 import type { RecordedEventEnvelope } from "./task.lifecycle.type.js";
-
-export async function requireTask(ports: MonitorPorts, taskId: string): Promise<MonitoringTask> {
-    const task = await ports.tasks.findById(taskId);
-    if (!task) throw new Error(`Task not found: ${taskId}`);
-    return task;
-}
 
 async function resolveSessionId(ports: MonitorPorts, taskId: string, sessionId?: string): Promise<string | undefined> {
     if (sessionId) return sessionId;
@@ -23,7 +17,8 @@ export async function finishTask(
     kind: MonitoringEventKind,
     body?: string,
 ): Promise<RecordedEventEnvelope> {
-    const task = await requireTask(ports, input.taskId);
+    const task = await ports.tasks.findById(input.taskId);
+    if (!task) throw new Error(`Task not found: ${input.taskId}`);
     const endedAt = new Date().toISOString();
     const sessionId = await resolveSessionId(ports, input.taskId, input.sessionId);
     if (sessionId) {
