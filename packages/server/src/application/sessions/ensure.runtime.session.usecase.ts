@@ -14,12 +14,17 @@ export class EnsureRuntimeSessionUseCase {
         // Active binding: this runtime session is already attached to an open monitor session.
         // Reuse it so repeated runtime events do not create duplicate sessions.
         if (binding) {
-            return {
-                taskId: binding.taskId,
-                sessionId: binding.monitorSessionId,
-                taskCreated: false,
-                sessionCreated: false,
-            };
+            const session = await this.ports.sessions.findById(binding.monitorSessionId);
+            if (!session || session.status !== "running") {
+                await this.ports.runtimeBindings.clearSession(input.runtimeSource, input.runtimeSessionId);
+            } else {
+                return {
+                    taskId: binding.taskId,
+                    sessionId: binding.monitorSessionId,
+                    taskCreated: false,
+                    sessionCreated: false,
+                };
+            }
         }
 
         const existingTaskId = await this.ports.runtimeBindings.findTaskId(input.runtimeSource, input.runtimeSessionId);

@@ -28,8 +28,16 @@ export class EndRuntimeSessionUseCase {
 
         const session = await this.ports.sessions.findById(binding.monitorSessionId);
         // Stale active binding: the binding points at a missing or already-ended
-        // monitor session, so there is nothing left to close.
+        // monitor session. Clear it so a later ensure can resume with a fresh
+        // observation window instead of reusing a closed session.
         if (!session || session.status !== "running") {
+            await this.ports.runtimeBindings.clearSession(input.runtimeSource, input.runtimeSessionId);
+            if (input.completeTask === true) {
+                await completeTaskIfIncomplete(this.ports, {
+                    taskId: binding.taskId,
+                    summary: input.summary ?? "Runtime session ended",
+                });
+            }
             return;
         }
 
