@@ -3,7 +3,6 @@ import type { MonitoringTask } from "~domain/index.js";
 import type { EndRuntimeSessionUseCaseIn } from "./end.runtime.session.usecase.dto.js";
 import { finishTask } from "../tasks/task.lifecycle.ops.js";
 import type { TaskCompletionInput } from "../tasks/task.lifecycle.type.js";
-import { shouldAutoCompletePrimary, shouldMovePrimaryToWaiting } from "../tasks/services/session.lifecycle.service.js";
 
 export class EndRuntimeSessionUseCase {
     constructor(private readonly ports: MonitorPorts) {}
@@ -136,4 +135,37 @@ async function completeBgTasks(ports: MonitorPorts, ids?: readonly string[]): Pr
             await finishTask(ports, { taskId: bgTask.id, summary: "Background task completed" }, "completed", "task.complete", "Background task completed");
         }
     }
+}
+
+function shouldAutoCompletePrimary(opts: {
+    taskKind: string;
+    completeTask: boolean;
+    runningSessionCount: number;
+    completionReason?: string | undefined;
+    hasRunningBackgroundDescendants?: boolean | undefined;
+}): boolean {
+    if (opts.taskKind !== "primary") return false;
+    if (!opts.completeTask) return false;
+    if (opts.runningSessionCount !== 0) return false;
+    return !(opts.completionReason === "assistant_turn_complete" && opts.hasRunningBackgroundDescendants);
+}
+
+function shouldMovePrimaryToWaiting(opts: {
+    taskKind: string;
+    completeTask: boolean;
+    runningSessionCount: number;
+    completionReason?: string | undefined;
+    hasRunningBackgroundDescendants?: boolean | undefined;
+}): boolean {
+    if (opts.taskKind !== "primary") return false;
+    if (opts.runningSessionCount !== 0) return false;
+    if (opts.completionReason === "idle") {
+        return !opts.completeTask;
+    }
+    if (opts.completionReason === "assistant_turn_complete" && opts.hasRunningBackgroundDescendants) {
+        return true;
+    }
+    if (opts.hasRunningBackgroundDescendants) return false;
+    if (opts.completeTask) return false;
+    return false;
 }
