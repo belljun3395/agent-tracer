@@ -57,10 +57,6 @@ export async function finishTask(
     return { task: finalTask, ...(sessionId ? { sessionId } : {}), events: [{ id: event.id, kind: event.kind }] };
 }
 
-export async function completeTask(ports: MonitorPorts, input: TaskCompletionInput): Promise<RecordedEventEnvelope> {
-    return finishTask(ports, input, "completed", "task.complete", input.summary);
-}
-
 export async function startTask(ports: MonitorPorts, input: TaskStartInput): Promise<RecordedEventEnvelope> {
     const taskId = input.taskId ?? globalThis.crypto.randomUUID();
     const sessionId = globalThis.crypto.randomUUID();
