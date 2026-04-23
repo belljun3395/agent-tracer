@@ -1,12 +1,15 @@
 import type { MonitoringTask, TimelineEvent } from "~domain/index.js";
 import { isInternalEvent, isTaskLifecycleEvent, isUserLane } from "~domain/index.js";
-import { GENERIC_TASK_TITLE_PREFIXES, MAX_TASK_TITLE_LENGTH, TRAILING_SESSION_SUFFIX_PATTERN, GENERIC_TASK_TITLE_PREFIX_SPLIT_PATTERN, isAgentSessionBoilerplatePrefix } from "./task.display.title.service.const.js";
+import { GENERIC_TASK_TITLE_PREFIXES, MAX_TASK_TITLE_LENGTH, TRAILING_SESSION_SUFFIX_PATTERN, GENERIC_TASK_TITLE_PREFIX_SPLIT_PATTERN } from "./task.display.title.const.js";
+
 export function deriveTaskDisplayTitle(task: MonitoringTask | null | undefined, timeline: readonly TimelineEvent[]): string | undefined {
     return resolvePreferredTaskTitle(task, timeline) ?? undefined;
 }
-export function resolvePreferredTaskTitle(task: MonitoringTask | null | undefined, timeline: readonly TimelineEvent[]): string | null {
+
+function resolvePreferredTaskTitle(task: MonitoringTask | null | undefined, timeline: readonly TimelineEvent[]): string | null {
     return meaningfulTaskTitle(task) ?? inferTaskTitleSignal(timeline) ?? normalizeFallbackTaskTitle(task?.title);
 }
+
 export function meaningfulTaskTitle(task: MonitoringTask | null | undefined): string | null {
     const title = normalizeSentence(task?.title);
     if (!title) {
@@ -14,17 +17,26 @@ export function meaningfulTaskTitle(task: MonitoringTask | null | undefined): st
     }
     return isGenericWorkspaceTaskTitle(task, title) ? null : title;
 }
-export function inferTaskTitleSignal(timeline: readonly TimelineEvent[]): string | null {
+
+function inferTaskTitleSignal(timeline: readonly TimelineEvent[]): string | null {
+    for (const candidate of taskTitleCandidates(timeline)) {
+        const title = meaningfulInferredTaskTitle(candidate);
+        if (title) {
+            return title;
+        }
+    }
+    return null;
+}
+
+function taskTitleCandidates(timeline: readonly TimelineEvent[]): readonly (string | undefined)[] {
     const userGoal = timeline.find((event) => isUserLane(event.lane)
         && !isTaskLifecycleEvent(event)
         && event.body)?.body;
     const startSummary = timeline.find((event) => event.kind === "task.start" && event.body)?.body;
     const firstMeaningfulEvent = timeline.find((event) => !isInternalEvent(event));
-    return (meaningfulInferredTaskTitle(userGoal)
-        ?? meaningfulInferredTaskTitle(startSummary)
-        ?? meaningfulInferredTaskTitle(firstMeaningfulEvent?.body)
-        ?? meaningfulInferredTaskTitle(firstMeaningfulEvent?.title));
+    return [userGoal, startSummary, firstMeaningfulEvent?.body, firstMeaningfulEvent?.title];
 }
+
 function meaningfulInferredTaskTitle(value?: string): string | null {
     const normalized = normalizeSentence(value);
     if (!normalized || isAgentSessionBoilerplate(normalized)) {
@@ -32,6 +44,7 @@ function meaningfulInferredTaskTitle(value?: string): string | null {
     }
     return normalized;
 }
+
 function isGenericWorkspaceTaskTitle(task: MonitoringTask | null | undefined, normalizedTitle: string): boolean {
     if (!task) {
         return false;
@@ -56,22 +69,32 @@ function isGenericWorkspaceTaskTitle(task: MonitoringTask | null | undefined, no
     return normalizedSuffix === normalizeTitleToken(task.slug)
         || (workspaceName ? normalizedSuffix === normalizeTitleToken(workspaceName) : false);
 }
-export function normalizeFallbackTaskTitle(value?: string): string | null {
+
+function normalizeFallbackTaskTitle(value?: string): string | null {
     const normalized = normalizeSentence(value);
     if (!normalized)
         return null;
     return stripTrailingSessionSuffix(normalized);
 }
+
 function stripTrailingSessionSuffix(value: string): string {
     return value.replace(TRAILING_SESSION_SUFFIX_PATTERN, "").trim();
 }
+
 function normalizeTitleToken(value: string): string {
     return value.trim().toLowerCase().replace(/\s+/g, " ");
 }
+
 function isAgentSessionBoilerplate(value: string): boolean {
     const normalized = normalizeTitleToken(value);
     return isAgentSessionBoilerplatePrefix(normalized);
 }
+
+function isAgentSessionBoilerplatePrefix(value: string): boolean {
+    return /^(claude code|claude|codex app-server|codex app server|codex cli|codex|agent|ai cli) session started\b/.test(value)
+        || /^(claude code|claude|codex app-server|codex app server|codex cli|codex|agent|ai cli) - /.test(value);
+}
+
 function normalizeSentence(value?: string): string | null {
     if (!value) {
         return null;

@@ -18,8 +18,7 @@ export * from "./interop/index.js";
 export * from "./ports/index.js";
 
 // Internal utilities
-export * from "./tasks/services/task.display.title.service.js";
-export * from "./tasks/services/task.display.title.service.const.js";
+export * from "./tasks/utils/task.display.title.util.js";
 export * from "./bookmarks/index.js";
 export * from "./sessions/index.js";
 export * from "./events/index.js";
