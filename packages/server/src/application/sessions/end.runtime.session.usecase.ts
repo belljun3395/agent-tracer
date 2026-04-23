@@ -2,7 +2,12 @@ import type { MonitorPorts } from "~application/ports/index.js";
 import type { MonitoringTask } from "~domain/index.js";
 import type { EndRuntimeSessionUseCaseIn } from "./end.runtime.session.usecase.dto.js";
 import { finishTask } from "../tasks/services/task.lifecycle.service.js";
-import type { TaskCompletionInput } from "../tasks/task.lifecycle.type.js";
+
+interface SessionTaskCompletionInput {
+    readonly taskId: string;
+    readonly sessionId?: string;
+    readonly summary?: string;
+}
 
 export class EndRuntimeSessionUseCase {
     constructor(private readonly ports: MonitorPorts) {}
@@ -129,7 +134,7 @@ async function setTaskStatus(ports: MonitorPorts, taskId: string, status: Monito
     return task;
 }
 
-async function completeTaskIfIncomplete(ports: MonitorPorts, input: TaskCompletionInput): Promise<void> {
+async function completeTaskIfIncomplete(ports: MonitorPorts, input: SessionTaskCompletionInput): Promise<void> {
     const task = await ports.tasks.findById(input.taskId);
     if (!task || task.status === "completed" || task.status === "errored") return;
     await finishTask(ports, input, "completed", "task.complete", input.summary);

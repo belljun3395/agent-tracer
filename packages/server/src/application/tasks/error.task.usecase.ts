@@ -1,6 +1,6 @@
 import type { MonitorPorts } from "~application/ports/index.js";
-import type { TaskErrorInput } from "./task.lifecycle.type.js";
-import type { RecordedEventEnvelope } from "./task.lifecycle.type.js";
+import type { TaskErrorInput } from "./task.lifecycle.input.js";
+import type { RecordedEventEnvelope } from "./task.lifecycle.result.js";
 import { finishTask } from "./services/task.lifecycle.service.js";
 
 export class ErrorTaskUseCase {

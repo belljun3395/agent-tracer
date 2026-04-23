@@ -1,6 +1,6 @@
 import { createTaskSlug, type MonitoringTask } from "~domain/index.js";
 import type { MonitorPorts } from "~application/ports/index.js";
-import type { TaskLinkInput } from "./task.lifecycle.type.js";
+import type { TaskLinkInput } from "./task.lifecycle.input.js";
 
 export class LinkTaskUseCase {
     constructor(private readonly ports: MonitorPorts) {}

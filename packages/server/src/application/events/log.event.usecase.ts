@@ -7,8 +7,7 @@ import {
 } from "~domain/index.js";
 import { mapTimelineEventToRecord } from "~application/views/index.js";
 import type { ITaskRepository, IEventRepository, INotificationPublisher } from "../ports/index.js";
-import type { RecordedEventEnvelope } from "../tasks/task.lifecycle.type.js";
-import type { BaseIngestEventInput } from "./log.event.usecase.dto.js";
+import type { BaseIngestEventInput, LogEventResult } from "./log.event.usecase.dto.js";
 import { buildEventRecord, normalizeFilePaths } from "./event.recording.ops.js";
 
 const MAX_DERIVED_FILES = 15;
@@ -20,7 +19,7 @@ export class LogEventUseCase {
         private readonly notifier: INotificationPublisher,
     ) {}
 
-    async execute(input: BaseIngestEventInput): Promise<RecordedEventEnvelope> {
+    async execute(input: BaseIngestEventInput): Promise<LogEventResult> {
         const task = await this.taskRepo.findById(input.taskId);
         if (!task) throw new Error(`Task not found: ${input.taskId}`);
 
