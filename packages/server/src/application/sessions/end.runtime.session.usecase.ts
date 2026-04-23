@@ -1,6 +1,8 @@
 import type { MonitorPorts } from "~application/ports/index.js";
+import type { MonitoringTask } from "~domain/index.js";
 import type { EndRuntimeSessionUseCaseIn } from "./end.runtime.session.usecase.dto.js";
-import { completeTaskIfIncomplete, completeBgTasks, hasRunningBackgroundDescendants, setTaskStatus } from "../tasks/task.lifecycle.ops.js";
+import { completeTask, requireTask } from "../tasks/task.lifecycle.ops.js";
+import type { TaskCompletionInput } from "../tasks/task.lifecycle.type.js";
 import { shouldAutoCompletePrimary, shouldMovePrimaryToWaiting } from "../tasks/services/session.lifecycle.service.js";
 
 export class EndRuntimeSessionUseCase {
@@ -93,6 +95,44 @@ export class EndRuntimeSessionUseCase {
             })
         ) {
             await setTaskStatus(this.ports, binding.taskId, "waiting");
+        }
+    }
+}
+
+async function hasRunningBackgroundDescendants(ports: MonitorPorts, taskId: string): Promise<boolean> {
+    const stack = [taskId];
+    while (stack.length > 0) {
+        const parentId = stack.pop();
+        if (!parentId) continue;
+        const children = await ports.tasks.findChildren(parentId);
+        for (const child of children) {
+            if (child.taskKind === "background" && child.status === "running") return true;
+            stack.push(child.id);
+        }
+    }
+    return false;
+}
+
+async function setTaskStatus(ports: MonitorPorts, taskId: string, status: MonitoringTask["status"]): Promise<MonitoringTask> {
+    const updatedAt = new Date().toISOString();
+    await ports.tasks.updateStatus(taskId, status, updatedAt);
+    const task = await requireTask(ports, taskId);
+    ports.notifier.publish({ type: "task.updated", payload: task });
+    return task;
+}
+
+async function completeTaskIfIncomplete(ports: MonitorPorts, input: TaskCompletionInput): Promise<void> {
+    const task = await ports.tasks.findById(input.taskId);
+    if (!task || task.status === "completed" || task.status === "errored") return;
+    await completeTask(ports, input);
+}
+
+async function completeBgTasks(ports: MonitorPorts, ids?: readonly string[]): Promise<void> {
+    if (!ids?.length) return;
+    for (const bgTaskId of ids) {
+        const bgTask = await ports.tasks.findById(bgTaskId);
+        if (bgTask?.status === "running") {
+            await completeTask(ports, { taskId: bgTask.id, summary: "Background task completed" });
         }
     }
 }
