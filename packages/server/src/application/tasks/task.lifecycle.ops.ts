@@ -5,11 +5,6 @@ import { buildEventRecord } from "~application/events/event.recording.ops.js";
 import type { TaskCompletionInput, TaskStartInput } from "./task.lifecycle.type.js";
 import type { RecordedEventEnvelope } from "./task.lifecycle.type.js";
 
-async function resolveSessionId(ports: MonitorPorts, taskId: string, sessionId?: string): Promise<string | undefined> {
-    if (sessionId) return sessionId;
-    return (await ports.sessions.findActiveByTaskId(taskId))?.id;
-}
-
 export async function finishTask(
     ports: MonitorPorts,
     input: TaskCompletionInput,
@@ -20,7 +15,7 @@ export async function finishTask(
     const task = await ports.tasks.findById(input.taskId);
     if (!task) throw new Error(`Task not found: ${input.taskId}`);
     const endedAt = new Date().toISOString();
-    const sessionId = await resolveSessionId(ports, input.taskId, input.sessionId);
+    const sessionId = input.sessionId ?? (await ports.sessions.findActiveByTaskId(input.taskId))?.id;
     if (sessionId) {
         const sOld = await ports.sessions.findById(sessionId);
         await ports.sessions.updateStatus(sessionId, status, endedAt, input.summary);
