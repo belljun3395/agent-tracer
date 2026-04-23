@@ -1,12 +1,14 @@
 # Runtime API Flow & Preprocessing
 
-The automatic runtime currently implemented in the repository is the Claude Code plugin.
-This document is an operational reference explaining what preprocessing the Claude plugin performs
-before calling Agent Tracer API, and how manual runtimes should follow the same surface.
+The automatic runtimes currently implemented in the repository are the Claude Code plugin
+and the Codex hook adapter. This document is an operational reference explaining what
+preprocessing those adapters perform before calling Agent Tracer API, and how manual
+runtimes should follow the same surface.
 
 Implementation basis:
 - Claude plugin hooks: `packages/runtime/src/claude-code/hooks/*.ts`
-- Public API surface: `packages/server/src/presentation/controllers/*.ts`
+- Codex hook adapter: `packages/runtime/src/codex/hooks/*.ts`
+- Public API surface: `packages/server/src/adapters/http/ingest/controllers/lifecycle.controller.ts`
 
 Related documentation:
 - [API integration map](./api-integration-map.md)
@@ -52,8 +54,11 @@ Related documentation:
 
 ### Assistant Response Boundary
 
-- `Stop` hook reads final assistant message and token usage, sending an `assistant.response` event to `/ingest/v1/conversation`.
-- `SessionEnd` and `Stop` conditionally call `/api/runtime-session-end` to close session, but do not auto-complete primary task.
+- `Stop` hook reads the final assistant message and sends an `assistant.response` event to `/ingest/v1/conversation`.
+- Token/context telemetry is collected by runtime-specific telemetry paths, not by the lifecycle API itself.
+- `Stop` calls `/api/runtime-session-end` with `completeTask: true` and `completionReason: "assistant_turn_complete"`.
+- `SessionEnd` only passes `completeTask: true` for an explicit user exit; runtime termination/resume closes the monitor session without completing the primary task.
+- The server will not complete a primary task while background descendants are still running; in that case it moves the primary task to `waiting`.
 
 ## Representative JSON Examples
 
@@ -128,6 +133,7 @@ Related documentation:
   "runtimeSource": "claude-plugin",
   "runtimeSessionId": "claude-session-abc",
   "completionReason": "assistant_turn_complete",
+  "completeTask": true,
   "summary": "Updated the documentation as requested."
 }
 ```
@@ -140,7 +146,7 @@ Runtimes without automatic plugins can use the same dashboard/storage by followi
 2. For each user input, call `/api/user-message`
 3. For each tool use, call `/api/tool-used` or `/api/explore`
 4. On response completion, send an `assistant.response` event to `/ingest/v1/conversation`
-5. At turn end, call `/api/runtime-session-end`
+5. At turn end, call `/api/runtime-session-end`; pass `completeTask: true` only when the runtime is declaring the work item done
 
 Optionally add `/api/todo`, `/api/agent-activity`, `/api/async-task`, `/api/task-link`,
 `/api/save-context`, `/api/plan`, `/api/action`, `/api/verify`, `/api/rule`, `/api/question`, `/api/thought`

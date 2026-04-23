@@ -1,12 +1,14 @@
 # Agent Tracer - API Integration Map
 
 This is a reference organizing API endpoint usage per runtime.
-The automatic adapter currently implemented in the repository is the Claude Code plugin;
-other runtimes can be attached by calling the same API directly.
+The automatic adapters currently implemented in the repository are the Claude Code
+plugin and the Codex hook adapter; other runtimes can be attached by calling the
+same API directly.
 
 Implementation basis:
 - Claude Code hooks: https://code.claude.com/docs/en/hooks
 - Claude plugin implementation: `packages/runtime/src/claude-code/hooks/*.ts`
+- Codex hook adapter: `packages/runtime/src/codex/hooks/*.ts`
 
 Related documentation:
 - [Runtime API flow & preprocessing](./runtime-api-flow-and-preprocessing.md)
@@ -14,11 +16,11 @@ Related documentation:
 
 ## Session Lifecycle
 
-| API | Role | Claude Code plugin | Manual runtime |
-|-----|------|-------------------|-----------------|
+| API | Role | Automatic adapters | Manual runtime |
+|-----|------|--------------------|-----------------|
 | `/api/runtime-session-ensure` | Runtime session upsert | `SessionStart`, `UserPromptSubmit`, `PreToolUse` | Use if stable runtime session ID is available |
 | `/api/task-start` | Explicit task/session creation | Rarely used | Use when no session ID-based binding |
-| `/api/runtime-session-end` | Runtime session closure | `Stop`, `SessionEnd` | Use to separate turn end from task end |
+| `/api/runtime-session-end` | Runtime session closure | `Stop`, Claude `SessionEnd` | Use to separate turn end from task end; pass `completeTask: true` only for a completed work item |
 | `/api/task-complete` | Full task closure | Not called directly | Use at end of entire work item |
 | `/ingest/v1/conversation` (`assistant.response`) | Record assistant turn result | `Stop` | Send an `assistant.response` event if assistant has final text |
 
