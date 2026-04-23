@@ -41,8 +41,14 @@ PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$SCRIPT_DIR/.." && pwd)}"
 HOOK_FILE="${PLUGIN_ROOT}/hooks/${HOOK_NAME}.ts"
 
 if [ ! -f "$HOOK_FILE" ]; then
-  echo "agent-tracer plugin: hook not found: $HOOK_FILE" >&2
-  exit 0
+  HOOK_BASENAME="${HOOK_NAME##*/}"
+  NESTED_HOOK_FILE="${PLUGIN_ROOT}/hooks/${HOOK_NAME}/${HOOK_BASENAME}.ts"
+  if [ -f "$NESTED_HOOK_FILE" ]; then
+    HOOK_FILE="$NESTED_HOOK_FILE"
+  else
+    echo "agent-tracer plugin: hook not found: $HOOK_FILE" >&2
+    exit 0
+  fi
 fi
 
 # tsconfig.json lives three levels above this script:
