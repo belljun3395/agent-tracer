@@ -13,7 +13,10 @@ export function inferCommandSemantic(command: string, rulePatterns: readonly str
     const commandToken = firstCommandToken(command)
     const commandEntity = commandToken || "shell"
 
-    if (rulePatterns.some((p) => normalized.includes(p.trim().toLowerCase()))) {
+    if (rulePatterns.some((p) => {
+        const pattern = p.trim().toLowerCase()
+        return pattern.length > 0 && normalized.includes(pattern)
+    })) {
         return ruleCheckResult(commandEntity)
     }
 

@@ -2,6 +2,10 @@ function extractStr(meta: Record<string, unknown>, key: string): string | undefi
     const v = meta[key]; return typeof v === "string" ? v : undefined;
 }
 
+function extractTagValue(meta: Record<string, unknown>, key: string): string | undefined {
+    const v = meta[key]; return typeof v === "string" || typeof v === "number" ? String(v) : undefined;
+}
+
 function extractBool(meta: Record<string, unknown>, key: string): boolean {
     return meta[key] === true;
 }
@@ -40,7 +44,7 @@ export function buildTagsFromMetadata(meta: Record<string, unknown>): readonly s
     const toolFamily = str("toolFamily"); if (toolFamily) add(`tool-family:${normalizeTag(toolFamily)}`);
     const operation = str("operation"); if (operation) add(`operation:${normalizeTag(operation)}`);
     const sourceTool = str("sourceTool"); if (sourceTool) add(`source-tool:${normalizeTag(sourceTool)}`);
-    const importance = str("importance"); if (importance) add(`importance:${normalizeTag(importance)}`);
+    const importance = extractTagValue(meta, "importance"); if (importance) add(`importance:${normalizeTag(importance)}`);
     const agentName = str("agentName"); if (agentName) add(`agent:${normalizeTag(agentName)}`);
     const skillName = str("skillName"); if (skillName) add(`skill:${normalizeTag(skillName)}`);
     const ruleSource = str("ruleSource"); if (ruleSource) add(`source:${normalizeTag(ruleSource)}`);

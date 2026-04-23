@@ -1,8 +1,13 @@
 import { describe, expect, it } from "vitest"
 import { KIND } from "../events/kinds.const.js"
-import { resolveIngestEndpoint, TOOL_ACTIVITY_EVENT_KINDS, WORKFLOW_EVENT_KINDS, CONVERSATION_EVENT_KINDS, COORDINATION_EVENT_KINDS, LIFECYCLE_EVENT_KINDS, TELEMETRY_EVENT_KINDS } from "./ingest.routing.js"
+import type { RuntimeIngestEventKind } from "../events/kinds.type.js"
+import { resolveIngestEndpoint, TOOL_ACTIVITY_EVENT_KINDS, WORKFLOW_EVENT_KINDS, CONVERSATION_EVENT_KINDS, COORDINATION_EVENT_KINDS, LIFECYCLE_EVENT_KINDS, TELEMETRY_EVENT_KINDS, RUNTIME_INGEST_EVENT_KINDS } from "./ingest.routing.js"
 
 describe("resolveIngestEndpoint", () => {
+    it("assigns every declared runtime event kind to a routing group", () => {
+        expect(new Set(RUNTIME_INGEST_EVENT_KINDS)).toEqual(new Set(Object.values(KIND)))
+    })
+
     it.each(TOOL_ACTIVITY_EVENT_KINDS)("routes '%s' to /ingest/v1/tool-activity", (kind) => {
         expect(resolveIngestEndpoint(kind)).toBe("/ingest/v1/tool-activity")
     })
@@ -53,5 +58,9 @@ describe("resolveIngestEndpoint", () => {
 
     it("routes tokenUsage to telemetry endpoint", () => {
         expect(resolveIngestEndpoint(KIND.tokenUsage)).toBe("/ingest/v1/telemetry")
+    })
+
+    it("falls back to workflow endpoint for unknown event kinds", () => {
+        expect(resolveIngestEndpoint("unknown.event" as RuntimeIngestEventKind)).toBe("/ingest/v1/workflow")
     })
 })

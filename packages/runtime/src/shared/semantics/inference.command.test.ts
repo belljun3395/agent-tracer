@@ -66,6 +66,19 @@ describe("inferCommandSemantic", () => {
             expect(result.metadata.subtypeKey).toBe("rule_check")
         })
 
+        it("ignores blank rule patterns", () => {
+            // Arrange
+            const command = "npm run lint"
+            const rulePatterns = ["", "   "]
+
+            // Act
+            const result = inferCommandSemantic(command, rulePatterns)
+
+            // Assert
+            expect(result.lane).toBe("implementation")
+            expect(result.metadata.subtypeKey).toBe("run_command")
+        })
+
         it("checks rule patterns before built-in exploration check", () => {
             // Arrange - "ls" would normally be exploration, but a rule pattern takes precedence
             const command = "ls --check-policy"
@@ -80,33 +93,29 @@ describe("inferCommandSemantic", () => {
     })
 
     describe("built-in exploration probes", () => {
-        it("maps ls to exploration lane with shell_probe subtype", () => {
+        it.each([
+            "pwd",
+            "ls -la",
+            "tree",
+            "find . -name '*.ts'",
+            "fd inference",
+            "rg inferCommandSemantic",
+            "grep -R pattern src",
+            "cat package.json",
+            "sed -n '1,20p' package.json",
+            "head package.json",
+            "tail package.json",
+            "wc -l package.json",
+            "stat package.json",
+            "file package.json",
+            "which node",
+            "whereis node",
+            "git status",
+            "git diff",
+            "git show HEAD",
+            "git log --oneline",
+        ])("maps '%s' to exploration lane with shell_probe subtype", (command) => {
             // Arrange
-            const command = "ls -la"
-
-            // Act
-            const result = inferCommandSemantic(command)
-
-            // Assert
-            expect(result.lane).toBe("exploration")
-            expect(result.metadata.subtypeKey).toBe("shell_probe")
-        })
-
-        it("maps git status to exploration lane", () => {
-            // Arrange
-            const command = "git status"
-
-            // Act
-            const result = inferCommandSemantic(command)
-
-            // Assert
-            expect(result.lane).toBe("exploration")
-            expect(result.metadata.subtypeKey).toBe("shell_probe")
-        })
-
-        it("maps git log --oneline to exploration lane", () => {
-            // Arrange
-            const command = "git log --oneline"
 
             // Act
             const result = inferCommandSemantic(command)
@@ -145,6 +154,28 @@ describe("inferCommandSemantic", () => {
             // Assert
             expect(result.lane).toBe("implementation")
             expect(result.metadata.subtypeKey).toBe("run_command")
+        })
+
+        it("uses shell as entityName for blank commands", () => {
+            // Arrange
+            const command = "   "
+
+            // Act
+            const result = inferCommandSemantic(command)
+
+            // Assert
+            expect(result.metadata.entityName).toBe("shell")
+        })
+
+        it("strips surrounding quotes from the first command token", () => {
+            // Arrange
+            const command = "'npm' run test"
+
+            // Act
+            const result = inferCommandSemantic(command)
+
+            // Assert
+            expect(result.metadata.entityName).toBe("npm")
         })
     })
 })
