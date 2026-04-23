@@ -33,27 +33,6 @@ export const taskPatchSchema = z.object({
 export const taskErrorSchema = taskCompleteSchema.extend({
     errorMessage: z.string().min(1)
 });
-export const sessionEndSchema = z.object({
-    taskId: z.string().min(1),
-    sessionId: z.string().optional(),
-    completeTask: z.boolean().optional(),
-    completionReason: z.enum(COMPLETION_REASONS).optional(),
-    summary: z.string().optional(),
-    backgroundCompletions: z.array(z.string().min(1)).optional(),
-    metadata: z.record(z.unknown()).optional()
-});
-export const bookmarkSchema = z.object({
-    taskId: z.string().min(1),
-    eventId: z.string().min(1).optional(),
-    title: z.string().trim().min(1).optional(),
-    note: z.string().trim().min(1).optional(),
-    metadata: z.record(z.unknown()).optional()
-});
-export const searchSchema = z.object({
-    query: z.string().trim().min(1),
-    taskId: z.string().min(1).optional(),
-    limit: z.coerce.number().int().positive().max(100).optional()
-});
 export const runtimeSessionEnsureSchema = z.object({
     taskId: z.string().optional(),
     runtimeSource: z.string().min(1),

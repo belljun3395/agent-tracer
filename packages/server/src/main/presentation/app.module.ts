@@ -24,7 +24,6 @@ import {
     DeleteBookmarkUseCase,
 } from "~application/bookmarks/index.js";
 import {
-    EndSessionUseCase,
     EnsureRuntimeSessionUseCase,
     EndRuntimeSessionUseCase,
     ResolveRuntimeBindingUseCase,
@@ -110,11 +109,6 @@ export class AppModule {
         };
 
         // Session UseCases
-        const endSessionProvider: Provider = {
-            provide: EndSessionUseCase,
-            useFactory: (ports: MonitorPorts) => new EndSessionUseCase(ports),
-            inject: [MONITOR_PORTS_TOKEN],
-        };
         const ensureRuntimeSessionProvider: Provider = {
             provide: EnsureRuntimeSessionUseCase,
             useFactory: (ports: MonitorPorts) => new EnsureRuntimeSessionUseCase(ports),
@@ -361,7 +355,6 @@ export class AppModule {
                 listBookmarksProvider,
                 saveBookmarkProvider,
                 deleteBookmarkProvider,
-                endSessionProvider,
                 ensureRuntimeSessionProvider,
                 endRuntimeSessionProvider,
                 resolveRuntimeBindingProvider,

@@ -93,7 +93,7 @@ order:
 3. `/api/tool-used`
 4. `/api/explore`
 5. `/api/assistant-response`
-6. `/api/runtime-session-end` (or `/api/session-end`)
+6. `/api/runtime-session-end`
 
 Add `/api/terminal-command`, `/api/todo`, `/api/save-context`,
 `/api/agent-activity`, `/api/async-task`, `/api/task-link`,

@@ -39,17 +39,4 @@ export function registerConversationTools(server: McpServer, client: MonitorClie
             metadata: z.record(z.unknown()).optional()
         }
     }, async (input) => toToolResponse(await client.post("/ingest/v1/events", { events: [{ kind: "assistant.response", lane: "user", ...input }] })));
-    server.registerTool("monitor_session_end", {
-        title: "Monitor Session End",
-        description: "End the current runtime session without completing the work item. " +
-            "The task remains running; the work item accumulates messages across multiple sessions. " +
-            "Use monitor_task_complete to explicitly close the work item when all work is done. " +
-            "Claude hooks should keep completeTask unset.",
-        inputSchema: {
-            taskId: z.string(),
-            sessionId: z.string().optional(),
-            summary: z.string().optional(),
-            metadata: z.record(z.unknown()).optional()
-        }
-    }, async (input) => toToolResponse(await client.post("/api/session-end", input)));
 }
