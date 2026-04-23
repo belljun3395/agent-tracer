@@ -6,7 +6,6 @@ import type {
     EvidenceLevel,
     QuestionPhase,
     TaskCompletionReason,
-    TaskStatus,
     TodoState,
     UserMessageCaptureMode,
     UserMessagePhase,
@@ -30,10 +29,6 @@ export interface RequiredEventMetadata {
     readonly tags?: readonly string[]
     readonly observabilityPhase?: string
     readonly signalTypes?: readonly string[]
-}
-
-export interface TaskEffects {
-    readonly taskStatus?: TaskStatus
 }
 
 export type TerminalCommandMetadata = RequiredEventMetadata & EventSemanticMetadata & {
