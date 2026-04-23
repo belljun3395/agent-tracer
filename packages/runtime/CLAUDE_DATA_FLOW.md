@@ -123,7 +123,8 @@ completionReason  — "explicit_exit" (prompt_input_exit) or "runtime_terminated
 endedAt           — Date.now() at time of hook (included in session.ended metadata)
 ```
 
-**Plugin writes to disk:** none.
+**Plugin writes to disk:** deletes the per-session TodoWrite reconciliation file
+after the end event is posted.
 
 **API calls:**
 ```
@@ -132,12 +133,14 @@ POST /api/runtime-session-ensure    # re-ensure to resolve (taskId, sessionId)
   runtimeSessionId  [CC]    session_id
   title             [GEN]   defaultTaskTitle()
   workspacePath     [ENV]   $CLAUDE_PROJECT_DIR
+  resume            [GEN]   false
 
 POST /api/runtime-session-end
   runtimeSource     [GEN]   "claude-plugin"
   runtimeSessionId  [CC]    session_id
   summary           [GEN]   "Claude Code session ended (<reason>)"
   completionReason  [GEN]   "explicit_exit" | "runtime_terminated"
+  completeTask      [GEN]   true only for "prompt_input_exit"
   (no metadata object)
 
 POST /ingest/v1/events  { kind: "session.ended", … }
@@ -241,6 +244,11 @@ POST /ingest/v1/events                          (one assistant.response event)
     stopReason  [CC]  stop_reason
 
 POST /api/runtime-session-end                    (skipped when agent_id is present)
+  runtimeSource     [GEN]  "claude-plugin"
+  runtimeSessionId  [CC]   session_id
+  summary           [GEN]  "Assistant turn completed (<stop_reason>)"
+  completeTask      [GEN]  true
+  completionReason  [GEN]  "assistant_turn_complete"
 ```
 
 ---
