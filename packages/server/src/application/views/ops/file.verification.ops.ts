@@ -11,10 +11,20 @@ import {
     matchFilePaths,
     normalizeFilePath,
 } from "~domain/paths.utils.js";
-import { NON_EXPLORATION_TOOL_KINDS } from "../file.verification.const.js";
-import type { MentionedFileVerification } from "../file.verification.type.js";
+import {NON_EXPLORATION_TOOL_KINDS} from "../file.verification.const.js";
+import type {MentionedFileVerification} from "~application/views/file.verification.type.js";
 
-export type * from "../file.verification.type.js";
+
+const COMMAND_EXPLORATION_OPERATIONS = new Set([
+    "read_file",
+    "read_range",
+    "search",
+    "inspect_diff",
+    "inspect_status",
+    "inspect_history",
+    "list",
+    "limit_output",
+]);
 
 interface ExploredFileStat {
     readonly path: string;
@@ -22,6 +32,18 @@ interface ExploredFileStat {
     readonly firstSeenAt: string;
     readonly lastSeenAt: string;
     readonly readTimestamps: readonly string[];
+}
+
+interface CommandTargetLike {
+    readonly type?: unknown;
+    readonly value?: unknown;
+}
+
+interface CommandStepLike {
+    readonly operation?: unknown;
+    readonly effect?: unknown;
+    readonly targets?: unknown;
+    readonly pipeline?: unknown;
 }
 
 export function buildMentionedFileVerifications(
@@ -81,7 +103,7 @@ export function buildMentionedFileVerifications(
                 mentionedAt: event.createdAt,
                 mentionedInEventId: event.id,
                 wasExplored: Boolean(matchedStat),
-                ...(matchedStat ? { firstExploredAt: matchedStat.firstSeenAt } : {}),
+                ...(matchedStat ? {firstExploredAt: matchedStat.firstSeenAt} : {}),
                 explorationCount: matchedStat?.count ?? 0,
                 exploredAfterMention: Boolean(
                     matchedStat?.readTimestamps.some((timestamp: string) => Date.parse(timestamp) > mentionedMs),
@@ -96,17 +118,13 @@ export function buildMentionedFileVerifications(
 export function collectExploredFiles(timeline: readonly TimelineEvent[]): readonly ExploredFileStat[] {
     const fileTimestamps = new Map<string, string[]>();
     for (const event of timeline) {
-        if (!isExplorationToolEvent(event)) {
-            continue;
-        }
-        for (const filePath of readStringArray(event.metadata, META.filePaths)) {
-            const normalized = normalizeFilePath(filePath);
-            const existing = fileTimestamps.get(normalized);
-            if (existing) {
-                existing.push(event.createdAt);
-            } else {
-                fileTimestamps.set(normalized, [event.createdAt]);
+        if (isExplorationToolEvent(event)) {
+            for (const filePath of readStringArray(event.metadata, META.filePaths)) {
+                addExploredPath(fileTimestamps, filePath, event.createdAt);
             }
+        }
+        for (const filePath of extractCommandExplorationPaths(event)) {
+            addExploredPath(fileTimestamps, filePath, event.createdAt);
         }
     }
 
@@ -127,8 +145,56 @@ export function collectExploredFiles(timeline: readonly TimelineEvent[]): readon
     });
 }
 
+function addExploredPath(fileTimestamps: Map<string, string[]>, filePath: string, timestamp: string): void {
+    const normalized = normalizeFilePath(filePath);
+    const existing = fileTimestamps.get(normalized);
+    if (existing) {
+        existing.push(timestamp);
+    } else {
+        fileTimestamps.set(normalized, [timestamp]);
+    }
+}
+
 function isExplorationToolEvent(event: TimelineEvent): boolean {
     return isExplorationLane(event.lane) && !NON_EXPLORATION_TOOL_KINDS.has(event.kind);
+}
+
+function extractCommandExplorationPaths(event: TimelineEvent): readonly string[] {
+    const analysis = event.metadata["commandAnalysis"];
+    if (!analysis || typeof analysis !== "object") return [];
+    const steps = (analysis as { readonly steps?: unknown }).steps;
+    if (!Array.isArray(steps)) return [];
+
+    const paths: string[] = [];
+    for (const step of flattenCommandSteps(steps)) {
+        const operation = typeof step.operation === "string" ? step.operation : "unknown";
+        const effect = typeof step.effect === "string" ? step.effect : "unknown";
+        if (operation === "pipeline") continue;
+        if (!COMMAND_EXPLORATION_OPERATIONS.has(operation) && effect !== "read_only") continue;
+        const targets = Array.isArray(step.targets) ? step.targets : [];
+        for (const targetValue of targets) {
+            if (!targetValue || typeof targetValue !== "object") continue;
+            const target = targetValue as CommandTargetLike;
+            if (target.type !== "file" && target.type !== "directory" && target.type !== "path") continue;
+            if (typeof target.value === "string" && target.value.length > 0) {
+                paths.push(target.value);
+            }
+        }
+    }
+    return [...new Set(paths)];
+}
+
+function flattenCommandSteps(values: readonly unknown[]): readonly CommandStepLike[] {
+    const flattened: CommandStepLike[] = [];
+    for (const value of values) {
+        if (!value || typeof value !== "object") continue;
+        const step = value as CommandStepLike;
+        flattened.push(step);
+        if (Array.isArray(step.pipeline)) {
+            flattened.push(...flattenCommandSteps(step.pipeline));
+        }
+    }
+    return flattened;
 }
 
 function findMatchingExploredFile(
