@@ -19,7 +19,6 @@ Related documentation:
 | `/api/runtime-session-ensure` | Runtime session upsert | `SessionStart`, `UserPromptSubmit`, `PreToolUse` | Use if stable runtime session ID is available |
 | `/api/task-start` | Explicit task/session creation | Rarely used | Use when no session ID-based binding |
 | `/api/runtime-session-end` | Runtime session closure | `Stop`, `SessionEnd` | Use to separate turn end from task end |
-| `/api/session-end` | Task-level session closure | Not called directly | Use to close resumable sessions only |
 | `/api/task-complete` | Full task closure | Not called directly | Use at end of entire work item |
 | `/api/assistant-response` | Record assistant turn result | `Stop` | Call if assistant has final text |
 
@@ -83,7 +82,7 @@ field replaced with `"rule"` before the events are persisted.
 3. /api/tool-used
 4. /api/explore
 5. /api/assistant-response
-6. /api/runtime-session-end or /api/session-end
+6. /api/runtime-session-end
 ```
 
 Then optionally add `/api/terminal-command`, `/api/todo`, `/api/save-context`,

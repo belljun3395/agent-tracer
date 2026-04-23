@@ -9,12 +9,10 @@ import {
     DeleteFinishedTasksUseCase,
 } from "~application/tasks/index.js";
 import type { TaskStartInput, TaskLinkInput, TaskCompletionInput, TaskErrorInput, TaskPatchInput } from "~application/index.js";
-import { EndSessionUseCase, EnsureRuntimeSessionUseCase, EndRuntimeSessionUseCase } from "~application/sessions/index.js";
-import type { EndSessionUseCaseIn } from "~application/sessions/index.js";
+import { EnsureRuntimeSessionUseCase, EndRuntimeSessionUseCase } from "~application/sessions/index.js";
 import {
     runtimeSessionEndSchema,
     runtimeSessionEnsureSchema,
-    sessionEndSchema,
     taskCompleteSchema,
     taskErrorSchema,
     taskLinkSchema,
@@ -32,7 +30,6 @@ export class LifecycleController {
         @Inject(LinkTaskUseCase) private readonly linkTask: LinkTaskUseCase,
         @Inject(DeleteTaskUseCase) private readonly deleteTask: DeleteTaskUseCase,
         @Inject(DeleteFinishedTasksUseCase) private readonly deleteFinishedTasks: DeleteFinishedTasksUseCase,
-        @Inject(EndSessionUseCase) private readonly endSession: EndSessionUseCase,
         @Inject(EnsureRuntimeSessionUseCase) private readonly ensureRuntimeSession: EnsureRuntimeSessionUseCase,
         @Inject(EndRuntimeSessionUseCase) private readonly endRuntimeSession: EndRuntimeSessionUseCase,
     ) {}
@@ -89,12 +86,6 @@ export class LifecycleController {
         const result = await this.deleteTask.execute(taskId);
         if (result === "not_found") throw new HttpException({ ok: false, error: "Task not found" }, HttpStatus.NOT_FOUND);
         return { ok: true };
-    }
-
-    @Post("/api/session-end")
-    @HttpCode(HttpStatus.OK)
-    async sessionEnd(@Body() body: unknown) {
-        return this.endSession.execute(sessionEndSchema.parse(body) as unknown as EndSessionUseCaseIn);
     }
 
     @Post("/api/runtime-session-ensure")

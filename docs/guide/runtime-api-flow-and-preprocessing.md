@@ -134,7 +134,7 @@ Runtimes without automatic plugins can use the same dashboard/storage by followi
 2. For each user input, call `/api/user-message`
 3. For each tool use, call `/api/tool-used` or `/api/explore`
 4. On response completion, call `/api/assistant-response`
-5. At turn end, call `/api/runtime-session-end` or `/api/session-end`
+5. At turn end, call `/api/runtime-session-end`
 
 Optionally add `/api/todo`, `/api/agent-activity`, `/api/async-task`, `/api/task-link`,
 `/api/save-context`, `/api/plan`, `/api/action`, `/api/verify`, `/api/rule`, `/api/question`, `/api/thought`

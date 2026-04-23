@@ -205,11 +205,11 @@ For the payload schema and known differences from the official spec, see
 
 ## 7. Manual MCP tools
 
-When hooks aren't enough, the `monitor` MCP server exposes 24 tools you can
+When hooks aren't enough, the `monitor` MCP server exposes 23 tools you can
 call directly. A few of the most useful ones:
 
 - Task lifecycle: `monitor_task_start`, `monitor_task_complete`, `monitor_task_error`, `monitor_task_link`
-- Runtime session lifecycle: `monitor_runtime_session_ensure`, `monitor_runtime_session_end`, `monitor_session_end`
+- Runtime session lifecycle: `monitor_runtime_session_ensure`, `monitor_runtime_session_end`
 - Conversation: `monitor_user_message` (requires `messageId`; `captureMode: "derived"` requires `sourceEventId`), `monitor_assistant_response`
 - Event logging: `monitor_tool_used`, `monitor_terminal_command`, `monitor_explore`, `monitor_save_context`, `monitor_plan`, `monitor_action`, `monitor_verify`, `monitor_rule`, `monitor_question`, `monitor_thought`, `monitor_todo`, `monitor_agent_activity`
 - Background: `monitor_async_task`
