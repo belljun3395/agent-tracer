@@ -11,3 +11,11 @@ export { GetTaskTimelineUseCase } from "./get.task.timeline.usecase.js";
 export { GetTaskLatestRuntimeSessionUseCase } from "./get.task.latest.runtime.session.usecase.js";
 export { GetTaskOpenInferenceUseCase } from "./get.task.open.inference.usecase.js";
 export { GetDefaultWorkspacePathUseCase } from "./get.default.workspace.path.usecase.js";
+export type {
+    TaskCompletionInput,
+    TaskErrorInput,
+    TaskLinkInput,
+    TaskPatchInput,
+    TaskStartInput,
+} from "./task.lifecycle.input.js";
+export type { RecordedEventEnvelope } from "./task.lifecycle.result.js";

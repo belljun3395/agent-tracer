@@ -2,8 +2,8 @@ import { createTaskSlug, normalizeWorkspacePath, type MonitoringEventKind } from
 import { mapTimelineEventToRecord } from "~application/views/index.js";
 import type { MonitorPorts } from "~application/ports/index.js";
 import { buildEventRecord } from "~application/events/event.recording.ops.js";
-import type { TaskCompletionInput, TaskStartInput } from "../task.lifecycle.type.js";
-import type { RecordedEventEnvelope } from "../task.lifecycle.type.js";
+import type { TaskCompletionInput, TaskStartInput } from "~application/tasks/task.lifecycle.input.js";
+import type { RecordedEventEnvelope } from "~application/tasks/task.lifecycle.result.js";
 
 export async function finishTask(
     ports: MonitorPorts,

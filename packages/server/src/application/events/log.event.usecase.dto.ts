@@ -1,4 +1,5 @@
 import type { MonitoringEventKind, TimelineLane } from "~domain/monitoring/event.kind.js";
+import type { MonitoringTask } from "~domain/monitoring/monitoring.task.model.js";
 import type { EventRelationType } from "~domain/monitoring/task.status.type.js";
 
 export interface BaseIngestEventInput {
@@ -17,4 +18,10 @@ export interface BaseIngestEventInput {
     readonly relationExplanation?: string | undefined
     readonly createdAt?: string | undefined
     readonly taskEffects?: { readonly taskStatus?: string | undefined } | undefined
+}
+
+export interface LogEventResult {
+    readonly task: MonitoringTask;
+    readonly sessionId?: string;
+    readonly events: readonly { readonly id: string; readonly kind: MonitoringEventKind }[];
 }

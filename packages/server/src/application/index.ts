@@ -8,9 +8,6 @@ export * from "./views/index.js";
 // Observability analyzers
 export * from "./observability/index.js";
 
-// Shared envelope type
-export type { RecordedEventEnvelope } from "./tasks/task.lifecycle.type.js";
-
 // Workflow builders (pure)
 export * from "./workflow/index.js";
 
