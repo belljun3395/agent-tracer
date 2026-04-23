@@ -1,5 +1,5 @@
 import type { EvidenceLevel } from "~domain/index.js";
-import type { MentionedFileVerification } from "../views/index.js";
+import type { MentionedFileVerification } from "../views/file.verification.type.js";
 
 export type ObservabilityPhase = "planning" | "exploration" | "implementation" | "verification" | "coordination";
 export type ObservabilityPhaseBucket = ObservabilityPhase | "waiting";
