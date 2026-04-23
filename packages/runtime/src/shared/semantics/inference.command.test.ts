@@ -28,7 +28,7 @@ describe("inferCommandSemantic", () => {
             expect(result.metadata.entityName).toBe("npm")
         })
 
-        it("does not apply rule lane when no rulePatterns provided", () => {
+        it("classifies lint commands when no rulePatterns provided", () => {
             // Arrange
             const command = "npm run lint"
 
@@ -37,7 +37,7 @@ describe("inferCommandSemantic", () => {
 
             // Assert
             expect(result.lane).toBe("implementation")
-            expect(result.metadata.subtypeKey).toBe("run_command")
+            expect(result.metadata.subtypeKey).toBe("run_lint")
         })
 
         it("matches rule pattern case-insensitively", () => {
@@ -76,7 +76,7 @@ describe("inferCommandSemantic", () => {
 
             // Assert
             expect(result.lane).toBe("implementation")
-            expect(result.metadata.subtypeKey).toBe("run_command")
+            expect(result.metadata.subtypeKey).toBe("run_lint")
         })
 
         it("checks rule patterns before built-in exploration check", () => {
@@ -144,6 +144,24 @@ describe("inferCommandSemantic", () => {
     })
 
     describe("implementation fallback", () => {
+        it.each([
+            ["npm test", "run_test"],
+            ["npm run lint", "run_lint"],
+            ["npm run build", "run_build"],
+            ["vitest run", "run_test"],
+            ["tsc --noEmit", "run_build"],
+        ])("maps '%s' to %s", (command, subtypeKey) => {
+            // Arrange
+
+            // Act
+            const result = inferCommandSemantic(command)
+
+            // Assert
+            expect(result.lane).toBe("implementation")
+            expect(result.metadata.subtypeKey).toBe(subtypeKey)
+            expect(result.analysis.steps[0]?.operation).toBe(subtypeKey)
+        })
+
         it("maps generic command to implementation lane with run_command subtype", () => {
             // Arrange
             const command = "echo hello"
@@ -176,6 +194,19 @@ describe("inferCommandSemantic", () => {
 
             // Assert
             expect(result.metadata.entityName).toBe("npm")
+        })
+
+        it("returns command analysis with semantic inference", () => {
+            // Arrange
+            const command = "rg foo packages | head -20 && npm --workspace @monitor/server test"
+
+            // Act
+            const result = inferCommandSemantic(command)
+
+            // Assert
+            expect(result.analysis.structure).toBe("compound")
+            expect(result.analysis.steps[0]?.pipeline?.map((step) => step.commandName)).toEqual(["rg", "head"])
+            expect(result.metadata.subtypeKey).toBe("run_test")
         })
     })
 })
