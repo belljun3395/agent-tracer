@@ -14,7 +14,7 @@ describe("CompleteTaskUseCase", () => {
             sessions: [session({ id: "session-1", taskId: "task-1" })],
         });
 
-        const result = await new CompleteTaskUseCase(state.ports.tasks, state.ports.sessions, state.ports.events, state.ports.notifier).execute({
+        const result = await new CompleteTaskUseCase(state.taskLifecycle).execute({
             taskId: "task-1",
             summary: "done",
             metadata: { source: "test" },
@@ -46,7 +46,7 @@ describe("CompleteTaskUseCase", () => {
             sessions: [session({ id: "session-1", taskId: "task-1" })],
         });
 
-        const result = await new CompleteTaskUseCase(state.ports.tasks, state.ports.sessions, state.ports.events, state.ports.notifier).execute({
+        const result = await new CompleteTaskUseCase(state.taskLifecycle).execute({
             taskId: "task-1",
             summary: "already done",
         });
@@ -66,7 +66,7 @@ describe("CompleteTaskUseCase", () => {
     it("throws when the task does not exist", async () => {
         const state = createPorts();
 
-        await expect(new CompleteTaskUseCase(state.ports.tasks, state.ports.sessions, state.ports.events, state.ports.notifier).execute({ taskId: "missing" }))
+        await expect(new CompleteTaskUseCase(state.taskLifecycle).execute({ taskId: "missing" }))
             .rejects.toThrow("Task not found: missing");
     });
 });

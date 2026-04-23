@@ -63,6 +63,7 @@ import {
     GetTaskLatestRuntimeSessionUseCase,
     GetTaskOpenInferenceUseCase,
     GetDefaultWorkspacePathUseCase,
+    TaskLifecycleService,
 } from "~application/tasks/index.js";
 import {
     UpsertTaskEvaluationUseCase,
@@ -137,21 +138,31 @@ export class AppModule {
         };
 
         // Session UseCases
+        const taskLifecycleProvider: Provider = {
+            provide: TaskLifecycleService,
+            useFactory: (
+                tasks: ITaskRepository,
+                sessions: ISessionRepository,
+                events: IEventRepository,
+                notifier: INotificationPublisher,
+            ) => new TaskLifecycleService(tasks, sessions, events, notifier),
+            inject: [TASK_REPOSITORY_TOKEN, SESSION_REPOSITORY_TOKEN, EVENT_REPOSITORY_TOKEN, NOTIFICATION_PUBLISHER_TOKEN],
+        };
         const ensureRuntimeSessionProvider: Provider = {
             provide: EnsureRuntimeSessionUseCase,
             useFactory: (
                 tasks: ITaskRepository,
                 sessions: ISessionRepository,
-                events: IEventRepository,
                 runtimeBindings: IRuntimeBindingRepository,
                 notifier: INotificationPublisher,
-            ) => new EnsureRuntimeSessionUseCase(tasks, sessions, events, runtimeBindings, notifier),
+                taskLifecycle: TaskLifecycleService,
+            ) => new EnsureRuntimeSessionUseCase(tasks, sessions, runtimeBindings, notifier, taskLifecycle),
             inject: [
                 TASK_REPOSITORY_TOKEN,
                 SESSION_REPOSITORY_TOKEN,
-                EVENT_REPOSITORY_TOKEN,
                 RUNTIME_BINDING_REPOSITORY_TOKEN,
                 NOTIFICATION_PUBLISHER_TOKEN,
+                TaskLifecycleService,
             ],
         };
         const endRuntimeSessionProvider: Provider = {
@@ -159,16 +170,16 @@ export class AppModule {
             useFactory: (
                 tasks: ITaskRepository,
                 sessions: ISessionRepository,
-                events: IEventRepository,
                 runtimeBindings: IRuntimeBindingRepository,
                 notifier: INotificationPublisher,
-            ) => new EndRuntimeSessionUseCase(tasks, sessions, events, runtimeBindings, notifier),
+                taskLifecycle: TaskLifecycleService,
+            ) => new EndRuntimeSessionUseCase(tasks, sessions, runtimeBindings, notifier, taskLifecycle),
             inject: [
                 TASK_REPOSITORY_TOKEN,
                 SESSION_REPOSITORY_TOKEN,
-                EVENT_REPOSITORY_TOKEN,
                 RUNTIME_BINDING_REPOSITORY_TOKEN,
                 NOTIFICATION_PUBLISHER_TOKEN,
+                TaskLifecycleService,
             ],
         };
         // Event UseCases
@@ -217,33 +228,18 @@ export class AppModule {
         // Task lifecycle UseCases
         const startTaskProvider: Provider = {
             provide: StartTaskUseCase,
-            useFactory: (
-                tasks: ITaskRepository,
-                sessions: ISessionRepository,
-                events: IEventRepository,
-                notifier: INotificationPublisher,
-            ) => new StartTaskUseCase(tasks, sessions, events, notifier),
-            inject: [TASK_REPOSITORY_TOKEN, SESSION_REPOSITORY_TOKEN, EVENT_REPOSITORY_TOKEN, NOTIFICATION_PUBLISHER_TOKEN],
+            useFactory: (taskLifecycle: TaskLifecycleService) => new StartTaskUseCase(taskLifecycle),
+            inject: [TaskLifecycleService],
         };
         const completeTaskProvider: Provider = {
             provide: CompleteTaskUseCase,
-            useFactory: (
-                tasks: ITaskRepository,
-                sessions: ISessionRepository,
-                events: IEventRepository,
-                notifier: INotificationPublisher,
-            ) => new CompleteTaskUseCase(tasks, sessions, events, notifier),
-            inject: [TASK_REPOSITORY_TOKEN, SESSION_REPOSITORY_TOKEN, EVENT_REPOSITORY_TOKEN, NOTIFICATION_PUBLISHER_TOKEN],
+            useFactory: (taskLifecycle: TaskLifecycleService) => new CompleteTaskUseCase(taskLifecycle),
+            inject: [TaskLifecycleService],
         };
         const errorTaskProvider: Provider = {
             provide: ErrorTaskUseCase,
-            useFactory: (
-                tasks: ITaskRepository,
-                sessions: ISessionRepository,
-                events: IEventRepository,
-                notifier: INotificationPublisher,
-            ) => new ErrorTaskUseCase(tasks, sessions, events, notifier),
-            inject: [TASK_REPOSITORY_TOKEN, SESSION_REPOSITORY_TOKEN, EVENT_REPOSITORY_TOKEN, NOTIFICATION_PUBLISHER_TOKEN],
+            useFactory: (taskLifecycle: TaskLifecycleService) => new ErrorTaskUseCase(taskLifecycle),
+            inject: [TaskLifecycleService],
         };
         const updateTaskProvider: Provider = {
             provide: UpdateTaskUseCase,
@@ -428,6 +424,7 @@ export class AppModule {
             imports: [],
             providers: [
                 ...databaseProviders,
+                taskLifecycleProvider,
                 listBookmarksProvider,
                 saveBookmarkProvider,
                 deleteBookmarkProvider,

@@ -14,7 +14,7 @@ describe("EndRuntimeSessionUseCase", () => {
             bindings: [binding({ taskId: "task-1", monitorSessionId: null })],
         });
 
-        await new EndRuntimeSessionUseCase(state.ports.tasks, state.ports.sessions, state.ports.events, state.ports.runtimeBindings, state.ports.notifier).execute({
+        await new EndRuntimeSessionUseCase(state.ports.tasks, state.ports.sessions, state.ports.runtimeBindings, state.ports.notifier, state.taskLifecycle).execute({
             runtimeSource: "codex",
             runtimeSessionId: "runtime-1",
             completeTask: true,
@@ -33,7 +33,7 @@ describe("EndRuntimeSessionUseCase", () => {
             bindings: [binding({ taskId: "task-1", monitorSessionId: "session-1" })],
         });
 
-        await new EndRuntimeSessionUseCase(state.ports.tasks, state.ports.sessions, state.ports.events, state.ports.runtimeBindings, state.ports.notifier).execute({
+        await new EndRuntimeSessionUseCase(state.ports.tasks, state.ports.sessions, state.ports.runtimeBindings, state.ports.notifier, state.taskLifecycle).execute({
             runtimeSource: "codex",
             runtimeSessionId: "runtime-1",
             completeTask: true,
@@ -52,7 +52,7 @@ describe("EndRuntimeSessionUseCase", () => {
             bindings: [binding({ taskId: "task-1", monitorSessionId: "session-1" })],
         });
 
-        await new EndRuntimeSessionUseCase(state.ports.tasks, state.ports.sessions, state.ports.events, state.ports.runtimeBindings, state.ports.notifier).execute({
+        await new EndRuntimeSessionUseCase(state.ports.tasks, state.ports.sessions, state.ports.runtimeBindings, state.ports.notifier, state.taskLifecycle).execute({
             runtimeSource: "codex",
             runtimeSessionId: "runtime-1",
             summary: "turn ended",
@@ -74,7 +74,7 @@ describe("EndRuntimeSessionUseCase", () => {
             bindings: [binding({ taskId: "task-1", monitorSessionId: "session-1" })],
         });
 
-        await new EndRuntimeSessionUseCase(state.ports.tasks, state.ports.sessions, state.ports.events, state.ports.runtimeBindings, state.ports.notifier).execute({
+        await new EndRuntimeSessionUseCase(state.ports.tasks, state.ports.sessions, state.ports.runtimeBindings, state.ports.notifier, state.taskLifecycle).execute({
             runtimeSource: "codex",
             runtimeSessionId: "runtime-1",
             completeTask: true,
@@ -94,7 +94,7 @@ describe("EndRuntimeSessionUseCase", () => {
             bindings: [binding({ taskId: "bg-1", monitorSessionId: "session-1" })],
         });
 
-        await new EndRuntimeSessionUseCase(state.ports.tasks, state.ports.sessions, state.ports.events, state.ports.runtimeBindings, state.ports.notifier).execute({
+        await new EndRuntimeSessionUseCase(state.ports.tasks, state.ports.sessions, state.ports.runtimeBindings, state.ports.notifier, state.taskLifecycle).execute({
             runtimeSource: "codex",
             runtimeSessionId: "runtime-1",
         });
@@ -113,7 +113,7 @@ describe("EndRuntimeSessionUseCase", () => {
             bindings: [binding({ taskId: "task-1", monitorSessionId: "session-1" })],
         });
 
-        await new EndRuntimeSessionUseCase(state.ports.tasks, state.ports.sessions, state.ports.events, state.ports.runtimeBindings, state.ports.notifier).execute({
+        await new EndRuntimeSessionUseCase(state.ports.tasks, state.ports.sessions, state.ports.runtimeBindings, state.ports.notifier, state.taskLifecycle).execute({
             runtimeSource: "codex",
             runtimeSessionId: "runtime-1",
             completionReason: "assistant_turn_complete",
