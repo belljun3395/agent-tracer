@@ -92,7 +92,7 @@ order:
 2. `/api/user-message`
 3. `/api/tool-used`
 4. `/api/explore`
-5. `/api/assistant-response`
+5. `/ingest/v1/conversation` (`assistant.response`)
 6. `/api/runtime-session-end`
 
 Add `/api/terminal-command`, `/api/todo`, `/api/save-context`,

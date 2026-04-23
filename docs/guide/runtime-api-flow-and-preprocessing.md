@@ -19,7 +19,7 @@ Related documentation:
 | `/api/runtime-session-ensure` | Runtime session upsert + task/session binding |
 | `/api/runtime-session-end` | Runtime session closure |
 | `/api/user-message` | Store user raw prompt |
-| `/api/assistant-response` | Store assistant final response |
+| `/ingest/v1/conversation` (`assistant.response`) | Store assistant final response |
 | `/api/tool-used` | Record implementation action |
 | `/api/explore` | Record exploration/lookup |
 | `/api/terminal-command` | Record shell execution |
@@ -52,7 +52,7 @@ Related documentation:
 
 ### Assistant Response Boundary
 
-- `Stop` hook reads final assistant message and token usage, sending to `/api/assistant-response`.
+- `Stop` hook reads final assistant message and token usage, sending an `assistant.response` event to `/ingest/v1/conversation`.
 - `SessionEnd` and `Stop` conditionally call `/api/runtime-session-end` to close session, but do not auto-complete primary task.
 
 ## Representative JSON Examples
@@ -97,21 +97,27 @@ Related documentation:
 > emits `"exploration"` or `"implementation"`; the `"rule"` lane is assigned exclusively
 > server-side. See [API integration map § Rule Commands](./api-integration-map.md#rule-commands).
 
-### `Stop` → `/api/assistant-response`
+### `Stop` → `/ingest/v1/conversation` (`assistant.response`)
 
 ```json
 {
-  "taskId": "task_01J...",
-  "sessionId": "sess_01J...",
-  "messageId": "msg_1712345678999_f3e2aa",
-  "source": "claude-plugin",
-  "title": "Updated the documentation as requested.",
-  "body": "Updated the documentation as requested.",
-  "metadata": {
-    "stopReason": "end_turn",
-    "inputTokens": 1200,
-    "outputTokens": 430
-  }
+  "events": [
+    {
+      "kind": "assistant.response",
+      "lane": "user",
+      "taskId": "task_01J...",
+      "sessionId": "sess_01J...",
+      "messageId": "msg_1712345678999_f3e2aa",
+      "source": "claude-plugin",
+      "title": "Updated the documentation as requested.",
+      "body": "Updated the documentation as requested.",
+      "metadata": {
+        "stopReason": "end_turn",
+        "inputTokens": 1200,
+        "outputTokens": 430
+      }
+    }
+  ]
 }
 ```
 
@@ -133,7 +139,7 @@ Runtimes without automatic plugins can use the same dashboard/storage by followi
 1. If stable session ID available, call `/api/runtime-session-ensure`
 2. For each user input, call `/api/user-message`
 3. For each tool use, call `/api/tool-used` or `/api/explore`
-4. On response completion, call `/api/assistant-response`
+4. On response completion, send an `assistant.response` event to `/ingest/v1/conversation`
 5. At turn end, call `/api/runtime-session-end`
 
 Optionally add `/api/todo`, `/api/agent-activity`, `/api/async-task`, `/api/task-link`,
