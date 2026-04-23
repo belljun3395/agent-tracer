@@ -30,6 +30,30 @@ describe("EnsureRuntimeSessionUseCase", () => {
         expect(state.mocks.runtimeBindingsUpsert).not.toHaveBeenCalled();
     });
 
+    it("does not reuse a binding that points at a closed monitor session", async () => {
+        vi.spyOn(globalThis.crypto, "randomUUID").mockReturnValue("00000000-0000-4000-8000-000000000007");
+        const state = createPorts({
+            tasks: [task({ id: "task-1" })],
+            sessions: [session({ id: "session-1", taskId: "task-1", status: "completed" })],
+            bindings: [binding({ taskId: "task-1", monitorSessionId: "session-1" })],
+        });
+
+        const result = await new EnsureRuntimeSessionUseCase(state.ports).execute({
+            runtimeSource: "codex",
+            runtimeSessionId: "runtime-1",
+            title: "Resume",
+        });
+
+        expect(result).toEqual({
+            taskId: "task-1",
+            sessionId: "00000000-0000-4000-8000-000000000007",
+            taskCreated: false,
+            sessionCreated: true,
+        });
+        expect(state.mocks.runtimeBindingsClearSession).toHaveBeenCalledWith("codex", "runtime-1");
+        expect(state.bindings.get("codex:runtime-1")?.monitorSessionId).toBe("00000000-0000-4000-8000-000000000007");
+    });
+
     it("resolves the latest historical session when resume is false", async () => {
         const state = createPorts({
             tasks: [task({ id: "task-1", status: "completed" })],

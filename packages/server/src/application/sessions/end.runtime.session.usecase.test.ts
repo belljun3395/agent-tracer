@@ -26,7 +26,7 @@ describe("EndRuntimeSessionUseCase", () => {
         expect(state.events).toHaveLength(1);
     });
 
-    it("does nothing when the active binding points at an already-ended monitor session", async () => {
+    it("clears the runtime binding when it points at an already-ended monitor session", async () => {
         const state = createPorts({
             tasks: [task({ id: "task-1" })],
             sessions: [session({ id: "session-1", taskId: "task-1", status: "completed" })],
@@ -40,8 +40,9 @@ describe("EndRuntimeSessionUseCase", () => {
         });
 
         expect(state.mocks.sessionsUpdateStatus).not.toHaveBeenCalled();
-        expect(state.mocks.runtimeBindingsClearSession).not.toHaveBeenCalled();
-        expect(state.tasks.get("task-1")?.status).toBe("running");
+        expect(state.mocks.runtimeBindingsClearSession).toHaveBeenCalledWith("codex", "runtime-1");
+        expect(state.tasks.get("task-1")?.status).toBe("completed");
+        expect(state.bindings.get("codex:runtime-1")?.monitorSessionId).toBeNull();
     });
 
     it("closes the active monitor session and clears the runtime binding", async () => {
