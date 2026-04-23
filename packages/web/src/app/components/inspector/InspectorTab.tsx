@@ -47,6 +47,66 @@ function isRedactedThinking(event: TimelineEventRecord): boolean {
     return event.kind === "thought.logged" && event.metadata["redacted"] === true;
 }
 
+function recordValue(value: unknown): Record<string, unknown> | null {
+    return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
+}
+
+function stringValue(record: Record<string, unknown>, key: string): string | undefined {
+    const value = record[key];
+    return typeof value === "string" && value.length > 0 ? value : undefined;
+}
+
+function formatCommandAnalysis(value: unknown): string | null {
+    const analysis = recordValue(value);
+    if (!analysis) return null;
+    const lines = [
+        `Structure: ${stringValue(analysis, "structure") ?? "unknown"}`,
+        `Overall effect: ${stringValue(analysis, "overallEffect") ?? "unknown"}`,
+        `Confidence: ${stringValue(analysis, "confidence") ?? "unknown"}`,
+    ];
+    if (analysis["failureMasked"] === true) lines.push("Failure masked: true");
+    const steps = Array.isArray(analysis["steps"]) ? analysis["steps"] : [];
+    if (steps.length > 0) lines.push("", "Steps:");
+    for (const [index, stepValue] of steps.entries()) {
+        const step = recordValue(stepValue);
+        if (!step) continue;
+        lines.push(...formatCommandStep(step, index + 1, ""));
+    }
+    return lines.join("\n");
+}
+
+function formatCommandStep(step: Record<string, unknown>, index: number, prefix: string): readonly string[] {
+    const commandName = stringValue(step, "commandName") ?? "command";
+    const operation = stringValue(step, "operation") ?? "unknown";
+    const effect = stringValue(step, "effect") ?? "unknown";
+    const operator = stringValue(step, "operatorFromPrevious");
+    const workspace = stringValue(step, "workspace");
+    const scriptName = stringValue(step, "scriptName");
+    const targets = Array.isArray(step["targets"]) ? step["targets"].map(formatCommandTarget).filter((target): target is string => Boolean(target)) : [];
+    const header = `${prefix}${index}. ${operator ? `${operator} ` : ""}${commandName} · ${operation} · ${effect}`;
+    const lines = [header];
+    if (workspace) lines.push(`${prefix}   workspace: ${workspace}`);
+    if (scriptName) lines.push(`${prefix}   script: ${scriptName}`);
+    if (targets.length > 0) lines.push(`${prefix}   targets: ${targets.join(", ")}`);
+    const pipeline = Array.isArray(step["pipeline"]) ? step["pipeline"] : [];
+    if (pipeline.length > 0) {
+        lines.push(`${prefix}   pipeline:`);
+        for (const [pipelineIndex, pipelineStep] of pipeline.entries()) {
+            const nested = recordValue(pipelineStep);
+            if (nested) lines.push(...formatCommandStep(nested, pipelineIndex + 1, `${prefix}     `));
+        }
+    }
+    return lines;
+}
+
+function formatCommandTarget(value: unknown): string | null {
+    const target = recordValue(value);
+    if (!target) return null;
+    const type = stringValue(target, "type") ?? "target";
+    const targetValue = stringValue(target, "value");
+    return targetValue ? `${type}:${targetValue}` : null;
+}
+
 interface SelectedConnectorData {
     readonly connector: TimelineConnector;
     readonly source: TimelineEventRecord;
@@ -278,6 +338,9 @@ export function InspectorTab({
                 return group ? <TodoGroupSection group={group}/> : null;
             })()}
             {selectedEvent.kind === "user.message" && <DetailCaptureInfo event={selectedEvent}/>}
+            {selectedEvent.kind === "terminal.command" && formatCommandAnalysis(selectedEvent.metadata["commandAnalysis"]) && (
+                <DetailSection label="Command Analysis" helpText="Parsed shell structure, command intent, targets, and effect inferred from the terminal command." mono value={formatCommandAnalysis(selectedEvent.metadata["commandAnalysis"]) ?? ""}/>
+            )}
             {(selectedEvent.metadata["modelName"] as string | undefined) && (<DetailModelInfo modelName={selectedEvent.metadata["modelName"] as string} modelProvider={selectedEvent.metadata["modelProvider"] as string | undefined}/>)}
             {selectedEvent.lane === "coordination" && (<DetailSection label="Agent Activity" helpText={inspectorHelpText.agentActivity} resizable value={[
                     typeof selectedEvent.metadata["activityType"] === "string"
