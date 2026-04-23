@@ -10,6 +10,7 @@ import type {
     UserMessageCaptureMode,
     UserMessagePhase,
 } from "./kinds.type.js";
+import type { CommandAnalysis } from "../semantics/command-analysis.js";
 
 export interface EventSemanticMetadata {
     readonly subtypeKey: EventSubtypeKey
@@ -35,6 +36,7 @@ export type TerminalCommandMetadata = RequiredEventMetadata & EventSemanticMetad
     readonly command: string
     readonly description?: string
     readonly toolUseId?: string
+    readonly commandAnalysis?: CommandAnalysis
 }
 
 export type ToolUsedMetadata = RequiredEventMetadata & EventSemanticMetadata & {

@@ -44,12 +44,13 @@ async function main(): Promise<void> {
     }
 
     const ids = await ensureRuntimeSession(sessionId);
-    const {lane, metadata: semantic} = inferCommandSemantic(command);
+    const {lane, metadata: semantic, analysis} = inferCommandSemantic(command);
 
     const baseMeta: TerminalCommandMetadata = {
         ...provenEvidence("Observed directly by the Codex PostToolUse/Bash hook."),
         ...buildSemanticMetadata(semantic),
         command,
+        commandAnalysis: analysis,
         ...(description ? {description} : {}),
         ...(toolUseId ? {toolUseId} : {}),
     };

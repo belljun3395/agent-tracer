@@ -49,12 +49,13 @@ async function main(): Promise<void> {
     }
 
     const ids = await resolveEventSessionIds(sessionId, agentId, agentType);
-    const {lane, metadata: semantic} = inferCommandSemantic(command)
+    const {lane, metadata: semantic, analysis} = inferCommandSemantic(command)
 
     const baseMeta: TerminalCommandMetadata = {
         ...provenEvidence("Observed directly by the Bash PostToolUse hook."),
         ...buildSemanticMetadata(semantic),
         command,
+        commandAnalysis: analysis,
         ...(description ? {description} : {}),
         ...(toolUseId ? {toolUseId} : {}),
     };
