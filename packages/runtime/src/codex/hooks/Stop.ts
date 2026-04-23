@@ -66,7 +66,7 @@ async function main(): Promise<void> {
         ...(responseText ? {body: responseText} : {}),
         metadata: baseMeta,
     });
-    hookLog("Stop", "assistant-response posted", {stopReason, hasText: !!responseText});
+    hookLog("Stop", "assistant.response event posted", {stopReason, hasText: !!responseText});
 
     await postJson("/api/runtime-session-end", {
         runtimeSource: CODEX_RUNTIME_SOURCE,

@@ -77,7 +77,7 @@ async function main(): Promise<void> {
         ...(responseText ? {body: responseText} : {}),
         metadata: baseMeta,
     });
-    hookLog("Stop", "assistant-response posted", {stopReason, hasText: !!responseText, agentId: agentId ?? "(none)"});
+    hookLog("Stop", "assistant.response event posted", {stopReason, hasText: !!responseText, agentId: agentId ?? "(none)"});
 
     if (agentId) {
         hookLog("Stop", "runtime-session-end skipped for subagent", {agentId});

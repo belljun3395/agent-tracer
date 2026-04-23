@@ -20,7 +20,7 @@ Related documentation:
 | `/api/task-start` | Explicit task/session creation | Rarely used | Use when no session ID-based binding |
 | `/api/runtime-session-end` | Runtime session closure | `Stop`, `SessionEnd` | Use to separate turn end from task end |
 | `/api/task-complete` | Full task closure | Not called directly | Use at end of entire work item |
-| `/api/assistant-response` | Record assistant turn result | `Stop` | Call if assistant has final text |
+| `/ingest/v1/conversation` (`assistant.response`) | Record assistant turn result | `Stop` | Send an `assistant.response` event if assistant has final text |
 
 ## Messages/Context
 
@@ -81,7 +81,7 @@ field replaced with `"rule"` before the events are persisted.
 2. /api/user-message
 3. /api/tool-used
 4. /api/explore
-5. /api/assistant-response
+5. /ingest/v1/conversation (assistant.response)
 6. /api/runtime-session-end
 ```
 
