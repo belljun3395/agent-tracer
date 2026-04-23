@@ -26,7 +26,6 @@ import {
 import {
     EnsureRuntimeSessionUseCase,
     EndRuntimeSessionUseCase,
-    ResolveRuntimeBindingUseCase,
 } from "~application/sessions/index.js";
 import {
     LogEventUseCase,
@@ -119,13 +118,6 @@ export class AppModule {
             useFactory: (ports: MonitorPorts) => new EndRuntimeSessionUseCase(ports),
             inject: [MONITOR_PORTS_TOKEN],
         };
-        const resolveRuntimeBindingProvider: Provider = {
-            provide: ResolveRuntimeBindingUseCase,
-            useFactory: (ports: MonitorPorts) =>
-                new ResolveRuntimeBindingUseCase(ports.runtimeBindings, ports.sessions),
-            inject: [MONITOR_PORTS_TOKEN],
-        };
-
         // Event UseCases
         const logEventProvider: Provider = {
             provide: LogEventUseCase,
@@ -357,7 +349,6 @@ export class AppModule {
                 deleteBookmarkProvider,
                 ensureRuntimeSessionProvider,
                 endRuntimeSessionProvider,
-                resolveRuntimeBindingProvider,
                 logEventProvider,
                 updateEventProvider,
                 ingestEventsProvider,
