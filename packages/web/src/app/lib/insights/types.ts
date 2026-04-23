@@ -16,6 +16,7 @@ export interface ExploredFileStat {
     readonly lastSeenAt: string;
     readonly readTimestamps: readonly string[];
     readonly compactRelation: CompactRelation;
+    readonly explorationSources?: readonly string[] | undefined;
 }
 export interface WebLookupStat {
     readonly url: string;

@@ -14,6 +14,7 @@ export interface FileEvidenceStat {
     readonly firstSeenAt: string;
     readonly lastSeenAt: string;
     readonly compactRelation: CompactRelation;
+    readonly explorationSources?: readonly string[] | undefined;
 }
 
 export type FileEvidenceSortKey = "recent" | "most-active" | "writes-first" | "most-explored" | "alpha";
@@ -78,20 +79,28 @@ export function buildFileEvidenceRows(fileActivity: readonly FileActivityStat[],
                 explorationCount: file.count,
                 firstSeenAt: file.firstSeenAt,
                 lastSeenAt: file.lastSeenAt,
-                compactRelation: file.compactRelation
+                compactRelation: file.compactRelation,
+                ...(file.explorationSources ? { explorationSources: file.explorationSources } : {})
             });
             continue;
         }
+        const explorationSources = mergeSources(existing.explorationSources, file.explorationSources);
         byPath.set(file.path, {
             ...existing,
             explorationCount: existing.explorationCount + file.count,
             firstSeenAt: minTimestamp(existing.firstSeenAt, file.firstSeenAt),
             lastSeenAt: maxTimestamp(existing.lastSeenAt, file.lastSeenAt),
-            compactRelation: mergeCompactRelation(existing.compactRelation, file.compactRelation)
+            compactRelation: mergeCompactRelation(existing.compactRelation, file.compactRelation),
+            ...(explorationSources ? { explorationSources } : {})
         });
     }
 
     return [...byPath.values()];
+}
+
+function mergeSources(left: readonly string[] | undefined, right: readonly string[] | undefined): readonly string[] | undefined {
+    const merged = [...new Set([...(left ?? []), ...(right ?? [])])].sort();
+    return merged.length > 0 ? merged : undefined;
 }
 
 export function sortFileEvidenceRows(files: readonly FileEvidenceStat[], key: FileEvidenceSortKey): readonly FileEvidenceStat[] {
@@ -193,6 +202,14 @@ export function FileEvidenceSection({ files, workspacePath, expanded, sortKey, o
                                                         : formatRelativeTime(file.lastSeenAt)}
                                                 </span>
                                             </div>
+                                            {file.explorationSources && file.explorationSources.length > 0 && (
+                                                <div className="mt-2 flex flex-wrap gap-1.5">
+                                                    {file.explorationSources.slice(0, 3).map((source) => (
+                                                        <Badge key={`${file.path}-${source}`} tone="neutral" size="xs">{source}</Badge>
+                                                    ))}
+                                                    {file.explorationSources.length > 3 && <Badge tone="neutral" size="xs">+{file.explorationSources.length - 3} sources</Badge>}
+                                                </div>
+                                            )}
                                         </div>
                                     );
                                 })}

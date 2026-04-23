@@ -19,7 +19,8 @@ describe("buildFileEvidenceRows", () => {
                 firstSeenAt: "2026-04-17T09:55:00.000Z",
                 lastSeenAt: "2026-04-17T10:06:00.000Z",
                 readTimestamps: [],
-                compactRelation: "after-compact"
+                compactRelation: "after-compact",
+                explorationSources: ["read_range · sed"]
             },
             {
                 path: "/workspace/src/notes.md",
@@ -39,7 +40,8 @@ describe("buildFileEvidenceRows", () => {
                 explorationCount: 4,
                 firstSeenAt: "2026-04-17T09:55:00.000Z",
                 lastSeenAt: "2026-04-17T10:06:00.000Z",
-                compactRelation: "after-compact"
+                compactRelation: "after-compact",
+                explorationSources: ["read_range · sed"]
             },
             {
                 path: "/workspace/src/notes.md",

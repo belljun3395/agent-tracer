@@ -26,12 +26,76 @@ const NON_EXPLORATION_TOOL_KINDS: ReadonlySet<TimelineEventRecord["kind"]> = new
     "instructions.loaded",
     "user.message"
 ]);
+const COMMAND_EXPLORATION_OPERATIONS = new Set(["read_file", "read_range", "search", "inspect_diff", "list", "limit_output"]);
+
+interface CommandTargetLike {
+    readonly type?: unknown;
+    readonly value?: unknown;
+}
+
+interface CommandStepLike {
+    readonly commandName?: unknown;
+    readonly operation?: unknown;
+    readonly effect?: unknown;
+    readonly targets?: unknown;
+    readonly pipeline?: unknown;
+}
+
+interface CommandExplorationHit {
+    readonly path: string;
+    readonly source: string;
+    readonly operation: string;
+}
 
 function isExplorationToolEvent(event: TimelineEventRecord): boolean {
     if (event.lane !== "exploration") {
         return false;
     }
     return !NON_EXPLORATION_TOOL_KINDS.has(event.kind);
+}
+
+function commandAnalysisSteps(event: TimelineEventRecord): readonly CommandStepLike[] {
+    const analysis = event.metadata["commandAnalysis"];
+    if (!analysis || typeof analysis !== "object") return [];
+    const steps = (analysis as { readonly steps?: unknown }).steps;
+    if (!Array.isArray(steps)) return [];
+    return steps.filter((step): step is CommandStepLike => Boolean(step) && typeof step === "object");
+}
+
+function flattenCommandSteps(steps: readonly CommandStepLike[]): readonly CommandStepLike[] {
+    const flattened: CommandStepLike[] = [];
+    for (const step of steps) {
+        flattened.push(step);
+        const pipeline = step.pipeline;
+        if (Array.isArray(pipeline)) {
+            flattened.push(...flattenCommandSteps(pipeline.filter((entry): entry is CommandStepLike => Boolean(entry) && typeof entry === "object")));
+        }
+    }
+    return flattened;
+}
+
+function collectCommandExplorationHits(event: TimelineEventRecord): readonly CommandExplorationHit[] {
+    const hits: CommandExplorationHit[] = [];
+    for (const step of flattenCommandSteps(commandAnalysisSteps(event))) {
+        const operation = typeof step.operation === "string" ? step.operation : "unknown";
+        const effect = typeof step.effect === "string" ? step.effect : "unknown";
+        if (operation === "pipeline") continue;
+        if (!COMMAND_EXPLORATION_OPERATIONS.has(operation) && effect !== "read_only") continue;
+        const commandName = typeof step.commandName === "string" && step.commandName.length > 0 ? step.commandName : "command";
+        const targets = Array.isArray(step.targets) ? step.targets : [];
+        for (const target of targets) {
+            if (!target || typeof target !== "object") continue;
+            const { type, value } = target as CommandTargetLike;
+            if (typeof value !== "string" || value.length === 0) continue;
+            if (type !== "file" && type !== "directory" && type !== "path") continue;
+            hits.push({
+                path: value,
+                source: `${operation} · ${commandName}`,
+                operation,
+            });
+        }
+    }
+    return hits;
 }
 
 export function buildObservabilityStats(timeline: readonly TimelineEventRecord[], exploredFiles: number, compactOccurrences = 0): ObservabilityStats {
@@ -110,30 +174,38 @@ function deriveCompactRelation(readTimestamps: readonly string[], lastCompactAt:
 export function collectExploredFiles(timeline: readonly TimelineEventRecord[]): readonly ExploredFileStat[] {
     const compactTimestamps = extractCompactTimestamps(timeline);
     const lastCompactAt = compactTimestamps.at(-1);
-    const fileTimestamps = new Map<string, string[]>();
+    const fileData = new Map<string, { readonly timestamps: string[]; readonly sources: Set<string> }>();
+    const addFile = (filePath: string, timestamp: string, source: string): void => {
+        const existing = fileData.get(filePath);
+        if (existing) {
+            existing.timestamps.push(timestamp);
+            existing.sources.add(source);
+            return;
+        }
+        fileData.set(filePath, { timestamps: [timestamp], sources: new Set([source]) });
+    };
     for (const event of timeline) {
         // Only count real exploration tool usage (reads, greps, etc.) or file.changed
         // events within the exploration lane. Exclude transcript-attachment kinds
         // (instructions.loaded) and regex-extracted user.message filePaths so the
         // number is coherent with the evidence surfaces that render it.
-        if (!isExplorationToolEvent(event)) {
-            continue;
-        }
-        if (event.kind === "file.changed" && extractMetadataStringArray(event.metadata, "filePaths").length === 0) {
-            continue;
-        }
-        for (const filePath of extractMetadataStringArray(event.metadata, "filePaths")) {
-            const existing = fileTimestamps.get(filePath);
-            if (existing) {
-                existing.push(event.createdAt);
+        const commandHits = collectCommandExplorationHits(event);
+        if (isExplorationToolEvent(event)) {
+            if (event.kind === "file.changed" && extractMetadataStringArray(event.metadata, "filePaths").length === 0 && commandHits.length === 0) {
+                continue;
             }
-            else {
-                fileTimestamps.set(filePath, [event.createdAt]);
+            const subtype = resolveEventSubtype(event);
+            const source = subtype?.label ?? extractMetadataString(event.metadata, "toolName") ?? event.kind;
+            for (const filePath of extractMetadataStringArray(event.metadata, "filePaths")) {
+                addFile(filePath, event.createdAt, source);
             }
+        }
+        for (const hit of commandHits) {
+            addFile(hit.path, event.createdAt, hit.source);
         }
     }
     const stats: ExploredFileStat[] = [];
-    for (const [filePath, timestamps] of fileTimestamps) {
+    for (const [filePath, { timestamps, sources }] of fileData) {
         const sorted = [...timestamps].sort((a, b) => Date.parse(a) - Date.parse(b));
         const firstSeenAt = sorted[0]!;
         const lastSeenAt = sorted[sorted.length - 1]!;
@@ -143,7 +215,8 @@ export function collectExploredFiles(timeline: readonly TimelineEventRecord[]): 
             firstSeenAt,
             lastSeenAt,
             readTimestamps: sorted,
-            compactRelation: deriveCompactRelation(sorted, lastCompactAt)
+            compactRelation: deriveCompactRelation(sorted, lastCompactAt),
+            explorationSources: [...sources].sort(),
         });
     }
     return stats.sort((left, right) => {
@@ -255,14 +328,23 @@ export function buildExplorationInsight(timeline: readonly TimelineEventRecord[]
         // Skip anything that routes to exploration but isn't real tool usage —
         // transcript-attachment deltas (instructions.loaded) and user-message
         // regex mentions pollute the breakdown and must not be counted here.
-        if (!isExplorationToolEvent(event))
-            continue;
-        if (event.kind === "file.changed")
-            continue;
-        totalExplorations += 1;
-        const subtype = resolveEventSubtype(event);
-        const breakdownKey = subtype?.label ?? extractMetadataString(event.metadata, "toolName") ?? event.kind;
-        toolBreakdown[breakdownKey] = (toolBreakdown[breakdownKey] ?? 0) + 1;
+        const commandHits = collectCommandExplorationHits(event);
+        if (commandHits.length > 0) {
+            totalExplorations += commandHits.length;
+            for (const hit of commandHits) {
+                toolBreakdown[hit.source] = (toolBreakdown[hit.source] ?? 0) + 1;
+            }
+        }
+        else {
+            if (!isExplorationToolEvent(event))
+                continue;
+            if (event.kind === "file.changed")
+                continue;
+            totalExplorations += 1;
+            const subtype = resolveEventSubtype(event);
+            const breakdownKey = subtype?.label ?? extractMetadataString(event.metadata, "toolName") ?? event.kind;
+            toolBreakdown[breakdownKey] = (toolBreakdown[breakdownKey] ?? 0) + 1;
+        }
         if (!firstExplorationAt || Date.parse(event.createdAt) < Date.parse(firstExplorationAt)) {
             firstExplorationAt = event.createdAt;
         }

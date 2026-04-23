@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { EventId, TaskId, TaskSlug, WorkspacePath } from "../../types.js";
-import { buildExplorationInsight, buildEvaluatePrompt, buildHandoffMarkdown, buildHandoffPlain, buildHandoffPrompt, buildHandoffSystemPrompt, buildHandoffXML, buildInspectorEventTitle, buildObservabilityStats, buildQuestionGroups, buildSubagentInsight, buildTaskDisplayTitle, buildTaskExtraction, buildTodoGroups, collectPlanSteps, collectRecentRuleDecisions, collectViolationDescriptions, collectWebLookups, filterTimelineEvents, type EvaluatePromptOptions, type HandoffOptions, type MonitoringTask, type TimelineEventRecord } from "../../types.js";
+import { buildExplorationInsight, buildEvaluatePrompt, buildHandoffMarkdown, buildHandoffPlain, buildHandoffPrompt, buildHandoffSystemPrompt, buildHandoffXML, buildInspectorEventTitle, buildObservabilityStats, buildQuestionGroups, buildSubagentInsight, buildTaskDisplayTitle, buildTaskExtraction, buildTodoGroups, collectExploredFiles, collectPlanSteps, collectRecentRuleDecisions, collectViolationDescriptions, collectWebLookups, filterTimelineEvents, type EvaluatePromptOptions, type HandoffOptions, type MonitoringTask, type TimelineEventRecord } from "../../types.js";
 function makeTask(overrides: Omit<Partial<MonitoringTask>, "id"> & {
     id?: string;
 } = {}): MonitoringTask {
@@ -816,6 +816,66 @@ describe("collectWebLookups", () => {
     });
 });
 describe("exploration + subagent insights", () => {
+    it("uses commandAnalysis targets from mixed terminal commands in exploration evidence", () => {
+        const mixed = makeEvent({
+            id: "mixed-command",
+            kind: "terminal.command",
+            lane: "implementation",
+            title: "rg then test",
+            metadata: {
+                command: "rg foo packages | head -20 && npm --workspace @monitor/server test",
+                commandAnalysis: {
+                    structure: "compound",
+                    steps: [
+                        {
+                            raw: "rg foo packages | head -20",
+                            commandName: "rg",
+                            operation: "pipeline",
+                            effect: "read_only",
+                            targets: [{ type: "file", value: "packages" }],
+                            pipeline: [
+                                {
+                                    raw: "rg foo packages",
+                                    commandName: "rg",
+                                    operation: "search",
+                                    effect: "read_only",
+                                    targets: [{ type: "file", value: "packages" }]
+                                },
+                                {
+                                    raw: "head -20",
+                                    commandName: "head",
+                                    operation: "limit_output",
+                                    effect: "read_only",
+                                    targets: [{ type: "stream", value: "stdin" }]
+                                }
+                            ]
+                        },
+                        {
+                            raw: "npm --workspace @monitor/server test",
+                            commandName: "npm",
+                            operation: "run_test",
+                            effect: "execute_check",
+                            targets: [{ type: "workspace", value: "@monitor/server" }]
+                        }
+                    ]
+                }
+            }
+        });
+
+        const files = collectExploredFiles([mixed]);
+        const insight = buildExplorationInsight([mixed], files, []);
+
+        expect(files).toEqual([
+            expect.objectContaining({
+                path: "packages",
+                count: 1,
+                explorationSources: ["search · rg"]
+            })
+        ]);
+        expect(insight.totalExplorations).toBe(1);
+        expect(insight.toolBreakdown["search · rg"]).toBe(1);
+    });
+
     it("counts pre/post compact web lookups in exploration insight", () => {
         const compact = makeEvent({
             id: "compact-1",
