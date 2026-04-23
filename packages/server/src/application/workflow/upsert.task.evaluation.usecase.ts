@@ -1,5 +1,5 @@
 import { buildReusableTaskSnapshot, buildWorkflowContext, type ReusableTaskSnapshot } from "~domain/index.js";
-import { deriveTaskDisplayTitle } from "~application/tasks/services/task.display.title.service.js";
+import { deriveTaskDisplayTitle } from "~application/tasks/utils/task.display.title.util.js";
 import type { ITaskRepository, IEventRepository, IEvaluationRepository } from "../ports/index.js";
 import { normalizeWorkflowScopeKey, resolveWorkflowScope, filterWorkflowEventsByScope } from "./workflow.scope.ops.js";
 

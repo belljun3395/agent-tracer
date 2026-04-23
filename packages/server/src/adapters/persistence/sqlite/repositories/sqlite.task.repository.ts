@@ -1,7 +1,7 @@
 import { asc, desc, eq, inArray, sql } from "drizzle-orm"
 import type { MonitoringTask } from "~domain/monitoring/monitoring.task.model.js"
 import type { ITaskRepository, OverviewStats, TaskUpsertInput } from "~application/ports/repository/task.repository.js"
-import { deriveTaskDisplayTitle } from "~application/tasks/services/task.display.title.service.js"
+import { deriveTaskDisplayTitle } from "~application/tasks/utils/task.display.title.util.js"
 import { ensureSqliteDatabase, type SqliteDatabase, type SqliteDatabaseInput } from "../shared/drizzle.db.js"
 import { sessionsCurrent, tasksCurrent, timelineEvents } from "../schema/drizzle.schema.js"
 import { buildTaskSearchText, deleteSearchDocumentsByTaskIds, upsertSearchDocument } from "../search/sqlite.search.documents.js"
