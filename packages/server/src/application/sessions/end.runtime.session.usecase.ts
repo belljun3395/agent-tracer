@@ -1,7 +1,7 @@
 import type { MonitorPorts } from "~application/ports/index.js";
 import type { MonitoringTask } from "~domain/index.js";
 import type { EndRuntimeSessionUseCaseIn } from "./end.runtime.session.usecase.dto.js";
-import { finishTask } from "../tasks/services/task.lifecycle.service.js";
+import { finalizeTask } from "../tasks/services/task.lifecycle.service.js";
 
 interface SessionTaskCompletionInput {
     readonly taskId: string;
@@ -134,18 +134,28 @@ async function setTaskStatus(ports: MonitorPorts, taskId: string, status: Monito
     return task;
 }
 
-async function completeTaskIfIncomplete(ports: MonitorPorts, input: SessionTaskCompletionInput): Promise<void> {
+async function completeTaskIfIncomplete(
+    ports: MonitorPorts,
+    input: SessionTaskCompletionInput,
+): Promise<void> {
     const task = await ports.tasks.findById(input.taskId);
     if (!task || task.status === "completed" || task.status === "errored") return;
-    await finishTask(ports, input, "completed", "task.complete", input.summary);
+    await finalizeTask(ports, { ...input, outcome: "completed" });
 }
 
-async function completeBgTasks(ports: MonitorPorts, ids?: readonly string[]): Promise<void> {
+async function completeBgTasks(
+    ports: MonitorPorts,
+    ids?: readonly string[],
+): Promise<void> {
     if (!ids?.length) return;
     for (const bgTaskId of ids) {
         const bgTask = await ports.tasks.findById(bgTaskId);
         if (bgTask?.status === "running") {
-            await finishTask(ports, { taskId: bgTask.id, summary: "Background task completed" }, "completed", "task.complete", "Background task completed");
+            await finalizeTask(ports, {
+                taskId: bgTask.id,
+                summary: "Background task completed",
+                outcome: "completed",
+            });
         }
     }
 }

@@ -14,6 +14,8 @@ export { GetDefaultWorkspacePathUseCase } from "./get.default.workspace.path.use
 export type {
     TaskCompletionInput,
     TaskErrorInput,
+    TaskFinalizationInput,
+    TaskFinalizationOutcome,
     TaskLinkInput,
     TaskPatchInput,
     TaskStartInput,

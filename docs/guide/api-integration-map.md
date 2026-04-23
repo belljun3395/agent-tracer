@@ -21,8 +21,15 @@ Related documentation:
 | `/api/runtime-session-ensure` | Runtime session upsert | `SessionStart`, `UserPromptSubmit`, `PreToolUse` | Use if stable runtime session ID is available |
 | `/api/task-start` | Explicit task/session creation | Rarely used | Use when no session ID-based binding |
 | `/api/runtime-session-end` | Runtime session closure | `Stop`, Claude `SessionEnd` | Use to separate turn end from task end; pass `completeTask: true` only for a completed work item |
-| `/api/task-complete` | Full task closure | Not called directly | Use at end of entire work item |
+| `/api/task-complete` | Explicit task completion | Not called directly | Use when directly completing a known task; accepts task fields only, not runtime-session closure fields |
+| `/api/task-error` | Explicit task failure | Not called directly | Use when directly marking a known task as errored |
 | `/ingest/v1/conversation` (`assistant.response`) | Record assistant turn result | `Stop` | Send an `assistant.response` event if assistant has final text |
+
+`/api/task-complete` and `/api/task-error` finalize a task by `taskId`.
+Runtime-session policy fields such as `completeTask`, `completionReason`, and
+`backgroundCompletions` belong to `/api/runtime-session-end`, where the server
+can decide whether ending a runtime observation window should also finalize the
+bound task.
 
 ## Messages/Context
 

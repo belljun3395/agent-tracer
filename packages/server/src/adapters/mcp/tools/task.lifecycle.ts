@@ -23,9 +23,6 @@ export function registerTaskLifecycleTools(server: McpServer, client: MonitorCli
             taskId: z.string(),
             sessionId: z.string().optional(),
             summary: z.string().optional(),
-            completeTask: z.boolean().optional(),
-            completionReason: z.enum(TASK_COMPLETION_REASONS).optional(),
-            backgroundCompletions: z.array(z.string()).optional(),
             metadata: z.record(z.unknown()).optional()
         }
     }, async (input) => toToolResponse(await client.post("/api/task-complete", input)));

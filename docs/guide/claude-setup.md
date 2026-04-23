@@ -166,7 +166,7 @@ derived **server-side** inside `@monitor/server` at ingestion (v0.2.0+).
 | Pre/Post compact | `PreCompact.ts`, `PostCompact.ts` | Record compaction checkpoint and compact summary |
 | Assistant turn end | `Stop.ts` | Record assistant response and call `/api/runtime-session-end` with `completeTask: true` |
 | Session end | `SessionEnd.ts` | Ends only the current runtime session unless `Stop.ts` already completed the primary task |
-| Work item complete | `monitor_task_complete` MCP tool | Marks the task `completed` |
+| Work item complete | `monitor_task_complete` MCP tool | Marks a known task `completed`; runtime-session closure policy stays with `monitor_runtime_session_end` |
 
 ## 5. Working inside this repository
 

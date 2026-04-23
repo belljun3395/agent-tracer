@@ -1,31 +1,32 @@
-import { createTaskSlug, normalizeWorkspacePath, type MonitoringEventKind } from "~domain/index.js";
+import { createTaskSlug, normalizeWorkspacePath } from "~domain/index.js";
 import { mapTimelineEventToRecord } from "~application/views/index.js";
 import type { MonitorPorts } from "~application/ports/index.js";
 import { buildEventRecord } from "~application/events/event.recording.ops.js";
-import type { TaskCompletionInput, TaskStartInput } from "~application/tasks/task.lifecycle.input.js";
+import type { TaskFinalizationInput, TaskStartInput } from "~application/tasks/task.lifecycle.input.js";
 import type { RecordedEventEnvelope } from "~application/tasks/task.lifecycle.result.js";
 
-export async function finishTask(
-    ports: MonitorPorts,
-    input: TaskCompletionInput,
-    status: "completed" | "errored",
-    kind: MonitoringEventKind,
-    body?: string,
-): Promise<RecordedEventEnvelope> {
+export async function finalizeTask(ports: MonitorPorts, input: TaskFinalizationInput): Promise<RecordedEventEnvelope> {
     const task = await ports.tasks.findById(input.taskId);
     if (!task) throw new Error(`Task not found: ${input.taskId}`);
+
     const endedAt = new Date().toISOString();
     const sessionId = input.sessionId ?? (await ports.sessions.findActiveByTaskId(input.taskId))?.id;
+    const status = input.outcome;
     if (sessionId) {
-        const sOld = await ports.sessions.findById(sessionId);
+        const previousSession = await ports.sessions.findById(sessionId);
         await ports.sessions.updateStatus(sessionId, status, endedAt, input.summary);
-        if (sOld) {
-            ports.notifier.publish({ type: "session.ended", payload: { ...sOld, status, endedAt } });
+        if (previousSession) {
+            ports.notifier.publish({
+                type: "session.ended",
+                payload: { ...previousSession, status, endedAt },
+            });
         }
     }
+
     if (task.status === status) {
         return { task, ...(sessionId ? { sessionId } : {}), events: [] };
     }
+
     await ports.tasks.updateStatus(input.taskId, status, endedAt);
     const finalTask = (await ports.tasks.findById(input.taskId)) ?? task;
     ports.notifier.publish(
@@ -33,9 +34,11 @@ export async function finishTask(
             ? { type: "task.completed", payload: finalTask }
             : { type: "task.updated", payload: finalTask },
     );
+
+    const body = finalizationBody(input);
     const record = buildEventRecord({
         taskId: input.taskId,
-        kind,
+        kind: status === "completed" ? "task.complete" : "task.error",
         lane: "user",
         title: status === "completed" ? "Task completed" : "Task errored",
         ...(sessionId ? { sessionId } : {}),
@@ -106,4 +109,10 @@ export async function startTask(ports: MonitorPorts, input: TaskStartInput): Pro
         return { task, sessionId, events: [{ id: event.id, kind: event.kind }] };
     }
     return { task, sessionId, events: [] };
+}
+
+function finalizationBody(input: TaskFinalizationInput): string | undefined {
+    return input.outcome === "errored"
+        ? input.errorMessage
+        : input.summary;
 }
