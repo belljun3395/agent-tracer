@@ -1,7 +1,7 @@
 import { normalizeWorkspacePath } from "~domain/index.js";
 import type { MonitorPorts } from "~application/ports/index.js";
 import type { EnsureRuntimeSessionUseCaseIn, EnsureRuntimeSessionUseCaseOut } from "./ensure.runtime.session.usecase.dto.js";
-import { startTask } from "../tasks/task.lifecycle.ops.js";
+import { startTask } from "../tasks/services/task.lifecycle.service.js";
 
 export class EnsureRuntimeSessionUseCase {
     constructor(private readonly ports: MonitorPorts) {}

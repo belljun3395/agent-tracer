@@ -1,7 +1,7 @@
 import type { MonitorPorts } from "~application/ports/index.js";
 import type { MonitoringTask } from "~domain/index.js";
 import type { EndRuntimeSessionUseCaseIn } from "./end.runtime.session.usecase.dto.js";
-import { finishTask } from "../tasks/task.lifecycle.ops.js";
+import { finishTask } from "../tasks/services/task.lifecycle.service.js";
 import type { TaskCompletionInput } from "../tasks/task.lifecycle.type.js";
 
 export class EndRuntimeSessionUseCase {
