@@ -1,7 +1,7 @@
 import type { MonitorPorts } from "~application/ports/index.js";
 import type { MonitoringTask } from "~domain/index.js";
 import type { EndRuntimeSessionUseCaseIn } from "./end.runtime.session.usecase.dto.js";
-import { finishTask, requireTask } from "../tasks/task.lifecycle.ops.js";
+import { finishTask } from "../tasks/task.lifecycle.ops.js";
 import type { TaskCompletionInput } from "../tasks/task.lifecycle.type.js";
 import { shouldAutoCompletePrimary, shouldMovePrimaryToWaiting } from "../tasks/services/session.lifecycle.service.js";
 
@@ -116,7 +116,8 @@ async function hasRunningBackgroundDescendants(ports: MonitorPorts, taskId: stri
 async function setTaskStatus(ports: MonitorPorts, taskId: string, status: MonitoringTask["status"]): Promise<MonitoringTask> {
     const updatedAt = new Date().toISOString();
     await ports.tasks.updateStatus(taskId, status, updatedAt);
-    const task = await requireTask(ports, taskId);
+    const task = await ports.tasks.findById(taskId);
+    if (!task) throw new Error(`Task not found: ${taskId}`);
     ports.notifier.publish({ type: "task.updated", payload: task });
     return task;
 }
