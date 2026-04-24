@@ -86,8 +86,11 @@ export class EndRuntimeSessionUseCase {
                     sessionId: binding.monitorSessionId,
                     summary: input.summary ?? "Runtime session ended",
                 });
+                return;
             }
-            return;
+            // Auto-complete was blocked (e.g. background descendants still running).
+            // Fall through so shouldMovePrimaryToWaiting can pause the task instead
+            // of leaving it stuck in "running".
         }
 
         // Background task path: background tasks complete automatically once their
