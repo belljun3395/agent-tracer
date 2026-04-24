@@ -1,9 +1,9 @@
 import { Module } from "@nestjs/common";
 import { RuntimeSessionController } from "~adapters/http/ingest/index.js";
-import { ApplicationModule } from "../application/application.module.js";
+import { SessionsApplicationModule } from "../application/sessions-application.module.js";
 
 @Module({
-    imports: [ApplicationModule],
+    imports: [SessionsApplicationModule],
     controllers: [RuntimeSessionController],
 })
 export class SessionsHttpModule {}
