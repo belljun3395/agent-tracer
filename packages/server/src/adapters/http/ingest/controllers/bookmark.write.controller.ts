@@ -2,6 +2,7 @@ import { Body, Controller, Delete, HttpCode, HttpException, HttpStatus, Inject, 
 import { SaveBookmarkUseCase, DeleteBookmarkUseCase } from "~application/bookmarks/index.js";
 import type { SaveBookmarkUseCaseIn, DeleteBookmarkUseCaseIn } from "~application/bookmarks/index.js";
 import { bookmarkSchema } from "../schemas/bookmark.write.schema.js";
+import { pathParamPipe } from "~adapters/http/shared/path-param.pipe.js";
 import { ZodValidationPipe } from "~adapters/http/shared/zod-validation.pipe.js";
 
 @Controller("api/bookmarks")
@@ -19,7 +20,7 @@ export class BookmarkWriteController {
     }
 
     @Delete(":bookmarkId")
-    async deleteBookmarkEndpoint(@Param("bookmarkId") bookmarkId: string) {
+    async deleteBookmarkEndpoint(@Param("bookmarkId", pathParamPipe) bookmarkId: string) {
         const result = await this.deleteBookmark.execute({ bookmarkId } as DeleteBookmarkUseCaseIn);
         if (result === "not_found") {
             throw new HttpException({ ok: false, error: "Bookmark not found" }, HttpStatus.NOT_FOUND);

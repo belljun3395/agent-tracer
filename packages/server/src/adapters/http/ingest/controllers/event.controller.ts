@@ -2,6 +2,7 @@ import { Controller, Patch, Body, Param, HttpException, HttpStatus, Inject } fro
 import { UpdateEventUseCase } from "~application/events/index.js";
 import type { EventPatchInput } from "~application/events/index.js";
 import { eventPatchSchema } from "../schemas/event.write.schema.js";
+import { pathParamPipe } from "~adapters/http/shared/path-param.pipe.js";
 import { ZodValidationPipe } from "~adapters/http/shared/zod-validation.pipe.js";
 
 @Controller("api/events")
@@ -10,7 +11,7 @@ export class EventController {
 
     @Patch(":eventId")
     async patchEvent(
-        @Param("eventId") eventId: string,
+        @Param("eventId", pathParamPipe) eventId: string,
         @Body(new ZodValidationPipe(eventPatchSchema)) body: Omit<EventPatchInput, "eventId">,
     ) {
         const event = await this.updateEvent.execute({

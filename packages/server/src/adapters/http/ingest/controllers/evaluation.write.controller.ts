@@ -13,6 +13,7 @@ import {
     playbookUpsertSchema,
     taskEvaluateSchema,
 } from "../schemas/evaluation.write.schema.js";
+import { pathParamPipe } from "~adapters/http/shared/path-param.pipe.js";
 import { ZodValidationPipe } from "~adapters/http/shared/zod-validation.pipe.js";
 
 @Controller("api/tasks/:id")
@@ -26,7 +27,7 @@ export class TaskEvaluationWriteController {
     @Post("evaluate")
     @HttpCode(HttpStatus.OK)
     async upsertEvaluation(
-        @Param("id") taskId: string,
+        @Param("id", pathParamPipe) taskId: string,
         @Query("scopeKey") scopeKey: string | undefined,
         @Body(new ZodValidationPipe(taskEvaluateSchema)) body: Parameters<UpsertTaskEvaluationUseCase["execute"]>[1],
     ) {
@@ -49,7 +50,7 @@ export class TaskEvaluationWriteController {
     @Post("briefing/copied")
     @HttpCode(HttpStatus.OK)
     async recordBriefingCopyEndpoint(
-        @Param("id") taskId: string,
+        @Param("id", pathParamPipe) taskId: string,
         @Query("scopeKey") scopeKey: string | undefined,
     ) {
         await this.recordBriefingCopy.execute(taskId, scopeKey);
@@ -59,7 +60,7 @@ export class TaskEvaluationWriteController {
     @Post("briefings")
     @HttpCode(HttpStatus.OK)
     async saveBriefingEndpoint(
-        @Param("id") taskId: string,
+        @Param("id", pathParamPipe) taskId: string,
         @Body(new ZodValidationPipe(briefingSaveSchema)) body: Parameters<SaveBriefingUseCase["execute"]>[1],
     ) {
         return this.saveBriefing.execute(taskId, {
@@ -103,7 +104,7 @@ export class PlaybookWriteController {
     @Post(":id")
     @HttpCode(HttpStatus.OK)
     async updatePlaybookEndpoint(
-        @Param("id") playbookId: string,
+        @Param("id", pathParamPipe) playbookId: string,
         @Body(new ZodValidationPipe(playbookPatchSchema)) body: Partial<PlaybookUpsertInput>,
     ) {
         const payload: Partial<PlaybookUpsertInput> = {

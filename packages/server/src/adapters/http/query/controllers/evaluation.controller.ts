@@ -18,6 +18,7 @@ import {
     type WorkflowListQuery,
 } from "../schemas/evaluation.query.schema.js";
 import { ZodValidationPipe } from "~adapters/http/shared/zod-validation.pipe.js";
+import { pathParamPipe } from "~adapters/http/shared/path-param.pipe.js";
 
 @Controller("api/tasks/:id")
 export class TaskEvaluationController {
@@ -28,7 +29,7 @@ export class TaskEvaluationController {
 
     @Get("evaluate")
     async getEvaluation(
-        @Param("id") taskId: string,
+        @Param("id", pathParamPipe) taskId: string,
         @Query("scopeKey") scopeKey: string | undefined,
     ) {
         const evaluation = await this.getTaskEvaluation.execute(taskId, scopeKey);
@@ -36,7 +37,7 @@ export class TaskEvaluationController {
     }
 
     @Get("briefings")
-    async listBriefingsEndpoint(@Param("id") taskId: string) {
+    async listBriefingsEndpoint(@Param("id", pathParamPipe) taskId: string) {
         return this.listBriefings.execute(taskId);
     }
 }
@@ -57,7 +58,7 @@ export class WorkflowController {
 
     @Get(":id/content")
     async getWorkflowContentEndpoint(
-        @Param("id") taskId: string,
+        @Param("id", pathParamPipe) taskId: string,
         @Query("scopeKey") scopeKey: string | undefined,
     ) {
         const content = await this.getWorkflowContent.execute(taskId, scopeKey);
@@ -85,7 +86,7 @@ export class PlaybookController {
     }
 
     @Get(":id")
-    async getPlaybookEndpoint(@Param("id") playbookId: string) {
+    async getPlaybookEndpoint(@Param("id", pathParamPipe) playbookId: string) {
         const playbook = await this.getPlaybook.execute(playbookId);
         if (!playbook) throw new HttpException({ error: "playbook not found" }, HttpStatus.NOT_FOUND);
         return playbook;
