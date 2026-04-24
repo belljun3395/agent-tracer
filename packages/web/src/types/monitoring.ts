@@ -52,7 +52,7 @@ export type MonitoringEventKind =
   | 'verification.logged' | 'rule.logged' | 'tool.used' | 'terminal.command'
   | 'context.saved' | 'file.changed' | 'thought.logged' | 'user.message'
   | 'question.logged' | 'todo.logged' | 'assistant.response'
-  | 'instructions.loaded' | 'context.snapshot'
+  | 'instructions.loaded' | 'context.snapshot' | 'token.usage'
 
 export type MonitoringTaskKind = 'primary' | 'background'
 
