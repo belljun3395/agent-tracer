@@ -206,8 +206,8 @@ function shouldMovePrimaryToWaiting(opts: {
     if (opts.completionReason === "idle") {
         return !opts.completeTask;
     }
-    if (opts.completionReason === "assistant_turn_complete" && opts.hasRunningBackgroundDescendants) {
-        return true;
+    if (opts.completionReason === "assistant_turn_complete") {
+        return !opts.completeTask || (opts.hasRunningBackgroundDescendants ?? false);
     }
     if (opts.hasRunningBackgroundDescendants) return false;
     if (opts.completeTask) return false;
