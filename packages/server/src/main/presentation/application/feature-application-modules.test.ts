@@ -2,11 +2,11 @@ import "reflect-metadata";
 import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import type { INestApplicationContext, Type } from "@nestjs/common";
+import type { DynamicModule, INestApplicationContext, Type } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { SqliteDatabaseContext } from "~adapters/persistence/sqlite/index.js";
-import { AppModule } from "../app.module.js";
+import { DatabaseModule } from "../database/database.module.js";
 import { SQLITE_DATABASE_CONTEXT_TOKEN } from "../database/database.provider.js";
 import { BOOKMARKS_APPLICATION_EXPORTS } from "./bookmarks.providers.js";
 import { BookmarksApplicationModule } from "./bookmarks-application.module.js";
@@ -26,46 +26,58 @@ import { WORKFLOW_APPLICATION_EXPORTS } from "./workflow.providers.js";
 import { WorkflowApplicationModule } from "./workflow-application.module.js";
 
 type ProviderToken = Type<unknown> | string | symbol;
+const SMOKE_PROVIDERS_TOKEN = Symbol("SMOKE_PROVIDERS");
+
+class FeatureApplicationSmokeHostModule {}
 
 const featureApplicationModules = [
     {
         module: BookmarksApplicationModule,
         name: "bookmarks",
+        register: (databaseModule: DynamicModule) => BookmarksApplicationModule.register(databaseModule),
         exportedProviders: BOOKMARKS_APPLICATION_EXPORTS,
     },
     {
         module: EventsApplicationModule,
         name: "events",
+        register: (databaseModule: DynamicModule) => EventsApplicationModule.register(databaseModule),
         exportedProviders: EVENTS_APPLICATION_EXPORTS,
     },
     {
         module: RuleCommandsApplicationModule,
         name: "rule commands",
+        register: (databaseModule: DynamicModule) => RuleCommandsApplicationModule.register(databaseModule),
         exportedProviders: RULE_COMMANDS_APPLICATION_EXPORTS,
     },
     {
         module: SessionsApplicationModule,
         name: "sessions",
+        register: (databaseModule: DynamicModule) =>
+            SessionsApplicationModule.register(databaseModule, TasksApplicationModule.register(databaseModule)),
         exportedProviders: SESSIONS_APPLICATION_EXPORTS,
     },
     {
         module: SystemApplicationModule,
         name: "system",
+        register: (databaseModule: DynamicModule) => SystemApplicationModule.register(databaseModule),
         exportedProviders: SYSTEM_APPLICATION_EXPORTS,
     },
     {
         module: TasksApplicationModule,
         name: "tasks",
+        register: (databaseModule: DynamicModule) => TasksApplicationModule.register(databaseModule),
         exportedProviders: TASK_APPLICATION_EXPORTS,
     },
     {
         module: TurnPartitionsApplicationModule,
         name: "turn partitions",
+        register: (databaseModule: DynamicModule) => TurnPartitionsApplicationModule.register(databaseModule),
         exportedProviders: TURN_PARTITIONS_APPLICATION_EXPORTS,
     },
     {
         module: WorkflowApplicationModule,
         name: "workflow",
+        register: (databaseModule: DynamicModule) => WorkflowApplicationModule.register(databaseModule),
         exportedProviders: WORKFLOW_APPLICATION_EXPORTS,
     },
 ] as const;
@@ -75,21 +87,33 @@ function providerName(token: ProviderToken): string {
     return String(token);
 }
 
+function createSmokeHostModule(featureModule: DynamicModule, providers: readonly ProviderToken[]): DynamicModule {
+    return {
+        module: FeatureApplicationSmokeHostModule,
+        imports: [featureModule],
+        providers: [
+            {
+                provide: SMOKE_PROVIDERS_TOKEN,
+                useFactory: (...resolvedProviders: unknown[]) => resolvedProviders,
+                inject: [...providers],
+            },
+        ],
+    };
+}
+
 describe("feature application modules", () => {
-    let context: INestApplicationContext | undefined;
-    let tempDir: string | undefined;
+    const contexts: INestApplicationContext[] = [];
+    const tempDirs: string[] = [];
 
     afterEach(async () => {
-        if (context) {
+        for (const context of contexts.splice(0)) {
             const databaseContext = context.get<SqliteDatabaseContext>(SQLITE_DATABASE_CONTEXT_TOKEN);
             await context.close();
             databaseContext.close();
-            context = undefined;
         }
 
-        if (tempDir) {
+        for (const tempDir of tempDirs.splice(0)) {
             await rm(tempDir, { recursive: true, force: true });
-            tempDir = undefined;
         }
 
         vi.restoreAllMocks();
@@ -97,21 +121,25 @@ describe("feature application modules", () => {
 
     it("exports feature-owned providers through Nest DI", async () => {
         vi.spyOn(console, "warn").mockImplementation(() => {});
-        tempDir = await mkdtemp(path.join(os.tmpdir(), "agent-tracer-application-modules-"));
-        context = await NestFactory.createApplicationContext(
-            AppModule.forRoot({ databasePath: path.join(tempDir, "monitor.sqlite") }),
-            { logger: false },
-        );
 
         for (const featureModule of featureApplicationModules) {
-            const moduleContext = context.select(featureModule.module);
+            const tempDir = await mkdtemp(path.join(os.tmpdir(), "agent-tracer-application-modules-"));
+            tempDirs.push(tempDir);
+            const databaseModule = DatabaseModule.forRoot({ databasePath: path.join(tempDir, "monitor.sqlite") });
+            const context = await NestFactory.createApplicationContext(
+                createSmokeHostModule(featureModule.register(databaseModule), featureModule.exportedProviders),
+                { logger: false },
+            );
+            contexts.push(context);
+            const resolvedProviders = context.get<unknown[]>(SMOKE_PROVIDERS_TOKEN);
 
-            for (const provider of featureModule.exportedProviders) {
-                expect(
-                    moduleContext.get(provider as ProviderToken, { strict: true }),
-                    `${featureModule.name} should export ${providerName(provider)}`,
-                ).toBeDefined();
-            }
+            expect(
+                resolvedProviders,
+                `${featureModule.name} should export ${featureModule.exportedProviders
+                    .map(providerName)
+                    .join(", ")}`,
+            ).toHaveLength(featureModule.exportedProviders.length);
+            expect(resolvedProviders.every((provider) => provider !== undefined)).toBe(true);
         }
     });
 });

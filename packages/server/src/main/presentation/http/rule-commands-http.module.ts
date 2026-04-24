@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { Module, type DynamicModule } from "@nestjs/common";
 import {
     GlobalRuleCommandWriteController,
     TaskRuleCommandWriteController,
@@ -7,10 +7,8 @@ import {
     GlobalRuleCommandController,
     TaskRuleCommandController,
 } from "~adapters/http/query/index.js";
-import { RuleCommandsApplicationModule } from "../application/rule-commands-application.module.js";
 
 @Module({
-    imports: [RuleCommandsApplicationModule],
     controllers: [
         GlobalRuleCommandController,
         GlobalRuleCommandWriteController,
@@ -18,4 +16,11 @@ import { RuleCommandsApplicationModule } from "../application/rule-commands-appl
         TaskRuleCommandWriteController,
     ],
 })
-export class RuleCommandsHttpModule {}
+export class RuleCommandsHttpModule {
+    static register(ruleCommandsApplicationModule: DynamicModule): DynamicModule {
+        return {
+            module: RuleCommandsHttpModule,
+            imports: [ruleCommandsApplicationModule],
+        };
+    }
+}

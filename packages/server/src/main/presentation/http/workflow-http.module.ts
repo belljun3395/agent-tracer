@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { Module, type DynamicModule } from "@nestjs/common";
 import {
     PlaybookWriteController,
     TaskEvaluationWriteController,
@@ -8,10 +8,8 @@ import {
     TaskEvaluationController,
     WorkflowController,
 } from "~adapters/http/query/index.js";
-import { WorkflowApplicationModule } from "../application/workflow-application.module.js";
 
 @Module({
-    imports: [WorkflowApplicationModule],
     controllers: [
         PlaybookController,
         PlaybookWriteController,
@@ -20,4 +18,11 @@ import { WorkflowApplicationModule } from "../application/workflow-application.m
         WorkflowController,
     ],
 })
-export class WorkflowHttpModule {}
+export class WorkflowHttpModule {
+    static register(workflowApplicationModule: DynamicModule): DynamicModule {
+        return {
+            module: WorkflowHttpModule,
+            imports: [workflowApplicationModule],
+        };
+    }
+}

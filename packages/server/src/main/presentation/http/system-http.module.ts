@@ -1,12 +1,17 @@
-import { Module } from "@nestjs/common";
+import { Module, type DynamicModule } from "@nestjs/common";
 import { HealthController, SystemController } from "~adapters/http/query/index.js";
-import { SystemApplicationModule } from "../application/system-application.module.js";
 
 @Module({
-    imports: [SystemApplicationModule],
     controllers: [
         HealthController,
         SystemController,
     ],
 })
-export class SystemHttpModule {}
+export class SystemHttpModule {
+    static register(systemApplicationModule: DynamicModule): DynamicModule {
+        return {
+            module: SystemHttpModule,
+            imports: [systemApplicationModule],
+        };
+    }
+}

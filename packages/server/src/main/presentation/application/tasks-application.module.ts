@@ -1,8 +1,15 @@
-import { Module } from "@nestjs/common";
+import { Module, type DynamicModule } from "@nestjs/common";
 import { TASK_APPLICATION_EXPORTS, TASK_APPLICATION_PROVIDERS } from "./tasks.providers.js";
 
 @Module({
     providers: TASK_APPLICATION_PROVIDERS,
     exports: [...TASK_APPLICATION_EXPORTS],
 })
-export class TasksApplicationModule {}
+export class TasksApplicationModule {
+    static register(databaseModule: DynamicModule): DynamicModule {
+        return {
+            module: TasksApplicationModule,
+            imports: [databaseModule],
+        };
+    }
+}
