@@ -1,5 +1,5 @@
-import { relations } from "drizzle-orm"
-import { index, integer, primaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core"
+import { relations } from "drizzle-orm";
+import { index, integer, primaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 export const tasksCurrent = sqliteTable("tasks_current", {
   id: text("id").primaryKey(),
@@ -8,17 +8,22 @@ export const tasksCurrent = sqliteTable("tasks_current", {
   workspacePath: text("workspace_path"),
   status: text("status").notNull(),
   taskKind: text("task_kind").notNull(),
-  parentTaskId: text("parent_task_id"),
-  parentSessionId: text("parent_session_id"),
-  backgroundTaskId: text("background_task_id"),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
   lastSessionStartedAt: text("last_session_started_at"),
-  cliSource: text("cli_source")
+  cliSource: text("cli_source"),
 }, (table) => [
   index("idx_tasks_current_updated").on(table.updatedAt),
-  index("idx_tasks_current_parent").on(table.parentTaskId, table.updatedAt)
-])
+]);
+
+export const taskRelations = sqliteTable("task_relations", {
+  taskId: text("task_id").notNull().references(() => tasksCurrent.id, { onDelete: "cascade" }),
+  relatedTaskId: text("related_task_id").references(() => tasksCurrent.id, { onDelete: "cascade" }),
+  relationKind: text("relation_kind").notNull(),
+  sessionId: text("session_id"),
+}, (table) => [
+  index("idx_task_relations_related").on(table.relatedTaskId, table.relationKind),
+]);
 
 export const sessionsCurrent = sqliteTable("sessions_current", {
   id: text("id").primaryKey(),
@@ -26,11 +31,11 @@ export const sessionsCurrent = sqliteTable("sessions_current", {
   status: text("status").notNull(),
   summary: text("summary"),
   startedAt: text("started_at").notNull(),
-  endedAt: text("ended_at")
+  endedAt: text("ended_at"),
 }, (table) => [
   index("idx_sessions_current_task_started").on(table.taskId, table.startedAt),
-  index("idx_sessions_current_task_status_started").on(table.taskId, table.status, table.startedAt)
-])
+  index("idx_sessions_current_task_status_started").on(table.taskId, table.status, table.startedAt),
+]);
 
 export const timelineEvents = sqliteTable("timeline_events_view", {
   id: text("id").primaryKey(),
@@ -40,12 +45,25 @@ export const timelineEvents = sqliteTable("timeline_events_view", {
   lane: text("lane").notNull(),
   title: text("title").notNull(),
   body: text("body"),
-  metadataJson: text("metadata_json").notNull(),
-  classificationJson: text("classification_json").notNull(),
-  createdAt: text("created_at").notNull()
+  subtypeKey: text("subtype_key"),
+  subtypeLabel: text("subtype_label"),
+  subtypeGroup: text("subtype_group"),
+  toolFamily: text("tool_family"),
+  operation: text("operation"),
+  sourceTool: text("source_tool"),
+  toolName: text("tool_name"),
+  entityType: text("entity_type"),
+  entityName: text("entity_name"),
+  displayTitle: text("display_title"),
+  evidenceLevel: text("evidence_level"),
+  metadataJson: text("extras_json").notNull(),
+  createdAt: text("created_at").notNull(),
 }, (table) => [
-  index("idx_timeline_events_view_task_created").on(table.taskId, table.createdAt)
-])
+  index("idx_timeline_events_view_task_created").on(table.taskId, table.createdAt),
+  index("idx_timeline_events_subtype_group").on(table.subtypeGroup, table.createdAt),
+  index("idx_timeline_events_tool_family").on(table.toolFamily),
+  index("idx_timeline_events_lane_created").on(table.lane, table.createdAt),
+]);
 
 export const runtimeSessionBindings = sqliteTable("runtime_bindings_current", {
   runtimeSource: text("runtime_source").notNull(),
@@ -53,10 +71,10 @@ export const runtimeSessionBindings = sqliteTable("runtime_bindings_current", {
   taskId: text("task_id").notNull().references(() => tasksCurrent.id, { onDelete: "cascade" }),
   monitorSessionId: text("monitor_session_id").references(() => sessionsCurrent.id, { onDelete: "set null" }),
   createdAt: text("created_at").notNull(),
-  updatedAt: text("updated_at").notNull()
+  updatedAt: text("updated_at").notNull(),
 }, (table) => [
-  primaryKey({ columns: [table.runtimeSource, table.runtimeSessionId] })
-])
+  primaryKey({ columns: [table.runtimeSource, table.runtimeSessionId] }),
+]);
 
 export const bookmarks = sqliteTable("bookmarks_current", {
   id: text("id").primaryKey(),
@@ -67,11 +85,11 @@ export const bookmarks = sqliteTable("bookmarks_current", {
   note: text("note"),
   metadataJson: text("metadata_json").notNull(),
   createdAt: text("created_at").notNull(),
-  updatedAt: text("updated_at").notNull()
+  updatedAt: text("updated_at").notNull(),
 }, (table) => [
-  index("idx_bookmarks_task_created").on(table.taskId, table.updatedAt),
-  index("idx_bookmarks_event").on(table.eventId)
-])
+  index("idx_bookmarks_current_task_created").on(table.taskId, table.updatedAt),
+  index("idx_bookmarks_current_event").on(table.eventId),
+]);
 
 export const searchDocuments = sqliteTable("search_documents", {
   scope: text("scope").notNull(),
@@ -80,67 +98,40 @@ export const searchDocuments = sqliteTable("search_documents", {
   searchText: text("search_text").notNull(),
   embedding: text("embedding"),
   embeddingModel: text("embedding_model"),
-  updatedAt: text("updated_at").notNull()
+  updatedAt: text("updated_at").notNull(),
 }, (table) => [
   primaryKey({ columns: [table.scope, table.entityId] }),
-  index("idx_search_documents_scope_task_updated").on(table.scope, table.taskId, table.updatedAt)
-])
+  index("idx_search_documents_scope_task_updated").on(table.scope, table.taskId, table.updatedAt),
+]);
 
-export const taskEvaluations = sqliteTable("evaluations_current", {
+export const evaluationsCore = sqliteTable("evaluations_core", {
   taskId: text("task_id").notNull().references(() => tasksCurrent.id, { onDelete: "cascade" }),
   scopeKey: text("scope_key").notNull(),
   scopeKind: text("scope_kind").notNull(),
   scopeLabel: text("scope_label").notNull(),
   turnIndex: integer("turn_index"),
   rating: text("rating").notNull(),
-  useCase: text("use_case"),
-  workflowTags: text("workflow_tags"),
-  outcomeNote: text("outcome_note"),
-  approachNote: text("approach_note"),
-  reuseWhen: text("reuse_when"),
-  watchouts: text("watchouts"),
   version: integer("version").notNull(),
-  promotedTo: text("promoted_to"),
-  reuseCount: integer("reuse_count").notNull(),
-  lastReusedAt: text("last_reused_at"),
-  briefingCopyCount: integer("briefing_copy_count").notNull(),
-  workflowSnapshotJson: text("workflow_snapshot_json"),
-  workflowContext: text("workflow_context"),
-  searchText: text("search_text"),
-  embedding: text("embedding"),
-  embeddingModel: text("embedding_model"),
-  evaluatedAt: text("evaluated_at").notNull()
+  evaluatedAt: text("evaluated_at").notNull(),
 }, (table) => [
   primaryKey({ columns: [table.taskId, table.scopeKey] }),
-  index("idx_evaluations_current_rating").on(table.rating)
-])
+  index("idx_evaluations_core_rating").on(table.rating),
+]);
 
-export const playbooks = sqliteTable("playbooks_current", {
+export const playbooks = sqliteTable("playbooks_core", {
   id: text("id").primaryKey(),
   title: text("title").notNull(),
   slug: text("slug").notNull(),
   status: text("status").notNull(),
   whenToUse: text("when_to_use"),
-  prerequisites: text("prerequisites"),
   approach: text("approach"),
-  keySteps: text("key_steps"),
-  watchouts: text("watchouts"),
-  antiPatterns: text("anti_patterns"),
-  failureModes: text("failure_modes"),
-  variants: text("variants"),
-  relatedPlaybookIds: text("related_playbook_ids"),
-  sourceSnapshotIds: text("source_snapshot_ids"),
-  tags: text("tags"),
-  searchText: text("search_text"),
-  embedding: text("embedding"),
-  embeddingModel: text("embedding_model"),
   useCount: integer("use_count").notNull(),
   lastUsedAt: text("last_used_at"),
   createdAt: text("created_at").notNull(),
-  updatedAt: text("updated_at").notNull()
+  updatedAt: text("updated_at").notNull(),
 }, (table) => [
-  index("idx_playbooks_status").on(table.status)
-])
+  index("idx_playbooks_core_status").on(table.status),
+]);
 
 export const briefings = sqliteTable("briefings_current", {
   id: text("id").primaryKey(),
@@ -149,119 +140,129 @@ export const briefings = sqliteTable("briefings_current", {
   purpose: text("purpose").notNull(),
   format: text("format").notNull(),
   memo: text("memo"),
-  content: text("content").notNull()
+  content: text("content").notNull(),
 }, (table) => [
-  index("idx_briefings_task_generated").on(table.taskId, table.generatedAt)
-])
+  index("idx_briefings_current_task_generated").on(table.taskId, table.generatedAt),
+]);
 
 export const turnPartitions = sqliteTable("turn_partitions_current", {
   taskId: text("task_id").primaryKey().references(() => tasksCurrent.id, { onDelete: "cascade" }),
   groupsJson: text("groups_json").notNull(),
   version: integer("version").notNull(),
-  updatedAt: text("updated_at").notNull()
-})
-
-export const turnPartitionsRelations = relations(turnPartitions, ({ one }) => ({
-  task: one(tasksCurrent, {
-    fields: [turnPartitions.taskId],
-    references: [tasksCurrent.id]
-  })
-}))
+  updatedAt: text("updated_at").notNull(),
+});
 
 export const ruleCommands = sqliteTable("rule_commands_current", {
   id: text("id").primaryKey(),
   pattern: text("pattern").notNull(),
   label: text("label").notNull(),
-  // null means global rule; non-null scopes the rule to one task.
   taskId: text("task_id").references(() => tasksCurrent.id, { onDelete: "cascade" }),
   createdAt: text("created_at").notNull(),
 }, (table) => [
-  index("idx_rule_commands_current_task_id").on(table.taskId)
-])
+  index("idx_rule_commands_current_task_id").on(table.taskId),
+]);
 
-export const tasksCurrentRelations = relations(tasksCurrent, ({ one, many }) => ({
-  parent: one(tasksCurrent, {
-    fields: [tasksCurrent.parentTaskId],
-    references: [tasksCurrent.id],
-    relationName: "taskHierarchy"
-  }),
-  children: many(tasksCurrent, { relationName: "taskHierarchy" }),
+export const tasksCurrentRelations = relations(tasksCurrent, ({ many }) => ({
   sessions: many(sessionsCurrent),
   events: many(timelineEvents),
   runtimeBindings: many(runtimeSessionBindings),
   bookmarks: many(bookmarks),
-  evaluations: many(taskEvaluations),
+  evaluations: many(evaluationsCore),
   briefings: many(briefings),
-  ruleCommands: many(ruleCommands)
-}))
+  ruleCommands: many(ruleCommands),
+  ownedRelations: many(taskRelations, { relationName: "taskRelationOwner" }),
+  relatedRelations: many(taskRelations, { relationName: "taskRelationRelated" }),
+}));
+
+export const taskRelationsRelations = relations(taskRelations, ({ one }) => ({
+  task: one(tasksCurrent, {
+    fields: [taskRelations.taskId],
+    references: [tasksCurrent.id],
+    relationName: "taskRelationOwner",
+  }),
+  relatedTask: one(tasksCurrent, {
+    fields: [taskRelations.relatedTaskId],
+    references: [tasksCurrent.id],
+    relationName: "taskRelationRelated",
+  }),
+}));
 
 export const sessionsCurrentRelations = relations(sessionsCurrent, ({ one, many }) => ({
   task: one(tasksCurrent, {
     fields: [sessionsCurrent.taskId],
-    references: [tasksCurrent.id]
+    references: [tasksCurrent.id],
   }),
   events: many(timelineEvents),
-  runtimeBindings: many(runtimeSessionBindings)
-}))
+  runtimeBindings: many(runtimeSessionBindings),
+}));
 
 export const timelineEventsRelations = relations(timelineEvents, ({ one, many }) => ({
   task: one(tasksCurrent, {
     fields: [timelineEvents.taskId],
-    references: [tasksCurrent.id]
+    references: [tasksCurrent.id],
   }),
   session: one(sessionsCurrent, {
     fields: [timelineEvents.sessionId],
-    references: [sessionsCurrent.id]
+    references: [sessionsCurrent.id],
   }),
-  bookmarks: many(bookmarks)
-}))
+  bookmarks: many(bookmarks),
+}));
 
 export const runtimeSessionBindingsRelations = relations(runtimeSessionBindings, ({ one }) => ({
   task: one(tasksCurrent, {
     fields: [runtimeSessionBindings.taskId],
-    references: [tasksCurrent.id]
+    references: [tasksCurrent.id],
   }),
   session: one(sessionsCurrent, {
     fields: [runtimeSessionBindings.monitorSessionId],
-    references: [sessionsCurrent.id]
-  })
-}))
+    references: [sessionsCurrent.id],
+  }),
+}));
 
 export const bookmarksRelations = relations(bookmarks, ({ one }) => ({
   task: one(tasksCurrent, {
     fields: [bookmarks.taskId],
-    references: [tasksCurrent.id]
+    references: [tasksCurrent.id],
   }),
   event: one(timelineEvents, {
     fields: [bookmarks.eventId],
-    references: [timelineEvents.id]
-  })
-}))
+    references: [timelineEvents.id],
+  }),
+}));
 
-export const taskEvaluationsRelations = relations(taskEvaluations, ({ one }) => ({
+export const evaluationsCoreRelations = relations(evaluationsCore, ({ one }) => ({
   task: one(tasksCurrent, {
-    fields: [taskEvaluations.taskId],
-    references: [tasksCurrent.id]
-  })
-}))
+    fields: [evaluationsCore.taskId],
+    references: [tasksCurrent.id],
+  }),
+}));
 
 export const briefingsRelations = relations(briefings, ({ one }) => ({
   task: one(tasksCurrent, {
     fields: [briefings.taskId],
-    references: [tasksCurrent.id]
-  })
-}))
+    references: [tasksCurrent.id],
+  }),
+}));
 
 export const ruleCommandsRelations = relations(ruleCommands, ({ one }) => ({
   task: one(tasksCurrent, {
     fields: [ruleCommands.taskId],
-    references: [tasksCurrent.id]
-  })
-}))
+    references: [tasksCurrent.id],
+  }),
+}));
+
+export const turnPartitionsRelations = relations(turnPartitions, ({ one }) => ({
+  task: one(tasksCurrent, {
+    fields: [turnPartitions.taskId],
+    references: [tasksCurrent.id],
+  }),
+}));
 
 export const drizzleSchema = {
   tasksCurrent,
   tasksCurrentRelations,
+  taskRelations,
+  taskRelationsRelations,
   sessionsCurrent,
   sessionsCurrentRelations,
   timelineEvents,
@@ -271,8 +272,8 @@ export const drizzleSchema = {
   bookmarks,
   bookmarksRelations,
   searchDocuments,
-  taskEvaluations,
-  taskEvaluationsRelations,
+  evaluationsCore,
+  evaluationsCoreRelations,
   playbooks,
   briefings,
   briefingsRelations,
@@ -280,6 +281,6 @@ export const drizzleSchema = {
   ruleCommandsRelations,
   turnPartitions,
   turnPartitionsRelations,
-}
+};
 
-export type DrizzleSchema = typeof drizzleSchema
+export type DrizzleSchema = typeof drizzleSchema;

@@ -19,8 +19,10 @@ import { cosineSimilarity, deserializeEmbedding, serializeEmbedding } from "../s
 import { ensureSqliteDatabase, type SqliteDatabaseInput } from "../shared/drizzle.db.js";
 import { parseJsonField } from "../shared/sqlite.json";
 import { appendDomainEvent, eventTimeFromIso } from "../events/index.js";
-import type { BriefingRow, EvaluationRow, EventRow, TaskWithEvaluationRow } from "./sqlite.evaluation.row.type.js";
-import { buildEvaluationData, buildQualitySignals, mapBriefingRow, mapEvaluationRow, mapEventRow } from "./sqlite.evaluation.row.type.js";
+import { upsertSearchDocument } from "../search/sqlite.search.documents.js";
+import type { BriefingRow, EvaluationRow, TaskWithEvaluationRow } from "./sqlite.evaluation.row.type.js";
+import { buildEvaluationData, buildQualitySignals, mapBriefingRow, mapEvaluationRow } from "./sqlite.evaluation.row.type.js";
+import { loadTimelineEventsForTask } from "./sqlite.event.storage.js";
 import {
     MIN_SEMANTIC_SCORE,
     applyTagFilter,
@@ -36,6 +38,10 @@ import {
     shouldResolveDisplayTitle,
 } from "../search/sqlite.evaluation.search.js";
 
+function evaluationEntityId(taskId: string, scopeKey: string): string {
+    return `${taskId}#${scopeKey}`;
+}
+
 export class SqliteEvaluationRepository implements IEvaluationRepository {
     private readonly db: Database.Database;
 
@@ -46,30 +52,19 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
     async upsertEvaluation(evaluation: PersistedTaskEvaluation): Promise<void> {
         this.db.transaction(() => {
             this.db.prepare(`
-              insert into evaluations_current (
-                task_id, scope_key, scope_kind, scope_label, turn_index, rating, use_case, workflow_tags, outcome_note, approach_note, reuse_when, watchouts,
-                workflow_snapshot_json, workflow_context, search_text, evaluated_at
+              insert into evaluations_core (
+                task_id, scope_key, scope_kind, scope_label, turn_index, rating, evaluated_at
               )
               values (
-                @taskId, @scopeKey, @scopeKind, @scopeLabel, @turnIndex, @rating, @useCase, @workflowTags, @outcomeNote, @approachNote, @reuseWhen, @watchouts,
-                @workflowSnapshotJson, @workflowContext, @searchText, @evaluatedAt
+                @taskId, @scopeKey, @scopeKind, @scopeLabel, @turnIndex, @rating, @evaluatedAt
               )
               on conflict(task_id, scope_key) do update set
                 scope_kind      = excluded.scope_kind,
                 scope_label     = excluded.scope_label,
                 turn_index      = excluded.turn_index,
                 rating          = excluded.rating,
-                use_case        = excluded.use_case,
-                workflow_tags   = excluded.workflow_tags,
-                outcome_note    = excluded.outcome_note,
-                approach_note   = excluded.approach_note,
-                reuse_when      = excluded.reuse_when,
-                watchouts       = excluded.watchouts,
-                workflow_snapshot_json = excluded.workflow_snapshot_json,
-                workflow_context = excluded.workflow_context,
-                search_text     = excluded.search_text,
                 evaluated_at    = excluded.evaluated_at,
-                version         = evaluations_current.version + 1
+                version         = evaluations_core.version + 1
             `).run({
                 taskId: evaluation.taskId,
                 scopeKey: evaluation.scopeKey,
@@ -77,6 +72,29 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
                 scopeLabel: evaluation.scopeLabel,
                 turnIndex: evaluation.turnIndex,
                 rating: evaluation.rating,
+                evaluatedAt: evaluation.evaluatedAt,
+            });
+
+            this.db.prepare(`
+              insert into evaluation_contents (
+                task_id, scope_key, use_case, workflow_tags_json, outcome_note,
+                approach_note, reuse_when, watchouts, workflow_snapshot_json, workflow_context
+              ) values (
+                @taskId, @scopeKey, @useCase, @workflowTags, @outcomeNote,
+                @approachNote, @reuseWhen, @watchouts, @workflowSnapshotJson, @workflowContext
+              )
+              on conflict(task_id, scope_key) do update set
+                use_case = excluded.use_case,
+                workflow_tags_json = excluded.workflow_tags_json,
+                outcome_note = excluded.outcome_note,
+                approach_note = excluded.approach_note,
+                reuse_when = excluded.reuse_when,
+                watchouts = excluded.watchouts,
+                workflow_snapshot_json = excluded.workflow_snapshot_json,
+                workflow_context = excluded.workflow_context
+            `).run({
+                taskId: evaluation.taskId,
+                scopeKey: evaluation.scopeKey,
                 useCase: evaluation.useCase ?? null,
                 workflowTags: evaluation.workflowTags.length > 0 ? JSON.stringify(evaluation.workflowTags) : null,
                 outcomeNote: evaluation.outcomeNote ?? null,
@@ -85,8 +103,28 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
                 watchouts: evaluation.watchouts ?? null,
                 workflowSnapshotJson: evaluation.workflowSnapshot ? JSON.stringify(evaluation.workflowSnapshot) : null,
                 workflowContext: evaluation.workflowContext ?? null,
-                searchText: evaluation.searchText ?? null,
-                evaluatedAt: evaluation.evaluatedAt,
+            });
+
+            this.db.prepare(`
+              insert into evaluation_reuse_stats (task_id, scope_key)
+              values (@taskId, @scopeKey)
+              on conflict(task_id, scope_key) do nothing
+            `).run({
+                taskId: evaluation.taskId,
+                scopeKey: evaluation.scopeKey,
+            });
+
+            const titleRow = this.db
+                .prepare<{ taskId: string }, { title: string }>("select title from tasks_current where id = @taskId")
+                .get({ taskId: evaluation.taskId });
+            const searchText = evaluation.searchText
+                ?? buildEmbeddingText(evaluation, this.loadWorkflowEvents(evaluation.taskId, evaluation.scopeKey), titleRow?.title ?? "");
+            upsertSearchDocument(this.db, {
+                scope: "evaluation",
+                entityId: evaluationEntityId(evaluation.taskId, evaluation.scopeKey),
+                taskId: evaluation.taskId,
+                searchText,
+                updatedAt: evaluation.evaluatedAt,
             });
 
             appendDomainEvent(this.db, {
@@ -120,7 +158,7 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
     async recordBriefingCopy(taskId: string, copiedAt: string, scopeKey = "task"): Promise<void> {
         const result = this.db.transaction(() => {
             const updateResult = this.db.prepare(`
-              update evaluations_current
+              update evaluation_reuse_stats
               set briefing_copy_count = coalesce(briefing_copy_count, 0) + 1,
                   last_reused_at = @copiedAt
               where task_id = @taskId
@@ -207,7 +245,40 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
     async getEvaluation(taskId: string, scopeKey = "task"): Promise<StoredTaskEvaluation | null> {
         const row = this.db
             .prepare<{ taskId: string; scopeKey: string }, EvaluationRow>(
-                "select * from evaluations_current where task_id = @taskId and scope_key = @scopeKey",
+                `
+                select
+                  e.task_id, e.scope_key, e.scope_kind, e.scope_label, e.turn_index,
+                  e.rating,
+                  c.use_case,
+                  c.workflow_tags_json as workflow_tags,
+                  c.outcome_note,
+                  c.approach_note,
+                  c.reuse_when,
+                  c.watchouts,
+                  e.version,
+                  (
+                    select ep.playbook_id
+                    from evaluation_promotions ep
+                    where ep.task_id = e.task_id and ep.scope_key = e.scope_key
+                    order by ep.promoted_at desc
+                    limit 1
+                  ) as promoted_to,
+                  coalesce(r.reuse_count, 0) as reuse_count,
+                  r.last_reused_at,
+                  coalesce(r.briefing_copy_count, 0) as briefing_copy_count,
+                  c.workflow_snapshot_json,
+                  c.workflow_context,
+                  s.search_text,
+                  e.evaluated_at
+                from evaluations_core e
+                left join evaluation_contents c
+                  on c.task_id = e.task_id and c.scope_key = e.scope_key
+                left join evaluation_reuse_stats r
+                  on r.task_id = e.task_id and r.scope_key = e.scope_key
+                left join search_documents s
+                  on s.scope = 'evaluation' and s.entity_id = e.task_id || '#' || e.scope_key
+                where e.task_id = @taskId and e.scope_key = @scopeKey
+                `,
             )
             .get({ taskId, scopeKey });
         return row ? mapEvaluationRow(row) : null;
@@ -218,13 +289,29 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
       select
         e.task_id, e.scope_key, e.scope_kind, e.scope_label, e.turn_index,
         t.title, t.slug, t.workspace_path,
-        e.use_case, e.workflow_tags, e.outcome_note, e.approach_note, e.reuse_when, e.watchouts,
-        e.version, e.promoted_to, e.reuse_count, e.last_reused_at, e.briefing_copy_count,
-        e.workflow_snapshot_json, e.workflow_context, e.search_text,
-        e.embedding, e.embedding_model, e.rating, e.evaluated_at,
+        c.use_case, c.workflow_tags_json as workflow_tags, c.outcome_note, c.approach_note, c.reuse_when, c.watchouts,
+        e.version,
+        (
+          select ep.playbook_id
+          from evaluation_promotions ep
+          where ep.task_id = e.task_id and ep.scope_key = e.scope_key
+          order by ep.promoted_at desc
+          limit 1
+        ) as promoted_to,
+        coalesce(r.reuse_count, 0) as reuse_count,
+        r.last_reused_at,
+        coalesce(r.briefing_copy_count, 0) as briefing_copy_count,
+        c.workflow_snapshot_json, c.workflow_context, s.search_text,
+        s.embedding, s.embedding_model, e.rating, e.evaluated_at,
         count(ev.id) as event_count, t.created_at
-      from evaluations_current e
+      from evaluations_core e
       join tasks_current t on t.id = e.task_id
+      left join evaluation_contents c
+        on c.task_id = e.task_id and c.scope_key = e.scope_key
+      left join evaluation_reuse_stats r
+        on r.task_id = e.task_id and r.scope_key = e.scope_key
+      left join search_documents s
+        on s.scope = 'evaluation' and s.entity_id = e.task_id || '#' || e.scope_key
       left join timeline_events_view ev on ev.task_id = e.task_id
       where e.task_id = @taskId and e.scope_key = @scopeKey
       group by e.task_id, e.scope_key
@@ -254,12 +341,12 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
             const embeddingText = buildEmbeddingText(evaluation, events, titleRow?.title ?? "");
             const vector = await this.embeddingService!.embed(embeddingText);
             this.db.prepare(`
-        update evaluations_current
+        update search_documents
         set embedding = @embedding,
             embedding_model = @embeddingModel
-        where task_id = @taskId
+        where scope = 'evaluation' and entity_id = @entityId
       `).run({
-                taskId: evaluation.taskId,
+                entityId: evaluationEntityId(evaluation.taskId, evaluation.scopeKey),
                 embedding: serializeEmbedding(vector),
                 embeddingModel: this.embeddingService!.modelId,
             });
@@ -276,13 +363,29 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
       select
         e.task_id, e.scope_key, e.scope_kind, e.scope_label, e.turn_index,
         t.title, t.slug, t.workspace_path,
-        e.use_case, e.workflow_tags, e.outcome_note, e.approach_note, e.reuse_when, e.watchouts,
-        e.version, e.promoted_to, e.reuse_count, e.last_reused_at, e.briefing_copy_count,
-        e.workflow_snapshot_json, e.workflow_context, e.search_text,
-        e.embedding, e.embedding_model, e.rating, e.evaluated_at,
+        c.use_case, c.workflow_tags_json as workflow_tags, c.outcome_note, c.approach_note, c.reuse_when, c.watchouts,
+        e.version,
+        (
+          select ep.playbook_id
+          from evaluation_promotions ep
+          where ep.task_id = e.task_id and ep.scope_key = e.scope_key
+          order by ep.promoted_at desc
+          limit 1
+        ) as promoted_to,
+        coalesce(r.reuse_count, 0) as reuse_count,
+        r.last_reused_at,
+        coalesce(r.briefing_copy_count, 0) as briefing_copy_count,
+        c.workflow_snapshot_json, c.workflow_context, s.search_text,
+        s.embedding, s.embedding_model, e.rating, e.evaluated_at,
         count(ev.id) as event_count, t.created_at
-      from evaluations_current e
+      from evaluations_core e
       join tasks_current t on t.id = e.task_id
+      left join evaluation_contents c
+        on c.task_id = e.task_id and c.scope_key = e.scope_key
+      left join evaluation_reuse_stats r
+        on r.task_id = e.task_id and r.scope_key = e.scope_key
+      left join search_documents s
+        on s.scope = 'evaluation' and s.entity_id = e.task_id || '#' || e.scope_key
       left join timeline_events_view ev on ev.task_id = e.task_id
       ${whereClause}
       group by e.task_id, e.scope_key
@@ -368,12 +471,7 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
     }
 
     private loadWorkflowEvents(taskId: string, scopeKey = "task"): readonly TimelineEvent[] {
-        const eventRows = this.db
-            .prepare<{ taskId: string }, EventRow>(
-                "select * from timeline_events_view where task_id = @taskId order by created_at asc",
-            )
-            .all({ taskId });
-        return filterWorkflowEventsForScopeKey(eventRows.map(mapEventRow), scopeKey);
+        return filterWorkflowEventsForScopeKey(loadTimelineEventsForTask(this.db, taskId), scopeKey);
     }
 
     private buildWorkflowContent(row: TaskWithEvaluationRow): WorkflowContentRecord {

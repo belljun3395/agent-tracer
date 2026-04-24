@@ -31,6 +31,7 @@ export interface SqliteDatabaseContext {
 export function createSqliteDatabaseContext(databasePath: string): SqliteDatabaseContext {
     fs.mkdirSync(path.dirname(databasePath), { recursive: true });
     const client = new BetterSqlite3(databasePath);
+    client.pragma("foreign_keys = ON");
     client.pragma("journal_mode = WAL");
     client.pragma("case_sensitive_like = OFF");
     createSchema(client);

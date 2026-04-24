@@ -7,11 +7,41 @@ import { cosineSimilarity, deserializeEmbedding, serializeEmbedding } from "../s
 import { normalizeEmbeddingSection, normalizeSearchText } from "../shared/text.normalizers.js";
 import { ensureSqliteDatabase, type SqliteDatabaseInput } from "../shared/drizzle.db.js";
 import { appendDomainEvent, eventTimeFromIso } from "../events/index.js";
+import { upsertSearchDocument } from "../search/sqlite.search.documents.js";
 import { type PlaybookRow, type RankedPlaybookRow, mapPlaybookRecord, mapPlaybookSummary, parseJsonList } from "./sqlite.playbook.row.type.js";
 
 const MIN_SEMANTIC_SCORE = 0.22;
 
 type SnapshotReference = { readonly taskId: string; readonly scopeKey: string };
+
+interface PlaybookCoreRow {
+    readonly id: string;
+    readonly title: string;
+    readonly slug: string;
+    readonly status: string;
+    readonly when_to_use: string | null;
+    readonly approach: string | null;
+    readonly use_count: number;
+    readonly last_used_at: string | null;
+    readonly created_at: string;
+    readonly updated_at: string;
+    readonly search_text: string | null;
+    readonly embedding: string | null;
+    readonly embedding_model: string | null;
+}
+
+interface PlaybookStepRow {
+    readonly kind: "prereq" | "step" | "watchout" | "anti_pattern" | "failure_mode";
+    readonly position: number;
+    readonly content: string;
+}
+
+interface PlaybookVariantRow {
+    readonly position: number;
+    readonly label: string;
+    readonly description: string;
+    readonly difference_from_base: string;
+}
 
 export class SqlitePlaybookRepository implements IPlaybookRepository {
     private readonly db: Database.Database;
@@ -31,9 +61,7 @@ export class SqlitePlaybookRepository implements IPlaybookRepository {
     }
 
     async getPlaybook(playbookId: string): Promise<PlaybookRecord | null> {
-        const row = this.db.prepare<{ playbookId: string }, PlaybookRow>(
-            "select * from playbooks_current where id = @playbookId",
-        ).get({ playbookId });
+        const row = this.loadPlaybookRow(playbookId);
         return row ? mapPlaybookRecord(row) : null;
     }
 
@@ -46,18 +74,21 @@ export class SqlitePlaybookRepository implements IPlaybookRepository {
 
         this.db.transaction(() => {
             this.db.prepare(`
-                insert into playbooks_current (
-                  id, title, slug, status, when_to_use, prerequisites, approach, key_steps, watchouts,
-                  anti_patterns, failure_modes, variants, related_playbook_ids, source_snapshot_ids, tags,
-                  search_text, embedding, embedding_model, use_count, last_used_at, created_at, updated_at
+                insert into playbooks_core (
+                  id, title, slug, status, when_to_use, approach, use_count, last_used_at, created_at, updated_at
                 ) values (
-                  @id, @title, @slug, @status, @whenToUse, @prerequisites, @approach, @keySteps, @watchouts,
-                  @antiPatterns, @failureModes, @variants, @relatedPlaybookIds, @sourceSnapshotIds, @tags,
-                  @searchText, null, null, 0, null, @createdAt, @updatedAt
+                  @id, @title, @slug, @status, @whenToUse, @approach, 0, null, @createdAt, @updatedAt
                 )
             `).run({ id, title, slug, ...payload });
+            replacePlaybookChildren(this.db, id, payload);
+            upsertSearchDocument(this.db, {
+                scope: "playbook",
+                entityId: id,
+                searchText: payload.searchText,
+                updatedAt: payload.updatedAt,
+            });
 
-            updatePromotedSnapshots(this.db, payload.sourceSnapshotIdsList, id);
+            updatePromotedSnapshots(this.db, payload.sourceSnapshotIdsList, id, now);
             appendDomainEvent(this.db, {
                 eventTime: eventTimeFromIso(now),
                 eventType: "playbook.drafted",
@@ -105,18 +136,21 @@ export class SqlitePlaybookRepository implements IPlaybookRepository {
 
         this.db.transaction(() => {
             this.db.prepare(`
-                update playbooks_current
+                update playbooks_core
                 set title = @title, slug = @slug, status = @status,
-                    when_to_use = @whenToUse, prerequisites = @prerequisites,
-                    approach = @approach, key_steps = @keySteps, watchouts = @watchouts,
-                    anti_patterns = @antiPatterns, failure_modes = @failureModes,
-                    variants = @variants, related_playbook_ids = @relatedPlaybookIds,
-                    source_snapshot_ids = @sourceSnapshotIds, tags = @tags,
-                    search_text = @searchText, updated_at = @updatedAt
+                    when_to_use = @whenToUse, approach = @approach,
+                    updated_at = @updatedAt
                 where id = @id
             `).run({ id: playbookId, title, slug, ...merged });
+            replacePlaybookChildren(this.db, playbookId, merged);
+            upsertSearchDocument(this.db, {
+                scope: "playbook",
+                entityId: playbookId,
+                searchText: merged.searchText,
+                updatedAt: merged.updatedAt,
+            });
 
-            updatePromotedSnapshots(this.db, merged.sourceSnapshotIdsList, playbookId);
+            updatePromotedSnapshots(this.db, merged.sourceSnapshotIdsList, playbookId, merged.updatedAt);
             if (existing.status !== "active" && merged.status === "active") {
                 appendDomainEvent(this.db, {
                     eventTime: eventTimeFromIso(merged.updatedAt),
@@ -140,9 +174,39 @@ export class SqlitePlaybookRepository implements IPlaybookRepository {
 
     private loadPlaybookRows(status?: PlaybookStatus): readonly PlaybookRow[] {
         const whereClause = status ? "where status = @status" : "";
-        return this.db.prepare<{ status?: PlaybookStatus }, PlaybookRow>(
-            `select * from playbooks_current ${whereClause}`,
+        const rows = this.db.prepare<{ status?: PlaybookStatus }, PlaybookCoreRow>(
+            `
+            select
+              p.id, p.title, p.slug, p.status, p.when_to_use, p.approach,
+              p.use_count, p.last_used_at, p.created_at, p.updated_at,
+              s.search_text, s.embedding, s.embedding_model
+            from playbooks_core p
+            left join search_documents s
+              on s.scope = 'playbook' and s.entity_id = p.id
+            ${whereClause}
+            `,
         ).all(status ? { status } : {});
+        return this.hydratePlaybookRows(rows);
+    }
+
+    private loadPlaybookRow(playbookId: string): PlaybookRow | null {
+        const row = this.db.prepare<{ playbookId: string }, PlaybookCoreRow>(
+            `
+            select
+              p.id, p.title, p.slug, p.status, p.when_to_use, p.approach,
+              p.use_count, p.last_used_at, p.created_at, p.updated_at,
+              s.search_text, s.embedding, s.embedding_model
+            from playbooks_core p
+            left join search_documents s
+              on s.scope = 'playbook' and s.entity_id = p.id
+            where p.id = @playbookId
+            `,
+        ).get({ playbookId });
+        return row ? this.hydratePlaybookRows([row])[0] ?? null : null;
+    }
+
+    private hydratePlaybookRows(rows: readonly PlaybookCoreRow[]): readonly PlaybookRow[] {
+        return rows.map((row) => hydratePlaybookRow(this.db, row));
     }
 
     private async rankPlaybookRows(query: string, limit: number, status?: PlaybookStatus): Promise<readonly PlaybookRow[]> {
@@ -174,9 +238,9 @@ export class SqlitePlaybookRepository implements IPlaybookRepository {
         try {
             const vector = await this.embeddingService!.embed(embeddingText);
             this.db.prepare(`
-                update playbooks_current
+                update search_documents
                 set embedding = @embedding, embedding_model = @embeddingModel
-                where id = @playbookId
+                where scope = 'playbook' and entity_id = @playbookId
             `).run({ playbookId, embedding: serializeEmbedding(vector), embeddingModel: this.embeddingService!.modelId });
         } catch (error) {
             if (isClosedDatabaseError(error)) return;
@@ -192,8 +256,8 @@ function ensureUniquePlaybookSlug(db: Database.Database, baseSlug: string, ignor
     for (let attempt = 0; attempt < 200; attempt += 1) {
         const existing = db.prepare<{ slug: string; ignoreId?: string }, { id: string }>(
             ignoreId
-                ? "select id from playbooks_current where slug = @slug and id != @ignoreId"
-                : "select id from playbooks_current where slug = @slug",
+                ? "select id from playbooks_core where slug = @slug and id != @ignoreId"
+                : "select id from playbooks_core where slug = @slug",
         ).get(ignoreId ? { slug, ignoreId } : { slug });
         if (!existing) return slug;
         slug = `${fallbackSlug}-${suffix++}`;
@@ -201,19 +265,181 @@ function ensureUniquePlaybookSlug(db: Database.Database, baseSlug: string, ignor
     throw new Error(`Could not generate a unique slug for "${baseSlug}" after 200 attempts`);
 }
 
-function updatePromotedSnapshots(db: Database.Database, snapshotIds: readonly string[], playbookId: string): void {
+function updatePromotedSnapshots(db: Database.Database, snapshotIds: readonly string[], playbookId: string, promotedAt: string): void {
     const snapshotRefs = uniqueSnapshotRefs(
         snapshotIds.map(parseSnapshotReference).filter((v): v is SnapshotReference => Boolean(v)),
     );
+    db.prepare("delete from evaluation_promotions where playbook_id = @playbookId").run({ playbookId });
     if (snapshotRefs.length === 0) return;
     const statement = db.prepare(`
-        update evaluations_current
-        set promoted_to = @playbookId
-        where task_id = @taskId and scope_key = @scopeKey
+        insert into evaluation_promotions (task_id, scope_key, playbook_id, promoted_at)
+        select @taskId, @scopeKey, @playbookId, @promotedAt
+        where exists (
+          select 1
+          from evaluations_core
+          where task_id = @taskId and scope_key = @scopeKey
+        )
     `);
     for (const ref of snapshotRefs) {
+        statement.run({ playbookId, taskId: ref.taskId, scopeKey: ref.scopeKey, promotedAt });
+    }
+}
+
+type NormalizedPlaybookPayload = ReturnType<typeof normalizePlaybookPayload>;
+
+function hydratePlaybookRow(db: Database.Database, row: PlaybookCoreRow): PlaybookRow {
+    const steps = db.prepare<{ playbookId: string }, PlaybookStepRow>(`
+        select kind, position, content
+        from playbook_steps
+        where playbook_id = @playbookId
+        order by kind asc, position asc
+    `).all({ playbookId: row.id });
+    const variants = db.prepare<{ playbookId: string }, PlaybookVariantRow>(`
+        select position, label, description, difference_from_base
+        from playbook_variants
+        where playbook_id = @playbookId
+        order by position asc
+    `).all({ playbookId: row.id });
+    const tags = db.prepare<{ playbookId: string }, { tag: string }>(`
+        select tag
+        from playbook_tags
+        where playbook_id = @playbookId
+        order by tag asc
+    `).all({ playbookId: row.id }).map((value) => value.tag);
+    const relatedPlaybookIds = db.prepare<{ playbookId: string }, { related_playbook_id: string }>(`
+        select related_playbook_id
+        from playbook_relations
+        where playbook_id = @playbookId
+        order by coalesce(position, 0) asc, related_playbook_id asc
+    `).all({ playbookId: row.id }).map((value) => value.related_playbook_id);
+    const sourceSnapshotIds = db.prepare<{ playbookId: string }, { task_id: string; scope_key: string }>(`
+        select task_id, scope_key
+        from playbook_source_snapshots
+        where playbook_id = @playbookId
+        order by task_id asc, scope_key asc
+    `).all({ playbookId: row.id }).map((value) => `${value.task_id}#${value.scope_key}`);
+
+    return {
+        ...row,
+        prerequisites: jsonList(stepsForKind(steps, "prereq")),
+        key_steps: jsonList(stepsForKind(steps, "step")),
+        watchouts: jsonList(stepsForKind(steps, "watchout")),
+        anti_patterns: jsonList(stepsForKind(steps, "anti_pattern")),
+        failure_modes: jsonList(stepsForKind(steps, "failure_mode")),
+        variants: variants.length > 0 ? JSON.stringify(variants.map((variant) => ({
+            label: variant.label,
+            description: variant.description,
+            differenceFromBase: variant.difference_from_base,
+        }))) : null,
+        related_playbook_ids: jsonList(relatedPlaybookIds),
+        source_snapshot_ids: jsonList(sourceSnapshotIds),
+        tags: jsonList(tags),
+    };
+}
+
+function replacePlaybookChildren(db: Database.Database, playbookId: string, payload: NormalizedPlaybookPayload): void {
+    for (const table of [
+        "playbook_steps",
+        "playbook_variants",
+        "playbook_tags",
+        "playbook_relations",
+        "playbook_source_snapshots",
+    ]) {
+        db.prepare(`delete from ${table} where playbook_id = @playbookId`).run({ playbookId });
+    }
+
+    insertPlaybookSteps(db, playbookId, "prereq", parseJsonList(payload.prerequisites));
+    insertPlaybookSteps(db, playbookId, "step", parseJsonList(payload.keySteps));
+    insertPlaybookSteps(db, playbookId, "watchout", parseJsonList(payload.watchouts));
+    insertPlaybookSteps(db, playbookId, "anti_pattern", parseJsonList(payload.antiPatterns));
+    insertPlaybookSteps(db, playbookId, "failure_mode", parseJsonList(payload.failureModes));
+    insertPlaybookVariants(db, playbookId, payload.variants);
+    insertPlaybookTags(db, playbookId, parseJsonList(payload.tags));
+    insertPlaybookRelations(db, playbookId, parseJsonList(payload.relatedPlaybookIds));
+    insertPlaybookSourceSnapshots(db, playbookId, payload.sourceSnapshotIdsList);
+}
+
+function insertPlaybookSteps(
+    db: Database.Database,
+    playbookId: string,
+    kind: PlaybookStepRow["kind"],
+    values: readonly string[],
+): void {
+    if (values.length === 0) return;
+    const statement = db.prepare(`
+        insert into playbook_steps (playbook_id, kind, position, content)
+        values (@playbookId, @kind, @position, @content)
+    `);
+    values.forEach((content, index) => statement.run({ playbookId, kind, position: index, content }));
+}
+
+function insertPlaybookVariants(db: Database.Database, playbookId: string, rawVariants: string | null): void {
+    if (!rawVariants) return;
+    const variants = JSON.parse(rawVariants) as PlaybookRecord["variants"];
+    if (variants.length === 0) return;
+    const statement = db.prepare(`
+        insert into playbook_variants (playbook_id, position, label, description, difference_from_base)
+        values (@playbookId, @position, @label, @description, @differenceFromBase)
+    `);
+    variants.forEach((variant, index) => statement.run({
+        playbookId,
+        position: index,
+        label: variant.label,
+        description: variant.description,
+        differenceFromBase: variant.differenceFromBase,
+    }));
+}
+
+function insertPlaybookTags(db: Database.Database, playbookId: string, tags: readonly string[]): void {
+    if (tags.length === 0) return;
+    const statement = db.prepare(`
+        insert into playbook_tags (playbook_id, tag)
+        values (@playbookId, @tag)
+    `);
+    for (const tag of tags) {
+        statement.run({ playbookId, tag });
+    }
+}
+
+function insertPlaybookRelations(db: Database.Database, playbookId: string, relatedPlaybookIds: readonly string[]): void {
+    if (relatedPlaybookIds.length === 0) return;
+    const statement = db.prepare(`
+        insert into playbook_relations (playbook_id, related_playbook_id, kind, position)
+        select @playbookId, @relatedPlaybookId, null, @position
+        where exists (
+          select 1 from playbooks_core where id = @relatedPlaybookId
+        )
+    `);
+    relatedPlaybookIds.forEach((relatedPlaybookId, index) => {
+        statement.run({ playbookId, relatedPlaybookId, position: index });
+    });
+}
+
+function insertPlaybookSourceSnapshots(db: Database.Database, playbookId: string, snapshotIds: readonly string[]): void {
+    const refs = uniqueSnapshotRefs(
+        snapshotIds.map(parseSnapshotReference).filter((value): value is SnapshotReference => Boolean(value)),
+    );
+    if (refs.length === 0) return;
+    const statement = db.prepare(`
+        insert into playbook_source_snapshots (playbook_id, task_id, scope_key)
+        select @playbookId, @taskId, @scopeKey
+        where exists (
+          select 1
+          from evaluations_core
+          where task_id = @taskId and scope_key = @scopeKey
+        )
+    `);
+    for (const ref of refs) {
         statement.run({ playbookId, taskId: ref.taskId, scopeKey: ref.scopeKey });
     }
+}
+
+function stepsForKind(steps: readonly PlaybookStepRow[], kind: PlaybookStepRow["kind"]): readonly string[] {
+    return steps.filter((step) => step.kind === kind).map((step) => step.content);
+}
+
+function jsonList(values: readonly string[]): string | null {
+    return values.length > 0 ? JSON.stringify(values) : null;
 }
 
 function mergeRankedPlaybookRows(

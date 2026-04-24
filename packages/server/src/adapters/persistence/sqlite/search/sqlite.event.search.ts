@@ -5,7 +5,7 @@ import type { SearchBookmarkHit, SearchEventHit, SearchOptions, SearchResults, S
 import { ensureSqliteDatabase, type SqliteDatabaseInput } from "../shared/drizzle.db.js";
 import { normalizeSearchText } from "../shared/text.normalizers.js";
 import { cosineSimilarity, deserializeEmbedding, serializeEmbedding } from "../shared/embedding.codec.js";
-import { parseJsonField } from "../shared/sqlite.json";
+import { loadTimelineEventById } from "../repositories/sqlite.event.storage.js";
 import { buildEventSearchText, type SearchDocumentScope, upsertSearchDocument } from "./sqlite.search.documents.js";
 import type {
     RankedSearchDocument,
@@ -66,44 +66,31 @@ export async function searchEvents(
 }
 
 export function refreshEventSearchDocument(db: SqliteDatabaseInput, eventId: string): void {
-    const row = ensureSqliteDatabase(db).orm.query.timelineEvents.findFirst({
-        columns: {
-            id: true,
-            taskId: true,
-            title: true,
-            body: true,
-            lane: true,
-            kind: true,
-            metadataJson: true,
-            createdAt: true
-        },
-        with: {
-            task: {
-                columns: {
-                    title: true
-                }
-            }
-        },
-        where: (fields, operators) => operators.eq(fields.id, eventId)
-    }).sync();
-
-    if (!row?.task) {
+    const sqlite = ensureSqliteDatabase(db);
+    const event = loadTimelineEventById(sqlite.client, eventId);
+    if (!event) {
+        return;
+    }
+    const task = sqlite.client
+        .prepare<{ taskId: string }, { title: string }>("select title from tasks_current where id = @taskId")
+        .get({ taskId: event.taskId });
+    if (!task) {
         return;
     }
 
     upsertSearchDocument(db, {
         scope: "event",
-        entityId: row.id,
-        taskId: row.taskId,
+        entityId: event.id,
+        taskId: event.taskId,
         searchText: buildEventSearchText({
-            taskTitle: row.task.title,
-            title: row.title,
-            body: row.body,
-            kind: row.kind,
-            lane: row.lane,
-            metadata: parseJsonField<Record<string, unknown>>(row.metadataJson),
+            taskTitle: task.title,
+            title: event.title,
+            body: event.body ?? null,
+            kind: event.kind,
+            lane: event.lane,
+            metadata: event.metadata,
         }),
-        updatedAt: row.createdAt,
+        updatedAt: event.createdAt,
     });
 }
 
@@ -296,7 +283,7 @@ function legacySearch(db: Database.Database, query: string, opts?: SearchOptions
             select e.id as event_id, e.task_id, t.title as task_title, e.title, e.body, e.lane, e.kind, e.created_at
             from timeline_events_view e
             join tasks_current t on t.id = e.task_id
-            where (lower(e.title) like @pattern escape '\\' or lower(coalesce(e.body, '')) like @pattern escape '\\' or lower(e.metadata_json) like @pattern escape '\\')
+            where (lower(e.title) like @pattern escape '\\' or lower(coalesce(e.body, '')) like @pattern escape '\\' or lower(e.extras_json) like @pattern escape '\\')
               and (@taskId is null or e.task_id = @taskId)
             order by datetime(e.created_at) desc
             limit @limit

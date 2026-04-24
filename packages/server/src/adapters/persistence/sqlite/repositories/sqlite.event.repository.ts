@@ -1,12 +1,15 @@
-import { eq } from "drizzle-orm";
 import type { TimelineEvent } from "~domain/monitoring/timeline.event.model.js";
 import type { EventInsertInput, IEventRepository, SearchOptions, SearchResults } from "~application/ports/repository/event.repository.js";
 import type { IEmbeddingService } from "~application/ports/service/embedding.service.js";
 import { ensureSqliteDatabase, type SqliteDatabase, type SqliteDatabaseInput } from "../shared/drizzle.db.js";
-import { timelineEvents } from "../schema/drizzle.schema.js";
 import { refreshEventSearchDocument, searchEvents } from "../search/sqlite.event.search.js";
 import { appendDomainEvent, mapTimelineInsertToDomainEvent } from "../events/index.js";
-import { type EventRow, mapEventRow } from "./sqlite.event.row.type.js";
+import {
+    buildEventStorageValues,
+    loadTimelineEventById,
+    loadTimelineEventsForTask,
+    syncEventDerivedTables,
+} from "./sqlite.event.storage.js";
 
 export class SqliteEventRepository implements IEventRepository {
     private readonly db: SqliteDatabase;
@@ -17,18 +20,21 @@ export class SqliteEventRepository implements IEventRepository {
 
     async insert(input: EventInsertInput): Promise<TimelineEvent> {
         this.db.client.transaction(() => {
-            this.db.orm.insert(timelineEvents).values({
-                id: input.id,
-                taskId: input.taskId,
-                sessionId: input.sessionId ?? null,
-                kind: input.kind,
-                lane: input.lane,
-                title: input.title,
-                body: input.body ?? null,
-                metadataJson: JSON.stringify(input.metadata),
-                classificationJson: JSON.stringify(input.classification),
-                createdAt: input.createdAt
-            }).run();
+            const storage = buildEventStorageValues(input);
+            this.db.client.prepare(`
+              insert into timeline_events_view (
+                id, task_id, session_id, kind, lane, title, body,
+                subtype_key, subtype_label, subtype_group, tool_family, operation,
+                source_tool, tool_name, entity_type, entity_name, display_title,
+                evidence_level, extras_json, created_at
+              ) values (
+                @id, @taskId, @sessionId, @kind, @lane, @title, @body,
+                @subtypeKey, @subtypeLabel, @subtypeGroup, @toolFamily, @operation,
+                @sourceTool, @toolName, @entityType, @entityName, @displayTitle,
+                @evidenceLevel, @metadataJson, @createdAt
+              )
+            `).run(storage);
+            syncEventDerivedTables(this.db.client, input);
 
             const domainEvent = mapTimelineInsertToDomainEvent(input);
             if (domainEvent) {
@@ -41,20 +47,11 @@ export class SqliteEventRepository implements IEventRepository {
     }
 
     async findById(id: string): Promise<TimelineEvent | null> {
-        const row = this.db.orm.query.timelineEvents.findFirst({
-            where: (fields, operators) => operators.eq(fields.id, id)
-        }).sync() as EventRow | undefined;
-
-        return row ? mapEventRow(row) : null;
+        return loadTimelineEventById(this.db.client, id);
     }
 
     async findByTaskId(taskId: string): Promise<readonly TimelineEvent[]> {
-        const rows = this.db.orm.query.timelineEvents.findMany({
-            where: (fields, operators) => operators.eq(fields.taskId, taskId),
-            orderBy: (fields, operators) => operators.asc(fields.createdAt)
-        }).sync() as readonly EventRow[];
-
-        return rows.map(mapEventRow);
+        return loadTimelineEventsForTask(this.db.client, taskId);
     }
 
     async updateMetadata(eventId: string, metadata: Record<string, unknown>): Promise<TimelineEvent | null> {
@@ -63,12 +60,35 @@ export class SqliteEventRepository implements IEventRepository {
             return null;
         }
 
-        this.db.orm.update(timelineEvents)
-            .set({ metadataJson: JSON.stringify(metadata) })
-            .where(eq(timelineEvents.id, eventId))
-            .run();
-
-        refreshEventSearchDocument(this.db, eventId);
+        this.db.client.transaction(() => {
+            const storage = buildEventStorageValues({
+                ...existing,
+                metadata,
+                classification: existing.classification,
+            });
+            this.db.client.prepare(`
+              update timeline_events_view
+              set subtype_key = @subtypeKey,
+                  subtype_label = @subtypeLabel,
+                  subtype_group = @subtypeGroup,
+                  tool_family = @toolFamily,
+                  operation = @operation,
+                  source_tool = @sourceTool,
+                  tool_name = @toolName,
+                  entity_type = @entityType,
+                  entity_name = @entityName,
+                  display_title = @displayTitle,
+                  evidence_level = @evidenceLevel,
+                  extras_json = @metadataJson
+              where id = @id
+            `).run(storage);
+            syncEventDerivedTables(this.db.client, {
+                ...existing,
+                metadata,
+                classification: existing.classification,
+            });
+            refreshEventSearchDocument(this.db, eventId);
+        })();
         return this.findById(eventId);
     }
 

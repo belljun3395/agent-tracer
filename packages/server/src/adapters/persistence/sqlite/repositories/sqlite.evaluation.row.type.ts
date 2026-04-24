@@ -3,7 +3,6 @@ import type {
     StoredTaskEvaluation,
     WorkflowSummary,
 } from "~application/ports/repository/evaluation.repository.js";
-import type { TimelineEvent } from "~domain/monitoring/timeline.event.model.js";
 import type { SavedBriefing } from "~domain/workflow/briefing.js";
 import type { ReusableTaskSnapshot } from "~domain/workflow/task.snapshot.js";
 import { parseJsonField } from "../shared/sqlite.json";
@@ -63,19 +62,6 @@ export interface TaskWithEvaluationRow {
     evaluated_at: string;
 }
 
-export interface EventRow {
-    id: string;
-    task_id: string;
-    session_id: string | null;
-    kind: string;
-    lane: string;
-    title: string;
-    body: string | null;
-    metadata_json: string;
-    classification_json: string;
-    created_at: string;
-}
-
 export interface RankedWorkflowRow {
     readonly row: TaskWithEvaluationRow;
     readonly lexicalScore: number;
@@ -128,21 +114,6 @@ export function mapEvaluationRow(row: EvaluationRow): StoredTaskEvaluation {
         workflowContext: row.workflow_context,
         searchText: row.search_text,
         evaluatedAt: row.evaluated_at,
-    };
-}
-
-export function mapEventRow(row: EventRow): TimelineEvent {
-    return {
-        id: row.id,
-        taskId: row.task_id,
-        ...(row.session_id ? { sessionId: row.session_id } : {}),
-        kind: row.kind as TimelineEvent["kind"],
-        lane: row.lane as TimelineEvent["lane"],
-        title: row.title,
-        ...(row.body ? { body: row.body } : {}),
-        metadata: parseJsonField(row.metadata_json),
-        classification: parseJsonField(row.classification_json),
-        createdAt: row.created_at,
     };
 }
 
