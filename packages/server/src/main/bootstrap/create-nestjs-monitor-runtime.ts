@@ -5,7 +5,6 @@ import { NestFactory } from "@nestjs/core";
 import { WebSocketServer } from "ws";
 import { AppModule } from "../presentation/app.module.js";
 import { EventBroadcasterService } from "~adapters/realtime/ws/index.js";
-import { GlobalExceptionFilter } from "../presentation/filters/zod-exception.filter.js";
 import {
     assignRequestContext,
     configureTrustedProxy,
@@ -22,7 +21,6 @@ export async function createNestMonitorRuntime(options: RuntimeOptions): Promise
     const nestApp = await NestFactory.create(AppModule.forRoot({ databasePath: options.databasePath, notifier: broadcaster }), { logger: false });
     const app = nestApp.getHttpAdapter().getInstance() as ReturnType<typeof express>;
     configureTrustedProxy(app);
-    nestApp.useGlobalFilters(new GlobalExceptionFilter());
     const server = nestApp.getHttpServer() as http.Server;
     const wss = new WebSocketServer({ noServer: true });
     server.on("upgrade", (request, socket, head) => {

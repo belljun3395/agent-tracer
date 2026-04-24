@@ -1,4 +1,5 @@
 import { Module, type DynamicModule, type MiddlewareConsumer, type NestModule } from "@nestjs/common";
+import { APP_FILTER } from "@nestjs/core";
 import type { INotificationPublisher } from "~application/index.js";
 import { BookmarksApplicationModule } from "./application/bookmarks-application.module.js";
 import { EventsApplicationModule } from "./application/events-application.module.js";
@@ -9,6 +10,7 @@ import { TasksApplicationModule } from "./application/tasks-application.module.j
 import { TurnPartitionsApplicationModule } from "./application/turn-partitions-application.module.js";
 import { WorkflowApplicationModule } from "./application/workflow-application.module.js";
 import { DatabaseModule } from "./database/database.module.js";
+import { GlobalExceptionFilter } from "./filters/zod-exception.filter.js";
 import { BookmarksHttpModule } from "./http/bookmarks-http.module.js";
 import { EventsHttpModule } from "./http/events-http.module.js";
 import { RuleCommandsHttpModule } from "./http/rule-commands-http.module.js";
@@ -53,6 +55,12 @@ export class AppModule implements NestModule {
                 TasksHttpModule.register(tasksApplicationModule),
                 TurnPartitionsHttpModule.register(turnPartitionsApplicationModule),
                 WorkflowHttpModule.register(workflowApplicationModule),
+            ],
+            providers: [
+                {
+                    provide: APP_FILTER,
+                    useClass: GlobalExceptionFilter,
+                },
             ],
         };
     }
