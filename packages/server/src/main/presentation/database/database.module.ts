@@ -1,4 +1,4 @@
-import { Global, Module, type DynamicModule } from "@nestjs/common";
+import { Module, type DynamicModule } from "@nestjs/common";
 import type { INotificationPublisher } from "~application/index.js";
 import {
     DATABASE_PORT_TOKENS,
@@ -12,7 +12,6 @@ export interface DatabaseModuleOptions {
     readonly notifier?: INotificationPublisher;
 }
 
-@Global()
 @Module({})
 export class DatabaseModule {
     static forRoot(options: DatabaseModuleOptions): DynamicModule {
