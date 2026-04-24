@@ -53,6 +53,20 @@ interface RequestOptions {
     readonly timeoutMs?: number;
 }
 
+interface ApiSuccessEnvelope<T> {
+    readonly ok: true;
+    readonly data: T;
+}
+
+interface ApiErrorEnvelope {
+    readonly ok: false;
+    readonly error: {
+        readonly code: string;
+        readonly message: string;
+        readonly details?: unknown;
+    };
+}
+
 function createRequestSignal(options?: RequestOptions): {
     readonly signal: AbortSignal | null;
     readonly cleanup: () => void;
@@ -126,15 +140,9 @@ async function request(pathname: string, init?: RequestInit, options?: RequestOp
 async function getJson<T>(pathname: string, options?: RequestOptions): Promise<T> {
     const response = await request(pathname, undefined, options);
     if (!response.ok) {
-        const error = new Error(`Failed to load ${pathname}: ${response.status}`) as Error & {
-            status?: number;
-            pathname?: string;
-        };
-        error.status = response.status;
-        error.pathname = pathname;
-        throw error;
+        throw await createResponseError(response, pathname, "GET");
     }
-    return (await response.json()) as T;
+    return unwrapApiEnvelope<T>(await response.json());
 }
 async function patchJson<T>(pathname: string, body: unknown, options?: RequestOptions): Promise<T> {
     const response = await request(pathname, {
@@ -142,9 +150,8 @@ async function patchJson<T>(pathname: string, body: unknown, options?: RequestOp
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body)
     }, options);
-    if (!response.ok)
-        throw new Error(`PATCH ${pathname}: ${response.status}`);
-    return await response.json() as Promise<T>;
+    if (!response.ok) throw await createResponseError(response, pathname, "PATCH");
+    return unwrapApiEnvelope<T>(await response.json());
 }
 async function postJson<T>(pathname: string, body: unknown, options?: RequestOptions): Promise<T> {
     const response = await request(pathname, {
@@ -152,14 +159,12 @@ async function postJson<T>(pathname: string, body: unknown, options?: RequestOpt
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body)
     }, options);
-    if (!response.ok)
-        throw new Error(`POST ${pathname}: ${response.status}`);
-    return await response.json() as Promise<T>;
+    if (!response.ok) throw await createResponseError(response, pathname, "POST");
+    return unwrapApiEnvelope<T>(await response.json());
 }
 async function deleteRequest(pathname: string, options?: RequestOptions): Promise<void> {
     const response = await request(pathname, { method: "DELETE" }, options);
-    if (!response.ok)
-        throw new Error(`DELETE ${pathname}: ${response.status}`);
+    if (!response.ok) throw await createResponseError(response, pathname, "DELETE");
 }
 async function putJson<T>(pathname: string, body: unknown, options?: RequestOptions): Promise<T> {
     const response = await request(pathname, {
@@ -167,9 +172,57 @@ async function putJson<T>(pathname: string, body: unknown, options?: RequestOpti
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body)
     }, options);
-    if (!response.ok)
-        throw new Error(`PUT ${pathname}: ${response.status}`);
-    return await response.json() as Promise<T>;
+    if (!response.ok) throw await createResponseError(response, pathname, "PUT");
+    return unwrapApiEnvelope<T>(await response.json());
+}
+
+async function createResponseError(response: Response, pathname: string, method: string): Promise<Error> {
+    const body = await readJsonBody(response);
+    const envelope = isApiErrorEnvelope(body) ? body : undefined;
+    const message = envelope?.error.message ?? `${method} ${pathname}: ${response.status}`;
+    const error = new Error(message) as Error & {
+        status?: number;
+        pathname?: string;
+        code?: string;
+        details?: unknown;
+    };
+    error.status = response.status;
+    error.pathname = pathname;
+    if (envelope) {
+        error.code = envelope.error.code;
+        error.details = envelope.error.details;
+    }
+    return error;
+}
+
+async function readJsonBody(response: Response): Promise<unknown> {
+    try {
+        return await response.json() as unknown;
+    }
+    catch {
+        return undefined;
+    }
+}
+
+function unwrapApiEnvelope<T>(body: unknown): T {
+    if (isApiSuccessEnvelope<T>(body)) return body.data;
+    return body as T;
+}
+
+function isApiSuccessEnvelope<T>(body: unknown): body is ApiSuccessEnvelope<T> {
+    return isRecord(body) && body["ok"] === true && "data" in body;
+}
+
+function isApiErrorEnvelope(body: unknown): body is ApiErrorEnvelope {
+    return isRecord(body)
+        && body["ok"] === false
+        && isRecord(body["error"])
+        && typeof body["error"]["code"] === "string"
+        && typeof body["error"]["message"] === "string";
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 export function fetchOverview(): Promise<OverviewResponse> {
     return getJson<OverviewResponse>("/api/overview");

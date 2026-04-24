@@ -20,7 +20,7 @@ function createHttpHost() {
 }
 
 describe("GlobalExceptionFilter", () => {
-    it("passes explicit HttpException responses through", () => {
+    it("normalizes explicit HttpException responses", () => {
         const { host, response } = createHttpHost();
 
         new GlobalExceptionFilter().catch(
@@ -29,7 +29,13 @@ describe("GlobalExceptionFilter", () => {
         );
 
         expect(response.status).toHaveBeenCalledWith(HttpStatus.NOT_FOUND);
-        expect(response.json).toHaveBeenCalledWith({ error: "Task not found" });
+        expect(response.json).toHaveBeenCalledWith({
+            ok: false,
+            error: {
+                code: "not_found",
+                message: "Task not found",
+            },
+        });
     });
 
     it("normalizes ZodError responses as validation failures", () => {
@@ -56,7 +62,13 @@ describe("GlobalExceptionFilter", () => {
         new GlobalExceptionFilter().catch(new Error("sqlite path /private/db failed"), host);
 
         expect(response.status).toHaveBeenCalledWith(HttpStatus.INTERNAL_SERVER_ERROR);
-        expect(response.json).toHaveBeenCalledWith({ error: "Internal server error" });
+        expect(response.json).toHaveBeenCalledWith({
+            ok: false,
+            error: {
+                code: "internal_server_error",
+                message: "Internal server error",
+            },
+        });
     });
 
     it("preserves non-500 error-like messages", () => {
@@ -65,6 +77,12 @@ describe("GlobalExceptionFilter", () => {
         new GlobalExceptionFilter().catch({ statusCode: HttpStatus.CONFLICT, message: "version mismatch" }, host);
 
         expect(response.status).toHaveBeenCalledWith(HttpStatus.CONFLICT);
-        expect(response.json).toHaveBeenCalledWith({ error: "version mismatch" });
+        expect(response.json).toHaveBeenCalledWith({
+            ok: false,
+            error: {
+                code: "conflict",
+                message: "version mismatch",
+            },
+        });
     });
 });

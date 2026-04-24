@@ -95,24 +95,40 @@ describe("createNestMonitorRuntime HTTP API", () => {
             })
             .expect(200)
             .expect(({ body }) => {
-                expect(body.task).toMatchObject({
+                expect(body).toMatchObject({ ok: true });
+                expect(body.data.task).toMatchObject({
                     id: "http-task-1",
                     title: "HTTP task",
                     status: "running",
                     runtimeSource: "vitest",
                 });
-                expect(typeof body.sessionId).toBe("string");
+                expect(typeof body.data.sessionId).toBe("string");
             });
 
         await request(app())
             .get("/api/tasks/http-task-1")
             .expect(200)
             .expect(({ body }) => {
-                expect(body.task).toMatchObject({
+                expect(body).toMatchObject({ ok: true });
+                expect(body.data.task).toMatchObject({
                     id: "http-task-1",
                     title: "HTTP task",
                 });
-                expect(body.timeline).toEqual(expect.any(Array));
+                expect(body.data.timeline).toEqual(expect.any(Array));
+            });
+    });
+
+    it("wraps successful API responses in a consistent envelope", async () => {
+        await request(app())
+            .get("/api/tasks")
+            .expect(200)
+            .expect(({ body }) => {
+                expect(body).toEqual({
+                    ok: true,
+                    data: {
+                        tasks: expect.any(Array),
+                    },
+                });
             });
     });
 
@@ -180,7 +196,13 @@ describe("createNestMonitorRuntime HTTP API", () => {
             .get("/api/playbooks/missing-playbook")
             .expect(404)
             .expect(({ body }) => {
-                expect(body).toEqual({ error: "playbook not found" });
+                expect(body).toEqual({
+                    ok: false,
+                    error: {
+                        code: "not_found",
+                        message: "playbook not found",
+                    },
+                });
             });
     });
 
@@ -189,7 +211,12 @@ describe("createNestMonitorRuntime HTTP API", () => {
             .get("/api/search")
             .expect(400)
             .expect(({ body }) => {
-                expect(body.error).toBeDefined();
+                expect(body).toMatchObject({
+                    ok: false,
+                    error: {
+                        code: "validation_error",
+                    },
+                });
             });
     });
 });
