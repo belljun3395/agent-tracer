@@ -15,17 +15,15 @@ import {
 } from "../schemas/evaluation.write.schema.js";
 import { ZodValidationPipe } from "~adapters/http/shared/zod-validation.pipe.js";
 
-@Controller()
-export class EvaluationWriteController {
+@Controller("api/tasks/:id")
+export class TaskEvaluationWriteController {
     constructor(
         @Inject(UpsertTaskEvaluationUseCase) private readonly upsertTaskEvaluation: UpsertTaskEvaluationUseCase,
         @Inject(RecordBriefingCopyUseCase) private readonly recordBriefingCopy: RecordBriefingCopyUseCase,
         @Inject(SaveBriefingUseCase) private readonly saveBriefing: SaveBriefingUseCase,
-        @Inject(CreatePlaybookUseCase) private readonly createPlaybook: CreatePlaybookUseCase,
-        @Inject(UpdatePlaybookUseCase) private readonly updatePlaybook: UpdatePlaybookUseCase,
     ) {}
 
-    @Post("/api/tasks/:id/evaluate")
+    @Post("evaluate")
     @HttpCode(HttpStatus.OK)
     async upsertEvaluation(
         @Param("id") taskId: string,
@@ -48,7 +46,7 @@ export class EvaluationWriteController {
         return { ok: true };
     }
 
-    @Post("/api/tasks/:id/briefing/copied")
+    @Post("briefing/copied")
     @HttpCode(HttpStatus.OK)
     async recordBriefingCopyEndpoint(
         @Param("id") taskId: string,
@@ -58,7 +56,7 @@ export class EvaluationWriteController {
         return { ok: true };
     }
 
-    @Post("/api/tasks/:id/briefings")
+    @Post("briefings")
     @HttpCode(HttpStatus.OK)
     async saveBriefingEndpoint(
         @Param("id") taskId: string,
@@ -72,8 +70,16 @@ export class EvaluationWriteController {
             ...(body.memo !== undefined ? { memo: body.memo } : {}),
         });
     }
+}
 
-    @Post("/api/playbooks")
+@Controller("api/playbooks")
+export class PlaybookWriteController {
+    constructor(
+        @Inject(CreatePlaybookUseCase) private readonly createPlaybook: CreatePlaybookUseCase,
+        @Inject(UpdatePlaybookUseCase) private readonly updatePlaybook: UpdatePlaybookUseCase,
+    ) {}
+
+    @Post()
     @HttpCode(HttpStatus.OK)
     async createPlaybookEndpoint(@Body(new ZodValidationPipe(playbookUpsertSchema)) body: PlaybookUpsertInput) {
         const payload: PlaybookUpsertInput = {
@@ -94,7 +100,7 @@ export class EvaluationWriteController {
         return this.createPlaybook.execute(payload);
     }
 
-    @Post("/api/playbooks/:id")
+    @Post(":id")
     @HttpCode(HttpStatus.OK)
     async updatePlaybookEndpoint(
         @Param("id") playbookId: string,

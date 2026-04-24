@@ -6,14 +6,14 @@ import {
 import { turnPartitionUpsertSchema, type TurnPartitionUpsertBody } from "../schemas/turn.partition.write.schema.js";
 import { ZodValidationPipe } from "~adapters/http/shared/zod-validation.pipe.js";
 
-@Controller()
+@Controller("api/tasks/:id/turn-partition")
 export class TurnPartitionWriteController {
     constructor(
         @Inject(UpsertTurnPartitionUseCase) private readonly upsert: UpsertTurnPartitionUseCase,
         @Inject(ResetTurnPartitionUseCase) private readonly reset: ResetTurnPartitionUseCase,
     ) {}
 
-    @Put("/api/tasks/:id/turn-partition")
+    @Put()
     @HttpCode(HttpStatus.OK)
     async putPartition(
         @Param("id") taskId: string,
@@ -35,7 +35,7 @@ export class TurnPartitionWriteController {
         }
     }
 
-    @Post("/api/tasks/:id/turn-partition/reset")
+    @Post("reset")
     @HttpCode(HttpStatus.OK)
     async resetPartition(@Param("id") taskId: string) {
         try {

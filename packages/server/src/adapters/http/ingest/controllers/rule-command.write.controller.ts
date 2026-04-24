@@ -3,14 +3,14 @@ import { CreateRuleCommandUseCase, DeleteRuleCommandUseCase } from "~application
 import { createRuleCommandSchema } from "../schemas/rule-command.write.schema.js";
 import { ZodValidationPipe } from "~adapters/http/shared/zod-validation.pipe.js";
 
-@Controller()
-export class RuleCommandWriteController {
+@Controller("api/rule-commands")
+export class GlobalRuleCommandWriteController {
     constructor(
         @Inject(CreateRuleCommandUseCase) private readonly createRuleCommand: CreateRuleCommandUseCase,
         @Inject(DeleteRuleCommandUseCase) private readonly deleteRuleCommand: DeleteRuleCommandUseCase,
     ) {}
 
-    @Post("/api/rule-commands")
+    @Post()
     @HttpCode(HttpStatus.OK)
     async createGlobal(
         @Body(new ZodValidationPipe(createRuleCommandSchema))
@@ -20,14 +20,22 @@ export class RuleCommandWriteController {
         return { ruleCommand };
     }
 
-    @Delete("/api/rule-commands/:id")
+    @Delete(":id")
     async deleteGlobal(@Param("id") id: string) {
         const deleted = await this.deleteRuleCommand.execute(id);
         if (!deleted) throw new HttpException({ ok: false, error: "Rule command not found" }, HttpStatus.NOT_FOUND);
         return { ok: true };
     }
+}
 
-    @Post("/api/tasks/:taskId/rule-commands")
+@Controller("api/tasks/:taskId/rule-commands")
+export class TaskRuleCommandWriteController {
+    constructor(
+        @Inject(CreateRuleCommandUseCase) private readonly createRuleCommand: CreateRuleCommandUseCase,
+        @Inject(DeleteRuleCommandUseCase) private readonly deleteRuleCommand: DeleteRuleCommandUseCase,
+    ) {}
+
+    @Post()
     @HttpCode(HttpStatus.OK)
     async createForTask(
         @Param("taskId") taskId: string,
@@ -38,7 +46,7 @@ export class RuleCommandWriteController {
         return { ruleCommand };
     }
 
-    @Delete("/api/tasks/:taskId/rule-commands/:id")
+    @Delete(":id")
     async deleteForTask(@Param("taskId") _taskId: string, @Param("id") id: string) {
         const deleted = await this.deleteRuleCommand.execute(id);
         if (!deleted) throw new HttpException({ ok: false, error: "Rule command not found" }, HttpStatus.NOT_FOUND);
