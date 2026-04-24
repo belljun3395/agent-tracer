@@ -1,7 +1,8 @@
 import * as crypto from "node:crypto";
 import {toTrimmedString} from "~shared/util/utils.js";
 
-export {JsonObject, isRecord, toTrimmedString, ellipsize, createMessageId} from "~shared/util/utils.js";
+export type {JsonObject} from "~shared/util/utils.js";
+export {isRecord, toTrimmedString, ellipsize, createMessageId} from "~shared/util/utils.js";
 
 /**
  * Same as `toTrimmedString` but returns `undefined` instead of an empty string.
