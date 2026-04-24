@@ -1,6 +1,7 @@
 import { Module, type DynamicModule } from "@nestjs/common";
 import {
     EventController,
+    IngestAliasController,
     IngestController,
     TypedIngestController,
 } from "~adapters/http/ingest/index.js";
@@ -9,6 +10,7 @@ import { SearchController } from "~adapters/http/query/index.js";
 @Module({
     controllers: [
         EventController,
+        IngestAliasController,
         IngestController,
         SearchController,
         TypedIngestController,

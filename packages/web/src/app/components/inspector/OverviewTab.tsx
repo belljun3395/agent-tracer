@@ -266,6 +266,81 @@ function ContextSnapshotCard({ timeline }: { readonly timeline: readonly Timelin
     );
 }
 
+function metadataNumber(event: TimelineEventRecord, key: string): number | null {
+    const value = event.metadata[key];
+    return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function metadataString(event: TimelineEventRecord, key: string): string | null {
+    const value = event.metadata[key];
+    return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+function TokenUsageCard({ timeline }: { readonly timeline: readonly TimelineEventRecord[] }): React.JSX.Element | null {
+    const latest = useMemo(() => {
+        let found: TimelineEventRecord | null = null;
+        for (const event of timeline) {
+            if (event.kind !== "token.usage") continue;
+            if (!found || Date.parse(event.createdAt) > Date.parse(found.createdAt)) found = event;
+        }
+        return found;
+    }, [timeline]);
+
+    if (!latest) return null;
+
+    const inputTokens = metadataNumber(latest, "inputTokens") ?? 0;
+    const outputTokens = metadataNumber(latest, "outputTokens") ?? 0;
+    const cacheReadTokens = metadataNumber(latest, "cacheReadTokens") ?? 0;
+    const cacheCreateTokens = metadataNumber(latest, "cacheCreateTokens") ?? 0;
+    const durationMs = metadataNumber(latest, "durationMs");
+    const costUsd = metadataNumber(latest, "costUsd");
+    const model = metadataString(latest, "model");
+    const promptId = metadataString(latest, "promptId");
+    const totalTokens = inputTokens + outputTokens + cacheReadTokens + cacheCreateTokens;
+
+    if (totalTokens === 0 && costUsd === null && durationMs === null) return null;
+
+    return (
+        <PanelCard className={cardShell}>
+            <div className={cardHeader}>
+                <span>Token Usage</span>
+                {model && <span className="ml-auto font-mono text-[0.65rem] font-normal text-[var(--text-3)]">{model}</span>}
+            </div>
+            <div className={cardBody}>
+                <div className="grid grid-cols-4 gap-2 max-lg:grid-cols-2 max-sm:grid-cols-1">
+                    <div className={innerPanel + " p-3"}>
+                        <Eyebrow className="block">Input</Eyebrow>
+                        <strong className="mt-2 block text-[1rem] text-[var(--text-1)]">{formatCount(inputTokens)}</strong>
+                    </div>
+                    <div className={innerPanel + " p-3"}>
+                        <Eyebrow className="block">Output</Eyebrow>
+                        <strong className="mt-2 block text-[1rem] text-[var(--text-1)]">{formatCount(outputTokens)}</strong>
+                    </div>
+                    <div className={innerPanel + " p-3"}>
+                        <Eyebrow className="block">Cache</Eyebrow>
+                        <strong className="mt-2 block text-[1rem] text-[var(--text-1)]">{formatCount(cacheReadTokens + cacheCreateTokens)}</strong>
+                        <p className="mt-1 mb-0 text-[0.68rem] text-[var(--text-3)]">
+                            read {formatCount(cacheReadTokens)} · create {formatCount(cacheCreateTokens)}
+                        </p>
+                    </div>
+                    <div className={innerPanel + " p-3"}>
+                        <Eyebrow className="block">Total</Eyebrow>
+                        <strong className="mt-2 block text-[1rem] text-[var(--telemetry)]">{formatCount(totalTokens)}</strong>
+                        <p className="mt-1 mb-0 text-[0.68rem] text-[var(--text-3)]">
+                            {costUsd !== null ? `$${costUsd.toFixed(4)}` : "cost n/a"}
+                            {durationMs !== null ? ` · ${Math.round(durationMs)}ms` : ""}
+                        </p>
+                    </div>
+                </div>
+                <p className="mt-1.5 mb-0 text-[0.65rem] text-[var(--text-3)]">
+                    Usage from {formatRelativeTime(latest.createdAt)}
+                    {promptId ? ` · prompt ${promptId}` : ""}
+                </p>
+            </div>
+        </PanelCard>
+    );
+}
+
 function RuntimeSessionCard({ runtimeSessionId, runtimeSource, timeline = [] }: {
     readonly runtimeSessionId?: string | undefined;
     readonly runtimeSource?: string | undefined;
@@ -606,6 +681,7 @@ export function OverviewTab({ observability, subagentInsight, verificationCycles
       <RuntimeSessionCard runtimeSessionId={runtimeSessionId} runtimeSource={runtimeSource} timeline={scopedTimeline}/>
       {taskModelSummary && <AIModelCard summary={taskModelSummary}/>}
       <ContextSnapshotCard timeline={scopedTimeline}/>
+      <TokenUsageCard timeline={scopedTimeline}/>
       <SkillListingCard summary={skillSummary}/>
       {observability ? (<>
           <SectionCard title="Task Flow" helpText={inspectorHelpText.taskFlow}>

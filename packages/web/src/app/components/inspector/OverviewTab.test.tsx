@@ -1,7 +1,7 @@
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { TaskId } from "../../../types.js";
+import { EventId, TaskId, type TimelineEventRecord } from "../../../types.js";
 import { OverviewTab } from "./OverviewTab.js";
 
 describe("OverviewTab", () => {
@@ -78,5 +78,44 @@ describe("OverviewTab", () => {
 
         expect(markup).toContain("Top Files");
         expect(markup).not.toContain("Top Tags");
+    });
+
+    it("renders token usage telemetry", () => {
+        const tokenUsageEvent: TimelineEventRecord = {
+            id: EventId("event-token-usage"),
+            taskId: TaskId("task-1"),
+            kind: "token.usage",
+            lane: "telemetry",
+            title: "Token usage",
+            metadata: {
+                inputTokens: 1200,
+                outputTokens: 340,
+                cacheReadTokens: 50,
+                cacheCreateTokens: 10,
+                costUsd: 0.0123,
+                durationMs: 250,
+                model: "gpt-test",
+            },
+            classification: { lane: "telemetry", tags: [], matches: [] },
+            createdAt: "2026-04-24T00:00:00.000Z",
+        };
+        const markup = renderToStaticMarkup(
+            <OverviewTab
+                observability={null}
+                subagentInsight={{
+                    delegations: 0,
+                    backgroundTransitions: 0,
+                    linkedBackgroundEvents: 0,
+                    uniqueAsyncTasks: 0,
+                    completedAsyncTasks: 0,
+                    unresolvedAsyncTasks: 0
+                }}
+                timeline={[tokenUsageEvent]}
+            />
+        );
+
+        expect(markup).toContain("Token Usage");
+        expect(markup).toContain("gpt-test");
+        expect(markup).toContain("1,600");
     });
 });

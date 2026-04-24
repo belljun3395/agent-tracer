@@ -192,6 +192,55 @@ describe("createNestMonitorRuntime HTTP API", () => {
             });
     });
 
+    it("accepts legacy /api event alias endpoints", async () => {
+        await request(app())
+            .post("/api/task-start")
+            .send({
+                taskId: "http-task-alias",
+                title: "Task with aliases",
+            })
+            .expect(200);
+
+        await request(app())
+            .post("/api/terminal-command")
+            .send({
+                taskId: "http-task-alias",
+                command: "npm test -- --runInBand",
+            })
+            .expect(200);
+
+        await request(app())
+            .post("/api/question")
+            .send({
+                taskId: "http-task-alias",
+                questionId: "q-alias",
+                questionPhase: "asked",
+                title: "Clarify scope",
+                body: "Which API shape should be supported?",
+            })
+            .expect(200);
+
+        await request(app())
+            .get("/api/tasks/http-task-alias")
+            .expect(200)
+            .expect(({ body }) => {
+                expect(body.data.timeline).toEqual(expect.arrayContaining([
+                    expect.objectContaining({
+                        kind: "terminal.command",
+                        metadata: expect.objectContaining({ command: "npm test -- --runInBand" }),
+                    }),
+                    expect.objectContaining({
+                        kind: "question.logged",
+                        lane: "questions",
+                        metadata: expect.objectContaining({
+                            questionId: "q-alias",
+                            questionPhase: "asked",
+                        }),
+                    }),
+                ]));
+            });
+    });
+
     it("returns not found for missing playbooks", async () => {
         await request(app())
             .get("/api/playbooks/missing-playbook")

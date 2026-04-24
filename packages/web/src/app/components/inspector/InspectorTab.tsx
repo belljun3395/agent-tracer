@@ -56,6 +56,34 @@ function stringValue(record: Record<string, unknown>, key: string): string | und
     return typeof value === "string" && value.length > 0 ? value : undefined;
 }
 
+function numberValue(record: Record<string, unknown>, key: string): number | undefined {
+    const value = record[key];
+    return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+function formatTokenUsage(event: TimelineEventRecord): string {
+    const inputTokens = numberValue(event.metadata, "inputTokens") ?? 0;
+    const outputTokens = numberValue(event.metadata, "outputTokens") ?? 0;
+    const cacheReadTokens = numberValue(event.metadata, "cacheReadTokens") ?? 0;
+    const cacheCreateTokens = numberValue(event.metadata, "cacheCreateTokens") ?? 0;
+    const totalTokens = inputTokens + outputTokens + cacheReadTokens + cacheCreateTokens;
+    const costUsd = numberValue(event.metadata, "costUsd");
+    const durationMs = numberValue(event.metadata, "durationMs");
+    const model = stringValue(event.metadata, "model");
+    const promptId = stringValue(event.metadata, "promptId");
+    return [
+        `Input tokens: ${inputTokens.toLocaleString()}`,
+        `Output tokens: ${outputTokens.toLocaleString()}`,
+        `Cache read tokens: ${cacheReadTokens.toLocaleString()}`,
+        `Cache create tokens: ${cacheCreateTokens.toLocaleString()}`,
+        `Total tokens: ${totalTokens.toLocaleString()}`,
+        costUsd !== undefined ? `Cost: $${costUsd.toFixed(4)}` : undefined,
+        durationMs !== undefined ? `Duration: ${Math.round(durationMs)}ms` : undefined,
+        model ? `Model: ${model}` : undefined,
+        promptId ? `Prompt: ${promptId}` : undefined,
+    ].filter((value): value is string => Boolean(value)).join("\n");
+}
+
 function formatCommandAnalysis(value: unknown): string | null {
     const analysis = recordValue(value);
     if (!analysis) return null;
@@ -340,6 +368,9 @@ export function InspectorTab({
             {selectedEvent.kind === "user.message" && <DetailCaptureInfo event={selectedEvent}/>}
             {selectedEvent.kind === "terminal.command" && formatCommandAnalysis(selectedEvent.metadata["commandAnalysis"]) && (
                 <DetailSection label="Command Analysis" helpText="Parsed shell structure, command intent, targets, and effect inferred from the terminal command." mono value={formatCommandAnalysis(selectedEvent.metadata["commandAnalysis"]) ?? ""}/>
+            )}
+            {selectedEvent.kind === "token.usage" && (
+                <DetailSection label="Token Usage" helpText="Token accounting captured from runtime telemetry." mono value={formatTokenUsage(selectedEvent)}/>
             )}
             {(selectedEvent.metadata["modelName"] as string | undefined) && (<DetailModelInfo modelName={selectedEvent.metadata["modelName"] as string} modelProvider={selectedEvent.metadata["modelProvider"] as string | undefined}/>)}
             {selectedEvent.lane === "coordination" && (<DetailSection label="Agent Activity" helpText={inspectorHelpText.agentActivity} resizable value={[
