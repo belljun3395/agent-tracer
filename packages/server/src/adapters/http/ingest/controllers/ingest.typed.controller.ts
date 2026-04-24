@@ -1,4 +1,5 @@
-import { Controller, Post, Body, HttpException, HttpStatus, HttpCode, Inject } from "@nestjs/common";
+import { Controller, Post, Body, HttpStatus, HttpCode, Inject } from "@nestjs/common";
+import type { z } from "zod";
 import { IngestEventsUseCase } from "~application/events/index.js";
 import type { IngestEventInput } from "~application/events/index.js";
 import { GetRulePatternsUseCase } from "~application/rule-commands/index.js";
@@ -15,7 +16,7 @@ import {
     type CoordinationIngestEvent,
     type LifecycleIngestEvent,
 } from "../schemas/typed.event.ingest.schema.js";
-import type { ZodSchema } from "zod";
+import { ZodValidationPipe } from "~adapters/http/shared/zod-validation.pipe.js";
 
 type TypedEvent =
     | ToolActivityIngestEvent
@@ -23,6 +24,9 @@ type TypedEvent =
     | ConversationIngestEvent
     | CoordinationIngestEvent
     | LifecycleIngestEvent;
+type ToolActivityBatchBody = z.infer<typeof toolActivityBatchSchema>;
+type TelemetryBatchBody = z.infer<typeof telemetryBatchSchema>;
+type TypedBatchBody = { readonly events: readonly TypedEvent[] };
 
 @Controller("ingest/v1")
 export class TypedIngestController {
@@ -33,22 +37,11 @@ export class TypedIngestController {
 
     @Post("tool-activity")
     @HttpCode(HttpStatus.OK)
-    async ingestToolActivity(@Body() body: unknown) {
-        const parsed = toolActivityBatchSchema.safeParse(body);
-        if (!parsed.success) {
-            throw new HttpException(
-                {
-                    ok: false,
-                    error: {
-                        code: "validation_error",
-                        message: "Invalid request body",
-                        details: parsed.error.format(),
-                    },
-                },
-                HttpStatus.BAD_REQUEST,
-            );
-        }
-        const terminalEvents = parsed.data.events.filter((e) => e.kind === "terminal.command");
+    async ingestToolActivity(
+        @Body(new ZodValidationPipe(toolActivityBatchSchema, "Invalid request body"))
+        body: ToolActivityBatchBody,
+    ) {
+        const terminalEvents = body.events.filter((e) => e.kind === "terminal.command");
         const uniqueTaskIds = [...new Set(terminalEvents.map((e) => e.taskId))];
         const patternsByTask = new Map(
             await Promise.all(
@@ -56,7 +49,7 @@ export class TypedIngestController {
             ),
         );
 
-        const events = parsed.data.events.map((event) => {
+        const events = body.events.map((event) => {
             if (event.kind !== "terminal.command") return event;
             const command = event.metadata?.["command"];
             if (typeof command !== "string") return event;
@@ -70,46 +63,47 @@ export class TypedIngestController {
 
     @Post("workflow")
     @HttpCode(HttpStatus.OK)
-    async ingestWorkflow(@Body() body: unknown) {
-        return this.handleBatch(body, workflowBatchSchema);
+    async ingestWorkflow(
+        @Body(new ZodValidationPipe(workflowBatchSchema, "Invalid request body"))
+        body: TypedBatchBody,
+    ) {
+        return this.handleBatch(body);
     }
 
     @Post("conversation")
     @HttpCode(HttpStatus.OK)
-    async ingestConversation(@Body() body: unknown) {
-        return this.handleBatch(body, conversationBatchSchema);
+    async ingestConversation(
+        @Body(new ZodValidationPipe(conversationBatchSchema, "Invalid request body"))
+        body: TypedBatchBody,
+    ) {
+        return this.handleBatch(body);
     }
 
     @Post("coordination")
     @HttpCode(HttpStatus.OK)
-    async ingestCoordination(@Body() body: unknown) {
-        return this.handleBatch(body, coordinationBatchSchema);
+    async ingestCoordination(
+        @Body(new ZodValidationPipe(coordinationBatchSchema, "Invalid request body"))
+        body: TypedBatchBody,
+    ) {
+        return this.handleBatch(body);
     }
 
     @Post("lifecycle")
     @HttpCode(HttpStatus.OK)
-    async ingestLifecycle(@Body() body: unknown) {
-        return this.handleBatch(body, lifecycleBatchSchema);
+    async ingestLifecycle(
+        @Body(new ZodValidationPipe(lifecycleBatchSchema, "Invalid request body"))
+        body: TypedBatchBody,
+    ) {
+        return this.handleBatch(body);
     }
 
     @Post("telemetry")
     @HttpCode(HttpStatus.OK)
-    async ingestTelemetry(@Body() body: unknown) {
-        const parsed = telemetryBatchSchema.safeParse(body);
-        if (!parsed.success) {
-            throw new HttpException(
-                {
-                    ok: false,
-                    error: {
-                        code: "validation_error",
-                        message: "Invalid request body",
-                        details: parsed.error.format(),
-                    },
-                },
-                HttpStatus.BAD_REQUEST,
-            );
-        }
-        const events = parsed.data.events.map((e): IngestEventInput => ({
+    async ingestTelemetry(
+        @Body(new ZodValidationPipe(telemetryBatchSchema, "Invalid request body"))
+        body: TelemetryBatchBody,
+    ) {
+        const events = body.events.map((e): IngestEventInput => ({
             kind: "token.usage",
             taskId: e.taskId,
             lane: "telemetry",
@@ -129,25 +123,8 @@ export class TypedIngestController {
         return { ok: true, data: result };
     }
 
-    private async handleBatch(
-        body: unknown,
-        schema: ZodSchema<{ events: TypedEvent[] }>,
-    ) {
-        const parsed = schema.safeParse(body);
-        if (!parsed.success) {
-            throw new HttpException(
-                {
-                    ok: false,
-                    error: {
-                        code: "validation_error",
-                        message: "Invalid request body",
-                        details: parsed.error.format(),
-                    },
-                },
-                HttpStatus.BAD_REQUEST,
-            );
-        }
-        const result = await this.ingestEvents.execute(parsed.data.events);
+    private async handleBatch(body: TypedBatchBody) {
+        const result = await this.ingestEvents.execute([...body.events]);
         return { ok: true, data: result };
     }
 }

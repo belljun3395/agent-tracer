@@ -1,6 +1,10 @@
-import { Controller, Post, Body, HttpException, HttpStatus, HttpCode, Inject } from "@nestjs/common";
+import { Controller, Post, Body, HttpStatus, HttpCode, Inject } from "@nestjs/common";
+import type { z } from "zod";
 import { IngestEventsUseCase } from "~application/events/index.js";
 import { ingestEventsBatchSchema } from "../schemas/event.ingest.schema.js";
+import { ZodValidationPipe } from "~adapters/http/shared/zod-validation.pipe.js";
+
+type IngestEventsBatchBody = z.infer<typeof ingestEventsBatchSchema>;
 
 @Controller("ingest/v1")
 export class IngestController {
@@ -8,23 +12,11 @@ export class IngestController {
 
     @Post("events")
     @HttpCode(HttpStatus.OK)
-    async ingestEventsEndpoint(@Body() body: unknown) {
-        const parsed = ingestEventsBatchSchema.safeParse(body);
-        if (!parsed.success) {
-            throw new HttpException(
-                {
-                    ok: false,
-                    error: {
-                        code: "validation_error",
-                        message: "Invalid request body",
-                        details: parsed.error.format(),
-                    },
-                },
-                HttpStatus.BAD_REQUEST,
-            );
-        }
-
-        const result = await this.ingestEvents.execute(parsed.data.events);
+    async ingestEventsEndpoint(
+        @Body(new ZodValidationPipe(ingestEventsBatchSchema, "Invalid request body"))
+        body: IngestEventsBatchBody,
+    ) {
+        const result = await this.ingestEvents.execute(body.events);
         return { ok: true, data: result };
     }
 }

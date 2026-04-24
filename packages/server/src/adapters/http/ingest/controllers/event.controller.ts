@@ -2,6 +2,7 @@ import { Controller, Patch, Body, Param, HttpException, HttpStatus, Inject } fro
 import { UpdateEventUseCase } from "~application/events/index.js";
 import type { EventPatchInput } from "~application/events/index.js";
 import { eventPatchSchema } from "../schemas/event.write.schema.js";
+import { ZodValidationPipe } from "~adapters/http/shared/zod-validation.pipe.js";
 
 @Controller()
 export class EventController {
@@ -10,12 +11,11 @@ export class EventController {
     @Patch("/api/events/:eventId")
     async patchEvent(
         @Param("eventId") eventId: string,
-        @Body() body: unknown
+        @Body(new ZodValidationPipe(eventPatchSchema)) body: Omit<EventPatchInput, "eventId">,
     ) {
-        const parsed = eventPatchSchema.parse(body) as { displayTitle?: string | null };
         const event = await this.updateEvent.execute({
             eventId: eventId,
-            ...(parsed.displayTitle !== undefined ? { displayTitle: parsed.displayTitle } : {})
+            ...(body.displayTitle !== undefined ? { displayTitle: body.displayTitle } : {})
         } satisfies EventPatchInput);
         if (!event) {
             throw new HttpException({ error: "Event not found" }, HttpStatus.NOT_FOUND);

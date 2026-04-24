@@ -2,6 +2,7 @@ import { Body, Controller, Delete, HttpCode, HttpException, HttpStatus, Inject, 
 import { SaveBookmarkUseCase, DeleteBookmarkUseCase } from "~application/bookmarks/index.js";
 import type { SaveBookmarkUseCaseIn, DeleteBookmarkUseCaseIn } from "~application/bookmarks/index.js";
 import { bookmarkSchema } from "../schemas/bookmark.write.schema.js";
+import { ZodValidationPipe } from "~adapters/http/shared/zod-validation.pipe.js";
 
 @Controller()
 export class BookmarkWriteController {
@@ -12,8 +13,8 @@ export class BookmarkWriteController {
 
     @Post("/api/bookmarks")
     @HttpCode(HttpStatus.OK)
-    async createBookmark(@Body() body: unknown) {
-        const bookmark = await this.saveBookmark.execute(bookmarkSchema.parse(body) as unknown as SaveBookmarkUseCaseIn);
+    async createBookmark(@Body(new ZodValidationPipe(bookmarkSchema)) body: SaveBookmarkUseCaseIn) {
+        const bookmark = await this.saveBookmark.execute(body);
         return { bookmark };
     }
 

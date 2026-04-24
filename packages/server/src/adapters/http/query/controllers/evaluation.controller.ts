@@ -1,5 +1,4 @@
-import { Controller, Get, HttpException, HttpStatus, Param, Query, Res, Inject } from "@nestjs/common";
-import type { Response } from "express";
+import { Controller, Get, HttpException, HttpStatus, Param, Query, Inject } from "@nestjs/common";
 import {
     GetTaskEvaluationUseCase,
     ListBriefingsUseCase,
@@ -10,6 +9,15 @@ import {
     ListPlaybooksUseCase,
     GetPlaybookUseCase,
 } from "~application/workflow/usecases.index.js";
+import {
+    playbookListQuerySchema,
+    similarWorkflowQuerySchema,
+    workflowListQuerySchema,
+    type PlaybookListQuery,
+    type SimilarWorkflowQuery,
+    type WorkflowListQuery,
+} from "../schemas/evaluation.query.schema.js";
+import { ZodValidationPipe } from "~adapters/http/shared/zod-validation.pipe.js";
 
 @Controller()
 export class EvaluationController {
@@ -28,10 +36,9 @@ export class EvaluationController {
     async getEvaluation(
         @Param("id") taskId: string,
         @Query("scopeKey") scopeKey: string | undefined,
-        @Res() res: Response,
     ) {
         const evaluation = await this.getTaskEvaluation.execute(taskId, scopeKey);
-        res.json(evaluation ?? null);
+        return evaluation ?? null;
     }
 
     @Get("/api/tasks/:id/briefings")
@@ -40,20 +47,8 @@ export class EvaluationController {
     }
 
     @Get("/api/workflows/similar")
-    async findSimilar(
-        @Query("q") q?: string,
-        @Query("tags") tagsRaw?: string,
-        @Query("limit") limitRaw?: string,
-    ) {
-        const query = typeof q === "string" ? q.trim() : "";
-        if (!query) throw new HttpException({ error: "q parameter is required" }, HttpStatus.BAD_REQUEST);
-        const tags = typeof tagsRaw === "string" && tagsRaw
-            ? tagsRaw.split(",").map(t => t.trim()).filter(Boolean)
-            : undefined;
-        const limit = typeof limitRaw === "string"
-            ? Math.min(Number.parseInt(limitRaw, 10) || 5, 10)
-            : 5;
-        return this.searchSimilarWorkflows.execute(query, tags, limit);
+    async findSimilar(@Query(new ZodValidationPipe(similarWorkflowQuerySchema)) query: SimilarWorkflowQuery) {
+        return this.searchSimilarWorkflows.execute(query.q, query.tags, query.limit);
     }
 
     @Get("/api/workflows/:id/content")
@@ -67,32 +62,14 @@ export class EvaluationController {
     }
 
     @Get("/api/workflows")
-    async listWorkflows(
-        @Query("rating") ratingRaw?: string,
-        @Query("q") q?: string,
-        @Query("limit") limitRaw?: string,
-    ) {
-        const rating = ratingRaw === "good" || ratingRaw === "skip" ? ratingRaw : undefined;
-        const query = typeof q === "string" ? q.trim() : "";
-        const limit = typeof limitRaw === "string"
-            ? Math.min(Math.max(Number.parseInt(limitRaw, 10) || 50, 1), 100)
-            : 50;
-        if (query) return this.searchWorkflowLibrary.execute(query, rating, limit);
-        return this.listEvaluations.execute(rating);
+    async listWorkflows(@Query(new ZodValidationPipe(workflowListQuerySchema)) query: WorkflowListQuery) {
+        if (query.q) return this.searchWorkflowLibrary.execute(query.q, query.rating, query.limit);
+        return this.listEvaluations.execute(query.rating);
     }
 
     @Get("/api/playbooks")
-    async listPlaybooksEndpoint(
-        @Query("q") q?: string,
-        @Query("status") statusRaw?: string,
-        @Query("limit") limitRaw?: string,
-    ) {
-        const query = typeof q === "string" ? q.trim() : "";
-        const status = statusRaw === "draft" || statusRaw === "active" || statusRaw === "archived" ? statusRaw : undefined;
-        const limit = typeof limitRaw === "string"
-            ? Math.min(Math.max(Number.parseInt(limitRaw, 10) || 50, 1), 100)
-            : 50;
-        return this.listPlaybooks.execute(query || undefined, status, limit);
+    async listPlaybooksEndpoint(@Query(new ZodValidationPipe(playbookListQuerySchema)) query: PlaybookListQuery) {
+        return this.listPlaybooks.execute(query.q, query.status, query.limit);
     }
 
     @Get("/api/playbooks/:id")
