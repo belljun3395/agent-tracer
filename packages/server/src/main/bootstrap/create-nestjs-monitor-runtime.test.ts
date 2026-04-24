@@ -1,7 +1,9 @@
 import { mkdtemp, rm } from "node:fs/promises";
+import type { AddressInfo } from "node:net";
 import os from "node:os";
 import path from "node:path";
 import request from "supertest";
+import WebSocket from "ws";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createNestMonitorRuntime } from "./create-nestjs-monitor-runtime.js";
 import type { MonitorRuntime } from "./runtime.type.js";
@@ -17,6 +19,7 @@ describe("createNestMonitorRuntime HTTP API", () => {
 
     beforeEach(async () => {
         vi.spyOn(console, "warn").mockImplementation(() => {});
+        vi.spyOn(console, "info").mockImplementation(() => {});
         tempDir = await mkdtemp(path.join(os.tmpdir(), "agent-tracer-server-"));
         runtime = await createNestMonitorRuntime({
             databasePath: path.join(tempDir, "monitor.sqlite"),
@@ -40,6 +43,46 @@ describe("createNestMonitorRuntime HTTP API", () => {
             .expect(({ body }) => {
                 expect(body).toEqual({ ok: true });
             });
+    });
+
+    it("adds request ids and logs normalized HTTP access", async () => {
+        await request(app())
+            .get("/health")
+            .set("x-request-id", "request-context-test")
+            .set("x-forwarded-for", "203.0.113.10, 10.0.0.5")
+            .expect("x-request-id", "request-context-test")
+            .expect(200);
+
+        expect(parsedInfoLogs()).toContainEqual(expect.objectContaining({
+            type: "http_access",
+            requestId: "request-context-test",
+            method: "GET",
+            path: "/health",
+            statusCode: 200,
+            clientIp: "203.0.113.10",
+        }));
+    });
+
+    it("logs websocket upgrades with request context outside Nest middleware", async () => {
+        if (!runtime) throw new Error("test runtime was not initialized");
+        const port = await listenOnRandomPort(runtime.server);
+        const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`, {
+            headers: {
+                "x-request-id": "ws-request-context-test",
+                "x-forwarded-for": "203.0.113.20",
+            },
+        });
+
+        await waitForWebSocketMessage(ws);
+        ws.close();
+
+        expect(parsedInfoLogs()).toContainEqual(expect.objectContaining({
+            type: "http_upgrade",
+            requestId: "ws-request-context-test",
+            path: "/ws",
+            accepted: true,
+            clientIp: "203.0.113.20",
+        }));
     });
 
     it("creates and reads a task through the HTTP API", async () => {
@@ -135,3 +178,30 @@ describe("createNestMonitorRuntime HTTP API", () => {
             });
     });
 });
+
+async function listenOnRandomPort(server: MonitorRuntime["server"]): Promise<number> {
+    if (!server.listening) {
+        await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    }
+    const address = server.address();
+    if (!address || typeof address === "string") throw new Error("test server did not bind to a TCP port");
+    return (address as AddressInfo).port;
+}
+
+async function waitForWebSocketMessage(ws: WebSocket): Promise<void> {
+    await new Promise<void>((resolve, reject) => {
+        ws.once("message", () => resolve());
+        ws.once("error", reject);
+    });
+}
+
+function parsedInfoLogs(): readonly Record<string, unknown>[] {
+    return vi.mocked(console.info).mock.calls.flatMap(([message]) => {
+        if (typeof message !== "string") return [];
+        try {
+            return [JSON.parse(message) as Record<string, unknown>];
+        } catch {
+            return [];
+        }
+    });
+}
