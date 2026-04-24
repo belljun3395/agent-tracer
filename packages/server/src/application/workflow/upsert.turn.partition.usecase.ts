@@ -1,6 +1,7 @@
 import type { IEventRepository, ITaskRepository, ITurnPartitionRepository } from "~application/ports/index.js";
 import type { TurnGroup, TurnPartition } from "~domain/workflow/turn.partition.js";
 import { countNonPreludeTurns, validatePartition } from "~domain/workflow/turn.partition.js";
+import { TaskNotFoundError, TurnPartitionVersionMismatchError } from "./workflow.errors.js";
 
 export interface UpsertTurnPartitionInput {
     readonly groups: readonly TurnGroup[];
@@ -16,7 +17,7 @@ export class UpsertTurnPartitionUseCase {
 
     async execute(taskId: string, input: UpsertTurnPartitionInput): Promise<TurnPartition> {
         const task = await this.taskRepo.findById(taskId);
-        if (!task) throw new Error(`Task not found: ${taskId}`);
+        if (!task) throw new TaskNotFoundError(taskId);
 
         const events = await this.eventRepo.findByTaskId(taskId);
         const totalTurns = countNonPreludeTurns(events);
@@ -27,9 +28,7 @@ export class UpsertTurnPartitionUseCase {
             existing !== null &&
             existing.version !== input.baseVersion
         ) {
-            throw new Error(
-                `Turn partition version mismatch: expected ${input.baseVersion}, found ${existing.version}`,
-            );
+            throw new TurnPartitionVersionMismatchError(input.baseVersion, existing.version);
         }
 
         const nextVersion = (existing?.version ?? 0) + 1;

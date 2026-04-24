@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createApiSuccessEnvelope, isApiResponsePath } from "./api-response-envelope.js";
+import { createApiSuccessEnvelope } from "./api-response-envelope.js";
 
 describe("api response envelope", () => {
     it("wraps arbitrary success payloads under data", () => {
@@ -23,14 +23,5 @@ describe("api response envelope", () => {
             ok: true,
             data: { deleted: true },
         });
-    });
-
-    it("recognizes API response paths without wrapping health or websocket endpoints", () => {
-        expect(isApiResponsePath("/api")).toBe(true);
-        expect(isApiResponsePath("/api/tasks")).toBe(true);
-        expect(isApiResponsePath("/ingest/v1")).toBe(true);
-        expect(isApiResponsePath("/ingest/v1/events")).toBe(true);
-        expect(isApiResponsePath("/health")).toBe(false);
-        expect(isApiResponsePath("/ws")).toBe(false);
     });
 });

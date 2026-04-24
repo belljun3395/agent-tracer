@@ -4,13 +4,14 @@ import os from "node:os";
 import path from "node:path";
 import request from "supertest";
 import WebSocket from "ws";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
 import { createNestMonitorRuntime } from "./create-nestjs-monitor-runtime.js";
 import type { MonitorRuntime } from "./runtime.type.js";
 
 describe("createNestMonitorRuntime HTTP API", () => {
     let runtime: MonitorRuntime | undefined;
     let tempDir: string | undefined;
+    let stdoutSpy: MockInstance<typeof process.stdout.write>;
 
     function app() {
         if (!runtime) throw new Error("test runtime was not initialized");
@@ -19,7 +20,7 @@ describe("createNestMonitorRuntime HTTP API", () => {
 
     beforeEach(async () => {
         vi.spyOn(console, "warn").mockImplementation(() => {});
-        vi.spyOn(console, "info").mockImplementation(() => {});
+        stdoutSpy = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
         tempDir = await mkdtemp(path.join(os.tmpdir(), "agent-tracer-server-"));
         runtime = await createNestMonitorRuntime({
             databasePath: path.join(tempDir, "monitor.sqlite"),
@@ -219,6 +220,24 @@ describe("createNestMonitorRuntime HTTP API", () => {
                 });
             });
     });
+
+    function parsedInfoLogs(): readonly Record<string, unknown>[] {
+        return stdoutSpy.mock.calls.flatMap((args) => {
+            const [chunk] = args as [string | Uint8Array];
+            if (typeof chunk !== "string") return [];
+            return chunk
+                .split("\n")
+                .flatMap((line) => {
+                    const trimmed = line.trim();
+                    if (!trimmed.startsWith("{")) return [];
+                    try {
+                        return [JSON.parse(trimmed) as Record<string, unknown>];
+                    } catch {
+                        return [];
+                    }
+                });
+        });
+    }
 });
 
 async function listenOnRandomPort(server: MonitorRuntime["server"]): Promise<number> {
@@ -234,16 +253,5 @@ async function waitForWebSocketMessage(ws: WebSocket): Promise<void> {
     await new Promise<void>((resolve, reject) => {
         ws.once("message", () => resolve());
         ws.once("error", reject);
-    });
-}
-
-function parsedInfoLogs(): readonly Record<string, unknown>[] {
-    return vi.mocked(console.info).mock.calls.flatMap(([message]) => {
-        if (typeof message !== "string") return [];
-        try {
-            return [JSON.parse(message) as Record<string, unknown>];
-        } catch {
-            return [];
-        }
     });
 }

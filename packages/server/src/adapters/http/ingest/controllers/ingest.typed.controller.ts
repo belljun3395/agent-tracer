@@ -2,7 +2,7 @@ import { Controller, Post, Body, HttpStatus, HttpCode, Inject } from "@nestjs/co
 import type { z } from "zod";
 import { IngestEventsUseCase } from "~application/events/index.js";
 import type { IngestEventInput } from "~application/events/index.js";
-import { GetRulePatternsUseCase } from "~application/rule-commands/index.js";
+import { ClassifyTerminalLaneUseCase } from "~application/rule-commands/index.js";
 import {
     toolActivityBatchSchema,
     workflowBatchSchema,
@@ -32,7 +32,7 @@ type TypedBatchBody = { readonly events: readonly TypedEvent[] };
 export class TypedIngestController {
     constructor(
         @Inject(IngestEventsUseCase) private readonly ingestEvents: IngestEventsUseCase,
-        @Inject(GetRulePatternsUseCase) private readonly getRulePatterns: GetRulePatternsUseCase,
+        @Inject(ClassifyTerminalLaneUseCase) private readonly classifyTerminalLane: ClassifyTerminalLaneUseCase,
     ) {}
 
     @Post("tool-activity")
@@ -41,24 +41,8 @@ export class TypedIngestController {
         @Body(new ZodValidationPipe(toolActivityBatchSchema, "Invalid request body"))
         body: ToolActivityBatchBody,
     ) {
-        const terminalEvents = body.events.filter((e) => e.kind === "terminal.command");
-        const uniqueTaskIds = [...new Set(terminalEvents.map((e) => e.taskId))];
-        const patternsByTask = new Map(
-            await Promise.all(
-                uniqueTaskIds.map(async (taskId) => [taskId, await this.getRulePatterns.execute(taskId)] as const),
-            ),
-        );
-
-        const events = body.events.map((event) => {
-            if (event.kind !== "terminal.command") return event;
-            const command = event.metadata?.["command"];
-            if (typeof command !== "string") return event;
-            const patterns = patternsByTask.get(event.taskId) ?? [];
-            const matches = patterns.some((p) => command.toLowerCase().includes(p.trim().toLowerCase()));
-            return matches ? { ...event, lane: "rule" as const } : event;
-        });
-        const result = await this.ingestEvents.execute(events);
-        return { ok: true, data: result };
+        const classified = await this.classifyTerminalLane.execute(body.events);
+        return this.ingestEvents.execute(classified as readonly IngestEventInput[]);
     }
 
     @Post("workflow")
@@ -119,12 +103,10 @@ export class TypedIngestController {
                 ...(e.promptId !== undefined ? { promptId: e.promptId } : {}),
             },
         }));
-        const result = await this.ingestEvents.execute(events);
-        return { ok: true, data: result };
+        return this.ingestEvents.execute(events);
     }
 
     private async handleBatch(body: TypedBatchBody) {
-        const result = await this.ingestEvents.execute([...body.events]);
-        return { ok: true, data: result };
+        return this.ingestEvents.execute([...body.events]);
     }
 }

@@ -1,4 +1,4 @@
-import { Controller, Patch, Body, Param, HttpException, HttpStatus, Inject } from "@nestjs/common";
+import { Controller, Patch, Body, Param, NotFoundException, Inject } from "@nestjs/common";
 import { UpdateEventUseCase } from "~application/events/index.js";
 import type { EventPatchInput } from "~application/events/index.js";
 import { eventPatchSchema } from "../schemas/event.write.schema.js";
@@ -15,11 +15,11 @@ export class EventController {
         @Body(new ZodValidationPipe(eventPatchSchema)) body: Omit<EventPatchInput, "eventId">,
     ) {
         const event = await this.updateEvent.execute({
-            eventId: eventId,
-            ...(body.displayTitle !== undefined ? { displayTitle: body.displayTitle } : {})
+            eventId,
+            ...(body.displayTitle !== undefined ? { displayTitle: body.displayTitle } : {}),
         } satisfies EventPatchInput);
         if (!event) {
-            throw new HttpException({ error: "Event not found" }, HttpStatus.NOT_FOUND);
+            throw new NotFoundException("Event not found");
         }
         return { event };
     }

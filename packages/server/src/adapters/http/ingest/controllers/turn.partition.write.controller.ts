@@ -1,4 +1,4 @@
-import { Body, Controller, HttpCode, HttpException, HttpStatus, Inject, Param, Post, Put } from "@nestjs/common";
+import { Body, Controller, HttpCode, HttpStatus, Inject, Param, Post, Put } from "@nestjs/common";
 import {
     ResetTurnPartitionUseCase,
     UpsertTurnPartitionUseCase,
@@ -20,41 +20,22 @@ export class TurnPartitionWriteController {
         @Param("id", pathParamPipe) taskId: string,
         @Body(new ZodValidationPipe(turnPartitionUpsertSchema)) body: TurnPartitionUpsertBody,
     ) {
-        try {
-            return await this.upsert.execute(taskId, {
-                groups: body.groups.map((g) => ({
-                    id: g.id,
-                    from: g.from,
-                    to: g.to,
-                    label: g.label ?? null,
-                    visible: g.visible,
-                })),
-                ...(body.baseVersion !== undefined ? { baseVersion: body.baseVersion } : {}),
-            });
-        } catch (error) {
-            throw toHttpError(error);
-        }
+        return this.upsert.execute(taskId, {
+            groups: body.groups.map((g) => ({
+                id: g.id,
+                from: g.from,
+                to: g.to,
+                label: g.label ?? null,
+                visible: g.visible,
+            })),
+            ...(body.baseVersion !== undefined ? { baseVersion: body.baseVersion } : {}),
+        });
     }
 
     @Post("reset")
     @HttpCode(HttpStatus.OK)
     async resetPartition(@Param("id", pathParamPipe) taskId: string) {
-        try {
-            await this.reset.execute(taskId);
-            return { ok: true };
-        } catch (error) {
-            throw toHttpError(error);
-        }
+        await this.reset.execute(taskId);
+        return { reset: true };
     }
-}
-
-function toHttpError(error: unknown): HttpException {
-    const message = error instanceof Error ? error.message : String(error);
-    if (/not found/i.test(message)) {
-        return new HttpException({ error: message }, HttpStatus.NOT_FOUND);
-    }
-    if (/version mismatch/i.test(message)) {
-        return new HttpException({ error: message }, HttpStatus.CONFLICT);
-    }
-    return new HttpException({ error: message }, HttpStatus.BAD_REQUEST);
 }

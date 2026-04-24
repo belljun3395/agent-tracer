@@ -4,9 +4,7 @@ import { pathParamPipe } from "~adapters/http/shared/path-param.pipe.js";
 
 @Controller("api/tasks/:id/turn-partition")
 export class TurnPartitionController {
-    constructor(
-        @Inject(GetTurnPartitionUseCase) private readonly getTurnPartition: GetTurnPartitionUseCase,
-    ) {}
+    constructor(@Inject(GetTurnPartitionUseCase) private readonly getTurnPartition: GetTurnPartitionUseCase) {}
 
     @Get()
     async get(@Param("id", pathParamPipe) taskId: string) {

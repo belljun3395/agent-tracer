@@ -16,7 +16,6 @@ export class IngestController {
         @Body(new ZodValidationPipe(ingestEventsBatchSchema, "Invalid request body"))
         body: IngestEventsBatchBody,
     ) {
-        const result = await this.ingestEvents.execute(body.events);
-        return { ok: true, data: result };
+        return this.ingestEvents.execute(body.events);
     }
 }

@@ -1,4 +1,4 @@
-import { Controller, Get, Param, HttpException, HttpStatus, Inject } from "@nestjs/common";
+import { Controller, Get, Inject, NotFoundException, Param } from "@nestjs/common";
 import {
     GetOverviewUseCase,
     GetObservabilityOverviewUseCase,
@@ -13,8 +13,10 @@ import {
     GetDefaultWorkspacePathUseCase,
 } from "~application/tasks/index.js";
 import { pathParamPipe } from "~adapters/http/shared/path-param.pipe.js";
+import { NoEnvelope } from "~main/presentation/decorators/index.js";
 
 @Controller("health")
+@NoEnvelope()
 export class HealthController {
     @Get()
     health() {
@@ -69,21 +71,21 @@ export class TaskQueryController {
     @Get(":taskId/observability")
     async taskObservability(@Param("taskId", pathParamPipe) taskId: string) {
         const observability = await this.getTaskObservability.execute(taskId);
-        if (!observability) throw new HttpException({ error: "Task not found" }, HttpStatus.NOT_FOUND);
+        if (!observability) throw new NotFoundException("Task not found");
         return observability;
     }
 
     @Get(":taskId/openinference")
     async taskOpenInference(@Param("taskId", pathParamPipe) taskId: string) {
         const exportPayload = await this.getTaskOpenInference.execute(taskId);
-        if (!exportPayload) throw new HttpException({ error: "Task not found" }, HttpStatus.NOT_FOUND);
+        if (!exportPayload) throw new NotFoundException("Task not found");
         return exportPayload;
     }
 
     @Get(":taskId")
     async getTaskEndpoint(@Param("taskId", pathParamPipe) taskId: string) {
         const task = await this.getTask.execute(taskId);
-        if (!task) throw new HttpException({ error: "Task not found" }, HttpStatus.NOT_FOUND);
+        if (!task) throw new NotFoundException("Task not found");
         const [timeline, runtimeSession] = await Promise.all([
             this.getTaskTimeline.execute(task.id),
             this.getTaskLatestRuntimeSession.execute(task.id),

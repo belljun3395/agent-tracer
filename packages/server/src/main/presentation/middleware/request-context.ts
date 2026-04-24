@@ -64,11 +64,15 @@ export function assignRequestContext(request: RequestContextIncomingMessage, con
 }
 
 export function logHttpAccess(event: HttpAccessLog): void {
-    console.info(JSON.stringify(event));
+    writeStructuredLogLine(event);
 }
 
 export function logHttpUpgrade(event: HttpUpgradeLog): void {
-    console.info(JSON.stringify(event));
+    writeStructuredLogLine(event);
+}
+
+function writeStructuredLogLine(event: HttpAccessLog | HttpUpgradeLog): void {
+    process.stdout.write(`${JSON.stringify(event)}\n`);
 }
 
 function resolveClientIp(headers: IncomingHttpHeaders, remoteAddress?: string): string | undefined {

@@ -1,4 +1,4 @@
-import { Controller, Get, HttpException, HttpStatus, Param, Query, Inject } from "@nestjs/common";
+import { Controller, Get, Inject, NotFoundException, Param, Query } from "@nestjs/common";
 import {
     GetTaskEvaluationUseCase,
     ListBriefingsUseCase,
@@ -62,7 +62,7 @@ export class WorkflowController {
         @Query("scopeKey") scopeKey: string | undefined,
     ) {
         const content = await this.getWorkflowContent.execute(taskId, scopeKey);
-        if (!content) throw new HttpException({ error: "workflow content not found" }, HttpStatus.NOT_FOUND);
+        if (!content) throw new NotFoundException("workflow content not found");
         return content;
     }
 
@@ -88,7 +88,7 @@ export class PlaybookController {
     @Get(":id")
     async getPlaybookEndpoint(@Param("id", pathParamPipe) playbookId: string) {
         const playbook = await this.getPlaybook.execute(playbookId);
-        if (!playbook) throw new HttpException({ error: "playbook not found" }, HttpStatus.NOT_FOUND);
+        if (!playbook) throw new NotFoundException("playbook not found");
         return playbook;
     }
 }
