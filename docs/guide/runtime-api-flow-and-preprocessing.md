@@ -36,30 +36,62 @@ Related documentation:
 
 ### Input Normalization
 
-- Reads hook stdin JSON; treats non-objects as empty object.
-- Claude payload `hook_source` still comes as `"claude-hook"` value; only allows this value to block contaminated events.
+- Every hook reads stdin via the shared `runHook()` wrapper
+  (`packages/runtime/src/shared/hook-runtime/run-hook.ts`). Non-JSON /
+  non-object payloads become an empty object; the hook exits 0 without
+  blocking Claude Code.
+- Per-event payload readers under `packages/runtime/src/shared/hooks/claude/payloads.ts`
+  enforce required fields (`session_id`, etc.) and expose typed
+  `agentId` / `model` / `permissionMode` / `transcriptPath` / `cwd`.
+- Claude payload `hook_source` still comes as `"claude-hook"`; only that
+  value is treated as a valid Claude event.
 - Canonical `runtimeSource` sent to server is `claude-plugin`.
-- Strings are normalized with trim + maxLength cutoff.
+- Strings are normalized with trim + maxLength cutoff inside the readers.
 
 ### Session Prerequisite Guarantee
 
-- Calls `runtime-session-ensure` first from `SessionStart`, `UserPromptSubmit`, `PreToolUse` series.
+- Calls `runtime-session-ensure` first from `SessionStart`,
+  `UserPromptSubmit`, `PreToolUse`, `SubagentStart`, and the status-line
+  path.
 - User prompt is filtered for closure commands like `/exit`, then saved to `/api/user-message`.
 
 ### Tool Event Classification
 
-- Routes to `/api/tool-used`, `/api/explore`, `/api/terminal-command`, `/api/agent-activity` based on `tool_name` and `tool_input`.
-- MCP-format tools (`mcp__...`) are converted to `activityType: "mcp_call"`.
+- Each official Claude tool has its own file under `PostToolUse/` (e.g.
+  `Bash.ts`, `Edit.ts`, `Read.ts`, `Agent.ts`, `Skill.ts`, `TaskCreate.ts`,
+  …). Shared per-category logic lives in `_file.ops.ts`,
+  `_explore.ops.ts`, `_agent.ops.ts`, `_skill.ops.ts`, `_todo.ops.ts`.
+- Routes to `/api/tool-used`, `/api/explore`, `/api/terminal-command`,
+  `/api/agent-activity`, `/api/todo` based on which ops module handled the event.
+- MCP-format tools (`mcp__...`) are handled by the `Mcp.ts` category
+  handler (the only grouped file, since `mcp__*` is a wildcard regex) and
+  are converted to `activityType: "mcp_call"`.
 - Bash is semantically classified by command meaning with enriched semantic metadata.
-- `Agent` / `Skill` / subagent lifecycle is linked to `/api/agent-activity`, `/api/task-link`, `/api/async-task`.
+- `Agent` / `Skill` / subagent lifecycle is linked to `/api/agent-activity`,
+  `/api/task-link`, `/api/async-task`.
+- Parallel tool fan-outs are bounded by `PostToolBatch` posting a
+  `context.saved` marker (`trigger: "tool_batch_completed"`).
+- Tool-call auto-denials from `PermissionDenied` post a `rule.logged`
+  event with `ruleOutcome: "auto_deny"`.
 
 ### Assistant Response Boundary
 
 - `Stop` hook reads the final assistant message and sends an `assistant.response` event to `/ingest/v1/conversation`.
+- `StopFailure` posts an `assistant.response` with
+  `stopReason: "error:<error_type>"` whenever a turn fails to complete
+  due to `rate_limit`, `authentication_failed`, `billing_error`,
+  `invalid_request`, `server_error`, `max_output_tokens`, or `unknown`.
 - Token/context telemetry is collected by runtime-specific telemetry paths, not by the lifecycle API itself.
 - `Stop` calls `/api/runtime-session-end` with `completeTask: true` and `completionReason: "assistant_turn_complete"`.
 - `SessionEnd` only passes `completeTask: true` for an explicit user exit; runtime termination/resume closes the monitor session without completing the primary task.
 - The server will not complete a primary task while background descendants are still running; in that case it moves the primary task to `waiting`.
+
+### Transport Error Surface
+
+- `postJson` throws `MonitorRequestError(status, pathname, code?, details?)`
+  when the monitor returns a non-2xx response, preserving the server
+  envelope's `error.code` / `error.message` / `error.details`. The shared
+  `runHook()` wrapper logs the error and exits 0; Claude is never blocked.
 
 ## Representative JSON Examples
 

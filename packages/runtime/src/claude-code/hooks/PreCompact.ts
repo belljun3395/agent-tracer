@@ -1,66 +1,53 @@
 /**
  * Claude Code Hook: PreCompact
  *
+ * Ref: https://code.claude.com/docs/en/hooks#precompact
+ *
  * Fires before context compaction begins.
- * Supported matchers: "manual" | "auto" (compaction trigger).
  *
- * Stdin payload fields (ref: https://code.claude.com/docs/en/hooks#other-events):
- *   session_id           string  — unique session identifier
- *   hook_event_name      string  — "PreCompact"
- *   trigger              string  — "manual" or "auto"
- *   cwd                  string  — current working directory
- *   transcript_path      string  — path to the session transcript JSONL
- *   permission_mode      string  — current permission mode
+ * Matchers: "manual" | "auto"
  *
- * NOTE: The following field is used below but is NOT in the official schema.
- * It appears to be an implementation extension available in practice:
+ * Stdin payload fields:
+ *   session_id       string
+ *   hook_event_name  string — "PreCompact"
+ *   trigger          string — manual | auto
+ *
+ * Implementation extension (not in official schema, available in practice):
  *   custom_instructions  string? — custom instructions applied before compact
  *
- * Blocking: PreCompact cannot block (exit 2 shows stderr but execution continues).
- *           Ref: https://code.claude.com/docs/en/hooks#exit-code-2-behavior-matrix
- *
- * This handler records a pre-compaction marker in the Agent Tracer monitor
- * so the UI can mark compaction boundaries in the session timeline.
+ * Blocking: Yes (decision: "block"). This handler never blocks.
  */
+import {toTrimmedString} from "~claude-code/hooks/util/utils.js";
+import {claudeHookRuntime} from "~claude-code/hooks/lib/runtime.js";
+import {ensureRuntimeSession} from "~claude-code/hooks/lib/transport/transport.js";
+import {readPreCompact} from "~shared/hooks/claude/payloads.js";
+import {runHook} from "~shared/hook-runtime/index.js";
 import {KIND} from "~shared/events/kinds.js";
 import {LANE} from "~shared/events/lanes.js";
 import {type ContextSavedMetadata} from "~shared/events/metadata.js";
-import {toTrimmedString} from "~claude-code/hooks/util/utils.js";
-import {readHookSessionContext} from "~claude-code/hooks/lib/hook/hook.context.js";
-import {ensureRuntimeSession, postTaggedEvent} from "~claude-code/hooks/lib/transport/transport.js";
 import {provenEvidence} from "~shared/semantics/evidence.js";
-import {hookLog} from "~claude-code/hooks/lib/hook/hook.log.js";
 
-async function main(): Promise<void> {
-    const {payload, sessionId} = await readHookSessionContext("PreCompact");
-    hookLog("PreCompact", "fired", {sessionId: sessionId || "(none)"});
+await runHook("PreCompact", {
+    logger: claudeHookRuntime.logger,
+    parse: readPreCompact,
+    handler: async (payload) => {
+        if (!payload.sessionId) return;
+        const ids = await ensureRuntimeSession(payload.sessionId);
+        const customInstructions = toTrimmedString(payload.payload["custom_instructions"]);
 
-    if (!sessionId) {
-        hookLog("PreCompact", "skipped — no sessionId");
-        return;
-    }
-
-    const ids = await ensureRuntimeSession(sessionId);
-    const trigger = toTrimmedString(payload.trigger) || "auto";
-    const customInstructions = toTrimmedString(payload.custom_instructions);
-
-    const baseMeta: ContextSavedMetadata = {
-        ...provenEvidence("Emitted by the PreCompact hook."),
-        trigger,
-        compactPhase: "before",
-    };
-    await postTaggedEvent({
-        kind: KIND.contextSaved,
-        taskId: ids.taskId,
-        sessionId: ids.sessionId,
-        title: "Context compacting",
-        ...(customInstructions ? {body: customInstructions} : {}),
-        lane: LANE.planning,
-        metadata: baseMeta,
-    });
-    hookLog("PreCompact", "save-context posted", {trigger});
-}
-
-void main().catch((err: unknown) => {
-    hookLog("PreCompact", "ERROR", {error: String(err)});
+        const metadata: ContextSavedMetadata = {
+            ...provenEvidence("Emitted by the PreCompact hook."),
+            trigger: payload.trigger,
+            compactPhase: "before",
+        };
+        await claudeHookRuntime.transport.postTaggedEvent({
+            kind: KIND.contextSaved,
+            taskId: ids.taskId,
+            sessionId: ids.sessionId,
+            title: "Context compacting",
+            ...(customInstructions ? {body: customInstructions} : {}),
+            lane: LANE.planning,
+            metadata,
+        });
+    },
 });

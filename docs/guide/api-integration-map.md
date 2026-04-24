@@ -18,12 +18,12 @@ Related documentation:
 
 | API | Role | Automatic adapters | Manual runtime |
 |-----|------|--------------------|-----------------|
-| `/api/runtime-session-ensure` | Runtime session upsert | `SessionStart`, `UserPromptSubmit`, `PreToolUse` | Use if stable runtime session ID is available |
+| `/api/runtime-session-ensure` | Runtime session upsert | `SessionStart`, `UserPromptSubmit`, `PreToolUse`, subagent hooks | Use if stable runtime session ID is available |
 | `/api/task-start` | Explicit task/session creation | Rarely used | Use when no session ID-based binding |
-| `/api/runtime-session-end` | Runtime session closure | `Stop`, Claude `SessionEnd` | Use to separate turn end from task end; pass `completeTask: true` only for a completed work item |
+| `/api/runtime-session-end` | Runtime session closure | `Stop`, `SessionEnd`, `SubagentStop`, Codex `Stop` | Use to separate turn end from task end; pass `completeTask: true` only for a completed work item |
 | `/api/task-complete` | Explicit task completion | Not called directly | Use when directly completing a known task; accepts task fields only, not runtime-session closure fields |
 | `/api/task-error` | Explicit task failure | Not called directly | Use when directly marking a known task as errored |
-| `/ingest/v1/conversation` (`assistant.response`) | Record assistant turn result | `Stop` | Send an `assistant.response` event if assistant has final text |
+| `/ingest/v1/conversation` (`assistant.response`) | Record assistant turn result | `Stop`, `StopFailure` | Send an `assistant.response` event if assistant has final text |
 
 `/api/task-complete` and `/api/task-error` finalize a task by `taskId`.
 Runtime-session policy fields such as `completeTask`, `completionReason`, and
@@ -36,28 +36,32 @@ bound task.
 | API | Role | Claude Code plugin | Manual runtime |
 |-----|------|-------------------|-----------------|
 | `/api/user-message` | Record user input | `UserPromptSubmit` | Required |
-| `/api/save-context` | Planning lane snapshot | `SessionStart`, `PreCompact`, `PostCompact` | Optional |
+| `/api/save-context` | Planning lane snapshot | `SessionStart`, `PreCompact`, `PostCompact`, `PostToolBatch`, `CwdChanged`, `Notification`, `ConfigChange` | Optional |
+| `/api/instructions-loaded` | Record loaded instruction files | `InstructionsLoaded` | Optional |
 | `/api/plan` | Record structured planning step | MCP/manual only | Optional |
-| `/api/action` | Record agent action before execution | MCP/manual only | Optional |
+| `/api/action` | Record agent action before execution | MCP/manual only; `SubagentStart`, `SubagentStop` also route here | Optional |
 | `/api/verify` | Record verification step result | MCP/manual only | Optional |
-| `/api/rule` | Record rule-related events | MCP/manual only | Optional |
+| `/api/rule` | Record rule-related events | `PermissionDenied`, Codex `PermissionRequest` | Optional |
 | `/api/question` | Record question flow | MCP/manual only | Optional |
 | `/api/thought` | Record summarized reasoning | MCP/manual only | Optional |
 
 ## Tool Usage
 
+Claude's PostToolUse matcher is one-per-official-tool (see
+[claude-setup.md § PostToolUse](./claude-setup.md#postooluse--per-tool-subhandlers)):
+
 | API | Role | Claude Code plugin | Manual runtime |
 |-----|------|-------------------|-----------------|
-| `/api/tool-used` | Record implementation action | `PostToolUse(Edit|Write|mcp__*)`, `PostToolUseFailure` | Required |
-| `/api/explore` | Record file/web exploration | `PostToolUse(Read|Glob|Grep|WebSearch|WebFetch)` | Required |
-| `/api/terminal-command` | Record terminal command execution | `PostToolUse(Bash)` | Use if bash-family tools exist |
-| `/api/todo` | Record todo state changes | `PostToolUse(TodoWrite|TaskCreate|TaskUpdate)` | Use if todo tools exist |
+| `/api/tool-used` | Record implementation action | `PostToolUse(Edit)`, `PostToolUse(Write)`, `PostToolUse(Read)`, `PostToolUse(Glob)`, `PostToolUse(Grep)`, `PostToolUse(WebFetch)`, `PostToolUse(WebSearch)`, `PostToolUse(AskUserQuestion)`, `PostToolUse(ExitPlanMode)`, `PostToolUseFailure` | Required |
+| `/api/explore` | Record file/web exploration | (covered by the per-tool handlers above sharing `_explore.ops.ts`) | Required |
+| `/api/terminal-command` | Record terminal command execution | `PostToolUse(Bash)`, Codex `PostToolUse(Bash)` | Use if bash-family tools exist |
+| `/api/todo` | Record todo state changes | `PostToolUse(TaskCreate)`, `PostToolUse(TaskUpdate)`, `PostToolUse(TodoWrite)`, `TaskCreated`, `TaskCompleted` | Use if todo tools exist |
 
 ## Agent/Background
 
 | API | Role | Claude Code plugin | Manual runtime |
 |-----|------|-------------------|-----------------|
-| `/api/agent-activity` | Record delegation/skill/MCP calls | `PostToolUse(Agent|Skill|mcp__*)` | Use if subagent or skill concept exists |
+| `/api/agent-activity` | Record delegation/skill/MCP calls | `PostToolUse(Agent)`, `PostToolUse(Skill)`, `PostToolUse(mcp__*)` | Use if subagent or skill concept exists |
 | `/api/async-task` | Background task state | `SubagentStart`, `SubagentStop` | Use if background execution exists |
 | `/api/task-link` | Link parent-child tasks | When child runtime session is acquired | Use if background lineage exists |
 

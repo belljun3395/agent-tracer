@@ -1,0 +1,44 @@
+/**
+ * Shared file-tool PostToolUse event builder used by both Edit.ts and
+ * Write.ts. Each tool-specific file exists to satisfy the "PascalCase =
+ * official tool identifier" convention while the heavy lifting lives here.
+ */
+import * as path from "node:path";
+import {relativeProjectPath} from "~claude-code/hooks/util/paths.js";
+import {toTrimmedString} from "~claude-code/hooks/util/utils.js";
+import {postTaggedEvent} from "./_shared.js";
+import type {PostToolUseHandlerArgs} from "./_shared.js";
+import {KIND} from "~shared/events/kinds.js";
+import {LANE} from "~shared/events/lanes.js";
+import {type ToolUsedMetadata} from "~shared/events/metadata.js";
+import {provenEvidence} from "~shared/semantics/evidence.js";
+import {buildSemanticMetadata, inferFileToolSemantic} from "~shared/semantics/inference.js";
+
+export async function postFileToolEvent({payload, ids}: PostToolUseHandlerArgs): Promise<void> {
+    const toolName = payload.toolName;
+    const filePath = toTrimmedString(payload.toolInput["file_path"])
+        || toTrimmedString(payload.toolInput["path"])
+        || "";
+    const relPath = filePath ? relativeProjectPath(filePath) : "";
+    const semantic = inferFileToolSemantic(toolName, relPath || undefined);
+    const title = relPath ? `${toolName}: ${path.basename(relPath)}` : toolName;
+    const body = relPath ? `Modified ${relPath}` : `Used ${toolName}`;
+
+    const metadata: ToolUsedMetadata = {
+        ...provenEvidence(`Observed directly by the ${toolName} PostToolUse hook.`),
+        ...buildSemanticMetadata(semantic),
+        toolName,
+        ...(filePath ? {filePath, relPath} : {}),
+        ...(payload.toolUseId ? {toolUseId: payload.toolUseId} : {}),
+    };
+    await postTaggedEvent({
+        kind: KIND.toolUsed,
+        taskId: ids.taskId,
+        sessionId: ids.sessionId,
+        lane: LANE.implementation,
+        title,
+        body,
+        ...(filePath ? {filePaths: [filePath]} : {}),
+        metadata,
+    });
+}

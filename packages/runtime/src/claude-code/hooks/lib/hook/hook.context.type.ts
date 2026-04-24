@@ -5,6 +5,10 @@ export interface HookSessionContext {
     readonly sessionId: string;
     readonly agentId?: string;
     readonly agentType?: string;
+    readonly model?: string;
+    readonly permissionMode?: string;
+    readonly transcriptPath?: string;
+    readonly cwd?: string;
 }
 
 export interface ToolHookContext extends HookSessionContext {
