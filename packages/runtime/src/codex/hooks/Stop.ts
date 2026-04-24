@@ -61,7 +61,7 @@ await runHook("Stop", {
             runtimeSource: CODEX_RUNTIME_SOURCE,
             runtimeSessionId: payload.sessionId,
             summary: `Assistant turn completed (${stopReason})`,
-            completeTask: true,
+            completeTask: false,
             completionReason: "assistant_turn_complete",
         });
 
