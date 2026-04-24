@@ -7,6 +7,7 @@ export default defineConfig({
     format: ["esm"],
     dts: true,
     clean: true,
+    tsconfig: "tsconfig.json",
     external: [
         "@huggingface/transformers",
         "@monitor/domain",

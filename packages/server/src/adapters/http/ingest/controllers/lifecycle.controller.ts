@@ -1,4 +1,4 @@
-import { Controller, Post, Patch, Delete, Body, Param, HttpException, HttpStatus, HttpCode, Inject } from "@nestjs/common";
+import { Body, Controller, Delete, HttpCode, HttpStatus, Inject, NotFoundException, Param, Patch, Post } from "@nestjs/common";
 import {
     StartTaskUseCase,
     CompleteTaskUseCase,
@@ -75,21 +75,21 @@ export class TaskLifecycleController {
             ...(body.status !== undefined ? { status: body.status } : {}),
         };
         const task = await this.updateTask.execute(patchInput);
-        if (!task) throw new HttpException({ error: "Task not found" }, HttpStatus.NOT_FOUND);
+        if (!task) throw new NotFoundException("Task not found");
         return { task };
     }
 
     @Delete("tasks/finished")
     async deleteFinished() {
         const deleted = await this.deleteFinishedTasks.execute();
-        return { ok: true, deleted };
+        return { deleted };
     }
 
     @Delete("tasks/:taskId")
     async deleteTaskEndpoint(@Param("taskId", pathParamPipe) taskId: string) {
         const result = await this.deleteTask.execute(taskId);
-        if (result === "not_found") throw new HttpException({ ok: false, error: "Task not found" }, HttpStatus.NOT_FOUND);
-        return { ok: true };
+        if (result === "not_found") throw new NotFoundException("Task not found");
+        return { deleted: true };
     }
 }
 
@@ -122,6 +122,6 @@ export class RuntimeSessionController {
                 ? { backgroundCompletions: body.backgroundCompletions.map((id) => id) }
                 : {}),
         });
-        return { ok: true };
+        return { ended: true };
     }
 }

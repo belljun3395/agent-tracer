@@ -1,24 +1,12 @@
 import { BadRequestException, Injectable, type ArgumentMetadata, type PipeTransform } from "@nestjs/common";
 import type { ZodError, ZodType, ZodTypeDef } from "zod";
+import {
+    createApiErrorEnvelope,
+    type ApiErrorEnvelope,
+} from "~main/presentation/interceptors/api-response-envelope.js";
 
-export interface ValidationErrorBody {
-    readonly ok: false;
-    readonly error: {
-        readonly code: "validation_error";
-        readonly message: string;
-        readonly details: ReturnType<ZodError["format"]>;
-    };
-}
-
-export function createValidationErrorBody(error: ZodError, message = "Invalid request"): ValidationErrorBody {
-    return {
-        ok: false,
-        error: {
-            code: "validation_error",
-            message,
-            details: error.format(),
-        },
-    };
+export function createValidationErrorBody(error: ZodError, message = "Invalid request"): ApiErrorEnvelope {
+    return createApiErrorEnvelope("validation_error", message, error.format());
 }
 
 @Injectable()

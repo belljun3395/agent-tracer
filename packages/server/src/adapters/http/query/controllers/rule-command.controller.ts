@@ -4,9 +4,7 @@ import { pathParamPipe } from "~adapters/http/shared/path-param.pipe.js";
 
 @Controller("api/rule-commands")
 export class GlobalRuleCommandController {
-    constructor(
-        @Inject(ListRuleCommandsUseCase) private readonly listRuleCommands: ListRuleCommandsUseCase,
-    ) {}
+    constructor(@Inject(ListRuleCommandsUseCase) private readonly listRuleCommands: ListRuleCommandsUseCase) {}
 
     @Get()
     async listGlobal() {
@@ -17,9 +15,7 @@ export class GlobalRuleCommandController {
 
 @Controller("api/tasks/:taskId/rule-commands")
 export class TaskRuleCommandController {
-    constructor(
-        @Inject(ListRuleCommandsUseCase) private readonly listRuleCommands: ListRuleCommandsUseCase,
-    ) {}
+    constructor(@Inject(ListRuleCommandsUseCase) private readonly listRuleCommands: ListRuleCommandsUseCase) {}
 
     @Get()
     async listForTask(@Param("taskId", pathParamPipe) taskId: string) {

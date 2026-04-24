@@ -16,3 +16,4 @@ export { GetTurnPartitionUseCase } from "./get.turn.partition.usecase.js";
 export { UpsertTurnPartitionUseCase } from "./upsert.turn.partition.usecase.js";
 export type { UpsertTurnPartitionInput } from "./upsert.turn.partition.usecase.js";
 export { ResetTurnPartitionUseCase } from "./reset.turn.partition.usecase.js";
+export { TaskNotFoundError, TurnPartitionVersionMismatchError } from "./workflow.errors.js";

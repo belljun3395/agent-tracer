@@ -1,4 +1,4 @@
-import { Body, Controller, HttpCode, HttpException, HttpStatus, Param, Post, Query, Inject } from "@nestjs/common";
+import { Body, Controller, HttpCode, HttpStatus, Inject, NotFoundException, Param, Patch, Post, Query } from "@nestjs/common";
 import type { PlaybookUpsertInput } from "~application/index.js";
 import {
     UpsertTaskEvaluationUseCase,
@@ -44,7 +44,7 @@ export class TaskEvaluationWriteController {
             ...(workflowSnapshot !== undefined ? { workflowSnapshot } : {}),
             ...(workflowContext !== undefined ? { workflowContext } : {}),
         });
-        return { ok: true };
+        return { evaluated: true };
     }
 
     @Post("briefing/copied")
@@ -54,7 +54,7 @@ export class TaskEvaluationWriteController {
         @Query("scopeKey") scopeKey: string | undefined,
     ) {
         await this.recordBriefingCopy.execute(taskId, scopeKey);
-        return { ok: true };
+        return { recorded: true };
     }
 
     @Post("briefings")
@@ -83,47 +83,52 @@ export class PlaybookWriteController {
     @Post()
     @HttpCode(HttpStatus.OK)
     async createPlaybookEndpoint(@Body(new ZodValidationPipe(playbookUpsertSchema)) body: PlaybookUpsertInput) {
-        const payload: PlaybookUpsertInput = {
-            title: body.title,
-            ...(body.status !== undefined ? { status: body.status } : {}),
-            ...(body.whenToUse !== undefined ? { whenToUse: body.whenToUse } : {}),
-            ...(body.prerequisites !== undefined ? { prerequisites: body.prerequisites } : {}),
-            ...(body.approach !== undefined ? { approach: body.approach } : {}),
-            ...(body.keySteps !== undefined ? { keySteps: body.keySteps } : {}),
-            ...(body.watchouts !== undefined ? { watchouts: body.watchouts } : {}),
-            ...(body.antiPatterns !== undefined ? { antiPatterns: body.antiPatterns } : {}),
-            ...(body.failureModes !== undefined ? { failureModes: body.failureModes } : {}),
-            ...(body.variants !== undefined ? { variants: body.variants } : {}),
-            ...(body.relatedPlaybookIds !== undefined ? { relatedPlaybookIds: body.relatedPlaybookIds } : {}),
-            ...(body.sourceSnapshotIds !== undefined ? { sourceSnapshotIds: body.sourceSnapshotIds } : {}),
-            ...(body.tags !== undefined ? { tags: body.tags } : {}),
-        };
-        return this.createPlaybook.execute(payload);
+        return this.createPlaybook.execute(buildPlaybookPayload(body));
     }
 
-    @Post(":id")
-    @HttpCode(HttpStatus.OK)
+    @Patch(":id")
     async updatePlaybookEndpoint(
         @Param("id", pathParamPipe) playbookId: string,
         @Body(new ZodValidationPipe(playbookPatchSchema)) body: Partial<PlaybookUpsertInput>,
     ) {
-        const payload: Partial<PlaybookUpsertInput> = {
-            ...(body.title !== undefined ? { title: body.title } : {}),
-            ...(body.status !== undefined ? { status: body.status } : {}),
-            ...(body.whenToUse !== undefined ? { whenToUse: body.whenToUse } : {}),
-            ...(body.prerequisites !== undefined ? { prerequisites: body.prerequisites } : {}),
-            ...(body.approach !== undefined ? { approach: body.approach } : {}),
-            ...(body.keySteps !== undefined ? { keySteps: body.keySteps } : {}),
-            ...(body.watchouts !== undefined ? { watchouts: body.watchouts } : {}),
-            ...(body.antiPatterns !== undefined ? { antiPatterns: body.antiPatterns } : {}),
-            ...(body.failureModes !== undefined ? { failureModes: body.failureModes } : {}),
-            ...(body.variants !== undefined ? { variants: body.variants } : {}),
-            ...(body.relatedPlaybookIds !== undefined ? { relatedPlaybookIds: body.relatedPlaybookIds } : {}),
-            ...(body.sourceSnapshotIds !== undefined ? { sourceSnapshotIds: body.sourceSnapshotIds } : {}),
-            ...(body.tags !== undefined ? { tags: body.tags } : {}),
-        };
-        const updated = await this.updatePlaybook.execute(playbookId, payload);
-        if (!updated) throw new HttpException({ error: "playbook not found" }, HttpStatus.NOT_FOUND);
+        const updated = await this.updatePlaybook.execute(playbookId, buildPlaybookPatch(body));
+        if (!updated) throw new NotFoundException("playbook not found");
         return updated;
     }
+}
+
+function buildPlaybookPayload(body: PlaybookUpsertInput): PlaybookUpsertInput {
+    return {
+        title: body.title,
+        ...(body.status !== undefined ? { status: body.status } : {}),
+        ...(body.whenToUse !== undefined ? { whenToUse: body.whenToUse } : {}),
+        ...(body.prerequisites !== undefined ? { prerequisites: body.prerequisites } : {}),
+        ...(body.approach !== undefined ? { approach: body.approach } : {}),
+        ...(body.keySteps !== undefined ? { keySteps: body.keySteps } : {}),
+        ...(body.watchouts !== undefined ? { watchouts: body.watchouts } : {}),
+        ...(body.antiPatterns !== undefined ? { antiPatterns: body.antiPatterns } : {}),
+        ...(body.failureModes !== undefined ? { failureModes: body.failureModes } : {}),
+        ...(body.variants !== undefined ? { variants: body.variants } : {}),
+        ...(body.relatedPlaybookIds !== undefined ? { relatedPlaybookIds: body.relatedPlaybookIds } : {}),
+        ...(body.sourceSnapshotIds !== undefined ? { sourceSnapshotIds: body.sourceSnapshotIds } : {}),
+        ...(body.tags !== undefined ? { tags: body.tags } : {}),
+    };
+}
+
+function buildPlaybookPatch(body: Partial<PlaybookUpsertInput>): Partial<PlaybookUpsertInput> {
+    return {
+        ...(body.title !== undefined ? { title: body.title } : {}),
+        ...(body.status !== undefined ? { status: body.status } : {}),
+        ...(body.whenToUse !== undefined ? { whenToUse: body.whenToUse } : {}),
+        ...(body.prerequisites !== undefined ? { prerequisites: body.prerequisites } : {}),
+        ...(body.approach !== undefined ? { approach: body.approach } : {}),
+        ...(body.keySteps !== undefined ? { keySteps: body.keySteps } : {}),
+        ...(body.watchouts !== undefined ? { watchouts: body.watchouts } : {}),
+        ...(body.antiPatterns !== undefined ? { antiPatterns: body.antiPatterns } : {}),
+        ...(body.failureModes !== undefined ? { failureModes: body.failureModes } : {}),
+        ...(body.variants !== undefined ? { variants: body.variants } : {}),
+        ...(body.relatedPlaybookIds !== undefined ? { relatedPlaybookIds: body.relatedPlaybookIds } : {}),
+        ...(body.sourceSnapshotIds !== undefined ? { sourceSnapshotIds: body.sourceSnapshotIds } : {}),
+        ...(body.tags !== undefined ? { tags: body.tags } : {}),
+    };
 }

@@ -7,6 +7,7 @@ export default defineConfig({
             "~domain": resolve(__dirname, "src/domain"),
             "~application": resolve(__dirname, "src/application"),
             "~adapters": resolve(__dirname, "src/adapters"),
+            "~main": resolve(__dirname, "src/main"),
         }
     },
     esbuild: {

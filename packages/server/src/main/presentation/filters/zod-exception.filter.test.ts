@@ -1,6 +1,6 @@
 import type { ArgumentsHost } from "@nestjs/common";
-import { HttpException, HttpStatus } from "@nestjs/common";
-import { describe, expect, it, vi } from "vitest";
+import { HttpException, HttpStatus, Logger } from "@nestjs/common";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { GlobalExceptionFilter } from "./zod-exception.filter.js";
 
@@ -20,6 +20,10 @@ function createHttpHost() {
 }
 
 describe("GlobalExceptionFilter", () => {
+    beforeEach(() => {
+        vi.spyOn(Logger.prototype, "error").mockImplementation(() => {});
+    });
+
     it("normalizes explicit HttpException responses", () => {
         const { host, response } = createHttpHost();
 
@@ -82,6 +86,39 @@ describe("GlobalExceptionFilter", () => {
             error: {
                 code: "conflict",
                 message: "version mismatch",
+            },
+        });
+    });
+
+    it("maps TaskNotFoundError to a 404 envelope", async () => {
+        const { TaskNotFoundError } = await import("~application/workflow/usecases.index.js");
+        const { host, response } = createHttpHost();
+
+        new GlobalExceptionFilter().catch(new TaskNotFoundError("task-404"), host);
+
+        expect(response.status).toHaveBeenCalledWith(HttpStatus.NOT_FOUND);
+        expect(response.json).toHaveBeenCalledWith({
+            ok: false,
+            error: {
+                code: "not_found",
+                message: "Task not found: task-404",
+            },
+        });
+    });
+
+    it("maps TurnPartitionVersionMismatchError to a 409 envelope with details", async () => {
+        const { TurnPartitionVersionMismatchError } = await import("~application/workflow/usecases.index.js");
+        const { host, response } = createHttpHost();
+
+        new GlobalExceptionFilter().catch(new TurnPartitionVersionMismatchError(3, 4), host);
+
+        expect(response.status).toHaveBeenCalledWith(HttpStatus.CONFLICT);
+        expect(response.json).toHaveBeenCalledWith({
+            ok: false,
+            error: {
+                code: "conflict",
+                message: "Turn partition version mismatch: expected 3, found 4",
+                details: { expected: 3, actual: 4 },
             },
         });
     });

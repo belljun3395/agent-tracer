@@ -1,7 +1,11 @@
 import type { ExceptionFilter, ArgumentsHost } from "@nestjs/common";
-import { Catch, HttpException, HttpStatus, Injectable } from "@nestjs/common";
+import { Catch, HttpException, HttpStatus, Injectable, Logger } from "@nestjs/common";
 import { ZodError } from "zod";
 import type { Response } from "express";
+import {
+    TaskNotFoundError,
+    TurnPartitionVersionMismatchError,
+} from "~application/workflow/usecases.index.js";
 import { createApiErrorEnvelope, isApiErrorEnvelope } from "../interceptors/api-response-envelope.js";
 
 const INTERNAL_SERVER_ERROR_BODY = createApiErrorEnvelope("internal_server_error", "Internal server error");
@@ -16,30 +20,56 @@ const STATUS_ERROR_CODES = new Map<number, string>([
 
 @Injectable()
 @Catch()
-export class GlobalExceptionFilter implements ExceptionFilter {
-    catch(exception: unknown, host: ArgumentsHost) {
+export class GlobalExceptionFilter implements ExceptionFilter<unknown> {
+    private readonly logger = new Logger(GlobalExceptionFilter.name);
+
+    catch(exception: unknown, host: ArgumentsHost): void {
         const ctx = host.switchToHttp();
         const response = ctx.getResponse<Response>();
+
         if (exception instanceof HttpException) {
             const status = exception.getStatus();
             const body = exception.getResponse();
             response.status(status).json(normalizeHttpExceptionBody(status, body));
             return;
         }
-        if (exception instanceof ZodError) {
-            response.status(HttpStatus.BAD_REQUEST).json(createApiErrorEnvelope(
-                "validation_error",
-                "Invalid request",
-                exception.format(),
-            ));
+
+        if (exception instanceof TaskNotFoundError) {
+            response.status(HttpStatus.NOT_FOUND).json(
+                createApiErrorEnvelope("not_found", exception.message),
+            );
             return;
         }
+
+        if (exception instanceof TurnPartitionVersionMismatchError) {
+            response.status(HttpStatus.CONFLICT).json(
+                createApiErrorEnvelope("conflict", exception.message, {
+                    expected: exception.expected,
+                    actual: exception.actual,
+                }),
+            );
+            return;
+        }
+
+        if (exception instanceof ZodError) {
+            response.status(HttpStatus.BAD_REQUEST).json(
+                createApiErrorEnvelope("validation_error", "Invalid request", exception.format()),
+            );
+            return;
+        }
+
         const status = getStatusFromError(exception);
         if (status >= 500) {
+            this.logger.error(
+                `Unhandled exception (${status})`,
+                exception instanceof Error ? exception.stack : String(exception),
+            );
             response.status(status).json(INTERNAL_SERVER_ERROR_BODY);
             return;
         }
-        response.status(status).json(createApiErrorEnvelope(statusToErrorCode(status), getMessageFromError(exception)));
+        response.status(status).json(
+            createApiErrorEnvelope(statusToErrorCode(status), getMessageFromError(exception)),
+        );
     }
 }
 
@@ -79,14 +109,15 @@ function getMessageFromError(error: unknown): string {
 
 function getMessageFromHttpExceptionBody(body: string | object): string {
     if (typeof body === "string") return body;
-    const error = (body as { error?: unknown }).error;
-    if (typeof error === "string" && error.trim()) return error;
-
     const message = (body as { message?: unknown }).message;
     if (typeof message === "string" && message.trim()) return message;
     if (Array.isArray(message) && message.every((item) => typeof item === "string")) {
         return message.join("; ");
     }
+
+    const error = (body as { error?: unknown }).error;
+    if (typeof error === "string" && error.trim()) return error;
+
     return "Request failed";
 }
 

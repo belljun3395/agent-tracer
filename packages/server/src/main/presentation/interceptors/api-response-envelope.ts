@@ -48,15 +48,6 @@ export function createApiErrorEnvelope(
     };
 }
 
-export function isApiResponsePath(pathname: string | undefined): boolean {
-    return Boolean(
-        pathname === "/api"
-        || pathname?.startsWith("/api/")
-        || pathname === "/ingest/v1"
-        || pathname?.startsWith("/ingest/v1/"),
-    );
-}
-
 export function isApiErrorEnvelope(value: unknown): value is ApiErrorEnvelope {
     return isRecord(value)
         && value["ok"] === false

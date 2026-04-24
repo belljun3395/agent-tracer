@@ -8,7 +8,8 @@
       "~config/*": ["src/config/*"],
       "~domain/*": ["src/domain/*"],
       "~application/*": ["src/application/*"],
-      "~adapters/*": ["src/adapters/*"]
+      "~adapters/*": ["src/adapters/*"],
+      "~main/*": ["src/main/*"]
     }
   },
   "include": ["src", "*.config.ts"]

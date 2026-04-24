@@ -481,7 +481,7 @@ export function createPlaybook(payload: PlaybookPayload): Promise<PlaybookRecord
     return postJson<PlaybookRecordResponse>("/api/playbooks", payload);
 }
 export function updatePlaybook(playbookId: string, payload: Partial<PlaybookPayload>): Promise<PlaybookRecordResponse> {
-    return postJson<PlaybookRecordResponse>(`/api/playbooks/${playbookId}`, payload);
+    return patchJson<PlaybookRecordResponse>(`/api/playbooks/${playbookId}`, payload);
 }
 export interface TurnPartitionRecord {
     readonly taskId: TaskId;

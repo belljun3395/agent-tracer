@@ -1,6 +1,6 @@
-import { Body, Controller, Delete, HttpCode, HttpException, HttpStatus, Inject, Param, Post } from "@nestjs/common";
+import { Body, Controller, Delete, HttpCode, HttpStatus, Inject, NotFoundException, Param, Post } from "@nestjs/common";
 import { SaveBookmarkUseCase, DeleteBookmarkUseCase } from "~application/bookmarks/index.js";
-import type { SaveBookmarkUseCaseIn, DeleteBookmarkUseCaseIn } from "~application/bookmarks/index.js";
+import type { SaveBookmarkUseCaseIn } from "~application/bookmarks/index.js";
 import { bookmarkSchema } from "../schemas/bookmark.write.schema.js";
 import { pathParamPipe } from "~adapters/http/shared/path-param.pipe.js";
 import { ZodValidationPipe } from "~adapters/http/shared/zod-validation.pipe.js";
@@ -21,10 +21,10 @@ export class BookmarkWriteController {
 
     @Delete(":bookmarkId")
     async deleteBookmarkEndpoint(@Param("bookmarkId", pathParamPipe) bookmarkId: string) {
-        const result = await this.deleteBookmark.execute({ bookmarkId } as DeleteBookmarkUseCaseIn);
+        const result = await this.deleteBookmark.execute({ bookmarkId });
         if (result === "not_found") {
-            throw new HttpException({ ok: false, error: "Bookmark not found" }, HttpStatus.NOT_FOUND);
+            throw new NotFoundException("Bookmark not found");
         }
-        return { ok: true };
+        return { deleted: true };
     }
 }
