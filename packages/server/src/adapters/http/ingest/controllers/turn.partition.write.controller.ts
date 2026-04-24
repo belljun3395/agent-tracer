@@ -3,7 +3,8 @@ import {
     ResetTurnPartitionUseCase,
     UpsertTurnPartitionUseCase,
 } from "~application/workflow/usecases.index.js";
-import { turnPartitionUpsertSchema } from "../schemas/turn.partition.write.schema.js";
+import { turnPartitionUpsertSchema, type TurnPartitionUpsertBody } from "../schemas/turn.partition.write.schema.js";
+import { ZodValidationPipe } from "~adapters/http/shared/zod-validation.pipe.js";
 
 @Controller()
 export class TurnPartitionWriteController {
@@ -14,24 +15,20 @@ export class TurnPartitionWriteController {
 
     @Put("/api/tasks/:id/turn-partition")
     @HttpCode(HttpStatus.OK)
-    async putPartition(@Param("id") taskId: string, @Body() body: unknown) {
-        const parsed = turnPartitionUpsertSchema.safeParse(body);
-        if (!parsed.success) {
-            throw new HttpException(
-                { error: "Validation failed", details: parsed.error.errors },
-                HttpStatus.BAD_REQUEST,
-            );
-        }
+    async putPartition(
+        @Param("id") taskId: string,
+        @Body(new ZodValidationPipe(turnPartitionUpsertSchema)) body: TurnPartitionUpsertBody,
+    ) {
         try {
             return await this.upsert.execute(taskId, {
-                groups: parsed.data.groups.map((g) => ({
+                groups: body.groups.map((g) => ({
                     id: g.id,
                     from: g.from,
                     to: g.to,
                     label: g.label ?? null,
                     visible: g.visible,
                 })),
-                ...(parsed.data.baseVersion !== undefined ? { baseVersion: parsed.data.baseVersion } : {}),
+                ...(body.baseVersion !== undefined ? { baseVersion: body.baseVersion } : {}),
             });
         } catch (error) {
             throw toHttpError(error);

@@ -13,6 +13,7 @@ import {
     playbookUpsertSchema,
     taskEvaluateSchema,
 } from "../schemas/evaluation.write.schema.js";
+import { ZodValidationPipe } from "~adapters/http/shared/zod-validation.pipe.js";
 
 @Controller()
 export class EvaluationWriteController {
@@ -29,11 +30,9 @@ export class EvaluationWriteController {
     async upsertEvaluation(
         @Param("id") taskId: string,
         @Query("scopeKey") scopeKey: string | undefined,
-        @Body() body: unknown,
+        @Body(new ZodValidationPipe(taskEvaluateSchema)) body: Parameters<UpsertTaskEvaluationUseCase["execute"]>[1],
     ) {
-        const parsed = taskEvaluateSchema.safeParse(body);
-        if (!parsed.success) throw new HttpException({ error: "Validation failed", details: parsed.error.errors }, HttpStatus.BAD_REQUEST);
-        const { rating, useCase, workflowTags, outcomeNote, approachNote, reuseWhen, watchouts, workflowSnapshot, workflowContext } = parsed.data;
+        const { rating, useCase, workflowTags, outcomeNote, approachNote, reuseWhen, watchouts, workflowSnapshot, workflowContext } = body;
         await this.upsertTaskEvaluation.execute(taskId, {
             ...(scopeKey ? { scopeKey } : {}),
             rating,
@@ -61,60 +60,60 @@ export class EvaluationWriteController {
 
     @Post("/api/tasks/:id/briefings")
     @HttpCode(HttpStatus.OK)
-    async saveBriefingEndpoint(@Param("id") taskId: string, @Body() body: unknown) {
-        const parsed = briefingSaveSchema.safeParse(body);
-        if (!parsed.success) throw new HttpException({ error: "Validation failed", details: parsed.error.errors }, HttpStatus.BAD_REQUEST);
+    async saveBriefingEndpoint(
+        @Param("id") taskId: string,
+        @Body(new ZodValidationPipe(briefingSaveSchema)) body: Parameters<SaveBriefingUseCase["execute"]>[1],
+    ) {
         return this.saveBriefing.execute(taskId, {
-            purpose: parsed.data.purpose,
-            format: parsed.data.format,
-            content: parsed.data.content,
-            generatedAt: parsed.data.generatedAt,
-            ...(parsed.data.memo !== undefined ? { memo: parsed.data.memo } : {}),
+            purpose: body.purpose,
+            format: body.format,
+            content: body.content,
+            generatedAt: body.generatedAt,
+            ...(body.memo !== undefined ? { memo: body.memo } : {}),
         });
     }
 
     @Post("/api/playbooks")
     @HttpCode(HttpStatus.OK)
-    async createPlaybookEndpoint(@Body() body: unknown) {
-        const parsed = playbookUpsertSchema.safeParse(body);
-        if (!parsed.success) throw new HttpException({ error: "Validation failed", details: parsed.error.errors }, HttpStatus.BAD_REQUEST);
+    async createPlaybookEndpoint(@Body(new ZodValidationPipe(playbookUpsertSchema)) body: PlaybookUpsertInput) {
         const payload: PlaybookUpsertInput = {
-            title: parsed.data.title,
-            ...(parsed.data.status !== undefined ? { status: parsed.data.status } : {}),
-            ...(parsed.data.whenToUse !== undefined ? { whenToUse: parsed.data.whenToUse } : {}),
-            ...(parsed.data.prerequisites !== undefined ? { prerequisites: parsed.data.prerequisites } : {}),
-            ...(parsed.data.approach !== undefined ? { approach: parsed.data.approach } : {}),
-            ...(parsed.data.keySteps !== undefined ? { keySteps: parsed.data.keySteps } : {}),
-            ...(parsed.data.watchouts !== undefined ? { watchouts: parsed.data.watchouts } : {}),
-            ...(parsed.data.antiPatterns !== undefined ? { antiPatterns: parsed.data.antiPatterns } : {}),
-            ...(parsed.data.failureModes !== undefined ? { failureModes: parsed.data.failureModes } : {}),
-            ...(parsed.data.variants !== undefined ? { variants: parsed.data.variants } : {}),
-            ...(parsed.data.relatedPlaybookIds !== undefined ? { relatedPlaybookIds: parsed.data.relatedPlaybookIds } : {}),
-            ...(parsed.data.sourceSnapshotIds !== undefined ? { sourceSnapshotIds: parsed.data.sourceSnapshotIds } : {}),
-            ...(parsed.data.tags !== undefined ? { tags: parsed.data.tags } : {}),
+            title: body.title,
+            ...(body.status !== undefined ? { status: body.status } : {}),
+            ...(body.whenToUse !== undefined ? { whenToUse: body.whenToUse } : {}),
+            ...(body.prerequisites !== undefined ? { prerequisites: body.prerequisites } : {}),
+            ...(body.approach !== undefined ? { approach: body.approach } : {}),
+            ...(body.keySteps !== undefined ? { keySteps: body.keySteps } : {}),
+            ...(body.watchouts !== undefined ? { watchouts: body.watchouts } : {}),
+            ...(body.antiPatterns !== undefined ? { antiPatterns: body.antiPatterns } : {}),
+            ...(body.failureModes !== undefined ? { failureModes: body.failureModes } : {}),
+            ...(body.variants !== undefined ? { variants: body.variants } : {}),
+            ...(body.relatedPlaybookIds !== undefined ? { relatedPlaybookIds: body.relatedPlaybookIds } : {}),
+            ...(body.sourceSnapshotIds !== undefined ? { sourceSnapshotIds: body.sourceSnapshotIds } : {}),
+            ...(body.tags !== undefined ? { tags: body.tags } : {}),
         };
         return this.createPlaybook.execute(payload);
     }
 
     @Post("/api/playbooks/:id")
     @HttpCode(HttpStatus.OK)
-    async updatePlaybookEndpoint(@Param("id") playbookId: string, @Body() body: unknown) {
-        const parsed = playbookPatchSchema.safeParse(body);
-        if (!parsed.success) throw new HttpException({ error: "Validation failed", details: parsed.error.errors }, HttpStatus.BAD_REQUEST);
+    async updatePlaybookEndpoint(
+        @Param("id") playbookId: string,
+        @Body(new ZodValidationPipe(playbookPatchSchema)) body: Partial<PlaybookUpsertInput>,
+    ) {
         const payload: Partial<PlaybookUpsertInput> = {
-            ...(parsed.data.title !== undefined ? { title: parsed.data.title } : {}),
-            ...(parsed.data.status !== undefined ? { status: parsed.data.status } : {}),
-            ...(parsed.data.whenToUse !== undefined ? { whenToUse: parsed.data.whenToUse } : {}),
-            ...(parsed.data.prerequisites !== undefined ? { prerequisites: parsed.data.prerequisites } : {}),
-            ...(parsed.data.approach !== undefined ? { approach: parsed.data.approach } : {}),
-            ...(parsed.data.keySteps !== undefined ? { keySteps: parsed.data.keySteps } : {}),
-            ...(parsed.data.watchouts !== undefined ? { watchouts: parsed.data.watchouts } : {}),
-            ...(parsed.data.antiPatterns !== undefined ? { antiPatterns: parsed.data.antiPatterns } : {}),
-            ...(parsed.data.failureModes !== undefined ? { failureModes: parsed.data.failureModes } : {}),
-            ...(parsed.data.variants !== undefined ? { variants: parsed.data.variants } : {}),
-            ...(parsed.data.relatedPlaybookIds !== undefined ? { relatedPlaybookIds: parsed.data.relatedPlaybookIds } : {}),
-            ...(parsed.data.sourceSnapshotIds !== undefined ? { sourceSnapshotIds: parsed.data.sourceSnapshotIds } : {}),
-            ...(parsed.data.tags !== undefined ? { tags: parsed.data.tags } : {}),
+            ...(body.title !== undefined ? { title: body.title } : {}),
+            ...(body.status !== undefined ? { status: body.status } : {}),
+            ...(body.whenToUse !== undefined ? { whenToUse: body.whenToUse } : {}),
+            ...(body.prerequisites !== undefined ? { prerequisites: body.prerequisites } : {}),
+            ...(body.approach !== undefined ? { approach: body.approach } : {}),
+            ...(body.keySteps !== undefined ? { keySteps: body.keySteps } : {}),
+            ...(body.watchouts !== undefined ? { watchouts: body.watchouts } : {}),
+            ...(body.antiPatterns !== undefined ? { antiPatterns: body.antiPatterns } : {}),
+            ...(body.failureModes !== undefined ? { failureModes: body.failureModes } : {}),
+            ...(body.variants !== undefined ? { variants: body.variants } : {}),
+            ...(body.relatedPlaybookIds !== undefined ? { relatedPlaybookIds: body.relatedPlaybookIds } : {}),
+            ...(body.sourceSnapshotIds !== undefined ? { sourceSnapshotIds: body.sourceSnapshotIds } : {}),
+            ...(body.tags !== undefined ? { tags: body.tags } : {}),
         };
         const updated = await this.updatePlaybook.execute(playbookId, payload);
         if (!updated) throw new HttpException({ error: "playbook not found" }, HttpStatus.NOT_FOUND);

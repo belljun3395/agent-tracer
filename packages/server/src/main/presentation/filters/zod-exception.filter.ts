@@ -1,14 +1,15 @@
-import type { ExceptionFilter, ArgumentsHost} from "@nestjs/common";
+import type { ExceptionFilter, ArgumentsHost } from "@nestjs/common";
 import { Catch, HttpException, HttpStatus } from "@nestjs/common";
 import { ZodError } from "zod";
-import type { Response, Request } from "express";
+import type { Response } from "express";
+
+const INTERNAL_SERVER_ERROR_BODY = { error: "Internal server error" } as const;
+
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
     catch(exception: unknown, host: ArgumentsHost) {
         const ctx = host.switchToHttp();
         const response = ctx.getResponse<Response>();
-        const request = ctx.getRequest<Request>();
-        void request;
         if (exception instanceof HttpException) {
             const status = exception.getStatus();
             const body = exception.getResponse();
@@ -17,15 +18,24 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         }
         if (exception instanceof ZodError) {
             response.status(HttpStatus.BAD_REQUEST).json({
-                error: exception.message
+                ok: false,
+                error: {
+                    code: "validation_error",
+                    message: "Invalid request",
+                    details: exception.format(),
+                },
             });
             return;
         }
         const status = getStatusFromError(exception);
-        const message = exception instanceof Error ? exception.message : "Internal server error";
-        response.status(status).json({ error: message });
+        if (status >= 500) {
+            response.status(status).json(INTERNAL_SERVER_ERROR_BODY);
+            return;
+        }
+        response.status(status).json({ error: getMessageFromError(exception) });
     }
 }
+
 function getStatusFromError(error: unknown): number {
     if (typeof error === "object" && error !== null) {
         const candidate = (error as {
@@ -41,4 +51,13 @@ function getStatusFromError(error: unknown): number {
         }
     }
     return HttpStatus.INTERNAL_SERVER_ERROR;
+}
+
+function getMessageFromError(error: unknown): string {
+    if (error instanceof Error) return error.message;
+    if (typeof error === "object" && error !== null) {
+        const candidate = (error as { message?: unknown }).message;
+        if (typeof candidate === "string" && candidate.trim()) return candidate;
+    }
+    return "Request failed";
 }

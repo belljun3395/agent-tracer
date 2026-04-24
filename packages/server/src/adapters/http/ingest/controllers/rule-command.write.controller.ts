@@ -1,6 +1,7 @@
 import { Body, Controller, Delete, HttpCode, HttpException, HttpStatus, Inject, Param, Post } from "@nestjs/common";
 import { CreateRuleCommandUseCase, DeleteRuleCommandUseCase } from "~application/rule-commands/index.js";
 import { createRuleCommandSchema } from "../schemas/rule-command.write.schema.js";
+import { ZodValidationPipe } from "~adapters/http/shared/zod-validation.pipe.js";
 
 @Controller()
 export class RuleCommandWriteController {
@@ -11,9 +12,11 @@ export class RuleCommandWriteController {
 
     @Post("/api/rule-commands")
     @HttpCode(HttpStatus.OK)
-    async createGlobal(@Body() body: unknown) {
-        const parsed = createRuleCommandSchema.parse(body);
-        const ruleCommand = await this.createRuleCommand.execute(parsed);
+    async createGlobal(
+        @Body(new ZodValidationPipe(createRuleCommandSchema))
+        body: Parameters<CreateRuleCommandUseCase["execute"]>[0],
+    ) {
+        const ruleCommand = await this.createRuleCommand.execute(body);
         return { ruleCommand };
     }
 
@@ -26,9 +29,12 @@ export class RuleCommandWriteController {
 
     @Post("/api/tasks/:taskId/rule-commands")
     @HttpCode(HttpStatus.OK)
-    async createForTask(@Param("taskId") taskId: string, @Body() body: unknown) {
-        const parsed = createRuleCommandSchema.parse(body);
-        const ruleCommand = await this.createRuleCommand.execute({ ...parsed, taskId });
+    async createForTask(
+        @Param("taskId") taskId: string,
+        @Body(new ZodValidationPipe(createRuleCommandSchema))
+        body: Parameters<CreateRuleCommandUseCase["execute"]>[0],
+    ) {
+        const ruleCommand = await this.createRuleCommand.execute({ ...body, taskId });
         return { ruleCommand };
     }
 

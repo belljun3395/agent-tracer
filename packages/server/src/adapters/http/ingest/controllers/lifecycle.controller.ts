@@ -9,7 +9,12 @@ import {
     DeleteFinishedTasksUseCase,
 } from "~application/tasks/index.js";
 import type { TaskStartInput, TaskLinkInput, TaskCompletionInput, TaskErrorInput, TaskPatchInput } from "~application/index.js";
-import { EnsureRuntimeSessionUseCase, EndRuntimeSessionUseCase } from "~application/sessions/index.js";
+import {
+    EnsureRuntimeSessionUseCase,
+    EndRuntimeSessionUseCase,
+    type EnsureRuntimeSessionUseCaseIn,
+    type EndRuntimeSessionUseCaseIn,
+} from "~application/sessions/index.js";
 import {
     runtimeSessionEndSchema,
     runtimeSessionEnsureSchema,
@@ -19,6 +24,7 @@ import {
     taskPatchSchema,
     taskStartSchema,
 } from "../schemas/task.write.schema.js";
+import { ZodValidationPipe } from "~adapters/http/shared/zod-validation.pipe.js";
 
 @Controller()
 export class LifecycleController {
@@ -36,39 +42,38 @@ export class LifecycleController {
 
     @Post("/api/task-start")
     @HttpCode(HttpStatus.OK)
-    async taskStart(@Body() body: unknown) {
-        return this.startTask.execute(taskStartSchema.parse(body) as unknown as TaskStartInput);
+    async taskStart(@Body(new ZodValidationPipe(taskStartSchema)) body: TaskStartInput) {
+        return this.startTask.execute(body);
     }
 
     @Post("/api/task-link")
     @HttpCode(HttpStatus.OK)
-    async taskLink(@Body() body: unknown) {
-        const task = await this.linkTask.execute(taskLinkSchema.parse(body) as unknown as TaskLinkInput);
+    async taskLink(@Body(new ZodValidationPipe(taskLinkSchema)) body: TaskLinkInput) {
+        const task = await this.linkTask.execute(body);
         return { task };
     }
 
     @Post("/api/task-complete")
     @HttpCode(HttpStatus.OK)
-    async taskComplete(@Body() body: unknown) {
-        return this.completeTask.execute(taskCompleteSchema.parse(body) as unknown as TaskCompletionInput);
+    async taskComplete(@Body(new ZodValidationPipe(taskCompleteSchema)) body: TaskCompletionInput) {
+        return this.completeTask.execute(body);
     }
 
     @Post("/api/task-error")
     @HttpCode(HttpStatus.OK)
-    async taskError(@Body() body: unknown) {
-        return this.errorTask.execute(taskErrorSchema.parse(body) as unknown as TaskErrorInput);
+    async taskError(@Body(new ZodValidationPipe(taskErrorSchema)) body: TaskErrorInput) {
+        return this.errorTask.execute(body);
     }
 
     @Patch("/api/tasks/:taskId")
-    async patchTask(@Param("taskId") taskId: string, @Body() body: unknown) {
-        const parsed = taskPatchSchema.parse(body) as {
-            title?: string;
-            status?: "running" | "waiting" | "completed" | "errored";
-        };
+    async patchTask(
+        @Param("taskId") taskId: string,
+        @Body(new ZodValidationPipe(taskPatchSchema)) body: Omit<TaskPatchInput, "taskId">,
+    ) {
         const patchInput: TaskPatchInput = {
             taskId,
-            ...(parsed.title !== undefined ? { title: parsed.title } : {}),
-            ...(parsed.status !== undefined ? { status: parsed.status } : {}),
+            ...(body.title !== undefined ? { title: body.title } : {}),
+            ...(body.status !== undefined ? { status: body.status } : {}),
         };
         const task = await this.updateTask.execute(patchInput);
         if (!task) throw new HttpException({ error: "Task not found" }, HttpStatus.NOT_FOUND);
@@ -90,24 +95,26 @@ export class LifecycleController {
 
     @Post("/api/runtime-session-ensure")
     @HttpCode(HttpStatus.OK)
-    async runtimeSessionEnsure(@Body() body: unknown) {
-        const parsed = runtimeSessionEnsureSchema.safeParse(body);
-        if (!parsed.success) throw new HttpException({ error: parsed.error.format() }, HttpStatus.BAD_REQUEST);
-        return this.ensureRuntimeSession.execute(parsed.data as unknown as Parameters<EnsureRuntimeSessionUseCase["execute"]>[0]);
+    async runtimeSessionEnsure(
+        @Body(new ZodValidationPipe(runtimeSessionEnsureSchema))
+        body: EnsureRuntimeSessionUseCaseIn,
+    ) {
+        return this.ensureRuntimeSession.execute(body);
     }
 
     @Post("/api/runtime-session-end")
     @HttpCode(HttpStatus.OK)
-    async runtimeSessionEnd(@Body() body: unknown) {
-        const parsed = runtimeSessionEndSchema.safeParse(body);
-        if (!parsed.success) throw new HttpException({ error: parsed.error.format() }, HttpStatus.BAD_REQUEST);
+    async runtimeSessionEnd(
+        @Body(new ZodValidationPipe(runtimeSessionEndSchema))
+        body: EndRuntimeSessionUseCaseIn,
+    ) {
         await this.endRuntimeSession.execute({
-            ...parsed.data,
-            runtimeSource: parsed.data.runtimeSource.trim(),
-            ...(parsed.data.backgroundCompletions
-                ? { backgroundCompletions: parsed.data.backgroundCompletions.map((id) => id) }
+            ...body,
+            runtimeSource: body.runtimeSource.trim(),
+            ...(body.backgroundCompletions
+                ? { backgroundCompletions: body.backgroundCompletions.map((id) => id) }
                 : {}),
-        } as unknown as Parameters<EndRuntimeSessionUseCase["execute"]>[0]);
+        });
         return { ok: true };
     }
 }
