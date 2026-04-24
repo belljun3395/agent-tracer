@@ -4,11 +4,11 @@ import type { EventPatchInput } from "~application/events/index.js";
 import { eventPatchSchema } from "../schemas/event.write.schema.js";
 import { ZodValidationPipe } from "~adapters/http/shared/zod-validation.pipe.js";
 
-@Controller()
+@Controller("api/events")
 export class EventController {
     constructor(@Inject(UpdateEventUseCase) private readonly updateEvent: UpdateEventUseCase) {}
 
-    @Patch("/api/events/:eventId")
+    @Patch(":eventId")
     async patchEvent(
         @Param("eventId") eventId: string,
         @Body(new ZodValidationPipe(eventPatchSchema)) body: Omit<EventPatchInput, "eventId">,

@@ -4,21 +4,21 @@ import type { SaveBookmarkUseCaseIn, DeleteBookmarkUseCaseIn } from "~applicatio
 import { bookmarkSchema } from "../schemas/bookmark.write.schema.js";
 import { ZodValidationPipe } from "~adapters/http/shared/zod-validation.pipe.js";
 
-@Controller()
+@Controller("api/bookmarks")
 export class BookmarkWriteController {
     constructor(
         @Inject(SaveBookmarkUseCase) private readonly saveBookmark: SaveBookmarkUseCase,
         @Inject(DeleteBookmarkUseCase) private readonly deleteBookmark: DeleteBookmarkUseCase,
     ) {}
 
-    @Post("/api/bookmarks")
+    @Post()
     @HttpCode(HttpStatus.OK)
     async createBookmark(@Body(new ZodValidationPipe(bookmarkSchema)) body: SaveBookmarkUseCaseIn) {
         const bookmark = await this.saveBookmark.execute(body);
         return { bookmark };
     }
 
-    @Delete("/api/bookmarks/:bookmarkId")
+    @Delete(":bookmarkId")
     async deleteBookmarkEndpoint(@Param("bookmarkId") bookmarkId: string) {
         const result = await this.deleteBookmark.execute({ bookmarkId } as DeleteBookmarkUseCaseIn);
         if (result === "not_found") {

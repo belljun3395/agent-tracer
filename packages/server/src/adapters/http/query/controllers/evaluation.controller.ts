@@ -19,20 +19,14 @@ import {
 } from "../schemas/evaluation.query.schema.js";
 import { ZodValidationPipe } from "~adapters/http/shared/zod-validation.pipe.js";
 
-@Controller()
-export class EvaluationController {
+@Controller("api/tasks/:id")
+export class TaskEvaluationController {
     constructor(
         @Inject(GetTaskEvaluationUseCase) private readonly getTaskEvaluation: GetTaskEvaluationUseCase,
         @Inject(ListBriefingsUseCase) private readonly listBriefings: ListBriefingsUseCase,
-        @Inject(SearchSimilarWorkflowsUseCase) private readonly searchSimilarWorkflows: SearchSimilarWorkflowsUseCase,
-        @Inject(GetWorkflowContentUseCase) private readonly getWorkflowContent: GetWorkflowContentUseCase,
-        @Inject(ListEvaluationsUseCase) private readonly listEvaluations: ListEvaluationsUseCase,
-        @Inject(SearchWorkflowLibraryUseCase) private readonly searchWorkflowLibrary: SearchWorkflowLibraryUseCase,
-        @Inject(ListPlaybooksUseCase) private readonly listPlaybooks: ListPlaybooksUseCase,
-        @Inject(GetPlaybookUseCase) private readonly getPlaybook: GetPlaybookUseCase,
     ) {}
 
-    @Get("/api/tasks/:id/evaluate")
+    @Get("evaluate")
     async getEvaluation(
         @Param("id") taskId: string,
         @Query("scopeKey") scopeKey: string | undefined,
@@ -41,17 +35,27 @@ export class EvaluationController {
         return evaluation ?? null;
     }
 
-    @Get("/api/tasks/:id/briefings")
+    @Get("briefings")
     async listBriefingsEndpoint(@Param("id") taskId: string) {
         return this.listBriefings.execute(taskId);
     }
+}
 
-    @Get("/api/workflows/similar")
+@Controller("api/workflows")
+export class WorkflowController {
+    constructor(
+        @Inject(SearchSimilarWorkflowsUseCase) private readonly searchSimilarWorkflows: SearchSimilarWorkflowsUseCase,
+        @Inject(GetWorkflowContentUseCase) private readonly getWorkflowContent: GetWorkflowContentUseCase,
+        @Inject(ListEvaluationsUseCase) private readonly listEvaluations: ListEvaluationsUseCase,
+        @Inject(SearchWorkflowLibraryUseCase) private readonly searchWorkflowLibrary: SearchWorkflowLibraryUseCase,
+    ) {}
+
+    @Get("similar")
     async findSimilar(@Query(new ZodValidationPipe(similarWorkflowQuerySchema)) query: SimilarWorkflowQuery) {
         return this.searchSimilarWorkflows.execute(query.q, query.tags, query.limit);
     }
 
-    @Get("/api/workflows/:id/content")
+    @Get(":id/content")
     async getWorkflowContentEndpoint(
         @Param("id") taskId: string,
         @Query("scopeKey") scopeKey: string | undefined,
@@ -61,18 +65,26 @@ export class EvaluationController {
         return content;
     }
 
-    @Get("/api/workflows")
+    @Get()
     async listWorkflows(@Query(new ZodValidationPipe(workflowListQuerySchema)) query: WorkflowListQuery) {
         if (query.q) return this.searchWorkflowLibrary.execute(query.q, query.rating, query.limit);
         return this.listEvaluations.execute(query.rating);
     }
+}
 
-    @Get("/api/playbooks")
+@Controller("api/playbooks")
+export class PlaybookController {
+    constructor(
+        @Inject(ListPlaybooksUseCase) private readonly listPlaybooks: ListPlaybooksUseCase,
+        @Inject(GetPlaybookUseCase) private readonly getPlaybook: GetPlaybookUseCase,
+    ) {}
+
+    @Get()
     async listPlaybooksEndpoint(@Query(new ZodValidationPipe(playbookListQuerySchema)) query: PlaybookListQuery) {
         return this.listPlaybooks.execute(query.q, query.status, query.limit);
     }
 
-    @Get("/api/playbooks/:id")
+    @Get(":id")
     async getPlaybookEndpoint(@Param("id") playbookId: string) {
         const playbook = await this.getPlaybook.execute(playbookId);
         if (!playbook) throw new HttpException({ error: "playbook not found" }, HttpStatus.NOT_FOUND);

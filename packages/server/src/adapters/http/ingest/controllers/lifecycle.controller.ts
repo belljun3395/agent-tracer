@@ -26,8 +26,8 @@ import {
 } from "../schemas/task.write.schema.js";
 import { ZodValidationPipe } from "~adapters/http/shared/zod-validation.pipe.js";
 
-@Controller()
-export class LifecycleController {
+@Controller("api")
+export class TaskLifecycleController {
     constructor(
         @Inject(StartTaskUseCase) private readonly startTask: StartTaskUseCase,
         @Inject(CompleteTaskUseCase) private readonly completeTask: CompleteTaskUseCase,
@@ -36,36 +36,34 @@ export class LifecycleController {
         @Inject(LinkTaskUseCase) private readonly linkTask: LinkTaskUseCase,
         @Inject(DeleteTaskUseCase) private readonly deleteTask: DeleteTaskUseCase,
         @Inject(DeleteFinishedTasksUseCase) private readonly deleteFinishedTasks: DeleteFinishedTasksUseCase,
-        @Inject(EnsureRuntimeSessionUseCase) private readonly ensureRuntimeSession: EnsureRuntimeSessionUseCase,
-        @Inject(EndRuntimeSessionUseCase) private readonly endRuntimeSession: EndRuntimeSessionUseCase,
     ) {}
 
-    @Post("/api/task-start")
+    @Post("task-start")
     @HttpCode(HttpStatus.OK)
     async taskStart(@Body(new ZodValidationPipe(taskStartSchema)) body: TaskStartInput) {
         return this.startTask.execute(body);
     }
 
-    @Post("/api/task-link")
+    @Post("task-link")
     @HttpCode(HttpStatus.OK)
     async taskLink(@Body(new ZodValidationPipe(taskLinkSchema)) body: TaskLinkInput) {
         const task = await this.linkTask.execute(body);
         return { task };
     }
 
-    @Post("/api/task-complete")
+    @Post("task-complete")
     @HttpCode(HttpStatus.OK)
     async taskComplete(@Body(new ZodValidationPipe(taskCompleteSchema)) body: TaskCompletionInput) {
         return this.completeTask.execute(body);
     }
 
-    @Post("/api/task-error")
+    @Post("task-error")
     @HttpCode(HttpStatus.OK)
     async taskError(@Body(new ZodValidationPipe(taskErrorSchema)) body: TaskErrorInput) {
         return this.errorTask.execute(body);
     }
 
-    @Patch("/api/tasks/:taskId")
+    @Patch("tasks/:taskId")
     async patchTask(
         @Param("taskId") taskId: string,
         @Body(new ZodValidationPipe(taskPatchSchema)) body: Omit<TaskPatchInput, "taskId">,
@@ -80,20 +78,28 @@ export class LifecycleController {
         return { task };
     }
 
-    @Delete("/api/tasks/finished")
+    @Delete("tasks/finished")
     async deleteFinished() {
         const deleted = await this.deleteFinishedTasks.execute();
         return { ok: true, deleted };
     }
 
-    @Delete("/api/tasks/:taskId")
+    @Delete("tasks/:taskId")
     async deleteTaskEndpoint(@Param("taskId") taskId: string) {
         const result = await this.deleteTask.execute(taskId);
         if (result === "not_found") throw new HttpException({ ok: false, error: "Task not found" }, HttpStatus.NOT_FOUND);
         return { ok: true };
     }
+}
 
-    @Post("/api/runtime-session-ensure")
+@Controller("api")
+export class RuntimeSessionController {
+    constructor(
+        @Inject(EnsureRuntimeSessionUseCase) private readonly ensureRuntimeSession: EnsureRuntimeSessionUseCase,
+        @Inject(EndRuntimeSessionUseCase) private readonly endRuntimeSession: EndRuntimeSessionUseCase,
+    ) {}
+
+    @Post("runtime-session-ensure")
     @HttpCode(HttpStatus.OK)
     async runtimeSessionEnsure(
         @Body(new ZodValidationPipe(runtimeSessionEnsureSchema))
@@ -102,7 +108,7 @@ export class LifecycleController {
         return this.ensureRuntimeSession.execute(body);
     }
 
-    @Post("/api/runtime-session-end")
+    @Post("runtime-session-end")
     @HttpCode(HttpStatus.OK)
     async runtimeSessionEnd(
         @Body(new ZodValidationPipe(runtimeSessionEndSchema))
