@@ -1,10 +1,11 @@
 import type { ExceptionFilter, ArgumentsHost } from "@nestjs/common";
-import { Catch, HttpException, HttpStatus } from "@nestjs/common";
+import { Catch, HttpException, HttpStatus, Injectable } from "@nestjs/common";
 import { ZodError } from "zod";
 import type { Response } from "express";
 
 const INTERNAL_SERVER_ERROR_BODY = { error: "Internal server error" } as const;
 
+@Injectable()
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
     catch(exception: unknown, host: ArgumentsHost) {
