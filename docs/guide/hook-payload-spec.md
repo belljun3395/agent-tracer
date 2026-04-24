@@ -6,11 +6,14 @@ This document organizes stdin payloads focusing on the Claude hook subset curren
 used by Agent Tracer.
 The `[Observed]` notation indicates parts where official spec and actual behavior differ.
 
-Events currently in official docs but not covered in detail on this page:
-`InstructionsLoaded`, `PermissionRequest`, `Notification`, `TaskCreated`,
-`TaskCompleted`, `StopFailure`, `ConfigChange`, `CwdChanged`, `FileChanged`,
-`WorktreeCreate`, `WorktreeRemove`, `Elicitation`, `ElicitationResult`,
-`TeammateIdle`.
+As of v0.3, Agent Tracer's Claude plugin handles **21 of the 28 official hook events**.
+Payload readers for every handled event live at
+`packages/runtime/src/shared/hooks/claude/payloads.ts` and are invoked by each hook
+via the shared `runHook()` wrapper at `packages/runtime/src/shared/hook-runtime/`.
+
+Events currently in official docs but not yet handled by the plugin:
+`UserPromptExpansion`, `PermissionRequest`, `TeammateIdle`, `FileChanged`,
+`WorktreeCreate`, `WorktreeRemove`, `Elicitation`, `ElicitationResult`.
 
 ---
 
@@ -32,6 +35,11 @@ Fields included in all hook events per official spec:
 > Missing events: `SessionStart`, `SessionEnd`, `SubagentStart`, `PreCompact`, `PostCompact`
 > Hook code should not depend on these fields.
 
+Per-event payload readers surface `session_id`, `cwd`, `transcript_path`,
+`permission_mode`, `agent_id`, and `agent_type` on a common
+`ClaudeSessionContextBase` interface. Each event extends it with its
+event-specific fields.
+
 ---
 
 ## Per-Event Payloads
@@ -39,6 +47,8 @@ Fields included in all hook events per official spec:
 ### SessionStart
 
 Trigger: After Claude Code startup, resume, `/clear`, `/compact`
+Reader: `readSessionStart()`
+Matchers: `startup|resume|clear|compact`
 
 | Field | Type | Value |
 |-------|------|-------|
@@ -54,6 +64,8 @@ Trigger: After Claude Code startup, resume, `/clear`, `/compact`
 ### SessionEnd
 
 Trigger: On session closure
+Reader: `readSessionEnd()`
+Matchers: `clear|resume|logout|prompt_input_exit|bypass_permissions_disabled|other`
 
 | Field | Type | Value |
 |-------|------|-------|
@@ -67,6 +79,7 @@ Trigger: On session closure
 ### UserPromptSubmit
 
 Trigger: When user message is submitted
+Reader: `readUserPromptSubmit()`
 
 | Field | Type | Value |
 |-------|------|-------|
@@ -75,14 +88,33 @@ Trigger: When user message is submitted
 
 ---
 
+### InstructionsLoaded
+
+Trigger: When a CLAUDE.md / `.claude/rules/*.md` file is loaded into context
+Reader: `readInstructionsLoaded()`
+Matchers: `session_start|nested_traversal|path_glob_match|include|compact`
+
+| Field | Type | Value |
+|-------|------|-------|
+| `hook_event_name` | string | `"InstructionsLoaded"` |
+| `file_path` | string | Absolute path of the loaded instruction file |
+| `memory_type` | string | `"User"` \| `"Project"` \| `"Local"` \| `"Managed"` |
+| `load_reason` | string | `session_start|nested_traversal|path_glob_match|include|compact` |
+| `globs` | string[]? | Glob patterns that triggered the load |
+| `trigger_file_path` | string? | File that triggered a lazy include |
+| `parent_file_path` | string? | File that included this one |
+
+---
+
 ### PreToolUse
 
 Trigger: Just before tool execution
+Reader: `readPreToolUse()`
 
 | Field | Type | Value |
 |-------|------|-------|
 | `hook_event_name` | string | `"PreToolUse"` |
-| `tool_name` | string | Tool name (`Bash`, `Edit`, `Write`, `Read`, `Glob`, `Grep`, `Agent`, `Skill`, `mcp__*`, etc.) |
+| `tool_name` | string | Tool name (`Bash`, `Edit`, `Write`, `Read`, `Glob`, `Grep`, `WebFetch`, `WebSearch`, `Agent`, `Skill`, `TaskCreate`, `TaskUpdate`, `TodoWrite`, `AskUserQuestion`, `ExitPlanMode`, `mcp__*`, etc.) |
 | `tool_input` | object | Per-tool input (see below) |
 | `tool_use_id` | string | Unique tool call ID |
 
@@ -92,17 +124,22 @@ Trigger: Just before tool execution
 **tool_input structure (per tool):**
 
 ```
-Bash:        { command, description?, timeout?, run_in_background? }
-Edit:        { file_path, old_string, new_string, replace_all? }
-Write:       { file_path, content }
-Read:        { file_path, offset?, limit? }
-Glob:        { pattern, path? }
-Grep:        { pattern, path?, glob?, output_mode?, "-i"?, multiline? }
-WebSearch:   { query }
-WebFetch:    { url, prompt? }
-Agent:       { description?, prompt, subagent_type?, model?, run_in_background? }
-Skill:       { skill, args? }
-mcp__*:      Varies by MCP server/tool
+Bash:            { command, description?, timeout?, run_in_background? }
+Edit:            { file_path, old_string, new_string, replace_all? }
+Write:           { file_path, content }
+Read:            { file_path, offset?, limit? }
+Glob:            { pattern, path? }
+Grep:            { pattern, path?, glob?, output_mode?, "-i"?, multiline? }
+WebSearch:       { query }
+WebFetch:        { url, prompt? }
+Agent:           { description?, prompt, subagent_type?, model?, run_in_background? }
+Skill:           { skill, args? }
+TaskCreate:      { task_subject, task_description? }
+TaskUpdate:      { task_id, status }
+TodoWrite:       { todos: [{ content, status, priority }] }
+AskUserQuestion: { question, options? }
+ExitPlanMode:    { plan }
+mcp__*:          Varies by MCP server/tool
 ```
 
 > The structure above summarizes fields currently used by Agent Tracer.
@@ -137,7 +174,13 @@ only. The derived fields are consumed by the web dashboard through
 
 ### Per-Tool Additional Metadata
 
-`explore.ts` and `tool_used.ts` inject per-tool additional information into the `metadata` field:
+The PostToolUse per-tool handlers share ops modules:
+`PostToolUse/{Read,Glob,Grep,WebFetch,WebSearch,AskUserQuestion,ExitPlanMode}.ts` → `_explore.ops.ts`;
+`PostToolUse/{Edit,Write}.ts` → `_file.ops.ts`;
+`PostToolUse/Agent.ts` → `_agent.ops.ts`;
+`PostToolUse/Skill.ts` → `_skill.ops.ts`;
+`PostToolUse/{TaskCreate,TaskUpdate,TodoWrite}.ts` → `_todo.ops.ts`.
+Each ops module injects per-tool additional information into the `metadata` field:
 
 | Tool | Additional Metadata | Description |
 |------|--------------------| ------------|
@@ -153,6 +196,8 @@ These fields are **Agent Tracer's own extensions** not present in the official C
 ### PostToolUse
 
 Trigger: After successful tool execution
+Reader: `readPostToolUse()`
+Matchers: split per official tool — see [claude-setup.md](./claude-setup.md#postooluse--per-tool-subhandlers)
 
 | Field | Type | Value |
 |-------|------|-------|
@@ -170,6 +215,8 @@ Trigger: After successful tool execution
 ### PostToolUseFailure
 
 Trigger: After tool execution failure
+Reader: `readPostToolUseFailure()`
+Matchers: `Bash|Edit|Write|Read|Glob|Grep|WebFetch|WebSearch|Agent|Skill|TaskCreate|TaskUpdate|TodoWrite|AskUserQuestion|ExitPlanMode|mcp__.*`
 
 | Field | Type | Value |
 |-------|------|-------|
@@ -182,23 +229,60 @@ Trigger: After tool execution failure
 
 ---
 
+### PostToolBatch
+
+Trigger: After all parallel tool calls in a batch resolve, before the next model call
+Reader: `readPostToolBatch()`
+
+| Field | Type | Value |
+|-------|------|-------|
+| `hook_event_name` | string | `"PostToolBatch"` |
+| `tool_use_ids` | string[] | IDs of tool calls in the resolved batch |
+| `tool_calls` | object[] | `[{ tool_name, tool_input }]` for each call |
+
+Posts a `context.saved` event with `trigger: "tool_batch_completed"` and
+`itemCount: batchSize` so the timeline can draw a boundary between parallel
+tool fan-outs.
+
+---
+
+### PermissionDenied
+
+Trigger: When a tool call is denied by the auto-mode classifier
+Reader: `readPermissionDenied()`
+Matchers: same tool-name regex as `PostToolUseFailure`
+
+| Field | Type | Value |
+|-------|------|-------|
+| `hook_event_name` | string | `"PermissionDenied"` |
+| `tool_name` | string | Tool that was denied |
+| `tool_input` | object | Input that would have been used |
+
+Posts a `rule.logged` event with `ruleOutcome: "auto_deny"` and
+`rulePolicy: "auto_mode_classifier"`.
+
+---
+
 ### SubagentStart
 
 Trigger: When subagent starts
+Reader: `readSubagentStart()`
 
 | Field | Type | Value |
 |-------|------|-------|
 | `hook_event_name` | string | `"SubagentStart"` |
 | `agent_id` | string | Unique subagent ID |
-| `agent_type` | string | Subagent type name (e.g., `"general-purpose"`) |
+| `agent_type` | string | Subagent type name (alias: `subagent_type`, e.g., `"general-purpose"`) |
 
 > **[Observed]** No `transcript_path`, `permission_mode`.
+> **[Observed]** Reader accepts either `subagent_type` or `agent_type`.
 
 ---
 
 ### SubagentStop
 
 Trigger: When subagent stops
+Reader: `readSubagentStop()`
 **Fire order: `SubagentStop` → `PostToolUse(Agent)`**
 
 | Field | Type | Value |
@@ -209,16 +293,78 @@ Trigger: When subagent stops
 | `stop_hook_active` | boolean | Whether stop hook is active |
 | `agent_transcript_path` | string | Subagent transcript path |
 | `last_assistant_message` | string | Full last response from subagent |
+| `stop_reason` | string? | Subagent termination reason |
 
 > **[Observed]** When `/compact` is performed, a compact-specific subagent runs internally.
 > In this case, `agent_type` comes as **empty string `""`** (regular subagents have a type name).
-> Current code treats this with `|| "unknown"`, but preserving `""` as-is is needed to identify compact agents.
+
+---
+
+### TaskCreated
+
+Trigger: When a task is created via the `TaskCreate` tool
+Reader: `readTaskCreated()`
+
+| Field | Type | Value |
+|-------|------|-------|
+| `hook_event_name` | string | `"TaskCreated"` |
+| `task_name` | string | Task title |
+| `task_description` | string? | Full description |
+
+Posts a `todo.logged` event with `todoState: "added"` and a stable `todoId`
+derived from the task name. Complements the `PostToolUse/TaskCreate.ts`
+handler which uses the same mapping.
+
+---
+
+### TaskCompleted
+
+Trigger: When a task is marked completed
+Reader: `readTaskCompleted()`
+
+| Field | Type | Value |
+|-------|------|-------|
+| `hook_event_name` | string | `"TaskCompleted"` |
+| `task_name` | string | Task title that completed |
+
+Posts a `todo.logged` event with `todoState: "completed"`.
+
+---
+
+### Stop
+
+Trigger: When Claude finishes responding (end of a turn)
+Reader: `readStop()`
+
+| Field | Type | Value |
+|-------|------|-------|
+| `hook_event_name` | string | `"Stop"` |
+| `stop_reason` | string? | `end_turn|max_tokens|tool_use|…` |
+| `last_assistant_message` | string | Final assistant message text |
+
+---
+
+### StopFailure
+
+Trigger: When a turn ends due to an API error
+Reader: `readStopFailure()`
+Matchers: `rate_limit|authentication_failed|billing_error|invalid_request|server_error|max_output_tokens|unknown`
+
+| Field | Type | Value |
+|-------|------|-------|
+| `hook_event_name` | string | `"StopFailure"` |
+| `error_type` | string | One of the matcher values |
+| `error_message` | string? | Optional human-readable error text |
+
+Posts an `assistant.response` event with `stopReason: "error:<error_type>"`.
 
 ---
 
 ### PreCompact
 
 Trigger: Just before context compression (`/compact` or automatic)
+Reader: `readPreCompact()`
+Matchers: `manual|auto`
 
 | Field | Type | Value |
 |-------|------|-------|
@@ -226,14 +372,16 @@ Trigger: Just before context compression (`/compact` or automatic)
 | `trigger` | string | `"manual"` \| `"auto"` |
 | `custom_instructions` | string | User compact instructions (empty string `""` if not provided) |
 
-> **[Observed]** No `transcript_path`, `permission_mode`.
-> **[Observed]** `custom_instructions` is empty string `""` if not provided, not `null`.
+> **[Observed]** `custom_instructions` is an implementation extension, not in the official schema.
+> It is empty string `""` if not provided, not `null`.
 
 ---
 
 ### PostCompact
 
 Trigger: After context compression completes
+Reader: `readPostCompact()`
+Matchers: `manual|auto`
 
 | Field | Type | Value |
 |-------|------|-------|
@@ -241,8 +389,56 @@ Trigger: After context compression completes
 | `trigger` | string | `"manual"` \| `"auto"` |
 | `compact_summary` | string | Full compression summary (`<analysis>...</analysis><summary>...</summary>` format, can be very long) |
 
-> **[Observed]** No `transcript_path`, `permission_mode`.
-> **[Observed]** `compact_summary` is XML-formatted analysis + summary text, several KB in size.
+> **[Observed]** `compact_summary` is an implementation extension, XML-formatted, several KB in size.
+
+---
+
+### CwdChanged
+
+Trigger: When the working directory changes (e.g. `cd` command in a Bash tool)
+Reader: `readCwdChanged()`
+
+| Field | Type | Value |
+|-------|------|-------|
+| `hook_event_name` | string | `"CwdChanged"` |
+| `old_cwd` | string? | Previous working directory |
+| `new_cwd` | string? | New working directory |
+
+Posts a `context.saved` event with `trigger: "cwd_changed"`.
+
+---
+
+### Notification
+
+Trigger: When Claude Code emits a notification to the user
+Reader: `readNotification()`
+Matchers: `permission_prompt|idle_prompt|auth_success|elicitation_dialog`
+
+| Field | Type | Value |
+|-------|------|-------|
+| `hook_event_name` | string | `"Notification"` |
+| `notification_type` | string? | One of the matcher values |
+| `notification_message` | string? | Message shown to the user |
+
+Posts a `context.saved` event with `trigger: "notification:<type>"`.
+
+---
+
+### ConfigChange
+
+Trigger: When a settings source changes during a session
+Reader: `readConfigChange()`
+Matchers: `user_settings|project_settings|local_settings|policy_settings|skills`
+
+| Field | Type | Value |
+|-------|------|-------|
+| `hook_event_name` | string | `"ConfigChange"` |
+| `config_source` | string? | One of the matcher values |
+
+Posts a `context.saved` event with `trigger: "config_change:<source>"`.
+
+> The hook event docs note that `ConfigChange` can block (except for
+> `policy_settings`). Agent Tracer never blocks — it only observes.
 
 ---
 
@@ -276,23 +472,71 @@ Ref: https://code.claude.com/docs/en/statusline
 
 > **[Observed]** `rate_limits` is only present for Pro/Max plans.
 > **[Observed]** `used_percentage` is already normalized against the active
-> model's window size, so UI does not need to re-scale when switching between
-> Opus (1M) and Sonnet (200K).
+> model's window size.
+
+`StatusLine` is not an official hook event — it's a separate
+status-line feature. Its handler (`StatusLine.ts`) keeps its own specialized
+validation since the payload differs significantly from hook payloads; it does
+**not** go through the shared `runHook()` wrapper.
 
 **Agent Tracer behavior:**
 - Posts a `context.snapshot` event (lane `telemetry`) on every status refresh.
-- Metadata keys mirror the payload: `contextWindowUsedPct`,
-  `contextWindowRemainingPct`, `contextWindowSize`,
-  `contextWindowInputTokens`, `contextWindowOutputTokens`,
-  `contextWindowCacheCreationTokens`, `contextWindowCacheReadTokens`,
-  `rateLimitFiveHourUsedPct`, `rateLimitFiveHourResetsAt`,
-  `rateLimitSevenDayUsedPct`, `rateLimitSevenDayResetsAt`, `costTotalUsd`,
-  `modelId`, `sessionVersion`.
-- Writes `[monitor] ctx N% · 5h N% · $X.XXX` to stdout for Claude Code's status
-  bar. Skips posting (but still writes stdout) when there is no meaningful
-  `used_percentage` or `rate_limits` payload yet.
-- The Timeline's bottom context chart consumes `context.snapshot` events to
-  render the context-usage curve, the per-model band, and model-change markers.
+- Writes `[monitor] ctx N% · 5h N% · $X.XXX` to stdout for Claude Code's status bar.
+
+---
+
+## Codex Hook Payloads
+
+Official documentation: https://developers.openai.com/codex/hooks
+
+Codex exposes 6 hook events: `SessionStart`, `PreToolUse`, `PermissionRequest`,
+`PostToolUse`, `UserPromptSubmit`, `Stop`. All six are handled by Agent Tracer.
+
+Readers live at `packages/runtime/src/shared/hooks/codex/payloads.ts`.
+
+### Common Codex fields
+
+All Codex events include `session_id`, `cwd`, `hook_event_name`, `model`.
+Turn-scoped events (`PreToolUse`, `PermissionRequest`, `PostToolUse`,
+`UserPromptSubmit`, `Stop`) additionally include `turn_id`.
+
+The reader layer exposes these as three nested interfaces:
+
+```typescript
+interface CodexSessionContextBase {
+  sessionId: string;
+  cwd?: string;
+  transcriptPath?: string;
+  model?: string;
+}
+
+interface CodexTurnContextBase extends CodexSessionContextBase {
+  turnId?: string;
+}
+
+interface CodexToolContextBase extends CodexTurnContextBase {
+  toolName: string;
+  toolInput: object;
+  toolUseId?: string;
+}
+```
+
+### Per-event differences from Claude
+
+- `SessionStart` matchers: `startup|resume` only (no `clear|compact`).
+- `PreToolUse`, `PermissionRequest`, `PostToolUse` matcher: `Bash` only.
+- `Stop` carries `stop_hook_active` (boolean) instead of Claude's `stop_reason`.
+  Agent Tracer emits `stopReason: "stop_hook"` as a synthetic value since Codex
+  does not expose a real reason.
+- `UserPromptSubmit` has no `cwd`/`transcript_path` guarantees — only
+  `session_id`, `prompt`, `model`, `turn_id`.
+
+### PermissionRequest
+
+Posts a `rule.logged` event with `ruleStatus: "requested"`,
+`ruleOutcome: "observed"`, and `rulePolicy: "codex_permission"`. Agent Tracer
+is observation-only and never sets `decision.behavior` — Codex uses its
+built-in policy.
 
 ---
 
@@ -308,7 +552,10 @@ User input
 Tool execution
   ├─ PreToolUse
   ├─ (tool execution)
-  └─ PostToolUse | PostToolUseFailure
+  └─ PostToolUse | PostToolUseFailure | PermissionDenied
+
+Parallel tool batch
+  └─ PostToolBatch (after every call in the batch resolves)
 
 Agent tool execution
   ├─ PreToolUse (tool_name: "Agent")
@@ -317,6 +564,10 @@ Agent tool execution
   ├─ SubagentStop
   └─ PostToolUse (tool_name: "Agent")   ← after SubagentStop
 
+Native task tooling
+  ├─ PostToolUse (tool_name: "TaskCreate") → TaskCreated
+  └─ PostToolUse (tool_name: "TaskUpdate") → TaskCompleted (on completion)
+
 /compact execution
   ├─ PreCompact
   ├─ SubagentStart (agent_type: "")     ← compact-specific internal agent
@@ -324,6 +575,7 @@ Agent tool execution
   └─ PostCompact
 
 Session end
+  └─ Stop | StopFailure
   └─ SessionEnd
 ```
 
@@ -378,9 +630,10 @@ return the same `(taskId, sessionId)` without creating duplicates.
 
 | Situation | Current | Recommended |
 |-----------|---------|------------|
-| `transcript_path` usage | - | Do not use, may be missing |
+| `transcript_path` usage | Captured when present | Do not rely on, may be missing |
 | `agent_type` default | `\|\| "unknown"` | Preserve as `\|\| ""` to distinguish compact agents |
 | `custom_instructions` empty | `\|\| ""` (already handled) | Keep current code |
 | `compact_summary` logging | - | Length limit required (several KB) |
-| `tool_response` logging | Being removed in hookLogPayload | Preserve |
+| `tool_response` logging | Redacted in hookLogPayload | Preserve |
 | `session_id` in subagent hooks | Parent's session_id is always sent | Use `agent_id` + `resolveEventSessionIds` to route to child task |
+| Validation | Payload readers in `~shared/hooks/{claude,codex}/payloads.ts`; never throw, return `{ ok: false, reason }` on missing required fields | Add new events by defining a reader + invoking `runHook(name, { logger, parse, handler })` |

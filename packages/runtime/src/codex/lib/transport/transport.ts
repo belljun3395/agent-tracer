@@ -1,19 +1,19 @@
 import {CODEX_RUNTIME_SOURCE, PROJECT_DIR} from "~codex/util/paths.const.js";
 import {defaultTaskTitle} from "~codex/util/paths.js";
-import {
-    postJson,
-    readStdinJson,
-    postEvent,
-    postTaggedEvent,
-    type RuntimeSessionEnsureResult,
-} from "~shared/transport/transport.js";
+import {codexHookRuntime} from "~codex/lib/runtime.js";
+import {readStdinJson} from "~shared/hook-runtime/index.js";
+import type {RuntimeSessionEnsureResult} from "~shared/hook-runtime/transport.js";
 
-export {readStdinJson, postJson, postEvent, postTaggedEvent};
+export {readStdinJson};
 export type {RuntimeSessionEnsureResult};
+
+export const postJson = codexHookRuntime.transport.postJson;
+export const postEvent = codexHookRuntime.transport.postEvent;
+export const postTaggedEvent = codexHookRuntime.transport.postTaggedEvent;
+export const postTaggedEvents = codexHookRuntime.transport.postTaggedEvents;
 
 /**
  * Calls `/api/runtime-session-ensure` to create or resume a monitor session.
- * Returns `{ taskId, sessionId, taskCreated, sessionCreated }`.
  */
 export async function ensureRuntimeSession(
     runtimeSessionId: string,

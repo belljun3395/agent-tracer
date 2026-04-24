@@ -51,18 +51,27 @@ hook command. No extra wrapper is required for the normal interactive path.
 
 ### What this captures today
 
-Interactive Codex currently captures:
+Interactive Codex covers the full official Codex hook surface (all 6 events):
 
 - `SessionStart` -> `context.saved`
 - `UserPromptSubmit` -> `user.message`
+- `PreToolUse` (`Bash` only) -> runtime-session-ensure (session guarantee)
+- `PermissionRequest` (`Bash` only) -> `rule.logged` (observation-only —
+  Agent Tracer never sets `decision.behavior`; Codex uses its own policy)
 - `PostToolUse` (`Bash` only) -> `terminal.command`
 - `Stop` -> `assistant.response`
+
+Plus rollout-backed coverage (observer process):
+
 - rollout `response_item.custom_tool_call(apply_patch)` -> `tool.used`
 - rollout `response_item.function_call(mcp__...)` -> `agent.activity.logged`
 - rollout `response_item.web_search_call` -> `tool.used`
 
-`PreToolUse` is also wired, but it only ensures the runtime session exists
-before the Bash command is logged.
+All six hook handlers use the shared `runHook()` wrapper and the typed
+payload readers at `packages/runtime/src/shared/hooks/codex/payloads.ts`.
+Turn-scoped events (`PreToolUse`, `PermissionRequest`, `PostToolUse`,
+`UserPromptSubmit`, `Stop`) capture the official `turn_id` and `model`
+fields from the payload.
 
 ## 4. Current capture scope
 
@@ -74,6 +83,7 @@ Default events that can be captured:
 - `user.message`
 - `terminal.command` (`Bash` only)
 - `assistant.response`
+- `rule.logged` (permission requests, observation-only)
 - `tool.used` (`apply_patch`, web search/fetch via rollout)
 - `agent.activity.logged` (MCP calls via rollout)
 

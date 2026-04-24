@@ -96,19 +96,41 @@ hook event name.
 
 ### Top-level hook files
 
+Every top-level hook file uses the shared
+`runHook(name, { logger, parse, handler })` wrapper from
+`packages/runtime/src/shared/hook-runtime/`. `parse` comes from the typed payload
+readers in `packages/runtime/src/shared/hooks/claude/payloads.ts`. The handler
+body stays thin — validation, stderr/file logging, and error swallowing all live
+in the shared wrapper so hooks never block Claude Code on implementation errors.
+
+As of v0.3 the plugin covers **21 of 28** official Claude hook events:
+
 | File | Event | Responsibility |
 |------|-------|----------------|
 | `SessionStart.ts` | `SessionStart` | Ensure a runtime session, record clear/resume markers |
+| `SessionEnd.ts` | `SessionEnd` | Close the current runtime session only |
 | `UserPromptSubmit.ts` | `UserPromptSubmit` | Record the raw user prompt as `user.message` |
+| `InstructionsLoaded.ts` | `InstructionsLoaded` | Record CLAUDE.md / rule-file loads |
 | `PreToolUse.ts` | `PreToolUse` | Ensure a runtime session exists before a tool fires |
 | `PostToolUseFailure.ts` | `PostToolUseFailure` | Record failed tool activity |
+| `PostToolBatch.ts` | `PostToolBatch` | Record parallel tool-batch boundaries |
+| `PermissionDenied.ts` | `PermissionDenied` | Record auto-mode tool-call denials (`rule.logged`) |
 | `SubagentStart.ts` | `SubagentStart` | Register background subagent start |
 | `SubagentStop.ts` | `SubagentStop` | Register background subagent completion |
+| `TaskCreated.ts` | `TaskCreated` | Record native-task creation (`todo.logged`, state `added`) |
+| `TaskCompleted.ts` | `TaskCompleted` | Record native-task completion (`todo.logged`, state `completed`) |
 | `PreCompact.ts` | `PreCompact` | Record compaction checkpoint (planning lane) |
 | `PostCompact.ts` | `PostCompact` | Record compaction summary |
-| `SessionEnd.ts` | `SessionEnd` | Close the current runtime session only |
 | `Stop.ts` | `Stop` | Record assistant response and end runtime session with `completeTask: true` |
+| `StopFailure.ts` | `StopFailure` | Record turn errors (rate_limit, billing_error, etc.) |
+| `CwdChanged.ts` | `CwdChanged` | Record working-directory transitions |
+| `Notification.ts` | `Notification` | Record permission_prompt / idle_prompt / auth_success / elicitation_dialog |
+| `ConfigChange.ts` | `ConfigChange` | Record settings-source changes (user/project/local/policy/skills) |
 | `StatusLine.ts` | `statusLine` | Post a `context.snapshot` per API refresh (context/rate-limit/cost/model) and render a status bar string |
+
+Not yet handled: `UserPromptExpansion`, `PermissionRequest`, `TeammateIdle`,
+`FileChanged`, `WorktreeCreate`, `WorktreeRemove`, `Elicitation`,
+`ElicitationResult`.
 
 ### StatusLine setup
 
@@ -130,23 +152,59 @@ takes precedence over the plugin entry.
 
 ### `PostToolUse/` — per-tool subhandlers
 
-`PostToolUse` is routed to one of six sub-handlers via the matchers in
-`hooks.json`. All sub-handlers post to `POST /ingest/v1/events` with a
-`kind`-tagged envelope; lane, subtype, toolFamily, and operation are
-derived **server-side** inside `@monitor/server` at ingestion (v0.2.0+).
+As of v0.3, `PostToolUse` is split **per official tool identifier** — each file
+name equals the Claude Code tool name. Each handler is a thin entry file; shared
+per-category logic lives in `_file.ops.ts`, `_explore.ops.ts`, `_agent.ops.ts`,
+`_skill.ops.ts`, `_todo.ops.ts`, and `_shared.ts` (the common read +
+resolve-session-ids wrapper).
 
-| Matcher | File | `kind` |
-|---------|------|--------|
-| `Bash` | `PostToolUse/Bash.ts` | `terminal.command` |
-| `Edit\|Write` | `PostToolUse/File.ts` | `tool.used` |
-| `Read\|Glob\|Grep\|WebSearch\|WebFetch` | `PostToolUse/Explore.ts` | `tool.used` |
-| `Agent\|Skill` | `PostToolUse/Agent.ts` | `agent.activity.logged` |
-| `TaskCreate\|TaskUpdate\|TodoWrite` | `PostToolUse/Todo.ts` | `todo.logged` (batch) |
-| `mcp__.*` | `PostToolUse/Mcp.ts` | `agent.activity.logged` |
+All handlers post to `POST /ingest/v1/events` with a `kind`-tagged envelope;
+lane, subtype, toolFamily, and operation are derived **server-side** inside
+`@monitor/server` at ingestion.
+
+| Matcher | File | Shared ops module | `kind` |
+|---------|------|-------------------|--------|
+| `Bash` | `PostToolUse/Bash.ts` | (inline) | `terminal.command` |
+| `Edit` | `PostToolUse/Edit.ts` | `_file.ops.ts` | `tool.used` |
+| `Write` | `PostToolUse/Write.ts` | `_file.ops.ts` | `tool.used` |
+| `Read` | `PostToolUse/Read.ts` | `_explore.ops.ts` | `tool.used` |
+| `Glob` | `PostToolUse/Glob.ts` | `_explore.ops.ts` | `tool.used` |
+| `Grep` | `PostToolUse/Grep.ts` | `_explore.ops.ts` | `tool.used` |
+| `WebFetch` | `PostToolUse/WebFetch.ts` | `_explore.ops.ts` | `tool.used` |
+| `WebSearch` | `PostToolUse/WebSearch.ts` | `_explore.ops.ts` | `tool.used` |
+| `Agent` | `PostToolUse/Agent.ts` | `_agent.ops.ts` | `agent.activity.logged` |
+| `Skill` | `PostToolUse/Skill.ts` | `_skill.ops.ts` | `agent.activity.logged` |
+| `TaskCreate` | `PostToolUse/TaskCreate.ts` | `_todo.ops.ts` | `todo.logged` (batch) |
+| `TaskUpdate` | `PostToolUse/TaskUpdate.ts` | `_todo.ops.ts` | `todo.logged` (batch) |
+| `TodoWrite` | `PostToolUse/TodoWrite.ts` | `_todo.ops.ts` | `todo.logged` (batch) |
+| `AskUserQuestion` | `PostToolUse/AskUserQuestion.ts` | `_explore.ops.ts` | `tool.used` |
+| `ExitPlanMode` | `PostToolUse/ExitPlanMode.ts` | `_explore.ops.ts` | `tool.used` |
+| `mcp__.*` | `PostToolUse/Mcp.ts` | (inline) | `agent.activity.logged` |
+
+> Pre-v0.3 the handlers were grouped behind non-official matcher-group files
+> (`File.ts`, `Explore.ts`, `Todo.ts`). They were replaced with the per-tool
+> split above so file names exactly match the official Claude Code tool
+> identifier. `Mcp.ts` is kept as a category handler because `mcp__*` is a
+> wildcard regex, not a single tool identifier.
 
 ### Supporting modules
 
-- `lib/` — shared utilities (`transport`, `session`, `subagent-session`, `json-file-store`, `hook-log`)
+- `~shared/hook-runtime/` — `createHookRuntime`, `runHook`, the monitor transport
+  (envelope-parsing `MonitorRequestError`), structured log writer, and the light
+  `validator.ts` reader helpers
+- `~shared/hooks/claude/payloads.ts` — typed payload readers per hook event
+- `~shared/hooks/codex/payloads.ts` — typed payload readers for the Codex hooks
+- `~shared/errors/` — `MonitorRequestError`, `RolloutNotFoundError`,
+  `RolloutTimeoutError`, `MissingSessionMarkerError`
+- `~shared/config/env.ts` — typed loader for `MONITOR_*`, `CLAUDE_PROJECT_DIR`,
+  `CODEX_PROJECT_DIR`, `NODE_ENV`
+- `lib/runtime.ts` — per-runtime `createHookRuntime({ logFile })` instance
+  (`.claude/hooks.log` for Claude, `.codex/hooks.log` for Codex)
+- `lib/hook/` — thin re-exports of `hookLog`, `hookLogPayload`, and the
+  context readers
+- `lib/transport/` — thin re-exports of `postJson`, `postEvent`,
+  `postTaggedEvent`, `postTaggedEvents`, plus the runtime-specific
+  `ensureRuntimeSession` with the correct `runtimeSource` + `workspacePath`
 - `util/` — framework-agnostic helpers (`lane`, `paths`, `utils`)
 
 > Pre-v0.2.0 the plugin also maintained `lib/session-cache.ts`,
@@ -159,12 +217,20 @@ derived **server-side** inside `@monitor/server` at ingestion (v0.2.0+).
 | Event | Hook | Effect |
 |-------|------|--------|
 | Session cleared / resumed / first prompt | `SessionStart.ts` + `UserPromptSubmit.ts` | Ensure runtime session, record raw user prompt |
+| Instruction file loaded | `InstructionsLoaded.ts` | Record CLAUDE.md / rule-file load on the planning lane |
 | First tool use | `PreToolUse.ts` | Reuses the ensured runtime session |
-| Tool success | `PostToolUse/*.ts` | Capture per-tool activity as raw payload (server classifies) |
+| Tool success | `PostToolUse/<Tool>.ts` | Per-tool handler captures raw payload (server classifies) |
+| Parallel tool batch end | `PostToolBatch.ts` | Record the boundary between a parallel tool fan-out and the next model call |
 | Tool failure | `PostToolUseFailure.ts` | Record the failed tool call |
+| Tool auto-denied | `PermissionDenied.ts` | Record `rule.logged` for the auto-mode deny |
 | Subagent lifecycle | `SubagentStart.ts`, `SubagentStop.ts` | Record background running / completed markers |
+| Native task lifecycle | `TaskCreated.ts`, `TaskCompleted.ts` | Record TaskCreate / TaskComplete transitions as `todo.logged` |
 | Pre/Post compact | `PreCompact.ts`, `PostCompact.ts` | Record compaction checkpoint and compact summary |
 | Assistant turn end | `Stop.ts` | Record assistant response and call `/api/runtime-session-end` with `completeTask: true` |
+| Turn error | `StopFailure.ts` | Record `assistant.response` with `stopReason: "error:<error_type>"` |
+| Cwd change | `CwdChanged.ts` | Record working-directory transition as `context.saved` |
+| User notification | `Notification.ts` | Record permission-prompt / idle / auth-success / elicitation notifications |
+| Config source change | `ConfigChange.ts` | Record settings-source mutations during the session |
 | Session end | `SessionEnd.ts` | Ends only the current runtime session unless `Stop.ts` already completed the primary task |
 | Work item complete | `monitor_task_complete` MCP tool | Marks a known task `completed`; runtime-session closure policy stays with `monitor_runtime_session_end` |
 

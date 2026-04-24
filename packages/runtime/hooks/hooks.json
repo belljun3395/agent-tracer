@@ -42,25 +42,70 @@
         ]
       },
       {
-        "matcher": "Edit|Write",
+        "matcher": "Edit",
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostToolUse/File"
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostToolUse/Edit"
           }
         ]
       },
       {
-        "matcher": "Read|Glob|Grep|WebSearch|WebFetch",
+        "matcher": "Write",
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostToolUse/Explore"
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostToolUse/Write"
           }
         ]
       },
       {
-        "matcher": "Agent|Skill",
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostToolUse/Read"
+          }
+        ]
+      },
+      {
+        "matcher": "Glob",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostToolUse/Glob"
+          }
+        ]
+      },
+      {
+        "matcher": "Grep",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostToolUse/Grep"
+          }
+        ]
+      },
+      {
+        "matcher": "WebFetch",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostToolUse/WebFetch"
+          }
+        ]
+      },
+      {
+        "matcher": "WebSearch",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostToolUse/WebSearch"
+          }
+        ]
+      },
+      {
+        "matcher": "Agent",
         "hooks": [
           {
             "type": "command",
@@ -69,11 +114,56 @@
         ]
       },
       {
-        "matcher": "TaskCreate|TaskUpdate|TodoWrite",
+        "matcher": "Skill",
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostToolUse/Todo"
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostToolUse/Skill"
+          }
+        ]
+      },
+      {
+        "matcher": "TaskCreate",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostToolUse/TaskCreate"
+          }
+        ]
+      },
+      {
+        "matcher": "TaskUpdate",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostToolUse/TaskUpdate"
+          }
+        ]
+      },
+      {
+        "matcher": "TodoWrite",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostToolUse/TodoWrite"
+          }
+        ]
+      },
+      {
+        "matcher": "AskUserQuestion",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostToolUse/AskUserQuestion"
+          }
+        ]
+      },
+      {
+        "matcher": "ExitPlanMode",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostToolUse/ExitPlanMode"
           }
         ]
       },
@@ -89,11 +179,32 @@
     ],
     "PostToolUseFailure": [
       {
-        "matcher": "Bash|Edit|Write|Agent|Skill|TaskCreate|TaskUpdate|TodoWrite|mcp__.*",
+        "matcher": "Bash|Edit|Write|Read|Glob|Grep|WebFetch|WebSearch|Agent|Skill|TaskCreate|TaskUpdate|TodoWrite|AskUserQuestion|ExitPlanMode|mcp__.*",
         "hooks": [
           {
             "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostToolUseFailure"
+          }
+        ]
+      }
+    ],
+    "PostToolBatch": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostToolBatch"
+          }
+        ]
+      }
+    ],
+    "PermissionDenied": [
+      {
+        "matcher": "Bash|Edit|Write|Read|Glob|Grep|WebFetch|WebSearch|Agent|Skill|TaskCreate|TaskUpdate|TodoWrite|AskUserQuestion|ExitPlanMode|mcp__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PermissionDenied"
           }
         ]
       }
@@ -114,6 +225,26 @@
           {
             "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh SubagentStop"
+          }
+        ]
+      }
+    ],
+    "TaskCreated": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh TaskCreated"
+          }
+        ]
+      }
+    ],
+    "TaskCompleted": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh TaskCompleted"
           }
         ]
       }
@@ -164,6 +295,47 @@
           {
             "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh Stop"
+          }
+        ]
+      }
+    ],
+    "StopFailure": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh StopFailure"
+          }
+        ]
+      }
+    ],
+    "CwdChanged": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh CwdChanged"
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh Notification"
+          }
+        ]
+      }
+    ],
+    "ConfigChange": [
+      {
+        "matcher": "user_settings|project_settings|local_settings|policy_settings|skills",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh ConfigChange"
           }
         ]
       }

@@ -1,40 +1,34 @@
 /**
  * Codex Hook: PreToolUse — matcher: "Bash"
  *
- * Fires before a Bash command executes.
- * Matcher (hooks.json): "Bash" — runs only for Bash tool invocations.
+ * Ref: https://developers.openai.com/codex/hooks#pretooluse
  *
- * Stdin payload fields (ref: https://github.com/openai/codex#hooks):
- *   session_id       string  — unique session / thread identifier
- *   hook_event_name  string  — "PreToolUse"
- *   tool_name        string  — "Bash"
- *   tool_input       object  — the tool's input parameters (includes "command")
+ * Stdin payload fields:
+ *   session_id       string
+ *   cwd              string
+ *   hook_event_name  string — "PreToolUse"
+ *   model            string
+ *   turn_id          string
+ *   tool_name        string — "Bash"
+ *   tool_use_id      string
+ *   tool_input       object (includes "command")
  *
- * Stdout: not consumed by Codex for PreToolUse hooks.
+ * Blocking: Yes (permissionDecision: "deny" or decision: "block").
+ * This handler is observation-only and never blocks.
  *
- * Blocking: PreToolUse can block command execution (exit non-zero).
- * NOTE: This hook adds latency to every Bash command; the ensureRuntimeSession
- * call has an implicit 2-second HTTP timeout enforced by the transport layer.
- *
- * Purpose: guarantees that a runtime session and task exist in the monitor
- * before PostToolUse/Bash attempts to post events. Running the ensure here
- * avoids a race condition where PostToolUse could arrive before the session
- * is created.
+ * Guarantees that a runtime session and task exist in the monitor before
+ * PostToolUse/Bash attempts to post events.
  */
-import {readToolHookContext} from "~codex/lib/hook/hook.context.js";
+import {codexHookRuntime} from "~codex/lib/runtime.js";
 import {ensureRuntimeSession} from "~codex/lib/transport/transport.js";
-import {hookLog} from "~codex/lib/hook/hook.log.js";
+import {readCodexPreToolUse} from "~shared/hooks/codex/payloads.js";
+import {runHook} from "~shared/hook-runtime/index.js";
 
-async function main(): Promise<void> {
-    const {sessionId} = await readToolHookContext("PreToolUse");
-    if (!sessionId) {
-        hookLog("PreToolUse", "skipped — no sessionId");
-        return;
-    }
-    await ensureRuntimeSession(sessionId);
-    hookLog("PreToolUse", "ensureRuntimeSession ok", {sessionId});
-}
-
-void main().catch((err: unknown) => {
-    hookLog("PreToolUse", "ERROR", {error: String(err)});
+await runHook("PreToolUse", {
+    logger: codexHookRuntime.logger,
+    parse: readCodexPreToolUse,
+    handler: async (payload) => {
+        if (!payload.sessionId) return;
+        await ensureRuntimeSession(payload.sessionId);
+    },
 });
