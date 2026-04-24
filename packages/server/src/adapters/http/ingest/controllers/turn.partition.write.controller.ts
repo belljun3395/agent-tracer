@@ -4,6 +4,7 @@ import {
     UpsertTurnPartitionUseCase,
 } from "~application/workflow/usecases.index.js";
 import { turnPartitionUpsertSchema, type TurnPartitionUpsertBody } from "../schemas/turn.partition.write.schema.js";
+import { pathParamPipe } from "~adapters/http/shared/path-param.pipe.js";
 import { ZodValidationPipe } from "~adapters/http/shared/zod-validation.pipe.js";
 
 @Controller("api/tasks/:id/turn-partition")
@@ -16,7 +17,7 @@ export class TurnPartitionWriteController {
     @Put()
     @HttpCode(HttpStatus.OK)
     async putPartition(
-        @Param("id") taskId: string,
+        @Param("id", pathParamPipe) taskId: string,
         @Body(new ZodValidationPipe(turnPartitionUpsertSchema)) body: TurnPartitionUpsertBody,
     ) {
         try {
@@ -37,7 +38,7 @@ export class TurnPartitionWriteController {
 
     @Post("reset")
     @HttpCode(HttpStatus.OK)
-    async resetPartition(@Param("id") taskId: string) {
+    async resetPartition(@Param("id", pathParamPipe) taskId: string) {
         try {
             await this.reset.execute(taskId);
             return { ok: true };

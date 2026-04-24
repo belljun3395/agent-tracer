@@ -131,6 +131,21 @@ describe("createNestMonitorRuntime HTTP API", () => {
             });
     });
 
+    it("validates path parameters before route handlers run", async () => {
+        await request(app())
+            .get("/api/tasks/%20")
+            .expect(400)
+            .expect(({ body }) => {
+                expect(body).toMatchObject({
+                    ok: false,
+                    error: {
+                        code: "validation_error",
+                        message: "Invalid path parameter",
+                    },
+                });
+            });
+    });
+
     it("ingests events for an existing task", async () => {
         await request(app())
             .post("/api/task-start")

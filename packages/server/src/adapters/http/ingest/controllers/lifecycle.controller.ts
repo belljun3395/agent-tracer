@@ -24,6 +24,7 @@ import {
     taskPatchSchema,
     taskStartSchema,
 } from "../schemas/task.write.schema.js";
+import { pathParamPipe } from "~adapters/http/shared/path-param.pipe.js";
 import { ZodValidationPipe } from "~adapters/http/shared/zod-validation.pipe.js";
 
 @Controller("api")
@@ -65,7 +66,7 @@ export class TaskLifecycleController {
 
     @Patch("tasks/:taskId")
     async patchTask(
-        @Param("taskId") taskId: string,
+        @Param("taskId", pathParamPipe) taskId: string,
         @Body(new ZodValidationPipe(taskPatchSchema)) body: Omit<TaskPatchInput, "taskId">,
     ) {
         const patchInput: TaskPatchInput = {
@@ -85,7 +86,7 @@ export class TaskLifecycleController {
     }
 
     @Delete("tasks/:taskId")
-    async deleteTaskEndpoint(@Param("taskId") taskId: string) {
+    async deleteTaskEndpoint(@Param("taskId", pathParamPipe) taskId: string) {
         const result = await this.deleteTask.execute(taskId);
         if (result === "not_found") throw new HttpException({ ok: false, error: "Task not found" }, HttpStatus.NOT_FOUND);
         return { ok: true };

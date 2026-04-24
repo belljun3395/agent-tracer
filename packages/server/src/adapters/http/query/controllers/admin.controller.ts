@@ -12,6 +12,7 @@ import {
     GetTaskOpenInferenceUseCase,
     GetDefaultWorkspacePathUseCase,
 } from "~application/tasks/index.js";
+import { pathParamPipe } from "~adapters/http/shared/path-param.pipe.js";
 
 @Controller("health")
 export class HealthController {
@@ -66,21 +67,21 @@ export class TaskQueryController {
     }
 
     @Get(":taskId/observability")
-    async taskObservability(@Param("taskId") taskId: string) {
+    async taskObservability(@Param("taskId", pathParamPipe) taskId: string) {
         const observability = await this.getTaskObservability.execute(taskId);
         if (!observability) throw new HttpException({ error: "Task not found" }, HttpStatus.NOT_FOUND);
         return observability;
     }
 
     @Get(":taskId/openinference")
-    async taskOpenInference(@Param("taskId") taskId: string) {
+    async taskOpenInference(@Param("taskId", pathParamPipe) taskId: string) {
         const exportPayload = await this.getTaskOpenInference.execute(taskId);
         if (!exportPayload) throw new HttpException({ error: "Task not found" }, HttpStatus.NOT_FOUND);
         return exportPayload;
     }
 
     @Get(":taskId")
-    async getTaskEndpoint(@Param("taskId") taskId: string) {
+    async getTaskEndpoint(@Param("taskId", pathParamPipe) taskId: string) {
         const task = await this.getTask.execute(taskId);
         if (!task) throw new HttpException({ error: "Task not found" }, HttpStatus.NOT_FOUND);
         const [timeline, runtimeSession] = await Promise.all([
