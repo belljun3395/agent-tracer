@@ -123,4 +123,26 @@ describe("EndRuntimeSessionUseCase", () => {
         expect(state.tasks.get("task-1")?.status).toBe("waiting");
         expect(state.tasks.get("bg-1")?.status).toBe("running");
     });
+
+    it("moves a primary task to waiting when completeTask is true but background descendants still run", async () => {
+        const state = createPorts({
+            tasks: [
+                task({ id: "task-1" }),
+                task({ id: "bg-1", taskKind: "background", parentTaskId: "task-1" }),
+            ],
+            sessions: [session({ id: "session-1", taskId: "task-1" })],
+            bindings: [binding({ taskId: "task-1", monitorSessionId: "session-1" })],
+        });
+
+        await new EndRuntimeSessionUseCase(state.ports.tasks, state.ports.sessions, state.ports.runtimeBindings, state.ports.notifier, state.taskLifecycle).execute({
+            runtimeSource: "codex",
+            runtimeSessionId: "runtime-1",
+            completeTask: true,
+            completionReason: "assistant_turn_complete",
+        });
+
+        expect(state.sessions.get("session-1")?.status).toBe("completed");
+        expect(state.tasks.get("task-1")?.status).toBe("waiting");
+        expect(state.tasks.get("bg-1")?.status).toBe("running");
+    });
 });
