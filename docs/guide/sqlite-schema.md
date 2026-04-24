@@ -52,7 +52,11 @@ use `on delete cascade`; optional links that should survive parent deletion use
 | Current state | `rule_commands_current` | Current rule command state |
 | Search index | `search_documents` | Search and embedding index for tasks, events, bookmarks, evaluations, and playbooks |
 
-## Relationship Diagram
+## Relationship Diagrams
+
+### Diagram 1 — Task & Session Core
+
+Event log, content blobs, and the task/session projection tables.
 
 ```mermaid
 erDiagram
@@ -87,8 +91,27 @@ erDiagram
 
   SESSIONS_CURRENT {
     text id PK
-    text task_id
+    text task_id FK
     text status
+  }
+
+  TASKS_CURRENT ||--o{ TASK_RELATIONS : owns
+  TASKS_CURRENT ||--o{ SESSIONS_CURRENT : has
+```
+
+### Diagram 2 — Timeline Events
+
+Timeline event core table and all normalized detail tables.
+`TASKS_CURRENT` and `SESSIONS_CURRENT` are shown as reference nodes.
+
+```mermaid
+erDiagram
+  TASKS_CURRENT {
+    text id PK
+  }
+
+  SESSIONS_CURRENT {
+    text id PK
   }
 
   TIMELINE_EVENTS_VIEW {
@@ -156,17 +179,28 @@ erDiagram
     text session_id FK
   }
 
-  RUNTIME_BINDINGS_CURRENT {
-    text runtime_source PK
-    text runtime_session_id PK
-    text task_id FK
-    text monitor_session_id FK
-  }
+  TASKS_CURRENT ||--o{ TIMELINE_EVENTS_VIEW : has
+  SESSIONS_CURRENT ||--o{ TIMELINE_EVENTS_VIEW : records
+  TIMELINE_EVENTS_VIEW ||--o{ EVENT_FILES : mentions
+  TIMELINE_EVENTS_VIEW ||--o{ EVENT_RELATIONS : owns_edge
+  TIMELINE_EVENTS_VIEW ||--o| EVENT_ASYNC_REFS : async_ref
+  TIMELINE_EVENTS_VIEW ||--o{ EVENT_TAGS : tagged
+  TIMELINE_EVENTS_VIEW ||--o| RULE_ENFORCEMENTS : rule
+  TIMELINE_EVENTS_VIEW ||--o| VERIFICATION_OUTCOMES : verification
+  TIMELINE_EVENTS_VIEW ||--o| EVENT_TOKEN_USAGE : token_usage
+  TASKS_CURRENT ||--o{ TODOS_CURRENT : has
+  TASKS_CURRENT ||--o{ QUESTIONS_CURRENT : has
+```
 
-  BOOKMARKS_CURRENT {
+### Diagram 3 — Workflow: Evaluations & Playbooks
+
+Evaluation records and playbook definitions.
+`TASKS_CURRENT` is shown as a reference node.
+
+```mermaid
+erDiagram
+  TASKS_CURRENT {
     text id PK
-    text task_id FK
-    text event_id FK
   }
 
   EVALUATIONS_CORE {
@@ -224,6 +258,51 @@ erDiagram
     text scope_key PK,FK
   }
 
+  TASKS_CURRENT ||--o{ EVALUATIONS_CORE : evaluated
+  EVALUATIONS_CORE ||--|| EVALUATION_CONTENTS : content
+  EVALUATIONS_CORE ||--|| EVALUATION_REUSE_STATS : stats
+  EVALUATIONS_CORE ||--o{ EVALUATION_PROMOTIONS : promotions
+  PLAYBOOKS_CORE ||--o{ PLAYBOOK_STEPS : steps
+  PLAYBOOKS_CORE ||--o{ PLAYBOOK_VARIANTS : variants
+  PLAYBOOKS_CORE ||--o{ PLAYBOOK_TAGS : tags
+  PLAYBOOKS_CORE ||--o{ PLAYBOOK_RELATIONS : related
+  PLAYBOOKS_CORE ||--o{ PLAYBOOK_SOURCE_SNAPSHOTS : source
+  EVALUATIONS_CORE ||--o{ PLAYBOOK_SOURCE_SNAPSHOTS : source
+```
+
+### Diagram 4 — Runtime, Search & Auxiliary
+
+Runtime bindings, bookmarks, briefings, turn partitions, rule commands, and the shared search index.
+`TASKS_CURRENT`, `SESSIONS_CURRENT`, and `TIMELINE_EVENTS_VIEW` are shown as reference nodes.
+
+```mermaid
+erDiagram
+  TASKS_CURRENT {
+    text id PK
+  }
+
+  SESSIONS_CURRENT {
+    text id PK
+  }
+
+  TIMELINE_EVENTS_VIEW {
+    text id PK
+  }
+
+  RUNTIME_BINDINGS_CURRENT {
+    text runtime_source PK
+    text runtime_session_id PK
+    text task_id FK
+    text monitor_session_id FK
+  }
+
+  BOOKMARKS_CURRENT {
+    text id PK
+    text task_id FK
+    text event_id FK
+    text kind
+  }
+
   BRIEFINGS_CURRENT {
     text id PK
     text task_id FK
@@ -244,33 +323,10 @@ erDiagram
     text task_id
   }
 
-  TASKS_CURRENT ||--o{ TASK_RELATIONS : owns
-  TASKS_CURRENT ||--o{ SESSIONS_CURRENT : has
-  TASKS_CURRENT ||--o{ TIMELINE_EVENTS_VIEW : has
-  SESSIONS_CURRENT ||--o{ TIMELINE_EVENTS_VIEW : records
-  TIMELINE_EVENTS_VIEW ||--o{ EVENT_FILES : mentions
-  TIMELINE_EVENTS_VIEW ||--o{ EVENT_RELATIONS : owns_edge
-  TIMELINE_EVENTS_VIEW ||--o| EVENT_ASYNC_REFS : async_ref
-  TIMELINE_EVENTS_VIEW ||--o{ EVENT_TAGS : tagged
-  TIMELINE_EVENTS_VIEW ||--o| RULE_ENFORCEMENTS : rule
-  TIMELINE_EVENTS_VIEW ||--o| VERIFICATION_OUTCOMES : verification
-  TIMELINE_EVENTS_VIEW ||--o| EVENT_TOKEN_USAGE : token_usage
-  TIMELINE_EVENTS_VIEW ||--o{ BOOKMARKS_CURRENT : bookmarked
-  TASKS_CURRENT ||--o{ TODOS_CURRENT : has
-  TASKS_CURRENT ||--o{ QUESTIONS_CURRENT : has
   TASKS_CURRENT ||--o{ RUNTIME_BINDINGS_CURRENT : bound
   SESSIONS_CURRENT ||--o{ RUNTIME_BINDINGS_CURRENT : monitor_session
   TASKS_CURRENT ||--o{ BOOKMARKS_CURRENT : has
-  TASKS_CURRENT ||--o{ EVALUATIONS_CORE : evaluated
-  EVALUATIONS_CORE ||--|| EVALUATION_CONTENTS : content
-  EVALUATIONS_CORE ||--|| EVALUATION_REUSE_STATS : stats
-  EVALUATIONS_CORE ||--o{ EVALUATION_PROMOTIONS : promotions
-  PLAYBOOKS_CORE ||--o{ PLAYBOOK_STEPS : steps
-  PLAYBOOKS_CORE ||--o{ PLAYBOOK_VARIANTS : variants
-  PLAYBOOKS_CORE ||--o{ PLAYBOOK_TAGS : tags
-  PLAYBOOKS_CORE ||--o{ PLAYBOOK_RELATIONS : related
-  PLAYBOOKS_CORE ||--o{ PLAYBOOK_SOURCE_SNAPSHOTS : source
-  EVALUATIONS_CORE ||--o{ PLAYBOOK_SOURCE_SNAPSHOTS : source
+  TIMELINE_EVENTS_VIEW ||--o{ BOOKMARKS_CURRENT : bookmarked
   TASKS_CURRENT ||--o{ BRIEFINGS_CURRENT : briefings
   TASKS_CURRENT ||--o| TURN_PARTITIONS_CURRENT : turn_partitions
   TASKS_CURRENT |o--o{ RULE_COMMANDS_CURRENT : optional_task_scope
