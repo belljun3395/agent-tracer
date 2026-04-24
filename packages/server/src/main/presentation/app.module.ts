@@ -1,4 +1,4 @@
-import { Module, type DynamicModule } from "@nestjs/common";
+import { Module, type DynamicModule, type MiddlewareConsumer, type NestModule } from "@nestjs/common";
 import type { INotificationPublisher } from "~application/index.js";
 import { BookmarksApplicationModule } from "./application/bookmarks-application.module.js";
 import { EventsApplicationModule } from "./application/events-application.module.js";
@@ -17,6 +17,7 @@ import { SystemHttpModule } from "./http/system-http.module.js";
 import { TasksHttpModule } from "./http/tasks-http.module.js";
 import { TurnPartitionsHttpModule } from "./http/turn-partitions-http.module.js";
 import { WorkflowHttpModule } from "./http/workflow-http.module.js";
+import { RequestContextMiddleware } from "./middleware/request-context.middleware.js";
 
 export interface AppModuleOptions {
     readonly databasePath: string;
@@ -24,7 +25,11 @@ export interface AppModuleOptions {
 }
 
 @Module({})
-export class AppModule {
+export class AppModule implements NestModule {
+    configure(consumer: MiddlewareConsumer): void {
+        consumer.apply(RequestContextMiddleware).forRoutes("*");
+    }
+
     static forRoot(options: AppModuleOptions): DynamicModule {
         const databaseModule = DatabaseModule.forRoot(options);
         const bookmarksApplicationModule = BookmarksApplicationModule.register(databaseModule);
