@@ -1,12 +1,46 @@
-import { asc, desc, eq, inArray, sql } from "drizzle-orm"
+import { eq, inArray, sql } from "drizzle-orm"
 import type { MonitoringTask } from "~domain/monitoring/monitoring.task.model.js"
 import type { ITaskRepository, OverviewStats, TaskUpsertInput } from "~application/ports/repository/task.repository.js"
 import { deriveTaskDisplayTitle } from "~application/tasks/utils/task.display.title.util.js"
 import { ensureSqliteDatabase, type SqliteDatabase, type SqliteDatabaseInput } from "../shared/drizzle.db.js"
-import { sessionsCurrent, tasksCurrent, timelineEvents } from "../schema/drizzle.schema.js"
+import { sessionsCurrent, tasksCurrent } from "../schema/drizzle.schema.js"
 import { buildTaskSearchText, deleteSearchDocumentsByTaskIds, upsertSearchDocument } from "../search/sqlite.search.documents.js"
 import { appendDomainEvent, eventTimeFromIso } from "../events/index.js"
-import { type EventKindRow, type TaskRow, mapEventKindRow, mapTaskRow } from "./sqlite.task.row.type.js"
+import { type TaskRow, mapTaskRow } from "./sqlite.task.row.type.js"
+import { loadTimelineEventsForTask } from "./sqlite.event.storage.js"
+
+const TASK_ROW_SELECT = `
+  select
+    t.id as id,
+    t.title as title,
+    t.slug as slug,
+    t.workspace_path as workspacePath,
+    t.status as status,
+    t.task_kind as taskKind,
+    (
+      select tr.related_task_id
+      from task_relations tr
+      where tr.task_id = t.id and tr.relation_kind = 'parent'
+      limit 1
+    ) as parentTaskId,
+    (
+      select tr.session_id
+      from task_relations tr
+      where tr.task_id = t.id and tr.relation_kind = 'spawned_by_session'
+      limit 1
+    ) as parentSessionId,
+    (
+      select tr.related_task_id
+      from task_relations tr
+      where tr.task_id = t.id and tr.relation_kind = 'background'
+      limit 1
+    ) as backgroundTaskId,
+    t.created_at as createdAt,
+    t.updated_at as updatedAt,
+    t.last_session_started_at as lastSessionStartedAt,
+    t.cli_source as cliSource
+  from tasks_current t
+`
 
 export class SqliteTaskRepository implements ITaskRepository {
   private readonly db: SqliteDatabase
@@ -22,25 +56,7 @@ export class SqliteTaskRepository implements ITaskRepository {
   }
 
   private loadEventsForTitle(task: MonitoringTask) {
-    const rows = this.db.orm
-      .select({
-        id: timelineEvents.id,
-        taskId: timelineEvents.taskId,
-        sessionId: timelineEvents.sessionId,
-        kind: timelineEvents.kind,
-        lane: timelineEvents.lane,
-        title: timelineEvents.title,
-        body: timelineEvents.body,
-        metadataJson: timelineEvents.metadataJson,
-        classificationJson: timelineEvents.classificationJson,
-        createdAt: timelineEvents.createdAt
-      })
-      .from(timelineEvents)
-      .where(eq(timelineEvents.taskId, task.id))
-      .orderBy(asc(timelineEvents.createdAt))
-      .all() as readonly EventKindRow[]
-
-    return rows.map(mapEventKindRow)
+    return loadTimelineEventsForTask(this.db.client, task.id)
   }
 
   async upsert(input: TaskUpsertInput): Promise<MonitoringTask> {
@@ -54,26 +70,9 @@ export class SqliteTaskRepository implements ITaskRepository {
   }
 
   async findById(id: string): Promise<MonitoringTask | null> {
-    const row = this.db.orm
-      .select({
-        id: tasksCurrent.id,
-        title: tasksCurrent.title,
-        slug: tasksCurrent.slug,
-        workspacePath: tasksCurrent.workspacePath,
-        status: tasksCurrent.status,
-        taskKind: tasksCurrent.taskKind,
-        parentTaskId: tasksCurrent.parentTaskId,
-        parentSessionId: tasksCurrent.parentSessionId,
-        backgroundTaskId: tasksCurrent.backgroundTaskId,
-        createdAt: tasksCurrent.createdAt,
-        updatedAt: tasksCurrent.updatedAt,
-        lastSessionStartedAt: tasksCurrent.lastSessionStartedAt,
-        cliSource: tasksCurrent.cliSource
-      })
-      .from(tasksCurrent)
-      .where(eq(tasksCurrent.id, id))
-      .limit(1)
-      .get() as TaskRow | undefined
+    const row = this.db.client
+      .prepare<{ id: string }, TaskRow>(`${TASK_ROW_SELECT} where t.id = @id limit 1`)
+      .get({ id })
 
     if (!row) {
       return null
@@ -83,50 +82,24 @@ export class SqliteTaskRepository implements ITaskRepository {
   }
 
   async findAll(): Promise<readonly MonitoringTask[]> {
-    const rows = this.db.orm
-      .select({
-        id: tasksCurrent.id,
-        title: tasksCurrent.title,
-        slug: tasksCurrent.slug,
-        workspacePath: tasksCurrent.workspacePath,
-        status: tasksCurrent.status,
-        taskKind: tasksCurrent.taskKind,
-        parentTaskId: tasksCurrent.parentTaskId,
-        parentSessionId: tasksCurrent.parentSessionId,
-        backgroundTaskId: tasksCurrent.backgroundTaskId,
-        createdAt: tasksCurrent.createdAt,
-        updatedAt: tasksCurrent.updatedAt,
-        lastSessionStartedAt: tasksCurrent.lastSessionStartedAt,
-        cliSource: tasksCurrent.cliSource
-      })
-      .from(tasksCurrent)
-      .orderBy(desc(tasksCurrent.updatedAt))
-      .all() as readonly TaskRow[]
+    const rows = this.db.client
+      .prepare<[], TaskRow>(`${TASK_ROW_SELECT} order by datetime(t.updated_at) desc`)
+      .all()
 
     return rows.map((row) => this.withDisplayTitle(mapTaskRow(row)))
   }
 
   async findChildren(parentId: string): Promise<readonly MonitoringTask[]> {
-    const rows = this.db.orm
-      .select({
-        id: tasksCurrent.id,
-        title: tasksCurrent.title,
-        slug: tasksCurrent.slug,
-        workspacePath: tasksCurrent.workspacePath,
-        status: tasksCurrent.status,
-        taskKind: tasksCurrent.taskKind,
-        parentTaskId: tasksCurrent.parentTaskId,
-        parentSessionId: tasksCurrent.parentSessionId,
-        backgroundTaskId: tasksCurrent.backgroundTaskId,
-        createdAt: tasksCurrent.createdAt,
-        updatedAt: tasksCurrent.updatedAt,
-        lastSessionStartedAt: tasksCurrent.lastSessionStartedAt,
-        cliSource: tasksCurrent.cliSource
-      })
-      .from(tasksCurrent)
-      .where(eq(tasksCurrent.parentTaskId, parentId))
-      .orderBy(desc(tasksCurrent.updatedAt))
-      .all() as readonly TaskRow[]
+    const rows = this.db.client
+      .prepare<{ parentId: string }, TaskRow>(`
+        ${TASK_ROW_SELECT}
+        join task_relations parent_relation
+          on parent_relation.task_id = t.id
+         and parent_relation.relation_kind = 'parent'
+         and parent_relation.related_task_id = @parentId
+        order by datetime(t.updated_at) desc
+      `)
+      .all({ parentId })
 
     return rows.map((row) => this.withDisplayTitle(mapTaskRow(row)))
   }
@@ -236,7 +209,10 @@ export class SqliteTaskRepository implements ITaskRepository {
       with recursive task_tree(id) as (
         select id from tasks_current where id = ${taskId}
         union all
-        select child.id from tasks_current child join task_tree parent on child.parent_task_id = parent.id
+        select relation.task_id
+        from task_relations relation
+        join task_tree parent on relation.related_task_id = parent.id
+        where relation.relation_kind = 'parent'
       )
       select id from task_tree where id != ${taskId}
     `)
@@ -255,26 +231,9 @@ export class SqliteTaskRepository implements ITaskRepository {
   }
 
   private selectTaskRow(id: string): TaskRow | undefined {
-    return this.db.orm
-      .select({
-        id: tasksCurrent.id,
-        title: tasksCurrent.title,
-        slug: tasksCurrent.slug,
-        workspacePath: tasksCurrent.workspacePath,
-        status: tasksCurrent.status,
-        taskKind: tasksCurrent.taskKind,
-        parentTaskId: tasksCurrent.parentTaskId,
-        parentSessionId: tasksCurrent.parentSessionId,
-        backgroundTaskId: tasksCurrent.backgroundTaskId,
-        createdAt: tasksCurrent.createdAt,
-        updatedAt: tasksCurrent.updatedAt,
-        lastSessionStartedAt: tasksCurrent.lastSessionStartedAt,
-        cliSource: tasksCurrent.cliSource
-      })
-      .from(tasksCurrent)
-      .where(eq(tasksCurrent.id, id))
-      .limit(1)
-      .get() as TaskRow | undefined
+    return this.db.client
+      .prepare<{ id: string }, TaskRow>(`${TASK_ROW_SELECT} where t.id = @id limit 1`)
+      .get({ id })
   }
 
   private appendTaskUpsertEvents(existing: TaskRow | undefined, input: TaskUpsertInput): void {
@@ -292,6 +251,8 @@ export class SqliteTaskRepository implements ITaskRepository {
           slug: input.slug,
           kind: input.taskKind,
           ...(input.parentTaskId ? { parent_task_id: input.parentTaskId } : {}),
+          ...(input.parentSessionId ? { parent_session_id: input.parentSessionId } : {}),
+          ...(input.backgroundTaskId ? { background_task_id: input.backgroundTaskId } : {}),
           ...(input.workspacePath ? { workspace_path: input.workspacePath } : {}),
           ...(input.runtimeSource ? { cli_source: input.runtimeSource } : {})
         }
@@ -332,7 +293,13 @@ export class SqliteTaskRepository implements ITaskRepository {
     }
 
     const nextParent = input.parentTaskId ?? null
-    if (existing.parentTaskId !== nextParent) {
+    const nextParentSession = input.parentSessionId ?? existing.parentSessionId ?? null
+    const nextBackground = input.backgroundTaskId ?? existing.backgroundTaskId ?? null
+    if (
+      existing.parentTaskId !== nextParent ||
+      existing.parentSessionId !== nextParentSession ||
+      existing.backgroundTaskId !== nextBackground
+    ) {
       appendDomainEvent(this.db.client, {
         eventTime,
         eventType: "task.hierarchy_changed",
@@ -342,7 +309,11 @@ export class SqliteTaskRepository implements ITaskRepository {
         payload: {
           task_id: input.id,
           ...(existing.parentTaskId ? { parent_task_id_from: existing.parentTaskId } : {}),
-          ...(nextParent ? { parent_task_id_to: nextParent } : {})
+          ...(nextParent ? { parent_task_id_to: nextParent } : {}),
+          ...(existing.parentSessionId ? { parent_session_id_from: existing.parentSessionId } : {}),
+          ...(nextParentSession ? { parent_session_id_to: nextParentSession } : {}),
+          ...(existing.backgroundTaskId ? { background_task_id_from: existing.backgroundTaskId } : {}),
+          ...(nextBackground ? { background_task_id_to: nextBackground } : {})
         }
       })
     }

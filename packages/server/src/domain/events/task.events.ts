@@ -7,6 +7,8 @@ export const TASK_EVENT_DEFINITIONS = [
         requireString(payload, "slug");
         requireString(payload, "kind");
         optionalString(payload, "parent_task_id");
+        optionalString(payload, "parent_session_id");
+        optionalString(payload, "background_task_id");
         optionalString(payload, "workspace_path");
         optionalString(payload, "cli_source");
     }),
@@ -25,6 +27,10 @@ export const TASK_EVENT_DEFINITIONS = [
         requireString(payload, "task_id");
         optionalString(payload, "parent_task_id_from");
         optionalString(payload, "parent_task_id_to");
+        optionalString(payload, "parent_session_id_from");
+        optionalString(payload, "parent_session_id_to");
+        optionalString(payload, "background_task_id_from");
+        optionalString(payload, "background_task_id_to");
     }),
 ] as const;
 

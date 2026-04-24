@@ -3,7 +3,7 @@ import { and, eq, inArray, or, sql } from "drizzle-orm";
 
 import { ensureSqliteDatabase, type SqliteDatabaseInput } from "../shared/drizzle.db.js";
 import { searchDocuments } from "../schema/drizzle.schema.js";
-export type SearchDocumentScope = "task" | "event" | "bookmark";
+export type SearchDocumentScope = "task" | "event" | "bookmark" | "evaluation" | "playbook";
 export interface SearchDocumentInput {
     readonly scope: SearchDocumentScope;
     readonly entityId: string;
@@ -120,7 +120,17 @@ export function backfillSearchDocuments(db: Database.Database): void {
         coalesce(e.body, '') || ' ' ||
         coalesce(e.kind, '') || ' ' ||
         coalesce(e.lane, '') || ' ' ||
-        coalesce(e.metadata_json, '')
+        coalesce(e.subtype_key, '') || ' ' ||
+        coalesce(e.subtype_label, '') || ' ' ||
+        coalesce(e.subtype_group, '') || ' ' ||
+        coalesce(e.tool_family, '') || ' ' ||
+        coalesce(e.operation, '') || ' ' ||
+        coalesce(e.source_tool, '') || ' ' ||
+        coalesce(e.tool_name, '') || ' ' ||
+        coalesce(e.entity_type, '') || ' ' ||
+        coalesce(e.entity_name, '') || ' ' ||
+        coalesce(e.display_title, '') || ' ' ||
+        coalesce(e.extras_json, '')
       ),
       e.created_at
     from timeline_events_view e
@@ -153,6 +163,60 @@ export function backfillSearchDocuments(db: Database.Database): void {
       select 1
       from search_documents s
       where s.scope = 'bookmark' and s.entity_id = b.id
+    );
+  `);
+
+    orm.run(sql`
+    insert into search_documents (scope, entity_id, task_id, search_text, updated_at)
+    select
+      'evaluation',
+      e.task_id || '#' || e.scope_key,
+      e.task_id,
+      trim(
+        coalesce(t.title, '') || ' ' ||
+        coalesce(e.scope_label, '') || ' ' ||
+        coalesce(e.rating, '') || ' ' ||
+        coalesce(c.use_case, '') || ' ' ||
+        coalesce(c.workflow_tags_json, '') || ' ' ||
+        coalesce(c.outcome_note, '') || ' ' ||
+        coalesce(c.approach_note, '') || ' ' ||
+        coalesce(c.reuse_when, '') || ' ' ||
+        coalesce(c.watchouts, '') || ' ' ||
+        coalesce(c.workflow_context, '')
+      ),
+      e.evaluated_at
+    from evaluations_core e
+    join tasks_current t on t.id = e.task_id
+    left join evaluation_contents c
+      on c.task_id = e.task_id and c.scope_key = e.scope_key
+    where not exists (
+      select 1
+      from search_documents s
+      where s.scope = 'evaluation' and s.entity_id = e.task_id || '#' || e.scope_key
+    );
+  `);
+
+    orm.run(sql`
+    insert into search_documents (scope, entity_id, task_id, search_text, updated_at)
+    select
+      'playbook',
+      p.id,
+      null,
+      trim(
+        coalesce(p.title, '') || ' ' ||
+        coalesce(p.slug, '') || ' ' ||
+        coalesce(p.status, '') || ' ' ||
+        coalesce(p.when_to_use, '') || ' ' ||
+        coalesce(p.approach, '') || ' ' ||
+        coalesce((select group_concat(tag, ' ') from playbook_tags where playbook_id = p.id), '') || ' ' ||
+        coalesce((select group_concat(content, ' ') from playbook_steps where playbook_id = p.id), '')
+      ),
+      p.updated_at
+    from playbooks_core p
+    where not exists (
+      select 1
+      from search_documents s
+      where s.scope = 'playbook' and s.entity_id = p.id
     );
   `);
 }
