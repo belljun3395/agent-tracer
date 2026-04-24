@@ -7,6 +7,13 @@ function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+function unwrapApiEnvelope<T>(value: unknown): T {
+    if (isRecord(value) && value["ok"] === true && "data" in value) {
+        return value["data"] as T;
+    }
+    return value as T;
+}
+
 // Resolves the monitor base URL from environment variables, falling back to
 // http://127.0.0.1:3847. MONITOR_BASE_URL takes priority; otherwise
 // MONITOR_PUBLIC_HOST and MONITOR_PORT are used.
@@ -47,7 +54,7 @@ export async function postJson<T = Record<string, unknown>>(pathname: string, bo
         throw new Error(`Monitor request failed: ${pathname} (${response.status})`);
     }
     const text = await response.text();
-    return (text ? JSON.parse(text) : {}) as T;
+    return unwrapApiEnvelope<T>(text ? JSON.parse(text) as unknown : {});
 }
 
 /**

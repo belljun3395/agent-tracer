@@ -1,5 +1,5 @@
 import { Module, type DynamicModule, type MiddlewareConsumer, type NestModule } from "@nestjs/common";
-import { APP_FILTER } from "@nestjs/core";
+import { APP_FILTER, APP_INTERCEPTOR } from "@nestjs/core";
 import type { INotificationPublisher } from "~application/index.js";
 import { BookmarksApplicationModule } from "./application/bookmarks-application.module.js";
 import { EventsApplicationModule } from "./application/events-application.module.js";
@@ -19,6 +19,7 @@ import { SystemHttpModule } from "./http/system-http.module.js";
 import { TasksHttpModule } from "./http/tasks-http.module.js";
 import { TurnPartitionsHttpModule } from "./http/turn-partitions-http.module.js";
 import { WorkflowHttpModule } from "./http/workflow-http.module.js";
+import { ApiResponseInterceptor } from "./interceptors/api-response.interceptor.js";
 import { RequestContextMiddleware } from "./middleware/request-context.middleware.js";
 
 export interface AppModuleOptions {
@@ -60,6 +61,10 @@ export class AppModule implements NestModule {
                 {
                     provide: APP_FILTER,
                     useClass: GlobalExceptionFilter,
+                },
+                {
+                    provide: APP_INTERCEPTOR,
+                    useClass: ApiResponseInterceptor,
                 },
             ],
         };

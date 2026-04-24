@@ -21,6 +21,15 @@ class McpClientError extends Error {
 function isClientError(status: number): boolean {
     return status >= 400 && status < 500;
 }
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function unwrapApiEnvelope(value: unknown): unknown {
+    if (isRecord(value) && value["ok"] === true && "data" in value) {
+        return value["data"];
+    }
+    return value;
+}
 function sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -87,7 +96,7 @@ export class MonitorClient {
                     ok: true,
                     endpoint,
                     status: response.status,
-                    data: (await response.json()) as unknown,
+                    data: unwrapApiEnvelope(await response.json() as unknown),
                     message: method === "POST" ? "monitor event recorded" : "ok",
                 };
             });
