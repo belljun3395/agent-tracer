@@ -8,10 +8,10 @@ import {
     TaskEvaluationController,
     WorkflowController,
 } from "~adapters/http/query/index.js";
-import { ApplicationModule } from "../application/application.module.js";
+import { WorkflowApplicationModule } from "../application/workflow-application.module.js";
 
 @Module({
-    imports: [ApplicationModule],
+    imports: [WorkflowApplicationModule],
     controllers: [
         PlaybookController,
         PlaybookWriteController,

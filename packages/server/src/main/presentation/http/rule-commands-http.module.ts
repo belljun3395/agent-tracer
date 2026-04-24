@@ -7,10 +7,10 @@ import {
     GlobalRuleCommandController,
     TaskRuleCommandController,
 } from "~adapters/http/query/index.js";
-import { ApplicationModule } from "../application/application.module.js";
+import { RuleCommandsApplicationModule } from "../application/rule-commands-application.module.js";
 
 @Module({
-    imports: [ApplicationModule],
+    imports: [RuleCommandsApplicationModule],
     controllers: [
         GlobalRuleCommandController,
         GlobalRuleCommandWriteController,

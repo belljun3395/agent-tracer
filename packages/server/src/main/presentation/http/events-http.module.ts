@@ -5,10 +5,14 @@ import {
     TypedIngestController,
 } from "~adapters/http/ingest/index.js";
 import { SearchController } from "~adapters/http/query/index.js";
-import { ApplicationModule } from "../application/application.module.js";
+import { EventsApplicationModule } from "../application/events-application.module.js";
+import { RuleCommandsApplicationModule } from "../application/rule-commands-application.module.js";
 
 @Module({
-    imports: [ApplicationModule],
+    imports: [
+        EventsApplicationModule,
+        RuleCommandsApplicationModule,
+    ],
     controllers: [
         EventController,
         IngestController,

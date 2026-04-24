@@ -1,10 +1,10 @@
 import { Module } from "@nestjs/common";
 import { BookmarkWriteController } from "~adapters/http/ingest/index.js";
 import { BookmarkController } from "~adapters/http/query/index.js";
-import { ApplicationModule } from "../application/application.module.js";
+import { BookmarksApplicationModule } from "../application/bookmarks-application.module.js";
 
 @Module({
-    imports: [ApplicationModule],
+    imports: [BookmarksApplicationModule],
     controllers: [
         BookmarkController,
         BookmarkWriteController,

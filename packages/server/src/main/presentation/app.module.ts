@@ -1,6 +1,5 @@
 import { Module, type DynamicModule } from "@nestjs/common";
 import type { INotificationPublisher } from "~application/index.js";
-import { ApplicationModule } from "./application/application.module.js";
 import { DatabaseModule } from "./database/database.module.js";
 import { BookmarksHttpModule } from "./http/bookmarks-http.module.js";
 import { EventsHttpModule } from "./http/events-http.module.js";
@@ -23,7 +22,6 @@ export class AppModule {
             module: AppModule,
             imports: [
                 DatabaseModule.forRoot(options),
-                ApplicationModule,
                 BookmarksHttpModule,
                 EventsHttpModule,
                 RuleCommandsHttpModule,

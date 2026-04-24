@@ -1,9 +1,9 @@
 import { Module } from "@nestjs/common";
 import { HealthController, SystemController } from "~adapters/http/query/index.js";
-import { ApplicationModule } from "../application/application.module.js";
+import { SystemApplicationModule } from "../application/system-application.module.js";
 
 @Module({
-    imports: [ApplicationModule],
+    imports: [SystemApplicationModule],
     controllers: [
         HealthController,
         SystemController,
