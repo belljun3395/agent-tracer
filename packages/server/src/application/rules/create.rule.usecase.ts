@@ -7,7 +7,7 @@ import type { IRuleRepository } from "~application/ports/repository/rule.reposit
 import type { INotificationPublisher } from "~application/ports/event/notification.publisher.js";
 import type { BackfillRuleEvaluationUseCase } from "~application/verification/backfill.rule.evaluation.usecase.js";
 import type { CreateRuleUseCaseIn, CreateRuleUseCaseOut } from "./dto/create.rule.usecase.dto.js";
-import { projectRule } from "./rule.projection.js";
+import { mapRule } from "./dto/rule.dto.mapper.js";
 import { InvalidRuleError } from "./common/errors.js";
 
 export type { CreateRuleUseCaseIn, CreateRuleUseCaseOut } from "./dto/create.rule.usecase.dto.js";
@@ -61,7 +61,7 @@ export class CreateRuleUseCase {
         // historical evaluation. Errors are logged via the surrounding hook.
         void this.backfill.execute({ rule: created });
 
-        return { rule: projectRule(created) };
+        return { rule: mapRule(created) };
     }
 }
 

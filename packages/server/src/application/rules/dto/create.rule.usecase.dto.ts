@@ -1,39 +1,20 @@
-export type CreateRuleExpectedActionUseCaseDto = "command" | "file-read" | "file-write" | "web";
-export type CreateRuleScopeUseCaseDto = "global" | "task";
-export type CreateRuleSeverityUseCaseDto = "info" | "warn" | "block";
-export type CreateRuleSourceUseCaseDto = "human" | "agent";
-export type CreateRuleTriggerSourceUseCaseDto = "assistant" | "user";
+import type {
+    RuleExpectationUseCaseDto,
+    RuleScopeUseCaseDto,
+    RuleSeverityUseCaseDto,
+    RuleSourceUseCaseDto,
+    RuleTriggerSourceUseCaseDto,
+    RuleTriggerUseCaseDto,
+    RuleUseCaseDto,
+} from "./rule.usecase.dto.js";
 
-export interface CreateRuleTriggerUseCaseDto {
-    readonly phrases: readonly string[];
-}
-
-export interface CreateRuleExpectationUseCaseDto {
-    readonly action?: CreateRuleExpectedActionUseCaseDto;
-    readonly commandMatches?: readonly string[];
-    readonly pattern?: string;
-}
-
-export interface CreateRuleExpectUseCaseDto {
-    readonly tool?: CreateRuleExpectedActionUseCaseDto;
-    readonly commandMatches?: readonly string[];
-    readonly pattern?: string;
-}
-
-export interface CreateRuleRuleUseCaseDto {
-    readonly id: string;
-    readonly name: string;
-    readonly trigger?: CreateRuleTriggerUseCaseDto;
-    readonly triggerOn?: CreateRuleTriggerSourceUseCaseDto;
-    readonly expect: CreateRuleExpectUseCaseDto;
-    readonly scope: CreateRuleScopeUseCaseDto;
-    readonly taskId?: string;
-    readonly source: CreateRuleSourceUseCaseDto;
-    readonly severity: CreateRuleSeverityUseCaseDto;
-    readonly rationale?: string;
-    readonly signature: string;
-    readonly createdAt: string;
-}
+export type CreateRuleScopeUseCaseDto = RuleScopeUseCaseDto;
+export type CreateRuleSeverityUseCaseDto = RuleSeverityUseCaseDto;
+export type CreateRuleSourceUseCaseDto = RuleSourceUseCaseDto;
+export type CreateRuleTriggerSourceUseCaseDto = RuleTriggerSourceUseCaseDto;
+export type CreateRuleTriggerUseCaseDto = RuleTriggerUseCaseDto;
+export type CreateRuleExpectationUseCaseDto = RuleExpectationUseCaseDto;
+export type CreateRuleRuleUseCaseDto = RuleUseCaseDto;
 
 export interface CreateRuleUseCaseIn {
     readonly name: string;

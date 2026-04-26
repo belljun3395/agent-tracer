@@ -8,7 +8,7 @@ import type { IVerdictRepository } from "~application/ports/repository/verdict.r
 import type { IRuleEnforcementRepository } from "~application/ports/repository/rule.enforcement.repository.js";
 import type { INotificationPublisher } from "~application/ports/event/notification.publisher.js";
 import type { UpdateRuleUseCaseIn, UpdateRuleUseCaseOut } from "./dto/update.rule.usecase.dto.js";
-import { projectRule } from "./rule.projection.js";
+import { mapRule } from "./dto/rule.dto.mapper.js";
 import { InvalidRuleError, RuleNotFoundError } from "./common/errors.js";
 
 export type { UpdateRuleUseCaseIn, UpdateRuleUseCaseOut } from "./dto/update.rule.usecase.dto.js";
@@ -89,7 +89,7 @@ export class UpdateRuleUseCase {
             },
         });
 
-        return { rule: projectRule(updated), signatureChanged };
+        return { rule: mapRule(updated), signatureChanged };
     }
 }
 
