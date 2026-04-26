@@ -3,10 +3,15 @@ import {
     createSqliteDatabaseContext,
     SqliteEventRepository,
     SqliteEventStore,
+    SqliteRuleEnforcementRepository,
+    SqliteRuleRepository,
     SqliteRuntimeBindingRepository,
     SqliteSessionRepository,
     SqliteTaskRepository,
     SqliteTurnPartitionRepository,
+    SqliteTurnQueryRepository,
+    SqliteTurnRepository,
+    SqliteVerdictRepository,
     type SqliteDatabaseContext,
 } from "~adapters/persistence/sqlite/index.js";
 import { createEmbeddingService } from "~adapters/ai/embedding/index.js";
@@ -23,6 +28,11 @@ export const EVENT_REPOSITORY_TOKEN = "EVENT_REPOSITORY";
 export const EVENT_STORE_TOKEN = "EVENT_STORE";
 export const RUNTIME_BINDING_REPOSITORY_TOKEN = "RUNTIME_BINDING_REPOSITORY";
 export const TURN_PARTITION_REPOSITORY_TOKEN = "TURN_PARTITION_REPOSITORY";
+export const RULE_REPOSITORY_TOKEN = "RULE_REPOSITORY";
+export const TURN_REPOSITORY_TOKEN = "TURN_REPOSITORY";
+export const VERDICT_REPOSITORY_TOKEN = "VERDICT_REPOSITORY";
+export const RULE_ENFORCEMENT_REPOSITORY_TOKEN = "RULE_ENFORCEMENT_REPOSITORY";
+export const TURN_QUERY_REPOSITORY_TOKEN = "TURN_QUERY_REPOSITORY";
 export const NOTIFICATION_PUBLISHER_TOKEN = "NOTIFICATION_PUBLISHER";
 
 export const DATABASE_PORT_TOKENS = [
@@ -32,6 +42,11 @@ export const DATABASE_PORT_TOKENS = [
     EVENT_STORE_TOKEN,
     RUNTIME_BINDING_REPOSITORY_TOKEN,
     TURN_PARTITION_REPOSITORY_TOKEN,
+    RULE_REPOSITORY_TOKEN,
+    TURN_REPOSITORY_TOKEN,
+    VERDICT_REPOSITORY_TOKEN,
+    RULE_ENFORCEMENT_REPOSITORY_TOKEN,
+    TURN_QUERY_REPOSITORY_TOKEN,
     NOTIFICATION_PUBLISHER_TOKEN,
 ] as const;
 
@@ -83,6 +98,31 @@ export function DatabaseProviders(options: {
         {
             provide: TURN_PARTITION_REPOSITORY_TOKEN,
             useFactory: (context: SqliteDatabaseContext) => new SqliteTurnPartitionRepository(context.db),
+            inject: [SQLITE_DATABASE_CONTEXT_TOKEN],
+        },
+        {
+            provide: RULE_REPOSITORY_TOKEN,
+            useFactory: (context: SqliteDatabaseContext) => new SqliteRuleRepository(context.db),
+            inject: [SQLITE_DATABASE_CONTEXT_TOKEN],
+        },
+        {
+            provide: TURN_REPOSITORY_TOKEN,
+            useFactory: (context: SqliteDatabaseContext) => new SqliteTurnRepository(context.db),
+            inject: [SQLITE_DATABASE_CONTEXT_TOKEN],
+        },
+        {
+            provide: VERDICT_REPOSITORY_TOKEN,
+            useFactory: (context: SqliteDatabaseContext) => new SqliteVerdictRepository(context.db),
+            inject: [SQLITE_DATABASE_CONTEXT_TOKEN],
+        },
+        {
+            provide: RULE_ENFORCEMENT_REPOSITORY_TOKEN,
+            useFactory: (context: SqliteDatabaseContext) => new SqliteRuleEnforcementRepository(context.db),
+            inject: [SQLITE_DATABASE_CONTEXT_TOKEN],
+        },
+        {
+            provide: TURN_QUERY_REPOSITORY_TOKEN,
+            useFactory: (context: SqliteDatabaseContext) => new SqliteTurnQueryRepository(context.db),
             inject: [SQLITE_DATABASE_CONTEXT_TOKEN],
         },
     ];

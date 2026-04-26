@@ -6,6 +6,7 @@ import type {
     ISessionRepository,
     ITaskRepository,
 } from "~application/index.js";
+import type { ITurnQueryRepository } from "~application/ports/repository/turn.query.repository.js";
 import {
     CompleteTaskUseCase,
     DeleteFinishedTasksUseCase,
@@ -14,6 +15,7 @@ import {
     GetTaskLatestRuntimeSessionUseCase,
     GetTaskOpenInferenceUseCase,
     GetTaskTimelineUseCase,
+    GetTaskTurnsUseCase,
     GetTaskUseCase,
     LinkTaskUseCase,
     ListTasksUseCase,
@@ -27,6 +29,7 @@ import {
     RUNTIME_BINDING_REPOSITORY_TOKEN,
     SESSION_REPOSITORY_TOKEN,
     TASK_REPOSITORY_TOKEN,
+    TURN_QUERY_REPOSITORY_TOKEN,
 } from "../database/database.provider.js";
 
 const taskLifecycleProvider: Provider = {
@@ -97,6 +100,11 @@ export const TASK_APPLICATION_PROVIDERS: Provider[] = [
         inject: [EVENT_REPOSITORY_TOKEN],
     },
     {
+        provide: GetTaskTurnsUseCase,
+        useFactory: (turns: ITurnQueryRepository) => new GetTaskTurnsUseCase(turns),
+        inject: [TURN_QUERY_REPOSITORY_TOKEN],
+    },
+    {
         provide: GetTaskLatestRuntimeSessionUseCase,
         useFactory: (runtimeBindings: IRuntimeBindingRepository) =>
             new GetTaskLatestRuntimeSessionUseCase(runtimeBindings),
@@ -122,6 +130,7 @@ export const TASK_APPLICATION_EXPORTS = [
     ListTasksUseCase,
     GetTaskUseCase,
     GetTaskTimelineUseCase,
+    GetTaskTurnsUseCase,
     GetTaskLatestRuntimeSessionUseCase,
     GetTaskOpenInferenceUseCase,
 ] as const;

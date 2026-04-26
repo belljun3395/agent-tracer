@@ -12,10 +12,20 @@ import {
     logHttpUpgrade,
     type RequestContextIncomingMessage,
 } from "../presentation/middleware/request-context.js";
-import { GetOverviewUseCase, ListTasksUseCase } from "~application/tasks/index.js";
-import { SQLITE_DATABASE_CONTEXT_TOKEN } from "../presentation/database/database.provider.js";
+import { tallyTaskStatuses, type MonitoringTask, type TaskStatus } from "~domain/monitoring/index.js";
+import {
+    SQLITE_DATABASE_CONTEXT_TOKEN,
+    TASK_REPOSITORY_TOKEN,
+} from "../presentation/database/database.provider.js";
 import type { SqliteDatabaseContext } from "~adapters/persistence/sqlite/index.js";
 import type { RuntimeOptions, MonitorRuntime } from "./runtime.type.js";
+
+interface BootstrapTaskRepository {
+    findAll(): Promise<readonly MonitoringTask[]>;
+    listTaskStatuses(): Promise<readonly TaskStatus[]>;
+    countTimelineEvents(): Promise<number>;
+}
+
 export async function createNestMonitorRuntime(options: RuntimeOptions): Promise<MonitorRuntime> {
     const broadcaster = new EventBroadcasterService();
     const nestApp = await NestFactory.create(AppModule.forRoot({ databasePath: options.databasePath, notifier: broadcaster }), { logger: false });
@@ -46,13 +56,12 @@ export async function createNestMonitorRuntime(options: RuntimeOptions): Promise
         }
         socket.destroy();
     });
-    const getOverview = nestApp.get(GetOverviewUseCase);
-    const listTasks = nestApp.get(ListTasksUseCase);
+    const taskRepository = nestApp.get<BootstrapTaskRepository>(TASK_REPOSITORY_TOKEN);
     wss.on("connection", (ws) => {
         broadcaster.addClient(ws);
         ws.on("close", () => broadcaster.removeClient(ws));
-        void Promise.all([getOverview.execute({}), listTasks.execute({})]).then(([stats, tasks]) => {
-            ws.send(JSON.stringify({ type: "snapshot", payload: { stats, tasks: tasks.tasks } }));
+        void createInitialSnapshot(taskRepository).then((payload) => {
+            ws.send(JSON.stringify({ type: "snapshot", payload }));
         });
     });
     await nestApp.init();
@@ -68,5 +77,24 @@ export async function createNestMonitorRuntime(options: RuntimeOptions): Promise
             });
             databaseContext.close();
         }
+    };
+}
+
+async function createInitialSnapshot(taskRepository: BootstrapTaskRepository): Promise<{
+    readonly stats: ReturnType<typeof tallyTaskStatuses> & { readonly totalEvents: number };
+    readonly tasks: readonly MonitoringTask[];
+}> {
+    const [statuses, totalEvents, tasks] = await Promise.all([
+        taskRepository.listTaskStatuses(),
+        taskRepository.countTimelineEvents(),
+        taskRepository.findAll(),
+    ]);
+
+    return {
+        stats: {
+            ...tallyTaskStatuses(statuses),
+            totalEvents,
+        },
+        tasks,
     };
 }
