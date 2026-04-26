@@ -11,6 +11,7 @@ export { GetTaskTimelineUseCase } from "./get.task.timeline.usecase.js";
 export { GetTaskLatestRuntimeSessionUseCase } from "./get.task.latest.runtime.session.usecase.js";
 export { GetTaskOpenInferenceUseCase } from "./get.task.open.inference.usecase.js";
 export { GetDefaultWorkspacePathUseCase } from "./get.default.workspace.path.usecase.js";
+export { GetOverviewUseCase } from "./get.overview.usecase.js";
 export { TaskLifecycleService } from "./services/task.lifecycle.service.js";
 export { TaskNotFoundError as TaskLifecycleNotFoundError } from "./common/task.errors.js";
 export type {
@@ -41,3 +42,4 @@ export type { GetTaskTimelineUseCaseIn, GetTaskTimelineUseCaseOut } from "./dto/
 export type { GetTaskLatestRuntimeSessionUseCaseIn, GetTaskLatestRuntimeSessionUseCaseOut } from "./dto/get.task.latest.runtime.session.usecase.dto.js";
 export type { GetTaskOpenInferenceUseCaseIn, GetTaskOpenInferenceUseCaseOut } from "./dto/get.task.open.inference.usecase.dto.js";
 export type { GetDefaultWorkspacePathUseCaseIn, GetDefaultWorkspacePathUseCaseOut } from "./dto/get.default.workspace.path.usecase.dto.js";
+export type { GetOverviewUseCaseIn, GetOverviewUseCaseOut } from "./dto/get.overview.usecase.dto.js";

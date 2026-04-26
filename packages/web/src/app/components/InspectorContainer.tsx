@@ -3,13 +3,11 @@ import { useCallback, useMemo } from "react";
 import type { TaskId } from "../../types.js";
 import { EventId } from "../../types.js";
 import { buildTaskWorkspaceSelection } from "../../types.js";
-import { createBookmark, updateEventDisplayTitle } from "../../io.js";
+import { updateEventDisplayTitle } from "../../io.js";
 import {
     monitorQueryKeys,
-    useBookmarksQuery,
     useSelectionStore,
     useTaskDetailQuery,
-    useTaskObservability
 } from "../../state.js";
 import { useQueryClient } from "@tanstack/react-query";
 import { InspectorProvider } from "../features/inspector/context/InspectorContext.js";
@@ -45,9 +43,6 @@ export function InspectorContainer({
     const { data: taskDetail } = useTaskDetailQuery(
         selectedTaskId != null ? (selectedTaskId as TaskId) : null
     );
-    const { data: bookmarksData } = useBookmarksQuery();
-    const bookmarks = bookmarksData?.bookmarks ?? [];
-    const { taskObservability } = useTaskObservability(selectedTaskId);
     const queryClient = useQueryClient();
 
     const taskTimeline = taskDetail?.timeline ?? [];
@@ -65,26 +60,6 @@ export function InspectorContainer({
         [selectedConnectorKey, selectedEventId, selectedRuleId, selectedTag, selectedTaskDisplayTitle, showRuleGapsOnly, taskTimeline]
     );
     const { selectedConnector, selectedEvent, selectedEventDisplayTitle, modelSummary } = workspaceSelection;
-    const selectedTaskBookmark =
-        selectedTaskId ? (bookmarks.find((b) => b.taskId === selectedTaskId && !b.eventId) ?? null) : null;
-    const selectedEventBookmark = selectedEvent
-        ? (bookmarks.find((b) => b.eventId === selectedEvent.id) ?? null)
-        : null;
-
-    const onCreateTaskBookmark = useCallback((): void => {
-        if (!selectedTaskId) return;
-        void createBookmark({ taskId: selectedTaskId as TaskId })
-            .then(() => queryClient.invalidateQueries({ queryKey: monitorQueryKeys.bookmarks() }));
-    }, [selectedTaskId, queryClient]);
-
-    const onCreateEventBookmark = useCallback((): void => {
-        if (!selectedEvent || !selectedTaskId) return;
-        void createBookmark({
-            taskId: selectedTaskId as TaskId,
-            eventId: EventId(selectedEvent.id),
-            title: selectedEventDisplayTitle ?? selectedEvent.title,
-        }).then(() => queryClient.invalidateQueries({ queryKey: monitorQueryKeys.bookmarks() }));
-    }, [selectedEvent, selectedTaskId, selectedEventDisplayTitle, queryClient]);
 
     const onUpdateEventDisplayTitle = useCallback(async (eventId: string, displayTitle: string | null): Promise<void> => {
         if (!selectedTaskId) return;
@@ -104,17 +79,12 @@ export function InspectorContainer({
             <InspectorProvider value={{
                 taskDetail: taskDetail ?? null,
                 selectedTaskTitle: selectedTaskDisplayTitle,
-                taskObservability,
                 taskModelSummary: modelSummary,
                 selectedEvent,
                 selectedConnector,
                 selectedEventDisplayTitle,
-                selectedTaskBookmark,
-                selectedEventBookmark,
                 selectedTag,
                 selectedRuleId,
-                onCreateTaskBookmark,
-                onCreateEventBookmark,
                 onUpdateEventDisplayTitle,
                 onSelectTag: selectTag,
                 onSelectRule,

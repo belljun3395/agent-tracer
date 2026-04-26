@@ -8,7 +8,6 @@ import { useUrlSearchParam } from "./shared/lib/urlState.js";
 import { TopBar } from "./components/TopBar.js";
 import { NavigationSidebar } from "./components/NavigationSidebar.js";
 import { TimelineContainer } from "./components/TimelineContainer.js";
-const ApprovalQueuePanel = lazy(() => import("./components/ApprovalQueuePanel.js").then((m) => ({ default: m.ApprovalQueuePanel })));
 const InspectorContainer = lazy(() => import("./components/InspectorContainer.js").then((m) => ({ default: m.InspectorContainer })));
 import { TaskWorkspace } from "./features/task-workspace/index.js";
 import { RuleCommandsPanel } from "./features/rule-commands/RuleCommandsPanel.js";
@@ -24,7 +23,6 @@ import {
     useTasksQuery,
 } from "../state.js";
 import { useTheme } from "./lib/useTheme.js";
-import { KnowledgeBaseContent } from "./components/knowledge/KnowledgeBaseContent.js";
 import { useDashboard, INSPECTOR_WIDTH } from "./features/dashboard/useDashboard.js";
 
 function Dashboard({
@@ -33,7 +31,7 @@ function Dashboard({
     onOpenTaskWorkspace,
     onSelectTaskRoute,
 }: {
-    readonly view?: "timeline" | "knowledge" | "workspace";
+    readonly view?: "timeline" | "workspace";
     readonly workspaceTaskId?: string | undefined;
     readonly onOpenTaskWorkspace: (taskId: string) => void;
     readonly onSelectTaskRoute: (taskId: string | null) => void;
@@ -49,9 +47,6 @@ function Dashboard({
                     isNavigationOpen: db.isSidebarOpen,
                     onToggleNavigation: () => db.setIsSidebarOpen((value) => !value),
                 } : {})}
-                pendingApprovalCount={db.overviewData?.observability?.tasksAwaitingApproval ?? 0}
-                blockedTaskCount={db.overviewData?.observability?.tasksBlockedByRule ?? 0}
-                onOpenApprovalQueue={() => db.setIsApprovalQueueOpen(true)}
                 searchQuery={db.search.query}
                 searchResults={db.search.results}
                 isSearching={db.search.isSearching}
@@ -61,7 +56,6 @@ function Dashboard({
                 onSearchQueryChange={db.search.setQuery}
                 onSelectSearchTask={db.handleSelectSearchTask}
                 onSelectSearchEvent={db.handleSelectSearchEvent}
-                onSelectSearchBookmark={db.handleSelectSearchBookmark}
                 onRefresh={() => void db.queryClient.invalidateQueries({ queryKey: monitorQueryKeys.overview() })}
                 showFiltersButton={db.showGlobalFiltersButton}
                 isFiltersOpen={db.isGlobalFiltersOpen}
@@ -103,8 +97,6 @@ function Dashboard({
                                 onNavigate={() => db.setIsSidebarOpen(false)}
                                 onChangeView={db.handleSidebarViewChange}
                                 tasks={db.tasks}
-                                bookmarks={db.bookmarks}
-                                selectedTaskBookmarkId={db.selectedTaskBookmark?.id ?? null}
                                 selectedTaskId={db.selectedTaskId}
                                 taskDetail={db.taskDetail ?? null}
                                 selectedTaskQuestionCount={db.questionCount}
@@ -112,15 +104,11 @@ function Dashboard({
                                 deletingTaskId={db.deletingTaskId}
                                 deleteErrorTaskId={db.deleteErrorTaskId}
                                 onSelectTask={db.handleSelectDashboardTask}
-                                onSelectBookmark={db.handleSelectBookmark}
-                                onDeleteBookmark={db.handleDeleteBookmarkWithError}
                                 onDeleteTask={(id) => void db.handleDeleteTask(id)}
                             />
                         </div>
                         <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2.5 p-2.5">
-                            {view === "knowledge" ? (
-                                <KnowledgeBaseContent onSelectTask={db.handleSelectDashboardTask} />
-                            ) : view === "workspace" && workspaceTaskId ? (
+                            {view === "workspace" && workspaceTaskId ? (
                                 <Suspense fallback={<div className="flex min-h-0 flex-1 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-1)]"/>}>
                                     <TaskWorkspace
                                         taskId={workspaceTaskId}
@@ -146,8 +134,6 @@ function Dashboard({
                             activeView={db.sidebarView}
                             onChangeView={db.handleSidebarViewChange}
                             tasks={db.tasks}
-                            bookmarks={db.bookmarks}
-                            selectedTaskBookmarkId={db.selectedTaskBookmark?.id ?? null}
                             selectedTaskId={db.selectedTaskId}
                             taskDetail={db.taskDetail ?? null}
                             selectedTaskQuestionCount={db.questionCount}
@@ -155,17 +141,13 @@ function Dashboard({
                             deletingTaskId={db.deletingTaskId}
                             deleteErrorTaskId={db.deleteErrorTaskId}
                             onSelectTask={db.handleSelectDashboardTask}
-                            onSelectBookmark={db.handleSelectBookmark}
-                            onDeleteBookmark={db.handleDeleteBookmarkWithError}
                             onDeleteTask={(id) => void db.handleDeleteTask(id)}
                         />
                         <div
                             className="relative flex min-h-0 min-w-0 flex-1 flex-col p-2.5 transition-[padding-right] duration-200"
                             style={{ paddingRight: (view === "timeline" && db.isInspectorOpen) ? `${(db.isInspectorCollapsed ? 44 : INSPECTOR_WIDTH) + 10}px` : undefined }}
                         >
-                            {view === "knowledge" ? (
-                                <KnowledgeBaseContent onSelectTask={db.handleSelectDashboardTask} />
-                            ) : view === "workspace" && workspaceTaskId ? (
+                            {view === "workspace" && workspaceTaskId ? (
                                 <Suspense fallback={<div className="flex min-h-0 flex-1 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-1)]"/>}>
                                     <TaskWorkspace
                                         taskId={workspaceTaskId}
@@ -206,25 +188,11 @@ function Dashboard({
                     </>
                 )}
             </div>
-
-            {db.isApprovalQueueOpen && (
-                <Suspense fallback={null}>
-                    <ApprovalQueuePanel
-                        tasks={db.tasks}
-                        onClose={() => db.setIsApprovalQueueOpen(false)}
-                        onRefresh={() => db.queryClient.invalidateQueries({ queryKey: monitorQueryKeys.overview() })}
-                        onSelectTask={(taskId) => {
-                            db.selectDashboardTask(taskId);
-                            db.setIsApprovalQueueOpen(false);
-                        }}
-                    />
-                </Suspense>
-            )}
         </div>
     );
 }
 
-function DashboardRoute({ view = "timeline" }: { readonly view?: "timeline" | "knowledge" }): React.JSX.Element {
+function DashboardRoute(): React.JSX.Element {
     const selectedTaskId = useSelectionStore((s) => s.selectedTaskId);
     const selectTask = useSelectionStore((s) => s.selectTask);
     const [routeTaskId, setRouteTaskId] = useUrlSearchParam("task");
@@ -232,11 +200,7 @@ function DashboardRoute({ view = "timeline" }: { readonly view?: "timeline" | "k
     const { data: tasksData, isSuccess: tasksReady } = useTasksQuery();
     const tasks = tasksData?.tasks ?? [];
     const navigate = useNavigate();
-    const resolvedView = view === "knowledge"
-        ? "knowledge"
-        : routeView === "workspace"
-            ? "workspace"
-            : "timeline";
+    const resolvedView = routeView === "workspace" ? "workspace" : "timeline";
 
     useLayoutEffect(() => {
         if (routeTaskId === selectedTaskId) return;
@@ -271,7 +235,6 @@ function AppRoutes(): React.JSX.Element {
             <Routes>
                 <Route path="/" element={<DashboardRoute />}/>
                 <Route path="/tasks/:taskId" element={<TaskRoute />}/>
-                <Route path="/knowledge" element={<DashboardRoute view="knowledge" />}/>
                 <Route path="*" element={<Navigate replace to="/"/>}/>
             </Routes>
         </Suspense>

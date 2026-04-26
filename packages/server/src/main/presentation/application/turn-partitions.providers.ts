@@ -4,7 +4,7 @@ import {
     GetTurnPartitionUseCase,
     ResetTurnPartitionUseCase,
     UpsertTurnPartitionUseCase,
-} from "~application/workflow/index.js";
+} from "~application/turn-partitions/index.js";
 import {
     EVENT_REPOSITORY_TOKEN,
     TASK_REPOSITORY_TOKEN,

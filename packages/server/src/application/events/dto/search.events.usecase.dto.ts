@@ -62,21 +62,7 @@ export interface SearchEventsEventHitUseCaseDto {
     readonly createdAt: string;
 }
 
-export interface SearchEventsBookmarkHitUseCaseDto {
-    readonly id: string;
-    readonly bookmarkId: string;
-    readonly taskId: string;
-    readonly eventId?: string;
-    readonly kind: "task" | "event";
-    readonly title: string;
-    readonly note?: string;
-    readonly taskTitle?: string;
-    readonly eventTitle?: string;
-    readonly createdAt: string;
-}
-
 export interface SearchEventsUseCaseOut {
     readonly tasks: readonly SearchEventsTaskHitUseCaseDto[];
     readonly events: readonly SearchEventsEventHitUseCaseDto[];
-    readonly bookmarks: readonly SearchEventsBookmarkHitUseCaseDto[];
 }

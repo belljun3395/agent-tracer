@@ -1,7 +1,7 @@
 import type Database from "better-sqlite3";
 import { normalizeLane } from "~domain/monitoring/index.js";
 import type { IEmbeddingService } from "~application/ports/service/embedding.service.js";
-import type { SearchBookmarkHit, SearchEventHit, SearchOptions, SearchResults, SearchTaskHit } from "~application/ports/repository/event.repository.js";
+import type { SearchEventHit, SearchOptions, SearchResults, SearchTaskHit } from "~application/ports/repository/event.repository.js";
 import { ensureSqliteDatabase, type SqliteDatabaseInput } from "../shared/drizzle.db.js";
 import { normalizeSearchText } from "../shared/text.normalizers.js";
 import { cosineSimilarity, deserializeEmbedding, serializeEmbedding } from "../shared/embedding.codec.js";
@@ -9,7 +9,6 @@ import { loadTimelineEventById } from "../repositories/sqlite.event.storage.js";
 import { buildEventSearchText, type SearchDocumentScope, upsertSearchDocument } from "./sqlite.search.documents.js";
 import type {
     RankedSearchDocument,
-    SearchBookmarkRow,
     SearchDocumentRow,
     SearchEventRow,
     SearchTaskRow,
@@ -28,15 +27,14 @@ export async function searchEvents(
     const taskId = opts?.taskId ?? null;
     const taskDocuments = loadSearchDocuments(db, "task");
     const eventDocuments = loadSearchDocuments(db, "event", taskId);
-    const bookmarkDocuments = loadSearchDocuments(db, "bookmark", taskId);
 
-    if (taskDocuments.length === 0 && eventDocuments.length === 0 && bookmarkDocuments.length === 0) {
+    if (taskDocuments.length === 0 && eventDocuments.length === 0) {
         return legacySearch(db, query, opts);
     }
 
     const normalizedQuery = normalizeSearchText(query);
     if (!normalizedQuery) {
-        return { tasks: [], events: [], bookmarks: [] };
+        return { tasks: [], events: [] };
     }
 
     let queryVector: Float32Array | null = null;
@@ -45,7 +43,6 @@ export async function searchEvents(
             await Promise.all([
                 ensureSearchEmbeddings(db, embeddingService, taskDocuments),
                 ensureSearchEmbeddings(db, embeddingService, eventDocuments),
-                ensureSearchEmbeddings(db, embeddingService, bookmarkDocuments),
             ]);
             queryVector = await embeddingService.embed(query);
         }
@@ -56,12 +53,10 @@ export async function searchEvents(
 
     const rankedTasks = rankSearchDocuments(taskDocuments, normalizedQuery, queryVector, safeLimit);
     const rankedEvents = rankSearchDocuments(eventDocuments, normalizedQuery, queryVector, safeLimit);
-    const rankedBookmarks = rankSearchDocuments(bookmarkDocuments, normalizedQuery, queryVector, safeLimit);
 
     return {
         tasks: hydrateTaskHits(db, rankedTasks.map((row) => row.entity_id)),
         events: hydrateEventHits(db, rankedEvents.map((row) => row.entity_id)),
-        bookmarks: hydrateBookmarkHits(db, rankedBookmarks.map((row) => row.entity_id)),
     };
 }
 
@@ -212,41 +207,6 @@ function hydrateEventHits(db: Database.Database, eventIds: readonly string[]): r
     });
 }
 
-function hydrateBookmarkHits(db: Database.Database, bookmarkIds: readonly string[]): readonly SearchBookmarkHit[] {
-    if (bookmarkIds.length === 0) {
-        return [];
-    }
-    const placeholders = bookmarkIds.map(() => "?").join(", ");
-    const rows = db
-        .prepare<string[], SearchBookmarkRow>(`
-            select b.id, b.task_id, b.event_id, b.kind, b.title, b.note, b.created_at, t.title as task_title, e.title as event_title
-            from bookmarks_current b
-            join tasks_current t on t.id = b.task_id
-            left join timeline_events_view e on e.id = b.event_id
-            where b.id in (${placeholders})
-        `)
-        .all(...bookmarkIds);
-    const rowById = new Map(rows.map((row) => [row.id, row] as const));
-    return bookmarkIds.flatMap((bookmarkId) => {
-        const row = rowById.get(bookmarkId);
-        if (!row) {
-            return [];
-        }
-        return [{
-            id: row.id,
-            bookmarkId: row.id,
-            taskId: row.task_id,
-            kind: row.kind,
-            title: row.title,
-            createdAt: row.created_at,
-            ...(row.event_id ? { eventId: row.event_id } : {}),
-            ...(row.note ? { note: row.note } : {}),
-            ...(row.task_title ? { taskTitle: row.task_title } : {}),
-            ...(row.event_title ? { eventTitle: row.event_title } : {}),
-        }];
-    });
-}
-
 function legacySearch(db: Database.Database, query: string, opts?: SearchOptions): SearchResults {
     const pattern = `%${escapeLikePattern(query.trim().toLowerCase())}%`;
     const safeLimit = Math.max(1, Math.min(50, opts?.limit ?? 8));
@@ -301,36 +261,7 @@ function legacySearch(db: Database.Database, query: string, opts?: SearchOptions
             ...(row.body ? { snippet: row.body } : {}),
         }));
 
-    const bookmarks = db
-        .prepare<{
-            pattern: string;
-            limit: number;
-            taskId: string | null;
-        }, SearchBookmarkRow>(`
-            select b.id, b.task_id, b.event_id, b.kind, b.title, b.note, b.created_at, t.title as task_title, e.title as event_title
-            from bookmarks_current b
-            join tasks_current t on t.id = b.task_id
-            left join timeline_events_view e on e.id = b.event_id
-            where (lower(b.title) like @pattern escape '\\' or lower(coalesce(b.note, '')) like @pattern escape '\\' or lower(t.title) like @pattern escape '\\' or lower(coalesce(e.title, '')) like @pattern escape '\\')
-              and (@taskId is null or b.task_id = @taskId)
-            order by datetime(b.created_at) desc
-            limit @limit
-        `)
-        .all({ pattern, limit: safeLimit, taskId })
-        .map((row) => ({
-            id: row.id,
-            bookmarkId: row.id,
-            taskId: row.task_id,
-            kind: row.kind,
-            title: row.title,
-            createdAt: row.created_at,
-            ...(row.event_id ? { eventId: row.event_id } : {}),
-            ...(row.note ? { note: row.note } : {}),
-            ...(row.task_title ? { taskTitle: row.task_title } : {}),
-            ...(row.event_title ? { eventTitle: row.event_title } : {}),
-        }));
-
-    return { tasks, events, bookmarks };
+    return { tasks, events };
 }
 
 function rankSearchDocuments(

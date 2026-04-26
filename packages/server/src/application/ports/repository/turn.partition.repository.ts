@@ -1,4 +1,4 @@
-import type { TurnPartition } from "~domain/workflow/index.js";
+import type { TurnPartition } from "~domain/turn-partitions/index.js";
 
 export type { TurnPartition };
 

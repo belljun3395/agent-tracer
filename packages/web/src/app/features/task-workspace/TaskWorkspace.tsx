@@ -4,7 +4,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { WorkspaceContent } from "./WorkspaceContent.js";
 import { WorkspaceHeader } from "./WorkspaceHeader.js";
 import { useWorkspace } from "./useWorkspace.js";
-import { normalizeWorkspaceTab, REVIEWER_ID_STORAGE_KEY, WORKSPACE_INSPECTOR_DEFAULT_WIDTH, WORKSPACE_INSPECTOR_MAX_WIDTH, WORKSPACE_INSPECTOR_MIN_WIDTH, WORKSPACE_INSPECTOR_WIDTH_STORAGE_KEY } from "./constants.js";
+import { normalizeWorkspaceTab, WORKSPACE_INSPECTOR_DEFAULT_WIDTH, WORKSPACE_INSPECTOR_MAX_WIDTH, WORKSPACE_INSPECTOR_MIN_WIDTH, WORKSPACE_INSPECTOR_WIDTH_STORAGE_KEY } from "./constants.js";
 import type { TimelineProps } from "../timeline/types.js";
 import { writeSearchParam } from "../../shared/lib/urlState.js";
 
@@ -18,11 +18,6 @@ export function TaskWorkspace({ taskId, embedded = false, externalFiltersState, 
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
 
-    const [reviewerNote, setReviewerNote] = useState("");
-    const [isSubmittingRuleReview, setIsSubmittingRuleReview] = useState(false);
-    const [reviewerId, setReviewerId] = useState(() => {
-        try { return window.localStorage.getItem(REVIEWER_ID_STORAGE_KEY) ?? "local-reviewer"; } catch { return "local-reviewer"; }
-    });
     const [zoom, setZoom] = useState(1.1);
     const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth);
     const [isWorkspaceFiltersOpen, setIsWorkspaceFiltersOpen] = useState(false);
@@ -38,9 +33,6 @@ export function TaskWorkspace({ taskId, embedded = false, externalFiltersState, 
         } catch { return WORKSPACE_INSPECTOR_DEFAULT_WIDTH; }
     });
 
-    useEffect(() => {
-        try { window.localStorage.setItem(REVIEWER_ID_STORAGE_KEY, reviewerId); } catch { /* unavailable */ }
-    }, [reviewerId]);
     useEffect(() => {
         try { window.localStorage.setItem(WORKSPACE_INSPECTOR_WIDTH_STORAGE_KEY, String(inspectorWidth)); } catch { /* unavailable */ }
     }, [inspectorWidth]);
@@ -89,19 +81,6 @@ export function TaskWorkspace({ taskId, embedded = false, externalFiltersState, 
         [setSearchParams]
     );
 
-    const handleRuleReviewWithState = useCallback(
-        async (outcome: "approved" | "rejected" | "bypassed"): Promise<void> => {
-            setIsSubmittingRuleReview(true);
-            try {
-                await workspace.handleRuleReview(outcome, reviewerId, reviewerNote);
-                setReviewerNote("");
-            } finally {
-                setIsSubmittingRuleReview(false);
-            }
-        },
-        [workspace, reviewerId, reviewerNote]
-    );
-
     const resolvedExternalFiltersState = externalFiltersState ?? {
         isOpen: isWorkspaceFiltersOpen,
         setIsOpen: setIsWorkspaceFiltersOpen,
@@ -121,8 +100,6 @@ export function TaskWorkspace({ taskId, embedded = false, externalFiltersState, 
                 embedded={embedded}
                 taskId={taskId}
                 workspace={workspace}
-                isSubmittingRuleReview={isSubmittingRuleReview}
-                onRuleReview={(outcome) => void handleRuleReviewWithState(outcome)}
                 onNavigateBack={() => void navigate(`/?task=${encodeURIComponent(taskId)}`)}
                 onNavigateDashboard={() => void navigate(`/?task=${encodeURIComponent(taskId)}`)}
                 embeddedExtras={embedded ? {
@@ -153,11 +130,6 @@ export function TaskWorkspace({ taskId, embedded = false, externalFiltersState, 
                     onInspectorResizeStart={handleInspectorResizeStart}
                     embedded={embedded}
                     timelineEmbeddedProps={timelineEmbeddedProps}
-                    reviewerNote={reviewerNote}
-                    reviewerId={reviewerId}
-                    isSubmittingRuleReview={isSubmittingRuleReview}
-                    onReviewerNoteChange={setReviewerNote}
-                    onReviewerIdChange={setReviewerId}
                     onNavigateBack={() => void navigate(`/?task=${encodeURIComponent(taskId)}`)}
                 />
             </main>

@@ -1,13 +1,11 @@
 import type { TaskId } from "../../types.js";
 import type {
-    BookmarksResponse,
     OverviewResponse,
     RuleCommandRecord,
     TaskDetailResponse,
     TasksResponse
 } from "../../types.js";
 import {
-    fetchBookmarks,
     fetchGlobalRuleCommands,
     fetchOverview,
     fetchTaskDetail,
@@ -44,13 +42,6 @@ export function useTaskDetailQuery(taskId: TaskId | null): UseQueryResult<TaskDe
             return fetchTaskDetail(taskId);
         },
         enabled: taskId !== null
-    });
-}
-
-export function useBookmarksQuery(taskId?: TaskId): UseQueryResult<BookmarksResponse> {
-    return useQuery({
-        queryKey: monitorQueryKeys.bookmarks(taskId),
-        queryFn: () => fetchBookmarks(taskId)
     });
 }
 

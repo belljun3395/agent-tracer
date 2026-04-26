@@ -11,10 +11,8 @@
 import type React from "react";
 import { createContext, useContext } from "react";
 import type {
-    BookmarkRecord,
     ModelSummary,
     TaskDetailResponse,
-    TaskObservabilityResponse,
     TimelineConnector,
     TimelineEventRecord,
     TurnGroup,
@@ -31,19 +29,14 @@ interface InspectorContextValue {
     // Task data
     readonly taskDetail: TaskDetailResponse | null;
     readonly selectedTaskTitle: string | null;
-    readonly taskObservability: TaskObservabilityResponse | null;
     readonly taskModelSummary?: ModelSummary | undefined;
     // Selection state
     readonly selectedEvent: TimelineEventRecord | null;
     readonly selectedConnector: InspectorSelectedConnector | null;
     readonly selectedEventDisplayTitle: string | null;
-    readonly selectedTaskBookmark: BookmarkRecord | null;
-    readonly selectedEventBookmark: BookmarkRecord | null;
     readonly selectedTag: string | null;
     readonly selectedRuleId: string | null;
     // Handlers
-    readonly onCreateTaskBookmark: () => void;
-    readonly onCreateEventBookmark: () => void;
     readonly onUpdateEventDisplayTitle: (eventId: string, displayTitle: string | null) => Promise<void>;
     readonly onSelectTag: (tag: string | null) => void;
     readonly onSelectRule: (ruleId: string | null) => void;

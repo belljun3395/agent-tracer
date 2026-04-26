@@ -6,5 +6,4 @@ export * from "./task.events.js";
 export * from "./session.events.js";
 export * from "./runtime.events.js";
 export * from "./curation.events.js";
-export * from "./workflow.events.js";
 export * from "./system.events.js";

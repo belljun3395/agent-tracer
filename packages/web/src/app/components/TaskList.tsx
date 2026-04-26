@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type React from "react";
-import { formatRelativeTime, type BookmarkRecord, type MonitoringTask, type TaskDetailResponse } from "../../types.js";
+import { formatRelativeTime, type MonitoringTask, type TaskDetailResponse } from "../../types.js";
 import { useDragScroll } from "../lib/useDragScroll.js";
 import { cn } from "../lib/ui/cn.js";
 import {
@@ -15,7 +15,6 @@ import {
     resolveTaskListItemTitle,
     runtimeBadgeClass,
     runtimeTagLabel,
-    type RailView,
     type StatusFilterState,
 } from "../lib/taskList.js";
 import { formatTaskStatusLabel, TASK_STATUS_BUTTON_STYLES } from "../features/timeline/status-styles.js";
@@ -41,9 +40,7 @@ interface TaskDisplayTitleCacheEntry {
 }
 interface TaskListProps {
     readonly tasks: readonly MonitoringTask[];
-    readonly bookmarks: readonly BookmarkRecord[];
     readonly taskDisplayTitleCache?: Readonly<Record<string, TaskDisplayTitleCacheEntry>>;
-    readonly selectedTaskBookmarkId: string | null;
     readonly selectedTaskId: string | null;
     readonly taskDetail: TaskDetailResponse | null;
     readonly selectedTaskQuestionCount?: number | undefined;
@@ -53,11 +50,8 @@ interface TaskListProps {
     readonly isCollapsed?: boolean;
     readonly hideHeader?: boolean;
     readonly hideTabs?: boolean;
-    readonly initialView?: "tasks" | "saved";
     readonly onToggleCollapse?: () => void;
     readonly onSelectTask: (taskId: string) => void;
-    readonly onSelectBookmark: (bookmark: BookmarkRecord) => void;
-    readonly onDeleteBookmark: (bookmarkId: string) => void;
     readonly onDeleteTask: (taskId: string) => void;
 }
 
@@ -65,7 +59,6 @@ const railSectionHeaderClass = "sticky top-0 z-10 flex items-center justify-betw
 const railRowBaseClass = "group relative shrink-0 overflow-hidden rounded-[var(--radius-md)] border border-transparent bg-transparent px-3 py-2 transition-[background-color,border-color,box-shadow] duration-200 hover:border-[var(--border)] hover:bg-[var(--surface)] hover:shadow-[var(--shadow-1)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--accent)] cursor-pointer";
 const railSelectedRowClass = "border-[color-mix(in_srgb,var(--accent)_18%,var(--border))] bg-[color-mix(in_srgb,var(--accent)_8%,var(--surface))] shadow-[var(--shadow-1)]";
 const railContentButtonClass = "flex min-w-0 flex-col items-start justify-start rounded-none border-0 bg-transparent p-0 text-left font-normal shadow-none outline-none transition-colors";
-const railTabButtonClass = "relative flex-1 py-1.5 text-[0.74rem] font-medium transition-colors focus-visible:outline-none cursor-pointer";
 const emptyStateCardClass = "m-3 rounded-[var(--radius-md)] border border-dashed border-[var(--border)] bg-[var(--bg-subtle)] p-3.5";
 const DEFAULT_STATUS_FILTERS: StatusFilterState = {
     running: true,
@@ -104,51 +97,6 @@ function EmptyRailState({ title, description, action }: {
       <p className="m-0 text-[0.84rem] text-[var(--text-2)]">{title}</p>
       <p className="mt-1 m-0 text-[0.79rem] text-[var(--text-2)]">{description}</p>
       {action}
-    </div>);
-}
-
-function RailTabButton({ active, children, onClick }: {
-    readonly active: boolean;
-    readonly children: React.ReactNode;
-    readonly onClick: () => void;
-}): React.JSX.Element {
-    return (<button aria-pressed={active} className={cn(railTabButtonClass, active ? "text-[var(--text-1)]" : "text-[var(--text-3)] hover:text-[var(--text-2)]")} onClick={onClick} type="button">
-      {children}
-      {active && <span className="absolute bottom-0 left-4 right-4 h-0.5 rounded-full bg-[var(--accent)]"/>}
-    </button>);
-}
-
-function SavedBookmarkRow({ bookmark, isSelected, onSelectBookmark, onDeleteBookmark }: {
-    readonly bookmark: BookmarkRecord;
-    readonly isSelected: boolean;
-    readonly onSelectBookmark: (bookmark: BookmarkRecord) => void;
-    readonly onDeleteBookmark: (bookmarkId: string) => void;
-}): React.JSX.Element {
-    return (<div className={cn(railRowBaseClass, isSelected && railSelectedRowClass)}>
-      <div className="flex items-start gap-2.5">
-        <span aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0"/>
-        <button className={cn(railContentButtonClass, "min-w-0 flex-1")} onClick={() => onSelectBookmark(bookmark)} title={bookmark.title} type="button">
-          <div className="w-full truncate text-[0.82rem] font-semibold leading-5 text-[var(--text-1)]">
-            {bookmark.title}
-          </div>
-          <div className="mt-1 flex w-full min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-[0.66rem] text-[var(--text-3)]">
-            <Badge className="uppercase tracking-[0.06em]" size="sm" tone="accent">
-              {bookmark.kind}
-            </Badge>
-            <span className="min-w-0 truncate font-mono text-[0.71rem]">
-              {bookmark.eventTitle ?? bookmark.taskTitle ?? bookmark.taskId}
-            </span>
-            <span className="shrink-0">·</span>
-            <span className="shrink-0">{formatRelativeTime(bookmark.updatedAt)}</span>
-          </div>
-        </button>
-        <Button className="h-6 w-6 shrink-0 self-start rounded-md p-1 text-[var(--text-3)] opacity-0 transition-opacity hover:bg-[var(--err-bg)] hover:text-[var(--err)] group-hover:opacity-100" onClick={(event) => {
-            event.stopPropagation();
-            onDeleteBookmark(bookmark.id);
-        }} size="icon" title="Remove saved item" variant="bare">
-          <img alt="Remove saved item" className="icon-adaptive h-3.5 w-3.5" src="/icons/trash.svg"/>
-        </Button>
-      </div>
     </div>);
 }
 
@@ -240,14 +188,11 @@ function TaskRow({ task, depth, isSelected, isCollapsedParent, hasChildren, task
     </div>);
 }
 
-export function TaskList({ tasks, bookmarks, taskDisplayTitleCache, selectedTaskBookmarkId, selectedTaskId, taskDetail, selectedTaskQuestionCount, selectedTaskTodoCount, deletingTaskId, deleteErrorTaskId, isCollapsed = false, hideHeader = false, hideTabs = false, initialView = "tasks", onToggleCollapse, onSelectTask, onSelectBookmark, onDeleteBookmark, onDeleteTask }: TaskListProps): React.JSX.Element {
+export function TaskList({ tasks, taskDisplayTitleCache, selectedTaskId, taskDetail, selectedTaskQuestionCount, selectedTaskTodoCount, deletingTaskId, deleteErrorTaskId, isCollapsed = false, hideHeader = false, onToggleCollapse, onSelectTask, onDeleteTask }: TaskListProps): React.JSX.Element {
     const [runtimeFilter, setRuntimeFilter] = useState<string>(ALL_RUNTIME_FILTER_KEY);
     const [statusFilters, setStatusFilters] = useState<StatusFilterState>(createDefaultStatusFilters);
     const [isStatusFilterExpanded, setIsStatusFilterExpanded] = useState(false);
     const [collapsedParentIds, setCollapsedParentIds] = useState<ReadonlySet<string>>(new Set());
-    const [railView, setRailView] = useState<RailView>(initialView);
-
-    useEffect(() => { setRailView(initialView); }, [initialView]);
 
     const tasksDragScroll = useDragScroll({ axis: "y" });
     const runtimeFilterOptions = useMemo(() => buildRuntimeFilterOptions(tasks), [tasks]);
@@ -318,21 +263,7 @@ export function TaskList({ tasks, bookmarks, taskDisplayTitleCache, selectedTask
             <p className="mt-1 text-[0.74rem] leading-5 text-[var(--text-2)]">Live task observability for parallel agent work.</p>
           </div>)}
 
-        {!hideTabs && (
-          <div className="flex border-b border-[var(--border)]">
-            <RailTabButton active={railView === "tasks"} onClick={() => setRailView("tasks")}>Tasks</RailTabButton>
-            <RailTabButton active={railView === "saved"} onClick={() => setRailView("saved")}>Saved</RailTabButton>
-          </div>
-        )}
-
-        {railView === "saved" ? (<div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-            <div className={railSectionHeaderClass}>
-              <span>Saved</span>
-            </div>
-            {bookmarks.length === 0 ? (<EmptyRailState title="No saved cards yet." description="Save the current task or a selected event to come back to it quickly."/>) : (<div className="flex max-h-[calc(100%-2.5rem)] flex-col gap-1 overflow-y-auto p-1.5">
-                {bookmarks.map((bookmark) => (<SavedBookmarkRow key={bookmark.id} bookmark={bookmark} isSelected={bookmark.id === selectedTaskBookmarkId} onSelectBookmark={onSelectBookmark} onDeleteBookmark={onDeleteBookmark}/>))}
-              </div>)}
-          </div>) : (<div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
             <div className={railSectionHeaderClass}>
               <span>Tracked Tasks</span>
               {filteredTasks.length > 10 && (<span className="ml-auto text-[0.62rem] font-normal normal-case tracking-normal text-[var(--text-3)]">
@@ -428,7 +359,7 @@ export function TaskList({ tasks, bookmarks, taskDisplayTitleCache, selectedTask
                     })}
                   </div>)}
               </>)}
-          </div>)}
+          </div>
       </div>
     </PanelCard>);
 }

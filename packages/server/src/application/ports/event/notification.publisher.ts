@@ -1,7 +1,6 @@
 import type { MonitoringEventKind, TimelineLane } from "~domain/monitoring/index.js";
 import type { MonitoringSession } from "~domain/monitoring/index.js";
 import type { MonitoringTask } from "~domain/monitoring/index.js";
-import type { BookmarkRecord } from "../repository/bookmark.repository.js";
 
 export interface EventNotificationClassificationReason {
     readonly kind: "keyword" | "action-prefix" | "action-keyword";
@@ -78,14 +77,6 @@ export type MonitorNotification = {
 } | {
     readonly type: "event.updated";
     readonly payload: EventNotificationPayload;
-} | {
-    readonly type: "bookmark.saved";
-    readonly payload: BookmarkRecord;
-} | {
-    readonly type: "bookmark.deleted";
-    readonly payload: {
-        bookmarkId: string;
-    };
 } | {
     readonly type: "tasks.purged";
     readonly payload: {

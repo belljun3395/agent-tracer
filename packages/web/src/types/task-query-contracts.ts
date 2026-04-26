@@ -23,6 +23,19 @@ export interface TimelineRelation {
   readonly handoffId?: HandoffId
 }
 
+export interface OverviewStats {
+  readonly totalTasks: number
+  readonly runningTasks: number
+  readonly waitingTasks: number
+  readonly completedTasks: number
+  readonly erroredTasks: number
+  readonly totalEvents: number
+}
+
+export interface OverviewResponse {
+  readonly stats: OverviewStats
+}
+
 export interface TasksResponse {
   readonly tasks: readonly MonitoringTask[]
 }

@@ -12,7 +12,7 @@ import {
     logHttpUpgrade,
     type RequestContextIncomingMessage,
 } from "../presentation/middleware/request-context.js";
-import { GetOverviewUseCase, ListTasksUseCase } from "~application/index.js";
+import { GetOverviewUseCase, ListTasksUseCase } from "~application/tasks/index.js";
 import { SQLITE_DATABASE_CONTEXT_TOKEN } from "../presentation/database/database.provider.js";
 import type { SqliteDatabaseContext } from "~adapters/persistence/sqlite/index.js";
 import type { RuntimeOptions, MonitorRuntime } from "./runtime.type.js";

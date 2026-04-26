@@ -8,8 +8,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { SqliteDatabaseContext } from "~adapters/persistence/sqlite/index.js";
 import { DatabaseModule } from "../database/database.module.js";
 import { SQLITE_DATABASE_CONTEXT_TOKEN } from "../database/database.provider.js";
-import { BOOKMARKS_APPLICATION_EXPORTS } from "./bookmarks.providers.js";
-import { BookmarksApplicationModule } from "./bookmarks-application.module.js";
 import { EVENTS_APPLICATION_EXPORTS } from "./events.providers.js";
 import { EventsApplicationModule } from "./events-application.module.js";
 import { RULE_COMMANDS_APPLICATION_EXPORTS } from "./rule-commands.providers.js";
@@ -22,8 +20,6 @@ import { TASK_APPLICATION_EXPORTS } from "./tasks.providers.js";
 import { TasksApplicationModule } from "./tasks-application.module.js";
 import { TURN_PARTITIONS_APPLICATION_EXPORTS } from "./turn-partitions.providers.js";
 import { TurnPartitionsApplicationModule } from "./turn-partitions-application.module.js";
-import { WORKFLOW_APPLICATION_EXPORTS } from "./workflow.providers.js";
-import { WorkflowApplicationModule } from "./workflow-application.module.js";
 
 type ProviderToken = Type<unknown> | string | symbol;
 const SMOKE_PROVIDERS_TOKEN = Symbol("SMOKE_PROVIDERS");
@@ -31,12 +27,6 @@ const SMOKE_PROVIDERS_TOKEN = Symbol("SMOKE_PROVIDERS");
 class FeatureApplicationSmokeHostModule {}
 
 const featureApplicationModules = [
-    {
-        module: BookmarksApplicationModule,
-        name: "bookmarks",
-        register: (databaseModule: DynamicModule) => BookmarksApplicationModule.register(databaseModule),
-        exportedProviders: BOOKMARKS_APPLICATION_EXPORTS,
-    },
     {
         module: EventsApplicationModule,
         name: "events",
@@ -73,12 +63,6 @@ const featureApplicationModules = [
         name: "turn partitions",
         register: (databaseModule: DynamicModule) => TurnPartitionsApplicationModule.register(databaseModule),
         exportedProviders: TURN_PARTITIONS_APPLICATION_EXPORTS,
-    },
-    {
-        module: WorkflowApplicationModule,
-        name: "workflow",
-        register: (databaseModule: DynamicModule) => WorkflowApplicationModule.register(databaseModule),
-        exportedProviders: WORKFLOW_APPLICATION_EXPORTS,
     },
 ] as const;
 

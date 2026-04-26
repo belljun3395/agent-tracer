@@ -1,8 +1,4 @@
-export { TaskBriefingCommandController } from "./controllers/briefing/briefing.command.controller.js";
-export { BookmarkCommandController } from "./controllers/bookmark/bookmark.command.controller.js";
 export { EventCommandController } from "./controllers/event/event.command.controller.js";
-export { TaskEvaluationCommandController } from "./controllers/evaluation/evaluation.command.controller.js";
-export { PlaybookCommandController } from "./controllers/playbook/playbook.command.controller.js";
 export { GlobalRuleCommandCommandController } from "./controllers/rule-command/global-rule-command.command.controller.js";
 export { TaskRuleCommandCommandController } from "./controllers/rule-command/task-rule-command.command.controller.js";
 export { TaskCommandController } from "./controllers/task/task.command.controller.js";

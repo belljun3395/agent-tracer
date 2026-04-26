@@ -1,7 +1,7 @@
 import type React from "react";
 import { useEffect, useState } from "react";
 import { getEventEvidence } from "../../../types.js";
-import { buildInspectorEventTitle, evidenceTone, formatEvidenceLevel, type BookmarkRecord, type QuestionGroup, type TaskDetailResponse, type TimelineConnector, type TimelineEventRecord, type TodoGroup } from "../../../types.js";
+import { buildInspectorEventTitle, evidenceTone, formatEvidenceLevel, type QuestionGroup, type TaskDetailResponse, type TimelineConnector, type TimelineEventRecord, type TodoGroup } from "../../../types.js";
 import { Badge } from "../ui/Badge.js";
 import { Button } from "../ui/Button.js";
 import { QuestionGroupSection } from "./QuestionGroupSection.js";
@@ -147,15 +147,11 @@ export interface InspectorTabProps {
     readonly selectedEventDisplayTitle: string | null;
     readonly selectedEventDisplayTitleOverride: string | null;
     readonly canEditSelectedEventTitle: boolean;
-    readonly selectedTaskBookmark?: BookmarkRecord | null;
-    readonly selectedEventBookmark?: BookmarkRecord | null;
     readonly eventTime: string | null;
     readonly questionGroups: readonly QuestionGroup[];
     readonly todoGroups: readonly TodoGroup[];
     readonly relatedEvents: readonly TimelineEventRecord[];
     readonly selectedRuleId: string | null;
-    readonly onCreateTaskBookmark: () => void;
-    readonly onCreateEventBookmark: () => void;
     readonly onUpdateEventDisplayTitle: (eventId: string, displayTitle: string | null) => Promise<void>;
     readonly onSelectRule: (ruleId: string | null) => void;
     readonly onOpenTaskWorkspace?: () => void;
@@ -169,15 +165,11 @@ export function InspectorTab({
     selectedEventDisplayTitle,
     selectedEventDisplayTitleOverride,
     canEditSelectedEventTitle,
-    selectedTaskBookmark = null,
-    selectedEventBookmark = null,
     eventTime,
     questionGroups,
     todoGroups,
     relatedEvents,
     selectedRuleId,
-    onCreateTaskBookmark,
-    onCreateEventBookmark,
     onUpdateEventDisplayTitle,
     onSelectRule,
     onOpenTaskWorkspace,
@@ -246,13 +238,7 @@ export function InspectorTab({
         <div className="px-4 pt-4">
           <InspectorHeaderCard actions={(<>
                 <div className="flex flex-wrap items-center gap-2">
-          <Button className="h-7 rounded-[var(--radius-md)] px-2.5 text-[0.72rem] font-semibold shadow-none" onClick={onCreateTaskBookmark} size="sm" type="button" variant="ghost">
-                  {selectedTaskBookmark ? "Task Saved" : "Save Task"}
-                  </Button>
-                  {selectedEvent && (<Button className="h-7 rounded-[var(--radius-md)] px-2.5 text-[0.72rem] font-semibold shadow-none" onClick={onCreateEventBookmark} size="sm" type="button" variant="ghost">
-                      {selectedEventBookmark ? "Card Saved" : "Save Card"}
-                    </Button>)}
-                  {selectedEvent && canEditSelectedEventTitle && !isEditingEventTitle && (<Button className="h-7 rounded-[var(--radius-md)] px-2.5 text-[0.72rem] font-semibold shadow-none" onClick={() => {
+          {selectedEvent && canEditSelectedEventTitle && !isEditingEventTitle && (<Button className="h-7 rounded-[var(--radius-md)] px-2.5 text-[0.72rem] font-semibold shadow-none" onClick={() => {
                     setEventTitleDraft(selectedEventDisplayTitle ?? "");
                     setEventTitleError(null);
                     setIsEditingEventTitle(true);

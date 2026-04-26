@@ -4,8 +4,6 @@ import type { TaskId } from "../../../types.js";
 import { EventId } from "../../../types.js";
 import type { MonitoringTask } from "../../../types.js";
 import {
-    createBookmark,
-    postRuleAction,
     updateEventDisplayTitle,
     updateTaskStatus,
     updateTaskTitle,
@@ -15,7 +13,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import type { WorkspaceData } from "./useWorkspaceData.js";
 
 export function useWorkspaceMutations(taskId: string, data: WorkspaceData) {
-    const { selectedTaskDetail, taskObservability, refreshTaskObservability, selectedEvent, selectedEventDisplayTitle } = data;
+    const { selectedTaskDetail } = data;
 
     const setTitleError = useEditStore((s) => s.setTitleError);
     const finishEditing = useEditStore((s) => s.finishEditing);
@@ -23,32 +21,6 @@ export function useWorkspaceMutations(taskId: string, data: WorkspaceData) {
     const setUpdatingStatus = useEditStore((s) => s.setUpdatingStatus);
 
     const queryClient = useQueryClient();
-
-    const handleRuleReview = useCallback(
-        async (outcome: "approved" | "rejected" | "bypassed", reviewerId: string, reviewerNote: string): Promise<void> => {
-            if (!selectedTaskDetail?.task || !taskObservability?.observability.ruleEnforcement.activeRuleId) return;
-            await postRuleAction({
-                taskId: selectedTaskDetail.task.id,
-                action: "review_rule_gate",
-                title: outcome === "approved" ? "Approval granted"
-                    : outcome === "rejected" ? "Approval rejected"
-                    : "Rule bypassed",
-                ruleId: taskObservability.observability.ruleEnforcement.activeRuleId,
-                severity: outcome === "approved" ? "info" : "warn",
-                status: outcome === "approved" || outcome === "bypassed" ? "pass" : "violation",
-                source: "workspace-review",
-                metadata: { reviewerId, reviewerSource: "workspace-review" },
-                ...(reviewerNote.trim() ? { body: reviewerNote.trim() } : {}),
-                outcome,
-            });
-            await Promise.all([
-                queryClient.invalidateQueries({ queryKey: monitorQueryKeys.overview() }),
-                queryClient.invalidateQueries({ queryKey: monitorQueryKeys.taskDetail(taskId as TaskId) }),
-                refreshTaskObservability(),
-            ]);
-        },
-        [queryClient, refreshTaskObservability, selectedTaskDetail?.task, taskId, taskObservability?.observability.ruleEnforcement.activeRuleId]
-    );
 
     const handleTaskStatusChange = useCallback(
         async (status: MonitoringTask["status"]): Promise<void> => {
@@ -92,21 +64,6 @@ export function useWorkspaceMutations(taskId: string, data: WorkspaceData) {
         [selectedTaskDetail?.task, setTitleError, finishEditing, setSavingTitle, queryClient, taskId]
     );
 
-    const handleCreateTaskBookmark = useCallback(async (): Promise<void> => {
-        await createBookmark({ taskId: taskId as TaskId });
-        await queryClient.invalidateQueries({ queryKey: monitorQueryKeys.bookmarks() });
-    }, [taskId, queryClient]);
-
-    const handleCreateEventBookmark = useCallback(async (): Promise<void> => {
-        if (!selectedEvent) return;
-        await createBookmark({
-            taskId: taskId as TaskId,
-            eventId: EventId(selectedEvent.id),
-            title: selectedEventDisplayTitle ?? selectedEvent.title,
-        });
-        await queryClient.invalidateQueries({ queryKey: monitorQueryKeys.bookmarks() });
-    }, [taskId, selectedEvent, selectedEventDisplayTitle, queryClient]);
-
     const handleUpdateEventDisplayTitle = useCallback(
         async (eventId: string, displayTitle: string | null): Promise<void> => {
             await updateEventDisplayTitle(EventId(eventId), displayTitle ?? "");
@@ -116,11 +73,8 @@ export function useWorkspaceMutations(taskId: string, data: WorkspaceData) {
     );
 
     return {
-        handleRuleReview,
         handleTaskStatusChange,
         handleTaskTitleSubmit,
-        handleCreateTaskBookmark,
-        handleCreateEventBookmark,
         handleUpdateEventDisplayTitle,
     };
 }

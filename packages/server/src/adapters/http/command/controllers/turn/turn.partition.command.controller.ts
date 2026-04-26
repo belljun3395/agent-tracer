@@ -2,7 +2,7 @@ import { Body, Controller, HttpCode, HttpStatus, Inject, Param, Post, Put } from
 import {
     ResetTurnPartitionUseCase,
     UpsertTurnPartitionUseCase,
-} from "~application/workflow/index.js";
+} from "~application/turn-partitions/index.js";
 import {
     turnPartitionUpsertSchema,
     type TurnPartitionUpsertBody,

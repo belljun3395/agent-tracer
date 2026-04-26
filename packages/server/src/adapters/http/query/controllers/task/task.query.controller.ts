@@ -1,5 +1,4 @@
 import { Controller, Get, Inject, NotFoundException, Param } from "@nestjs/common";
-import { GetTaskObservabilityUseCase } from "~application/index.js";
 import {
     GetTaskLatestRuntimeSessionUseCase,
     GetTaskOpenInferenceUseCase,
@@ -12,7 +11,6 @@ import { pathParamPipe } from "~adapters/http/shared/path-param.pipe.js";
 @Controller("api/v1/tasks")
 export class TaskQueryController {
     constructor(
-        @Inject(GetTaskObservabilityUseCase) private readonly getTaskObservability: GetTaskObservabilityUseCase,
         @Inject(ListTasksUseCase) private readonly listTasks: ListTasksUseCase,
         @Inject(GetTaskUseCase) private readonly getTask: GetTaskUseCase,
         @Inject(GetTaskTimelineUseCase) private readonly getTaskTimeline: GetTaskTimelineUseCase,
@@ -23,13 +21,6 @@ export class TaskQueryController {
     @Get()
     async listTasksEndpoint() {
         return this.listTasks.execute({});
-    }
-
-    @Get(":taskId/observability")
-    async taskObservability(@Param("taskId", pathParamPipe) taskId: string) {
-        const observability = await this.getTaskObservability.execute({ taskId });
-        if (!observability) throw new NotFoundException("Task not found");
-        return observability;
     }
 
     @Get(":taskId/openinference")
