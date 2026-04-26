@@ -1,7 +1,7 @@
 import {CLAUDE_RUNTIME_SOURCE, PROJECT_DIR} from "~claude-code/hooks/util/paths.const.js";
 import {defaultTaskTitle} from "~claude-code/hooks/util/paths.js";
 import {claudeHookRuntime} from "~claude-code/hooks/lib/runtime.js";
-import {readStdinJson} from "~shared/hook-runtime/index.js";
+import { readStdinJson } from "~shared/hook-runtime/stdin.js";
 import {resolveMonitorTransportConfig} from "~shared/config/env.js";
 import type {RuntimeSessionEnsureResult} from "~shared/hook-runtime/transport.js";
 

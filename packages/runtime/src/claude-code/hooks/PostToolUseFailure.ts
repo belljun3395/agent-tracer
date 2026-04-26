@@ -26,18 +26,14 @@ import {toTrimmedString} from "~claude-code/hooks/util/utils.js";
 import {claudeHookRuntime} from "~claude-code/hooks/lib/runtime.js";
 import {resolveEventSessionIds} from "~claude-code/hooks/Agent/session.js";
 import {readPostToolUseFailure} from "~shared/hooks/claude/payloads.js";
-import {runHook} from "~shared/hook-runtime/index.js";
-import {KIND} from "~shared/events/kinds.js";
-import {LANE} from "~shared/events/lanes.js";
+import { runHook } from "~shared/hook-runtime/run-hook.js";
+import { KIND } from "~shared/events/kinds.const.js";
+import { LANE } from "~shared/events/lanes.const.js";
 import {provenEvidence} from "~shared/semantics/evidence.js";
-import {
-    buildSemanticMetadata,
-    inferAgentSemantic,
-    inferCommandSemantic,
-    inferFileToolSemantic,
-    inferMcpSemantic,
-    inferSkillSemantic,
-} from "~shared/semantics/inference.js";
+import { inferCommandSemantic } from "~shared/semantics/inference.command.js";
+import { inferAgentSemantic, inferMcpSemantic, inferSkillSemantic } from "~shared/semantics/inference.coordination.js";
+import { inferFileToolSemantic } from "~shared/semantics/inference.file.js";
+import { buildSemanticMetadata } from "~shared/semantics/inference.util.js";
 
 await runHook("PostToolUseFailure", {
     logger: claudeHookRuntime.logger,

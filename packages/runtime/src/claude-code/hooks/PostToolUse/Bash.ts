@@ -17,10 +17,11 @@
  */
 import {toTrimmedString} from "~claude-code/hooks/util/utils.js";
 import {postTaggedEvent, runPostToolUseHook} from "./_shared.js";
-import {KIND} from "~shared/events/kinds.js";
-import {type TerminalCommandMetadata} from "~shared/events/metadata.js";
+import { KIND } from "~shared/events/kinds.const.js";
+import type { TerminalCommandMetadata } from "~shared/events/metadata.type.js";
 import {provenEvidence} from "~shared/semantics/evidence.js";
-import {buildSemanticMetadata, inferCommandSemantic} from "~shared/semantics/inference.js";
+import { inferCommandSemantic } from "~shared/semantics/inference.command.js";
+import { buildSemanticMetadata } from "~shared/semantics/inference.util.js";
 
 await runPostToolUseHook("Bash", async ({payload, ids}) => {
     const command = toTrimmedString(payload.toolInput["command"]);

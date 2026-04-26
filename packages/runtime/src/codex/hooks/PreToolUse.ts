@@ -22,7 +22,7 @@
 import {codexHookRuntime} from "~codex/lib/runtime.js";
 import {ensureRuntimeSession} from "~codex/lib/transport/transport.js";
 import {readCodexPreToolUse} from "~shared/hooks/codex/payloads.js";
-import {runHook} from "~shared/hook-runtime/index.js";
+import { runHook } from "~shared/hook-runtime/run-hook.js";
 
 await runHook("PreToolUse", {
     logger: codexHookRuntime.logger,

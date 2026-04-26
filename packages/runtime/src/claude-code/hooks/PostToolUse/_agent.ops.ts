@@ -15,11 +15,12 @@ import {toBoolean, toTrimmedString} from "~claude-code/hooks/util/utils.js";
 import {postTaggedEvent} from "./_shared.js";
 import type {PostToolUseHandlerArgs} from "./_shared.js";
 import {resolveBackgroundSessionIds} from "~claude-code/hooks/Agent/session.js";
-import {KIND} from "~shared/events/kinds.js";
-import {LANE} from "~shared/events/lanes.js";
-import {type AgentActivityMetadata} from "~shared/events/metadata.js";
+import { KIND } from "~shared/events/kinds.const.js";
+import { LANE } from "~shared/events/lanes.const.js";
+import type { AgentActivityMetadata } from "~shared/events/metadata.type.js";
 import {provenEvidence} from "~shared/semantics/evidence.js";
-import {buildSemanticMetadata, inferAgentSemantic} from "~shared/semantics/inference.js";
+import { inferAgentSemantic } from "~shared/semantics/inference.coordination.js";
+import { buildSemanticMetadata } from "~shared/semantics/inference.util.js";
 
 function extractChildSessionId(toolResponse: unknown): string {
     const text = typeof toolResponse === "string" ? toolResponse : JSON.stringify(toolResponse ?? {});

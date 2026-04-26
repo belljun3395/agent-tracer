@@ -19,10 +19,10 @@
  * contextWindowUsedPct is derived from last.totalTokens / modelContextWindow * 100,
  * computed only when modelContextWindow is a positive finite number.
  */
-import type {RuntimeIngestEvent} from "~shared/events/kinds.js";
-import {KIND} from "~shared/events/kinds.js";
-import type {ContextSnapshotMetadata} from "~shared/events/metadata.js";
-import {LANE} from "~shared/events/lanes.js";
+import type { RuntimeIngestEvent } from "~shared/events/kinds.type.js";
+import { KIND } from "~shared/events/kinds.const.js";
+import type { ContextSnapshotMetadata } from "~shared/events/metadata.type.js";
+import { LANE } from "~shared/events/lanes.const.js";
 import {provenEvidence} from "~shared/semantics/evidence.js";
 import type {
     CodexAppServerRateLimitSnapshot,

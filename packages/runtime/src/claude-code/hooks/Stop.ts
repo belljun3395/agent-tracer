@@ -26,10 +26,10 @@ import {claudeHookRuntime} from "~claude-code/hooks/lib/runtime.js";
 import {postJson} from "~claude-code/hooks/lib/transport/transport.js";
 import {resolveEventSessionIds} from "~claude-code/hooks/Agent/session.js";
 import {readStop} from "~shared/hooks/claude/payloads.js";
-import {runHook} from "~shared/hook-runtime/index.js";
-import {KIND} from "~shared/events/kinds.js";
-import {LANE} from "~shared/events/lanes.js";
-import {type AssistantResponseMetadata} from "~shared/events/metadata.js";
+import { runHook } from "~shared/hook-runtime/run-hook.js";
+import { KIND } from "~shared/events/kinds.const.js";
+import { LANE } from "~shared/events/lanes.const.js";
+import type { AssistantResponseMetadata } from "~shared/events/metadata.type.js";
 import {provenEvidence} from "~shared/semantics/evidence.js";
 
 await runHook("Stop", {

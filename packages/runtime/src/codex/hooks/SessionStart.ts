@@ -19,10 +19,10 @@
 import {codexHookRuntime} from "~codex/lib/runtime.js";
 import {ensureRuntimeSession} from "~codex/lib/transport/transport.js";
 import {readCodexSessionStart} from "~shared/hooks/codex/payloads.js";
-import {runHook} from "~shared/hook-runtime/index.js";
-import {KIND} from "~shared/events/kinds.js";
-import {LANE} from "~shared/events/lanes.js";
-import {type ContextSavedMetadata} from "~shared/events/metadata.js";
+import { runHook } from "~shared/hook-runtime/run-hook.js";
+import { KIND } from "~shared/events/kinds.const.js";
+import { LANE } from "~shared/events/lanes.const.js";
+import type { ContextSavedMetadata } from "~shared/events/metadata.type.js";
 import {provenEvidence} from "~shared/semantics/evidence.js";
 import {ensureObserverRunning} from "~codex/util/observer.js";
 import {writeLatestSessionState} from "~codex/util/session.state.js";

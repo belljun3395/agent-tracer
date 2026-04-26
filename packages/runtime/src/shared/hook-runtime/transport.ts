@@ -1,4 +1,4 @@
-import type {RuntimeIngestEvent} from "~shared/events/kinds.js";
+import type { RuntimeIngestEvent } from "~shared/events/kinds.type.js";
 import {MonitorRequestError} from "~shared/errors/monitor.js";
 import {resolveIngestEndpoint} from "~shared/routing/ingest.routing.js";
 import {withTags} from "~shared/semantics/tags.js";

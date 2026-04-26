@@ -1,4 +1,4 @@
-import type {RuntimeIngestEvent} from "~shared/events/kinds.js";
+import type { RuntimeIngestEvent } from "~shared/events/kinds.type.js";
 import {resolveIngestEndpoint} from "~shared/routing/ingest.routing.js";
 import {withTags} from "~shared/semantics/tags.js";
 export type {RuntimeSessionEnsureResult} from "~shared/transport/transport.type.js";

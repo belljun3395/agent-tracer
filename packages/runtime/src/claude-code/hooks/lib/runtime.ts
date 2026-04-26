@@ -1,5 +1,6 @@
 import * as path from "node:path";
-import {createHookRuntime, type HookRuntime} from "~shared/hook-runtime/index.js";
+import { createHookRuntime } from "~shared/hook-runtime/create-runtime.js";
+import type { HookRuntime } from "~shared/hook-runtime/create-runtime.js";
 import {PROJECT_DIR} from "~claude-code/hooks/util/paths.const.js";
 
 /**

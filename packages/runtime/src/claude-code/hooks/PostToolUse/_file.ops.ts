@@ -8,11 +8,12 @@ import {relativeProjectPath} from "~claude-code/hooks/util/paths.js";
 import {toTrimmedString} from "~claude-code/hooks/util/utils.js";
 import {postTaggedEvent} from "./_shared.js";
 import type {PostToolUseHandlerArgs} from "./_shared.js";
-import {KIND} from "~shared/events/kinds.js";
-import {LANE} from "~shared/events/lanes.js";
-import {type ToolUsedMetadata} from "~shared/events/metadata.js";
+import { KIND } from "~shared/events/kinds.const.js";
+import { LANE } from "~shared/events/lanes.const.js";
+import type { ToolUsedMetadata } from "~shared/events/metadata.type.js";
 import {provenEvidence} from "~shared/semantics/evidence.js";
-import {buildSemanticMetadata, inferFileToolSemantic} from "~shared/semantics/inference.js";
+import { inferFileToolSemantic } from "~shared/semantics/inference.file.js";
+import { buildSemanticMetadata } from "~shared/semantics/inference.util.js";
 
 export async function postFileToolEvent({payload, ids}: PostToolUseHandlerArgs): Promise<void> {
     const toolName = payload.toolName;

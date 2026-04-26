@@ -27,16 +27,14 @@
  * Entry point: normalizeCodexAppServerNotification(notification, context)
  */
 import * as path from "node:path";
-import type {RuntimeIngestEvent} from "~shared/events/kinds.js";
-import {KIND} from "~shared/events/kinds.js";
-import {LANE} from "~shared/events/lanes.js";
+import type { RuntimeIngestEvent } from "~shared/events/kinds.type.js";
+import { KIND } from "~shared/events/kinds.const.js";
+import { LANE } from "~shared/events/lanes.const.js";
 import {provenEvidence} from "~shared/semantics/evidence.js";
-import {
-    buildSemanticMetadata,
-    inferCommandSemantic,
-    inferFileToolSemantic,
-    inferMcpSemantic,
-} from "~shared/semantics/inference.js";
+import { inferCommandSemantic } from "~shared/semantics/inference.command.js";
+import { inferMcpSemantic } from "~shared/semantics/inference.coordination.js";
+import { inferFileToolSemantic } from "~shared/semantics/inference.file.js";
+import { buildSemanticMetadata } from "~shared/semantics/inference.util.js";
 import {ellipsize} from "~codex/util/utils.js";
 import type {
     CodexAppServerCommandExecutionItem,
