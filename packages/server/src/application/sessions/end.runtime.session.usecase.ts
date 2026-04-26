@@ -1,8 +1,11 @@
 import type {
-    INotificationPublisher,
-    IRuntimeBindingRepository,
-    ISessionRepository,
-    ITaskRepository,
+    NotificationPublisherPort,
+    RuntimeBindingReadPort,
+    RuntimeBindingWritePort,
+    SessionReadPort,
+    SessionWritePort,
+    TaskReadPort,
+    TaskWritePort,
 } from "~application/ports/index.js";
 import { decideRuntimeSessionEnd, isTerminalTaskStatus } from "~domain/monitoring/index.js";
 import type { MonitoringTask } from "~domain/monitoring/index.js";
@@ -18,10 +21,10 @@ interface SessionTaskCompletionInput {
 
 export class EndRuntimeSessionUseCase {
     constructor(
-        private readonly tasks: ITaskRepository,
-        private readonly sessions: ISessionRepository,
-        private readonly runtimeBindings: IRuntimeBindingRepository,
-        private readonly notifier: INotificationPublisher,
+        private readonly tasks: TaskReadPort & TaskWritePort,
+        private readonly sessions: SessionReadPort & SessionWritePort,
+        private readonly runtimeBindings: RuntimeBindingReadPort & RuntimeBindingWritePort,
+        private readonly notifier: NotificationPublisherPort,
         private readonly taskLifecycle: TaskLifecycleService,
     ) {}
 
@@ -97,7 +100,7 @@ export class EndRuntimeSessionUseCase {
     }
 }
 
-async function hasRunningBackgroundDescendants(tasks: ITaskRepository, taskId: string): Promise<boolean> {
+async function hasRunningBackgroundDescendants(tasks: TaskReadPort, taskId: string): Promise<boolean> {
     const stack = [taskId];
     while (stack.length > 0) {
         const parentId = stack.pop();
@@ -112,8 +115,8 @@ async function hasRunningBackgroundDescendants(tasks: ITaskRepository, taskId: s
 }
 
 async function setTaskStatus(
-    tasks: ITaskRepository,
-    notifier: INotificationPublisher,
+    tasks: TaskReadPort & TaskWritePort,
+    notifier: NotificationPublisherPort,
     taskId: string,
     status: MonitoringTask["status"],
 ): Promise<MonitoringTask> {
@@ -126,7 +129,7 @@ async function setTaskStatus(
 }
 
 async function completeTaskIfIncomplete(
-    tasks: ITaskRepository,
+    tasks: TaskReadPort,
     taskLifecycle: TaskLifecycleService,
     input: SessionTaskCompletionInput,
 ): Promise<void> {
@@ -141,7 +144,7 @@ async function completeTaskIfIncomplete(
 }
 
 async function completeBgTasks(
-    tasks: ITaskRepository,
+    tasks: TaskReadPort,
     taskLifecycle: TaskLifecycleService,
     ids?: readonly string[],
 ): Promise<void> {

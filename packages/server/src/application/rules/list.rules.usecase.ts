@@ -1,4 +1,4 @@
-import type { IRuleRepository } from "~application/ports/repository/rule.repository.js";
+import type { RuleReadPort } from "~application/ports/index.js";
 import type {
     ListRulesForTaskUseCaseIn,
     ListRulesForTaskUseCaseOut,
@@ -19,7 +19,7 @@ export type { ListRulesForTaskUseCaseIn as ListRulesForTaskInput } from "./dto/l
 export type { ListRulesForTaskUseCaseOut as ListRulesForTaskResult } from "./dto/list.rules.usecase.dto.js";
 
 export class ListRulesUseCase {
-    constructor(private readonly ruleRepo: IRuleRepository) {}
+    constructor(private readonly ruleRepo: RuleReadPort) {}
 
     async execute(input: ListRulesUseCaseIn = {}): Promise<ListRulesUseCaseOut> {
         const rules = await this.ruleRepo.list(input);
@@ -28,7 +28,7 @@ export class ListRulesUseCase {
 }
 
 export class ListRulesForTaskUseCase {
-    constructor(private readonly ruleRepo: IRuleRepository) {}
+    constructor(private readonly ruleRepo: RuleReadPort) {}
 
     async execute(input: ListRulesForTaskUseCaseIn): Promise<ListRulesForTaskUseCaseOut> {
         const [task, global] = await Promise.all([

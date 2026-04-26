@@ -1,5 +1,4 @@
-import type { IRuleRepository } from "~application/ports/repository/rule.repository.js";
-import type { INotificationPublisher } from "~application/ports/event/notification.publisher.js";
+import type { NotificationPublisherPort, RuleReadPort, RuleWritePort } from "~application/ports/index.js";
 import { RuleNotFoundError } from "./common/errors.js";
 
 /**
@@ -9,8 +8,8 @@ import { RuleNotFoundError } from "./common/errors.js";
  */
 export class DeleteRuleUseCase {
     constructor(
-        private readonly ruleRepo: IRuleRepository,
-        private readonly notifier: INotificationPublisher,
+        private readonly ruleRepo: RuleReadPort & RuleWritePort,
+        private readonly notifier: NotificationPublisherPort,
         private readonly now: () => string = () => new Date().toISOString(),
     ) {}
 

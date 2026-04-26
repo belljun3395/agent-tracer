@@ -10,9 +10,10 @@ import {
 import type { TimelineEvent } from "~domain/monitoring/index.js";
 import type { MonitoringTask } from "~domain/monitoring/index.js";
 import type {
-    IEventRepository,
-    INotificationPublisher,
-    ITaskRepository,
+    NotificationPublisherPort,
+    TaskReadPort,
+    TaskWritePort,
+    TimelineEventWritePort,
 } from "../ports/index.js";
 import { projectTimelineEvent } from "./timeline-event.projection.js";
 import type { LogEventUseCaseIn, LogEventUseCaseOut } from "./dto/log.event.usecase.dto.js";
@@ -24,9 +25,9 @@ type EventRecordingInput = Parameters<typeof createEventRecordDraft>[0];
 
 export class LogEventUseCase {
     constructor(
-        private readonly taskRepo: ITaskRepository,
-        private readonly eventRepo: IEventRepository,
-        private readonly notifier: INotificationPublisher,
+        private readonly taskRepo: TaskReadPort & TaskWritePort,
+        private readonly eventRepo: TimelineEventWritePort,
+        private readonly notifier: NotificationPublisherPort,
         private readonly ruleEnforcement?: RuleEnforcementPostProcessor,
         private readonly turnLifecycle?: TurnLifecyclePostProcessor,
     ) {}

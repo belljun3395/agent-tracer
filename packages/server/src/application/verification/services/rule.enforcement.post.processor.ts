@@ -1,13 +1,14 @@
 import type { TimelineEvent } from "~domain/index.js";
 import { KIND } from "~domain/index.js";
 import { matchEventAgainstRule } from "~domain/verification/index.js";
-import type { IRuleRepository } from "~application/ports/repository/rule.repository.js";
-import type { ITurnRepository } from "~application/ports/repository/turn.repository.js";
 import type {
-    IRuleEnforcementRepository,
-    RuleEnforcementInsert,
-} from "~application/ports/repository/rule.enforcement.repository.js";
-import type { INotificationPublisher } from "~application/ports/index.js";
+    NotificationPublisherPort,
+    RuleEnforcementInsertPortDto,
+    RuleEnforcementWritePort,
+    RuleReadPort,
+    TurnReadPort,
+    TurnWritePort,
+} from "~application/ports/index.js";
 
 /**
  * Per-event matcher: when a new event arrives while a turn is open,
@@ -21,10 +22,10 @@ import type { INotificationPublisher } from "~application/ports/index.js";
  */
 export class RuleEnforcementPostProcessor {
     constructor(
-        private readonly ruleRepo: IRuleRepository,
-        private readonly turnRepo: ITurnRepository,
-        private readonly enforcementRepo: IRuleEnforcementRepository,
-        private readonly notifier: INotificationPublisher,
+        private readonly ruleRepo: RuleReadPort,
+        private readonly turnRepo: TurnReadPort & TurnWritePort,
+        private readonly enforcementRepo: RuleEnforcementWritePort,
+        private readonly notifier: NotificationPublisherPort,
         private readonly now: () => string = () => new Date().toISOString(),
     ) {}
 
@@ -41,7 +42,7 @@ export class RuleEnforcementPostProcessor {
         const rules = await this.ruleRepo.findActiveForTurn(turn.taskId);
         if (rules.length === 0) return;
 
-        const inserts: RuleEnforcementInsert[] = [];
+        const inserts: RuleEnforcementInsertPortDto[] = [];
         const decidedAt = this.now();
 
         for (const rule of rules) {

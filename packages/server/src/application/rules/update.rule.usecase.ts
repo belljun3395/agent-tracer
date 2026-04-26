@@ -3,10 +3,15 @@ import {
     isRuleExpectMeaningful,
     type RuleExpectInput,
 } from "~domain/verification/index.js";
-import type { IRuleRepository, RuleUpdateInput, RuleWithSignature } from "~application/ports/repository/rule.repository.js";
-import type { IVerdictRepository } from "~application/ports/repository/verdict.repository.js";
-import type { IRuleEnforcementRepository } from "~application/ports/repository/rule.enforcement.repository.js";
-import type { INotificationPublisher } from "~application/ports/event/notification.publisher.js";
+import type {
+    NotificationPublisherPort,
+    RuleEnforcementWritePort,
+    RuleReadPort,
+    RuleRecordPortDto,
+    RuleUpdatePortDto,
+    RuleWritePort,
+    VerdictWritePort,
+} from "~application/ports/index.js";
 import type { UpdateRuleUseCaseIn, UpdateRuleUseCaseOut } from "./dto/update.rule.usecase.dto.js";
 import { mapRule } from "./dto/rule.dto.mapper.js";
 import { InvalidRuleError, RuleNotFoundError } from "./common/errors.js";
@@ -24,10 +29,10 @@ export type { UpdateRuleUseCaseOut as UpdateRuleResult } from "./dto/update.rule
  */
 export class UpdateRuleUseCase {
     constructor(
-        private readonly ruleRepo: IRuleRepository,
-        private readonly verdictRepo: IVerdictRepository,
-        private readonly enforcementRepo: IRuleEnforcementRepository,
-        private readonly notifier: INotificationPublisher,
+        private readonly ruleRepo: RuleReadPort & RuleWritePort,
+        private readonly verdictRepo: VerdictWritePort,
+        private readonly enforcementRepo: RuleEnforcementWritePort,
+        private readonly notifier: NotificationPublisherPort,
     ) {}
 
     async execute(input: UpdateRuleUseCaseIn): Promise<UpdateRuleUseCaseOut> {
@@ -56,7 +61,7 @@ export class UpdateRuleUseCase {
         });
         const signatureChanged = newSignature !== current.signature;
 
-        const patch: RuleUpdateInput = {
+        const patch: RuleUpdatePortDto = {
             ...(input.name !== undefined ? { name: input.name.trim() } : {}),
             ...(input.severity !== undefined ? { severity: input.severity } : {}),
             ...(input.rationale !== undefined ? { rationale: normalizeOptionalText(input.rationale) } : {}),
@@ -123,7 +128,7 @@ function projectTrigger(
 }
 
 function projectExpect(
-    current: RuleWithSignature["expect"],
+    current: RuleRecordPortDto["expect"],
     patch: UpdateRuleUseCaseIn["expect"],
 ): RuleExpectInput {
     let action: RuleExpectInput["action"] = current.action;

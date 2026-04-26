@@ -1,8 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { aggregateVerdict, evaluateTurn, type TurnVerdict } from "~domain/verification/index.js";
-import type { IRuleRepository } from "~application/ports/repository/rule.repository.js";
-import type { ITurnRepository } from "~application/ports/repository/turn.repository.js";
-import type { IVerdictRepository } from "~application/ports/repository/verdict.repository.js";
+import type { RuleReadPort, TurnWritePort, VerdictReadPort, VerdictWritePort } from "~application/ports/index.js";
 
 export interface TurnEvaluationToolCall {
     readonly tool: string;
@@ -30,9 +28,9 @@ export interface TurnEvaluationResult {
  */
 export class TurnEvaluationService {
     constructor(
-        private readonly ruleRepo: IRuleRepository,
-        private readonly turnRepo: ITurnRepository,
-        private readonly verdictRepo: IVerdictRepository,
+        private readonly ruleRepo: RuleReadPort,
+        private readonly turnRepo: TurnWritePort,
+        private readonly verdictRepo: VerdictReadPort & VerdictWritePort,
         private readonly now: () => string = () => new Date().toISOString(),
         private readonly newVerdictId: () => string = () => randomUUID(),
     ) {}

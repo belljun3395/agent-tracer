@@ -1,19 +1,22 @@
 import { normalizeWorkspacePath } from "~domain/monitoring/index.js";
 import type {
-    INotificationPublisher,
-    IRuntimeBindingRepository,
-    ISessionRepository,
-    ITaskRepository,
+    NotificationPublisherPort,
+    RuntimeBindingReadPort,
+    RuntimeBindingWritePort,
+    SessionReadPort,
+    SessionWritePort,
+    TaskReadPort,
+    TaskWritePort,
 } from "~application/ports/index.js";
 import type { EnsureRuntimeSessionUseCaseIn, EnsureRuntimeSessionUseCaseOut } from "./dto/ensure.runtime.session.usecase.dto.js";
 import type { TaskLifecycleService } from "~application/tasks/index.js";
 
 export class EnsureRuntimeSessionUseCase {
     constructor(
-        private readonly tasks: ITaskRepository,
-        private readonly sessions: ISessionRepository,
-        private readonly runtimeBindings: IRuntimeBindingRepository,
-        private readonly notifier: INotificationPublisher,
+        private readonly tasks: TaskReadPort & TaskWritePort,
+        private readonly sessions: SessionReadPort & SessionWritePort,
+        private readonly runtimeBindings: RuntimeBindingReadPort & RuntimeBindingWritePort,
+        private readonly notifier: NotificationPublisherPort,
         private readonly taskLifecycle: TaskLifecycleService,
     ) {}
 

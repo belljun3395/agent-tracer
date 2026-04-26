@@ -1,4 +1,4 @@
-import type { IRuleRepository } from "~application/ports/repository/rule.repository.js";
+import type { RuleReadPort } from "~application/ports/index.js";
 import type { CreateRuleUseCase } from "./create.rule.usecase.js";
 import type { DeleteRuleUseCase } from "./delete.rule.usecase.js";
 import type {
@@ -20,7 +20,7 @@ export type {
  */
 export class PromoteRuleToGlobalUseCase {
     constructor(
-        private readonly ruleRepo: IRuleRepository,
+        private readonly ruleRepo: RuleReadPort,
         private readonly createRule: CreateRuleUseCase,
         private readonly deleteRule: DeleteRuleUseCase,
     ) {}

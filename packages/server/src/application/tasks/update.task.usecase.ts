@@ -1,11 +1,11 @@
 import { createTaskSlug } from "~domain/monitoring/index.js";
-import type { INotificationPublisher, ITaskRepository } from "~application/ports/index.js";
+import type { NotificationPublisherPort, TaskReadPort, TaskWritePort } from "~application/ports/index.js";
 import type { UpdateTaskUseCaseIn, UpdateTaskUseCaseOut } from "./dto/update.task.usecase.dto.js";
 
 export class UpdateTaskUseCase {
     constructor(
-        private readonly tasks: ITaskRepository,
-        private readonly notifier: INotificationPublisher,
+        private readonly tasks: TaskReadPort & TaskWritePort,
+        private readonly notifier: NotificationPublisherPort,
     ) {}
 
     async execute(input: UpdateTaskUseCaseIn): Promise<UpdateTaskUseCaseOut> {
