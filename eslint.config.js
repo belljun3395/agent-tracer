@@ -31,12 +31,21 @@ function restrictedImports(...patterns) {
 const RUNTIME_ALIASES = {
   "~shared": path.join(PROJECT_ROOT, "packages/runtime/src/shared"),
   "~claude-code": path.join(PROJECT_ROOT, "packages/runtime/src/claude-code"),
+  "~codex": path.join(PROJECT_ROOT, "packages/runtime/src/codex"),
 };
 const SERVER_ALIASES = {
   "~config": path.join(PROJECT_ROOT, "packages/server/src/config"),
   "~domain": path.join(PROJECT_ROOT, "packages/server/src/domain"),
   "~application": path.join(PROJECT_ROOT, "packages/server/src/application"),
   "~adapters": path.join(PROJECT_ROOT, "packages/server/src/adapters"),
+  "~main": path.join(PROJECT_ROOT, "packages/server/src/main"),
+};
+const WEB_ALIASES = {
+  "~domain": path.join(PROJECT_ROOT, "packages/web/src/types"),
+  "~io": path.join(PROJECT_ROOT, "packages/web/src/io"),
+  "~state": path.join(PROJECT_ROOT, "packages/web/src/state"),
+  "~app": path.join(PROJECT_ROOT, "packages/web/src/app"),
+  "~config": path.join(PROJECT_ROOT, "packages/web/src/config"),
 };
 
 // server 의 모든 src 가 공통으로 받는 cross-package import 제한.
@@ -306,7 +315,7 @@ export default tseslint.config(
     rules: {
       "no-restricted-imports": restrictedImports(
         ...SERVER_CROSS_PACKAGE_PATTERNS,
-        { group: ["../classification/**", "../application/**", "../adapters/**", "../main/**"], message: "domain is the innermost layer — no upward imports." }
+        { group: ["../classification/**", "../application/**", "../adapters/**", "../main/**", "~application/**", "~adapters/**", "~main/**"], message: "domain is the innermost layer — no upward imports." }
       )
     }
   },
@@ -315,7 +324,7 @@ export default tseslint.config(
     rules: {
       "no-restricted-imports": restrictedImports(
         ...SERVER_CROSS_PACKAGE_PATTERNS,
-        { group: ["../application/**", "../adapters/**", "../main/**"], message: "classification depends only on domain." }
+        { group: ["../application/**", "../adapters/**", "../main/**", "~application/**", "~adapters/**", "~main/**"], message: "classification depends only on domain." }
       )
     }
   },
@@ -324,8 +333,50 @@ export default tseslint.config(
     rules: {
       "no-restricted-imports": restrictedImports(
         ...SERVER_CROSS_PACKAGE_PATTERNS,
-        { group: ["../adapters/**", "../main/**"], message: "application depends only on domain and classification." }
+        { group: ["../adapters/**", "../main/**", "~adapters/**", "~main/**"], message: "application depends only on domain and classification." }
       )
+    }
+  },
+  {
+    files: ["packages/server/src/adapters/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": restrictedImports(
+        ...SERVER_CROSS_PACKAGE_PATTERNS,
+        { group: ["../main/**", "~main/**"], message: "adapters must not import from main; move shared HTTP/Nest helpers into adapters or depend on application ports." }
+      )
+    }
+  },
+
+  // ── 5-b. web 내부 layered architecture ────────────────────────
+  // domain/types → io → state → app. Alias import 로 ring 을 명시한다.
+  {
+    files: ["packages/web/src/types/**/*.{ts,tsx}", "packages/web/src/types.ts"],
+    rules: {
+      "no-restricted-imports": restrictedImports(
+        { group: ["~io/**", "~state/**", "../io/**", "../state/**"], message: "web domain/types must stay independent from io and state." }
+      )
+    }
+  },
+  {
+    files: ["packages/web/src/io/**/*.{ts,tsx}", "packages/web/src/io.ts"],
+    rules: {
+      "no-restricted-imports": restrictedImports(
+        { group: ["~state/**", "~app/**", "../state/**", "../app/**"], message: "web io may depend on domain only, not state or app." }
+      )
+    }
+  },
+  {
+    files: ["packages/web/src/state/**/*.{ts,tsx}", "packages/web/src/state.ts"],
+    rules: {
+      "no-restricted-imports": restrictedImports(
+        { group: ["~app/**", "../app/**"], message: "web state must not depend on app." }
+      )
+    }
+  },
+  {
+    files: ["packages/web/src/app/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": restrictedImports()
     }
   },
 
@@ -348,6 +399,15 @@ export default tseslint.config(
       "local/require-js-extension": "error",
       "local/no-deep-relative-import": ["error", { aliases: SERVER_ALIASES }],
       "local/prefer-barrel-index": ["error", { aliases: SERVER_ALIASES }]
+    }
+  },
+  {
+    files: ["packages/web/src/**/*.{ts,tsx}"],
+    plugins: { local: localPlugin },
+    rules: {
+      "local/require-js-extension": "error",
+      "local/no-deep-relative-import": ["error", { aliases: WEB_ALIASES }],
+      "local/prefer-barrel-index": ["error", { aliases: WEB_ALIASES }]
     }
   },
 
@@ -375,7 +435,7 @@ export default tseslint.config(
   //      와 SQLite 스타일 API 통일성을 동일 사유로 묶기 위함.
   {
     files: [
-      "packages/server/src/index.ts",
+      "packages/server/src/server.entry.ts",
       "packages/server/src/application/**/*.{ts,tsx}",
       "packages/server/src/main/**/*.{ts,tsx}",
       "packages/server/src/domain/workflow/workflow-context.ts",
