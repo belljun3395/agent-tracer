@@ -860,6 +860,7 @@
 .event-node.todos::before        { background: var(--todos); }
 .event-node.coordination::before { background: var(--coordination); }
 .event-node.background::before   { background: var(--background); }
+.event-node.rule::before         { background: var(--rule); }
 
 .event-node:hover {
   box-shadow: 0 8px 20px rgba(17, 24, 38, 0.075), 0 1px 2px rgba(17, 24, 38, 0.04);
@@ -885,6 +886,7 @@
 .event-node.todos        { border-color: color-mix(in srgb, var(--todos) 14%, var(--border));        background: color-mix(in srgb, var(--surface) 94%, var(--todos-bg)); }
 .event-node.coordination { border-color: color-mix(in srgb, var(--coordination) 14%, var(--border)); background: color-mix(in srgb, var(--surface) 94%, var(--coordination-bg)); }
 .event-node.background   { border-color: color-mix(in srgb, var(--background) 14%, var(--border));   background: color-mix(in srgb, var(--surface) 94%, var(--background-bg)); }
+.event-node.rule         { border-color: color-mix(in srgb, var(--rule) 22%, var(--border));         background: color-mix(in srgb, var(--surface) 90%, var(--rule-bg)); }
 
 /* Event-kind overrides (higher specificity than lane) */
 .event-node.kind-assistant-response { border-color: color-mix(in srgb, var(--assistant) 18%, var(--border)); background: color-mix(in srgb, var(--surface) 88%, var(--assistant-bg)); }
@@ -970,6 +972,7 @@
 .event-node.todos        .event-node-dot { background: var(--todos); }
 .event-node.coordination .event-node-dot { background: var(--coordination); }
 .event-node.background   .event-node-dot { background: var(--background); }
+.event-node.rule         .event-node-dot { background: var(--rule); }
 
 .event-lane-tag {
   display: none;
@@ -987,6 +990,25 @@
 .event-node.todos        .event-lane-tag { color: var(--todos); }
 .event-node.coordination .event-lane-tag { color: var(--coordination); }
 .event-node.background   .event-lane-tag { color: var(--background); }
+.event-node.rule         .event-lane-tag { color: var(--rule); }
+
+.event-rule-badge {
+  display: inline-flex;
+  align-items: center;
+  max-width: 72px;
+  height: 18px;
+  padding: 0 6px;
+  border: 1px solid color-mix(in srgb, var(--rule) 28%, var(--border));
+  border-radius: var(--radius-sm);
+  background: var(--rule-bg);
+  color: var(--rule);
+  font-size: 0.64rem;
+  font-weight: 700;
+  line-height: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 .event-node.stacked-behind {
   opacity: 0.82;

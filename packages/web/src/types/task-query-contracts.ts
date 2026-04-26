@@ -9,6 +9,7 @@ import type {
   TimelineEventRecord,
   WorkItemId,
 } from './monitoring.js'
+import type { VerdictStatus } from './rule.js'
 
 export interface TimelineRelation {
   readonly sourceEventId: EventId
@@ -43,6 +44,19 @@ export interface TasksResponse {
 export interface TaskDetailResponse {
   readonly task: MonitoringTask
   readonly timeline: readonly TimelineEventRecord[]
+  readonly turns?: readonly TaskTurnSummary[]
   readonly runtimeSessionId?: RuntimeSessionId
   readonly runtimeSource?: RuntimeSource
+}
+
+export interface TaskTurnSummary {
+  readonly id: string
+  readonly sessionId: RuntimeSessionId | string
+  readonly taskId: string
+  readonly turnIndex: number
+  readonly status: 'open' | 'closed'
+  readonly startedAt: string
+  readonly endedAt: string | null
+  readonly aggregateVerdict: VerdictStatus | null
+  readonly rulesEvaluatedCount: number
 }

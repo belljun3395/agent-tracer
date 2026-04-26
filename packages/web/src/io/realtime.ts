@@ -13,6 +13,29 @@ type RealtimeDispatch =
         type: "UPSERT_TASK_DETAIL_EVENT";
         event: TimelineEventRecord;
     };
+export interface RuleEnforcementAddedPayload {
+    readonly eventId: string;
+    readonly ruleId: string;
+    readonly matchKind: "trigger" | "expect-fulfilled";
+    readonly taskId: string;
+    readonly sessionId?: string;
+}
+
+export interface VerdictUpdatedPayload {
+    readonly turnId: string;
+    readonly sessionId: string;
+    readonly taskId: string;
+    readonly aggregateVerdict: "verified" | "contradicted" | "unverifiable" | null;
+    readonly rulesEvaluatedCount: number;
+}
+
+export interface RulesChangedPayload {
+    readonly ruleId: string;
+    readonly change: "created" | "updated" | "deleted" | "promoted";
+    readonly scope: "global" | "task";
+    readonly taskId?: string;
+}
+
 export type MonitorRealtimeMessage = {
     readonly type: "snapshot";
     readonly payload: {
@@ -38,6 +61,15 @@ export type MonitorRealtimeMessage = {
     readonly payload: {
         readonly count: number;
     };
+} | {
+    readonly type: "rule_enforcement.added";
+    readonly payload: RuleEnforcementAddedPayload;
+} | {
+    readonly type: "verdict.updated";
+    readonly payload: VerdictUpdatedPayload;
+} | {
+    readonly type: "rules.changed";
+    readonly payload: RulesChangedPayload;
 };
 export function parseRealtimeMessage(raw: string): MonitorRealtimeMessage | null {
     try {
@@ -71,6 +103,11 @@ function shouldRefreshSelectedTaskDetail(message: MonitorRealtimeMessage, select
             return message.payload.taskId === selectedTaskId;
         case "event.logged":
         case "event.updated":
+            return message.payload.taskId === selectedTaskId;
+        case "rule_enforcement.added":
+        case "verdict.updated":
+            return message.payload.taskId === selectedTaskId;
+        case "rules.changed":
             return message.payload.taskId === selectedTaskId;
     }
 }
@@ -134,6 +171,17 @@ export async function refreshRealtimeMonitorData(input: {
                 tasks.push(input.refreshTaskDetail(input.selectedTaskId));
             }
             await Promise.all(tasks);
+            return;
+        }
+        case "rule_enforcement.added":
+        case "verdict.updated":
+        case "rules.changed": {
+            // Verification updates: refresh selected task detail (lane override
+            // re-evaluates) when relevant. Caches managed by query invalidation
+            // hook in useMonitorSocket — refresh path is fallback.
+            if (shouldRefreshSelectedTaskDetail(input.message, input.selectedTaskId) && input.selectedTaskId) {
+                await input.refreshTaskDetail(input.selectedTaskId);
+            }
             return;
         }
     }

@@ -77,6 +77,30 @@ export function applyMonitorRealtimeInvalidations(
             void client.invalidateQueries({ queryKey: monitorQueryKeys.taskDetail(selectedTaskId) });
             return;
         }
+        case "rule_enforcement.added": {
+            // Lane reclassification: refetch the affected task's timeline so
+            // the event appears in the rule lane.
+            const affected = TaskId(message.payload.taskId);
+            void client.invalidateQueries({ queryKey: monitorQueryKeys.taskDetail(affected) });
+            return;
+        }
+        case "verdict.updated": {
+            const affected = TaskId(message.payload.taskId);
+            void client.invalidateQueries({ queryKey: monitorQueryKeys.taskDetail(affected) });
+            void client.invalidateQueries({ queryKey: monitorQueryKeys.verdictCounts(affected) });
+            return;
+        }
+        case "rules.changed": {
+            void client.invalidateQueries({ queryKey: ["monitor", "rules"] });
+            if (message.payload.taskId) {
+                const affected = TaskId(message.payload.taskId);
+                void client.invalidateQueries({ queryKey: monitorQueryKeys.taskRules(affected) });
+                void client.invalidateQueries({ queryKey: monitorQueryKeys.taskDetail(affected) });
+            } else {
+                void client.invalidateQueries({ queryKey: ["monitor", "task"] });
+            }
+            return;
+        }
         case "session.started":
         case "session.ended":
             return;

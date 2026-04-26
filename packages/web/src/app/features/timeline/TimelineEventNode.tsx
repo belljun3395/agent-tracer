@@ -9,6 +9,7 @@ import {
     type TimelineItemLayout,
 } from "../../../types.js";
 import { cn } from "../../lib/ui/cn.js";
+import { readRuleEnforcements } from "../../lib/ruleEnforcements.js";
 
 interface TimelineEventNodeProps {
     readonly item: TimelineItemLayout;
@@ -68,6 +69,7 @@ export function TimelineEventNode({
     const signatureLength = typeof item.event.metadata["signatureLength"] === "number"
         ? item.event.metadata["signatureLength"]
         : undefined;
+    const ruleEnforcements = readRuleEnforcements(item.event);
 
     return (
         <div
@@ -121,6 +123,15 @@ export function TimelineEventNode({
                         {subtype.icon}
                     </span>
                 )}
+                {ruleEnforcements.length > 0 && (
+                    <span
+                        className="event-rule-badge"
+                        title={ruleEnforcements.map((r) => `${r.ruleId}: ${formatRuleMatchKind(r.matchKind)}`).join(", ")}
+                    >
+                        {formatRuleMatchKind(ruleEnforcements[0]!.matchKind)}
+                        {ruleEnforcements.length > 1 ? ` +${ruleEnforcements.length - 1}` : ""}
+                    </span>
+                )}
                 {stackCount > 0 && (
                     <button
                         className="stack-badge-btn"
@@ -158,3 +169,7 @@ export function TimelineEventNode({
 
 /** Width of each event node in the timeline canvas, used for stack overlap detection. */
 export { NODE_WIDTH };
+
+function formatRuleMatchKind(matchKind: "trigger" | "expect-fulfilled"): string {
+    return matchKind === "trigger" ? "watch" : "met";
+}

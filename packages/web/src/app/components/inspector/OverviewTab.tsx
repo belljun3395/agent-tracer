@@ -9,7 +9,6 @@ import {
     buildVerificationCycles,
     filterEventsByGroup,
     formatCount,
-    formatDuration,
     formatRelativeTime,
     scopeLabelForGroup,
     segmentEventsByTurn,
@@ -35,7 +34,6 @@ import { PanelCard } from "../ui/PanelCard.js";
 import { SectionCard } from "./SectionCard.js";
 import { cardShell, cardHeader, cardBody, innerPanel } from "./styles.js";
 import { inspectorHelpText } from "./helpText.js";
-import { toRelativePath } from "./utils.js";
 
 
 function truncate(value: string, limit: number): string {

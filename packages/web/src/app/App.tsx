@@ -1,6 +1,6 @@
 import type React from "react";
 import { Suspense, lazy, useEffect, useLayoutEffect, useRef } from "react";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useNavigate } from "react-router-dom";
 import type { TaskId } from "../types.js";
 import { getMonitorWsUrl } from "../io.js";
 import { cn } from "./lib/ui/cn.js";
@@ -9,6 +9,7 @@ import { TopBar } from "./components/TopBar.js";
 import { NavigationSidebar } from "./components/NavigationSidebar.js";
 import { TimelineContainer } from "./components/TimelineContainer.js";
 const InspectorContainer = lazy(() => import("./components/InspectorContainer.js").then((m) => ({ default: m.InspectorContainer })));
+const RulesContent = lazy(() => import("./components/rules/RulesContent.js").then((m) => ({ default: m.RulesContent })));
 import { TaskRoute } from "./routes/task/TaskRoute.js";
 import {
     QueryProvider,
@@ -193,12 +194,109 @@ function DashboardRoute(): React.JSX.Element {
     return <Dashboard onSelectTaskRoute={setRouteTaskId} />;
 }
 
+function RulesRoute(): React.JSX.Element {
+    return (
+        <div className="flex h-dvh flex-col overflow-hidden bg-[var(--bg)]">
+            <RulesPageShell />
+        </div>
+    );
+}
+
+function RulesPageShell(): React.JSX.Element {
+    const navigate = useNavigate();
+    const db = useDashboard("timeline", {
+        onSelectTaskRoute: (taskId) => {
+            void navigate(taskId ? `/?task=${encodeURIComponent(taskId)}` : "/");
+        },
+    });
+    return (
+        <>
+            <TopBar
+                isConnected={db.isConnected}
+                {...(db.isStackedDashboard ? {
+                    isNavigationOpen: db.isSidebarOpen,
+                    onToggleNavigation: () => db.setIsSidebarOpen((value) => !value),
+                } : {})}
+                searchQuery={db.search.query}
+                searchResults={db.search.results}
+                isSearching={db.search.isSearching}
+                selectedTaskTitle={db.selectedTaskDisplayTitle ?? db.taskDetail?.task.title ?? null}
+                taskScopeEnabled={db.search.taskScopeEnabled}
+                onTaskScopeToggle={db.search.setTaskScopeEnabled}
+                onSearchQueryChange={db.search.setQuery}
+                onSelectSearchTask={db.handleSelectSearchTask}
+                onSelectSearchEvent={db.handleSelectSearchEvent}
+                onRefresh={() => {
+                    void db.queryClient.invalidateQueries({ queryKey: monitorQueryKeys.overview() });
+                    void db.queryClient.invalidateQueries({ queryKey: ["monitor", "rules"] });
+                }}
+            />
+            <div className="relative flex flex-1 min-h-0 overflow-hidden">
+                {db.isStackedDashboard ? (
+                    <>
+                        {db.isSidebarOpen && (
+                            <button
+                                aria-label="Close navigation"
+                                className="absolute inset-0 z-20 bg-[color-mix(in_srgb,var(--text-1)_18%,transparent)] backdrop-blur-[1px]"
+                                onClick={() => db.setIsSidebarOpen(false)}
+                                type="button"
+                            />
+                        )}
+                        <div className={cn("absolute inset-y-0 left-0 z-30 transition-transform duration-200 ease-out", db.isSidebarOpen ? "translate-x-0" : "-translate-x-full")}>
+                            <NavigationSidebar
+                                className="w-[min(18rem,calc(100vw-1rem))] shadow-[0_18px_48px_rgba(15,23,42,0.18)]"
+                                isConnected={db.isConnected}
+                                activeView="rules"
+                                onNavigate={() => db.setIsSidebarOpen(false)}
+                                onChangeView={db.handleSidebarViewChange}
+                                tasks={db.tasks}
+                                selectedTaskId={db.selectedTaskId}
+                                taskDetail={db.taskDetail ?? null}
+                                selectedTaskQuestionCount={db.questionCount}
+                                selectedTaskTodoCount={db.todoCount}
+                                deletingTaskId={db.deletingTaskId}
+                                deleteErrorTaskId={db.deleteErrorTaskId}
+                                onSelectTask={db.handleSelectDashboardTask}
+                                onDeleteTask={(id) => void db.handleDeleteTask(id)}
+                            />
+                        </div>
+                        <main className="flex min-h-0 min-w-0 flex-1 flex-col p-2.5">
+                            <RulesContent defaultScope="all" variant="page" />
+                        </main>
+                    </>
+                ) : (
+                    <>
+                        <NavigationSidebar
+                            isConnected={db.isConnected}
+                            activeView="rules"
+                            onChangeView={db.handleSidebarViewChange}
+                            tasks={db.tasks}
+                            selectedTaskId={db.selectedTaskId}
+                            taskDetail={db.taskDetail ?? null}
+                            selectedTaskQuestionCount={db.questionCount}
+                            selectedTaskTodoCount={db.todoCount}
+                            deletingTaskId={db.deletingTaskId}
+                            deleteErrorTaskId={db.deleteErrorTaskId}
+                            onSelectTask={db.handleSelectDashboardTask}
+                            onDeleteTask={(id) => void db.handleDeleteTask(id)}
+                        />
+                        <main className="min-h-0 min-w-0 flex-1 overflow-hidden p-2.5">
+                            <RulesContent defaultScope="all" variant="page" />
+                        </main>
+                    </>
+                )}
+            </div>
+        </>
+    );
+}
+
 function AppRoutes(): React.JSX.Element {
     return (
         <Suspense fallback={<div>Loading…</div>}>
             <Routes>
                 <Route path="/" element={<DashboardRoute />}/>
                 <Route path="/tasks/:taskId" element={<TaskRoute />}/>
+                <Route path="/rules" element={<RulesRoute />}/>
                 <Route path="*" element={<Navigate replace to="/"/>}/>
             </Routes>
         </Suspense>

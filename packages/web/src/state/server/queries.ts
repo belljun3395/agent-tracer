@@ -1,13 +1,20 @@
 import type { TaskId } from "../../types.js";
 import type {
     OverviewResponse,
+    RulesListResponse,
     TaskDetailResponse,
-    TasksResponse
+    TaskRulesResponse,
+    TasksResponse,
+    VerdictCounts,
 } from "../../types.js";
 import {
     fetchOverview,
+    fetchRules,
     fetchTaskDetail,
-    fetchTasks
+    fetchTaskRules,
+    fetchTasks,
+    fetchVerdictCounts,
+    type FetchRulesFilter,
 } from "../../io.js";
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 
@@ -39,5 +46,43 @@ export function useTaskDetailQuery(taskId: TaskId | null): UseQueryResult<TaskDe
             return fetchTaskDetail(taskId);
         },
         enabled: taskId !== null
+    });
+}
+
+export function useRulesQuery(
+    filter?: FetchRulesFilter,
+    options?: { readonly enabled?: boolean },
+): UseQueryResult<RulesListResponse> {
+    return useQuery({
+        queryKey: monitorQueryKeys.rules(filter),
+        queryFn: () => fetchRules(filter),
+        enabled: options?.enabled ?? true,
+    });
+}
+
+export function useTaskRulesQuery(taskId: TaskId | null): UseQueryResult<TaskRulesResponse> {
+    return useQuery({
+        queryKey: taskId
+            ? monitorQueryKeys.taskRules(taskId)
+            : monitorQueryKeys.taskRules("__disabled__" as TaskId),
+        queryFn: () => {
+            if (!taskId) throw new Error("useTaskRulesQuery called without a taskId");
+            return fetchTaskRules(taskId);
+        },
+        enabled: taskId !== null,
+    });
+}
+
+export function useVerdictCountsQuery(taskId: TaskId | null): UseQueryResult<VerdictCounts> {
+    return useQuery({
+        queryKey: taskId
+            ? monitorQueryKeys.verdictCounts(taskId)
+            : monitorQueryKeys.verdictCounts("__disabled__" as TaskId),
+        queryFn: async () => {
+            if (!taskId) throw new Error("useVerdictCountsQuery called without a taskId");
+            const { counts } = await fetchVerdictCounts(taskId);
+            return counts;
+        },
+        enabled: taskId !== null,
     });
 }
