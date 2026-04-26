@@ -1,9 +1,13 @@
 import type React from "react";
-import { getEventEvidence } from "../../../types.js";
-import { buildInspectorEventTitle, evidenceTone, formatEvidenceLevel, type TaskTurnSummary, type TimelineConnector, type TimelineEventRecord } from "../../../types.js";
+import { getEventEvidence } from "~domain/evidence.js";
+import { evidenceTone, formatEvidenceLevel } from "~app/lib/formatters.js";
+import { buildInspectorEventTitle } from "~app/lib/insights/extraction.js";
+import type { TimelineConnector } from "~app/lib/timeline.js";
+import type { TimelineEventRecord } from "~domain/monitoring.js";
+import type { TaskTurnSummary } from "~domain/task-query-contracts.js";
 
-import { cn } from "../../lib/ui/cn.js";
-import { readRuleEnforcements } from "../../lib/ruleEnforcements.js";
+import { cn } from "~app/lib/ui/cn.js";
+import { readRuleEnforcements } from "~app/lib/ruleEnforcements.js";
 import { Badge } from "../ui/Badge.js";
 import { PanelCard } from "../ui/PanelCard.js";
 import { inspectorHelpText } from "./helpText.js";

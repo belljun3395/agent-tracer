@@ -1,4 +1,4 @@
-import { CLAUDE_HOOK_SOURCE, CLAUDE_PLUGIN_SOURCE } from "../../types/runtime-capabilities.types.js";
+import { CLAUDE_HOOK_SOURCE, CLAUDE_PLUGIN_SOURCE } from "~domain/runtime-capabilities.types.js";
 
 export interface ResumeCommandSpec {
     readonly label: string;

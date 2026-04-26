@@ -1,7 +1,12 @@
 import type React from "react";
 import { useEffect, useMemo, useState } from "react";
-import { getEventEvidence } from "../../../types.js";
-import { buildInspectorEventTitle, evidenceTone, formatEvidenceLevel, type QuestionGroup, type TaskDetailResponse, type TimelineConnector, type TimelineEventRecord, type TodoGroup } from "../../../types.js";
+import { getEventEvidence } from "~domain/evidence.js";
+import { evidenceTone, formatEvidenceLevel } from "~app/lib/formatters.js";
+import { buildInspectorEventTitle } from "~app/lib/insights/extraction.js";
+import type { QuestionGroup, TodoGroup } from "~app/lib/insights/grouping.js";
+import type { TimelineConnector } from "~app/lib/timeline.js";
+import type { TimelineEventRecord } from "~domain/monitoring.js";
+import type { TaskDetailResponse } from "~domain/task-query-contracts.js";
 import { Badge } from "../ui/Badge.js";
 import { Button } from "../ui/Button.js";
 import { QuestionGroupSection } from "./QuestionGroupSection.js";

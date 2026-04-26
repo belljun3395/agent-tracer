@@ -1,5 +1,6 @@
-import type { MonitoringSession } from "../types.js";
-import type { MonitoringTask, OverviewResponse, TimelineEventRecord } from "../types.js";
+import type { MonitoringSession } from "~domain/monitoring.js";
+import type { MonitoringTask, TimelineEventRecord } from "~domain/monitoring.js";
+import type { OverviewResponse } from "~domain/task-query-contracts.js";
 type RealtimeDispatch =
     | {
         type: "UPSERT_TASK";

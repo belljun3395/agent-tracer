@@ -1,32 +1,23 @@
 import type React from "react";
 import { useEffect, useMemo, useState } from "react";
-import {
-    buildInspectorEventTitle,
-    buildQuestionGroups,
-    buildResumeCommand,
-    buildSubagentInsight,
-    buildTodoGroups,
-    buildVerificationCycles,
-    filterEventsByGroup,
-    formatCount,
-    formatRelativeTime,
-    scopeLabelForGroup,
-    segmentEventsByTurn,
-    type ModelSummary,
-    type QuestionGroup,
-    type SubagentInsight,
-    type TimelineEventRecord,
-    type TodoGroup,
-    type TurnGroup,
-    type TurnPartition,
-    type VerificationCycleItem,
-} from "../../../types.js";
-import { countCompactions } from "../../lib/insights/helpers.js";
-import { summarizeSkillListing } from "../../lib/insights/skillListing.js";
-import { normalizeContextWarningThreshold } from "../../lib/contextWarningPrefs.js";
-import { useContextWarningPrefs } from "../../lib/useContextWarningPrefs.js";
-import { copyToClipboard } from "../../lib/ui/clipboard.js";
-import { cn } from "../../lib/ui/cn.js";
+import { formatCount } from "~app/lib/formatters.js";
+import { buildSubagentInsight } from "~app/lib/insights/aggregation.js";
+import { buildInspectorEventTitle } from "~app/lib/insights/extraction.js";
+import { buildQuestionGroups, buildTodoGroups, buildVerificationCycles } from "~app/lib/insights/grouping.js";
+import type { ModelSummary, QuestionGroup, TodoGroup, VerificationCycleItem } from "~app/lib/insights/grouping.js";
+import type { SubagentInsight } from "~app/lib/insights/types.js";
+import { buildResumeCommand } from "~app/lib/resume-command.js";
+import { formatRelativeTime } from "~app/lib/timeline.js";
+import type { TimelineEventRecord } from "~domain/monitoring.js";
+import { segmentEventsByTurn } from "~domain/segments.js";
+import { filterEventsByGroup, scopeLabelForGroup } from "~domain/turn-partition.js";
+import type { TurnGroup, TurnPartition } from "~domain/turn-partition.js";
+import { countCompactions } from "~app/lib/insights/helpers.js";
+import { summarizeSkillListing } from "~app/lib/insights/skillListing.js";
+import { normalizeContextWarningThreshold } from "~app/lib/contextWarningPrefs.js";
+import { useContextWarningPrefs } from "~app/lib/useContextWarningPrefs.js";
+import { copyToClipboard } from "~app/lib/ui/clipboard.js";
+import { cn } from "~app/lib/ui/cn.js";
 import { Badge } from "../ui/Badge.js";
 import { Eyebrow } from "../ui/Eyebrow.js";
 import { HelpTooltip } from "../ui/HelpTooltip.js";

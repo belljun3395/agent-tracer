@@ -1,5 +1,5 @@
 import type React from "react";
-import type { TaskId, TimelineEventRecord } from "../../../types.js";
+import type { TaskId, TimelineEventRecord } from "~domain/monitoring.js";
 import { RulesContent } from "../rules/RulesContent.js";
 
 interface RuleTabProps {

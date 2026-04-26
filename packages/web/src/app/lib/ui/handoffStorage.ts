@@ -1,4 +1,4 @@
-import type { HandoffMode, HandoffPurpose } from "../../../types.js";
+import type { HandoffMode, HandoffPurpose } from "~app/lib/insights/handoff.js";
 export type HandoffFormat = "plain" | "markdown" | "xml" | "system-prompt" | "prompt";
 export interface HandoffPrefs {
     format: HandoffFormat;

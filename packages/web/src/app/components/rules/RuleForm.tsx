@@ -1,13 +1,7 @@
 import type React from "react";
 import { useState } from "react";
-import type {
-    RuleCreateInput,
-    RuleRecord,
-    RuleScope,
-    RuleSeverity,
-    RuleTriggerSource,
-    TaskId,
-} from "../../../types.js";
+import type { TaskId } from "~domain/monitoring.js";
+import type { RuleCreateInput, RuleRecord, RuleScope, RuleSeverity, RuleTriggerSource } from "~domain/rule.js";
 import { Button } from "../ui/Button.js";
 import {
     getRuleExpectToolPlaceholders,

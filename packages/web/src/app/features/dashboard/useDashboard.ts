@@ -1,17 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { TaskId } from "../../../types.js";
-import { TaskId as toTaskId } from "../../../types.js";
-import { buildQuestionGroups, buildTaskDisplayTitle, buildTodoGroups } from "../../../types.js";
-import type { TimelineLane } from "../../../types.js";
-import { deleteTask } from "../../../io.js";
-import {
-    monitorQueryKeys,
-    useOverviewQuery,
-    useSearch,
-    useSelectionStore,
-    useTaskDetailQuery,
-    useTasksQuery,
-} from "../../../state.js";
+import type { TaskId } from "~domain/monitoring.js";
+import { TaskId as toTaskId } from "~domain/monitoring.js";
+import { buildTaskDisplayTitle } from "~app/lib/insights/extraction.js";
+import { buildQuestionGroups, buildTodoGroups } from "~app/lib/insights/grouping.js";
+import type { TimelineLane } from "~domain/monitoring.js";
+import { deleteTask } from "~io/api.js";
+import { useOverviewQuery, useTaskDetailQuery, useTasksQuery } from "~state/server/queries.js";
+import { monitorQueryKeys } from "~state/server/queryKeys.js";
+import { useSelectionStore } from "~state/ui/UiStoreProvider.js";
+import { useSearch } from "~state/useSearch.js";
 import { useQueryClient } from "@tanstack/react-query";
 
 const ZOOM_MIN = 0.8;

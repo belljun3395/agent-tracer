@@ -1,7 +1,9 @@
 import type React from "react";
 import { useMemo, useState } from "react";
-import { formatRelativeTime, selectContextHydrationEvents, type TimelineEventRecord } from "../../../types.js";
-import { cn } from "../../lib/ui/cn.js";
+import { selectContextHydrationEvents } from "~app/lib/taskWorkspace.js";
+import { formatRelativeTime } from "~app/lib/timeline.js";
+import type { TimelineEventRecord } from "~domain/monitoring.js";
+import { cn } from "~app/lib/ui/cn.js";
 import { Badge } from "../ui/Badge.js";
 import { PanelCard } from "../ui/PanelCard.js";
 import { cardShell, cardHeader, cardBody, monoText } from "./styles.js";

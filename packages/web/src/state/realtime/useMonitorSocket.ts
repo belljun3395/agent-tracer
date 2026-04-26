@@ -1,5 +1,7 @@
-import { TaskId } from "../../types.js";
-import { MonitorSocket, parseRealtimeMessage, type MonitorRealtimeMessage } from "../../io.js";
+import { TaskId } from "~domain/monitoring.js";
+import { parseRealtimeMessage } from "~io/realtime.js";
+import type { MonitorRealtimeMessage } from "~io/realtime.js";
+import { MonitorSocket } from "~io/websocket.js";
 import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 

@@ -1,8 +1,8 @@
 import type React from "react";
 import { Suspense, lazy, useEffect, useLayoutEffect, useRef } from "react";
 import { Navigate, Route, Routes, useNavigate } from "react-router-dom";
-import type { TaskId } from "../types.js";
-import { getMonitorWsUrl } from "../io.js";
+import type { TaskId } from "~domain/monitoring.js";
+import { getMonitorWsUrl } from "~io/api.js";
 import { cn } from "./lib/ui/cn.js";
 import { useUrlSearchParam } from "./shared/lib/urlState.js";
 import { TopBar } from "./components/TopBar.js";
@@ -11,16 +11,11 @@ import { TimelineContainer } from "./components/TimelineContainer.js";
 const InspectorContainer = lazy(() => import("./components/InspectorContainer.js").then((m) => ({ default: m.InspectorContainer })));
 const RulesContent = lazy(() => import("./components/rules/RulesContent.js").then((m) => ({ default: m.RulesContent })));
 import { TaskRoute } from "./routes/task/TaskRoute.js";
-import {
-    QueryProvider,
-    UiStoreProvider,
-    monitorQueryKeys,
-    useMonitorSocket,
-    useSelectionStore,
-    useSelectionStoreApi,
-    useTaskDetailQuery,
-    useTasksQuery,
-} from "../state.js";
+import { QueryProvider } from "~state/query/QueryProvider.js";
+import { useMonitorSocket } from "~state/realtime/useMonitorSocket.js";
+import { useTaskDetailQuery, useTasksQuery } from "~state/server/queries.js";
+import { monitorQueryKeys } from "~state/server/queryKeys.js";
+import { UiStoreProvider, useSelectionStore, useSelectionStoreApi } from "~state/ui/UiStoreProvider.js";
 import { useTheme } from "./lib/useTheme.js";
 import { useDashboard } from "./features/dashboard/useDashboard.js";
 

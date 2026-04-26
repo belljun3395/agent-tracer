@@ -1,6 +1,7 @@
 import type React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { TimelineItemLayout, TimelineLaneRow } from "../../../types.js";
+import type { TimelineLaneRow } from "~app/lib/eventSubtype.js";
+import type { TimelineItemLayout } from "~app/lib/timeline.js";
 
 export interface MinimapProps {
     readonly timelineWidth: number;

@@ -1,5 +1,5 @@
-import type { EventSubtypeKey } from "../../types.js";
-import type { TimelineEventRecord, TimelineLane } from "../types.js";
+import type { EventSubtypeKey } from "~domain/classification.js";
+import type { TimelineEventRecord, TimelineLane } from "~domain/monitoring.js";
 export type ExpandableTimelineLane = "exploration" | "implementation" | "coordination";
 export interface EventSubtype {
     readonly key: EventSubtypeKey;

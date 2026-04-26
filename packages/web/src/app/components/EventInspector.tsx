@@ -1,13 +1,12 @@
 import type React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-    buildExplorationInsight,
-    buildQuestionGroups, buildSubagentInsight,
-    buildTodoGroups, buildVerificationCycles, collectFileActivity,
-    collectWebLookups, buildTaskTimelineSummary,
-    type ModelSummary,
-    type TaskDetailResponse, type TimelineConnector, type TimelineEventRecord,
-} from "../../types.js";
+import { buildExplorationInsight, buildSubagentInsight, collectFileActivity, collectWebLookups } from "~app/lib/insights/aggregation.js";
+import { buildQuestionGroups, buildTodoGroups, buildVerificationCycles } from "~app/lib/insights/grouping.js";
+import type { ModelSummary } from "~app/lib/insights/grouping.js";
+import { buildTaskTimelineSummary } from "~app/lib/taskTimelineSummary.js";
+import type { TimelineConnector } from "~app/lib/timeline.js";
+import type { TimelineEventRecord } from "~domain/monitoring.js";
+import type { TaskDetailResponse } from "~domain/task-query-contracts.js";
 import { cn } from "../lib/ui/cn.js";
 import { buildFileEvidenceRows, sortFileEvidenceRows, type FileEvidenceSortKey } from "./inspector/FileEvidenceSection.js";
 import { ContextTab } from "./inspector/ContextTab.js";

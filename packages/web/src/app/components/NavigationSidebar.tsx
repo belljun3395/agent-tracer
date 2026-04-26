@@ -1,5 +1,6 @@
 import type React from "react";
-import type { MonitoringTask, TaskDetailResponse } from "../../types.js";
+import type { MonitoringTask } from "~domain/monitoring.js";
+import type { TaskDetailResponse } from "~domain/task-query-contracts.js";
 import { Link } from "react-router-dom";
 import { cn } from "../lib/ui/cn.js";
 import { TaskList } from "./TaskList.js";

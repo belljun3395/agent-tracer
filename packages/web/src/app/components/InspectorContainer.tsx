@@ -1,15 +1,13 @@
 import type React from "react";
 import { useCallback, useMemo, useState } from "react";
-import type { TaskId } from "../../types.js";
-import { EventId } from "../../types.js";
-import { buildTaskWorkspaceSelection } from "../../types.js";
-import { updateEventDisplayTitle } from "../../io.js";
-import {
-    monitorQueryKeys,
-    useSelectionStore,
-    useTaskDetailQuery,
-    useTurnPartition,
-} from "../../state.js";
+import type { TaskId } from "~domain/monitoring.js";
+import { EventId } from "~domain/monitoring.js";
+import { buildTaskWorkspaceSelection } from "~app/lib/taskWorkspace.js";
+import { updateEventDisplayTitle } from "~io/api.js";
+import { useTaskDetailQuery } from "~state/server/queries.js";
+import { monitorQueryKeys } from "~state/server/queryKeys.js";
+import { useSelectionStore } from "~state/ui/UiStoreProvider.js";
+import { useTurnPartition } from "~state/useTurnPartition.js";
 import { useQueryClient } from "@tanstack/react-query";
 import { InspectorProvider } from "../features/inspector/context/InspectorContext.js";
 import { cn } from "../lib/ui/cn.js";

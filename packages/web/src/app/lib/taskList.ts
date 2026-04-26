@@ -1,6 +1,6 @@
-import { CLAUDE_BRIDGE_SOURCE, CLAUDE_HOOK_SOURCE, CLAUDE_PLUGIN_SOURCE, CODEX_CLI_SOURCE } from "../../types/runtime-capabilities.types.js";
-import { buildTaskDisplayTitle } from "../../types.js";
-import type { MonitoringTask } from "../../types.js";
+import { CLAUDE_BRIDGE_SOURCE, CLAUDE_HOOK_SOURCE, CLAUDE_PLUGIN_SOURCE, CODEX_CLI_SOURCE } from "~domain/runtime-capabilities.types.js";
+import { buildTaskDisplayTitle } from "~app/lib/insights/extraction.js";
+import type { MonitoringTask } from "~domain/monitoring.js";
 import { cn } from "./ui/cn.js";
 
 export interface DisplayTaskRow {

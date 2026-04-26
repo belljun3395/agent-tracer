@@ -1,10 +1,8 @@
-import type {
-    TaskTurnSummary,
-    TimelineEventRecord,
-    TurnGroup,
-    TurnSegment,
-    VerdictStatus,
-} from "../../../types.js";
+import type { TimelineEventRecord } from "~domain/monitoring.js";
+import type { VerdictStatus } from "~domain/rule.js";
+import type { TurnSegment } from "~domain/segments.js";
+import type { TaskTurnSummary } from "~domain/task-query-contracts.js";
+import type { TurnGroup } from "~domain/turn-partition.js";
 
 export interface GroupVerdictSummary {
     readonly status: VerdictStatus | null;

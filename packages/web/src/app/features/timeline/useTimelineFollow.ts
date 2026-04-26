@@ -1,4 +1,4 @@
-import type { TimelineEventRecord } from "../../../types.js";
+import type { TimelineEventRecord } from "~domain/monitoring.js";
 
 export function shouldResetTimelineFollowForTaskChange(input: {
     previousTaskId: string | null | undefined;

@@ -1,5 +1,6 @@
 import type React from "react";
-import { buildInspectorEventTitle, type TodoGroup } from "../../../types.js";
+import { buildInspectorEventTitle } from "~app/lib/insights/extraction.js";
+import type { TodoGroup } from "~app/lib/insights/grouping.js";
 import { Badge } from "../ui/Badge.js";
 import { inspectorHelpText } from "./helpText.js";
 import { SectionCard } from "./SectionCard.js";

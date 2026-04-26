@@ -1,13 +1,9 @@
 import type React from "react";
-import {
-    isExpandableLane,
-    LANE_HEIGHT,
-    RULER_HEIGHT,
-    type ExpandableTimelineLane,
-    type TimelineLaneRow as TimelineLaneRowData,
-} from "../../../types.js";
-import { cn } from "../../lib/ui/cn.js";
-import { getLaneTheme } from "../../lib/ui/laneTheme.js";
+import { isExpandableLane } from "~app/lib/eventSubtype.js";
+import type { ExpandableTimelineLane, TimelineLaneRow as TimelineLaneRowData } from "~app/lib/eventSubtype.js";
+import { LANE_HEIGHT, RULER_HEIGHT } from "~app/lib/timeline.js";
+import { cn } from "~app/lib/ui/cn.js";
+import { getLaneTheme } from "~app/lib/ui/laneTheme.js";
 
 interface TimelineLaneRowProps {
     readonly row: TimelineLaneRowData;

@@ -1,4 +1,4 @@
-import type { TimelineEventRecord } from "../../types.js";
+import type { TimelineEventRecord } from "~domain/monitoring.js";
 
 export function extractMetadataString(metadata: Record<string, unknown>, key: string): string | undefined {
     const value = metadata[key];

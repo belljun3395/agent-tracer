@@ -1,4 +1,4 @@
-import type { TimelineEventRecord } from "../../types.js";
+import type { TimelineEventRecord } from "~domain/monitoring.js";
 import { resolveEventSubtype } from "../eventSubtype.js";
 import type {
     CompactInsight,

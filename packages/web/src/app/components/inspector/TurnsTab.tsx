@@ -1,30 +1,24 @@
 import type React from "react";
 import { useCallback, useMemo, useState } from "react";
-import {
-    buildAgentTrace,
-    buildEvaluatePrompt,
-    buildReusableTaskSnapshot,
-    buildTaskExtraction,
-    collectFileActivity,
-    collectViolationDescriptions,
-    filterEventsByGroup,
-    scopeKeyForGroup,
-    scopeLabelForGroup,
-    segmentEventsByTurn,
-    type ReusableTaskSnapshot,
-    type TaskTurnSummary,
-    type TimelineEventRecord,
-    type TurnGroup,
-    type TurnPartition,
-    type VerdictStatus,
-} from "../../../types.js";
+import { collectFileActivity } from "~app/lib/insights/aggregation.js";
+import { buildTaskExtraction } from "~app/lib/insights/extraction.js";
+import { collectViolationDescriptions } from "~app/lib/insights/grouping.js";
+import { buildAgentTrace, buildEvaluatePrompt } from "~app/lib/insights/handoff.js";
+import type { TimelineEventRecord } from "~domain/monitoring.js";
+import type { VerdictStatus } from "~domain/rule.js";
+import { segmentEventsByTurn } from "~domain/segments.js";
+import { buildReusableTaskSnapshot } from "~domain/snapshot.js";
+import type { ReusableTaskSnapshot } from "~domain/snapshot.js";
+import type { TaskTurnSummary } from "~domain/task-query-contracts.js";
+import { filterEventsByGroup, scopeKeyForGroup, scopeLabelForGroup } from "~domain/turn-partition.js";
+import type { TurnGroup, TurnPartition } from "~domain/turn-partition.js";
 import { Badge } from "../ui/Badge.js";
 import { Button } from "../ui/Button.js";
 import { Eyebrow } from "../ui/Eyebrow.js";
 import { Input } from "../ui/Input.js";
 import { Textarea } from "../ui/Textarea.js";
-import { cn } from "../../lib/ui/cn.js";
-import { copyToClipboard } from "../../lib/ui/clipboard.js";
+import { cn } from "~app/lib/ui/cn.js";
+import { copyToClipboard } from "~app/lib/ui/clipboard.js";
 import { summarizeGroupVerdict, type GroupVerdictSummary } from "./turnVerdict.js";
 
 export interface TurnsTabProps {

@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
-import { TaskId } from "../types.js";
-import { fetchSearchResults } from "../io.js";
-import type { SearchResponse } from "../types.js";
+import { TaskId } from "~domain/monitoring.js";
+import { fetchSearchResults } from "~io/api.js";
+import type { SearchResponse } from "~domain/search-contracts.js";
 import { monitorQueryKeys } from "./server/queryKeys.js";
 
 export interface UseSearchResult {

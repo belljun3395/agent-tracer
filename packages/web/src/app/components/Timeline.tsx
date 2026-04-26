@@ -1,27 +1,16 @@
 import type React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { filterEventsByGroup, segmentEventsByTurn } from "../../types.js";
+import { segmentEventsByTurn } from "~domain/segments.js";
+import { filterEventsByGroup } from "~domain/turn-partition.js";
 import { useContextWarningPrefs } from "../lib/useContextWarningPrefs.js";
-import {
-    buildDisplayLaneRows,
-    buildTimelineConnectors,
-    buildTimelineContextSummary,
-    buildTimelineLayout,
-    buildTimestampTicks,
-    countLaneSubtypes,
-    filterTimelineEvents,
-    groupInstructionsBursts,
-    isContextHydrationEvent,
-    isExpandableLane,
-    LANE_HEIGHT,
-    NODE_WIDTH,
-    RULER_HEIGHT,
-    selectSessionMarkerEvents,
-    TIMELINE_LANES,
-    type ExpandableTimelineLane,
-    type TimelineLane,
-    type TimelineNodeBounds,
-} from "../../types.js";
+import { buildDisplayLaneRows, countLaneSubtypes, isExpandableLane } from "~app/lib/eventSubtype.js";
+import type { ExpandableTimelineLane } from "~app/lib/eventSubtype.js";
+import { filterTimelineEvents } from "~app/lib/insights/extraction.js";
+import { groupInstructionsBursts } from "~app/lib/instructionsBurst.js";
+import { isContextHydrationEvent, selectSessionMarkerEvents } from "~app/lib/taskWorkspace.js";
+import { buildTimelineConnectors, buildTimelineContextSummary, buildTimelineLayout, buildTimestampTicks, LANE_HEIGHT, NODE_WIDTH, RULER_HEIGHT, TIMELINE_LANES } from "~app/lib/timeline.js";
+import type { TimelineNodeBounds } from "~app/lib/timeline.js";
+import type { TimelineLane } from "~domain/monitoring.js";
 import { TimelineMinimap } from "../features/timeline/TimelineMinimap.js";
 import { TimelineContextChart } from "../features/timeline/TimelineContextChart.js";
 import { TimelineContextBar } from "../features/timeline/TimelineContextBar.js";

@@ -1,21 +1,8 @@
-import type { TaskId } from "../../types.js";
-import type {
-    OverviewResponse,
-    RulesListResponse,
-    TaskDetailResponse,
-    TaskRulesResponse,
-    TasksResponse,
-    VerdictCounts,
-} from "../../types.js";
-import {
-    fetchOverview,
-    fetchRules,
-    fetchTaskDetail,
-    fetchTaskRules,
-    fetchTasks,
-    fetchVerdictCounts,
-    type FetchRulesFilter,
-} from "../../io.js";
+import type { TaskId } from "~domain/monitoring.js";
+import type { RulesListResponse, TaskRulesResponse, VerdictCounts } from "~domain/rule.js";
+import type { OverviewResponse, TaskDetailResponse, TasksResponse } from "~domain/task-query-contracts.js";
+import { fetchOverview, fetchRules, fetchTaskDetail, fetchTaskRules, fetchTasks, fetchVerdictCounts } from "~io/api.js";
+import type { FetchRulesFilter } from "~io/api.js";
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 
 import { monitorQueryKeys } from "./queryKeys.js";

@@ -1,12 +1,10 @@
 import type React from "react";
-import {
-    formatRelativeTime,
-    KO_TIMELINE_STACKED_EVENTS,
-    type TimelineEventRecord,
-    type TimelineItemLayout,
-} from "../../../types.js";
-import { cn } from "../../lib/ui/cn.js";
-import { getLaneTheme } from "../../lib/ui/laneTheme.js";
+import { KO_TIMELINE_STACKED_EVENTS } from "~app/i18n/ko.js";
+import { formatRelativeTime } from "~app/lib/timeline.js";
+import type { TimelineItemLayout } from "~app/lib/timeline.js";
+import type { TimelineEventRecord } from "~domain/monitoring.js";
+import { cn } from "~app/lib/ui/cn.js";
+import { getLaneTheme } from "~app/lib/ui/laneTheme.js";
 import type { NodeBounds } from "./layout.js";
 
 interface TimelineStackPopoverProps {

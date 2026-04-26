@@ -1,6 +1,6 @@
 import type React from "react";
-import type { RuleRecord } from "../../../types.js";
-import { cn } from "../../lib/ui/cn.js";
+import type { RuleRecord } from "~domain/rule.js";
+import { cn } from "~app/lib/ui/cn.js";
 import { Badge } from "../ui/Badge.js";
 import { Button } from "../ui/Button.js";
 import { labelRuleExpectTool } from "./ruleExpectTool.js";
