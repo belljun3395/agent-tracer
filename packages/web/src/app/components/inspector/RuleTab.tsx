@@ -1,8 +1,8 @@
 import type React from "react";
 import { useMemo } from "react";
-import type { RuleCommandRecord, TaskId, TimelineEventRecord } from "../../../types.js";
+import type { RuleRecord, TaskId, TimelineEventRecord } from "../../../types.js";
 import { formatRelativeTime } from "../../../types.js";
-import { useGlobalRuleCommandsQuery, useTaskRuleCommandsQuery } from "../../../state.js";
+import { useRulesQuery } from "../../../state.js";
 import { cn } from "../../lib/ui/cn.js";
 import { Badge } from "../ui/Badge.js";
 import { PanelCard } from "../ui/PanelCard.js";
@@ -17,8 +17,19 @@ interface RuleTabProps {
 }
 
 interface RuleMatch {
-    readonly rule: RuleCommandRecord;
+    readonly rule: RuleRecord;
     readonly events: readonly TimelineEventRecord[];
+}
+
+function rulePatternsForMatching(rule: RuleRecord): readonly string[] {
+    const patterns: string[] = [];
+    if (rule.expect.commandMatches) {
+        patterns.push(...rule.expect.commandMatches);
+    }
+    if (rule.expect.pattern) {
+        patterns.push(rule.expect.pattern);
+    }
+    return patterns;
 }
 
 function matchesPattern(event: TimelineEventRecord, pattern: string): boolean {
@@ -32,14 +43,33 @@ function matchesPattern(event: TimelineEventRecord, pattern: string): boolean {
 }
 
 function buildRuleMatches(
-    rules: readonly RuleCommandRecord[],
+    rules: readonly RuleRecord[],
     timeline: readonly TimelineEventRecord[],
 ): readonly RuleMatch[] {
     const ruleEvents = timeline.filter((e) => e.lane === "rule" || e.kind === "rule.logged");
-    return rules.map((rule) => ({
-        rule,
-        events: ruleEvents.filter((e) => matchesPattern(e, rule.pattern)),
-    }));
+    return rules.map((rule) => {
+        const patterns = rulePatternsForMatching(rule);
+        const events = patterns.length === 0
+            ? []
+            : ruleEvents.filter((event) =>
+                patterns.some((pattern) => matchesPattern(event, pattern)),
+            );
+        return { rule, events };
+    });
+}
+
+function isFlatResponse(
+    value: { rules?: readonly RuleRecord[] } | { active?: readonly RuleRecord[] } | undefined,
+): value is { rules: readonly RuleRecord[] } {
+    return value !== undefined && Array.isArray((value as { rules?: unknown }).rules);
+}
+
+function rulesFromResponse(
+    response: { rules?: readonly RuleRecord[] } | { active?: readonly RuleRecord[] } | undefined,
+): readonly RuleRecord[] {
+    if (!response) return [];
+    if (isFlatResponse(response)) return response.rules;
+    return (response as { active?: readonly RuleRecord[] }).active ?? [];
 }
 
 function RuleMatchRow({
@@ -51,6 +81,7 @@ function RuleMatchRow({
 }): React.JSX.Element {
     const { rule, events } = match;
     const executed = events.length > 0;
+    const patterns = rulePatternsForMatching(rule);
 
     return (
         <div className={cn(
@@ -66,7 +97,7 @@ function RuleMatchRow({
                         executed ? "bg-[var(--success,#22c55e)]" : "bg-[var(--text-3)]",
                     )} />
                     <strong className="min-w-0 truncate text-[0.82rem] text-[var(--text-1)]">
-                        {rule.label}
+                        {rule.name}
                     </strong>
                 </div>
                 <Badge tone={executed ? "success" : "neutral"} size="xs">
@@ -75,7 +106,7 @@ function RuleMatchRow({
             </div>
 
             <code className={cn("text-[0.72rem] text-[var(--text-2)]", monoText)}>
-                {rule.pattern}
+                {patterns.length > 0 ? patterns.join(" | ") : (rule.expect.tool ?? "(no pattern)")}
             </code>
 
             {executed && (
@@ -149,11 +180,18 @@ function RuleGroupCard({
 }
 
 export function RuleTab({ timeline, taskId, onSelectEvent }: RuleTabProps): React.JSX.Element {
-    const globalQuery = useGlobalRuleCommandsQuery();
-    const taskQuery = useTaskRuleCommandsQuery(taskId ?? null);
+    const globalQuery = useRulesQuery({ scope: "global" });
+    const taskQuery = useRulesQuery(
+        taskId ? { taskId } : undefined,
+    );
 
-    const globalRules = globalQuery.data?.ruleCommands ?? [];
-    const taskRules = taskQuery.data?.ruleCommands ?? [];
+    const globalRules = rulesFromResponse(globalQuery.data);
+    const allTaskScopedRules = rulesFromResponse(taskQuery.data);
+    // The /api/rules?taskId=X endpoint returns global + task rules. Filter to task-only here.
+    const taskRules = useMemo(
+        () => allTaskScopedRules.filter((r) => r.scope === "task"),
+        [allTaskScopedRules],
+    );
 
     const globalMatches = useMemo(
         () => buildRuleMatches(globalRules, timeline),
@@ -169,9 +207,9 @@ export function RuleTab({ timeline, taskId, onSelectEvent }: RuleTabProps): Reac
     if (allEmpty) {
         return (
             <div className="flex flex-col items-center justify-center gap-3 px-6 py-12 text-center">
-                <p className="m-0 text-[0.9rem] font-medium text-[var(--text-2)]">No rule commands configured.</p>
+                <p className="m-0 text-[0.9rem] font-medium text-[var(--text-2)]">No rules configured.</p>
                 <p className="m-0 text-[0.8rem] leading-6 text-[var(--text-3)]">
-                    Add rule commands in the sidebar to track which commands the agent ran.
+                    Open the Rules page to add a new rule.
                 </p>
             </div>
         );

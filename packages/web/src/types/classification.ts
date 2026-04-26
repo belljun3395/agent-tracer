@@ -21,7 +21,6 @@ export const EVENT_SUBTYPE_KEYS = [
   'skill_use',
   'delegation',
   'handoff',
-  'bookmark',
   'uncategorized',
 ] as const
 

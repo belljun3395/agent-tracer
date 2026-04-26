@@ -1,5 +1,4 @@
 import type {
-  BookmarkId,
   EventId,
   MonitoringEventKind,
   MonitoringTask,
@@ -28,21 +27,7 @@ export interface EventSearchHit {
   readonly createdAt: string
 }
 
-export interface BookmarkSearchHit {
-  readonly id: string
-  readonly bookmarkId: BookmarkId
-  readonly taskId: TaskId
-  readonly eventId?: EventId
-  readonly kind: 'task' | 'event'
-  readonly title: string
-  readonly note?: string
-  readonly taskTitle?: string
-  readonly eventTitle?: string
-  readonly createdAt: string
-}
-
 export interface SearchResponse {
   readonly tasks: readonly TaskSearchHit[]
   readonly events: readonly EventSearchHit[]
-  readonly bookmarks: readonly BookmarkSearchHit[]
 }

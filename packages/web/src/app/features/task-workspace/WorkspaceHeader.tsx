@@ -18,7 +18,6 @@ interface WorkspaceHeaderProps {
     readonly workspace: Pick<WorkspaceState, "selectedTaskDetail" | "taskObservability" | "selectedTaskDisplayTitle" | "isEditingTaskTitle" | "taskTitleDraft" | "taskTitleError" | "isSavingTaskTitle" | "isUpdatingTaskStatus" | "updateDraft" | "startEditing" | "finishEditing" | "setTitleError" | "handleTaskStatusChange" | "handleTaskTitleSubmit">;
     readonly isSubmittingRuleReview: boolean;
     readonly onRuleReview: (outcome: "approved" | "rejected" | "bypassed") => void;
-    readonly onNavigateBack: () => void;
     readonly onNavigateDashboard: () => void;
     readonly embeddedExtras?: WorkspaceHeaderEmbeddedExtras | undefined;
 }
@@ -29,7 +28,6 @@ export function WorkspaceHeader({
     workspace,
     isSubmittingRuleReview,
     onRuleReview,
-    onNavigateBack,
     onNavigateDashboard,
     embeddedExtras,
 }: WorkspaceHeaderProps): React.JSX.Element {
@@ -61,13 +59,6 @@ export function WorkspaceHeader({
         return (
             <header className="flex shrink-0 flex-wrap items-center gap-2 border-b border-[var(--border)] px-4 py-3">
                 <div className="min-w-0 flex flex-1 items-center gap-2 overflow-hidden">
-                    <button aria-label="Back to task list" type="button"
-                        className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] text-[var(--text-3)] transition-colors hover:border-[color-mix(in_srgb,var(--accent)_36%,var(--border))] hover:text-[var(--text-2)]"
-                        onClick={onNavigateBack} title="Back to task list">
-                        <svg aria-hidden="true" fill="none" height="12" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" viewBox="0 0 24 24" width="12">
-                            <polyline points="15 18 9 12 15 6"/>
-                        </svg>
-                    </button>
                     {isEditingTaskTitle ? (
                         <form className="flex min-w-0 flex-1 flex-wrap items-center gap-2" onSubmit={(event) => void handleTaskTitleSubmit(event, taskTitleDraft)}>
                             <input className="min-w-[18rem] flex-1 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] px-3 py-1.5 text-[0.86rem] font-semibold text-[var(--text-1)] outline-none focus:border-[var(--accent)]" disabled={isSavingTaskTitle} onChange={(event) => updateDraft(event.target.value)} placeholder="Rename task" type="text" value={taskTitleDraft}/>

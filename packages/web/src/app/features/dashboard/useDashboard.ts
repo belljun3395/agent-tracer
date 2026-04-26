@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { TaskId } from "../../../types.js";
-import { BookmarkId, TaskId as toTaskId } from "../../../types.js";
+import { TaskId as toTaskId } from "../../../types.js";
 import { buildQuestionGroups, buildTaskDisplayTitle, buildTodoGroups } from "../../../types.js";
-import type { BookmarkRecord, BookmarkSearchHit, TimelineLane } from "../../../types.js";
-import { deleteBookmark, deleteTask } from "../../../io.js";
+import type { TimelineLane } from "../../../types.js";
+import { deleteTask } from "../../../io.js";
 import {
     monitorQueryKeys,
-    useBookmarksQuery,
     useOverviewQuery,
     useSearch,
     useSelectionStore,
@@ -19,14 +18,27 @@ const ZOOM_MIN = 0.8;
 const ZOOM_MAX = 2.5;
 const ZOOM_DEFAULT = 1.1;
 const ZOOM_STORAGE_KEY = "agent-tracer.zoom";
-export const INSPECTOR_WIDTH = 360;
+export const INSPECTOR_WIDTH_DEFAULT = 360;
+export const INSPECTOR_WIDTH_MIN = 280;
+export const INSPECTOR_WIDTH_MAX = 800;
+const INSPECTOR_WIDTH_STORAGE_KEY = "agent-tracer.inspector-width";
+/** @deprecated kept for back-compat; use db.inspectorWidth instead. */
+export const INSPECTOR_WIDTH = INSPECTOR_WIDTH_DEFAULT;
 export const DASHBOARD_STACKED_BREAKPOINT = 1024;
 
+function loadInspectorWidth(): number {
+    if (typeof localStorage === "undefined") return INSPECTOR_WIDTH_DEFAULT;
+    const raw = localStorage.getItem(INSPECTOR_WIDTH_STORAGE_KEY);
+    if (!raw) return INSPECTOR_WIDTH_DEFAULT;
+    const parsed = Number(raw);
+    if (!Number.isFinite(parsed)) return INSPECTOR_WIDTH_DEFAULT;
+    return Math.max(INSPECTOR_WIDTH_MIN, Math.min(INSPECTOR_WIDTH_MAX, parsed));
+}
+
 export function useDashboard(
-    view: "timeline" | "knowledge" | "workspace",
-    { onSelectTaskRoute, onOpenTaskWorkspace }: {
+    view: "timeline" | "knowledge" | "rules",
+    { onSelectTaskRoute }: {
         onSelectTaskRoute: (taskId: string | null) => void;
-        onOpenTaskWorkspace: (taskId: string) => void;
     }
 ) {
     const selectedTaskId = useSelectionStore((s) => s.selectedTaskId);
@@ -40,20 +52,27 @@ export function useDashboard(
     const setDeleteErrorTaskId = useSelectionStore((s) => s.setDeleteErrorTaskId);
 
     const { data: tasksData } = useTasksQuery();
-    const { data: bookmarksData } = useBookmarksQuery();
     const { data: overviewData } = useOverviewQuery();
     const { data: taskDetail } = useTaskDetailQuery(selectedTaskId != null ? (selectedTaskId as TaskId) : null);
     const queryClient = useQueryClient();
 
     const tasks = tasksData?.tasks ?? [];
-    const bookmarks = bookmarksData?.bookmarks ?? [];
 
     const search = useSearch(selectedTaskId ?? undefined);
     const clearSearchQuery = search.setQuery;
 
-    const [sidebarView, setSidebarView] = useState<"tasks" | "saved">("tasks");
     const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth);
     const [isInspectorCollapsed, setIsInspectorCollapsed] = useState(false);
+    const [inspectorWidth, setInspectorWidthState] = useState<number>(() => loadInspectorWidth());
+    const setInspectorWidth = useCallback((next: number): void => {
+        const clamped = Math.max(INSPECTOR_WIDTH_MIN, Math.min(INSPECTOR_WIDTH_MAX, next));
+        setInspectorWidthState(clamped);
+        try {
+            localStorage.setItem(INSPECTOR_WIDTH_STORAGE_KEY, String(clamped));
+        } catch {
+            // localStorage failures are non-fatal — width still applies in-session.
+        }
+    }, []);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [isApprovalQueueOpen, setIsApprovalQueueOpen] = useState(false);
     const [isGlobalFiltersOpen, setIsGlobalFiltersOpen] = useState(false);
@@ -75,7 +94,7 @@ export function useDashboard(
 
     const isInspectorOpen = Boolean(selectedTaskId);
     const isStackedDashboard = viewportWidth < DASHBOARD_STACKED_BREAKPOINT;
-    const showGlobalFiltersButton = (view === "timeline" || view === "workspace") && selectedTaskId != null;
+    const showGlobalFiltersButton = view === "timeline" && selectedTaskId != null;
 
     useEffect(() => {
         if (!isInspectorOpen) setIsInspectorCollapsed(false);
@@ -115,8 +134,6 @@ export function useDashboard(
         selectedTaskDisplayTitle &&
         selectedTaskDisplayTitle.trim() !== taskDetail.task.title.trim()
     );
-    const selectedTaskBookmark = bookmarks.find((b) => b.taskId === (selectedTaskId ?? "") && !b.eventId) ?? null;
-
     const selectDashboardTask = useCallback(
         (taskId: string | null): void => { onSelectTaskRoute(taskId); },
         [onSelectTaskRoute]
@@ -145,45 +162,12 @@ export function useDashboard(
         [selectedTaskId, selectTask, onSelectTaskRoute, setDeletingTaskId, setDeleteErrorTaskId, queryClient]
     );
 
-    const handleDeleteBookmark = useCallback(
-        async (bookmarkId: string): Promise<void> => {
-            try {
-                await deleteBookmark(BookmarkId(bookmarkId));
-                await queryClient.invalidateQueries({ queryKey: monitorQueryKeys.bookmarks() });
-            } catch { /* deletion failure is not surfaced — no bookmark error state yet */ }
-        },
-        [queryClient]
-    );
-
-    const handleSidebarViewChange = useCallback(
-        (view: "tasks" | "saved"): void => {
-            setSidebarView(view);
-            if (isStackedDashboard) setIsSidebarOpen(false);
-        },
-        [isStackedDashboard]
-    );
-
     const handleSelectDashboardTask = useCallback(
         (taskId: string): void => {
             if (isStackedDashboard) setIsSidebarOpen(false);
             selectDashboardTask(taskId);
         },
         [isStackedDashboard, selectDashboardTask]
-    );
-
-    const handleSelectBookmark = useCallback(
-        (bookmark: BookmarkRecord): void => {
-            if (isStackedDashboard) setIsSidebarOpen(false);
-            selectConnector(null);
-            selectDashboardTask(bookmark.taskId);
-            selectEvent(bookmark.eventId ?? null);
-        },
-        [isStackedDashboard, selectConnector, selectDashboardTask, selectEvent]
-    );
-
-    const handleDeleteBookmarkWithError = useCallback(
-        (bookmarkId: string): void => { void handleDeleteBookmark(bookmarkId); },
-        [handleDeleteBookmark]
     );
 
     const handleSelectSearchTask = useCallback(
@@ -206,28 +190,6 @@ export function useDashboard(
         [clearSearchQuery, selectConnector, selectDashboardTask, selectEvent]
     );
 
-    const handleSelectSearchBookmark = useCallback(
-        (bookmark: BookmarkSearchHit): void => {
-            clearSearchQuery("");
-            const target = bookmarks.find((item) => item.id === bookmark.bookmarkId);
-            if (target) {
-                selectConnector(null);
-                selectDashboardTask(target.taskId);
-                selectEvent(target.eventId ?? null);
-                return;
-            }
-            selectConnector(null);
-            if (bookmark.eventId) {
-                selectDashboardTask(bookmark.taskId);
-                selectEvent(bookmark.eventId);
-            } else {
-                selectEvent(null);
-                selectDashboardTask(bookmark.taskId);
-            }
-        },
-        [bookmarks, clearSearchQuery, selectConnector, selectDashboardTask, selectEvent]
-    );
-
     const handleToggleFilters = useCallback((): void => {
         if (globalFiltersButtonRef.current) {
             const rect = globalFiltersButtonRef.current.getBoundingClientRect();
@@ -235,11 +197,6 @@ export function useDashboard(
         }
         setIsGlobalFiltersOpen((value) => !value);
     }, []);
-
-    const handleOpenTaskWorkspace = useCallback(
-        (taskId: string): void => { onOpenTaskWorkspace(taskId); },
-        [onOpenTaskWorkspace]
-    );
 
     const externalFiltersState = useMemo(() => ({
         isOpen: isGlobalFiltersOpen,
@@ -257,13 +214,14 @@ export function useDashboard(
     return {
         // State
         selectedTaskId, isConnected, deletingTaskId, deleteErrorTaskId,
-        sidebarView, isStackedDashboard, isInspectorOpen, isInspectorCollapsed,
+        isStackedDashboard, isInspectorOpen, isInspectorCollapsed,
+        inspectorWidth, setInspectorWidth,
         isSidebarOpen, isApprovalQueueOpen, showGlobalFiltersButton, isGlobalFiltersOpen,
         globalFiltersButtonRef, zoom,
         // Data
-        tasks, bookmarks, overviewData, taskDetail,
+        tasks, overviewData, taskDetail,
         selectedTaskDisplayTitle, selectedTaskUsesDerivedTitle,
-        selectedTaskBookmark, questionCount, todoCount,
+        questionCount, todoCount,
         // Search
         search,
         // Shared filter props
@@ -273,15 +231,10 @@ export function useDashboard(
         setIsInspectorCollapsed, setIsSidebarOpen, setIsApprovalQueueOpen, setZoom,
         // Handlers
         handleDeleteTask,
-        handleDeleteBookmarkWithError,
-        handleSidebarViewChange,
         handleSelectDashboardTask,
-        handleSelectBookmark,
         handleSelectSearchTask,
         handleSelectSearchEvent,
-        handleSelectSearchBookmark,
         handleToggleFilters,
-        handleOpenTaskWorkspace,
         selectDashboardTask,
         queryClient,
     };

@@ -1,7 +1,5 @@
 import type Database from "better-sqlite3";
-import { randomUUID } from "node:crypto";
 import type {
-    BriefingSaveInput,
     IEvaluationRepository,
     PersistedTaskEvaluation,
     StoredTaskEvaluation,
@@ -13,15 +11,14 @@ import type { IEmbeddingService } from "~application/ports/service/embedding.ser
 import type { TimelineEvent } from "~domain/monitoring/timeline.event.model.js";
 import type { ReusableTaskSnapshot } from "~domain/workflow/task.snapshot.js";
 import { buildReusableTaskSnapshot } from "~domain/workflow/task.snapshot.js";
-import type { SavedBriefing } from "~domain/workflow/briefing.js";
 import { buildWorkflowContext } from "~domain/workflow/workflow.context.js";
 import { cosineSimilarity, deserializeEmbedding, serializeEmbedding } from "../shared/embedding.codec.js";
 import { ensureSqliteDatabase, type SqliteDatabaseInput } from "../shared/drizzle.db.js";
 import { parseJsonField } from "../shared/sqlite.json";
 import { appendDomainEvent, eventTimeFromIso } from "../events/index.js";
 import { upsertSearchDocument } from "../search/sqlite.search.documents.js";
-import type { BriefingRow, EvaluationRow, TaskWithEvaluationRow } from "./sqlite.evaluation.row.type.js";
-import { buildEvaluationData, buildQualitySignals, mapBriefingRow, mapEvaluationRow } from "./sqlite.evaluation.row.type.js";
+import type { EvaluationRow, TaskWithEvaluationRow } from "./sqlite.evaluation.row.type.js";
+import { buildEvaluationData, buildQualitySignals, mapEvaluationRow } from "./sqlite.evaluation.row.type.js";
 import { loadTimelineEventsForTask } from "./sqlite.event.storage.js";
 import {
     MIN_SEMANTIC_SCORE,
@@ -155,88 +152,6 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
         }
     }
 
-    async recordBriefingCopy(taskId: string, copiedAt: string, scopeKey = "task"): Promise<void> {
-        const result = this.db.transaction(() => {
-            const updateResult = this.db.prepare(`
-              update evaluation_reuse_stats
-              set briefing_copy_count = coalesce(briefing_copy_count, 0) + 1,
-                  last_reused_at = @copiedAt
-              where task_id = @taskId
-                and scope_key = @scopeKey
-            `).run({ taskId, copiedAt, scopeKey });
-            if (updateResult.changes > 0) {
-                appendDomainEvent(this.db, {
-                    eventTime: eventTimeFromIso(copiedAt),
-                    eventType: "evaluation.reused",
-                    schemaVer: 1,
-                    aggregateId: taskId,
-                    actor: "user",
-                    payload: {
-                        task_id: taskId,
-                        scope_key: scopeKey,
-                        target_context: "briefing.copy"
-                    }
-                });
-            }
-            return updateResult;
-        })();
-        if (result.changes === 0) {
-            throw new Error(`No evaluation record found for task ${taskId} and scope ${scopeKey}`);
-        }
-    }
-
-    async saveBriefing(taskId: string, briefing: BriefingSaveInput): Promise<SavedBriefing> {
-        const id = `briefing-${randomUUID()}`;
-        this.db.transaction(() => {
-            this.db.prepare(`
-              insert into briefings_current (
-                id, task_id, generated_at, purpose, format, memo, content
-              ) values (
-                @id, @taskId, @generatedAt, @purpose, @format, @memo, @content
-              )
-            `).run({
-                id,
-                taskId,
-                generatedAt: briefing.generatedAt,
-                purpose: briefing.purpose,
-                format: briefing.format,
-                memo: briefing.memo ?? null,
-                content: briefing.content,
-            });
-            appendDomainEvent(this.db, {
-                eventTime: eventTimeFromIso(briefing.generatedAt),
-                eventType: "briefing.generated",
-                schemaVer: 1,
-                aggregateId: taskId,
-                actor: "system",
-                payload: {
-                    briefing_id: id,
-                    task_id: taskId,
-                    purpose: briefing.purpose,
-                    format: briefing.format
-                }
-            });
-        })();
-        return {
-            id,
-            taskId,
-            generatedAt: briefing.generatedAt,
-            purpose: briefing.purpose,
-            format: briefing.format,
-            memo: briefing.memo ?? null,
-            content: briefing.content,
-        };
-    }
-
-    async listBriefings(taskId: string): Promise<readonly SavedBriefing[]> {
-        const rows = this.db.prepare<{ taskId: string }, BriefingRow>(`
-          select * from briefings_current
-          where task_id = @taskId
-          order by generated_at desc
-        `).all({ taskId });
-        return rows.map(mapBriefingRow);
-    }
-
     async listEvaluations(rating?: "good" | "skip"): Promise<readonly WorkflowSummary[]> {
         const rows = this.loadSearchRows(undefined, rating);
         return [...rows].sort(compareWorkflowSummaryRows).map((row) => this.hydrateWorkflowSummary(row));
@@ -256,16 +171,9 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
                   c.reuse_when,
                   c.watchouts,
                   e.version,
-                  (
-                    select ep.playbook_id
-                    from evaluation_promotions ep
-                    where ep.task_id = e.task_id and ep.scope_key = e.scope_key
-                    order by ep.promoted_at desc
-                    limit 1
-                  ) as promoted_to,
+                  null as promoted_to,
                   coalesce(r.reuse_count, 0) as reuse_count,
                   r.last_reused_at,
-                  coalesce(r.briefing_copy_count, 0) as briefing_copy_count,
                   c.workflow_snapshot_json,
                   c.workflow_context,
                   s.search_text,
@@ -291,16 +199,9 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
         t.title, t.slug, t.workspace_path,
         c.use_case, c.workflow_tags_json as workflow_tags, c.outcome_note, c.approach_note, c.reuse_when, c.watchouts,
         e.version,
-        (
-          select ep.playbook_id
-          from evaluation_promotions ep
-          where ep.task_id = e.task_id and ep.scope_key = e.scope_key
-          order by ep.promoted_at desc
-          limit 1
-        ) as promoted_to,
+        null as promoted_to,
         coalesce(r.reuse_count, 0) as reuse_count,
         r.last_reused_at,
-        coalesce(r.briefing_copy_count, 0) as briefing_copy_count,
         c.workflow_snapshot_json, c.workflow_context, s.search_text,
         s.embedding, s.embedding_model, e.rating, e.evaluated_at,
         count(ev.id) as event_count, t.created_at
@@ -365,16 +266,9 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
         t.title, t.slug, t.workspace_path,
         c.use_case, c.workflow_tags_json as workflow_tags, c.outcome_note, c.approach_note, c.reuse_when, c.watchouts,
         e.version,
-        (
-          select ep.playbook_id
-          from evaluation_promotions ep
-          where ep.task_id = e.task_id and ep.scope_key = e.scope_key
-          order by ep.promoted_at desc
-          limit 1
-        ) as promoted_to,
+        null as promoted_to,
         coalesce(r.reuse_count, 0) as reuse_count,
         r.last_reused_at,
-        coalesce(r.briefing_copy_count, 0) as briefing_copy_count,
         c.workflow_snapshot_json, c.workflow_context, s.search_text,
         s.embedding, s.embedding_model, e.rating, e.evaluated_at,
         count(ev.id) as event_count, t.created_at

@@ -61,7 +61,7 @@ await runHook("Stop", {
 
         if (payload.agentId) return;
 
-        await postJson("/api/runtime-session-end", {
+        await postJson("/ingest/v1/sessions/end", {
             runtimeSource: CLAUDE_RUNTIME_SOURCE,
             runtimeSessionId: payload.sessionId,
             summary: `Assistant turn completed (${stopReason})`,

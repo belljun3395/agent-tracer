@@ -3,7 +3,6 @@ import type { WorkflowLayer, WorkflowRating } from "./task.evaluation.type.js";
 export interface QualitySignals {
     readonly reuseCount: number;
     readonly lastReusedAt: string | null;
-    readonly briefingCopyCount: number;
     readonly manualRating: WorkflowRating;
 }
 

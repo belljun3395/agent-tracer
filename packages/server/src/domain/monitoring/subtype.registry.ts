@@ -9,7 +9,7 @@ export interface SubtypeRegistryEntry {
 }
 
 // Server-generated subtype keys — not emitted by the runtime plugin.
-export const SERVER_SUBTYPE_KEYS = ["handoff", "bookmark", "uncategorized"] as const;
+export const SERVER_SUBTYPE_KEYS = ["handoff", "uncategorized"] as const;
 export type ServerSubtypeKey = (typeof SERVER_SUBTYPE_KEYS)[number];
 
 export type AllEventSubtypeKey = EventSubtypeKey | ServerSubtypeKey;
@@ -44,6 +44,5 @@ export const SUBTYPE_REGISTRY: Record<AllEventSubtypeKey, SubtypeRegistryEntry> 
     skill_use:     { label: "Skill use",    group: "coordination",toolFamily: "coordination", operation: "invoke"   },
     delegation:    { label: "Delegation",   group: "coordination",toolFamily: "coordination", operation: "delegate" },
     handoff:       { label: "Handoff",      group: "coordination",toolFamily: "coordination", operation: "coordinate"},
-    bookmark:      { label: "Bookmark",     group: "coordination",toolFamily: "coordination", operation: "coordinate"},
     uncategorized: { label: "Other",        group: "coordination",toolFamily: "coordination", operation: "execute"  },
 };

@@ -30,4 +30,4 @@ export const EVENT_RELATION_TYPES = [
     "relates_to",
 ] as const;
 
-export const AGENT_ACTIVITY_TYPES = ["agent_step", "mcp_call", "skill_use", "delegation", "handoff", "bookmark", "search"] as const;
+export const AGENT_ACTIVITY_TYPES = ["agent_step", "mcp_call", "skill_use", "delegation", "handoff", "search"] as const;

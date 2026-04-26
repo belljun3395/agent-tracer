@@ -27,3 +27,17 @@ export type {
     TurnGroup,
     TurnPartition,
 } from "~domain/index.js";
+
+// Use cases
+export { UpsertTaskEvaluationUseCase } from "./upsert.task.evaluation.usecase.js";
+export type { UpsertTaskEvaluationUseCaseIn } from "./upsert.task.evaluation.usecase.js";
+export { GetTaskEvaluationUseCase } from "./get.task.evaluation.usecase.js";
+export { GetWorkflowContentUseCase } from "./get.workflow.content.usecase.js";
+export { ListEvaluationsUseCase } from "./list.evaluations.usecase.js";
+export { SearchWorkflowLibraryUseCase } from "./search.workflow.library.usecase.js";
+export { SearchSimilarWorkflowsUseCase } from "./search.similar.workflows.usecase.js";
+export { GetTurnPartitionUseCase } from "./get.turn.partition.usecase.js";
+export { UpsertTurnPartitionUseCase } from "./upsert.turn.partition.usecase.js";
+export type { UpsertTurnPartitionInput } from "./upsert.turn.partition.usecase.js";
+export { ResetTurnPartitionUseCase } from "./reset.turn.partition.usecase.js";
+export { TaskNotFoundError, TurnPartitionVersionMismatchError } from "./workflow.errors.js";

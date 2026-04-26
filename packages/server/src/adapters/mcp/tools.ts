@@ -3,3 +3,4 @@ export { registerAsyncLifecycleTools } from "./tools/async.lifecycle.js";
 export { registerEventLoggingTools } from "./tools/event.logging.js";
 export { registerConversationTools } from "./tools/conversation.js";
 export { registerWorkflowTools } from "./tools/workflow.js";
+export { registerSuggestRuleTool } from "./tools/suggest.rule.js";

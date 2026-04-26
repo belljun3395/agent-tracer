@@ -1,23 +1,20 @@
 import type {
-    BookmarkId,
     EventId,
-    PlaybookRecord,
-    PlaybookStatus,
-    PlaybookSummary,
     ReusableTaskSnapshot,
-    RuleCommandRecord,
     RuleId,
+    RuleRecord,
+    RuleScope,
+    RuleSeverity,
+    RuleSource,
     RuntimeSource,
-    SavedBriefing,
     SessionId,
     TaskEvaluation,
     TaskId,
     WorkflowSearchResult,
     WorkflowSummary
 } from "../types.js";
+import type { TurnCardSummary, TurnReceipt, VerdictFilter } from "../types/turn.js";
 import type {
-    BookmarksResponse,
-    BookmarkRecord,
     MonitoringTask,
     OverviewResponse,
     SearchResponse,
@@ -225,16 +222,16 @@ function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 export function fetchOverview(): Promise<OverviewResponse> {
-    return getJson<OverviewResponse>("/api/overview");
+    return getJson<OverviewResponse>("/api/v1/overview");
 }
 export function fetchTasks(): Promise<TasksResponse> {
-    return getJson<TasksResponse>("/api/tasks");
+    return getJson<TasksResponse>("/api/v1/tasks");
 }
 export function fetchTaskDetail(taskId: TaskId): Promise<TaskDetailResponse> {
-    return getJson<TaskDetailResponse>(`/api/tasks/${taskId}`);
+    return getJson<TaskDetailResponse>(`/api/v1/tasks/${taskId}`);
 }
 export function fetchTaskObservability(taskId: TaskId): Promise<TaskObservabilityResponse> {
-    return getJson<TaskObservabilityResponse>(`/api/tasks/${taskId}/observability`);
+    return getJson<TaskObservabilityResponse>(`/api/v1/tasks/${taskId}/observability`);
 }
 export interface OpenInferenceTaskExport {
     readonly taskId: TaskId;
@@ -253,69 +250,100 @@ export function fetchTaskOpenInference(taskId: TaskId): Promise<{
 }> {
     return getJson<{
         openinference: OpenInferenceTaskExport;
-    }>(`/api/tasks/${taskId}/openinference`);
-}
-export function fetchBookmarks(taskId?: TaskId): Promise<BookmarksResponse> {
-    const suffix = taskId ? `?taskId=${encodeURIComponent(taskId)}` : "";
-    return getJson<BookmarksResponse>(`/api/bookmarks${suffix}`);
+    }>(`/api/v1/tasks/${taskId}/openinference`);
 }
 export function fetchSearchResults(query: string, taskId?: TaskId, options?: RequestOptions): Promise<SearchResponse> {
     const params = new URLSearchParams({ q: query });
     if (taskId) {
         params.set("taskId", taskId);
     }
-    return getJson<SearchResponse>(`/api/search?${params.toString()}`, options);
-}
-export async function createBookmark(input: {
-    taskId: TaskId;
-    eventId?: EventId;
-    title?: string;
-    note?: string;
-}): Promise<BookmarkRecord> {
-    const payload = await postJson<{
-        bookmark: BookmarkRecord;
-    }>("/api/bookmarks", input);
-    return payload.bookmark;
+    return getJson<SearchResponse>(`/api/v1/search?${params.toString()}`, options);
 }
 export async function updateTaskTitle(taskId: TaskId, title: string): Promise<MonitoringTask> {
     const payload = await patchJson<{
         task: MonitoringTask;
-    }>(`/api/tasks/${taskId}`, { title });
+    }>(`/api/v1/tasks/${taskId}`, { title });
     return payload.task;
 }
 export async function updateTaskStatus(taskId: TaskId, status: MonitoringTask["status"]): Promise<MonitoringTask> {
     const payload = await patchJson<{
         task: MonitoringTask;
-    }>(`/api/tasks/${taskId}`, { status });
+    }>(`/api/v1/tasks/${taskId}`, { status });
     return payload.task;
 }
 export async function updateEventDisplayTitle(eventId: EventId, displayTitle: string | null): Promise<TimelineEventRecord> {
     const payload = await patchJson<{
         event: TimelineEventRecord;
-    }>(`/api/events/${eventId}`, { displayTitle });
+    }>(`/api/v1/events/${eventId}`, { displayTitle });
     return payload.event;
 }
 export async function deleteTask(taskId: TaskId): Promise<void> {
-    return deleteRequest(`/api/tasks/${taskId}`);
+    return deleteRequest(`/api/v1/tasks/${taskId}`);
 }
-export async function deleteBookmark(bookmarkId: BookmarkId): Promise<void> {
-    return deleteRequest(`/api/bookmarks/${bookmarkId}`);
+export interface CreateRuleInput {
+    readonly name: string;
+    readonly trigger?: { readonly phrases: readonly string[] };
+    readonly triggerOn?: "user" | "assistant";
+    readonly expect: {
+        readonly tool?: string;
+        readonly commandMatches?: readonly string[];
+        readonly pattern?: string;
+    };
+    readonly scope: RuleScope;
+    readonly taskId?: string;
+    readonly severity?: RuleSeverity;
 }
-export function fetchGlobalRuleCommands(): Promise<{ ruleCommands: RuleCommandRecord[] }> {
-    return getJson<{ ruleCommands: RuleCommandRecord[] }>("/api/rule-commands");
+export async function createRule(input: CreateRuleInput): Promise<RuleRecord> {
+    const payload = await postJson<{ rule: RuleRecord }>("/api/v1/rules", input);
+    return payload.rule;
 }
-export function fetchTaskRuleCommands(taskId: TaskId): Promise<{ ruleCommands: RuleCommandRecord[] }> {
-    return getJson<{ ruleCommands: RuleCommandRecord[] }>(`/api/tasks/${taskId}/rule-commands`);
+export interface UpdateRuleInput {
+    readonly name?: string;
+    readonly trigger?: { readonly phrases: readonly string[] } | null;
+    readonly triggerOn?: "user" | "assistant" | null;
+    readonly expect?: {
+        readonly tool?: string | null;
+        readonly commandMatches?: readonly string[] | null;
+        readonly pattern?: string | null;
+    };
+    readonly severity?: RuleSeverity;
 }
-export function createGlobalRuleCommand(pattern: string, label: string): Promise<{ ruleCommand: RuleCommandRecord }> {
-    return postJson<{ ruleCommand: RuleCommandRecord }>("/api/rule-commands", { pattern, label });
+
+export interface BackfillResult {
+    readonly turnsConsidered: number;
+    readonly turnsEvaluated: number;
+    readonly verdictsCreated: number;
 }
-export function createTaskRuleCommand(taskId: TaskId, pattern: string, label: string): Promise<{ ruleCommand: RuleCommandRecord }> {
-    return postJson<{ ruleCommand: RuleCommandRecord }>(`/api/tasks/${taskId}/rule-commands`, { pattern, label });
+export function updateRule(id: string, input: UpdateRuleInput): Promise<{ rule: RuleRecord }> {
+    return patchJson<{ rule: RuleRecord }>(`/api/v1/rules/${encodeURIComponent(id)}`, input);
 }
-export async function deleteRuleCommandById(id: string): Promise<void> {
-    return deleteRequest(`/api/rule-commands/${id}`);
+export async function deleteRule(id: string): Promise<void> {
+    return deleteRequest(`/api/v1/rules/${encodeURIComponent(id)}`);
 }
+export interface PromoteRuleEdits {
+    readonly name: string;
+    readonly trigger?: { readonly phrases: readonly string[] };
+    readonly expect: {
+        readonly tool?: string;
+        readonly commandMatches?: readonly string[];
+        readonly pattern?: string;
+    };
+    readonly severity: RuleSeverity;
+    readonly rationale?: string;
+}
+
+export async function promoteRule(id: string, edits: PromoteRuleEdits): Promise<RuleRecord> {
+    const payload = await postJson<{ rule: RuleRecord }>(
+        `/api/v1/rules/${encodeURIComponent(id)}/promote`,
+        edits,
+    );
+    return payload.rule;
+}
+
+export async function reEvaluateRule(id: string): Promise<BackfillResult> {
+    return postJson<BackfillResult>(`/api/v1/rules/${encodeURIComponent(id)}/re/evaluate`, {});
+}
+
 export interface TaskEvaluationPayload {
     rating: "good" | "skip";
     useCase?: string;
@@ -337,9 +365,6 @@ export interface TaskEvaluationRecord extends TaskEvaluation {
 }
 export type WorkflowSummaryRecord = WorkflowSummary;
 export type WorkflowSearchResultRecord = WorkflowSearchResult;
-export type PlaybookSummaryRecord = PlaybookSummary;
-export type PlaybookRecordResponse = PlaybookRecord;
-export type SavedBriefingRecord = SavedBriefing;
 export interface WorkflowContentRecord {
     readonly snapshotId: string;
     readonly taskId: TaskId;
@@ -369,34 +394,17 @@ export function fetchWorkflowLibrary(rating?: "good" | "skip", query?: string, l
         params.set("limit", String(limit));
     }
     const suffix = params.size > 0 ? `?${params.toString()}` : "";
-    return getJson<WorkflowSummaryRecord[]>(`/api/workflows${suffix}`);
+    return getJson<WorkflowSummaryRecord[]>(`/api/v1/workflows${suffix}`);
 }
 export function fetchTaskEvaluation(taskId: TaskId, scopeKey?: string): Promise<TaskEvaluationRecord | null> {
     const suffix = scopeKey ? `?scopeKey=${encodeURIComponent(scopeKey)}` : "";
-    return getJson<TaskEvaluationRecord | null>(`/api/tasks/${taskId}/evaluate${suffix}`);
-}
-export async function recordBriefingCopy(taskId: TaskId, scopeKey?: string): Promise<void> {
-    const suffix = scopeKey ? `?scopeKey=${encodeURIComponent(scopeKey)}` : "";
-    await postJson<{ ok: boolean }>(`/api/tasks/${taskId}/briefing/copied${suffix}`, {});
-}
-export interface SaveBriefingPayload {
-    purpose: SavedBriefing["purpose"];
-    format: SavedBriefing["format"];
-    memo?: string;
-    content: string;
-    generatedAt: string;
-}
-export function saveTaskBriefing(taskId: TaskId, payload: SaveBriefingPayload): Promise<SavedBriefingRecord> {
-    return postJson<SavedBriefingRecord>(`/api/tasks/${taskId}/briefings`, payload);
-}
-export function fetchTaskBriefings(taskId: TaskId): Promise<SavedBriefingRecord[]> {
-    return getJson<SavedBriefingRecord[]>(`/api/tasks/${taskId}/briefings`);
+    return getJson<TaskEvaluationRecord | null>(`/api/v1/tasks/${taskId}/evaluate${suffix}`);
 }
 export async function saveTaskEvaluation(taskId: TaskId, payload: TaskEvaluationPayload, scopeKey?: string): Promise<void> {
     const suffix = scopeKey ? `?scopeKey=${encodeURIComponent(scopeKey)}` : "";
     await postJson<{
         ok: boolean;
-    }>(`/api/tasks/${taskId}/evaluate${suffix}`, payload);
+    }>(`/api/v1/tasks/${taskId}/evaluate${suffix}`, payload);
 }
 export function fetchSimilarWorkflows(query: string, tags?: readonly string[], limit?: number): Promise<WorkflowSearchResultRecord[]> {
     const params = new URLSearchParams({ q: query });
@@ -406,7 +414,7 @@ export function fetchSimilarWorkflows(query: string, tags?: readonly string[], l
     if (typeof limit === "number") {
         params.set("limit", String(limit));
     }
-    return getJson<WorkflowSearchResultRecord[]>(`/api/workflows/similar?${params.toString()}`);
+    return getJson<WorkflowSearchResultRecord[]>(`/api/v1/workflows/similar?${params.toString()}`);
 }
 export interface RuleActionPayload {
     taskId: TaskId;
@@ -423,7 +431,7 @@ export interface RuleActionPayload {
     metadata?: Record<string, unknown>;
 }
 export async function postRuleAction(payload: RuleActionPayload): Promise<void> {
-    await postJson<{ ok?: boolean }>("/ingest/v1/events", {
+    await postJson<{ ok?: boolean }>("/api/v1/events", {
         events: [{
             kind: "rule.logged",
             taskId: payload.taskId,
@@ -443,45 +451,7 @@ export async function postRuleAction(payload: RuleActionPayload): Promise<void> 
 }
 export function fetchWorkflowContent(taskId: TaskId, scopeKey?: string): Promise<WorkflowContentRecord> {
     const suffix = scopeKey ? `?scopeKey=${encodeURIComponent(scopeKey)}` : "";
-    return getJson<WorkflowContentRecord>(`/api/workflows/${taskId}/content${suffix}`);
-}
-export interface PlaybookPayload {
-    title: string;
-    status?: PlaybookStatus;
-    whenToUse?: string | null;
-    prerequisites?: string[];
-    approach?: string | null;
-    keySteps?: string[];
-    watchouts?: string[];
-    antiPatterns?: string[];
-    failureModes?: string[];
-    variants?: PlaybookRecord["variants"];
-    relatedPlaybookIds?: string[];
-    sourceSnapshotIds?: string[];
-    tags?: string[];
-}
-export function fetchPlaybooks(query?: string, status?: PlaybookStatus, limit?: number): Promise<PlaybookSummaryRecord[]> {
-    const params = new URLSearchParams();
-    if (query?.trim()) {
-        params.set("q", query.trim());
-    }
-    if (status) {
-        params.set("status", status);
-    }
-    if (typeof limit === "number") {
-        params.set("limit", String(limit));
-    }
-    const suffix = params.size > 0 ? `?${params.toString()}` : "";
-    return getJson<PlaybookSummaryRecord[]>(`/api/playbooks${suffix}`);
-}
-export function fetchPlaybook(playbookId: string): Promise<PlaybookRecordResponse> {
-    return getJson<PlaybookRecordResponse>(`/api/playbooks/${playbookId}`);
-}
-export function createPlaybook(payload: PlaybookPayload): Promise<PlaybookRecordResponse> {
-    return postJson<PlaybookRecordResponse>("/api/playbooks", payload);
-}
-export function updatePlaybook(playbookId: string, payload: Partial<PlaybookPayload>): Promise<PlaybookRecordResponse> {
-    return patchJson<PlaybookRecordResponse>(`/api/playbooks/${playbookId}`, payload);
+    return getJson<WorkflowContentRecord>(`/api/v1/workflows/${taskId}/content${suffix}`);
 }
 export interface TurnPartitionRecord {
     readonly taskId: TaskId;
@@ -506,13 +476,13 @@ export interface TurnPartitionUpsertPayload {
     readonly baseVersion?: number;
 }
 export function fetchTurnPartition(taskId: TaskId): Promise<TurnPartitionRecord> {
-    return getJson<TurnPartitionRecord>(`/api/tasks/${taskId}/turn-partition`);
+    return getJson<TurnPartitionRecord>(`/api/v1/tasks/${taskId}/turn/partition`);
 }
 export function saveTurnPartition(taskId: TaskId, payload: TurnPartitionUpsertPayload): Promise<TurnPartitionRecord> {
-    return putJson<TurnPartitionRecord>(`/api/tasks/${taskId}/turn-partition`, payload);
+    return putJson<TurnPartitionRecord>(`/api/v1/tasks/${taskId}/turn/partition`, payload);
 }
 export async function resetTurnPartition(taskId: TaskId): Promise<void> {
-    await postJson<{ ok: boolean }>(`/api/tasks/${taskId}/turn-partition/reset`, {});
+    await postJson<{ ok: boolean }>(`/api/v1/tasks/${taskId}/turn/partition/reset`, {});
 }
 export function getMonitorWsUrl(): string {
     const baseUrl = resolveWebSocketBaseUrl();
@@ -522,4 +492,83 @@ export function getMonitorWsUrl(): string {
 }
 export function createMonitorWebSocket(): WebSocket {
     return new WebSocket(getMonitorWsUrl());
+}
+export interface FlatRulesResponse {
+    readonly rules: readonly RuleRecord[];
+}
+export interface GetRulesFilter {
+    readonly scope?: RuleScope;
+    readonly taskId?: TaskId | string;
+    readonly source?: RuleSource;
+}
+export function getRules(filter?: GetRulesFilter): Promise<FlatRulesResponse> {
+    const params = new URLSearchParams();
+    if (filter?.scope) params.set("scope", filter.scope);
+    if (filter?.taskId) params.set("taskId", String(filter.taskId));
+    if (filter?.source) params.set("source", filter.source);
+    const suffix = params.size > 0 ? `?${params.toString()}` : "";
+    return getJson<FlatRulesResponse>(`/api/v1/rules${suffix}`);
+}
+export interface ListTurnsArgs {
+    readonly sessionId?: string;
+    readonly taskId?: string;
+    readonly verdict?: VerdictFilter;
+    readonly cursor?: string;
+    readonly limit?: number;
+}
+
+export function listTurns(args: ListTurnsArgs = {}): Promise<{ items: TurnCardSummary[]; nextCursor: string | null }> {
+    const params = new URLSearchParams();
+    if (args.sessionId) params.set("sessionId", args.sessionId);
+    if (args.taskId) params.set("taskId", args.taskId);
+    if (args.verdict && args.verdict !== "all") params.set("verdict", args.verdict);
+    if (args.cursor) params.set("cursor", args.cursor);
+    if (args.limit !== undefined) params.set("limit", String(args.limit));
+    const suffix = params.size > 0 ? `?${params.toString()}` : "";
+    return getJson<{ items: TurnCardSummary[]; nextCursor: string | null }>(`/api/v1/turns${suffix}`);
+}
+
+export function getTurnReceipt(id: string): Promise<{ receipt: TurnReceipt }> {
+    return getJson<{ receipt: TurnReceipt }>(`/api/v1/turns/${encodeURIComponent(id)}`);
+}
+
+export interface TurnSummaryResponse {
+    readonly summaryMarkdown: string;
+    readonly cached: boolean;
+}
+
+export async function getTurnSummary(id: string): Promise<string | null> {
+    const pathname = `/api/v1/turns/${encodeURIComponent(id)}/summary`;
+    const response = await request(pathname);
+    if (response.status === 404) return null;
+    if (!response.ok) throw await createResponseError(response, pathname, "GET");
+    const body = unwrapApiEnvelope<TurnSummaryResponse>(await response.json());
+    return body.summaryMarkdown;
+}
+
+export function generateTurnSummary(
+    id: string,
+    options: { readonly force?: boolean } = {},
+): Promise<TurnSummaryResponse> {
+    return postJson<TurnSummaryResponse>(
+        `/api/v1/turns/${encodeURIComponent(id)}/summary`,
+        options,
+    );
+}
+
+export interface AgentTracerConfig {
+    readonly [key: string]: unknown;
+    readonly "notifications.os"?: boolean;
+    readonly "summary.provider"?: "echo" | "anthropic";
+    readonly "summary.model"?: string;
+}
+
+export async function getConfig(): Promise<AgentTracerConfig> {
+    const data = await getJson<{ config: AgentTracerConfig }>("/api/v1/config");
+    return data.config;
+}
+
+export async function updateConfig(updates: AgentTracerConfig): Promise<AgentTracerConfig> {
+    const data = await putJson<{ config: AgentTracerConfig }>("/api/v1/config", updates);
+    return data.config;
 }

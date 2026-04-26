@@ -3,7 +3,7 @@ import { TASK_EVENT_DEFINITIONS, type TaskEventType } from "./task.events.js";
 import { SESSION_EVENT_DEFINITIONS, type SessionEventType } from "./session.events.js";
 import { RUNTIME_EVENT_DEFINITIONS, type RuntimeEventType } from "./runtime.events.js";
 import { CURATION_EVENT_DEFINITIONS, type CurationEventType } from "./curation.events.js";
-import { WORKFLOW_EVENT_DEFINITIONS, type WorkflowEventType } from "./workflow.events.js";
+import { WORKFLOW_EVENT_DEFINITIONS } from "./workflow.events.js";
 import { SYSTEM_EVENT_DEFINITIONS, type SystemEventType } from "./system.events.js";
 
 export type DomainEventType =
@@ -11,7 +11,6 @@ export type DomainEventType =
     | SessionEventType
     | RuntimeEventType
     | CurationEventType
-    | WorkflowEventType
     | SystemEventType;
 
 export type DomainEvent = DomainEventBase<DomainEventType, Record<string, unknown>>;

@@ -156,25 +156,8 @@ export function createSchema(db: Database.Database): void {
       primary key (runtime_source, runtime_session_id)
     );
 
-    create table if not exists bookmarks_current (
-      id text primary key,
-      task_id text not null references tasks_current(id) on delete cascade,
-      event_id text references timeline_events_view(id) on delete cascade,
-      kind text not null,
-      title text not null,
-      note text,
-      metadata_json text not null default '{}',
-      created_at text not null,
-      updated_at text not null
-    );
-
-    create index if not exists idx_bookmarks_current_task_created
-      on bookmarks_current(task_id, updated_at desc);
-    create index if not exists idx_bookmarks_current_event
-      on bookmarks_current(event_id);
-
     create table if not exists search_documents (
-      scope text not null check(scope in ('task', 'event', 'bookmark', 'evaluation', 'playbook')),
+      scope text not null check(scope in ('task', 'event', 'evaluation')),
       entity_id text not null,
       task_id text,
       search_text text not null,
@@ -220,87 +203,9 @@ export function createSchema(db: Database.Database): void {
       scope_key text not null,
       reuse_count integer not null default 0,
       last_reused_at text,
-      briefing_copy_count integer not null default 0,
       primary key (task_id, scope_key),
       foreign key (task_id, scope_key) references evaluations_core(task_id, scope_key) on delete cascade
     );
-
-    create table if not exists evaluation_promotions (
-      task_id text not null,
-      scope_key text not null,
-      playbook_id text not null,
-      promoted_at text not null,
-      primary key (task_id, scope_key, playbook_id),
-      foreign key (task_id, scope_key) references evaluations_core(task_id, scope_key) on delete cascade
-    );
-    create index if not exists idx_evaluation_promotions_playbook on evaluation_promotions(playbook_id);
-
-    create table if not exists playbooks_core (
-      id text primary key,
-      title text not null,
-      slug text unique not null,
-      status text not null default 'draft',
-      when_to_use text,
-      approach text,
-      use_count integer not null default 0,
-      last_used_at text,
-      created_at text not null,
-      updated_at text not null
-    );
-    create index if not exists idx_playbooks_core_status on playbooks_core(status);
-
-    create table if not exists playbook_steps (
-      playbook_id text not null references playbooks_core(id) on delete cascade,
-      kind text not null check(kind in ('prereq','step','watchout','anti_pattern','failure_mode')),
-      position integer not null,
-      content text not null,
-      primary key (playbook_id, kind, position)
-    );
-
-    create table if not exists playbook_variants (
-      playbook_id text not null references playbooks_core(id) on delete cascade,
-      position integer not null,
-      label text not null,
-      description text not null,
-      difference_from_base text not null,
-      primary key (playbook_id, position)
-    );
-
-    create table if not exists playbook_tags (
-      playbook_id text not null references playbooks_core(id) on delete cascade,
-      tag text not null,
-      primary key (playbook_id, tag)
-    );
-    create index if not exists idx_playbook_tags_tag on playbook_tags(tag);
-
-    create table if not exists playbook_relations (
-      playbook_id text not null references playbooks_core(id) on delete cascade,
-      related_playbook_id text not null references playbooks_core(id) on delete cascade,
-      kind text,
-      position integer,
-      primary key (playbook_id, related_playbook_id)
-    );
-
-    create table if not exists playbook_source_snapshots (
-      playbook_id text not null references playbooks_core(id) on delete cascade,
-      task_id text not null,
-      scope_key text not null,
-      primary key (playbook_id, task_id, scope_key),
-      foreign key (task_id, scope_key) references evaluations_core(task_id, scope_key) on delete cascade
-    );
-
-    create table if not exists briefings_current (
-      id text primary key,
-      task_id text not null references tasks_current(id) on delete cascade,
-      generated_at text not null,
-      purpose text not null,
-      format text not null,
-      memo text,
-      content text not null
-    );
-
-    create index if not exists idx_briefings_current_task_generated
-      on briefings_current(task_id, generated_at desc);
 
     create table if not exists turn_partitions_current (
       task_id text primary key references tasks_current(id) on delete cascade,
@@ -309,16 +214,66 @@ export function createSchema(db: Database.Database): void {
       updated_at text not null
     );
 
-    create table if not exists rule_commands_current (
+    create table if not exists rules_current (
       id text primary key,
-      pattern text not null,
-      label text not null,
+      name text not null,
+      trigger_phrases_json text,
+      trigger_on text check(trigger_on is null or trigger_on in ('assistant','user')),
+      expect_tool text,
+      expect_command_matches_json text,
+      expect_pattern text,
+      scope text not null check(scope in ('global','task')),
       task_id text references tasks_current(id) on delete cascade,
-      created_at text not null
+      source text not null check(source in ('human','agent')),
+      severity text not null check(severity in ('info','warn','block')),
+      rationale text,
+      created_at text not null,
+      check ((scope = 'task' and task_id is not null) or (scope = 'global' and task_id is null))
+    );
+    create index if not exists idx_rules_current_scope_task on rules_current(scope, task_id);
+
+    create table if not exists app_config (
+      key text primary key,
+      value_json text not null,
+      updated_at text not null
     );
 
-    create index if not exists idx_rule_commands_current_task_id
-      on rule_commands_current(task_id);
+    create table if not exists turns_current (
+      id text primary key,
+      session_id text not null references sessions_current(id) on delete cascade,
+      "index" integer not null,
+      started_at text not null,
+      ended_at text not null,
+      assistant_text text not null,
+      summary_markdown text,
+      rules_evaluated_count integer not null default 0,
+      aggregate_verdict text
+        check(aggregate_verdict is null
+              or aggregate_verdict in ('verified','unverifiable','contradicted'))
+    );
+    create index if not exists idx_turns_current_session_index
+      on turns_current(session_id, "index");
+    create index if not exists idx_turns_current_session_started
+      on turns_current(session_id, started_at desc);
+
+    create table if not exists turn_event_links (
+      turn_id text not null references turns_current(id) on delete cascade,
+      event_id text not null references timeline_events_view(id) on delete cascade,
+      primary key (turn_id, event_id)
+    );
+    create index if not exists idx_turn_event_links_event on turn_event_links(event_id);
+
+    create table if not exists turn_verdicts (
+      id text primary key,
+      turn_id text not null references turns_current(id) on delete cascade,
+      rule_id text not null,
+      status text not null check(status in ('verified','unverifiable','contradicted')),
+      detail_json text not null default '{}',
+      acknowledged integer not null default 0,
+      evaluated_at text not null
+    );
+    create index if not exists idx_turn_verdicts_turn on turn_verdicts(turn_id);
+    create index if not exists idx_turn_verdicts_rule on turn_verdicts(rule_id);
   `);
     createEventLogSchema(db);
 }

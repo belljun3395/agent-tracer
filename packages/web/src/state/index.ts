@@ -17,9 +17,8 @@ export {
     useOverviewQuery,
     useTasksQuery,
     useTaskDetailQuery,
-    useBookmarksQuery,
-    useGlobalRuleCommandsQuery,
-    useTaskRuleCommandsQuery
+    useRulesQuery,
+    useTaskRulesQuery
 } from "./server/queries.js";
 export { useTaskObservability } from "./server/observability.js";
 
@@ -32,7 +31,10 @@ export {
     useSelectionStore,
     useSelectionStoreApi,
     useEditStore,
-    useEditStoreApi
+    useEditStoreApi,
+    useViewMode,
+    useVerdictFilter,
+    useSelectedTurnId
 } from "./ui/UiStoreProvider.js";
 export type { UiStoreProviderProps } from "./ui/UiStoreProvider.js";
 export {
@@ -49,7 +51,8 @@ export type {
     EditActions,
     EditStoreState,
     EditStore,
-    UiStoreBundle
+    UiStoreBundle,
+    ViewMode
 } from "./ui/createUiStore.js";
 export { useNowMs } from "./ui/useNowMs.js";
 

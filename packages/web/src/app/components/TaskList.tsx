@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type React from "react";
-import { formatRelativeTime, type BookmarkRecord, type MonitoringTask, type TaskDetailResponse } from "../../types.js";
+import { formatRelativeTime, type MonitoringTask, type TaskDetailResponse } from "../../types.js";
 import { useDragScroll } from "../lib/useDragScroll.js";
 import { cn } from "../lib/ui/cn.js";
 import {
@@ -15,7 +15,6 @@ import {
     resolveTaskListItemTitle,
     runtimeBadgeClass,
     runtimeTagLabel,
-    type RailView,
     type StatusFilterState,
 } from "../lib/taskList.js";
 import { formatTaskStatusLabel, TASK_STATUS_BUTTON_STYLES } from "../features/timeline/status-styles.js";
@@ -41,9 +40,7 @@ interface TaskDisplayTitleCacheEntry {
 }
 interface TaskListProps {
     readonly tasks: readonly MonitoringTask[];
-    readonly bookmarks: readonly BookmarkRecord[];
     readonly taskDisplayTitleCache?: Readonly<Record<string, TaskDisplayTitleCacheEntry>>;
-    readonly selectedTaskBookmarkId: string | null;
     readonly selectedTaskId: string | null;
     readonly taskDetail: TaskDetailResponse | null;
     readonly selectedTaskQuestionCount?: number | undefined;
@@ -53,11 +50,8 @@ interface TaskListProps {
     readonly isCollapsed?: boolean;
     readonly hideHeader?: boolean;
     readonly hideTabs?: boolean;
-    readonly initialView?: "tasks" | "saved";
     readonly onToggleCollapse?: () => void;
     readonly onSelectTask: (taskId: string) => void;
-    readonly onSelectBookmark: (bookmark: BookmarkRecord) => void;
-    readonly onDeleteBookmark: (bookmarkId: string) => void;
     readonly onDeleteTask: (taskId: string) => void;
 }
 
@@ -116,40 +110,6 @@ function RailTabButton({ active, children, onClick }: {
       {children}
       {active && <span className="absolute bottom-0 left-4 right-4 h-0.5 rounded-full bg-[var(--accent)]"/>}
     </button>);
-}
-
-function SavedBookmarkRow({ bookmark, isSelected, onSelectBookmark, onDeleteBookmark }: {
-    readonly bookmark: BookmarkRecord;
-    readonly isSelected: boolean;
-    readonly onSelectBookmark: (bookmark: BookmarkRecord) => void;
-    readonly onDeleteBookmark: (bookmarkId: string) => void;
-}): React.JSX.Element {
-    return (<div className={cn(railRowBaseClass, isSelected && railSelectedRowClass)}>
-      <div className="flex items-start gap-2.5">
-        <span aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0"/>
-        <button className={cn(railContentButtonClass, "min-w-0 flex-1")} onClick={() => onSelectBookmark(bookmark)} title={bookmark.title} type="button">
-          <div className="w-full truncate text-[0.82rem] font-semibold leading-5 text-[var(--text-1)]">
-            {bookmark.title}
-          </div>
-          <div className="mt-1 flex w-full min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-[0.66rem] text-[var(--text-3)]">
-            <Badge className="uppercase tracking-[0.06em]" size="sm" tone="accent">
-              {bookmark.kind}
-            </Badge>
-            <span className="min-w-0 truncate font-mono text-[0.71rem]">
-              {bookmark.eventTitle ?? bookmark.taskTitle ?? bookmark.taskId}
-            </span>
-            <span className="shrink-0">·</span>
-            <span className="shrink-0">{formatRelativeTime(bookmark.updatedAt)}</span>
-          </div>
-        </button>
-        <Button className="h-6 w-6 shrink-0 self-start rounded-md p-1 text-[var(--text-3)] opacity-0 transition-opacity hover:bg-[var(--err-bg)] hover:text-[var(--err)] group-hover:opacity-100" onClick={(event) => {
-            event.stopPropagation();
-            onDeleteBookmark(bookmark.id);
-        }} size="icon" title="Remove saved item" variant="bare">
-          <img alt="Remove saved item" className="icon-adaptive h-3.5 w-3.5" src="/icons/trash.svg"/>
-        </Button>
-      </div>
-    </div>);
 }
 
 function TaskRuntimeMeta({ task }: {
@@ -240,14 +200,11 @@ function TaskRow({ task, depth, isSelected, isCollapsedParent, hasChildren, task
     </div>);
 }
 
-export function TaskList({ tasks, bookmarks, taskDisplayTitleCache, selectedTaskBookmarkId, selectedTaskId, taskDetail, selectedTaskQuestionCount, selectedTaskTodoCount, deletingTaskId, deleteErrorTaskId, isCollapsed = false, hideHeader = false, hideTabs = false, initialView = "tasks", onToggleCollapse, onSelectTask, onSelectBookmark, onDeleteBookmark, onDeleteTask }: TaskListProps): React.JSX.Element {
+export function TaskList({ tasks, taskDisplayTitleCache, selectedTaskId, taskDetail, selectedTaskQuestionCount, selectedTaskTodoCount, deletingTaskId, deleteErrorTaskId, isCollapsed = false, hideHeader = false, hideTabs = false, onToggleCollapse, onSelectTask, onDeleteTask }: TaskListProps): React.JSX.Element {
     const [runtimeFilter, setRuntimeFilter] = useState<string>(ALL_RUNTIME_FILTER_KEY);
     const [statusFilters, setStatusFilters] = useState<StatusFilterState>(createDefaultStatusFilters);
     const [isStatusFilterExpanded, setIsStatusFilterExpanded] = useState(false);
     const [collapsedParentIds, setCollapsedParentIds] = useState<ReadonlySet<string>>(new Set());
-    const [railView, setRailView] = useState<RailView>(initialView);
-
-    useEffect(() => { setRailView(initialView); }, [initialView]);
 
     const tasksDragScroll = useDragScroll({ axis: "y" });
     const runtimeFilterOptions = useMemo(() => buildRuntimeFilterOptions(tasks), [tasks]);
@@ -320,19 +277,11 @@ export function TaskList({ tasks, bookmarks, taskDisplayTitleCache, selectedTask
 
         {!hideTabs && (
           <div className="flex border-b border-[var(--border)]">
-            <RailTabButton active={railView === "tasks"} onClick={() => setRailView("tasks")}>Tasks</RailTabButton>
-            <RailTabButton active={railView === "saved"} onClick={() => setRailView("saved")}>Saved</RailTabButton>
+            <RailTabButton active={true} onClick={() => {}}>Tasks</RailTabButton>
           </div>
         )}
 
-        {railView === "saved" ? (<div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-            <div className={railSectionHeaderClass}>
-              <span>Saved</span>
-            </div>
-            {bookmarks.length === 0 ? (<EmptyRailState title="No saved cards yet." description="Save the current task or a selected event to come back to it quickly."/>) : (<div className="flex max-h-[calc(100%-2.5rem)] flex-col gap-1 overflow-y-auto p-1.5">
-                {bookmarks.map((bookmark) => (<SavedBookmarkRow key={bookmark.id} bookmark={bookmark} isSelected={bookmark.id === selectedTaskBookmarkId} onSelectBookmark={onSelectBookmark} onDeleteBookmark={onDeleteBookmark}/>))}
-              </div>)}
-          </div>) : (<div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
             <div className={railSectionHeaderClass}>
               <span>Tracked Tasks</span>
               {filteredTasks.length > 10 && (<span className="ml-auto text-[0.62rem] font-normal normal-case tracking-normal text-[var(--text-3)]">
@@ -342,7 +291,7 @@ export function TaskList({ tasks, bookmarks, taskDisplayTitleCache, selectedTask
 
             {tasks.length === 0 ? (<EmptyRailState title="No tasks yet." description={<>
                   Send <code>monitor_task_start</code> through the MCP server or POST to{" "}
-                  <code>/api/task-start</code>.
+                  <code>/ingest/v1/tasks/start</code>.
                 </>}/>) : (<>
                 {runtimeFilterOptions.length > 1 && (<div className="border-b border-[var(--border)] bg-[var(--surface-2)] px-2.5 py-1.5">
                     <div className="flex flex-wrap gap-1">
@@ -428,7 +377,7 @@ export function TaskList({ tasks, bookmarks, taskDisplayTitleCache, selectedTask
                     })}
                   </div>)}
               </>)}
-          </div>)}
+          </div>
       </div>
     </PanelCard>);
 }

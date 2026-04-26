@@ -19,7 +19,7 @@
  *   • Stable across hook invocations so server-side idempotent ensure dedupes.
  *
  * Phase 6 removed the on-disk session-result cache; every resolution now calls
- * `/api/runtime-session-ensure` directly. The server's use case is idempotent on
+ * `/ingest/v1/sessions/ensure` directly. The server's use case is idempotent on
  * `runtimeSessionId`, so repeated calls return the same `(taskId, sessionId)`.
  */
 import type {RuntimeSessionEnsureResult} from "~shared/transport/transport.js";

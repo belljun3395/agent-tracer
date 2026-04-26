@@ -84,7 +84,6 @@ export function useEvaluation(taskId: string | null | undefined, scopeKey?: stri
                 qualitySignals: evaluation?.qualitySignals ?? {
                     reuseCount: 0,
                     lastReusedAt: null,
-                    briefingCopyCount: 0,
                     manualRating: payload.rating
                 },
                 evaluatedAt: new Date().toISOString()

@@ -4,7 +4,6 @@ import type {
     EventSubtypeKey,
     EventToolFamily,
     EvidenceLevel,
-    QuestionPhase,
     TaskCompletionReason,
     TodoState,
     UserMessageCaptureMode,
@@ -130,19 +129,6 @@ export type InstructionsLoadedMetadata = RequiredEventMetadata & {
     readonly loadReason: string
     readonly memoryType: string
 }
-
-export type TokenUsageMetadata = RequiredEventMetadata & {
-    readonly inputTokens: number
-    readonly outputTokens: number
-    readonly cacheReadTokens?: number
-    readonly cacheCreateTokens?: number
-    readonly costUsd?: number
-    readonly durationMs?: number
-    readonly model?: string
-    readonly promptId?: string
-    readonly stopReason?: string
-}
-
 export type SessionEndedMetadata = RequiredEventMetadata & {
     readonly reason: string
     readonly completionReason: TaskCompletionReason
@@ -152,12 +138,6 @@ export type SessionEndedMetadata = RequiredEventMetadata & {
     readonly permissionMode?: string
     readonly cwd?: string
 }
-
-export type VerificationLoggedMetadata = RequiredEventMetadata & {
-    readonly verificationStatus?: string
-    readonly ruleId?: string
-}
-
 export type RuleLoggedMetadata = RequiredEventMetadata & {
     readonly ruleStatus?: string
     readonly ruleId?: string
@@ -166,18 +146,6 @@ export type RuleLoggedMetadata = RequiredEventMetadata & {
     readonly rulePolicy?: string
     readonly ruleOutcome?: string
 }
-
-export type QuestionLoggedMetadata = RequiredEventMetadata & {
-    readonly questionId?: string
-    readonly questionPhase?: QuestionPhase
-    readonly sequence?: number
-    readonly modelName?: string
-    readonly modelProvider?: string
-}
-
-export type PlanLoggedMetadata = RequiredEventMetadata
-export type ThoughtLoggedMetadata = RequiredEventMetadata
-
 export type ContextSnapshotMetadata = RequiredEventMetadata & {
     readonly source?: string
     readonly threadId?: string

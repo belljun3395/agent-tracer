@@ -9,11 +9,14 @@ import {
     useEditStore,
     useNowMs,
     useSelectionStore,
-    useTaskDetailQuery
+    useTaskDetailQuery,
+    useVerdictFilter,
+    useViewMode
 } from "../../state.js";
 import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "../lib/ui/cn.js";
 import { Timeline } from "./Timeline.js";
+import { TurnFeed } from "../features/turns/TurnFeed.js";
 import type { TimelineProps } from "../features/timeline/types.js";
 
 interface TimelineContainerProps {
@@ -48,6 +51,10 @@ export function TimelineContainer({
     const selectTag = useSelectionStore((s) => s.selectTag);
     const setShowRuleGapsOnly = useSelectionStore((s) => s.setShowRuleGapsOnly);
     const resetFilters = useSelectionStore((s) => s.resetFilters);
+    const selectTurn = useSelectionStore((s) => s.selectTurn);
+    const viewMode = useViewMode();
+    const verdictFilter = useVerdictFilter();
+    const setVerdictFilter = useSelectionStore((s) => s.setVerdictFilter);
 
     const isEditingTaskTitle = useEditStore((s) => s.isEditingTaskTitle);
     const taskTitleDraft = useEditStore((s) => s.taskTitleDraft);
@@ -118,6 +125,26 @@ export function TimelineContainer({
         },
         [taskDetail?.task, setTitleError, finishEditing, setSavingTitle, queryClient]
     );
+
+    if (viewMode === "turns") {
+        return (
+            <section
+                data-testid="turn-feed-wrapper"
+                className={cn(
+                    "flex min-h-0 min-w-0 flex-col overflow-y-auto rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] shadow-none",
+                    isCompactDashboard && "min-h-[22rem]",
+                    isStackedDashboard && "order-1 min-h-[28rem]"
+                )}
+            >
+                <TurnFeed
+                    {...(selectedTaskId ? { taskId: selectedTaskId } : {})}
+                    verdict={verdictFilter}
+                    onVerdictChange={setVerdictFilter}
+                    onSelect={selectTurn}
+                />
+            </section>
+        );
+    }
 
     return (
         <section

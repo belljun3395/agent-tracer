@@ -1,18 +1,16 @@
 import type { TaskId } from "../../types.js";
 import type {
-    BookmarksResponse,
     OverviewResponse,
-    RuleCommandRecord,
     TaskDetailResponse,
     TasksResponse
 } from "../../types.js";
 import {
-    fetchBookmarks,
-    fetchGlobalRuleCommands,
     fetchOverview,
     fetchTaskDetail,
-    fetchTaskRuleCommands,
-    fetchTasks
+    fetchTasks,
+    getRules,
+    type FlatRulesResponse,
+    type GetRulesFilter
 } from "../../io.js";
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 
@@ -47,26 +45,23 @@ export function useTaskDetailQuery(taskId: TaskId | null): UseQueryResult<TaskDe
     });
 }
 
-export function useBookmarksQuery(taskId?: TaskId): UseQueryResult<BookmarksResponse> {
+export function useRulesQuery(filter?: GetRulesFilter): UseQueryResult<FlatRulesResponse> {
     return useQuery({
-        queryKey: monitorQueryKeys.bookmarks(taskId),
-        queryFn: () => fetchBookmarks(taskId)
+        queryKey: monitorQueryKeys.rules(filter as Record<string, string> | undefined),
+        queryFn: () => getRules(filter),
     });
 }
 
-export function useGlobalRuleCommandsQuery(): UseQueryResult<{ ruleCommands: RuleCommandRecord[] }> {
+export function useTaskRulesQuery(taskId: TaskId | null): UseQueryResult<FlatRulesResponse> {
     return useQuery({
-        queryKey: monitorQueryKeys.ruleCommands(),
-        queryFn: fetchGlobalRuleCommands,
-    });
-}
-
-export function useTaskRuleCommandsQuery(taskId: TaskId | null): UseQueryResult<{ ruleCommands: RuleCommandRecord[] }> {
-    return useQuery({
-        queryKey: monitorQueryKeys.ruleCommands(taskId ?? undefined),
+        queryKey: monitorQueryKeys.rules(
+            taskId ? { taskId: String(taskId) } : undefined,
+        ),
         queryFn: () => {
-            if (!taskId) throw new Error("useTaskRuleCommandsQuery called without taskId");
-            return fetchTaskRuleCommands(taskId);
+            if (!taskId) {
+                throw new Error("useTaskRulesQuery called without a taskId");
+            }
+            return getRules({ taskId });
         },
         enabled: taskId !== null,
     });

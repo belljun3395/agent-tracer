@@ -187,7 +187,7 @@ export function registerEventLoggingTools(server: McpServer, client: MonitorClie
     }, async (input) => toToolResponse(await client.post("/ingest/v1/events", { events: [{ kind: "thought.logged", lane: "planning", ...input }] })));
     server.registerTool("monitor_agent_activity", {
         title: "Monitor Agent Activity",
-        description: "Record coordination-lane activity such as MCP calls, skill usage, delegation, handoff, search, and bookmarks. " +
+        description: "Record coordination-lane activity such as MCP calls, skill usage, delegation, handoff, and search. " +
             "Use this when you want the dashboard to explain how agent support actions shaped the work.",
         inputSchema: {
             taskId: z.string(),

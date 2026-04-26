@@ -21,18 +21,6 @@ export interface SearchEventRow {
     created_at: string;
 }
 
-export interface SearchBookmarkRow {
-    id: string;
-    task_id: string;
-    event_id: string | null;
-    kind: "task" | "event";
-    title: string;
-    note: string | null;
-    created_at: string;
-    task_title: string | null;
-    event_title: string | null;
-}
-
 export interface SearchDocumentRow {
     scope: SearchDocumentScope;
     entity_id: string;

@@ -62,3 +62,18 @@ export function useEditStore<T>(selector: (state: EditStoreState) => T): T {
     const store = useEditStoreApi();
     return useStore(store, selector);
 }
+
+/** Convenience hook returning the current view mode ("turns" | "events"). */
+export function useViewMode(): SelectionStoreState["viewMode"] {
+    return useSelectionStore((s) => s.viewMode);
+}
+
+/** Convenience hook returning the active verdict filter. */
+export function useVerdictFilter(): SelectionStoreState["verdictFilter"] {
+    return useSelectionStore((s) => s.verdictFilter);
+}
+
+/** Convenience hook returning the currently selected turn id, if any. */
+export function useSelectedTurnId(): SelectionStoreState["selectedTurnId"] {
+    return useSelectionStore((s) => s.selectedTurnId);
+}

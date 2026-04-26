@@ -1,11 +1,17 @@
-import { defineEventType, optionalString, requireString } from "./event.type.js";
+import { defineEventType, optionalObject, optionalString, requireString } from "./event.type.js";
 
 export const SYSTEM_EVENT_DEFINITIONS = [
-    defineEventType("rule_command.registered", (payload) => {
+    defineEventType("rule.registered", (payload) => {
         requireString(payload, "rule_id");
-        requireString(payload, "pattern");
-        requireString(payload, "label");
+        requireString(payload, "name");
+        requireString(payload, "scope");
+        requireString(payload, "source");
+        requireString(payload, "severity");
         optionalString(payload, "task_id");
+    }),
+    defineEventType("rule.updated", (payload) => {
+        requireString(payload, "rule_id");
+        optionalObject(payload, "patch");
     }),
     defineEventType("rule_command.matched", (payload) => {
         requireString(payload, "rule_id");

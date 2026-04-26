@@ -5,12 +5,6 @@ export const monitorQueryKeys = {
     tasks: () => ["monitor", "tasks"] as const,
     taskDetail: (taskId: TaskId) => ["monitor", "task", taskId] as const,
     taskObservability: (taskId: TaskId) => ["monitor", "task-observability", taskId] as const,
-    bookmarks: (taskId?: TaskId) =>
-        (taskId ? ["monitor", "bookmarks", taskId] : ["monitor", "bookmarks"]) as readonly [
-            "monitor",
-            "bookmarks",
-            ...(readonly TaskId[])
-        ],
     search: (query: string, taskId?: TaskId) =>
         (taskId ? ["monitor", "search", query, taskId] : ["monitor", "search", query]) as readonly [
             "monitor",
@@ -18,8 +12,10 @@ export const monitorQueryKeys = {
             string,
             ...(readonly TaskId[])
         ],
-    ruleCommands: (taskId?: TaskId) =>
-        (taskId ? ["monitor", "rule-commands", taskId] : ["monitor", "rule-commands"]) as readonly string[],
+    rules: (filter?: { status?: string; scope?: string; taskId?: string; source?: string }) =>
+        (filter
+            ? ["monitor", "rules", filter]
+            : ["monitor", "rules"]) as readonly unknown[],
 } as const;
 
 export type MonitorQueryKey =
@@ -27,5 +23,4 @@ export type MonitorQueryKey =
     | ReturnType<typeof monitorQueryKeys.tasks>
     | ReturnType<typeof monitorQueryKeys.taskDetail>
     | ReturnType<typeof monitorQueryKeys.taskObservability>
-    | ReturnType<typeof monitorQueryKeys.bookmarks>
     | ReturnType<typeof monitorQueryKeys.search>;

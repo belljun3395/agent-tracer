@@ -3,7 +3,6 @@ import type {
     StoredTaskEvaluation,
     WorkflowSummary,
 } from "~application/ports/repository/evaluation.repository.js";
-import type { SavedBriefing } from "~domain/workflow/briefing.js";
 import type { ReusableTaskSnapshot } from "~domain/workflow/task.snapshot.js";
 import { parseJsonField } from "../shared/sqlite.json";
 
@@ -24,7 +23,6 @@ export interface EvaluationRow {
     promoted_to: string | null;
     reuse_count: number;
     last_reused_at: string | null;
-    briefing_copy_count: number;
     workflow_snapshot_json: string | null;
     workflow_context: string | null;
     search_text: string | null;
@@ -50,7 +48,6 @@ export interface TaskWithEvaluationRow {
     promoted_to: string | null;
     reuse_count: number;
     last_reused_at: string | null;
-    briefing_copy_count: number;
     workflow_snapshot_json: string | null;
     workflow_context: string | null;
     search_text: string | null;
@@ -68,25 +65,14 @@ export interface RankedWorkflowRow {
     readonly semanticScore: number | null;
 }
 
-export interface BriefingRow {
-    id: string;
-    task_id: string;
-    generated_at: string;
-    purpose: string;
-    format: string;
-    memo: string | null;
-    content: string;
-}
-
 export function buildQualitySignals(
     row:
-        | Pick<TaskWithEvaluationRow, "reuse_count" | "last_reused_at" | "briefing_copy_count" | "rating">
-        | Pick<EvaluationRow, "reuse_count" | "last_reused_at" | "briefing_copy_count" | "rating">,
+        | Pick<TaskWithEvaluationRow, "reuse_count" | "last_reused_at" | "rating">
+        | Pick<EvaluationRow, "reuse_count" | "last_reused_at" | "rating">,
 ): WorkflowSummary["qualitySignals"] {
     return {
         reuseCount: row.reuse_count,
         lastReusedAt: row.last_reused_at,
-        briefingCopyCount: row.briefing_copy_count,
         manualRating: row.rating as "good" | "skip",
     };
 }
@@ -114,18 +100,6 @@ export function mapEvaluationRow(row: EvaluationRow): StoredTaskEvaluation {
         workflowContext: row.workflow_context,
         searchText: row.search_text,
         evaluatedAt: row.evaluated_at,
-    };
-}
-
-export function mapBriefingRow(row: BriefingRow): SavedBriefing {
-    return {
-        id: row.id,
-        taskId: row.task_id,
-        generatedAt: row.generated_at,
-        purpose: row.purpose as SavedBriefing["purpose"],
-        format: row.format as SavedBriefing["format"],
-        memo: row.memo,
-        content: row.content,
     };
 }
 

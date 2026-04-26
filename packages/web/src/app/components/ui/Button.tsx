@@ -18,7 +18,7 @@ const buttonSizes: Record<ButtonSize, string> = {
     md: "h-8 px-3.5 text-[0.84rem]",
     icon: "h-7 w-7 p-0 text-[0.82rem]"
 };
-const buttonBase = "inline-flex items-center justify-center rounded-[var(--radius-md)] font-medium transition-[background-color,border-color,color,box-shadow] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface)] disabled:pointer-events-none disabled:opacity-50";
+const buttonBase = "inline-flex items-center justify-center whitespace-nowrap rounded-[var(--radius-md)] font-medium transition-[background-color,border-color,color,box-shadow] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface)] disabled:pointer-events-none disabled:opacity-50";
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button({ className, type = "button", variant = "ghost", size = "md", ...props }, ref) {
     return (<button ref={ref} type={type} className={cn(buttonBase, buttonVariants[variant], buttonSizes[size], className)} {...props}/>);
 });

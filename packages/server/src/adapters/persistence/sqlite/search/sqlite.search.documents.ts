@@ -3,7 +3,7 @@ import { and, eq, inArray, or, sql } from "drizzle-orm";
 
 import { ensureSqliteDatabase, type SqliteDatabaseInput } from "../shared/drizzle.db.js";
 import { searchDocuments } from "../schema/drizzle.schema.js";
-export type SearchDocumentScope = "task" | "event" | "bookmark" | "evaluation" | "playbook";
+export type SearchDocumentScope = "task" | "event" | "evaluation";
 export interface SearchDocumentInput {
     readonly scope: SearchDocumentScope;
     readonly entityId: string;
@@ -39,21 +39,6 @@ export function buildEventSearchText(input: {
         input.kind,
         input.lane,
         flattenSearchableMetadata(input.metadata)
-    ]);
-}
-export function buildBookmarkSearchText(input: {
-    readonly kind: string;
-    readonly title: string;
-    readonly note?: string | null;
-    readonly taskTitle?: string | null;
-    readonly eventTitle?: string | null;
-}): string {
-    return joinSearchTextParts([
-        input.kind,
-        input.title,
-        input.note,
-        input.taskTitle,
-        input.eventTitle
     ]);
 }
 export function upsertSearchDocument(db: SqliteDatabaseInput, input: SearchDocumentInput): void {
@@ -145,30 +130,6 @@ export function backfillSearchDocuments(db: Database.Database): void {
     orm.run(sql`
     insert into search_documents (scope, entity_id, task_id, search_text, updated_at)
     select
-      'bookmark',
-      b.id,
-      b.task_id,
-      trim(
-        coalesce(b.kind, '') || ' ' ||
-        coalesce(b.title, '') || ' ' ||
-        coalesce(b.note, '') || ' ' ||
-        coalesce(t.title, '') || ' ' ||
-        coalesce(e.title, '')
-      ),
-      b.updated_at
-    from bookmarks_current b
-    join tasks_current t on t.id = b.task_id
-    left join timeline_events_view e on e.id = b.event_id
-    where not exists (
-      select 1
-      from search_documents s
-      where s.scope = 'bookmark' and s.entity_id = b.id
-    );
-  `);
-
-    orm.run(sql`
-    insert into search_documents (scope, entity_id, task_id, search_text, updated_at)
-    select
       'evaluation',
       e.task_id || '#' || e.scope_key,
       e.task_id,
@@ -196,29 +157,6 @@ export function backfillSearchDocuments(db: Database.Database): void {
     );
   `);
 
-    orm.run(sql`
-    insert into search_documents (scope, entity_id, task_id, search_text, updated_at)
-    select
-      'playbook',
-      p.id,
-      null,
-      trim(
-        coalesce(p.title, '') || ' ' ||
-        coalesce(p.slug, '') || ' ' ||
-        coalesce(p.status, '') || ' ' ||
-        coalesce(p.when_to_use, '') || ' ' ||
-        coalesce(p.approach, '') || ' ' ||
-        coalesce((select group_concat(tag, ' ') from playbook_tags where playbook_id = p.id), '') || ' ' ||
-        coalesce((select group_concat(content, ' ') from playbook_steps where playbook_id = p.id), '')
-      ),
-      p.updated_at
-    from playbooks_core p
-    where not exists (
-      select 1
-      from search_documents s
-      where s.scope = 'playbook' and s.entity_id = p.id
-    );
-  `);
 }
 function joinSearchTextParts(parts: ReadonlyArray<string | null | undefined>): string {
     return parts

@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { MonitorClient } from "./client.js";
-import { registerTaskLifecycleTools, registerAsyncLifecycleTools, registerEventLoggingTools, registerConversationTools, registerWorkflowTools } from "./tools.js";
+import { registerTaskLifecycleTools, registerAsyncLifecycleTools, registerEventLoggingTools, registerConversationTools, registerWorkflowTools, registerSuggestRuleTool } from "./tools.js";
 export function createMonitorMcpServer(client = new MonitorClient()): McpServer {
     const server = new McpServer({
         name: "monitor-server",
@@ -12,6 +12,7 @@ export function createMonitorMcpServer(client = new MonitorClient()): McpServer 
     registerEventLoggingTools(server, client);
     registerConversationTools(server, client);
     registerWorkflowTools(server, client);
+    registerSuggestRuleTool(server, client);
     return server;
 }
 export async function startMonitorMcpServer(): Promise<void> {

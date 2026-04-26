@@ -1,5 +1,5 @@
 import type React from "react";
-import type { BookmarkRecord, MonitoringTask, TaskDetailResponse } from "../../types.js";
+import type { MonitoringTask, TaskDetailResponse } from "../../types.js";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "../lib/ui/cn.js";
 import { TaskList } from "./TaskList.js";
@@ -7,13 +7,9 @@ import { TaskList } from "./TaskList.js";
 interface NavigationSidebarProps {
   readonly className?: string;
   readonly isConnected: boolean;
-  readonly activeView: "tasks" | "saved";
   readonly onNavigate?: () => void;
-  readonly onChangeView: (view: "tasks" | "saved") => void;
   readonly tasks: readonly MonitoringTask[];
-  readonly bookmarks: readonly BookmarkRecord[];
   readonly taskDisplayTitleCache?: Readonly<Record<string, { readonly title: string; readonly updatedAt: string }>>;
-  readonly selectedTaskBookmarkId: string | null;
   readonly selectedTaskId: string | null;
   readonly taskDetail: TaskDetailResponse | null;
   readonly selectedTaskQuestionCount?: number;
@@ -21,17 +17,16 @@ interface NavigationSidebarProps {
   readonly deletingTaskId: string | null;
   readonly deleteErrorTaskId: string | null;
   readonly onSelectTask: (taskId: string) => void;
-  readonly onSelectBookmark: (bookmark: BookmarkRecord) => void;
-  readonly onDeleteBookmark: (bookmarkId: string) => void;
   readonly onDeleteTask: (taskId: string) => void;
 }
 
-function SidebarLink({ active, to, onClick, icon, label }: {
+function SidebarLink({ active, to, onClick, icon, label, badge }: {
   readonly active: boolean;
   readonly to: string;
   readonly onClick?: () => void;
   readonly icon: React.ReactNode;
   readonly label: string;
+  readonly badge?: React.ReactNode;
 }): React.JSX.Element {
   return (
     <Link
@@ -46,15 +41,17 @@ function SidebarLink({ active, to, onClick, icon, label }: {
     >
       {icon}
       <span>{label}</span>
+      {badge}
     </Link>
   );
 }
 
 export function NavigationSidebar(props: NavigationSidebarProps): React.JSX.Element {
-  const { className, isConnected, activeView, onChangeView, onNavigate, ...taskListProps } = props;
+  const { className, isConnected, onNavigate, ...taskListProps } = props;
 
   const { pathname } = useLocation();
   const isKnowledgePage = pathname.startsWith("/knowledge");
+  const isRulesPage = pathname.startsWith("/rules");
 
   return (
     <nav
@@ -65,9 +62,8 @@ export function NavigationSidebar(props: NavigationSidebarProps): React.JSX.Elem
       <div className="flex shrink-0 flex-col gap-0.5 px-2 py-1.5">
         <SidebarLink
           to="/"
-          active={!isKnowledgePage && activeView === "tasks"}
+          active={!isKnowledgePage && !isRulesPage}
           onClick={() => {
-            onChangeView("tasks");
             onNavigate?.();
           }}
           icon={
@@ -79,20 +75,6 @@ export function NavigationSidebar(props: NavigationSidebarProps): React.JSX.Elem
             </svg>
           }
           label="Tasks"
-        />
-        <SidebarLink
-          to="/"
-          active={!isKnowledgePage && activeView === "saved"}
-          onClick={() => {
-            onChangeView("saved");
-            onNavigate?.();
-          }}
-          icon={
-            <svg fill="none" height="16" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" viewBox="0 0 24 24" width="16">
-              <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
-            </svg>
-          }
-          label="Saved"
         />
         <SidebarLink
           to="/knowledge"
@@ -108,25 +90,36 @@ export function NavigationSidebar(props: NavigationSidebarProps): React.JSX.Elem
           }
           label="Knowledge Base"
         />
+        <SidebarLink
+          to="/rules"
+          active={isRulesPage}
+          onClick={() => onNavigate?.()}
+          icon={
+            <svg fill="none" height="16" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" viewBox="0 0 24 24" width="16">
+              <path d="M9 11l3 3L22 4"/>
+              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+            </svg>
+          }
+          label="Rules"
+        />
       </div>
 
       {/* Divider */}
       <div className="mx-3 shrink-0 border-b border-[var(--border)]" />
 
       {/* Task/Saved list */}
-      {!isKnowledgePage && (
+      {!isKnowledgePage && !isRulesPage && (
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
           <TaskList
             {...taskListProps}
             hideHeader={true}
             hideTabs={true}
             isCollapsed={false}
-            initialView={activeView}
             onToggleCollapse={() => { /* no-op, header hidden */ }}
           />
         </div>
       )}
-      {isKnowledgePage && (
+      {(isKnowledgePage || isRulesPage) && (
         <div className="flex-1" />
       )}
 

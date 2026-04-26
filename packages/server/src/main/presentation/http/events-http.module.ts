@@ -1,31 +1,29 @@
 import { Module, type DynamicModule } from "@nestjs/common";
 import {
-    EventController,
-    IngestAliasController,
-    IngestController,
-    TypedIngestController,
+    EventIngestController,
+    TypedEventIngestController,
 } from "~adapters/http/ingest/index.js";
-import { SearchController } from "~adapters/http/query/index.js";
+import { EventCommandController } from "~adapters/http/command/index.js";
+import { SearchQueryController } from "~adapters/http/query/index.js";
 
 @Module({
     controllers: [
-        EventController,
-        IngestAliasController,
-        IngestController,
-        SearchController,
-        TypedIngestController,
+        EventIngestController,
+        TypedEventIngestController,
+        EventCommandController,
+        SearchQueryController,
     ],
 })
 export class EventsHttpModule {
     static register(
         eventsApplicationModule: DynamicModule,
-        ruleCommandsApplicationModule: DynamicModule,
+        rulesApplicationModule: DynamicModule,
     ): DynamicModule {
         return {
             module: EventsHttpModule,
             imports: [
                 eventsApplicationModule,
-                ruleCommandsApplicationModule,
+                rulesApplicationModule,
             ],
         };
     }

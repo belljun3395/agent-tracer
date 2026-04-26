@@ -1,18 +1,6 @@
 import { defineEventType, optionalArray, optionalNumber, optionalObject, optionalString, requireNumber, requireString } from "./event.type.js";
 
 export const CURATION_EVENT_DEFINITIONS = [
-    defineEventType("bookmark.added", (payload) => {
-        requireString(payload, "task_id");
-        requireString(payload, "bookmark_id");
-        optionalString(payload, "event_id_ref");
-        requireString(payload, "kind");
-        requireString(payload, "title");
-        optionalString(payload, "note");
-        optionalObject(payload, "metadata");
-    }),
-    defineEventType("bookmark.removed", (payload) => {
-        requireString(payload, "bookmark_id");
-    }),
     defineEventType("evaluation.recorded", (payload) => {
         requireString(payload, "task_id");
         requireString(payload, "scope_key");

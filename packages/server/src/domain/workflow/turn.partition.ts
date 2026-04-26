@@ -1,5 +1,5 @@
 import type { TimelineEvent } from "../monitoring/timeline.event.js";
-import { segmentEventsByTurn, filterEventsByTurnRange } from "./segments.js";
+import { segmentEventsByTurn } from "./segments.js";
 
 /**
  * A contiguous range of turn indices the user has chosen to treat as a unit.
@@ -165,29 +165,6 @@ export function setGroupLabel(
 ): TurnPartition {
     const normalized = label === null ? null : label.trim() || null;
     return replaceGroup(partition, groupId, (group) => ({ ...group, label: normalized }), updatedAt);
-}
-
-export function filterEventsByGroup(
-    events: readonly TimelineEvent[],
-    group: TurnGroup,
-): readonly TimelineEvent[] {
-    return filterEventsByTurnRange(events, { from: group.from, to: group.to });
-}
-
-export function scopeKeyForGroup(group: TurnGroup): string {
-    return group.from === group.to ? `turn:${group.from}` : `turns:${group.from}-${group.to}`;
-}
-
-export function scopeLabelForGroup(group: TurnGroup): string {
-    if (group.label && group.label.trim()) return group.label.trim();
-    return group.from === group.to ? `Turn ${group.from}` : `Turns ${group.from}–${group.to}`;
-}
-
-export function findGroupByTurnIndex(
-    partition: TurnPartition,
-    turnIndex: number,
-): TurnGroup | null {
-    return partition.groups.find((g) => turnIndex >= g.from && turnIndex <= g.to) ?? null;
 }
 
 export function countNonPreludeTurns(events: readonly TimelineEvent[]): number {

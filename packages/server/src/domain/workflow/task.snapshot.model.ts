@@ -1,3 +1,4 @@
+
 export interface ReusableTaskSnapshot {
     readonly objective: string;
     readonly originalRequest: string | null;

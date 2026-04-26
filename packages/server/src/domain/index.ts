@@ -22,8 +22,6 @@ export * from "./monitoring/subtype.registry.js";
 // Workflow — domain entities
 export * from "./workflow/task.snapshot.js";
 export * from "./workflow/task.evaluation.js";
-export * from "./workflow/playbook.js";
-export * from "./workflow/briefing.js";
 
 // Workflow — builders
 export * from "./workflow/workflow.context.js";

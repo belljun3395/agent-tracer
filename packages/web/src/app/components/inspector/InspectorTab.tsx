@@ -1,7 +1,7 @@
 import type React from "react";
 import { useEffect, useState } from "react";
 import { getEventEvidence } from "../../../types.js";
-import { buildInspectorEventTitle, evidenceTone, formatEvidenceLevel, type BookmarkRecord, type QuestionGroup, type TaskDetailResponse, type TimelineConnector, type TimelineEventRecord, type TodoGroup } from "../../../types.js";
+import { buildInspectorEventTitle, evidenceTone, formatEvidenceLevel, type QuestionGroup, type TaskDetailResponse, type TimelineConnector, type TimelineEventRecord, type TodoGroup } from "../../../types.js";
 import { Badge } from "../ui/Badge.js";
 import { Button } from "../ui/Button.js";
 import { QuestionGroupSection } from "./QuestionGroupSection.js";
@@ -21,6 +21,7 @@ import {
     InspectorHeaderCard
 } from "./InspectorDetails.js";
 import { inspectorHelpText } from "./helpText.js";
+import { CopyRulePromptButton } from "../../features/turns/CopyRulePromptButton.js";
 
 /**
  * True when a tool.used event (or agent.activity.logged mcp_call) was recorded
@@ -147,15 +148,11 @@ export interface InspectorTabProps {
     readonly selectedEventDisplayTitle: string | null;
     readonly selectedEventDisplayTitleOverride: string | null;
     readonly canEditSelectedEventTitle: boolean;
-    readonly selectedTaskBookmark?: BookmarkRecord | null;
-    readonly selectedEventBookmark?: BookmarkRecord | null;
     readonly eventTime: string | null;
     readonly questionGroups: readonly QuestionGroup[];
     readonly todoGroups: readonly TodoGroup[];
     readonly relatedEvents: readonly TimelineEventRecord[];
     readonly selectedRuleId: string | null;
-    readonly onCreateTaskBookmark: () => void;
-    readonly onCreateEventBookmark: () => void;
     readonly onUpdateEventDisplayTitle: (eventId: string, displayTitle: string | null) => Promise<void>;
     readonly onSelectRule: (ruleId: string | null) => void;
     readonly onOpenTaskWorkspace?: () => void;
@@ -169,15 +166,11 @@ export function InspectorTab({
     selectedEventDisplayTitle,
     selectedEventDisplayTitleOverride,
     canEditSelectedEventTitle,
-    selectedTaskBookmark = null,
-    selectedEventBookmark = null,
     eventTime,
     questionGroups,
     todoGroups,
     relatedEvents,
     selectedRuleId,
-    onCreateTaskBookmark,
-    onCreateEventBookmark,
     onUpdateEventDisplayTitle,
     onSelectRule,
     onOpenTaskWorkspace,
@@ -246,12 +239,6 @@ export function InspectorTab({
         <div className="px-4 pt-4">
           <InspectorHeaderCard actions={(<>
                 <div className="flex flex-wrap items-center gap-2">
-          <Button className="h-7 rounded-[var(--radius-md)] px-2.5 text-[0.72rem] font-semibold shadow-none" onClick={onCreateTaskBookmark} size="sm" type="button" variant="ghost">
-                  {selectedTaskBookmark ? "Task Saved" : "Save Task"}
-                  </Button>
-                  {selectedEvent && (<Button className="h-7 rounded-[var(--radius-md)] px-2.5 text-[0.72rem] font-semibold shadow-none" onClick={onCreateEventBookmark} size="sm" type="button" variant="ghost">
-                      {selectedEventBookmark ? "Card Saved" : "Save Card"}
-                    </Button>)}
                   {selectedEvent && canEditSelectedEventTitle && !isEditingEventTitle && (<Button className="h-7 rounded-[var(--radius-md)] px-2.5 text-[0.72rem] font-semibold shadow-none" onClick={() => {
                     setEventTitleDraft(selectedEventDisplayTitle ?? "");
                     setEventTitleError(null);
@@ -262,6 +249,14 @@ export function InspectorTab({
                   {selectedEvent && canEditSelectedEventTitle && selectedEventDisplayTitleOverride && !isEditingEventTitle && (<Button className="h-7 rounded-[var(--radius-md)] px-2.5 text-[0.72rem] font-semibold shadow-none" onClick={() => { void handleResetEventTitle(); }} size="sm" type="button" variant="ghost">
                       Reset Title
                     </Button>)}
+                  {selectedEvent && selectedEvent.kind === "user.message" && !isEditingEventTitle && (<CopyRulePromptButton
+                      source={{
+                          kind: "user-message",
+                          text: selectedEvent.body ?? selectedEvent.title,
+                          occurredAt: selectedEvent.createdAt,
+                          taskId: selectedEvent.taskId,
+                      }}
+                  />)}
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                 {selectedConnector ? (<Badge tone="neutral" size="xs" className="uppercase tracking-[0.06em]">
@@ -365,7 +360,9 @@ export function InspectorTab({
                 const group = tId ? todoGroups.find((g) => g.todoId === tId) : null;
                 return group ? <TodoGroupSection group={group}/> : null;
             })()}
-            {selectedEvent.kind === "user.message" && <DetailCaptureInfo event={selectedEvent}/>}
+            {selectedEvent.kind === "user.message" && (
+                <DetailCaptureInfo event={selectedEvent}/>
+            )}
             {selectedEvent.kind === "terminal.command" && formatCommandAnalysis(selectedEvent.metadata["commandAnalysis"]) && (
                 <DetailSection label="Command Analysis" helpText="Parsed shell structure, command intent, targets, and effect inferred from the terminal command." mono value={formatCommandAnalysis(selectedEvent.metadata["commandAnalysis"]) ?? ""}/>
             )}

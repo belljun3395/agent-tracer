@@ -1,20 +1,20 @@
 import { Module, type DynamicModule } from "@nestjs/common";
 import {
-    PlaybookWriteController,
-    TaskEvaluationWriteController,
+    EvaluationIngestController,
+    WorkflowIngestController,
 } from "~adapters/http/ingest/index.js";
+import { EvaluationCommandController } from "~adapters/http/command/index.js";
 import {
-    PlaybookController,
     TaskEvaluationController,
     WorkflowController,
 } from "~adapters/http/query/index.js";
 
 @Module({
     controllers: [
-        PlaybookController,
-        PlaybookWriteController,
+        EvaluationIngestController,
+        WorkflowIngestController,
+        EvaluationCommandController,
         TaskEvaluationController,
-        TaskEvaluationWriteController,
         WorkflowController,
     ],
 })

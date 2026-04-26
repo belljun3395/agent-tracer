@@ -1,10 +1,8 @@
 import path from "node:path";
 import { normalizeWorkspacePath } from "~domain/index.js";
-import { SaveBookmarkUseCase } from "~application/bookmarks/index.js";
 import { LogEventUseCase } from "~application/events/index.js";
 import {
     createSqliteDatabaseContext,
-    SqliteBookmarkRepository,
     SqliteEventRepository,
     SqliteSessionRepository,
     SqliteTaskRepository,
@@ -19,12 +17,10 @@ const notifier: INotificationPublisher = { publish: () => { } };
 const tasks = new SqliteTaskRepository(databaseContext.db);
 const sessions = new SqliteSessionRepository(databaseContext.db);
 const events = new SqliteEventRepository(databaseContext.db);
-const bookmarks = new SqliteBookmarkRepository(databaseContext.db);
 const taskLifecycle = new TaskLifecycleService(tasks, sessions, events, notifier);
 const logEvent = new LogEventUseCase(tasks, events, notifier);
 const startTask = new StartTaskUseCase(taskLifecycle);
 const completeTask = new CompleteTaskUseCase(taskLifecycle);
-const saveBookmark = new SaveBookmarkUseCase(tasks, events, bookmarks, notifier);
 
 try {
     await seedDashboardTask();
@@ -105,14 +101,14 @@ async function seedCoordinationTask(): Promise<void> {
     const userRequestId = firstEventId(await logEvent.execute({
         taskId, sessionId, kind: "user.message", lane: "user",
         title: "Show a coordination-lane example",
-        body: "Need one todo-centric timeline that shows skill use, MCP calls, delegation, handoff, action, verify, search, and bookmark.",
+        body: "Need one todo-centric timeline that shows skill use, MCP calls, delegation, handoff, action, verify, and search.",
         metadata: { messageId: "seed-coordination-flow-1", captureMode: "raw", source: "seed-script", phase: "initial" }
     }), "coordination user message");
 
     const todoAddedId = firstEventId(await logEvent.execute({
         taskId, sessionId, kind: "todo.logged", lane: "todos",
         title: "Add seeded coordination flow",
-        body: "Create one todo that can be traced from the user request to a follow-up bookmark.",
+        body: "Create one todo that can be traced from the user request to follow-up evidence.",
         parentEventId: userRequestId, relationType: "caused_by",
         relationLabel: "request created todo",
         relationExplanation: "The user request directly created the todo for the coordination demo.",
@@ -151,7 +147,7 @@ async function seedCoordinationTask(): Promise<void> {
     const planEventId = firstEventId(await logEvent.execute({
         taskId, sessionId, kind: "plan.logged", lane: "planning",
         title: "Plan coordination seed journey",
-        body: "Map one todo through skill use, MCP exploration, delegation, implementation, verification, search, and bookmark.",
+        body: "Map one todo through skill use, MCP exploration, delegation, implementation, verification, and search.",
         parentEventId: mcpCallId, relationType: "implements",
         relationLabel: "seed plan drafted",
         relationExplanation: "The plan turns exploration results into a concrete seed journey.",
@@ -182,7 +178,7 @@ async function seedCoordinationTask(): Promise<void> {
     const verifyId = firstEventId(await logEvent.execute({
         taskId, sessionId, kind: "verification.logged", lane: "implementation",
         title: "Verify seeded coordination flow",
-        body: "Confirmed the seeded task exposes coordination chips, connector explanations, and a bookmarkable follow-up event.",
+        body: "Confirmed the seeded task exposes coordination chips, connector explanations, and follow-up evidence.",
         parentEventId: actionId, relationType: "verifies",
         relationLabel: "seed verified",
         relationExplanation: "Verification checks that the example produces the intended coordination narrative in the UI.",
@@ -192,34 +188,29 @@ async function seedCoordinationTask(): Promise<void> {
 
     const searchId = firstEventId(await logEvent.execute({
         taskId, sessionId, kind: "agent.activity.logged", lane: "coordination",
-        title: "Searched saved cards for relationType",
+        title: "Searched events for relationType",
         parentEventId: verifyId, relationType: "relates_to",
         relationLabel: "follow-up search",
-        relationExplanation: "After verification, saved cards are searched to confirm the relation metadata stays discoverable.",
+        relationExplanation: "After verification, events are searched to confirm the relation metadata stays discoverable.",
         metadata: { activityType: "search" }
     }), "coordination search");
 
-    const bookmarkEventId = firstEventId(await logEvent.execute({
+    const followUpEventId = firstEventId(await logEvent.execute({
         taskId, sessionId, kind: "agent.activity.logged", lane: "coordination",
-        title: "Saved task for follow-up",
+        title: "Recorded follow-up evidence",
         parentEventId: searchId, relationType: "completes",
-        relationLabel: "follow-up saved",
-        relationExplanation: "The verified example is bookmarked so the team can return to this flow during future UI reviews.",
-        metadata: { activityType: "bookmark" }
-    }), "coordination bookmark");
-
-    await saveBookmark.execute({
-        taskId, eventId: bookmarkEventId, title: "Saved task for follow-up",
-        note: "Use this bookmark to demo how a coordination event can become a saved follow-up."
-    });
+        relationLabel: "follow-up recorded",
+        relationExplanation: "The verified example records the follow-up evidence needed for future UI reviews.",
+        metadata: { activityType: "agent_step" }
+    }), "coordination follow-up");
 
     firstEventId(await logEvent.execute({
         taskId, sessionId, kind: "todo.logged", lane: "todos",
         title: "Seeded coordination flow ready",
         body: "The demo now shows one todo that can be traced from the user request to a saved follow-up.",
-        parentEventId: bookmarkEventId, relationType: "completes",
+        parentEventId: followUpEventId, relationType: "completes",
         relationLabel: "todo completed",
-        relationExplanation: "The todo is completed only after the example is verified and bookmarked.",
+        relationExplanation: "The todo is completed only after the example is verified and the follow-up evidence is recorded.",
         metadata: { todoId: "todo:card-connection", todoState: "completed", sequence: 2 }
     }), "coordination todo completed");
 

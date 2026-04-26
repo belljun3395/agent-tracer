@@ -8,12 +8,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { SqliteDatabaseContext } from "~adapters/persistence/sqlite/index.js";
 import { DatabaseModule } from "../database/database.module.js";
 import { SQLITE_DATABASE_CONTEXT_TOKEN } from "../database/database.provider.js";
-import { BOOKMARKS_APPLICATION_EXPORTS } from "./bookmarks.providers.js";
-import { BookmarksApplicationModule } from "./bookmarks-application.module.js";
+import { CONFIG_APPLICATION_EXPORTS } from "./config.providers.js";
+import { ConfigApplicationModule } from "./config-application.module.js";
 import { EVENTS_APPLICATION_EXPORTS } from "./events.providers.js";
 import { EventsApplicationModule } from "./events-application.module.js";
-import { RULE_COMMANDS_APPLICATION_EXPORTS } from "./rule-commands.providers.js";
-import { RuleCommandsApplicationModule } from "./rule-commands-application.module.js";
+import { RULES_APPLICATION_EXPORTS } from "./rules.providers.js";
+import { RulesApplicationModule } from "./rules-application.module.js";
 import { SESSIONS_APPLICATION_EXPORTS } from "./sessions.providers.js";
 import { SessionsApplicationModule } from "./sessions-application.module.js";
 import { SYSTEM_APPLICATION_EXPORTS } from "./system.providers.js";
@@ -22,6 +22,10 @@ import { TASK_APPLICATION_EXPORTS } from "./tasks.providers.js";
 import { TasksApplicationModule } from "./tasks-application.module.js";
 import { TURN_PARTITIONS_APPLICATION_EXPORTS } from "./turn-partitions.providers.js";
 import { TurnPartitionsApplicationModule } from "./turn-partitions-application.module.js";
+import { TURNS_APPLICATION_EXPORTS } from "./turns.providers.js";
+import { TurnsApplicationModule } from "./turns-application.module.js";
+import { VERIFICATION_APPLICATION_EXPORTS } from "./verification.providers.js";
+import { VerificationApplicationModule } from "./verification-application.module.js";
 import { WORKFLOW_APPLICATION_EXPORTS } from "./workflow.providers.js";
 import { WorkflowApplicationModule } from "./workflow-application.module.js";
 
@@ -32,10 +36,10 @@ class FeatureApplicationSmokeHostModule {}
 
 const featureApplicationModules = [
     {
-        module: BookmarksApplicationModule,
-        name: "bookmarks",
-        register: (databaseModule: DynamicModule) => BookmarksApplicationModule.register(databaseModule),
-        exportedProviders: BOOKMARKS_APPLICATION_EXPORTS,
+        module: ConfigApplicationModule,
+        name: "config",
+        register: (databaseModule: DynamicModule) => ConfigApplicationModule.register(databaseModule),
+        exportedProviders: CONFIG_APPLICATION_EXPORTS,
     },
     {
         module: EventsApplicationModule,
@@ -44,10 +48,11 @@ const featureApplicationModules = [
         exportedProviders: EVENTS_APPLICATION_EXPORTS,
     },
     {
-        module: RuleCommandsApplicationModule,
-        name: "rule commands",
-        register: (databaseModule: DynamicModule) => RuleCommandsApplicationModule.register(databaseModule),
-        exportedProviders: RULE_COMMANDS_APPLICATION_EXPORTS,
+        module: RulesApplicationModule,
+        name: "rules",
+        register: (databaseModule: DynamicModule) =>
+            RulesApplicationModule.register(databaseModule, VerificationApplicationModule.register(databaseModule)),
+        exportedProviders: RULES_APPLICATION_EXPORTS,
     },
     {
         module: SessionsApplicationModule,
@@ -75,6 +80,18 @@ const featureApplicationModules = [
         exportedProviders: TURN_PARTITIONS_APPLICATION_EXPORTS,
     },
     {
+        module: TurnsApplicationModule,
+        name: "turns",
+        register: (databaseModule: DynamicModule) => TurnsApplicationModule.register(databaseModule),
+        exportedProviders: TURNS_APPLICATION_EXPORTS,
+    },
+    {
+        module: VerificationApplicationModule,
+        name: "verification",
+        register: (databaseModule: DynamicModule) => VerificationApplicationModule.register(databaseModule),
+        exportedProviders: VERIFICATION_APPLICATION_EXPORTS,
+    },
+    {
         module: WorkflowApplicationModule,
         name: "workflow",
         register: (databaseModule: DynamicModule) => WorkflowApplicationModule.register(databaseModule),
@@ -87,10 +104,14 @@ function providerName(token: ProviderToken): string {
     return String(token);
 }
 
-function createSmokeHostModule(featureModule: DynamicModule, providers: readonly ProviderToken[]): DynamicModule {
+function createSmokeHostModule(
+    databaseModule: DynamicModule,
+    featureModule: DynamicModule,
+    providers: readonly ProviderToken[],
+): DynamicModule {
     return {
         module: FeatureApplicationSmokeHostModule,
-        imports: [featureModule],
+        imports: [databaseModule, featureModule],
         providers: [
             {
                 provide: SMOKE_PROVIDERS_TOKEN,
@@ -121,14 +142,19 @@ describe("feature application modules", () => {
 
     it("exports feature-owned providers through Nest DI", async () => {
         vi.spyOn(console, "warn").mockImplementation(() => {});
+        vi.spyOn(console, "error").mockImplementation(() => {});
 
         for (const featureModule of featureApplicationModules) {
             const tempDir = await mkdtemp(path.join(os.tmpdir(), "agent-tracer-application-modules-"));
             tempDirs.push(tempDir);
             const databaseModule = DatabaseModule.forRoot({ databasePath: path.join(tempDir, "monitor.sqlite") });
             const context = await NestFactory.createApplicationContext(
-                createSmokeHostModule(featureModule.register(databaseModule), featureModule.exportedProviders),
-                { logger: false },
+                createSmokeHostModule(
+                    databaseModule,
+                    featureModule.register(databaseModule),
+                    featureModule.exportedProviders,
+                ),
+                { logger: false, abortOnError: false },
             );
             contexts.push(context);
             const resolvedProviders = context.get<unknown[]>(SMOKE_PROVIDERS_TOKEN);

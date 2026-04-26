@@ -4,7 +4,6 @@ import type { TaskId } from "../../../types.js";
 import { EventId } from "../../../types.js";
 import type { MonitoringTask } from "../../../types.js";
 import {
-    createBookmark,
     postRuleAction,
     updateEventDisplayTitle,
     updateTaskStatus,
@@ -15,7 +14,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import type { WorkspaceData } from "./useWorkspaceData.js";
 
 export function useWorkspaceMutations(taskId: string, data: WorkspaceData) {
-    const { selectedTaskDetail, taskObservability, refreshTaskObservability, selectedEvent, selectedEventDisplayTitle } = data;
+    const { selectedTaskDetail, taskObservability, refreshTaskObservability } = data;
 
     const setTitleError = useEditStore((s) => s.setTitleError);
     const finishEditing = useEditStore((s) => s.finishEditing);
@@ -92,21 +91,6 @@ export function useWorkspaceMutations(taskId: string, data: WorkspaceData) {
         [selectedTaskDetail?.task, setTitleError, finishEditing, setSavingTitle, queryClient, taskId]
     );
 
-    const handleCreateTaskBookmark = useCallback(async (): Promise<void> => {
-        await createBookmark({ taskId: taskId as TaskId });
-        await queryClient.invalidateQueries({ queryKey: monitorQueryKeys.bookmarks() });
-    }, [taskId, queryClient]);
-
-    const handleCreateEventBookmark = useCallback(async (): Promise<void> => {
-        if (!selectedEvent) return;
-        await createBookmark({
-            taskId: taskId as TaskId,
-            eventId: EventId(selectedEvent.id),
-            title: selectedEventDisplayTitle ?? selectedEvent.title,
-        });
-        await queryClient.invalidateQueries({ queryKey: monitorQueryKeys.bookmarks() });
-    }, [taskId, selectedEvent, selectedEventDisplayTitle, queryClient]);
-
     const handleUpdateEventDisplayTitle = useCallback(
         async (eventId: string, displayTitle: string | null): Promise<void> => {
             await updateEventDisplayTitle(EventId(eventId), displayTitle ?? "");
@@ -119,8 +103,6 @@ export function useWorkspaceMutations(taskId: string, data: WorkspaceData) {
         handleRuleReview,
         handleTaskStatusChange,
         handleTaskTitleSubmit,
-        handleCreateTaskBookmark,
-        handleCreateEventBookmark,
         handleUpdateEventDisplayTitle,
     };
 }

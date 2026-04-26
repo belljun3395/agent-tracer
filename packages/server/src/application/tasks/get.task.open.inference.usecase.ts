@@ -1,4 +1,4 @@
-import { buildOpenInferenceTaskExport } from "../interop/index.js";
+import { buildOpenInferenceTaskExport } from "~domain/interop/index.js";
 import type { ITaskRepository, IEventRepository } from "../ports/index.js";
 
 export class GetTaskOpenInferenceUseCase {

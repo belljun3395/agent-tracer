@@ -17,6 +17,7 @@ export class LogEventUseCase {
         private readonly taskRepo: ITaskRepository,
         private readonly eventRepo: IEventRepository,
         private readonly notifier: INotificationPublisher,
+        private readonly turnEvaluationHook?: { onEventLogged(event: TimelineEvent): Promise<void> },
     ) {}
 
     async execute(input: BaseIngestEventInput): Promise<LogEventResult> {
@@ -41,6 +42,10 @@ export class LogEventUseCase {
                     ...(input.sessionId ? { sessionId: input.sessionId } : {}),
                 }));
             }
+        }
+
+        if (this.turnEvaluationHook) {
+            await this.turnEvaluationHook.onEventLogged(primaryEvent);
         }
 
         const allEvents = [primaryEvent, ...derivedEvents].map((e) => ({ id: e.id, kind: e.kind }));

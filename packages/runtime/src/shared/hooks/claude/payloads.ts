@@ -8,33 +8,13 @@
  */
 import {
     readBoolean,
+    type ReaderResult,
     readOptionalString,
     readRecord,
     readString,
     readStringArray,
-    type ReaderResult,
 } from "~shared/hook-runtime/validator.js";
 import type {JsonObject} from "~shared/util/utils.type.js";
-
-export type SessionStartSource = "startup" | "resume" | "clear" | "compact";
-export type SessionEndReason = "clear" | "resume" | "logout" | "prompt_input_exit" | "bypass_permissions_disabled" | "other";
-export type CompactTrigger = "manual" | "auto";
-export type StopFailureErrorType =
-    | "rate_limit"
-    | "authentication_failed"
-    | "billing_error"
-    | "invalid_request"
-    | "server_error"
-    | "max_output_tokens"
-    | "unknown";
-export type ConfigSource = "user_settings" | "project_settings" | "local_settings" | "policy_settings" | "skills";
-export type NotificationType = "permission_prompt" | "idle_prompt" | "auth_success" | "elicitation_dialog";
-
-export interface ClaudeAgentContext {
-    readonly agentId: string | undefined;
-    readonly agentType: string | undefined;
-}
-
 export interface ClaudeSessionContextBase {
     readonly payload: JsonObject;
     readonly sessionId: string;
@@ -144,18 +124,6 @@ export interface ConfigChangePayload extends ClaudeSessionContextBase {
 // -----------------------------------------------------------------------------
 // Readers
 // -----------------------------------------------------------------------------
-
-export function readAgentContext(raw: JsonObject): ClaudeAgentContext {
-    return {
-        agentId: readOptionalString(raw, "agent_id"),
-        agentType: readOptionalString(raw, "agent_type"),
-    };
-}
-
-export function readClaudeHookSource(raw: JsonObject): string {
-    return readString(raw, "hook_source");
-}
-
 function readSessionBase(raw: JsonObject): Omit<ClaudeSessionContextBase, "payload"> {
     return {
         sessionId: readString(raw, "session_id"),

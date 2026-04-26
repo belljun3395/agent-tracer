@@ -1,4 +1,7 @@
 import { createStore, type StoreApi } from "zustand";
+import type { VerdictFilter } from "../../types/turn.js";
+
+export type ViewMode = "turns" | "events";
 
 // ---- Selection store -----------------------------------------------------
 
@@ -8,6 +11,9 @@ export interface SelectionState {
     readonly selectedConnectorKey: string | null;
     readonly selectedRuleId: string | null;
     readonly selectedTag: string | null;
+    readonly selectedTurnId: string | null;
+    readonly viewMode: ViewMode;
+    readonly verdictFilter: VerdictFilter;
     readonly showRuleGapsOnly: boolean;
     readonly isConnected: boolean;
     readonly deletingTaskId: string | null;
@@ -20,6 +26,9 @@ export interface SelectionActions {
     selectConnector: (key: string | null) => void;
     selectRule: (ruleId: string | null) => void;
     selectTag: (tag: string | null) => void;
+    selectTurn: (turnId: string | null) => void;
+    setViewMode: (mode: ViewMode) => void;
+    setVerdictFilter: (filter: VerdictFilter) => void;
     setShowRuleGapsOnly: (show: boolean) => void;
     resetFilters: () => void;
     setConnected: (connected: boolean) => void;
@@ -38,6 +47,9 @@ export function createSelectionStore(): SelectionStore {
         selectedConnectorKey: null,
         selectedRuleId: null,
         selectedTag: null,
+        selectedTurnId: null,
+        viewMode: "events",
+        verdictFilter: "all",
         showRuleGapsOnly: false,
         isConnected: false,
         deletingTaskId: null,
@@ -47,6 +59,9 @@ export function createSelectionStore(): SelectionStore {
         selectConnector: (selectedConnectorKey) => set({ selectedConnectorKey }),
         selectRule: (selectedRuleId) => set({ selectedRuleId }),
         selectTag: (selectedTag) => set({ selectedTag }),
+        selectTurn: (selectedTurnId) => set({ selectedTurnId }),
+        setViewMode: (viewMode) => set({ viewMode }),
+        setVerdictFilter: (verdictFilter) => set({ verdictFilter }),
         setShowRuleGapsOnly: (showRuleGapsOnly) => set({ showRuleGapsOnly }),
         resetFilters: () =>
             set({ selectedRuleId: null, selectedTag: null, showRuleGapsOnly: false }),

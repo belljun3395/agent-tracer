@@ -5,7 +5,6 @@ import type { TimelineEventSemantic } from "./classification.js";
 export type TaskId = string & { readonly __brand: 'TaskId' }
 export type SessionId = string & { readonly __brand: 'SessionId' }
 export type EventId = string & { readonly __brand: 'EventId' }
-export type BookmarkId = string & { readonly __brand: 'BookmarkId' }
 export type RuleId = string & { readonly __brand: 'RuleId' }
 export type GoalId = string & { readonly __brand: 'GoalId' }
 export type HandoffId = string & { readonly __brand: 'HandoffId' }
@@ -23,7 +22,6 @@ function brand<T extends string>(value: string): string & { readonly __brand: T 
 export const TaskId = (value: string): TaskId => brand<'TaskId'>(value)
 export const SessionId = (value: string): SessionId => brand<'SessionId'>(value)
 export const EventId = (value: string): EventId => brand<'EventId'>(value)
-export const BookmarkId = (value: string): BookmarkId => brand<'BookmarkId'>(value)
 export const RuleId = (value: string): RuleId => brand<'RuleId'>(value)
 export const GoalId = (value: string): GoalId => brand<'GoalId'>(value)
 export const HandoffId = (value: string): HandoffId => brand<'HandoffId'>(value)
@@ -38,11 +36,33 @@ export type TimelineLane =
   | 'user' | 'exploration' | 'planning' | 'implementation' | 'rule'
   | 'questions' | 'todos' | 'background' | 'coordination' | 'telemetry'
 
-export interface RuleCommandRecord {
+export type RuleScope = 'global' | 'task'
+export type RuleSource = 'human' | 'agent'
+export type RuleSeverity = 'info' | 'warn' | 'block'
+
+export type RuleTriggerOn = 'user' | 'assistant'
+
+export interface RuleTriggerRecord {
+  readonly phrases: readonly string[]
+}
+
+export interface RuleExpectationRecord {
+  readonly tool?: string
+  readonly commandMatches?: readonly string[]
+  readonly pattern?: string
+}
+
+export interface RuleRecord {
   readonly id: string
-  readonly pattern: string
-  readonly label: string
+  readonly name: string
+  readonly trigger?: RuleTriggerRecord
+  readonly triggerOn?: RuleTriggerOn
+  readonly expect: RuleExpectationRecord
+  readonly scope: RuleScope
   readonly taskId?: string
+  readonly source: RuleSource
+  readonly severity: RuleSeverity
+  readonly rationale?: string
   readonly createdAt: string
 }
 

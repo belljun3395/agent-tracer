@@ -1,16 +1,12 @@
 import type { TaskId } from './monitoring.js'
 
-export type WorkflowLayer = 'snapshot' | 'playbook'
-export type PlaybookStatus = 'draft' | 'active' | 'archived'
-export type BriefingPurpose = 'continue' | 'handoff' | 'review' | 'reference'
-export type BriefingFormat = 'plain' | 'markdown' | 'xml' | 'system-prompt' | 'prompt'
+export type WorkflowLayer = 'snapshot'
 export type QuestionPhase = 'asked' | 'answered' | 'concluded'
 export type TodoState = 'added' | 'in_progress' | 'completed' | 'cancelled'
 
 export interface QualitySignals {
   readonly reuseCount: number
   readonly lastReusedAt: string | null
-  readonly briefingCopyCount: number
   readonly manualRating: 'good' | 'skip'
 }
 
@@ -69,49 +65,6 @@ export interface TaskEvaluation extends WorkflowEvaluationData {
   readonly turnIndex: number | null
   readonly rating: 'good' | 'skip'
   readonly evaluatedAt: string
-}
-
-export interface PlaybookSummary {
-  readonly layer: 'playbook'
-  readonly id: string
-  readonly title: string
-  readonly slug: string
-  readonly status: PlaybookStatus
-  readonly whenToUse: string | null
-  readonly tags: readonly string[]
-  readonly useCount: number
-  readonly lastUsedAt: string | null
-  readonly sourceSnapshotIds: readonly string[]
-  readonly createdAt: string
-  readonly updatedAt: string
-}
-
-export interface PlaybookVariant {
-  readonly label: string
-  readonly description: string
-  readonly differenceFromBase: string
-}
-
-export interface PlaybookRecord extends PlaybookSummary {
-  readonly prerequisites: readonly string[]
-  readonly approach: string | null
-  readonly keySteps: readonly string[]
-  readonly watchouts: readonly string[]
-  readonly antiPatterns: readonly string[]
-  readonly failureModes: readonly string[]
-  readonly variants: readonly PlaybookVariant[]
-  readonly relatedPlaybookIds: readonly string[]
-  readonly searchText: string | null
-}
-
-export interface SavedBriefing {
-  readonly id: string
-  readonly taskId: TaskId
-  readonly generatedAt: string
-  readonly purpose: BriefingPurpose
-  readonly format: BriefingFormat
-  readonly memo: string | null
-  readonly content: string
 }
 
 export interface ReusableTaskSnapshot {

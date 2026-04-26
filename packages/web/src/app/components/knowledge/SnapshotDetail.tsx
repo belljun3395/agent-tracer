@@ -1,16 +1,14 @@
 import type React from "react";
 import type { WorkflowContentRecord } from "../../../io.js";
 import { Badge } from "../ui/Badge.js";
-import { Button } from "../ui/Button.js";
 import { Eyebrow } from "../ui/Eyebrow.js";
 import { SnapshotField, SnapshotList } from "./primitives.js";
 
 interface SnapshotDetailProps {
     readonly content: WorkflowContentRecord;
-    readonly onPromote: () => void;
 }
 
-export function SnapshotDetail({ content, onPromote }: SnapshotDetailProps): React.JSX.Element {
+export function SnapshotDetail({ content }: SnapshotDetailProps): React.JSX.Element {
     const snapshot = content.workflowSnapshot;
     return (
         <div className="border-t border-[var(--border)] bg-[var(--surface-2)] px-4 py-2.5">
@@ -27,8 +25,6 @@ export function SnapshotDetail({ content, onPromote }: SnapshotDetailProps): Rea
                     {content.scopeKind === "turn" ? <Badge tone="neutral" size="xs">{content.scopeLabel}</Badge> : null}
                     <Badge tone="accent" size="xs">v{content.version}</Badge>
                     <Badge tone="neutral" size="xs">reuse {content.qualitySignals.reuseCount}</Badge>
-                    {content.promotedTo ? <Badge tone="warning" size="xs">Promoted</Badge> : null}
-                    <Button size="sm" onClick={onPromote}>Promote to Playbook</Button>
                 </div>
             </div>
 

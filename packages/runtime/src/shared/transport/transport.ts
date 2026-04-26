@@ -1,6 +1,6 @@
 import type {RuntimeIngestEvent} from "~shared/events/kinds.js";
 import {resolveIngestEndpoint} from "~shared/routing/ingest.routing.js";
-import {withTags} from "~shared/semantics/tags.js";
+
 export type {RuntimeSessionEnsureResult} from "~shared/transport/transport.type.js";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -24,21 +24,6 @@ function resolveApiBase(): string {
     const host = (process.env.MONITOR_PUBLIC_HOST ?? "127.0.0.1").trim();
     return `http://${host}:${port}`;
 }
-
-/**
- * Reads and accumulates the full stdin stream, then parses it as JSON.
- * Returns an empty object if stdin is empty or the parsed value is not a plain record.
- */
-export async function readStdinJson(): Promise<Record<string, unknown>> {
-    let raw = "";
-    for await (const chunk of process.stdin) {
-        raw += String(chunk);
-    }
-    if (!raw.trim()) return {};
-    const parsed = JSON.parse(raw) as unknown;
-    return isRecord(parsed) ? parsed : {};
-}
-
 /**
  * POSTs a JSON body to the monitor API at the resolved base URL.
  * Enforces a 2-second timeout. Throws on network error or non-2xx response.
@@ -72,11 +57,4 @@ export async function postEvent(events: RuntimeIngestEvent[]): Promise<void> {
     await Promise.all(
         [...groups.entries()].map(([endpoint, batch]) => postJson(endpoint, {events: batch})),
     );
-}
-
-/**
- * Applies `withTags` to the event's metadata, then posts it via `postEvent`.
- */
-export async function postTaggedEvent(event: RuntimeIngestEvent): Promise<void> {
-    await postEvent([{...event, metadata: withTags(event.metadata)}]);
 }

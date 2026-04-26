@@ -179,7 +179,7 @@ export function createPorts(seed?: {
             findByTaskId: vi.fn(async (taskId: string) =>
                 events.filter((record) => record.taskId === taskId)),
             updateMetadata: vi.fn(async () => null),
-            search: vi.fn(async () => ({ tasks: [], events: [], bookmarks: [] })),
+            search: vi.fn(async () => ({ tasks: [], events: [] })),
         },
         runtimeBindings: {
             upsert: runtimeBindingsUpsert,
@@ -197,9 +197,7 @@ export function createPorts(seed?: {
             }),
         },
         eventStore: {},
-        bookmarks: {},
         evaluations: {},
-        playbooks: {},
         ruleCommands: {},
         turnPartitions: {},
         notifier,

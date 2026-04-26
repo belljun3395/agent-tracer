@@ -26,7 +26,7 @@ export const LANE_THEME: Partial<Record<TimelineLane, LaneTheme>> & Record<"back
     },
     coordination: {
         label: "Coordination",
-        description: "MCP calls, skill usage, delegation, handoff, search, bookmark activity",
+        description: "MCP calls, skill usage, delegation, handoff, and search activity",
         icon: "/icons/activity.svg",
         toneVar: "--coordination",
         bgVar: "--coordination-bg",

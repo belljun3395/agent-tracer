@@ -1,6 +1,5 @@
 import type { MonitoringSession, MonitoringTask } from "~domain/index.js";
 import type { TimelineEventRecord } from "~application/views/index.js";
-import type { BookmarkRecord } from "../repository/bookmark.repository.js";
 export type MonitorNotification = {
     readonly type: "task.started";
     readonly payload: MonitoringTask;
@@ -27,14 +26,6 @@ export type MonitorNotification = {
 } | {
     readonly type: "event.updated";
     readonly payload: TimelineEventRecord;
-} | {
-    readonly type: "bookmark.saved";
-    readonly payload: BookmarkRecord;
-} | {
-    readonly type: "bookmark.deleted";
-    readonly payload: {
-        bookmarkId: string;
-    };
 } | {
     readonly type: "tasks.purged";
     readonly payload: {

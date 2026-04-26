@@ -161,15 +161,53 @@ async function setupClaude({ targetDir, tracerRoot }) {
   );
 }
 
-async function writeCodexConfig({ targetDir }) {
+async function writeCodexConfig({ targetDir, tracerRoot, monitorBaseUrl }) {
   const codexConfigPath = path.join(targetDir, ".codex", "config.toml");
   const existing = fs.existsSync(codexConfigPath)
     ? await readFile(codexConfigPath, "utf8")
     : "";
 
-  const next = upsertTomlBooleanSetting(existing, "features", "codex_hooks", true);
+  const withHooks = upsertTomlBooleanSetting(existing, "features", "codex_hooks", true);
+  const next = upsertCodexMonitorMcp(withHooks, {
+    nodeCommand: process.execPath,
+    mcpEntry: path.join(tracerRoot, "packages", "server", "dist", "mcp.js"),
+    monitorBaseUrl,
+  });
   await writeFile(codexConfigPath, next, "utf8");
   return codexConfigPath;
+}
+
+function upsertCodexMonitorMcp(raw, { nodeCommand, mcpEntry, monitorBaseUrl }) {
+  const normalized = raw.replace(/\r\n/g, "\n");
+  const lines = normalized.split("\n");
+  const nextLines = [];
+  let skippingMonitorTable = false;
+
+  for (const line of lines) {
+    const tableMatch = line.match(/^\s*\[([^\]]+)\]\s*$/);
+    if (tableMatch) {
+      const tableName = tableMatch[1];
+      skippingMonitorTable = tableName === "mcp_servers.monitor"
+        || tableName.startsWith("mcp_servers.monitor.");
+    }
+
+    if (!skippingMonitorTable) {
+      nextLines.push(line);
+    }
+  }
+
+  const prefix = nextLines.join("\n").replace(/\n*$/g, "");
+  const block = [
+    "[mcp_servers.monitor]",
+    `command = ${tomlString(nodeCommand)}`,
+    `args = [${tomlString(mcpEntry)}]`,
+    "enabled = true",
+    "",
+    "[mcp_servers.monitor.env]",
+    `MONITOR_BASE_URL = ${tomlString(monitorBaseUrl)}`,
+  ].join("\n");
+
+  return `${prefix}${prefix ? "\n\n" : ""}${block}\n`;
 }
 
 function upsertTomlBooleanSetting(raw, tableName, key, value) {
@@ -208,6 +246,10 @@ function upsertTomlBooleanSetting(raw, tableName, key, value) {
 
 function escapeRegExp(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function tomlString(value) {
+  return JSON.stringify(String(value));
 }
 
 function buildCodexHookConfig({ tracerRoot, monitorBaseUrl }) {
@@ -280,7 +322,7 @@ async function setupCodex({ targetDir, tracerRoot, monitorBaseUrl }) {
   const codexHooksPath = path.join(codexDir, "hooks.json");
 
   await mkdir(codexDir, { recursive: true });
-  const codexConfigPath = await writeCodexConfig({ targetDir });
+  const codexConfigPath = await writeCodexConfig({ targetDir, tracerRoot, monitorBaseUrl });
 
   const existingHooks = await readJson(codexHooksPath, {});
   const generatedHooks = buildCodexHookConfig({ tracerRoot, monitorBaseUrl });

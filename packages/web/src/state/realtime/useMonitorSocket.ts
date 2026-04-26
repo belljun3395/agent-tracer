@@ -80,10 +80,6 @@ export function applyMonitorRealtimeInvalidations(
             void client.invalidateQueries({ queryKey: monitorQueryKeys.taskObservability(selectedTaskId) });
             return;
         }
-        case "bookmark.saved":
-        case "bookmark.deleted":
-            void client.invalidateQueries({ queryKey: monitorQueryKeys.bookmarks() });
-            return;
         case "session.started":
         case "session.ended":
             if (!selectedTaskId || message.payload.taskId !== selectedTaskId) return;

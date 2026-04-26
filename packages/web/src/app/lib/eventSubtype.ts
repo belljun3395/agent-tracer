@@ -43,7 +43,6 @@ const SUBTYPE_DEFINITIONS: Record<EventSubtypeKey, {
     skill_use: { label: "Skill use", icon: "✦" },
     delegation: { label: "Delegation", icon: "↪" },
     handoff: { label: "Handoff", icon: "⇢" },
-    bookmark: { label: "Bookmark", icon: "⌂" },
     uncategorized: { label: "Other", icon: "•" }
 };
 const SUBTYPE_ORDER: Record<ExpandableTimelineLane, readonly EventSubtypeKey[]> = {
@@ -62,7 +61,7 @@ const SUBTYPE_ORDER: Record<ExpandableTimelineLane, readonly EventSubtypeKey[]> 
         "rule_check",
         "uncategorized"
     ],
-    coordination: ["mcp_call", "skill_use", "delegation", "handoff", "bookmark", "uncategorized"]
+    coordination: ["mcp_call", "skill_use", "delegation", "handoff", "uncategorized"]
 };
 export function isExpandableLane(lane: TimelineLane): lane is ExpandableTimelineLane {
     return (EXPANDABLE_LANES as readonly string[]).includes(lane);

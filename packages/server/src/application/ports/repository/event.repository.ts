@@ -40,22 +40,9 @@ export interface SearchEventHit {
     readonly kind: MonitoringEventKind;
     readonly createdAt: string;
 }
-export interface SearchBookmarkHit {
-    readonly id: string;
-    readonly bookmarkId: string;
-    readonly taskId: string;
-    readonly eventId?: string;
-    readonly kind: "task" | "event";
-    readonly title: string;
-    readonly note?: string;
-    readonly taskTitle?: string;
-    readonly eventTitle?: string;
-    readonly createdAt: string;
-}
 export interface SearchResults {
     readonly tasks: readonly SearchTaskHit[];
     readonly events: readonly SearchEventHit[];
-    readonly bookmarks: readonly SearchBookmarkHit[];
 }
 export interface IEventRepository {
     insert(input: EventInsertInput): Promise<TimelineEvent>;

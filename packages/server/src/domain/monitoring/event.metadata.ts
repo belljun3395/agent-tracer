@@ -3,44 +3,12 @@ import { type EvidenceLevel, isEvidenceLevel } from "./task.status.js";
 import { isTodoState } from "./event.kind.js";
 import type {
     FileChangeMetadata,
-    RuleGuardMetadata,
     TodoLoggedMetadata,
-    TokenUsageMetadata,
 } from "./event.metadata.type.js";
 
 export type * from "./event.metadata.type.js";
 
 type UnknownMetadata = Record<string, unknown> | undefined;
-
-export function readTokenUsageMetadata(metadata: UnknownMetadata): TokenUsageMetadata {
-    const costUsd = readNumber(metadata, META.costUsd);
-    const durationMs = readNumber(metadata, META.durationMs);
-    const model = readString(metadata, META.model);
-    const promptId = readString(metadata, META.promptId);
-
-    return {
-        inputTokens: readNumber(metadata, META.inputTokens) ?? 0,
-        outputTokens: readNumber(metadata, META.outputTokens) ?? 0,
-        cacheReadTokens: readNumber(metadata, META.cacheReadTokens) ?? 0,
-        cacheCreateTokens: readNumber(metadata, META.cacheCreateTokens) ?? 0,
-        ...(costUsd != null ? { costUsd } : {}),
-        ...(durationMs != null ? { durationMs } : {}),
-        ...(model ? { model } : {}),
-        ...(promptId ? { promptId } : {}),
-    };
-}
-
-export function readRuleGuardMetadata(metadata: UnknownMetadata): RuleGuardMetadata {
-    const outcome = readFirstString(metadata, META.ruleOutcome, "outcome");
-    const status = readFirstString(metadata, META.ruleStatus, "status");
-    const policy = readFirstString(metadata, META.rulePolicy, "policy");
-    return {
-        ...(outcome ? { outcome } : {}),
-        ...(status ? { status } : {}),
-        ...(policy ? { policy } : {}),
-    };
-}
-
 export function readTodoLoggedMetadata(metadata: UnknownMetadata): TodoLoggedMetadata {
     const todoId = readString(metadata, META.todoId);
     const todoState = readString(metadata, META.todoState);
@@ -92,17 +60,6 @@ export function readEvidenceLevel(metadata: UnknownMetadata): EvidenceLevel | un
 export function readFilePaths(metadata: UnknownMetadata): readonly string[] {
     return readStringArray(metadata, META.filePaths);
 }
-
-function readFirstString(metadata: UnknownMetadata, ...keys: readonly string[]): string | undefined {
-    for (const key of keys) {
-        const value = readString(metadata, key);
-        if (value) {
-            return value;
-        }
-    }
-    return undefined;
-}
-
 export function readString(metadata: UnknownMetadata, key: string): string | undefined {
     const value = metadata?.[key];
     return typeof value === "string" ? value : undefined;

@@ -1,10 +1,13 @@
 import type React from "react";
 import { useEffect, useRef } from "react";
-import type { BookmarkSearchHit, SearchResponse } from "../../types.js";
+import type { SearchResponse } from "../../types.js";
 import { Link } from "react-router-dom";
 import { cn } from "../lib/ui/cn.js";
 import { useTheme } from "../lib/useTheme.js";
 import { Button } from "./ui/Button.js";
+import { NotificationsToggle } from "../features/settings/NotificationsToggle.js";
+import { ViewModeToggle } from "./ViewModeToggle.js";
+import { useSelectionStore, useViewMode } from "../../state.js";
 interface TopBarProps {
     readonly isConnected: boolean;
     readonly pendingApprovalCount?: number;
@@ -21,21 +24,23 @@ interface TopBarProps {
     readonly onSearchQueryChange: (value: string) => void;
     readonly onSelectSearchTask: (taskId: string) => void;
     readonly onSelectSearchEvent: (taskId: string, eventId: string) => void;
-    readonly onSelectSearchBookmark: (bookmark: BookmarkSearchHit) => void;
     readonly onRefresh: () => void;
     readonly showFiltersButton?: boolean;
     readonly isFiltersOpen?: boolean;
     readonly filtersButtonRef?: React.RefObject<HTMLButtonElement | null>;
     readonly onToggleFilters?: () => void;
-    readonly onToggleRules?: () => void;
-    readonly isRulesOpen?: boolean;
+    readonly selectedTaskId?: string | null;
+    readonly onOpenTaskRules?: (taskId: string) => void;
+    readonly onViewModeChange?: () => void;
+    readonly isTaskRulesOpen?: boolean;
 }
-export function TopBar({ isConnected, pendingApprovalCount = 0, blockedTaskCount = 0, isNavigationOpen, onOpenApprovalQueue, onToggleNavigation, searchQuery, searchResults, isSearching, selectedTaskTitle, taskScopeEnabled, onTaskScopeToggle, onSearchQueryChange, onSelectSearchTask, onSelectSearchEvent, onSelectSearchBookmark, onRefresh, showFiltersButton = false, isFiltersOpen = false, filtersButtonRef, onToggleFilters, onToggleRules, isRulesOpen = false }: TopBarProps): React.JSX.Element {
+export function TopBar({ isConnected, pendingApprovalCount = 0, blockedTaskCount = 0, isNavigationOpen, onOpenApprovalQueue, onToggleNavigation, searchQuery, searchResults, isSearching, selectedTaskTitle, taskScopeEnabled, onTaskScopeToggle, onSearchQueryChange, onSelectSearchTask, onSelectSearchEvent, onRefresh, showFiltersButton = false, isFiltersOpen = false, filtersButtonRef, onToggleFilters, selectedTaskId, onOpenTaskRules, onViewModeChange, isTaskRulesOpen = false }: TopBarProps): React.JSX.Element {
     const { theme, toggle: toggleTheme } = useTheme();
     const searchRef = useRef<HTMLInputElement>(null);
+    const viewMode = useViewMode();
+    const setViewMode = useSelectionStore((s) => s.setViewMode);
     const totalResults = (searchResults?.tasks.length ?? 0)
-        + (searchResults?.events.length ?? 0)
-        + (searchResults?.bookmarks.length ?? 0);
+        + (searchResults?.events.length ?? 0);
     useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent): void => {
             if ((event.metaKey || event.ctrlKey) && event.key === "k") {
@@ -49,7 +54,7 @@ export function TopBar({ isConnected, pendingApprovalCount = 0, blockedTaskCount
     const hasTaskScope = Boolean(selectedTaskTitle);
     const searchPlaceholder = taskScopeEnabled && hasTaskScope
         ? "Search within current task"
-        : "Search tasks, events, and saved";
+        : "Search tasks and events";
     const scopeToggle = hasTaskScope
         ? (<button aria-label={taskScopeEnabled ? "Search all tasks" : "Limit search to this task"} className={cn("inline-flex h-6 shrink-0 items-center rounded-[var(--radius-sm)] px-1.5 text-[0.62rem] font-semibold transition-[color,background-color] duration-200 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--accent)]", taskScopeEnabled
                 ? "bg-[color-mix(in_srgb,var(--accent)_8%,transparent)] text-[var(--accent)]"
@@ -95,7 +100,7 @@ export function TopBar({ isConnected, pendingApprovalCount = 0, blockedTaskCount
             </span>
             <input
               ref={searchRef}
-              aria-label="Search tasks, events, and saved"
+              aria-label="Search tasks and events"
               className="min-w-0 flex-1 border-0 bg-transparent text-[0.8rem] text-[var(--text-1)] outline-none placeholder:text-[var(--text-3)] [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
               onChange={(event) => onSearchQueryChange(event.target.value)}
               onKeyDown={(event) => {
@@ -130,7 +135,7 @@ export function TopBar({ isConnected, pendingApprovalCount = 0, blockedTaskCount
               </div>
 
               {!isSearching && totalResults === 0 && (<div className="px-3 py-2 text-[0.73rem] text-[var(--text-3)]">
-                  No matching tasks, events, or saved cards.
+                  No matching tasks or events.
                 </div>)}
 
               {(searchResults?.tasks.length ?? 0) > 0 && (<div className="border-t border-[var(--border)] first:border-t-0">
@@ -148,20 +153,33 @@ export function TopBar({ isConnected, pendingApprovalCount = 0, blockedTaskCount
                       <span className="text-[0.74rem] text-[var(--text-2)]">{event.taskTitle} · {event.lane}</span>
                     </button>))}
                 </div>)}
-
-              {(searchResults?.bookmarks.length ?? 0) > 0 && (<div className="border-t border-[var(--border)] first:border-t-0">
-                  <div className="px-3 py-2 text-[0.72rem] font-bold uppercase tracking-[0.08em] text-[var(--text-3)]">Saved</div>
-                  {searchResults?.bookmarks.map((bookmark) => (<button key={bookmark.id} className="flex w-full flex-col items-start gap-0.5 px-3 py-2 text-left transition-colors hover:bg-[var(--surface-2)] focus-visible:outline-none focus-visible:bg-[var(--surface-2)]" onClick={() => onSelectSearchBookmark(bookmark)} type="button">
-                      <strong className="text-[0.82rem] font-semibold text-[var(--text-1)]">{bookmark.title}</strong>
-                      <span className="text-[0.74rem] text-[var(--text-2)]">{bookmark.taskTitle ?? bookmark.kind}</span>
-                    </button>))}
-                </div>)}
             </div>)}
         </div>
       </div>
 
       {/* Right: Actions */}
       <div className="flex h-full shrink-0 items-center gap-1.5 border-l border-[var(--border)] px-3">
+        <ViewModeToggle
+          value={viewMode}
+          onChange={(mode) => { setViewMode(mode); onViewModeChange?.(); }}
+          suppressSelection={isTaskRulesOpen}
+          extra={onOpenTaskRules ? (
+            <button
+              className={cn("h-6 shrink-0 rounded-[var(--radius-sm)] px-2 text-[0.7rem] font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]",
+                isTaskRulesOpen
+                  ? "bg-[var(--surface)] text-[var(--text-1)] shadow-[0_1px_2px_rgba(0,0,0,0.06)]"
+                  : selectedTaskId
+                    ? "text-[var(--text-3)] hover:text-[var(--text-1)]"
+                    : "cursor-not-allowed opacity-40")}
+              disabled={!selectedTaskId}
+              onClick={() => { if (selectedTaskId) onOpenTaskRules(selectedTaskId); }}
+              title={selectedTaskId ? "Manage rules for this task" : "Select a task first"}
+              type="button"
+            >
+              Rules
+            </button>
+          ) : undefined}
+        />
         {pendingApprovalCount > 0 && (<button className="inline-flex h-6.5 items-center rounded-[var(--radius-md)] border border-[var(--accent-light)] bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] px-2 text-[0.68rem] font-semibold text-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-1" onClick={onOpenApprovalQueue} type="button">
             {pendingApprovalCount} approval
           </button>)}
@@ -178,21 +196,7 @@ export function TopBar({ isConnected, pendingApprovalCount = 0, blockedTaskCount
             <span className="hidden sm:inline">Filters</span>
           </button>
         )}
-        {onToggleRules && (
-          <button
-            aria-label="Rule commands"
-            className={cn("flex h-7 w-7 shrink-0 items-center justify-center rounded-[var(--radius-md)] border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-1",
-              isRulesOpen
-                ? "border-[var(--rule)] bg-[var(--rule-bg)] text-[var(--rule)]"
-                : "border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-3)] hover:border-[var(--border-strong)] hover:bg-[var(--surface)] hover:text-[var(--text-1)]"
-            )}
-            onClick={onToggleRules}
-            title="Rule Commands"
-            type="button"
-          >
-            <img alt="" className="icon-adaptive h-3.5 w-3.5" src="/icons/shield-check.svg" />
-          </button>
-        )}
+        <NotificationsToggle />
         <button aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"} className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-3)] opacity-60 transition hover:border-[var(--border-strong)] hover:bg-[var(--surface)] hover:text-[var(--text-1)] hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-1" onClick={toggleTheme} title={theme === "dark" ? "Light mode" : "Dark mode"} type="button">
           {theme === "dark" ? (<svg aria-hidden="true" fill="none" height="14" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" width="14">
               <circle cx="12" cy="12" r="4"/>
