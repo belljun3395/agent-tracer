@@ -2,7 +2,7 @@ import type Database from "better-sqlite3";
 import { randomUUID } from "node:crypto";
 import type { IPlaybookRepository, PlaybookUpsertInput } from "~application/ports/index.js";
 import type { IEmbeddingService } from "~application/ports/service/embedding.service.js";
-import type { PlaybookRecord, PlaybookStatus, PlaybookSummary } from "~domain/index.js";
+import type { PlaybookRecord, PlaybookStatus, PlaybookSummary } from "~domain/workflow/index.js";
 import { cosineSimilarity, deserializeEmbedding, serializeEmbedding } from "../shared/embedding.codec.js";
 import { normalizeEmbeddingSection, normalizeSearchText } from "../shared/text.normalizers.js";
 import { ensureSqliteDatabase, type SqliteDatabaseInput } from "../shared/drizzle.db.js";

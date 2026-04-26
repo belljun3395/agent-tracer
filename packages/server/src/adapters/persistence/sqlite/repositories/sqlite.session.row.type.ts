@@ -1,13 +1,8 @@
-import type { MonitoringSession } from "~domain/monitoring/monitoring.session.model.js";
+import type { InferSelectModel } from "drizzle-orm";
+import type { MonitoringSession } from "~domain/monitoring/index.js";
+import type { sessionsCurrent } from "../schema/drizzle.schema.js";
 
-export interface SessionRow {
-    id: string;
-    taskId: string;
-    status: string;
-    summary: string | null;
-    startedAt: string;
-    endedAt: string | null;
-}
+export type SessionRow = InferSelectModel<typeof sessionsCurrent>;
 
 export function mapSessionRow(row: SessionRow): MonitoringSession {
     return {

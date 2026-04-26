@@ -3,8 +3,7 @@ import type {
     StoredTaskEvaluation,
     WorkflowSummary,
 } from "~application/ports/repository/evaluation.repository.js";
-import type { SavedBriefing } from "~domain/workflow/briefing.js";
-import type { ReusableTaskSnapshot } from "~domain/workflow/task.snapshot.js";
+import type { ReusableTaskSnapshot, SavedBriefing } from "~domain/workflow/index.js";
 import { parseJsonField } from "../shared/sqlite.json";
 
 export interface EvaluationRow {

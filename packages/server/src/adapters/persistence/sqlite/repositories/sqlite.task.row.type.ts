@@ -1,5 +1,5 @@
-import type { MonitoringTask } from "~domain/monitoring/monitoring.task.model.js";
-import type { MonitoringTaskKind } from "~domain/monitoring/task.status.type.js";
+import type { MonitoringTask } from "~domain/monitoring/index.js";
+import type { MonitoringTaskKind } from "~domain/monitoring/index.js";
 
 export interface TaskRow {
     id: string;

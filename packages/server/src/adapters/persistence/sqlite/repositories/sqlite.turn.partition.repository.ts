@@ -1,6 +1,6 @@
 import type Database from "better-sqlite3";
 import type { ITurnPartitionRepository } from "~application/ports/repository/turn.partition.repository.js";
-import type { TurnGroup, TurnPartition } from "~domain/workflow/turn.partition.js";
+import type { TurnGroup, TurnPartition } from "~domain/workflow/index.js";
 import { ensureSqliteDatabase, type SqliteDatabaseInput } from "../shared/drizzle.db.js";
 import { appendDomainEvent, eventTimeFromIso } from "../events/index.js";
 

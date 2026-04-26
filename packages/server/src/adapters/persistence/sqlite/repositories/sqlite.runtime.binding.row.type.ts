@@ -1,13 +1,8 @@
+import type { InferSelectModel } from "drizzle-orm";
 import type { RuntimeBinding } from "~application/ports/repository/runtime.binding.repository.js";
+import type { runtimeSessionBindings } from "../schema/drizzle.schema.js";
 
-export interface RuntimeSessionBindingRow {
-    runtimeSource: string;
-    runtimeSessionId: string;
-    taskId: string;
-    monitorSessionId: string | null;
-    createdAt: string;
-    updatedAt: string;
-}
+export type RuntimeSessionBindingRow = InferSelectModel<typeof runtimeSessionBindings>;
 
 export function mapRuntimeBindingRow(row: RuntimeSessionBindingRow): RuntimeBinding {
     return {
