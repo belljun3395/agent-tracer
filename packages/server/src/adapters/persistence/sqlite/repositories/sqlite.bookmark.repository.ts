@@ -88,6 +88,11 @@ export class SqliteBookmarkRepository implements IBookmarkRepository {
     return rows.map(mapBookmarkRow)
   }
 
+  async findById(bookmarkId: string): Promise<BookmarkRecord | null> {
+    const row = this.selectBookmarkById(bookmarkId)
+    return row ? mapBookmarkRow(row) : null
+  }
+
   async findAll(): Promise<readonly BookmarkRecord[]> {
     const rows = this.selectBookmarks()
     return rows.map(mapBookmarkRow)

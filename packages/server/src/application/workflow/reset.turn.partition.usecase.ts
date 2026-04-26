@@ -1,5 +1,6 @@
 import type { ITaskRepository, ITurnPartitionRepository } from "~application/ports/index.js";
-import { TaskNotFoundError } from "./workflow.errors.js";
+import { TaskNotFoundError } from "./common/workflow.errors.js";
+import type { ResetTurnPartitionUseCaseIn, ResetTurnPartitionUseCaseOut } from "./dto/reset.turn.partition.usecase.dto.js";
 
 export class ResetTurnPartitionUseCase {
     constructor(
@@ -7,9 +8,9 @@ export class ResetTurnPartitionUseCase {
         private readonly turnPartitionRepo: ITurnPartitionRepository,
     ) {}
 
-    async execute(taskId: string): Promise<void> {
-        const task = await this.taskRepo.findById(taskId);
-        if (!task) throw new TaskNotFoundError(taskId);
-        await this.turnPartitionRepo.delete(taskId);
+    async execute(input: ResetTurnPartitionUseCaseIn): Promise<ResetTurnPartitionUseCaseOut> {
+        const task = await this.taskRepo.findById(input.taskId);
+        if (!task) throw new TaskNotFoundError(input.taskId);
+        await this.turnPartitionRepo.delete(input.taskId);
     }
 }

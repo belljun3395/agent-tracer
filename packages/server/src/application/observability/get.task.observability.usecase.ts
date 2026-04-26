@@ -1,7 +1,6 @@
-import { buildMentionedFileVerifications } from "../views/index.js";
-import { analyzeTaskObservability } from "./index.js";
+import { analyzeTaskObservability, buildMentionedFileVerifications } from "~domain/index.js";
 import type { ITaskRepository, ISessionRepository, IEventRepository } from "../ports/index.js";
-import type { TaskObservabilityResponse } from "./observability.metrics.type.js";
+import type { GetTaskObservabilityUseCaseIn, GetTaskObservabilityUseCaseOut } from "./dto/get.task.observability.usecase.dto.js";
 
 export class GetTaskObservabilityUseCase {
     constructor(
@@ -10,12 +9,12 @@ export class GetTaskObservabilityUseCase {
         private readonly eventRepo: IEventRepository,
     ) {}
 
-    async execute(taskId: string): Promise<TaskObservabilityResponse | undefined> {
-        const task = await this.taskRepo.findById(taskId);
+    async execute(input: GetTaskObservabilityUseCaseIn): Promise<GetTaskObservabilityUseCaseOut | undefined> {
+        const task = await this.taskRepo.findById(input.taskId);
         if (!task) return undefined;
         const [sessions, timeline] = await Promise.all([
-            this.sessionRepo.findByTaskId(taskId),
-            this.eventRepo.findByTaskId(taskId),
+            this.sessionRepo.findByTaskId(input.taskId),
+            this.eventRepo.findByTaskId(input.taskId),
         ]);
         return {
             observability: analyzeTaskObservability({ task, sessions, timeline }),

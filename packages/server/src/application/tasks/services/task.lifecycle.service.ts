@@ -1,14 +1,24 @@
-import { createTaskSlug, normalizeWorkspacePath } from "~domain/index.js";
-import { mapTimelineEventToRecord } from "~application/views/index.js";
+import {
+    buildEventRecord,
+    createTaskSlug,
+    normalizeWorkspacePath,
+    resolveSemanticView,
+    resolveTimelineEventPaths,
+    type TimelineEvent,
+} from "~domain/index.js";
 import type {
+    EventNotificationPayload,
     IEventRepository,
     INotificationPublisher,
     ISessionRepository,
     ITaskRepository,
 } from "~application/ports/index.js";
-import { buildEventRecord } from "~application/events/event.recording.ops.js";
-import type { TaskFinalizationInput, TaskStartInput } from "~application/tasks/task.lifecycle.input.js";
-import type { RecordedEventEnvelope } from "~application/tasks/task.lifecycle.result.js";
+import type {
+    FinalizeTaskServiceInput,
+    StartTaskServiceInput,
+    TaskLifecycleServiceResult,
+} from "./task.lifecycle.service.dto.js";
+import { TaskNotFoundError } from "../common/task.errors.js";
 
 export class TaskLifecycleService {
     constructor(
@@ -18,9 +28,9 @@ export class TaskLifecycleService {
         private readonly notifier: INotificationPublisher,
     ) {}
 
-    async finalizeTask(input: TaskFinalizationInput): Promise<RecordedEventEnvelope> {
+    async finalizeTask(input: FinalizeTaskServiceInput): Promise<TaskLifecycleServiceResult> {
         const task = await this.tasks.findById(input.taskId);
-        if (!task) throw new Error(`Task not found: ${input.taskId}`);
+        if (!task) throw new TaskNotFoundError(input.taskId);
 
         const endedAt = new Date().toISOString();
         const sessionId = input.sessionId ?? (await this.sessions.findActiveByTaskId(input.taskId))?.id;
@@ -59,11 +69,11 @@ export class TaskLifecycleService {
             ...(input.metadata ? { metadata: input.metadata } : {}),
         });
         const event = await this.events.insert({ id: globalThis.crypto.randomUUID(), ...record });
-        this.notifier.publish({ type: "event.logged", payload: mapTimelineEventToRecord(event) });
+        this.notifier.publish({ type: "event.logged", payload: toEventNotificationPayload(event) });
         return { task: finalTask, ...(sessionId ? { sessionId } : {}), events: [{ id: event.id, kind: event.kind }] };
     }
 
-    async startTask(input: TaskStartInput): Promise<RecordedEventEnvelope> {
+    async startTask(input: StartTaskServiceInput): Promise<TaskLifecycleServiceResult> {
         const taskId = input.taskId ?? globalThis.crypto.randomUUID();
         const sessionId = globalThis.crypto.randomUUID();
         const startedAt = new Date().toISOString();
@@ -118,15 +128,47 @@ export class TaskLifecycleService {
                 ...(input.summary ? { body: input.summary } : {}),
             });
             const event = await this.events.insert({ id: globalThis.crypto.randomUUID(), ...record });
-            this.notifier.publish({ type: "event.logged", payload: mapTimelineEventToRecord(event) });
+            this.notifier.publish({ type: "event.logged", payload: toEventNotificationPayload(event) });
             return { task, sessionId, events: [{ id: event.id, kind: event.kind }] };
         }
         return { task, sessionId, events: [] };
     }
 
-    private finalizationBody(input: TaskFinalizationInput): string | undefined {
+    private finalizationBody(input: FinalizeTaskServiceInput): string | undefined {
         return input.outcome === "errored"
             ? input.errorMessage
             : input.summary;
     }
+}
+
+function toEventNotificationPayload(event: TimelineEvent): EventNotificationPayload {
+    const semantic = resolveSemanticView(event);
+    const paths = resolveTimelineEventPaths(event);
+
+    return {
+        id: event.id,
+        taskId: event.taskId,
+        ...(event.sessionId !== undefined ? { sessionId: event.sessionId } : {}),
+        kind: event.kind,
+        lane: event.lane,
+        title: event.title,
+        ...(event.body !== undefined ? { body: event.body } : {}),
+        metadata: event.metadata,
+        classification: event.classification,
+        createdAt: event.createdAt,
+        ...(semantic ? {
+            semantic: {
+                subtypeKey: semantic.subtypeKey,
+                subtypeLabel: semantic.subtypeLabel,
+                ...(semantic.subtypeGroup !== undefined ? { subtypeGroup: semantic.subtypeGroup } : {}),
+                ...(semantic.entityType !== undefined ? { entityType: semantic.entityType } : {}),
+                ...(semantic.entityName !== undefined ? { entityName: semantic.entityName } : {}),
+            },
+        } : {}),
+        paths: {
+            ...(paths.primaryPath !== undefined ? { primaryPath: paths.primaryPath } : {}),
+            filePaths: paths.filePaths,
+            mentionedPaths: paths.mentionedPaths,
+        },
+    };
 }

@@ -8,7 +8,13 @@ import {
     DeleteTaskUseCase,
     DeleteFinishedTasksUseCase,
 } from "~application/tasks/index.js";
-import type { TaskStartInput, TaskLinkInput, TaskCompletionInput, TaskErrorInput, TaskPatchInput } from "~application/index.js";
+import type {
+    CompleteTaskUseCaseIn,
+    ErrorTaskUseCaseIn,
+    LinkTaskUseCaseIn,
+    StartTaskUseCaseIn,
+    UpdateTaskUseCaseIn,
+} from "~application/tasks/index.js";
 import {
     EnsureRuntimeSessionUseCase,
     EndRuntimeSessionUseCase,
@@ -41,35 +47,35 @@ export class TaskLifecycleController {
 
     @Post("task-start")
     @HttpCode(HttpStatus.OK)
-    async taskStart(@Body(new ZodValidationPipe(taskStartSchema)) body: TaskStartInput) {
+    async taskStart(@Body(new ZodValidationPipe(taskStartSchema)) body: StartTaskUseCaseIn) {
         return this.startTask.execute(body);
     }
 
     @Post("task-link")
     @HttpCode(HttpStatus.OK)
-    async taskLink(@Body(new ZodValidationPipe(taskLinkSchema)) body: TaskLinkInput) {
+    async taskLink(@Body(new ZodValidationPipe(taskLinkSchema)) body: LinkTaskUseCaseIn) {
         const task = await this.linkTask.execute(body);
         return { task };
     }
 
     @Post("task-complete")
     @HttpCode(HttpStatus.OK)
-    async taskComplete(@Body(new ZodValidationPipe(taskCompleteSchema)) body: TaskCompletionInput) {
+    async taskComplete(@Body(new ZodValidationPipe(taskCompleteSchema)) body: CompleteTaskUseCaseIn) {
         return this.completeTask.execute(body);
     }
 
     @Post("task-error")
     @HttpCode(HttpStatus.OK)
-    async taskError(@Body(new ZodValidationPipe(taskErrorSchema)) body: TaskErrorInput) {
+    async taskError(@Body(new ZodValidationPipe(taskErrorSchema)) body: ErrorTaskUseCaseIn) {
         return this.errorTask.execute(body);
     }
 
     @Patch("tasks/:taskId")
     async patchTask(
         @Param("taskId", pathParamPipe) taskId: string,
-        @Body(new ZodValidationPipe(taskPatchSchema)) body: Omit<TaskPatchInput, "taskId">,
+        @Body(new ZodValidationPipe(taskPatchSchema)) body: Omit<UpdateTaskUseCaseIn, "taskId">,
     ) {
-        const patchInput: TaskPatchInput = {
+        const patchInput: UpdateTaskUseCaseIn = {
             taskId,
             ...(body.title !== undefined ? { title: body.title } : {}),
             ...(body.status !== undefined ? { status: body.status } : {}),
@@ -81,14 +87,14 @@ export class TaskLifecycleController {
 
     @Delete("tasks/finished")
     async deleteFinished() {
-        const deleted = await this.deleteFinishedTasks.execute();
-        return { deleted };
+        const { count } = await this.deleteFinishedTasks.execute({});
+        return { deleted: count };
     }
 
     @Delete("tasks/:taskId")
     async deleteTaskEndpoint(@Param("taskId", pathParamPipe) taskId: string) {
-        const result = await this.deleteTask.execute(taskId);
-        if (result === "not_found") throw new NotFoundException("Task not found");
+        const result = await this.deleteTask.execute({ taskId });
+        if (result.status === "not_found") throw new NotFoundException("Task not found");
         return { deleted: true };
     }
 }

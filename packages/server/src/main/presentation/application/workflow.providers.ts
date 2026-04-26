@@ -19,7 +19,7 @@ import {
     SearchWorkflowLibraryUseCase,
     UpdatePlaybookUseCase,
     UpsertTaskEvaluationUseCase,
-} from "~application/workflow/usecases.index.js";
+} from "~application/workflow/index.js";
 import {
     EVALUATION_REPOSITORY_TOKEN,
     EVENT_REPOSITORY_TOKEN,

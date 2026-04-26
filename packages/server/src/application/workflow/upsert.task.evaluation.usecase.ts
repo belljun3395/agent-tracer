@@ -1,20 +1,14 @@
-import { buildReusableTaskSnapshot, buildWorkflowContext, type ReusableTaskSnapshot } from "~domain/index.js";
+import {
+    buildReusableTaskSnapshot,
+    buildWorkflowContext,
+    filterWorkflowEventsByScope,
+    normalizeWorkflowScopeKey,
+    resolveWorkflowScope,
+} from "~domain/index.js";
 import { deriveTaskDisplayTitle } from "~application/tasks/utils/task.display.title.util.js";
 import type { ITaskRepository, IEventRepository, IEvaluationRepository } from "../ports/index.js";
-import { normalizeWorkflowScopeKey, resolveWorkflowScope, filterWorkflowEventsByScope } from "./workflow.scope.ops.js";
-
-export type UpsertTaskEvaluationUseCaseIn = {
-    readonly scopeKey?: string;
-    readonly rating: "good" | "skip";
-    readonly useCase?: string;
-    readonly workflowTags?: string[];
-    readonly outcomeNote?: string;
-    readonly approachNote?: string;
-    readonly reuseWhen?: string;
-    readonly watchouts?: string;
-    readonly workflowSnapshot?: ReusableTaskSnapshot | null;
-    readonly workflowContext?: string;
-};
+import type { UpsertTaskEvaluationUseCaseIn } from "./dto/upsert.task.evaluation.usecase.dto.js";
+import { TaskNotFoundError } from "./common/workflow.errors.js";
 
 export class UpsertTaskEvaluationUseCase {
     constructor(
@@ -23,11 +17,11 @@ export class UpsertTaskEvaluationUseCase {
         private readonly evaluationRepo: IEvaluationRepository,
     ) {}
 
-    async execute(taskId: string, input: UpsertTaskEvaluationUseCaseIn): Promise<void> {
-        const task = await this.taskRepo.findById(taskId);
-        if (!task) throw new Error(`Task not found: ${taskId}`);
+    async execute(input: UpsertTaskEvaluationUseCaseIn): Promise<void> {
+        const task = await this.taskRepo.findById(input.taskId);
+        if (!task) throw new TaskNotFoundError(input.taskId);
 
-        const allEvents = await this.eventRepo.findByTaskId(taskId);
+        const allEvents = await this.eventRepo.findByTaskId(input.taskId);
         const scope = resolveWorkflowScope(input.scopeKey, allEvents);
         const events = filterWorkflowEventsByScope(allEvents, scope.scopeKey);
 
@@ -46,7 +40,7 @@ export class UpsertTaskEvaluationUseCase {
             ?? buildWorkflowContext(events, workflowTitle, evaluation, snapshot);
 
         await this.evaluationRepo.upsertEvaluation({
-            taskId,
+            taskId: input.taskId,
             scopeKey: scope.scopeKey,
             scopeKind: scope.scopeKind,
             scopeLabel: scope.scopeLabel,

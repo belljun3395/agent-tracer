@@ -35,20 +35,20 @@ export class SystemController {
     @Get("overview")
     async overview() {
         const [stats, observability] = await Promise.all([
-            this.getOverview.execute(),
-            this.getObservabilityOverview.execute(),
+            this.getOverview.execute({}),
+            this.getObservabilityOverview.execute({}),
         ]);
         return { stats, observability: observability.observability };
     }
 
     @Get("default-workspace")
     getDefaultWorkspaceEndpoint() {
-        return { workspacePath: this.getDefaultWorkspacePath.execute() };
+        return this.getDefaultWorkspacePath.execute({});
     }
 
     @Get("observability/overview")
     async observabilityOverview() {
-        return this.getObservabilityOverview.execute();
+        return this.getObservabilityOverview.execute({});
     }
 }
 
@@ -65,37 +65,37 @@ export class TaskQueryController {
 
     @Get()
     async listTasksEndpoint() {
-        return { tasks: await this.listTasks.execute() };
+        return this.listTasks.execute({});
     }
 
     @Get(":taskId/observability")
     async taskObservability(@Param("taskId", pathParamPipe) taskId: string) {
-        const observability = await this.getTaskObservability.execute(taskId);
+        const observability = await this.getTaskObservability.execute({ taskId });
         if (!observability) throw new NotFoundException("Task not found");
         return observability;
     }
 
     @Get(":taskId/openinference")
     async taskOpenInference(@Param("taskId", pathParamPipe) taskId: string) {
-        const exportPayload = await this.getTaskOpenInference.execute(taskId);
+        const exportPayload = await this.getTaskOpenInference.execute({ taskId });
         if (!exportPayload) throw new NotFoundException("Task not found");
         return exportPayload;
     }
 
     @Get(":taskId")
     async getTaskEndpoint(@Param("taskId", pathParamPipe) taskId: string) {
-        const task = await this.getTask.execute(taskId);
+        const { task } = await this.getTask.execute({ taskId });
         if (!task) throw new NotFoundException("Task not found");
         const [timeline, runtimeSession] = await Promise.all([
-            this.getTaskTimeline.execute(task.id),
-            this.getTaskLatestRuntimeSession.execute(task.id),
+            this.getTaskTimeline.execute({ taskId: task.id }),
+            this.getTaskLatestRuntimeSession.execute({ taskId: task.id }),
         ]);
         return {
             task,
-            timeline,
-            ...(runtimeSession ? {
-                runtimeSessionId: runtimeSession.runtimeSessionId,
-                runtimeSource: runtimeSession.runtimeSource,
+            timeline: timeline.timeline,
+            ...(runtimeSession.runtimeSession ? {
+                runtimeSessionId: runtimeSession.runtimeSession.runtimeSessionId,
+                runtimeSource: runtimeSession.runtimeSession.runtimeSource,
             } : {}),
         };
     }

@@ -8,7 +8,7 @@ export class GlobalRuleCommandController {
 
     @Get()
     async listGlobal() {
-        const ruleCommands = await this.listRuleCommands.execute();
+        const ruleCommands = await this.listRuleCommands.execute({});
         return { ruleCommands };
     }
 }
@@ -19,7 +19,7 @@ export class TaskRuleCommandController {
 
     @Get()
     async listForTask(@Param("taskId", pathParamPipe) taskId: string) {
-        const ruleCommands = await this.listRuleCommands.execute(taskId);
+        const ruleCommands = await this.listRuleCommands.execute({ taskId });
         return { ruleCommands };
     }
 }

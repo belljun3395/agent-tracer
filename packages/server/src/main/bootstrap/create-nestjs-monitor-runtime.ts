@@ -51,8 +51,8 @@ export async function createNestMonitorRuntime(options: RuntimeOptions): Promise
     wss.on("connection", (ws) => {
         broadcaster.addClient(ws);
         ws.on("close", () => broadcaster.removeClient(ws));
-        void Promise.all([getOverview.execute(), listTasks.execute()]).then(([stats, tasks]) => {
-            ws.send(JSON.stringify({ type: "snapshot", payload: { stats, tasks } }));
+        void Promise.all([getOverview.execute({}), listTasks.execute({})]).then(([stats, tasks]) => {
+            ws.send(JSON.stringify({ type: "snapshot", payload: { stats, tasks: tasks.tasks } }));
         });
     });
     await nestApp.init();

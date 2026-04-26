@@ -1,6 +1,6 @@
-import { createTaskSlug, type MonitoringTask } from "~domain/index.js";
+import { createTaskSlug } from "~domain/index.js";
 import type { INotificationPublisher, ITaskRepository } from "~application/ports/index.js";
-import type { TaskPatchInput } from "./task.lifecycle.input.js";
+import type { UpdateTaskUseCaseIn, UpdateTaskUseCaseOut } from "./dto/update.task.usecase.dto.js";
 
 export class UpdateTaskUseCase {
     constructor(
@@ -8,7 +8,7 @@ export class UpdateTaskUseCase {
         private readonly notifier: INotificationPublisher,
     ) {}
 
-    async execute(input: TaskPatchInput): Promise<MonitoringTask | null> {
+    async execute(input: UpdateTaskUseCaseIn): Promise<UpdateTaskUseCaseOut> {
         const task = await this.tasks.findById(input.taskId);
         if (!task) return null;
 

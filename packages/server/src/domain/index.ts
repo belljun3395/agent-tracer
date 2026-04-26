@@ -18,6 +18,10 @@ export * from "./monitoring/event.predicates.js";
 export * from "./monitoring/event.metadata.js";
 export * from "./monitoring/task.factory.js";
 export * from "./monitoring/subtype.registry.js";
+export * from "./monitoring/event.recording.js";
+export * from "./monitoring/event.semantic.js";
+export * from "./monitoring/file.verification.js";
+export * from "./monitoring/timeline.event.paths.js";
 
 // Workflow — domain entities
 export * from "./workflow/task.snapshot.js";
@@ -29,6 +33,15 @@ export * from "./workflow/briefing.js";
 export * from "./workflow/workflow.context.js";
 export * from "./workflow/segments.js";
 export * from "./workflow/turn.partition.js";
+export * from "./workflow/workflow.scope.js";
+
+// Observability — analysis
+export * from "./observability/task.ops.js";
+export * from "./observability/overview.ops.js";
+export * from "./observability/observability.metrics.type.js";
+
+// Interop — export formats
+export * from "./interop/openinference.js";
 
 // Event log
 export * from "./events/index.js";

@@ -8,7 +8,7 @@ import {
     EVENT_LANES,
     TOOL_ACTIVITY_EVENT_KINDS,
     WORKFLOW_EVENT_KINDS,
-} from "~domain/index.js";
+} from "~application/events/index.js";
 
 const baseEventSchema = z.object({
     kind: z.string().min(1),

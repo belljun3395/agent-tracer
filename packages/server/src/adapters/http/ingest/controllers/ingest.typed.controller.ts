@@ -1,7 +1,7 @@
 import { Controller, Post, Body, HttpStatus, HttpCode, Inject } from "@nestjs/common";
 import type { z } from "zod";
 import { IngestEventsUseCase } from "~application/events/index.js";
-import type { IngestEventInput } from "~application/events/index.js";
+import type { IngestEventsUseCaseEventDto, IngestEventsUseCaseIn } from "~application/events/index.js";
 import { ClassifyTerminalLaneUseCase } from "~application/rule-commands/index.js";
 import {
     toolActivityBatchSchema,
@@ -42,7 +42,8 @@ export class TypedIngestController {
         body: ToolActivityBatchBody,
     ) {
         const classified = await this.classifyTerminalLane.execute(body.events);
-        return this.ingestEvents.execute(classified as readonly IngestEventInput[]);
+        const input = { events: classified as readonly IngestEventsUseCaseEventDto[] } satisfies IngestEventsUseCaseIn;
+        return this.ingestEvents.execute(input);
     }
 
     @Post("workflow")
@@ -87,7 +88,7 @@ export class TypedIngestController {
         @Body(new ZodValidationPipe(telemetryBatchSchema, "Invalid request body"))
         body: TelemetryBatchBody,
     ) {
-        const events = body.events.map((e): IngestEventInput => ({
+        const events = body.events.map((e): IngestEventsUseCaseEventDto => ({
             kind: "token.usage",
             taskId: e.taskId,
             lane: "telemetry",
@@ -103,10 +104,12 @@ export class TypedIngestController {
                 ...(e.promptId !== undefined ? { promptId: e.promptId } : {}),
             },
         }));
-        return this.ingestEvents.execute(events);
+        const input = { events } satisfies IngestEventsUseCaseIn;
+        return this.ingestEvents.execute(input);
     }
 
     private async handleBatch(body: TypedBatchBody) {
-        return this.ingestEvents.execute([...body.events]);
+        const input = { events: [...body.events] } satisfies IngestEventsUseCaseIn;
+        return this.ingestEvents.execute(input);
     }
 }

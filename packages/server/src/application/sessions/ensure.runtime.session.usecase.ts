@@ -5,8 +5,8 @@ import type {
     ISessionRepository,
     ITaskRepository,
 } from "~application/ports/index.js";
-import type { EnsureRuntimeSessionUseCaseIn, EnsureRuntimeSessionUseCaseOut } from "./ensure.runtime.session.usecase.dto.js";
-import type { TaskLifecycleService } from "../tasks/services/task.lifecycle.service.js";
+import type { EnsureRuntimeSessionUseCaseIn, EnsureRuntimeSessionUseCaseOut } from "./dto/ensure.runtime.session.usecase.dto.js";
+import type { TaskLifecycleService } from "~application/tasks/index.js";
 
 export class EnsureRuntimeSessionUseCase {
     constructor(

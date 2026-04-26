@@ -8,7 +8,7 @@ import {
     SearchWorkflowLibraryUseCase,
     ListPlaybooksUseCase,
     GetPlaybookUseCase,
-} from "~application/workflow/usecases.index.js";
+} from "~application/workflow/index.js";
 import {
     playbookListQuerySchema,
     similarWorkflowQuerySchema,
@@ -32,13 +32,13 @@ export class TaskEvaluationController {
         @Param("id", pathParamPipe) taskId: string,
         @Query("scopeKey") scopeKey: string | undefined,
     ) {
-        const evaluation = await this.getTaskEvaluation.execute(taskId, scopeKey);
+        const evaluation = await this.getTaskEvaluation.execute({ taskId, scopeKey });
         return evaluation ?? null;
     }
 
     @Get("briefings")
     async listBriefingsEndpoint(@Param("id", pathParamPipe) taskId: string) {
-        return this.listBriefings.execute(taskId);
+        return this.listBriefings.execute({ taskId });
     }
 }
 
@@ -53,7 +53,7 @@ export class WorkflowController {
 
     @Get("similar")
     async findSimilar(@Query(new ZodValidationPipe(similarWorkflowQuerySchema)) query: SimilarWorkflowQuery) {
-        return this.searchSimilarWorkflows.execute(query.q, query.tags, query.limit);
+        return this.searchSimilarWorkflows.execute({ query: query.q, tags: query.tags, limit: query.limit });
     }
 
     @Get(":id/content")
@@ -61,15 +61,15 @@ export class WorkflowController {
         @Param("id", pathParamPipe) taskId: string,
         @Query("scopeKey") scopeKey: string | undefined,
     ) {
-        const content = await this.getWorkflowContent.execute(taskId, scopeKey);
+        const content = await this.getWorkflowContent.execute({ taskId, scopeKey });
         if (!content) throw new NotFoundException("workflow content not found");
         return content;
     }
 
     @Get()
     async listWorkflows(@Query(new ZodValidationPipe(workflowListQuerySchema)) query: WorkflowListQuery) {
-        if (query.q) return this.searchWorkflowLibrary.execute(query.q, query.rating, query.limit);
-        return this.listEvaluations.execute(query.rating);
+        if (query.q) return this.searchWorkflowLibrary.execute({ query: query.q, rating: query.rating, limit: query.limit });
+        return this.listEvaluations.execute({ rating: query.rating });
     }
 }
 
@@ -82,12 +82,12 @@ export class PlaybookController {
 
     @Get()
     async listPlaybooksEndpoint(@Query(new ZodValidationPipe(playbookListQuerySchema)) query: PlaybookListQuery) {
-        return this.listPlaybooks.execute(query.q, query.status, query.limit);
+        return this.listPlaybooks.execute({ query: query.q, status: query.status, limit: query.limit });
     }
 
     @Get(":id")
     async getPlaybookEndpoint(@Param("id", pathParamPipe) playbookId: string) {
-        const playbook = await this.getPlaybook.execute(playbookId);
+        const playbook = await this.getPlaybook.execute({ playbookId });
         if (!playbook) throw new NotFoundException("playbook not found");
         return playbook;
     }
