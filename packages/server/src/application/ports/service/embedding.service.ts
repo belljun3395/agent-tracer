@@ -1,5 +1,3 @@
-export interface IEmbeddingService {
-    /** Identifier stored alongside persisted vectors so rows declare which model produced them. */
-    readonly modelId: string;
-    embed(text: string): Promise<Float32Array>;
-}
+import type { EmbeddingPort } from "../event-search/index.js";
+
+export type IEmbeddingService = EmbeddingPort;

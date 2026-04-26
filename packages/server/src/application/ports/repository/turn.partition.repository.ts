@@ -1,9 +1,5 @@
-import type { TurnPartition } from "~domain/turn-partitions/index.js";
+import type { TurnPartitionPort, TurnPartitionRecordPortDto } from "../turn-partitions/index.js";
 
-export type { TurnPartition };
+export type TurnPartition = TurnPartitionRecordPortDto;
 
-export interface ITurnPartitionRepository {
-    get(taskId: string): Promise<TurnPartition | null>;
-    upsert(partition: TurnPartition): Promise<void>;
-    delete(taskId: string): Promise<void>;
-}
+export type ITurnPartitionRepository = TurnPartitionPort;
