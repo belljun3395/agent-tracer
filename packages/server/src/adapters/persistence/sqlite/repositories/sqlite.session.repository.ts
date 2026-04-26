@@ -1,5 +1,5 @@
 import { and, asc, eq, sql } from "drizzle-orm"
-import type { MonitoringSession } from "~domain/monitoring/monitoring.session.model.js"
+import type { MonitoringSession } from "~domain/monitoring/index.js"
 
 import type { ISessionRepository, SessionCreateInput } from "~application/ports/repository/session.repository.js"
 import { ensureSqliteDatabase, type SqliteDatabase, type SqliteDatabaseInput } from "../shared/drizzle.db.js"

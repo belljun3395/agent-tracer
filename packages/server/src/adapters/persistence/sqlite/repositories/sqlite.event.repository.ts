@@ -1,4 +1,4 @@
-import type { TimelineEvent } from "~domain/monitoring/timeline.event.model.js";
+import type { TimelineEvent } from "~domain/monitoring/index.js";
 import type { EventInsertInput, IEventRepository, SearchOptions, SearchResults } from "~application/ports/repository/event.repository.js";
 import type { IEmbeddingService } from "~application/ports/service/embedding.service.js";
 import { ensureSqliteDatabase, type SqliteDatabase, type SqliteDatabaseInput } from "../shared/drizzle.db.js";

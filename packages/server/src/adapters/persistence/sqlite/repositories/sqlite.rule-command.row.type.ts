@@ -1,12 +1,8 @@
+import type { InferSelectModel } from "drizzle-orm";
 import type { RuleCommandRecord } from "~application/ports/repository/rule-command.repository.js";
+import type { ruleCommands } from "../schema/drizzle.schema.js";
 
-export interface RuleCommandRow {
-  id: string;
-  pattern: string;
-  label: string;
-  taskId: string | null;
-  createdAt: string;
-}
+export type RuleCommandRow = InferSelectModel<typeof ruleCommands>;
 
 export function mapRuleCommandRow(row: RuleCommandRow): RuleCommandRecord {
   return {

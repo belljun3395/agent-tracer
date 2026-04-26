@@ -1,11 +1,11 @@
 import type { PersistedTaskEvaluation, WorkflowSummary } from "~application/ports/repository/evaluation.repository.js";
-import type { MonitoringTask } from "~domain/monitoring/monitoring.task.model.js";
-import type { TimelineEvent } from "~domain/monitoring/timeline.event.model.js";
-import { buildReusableTaskSnapshot } from "~domain/workflow/task.snapshot.js";
-import { buildWorkflowContext } from "~domain/workflow/workflow.context.js";
-import { filterEventsByTurnRange, segmentEventsByTurn } from "~domain/workflow/segments.js";
+import type { MonitoringTask } from "~domain/monitoring/index.js";
+import type { TimelineEvent } from "~domain/monitoring/index.js";
+import { deriveTaskDisplayTitle, meaningfulTaskTitle } from "~domain/monitoring/index.js";
+import { filterEventsByTurnRange, segmentEventsByTurn } from "~domain/workflow/index.js";
+import { createReusableTaskSnapshot } from "~domain/workflow/index.js";
+import { composeWorkflowContext } from "~application/workflow/projection/workflow.context.js";
 import { normalizeEmbeddingSection, normalizeSearchText } from "../shared/text.normalizers.js";
-import { deriveTaskDisplayTitle, meaningfulTaskTitle } from "~application/index.js";
 import { parseJsonField } from "../shared/sqlite.json";
 import type { RankedWorkflowRow, TaskWithEvaluationRow } from "../repositories/sqlite.evaluation.row.type.js";
 import { buildEvaluationData, buildQualitySignals } from "../repositories/sqlite.evaluation.row.type.js";
@@ -156,8 +156,8 @@ export function filterWorkflowEventsForScopeKey(events: readonly TimelineEvent[]
 
 export function buildEmbeddingText(evaluation: PersistedTaskEvaluation, events: readonly TimelineEvent[], title: string): string {
     const evalData = buildEvaluationData(evaluation);
-    const workflowSnapshot = evaluation.workflowSnapshot ?? buildReusableTaskSnapshot({ objective: title, events, evaluation: evalData });
-    const workflowContext = evaluation.workflowContext ?? buildWorkflowContext(events, title, evalData, workflowSnapshot);
+    const workflowSnapshot = evaluation.workflowSnapshot ?? createReusableTaskSnapshot({ objective: title, events, evaluation: evalData });
+    const workflowContext = evaluation.workflowContext ?? composeWorkflowContext(events, title, evalData, workflowSnapshot);
     const parts = [
         title,
         evaluation.useCase,

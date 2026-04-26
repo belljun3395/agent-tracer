@@ -10,11 +10,9 @@ import type {
     WorkflowSummary,
 } from "~application/ports/repository/evaluation.repository.js";
 import type { IEmbeddingService } from "~application/ports/service/embedding.service.js";
-import type { TimelineEvent } from "~domain/monitoring/timeline.event.model.js";
-import type { ReusableTaskSnapshot } from "~domain/workflow/task.snapshot.js";
-import { buildReusableTaskSnapshot } from "~domain/workflow/task.snapshot.js";
-import type { SavedBriefing } from "~domain/workflow/briefing.js";
-import { buildWorkflowContext } from "~domain/workflow/workflow.context.js";
+import type { TimelineEvent } from "~domain/monitoring/index.js";
+import { createReusableTaskSnapshot, type ReusableTaskSnapshot, type SavedBriefing } from "~domain/workflow/index.js";
+import { composeWorkflowContext } from "~application/workflow/projection/workflow.context.js";
 import { cosineSimilarity, deserializeEmbedding, serializeEmbedding } from "../shared/embedding.codec.js";
 import { ensureSqliteDatabase, type SqliteDatabaseInput } from "../shared/drizzle.db.js";
 import { parseJsonField } from "../shared/sqlite.json";
@@ -479,12 +477,12 @@ export class SqliteEvaluationRepository implements IEvaluationRepository {
         const evaluation = buildEvaluationData(row);
         const displayTitle = resolveWorkflowDisplayTitle(row, events);
         const title = displayTitle ?? row.title;
-        const generatedSnapshot = buildReusableTaskSnapshot({ objective: title, events, evaluation });
+        const generatedSnapshot = createReusableTaskSnapshot({ objective: title, events, evaluation });
         const storedSnapshot = row.workflow_snapshot_json
             ? parseJsonField<ReusableTaskSnapshot>(row.workflow_snapshot_json)
             : null;
         const workflowSnapshot = storedSnapshot ?? generatedSnapshot;
-        const generatedContext = buildWorkflowContext(events, title, evaluation, workflowSnapshot);
+        const generatedContext = composeWorkflowContext(events, title, evaluation, workflowSnapshot);
         const workflowContext = row.workflow_context ?? generatedContext;
         const source = row.workflow_snapshot_json || row.workflow_context ? "saved" : "generated";
         return {
