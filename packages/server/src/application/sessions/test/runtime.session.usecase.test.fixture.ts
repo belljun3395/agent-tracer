@@ -1,5 +1,7 @@
 import { vi } from "vitest";
-import type { MonitoringSession, MonitoringTask, TimelineEvent } from "~domain/index.js";
+import type { TimelineEvent } from "~domain/monitoring/index.js";
+import type { MonitoringSession } from "~domain/monitoring/index.js";
+import type { MonitoringTask } from "~domain/monitoring/index.js";
 import type {
     IEventRepository,
     INotificationPublisher,

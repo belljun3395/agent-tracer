@@ -13,6 +13,11 @@ export { GetTaskOpenInferenceUseCase } from "./get.task.open.inference.usecase.j
 export { GetDefaultWorkspacePathUseCase } from "./get.default.workspace.path.usecase.js";
 export { TaskLifecycleService } from "./services/task.lifecycle.service.js";
 export { TaskNotFoundError as TaskLifecycleNotFoundError } from "./common/task.errors.js";
+export type {
+    OpenInferenceSpanKind,
+    OpenInferenceSpanRecord,
+    OpenInferenceTaskExport,
+} from "./openinference.js";
 export {
     COMPLETION_REASONS,
     TASK_KINDS,

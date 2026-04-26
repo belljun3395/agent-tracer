@@ -2,6 +2,8 @@ export { LogEventUseCase } from "./log.event.usecase.js";
 export { UpdateEventUseCase } from "./update.event.usecase.js";
 export { IngestEventsUseCase } from "./ingest.events.usecase.js";
 export { SearchEventsUseCase } from "./search.events.usecase.js";
+export { projectTimelineEvent } from "./timeline-event.projection.js";
+export type { TimelineEventProjection } from "./timeline-event.projection.js";
 export {
     AGENT_ACTIVITY_TYPES,
     ASYNC_TASK_STATUSES,

@@ -1,14 +1,14 @@
+import { deriveTaskDisplayTitle } from "~domain/monitoring/index.js";
 import {
-    buildReusableTaskSnapshot,
-    buildWorkflowContext,
     filterWorkflowEventsByScope,
     normalizeWorkflowScopeKey,
     resolveWorkflowScope,
-} from "~domain/index.js";
-import { deriveTaskDisplayTitle } from "~application/tasks/utils/task.display.title.util.js";
+} from "~domain/workflow/index.js";
 import type { ITaskRepository, IEventRepository, IEvaluationRepository } from "../ports/index.js";
 import type { UpsertTaskEvaluationUseCaseIn } from "./dto/upsert.task.evaluation.usecase.dto.js";
 import { TaskNotFoundError } from "./common/workflow.errors.js";
+import { createReusableTaskSnapshot } from "~domain/workflow/index.js";
+import { composeWorkflowContext } from "./projection/workflow.context.js";
 
 export class UpsertTaskEvaluationUseCase {
     constructor(
@@ -35,9 +35,9 @@ export class UpsertTaskEvaluationUseCase {
         } as const;
 
         const workflowTitle = deriveTaskDisplayTitle(task, events) ?? task.title;
-        const snapshot = input.workflowSnapshot ?? buildReusableTaskSnapshot({ objective: workflowTitle, events, evaluation });
+        const snapshot = input.workflowSnapshot ?? createReusableTaskSnapshot({ objective: workflowTitle, events, evaluation });
         const workflowContext = normalizeContextOverride(input.workflowContext)
-            ?? buildWorkflowContext(events, workflowTitle, evaluation, snapshot);
+            ?? composeWorkflowContext(events, workflowTitle, evaluation, snapshot);
 
         await this.evaluationRepo.upsertEvaluation({
             taskId: input.taskId,

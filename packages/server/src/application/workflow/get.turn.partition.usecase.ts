@@ -1,5 +1,5 @@
 import type { IEventRepository, ITaskRepository, ITurnPartitionRepository } from "~application/ports/index.js";
-import { resolveTurnPartition } from "~domain/workflow/turn.partition.js";
+import { resolveTurnPartition } from "~domain/workflow/index.js";
 import type { GetTurnPartitionUseCaseIn, GetTurnPartitionUseCaseOut } from "./dto/get.turn.partition.usecase.dto.js";
 import { TaskNotFoundError } from "./common/workflow.errors.js";
 

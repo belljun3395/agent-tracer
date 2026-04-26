@@ -1,6 +1,7 @@
-import { analyzeTaskObservability, buildMentionedFileVerifications } from "~domain/index.js";
+import { analyzeMentionedFileVerifications } from "~domain/monitoring/index.js";
 import type { ITaskRepository, ISessionRepository, IEventRepository } from "../ports/index.js";
 import type { GetTaskObservabilityUseCaseIn, GetTaskObservabilityUseCaseOut } from "./dto/get.task.observability.usecase.dto.js";
+import { analyzeTaskObservability } from "./projection/task.ops.js";
 
 export class GetTaskObservabilityUseCase {
     constructor(
@@ -18,7 +19,7 @@ export class GetTaskObservabilityUseCase {
         ]);
         return {
             observability: analyzeTaskObservability({ task, sessions, timeline }),
-            mentionedFileVerifications: buildMentionedFileVerifications(timeline, task.workspacePath),
+            mentionedFileVerifications: analyzeMentionedFileVerifications(timeline, task.workspacePath),
         };
     }
 }

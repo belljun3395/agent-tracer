@@ -1,4 +1,6 @@
-import type { MonitoringEventKind, MonitoringSession, MonitoringTask, TimelineLane } from "~domain/index.js";
+import type { MonitoringEventKind, TimelineLane } from "~domain/monitoring/index.js";
+import type { MonitoringSession } from "~domain/monitoring/index.js";
+import type { MonitoringTask } from "~domain/monitoring/index.js";
 import type { BookmarkRecord } from "../repository/bookmark.repository.js";
 
 export interface EventNotificationClassificationReason {

@@ -1,13 +1,13 @@
 import {
-    buildEventRecord,
-    createTaskSlug,
-    normalizeWorkspacePath,
-    resolveSemanticView,
-    resolveTimelineEventPaths,
-    type TimelineEvent,
-} from "~domain/index.js";
+    createEventRecordDraft,
+} from "~domain/monitoring/index.js";
+import {
+    createTaskUpsertDraft,
+    toTaskFinalizationEventRecordingInput,
+    toTaskStartEventRecordingInput,
+} from "~domain/monitoring/index.js";
+import { projectTimelineEvent } from "~application/events/timeline-event.projection.js";
 import type {
-    EventNotificationPayload,
     IEventRepository,
     INotificationPublisher,
     ISessionRepository,
@@ -58,18 +58,16 @@ export class TaskLifecycleService {
                 : { type: "task.updated", payload: finalTask },
         );
 
-        const body = this.finalizationBody(input);
-        const record = buildEventRecord({
+        const record = createEventRecordDraft(toTaskFinalizationEventRecordingInput({
             taskId: input.taskId,
-            kind: status === "completed" ? "task.complete" : "task.error",
-            lane: "user",
-            title: status === "completed" ? "Task completed" : "Task errored",
             ...(sessionId ? { sessionId } : {}),
-            ...(body ? { body } : {}),
+            outcome: status,
+            ...(input.summary ? { summary: input.summary } : {}),
+            ...(input.errorMessage ? { errorMessage: input.errorMessage } : {}),
             ...(input.metadata ? { metadata: input.metadata } : {}),
-        });
+        }));
         const event = await this.events.insert({ id: globalThis.crypto.randomUUID(), ...record });
-        this.notifier.publish({ type: "event.logged", payload: toEventNotificationPayload(event) });
+        this.notifier.publish({ type: "event.logged", payload: projectTimelineEvent(event) });
         return { task: finalTask, ...(sessionId ? { sessionId } : {}), events: [{ id: event.id, kind: event.kind }] };
     }
 
@@ -78,24 +76,19 @@ export class TaskLifecycleService {
         const sessionId = globalThis.crypto.randomUUID();
         const startedAt = new Date().toISOString();
         const existingTask = await this.tasks.findById(taskId);
-        const workspacePath = input.workspacePath ? normalizeWorkspacePath(input.workspacePath) : undefined;
-        const taskKind = input.taskKind ?? existingTask?.taskKind ?? "primary";
-        const runtimeSource = input.runtimeSource ?? existingTask?.runtimeSource;
-        const task = await this.tasks.upsert({
-            id: taskId,
+        const taskDraft = createTaskUpsertDraft({
+            taskId,
             title: input.title,
-            slug: createTaskSlug({ title: input.title }),
-            status: "running",
-            taskKind,
-            createdAt: existingTask?.createdAt ?? startedAt,
-            updatedAt: startedAt,
-            lastSessionStartedAt: startedAt,
-            ...(input.parentTaskId ?? existingTask?.parentTaskId ? { parentTaskId: input.parentTaskId ?? existingTask!.parentTaskId } : {}),
-            ...(input.parentSessionId ?? existingTask?.parentSessionId ? { parentSessionId: input.parentSessionId ?? existingTask!.parentSessionId } : {}),
-            ...(input.backgroundTaskId ?? existingTask?.backgroundTaskId ? { backgroundTaskId: input.backgroundTaskId ?? existingTask!.backgroundTaskId } : {}),
-            ...(workspacePath ? { workspacePath } : {}),
-            ...(runtimeSource ? { runtimeSource } : {}),
+            startedAt,
+            ...(existingTask ? { existingTask } : {}),
+            ...(input.workspacePath ? { workspacePath: input.workspacePath } : {}),
+            ...(input.runtimeSource ? { runtimeSource: input.runtimeSource } : {}),
+            ...(input.taskKind ? { taskKind: input.taskKind } : {}),
+            ...(input.parentTaskId ? { parentTaskId: input.parentTaskId } : {}),
+            ...(input.parentSessionId ? { parentSessionId: input.parentSessionId } : {}),
+            ...(input.backgroundTaskId ? { backgroundTaskId: input.backgroundTaskId } : {}),
         });
+        const task = await this.tasks.upsert(taskDraft);
         const session = await this.sessions.create({
             id: sessionId,
             taskId: task.id,
@@ -109,66 +102,18 @@ export class TaskLifecycleService {
         this.notifier.publish({ type: "task.started", payload: task });
         this.notifier.publish({ type: "session.started", payload: session });
         if (!existingTask) {
-            const startMeta = {
-                ...(input.metadata ?? {}),
-                taskKind: task.taskKind,
-                ...(task.parentTaskId ? { parentTaskId: task.parentTaskId } : {}),
-                ...(task.parentSessionId ? { parentSessionId: task.parentSessionId } : {}),
-                ...(task.backgroundTaskId ? { backgroundTaskId: task.backgroundTaskId } : {}),
-                ...(task.workspacePath ? { workspacePath: task.workspacePath } : {}),
-                ...(runtimeSource ? { runtimeSource } : {}),
-            };
-            const record = buildEventRecord({
-                taskId: task.id,
+            const record = createEventRecordDraft(toTaskStartEventRecordingInput({
+                task,
                 sessionId,
-                kind: "task.start",
-                lane: "user",
                 title: input.title,
-                metadata: startMeta,
-                ...(input.summary ? { body: input.summary } : {}),
-            });
+                ...(task.runtimeSource ? { runtimeSource: task.runtimeSource } : {}),
+                ...(input.summary ? { summary: input.summary } : {}),
+                ...(input.metadata ? { metadata: input.metadata } : {}),
+            }));
             const event = await this.events.insert({ id: globalThis.crypto.randomUUID(), ...record });
-            this.notifier.publish({ type: "event.logged", payload: toEventNotificationPayload(event) });
+            this.notifier.publish({ type: "event.logged", payload: projectTimelineEvent(event) });
             return { task, sessionId, events: [{ id: event.id, kind: event.kind }] };
         }
         return { task, sessionId, events: [] };
     }
-
-    private finalizationBody(input: FinalizeTaskServiceInput): string | undefined {
-        return input.outcome === "errored"
-            ? input.errorMessage
-            : input.summary;
-    }
-}
-
-function toEventNotificationPayload(event: TimelineEvent): EventNotificationPayload {
-    const semantic = resolveSemanticView(event);
-    const paths = resolveTimelineEventPaths(event);
-
-    return {
-        id: event.id,
-        taskId: event.taskId,
-        ...(event.sessionId !== undefined ? { sessionId: event.sessionId } : {}),
-        kind: event.kind,
-        lane: event.lane,
-        title: event.title,
-        ...(event.body !== undefined ? { body: event.body } : {}),
-        metadata: event.metadata,
-        classification: event.classification,
-        createdAt: event.createdAt,
-        ...(semantic ? {
-            semantic: {
-                subtypeKey: semantic.subtypeKey,
-                subtypeLabel: semantic.subtypeLabel,
-                ...(semantic.subtypeGroup !== undefined ? { subtypeGroup: semantic.subtypeGroup } : {}),
-                ...(semantic.entityType !== undefined ? { entityType: semantic.entityType } : {}),
-                ...(semantic.entityName !== undefined ? { entityName: semantic.entityName } : {}),
-            },
-        } : {}),
-        paths: {
-            ...(paths.primaryPath !== undefined ? { primaryPath: paths.primaryPath } : {}),
-            filePaths: paths.filePaths,
-            mentionedPaths: paths.mentionedPaths,
-        },
-    };
 }

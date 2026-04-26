@@ -1,4 +1,4 @@
-import type { MonitoringSession } from "~domain/index.js";
+import type { MonitoringSession } from "~domain/monitoring/index.js";
 export interface SessionCreateInput {
     readonly id: string;
     readonly taskId: string;

@@ -1,5 +1,5 @@
 import type { IEvaluationRepository } from "../ports/index.js";
-import { normalizeWorkflowScopeKey } from "~domain/index.js";
+import { normalizeWorkflowScopeKey } from "~domain/workflow/index.js";
 import type { GetTaskEvaluationUseCaseIn, GetTaskEvaluationUseCaseOut } from "./dto/get.task.evaluation.usecase.dto.js";
 
 export class GetTaskEvaluationUseCase {

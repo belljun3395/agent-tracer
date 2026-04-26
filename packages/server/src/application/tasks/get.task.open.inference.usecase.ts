@@ -1,6 +1,6 @@
-import { buildOpenInferenceTaskExport } from "~domain/index.js";
 import type { ITaskRepository, IEventRepository } from "../ports/index.js";
 import type { GetTaskOpenInferenceUseCaseIn, GetTaskOpenInferenceUseCaseOut } from "./dto/get.task.open.inference.usecase.dto.js";
+import { toOpenInferenceTaskExport } from "./openinference.js";
 
 export class GetTaskOpenInferenceUseCase {
     constructor(
@@ -11,6 +11,6 @@ export class GetTaskOpenInferenceUseCase {
         const task = await this.taskRepo.findById(input.taskId);
         if (!task) return undefined;
         const timeline = await this.eventRepo.findByTaskId(input.taskId);
-        return { openinference: buildOpenInferenceTaskExport(task, timeline) };
+        return { openinference: toOpenInferenceTaskExport(task, timeline) };
     }
 }

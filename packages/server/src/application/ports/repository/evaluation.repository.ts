@@ -3,10 +3,12 @@ import type {
     BriefingPurpose,
     ReusableTaskSnapshot,
     SavedBriefing,
+} from "~domain/workflow/index.js";
+import type {
     TaskEvaluation,
     WorkflowSearchResult,
     WorkflowSummary,
-} from "~domain/index.js";
+} from "~domain/workflow/index.js";
 export type { SavedBriefing, TaskEvaluation, WorkflowSearchResult, WorkflowSummary };
 export interface StoredTaskEvaluation extends TaskEvaluation {
     readonly workflowSnapshot: ReusableTaskSnapshot | null;

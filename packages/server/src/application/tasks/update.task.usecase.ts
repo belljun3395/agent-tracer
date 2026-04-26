@@ -1,4 +1,4 @@
-import { createTaskSlug } from "~domain/index.js";
+import { createTaskSlug } from "~domain/monitoring/index.js";
 import type { INotificationPublisher, ITaskRepository } from "~application/ports/index.js";
 import type { UpdateTaskUseCaseIn, UpdateTaskUseCaseOut } from "./dto/update.task.usecase.dto.js";
 
