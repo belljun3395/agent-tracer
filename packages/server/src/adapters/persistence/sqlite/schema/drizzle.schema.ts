@@ -96,21 +96,10 @@ export const turnPartitions = sqliteTable("turn_partitions_current", {
   updatedAt: text("updated_at").notNull(),
 });
 
-export const ruleCommands = sqliteTable("rule_commands_current", {
-  id: text("id").primaryKey(),
-  pattern: text("pattern").notNull(),
-  label: text("label").notNull(),
-  taskId: text("task_id").references(() => tasksCurrent.id, { onDelete: "cascade" }),
-  createdAt: text("created_at").notNull(),
-}, (table) => [
-  index("idx_rule_commands_current_task_id").on(table.taskId),
-]);
-
 export const tasksCurrentRelations = relations(tasksCurrent, ({ many }) => ({
   sessions: many(sessionsCurrent),
   events: many(timelineEvents),
   runtimeBindings: many(runtimeSessionBindings),
-  ruleCommands: many(ruleCommands),
   ownedRelations: many(taskRelations, { relationName: "taskRelationOwner" }),
   relatedRelations: many(taskRelations, { relationName: "taskRelationRelated" }),
 }));
@@ -159,13 +148,6 @@ export const runtimeSessionBindingsRelations = relations(runtimeSessionBindings,
   }),
 }));
 
-export const ruleCommandsRelations = relations(ruleCommands, ({ one }) => ({
-  task: one(tasksCurrent, {
-    fields: [ruleCommands.taskId],
-    references: [tasksCurrent.id],
-  }),
-}));
-
 export const turnPartitionsRelations = relations(turnPartitions, ({ one }) => ({
   task: one(tasksCurrent, {
     fields: [turnPartitions.taskId],
@@ -185,8 +167,6 @@ export const drizzleSchema = {
   runtimeSessionBindings,
   runtimeSessionBindingsRelations,
   searchDocuments,
-  ruleCommands,
-  ruleCommandsRelations,
   turnPartitions,
   turnPartitionsRelations,
 };

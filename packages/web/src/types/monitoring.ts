@@ -38,14 +38,6 @@ export type TimelineLane =
   | 'user' | 'exploration' | 'planning' | 'implementation' | 'rule'
   | 'questions' | 'todos' | 'background' | 'coordination' | 'telemetry'
 
-export interface RuleCommandRecord {
-  readonly id: string
-  readonly pattern: string
-  readonly label: string
-  readonly taskId?: string
-  readonly createdAt: string
-}
-
 export type MonitoringEventKind =
   | 'task.start' | 'task.complete' | 'task.error' | 'session.ended'
   | 'plan.logged' | 'action.logged' | 'agent.activity.logged'

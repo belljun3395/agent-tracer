@@ -2,7 +2,6 @@ import { Module, type DynamicModule, type MiddlewareConsumer, type NestModule } 
 import { APP_FILTER, APP_INTERCEPTOR } from "@nestjs/core";
 import type { INotificationPublisher } from "~application/index.js";
 import { EventsApplicationModule } from "./application/events-application.module.js";
-import { RuleCommandsApplicationModule } from "./application/rule-commands-application.module.js";
 import { SessionsApplicationModule } from "./application/sessions-application.module.js";
 import { SystemApplicationModule } from "./application/system-application.module.js";
 import { TasksApplicationModule } from "./application/tasks-application.module.js";
@@ -10,7 +9,6 @@ import { TurnPartitionsApplicationModule } from "./application/turn-partitions-a
 import { DatabaseModule } from "./database/database.module.js";
 import { GlobalExceptionFilter } from "./filters/zod-exception.filter.js";
 import { EventsHttpModule } from "./http/events-http.module.js";
-import { RuleCommandsHttpModule } from "./http/rule-commands-http.module.js";
 import { SessionsHttpModule } from "./http/sessions-http.module.js";
 import { SystemHttpModule } from "./http/system-http.module.js";
 import { TasksHttpModule } from "./http/tasks-http.module.js";
@@ -32,7 +30,6 @@ export class AppModule implements NestModule {
     static forRoot(options: AppModuleOptions): DynamicModule {
         const databaseModule = DatabaseModule.forRoot(options);
         const eventsApplicationModule = EventsApplicationModule.register(databaseModule);
-        const ruleCommandsApplicationModule = RuleCommandsApplicationModule.register(databaseModule);
         const tasksApplicationModule = TasksApplicationModule.register(databaseModule);
         const sessionsApplicationModule = SessionsApplicationModule.register(databaseModule, tasksApplicationModule);
         const systemApplicationModule = SystemApplicationModule.register(databaseModule);
@@ -42,8 +39,7 @@ export class AppModule implements NestModule {
             module: AppModule,
             imports: [
                 databaseModule,
-                EventsHttpModule.register(eventsApplicationModule, ruleCommandsApplicationModule),
-                RuleCommandsHttpModule.register(ruleCommandsApplicationModule),
+                EventsHttpModule.register(eventsApplicationModule),
                 SessionsHttpModule.register(sessionsApplicationModule),
                 SystemHttpModule.register(systemApplicationModule),
                 TasksHttpModule.register(tasksApplicationModule),

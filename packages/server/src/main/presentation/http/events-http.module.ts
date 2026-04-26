@@ -15,16 +15,10 @@ import { SearchQueryController } from "~adapters/http/query/index.js";
     ],
 })
 export class EventsHttpModule {
-    static register(
-        eventsApplicationModule: DynamicModule,
-        ruleCommandsApplicationModule: DynamicModule,
-    ): DynamicModule {
+    static register(eventsApplicationModule: DynamicModule): DynamicModule {
         return {
             module: EventsHttpModule,
-            imports: [
-                eventsApplicationModule,
-                ruleCommandsApplicationModule,
-            ],
+            imports: [eventsApplicationModule],
         };
     }
 }
