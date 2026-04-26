@@ -1,24 +1,18 @@
 import type React from "react";
 import { useCallback, useMemo, useState } from "react";
-import { collectFileActivity } from "~app/lib/insights/aggregation.js";
-import { buildTaskExtraction } from "~app/lib/insights/extraction.js";
-import { collectViolationDescriptions } from "~app/lib/insights/grouping.js";
-import { buildAgentTrace, buildEvaluatePrompt } from "~app/lib/insights/handoff.js";
 import type { TimelineEventRecord } from "~domain/monitoring.js";
 import type { VerdictStatus } from "~domain/rule.js";
 import { segmentEventsByTurn } from "~domain/segments.js";
-import { buildReusableTaskSnapshot } from "~domain/snapshot.js";
-import type { ReusableTaskSnapshot } from "~domain/snapshot.js";
+import type { TurnSegment } from "~domain/segments.js";
 import type { TaskTurnSummary } from "~domain/task-query-contracts.js";
-import { filterEventsByGroup, scopeKeyForGroup, scopeLabelForGroup } from "~domain/turn-partition.js";
+import { filterEventsByGroup, scopeLabelForGroup } from "~domain/turn-partition.js";
 import type { TurnGroup, TurnPartition } from "~domain/turn-partition.js";
+import { formatDuration } from "~app/lib/formatters.js";
 import { Badge } from "../ui/Badge.js";
 import { Button } from "../ui/Button.js";
 import { Eyebrow } from "../ui/Eyebrow.js";
 import { Input } from "../ui/Input.js";
-import { Textarea } from "../ui/Textarea.js";
 import { cn } from "~app/lib/ui/cn.js";
-import { copyToClipboard } from "~app/lib/ui/clipboard.js";
 import { summarizeGroupVerdict, type GroupVerdictSummary } from "./turnVerdict.js";
 
 export interface TurnsTabProps {
@@ -37,9 +31,15 @@ export interface TurnsTabProps {
     readonly onReset: () => Promise<void>;
 }
 
+interface GroupMeta {
+    readonly turnCount: number;
+    readonly eventCount: number;
+    readonly durationMs: number | null;
+}
+
 export function TurnsTab({
-    taskId,
-    taskTitle,
+    taskTitle: _taskTitle,
+    taskId: _taskId,
     taskTimeline,
     turnSummaries = [],
     partition,
@@ -57,13 +57,12 @@ export function TurnsTab({
         [taskTimeline],
     );
     const segmentMap = useMemo(() => {
-        const map = new Map<number, (typeof segments)[number]>();
+        const map = new Map<number, TurnSegment>();
         for (const s of segments) map.set(s.turnIndex, s);
         return map;
     }, [segments]);
 
     const groups = partition?.groups ?? [];
-    const focusedGroup = groups.find((g) => g.id === focusedGroupId) ?? null;
     const verdictByGroup = useMemo(() => {
         const map = new Map<string, GroupVerdictSummary | null>();
         for (const group of groups) {
@@ -71,6 +70,14 @@ export function TurnsTab({
         }
         return map;
     }, [groups, segments, turnSummaries]);
+
+    const metaByGroup = useMemo(() => {
+        const map = new Map<string, GroupMeta>();
+        for (const group of groups) {
+            map.set(group.id, computeGroupMeta(group, taskTimeline, segmentMap));
+        }
+        return map;
+    }, [groups, taskTimeline, segmentMap]);
 
     if (!partition || groups.length === 0) {
         return (
@@ -82,51 +89,37 @@ export function TurnsTab({
 
     return (
         <div className="panel-tab-inner flex flex-col gap-4 p-4">
-            <header className="flex flex-col gap-2">
-                <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                        <span className="text-[0.88rem] font-semibold text-[var(--text-1)]">Turns</span>
-                        <Badge tone="neutral" size="xs">{groups.length} group{groups.length === 1 ? "" : "s"}</Badge>
-                    </div>
-                    <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => void onReset()}
-                        disabled={isSaving}
-                        title="Reset to one group per turn"
-                    >
-                        Reset
-                    </Button>
-                </div>
-                <p className="m-0 text-[0.76rem] leading-relaxed text-[var(--text-2)]">
-                    Merge adjacent turns, split multi-turn groups, and toggle which ranges are visible in the timeline.
-                    Copy a group for AI evaluation below.
-                </p>
-            </header>
+            <Header
+                groupCount={groups.length}
+                isSaving={isSaving}
+                onReset={onReset}
+            />
 
             <section className="flex flex-col gap-2">
                 <div className="flex items-center justify-between gap-2">
                     <Eyebrow>Groups</Eyebrow>
-                    <button
-                        type="button"
-                        className="text-[0.72rem] text-[var(--text-3)] hover:text-[var(--text-1)]"
-                        onClick={() => onFocusGroup(null)}
-                    >
-                        {focusedGroupId === null ? "Focused: none" : "Clear focus"}
-                    </button>
+                    {focusedGroupId !== null && (
+                        <button
+                            type="button"
+                            className="text-[0.72rem] text-[var(--text-3)] hover:text-[var(--text-1)]"
+                            onClick={() => onFocusGroup(null)}
+                        >
+                            Clear focus
+                        </button>
+                    )}
                 </div>
                 <div className="flex flex-col gap-2">
                     {groups.map((group, index) => (
                         <GroupRow
                             key={group.id}
                             group={group}
-                            isFirst={index === 0}
                             isLast={index === groups.length - 1}
                             isFocused={group.id === focusedGroupId}
                             segmentMap={segmentMap}
                             verdict={verdictByGroup.get(group.id) ?? null}
+                            meta={metaByGroup.get(group.id) ?? null}
                             isSaving={isSaving}
-                            onFocus={() => onFocusGroup(group.id === focusedGroupId ? null : group.id)}
+                            onFocus={() => onFocusGroup(group.id)}
                             onMergeNext={() => void onMergeNext(group.id)}
                             onSplit={(at) => void onSplit(group.id, at)}
                             onToggleVisibility={() => void onToggleVisibility(group.id)}
@@ -135,26 +128,66 @@ export function TurnsTab({
                     ))}
                 </div>
             </section>
-
-            {focusedGroup && (
-                <FocusedGroupPanel
-                    taskId={taskId}
-                    taskTitle={taskTitle}
-                    taskTimeline={taskTimeline}
-                    group={focusedGroup}
-                />
-            )}
         </div>
+    );
+}
+
+interface HeaderProps {
+    readonly groupCount: number;
+    readonly isSaving: boolean;
+    readonly onReset: () => Promise<void>;
+}
+
+function Header({ groupCount, isSaving, onReset }: HeaderProps): React.JSX.Element {
+    const [confirmReset, setConfirmReset] = useState(false);
+
+    const handleReset = useCallback(() => {
+        if (!confirmReset) {
+            setConfirmReset(true);
+            return;
+        }
+        setConfirmReset(false);
+        void onReset();
+    }, [confirmReset, onReset]);
+
+    return (
+        <header className="flex flex-col gap-2">
+            <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                    <span className="text-[0.88rem] font-semibold text-[var(--text-1)]">Turns</span>
+                    <Badge tone="neutral" size="xs">{groupCount} group{groupCount === 1 ? "" : "s"}</Badge>
+                </div>
+                <div className="flex items-center gap-1">
+                    {confirmReset && (
+                        <Button size="sm" variant="ghost" onClick={() => setConfirmReset(false)}>
+                            Cancel
+                        </Button>
+                    )}
+                    <Button
+                        size="sm"
+                        variant={confirmReset ? "destructive" : "ghost"}
+                        onClick={handleReset}
+                        disabled={isSaving}
+                        title={confirmReset ? "Confirm reset to one group per turn" : "Reset to one group per turn"}
+                    >
+                        {confirmReset ? "Confirm reset?" : "Reset"}
+                    </Button>
+                </div>
+            </div>
+            <p className="m-0 text-[0.76rem] leading-relaxed text-[var(--text-2)]">
+                Click a group to focus it on the timeline minimap. Hover a row to merge, split, hide, or rename.
+            </p>
+        </header>
     );
 }
 
 interface GroupRowProps {
     readonly group: TurnGroup;
-    readonly isFirst: boolean;
     readonly isLast: boolean;
     readonly isFocused: boolean;
-    readonly segmentMap: Map<number, { readonly turnIndex: number; readonly requestPreview: string | null }>;
+    readonly segmentMap: Map<number, TurnSegment>;
     readonly verdict: GroupVerdictSummary | null;
+    readonly meta: GroupMeta | null;
     readonly isSaving: boolean;
     readonly onFocus: () => void;
     readonly onMergeNext: () => void;
@@ -169,6 +202,7 @@ function GroupRow({
     isFocused,
     segmentMap,
     verdict,
+    meta,
     isSaving,
     onFocus,
     onMergeNext,
@@ -191,24 +225,28 @@ function GroupRow({
         setRenameOpen(false);
     }, [onRename, renameValue]);
 
+    const verdictBarClass = focusedBarClass(isFocused) ?? verdictBarClass_(verdict);
+
     return (
         <div
+            data-focused={isFocused || undefined}
             className={cn(
-                "rounded-[var(--radius-md)] border bg-[var(--surface-2)] px-3 py-2.5 transition-colors",
+                "group/turn-row relative overflow-hidden rounded-[var(--radius-md)] border bg-[var(--surface-2)] transition-colors",
                 isFocused
                     ? "border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent-light)_40%,var(--surface-2))]"
-                    : "border-[var(--border)]",
+                    : "border-[var(--border)] hover:border-[var(--border-2)] hover:bg-[color-mix(in_srgb,var(--surface)_60%,var(--surface-2))]",
                 !group.visible && "opacity-70",
             )}
         >
-            <div className="flex items-start justify-between gap-3">
+            <span aria-hidden="true" className={cn("absolute inset-y-0 left-0 w-[3px]", verdictBarClass)} />
+            <div className="flex items-start gap-2 pl-3 pr-2 py-2.5">
                 <button
                     type="button"
                     onClick={onFocus}
-                    className="flex min-w-0 flex-1 flex-col items-start gap-1 text-left"
-                    title="Focus this group"
+                    className="flex min-w-0 flex-1 flex-col items-start gap-1 text-left focus-visible:outline-none"
+                    title={isFocused ? "Click again to keep focused (or use Clear focus above)" : "Focus this group on the timeline"}
                 >
-                    <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-1.5">
                         <span className="text-[0.82rem] font-semibold text-[var(--text-1)]">
                             {scopeLabelForGroup(group)}
                         </span>
@@ -227,27 +265,22 @@ function GroupRow({
                             {preview}
                         </span>
                     )}
+                    {meta && <MetaLine meta={meta} />}
                 </button>
-                <div className="flex shrink-0 items-center gap-1">
-                    <IconButton
-                        label={group.visible ? "Hide in timeline" : "Show in timeline"}
-                        onClick={onToggleVisibility}
-                        disabled={isSaving}
-                    >
-                        {group.visible ? <EyeIcon /> : <EyeOffIcon />}
-                    </IconButton>
-                    <IconButton
-                        label="Rename"
-                        onClick={() => { setRenameValue(group.label ?? ""); setRenameOpen((v) => !v); }}
-                        disabled={isSaving}
-                    >
-                        <PencilIcon />
-                    </IconButton>
+                <div
+                    className={cn(
+                        "flex shrink-0 items-center gap-1 transition-opacity",
+                        isFocused
+                            ? "opacity-100"
+                            : "opacity-0 group-hover/turn-row:opacity-100 group-focus-within/turn-row:opacity-100",
+                    )}
+                >
                     {canSplit && (
                         <IconButton
                             label="Split"
                             onClick={() => setSplitOpen((v) => !v)}
                             disabled={isSaving}
+                            active={splitOpen}
                         >
                             <ScissorsIcon />
                         </IconButton>
@@ -261,11 +294,26 @@ function GroupRow({
                             <MergeDownIcon />
                         </IconButton>
                     )}
+                    <IconButton
+                        label={group.visible ? "Hide in timeline" : "Show in timeline"}
+                        onClick={onToggleVisibility}
+                        disabled={isSaving}
+                    >
+                        {group.visible ? <EyeIcon /> : <EyeOffIcon />}
+                    </IconButton>
+                    <IconButton
+                        label="Rename"
+                        onClick={() => { setRenameValue(group.label ?? ""); setRenameOpen((v) => !v); }}
+                        disabled={isSaving}
+                        active={renameOpen}
+                    >
+                        <PencilIcon />
+                    </IconButton>
                 </div>
             </div>
 
             {renameOpen && (
-                <div className="mt-2 flex items-center gap-2">
+                <div className="flex items-center gap-2 px-3 pb-2.5">
                     <Input
                         value={renameValue}
                         onChange={(e) => setRenameValue(e.target.value)}
@@ -282,7 +330,7 @@ function GroupRow({
             )}
 
             {splitOpen && canSplit && (
-                <div className="mt-2 flex flex-wrap items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2 px-3 pb-2.5">
                     <span className="text-[0.72rem] text-[var(--text-3)]">Split before:</span>
                     {Array.from({ length: group.to - group.from }, (_, i) => group.from + i + 1).map((at) => (
                         <button
@@ -302,23 +350,35 @@ function GroupRow({
     );
 }
 
+function MetaLine({ meta }: { readonly meta: GroupMeta }): React.JSX.Element {
+    const parts: string[] = [];
+    parts.push(`${meta.turnCount} turn${meta.turnCount === 1 ? "" : "s"}`);
+    parts.push(`${meta.eventCount} event${meta.eventCount === 1 ? "" : "s"}`);
+    if (meta.durationMs !== null && meta.durationMs > 0) {
+        parts.push(formatDuration(meta.durationMs));
+    }
+    return (
+        <span className="text-[0.7rem] text-[var(--text-3)]">
+            {parts.join(" · ")}
+        </span>
+    );
+}
+
 function VerdictBadge({ status }: { readonly status: VerdictStatus }): React.JSX.Element {
     const tone = status === "verified" ? "success" : status === "contradicted" ? "danger" : "warning";
     const label = status === "verified" ? "verified" : status === "contradicted" ? "contradicted" : "unverifiable";
     return <Badge tone={tone} size="xs">{label}</Badge>;
 }
 
-function IconButton({
-    label,
-    onClick,
-    disabled,
-    children,
-}: {
+interface IconButtonProps {
     readonly label: string;
     readonly onClick: () => void;
     readonly disabled?: boolean;
+    readonly active?: boolean;
     readonly children: React.ReactNode;
-}): React.JSX.Element {
+}
+
+function IconButton({ label, onClick, disabled, active, children }: IconButtonProps): React.JSX.Element {
     return (
         <button
             type="button"
@@ -326,7 +386,12 @@ function IconButton({
             aria-label={label}
             onClick={onClick}
             disabled={disabled}
-            className="inline-flex h-7 w-7 items-center justify-center rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] text-[var(--text-2)] transition-colors hover:border-[var(--border-2)] hover:bg-[var(--surface-2)] hover:text-[var(--text-1)] focus-visible:outline-none focus-visible:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50"
+            className={cn(
+                "inline-flex h-7 w-7 items-center justify-center rounded-[var(--radius-md)] border bg-[var(--surface)] text-[var(--text-2)] transition-colors hover:bg-[var(--surface-2)] hover:text-[var(--text-1)] focus-visible:outline-none focus-visible:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50",
+                active
+                    ? "border-[var(--accent)] text-[var(--accent)]"
+                    : "border-[var(--border)] hover:border-[var(--border-2)]",
+            )}
         >
             {children}
         </button>
@@ -401,189 +466,6 @@ function MergeDownIcon(): React.JSX.Element {
     );
 }
 
-function FocusedGroupPanel({
-    taskId,
-    taskTitle,
-    taskTimeline,
-    group,
-}: {
-    readonly taskId: string | undefined;
-    readonly taskTitle: string;
-    readonly taskTimeline: readonly TimelineEventRecord[];
-    readonly group: TurnGroup;
-}): React.JSX.Element {
-    const [copied, setCopied] = useState(false);
-    const [rating, setRating] = useState<"good" | "skip" | null>(null);
-    const [useCase, setUseCase] = useState("");
-    const [outcomeNote, setOutcomeNote] = useState("");
-
-    const scopedEvents = useMemo(() => filterEventsByGroup(taskTimeline, group), [taskTimeline, group]);
-    const extraction = useMemo(() => buildTaskExtraction(undefined, scopedEvents, []), [scopedEvents]);
-    const snapshot = useMemo<ReusableTaskSnapshot>(
-        () => buildReusableTaskSnapshot({ objective: extraction.objective || taskTitle, events: scopedEvents }),
-        [extraction.objective, scopedEvents, taskTitle],
-    );
-    const agentTrace = useMemo(() => buildAgentTrace(scopedEvents), [scopedEvents]);
-    const modifiedFiles = useMemo(
-        () => collectFileActivity(scopedEvents).filter((f) => f.writeCount > 0).map((f) => f.path),
-        [scopedEvents],
-    );
-    const violations = useMemo(() => collectViolationDescriptions(scopedEvents), [scopedEvents]);
-    const scopeKey = useMemo(() => scopeKeyForGroup(group), [group]);
-
-    const handleCopy = useCallback(() => {
-        const prompt = buildEvaluatePrompt({
-            taskId: taskId ?? "",
-            objective: extraction.objective || taskTitle,
-            modifiedFiles,
-            violations,
-            snapshot,
-            agentTrace,
-            userAssessment: {
-                ...(rating ? { rating } : {}),
-                ...(useCase.trim() ? { useCase: useCase.trim() } : {}),
-                ...(outcomeNote.trim() ? { outcomeNote: outcomeNote.trim() } : {}),
-            },
-        });
-        void copyToClipboard(prompt).then(() => {
-            setCopied(true);
-            setTimeout(() => setCopied(false), 2000);
-        });
-    }, [agentTrace, extraction.objective, modifiedFiles, outcomeNote, rating, snapshot, taskId, taskTitle, useCase, violations]);
-
-    return (
-        <section className="flex flex-col gap-3 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] p-3">
-            <header className="flex flex-col gap-1">
-                <div className="flex items-center justify-between gap-2">
-                    <span className="text-[0.82rem] font-semibold text-[var(--text-1)]">Preview · {scopeLabelForGroup(group)}</span>
-                    <Badge tone="neutral" size="xs" title="Evaluation scope key">{scopeKey}</Badge>
-                </div>
-                <span className="text-[0.7rem] text-[var(--text-3)]">{scopedEvents.length} event{scopedEvents.length === 1 ? "" : "s"}</span>
-            </header>
-
-            <SnapshotPreview snapshot={snapshot} />
-
-            <div className="grid gap-2 sm:grid-cols-2">
-                <div className="flex flex-col gap-1.5">
-                    <FieldLabel>Worth reusing?</FieldLabel>
-                    <div className="flex gap-2">
-                        <RatingButton active={rating === "good"} onClick={() => setRating("good")}>Reuse</RatingButton>
-                        <RatingButton active={rating === "skip"} onClick={() => setRating("skip")}>Skip</RatingButton>
-                    </div>
-                </div>
-                <div className="flex flex-col gap-1.5">
-                    <FieldLabel>Use case</FieldLabel>
-                    <Input
-                        placeholder="e.g. TypeScript error fix"
-                        value={useCase}
-                        onChange={(e) => setUseCase(e.target.value)}
-                    />
-                </div>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-                <FieldLabel>Outcome note</FieldLabel>
-                <Textarea
-                    rows={2}
-                    placeholder="What was resolved in this group? (optional)"
-                    value={outcomeNote}
-                    onChange={(e) => setOutcomeNote(e.target.value)}
-                />
-            </div>
-
-            <div className="flex items-center justify-between gap-3 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface-2)] p-3">
-                <div className="flex items-center gap-1.5 text-[0.72rem] text-[var(--text-3)]">
-                    <span className="rounded-[4px] bg-[var(--surface)] px-1.5 py-0.5">Copy</span>
-                    <span>→</span>
-                    <span className="rounded-[4px] bg-[var(--surface)] px-1.5 py-0.5">Paste to Claude</span>
-                    <span>→</span>
-                    <span className="rounded-[4px] bg-[var(--surface)] px-1.5 py-0.5">Evaluated @ {scopeKey}</span>
-                </div>
-                <button
-                    type="button"
-                    className={cn(
-                        "shrink-0 rounded-[7px] border px-3 py-1.5 text-[0.78rem] font-semibold transition-all",
-                        copied
-                            ? "border-[var(--ok-bg)] bg-[var(--ok-bg)] text-[var(--ok)]"
-                            : "border-[var(--accent)] bg-[var(--accent)] text-[#fff] hover:opacity-90",
-                    )}
-                    onClick={handleCopy}
-                    disabled={!taskId}
-                >
-                    {copied ? "Copied ✓" : "Copy for AI"}
-                </button>
-            </div>
-        </section>
-    );
-}
-
-function SnapshotPreview({ snapshot }: { readonly snapshot: ReusableTaskSnapshot }): React.JSX.Element {
-    return (
-        <div className="flex flex-col gap-2 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface-2)] p-3">
-            {snapshot.objective && <PreviewField label="Objective" value={snapshot.objective} />}
-            {snapshot.outcomeSummary && <PreviewField label="Outcome" value={snapshot.outcomeSummary} />}
-            {snapshot.modifiedFiles.length > 0 && <PreviewList label="Modified files" items={snapshot.modifiedFiles} />}
-            {snapshot.keyFiles.length > 0 && <PreviewList label="Key files" items={snapshot.keyFiles} />}
-            {snapshot.verificationSummary && <PreviewField label="Verification" value={snapshot.verificationSummary} />}
-            {snapshot.nextSteps.length > 0 && <PreviewList label="Next steps" items={snapshot.nextSteps} />}
-        </div>
-    );
-}
-
-function PreviewField({ label, value }: { readonly label: string; readonly value: string }): React.JSX.Element {
-    return (
-        <div className="flex flex-col gap-1">
-            <Eyebrow>{label}</Eyebrow>
-            <p className="m-0 text-[0.78rem] leading-6 text-[var(--text-2)] [overflow-wrap:anywhere]">{value}</p>
-        </div>
-    );
-}
-
-function PreviewList({ label, items }: { readonly label: string; readonly items: readonly string[] }): React.JSX.Element {
-    return (
-        <div className="flex flex-col gap-1">
-            <Eyebrow>{label}</Eyebrow>
-            <div className="flex flex-col gap-0.5">
-                {items.slice(0, 6).map((item) => (
-                    <p key={item} className="m-0 text-[0.78rem] leading-6 text-[var(--text-2)] [overflow-wrap:anywhere]">- {item}</p>
-                ))}
-                {items.length > 6 && (
-                    <p className="m-0 text-[0.72rem] text-[var(--text-3)]">+{items.length - 6} more</p>
-                )}
-            </div>
-        </div>
-    );
-}
-
-function FieldLabel({ children }: { readonly children: React.ReactNode }): React.JSX.Element {
-    return <Eyebrow className="text-[0.68rem] tracking-[0.06em]">{children}</Eyebrow>;
-}
-
-function RatingButton({
-    active,
-    children,
-    onClick,
-}: {
-    readonly active: boolean;
-    readonly children: React.ReactNode;
-    readonly onClick: () => void;
-}): React.JSX.Element {
-    return (
-        <button
-            type="button"
-            className={cn(
-                "rounded-[var(--radius-md)] border px-2.5 py-1.25 text-[0.74rem] font-semibold transition-colors",
-                active
-                    ? "border-[var(--ok-bg)] bg-[var(--ok-bg)] text-[var(--ok)]"
-                    : "border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-2)] hover:text-[var(--text-1)]",
-            )}
-            onClick={onClick}
-        >
-            {children}
-        </button>
-    );
-}
-
 function EmptyState(): React.JSX.Element {
     return (
         <div className="rounded-[var(--radius-lg)] border border-dashed border-[var(--border)] bg-[var(--bg-subtle)] px-4 py-6 text-center">
@@ -593,4 +475,34 @@ function EmptyState(): React.JSX.Element {
             </p>
         </div>
     );
+}
+
+function computeGroupMeta(
+    group: TurnGroup,
+    timeline: readonly TimelineEventRecord[],
+    segmentMap: Map<number, TurnSegment>,
+): GroupMeta {
+    const turnCount = group.to - group.from + 1;
+    const events = filterEventsByGroup(timeline, group);
+    const startSeg = segmentMap.get(group.from);
+    const endSeg = segmentMap.get(group.to);
+    const startMs = startSeg ? Date.parse(startSeg.startAt) : NaN;
+    const endMs = endSeg ? Date.parse(endSeg.endAt) : NaN;
+    const durationMs = Number.isFinite(startMs) && Number.isFinite(endMs) && endMs >= startMs
+        ? endMs - startMs
+        : null;
+    return { turnCount, eventCount: events.length, durationMs };
+}
+
+function focusedBarClass(isFocused: boolean): string | null {
+    return isFocused ? "bg-[var(--accent)]" : null;
+}
+
+function verdictBarClass_(verdict: GroupVerdictSummary | null): string {
+    if (!verdict?.status) {
+        return verdict?.hasOpenTurn ? "bg-[var(--border-2)]" : "bg-transparent";
+    }
+    if (verdict.status === "verified") return "bg-[var(--ok)]";
+    if (verdict.status === "contradicted") return "bg-[var(--err)]";
+    return "bg-[var(--warn)]";
 }

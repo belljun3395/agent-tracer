@@ -55,20 +55,27 @@ export function useTurnPartition(
 
     // Reconcile when the timeline grows (new user.message events arrive) so the
     // stored partition stays valid. If the timeline's turn count no longer matches
-    // the stored partition, fall back to default and persist silently.
+    // the stored partition, rebuild the default coverage but PRESERVE the loaded
+    // version — otherwise the next save would race-condition (409) against the
+    // server which still has the previous version.
+    //
+    // Skip while turnCount is 0: the timeline is still loading and partition was
+    // hydrated from the server with N>0 groups; treating that transient mismatch
+    // as a reset would clobber the server version.
     const turnCount = useMemo(() => countNonPreludeTurns(timeline), [timeline]);
     useEffect(() => {
         if (!taskId || !partition) return;
+        if (turnCount === 0) return;
         try {
             validatePartition(partition, turnCount);
         } catch {
-            const next = resolveTurnPartition({
+            const rebuilt = resolveTurnPartition({
                 taskId,
                 stored: null,
                 events: timeline,
                 fallbackUpdatedAt: new Date().toISOString(),
             });
-            setPartition(next);
+            setPartition({ ...rebuilt, version: partition.version });
         }
     }, [taskId, partition, turnCount, timeline]);
 

@@ -7,7 +7,7 @@ import { updateEventDisplayTitle } from "~io/api.js";
 import { useTaskDetailQuery } from "~state/server/queries.js";
 import { monitorQueryKeys } from "~state/server/queryKeys.js";
 import { useSelectionStore } from "~state/ui/UiStoreProvider.js";
-import { useTurnPartition } from "~state/useTurnPartition.js";
+import { useTurnPartitionContext } from "~state/TurnPartitionProvider.js";
 import { useQueryClient } from "@tanstack/react-query";
 import { InspectorProvider } from "../features/inspector/context/InspectorContext.js";
 import { cn } from "../lib/ui/cn.js";
@@ -34,9 +34,11 @@ export function InspectorContainer({
     const selectedTag = useSelectionStore((s) => s.selectedTag);
     const selectedRuleId = useSelectionStore((s) => s.selectedRuleId);
     const showRuleGapsOnly = useSelectionStore((s) => s.showRuleGapsOnly);
+    const focusedTurnGroupId = useSelectionStore((s) => s.focusedTurnGroupId);
     const selectTag = useSelectionStore((s) => s.selectTag);
     const selectRule = useSelectionStore((s) => s.selectRule);
     const setShowRuleGapsOnly = useSelectionStore((s) => s.setShowRuleGapsOnly);
+    const onFocusTurnGroup = useSelectionStore((s) => s.focusTurnGroup);
 
     const [isFullInspector, setIsFullInspector] = useState(false);
 
@@ -74,16 +76,14 @@ export function InspectorContainer({
         selectRule(ruleId);
     }, [setShowRuleGapsOnly, selectRule]);
 
-    const {
-        partition: turnPartition, isSaving: turnPartitionSaving,
-        mergeNext: onMergeTurnGroup, split: onSplitTurnGroup,
-        toggleVisibility: onToggleTurnGroupVisibility, rename: onRenameTurnGroup,
-        reset: onResetTurnPartition,
-    } = useTurnPartition(selectedTaskId ?? "", taskTimeline);
-    const [focusedTurnGroupId, setFocusedTurnGroupId] = useState<string | null>(null);
-    const onFocusTurnGroup = useCallback((groupId: string | null) => {
-        setFocusedTurnGroupId((current) => (current === groupId ? null : groupId));
-    }, []);
+    const partitionCtx = useTurnPartitionContext();
+    const turnPartition = partitionCtx?.partition ?? null;
+    const turnPartitionSaving = partitionCtx?.isSaving ?? false;
+    const onMergeTurnGroup = partitionCtx?.mergeNext;
+    const onSplitTurnGroup = partitionCtx?.split;
+    const onToggleTurnGroupVisibility = partitionCtx?.toggleVisibility;
+    const onRenameTurnGroup = partitionCtx?.rename;
+    const onResetTurnPartition = partitionCtx?.reset;
     const focusedGroup = turnPartition?.groups.find((g) => g.id === focusedTurnGroupId) ?? null;
 
     const panelToggle = (

@@ -8,6 +8,7 @@ import { useTaskDetailQuery } from "~state/server/queries.js";
 import { monitorQueryKeys } from "~state/server/queryKeys.js";
 import { useEditStore, useSelectionStore } from "~state/ui/UiStoreProvider.js";
 import { useNowMs } from "~state/ui/useNowMs.js";
+import { useTurnPartitionContext } from "~state/TurnPartitionProvider.js";
 import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "../lib/ui/cn.js";
 import { Timeline } from "./Timeline.js";
@@ -39,11 +40,13 @@ export function TimelineContainer({
     const selectedConnectorKey = useSelectionStore((s) => s.selectedConnectorKey);
     const selectedRuleId = useSelectionStore((s) => s.selectedRuleId);
     const showRuleGapsOnly = useSelectionStore((s) => s.showRuleGapsOnly);
+    const focusedTurnGroupId = useSelectionStore((s) => s.focusedTurnGroupId);
     const selectEvent = useSelectionStore((s) => s.selectEvent);
     const selectConnector = useSelectionStore((s) => s.selectConnector);
     const selectRule = useSelectionStore((s) => s.selectRule);
     const selectTag = useSelectionStore((s) => s.selectTag);
     const setShowRuleGapsOnly = useSelectionStore((s) => s.setShowRuleGapsOnly);
+    const focusTurnGroup = useSelectionStore((s) => s.focusTurnGroup);
     const resetFilters = useSelectionStore((s) => s.resetFilters);
 
     const isEditingTaskTitle = useEditStore((s) => s.isEditingTaskTitle);
@@ -66,6 +69,7 @@ export function TimelineContainer({
 
     const taskTimeline = taskDetail?.timeline ?? [];
     const { observabilityStats } = useMemo(() => buildTaskTimelineSummary(taskTimeline), [taskTimeline]);
+    const turnPartition = useTurnPartitionContext()?.partition ?? null;
 
     const handleTaskStatusChange = useCallback(
         async (status: MonitoringTask["status"]): Promise<void> => {
@@ -148,6 +152,9 @@ export function TimelineContainer({
                 selectedConnectorKey={selectedConnectorKey}
                 selectedRuleId={selectedRuleId}
                 showRuleGapsOnly={showRuleGapsOnly}
+                turnPartition={turnPartition}
+                focusedTurnGroupId={focusedTurnGroupId}
+                onSelectTurnGroup={focusTurnGroup}
                 nowMs={nowMs}
                 observabilityStats={observabilityStats}
                 onSelectEvent={(id) => {
