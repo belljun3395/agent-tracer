@@ -1,33 +1,16 @@
-export type UpdateRuleExpectedActionUseCaseDto = "command" | "file-read" | "file-write" | "web";
-export type UpdateRuleScopeUseCaseDto = "global" | "task";
-export type UpdateRuleSeverityUseCaseDto = "info" | "warn" | "block";
-export type UpdateRuleSourceUseCaseDto = "human" | "agent";
-export type UpdateRuleTriggerSourceUseCaseDto = "assistant" | "user";
+import type {
+    RuleExpectedActionUseCaseDto,
+    RuleSeverityUseCaseDto,
+    RuleTriggerSourceUseCaseDto,
+    RuleTriggerUseCaseDto,
+    RuleUseCaseDto,
+} from "./rule.usecase.dto.js";
 
-export interface UpdateRuleTriggerUseCaseDto {
-    readonly phrases: readonly string[];
-}
-
-export interface UpdateRuleExpectUseCaseDto {
-    readonly tool?: UpdateRuleExpectedActionUseCaseDto;
-    readonly commandMatches?: readonly string[];
-    readonly pattern?: string;
-}
-
-export interface UpdateRuleRuleUseCaseDto {
-    readonly id: string;
-    readonly name: string;
-    readonly trigger?: UpdateRuleTriggerUseCaseDto;
-    readonly triggerOn?: UpdateRuleTriggerSourceUseCaseDto;
-    readonly expect: UpdateRuleExpectUseCaseDto;
-    readonly scope: UpdateRuleScopeUseCaseDto;
-    readonly taskId?: string;
-    readonly source: UpdateRuleSourceUseCaseDto;
-    readonly severity: UpdateRuleSeverityUseCaseDto;
-    readonly rationale?: string;
-    readonly signature: string;
-    readonly createdAt: string;
-}
+export type UpdateRuleExpectedActionUseCaseDto = RuleExpectedActionUseCaseDto;
+export type UpdateRuleSeverityUseCaseDto = RuleSeverityUseCaseDto;
+export type UpdateRuleTriggerSourceUseCaseDto = RuleTriggerSourceUseCaseDto;
+export type UpdateRuleTriggerUseCaseDto = RuleTriggerUseCaseDto;
+export type UpdateRuleRuleUseCaseDto = RuleUseCaseDto;
 
 export interface UpdateRuleUseCaseIn {
     readonly id: string;

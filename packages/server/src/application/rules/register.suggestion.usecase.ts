@@ -5,7 +5,7 @@ import type {
     RegisterSuggestionUseCaseIn,
     RegisterSuggestionUseCaseOut,
 } from "./dto/register.suggestion.usecase.dto.js";
-import { projectRule } from "./rule.projection.js";
+import { mapRule } from "./dto/rule.dto.mapper.js";
 
 export type {
     RegisterSuggestionUseCaseIn,
@@ -38,7 +38,7 @@ export class RegisterSuggestionUseCase {
             expect,
         });
         const existing = await this.ruleRepo.findBySignature(signature);
-        if (existing) return { rule: projectRule(existing), created: false };
+        if (existing) return { rule: mapRule(existing), created: false };
         const created = await this.createRule.execute({
             name: input.name,
             ...(input.trigger ? { trigger: input.trigger } : {}),

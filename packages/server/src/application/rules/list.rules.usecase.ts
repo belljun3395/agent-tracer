@@ -5,7 +5,7 @@ import type {
     ListRulesUseCaseIn,
     ListRulesUseCaseOut,
 } from "./dto/list.rules.usecase.dto.js";
-import { projectRule } from "./rule.projection.js";
+import { mapRule } from "./dto/rule.dto.mapper.js";
 
 export type {
     ListRulesForTaskUseCaseIn,
@@ -23,7 +23,7 @@ export class ListRulesUseCase {
 
     async execute(input: ListRulesUseCaseIn = {}): Promise<ListRulesUseCaseOut> {
         const rules = await this.ruleRepo.list(input);
-        return { rules: rules.map(projectRule) };
+        return { rules: rules.map(mapRule) };
     }
 }
 
@@ -36,8 +36,8 @@ export class ListRulesForTaskUseCase {
             this.ruleRepo.list({ scope: "global" }),
         ]);
         return {
-            task: task.map(projectRule),
-            global: global.map(projectRule),
+            task: task.map(mapRule),
+            global: global.map(mapRule),
         };
     }
 }

@@ -1,39 +1,18 @@
-export type RegisterSuggestionExpectedActionUseCaseDto = "command" | "file-read" | "file-write" | "web";
-export type RegisterSuggestionScopeUseCaseDto = "global" | "task";
-export type RegisterSuggestionSeverityUseCaseDto = "info" | "warn" | "block";
-export type RegisterSuggestionSourceUseCaseDto = "human" | "agent";
-export type RegisterSuggestionTriggerSourceUseCaseDto = "assistant" | "user";
+import type {
+    RuleExpectationUseCaseDto,
+    RuleScopeUseCaseDto,
+    RuleSeverityUseCaseDto,
+    RuleTriggerSourceUseCaseDto,
+    RuleTriggerUseCaseDto,
+    RuleUseCaseDto,
+} from "./rule.usecase.dto.js";
 
-export interface RegisterSuggestionTriggerUseCaseDto {
-    readonly phrases: readonly string[];
-}
-
-export interface RegisterSuggestionExpectationUseCaseDto {
-    readonly action?: RegisterSuggestionExpectedActionUseCaseDto;
-    readonly commandMatches?: readonly string[];
-    readonly pattern?: string;
-}
-
-export interface RegisterSuggestionExpectUseCaseDto {
-    readonly tool?: RegisterSuggestionExpectedActionUseCaseDto;
-    readonly commandMatches?: readonly string[];
-    readonly pattern?: string;
-}
-
-export interface RegisterSuggestionRuleUseCaseDto {
-    readonly id: string;
-    readonly name: string;
-    readonly trigger?: RegisterSuggestionTriggerUseCaseDto;
-    readonly triggerOn?: RegisterSuggestionTriggerSourceUseCaseDto;
-    readonly expect: RegisterSuggestionExpectUseCaseDto;
-    readonly scope: RegisterSuggestionScopeUseCaseDto;
-    readonly taskId?: string;
-    readonly source: RegisterSuggestionSourceUseCaseDto;
-    readonly severity: RegisterSuggestionSeverityUseCaseDto;
-    readonly rationale?: string;
-    readonly signature: string;
-    readonly createdAt: string;
-}
+export type RegisterSuggestionScopeUseCaseDto = RuleScopeUseCaseDto;
+export type RegisterSuggestionSeverityUseCaseDto = RuleSeverityUseCaseDto;
+export type RegisterSuggestionTriggerSourceUseCaseDto = RuleTriggerSourceUseCaseDto;
+export type RegisterSuggestionTriggerUseCaseDto = RuleTriggerUseCaseDto;
+export type RegisterSuggestionExpectationUseCaseDto = RuleExpectationUseCaseDto;
+export type RegisterSuggestionRuleUseCaseDto = RuleUseCaseDto;
 
 export interface RegisterSuggestionUseCaseIn {
     readonly name: string;
