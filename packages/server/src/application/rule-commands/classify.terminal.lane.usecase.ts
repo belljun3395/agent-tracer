@@ -1,3 +1,4 @@
+import { commandMatchesRulePatterns } from "~domain/rule-commands/index.js";
 import type { GetRulePatternsUseCase } from "./get.rule-patterns.usecase.js";
 
 export interface TerminalLaneCandidate {
@@ -29,7 +30,7 @@ export class ClassifyTerminalLaneUseCase {
             const command = event.metadata?.["command"];
             if (typeof command !== "string") return event;
             const patterns = patternsByTask.get(event.taskId) ?? [];
-            const matches = patterns.some((pattern) => command.toLowerCase().includes(pattern.trim().toLowerCase()));
+            const matches = commandMatchesRulePatterns(command, patterns);
             return matches ? { ...event, lane: "rule" } as T : event;
         });
     }

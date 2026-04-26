@@ -1,4 +1,4 @@
-import type { MonitoringTask } from "~domain/index.js";
+import type { MonitoringTask } from "~domain/monitoring/index.js";
 export interface TaskUpsertInput {
     readonly id: string;
     readonly title: string;

@@ -1,10 +1,12 @@
 import type {
     EventClassification,
-    MonitoringEventKind,
-    MonitoringTask,
     TimelineEvent,
+} from "~domain/monitoring/index.js";
+import type {
+    MonitoringEventKind,
     TimelineLane,
-} from "~domain/index.js";
+} from "~domain/monitoring/index.js";
+import type { MonitoringTask } from "~domain/monitoring/index.js";
 export interface EventInsertInput {
     readonly id: string;
     readonly taskId: string;

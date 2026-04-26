@@ -4,8 +4,8 @@ import type {
     IBookmarkRepository,
     INotificationPublisher,
     BookmarkRecord,
-    BookmarkSaveInput,
 } from "~application/ports/index.js";
+import { createBookmarkDraft, isSameBookmarkTarget } from "~domain/bookmarks/index.js";
 import type { SaveBookmarkUseCaseIn, SaveBookmarkUseCaseOut, SavedBookmarkUseCaseDto } from "./dto/save.bookmark.usecase.dto.js";
 import { BookmarkEventNotFoundError, BookmarkEventTaskMismatchError, BookmarkTaskNotFoundError } from "./common/bookmark.errors.js";
 
@@ -30,18 +30,18 @@ export class SaveBookmarkUseCase {
         }
 
         const bookmarks = await this.bookmarkRepo.findByTaskId(task.id);
-        const existing = bookmarks.find(
-            (b) => b.taskId === task.id && (event ? b.eventId === event.id : !b.eventId),
-        );
-        const bookmarkInput: BookmarkSaveInput = {
-            id: existing?.id ?? globalThis.crypto.randomUUID(),
+        const existing = bookmarks.find((bookmark) => isSameBookmarkTarget(bookmark, {
             taskId: task.id,
             ...(event ? { eventId: event.id } : {}),
-            kind: event ? "event" : "task",
-            title: input.title?.trim() || event?.title || task.title,
-            ...(input.note?.trim() ? { note: input.note.trim() } : {}),
-            metadata: input.metadata ?? {},
-        };
+        }));
+        const bookmarkInput = createBookmarkDraft({
+            id: existing?.id ?? globalThis.crypto.randomUUID(),
+            task,
+            ...(event ? { event } : {}),
+            ...(input.title !== undefined ? { title: input.title } : {}),
+            ...(input.note !== undefined ? { note: input.note } : {}),
+            ...(input.metadata !== undefined ? { metadata: input.metadata } : {}),
+        });
         const bookmark = await this.bookmarkRepo.save(bookmarkInput);
         this.notifier.publish({ type: "bookmark.saved", payload: bookmark });
         return { bookmark: mapBookmarkRecord(bookmark) };

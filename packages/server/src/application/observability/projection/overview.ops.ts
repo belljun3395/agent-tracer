@@ -1,4 +1,4 @@
-import type { MonitoringSession, MonitoringTask, TimelineEvent } from "~domain/index.js";
+import type { MonitoringSession, MonitoringTask, TimelineEvent } from "~domain/monitoring/index.js";
 import { analyzeTaskObservability, isStaleRunningTask } from "./task.ops.js";
 import type { ObservabilityOverviewSummary } from "./observability.metrics.type.js";
 const UNKNOWN_RUNTIME_SOURCE = "unknown" as const;

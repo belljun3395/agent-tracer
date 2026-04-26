@@ -1,6 +1,5 @@
 import type { IEventRepository, ITaskRepository, ITurnPartitionRepository } from "~application/ports/index.js";
-import type { TurnPartition } from "~domain/workflow/turn.partition.js";
-import { countNonPreludeTurns, validatePartition } from "~domain/workflow/turn.partition.js";
+import { createTurnPartitionUpdate, countNonPreludeTurns, validatePartition } from "~domain/workflow/index.js";
 import { TaskNotFoundError, TurnPartitionVersionMismatchError } from "./common/workflow.errors.js";
 import type { UpsertTurnPartitionUseCaseIn, UpsertTurnPartitionUseCaseOut } from "./dto/upsert.turn.partition.usecase.dto.js";
 
@@ -27,20 +26,13 @@ export class UpsertTurnPartitionUseCase {
             throw new TurnPartitionVersionMismatchError(input.baseVersion, existing.version);
         }
 
-        const nextVersion = (existing?.version ?? 0) + 1;
         const updatedAt = new Date().toISOString();
-        const partition: TurnPartition = {
+        const partition = createTurnPartitionUpdate({
             taskId: input.taskId,
-            groups: input.groups.map((g) => ({
-                id: g.id,
-                from: g.from,
-                to: g.to,
-                label: g.label === null ? null : (g.label.trim() || null),
-                visible: g.visible,
-            })),
-            version: nextVersion,
+            groups: input.groups,
+            existing,
             updatedAt,
-        };
+        });
         validatePartition(partition, totalTurns);
         await this.turnPartitionRepo.upsert(partition);
         return partition;

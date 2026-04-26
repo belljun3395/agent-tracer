@@ -1,25 +1,23 @@
 import {
-    KIND,
-    isBackgroundLane,
-    isExplorationLane,
-    buildEventRecord,
+    createEventRecordDraft,
     normalizeFilePaths,
-    resolveSemanticView,
-    resolveTimelineEventPaths,
-    type MonitoringTask,
-    type TimelineEvent,
-} from "~domain/index.js";
+} from "~domain/monitoring/index.js";
+import {
+    deriveFileChangeEventInputs,
+    shouldApplyLoggedEventTaskStatusEffect,
+} from "~domain/monitoring/index.js";
+import type { TimelineEvent } from "~domain/monitoring/index.js";
+import type { MonitoringTask } from "~domain/monitoring/index.js";
 import type {
-    EventNotificationPayload,
     IEventRepository,
     INotificationPublisher,
     ITaskRepository,
 } from "../ports/index.js";
+import { projectTimelineEvent } from "./timeline-event.projection.js";
 import type { LogEventUseCaseIn, LogEventUseCaseOut } from "./dto/log.event.usecase.dto.js";
 import { TaskNotFoundError } from "../tasks/common/task.errors.js";
 
-const MAX_DERIVED_FILES = 15;
-type EventRecordingInput = Parameters<typeof buildEventRecord>[0];
+type EventRecordingInput = Parameters<typeof createEventRecordDraft>[0];
 
 export class LogEventUseCase {
     constructor(
@@ -51,27 +49,22 @@ export class LogEventUseCase {
         });
 
         const derivedEvents: TimelineEvent[] = [];
-        if (!isExplorationLane(primaryEvent.lane) && !isBackgroundLane(primaryEvent.lane)) {
-            const derivedPaths = filePaths.slice(0, MAX_DERIVED_FILES);
-            for (const filePath of derivedPaths) {
-                derivedEvents.push(await this.#insertEvent({
-                    taskId: input.taskId,
-                    kind: KIND.fileChanged,
-                    lane: "implementation",
-                    title: filePath.split("/").at(-1) ?? filePath,
-                    body: filePath,
-                    filePaths: [filePath],
-                    metadata: { sourceKind: input.kind, sourceEventId: primaryEvent.id },
-                    ...(input.sessionId ? { sessionId: input.sessionId } : {}),
-                }));
-            }
+        for (const eventInput of deriveFileChangeEventInputs({
+            sourceEvent: primaryEvent,
+            filePaths,
+            ...(input.sessionId ? { sessionId: input.sessionId } : {}),
+        })) {
+            derivedEvents.push(await this.#insertEvent(eventInput));
         }
 
         const allEvents = [primaryEvent, ...derivedEvents].map((e) => ({ id: e.id, kind: e.kind }));
         const sessionId = input.sessionId;
 
         const desiredStatus = input.taskEffects?.taskStatus as MonitoringTask["status"] | undefined;
-        if (desiredStatus && desiredStatus !== task.status && task.status !== "completed") {
+        if (
+            desiredStatus !== undefined &&
+            shouldApplyLoggedEventTaskStatusEffect({ currentStatus: task.status, desiredStatus })
+        ) {
             const updatedAt = new Date().toISOString();
             await this.taskRepo.updateStatus(task.id, desiredStatus, updatedAt);
             const updatedTask = await this.taskRepo.findById(task.id);
@@ -85,41 +78,9 @@ export class LogEventUseCase {
     }
 
     async #insertEvent(input: EventRecordingInput): Promise<TimelineEvent> {
-        const record = buildEventRecord(input);
+        const record = createEventRecordDraft(input);
         const event = await this.eventRepo.insert({ id: globalThis.crypto.randomUUID(), ...record });
-        this.notifier.publish({ type: "event.logged", payload: toEventNotificationPayload(event) });
+        this.notifier.publish({ type: "event.logged", payload: projectTimelineEvent(event) });
         return event;
     }
-}
-
-function toEventNotificationPayload(event: TimelineEvent): EventNotificationPayload {
-    const semantic = resolveSemanticView(event);
-    const paths = resolveTimelineEventPaths(event);
-
-    return {
-        id: event.id,
-        taskId: event.taskId,
-        ...(event.sessionId !== undefined ? { sessionId: event.sessionId } : {}),
-        kind: event.kind,
-        lane: event.lane,
-        title: event.title,
-        ...(event.body !== undefined ? { body: event.body } : {}),
-        metadata: event.metadata,
-        classification: event.classification,
-        createdAt: event.createdAt,
-        ...(semantic ? {
-            semantic: {
-                subtypeKey: semantic.subtypeKey,
-                subtypeLabel: semantic.subtypeLabel,
-                ...(semantic.subtypeGroup !== undefined ? { subtypeGroup: semantic.subtypeGroup } : {}),
-                ...(semantic.entityType !== undefined ? { entityType: semantic.entityType } : {}),
-                ...(semantic.entityName !== undefined ? { entityName: semantic.entityName } : {}),
-            },
-        } : {}),
-        paths: {
-            ...(paths.primaryPath !== undefined ? { primaryPath: paths.primaryPath } : {}),
-            filePaths: paths.filePaths,
-            mentionedPaths: paths.mentionedPaths,
-        },
-    };
 }

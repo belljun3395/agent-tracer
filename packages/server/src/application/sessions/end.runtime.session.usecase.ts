@@ -4,7 +4,8 @@ import type {
     ISessionRepository,
     ITaskRepository,
 } from "~application/ports/index.js";
-import type { MonitoringTask } from "~domain/index.js";
+import { decideRuntimeSessionEnd, isTerminalTaskStatus } from "~domain/monitoring/index.js";
+import type { MonitoringTask } from "~domain/monitoring/index.js";
 import type { EndRuntimeSessionUseCaseIn } from "./dto/end.runtime.session.usecase.dto.js";
 import type { TaskLifecycleService } from "~application/tasks/index.js";
 import { TaskNotFoundError } from "../tasks/common/task.errors.js";
@@ -72,56 +73,26 @@ export class EndRuntimeSessionUseCase {
             ? await hasRunningBackgroundDescendants(this.tasks, binding.taskId)
             : false;
 
-        if (input.completeTask === true && task) {
-            // Explicit completion path: the runtime says the work item is done.
-            // Complete the primary task only when lifecycle rules allow it.
-            if (shouldAutoCompletePrimary({
+        if (task) {
+            const decision = decideRuntimeSessionEnd({
                 taskKind: task.taskKind ?? "primary",
-                completeTask: true,
-                runningSessionCount: await this.sessions.countRunningByTaskId(binding.taskId),
-                completionReason: input.completionReason,
-                hasRunningBackgroundDescendants: hasRunningBackgroundChildren,
-            })) {
-                await completeTaskIfIncomplete(this.tasks, this.taskLifecycle, {
-                    taskId: binding.taskId,
-                    sessionId: binding.monitorSessionId,
-                    summary: input.summary ?? "Runtime session ended",
-                });
-                return;
-            }
-            // Auto-complete was blocked (e.g. background descendants still running).
-            // Fall through so shouldMovePrimaryToWaiting can pause the task instead
-            // of leaving it stuck in "running".
-        }
-
-        // Background task path: background tasks complete automatically once their
-        // last running monitor session ends.
-        if (
-            task?.taskKind === "background"
-            && task.status === "running"
-            && (await this.sessions.countRunningByTaskId(binding.taskId)) === 0
-        ) {
-            await completeTaskIfIncomplete(this.tasks, this.taskLifecycle, {
-                taskId: binding.taskId,
-                sessionId: binding.monitorSessionId,
-                summary: input.summary ?? "Background task completed",
-            });
-            return;
-        }
-
-        // Primary task pause path: the active session ended, but the task should stay
-        // open because completion was not requested or background work is still running.
-        if (
-            task
-            && shouldMovePrimaryToWaiting({
-                taskKind: task.taskKind ?? "primary",
+                taskStatus: task.status,
                 completeTask: input.completeTask ?? false,
                 runningSessionCount: await this.sessions.countRunningByTaskId(binding.taskId),
                 completionReason: input.completionReason,
                 hasRunningBackgroundDescendants: hasRunningBackgroundChildren,
-            })
-        ) {
-            await setTaskStatus(this.tasks, this.notifier, binding.taskId, "waiting");
+            });
+            if (decision.action === "complete_task") {
+                await completeTaskIfIncomplete(this.tasks, this.taskLifecycle, {
+                    taskId: binding.taskId,
+                    sessionId: binding.monitorSessionId,
+                    summary: input.summary ?? decision.summary,
+                });
+                return;
+            }
+            if (decision.action === "move_task_to_waiting") {
+                await setTaskStatus(this.tasks, this.notifier, binding.taskId, "waiting");
+            }
         }
     }
 }
@@ -160,7 +131,7 @@ async function completeTaskIfIncomplete(
     input: SessionTaskCompletionInput,
 ): Promise<void> {
     const task = await tasks.findById(input.taskId);
-    if (!task || task.status === "completed" || task.status === "errored") return;
+    if (!task || isTerminalTaskStatus(task.status)) return;
     await taskLifecycle.finalizeTask({
         taskId: input.taskId,
         ...(input.sessionId !== undefined ? { sessionId: input.sessionId } : {}),
@@ -185,37 +156,4 @@ async function completeBgTasks(
             });
         }
     }
-}
-
-function shouldAutoCompletePrimary(opts: {
-    taskKind: string;
-    completeTask: boolean;
-    runningSessionCount: number;
-    completionReason?: string | undefined;
-    hasRunningBackgroundDescendants?: boolean | undefined;
-}): boolean {
-    if (opts.taskKind !== "primary") return false;
-    if (!opts.completeTask) return false;
-    if (opts.runningSessionCount !== 0) return false;
-    return !(opts.completionReason === "assistant_turn_complete" && opts.hasRunningBackgroundDescendants);
-}
-
-function shouldMovePrimaryToWaiting(opts: {
-    taskKind: string;
-    completeTask: boolean;
-    runningSessionCount: number;
-    completionReason?: string | undefined;
-    hasRunningBackgroundDescendants?: boolean | undefined;
-}): boolean {
-    if (opts.taskKind !== "primary") return false;
-    if (opts.runningSessionCount !== 0) return false;
-    if (opts.completionReason === "idle") {
-        return !opts.completeTask;
-    }
-    if (opts.completionReason === "assistant_turn_complete") {
-        return !opts.completeTask || (opts.hasRunningBackgroundDescendants ?? false);
-    }
-    if (opts.hasRunningBackgroundDescendants) return false;
-    if (opts.completeTask) return false;
-    return false;
 }

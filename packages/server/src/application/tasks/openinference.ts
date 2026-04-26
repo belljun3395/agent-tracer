@@ -5,14 +5,15 @@ import {
     isLlmInteractionEvent,
     isPlanningLane,
     isToolActivityEvent,
-    META,
     readFilePaths,
     readString,
     type MonitoringTask,
     type TimelineEvent,
-} from "~domain/index.js";
+} from "~domain/monitoring/index.js";
+import { META } from "~domain/runtime/const/metadata.keys.const.js";
 
 export type OpenInferenceSpanKind = "AGENT" | "CHAIN" | "TOOL" | "LLM" | "RETRIEVER" | "UNKNOWN";
+
 export interface OpenInferenceSpanRecord {
     readonly spanId: string;
     readonly parentSpanId?: string;
@@ -21,41 +22,41 @@ export interface OpenInferenceSpanRecord {
     readonly startTime: string;
     readonly attributes: Record<string, unknown>;
 }
+
 export interface OpenInferenceTaskExport {
     readonly taskId: string;
     readonly runtimeSource?: string;
     readonly spans: readonly OpenInferenceSpanRecord[];
 }
 
-// OpenInference / ai.monitor span attribute names (output format).
 const OI_ATTRS = {
-    spanKind:      "openinference.span.kind",
-    eventKind:     "ai.monitor.event.kind",
-    eventLane:     "ai.monitor.event.lane",
-    sessionId:     "session.id",
-    genAiSystem:   "gen_ai.system",
-    toolName:      "tool.name",
-    ruleId:        "rule.id",
-    ruleStatus:    "rule.status",
-    rulePolicy:    "rule.policy",
-    ruleOutcome:   "rule.outcome",
-    activityType:  "agent.activity.type",
-    asyncTaskId:   "agent.async_task.id",
-    questionId:    "question.id",
-    todoId:        "todo.id",
-    captureMode:   "message.capture_mode",
-    filePaths:     "file.paths",
+    spanKind: "openinference.span.kind",
+    eventKind: "ai.monitor.event.kind",
+    eventLane: "ai.monitor.event.lane",
+    sessionId: "session.id",
+    genAiSystem: "gen_ai.system",
+    toolName: "tool.name",
+    ruleId: "rule.id",
+    ruleStatus: "rule.status",
+    rulePolicy: "rule.policy",
+    ruleOutcome: "rule.outcome",
+    activityType: "agent.activity.type",
+    asyncTaskId: "agent.async_task.id",
+    questionId: "question.id",
+    todoId: "todo.id",
+    captureMode: "message.capture_mode",
+    filePaths: "file.paths",
 } as const;
 
-export function buildOpenInferenceTaskExport(task: MonitoringTask, timeline: readonly TimelineEvent[]): OpenInferenceTaskExport {
+export function toOpenInferenceTaskExport(task: MonitoringTask, timeline: readonly TimelineEvent[]): OpenInferenceTaskExport {
     return {
         taskId: task.id,
         ...(task.runtimeSource ? { runtimeSource: task.runtimeSource } : {}),
-        spans: timeline.map((event) => buildOpenInferenceSpanRecord(task.runtimeSource, event))
+        spans: timeline.map((event) => toOpenInferenceSpanRecord(task.runtimeSource, event)),
     };
 }
 
-export function buildOpenInferenceSpanRecord(runtimeSource: string | undefined, event: TimelineEvent): OpenInferenceSpanRecord {
+export function toOpenInferenceSpanRecord(runtimeSource: string | undefined, event: TimelineEvent): OpenInferenceSpanRecord {
     const parentSpanId = readString(event.metadata, META.parentEventId)
         ?? readString(event.metadata, META.sourceEventId);
     const kind = mapEventToOpenInferenceKind(event);
@@ -66,13 +67,13 @@ export function buildOpenInferenceSpanRecord(runtimeSource: string | undefined, 
         kind,
         startTime: event.createdAt,
         attributes: {
-            [OI_ATTRS.spanKind]:  kind,
+            [OI_ATTRS.spanKind]: kind,
             [OI_ATTRS.eventKind]: event.kind,
             [OI_ATTRS.eventLane]: event.lane,
             ...(event.sessionId ? { [OI_ATTRS.sessionId]: event.sessionId } : {}),
             ...(runtimeSource ? { [OI_ATTRS.genAiSystem]: runtimeSource } : {}),
-            ...collectAttributeHints(event)
-        }
+            ...collectAttributeHints(event),
+        },
     };
 }
 
@@ -103,16 +104,16 @@ function collectAttributeHints(event: TimelineEvent): Record<string, unknown> {
             hints[targetKey] = value;
         }
     };
-    copyKey(META.toolName,     OI_ATTRS.toolName);
-    copyKey(META.ruleId,       OI_ATTRS.ruleId);
-    copyKey(META.ruleStatus,   OI_ATTRS.ruleStatus);
-    copyKey(META.rulePolicy,   OI_ATTRS.rulePolicy);
-    copyKey(META.ruleOutcome,  OI_ATTRS.ruleOutcome);
+    copyKey(META.toolName, OI_ATTRS.toolName);
+    copyKey(META.ruleId, OI_ATTRS.ruleId);
+    copyKey(META.ruleStatus, OI_ATTRS.ruleStatus);
+    copyKey(META.rulePolicy, OI_ATTRS.rulePolicy);
+    copyKey(META.ruleOutcome, OI_ATTRS.ruleOutcome);
     copyKey(META.activityType, OI_ATTRS.activityType);
-    copyKey(META.asyncTaskId,  OI_ATTRS.asyncTaskId);
-    copyKey(META.questionId,   OI_ATTRS.questionId);
-    copyKey(META.todoId,       OI_ATTRS.todoId);
-    copyKey(META.captureMode,  OI_ATTRS.captureMode);
+    copyKey(META.asyncTaskId, OI_ATTRS.asyncTaskId);
+    copyKey(META.questionId, OI_ATTRS.questionId);
+    copyKey(META.todoId, OI_ATTRS.todoId);
+    copyKey(META.captureMode, OI_ATTRS.captureMode);
     const filePaths = readFilePaths(event.metadata);
     if (filePaths.length > 0) {
         hints[OI_ATTRS.filePaths] = filePaths;

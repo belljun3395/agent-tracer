@@ -1,4 +1,4 @@
-import { normalizeWorkspacePath } from "~domain/index.js";
+import { normalizeWorkspacePath } from "~domain/monitoring/index.js";
 import type {
     INotificationPublisher,
     IRuntimeBindingRepository,

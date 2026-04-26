@@ -1,4 +1,4 @@
-import type { PlaybookRecord, PlaybookStatus, PlaybookSummary } from "~domain/index.js";
+import type { PlaybookRecord, PlaybookStatus, PlaybookSummary } from "~domain/workflow/index.js";
 
 export type { PlaybookRecord, PlaybookSummary };
 

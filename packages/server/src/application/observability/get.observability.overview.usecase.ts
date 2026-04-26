@@ -1,6 +1,6 @@
-import { analyzeObservabilityOverview } from "~domain/index.js";
 import type { ITaskRepository, ISessionRepository, IEventRepository } from "../ports/index.js";
 import type { GetObservabilityOverviewUseCaseIn, GetObservabilityOverviewUseCaseOut } from "./dto/get.observability.overview.usecase.dto.js";
+import { analyzeObservabilityOverview } from "./projection/overview.ops.js";
 
 export class GetObservabilityOverviewUseCase {
     constructor(

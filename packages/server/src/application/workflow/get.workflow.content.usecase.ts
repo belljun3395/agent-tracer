@@ -1,5 +1,5 @@
 import type { IEvaluationRepository } from "../ports/index.js";
-import { normalizeWorkflowScopeKey } from "~domain/index.js";
+import { normalizeWorkflowScopeKey } from "~domain/workflow/index.js";
 import type { GetWorkflowContentUseCaseIn, GetWorkflowContentUseCaseOut } from "./dto/get.workflow.content.usecase.dto.js";
 
 export class GetWorkflowContentUseCase {
