@@ -1,4 +1,4 @@
-import { defineEventType, optionalArray, optionalNumber, optionalObject, optionalString, requireString } from "./event.type.js";
+import { defineEventType, optionalArray, optionalNumber, optionalObject, optionalString, requireString } from "./definition/event.definition.js";
 
 export const RUNTIME_EVENT_DEFINITIONS = [
     defineEventType("tool.invoked", (payload) => {

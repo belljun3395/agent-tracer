@@ -1,4 +1,4 @@
-import { defineEventType, optionalArray, optionalNumber, optionalObject, optionalString, requireNumber, requireString } from "./event.type.js";
+import { defineEventType, optionalArray, optionalNumber, optionalObject, optionalString, requireNumber, requireString } from "./definition/event.definition.js";
 
 export const CURATION_EVENT_DEFINITIONS = [
     defineEventType("bookmark.added", (payload) => {

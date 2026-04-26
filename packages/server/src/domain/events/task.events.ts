@@ -1,4 +1,4 @@
-import { defineEventType, optionalString, requireString } from "./event.type.js";
+import { defineEventType, optionalString, requireString } from "./definition/event.definition.js";
 
 export const TASK_EVENT_DEFINITIONS = [
     defineEventType("task.created", (payload) => {
