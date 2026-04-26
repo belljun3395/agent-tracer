@@ -6,6 +6,7 @@ import {
     TaskNotFoundError,
     TurnPartitionVersionMismatchError,
 } from "~application/turn-partitions/index.js";
+import { InvalidRuleError, RuleNotFoundError } from "~application/rules/index.js";
 import { createApiErrorEnvelope, isApiErrorEnvelope } from "../interceptors/api-response-envelope.js";
 
 const INTERNAL_SERVER_ERROR_BODY = createApiErrorEnvelope("internal_server_error", "Internal server error");
@@ -47,6 +48,20 @@ export class GlobalExceptionFilter implements ExceptionFilter<unknown> {
                     expected: exception.expected,
                     actual: exception.actual,
                 }),
+            );
+            return;
+        }
+
+        if (exception instanceof RuleNotFoundError) {
+            response.status(HttpStatus.NOT_FOUND).json(
+                createApiErrorEnvelope("not_found", exception.message),
+            );
+            return;
+        }
+
+        if (exception instanceof InvalidRuleError) {
+            response.status(HttpStatus.BAD_REQUEST).json(
+                createApiErrorEnvelope("bad_request", exception.message),
             );
             return;
         }

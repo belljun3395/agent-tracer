@@ -6,6 +6,8 @@ import {
     SearchEventsUseCase,
     UpdateEventUseCase,
 } from "~application/events/index.js";
+import { RuleEnforcementPostProcessor } from "~application/verification/services/rule.enforcement.post.processor.js";
+import { TurnLifecyclePostProcessor } from "~application/verification/services/turn.lifecycle.post.processor.js";
 import {
     EVENT_REPOSITORY_TOKEN,
     NOTIFICATION_PUBLISHER_TOKEN,
@@ -15,9 +17,20 @@ import {
 export const EVENTS_APPLICATION_PROVIDERS: Provider[] = [
     {
         provide: LogEventUseCase,
-        useFactory: (tasks: ITaskRepository, events: IEventRepository, notifier: INotificationPublisher) =>
-            new LogEventUseCase(tasks, events, notifier),
-        inject: [TASK_REPOSITORY_TOKEN, EVENT_REPOSITORY_TOKEN, NOTIFICATION_PUBLISHER_TOKEN],
+        useFactory: (
+            tasks: ITaskRepository,
+            events: IEventRepository,
+            notifier: INotificationPublisher,
+            ruleEnforcement: RuleEnforcementPostProcessor,
+            turnLifecycle: TurnLifecyclePostProcessor,
+        ) => new LogEventUseCase(tasks, events, notifier, ruleEnforcement, turnLifecycle),
+        inject: [
+            TASK_REPOSITORY_TOKEN,
+            EVENT_REPOSITORY_TOKEN,
+            NOTIFICATION_PUBLISHER_TOKEN,
+            RuleEnforcementPostProcessor,
+            TurnLifecyclePostProcessor,
+        ],
     },
     {
         provide: UpdateEventUseCase,
