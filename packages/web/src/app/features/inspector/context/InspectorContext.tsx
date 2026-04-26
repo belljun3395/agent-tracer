@@ -41,7 +41,6 @@ interface InspectorContextValue {
     readonly onSelectTag: (tag: string | null) => void;
     readonly onSelectRule: (ruleId: string | null) => void;
     readonly onSelectEvent?: ((eventId: string) => void) | undefined;
-    readonly onOpenTaskWorkspace?: (() => void) | undefined;
     // Turn partition (optional — only present when a task is loaded)
     readonly turnPartition?: TurnPartition | null;
     readonly focusedTurnGroupId?: string | null;

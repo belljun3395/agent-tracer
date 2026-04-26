@@ -1,20 +1,12 @@
 import type React from "react";
-import { Navigate, useParams, useSearchParams } from "react-router-dom";
+import { Navigate, useParams } from "react-router-dom";
 
 /**
- * Standalone task workspace route at /tasks/:taskId.
- * Redirects into the in-app workspace view so the dashboard shell stays shared.
+ * Deep link `/tasks/:taskId` redirects to the dashboard with the task selected.
+ * Timeline is the only view; workspace was merged into it.
  */
 export function TaskRoute(): React.JSX.Element {
     const { taskId } = useParams<{ readonly taskId: string }>();
-    const [searchParams] = useSearchParams();
-
     if (!taskId) return <Navigate replace to="/"/>;
-    const next = new URLSearchParams();
-    next.set("task", taskId);
-    next.set("view", "workspace");
-    const tab = searchParams.get("tab");
-    if (tab) next.set("tab", tab);
-
-    return <Navigate replace to={`/?${next.toString()}`}/>;
+    return <Navigate replace to={`/?task=${encodeURIComponent(taskId)}`}/>;
 }

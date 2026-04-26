@@ -1,6 +1,6 @@
 import type React from "react";
 import { Suspense, lazy, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Navigate, Route, Routes, useNavigate } from "react-router-dom";
+import { Navigate, Route, Routes } from "react-router-dom";
 import type { TaskId } from "../types.js";
 import { getMonitorWsUrl } from "../io.js";
 import { cn } from "./lib/ui/cn.js";
@@ -9,7 +9,6 @@ import { TopBar } from "./components/TopBar.js";
 import { NavigationSidebar } from "./components/NavigationSidebar.js";
 import { TimelineContainer } from "./components/TimelineContainer.js";
 const InspectorContainer = lazy(() => import("./components/InspectorContainer.js").then((m) => ({ default: m.InspectorContainer })));
-import { TaskWorkspace } from "./features/task-workspace/index.js";
 import { RuleCommandsPanel } from "./features/rule-commands/RuleCommandsPanel.js";
 import { TaskRoute } from "./routes/task/TaskRoute.js";
 import {
@@ -23,20 +22,14 @@ import {
     useTasksQuery,
 } from "../state.js";
 import { useTheme } from "./lib/useTheme.js";
-import { useDashboard, INSPECTOR_WIDTH } from "./features/dashboard/useDashboard.js";
+import { useDashboard } from "./features/dashboard/useDashboard.js";
 
 function Dashboard({
-    view = "timeline",
-    workspaceTaskId,
-    onOpenTaskWorkspace,
     onSelectTaskRoute,
 }: {
-    readonly view?: "timeline" | "workspace";
-    readonly workspaceTaskId?: string | undefined;
-    readonly onOpenTaskWorkspace: (taskId: string) => void;
     readonly onSelectTaskRoute: (taskId: string | null) => void;
 }): React.JSX.Element {
-    const db = useDashboard(view, { onSelectTaskRoute, onOpenTaskWorkspace });
+    const db = useDashboard("timeline", { onSelectTaskRoute });
     const [isRulesOpen, setIsRulesOpen] = useState(false);
 
     return (
@@ -108,21 +101,10 @@ function Dashboard({
                             />
                         </div>
                         <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2.5 p-2.5">
-                            {view === "workspace" && workspaceTaskId ? (
-                                <Suspense fallback={<div className="flex min-h-0 flex-1 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-1)]"/>}>
-                                    <TaskWorkspace
-                                        taskId={workspaceTaskId}
-                                        embedded
-                                        externalFiltersState={db.externalFiltersState}
-                                        externalTimelineFilters={db.externalTimelineFilters}
-                                    />
-                                </Suspense>
-                            ) : (
-                                <TimelineContainer isCompactDashboard={false} isStackedDashboard={true} zoom={db.zoom} selectedTaskDisplayTitle={db.selectedTaskDisplayTitle} selectedTaskUsesDerivedTitle={db.selectedTaskUsesDerivedTitle} onZoomChange={db.setZoom} externalFiltersState={db.externalFiltersState} externalTimelineFilters={db.externalTimelineFilters}/>
-                            )}
-                            {view === "timeline" && db.isInspectorOpen && (
+                            <TimelineContainer isCompactDashboard={false} isStackedDashboard={true} zoom={db.zoom} selectedTaskDisplayTitle={db.selectedTaskDisplayTitle} selectedTaskUsesDerivedTitle={db.selectedTaskUsesDerivedTitle} onZoomChange={db.setZoom} externalFiltersState={db.externalFiltersState} externalTimelineFilters={db.externalTimelineFilters}/>
+                            {db.isInspectorOpen && (
                                 <Suspense fallback={<div className="min-h-[20rem] rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)]"/>}>
-                                    <InspectorContainer isStackedDashboard={true} isInspectorCollapsed={false} selectedTaskDisplayTitle={db.selectedTaskDisplayTitle} onToggleCollapse={() => {}} onOpenTaskWorkspace={db.selectedTaskId ? () => db.handleOpenTaskWorkspace(db.selectedTaskId!) : undefined}/>
+                                    <InspectorContainer isStackedDashboard={true} isInspectorCollapsed={false} selectedTaskDisplayTitle={db.selectedTaskDisplayTitle} onToggleCollapse={() => {}}/>
                                 </Suspense>
                             )}
                         </div>
@@ -145,46 +127,59 @@ function Dashboard({
                         />
                         <div
                             className="relative flex min-h-0 min-w-0 flex-1 flex-col p-2.5 transition-[padding-right] duration-200"
-                            style={{ paddingRight: (view === "timeline" && db.isInspectorOpen) ? `${(db.isInspectorCollapsed ? 44 : INSPECTOR_WIDTH) + 10}px` : undefined }}
+                            style={{ paddingRight: db.isInspectorOpen ? `${(db.isInspectorCollapsed ? 44 : db.inspectorWidth) + 10}px` : undefined }}
                         >
-                            {view === "workspace" && workspaceTaskId ? (
-                                <Suspense fallback={<div className="flex min-h-0 flex-1 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-1)]"/>}>
-                                    <TaskWorkspace
-                                        taskId={workspaceTaskId}
-                                        embedded
-                                        externalFiltersState={db.externalFiltersState}
-                                        externalTimelineFilters={db.externalTimelineFilters}
-                                    />
-                                </Suspense>
+                            <TimelineContainer isCompactDashboard={false} isStackedDashboard={false} zoom={db.zoom} selectedTaskDisplayTitle={db.selectedTaskDisplayTitle} selectedTaskUsesDerivedTitle={db.selectedTaskUsesDerivedTitle} onZoomChange={db.setZoom} externalFiltersState={db.externalFiltersState} externalTimelineFilters={db.externalTimelineFilters}/>
+                        </div>
+                        <div
+                            className={cn("absolute bottom-0 right-0 top-0 z-10 flex flex-col transition-[transform] duration-200 ease-out", db.isInspectorOpen ? "translate-x-0" : "translate-x-full")}
+                            style={{ width: db.isInspectorCollapsed ? 44 : db.inspectorWidth }}
+                        >
+                            {!db.isInspectorCollapsed && (
+                                <div
+                                    aria-label="Resize inspector"
+                                    title="Drag to resize"
+                                    onPointerDown={(event) => {
+                                        if (event.button !== 0) return;
+                                        const startX = event.clientX;
+                                        const startWidth = db.inspectorWidth;
+                                        const onMove = (moveEvent: PointerEvent): void => {
+                                            db.setInspectorWidth(startWidth + (startX - moveEvent.clientX));
+                                        };
+                                        const onUp = (): void => {
+                                            window.removeEventListener("pointermove", onMove);
+                                            window.removeEventListener("pointerup", onUp);
+                                            window.removeEventListener("pointercancel", onUp);
+                                            document.body.classList.remove("is-resizing-inspector");
+                                        };
+                                        document.body.classList.add("is-resizing-inspector");
+                                        window.addEventListener("pointermove", onMove);
+                                        window.addEventListener("pointerup", onUp);
+                                        window.addEventListener("pointercancel", onUp);
+                                        event.preventDefault();
+                                    }}
+                                    className="absolute left-0 top-0 z-20 h-full w-1.5 cursor-ew-resize bg-transparent transition-colors hover:bg-[color-mix(in_srgb,var(--accent)_35%,transparent)]"
+                                />
+                            )}
+                            {db.isInspectorCollapsed ? (
+                                <div className="flex h-full flex-col items-center border-l border-[var(--border)] bg-[var(--surface)] pt-3">
+                                    <button
+                                        aria-label="Expand inspector"
+                                        className="flex h-8 w-8 items-center justify-center rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] text-[var(--text-2)] shadow-sm transition-colors hover:border-[var(--border-2)] hover:bg-[var(--surface-2)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                                        onClick={() => db.setIsInspectorCollapsed(false)}
+                                        type="button"
+                                    >
+                                        <svg aria-hidden="true" fill="none" height="14" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" viewBox="0 0 24 24" width="14">
+                                            <path d="M15 18l-6-6 6-6"/>
+                                        </svg>
+                                    </button>
+                                </div>
                             ) : (
-                                <TimelineContainer isCompactDashboard={false} isStackedDashboard={false} zoom={db.zoom} selectedTaskDisplayTitle={db.selectedTaskDisplayTitle} selectedTaskUsesDerivedTitle={db.selectedTaskUsesDerivedTitle} onZoomChange={db.setZoom} externalFiltersState={db.externalFiltersState} externalTimelineFilters={db.externalTimelineFilters}/>
+                                <Suspense fallback={<div className="h-full border-l border-[var(--border)] bg-[var(--surface)]"/>}>
+                                    <InspectorContainer isStackedDashboard={false} isInspectorCollapsed={false} selectedTaskDisplayTitle={db.selectedTaskDisplayTitle} onToggleCollapse={() => db.setIsInspectorCollapsed(true)}/>
+                                </Suspense>
                             )}
                         </div>
-                        {view === "timeline" && (
-                            <div
-                                className={cn("absolute bottom-0 right-0 top-0 z-10 flex flex-col transition-[transform,width] duration-200 ease-out", db.isInspectorOpen ? "translate-x-0" : "translate-x-full")}
-                                style={{ width: db.isInspectorCollapsed ? 44 : INSPECTOR_WIDTH }}
-                            >
-                                {db.isInspectorCollapsed ? (
-                                    <div className="flex h-full flex-col items-center border-l border-[var(--border)] bg-[var(--surface)] pt-3">
-                                        <button
-                                            aria-label="Expand inspector"
-                                            className="flex h-8 w-8 items-center justify-center rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] text-[var(--text-2)] shadow-sm transition-colors hover:border-[var(--border-2)] hover:bg-[var(--surface-2)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
-                                            onClick={() => db.setIsInspectorCollapsed(false)}
-                                            type="button"
-                                        >
-                                            <svg aria-hidden="true" fill="none" height="14" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" viewBox="0 0 24 24" width="14">
-                                                <path d="M15 18l-6-6 6-6"/>
-                                            </svg>
-                                        </button>
-                                    </div>
-                                ) : (
-                                    <Suspense fallback={<div className="h-full border-l border-[var(--border)] bg-[var(--surface)]"/>}>
-                                        <InspectorContainer isStackedDashboard={false} isInspectorCollapsed={false} selectedTaskDisplayTitle={db.selectedTaskDisplayTitle} onToggleCollapse={() => db.setIsInspectorCollapsed(true)} onOpenTaskWorkspace={db.selectedTaskId ? () => db.handleOpenTaskWorkspace(db.selectedTaskId!) : undefined}/>
-                                    </Suspense>
-                                )}
-                            </div>
-                        )}
                     </>
                 )}
             </div>
@@ -196,11 +191,8 @@ function DashboardRoute(): React.JSX.Element {
     const selectedTaskId = useSelectionStore((s) => s.selectedTaskId);
     const selectTask = useSelectionStore((s) => s.selectTask);
     const [routeTaskId, setRouteTaskId] = useUrlSearchParam("task");
-    const [routeView, setRouteView] = useUrlSearchParam("view");
     const { data: tasksData, isSuccess: tasksReady } = useTasksQuery();
     const tasks = tasksData?.tasks ?? [];
-    const navigate = useNavigate();
-    const resolvedView = routeView === "workspace" ? "workspace" : "timeline";
 
     useLayoutEffect(() => {
         if (routeTaskId === selectedTaskId) return;
@@ -215,18 +207,7 @@ function DashboardRoute(): React.JSX.Element {
         setRouteTaskId(firstTask.id);
     }, [routeTaskId, setRouteTaskId, tasksReady, tasks]);
 
-    return (
-        <Dashboard
-            view={resolvedView}
-            {...(resolvedView === "workspace" && (routeTaskId ?? selectedTaskId) ? { workspaceTaskId: routeTaskId ?? selectedTaskId ?? undefined } : {})}
-            onSelectTaskRoute={setRouteTaskId}
-            onOpenTaskWorkspace={(taskId) => {
-                setRouteTaskId(taskId);
-                setRouteView("workspace");
-                void navigate(`/?task=${encodeURIComponent(taskId)}&view=workspace&tab=overview`, { replace: true });
-            }}
-        />
-    );
+    return <Dashboard onSelectTaskRoute={setRouteTaskId} />;
 }
 
 function AppRoutes(): React.JSX.Element {

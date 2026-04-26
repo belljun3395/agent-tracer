@@ -18,14 +18,27 @@ const ZOOM_MIN = 0.8;
 const ZOOM_MAX = 2.5;
 const ZOOM_DEFAULT = 1.1;
 const ZOOM_STORAGE_KEY = "agent-tracer.zoom";
-export const INSPECTOR_WIDTH = 360;
+export const INSPECTOR_WIDTH_DEFAULT = 360;
+export const INSPECTOR_WIDTH_MIN = 280;
+export const INSPECTOR_WIDTH_MAX = 800;
+const INSPECTOR_WIDTH_STORAGE_KEY = "agent-tracer.inspector-width";
+/** @deprecated kept for back-compat; use db.inspectorWidth instead. */
+export const INSPECTOR_WIDTH = INSPECTOR_WIDTH_DEFAULT;
 export const DASHBOARD_STACKED_BREAKPOINT = 1024;
 
+function loadInspectorWidth(): number {
+    if (typeof localStorage === "undefined") return INSPECTOR_WIDTH_DEFAULT;
+    const raw = localStorage.getItem(INSPECTOR_WIDTH_STORAGE_KEY);
+    if (!raw) return INSPECTOR_WIDTH_DEFAULT;
+    const parsed = Number(raw);
+    if (!Number.isFinite(parsed)) return INSPECTOR_WIDTH_DEFAULT;
+    return Math.max(INSPECTOR_WIDTH_MIN, Math.min(INSPECTOR_WIDTH_MAX, parsed));
+}
+
 export function useDashboard(
-    view: "timeline" | "workspace",
-    { onSelectTaskRoute, onOpenTaskWorkspace }: {
+    view: "timeline",
+    { onSelectTaskRoute }: {
         onSelectTaskRoute: (taskId: string | null) => void;
-        onOpenTaskWorkspace: (taskId: string) => void;
     }
 ) {
     const selectedTaskId = useSelectionStore((s) => s.selectedTaskId);
@@ -68,6 +81,14 @@ export function useDashboard(
             return Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, parsed));
         } catch { return ZOOM_DEFAULT; }
     });
+    const [inspectorWidth, setInspectorWidthState] = useState<number>(() => loadInspectorWidth());
+    const setInspectorWidth = useCallback((next: number): void => {
+        const clamped = Math.max(INSPECTOR_WIDTH_MIN, Math.min(INSPECTOR_WIDTH_MAX, next));
+        setInspectorWidthState(clamped);
+        try {
+            window.localStorage.setItem(INSPECTOR_WIDTH_STORAGE_KEY, String(clamped));
+        } catch { /* storage unavailable */ }
+    }, []);
 
     const isInspectorOpen = Boolean(selectedTaskId);
     const isStackedDashboard = viewportWidth < DASHBOARD_STACKED_BREAKPOINT;
@@ -184,11 +205,6 @@ export function useDashboard(
         setIsGlobalFiltersOpen((value) => !value);
     }, []);
 
-    const handleOpenTaskWorkspace = useCallback(
-        (taskId: string): void => { onOpenTaskWorkspace(taskId); },
-        [onOpenTaskWorkspace]
-    );
-
     const externalFiltersState = useMemo(() => ({
         isOpen: isGlobalFiltersOpen,
         setIsOpen: setIsGlobalFiltersOpen,
@@ -207,7 +223,7 @@ export function useDashboard(
         selectedTaskId, isConnected, deletingTaskId, deleteErrorTaskId,
         sidebarView, isStackedDashboard, isInspectorOpen, isInspectorCollapsed,
         isSidebarOpen, showGlobalFiltersButton, isGlobalFiltersOpen,
-        globalFiltersButtonRef, zoom,
+        globalFiltersButtonRef, zoom, inspectorWidth,
         // Data
         tasks, overviewData, taskDetail,
         selectedTaskDisplayTitle, selectedTaskUsesDerivedTitle,
@@ -218,7 +234,7 @@ export function useDashboard(
         externalFiltersState,
         externalTimelineFilters,
         // Setters
-        setIsInspectorCollapsed, setIsSidebarOpen, setZoom,
+        setIsInspectorCollapsed, setIsSidebarOpen, setZoom, setInspectorWidth,
         // Handlers
         handleDeleteTask,
         handleSidebarViewChange,
@@ -226,7 +242,6 @@ export function useDashboard(
         handleSelectSearchTask,
         handleSelectSearchEvent,
         handleToggleFilters,
-        handleOpenTaskWorkspace,
         selectDashboardTask,
         queryClient,
     };
