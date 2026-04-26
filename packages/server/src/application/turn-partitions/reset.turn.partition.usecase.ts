@@ -1,11 +1,11 @@
-import type { ITaskRepository, ITurnPartitionRepository } from "~application/ports/index.js";
+import type { TaskReadPort, TurnPartitionPort } from "~application/ports/index.js";
 import { TaskNotFoundError } from "./common/turn-partition.errors.js";
 import type { ResetTurnPartitionUseCaseIn, ResetTurnPartitionUseCaseOut } from "./dto/reset.turn.partition.usecase.dto.js";
 
 export class ResetTurnPartitionUseCase {
     constructor(
-        private readonly taskRepo: ITaskRepository,
-        private readonly turnPartitionRepo: ITurnPartitionRepository,
+        private readonly taskRepo: TaskReadPort,
+        private readonly turnPartitionRepo: TurnPartitionPort,
     ) {}
 
     async execute(input: ResetTurnPartitionUseCaseIn): Promise<ResetTurnPartitionUseCaseOut> {

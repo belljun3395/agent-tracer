@@ -1,5 +1,5 @@
 import { resolveDisplayTitleMetadataUpdate } from "~domain/monitoring/index.js";
-import type { IEventRepository, INotificationPublisher } from "../ports/index.js";
+import type { NotificationPublisherPort, TimelineEventReadPort, TimelineEventWritePort } from "../ports/index.js";
 import type {
     UpdateEventUseCaseIn,
     UpdateEventUseCaseOut,
@@ -8,8 +8,8 @@ import { projectTimelineEvent } from "./timeline-event.projection.js";
 
 export class UpdateEventUseCase {
     constructor(
-        private readonly eventRepo: IEventRepository,
-        private readonly notifier: INotificationPublisher,
+        private readonly eventRepo: TimelineEventReadPort & TimelineEventWritePort,
+        private readonly notifier: NotificationPublisherPort,
     ) {}
 
     async execute(input: UpdateEventUseCaseIn): Promise<UpdateEventUseCaseOut> {

@@ -1,5 +1,5 @@
 import { computeRuleSignature } from "~domain/verification/index.js";
-import type { IRuleRepository } from "~application/ports/repository/rule.repository.js";
+import type { RuleSignatureQueryPort } from "~application/ports/index.js";
 import type { CreateRuleUseCase } from "./create.rule.usecase.js";
 import type {
     RegisterSuggestionUseCaseIn,
@@ -21,7 +21,7 @@ export type { RegisterSuggestionUseCaseOut as RegisterSuggestionResult } from ".
  */
 export class RegisterSuggestionUseCase {
     constructor(
-        private readonly ruleRepo: IRuleRepository,
+        private readonly ruleRepo: RuleSignatureQueryPort,
         private readonly createRule: CreateRuleUseCase,
     ) {}
 

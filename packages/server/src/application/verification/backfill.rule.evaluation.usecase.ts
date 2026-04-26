@@ -7,35 +7,34 @@ import {
     type TurnVerdict,
 } from "~domain/verification/index.js";
 import type { TimelineEvent } from "~domain/monitoring/index.js";
-import type { IEventRepository } from "~application/ports/repository/event.repository.js";
 import type {
-    IRuleEnforcementRepository,
-    RuleEnforcementInsert,
-} from "~application/ports/repository/rule.enforcement.repository.js";
-import type { ITurnRepository } from "~application/ports/repository/turn.repository.js";
-import type { IVerdictRepository } from "~application/ports/repository/verdict.repository.js";
-import type { BackfillTurnRow, ITurnQueryRepository } from "~application/ports/repository/turn.query.repository.js";
-import type { INotificationPublisher } from "~application/ports/event/notification.publisher.js";
+    BackfillTurnPortDto,
+    NotificationPublisherPort,
+    RuleEnforcementInsertPortDto,
+    RuleEnforcementWritePort,
+    TimelineEventReadPort,
+    TurnBackfillSourcePort,
+    TurnReadPort,
+    TurnWritePort,
+    VerdictReadPort,
+    VerdictWritePort,
+} from "~application/ports/index.js";
 import type {
     BackfillRuleEvaluationRuleUseCaseDto,
     BackfillRuleEvaluationUseCaseIn,
     BackfillRuleEvaluationUseCaseOut,
 } from "./dto/backfill.rule.evaluation.usecase.dto.js";
 
-/** Subset of {@link ITurnQueryRepository} that backfill needs. */
-export type BackfillTurnSource = Pick<
-    ITurnQueryRepository,
-    "listAllTurnsForBackfill" | "listTurnsForTaskBackfill"
->;
-export type { BackfillTurnRow };
+export type BackfillTurnSource = TurnBackfillSourcePort;
+export type BackfillTurnRow = BackfillTurnPortDto;
 
 export interface BackfillRuleEvaluationDeps {
-    readonly turnRepo: ITurnRepository;
+    readonly turnRepo: TurnReadPort & TurnWritePort;
     readonly turnSource: BackfillTurnSource;
-    readonly verdictRepo: IVerdictRepository;
-    readonly eventRepo: Pick<IEventRepository, "findById">;
-    readonly enforcementRepo: IRuleEnforcementRepository;
-    readonly notifier: INotificationPublisher;
+    readonly verdictRepo: VerdictReadPort & VerdictWritePort;
+    readonly eventRepo: TimelineEventReadPort;
+    readonly enforcementRepo: RuleEnforcementWritePort;
+    readonly notifier: NotificationPublisherPort;
     readonly now: () => string;
     readonly newVerdictId: () => string;
 }
@@ -196,8 +195,8 @@ function listTurnsForRuleScope(
 }
 
 async function collectTurnEvents(
-    turnRepo: ITurnRepository,
-    eventRepo: Pick<IEventRepository, "findById">,
+    turnRepo: TurnReadPort,
+    eventRepo: TimelineEventReadPort,
     turnId: string,
 ): Promise<readonly TimelineEvent[]> {
     const eventIds = await turnRepo.findEventsForTurn(turnId);
@@ -222,8 +221,8 @@ function buildEnforcementInserts(
     events: readonly TimelineEvent[],
     rule: BackfillRuleEvaluationRuleUseCaseDto,
     decidedAt: string,
-): readonly RuleEnforcementInsert[] {
-    const inserts: RuleEnforcementInsert[] = [];
+): readonly RuleEnforcementInsertPortDto[] {
+    const inserts: RuleEnforcementInsertPortDto[] = [];
     for (const event of events) {
         for (const matchKind of matchEventAgainstRule(event, rule)) {
             inserts.push({ eventId: event.id, ruleId: rule.id, matchKind, decidedAt });

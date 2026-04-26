@@ -1,13 +1,13 @@
-import type { IEventRepository, ITaskRepository, ITurnPartitionRepository } from "~application/ports/index.js";
+import type { TaskReadPort, TimelineEventReadPort, TurnPartitionPort } from "~application/ports/index.js";
 import { resolveTurnPartition } from "~domain/turn-partitions/index.js";
 import type { GetTurnPartitionUseCaseIn, GetTurnPartitionUseCaseOut } from "./dto/get.turn.partition.usecase.dto.js";
 import { TaskNotFoundError } from "./common/turn-partition.errors.js";
 
 export class GetTurnPartitionUseCase {
     constructor(
-        private readonly taskRepo: ITaskRepository,
-        private readonly eventRepo: IEventRepository,
-        private readonly turnPartitionRepo: ITurnPartitionRepository,
+        private readonly taskRepo: TaskReadPort,
+        private readonly eventRepo: TimelineEventReadPort,
+        private readonly turnPartitionRepo: TurnPartitionPort,
     ) {}
 
     async execute(input: GetTurnPartitionUseCaseIn): Promise<GetTurnPartitionUseCaseOut> {

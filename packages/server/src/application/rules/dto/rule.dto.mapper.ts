@@ -1,7 +1,7 @@
-import type { RuleWithSignature } from "~application/ports/repository/rule.repository.js";
+import type { RuleRecordPortDto } from "~application/ports/index.js";
 import type { RuleUseCaseDto } from "./rule.usecase.dto.js";
 
-export function mapRule(rule: RuleWithSignature): RuleUseCaseDto {
+export function mapRule(rule: RuleRecordPortDto): RuleUseCaseDto {
     return {
         id: rule.id,
         name: rule.name,

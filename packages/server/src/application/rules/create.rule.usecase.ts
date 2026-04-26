@@ -3,8 +3,7 @@ import {
     computeRuleSignature,
     isRuleExpectMeaningful,
 } from "~domain/verification/index.js";
-import type { IRuleRepository } from "~application/ports/repository/rule.repository.js";
-import type { INotificationPublisher } from "~application/ports/event/notification.publisher.js";
+import type { NotificationPublisherPort, RuleWritePort } from "~application/ports/index.js";
 import type { BackfillRuleEvaluationUseCase } from "~application/verification/backfill.rule.evaluation.usecase.js";
 import type { CreateRuleUseCaseIn, CreateRuleUseCaseOut } from "./dto/create.rule.usecase.dto.js";
 import { mapRule } from "./dto/rule.dto.mapper.js";
@@ -19,8 +18,8 @@ export type { CreateRuleUseCaseIn as CreateRuleInput } from "./dto/create.rule.u
  */
 export class CreateRuleUseCase {
     constructor(
-        private readonly ruleRepo: IRuleRepository,
-        private readonly notifier: INotificationPublisher,
+        private readonly ruleRepo: RuleWritePort,
+        private readonly notifier: NotificationPublisherPort,
         private readonly backfill: BackfillRuleEvaluationUseCase,
         private readonly now: () => string = () => new Date().toISOString(),
     ) {}

@@ -8,10 +8,12 @@ import {
 } from "~domain/monitoring/index.js";
 import { projectTimelineEvent } from "~application/events/timeline-event.projection.js";
 import type {
-    IEventRepository,
-    INotificationPublisher,
-    ISessionRepository,
-    ITaskRepository,
+    NotificationPublisherPort,
+    SessionReadPort,
+    SessionWritePort,
+    TaskReadPort,
+    TaskWritePort,
+    TimelineEventWritePort,
 } from "~application/ports/index.js";
 import type {
     FinalizeTaskServiceInput,
@@ -22,10 +24,10 @@ import { TaskNotFoundError } from "../common/task.errors.js";
 
 export class TaskLifecycleService {
     constructor(
-        private readonly tasks: ITaskRepository,
-        private readonly sessions: ISessionRepository,
-        private readonly events: IEventRepository,
-        private readonly notifier: INotificationPublisher,
+        private readonly tasks: TaskReadPort & TaskWritePort,
+        private readonly sessions: SessionReadPort & SessionWritePort,
+        private readonly events: TimelineEventWritePort,
+        private readonly notifier: NotificationPublisherPort,
     ) {}
 
     async finalizeTask(input: FinalizeTaskServiceInput): Promise<TaskLifecycleServiceResult> {

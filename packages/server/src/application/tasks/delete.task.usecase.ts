@@ -1,10 +1,10 @@
-import type { INotificationPublisher, ITaskRepository } from "~application/ports/index.js";
+import type { NotificationPublisherPort, TaskReadPort, TaskWritePort } from "~application/ports/index.js";
 import type { DeleteTaskUseCaseIn, DeleteTaskUseCaseOut } from "./dto/delete.task.usecase.dto.js";
 
 export class DeleteTaskUseCase {
     constructor(
-        private readonly tasks: ITaskRepository,
-        private readonly notifier: INotificationPublisher,
+        private readonly tasks: TaskReadPort & TaskWritePort,
+        private readonly notifier: NotificationPublisherPort,
     ) {}
 
     async execute(input: DeleteTaskUseCaseIn): Promise<DeleteTaskUseCaseOut> {
