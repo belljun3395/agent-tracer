@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 import { cn } from "../lib/ui/cn.js";
 import { useTheme } from "../lib/useTheme.js";
 import { Button } from "./ui/Button.js";
+
 interface TopBarProps {
     readonly isConnected: boolean;
     readonly isNavigationOpen?: boolean;
@@ -26,6 +27,7 @@ interface TopBarProps {
     readonly onToggleRules?: () => void;
     readonly isRulesOpen?: boolean;
 }
+
 export function TopBar({ isConnected, isNavigationOpen, onToggleNavigation, searchQuery, searchResults, isSearching, selectedTaskTitle, taskScopeEnabled, onTaskScopeToggle, onSearchQueryChange, onSelectSearchTask, onSelectSearchEvent, onRefresh, showFiltersButton = false, isFiltersOpen = false, filtersButtonRef, onToggleFilters, onToggleRules, isRulesOpen = false }: TopBarProps): React.JSX.Element {
     const { theme, toggle: toggleTheme } = useTheme();
     const searchRef = useRef<HTMLInputElement>(null);

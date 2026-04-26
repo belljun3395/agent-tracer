@@ -9,7 +9,6 @@ import {
     type TaskDetailResponse, type TimelineConnector, type TimelineEventRecord,
 } from "../../types.js";
 import { cn } from "../lib/ui/cn.js";
-import { Button } from "./ui/Button.js";
 import { buildFileEvidenceRows, sortFileEvidenceRows, type FileEvidenceSortKey } from "./inspector/FileEvidenceSection.js";
 import { ContextTab } from "./inspector/ContextTab.js";
 import { EvidenceTab } from "./inspector/EvidenceTab.js";
@@ -51,7 +50,6 @@ interface EventInspectorProps {
     // Handlers — optional when provided via InspectorProvider
     readonly onUpdateEventDisplayTitle?: ((eventId: string, displayTitle: string | null) => Promise<void>) | undefined;
     readonly onSelectRule?: ((ruleId: string | null) => void) | undefined;
-    readonly onOpenTaskWorkspace?: (() => void) | undefined;
     // UI config — always explicit on the component
     readonly isCollapsed?: boolean;
     readonly className?: string | undefined;
@@ -63,6 +61,10 @@ interface EventInspectorProps {
     readonly singleTabHeaderLayout?: "stacked" | "inline";
     readonly onToggleCollapse?: () => void;
     readonly onActiveTabChange?: (tab: PanelTabId) => void;
+    /** Extra header content rendered next to the Workspace button (e.g. ViewModeToggle). */
+    readonly headerExtra?: React.ReactNode;
+    /** When provided, replaces the standard tab content area. */
+    readonly children?: React.ReactNode;
 }
 
 export function EventInspector({
@@ -75,7 +77,6 @@ export function EventInspector({
     taskModelSummary: taskModelSummaryProp,
     onUpdateEventDisplayTitle: onUpdateEventDisplayTitleProp,
     onSelectRule: onSelectRuleProp,
-    onOpenTaskWorkspace: onOpenTaskWorkspaceProp,
     isCollapsed = false,
     className,
     allowedTabs = PANEL_TABS.map((tab) => tab.id),
@@ -86,6 +87,8 @@ export function EventInspector({
     singleTabHeaderLayout = "stacked",
     onToggleCollapse,
     onActiveTabChange,
+    headerExtra,
+    children,
 }: EventInspectorProps): React.JSX.Element {
     // Context fallback — props take priority, context fills gaps
     const ctx = useOptionalInspectorContext();
@@ -98,7 +101,6 @@ export function EventInspector({
     const onUpdateEventDisplayTitle = onUpdateEventDisplayTitleProp ?? ctx?.onUpdateEventDisplayTitle ?? (() => Promise.resolve());
     const onSelectRule = onSelectRuleProp ?? ctx?.onSelectRule ?? (() => undefined);
     const onSelectEvent = ctx?.onSelectEvent;
-    const onOpenTaskWorkspace = onOpenTaskWorkspaceProp ?? ctx?.onOpenTaskWorkspace;
 
     // selectedEventDisplayTitle: check prop, then context, then infer from event metadata
     const selectedEventDisplayTitleFromCtxOrProp = selectedEventDisplayTitleProp !== undefined
@@ -169,8 +171,6 @@ export function EventInspector({
     const isSingleTabMode = visibleTabs.length <= 1;
     const isInlineSingleTabHeader = isSingleTabMode && singleTabHeaderLayout === "inline";
     const resolvedPanelLabel = panelLabel ?? visibleTabs[0]?.label ?? "Inspector";
-    const openWorkspaceLabel = isSingleTabMode ? "Workspace" : "Open Workspace";
-    const hasWorkspaceAction = onOpenTaskWorkspace !== undefined;
     const collapseControl = showCollapseControl ? (
         <button aria-label={isCollapsed ? "Expand inspector" : "Collapse inspector"} className="inspector-toggle-btn inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] text-[var(--text-2)] shadow-sm transition-colors hover:border-[var(--border-2)] hover:bg-[var(--surface-2)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-1" onClick={onToggleCollapse} title={isCollapsed ? "Expand inspector" : "Collapse inspector"} type="button">
             <svg aria-hidden="true" fill="none" height="14" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" viewBox="0 0 24 24" width="14">
@@ -178,22 +178,17 @@ export function EventInspector({
             </svg>
         </button>
     ) : null;
-    const openWorkspaceButton = onOpenTaskWorkspace ? (
-        <Button className={cn("h-7 rounded-[var(--radius-md)] px-2.5 text-[0.72rem] font-semibold shadow-none whitespace-nowrap", isSingleTabMode ? (isInlineSingleTabHeader ? "h-7 shrink-0 px-2.5 text-[0.72rem]" : "w-full justify-center") : "ml-auto shrink-0")} onClick={onOpenTaskWorkspace} size="sm" type="button">
-            {openWorkspaceLabel}
-        </Button>
-    ) : null;
 
     return (
         <aside className={cn("detail-panel flex min-h-0 flex-1 flex-col overflow-hidden rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_12px_rgba(0,0,0,0.03)]", className)}>
-            <div className={cn("panel-tab-bar border-b border-[var(--border)] bg-[var(--surface)] px-3 py-2", isSingleTabMode ? "flex flex-col gap-2" : hasWorkspaceAction ? "flex items-center gap-1 overflow-x-auto" : "grid grid-cols-2 gap-1 sm:flex sm:flex-wrap sm:items-center")} {...(isSingleTabMode ? {} : { "aria-label": "Inspector panels" })} role={isSingleTabMode ? undefined : "tablist"}>
+            <div className={cn("panel-tab-bar border-b border-[var(--border)] bg-[var(--surface)] px-3 py-2", isSingleTabMode ? "flex flex-col gap-2" : "grid grid-cols-2 gap-1 sm:flex sm:flex-wrap sm:items-center")} {...(isSingleTabMode ? {} : { "aria-label": "Inspector panels" })} role={isSingleTabMode ? undefined : "tablist"}>
                 {isSingleTabMode ? (isInlineSingleTabHeader ? (
                     <div className="flex flex-wrap items-center gap-2">
                         <div className="flex min-w-0 flex-1 items-center gap-2">
                             {collapseControl}
                             <div className="min-w-0 truncate px-1 text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">{resolvedPanelLabel}</div>
                         </div>
-                        {openWorkspaceButton}
+                        {headerExtra}
                     </div>
                 ) : (
                     <>
@@ -201,22 +196,22 @@ export function EventInspector({
                             {collapseControl}
                             <div className="min-w-0 truncate px-1 text-[0.72rem] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">{resolvedPanelLabel}</div>
                         </div>
-                        {openWorkspaceButton}
+                        {headerExtra}
                     </>
                 )) : (
                     <>
                         {collapseControl}
                         {visibleTabs.map((tab) => (
-                            <button key={tab.id} aria-selected={activeTab === tab.id} className={cn("panel-tab inline-flex h-8 items-center rounded-[var(--radius-md)] border px-3 text-[0.76rem] font-semibold transition-colors", !hasWorkspaceAction && "w-full justify-center px-2.5 sm:w-auto sm:px-3", activeTab === tab.id ? "border-[var(--accent)] bg-[var(--accent-light)] text-[var(--accent)]" : "border-transparent bg-transparent text-[var(--text-3)] hover:border-[var(--border)] hover:bg-[var(--surface-2)] hover:text-[var(--text-2)]")} onClick={() => { if (controlledActiveTab === undefined) setUncontrolledActiveTab(tab.id); onActiveTabChange?.(tab.id); }} role="tab" type="button">
+                            <button key={tab.id} aria-selected={activeTab === tab.id} className={cn("panel-tab inline-flex h-8 items-center rounded-[var(--radius-md)] border px-3 text-[0.76rem] font-semibold transition-colors w-full justify-center px-2.5 sm:w-auto sm:px-3", activeTab === tab.id ? "border-[var(--accent)] bg-[var(--accent-light)] text-[var(--accent)]" : "border-transparent bg-transparent text-[var(--text-3)] hover:border-[var(--border)] hover:bg-[var(--surface-2)] hover:text-[var(--text-2)]")} onClick={() => { if (controlledActiveTab === undefined) setUncontrolledActiveTab(tab.id); onActiveTabChange?.(tab.id); }} role="tab" type="button">
                                 {tab.label}
                             </button>
                         ))}
-                        {openWorkspaceButton}
+                        {headerExtra}
                     </>
                 )}
             </div>
             <div className="panel-tab-content flex min-h-0 flex-1 flex-col overflow-y-auto" role="tabpanel">
-                {activeTab === "inspector" ? (
+                {children ?? (activeTab === "inspector" ? (
                     <InspectorTab
                         selectedEvent={selectedEvent} selectedConnector={selectedConnector}
                         selectedEventDisplayTitle={selectedEventDisplayTitle}
@@ -226,8 +221,7 @@ export function EventInspector({
                         relatedEvents={relatedEvents} selectedRuleId={selectedRuleId}
                         onUpdateEventDisplayTitle={onUpdateEventDisplayTitle}
                         onSelectRule={onSelectRule}
-                        {...(onOpenTaskWorkspace !== undefined ? { onOpenTaskWorkspace } : {})}
-                        openWorkspaceLabel={openWorkspaceLabel} taskDetail={taskDetail}
+                        taskDetail={taskDetail}
                     />
                 ) : activeTab === "overview" ? (
                     <OverviewTab
@@ -272,7 +266,7 @@ export function EventInspector({
                         taskId={taskDetail?.task.id}
                         onSelectEvent={onSelectEvent}
                     />
-                )}
+                ))}
             </div>
         </aside>
     );

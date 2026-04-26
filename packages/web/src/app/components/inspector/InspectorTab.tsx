@@ -154,8 +154,6 @@ export interface InspectorTabProps {
     readonly selectedRuleId: string | null;
     readonly onUpdateEventDisplayTitle: (eventId: string, displayTitle: string | null) => Promise<void>;
     readonly onSelectRule: (ruleId: string | null) => void;
-    readonly onOpenTaskWorkspace?: () => void;
-    readonly openWorkspaceLabel: string;
     readonly taskDetail: TaskDetailResponse | null;
 }
 
@@ -172,8 +170,6 @@ export function InspectorTab({
     selectedRuleId,
     onUpdateEventDisplayTitle,
     onSelectRule,
-    onOpenTaskWorkspace,
-    openWorkspaceLabel,
     taskDetail,
 }: InspectorTabProps): React.JSX.Element {
     const [isEditingEventTitle, setIsEditingEventTitle] = useState(false);
@@ -388,11 +384,6 @@ export function InspectorTab({
             <p className="mt-2 text-[0.8rem] text-[var(--text-3)]">
               As soon as the monitor records activity, the latest item appears here.
             </p>
-            {onOpenTaskWorkspace && (<div className="mt-4">
-                <Button className="h-8 rounded-full px-3 text-[0.76rem] font-semibold shadow-none whitespace-nowrap" onClick={onOpenTaskWorkspace} size="sm" type="button">
-                  {openWorkspaceLabel}
-                </Button>
-              </div>)}
           </div>)}
       </>);
 }
