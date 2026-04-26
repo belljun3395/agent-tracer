@@ -1,7 +1,7 @@
 import { Body, Controller, HttpCode, HttpStatus, Inject, Post } from "@nestjs/common";
-import { IngestEventsUseCase } from "~application/events/index.js";
-import type { IngestEventsUseCaseIn } from "~application/events/index.js";
-import { ingestEventsBatchSchema } from "~adapters/http/ingest/schemas/event.ingest.schema.js";
+import { IngestEventsUseCase } from "~application/events/ingest.events.usecase.js";
+import type { IngestEventsUseCaseIn } from "~application/events/dto/ingest.events.usecase.dto.js";
+import { eventBatchSchema as ingestEventsBatchSchema } from "~adapters/http/shared/schemas/event-batch.schema.js";
 import { ZodValidationPipe } from "~adapters/http/shared/zod-validation.pipe.js";
 
 @Controller("ingest/v1/events")

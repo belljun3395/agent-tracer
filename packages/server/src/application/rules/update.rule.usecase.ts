@@ -1,17 +1,13 @@
-import {
-    computeRuleSignature,
-    isRuleExpectMeaningful,
-    type RuleExpectInput,
-} from "~domain/verification/index.js";
-import type {
-    NotificationPublisherPort,
-    RuleEnforcementWritePort,
-    RuleReadPort,
-    RuleRecordPortDto,
-    RuleUpdatePortDto,
-    RuleWritePort,
-    VerdictWritePort,
-} from "~application/ports/index.js";
+import { isRuleExpectMeaningful } from "~domain/verification/rule/rule.js";
+import { computeRuleSignature } from "~domain/verification/rule/rule.signature.js";
+import type { RuleExpectInput } from "~domain/verification/rule/type/rule.expectation.input.js";
+import type { NotificationPublisherPort } from "~application/ports/notifications/notification.publisher.port.js";
+import type { RuleRecordPortDto } from "~application/ports/rules/dto/rule.record.port.dto.js";
+import type { RuleUpdatePortDto } from "~application/ports/rules/dto/rule.update.port.dto.js";
+import type { RuleReadPort } from "~application/ports/rules/rule.read.port.js";
+import type { RuleWritePort } from "~application/ports/rules/rule.write.port.js";
+import type { RuleEnforcementWritePort } from "~application/ports/verification/rule-enforcements/rule.enforcement.write.port.js";
+import type { VerdictWritePort } from "~application/ports/verification/verdicts/verdict.write.port.js";
 import type { UpdateRuleUseCaseIn, UpdateRuleUseCaseOut } from "./dto/update.rule.usecase.dto.js";
 import { mapRule } from "./dto/rule.dto.mapper.js";
 import { InvalidRuleError, RuleNotFoundError } from "./common/errors.js";

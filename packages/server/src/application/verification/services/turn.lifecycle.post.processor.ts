@@ -1,12 +1,11 @@
 import { randomUUID } from "node:crypto";
-import { KIND, type TimelineEvent } from "~domain/index.js";
-import { inferToolCall } from "~domain/verification/index.js";
-import type {
-    NotificationPublisherPort,
-    TimelineEventReadPort,
-    TurnReadPort,
-    TurnWritePort,
-} from "~application/ports/index.js";
+import { KIND } from "~domain/monitoring/common/const/event.kind.const.js";
+import type { TimelineEvent } from "~domain/monitoring/event/model/timeline.event.model.js";
+import { inferToolCall } from "~domain/verification/rule/tool-call.inference.js";
+import type { NotificationPublisherPort } from "~application/ports/notifications/notification.publisher.port.js";
+import type { TimelineEventReadPort } from "~application/ports/timeline-events/timeline.event.read.port.js";
+import type { TurnReadPort } from "~application/ports/verification/turns/turn.read.port.js";
+import type { TurnWritePort } from "~application/ports/verification/turns/turn.write.port.js";
 import type { TurnEvaluationService } from "./turn.evaluation.service.js";
 
 /**

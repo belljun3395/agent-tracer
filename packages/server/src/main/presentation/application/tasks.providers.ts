@@ -1,28 +1,24 @@
 import type { Provider } from "@nestjs/common";
-import type {
-    IEventRepository,
-    INotificationPublisher,
-    IRuntimeBindingRepository,
-    ISessionRepository,
-    ITaskRepository,
-} from "~application/index.js";
+import type { INotificationPublisher } from "~application/ports/event/notification.publisher.js";
+import type { IEventRepository } from "~application/ports/repository/event.repository.js";
+import type { IRuntimeBindingRepository } from "~application/ports/repository/runtime.binding.repository.js";
+import type { ISessionRepository } from "~application/ports/repository/session.repository.js";
+import type { ITaskRepository } from "~application/ports/repository/task.repository.js";
 import type { ITurnQueryRepository } from "~application/ports/repository/turn.query.repository.js";
-import {
-    CompleteTaskUseCase,
-    DeleteFinishedTasksUseCase,
-    DeleteTaskUseCase,
-    ErrorTaskUseCase,
-    GetTaskLatestRuntimeSessionUseCase,
-    GetTaskOpenInferenceUseCase,
-    GetTaskTimelineUseCase,
-    GetTaskTurnsUseCase,
-    GetTaskUseCase,
-    LinkTaskUseCase,
-    ListTasksUseCase,
-    StartTaskUseCase,
-    TaskLifecycleService,
-    UpdateTaskUseCase,
-} from "~application/tasks/index.js";
+import { CompleteTaskUseCase } from "~application/tasks/complete.task.usecase.js";
+import { DeleteFinishedTasksUseCase } from "~application/tasks/delete.finished.tasks.usecase.js";
+import { DeleteTaskUseCase } from "~application/tasks/delete.task.usecase.js";
+import { ErrorTaskUseCase } from "~application/tasks/error.task.usecase.js";
+import { GetTaskLatestRuntimeSessionUseCase } from "~application/tasks/get.task.latest.runtime.session.usecase.js";
+import { GetTaskOpenInferenceUseCase } from "~application/tasks/get.task.open.inference.usecase.js";
+import { GetTaskTimelineUseCase } from "~application/tasks/get.task.timeline.usecase.js";
+import { GetTaskTurnsUseCase } from "~application/tasks/get.task.turns.usecase.js";
+import { GetTaskUseCase } from "~application/tasks/get.task.usecase.js";
+import { LinkTaskUseCase } from "~application/tasks/link.task.usecase.js";
+import { ListTasksUseCase } from "~application/tasks/list.tasks.usecase.js";
+import { TaskLifecycleService } from "~application/tasks/services/task.lifecycle.service.js";
+import { StartTaskUseCase } from "~application/tasks/start.task.usecase.js";
+import { UpdateTaskUseCase } from "~application/tasks/update.task.usecase.js";
 import {
     EVENT_REPOSITORY_TOKEN,
     NOTIFICATION_PUBLISHER_TOKEN,

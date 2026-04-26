@@ -1,9 +1,8 @@
 import { randomUUID } from "node:crypto";
-import {
-    computeRuleSignature,
-    isRuleExpectMeaningful,
-} from "~domain/verification/index.js";
-import type { NotificationPublisherPort, RuleWritePort } from "~application/ports/index.js";
+import { isRuleExpectMeaningful } from "~domain/verification/rule/rule.js";
+import { computeRuleSignature } from "~domain/verification/rule/rule.signature.js";
+import type { NotificationPublisherPort } from "~application/ports/notifications/notification.publisher.port.js";
+import type { RuleWritePort } from "~application/ports/rules/rule.write.port.js";
 import type { BackfillRuleEvaluationUseCase } from "~application/verification/backfill.rule.evaluation.usecase.js";
 import type { CreateRuleUseCaseIn, CreateRuleUseCaseOut } from "./dto/create.rule.usecase.dto.js";
 import { mapRule } from "./dto/rule.dto.mapper.js";

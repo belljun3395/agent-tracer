@@ -1,19 +1,18 @@
 import type { Provider } from "@nestjs/common";
-import type { IEventRepository, INotificationPublisher } from "~application/index.js";
+import type { INotificationPublisher } from "~application/ports/event/notification.publisher.js";
+import type { IEventRepository } from "~application/ports/repository/event.repository.js";
 import type { IRuleRepository } from "~application/ports/repository/rule.repository.js";
 import type { IRuleEnforcementRepository } from "~application/ports/repository/rule.enforcement.repository.js";
 import type { ITurnRepository } from "~application/ports/repository/turn.repository.js";
 import type { ITurnQueryRepository } from "~application/ports/repository/turn.query.repository.js";
 import type { IVerdictRepository } from "~application/ports/repository/verdict.repository.js";
-import {
-    CreateRuleUseCase,
-    DeleteRuleUseCase,
-    ListRulesForTaskUseCase,
-    ListRulesUseCase,
-    PromoteRuleToGlobalUseCase,
-    RegisterSuggestionUseCase,
-    UpdateRuleUseCase,
-} from "~application/rules/index.js";
+import { CreateRuleUseCase } from "~application/rules/create.rule.usecase.js";
+import { DeleteRuleUseCase } from "~application/rules/delete.rule.usecase.js";
+import { ListRulesForTaskUseCase, ListRulesUseCase } from "~application/rules/list.rules.usecase.js";
+import { PromoteRuleToGlobalUseCase } from "~application/rules/promote.rule.to.global.usecase.js";
+import { ReEvaluateRuleUseCase } from "~application/rules/re-evaluate.rule.usecase.js";
+import { RegisterSuggestionUseCase } from "~application/rules/register.suggestion.usecase.js";
+import { UpdateRuleUseCase } from "~application/rules/update.rule.usecase.js";
 import { BackfillRuleEvaluationUseCase } from "~application/verification/backfill.rule.evaluation.usecase.js";
 import { GetVerdictCountsForTaskUseCase } from "~application/verification/get.verdict.counts.for.task.usecase.js";
 import {
@@ -123,6 +122,12 @@ export const RULES_APPLICATION_PROVIDERS: Provider[] = [
         inject: [RULE_REPOSITORY_TOKEN, CreateRuleUseCase],
     },
     {
+        provide: ReEvaluateRuleUseCase,
+        useFactory: (ruleRepo: IRuleRepository, backfill: BackfillRuleEvaluationUseCase) =>
+            new ReEvaluateRuleUseCase(ruleRepo, backfill),
+        inject: [RULE_REPOSITORY_TOKEN, BackfillRuleEvaluationUseCase],
+    },
+    {
         provide: GetVerdictCountsForTaskUseCase,
         useFactory: (turnQueryRepo: ITurnQueryRepository) =>
             new GetVerdictCountsForTaskUseCase(turnQueryRepo),
@@ -139,5 +144,6 @@ export const RULES_APPLICATION_EXPORTS = [
     ListRulesForTaskUseCase,
     PromoteRuleToGlobalUseCase,
     RegisterSuggestionUseCase,
+    ReEvaluateRuleUseCase,
     GetVerdictCountsForTaskUseCase,
 ] as const;

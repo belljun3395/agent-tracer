@@ -1,8 +1,6 @@
 import { Body, Controller, HttpCode, HttpStatus, Inject, Param, Post, Put } from "@nestjs/common";
-import {
-    ResetTurnPartitionUseCase,
-    UpsertTurnPartitionUseCase,
-} from "~application/turn-partitions/index.js";
+import { ResetTurnPartitionUseCase } from "~application/turn-partitions/reset.turn.partition.usecase.js";
+import { UpsertTurnPartitionUseCase } from "~application/turn-partitions/upsert.turn.partition.usecase.js";
 import {
     turnPartitionUpsertSchema,
     type TurnPartitionUpsertBody,

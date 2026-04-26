@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import type { IEmbeddingService } from "~application/index.js";
+import type { IEmbeddingService } from "~application/ports/service/embedding.service.js";
 
 import type { FeatureExtractionPipeline } from "@huggingface/transformers";
 export const EMBEDDING_MODEL = "Xenova/all-MiniLM-L6-v2";

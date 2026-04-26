@@ -1,12 +1,9 @@
 import { createHash } from "node:crypto";
 import type Database from "better-sqlite3";
-import type {
-    ContentBlobRecord,
-    ContentBlobWriteInput,
-    IEventStore,
-} from "~application/ports/index.js";
-import type { AnyDomainEventDraft, DomainEvent, EventId, TimeRange } from "~domain/events/index.js";
-import { validateDomainEventDraft } from "~domain/events/index.js";
+import type { ContentBlobRecord, ContentBlobWriteInput, IEventStore } from "~application/ports/repository/domain.event.repository.js";
+import type { AnyDomainEventDraft, DomainEvent } from "~domain/events/model/domain.events.model.js";
+import type { EventId, TimeRange } from "~domain/events/model/event.model.js";
+import { validateDomainEventDraft } from "~domain/events/domain.events.js";
 import { generateUlid } from "./ulid.js";
 import { projectDomainEvent } from "../read-models/sqlite.read-model.projector.js";
 

@@ -1,4 +1,5 @@
-import type { TaskReadPort, TimelineEventReadPort } from "../ports/index.js";
+import type { TaskReadPort } from "~application/ports/tasks/task.read.port.js";
+import type { TimelineEventReadPort } from "~application/ports/timeline-events/timeline.event.read.port.js";
 import type { GetTaskOpenInferenceUseCaseIn, GetTaskOpenInferenceUseCaseOut } from "./dto/get.task.open.inference.usecase.dto.js";
 import { toOpenInferenceTaskExport } from "./openinference.js";
 

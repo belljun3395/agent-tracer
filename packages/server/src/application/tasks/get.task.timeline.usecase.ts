@@ -1,5 +1,5 @@
 import { projectTimelineEvent } from "~application/events/timeline-event.projection.js";
-import type { TimelineEventReadPort } from "../ports/index.js";
+import type { TimelineEventReadPort } from "~application/ports/timeline-events/timeline.event.read.port.js";
 import type {
     GetTaskTimelineUseCaseIn,
     GetTaskTimelineUseCaseOut,

@@ -1,10 +1,10 @@
 import type { Provider } from "@nestjs/common";
-import type { IEventRepository, ITaskRepository, ITurnPartitionRepository } from "~application/index.js";
-import {
-    GetTurnPartitionUseCase,
-    ResetTurnPartitionUseCase,
-    UpsertTurnPartitionUseCase,
-} from "~application/turn-partitions/index.js";
+import type { IEventRepository } from "~application/ports/repository/event.repository.js";
+import type { ITaskRepository } from "~application/ports/repository/task.repository.js";
+import type { ITurnPartitionRepository } from "~application/ports/repository/turn.partition.repository.js";
+import { GetTurnPartitionUseCase } from "~application/turn-partitions/get.turn.partition.usecase.js";
+import { ResetTurnPartitionUseCase } from "~application/turn-partitions/reset.turn.partition.usecase.js";
+import { UpsertTurnPartitionUseCase } from "~application/turn-partitions/upsert.turn.partition.usecase.js";
 import {
     EVENT_REPOSITORY_TOKEN,
     TASK_REPOSITORY_TOKEN,

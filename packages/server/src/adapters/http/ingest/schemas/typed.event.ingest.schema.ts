@@ -1,14 +1,5 @@
 import { z } from "zod";
-import {
-    CONVERSATION_EVENT_KINDS,
-    COORDINATION_EVENT_KINDS,
-    EVENT_RELATION_TYPES,
-    LIFECYCLE_EVENT_KINDS,
-    TELEMETRY_EVENT_KINDS,
-    EVENT_LANES,
-    TOOL_ACTIVITY_EVENT_KINDS,
-    WORKFLOW_EVENT_KINDS,
-} from "~application/events/index.js";
+import { CONVERSATION_EVENT_KINDS, COORDINATION_EVENT_KINDS, EVENT_RELATION_TYPES, LIFECYCLE_EVENT_KINDS, TELEMETRY_EVENT_KINDS, EVENT_LANES, TOOL_ACTIVITY_EVENT_KINDS, WORKFLOW_EVENT_KINDS } from "~application/events/dto/log.event.usecase.dto.js";
 
 const baseEventSchema = z.object({
     kind: z.string().min(1),

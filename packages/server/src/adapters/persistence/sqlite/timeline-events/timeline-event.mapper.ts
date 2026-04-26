@@ -1,5 +1,5 @@
-import type { EventInsertInput } from "~application/ports/index.js";
-import type { AnyDomainEventDraft } from "~domain/events/index.js";
+import type { EventInsertInput } from "~application/ports/repository/event.repository.js";
+import type { AnyDomainEventDraft } from "~domain/events/model/domain.events.model.js";
 
 export function mapTimelineInsertToDomainEvent(input: EventInsertInput): AnyDomainEventDraft | null {
     const base = {

@@ -1,5 +1,5 @@
-import type { TaskOverviewQueryPort } from "~application/ports/index.js";
-import { tallyTaskStatuses } from "~domain/monitoring/index.js";
+import type { TaskOverviewQueryPort } from "~application/ports/tasks/task.overview.query.port.js";
+import { tallyTaskStatuses } from "~domain/monitoring/common/task.status.js";
 import type { GetOverviewUseCaseIn, GetOverviewUseCaseOut } from "./dto/get.overview.usecase.dto.js";
 
 export class GetOverviewUseCase {

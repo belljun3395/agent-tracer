@@ -1,11 +1,11 @@
 import type { Provider } from "@nestjs/common";
-import type { IEventRepository, INotificationPublisher, ITaskRepository } from "~application/index.js";
-import {
-    IngestEventsUseCase,
-    LogEventUseCase,
-    SearchEventsUseCase,
-    UpdateEventUseCase,
-} from "~application/events/index.js";
+import type { INotificationPublisher } from "~application/ports/event/notification.publisher.js";
+import type { IEventRepository } from "~application/ports/repository/event.repository.js";
+import type { ITaskRepository } from "~application/ports/repository/task.repository.js";
+import { IngestEventsUseCase } from "~application/events/ingest.events.usecase.js";
+import { LogEventUseCase } from "~application/events/log.event.usecase.js";
+import { SearchEventsUseCase } from "~application/events/search.events.usecase.js";
+import { UpdateEventUseCase } from "~application/events/update.event.usecase.js";
 import { RuleEnforcementPostProcessor } from "~application/verification/services/rule.enforcement.post.processor.js";
 import { TurnLifecyclePostProcessor } from "~application/verification/services/turn.lifecycle.post.processor.js";
 import {

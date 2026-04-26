@@ -1,4 +1,5 @@
-import type { MonitoringEventKind, MonitoringTask, TimelineLane } from "~domain/monitoring/index.js";
+import type { MonitoringEventKind, TimelineLane } from "~domain/monitoring/common/type/event.kind.type.js";
+import type { MonitoringTask } from "~domain/monitoring/task/model/task.model.js";
 
 export interface EventSearchTaskHitPortDto {
     readonly id: string;

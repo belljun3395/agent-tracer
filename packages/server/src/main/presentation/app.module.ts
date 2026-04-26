@@ -1,6 +1,6 @@
 import { Module, type DynamicModule, type MiddlewareConsumer, type NestModule } from "@nestjs/common";
 import { APP_FILTER, APP_INTERCEPTOR } from "@nestjs/core";
-import type { INotificationPublisher } from "~application/index.js";
+import type { INotificationPublisher } from "~application/ports/event/notification.publisher.js";
 import { EventsApplicationModule } from "./application/events-application.module.js";
 import { RulesApplicationModule } from "./application/rules-application.module.js";
 import { SessionsApplicationModule } from "./application/sessions-application.module.js";

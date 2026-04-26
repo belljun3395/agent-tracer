@@ -1,5 +1,5 @@
 import { Controller, Get } from "@nestjs/common";
-import { NoEnvelope } from "~main/presentation/decorators/index.js";
+import { NoEnvelope } from "~adapters/http/shared/no-envelope.decorator.js";
 
 @Controller("health")
 @NoEnvelope()

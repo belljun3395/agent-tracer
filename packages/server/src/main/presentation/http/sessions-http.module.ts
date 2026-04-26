@@ -1,5 +1,5 @@
 import { Module, type DynamicModule } from "@nestjs/common";
-import { SessionIngestController } from "~adapters/http/ingest/index.js";
+import { SessionIngestController } from "~adapters/http/ingest/controllers/session/session.ingest.controller.js";
 
 @Module({
     controllers: [SessionIngestController],

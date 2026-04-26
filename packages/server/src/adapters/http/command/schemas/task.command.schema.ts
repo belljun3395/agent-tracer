@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { TASK_STATUSES } from "~adapters/http/shared/schemas/task.schema.const.js";
+import { TASK_STATUSES } from "~application/tasks/common/task.constants.js";
 
 export const taskPatchSchema = z.object({
     title: z.string().trim().min(1).optional(),

@@ -1,5 +1,6 @@
 import type { Provider } from "@nestjs/common";
-import type { IEventRepository, INotificationPublisher } from "~application/index.js";
+import type { INotificationPublisher } from "~application/ports/event/notification.publisher.js";
+import type { IEventRepository } from "~application/ports/repository/event.repository.js";
 import type { IRuleRepository } from "~application/ports/repository/rule.repository.js";
 import type { IRuleEnforcementRepository } from "~application/ports/repository/rule.enforcement.repository.js";
 import type { ITurnRepository } from "~application/ports/repository/turn.repository.js";

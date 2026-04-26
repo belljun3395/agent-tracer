@@ -11,15 +11,12 @@ import {
     Patch,
     Post,
 } from "@nestjs/common";
-import {
-    CreateRuleUseCase,
-    DeleteRuleUseCase,
-    InvalidRuleError,
-    PromoteRuleToGlobalUseCase,
-    RuleNotFoundError,
-    UpdateRuleUseCase,
-} from "~application/rules/index.js";
-import { BackfillRuleEvaluationUseCase } from "~application/verification/backfill.rule.evaluation.usecase.js";
+import { InvalidRuleError, RuleNotFoundError } from "~application/rules/common/errors.js";
+import { CreateRuleUseCase } from "~application/rules/create.rule.usecase.js";
+import { DeleteRuleUseCase } from "~application/rules/delete.rule.usecase.js";
+import { PromoteRuleToGlobalUseCase } from "~application/rules/promote.rule.to.global.usecase.js";
+import { ReEvaluateRuleUseCase } from "~application/rules/re-evaluate.rule.usecase.js";
+import { UpdateRuleUseCase } from "~application/rules/update.rule.usecase.js";
 import {
     ruleCreateSchema,
     ruleUpdateSchema,
@@ -28,8 +25,6 @@ import {
 } from "~adapters/http/command/schemas/rule.command.schema.js";
 import { pathParamPipe } from "~adapters/http/shared/path-param.pipe.js";
 import { ZodValidationPipe } from "~adapters/http/shared/zod-validation.pipe.js";
-import type { IRuleRepository } from "~application/ports/repository/rule.repository.js";
-import { RULE_REPOSITORY_TOKEN } from "~main/presentation/database/database.provider.js";
 
 @Controller("api/v1/rules")
 export class RuleCommandController {
@@ -38,8 +33,7 @@ export class RuleCommandController {
         @Inject(UpdateRuleUseCase) private readonly updateRule: UpdateRuleUseCase,
         @Inject(DeleteRuleUseCase) private readonly deleteRule: DeleteRuleUseCase,
         @Inject(PromoteRuleToGlobalUseCase) private readonly promoteRule: PromoteRuleToGlobalUseCase,
-        @Inject(BackfillRuleEvaluationUseCase) private readonly backfill: BackfillRuleEvaluationUseCase,
-        @Inject(RULE_REPOSITORY_TOKEN) private readonly ruleRepo: IRuleRepository,
+        @Inject(ReEvaluateRuleUseCase) private readonly reEvaluateRule: ReEvaluateRuleUseCase,
     ) {}
 
     @Post()
@@ -126,8 +120,11 @@ export class RuleCommandController {
     @Post(":id/re-evaluate")
     @HttpCode(HttpStatus.OK)
     async reEvaluate(@Param("id", pathParamPipe) id: string) {
-        const rule = await this.ruleRepo.findById(id);
-        if (!rule) throw new NotFoundException(`Rule ${id} not found`);
-        return this.backfill.execute({ rule });
+        try {
+            return await this.reEvaluateRule.execute({ ruleId: id });
+        } catch (err) {
+            if (err instanceof RuleNotFoundError) throw new NotFoundException(err.message);
+            throw err;
+        }
     }
 }

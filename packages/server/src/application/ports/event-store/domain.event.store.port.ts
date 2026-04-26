@@ -1,4 +1,5 @@
-import type { AnyDomainEventDraft, DomainEvent, EventId, TimeRange } from "~domain/events/index.js";
+import type { AnyDomainEventDraft, DomainEvent } from "~domain/events/model/domain.events.model.js";
+import type { EventId, TimeRange } from "~domain/events/model/event.model.js";
 
 export interface DomainEventStorePort {
     append(event: AnyDomainEventDraft): Promise<DomainEvent>;

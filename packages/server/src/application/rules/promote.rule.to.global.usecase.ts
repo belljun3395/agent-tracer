@@ -1,4 +1,4 @@
-import type { RuleReadPort } from "~application/ports/index.js";
+import type { RuleReadPort } from "~application/ports/rules/rule.read.port.js";
 import type { CreateRuleUseCase } from "./create.rule.usecase.js";
 import type { DeleteRuleUseCase } from "./delete.rule.usecase.js";
 import type {

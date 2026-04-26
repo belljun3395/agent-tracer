@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { COMPLETION_REASONS } from "~adapters/http/shared/schemas/task.schema.const.js";
+import { COMPLETION_REASONS } from "~application/tasks/common/task.constants.js";
 
 export const runtimeSessionEnsureSchema = z.object({
     taskId: z.string().optional(),

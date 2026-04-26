@@ -1,9 +1,9 @@
 import type Database from "better-sqlite3";
-import type { EventClassification, TimelineEvent } from "~domain/monitoring/index.js";
-import type { MonitoringEventKind, TimelineLane } from "~domain/monitoring/index.js";
-import { QUESTION_PHASES, TODO_STATES } from "~domain/monitoring/index.js";
-import { isEventRelationType } from "~domain/monitoring/index.js";
-import { normalizeLane } from "~domain/monitoring/index.js";
+import type { EventClassification, TimelineEvent } from "~domain/monitoring/event/model/timeline.event.model.js";
+import type { MonitoringEventKind, TimelineLane } from "~domain/monitoring/common/type/event.kind.type.js";
+import { QUESTION_PHASES, TODO_STATES } from "~domain/monitoring/common/const/event.kind.const.js";
+import { isEventRelationType } from "~domain/monitoring/common/task.status.js";
+import { normalizeLane } from "~domain/monitoring/task/task.js";
 import { parseJsonField } from "../shared/sqlite.json";
 
 const SEMANTIC_METADATA_KEYS = [

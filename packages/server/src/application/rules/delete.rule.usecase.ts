@@ -1,4 +1,6 @@
-import type { NotificationPublisherPort, RuleReadPort, RuleWritePort } from "~application/ports/index.js";
+import type { NotificationPublisherPort } from "~application/ports/notifications/notification.publisher.port.js";
+import type { RuleReadPort } from "~application/ports/rules/rule.read.port.js";
+import type { RuleWritePort } from "~application/ports/rules/rule.write.port.js";
 import { RuleNotFoundError } from "./common/errors.js";
 
 /**

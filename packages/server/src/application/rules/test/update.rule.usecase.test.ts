@@ -4,7 +4,7 @@ import type { INotificationPublisher } from "~application/ports/event/notificati
 import type { IRuleEnforcementRepository } from "~application/ports/repository/rule.enforcement.repository.js";
 import type { IRuleRepository, RuleUpdateInput, RuleWithSignature } from "~application/ports/repository/rule.repository.js";
 import type { IVerdictRepository } from "~application/ports/repository/verdict.repository.js";
-import { computeRuleSignature } from "~domain/verification/index.js";
+import { computeRuleSignature } from "~domain/verification/rule/rule.signature.js";
 
 const baseRule: RuleWithSignature = {
     id: "rule-1",

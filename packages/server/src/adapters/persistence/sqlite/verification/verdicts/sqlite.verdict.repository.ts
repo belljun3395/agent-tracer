@@ -1,5 +1,5 @@
 import { and, count, eq } from "drizzle-orm";
-import type { TurnVerdict, VerdictStatus } from "~domain/verification/index.js";
+import type { TurnVerdict, VerdictStatus } from "~domain/verification/verdict/model/verdict.model.js";
 import type {
     IVerdictRepository,
     VerdictUpsertInput,

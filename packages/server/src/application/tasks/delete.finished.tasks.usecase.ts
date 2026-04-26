@@ -1,4 +1,5 @@
-import type { NotificationPublisherPort, TaskWritePort } from "~application/ports/index.js";
+import type { NotificationPublisherPort } from "~application/ports/notifications/notification.publisher.port.js";
+import type { TaskWritePort } from "~application/ports/tasks/task.write.port.js";
 import type { DeleteFinishedTasksUseCaseIn, DeleteFinishedTasksUseCaseOut } from "./dto/delete.finished.tasks.usecase.dto.js";
 
 export class DeleteFinishedTasksUseCase {

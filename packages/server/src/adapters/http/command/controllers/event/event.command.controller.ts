@@ -1,6 +1,8 @@
 import { Body, Controller, HttpCode, HttpStatus, Inject, NotFoundException, Param, Patch, Post } from "@nestjs/common";
-import { IngestEventsUseCase, UpdateEventUseCase } from "~application/events/index.js";
-import type { IngestEventsUseCaseIn, UpdateEventUseCaseIn } from "~application/events/index.js";
+import { IngestEventsUseCase } from "~application/events/ingest.events.usecase.js";
+import { UpdateEventUseCase } from "~application/events/update.event.usecase.js";
+import type { IngestEventsUseCaseIn } from "~application/events/dto/ingest.events.usecase.dto.js";
+import type { UpdateEventUseCaseIn } from "~application/events/dto/update.event.usecase.dto.js";
 import { eventPatchSchema } from "~adapters/http/command/schemas/event.command.schema.js";
 import { eventBatchSchema } from "~adapters/http/shared/schemas/event-batch.schema.js";
 import { pathParamPipe } from "~adapters/http/shared/path-param.pipe.js";

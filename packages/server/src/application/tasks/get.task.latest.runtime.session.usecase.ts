@@ -1,4 +1,4 @@
-import type { RuntimeBindingReadPort } from "../ports/index.js";
+import type { RuntimeBindingReadPort } from "~application/ports/runtime-bindings/runtime.binding.read.port.js";
 import type { GetTaskLatestRuntimeSessionUseCaseIn, GetTaskLatestRuntimeSessionUseCaseOut } from "./dto/get.task.latest.runtime.session.usecase.dto.js";
 
 export class GetTaskLatestRuntimeSessionUseCase {

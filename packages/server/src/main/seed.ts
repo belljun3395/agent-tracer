@@ -1,14 +1,14 @@
 import path from "node:path";
-import { normalizeWorkspacePath } from "~domain/monitoring/index.js";
-import { LogEventUseCase } from "~application/events/index.js";
-import {
-    createSqliteDatabaseContext,
-    SqliteEventRepository,
-    SqliteSessionRepository,
-    SqliteTaskRepository,
-} from "~adapters/persistence/sqlite/index.js";
-import { StartTaskUseCase, CompleteTaskUseCase, TaskLifecycleService } from "~application/tasks/index.js";
-import type { INotificationPublisher } from "~application/index.js";
+import { normalizeWorkspacePath } from "~domain/monitoring/task/task.js";
+import { LogEventUseCase } from "~application/events/log.event.usecase.js";
+import { createSqliteDatabaseContext } from "~adapters/persistence/sqlite/sqlite.database-context.js";
+import { SqliteSessionRepository } from "~adapters/persistence/sqlite/sessions/sqlite.session.repository.js";
+import { SqliteTaskRepository } from "~adapters/persistence/sqlite/tasks/sqlite.task.repository.js";
+import { SqliteEventRepository } from "~adapters/persistence/sqlite/timeline-events/sqlite.event.repository.js";
+import { CompleteTaskUseCase } from "~application/tasks/complete.task.usecase.js";
+import { TaskLifecycleService } from "~application/tasks/services/task.lifecycle.service.js";
+import { StartTaskUseCase } from "~application/tasks/start.task.usecase.js";
+import type { INotificationPublisher } from "~application/ports/event/notification.publisher.js";
 
 const databasePath = path.resolve(process.cwd(), ".monitor", "monitor.sqlite");
 const workspacePath = normalizeWorkspacePath(process.cwd());

@@ -1,16 +1,12 @@
 import { Body, Controller, HttpCode, HttpStatus, Inject, Post } from "@nestjs/common";
-import {
-    CompleteTaskUseCase,
-    ErrorTaskUseCase,
-    LinkTaskUseCase,
-    StartTaskUseCase,
-} from "~application/tasks/index.js";
-import type {
-    CompleteTaskUseCaseIn,
-    ErrorTaskUseCaseIn,
-    LinkTaskUseCaseIn,
-    StartTaskUseCaseIn,
-} from "~application/tasks/index.js";
+import { CompleteTaskUseCase } from "~application/tasks/complete.task.usecase.js";
+import { ErrorTaskUseCase } from "~application/tasks/error.task.usecase.js";
+import { LinkTaskUseCase } from "~application/tasks/link.task.usecase.js";
+import { StartTaskUseCase } from "~application/tasks/start.task.usecase.js";
+import type { CompleteTaskUseCaseIn } from "~application/tasks/dto/complete.task.usecase.dto.js";
+import type { ErrorTaskUseCaseIn } from "~application/tasks/dto/error.task.usecase.dto.js";
+import type { LinkTaskUseCaseIn } from "~application/tasks/dto/link.task.usecase.dto.js";
+import type { StartTaskUseCaseIn } from "~application/tasks/dto/start.task.usecase.dto.js";
 import {
     taskCompleteSchema,
     taskErrorSchema,

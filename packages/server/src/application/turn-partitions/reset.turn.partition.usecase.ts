@@ -1,4 +1,5 @@
-import type { TaskReadPort, TurnPartitionPort } from "~application/ports/index.js";
+import type { TaskReadPort } from "~application/ports/tasks/task.read.port.js";
+import type { TurnPartitionPort } from "~application/ports/turn-partitions/turn.partition.port.js";
 import { TaskNotFoundError } from "./common/turn-partition.errors.js";
 import type { ResetTurnPartitionUseCaseIn, ResetTurnPartitionUseCaseOut } from "./dto/reset.turn.partition.usecase.dto.js";
 

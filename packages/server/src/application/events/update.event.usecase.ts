@@ -1,5 +1,7 @@
-import { resolveDisplayTitleMetadataUpdate } from "~domain/monitoring/index.js";
-import type { NotificationPublisherPort, TimelineEventReadPort, TimelineEventWritePort } from "../ports/index.js";
+import { resolveDisplayTitleMetadataUpdate } from "~domain/monitoring/event/event.metadata.js";
+import type { NotificationPublisherPort } from "~application/ports/notifications/notification.publisher.port.js";
+import type { TimelineEventReadPort } from "~application/ports/timeline-events/timeline.event.read.port.js";
+import type { TimelineEventWritePort } from "~application/ports/timeline-events/timeline.event.write.port.js";
 import type {
     UpdateEventUseCaseIn,
     UpdateEventUseCaseOut,

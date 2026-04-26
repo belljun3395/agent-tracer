@@ -4,7 +4,7 @@ import type express from "express";
 import { NestFactory } from "@nestjs/core";
 import { WebSocketServer } from "ws";
 import { AppModule } from "../presentation/app.module.js";
-import { EventBroadcasterService } from "~adapters/realtime/ws/index.js";
+import { EventBroadcasterService } from "~adapters/realtime/ws/event.broadcaster.service.js";
 import {
     assignRequestContext,
     configureTrustedProxy,
@@ -12,12 +12,14 @@ import {
     logHttpUpgrade,
     type RequestContextIncomingMessage,
 } from "../presentation/middleware/request-context.js";
-import { tallyTaskStatuses, type MonitoringTask, type TaskStatus } from "~domain/monitoring/index.js";
+import { tallyTaskStatuses } from "~domain/monitoring/common/task.status.js";
+import type { TaskStatus } from "~domain/monitoring/common/type/task.status.type.js";
+import type { MonitoringTask } from "~domain/monitoring/task/model/task.model.js";
 import {
     SQLITE_DATABASE_CONTEXT_TOKEN,
     TASK_REPOSITORY_TOKEN,
 } from "../presentation/database/database.provider.js";
-import type { SqliteDatabaseContext } from "~adapters/persistence/sqlite/index.js";
+import type { SqliteDatabaseContext } from "~adapters/persistence/sqlite/sqlite.database-context.js";
 import type { RuntimeOptions, MonitorRuntime } from "./runtime.type.js";
 
 interface BootstrapTaskRepository {

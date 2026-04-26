@@ -1,10 +1,4 @@
-import type {
-    RuleExpectedAction,
-    RuleScope,
-    RuleSeverity,
-    RuleSource,
-    RuleTriggerSource,
-} from "~domain/verification/index.js";
+import type { RuleExpectedAction, RuleScope, RuleSeverity, RuleSource, RuleTriggerSource } from "~domain/verification/rule/type/rule.value.type.js";
 
 export interface RuleInsertPortDto {
     readonly id: string;

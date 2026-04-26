@@ -1,4 +1,5 @@
-import type { TurnPartitionPort, TurnPartitionRecordPortDto } from "../turn-partitions/index.js";
+import type { TurnPartitionRecordPortDto } from "~application/ports/turn-partitions/dto/turn.partition.record.port.dto.js";
+import type { TurnPartitionPort } from "~application/ports/turn-partitions/turn.partition.port.js";
 
 export type TurnPartition = TurnPartitionRecordPortDto;
 

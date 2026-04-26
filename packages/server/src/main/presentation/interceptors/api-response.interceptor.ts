@@ -2,8 +2,8 @@ import { Inject, Injectable, type CallHandler, type ExecutionContext, type NestI
 import { Reflector } from "@nestjs/core";
 import type { Observable } from "rxjs";
 import { map } from "rxjs/operators";
-import { NO_ENVELOPE_METADATA_KEY } from "../decorators/no-envelope.decorator.js";
-import { createApiSuccessEnvelope, type ApiSuccessEnvelope } from "./api-response-envelope.js";
+import { createApiSuccessEnvelope, type ApiSuccessEnvelope } from "~adapters/http/shared/api-response-envelope.js";
+import { NO_ENVELOPE_METADATA_KEY } from "~adapters/http/shared/no-envelope.decorator.js";
 
 @Injectable()
 export class ApiResponseInterceptor implements NestInterceptor {

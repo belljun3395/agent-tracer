@@ -1,16 +1,14 @@
-import type {
-    NotificationPublisherPort,
-    RuntimeBindingReadPort,
-    RuntimeBindingWritePort,
-    SessionReadPort,
-    SessionWritePort,
-    TaskReadPort,
-    TaskWritePort,
-} from "~application/ports/index.js";
-import { decideRuntimeSessionEnd, isTerminalTaskStatus } from "~domain/monitoring/index.js";
-import type { MonitoringTask } from "~domain/monitoring/index.js";
+import type { NotificationPublisherPort } from "~application/ports/notifications/notification.publisher.port.js";
+import type { RuntimeBindingReadPort } from "~application/ports/runtime-bindings/runtime.binding.read.port.js";
+import type { RuntimeBindingWritePort } from "~application/ports/runtime-bindings/runtime.binding.write.port.js";
+import type { SessionReadPort } from "~application/ports/sessions/session.read.port.js";
+import type { SessionWritePort } from "~application/ports/sessions/session.write.port.js";
+import type { TaskReadPort } from "~application/ports/tasks/task.read.port.js";
+import type { TaskWritePort } from "~application/ports/tasks/task.write.port.js";
+import { decideRuntimeSessionEnd, isTerminalTaskStatus } from "~domain/monitoring/session/session.js";
+import type { MonitoringTask } from "~domain/monitoring/task/model/task.model.js";
 import type { EndRuntimeSessionUseCaseIn } from "./dto/end.runtime.session.usecase.dto.js";
-import type { TaskLifecycleService } from "~application/tasks/index.js";
+import type { TaskLifecycleService } from "~application/tasks/services/task.lifecycle.service.js";
 import { TaskNotFoundError } from "../tasks/common/task.errors.js";
 
 interface SessionTaskCompletionInput {
