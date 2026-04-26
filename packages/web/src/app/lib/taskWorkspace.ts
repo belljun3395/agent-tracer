@@ -40,16 +40,6 @@ export function isContextHydrationEvent(event: TimelineEventRecord): boolean {
 }
 
 /**
- * Pulls instructions/context events out of the timeline for the Context tab.
- * Includes compact-phase and session-hook saves (now shown as timeline markers
- * rather than lane cards).
- */
-export function selectContextHydrationEvents(timeline: readonly TimelineEventRecord[]): readonly TimelineEventRecord[] {
-    return timeline.filter((event) => event.kind === "instructions.loaded"
-        || (event.kind === "context.saved" && event.metadata["attachmentType"] !== "plan_mode"));
-}
-
-/**
  * Returns session lifecycle events that are rendered as ruler markers at the
  * top of the timeline rather than as lane cards.
  * Includes: SessionStart (trigger metadata), PreCompact, PostCompact.

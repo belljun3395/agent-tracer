@@ -9,7 +9,6 @@ import type { TimelineEventRecord } from "~domain/monitoring.js";
 import type { TaskDetailResponse } from "~domain/task-query-contracts.js";
 import { cn } from "../lib/ui/cn.js";
 import { buildFileEvidenceRows, sortFileEvidenceRows, type FileEvidenceSortKey } from "./inspector/FileEvidenceSection.js";
-import { ContextTab } from "./inspector/ContextTab.js";
 import { EvidenceTab } from "./inspector/EvidenceTab.js";
 import { InspectorTab } from "./inspector/InspectorTab.js";
 import { OverviewTab } from "./inspector/OverviewTab.js";
@@ -17,14 +16,13 @@ import { RuleTab } from "./inspector/RuleTab.js";
 import { TurnsTab } from "./inspector/TurnsTab.js";
 import { useOptionalInspectorContext } from "../features/inspector/context/InspectorContext.js";
 
-export type PanelTabId = "inspector" | "overview" | "evidence" | "context" | "rules" | "turns";
+export type PanelTabId = "inspector" | "overview" | "evidence" | "rules" | "turns";
 const PANEL_TABS = [
-    { id: "inspector", label: "Inspector" },
-    { id: "overview", label: "Overview" },
+    { id: "inspector", label: "Event" },
+    { id: "overview", label: "Task" },
     { id: "turns", label: "Turns" },
     { id: "evidence", label: "Exploration" },
     { id: "rules", label: "Rules" },
-    { id: "context", label: "Context" },
 ] as const;
 
 interface SelectedConnectorData {
@@ -258,8 +256,6 @@ export function EventInspector({
                         onToggleFileEvidence={() => setIsFileEvidenceExpanded((v) => !v)}
                         onFileEvidenceSortChange={setFileEvidenceSortKey}
                     />
-                ) : activeTab === "context" ? (
-                    <ContextTab timeline={taskTimeline} />
                 ) : (
                     <RuleTab
                         timeline={taskTimeline}
