@@ -246,14 +246,14 @@ export function InspectorTab({
         <div className="px-4 pt-4">
           <InspectorHeaderCard actions={(<>
                 <div className="flex flex-wrap items-center gap-2">
-          {selectedEvent && canEditSelectedEventTitle && !isEditingEventTitle && (<Button className="h-7 rounded-[var(--radius-md)] px-2.5 text-[0.72rem] font-semibold shadow-none" onClick={() => {
+          {selectedEvent && canEditSelectedEventTitle && !isEditingEventTitle && (<Button onClick={() => {
                     setEventTitleDraft(selectedEventDisplayTitle ?? "");
                     setEventTitleError(null);
                     setIsEditingEventTitle(true);
-                }} size="sm" type="button" variant="ghost">
+                }} size="sm" variant="ghost">
                       Rename Card
                     </Button>)}
-                  {selectedEvent && canEditSelectedEventTitle && selectedEventDisplayTitleOverride && !isEditingEventTitle && (<Button className="h-7 rounded-[var(--radius-md)] px-2.5 text-[0.72rem] font-semibold shadow-none" onClick={() => { void handleResetEventTitle(); }} size="sm" type="button" variant="ghost">
+                  {selectedEvent && canEditSelectedEventTitle && selectedEventDisplayTitleOverride && !isEditingEventTitle && (<Button onClick={() => { void handleResetEventTitle(); }} size="sm" variant="ghost">
                       Reset Title
                     </Button>)}
                 </div>
@@ -282,17 +282,17 @@ export function InspectorTab({
             {selectedEvent && canEditSelectedEventTitle && isEditingEventTitle && (<form className="mt-4 flex flex-col gap-2" onSubmit={(event) => { void handleEventTitleSubmit(event); }}>
                 <input className="w-full rounded-[10px] border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-[0.84rem] text-[var(--text-1)] outline-none transition-colors focus:border-[var(--accent)]" disabled={isSavingEventTitle} onChange={(event) => setEventTitleDraft(event.target.value)} placeholder="Short title for this card" type="text" value={eventTitleDraft}/>
                 <div className="flex flex-wrap items-center gap-2">
-                  <Button className="h-7 rounded-[var(--radius-md)] border-[var(--accent)] bg-[var(--accent-light)] px-2.5 text-[0.72rem] font-semibold text-[var(--accent)] shadow-none hover:border-[var(--accent)] hover:bg-[var(--accent-light)] hover:text-[var(--accent)]" disabled={isSavingEventTitle} size="sm" type="submit">
+                  <Button disabled={isSavingEventTitle} size="sm" type="submit" variant="accent">
                     {isSavingEventTitle ? "Saving..." : "Save"}
                   </Button>
-                  <Button className="h-7 rounded-[var(--radius-md)] px-2.5 text-[0.72rem] font-semibold shadow-none" disabled={isSavingEventTitle} onClick={() => {
+                  <Button disabled={isSavingEventTitle} onClick={() => {
                 setEventTitleDraft(selectedEventDisplayTitle ?? "");
                 setEventTitleError(null);
                 setIsEditingEventTitle(false);
-            }} size="sm" type="button">
+            }} size="sm">
                     Cancel
                   </Button>
-                  {selectedEventDisplayTitleOverride && (<Button className="h-7 rounded-[var(--radius-md)] px-2.5 text-[0.72rem] font-semibold shadow-none" disabled={isSavingEventTitle} onClick={() => { void handleResetEventTitle(); }} size="sm" type="button">
+                  {selectedEventDisplayTitleOverride && (<Button disabled={isSavingEventTitle} onClick={() => { void handleResetEventTitle(); }} size="sm">
                       Reset to Raw
                     </Button>)}
                 </div>
