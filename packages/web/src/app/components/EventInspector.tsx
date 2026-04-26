@@ -255,6 +255,10 @@ export function EventInspector({
                         mentionedVerifications={mentionedVerifications}
                         onToggleFileEvidence={() => setIsFileEvidenceExpanded((v) => !v)}
                         onFileEvidenceSortChange={setFileEvidenceSortKey}
+                        timeline={taskTimeline}
+                        partition={ctx?.turnPartition ?? null}
+                        focusedGroupId={ctx?.focusedTurnGroupId ?? null}
+                        onFocusGroup={ctx?.onFocusTurnGroup}
                     />
                 ) : (
                     <RuleTab
