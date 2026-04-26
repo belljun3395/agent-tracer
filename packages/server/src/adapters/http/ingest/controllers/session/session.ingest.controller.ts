@@ -1,10 +1,8 @@
 import { Body, Controller, HttpCode, HttpStatus, Inject, Post } from "@nestjs/common";
-import {
-    EndRuntimeSessionUseCase,
-    EnsureRuntimeSessionUseCase,
-    type EndRuntimeSessionUseCaseIn,
-    type EnsureRuntimeSessionUseCaseIn,
-} from "~application/sessions/index.js";
+import type { EndRuntimeSessionUseCaseIn } from "~application/sessions/dto/end.runtime.session.usecase.dto.js";
+import type { EnsureRuntimeSessionUseCaseIn } from "~application/sessions/dto/ensure.runtime.session.usecase.dto.js";
+import { EndRuntimeSessionUseCase } from "~application/sessions/end.runtime.session.usecase.js";
+import { EnsureRuntimeSessionUseCase } from "~application/sessions/ensure.runtime.session.usecase.js";
 import {
     runtimeSessionEndSchema,
     runtimeSessionEnsureSchema,

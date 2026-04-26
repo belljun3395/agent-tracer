@@ -2,12 +2,9 @@ import type { ExceptionFilter, ArgumentsHost } from "@nestjs/common";
 import { Catch, HttpException, HttpStatus, Injectable, Logger } from "@nestjs/common";
 import { ZodError } from "zod";
 import type { Response } from "express";
-import {
-    TaskNotFoundError,
-    TurnPartitionVersionMismatchError,
-} from "~application/turn-partitions/index.js";
-import { InvalidRuleError, RuleNotFoundError } from "~application/rules/index.js";
-import { createApiErrorEnvelope, isApiErrorEnvelope } from "../interceptors/api-response-envelope.js";
+import { TaskNotFoundError, TurnPartitionVersionMismatchError } from "~application/turn-partitions/common/turn-partition.errors.js";
+import { InvalidRuleError, RuleNotFoundError } from "~application/rules/common/errors.js";
+import { createApiErrorEnvelope, isApiErrorEnvelope } from "~adapters/http/shared/api-response-envelope.js";
 
 const INTERNAL_SERVER_ERROR_BODY = createApiErrorEnvelope("internal_server_error", "Internal server error");
 const STATUS_ERROR_CODES = new Map<number, string>([

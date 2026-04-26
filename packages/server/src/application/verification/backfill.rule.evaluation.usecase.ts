@@ -1,24 +1,20 @@
-import {
-    aggregateVerdict,
-    evaluateTurn,
-    inferToolCall,
-    matchEventAgainstRule,
-    type EvaluateTurnToolCall,
-    type TurnVerdict,
-} from "~domain/verification/index.js";
-import type { TimelineEvent } from "~domain/monitoring/index.js";
-import type {
-    BackfillTurnPortDto,
-    NotificationPublisherPort,
-    RuleEnforcementInsertPortDto,
-    RuleEnforcementWritePort,
-    TimelineEventReadPort,
-    TurnBackfillSourcePort,
-    TurnReadPort,
-    TurnWritePort,
-    VerdictReadPort,
-    VerdictWritePort,
-} from "~application/ports/index.js";
+import { matchEventAgainstRule } from "~domain/verification/rule/event-rule.matching.js";
+import { inferToolCall } from "~domain/verification/rule/tool-call.inference.js";
+import type { TurnVerdict } from "~domain/verification/verdict/model/verdict.model.js";
+import { evaluateTurn } from "~domain/verification/verdict/turn.evaluation.js";
+import type { EvaluateTurnToolCall } from "~domain/verification/verdict/turn.evaluation.js";
+import { aggregateVerdict } from "~domain/verification/verdict/verdict.js";
+import type { TimelineEvent } from "~domain/monitoring/event/model/timeline.event.model.js";
+import type { NotificationPublisherPort } from "~application/ports/notifications/notification.publisher.port.js";
+import type { TimelineEventReadPort } from "~application/ports/timeline-events/timeline.event.read.port.js";
+import type { RuleEnforcementInsertPortDto } from "~application/ports/verification/rule-enforcements/dto/rule.enforcement.insert.port.dto.js";
+import type { RuleEnforcementWritePort } from "~application/ports/verification/rule-enforcements/rule.enforcement.write.port.js";
+import type { BackfillTurnPortDto } from "~application/ports/verification/turns/dto/turn.backfill.port.dto.js";
+import type { TurnBackfillSourcePort } from "~application/ports/verification/turns/turn.backfill.source.port.js";
+import type { TurnReadPort } from "~application/ports/verification/turns/turn.read.port.js";
+import type { TurnWritePort } from "~application/ports/verification/turns/turn.write.port.js";
+import type { VerdictReadPort } from "~application/ports/verification/verdicts/verdict.read.port.js";
+import type { VerdictWritePort } from "~application/ports/verification/verdicts/verdict.write.port.js";
 import type {
     BackfillRuleEvaluationRuleUseCaseDto,
     BackfillRuleEvaluationUseCaseIn,

@@ -1,15 +1,12 @@
 import { vi } from "vitest";
-import type { TimelineEvent } from "~domain/monitoring/index.js";
-import type { MonitoringSession } from "~domain/monitoring/index.js";
-import type { MonitoringTask } from "~domain/monitoring/index.js";
-import type {
-    IEventRepository,
-    INotificationPublisher,
-    IRuntimeBindingRepository,
-    ISessionRepository,
-    ITaskRepository,
-    RuntimeBinding,
-} from "~application/ports/index.js";
+import type { TimelineEvent } from "~domain/monitoring/event/model/timeline.event.model.js";
+import type { MonitoringSession } from "~domain/monitoring/session/model/session.model.js";
+import type { MonitoringTask } from "~domain/monitoring/task/model/task.model.js";
+import type { INotificationPublisher } from "~application/ports/event/notification.publisher.js";
+import type { IEventRepository } from "~application/ports/repository/event.repository.js";
+import type { IRuntimeBindingRepository, RuntimeBinding } from "~application/ports/repository/runtime.binding.repository.js";
+import type { ISessionRepository } from "~application/ports/repository/session.repository.js";
+import type { ITaskRepository } from "~application/ports/repository/task.repository.js";
 import { TaskLifecycleService } from "~application/tasks/services/task.lifecycle.service.js";
 
 export interface TestPorts {

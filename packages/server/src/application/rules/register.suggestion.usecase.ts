@@ -1,5 +1,5 @@
-import { computeRuleSignature } from "~domain/verification/index.js";
-import type { RuleSignatureQueryPort } from "~application/ports/index.js";
+import { computeRuleSignature } from "~domain/verification/rule/rule.signature.js";
+import type { RuleSignatureQueryPort } from "~application/ports/rules/rule.signature.query.port.js";
 import type { CreateRuleUseCase } from "./create.rule.usecase.js";
 import type {
     RegisterSuggestionUseCaseIn,

@@ -1,24 +1,20 @@
 import { type Provider } from "@nestjs/common";
-import {
-    createSqliteDatabaseContext,
-    SqliteEventRepository,
-    SqliteEventStore,
-    SqliteRuleEnforcementRepository,
-    SqliteRuleRepository,
-    SqliteRuntimeBindingRepository,
-    SqliteSessionRepository,
-    SqliteTaskRepository,
-    SqliteTurnPartitionRepository,
-    SqliteTurnQueryRepository,
-    SqliteTurnRepository,
-    SqliteVerdictRepository,
-    type SqliteDatabaseContext,
-} from "~adapters/persistence/sqlite/index.js";
-import { createEmbeddingService } from "~adapters/ai/embedding/index.js";
-import type {
-    IEmbeddingService,
-    INotificationPublisher,
-} from "~application/index.js";
+import { SqliteEventStore } from "~adapters/persistence/sqlite/events/sqlite.event-store.js";
+import { createSqliteDatabaseContext } from "~adapters/persistence/sqlite/sqlite.database-context.js";
+import type { SqliteDatabaseContext } from "~adapters/persistence/sqlite/sqlite.database-context.js";
+import { SqliteRuntimeBindingRepository } from "~adapters/persistence/sqlite/runtime-bindings/sqlite.runtime.binding.repository.js";
+import { SqliteSessionRepository } from "~adapters/persistence/sqlite/sessions/sqlite.session.repository.js";
+import { SqliteTaskRepository } from "~adapters/persistence/sqlite/tasks/sqlite.task.repository.js";
+import { SqliteEventRepository } from "~adapters/persistence/sqlite/timeline-events/sqlite.event.repository.js";
+import { SqliteTurnPartitionRepository } from "~adapters/persistence/sqlite/turn-partitions/sqlite.turn.partition.repository.js";
+import { SqliteRuleEnforcementRepository } from "~adapters/persistence/sqlite/verification/rule-enforcements/sqlite.rule.enforcement.repository.js";
+import { SqliteRuleRepository } from "~adapters/persistence/sqlite/verification/rules/sqlite.rule.repository.js";
+import { SqliteTurnQueryRepository } from "~adapters/persistence/sqlite/verification/turns/sqlite.turn.query.repository.js";
+import { SqliteTurnRepository } from "~adapters/persistence/sqlite/verification/turns/sqlite.turn.repository.js";
+import { SqliteVerdictRepository } from "~adapters/persistence/sqlite/verification/verdicts/sqlite.verdict.repository.js";
+import { createEmbeddingService } from "~adapters/ai/embedding/embedding.service.js";
+import type { INotificationPublisher } from "~application/ports/event/notification.publisher.js";
+import type { IEmbeddingService } from "~application/ports/service/embedding.service.js";
 
 export const SQLITE_DATABASE_CONTEXT_TOKEN = "SQLITE_DATABASE_CONTEXT";
 export const EMBEDDING_SERVICE_TOKEN = "EMBEDDING_SERVICE";

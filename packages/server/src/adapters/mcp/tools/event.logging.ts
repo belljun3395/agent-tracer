@@ -1,14 +1,8 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import {
-    QUESTION_PHASES,
-    TODO_STATES,
-    type TimelineLane,
-} from "~domain/monitoring/index.js";
-import {
-    AGENT_ACTIVITY_TYPES,
-    EVENT_RELATION_TYPES,
-} from "~domain/monitoring/index.js";
+import { QUESTION_PHASES, TODO_STATES } from "~domain/monitoring/common/const/event.kind.const.js";
+import type { TimelineLane } from "~domain/monitoring/common/type/event.kind.type.js";
+import { AGENT_ACTIVITY_TYPES, EVENT_RELATION_TYPES } from "~domain/monitoring/common/const/task.status.const.js";
 import type { MonitorClient } from "../client.js";
 import { toToolResponse } from "../result.js";
 

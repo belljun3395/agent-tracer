@@ -1,20 +1,12 @@
-import {
-    createEventRecordDraft,
-    KIND,
-    normalizeFilePaths,
-} from "~domain/monitoring/index.js";
-import {
-    deriveFileChangeEventInputs,
-    shouldApplyLoggedEventTaskStatusEffect,
-} from "~domain/monitoring/index.js";
-import type { TimelineEvent } from "~domain/monitoring/index.js";
-import type { MonitoringTask } from "~domain/monitoring/index.js";
-import type {
-    NotificationPublisherPort,
-    TaskReadPort,
-    TaskWritePort,
-    TimelineEventWritePort,
-} from "../ports/index.js";
+import { KIND } from "~domain/monitoring/common/const/event.kind.const.js";
+import { createEventRecordDraft, normalizeFilePaths } from "~domain/monitoring/event/event.recording.js";
+import { deriveFileChangeEventInputs, shouldApplyLoggedEventTaskStatusEffect } from "~domain/monitoring/event/event.recording.js";
+import type { TimelineEvent } from "~domain/monitoring/event/model/timeline.event.model.js";
+import type { MonitoringTask } from "~domain/monitoring/task/model/task.model.js";
+import type { NotificationPublisherPort } from "~application/ports/notifications/notification.publisher.port.js";
+import type { TaskReadPort } from "~application/ports/tasks/task.read.port.js";
+import type { TaskWritePort } from "~application/ports/tasks/task.write.port.js";
+import type { TimelineEventWritePort } from "~application/ports/timeline-events/timeline.event.write.port.js";
 import { projectTimelineEvent } from "./timeline-event.projection.js";
 import type { LogEventUseCaseIn, LogEventUseCaseOut } from "./dto/log.event.usecase.dto.js";
 import { TaskNotFoundError } from "../tasks/common/task.errors.js";

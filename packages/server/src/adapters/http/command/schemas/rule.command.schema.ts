@@ -1,10 +1,5 @@
 import { z } from "zod";
-import {
-    RULE_EXPECTED_ACTIONS,
-    RULE_SCOPES,
-    RULE_SEVERITIES,
-    RULE_TRIGGER_SOURCES,
-} from "~domain/verification/index.js";
+import { RULE_EXPECTED_ACTIONS, RULE_SCOPES, RULE_SEVERITIES, RULE_TRIGGER_SOURCES } from "~domain/verification/rule/const/rule.const.js";
 
 const triggerSchema = z.object({
     phrases: z.array(z.string().trim().min(1)).min(1),

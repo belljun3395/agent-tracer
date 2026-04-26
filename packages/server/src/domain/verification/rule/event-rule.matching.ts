@@ -1,5 +1,6 @@
-import { KIND, type TimelineEvent } from "~domain/index.js";
-import type { Rule } from "~domain/verification/index.js";
+import { KIND } from "~domain/monitoring/common/const/event.kind.const.js";
+import type { TimelineEvent } from "~domain/monitoring/event/model/timeline.event.model.js";
+import type { Rule } from "~domain/verification/rule/model/rule.model.js";
 import { verificationToolMatchesExpectedAction } from "./tool-action.matching.js";
 import { inferToolCall } from "./tool-call.inference.js";
 

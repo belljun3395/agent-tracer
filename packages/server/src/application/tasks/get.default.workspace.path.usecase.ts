@@ -1,4 +1,4 @@
-import { normalizeWorkspacePath } from "~domain/monitoring/index.js";
+import { normalizeWorkspacePath } from "~domain/monitoring/task/task.js";
 import type { GetDefaultWorkspacePathUseCaseIn, GetDefaultWorkspacePathUseCaseOut } from "./dto/get.default.workspace.path.usecase.dto.js";
 
 export class GetDefaultWorkspacePathUseCase {

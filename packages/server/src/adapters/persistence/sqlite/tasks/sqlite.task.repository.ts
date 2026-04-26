@@ -1,13 +1,15 @@
 import { count, eq, inArray, sql } from "drizzle-orm"
-import type { MonitoringTask, TaskStatus } from "~domain/monitoring/index.js"
-import { deriveTaskDisplayTitle } from "~domain/monitoring/index.js"
+import type { TaskStatus } from "~domain/monitoring/common/type/task.status.type.js";
+import type { MonitoringTask } from "~domain/monitoring/task/model/task.model.js";
+import { deriveTaskDisplayTitle } from "~domain/monitoring/task/task.display-title.js";
 import type { ITaskRepository, TaskUpsertInput } from "~application/ports/repository/task.repository.js"
 import { ensureSqliteDatabase, type SqliteDatabase, type SqliteDatabaseInput } from "../shared/drizzle.db.js"
 import { sessionsCurrent } from "../sessions/sqlite.session.tables.js"
 import { timelineEvents } from "../timeline-events/sqlite.timeline-event.tables.js"
 import { tasksCurrent } from "./sqlite.task.tables.js"
 import { buildTaskSearchText, deleteSearchDocumentsByTaskIds, upsertSearchDocument } from "../search/sqlite.search.documents.js"
-import { appendDomainEvent, eventTimeFromIso } from "../events/index.js"
+import { eventTimeFromIso } from "~adapters/persistence/sqlite/events/event-time.js";
+import { appendDomainEvent } from "~adapters/persistence/sqlite/events/sqlite.event-store.js";
 import { type TaskRow, mapTaskRow } from "./sqlite.task.row.type.js"
 import { loadTimelineEventsForTask } from "../timeline-events/sqlite.event.storage.js"
 

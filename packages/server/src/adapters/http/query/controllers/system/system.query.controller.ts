@@ -1,8 +1,6 @@
 import { Controller, Get, Inject } from "@nestjs/common";
-import {
-    GetDefaultWorkspacePathUseCase,
-    GetOverviewUseCase,
-} from "~application/tasks/index.js";
+import { GetDefaultWorkspacePathUseCase } from "~application/tasks/get.default.workspace.path.usecase.js";
+import { GetOverviewUseCase } from "~application/tasks/get.overview.usecase.js";
 
 @Controller("api/v1")
 export class SystemQueryController {

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { TASK_KINDS } from "~adapters/http/shared/schemas/task.schema.const.js";
+import { TASK_KINDS } from "~application/tasks/common/task.constants.js";
 
 export const taskStartSchema = z.object({
     taskId: z.string().optional(),

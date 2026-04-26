@@ -1,9 +1,5 @@
-import type {
-    EventClassification,
-    MonitoringEventKind,
-    TimelineEvent,
-    TimelineLane,
-} from "~domain/monitoring/index.js";
+import type { MonitoringEventKind, TimelineLane } from "~domain/monitoring/common/type/event.kind.type.js";
+import type { EventClassification, TimelineEvent } from "~domain/monitoring/event/model/timeline.event.model.js";
 
 export interface TimelineEventInsertPortDto {
     readonly id: string;

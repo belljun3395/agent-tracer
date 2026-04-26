@@ -1,20 +1,12 @@
-import {
-    createEventRecordDraft,
-} from "~domain/monitoring/index.js";
-import {
-    createTaskUpsertDraft,
-    toTaskFinalizationEventRecordingInput,
-    toTaskStartEventRecordingInput,
-} from "~domain/monitoring/index.js";
+import { createEventRecordDraft } from "~domain/monitoring/event/event.recording.js";
+import { createTaskUpsertDraft, toTaskFinalizationEventRecordingInput, toTaskStartEventRecordingInput } from "~domain/monitoring/task/task.js";
 import { projectTimelineEvent } from "~application/events/timeline-event.projection.js";
-import type {
-    NotificationPublisherPort,
-    SessionReadPort,
-    SessionWritePort,
-    TaskReadPort,
-    TaskWritePort,
-    TimelineEventWritePort,
-} from "~application/ports/index.js";
+import type { NotificationPublisherPort } from "~application/ports/notifications/notification.publisher.port.js";
+import type { SessionReadPort } from "~application/ports/sessions/session.read.port.js";
+import type { SessionWritePort } from "~application/ports/sessions/session.write.port.js";
+import type { TaskReadPort } from "~application/ports/tasks/task.read.port.js";
+import type { TaskWritePort } from "~application/ports/tasks/task.write.port.js";
+import type { TimelineEventWritePort } from "~application/ports/timeline-events/timeline.event.write.port.js";
 import type {
     FinalizeTaskServiceInput,
     StartTaskServiceInput,

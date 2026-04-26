@@ -1,5 +1,7 @@
-import type { TaskReadPort, TimelineEventReadPort, TurnPartitionPort } from "~application/ports/index.js";
-import { resolveTurnPartition } from "~domain/turn-partitions/index.js";
+import type { TaskReadPort } from "~application/ports/tasks/task.read.port.js";
+import type { TimelineEventReadPort } from "~application/ports/timeline-events/timeline.event.read.port.js";
+import type { TurnPartitionPort } from "~application/ports/turn-partitions/turn.partition.port.js";
+import { resolveTurnPartition } from "~domain/turn-partitions/turn.partition.js";
 import type { GetTurnPartitionUseCaseIn, GetTurnPartitionUseCaseOut } from "./dto/get.turn.partition.usecase.dto.js";
 import { TaskNotFoundError } from "./common/turn-partition.errors.js";
 

@@ -5,11 +5,11 @@
   "main": "./dist/index.js",
   "exports": {
     ".": {
-      "development": "./src/index.ts",
+      "development": "./src/server.entry.ts",
       "default": "./dist/index.js"
     },
     "./mcp": {
-      "development": "./src/adapters/mcp/index.ts",
+      "development": "./src/adapters/mcp/mcp.entry.ts",
       "default": "./dist/mcp.js"
     }
   },

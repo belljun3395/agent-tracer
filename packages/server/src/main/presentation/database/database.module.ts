@@ -1,5 +1,5 @@
 import { Module, type DynamicModule } from "@nestjs/common";
-import type { INotificationPublisher } from "~application/index.js";
+import type { INotificationPublisher } from "~application/ports/event/notification.publisher.js";
 import {
     DATABASE_PORT_TOKENS,
     DatabaseProviders,

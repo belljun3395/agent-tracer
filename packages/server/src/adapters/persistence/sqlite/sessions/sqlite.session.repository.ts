@@ -1,10 +1,11 @@
 import { and, asc, eq, sql } from "drizzle-orm"
-import type { MonitoringSession } from "~domain/monitoring/index.js"
+import type { MonitoringSession } from "~domain/monitoring/session/model/session.model.js";
 
 import type { ISessionRepository, SessionCreateInput } from "~application/ports/repository/session.repository.js"
 import { ensureSqliteDatabase, type SqliteDatabase, type SqliteDatabaseInput } from "../shared/drizzle.db.js"
 import { sessionsCurrent } from "./sqlite.session.tables.js"
-import { appendDomainEvent, eventTimeFromIso } from "../events/index.js"
+import { eventTimeFromIso } from "~adapters/persistence/sqlite/events/event-time.js";
+import { appendDomainEvent } from "~adapters/persistence/sqlite/events/sqlite.event-store.js";
 import { type SessionRow, mapSessionRow } from "./sqlite.session.row.type.js"
 
 export class SqliteSessionRepository implements ISessionRepository {

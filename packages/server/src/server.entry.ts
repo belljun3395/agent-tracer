@@ -1,6 +1,6 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { loadApplicationConfig, resolveMonitorDatabasePath, resolveMonitorHttpBaseUrl, resolveMonitorListenHost, resolveMonitorPort } from "./config/index.js";
+import { loadApplicationConfig, resolveMonitorDatabasePath, resolveMonitorHttpBaseUrl, resolveMonitorListenHost, resolveMonitorPort } from "~config/application-config.js";
 export { createNestMonitorRuntime } from "./main/bootstrap/create-nestjs-monitor-runtime.js";
 export type { MonitorRuntime, RuntimeOptions } from "./main/bootstrap/runtime.type.js";
 const entryPath = process.argv[1] ? path.resolve(process.argv[1]) : undefined;

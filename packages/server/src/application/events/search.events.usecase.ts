@@ -1,4 +1,4 @@
-import type { EventSearchPort } from "../ports/index.js";
+import type { EventSearchPort } from "~application/ports/event-search/event.search.port.js";
 import type { SearchEventsUseCaseIn, SearchEventsUseCaseOut } from "./dto/search.events.usecase.dto.js";
 
 export class SearchEventsUseCase {

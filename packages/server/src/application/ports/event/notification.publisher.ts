@@ -1,11 +1,5 @@
-import type {
-    EventNotificationPayloadPortDto,
-    MonitorNotificationPortDto,
-    NotificationPublisherPort,
-    RuleEnforcementNotificationPayloadPortDto,
-    RulesChangedNotificationPayloadPortDto,
-    VerdictUpdatedNotificationPayloadPortDto,
-} from "../notifications/index.js";
+import type { EventNotificationPayloadPortDto, MonitorNotificationPortDto, RuleEnforcementNotificationPayloadPortDto, RulesChangedNotificationPayloadPortDto, VerdictUpdatedNotificationPayloadPortDto } from "~application/ports/notifications/dto/monitor.notification.port.dto.js";
+import type { NotificationPublisherPort } from "~application/ports/notifications/notification.publisher.port.js";
 
 export type EventNotificationPayload = EventNotificationPayloadPortDto;
 export type MonitorNotification = MonitorNotificationPortDto;

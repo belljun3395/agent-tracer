@@ -1,6 +1,6 @@
-import type { MonitoringEventKind } from "~domain/monitoring/index.js";
-import type { MonitoringTaskKind } from "~domain/monitoring/index.js";
-import type { MonitoringTask } from "~domain/monitoring/index.js";
+import type { MonitoringEventKind } from "~domain/monitoring/common/type/event.kind.type.js";
+import type { MonitoringTaskKind } from "~domain/monitoring/common/type/task.status.type.js";
+import type { MonitoringTask } from "~domain/monitoring/task/model/task.model.js";
 
 export interface StartTaskServiceInput {
     readonly taskId?: string;

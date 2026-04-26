@@ -1,5 +1,7 @@
-import { createTaskSlug } from "~domain/monitoring/index.js";
-import type { NotificationPublisherPort, TaskReadPort, TaskWritePort } from "~application/ports/index.js";
+import { createTaskSlug } from "~domain/monitoring/task/task.js";
+import type { NotificationPublisherPort } from "~application/ports/notifications/notification.publisher.port.js";
+import type { TaskReadPort } from "~application/ports/tasks/task.read.port.js";
+import type { TaskWritePort } from "~application/ports/tasks/task.write.port.js";
 import type { LinkTaskUseCaseIn, LinkTaskUseCaseOut } from "./dto/link.task.usecase.dto.js";
 import { TaskNotFoundError } from "./common/task.errors.js";
 

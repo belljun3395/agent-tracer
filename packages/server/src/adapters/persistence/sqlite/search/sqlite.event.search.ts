@@ -1,5 +1,5 @@
 import type Database from "better-sqlite3";
-import { normalizeLane } from "~domain/monitoring/index.js";
+import { normalizeLane } from "~domain/monitoring/task/task.js";
 import type { IEmbeddingService } from "~application/ports/service/embedding.service.js";
 import type { SearchEventHit, SearchOptions, SearchResults, SearchTaskHit } from "~application/ports/repository/event.repository.js";
 import { ensureSqliteDatabase, type SqliteDatabaseInput } from "../shared/drizzle.db.js";

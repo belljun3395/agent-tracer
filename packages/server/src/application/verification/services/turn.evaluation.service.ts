@@ -1,6 +1,11 @@
 import { randomUUID } from "node:crypto";
-import { aggregateVerdict, evaluateTurn, type TurnVerdict } from "~domain/verification/index.js";
-import type { RuleReadPort, TurnWritePort, VerdictReadPort, VerdictWritePort } from "~application/ports/index.js";
+import type { TurnVerdict } from "~domain/verification/verdict/model/verdict.model.js";
+import { evaluateTurn } from "~domain/verification/verdict/turn.evaluation.js";
+import { aggregateVerdict } from "~domain/verification/verdict/verdict.js";
+import type { RuleReadPort } from "~application/ports/rules/rule.read.port.js";
+import type { TurnWritePort } from "~application/ports/verification/turns/turn.write.port.js";
+import type { VerdictReadPort } from "~application/ports/verification/verdicts/verdict.read.port.js";
+import type { VerdictWritePort } from "~application/ports/verification/verdicts/verdict.write.port.js";
 
 export interface TurnEvaluationToolCall {
     readonly tool: string;

@@ -1,4 +1,4 @@
-import type { RuleEventMatchKind } from "~domain/verification/index.js";
+import type { RuleEventMatchKind } from "~domain/verification/rule/event-rule.matching.js";
 
 export type RuleEnforcementMatchKindPortDto = RuleEventMatchKind;
 

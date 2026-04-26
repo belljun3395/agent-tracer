@@ -1,8 +1,5 @@
 import { z } from "zod";
-import {
-    RULE_SCOPES,
-    RULE_SOURCES,
-} from "~domain/verification/index.js";
+import { RULE_SCOPES, RULE_SOURCES } from "~domain/verification/rule/const/rule.const.js";
 
 export const rulesListQuerySchema = z.object({
     scope: z.enum(RULE_SCOPES).optional(),

@@ -1,4 +1,4 @@
-import type { TaskReadPort } from "../ports/index.js";
+import type { TaskReadPort } from "~application/ports/tasks/task.read.port.js";
 import type { GetTaskUseCaseIn, GetTaskUseCaseOut } from "./dto/get.task.usecase.dto.js";
 
 export class GetTaskUseCase {

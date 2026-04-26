@@ -1,5 +1,5 @@
 import type Database from "better-sqlite3";
-import { createEventLogSchema } from "../events/index.js";
+import { createEventLogSchema } from "~adapters/persistence/sqlite/events/sqlite.event-log.schema.js";
 import { createRuntimeBindingSchema } from "../runtime-bindings/sqlite.runtime-binding.schema.js";
 import { createSearchSchema } from "../search/sqlite.search.schema.js";
 import { createSessionSchema } from "../sessions/sqlite.session.schema.js";

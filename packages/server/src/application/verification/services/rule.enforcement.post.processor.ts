@@ -1,14 +1,12 @@
-import type { TimelineEvent } from "~domain/index.js";
-import { KIND } from "~domain/index.js";
-import { matchEventAgainstRule } from "~domain/verification/index.js";
-import type {
-    NotificationPublisherPort,
-    RuleEnforcementInsertPortDto,
-    RuleEnforcementWritePort,
-    RuleReadPort,
-    TurnReadPort,
-    TurnWritePort,
-} from "~application/ports/index.js";
+import type { TimelineEvent } from "~domain/monitoring/event/model/timeline.event.model.js";
+import { KIND } from "~domain/monitoring/common/const/event.kind.const.js";
+import { matchEventAgainstRule } from "~domain/verification/rule/event-rule.matching.js";
+import type { NotificationPublisherPort } from "~application/ports/notifications/notification.publisher.port.js";
+import type { RuleReadPort } from "~application/ports/rules/rule.read.port.js";
+import type { RuleEnforcementInsertPortDto } from "~application/ports/verification/rule-enforcements/dto/rule.enforcement.insert.port.dto.js";
+import type { RuleEnforcementWritePort } from "~application/ports/verification/rule-enforcements/rule.enforcement.write.port.js";
+import type { TurnReadPort } from "~application/ports/verification/turns/turn.read.port.js";
+import type { TurnWritePort } from "~application/ports/verification/turns/turn.write.port.js";
 
 /**
  * Per-event matcher: when a new event arrives while a turn is open,

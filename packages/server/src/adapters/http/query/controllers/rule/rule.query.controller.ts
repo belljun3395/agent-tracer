@@ -1,5 +1,5 @@
 import { Controller, Get, Inject, Query } from "@nestjs/common";
-import { ListRulesUseCase } from "~application/rules/index.js";
+import { ListRulesUseCase } from "~application/rules/list.rules.usecase.js";
 import {
     rulesListQuerySchema,
     type RulesListQuery,

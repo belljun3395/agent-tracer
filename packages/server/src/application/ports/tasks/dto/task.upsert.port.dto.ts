@@ -1,4 +1,4 @@
-import type { MonitoringTask } from "~domain/monitoring/index.js";
+import type { MonitoringTask } from "~domain/monitoring/task/model/task.model.js";
 
 export interface TaskUpsertPortDto {
     readonly id: string;

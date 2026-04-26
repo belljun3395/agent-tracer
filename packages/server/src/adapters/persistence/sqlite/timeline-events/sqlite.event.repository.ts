@@ -1,10 +1,10 @@
 import type Database from "better-sqlite3";
-import type { TimelineEvent } from "~domain/monitoring/index.js";
+import type { TimelineEvent } from "~domain/monitoring/event/model/timeline.event.model.js";
 import type { EventInsertInput, IEventRepository, SearchOptions, SearchResults } from "~application/ports/repository/event.repository.js";
 import type { IEmbeddingService } from "~application/ports/service/embedding.service.js";
 import { ensureSqliteDatabase, type SqliteDatabase, type SqliteDatabaseInput } from "../shared/drizzle.db.js";
 import { refreshEventSearchDocument, searchEvents } from "../search/sqlite.event.search.js";
-import { appendDomainEvent } from "../events/index.js";
+import { appendDomainEvent } from "~adapters/persistence/sqlite/events/sqlite.event-store.js";
 import { mapTimelineInsertToDomainEvent } from "./timeline-event.mapper.js";
 import {
     buildEventStorageValues,

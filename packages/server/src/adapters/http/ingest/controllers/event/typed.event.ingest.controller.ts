@@ -1,7 +1,7 @@
 import { Body, Controller, HttpCode, HttpStatus, Inject, Post } from "@nestjs/common";
 import type { z } from "zod";
-import { IngestEventsUseCase } from "~application/events/index.js";
-import type { IngestEventsUseCaseEventDto, IngestEventsUseCaseIn } from "~application/events/index.js";
+import { IngestEventsUseCase } from "~application/events/ingest.events.usecase.js";
+import type { IngestEventsUseCaseEventDto, IngestEventsUseCaseIn } from "~application/events/dto/ingest.events.usecase.dto.js";
 import {
     conversationBatchSchema,
     coordinationBatchSchema,

@@ -1,5 +1,5 @@
-import type { VerdictStatusQueryPort } from "~application/ports/index.js";
-import { tallyVerdicts } from "~domain/verification/index.js";
+import type { VerdictStatusQueryPort } from "~application/ports/verification/verdicts/verdict.status.query.port.js";
+import { tallyVerdicts } from "~domain/verification/verdict/verdict.js";
 import type {
     GetVerdictCountsForTaskUseCaseIn,
     GetVerdictCountsForTaskUseCaseOut,

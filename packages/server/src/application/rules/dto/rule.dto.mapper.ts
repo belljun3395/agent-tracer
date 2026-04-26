@@ -1,4 +1,4 @@
-import type { RuleRecordPortDto } from "~application/ports/index.js";
+import type { RuleRecordPortDto } from "~application/ports/rules/dto/rule.record.port.dto.js";
 import type { RuleUseCaseDto } from "./rule.usecase.dto.js";
 
 export function mapRule(rule: RuleRecordPortDto): RuleUseCaseDto {

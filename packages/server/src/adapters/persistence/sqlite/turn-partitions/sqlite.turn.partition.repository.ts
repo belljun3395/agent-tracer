@@ -1,8 +1,9 @@
 import type Database from "better-sqlite3";
 import type { ITurnPartitionRepository } from "~application/ports/repository/turn.partition.repository.js";
-import type { TurnGroup, TurnPartition } from "~domain/turn-partitions/index.js";
+import type { TurnGroup, TurnPartition } from "~domain/turn-partitions/model/turn.partition.model.js";
 import { ensureSqliteDatabase, type SqliteDatabaseInput } from "../shared/drizzle.db.js";
-import { appendDomainEvent, eventTimeFromIso } from "../events/index.js";
+import { eventTimeFromIso } from "~adapters/persistence/sqlite/events/event-time.js";
+import { appendDomainEvent } from "~adapters/persistence/sqlite/events/sqlite.event-store.js";
 
 interface TurnPartitionRow {
     readonly task_id: string;

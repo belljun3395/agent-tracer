@@ -1,4 +1,4 @@
-import { loadApplicationConfig, resolveMonitorHttpBaseUrl } from "~config/index.js";
+import { loadApplicationConfig, resolveMonitorHttpBaseUrl } from "~config/application-config.js";
 const FETCH_TIMEOUT_MS = 5000;
 const MAX_RETRIES = 3;
 const RETRY_DELAYS_MS: readonly [

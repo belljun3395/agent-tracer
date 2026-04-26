@@ -1,10 +1,8 @@
 import { Body, Controller, Delete, Inject, NotFoundException, Param, Patch } from "@nestjs/common";
-import {
-    DeleteFinishedTasksUseCase,
-    DeleteTaskUseCase,
-    UpdateTaskUseCase,
-} from "~application/tasks/index.js";
-import type { UpdateTaskUseCaseIn } from "~application/tasks/index.js";
+import { DeleteFinishedTasksUseCase } from "~application/tasks/delete.finished.tasks.usecase.js";
+import { DeleteTaskUseCase } from "~application/tasks/delete.task.usecase.js";
+import { UpdateTaskUseCase } from "~application/tasks/update.task.usecase.js";
+import type { UpdateTaskUseCaseIn } from "~application/tasks/dto/update.task.usecase.dto.js";
 import { taskPatchSchema } from "~adapters/http/command/schemas/task.command.schema.js";
 import { pathParamPipe } from "~adapters/http/shared/path-param.pipe.js";
 import { ZodValidationPipe } from "~adapters/http/shared/zod-validation.pipe.js";
