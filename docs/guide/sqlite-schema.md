@@ -4,12 +4,13 @@ The Agent Tracer server uses SQLite as its OLTP store. New databases are
 created directly with the normalized schema described here. There is no
 legacy migration path before the first deployment; `runMigrations` is a no-op.
 
-The schema has four major areas:
+The schema has five major areas:
 
 - Append-only domain events and content blobs.
 - Current task/session projections.
 - Normalized runtime timeline events.
-- Shared search documents and embeddings, plus turn partitions and rule commands.
+- Shared search documents and embeddings, plus turn partitions.
+- Verification: rules, turns, verdicts, and rule enforcements.
 
 `PRAGMA foreign_keys = ON` is enabled before schema creation. Most child tables
 use `on delete cascade`; optional links that should survive parent deletion use
@@ -29,14 +30,16 @@ use `on delete cascade`; optional links that should survive parent deletion use
 | Timeline | `event_relations` | Explicit event graph edges |
 | Timeline | `event_async_refs` | Runtime async task references |
 | Timeline | `event_tags` | Runtime/classification tags |
-| Timeline | `rule_enforcements` | Rule decision facts |
-| Timeline | `verification_outcomes` | Verification outcome facts |
 | Timeline | `todos_current` | Current TODO state projected from events |
 | Timeline | `questions_current` | Current question state projected from events |
 | Timeline | `event_token_usage` | Token, model, cost, and stop metadata |
 | Current state | `runtime_bindings_current` | Runtime session bindings |
 | Current state | `turn_partitions_current` | Persisted task turn partitions |
-| Current state | `rule_commands_current` | Current rule command state |
+| Verification | `rules` | Verification rule definitions (trigger + expect) |
+| Verification | `turns` | (user.message → assistant.response) cycles per session |
+| Verification | `turn_events` | Link table: events that belong to a turn |
+| Verification | `verdicts` | Per-turn × per-rule definitive evaluation result |
+| Verification | `rule_enforcements` | Per-event × per-rule overlay (trigger / expect-fulfilled) |
 | Search index | `search_documents` | Search and embedding index for tasks and events |
 
 ## Relationship Diagrams
@@ -134,18 +137,6 @@ erDiagram
     text tag PK
   }
 
-  RULE_ENFORCEMENTS {
-    text event_id PK,FK
-    text rule_id
-    text outcome
-  }
-
-  VERIFICATION_OUTCOMES {
-    text event_id PK,FK
-    text rule_id
-    text status
-  }
-
   TODOS_CURRENT {
     text id PK
     text task_id FK
@@ -172,8 +163,6 @@ erDiagram
   TIMELINE_EVENTS_VIEW ||--o{ EVENT_RELATIONS : owns_edge
   TIMELINE_EVENTS_VIEW ||--o| EVENT_ASYNC_REFS : async_ref
   TIMELINE_EVENTS_VIEW ||--o{ EVENT_TAGS : tagged
-  TIMELINE_EVENTS_VIEW ||--o| RULE_ENFORCEMENTS : rule
-  TIMELINE_EVENTS_VIEW ||--o| VERIFICATION_OUTCOMES : verification
   TIMELINE_EVENTS_VIEW ||--o| EVENT_TOKEN_USAGE : token_usage
   TASKS_CURRENT ||--o{ TODOS_CURRENT : has
   TASKS_CURRENT ||--o{ QUESTIONS_CURRENT : has
@@ -181,7 +170,7 @@ erDiagram
 
 ### Diagram 3 — Runtime, Search & Auxiliary
 
-Runtime bindings, turn partitions, rule commands, and the shared search index.
+Runtime bindings, turn partitions, and the shared search index.
 `TASKS_CURRENT`, `SESSIONS_CURRENT`, and `TIMELINE_EVENTS_VIEW` are shown as
 reference nodes.
 
@@ -210,11 +199,6 @@ erDiagram
     text task_id PK,FK
   }
 
-  RULE_COMMANDS_CURRENT {
-    text id PK
-    text task_id FK
-  }
-
   SEARCH_DOCUMENTS {
     text scope PK
     text entity_id PK
@@ -224,8 +208,72 @@ erDiagram
   TASKS_CURRENT ||--o{ RUNTIME_BINDINGS_CURRENT : bound
   SESSIONS_CURRENT ||--o{ RUNTIME_BINDINGS_CURRENT : monitor_session
   TASKS_CURRENT ||--o| TURN_PARTITIONS_CURRENT : turn_partitions
-  TASKS_CURRENT |o--o{ RULE_COMMANDS_CURRENT : optional_task_scope
   TASKS_CURRENT ||--o{ SEARCH_DOCUMENTS : task_scope
+```
+
+### Diagram 4 — Verification
+
+Rule definitions, turn entities, per-turn verdicts, and per-event rule
+enforcements. `TASKS_CURRENT`, `SESSIONS_CURRENT`, and `TIMELINE_EVENTS_VIEW`
+are reference nodes.
+
+```mermaid
+erDiagram
+  TASKS_CURRENT {
+    text id PK
+  }
+
+  SESSIONS_CURRENT {
+    text id PK
+  }
+
+  TIMELINE_EVENTS_VIEW {
+    text id PK
+  }
+
+  RULES {
+    text id PK
+    text scope
+    text task_id FK
+    text signature
+    text deleted_at
+  }
+
+  TURNS {
+    text id PK
+    text session_id FK
+    text task_id FK
+    integer turn_index
+    text status
+    text aggregate_verdict
+  }
+
+  TURN_EVENTS {
+    text turn_id PK,FK
+    text event_id PK,FK
+  }
+
+  VERDICTS {
+    text turn_id PK,FK
+    text rule_id PK,FK
+    text status
+  }
+
+  RULE_ENFORCEMENTS {
+    text event_id PK,FK
+    text rule_id PK,FK
+    text match_kind PK
+  }
+
+  TASKS_CURRENT ||--o{ RULES : task_scope
+  SESSIONS_CURRENT ||--o{ TURNS : has
+  TASKS_CURRENT ||--o{ TURNS : has
+  TURNS ||--o{ TURN_EVENTS : contains
+  TIMELINE_EVENTS_VIEW ||--o{ TURN_EVENTS : in_turn
+  TURNS ||--o{ VERDICTS : verdicts
+  RULES ||--o{ VERDICTS : verdicts
+  TIMELINE_EVENTS_VIEW ||--o{ RULE_ENFORCEMENTS : enforced
+  RULES ||--o{ RULE_ENFORCEMENTS : enforced
 ```
 
 ## Compatibility Notes
@@ -460,22 +508,6 @@ create table if not exists event_tags (
 (`implements`, `verifies`, `caused_by`, and so on).
 
 ```sql
-create table if not exists rule_enforcements (
-  event_id text primary key references timeline_events_view(id) on delete cascade,
-  rule_id text,
-  policy text,
-  outcome text,
-  status text,
-  decided_at text not null
-);
-
-create table if not exists verification_outcomes (
-  event_id text primary key references timeline_events_view(id) on delete cascade,
-  rule_id text,
-  status text,
-  checked_at text not null
-);
-
 create table if not exists todos_current (
   id text primary key,
   task_id text not null references tasks_current(id) on delete cascade,
@@ -527,10 +559,6 @@ create index if not exists idx_event_relations_source on event_relations(source_
 create index if not exists idx_event_relations_target on event_relations(target_event_id);
 create index if not exists idx_event_async_refs_task on event_async_refs(async_task_id);
 create index if not exists idx_event_tags_tag on event_tags(tag);
-create index if not exists idx_rule_enforcements_rule on rule_enforcements(rule_id);
-create index if not exists idx_rule_enforcements_outcome on rule_enforcements(outcome);
-create index if not exists idx_rule_enforcements_status on rule_enforcements(status);
-create index if not exists idx_verification_outcomes_status on verification_outcomes(status);
 create index if not exists idx_todos_task_state on todos_current(task_id, state);
 create index if not exists idx_questions_task_phase on questions_current(task_id, phase);
 create index if not exists idx_event_token_usage_session on event_token_usage(session_id, occurred_at);
@@ -582,7 +610,7 @@ create index if not exists idx_search_documents_scope_task_updated
   on search_documents(scope, task_id, updated_at desc);
 ```
 
-## Turn Partitions And Rule Commands
+## Turn Partitions
 
 ```sql
 create table if not exists turn_partitions_current (
@@ -591,25 +619,182 @@ create table if not exists turn_partitions_current (
   version integer not null default 1,
   updated_at text not null
 );
+```
 
-create table if not exists rule_commands_current (
+## Verification
+
+Verification rules evaluate `(user.message → assistant.response)` cycles
+("turns") for fact-checking what the agent claimed against what it actually
+did. See `docs/guide/turn-evaluation-flow.md` for the evaluation workflow.
+
+There are two evaluation surfaces:
+
+- **Event post-processing overlay**: every logged event in an open turn is matched
+  against active rules. Matches write `rule_enforcements` and broadcast
+  `rule_enforcement.added`, allowing clients to move those events into the
+  rule lane immediately.
+- **Definitive turn verdict**: verdicts are computed when a turn closes. The
+  server writes `verdicts`, updates `turns.aggregate_verdict`, and broadcasts
+  `verdict.updated`.
+
+When a new rule is created or activated, backfill evaluates the new rule
+against both closed turns and currently open turns in scope. Closed turns get
+both enforcements and verdicts; open turns get only enforcements until they
+close.
+
+### `rules` — verification rule definitions
+
+```sql
+create table if not exists rules (
   id text primary key,
-  pattern text not null,
-  label text not null,
+  name text not null,
+  trigger_phrases_json text,
+  trigger_on text check(trigger_on in ('user','assistant')),
+  expect_tool text,
+  expect_command_matches_json text,
+  expect_pattern text,
+  scope text not null check(scope in ('global','task')),
   task_id text references tasks_current(id) on delete cascade,
-  created_at text not null
+  source text not null check(source in ('human','agent')),
+  severity text not null check(severity in ('info','warn','block')),
+  rationale text,
+  signature text not null,
+  created_at text not null,
+  deleted_at text,
+  check (
+    (scope = 'global' and task_id is null)
+    or (scope = 'task' and task_id is not null)
+  )
 );
 ```
 
-`rule_commands_current.task_id` is nullable. `null` means the command is global;
-a non-null value scopes the command to one task.
+- `signature` = stable hash of `(trigger_phrases, trigger_on, expect_tool,
+  expect_command_matches, expect_pattern)`. When signature changes on update,
+  past verdicts are invalidated. Computed by `computeRuleSignature`.
+- `trigger_on` narrows trigger matching to user messages or assistant
+  responses. When omitted, both sides of the turn can trigger the rule.
+- `deleted_at` = soft-delete tombstone. Active rule queries filter
+  `deleted_at IS NULL`. Verdicts and enforcements are preserved as audit
+  trail (cascade is from rule HARD delete only).
+- `source` distinguishes human-authored rules from agent-suggested ones.
 
 Indexes:
 
 ```sql
-create index if not exists idx_rule_commands_current_task_id
-  on rule_commands_current(task_id);
+create index if not exists idx_rules_scope_active on rules(scope) where deleted_at is null;
+create index if not exists idx_rules_task_active on rules(task_id) where deleted_at is null;
+create index if not exists idx_rules_signature on rules(signature);
 ```
+
+### `turns` — (user → assistant) cycles per session
+
+```sql
+create table if not exists turns (
+  id text primary key,
+  session_id text not null references sessions_current(id) on delete cascade,
+  task_id text not null references tasks_current(id) on delete cascade,
+  turn_index integer not null,
+  status text not null check(status in ('open','closed')),
+  started_at text not null,
+  ended_at text,
+  asked_text text,
+  assistant_text text,
+  aggregate_verdict text check(aggregate_verdict in ('verified','contradicted','unverifiable')),
+  rules_evaluated_count integer not null default 0
+);
+```
+
+- `status='open'` between `user.message` and `assistant.response`. Closed by
+  `assistant.response`, by a new `user.message` (force-close prior), or by
+  `session.ended`.
+- `turn_index` is per-session and monotonically increases.
+- `aggregate_verdict` cached from worst-priority verdict in `verdicts`
+  (contradicted > unverifiable > verified). `null` if no rules evaluated.
+
+Indexes:
+
+```sql
+create unique index if not exists idx_turns_session_index on turns(session_id, turn_index);
+create index if not exists idx_turns_task_started on turns(task_id, started_at);
+create index if not exists idx_turns_session_open on turns(session_id) where status = 'open';
+```
+
+### `turn_events` — link table
+
+```sql
+create table if not exists turn_events (
+  turn_id text not null references turns(id) on delete cascade,
+  event_id text not null references timeline_events_view(id) on delete cascade,
+  primary key (turn_id, event_id)
+);
+
+create index if not exists idx_turn_events_event on turn_events(event_id);
+```
+
+Maintained as events arrive while a turn is open. `TurnLifecyclePostProcessor` opens
+and closes turns around `user.message` / `assistant.response`; `RuleEnforcementPostProcessor`
+links non-user events into the current open turn while it performs per-event
+rule matching.
+
+### `verdicts` — definitive (turn × rule) results
+
+```sql
+create table if not exists verdicts (
+  turn_id text not null references turns(id) on delete cascade,
+  rule_id text not null references rules(id) on delete cascade,
+  status text not null check(status in ('verified','contradicted','unverifiable')),
+  matched_phrase text,
+  expected_pattern text,
+  actual_tool_calls_json text,
+  matched_tool_calls_json text,
+  evaluated_at text not null,
+  primary key (turn_id, rule_id)
+);
+
+create index if not exists idx_verdicts_rule on verdicts(rule_id);
+create index if not exists idx_verdicts_status on verdicts(status);
+```
+
+- Written by `TurnEvaluator` at turn close (also by `BackfillUseCase` for
+  closed turns when a new rule is registered).
+- PK `(turn_id, rule_id)` makes evaluation idempotent — reruns UPSERT.
+- Detail columns (`matched_phrase`, `expected_pattern`, `*_tool_calls_json`)
+  drive the UI's "why this verdict?" explanation.
+
+### `rule_enforcements` — per-event overlay
+
+```sql
+create table if not exists rule_enforcements (
+  event_id text not null references timeline_events_view(id) on delete cascade,
+  rule_id text not null references rules(id) on delete cascade,
+  match_kind text not null check(match_kind in ('trigger','expect-fulfilled')),
+  decided_at text not null,
+  primary key (event_id, rule_id, match_kind)
+);
+
+create index if not exists idx_rule_enforcements_rule on rule_enforcements(rule_id);
+create index if not exists idx_rule_enforcements_event on rule_enforcements(event_id);
+```
+
+- Source for **rule lane reclassification**: when reading
+  `timeline_events_view`, the repository LEFT JOINs `rule_enforcements` and
+  overrides `lane='rule'` if any row exists for the event.
+- `match_kind` distinguishes a triggering match (rule's trigger phrases hit) from
+  an expect-fulfillment match (rule's expect tool/command/pattern hit). One
+  event can have multiple rows (different rules, or both match kinds for one rule).
+- Inserted by `RuleEnforcementPostProcessor` per event, in real time (broadcast as
+  `rule_enforcement.added` over WebSocket), and by `BackfillUseCase` when a
+  newly registered rule is applied to existing closed or open turn events.
+
+### Verification WebSocket Messages
+
+Verification publishes these realtime messages:
+
+| Message | When | Client effect |
+|---|---|---|
+| `rule_enforcement.added` | A trigger or expect match is written for an event | Refetch the affected task timeline and reclassify the event into the rule lane |
+| `verdict.updated` | A turn closes or a closed turn is backfilled | Refetch task detail and verdict counts |
+| `rules.changed` | Rule create/update/delete/promote | Refetch rules; task-scoped changes also refetch that task detail |
 
 ## Event Catalog
 
@@ -629,8 +814,6 @@ create index if not exists idx_rule_commands_current_task_id
 | Runtime | `classification.assigned` |
 | Curation | `turn.partition_updated` |
 | Curation | `turn.partition_reset` |
-| System | `rule_command.registered` |
-| System | `rule_command.matched` |
 
 ## Event Store API
 
