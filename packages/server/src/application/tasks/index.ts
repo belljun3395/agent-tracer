@@ -8,6 +8,7 @@ export { DeleteFinishedTasksUseCase } from "./delete.finished.tasks.usecase.js";
 export { ListTasksUseCase } from "./list.tasks.usecase.js";
 export { GetTaskUseCase } from "./get.task.usecase.js";
 export { GetTaskTimelineUseCase } from "./get.task.timeline.usecase.js";
+export { GetTaskTurnsUseCase } from "./get.task.turns.usecase.js";
 export { GetTaskLatestRuntimeSessionUseCase } from "./get.task.latest.runtime.session.usecase.js";
 export { GetTaskOpenInferenceUseCase } from "./get.task.open.inference.usecase.js";
 export { GetDefaultWorkspacePathUseCase } from "./get.default.workspace.path.usecase.js";
@@ -39,6 +40,7 @@ export type { DeleteFinishedTasksUseCaseIn, DeleteFinishedTasksUseCaseOut } from
 export type { ListTasksUseCaseIn, ListTasksUseCaseOut } from "./dto/list.tasks.usecase.dto.js";
 export type { GetTaskUseCaseIn, GetTaskUseCaseOut } from "./dto/get.task.usecase.dto.js";
 export type { GetTaskTimelineUseCaseIn, GetTaskTimelineUseCaseOut } from "./dto/get.task.timeline.usecase.dto.js";
+export type { GetTaskTurnsUseCaseIn, GetTaskTurnsUseCaseOut } from "./dto/get.task.turns.usecase.dto.js";
 export type { GetTaskLatestRuntimeSessionUseCaseIn, GetTaskLatestRuntimeSessionUseCaseOut } from "./dto/get.task.latest.runtime.session.usecase.dto.js";
 export type { GetTaskOpenInferenceUseCaseIn, GetTaskOpenInferenceUseCaseOut } from "./dto/get.task.open.inference.usecase.dto.js";
 export type { GetDefaultWorkspacePathUseCaseIn, GetDefaultWorkspacePathUseCaseOut } from "./dto/get.default.workspace.path.usecase.dto.js";

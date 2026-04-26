@@ -1,5 +1,6 @@
 import {
     createEventRecordDraft,
+    KIND,
     normalizeFilePaths,
 } from "~domain/monitoring/index.js";
 import {
@@ -16,6 +17,8 @@ import type {
 import { projectTimelineEvent } from "./timeline-event.projection.js";
 import type { LogEventUseCaseIn, LogEventUseCaseOut } from "./dto/log.event.usecase.dto.js";
 import { TaskNotFoundError } from "../tasks/common/task.errors.js";
+import type { RuleEnforcementPostProcessor } from "~application/verification/services/rule.enforcement.post.processor.js";
+import type { TurnLifecyclePostProcessor } from "~application/verification/services/turn.lifecycle.post.processor.js";
 
 type EventRecordingInput = Parameters<typeof createEventRecordDraft>[0];
 
@@ -24,6 +27,8 @@ export class LogEventUseCase {
         private readonly taskRepo: ITaskRepository,
         private readonly eventRepo: IEventRepository,
         private readonly notifier: INotificationPublisher,
+        private readonly ruleEnforcement?: RuleEnforcementPostProcessor,
+        private readonly turnLifecycle?: TurnLifecyclePostProcessor,
     ) {}
 
     async execute(input: LogEventUseCaseIn): Promise<LogEventUseCaseOut> {
@@ -81,6 +86,28 @@ export class LogEventUseCase {
         const record = createEventRecordDraft(input);
         const event = await this.eventRepo.insert({ id: globalThis.crypto.randomUUID(), ...record });
         this.notifier.publish({ type: "event.logged", payload: projectTimelineEvent(event) });
+
+        // Verification sequencing:
+        // - user.message opens the turn before per-event matching.
+        // - assistant.response must be matched while the turn is still open,
+        //   then closes/evaluates the turn.
+        // - all other events are matched against the current open turn.
+        if (this.ruleEnforcement && this.turnLifecycle) {
+            try {
+                if (event.kind === KIND.userMessage) {
+                    await this.turnLifecycle.processLoggedEvent(event);
+                    await this.ruleEnforcement.processLoggedEvent(event);
+                } else if (event.kind === KIND.assistantResponse) {
+                    await this.ruleEnforcement.processLoggedEvent(event);
+                    await this.turnLifecycle.processLoggedEvent(event);
+                } else {
+                    await this.ruleEnforcement.processLoggedEvent(event);
+                    await this.turnLifecycle.processLoggedEvent(event);
+                }
+            } catch (err) {
+                console.error("[verification] post-processor failed for event", event.id, err);
+            }
+        }
         return event;
     }
 }

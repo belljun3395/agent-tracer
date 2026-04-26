@@ -1,0 +1,43 @@
+import type { IRuleRepository } from "~application/ports/repository/rule.repository.js";
+import type {
+    ListRulesForTaskUseCaseIn,
+    ListRulesForTaskUseCaseOut,
+    ListRulesUseCaseIn,
+    ListRulesUseCaseOut,
+} from "./dto/list.rules.usecase.dto.js";
+import { projectRule } from "./rule.projection.js";
+
+export type {
+    ListRulesForTaskUseCaseIn,
+    ListRulesForTaskUseCaseOut,
+    ListRulesUseCaseIn,
+    ListRulesUseCaseOut,
+} from "./dto/list.rules.usecase.dto.js";
+export type { ListRulesUseCaseIn as ListRulesInput } from "./dto/list.rules.usecase.dto.js";
+export type { ListRulesUseCaseOut as ListRulesResult } from "./dto/list.rules.usecase.dto.js";
+export type { ListRulesForTaskUseCaseIn as ListRulesForTaskInput } from "./dto/list.rules.usecase.dto.js";
+export type { ListRulesForTaskUseCaseOut as ListRulesForTaskResult } from "./dto/list.rules.usecase.dto.js";
+
+export class ListRulesUseCase {
+    constructor(private readonly ruleRepo: IRuleRepository) {}
+
+    async execute(input: ListRulesUseCaseIn = {}): Promise<ListRulesUseCaseOut> {
+        const rules = await this.ruleRepo.list(input);
+        return { rules: rules.map(projectRule) };
+    }
+}
+
+export class ListRulesForTaskUseCase {
+    constructor(private readonly ruleRepo: IRuleRepository) {}
+
+    async execute(input: ListRulesForTaskUseCaseIn): Promise<ListRulesForTaskUseCaseOut> {
+        const [task, global] = await Promise.all([
+            this.ruleRepo.list({ scope: "task", taskId: input.taskId }),
+            this.ruleRepo.list({ scope: "global" }),
+        ]);
+        return {
+            task: task.map(projectRule),
+            global: global.map(projectRule),
+        };
+    }
+}

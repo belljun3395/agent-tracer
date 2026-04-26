@@ -1,4 +1,4 @@
-export type { ITaskRepository, TaskUpsertInput, OverviewStats } from "./repository/task.repository.js";
+export type { ITaskRepository, TaskUpsertInput } from "./repository/task.repository.js";
 export type { ISessionRepository, SessionCreateInput } from "./repository/session.repository.js";
 export type { IEventRepository, EventInsertInput, SearchOptions, SearchResults, SearchTaskHit, SearchEventHit } from "./repository/event.repository.js";
 export type { IRuntimeBindingRepository, RuntimeBinding, RuntimeBindingUpsertInput } from "./repository/runtime.binding.repository.js";

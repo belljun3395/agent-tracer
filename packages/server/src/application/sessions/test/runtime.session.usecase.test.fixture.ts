@@ -149,14 +149,8 @@ export function createPorts(seed?: {
                 return { deletedIds: [id] };
             }),
             deleteFinished: vi.fn(async () => 0),
-            getOverviewStats: vi.fn(async () => ({
-                totalTasks: tasks.size,
-                runningTasks: 0,
-                waitingTasks: 0,
-                completedTasks: 0,
-                erroredTasks: 0,
-                totalEvents: events.length,
-            })),
+            listTaskStatuses: vi.fn(async () => [...tasks.values()].map((record) => record.status)),
+            countTimelineEvents: vi.fn(async () => events.length),
         },
         sessions: {
             create: sessionsCreate,
