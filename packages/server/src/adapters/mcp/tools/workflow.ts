@@ -1,6 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { WORKFLOW_RATINGS } from "~domain/index.js";
+import { WORKFLOW_RATINGS } from "~domain/workflow/index.js";
 import type { MonitorClient } from "../client.js";
 import { toToolResponse } from "../result.js";
 export function registerWorkflowTools(server: McpServer, client: MonitorClient): void {

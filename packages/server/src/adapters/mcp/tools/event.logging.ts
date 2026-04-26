@@ -1,12 +1,14 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import {
-    AGENT_ACTIVITY_TYPES,
-    EVENT_RELATION_TYPES,
     QUESTION_PHASES,
     TODO_STATES,
     type TimelineLane,
-} from "~domain/index.js";
+} from "~domain/monitoring/index.js";
+import {
+    AGENT_ACTIVITY_TYPES,
+    EVENT_RELATION_TYPES,
+} from "~domain/monitoring/index.js";
 import type { MonitorClient } from "../client.js";
 import { toToolResponse } from "../result.js";
 
