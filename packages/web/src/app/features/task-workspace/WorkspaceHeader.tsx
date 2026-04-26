@@ -15,9 +15,7 @@ interface WorkspaceHeaderEmbeddedExtras {
 interface WorkspaceHeaderProps {
     readonly embedded: boolean;
     readonly taskId: string;
-    readonly workspace: Pick<WorkspaceState, "selectedTaskDetail" | "taskObservability" | "selectedTaskDisplayTitle" | "isEditingTaskTitle" | "taskTitleDraft" | "taskTitleError" | "isSavingTaskTitle" | "isUpdatingTaskStatus" | "updateDraft" | "startEditing" | "finishEditing" | "setTitleError" | "handleTaskStatusChange" | "handleTaskTitleSubmit">;
-    readonly isSubmittingRuleReview: boolean;
-    readonly onRuleReview: (outcome: "approved" | "rejected" | "bypassed") => void;
+    readonly workspace: Pick<WorkspaceState, "selectedTaskDetail" | "selectedTaskDisplayTitle" | "isEditingTaskTitle" | "taskTitleDraft" | "taskTitleError" | "isSavingTaskTitle" | "isUpdatingTaskStatus" | "updateDraft" | "startEditing" | "finishEditing" | "setTitleError" | "handleTaskStatusChange" | "handleTaskTitleSubmit">;
     readonly onNavigateBack: () => void;
     readonly onNavigateDashboard: () => void;
     readonly embeddedExtras?: WorkspaceHeaderEmbeddedExtras | undefined;
@@ -27,31 +25,11 @@ export function WorkspaceHeader({
     embedded,
     taskId,
     workspace,
-    isSubmittingRuleReview,
-    onRuleReview,
     onNavigateBack,
     onNavigateDashboard,
     embeddedExtras,
 }: WorkspaceHeaderProps): React.JSX.Element {
-    const { selectedTaskDetail, taskObservability, selectedTaskDisplayTitle, isEditingTaskTitle, taskTitleDraft, taskTitleError, isSavingTaskTitle, isUpdatingTaskStatus, updateDraft, startEditing, finishEditing, setTitleError, handleTaskStatusChange, handleTaskTitleSubmit } = workspace;
-    const ruleState = taskObservability?.observability.ruleEnforcement.activeState;
-
-    const approvalButtons = (
-        <>
-            {ruleState === "approval_required" && (
-                <Button size="sm" variant="accent" disabled={isSubmittingRuleReview}
-                    onClick={() => onRuleReview("approved")}>Approve</Button>
-            )}
-            {(ruleState === "approval_required" || ruleState === "blocked") && (
-                <Button size="sm" variant="destructive" disabled={isSubmittingRuleReview}
-                    onClick={() => onRuleReview("rejected")}>Reject</Button>
-            )}
-            {(ruleState === "approval_required" || ruleState === "blocked") && (
-                <Button size="sm" disabled={isSubmittingRuleReview}
-                    onClick={() => onRuleReview("bypassed")}>Bypass</Button>
-            )}
-        </>
-    );
+    const { selectedTaskDetail, selectedTaskDisplayTitle, isEditingTaskTitle, taskTitleDraft, taskTitleError, isSavingTaskTitle, isUpdatingTaskStatus, updateDraft, startEditing, finishEditing, setTitleError, handleTaskStatusChange, handleTaskTitleSubmit } = workspace;
 
     if (embedded && embeddedExtras) {
         const { isWorkspaceFiltersOpen,
@@ -123,7 +101,6 @@ export function WorkspaceHeader({
                             <span className="hidden text-[0.72rem] font-medium sm:inline">Filters</span>
                         </button>
                     )}
-                    {approvalButtons}
                 </div>
             </header>
         );
@@ -155,20 +132,6 @@ export function WorkspaceHeader({
                                 {runtimeObservabilityLabel(selectedTaskDetail.task.runtimeSource)}
                             </span>
                         )}
-                        {ruleState === "approval_required" && selectedTaskDetail.task.status === "waiting" && (
-                            <span className="inline-flex items-center rounded-[var(--radius-md)] border border-[var(--accent-light)] bg-[var(--accent-light)] px-2.5 py-1 font-semibold text-[var(--accent)]">
-                                {taskObservability?.observability.ruleEnforcement.activeLabel
-                                    ? `approval required · ${taskObservability.observability.ruleEnforcement.activeLabel}`
-                                    : "approval required"}
-                            </span>
-                        )}
-                        {ruleState === "blocked" && selectedTaskDetail.task.status === "errored" && (
-                            <span className="inline-flex items-center rounded-[var(--radius-md)] border border-[var(--err-bg)] bg-[var(--err-bg)] px-2.5 py-1 font-semibold text-[var(--err)]">
-                                {taskObservability?.observability.ruleEnforcement.activeLabel
-                                    ? `blocked by rule · ${taskObservability.observability.ruleEnforcement.activeLabel}`
-                                    : "blocked by rule"}
-                            </span>
-                        )}
                     </div>
                 )}
                 {selectedTaskDetail?.task.workspacePath && (
@@ -178,7 +141,6 @@ export function WorkspaceHeader({
                 )}
             </div>
             <div className="grid w-full shrink-0 grid-cols-1 gap-2 sm:grid-cols-2 lg:flex lg:w-auto lg:flex-wrap lg:justify-end">
-                {approvalButtons}
                 <Button size="sm" onClick={onNavigateDashboard}>Dashboard</Button>
             </div>
         </header>

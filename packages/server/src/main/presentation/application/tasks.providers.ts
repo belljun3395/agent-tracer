@@ -6,7 +6,6 @@ import type {
     ISessionRepository,
     ITaskRepository,
 } from "~application/index.js";
-import { GetTaskObservabilityUseCase } from "~application/index.js";
 import {
     CompleteTaskUseCase,
     DeleteFinishedTasksUseCase,
@@ -109,12 +108,6 @@ export const TASK_APPLICATION_PROVIDERS: Provider[] = [
             new GetTaskOpenInferenceUseCase(tasks, events),
         inject: [TASK_REPOSITORY_TOKEN, EVENT_REPOSITORY_TOKEN],
     },
-    {
-        provide: GetTaskObservabilityUseCase,
-        useFactory: (tasks: ITaskRepository, sessions: ISessionRepository, events: IEventRepository) =>
-            new GetTaskObservabilityUseCase(tasks, sessions, events),
-        inject: [TASK_REPOSITORY_TOKEN, SESSION_REPOSITORY_TOKEN, EVENT_REPOSITORY_TOKEN],
-    },
 ];
 
 export const TASK_APPLICATION_EXPORTS = [
@@ -131,5 +124,4 @@ export const TASK_APPLICATION_EXPORTS = [
     GetTaskTimelineUseCase,
     GetTaskLatestRuntimeSessionUseCase,
     GetTaskOpenInferenceUseCase,
-    GetTaskObservabilityUseCase,
 ] as const;

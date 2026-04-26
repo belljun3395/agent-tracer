@@ -1,7 +1,7 @@
 import { buildInspectorEventTitle, buildModelSummary, filterTimelineEvents } from "./insights.js";
 import { groupInstructionsBursts } from "./instructionsBurst.js";
 import { buildTimelineRelations, type TimelineConnector } from "./timeline.js";
-import type { TaskObservabilityResponse, TimelineEventRecord, TimelineLane, TimelineRelation } from "../types.js";
+import type { TimelineEventRecord, TimelineLane, TimelineRelation } from "../types.js";
 
 export const FULL_TIMELINE_LANE_FILTERS: Readonly<Record<TimelineLane, boolean>> = {
     user: true,
@@ -71,11 +71,6 @@ export interface SelectedTimelineConnector {
     readonly connector: TimelineConnector;
     readonly source: TimelineEventRecord;
     readonly target: TimelineEventRecord;
-}
-
-export interface TaskObservabilityState {
-    readonly taskObservability: TaskObservabilityResponse | null;
-    readonly refreshTaskObservability: () => Promise<void>;
 }
 
 export function parseConnectorKey(key: string): ParsedConnectorKey | null {

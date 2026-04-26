@@ -9,7 +9,6 @@ import { Button } from "../../components/ui/Button.js";
 import { cn } from "../../lib/ui/cn.js";
 import { useTurnPartition } from "../../../state.js";
 import type { WorkspaceState } from "./useWorkspace.js";
-import { WorkspaceReviewPanel } from "./WorkspaceReviewPanel.js";
 
 type TimelineEmbeddedProps = Pick<TimelineProps, "externalFiltersState" | "externalTimelineFilters">;
 
@@ -25,11 +24,6 @@ interface WorkspaceContentProps {
     readonly onInspectorResizeStart: (e: React.PointerEvent<HTMLDivElement>) => void;
     readonly embedded: boolean;
     readonly timelineEmbeddedProps: TimelineEmbeddedProps;
-    readonly reviewerNote: string;
-    readonly reviewerId: string;
-    readonly isSubmittingRuleReview: boolean;
-    readonly onReviewerNoteChange: (note: string) => void;
-    readonly onReviewerIdChange: (id: string) => void;
     readonly onNavigateBack: () => void;
 }
 
@@ -45,26 +39,20 @@ export function WorkspaceContent({
     onInspectorResizeStart,
     embedded,
     timelineEmbeddedProps,
-    reviewerNote,
-    reviewerId,
-    isSubmittingRuleReview,
-    onReviewerNoteChange,
-    onReviewerIdChange,
     onNavigateBack,
 }: WorkspaceContentProps): React.JSX.Element {
     const {
         workspaceLoading, workspaceMissingTask,
-        selectedTaskDetail, taskTimeline, taskObservability, nowMs,
+        selectedTaskDetail, taskTimeline, nowMs,
         selectedTaskDisplayTitle, selectedTaskUsesDerivedTitle,
         observabilityStats, modelSummary,
         selectedConnector, selectedEvent, selectedEventDisplayTitle,
-        selectedTaskBookmark, selectedEventBookmark,
         selectedEventId, selectedConnectorKey, selectedRuleId, selectedTag, showRuleGapsOnly,
         isEditingTaskTitle, taskTitleDraft, taskTitleError, isSavingTaskTitle, isUpdatingTaskStatus,
         selectEvent, selectConnector, selectRule, selectTag, setShowRuleGapsOnly, resetFilters,
         startEditing, updateDraft, setTitleError, finishEditing,
         handleTaskStatusChange, handleTaskTitleSubmit,
-        handleCreateTaskBookmark, handleCreateEventBookmark, handleUpdateEventDisplayTitle,
+        handleUpdateEventDisplayTitle,
     } = workspace;
 
     const {
@@ -148,14 +136,6 @@ export function WorkspaceContent({
             </section>
 
             <div className="relative flex min-h-0 min-w-0 flex-col">
-                <WorkspaceReviewPanel
-                    workspace={workspace}
-                    reviewerNote={reviewerNote}
-                    reviewerId={reviewerId}
-                    isSubmittingRuleReview={isSubmittingRuleReview}
-                    onReviewerNoteChange={onReviewerNoteChange}
-                    onReviewerIdChange={onReviewerIdChange}
-                />
                 {!isStackedWorkspace && (
                     <div
                         aria-label="Resize workspace inspector panel"
@@ -168,17 +148,12 @@ export function WorkspaceContent({
                 <InspectorProvider value={{
                     taskDetail: selectedTaskDetail ?? null,
                     selectedTaskTitle: selectedTaskDisplayTitle,
-                    taskObservability,
                     taskModelSummary: modelSummary,
                     selectedEvent,
                     selectedConnector,
                     selectedEventDisplayTitle,
-                    selectedTaskBookmark,
-                    selectedEventBookmark,
                     selectedTag,
                     selectedRuleId,
-                    onCreateTaskBookmark: () => void handleCreateTaskBookmark(),
-                    onCreateEventBookmark: () => void handleCreateEventBookmark(),
                     onSelectRule: (ruleId) => { setShowRuleGapsOnly(false); selectRule(ruleId); },
                     onSelectEvent: (eventId) => { selectConnector(null); selectEvent(eventId); },
                     onSelectTag: selectTag,

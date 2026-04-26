@@ -16,7 +16,6 @@ import {
     type ModelSummary,
     type QuestionGroup,
     type SubagentInsight,
-    type TaskObservabilityResponse,
     type TimelineEventRecord,
     type TodoGroup,
     type TurnGroup,
@@ -34,7 +33,6 @@ import { Eyebrow } from "../ui/Eyebrow.js";
 import { HelpTooltip } from "../ui/HelpTooltip.js";
 import { PanelCard } from "../ui/PanelCard.js";
 import { SectionCard } from "./SectionCard.js";
-import { ObservabilityMetricGrid, ObservabilityList, ObservabilityPhaseBreakdown } from "./ObservabilitySection.js";
 import { cardShell, cardHeader, cardBody, innerPanel } from "./styles.js";
 import { inspectorHelpText } from "./helpText.js";
 import { toRelativePath } from "./utils.js";
@@ -598,7 +596,6 @@ function AIModelCard({ summary }: { readonly summary: ModelSummary }): React.JSX
 }
 
 export interface OverviewTabProps {
-    readonly observability: TaskObservabilityResponse["observability"] | null;
     readonly subagentInsight: SubagentInsight;
     readonly verificationCycles?: readonly VerificationCycleItem[];
     readonly runtimeSessionId?: string | undefined;
@@ -613,7 +610,7 @@ export interface OverviewTabProps {
     readonly onFocusGroup?: ((groupId: string | null) => void) | undefined;
 }
 
-export function OverviewTab({ observability, subagentInsight, verificationCycles, runtimeSessionId, runtimeSource, workspacePath, timeline = [], todoGroups = [], questionGroups = [], taskModelSummary, partition = null, focusedGroupId = null, onFocusGroup }: OverviewTabProps): React.JSX.Element {
+export function OverviewTab({ subagentInsight, verificationCycles, runtimeSessionId, runtimeSource, timeline = [], todoGroups = [], questionGroups = [], taskModelSummary, partition = null, focusedGroupId = null, onFocusGroup }: OverviewTabProps): React.JSX.Element {
     const focusedGroup: TurnGroup | null = partition?.groups.find((g) => g.id === focusedGroupId) ?? null;
     const scopedTimeline = useMemo(
         () => (focusedGroup ? filterEventsByGroup(timeline, focusedGroup) : timeline),
@@ -683,70 +680,9 @@ export function OverviewTab({ observability, subagentInsight, verificationCycles
       <ContextSnapshotCard timeline={scopedTimeline}/>
       <TokenUsageCard timeline={scopedTimeline}/>
       <SkillListingCard summary={skillSummary}/>
-      {observability ? (<>
-          <SectionCard title="Task Flow" helpText={inspectorHelpText.taskFlow}>
-            <ObservabilityMetricGrid items={[
-                {
-                    label: "Total Duration",
-                    value: formatDuration(observability.totalDurationMs),
-                    ...(observability.runtimeSource ? { note: `runtime ${observability.runtimeSource}` } : {}),
-                    tone: "accent"
-                },
-                {
-                    label: "Active Duration",
-                    value: formatDuration(observability.activeDurationMs),
-                    note: "work in motion",
-                    tone: "ok"
-                },
-                {
-                    label: "Events",
-                    value: formatCount(observability.totalEvents),
-                    note: "timeline entries"
-                },
-                {
-                    label: "Sessions",
-                    value: formatCount(observability.sessions.total),
-                    note: `${formatCount(observability.sessions.resumed)} resumed · ${formatCount(observability.sessions.open)} open`
-                }
-            ]}/>
-          </SectionCard>
-
-          <SectionCard title="Signals" helpText={inspectorHelpText.signals}>
-            <ObservabilityMetricGrid items={[
-                { label: "Raw Prompts", value: formatCount(observability.signals.rawUserMessages), note: "captured user turns" },
-                { label: "Follow-ups", value: formatCount(observability.signals.followUpMessages), note: "additional user turns" },
-                { label: "Thoughts", value: formatCount(observability.signals.thoughts), note: "planning summaries" },
-                { label: "Tool Calls", value: formatCount(observability.signals.toolCalls), note: "non-terminal tools" },
-                { label: "Terminal", value: formatCount(observability.signals.terminalCommands), note: "shell commands" },
-                { label: "Verifications", value: formatCount(observability.signals.verifications), note: "tests and checks" },
-                { label: "Coordination", value: formatCount(observability.signals.coordinationActivities), note: "MCP / delegation" },
-                { label: "Background", value: formatCount(observability.signals.backgroundTransitions), note: "async task transitions" },
-                { label: "Explored Files", value: formatCount(observability.signals.exploredFiles), note: "read paths" }
-            ]}/>
-          </SectionCard>
-
-          <SubagentInsightCard insight={scopedSubagentInsight}/>
-
-          {scopedVerificationCycles.length > 0 && (<VerificationCyclesCard items={scopedVerificationCycles}/>)}
-
-          <TodosSummaryCard todoGroups={scopedTodoGroups} timeline={scopedTimeline}/>
-          <QuestionsSummaryCard questionGroups={scopedQuestionGroups}/>
-
-          <SectionCard title="Phase Breakdown" helpText={inspectorHelpText.phaseBreakdown}>
-            <ObservabilityPhaseBreakdown phases={observability.phaseBreakdown}/>
-          </SectionCard>
-
-          <SectionCard title="Top Files" helpText={inspectorHelpText.topFiles}>
-            <ObservabilityList emptyLabel="No file focus recorded yet." items={observability.focus.topFiles.map((file) => ({
-                label: toRelativePath(file.path, workspacePath),
-                value: `${formatCount(file.count)}x`
-            }))}/>
-          </SectionCard>
-        </>) : (<div className="rounded-[var(--radius-lg)] border border-dashed border-[var(--border)] bg-[var(--bg-subtle)] px-4 py-6 text-center">
-          <p className="m-0 text-[0.86rem] font-medium text-[var(--text-2)]">No workspace overview available.</p>
-          <p className="mt-1.5 mb-0 text-[0.78rem] text-[var(--text-3)]">
-            The server will populate this tab once `/api/v1/tasks/:taskId/observability` is available for the selected task.
-          </p>
-        </div>)}
+      <SubagentInsightCard insight={scopedSubagentInsight}/>
+      {scopedVerificationCycles.length > 0 && (<VerificationCyclesCard items={scopedVerificationCycles}/>)}
+      <TodosSummaryCard todoGroups={scopedTodoGroups} timeline={scopedTimeline}/>
+      <QuestionsSummaryCard questionGroups={scopedQuestionGroups}/>
     </div>);
 }

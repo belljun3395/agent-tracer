@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { TaskId } from "../../../types.js";
-import { BookmarkId, TaskId as toTaskId } from "../../../types.js";
+import { TaskId as toTaskId } from "../../../types.js";
 import { buildQuestionGroups, buildTaskDisplayTitle, buildTodoGroups } from "../../../types.js";
-import type { BookmarkRecord, BookmarkSearchHit, TimelineLane } from "../../../types.js";
-import { deleteBookmark, deleteTask } from "../../../io.js";
+import type { TimelineLane } from "../../../types.js";
+import { deleteTask } from "../../../io.js";
 import {
     monitorQueryKeys,
-    useBookmarksQuery,
     useOverviewQuery,
     useSearch,
     useSelectionStore,
@@ -23,7 +22,7 @@ export const INSPECTOR_WIDTH = 360;
 export const DASHBOARD_STACKED_BREAKPOINT = 1024;
 
 export function useDashboard(
-    view: "timeline" | "knowledge" | "workspace",
+    view: "timeline" | "workspace",
     { onSelectTaskRoute, onOpenTaskWorkspace }: {
         onSelectTaskRoute: (taskId: string | null) => void;
         onOpenTaskWorkspace: (taskId: string) => void;
@@ -40,22 +39,19 @@ export function useDashboard(
     const setDeleteErrorTaskId = useSelectionStore((s) => s.setDeleteErrorTaskId);
 
     const { data: tasksData } = useTasksQuery();
-    const { data: bookmarksData } = useBookmarksQuery();
     const { data: overviewData } = useOverviewQuery();
     const { data: taskDetail } = useTaskDetailQuery(selectedTaskId != null ? (selectedTaskId as TaskId) : null);
     const queryClient = useQueryClient();
 
     const tasks = tasksData?.tasks ?? [];
-    const bookmarks = bookmarksData?.bookmarks ?? [];
 
     const search = useSearch(selectedTaskId ?? undefined);
     const clearSearchQuery = search.setQuery;
 
-    const [sidebarView, setSidebarView] = useState<"tasks" | "saved">("tasks");
+    const [sidebarView, setSidebarView] = useState<"tasks">("tasks");
     const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth);
     const [isInspectorCollapsed, setIsInspectorCollapsed] = useState(false);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-    const [isApprovalQueueOpen, setIsApprovalQueueOpen] = useState(false);
     const [isGlobalFiltersOpen, setIsGlobalFiltersOpen] = useState(false);
     const [globalFiltersPos, setGlobalFiltersPos] = useState({ top: 0, right: 0 });
     const globalFiltersButtonRef = useRef<HTMLButtonElement>(null);
@@ -115,7 +111,6 @@ export function useDashboard(
         selectedTaskDisplayTitle &&
         selectedTaskDisplayTitle.trim() !== taskDetail.task.title.trim()
     );
-    const selectedTaskBookmark = bookmarks.find((b) => b.taskId === (selectedTaskId ?? "") && !b.eventId) ?? null;
 
     const selectDashboardTask = useCallback(
         (taskId: string | null): void => { onSelectTaskRoute(taskId); },
@@ -145,19 +140,9 @@ export function useDashboard(
         [selectedTaskId, selectTask, onSelectTaskRoute, setDeletingTaskId, setDeleteErrorTaskId, queryClient]
     );
 
-    const handleDeleteBookmark = useCallback(
-        async (bookmarkId: string): Promise<void> => {
-            try {
-                await deleteBookmark(BookmarkId(bookmarkId));
-                await queryClient.invalidateQueries({ queryKey: monitorQueryKeys.bookmarks() });
-            } catch { /* deletion failure is not surfaced — no bookmark error state yet */ }
-        },
-        [queryClient]
-    );
-
     const handleSidebarViewChange = useCallback(
-        (view: "tasks" | "saved"): void => {
-            setSidebarView(view);
+        (next: "tasks"): void => {
+            setSidebarView(next);
             if (isStackedDashboard) setIsSidebarOpen(false);
         },
         [isStackedDashboard]
@@ -169,21 +154,6 @@ export function useDashboard(
             selectDashboardTask(taskId);
         },
         [isStackedDashboard, selectDashboardTask]
-    );
-
-    const handleSelectBookmark = useCallback(
-        (bookmark: BookmarkRecord): void => {
-            if (isStackedDashboard) setIsSidebarOpen(false);
-            selectConnector(null);
-            selectDashboardTask(bookmark.taskId);
-            selectEvent(bookmark.eventId ?? null);
-        },
-        [isStackedDashboard, selectConnector, selectDashboardTask, selectEvent]
-    );
-
-    const handleDeleteBookmarkWithError = useCallback(
-        (bookmarkId: string): void => { void handleDeleteBookmark(bookmarkId); },
-        [handleDeleteBookmark]
     );
 
     const handleSelectSearchTask = useCallback(
@@ -204,28 +174,6 @@ export function useDashboard(
             selectEvent(eventId);
         },
         [clearSearchQuery, selectConnector, selectDashboardTask, selectEvent]
-    );
-
-    const handleSelectSearchBookmark = useCallback(
-        (bookmark: BookmarkSearchHit): void => {
-            clearSearchQuery("");
-            const target = bookmarks.find((item) => item.id === bookmark.bookmarkId);
-            if (target) {
-                selectConnector(null);
-                selectDashboardTask(target.taskId);
-                selectEvent(target.eventId ?? null);
-                return;
-            }
-            selectConnector(null);
-            if (bookmark.eventId) {
-                selectDashboardTask(bookmark.taskId);
-                selectEvent(bookmark.eventId);
-            } else {
-                selectEvent(null);
-                selectDashboardTask(bookmark.taskId);
-            }
-        },
-        [bookmarks, clearSearchQuery, selectConnector, selectDashboardTask, selectEvent]
     );
 
     const handleToggleFilters = useCallback((): void => {
@@ -258,28 +206,25 @@ export function useDashboard(
         // State
         selectedTaskId, isConnected, deletingTaskId, deleteErrorTaskId,
         sidebarView, isStackedDashboard, isInspectorOpen, isInspectorCollapsed,
-        isSidebarOpen, isApprovalQueueOpen, showGlobalFiltersButton, isGlobalFiltersOpen,
+        isSidebarOpen, showGlobalFiltersButton, isGlobalFiltersOpen,
         globalFiltersButtonRef, zoom,
         // Data
-        tasks, bookmarks, overviewData, taskDetail,
+        tasks, overviewData, taskDetail,
         selectedTaskDisplayTitle, selectedTaskUsesDerivedTitle,
-        selectedTaskBookmark, questionCount, todoCount,
+        questionCount, todoCount,
         // Search
         search,
         // Shared filter props
         externalFiltersState,
         externalTimelineFilters,
         // Setters
-        setIsInspectorCollapsed, setIsSidebarOpen, setIsApprovalQueueOpen, setZoom,
+        setIsInspectorCollapsed, setIsSidebarOpen, setZoom,
         // Handlers
         handleDeleteTask,
-        handleDeleteBookmarkWithError,
         handleSidebarViewChange,
         handleSelectDashboardTask,
-        handleSelectBookmark,
         handleSelectSearchTask,
         handleSelectSearchEvent,
-        handleSelectSearchBookmark,
         handleToggleFilters,
         handleOpenTaskWorkspace,
         selectDashboardTask,

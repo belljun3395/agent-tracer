@@ -1,13 +1,7 @@
-export { TaskBriefingQueryController } from "./controllers/briefing/briefing.query.controller.js";
-export { BookmarkQueryController } from "./controllers/bookmark/bookmark.query.controller.js";
-export { TaskEvaluationQueryController } from "./controllers/evaluation/evaluation.query.controller.js";
 export { HealthController } from "./controllers/health/health.query.controller.js";
-export { ObservabilityQueryController } from "./controllers/observability/observability.query.controller.js";
-export { PlaybookQueryController } from "./controllers/playbook/playbook.query.controller.js";
 export { GlobalRuleCommandQueryController } from "./controllers/rule-command/global-rule-command.query.controller.js";
 export { TaskRuleCommandQueryController } from "./controllers/rule-command/task-rule-command.query.controller.js";
 export { SearchQueryController } from "./controllers/search/search.query.controller.js";
 export { SystemQueryController } from "./controllers/system/system.query.controller.js";
 export { TaskQueryController } from "./controllers/task/task.query.controller.js";
 export { TurnPartitionQueryController } from "./controllers/turn/turn.partition.query.controller.js";
-export { WorkflowQueryController } from "./controllers/workflow/workflow.query.controller.js";

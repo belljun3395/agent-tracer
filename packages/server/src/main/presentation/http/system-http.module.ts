@@ -1,14 +1,12 @@
 import { Module, type DynamicModule } from "@nestjs/common";
 import {
     HealthController,
-    ObservabilityQueryController,
     SystemQueryController,
 } from "~adapters/http/query/index.js";
 
 @Module({
     controllers: [
         HealthController,
-        ObservabilityQueryController,
         SystemQueryController,
     ],
 })

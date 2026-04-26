@@ -91,7 +91,7 @@ describe("GlobalExceptionFilter", () => {
     });
 
     it("maps TaskNotFoundError to a 404 envelope", async () => {
-        const { TaskNotFoundError } = await import("~application/workflow/index.js");
+        const { TaskNotFoundError } = await import("~application/turn-partitions/index.js");
         const { host, response } = createHttpHost();
 
         new GlobalExceptionFilter().catch(new TaskNotFoundError("task-404"), host);
@@ -107,7 +107,7 @@ describe("GlobalExceptionFilter", () => {
     });
 
     it("maps TurnPartitionVersionMismatchError to a 409 envelope with details", async () => {
-        const { TurnPartitionVersionMismatchError } = await import("~application/workflow/index.js");
+        const { TurnPartitionVersionMismatchError } = await import("~application/turn-partitions/index.js");
         const { host, response } = createHttpHost();
 
         new GlobalExceptionFilter().catch(new TurnPartitionVersionMismatchError(3, 4), host);

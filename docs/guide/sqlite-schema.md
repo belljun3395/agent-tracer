@@ -4,13 +4,12 @@ The Agent Tracer server uses SQLite as its OLTP store. New databases are
 created directly with the normalized schema described here. There is no
 legacy migration path before the first deployment; `runMigrations` is a no-op.
 
-The schema has five major areas:
+The schema has four major areas:
 
 - Append-only domain events and content blobs.
 - Current task/session projections.
 - Normalized runtime timeline events.
-- Workflow evaluations and playbooks.
-- Shared search documents and embeddings.
+- Shared search documents and embeddings, plus turn partitions and rule commands.
 
 `PRAGMA foreign_keys = ON` is enabled before schema creation. Most child tables
 use `on delete cascade`; optional links that should survive parent deletion use
@@ -36,21 +35,9 @@ use `on delete cascade`; optional links that should survive parent deletion use
 | Timeline | `questions_current` | Current question state projected from events |
 | Timeline | `event_token_usage` | Token, model, cost, and stop metadata |
 | Current state | `runtime_bindings_current` | Runtime session bindings |
-| Current state | `bookmarks_current` | Current bookmark state |
-| Workflow | `evaluations_core` | Evaluation identity, scope, rating, version |
-| Workflow | `evaluation_contents` | Evaluation notes and reusable workflow content |
-| Workflow | `evaluation_reuse_stats` | Evaluation reuse counters |
-| Workflow | `evaluation_promotions` | Evaluation-to-playbook promotion history |
-| Workflow | `playbooks_core` | Playbook identity and core text |
-| Workflow | `playbook_steps` | Prereqs, steps, watchouts, anti-patterns, failure modes |
-| Workflow | `playbook_variants` | Playbook variants |
-| Workflow | `playbook_tags` | Playbook tags |
-| Workflow | `playbook_relations` | Related playbooks |
-| Workflow | `playbook_source_snapshots` | Source evaluation snapshots |
-| Current state | `briefings_current` | Generated briefings |
 | Current state | `turn_partitions_current` | Persisted task turn partitions |
 | Current state | `rule_commands_current` | Current rule command state |
-| Search index | `search_documents` | Search and embedding index for tasks, events, bookmarks, evaluations, and playbooks |
+| Search index | `search_documents` | Search and embedding index for tasks and events |
 
 ## Relationship Diagrams
 
@@ -192,88 +179,11 @@ erDiagram
   TASKS_CURRENT ||--o{ QUESTIONS_CURRENT : has
 ```
 
-### Diagram 3 — Workflow: Evaluations & Playbooks
+### Diagram 3 — Runtime, Search & Auxiliary
 
-Evaluation records and playbook definitions.
-`TASKS_CURRENT` is shown as a reference node.
-
-```mermaid
-erDiagram
-  TASKS_CURRENT {
-    text id PK
-  }
-
-  EVALUATIONS_CORE {
-    text task_id PK,FK
-    text scope_key PK
-    text rating
-  }
-
-  EVALUATION_CONTENTS {
-    text task_id PK,FK
-    text scope_key PK,FK
-  }
-
-  EVALUATION_REUSE_STATS {
-    text task_id PK,FK
-    text scope_key PK,FK
-  }
-
-  EVALUATION_PROMOTIONS {
-    text task_id PK,FK
-    text scope_key PK,FK
-    text playbook_id PK
-  }
-
-  PLAYBOOKS_CORE {
-    text id PK
-    text slug
-    text status
-  }
-
-  PLAYBOOK_STEPS {
-    text playbook_id PK,FK
-    text kind PK
-    integer position PK
-  }
-
-  PLAYBOOK_VARIANTS {
-    text playbook_id PK,FK
-    integer position PK
-  }
-
-  PLAYBOOK_TAGS {
-    text playbook_id PK,FK
-    text tag PK
-  }
-
-  PLAYBOOK_RELATIONS {
-    text playbook_id PK,FK
-    text related_playbook_id PK,FK
-  }
-
-  PLAYBOOK_SOURCE_SNAPSHOTS {
-    text playbook_id PK,FK
-    text task_id PK,FK
-    text scope_key PK,FK
-  }
-
-  TASKS_CURRENT ||--o{ EVALUATIONS_CORE : evaluated
-  EVALUATIONS_CORE ||--|| EVALUATION_CONTENTS : content
-  EVALUATIONS_CORE ||--|| EVALUATION_REUSE_STATS : stats
-  EVALUATIONS_CORE ||--o{ EVALUATION_PROMOTIONS : promotions
-  PLAYBOOKS_CORE ||--o{ PLAYBOOK_STEPS : steps
-  PLAYBOOKS_CORE ||--o{ PLAYBOOK_VARIANTS : variants
-  PLAYBOOKS_CORE ||--o{ PLAYBOOK_TAGS : tags
-  PLAYBOOKS_CORE ||--o{ PLAYBOOK_RELATIONS : related
-  PLAYBOOKS_CORE ||--o{ PLAYBOOK_SOURCE_SNAPSHOTS : source
-  EVALUATIONS_CORE ||--o{ PLAYBOOK_SOURCE_SNAPSHOTS : source
-```
-
-### Diagram 4 — Runtime, Search & Auxiliary
-
-Runtime bindings, bookmarks, briefings, turn partitions, rule commands, and the shared search index.
-`TASKS_CURRENT`, `SESSIONS_CURRENT`, and `TIMELINE_EVENTS_VIEW` are shown as reference nodes.
+Runtime bindings, turn partitions, rule commands, and the shared search index.
+`TASKS_CURRENT`, `SESSIONS_CURRENT`, and `TIMELINE_EVENTS_VIEW` are shown as
+reference nodes.
 
 ```mermaid
 erDiagram
@@ -296,18 +206,6 @@ erDiagram
     text monitor_session_id FK
   }
 
-  BOOKMARKS_CURRENT {
-    text id PK
-    text task_id FK
-    text event_id FK
-    text kind
-  }
-
-  BRIEFINGS_CURRENT {
-    text id PK
-    text task_id FK
-  }
-
   TURN_PARTITIONS_CURRENT {
     text task_id PK,FK
   }
@@ -325,9 +223,6 @@ erDiagram
 
   TASKS_CURRENT ||--o{ RUNTIME_BINDINGS_CURRENT : bound
   SESSIONS_CURRENT ||--o{ RUNTIME_BINDINGS_CURRENT : monitor_session
-  TASKS_CURRENT ||--o{ BOOKMARKS_CURRENT : has
-  TIMELINE_EVENTS_VIEW ||--o{ BOOKMARKS_CURRENT : bookmarked
-  TASKS_CURRENT ||--o{ BRIEFINGS_CURRENT : briefings
   TASKS_CURRENT ||--o| TURN_PARTITIONS_CURRENT : turn_partitions
   TASKS_CURRENT |o--o{ RULE_COMMANDS_CURRENT : optional_task_scope
   TASKS_CURRENT ||--o{ SEARCH_DOCUMENTS : task_scope
@@ -352,9 +247,6 @@ from normalized tables:
 - `event_tags` becomes `metadata.tags` and `classification.tags`;
 - async, rule, verification, TODO, question, and token rows are merged back into
   metadata for existing API consumers.
-
-`bookmarks_current.metadata_json` remains a bookmark-local JSON field and is not
-part of the timeline metadata normalization.
 
 ## Event Log
 
@@ -646,7 +538,7 @@ create index if not exists idx_event_token_usage_model on event_token_usage(mode
 create index if not exists idx_event_token_usage_task on event_token_usage(task_id, occurred_at);
 ```
 
-## Runtime Bindings And Bookmarks
+## Runtime Bindings
 
 ```sql
 create table if not exists runtime_bindings_current (
@@ -658,31 +550,16 @@ create table if not exists runtime_bindings_current (
   updated_at text not null,
   primary key (runtime_source, runtime_session_id)
 );
-
-create table if not exists bookmarks_current (
-  id text primary key,
-  task_id text not null references tasks_current(id) on delete cascade,
-  event_id text references timeline_events_view(id) on delete cascade,
-  kind text not null,
-  title text not null,
-  note text,
-  metadata_json text not null default '{}',
-  created_at text not null,
-  updated_at text not null
-);
 ```
-
-`bookmarks_current.kind` is `task` or `event`. `bookmarks_current.metadata_json`
-is intentionally bookmark-local metadata.
 
 ## Search Documents
 
-`search_documents` is the shared lexical and embedding index. Embeddings for
-evaluations and playbooks live here, not in their core tables.
+`search_documents` is the shared lexical and embedding index across tasks and
+timeline events.
 
 ```sql
 create table if not exists search_documents (
-  scope text not null check(scope in ('task', 'event', 'bookmark', 'evaluation', 'playbook')),
+  scope text not null check(scope in ('task', 'event')),
   entity_id text not null,
   task_id text,
   search_text text not null,
@@ -697,9 +574,6 @@ create table if not exists search_documents (
 |---|---|
 | `task` | Task id |
 | `event` | Timeline event id |
-| `bookmark` | Bookmark id |
-| `evaluation` | `${task_id}#${scope_key}` |
-| `playbook` | Playbook id |
 
 Indexes:
 
@@ -708,146 +582,9 @@ create index if not exists idx_search_documents_scope_task_updated
   on search_documents(scope, task_id, updated_at desc);
 ```
 
-## Workflow Evaluations
-
-Evaluations are split into identity/rating, content, reuse statistics, and
-promotion history.
+## Turn Partitions And Rule Commands
 
 ```sql
-create table if not exists evaluations_core (
-  task_id text not null references tasks_current(id) on delete cascade,
-  scope_key text not null default 'task',
-  scope_kind text not null check(scope_kind in ('task','turn')),
-  scope_label text not null,
-  turn_index integer,
-  rating text not null check(rating in ('good','skip')),
-  version integer not null default 1,
-  evaluated_at text not null,
-  primary key (task_id, scope_key)
-);
-
-create table if not exists evaluation_contents (
-  task_id text not null,
-  scope_key text not null,
-  use_case text,
-  workflow_tags_json text,
-  outcome_note text,
-  approach_note text,
-  reuse_when text,
-  watchouts text,
-  workflow_snapshot_json text,
-  workflow_context text,
-  primary key (task_id, scope_key),
-  foreign key (task_id, scope_key) references evaluations_core(task_id, scope_key) on delete cascade
-);
-
-create table if not exists evaluation_reuse_stats (
-  task_id text not null,
-  scope_key text not null,
-  reuse_count integer not null default 0,
-  last_reused_at text,
-  briefing_copy_count integer not null default 0,
-  primary key (task_id, scope_key),
-  foreign key (task_id, scope_key) references evaluations_core(task_id, scope_key) on delete cascade
-);
-
-create table if not exists evaluation_promotions (
-  task_id text not null,
-  scope_key text not null,
-  playbook_id text not null,
-  promoted_at text not null,
-  primary key (task_id, scope_key, playbook_id),
-  foreign key (task_id, scope_key) references evaluations_core(task_id, scope_key) on delete cascade
-);
-```
-
-Indexes:
-
-```sql
-create index if not exists idx_evaluations_core_rating on evaluations_core(rating);
-create index if not exists idx_evaluation_promotions_playbook on evaluation_promotions(playbook_id);
-```
-
-## Playbooks
-
-Playbooks are split into core fields and typed child rows. JSON arrays are not
-stored in `playbooks_core`; the repository reconstructs the public
-`PlaybookRecord` shape from child tables.
-
-```sql
-create table if not exists playbooks_core (
-  id text primary key,
-  title text not null,
-  slug text unique not null,
-  status text not null default 'draft',
-  when_to_use text,
-  approach text,
-  use_count integer not null default 0,
-  last_used_at text,
-  created_at text not null,
-  updated_at text not null
-);
-
-create table if not exists playbook_steps (
-  playbook_id text not null references playbooks_core(id) on delete cascade,
-  kind text not null check(kind in ('prereq','step','watchout','anti_pattern','failure_mode')),
-  position integer not null,
-  content text not null,
-  primary key (playbook_id, kind, position)
-);
-
-create table if not exists playbook_variants (
-  playbook_id text not null references playbooks_core(id) on delete cascade,
-  position integer not null,
-  label text not null,
-  description text not null,
-  difference_from_base text not null,
-  primary key (playbook_id, position)
-);
-
-create table if not exists playbook_tags (
-  playbook_id text not null references playbooks_core(id) on delete cascade,
-  tag text not null,
-  primary key (playbook_id, tag)
-);
-
-create table if not exists playbook_relations (
-  playbook_id text not null references playbooks_core(id) on delete cascade,
-  related_playbook_id text not null references playbooks_core(id) on delete cascade,
-  kind text,
-  position integer,
-  primary key (playbook_id, related_playbook_id)
-);
-
-create table if not exists playbook_source_snapshots (
-  playbook_id text not null references playbooks_core(id) on delete cascade,
-  task_id text not null,
-  scope_key text not null,
-  primary key (playbook_id, task_id, scope_key),
-  foreign key (task_id, scope_key) references evaluations_core(task_id, scope_key) on delete cascade
-);
-```
-
-Indexes:
-
-```sql
-create index if not exists idx_playbooks_core_status on playbooks_core(status);
-create index if not exists idx_playbook_tags_tag on playbook_tags(tag);
-```
-
-## Briefings, Turn Partitions, And Rules
-
-```sql
-create table if not exists briefings_current (
-  id text primary key,
-  task_id text not null references tasks_current(id) on delete cascade,
-  generated_at text not null,
-  purpose text not null,
-  format text not null,
-  memo text,
-  content text not null
-);
-
 create table if not exists turn_partitions_current (
   task_id text primary key references tasks_current(id) on delete cascade,
   groups_json text not null,
@@ -870,9 +607,6 @@ a non-null value scopes the command to one task.
 Indexes:
 
 ```sql
-create index if not exists idx_briefings_current_task_generated
-  on briefings_current(task_id, generated_at desc);
-
 create index if not exists idx_rule_commands_current_task_id
   on rule_commands_current(task_id);
 ```
@@ -893,16 +627,8 @@ create index if not exists idx_rule_commands_current_task_id
 | Runtime | `prompt.submitted` |
 | Runtime | `completion.received` |
 | Runtime | `classification.assigned` |
-| Curation | `bookmark.added` |
-| Curation | `bookmark.removed` |
-| Curation | `evaluation.recorded` |
-| Curation | `evaluation.reused` |
 | Curation | `turn.partition_updated` |
 | Curation | `turn.partition_reset` |
-| Workflow | `playbook.drafted` |
-| Workflow | `playbook.published` |
-| Workflow | `playbook.used` |
-| Workflow | `briefing.generated` |
 | System | `rule_command.registered` |
 | System | `rule_command.matched` |
 

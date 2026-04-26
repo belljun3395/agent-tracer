@@ -4,7 +4,6 @@ import { RUNTIME_EVENT_DEFINITIONS } from "./runtime.events.js";
 import { SESSION_EVENT_DEFINITIONS } from "./session.events.js";
 import { SYSTEM_EVENT_DEFINITIONS } from "./system.events.js";
 import { TASK_EVENT_DEFINITIONS } from "./task.events.js";
-import { WORKFLOW_EVENT_DEFINITIONS } from "./workflow.events.js";
 import type { AnyDomainEventDraft, DomainEventType } from "./model/domain.events.model.js";
 
 export const DOMAIN_EVENT_DEFINITIONS = [
@@ -12,7 +11,6 @@ export const DOMAIN_EVENT_DEFINITIONS = [
     ...SESSION_EVENT_DEFINITIONS,
     ...RUNTIME_EVENT_DEFINITIONS,
     ...CURATION_EVENT_DEFINITIONS,
-    ...WORKFLOW_EVENT_DEFINITIONS,
     ...SYSTEM_EVENT_DEFINITIONS,
 ] as readonly EventTypeDefinition<DomainEventType>[];
 

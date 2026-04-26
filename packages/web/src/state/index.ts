@@ -17,11 +17,9 @@ export {
     useOverviewQuery,
     useTasksQuery,
     useTaskDetailQuery,
-    useBookmarksQuery,
     useGlobalRuleCommandsQuery,
     useTaskRuleCommandsQuery
 } from "./server/queries.js";
-export { useTaskObservability } from "./server/observability.js";
 
 export { useMonitorSocket } from "./realtime/useMonitorSocket.js";
 export type { UseMonitorSocketOptions } from "./realtime/useMonitorSocket.js";
@@ -53,6 +51,5 @@ export type {
 } from "./ui/createUiStore.js";
 export { useNowMs } from "./ui/useNowMs.js";
 
-export * from "./useEvaluation.js";
 export * from "./useSearch.js";
 export * from "./useTurnPartition.js";

@@ -5,7 +5,7 @@ import {
     buildQuestionGroups, buildSubagentInsight,
     buildTodoGroups, buildVerificationCycles, collectFileActivity,
     collectWebLookups, buildTaskTimelineSummary,
-    type BookmarkRecord, type ModelSummary, type TaskObservabilityResponse,
+    type ModelSummary,
     type TaskDetailResponse, type TimelineConnector, type TimelineEventRecord,
 } from "../../types.js";
 import { cn } from "../lib/ui/cn.js";
@@ -43,17 +43,12 @@ interface EventInspectorProps {
     // Domain data — optional when provided via InspectorProvider
     readonly taskDetail?: TaskDetailResponse | null;
     readonly selectedTaskTitle?: string | null;
-    readonly taskObservability?: TaskObservabilityResponse | null;
     readonly selectedEvent?: TimelineEventRecord | null;
     readonly selectedConnector?: SelectedConnectorData | null;
     readonly selectedEventDisplayTitle?: string | null;
-    readonly selectedTaskBookmark?: BookmarkRecord | null;
-    readonly selectedEventBookmark?: BookmarkRecord | null;
     readonly selectedRuleId?: string | null;
     readonly taskModelSummary?: ModelSummary | undefined;
     // Handlers — optional when provided via InspectorProvider
-    readonly onCreateTaskBookmark?: (() => void) | undefined;
-    readonly onCreateEventBookmark?: (() => void) | undefined;
     readonly onUpdateEventDisplayTitle?: ((eventId: string, displayTitle: string | null) => Promise<void>) | undefined;
     readonly onSelectRule?: ((ruleId: string | null) => void) | undefined;
     readonly onOpenTaskWorkspace?: (() => void) | undefined;
@@ -73,16 +68,11 @@ interface EventInspectorProps {
 export function EventInspector({
     taskDetail: taskDetailProp,
     selectedTaskTitle: selectedTaskTitleProp,
-    taskObservability: taskObservabilityProp,
     selectedEvent: selectedEventProp,
     selectedConnector: selectedConnectorProp,
     selectedEventDisplayTitle: selectedEventDisplayTitleProp,
-    selectedTaskBookmark: selectedTaskBookmarkProp,
-    selectedEventBookmark: selectedEventBookmarkProp,
     selectedRuleId: selectedRuleIdProp,
     taskModelSummary: taskModelSummaryProp,
-    onCreateTaskBookmark: onCreateTaskBookmarkProp,
-    onCreateEventBookmark: onCreateEventBookmarkProp,
     onUpdateEventDisplayTitle: onUpdateEventDisplayTitleProp,
     onSelectRule: onSelectRuleProp,
     onOpenTaskWorkspace: onOpenTaskWorkspaceProp,
@@ -101,15 +91,10 @@ export function EventInspector({
     const ctx = useOptionalInspectorContext();
     const taskDetail = taskDetailProp !== undefined ? taskDetailProp : (ctx?.taskDetail ?? null);
     const selectedTaskTitle = selectedTaskTitleProp !== undefined ? selectedTaskTitleProp : (ctx?.selectedTaskTitle ?? null);
-    const taskObservability = taskObservabilityProp !== undefined ? taskObservabilityProp : (ctx?.taskObservability ?? null);
     const selectedEvent = selectedEventProp !== undefined ? selectedEventProp : (ctx?.selectedEvent ?? null);
     const selectedConnector = selectedConnectorProp !== undefined ? selectedConnectorProp : (ctx?.selectedConnector ?? null);
-    const selectedTaskBookmark = selectedTaskBookmarkProp !== undefined ? selectedTaskBookmarkProp : (ctx?.selectedTaskBookmark ?? null);
-    const selectedEventBookmark = selectedEventBookmarkProp !== undefined ? selectedEventBookmarkProp : (ctx?.selectedEventBookmark ?? null);
     const selectedRuleId = selectedRuleIdProp !== undefined ? selectedRuleIdProp : (ctx?.selectedRuleId ?? null);
     const taskModelSummary = taskModelSummaryProp ?? ctx?.taskModelSummary;
-    const onCreateTaskBookmark = onCreateTaskBookmarkProp ?? ctx?.onCreateTaskBookmark ?? (() => undefined);
-    const onCreateEventBookmark = onCreateEventBookmarkProp ?? ctx?.onCreateEventBookmark ?? (() => undefined);
     const onUpdateEventDisplayTitle = onUpdateEventDisplayTitleProp ?? ctx?.onUpdateEventDisplayTitle ?? (() => Promise.resolve());
     const onSelectRule = onSelectRuleProp ?? ctx?.onSelectRule ?? (() => undefined);
     const onSelectEvent = ctx?.onSelectEvent;
@@ -132,7 +117,6 @@ export function EventInspector({
     const [fileEvidenceSortKey, setFileEvidenceSortKey] = useState<FileEvidenceSortKey>("recent");
 
     const taskTimeline = taskDetail?.timeline ?? [];
-    const observability = taskObservability?.observability ?? null;
     const { exploredFiles } = useMemo(() => buildTaskTimelineSummary(taskTimeline), [taskTimeline]);
     const fileActivity = useMemo(() => collectFileActivity(taskTimeline), [taskTimeline]);
     const fileEvidence = useMemo(() => buildFileEvidenceRows(fileActivity, exploredFiles), [exploredFiles, fileActivity]);
@@ -143,7 +127,7 @@ export function EventInspector({
     const todoGroups = useMemo(() => buildTodoGroups(taskTimeline), [taskTimeline]);
     const subagentInsight = useMemo(() => buildSubagentInsight(taskTimeline), [taskTimeline]);
     const verificationCycles = useMemo(() => buildVerificationCycles(taskTimeline), [taskTimeline]);
-    const mentionedVerifications = taskObservability?.mentionedFileVerifications ?? [];
+    const mentionedVerifications: never[] = [];
 
     const relatedEvents = useMemo(() => {
         if (!selectedEvent) return [];
@@ -238,10 +222,8 @@ export function EventInspector({
                         selectedEventDisplayTitle={selectedEventDisplayTitle}
                         selectedEventDisplayTitleOverride={selectedEventDisplayTitleOverride}
                         canEditSelectedEventTitle={canEditSelectedEventTitle}
-                        selectedTaskBookmark={selectedTaskBookmark} selectedEventBookmark={selectedEventBookmark}
                         eventTime={eventTime} questionGroups={questionGroups} todoGroups={todoGroups}
                         relatedEvents={relatedEvents} selectedRuleId={selectedRuleId}
-                        onCreateTaskBookmark={onCreateTaskBookmark} onCreateEventBookmark={onCreateEventBookmark}
                         onUpdateEventDisplayTitle={onUpdateEventDisplayTitle}
                         onSelectRule={onSelectRule}
                         {...(onOpenTaskWorkspace !== undefined ? { onOpenTaskWorkspace } : {})}
@@ -249,7 +231,7 @@ export function EventInspector({
                     />
                 ) : activeTab === "overview" ? (
                     <OverviewTab
-                        observability={observability} subagentInsight={subagentInsight}
+                        subagentInsight={subagentInsight}
                         verificationCycles={verificationCycles} runtimeSessionId={taskDetail?.runtimeSessionId}
                         runtimeSource={taskDetail?.runtimeSource} workspacePath={taskDetail?.task.workspacePath}
                         timeline={taskTimeline} todoGroups={todoGroups} questionGroups={questionGroups}

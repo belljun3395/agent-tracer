@@ -1,28 +1,16 @@
 import type {
-    BookmarkId,
     EventId,
-    PlaybookRecord,
-    PlaybookStatus,
-    PlaybookSummary,
-    ReusableTaskSnapshot,
     RuleCommandRecord,
     RuleId,
     RuntimeSource,
-    SavedBriefing,
     SessionId,
-    TaskEvaluation,
     TaskId,
-    WorkflowSearchResult,
-    WorkflowSummary
 } from "../types.js";
 import type {
-    BookmarksResponse,
-    BookmarkRecord,
     MonitoringTask,
     OverviewResponse,
     SearchResponse,
     TaskDetailResponse,
-    TaskObservabilityResponse,
     TimelineEventRecord,
     TasksResponse
 } from "../types.js";
@@ -233,9 +221,6 @@ export function fetchTasks(): Promise<TasksResponse> {
 export function fetchTaskDetail(taskId: TaskId): Promise<TaskDetailResponse> {
     return getJson<TaskDetailResponse>(`/api/v1/tasks/${taskId}`);
 }
-export function fetchTaskObservability(taskId: TaskId): Promise<TaskObservabilityResponse> {
-    return getJson<TaskObservabilityResponse>(`/api/v1/tasks/${taskId}/observability`);
-}
 export interface OpenInferenceTaskExport {
     readonly taskId: TaskId;
     readonly runtimeSource?: RuntimeSource;
@@ -255,27 +240,12 @@ export function fetchTaskOpenInference(taskId: TaskId): Promise<{
         openinference: OpenInferenceTaskExport;
     }>(`/api/v1/tasks/${taskId}/openinference`);
 }
-export function fetchBookmarks(taskId?: TaskId): Promise<BookmarksResponse> {
-    const suffix = taskId ? `?taskId=${encodeURIComponent(taskId)}` : "";
-    return getJson<BookmarksResponse>(`/api/v1/bookmarks${suffix}`);
-}
 export function fetchSearchResults(query: string, taskId?: TaskId, options?: RequestOptions): Promise<SearchResponse> {
     const params = new URLSearchParams({ q: query });
     if (taskId) {
         params.set("taskId", taskId);
     }
     return getJson<SearchResponse>(`/api/v1/search?${params.toString()}`, options);
-}
-export async function createBookmark(input: {
-    taskId: TaskId;
-    eventId?: EventId;
-    title?: string;
-    note?: string;
-}): Promise<BookmarkRecord> {
-    const payload = await postJson<{
-        bookmark: BookmarkRecord;
-    }>("/api/v1/bookmarks", input);
-    return payload.bookmark;
 }
 export async function updateTaskTitle(taskId: TaskId, title: string): Promise<MonitoringTask> {
     const payload = await patchJson<{
@@ -298,9 +268,6 @@ export async function updateEventDisplayTitle(eventId: EventId, displayTitle: st
 export async function deleteTask(taskId: TaskId): Promise<void> {
     return deleteRequest(`/api/v1/tasks/${taskId}`);
 }
-export async function deleteBookmark(bookmarkId: BookmarkId): Promise<void> {
-    return deleteRequest(`/api/v1/bookmarks/${bookmarkId}`);
-}
 export function fetchGlobalRuleCommands(): Promise<{ ruleCommands: RuleCommandRecord[] }> {
     return getJson<{ ruleCommands: RuleCommandRecord[] }>("/api/v1/rule-commands");
 }
@@ -315,98 +282,6 @@ export function createTaskRuleCommand(taskId: TaskId, pattern: string, label: st
 }
 export async function deleteRuleCommandById(id: string): Promise<void> {
     return deleteRequest(`/api/v1/rule-commands/${id}`);
-}
-export interface TaskEvaluationPayload {
-    rating: "good" | "skip";
-    useCase?: string;
-    workflowTags?: string[];
-    outcomeNote?: string;
-    approachNote?: string;
-    reuseWhen?: string;
-    watchouts?: string;
-    workflowSnapshot?: ReusableTaskSnapshot;
-    workflowContext?: string;
-}
-export interface TaskEvaluationRecord extends TaskEvaluation {
-    readonly workflowSnapshot: ReusableTaskSnapshot | null;
-    readonly workflowContext: string | null;
-    readonly searchText: string | null;
-    readonly version: number;
-    readonly promotedTo: string | null;
-    readonly qualitySignals: WorkflowSummary["qualitySignals"];
-}
-export type WorkflowSummaryRecord = WorkflowSummary;
-export type WorkflowSearchResultRecord = WorkflowSearchResult;
-export type PlaybookSummaryRecord = PlaybookSummary;
-export type PlaybookRecordResponse = PlaybookRecord;
-export type SavedBriefingRecord = SavedBriefing;
-export interface WorkflowContentRecord {
-    readonly snapshotId: string;
-    readonly taskId: TaskId;
-    readonly scopeKey: string;
-    readonly scopeKind: "task" | "turn";
-    readonly scopeLabel: string;
-    readonly turnIndex: number | null;
-    readonly title: string;
-    readonly displayTitle?: string;
-    readonly workflowSnapshot: ReusableTaskSnapshot;
-    readonly workflowContext: string;
-    readonly searchText: string | null;
-    readonly source: "saved" | "generated";
-    readonly version: number;
-    readonly promotedTo: string | null;
-    readonly qualitySignals: WorkflowSummary["qualitySignals"];
-}
-export function fetchWorkflowLibrary(rating?: "good" | "skip", query?: string, limit?: number): Promise<WorkflowSummaryRecord[]> {
-    const params = new URLSearchParams();
-    if (rating) {
-        params.set("rating", rating);
-    }
-    if (query?.trim()) {
-        params.set("q", query.trim());
-    }
-    if (typeof limit === "number") {
-        params.set("limit", String(limit));
-    }
-    const suffix = params.size > 0 ? `?${params.toString()}` : "";
-    return getJson<WorkflowSummaryRecord[]>(`/api/v1/workflows${suffix}`);
-}
-export function fetchTaskEvaluation(taskId: TaskId, scopeKey?: string): Promise<TaskEvaluationRecord | null> {
-    const suffix = scopeKey ? `?scopeKey=${encodeURIComponent(scopeKey)}` : "";
-    return getJson<TaskEvaluationRecord | null>(`/api/v1/tasks/${taskId}/evaluate${suffix}`);
-}
-export async function recordBriefingCopy(taskId: TaskId, scopeKey?: string): Promise<void> {
-    const suffix = scopeKey ? `?scopeKey=${encodeURIComponent(scopeKey)}` : "";
-    await postJson<{ ok: boolean }>(`/api/v1/tasks/${taskId}/briefing/copied${suffix}`, {});
-}
-export interface SaveBriefingPayload {
-    purpose: SavedBriefing["purpose"];
-    format: SavedBriefing["format"];
-    memo?: string;
-    content: string;
-    generatedAt: string;
-}
-export function saveTaskBriefing(taskId: TaskId, payload: SaveBriefingPayload): Promise<SavedBriefingRecord> {
-    return postJson<SavedBriefingRecord>(`/api/v1/tasks/${taskId}/briefings`, payload);
-}
-export function fetchTaskBriefings(taskId: TaskId): Promise<SavedBriefingRecord[]> {
-    return getJson<SavedBriefingRecord[]>(`/api/v1/tasks/${taskId}/briefings`);
-}
-export async function saveTaskEvaluation(taskId: TaskId, payload: TaskEvaluationPayload, scopeKey?: string): Promise<void> {
-    const suffix = scopeKey ? `?scopeKey=${encodeURIComponent(scopeKey)}` : "";
-    await postJson<{
-        ok: boolean;
-    }>(`/api/v1/tasks/${taskId}/evaluate${suffix}`, payload);
-}
-export function fetchSimilarWorkflows(query: string, tags?: readonly string[], limit?: number): Promise<WorkflowSearchResultRecord[]> {
-    const params = new URLSearchParams({ q: query });
-    if (tags && tags.length > 0) {
-        params.set("tags", tags.join(","));
-    }
-    if (typeof limit === "number") {
-        params.set("limit", String(limit));
-    }
-    return getJson<WorkflowSearchResultRecord[]>(`/api/v1/workflows/similar?${params.toString()}`);
 }
 export interface RuleActionPayload {
     taskId: TaskId;
@@ -440,48 +315,6 @@ export async function postRuleAction(payload: RuleActionPayload): Promise<void> 
             ...(payload.metadata ? { metadata: payload.metadata } : {}),
         }],
     });
-}
-export function fetchWorkflowContent(taskId: TaskId, scopeKey?: string): Promise<WorkflowContentRecord> {
-    const suffix = scopeKey ? `?scopeKey=${encodeURIComponent(scopeKey)}` : "";
-    return getJson<WorkflowContentRecord>(`/api/v1/workflows/${taskId}/content${suffix}`);
-}
-export interface PlaybookPayload {
-    title: string;
-    status?: PlaybookStatus;
-    whenToUse?: string | null;
-    prerequisites?: string[];
-    approach?: string | null;
-    keySteps?: string[];
-    watchouts?: string[];
-    antiPatterns?: string[];
-    failureModes?: string[];
-    variants?: PlaybookRecord["variants"];
-    relatedPlaybookIds?: string[];
-    sourceSnapshotIds?: string[];
-    tags?: string[];
-}
-export function fetchPlaybooks(query?: string, status?: PlaybookStatus, limit?: number): Promise<PlaybookSummaryRecord[]> {
-    const params = new URLSearchParams();
-    if (query?.trim()) {
-        params.set("q", query.trim());
-    }
-    if (status) {
-        params.set("status", status);
-    }
-    if (typeof limit === "number") {
-        params.set("limit", String(limit));
-    }
-    const suffix = params.size > 0 ? `?${params.toString()}` : "";
-    return getJson<PlaybookSummaryRecord[]>(`/api/v1/playbooks${suffix}`);
-}
-export function fetchPlaybook(playbookId: string): Promise<PlaybookRecordResponse> {
-    return getJson<PlaybookRecordResponse>(`/api/v1/playbooks/${playbookId}`);
-}
-export function createPlaybook(payload: PlaybookPayload): Promise<PlaybookRecordResponse> {
-    return postJson<PlaybookRecordResponse>("/api/v1/playbooks", payload);
-}
-export function updatePlaybook(playbookId: string, payload: Partial<PlaybookPayload>): Promise<PlaybookRecordResponse> {
-    return patchJson<PlaybookRecordResponse>(`/api/v1/playbooks/${playbookId}`, payload);
 }
 export interface TurnPartitionRecord {
     readonly taskId: TaskId;

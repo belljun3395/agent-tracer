@@ -5,7 +5,7 @@ import type { Response } from "express";
 import {
     TaskNotFoundError,
     TurnPartitionVersionMismatchError,
-} from "~application/workflow/index.js";
+} from "~application/turn-partitions/index.js";
 import { createApiErrorEnvelope, isApiErrorEnvelope } from "../interceptors/api-response-envelope.js";
 
 const INTERNAL_SERVER_ERROR_BODY = createApiErrorEnvelope("internal_server_error", "Internal server error");

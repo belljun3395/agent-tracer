@@ -1,16 +1,13 @@
 import type React from "react";
 import { useEffect, useRef } from "react";
-import type { BookmarkSearchHit, SearchResponse } from "../../types.js";
+import type { SearchResponse } from "../../types.js";
 import { Link } from "react-router-dom";
 import { cn } from "../lib/ui/cn.js";
 import { useTheme } from "../lib/useTheme.js";
 import { Button } from "./ui/Button.js";
 interface TopBarProps {
     readonly isConnected: boolean;
-    readonly pendingApprovalCount?: number;
-    readonly blockedTaskCount?: number;
     readonly isNavigationOpen?: boolean;
-    readonly onOpenApprovalQueue?: () => void;
     readonly onToggleNavigation?: () => void;
     readonly searchQuery: string;
     readonly searchResults: SearchResponse | null;
@@ -21,7 +18,6 @@ interface TopBarProps {
     readonly onSearchQueryChange: (value: string) => void;
     readonly onSelectSearchTask: (taskId: string) => void;
     readonly onSelectSearchEvent: (taskId: string, eventId: string) => void;
-    readonly onSelectSearchBookmark: (bookmark: BookmarkSearchHit) => void;
     readonly onRefresh: () => void;
     readonly showFiltersButton?: boolean;
     readonly isFiltersOpen?: boolean;
@@ -30,12 +26,11 @@ interface TopBarProps {
     readonly onToggleRules?: () => void;
     readonly isRulesOpen?: boolean;
 }
-export function TopBar({ isConnected, pendingApprovalCount = 0, blockedTaskCount = 0, isNavigationOpen, onOpenApprovalQueue, onToggleNavigation, searchQuery, searchResults, isSearching, selectedTaskTitle, taskScopeEnabled, onTaskScopeToggle, onSearchQueryChange, onSelectSearchTask, onSelectSearchEvent, onSelectSearchBookmark, onRefresh, showFiltersButton = false, isFiltersOpen = false, filtersButtonRef, onToggleFilters, onToggleRules, isRulesOpen = false }: TopBarProps): React.JSX.Element {
+export function TopBar({ isConnected, isNavigationOpen, onToggleNavigation, searchQuery, searchResults, isSearching, selectedTaskTitle, taskScopeEnabled, onTaskScopeToggle, onSearchQueryChange, onSelectSearchTask, onSelectSearchEvent, onRefresh, showFiltersButton = false, isFiltersOpen = false, filtersButtonRef, onToggleFilters, onToggleRules, isRulesOpen = false }: TopBarProps): React.JSX.Element {
     const { theme, toggle: toggleTheme } = useTheme();
     const searchRef = useRef<HTMLInputElement>(null);
     const totalResults = (searchResults?.tasks.length ?? 0)
-        + (searchResults?.events.length ?? 0)
-        + (searchResults?.bookmarks.length ?? 0);
+        + (searchResults?.events.length ?? 0);
     useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent): void => {
             if ((event.metaKey || event.ctrlKey) && event.key === "k") {
@@ -49,7 +44,7 @@ export function TopBar({ isConnected, pendingApprovalCount = 0, blockedTaskCount
     const hasTaskScope = Boolean(selectedTaskTitle);
     const searchPlaceholder = taskScopeEnabled && hasTaskScope
         ? "Search within current task"
-        : "Search tasks, events, and saved";
+        : "Search tasks and events";
     const scopeToggle = hasTaskScope
         ? (<button aria-label={taskScopeEnabled ? "Search all tasks" : "Limit search to this task"} className={cn("inline-flex h-6 shrink-0 items-center rounded-[var(--radius-sm)] px-1.5 text-[0.62rem] font-semibold transition-[color,background-color] duration-200 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--accent)]", taskScopeEnabled
                 ? "bg-[color-mix(in_srgb,var(--accent)_8%,transparent)] text-[var(--accent)]"
@@ -130,7 +125,7 @@ export function TopBar({ isConnected, pendingApprovalCount = 0, blockedTaskCount
               </div>
 
               {!isSearching && totalResults === 0 && (<div className="px-3 py-2 text-[0.73rem] text-[var(--text-3)]">
-                  No matching tasks, events, or saved cards.
+                  No matching tasks or events.
                 </div>)}
 
               {(searchResults?.tasks.length ?? 0) > 0 && (<div className="border-t border-[var(--border)] first:border-t-0">
@@ -149,25 +144,12 @@ export function TopBar({ isConnected, pendingApprovalCount = 0, blockedTaskCount
                     </button>))}
                 </div>)}
 
-              {(searchResults?.bookmarks.length ?? 0) > 0 && (<div className="border-t border-[var(--border)] first:border-t-0">
-                  <div className="px-3 py-2 text-[0.72rem] font-bold uppercase tracking-[0.08em] text-[var(--text-3)]">Saved</div>
-                  {searchResults?.bookmarks.map((bookmark) => (<button key={bookmark.id} className="flex w-full flex-col items-start gap-0.5 px-3 py-2 text-left transition-colors hover:bg-[var(--surface-2)] focus-visible:outline-none focus-visible:bg-[var(--surface-2)]" onClick={() => onSelectSearchBookmark(bookmark)} type="button">
-                      <strong className="text-[0.82rem] font-semibold text-[var(--text-1)]">{bookmark.title}</strong>
-                      <span className="text-[0.74rem] text-[var(--text-2)]">{bookmark.taskTitle ?? bookmark.kind}</span>
-                    </button>))}
-                </div>)}
             </div>)}
         </div>
       </div>
 
       {/* Right: Actions */}
       <div className="flex h-full shrink-0 items-center gap-1.5 border-l border-[var(--border)] px-3">
-        {pendingApprovalCount > 0 && (<button className="inline-flex h-6.5 items-center rounded-[var(--radius-md)] border border-[var(--accent-light)] bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] px-2 text-[0.68rem] font-semibold text-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-1" onClick={onOpenApprovalQueue} type="button">
-            {pendingApprovalCount} approval
-          </button>)}
-        {blockedTaskCount > 0 && (<button className="inline-flex h-6.5 items-center rounded-[var(--radius-md)] border border-[var(--err-bg)] bg-[var(--err-bg)] px-2 text-[0.68rem] font-semibold text-[var(--err)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--err)] focus-visible:ring-offset-1" onClick={onOpenApprovalQueue} type="button">
-            {blockedTaskCount} blocked
-          </button>)}
         {showFiltersButton && onToggleFilters && (
           <button ref={filtersButtonRef} aria-expanded={isFiltersOpen} aria-label="Open filters and zoom" className={cn("inline-flex h-7 shrink-0 items-center gap-1.5 rounded-[var(--radius-md)] border px-2.5 text-[0.72rem] font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-1", isFiltersOpen
               ? "border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] text-[var(--accent)]"

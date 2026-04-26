@@ -1,5 +1,5 @@
 import type { MonitoringSession } from "../types.js";
-import type { BookmarkRecord, MonitoringTask, OverviewResponse, TimelineEventRecord } from "../types.js";
+import type { MonitoringTask, OverviewResponse, TimelineEventRecord } from "../types.js";
 type RealtimeDispatch =
     | {
         type: "UPSERT_TASK";
@@ -8,14 +8,6 @@ type RealtimeDispatch =
     | {
         type: "REMOVE_TASK";
         taskId: string;
-    }
-    | {
-        type: "UPSERT_BOOKMARK";
-        bookmark: BookmarkRecord;
-    }
-    | {
-        type: "REMOVE_BOOKMARK";
-        bookmarkId: string;
     }
     | {
         type: "UPSERT_TASK_DETAIL_EVENT";
@@ -41,14 +33,6 @@ export type MonitorRealtimeMessage = {
 } | {
     readonly type: "event.logged" | "event.updated";
     readonly payload: TimelineEventRecord;
-} | {
-    readonly type: "bookmark.saved";
-    readonly payload: BookmarkRecord;
-} | {
-    readonly type: "bookmark.deleted";
-    readonly payload: {
-        readonly bookmarkId: string;
-    };
 } | {
     readonly type: "tasks.purged";
     readonly payload: {
@@ -88,9 +72,6 @@ function shouldRefreshSelectedTaskDetail(message: MonitorRealtimeMessage, select
         case "event.logged":
         case "event.updated":
             return message.payload.taskId === selectedTaskId;
-        case "bookmark.saved":
-        case "bookmark.deleted":
-            return false;
     }
 }
 export async function refreshRealtimeMonitorData(input: {
@@ -98,7 +79,6 @@ export async function refreshRealtimeMonitorData(input: {
     selectedTaskId: string | null;
     refreshOverview: () => Promise<void>;
     refreshTaskDetail: (taskId: string) => Promise<void>;
-    refreshBookmarksOnly: () => Promise<void>;
     dispatch?: (action: RealtimeDispatch) => void;
 }): Promise<void> {
     if (!input.message) {
@@ -110,12 +90,6 @@ export async function refreshRealtimeMonitorData(input: {
         return;
     }
     switch (input.message.type) {
-        case "bookmark.saved":
-            input.dispatch?.({ type: "UPSERT_BOOKMARK", bookmark: input.message.payload });
-            return;
-        case "bookmark.deleted":
-            input.dispatch?.({ type: "REMOVE_BOOKMARK", bookmarkId: input.message.payload.bookmarkId });
-            return;
         case "event.updated":
             if (shouldRefreshSelectedTaskDetail(input.message, input.selectedTaskId)) {
                 input.dispatch?.({ type: "UPSERT_TASK_DETAIL_EVENT", event: input.message.payload });

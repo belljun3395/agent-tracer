@@ -76,21 +76,6 @@ export const runtimeSessionBindings = sqliteTable("runtime_bindings_current", {
   primaryKey({ columns: [table.runtimeSource, table.runtimeSessionId] }),
 ]);
 
-export const bookmarks = sqliteTable("bookmarks_current", {
-  id: text("id").primaryKey(),
-  taskId: text("task_id").notNull().references(() => tasksCurrent.id, { onDelete: "cascade" }),
-  eventId: text("event_id").references(() => timelineEvents.id, { onDelete: "cascade" }),
-  kind: text("kind").notNull(),
-  title: text("title").notNull(),
-  note: text("note"),
-  metadataJson: text("metadata_json").notNull(),
-  createdAt: text("created_at").notNull(),
-  updatedAt: text("updated_at").notNull(),
-}, (table) => [
-  index("idx_bookmarks_current_task_created").on(table.taskId, table.updatedAt),
-  index("idx_bookmarks_current_event").on(table.eventId),
-]);
-
 export const searchDocuments = sqliteTable("search_documents", {
   scope: text("scope").notNull(),
   entityId: text("entity_id").notNull(),
@@ -102,47 +87,6 @@ export const searchDocuments = sqliteTable("search_documents", {
 }, (table) => [
   primaryKey({ columns: [table.scope, table.entityId] }),
   index("idx_search_documents_scope_task_updated").on(table.scope, table.taskId, table.updatedAt),
-]);
-
-export const evaluationsCore = sqliteTable("evaluations_core", {
-  taskId: text("task_id").notNull().references(() => tasksCurrent.id, { onDelete: "cascade" }),
-  scopeKey: text("scope_key").notNull(),
-  scopeKind: text("scope_kind").notNull(),
-  scopeLabel: text("scope_label").notNull(),
-  turnIndex: integer("turn_index"),
-  rating: text("rating").notNull(),
-  version: integer("version").notNull(),
-  evaluatedAt: text("evaluated_at").notNull(),
-}, (table) => [
-  primaryKey({ columns: [table.taskId, table.scopeKey] }),
-  index("idx_evaluations_core_rating").on(table.rating),
-]);
-
-export const playbooks = sqliteTable("playbooks_core", {
-  id: text("id").primaryKey(),
-  title: text("title").notNull(),
-  slug: text("slug").notNull(),
-  status: text("status").notNull(),
-  whenToUse: text("when_to_use"),
-  approach: text("approach"),
-  useCount: integer("use_count").notNull(),
-  lastUsedAt: text("last_used_at"),
-  createdAt: text("created_at").notNull(),
-  updatedAt: text("updated_at").notNull(),
-}, (table) => [
-  index("idx_playbooks_core_status").on(table.status),
-]);
-
-export const briefings = sqliteTable("briefings_current", {
-  id: text("id").primaryKey(),
-  taskId: text("task_id").notNull().references(() => tasksCurrent.id, { onDelete: "cascade" }),
-  generatedAt: text("generated_at").notNull(),
-  purpose: text("purpose").notNull(),
-  format: text("format").notNull(),
-  memo: text("memo"),
-  content: text("content").notNull(),
-}, (table) => [
-  index("idx_briefings_current_task_generated").on(table.taskId, table.generatedAt),
 ]);
 
 export const turnPartitions = sqliteTable("turn_partitions_current", {
@@ -166,9 +110,6 @@ export const tasksCurrentRelations = relations(tasksCurrent, ({ many }) => ({
   sessions: many(sessionsCurrent),
   events: many(timelineEvents),
   runtimeBindings: many(runtimeSessionBindings),
-  bookmarks: many(bookmarks),
-  evaluations: many(evaluationsCore),
-  briefings: many(briefings),
   ruleCommands: many(ruleCommands),
   ownedRelations: many(taskRelations, { relationName: "taskRelationOwner" }),
   relatedRelations: many(taskRelations, { relationName: "taskRelationRelated" }),
@@ -196,7 +137,7 @@ export const sessionsCurrentRelations = relations(sessionsCurrent, ({ one, many 
   runtimeBindings: many(runtimeSessionBindings),
 }));
 
-export const timelineEventsRelations = relations(timelineEvents, ({ one, many }) => ({
+export const timelineEventsRelations = relations(timelineEvents, ({ one }) => ({
   task: one(tasksCurrent, {
     fields: [timelineEvents.taskId],
     references: [tasksCurrent.id],
@@ -205,7 +146,6 @@ export const timelineEventsRelations = relations(timelineEvents, ({ one, many })
     fields: [timelineEvents.sessionId],
     references: [sessionsCurrent.id],
   }),
-  bookmarks: many(bookmarks),
 }));
 
 export const runtimeSessionBindingsRelations = relations(runtimeSessionBindings, ({ one }) => ({
@@ -216,31 +156,6 @@ export const runtimeSessionBindingsRelations = relations(runtimeSessionBindings,
   session: one(sessionsCurrent, {
     fields: [runtimeSessionBindings.monitorSessionId],
     references: [sessionsCurrent.id],
-  }),
-}));
-
-export const bookmarksRelations = relations(bookmarks, ({ one }) => ({
-  task: one(tasksCurrent, {
-    fields: [bookmarks.taskId],
-    references: [tasksCurrent.id],
-  }),
-  event: one(timelineEvents, {
-    fields: [bookmarks.eventId],
-    references: [timelineEvents.id],
-  }),
-}));
-
-export const evaluationsCoreRelations = relations(evaluationsCore, ({ one }) => ({
-  task: one(tasksCurrent, {
-    fields: [evaluationsCore.taskId],
-    references: [tasksCurrent.id],
-  }),
-}));
-
-export const briefingsRelations = relations(briefings, ({ one }) => ({
-  task: one(tasksCurrent, {
-    fields: [briefings.taskId],
-    references: [tasksCurrent.id],
   }),
 }));
 
@@ -269,14 +184,7 @@ export const drizzleSchema = {
   timelineEventsRelations,
   runtimeSessionBindings,
   runtimeSessionBindingsRelations,
-  bookmarks,
-  bookmarksRelations,
   searchDocuments,
-  evaluationsCore,
-  evaluationsCoreRelations,
-  playbooks,
-  briefings,
-  briefingsRelations,
   ruleCommands,
   ruleCommandsRelations,
   turnPartitions,

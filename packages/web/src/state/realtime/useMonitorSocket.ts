@@ -61,7 +61,6 @@ export function applyMonitorRealtimeInvalidations(
             void client.invalidateQueries({ queryKey: monitorQueryKeys.overview() });
             if (selectedTaskId && message.payload.id === selectedTaskId) {
                 void client.invalidateQueries({ queryKey: monitorQueryKeys.taskDetail(selectedTaskId) });
-                void client.invalidateQueries({ queryKey: monitorQueryKeys.taskObservability(selectedTaskId) });
             }
             return;
         }
@@ -70,24 +69,16 @@ export function applyMonitorRealtimeInvalidations(
             void client.invalidateQueries({ queryKey: monitorQueryKeys.overview() });
             const deleted = TaskId(message.payload.taskId);
             client.removeQueries({ queryKey: monitorQueryKeys.taskDetail(deleted) });
-            client.removeQueries({ queryKey: monitorQueryKeys.taskObservability(deleted) });
             return;
         }
         case "event.logged":
         case "event.updated": {
             if (!selectedTaskId) return;
             void client.invalidateQueries({ queryKey: monitorQueryKeys.taskDetail(selectedTaskId) });
-            void client.invalidateQueries({ queryKey: monitorQueryKeys.taskObservability(selectedTaskId) });
             return;
         }
-        case "bookmark.saved":
-        case "bookmark.deleted":
-            void client.invalidateQueries({ queryKey: monitorQueryKeys.bookmarks() });
-            return;
         case "session.started":
         case "session.ended":
-            if (!selectedTaskId || message.payload.taskId !== selectedTaskId) return;
-            void client.invalidateQueries({ queryKey: monitorQueryKeys.taskObservability(selectedTaskId) });
             return;
     }
 }

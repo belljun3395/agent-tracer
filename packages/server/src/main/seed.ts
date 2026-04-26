@@ -1,10 +1,8 @@
 import path from "node:path";
 import { normalizeWorkspacePath } from "~domain/monitoring/index.js";
-import { SaveBookmarkUseCase } from "~application/bookmarks/index.js";
 import { LogEventUseCase } from "~application/events/index.js";
 import {
     createSqliteDatabaseContext,
-    SqliteBookmarkRepository,
     SqliteEventRepository,
     SqliteSessionRepository,
     SqliteTaskRepository,
@@ -19,12 +17,10 @@ const notifier: INotificationPublisher = { publish: () => { } };
 const tasks = new SqliteTaskRepository(databaseContext.db);
 const sessions = new SqliteSessionRepository(databaseContext.db);
 const events = new SqliteEventRepository(databaseContext.db);
-const bookmarks = new SqliteBookmarkRepository(databaseContext.db);
 const taskLifecycle = new TaskLifecycleService(tasks, sessions, events, notifier);
 const logEvent = new LogEventUseCase(tasks, events, notifier);
 const startTask = new StartTaskUseCase(taskLifecycle);
 const completeTask = new CompleteTaskUseCase(taskLifecycle);
-const saveBookmark = new SaveBookmarkUseCase(tasks, events, bookmarks, notifier);
 
 try {
     await seedDashboardTask();
@@ -207,11 +203,6 @@ async function seedCoordinationTask(): Promise<void> {
         relationExplanation: "The verified example is bookmarked so the team can return to this flow during future UI reviews.",
         metadata: { activityType: "bookmark" }
     }), "coordination bookmark");
-
-    await saveBookmark.execute({
-        taskId, eventId: bookmarkEventId, title: "Saved task for follow-up",
-        note: "Use this bookmark to demo how a coordination event can become a saved follow-up."
-    });
 
     firstEventId(await logEvent.execute({
         taskId, sessionId, kind: "todo.logged", lane: "todos",
