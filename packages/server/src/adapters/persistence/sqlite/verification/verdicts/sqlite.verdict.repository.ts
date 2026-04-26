@@ -4,8 +4,8 @@ import type {
     IVerdictRepository,
     VerdictUpsertInput,
 } from "~application/ports/repository/verdict.repository.js";
-import { turns, verdicts } from "../schema/drizzle.schema.js";
-import { ensureSqliteDatabase, type SqliteDatabase, type SqliteDatabaseInput } from "../shared/drizzle.db.js";
+import { ensureSqliteDatabase, type SqliteDatabase, type SqliteDatabaseInput } from "~adapters/persistence/sqlite/shared/drizzle.db.js";
+import { turns, verdicts } from "../sqlite.verification.tables.js";
 
 type VerdictRow = typeof verdicts.$inferSelect;
 

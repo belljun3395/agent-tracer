@@ -5,7 +5,7 @@ import type { SearchEventHit, SearchOptions, SearchResults, SearchTaskHit } from
 import { ensureSqliteDatabase, type SqliteDatabaseInput } from "../shared/drizzle.db.js";
 import { normalizeSearchText } from "../shared/text.normalizers.js";
 import { cosineSimilarity, deserializeEmbedding, serializeEmbedding } from "../shared/embedding.codec.js";
-import { loadTimelineEventById } from "../repositories/sqlite.event.storage.js";
+import { loadTimelineEventById } from "../timeline-events/sqlite.event.storage.js";
 import { buildEventSearchText, type SearchDocumentScope, upsertSearchDocument } from "./sqlite.search.documents.js";
 import type {
     RankedSearchDocument,

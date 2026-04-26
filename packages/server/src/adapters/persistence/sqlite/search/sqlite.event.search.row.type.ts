@@ -1,6 +1,6 @@
 import type { MonitoringEventKind, TimelineLane } from "~domain/monitoring/index.js";
 import type { MonitoringTask } from "~domain/monitoring/index.js";
-import type { SearchDocumentScope } from "../search/sqlite.search.documents.js";
+import type { SearchDocumentScope } from "./sqlite.search.documents.js";
 
 export interface SearchTaskRow {
     id: string;

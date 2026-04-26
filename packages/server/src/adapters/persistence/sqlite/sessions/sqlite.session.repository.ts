@@ -3,7 +3,7 @@ import type { MonitoringSession } from "~domain/monitoring/index.js"
 
 import type { ISessionRepository, SessionCreateInput } from "~application/ports/repository/session.repository.js"
 import { ensureSqliteDatabase, type SqliteDatabase, type SqliteDatabaseInput } from "../shared/drizzle.db.js"
-import { sessionsCurrent } from "../schema/drizzle.schema.js"
+import { sessionsCurrent } from "./sqlite.session.tables.js"
 import { appendDomainEvent, eventTimeFromIso } from "../events/index.js"
 import { type SessionRow, mapSessionRow } from "./sqlite.session.row.type.js"
 

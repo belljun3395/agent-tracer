@@ -3,11 +3,13 @@ import type { MonitoringTask, TaskStatus } from "~domain/monitoring/index.js"
 import { deriveTaskDisplayTitle } from "~domain/monitoring/index.js"
 import type { ITaskRepository, TaskUpsertInput } from "~application/ports/repository/task.repository.js"
 import { ensureSqliteDatabase, type SqliteDatabase, type SqliteDatabaseInput } from "../shared/drizzle.db.js"
-import { sessionsCurrent, tasksCurrent, timelineEvents } from "../schema/drizzle.schema.js"
+import { sessionsCurrent } from "../sessions/sqlite.session.tables.js"
+import { timelineEvents } from "../timeline-events/sqlite.timeline-event.tables.js"
+import { tasksCurrent } from "./sqlite.task.tables.js"
 import { buildTaskSearchText, deleteSearchDocumentsByTaskIds, upsertSearchDocument } from "../search/sqlite.search.documents.js"
 import { appendDomainEvent, eventTimeFromIso } from "../events/index.js"
 import { type TaskRow, mapTaskRow } from "./sqlite.task.row.type.js"
-import { loadTimelineEventsForTask } from "./sqlite.event.storage.js"
+import { loadTimelineEventsForTask } from "../timeline-events/sqlite.event.storage.js"
 
 const TASK_ROW_SELECT = `
   select
