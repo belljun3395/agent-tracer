@@ -8,6 +8,7 @@ export interface SelectionState {
     readonly selectedConnectorKey: string | null;
     readonly selectedRuleId: string | null;
     readonly selectedTag: string | null;
+    readonly focusedTurnGroupId: string | null;
     readonly showRuleGapsOnly: boolean;
     readonly isConnected: boolean;
     readonly deletingTaskId: string | null;
@@ -20,6 +21,7 @@ export interface SelectionActions {
     selectConnector: (key: string | null) => void;
     selectRule: (ruleId: string | null) => void;
     selectTag: (tag: string | null) => void;
+    focusTurnGroup: (groupId: string | null) => void;
     setShowRuleGapsOnly: (show: boolean) => void;
     resetFilters: () => void;
     setConnected: (connected: boolean) => void;
@@ -38,15 +40,20 @@ export function createSelectionStore(): SelectionStore {
         selectedConnectorKey: null,
         selectedRuleId: null,
         selectedTag: null,
+        focusedTurnGroupId: null,
         showRuleGapsOnly: false,
         isConnected: false,
         deletingTaskId: null,
         deleteErrorTaskId: null,
-        selectTask: (selectedTaskId) => set({ selectedTaskId }),
+        selectTask: (selectedTaskId) => set((state) =>
+            selectedTaskId === state.selectedTaskId ? state : { ...state, selectedTaskId, focusedTurnGroupId: null }),
         selectEvent: (selectedEventId) => set({ selectedEventId }),
         selectConnector: (selectedConnectorKey) => set({ selectedConnectorKey }),
         selectRule: (selectedRuleId) => set({ selectedRuleId }),
         selectTag: (selectedTag) => set({ selectedTag }),
+        focusTurnGroup: (groupId) => set((state) => ({
+            focusedTurnGroupId: state.focusedTurnGroupId === groupId ? null : groupId
+        })),
         setShowRuleGapsOnly: (showRuleGapsOnly) => set({ showRuleGapsOnly }),
         resetFilters: () =>
             set({ selectedRuleId: null, selectedTag: null, showRuleGapsOnly: false }),

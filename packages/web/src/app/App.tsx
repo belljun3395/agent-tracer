@@ -16,6 +16,7 @@ import { useMonitorSocket } from "~state/realtime/useMonitorSocket.js";
 import { useTaskDetailQuery, useTasksQuery } from "~state/server/queries.js";
 import { monitorQueryKeys } from "~state/server/queryKeys.js";
 import { UiStoreProvider, useSelectionStore, useSelectionStoreApi } from "~state/ui/UiStoreProvider.js";
+import { TurnPartitionProvider } from "~state/TurnPartitionProvider.js";
 import { useTheme } from "./lib/useTheme.js";
 import { useDashboard } from "./features/dashboard/useDashboard.js";
 
@@ -27,6 +28,7 @@ function Dashboard({
     const db = useDashboard("timeline", { onSelectTaskRoute });
 
     return (
+        <TurnPartitionProvider taskId={db.selectedTaskId ?? null} timeline={db.taskDetail?.timeline ?? []}>
         <div className="flex h-dvh flex-col overflow-hidden bg-[var(--bg)]">
             <TopBar
                 isConnected={db.isConnected}
@@ -163,6 +165,7 @@ function Dashboard({
                 )}
             </div>
         </div>
+        </TurnPartitionProvider>
     );
 }
 

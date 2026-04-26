@@ -82,8 +82,11 @@ export function createTurnPartitionUpdate(input: TurnPartitionUpdateInput): Turn
 
 /**
  * Reconciles a stored partition against the current timeline. If the stored partition
- * does not cover exactly the current non-prelude turn count, we fall back to the default
- * (one group per turn). Callers should persist the fallback when they observe the mismatch.
+ * does not cover exactly the current non-prelude turn count, fall back to the default
+ * (one group per turn) BUT preserve the stored version so optimistic-locking on the
+ * client's next save still matches the DB row. Otherwise the client would always send
+ * baseVersion = 1 (from a synthetic default) while the DB carries the real version,
+ * producing an unrecoverable 409 loop.
  */
 export function resolveTurnPartition(input: ResolveTurnPartitionInput): TurnPartition {
     const total = countNonPreludeTurns(input.events);
@@ -92,7 +95,8 @@ export function resolveTurnPartition(input: ResolveTurnPartitionInput): TurnPart
             validatePartition(input.stored, total);
             return input.stored;
         } catch {
-            /* fall through to default */
+            const fallback = createDefaultTurnPartition(input.taskId, input.events, input.fallbackUpdatedAt);
+            return { ...fallback, version: input.stored.version };
         }
     }
     return createDefaultTurnPartition(input.taskId, input.events, input.fallbackUpdatedAt);
