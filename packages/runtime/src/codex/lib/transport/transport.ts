@@ -1,7 +1,7 @@
 import {CODEX_RUNTIME_SOURCE, PROJECT_DIR} from "~codex/util/paths.const.js";
 import {defaultTaskTitle} from "~codex/util/paths.js";
 import {codexHookRuntime} from "~codex/lib/runtime.js";
-import {readStdinJson} from "~shared/hook-runtime/index.js";
+import { readStdinJson } from "~shared/hook-runtime/stdin.js";
 import type {RuntimeSessionEnsureResult} from "~shared/hook-runtime/transport.js";
 
 export {readStdinJson};

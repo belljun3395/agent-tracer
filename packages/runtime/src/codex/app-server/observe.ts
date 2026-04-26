@@ -35,16 +35,14 @@
  *   --help, -h            Show this help text
  */
 import * as path from "node:path";
-import type {RuntimeIngestEvent} from "~shared/events/kinds.js";
-import {KIND} from "~shared/events/kinds.js";
-import {LANE} from "~shared/events/lanes.js";
+import type { RuntimeIngestEvent } from "~shared/events/kinds.type.js";
+import { KIND } from "~shared/events/kinds.const.js";
+import { LANE } from "~shared/events/lanes.const.js";
 import {provenEvidence} from "~shared/semantics/evidence.js";
-import {
-    buildSemanticMetadata,
-    inferExploreSemantic,
-    inferFileToolSemantic,
-    inferMcpSemantic,
-} from "~shared/semantics/inference.js";
+import { inferMcpSemantic } from "~shared/semantics/inference.coordination.js";
+import { inferExploreSemantic } from "~shared/semantics/inference.explore.js";
+import { inferFileToolSemantic } from "~shared/semantics/inference.file.js";
+import { buildSemanticMetadata } from "~shared/semantics/inference.util.js";
 import {
     ensureRuntimeSession,
     postTaggedEvent,

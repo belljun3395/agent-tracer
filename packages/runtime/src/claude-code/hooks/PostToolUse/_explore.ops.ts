@@ -11,10 +11,11 @@ import {stringifyToolInput} from "~claude-code/hooks/util/payload.js";
 import {createMessageId, toTrimmedString} from "~claude-code/hooks/util/utils.js";
 import {postTaggedEvent} from "./_shared.js";
 import type {PostToolUseHandlerArgs} from "./_shared.js";
-import {KIND} from "~shared/events/kinds.js";
-import {LANE} from "~shared/events/lanes.js";
+import { KIND } from "~shared/events/kinds.const.js";
+import { LANE } from "~shared/events/lanes.const.js";
 import {provenEvidence} from "~shared/semantics/evidence.js";
-import {buildSemanticMetadata, inferExploreSemantic} from "~shared/semantics/inference.js";
+import { inferExploreSemantic } from "~shared/semantics/inference.explore.js";
+import { buildSemanticMetadata } from "~shared/semantics/inference.util.js";
 
 const MAX_PATH_LENGTH = 300;
 

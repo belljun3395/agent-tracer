@@ -21,11 +21,12 @@ import {toTrimmedString} from "~codex/util/utils.js";
 import {codexHookRuntime} from "~codex/lib/runtime.js";
 import {ensureRuntimeSession} from "~codex/lib/transport/transport.js";
 import {readCodexPostToolUse} from "~shared/hooks/codex/payloads.js";
-import {runHook} from "~shared/hook-runtime/index.js";
-import {KIND} from "~shared/events/kinds.js";
-import {type TerminalCommandMetadata} from "~shared/events/metadata.js";
+import { runHook } from "~shared/hook-runtime/run-hook.js";
+import { KIND } from "~shared/events/kinds.const.js";
+import type { TerminalCommandMetadata } from "~shared/events/metadata.type.js";
 import {provenEvidence} from "~shared/semantics/evidence.js";
-import {buildSemanticMetadata, inferCommandSemantic} from "~shared/semantics/inference.js";
+import { inferCommandSemantic } from "~shared/semantics/inference.command.js";
+import { buildSemanticMetadata } from "~shared/semantics/inference.util.js";
 
 await runHook("PostToolUse/Bash", {
     logger: codexHookRuntime.logger,

@@ -28,7 +28,7 @@
 import {claudeHookRuntime} from "~claude-code/hooks/lib/runtime.js";
 import {resolveEventSessionIds} from "~claude-code/hooks/Agent/session.js";
 import {readPreToolUse} from "~shared/hooks/claude/payloads.js";
-import {runHook} from "~shared/hook-runtime/index.js";
+import { runHook } from "~shared/hook-runtime/run-hook.js";
 
 await runHook("PreToolUse", {
     logger: claudeHookRuntime.logger,

@@ -5,10 +5,11 @@
 import {createStableTodoId, toTrimmedString} from "~claude-code/hooks/util/utils.js";
 import {postTaggedEvents} from "./_shared.js";
 import type {PostToolUseHandlerArgs} from "./_shared.js";
-import {KIND, type TodoState} from "~shared/events/kinds.js";
-import {type TodoLoggedMetadata} from "~shared/events/metadata.js";
+import { KIND } from "~shared/events/kinds.const.js";
+import type { TodoState } from "~shared/events/kinds.type.js";
+import type { TodoLoggedMetadata } from "~shared/events/metadata.type.js";
 import {provenEvidence} from "~shared/semantics/evidence.js";
-import {LANE} from "~shared/events/lanes.js";
+import { LANE } from "~shared/events/lanes.const.js";
 import type {PersistedTodo} from "~claude-code/hooks/PostToolUse/Todo/todo.state.type.js";
 import {loadTodoState, saveTodoState} from "~claude-code/hooks/PostToolUse/Todo/todo.state.js";
 

@@ -5,13 +5,10 @@
   "description": "Agent Tracer runtime adapters — Claude Code, Codex, OpenCode.",
   "type": "module",
   "exports": {
-    ".": {
-      "types": "./src/index.ts",
-      "default": "./dist/index.js"
-    },
     "./*": {
       "types": "./src/*",
-      "default": "./dist/*"
+      "development": "./src/*",
+      "default": "./src/*"
     }
   },
   "scripts": {

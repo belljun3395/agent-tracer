@@ -33,11 +33,11 @@
  *     .seven_day.resets_at         number
  */
 import { readStdinJson, ensureRuntimeSession, postTaggedEvent } from "~claude-code/hooks/lib/transport/transport.js";
-import { KIND } from "~shared/events/kinds.js";
-import type { ContextSnapshotMetadata } from "~shared/events/metadata.js";
+import { KIND } from "~shared/events/kinds.const.js";
+import type { ContextSnapshotMetadata } from "~shared/events/metadata.type.js";
 import { provenEvidence } from "~shared/semantics/evidence.js";
 import { hookLog } from "~claude-code/hooks/lib/hook/hook.log.js";
-import { LANE } from "~shared/events/lanes.js";
+import { LANE } from "~shared/events/lanes.const.js";
 
 interface ContextWindow {
     readonly used_percentage?: number | null;

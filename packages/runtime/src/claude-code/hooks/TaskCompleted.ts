@@ -16,10 +16,10 @@ import {createStableTodoId} from "~claude-code/hooks/util/utils.js";
 import {claudeHookRuntime} from "~claude-code/hooks/lib/runtime.js";
 import {resolveEventSessionIds} from "~claude-code/hooks/Agent/session.js";
 import {readTaskCompleted} from "~shared/hooks/claude/payloads.js";
-import {runHook} from "~shared/hook-runtime/index.js";
-import {KIND} from "~shared/events/kinds.js";
-import {LANE} from "~shared/events/lanes.js";
-import {type TodoLoggedMetadata} from "~shared/events/metadata.js";
+import { runHook } from "~shared/hook-runtime/run-hook.js";
+import { KIND } from "~shared/events/kinds.const.js";
+import { LANE } from "~shared/events/lanes.const.js";
+import type { TodoLoggedMetadata } from "~shared/events/metadata.type.js";
 import {provenEvidence} from "~shared/semantics/evidence.js";
 
 await runHook("TaskCompleted", {

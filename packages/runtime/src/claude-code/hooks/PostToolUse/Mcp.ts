@@ -14,11 +14,12 @@
  */
 import {parseMcpToolName} from "~claude-code/hooks/util/payload.js";
 import {postTaggedEvent, runPostToolUseHook} from "./_shared.js";
-import {KIND} from "~shared/events/kinds.js";
-import {LANE} from "~shared/events/lanes.js";
-import {type AgentActivityMetadata} from "~shared/events/metadata.js";
+import { KIND } from "~shared/events/kinds.const.js";
+import { LANE } from "~shared/events/lanes.const.js";
+import type { AgentActivityMetadata } from "~shared/events/metadata.type.js";
 import {provenEvidence} from "~shared/semantics/evidence.js";
-import {buildSemanticMetadata, inferMcpSemantic} from "~shared/semantics/inference.js";
+import { inferMcpSemantic } from "~shared/semantics/inference.coordination.js";
+import { buildSemanticMetadata } from "~shared/semantics/inference.util.js";
 
 await runPostToolUseHook("Mcp", async ({payload, ids}) => {
     const mcpTool = parseMcpToolName(payload.toolName);
