@@ -1,5 +1,5 @@
 import path from "node:path";
-import { normalizeWorkspacePath } from "~domain/index.js";
+import { normalizeWorkspacePath } from "~domain/monitoring/index.js";
 import { SaveBookmarkUseCase } from "~application/bookmarks/index.js";
 import { LogEventUseCase } from "~application/events/index.js";
 import {
