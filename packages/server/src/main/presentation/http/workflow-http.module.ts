@@ -1,21 +1,31 @@
 import { Module, type DynamicModule } from "@nestjs/common";
 import {
-    PlaybookWriteController,
-    TaskEvaluationWriteController,
+    PlaybookCommandController,
+    TaskBriefingCommandController,
+    TaskEvaluationCommandController,
+} from "~adapters/http/command/index.js";
+import {
+    EvaluationIngestController,
+    WorkflowIngestController,
 } from "~adapters/http/ingest/index.js";
 import {
-    PlaybookController,
-    TaskEvaluationController,
-    WorkflowController,
+    PlaybookQueryController,
+    TaskBriefingQueryController,
+    TaskEvaluationQueryController,
+    WorkflowQueryController,
 } from "~adapters/http/query/index.js";
 
 @Module({
     controllers: [
-        PlaybookController,
-        PlaybookWriteController,
-        TaskEvaluationController,
-        TaskEvaluationWriteController,
-        WorkflowController,
+        EvaluationIngestController,
+        PlaybookCommandController,
+        PlaybookQueryController,
+        TaskBriefingCommandController,
+        TaskBriefingQueryController,
+        TaskEvaluationCommandController,
+        TaskEvaluationQueryController,
+        WorkflowIngestController,
+        WorkflowQueryController,
     ],
 })
 export class WorkflowHttpModule {

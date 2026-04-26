@@ -342,7 +342,7 @@ export function TaskList({ tasks, bookmarks, taskDisplayTitleCache, selectedTask
 
             {tasks.length === 0 ? (<EmptyRailState title="No tasks yet." description={<>
                   Send <code>monitor_task_start</code> through the MCP server or POST to{" "}
-                  <code>/api/task-start</code>.
+                  <code>/ingest/v1/tasks/start</code>.
                 </>}/>) : (<>
                 {runtimeFilterOptions.length > 1 && (<div className="border-b border-[var(--border)] bg-[var(--surface-2)] px-2.5 py-1.5">
                     <div className="flex flex-wrap gap-1">

@@ -1,8 +1,8 @@
 import { Module, type DynamicModule } from "@nestjs/common";
-import { RuntimeSessionController } from "~adapters/http/ingest/index.js";
+import { SessionIngestController } from "~adapters/http/ingest/index.js";
 
 @Module({
-    controllers: [RuntimeSessionController],
+    controllers: [SessionIngestController],
 })
 export class SessionsHttpModule {
     static register(sessionsApplicationModule: DynamicModule): DynamicModule {

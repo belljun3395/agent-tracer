@@ -15,7 +15,7 @@ export function registerTaskLifecycleTools(server: McpServer, client: MonitorCli
             summary: z.string().optional(),
             metadata: z.record(z.unknown()).optional()
         }
-    }, async (input) => toToolResponse(await client.post("/api/task-start", input)));
+    }, async (input) => toToolResponse(await client.post("/ingest/v1/tasks/start", input)));
     server.registerTool("monitor_task_complete", {
         title: "Monitor Task Complete",
         description: "Mark a monitored task as completed.",
@@ -25,7 +25,7 @@ export function registerTaskLifecycleTools(server: McpServer, client: MonitorCli
             summary: z.string().optional(),
             metadata: z.record(z.unknown()).optional()
         }
-    }, async (input) => toToolResponse(await client.post("/api/task-complete", input)));
+    }, async (input) => toToolResponse(await client.post("/ingest/v1/tasks/complete", input)));
     server.registerTool("monitor_task_link", {
         title: "Monitor Task Link",
         description: "Link an already-started task into parent/background lineage. " +
@@ -38,7 +38,7 @@ export function registerTaskLifecycleTools(server: McpServer, client: MonitorCli
             parentSessionId: z.string().optional(),
             backgroundTaskId: z.string().optional()
         }
-    }, async (input) => toToolResponse(await client.post("/api/task-link", input)));
+    }, async (input) => toToolResponse(await client.post("/ingest/v1/tasks/link", input)));
     server.registerTool("monitor_task_error", {
         title: "Monitor Task Error",
         description: "Record a monitored task failure without interrupting the agent.",
@@ -49,7 +49,7 @@ export function registerTaskLifecycleTools(server: McpServer, client: MonitorCli
             summary: z.string().optional(),
             metadata: z.record(z.unknown()).optional()
         }
-    }, async (input) => toToolResponse(await client.post("/api/task-error", input)));
+    }, async (input) => toToolResponse(await client.post("/ingest/v1/tasks/error", input)));
     server.registerTool("monitor_runtime_session_ensure", {
         title: "Monitor Runtime Session Ensure",
         description: "Create or resume a runtime-scoped monitor task/session using runtimeSource + runtimeSessionId. " +
@@ -62,7 +62,7 @@ export function registerTaskLifecycleTools(server: McpServer, client: MonitorCli
             parentTaskId: z.string().optional(),
             parentSessionId: z.string().optional()
         }
-    }, async (input) => toToolResponse(await client.post("/api/runtime-session-ensure", input)));
+    }, async (input) => toToolResponse(await client.post("/ingest/v1/sessions/ensure", input)));
     server.registerTool("monitor_runtime_session_end", {
         title: "Monitor Runtime Session End",
         description: "End a runtime-scoped monitor session. " +
@@ -75,5 +75,5 @@ export function registerTaskLifecycleTools(server: McpServer, client: MonitorCli
             completionReason: z.enum(TASK_COMPLETION_REASONS).optional(),
             backgroundCompletions: z.array(z.string()).optional()
         }
-    }, async (input) => toToolResponse(await client.post("/api/runtime-session-end", input)));
+    }, async (input) => toToolResponse(await client.post("/ingest/v1/sessions/end", input)));
 }
