@@ -1,5 +1,6 @@
 import { buildReusableTaskSnapshot } from "../../../types.js";
 import type { MonitoringTask, TimelineEventRecord, TimelineLane } from "../../types.js";
+import { readRuleEnforcements } from "../ruleEnforcements.js";
 import type {
     ExploredFileStat,
     RuleDecisionStat,
@@ -161,13 +162,16 @@ export function eventHasRule(event: TimelineEventRecord, ruleId: string): boolea
     return collectEventRuleIds(event).includes(ruleId);
 }
 export function eventHasRuleGap(event: TimelineEventRecord): boolean {
-    return event.lane !== "user" && !extractMetadataString(event.metadata, "ruleId");
+    return event.lane !== "user" && collectEventRuleIds(event).length === 0;
 }
 function collectEventRuleIds(event: TimelineEventRecord): readonly string[] {
     const ruleIds = new Set<string>();
     const metadataRuleId = extractMetadataString(event.metadata, "ruleId");
     if (metadataRuleId) {
         ruleIds.add(metadataRuleId);
+    }
+    for (const enforcement of readRuleEnforcements(event)) {
+        ruleIds.add(enforcement.ruleId);
     }
     return [...ruleIds];
 }

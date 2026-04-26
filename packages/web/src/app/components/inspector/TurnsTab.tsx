@@ -12,9 +12,11 @@ import {
     scopeLabelForGroup,
     segmentEventsByTurn,
     type ReusableTaskSnapshot,
+    type TaskTurnSummary,
     type TimelineEventRecord,
     type TurnGroup,
     type TurnPartition,
+    type VerdictStatus,
 } from "../../../types.js";
 import { Badge } from "../ui/Badge.js";
 import { Button } from "../ui/Button.js";
@@ -23,11 +25,13 @@ import { Input } from "../ui/Input.js";
 import { Textarea } from "../ui/Textarea.js";
 import { cn } from "../../lib/ui/cn.js";
 import { copyToClipboard } from "../../lib/ui/clipboard.js";
+import { summarizeGroupVerdict, type GroupVerdictSummary } from "./turnVerdict.js";
 
 export interface TurnsTabProps {
     readonly taskId: string | undefined;
     readonly taskTitle: string;
     readonly taskTimeline: readonly TimelineEventRecord[];
+    readonly turnSummaries?: readonly TaskTurnSummary[];
     readonly partition: TurnPartition | null;
     readonly focusedGroupId: string | null;
     readonly isSaving: boolean;
@@ -43,6 +47,7 @@ export function TurnsTab({
     taskId,
     taskTitle,
     taskTimeline,
+    turnSummaries = [],
     partition,
     focusedGroupId,
     isSaving,
@@ -65,6 +70,13 @@ export function TurnsTab({
 
     const groups = partition?.groups ?? [];
     const focusedGroup = groups.find((g) => g.id === focusedGroupId) ?? null;
+    const verdictByGroup = useMemo(() => {
+        const map = new Map<string, GroupVerdictSummary | null>();
+        for (const group of groups) {
+            map.set(group.id, summarizeGroupVerdict(group, segments, turnSummaries));
+        }
+        return map;
+    }, [groups, segments, turnSummaries]);
 
     if (!partition || groups.length === 0) {
         return (
@@ -118,6 +130,7 @@ export function TurnsTab({
                             isLast={index === groups.length - 1}
                             isFocused={group.id === focusedGroupId}
                             segmentMap={segmentMap}
+                            verdict={verdictByGroup.get(group.id) ?? null}
                             isSaving={isSaving}
                             onFocus={() => onFocusGroup(group.id === focusedGroupId ? null : group.id)}
                             onMergeNext={() => void onMergeNext(group.id)}
@@ -147,6 +160,7 @@ interface GroupRowProps {
     readonly isLast: boolean;
     readonly isFocused: boolean;
     readonly segmentMap: Map<number, { readonly turnIndex: number; readonly requestPreview: string | null }>;
+    readonly verdict: GroupVerdictSummary | null;
     readonly isSaving: boolean;
     readonly onFocus: () => void;
     readonly onMergeNext: () => void;
@@ -160,6 +174,7 @@ function GroupRow({
     isLast,
     isFocused,
     segmentMap,
+    verdict,
     isSaving,
     onFocus,
     onMergeNext,
@@ -205,6 +220,13 @@ function GroupRow({
                         </span>
                         {!group.visible && <Badge tone="neutral" size="xs">hidden</Badge>}
                         {isFocused && <Badge tone="accent" size="xs">focused</Badge>}
+                        {verdict?.status && <VerdictBadge status={verdict.status} />}
+                        {!verdict?.status && verdict?.hasOpenTurn && <Badge tone="neutral" size="xs">open</Badge>}
+                        {verdict && verdict.rulesEvaluatedCount > 0 && (
+                            <Badge tone="neutral" size="xs">
+                                {verdict.rulesEvaluatedCount} rule{verdict.rulesEvaluatedCount === 1 ? "" : "s"}
+                            </Badge>
+                        )}
                     </div>
                     {preview && (
                         <span className="line-clamp-1 w-full text-[0.74rem] text-[var(--text-3)] [overflow-wrap:anywhere]">
@@ -284,6 +306,12 @@ function GroupRow({
             )}
         </div>
     );
+}
+
+function VerdictBadge({ status }: { readonly status: VerdictStatus }): React.JSX.Element {
+    const tone = status === "verified" ? "success" : status === "contradicted" ? "danger" : "warning";
+    const label = status === "verified" ? "verified" : status === "contradicted" ? "contradicted" : "unverifiable";
+    return <Badge tone={tone} size="xs">{label}</Badge>;
 }
 
 function IconButton({

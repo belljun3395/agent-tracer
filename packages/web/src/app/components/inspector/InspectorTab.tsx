@@ -1,5 +1,5 @@
 import type React from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getEventEvidence } from "../../../types.js";
 import { buildInspectorEventTitle, evidenceTone, formatEvidenceLevel, type QuestionGroup, type TaskDetailResponse, type TimelineConnector, type TimelineEventRecord, type TodoGroup } from "../../../types.js";
 import { Badge } from "../ui/Badge.js";
@@ -15,12 +15,15 @@ import {
     DetailMatchList,
     DetailModelInfo,
     DetailRelatedEvents,
+    DetailRuleEnforcements,
     DetailSection,
     DetailSubagentAction,
     DetailTaskReminder,
+    DetailTurnVerdict,
     InspectorHeaderCard
 } from "./InspectorDetails.js";
 import { inspectorHelpText } from "./helpText.js";
+import { findTurnSummaryForEvent } from "./turnVerdict.js";
 
 /**
  * True when a tool.used event (or agent.activity.logged mcp_call) was recorded
@@ -187,6 +190,10 @@ export function InspectorTab({
     const selectedEventEvidence = selectedEvent
         ? getEventEvidence(taskDetail?.task.runtimeSource, selectedEvent)
         : null;
+    const selectedTurnSummary = useMemo(
+        () => findTurnSummaryForEvent(selectedEvent, taskDetail?.turns ?? []),
+        [selectedEvent, taskDetail],
+    );
 
     async function handleEventTitleSubmit(event: React.SyntheticEvent<HTMLFormElement>): Promise<void> {
         event.preventDefault();
@@ -330,7 +337,11 @@ export function InspectorTab({
             )}
             <DetailIds event={selectedEvent} runtimeSessionId={taskDetail?.runtimeSessionId}/>
             <DetailEventEvidence event={selectedEvent} {...(taskDetail?.task.runtimeSource ? { runtimeSource: taskDetail.task.runtimeSource } : {})}/>
+            <DetailTurnVerdict turn={selectedTurnSummary}/>
             <DetailMatchList event={selectedEvent} activeRuleId={selectedRuleId} onSelectRule={(ruleId) => {
+                onSelectRule(selectedRuleId === ruleId ? null : ruleId);
+            }}/>
+            <DetailRuleEnforcements event={selectedEvent} activeRuleId={selectedRuleId} onSelectRule={(ruleId) => {
                 onSelectRule(selectedRuleId === ruleId ? null : ruleId);
             }}/>
 

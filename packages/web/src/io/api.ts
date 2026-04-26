@@ -6,12 +6,21 @@ import type {
     TaskId,
 } from "../types.js";
 import type {
+    BackfillResult,
     MonitoringTask,
     OverviewResponse,
+    RuleCreateInput,
+    RuleRecord,
+    RuleScope,
+    RuleSource,
+    RuleUpdateInput,
+    RulesListResponse,
     SearchResponse,
     TaskDetailResponse,
+    TaskRulesResponse,
     TimelineEventRecord,
-    TasksResponse
+    TasksResponse,
+    VerdictCounts,
 } from "../types.js";
 const DEFAULT_REQUEST_TIMEOUT_MS = 30000;
 
@@ -331,6 +340,54 @@ export function saveTurnPartition(taskId: TaskId, payload: TurnPartitionUpsertPa
 export async function resetTurnPartition(taskId: TaskId): Promise<void> {
     await postJson<{ ok: boolean }>(`/api/v1/tasks/${taskId}/turn-partition/reset`, {});
 }
+export interface FetchRulesFilter {
+    readonly scope?: RuleScope;
+    readonly taskId?: TaskId;
+    readonly source?: RuleSource;
+}
+
+export function fetchRules(filter?: FetchRulesFilter): Promise<RulesListResponse> {
+    const params = new URLSearchParams();
+    if (filter?.scope) params.set("scope", filter.scope);
+    if (filter?.taskId) params.set("taskId", filter.taskId);
+    if (filter?.source) params.set("source", filter.source);
+    const qs = params.toString();
+    return getJson<RulesListResponse>(`/api/v1/rules${qs ? `?${qs}` : ""}`);
+}
+
+export function fetchTaskRules(taskId: TaskId): Promise<TaskRulesResponse> {
+    return getJson<TaskRulesResponse>(`/api/v1/tasks/${taskId}/rules`);
+}
+
+export function fetchVerdictCounts(taskId: TaskId): Promise<{ counts: VerdictCounts }> {
+    return getJson<{ counts: VerdictCounts }>(`/api/v1/tasks/${taskId}/verdict-counts`);
+}
+
+export async function createRule(payload: RuleCreateInput): Promise<RuleRecord> {
+    const response = await postJson<{ rule: RuleRecord }>(`/api/v1/rules`, payload);
+    return response.rule;
+}
+
+export async function updateRule(ruleId: RuleId, patch: RuleUpdateInput): Promise<{
+    rule: RuleRecord;
+    signatureChanged: boolean;
+}> {
+    return patchJson<{ rule: RuleRecord; signatureChanged: boolean }>(`/api/v1/rules/${ruleId}`, patch);
+}
+
+export async function deleteRule(ruleId: RuleId): Promise<void> {
+    await deleteRequest(`/api/v1/rules/${ruleId}`);
+}
+
+export async function promoteRule(ruleId: RuleId): Promise<RuleRecord> {
+    const response = await postJson<{ rule: RuleRecord }>(`/api/v1/rules/${ruleId}/promote`, {});
+    return response.rule;
+}
+
+export function reEvaluateRule(ruleId: RuleId): Promise<BackfillResult> {
+    return postJson<BackfillResult>(`/api/v1/rules/${ruleId}/re-evaluate`, {});
+}
+
 export function getMonitorWsUrl(): string {
     const baseUrl = resolveWebSocketBaseUrl();
     const wsUrl = new URL(baseUrl.replace(/^http/, "ws"));

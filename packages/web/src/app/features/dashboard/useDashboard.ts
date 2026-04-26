@@ -36,7 +36,7 @@ function loadInspectorWidth(): number {
 }
 
 export function useDashboard(
-    view: "timeline",
+    _view: "timeline" | "workspace",
     { onSelectTaskRoute }: {
         onSelectTaskRoute: (taskId: string | null) => void;
     }
@@ -61,7 +61,7 @@ export function useDashboard(
     const search = useSearch(selectedTaskId ?? undefined);
     const clearSearchQuery = search.setQuery;
 
-    const [sidebarView, setSidebarView] = useState<"tasks">("tasks");
+    const [sidebarView, setSidebarView] = useState<"tasks" | "rules">("tasks");
     const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth);
     const [isInspectorCollapsed, setIsInspectorCollapsed] = useState(false);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -92,7 +92,7 @@ export function useDashboard(
 
     const isInspectorOpen = Boolean(selectedTaskId);
     const isStackedDashboard = viewportWidth < DASHBOARD_STACKED_BREAKPOINT;
-    const showGlobalFiltersButton = (view === "timeline" || view === "workspace") && selectedTaskId != null;
+    const showGlobalFiltersButton = selectedTaskId != null;
 
     useEffect(() => {
         if (!isInspectorOpen) setIsInspectorCollapsed(false);
@@ -162,7 +162,7 @@ export function useDashboard(
     );
 
     const handleSidebarViewChange = useCallback(
-        (next: "tasks"): void => {
+        (next: "tasks" | "rules"): void => {
             setSidebarView(next);
             if (isStackedDashboard) setIsSidebarOpen(false);
         },

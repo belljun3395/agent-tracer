@@ -1,8 +1,9 @@
 import type React from "react";
 import { getEventEvidence } from "../../../types.js";
-import { buildInspectorEventTitle, evidenceTone, formatEvidenceLevel, type TimelineConnector, type TimelineEventRecord } from "../../../types.js";
+import { buildInspectorEventTitle, evidenceTone, formatEvidenceLevel, type TaskTurnSummary, type TimelineConnector, type TimelineEventRecord } from "../../../types.js";
 
 import { cn } from "../../lib/ui/cn.js";
+import { readRuleEnforcements } from "../../lib/ruleEnforcements.js";
 import { Badge } from "../ui/Badge.js";
 import { PanelCard } from "../ui/PanelCard.js";
 import { inspectorHelpText } from "./helpText.js";
@@ -24,6 +25,31 @@ export function DetailEventEvidence({ event, runtimeSource }: {
         <span className="text-[0.8rem] text-[var(--text-2)]">{evidence.reason}</span>
       </div>
     </SectionCard>);
+}
+
+export function DetailTurnVerdict({ turn }: {
+    readonly turn: TaskTurnSummary | null;
+}): React.JSX.Element | null {
+    if (!turn) return null;
+    const status = turn.aggregateVerdict;
+    const tone = status === "verified"
+        ? "success"
+        : status === "contradicted"
+            ? "danger"
+            : status === "unverifiable"
+                ? "warning"
+                : "neutral";
+    const label = status ?? (turn.status === "open" ? "open" : "not evaluated");
+    return (
+        <SectionCard title="Turn Verdict" helpText="Definitive rule verdict for the turn containing this event. Open turns only show streaming rule matches until they close." bodyClassName="pt-4">
+            <KeyValueTable rows={[
+                { key: "Turn", value: `Turn ${turn.turnIndex + 1}` },
+                { key: "Status", value: <Badge tone={tone} size="xs">{label}</Badge> },
+                { key: "Rules", value: `${turn.rulesEvaluatedCount} evaluated` },
+                { key: "Window", value: `${new Date(turn.startedAt).toLocaleTimeString()}${turn.endedAt ? ` - ${new Date(turn.endedAt).toLocaleTimeString()}` : ""}` },
+            ]}/>
+        </SectionCard>
+    );
 }
 
 export function InspectorHeaderCard({ eyebrow, title, description, actions, children }: {
@@ -134,6 +160,43 @@ export function DetailMatchList({ event, activeRuleId, onSelectRule }: {
             </div>))}
         </div>)}
     </SectionCard>);
+}
+
+export function DetailRuleEnforcements({ event, activeRuleId, onSelectRule }: {
+    readonly event: TimelineEventRecord;
+    readonly activeRuleId?: string | null;
+    readonly onSelectRule?: (ruleId: string) => void;
+}): React.JSX.Element | null {
+    const enforcements = readRuleEnforcements(event);
+    if (enforcements.length === 0) return null;
+    return (
+        <SectionCard title="Verification Rules" helpText="Rules that matched this event in the streaming verifier." bodyClassName="pt-4">
+            <div className="flex flex-col gap-2">
+                {enforcements.map((item) => (
+                    <button
+                        key={`${event.id}-${item.ruleId}-${item.matchKind}`}
+                        type="button"
+                        disabled={!onSelectRule}
+                        onClick={() => onSelectRule?.(item.ruleId)}
+                        className={cn(
+                            "flex items-center justify-between gap-3 rounded-[10px] border bg-[var(--surface-2)] px-3 py-2 text-left transition-colors",
+                            activeRuleId === item.ruleId
+                                ? "border-[var(--rule)] bg-[var(--rule-bg)]"
+                                : "border-[var(--border)]",
+                            onSelectRule && "hover:border-[var(--rule)]",
+                        )}
+                    >
+                        <span className={cn("min-w-0 truncate text-[0.84rem] font-semibold", activeRuleId === item.ruleId ? "text-[var(--rule)]" : "text-[var(--text-1)]")}>
+                            {item.ruleId}
+                        </span>
+                        <Badge tone={item.matchKind === "trigger" ? "warning" : "success"} size="xs">
+                            {item.matchKind === "trigger" ? "watching" : "fulfilled"}
+                        </Badge>
+                    </button>
+                ))}
+            </div>
+        </SectionCard>
+    );
 }
 
 export function DetailConnectorEvents({ source, target }: {

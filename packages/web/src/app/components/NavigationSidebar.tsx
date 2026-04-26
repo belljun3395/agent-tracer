@@ -4,12 +4,14 @@ import { Link } from "react-router-dom";
 import { cn } from "../lib/ui/cn.js";
 import { TaskList } from "./TaskList.js";
 
+type SidebarView = "tasks" | "rules";
+
 interface NavigationSidebarProps {
   readonly className?: string;
   readonly isConnected: boolean;
-  readonly activeView: "tasks";
+  readonly activeView: SidebarView;
   readonly onNavigate?: () => void;
-  readonly onChangeView: (view: "tasks") => void;
+  readonly onChangeView: (view: SidebarView) => void;
   readonly tasks: readonly MonitoringTask[];
   readonly taskDisplayTitleCache?: Readonly<Record<string, { readonly title: string; readonly updatedAt: string }>>;
   readonly selectedTaskId: string | null;
@@ -72,6 +74,21 @@ export function NavigationSidebar(props: NavigationSidebarProps): React.JSX.Elem
             </svg>
           }
           label="Tasks"
+        />
+        <SidebarLink
+          to="/rules"
+          active={activeView === "rules"}
+          onClick={() => {
+            onChangeView("rules");
+            onNavigate?.();
+          }}
+          icon={
+            <svg fill="none" height="16" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" viewBox="0 0 24 24" width="16">
+              <path d="M9 11l3 3L22 4"/>
+              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+            </svg>
+          }
+          label="Rules"
         />
       </div>
 

@@ -239,6 +239,7 @@ export function EventInspector({
                         taskId={taskDetail?.task.id}
                         taskTitle={selectedTaskTitle ?? taskDetail?.task.title ?? ""}
                         taskTimeline={taskTimeline}
+                        turnSummaries={taskDetail?.turns ?? []}
                         partition={ctx?.turnPartition ?? null}
                         focusedGroupId={ctx?.focusedTurnGroupId ?? null}
                         isSaving={ctx?.turnPartitionSaving ?? false}
