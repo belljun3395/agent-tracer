@@ -1,6 +1,5 @@
 import type {
     EventId,
-    RuleCommandRecord,
     RuleId,
     RuntimeSource,
     SessionId,
@@ -267,21 +266,6 @@ export async function updateEventDisplayTitle(eventId: EventId, displayTitle: st
 }
 export async function deleteTask(taskId: TaskId): Promise<void> {
     return deleteRequest(`/api/v1/tasks/${taskId}`);
-}
-export function fetchGlobalRuleCommands(): Promise<{ ruleCommands: RuleCommandRecord[] }> {
-    return getJson<{ ruleCommands: RuleCommandRecord[] }>("/api/v1/rule-commands");
-}
-export function fetchTaskRuleCommands(taskId: TaskId): Promise<{ ruleCommands: RuleCommandRecord[] }> {
-    return getJson<{ ruleCommands: RuleCommandRecord[] }>(`/api/v1/tasks/${taskId}/rule-commands`);
-}
-export function createGlobalRuleCommand(pattern: string, label: string): Promise<{ ruleCommand: RuleCommandRecord }> {
-    return postJson<{ ruleCommand: RuleCommandRecord }>("/api/v1/rule-commands", { pattern, label });
-}
-export function createTaskRuleCommand(taskId: TaskId, pattern: string, label: string): Promise<{ ruleCommand: RuleCommandRecord }> {
-    return postJson<{ ruleCommand: RuleCommandRecord }>(`/api/v1/tasks/${taskId}/rule-commands`, { pattern, label });
-}
-export async function deleteRuleCommandById(id: string): Promise<void> {
-    return deleteRequest(`/api/v1/rule-commands/${id}`);
 }
 export interface RuleActionPayload {
     taskId: TaskId;

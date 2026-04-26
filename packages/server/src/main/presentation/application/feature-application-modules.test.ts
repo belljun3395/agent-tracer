@@ -10,8 +10,6 @@ import { DatabaseModule } from "../database/database.module.js";
 import { SQLITE_DATABASE_CONTEXT_TOKEN } from "../database/database.provider.js";
 import { EVENTS_APPLICATION_EXPORTS } from "./events.providers.js";
 import { EventsApplicationModule } from "./events-application.module.js";
-import { RULE_COMMANDS_APPLICATION_EXPORTS } from "./rule-commands.providers.js";
-import { RuleCommandsApplicationModule } from "./rule-commands-application.module.js";
 import { SESSIONS_APPLICATION_EXPORTS } from "./sessions.providers.js";
 import { SessionsApplicationModule } from "./sessions-application.module.js";
 import { SYSTEM_APPLICATION_EXPORTS } from "./system.providers.js";
@@ -32,12 +30,6 @@ const featureApplicationModules = [
         name: "events",
         register: (databaseModule: DynamicModule) => EventsApplicationModule.register(databaseModule),
         exportedProviders: EVENTS_APPLICATION_EXPORTS,
-    },
-    {
-        module: RuleCommandsApplicationModule,
-        name: "rule commands",
-        register: (databaseModule: DynamicModule) => RuleCommandsApplicationModule.register(databaseModule),
-        exportedProviders: RULE_COMMANDS_APPLICATION_EXPORTS,
     },
     {
         module: SessionsApplicationModule,

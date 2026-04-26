@@ -16,9 +16,7 @@ export type { MonitorQueryKey } from "./server/queryKeys.js";
 export {
     useOverviewQuery,
     useTasksQuery,
-    useTaskDetailQuery,
-    useGlobalRuleCommandsQuery,
-    useTaskRuleCommandsQuery
+    useTaskDetailQuery
 } from "./server/queries.js";
 
 export { useMonitorSocket } from "./realtime/useMonitorSocket.js";

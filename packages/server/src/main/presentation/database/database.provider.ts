@@ -3,7 +3,6 @@ import {
     createSqliteDatabaseContext,
     SqliteEventRepository,
     SqliteEventStore,
-    SqliteRuleCommandRepository,
     SqliteRuntimeBindingRepository,
     SqliteSessionRepository,
     SqliteTaskRepository,
@@ -23,7 +22,6 @@ export const SESSION_REPOSITORY_TOKEN = "SESSION_REPOSITORY";
 export const EVENT_REPOSITORY_TOKEN = "EVENT_REPOSITORY";
 export const EVENT_STORE_TOKEN = "EVENT_STORE";
 export const RUNTIME_BINDING_REPOSITORY_TOKEN = "RUNTIME_BINDING_REPOSITORY";
-export const RULE_COMMAND_REPOSITORY_TOKEN = "RULE_COMMAND_REPOSITORY";
 export const TURN_PARTITION_REPOSITORY_TOKEN = "TURN_PARTITION_REPOSITORY";
 export const NOTIFICATION_PUBLISHER_TOKEN = "NOTIFICATION_PUBLISHER";
 
@@ -33,7 +31,6 @@ export const DATABASE_PORT_TOKENS = [
     EVENT_REPOSITORY_TOKEN,
     EVENT_STORE_TOKEN,
     RUNTIME_BINDING_REPOSITORY_TOKEN,
-    RULE_COMMAND_REPOSITORY_TOKEN,
     TURN_PARTITION_REPOSITORY_TOKEN,
     NOTIFICATION_PUBLISHER_TOKEN,
 ] as const;
@@ -81,11 +78,6 @@ export function DatabaseProviders(options: {
         {
             provide: RUNTIME_BINDING_REPOSITORY_TOKEN,
             useFactory: (context: SqliteDatabaseContext) => new SqliteRuntimeBindingRepository(context.db),
-            inject: [SQLITE_DATABASE_CONTEXT_TOKEN],
-        },
-        {
-            provide: RULE_COMMAND_REPOSITORY_TOKEN,
-            useFactory: (context: SqliteDatabaseContext) => new SqliteRuleCommandRepository(context.db),
             inject: [SQLITE_DATABASE_CONTEXT_TOKEN],
         },
         {

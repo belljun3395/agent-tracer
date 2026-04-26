@@ -176,17 +176,6 @@ export function createSchema(db: Database.Database): void {
       version integer not null default 1,
       updated_at text not null
     );
-
-    create table if not exists rule_commands_current (
-      id text primary key,
-      pattern text not null,
-      label text not null,
-      task_id text references tasks_current(id) on delete cascade,
-      created_at text not null
-    );
-
-    create index if not exists idx_rule_commands_current_task_id
-      on rule_commands_current(task_id);
   `);
     createEventLogSchema(db);
 }

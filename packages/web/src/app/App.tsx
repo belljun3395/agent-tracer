@@ -1,5 +1,5 @@
 import type React from "react";
-import { Suspense, lazy, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Suspense, lazy, useEffect, useLayoutEffect, useRef } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import type { TaskId } from "../types.js";
 import { getMonitorWsUrl } from "../io.js";
@@ -9,7 +9,6 @@ import { TopBar } from "./components/TopBar.js";
 import { NavigationSidebar } from "./components/NavigationSidebar.js";
 import { TimelineContainer } from "./components/TimelineContainer.js";
 const InspectorContainer = lazy(() => import("./components/InspectorContainer.js").then((m) => ({ default: m.InspectorContainer })));
-import { RuleCommandsPanel } from "./features/rule-commands/RuleCommandsPanel.js";
 import { TaskRoute } from "./routes/task/TaskRoute.js";
 import {
     QueryProvider,
@@ -30,7 +29,6 @@ function Dashboard({
     readonly onSelectTaskRoute: (taskId: string | null) => void;
 }): React.JSX.Element {
     const db = useDashboard("timeline", { onSelectTaskRoute });
-    const [isRulesOpen, setIsRulesOpen] = useState(false);
 
     return (
         <div className="flex h-dvh flex-col overflow-hidden bg-[var(--bg)]">
@@ -54,22 +52,7 @@ function Dashboard({
                 isFiltersOpen={db.isGlobalFiltersOpen}
                 filtersButtonRef={db.globalFiltersButtonRef}
                 onToggleFilters={db.handleToggleFilters}
-                onToggleRules={() => setIsRulesOpen((v) => !v)}
-                isRulesOpen={isRulesOpen}
             />
-            {isRulesOpen && (
-                <div className="fixed right-4 top-14 z-30 w-80 rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-2)]">
-                    <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-2.5">
-                        <span className="text-[0.78rem] font-semibold text-[var(--text-1)]">Rule Commands</span>
-                        <button className="text-[var(--text-3)] hover:text-[var(--text-1)]" onClick={() => setIsRulesOpen(false)} type="button">
-                            <svg fill="none" height="13" stroke="currentColor" strokeLinecap="round" strokeWidth="2" viewBox="0 0 24 24" width="13"><path d="M18 6L6 18M6 6l12 12"/></svg>
-                        </button>
-                    </div>
-                    <div className="max-h-[70vh] overflow-y-auto">
-                        <RuleCommandsPanel {...(db.selectedTaskId != null ? { taskId: db.selectedTaskId as TaskId } : {})} />
-                    </div>
-                </div>
-            )}
 
             <div className="relative flex flex-1 min-h-0 overflow-hidden">
                 {db.isStackedDashboard ? (

@@ -2,7 +2,6 @@ import { Body, Controller, HttpCode, HttpStatus, Inject, Post } from "@nestjs/co
 import type { z } from "zod";
 import { IngestEventsUseCase } from "~application/events/index.js";
 import type { IngestEventsUseCaseEventDto, IngestEventsUseCaseIn } from "~application/events/index.js";
-import { ClassifyTerminalLaneUseCase } from "~application/rule-commands/index.js";
 import {
     conversationBatchSchema,
     coordinationBatchSchema,
@@ -32,7 +31,6 @@ type TypedBatchBody = { readonly events: readonly TypedEvent[] };
 export class TypedEventIngestController {
     constructor(
         @Inject(IngestEventsUseCase) private readonly ingestEvents: IngestEventsUseCase,
-        @Inject(ClassifyTerminalLaneUseCase) private readonly classifyTerminalLane: ClassifyTerminalLaneUseCase,
     ) {}
 
     @Post("tool-activity")
@@ -41,8 +39,7 @@ export class TypedEventIngestController {
         @Body(new ZodValidationPipe(toolActivityBatchSchema, "Invalid request body"))
         body: ToolActivityBatchBody,
     ) {
-        const classified = await this.classifyTerminalLane.execute(body.events);
-        const input = { events: classified as readonly IngestEventsUseCaseEventDto[] } satisfies IngestEventsUseCaseIn;
+        const input = { events: [...body.events] as readonly IngestEventsUseCaseEventDto[] } satisfies IngestEventsUseCaseIn;
         return this.ingestEvents.execute(input);
     }
 
