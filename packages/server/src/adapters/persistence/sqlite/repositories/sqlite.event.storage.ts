@@ -157,22 +157,6 @@ interface EventTagRow {
     readonly source: "metadata" | "classification" | "multiple";
 }
 
-interface RuleRow {
-    readonly event_id: string;
-    readonly rule_id: string | null;
-    readonly policy: string | null;
-    readonly outcome: string | null;
-    readonly status: string | null;
-    readonly decided_at: string;
-}
-
-interface VerificationRow {
-    readonly event_id: string;
-    readonly rule_id: string | null;
-    readonly status: string | null;
-    readonly checked_at: string;
-}
-
 interface TodoRow {
     readonly id: string;
     readonly task_id: string;
@@ -219,8 +203,6 @@ interface EventSupplements {
     readonly relations: readonly EventRelationRow[];
     readonly asyncRef?: EventAsyncRow;
     readonly tags: readonly EventTagRow[];
-    readonly rule?: RuleRow;
-    readonly verification?: VerificationRow;
     readonly todo?: TodoRow;
     readonly question?: QuestionRow;
     readonly tokenUsage?: TokenUsageRow;
@@ -265,8 +247,6 @@ export function syncEventDerivedTables(db: Database.Database, input: EventStorag
     insertEventRelations(db, input);
     insertEventAsyncRef(db, input);
     insertEventTags(db, input);
-    insertRuleEnforcement(db, input);
-    insertVerificationOutcome(db, input);
     upsertTodo(db, input);
     upsertQuestion(db, input);
     insertTokenUsage(db, input);
@@ -308,8 +288,6 @@ function clearDerivedTables(db: Database.Database, eventId: string): void {
         "event_relations",
         "event_async_refs",
         "event_tags",
-        "rule_enforcements",
-        "verification_outcomes",
         "event_token_usage",
     ]) {
         db.prepare(`delete from ${table} where event_id = @eventId`).run({ eventId });
@@ -434,44 +412,6 @@ function insertEventTags(db: Database.Database, input: EventStorageInput): void 
     for (const [tag, source] of tags.entries()) {
         statement.run({ eventId: input.id, tag, source });
     }
-}
-
-function insertRuleEnforcement(db: Database.Database, input: EventStorageInput): void {
-    const ruleId = readString(input.metadata, "ruleId");
-    const policy = readString(input.metadata, "rulePolicy") ?? readString(input.metadata, "policy");
-    const outcome = readString(input.metadata, "ruleOutcome") ?? readString(input.metadata, "outcome");
-    const status = readString(input.metadata, "ruleStatus") ?? readString(input.metadata, "status");
-    if (!ruleId && !policy && !outcome && !status) {
-        return;
-    }
-    db.prepare(`
-      insert into rule_enforcements (event_id, rule_id, policy, outcome, status, decided_at)
-      values (@eventId, @ruleId, @policy, @outcome, @status, @decidedAt)
-    `).run({
-        eventId: input.id,
-        ruleId: ruleId ?? null,
-        policy: policy ?? null,
-        outcome: outcome ?? null,
-        status: status ?? null,
-        decidedAt: input.createdAt,
-    });
-}
-
-function insertVerificationOutcome(db: Database.Database, input: EventStorageInput): void {
-    const status = readString(input.metadata, "verificationStatus");
-    const ruleId = readString(input.metadata, "ruleId");
-    if (!status && !ruleId) {
-        return;
-    }
-    db.prepare(`
-      insert into verification_outcomes (event_id, rule_id, status, checked_at)
-      values (@eventId, @ruleId, @status, @checkedAt)
-    `).run({
-        eventId: input.id,
-        ruleId: ruleId ?? null,
-        status: status ?? null,
-        checkedAt: input.createdAt,
-    });
 }
 
 function upsertTodo(db: Database.Database, input: EventStorageInput): void {
@@ -632,22 +572,6 @@ function loadEventSupplements(db: Database.Database, eventIds: readonly string[]
     `).all(...eventIds)) {
         map.get(tag.event_id)?.tags.push(tag);
     }
-    for (const rule of db.prepare<string[], RuleRow>(`
-      select *
-      from rule_enforcements
-      where event_id in (${placeholders})
-    `).all(...eventIds)) {
-        const supplements = map.get(rule.event_id);
-        if (supplements) supplements.rule = rule;
-    }
-    for (const verification of db.prepare<string[], VerificationRow>(`
-      select *
-      from verification_outcomes
-      where event_id in (${placeholders})
-    `).all(...eventIds)) {
-        const supplements = map.get(verification.event_id);
-        if (supplements) supplements.verification = verification;
-    }
     for (const todo of db.prepare<string[], TodoRow>(`
       select *
       from todos_current
@@ -681,8 +605,6 @@ interface MutableEventSupplements {
     relations: EventRelationRow[];
     asyncRef?: EventAsyncRow;
     tags: EventTagRow[];
-    rule?: RuleRow;
-    verification?: VerificationRow;
     todo?: TodoRow;
     question?: QuestionRow;
     tokenUsage?: TokenUsageRow;
@@ -721,8 +643,6 @@ function mapStoredEventRow(row: StoredEventRow, supplements: EventSupplements): 
     applyRelationMetadata(metadata, row.id, supplements.relations);
     applyAsyncMetadata(metadata, supplements.asyncRef);
     applyTagMetadata(metadata, supplements.tags);
-    applyRuleMetadata(metadata, supplements.rule);
-    applyVerificationMetadata(metadata, supplements.verification);
     applyTodoMetadata(metadata, supplements.todo);
     applyQuestionMetadata(metadata, supplements.question);
     applyTokenUsageMetadata(metadata, supplements.tokenUsage);
@@ -881,20 +801,6 @@ function applyTagMetadata(metadata: Record<string, unknown>, tags: readonly Even
     if (tags.length > 0) {
         metadata.tags = tags.map((tag) => tag.tag);
     }
-}
-
-function applyRuleMetadata(metadata: Record<string, unknown>, rule: RuleRow | undefined): void {
-    if (!rule) return;
-    addString(metadata, "ruleId", rule.rule_id);
-    addString(metadata, "rulePolicy", rule.policy);
-    addString(metadata, "ruleOutcome", rule.outcome);
-    addString(metadata, "ruleStatus", rule.status);
-}
-
-function applyVerificationMetadata(metadata: Record<string, unknown>, verification: VerificationRow | undefined): void {
-    if (!verification) return;
-    addString(metadata, "ruleId", verification.rule_id);
-    addString(metadata, "verificationStatus", verification.status);
 }
 
 function applyTodoMetadata(metadata: Record<string, unknown>, todo: TodoRow | undefined): void {

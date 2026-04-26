@@ -80,26 +80,6 @@ export function createSchema(db: Database.Database): void {
     );
     create index if not exists idx_event_tags_tag on event_tags(tag);
 
-    create table if not exists rule_enforcements (
-      event_id text primary key references timeline_events_view(id) on delete cascade,
-      rule_id text,
-      policy text,
-      outcome text,
-      status text,
-      decided_at text not null
-    );
-    create index if not exists idx_rule_enforcements_rule on rule_enforcements(rule_id);
-    create index if not exists idx_rule_enforcements_outcome on rule_enforcements(outcome);
-    create index if not exists idx_rule_enforcements_status on rule_enforcements(status);
-
-    create table if not exists verification_outcomes (
-      event_id text primary key references timeline_events_view(id) on delete cascade,
-      rule_id text,
-      status text,
-      checked_at text not null
-    );
-    create index if not exists idx_verification_outcomes_status on verification_outcomes(status);
-
     create table if not exists todos_current (
       id text primary key,
       task_id text not null references tasks_current(id) on delete cascade,
@@ -176,6 +156,90 @@ export function createSchema(db: Database.Database): void {
       version integer not null default 1,
       updated_at text not null
     );
+
+    -- Verification rules: trigger + expect contract evaluated against turns.
+    create table if not exists rules (
+      id text primary key,
+      name text not null,
+      trigger_phrases_json text,
+      trigger_on text check(trigger_on in ('user','assistant')),
+      expect_tool text,
+      expect_command_matches_json text,
+      expect_pattern text,
+      scope text not null check(scope in ('global','task')),
+      task_id text references tasks_current(id) on delete cascade,
+      source text not null check(source in ('human','agent')),
+      severity text not null check(severity in ('info','warn','block')),
+      rationale text,
+      signature text not null,
+      created_at text not null,
+      deleted_at text,
+      check (
+        (scope = 'global' and task_id is null)
+        or (scope = 'task' and task_id is not null)
+      )
+    );
+    create index if not exists idx_rules_scope_active on rules(scope) where deleted_at is null;
+    create index if not exists idx_rules_task_active on rules(task_id) where deleted_at is null;
+    create index if not exists idx_rules_signature on rules(signature);
+
+    -- Turns: (user.message → assistant.response) cycles per session.
+    -- Verification's per-turn unit. status='open' until close (asst.resp,
+    -- next user.msg, or session.ended); 'closed' after final eval.
+    create table if not exists turns (
+      id text primary key,
+      session_id text not null references sessions_current(id) on delete cascade,
+      task_id text not null references tasks_current(id) on delete cascade,
+      turn_index integer not null,
+      status text not null check(status in ('open','closed')),
+      started_at text not null,
+      ended_at text,
+      asked_text text,
+      assistant_text text,
+      aggregate_verdict text check(aggregate_verdict in ('verified','contradicted','unverifiable')),
+      rules_evaluated_count integer not null default 0
+    );
+    create unique index if not exists idx_turns_session_index on turns(session_id, turn_index);
+    create index if not exists idx_turns_task_started on turns(task_id, started_at);
+    create index if not exists idx_turns_session_open on turns(session_id) where status = 'open';
+
+    -- Link table: events that belong to a turn. Maintained by RuleEnforcementPostProcessor
+    -- as events arrive; cascade-deletes follow turn or event removal.
+    create table if not exists turn_events (
+      turn_id text not null references turns(id) on delete cascade,
+      event_id text not null references timeline_events_view(id) on delete cascade,
+      primary key (turn_id, event_id)
+    );
+    create index if not exists idx_turn_events_event on turn_events(event_id);
+
+    -- Verdicts: definitive (turn × rule) evaluation result, written when the
+    -- turn closes (or by BackfillUseCase for past turns).
+    create table if not exists verdicts (
+      turn_id text not null references turns(id) on delete cascade,
+      rule_id text not null references rules(id) on delete cascade,
+      status text not null check(status in ('verified','contradicted','unverifiable')),
+      matched_phrase text,
+      expected_pattern text,
+      actual_tool_calls_json text,
+      matched_tool_calls_json text,
+      evaluated_at text not null,
+      primary key (turn_id, rule_id)
+    );
+    create index if not exists idx_verdicts_rule on verdicts(rule_id);
+    create index if not exists idx_verdicts_status on verdicts(status);
+
+    -- Rule enforcements: per-event overlay. Each row says "this event matched
+    -- this rule's trigger or fulfilled its expect". Source for read-time lane
+    -- override (rule lane reclassification).
+    create table if not exists rule_enforcements (
+      event_id text not null references timeline_events_view(id) on delete cascade,
+      rule_id text not null references rules(id) on delete cascade,
+      match_kind text not null check(match_kind in ('trigger','expect-fulfilled')),
+      decided_at text not null,
+      primary key (event_id, rule_id, match_kind)
+    );
+    create index if not exists idx_rule_enforcements_rule on rule_enforcements(rule_id);
+    create index if not exists idx_rule_enforcements_event on rule_enforcements(event_id);
   `);
     createEventLogSchema(db);
 }

@@ -1,3 +1,4 @@
+import type Database from "better-sqlite3";
 import type { TimelineEvent } from "~domain/monitoring/index.js";
 import type { EventInsertInput, IEventRepository, SearchOptions, SearchResults } from "~application/ports/repository/event.repository.js";
 import type { IEmbeddingService } from "~application/ports/service/embedding.service.js";
@@ -47,11 +48,15 @@ export class SqliteEventRepository implements IEventRepository {
     }
 
     async findById(id: string): Promise<TimelineEvent | null> {
-        return loadTimelineEventById(this.db.client, id);
+        const event = loadTimelineEventById(this.db.client, id);
+        if (!event) return null;
+        const overridden = applyRuleLaneOverride(this.db.client, [event]);
+        return overridden[0] ?? event;
     }
 
     async findByTaskId(taskId: string): Promise<readonly TimelineEvent[]> {
-        return loadTimelineEventsForTask(this.db.client, taskId);
+        const events = loadTimelineEventsForTask(this.db.client, taskId);
+        return applyRuleLaneOverride(this.db.client, events);
     }
 
     async updateMetadata(eventId: string, metadata: Record<string, unknown>): Promise<TimelineEvent | null> {
@@ -95,4 +100,46 @@ export class SqliteEventRepository implements IEventRepository {
     async search(query: string, opts?: SearchOptions): Promise<SearchResults> {
         return searchEvents(this.db.client, this.embeddingService, query, opts);
     }
+}
+
+/**
+ * Read-time lane override: any event with at least one rule_enforcements
+ * row gets its lane forced to "rule". Original lane is preserved in
+ * metadata.originalLane for clients that need it.
+ */
+function applyRuleLaneOverride<T extends TimelineEvent>(
+    client: Database.Database,
+    events: readonly T[],
+): readonly T[] {
+    if (events.length === 0) return events;
+    const ids = events.map((e) => e.id);
+    const placeholders = ids.map(() => "?").join(", ");
+    const rows = client
+        .prepare<string[], { event_id: string; rule_id: string; match_kind: string }>(
+            `select event_id, rule_id, match_kind
+             from rule_enforcements
+             where event_id in (${placeholders})
+             order by decided_at asc, rule_id asc, match_kind asc`,
+        )
+        .all(...ids);
+    const byEvent = new Map<string, Array<{ ruleId: string; matchKind: string }>>();
+    for (const row of rows) {
+        const list = byEvent.get(row.event_id) ?? [];
+        list.push({ ruleId: row.rule_id, matchKind: row.match_kind });
+        byEvent.set(row.event_id, list);
+    }
+    if (byEvent.size === 0) return events;
+    return events.map((e) => {
+        const ruleEnforcements = byEvent.get(e.id);
+        if (!ruleEnforcements) return e;
+        return {
+            ...e,
+            lane: "rule" as const,
+            metadata: {
+                ...e.metadata,
+                ruleEnforcements,
+                ...(e.lane === "rule" ? {} : { originalLane: e.lane }),
+            },
+        } as T;
+    });
 }

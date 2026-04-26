@@ -1,9 +1,9 @@
-import { eq, inArray, sql } from "drizzle-orm"
-import type { MonitoringTask } from "~domain/monitoring/index.js"
+import { count, eq, inArray, sql } from "drizzle-orm"
+import type { MonitoringTask, TaskStatus } from "~domain/monitoring/index.js"
 import { deriveTaskDisplayTitle } from "~domain/monitoring/index.js"
-import type { ITaskRepository, OverviewStats, TaskUpsertInput } from "~application/ports/repository/task.repository.js"
+import type { ITaskRepository, TaskUpsertInput } from "~application/ports/repository/task.repository.js"
 import { ensureSqliteDatabase, type SqliteDatabase, type SqliteDatabaseInput } from "../shared/drizzle.db.js"
-import { sessionsCurrent, tasksCurrent } from "../schema/drizzle.schema.js"
+import { sessionsCurrent, tasksCurrent, timelineEvents } from "../schema/drizzle.schema.js"
 import { buildTaskSearchText, deleteSearchDocumentsByTaskIds, upsertSearchDocument } from "../search/sqlite.search.documents.js"
 import { appendDomainEvent, eventTimeFromIso } from "../events/index.js"
 import { type TaskRow, mapTaskRow } from "./sqlite.task.row.type.js"
@@ -181,27 +181,21 @@ export class SqliteTaskRepository implements ITaskRepository {
     return allIds.size
   }
 
-  async getOverviewStats(): Promise<OverviewStats> {
-    const counts = this.db.orm
-      .select({
-        totalTasks: sql<number>`cast(count(*) as int)`,
-        runningTasks: sql<number | null>`cast(sum(case when ${tasksCurrent.status} = 'running' then 1 else 0 end) as int)`,
-        waitingTasks: sql<number | null>`cast(sum(case when ${tasksCurrent.status} = 'waiting' then 1 else 0 end) as int)`,
-        completedTasks: sql<number | null>`cast(sum(case when ${tasksCurrent.status} = 'completed' then 1 else 0 end) as int)`,
-        erroredTasks: sql<number | null>`cast(sum(case when ${tasksCurrent.status} = 'errored' then 1 else 0 end) as int)`,
-        totalEvents: sql<number>`(select cast(count(*) as int) from timeline_events_view)`
-      })
+  async listTaskStatuses(): Promise<readonly TaskStatus[]> {
+    return this.db.orm
+      .select({ status: tasksCurrent.status })
       .from(tasksCurrent)
+      .all()
+      .map((row) => row.status as TaskStatus)
+  }
+
+  async countTimelineEvents(): Promise<number> {
+    const row = this.db.orm
+      .select({ total: count() })
+      .from(timelineEvents)
       .get()
 
-    return {
-      totalTasks: counts?.totalTasks ?? 0,
-      runningTasks: counts?.runningTasks ?? 0,
-      waitingTasks: counts?.waitingTasks ?? 0,
-      completedTasks: counts?.completedTasks ?? 0,
-      erroredTasks: counts?.erroredTasks ?? 0,
-      totalEvents: counts?.totalEvents ?? 0
-    }
+    return row?.total ?? 0
   }
 
   private collectDescendantIds(taskId: string): readonly string[] {

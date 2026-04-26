@@ -10,6 +10,11 @@ export { SqliteSessionRepository } from "./repositories/sqlite.session.repositor
 export { SqliteEventRepository } from "./repositories/sqlite.event.repository.js";
 export { SqliteRuntimeBindingRepository } from "./repositories/sqlite.runtime.binding.repository.js";
 export { SqliteTurnPartitionRepository } from "./repositories/sqlite.turn.partition.repository.js";
+export { SqliteRuleRepository } from "./repositories/sqlite.rule.repository.js";
+export { SqliteTurnRepository } from "./repositories/sqlite.turn.repository.js";
+export { SqliteVerdictRepository } from "./repositories/sqlite.verdict.repository.js";
+export { SqliteRuleEnforcementRepository } from "./repositories/sqlite.rule.enforcement.repository.js";
+export { SqliteTurnQueryRepository } from "./repositories/sqlite.turn.query.repository.js";
 export { SqliteEventStore } from "./events/index.js";
 export { createSqliteDatabase, ensureSqliteDatabase } from "./shared/drizzle.db.js";
 export { drizzleSchema } from "./schema/drizzle.schema.js";
