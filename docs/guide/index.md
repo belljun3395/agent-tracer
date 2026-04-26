@@ -53,8 +53,8 @@ model in more detail.
   — preprocessing applied inside each endpoint
 - [Claude Code hook payload spec](./hook-payload-spec.md) — exact JSON
   shape of each hook payload consumed by the plugin
-- [Task observability](./task-observability.md) — `Flow` and `Health`
-  read model used by the dashboard
+- [Task observability](./task-observability.md) — timeline-derived task
+  summaries used by the dashboard
 - [SQLite schema](./sqlite-schema.md) — normalized SQLite table structure,
   event log, current/view tables, and migration rules
 - [Web styling guide](./web-styling.md) — CSS / Tailwind conventions

@@ -625,7 +625,8 @@ create table if not exists turn_partitions_current (
 
 Verification rules evaluate `(user.message → assistant.response)` cycles
 ("turns") for fact-checking what the agent claimed against what it actually
-did. See `docs/guide/turn-evaluation-flow.md` for the evaluation workflow.
+did. The evaluation workflow is implemented in
+`packages/server/src/application/verification/services/`.
 
 There are two evaluation surfaces:
 

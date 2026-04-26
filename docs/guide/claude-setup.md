@@ -66,11 +66,12 @@ added separately so Claude can call MCP tools (`monitor_plan`,
 ```bash
 claude mcp add monitor \
   -e MONITOR_BASE_URL=http://127.0.0.1:3847 \
-  node /absolute/path/to/agent-tracer/packages/mcp/dist/index.js
+  node /absolute/path/to/agent-tracer/packages/server/dist/mcp.js
 ```
 
-If Claude is launched from a GUI and `node` is not on the GUI PATH, use an
-absolute Node binary path instead of plain `node`.
+`dist/mcp.js` is produced by `npm run build`. If Claude is launched from a GUI
+and `node` is not on the GUI PATH, use an absolute Node binary path instead of
+plain `node`.
 
 Verify registration:
 
@@ -121,7 +122,7 @@ As of v0.3 the plugin covers **21 of 28** official Claude hook events:
 | `TaskCompleted.ts` | `TaskCompleted` | Record native-task completion (`todo.logged`, state `completed`) |
 | `PreCompact.ts` | `PreCompact` | Record compaction checkpoint (planning lane) |
 | `PostCompact.ts` | `PostCompact` | Record compaction summary |
-| `Stop.ts` | `Stop` | Record assistant response and end runtime session with `completeTask: true` |
+| `Stop.ts` | `Stop` | Record assistant response and end the runtime session with `completeTask: false` |
 | `StopFailure.ts` | `StopFailure` | Record turn errors (rate_limit, billing_error, etc.) |
 | `CwdChanged.ts` | `CwdChanged` | Record working-directory transitions |
 | `Notification.ts` | `Notification` | Record permission_prompt / idle_prompt / auth_success / elicitation_dialog |
@@ -136,8 +137,9 @@ Not yet handled: `UserPromptExpansion`, `PermissionRequest`, `TeammateIdle`,
 
 `StatusLine.ts` is wired via the plugin's `hooks.json` top-level `statusLine`
 entry using `${CLAUDE_PLUGIN_ROOT}`, so it resolves automatically for both
-marketplace installs and `--plugin-dir` usage. **No local agent-tracer clone is
-required.**
+marketplace installs and `--plugin-dir` usage. Marketplace installs do not need
+a target-project copy of the Agent Tracer source; `--plugin-dir` still points at
+your local checkout.
 
 The plugin's `statusLine`:
 
@@ -226,12 +228,12 @@ lane, subtype, toolFamily, and operation are derived **server-side** inside
 | Subagent lifecycle | `SubagentStart.ts`, `SubagentStop.ts` | Record background running / completed markers |
 | Native task lifecycle | `TaskCreated.ts`, `TaskCompleted.ts` | Record TaskCreate / TaskComplete transitions as `todo.logged` |
 | Pre/Post compact | `PreCompact.ts`, `PostCompact.ts` | Record compaction checkpoint and compact summary |
-| Assistant turn end | `Stop.ts` | Record assistant response and call `/ingest/v1/sessions/end` with `completeTask: true` |
+| Assistant turn end | `Stop.ts` | Record assistant response and call `/ingest/v1/sessions/end` with `completeTask: false` |
 | Turn error | `StopFailure.ts` | Record `assistant.response` with `stopReason: "error:<error_type>"` |
 | Cwd change | `CwdChanged.ts` | Record working-directory transition as `context.saved` |
 | User notification | `Notification.ts` | Record permission-prompt / idle / auth-success / elicitation notifications |
 | Config source change | `ConfigChange.ts` | Record settings-source mutations during the session |
-| Session end | `SessionEnd.ts` | Ends only the current runtime session unless `Stop.ts` already completed the primary task |
+| Session end | `SessionEnd.ts` | Ends the current runtime session; `prompt_input_exit` is the only automatic path that passes `completeTask: true` |
 | Work item complete | `monitor_task_complete` MCP tool | Marks a known task `completed`; runtime-session closure policy stays with `monitor_runtime_session_end` |
 
 ## 5. Working inside this repository
@@ -271,7 +273,7 @@ For the payload schema and known differences from the official spec, see
 
 ## 7. Manual MCP tools
 
-When hooks aren't enough, the `monitor` MCP server exposes 23 tools you can
+When hooks aren't enough, the `monitor` MCP server exposes these tools you can
 call directly. A few of the most useful ones:
 
 - Task lifecycle: `monitor_task_start`, `monitor_task_complete`, `monitor_task_error`, `monitor_task_link`
@@ -279,7 +281,6 @@ call directly. A few of the most useful ones:
 - Conversation: `monitor_user_message` (requires `messageId`; `captureMode: "derived"` requires `sourceEventId`), `monitor_assistant_response`
 - Event logging: `monitor_tool_used`, `monitor_terminal_command`, `monitor_explore`, `monitor_save_context`, `monitor_plan`, `monitor_action`, `monitor_verify`, `monitor_rule`, `monitor_question`, `monitor_thought`, `monitor_todo`, `monitor_agent_activity`
 - Background: `monitor_async_task`
-- Workflow library: `monitor_evaluate_task`, `monitor_find_similar_workflows`
 
 ## 8. End-to-end check
 
@@ -291,5 +292,6 @@ call directly. A few of the most useful ones:
    your alias).
 5. Perform one read or edit.
 6. Confirm a task appears in the dashboard at `http://127.0.0.1:5173`.
-7. Finish the Claude turn. Confirm the primary task transitions to
-   `completed` unless background descendants are still running.
+7. Finish the Claude turn. Confirm an `assistant.response` event appears. The
+   primary task stays open across turns unless you explicitly exit the Claude
+   session or complete the task through `monitor_task_complete`.

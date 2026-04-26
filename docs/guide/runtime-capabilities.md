@@ -1,8 +1,8 @@
 # Agent Tracer - Runtime Capabilities
 
-`packages/domain/src/runtime/index.ts` is the single source of truth defining
-observability scope and session closure policy per runtime adapter. The table below
-summarizes the current code values as-is.
+`packages/web/src/types/runtime-capabilities.defaults.ts` is the built-in
+capability registry for the dashboard. The table below summarizes the current
+code values as-is.
 
 | Adapter | Raw user prompt | Tool calls | Subagents/background | Native skill paths | Separate event stream | Session close policy |
 |---------|-----------------|------------|----------------------|--------------------|----------------------|----------------------|
@@ -25,7 +25,7 @@ Policy summary:
 | Runtime | Official hook events | Handled | Payload readers |
 |---------|----------------------|---------|-----------------|
 | Claude plugin | 28 | 21 (see [hook-payload-spec.md](./hook-payload-spec.md)) | `packages/runtime/src/shared/hooks/claude/payloads.ts` |
-| Codex CLI | 6 | 6 (full) | `packages/runtime/src/shared/hooks/codex/payloads.ts` |
+| Codex CLI | 6 | 5 registered by default; `PermissionRequest` implemented but optional | `packages/runtime/src/shared/hooks/codex/payloads.ts` |
 
 Claude events not yet handled by the plugin: `UserPromptExpansion`,
 `PermissionRequest`, `TeammateIdle`, `FileChanged`, `WorktreeCreate`,
