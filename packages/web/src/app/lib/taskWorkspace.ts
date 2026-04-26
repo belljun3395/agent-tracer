@@ -1,7 +1,9 @@
-import { buildInspectorEventTitle, buildModelSummary, filterTimelineEvents } from "./insights.js";
+import { buildInspectorEventTitle, filterTimelineEvents } from "~app/lib/insights/extraction.js";
+import { buildModelSummary } from "~app/lib/insights/grouping.js";
 import { groupInstructionsBursts } from "./instructionsBurst.js";
 import { buildTimelineRelations, type TimelineConnector } from "./timeline.js";
-import type { TimelineEventRecord, TimelineLane, TimelineRelation } from "../types.js";
+import type { TimelineEventRecord, TimelineLane } from "~domain/monitoring.js";
+import type { TimelineRelation } from "~domain/task-query-contracts.js";
 
 export const FULL_TIMELINE_LANE_FILTERS: Readonly<Record<TimelineLane, boolean>> = {
     user: true,

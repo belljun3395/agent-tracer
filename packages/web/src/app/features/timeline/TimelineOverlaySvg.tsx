@@ -1,11 +1,7 @@
 import type React from "react";
-import {
-    RULER_HEIGHT,
-    TIMELINE_LANES,
-    type TimelineConnector,
-    type TimestampTick,
-} from "../../../types.js";
-import { cn } from "../../lib/ui/cn.js";
+import { RULER_HEIGHT, TIMELINE_LANES } from "~app/lib/timeline.js";
+import type { TimelineConnector, TimestampTick } from "~app/lib/timeline.js";
+import { cn } from "~app/lib/ui/cn.js";
 
 interface TimelineOverlaySvgProps {
     readonly width: number;

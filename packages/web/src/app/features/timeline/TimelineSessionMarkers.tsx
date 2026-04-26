@@ -1,7 +1,8 @@
 import type React from "react";
 import { useMemo } from "react";
-import type { TimelineEventRecord } from "../../../types.js";
-import { RULER_HEIGHT, type TimelineLayout } from "../../../types.js";
+import type { TimelineEventRecord } from "~domain/monitoring.js";
+import { RULER_HEIGHT } from "~app/lib/timeline.js";
+import type { TimelineLayout } from "~app/lib/timeline.js";
 
 interface TimelineSessionMarkersProps {
     readonly events: readonly TimelineEventRecord[];

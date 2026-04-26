@@ -1,6 +1,6 @@
 import { forwardRef } from "react";
 import type React from "react";
-import { cn } from "../../lib/ui/cn.js";
+import { cn } from "~app/lib/ui/cn.js";
 type ButtonVariant = "ghost" | "bare" | "destructive" | "accent";
 type ButtonSize = "sm" | "md" | "icon";
 interface ButtonProps extends React.ComponentPropsWithoutRef<"button"> {

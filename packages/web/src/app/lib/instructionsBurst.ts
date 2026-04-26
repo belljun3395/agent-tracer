@@ -1,5 +1,5 @@
-import { EventId } from "../../types.js";
-import type { TimelineEventRecord } from "../types.js";
+import { EventId } from "~domain/monitoring.js";
+import type { TimelineEventRecord } from "~domain/monitoring.js";
 
 export interface InstructionsBurstFile {
     readonly eventId: string;

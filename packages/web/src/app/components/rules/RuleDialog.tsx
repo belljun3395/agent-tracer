@@ -1,6 +1,7 @@
 import type React from "react";
 import { useEffect } from "react";
-import type { RuleCreateInput, RuleRecord, RuleScope, TaskId } from "../../../types.js";
+import type { TaskId } from "~domain/monitoring.js";
+import type { RuleCreateInput, RuleRecord, RuleScope } from "~domain/rule.js";
 import { Button } from "../ui/Button.js";
 import { RuleForm } from "./RuleForm.js";
 

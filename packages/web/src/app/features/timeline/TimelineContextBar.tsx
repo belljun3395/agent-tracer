@@ -1,7 +1,7 @@
 import type React from "react";
 import type { FormEvent as ReactFormEvent } from "react";
-import { type buildTimelineContextSummary } from "../../../types.js";
-import { cn } from "../../lib/ui/cn.js";
+import type { buildTimelineContextSummary } from "~app/lib/timeline.js";
+import { cn } from "~app/lib/ui/cn.js";
 import { TASK_STATUS_BUTTON_STYLES, formatTaskStatusLabel, type TimelineObservabilityStats } from "./status-styles.js";
 
 export function TimelineContextBar({ taskTitle, taskUsesDerivedTitle, contextSummary, showRuleGapsOnly, onToggleRuleGap, selectedRuleId, onClearRuleId, observabilityStats, taskStatus, onChangeTaskStatus, isUpdatingTaskStatus, isEditingTaskTitle, taskTitleDraft, taskTitleError, isSavingTaskTitle, onTitleDraftChange, onSubmitTitle, onCancelEditTitle, onStartEditTitle, showInlineFiltersButton, isFiltersOpen, filtersButtonRef, setFiltersPopoverPos, setIsFiltersOpen, activeLaneCount, totalLaneCount, embedded }: {

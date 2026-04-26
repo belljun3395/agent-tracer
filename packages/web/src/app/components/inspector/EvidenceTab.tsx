@@ -1,7 +1,9 @@
 import type React from "react";
 import { useState } from "react";
-import { cn } from "../../lib/ui/cn.js";
-import { formatRelativeTime, type DirectoryMentionVerification, type ExplorationInsight, type FileMentionVerification, type MentionedFileVerification, type WebLookupStat } from "../../../types.js";
+import { cn } from "~app/lib/ui/cn.js";
+import type { ExplorationInsight, WebLookupStat } from "~app/lib/insights/types.js";
+import { formatRelativeTime } from "~app/lib/timeline.js";
+import type { DirectoryMentionVerification, FileMentionVerification, MentionedFileVerification } from "~domain/paths.js";
 import { Badge } from "../ui/Badge.js";
 import { PanelCard } from "../ui/PanelCard.js";
 import { FileEvidenceSection, type FileEvidenceSortKey, type FileEvidenceStat } from "./FileEvidenceSection.js";

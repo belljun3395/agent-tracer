@@ -10,14 +10,11 @@
  */
 import type React from "react";
 import { createContext, useContext } from "react";
-import type {
-    ModelSummary,
-    TaskDetailResponse,
-    TimelineConnector,
-    TimelineEventRecord,
-    TurnGroup,
-    TurnPartition,
-} from "../../../../types.js";
+import type { ModelSummary } from "~app/lib/insights/grouping.js";
+import type { TimelineConnector } from "~app/lib/timeline.js";
+import type { TimelineEventRecord } from "~domain/monitoring.js";
+import type { TaskDetailResponse } from "~domain/task-query-contracts.js";
+import type { TurnGroup, TurnPartition } from "~domain/turn-partition.js";
 
 interface InspectorSelectedConnector {
     readonly connector: TimelineConnector;

@@ -1,6 +1,9 @@
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { defineConfig, loadEnv, type PluginOption } from "vite";
 import react from "@vitejs/plugin-react";
-import { resolveViteMonitorConfig } from "./src/config";
+import { resolveViteMonitorConfig } from "./src/config/vite-monitor-config";
+const PACKAGE_ROOT = fileURLToPath(new URL(".", import.meta.url));
 export default defineConfig(async ({ mode }) => {
     const env = { ...process.env, ...loadEnv(mode, process.cwd(), "") };
     const {
@@ -17,6 +20,15 @@ export default defineConfig(async ({ mode }) => {
     }
     return {
         plugins,
+        resolve: {
+            alias: {
+                "~domain": resolve(PACKAGE_ROOT, "src/types"),
+                "~io": resolve(PACKAGE_ROOT, "src/io"),
+                "~state": resolve(PACKAGE_ROOT, "src/state"),
+                "~app": resolve(PACKAGE_ROOT, "src/app"),
+                "~config": resolve(PACKAGE_ROOT, "src/config")
+            }
+        },
         define: {
             "import.meta.env.VITE_MONITOR_BASE_URL": JSON.stringify(webApiBaseUrl),
             "import.meta.env.VITE_MONITOR_WS_BASE_URL": JSON.stringify(webWsBaseUrl),

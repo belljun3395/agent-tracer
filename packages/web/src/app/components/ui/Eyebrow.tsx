@@ -1,5 +1,5 @@
 import type React from "react";
-import { cn } from "../../lib/ui/cn.js";
+import { cn } from "~app/lib/ui/cn.js";
 
 type EyebrowProps = React.ComponentPropsWithoutRef<"span">;
 

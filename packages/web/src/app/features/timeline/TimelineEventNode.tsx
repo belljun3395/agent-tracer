@@ -1,15 +1,10 @@
 import type React from "react";
-import {
-    formatRelativeTime,
-    NODE_WIDTH,
-    resolveEventSubtype,
-    ROW_VERTICAL_OFFSET,
-    type TimelineConnector,
-    type TimelineEventRecord,
-    type TimelineItemLayout,
-} from "../../../types.js";
-import { cn } from "../../lib/ui/cn.js";
-import { readRuleEnforcements } from "../../lib/ruleEnforcements.js";
+import { resolveEventSubtype } from "~app/lib/eventSubtype.js";
+import { formatRelativeTime, NODE_WIDTH, ROW_VERTICAL_OFFSET } from "~app/lib/timeline.js";
+import type { TimelineConnector, TimelineItemLayout } from "~app/lib/timeline.js";
+import type { TimelineEventRecord } from "~domain/monitoring.js";
+import { cn } from "~app/lib/ui/cn.js";
+import { readRuleEnforcements } from "~app/lib/ruleEnforcements.js";
 
 interface TimelineEventNodeProps {
     readonly item: TimelineItemLayout;

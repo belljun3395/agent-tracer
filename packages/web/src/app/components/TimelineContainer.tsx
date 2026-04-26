@@ -1,16 +1,13 @@
 import type React from "react";
 import { useCallback, useMemo } from "react";
-import type { TaskId } from "../../types.js";
-import { buildTaskTimelineSummary } from "../../types.js";
-import type { MonitoringTask } from "../../types.js";
-import { updateTaskStatus, updateTaskTitle } from "../../io.js";
-import {
-    monitorQueryKeys,
-    useEditStore,
-    useNowMs,
-    useSelectionStore,
-    useTaskDetailQuery
-} from "../../state.js";
+import type { TaskId } from "~domain/monitoring.js";
+import { buildTaskTimelineSummary } from "~app/lib/taskTimelineSummary.js";
+import type { MonitoringTask } from "~domain/monitoring.js";
+import { updateTaskStatus, updateTaskTitle } from "~io/api.js";
+import { useTaskDetailQuery } from "~state/server/queries.js";
+import { monitorQueryKeys } from "~state/server/queryKeys.js";
+import { useEditStore, useSelectionStore } from "~state/ui/UiStoreProvider.js";
+import { useNowMs } from "~state/ui/useNowMs.js";
 import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "../lib/ui/cn.js";
 import { Timeline } from "./Timeline.js";

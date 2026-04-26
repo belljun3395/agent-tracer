@@ -1,5 +1,5 @@
-import { buildReusableTaskSnapshot } from "../../../types.js";
-import type { MonitoringTask, TimelineEventRecord, TimelineLane } from "../../types.js";
+import { buildReusableTaskSnapshot } from "~domain/snapshot.js";
+import type { MonitoringTask, TimelineEventRecord, TimelineLane } from "~domain/monitoring.js";
 import { readRuleEnforcements } from "../ruleEnforcements.js";
 import type {
     ExploredFileStat,

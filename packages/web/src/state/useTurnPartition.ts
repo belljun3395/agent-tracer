@@ -1,19 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { TaskId } from "../types.js";
-import {
-    buildDefaultPartition,
-    countNonPreludeTurns,
-    mergeAdjacentGroups,
-    resolveTurnPartition,
-    setGroupLabel,
-    setGroupVisibility,
-    splitGroup,
-    validatePartition,
-    type TimelineEventRecord,
-    type TurnGroup,
-    type TurnPartition,
-} from "../types.js";
-import { fetchTurnPartition, resetTurnPartition, saveTurnPartition } from "../io.js";
+import { TaskId } from "~domain/monitoring.js";
+import type { TimelineEventRecord } from "~domain/monitoring.js";
+import { buildDefaultPartition, countNonPreludeTurns, mergeAdjacentGroups, resolveTurnPartition, setGroupLabel, setGroupVisibility, splitGroup, validatePartition } from "~domain/turn-partition.js";
+import type { TurnGroup, TurnPartition } from "~domain/turn-partition.js";
+import { fetchTurnPartition, resetTurnPartition, saveTurnPartition } from "~io/api.js";
 
 export interface UseTurnPartitionResult {
     readonly partition: TurnPartition | null;

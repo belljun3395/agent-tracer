@@ -1,20 +1,8 @@
 import { useMutation, useQueryClient, type QueryClient, type UseMutationResult } from "@tanstack/react-query";
-import {
-    createRule,
-    deleteRule,
-    promoteRule,
-    reEvaluateRule,
-    updateRule,
-} from "../../../io.js";
-import type {
-    BackfillResult,
-    RuleCreateInput,
-    RuleId,
-    RuleRecord,
-    RuleUpdateInput,
-    TaskId,
-} from "../../../types.js";
-import { monitorQueryKeys } from "../../../state.js";
+import { createRule, deleteRule, promoteRule, reEvaluateRule, updateRule } from "~io/api.js";
+import type { RuleId, TaskId } from "~domain/monitoring.js";
+import type { BackfillResult, RuleCreateInput, RuleRecord, RuleUpdateInput } from "~domain/rule.js";
+import { monitorQueryKeys } from "~state/server/queryKeys.js";
 
 export function invalidateRuleCaches(qc: QueryClient, taskId?: TaskId | null): void {
     void qc.invalidateQueries({ queryKey: ["monitor", "rules"] });

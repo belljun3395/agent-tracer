@@ -1,6 +1,7 @@
 import type React from "react";
 import type { FormEvent as ReactFormEvent } from "react";
-import type { TimelineEventRecord, TimelineLane, TurnPartition } from "../../../types.js";
+import type { TimelineEventRecord, TimelineLane } from "~domain/monitoring.js";
+import type { TurnPartition } from "~domain/turn-partition.js";
 
 export interface TimelineObservabilityStats {
     readonly actions: number;

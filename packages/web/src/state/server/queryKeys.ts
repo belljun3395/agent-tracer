@@ -1,5 +1,5 @@
-import type { TaskId } from "../../types.js";
-import type { FetchRulesFilter } from "../../io.js";
+import type { TaskId } from "~domain/monitoring.js";
+import type { FetchRulesFilter } from "~io/api.js";
 
 export const monitorQueryKeys = {
     overview: () => ["monitor", "overview"] as const,

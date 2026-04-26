@@ -1,6 +1,7 @@
 import type React from "react";
-import { cn } from "../../lib/ui/cn.js";
-import { formatRelativeTime, type CompactRelation, type ExploredFileStat, type FileActivityStat } from "../../../types.js";
+import { cn } from "~app/lib/ui/cn.js";
+import type { CompactRelation, ExploredFileStat, FileActivityStat } from "~app/lib/insights/types.js";
+import { formatRelativeTime } from "~app/lib/timeline.js";
 import { PanelCard } from "../ui/PanelCard.js";
 import { Badge } from "../ui/Badge.js";
 import { cardShell, monoText } from "./styles.js";

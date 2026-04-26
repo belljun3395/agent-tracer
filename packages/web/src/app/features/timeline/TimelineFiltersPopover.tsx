@@ -1,6 +1,7 @@
 import type React from "react";
-import { TIMELINE_LANES, type TimelineLane } from "../../../types.js";
-import { getLaneTheme } from "../../lib/ui/laneTheme.js";
+import { TIMELINE_LANES } from "~app/lib/timeline.js";
+import type { TimelineLane } from "~domain/monitoring.js";
+import { getLaneTheme } from "~app/lib/ui/laneTheme.js";
 
 export function TimelineFiltersPopover({ filtersPopoverRef, filtersPopoverPos, zoom, onZoomChange, activeLaneCount, totalLaneCount, filters, setFilters }: {
     readonly filtersPopoverRef: React.RefObject<HTMLDivElement | null>;

@@ -34,4 +34,3 @@ export function resolveViteMonitorConfig(env: Record<string, string | undefined>
     webWsBaseUrl: normalizeBaseUrl(env.VITE_MONITOR_WS_BASE_URL),
   }
 }
-

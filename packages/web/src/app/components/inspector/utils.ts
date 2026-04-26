@@ -1,4 +1,4 @@
-import type { CompactRelation } from "../../../types.js";
+import type { CompactRelation } from "~app/lib/insights/types.js";
 export function toRelativePath(filePath: string, workspacePath?: string): string {
     if (!workspacePath) {
         return filePath;

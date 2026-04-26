@@ -1,4 +1,4 @@
-import type { TimelineLane } from "../../types.js";
+import type { TimelineLane } from "~domain/monitoring.js";
 
 export interface ObservabilityStats {
     readonly actions: number;

@@ -1,8 +1,11 @@
 import type React from "react";
 import { useMemo } from "react";
-import type { TurnGroup, TurnPartition, TurnSegment } from "../../../types.js";
-import { RULER_HEIGHT, scopeLabelForGroup, type TimelineLayout } from "../../../types.js";
-import { cn } from "../../lib/ui/cn.js";
+import type { TurnSegment } from "~domain/segments.js";
+import type { TurnGroup, TurnPartition } from "~domain/turn-partition.js";
+import { RULER_HEIGHT } from "~app/lib/timeline.js";
+import type { TimelineLayout } from "~app/lib/timeline.js";
+import { scopeLabelForGroup } from "~domain/turn-partition.js";
+import { cn } from "~app/lib/ui/cn.js";
 
 interface TimelineTurnOverlayProps {
     readonly segments: readonly TurnSegment[];

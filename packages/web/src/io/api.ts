@@ -1,27 +1,8 @@
-import type {
-    EventId,
-    RuleId,
-    RuntimeSource,
-    SessionId,
-    TaskId,
-} from "../types.js";
-import type {
-    BackfillResult,
-    MonitoringTask,
-    OverviewResponse,
-    RuleCreateInput,
-    RuleRecord,
-    RuleScope,
-    RuleSource,
-    RuleUpdateInput,
-    RulesListResponse,
-    SearchResponse,
-    TaskDetailResponse,
-    TaskRulesResponse,
-    TimelineEventRecord,
-    TasksResponse,
-    VerdictCounts,
-} from "../types.js";
+import type { EventId, RuleId, RuntimeSource, SessionId, TaskId } from "~domain/monitoring.js";
+import type { MonitoringTask, TimelineEventRecord } from "~domain/monitoring.js";
+import type { BackfillResult, RuleCreateInput, RuleRecord, RuleScope, RuleSource, RuleUpdateInput, RulesListResponse, TaskRulesResponse, VerdictCounts } from "~domain/rule.js";
+import type { SearchResponse } from "~domain/search-contracts.js";
+import type { OverviewResponse, TaskDetailResponse, TasksResponse } from "~domain/task-query-contracts.js";
 const DEFAULT_REQUEST_TIMEOUT_MS = 30000;
 
 function normalizeBaseUrl(value: string | undefined): string {

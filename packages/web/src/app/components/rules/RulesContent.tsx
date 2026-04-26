@@ -1,17 +1,9 @@
 import type React from "react";
 import { useMemo, useState } from "react";
-import type {
-    RuleCreateInput,
-    RuleRecord,
-    RuleScope,
-    RuleSeverity,
-    RuleSource,
-    RuleUpdateInput,
-    TaskRulesResponse,
-    TaskId,
-} from "../../../types.js";
-import { useRulesQuery, useTaskRulesQuery, useTasksQuery } from "../../../state.js";
-import { cn } from "../../lib/ui/cn.js";
+import type { TaskId } from "~domain/monitoring.js";
+import type { RuleCreateInput, RuleRecord, RuleScope, RuleSeverity, RuleSource, RuleUpdateInput, TaskRulesResponse } from "~domain/rule.js";
+import { useRulesQuery, useTaskRulesQuery, useTasksQuery } from "~state/server/queries.js";
+import { cn } from "~app/lib/ui/cn.js";
 import { Button } from "../ui/Button.js";
 import { RuleDialog } from "./RuleDialog.js";
 import { RuleListItem } from "./RuleListItem.js";

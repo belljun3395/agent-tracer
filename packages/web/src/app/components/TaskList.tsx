@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import type React from "react";
-import { formatRelativeTime, type MonitoringTask, type TaskDetailResponse } from "../../types.js";
+import { formatRelativeTime } from "~app/lib/timeline.js";
+import type { MonitoringTask } from "~domain/monitoring.js";
+import type { TaskDetailResponse } from "~domain/task-query-contracts.js";
 import { useDragScroll } from "../lib/useDragScroll.js";
 import { cn } from "../lib/ui/cn.js";
 import {

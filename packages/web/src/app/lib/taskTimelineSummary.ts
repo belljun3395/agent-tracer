@@ -1,6 +1,10 @@
-import { buildCompactInsight, buildModelSummary, buildObservabilityStats, collectExploredFiles, collectRecentRuleDecisions, type CompactInsight, type ModelSummary, type ObservabilityStats, type RuleDecisionStat } from "./insights.js";
-import type { ExploredFileStat } from "./insights.js";
-import type { TimelineEventRecord } from "../types.js";
+import { buildCompactInsight, buildObservabilityStats, collectExploredFiles } from "~app/lib/insights/aggregation.js";
+import { collectRecentRuleDecisions } from "~app/lib/insights/extraction.js";
+import { buildModelSummary } from "~app/lib/insights/grouping.js";
+import type { ModelSummary } from "~app/lib/insights/grouping.js";
+import type { CompactInsight, ObservabilityStats, RuleDecisionStat } from "~app/lib/insights/types.js";
+import type { ExploredFileStat } from "~app/lib/insights/types.js";
+import type { TimelineEventRecord } from "~domain/monitoring.js";
 
 export interface TaskTimelineSummary {
     readonly exploredFiles: readonly ExploredFileStat[];

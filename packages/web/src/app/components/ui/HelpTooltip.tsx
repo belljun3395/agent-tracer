@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type React from "react";
-import { cn } from "../../lib/ui/cn.js";
+import { cn } from "~app/lib/ui/cn.js";
 
 export function HelpTooltip({
     text,

@@ -1,4 +1,4 @@
-import type { EvidenceLevel } from "../../types.js";
+import type { EvidenceLevel } from "~domain/runtime.js";
 
 export function formatDuration(ms: number): string {
     if (!Number.isFinite(ms) || ms < 0) {

@@ -1,4 +1,5 @@
-import type { ReusableTaskSnapshot, TimelineEventRecord } from "../../../types.js";
+import type { TimelineEventRecord } from "~domain/monitoring.js";
+import type { ReusableTaskSnapshot } from "~domain/snapshot.js";
 import {
     KO_EVALUATE_CALL_NOW,
     KO_EVALUATE_FIELD_APPROACH_NOTE,
@@ -19,7 +20,7 @@ import {
     KO_HANDOFF_PREAMBLE_HANDOFF,
     KO_HANDOFF_PREAMBLE_REFERENCE,
     KO_HANDOFF_PREAMBLE_REVIEW,
-} from "../../i18n/ko.js";
+} from "~app/i18n/ko.js";
 import type { TaskProcessSection } from "./types.js";
 import { uniqueStrings } from "./helpers.js";
 

@@ -1,6 +1,6 @@
 import type React from "react";
 import { useEffect, useRef } from "react";
-import type { SearchResponse } from "../../types.js";
+import type { SearchResponse } from "~domain/search-contracts.js";
 import { Link } from "react-router-dom";
 import { cn } from "../lib/ui/cn.js";
 import { useTheme } from "../lib/useTheme.js";

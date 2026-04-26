@@ -1,5 +1,6 @@
-import { EventId, GoalId, HandoffId, PlanId, WorkItemId } from "../../types.js";
-import type { TimelineEventRecord, TimelineLane, TimelineRelation } from "../types.js";
+import { EventId, GoalId, HandoffId, PlanId, WorkItemId } from "~domain/monitoring.js";
+import type { TimelineEventRecord, TimelineLane } from "~domain/monitoring.js";
+import type { TimelineRelation } from "~domain/task-query-contracts.js";
 import { resolveEventSubtype, type TimelineLaneRow } from "./eventSubtype.js";
 export interface TimelineItemLayout {
     readonly event: TimelineEventRecord;

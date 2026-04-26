@@ -1,6 +1,6 @@
 import type React from "react";
 import { useLayoutEffect, useRef, useState } from "react";
-import type { TimelineItemLayout } from "../../../types.js";
+import type { TimelineItemLayout } from "~app/lib/timeline.js";
 import { areNodeBoundsEqual, type NodeBounds } from "./layout.js";
 
 /**

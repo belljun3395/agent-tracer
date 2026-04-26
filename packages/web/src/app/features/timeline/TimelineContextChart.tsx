@@ -1,7 +1,7 @@
 import type React from "react";
 import { useCallback, useMemo, useRef, useState } from "react";
-import type { TimelineItemLayout } from "../../../types.js";
-import type { ContextWarningPrefs } from "../../lib/contextWarningPrefs.js";
+import type { TimelineItemLayout } from "~app/lib/timeline.js";
+import type { ContextWarningPrefs } from "~app/lib/contextWarningPrefs.js";
 
 export interface ContextChartProps {
     readonly timelineWidth: number;
