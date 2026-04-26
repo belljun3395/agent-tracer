@@ -8,7 +8,7 @@ import type {
 import type { AnyDomainEventDraft, DomainEvent, EventId, TimeRange } from "~domain/events/index.js";
 import { validateDomainEventDraft } from "~domain/events/index.js";
 import { generateUlid } from "./ulid.js";
-import { projectDomainEvent } from "../projections/index.js";
+import { projectDomainEvent } from "../read-models/sqlite.read-model.projector.js";
 
 interface EventRow {
     readonly event_id: string;

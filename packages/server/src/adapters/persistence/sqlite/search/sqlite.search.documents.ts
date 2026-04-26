@@ -2,7 +2,7 @@ import type Database from "better-sqlite3";
 import { and, eq, inArray, or, sql } from "drizzle-orm";
 
 import { ensureSqliteDatabase, type SqliteDatabaseInput } from "../shared/drizzle.db.js";
-import { searchDocuments } from "../schema/drizzle.schema.js";
+import { searchDocuments } from "./sqlite.search.tables.js";
 export type SearchDocumentScope = "task" | "event";
 export interface SearchDocumentInput {
     readonly scope: SearchDocumentScope;

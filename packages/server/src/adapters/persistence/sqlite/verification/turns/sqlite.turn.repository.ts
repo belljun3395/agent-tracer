@@ -4,7 +4,7 @@ import type {
     StoredTurn,
     TurnInsertInput,
 } from "~application/ports/repository/turn.repository.js";
-import { ensureSqliteDatabase, type SqliteDatabaseInput } from "../shared/drizzle.db.js";
+import { ensureSqliteDatabase, type SqliteDatabaseInput } from "~adapters/persistence/sqlite/shared/drizzle.db.js";
 
 interface TurnRow {
     readonly id: string;

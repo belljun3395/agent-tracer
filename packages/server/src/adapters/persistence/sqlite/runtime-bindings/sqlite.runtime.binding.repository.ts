@@ -2,9 +2,9 @@ import { and, desc, eq, isNotNull } from "drizzle-orm"
 
 import type { IRuntimeBindingRepository, RuntimeBinding, RuntimeBindingUpsertInput } from "~application/ports/repository/runtime.binding.repository.js"
 import { ensureSqliteDatabase, type SqliteDatabase, type SqliteDatabaseInput } from "../shared/drizzle.db.js"
-import { runtimeSessionBindings } from "../schema/drizzle.schema.js"
 import { appendDomainEvent, eventTimeFromIso } from "../events/index.js"
 import { type RuntimeSessionBindingRow, mapRuntimeBindingRow } from "./sqlite.runtime.binding.row.type.js"
+import { runtimeSessionBindings } from "./sqlite.runtime-binding.tables.js"
 
 export class SqliteRuntimeBindingRepository implements IRuntimeBindingRepository {
   private readonly db: SqliteDatabase

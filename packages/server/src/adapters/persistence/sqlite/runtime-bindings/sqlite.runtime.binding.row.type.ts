@@ -1,6 +1,6 @@
 import type { InferSelectModel } from "drizzle-orm";
 import type { RuntimeBinding } from "~application/ports/repository/runtime.binding.repository.js";
-import type { runtimeSessionBindings } from "../schema/drizzle.schema.js";
+import type { runtimeSessionBindings } from "./sqlite.runtime-binding.tables.js";
 
 export type RuntimeSessionBindingRow = InferSelectModel<typeof runtimeSessionBindings>;
 

@@ -7,8 +7,8 @@ import type {
     RuleWithSignature,
 } from "~application/ports/repository/rule.repository.js";
 import { normalizeRuleExpectedAction } from "~domain/verification/index.js";
-import { rules } from "../schema/drizzle.schema.js";
-import { ensureSqliteDatabase, type SqliteDatabase, type SqliteDatabaseInput } from "../shared/drizzle.db.js";
+import { ensureSqliteDatabase, type SqliteDatabase, type SqliteDatabaseInput } from "~adapters/persistence/sqlite/shared/drizzle.db.js";
+import { rules } from "../sqlite.verification.tables.js";
 
 type RuleRow = typeof rules.$inferSelect;
 

@@ -4,7 +4,8 @@ import type { EventInsertInput, IEventRepository, SearchOptions, SearchResults }
 import type { IEmbeddingService } from "~application/ports/service/embedding.service.js";
 import { ensureSqliteDatabase, type SqliteDatabase, type SqliteDatabaseInput } from "../shared/drizzle.db.js";
 import { refreshEventSearchDocument, searchEvents } from "../search/sqlite.event.search.js";
-import { appendDomainEvent, mapTimelineInsertToDomainEvent } from "../events/index.js";
+import { appendDomainEvent } from "../events/index.js";
+import { mapTimelineInsertToDomainEvent } from "./timeline-event.mapper.js";
 import {
     buildEventStorageValues,
     loadTimelineEventById,

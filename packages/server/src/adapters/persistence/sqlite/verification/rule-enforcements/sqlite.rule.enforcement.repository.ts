@@ -4,8 +4,8 @@ import type {
     RuleEnforcementInsert,
     RuleEnforcementRow,
 } from "~application/ports/repository/rule.enforcement.repository.js";
-import { ruleEnforcements } from "../schema/drizzle.schema.js";
-import { ensureSqliteDatabase, type SqliteDatabase, type SqliteDatabaseInput } from "../shared/drizzle.db.js";
+import { ensureSqliteDatabase, type SqliteDatabase, type SqliteDatabaseInput } from "~adapters/persistence/sqlite/shared/drizzle.db.js";
+import { ruleEnforcements } from "../sqlite.verification.tables.js";
 
 type Row = typeof ruleEnforcements.$inferSelect;
 

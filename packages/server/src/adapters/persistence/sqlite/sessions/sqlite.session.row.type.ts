@@ -1,6 +1,6 @@
 import type { InferSelectModel } from "drizzle-orm";
 import type { MonitoringSession } from "~domain/monitoring/index.js";
-import type { sessionsCurrent } from "../schema/drizzle.schema.js";
+import type { sessionsCurrent } from "./sqlite.session.tables.js";
 
 export type SessionRow = InferSelectModel<typeof sessionsCurrent>;
 
