@@ -153,14 +153,12 @@ export function TopBar({ isConnected, isNavigationOpen, onToggleNavigation, sear
       {/* Right: Actions */}
       <div className="flex h-full shrink-0 items-center gap-1.5 border-l border-[var(--border)] px-3">
         {showFiltersButton && onToggleFilters && (
-          <button ref={filtersButtonRef} aria-expanded={isFiltersOpen} aria-label="Open filters and zoom" className={cn("inline-flex h-7 shrink-0 items-center gap-1.5 rounded-[var(--radius-md)] border px-2.5 text-[0.72rem] font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-1", isFiltersOpen
-              ? "border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] text-[var(--accent)]"
-              : "border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-3)] hover:border-[var(--border-strong)] hover:bg-[var(--surface)] hover:text-[var(--text-1)]")} onClick={onToggleFilters} title="Filters & Zoom" type="button">
+          <Button ref={filtersButtonRef} active={isFiltersOpen} aria-expanded={isFiltersOpen} aria-label="Open filters and zoom" className="shrink-0 gap-1.5 text-[0.72rem]" onClick={onToggleFilters} size="sm" title="Filters & Zoom">
             <svg aria-hidden="true" fill="none" height="13" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" width="13">
               <line x1="4" x2="20" y1="6" y2="6"/><line x1="8" x2="16" y1="12" y2="12"/><line x1="11" x2="13" y1="18" y2="18"/>
             </svg>
             <span className="hidden sm:inline">Filters</span>
-          </button>
+          </Button>
         )}
         {onToggleRules && (
           <button

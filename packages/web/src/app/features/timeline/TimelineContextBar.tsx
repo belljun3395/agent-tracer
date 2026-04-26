@@ -2,6 +2,7 @@ import type React from "react";
 import type { FormEvent as ReactFormEvent } from "react";
 import type { buildTimelineContextSummary } from "~app/lib/timeline.js";
 import { cn } from "~app/lib/ui/cn.js";
+import { Button } from "~app/components/ui/Button.js";
 import { TASK_STATUS_BUTTON_STYLES, formatTaskStatusLabel, type TimelineObservabilityStats } from "./status-styles.js";
 
 export function TimelineContextBar({ taskTitle, taskUsesDerivedTitle, contextSummary, showRuleGapsOnly, onToggleRuleGap, selectedRuleId, onClearRuleId, observabilityStats, taskStatus, onChangeTaskStatus, isUpdatingTaskStatus, isEditingTaskTitle, taskTitleDraft, taskTitleError, isSavingTaskTitle, onTitleDraftChange, onSubmitTitle, onCancelEditTitle, onStartEditTitle, showInlineFiltersButton, isFiltersOpen, filtersButtonRef, setFiltersPopoverPos, setIsFiltersOpen, activeLaneCount, totalLaneCount, embedded }: {
@@ -51,24 +52,24 @@ export function TimelineContextBar({ taskTitle, taskUsesDerivedTitle, contextSum
                                 value={taskTitleDraft}
                             />
                             <div className="flex items-center gap-1.5">
-                                <button className="inline-flex h-7 items-center rounded-[var(--radius-md)] border border-[var(--accent)] bg-[var(--accent-light)] px-2.5 text-[0.72rem] font-semibold text-[var(--accent)]" disabled={isSavingTaskTitle} type="submit">
+                                <Button disabled={isSavingTaskTitle} size="sm" type="submit" variant="accent">
                                     {isSavingTaskTitle ? "Saving..." : "Save"}
-                                </button>
-                                <button className="inline-flex h-7 items-center rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] px-2.5 text-[0.72rem] font-semibold text-[var(--text-2)]" disabled={isSavingTaskTitle} onClick={onCancelEditTitle} type="button">
+                                </Button>
+                                <Button disabled={isSavingTaskTitle} onClick={onCancelEditTitle} size="sm">
                                     Cancel
-                                </button>
+                                </Button>
                             </div>
                             {taskTitleError && <span className="basis-full text-[0.72rem] font-medium text-[var(--err)]">{taskTitleError}</span>}
                         </form>
                     ) : (
                         <div className="timeline-context-title-row">
                             <strong className="timeline-context-title">{taskTitle ?? "Waiting for task data…"}</strong>
-                            <button aria-label="Rename task" className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] text-[var(--text-3)] transition hover:border-[var(--border-strong)] hover:bg-[var(--surface-2)] hover:text-[var(--text-1)]" onClick={onStartEditTitle} title="Rename task" type="button">
+                            <Button aria-label="Rename task" className="shrink-0 text-[var(--text-3)]" onClick={onStartEditTitle} size="icon" title="Rename task">
                                 <svg aria-hidden="true" fill="none" height="13" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" width="13">
                                     <path d="M12 20h9"/>
                                     <path d="M16.5 3.5a2.12 2.12 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>
                                 </svg>
-                            </button>
+                            </Button>
                             {taskUsesDerivedTitle && taskTitle && <span className="timeline-context-summary-chip accent">Suggested</span>}
                         </div>
                     ))}
