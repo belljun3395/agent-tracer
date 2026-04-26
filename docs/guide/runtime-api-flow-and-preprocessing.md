@@ -8,7 +8,7 @@ runtimes should follow the same surface.
 Implementation basis:
 - Claude plugin hooks: `packages/runtime/src/claude-code/hooks/*.ts`
 - Codex hook adapter: `packages/runtime/src/codex/hooks/*.ts`
-- Public API surface: `packages/server/src/adapters/http/ingest/controllers/lifecycle.controller.ts`
+- Public API surface: `packages/server/src/adapters/http/ingest/controllers/`
 
 Related documentation:
 - [API integration map](./api-integration-map.md)
@@ -30,7 +30,8 @@ Related documentation:
 | `/ingest/v1/workflow` | Track todo lifecycle |
 | `/ingest/v1/tasks/link` | Link parent-child tasks |
 | `/ingest/v1/coordination` | Background task state |
-| `/ingest/v1/workflow`, `/ingest/v1/workflow`, `/ingest/v1/workflow`, `/ingest/v1/workflow`, `/ingest/v1/workflow`, `/ingest/v1/conversation`, `/ingest/v1/workflow` | High-signal structured events |
+| `/ingest/v1/events` | Generic kind-tagged event ingest used by runtime hooks |
+| `/ingest/v1/lifecycle`, `/ingest/v1/telemetry` | Typed lifecycle and token-usage ingest |
 
 ## Claude Plugin Preprocessing Strategy
 
@@ -43,14 +44,15 @@ Related documentation:
 - Per-event payload readers under `packages/runtime/src/shared/hooks/claude/payloads.ts`
   enforce required fields (`session_id`, etc.) and expose typed
   `agentId` / `model` / `permissionMode` / `transcriptPath` / `cwd`.
-- Claude payload `hook_source` still comes as `"claude-hook"`; only that
-  value is treated as a valid Claude event.
+- Claude payload `hook_source` may still appear as `"claude-hook"` in legacy
+  payloads, but the canonical server-side `runtimeSource` for new events is
+  `claude-plugin`.
 - Canonical `runtimeSource` sent to server is `claude-plugin`.
 - Strings are normalized with trim + maxLength cutoff inside the readers.
 
 ### Session Prerequisite Guarantee
 
-- Calls `runtime-session-ensure` first from `SessionStart`,
+- Calls `/ingest/v1/sessions/ensure` first from `SessionStart`,
   `UserPromptSubmit`, `PreToolUse`, `SubagentStart`, and the status-line
   path.
 - User prompt is filtered for closure commands like `/exit`, then saved to `/ingest/v1/conversation`.
@@ -61,8 +63,9 @@ Related documentation:
   `Bash.ts`, `Edit.ts`, `Read.ts`, `Agent.ts`, `Skill.ts`, `TaskCreate.ts`,
   …). Shared per-category logic lives in `_file.ops.ts`,
   `_explore.ops.ts`, `_agent.ops.ts`, `_skill.ops.ts`, `_todo.ops.ts`.
-- Routes to `/ingest/v1/tool-activity`, `/ingest/v1/tool-activity`, `/ingest/v1/tool-activity`,
-  `/ingest/v1/coordination`, `/ingest/v1/workflow` based on which ops module handled the event.
+- Routes to the generic `/ingest/v1/events` endpoint from the hook runtime.
+  The typed endpoints (`/ingest/v1/tool-activity`, `/ingest/v1/coordination`,
+  `/ingest/v1/workflow`) remain available for manual clients.
 - MCP-format tools (`mcp__...`) are handled by the `Mcp.ts` category
   handler (the only grouped file, since `mcp__*` is a wildcard regex) and
   are converted to `activityType: "mcp_call"`.
@@ -82,7 +85,7 @@ Related documentation:
   due to `rate_limit`, `authentication_failed`, `billing_error`,
   `invalid_request`, `server_error`, `max_output_tokens`, or `unknown`.
 - Token/context telemetry is collected by runtime-specific telemetry paths, not by the lifecycle API itself.
-- `Stop` calls `/ingest/v1/sessions/end` with `completeTask: true` and `completionReason: "assistant_turn_complete"`.
+- `Stop` calls `/ingest/v1/sessions/end` with `completeTask: false` and `completionReason: "assistant_turn_complete"`.
 - `SessionEnd` only passes `completeTask: true` for an explicit user exit; runtime termination/resume closes the monitor session without completing the primary task.
 - The server will not complete a primary task while background descendants are still running; in that case it moves the primary task to `waiting`.
 
@@ -128,12 +131,11 @@ Related documentation:
 }
 ```
 
-> **Rule lane reclassification:** At `/ingest/v1/tool-activity`, `terminal.command` events are
-> checked against user-defined rule patterns stored in the `rule_commands` table (global +
-> task-scoped). If the command string contains a matching pattern (case-insensitive substring),
-> the event's `lane` is replaced with `"rule"` before persistence. The plugin itself always
-> emits `"exploration"` or `"implementation"`; the `"rule"` lane is assigned exclusively
-> server-side. See [API integration map § Rule Commands](./api-integration-map.md#rule-commands).
+> **Rule lane reclassification:** Logged events are checked against active
+> verification rules for the current open turn. Matches write
+> `rule_enforcements` rows. When the timeline is read back, events with one or
+> more rule enforcements are shown on the `"rule"` lane while the original lane
+> is preserved in metadata. See [API integration map § Verification Rules](./api-integration-map.md#verification-rules).
 
 ### `Stop` → `/ingest/v1/conversation` (`assistant.response`)
 
@@ -166,7 +168,7 @@ Related documentation:
   "runtimeSource": "claude-plugin",
   "runtimeSessionId": "claude-session-abc",
   "completionReason": "assistant_turn_complete",
-  "completeTask": true,
+  "completeTask": false,
   "summary": "Updated the documentation as requested."
 }
 ```
@@ -198,10 +200,10 @@ Runtimes without automatic plugins can use the same dashboard/storage by followi
 
 1. If stable session ID available, call `/ingest/v1/sessions/ensure`
 2. For each user input, call `/ingest/v1/conversation`
-3. For each tool use, call `/ingest/v1/tool-activity` or `/ingest/v1/tool-activity`
+3. For each tool use, call `/ingest/v1/tool-activity` or `/ingest/v1/events`
 4. On response completion, send an `assistant.response` event to `/ingest/v1/conversation`
 5. At turn end, call `/ingest/v1/sessions/end`; pass `completeTask: true` only when the runtime is declaring the work item done
 
-Optionally add `/ingest/v1/workflow`, `/ingest/v1/coordination`, `/ingest/v1/coordination`, `/ingest/v1/tasks/link`,
-`/ingest/v1/workflow`, `/ingest/v1/workflow`, `/ingest/v1/workflow`, `/ingest/v1/workflow`, `/ingest/v1/workflow`, `/ingest/v1/conversation`, `/ingest/v1/workflow`
-as needed.
+Optionally add `/ingest/v1/workflow`, `/ingest/v1/coordination`,
+`/ingest/v1/lifecycle`, `/ingest/v1/telemetry`, and
+`/ingest/v1/tasks/link` as needed.

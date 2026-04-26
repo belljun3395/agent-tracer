@@ -78,13 +78,13 @@ server lives on another machine or behind a proxy.
 
 ```bash
 curl -sf http://127.0.0.1:3847/health
-curl -sf http://127.0.0.1:3847/api/overview | python3 -m json.tool
+curl -sf http://127.0.0.1:3847/api/v1/overview | python3 -m json.tool
 ```
 
 - `GET /health` — server liveness
-- `GET /api/overview` — dashboard summary (stats + observability snapshot)
-- `GET /api/tasks` — list of known tasks
-- `GET /api/workflows` — saved workflow evaluations
+- `GET /api/v1/overview` — dashboard summary stats
+- `GET /api/v1/tasks` — list of known tasks
+- `GET /api/v1/rules` — verification rules
 
 Open `http://127.0.0.1:5173` in your browser. You should see the empty
 dashboard.
@@ -108,7 +108,7 @@ monitor server over HTTP.
 | Symptom | Check |
 |---------|-------|
 | `EADDRINUSE` on 3847 | Another `agent-tracer` instance is running, or set `MONITOR_PORT=<other>` |
-| `curl /api/overview` returns HTML | You're hitting the web dev server on 5173 instead of the monitor on 3847 |
+| `curl /api/v1/overview` returns HTML | You're hitting the web dev server on 5173 instead of the monitor on 3847 |
 | Dashboard stays blank | Check the browser console for WebSocket errors; verify `ws://127.0.0.1:3847/ws` opens |
 | `npm run build` fails after a package change | Try `rm -rf packages/*/dist && npm install && npm run build` |
 

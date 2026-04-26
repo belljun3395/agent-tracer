@@ -490,7 +490,10 @@ validation since the payload differs significantly from hook payloads; it does
 Official documentation: https://developers.openai.com/codex/hooks
 
 Codex exposes 6 hook events: `SessionStart`, `PreToolUse`, `PermissionRequest`,
-`PostToolUse`, `UserPromptSubmit`, `Stop`. All six are handled by Agent Tracer.
+`PostToolUse`, `UserPromptSubmit`, `Stop`. Agent Tracer has readers and
+handlers for all six, but `setup:external` registers five by default; add
+`PermissionRequest` to `.codex/hooks.json` manually if you want that optional
+observation-only event.
 
 Readers live at `packages/runtime/src/shared/hooks/codex/payloads.ts`.
 
@@ -622,7 +625,7 @@ return the same `(taskId, sessionId)` without creating duplicates.
 | `PreToolUse` (inside subagent) | Calls `resolveEventSessionIds(sessionId, agentId)` → ensures session exists before first tool fires |
 | `PostToolUse/*` (inside subagent) | All tool events routed to child task timeline via `resolveEventSessionIds` |
 | `Stop` (inside subagent) | `assistant.response` recorded on child task; session-end skipped (SubagentStop handles it) |
-| `SubagentStop` | Calls `POST /api/runtime-session-end` for the virtual session to trigger auto-completion; cursor for `sub--{agentId}` is deleted |
+| `SubagentStop` | Calls `POST /ingest/v1/sessions/end` for the virtual session with `completeTask: false`; cursor for `sub--{agentId}` is deleted |
 
 ---
 

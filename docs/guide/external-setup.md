@@ -9,7 +9,7 @@ agent-tracer repo itself.
 | Runtime | Automated setup | Still manual | Next doc |
 |---------|-----------------|--------------|----------|
 | Claude Code | yes (`npm run setup:external`) | MCP server registration | [claude-setup.md](./claude-setup.md) |
-| Codex | yes (`npm run setup:external`) | app-server integration | [codex-setup.md](./codex-setup.md) |
+| Codex | yes (`npm run setup:external`) | none for the normal interactive path | [codex-setup.md](./codex-setup.md) |
 | Other runtimes | no | HTTP + MCP calls directly | [runtime-capabilities.md](./runtime-capabilities.md) |
 
 Important points:
@@ -49,6 +49,8 @@ The only required argument is `--target`. The script currently bootstraps:
    - creates or merges `target-project/.codex/config.toml`
    - creates or merges `target-project/.codex/hooks.json`
    - enables repo-local Codex hooks for plain `codex` usage
+   - registers `SessionStart`, `UserPromptSubmit`, `PreToolUse(Bash)`,
+     `PostToolUse(Bash)`, and `Stop`
 
 Expected output:
 
@@ -109,8 +111,8 @@ References:
 
 ## 7. Common pitfalls
 
-- **Stale `npm run build`** — after modifying `packages/mcp` or the
-  plugin, rebuild before launching Claude.
+- **Stale `npm run build`** — after modifying the MCP server entry under
+  `packages/server` or the plugin, rebuild before launching Claude.
 - **Missing `node` on GUI PATH** — when launching Claude Code from a
   macOS launcher, use the absolute node binary path in `claude mcp add`.
 - **Env vars not inherited** — Claude Code launched from a GUI does not
@@ -121,8 +123,9 @@ References:
 - **Running plain `codex` without repo-local config** — hooks are only
   guaranteed when `codex_hooks` is enabled. `setup:external` writes
   `.codex/config.toml` so plain `codex` in the target project uses hooks by default.
-- **Expecting hook parity with Claude Code** — Codex hooks currently only expose
-  Bash pre/post interception. Richer capture requires a future app-server path.
+- **Expecting hook parity with Claude Code** — Codex hooks currently intercept
+  Bash directly. File edits, MCP calls, and web search/fetch are observed from
+  rollout JSONL after Codex writes those response items.
 
 ## 8. Quick end-to-end check
 
