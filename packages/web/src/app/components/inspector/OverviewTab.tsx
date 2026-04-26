@@ -745,7 +745,7 @@ export function OverviewTab({ observability, subagentInsight, verificationCycles
         </>) : (<div className="rounded-[var(--radius-lg)] border border-dashed border-[var(--border)] bg-[var(--bg-subtle)] px-4 py-6 text-center">
           <p className="m-0 text-[0.86rem] font-medium text-[var(--text-2)]">No workspace overview available.</p>
           <p className="mt-1.5 mb-0 text-[0.78rem] text-[var(--text-3)]">
-            The server will populate this tab once `/api/tasks/:taskId/observability` is available for the selected task.
+            The server will populate this tab once `/api/v1/tasks/:taskId/observability` is available for the selected task.
           </p>
         </div>)}
     </div>);

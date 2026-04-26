@@ -21,7 +21,7 @@ export function registerWorkflowTools(server: McpServer, client: MonitorClient):
             reuseWhen: z.string().optional().describe("When should this workflow be reused?"),
             watchouts: z.string().optional().describe("What should future runs watch out for?")
         }
-    }, async ({ taskId, ...rest }) => toToolResponse(await client.post(`/api/tasks/${taskId}/evaluate`, rest)));
+    }, async ({ taskId, ...rest }) => toToolResponse(await client.post(`/ingest/v1/tasks/${taskId}/evaluate`, rest)));
     server.registerTool("monitor_find_similar_workflows", {
         title: "Monitor Find Similar Workflows",
         description: "Search past workflow examples to find how similar tasks were handled. " +
@@ -36,7 +36,7 @@ export function registerWorkflowTools(server: McpServer, client: MonitorClient):
         const params = new URLSearchParams({ q: description, limit: String(limit) });
         if (tags && tags.length > 0)
             params.set("tags", tags.join(","));
-        const result = await client.get(`/api/workflows/similar?${params.toString()}`);
+        const result = await client.get(`/ingest/v1/workflows/similar?${params.toString()}`);
         if (!result.ok || !Array.isArray(result.data)) {
             return toToolResponse(result);
         }

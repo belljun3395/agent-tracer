@@ -1,11 +1,11 @@
 import { Module, type DynamicModule } from "@nestjs/common";
-import { BookmarkWriteController } from "~adapters/http/ingest/index.js";
-import { BookmarkController } from "~adapters/http/query/index.js";
+import { BookmarkCommandController } from "~adapters/http/command/index.js";
+import { BookmarkQueryController } from "~adapters/http/query/index.js";
 
 @Module({
     controllers: [
-        BookmarkController,
-        BookmarkWriteController,
+        BookmarkCommandController,
+        BookmarkQueryController,
     ],
 })
 export class BookmarksHttpModule {

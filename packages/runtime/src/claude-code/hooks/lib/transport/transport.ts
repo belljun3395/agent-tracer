@@ -14,7 +14,7 @@ export const postTaggedEvent = claudeHookRuntime.transport.postTaggedEvent;
 export const postTaggedEvents = claudeHookRuntime.transport.postTaggedEvents;
 
 /**
- * Calls `/api/runtime-session-ensure` to create or resume a monitor session.
+ * Calls `/ingest/v1/sessions/ensure` to create or resume a monitor session.
  * Accepts optional parent linking and a pre-assigned taskId via `opts`.
  */
 export async function ensureRuntimeSession(
@@ -24,7 +24,7 @@ export async function ensureRuntimeSession(
 ): Promise<RuntimeSessionEnsureResult> {
     const transportConfig = resolveMonitorTransportConfig();
     const taskId = opts?.taskId ?? transportConfig.taskIdOverride;
-    return postJson<RuntimeSessionEnsureResult>("/api/runtime-session-ensure", {
+    return postJson<RuntimeSessionEnsureResult>("/ingest/v1/sessions/ensure", {
         ...(taskId ? {taskId} : {}),
         runtimeSource: CLAUDE_RUNTIME_SOURCE,
         runtimeSessionId,

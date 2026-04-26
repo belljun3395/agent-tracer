@@ -23,7 +23,7 @@ Important points:
 ## 2. Prerequisites
 
 - You have already finished [install-and-run.md](./install-and-run.md).
-- The monitor server is running and `curl -sf http://127.0.0.1:3847/api/overview` returns 200.
+- The monitor server is running and `curl -sf http://127.0.0.1:3847/api/v1/overview` returns 200.
 - You have a target project path (e.g. `/absolute/path/to/your-project`).
 - For Claude Code, you can launch the `claude` CLI in that target directory.
 
@@ -88,16 +88,15 @@ There is no automated bootstrap for non-Claude runtimes. Instead, call
 Agent Tracer's HTTP API or MCP tools directly. Minimum implementation
 order:
 
-1. `/api/runtime-session-ensure` (or `/api/task-start`)
-2. `/api/user-message`
-3. `/api/tool-used`
-4. `/api/explore`
+1. `/ingest/v1/sessions/ensure` (or `/ingest/v1/tasks/start`)
+2. `/ingest/v1/conversation` (`user.message`)
+3. `/ingest/v1/tool-activity` (`tool.used`)
+4. `/ingest/v1/tool-activity` (exploration or terminal events)
 5. `/ingest/v1/conversation` (`assistant.response`)
-6. `/api/runtime-session-end`
+6. `/ingest/v1/sessions/end`
 
-Add `/api/terminal-command`, `/api/todo`, `/api/save-context`,
-`/api/agent-activity`, `/api/async-task`, `/api/task-link`,
-`/api/question`, and `/api/thought` as the runtime's capability allows.
+Add `/ingest/v1/workflow`, `/ingest/v1/coordination`, `/ingest/v1/lifecycle`,
+`/ingest/v1/telemetry`, and `/ingest/v1/tasks/link` as the runtime's capability allows.
 
 References:
 

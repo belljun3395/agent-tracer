@@ -18,19 +18,19 @@ Related documentation:
 
 | API | Core Role |
 |---|---|
-| `/api/runtime-session-ensure` | Runtime session upsert + task/session binding |
-| `/api/runtime-session-end` | Runtime session closure |
-| `/api/task-complete`, `/api/task-error` | Direct task finalization by task id |
-| `/api/user-message` | Store user raw prompt |
+| `/ingest/v1/sessions/ensure` | Runtime session upsert + task/session binding |
+| `/ingest/v1/sessions/end` | Runtime session closure |
+| `/ingest/v1/tasks/complete`, `/ingest/v1/tasks/error` | Direct task finalization by task id |
+| `/ingest/v1/conversation` | Store user raw prompt |
 | `/ingest/v1/conversation` (`assistant.response`) | Store assistant final response |
-| `/api/tool-used` | Record implementation action |
-| `/api/explore` | Record exploration/lookup |
-| `/api/terminal-command` | Record shell execution |
-| `/api/agent-activity` | Record delegation/skill/MCP calls |
-| `/api/todo` | Track todo lifecycle |
-| `/api/task-link` | Link parent-child tasks |
-| `/api/async-task` | Background task state |
-| `/api/save-context`, `/api/plan`, `/api/action`, `/api/verify`, `/api/rule`, `/api/question`, `/api/thought` | High-signal structured events |
+| `/ingest/v1/tool-activity` | Record implementation action |
+| `/ingest/v1/tool-activity` | Record exploration/lookup |
+| `/ingest/v1/tool-activity` | Record shell execution |
+| `/ingest/v1/coordination` | Record delegation/skill/MCP calls |
+| `/ingest/v1/workflow` | Track todo lifecycle |
+| `/ingest/v1/tasks/link` | Link parent-child tasks |
+| `/ingest/v1/coordination` | Background task state |
+| `/ingest/v1/workflow`, `/ingest/v1/workflow`, `/ingest/v1/workflow`, `/ingest/v1/workflow`, `/ingest/v1/workflow`, `/ingest/v1/conversation`, `/ingest/v1/workflow` | High-signal structured events |
 
 ## Claude Plugin Preprocessing Strategy
 
@@ -53,7 +53,7 @@ Related documentation:
 - Calls `runtime-session-ensure` first from `SessionStart`,
   `UserPromptSubmit`, `PreToolUse`, `SubagentStart`, and the status-line
   path.
-- User prompt is filtered for closure commands like `/exit`, then saved to `/api/user-message`.
+- User prompt is filtered for closure commands like `/exit`, then saved to `/ingest/v1/conversation`.
 
 ### Tool Event Classification
 
@@ -61,14 +61,14 @@ Related documentation:
   `Bash.ts`, `Edit.ts`, `Read.ts`, `Agent.ts`, `Skill.ts`, `TaskCreate.ts`,
   …). Shared per-category logic lives in `_file.ops.ts`,
   `_explore.ops.ts`, `_agent.ops.ts`, `_skill.ops.ts`, `_todo.ops.ts`.
-- Routes to `/api/tool-used`, `/api/explore`, `/api/terminal-command`,
-  `/api/agent-activity`, `/api/todo` based on which ops module handled the event.
+- Routes to `/ingest/v1/tool-activity`, `/ingest/v1/tool-activity`, `/ingest/v1/tool-activity`,
+  `/ingest/v1/coordination`, `/ingest/v1/workflow` based on which ops module handled the event.
 - MCP-format tools (`mcp__...`) are handled by the `Mcp.ts` category
   handler (the only grouped file, since `mcp__*` is a wildcard regex) and
   are converted to `activityType: "mcp_call"`.
 - Bash is semantically classified by command meaning with enriched semantic metadata.
-- `Agent` / `Skill` / subagent lifecycle is linked to `/api/agent-activity`,
-  `/api/task-link`, `/api/async-task`.
+- `Agent` / `Skill` / subagent lifecycle is linked to `/ingest/v1/coordination`,
+  `/ingest/v1/tasks/link`, `/ingest/v1/coordination`.
 - Parallel tool fan-outs are bounded by `PostToolBatch` posting a
   `context.saved` marker (`trigger: "tool_batch_completed"`).
 - Tool-call auto-denials from `PermissionDenied` post a `rule.logged`
@@ -82,7 +82,7 @@ Related documentation:
   due to `rate_limit`, `authentication_failed`, `billing_error`,
   `invalid_request`, `server_error`, `max_output_tokens`, or `unknown`.
 - Token/context telemetry is collected by runtime-specific telemetry paths, not by the lifecycle API itself.
-- `Stop` calls `/api/runtime-session-end` with `completeTask: true` and `completionReason: "assistant_turn_complete"`.
+- `Stop` calls `/ingest/v1/sessions/end` with `completeTask: true` and `completionReason: "assistant_turn_complete"`.
 - `SessionEnd` only passes `completeTask: true` for an explicit user exit; runtime termination/resume closes the monitor session without completing the primary task.
 - The server will not complete a primary task while background descendants are still running; in that case it moves the primary task to `waiting`.
 
@@ -95,7 +95,7 @@ Related documentation:
 
 ## Representative JSON Examples
 
-### `UserPromptSubmit` → `/api/user-message`
+### `UserPromptSubmit` → `/ingest/v1/conversation`
 
 ```json
 {
@@ -109,7 +109,7 @@ Related documentation:
 }
 ```
 
-### `PostToolUse(Bash)` → `/api/terminal-command`
+### `PostToolUse(Bash)` → `/ingest/v1/tool-activity`
 
 ```json
 {
@@ -159,7 +159,7 @@ Related documentation:
 }
 ```
 
-### `SessionEnd` / `Stop` → `/api/runtime-session-end`
+### `SessionEnd` / `Stop` → `/ingest/v1/sessions/end`
 
 ```json
 {
@@ -176,7 +176,7 @@ Related documentation:
 Use these endpoints only when the caller already knows the monitor `taskId` and
 wants to finalize that task directly. Do not send runtime-session policy fields
 (`completeTask`, `completionReason`, `backgroundCompletions`) here; those are
-only meaningful for `/api/runtime-session-end`.
+only meaningful for `/ingest/v1/sessions/end`.
 
 ```json
 {
@@ -189,19 +189,19 @@ only meaningful for `/api/runtime-session-end`.
 }
 ```
 
-For task failure, call `/api/task-error` with the same base fields plus
+For task failure, call `/ingest/v1/tasks/error` with the same base fields plus
 `errorMessage`.
 
 ## Minimum Rules Manual Runtime Must Follow
 
 Runtimes without automatic plugins can use the same dashboard/storage by following the sequence below.
 
-1. If stable session ID available, call `/api/runtime-session-ensure`
-2. For each user input, call `/api/user-message`
-3. For each tool use, call `/api/tool-used` or `/api/explore`
+1. If stable session ID available, call `/ingest/v1/sessions/ensure`
+2. For each user input, call `/ingest/v1/conversation`
+3. For each tool use, call `/ingest/v1/tool-activity` or `/ingest/v1/tool-activity`
 4. On response completion, send an `assistant.response` event to `/ingest/v1/conversation`
-5. At turn end, call `/api/runtime-session-end`; pass `completeTask: true` only when the runtime is declaring the work item done
+5. At turn end, call `/ingest/v1/sessions/end`; pass `completeTask: true` only when the runtime is declaring the work item done
 
-Optionally add `/api/todo`, `/api/agent-activity`, `/api/async-task`, `/api/task-link`,
-`/api/save-context`, `/api/plan`, `/api/action`, `/api/verify`, `/api/rule`, `/api/question`, `/api/thought`
+Optionally add `/ingest/v1/workflow`, `/ingest/v1/coordination`, `/ingest/v1/coordination`, `/ingest/v1/tasks/link`,
+`/ingest/v1/workflow`, `/ingest/v1/workflow`, `/ingest/v1/workflow`, `/ingest/v1/workflow`, `/ingest/v1/workflow`, `/ingest/v1/conversation`, `/ingest/v1/workflow`
 as needed.

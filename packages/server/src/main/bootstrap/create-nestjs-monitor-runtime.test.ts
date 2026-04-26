@@ -88,7 +88,7 @@ describe("createNestMonitorRuntime HTTP API", () => {
 
     it("creates and reads a task through the HTTP API", async () => {
         await request(app())
-            .post("/api/task-start")
+            .post("/ingest/v1/tasks/start")
             .send({
                 taskId: "http-task-1",
                 title: "HTTP task",
@@ -107,7 +107,7 @@ describe("createNestMonitorRuntime HTTP API", () => {
             });
 
         await request(app())
-            .get("/api/tasks/http-task-1")
+            .get("/api/v1/tasks/http-task-1")
             .expect(200)
             .expect(({ body }) => {
                 expect(body).toMatchObject({ ok: true });
@@ -121,7 +121,7 @@ describe("createNestMonitorRuntime HTTP API", () => {
 
     it("wraps successful API responses in a consistent envelope", async () => {
         await request(app())
-            .get("/api/tasks")
+            .get("/api/v1/tasks")
             .expect(200)
             .expect(({ body }) => {
                 expect(body).toEqual({
@@ -150,7 +150,7 @@ describe("createNestMonitorRuntime HTTP API", () => {
 
     it("validates path parameters before route handlers run", async () => {
         await request(app())
-            .get("/api/tasks/%20")
+            .get("/api/v1/tasks/%20")
             .expect(400)
             .expect(({ body }) => {
                 expect(body).toMatchObject({
@@ -165,7 +165,7 @@ describe("createNestMonitorRuntime HTTP API", () => {
 
     it("ingests events for an existing task", async () => {
         await request(app())
-            .post("/api/task-start")
+            .post("/ingest/v1/tasks/start")
             .send({
                 taskId: "http-task-2",
                 title: "Task with events",
@@ -192,9 +192,9 @@ describe("createNestMonitorRuntime HTTP API", () => {
             });
     });
 
-    it("accepts legacy /api event alias endpoints", async () => {
+    it("accepts typed ingest event endpoints", async () => {
         await request(app())
-            .post("/api/task-start")
+            .post("/ingest/v1/tasks/start")
             .send({
                 taskId: "http-task-alias",
                 title: "Task with aliases",
@@ -202,32 +202,43 @@ describe("createNestMonitorRuntime HTTP API", () => {
             .expect(200);
 
         await request(app())
-            .post("/api/terminal-command")
+            .post("/ingest/v1/tool-activity")
             .send({
-                taskId: "http-task-alias",
-                command: "npm test -- --runInBand",
+                events: [{
+                    kind: "terminal.command",
+                    taskId: "http-task-alias",
+                    lane: "implementation",
+                    body: "npm test",
+                    metadata: { command: "npm test" },
+                }],
             })
             .expect(200);
 
         await request(app())
-            .post("/api/question")
+            .post("/ingest/v1/conversation")
             .send({
-                taskId: "http-task-alias",
-                questionId: "q-alias",
-                questionPhase: "asked",
-                title: "Clarify scope",
-                body: "Which API shape should be supported?",
+                events: [{
+                    kind: "question.logged",
+                    taskId: "http-task-alias",
+                    lane: "questions",
+                    title: "Clarify scope",
+                    body: "Which API shape should be supported?",
+                    metadata: {
+                        questionId: "q-alias",
+                        questionPhase: "asked",
+                    },
+                }],
             })
             .expect(200);
 
         await request(app())
-            .get("/api/tasks/http-task-alias")
+            .get("/api/v1/tasks/http-task-alias")
             .expect(200)
             .expect(({ body }) => {
                 expect(body.data.timeline).toEqual(expect.arrayContaining([
                     expect.objectContaining({
                         kind: "terminal.command",
-                        metadata: expect.objectContaining({ command: "npm test -- --runInBand" }),
+                        metadata: expect.objectContaining({ command: "npm test" }),
                     }),
                     expect.objectContaining({
                         kind: "question.logged",
@@ -243,7 +254,7 @@ describe("createNestMonitorRuntime HTTP API", () => {
 
     it("returns not found for missing playbooks", async () => {
         await request(app())
-            .get("/api/playbooks/missing-playbook")
+            .get("/api/v1/playbooks/missing-playbook")
             .expect(404)
             .expect(({ body }) => {
                 expect(body).toEqual({
@@ -258,7 +269,7 @@ describe("createNestMonitorRuntime HTTP API", () => {
 
     it("validates query parameters", async () => {
         await request(app())
-            .get("/api/search")
+            .get("/api/v1/search")
             .expect(400)
             .expect(({ body }) => {
                 expect(body).toMatchObject({

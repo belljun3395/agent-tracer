@@ -1,10 +1,12 @@
 import { Module, type DynamicModule } from "@nestjs/common";
-import { TaskLifecycleController } from "~adapters/http/ingest/index.js";
+import { TaskCommandController } from "~adapters/http/command/index.js";
+import { TaskIngestController } from "~adapters/http/ingest/index.js";
 import { TaskQueryController } from "~adapters/http/query/index.js";
 
 @Module({
     controllers: [
-        TaskLifecycleController,
+        TaskCommandController,
+        TaskIngestController,
         TaskQueryController,
     ],
 })

@@ -1,11 +1,11 @@
 import { Module, type DynamicModule } from "@nestjs/common";
-import { TurnPartitionWriteController } from "~adapters/http/ingest/index.js";
-import { TurnPartitionController } from "~adapters/http/query/index.js";
+import { TurnPartitionCommandController } from "~adapters/http/command/index.js";
+import { TurnPartitionQueryController } from "~adapters/http/query/index.js";
 
 @Module({
     controllers: [
-        TurnPartitionController,
-        TurnPartitionWriteController,
+        TurnPartitionCommandController,
+        TurnPartitionQueryController,
     ],
 })
 export class TurnPartitionsHttpModule {

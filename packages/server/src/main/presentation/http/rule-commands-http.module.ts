@@ -1,19 +1,19 @@
 import { Module, type DynamicModule } from "@nestjs/common";
 import {
-    GlobalRuleCommandWriteController,
-    TaskRuleCommandWriteController,
-} from "~adapters/http/ingest/index.js";
+    GlobalRuleCommandCommandController,
+    TaskRuleCommandCommandController,
+} from "~adapters/http/command/index.js";
 import {
-    GlobalRuleCommandController,
-    TaskRuleCommandController,
+    GlobalRuleCommandQueryController,
+    TaskRuleCommandQueryController,
 } from "~adapters/http/query/index.js";
 
 @Module({
     controllers: [
-        GlobalRuleCommandController,
-        GlobalRuleCommandWriteController,
-        TaskRuleCommandController,
-        TaskRuleCommandWriteController,
+        GlobalRuleCommandCommandController,
+        GlobalRuleCommandQueryController,
+        TaskRuleCommandCommandController,
+        TaskRuleCommandQueryController,
     ],
 })
 export class RuleCommandsHttpModule {

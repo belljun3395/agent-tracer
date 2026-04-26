@@ -13,13 +13,13 @@ export const postTaggedEvent = codexHookRuntime.transport.postTaggedEvent;
 export const postTaggedEvents = codexHookRuntime.transport.postTaggedEvents;
 
 /**
- * Calls `/api/runtime-session-ensure` to create or resume a monitor session.
+ * Calls `/ingest/v1/sessions/ensure` to create or resume a monitor session.
  */
 export async function ensureRuntimeSession(
     runtimeSessionId: string,
     title: string = defaultTaskTitle(),
 ): Promise<RuntimeSessionEnsureResult> {
-    return postJson<RuntimeSessionEnsureResult>("/api/runtime-session-ensure", {
+    return postJson<RuntimeSessionEnsureResult>("/ingest/v1/sessions/ensure", {
         runtimeSource: CODEX_RUNTIME_SOURCE,
         runtimeSessionId,
         title,

@@ -226,7 +226,7 @@ lane, subtype, toolFamily, and operation are derived **server-side** inside
 | Subagent lifecycle | `SubagentStart.ts`, `SubagentStop.ts` | Record background running / completed markers |
 | Native task lifecycle | `TaskCreated.ts`, `TaskCompleted.ts` | Record TaskCreate / TaskComplete transitions as `todo.logged` |
 | Pre/Post compact | `PreCompact.ts`, `PostCompact.ts` | Record compaction checkpoint and compact summary |
-| Assistant turn end | `Stop.ts` | Record assistant response and call `/api/runtime-session-end` with `completeTask: true` |
+| Assistant turn end | `Stop.ts` | Record assistant response and call `/ingest/v1/sessions/end` with `completeTask: true` |
 | Turn error | `StopFailure.ts` | Record `assistant.response` with `stopReason: "error:<error_type>"` |
 | Cwd change | `CwdChanged.ts` | Record working-directory transition as `context.saved` |
 | User notification | `Notification.ts` | Record permission-prompt / idle / auth-success / elicitation notifications |
@@ -283,7 +283,7 @@ call directly. A few of the most useful ones:
 
 ## 8. End-to-end check
 
-1. Monitor server is running (`curl -sf http://127.0.0.1:3847/api/overview`).
+1. Monitor server is running (`curl -sf http://127.0.0.1:3847/api/v1/overview`).
 2. `setup:external` has been run for the target project.
 3. `monitor` is registered in `claude mcp list`.
 4. Open the target project with

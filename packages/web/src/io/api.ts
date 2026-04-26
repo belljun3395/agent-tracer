@@ -225,16 +225,16 @@ function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 export function fetchOverview(): Promise<OverviewResponse> {
-    return getJson<OverviewResponse>("/api/overview");
+    return getJson<OverviewResponse>("/api/v1/overview");
 }
 export function fetchTasks(): Promise<TasksResponse> {
-    return getJson<TasksResponse>("/api/tasks");
+    return getJson<TasksResponse>("/api/v1/tasks");
 }
 export function fetchTaskDetail(taskId: TaskId): Promise<TaskDetailResponse> {
-    return getJson<TaskDetailResponse>(`/api/tasks/${taskId}`);
+    return getJson<TaskDetailResponse>(`/api/v1/tasks/${taskId}`);
 }
 export function fetchTaskObservability(taskId: TaskId): Promise<TaskObservabilityResponse> {
-    return getJson<TaskObservabilityResponse>(`/api/tasks/${taskId}/observability`);
+    return getJson<TaskObservabilityResponse>(`/api/v1/tasks/${taskId}/observability`);
 }
 export interface OpenInferenceTaskExport {
     readonly taskId: TaskId;
@@ -253,18 +253,18 @@ export function fetchTaskOpenInference(taskId: TaskId): Promise<{
 }> {
     return getJson<{
         openinference: OpenInferenceTaskExport;
-    }>(`/api/tasks/${taskId}/openinference`);
+    }>(`/api/v1/tasks/${taskId}/openinference`);
 }
 export function fetchBookmarks(taskId?: TaskId): Promise<BookmarksResponse> {
     const suffix = taskId ? `?taskId=${encodeURIComponent(taskId)}` : "";
-    return getJson<BookmarksResponse>(`/api/bookmarks${suffix}`);
+    return getJson<BookmarksResponse>(`/api/v1/bookmarks${suffix}`);
 }
 export function fetchSearchResults(query: string, taskId?: TaskId, options?: RequestOptions): Promise<SearchResponse> {
     const params = new URLSearchParams({ q: query });
     if (taskId) {
         params.set("taskId", taskId);
     }
-    return getJson<SearchResponse>(`/api/search?${params.toString()}`, options);
+    return getJson<SearchResponse>(`/api/v1/search?${params.toString()}`, options);
 }
 export async function createBookmark(input: {
     taskId: TaskId;
@@ -274,47 +274,47 @@ export async function createBookmark(input: {
 }): Promise<BookmarkRecord> {
     const payload = await postJson<{
         bookmark: BookmarkRecord;
-    }>("/api/bookmarks", input);
+    }>("/api/v1/bookmarks", input);
     return payload.bookmark;
 }
 export async function updateTaskTitle(taskId: TaskId, title: string): Promise<MonitoringTask> {
     const payload = await patchJson<{
         task: MonitoringTask;
-    }>(`/api/tasks/${taskId}`, { title });
+    }>(`/api/v1/tasks/${taskId}`, { title });
     return payload.task;
 }
 export async function updateTaskStatus(taskId: TaskId, status: MonitoringTask["status"]): Promise<MonitoringTask> {
     const payload = await patchJson<{
         task: MonitoringTask;
-    }>(`/api/tasks/${taskId}`, { status });
+    }>(`/api/v1/tasks/${taskId}`, { status });
     return payload.task;
 }
 export async function updateEventDisplayTitle(eventId: EventId, displayTitle: string | null): Promise<TimelineEventRecord> {
     const payload = await patchJson<{
         event: TimelineEventRecord;
-    }>(`/api/events/${eventId}`, { displayTitle });
+    }>(`/api/v1/events/${eventId}`, { displayTitle });
     return payload.event;
 }
 export async function deleteTask(taskId: TaskId): Promise<void> {
-    return deleteRequest(`/api/tasks/${taskId}`);
+    return deleteRequest(`/api/v1/tasks/${taskId}`);
 }
 export async function deleteBookmark(bookmarkId: BookmarkId): Promise<void> {
-    return deleteRequest(`/api/bookmarks/${bookmarkId}`);
+    return deleteRequest(`/api/v1/bookmarks/${bookmarkId}`);
 }
 export function fetchGlobalRuleCommands(): Promise<{ ruleCommands: RuleCommandRecord[] }> {
-    return getJson<{ ruleCommands: RuleCommandRecord[] }>("/api/rule-commands");
+    return getJson<{ ruleCommands: RuleCommandRecord[] }>("/api/v1/rule-commands");
 }
 export function fetchTaskRuleCommands(taskId: TaskId): Promise<{ ruleCommands: RuleCommandRecord[] }> {
-    return getJson<{ ruleCommands: RuleCommandRecord[] }>(`/api/tasks/${taskId}/rule-commands`);
+    return getJson<{ ruleCommands: RuleCommandRecord[] }>(`/api/v1/tasks/${taskId}/rule-commands`);
 }
 export function createGlobalRuleCommand(pattern: string, label: string): Promise<{ ruleCommand: RuleCommandRecord }> {
-    return postJson<{ ruleCommand: RuleCommandRecord }>("/api/rule-commands", { pattern, label });
+    return postJson<{ ruleCommand: RuleCommandRecord }>("/api/v1/rule-commands", { pattern, label });
 }
 export function createTaskRuleCommand(taskId: TaskId, pattern: string, label: string): Promise<{ ruleCommand: RuleCommandRecord }> {
-    return postJson<{ ruleCommand: RuleCommandRecord }>(`/api/tasks/${taskId}/rule-commands`, { pattern, label });
+    return postJson<{ ruleCommand: RuleCommandRecord }>(`/api/v1/tasks/${taskId}/rule-commands`, { pattern, label });
 }
 export async function deleteRuleCommandById(id: string): Promise<void> {
-    return deleteRequest(`/api/rule-commands/${id}`);
+    return deleteRequest(`/api/v1/rule-commands/${id}`);
 }
 export interface TaskEvaluationPayload {
     rating: "good" | "skip";
@@ -369,15 +369,15 @@ export function fetchWorkflowLibrary(rating?: "good" | "skip", query?: string, l
         params.set("limit", String(limit));
     }
     const suffix = params.size > 0 ? `?${params.toString()}` : "";
-    return getJson<WorkflowSummaryRecord[]>(`/api/workflows${suffix}`);
+    return getJson<WorkflowSummaryRecord[]>(`/api/v1/workflows${suffix}`);
 }
 export function fetchTaskEvaluation(taskId: TaskId, scopeKey?: string): Promise<TaskEvaluationRecord | null> {
     const suffix = scopeKey ? `?scopeKey=${encodeURIComponent(scopeKey)}` : "";
-    return getJson<TaskEvaluationRecord | null>(`/api/tasks/${taskId}/evaluate${suffix}`);
+    return getJson<TaskEvaluationRecord | null>(`/api/v1/tasks/${taskId}/evaluate${suffix}`);
 }
 export async function recordBriefingCopy(taskId: TaskId, scopeKey?: string): Promise<void> {
     const suffix = scopeKey ? `?scopeKey=${encodeURIComponent(scopeKey)}` : "";
-    await postJson<{ ok: boolean }>(`/api/tasks/${taskId}/briefing/copied${suffix}`, {});
+    await postJson<{ ok: boolean }>(`/api/v1/tasks/${taskId}/briefing/copied${suffix}`, {});
 }
 export interface SaveBriefingPayload {
     purpose: SavedBriefing["purpose"];
@@ -387,16 +387,16 @@ export interface SaveBriefingPayload {
     generatedAt: string;
 }
 export function saveTaskBriefing(taskId: TaskId, payload: SaveBriefingPayload): Promise<SavedBriefingRecord> {
-    return postJson<SavedBriefingRecord>(`/api/tasks/${taskId}/briefings`, payload);
+    return postJson<SavedBriefingRecord>(`/api/v1/tasks/${taskId}/briefings`, payload);
 }
 export function fetchTaskBriefings(taskId: TaskId): Promise<SavedBriefingRecord[]> {
-    return getJson<SavedBriefingRecord[]>(`/api/tasks/${taskId}/briefings`);
+    return getJson<SavedBriefingRecord[]>(`/api/v1/tasks/${taskId}/briefings`);
 }
 export async function saveTaskEvaluation(taskId: TaskId, payload: TaskEvaluationPayload, scopeKey?: string): Promise<void> {
     const suffix = scopeKey ? `?scopeKey=${encodeURIComponent(scopeKey)}` : "";
     await postJson<{
         ok: boolean;
-    }>(`/api/tasks/${taskId}/evaluate${suffix}`, payload);
+    }>(`/api/v1/tasks/${taskId}/evaluate${suffix}`, payload);
 }
 export function fetchSimilarWorkflows(query: string, tags?: readonly string[], limit?: number): Promise<WorkflowSearchResultRecord[]> {
     const params = new URLSearchParams({ q: query });
@@ -406,7 +406,7 @@ export function fetchSimilarWorkflows(query: string, tags?: readonly string[], l
     if (typeof limit === "number") {
         params.set("limit", String(limit));
     }
-    return getJson<WorkflowSearchResultRecord[]>(`/api/workflows/similar?${params.toString()}`);
+    return getJson<WorkflowSearchResultRecord[]>(`/api/v1/workflows/similar?${params.toString()}`);
 }
 export interface RuleActionPayload {
     taskId: TaskId;
@@ -423,7 +423,7 @@ export interface RuleActionPayload {
     metadata?: Record<string, unknown>;
 }
 export async function postRuleAction(payload: RuleActionPayload): Promise<void> {
-    await postJson<{ ok?: boolean }>("/ingest/v1/events", {
+    await postJson<{ ok?: boolean }>("/api/v1/events", {
         events: [{
             kind: "rule.logged",
             taskId: payload.taskId,
@@ -443,7 +443,7 @@ export async function postRuleAction(payload: RuleActionPayload): Promise<void> 
 }
 export function fetchWorkflowContent(taskId: TaskId, scopeKey?: string): Promise<WorkflowContentRecord> {
     const suffix = scopeKey ? `?scopeKey=${encodeURIComponent(scopeKey)}` : "";
-    return getJson<WorkflowContentRecord>(`/api/workflows/${taskId}/content${suffix}`);
+    return getJson<WorkflowContentRecord>(`/api/v1/workflows/${taskId}/content${suffix}`);
 }
 export interface PlaybookPayload {
     title: string;
@@ -472,16 +472,16 @@ export function fetchPlaybooks(query?: string, status?: PlaybookStatus, limit?: 
         params.set("limit", String(limit));
     }
     const suffix = params.size > 0 ? `?${params.toString()}` : "";
-    return getJson<PlaybookSummaryRecord[]>(`/api/playbooks${suffix}`);
+    return getJson<PlaybookSummaryRecord[]>(`/api/v1/playbooks${suffix}`);
 }
 export function fetchPlaybook(playbookId: string): Promise<PlaybookRecordResponse> {
-    return getJson<PlaybookRecordResponse>(`/api/playbooks/${playbookId}`);
+    return getJson<PlaybookRecordResponse>(`/api/v1/playbooks/${playbookId}`);
 }
 export function createPlaybook(payload: PlaybookPayload): Promise<PlaybookRecordResponse> {
-    return postJson<PlaybookRecordResponse>("/api/playbooks", payload);
+    return postJson<PlaybookRecordResponse>("/api/v1/playbooks", payload);
 }
 export function updatePlaybook(playbookId: string, payload: Partial<PlaybookPayload>): Promise<PlaybookRecordResponse> {
-    return patchJson<PlaybookRecordResponse>(`/api/playbooks/${playbookId}`, payload);
+    return patchJson<PlaybookRecordResponse>(`/api/v1/playbooks/${playbookId}`, payload);
 }
 export interface TurnPartitionRecord {
     readonly taskId: TaskId;
@@ -506,13 +506,13 @@ export interface TurnPartitionUpsertPayload {
     readonly baseVersion?: number;
 }
 export function fetchTurnPartition(taskId: TaskId): Promise<TurnPartitionRecord> {
-    return getJson<TurnPartitionRecord>(`/api/tasks/${taskId}/turn-partition`);
+    return getJson<TurnPartitionRecord>(`/api/v1/tasks/${taskId}/turn-partition`);
 }
 export function saveTurnPartition(taskId: TaskId, payload: TurnPartitionUpsertPayload): Promise<TurnPartitionRecord> {
-    return putJson<TurnPartitionRecord>(`/api/tasks/${taskId}/turn-partition`, payload);
+    return putJson<TurnPartitionRecord>(`/api/v1/tasks/${taskId}/turn-partition`, payload);
 }
 export async function resetTurnPartition(taskId: TaskId): Promise<void> {
-    await postJson<{ ok: boolean }>(`/api/tasks/${taskId}/turn-partition/reset`, {});
+    await postJson<{ ok: boolean }>(`/api/v1/tasks/${taskId}/turn-partition/reset`, {});
 }
 export function getMonitorWsUrl(): string {
     const baseUrl = resolveWebSocketBaseUrl();

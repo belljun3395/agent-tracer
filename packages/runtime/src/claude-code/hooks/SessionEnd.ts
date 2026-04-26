@@ -18,7 +18,7 @@
  *
  * This handler:
  *   1. Re-ensures the runtime session (needed for session.ended event)
- *   2. Posts /api/runtime-session-end (server persists lifecycle state)
+ *   2. Posts /ingest/v1/sessions/end (server persists lifecycle state)
  *   3. Deletes the transcript cursor (only surviving plugin-local state)
  *
  * "clear" events are intentionally skipped because SessionStart handles them
@@ -56,7 +56,7 @@ await runHook("SessionEnd", {
         if (reason === "clear") return;
 
         const ids = await ensureRuntimeSession(payload.sessionId, undefined, {resume: false});
-        await postJson("/api/runtime-session-end", {
+        await postJson("/ingest/v1/sessions/end", {
             runtimeSource: CLAUDE_RUNTIME_SOURCE,
             runtimeSessionId: payload.sessionId,
             summary: `Claude Code session ended (${reason})`,

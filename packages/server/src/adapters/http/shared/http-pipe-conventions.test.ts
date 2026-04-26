@@ -4,10 +4,14 @@ import { fileURLToPath } from "node:url";
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
 
-const controllerDirectories = [
-    fileURLToPath(new URL("../ingest/controllers", import.meta.url)),
-    fileURLToPath(new URL("../query/controllers", import.meta.url)),
-];
+const httpLayerDirectories = [
+    { layer: "command", directory: fileURLToPath(new URL("../command", import.meta.url)) },
+    { layer: "ingest", directory: fileURLToPath(new URL("../ingest", import.meta.url)) },
+    { layer: "query", directory: fileURLToPath(new URL("../query", import.meta.url)) },
+] as const;
+const controllerDirectories = httpLayerDirectories.map(({ directory }) => path.join(directory, "controllers"));
+
+type HttpLayer = typeof httpLayerDirectories[number]["layer"];
 
 interface PipeConventionViolation {
     readonly file: string;
@@ -16,9 +20,27 @@ interface PipeConventionViolation {
 }
 
 describe("HTTP pipe conventions", () => {
+    it("keeps controller files focused on a single controller", async () => {
+        const files = await listControllerFiles();
+        const violations = (await Promise.all(files.map(findControllerFocusViolations))).flat();
+
+        expect(violations).toEqual([]);
+    });
+
     it("keeps controller input validation at the Nest pipe boundary", async () => {
         const files = await listControllerFiles();
         const violations = (await Promise.all(files.map(findPipeConventionViolations))).flat();
+
+        expect(violations).toEqual([]);
+    });
+
+    it("keeps HTTP schema imports inside their layer or shared", async () => {
+        const files = (await Promise.all(httpLayerDirectories.map(async ({ layer, directory }) =>
+            (await listTypeScriptFiles(directory)).map((file) => ({ file, layer })),
+        ))).flat();
+        const violations = (await Promise.all(files.map(({ file, layer }) =>
+            findSchemaBoundaryViolations(file, layer),
+        ))).flat();
 
         expect(violations).toEqual([]);
     });
@@ -38,6 +60,30 @@ async function listTypeScriptFiles(directory: string): Promise<readonly string[]
         return [];
     }));
     return nestedFiles.flat();
+}
+
+async function findControllerFocusViolations(file: string): Promise<readonly PipeConventionViolation[]> {
+    const source = await readFile(file, "utf8");
+    const sourceFile = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+    const controllerDecorators: ts.Decorator[] = [];
+
+    function visit(node: ts.Node): void {
+        if (ts.isClassDeclaration(node)) {
+            for (const decorator of ts.getDecorators(node) ?? []) {
+                const call = getDecoratorCall(decorator);
+                if (call && getDecoratorName(call) === "Controller") {
+                    controllerDecorators.push(decorator);
+                }
+            }
+        }
+
+        ts.forEachChild(node, visit);
+    }
+
+    visit(sourceFile);
+    return controllerDecorators.slice(1).map((decorator) =>
+        createViolation(sourceFile, decorator, file, "Controller files must define only one @Controller"),
+    );
 }
 
 async function findPipeConventionViolations(file: string): Promise<readonly PipeConventionViolation[]> {
@@ -68,6 +114,29 @@ async function findPipeConventionViolations(file: string): Promise<readonly Pipe
     }
 
     visit(sourceFile);
+    return violations;
+}
+
+async function findSchemaBoundaryViolations(
+    file: string,
+    layer: HttpLayer,
+): Promise<readonly PipeConventionViolation[]> {
+    const source = await readFile(file, "utf8");
+    const sourceFile = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+    const violations: PipeConventionViolation[] = [];
+    const schemaImportPattern = /from\s+["']~adapters\/http\/(command|ingest|query)\/schemas\//g;
+
+    for (const match of source.matchAll(schemaImportPattern)) {
+        const importedLayer = match[1] as HttpLayer;
+        if (importedLayer === layer) continue;
+
+        violations.push({
+            file: path.relative(process.cwd(), file),
+            line: sourceFile.getLineAndCharacterOfPosition(match.index).line + 1,
+            message: `${layer} files must not import ${importedLayer} schemas; use shared/schemas for cross-layer inputs`,
+        });
+    }
+
     return violations;
 }
 
