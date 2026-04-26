@@ -121,13 +121,14 @@ export function sortFileEvidenceRows(files: readonly FileEvidenceStat[], key: Fi
     }
 }
 
-export function FileEvidenceSection({ files, workspacePath, expanded, sortKey, onToggle, onSortChange }: {
+export function FileEvidenceSection({ files, workspacePath, expanded, sortKey, onToggle, onSortChange, hideCompactBadges = false }: {
     readonly files: readonly FileEvidenceStat[];
     readonly workspacePath?: string | undefined;
     readonly expanded: boolean;
     readonly sortKey: FileEvidenceSortKey;
     readonly onToggle: () => void;
     readonly onSortChange: (key: FileEvidenceSortKey) => void;
+    readonly hideCompactBadges?: boolean;
 }): React.JSX.Element {
     const modifiedCount = files.filter((file) => file.writeCount > 0).length;
     const explorationOnlyCount = files.filter((file) => file.explorationCount > 0 && file.readCount === 0 && file.writeCount === 0).length;
@@ -188,7 +189,7 @@ export function FileEvidenceSection({ files, workspacePath, expanded, sortKey, o
                                                     {toRelativePath(file.path, workspacePath)}
                                                 </strong>
                                                 <div className="flex shrink-0 items-center gap-1.5">
-                                                    {compactBadge && <Badge tone={compactBadge.tone} size="xs">{compactBadge.label}</Badge>}
+                                                    {!hideCompactBadges && compactBadge && <Badge tone={compactBadge.tone} size="xs">{compactBadge.label}</Badge>}
                                                     {file.explorationCount > 0 && <Badge tone="success" size="xs">{file.explorationCount} explore</Badge>}
                                                     {file.writeCount > 0 && <Badge tone="accent" size="xs">{file.writeCount} write</Badge>}
                                                     {file.readCount > 0 && <Badge tone="neutral" size="xs">{file.readCount} read</Badge>}

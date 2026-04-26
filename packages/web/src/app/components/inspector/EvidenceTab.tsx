@@ -1,14 +1,26 @@
 import type React from "react";
-import { useState } from "react";
-import { cn } from "~app/lib/ui/cn.js";
+import { useMemo, useState } from "react";
+import { buildExplorationInsight, collectFileActivity, collectWebLookups } from "~app/lib/insights/aggregation.js";
 import type { ExplorationInsight, WebLookupStat } from "~app/lib/insights/types.js";
+import { buildTaskTimelineSummary } from "~app/lib/taskTimelineSummary.js";
 import { formatRelativeTime } from "~app/lib/timeline.js";
+import { cn } from "~app/lib/ui/cn.js";
+import type { TimelineEventRecord } from "~domain/monitoring.js";
 import type { DirectoryMentionVerification, FileMentionVerification, MentionedFileVerification } from "~domain/paths.js";
+import { segmentEventsByTurn } from "~domain/segments.js";
+import { filterEventsByGroup, scopeLabelForGroup } from "~domain/turn-partition.js";
+import type { TurnGroup, TurnPartition } from "~domain/turn-partition.js";
 import { Badge } from "../ui/Badge.js";
+import { Eyebrow } from "../ui/Eyebrow.js";
 import { PanelCard } from "../ui/PanelCard.js";
-import { FileEvidenceSection, type FileEvidenceSortKey, type FileEvidenceStat } from "./FileEvidenceSection.js";
+import { buildFileEvidenceRows, FileEvidenceSection, sortFileEvidenceRows, type FileEvidenceSortKey, type FileEvidenceStat } from "./FileEvidenceSection.js";
 import { cardShell, cardHeader, cardBody, innerPanel, monoText } from "./styles.js";
 import { toRelativePath, summarizePath, compactRelationLabel } from "./utils.js";
+
+function truncate(value: string, limit: number): string {
+    if (value.length <= limit) return value;
+    return `${value.slice(0, limit - 1).trimEnd()}…`;
+}
 function ExplorationInsightCard({ insight }: {
     readonly insight: ExplorationInsight;
 }): React.JSX.Element {
@@ -52,8 +64,9 @@ function ExplorationInsightCard({ insight }: {
       </div>
     </PanelCard>);
 }
-function WebLookupsCard({ lookups }: {
+function WebLookupsCard({ lookups, hideCompactBadges = false }: {
     readonly lookups: readonly WebLookupStat[];
+    readonly hideCompactBadges?: boolean;
 }): React.JSX.Element {
     return (<PanelCard className={cardShell}>
       <div className={cardHeader}>
@@ -69,7 +82,7 @@ function WebLookupsCard({ lookups }: {
                       {lookup.toolName}
                     </span>
                     {lookup.count > 1 && (<Badge tone="neutral" size="xs">{lookup.count}x</Badge>)}
-                    {compactRelationLabel(lookup.compactRelation) && (<Badge tone={compactRelationLabel(lookup.compactRelation)?.tone ?? "neutral"} size="xs">
+                    {!hideCompactBadges && compactRelationLabel(lookup.compactRelation) && (<Badge tone={compactRelationLabel(lookup.compactRelation)?.tone ?? "neutral"} size="xs">
                         {compactRelationLabel(lookup.compactRelation)?.label}
                       </Badge>)}
                   </div>
@@ -202,12 +215,82 @@ export interface EvidenceTabProps {
     readonly mentionedVerifications: readonly MentionedFileVerification[];
     readonly onToggleFileEvidence: () => void;
     readonly onFileEvidenceSortChange: (key: FileEvidenceSortKey) => void;
+    readonly timeline?: readonly TimelineEventRecord[];
+    readonly partition?: TurnPartition | null;
+    readonly focusedGroupId?: string | null;
+    readonly onFocusGroup?: ((groupId: string | null) => void) | undefined;
 }
-export function EvidenceTab({ sortedFileEvidence, workspacePath, isFileEvidenceExpanded, fileEvidenceSortKey, explorationInsight, webLookups, mentionedVerifications, onToggleFileEvidence, onFileEvidenceSortChange }: EvidenceTabProps): React.JSX.Element {
+export function EvidenceTab({ sortedFileEvidence, workspacePath, isFileEvidenceExpanded, fileEvidenceSortKey, explorationInsight, webLookups, mentionedVerifications, onToggleFileEvidence, onFileEvidenceSortChange, timeline = [], partition = null, focusedGroupId = null, onFocusGroup }: EvidenceTabProps): React.JSX.Element {
+    const focusedGroup: TurnGroup | null = partition?.groups.find((g) => g.id === focusedGroupId) ?? null;
+
+    const scopedTimeline = useMemo(
+        () => (focusedGroup ? filterEventsByGroup(timeline, focusedGroup) : timeline),
+        [focusedGroup, timeline],
+    );
+    const scopedExplorationInsight = useMemo(() => {
+        if (!focusedGroup) return explorationInsight;
+        const { exploredFiles } = buildTaskTimelineSummary(scopedTimeline);
+        const lookups = collectWebLookups(scopedTimeline);
+        return buildExplorationInsight(scopedTimeline, exploredFiles, lookups);
+    }, [focusedGroup, scopedTimeline, explorationInsight]);
+    const scopedWebLookups = useMemo(
+        () => (focusedGroup ? collectWebLookups(scopedTimeline) : webLookups),
+        [focusedGroup, scopedTimeline, webLookups],
+    );
+    const scopedSortedFileEvidence = useMemo(() => {
+        if (!focusedGroup) return sortedFileEvidence;
+        const { exploredFiles } = buildTaskTimelineSummary(scopedTimeline);
+        const fileActivity = collectFileActivity(scopedTimeline);
+        const rows = buildFileEvidenceRows(fileActivity, exploredFiles);
+        return sortFileEvidenceRows(rows, fileEvidenceSortKey);
+    }, [focusedGroup, scopedTimeline, sortedFileEvidence, fileEvidenceSortKey]);
+
+    const groups = partition?.groups ?? [];
+    const showScopePicker = groups.length > 0 && onFocusGroup !== undefined;
+    const turnPreviewByIndex = useMemo(() => {
+        const map = new Map<number, string>();
+        for (const segment of segmentEventsByTurn(timeline)) {
+            if (segment.isPrelude) continue;
+            if (segment.requestPreview) map.set(segment.turnIndex, segment.requestPreview);
+        }
+        return map;
+    }, [timeline]);
+    const buildGroupOptionLabel = (group: TurnGroup): string => {
+        const base = scopeLabelForGroup(group);
+        const preview = group.label?.trim() ? null : turnPreviewByIndex.get(group.from) ?? null;
+        const suffix = preview ? ` — ${truncate(preview, 48)}` : "";
+        return `${group.visible ? "" : "○ "}${base}${suffix}`;
+    };
+
+    const isScoped = focusedGroup !== null;
+
     return (<div className="panel-tab-inner flex flex-col gap-5 p-4">
-      <ExplorationInsightCard insight={explorationInsight}/>
-      <FileEvidenceSection files={sortedFileEvidence} workspacePath={workspacePath} expanded={isFileEvidenceExpanded} sortKey={fileEvidenceSortKey} onToggle={onToggleFileEvidence} onSortChange={onFileEvidenceSortChange}/>
-      <WebLookupsCard lookups={webLookups}/>
+      {showScopePicker && (
+        <section className="flex flex-col gap-1.5">
+          <Eyebrow>Scope</Eyebrow>
+          <select
+            aria-label="Scope"
+            className="w-full max-w-full truncate rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface-2)] px-2.5 py-1.5 text-[0.78rem] font-semibold text-[var(--text-1)] transition-colors hover:border-[var(--border-2)] focus-visible:outline-none focus-visible:border-[var(--accent)]"
+            value={focusedGroupId ?? ""}
+            onChange={(e) => onFocusGroup(e.target.value ? e.target.value : null)}
+          >
+            <option value="">Whole task</option>
+            {groups.map((group) => (
+              <option key={group.id} value={group.id}>
+                {buildGroupOptionLabel(group)}
+              </option>
+            ))}
+          </select>
+          {focusedGroup && (
+            <span className="text-[0.7rem] leading-snug text-[var(--text-3)]">
+              Showing exploration for {scopeLabelForGroup(focusedGroup)}. @ Mentioned files remain whole-task.
+            </span>
+          )}
+        </section>
+      )}
+      <ExplorationInsightCard insight={scopedExplorationInsight}/>
+      <FileEvidenceSection files={scopedSortedFileEvidence} workspacePath={workspacePath} expanded={isFileEvidenceExpanded} sortKey={fileEvidenceSortKey} onToggle={onToggleFileEvidence} onSortChange={onFileEvidenceSortChange} hideCompactBadges={isScoped}/>
+      <WebLookupsCard lookups={scopedWebLookups} hideCompactBadges={isScoped}/>
       <MentionedFilesVerificationCard verifications={mentionedVerifications} workspacePath={workspacePath}/>
     </div>);
 }
