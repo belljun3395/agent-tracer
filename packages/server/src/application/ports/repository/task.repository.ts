@@ -1,4 +1,4 @@
-import type { MonitoringTask } from "~domain/monitoring/index.js";
+import type { MonitoringTask, TaskStatus } from "~domain/monitoring/index.js";
 export interface TaskUpsertInput {
     readonly id: string;
     readonly title: string;
@@ -25,13 +25,6 @@ export interface ITaskRepository {
         deletedIds: readonly string[];
     }>;
     deleteFinished(): Promise<number>;
-    getOverviewStats(): Promise<OverviewStats>;
-}
-export interface OverviewStats {
-    readonly totalTasks: number;
-    readonly runningTasks: number;
-    readonly waitingTasks: number;
-    readonly completedTasks: number;
-    readonly erroredTasks: number;
-    readonly totalEvents: number;
+    listTaskStatuses(): Promise<readonly TaskStatus[]>;
+    countTimelineEvents(): Promise<number>;
 }

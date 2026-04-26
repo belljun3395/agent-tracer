@@ -82,7 +82,41 @@ export type MonitorNotification = {
     readonly payload: {
         count: number;
     };
+} | {
+    readonly type: "rule_enforcement.added";
+    readonly payload: RuleEnforcementNotificationPayload;
+} | {
+    readonly type: "verdict.updated";
+    readonly payload: VerdictUpdatedNotificationPayload;
+} | {
+    readonly type: "rules.changed";
+    readonly payload: RulesChangedNotificationPayload;
 };
+
+export interface RuleEnforcementNotificationPayload {
+    readonly eventId: string;
+    readonly ruleId: string;
+    readonly matchKind: "trigger" | "expect-fulfilled";
+    readonly taskId: string;
+    readonly sessionId?: string;
+}
+
+export interface VerdictUpdatedNotificationPayload {
+    readonly turnId: string;
+    readonly sessionId: string;
+    readonly taskId: string;
+    readonly aggregateVerdict: "verified" | "contradicted" | "unverifiable" | null;
+    readonly rulesEvaluatedCount: number;
+}
+
+export interface RulesChangedNotificationPayload {
+    readonly ruleId: string;
+    readonly change: "created" | "updated" | "deleted" | "promoted";
+    /** scope of the rule at the time of change. */
+    readonly scope: "global" | "task";
+    readonly taskId?: string;
+}
+
 export interface INotificationPublisher {
     publish(notification: MonitorNotification): void;
 }
