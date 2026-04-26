@@ -1,4 +1,4 @@
-import { defineEventType, optionalArray, optionalString, requireString } from "./event.type.js";
+import { defineEventType, optionalArray, optionalString, requireString } from "./definition/event.definition.js";
 
 export const WORKFLOW_EVENT_DEFINITIONS = [
     defineEventType("playbook.drafted", (payload) => {
