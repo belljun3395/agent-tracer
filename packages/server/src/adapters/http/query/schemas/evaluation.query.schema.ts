@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { PLAYBOOK_STATUSES, WORKFLOW_RATINGS } from "~domain/index.js";
+import { PLAYBOOK_STATUSES, WORKFLOW_RATINGS } from "~application/workflow/index.js";
 
 function clampLimit(value: unknown, defaultValue: number, max: number): number {
     if (typeof value !== "string") return defaultValue;

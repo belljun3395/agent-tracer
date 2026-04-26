@@ -15,14 +15,13 @@ export class BookmarkWriteController {
     @Post()
     @HttpCode(HttpStatus.OK)
     async createBookmark(@Body(new ZodValidationPipe(bookmarkSchema)) body: SaveBookmarkUseCaseIn) {
-        const bookmark = await this.saveBookmark.execute(body);
-        return { bookmark };
+        return this.saveBookmark.execute(body);
     }
 
     @Delete(":bookmarkId")
     async deleteBookmarkEndpoint(@Param("bookmarkId", pathParamPipe) bookmarkId: string) {
         const result = await this.deleteBookmark.execute({ bookmarkId });
-        if (result === "not_found") {
+        if (result.status === "not_found") {
             throw new NotFoundException("Bookmark not found");
         }
         return { deleted: true };

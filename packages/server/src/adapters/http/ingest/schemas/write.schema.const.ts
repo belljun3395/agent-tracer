@@ -1,5 +1,5 @@
 export {
-    MONITORING_TASK_KINDS as TASK_KINDS,
+    COMPLETION_REASONS,
+    TASK_KINDS,
     TASK_STATUSES,
-    TASK_COMPLETION_REASONS as COMPLETION_REASONS,
-} from "~domain/index.js";
+} from "~application/tasks/index.js";

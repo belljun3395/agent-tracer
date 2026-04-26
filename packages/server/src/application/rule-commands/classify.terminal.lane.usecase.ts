@@ -20,7 +20,7 @@ export class ClassifyTerminalLaneUseCase {
 
         const patternsByTask = new Map(
             await Promise.all(
-                terminalTaskIds.map(async (taskId) => [taskId, await this.getRulePatterns.execute(taskId)] as const),
+                terminalTaskIds.map(async (taskId) => [taskId, (await this.getRulePatterns.execute({ taskId })).patterns] as const),
             ),
         );
 

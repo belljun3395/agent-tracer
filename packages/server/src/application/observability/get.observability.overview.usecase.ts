@@ -1,6 +1,6 @@
-import { analyzeObservabilityOverview } from "./index.js";
+import { analyzeObservabilityOverview } from "~domain/index.js";
 import type { ITaskRepository, ISessionRepository, IEventRepository } from "../ports/index.js";
-import type { ObservabilityOverviewResponse } from "./observability.metrics.type.js";
+import type { GetObservabilityOverviewUseCaseIn, GetObservabilityOverviewUseCaseOut } from "./dto/get.observability.overview.usecase.dto.js";
 
 export class GetObservabilityOverviewUseCase {
     constructor(
@@ -9,7 +9,7 @@ export class GetObservabilityOverviewUseCase {
         private readonly eventRepo: IEventRepository,
     ) {}
 
-    async execute(): Promise<ObservabilityOverviewResponse> {
+    async execute(_input: GetObservabilityOverviewUseCaseIn): Promise<GetObservabilityOverviewUseCaseOut> {
         const tasks = await this.taskRepo.findAll();
         const sessionEntries = await Promise.all(
             tasks.map(async (task) => [task.id, await this.sessionRepo.findByTaskId(task.id)] as const),

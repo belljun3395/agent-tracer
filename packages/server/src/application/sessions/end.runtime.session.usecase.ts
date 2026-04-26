@@ -5,8 +5,9 @@ import type {
     ITaskRepository,
 } from "~application/ports/index.js";
 import type { MonitoringTask } from "~domain/index.js";
-import type { EndRuntimeSessionUseCaseIn } from "./end.runtime.session.usecase.dto.js";
-import type { TaskLifecycleService } from "../tasks/services/task.lifecycle.service.js";
+import type { EndRuntimeSessionUseCaseIn } from "./dto/end.runtime.session.usecase.dto.js";
+import type { TaskLifecycleService } from "~application/tasks/index.js";
+import { TaskNotFoundError } from "../tasks/common/task.errors.js";
 
 interface SessionTaskCompletionInput {
     readonly taskId: string;
@@ -148,7 +149,7 @@ async function setTaskStatus(
     const updatedAt = new Date().toISOString();
     await tasks.updateStatus(taskId, status, updatedAt);
     const task = await tasks.findById(taskId);
-    if (!task) throw new Error(`Task not found: ${taskId}`);
+    if (!task) throw new TaskNotFoundError(taskId);
     notifier.publish({ type: "task.updated", payload: task });
     return task;
 }
@@ -160,7 +161,12 @@ async function completeTaskIfIncomplete(
 ): Promise<void> {
     const task = await tasks.findById(input.taskId);
     if (!task || task.status === "completed" || task.status === "errored") return;
-    await taskLifecycle.finalizeTask({ ...input, outcome: "completed" });
+    await taskLifecycle.finalizeTask({
+        taskId: input.taskId,
+        ...(input.sessionId !== undefined ? { sessionId: input.sessionId } : {}),
+        ...(input.summary !== undefined ? { summary: input.summary } : {}),
+        outcome: "completed",
+    });
 }
 
 async function completeBgTasks(

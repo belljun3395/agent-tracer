@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { EVENT_RELATION_TYPES, INGEST_EVENT_KINDS, EVENT_LANES } from "~domain/index.js"
+import { EVENT_RELATION_TYPES, INGEST_EVENT_KINDS, EVENT_LANES } from "~application/events/index.js"
 
 export const ingestEventItemSchema = z.object({
     kind: z.enum(INGEST_EVENT_KINDS),

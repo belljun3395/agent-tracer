@@ -1,5 +1,5 @@
 import { Body, Controller, Delete, HttpCode, HttpStatus, Inject, NotFoundException, Param, Post } from "@nestjs/common";
-import { CreateRuleCommandUseCase, DeleteRuleCommandUseCase } from "~application/rule-commands/index.js";
+import { CreateRuleCommandUseCase, DeleteRuleCommandUseCase, type CreateRuleCommandUseCaseIn } from "~application/rule-commands/index.js";
 import { createRuleCommandSchema } from "../schemas/rule-command.write.schema.js";
 import { pathParamPipe } from "~adapters/http/shared/path-param.pipe.js";
 import { ZodValidationPipe } from "~adapters/http/shared/zod-validation.pipe.js";
@@ -15,7 +15,7 @@ export class GlobalRuleCommandWriteController {
     @HttpCode(HttpStatus.OK)
     async createGlobal(
         @Body(new ZodValidationPipe(createRuleCommandSchema))
-        body: Parameters<CreateRuleCommandUseCase["execute"]>[0],
+        body: CreateRuleCommandUseCaseIn,
     ) {
         const ruleCommand = await this.createRuleCommand.execute(body);
         return { ruleCommand };
@@ -23,7 +23,7 @@ export class GlobalRuleCommandWriteController {
 
     @Delete(":id")
     async deleteGlobal(@Param("id", pathParamPipe) id: string) {
-        const deleted = await this.deleteRuleCommand.execute(id);
+        const { deleted } = await this.deleteRuleCommand.execute({ id });
         if (!deleted) throw new NotFoundException("Rule command not found");
         return { deleted: true };
     }
@@ -41,7 +41,7 @@ export class TaskRuleCommandWriteController {
     async createForTask(
         @Param("taskId", pathParamPipe) taskId: string,
         @Body(new ZodValidationPipe(createRuleCommandSchema))
-        body: Parameters<CreateRuleCommandUseCase["execute"]>[0],
+        body: CreateRuleCommandUseCaseIn,
     ) {
         const ruleCommand = await this.createRuleCommand.execute({ ...body, taskId });
         return { ruleCommand };
@@ -49,7 +49,7 @@ export class TaskRuleCommandWriteController {
 
     @Delete(":id")
     async deleteForTask(@Param("taskId", pathParamPipe) _taskId: string, @Param("id", pathParamPipe) id: string) {
-        const deleted = await this.deleteRuleCommand.execute(id);
+        const { deleted } = await this.deleteRuleCommand.execute({ id });
         if (!deleted) throw new NotFoundException("Rule command not found");
         return { deleted: true };
     }

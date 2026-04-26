@@ -1,4 +1,4 @@
-import type { IngestEventInput, IngestResult } from "./ingest.events.usecase.dto.js";
+import type { IngestEventsUseCaseIn, IngestEventsUseCaseOut } from "./dto/ingest.events.usecase.dto.js";
 import type { LogEventUseCase } from "./log.event.usecase.js";
 
 export class IngestEventsUseCase {
@@ -6,12 +6,12 @@ export class IngestEventsUseCase {
         private readonly logEvent: LogEventUseCase,
     ) {}
 
-    async execute(events: readonly IngestEventInput[]): Promise<IngestResult> {
-        const accepted: IngestResult["accepted"][number][] = [];
-        const rejected: IngestResult["rejected"][number][] = [];
+    async execute(input: IngestEventsUseCaseIn): Promise<IngestEventsUseCaseOut> {
+        const accepted: IngestEventsUseCaseOut["accepted"][number][] = [];
+        const rejected: IngestEventsUseCaseOut["rejected"][number][] = [];
 
-        for (let i = 0; i < events.length; i++) {
-            const event = events[i]!;
+        for (let i = 0; i < input.events.length; i++) {
+            const event = input.events[i]!;
             try {
                 const result = await this.logEvent.execute(event);
                 for (const ev of result.events) {

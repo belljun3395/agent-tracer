@@ -1,10 +1,11 @@
 import type { IEvaluationRepository } from "../ports/index.js";
-import { normalizeWorkflowScopeKey } from "./workflow.scope.ops.js";
+import { normalizeWorkflowScopeKey } from "~domain/index.js";
+import type { GetTaskEvaluationUseCaseIn, GetTaskEvaluationUseCaseOut } from "./dto/get.task.evaluation.usecase.dto.js";
 
 export class GetTaskEvaluationUseCase {
     constructor(private readonly evaluationRepo: IEvaluationRepository) {}
 
-    async execute(taskId: string, scopeKey?: string) {
-        return this.evaluationRepo.getEvaluation(taskId, normalizeWorkflowScopeKey(scopeKey));
+    async execute(input: GetTaskEvaluationUseCaseIn): Promise<GetTaskEvaluationUseCaseOut> {
+        return this.evaluationRepo.getEvaluation(input.taskId, normalizeWorkflowScopeKey(input.scopeKey));
     }
 }

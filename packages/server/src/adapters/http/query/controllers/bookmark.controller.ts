@@ -7,6 +7,6 @@ export class BookmarkController {
 
     @Get()
     async listBookmarksEndpoint(@Query("taskId") taskId?: string) {
-        return { bookmarks: await this.listBookmarks.execute(taskId ? { taskId } : {}) };
+        return this.listBookmarks.execute(taskId ? { taskId } : {});
     }
 }

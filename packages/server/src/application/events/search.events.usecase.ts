@@ -1,10 +1,10 @@
-import type { IEventRepository, SearchResults } from "../ports/index.js";
-import type { TaskSearchInput } from "./event.search.type.js";
+import type { IEventRepository } from "../ports/index.js";
+import type { SearchEventsUseCaseIn, SearchEventsUseCaseOut } from "./dto/search.events.usecase.dto.js";
 
 export class SearchEventsUseCase {
     constructor(private readonly eventRepo: IEventRepository) {}
 
-    async execute(input: TaskSearchInput): Promise<SearchResults> {
+    async execute(input: SearchEventsUseCaseIn): Promise<SearchEventsUseCaseOut> {
         return this.eventRepo.search(input.query, {
             ...(input.taskId ? { taskId: input.taskId } : {}),
             ...(input.limit ? { limit: input.limit } : {}),

@@ -22,6 +22,7 @@ export interface BookmarkSaveInput {
 }
 export interface IBookmarkRepository {
     save(input: BookmarkSaveInput): Promise<BookmarkRecord>;
+    findById(bookmarkId: string): Promise<BookmarkRecord | null>;
     findByTaskId(taskId: string): Promise<readonly BookmarkRecord[]>;
     findAll(): Promise<readonly BookmarkRecord[]>;
     delete(bookmarkId: string): Promise<void>;

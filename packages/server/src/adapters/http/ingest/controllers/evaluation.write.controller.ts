@@ -1,12 +1,15 @@
 import { Body, Controller, HttpCode, HttpStatus, Inject, NotFoundException, Param, Patch, Post, Query } from "@nestjs/common";
-import type { PlaybookUpsertInput } from "~application/index.js";
 import {
     UpsertTaskEvaluationUseCase,
     RecordBriefingCopyUseCase,
     SaveBriefingUseCase,
     CreatePlaybookUseCase,
     UpdatePlaybookUseCase,
-} from "~application/workflow/usecases.index.js";
+    type CreatePlaybookUseCaseIn,
+    type SaveBriefingUseCaseIn,
+    type UpdatePlaybookUseCaseIn,
+    type UpsertTaskEvaluationUseCaseIn,
+} from "~application/workflow/index.js";
 import {
     briefingSaveSchema,
     playbookPatchSchema,
@@ -29,10 +32,11 @@ export class TaskEvaluationWriteController {
     async upsertEvaluation(
         @Param("id", pathParamPipe) taskId: string,
         @Query("scopeKey") scopeKey: string | undefined,
-        @Body(new ZodValidationPipe(taskEvaluateSchema)) body: Parameters<UpsertTaskEvaluationUseCase["execute"]>[1],
+        @Body(new ZodValidationPipe(taskEvaluateSchema)) body: UpsertTaskEvaluationUseCaseIn,
     ) {
         const { rating, useCase, workflowTags, outcomeNote, approachNote, reuseWhen, watchouts, workflowSnapshot, workflowContext } = body;
-        await this.upsertTaskEvaluation.execute(taskId, {
+        await this.upsertTaskEvaluation.execute({
+            taskId,
             ...(scopeKey ? { scopeKey } : {}),
             rating,
             ...(useCase !== undefined ? { useCase } : {}),
@@ -53,7 +57,7 @@ export class TaskEvaluationWriteController {
         @Param("id", pathParamPipe) taskId: string,
         @Query("scopeKey") scopeKey: string | undefined,
     ) {
-        await this.recordBriefingCopy.execute(taskId, scopeKey);
+        await this.recordBriefingCopy.execute({ taskId, scopeKey });
         return { recorded: true };
     }
 
@@ -61,9 +65,10 @@ export class TaskEvaluationWriteController {
     @HttpCode(HttpStatus.OK)
     async saveBriefingEndpoint(
         @Param("id", pathParamPipe) taskId: string,
-        @Body(new ZodValidationPipe(briefingSaveSchema)) body: Parameters<SaveBriefingUseCase["execute"]>[1],
+        @Body(new ZodValidationPipe(briefingSaveSchema)) body: SaveBriefingUseCaseIn,
     ) {
-        return this.saveBriefing.execute(taskId, {
+        return this.saveBriefing.execute({
+            taskId,
             purpose: body.purpose,
             format: body.format,
             content: body.content,
@@ -82,22 +87,22 @@ export class PlaybookWriteController {
 
     @Post()
     @HttpCode(HttpStatus.OK)
-    async createPlaybookEndpoint(@Body(new ZodValidationPipe(playbookUpsertSchema)) body: PlaybookUpsertInput) {
+    async createPlaybookEndpoint(@Body(new ZodValidationPipe(playbookUpsertSchema)) body: CreatePlaybookUseCaseIn) {
         return this.createPlaybook.execute(buildPlaybookPayload(body));
     }
 
     @Patch(":id")
     async updatePlaybookEndpoint(
         @Param("id", pathParamPipe) playbookId: string,
-        @Body(new ZodValidationPipe(playbookPatchSchema)) body: Partial<PlaybookUpsertInput>,
+        @Body(new ZodValidationPipe(playbookPatchSchema)) body: Omit<UpdatePlaybookUseCaseIn, "playbookId">,
     ) {
-        const updated = await this.updatePlaybook.execute(playbookId, buildPlaybookPatch(body));
+        const updated = await this.updatePlaybook.execute({ ...buildPlaybookPatch(body), playbookId });
         if (!updated) throw new NotFoundException("playbook not found");
         return updated;
     }
 }
 
-function buildPlaybookPayload(body: PlaybookUpsertInput): PlaybookUpsertInput {
+function buildPlaybookPayload(body: CreatePlaybookUseCaseIn): CreatePlaybookUseCaseIn {
     return {
         title: body.title,
         ...(body.status !== undefined ? { status: body.status } : {}),
@@ -115,7 +120,7 @@ function buildPlaybookPayload(body: PlaybookUpsertInput): PlaybookUpsertInput {
     };
 }
 
-function buildPlaybookPatch(body: Partial<PlaybookUpsertInput>): Partial<PlaybookUpsertInput> {
+function buildPlaybookPatch(body: Omit<UpdatePlaybookUseCaseIn, "playbookId">): Omit<UpdatePlaybookUseCaseIn, "playbookId"> {
     return {
         ...(body.title !== undefined ? { title: body.title } : {}),
         ...(body.status !== undefined ? { status: body.status } : {}),

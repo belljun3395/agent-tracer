@@ -1,9 +1,10 @@
 import type { IEvaluationRepository } from "../ports/index.js";
+import type { SearchWorkflowLibraryUseCaseIn, SearchWorkflowLibraryUseCaseOut } from "./dto/search.workflow.library.usecase.dto.js";
 
 export class SearchWorkflowLibraryUseCase {
     constructor(private readonly evaluationRepo: IEvaluationRepository) {}
 
-    async execute(query: string, rating?: "good" | "skip", limit?: number) {
-        return this.evaluationRepo.searchWorkflowLibrary(query, rating, limit);
+    async execute(input: SearchWorkflowLibraryUseCaseIn): Promise<SearchWorkflowLibraryUseCaseOut> {
+        return this.evaluationRepo.searchWorkflowLibrary(input.query, input.rating, input.limit);
     }
 }

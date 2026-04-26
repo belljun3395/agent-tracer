@@ -12,13 +12,27 @@ export { GetTaskLatestRuntimeSessionUseCase } from "./get.task.latest.runtime.se
 export { GetTaskOpenInferenceUseCase } from "./get.task.open.inference.usecase.js";
 export { GetDefaultWorkspacePathUseCase } from "./get.default.workspace.path.usecase.js";
 export { TaskLifecycleService } from "./services/task.lifecycle.service.js";
+export { TaskNotFoundError as TaskLifecycleNotFoundError } from "./common/task.errors.js";
+export {
+    COMPLETION_REASONS,
+    TASK_KINDS,
+    TASK_STATUSES,
+} from "./common/task.constants.js";
 export type {
-    TaskCompletionInput,
-    TaskErrorInput,
-    TaskFinalizationInput,
-    TaskFinalizationOutcome,
-    TaskLinkInput,
-    TaskPatchInput,
-    TaskStartInput,
-} from "./task.lifecycle.input.js";
-export type { RecordedEventEnvelope } from "./task.lifecycle.result.js";
+    MonitoringTaskKind,
+    TaskCompletionReason,
+    TaskStatus,
+} from "./common/task.constants.js";
+export type { StartTaskUseCaseIn, StartTaskUseCaseOut } from "./dto/start.task.usecase.dto.js";
+export type { CompleteTaskUseCaseIn, CompleteTaskUseCaseOut, TaskFinalizationUseCaseIn } from "./dto/complete.task.usecase.dto.js";
+export type { ErrorTaskUseCaseIn, ErrorTaskUseCaseOut } from "./dto/error.task.usecase.dto.js";
+export type { LinkTaskUseCaseIn, LinkTaskUseCaseOut } from "./dto/link.task.usecase.dto.js";
+export type { UpdateTaskUseCaseIn, UpdateTaskUseCaseOut } from "./dto/update.task.usecase.dto.js";
+export type { DeleteTaskUseCaseIn, DeleteTaskUseCaseOut } from "./dto/delete.task.usecase.dto.js";
+export type { DeleteFinishedTasksUseCaseIn, DeleteFinishedTasksUseCaseOut } from "./dto/delete.finished.tasks.usecase.dto.js";
+export type { ListTasksUseCaseIn, ListTasksUseCaseOut } from "./dto/list.tasks.usecase.dto.js";
+export type { GetTaskUseCaseIn, GetTaskUseCaseOut } from "./dto/get.task.usecase.dto.js";
+export type { GetTaskTimelineUseCaseIn, GetTaskTimelineUseCaseOut } from "./dto/get.task.timeline.usecase.dto.js";
+export type { GetTaskLatestRuntimeSessionUseCaseIn, GetTaskLatestRuntimeSessionUseCaseOut } from "./dto/get.task.latest.runtime.session.usecase.dto.js";
+export type { GetTaskOpenInferenceUseCaseIn, GetTaskOpenInferenceUseCaseOut } from "./dto/get.task.open.inference.usecase.dto.js";
+export type { GetDefaultWorkspacePathUseCaseIn, GetDefaultWorkspacePathUseCaseOut } from "./dto/get.default.workspace.path.usecase.dto.js";

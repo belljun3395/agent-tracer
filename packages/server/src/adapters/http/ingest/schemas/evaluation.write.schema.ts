@@ -4,7 +4,7 @@ import {
     BRIEFING_PURPOSES,
     PLAYBOOK_STATUSES,
     WORKFLOW_RATINGS,
-} from "~domain/index.js";
+} from "~application/workflow/index.js";
 
 const playbookVariantSchema = z.object({
     label: z.string().trim().min(1),

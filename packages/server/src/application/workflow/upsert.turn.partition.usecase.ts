@@ -1,12 +1,8 @@
 import type { IEventRepository, ITaskRepository, ITurnPartitionRepository } from "~application/ports/index.js";
-import type { TurnGroup, TurnPartition } from "~domain/workflow/turn.partition.js";
+import type { TurnPartition } from "~domain/workflow/turn.partition.js";
 import { countNonPreludeTurns, validatePartition } from "~domain/workflow/turn.partition.js";
-import { TaskNotFoundError, TurnPartitionVersionMismatchError } from "./workflow.errors.js";
-
-export interface UpsertTurnPartitionInput {
-    readonly groups: readonly TurnGroup[];
-    readonly baseVersion?: number;
-}
+import { TaskNotFoundError, TurnPartitionVersionMismatchError } from "./common/workflow.errors.js";
+import type { UpsertTurnPartitionUseCaseIn, UpsertTurnPartitionUseCaseOut } from "./dto/upsert.turn.partition.usecase.dto.js";
 
 export class UpsertTurnPartitionUseCase {
     constructor(
@@ -15,14 +11,14 @@ export class UpsertTurnPartitionUseCase {
         private readonly turnPartitionRepo: ITurnPartitionRepository,
     ) {}
 
-    async execute(taskId: string, input: UpsertTurnPartitionInput): Promise<TurnPartition> {
-        const task = await this.taskRepo.findById(taskId);
-        if (!task) throw new TaskNotFoundError(taskId);
+    async execute(input: UpsertTurnPartitionUseCaseIn): Promise<UpsertTurnPartitionUseCaseOut> {
+        const task = await this.taskRepo.findById(input.taskId);
+        if (!task) throw new TaskNotFoundError(input.taskId);
 
-        const events = await this.eventRepo.findByTaskId(taskId);
+        const events = await this.eventRepo.findByTaskId(input.taskId);
         const totalTurns = countNonPreludeTurns(events);
 
-        const existing = await this.turnPartitionRepo.get(taskId);
+        const existing = await this.turnPartitionRepo.get(input.taskId);
         if (
             typeof input.baseVersion === "number" &&
             existing !== null &&
@@ -34,7 +30,7 @@ export class UpsertTurnPartitionUseCase {
         const nextVersion = (existing?.version ?? 0) + 1;
         const updatedAt = new Date().toISOString();
         const partition: TurnPartition = {
-            taskId,
+            taskId: input.taskId,
             groups: input.groups.map((g) => ({
                 id: g.id,
                 from: g.from,

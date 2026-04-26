@@ -8,8 +8,13 @@ import {
     QUESTION_PHASES,
     TODO_STATES,
     type TimelineLane,
-} from "~domain/index.js";
-import { IngestEventsUseCase, type IngestEventInput, type IngestResult } from "~application/events/index.js";
+} from "~application/events/index.js";
+import {
+    IngestEventsUseCase,
+    type IngestEventsUseCaseEventDto,
+    type IngestEventsUseCaseIn,
+    type IngestEventsUseCaseOut,
+} from "~application/events/index.js";
 import { ClassifyTerminalLaneUseCase } from "~application/rule-commands/index.js";
 import { ZodValidationPipe } from "~adapters/http/shared/zod-validation.pipe.js";
 
@@ -58,7 +63,7 @@ const asyncTaskAliasSchema = aliasEventSchema
     });
 
 type AliasEventBody = z.infer<typeof aliasEventSchema>;
-type AliasEventKind = IngestEventInput["kind"];
+type AliasEventKind = IngestEventsUseCaseEventDto["kind"];
 
 const BASE_ALIAS_KEYS = new Set([
     "taskId",
@@ -191,7 +196,8 @@ export class IngestAliasController {
             body: body.body ?? command,
         });
         const classified = await this.classifyTerminalLane.execute([event]);
-        return this.ingestEvents.execute(classified);
+        const input = { events: classified } satisfies IngestEventsUseCaseIn;
+        return this.ingestEvents.execute(input);
     }
 
     @Post("todo")
@@ -229,12 +235,15 @@ export class IngestAliasController {
         kind: AliasEventKind,
         defaultLane: TimelineLane,
         options: AliasBuildOptions = {},
-    ): Promise<IngestResult> {
-        return this.ingestEvents.execute([buildAliasEvent(body, kind, body.lane ?? defaultLane, {
-            title: options.title?.(),
-            body: options.body?.(),
-            metadata: options.metadata?.(),
-        })]);
+    ): Promise<IngestEventsUseCaseOut> {
+        const input = {
+            events: [buildAliasEvent(body, kind, body.lane ?? defaultLane, {
+                title: options.title?.(),
+                body: options.body?.(),
+                metadata: options.metadata?.(),
+            })],
+        } satisfies IngestEventsUseCaseIn;
+        return this.ingestEvents.execute(input);
     }
 }
 
@@ -255,7 +264,7 @@ function buildAliasEvent(
     kind: AliasEventKind,
     lane: TimelineLane,
     values: AliasBuildValues = {},
-): IngestEventInput {
+): IngestEventsUseCaseEventDto {
     const metadata = collectMetadata(body, values.metadata);
     return {
         kind,
@@ -273,7 +282,7 @@ function buildAliasEvent(
         ...(body.relationExplanation ? { relationExplanation: body.relationExplanation } : {}),
         ...(body.createdAt ? { createdAt: body.createdAt } : {}),
         ...(body.taskEffects ? { taskEffects: body.taskEffects } : {}),
-    } as IngestEventInput;
+    } as IngestEventsUseCaseEventDto;
 }
 
 function collectMetadata(body: AliasEventBody, overrides: Record<string, unknown> | undefined): Record<string, unknown> {

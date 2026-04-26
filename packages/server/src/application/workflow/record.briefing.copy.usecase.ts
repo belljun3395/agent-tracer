@@ -1,10 +1,11 @@
 import type { IEvaluationRepository } from "../ports/index.js";
-import { normalizeWorkflowScopeKey } from "./workflow.scope.ops.js";
+import { normalizeWorkflowScopeKey } from "~domain/index.js";
+import type { RecordBriefingCopyUseCaseIn, RecordBriefingCopyUseCaseOut } from "./dto/record.briefing.copy.usecase.dto.js";
 
 export class RecordBriefingCopyUseCase {
     constructor(private readonly evaluationRepo: IEvaluationRepository) {}
 
-    async execute(taskId: string, scopeKey?: string): Promise<void> {
-        await this.evaluationRepo.recordBriefingCopy(taskId, new Date().toISOString(), normalizeWorkflowScopeKey(scopeKey));
+    async execute(input: RecordBriefingCopyUseCaseIn): Promise<RecordBriefingCopyUseCaseOut> {
+        await this.evaluationRepo.recordBriefingCopy(input.taskId, new Date().toISOString(), normalizeWorkflowScopeKey(input.scopeKey));
     }
 }
