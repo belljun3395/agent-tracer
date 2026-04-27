@@ -1,10 +1,10 @@
-import type { TimelineEventProjection } from "~application/events/timeline-event.projection.js";
+import type { ProjectedTimelineEvent } from "../outbound/event.projection.access.port.js";
 
 export interface GetTaskTimelineUseCaseIn {
     readonly taskId: string;
 }
 
-export type TimelineEventUseCaseDto = TimelineEventProjection;
+export type TimelineEventUseCaseDto = ProjectedTimelineEvent;
 
 export interface GetTaskTimelineUseCaseOut {
     readonly timeline: readonly TimelineEventUseCaseDto[];

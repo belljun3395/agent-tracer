@@ -3,7 +3,6 @@ import type { MonitoringTask } from "~domain/monitoring/task/model/task.model.js
 import type { MonitoringEventKind } from "~domain/monitoring/common/type/event.kind.type.js";
 import type { MonitoringTaskKind } from "~domain/monitoring/common/type/task.status.type.js";
 import { createEventRecordDraft } from "~domain/monitoring/event/event.recording.js";
-import { projectTimelineEvent } from "~application/events/timeline-event.projection.js";
 import { TaskUpsertDraft } from "../domain/task.upsert.draft.model.js";
 import {
     TaskFinalizationRecording,
@@ -13,12 +12,14 @@ import { TaskNotFoundError } from "../common/task.errors.js";
 import { TaskQueryService } from "./task.query.service.js";
 import { TaskManagementService } from "./task.management.service.js";
 import {
+    EVENT_PROJECTION_ACCESS_PORT,
     NOTIFICATION_PUBLISHER_PORT,
     SESSION_ACCESS_PORT,
     TIMELINE_EVENT_ACCESS_PORT,
 } from "../application/outbound/tokens.js";
 import type { ISessionAccess } from "../application/outbound/session.access.port.js";
 import type { ITimelineEventAccess } from "../application/outbound/timeline.event.access.port.js";
+import type { IEventProjectionAccess } from "../application/outbound/event.projection.access.port.js";
 import type { ITaskNotificationPublisher } from "../application/outbound/notification.publisher.port.js";
 
 export interface StartTaskServiceInput {
@@ -61,6 +62,7 @@ export class TaskLifecycleService {
         private readonly management: TaskManagementService,
         @Inject(SESSION_ACCESS_PORT) private readonly sessions: ISessionAccess,
         @Inject(TIMELINE_EVENT_ACCESS_PORT) private readonly events: ITimelineEventAccess,
+        @Inject(EVENT_PROJECTION_ACCESS_PORT) private readonly projection: IEventProjectionAccess,
         @Inject(NOTIFICATION_PUBLISHER_PORT) private readonly notifier: ITaskNotificationPublisher,
     ) {}
 
@@ -112,7 +114,7 @@ export class TaskLifecycleService {
                 id: globalThis.crypto.randomUUID(),
                 ...record,
             } as never);
-            this.notifier.publish({ type: "event.logged", payload: projectTimelineEvent(event as never) as never });
+            this.notifier.publish({ type: "event.logged", payload: this.projection.project(event as never) as never });
             return { task, sessionId, events: [{ id: event.id, kind: event.kind as MonitoringEventKind }] };
         }
         return { task, sessionId, events: [] };
@@ -162,7 +164,7 @@ export class TaskLifecycleService {
             id: globalThis.crypto.randomUUID(),
             ...record,
         } as never);
-        this.notifier.publish({ type: "event.logged", payload: projectTimelineEvent(event as never) as never });
+        this.notifier.publish({ type: "event.logged", payload: this.projection.project(event as never) as never });
         return { task: finalTask, ...(sessionId ? { sessionId } : {}), events: [{ id: event.id, kind: event.kind as MonitoringEventKind }] };
     }
 }

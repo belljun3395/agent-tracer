@@ -1,6 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { projectTimelineEvent } from "~application/events/timeline-event.projection.js";
-import { TIMELINE_EVENT_ACCESS_PORT } from "./outbound/tokens.js";
+import { EVENT_PROJECTION_ACCESS_PORT, TIMELINE_EVENT_ACCESS_PORT } from "./outbound/tokens.js";
+import type { IEventProjectionAccess } from "./outbound/event.projection.access.port.js";
 import type { ITimelineEventAccess } from "./outbound/timeline.event.access.port.js";
 import type {
     GetTaskTimelineUseCaseIn,
@@ -11,10 +11,11 @@ import type {
 export class GetTaskTimelineUseCase {
     constructor(
         @Inject(TIMELINE_EVENT_ACCESS_PORT) private readonly events: ITimelineEventAccess,
+        @Inject(EVENT_PROJECTION_ACCESS_PORT) private readonly projection: IEventProjectionAccess,
     ) {}
 
     async execute(input: GetTaskTimelineUseCaseIn): Promise<GetTaskTimelineUseCaseOut> {
         const timeline = await this.events.findByTaskId(input.taskId);
-        return { timeline: timeline.map((event) => projectTimelineEvent(event as never)) as never };
+        return { timeline: timeline.map((event) => this.projection.project(event as never)) as never };
     }
 }
