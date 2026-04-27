@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import type { TurnSummaryQueryPort } from "~application/ports/verification/turns/turn.summary.query.port.js";
+import type { ITurnQueryRepository } from "~application/ports/repository/turn.query.repository.js";
 import { TURN_QUERY_REPOSITORY_TOKEN } from "~main/presentation/database/database.provider.js";
 import type {
     ITurnQueryAccess,
@@ -14,7 +14,7 @@ import type {
 @Injectable()
 export class TurnQueryAccessAdapter implements ITurnQueryAccess {
     constructor(
-        @Inject(TURN_QUERY_REPOSITORY_TOKEN) private readonly inner: TurnSummaryQueryPort,
+        @Inject(TURN_QUERY_REPOSITORY_TOKEN) private readonly inner: ITurnQueryRepository,
     ) {}
 
     async listTurnSummariesForTask(taskId: string): Promise<readonly TurnSummaryAccessRecord[]> {

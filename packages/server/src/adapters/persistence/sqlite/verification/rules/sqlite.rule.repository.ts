@@ -6,7 +6,7 @@ import type {
     RuleUpdateInput,
     RuleWithSignature,
 } from "~application/ports/repository/rule.repository.js";
-import { normalizeRuleExpectedAction } from "~domain/verification/rule/tool-action.matching.js";
+import { normalizeRuleExpectedAction } from "~verification/domain/tool-action.matching.js";
 import { ensureSqliteDatabase, type SqliteDatabase, type SqliteDatabaseInput } from "~adapters/persistence/sqlite/shared/drizzle.db.js";
 import { rules } from "../sqlite.verification.tables.js";
 

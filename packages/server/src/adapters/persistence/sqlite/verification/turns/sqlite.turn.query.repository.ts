@@ -4,7 +4,7 @@ import type {
     ITurnQueryRepository,
     TaskTurnSummaryRow,
 } from "~application/ports/repository/turn.query.repository.js";
-import type { VerdictStatus } from "~domain/verification/verdict/model/verdict.model.js";
+import type { VerdictStatus } from "~verification/domain/model/verdict.model.js";
 import { ensureSqliteDatabase, type SqliteDatabase, type SqliteDatabaseInput } from "~adapters/persistence/sqlite/shared/drizzle.db.js";
 import { turns, verdicts } from "../sqlite.verification.tables.js";
 

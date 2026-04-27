@@ -1,11 +1,34 @@
-import type { BackfillTurnPortDto } from "~application/ports/verification/turns/dto/turn.backfill.port.dto.js";
-import type { TaskTurnSummaryPortDto } from "~application/ports/verification/turns/dto/turn.summary.port.dto.js";
-import type { TurnBackfillSourcePort } from "~application/ports/verification/turns/turn.backfill.source.port.js";
-import type { TurnSummaryQueryPort } from "~application/ports/verification/turns/turn.summary.query.port.js";
-import type { VerdictStatusQueryPort } from "~application/ports/verification/verdicts/verdict.status.query.port.js";
+import type { TurnAggregateVerdict, TurnStatus } from "./turn.repository.js";
+import type { VerdictStatus } from "~verification/domain/model/verdict.model.js";
 
-export type BackfillTurnRow = BackfillTurnPortDto;
-export type TaskTurnSummaryRow = TaskTurnSummaryPortDto;
+/**
+ * Legacy ITurnQueryRepository contract — self-contained.
+ */
 
-export interface ITurnQueryRepository
-    extends TurnBackfillSourcePort, TurnSummaryQueryPort, VerdictStatusQueryPort {}
+export interface BackfillTurnRow {
+    readonly id: string;
+    readonly sessionId: string;
+    readonly taskId: string;
+    readonly status: TurnStatus;
+    readonly assistantText: string;
+    readonly userMessageText: string;
+}
+
+export interface TaskTurnSummaryRow {
+    readonly id: string;
+    readonly sessionId: string;
+    readonly taskId: string;
+    readonly turnIndex: number;
+    readonly status: TurnStatus;
+    readonly startedAt: string;
+    readonly endedAt: string | null;
+    readonly aggregateVerdict: TurnAggregateVerdict;
+    readonly rulesEvaluatedCount: number;
+}
+
+export interface ITurnQueryRepository {
+    listAllTurnsForBackfill(): Promise<ReadonlyArray<BackfillTurnRow>>;
+    listTurnsForTaskBackfill(taskId: string): Promise<ReadonlyArray<BackfillTurnRow>>;
+    listTurnSummariesForTask(taskId: string): Promise<ReadonlyArray<TaskTurnSummaryRow>>;
+    listVerdictStatusesForTask(taskId: string): Promise<readonly VerdictStatus[]>;
+}
