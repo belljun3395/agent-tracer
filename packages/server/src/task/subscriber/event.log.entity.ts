@@ -1,0 +1,45 @@
+import { Column, Entity, PrimaryColumn } from "typeorm";
+
+/**
+ * Local @Entity mapped to the shared `events` table for task lifecycle
+ * domain-event sourcing. The session module declares its own equivalent
+ * @Entity class for the same table — TypeORM treats each as independent
+ * metadata, both writing to the same physical SQLite table.
+ *
+ * This avoids a cross-module import while still using TypeORM's repository API.
+ */
+@Entity({ name: "events" })
+export class TaskEventLogEntity {
+    @PrimaryColumn({ name: "event_id", type: "text" })
+    eventId!: string;
+
+    @Column({ name: "event_time", type: "integer" })
+    eventTime!: number;
+
+    @Column({ name: "event_type", type: "text" })
+    eventType!: string;
+
+    @Column({ name: "schema_ver", type: "integer" })
+    schemaVer!: number;
+
+    @Column({ name: "aggregate_id", type: "text" })
+    aggregateId!: string;
+
+    @Column({ name: "session_id", type: "text", nullable: true })
+    sessionId!: string | null;
+
+    @Column({ type: "text" })
+    actor!: string;
+
+    @Column({ name: "correlation_id", type: "text", nullable: true })
+    correlationId!: string | null;
+
+    @Column({ name: "causation_id", type: "text", nullable: true })
+    causationId!: string | null;
+
+    @Column({ name: "payload_json", type: "text" })
+    payloadJson!: string;
+
+    @Column({ name: "recorded_at", type: "integer" })
+    recordedAt!: number;
+}
