@@ -1,5 +1,17 @@
 import { z } from "zod";
-import { COMPLETION_REASONS } from "~application/tasks/common/task.constants.js";
+
+/**
+ * Reasons a runtime session can end. Declared locally so the session module's
+ * inbound contract isn't coupled to task module's domain types — even though
+ * the values currently match the legacy task-domain enum, future evolution
+ * should be driven by session module's own needs.
+ */
+const RUNTIME_SESSION_COMPLETION_REASONS = [
+    "idle",
+    "assistant_turn_complete",
+    "explicit_exit",
+    "runtime_terminated",
+] as const;
 
 export const runtimeSessionEnsureSchema = z.object({
     taskId: z.string().optional(),
@@ -17,6 +29,6 @@ export const runtimeSessionEndSchema = z.object({
     runtimeSessionId: z.string().min(1),
     summary: z.string().optional(),
     completeTask: z.boolean().optional(),
-    completionReason: z.enum(COMPLETION_REASONS).optional(),
+    completionReason: z.enum(RUNTIME_SESSION_COMPLETION_REASONS).optional(),
     backgroundCompletions: z.array(z.string().min(1)).optional(),
 });

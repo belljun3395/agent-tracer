@@ -1,6 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
-import type { ITaskRepository } from "~application/ports/repository/task.repository.js";
-import { TASK_REPOSITORY_TOKEN } from "~main/presentation/database/database.provider.js";
+import type { ITaskAccess as ITaskAccessPublic } from "~task/public/iservice/task.access.iservice.js";
+import { TASK_ACCESS } from "~task/public/tokens.js";
 import type {
     ITaskAccess,
     TaskAccessRecord,
@@ -9,29 +9,32 @@ import type {
 } from "../application/outbound/task.access.port.js";
 
 /**
- * Outbound adapter — bridges external task repository types to the
- * session-local ITaskAccess port. This is the only place inside session
- * module that imports from `~application/...` task module internals.
+ * Outbound adapter — bridges task module's public ITaskAccess to the
+ * session-local ITaskAccess port. Only place inside session that imports
+ * from another module (and only via that module's public/ surface).
  */
 @Injectable()
 export class TaskAccessAdapter implements ITaskAccess {
     constructor(
-        @Inject(TASK_REPOSITORY_TOKEN) private readonly inner: ITaskRepository,
+        @Inject(TASK_ACCESS) private readonly inner: ITaskAccessPublic,
     ) {}
 
     async findById(id: string): Promise<TaskAccessRecord | null> {
-        return this.inner.findById(id);
+        const result = await this.inner.findById(id);
+        return result as TaskAccessRecord | null;
     }
 
     async findChildren(parentId: string): Promise<readonly TaskAccessRecord[]> {
-        return this.inner.findChildren(parentId);
+        const result = await this.inner.findChildren(parentId);
+        return result as unknown as readonly TaskAccessRecord[];
     }
 
     async upsert(input: TaskAccessUpsertInput): Promise<TaskAccessRecord> {
-        return this.inner.upsert(input);
+        const result = await this.inner.upsert(input);
+        return result as TaskAccessRecord;
     }
 
-    async updateStatus(
+    updateStatus(
         id: string,
         status: TaskAccessStatus,
         updatedAt: string,
