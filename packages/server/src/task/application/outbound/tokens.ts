@@ -1,0 +1,9 @@
+/**
+ * DI tokens for the task module's outbound dependencies.
+ * Adapters are wired in task.module.ts.
+ */
+export const SESSION_ACCESS_PORT = "TASK_SESSION_ACCESS_PORT";
+export const TIMELINE_EVENT_ACCESS_PORT = "TASK_TIMELINE_EVENT_ACCESS_PORT";
+export const TURN_QUERY_ACCESS_PORT = "TASK_TURN_QUERY_ACCESS_PORT";
+export const RUNTIME_BINDING_ACCESS_PORT = "TASK_RUNTIME_BINDING_ACCESS_PORT";
+export const NOTIFICATION_PUBLISHER_PORT = "TASK_NOTIFICATION_PUBLISHER_PORT";
