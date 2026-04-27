@@ -47,6 +47,7 @@ export class SessionModule {
     static register(databaseModule: DynamicModule): DynamicModule {
         return {
             module: SessionModule,
+            global: true,
             imports: [
                 TypeOrmModule.forFeature([SessionEntity, RuntimeBindingEntity, EventLogEntity]),
                 databaseModule,

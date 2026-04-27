@@ -38,6 +38,7 @@
     "zod": "^3.0.0"
   },
   "devDependencies": {
+    "@swc/core": "^1.15.30",
     "@types/better-sqlite3": "^7.6.0",
     "@types/express": "^5.0.0",
     "@types/node": "^22.0.0",

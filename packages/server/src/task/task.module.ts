@@ -63,6 +63,7 @@ export class TaskModule {
     static register(databaseModule: DynamicModule): DynamicModule {
         return {
             module: TaskModule,
+            global: true,
             imports: [
                 TypeOrmModule.forFeature([TaskEntity, TaskRelationEntity]),
                 databaseModule,

@@ -31,9 +31,9 @@ export class AppModule implements NestModule {
     static forRoot(options: AppModuleOptions): DynamicModule {
         const databaseModule = DatabaseModule.forRoot(options);
         const typeOrmDatabaseModule = TypeOrmDatabaseModule.forRoot({ databasePath: options.databasePath });
+        const verificationApplicationModule = VerificationApplicationModule.register(databaseModule);
         const sessionModule = SessionModule.register(databaseModule);
         const taskModule = TaskModule.register(databaseModule);
-        const verificationApplicationModule = VerificationApplicationModule.register(databaseModule);
         const eventModule = EventModule.register(databaseModule, verificationApplicationModule);
         const systemApplicationModule = SystemApplicationModule.register(databaseModule);
         const turnPartitionsApplicationModule = TurnPartitionsApplicationModule.register(databaseModule);
