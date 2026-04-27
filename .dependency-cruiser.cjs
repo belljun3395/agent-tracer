@@ -427,6 +427,52 @@ module.exports = {
       },
       to: { path: "^packages/server/src/verification/(?!public/)" },
     },
+    // ── turn-partition feature module rules ─────
+    {
+      name: "turn-partition-domain-no-upward",
+      severity: "error",
+      from: { path: "^packages/server/src/turn-partition/domain/" },
+      to: { path: "^packages/server/src/turn-partition/(repository|service|application|adapter|api|subscriber|public|common)/" },
+    },
+    {
+      name: "turn-partition-repository-only-domain",
+      severity: "error",
+      from: { path: "^packages/server/src/turn-partition/repository/" },
+      to: { path: "^packages/server/src/turn-partition/(service|application|adapter|api|subscriber)/" },
+    },
+    {
+      name: "turn-partition-usecase-no-upper-layers",
+      severity: "error",
+      from: { path: "^packages/server/src/turn-partition/application/" },
+      to: { path: "^packages/server/src/turn-partition/(adapter|api|subscriber)/" },
+    },
+    {
+      name: "turn-partition-api-only-application",
+      severity: "error",
+      comment: "api는 application + domain (const/type) 만 — service/repository/adapter 는 금지",
+      from: { path: "^packages/server/src/turn-partition/api/" },
+      to: { path: "^packages/server/src/turn-partition/(service|repository|adapter|subscriber)/" },
+    },
+    {
+      name: "turn-partition-adapter-no-application-internals",
+      severity: "error",
+      from: { path: "^packages/server/src/turn-partition/adapter/" },
+      to: {
+        path: "^packages/server/src/turn-partition/(application|api|subscriber)/",
+        pathNot: "^packages/server/src/turn-partition/application/outbound/",
+      },
+    },
+    {
+      name: "external-only-via-turn-partition-public",
+      severity: "error",
+      comment: "외부 모듈은 ~turn-partition 의 internal에 접근 불가 (public 없음 — leaf module)",
+      from: {
+        path: "^packages/server/src/(?!turn-partition/)",
+        pathNot:
+          "^packages/server/src/main/presentation/(app\\.module|database/typeorm\\.database\\.module)\\.ts$|^packages/server/src/adapters/persistence/sqlite/schema/sqlite\\.schema\\.ts$",
+      },
+      to: { path: "^packages/server/src/turn-partition/(?!public/)" },
+    },
   ],
   options: {
     doNotFollow: { path: "node_modules" },
