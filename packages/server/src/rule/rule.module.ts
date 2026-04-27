@@ -1,4 +1,6 @@
 import { Module, type DynamicModule } from "@nestjs/common";
+import { TypeOrmModule } from "@nestjs/typeorm";
+import { RULE_REPOSITORY_TOKEN } from "~main/presentation/database/database.provider.js";
 import { RuleCommandController } from "./api/rule.command.controller.js";
 import { RuleQueryController } from "./api/rule.query.controller.js";
 import { TaskRulesQueryController } from "./api/task.rules.query.controller.js";
@@ -26,6 +28,7 @@ import { RuleSignatureQueryPublicAdapter } from "./adapter/rule.signature.query.
 import { RuleWritePublicAdapter } from "./adapter/rule.write.public.adapter.js";
 import { VerdictCountQueryAdapter } from "./adapter/verdict.count.query.adapter.js";
 import { VerificationInvalidationAdapter } from "./adapter/verification.invalidation.adapter.js";
+import { RuleEntity } from "./domain/rule.entity.js";
 import {
     RULE_READ,
     RULE_SIGNATURE_QUERY,
@@ -34,9 +37,12 @@ import {
 import { RuleRepository } from "./repository/rule.repository.js";
 
 /**
- * Rule module — owns the rules table (CRUD + suggestions + promotion).
+ * Rule module — owns RuleEntity (rules table).
  *
- * Persistence: legacy IRuleRepository wrapped by RuleRepository.
+ * Persistence: TypeORM-backed RuleRepository implementing IRulePersistence.
+ * RULE_REPOSITORY_TOKEN is remapped here to RuleRepository so legacy
+ * factory bindings (verification module's TurnEvaluationService and
+ * RuleEnforcementPostProcessor) keep working without changes.
  *
  * Public surface (consumed by verification + UI):
  *   - RULE_READ              ← RuleReadPublicAdapter
@@ -44,11 +50,11 @@ import { RuleRepository } from "./repository/rule.repository.js";
  *   - RULE_SIGNATURE_QUERY   ← RuleSignatureQueryPublicAdapter
  *
  * Outbound surface:
- *   - RULE_PERSISTENCE_PORT          ← legacy SqliteRuleRepository wrap
+ *   - RULE_PERSISTENCE_PORT          ← TypeORM RuleRepository
  *   - NOTIFICATION_PUBLISHER_PORT    ← shared transport
- *   - BACKFILL_TRIGGER_PORT          ← legacy verification BackfillRuleEvaluation
- *   - VERIFICATION_INVALIDATION_PORT ← legacy IVerdictRepository + IRuleEnforcementRepository
- *   - VERDICT_COUNT_QUERY_PORT       ← legacy GetVerdictCountsForTaskUseCase
+ *   - BACKFILL_TRIGGER_PORT          ← verification.public IVerificationBackfill
+ *   - VERIFICATION_INVALIDATION_PORT ← verification.public IVerdictInvalidation
+ *   - VERDICT_COUNT_QUERY_PORT       ← verification.public IVerdictCount
  */
 @Module({})
 export class RuleModule {
@@ -56,10 +62,17 @@ export class RuleModule {
         return {
             module: RuleModule,
             global: true,
-            imports: [databaseModule, verificationModule],
+            imports: [
+                TypeOrmModule.forFeature([RuleEntity]),
+                databaseModule,
+                verificationModule,
+            ],
             controllers: [RuleCommandController, RuleQueryController, TaskRulesQueryController],
             providers: [
                 RuleRepository,
+                // Remap legacy RULE_REPOSITORY_TOKEN to the TypeORM repo so
+                // verification module's factory bindings receive the new repo.
+                { provide: RULE_REPOSITORY_TOKEN, useExisting: RuleRepository },
                 // Outbound adapters
                 BackfillTriggerAdapter,
                 RuleNotificationPublisherAdapter,
@@ -89,7 +102,7 @@ export class RuleModule {
                 { provide: VERIFICATION_INVALIDATION_PORT, useExisting: VerificationInvalidationAdapter },
                 { provide: VERDICT_COUNT_QUERY_PORT, useExisting: VerdictCountQueryAdapter },
             ],
-            exports: [RULE_READ, RULE_WRITE, RULE_SIGNATURE_QUERY],
+            exports: [RULE_READ, RULE_WRITE, RULE_SIGNATURE_QUERY, RULE_REPOSITORY_TOKEN],
         };
     }
 }
