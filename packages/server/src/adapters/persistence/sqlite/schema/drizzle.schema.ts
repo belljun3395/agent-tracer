@@ -4,7 +4,6 @@ import { searchDocuments } from "../search/sqlite.search.tables.js";
 import { sessionsCurrent } from "../sessions/sqlite.session.tables.js";
 import { taskRelations, tasksCurrent } from "../tasks/sqlite.task.tables.js";
 import { timelineEvents } from "../timeline-events/sqlite.timeline-event.tables.js";
-import { turnPartitions } from "../turn-partitions/sqlite.turn-partition.tables.js";
 import {
   ruleEnforcements,
   rules,
@@ -18,7 +17,6 @@ export { searchDocuments } from "../search/sqlite.search.tables.js";
 export { sessionsCurrent } from "../sessions/sqlite.session.tables.js";
 export { taskRelations, tasksCurrent } from "../tasks/sqlite.task.tables.js";
 export { timelineEvents } from "../timeline-events/sqlite.timeline-event.tables.js";
-export { turnPartitions } from "../turn-partitions/sqlite.turn-partition.tables.js";
 export {
   ruleEnforcements,
   rules,
@@ -76,13 +74,6 @@ export const runtimeSessionBindingsRelations = relations(runtimeSessionBindings,
   session: one(sessionsCurrent, {
     fields: [runtimeSessionBindings.monitorSessionId],
     references: [sessionsCurrent.id],
-  }),
-}));
-
-export const turnPartitionsRelations = relations(turnPartitions, ({ one }) => ({
-  task: one(tasksCurrent, {
-    fields: [turnPartitions.taskId],
-    references: [tasksCurrent.id],
   }),
 }));
 
@@ -153,8 +144,6 @@ export const drizzleSchema = {
   runtimeSessionBindings,
   runtimeSessionBindingsRelations,
   searchDocuments,
-  turnPartitions,
-  turnPartitionsRelations,
   rules,
   rulesRelations,
   turns,

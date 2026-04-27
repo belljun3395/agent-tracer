@@ -1,0 +1,6 @@
+/**
+ * DI tokens for the turn-partition module's outbound dependencies.
+ */
+export const TASK_ACCESS_PORT = "TURN_PARTITION_TASK_ACCESS_PORT";
+export const TIMELINE_EVENT_ACCESS_PORT = "TURN_PARTITION_TIMELINE_EVENT_ACCESS_PORT";
+export const EVENT_STORE_APPENDER_PORT = "TURN_PARTITION_EVENT_STORE_APPENDER_PORT";

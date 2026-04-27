@@ -1,15 +1,15 @@
 import { Module, type DynamicModule, type Provider } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { randomUUID } from "node:crypto";
-import type { INotificationPublisher } from "~application/ports/event/notification.publisher.js";
-import type { IEventRepository } from "~application/ports/repository/event.repository.js";
+import type { INotificationPublisher } from "~application/ports/notifications/notification.publisher.port.js";
 import type { IRuleRepository } from "~application/ports/repository/rule.repository.js";
 import type { IRuleEnforcementRepository } from "~application/ports/repository/rule.enforcement.repository.js";
 import type { ITurnQueryRepository } from "~application/ports/repository/turn.query.repository.js";
 import type { ITurnRepository } from "~application/ports/repository/turn.repository.js";
 import type { IVerdictRepository } from "~application/ports/repository/verdict.repository.js";
+import type { ITimelineEventRead } from "~event/public/iservice/timeline.event.read.iservice.js";
+import { TIMELINE_EVENT_READ } from "~event/public/tokens.js";
 import {
-    EVENT_REPOSITORY_TOKEN,
     NOTIFICATION_PUBLISHER_TOKEN,
     RULE_ENFORCEMENT_REPOSITORY_TOKEN,
     RULE_REPOSITORY_TOKEN,
@@ -76,13 +76,13 @@ const VERIFICATION_INTERNAL_PROVIDERS: Provider[] = [
     {
         provide: TurnLifecyclePostProcessor,
         useFactory: (
-            eventRepo: IEventRepository,
+            eventRepo: ITimelineEventRead,
             turnRepo: ITurnRepository,
             turnEvaluation: TurnEvaluationService,
             notifier: INotificationPublisher,
-        ) => new TurnLifecyclePostProcessor(eventRepo, turnRepo, turnEvaluation, notifier),
+        ) => new TurnLifecyclePostProcessor(eventRepo as never, turnRepo, turnEvaluation, notifier),
         inject: [
-            EVENT_REPOSITORY_TOKEN,
+            TIMELINE_EVENT_READ,
             TURN_REPOSITORY_TOKEN,
             TurnEvaluationService,
             NOTIFICATION_PUBLISHER_TOKEN,
@@ -94,7 +94,7 @@ const VERIFICATION_INTERNAL_PROVIDERS: Provider[] = [
             turnRepo: ITurnRepository,
             turnQueryRepo: ITurnQueryRepository,
             verdictRepo: IVerdictRepository,
-            eventRepo: IEventRepository,
+            eventRepo: ITimelineEventRead,
             enforcementRepo: IRuleEnforcementRepository,
             notifier: INotificationPublisher,
         ) =>
@@ -102,7 +102,7 @@ const VERIFICATION_INTERNAL_PROVIDERS: Provider[] = [
                 turnRepo,
                 turnSource: turnQueryRepo,
                 verdictRepo,
-                eventRepo,
+                eventRepo: eventRepo as never,
                 enforcementRepo,
                 notifier,
                 now: () => new Date().toISOString(),
@@ -112,7 +112,7 @@ const VERIFICATION_INTERNAL_PROVIDERS: Provider[] = [
             TURN_REPOSITORY_TOKEN,
             TURN_QUERY_REPOSITORY_TOKEN,
             VERDICT_REPOSITORY_TOKEN,
-            EVENT_REPOSITORY_TOKEN,
+            TIMELINE_EVENT_READ,
             RULE_ENFORCEMENT_REPOSITORY_TOKEN,
             NOTIFICATION_PUBLISHER_TOKEN,
         ],

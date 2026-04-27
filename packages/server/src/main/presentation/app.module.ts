@@ -1,18 +1,17 @@
 import { Module, type DynamicModule, type MiddlewareConsumer, type NestModule } from "@nestjs/common";
 import { APP_FILTER, APP_INTERCEPTOR } from "@nestjs/core";
-import type { INotificationPublisher } from "~application/ports/event/notification.publisher.js";
+import type { INotificationPublisher } from "~application/ports/notifications/notification.publisher.port.js";
 import { EventModule } from "~event/event.module.js";
 import { RuleModule } from "~rule/rule.module.js";
 import { SessionModule } from "~session/session.module.js";
 import { TaskModule } from "~task/task.module.js";
+import { TurnPartitionModule } from "~turn-partition/turn.partition.module.js";
 import { VerificationModule } from "~verification/verification.module.js";
 import { SystemApplicationModule } from "./application/system-application.module.js";
-import { TurnPartitionsApplicationModule } from "./application/turn-partitions-application.module.js";
 import { DatabaseModule } from "./database/database.module.js";
 import { TypeOrmDatabaseModule } from "./database/typeorm.database.module.js";
 import { GlobalExceptionFilter } from "./filters/zod-exception.filter.js";
 import { SystemHttpModule } from "./http/system-http.module.js";
-import { TurnPartitionsHttpModule } from "./http/turn-partitions-http.module.js";
 import { ApiResponseInterceptor } from "./interceptors/api-response.interceptor.js";
 import { RequestContextMiddleware } from "./middleware/request-context.middleware.js";
 
@@ -35,8 +34,8 @@ export class AppModule implements NestModule {
         const taskModule = TaskModule.register(databaseModule);
         const eventModule = EventModule.register(databaseModule, verificationModule);
         const ruleModule = RuleModule.register(databaseModule, verificationModule);
+        const turnPartitionModule = TurnPartitionModule.register(databaseModule);
         const systemApplicationModule = SystemApplicationModule.register(databaseModule);
-        const turnPartitionsApplicationModule = TurnPartitionsApplicationModule.register(databaseModule);
 
         return {
             module: AppModule,
@@ -48,8 +47,8 @@ export class AppModule implements NestModule {
                 taskModule,
                 eventModule,
                 ruleModule,
+                turnPartitionModule,
                 SystemHttpModule.register(systemApplicationModule),
-                TurnPartitionsHttpModule.register(turnPartitionsApplicationModule),
             ],
             providers: [
                 {

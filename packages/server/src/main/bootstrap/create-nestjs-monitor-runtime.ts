@@ -13,20 +13,12 @@ import {
     type RequestContextIncomingMessage,
 } from "../presentation/middleware/request-context.js";
 import { tallyTaskStatuses } from "~domain/monitoring/common/task.status.js";
-import type { TaskStatus } from "~domain/monitoring/common/type/task.status.type.js";
-import type { MonitoringTask } from "~domain/monitoring/task/model/task.model.js";
-import {
-    SQLITE_DATABASE_CONTEXT_TOKEN,
-    TASK_REPOSITORY_TOKEN,
-} from "../presentation/database/database.provider.js";
+import { SQLITE_DATABASE_CONTEXT_TOKEN } from "../presentation/database/database.provider.js";
 import type { SqliteDatabaseContext } from "~adapters/persistence/sqlite/sqlite.database-context.js";
+import type { ITaskSnapshotQuery } from "~task/public/iservice/task.snapshot.query.iservice.js";
+import type { TaskSnapshot } from "~task/public/dto/task.snapshot.dto.js";
+import { TASK_SNAPSHOT_QUERY } from "~task/public/tokens.js";
 import type { RuntimeOptions, MonitorRuntime } from "./runtime.type.js";
-
-interface BootstrapTaskRepository {
-    findAll(): Promise<readonly MonitoringTask[]>;
-    listTaskStatuses(): Promise<readonly TaskStatus[]>;
-    countTimelineEvents(): Promise<number>;
-}
 
 export async function createNestMonitorRuntime(options: RuntimeOptions): Promise<MonitorRuntime> {
     const broadcaster = new EventBroadcasterService();
@@ -58,11 +50,11 @@ export async function createNestMonitorRuntime(options: RuntimeOptions): Promise
         }
         socket.destroy();
     });
-    const taskRepository = nestApp.get<BootstrapTaskRepository>(TASK_REPOSITORY_TOKEN);
+    const taskSnapshots = nestApp.get<ITaskSnapshotQuery>(TASK_SNAPSHOT_QUERY);
     wss.on("connection", (ws) => {
         broadcaster.addClient(ws);
         ws.on("close", () => broadcaster.removeClient(ws));
-        void createInitialSnapshot(taskRepository).then((payload) => {
+        void createInitialSnapshot(taskSnapshots).then((payload) => {
             ws.send(JSON.stringify({ type: "snapshot", payload }));
         });
     });
@@ -82,14 +74,14 @@ export async function createNestMonitorRuntime(options: RuntimeOptions): Promise
     };
 }
 
-async function createInitialSnapshot(taskRepository: BootstrapTaskRepository): Promise<{
+async function createInitialSnapshot(taskSnapshots: ITaskSnapshotQuery): Promise<{
     readonly stats: ReturnType<typeof tallyTaskStatuses> & { readonly totalEvents: number };
-    readonly tasks: readonly MonitoringTask[];
+    readonly tasks: readonly TaskSnapshot[];
 }> {
     const [statuses, totalEvents, tasks] = await Promise.all([
-        taskRepository.listTaskStatuses(),
-        taskRepository.countTimelineEvents(),
-        taskRepository.findAll(),
+        taskSnapshots.listTaskStatuses(),
+        taskSnapshots.countTimelineEvents(),
+        taskSnapshots.findAll(),
     ]);
 
     return {

@@ -37,7 +37,8 @@ import { TimelineEventAccessAdapter } from "./adapter/timeline.event.access.adap
 import { TurnQueryAccessAdapter } from "./adapter/turn.query.access.adapter.js";
 import { TaskEntity } from "./domain/task.entity.js";
 import { TaskRelationEntity } from "./domain/task.relation.entity.js";
-import { TASK_ACCESS, TASK_LIFECYCLE } from "./public/tokens.js";
+import { TaskSnapshotQueryPublicAdapter } from "./adapter/task.snapshot.query.public.adapter.js";
+import { TASK_ACCESS, TASK_LIFECYCLE, TASK_SNAPSHOT_QUERY } from "./public/tokens.js";
 import { TaskRelationRepository } from "./repository/task.relation.repository.js";
 import { TaskRepository } from "./repository/task.repository.js";
 import { TaskLifecycleService } from "./service/task.lifecycle.service.js";
@@ -93,6 +94,7 @@ export class TaskModule {
                 // Public adapters
                 TaskAccessPublicAdapter,
                 TaskLifecyclePublicAdapter,
+                TaskSnapshotQueryPublicAdapter,
                 // Use cases
                 StartTaskUseCase,
                 CompleteTaskUseCase,
@@ -112,6 +114,7 @@ export class TaskModule {
                 // Public iservices
                 { provide: TASK_LIFECYCLE, useExisting: TaskLifecyclePublicAdapter },
                 { provide: TASK_ACCESS, useExisting: TaskAccessPublicAdapter },
+                { provide: TASK_SNAPSHOT_QUERY, useExisting: TaskSnapshotQueryPublicAdapter },
                 // Outbound ports
                 { provide: SESSION_ACCESS_PORT, useExisting: SessionAccessAdapter },
                 { provide: RUNTIME_BINDING_ACCESS_PORT, useExisting: RuntimeBindingAccessAdapter },
@@ -120,7 +123,7 @@ export class TaskModule {
                 { provide: NOTIFICATION_PUBLISHER_PORT, useExisting: TaskNotificationPublisherAdapter },
                 { provide: EVENT_PROJECTION_ACCESS_PORT, useExisting: EventProjectionAccessAdapter },
             ],
-            exports: [TASK_LIFECYCLE, TASK_ACCESS],
+            exports: [TASK_LIFECYCLE, TASK_ACCESS, TASK_SNAPSHOT_QUERY],
         };
     }
 }

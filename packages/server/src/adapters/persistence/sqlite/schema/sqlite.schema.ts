@@ -5,7 +5,7 @@ import { createSearchSchema } from "../search/sqlite.search.schema.js";
 import { createSessionSchema } from "../sessions/sqlite.session.schema.js";
 import { createTaskSchema } from "../tasks/sqlite.task.schema.js";
 import { createTimelineEventSchema } from "../timeline-events/sqlite.timeline-event.schema.js";
-import { createTurnPartitionSchema } from "../turn-partitions/sqlite.turn-partition.schema.js";
+import { createTurnPartitionSchema } from "~turn-partition/domain/turn.partition.schema.js";
 import { createVerificationSchema } from "../verification/sqlite.verification.schema.js";
 
 export function createSchema(db: Database.Database): void {
