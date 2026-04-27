@@ -1,5 +1,6 @@
 import { defineConfig } from "vitest/config";
 import { resolve } from "path";
+import swc from "unplugin-swc";
 
 export default defineConfig({
     resolve: {
@@ -8,17 +9,25 @@ export default defineConfig({
             "~application": resolve(__dirname, "src/application"),
             "~adapters": resolve(__dirname, "src/adapters"),
             "~main": resolve(__dirname, "src/main"),
-        }
+            "~session": resolve(__dirname, "src/session"),
+            "~task": resolve(__dirname, "src/task"),
+            "~event": resolve(__dirname, "src/event"),
+            "~rule": resolve(__dirname, "src/rule"),
+            "~verification": resolve(__dirname, "src/verification"),
+            "~config": resolve(__dirname, "src/config"),
+        },
     },
-    esbuild: {
-        target: "es2022",
-        tsconfigRaw: {
-            compilerOptions: {
-                experimentalDecorators: true
-            }
-        }
-    },
+    plugins: [
+        swc.vite({
+            module: { type: "es6" },
+            jsc: {
+                target: "es2022",
+                parser: { syntax: "typescript", decorators: true },
+                transform: { legacyDecorator: true, decoratorMetadata: true },
+            },
+        }),
+    ],
     test: {
         passWithNoTests: true,
-    }
+    },
 });
