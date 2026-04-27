@@ -52,7 +52,14 @@ async function listControllerFiles(): Promise<readonly string[]> {
 }
 
 async function listTypeScriptFiles(directory: string): Promise<readonly string[]> {
-    const entries = await readdir(directory, { withFileTypes: true });
+    let entries;
+    try {
+        entries = await readdir(directory, { withFileTypes: true });
+    }
+    catch (error) {
+        if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
+        throw error;
+    }
     const nestedFiles = await Promise.all(entries.map(async (entry) => {
         const entryPath = path.join(directory, entry.name);
         if (entry.isDirectory()) return listTypeScriptFiles(entryPath);

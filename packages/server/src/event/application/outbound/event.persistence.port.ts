@@ -9,8 +9,12 @@ export type EventLane =
     | "exploration"
     | "implementation"
     | "planning"
+    | "questions"
+    | "todos"
     | "coordination"
-    | "background";
+    | "background"
+    | "telemetry"
+    | "rule";
 
 export interface PersistedTimelineEvent {
     readonly id: string;
