@@ -1,11 +1,11 @@
 import { Module, type DynamicModule } from "@nestjs/common";
 import { HealthController } from "~adapters/http/query/controllers/health/health.query.controller.js";
-import { SystemQueryController } from "~adapters/http/query/controllers/system/system.query.controller.js";
 
+// SystemQueryController moved into the task module (~task/api/system.query.controller.ts)
+// since both endpoints query task-side data.
 @Module({
     controllers: [
         HealthController,
-        SystemQueryController,
     ],
 })
 export class SystemHttpModule {

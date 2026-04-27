@@ -9,7 +9,15 @@ import type { TaskWritePort } from "~application/ports/tasks/task.write.port.js"
 import type { TimelineEventWritePort } from "~application/ports/timeline-events/timeline.event.write.port.js";
 import { projectTimelineEvent } from "./timeline-event.projection.js";
 import type { LogEventUseCaseIn, LogEventUseCaseOut } from "./dto/log.event.usecase.dto.js";
-import { TaskNotFoundError } from "../tasks/common/task.errors.js";
+// TaskNotFoundError used to live in application/tasks/common; with the task
+// module migrated, throw a plain Error here. Will be revisited when events
+// is itself migrated into a feature module.
+class TaskNotFoundError extends Error {
+    constructor(taskId: string) {
+        super(`Task not found: ${taskId}`);
+        this.name = "TaskNotFoundError";
+    }
+}
 import type { RuleEnforcementPostProcessor } from "~application/verification/services/rule.enforcement.post.processor.js";
 import type { TurnLifecyclePostProcessor } from "~application/verification/services/turn.lifecycle.post.processor.js";
 
