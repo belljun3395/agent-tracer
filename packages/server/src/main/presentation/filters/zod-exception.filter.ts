@@ -2,7 +2,7 @@ import type { ExceptionFilter, ArgumentsHost } from "@nestjs/common";
 import { Catch, HttpException, HttpStatus, Injectable, Logger } from "@nestjs/common";
 import { ZodError } from "zod";
 import type { Response } from "express";
-import { TaskNotFoundError, TurnPartitionVersionMismatchError } from "~application/turn-partitions/common/turn-partition.errors.js";
+import { TaskNotFoundError, TurnPartitionVersionMismatchError } from "~turn-partition/common/turn.partition.errors.js";
 import { InvalidRuleError, RuleNotFoundError } from "~rule/common/errors.js";
 import { createApiErrorEnvelope, isApiErrorEnvelope } from "~adapters/http/shared/api-response-envelope.js";
 
