@@ -241,6 +241,78 @@ module.exports = {
       },
       to: { path: "^packages/server/src/task/(?!public/)" },
     },
+
+    // ── event feature module (server/src/event) layered rules ─────
+    {
+      name: "event-domain-no-upward",
+      severity: "error",
+      comment: "event/domain은 가장 안쪽 — 다른 layer import 금지",
+      from: { path: "^packages/server/src/event/domain/" },
+      to: { path: "^packages/server/src/event/(repository|service|application|adapter|api|subscriber|public|common)/" },
+    },
+    {
+      name: "event-repository-only-domain",
+      severity: "error",
+      from: { path: "^packages/server/src/event/repository/" },
+      to: { path: "^packages/server/src/event/(service|application|adapter|api|subscriber)/" },
+    },
+    {
+      name: "event-service-no-upper-layers",
+      severity: "error",
+      comment: "event/service may depend on domain, repository, public, application/outbound — never api/adapter/subscriber/usecase internals.",
+      from: { path: "^packages/server/src/event/service/" },
+      to: {
+        path: "^packages/server/src/event/(application|adapter|api|subscriber)/",
+        pathNot: "^packages/server/src/event/application/outbound/",
+      },
+    },
+    {
+      name: "event-usecase-no-direct-repository",
+      severity: "error",
+      comment: "usecase는 service를 거쳐 repository에 접근",
+      from: { path: "^packages/server/src/event/application/" },
+      to: { path: "^packages/server/src/event/repository/" },
+    },
+    {
+      name: "event-usecase-no-upper-layers",
+      severity: "error",
+      from: { path: "^packages/server/src/event/application/" },
+      to: { path: "^packages/server/src/event/(adapter|api|subscriber)/" },
+    },
+    {
+      name: "event-api-only-application",
+      severity: "error",
+      comment: "controller는 usecase만 호출",
+      from: { path: "^packages/server/src/event/api/" },
+      to: { path: "^packages/server/src/event/(service|repository|domain|adapter|subscriber)/" },
+    },
+    {
+      name: "event-adapter-no-application-internals",
+      severity: "error",
+      comment: "adapter는 outbound port contract(application/outbound)만 import 가능",
+      from: { path: "^packages/server/src/event/adapter/" },
+      to: {
+        path: "^packages/server/src/event/(application|api|subscriber)/",
+        pathNot: "^packages/server/src/event/application/outbound/",
+      },
+    },
+    {
+      name: "event-public-only-domain-types",
+      severity: "error",
+      from: { path: "^packages/server/src/event/public/" },
+      to: { path: "^packages/server/src/event/(service|repository|application|adapter|api|subscriber)/" },
+    },
+    {
+      name: "external-only-via-event-public",
+      severity: "error",
+      comment: "외부 모듈은 ~event/public 만 접근 가능",
+      from: {
+        path: "^packages/server/src/(?!event/)",
+        pathNot:
+          "^packages/server/src/main/presentation/(app\\.module|database/typeorm\\.database\\.module)\\.ts$",
+      },
+      to: { path: "^packages/server/src/event/(?!public/)" },
+    },
   ],
   options: {
     doNotFollow: { path: "node_modules" },
