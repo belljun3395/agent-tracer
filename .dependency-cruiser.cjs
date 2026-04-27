@@ -113,9 +113,12 @@ module.exports = {
     {
       name: "session-service-no-upper-layers",
       severity: "error",
-      comment: "session/service may depend on domain, repository, public — never application/api/adapter/subscriber.",
+      comment: "session/service may depend on domain, repository, public, application/outbound — never api/adapter/subscriber/usecase internals.",
       from: { path: "^packages/server/src/session/service/" },
-      to: { path: "^packages/server/src/session/(application|adapter|api|subscriber)/" },
+      to: {
+        path: "^packages/server/src/session/(application|adapter|api|subscriber)/",
+        pathNot: "^packages/server/src/session/application/outbound/",
+      },
     },
     {
       name: "session-usecase-no-direct-repository",
@@ -165,6 +168,78 @@ module.exports = {
           "^packages/server/src/main/presentation/(app\\.module|database/typeorm\\.database\\.module)\\.ts$",
       },
       to: { path: "^packages/server/src/session/(?!public/)" },
+    },
+
+    // ── task feature module (server/src/task) layered rules ─────
+    {
+      name: "task-domain-no-upward",
+      severity: "error",
+      comment: "task/domain은 가장 안쪽 — 다른 layer import 금지",
+      from: { path: "^packages/server/src/task/domain/" },
+      to: { path: "^packages/server/src/task/(repository|service|application|adapter|api|subscriber|public)/" },
+    },
+    {
+      name: "task-repository-only-domain",
+      severity: "error",
+      from: { path: "^packages/server/src/task/repository/" },
+      to: { path: "^packages/server/src/task/(service|application|adapter|api|subscriber)/" },
+    },
+    {
+      name: "task-service-no-upper-layers",
+      severity: "error",
+      comment: "task/service may depend on domain, repository, public, application/outbound — never api/adapter/subscriber/usecase internals.",
+      from: { path: "^packages/server/src/task/service/" },
+      to: {
+        path: "^packages/server/src/task/(application|adapter|api|subscriber)/",
+        pathNot: "^packages/server/src/task/application/outbound/",
+      },
+    },
+    {
+      name: "task-usecase-no-direct-repository",
+      severity: "error",
+      comment: "usecase는 service를 거쳐 repository에 접근",
+      from: { path: "^packages/server/src/task/application/" },
+      to: { path: "^packages/server/src/task/repository/" },
+    },
+    {
+      name: "task-usecase-no-upper-layers",
+      severity: "error",
+      from: { path: "^packages/server/src/task/application/" },
+      to: { path: "^packages/server/src/task/(adapter|api|subscriber)/" },
+    },
+    {
+      name: "task-api-only-application",
+      severity: "error",
+      comment: "controller는 usecase만 호출",
+      from: { path: "^packages/server/src/task/api/" },
+      to: { path: "^packages/server/src/task/(service|repository|domain|adapter|subscriber)/" },
+    },
+    {
+      name: "task-adapter-no-application-internals",
+      severity: "error",
+      comment: "adapter는 outbound port contract(application/outbound)만 import 가능",
+      from: { path: "^packages/server/src/task/adapter/" },
+      to: {
+        path: "^packages/server/src/task/(application|api|subscriber)/",
+        pathNot: "^packages/server/src/task/application/outbound/",
+      },
+    },
+    {
+      name: "task-public-only-domain-types",
+      severity: "error",
+      from: { path: "^packages/server/src/task/public/" },
+      to: { path: "^packages/server/src/task/(service|repository|application|adapter|api|subscriber)/" },
+    },
+    {
+      name: "external-only-via-task-public",
+      severity: "error",
+      comment: "외부 모듈은 ~task/public 만 접근 가능",
+      from: {
+        path: "^packages/server/src/(?!task/)",
+        pathNot:
+          "^packages/server/src/main/presentation/(app\\.module|database/typeorm\\.database\\.module)\\.ts$",
+      },
+      to: { path: "^packages/server/src/task/(?!public/)" },
     },
   ],
   options: {
