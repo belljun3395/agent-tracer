@@ -1,25 +1,19 @@
 import { vi } from "vitest";
 import type { TimelineEvent } from "~domain/monitoring/event/model/timeline.event.model.js";
-import type { MonitoringSession } from "~domain/monitoring/session/model/session.model.js";
 import type { MonitoringTask } from "~domain/monitoring/task/model/task.model.js";
 import type { INotificationPublisher } from "~application/ports/event/notification.publisher.js";
 import type { IEventRepository } from "~application/ports/repository/event.repository.js";
-import type { IRuntimeBindingRepository, RuntimeBinding } from "~application/ports/repository/runtime.binding.repository.js";
-import type { ISessionRepository } from "~application/ports/repository/session.repository.js";
 import type { ITaskRepository } from "~application/ports/repository/task.repository.js";
+import type { ISessionLifecycle } from "~session/public/iservice/session.lifecycle.iservice.js";
+import type { SessionSnapshot } from "~session/public/dto/session.snapshot.dto.js";
 import { TaskLifecycleService } from "~application/tasks/services/task.lifecycle.service.js";
 
 export interface TestPorts {
     readonly tasks: ITaskRepository;
-    readonly sessions: ISessionRepository;
+    readonly sessions: ISessionLifecycle;
     readonly events: IEventRepository;
-    readonly runtimeBindings: IRuntimeBindingRepository;
     readonly notifier: INotificationPublisher;
 }
-
-export type RuntimeBindingRow = Omit<RuntimeBinding, "monitorSessionId"> & {
-    monitorSessionId: string | null;
-};
 
 export function task(input: Partial<MonitoringTask> & { id: string }): MonitoringTask {
     return {
@@ -39,7 +33,7 @@ export function task(input: Partial<MonitoringTask> & { id: string }): Monitorin
     };
 }
 
-export function session(input: Partial<MonitoringSession> & { id: string; taskId: string }): MonitoringSession {
+export function session(input: Partial<SessionSnapshot> & { id: string; taskId: string }): SessionSnapshot {
     return {
         id: input.id,
         taskId: input.taskId,
@@ -50,42 +44,21 @@ export function session(input: Partial<MonitoringSession> & { id: string; taskId
     };
 }
 
-export function binding(input: Partial<RuntimeBindingRow> & {
-    runtimeSource?: string;
-    runtimeSessionId?: string;
-    taskId: string;
-}): RuntimeBindingRow {
-    return {
-        runtimeSource: input.runtimeSource ?? "codex",
-        runtimeSessionId: input.runtimeSessionId ?? "runtime-1",
-        taskId: input.taskId,
-        monitorSessionId: input.monitorSessionId === undefined ? "session-1" : input.monitorSessionId,
-        createdAt: input.createdAt ?? "2026-01-01T00:00:00.000Z",
-        updatedAt: input.updatedAt ?? "2026-01-01T00:00:00.000Z",
-    };
-}
-
 export function createPorts(seed?: {
     tasks?: readonly MonitoringTask[];
-    sessions?: readonly MonitoringSession[];
-    bindings?: readonly RuntimeBindingRow[];
+    sessions?: readonly SessionSnapshot[];
 }) {
     const tasks = new Map(seed?.tasks?.map((record) => [record.id, record]) ?? []);
     const sessions = new Map(seed?.sessions?.map((record) => [record.id, record]) ?? []);
-    const bindings = new Map<string, RuntimeBindingRow>();
     const events: TimelineEvent[] = [];
-    const key = (runtimeSource: string, runtimeSessionId: string) => `${runtimeSource}:${runtimeSessionId}`;
-    for (const record of seed?.bindings ?? []) {
-        bindings.set(key(record.runtimeSource, record.runtimeSessionId), record);
-    }
 
     const notifier = { publish: vi.fn() };
-    const sessionsCreate = vi.fn(async (input) => {
+    const sessionsCreate = vi.fn(async (input: { id: string; taskId: string; status: SessionSnapshot["status"]; startedAt: string; summary?: string }) => {
         const record = session(input);
         sessions.set(record.id, record);
         return record;
     });
-    const sessionsUpdateStatus = vi.fn(async (id, status, endedAt, summary) => {
+    const sessionsUpdateStatus = vi.fn(async (id: string, status: SessionSnapshot["status"], endedAt: string, summary?: string) => {
         const record = sessions.get(id);
         if (record) {
             sessions.set(id, {
@@ -96,28 +69,7 @@ export function createPorts(seed?: {
             });
         }
     });
-    const runtimeBindingsUpsert = vi.fn(async (input) => {
-        const now = "2026-01-01T00:00:00.000Z";
-        const record = binding({
-            runtimeSource: input.runtimeSource,
-            runtimeSessionId: input.runtimeSessionId,
-            taskId: input.taskId,
-            monitorSessionId: input.monitorSessionId,
-            createdAt: bindings.get(key(input.runtimeSource, input.runtimeSessionId))?.createdAt ?? now,
-            updatedAt: now,
-        });
-        bindings.set(key(input.runtimeSource, input.runtimeSessionId), record);
-        return record as RuntimeBinding;
-    });
-    const runtimeBindingsClearSession = vi.fn(async (runtimeSource: string, runtimeSessionId: string) => {
-        const record = bindings.get(key(runtimeSource, runtimeSessionId));
-        if (record) {
-            bindings.set(key(runtimeSource, runtimeSessionId), {
-                ...record,
-                monitorSessionId: null,
-            });
-        }
-    });
+
     const ports = {
         tasks: {
             upsert: vi.fn(async (input) => {
@@ -133,11 +85,11 @@ export function createPorts(seed?: {
             findAll: vi.fn(async () => [...tasks.values()]),
             findChildren: vi.fn(async (parentId: string) =>
                 [...tasks.values()].filter((record) => record.parentTaskId === parentId)),
-            updateStatus: vi.fn(async (id, status, updatedAt) => {
+            updateStatus: vi.fn(async (id: string, status: MonitoringTask["status"], updatedAt: string) => {
                 const record = tasks.get(id);
                 if (record) tasks.set(id, { ...record, status, updatedAt });
             }),
-            updateTitle: vi.fn(async (id, title, slug, updatedAt) => {
+            updateTitle: vi.fn(async (id: string, title: string, slug: MonitoringTask["slug"], updatedAt: string) => {
                 const record = tasks.get(id);
                 if (record) tasks.set(id, { ...record, title, slug, updatedAt });
             }),
@@ -174,27 +126,6 @@ export function createPorts(seed?: {
             updateMetadata: vi.fn(async () => null),
             search: vi.fn(async () => ({ tasks: [], events: [], bookmarks: [] })),
         },
-        runtimeBindings: {
-            upsert: runtimeBindingsUpsert,
-            find: vi.fn(async (runtimeSource: string, runtimeSessionId: string) => {
-                const record = bindings.get(key(runtimeSource, runtimeSessionId));
-                if (!record?.monitorSessionId) return null;
-                return record as RuntimeBinding;
-            }),
-            findTaskId: vi.fn(async (runtimeSource: string, runtimeSessionId: string) =>
-                bindings.get(key(runtimeSource, runtimeSessionId))?.taskId ?? null),
-            findLatestByTaskId: vi.fn(async () => null),
-            clearSession: runtimeBindingsClearSession,
-            delete: vi.fn(async (runtimeSource: string, runtimeSessionId: string) => {
-                bindings.delete(key(runtimeSource, runtimeSessionId));
-            }),
-        },
-        eventStore: {},
-        bookmarks: {},
-        evaluations: {},
-        playbooks: {},
-        ruleCommands: {},
-        turnPartitions: {},
         notifier,
     } as unknown as TestPorts;
 
@@ -203,14 +134,11 @@ export function createPorts(seed?: {
         taskLifecycle: new TaskLifecycleService(ports.tasks, ports.sessions, ports.events, ports.notifier),
         tasks,
         sessions,
-        bindings,
         events,
         notifier,
         mocks: {
             sessionsCreate,
             sessionsUpdateStatus,
-            runtimeBindingsUpsert,
-            runtimeBindingsClearSession,
         },
     };
 }

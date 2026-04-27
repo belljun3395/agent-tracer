@@ -1,3 +1,8 @@
+// TODO(session-typeorm-migration): move this DDL into a proper migration once
+// the project adopts TypeORM migrations across all modules. SessionEntity uses
+// `synchronize: false`, so the table is currently created here at startup.
+// When migrating, replace this with `npm run typeorm migration:run` or similar.
+
 import type Database from "better-sqlite3";
 
 export function createSessionSchema(db: Database.Database): void {

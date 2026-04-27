@@ -1,3 +1,10 @@
+// TODO(session-typeorm-migration): delete this file once drizzle is removed.
+// RuntimeBindingEntity (TypeORM, src/session/domain/runtime.binding.entity.ts)
+// is the source of truth for the runtime_bindings_current table. This drizzle
+// definition is kept only because tasks's drizzle relations still need a FK
+// reference target. Drop together with sqlite.session.tables.ts when the
+// remaining modules migrate to TypeORM.
+
 import { primaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core";
 import { sessionsCurrent } from "../sessions/sqlite.session.tables.js";
 import { tasksCurrent } from "../tasks/sqlite.task.tables.js";

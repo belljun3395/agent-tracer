@@ -1,6 +1,6 @@
 import type { MonitoringEventKind, TimelineLane } from "~domain/monitoring/common/type/event.kind.type.js";
-import type { MonitoringSession } from "~domain/monitoring/session/model/session.model.js";
 import type { MonitoringTask } from "~domain/monitoring/task/model/task.model.js";
+import type { SessionSnapshot } from "~session/public/dto/session.snapshot.dto.js";
 
 export interface EventNotificationClassificationReasonPortDto {
     readonly kind: "keyword" | "action-prefix" | "action-keyword";
@@ -91,10 +91,10 @@ export type MonitorNotificationPortDto = {
     };
 } | {
     readonly type: "session.started";
-    readonly payload: MonitoringSession;
+    readonly payload: SessionSnapshot;
 } | {
     readonly type: "session.ended";
-    readonly payload: MonitoringSession;
+    readonly payload: SessionSnapshot;
 } | {
     readonly type: "event.logged";
     readonly payload: EventNotificationPayloadPortDto;

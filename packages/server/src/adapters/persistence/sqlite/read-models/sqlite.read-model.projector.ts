@@ -24,12 +24,8 @@ export function projectDomainEvent(db: Database.Database, event: DomainEvent): v
         case "task.hierarchy_changed":
             projectTaskHierarchyChanged(db, event);
             return;
-        case "session.started":
-            projectSessionStarted(db, event);
-            return;
-        case "session.ended":
-            projectSessionEnded(db, event);
-            return;
+        // session.started / session.ended are written directly by SessionEntity
+        // via the session module's TypeORM subscriber - no projection needed.
         default:
             return;
     }
@@ -110,49 +106,6 @@ function projectTaskHierarchyChanged(db: Database.Database, event: DomainEvent):
         parentTaskId: getString(event.payload, "parent_task_id_to"),
         parentSessionId: getString(event.payload, "parent_session_id_to"),
         backgroundTaskId: getString(event.payload, "background_task_id_to"),
-    });
-}
-
-function projectSessionStarted(db: Database.Database, event: DomainEvent): void {
-    db.prepare(`
-      insert into sessions_current (
-        id, task_id, status, summary, started_at, ended_at
-      ) values (
-        @id, @taskId, 'running', null, @startedAt, null
-      )
-      on conflict(id) do update set
-        task_id = excluded.task_id,
-        status = excluded.status,
-        started_at = excluded.started_at
-    `).run({
-        id: getString(event.payload, "session_id") ?? event.sessionId,
-        taskId: getString(event.payload, "task_id") ?? event.aggregateId,
-        startedAt: isoFromMs(event.eventTime),
-    });
-
-    db.prepare(`
-      update tasks_current
-      set last_session_started_at = @startedAt,
-          updated_at = case when updated_at < @startedAt then @startedAt else updated_at end
-      where id = @taskId
-    `).run({
-        taskId: getString(event.payload, "task_id") ?? event.aggregateId,
-        startedAt: isoFromMs(event.eventTime),
-    });
-}
-
-function projectSessionEnded(db: Database.Database, event: DomainEvent): void {
-    db.prepare(`
-      update sessions_current
-      set status = @status,
-          summary = coalesce(@summary, summary),
-          ended_at = @endedAt
-      where id = @id
-    `).run({
-        id: getString(event.payload, "session_id") ?? event.sessionId,
-        status: getString(event.payload, "outcome") ?? "completed",
-        summary: getString(event.payload, "summary"),
-        endedAt: isoFromMs(event.eventTime),
     });
 }
 
