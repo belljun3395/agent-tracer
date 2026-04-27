@@ -313,6 +313,120 @@ module.exports = {
       },
       to: { path: "^packages/server/src/event/(?!public/)" },
     },
+    // ── rule feature module (server/src/rule) layered rules ─────
+    {
+      name: "rule-domain-no-upward",
+      severity: "error",
+      from: { path: "^packages/server/src/rule/domain/" },
+      to: { path: "^packages/server/src/rule/(repository|service|application|adapter|api|subscriber|public|common)/" },
+    },
+    {
+      name: "rule-repository-only-domain",
+      severity: "error",
+      from: { path: "^packages/server/src/rule/repository/" },
+      to: { path: "^packages/server/src/rule/(service|application|adapter|api|subscriber)/" },
+    },
+    {
+      name: "rule-service-no-upper-layers",
+      severity: "error",
+      from: { path: "^packages/server/src/rule/service/" },
+      to: {
+        path: "^packages/server/src/rule/(application|adapter|api|subscriber)/",
+        pathNot: "^packages/server/src/rule/application/outbound/",
+      },
+    },
+    {
+      name: "rule-usecase-no-direct-repository",
+      severity: "error",
+      from: { path: "^packages/server/src/rule/application/" },
+      to: { path: "^packages/server/src/rule/repository/" },
+    },
+    {
+      name: "rule-usecase-no-upper-layers",
+      severity: "error",
+      from: { path: "^packages/server/src/rule/application/" },
+      to: { path: "^packages/server/src/rule/(adapter|api|subscriber)/" },
+    },
+    {
+      name: "rule-api-only-application",
+      severity: "error",
+      comment: "api는 application + domain (const/type) 만 — service/repository/adapter는 금지",
+      from: { path: "^packages/server/src/rule/api/" },
+      to: { path: "^packages/server/src/rule/(service|repository|adapter|subscriber)/" },
+    },
+    {
+      name: "rule-adapter-no-application-internals",
+      severity: "error",
+      from: { path: "^packages/server/src/rule/adapter/" },
+      to: {
+        path: "^packages/server/src/rule/(application|api|subscriber)/",
+        pathNot: "^packages/server/src/rule/application/outbound/",
+      },
+    },
+    {
+      name: "rule-public-only-domain-types",
+      severity: "error",
+      from: { path: "^packages/server/src/rule/public/" },
+      to: { path: "^packages/server/src/rule/(service|repository|application|adapter|api|subscriber)/" },
+    },
+    {
+      name: "external-only-via-rule-public",
+      severity: "error",
+      comment: "외부 모듈은 ~rule/public 만 접근 가능",
+      from: {
+        path: "^packages/server/src/(?!rule/)",
+        pathNot:
+          "^packages/server/src/main/presentation/(app\\.module|database/typeorm\\.database\\.module)\\.ts$",
+      },
+      to: { path: "^packages/server/src/rule/(?!public/)" },
+    },
+    // ── verification feature module rules ─────
+    {
+      name: "verification-domain-no-upward",
+      severity: "error",
+      from: { path: "^packages/server/src/verification/domain/" },
+      to: { path: "^packages/server/src/verification/(repository|service|application|adapter|api|subscriber|public|common)/" },
+    },
+    {
+      name: "verification-service-no-upper-layers",
+      severity: "error",
+      from: { path: "^packages/server/src/verification/service/" },
+      to: {
+        path: "^packages/server/src/verification/(application|adapter|api|subscriber)/",
+        pathNot: "^packages/server/src/verification/application/outbound/",
+      },
+    },
+    {
+      name: "verification-usecase-no-upper-layers",
+      severity: "error",
+      from: { path: "^packages/server/src/verification/application/" },
+      to: { path: "^packages/server/src/verification/(adapter|api|subscriber)/" },
+    },
+    {
+      name: "verification-adapter-no-application-internals",
+      severity: "error",
+      from: { path: "^packages/server/src/verification/adapter/" },
+      to: {
+        path: "^packages/server/src/verification/(api|subscriber)/",
+      },
+    },
+    {
+      name: "verification-public-only-domain-types",
+      severity: "error",
+      from: { path: "^packages/server/src/verification/public/" },
+      to: { path: "^packages/server/src/verification/(service|repository|application|adapter|api|subscriber)/" },
+    },
+    {
+      name: "external-only-via-verification-public",
+      severity: "error",
+      comment: "외부 모듈은 ~verification/public 만 접근 가능",
+      from: {
+        path: "^packages/server/src/(?!verification/)",
+        pathNot:
+          "^packages/server/src/main/presentation/(app\\.module|database/typeorm\\.database\\.module)\\.ts$",
+      },
+      to: { path: "^packages/server/src/verification/(?!public/)" },
+    },
   ],
   options: {
     doNotFollow: { path: "node_modules" },

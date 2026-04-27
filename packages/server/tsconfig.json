@@ -13,7 +13,9 @@
       "~main/*": ["src/main/*"],
       "~session/*": ["src/session/*"],
       "~task/*": ["src/task/*"],
-      "~event/*": ["src/event/*"]
+      "~event/*": ["src/event/*"],
+      "~rule/*": ["src/rule/*"],
+      "~verification/*": ["src/verification/*"]
     }
   },
   "include": ["src", "*.config.ts"]
