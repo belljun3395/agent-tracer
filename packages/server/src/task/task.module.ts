@@ -43,6 +43,11 @@ import { TaskRepository } from "./repository/task.repository.js";
 import { TaskLifecycleService } from "./service/task.lifecycle.service.js";
 import { TaskManagementService } from "./service/task.management.service.js";
 import { TaskQueryService } from "./service/task.query.service.js";
+import { TaskEventLogEntity } from "./subscriber/event.log.entity.js";
+import {
+    TaskEntitySubscriber,
+    TaskRelationEntitySubscriber,
+} from "./subscriber/task.event.subscriber.js";
 
 /**
  * Task module — owns TaskEntity, TaskRelationEntity.
@@ -65,7 +70,7 @@ export class TaskModule {
             module: TaskModule,
             global: true,
             imports: [
-                TypeOrmModule.forFeature([TaskEntity, TaskRelationEntity]),
+                TypeOrmModule.forFeature([TaskEntity, TaskRelationEntity, TaskEventLogEntity]),
                 databaseModule,
             ],
             controllers: [TaskCommandController, TaskIngestController, TaskQueryController, SystemQueryController],
@@ -75,6 +80,9 @@ export class TaskModule {
                 TaskQueryService,
                 TaskManagementService,
                 TaskLifecycleService,
+                // Entity subscribers — emit task.created/renamed/status_changed/hierarchy_changed
+                TaskEntitySubscriber,
+                TaskRelationEntitySubscriber,
                 // Outbound adapters
                 SessionAccessAdapter,
                 RuntimeBindingAccessAdapter,
