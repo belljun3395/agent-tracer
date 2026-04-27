@@ -1,10 +1,45 @@
-import type { TurnInsertPortDto } from "~application/ports/verification/turns/dto/turn.insert.port.dto.js";
-import type { TurnRecordPortDto, TurnStatusPortDto } from "~application/ports/verification/turns/dto/turn.record.port.dto.js";
-import type { TurnReadPort } from "~application/ports/verification/turns/turn.read.port.js";
-import type { TurnWritePort } from "~application/ports/verification/turns/turn.write.port.js";
+/**
+ * Legacy ITurnRepository contract — kept self-contained for the SQLite
+ * adapter and the verification module's factory bindings until the
+ * verification persistence tier moves to TypeORM-owned entities.
+ */
 
-export type TurnStatus = TurnStatusPortDto;
-export type TurnInsertInput = TurnInsertPortDto;
-export type StoredTurn = TurnRecordPortDto;
+export type TurnStatus = "open" | "closed";
+export type TurnAggregateVerdict = "verified" | "unverifiable" | "contradicted" | null;
 
-export interface ITurnRepository extends TurnReadPort, TurnWritePort {}
+export interface TurnInsertInput {
+    readonly id: string;
+    readonly sessionId: string;
+    readonly taskId: string;
+    readonly turnIndex: number;
+    readonly status: TurnStatus;
+    readonly startedAt: string;
+    readonly askedText?: string | null;
+}
+
+export interface StoredTurn {
+    readonly id: string;
+    readonly sessionId: string;
+    readonly taskId: string;
+    readonly turnIndex: number;
+    readonly status: TurnStatus;
+    readonly startedAt: string;
+    readonly endedAt: string | null;
+    readonly askedText: string | null;
+    readonly assistantText: string | null;
+    readonly aggregateVerdict: TurnAggregateVerdict;
+    readonly rulesEvaluatedCount: number;
+}
+
+export interface ITurnRepository {
+    findById(turnId: string): Promise<StoredTurn | null>;
+    findOpenBySessionId(sessionId: string): Promise<StoredTurn | null>;
+    countBySessionId(sessionId: string): Promise<number>;
+    findEventsForTurn(turnId: string): Promise<readonly string[]>;
+    insert(input: TurnInsertInput): Promise<StoredTurn>;
+    linkEvents(turnId: string, eventIds: readonly string[]): Promise<void>;
+    closeTurn(turnId: string, assistantText: string, endedAt: string): Promise<void>;
+    forceCloseTurn(turnId: string, endedAt: string): Promise<void>;
+    updateAggregateVerdict(turnId: string, verdict: TurnAggregateVerdict): Promise<void>;
+    updateRulesEvaluatedCount(turnId: string, count: number): Promise<void>;
+}

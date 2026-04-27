@@ -2,16 +2,15 @@ import { Module, type DynamicModule, type MiddlewareConsumer, type NestModule } 
 import { APP_FILTER, APP_INTERCEPTOR } from "@nestjs/core";
 import type { INotificationPublisher } from "~application/ports/event/notification.publisher.js";
 import { EventModule } from "~event/event.module.js";
+import { RuleModule } from "~rule/rule.module.js";
 import { SessionModule } from "~session/session.module.js";
 import { TaskModule } from "~task/task.module.js";
-import { RulesApplicationModule } from "./application/rules-application.module.js";
+import { VerificationModule } from "~verification/verification.module.js";
 import { SystemApplicationModule } from "./application/system-application.module.js";
 import { TurnPartitionsApplicationModule } from "./application/turn-partitions-application.module.js";
-import { VerificationApplicationModule } from "./application/verification-application.module.js";
 import { DatabaseModule } from "./database/database.module.js";
 import { TypeOrmDatabaseModule } from "./database/typeorm.database.module.js";
 import { GlobalExceptionFilter } from "./filters/zod-exception.filter.js";
-import { RulesHttpModule } from "./http/rules-http.module.js";
 import { SystemHttpModule } from "./http/system-http.module.js";
 import { TurnPartitionsHttpModule } from "./http/turn-partitions-http.module.js";
 import { ApiResponseInterceptor } from "./interceptors/api-response.interceptor.js";
@@ -31,25 +30,26 @@ export class AppModule implements NestModule {
     static forRoot(options: AppModuleOptions): DynamicModule {
         const databaseModule = DatabaseModule.forRoot(options);
         const typeOrmDatabaseModule = TypeOrmDatabaseModule.forRoot({ databasePath: options.databasePath });
-        const verificationApplicationModule = VerificationApplicationModule.register(databaseModule);
+        const verificationModule = VerificationModule.register(databaseModule);
         const sessionModule = SessionModule.register(databaseModule);
         const taskModule = TaskModule.register(databaseModule);
-        const eventModule = EventModule.register(databaseModule, verificationApplicationModule);
+        const eventModule = EventModule.register(databaseModule, verificationModule);
+        const ruleModule = RuleModule.register(databaseModule, verificationModule);
         const systemApplicationModule = SystemApplicationModule.register(databaseModule);
         const turnPartitionsApplicationModule = TurnPartitionsApplicationModule.register(databaseModule);
-        const rulesApplicationModule = RulesApplicationModule.register(databaseModule);
 
         return {
             module: AppModule,
             imports: [
                 typeOrmDatabaseModule,
                 databaseModule,
+                verificationModule,
                 sessionModule,
                 taskModule,
                 eventModule,
+                ruleModule,
                 SystemHttpModule.register(systemApplicationModule),
                 TurnPartitionsHttpModule.register(turnPartitionsApplicationModule),
-                RulesHttpModule.register(rulesApplicationModule, databaseModule),
             ],
             providers: [
                 {

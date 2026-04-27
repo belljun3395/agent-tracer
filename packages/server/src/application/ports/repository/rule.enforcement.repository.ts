@@ -1,10 +1,31 @@
-import type { RuleEnforcementInsertPortDto } from "~application/ports/verification/rule-enforcements/dto/rule.enforcement.insert.port.dto.js";
-import type { RuleEnforcementMatchKindPortDto, RuleEnforcementRecordPortDto } from "~application/ports/verification/rule-enforcements/dto/rule.enforcement.record.port.dto.js";
-import type { RuleEnforcementReadPort } from "~application/ports/verification/rule-enforcements/rule.enforcement.read.port.js";
-import type { RuleEnforcementWritePort } from "~application/ports/verification/rule-enforcements/rule.enforcement.write.port.js";
+import type { RuleEventMatchKind } from "~verification/domain/event-rule.matching.js";
 
-export type RuleEnforcementMatchKind = RuleEnforcementMatchKindPortDto;
-export type RuleEnforcementRow = RuleEnforcementRecordPortDto;
-export type RuleEnforcementInsert = RuleEnforcementInsertPortDto;
+/**
+ * Legacy IRuleEnforcementRepository contract — self-contained for the SQLite
+ * adapter and verification module factory bindings.
+ */
 
-export interface IRuleEnforcementRepository extends RuleEnforcementReadPort, RuleEnforcementWritePort {}
+export type RuleEnforcementMatchKind = RuleEventMatchKind;
+
+export interface RuleEnforcementInsert {
+    readonly eventId: string;
+    readonly ruleId: string;
+    readonly matchKind: RuleEnforcementMatchKind;
+    readonly decidedAt: string;
+}
+
+export interface RuleEnforcementRow {
+    readonly eventId: string;
+    readonly ruleId: string;
+    readonly matchKind: RuleEnforcementMatchKind;
+    readonly decidedAt: string;
+}
+
+export interface IRuleEnforcementRepository {
+    findByEventId(eventId: string): Promise<readonly RuleEnforcementRow[]>;
+    findByEventIds(eventIds: readonly string[]): Promise<readonly RuleEnforcementRow[]>;
+    eventIdToRuleIds(eventIds: readonly string[]): Promise<ReadonlyMap<string, ReadonlySet<string>>>;
+    insert(row: RuleEnforcementInsert): Promise<RuleEnforcementRow | null>;
+    insertMany(rows: readonly RuleEnforcementInsert[]): Promise<readonly RuleEnforcementRow[]>;
+    deleteByRuleId(ruleId: string): Promise<void>;
+}
