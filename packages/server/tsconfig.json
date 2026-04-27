@@ -15,7 +15,8 @@
       "~task/*": ["src/task/*"],
       "~event/*": ["src/event/*"],
       "~rule/*": ["src/rule/*"],
-      "~verification/*": ["src/verification/*"]
+      "~verification/*": ["src/verification/*"],
+      "~turn-partition/*": ["src/turn-partition/*"]
     }
   },
   "include": ["src", "*.config.ts"]

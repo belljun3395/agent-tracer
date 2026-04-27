@@ -14,6 +14,7 @@ export default defineConfig({
             "~event": resolve(__dirname, "src/event"),
             "~rule": resolve(__dirname, "src/rule"),
             "~verification": resolve(__dirname, "src/verification"),
+            "~turn-partition": resolve(__dirname, "src/turn-partition"),
             "~config": resolve(__dirname, "src/config"),
         },
     },
