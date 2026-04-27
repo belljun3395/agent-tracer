@@ -2,8 +2,6 @@ import { type Provider } from "@nestjs/common";
 import { SqliteEventStore } from "~adapters/persistence/sqlite/events/sqlite.event-store.js";
 import { createSqliteDatabaseContext } from "~adapters/persistence/sqlite/sqlite.database-context.js";
 import type { SqliteDatabaseContext } from "~adapters/persistence/sqlite/sqlite.database-context.js";
-import { SqliteRuntimeBindingRepository } from "~adapters/persistence/sqlite/runtime-bindings/sqlite.runtime.binding.repository.js";
-import { SqliteSessionRepository } from "~adapters/persistence/sqlite/sessions/sqlite.session.repository.js";
 import { SqliteTaskRepository } from "~adapters/persistence/sqlite/tasks/sqlite.task.repository.js";
 import { SqliteEventRepository } from "~adapters/persistence/sqlite/timeline-events/sqlite.event.repository.js";
 import { SqliteTurnPartitionRepository } from "~adapters/persistence/sqlite/turn-partitions/sqlite.turn.partition.repository.js";
@@ -19,10 +17,8 @@ import type { IEmbeddingService } from "~application/ports/service/embedding.ser
 export const SQLITE_DATABASE_CONTEXT_TOKEN = "SQLITE_DATABASE_CONTEXT";
 export const EMBEDDING_SERVICE_TOKEN = "EMBEDDING_SERVICE";
 export const TASK_REPOSITORY_TOKEN = "TASK_REPOSITORY";
-export const SESSION_REPOSITORY_TOKEN = "SESSION_REPOSITORY";
 export const EVENT_REPOSITORY_TOKEN = "EVENT_REPOSITORY";
 export const EVENT_STORE_TOKEN = "EVENT_STORE";
-export const RUNTIME_BINDING_REPOSITORY_TOKEN = "RUNTIME_BINDING_REPOSITORY";
 export const TURN_PARTITION_REPOSITORY_TOKEN = "TURN_PARTITION_REPOSITORY";
 export const RULE_REPOSITORY_TOKEN = "RULE_REPOSITORY";
 export const TURN_REPOSITORY_TOKEN = "TURN_REPOSITORY";
@@ -33,10 +29,8 @@ export const NOTIFICATION_PUBLISHER_TOKEN = "NOTIFICATION_PUBLISHER";
 
 export const DATABASE_PORT_TOKENS = [
     TASK_REPOSITORY_TOKEN,
-    SESSION_REPOSITORY_TOKEN,
     EVENT_REPOSITORY_TOKEN,
     EVENT_STORE_TOKEN,
-    RUNTIME_BINDING_REPOSITORY_TOKEN,
     TURN_PARTITION_REPOSITORY_TOKEN,
     RULE_REPOSITORY_TOKEN,
     TURN_REPOSITORY_TOKEN,
@@ -71,11 +65,6 @@ export function DatabaseProviders(options: {
             inject: [SQLITE_DATABASE_CONTEXT_TOKEN],
         },
         {
-            provide: SESSION_REPOSITORY_TOKEN,
-            useFactory: (context: SqliteDatabaseContext) => new SqliteSessionRepository(context.db),
-            inject: [SQLITE_DATABASE_CONTEXT_TOKEN],
-        },
-        {
             provide: EVENT_REPOSITORY_TOKEN,
             useFactory: (context: SqliteDatabaseContext, embeddingService: IEmbeddingService | null) =>
                 new SqliteEventRepository(context.db, embeddingService ?? undefined),
@@ -84,11 +73,6 @@ export function DatabaseProviders(options: {
         {
             provide: EVENT_STORE_TOKEN,
             useFactory: (context: SqliteDatabaseContext) => new SqliteEventStore(context.client),
-            inject: [SQLITE_DATABASE_CONTEXT_TOKEN],
-        },
-        {
-            provide: RUNTIME_BINDING_REPOSITORY_TOKEN,
-            useFactory: (context: SqliteDatabaseContext) => new SqliteRuntimeBindingRepository(context.db),
             inject: [SQLITE_DATABASE_CONTEXT_TOKEN],
         },
         {

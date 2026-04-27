@@ -1,3 +1,11 @@
+// TODO(event-module-split): the entire `domain/runtime/` directory is misnamed
+// after the runtime/session split. The contents (event subtype keys, metadata
+// keys, tool families) are about *event classification*, not runtime sessions.
+// When the event module is carved out, move these files to that module's
+// domain layer (e.g. `src/event/domain/`) and delete this directory.
+// Affected consumers: domain/monitoring/event/*, domain/monitoring/common/*,
+// application/tasks/openinference.ts.
+
 import { EVENT_SUBTYPE_GROUPS, EVENT_TOOL_FAMILIES } from "./const/event.subtype.keys.const.js";
 import type { EventSubtypeGroup, EventToolFamily } from "./type/event.subtype.keys.type.js";
 

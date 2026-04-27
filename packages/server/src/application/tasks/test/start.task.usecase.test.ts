@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { StartTaskUseCase } from "../start.task.usecase.js";
-import { createPorts, task } from "~application/sessions/test/runtime.session.usecase.test.fixture.js";
+import { createPorts, task } from "./runtime.session.test.fixture.js";
 
 afterEach(() => {
     vi.restoreAllMocks();

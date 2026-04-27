@@ -1,3 +1,7 @@
+// TODO(session-typeorm-migration): move this DDL into a proper migration once
+// the project adopts TypeORM migrations across all modules. RuntimeBindingEntity
+// uses `synchronize: false`, so the table is currently created here at startup.
+
 import type Database from "better-sqlite3";
 
 export function createRuntimeBindingSchema(db: Database.Database): void {
