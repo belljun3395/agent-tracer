@@ -12,7 +12,8 @@
       "~adapters/*": ["src/adapters/*"],
       "~main/*": ["src/main/*"],
       "~session/*": ["src/session/*"],
-      "~task/*": ["src/task/*"]
+      "~task/*": ["src/task/*"],
+      "~event/*": ["src/event/*"]
     }
   },
   "include": ["src", "*.config.ts"]
