@@ -3,13 +3,15 @@
   "compilerOptions": {
     "outDir": "dist",
     "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
     "baseUrl": ".",
     "paths": {
       "~config/*": ["src/config/*"],
       "~domain/*": ["src/domain/*"],
       "~application/*": ["src/application/*"],
       "~adapters/*": ["src/adapters/*"],
-      "~main/*": ["src/main/*"]
+      "~main/*": ["src/main/*"],
+      "~session/*": ["src/session/*"]
     }
   },
   "include": ["src", "*.config.ts"]

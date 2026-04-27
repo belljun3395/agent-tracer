@@ -89,6 +89,83 @@ module.exports = {
       from: {},
       to: { path: "@monitor/[^/]+/(src|dist)/" },
     },
+
+    // ── session feature module (server/src/session) layered rules ─────
+    // Layer order (inner -> outer):
+    //   domain -> repository -> service -> application(usecase) -> api(controller)
+    //   adapter wraps service to implement public ports.
+    //   public exposes contracts for other modules.
+    //   application/outbound declares what the module needs from outside.
+    {
+      name: "session-domain-no-upward",
+      severity: "error",
+      comment: "session/domain is the innermost ring — no imports from any other session layer.",
+      from: { path: "^packages/server/src/session/domain/" },
+      to: { path: "^packages/server/src/session/(repository|service|application|adapter|api|subscriber|public)/" },
+    },
+    {
+      name: "session-repository-only-domain",
+      severity: "error",
+      comment: "session/repository may only depend on session/domain.",
+      from: { path: "^packages/server/src/session/repository/" },
+      to: { path: "^packages/server/src/session/(service|application|adapter|api|subscriber)/" },
+    },
+    {
+      name: "session-service-no-upper-layers",
+      severity: "error",
+      comment: "session/service may depend on domain, repository, public — never application/api/adapter/subscriber.",
+      from: { path: "^packages/server/src/session/service/" },
+      to: { path: "^packages/server/src/session/(application|adapter|api|subscriber)/" },
+    },
+    {
+      name: "session-usecase-no-direct-repository",
+      severity: "error",
+      comment: "session usecases must go through service — direct repository access bypasses domain policy.",
+      from: { path: "^packages/server/src/session/application/" },
+      to: { path: "^packages/server/src/session/repository/" },
+    },
+    {
+      name: "session-usecase-no-upper-layers",
+      severity: "error",
+      comment: "session/application may not depend on adapter/api/subscriber.",
+      from: { path: "^packages/server/src/session/application/" },
+      to: { path: "^packages/server/src/session/(adapter|api|subscriber)/" },
+    },
+    {
+      name: "session-api-only-application",
+      severity: "error",
+      comment: "session controllers must call usecases only — no direct service/repository/domain access.",
+      from: { path: "^packages/server/src/session/api/" },
+      to: { path: "^packages/server/src/session/(service|repository|domain|adapter|subscriber)/" },
+    },
+    {
+      name: "session-adapter-no-application-internals",
+      severity: "error",
+      comment: "session adapters may import outbound port contracts (application/outbound) but must not reach into usecases/api/subscriber.",
+      from: { path: "^packages/server/src/session/adapter/" },
+      to: {
+        path: "^packages/server/src/session/(application|api|subscriber)/",
+        pathNot: "^packages/server/src/session/application/outbound/",
+      },
+    },
+    {
+      name: "session-public-only-domain-types",
+      severity: "error",
+      comment: "session/public exposes contracts; it must not import internals (service/repository/application/adapter/api).",
+      from: { path: "^packages/server/src/session/public/" },
+      to: { path: "^packages/server/src/session/(service|repository|application|adapter|api|subscriber)/" },
+    },
+    {
+      name: "external-only-via-session-public",
+      severity: "error",
+      comment: "Code outside session must import session only through ~session/public/* (or via SessionModule wiring in main).",
+      from: {
+        path: "^packages/server/src/(?!session/)",
+        pathNot:
+          "^packages/server/src/main/presentation/(app\\.module|database/typeorm\\.database\\.module)\\.ts$",
+      },
+      to: { path: "^packages/server/src/session/(?!public/)" },
+    },
   ],
   options: {
     doNotFollow: { path: "node_modules" },
