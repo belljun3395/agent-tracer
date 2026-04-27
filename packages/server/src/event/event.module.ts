@@ -23,6 +23,7 @@ import { EventStoreAppenderAdapter } from "./adapter/event.store.appender.adapte
 import { EventTaskAccessAdapter } from "./adapter/task.access.adapter.js";
 import { TimelineEventProjectionPublicAdapter } from "./adapter/timeline.event.projection.public.adapter.js";
 import { TimelineEventReadPublicAdapter } from "./adapter/timeline.event.read.public.adapter.js";
+import { TimelineEventWritePublicAdapter } from "./adapter/timeline.event.write.public.adapter.js";
 import { VerificationPostProcessorAdapter } from "./adapter/verification.post.processor.adapter.js";
 import { EventAsyncRefEntity } from "./domain/event.async.ref.entity.js";
 import { EventFileEntity } from "./domain/event.file.entity.js";
@@ -35,6 +36,7 @@ import { TodoCurrentEntity } from "./domain/todo.current.entity.js";
 import {
     TIMELINE_EVENT_PROJECTION,
     TIMELINE_EVENT_READ,
+    TIMELINE_EVENT_WRITE,
 } from "./public/tokens.js";
 import { EventAsyncRefRepository } from "./repository/event.async.ref.repository.js";
 import { EventFileRepository } from "./repository/event.file.repository.js";
@@ -73,6 +75,7 @@ export class EventModule {
     static register(databaseModule: DynamicModule, verificationModule: DynamicModule): DynamicModule {
         return {
             module: EventModule,
+            global: true,
             imports: [
                 TypeOrmModule.forFeature([
                     TimelineEventEntity,
@@ -110,6 +113,7 @@ export class EventModule {
                 VerificationPostProcessorAdapter,
                 // Public adapters
                 TimelineEventReadPublicAdapter,
+                TimelineEventWritePublicAdapter,
                 TimelineEventProjectionPublicAdapter,
                 // Use cases
                 LogEventUseCase,
@@ -118,6 +122,7 @@ export class EventModule {
                 UpdateEventUseCase,
                 // Public iservices
                 { provide: TIMELINE_EVENT_READ, useExisting: TimelineEventReadPublicAdapter },
+                { provide: TIMELINE_EVENT_WRITE, useExisting: TimelineEventWritePublicAdapter },
                 { provide: TIMELINE_EVENT_PROJECTION, useExisting: TimelineEventProjectionPublicAdapter },
                 // Outbound bindings
                 { provide: EVENT_PERSISTENCE_PORT, useExisting: EventPersistenceAdapter },
@@ -127,7 +132,7 @@ export class EventModule {
                 { provide: NOTIFICATION_PUBLISHER_PORT, useExisting: EventNotificationPublisherAdapter },
                 { provide: VERIFICATION_POST_PROCESSOR_PORT, useExisting: VerificationPostProcessorAdapter },
             ],
-            exports: [TIMELINE_EVENT_READ, TIMELINE_EVENT_PROJECTION],
+            exports: [TIMELINE_EVENT_READ, TIMELINE_EVENT_WRITE, TIMELINE_EVENT_PROJECTION],
         };
     }
 }
