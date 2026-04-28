@@ -1,4 +1,4 @@
-import { readFilePaths, readString } from "~event/domain/event.metadata.js";
+import { readFilePaths, readString } from "~event/public/helpers.js";
 import {
     isAgentActivityLoggedEvent,
     isExplorationLane,
@@ -6,10 +6,10 @@ import {
     isLlmInteractionEvent,
     isPlanningLane,
     isToolActivityEvent,
-} from "~event/domain/event.predicates.js";
-import type { TimelineEvent } from "~event/domain/model/timeline.event.model.js";
+} from "~event/public/predicates.js";
+import type { TimelineEvent } from "~event/public/types/event.types.js";
 import type { MonitoringTask } from "~task/domain/task.model.js";
-import { META } from "~event/domain/runtime/const/metadata.keys.const.js";
+import { META } from "~event/public/types/metadata.keys.js";
 
 export type OpenInferenceSpanKind = "AGENT" | "CHAIN" | "TOOL" | "LLM" | "RETRIEVER" | "UNKNOWN";
 

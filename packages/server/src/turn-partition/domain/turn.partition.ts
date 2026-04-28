@@ -1,4 +1,4 @@
-import type { TimelineEvent } from "~event/domain/model/timeline.event.model.js";
+import type { TimelineEvent } from "~event/public/types/event.types.js";
 import { segmentEventsByTurn } from "./segments.js";
 import type {
     ResolveTurnPartitionInput,

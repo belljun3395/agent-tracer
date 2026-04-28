@@ -1,4 +1,4 @@
-import type { Rule } from "~rule/domain/model/rule.model.js";
+import type { Rule } from "~rule/public/types/rule.types.js";
 import type { TurnVerdict } from "../model/verdict.model.js";
 
 export interface EvaluateTurnToolCall {

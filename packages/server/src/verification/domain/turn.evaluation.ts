@@ -1,5 +1,5 @@
-import type { Rule } from "~rule/domain/model/rule.model.js";
-import { isCommandExpectedAction } from "~rule/domain/rule.expected-action.js";
+import type { Rule } from "~rule/public/types/rule.types.js";
+import { isCommandExpectedAction } from "~rule/public/predicates.js";
 import { verificationToolMatchesExpectedAction } from "./tool-action.matching.js";
 import type { TurnVerdict, VerdictStatus } from "./model/verdict.model.js";
 

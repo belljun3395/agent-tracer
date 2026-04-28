@@ -1,4 +1,4 @@
-import type { EventRecordingInput } from "~event/domain/model/event.recording.model.js";
+import type { EventRecordingInput } from "~event/public/types/event.types.js";
 import type { MonitoringTask } from "~task/domain/task.model.js";
 
 export interface StartTaskEventDraftInput {

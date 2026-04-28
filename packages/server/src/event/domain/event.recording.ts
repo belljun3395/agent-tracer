@@ -1,7 +1,7 @@
 import type { TimelineEvent } from "./model/timeline.event.model.js";
 import { isBackgroundLane, isExplorationLane } from "./event.predicates.js";
 import { KIND } from "~event/domain/common/const/event.kind.const.js";
-import type { TaskStatus } from "~task/common/task.status.type.js";
+import type { TaskStatus } from "~task/public/types/task.types.js";
 import type { EventRecordingInput, EventRecordDraft } from "./model/event.recording.model.js";
 import type { EventClassification } from "./model/timeline.event.model.js";
 

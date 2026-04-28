@@ -1,7 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common";
 import type { MonitoringTask } from "~task/domain/task.model.js";
 import type { TaskStatus } from "~task/common/task.status.type.js";
-import type { TimelineEvent } from "~event/domain/model/timeline.event.model.js";
+import type { TimelineEvent } from "~event/public/types/event.types.js";
 import { TaskDisplayTitle } from "../domain/task.display-title.model.js";
 import { TaskEntity } from "../domain/task.entity.js";
 import { TaskRelations, type TaskRelationsSnapshot } from "../domain/task.relations.model.js";

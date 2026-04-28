@@ -1,6 +1,4 @@
-import { isTimelineLane } from "~event/domain/common/event.kind.js";
-import type { TimelineLane } from "~event/domain/common/type/event.kind.type.js";
-import type { EventRecordingInput } from "~event/domain/model/event.recording.model.js";
+import type { EventRecordingInput } from "~event/public/types/event.types.js";
 import type { MonitoringTaskInput } from "./task.model.js";
 import type {
     FinalizeTaskEventDraftInput,
@@ -24,25 +22,6 @@ export function normalizeWorkspacePath(path: string): string {
 
 export function createTaskSlug(input: MonitoringTaskInput): string {
     return slugify(input.title);
-}
-
-export function normalizeLane(raw: string): TimelineLane {
-    switch (raw) {
-        case "file":
-            return "exploration";
-        case "terminal":
-        case "tool":
-            return "implementation";
-        case "thought":
-        case "thoughts":
-            return "planning";
-        case "message":
-            return "user";
-        case "rules":
-            return "implementation";
-        default:
-            return isTimelineLane(raw) ? raw : "user";
-    }
 }
 
 export function createTaskUpsertDraft(input: StartTaskDraftInput): TaskUpsertDraft {

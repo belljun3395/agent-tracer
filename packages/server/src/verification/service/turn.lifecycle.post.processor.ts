@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { KIND } from "~event/domain/common/const/event.kind.const.js";
-import type { TimelineEvent } from "~event/domain/model/timeline.event.model.js";
+import { KIND } from "~event/public/types/event.const.js";
+import type { TimelineEvent } from "~event/public/types/event.types.js";
 import { inferToolCall } from "~verification/domain/tool-call.inference.js";
 import type { NotificationPublisherPort } from "~adapters/notifications/notification.publisher.port.js";
 import type { ITimelineEventAccess } from "~verification/application/outbound/timeline.event.access.port.js";

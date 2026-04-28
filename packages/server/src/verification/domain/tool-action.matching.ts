@@ -1,13 +1,14 @@
-import type { RuleExpectedAction } from "~rule/domain/type/rule.value.type.js";
+import type { RuleExpectedAction } from "~rule/public/types/rule.types.js";
 import {
     canonicalizeToolName,
     normalizeRuleExpectedAction,
-} from "~rule/domain/rule.expected-action.js";
+} from "~rule/public/predicates.js";
 
 /**
  * Verification-side helpers — apply rule's canonical tool-name mapping during
- * turn evaluation. The actual mapping rules live in ~rule/domain because they
- * describe rule semantics (which tool corresponds to which expected action).
+ * turn evaluation. The actual mapping rules live in the rule module (exposed
+ * via ~rule/public/) because they describe rule semantics (which tool
+ * corresponds to which expected action).
  */
 
 export function normalizeVerificationToolName(tool: string): string {

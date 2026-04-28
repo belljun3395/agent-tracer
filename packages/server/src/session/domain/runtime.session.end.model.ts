@@ -2,7 +2,7 @@ import type {
     MonitoringTaskKind,
     TaskCompletionReason,
     TaskStatus,
-} from "~task/common/task.status.type.js";
+} from "~task/public/types/task.types.js";
 
 export type RuntimeSessionEndDecision =
     | { readonly action: "complete_task"; readonly summary: "Runtime session ended" | "Background task completed" }
