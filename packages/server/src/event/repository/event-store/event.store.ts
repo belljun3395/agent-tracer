@@ -5,7 +5,7 @@ import type { AnyDomainEventDraft, DomainEvent } from "~domain/events/model/doma
 import type { EventId, TimeRange } from "~domain/events/model/event.model.js";
 import { validateDomainEventDraft } from "~domain/events/domain.events.js";
 import { generateUlid } from "./ulid.js";
-import { projectDomainEvent } from "../read-models/sqlite.read-model.projector.js";
+import { projectDomainEvent } from "./read.model.projector.js";
 
 interface EventRow {
     readonly event_id: string;
@@ -32,10 +32,11 @@ interface ContentBlobRow {
 export class SqliteEventStore implements IEventStore {
     constructor(private readonly db: Database.Database) {}
 
-    async append(event: AnyDomainEventDraft): Promise<DomainEvent> {
-        return appendDomainEvent(this.db, event);
+    append(event: AnyDomainEventDraft): Promise<DomainEvent> {
+        return Promise.resolve(appendDomainEvent(this.db, event));
     }
 
+    // eslint-disable-next-line @typescript-eslint/require-await
     async *readAggregate(aggregateId: string, from?: EventId): AsyncIterable<DomainEvent> {
         const rows = this.db.prepare<{ aggregateId: string; from: string | null }, EventRow>(`
           select *
@@ -50,6 +51,7 @@ export class SqliteEventStore implements IEventStore {
         }
     }
 
+    // eslint-disable-next-line @typescript-eslint/require-await
     async *readByType(type: DomainEvent["eventType"], range: TimeRange = {}): AsyncIterable<DomainEvent> {
         const rows = this.db.prepare<{ type: string; from: number | null; to: number | null }, EventRow>(`
           select *
@@ -65,15 +67,15 @@ export class SqliteEventStore implements IEventStore {
         }
     }
 
-    async putContentBlob(input: ContentBlobWriteInput): Promise<ContentBlobRecord> {
-        return putContentBlob(this.db, input);
+    putContentBlob(input: ContentBlobWriteInput): Promise<ContentBlobRecord> {
+        return Promise.resolve(putContentBlob(this.db, input));
     }
 
-    async getContentBlob(sha256: string): Promise<ContentBlobRecord | null> {
+    getContentBlob(sha256: string): Promise<ContentBlobRecord | null> {
         const row = this.db.prepare<{ sha256: string }, ContentBlobRow>(
             "select * from content_blobs where sha256 = @sha256",
         ).get({ sha256 });
-        return row ? mapContentBlobRow(row) : null;
+        return Promise.resolve(row ? mapContentBlobRow(row) : null);
     }
 }
 

@@ -8,7 +8,7 @@ import {
     type Repository,
     type UpdateEvent,
 } from "typeorm";
-import { generateUlid } from "~adapters/persistence/sqlite/events/ulid.js";
+import { generateUlid } from "./ulid.js";
 import { TaskEntity } from "../domain/task.entity.js";
 import { TaskRelationEntity } from "../domain/task.relation.entity.js";
 import { TaskEventLogEntity } from "./event.log.entity.js";

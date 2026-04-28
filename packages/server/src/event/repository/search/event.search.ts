@@ -1,18 +1,46 @@
 import type Database from "better-sqlite3";
 import { normalizeLane } from "~domain/monitoring/task/task.js";
-import type { IEmbeddingService } from "~application/ports/service/embedding.service.js";
-import type { SearchEventHit, SearchOptions, SearchResults, SearchTaskHit } from "~application/ports/repository/event.repository.js";
-import { ensureSqliteDatabase, type SqliteDatabaseInput } from "../shared/drizzle.db.js";
-import { normalizeSearchText } from "../shared/text.normalizers.js";
-import { cosineSimilarity, deserializeEmbedding, serializeEmbedding } from "../shared/embedding.codec.js";
-import { loadTimelineEventById } from "../timeline-events/sqlite.event.storage.js";
-import { buildEventSearchText, type SearchDocumentScope, upsertSearchDocument } from "./sqlite.search.documents.js";
+import type { IEmbeddingService } from "../embedding/embedding.service.js";
+import { normalizeSearchText } from "./text.normalizers.js";
+import { cosineSimilarity, deserializeEmbedding, serializeEmbedding } from "./embedding.codec.js";
+import { buildEventSearchText, type SearchDocumentScope, upsertSearchDocument } from "./search.documents.js";
 import type {
     RankedSearchDocument,
     SearchDocumentRow,
     SearchEventRow,
     SearchTaskRow,
-} from "./sqlite.event.search.row.type.js";
+} from "./search.row.type.js";
+
+export interface SearchOptions {
+    readonly taskId?: string;
+    readonly limit?: number;
+}
+
+export interface SearchTaskHit {
+    readonly id: string;
+    readonly taskId: string;
+    readonly title: string;
+    readonly status: string;
+    readonly updatedAt: string;
+    readonly workspacePath?: string;
+}
+
+export interface SearchEventHit {
+    readonly id: string;
+    readonly eventId: string;
+    readonly taskId: string;
+    readonly taskTitle: string;
+    readonly title: string;
+    readonly lane: string;
+    readonly kind: string;
+    readonly createdAt: string;
+    readonly snippet?: string;
+}
+
+export interface SearchResults {
+    readonly tasks: readonly SearchTaskHit[];
+    readonly events: readonly SearchEventHit[];
+}
 
 const MIN_SEMANTIC_SCORE = 0.22;
 const SEARCH_EMBEDDING_BACKFILL_THRESHOLD = 200;
@@ -60,32 +88,54 @@ export async function searchEvents(
     };
 }
 
-export function refreshEventSearchDocument(db: SqliteDatabaseInput, eventId: string): void {
-    const sqlite = ensureSqliteDatabase(db);
-    const event = loadTimelineEventById(sqlite.client, eventId);
-    if (!event) {
-        return;
+interface EventRefreshRow {
+    readonly id: string;
+    readonly task_id: string;
+    readonly task_title: string;
+    readonly kind: string;
+    readonly lane: string;
+    readonly title: string;
+    readonly body: string | null;
+    readonly extras_json: string;
+    readonly created_at: string;
+}
+
+export function refreshEventSearchDocument(db: Database.Database, eventId: string): void {
+    const row = db
+        .prepare<{ eventId: string }, EventRefreshRow>(`
+            select e.id, e.task_id, t.title as task_title, e.kind, e.lane, e.title, e.body,
+                   e.extras_json, e.created_at
+            from timeline_events_view e
+            join tasks_current t on t.id = e.task_id
+            where e.id = @eventId
+        `)
+        .get({ eventId });
+    if (!row) return;
+
+    let metadata: Record<string, unknown> = {};
+    try {
+        const parsed: unknown = JSON.parse(row.extras_json || "{}");
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+            metadata = parsed as Record<string, unknown>;
+        }
     }
-    const task = sqlite.client
-        .prepare<{ taskId: string }, { title: string }>("select title from tasks_current where id = @taskId")
-        .get({ taskId: event.taskId });
-    if (!task) {
-        return;
+    catch {
+        // ignore — keep empty metadata
     }
 
     upsertSearchDocument(db, {
         scope: "event",
-        entityId: event.id,
-        taskId: event.taskId,
+        entityId: row.id,
+        taskId: row.task_id,
         searchText: buildEventSearchText({
-            taskTitle: task.title,
-            title: event.title,
-            body: event.body ?? null,
-            kind: event.kind,
-            lane: event.lane,
-            metadata: event.metadata,
+            taskTitle: row.task_title,
+            title: row.title,
+            body: row.body,
+            kind: row.kind,
+            lane: row.lane,
+            metadata,
         }),
-        updatedAt: event.createdAt,
+        updatedAt: row.created_at,
     });
 }
 

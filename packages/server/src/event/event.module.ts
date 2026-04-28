@@ -16,6 +16,7 @@ import {
     TASK_ACCESS_PORT,
     VERIFICATION_POST_PROCESSOR_PORT,
 } from "./application/outbound/tokens.js";
+import { DomainEventAppenderPublicAdapter } from "./adapter/domain.event.appender.public.adapter.js";
 import { EventNotificationPublisherAdapter } from "./adapter/notification.publisher.adapter.js";
 import { EventPersistenceAdapter } from "./adapter/event.persistence.adapter.js";
 import { EventSearchIndexAdapter } from "./adapter/event.search.index.adapter.js";
@@ -34,10 +35,14 @@ import { QuestionCurrentEntity } from "./domain/question.current.entity.js";
 import { TimelineEventEntity } from "./domain/timeline.event.entity.js";
 import { TodoCurrentEntity } from "./domain/todo.current.entity.js";
 import {
+    DOMAIN_EVENT_APPENDER,
     TIMELINE_EVENT_PROJECTION,
     TIMELINE_EVENT_READ,
     TIMELINE_EVENT_WRITE,
 } from "./public/tokens.js";
+import { createEmbeddingService } from "./repository/embedding/embedding.service.js";
+import type { IEmbeddingService } from "./repository/embedding/embedding.service.js";
+import { EMBEDDING_SERVICE_TOKEN } from "./repository/embedding/tokens.js";
 import { EventAsyncRefRepository } from "./repository/event.async.ref.repository.js";
 import { EventFileRepository } from "./repository/event.file.repository.js";
 import { EventRelationRepository } from "./repository/event.relation.repository.js";
@@ -92,6 +97,11 @@ export class EventModule {
             ],
             controllers: [EventCommandController, EventIngestController, SearchQueryController, TypedEventIngestController],
             providers: [
+                // Embedding service (local model)
+                {
+                    provide: EMBEDDING_SERVICE_TOKEN,
+                    useFactory: (): IEmbeddingService | null => createEmbeddingService() ?? null,
+                },
                 // Repositories
                 TimelineEventRepository,
                 EventFileRepository,
@@ -115,6 +125,7 @@ export class EventModule {
                 TimelineEventReadPublicAdapter,
                 TimelineEventWritePublicAdapter,
                 TimelineEventProjectionPublicAdapter,
+                DomainEventAppenderPublicAdapter,
                 // Use cases
                 LogEventUseCase,
                 IngestEventsUseCase,
@@ -124,6 +135,7 @@ export class EventModule {
                 { provide: TIMELINE_EVENT_READ, useExisting: TimelineEventReadPublicAdapter },
                 { provide: TIMELINE_EVENT_WRITE, useExisting: TimelineEventWritePublicAdapter },
                 { provide: TIMELINE_EVENT_PROJECTION, useExisting: TimelineEventProjectionPublicAdapter },
+                { provide: DOMAIN_EVENT_APPENDER, useExisting: DomainEventAppenderPublicAdapter },
                 // Outbound bindings
                 { provide: EVENT_PERSISTENCE_PORT, useExisting: EventPersistenceAdapter },
                 { provide: EVENT_SEARCH_INDEX_PORT, useExisting: EventSearchIndexAdapter },
@@ -132,7 +144,12 @@ export class EventModule {
                 { provide: NOTIFICATION_PUBLISHER_PORT, useExisting: EventNotificationPublisherAdapter },
                 { provide: VERIFICATION_POST_PROCESSOR_PORT, useExisting: VerificationPostProcessorAdapter },
             ],
-            exports: [TIMELINE_EVENT_READ, TIMELINE_EVENT_WRITE, TIMELINE_EVENT_PROJECTION],
+            exports: [
+                TIMELINE_EVENT_READ,
+                TIMELINE_EVENT_WRITE,
+                TIMELINE_EVENT_PROJECTION,
+                DOMAIN_EVENT_APPENDER,
+            ],
         };
     }
 }

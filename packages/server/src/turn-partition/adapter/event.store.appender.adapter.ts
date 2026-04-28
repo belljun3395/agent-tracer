@@ -1,26 +1,31 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { appendDomainEvent } from "~adapters/persistence/sqlite/events/sqlite.event-store.js";
-import { eventTimeFromIso } from "~adapters/persistence/sqlite/events/event-time.js";
-import type { SqliteDatabaseContext } from "~adapters/persistence/sqlite/sqlite.database-context.js";
-import { SQLITE_DATABASE_CONTEXT_TOKEN } from "~main/presentation/database/database.provider.js";
+import type { IDomainEventAppender } from "~event/public/iservice/domain.event.appender.iservice.js";
+import { DOMAIN_EVENT_APPENDER } from "~event/public/tokens.js";
 import type {
     IEventStoreAppender,
     TurnPartitionDomainEvent,
 } from "../application/outbound/event.store.appender.port.js";
 
+function eventTimeFromIso(value: string | undefined, fallback = Date.now()): number {
+    if (!value) return fallback;
+    const parsed = Date.parse(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+}
+
 /**
- * Outbound adapter — wraps the legacy SqliteEventStore.appendDomainEvent
- * helper. Will move when the event-sourcing tier migrates.
+ * Outbound adapter — wraps the event module's public IDomainEventAppender
+ * iservice so turn-partition records `turn.partition_*` events without
+ * touching the event-store internals directly.
  */
 @Injectable()
 export class EventStoreAppenderAdapter implements IEventStoreAppender {
     constructor(
-        @Inject(SQLITE_DATABASE_CONTEXT_TOKEN) private readonly context: SqliteDatabaseContext,
+        @Inject(DOMAIN_EVENT_APPENDER) private readonly inner: IDomainEventAppender,
     ) {}
 
     append(event: TurnPartitionDomainEvent): void {
         if (event.type === "turn.partition_updated") {
-            appendDomainEvent(this.context.client, {
+            this.inner.append({
                 eventTime: eventTimeFromIso(event.updatedAt),
                 eventType: "turn.partition_updated",
                 schemaVer: 1,
@@ -34,7 +39,7 @@ export class EventStoreAppenderAdapter implements IEventStoreAppender {
             });
             return;
         }
-        appendDomainEvent(this.context.client, {
+        this.inner.append({
             eventTime: eventTimeFromIso(event.resetAt),
             eventType: "turn.partition_reset",
             schemaVer: 1,

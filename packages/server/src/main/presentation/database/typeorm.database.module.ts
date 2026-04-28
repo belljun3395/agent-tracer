@@ -6,10 +6,10 @@ export interface TypeOrmDatabaseModuleOptions {
 }
 
 /**
- * TypeORM DataSource for modules that have migrated to TypeORM (currently: session).
- * Coexists with the legacy better-sqlite3/drizzle context on the same .db file.
- * SQLite WAL mode handles concurrent connections; modules must not write to the
- * same tables from both stacks.
+ * TypeORM DataSource for module entities (subscribers, write-side projections).
+ * Coexists with the raw better-sqlite3 client (SQLITE_DATABASE_CONTEXT_TOKEN)
+ * on the same .db file. SQLite WAL mode handles concurrent connections; modules
+ * must not write to the same tables from both stacks.
  */
 @Module({})
 export class TypeOrmDatabaseModule {

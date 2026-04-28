@@ -8,7 +8,7 @@ import {
     type Repository,
     type UpdateEvent,
 } from "typeorm";
-import { generateUlid } from "~adapters/persistence/sqlite/events/ulid.js";
+import { generateUlid } from "./ulid.js";
 import { EventLogEntity } from "../domain/event.log.entity.js";
 import { RuntimeBindingEntity } from "../domain/runtime.binding.entity.js";
 import { SessionEntity } from "../domain/session.entity.js";

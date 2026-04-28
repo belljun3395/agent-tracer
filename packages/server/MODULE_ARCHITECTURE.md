@@ -11,8 +11,11 @@
 | **event** | `~event/` | TypeORM | TimelineEventEntity + 6 derived entities; FTS/event-sourcing은 outbound port로 분리 |
 | **rule** | `~rule/` | TypeORM | RuleEntity (soft-delete via `deleted_at`) |
 | **verification** | `~verification/` | TypeORM | TurnEntity, TurnEventEntity, VerdictEntity, RuleEnforcementEntity |
+| **turn-partition** | `~turn-partition/` | TypeORM + raw SQL | TurnPartitionEntity, raw DDL helper |
 
-5개 모듈 모두 동일한 vertical slice 패턴 — 신규 모듈은 이 패턴을 그대로 복제.
+6개 모듈 모두 동일한 vertical slice 패턴 — 신규 모듈은 이 패턴을 그대로 복제.
+
+**DDL 소유권**: 각 모듈의 `repository/<module>.schema.ts`가 `createXxxSchema(client)`를 export 하고, platform bootstrap (`adapters/persistence/sqlite/sqlite.database-context.ts`)이 FK 의존 순서대로 호출한다. drizzle / 중앙 schema 파일 없음 — 모듈을 들어내면 그 모듈의 테이블도 함께 떨어져 나간다.
 
 ## 핵심 원칙
 
