@@ -1,8 +1,8 @@
 import { Module, type DynamicModule } from "@nestjs/common";
 import type { INotificationPublisher } from "~adapters/notifications/notification.publisher.port.js";
 import {
-    DATABASE_PORT_TOKENS,
     DatabaseProviders,
+    NOTIFICATION_PUBLISHER_TOKEN,
     SQLITE_DATABASE_CONTEXT_TOKEN,
 } from "./database.provider.js";
 
@@ -19,7 +19,7 @@ export class DatabaseModule {
             providers: DatabaseProviders(options),
             exports: [
                 SQLITE_DATABASE_CONTEXT_TOKEN,
-                ...DATABASE_PORT_TOKENS,
+                NOTIFICATION_PUBLISHER_TOKEN,
             ],
         };
     }

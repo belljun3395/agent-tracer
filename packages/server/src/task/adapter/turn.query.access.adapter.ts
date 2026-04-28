@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { TURN_QUERY_REPOSITORY_TOKEN } from "~main/presentation/database/database.provider.js";
+import { TURN_QUERY_REPOSITORY_TOKEN } from "~verification/public/tokens.js";
 import type {
     ITurnQueryAccess,
     TurnSummaryAccessRecord,

@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { IsNull, Repository, type FindOptionsWhere } from "typeorm";
-import { normalizeRuleExpectedAction } from "~verification/domain/tool-action.matching.js";
+import { normalizeRuleExpectedAction } from "../domain/rule.expected-action.js";
 import { RuleEntity } from "../domain/rule.entity.js";
 import type {
     IRulePersistence,
