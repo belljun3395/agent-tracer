@@ -1,12 +1,12 @@
 import type { MonitoringEventKind, TimelineLane } from "~domain/monitoring/common/type/event.kind.type.js";
-import type { MonitoringTask } from "~domain/monitoring/task/model/task.model.js";
-import type { SearchDocumentScope } from "./sqlite.search.documents.js";
+import type { TaskStatus } from "~domain/monitoring/common/type/task.status.type.js";
+import type { SearchDocumentScope } from "./search.documents.js";
 
 export interface SearchTaskRow {
     id: string;
     title: string;
     workspace_path: string | null;
-    status: MonitoringTask["status"];
+    status: TaskStatus;
     updated_at: string;
 }
 

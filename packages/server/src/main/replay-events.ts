@@ -1,5 +1,5 @@
 import BetterSqlite3 from "better-sqlite3";
-import { SqliteEventStore } from "~adapters/persistence/sqlite/events/sqlite.event-store.js";
+import { SqliteEventStore } from "~event/repository/event-store/event.store.js";
 
 async function main(): Promise<void> {
     const [databasePath, aggregateId, fromEventId] = process.argv.slice(2);

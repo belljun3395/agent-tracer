@@ -1,6 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { mapTimelineInsertToDomainEvent } from "~adapters/persistence/sqlite/timeline-events/timeline-event.mapper.js";
-import { appendDomainEvent } from "~adapters/persistence/sqlite/events/sqlite.event-store.js";
+import { appendDomainEvent } from "../repository/event-store/event.store.js";
+import { mapTimelineInsertToDomainEvent } from "../repository/event-store/timeline.event.mapper.js";
 import type { SqliteDatabaseContext } from "~adapters/persistence/sqlite/sqlite.database-context.js";
 import { SQLITE_DATABASE_CONTEXT_TOKEN } from "~main/presentation/database/database.provider.js";
 import type {

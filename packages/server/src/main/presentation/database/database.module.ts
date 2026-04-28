@@ -3,7 +3,6 @@ import type { INotificationPublisher } from "~application/ports/notifications/no
 import {
     DATABASE_PORT_TOKENS,
     DatabaseProviders,
-    EMBEDDING_SERVICE_TOKEN,
     SQLITE_DATABASE_CONTEXT_TOKEN,
 } from "./database.provider.js";
 
@@ -20,7 +19,6 @@ export class DatabaseModule {
             providers: DatabaseProviders(options),
             exports: [
                 SQLITE_DATABASE_CONTEXT_TOKEN,
-                EMBEDDING_SERVICE_TOKEN,
                 ...DATABASE_PORT_TOKENS,
             ],
         };

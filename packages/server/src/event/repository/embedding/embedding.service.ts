@@ -1,9 +1,16 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import type { IEmbeddingService } from "~application/ports/service/embedding.service.js";
 
 import type { FeatureExtractionPipeline } from "@huggingface/transformers";
+
+/** Self-contained embedding service contract — local to event module. */
+export interface IEmbeddingService {
+    /** Identifier stored alongside persisted vectors so rows declare which model produced them. */
+    readonly modelId: string;
+    embed(text: string): Promise<Float32Array>;
+}
+
 export const EMBEDDING_MODEL = "Xenova/all-MiniLM-L6-v2";
 export const EMBEDDING_DIMS = 384;
 function resolveModelDir(): string {
