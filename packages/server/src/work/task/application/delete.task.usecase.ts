@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { Transactional } from "typeorm-transactional";
 import { TaskManagementService } from "../service/task.management.service.js";
 import type { DeleteTaskUseCaseIn, DeleteTaskUseCaseOut } from "./dto/delete.task.usecase.dto.js";
 
@@ -6,6 +7,7 @@ import type { DeleteTaskUseCaseIn, DeleteTaskUseCaseOut } from "./dto/delete.tas
 export class DeleteTaskUseCase {
     constructor(private readonly management: TaskManagementService) {}
 
+    @Transactional()
     async execute(input: DeleteTaskUseCaseIn): Promise<DeleteTaskUseCaseOut> {
         const result = await this.management.delete(input.taskId);
         return { status: result.status };

@@ -1,3 +1,4 @@
+import { Transactional } from "typeorm-transactional";
 import type { RunTurnEvaluationUseCaseIn, RunTurnEvaluationUseCaseOut } from "./dto/run.turn.evaluation.usecase.dto.js";
 import type { TurnEvaluationService } from "../service/turn.evaluation.service.js";
 
@@ -11,6 +12,7 @@ import type { TurnEvaluationService } from "../service/turn.evaluation.service.j
 export class RunTurnEvaluationUseCase {
     constructor(private readonly turnEvaluation: TurnEvaluationService) {}
 
+    @Transactional()
     execute(input: RunTurnEvaluationUseCaseIn): Promise<RunTurnEvaluationUseCaseOut> {
         return this.turnEvaluation.evaluate(input);
     }

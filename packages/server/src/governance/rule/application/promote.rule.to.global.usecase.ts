@@ -1,4 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
+import { Transactional } from "typeorm-transactional";
 import { RULE_PERSISTENCE_PORT } from "./outbound/tokens.js";
 import type { IRulePersistence } from "./outbound/rule.persistence.port.js";
 import { CreateRuleUseCase } from "./create.rule.usecase.js";
@@ -28,6 +29,7 @@ export class PromoteRuleToGlobalUseCase {
         private readonly deleteRule: DeleteRuleUseCase,
     ) {}
 
+    @Transactional()
     async execute(input: PromoteRuleToGlobalUseCaseIn): Promise<PromoteRuleToGlobalUseCaseOut> {
         const existing = await this.ruleRepo.findById(input.ruleId);
         if (!existing) throw new RuleNotFoundError(input.ruleId);

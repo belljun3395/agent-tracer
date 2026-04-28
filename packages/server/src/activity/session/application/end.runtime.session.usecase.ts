@@ -1,4 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
+import { Transactional } from "typeorm-transactional";
 import { isTerminalTaskStatus, RuntimeSessionEnd } from "../domain/runtime.session.end.model.js";
 import { SessionLifecycleService } from "../service/session.lifecycle.service.js";
 import { RuntimeBindingService } from "../service/runtime.binding.service.js";
@@ -32,6 +33,7 @@ export class EndRuntimeSessionUseCase {
         @Inject(NOTIFICATION_PUBLISHER_PORT) private readonly notifier: ISessionNotificationPublisher,
     ) {}
 
+    @Transactional()
     async execute(input: EndRuntimeSessionIn): Promise<void> {
         const binding = await this.runtimeBindings.findActive(input.runtimeSource, input.runtimeSessionId);
         // No active binding: clean up the historical association if the caller asked to.

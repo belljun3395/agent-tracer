@@ -1,4 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
+import { Transactional } from "typeorm-transactional";
 import { resolveDisplayTitleMetadataUpdate } from "~activity/event/domain/event.metadata.js";
 import type { TimelineEvent } from "~activity/event/domain/model/timeline.event.model.js";
 import { TimelineEventService } from "../service/timeline.event.service.js";
@@ -17,6 +18,7 @@ export class UpdateEventUseCase {
         @Inject(NOTIFICATION_PUBLISHER_PORT) private readonly notifier: IEventNotificationPublisher,
     ) {}
 
+    @Transactional()
     async execute(input: UpdateEventUseCaseIn): Promise<UpdateEventUseCaseOut> {
         const event = await this.events.findById(input.eventId);
         if (!event) return null;

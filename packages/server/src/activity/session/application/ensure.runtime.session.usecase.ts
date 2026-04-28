@@ -1,4 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
+import { Transactional } from "typeorm-transactional";
 import { normalizeWorkspacePath } from "~work/task/public/helpers.js";
 import { SessionLifecycleService } from "../service/session.lifecycle.service.js";
 import { RuntimeBindingService } from "../service/runtime.binding.service.js";
@@ -25,6 +26,7 @@ export class EnsureRuntimeSessionUseCase {
         @Inject(NOTIFICATION_PUBLISHER_PORT) private readonly notifier: ISessionNotificationPublisher,
     ) {}
 
+    @Transactional()
     async execute(input: EnsureRuntimeSessionIn): Promise<EnsureRuntimeSessionOut> {
         const workspacePath = input.workspacePath
             ? normalizeWorkspacePath(input.workspacePath)

@@ -1,4 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
+import { Transactional } from "typeorm-transactional";
 import { BACKFILL_TRIGGER_PORT, RULE_PERSISTENCE_PORT } from "./outbound/tokens.js";
 import type { IRulePersistence } from "./outbound/rule.persistence.port.js";
 import type {
@@ -20,6 +21,7 @@ export class ReEvaluateRuleUseCase {
         @Inject(BACKFILL_TRIGGER_PORT) private readonly backfill: IBackfillTrigger,
     ) {}
 
+    @Transactional()
     async execute(input: ReEvaluateRuleUseCaseIn): Promise<ReEvaluateRuleUseCaseOut> {
         const rule = await this.rules.findById(input.ruleId);
         if (!rule) throw new RuleNotFoundError(input.ruleId);

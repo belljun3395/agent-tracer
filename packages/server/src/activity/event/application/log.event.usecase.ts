@@ -1,4 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
+import { Transactional } from "typeorm-transactional";
 import { KIND } from "~activity/event/domain/common/const/event.kind.const.js";
 import { createEventRecordDraft, normalizeFilePaths } from "~activity/event/domain/event.recording.js";
 import { deriveFileChangeEventInputs, shouldApplyLoggedEventTaskStatusEffect } from "~activity/event/domain/event.recording.js";
@@ -36,6 +37,7 @@ export class LogEventUseCase {
         @Inject(POST_PROCESSING_QUEUE_PORT) private readonly queue: IPostProcessingQueue,
     ) {}
 
+    @Transactional()
     async execute(input: LogEventUseCaseIn): Promise<LogEventUseCaseOut> {
         const task = await this.tasks.findById(input.taskId);
         if (!task) throw new TaskNotFoundError(input.taskId);

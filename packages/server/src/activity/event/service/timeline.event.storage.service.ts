@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { DataSource } from "typeorm";
+import { runInTransaction } from "typeorm-transactional";
 import type { TimelineEvent } from "~activity/event/domain/model/timeline.event.model.js";
 import {
     buildDerivedTableInserts,
@@ -43,7 +44,7 @@ export class TimelineEventStorageService {
     async insert(input: TimelineEventInsertRequest): Promise<TimelineEvent> {
         const entity = buildTimelineEventEntity(input);
         const derived = buildDerivedTableInserts(input);
-        await this.dataSource.transaction(async () => {
+        await runInTransaction(async () => {
             await this.timelineEvents.save(entity);
             await this.syncDerivedTables(input.id, derived);
         });
@@ -65,7 +66,7 @@ export class TimelineEventStorageService {
         const entity = buildTimelineEventEntity(refreshed);
         const derived = buildDerivedTableInserts(refreshed);
 
-        await this.dataSource.transaction(async () => {
+        await runInTransaction(async () => {
             await this.timelineEvents.updateExtras(eventId, {
                 subtypeKey: entity.subtypeKey,
                 subtypeLabel: entity.subtypeLabel,

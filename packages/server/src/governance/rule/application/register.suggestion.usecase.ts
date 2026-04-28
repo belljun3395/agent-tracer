@@ -1,4 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
+import { Transactional } from "typeorm-transactional";
 import { computeRuleSignature } from "~governance/rule/domain/rule.signature.js";
 import { RULE_PERSISTENCE_PORT } from "./outbound/tokens.js";
 import type { IRulePersistence } from "./outbound/rule.persistence.port.js";
@@ -28,6 +29,7 @@ export class RegisterSuggestionUseCase {
         private readonly createRule: CreateRuleUseCase,
     ) {}
 
+    @Transactional()
     async execute(input: RegisterSuggestionUseCaseIn): Promise<RegisterSuggestionUseCaseOut> {
         const expect = {
             ...(input.expect.action !== undefined ? { action: input.expect.action } : {}),

@@ -3,7 +3,6 @@ import type { INotificationPublisher } from "~adapters/notifications/notificatio
 import {
     DatabaseProviders,
     NOTIFICATION_PUBLISHER_TOKEN,
-    SQLITE_DATABASE_CONTEXT_TOKEN,
 } from "./database.provider.js";
 
 export interface DatabaseModuleOptions {
@@ -17,10 +16,7 @@ export class DatabaseModule {
         return {
             module: DatabaseModule,
             providers: DatabaseProviders(options),
-            exports: [
-                SQLITE_DATABASE_CONTEXT_TOKEN,
-                NOTIFICATION_PUBLISHER_TOKEN,
-            ],
+            exports: [NOTIFICATION_PUBLISHER_TOKEN],
         };
     }
 }

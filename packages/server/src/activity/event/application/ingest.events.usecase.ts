@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { Transactional } from "typeorm-transactional";
 import { LogEventUseCase } from "./log.event.usecase.js";
 import type { IngestEventsUseCaseIn, IngestEventsUseCaseOut } from "./dto/ingest.events.usecase.dto.js";
 
@@ -6,6 +7,7 @@ import type { IngestEventsUseCaseIn, IngestEventsUseCaseOut } from "./dto/ingest
 export class IngestEventsUseCase {
     constructor(private readonly logEvent: LogEventUseCase) {}
 
+    @Transactional()
     async execute(input: IngestEventsUseCaseIn): Promise<IngestEventsUseCaseOut> {
         const accepted: IngestEventsUseCaseOut["accepted"][number][] = [];
         const rejected: IngestEventsUseCaseOut["rejected"][number][] = [];

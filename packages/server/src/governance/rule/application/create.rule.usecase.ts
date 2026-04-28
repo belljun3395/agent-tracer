@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { Transactional } from "typeorm-transactional";
 import { Inject, Injectable } from "@nestjs/common";
 import { isRuleExpectMeaningful } from "~governance/rule/domain/rule.js";
 import { computeRuleSignature } from "~governance/rule/domain/rule.signature.js";
@@ -31,6 +32,7 @@ export class CreateRuleUseCase {
         @Inject(BACKFILL_TRIGGER_PORT) private readonly backfill: IBackfillTrigger,
     ) {}
 
+    @Transactional()
     async execute(input: CreateRuleUseCaseIn): Promise<CreateRuleUseCaseOut> {
         validate(input);
         const signature = computeRuleSignature({

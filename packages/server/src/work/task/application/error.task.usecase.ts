@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { Transactional } from "typeorm-transactional";
 import { TaskLifecycleService } from "../service/task.lifecycle.service.js";
 import type { ErrorTaskUseCaseIn, ErrorTaskUseCaseOut } from "./dto/error.task.usecase.dto.js";
 
@@ -6,6 +7,7 @@ import type { ErrorTaskUseCaseIn, ErrorTaskUseCaseOut } from "./dto/error.task.u
 export class ErrorTaskUseCase {
     constructor(private readonly taskLifecycle: TaskLifecycleService) {}
 
+    @Transactional()
     async execute(input: ErrorTaskUseCaseIn): Promise<ErrorTaskUseCaseOut> {
         const result = await this.taskLifecycle.finalizeTask({
             taskId: input.taskId,
