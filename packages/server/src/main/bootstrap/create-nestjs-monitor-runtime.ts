@@ -12,12 +12,12 @@ import {
     logHttpUpgrade,
     type RequestContextIncomingMessage,
 } from "../presentation/middleware/request-context.js";
-import { tallyTaskStatuses } from "~task/public/helpers.js";
+import { tallyTaskStatuses } from "~work/task/public/helpers.js";
 import { SQLITE_DATABASE_CONTEXT_TOKEN } from "../presentation/database/database.provider.js";
 import type { SqliteDatabaseContext } from "~adapters/persistence/sqlite/sqlite.database-context.js";
-import type { ITaskSnapshotQuery } from "~task/public/iservice/task.snapshot.query.iservice.js";
-import type { TaskSnapshot } from "~task/public/dto/task.snapshot.dto.js";
-import { TASK_SNAPSHOT_QUERY } from "~task/public/tokens.js";
+import type { ITaskSnapshotQuery } from "~work/task/public/iservice/task.snapshot.query.iservice.js";
+import type { TaskSnapshot } from "~work/task/public/dto/task.snapshot.dto.js";
+import { TASK_SNAPSHOT_QUERY } from "~work/task/public/tokens.js";
 import type { RuntimeOptions, MonitorRuntime } from "./runtime.type.js";
 
 export async function createNestMonitorRuntime(options: RuntimeOptions): Promise<MonitorRuntime> {

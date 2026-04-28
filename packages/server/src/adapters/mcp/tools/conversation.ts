@@ -1,6 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { USER_MESSAGE_CAPTURE_MODES, USER_MESSAGE_PHASES } from "~event/public/types/event.const.js";
+import { USER_MESSAGE_CAPTURE_MODES, USER_MESSAGE_PHASES } from "~activity/event/public/types/event.const.js";
 import type { MonitorClient } from "../client.js";
 import { toToolResponse } from "../result.js";
 export function registerConversationTools(server: McpServer, client: MonitorClient): void {

@@ -1,13 +1,13 @@
 import fs from "node:fs";
 import path from "node:path";
 import BetterSqlite3 from "better-sqlite3";
-import { createTaskSchema } from "~task/repository/task.schema.js";
-import { createSessionSchema } from "~session/repository/session.schema.js";
-import { createEventSchema } from "~event/repository/event.schema.js";
-import { backfillSearchDocuments } from "~event/repository/search/search.documents.js";
-import { createRuleSchema } from "~rule/repository/rule.schema.js";
-import { createVerificationSchema } from "~verification/repository/verification.schema.js";
-import { createTurnPartitionSchema } from "~turn-partition/domain/turn.partition.schema.js";
+import { createTaskSchema } from "~work/task/repository/task.schema.js";
+import { createSessionSchema } from "~activity/session/repository/session.schema.js";
+import { createEventSchema } from "~activity/event/repository/event.schema.js";
+import { backfillSearchDocuments } from "~activity/event/repository/search/search.documents.js";
+import { createRuleSchema } from "~governance/rule/repository/rule.schema.js";
+import { createVerificationSchema } from "~governance/verification/repository/verification.schema.js";
+import { createTurnPartitionSchema } from "~work/turn/domain/turn.partition.schema.js";
 
 /**
  * Bootstrap context for the shared SQLite database.

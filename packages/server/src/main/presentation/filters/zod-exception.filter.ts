@@ -2,8 +2,8 @@ import type { ExceptionFilter, ArgumentsHost } from "@nestjs/common";
 import { Catch, HttpException, HttpStatus, Injectable, Logger } from "@nestjs/common";
 import { ZodError } from "zod";
 import type { Response } from "express";
-import { TaskNotFoundError, TurnPartitionVersionMismatchError } from "~turn-partition/public/errors.js";
-import { InvalidRuleError, RuleNotFoundError } from "~rule/public/errors.js";
+import { TaskNotFoundError, TurnPartitionVersionMismatchError } from "~work/turn/public/errors.js";
+import { InvalidRuleError, RuleNotFoundError } from "~governance/rule/public/errors.js";
 import { createApiErrorEnvelope, isApiErrorEnvelope } from "~adapters/http/shared/api-response-envelope.js";
 
 const INTERNAL_SERVER_ERROR_BODY = createApiErrorEnvelope("internal_server_error", "Internal server error");
