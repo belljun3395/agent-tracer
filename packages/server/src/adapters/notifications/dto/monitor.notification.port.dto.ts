@@ -1,6 +1,6 @@
-import type { MonitoringEventKind, TimelineLane } from "~event/public/types/event.types.js";
-import type { MonitoringTask } from "~task/public/types/task.types.js";
-import type { SessionSnapshot } from "~session/public/dto/session.snapshot.dto.js";
+import type { MonitoringEventKind, TimelineLane } from "~activity/event/public/types/event.types.js";
+import type { MonitoringTask } from "~work/task/public/types/task.types.js";
+import type { SessionSnapshot } from "~activity/session/public/dto/session.snapshot.dto.js";
 
 export interface EventNotificationClassificationReasonPortDto {
     readonly kind: "keyword" | "action-prefix" | "action-keyword";

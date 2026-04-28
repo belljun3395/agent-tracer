@@ -9,12 +9,9 @@
       "~config/*": ["src/config/*"],
       "~adapters/*": ["src/adapters/*"],
       "~main/*": ["src/main/*"],
-      "~session/*": ["src/session/*"],
-      "~task/*": ["src/task/*"],
-      "~event/*": ["src/event/*"],
-      "~rule/*": ["src/rule/*"],
-      "~verification/*": ["src/verification/*"],
-      "~turn-partition/*": ["src/turn-partition/*"]
+      "~activity/*": ["src/activity/*"],
+      "~work/*": ["src/work/*"],
+      "~governance/*": ["src/governance/*"]
     }
   },
   "include": ["src", "*.config.ts"]

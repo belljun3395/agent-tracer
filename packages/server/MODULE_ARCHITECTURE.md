@@ -2,18 +2,34 @@
 
 > Server-side feature module 구조와 의존성 규칙. 신규/마이그레이션 모듈은 모두 이 패턴을 따른다.
 
-## 현재 적용 모듈
+## 현재 적용 모듈 — 3개 bounded context, 6개 sub-package
 
-| 모듈 | 위치 | 영속화 | 비고 |
+| Bounded context | 구성 sub-package | 위치 | 비고 |
 |---|---|---|---|
-| **session** | `~session/` | TypeORM | SessionEntity, RuntimeBindingEntity, EventLogEntity |
-| **task** | `~task/` | TypeORM | TaskEntity, TaskRelationEntity (+ TaskEventLogEntity for subscriber) |
-| **event** | `~event/` | TypeORM | TimelineEventEntity + 6 derived entities; FTS/event-sourcing은 outbound port로 분리 |
-| **rule** | `~rule/` | TypeORM | RuleEntity (soft-delete via `deleted_at`) |
-| **verification** | `~verification/` | TypeORM | TurnEntity, TurnEventEntity, VerdictEntity, RuleEnforcementEntity |
-| **turn-partition** | `~turn-partition/` | TypeORM + raw SQL | TurnPartitionEntity, raw DDL helper |
+| **activity** | session + event | `~activity/{session,event}/` | agent activity 기록. session = runtime context, event = timeline events (FTS5, event-store 포함). |
+| **work** | task + turn | `~work/{task,turn}/` | task lifecycle + user-defined turn partition. turn은 task와 1:1 FK. |
+| **governance** | rule + verification | `~governance/{rule,verification}/` | rule definition + turn evaluation/verdicts. 양방향 coupling은 모두 intra-context. |
 
-6개 모듈 모두 동일한 vertical slice 패턴 — 신규 모듈은 이 패턴을 그대로 복제.
+각 bounded context는 `<context>.module.ts`로 sub-package들을 NestJS Dynamic Module로 합성. 각 sub-package는 자기 vertical slice (`domain/`, `repository/`, `service/`, `application/`, `adapter/`, `public/`, `api/`)를 그대로 유지 — 언제든 별도 저장소로 분리 가능.
+
+```
+packages/server/src/
+├── activity/
+│   ├── activity.module.ts        # SessionModule + EventModule 합성
+│   ├── session/                  # vertical slice (domain/repository/...)
+│   └── event/
+├── work/
+│   ├── work.module.ts            # TaskModule + TurnModule 합성
+│   ├── task/
+│   └── turn/
+├── governance/
+│   ├── governance.module.ts      # VerificationModule + RuleModule 합성
+│   ├── rule/
+│   └── verification/
+├── adapters/                     # platform infra (HTTP/MCP/WS/SQLite)
+├── main/                         # composition root
+└── ...
+```
 
 **DDL 소유권**: 각 모듈의 `repository/<module>.schema.ts`가 `createXxxSchema(client)`를 export 하고, platform bootstrap (`adapters/persistence/sqlite/sqlite.database-context.ts`)이 FK 의존 순서대로 호출한다. drizzle / 중앙 schema 파일 없음 — 모듈을 들어내면 그 모듈의 테이블도 함께 떨어져 나간다.
 
@@ -668,13 +684,13 @@ subscriber 테스트는 `new DataSource({ type: "better-sqlite3", database: ":me
 
 ## Reference Implementation
 
-6개 모듈 모두 이 패턴의 reference 구현이지만, 각자 다른 측면을 잘 보여줌:
+3개 bounded context의 6개 sub-package 모두 이 패턴의 reference 구현. 각자 다른 측면을 보여줌:
 
-| 모듈 | 보여주는 것 |
+| Sub-package | 보여주는 것 |
 |---|---|
-| **`session/`** | 1차 reference. SessionLifecycleService = `useExisting`으로 ISessionLifecycle 직결. RuntimeBindingService = `useExisting`으로 IRuntimeBindingLookup. EventLogEntity 와 SessionEntitySubscriber. |
-| **`task/`** | Repository thin (`listIdsByStatuses(statuses)`) + 도메인 모델 (`TaskRelations`, `TaskUpsertDraft`)이 결정을 소유. `common/` 분리. TaskEntitySubscriber + TaskRelationEntitySubscriber. |
-| **`event/`** | 8개 entity + 6개 derived 테이블의 multi-table sync. FTS index / event-store append / embedding을 별도 outbound port로 분리. raw better-sqlite3 layer (event store, FTS5, embedding)와 TypeORM layer (timeline events) 동거. |
-| **`rule/`** | Soft-delete 패턴 (`deleted_at IS NULL`). signature 변경 시 verdicts/enforcements invalidation을 verification 모듈의 public iservice로 위임. tool-name → expected action 정규화 helper도 자기 domain 안에. |
-| **`verification/`** | Factory binding 과도기 패턴. 4개 entity + 4개 thin repository. 4개 public iservice (Backfill / VerdictCount / VerdictInvalidation / PostProcessor). 4개 internal token을 자기 `repository/tokens.ts`에서 정의, cross-module bridge token만 `public/tokens.ts`. |
-| **`turn-partition/`** | 가장 작은 모듈 reference. TypeORM TurnPartitionEntity + raw DDL helper. event 모듈의 `DOMAIN_EVENT_APPENDER` iservice를 outbound port로 소비 (cross-module domain event 기록 패턴). |
+| **`activity/session/`** | 1차 reference. SessionLifecycleService = `useExisting`으로 ISessionLifecycle 직결. RuntimeBindingService = `useExisting`으로 IRuntimeBindingLookup. EventLogEntity 와 SessionEntitySubscriber. |
+| **`activity/event/`** | 8개 entity + 6개 derived 테이블의 multi-table sync. FTS index / event-store append / embedding을 별도 outbound port로 분리. raw better-sqlite3 layer (event store, FTS5, embedding)와 TypeORM layer (timeline events) 동거. |
+| **`work/task/`** | Repository thin (`listIdsByStatuses(statuses)`) + 도메인 모델 (`TaskRelations`, `TaskUpsertDraft`)이 결정을 소유. `common/` 분리. TaskEntitySubscriber + TaskRelationEntitySubscriber. |
+| **`work/turn/`** | 가장 작은 sub-package reference. TypeORM TurnPartitionEntity + raw DDL helper. activity/event 모듈의 `DOMAIN_EVENT_APPENDER` iservice를 outbound port로 소비. work bounded context 안에서 task의 ITaskAccess를 같은 context 내부 호출로 사용. |
+| **`governance/rule/`** | Soft-delete 패턴 (`deleted_at IS NULL`). signature 변경 시 verdicts/enforcements invalidation을 verification sub-package의 public iservice로 위임 (intra-context). tool-name → expected action 정규화 helper도 자기 domain 안에. |
+| **`governance/verification/`** | Factory binding 과도기 패턴. 4개 entity + 4개 thin repository. 4개 public iservice (Backfill / VerdictCount / VerdictInvalidation / PostProcessor). 4개 internal token을 자기 `repository/tokens.ts`에서 정의, cross-module bridge token만 `public/tokens.ts`. |
