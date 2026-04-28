@@ -1,10 +1,17 @@
 import { Inject, Injectable } from "@nestjs/common";
-import type { ITurnQueryRepository } from "~application/ports/repository/turn.query.repository.js";
 import { TURN_QUERY_REPOSITORY_TOKEN } from "~main/presentation/database/database.provider.js";
 import type {
     ITurnQueryAccess,
     TurnSummaryAccessRecord,
 } from "../application/outbound/turn.query.access.port.js";
+
+/**
+ * Structural shape consumed via TURN_QUERY_REPOSITORY_TOKEN. Self-contained so
+ * task does not import verification's internal contracts.
+ */
+interface TurnSummaryQuerySource {
+    listTurnSummariesForTask(taskId: string): Promise<readonly TurnSummaryAccessRecord[]>;
+}
 
 /**
  * Outbound adapter — bridges legacy TurnSummaryQueryPort to the task-local
@@ -14,7 +21,7 @@ import type {
 @Injectable()
 export class TurnQueryAccessAdapter implements ITurnQueryAccess {
     constructor(
-        @Inject(TURN_QUERY_REPOSITORY_TOKEN) private readonly inner: ITurnQueryRepository,
+        @Inject(TURN_QUERY_REPOSITORY_TOKEN) private readonly inner: TurnSummaryQuerySource,
     ) {}
 
     async listTurnSummariesForTask(taskId: string): Promise<readonly TurnSummaryAccessRecord[]> {

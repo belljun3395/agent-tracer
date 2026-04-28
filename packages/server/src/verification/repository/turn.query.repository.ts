@@ -5,7 +5,7 @@ import type {
     BackfillTurnRow,
     ITurnQueryRepository,
     TaskTurnSummaryRow,
-} from "~application/ports/repository/turn.query.repository.js";
+} from "~verification/application/outbound/turn.query.repository.port.js";
 import type { VerdictStatus } from "~verification/domain/model/verdict.model.js";
 import { TurnEntity } from "../domain/turn.entity.js";
 import { VerdictEntity } from "../domain/verdict.entity.js";

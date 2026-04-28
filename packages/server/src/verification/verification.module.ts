@@ -1,12 +1,12 @@
 import { Module, type DynamicModule, type Provider } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { randomUUID } from "node:crypto";
-import type { INotificationPublisher } from "~application/ports/notifications/notification.publisher.port.js";
-import type { IRuleRepository } from "~application/ports/repository/rule.repository.js";
-import type { IRuleEnforcementRepository } from "~application/ports/repository/rule.enforcement.repository.js";
-import type { ITurnQueryRepository } from "~application/ports/repository/turn.query.repository.js";
-import type { ITurnRepository } from "~application/ports/repository/turn.repository.js";
-import type { IVerdictRepository } from "~application/ports/repository/verdict.repository.js";
+import type { INotificationPublisher } from "~adapters/notifications/notification.publisher.port.js";
+import type { IRuleAccess } from "~verification/application/outbound/rule.access.port.js";
+import type { IRuleEnforcementRepository } from "~verification/application/outbound/rule.enforcement.repository.port.js";
+import type { ITurnQueryRepository } from "~verification/application/outbound/turn.query.repository.port.js";
+import type { ITurnRepository } from "~verification/application/outbound/turn.repository.port.js";
+import type { IVerdictRepository } from "~verification/application/outbound/verdict.repository.port.js";
 import type { ITimelineEventRead } from "~event/public/iservice/timeline.event.read.iservice.js";
 import { TIMELINE_EVENT_READ } from "~event/public/tokens.js";
 import {
@@ -46,7 +46,7 @@ const VERIFICATION_INTERNAL_PROVIDERS: Provider[] = [
     {
         provide: TurnEvaluationService,
         useFactory: (
-            ruleRepo: IRuleRepository,
+            ruleRepo: IRuleAccess,
             turnRepo: ITurnRepository,
             verdictRepo: IVerdictRepository,
         ) => new TurnEvaluationService(ruleRepo, turnRepo, verdictRepo),
@@ -61,7 +61,7 @@ const VERIFICATION_INTERNAL_PROVIDERS: Provider[] = [
     {
         provide: RuleEnforcementPostProcessor,
         useFactory: (
-            ruleRepo: IRuleRepository,
+            ruleRepo: IRuleAccess,
             turnRepo: ITurnRepository,
             enforcementRepo: IRuleEnforcementRepository,
             notifier: INotificationPublisher,

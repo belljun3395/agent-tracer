@@ -1,5 +1,5 @@
 import { tallyVerdicts } from "~verification/domain/verdict.js";
-import type { ITurnQueryRepository } from "~application/ports/repository/turn.query.repository.js";
+import type { ITurnQueryRepository } from "~verification/application/outbound/turn.query.repository.port.js";
 import type {
     GetVerdictCountsForTaskUseCaseIn,
     GetVerdictCountsForTaskUseCaseOut,

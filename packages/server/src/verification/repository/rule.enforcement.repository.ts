@@ -5,7 +5,7 @@ import type {
     IRuleEnforcementRepository,
     RuleEnforcementInsert,
     RuleEnforcementRow,
-} from "~application/ports/repository/rule.enforcement.repository.js";
+} from "~verification/application/outbound/rule.enforcement.repository.port.js";
 import { RuleEnforcementEntity } from "../domain/rule.enforcement.entity.js";
 
 @Injectable()

@@ -1,5 +1,15 @@
-import type { EventInsertInput } from "~application/ports/repository/event.repository.js";
 import type { AnyDomainEventDraft } from "~domain/events/model/domain.events.model.js";
+
+interface EventInsertInput {
+    readonly id: string;
+    readonly taskId: string;
+    readonly sessionId?: string | null;
+    readonly kind: string;
+    readonly lane: string;
+    readonly title: string;
+    readonly metadata: Record<string, unknown>;
+    readonly createdAt: string;
+}
 
 export function mapTimelineInsertToDomainEvent(input: EventInsertInput): AnyDomainEventDraft | null {
     const base = {

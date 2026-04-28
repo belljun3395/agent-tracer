@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import type { INotificationPublisher } from "~application/ports/notifications/notification.publisher.port.js";
+import type { INotificationPublisher } from "~adapters/notifications/notification.publisher.port.js";
 import { NOTIFICATION_PUBLISHER_TOKEN } from "~main/presentation/database/database.provider.js";
 import type {
     IRuleNotificationPublisher,

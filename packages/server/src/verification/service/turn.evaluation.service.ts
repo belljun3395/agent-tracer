@@ -2,9 +2,9 @@ import { randomUUID } from "node:crypto";
 import type { TurnVerdict } from "~verification/domain/model/verdict.model.js";
 import { evaluateTurn } from "~verification/domain/turn.evaluation.js";
 import { aggregateVerdict } from "~verification/domain/verdict.js";
-import type { IRuleRepository } from "~application/ports/repository/rule.repository.js";
-import type { ITurnRepository } from "~application/ports/repository/turn.repository.js";
-import type { IVerdictRepository } from "~application/ports/repository/verdict.repository.js";
+import type { IRuleAccess } from "~verification/application/outbound/rule.access.port.js";
+import type { ITurnRepository } from "~verification/application/outbound/turn.repository.port.js";
+import type { IVerdictRepository } from "~verification/application/outbound/verdict.repository.port.js";
 
 
 
@@ -35,7 +35,7 @@ export interface TurnEvaluationResult {
  */
 export class TurnEvaluationService {
     constructor(
-        private readonly ruleRepo: IRuleRepository,
+        private readonly ruleRepo: IRuleAccess,
         private readonly turnRepo: ITurnRepository,
         private readonly verdictRepo: IVerdictRepository,
         private readonly now: () => string = () => new Date().toISOString(),
