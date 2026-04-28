@@ -27,6 +27,8 @@ import { TimelineEventReadPublicAdapter } from "./adapter/timeline.event.read.pu
 import { TimelineEventWritePublicAdapter } from "./adapter/timeline.event.write.public.adapter.js";
 import { VerificationPostProcessorAdapter } from "./adapter/verification.post.processor.adapter.js";
 import { EventAsyncRefEntity } from "./domain/event.async.ref.entity.js";
+import { ContentBlobEntity } from "./domain/event-store/content.blob.entity.js";
+import { EventLogEntity } from "./domain/event-store/event.log.entity.js";
 import { EventFileEntity } from "./domain/event.file.entity.js";
 import { EventRelationEntity } from "./domain/event.relation.entity.js";
 import { EventTagEntity } from "./domain/event.tag.entity.js";
@@ -51,6 +53,9 @@ import { EventTokenUsageRepository } from "./repository/event.token.usage.reposi
 import { QuestionCurrentRepository } from "./repository/question.current.repository.js";
 import { TimelineEventRepository } from "./repository/timeline.event.repository.js";
 import { TodoCurrentRepository } from "./repository/todo.current.repository.js";
+import { EventStoreService } from "./repository/event-store/event.store.service.js";
+import { SearchBackfillService } from "./repository/search/search.backfill.service.js";
+import { SearchDocumentEntity } from "./domain/search/search.document.entity.js";
 import { TimelineEventService } from "./service/timeline.event.service.js";
 import { TimelineEventStorageService } from "./service/timeline.event.storage.service.js";
 
@@ -91,6 +96,9 @@ export class EventModule {
                     TodoCurrentEntity,
                     QuestionCurrentEntity,
                     EventTokenUsageEntity,
+                    EventLogEntity,
+                    ContentBlobEntity,
+                    SearchDocumentEntity,
                 ]),
                 databaseModule,
                 governanceModule,
@@ -114,6 +122,8 @@ export class EventModule {
                 // Services
                 TimelineEventStorageService,
                 TimelineEventService,
+                EventStoreService,
+                SearchBackfillService,
                 // Outbound adapters
                 EventPersistenceAdapter,
                 EventSearchIndexAdapter,

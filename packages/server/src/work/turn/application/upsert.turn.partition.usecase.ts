@@ -50,7 +50,7 @@ export class UpsertTurnPartitionUseCase {
         });
         validatePartition(partition, totalTurns);
         await this.turnPartitions.upsert(partition);
-        this.eventStore.append({
+        await this.eventStore.append({
             type: "turn.partition_updated",
             taskId: partition.taskId,
             updatedAt: partition.updatedAt,

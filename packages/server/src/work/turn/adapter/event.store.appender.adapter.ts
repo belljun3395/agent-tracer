@@ -23,9 +23,9 @@ export class EventStoreAppenderAdapter implements IEventStoreAppender {
         @Inject(DOMAIN_EVENT_APPENDER) private readonly inner: IDomainEventAppender,
     ) {}
 
-    append(event: TurnPartitionDomainEvent): void {
+    async append(event: TurnPartitionDomainEvent): Promise<void> {
         if (event.type === "turn.partition_updated") {
-            this.inner.append({
+            await this.inner.append({
                 eventTime: eventTimeFromIso(event.updatedAt),
                 eventType: "turn.partition_updated",
                 schemaVer: 1,
@@ -39,7 +39,7 @@ export class EventStoreAppenderAdapter implements IEventStoreAppender {
             });
             return;
         }
-        this.inner.append({
+        await this.inner.append({
             eventTime: eventTimeFromIso(event.resetAt),
             eventType: "turn.partition_reset",
             schemaVer: 1,

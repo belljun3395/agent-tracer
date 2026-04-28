@@ -1,11 +1,11 @@
 import { Inject, Injectable } from "@nestjs/common";
+import { InjectDataSource } from "@nestjs/typeorm";
+import { DataSource } from "typeorm";
 import {
     refreshEventSearchDocument,
     searchEvents,
 } from "../repository/search/event.search.js";
 import type { IEmbeddingService } from "../repository/embedding/embedding.service.js";
-import type { SqliteDatabaseContext } from "~adapters/persistence/sqlite/sqlite.database-context.js";
-import { SQLITE_DATABASE_CONTEXT_TOKEN } from "~main/presentation/database/database.provider.js";
 import { EMBEDDING_SERVICE_TOKEN } from "../repository/embedding/tokens.js";
 import type {
     EventSearchIndexQueryOptions,
@@ -15,23 +15,23 @@ import type {
 
 /**
  * Outbound adapter — bridges event module's IEventSearchIndex port to the
- * module-internal SQLite FTS helpers (~activity/event/repository/search/).
+ * module-internal search helpers. Uses TypeORM EntityManager so the same code
+ * runs on any TypeORM-supported driver (better-sqlite3, postgres, ...).
  */
 @Injectable()
 export class EventSearchIndexAdapter implements IEventSearchIndex {
     constructor(
-        @Inject(SQLITE_DATABASE_CONTEXT_TOKEN) private readonly context: SqliteDatabaseContext,
+        @InjectDataSource() private readonly dataSource: DataSource,
         @Inject(EMBEDDING_SERVICE_TOKEN) private readonly embedding: IEmbeddingService | null,
     ) {}
 
-    refresh(eventId: string): Promise<void> {
-        refreshEventSearchDocument(this.context.client, eventId);
-        return Promise.resolve();
+    async refresh(eventId: string): Promise<void> {
+        await refreshEventSearchDocument(this.dataSource.manager, eventId);
     }
 
     async search(query: string, options: EventSearchIndexQueryOptions): Promise<EventSearchIndexResults> {
         const result = await searchEvents(
-            this.context.client,
+            this.dataSource.manager,
             this.embedding ?? undefined,
             query,
             options as never,
