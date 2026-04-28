@@ -1,7 +1,7 @@
 import { type Provider } from "@nestjs/common";
 import { createSqliteDatabaseContext } from "~adapters/persistence/sqlite/sqlite.database-context.js";
 import type { SqliteDatabaseContext } from "~adapters/persistence/sqlite/sqlite.database-context.js";
-import type { INotificationPublisher } from "~application/ports/notifications/notification.publisher.port.js";
+import type { INotificationPublisher } from "~adapters/notifications/notification.publisher.port.js";
 
 export const SQLITE_DATABASE_CONTEXT_TOKEN = "SQLITE_DATABASE_CONTEXT";
 export const TURN_PARTITION_REPOSITORY_TOKEN = "TURN_PARTITION_REPOSITORY";

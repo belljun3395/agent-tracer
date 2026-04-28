@@ -1,4 +1,4 @@
-import type { TurnAggregateVerdict, TurnStatus } from "./turn.repository.js";
+import type { TurnAggregateVerdict, TurnStatus } from "./turn.repository.port.js";
 import type { VerdictStatus } from "~verification/domain/model/verdict.model.js";
 
 /**

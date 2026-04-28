@@ -6,7 +6,7 @@ import type {
     StoredTurn,
     TurnAggregateVerdict,
     TurnInsertInput,
-} from "~application/ports/repository/turn.repository.js";
+} from "~verification/application/outbound/turn.repository.port.js";
 import { TurnEntity } from "../domain/turn.entity.js";
 import { TurnEventEntity } from "../domain/turn.event.entity.js";
 

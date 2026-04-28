@@ -5,15 +5,15 @@ import { evaluateTurn } from "~verification/domain/turn.evaluation.js";
 import type { EvaluateTurnToolCall } from "~verification/domain/turn.evaluation.js";
 import { aggregateVerdict } from "~verification/domain/verdict.js";
 import type { TimelineEvent } from "~domain/monitoring/event/model/timeline.event.model.js";
-import type { NotificationPublisherPort } from "~application/ports/notifications/notification.publisher.port.js";
-import type { TimelineEventReadPort } from "~application/ports/timeline-events/timeline.event.read.port.js";
+import type { NotificationPublisherPort } from "~adapters/notifications/notification.publisher.port.js";
+import type { ITimelineEventAccess } from "~verification/application/outbound/timeline.event.access.port.js";
 import type {
     IRuleEnforcementRepository,
     RuleEnforcementInsert,
-} from "~application/ports/repository/rule.enforcement.repository.js";
-import type { ITurnQueryRepository, BackfillTurnRow as BackfillTurnPortRow } from "~application/ports/repository/turn.query.repository.js";
-import type { ITurnRepository } from "~application/ports/repository/turn.repository.js";
-import type { IVerdictRepository } from "~application/ports/repository/verdict.repository.js";
+} from "~verification/application/outbound/rule.enforcement.repository.port.js";
+import type { ITurnQueryRepository, BackfillTurnRow as BackfillTurnPortRow } from "~verification/application/outbound/turn.query.repository.port.js";
+import type { ITurnRepository } from "~verification/application/outbound/turn.repository.port.js";
+import type { IVerdictRepository } from "~verification/application/outbound/verdict.repository.port.js";
 
 
 import type {
@@ -29,7 +29,7 @@ export interface BackfillRuleEvaluationDeps {
     readonly turnRepo: ITurnRepository;
     readonly turnSource: BackfillTurnSource;
     readonly verdictRepo: IVerdictRepository;
-    readonly eventRepo: TimelineEventReadPort;
+    readonly eventRepo: ITimelineEventAccess;
     readonly enforcementRepo: IRuleEnforcementRepository;
     readonly notifier: NotificationPublisherPort;
     readonly now: () => string;
@@ -193,7 +193,7 @@ function listTurnsForRuleScope(
 
 async function collectTurnEvents(
     turnRepo: ITurnRepository,
-    eventRepo: TimelineEventReadPort,
+    eventRepo: ITimelineEventAccess,
     turnId: string,
 ): Promise<readonly TimelineEvent[]> {
     const eventIds = await turnRepo.findEventsForTurn(turnId);

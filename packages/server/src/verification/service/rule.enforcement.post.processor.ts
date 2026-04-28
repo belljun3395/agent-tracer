@@ -1,13 +1,13 @@
 import type { TimelineEvent } from "~domain/monitoring/event/model/timeline.event.model.js";
 import { KIND } from "~domain/monitoring/common/const/event.kind.const.js";
 import { matchEventAgainstRule } from "~verification/domain/event-rule.matching.js";
-import type { NotificationPublisherPort } from "~application/ports/notifications/notification.publisher.port.js";
-import type { IRuleRepository } from "~application/ports/repository/rule.repository.js";
+import type { NotificationPublisherPort } from "~adapters/notifications/notification.publisher.port.js";
+import type { IRuleAccess } from "~verification/application/outbound/rule.access.port.js";
 import type {
     IRuleEnforcementRepository,
     RuleEnforcementInsert,
-} from "~application/ports/repository/rule.enforcement.repository.js";
-import type { ITurnRepository } from "~application/ports/repository/turn.repository.js";
+} from "~verification/application/outbound/rule.enforcement.repository.port.js";
+import type { ITurnRepository } from "~verification/application/outbound/turn.repository.port.js";
 
 
 
@@ -24,7 +24,7 @@ import type { ITurnRepository } from "~application/ports/repository/turn.reposit
  */
 export class RuleEnforcementPostProcessor {
     constructor(
-        private readonly ruleRepo: IRuleRepository,
+        private readonly ruleRepo: IRuleAccess,
         private readonly turnRepo: ITurnRepository,
         private readonly enforcementRepo: IRuleEnforcementRepository,
         private readonly notifier: NotificationPublisherPort,

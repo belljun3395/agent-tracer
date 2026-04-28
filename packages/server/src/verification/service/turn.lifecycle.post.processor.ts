@@ -2,9 +2,9 @@ import { randomUUID } from "node:crypto";
 import { KIND } from "~domain/monitoring/common/const/event.kind.const.js";
 import type { TimelineEvent } from "~domain/monitoring/event/model/timeline.event.model.js";
 import { inferToolCall } from "~verification/domain/tool-call.inference.js";
-import type { NotificationPublisherPort } from "~application/ports/notifications/notification.publisher.port.js";
-import type { TimelineEventReadPort } from "~application/ports/timeline-events/timeline.event.read.port.js";
-import type { ITurnRepository } from "~application/ports/repository/turn.repository.js";
+import type { NotificationPublisherPort } from "~adapters/notifications/notification.publisher.port.js";
+import type { ITimelineEventAccess } from "~verification/application/outbound/timeline.event.access.port.js";
+import type { ITurnRepository } from "~verification/application/outbound/turn.repository.port.js";
 import type { TurnEvaluationService } from "./turn.evaluation.service.js";
 
 /**
@@ -17,7 +17,7 @@ import type { TurnEvaluationService } from "./turn.evaluation.service.js";
  */
 export class TurnLifecyclePostProcessor {
     constructor(
-        private readonly eventRepo: TimelineEventReadPort,
+        private readonly eventRepo: ITimelineEventAccess,
         private readonly turnRepo: ITurnRepository,
         private readonly turnEvaluation: TurnEvaluationService,
         private readonly notifier: NotificationPublisherPort,

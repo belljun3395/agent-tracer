@@ -1,6 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
-import type { IVerdictRepository } from "~application/ports/repository/verdict.repository.js";
-import type { IRuleEnforcementRepository } from "~application/ports/repository/rule.enforcement.repository.js";
+import type { IVerdictRepository } from "~verification/application/outbound/verdict.repository.port.js";
+import type { IRuleEnforcementRepository } from "~verification/application/outbound/rule.enforcement.repository.port.js";
 import {
     RULE_ENFORCEMENT_REPOSITORY_TOKEN,
     VERDICT_REPOSITORY_TOKEN,

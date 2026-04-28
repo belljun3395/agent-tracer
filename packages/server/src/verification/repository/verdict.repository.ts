@@ -4,7 +4,7 @@ import { Repository } from "typeorm";
 import type {
     IVerdictRepository,
     VerdictUpsertInput,
-} from "~application/ports/repository/verdict.repository.js";
+} from "~verification/application/outbound/verdict.repository.port.js";
 import type { TurnVerdict, VerdictStatus } from "~verification/domain/model/verdict.model.js";
 import { TurnEntity } from "../domain/turn.entity.js";
 import { VerdictEntity } from "../domain/verdict.entity.js";
