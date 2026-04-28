@@ -1,8 +1,8 @@
 import { Inject, Injectable } from "@nestjs/common";
 import type { MonitoringTask } from "~task/domain/task.model.js";
-import type { MonitoringEventKind } from "~event/domain/common/type/event.kind.type.js";
+import type { MonitoringEventKind } from "~event/public/types/event.types.js";
 import type { MonitoringTaskKind } from "~task/common/task.status.type.js";
-import { createEventRecordDraft } from "~event/domain/event.recording.js";
+import { createEventRecordDraft } from "~event/public/helpers.js";
 import { TaskUpsertDraft } from "../domain/task.upsert.draft.model.js";
 import {
     TaskFinalizationRecording,

@@ -1,5 +1,5 @@
-import type { TimelineEvent } from "~event/domain/model/timeline.event.model.js";
-import { KIND } from "~event/domain/common/const/event.kind.const.js";
+import type { TimelineEvent } from "~event/public/types/event.types.js";
+import { KIND } from "~event/public/types/event.const.js";
 import { matchEventAgainstRule } from "~verification/domain/event-rule.matching.js";
 import type { NotificationPublisherPort } from "~adapters/notifications/notification.publisher.port.js";
 import type { IRuleAccess } from "~verification/application/outbound/rule.access.port.js";

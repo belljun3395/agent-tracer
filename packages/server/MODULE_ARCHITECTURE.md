@@ -17,6 +17,20 @@
 
 **DDL 소유권**: 각 모듈의 `repository/<module>.schema.ts`가 `createXxxSchema(client)`를 export 하고, platform bootstrap (`adapters/persistence/sqlite/sqlite.database-context.ts`)이 FK 의존 순서대로 호출한다. drizzle / 중앙 schema 파일 없음 — 모듈을 들어내면 그 모듈의 테이블도 함께 떨어져 나간다.
 
+## SQLite stack — TypeORM + raw better-sqlite3 hybrid
+
+같은 `.db` 파일 위에서 두 stack이 공존한다. WAL 모드라 동시 접근 OK. 모듈은 한 테이블을 두 stack에서 동시에 쓰지 않는다.
+
+| Layer | 사용 도구 | 위치 | 이유 |
+|---|---|---|---|
+| **TypeORM Entity 영속화** | `@Entity` + `Repository<T>` | 각 모듈 `repository/<aggregate>.repository.ts` | 일반 CRUD — 13개 entity (TaskEntity, RuleEntity 등). `synchronize: false`. |
+| **DDL bootstrap** | raw `BetterSqlite3.Database` | 각 모듈 `repository/<module>.schema.ts` | TypeORM은 entity → SQL 매핑만 담당, 테이블 생성/마이그레이션은 안 함. raw DDL이 각 모듈 안에서 자기 테이블을 declare. |
+| **Event sourcing append-only log** | raw `db.prepare(...)` | `~event/repository/event-store/event.store.ts` | 고성능 append + 단순 row 모델. ORM abstraction 가치 없음. |
+| **FTS5 search** | raw `db.prepare(...)` + `MATCH` | `~event/repository/search/` | TypeORM이 SQLite virtual table (FTS5) 잘 못 다룸. |
+| **읽기 전용 utility** | raw `BetterSqlite3` | `main/replay-events.ts`, `main/seed.ts` | NestJS 부팅 없이 가볍게 dump/seed. |
+
+> `better-sqlite3`는 의도적으로 남아있음 — TypeORM이 SQLite 어댑터로 내부적으로 사용 (제거 불가), DDL bootstrap, 이벤트 소싱, FTS5 — 이 4가지는 raw 액세스가 더 적합.
+
 ## 핵심 원칙
 
 1. **모듈 = 기능 단위 (vertical slice)**. 각 모듈은 자기 도메인을 완결적으로 소유한다.
@@ -50,11 +64,17 @@ packages/server/src/<module>/
 │   └── *.usecase.ts                     # API 1:1 대응 (UseCase#execute)
 ├── adapter/                             # outbound port 구현 (외부 모듈 wrap)
 │   └── *.adapter.ts
-├── public/                              # 외부에 제공하는 contract
+├── public/                              # 외부에 제공하는 contract + 노출 surface
 │   ├── iservice/                        # interface (IXxx)
 │   │   └── *.iservice.ts
 │   ├── dto/                             # wire-format DTO (primitive-typed)
 │   │   └── *.dto.ts
+│   ├── types/                           # 도메인 타입/상수의 thin re-export (cross-module)
+│   │   ├── *.types.ts                   # 인터페이스 / string union 재노출
+│   │   └── *.const.ts                   # 상수 재노출
+│   ├── predicates.ts                    # 도메인 predicate 재노출 (선택)
+│   ├── helpers.ts                       # pure helper 재노출 (선택)
+│   ├── errors.ts                        # error 클래스 재노출 (선택)
 │   └── tokens.ts                        # DI 토큰
 ├── api/                                 # HTTP / ingest controllers
 │   ├── *.controller.ts
@@ -73,8 +93,8 @@ packages/server/src/<module>/
 
 | Layer | 책임 | 의존 가능 | 의존 금지 |
 |---|---|---|---|
-| **domain** | 엔티티(`*.entity.ts`), 도메인 모델(`*.model.ts`), 규칙, value object | 공유 도메인 (`~domain/`) | 같은 모듈의 다른 layer 전부 |
-| **repository** | `@Entity` 영속화. TypeORM 호출 | domain | service / application / api / adapter / subscriber |
+| **domain** | 엔티티(`*.entity.ts`), 도메인 모델(`*.model.ts`), 규칙, value object | 자기 모듈 안의 domain + 다른 모듈 `public/` (cross-module type 필요 시) | 같은 모듈의 다른 layer 전부. platform-shared `~domain/`은 더 이상 없음 — 모든 도메인 타입은 owner 모듈 안. |
+| **repository** | `@Entity` 영속화 + `repository/<module>.schema.ts` raw DDL helper. TypeORM 호출 | domain, `application/outbound/` (`import type` 으로 contract 만) | service / application / api / adapter / subscriber |
 | **service** | 도메인 조합, 공통 정책. usecase가 호출 | domain, repository, public/dto, application/outbound | application/dto/usecase, api / adapter / subscriber |
 | **application/usecase** | API endpoint 1:1 대응. 사이드이펙트 오케스트레이션 | service, domain, application/outbound | repository (직접), api / adapter / subscriber |
 | **application/outbound** | 외부 모듈 의존 contract (interface만) | — (self-contained) | 모든 외부 import |
@@ -293,9 +313,61 @@ export class XxxModule {
 }
 ```
 
+### 토큰 소유권 (platform 분리 후)
+
+Token은 **owner 모듈 안에** 둔다. platform `database.provider.ts`는 진짜 platform 토큰만 (`SQLITE_DATABASE_CONTEXT_TOKEN`, `NOTIFICATION_PUBLISHER_TOKEN`).
+
+| Token 종류 | 위치 |
+|---|---|
+| 모듈 internal repo token | `~<module>/repository/tokens.ts` (예: `TURN_REPOSITORY_TOKEN`) |
+| Cross-module bridge token (다른 모듈이 inject) | `~<module>/public/tokens.ts` (예: `TURN_QUERY_REPOSITORY_TOKEN`, `RULE_REPOSITORY_TOKEN`) |
+| Platform infrastructure token | `~main/presentation/database/database.provider.ts` |
+
+### 모듈 도메인 타입 / helper의 cross-module 노출
+
+다른 모듈이 이 모듈의 도메인 타입/helper를 필요로 할 때, **`~<module>/public/`에 thin re-export 파일을 둔다**. 모듈 internal `domain/`, `common/`, `repository/`는 internal 유지.
+
+| 노출 종류 | 위치 | 예시 |
+|---|---|---|
+| 도메인 타입 (interface, string union) | `~<module>/public/types/<module>.types.ts` | `~event/public/types/event.types.ts` (TimelineEvent, TimelineLane 등) |
+| 도메인 상수 | `~<module>/public/types/<module>.const.ts` | `~event/public/types/event.const.ts` (KIND, EVENT_LANES 등) |
+| 도메인 predicate / pure helper | `~<module>/public/predicates.ts`, `~<module>/public/helpers.ts` | `~event/public/predicates.ts` (isInternalEvent, isUserLane 등) |
+| 에러 클래스 | `~<module>/public/errors.ts` | `~rule/public/errors.ts` (InvalidRuleError, RuleNotFoundError) |
+
+**원칙**: re-export 파일은 thin (구현 없음, `export ... from ...` 만). 모듈 internal에서 변경이 일어나도 public 표면이 안정되도록.
+
+```ts
+// ~event/public/types/event.types.ts (thin barrel)
+export type { TimelineEvent } from "~event/domain/model/timeline.event.model.js";
+export type { TimelineLane } from "~event/domain/common/type/event.kind.type.js";
+// ...
+```
+
+```ts
+// 다른 모듈 ✅
+import type { TimelineEvent } from "~event/public/types/event.types.js";
+import { isInternalEvent } from "~event/public/predicates.js";
+
+// 다른 모듈 ❌
+import type { TimelineEvent } from "~event/domain/model/timeline.event.model.js";  // internal 침범
+```
+
+### 모듈 errors의 cross-module 노출
+
+플랫폼 exception filter가 모듈 도메인 에러를 HTTP status로 매핑할 때, **`~<module>/public/errors.ts`로 re-export**한다. 모듈 internal `common/errors.ts`는 internal 유지.
+
+```ts
+// ~rule/public/errors.ts
+export { RuleNotFoundError, InvalidRuleError } from "../common/errors.js";
+
+// ~main/presentation/filters/zod-exception.filter.ts
+import { RuleNotFoundError } from "~rule/public/errors.js";  // ✅ public surface
+// import from "~rule/common/errors.js"  ❌ — internal 침범
+```
+
 ### Cross-module token 재매핑 (legacy 마이그레이션 패턴)
 
-레거시 코드가 특정 token (`RULE_REPOSITORY_TOKEN`, `TURN_REPOSITORY_TOKEN` 등)을 통해 repository를 inject할 때, 새 모듈이 그 token을 자기 TypeORM repo로 remap하면 호출부 변경 없이 마이그레이션 가능하다.
+레거시 코드가 특정 token을 통해 repository를 inject할 때, 새 모듈이 그 token을 자기 TypeORM repo로 remap하면 호출부 변경 없이 마이그레이션 가능하다.
 
 ```ts
 // rule.module.ts
@@ -596,12 +668,13 @@ subscriber 테스트는 `new DataSource({ type: "better-sqlite3", database: ":me
 
 ## Reference Implementation
 
-5개 모듈 모두 이 패턴의 reference 구현이지만, 각자 다른 측면을 잘 보여줌:
+6개 모듈 모두 이 패턴의 reference 구현이지만, 각자 다른 측면을 잘 보여줌:
 
 | 모듈 | 보여주는 것 |
 |---|---|
 | **`session/`** | 1차 reference. SessionLifecycleService = `useExisting`으로 ISessionLifecycle 직결. RuntimeBindingService = `useExisting`으로 IRuntimeBindingLookup. EventLogEntity 와 SessionEntitySubscriber. |
 | **`task/`** | Repository thin (`listIdsByStatuses(statuses)`) + 도메인 모델 (`TaskRelations`, `TaskUpsertDraft`)이 결정을 소유. `common/` 분리. TaskEntitySubscriber + TaskRelationEntitySubscriber. |
-| **`event/`** | 8개 entity + 6개 derived 테이블의 multi-table sync. FTS index / event-store append를 별도 outbound port로 분리. `EVENT_PERSISTENCE_PORT` + `EVENT_SEARCH_INDEX_PORT` + `EVENT_STORE_APPENDER_PORT` 합성. |
-| **`rule/`** | Soft-delete 패턴 (`deleted_at IS NULL`). signature 변경 시 verdicts/enforcements invalidation을 verification 모듈의 public iservice로 위임. |
-| **`verification/`** | Factory binding 과도기 패턴. 4개 entity + 4개 thin repository. 4개 public iservice (Backfill / VerdictCount / VerdictInvalidation / PostProcessor). 레거시 token 4개를 새 TypeORM repo로 remap. |
+| **`event/`** | 8개 entity + 6개 derived 테이블의 multi-table sync. FTS index / event-store append / embedding을 별도 outbound port로 분리. raw better-sqlite3 layer (event store, FTS5, embedding)와 TypeORM layer (timeline events) 동거. |
+| **`rule/`** | Soft-delete 패턴 (`deleted_at IS NULL`). signature 변경 시 verdicts/enforcements invalidation을 verification 모듈의 public iservice로 위임. tool-name → expected action 정규화 helper도 자기 domain 안에. |
+| **`verification/`** | Factory binding 과도기 패턴. 4개 entity + 4개 thin repository. 4개 public iservice (Backfill / VerdictCount / VerdictInvalidation / PostProcessor). 4개 internal token을 자기 `repository/tokens.ts`에서 정의, cross-module bridge token만 `public/tokens.ts`. |
+| **`turn-partition/`** | 가장 작은 모듈 reference. TypeORM TurnPartitionEntity + raw DDL helper. event 모듈의 `DOMAIN_EVENT_APPENDER` iservice를 outbound port로 소비 (cross-module domain event 기록 패턴). |
