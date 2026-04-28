@@ -4,7 +4,6 @@ import BetterSqlite3 from "better-sqlite3";
 import { createTaskSchema } from "~work/task/repository/task.schema.js";
 import { createSessionSchema } from "~activity/session/repository/session.schema.js";
 import { createEventSchema } from "~activity/event/repository/event.schema.js";
-import { backfillSearchDocuments } from "~activity/event/repository/search/search.documents.js";
 import { createRuleSchema } from "~governance/rule/repository/rule.schema.js";
 import { createVerificationSchema } from "~governance/verification/repository/verification.schema.js";
 import { createTurnPartitionSchema } from "~work/turn/domain/turn.partition.schema.js";
@@ -36,8 +35,6 @@ export function createSqliteDatabaseContext(databasePath: string): SqliteDatabas
     createRuleSchema(client);
     createVerificationSchema(client);
     createTurnPartitionSchema(client);
-
-    backfillSearchDocuments(client);
 
     return {
         client,

@@ -1,4 +1,5 @@
-import type Database from "better-sqlite3";
+import type { EntityManager } from "typeorm";
+import { SearchDocumentEntity } from "~activity/event/domain/search/search.document.entity.js";
 
 export type SearchDocumentScope = "task" | "event";
 
@@ -42,45 +43,42 @@ export function buildEventSearchText(input: {
     ]);
 }
 
-const UPSERT_SQL = `
-  insert into search_documents (scope, entity_id, task_id, search_text, updated_at)
-  values (@scope, @entityId, @taskId, @searchText, @updatedAt)
-  on conflict(scope, entity_id) do update set
-    task_id = excluded.task_id,
-    search_text = excluded.search_text,
-    updated_at = excluded.updated_at
-`;
-
-export function upsertSearchDocument(db: Database.Database, input: SearchDocumentInput): void {
-    db.prepare(UPSERT_SQL).run({
-        scope: input.scope,
-        entityId: input.entityId,
-        taskId: input.taskId ?? null,
-        searchText: input.searchText,
-        updatedAt: input.updatedAt,
-    });
+export async function upsertSearchDocument(manager: EntityManager, input: SearchDocumentInput): Promise<void> {
+    const repo = manager.getRepository(SearchDocumentEntity);
+    await repo
+        .createQueryBuilder()
+        .insert()
+        .values({
+            scope: input.scope,
+            entityId: input.entityId,
+            taskId: input.taskId ?? null,
+            searchText: input.searchText,
+            updatedAt: input.updatedAt,
+        })
+        .orUpdate(["task_id", "search_text", "updated_at"], ["scope", "entity_id"])
+        .execute();
 }
 
-export function deleteSearchDocument(
-    db: Database.Database,
+export async function deleteSearchDocument(
+    manager: EntityManager,
     scope: SearchDocumentScope,
     entityId: string,
-): void {
-    db.prepare("delete from search_documents where scope = @scope and entity_id = @entityId")
-        .run({ scope, entityId });
+): Promise<void> {
+    await manager.getRepository(SearchDocumentEntity).delete({ scope, entityId });
 }
 
-export function deleteSearchDocumentsByTaskIds(
-    db: Database.Database,
+export async function deleteSearchDocumentsByTaskIds(
+    manager: EntityManager,
     taskIds: readonly string[],
-): void {
+): Promise<void> {
     if (taskIds.length === 0) return;
     const placeholders = taskIds.map(() => "?").join(", ");
-    db.prepare(
+    await manager.query(
         `delete from search_documents
          where task_id in (${placeholders})
             or (scope = 'task' and entity_id in (${placeholders}))`,
-    ).run(...taskIds, ...taskIds);
+        [...taskIds, ...taskIds],
+    );
 }
 
 const BACKFILL_TASKS_SQL = `
@@ -96,7 +94,7 @@ const BACKFILL_TASKS_SQL = `
     select 1
     from search_documents s
     where s.scope = 'task' and s.entity_id = t.id
-  );
+  )
 `;
 
 const BACKFILL_EVENTS_SQL = `
@@ -130,12 +128,12 @@ const BACKFILL_EVENTS_SQL = `
     select 1
     from search_documents s
     where s.scope = 'event' and s.entity_id = e.id
-  );
+  )
 `;
 
-export function backfillSearchDocuments(db: Database.Database): void {
-    db.exec(BACKFILL_TASKS_SQL);
-    db.exec(BACKFILL_EVENTS_SQL);
+export async function backfillSearchDocuments(manager: EntityManager): Promise<void> {
+    await manager.query(BACKFILL_TASKS_SQL);
+    await manager.query(BACKFILL_EVENTS_SQL);
 }
 
 function joinSearchTextParts(parts: ReadonlyArray<string | null | undefined>): string {

@@ -22,7 +22,7 @@ export class ResetTurnPartitionUseCase {
         if (!task) throw new TaskNotFoundError(input.taskId);
         const deleted = await this.turnPartitions.delete(input.taskId);
         if (deleted) {
-            this.eventStore.append({
+            await this.eventStore.append({
                 type: "turn.partition_reset",
                 taskId: input.taskId,
                 resetAt: new Date().toISOString(),

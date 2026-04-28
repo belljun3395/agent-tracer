@@ -5,6 +5,7 @@ import { NestFactory } from "@nestjs/core";
 import { WebSocketServer } from "ws";
 import { AppModule } from "../presentation/app.module.js";
 import { EventBroadcasterService } from "~adapters/realtime/ws/event.broadcaster.service.js";
+import { LocalNotificationPublisher } from "~adapters/notifications/publishers/local.notification.publisher.js";
 import {
     assignRequestContext,
     configureTrustedProxy,
@@ -22,7 +23,8 @@ import type { RuntimeOptions, MonitorRuntime } from "./runtime.type.js";
 
 export async function createNestMonitorRuntime(options: RuntimeOptions): Promise<MonitorRuntime> {
     const broadcaster = new EventBroadcasterService();
-    const nestApp = await NestFactory.create(AppModule.forRoot({ databasePath: options.databasePath, notifier: broadcaster }), { logger: ["error", "warn"] });
+    const notifier = new LocalNotificationPublisher(broadcaster);
+    const nestApp = await NestFactory.create(AppModule.forRoot({ databasePath: options.databasePath, notifier }), { logger: ["error", "warn"] });
     const app = nestApp.getHttpAdapter().getInstance() as ReturnType<typeof express>;
     configureTrustedProxy(app);
     const server = nestApp.getHttpServer() as http.Server;

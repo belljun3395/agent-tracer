@@ -1,7 +1,7 @@
 /**
  * Public iservice — append a generic domain event to the event-sourcing log.
- * Other modules (e.g. turn-partition) call this to record their domain events
- * into the centralized events table owned by the event module.
+ * Other modules (e.g. turn) call this to record their domain events into the
+ * centralized events table owned by the event module.
  */
 
 export interface DomainEventAppendInput {
@@ -17,5 +17,5 @@ export interface DomainEventAppendInput {
 }
 
 export interface IDomainEventAppender {
-    append(input: DomainEventAppendInput): void;
+    append(input: DomainEventAppendInput): Promise<void>;
 }

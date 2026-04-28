@@ -28,5 +28,5 @@ export interface PartitionResetEvent {
 export type TurnPartitionDomainEvent = PartitionUpdatedEvent | PartitionResetEvent;
 
 export interface IEventStoreAppender {
-    append(event: TurnPartitionDomainEvent): void;
+    append(event: TurnPartitionDomainEvent): Promise<void>;
 }

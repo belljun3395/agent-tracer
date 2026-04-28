@@ -1,5 +1,7 @@
-import BetterSqlite3 from "better-sqlite3";
-import { SqliteEventStore } from "~activity/event/repository/event-store/event.store.js";
+import { DataSource } from "typeorm";
+import { ContentBlobEntity } from "~activity/event/domain/event-store/content.blob.entity.js";
+import { EventLogEntity } from "~activity/event/domain/event-store/event.log.entity.js";
+import { EventStoreService } from "~activity/event/repository/event-store/event.store.service.js";
 
 async function main(): Promise<void> {
     const [databasePath, aggregateId, fromEventId] = process.argv.slice(2);
@@ -9,14 +11,24 @@ async function main(): Promise<void> {
         return;
     }
 
-    const db = new BetterSqlite3(databasePath, { readonly: true, fileMustExist: true });
+    const dataSource = new DataSource({
+        type: "better-sqlite3",
+        database: databasePath,
+        entities: [EventLogEntity, ContentBlobEntity],
+        synchronize: false,
+        logging: false,
+    });
+    await dataSource.initialize();
     try {
-        const store = new SqliteEventStore(db);
+        const store = new EventStoreService(
+            dataSource.getRepository(EventLogEntity),
+            dataSource.getRepository(ContentBlobEntity),
+        );
         for await (const event of store.readAggregate(aggregateId, fromEventId)) {
             process.stdout.write(`${JSON.stringify(event)}\n`);
         }
     } finally {
-        db.close();
+        await dataSource.destroy();
     }
 }
 

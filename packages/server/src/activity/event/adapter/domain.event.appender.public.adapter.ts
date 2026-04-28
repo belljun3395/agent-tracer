@@ -1,7 +1,5 @@
-import { Inject, Injectable } from "@nestjs/common";
-import type { SqliteDatabaseContext } from "~adapters/persistence/sqlite/sqlite.database-context.js";
-import { SQLITE_DATABASE_CONTEXT_TOKEN } from "~main/presentation/database/database.provider.js";
-import { appendDomainEvent } from "../repository/event-store/event.store.js";
+import { Injectable } from "@nestjs/common";
+import { EventStoreService } from "../repository/event-store/event.store.service.js";
 import type {
     DomainEventAppendInput,
     IDomainEventAppender,
@@ -10,16 +8,14 @@ import type {
 /**
  * Public adapter — implements IDomainEventAppender. Lets other modules
  * (turn-partition, future ones) append a domain event without coupling to
- * SQLite or the event-store layout.
+ * the SQLite or event-store layout.
  */
 @Injectable()
 export class DomainEventAppenderPublicAdapter implements IDomainEventAppender {
-    constructor(
-        @Inject(SQLITE_DATABASE_CONTEXT_TOKEN) private readonly context: SqliteDatabaseContext,
-    ) {}
+    constructor(private readonly store: EventStoreService) {}
 
-    append(input: DomainEventAppendInput): void {
-        appendDomainEvent(this.context.client, {
+    async append(input: DomainEventAppendInput): Promise<void> {
+        await this.store.append({
             eventTime: input.eventTime,
             eventType: input.eventType as never,
             schemaVer: input.schemaVer,

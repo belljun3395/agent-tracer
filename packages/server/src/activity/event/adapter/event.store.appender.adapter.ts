@@ -1,8 +1,6 @@
-import { Inject, Injectable } from "@nestjs/common";
-import { appendDomainEvent } from "../repository/event-store/event.store.js";
+import { Injectable } from "@nestjs/common";
 import { mapTimelineInsertToDomainEvent } from "../repository/event-store/timeline.event.mapper.js";
-import type { SqliteDatabaseContext } from "~adapters/persistence/sqlite/sqlite.database-context.js";
-import { SQLITE_DATABASE_CONTEXT_TOKEN } from "~main/presentation/database/database.provider.js";
+import { EventStoreService } from "../repository/event-store/event.store.service.js";
 import type {
     DomainEventAppendInput,
     IEventStoreAppender,
@@ -10,18 +8,14 @@ import type {
 
 /**
  * Outbound adapter — translates a freshly inserted timeline event into a
- * domain-event sourcing entry. Wraps the legacy sqlite event store; will
- * move when the event-sourcing tier migrates.
+ * domain-event sourcing entry. Backed by EventStoreService (TypeORM).
  */
 @Injectable()
 export class EventStoreAppenderAdapter implements IEventStoreAppender {
-    constructor(
-        @Inject(SQLITE_DATABASE_CONTEXT_TOKEN) private readonly context: SqliteDatabaseContext,
-    ) {}
+    constructor(private readonly store: EventStoreService) {}
 
-    append(input: DomainEventAppendInput): Promise<void> {
+    async append(input: DomainEventAppendInput): Promise<void> {
         const draft = mapTimelineInsertToDomainEvent(input as never);
-        if (draft) appendDomainEvent(this.context.client, draft);
-        return Promise.resolve();
+        if (draft) await this.store.append(draft);
     }
 }
