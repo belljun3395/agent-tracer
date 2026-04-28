@@ -13,9 +13,11 @@ import {
     EVENT_SEARCH_INDEX_PORT,
     EVENT_STORE_APPENDER_PORT,
     NOTIFICATION_PUBLISHER_PORT,
+    POST_PROCESSING_QUEUE_PORT,
     TASK_ACCESS_PORT,
     VERIFICATION_POST_PROCESSOR_PORT,
 } from "./application/outbound/tokens.js";
+import { DbBackedPostProcessingQueue } from "./adapter/post.processing.queue.adapter.js";
 import { DomainEventAppenderPublicAdapter } from "./adapter/domain.event.appender.public.adapter.js";
 import { EventNotificationPublisherAdapter } from "./adapter/notification.publisher.adapter.js";
 import { EventPersistenceAdapter } from "./adapter/event.persistence.adapter.js";
@@ -29,6 +31,7 @@ import { VerificationPostProcessorAdapter } from "./adapter/verification.post.pr
 import { EventAsyncRefEntity } from "./domain/event.async.ref.entity.js";
 import { ContentBlobEntity } from "./domain/event-store/content.blob.entity.js";
 import { EventLogEntity } from "./domain/event-store/event.log.entity.js";
+import { EventProcessingJobEntity } from "./domain/event-store/event.processing.job.entity.js";
 import { EventFileEntity } from "./domain/event.file.entity.js";
 import { EventRelationEntity } from "./domain/event.relation.entity.js";
 import { EventTagEntity } from "./domain/event.tag.entity.js";
@@ -56,6 +59,7 @@ import { TodoCurrentRepository } from "./repository/todo.current.repository.js";
 import { EventStoreService } from "./repository/event-store/event.store.service.js";
 import { SearchBackfillService } from "./repository/search/search.backfill.service.js";
 import { SearchDocumentEntity } from "./domain/search/search.document.entity.js";
+import { EventProcessingWorker } from "./service/event.processing.worker.js";
 import { TimelineEventService } from "./service/timeline.event.service.js";
 import { TimelineEventStorageService } from "./service/timeline.event.storage.service.js";
 
@@ -99,6 +103,7 @@ export class EventModule {
                     EventLogEntity,
                     ContentBlobEntity,
                     SearchDocumentEntity,
+                    EventProcessingJobEntity,
                 ]),
                 databaseModule,
                 governanceModule,
@@ -124,6 +129,7 @@ export class EventModule {
                 TimelineEventService,
                 EventStoreService,
                 SearchBackfillService,
+                EventProcessingWorker,
                 // Outbound adapters
                 EventPersistenceAdapter,
                 EventSearchIndexAdapter,
@@ -131,6 +137,7 @@ export class EventModule {
                 EventTaskAccessAdapter,
                 EventNotificationPublisherAdapter,
                 VerificationPostProcessorAdapter,
+                DbBackedPostProcessingQueue,
                 // Public adapters
                 TimelineEventReadPublicAdapter,
                 TimelineEventWritePublicAdapter,
@@ -153,6 +160,7 @@ export class EventModule {
                 { provide: TASK_ACCESS_PORT, useExisting: EventTaskAccessAdapter },
                 { provide: NOTIFICATION_PUBLISHER_PORT, useExisting: EventNotificationPublisherAdapter },
                 { provide: VERIFICATION_POST_PROCESSOR_PORT, useExisting: VerificationPostProcessorAdapter },
+                { provide: POST_PROCESSING_QUEUE_PORT, useExisting: DbBackedPostProcessingQueue },
             ],
             exports: [
                 TIMELINE_EVENT_READ,

@@ -7,12 +7,15 @@ import { TimelineEventService } from "../service/timeline.event.service.js";
 import { projectTimelineEvent } from "../domain/timeline.event.projection.model.js";
 import {
     NOTIFICATION_PUBLISHER_PORT,
+    POST_PROCESSING_QUEUE_PORT,
     TASK_ACCESS_PORT,
-    VERIFICATION_POST_PROCESSOR_PORT,
 } from "./outbound/tokens.js";
 import type { IEventNotificationPublisher } from "./outbound/notification.publisher.port.js";
+import type {
+    IPostProcessingQueue,
+    PostProcessingJobType,
+} from "./outbound/post.processing.queue.port.js";
 import type { IEventTaskAccess } from "./outbound/task.access.port.js";
-import type { IVerificationPostProcessor } from "./outbound/verification.post.processor.port.js";
 import type { LogEventUseCaseIn, LogEventUseCaseOut } from "./dto/log.event.usecase.dto.js";
 
 class TaskNotFoundError extends Error {
@@ -30,7 +33,7 @@ export class LogEventUseCase {
         private readonly events: TimelineEventService,
         @Inject(TASK_ACCESS_PORT) private readonly tasks: IEventTaskAccess,
         @Inject(NOTIFICATION_PUBLISHER_PORT) private readonly notifier: IEventNotificationPublisher,
-        @Inject(VERIFICATION_POST_PROCESSOR_PORT) private readonly verification: IVerificationPostProcessor,
+        @Inject(POST_PROCESSING_QUEUE_PORT) private readonly queue: IPostProcessingQueue,
     ) {}
 
     async execute(input: LogEventUseCaseIn): Promise<LogEventUseCaseOut> {
@@ -93,16 +96,18 @@ export class LogEventUseCase {
         const event = persisted as unknown as TimelineEvent;
         this.notifier.publish({ type: "event.logged", payload: projectTimelineEvent(event) as never });
 
+        const jobType: PostProcessingJobType =
+            event.kind === KIND.userMessage
+                ? "verification.user_message"
+                : event.kind === KIND.assistantResponse
+                    ? "verification.assistant_response"
+                    : "verification.other_event";
         try {
-            if (event.kind === KIND.userMessage) {
-                await this.verification.onUserMessage(event as never);
-            } else if (event.kind === KIND.assistantResponse) {
-                await this.verification.onAssistantResponse(event as never);
-            } else {
-                await this.verification.onOtherEvent(event as never);
-            }
-        } catch (err) {
-            console.error("[verification] post-processor failed for event", event.id, err);
+            await this.queue.enqueue({ eventId: event.id, jobType });
+        }
+        catch (err) {
+            // Enqueue failure should not fail the ingest — log and continue.
+            console.error("[event] failed to enqueue post-processing job", event.id, err);
         }
 
         return event;

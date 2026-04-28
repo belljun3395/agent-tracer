@@ -174,8 +174,25 @@ const EVENT_LOG_DDL = `
   );
 `;
 
+const PROCESSING_JOB_DDL = `
+  create table if not exists event_processing_jobs (
+    job_id text primary key,
+    event_id text not null,
+    job_type text not null,
+    status text not null check(status in ('pending','processing','completed','failed')),
+    attempts integer not null default 0,
+    created_at text not null,
+    updated_at text not null,
+    last_error text
+  );
+
+  create index if not exists idx_event_processing_jobs_status_created
+    on event_processing_jobs(status, created_at);
+`;
+
 export function createEventSchema(db: Database.Database): void {
     db.exec(TIMELINE_EVENT_DDL);
     db.exec(SEARCH_DDL);
     db.exec(EVENT_LOG_DDL);
+    db.exec(PROCESSING_JOB_DDL);
 }
