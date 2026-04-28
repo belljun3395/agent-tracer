@@ -1,4 +1,5 @@
 import { matchEventAgainstRule } from "~governance/verification/domain/event-rule.matching.js";
+import { Transactional } from "typeorm-transactional";
 import { inferToolCall } from "~governance/verification/domain/tool-call.inference.js";
 import type { TurnVerdict } from "~governance/verification/domain/model/verdict.model.js";
 import { evaluateTurn } from "~governance/verification/domain/turn.evaluation.js";
@@ -57,6 +58,7 @@ export interface BackfillRuleEvaluationDeps {
 export class BackfillRuleEvaluationUseCase {
     constructor(private readonly deps: BackfillRuleEvaluationDeps) {}
 
+    @Transactional()
     async execute(input: BackfillRuleEvaluationUseCaseIn): Promise<BackfillRuleEvaluationUseCaseOut> {
         const {
             turnRepo,

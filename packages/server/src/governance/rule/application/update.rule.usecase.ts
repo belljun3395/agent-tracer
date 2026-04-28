@@ -1,4 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
+import { Transactional } from "typeorm-transactional";
 import { isRuleExpectMeaningful } from "~governance/rule/domain/rule.js";
 import { computeRuleSignature } from "~governance/rule/domain/rule.signature.js";
 import type { RuleExpectInput } from "~governance/rule/domain/type/rule.expectation.input.js";
@@ -37,6 +38,7 @@ export class UpdateRuleUseCase {
         @Inject(NOTIFICATION_PUBLISHER_PORT) private readonly notifier: IRuleNotificationPublisher,
     ) {}
 
+    @Transactional()
     async execute(input: UpdateRuleUseCaseIn): Promise<UpdateRuleUseCaseOut> {
         if (!hasAnyField(input)) {
             throw new InvalidRuleError("At least one field must be provided to update");

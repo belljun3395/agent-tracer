@@ -1,4 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
+import { Transactional } from "typeorm-transactional";
 import type { TimelineEvent } from "~activity/event/public/types/event.types.js";
 import { countNonPreludeTurns, createTurnPartitionUpdate, validatePartition } from "../domain/turn.partition.js";
 import { TurnPartitionRepository } from "../repository/turn.partition.repository.js";
@@ -25,6 +26,7 @@ export class UpsertTurnPartitionUseCase {
         @Inject(EVENT_STORE_APPENDER_PORT) private readonly eventStore: IEventStoreAppender,
     ) {}
 
+    @Transactional()
     async execute(input: UpsertTurnPartitionUseCaseIn): Promise<UpsertTurnPartitionUseCaseOut> {
         const task = await this.tasks.findById(input.taskId);
         if (!task) throw new TaskNotFoundError(input.taskId);

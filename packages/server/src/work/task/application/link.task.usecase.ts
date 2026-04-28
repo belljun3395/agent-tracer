@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { Transactional } from "typeorm-transactional";
 import { TaskManagementService } from "../service/task.management.service.js";
 import type { LinkTaskUseCaseIn, LinkTaskUseCaseOut } from "./dto/link.task.usecase.dto.js";
 
@@ -6,6 +7,7 @@ import type { LinkTaskUseCaseIn, LinkTaskUseCaseOut } from "./dto/link.task.usec
 export class LinkTaskUseCase {
     constructor(private readonly management: TaskManagementService) {}
 
+    @Transactional()
     async execute(input: LinkTaskUseCaseIn): Promise<LinkTaskUseCaseOut> {
         return this.management.link({
             taskId: input.taskId,

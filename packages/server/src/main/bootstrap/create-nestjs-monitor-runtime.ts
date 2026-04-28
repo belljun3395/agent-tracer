@@ -1,8 +1,11 @@
 import "reflect-metadata";
+import { initializeTransactionalContext } from "typeorm-transactional";
 import type http from "node:http";
 import type express from "express";
 import { NestFactory } from "@nestjs/core";
 import { WebSocketServer } from "ws";
+
+initializeTransactionalContext();
 import { AppModule } from "../presentation/app.module.js";
 import { EventBroadcasterService } from "~adapters/realtime/ws/event.broadcaster.service.js";
 import { LocalNotificationPublisher } from "~adapters/notifications/publishers/local.notification.publisher.js";
@@ -14,8 +17,6 @@ import {
     type RequestContextIncomingMessage,
 } from "../presentation/middleware/request-context.js";
 import { tallyTaskStatuses } from "~work/task/public/helpers.js";
-import { SQLITE_DATABASE_CONTEXT_TOKEN } from "../presentation/database/database.provider.js";
-import type { SqliteDatabaseContext } from "~adapters/persistence/sqlite/sqlite.database-context.js";
 import type { ITaskSnapshotQuery } from "~work/task/public/iservice/task.snapshot.query.iservice.js";
 import type { TaskSnapshot } from "~work/task/public/dto/task.snapshot.dto.js";
 import { TASK_SNAPSHOT_QUERY } from "~work/task/public/tokens.js";
@@ -61,7 +62,6 @@ export async function createNestMonitorRuntime(options: RuntimeOptions): Promise
         });
     });
     await nestApp.init();
-    const databaseContext = nestApp.get<SqliteDatabaseContext>(SQLITE_DATABASE_CONTEXT_TOKEN);
     return {
         app,
         server,
@@ -71,7 +71,6 @@ export async function createNestMonitorRuntime(options: RuntimeOptions): Promise
             await new Promise<void>((resolve) => {
                 wss.close(() => resolve());
             });
-            databaseContext.close();
         }
     };
 }

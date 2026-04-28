@@ -1,4 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
+import { Transactional } from "typeorm-transactional";
 import { NOTIFICATION_PUBLISHER_PORT, RULE_PERSISTENCE_PORT } from "./outbound/tokens.js";
 import type { IRulePersistence } from "./outbound/rule.persistence.port.js";
 import type { IRuleNotificationPublisher } from "./outbound/notification.publisher.port.js";
@@ -18,6 +19,7 @@ export class DeleteRuleUseCase {
         @Inject(NOTIFICATION_PUBLISHER_PORT) private readonly notifier: IRuleNotificationPublisher,
     ) {}
 
+    @Transactional()
     async execute(id: string): Promise<void> {
         const current = await this.ruleRepo.findById(id);
         if (!current) throw new RuleNotFoundError(id);
