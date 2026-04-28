@@ -9,14 +9,14 @@ import type { ITurnRepository } from "~verification/application/outbound/turn.re
 import type { IVerdictRepository } from "~verification/application/outbound/verdict.repository.port.js";
 import type { ITimelineEventRead } from "~event/public/iservice/timeline.event.read.iservice.js";
 import { TIMELINE_EVENT_READ } from "~event/public/tokens.js";
+import { NOTIFICATION_PUBLISHER_TOKEN } from "~main/presentation/database/database.provider.js";
+import { RULE_REPOSITORY_TOKEN } from "~rule/public/tokens.js";
 import {
-    NOTIFICATION_PUBLISHER_TOKEN,
     RULE_ENFORCEMENT_REPOSITORY_TOKEN,
-    RULE_REPOSITORY_TOKEN,
-    TURN_QUERY_REPOSITORY_TOKEN,
     TURN_REPOSITORY_TOKEN,
     VERDICT_REPOSITORY_TOKEN,
-} from "~main/presentation/database/database.provider.js";
+} from "./repository/tokens.js";
+import { TURN_QUERY_REPOSITORY_TOKEN } from "./public/tokens.js";
 import { VerificationBackfillPublicAdapter } from "./adapter/verification.backfill.public.adapter.js";
 import { VerdictCountPublicAdapter } from "./adapter/verdict.count.public.adapter.js";
 import { VerdictInvalidationPublicAdapter } from "./adapter/verdict.invalidation.public.adapter.js";
@@ -185,12 +185,8 @@ export class VerificationModule {
                 VERIFICATION_VERDICT_COUNT,
                 VERIFICATION_VERDICT_INVALIDATION,
                 VERIFICATION_POST_PROCESSOR,
-                // Re-exported tokens (TURN_REPOSITORY_TOKEN etc.) shadow the legacy
-                // bindings for any cross-module consumers.
-                TURN_REPOSITORY_TOKEN,
+                // Cross-module-consumed token (task module reaches via public surface).
                 TURN_QUERY_REPOSITORY_TOKEN,
-                VERDICT_REPOSITORY_TOKEN,
-                RULE_ENFORCEMENT_REPOSITORY_TOKEN,
                 // Re-exported services for legacy consumers
                 RunTurnEvaluationUseCase,
                 TurnLifecyclePostProcessor,

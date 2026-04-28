@@ -1,6 +1,6 @@
 import { Module, type DynamicModule } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
-import { RULE_REPOSITORY_TOKEN } from "~main/presentation/database/database.provider.js";
+import { RULE_REPOSITORY_TOKEN } from "./public/tokens.js";
 import { RuleCommandController } from "./api/rule.command.controller.js";
 import { RuleQueryController } from "./api/rule.query.controller.js";
 import { TaskRulesQueryController } from "./api/task.rules.query.controller.js";

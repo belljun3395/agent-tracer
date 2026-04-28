@@ -4,7 +4,7 @@ import type { IRuleEnforcementRepository } from "~verification/application/outbo
 import {
     RULE_ENFORCEMENT_REPOSITORY_TOKEN,
     VERDICT_REPOSITORY_TOKEN,
-} from "~main/presentation/database/database.provider.js";
+} from "../repository/tokens.js";
 import type { IVerdictInvalidation } from "../public/iservice/verdict.invalidation.iservice.js";
 
 /**
