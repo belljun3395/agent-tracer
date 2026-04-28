@@ -1,5 +1,5 @@
 import type Database from "better-sqlite3";
-import { normalizeLane } from "~domain/monitoring/task/task.js";
+import { normalizeLane } from "~task/domain/task.helpers.js";
 import type { IEmbeddingService } from "../embedding/embedding.service.js";
 import { normalizeSearchText } from "./text.normalizers.js";
 import { cosineSimilarity, deserializeEmbedding, serializeEmbedding } from "./embedding.codec.js";

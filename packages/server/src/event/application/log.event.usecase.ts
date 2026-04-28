@@ -1,8 +1,8 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { KIND } from "~domain/monitoring/common/const/event.kind.const.js";
-import { createEventRecordDraft, normalizeFilePaths } from "~domain/monitoring/event/event.recording.js";
-import { deriveFileChangeEventInputs, shouldApplyLoggedEventTaskStatusEffect } from "~domain/monitoring/event/event.recording.js";
-import type { TimelineEvent } from "~domain/monitoring/event/model/timeline.event.model.js";
+import { KIND } from "~event/domain/common/const/event.kind.const.js";
+import { createEventRecordDraft, normalizeFilePaths } from "~event/domain/event.recording.js";
+import { deriveFileChangeEventInputs, shouldApplyLoggedEventTaskStatusEffect } from "~event/domain/event.recording.js";
+import type { TimelineEvent } from "~event/domain/model/timeline.event.model.js";
 import { TimelineEventService } from "../service/timeline.event.service.js";
 import { projectTimelineEvent } from "../domain/timeline.event.projection.model.js";
 import {

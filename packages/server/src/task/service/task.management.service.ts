@@ -1,6 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
-import type { MonitoringTask } from "~domain/monitoring/task/model/task.model.js";
-import type { TaskStatus, MonitoringTaskKind } from "~domain/monitoring/common/type/task.status.type.js";
+import type { MonitoringTask } from "~task/domain/task.model.js";
+import type { TaskStatus, MonitoringTaskKind } from "~task/common/task.status.type.js";
 import { TaskNotFoundError } from "../common/task.errors.js";
 import { createTaskSlug } from "../common/task.slug.js";
 import { TERMINAL_TASK_STATUSES } from "../common/task.status.js";

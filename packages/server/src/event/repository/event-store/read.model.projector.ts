@@ -1,5 +1,5 @@
 import type Database from "better-sqlite3";
-import type { DomainEvent } from "~domain/events/model/domain.events.model.js";
+import type { DomainEvent } from "~event/domain/event-store/model/domain.events.model.js";
 
 function isoFromMs(value: number): string {
     return new Date(value).toISOString();

@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { tallyTaskStatuses } from "~domain/monitoring/common/task.status.js";
+import { tallyTaskStatuses } from "~task/common/task.status.helpers.js";
 import { TaskQueryService } from "../service/task.query.service.js";
 import type { GetOverviewUseCaseIn, GetOverviewUseCaseOut } from "./dto/get.overview.usecase.dto.js";
 

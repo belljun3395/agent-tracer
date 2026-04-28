@@ -12,7 +12,7 @@ import {
     logHttpUpgrade,
     type RequestContextIncomingMessage,
 } from "../presentation/middleware/request-context.js";
-import { tallyTaskStatuses } from "~domain/monitoring/common/task.status.js";
+import { tallyTaskStatuses } from "~task/common/task.status.helpers.js";
 import { SQLITE_DATABASE_CONTEXT_TOKEN } from "../presentation/database/database.provider.js";
 import type { SqliteDatabaseContext } from "~adapters/persistence/sqlite/sqlite.database-context.js";
 import type { ITaskSnapshotQuery } from "~task/public/iservice/task.snapshot.query.iservice.js";

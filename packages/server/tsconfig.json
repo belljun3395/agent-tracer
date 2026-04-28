@@ -7,8 +7,6 @@
     "baseUrl": ".",
     "paths": {
       "~config/*": ["src/config/*"],
-      "~domain/*": ["src/domain/*"],
-      "~application/*": ["src/application/*"],
       "~adapters/*": ["src/adapters/*"],
       "~main/*": ["src/main/*"],
       "~session/*": ["src/session/*"],

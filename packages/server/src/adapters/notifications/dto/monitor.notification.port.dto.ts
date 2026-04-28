@@ -1,5 +1,5 @@
-import type { MonitoringEventKind, TimelineLane } from "~domain/monitoring/common/type/event.kind.type.js";
-import type { MonitoringTask } from "~domain/monitoring/task/model/task.model.js";
+import type { MonitoringEventKind, TimelineLane } from "~event/domain/common/type/event.kind.type.js";
+import type { MonitoringTask } from "~task/domain/task.model.js";
 import type { SessionSnapshot } from "~session/public/dto/session.snapshot.dto.js";
 
 export interface EventNotificationClassificationReasonPortDto {

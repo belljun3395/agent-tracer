@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import type { TimelineEvent } from "~domain/monitoring/event/model/timeline.event.model.js";
+import type { TimelineEvent } from "~event/domain/model/timeline.event.model.js";
 import { countNonPreludeTurns, createTurnPartitionUpdate, validatePartition } from "../domain/turn.partition.js";
 import { TurnPartitionRepository } from "../repository/turn.partition.repository.js";
 import {

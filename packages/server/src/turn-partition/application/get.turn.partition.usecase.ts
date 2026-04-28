@@ -1,6 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { resolveTurnPartition } from "../domain/turn.partition.js";
-import type { TimelineEvent } from "~domain/monitoring/event/model/timeline.event.model.js";
+import type { TimelineEvent } from "~event/domain/model/timeline.event.model.js";
 import { TurnPartitionRepository } from "../repository/turn.partition.repository.js";
 import { TASK_ACCESS_PORT, TIMELINE_EVENT_ACCESS_PORT } from "./outbound/tokens.js";
 import type { ITaskAccess } from "./outbound/task.access.port.js";

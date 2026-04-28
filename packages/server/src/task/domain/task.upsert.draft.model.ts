@@ -1,6 +1,6 @@
-import type { MonitoringTask } from "~domain/monitoring/task/model/task.model.js";
-import type { MonitoringTaskKind } from "~domain/monitoring/common/type/task.status.type.js";
-import { normalizeWorkspacePath } from "~domain/monitoring/task/task.js";
+import type { MonitoringTask } from "~task/domain/task.model.js";
+import type { MonitoringTaskKind } from "~task/common/task.status.type.js";
+import { normalizeWorkspacePath } from "~task/domain/task.helpers.js";
 import { createTaskSlug } from "../common/task.slug.js";
 
 export interface StartTaskDraftInput {

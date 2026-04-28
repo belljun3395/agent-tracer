@@ -1,4 +1,4 @@
-import type { TimelineEvent } from "~domain/monitoring/event/model/timeline.event.model.js";
+import type { TimelineEvent } from "~event/domain/model/timeline.event.model.js";
 
 export interface TurnSegment {
     readonly turnIndex: number;
