@@ -1,5 +1,5 @@
-import { isUserMessageEvent } from "~domain/monitoring/event/event.predicates.js";
-import type { TimelineEvent } from "~domain/monitoring/event/model/timeline.event.model.js";
+import { isUserMessageEvent } from "~event/domain/event.predicates.js";
+import type { TimelineEvent } from "~event/domain/model/timeline.event.model.js";
 import type { TurnSegment } from "./turn.segment.model.js";
 
 const REQUEST_PREVIEW_LIMIT = 120;

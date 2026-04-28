@@ -1,5 +1,5 @@
 import { Column, Entity, Index, PrimaryColumn } from "typeorm";
-import type { MonitoringTaskKind, TaskStatus } from "~domain/monitoring/common/type/task.status.type.js";
+import type { MonitoringTaskKind, TaskStatus } from "~task/common/task.status.type.js";
 
 @Entity({ name: "tasks_current" })
 @Index("idx_tasks_current_updated", ["updatedAt"])

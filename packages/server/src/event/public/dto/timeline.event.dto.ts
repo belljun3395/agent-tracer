@@ -1,9 +1,9 @@
-import type { MonitoringEventKind, TimelineLane } from "~domain/monitoring/common/type/event.kind.type.js";
+import type { MonitoringEventKind, TimelineLane } from "~event/domain/common/type/event.kind.type.js";
 
 /**
  * Snapshot DTO for a timeline event as exposed to other modules.
  * Mirrors the internal TimelineEvent shape — kept here so consumers depend
- * on event.public, not on ~domain/monitoring/event/* internals.
+ * on event.public, not on ~event/domain/* internals.
  */
 export interface TimelineEventClassification {
     readonly lane: TimelineLane;

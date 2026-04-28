@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import type { TimelineEvent } from "~domain/monitoring/event/model/timeline.event.model.js";
+import type { TimelineEvent } from "~event/domain/model/timeline.event.model.js";
 import { TaskQueryService } from "../service/task.query.service.js";
 import { TaskOpenInferenceExport } from "../domain/task.openinference.export.model.js";
 import { TIMELINE_EVENT_ACCESS_PORT } from "./outbound/tokens.js";

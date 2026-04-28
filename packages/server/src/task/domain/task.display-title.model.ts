@@ -1,6 +1,6 @@
-import type { MonitoringTask } from "~domain/monitoring/task/model/task.model.js";
-import type { TimelineEvent } from "~domain/monitoring/event/model/timeline.event.model.js";
-import { isInternalEvent, isTaskLifecycleEvent, isUserLane } from "~domain/monitoring/event/event.predicates.js";
+import type { MonitoringTask } from "~task/domain/task.model.js";
+import type { TimelineEvent } from "~event/domain/model/timeline.event.model.js";
+import { isInternalEvent, isTaskLifecycleEvent, isUserLane } from "~event/domain/event.predicates.js";
 import {
     GENERIC_TASK_TITLE_PREFIXES,
     GENERIC_TASK_TITLE_PREFIX_SPLIT_PATTERN,

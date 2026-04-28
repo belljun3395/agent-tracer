@@ -1,6 +1,6 @@
-import type { TimelineEvent } from "~domain/monitoring/event/model/timeline.event.model.js";
-import { resolveSemanticView } from "~domain/monitoring/event/event.semantic.js";
-import { resolveTimelineEventPaths } from "~domain/monitoring/event/timeline.event.paths.js";
+import type { TimelineEvent } from "~event/domain/model/timeline.event.model.js";
+import { resolveSemanticView } from "~event/domain/event.semantic.js";
+import { resolveTimelineEventPaths } from "~event/domain/timeline.event.paths.js";
 import type { TimelineEventProjection } from "../public/dto/timeline.event.dto.js";
 
 /**

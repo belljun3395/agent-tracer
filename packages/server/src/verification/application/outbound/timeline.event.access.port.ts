@@ -4,7 +4,7 @@
  * The factory in verification.module.ts casts the inner `TimelineEventSnapshot`
  * to TimelineEvent — verification code reads only the shared domain shape.
  */
-import type { TimelineEvent } from "~domain/monitoring/event/model/timeline.event.model.js";
+import type { TimelineEvent } from "~event/domain/model/timeline.event.model.js";
 
 export interface ITimelineEventAccess {
     findById(id: string): Promise<TimelineEvent | null>;

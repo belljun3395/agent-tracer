@@ -1,6 +1,6 @@
-import type { TimelineEvent } from "~domain/monitoring/event/model/timeline.event.model.js";
-import type { MonitoringEventKind, TimelineLane } from "~domain/monitoring/common/type/event.kind.type.js";
-import { normalizeLane } from "~domain/monitoring/task/task.js";
+import type { TimelineEvent } from "~event/domain/model/timeline.event.model.js";
+import type { MonitoringEventKind, TimelineLane } from "~event/domain/common/type/event.kind.type.js";
+import { normalizeLane } from "~task/domain/task.helpers.js";
 import { parseJsonField } from "./event.json.js";
 import type { EventFileEntity } from "./event.file.entity.js";
 import type { EventRelationEntity } from "./event.relation.entity.js";

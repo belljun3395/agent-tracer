@@ -1,5 +1,5 @@
-import type { MonitoringEventKind, TimelineLane } from "~domain/monitoring/common/type/event.kind.type.js";
-import type { TaskStatus } from "~domain/monitoring/common/type/task.status.type.js";
+import type { MonitoringEventKind, TimelineLane } from "~event/domain/common/type/event.kind.type.js";
+import type { TaskStatus } from "~task/common/task.status.type.js";
 import type { SearchDocumentScope } from "./search.documents.js";
 
 export interface SearchTaskRow {

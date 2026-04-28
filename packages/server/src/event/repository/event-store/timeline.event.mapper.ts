@@ -1,4 +1,4 @@
-import type { AnyDomainEventDraft } from "~domain/events/model/domain.events.model.js";
+import type { AnyDomainEventDraft } from "~event/domain/event-store/model/domain.events.model.js";
 
 interface EventInsertInput {
     readonly id: string;

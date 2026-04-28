@@ -1,5 +1,5 @@
-import { QUESTION_PHASES, TODO_STATES } from "~domain/monitoring/common/const/event.kind.const.js";
-import { isEventRelationType } from "~domain/monitoring/common/task.status.js";
+import { QUESTION_PHASES, TODO_STATES } from "~event/domain/common/const/event.kind.const.js";
+import { isEventRelationType } from "~event/domain/common/event.meta.helpers.js";
 
 const TODO_STATE_SET = new Set<string>(TODO_STATES);
 const QUESTION_PHASE_SET = new Set<string>(QUESTION_PHASES);

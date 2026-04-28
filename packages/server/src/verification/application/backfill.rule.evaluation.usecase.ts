@@ -4,7 +4,7 @@ import type { TurnVerdict } from "~verification/domain/model/verdict.model.js";
 import { evaluateTurn } from "~verification/domain/turn.evaluation.js";
 import type { EvaluateTurnToolCall } from "~verification/domain/turn.evaluation.js";
 import { aggregateVerdict } from "~verification/domain/verdict.js";
-import type { TimelineEvent } from "~domain/monitoring/event/model/timeline.event.model.js";
+import type { TimelineEvent } from "~event/domain/model/timeline.event.model.js";
 import type { NotificationPublisherPort } from "~adapters/notifications/notification.publisher.port.js";
 import type { ITimelineEventAccess } from "~verification/application/outbound/timeline.event.access.port.js";
 import type {

@@ -2,8 +2,8 @@
  * Event-store contracts. Module-internal: consumed by the SqliteEventStore
  * implementation and the DomainEventAppender public adapter.
  */
-import type { AnyDomainEventDraft, DomainEvent } from "~domain/events/model/domain.events.model.js";
-import type { EventId, TimeRange } from "~domain/events/model/event.model.js";
+import type { AnyDomainEventDraft, DomainEvent } from "~event/domain/event-store/model/domain.events.model.js";
+import type { EventId, TimeRange } from "~event/domain/event-store/model/event.model.js";
 
 export interface ContentBlobWriteInput {
     readonly body: Buffer;

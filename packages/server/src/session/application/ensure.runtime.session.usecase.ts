@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { normalizeWorkspacePath } from "~domain/monitoring/task/task.js";
+import { normalizeWorkspacePath } from "~task/domain/task.helpers.js";
 import { SessionLifecycleService } from "../service/session.lifecycle.service.js";
 import { RuntimeBindingService } from "../service/runtime.binding.service.js";
 import {

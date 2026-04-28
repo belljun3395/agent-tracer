@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { DataSource } from "typeorm";
-import type { TimelineEvent } from "~domain/monitoring/event/model/timeline.event.model.js";
+import type { TimelineEvent } from "~event/domain/model/timeline.event.model.js";
 import {
     buildDerivedTableInserts,
     buildTimelineEventEntity,

@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { normalizeWorkspacePath } from "~domain/monitoring/task/task.js";
+import { normalizeWorkspacePath } from "~task/domain/task.helpers.js";
 import type {
     GetDefaultWorkspacePathUseCaseIn,
     GetDefaultWorkspacePathUseCaseOut,
