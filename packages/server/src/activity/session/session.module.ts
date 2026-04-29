@@ -4,11 +4,15 @@ import { SessionIngestController } from "./api/session.ingest.controller.js";
 import { EndRuntimeSessionUseCase } from "./application/end.runtime.session.usecase.js";
 import { EnsureRuntimeSessionUseCase } from "./application/ensure.runtime.session.usecase.js";
 import {
+    CLOCK_PORT,
+    ID_GENERATOR_PORT,
     NOTIFICATION_PUBLISHER_PORT,
     TASK_ACCESS_PORT,
     TASK_LIFECYCLE_ACCESS_PORT,
 } from "./application/outbound/tokens.js";
+import { CryptoIdGeneratorAdapter } from "./adapter/crypto.id.generator.adapter.js";
 import { SessionNotificationPublisherAdapter } from "./adapter/session.notification.publisher.adapter.js";
+import { SystemClockAdapter } from "./adapter/system.clock.adapter.js";
 import { TaskAccessAdapter } from "./adapter/task.access.adapter.js";
 import { TaskLifecycleAccessAdapter } from "./adapter/task.lifecycle.access.adapter.js";
 import { EventLogEntity } from "./domain/event.log.entity.js";
@@ -61,6 +65,8 @@ export class SessionModule {
                 TaskAccessAdapter,
                 TaskLifecycleAccessAdapter,
                 SessionNotificationPublisherAdapter,
+                SystemClockAdapter,
+                CryptoIdGeneratorAdapter,
                 SessionEntitySubscriber,
                 RuntimeBindingEntitySubscriber,
                 EnsureRuntimeSessionUseCase,
@@ -73,6 +79,8 @@ export class SessionModule {
                 { provide: TASK_ACCESS_PORT, useExisting: TaskAccessAdapter },
                 { provide: TASK_LIFECYCLE_ACCESS_PORT, useExisting: TaskLifecycleAccessAdapter },
                 { provide: NOTIFICATION_PUBLISHER_PORT, useExisting: SessionNotificationPublisherAdapter },
+                { provide: CLOCK_PORT, useExisting: SystemClockAdapter },
+                { provide: ID_GENERATOR_PORT, useExisting: CryptoIdGeneratorAdapter },
             ],
             exports: [SESSION_LIFECYCLE, RUNTIME_BINDING_LOOKUP],
         };

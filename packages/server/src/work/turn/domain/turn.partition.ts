@@ -7,10 +7,17 @@ import type {
     TurnPartitionUpdateInput,
 } from "./turn.partition.model.js";
 
+/**
+ * Caller (usecase) supplies the id factory. Domain stays pure — no
+ * dependency on globalThis.crypto / Math.random / Date.
+ */
+export type GroupIdFactory = () => string;
+
 export function createDefaultTurnPartition(
     taskId: string,
     events: readonly TimelineEvent[],
     updatedAt: string,
+    generateGroupId: GroupIdFactory,
 ): TurnPartition {
     const segments = segmentEventsByTurn(events).filter((segment) => !segment.isPrelude);
     const groups: TurnGroup[] = segments.map((segment) => ({
@@ -88,24 +95,33 @@ export function createTurnPartitionUpdate(input: TurnPartitionUpdateInput): Turn
  * baseVersion = 1 (from a synthetic default) while the DB carries the real version,
  * producing an unrecoverable 409 loop.
  */
-export function resolveTurnPartition(input: ResolveTurnPartitionInput): TurnPartition {
+export function resolveTurnPartition(
+    input: ResolveTurnPartitionInput,
+    generateGroupId: GroupIdFactory,
+): TurnPartition {
     const total = countNonPreludeTurns(input.events);
     if (input.stored) {
         try {
             validatePartition(input.stored, total);
             return input.stored;
         } catch {
-            const fallback = createDefaultTurnPartition(input.taskId, input.events, input.fallbackUpdatedAt);
+            const fallback = createDefaultTurnPartition(
+                input.taskId,
+                input.events,
+                input.fallbackUpdatedAt,
+                generateGroupId,
+            );
             return { ...fallback, version: input.stored.version };
         }
     }
-    return createDefaultTurnPartition(input.taskId, input.events, input.fallbackUpdatedAt);
+    return createDefaultTurnPartition(
+        input.taskId,
+        input.events,
+        input.fallbackUpdatedAt,
+        generateGroupId,
+    );
 }
 
 function normalizeGroupLabel(label: string | null): string | null {
     return label === null ? null : label.trim() || null;
-}
-
-function generateGroupId(): string {
-    return `tg-${globalThis.crypto.randomUUID()}`;
 }

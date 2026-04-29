@@ -1,7 +1,8 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { Transactional } from "typeorm-transactional";
 import { TurnPartitionRepository } from "../repository/turn.partition.repository.js";
-import { EVENT_STORE_APPENDER_PORT, TASK_ACCESS_PORT } from "./outbound/tokens.js";
+import { CLOCK_PORT, EVENT_STORE_APPENDER_PORT, TASK_ACCESS_PORT } from "./outbound/tokens.js";
+import type { IClock } from "./outbound/clock.port.js";
 import type { ITaskAccess } from "./outbound/task.access.port.js";
 import type { IEventStoreAppender } from "./outbound/event.store.appender.port.js";
 import type {
@@ -16,6 +17,7 @@ export class ResetTurnPartitionUseCase {
         @Inject(TASK_ACCESS_PORT) private readonly tasks: ITaskAccess,
         private readonly turnPartitions: TurnPartitionRepository,
         @Inject(EVENT_STORE_APPENDER_PORT) private readonly eventStore: IEventStoreAppender,
+        @Inject(CLOCK_PORT) private readonly clock: IClock,
     ) {}
 
     @Transactional()
@@ -27,7 +29,7 @@ export class ResetTurnPartitionUseCase {
             await this.eventStore.append({
                 type: "turn.partition_reset",
                 taskId: input.taskId,
-                resetAt: new Date().toISOString(),
+                resetAt: this.clock.nowIso(),
             });
         }
     }

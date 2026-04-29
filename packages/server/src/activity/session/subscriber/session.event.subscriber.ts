@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 import { InjectDataSource } from "@nestjs/typeorm";
 import {
     DataSource,
@@ -8,10 +8,12 @@ import {
     type Repository,
     type UpdateEvent,
 } from "typeorm";
-import { generateUlid } from "./ulid.js";
 import { EventLogEntity } from "../domain/event.log.entity.js";
 import { RuntimeBindingEntity } from "../domain/runtime.binding.entity.js";
 import { SessionEntity } from "../domain/session.entity.js";
+import { CLOCK_PORT, ID_GENERATOR_PORT } from "../application/outbound/tokens.js";
+import type { IClock } from "../application/outbound/clock.port.js";
+import type { IIdGenerator } from "../application/outbound/id.generator.port.js";
 
 interface DomainEventDraft {
     readonly eventType: string;
@@ -21,44 +23,51 @@ interface DomainEventDraft {
     readonly payload: Record<string, unknown>;
 }
 
-function eventTimeFromIso(value: string | undefined, fallback = Date.now()): number {
-    if (!value) return fallback;
-    const parsed = Date.parse(value);
-    return Number.isFinite(parsed) ? parsed : fallback;
-}
+abstract class SessionLogSubscriberBase {
+    constructor(
+        protected readonly clock: IClock,
+        protected readonly idGen: IIdGenerator,
+    ) {}
 
-async function appendEvent(
-    repo: Repository<EventLogEntity>,
-    draft: DomainEventDraft,
-): Promise<void> {
-    const eventId = generateUlid(draft.eventTime);
-    const recordedAt = Date.now();
-    await repo.insert({
-        eventId,
-        eventTime: draft.eventTime,
-        eventType: draft.eventType,
-        schemaVer: 1,
-        aggregateId: draft.aggregateId,
-        sessionId: draft.sessionId,
-        actor: "system",
-        correlationId: null,
-        causationId: null,
-        payloadJson: JSON.stringify(draft.payload),
-        recordedAt,
-    });
+    protected eventTimeFromIso(value: string | undefined): number {
+        if (!value) return this.clock.nowMs();
+        const parsed = Date.parse(value);
+        return Number.isFinite(parsed) ? parsed : this.clock.nowMs();
+    }
+
+    protected async appendEvent(
+        repo: Repository<EventLogEntity>,
+        draft: DomainEventDraft,
+    ): Promise<void> {
+        await repo.insert({
+            eventId: this.idGen.newUlid(draft.eventTime),
+            eventTime: draft.eventTime,
+            eventType: draft.eventType,
+            schemaVer: 1,
+            aggregateId: draft.aggregateId,
+            sessionId: draft.sessionId,
+            actor: "system",
+            correlationId: null,
+            causationId: null,
+            payloadJson: JSON.stringify(draft.payload),
+            recordedAt: this.clock.nowMs(),
+        });
+    }
 }
 
 /**
  * Subscribes to SessionEntity lifecycle and writes the corresponding domain
  * events (session.started / session.ended) into the events log table.
- *
- * SessionEntity is the source of truth for sessions; the events log is the
- * append-only audit trail kept consistent by this subscriber.
  */
 @Injectable()
 @EventSubscriber()
-export class SessionEntitySubscriber implements EntitySubscriberInterface<SessionEntity> {
-    constructor(@InjectDataSource() dataSource: DataSource) {
+export class SessionEntitySubscriber extends SessionLogSubscriberBase implements EntitySubscriberInterface<SessionEntity> {
+    constructor(
+        @InjectDataSource() dataSource: DataSource,
+        @Inject(CLOCK_PORT) clock: IClock,
+        @Inject(ID_GENERATOR_PORT) idGen: IIdGenerator,
+    ) {
+        super(clock, idGen);
         dataSource.subscribers.push(this);
     }
 
@@ -68,9 +77,9 @@ export class SessionEntitySubscriber implements EntitySubscriberInterface<Sessio
 
     async afterInsert(event: InsertEvent<SessionEntity>): Promise<void> {
         const session = event.entity;
-        await appendEvent(event.manager.getRepository(EventLogEntity), {
+        await this.appendEvent(event.manager.getRepository(EventLogEntity), {
             eventType: "session.started",
-            eventTime: eventTimeFromIso(session.startedAt),
+            eventTime: this.eventTimeFromIso(session.startedAt),
             aggregateId: session.taskId,
             sessionId: session.id,
             payload: {
@@ -84,11 +93,10 @@ export class SessionEntitySubscriber implements EntitySubscriberInterface<Sessio
         const before = event.databaseEntity;
         const after = event.entity as SessionEntity | undefined;
         if (!after) return;
-        // Detect transition from running -> terminal (status changed and endedAt was just set).
         if (!before.endedAt && after.endedAt && after.status !== "running") {
-            await appendEvent(event.manager.getRepository(EventLogEntity), {
+            await this.appendEvent(event.manager.getRepository(EventLogEntity), {
                 eventType: "session.ended",
-                eventTime: eventTimeFromIso(after.endedAt),
+                eventTime: this.eventTimeFromIso(after.endedAt),
                 aggregateId: before.taskId,
                 sessionId: before.id,
                 payload: {
@@ -107,8 +115,13 @@ export class SessionEntitySubscriber implements EntitySubscriberInterface<Sessio
  */
 @Injectable()
 @EventSubscriber()
-export class RuntimeBindingEntitySubscriber implements EntitySubscriberInterface<RuntimeBindingEntity> {
-    constructor(@InjectDataSource() dataSource: DataSource) {
+export class RuntimeBindingEntitySubscriber extends SessionLogSubscriberBase implements EntitySubscriberInterface<RuntimeBindingEntity> {
+    constructor(
+        @InjectDataSource() dataSource: DataSource,
+        @Inject(CLOCK_PORT) clock: IClock,
+        @Inject(ID_GENERATOR_PORT) idGen: IIdGenerator,
+    ) {
+        super(clock, idGen);
         dataSource.subscribers.push(this);
     }
 
@@ -119,9 +132,9 @@ export class RuntimeBindingEntitySubscriber implements EntitySubscriberInterface
     async afterInsert(event: InsertEvent<RuntimeBindingEntity>): Promise<void> {
         const entity = event.entity;
         if (!entity.monitorSessionId) return;
-        await appendEvent(event.manager.getRepository(EventLogEntity), {
+        await this.appendEvent(event.manager.getRepository(EventLogEntity), {
             eventType: "session.bound",
-            eventTime: eventTimeFromIso(entity.updatedAt),
+            eventTime: this.eventTimeFromIso(entity.updatedAt),
             aggregateId: entity.taskId,
             sessionId: entity.monitorSessionId,
             payload: {
@@ -136,11 +149,10 @@ export class RuntimeBindingEntitySubscriber implements EntitySubscriberInterface
         const after = event.entity as RuntimeBindingEntity | undefined;
         if (!after?.monitorSessionId) return;
         const before = event.databaseEntity;
-        // Only emit when the monitor session id was newly set or changed.
         if (before.monitorSessionId === after.monitorSessionId) return;
-        await appendEvent(event.manager.getRepository(EventLogEntity), {
+        await this.appendEvent(event.manager.getRepository(EventLogEntity), {
             eventType: "session.bound",
-            eventTime: eventTimeFromIso(after.updatedAt),
+            eventTime: this.eventTimeFromIso(after.updatedAt),
             aggregateId: after.taskId,
             sessionId: after.monitorSessionId,
             payload: {

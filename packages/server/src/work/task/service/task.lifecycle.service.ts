@@ -12,11 +12,15 @@ import { TaskNotFoundError } from "../common/task.errors.js";
 import { TaskQueryService } from "./task.query.service.js";
 import { TaskManagementService } from "./task.management.service.js";
 import {
+    CLOCK_PORT,
     EVENT_PROJECTION_ACCESS_PORT,
+    ID_GENERATOR_PORT,
     NOTIFICATION_PUBLISHER_PORT,
     SESSION_ACCESS_PORT,
     TIMELINE_EVENT_ACCESS_PORT,
 } from "../application/outbound/tokens.js";
+import type { IClock } from "../application/outbound/clock.port.js";
+import type { IIdGenerator } from "../application/outbound/id.generator.port.js";
 import type { ISessionAccess } from "../application/outbound/session.access.port.js";
 import type { ITimelineEventAccess } from "../application/outbound/timeline.event.access.port.js";
 import type { IEventProjectionAccess } from "../application/outbound/event.projection.access.port.js";
@@ -64,12 +68,14 @@ export class TaskLifecycleService {
         @Inject(TIMELINE_EVENT_ACCESS_PORT) private readonly events: ITimelineEventAccess,
         @Inject(EVENT_PROJECTION_ACCESS_PORT) private readonly projection: IEventProjectionAccess,
         @Inject(NOTIFICATION_PUBLISHER_PORT) private readonly notifier: ITaskNotificationPublisher,
+        @Inject(CLOCK_PORT) private readonly clock: IClock,
+        @Inject(ID_GENERATOR_PORT) private readonly idGen: IIdGenerator,
     ) {}
 
     async startTask(input: StartTaskServiceInput): Promise<TaskLifecycleResult> {
-        const taskId = input.taskId ?? globalThis.crypto.randomUUID();
-        const sessionId = globalThis.crypto.randomUUID();
-        const startedAt = new Date().toISOString();
+        const taskId = input.taskId ?? this.idGen.newUuid();
+        const sessionId = this.idGen.newUuid();
+        const startedAt = this.clock.nowIso();
         const existingTask = await this.query.findById(taskId);
 
         const draft = TaskUpsertDraft.from({
@@ -105,13 +111,14 @@ export class TaskLifecycleService {
                 task,
                 sessionId,
                 title: input.title,
+                createdAt: startedAt,
                 ...(task.runtimeSource ? { runtimeSource: task.runtimeSource } : {}),
                 ...(input.summary ? { summary: input.summary } : {}),
                 ...(input.metadata ? { metadata: input.metadata } : {}),
             });
             const record = createEventRecordDraft(recording.toEventRecordingInput());
             const event = await this.events.insert({
-                id: globalThis.crypto.randomUUID(),
+                id: this.idGen.newUuid(),
                 ...record,
             } as never);
             this.notifier.publish({ type: "event.logged", payload: this.projection.project(event as never) as never });
@@ -124,7 +131,7 @@ export class TaskLifecycleService {
         const task = await this.query.findById(input.taskId);
         if (!task) throw new TaskNotFoundError(input.taskId);
 
-        const endedAt = new Date().toISOString();
+        const endedAt = this.clock.nowIso();
         const sessionId = input.sessionId ?? (await this.sessions.findActiveByTaskId(input.taskId))?.id;
         const status = input.outcome;
 
@@ -155,13 +162,14 @@ export class TaskLifecycleService {
             taskId: input.taskId,
             ...(sessionId ? { sessionId } : {}),
             outcome: status,
+            createdAt: endedAt,
             ...(input.summary ? { summary: input.summary } : {}),
             ...(input.errorMessage ? { errorMessage: input.errorMessage } : {}),
             ...(input.metadata ? { metadata: input.metadata } : {}),
         });
         const record = createEventRecordDraft(recording.toEventRecordingInput());
         const event = await this.events.insert({
-            id: globalThis.crypto.randomUUID(),
+            id: this.idGen.newUuid(),
             ...record,
         } as never);
         this.notifier.publish({ type: "event.logged", payload: this.projection.project(event as never) as never });

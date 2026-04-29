@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 import { InjectDataSource } from "@nestjs/typeorm";
 import {
     DataSource,
@@ -8,9 +8,11 @@ import {
     type Repository,
     type UpdateEvent,
 } from "typeorm";
-import { generateUlid } from "./ulid.js";
 import { TaskEntity } from "../domain/task.entity.js";
 import { TaskRelationEntity } from "../domain/task.relation.entity.js";
+import { CLOCK_PORT, ID_GENERATOR_PORT } from "../application/outbound/tokens.js";
+import type { IClock } from "../application/outbound/clock.port.js";
+import type { IIdGenerator } from "../application/outbound/id.generator.port.js";
 import { TaskEventLogEntity } from "./event.log.entity.js";
 
 interface DomainEventDraft {
@@ -20,43 +22,19 @@ interface DomainEventDraft {
     readonly payload: Record<string, unknown>;
 }
 
-function eventTimeFromIso(value: string | undefined, fallback = Date.now()): number {
-    if (!value) return fallback;
-    const parsed = Date.parse(value);
-    return Number.isFinite(parsed) ? parsed : fallback;
-}
-
-async function appendEvent(
-    repo: Repository<TaskEventLogEntity>,
-    draft: DomainEventDraft,
-): Promise<void> {
-    await repo.insert({
-        eventId: generateUlid(draft.eventTime),
-        eventTime: draft.eventTime,
-        eventType: draft.eventType,
-        schemaVer: 1,
-        aggregateId: draft.aggregateId,
-        sessionId: null,
-        actor: "system",
-        correlationId: null,
-        causationId: null,
-        payloadJson: JSON.stringify(draft.payload),
-        recordedAt: Date.now(),
-    });
-}
-
 /**
  * Subscribes to TaskEntity lifecycle and writes the corresponding domain
  * events (task.created / task.renamed / task.status_changed) to the shared
  * events log.
- *
- * TaskEntity is the source of truth for tasks; the events log is the
- * append-only audit trail kept consistent by this subscriber.
  */
 @Injectable()
 @EventSubscriber()
 export class TaskEntitySubscriber implements EntitySubscriberInterface<TaskEntity> {
-    constructor(@InjectDataSource() dataSource: DataSource) {
+    constructor(
+        @InjectDataSource() dataSource: DataSource,
+        @Inject(CLOCK_PORT) private readonly clock: IClock,
+        @Inject(ID_GENERATOR_PORT) private readonly idGen: IIdGenerator,
+    ) {
         dataSource.subscribers.push(this);
     }
 
@@ -67,9 +45,9 @@ export class TaskEntitySubscriber implements EntitySubscriberInterface<TaskEntit
     async afterInsert(event: InsertEvent<TaskEntity>): Promise<void> {
         const task = event.entity;
         const repo = event.manager.getRepository(TaskEventLogEntity);
-        await appendEvent(repo, {
+        await this.appendEvent(repo, {
             eventType: "task.created",
-            eventTime: eventTimeFromIso(task.createdAt),
+            eventTime: this.eventTimeFromIso(task.createdAt),
             aggregateId: task.id,
             payload: {
                 task_id: task.id,
@@ -87,10 +65,10 @@ export class TaskEntitySubscriber implements EntitySubscriberInterface<TaskEntit
         const after = event.entity as TaskEntity | undefined;
         if (!after) return;
         const repo = event.manager.getRepository(TaskEventLogEntity);
-        const eventTime = eventTimeFromIso(after.updatedAt);
+        const eventTime = this.eventTimeFromIso(after.updatedAt);
 
         if (before.title !== after.title) {
-            await appendEvent(repo, {
+            await this.appendEvent(repo, {
                 eventType: "task.renamed",
                 eventTime,
                 aggregateId: after.id,
@@ -103,7 +81,7 @@ export class TaskEntitySubscriber implements EntitySubscriberInterface<TaskEntit
         }
 
         if (before.status !== after.status) {
-            await appendEvent(repo, {
+            await this.appendEvent(repo, {
                 eventType: "task.status_changed",
                 eventTime,
                 aggregateId: after.id,
@@ -115,6 +93,31 @@ export class TaskEntitySubscriber implements EntitySubscriberInterface<TaskEntit
             });
         }
     }
+
+    private eventTimeFromIso(value: string | undefined): number {
+        if (!value) return this.clock.nowMs();
+        const parsed = Date.parse(value);
+        return Number.isFinite(parsed) ? parsed : this.clock.nowMs();
+    }
+
+    private async appendEvent(
+        repo: Repository<TaskEventLogEntity>,
+        draft: DomainEventDraft,
+    ): Promise<void> {
+        await repo.insert({
+            eventId: this.idGen.newUlid(draft.eventTime),
+            eventTime: draft.eventTime,
+            eventType: draft.eventType,
+            schemaVer: 1,
+            aggregateId: draft.aggregateId,
+            sessionId: null,
+            actor: "system",
+            correlationId: null,
+            causationId: null,
+            payloadJson: JSON.stringify(draft.payload),
+            recordedAt: this.clock.nowMs(),
+        });
+    }
 }
 
 /**
@@ -124,7 +127,11 @@ export class TaskEntitySubscriber implements EntitySubscriberInterface<TaskEntit
 @Injectable()
 @EventSubscriber()
 export class TaskRelationEntitySubscriber implements EntitySubscriberInterface<TaskRelationEntity> {
-    constructor(@InjectDataSource() dataSource: DataSource) {
+    constructor(
+        @InjectDataSource() dataSource: DataSource,
+        @Inject(CLOCK_PORT) private readonly clock: IClock,
+        @Inject(ID_GENERATOR_PORT) private readonly idGen: IIdGenerator,
+    ) {
         dataSource.subscribers.push(this);
     }
 
@@ -137,11 +144,19 @@ export class TaskRelationEntitySubscriber implements EntitySubscriberInterface<T
         const repo = event.manager.getRepository(TaskEventLogEntity);
         const payload = relationToPayload(relation, undefined);
         if (!payload) return;
-        await appendEvent(repo, {
+        const eventTime = this.clock.nowMs();
+        await repo.insert({
+            eventId: this.idGen.newUlid(eventTime),
+            eventTime,
             eventType: "task.hierarchy_changed",
-            eventTime: Date.now(),
+            schemaVer: 1,
             aggregateId: relation.taskId,
-            payload,
+            sessionId: null,
+            actor: "system",
+            correlationId: null,
+            causationId: null,
+            payloadJson: JSON.stringify(payload),
+            recordedAt: eventTime,
         });
     }
 
@@ -152,11 +167,19 @@ export class TaskRelationEntitySubscriber implements EntitySubscriberInterface<T
         const repo = event.manager.getRepository(TaskEventLogEntity);
         const payload = relationToPayload(after, before);
         if (!payload) return;
-        await appendEvent(repo, {
+        const eventTime = this.clock.nowMs();
+        await repo.insert({
+            eventId: this.idGen.newUlid(eventTime),
+            eventTime,
             eventType: "task.hierarchy_changed",
-            eventTime: Date.now(),
+            schemaVer: 1,
             aggregateId: after.taskId,
-            payload,
+            sessionId: null,
+            actor: "system",
+            correlationId: null,
+            causationId: null,
+            payloadJson: JSON.stringify(payload),
+            recordedAt: eventTime,
         });
     }
 }

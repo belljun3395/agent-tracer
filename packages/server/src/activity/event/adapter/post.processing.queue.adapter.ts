@@ -1,8 +1,10 @@
-import { randomUUID } from "node:crypto";
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { EventProcessingJobEntity } from "~activity/event/domain/event-store/event.processing.job.entity.js";
+import { CLOCK_PORT, ID_GENERATOR_PORT } from "../application/outbound/tokens.js";
+import type { IClock } from "../application/outbound/clock.port.js";
+import type { IIdGenerator } from "../application/outbound/id.generator.port.js";
 import type {
     IPostProcessingQueue,
     PostProcessingJobInput,
@@ -21,12 +23,14 @@ export class DbBackedPostProcessingQueue implements IPostProcessingQueue {
     constructor(
         @InjectRepository(EventProcessingJobEntity)
         private readonly jobs: Repository<EventProcessingJobEntity>,
+        @Inject(CLOCK_PORT) private readonly clock: IClock,
+        @Inject(ID_GENERATOR_PORT) private readonly idGen: IIdGenerator,
     ) {}
 
     async enqueue(job: PostProcessingJobInput): Promise<void> {
-        const now = new Date().toISOString();
+        const now = this.clock.nowIso();
         await this.jobs.insert({
-            jobId: randomUUID(),
+            jobId: this.idGen.newUuid(),
             eventId: job.eventId,
             jobType: job.jobType,
             status: "pending",

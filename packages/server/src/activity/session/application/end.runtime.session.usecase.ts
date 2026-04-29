@@ -4,10 +4,12 @@ import { isTerminalTaskStatus, RuntimeSessionEnd } from "../domain/runtime.sessi
 import { SessionLifecycleService } from "../service/session.lifecycle.service.js";
 import { RuntimeBindingService } from "../service/runtime.binding.service.js";
 import {
+    CLOCK_PORT,
     NOTIFICATION_PUBLISHER_PORT,
     TASK_ACCESS_PORT,
     TASK_LIFECYCLE_ACCESS_PORT,
 } from "./outbound/tokens.js";
+import type { IClock } from "./outbound/clock.port.js";
 import type { ISessionNotificationPublisher } from "./outbound/notification.publisher.port.js";
 import type {
     ITaskAccess,
@@ -31,6 +33,7 @@ export class EndRuntimeSessionUseCase {
         @Inject(TASK_ACCESS_PORT) private readonly tasks: ITaskAccess,
         @Inject(TASK_LIFECYCLE_ACCESS_PORT) private readonly taskLifecycle: ITaskLifecycleAccess,
         @Inject(NOTIFICATION_PUBLISHER_PORT) private readonly notifier: ISessionNotificationPublisher,
+        @Inject(CLOCK_PORT) private readonly clock: IClock,
     ) {}
 
     @Transactional()
@@ -64,7 +67,7 @@ export class EndRuntimeSessionUseCase {
             return;
         }
 
-        const endedAt = new Date().toISOString();
+        const endedAt = this.clock.nowIso();
         await this.sessions.updateStatus(binding.monitorSessionId, "completed", endedAt, input.summary);
         this.notifier.publish({
             type: "session.ended",
@@ -117,7 +120,7 @@ export class EndRuntimeSessionUseCase {
     }
 
     private async setTaskStatus(taskId: string, status: TaskAccessStatus): Promise<TaskAccessRecord> {
-        const updatedAt = new Date().toISOString();
+        const updatedAt = this.clock.nowIso();
         await this.tasks.updateStatus(taskId, status, updatedAt);
         const task = await this.tasks.findById(taskId);
         if (!task) throw new Error(`Task not found: ${taskId}`);

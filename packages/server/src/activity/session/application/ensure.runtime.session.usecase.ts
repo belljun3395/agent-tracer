@@ -4,10 +4,14 @@ import { normalizeWorkspacePath } from "~work/task/public/helpers.js";
 import { SessionLifecycleService } from "../service/session.lifecycle.service.js";
 import { RuntimeBindingService } from "../service/runtime.binding.service.js";
 import {
+    CLOCK_PORT,
+    ID_GENERATOR_PORT,
     NOTIFICATION_PUBLISHER_PORT,
     TASK_ACCESS_PORT,
     TASK_LIFECYCLE_ACCESS_PORT,
 } from "./outbound/tokens.js";
+import type { IClock } from "./outbound/clock.port.js";
+import type { IIdGenerator } from "./outbound/id.generator.port.js";
 import type { ISessionNotificationPublisher } from "./outbound/notification.publisher.port.js";
 import type { ITaskAccess } from "./outbound/task.access.port.js";
 import type { ITaskLifecycleAccess } from "./outbound/task.lifecycle.access.port.js";
@@ -24,6 +28,8 @@ export class EnsureRuntimeSessionUseCase {
         @Inject(TASK_ACCESS_PORT) private readonly tasks: ITaskAccess,
         @Inject(TASK_LIFECYCLE_ACCESS_PORT) private readonly taskLifecycle: ITaskLifecycleAccess,
         @Inject(NOTIFICATION_PUBLISHER_PORT) private readonly notifier: ISessionNotificationPublisher,
+        @Inject(CLOCK_PORT) private readonly clock: IClock,
+        @Inject(ID_GENERATOR_PORT) private readonly idGen: IIdGenerator,
     ) {}
 
     @Transactional()
@@ -66,8 +72,8 @@ export class EnsureRuntimeSessionUseCase {
                 }
             }
             // Resume path: keep the task association, generate a fresh session id.
-            const sessionId = globalThis.crypto.randomUUID();
-            const startedAt = new Date().toISOString();
+            const sessionId = this.idGen.newUuid();
+            const startedAt = this.clock.nowIso();
             if (task && (task.status !== "running" || task.runtimeSource !== input.runtimeSource)) {
                 const resumedTask = await this.tasks.upsert({
                     ...task,
