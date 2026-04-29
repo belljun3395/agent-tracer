@@ -1,6 +1,9 @@
+import { Logger } from "@nestjs/common";
 import type { EntityManager } from "typeorm";
 import { normalizeLane } from "~activity/event/domain/event.lane.js";
 import type { IEmbeddingService } from "../embedding/embedding.service.js";
+
+const logger = new Logger("EventSearch");
 import { normalizeSearchText } from "./text.normalizers.js";
 import { cosineSimilarity, deserializeEmbedding, serializeEmbedding } from "./embedding.codec.js";
 import { buildEventSearchText, type SearchDocumentScope, upsertSearchDocument } from "./search.documents.js";
@@ -75,7 +78,7 @@ export async function searchEvents(
             queryVector = await embeddingService.embed(query);
         }
         catch (error) {
-            console.warn("[monitor-server] semantic global search failed; falling back to lexical search:", error instanceof Error ? error.message : error);
+            logger.warn(`semantic global search failed; falling back to lexical search: ${error instanceof Error ? error.message : String(error)}`);
         }
     }
 
@@ -181,7 +184,7 @@ async function ensureSearchEmbeddings(
             if (isClosedDatabaseError(error)) {
                 return;
             }
-            console.warn("[monitor-server] search document embedding failed:", error instanceof Error ? error.message : error);
+            logger.warn(`search document embedding failed: ${error instanceof Error ? error.message : String(error)}`);
             return;
         }
     }

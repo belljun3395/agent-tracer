@@ -2,7 +2,10 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { Logger } from "@nestjs/common";
 import type { FeatureExtractionPipeline } from "@huggingface/transformers";
+
+const logger = new Logger("EmbeddingService");
 
 /** Self-contained embedding service contract — local to event module. */
 export interface IEmbeddingService {
@@ -70,7 +73,7 @@ export class LocalEmbeddingService implements IEmbeddingService {
 }
 export function createEmbeddingService(): IEmbeddingService | undefined {
     if (!hasLocalEmbeddingModel()) {
-        console.warn("[monitor-server] local embedding model not found; semantic workflow search disabled");
+        logger.warn("local embedding model not found; semantic workflow search disabled");
         return undefined;
     }
     return new LocalEmbeddingService();
