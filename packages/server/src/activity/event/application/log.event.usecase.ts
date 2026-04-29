@@ -104,13 +104,10 @@ export class LogEventUseCase {
                 : event.kind === KIND.assistantResponse
                     ? "verification.assistant_response"
                     : "verification.other_event";
-        try {
-            await this.queue.enqueue({ eventId: event.id, jobType });
-        }
-        catch (err) {
-            // Enqueue failure should not fail the ingest — log and continue.
-            console.error("[event] failed to enqueue post-processing job", event.id, err);
-        }
+        // Enqueue participates in the surrounding @Transactional() — outbox-style.
+        // A failure here MUST roll back the event insert so we never lose post-processing
+        // for an event that was committed.
+        await this.queue.enqueue({ eventId: event.id, jobType });
 
         return event;
     }

@@ -14,7 +14,8 @@ if (entryPath === modulePath) {
     const publicBaseUrl = resolveMonitorHttpBaseUrl(applicationConfig, process.env);
     const runtime = await createNestMonitorRuntime({ databasePath });
     runtime.server.listen(port, listenHost, () => {
-        console.log(`[nestjs-server] listening on ${publicBaseUrl}`);
-        console.log(`[nestjs-server] database: ${databasePath}`);
+        // CLI startup banner — written to stdout regardless of NestJS log level.
+        process.stdout.write(`[nestjs-server] listening on ${publicBaseUrl}\n`);
+        process.stdout.write(`[nestjs-server] database: ${databasePath}\n`);
     });
 }
