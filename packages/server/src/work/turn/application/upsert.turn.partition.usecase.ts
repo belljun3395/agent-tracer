@@ -4,10 +4,12 @@ import type { TimelineEvent } from "~activity/event/public/types/event.types.js"
 import { countNonPreludeTurns, createTurnPartitionUpdate, validatePartition } from "../domain/turn.partition.js";
 import { TurnPartitionRepository } from "../repository/turn.partition.repository.js";
 import {
+    CLOCK_PORT,
     EVENT_STORE_APPENDER_PORT,
     TASK_ACCESS_PORT,
     TIMELINE_EVENT_ACCESS_PORT,
 } from "./outbound/tokens.js";
+import type { IClock } from "./outbound/clock.port.js";
 import type { ITaskAccess } from "./outbound/task.access.port.js";
 import type { ITimelineEventAccess } from "./outbound/timeline.event.access.port.js";
 import type { IEventStoreAppender } from "./outbound/event.store.appender.port.js";
@@ -24,6 +26,7 @@ export class UpsertTurnPartitionUseCase {
         @Inject(TIMELINE_EVENT_ACCESS_PORT) private readonly events: ITimelineEventAccess,
         private readonly turnPartitions: TurnPartitionRepository,
         @Inject(EVENT_STORE_APPENDER_PORT) private readonly eventStore: IEventStoreAppender,
+        @Inject(CLOCK_PORT) private readonly clock: IClock,
     ) {}
 
     @Transactional()
@@ -43,7 +46,7 @@ export class UpsertTurnPartitionUseCase {
             throw new TurnPartitionVersionMismatchError(input.baseVersion, existing.version);
         }
 
-        const updatedAt = new Date().toISOString();
+        const updatedAt = this.clock.nowIso();
         const partition = createTurnPartitionUpdate({
             taskId: input.taskId,
             groups: input.groups,

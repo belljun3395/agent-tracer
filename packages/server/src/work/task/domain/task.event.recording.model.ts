@@ -8,6 +8,7 @@ export interface StartTaskEventDraftInput {
     readonly runtimeSource?: string;
     readonly summary?: string;
     readonly metadata?: Record<string, unknown>;
+    readonly createdAt?: string;
 }
 
 export interface FinalizeTaskEventDraftInput {
@@ -17,6 +18,7 @@ export interface FinalizeTaskEventDraftInput {
     readonly summary?: string;
     readonly errorMessage?: string;
     readonly metadata?: Record<string, unknown>;
+    readonly createdAt?: string;
 }
 
 /** Domain model for the timeline-event recording payload of a task.start event. */
@@ -42,6 +44,7 @@ export class TaskStartRecording {
             title: this.input.title,
             metadata,
             ...(this.input.summary ? { body: this.input.summary } : {}),
+            ...(this.input.createdAt ? { createdAt: this.input.createdAt } : {}),
         };
     }
 }
@@ -60,6 +63,7 @@ export class TaskFinalizationRecording {
             ...(this.input.sessionId ? { sessionId: this.input.sessionId } : {}),
             ...(body ? { body } : {}),
             ...(this.input.metadata ? { metadata: this.input.metadata } : {}),
+            ...(this.input.createdAt ? { createdAt: this.input.createdAt } : {}),
         };
     }
 }

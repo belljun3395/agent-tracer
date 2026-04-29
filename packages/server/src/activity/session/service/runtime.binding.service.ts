@@ -1,9 +1,11 @@
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 import { RuntimeBindingEntity } from "../domain/runtime.binding.entity.js";
 import type {
     RuntimeBindingSnapshot,
     RuntimeBindingUpsertInput,
 } from "../public/dto/runtime.binding.snapshot.dto.js";
+import { CLOCK_PORT } from "../application/outbound/tokens.js";
+import type { IClock } from "../application/outbound/clock.port.js";
 import { RuntimeBindingRepository } from "../repository/runtime.binding.repository.js";
 
 /**
@@ -16,7 +18,10 @@ import { RuntimeBindingRepository } from "../repository/runtime.binding.reposito
  */
 @Injectable()
 export class RuntimeBindingService {
-    constructor(private readonly repo: RuntimeBindingRepository) {}
+    constructor(
+        private readonly repo: RuntimeBindingRepository,
+        @Inject(CLOCK_PORT) private readonly clock: IClock,
+    ) {}
 
     async findActive(
         runtimeSource: string,
@@ -35,7 +40,7 @@ export class RuntimeBindingService {
     }
 
     async upsert(input: RuntimeBindingUpsertInput): Promise<RuntimeBindingSnapshot> {
-        const now = new Date().toISOString();
+        const now = this.clock.nowIso();
         const existing = await this.repo.findByKey(input.runtimeSource, input.runtimeSessionId);
         const entity = existing ?? new RuntimeBindingEntity();
         entity.runtimeSource = input.runtimeSource;
@@ -52,7 +57,7 @@ export class RuntimeBindingService {
         const entity = await this.repo.findByKey(runtimeSource, runtimeSessionId);
         if (!entity) return;
         entity.monitorSessionId = null;
-        entity.updatedAt = new Date().toISOString();
+        entity.updatedAt = this.clock.nowIso();
         await this.repo.save(entity);
     }
 

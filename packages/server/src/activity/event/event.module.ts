@@ -9,16 +9,20 @@ import { LogEventUseCase } from "./application/log.event.usecase.js";
 import { SearchEventsUseCase } from "./application/search.events.usecase.js";
 import { UpdateEventUseCase } from "./application/update.event.usecase.js";
 import {
+    CLOCK_PORT,
     EVENT_PERSISTENCE_PORT,
     EVENT_SEARCH_INDEX_PORT,
     EVENT_STORE_APPENDER_PORT,
+    ID_GENERATOR_PORT,
     NOTIFICATION_PUBLISHER_PORT,
     POST_PROCESSING_QUEUE_PORT,
     TASK_ACCESS_PORT,
     VERIFICATION_POST_PROCESSOR_PORT,
 } from "./application/outbound/tokens.js";
+import { CryptoIdGeneratorAdapter } from "./adapter/crypto.id.generator.adapter.js";
 import { DbBackedPostProcessingQueue } from "./adapter/post.processing.queue.adapter.js";
 import { DomainEventAppenderPublicAdapter } from "./adapter/domain.event.appender.public.adapter.js";
+import { SystemClockAdapter } from "./adapter/system.clock.adapter.js";
 import { EventNotificationPublisherAdapter } from "./adapter/notification.publisher.adapter.js";
 import { EventPersistenceAdapter } from "./adapter/event.persistence.adapter.js";
 import { EventSearchIndexAdapter } from "./adapter/event.search.index.adapter.js";
@@ -138,6 +142,8 @@ export class EventModule {
                 EventNotificationPublisherAdapter,
                 VerificationPostProcessorAdapter,
                 DbBackedPostProcessingQueue,
+                SystemClockAdapter,
+                CryptoIdGeneratorAdapter,
                 // Public adapters
                 TimelineEventReadPublicAdapter,
                 TimelineEventWritePublicAdapter,
@@ -161,6 +167,8 @@ export class EventModule {
                 { provide: NOTIFICATION_PUBLISHER_PORT, useExisting: EventNotificationPublisherAdapter },
                 { provide: VERIFICATION_POST_PROCESSOR_PORT, useExisting: VerificationPostProcessorAdapter },
                 { provide: POST_PROCESSING_QUEUE_PORT, useExisting: DbBackedPostProcessingQueue },
+                { provide: CLOCK_PORT, useExisting: SystemClockAdapter },
+                { provide: ID_GENERATOR_PORT, useExisting: CryptoIdGeneratorAdapter },
             ],
             exports: [
                 TIMELINE_EVENT_READ,

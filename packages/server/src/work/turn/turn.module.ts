@@ -4,13 +4,17 @@ import { TurnPartitionCommandController } from "./api/turn.partition.command.con
 import { TurnPartitionQueryController } from "./api/turn.partition.query.controller.js";
 import { GetTurnPartitionUseCase } from "./application/get.turn.partition.usecase.js";
 import {
+    CLOCK_PORT,
     EVENT_STORE_APPENDER_PORT,
+    ID_GENERATOR_PORT,
     TASK_ACCESS_PORT,
     TIMELINE_EVENT_ACCESS_PORT,
 } from "./application/outbound/tokens.js";
 import { ResetTurnPartitionUseCase } from "./application/reset.turn.partition.usecase.js";
 import { UpsertTurnPartitionUseCase } from "./application/upsert.turn.partition.usecase.js";
+import { CryptoIdGeneratorAdapter } from "./adapter/crypto.id.generator.adapter.js";
 import { EventStoreAppenderAdapter } from "./adapter/event.store.appender.adapter.js";
+import { SystemClockAdapter } from "./adapter/system.clock.adapter.js";
 import { TaskAccessAdapter } from "./adapter/task.access.adapter.js";
 import { TimelineEventAccessAdapter } from "./adapter/timeline.event.access.adapter.js";
 import { TurnPartitionEntity } from "./domain/turn.partition.entity.js";
@@ -45,6 +49,8 @@ export class TurnModule {
                 TaskAccessAdapter,
                 TimelineEventAccessAdapter,
                 EventStoreAppenderAdapter,
+                SystemClockAdapter,
+                CryptoIdGeneratorAdapter,
                 // Use cases
                 GetTurnPartitionUseCase,
                 UpsertTurnPartitionUseCase,
@@ -53,6 +59,8 @@ export class TurnModule {
                 { provide: TASK_ACCESS_PORT, useExisting: TaskAccessAdapter },
                 { provide: TIMELINE_EVENT_ACCESS_PORT, useExisting: TimelineEventAccessAdapter },
                 { provide: EVENT_STORE_APPENDER_PORT, useExisting: EventStoreAppenderAdapter },
+                { provide: CLOCK_PORT, useExisting: SystemClockAdapter },
+                { provide: ID_GENERATOR_PORT, useExisting: CryptoIdGeneratorAdapter },
             ],
         };
     }

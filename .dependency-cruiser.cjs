@@ -253,8 +253,12 @@ module.exports = {
     {
       name: "event-repository-only-domain",
       severity: "error",
+      comment: "repository may also import application/outbound contract (per MODULE_ARCHITECTURE.md).",
       from: { path: "^packages/server/src/activity/event/repository/" },
-      to: { path: "^packages/server/src/activity/event/(service|application|adapter|api|subscriber)/" },
+      to: {
+        path: "^packages/server/src/activity/event/(service|application|adapter|api|subscriber)/",
+        pathNot: "^packages/server/src/activity/event/application/outbound/",
+      },
     },
     {
       name: "event-service-no-upper-layers",

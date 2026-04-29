@@ -7,10 +7,14 @@ import type { TimelineEvent } from "~activity/event/domain/model/timeline.event.
 import { TimelineEventService } from "../service/timeline.event.service.js";
 import { projectTimelineEvent } from "../domain/timeline.event.projection.model.js";
 import {
+    CLOCK_PORT,
+    ID_GENERATOR_PORT,
     NOTIFICATION_PUBLISHER_PORT,
     POST_PROCESSING_QUEUE_PORT,
     TASK_ACCESS_PORT,
 } from "./outbound/tokens.js";
+import type { IClock } from "./outbound/clock.port.js";
+import type { IIdGenerator } from "./outbound/id.generator.port.js";
 import type { IEventNotificationPublisher } from "./outbound/notification.publisher.port.js";
 import type {
     IPostProcessingQueue,
@@ -35,6 +39,8 @@ export class LogEventUseCase {
         @Inject(TASK_ACCESS_PORT) private readonly tasks: IEventTaskAccess,
         @Inject(NOTIFICATION_PUBLISHER_PORT) private readonly notifier: IEventNotificationPublisher,
         @Inject(POST_PROCESSING_QUEUE_PORT) private readonly queue: IPostProcessingQueue,
+        @Inject(CLOCK_PORT) private readonly clock: IClock,
+        @Inject(ID_GENERATOR_PORT) private readonly idGen: IIdGenerator,
     ) {}
 
     @Transactional()
@@ -77,7 +83,7 @@ export class LogEventUseCase {
             desiredStatus !== undefined &&
             shouldApplyLoggedEventTaskStatusEffect({ currentStatus: task.status, desiredStatus })
         ) {
-            const updatedAt = new Date().toISOString();
+            const updatedAt = this.clock.nowIso();
             await this.tasks.updateStatus(task.id, desiredStatus, updatedAt);
             const updatedTask = await this.tasks.findById(task.id);
             if (updatedTask) {
@@ -92,7 +98,7 @@ export class LogEventUseCase {
     private async insertEvent(input: EventRecordingInput): Promise<TimelineEvent> {
         const record = createEventRecordDraft(input);
         const persisted = await this.events.insert({
-            id: globalThis.crypto.randomUUID(),
+            id: this.idGen.newUuid(),
             ...record,
         } as never);
         const event = persisted as unknown as TimelineEvent;

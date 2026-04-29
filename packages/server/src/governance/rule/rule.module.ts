@@ -12,6 +12,8 @@ import {
 } from "./application/list.rules.usecase.js";
 import {
     BACKFILL_TRIGGER_PORT,
+    CLOCK_PORT,
+    ID_GENERATOR_PORT,
     NOTIFICATION_PUBLISHER_PORT,
     RULE_PERSISTENCE_PORT,
     VERDICT_COUNT_QUERY_PORT,
@@ -22,7 +24,9 @@ import { ReEvaluateRuleUseCase } from "./application/re-evaluate.rule.usecase.js
 import { RegisterSuggestionUseCase } from "./application/register.suggestion.usecase.js";
 import { UpdateRuleUseCase } from "./application/update.rule.usecase.js";
 import { BackfillTriggerAdapter } from "./adapter/backfill.trigger.adapter.js";
+import { CryptoIdGeneratorAdapter } from "./adapter/crypto.id.generator.adapter.js";
 import { RuleNotificationPublisherAdapter } from "./adapter/notification.publisher.adapter.js";
+import { SystemClockAdapter } from "./adapter/system.clock.adapter.js";
 import { RuleReadPublicAdapter } from "./adapter/rule.read.public.adapter.js";
 import { RuleSignatureQueryPublicAdapter } from "./adapter/rule.signature.query.public.adapter.js";
 import { RuleWritePublicAdapter } from "./adapter/rule.write.public.adapter.js";
@@ -78,6 +82,8 @@ export class RuleModule {
                 RuleNotificationPublisherAdapter,
                 VerdictCountQueryAdapter,
                 VerificationInvalidationAdapter,
+                SystemClockAdapter,
+                CryptoIdGeneratorAdapter,
                 // Public adapters
                 RuleReadPublicAdapter,
                 RuleSignatureQueryPublicAdapter,
@@ -101,6 +107,8 @@ export class RuleModule {
                 { provide: BACKFILL_TRIGGER_PORT, useExisting: BackfillTriggerAdapter },
                 { provide: VERIFICATION_INVALIDATION_PORT, useExisting: VerificationInvalidationAdapter },
                 { provide: VERDICT_COUNT_QUERY_PORT, useExisting: VerdictCountQueryAdapter },
+                { provide: CLOCK_PORT, useExisting: SystemClockAdapter },
+                { provide: ID_GENERATOR_PORT, useExisting: CryptoIdGeneratorAdapter },
             ],
             exports: [RULE_READ, RULE_WRITE, RULE_SIGNATURE_QUERY, RULE_REPOSITORY_TOKEN],
         };

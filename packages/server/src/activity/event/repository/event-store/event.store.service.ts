@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import type { AnyDomainEventDraft, DomainEvent } from "~activity/event/domain/event-store/model/domain.events.model.js";
@@ -7,7 +7,9 @@ import type { EventId, TimeRange } from "~activity/event/domain/event-store/mode
 import { validateDomainEventDraft } from "~activity/event/domain/event-store/domain.events.js";
 import { ContentBlobEntity } from "~activity/event/domain/event-store/content.blob.entity.js";
 import { EventLogEntity } from "~activity/event/domain/event-store/event.log.entity.js";
-import { generateUlid } from "./ulid.js";
+import { CLOCK_PORT, ID_GENERATOR_PORT } from "~activity/event/application/outbound/tokens.js";
+import type { IClock } from "~activity/event/application/outbound/clock.port.js";
+import type { IIdGenerator } from "~activity/event/application/outbound/id.generator.port.js";
 import { projectDomainEvent } from "./read.model.projector.js";
 import type {
     ContentBlobRecord,
@@ -27,13 +29,15 @@ export class EventStoreService implements IEventStore {
         private readonly events: Repository<EventLogEntity>,
         @InjectRepository(ContentBlobEntity)
         private readonly blobs: Repository<ContentBlobEntity>,
+        @Inject(CLOCK_PORT) private readonly clock: IClock,
+        @Inject(ID_GENERATOR_PORT) private readonly idGen: IIdGenerator,
     ) {}
 
     async append(draft: AnyDomainEventDraft): Promise<DomainEvent> {
         validateDomainEventDraft(draft);
 
-        const eventId = draft.eventId ?? generateUlid(draft.eventTime);
-        const recordedAt = draft.recordedAt ?? Date.now();
+        const eventId = draft.eventId ?? this.idGen.newUlid(draft.eventTime);
+        const recordedAt = draft.recordedAt ?? this.clock.nowMs();
 
         await this.events.insert({
             eventId,
@@ -89,7 +93,7 @@ export class EventStoreService implements IEventStore {
 
     async putContentBlob(input: ContentBlobWriteInput): Promise<ContentBlobRecord> {
         const sha256 = createHash("sha256").update(input.body).digest("hex");
-        const createdAt = input.createdAt ?? Date.now();
+        const createdAt = input.createdAt ?? this.clock.nowMs();
 
         await this.blobs
             .createQueryBuilder()

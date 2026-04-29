@@ -4,7 +4,8 @@ import { Repository } from "typeorm";
 import { EventProcessingJobEntity } from "~activity/event/domain/event-store/event.processing.job.entity.js";
 import { TimelineEventService } from "./timeline.event.service.js";
 import type { TimelineEvent } from "~activity/event/domain/model/timeline.event.model.js";
-import { VERIFICATION_POST_PROCESSOR_PORT } from "../application/outbound/tokens.js";
+import { CLOCK_PORT, VERIFICATION_POST_PROCESSOR_PORT } from "../application/outbound/tokens.js";
+import type { IClock } from "../application/outbound/clock.port.js";
 import type { IVerificationPostProcessor } from "../application/outbound/verification.post.processor.port.js";
 
 const POLL_INTERVAL_MS = 250;
@@ -33,6 +34,7 @@ export class EventProcessingWorker implements OnApplicationBootstrap, OnApplicat
         private readonly events: TimelineEventService,
         @Inject(VERIFICATION_POST_PROCESSOR_PORT)
         private readonly verification: IVerificationPostProcessor,
+        @Inject(CLOCK_PORT) private readonly clock: IClock,
     ) {}
 
     onApplicationBootstrap(): void {
@@ -82,7 +84,7 @@ export class EventProcessingWorker implements OnApplicationBootstrap, OnApplicat
     }
 
     private async claim(jobId: string): Promise<EventProcessingJobEntity | null> {
-        const now = new Date().toISOString();
+        const now = this.clock.nowIso();
         const result = await this.jobs
             .createQueryBuilder()
             .update(EventProcessingJobEntity)
@@ -127,7 +129,7 @@ export class EventProcessingWorker implements OnApplicationBootstrap, OnApplicat
             { jobId: job.jobId },
             {
                 status: "completed",
-                updatedAt: new Date().toISOString(),
+                updatedAt: this.clock.nowIso(),
                 lastError: note,
             },
         );
@@ -142,7 +144,7 @@ export class EventProcessingWorker implements OnApplicationBootstrap, OnApplicat
             {
                 status,
                 attempts,
-                updatedAt: new Date().toISOString(),
+                updatedAt: this.clock.nowIso(),
                 lastError: message,
             },
         );

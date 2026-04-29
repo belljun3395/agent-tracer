@@ -1,13 +1,16 @@
-import { randomUUID } from "node:crypto";
 import { Transactional } from "typeorm-transactional";
 import { Inject, Injectable } from "@nestjs/common";
 import { isRuleExpectMeaningful } from "~governance/rule/domain/rule.js";
 import { computeRuleSignature } from "~governance/rule/domain/rule.signature.js";
 import {
     BACKFILL_TRIGGER_PORT,
+    CLOCK_PORT,
+    ID_GENERATOR_PORT,
     NOTIFICATION_PUBLISHER_PORT,
     RULE_PERSISTENCE_PORT,
 } from "./outbound/tokens.js";
+import type { IClock } from "./outbound/clock.port.js";
+import type { IIdGenerator } from "./outbound/id.generator.port.js";
 import type { IRulePersistence } from "./outbound/rule.persistence.port.js";
 import type { IRuleNotificationPublisher } from "./outbound/notification.publisher.port.js";
 import type { IBackfillTrigger } from "./outbound/backfill.trigger.port.js";
@@ -24,12 +27,12 @@ export type { CreateRuleUseCaseIn as CreateRuleInput } from "./dto/create.rule.u
  */
 @Injectable()
 export class CreateRuleUseCase {
-    private readonly now: () => string = () => new Date().toISOString();
-
     constructor(
         @Inject(RULE_PERSISTENCE_PORT) private readonly ruleRepo: IRulePersistence,
         @Inject(NOTIFICATION_PUBLISHER_PORT) private readonly notifier: IRuleNotificationPublisher,
         @Inject(BACKFILL_TRIGGER_PORT) private readonly backfill: IBackfillTrigger,
+        @Inject(CLOCK_PORT) private readonly clock: IClock,
+        @Inject(ID_GENERATOR_PORT) private readonly idGen: IIdGenerator,
     ) {}
 
     @Transactional()
@@ -39,7 +42,7 @@ export class CreateRuleUseCase {
             ...(input.trigger ? { trigger: input.trigger } : {}),
             expect: input.expect,
         });
-        const id = randomUUID();
+        const id = this.idGen.newUuid();
         const created = await this.ruleRepo.insert({
             id,
             name: input.name.trim(),
@@ -52,7 +55,7 @@ export class CreateRuleUseCase {
             severity: input.severity ?? "info",
             ...(input.rationale ? { rationale: input.rationale } : {}),
             signature,
-            createdAt: this.now(),
+            createdAt: this.clock.nowIso(),
         });
 
         this.notifier.publish({

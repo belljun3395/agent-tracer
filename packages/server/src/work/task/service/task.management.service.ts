@@ -9,7 +9,8 @@ import { TaskRelations } from "../domain/task.relations.model.js";
 import { TaskRepository } from "../repository/task.repository.js";
 import { TaskRelationRepository } from "../repository/task.relation.repository.js";
 import { TaskQueryService } from "./task.query.service.js";
-import { NOTIFICATION_PUBLISHER_PORT } from "../application/outbound/tokens.js";
+import { CLOCK_PORT, NOTIFICATION_PUBLISHER_PORT } from "../application/outbound/tokens.js";
+import type { IClock } from "../application/outbound/clock.port.js";
 import type { ITaskNotificationPublisher } from "../application/outbound/notification.publisher.port.js";
 
 export interface TaskUpdateInput {
@@ -34,6 +35,7 @@ export class TaskManagementService {
         private readonly relationRepo: TaskRelationRepository,
         private readonly query: TaskQueryService,
         @Inject(NOTIFICATION_PUBLISHER_PORT) private readonly notifier: ITaskNotificationPublisher,
+        @Inject(CLOCK_PORT) private readonly clock: IClock,
     ) {}
 
     async update(input: TaskUpdateInput): Promise<MonitoringTask | null> {
@@ -54,7 +56,7 @@ export class TaskManagementService {
         if (hasNewStatus) {
             entity.status = input.status;
         }
-        entity.updatedAt = new Date().toISOString();
+        entity.updatedAt = this.clock.nowIso();
         await this.taskRepo.save(entity);
 
         const updated = await this.query.findById(input.taskId);
@@ -76,7 +78,7 @@ export class TaskManagementService {
         if (input.taskKind) {
             entity.taskKind = input.taskKind;
         }
-        entity.updatedAt = new Date().toISOString();
+        entity.updatedAt = this.clock.nowIso();
         await this.taskRepo.save(entity);
 
         await this.syncRelations(input.taskId, {
