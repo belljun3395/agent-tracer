@@ -10,5 +10,3 @@ import type { MonitorNotification } from "~adapters/notifications/notification.p
 export interface IBroadcastFanout {
     fanout(notification: MonitorNotification): void;
 }
-
-const BROADCAST_FANOUT_TOKEN = "BROADCAST_FANOUT";

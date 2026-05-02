@@ -29,7 +29,6 @@ export type StatusFilterKey = "all" | ConcreteTaskStatus;
 export type StatusFilterState = Record<ConcreteTaskStatus, boolean>;
 
 export const ALL_RUNTIME_FILTER_KEY = "all";
-const ALL_STATUS_FILTER_KEY: StatusFilterKey = "all";
 export const TASK_STATUS_FILTER_KEYS = ["running", "waiting", "completed", "errored"] as const satisfies readonly ConcreteTaskStatus[];
 
 interface TaskDisplayTitleCacheEntry {
@@ -114,12 +113,6 @@ export function runtimeTagLabel(source: string): string {
     if (source === CLAUDE_BRIDGE_SOURCE) return "Claude Bridge";
     if (source === CODEX_CLI_SOURCE) return "Codex";
     return source;
-}
-
-function runtimeObservabilityLabel(source?: string): string | null {
-    if (!source) return null;
-    if (source === CLAUDE_BRIDGE_SOURCE) return "Bridge observability";
-    return null;
 }
 
 function runtimeFilterKey(source?: string): string {

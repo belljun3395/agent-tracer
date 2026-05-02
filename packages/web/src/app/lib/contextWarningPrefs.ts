@@ -76,10 +76,3 @@ export function subscribeContextWarningPrefs(listener: () => void): () => void {
         subscribers.delete(listener);
     };
 }
-
-function shouldShowContextWarning(
-    currentPct: number | null | undefined,
-    prefs: ContextWarningPrefs,
-): boolean {
-    return prefs.enabled && typeof currentPct === "number" && currentPct >= prefs.thresholdPct;
-}

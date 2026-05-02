@@ -1,5 +1,5 @@
 import type { TimelineEvent } from "~activity/event/domain/model/timeline.event.model.js";
-import type { MonitoringEventKind, TimelineLane } from "~activity/event/domain/common/type/event.kind.type.js";
+import type { MonitoringEventKind } from "~activity/event/domain/common/type/event.kind.type.js";
 import { normalizeLane } from "~activity/event/domain/event.lane.js";
 import { parseJsonField } from "./event.json.js";
 import type { EventFileEntity } from "./event.file.entity.js";
@@ -192,8 +192,3 @@ function addString(metadata: Record<string, unknown>, key: string, value: string
 
 /** Type alias for use by callers. */
 export type HydratedTimelineEvent = TimelineEvent;
-
-/** Cast helper — convert TimelineLane to plain string. */
-function hydratedLane(event: HydratedTimelineEvent): TimelineLane {
-    return event.lane;
-}

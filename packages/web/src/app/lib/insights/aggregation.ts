@@ -496,15 +496,3 @@ export function buildSubagentInsight(timeline: readonly TimelineEventRecord[]): 
     };
 }
 
-/**
- * Canonical unique-file count.
- *
- * Routes through {@link collectExploredFiles} so that every surface that shows
- * a "Unique Files" number pulls from the same strict source (file.changed +
- * tool.used file-touching in the exploration lane), rather than regex-extracted
- * user.message filePaths or transcript attachments. Use this in place of any
- * ad-hoc `filePaths`-sum to keep Overview and Exploration numbers consistent.
- */
-function countUniqueExploredFiles(timeline: readonly TimelineEventRecord[]): number {
-    return collectExploredFiles(timeline).length;
-}

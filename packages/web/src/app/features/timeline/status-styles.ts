@@ -1,13 +1,3 @@
-const OBSERVABILITY_BADGE_STYLES = {
-    actions: "border-[var(--implementation-border)] bg-[var(--implementation-bg)] text-[var(--implementation)]",
-    coordination: "border-[var(--coordination-border)] bg-[var(--coordination-bg)] text-[var(--coordination)]",
-    files: "border-[var(--exploration-border)] bg-[var(--exploration-bg)] text-[var(--exploration)]",
-    compacts: "border-[color-mix(in_srgb,var(--planning)_28%,white)] bg-[color-mix(in_srgb,var(--planning)_10%,white)] text-[var(--planning)]",
-    checks: "border-[var(--coordination-border)] bg-[var(--coordination-bg)] text-[var(--coordination)]",
-    violations: "border-[#fecaca] bg-[#fef2f2] text-[var(--err)]",
-    passes: "border-[#bbf7d0] bg-[#f0fdf4] text-[var(--ok)]"
-} as const;
-
 export const TASK_STATUS_BUTTON_STYLES = {
     running: {
         active: "border-[var(--ok)] bg-[var(--ok-bg)] text-[var(--ok)]",

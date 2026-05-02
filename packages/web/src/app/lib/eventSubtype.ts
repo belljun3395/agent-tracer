@@ -114,13 +114,6 @@ export function buildDisplayLaneRows(events: readonly TimelineEventRecord[], act
     }
     return rows;
 }
-function resolveTimelineRowKey(event: TimelineEventRecord, expandedLanes: ReadonlySet<ExpandableTimelineLane>): string {
-    if (!isExpandableLane(event.lane) || !expandedLanes.has(event.lane)) {
-        return event.lane;
-    }
-    const subtype = resolveEventSubtype(event);
-    return `${event.lane}:${subtype?.key ?? "uncategorized"}`;
-}
 function buildSubtypeRowsForLane(events: readonly TimelineEventRecord[], lane: ExpandableTimelineLane): readonly TimelineLaneRow[] {
     const subtypeMap = new Map<EventSubtypeKey, string>();
     let hasUncategorized = false;
@@ -155,13 +148,10 @@ function buildSubtypeRowsForLane(events: readonly TimelineEventRecord[], lane: E
             baseLane: lane,
             isSubtype: true,
             subtypeKey: "uncategorized",
-            subtypeLabel: subtypeLabel("uncategorized")
+            subtypeLabel: SUBTYPE_DEFINITIONS["uncategorized"].label
         });
     }
     return rows;
-}
-function subtypeLabel(key: EventSubtypeKey): string {
-    return SUBTYPE_DEFINITIONS[key].label;
 }
 function subtypeIcon(key: EventSubtypeKey): string | undefined {
     return SUBTYPE_DEFINITIONS[key].icon;

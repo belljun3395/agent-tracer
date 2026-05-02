@@ -1,7 +1,7 @@
 import type { TaskId } from "~domain/monitoring.js";
-import type { RulesListResponse, TaskRulesResponse, VerdictCounts } from "~domain/rule.js";
+import type { RulesListResponse, TaskRulesResponse } from "~domain/rule.js";
 import type { OverviewResponse, TaskDetailResponse, TasksResponse } from "~domain/task-query-contracts.js";
-import { fetchOverview, fetchRules, fetchTaskDetail, fetchTaskRules, fetchTasks, fetchVerdictCounts } from "~io/api.js";
+import { fetchOverview, fetchRules, fetchTaskDetail, fetchTaskRules, fetchTasks } from "~io/api.js";
 import type { FetchRulesFilter } from "~io/api.js";
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 
@@ -55,20 +55,6 @@ export function useTaskRulesQuery(taskId: TaskId | null): UseQueryResult<TaskRul
         queryFn: () => {
             if (!taskId) throw new Error("useTaskRulesQuery called without a taskId");
             return fetchTaskRules(taskId);
-        },
-        enabled: taskId !== null,
-    });
-}
-
-function useVerdictCountsQuery(taskId: TaskId | null): UseQueryResult<VerdictCounts> {
-    return useQuery({
-        queryKey: taskId
-            ? monitorQueryKeys.verdictCounts(taskId)
-            : monitorQueryKeys.verdictCounts("__disabled__" as TaskId),
-        queryFn: async () => {
-            if (!taskId) throw new Error("useVerdictCountsQuery called without a taskId");
-            const { counts } = await fetchVerdictCounts(taskId);
-            return counts;
         },
         enabled: taskId !== null,
     });

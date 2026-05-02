@@ -192,9 +192,6 @@ export interface TimelineContextSummary {
     readonly laneSummary: string;
     readonly focusSummary: string | null;
 }
-function resolveTimelineViewportHeight(contentHeight: number, preferredMaxHeight: number): number {
-    return Math.min(contentHeight, preferredMaxHeight);
-}
 export function buildTimelineContextSummary(input: {
     filteredEventCount: number;
     totalEventCount: number;

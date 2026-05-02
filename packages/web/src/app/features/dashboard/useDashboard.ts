@@ -19,8 +19,6 @@ const INSPECTOR_WIDTH_DEFAULT = 360;
 const INSPECTOR_WIDTH_MIN = 280;
 const INSPECTOR_WIDTH_MAX = 800;
 const INSPECTOR_WIDTH_STORAGE_KEY = "agent-tracer.inspector-width";
-/** @deprecated kept for back-compat; use db.inspectorWidth instead. */
-const INSPECTOR_WIDTH = INSPECTOR_WIDTH_DEFAULT;
 const DASHBOARD_STACKED_BREAKPOINT = 1024;
 
 function loadInspectorWidth(): number {

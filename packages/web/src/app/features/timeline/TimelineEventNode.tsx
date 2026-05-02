@@ -1,6 +1,6 @@
 import type React from "react";
 import { resolveEventSubtype } from "~app/lib/eventSubtype.js";
-import { formatRelativeTime, NODE_WIDTH, ROW_VERTICAL_OFFSET } from "~app/lib/timeline.js";
+import { formatRelativeTime, ROW_VERTICAL_OFFSET } from "~app/lib/timeline.js";
 import type { TimelineConnector, TimelineItemLayout } from "~app/lib/timeline.js";
 import type { TimelineEventRecord } from "~domain/monitoring.js";
 import { cn } from "~app/lib/ui/cn.js";

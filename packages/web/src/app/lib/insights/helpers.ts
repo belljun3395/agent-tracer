@@ -17,30 +17,6 @@ export function extractMetadataStringArray(metadata: Record<string, unknown>, ke
     return value.filter((entry): entry is string => typeof entry === "string");
 }
 
-function extractMetadataNumber(metadata: Record<string, unknown>, key: string): number | undefined {
-    const value = metadata[key];
-    if (typeof value !== "number" || !Number.isFinite(value)) {
-        return undefined;
-    }
-    return value;
-}
-
-export function uniqueStrings(values: readonly string[]): readonly string[] {
-    const deduped = new Map<string, string>();
-    for (const value of values) {
-        const key = normalizeForDedup(value);
-        if (!key || deduped.has(key)) {
-            continue;
-        }
-        deduped.set(key, value);
-    }
-    return [...deduped.values()];
-}
-
-export function normalizeForDedup(value: string): string {
-    return value.trim().toLowerCase();
-}
-
 export function isCompactEvent(event: TimelineEventRecord): boolean {
     return event.classification.tags.includes("compact")
         || extractMetadataBoolean(event.metadata, "compactEvent")

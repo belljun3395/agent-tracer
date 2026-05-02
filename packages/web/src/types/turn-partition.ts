@@ -171,20 +171,9 @@ export function filterEventsByGroup(
     return filterEventsByTurnRange(events, { from: group.from, to: group.to });
 }
 
-function scopeKeyForGroup(group: TurnGroup): string {
-    return group.from === group.to ? `turn:${group.from}` : `turns:${group.from}-${group.to}`;
-}
-
 export function scopeLabelForGroup(group: TurnGroup): string {
     if (group.label && group.label.trim()) return group.label.trim();
     return group.from === group.to ? `Turn ${group.from}` : `Turns ${group.from}–${group.to}`;
-}
-
-function findGroupByTurnIndex(
-    partition: TurnPartition,
-    turnIndex: number,
-): TurnGroup | null {
-    return partition.groups.find((g) => turnIndex >= g.from && turnIndex <= g.to) ?? null;
 }
 
 export function countNonPreludeTurns(events: readonly TimelineEventRecord[]): number {

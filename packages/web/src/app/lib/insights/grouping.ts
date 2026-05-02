@@ -1,9 +1,7 @@
 import type { TimelineEventRecord } from "~domain/monitoring.js";
 import {
-    extractMetadataString,
-    uniqueStrings
+    extractMetadataString
 } from "./helpers.js";
-import { describeProcessEvent } from "./extraction.js";
 
 export interface QuestionGroup {
     readonly questionId: string;
@@ -130,12 +128,6 @@ export function buildModelSummary(timeline: readonly TimelineEventRecord[]): Mod
         modelCounts
     };
 }
-function collectViolationDescriptions(timeline: readonly TimelineEventRecord[]): readonly string[] {
-    return timeline
-        .filter(e => (e.kind === "verification.logged" && e.metadata["verificationStatus"] === "fail") ||
-        (e.kind === "rule.logged" && e.metadata["ruleStatus"] === "violation"))
-        .map(e => e.title);
-}
 export interface VerificationCycleItem {
     readonly id: string;
     readonly title: string;
@@ -167,12 +159,4 @@ export function buildVerificationCycles(timeline: readonly TimelineEventRecord[]
         };
     })
         .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
-}
-function collectPlanSteps(timeline: readonly TimelineEventRecord[]): readonly string[] {
-    const planningEvents = timeline.filter(e => e.lane === "planning");
-    const describedTerminals = timeline.filter(e => e.kind === "terminal.command"
-        && Boolean(extractMetadataString(e.metadata, "description")));
-    return uniqueStrings([...planningEvents, ...describedTerminals]
-        .map(describeProcessEvent)
-        .filter((v): v is string => Boolean(v)));
 }
