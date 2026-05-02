@@ -5,7 +5,6 @@ import { TaskCommandController } from "./api/task.command.controller.js";
 import { TaskIngestController } from "./api/task.ingest.controller.js";
 import { TaskQueryController } from "./api/task.query.controller.js";
 import { CompleteTaskUseCase } from "./application/complete.task.usecase.js";
-import { DeleteFinishedTasksUseCase } from "./application/delete.finished.tasks.usecase.js";
 import { DeleteTaskUseCase } from "./application/delete.task.usecase.js";
 import { ErrorTaskUseCase } from "./application/error.task.usecase.js";
 import { GetDefaultWorkspacePathUseCase } from "./application/get.default.workspace.path.usecase.js";
@@ -108,7 +107,6 @@ export class TaskModule {
                 UpdateTaskUseCase,
                 LinkTaskUseCase,
                 DeleteTaskUseCase,
-                DeleteFinishedTasksUseCase,
                 ListTasksUseCase,
                 GetTaskUseCase,
                 GetTaskTimelineUseCase,

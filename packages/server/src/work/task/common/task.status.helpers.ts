@@ -11,7 +11,7 @@ export interface TaskStatusTally {
     readonly erroredTasks: number;
 }
 
-export function isTaskStatus(value: string | undefined): value is TaskStatus {
+function isTaskStatus(value: string | undefined): value is TaskStatus {
     return value !== undefined && TASK_STATUS_SET.has(value);
 }
 
