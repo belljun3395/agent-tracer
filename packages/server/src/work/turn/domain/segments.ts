@@ -84,32 +84,3 @@ function renderRequestPreview(event: TimelineEvent): string | null {
     }
     return `${normalized.slice(0, REQUEST_PREVIEW_LIMIT - 1).trimEnd()}…`;
 }
-
-/**
- * Returns the subset of events that belong to the selected turn range.
- * The range is inclusive on both ends and expressed as turnIndex values
- * produced by segmentEventsByTurn. Pass null for either bound to leave it open.
- */
-export function filterEventsByTurnRange(
-    events: readonly TimelineEvent[],
-    range: { readonly from: number | null; readonly to: number | null },
-): readonly TimelineEvent[] {
-    if (range.from === null && range.to === null) {
-        return events;
-    }
-    const segments = segmentEventsByTurn(events);
-    if (segments.length === 0) {
-        return events;
-    }
-    const from = range.from ?? segments[0]!.turnIndex;
-    const to = range.to ?? segments[segments.length - 1]!.turnIndex;
-    const lo = Math.min(from, to);
-    const hi = Math.max(from, to);
-    const collected: TimelineEvent[] = [];
-    for (const segment of segments) {
-        if (segment.turnIndex >= lo && segment.turnIndex <= hi) {
-            collected.push(...segment.events);
-        }
-    }
-    return collected;
-}
