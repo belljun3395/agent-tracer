@@ -9,11 +9,10 @@ export class UpdateTaskUseCase {
 
     @Transactional()
     async execute(input: UpdateTaskUseCaseIn): Promise<UpdateTaskUseCaseOut> {
-        const updated = await this.management.update({
+        return await this.management.update({
             taskId: input.taskId,
             ...(input.title !== undefined ? { title: input.title } : {}),
             ...(input.status !== undefined ? { status: input.status } : {}),
         });
-        return updated;
     }
 }
