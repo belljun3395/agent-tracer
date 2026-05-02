@@ -27,7 +27,7 @@ import { isRuleExpectedAction } from "./rule.expected-action.js";
  * Defensive: copies arrays so callers can't mutate the rule via a shared
  * reference.
  */
-export function buildRuleExpect(input: RuleExpectInput): RuleExpectation {
+function buildRuleExpect(input: RuleExpectInput): RuleExpectation {
     return {
         ...(input.action !== undefined ? { action: input.action } : {}),
         ...(input.commandMatches !== undefined
@@ -55,7 +55,7 @@ const RULE_SCOPE_SET = new Set<string>(RULE_SCOPES);
 const RULE_SOURCE_SET = new Set<string>(RULE_SOURCES);
 const RULE_TRIGGER_SOURCE_SET = new Set<string>(RULE_TRIGGER_SOURCES);
 
-export function isRuleTriggerSource(value: unknown): value is RuleTriggerSource {
+function isRuleTriggerSource(value: unknown): value is RuleTriggerSource {
     return typeof value === "string" && RULE_TRIGGER_SOURCE_SET.has(value);
 }
 
@@ -79,19 +79,19 @@ function isRuleExpectation(value: unknown): value is RuleExpectation {
     return true;
 }
 
-export function isRuleSeverity(value: unknown): value is RuleSeverity {
+function isRuleSeverity(value: unknown): value is RuleSeverity {
     return typeof value === "string" && RULE_SEVERITY_SET.has(value);
 }
 
-export function isRuleScope(value: unknown): value is RuleScope {
+function isRuleScope(value: unknown): value is RuleScope {
     return typeof value === "string" && RULE_SCOPE_SET.has(value);
 }
 
-export function isRuleSource(value: unknown): value is RuleSource {
+function isRuleSource(value: unknown): value is RuleSource {
     return typeof value === "string" && RULE_SOURCE_SET.has(value);
 }
 
-export function isRule(value: unknown): value is Rule {
+function isRule(value: unknown): value is Rule {
     if (!isObject(value)) return false;
     if (typeof value.id !== "string") return false;
     if (typeof value.name !== "string") return false;

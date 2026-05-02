@@ -155,7 +155,7 @@ export function RuleForm({
     );
 }
 
-export function buildRuleFormInput(
+function buildRuleFormInput(
     draft: RuleFormDraft,
     defaultScope: RuleScope,
     defaultTaskId?: TaskId,
@@ -183,7 +183,7 @@ export function buildRuleFormInput(
     };
 }
 
-export function isRuleFormSubmittable(draft: RuleFormDraft): boolean {
+function isRuleFormSubmittable(draft: RuleFormDraft): boolean {
     if (!draft.name.trim()) return false;
     const normalizedTool = normalizeRuleExpectTool(draft.tool);
     return Boolean(

@@ -11,7 +11,7 @@
 import { useCallback, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 
-export function writeSearchParam(
+function writeSearchParam(
     current: URLSearchParams,
     key: string,
     next: string | null

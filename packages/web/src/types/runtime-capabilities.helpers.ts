@@ -4,7 +4,7 @@ import { RuntimeAdapterId, type RuntimeCapabilities, type RuntimeEvidenceProfile
 /**
  * Looks up the registered capability record for a runtime adapter id.
  */
-export function getRuntimeCapabilities(id: RuntimeAdapterId | string): RuntimeCapabilities | undefined {
+function getRuntimeCapabilities(id: RuntimeAdapterId | string): RuntimeCapabilities | undefined {
     const adapters = getRegisteredAdapters();
     return adapters.get(id as RuntimeAdapterId);
 }
@@ -12,7 +12,7 @@ export function getRuntimeCapabilities(id: RuntimeAdapterId | string): RuntimeCa
 /**
  * Lists native skill discovery roots advertised by a runtime adapter.
  */
-export function listNativeSkillPaths(id: RuntimeAdapterId | string): readonly string[] {
+function listNativeSkillPaths(id: RuntimeAdapterId | string): readonly string[] {
     const capabilities = getRuntimeCapabilities(id);
     return capabilities?.nativeSkillPaths ?? [];
 }

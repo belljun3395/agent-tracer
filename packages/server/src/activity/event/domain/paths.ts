@@ -1,4 +1,4 @@
-export function isDirectoryPath(pathValue: string): boolean {
+function isDirectoryPath(pathValue: string): boolean {
     if (pathValue.endsWith("/")) {
         return true;
     }
@@ -26,7 +26,7 @@ export function normalizeFilePath(filePath: string, workspacePath?: string): str
     return cleaned;
 }
 
-export function matchFilePaths(mentionedPath: string, exploredPath: string, workspacePath?: string): boolean {
+function matchFilePaths(mentionedPath: string, exploredPath: string, workspacePath?: string): boolean {
     const normalizedMentioned = normalizeFilePath(mentionedPath, workspacePath);
     const normalizedExplored = normalizeFilePath(exploredPath, workspacePath);
     if (normalizedMentioned === normalizedExplored) {
@@ -44,7 +44,7 @@ export function matchFilePaths(mentionedPath: string, exploredPath: string, work
     return false;
 }
 
-export function filePathsInDirectory(
+function filePathsInDirectory(
     dirPath: string,
     filePaths: readonly string[],
     workspacePath?: string,

@@ -147,7 +147,7 @@ export function getEventEvidence(runtimeSource: string | undefined, event: Pick<
 /**
  * Lists the evidence coverage claims exposed by a runtime adapter for UI/reporting.
  */
-export function listRuntimeCoverage(runtimeSource: string | undefined): readonly RuntimeCoverageItem[] {
+function listRuntimeCoverage(runtimeSource: string | undefined): readonly RuntimeCoverageItem[] {
     const adapterId = normalizeRuntimeAdapterId(runtimeSource);
     if (!adapterId) {
         return [];
@@ -181,7 +181,7 @@ export function listRuntimeCoverage(runtimeSource: string | undefined): readonly
 /**
  * Summarizes a runtime adapter's overall evidence posture plus itemized coverage details.
  */
-export function getRuntimeCoverageSummary(runtimeSource: string | undefined): RuntimeCoverageSummary {
+function getRuntimeCoverageSummary(runtimeSource: string | undefined): RuntimeCoverageSummary {
     const adapterId = normalizeRuntimeAdapterId(runtimeSource);
     if (!adapterId) {
         return {

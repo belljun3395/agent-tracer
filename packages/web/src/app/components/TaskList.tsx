@@ -24,17 +24,7 @@ import { Badge } from "./ui/Badge.js";
 import { Button } from "./ui/Button.js";
 import { PanelCard } from "./ui/PanelCard.js";
 
-export {
-    buildStatusFilterOptions,
-    buildRuntimeFilterOptions,
-    buildTaskListRows,
-    filterTasksByPrimaryStatus,
-    filterTasksByRuntime,
-    resolveTaskListItemTitle,
-    runtimeFilterKey,
-    runtimeObservabilityLabel,
-    runtimeTagLabel,
-} from "../lib/taskList.js";
+;
 
 interface TaskDisplayTitleCacheEntry {
     readonly title: string;

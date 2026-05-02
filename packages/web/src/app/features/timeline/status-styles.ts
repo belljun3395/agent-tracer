@@ -1,4 +1,4 @@
-export const OBSERVABILITY_BADGE_STYLES = {
+const OBSERVABILITY_BADGE_STYLES = {
     actions: "border-[var(--implementation-border)] bg-[var(--implementation-bg)] text-[var(--implementation)]",
     coordination: "border-[var(--coordination-border)] bg-[var(--coordination-bg)] text-[var(--coordination)]",
     files: "border-[var(--exploration-border)] bg-[var(--exploration-bg)] text-[var(--exploration)]",

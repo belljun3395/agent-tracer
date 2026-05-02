@@ -144,7 +144,7 @@ export function loadApplicationConfig(options: { env?: NodeJS.ProcessEnv } = {})
     });
 }
 
-export function resolveMonitorProtocol(config: ApplicationConfig, env: NodeJS.ProcessEnv = process.env): "http" | "https" {
+function resolveMonitorProtocol(config: ApplicationConfig, env: NodeJS.ProcessEnv = process.env): "http" | "https" {
     return normalizeProtocol(env["MONITOR_PROTOCOL"], config.monitor.protocol);
 }
 
@@ -152,7 +152,7 @@ export function resolveMonitorListenHost(config: ApplicationConfig, env: NodeJS.
     return trimString(env["MONITOR_LISTEN_HOST"]) || config.monitor.listenHost;
 }
 
-export function resolveMonitorPublicHost(config: ApplicationConfig, env: NodeJS.ProcessEnv = process.env): string {
+function resolveMonitorPublicHost(config: ApplicationConfig, env: NodeJS.ProcessEnv = process.env): string {
     return trimString(env["MONITOR_PUBLIC_HOST"]) || config.monitor.publicHost;
 }
 
@@ -172,28 +172,28 @@ export function resolveMonitorHttpBaseUrl(config: ApplicationConfig, env: NodeJS
     return `${resolveMonitorProtocol(config, env)}://${resolveMonitorPublicHost(config, env)}:${resolveMonitorPort(config, env)}`;
 }
 
-export function resolveMonitorWsBaseUrl(config: ApplicationConfig, env: NodeJS.ProcessEnv = process.env): string {
+function resolveMonitorWsBaseUrl(config: ApplicationConfig, env: NodeJS.ProcessEnv = process.env): string {
     const explicit = normalizeBaseUrl(env["MONITOR_WS_BASE_URL"]);
     if (explicit) return explicit;
     const protocol = resolveMonitorProtocol(config, env) === "https" ? "wss" : "ws";
     return `${protocol}://${resolveMonitorPublicHost(config, env)}:${resolveMonitorPort(config, env)}`;
 }
 
-export function resolveExternalMonitorBaseUrl(config: ApplicationConfig, env: NodeJS.ProcessEnv = process.env): string {
+function resolveExternalMonitorBaseUrl(config: ApplicationConfig, env: NodeJS.ProcessEnv = process.env): string {
     return normalizeBaseUrl(env["MONITOR_BASE_URL"])
         || config.externalSetup.monitorBaseUrl
         || resolveMonitorHttpBaseUrl(config, env);
 }
 
-export function resolveExternalSourceRepo(config: ApplicationConfig, env: NodeJS.ProcessEnv = process.env): string {
+function resolveExternalSourceRepo(config: ApplicationConfig, env: NodeJS.ProcessEnv = process.env): string {
     return (typeof env["AGENT_TRACER_SOURCE_REPO"] === "string" ? env["AGENT_TRACER_SOURCE_REPO"].trim() : "")
         || config.externalSetup.sourceRepo;
 }
 
-export function resolveWebApiBaseUrl(config: ApplicationConfig, env: NodeJS.ProcessEnv = process.env): string {
+function resolveWebApiBaseUrl(config: ApplicationConfig, env: NodeJS.ProcessEnv = process.env): string {
     return normalizeBaseUrl(env["VITE_MONITOR_BASE_URL"]) || config.web.apiBaseUrl;
 }
 
-export function resolveWebWsBaseUrl(config: ApplicationConfig, env: NodeJS.ProcessEnv = process.env): string {
+function resolveWebWsBaseUrl(config: ApplicationConfig, env: NodeJS.ProcessEnv = process.env): string {
     return normalizeBaseUrl(env["VITE_MONITOR_WS_BASE_URL"]) || config.web.wsBaseUrl;
 }

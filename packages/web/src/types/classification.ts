@@ -1,4 +1,4 @@
-export const EVENT_SUBTYPE_KEYS = [
+const EVENT_SUBTYPE_KEYS = [
   'read_file',
   'glob_files',
   'grep_code',
@@ -35,6 +35,6 @@ export interface TimelineEventSemantic {
   readonly entityName?: string
 }
 
-export function isKnownEventSubtypeKey(value: string): value is EventSubtypeKey {
+function isKnownEventSubtypeKey(value: string): value is EventSubtypeKey {
   return (EVENT_SUBTYPE_KEYS as readonly string[]).includes(value)
 }

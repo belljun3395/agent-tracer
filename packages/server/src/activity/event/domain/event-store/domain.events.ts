@@ -6,7 +6,7 @@ import { SYSTEM_EVENT_DEFINITIONS } from "./system.events.js";
 import { TASK_EVENT_DEFINITIONS } from "./task.events.js";
 import type { AnyDomainEventDraft, DomainEventType } from "./model/domain.events.model.js";
 
-export const DOMAIN_EVENT_DEFINITIONS = [
+const DOMAIN_EVENT_DEFINITIONS = [
     ...TASK_EVENT_DEFINITIONS,
     ...SESSION_EVENT_DEFINITIONS,
     ...RUNTIME_EVENT_DEFINITIONS,
@@ -18,7 +18,7 @@ const DEFINITIONS_BY_TYPE = new Map<DomainEventType, EventTypeDefinition<DomainE
     DOMAIN_EVENT_DEFINITIONS.map((definition) => [definition.eventType, definition]),
 );
 
-export function getDomainEventDefinition(eventType: DomainEventType): EventTypeDefinition<DomainEventType> {
+function getDomainEventDefinition(eventType: DomainEventType): EventTypeDefinition<DomainEventType> {
     const definition = DEFINITIONS_BY_TYPE.get(eventType);
     if (!definition) {
         throw new Error(`Unsupported domain event type: ${eventType}`);

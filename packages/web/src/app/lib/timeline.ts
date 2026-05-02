@@ -53,8 +53,8 @@ export const TIMELINE_LANES: readonly TimelineLane[] = [
 export const LANE_HEIGHT = 80;
 export const RULER_HEIGHT = 32;
 export const NODE_WIDTH = 152;
-export const NODE_HEIGHT = 76;
-export const LEFT_GUTTER = 176;
+const NODE_HEIGHT = 76;
+const LEFT_GUTTER = 176;
 const CLUSTER_STAGGER = NODE_WIDTH + 8;
 export const ROW_VERTICAL_OFFSET = 14;
 export interface TimelineLayoutOptions {
@@ -192,7 +192,7 @@ export interface TimelineContextSummary {
     readonly laneSummary: string;
     readonly focusSummary: string | null;
 }
-export function resolveTimelineViewportHeight(contentHeight: number, preferredMaxHeight: number): number {
+function resolveTimelineViewportHeight(contentHeight: number, preferredMaxHeight: number): number {
     return Math.min(contentHeight, preferredMaxHeight);
 }
 export function buildTimelineContextSummary(input: {

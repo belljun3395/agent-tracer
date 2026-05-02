@@ -130,7 +130,7 @@ export function buildModelSummary(timeline: readonly TimelineEventRecord[]): Mod
         modelCounts
     };
 }
-export function collectViolationDescriptions(timeline: readonly TimelineEventRecord[]): readonly string[] {
+function collectViolationDescriptions(timeline: readonly TimelineEventRecord[]): readonly string[] {
     return timeline
         .filter(e => (e.kind === "verification.logged" && e.metadata["verificationStatus"] === "fail") ||
         (e.kind === "rule.logged" && e.metadata["ruleStatus"] === "violation"))
@@ -168,7 +168,7 @@ export function buildVerificationCycles(timeline: readonly TimelineEventRecord[]
     })
         .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
 }
-export function collectPlanSteps(timeline: readonly TimelineEventRecord[]): readonly string[] {
+function collectPlanSteps(timeline: readonly TimelineEventRecord[]): readonly string[] {
     const planningEvents = timeline.filter(e => e.lane === "planning");
     const describedTerminals = timeline.filter(e => e.kind === "terminal.command"
         && Boolean(extractMetadataString(e.metadata, "description")));

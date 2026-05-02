@@ -29,7 +29,7 @@ export type StatusFilterKey = "all" | ConcreteTaskStatus;
 export type StatusFilterState = Record<ConcreteTaskStatus, boolean>;
 
 export const ALL_RUNTIME_FILTER_KEY = "all";
-export const ALL_STATUS_FILTER_KEY: StatusFilterKey = "all";
+const ALL_STATUS_FILTER_KEY: StatusFilterKey = "all";
 export const TASK_STATUS_FILTER_KEYS = ["running", "waiting", "completed", "errored"] as const satisfies readonly ConcreteTaskStatus[];
 
 interface TaskDisplayTitleCacheEntry {
@@ -89,7 +89,7 @@ export function buildTaskListRows(tasks: readonly MonitoringTask[], options: Bui
     return rows;
 }
 
-export function isPrimaryTask(task: MonitoringTask): boolean {
+function isPrimaryTask(task: MonitoringTask): boolean {
     return task.taskKind !== "background";
 }
 
@@ -116,13 +116,13 @@ export function runtimeTagLabel(source: string): string {
     return source;
 }
 
-export function runtimeObservabilityLabel(source?: string): string | null {
+function runtimeObservabilityLabel(source?: string): string | null {
     if (!source) return null;
     if (source === CLAUDE_BRIDGE_SOURCE) return "Bridge observability";
     return null;
 }
 
-export function runtimeFilterKey(source?: string): string {
+function runtimeFilterKey(source?: string): string {
     if (!source) return "unknown";
     const slug = runtimeTagSlug(source);
     return slug === "other" ? `source:${source}` : slug;

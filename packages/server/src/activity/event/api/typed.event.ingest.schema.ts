@@ -19,19 +19,19 @@ const baseEventSchema = z.object({
     taskEffects: z.object({ taskStatus: z.string().optional() }).optional(),
 });
 
-export const toolActivityEventSchema = baseEventSchema.extend({
+const toolActivityEventSchema = baseEventSchema.extend({
     kind: z.enum(TOOL_ACTIVITY_EVENT_KINDS),
 });
-export const workflowEventSchema = baseEventSchema.extend({
+const workflowEventSchema = baseEventSchema.extend({
     kind: z.enum(WORKFLOW_EVENT_KINDS),
 });
-export const conversationEventSchema = baseEventSchema.extend({
+const conversationEventSchema = baseEventSchema.extend({
     kind: z.enum(CONVERSATION_EVENT_KINDS),
 });
-export const coordinationEventSchema = baseEventSchema.extend({
+const coordinationEventSchema = baseEventSchema.extend({
     kind: z.enum(COORDINATION_EVENT_KINDS),
 });
-export const lifecycleEventSchema = baseEventSchema.extend({
+const lifecycleEventSchema = baseEventSchema.extend({
     kind: z.enum(LIFECYCLE_EVENT_KINDS),
 });
 const telemetryValuesSchema = z.object({
@@ -45,7 +45,7 @@ const telemetryValuesSchema = z.object({
     promptId: z.string().optional(),
 });
 
-export const telemetryEventSchema = z.object({
+const telemetryEventSchema = z.object({
     kind: z.enum(TELEMETRY_EVENT_KINDS).optional(),
     taskId: z.string().min(1),
     sessionId: z.string().min(1).optional(),

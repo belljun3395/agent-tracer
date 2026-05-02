@@ -222,7 +222,7 @@ export interface OpenInferenceTaskExport {
         readonly attributes: Record<string, unknown>;
     }[];
 }
-export function fetchTaskOpenInference(taskId: TaskId): Promise<{
+function fetchTaskOpenInference(taskId: TaskId): Promise<{
     openinference: OpenInferenceTaskExport;
 }> {
     return getJson<{
@@ -271,7 +271,7 @@ export interface RuleActionPayload {
     outcome?: "observed" | "warned" | "blocked" | "approval_requested" | "approved" | "rejected" | "bypassed";
     metadata?: Record<string, unknown>;
 }
-export async function postRuleAction(payload: RuleActionPayload): Promise<void> {
+async function postRuleAction(payload: RuleActionPayload): Promise<void> {
     await postJson<{ ok?: boolean }>("/api/v1/events", {
         events: [{
             kind: "rule.logged",
@@ -375,6 +375,6 @@ export function getMonitorWsUrl(): string {
     wsUrl.pathname = "/ws";
     return wsUrl.toString();
 }
-export function createMonitorWebSocket(): WebSocket {
+function createMonitorWebSocket(): WebSocket {
     return new WebSocket(getMonitorWsUrl());
 }

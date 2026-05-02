@@ -171,7 +171,7 @@ export function filterEventsByGroup(
     return filterEventsByTurnRange(events, { from: group.from, to: group.to });
 }
 
-export function scopeKeyForGroup(group: TurnGroup): string {
+function scopeKeyForGroup(group: TurnGroup): string {
     return group.from === group.to ? `turn:${group.from}` : `turns:${group.from}-${group.to}`;
 }
 
@@ -180,7 +180,7 @@ export function scopeLabelForGroup(group: TurnGroup): string {
     return group.from === group.to ? `Turn ${group.from}` : `Turns ${group.from}–${group.to}`;
 }
 
-export function findGroupByTurnIndex(
+function findGroupByTurnIndex(
     partition: TurnPartition,
     turnIndex: number,
 ): TurnGroup | null {

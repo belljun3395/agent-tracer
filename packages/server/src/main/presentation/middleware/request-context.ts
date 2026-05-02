@@ -4,7 +4,7 @@ import type { IncomingHttpHeaders, IncomingMessage } from "node:http";
 import type express from "express";
 
 export const REQUEST_ID_HEADER = "x-request-id";
-export const TRUST_PROXY_SETTING = "loopback, linklocal, uniquelocal";
+const TRUST_PROXY_SETTING = "loopback, linklocal, uniquelocal";
 
 export interface RequestContext {
     readonly requestId: string;

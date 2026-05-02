@@ -139,7 +139,7 @@ export function buildObservabilityStats(timeline: readonly TimelineEventRecord[]
         compactions: compactOccurrences
     };
 }
-export function extractCompactTimestamps(timeline: readonly TimelineEventRecord[]): readonly string[] {
+function extractCompactTimestamps(timeline: readonly TimelineEventRecord[]): readonly string[] {
     const timestamps: string[] = [];
     for (const event of timeline) {
         const isCompact = event.classification.tags.includes("compact")
@@ -505,6 +505,6 @@ export function buildSubagentInsight(timeline: readonly TimelineEventRecord[]): 
  * user.message filePaths or transcript attachments. Use this in place of any
  * ad-hoc `filePaths`-sum to keep Overview and Exploration numbers consistent.
  */
-export function countUniqueExploredFiles(timeline: readonly TimelineEventRecord[]): number {
+function countUniqueExploredFiles(timeline: readonly TimelineEventRecord[]): number {
     return collectExploredFiles(timeline).length;
 }

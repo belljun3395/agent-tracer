@@ -46,7 +46,7 @@ export function useMonitorSocket(options: UseMonitorSocketOptions): void {
     }, [url, queryClient, selectedTaskId, onConnectionChange, onMessage]);
 }
 
-export function applyMonitorRealtimeInvalidations(
+function applyMonitorRealtimeInvalidations(
     client: QueryClient,
     message: MonitorRealtimeMessage,
     selectedTaskId: TaskId | null

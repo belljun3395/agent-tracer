@@ -4,7 +4,7 @@ import type { RuleId, TaskId } from "~domain/monitoring.js";
 import type { BackfillResult, RuleCreateInput, RuleRecord, RuleUpdateInput } from "~domain/rule.js";
 import { monitorQueryKeys } from "~state/server/queryKeys.js";
 
-export function invalidateRuleCaches(qc: QueryClient, taskId?: TaskId | null): void {
+function invalidateRuleCaches(qc: QueryClient, taskId?: TaskId | null): void {
     void qc.invalidateQueries({ queryKey: ["monitor", "rules"] });
     if (taskId) {
         void qc.invalidateQueries({ queryKey: monitorQueryKeys.taskRules(taskId) });

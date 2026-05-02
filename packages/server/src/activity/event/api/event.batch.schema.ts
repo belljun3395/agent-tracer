@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { EVENT_LANES, EVENT_RELATION_TYPES, INGEST_EVENT_KINDS } from "../application/dto/log.event.usecase.dto.js";
 
-export const eventBatchItemSchema = z.object({
+const eventBatchItemSchema = z.object({
     kind: z.enum(INGEST_EVENT_KINDS),
     taskId: z.string().min(1),
     sessionId: z.string().min(1).optional(),

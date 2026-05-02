@@ -15,13 +15,13 @@ const ZOOM_MIN = 0.8;
 const ZOOM_MAX = 2.5;
 const ZOOM_DEFAULT = 1.1;
 const ZOOM_STORAGE_KEY = "agent-tracer.zoom";
-export const INSPECTOR_WIDTH_DEFAULT = 360;
-export const INSPECTOR_WIDTH_MIN = 280;
-export const INSPECTOR_WIDTH_MAX = 800;
+const INSPECTOR_WIDTH_DEFAULT = 360;
+const INSPECTOR_WIDTH_MIN = 280;
+const INSPECTOR_WIDTH_MAX = 800;
 const INSPECTOR_WIDTH_STORAGE_KEY = "agent-tracer.inspector-width";
 /** @deprecated kept for back-compat; use db.inspectorWidth instead. */
-export const INSPECTOR_WIDTH = INSPECTOR_WIDTH_DEFAULT;
-export const DASHBOARD_STACKED_BREAKPOINT = 1024;
+const INSPECTOR_WIDTH = INSPECTOR_WIDTH_DEFAULT;
+const DASHBOARD_STACKED_BREAKPOINT = 1024;
 
 function loadInspectorWidth(): number {
     if (typeof localStorage === "undefined") return INSPECTOR_WIDTH_DEFAULT;

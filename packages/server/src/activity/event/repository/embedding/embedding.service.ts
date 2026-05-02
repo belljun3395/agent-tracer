@@ -14,8 +14,8 @@ export interface IEmbeddingService {
     embed(text: string): Promise<Float32Array>;
 }
 
-export const EMBEDDING_MODEL = "Xenova/all-MiniLM-L6-v2";
-export const EMBEDDING_DIMS = 384;
+const EMBEDDING_MODEL = "Xenova/all-MiniLM-L6-v2";
+const EMBEDDING_DIMS = 384;
 function resolveModelDir(): string {
     const moduleDir = path.dirname(fileURLToPath(import.meta.url));
     const candidates = [
@@ -27,8 +27,8 @@ function resolveModelDir(): string {
     const existingCandidate = candidates.find((candidate) => fs.existsSync(path.join(candidate, relativeTokenizerPath)));
     return existingCandidate ?? candidates[0] ?? path.resolve(moduleDir, "../../models");
 }
-export const MODEL_DIR = resolveModelDir();
-export function hasLocalEmbeddingModel(modelDir = MODEL_DIR): boolean {
+const MODEL_DIR = resolveModelDir();
+function hasLocalEmbeddingModel(modelDir = MODEL_DIR): boolean {
     return fs.existsSync(path.join(modelDir, EMBEDDING_MODEL, "tokenizer.json"));
 }
 
@@ -60,7 +60,7 @@ async function getPipeline(): Promise<FeatureExtractionPipeline> {
     }
     return extractorPipeline;
 }
-export class LocalEmbeddingService implements IEmbeddingService {
+class LocalEmbeddingService implements IEmbeddingService {
     readonly modelId: string = EMBEDDING_MODEL;
     async embed(text: string): Promise<Float32Array> {
         const extractor = await getPipeline();

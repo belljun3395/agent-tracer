@@ -4,7 +4,7 @@ import { isEventRelationType } from "~activity/event/domain/common/event.meta.he
 const TODO_STATE_SET = new Set<string>(TODO_STATES);
 const QUESTION_PHASE_SET = new Set<string>(QUESTION_PHASES);
 
-export const SEMANTIC_METADATA_KEYS = [
+const SEMANTIC_METADATA_KEYS = [
     "subtypeKey",
     "subtypeLabel",
     "subtypeGroup",
