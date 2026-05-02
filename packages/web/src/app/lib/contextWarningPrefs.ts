@@ -3,7 +3,7 @@ export interface ContextWarningPrefs {
     readonly thresholdPct: number;
 }
 
-export const CONTEXT_WARNING_STORAGE_KEY = "agent-tracer.context-warning";
+const CONTEXT_WARNING_STORAGE_KEY = "agent-tracer.context-warning";
 export const DEFAULT_CONTEXT_WARNING_PREFS: ContextWarningPrefs = {
     enabled: true,
     thresholdPct: 80,
@@ -18,7 +18,7 @@ export function normalizeContextWarningThreshold(value: number): number {
     return Math.min(100, Math.max(1, Math.round(value)));
 }
 
-export function normalizeContextWarningPrefs(
+function normalizeContextWarningPrefs(
     input?: Partial<ContextWarningPrefs> | null,
 ): ContextWarningPrefs {
     return {
@@ -29,7 +29,7 @@ export function normalizeContextWarningPrefs(
     };
 }
 
-export function parseContextWarningPrefs(raw: string | null | undefined): ContextWarningPrefs {
+function parseContextWarningPrefs(raw: string | null | undefined): ContextWarningPrefs {
     if (!raw) return DEFAULT_CONTEXT_WARNING_PREFS;
     try {
         const parsed = JSON.parse(raw) as Partial<ContextWarningPrefs>;
@@ -77,7 +77,7 @@ export function subscribeContextWarningPrefs(listener: () => void): () => void {
     };
 }
 
-export function shouldShowContextWarning(
+function shouldShowContextWarning(
     currentPct: number | null | undefined,
     prefs: ContextWarningPrefs,
 ): boolean {

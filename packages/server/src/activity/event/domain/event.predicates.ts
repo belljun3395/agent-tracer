@@ -31,7 +31,7 @@ export function isInternalEvent(e: WithKind): boolean        { return INTERNAL_S
 export function isLlmInteractionEvent(e: WithKind): boolean {
     return e.kind === KIND.assistantResponse || e.kind === KIND.userMessage;
 }
-export function isRuleOrVerificationEvent(e: WithKind): boolean {
+function isRuleOrVerificationEvent(e: WithKind): boolean {
     return e.kind === KIND.ruleLogged || e.kind === KIND.verificationLogged;
 }
 
@@ -39,39 +39,39 @@ export function isRuleOrVerificationEvent(e: WithKind): boolean {
 export function isUserMessageEvent<T extends WithKind>(e: T): e is T & { kind: typeof KIND.userMessage } {
     return e.kind === KIND.userMessage;
 }
-export function isAssistantResponseEvent<T extends WithKind>(e: T): e is T & { kind: typeof KIND.assistantResponse } {
+function isAssistantResponseEvent<T extends WithKind>(e: T): e is T & { kind: typeof KIND.assistantResponse } {
     return e.kind === KIND.assistantResponse;
 }
 export function isAgentActivityLoggedEvent<T extends WithKind>(e: T): e is T & { kind: typeof KIND.agentActivityLogged } {
     return e.kind === KIND.agentActivityLogged;
 }
-export function isFileChangedEvent<T extends WithKind>(e: T): e is T & { kind: typeof KIND.fileChanged } {
+function isFileChangedEvent<T extends WithKind>(e: T): e is T & { kind: typeof KIND.fileChanged } {
     return e.kind === KIND.fileChanged;
 }
-export function isInstructionsLoadedEvent<T extends WithKind>(e: T): e is T & { kind: typeof KIND.instructionsLoaded } {
+function isInstructionsLoadedEvent<T extends WithKind>(e: T): e is T & { kind: typeof KIND.instructionsLoaded } {
     return e.kind === KIND.instructionsLoaded;
 }
-export function isQuestionLoggedEvent<T extends WithKind>(e: T): e is T & { kind: typeof KIND.questionLogged } {
+function isQuestionLoggedEvent<T extends WithKind>(e: T): e is T & { kind: typeof KIND.questionLogged } {
     return e.kind === KIND.questionLogged;
 }
-export function isTodoLoggedEvent<T extends WithKind>(e: T): e is T & { kind: typeof KIND.todoLogged } {
+function isTodoLoggedEvent<T extends WithKind>(e: T): e is T & { kind: typeof KIND.todoLogged } {
     return e.kind === KIND.todoLogged;
 }
-export function isThoughtLoggedEvent<T extends WithKind>(e: T): e is T & { kind: typeof KIND.thoughtLogged } {
+function isThoughtLoggedEvent<T extends WithKind>(e: T): e is T & { kind: typeof KIND.thoughtLogged } {
     return e.kind === KIND.thoughtLogged;
 }
-export function isContextSavedEvent<T extends WithKind>(e: T): e is T & { kind: typeof KIND.contextSaved } {
+function isContextSavedEvent<T extends WithKind>(e: T): e is T & { kind: typeof KIND.contextSaved } {
     return e.kind === KIND.contextSaved;
 }
-export function isTerminalCommandEvent<T extends WithKind>(e: T): e is T & { kind: typeof KIND.terminalCommand } {
+function isTerminalCommandEvent<T extends WithKind>(e: T): e is T & { kind: typeof KIND.terminalCommand } {
     return e.kind === KIND.terminalCommand;
 }
-export function isVerificationLoggedEvent<T extends WithKind>(e: T): e is T & { kind: typeof KIND.verificationLogged } {
+function isVerificationLoggedEvent<T extends WithKind>(e: T): e is T & { kind: typeof KIND.verificationLogged } {
     return e.kind === KIND.verificationLogged;
 }
-export function isToolUsedEvent<T extends WithKind>(e: T): e is T & { kind: typeof KIND.toolUsed } {
+function isToolUsedEvent<T extends WithKind>(e: T): e is T & { kind: typeof KIND.toolUsed } {
     return e.kind === KIND.toolUsed;
 }
-export function isRuleLoggedEvent<T extends WithKind>(e: T): e is T & { kind: typeof KIND.ruleLogged } {
+function isRuleLoggedEvent<T extends WithKind>(e: T): e is T & { kind: typeof KIND.ruleLogged } {
     return e.kind === KIND.ruleLogged;
 }

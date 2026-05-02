@@ -163,7 +163,7 @@ export function TimelineEventNode({
 }
 
 /** Width of each event node in the timeline canvas, used for stack overlap detection. */
-export { NODE_WIDTH };
+;
 
 function formatRuleMatchKind(matchKind: "trigger" | "expect-fulfilled"): string {
     return matchKind === "trigger" ? "watch" : "met";

@@ -10,7 +10,7 @@ import type { DisplayTitleMetadataUpdate } from "./model/event.metadata.model.js
 
 type UnknownMetadata = Record<string, unknown> | undefined;
 
-export function readTodoLoggedMetadata(metadata: UnknownMetadata): TodoLoggedMetadata {
+function readTodoLoggedMetadata(metadata: UnknownMetadata): TodoLoggedMetadata {
     const todoId = readString(metadata, META.todoId);
     const todoState = readString(metadata, META.todoState);
     const toolName = readString(metadata, META.toolName);
@@ -28,7 +28,7 @@ export function readTodoLoggedMetadata(metadata: UnknownMetadata): TodoLoggedMet
     };
 }
 
-export function readFileChangeMetadata(metadata: UnknownMetadata): FileChangeMetadata {
+function readFileChangeMetadata(metadata: UnknownMetadata): FileChangeMetadata {
     const filePath = readString(metadata, META.filePath);
     return {
         writeCount: readNumber(metadata, META.writeCount) ?? 0,
@@ -37,7 +37,7 @@ export function readFileChangeMetadata(metadata: UnknownMetadata): FileChangeMet
     };
 }
 
-export function readDisplayTitle(metadata: UnknownMetadata): string | undefined {
+function readDisplayTitle(metadata: UnknownMetadata): string | undefined {
     const value = readString(metadata, META.displayTitle)?.trim();
     return value || undefined;
 }
@@ -66,15 +66,15 @@ export function resolveDisplayTitleMetadataUpdate(
     return { metadata: nextMetadata, changed: true };
 }
 
-export function readVerificationStatus(metadata: UnknownMetadata): string | undefined {
+function readVerificationStatus(metadata: UnknownMetadata): string | undefined {
     return readString(metadata, META.verificationStatus);
 }
 
-export function readRuleStatus(metadata: UnknownMetadata): string | undefined {
+function readRuleStatus(metadata: UnknownMetadata): string | undefined {
     return readString(metadata, META.ruleStatus);
 }
 
-export function readEvidenceLevel(metadata: UnknownMetadata): EvidenceLevel | undefined {
+function readEvidenceLevel(metadata: UnknownMetadata): EvidenceLevel | undefined {
     const value = readString(metadata, META.evidenceLevel);
     if (value && isEvidenceLevel(value)) {
         return value;

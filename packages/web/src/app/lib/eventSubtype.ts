@@ -114,7 +114,7 @@ export function buildDisplayLaneRows(events: readonly TimelineEventRecord[], act
     }
     return rows;
 }
-export function resolveTimelineRowKey(event: TimelineEventRecord, expandedLanes: ReadonlySet<ExpandableTimelineLane>): string {
+function resolveTimelineRowKey(event: TimelineEventRecord, expandedLanes: ReadonlySet<ExpandableTimelineLane>): string {
     if (!isExpandableLane(event.lane) || !expandedLanes.has(event.lane)) {
         return event.lane;
     }

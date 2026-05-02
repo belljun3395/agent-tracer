@@ -194,6 +194,6 @@ function addString(metadata: Record<string, unknown>, key: string, value: string
 export type HydratedTimelineEvent = TimelineEvent;
 
 /** Cast helper — convert TimelineLane to plain string. */
-export function hydratedLane(event: HydratedTimelineEvent): TimelineLane {
+function hydratedLane(event: HydratedTimelineEvent): TimelineLane {
     return event.lane;
 }

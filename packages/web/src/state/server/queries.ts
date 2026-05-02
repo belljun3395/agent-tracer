@@ -60,7 +60,7 @@ export function useTaskRulesQuery(taskId: TaskId | null): UseQueryResult<TaskRul
     });
 }
 
-export function useVerdictCountsQuery(taskId: TaskId | null): UseQueryResult<VerdictCounts> {
+function useVerdictCountsQuery(taskId: TaskId | null): UseQueryResult<VerdictCounts> {
     return useQuery({
         queryKey: taskId
             ? monitorQueryKeys.verdictCounts(taskId)

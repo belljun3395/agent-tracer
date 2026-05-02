@@ -5,7 +5,7 @@ import {
     type ApiErrorEnvelope,
 } from "~adapters/http/shared/api-response-envelope.js";
 
-export function createValidationErrorBody(error: ZodError, message = "Invalid request"): ApiErrorEnvelope {
+function createValidationErrorBody(error: ZodError, message = "Invalid request"): ApiErrorEnvelope {
     return createApiErrorEnvelope("validation_error", message, error.format());
 }
 

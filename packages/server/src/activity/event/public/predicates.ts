@@ -3,25 +3,22 @@
  * consumers (task display titles, openinference export, turn segmentation,
  * verification matching).
  */
-export {
-    isTimelineLane,
-    isTodoState,
-} from "~activity/event/domain/common/event.kind.js";
+;
 
 export {
     isExplorationLane,
     isImplementationLane,
     isPlanningLane,
-    isCoordinationLane,
-    isBackgroundLane,
+    
+    
     isUserLane,
     isToolActivityEvent,
     isTaskLifecycleEvent,
     isInternalEvent,
     isLlmInteractionEvent,
-    isRuleOrVerificationEvent,
+    
     isUserMessageEvent,
-    isAssistantResponseEvent,
+    
     isAgentActivityLoggedEvent,
-    isFileChangedEvent,
+    
 } from "~activity/event/domain/event.predicates.js";

@@ -47,7 +47,7 @@ export function useSelectionStoreApi(): SelectionStore {
 }
 
 /** Access the underlying edit store API. */
-export function useEditStoreApi(): EditStore {
+function useEditStoreApi(): EditStore {
     return useUiStore().edit;
 }
 

@@ -20,11 +20,11 @@ const DEFAULT_WINDOW_MS = 3000;
 const DEFAULT_MIN_BURST_SIZE = 3;
 const BODY_PREVIEW_LIMIT = 12;
 
-export function isInstructionsBurstEvent(event: TimelineEventRecord): boolean {
+function isInstructionsBurstEvent(event: TimelineEventRecord): boolean {
     return event.metadata["instructionsBurst"] === true;
 }
 
-export function getInstructionsBurstFiles(
+function getInstructionsBurstFiles(
     event: TimelineEventRecord
 ): readonly InstructionsBurstFile[] {
     const raw = event.metadata["files"];

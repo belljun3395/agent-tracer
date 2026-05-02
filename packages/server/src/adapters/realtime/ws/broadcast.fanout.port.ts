@@ -11,4 +11,4 @@ export interface IBroadcastFanout {
     fanout(notification: MonitorNotification): void;
 }
 
-export const BROADCAST_FANOUT_TOKEN = "BROADCAST_FANOUT";
+const BROADCAST_FANOUT_TOKEN = "BROADCAST_FANOUT";

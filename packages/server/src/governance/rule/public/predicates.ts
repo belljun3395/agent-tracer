@@ -3,7 +3,7 @@
  * cross-module consumers (verification's tool-action matching, turn evaluation).
  */
 export {
-    isRuleExpectedAction,
+    
     isCommandExpectedAction,
     canonicalizeToolName,
     normalizeRuleExpectedAction,

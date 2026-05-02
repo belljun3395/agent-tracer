@@ -5,7 +5,7 @@ import { buildTimelineRelations, type TimelineConnector } from "./timeline.js";
 import type { TimelineEventRecord, TimelineLane } from "~domain/monitoring.js";
 import type { TimelineRelation } from "~domain/task-query-contracts.js";
 
-export const FULL_TIMELINE_LANE_FILTERS: Readonly<Record<TimelineLane, boolean>> = {
+const FULL_TIMELINE_LANE_FILTERS: Readonly<Record<TimelineLane, boolean>> = {
     user: true,
     questions: true,
     todos: true,
@@ -65,7 +65,7 @@ export interface SelectedTimelineConnector {
     readonly target: TimelineEventRecord;
 }
 
-export function parseConnectorKey(key: string): ParsedConnectorKey | null {
+function parseConnectorKey(key: string): ParsedConnectorKey | null {
     const [sourceEventId, targetPart] = key.split("→");
     if (!sourceEventId || !targetPart) {
         return null;
@@ -77,7 +77,7 @@ export function parseConnectorKey(key: string): ParsedConnectorKey | null {
     return { sourceEventId, targetEventId, ...(relationType ? { relationType } : {}) };
 }
 
-export function buildFilteredTimeline(input: {
+function buildFilteredTimeline(input: {
     readonly timeline: readonly TimelineEventRecord[];
     readonly selectedRuleId: string | null;
     readonly selectedTag: string | null;
@@ -92,7 +92,7 @@ export function buildFilteredTimeline(input: {
     });
 }
 
-export function buildSelectedConnector(
+function buildSelectedConnector(
     timeline: readonly TimelineEventRecord[],
     selectedConnectorKey: string | null
 ): SelectedTimelineConnector | null {

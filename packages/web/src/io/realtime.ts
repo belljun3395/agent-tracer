@@ -112,7 +112,7 @@ function shouldRefreshSelectedTaskDetail(message: MonitorRealtimeMessage, select
             return message.payload.taskId === selectedTaskId;
     }
 }
-export async function refreshRealtimeMonitorData(input: {
+async function refreshRealtimeMonitorData(input: {
     message: MonitorRealtimeMessage | null;
     selectedTaskId: string | null;
     refreshOverview: () => Promise<void>;

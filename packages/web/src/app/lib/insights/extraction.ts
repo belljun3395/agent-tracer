@@ -15,7 +15,7 @@ import {
     uniqueStrings
 } from "./helpers.js";
 
-export function buildTaskExtraction(task: MonitoringTask | null | undefined, timeline: readonly TimelineEventRecord[], exploredFiles: readonly ExploredFileStat[]): TaskExtraction {
+function buildTaskExtraction(task: MonitoringTask | null | undefined, timeline: readonly TimelineEventRecord[], exploredFiles: readonly ExploredFileStat[]): TaskExtraction {
     const objective = inferTaskObjective(task, timeline);
     const sections = buildTaskProcessSections(timeline);
     const validations = collectTaskValidations(timeline);
@@ -94,7 +94,7 @@ export function collectRecentRuleDecisions(timeline: readonly TimelineEventRecor
         .sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt))
         .slice(0, limit);
 }
-export function buildTagInsights(timeline: readonly TimelineEventRecord[]): readonly TagInsight[] {
+function buildTagInsights(timeline: readonly TimelineEventRecord[]): readonly TagInsight[] {
     const tags = new Map<string, {
         count: number;
         lanes: Set<TimelineLane>;
@@ -155,13 +155,13 @@ export function filterTimelineEvents(timeline: readonly TimelineEventRecord[], o
         return !(options.showRuleGapsOnly && !eventHasRuleGap(event));
     });
 }
-export function eventHasTag(event: TimelineEventRecord, tag: string): boolean {
+function eventHasTag(event: TimelineEventRecord, tag: string): boolean {
     return event.classification.tags.includes(tag);
 }
-export function eventHasRule(event: TimelineEventRecord, ruleId: string): boolean {
+function eventHasRule(event: TimelineEventRecord, ruleId: string): boolean {
     return collectEventRuleIds(event).includes(ruleId);
 }
-export function eventHasRuleGap(event: TimelineEventRecord): boolean {
+function eventHasRuleGap(event: TimelineEventRecord): boolean {
     return event.lane !== "user" && collectEventRuleIds(event).length === 0;
 }
 function collectEventRuleIds(event: TimelineEventRecord): readonly string[] {

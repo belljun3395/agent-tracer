@@ -21,7 +21,7 @@ export function formatDuration(ms: number): string {
     return `${hours}h ${minutes}m`;
 }
 
-export function formatRate(rate: number): string {
+function formatRate(rate: number): string {
     if (!Number.isFinite(rate)) {
         return "0%";
     }
@@ -36,7 +36,7 @@ export function formatCount(value: number): string {
     return value.toLocaleString();
 }
 
-export function formatPhaseLabel(phase: string): string {
+function formatPhaseLabel(phase: string): string {
     if (!phase) {
         return "Unknown";
     }

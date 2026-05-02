@@ -33,7 +33,7 @@ export type SelectionStoreState = SelectionState & SelectionActions;
 
 export type SelectionStore = StoreApi<SelectionStoreState>;
 
-export function createSelectionStore(): SelectionStore {
+function createSelectionStore(): SelectionStore {
     return createStore<SelectionStoreState>((set) => ({
         selectedTaskId: null,
         selectedEventId: null,
@@ -86,7 +86,7 @@ export type EditStoreState = EditState & EditActions;
 
 export type EditStore = StoreApi<EditStoreState>;
 
-export function createEditStore(): EditStore {
+function createEditStore(): EditStore {
     return createStore<EditStoreState>((set) => ({
         isEditingTaskTitle: false,
         taskTitleDraft: "",

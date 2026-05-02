@@ -9,7 +9,7 @@ const VERDICT_PRIORITY: Record<VerdictStatus, number> = {
 
 const VERDICT_STATUS_SET: ReadonlySet<string> = new Set<string>(VERDICT_STATUSES);
 
-export function isVerdictStatus(value: unknown): value is VerdictStatus {
+function isVerdictStatus(value: unknown): value is VerdictStatus {
     return typeof value === "string" && VERDICT_STATUS_SET.has(value);
 }
 

@@ -186,4 +186,4 @@ export function registerDefaultRuntimeAdapters(): void {
   }
 }
 
-export const RUNTIME_ADAPTER_IDS: readonly RuntimeAdapterId[] = DEFAULT_ADAPTERS.map((adapter) => adapter.adapterId);
+const RUNTIME_ADAPTER_IDS: readonly RuntimeAdapterId[] = DEFAULT_ADAPTERS.map((adapter) => adapter.adapterId);

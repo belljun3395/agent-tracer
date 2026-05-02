@@ -11,7 +11,7 @@ export interface SearchDocumentInput {
     readonly updatedAt: string;
 }
 
-export function buildTaskSearchText(input: {
+function buildTaskSearchText(input: {
     readonly taskId: string;
     readonly title: string;
     readonly workspacePath?: string | null;
@@ -59,7 +59,7 @@ export async function upsertSearchDocument(manager: EntityManager, input: Search
         .execute();
 }
 
-export async function deleteSearchDocument(
+async function deleteSearchDocument(
     manager: EntityManager,
     scope: SearchDocumentScope,
     entityId: string,
@@ -67,7 +67,7 @@ export async function deleteSearchDocument(
     await manager.getRepository(SearchDocumentEntity).delete({ scope, entityId });
 }
 
-export async function deleteSearchDocumentsByTaskIds(
+async function deleteSearchDocumentsByTaskIds(
     manager: EntityManager,
     taskIds: readonly string[],
 ): Promise<void> {
