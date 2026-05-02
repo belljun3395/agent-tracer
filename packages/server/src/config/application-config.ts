@@ -171,29 +171,3 @@ export function resolveMonitorHttpBaseUrl(config: ApplicationConfig, env: NodeJS
     if (explicit) return explicit;
     return `${resolveMonitorProtocol(config, env)}://${resolveMonitorPublicHost(config, env)}:${resolveMonitorPort(config, env)}`;
 }
-
-function resolveMonitorWsBaseUrl(config: ApplicationConfig, env: NodeJS.ProcessEnv = process.env): string {
-    const explicit = normalizeBaseUrl(env["MONITOR_WS_BASE_URL"]);
-    if (explicit) return explicit;
-    const protocol = resolveMonitorProtocol(config, env) === "https" ? "wss" : "ws";
-    return `${protocol}://${resolveMonitorPublicHost(config, env)}:${resolveMonitorPort(config, env)}`;
-}
-
-function resolveExternalMonitorBaseUrl(config: ApplicationConfig, env: NodeJS.ProcessEnv = process.env): string {
-    return normalizeBaseUrl(env["MONITOR_BASE_URL"])
-        || config.externalSetup.monitorBaseUrl
-        || resolveMonitorHttpBaseUrl(config, env);
-}
-
-function resolveExternalSourceRepo(config: ApplicationConfig, env: NodeJS.ProcessEnv = process.env): string {
-    return (typeof env["AGENT_TRACER_SOURCE_REPO"] === "string" ? env["AGENT_TRACER_SOURCE_REPO"].trim() : "")
-        || config.externalSetup.sourceRepo;
-}
-
-function resolveWebApiBaseUrl(config: ApplicationConfig, env: NodeJS.ProcessEnv = process.env): string {
-    return normalizeBaseUrl(env["VITE_MONITOR_BASE_URL"]) || config.web.apiBaseUrl;
-}
-
-function resolveWebWsBaseUrl(config: ApplicationConfig, env: NodeJS.ProcessEnv = process.env): string {
-    return normalizeBaseUrl(env["VITE_MONITOR_WS_BASE_URL"]) || config.web.wsBaseUrl;
-}

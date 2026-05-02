@@ -11,20 +11,6 @@ export interface SearchDocumentInput {
     readonly updatedAt: string;
 }
 
-function buildTaskSearchText(input: {
-    readonly taskId: string;
-    readonly title: string;
-    readonly workspacePath?: string | null;
-    readonly runtimeSource?: string | null;
-}): string {
-    return joinSearchTextParts([
-        input.taskId,
-        input.title,
-        input.workspacePath,
-        input.runtimeSource,
-    ]);
-}
-
 export function buildEventSearchText(input: {
     readonly taskTitle?: string | null;
     readonly title: string;
@@ -57,28 +43,6 @@ export async function upsertSearchDocument(manager: EntityManager, input: Search
         })
         .orUpdate(["task_id", "search_text", "updated_at"], ["scope", "entity_id"])
         .execute();
-}
-
-async function deleteSearchDocument(
-    manager: EntityManager,
-    scope: SearchDocumentScope,
-    entityId: string,
-): Promise<void> {
-    await manager.getRepository(SearchDocumentEntity).delete({ scope, entityId });
-}
-
-async function deleteSearchDocumentsByTaskIds(
-    manager: EntityManager,
-    taskIds: readonly string[],
-): Promise<void> {
-    if (taskIds.length === 0) return;
-    const placeholders = taskIds.map(() => "?").join(", ");
-    await manager.query(
-        `delete from search_documents
-         where task_id in (${placeholders})
-            or (scope = 'task' and entity_id in (${placeholders}))`,
-        [...taskIds, ...taskIds],
-    );
 }
 
 const BACKFILL_TASKS_SQL = `

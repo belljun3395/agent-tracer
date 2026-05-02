@@ -24,21 +24,6 @@ function isInstructionsBurstEvent(event: TimelineEventRecord): boolean {
     return event.metadata["instructionsBurst"] === true;
 }
 
-function getInstructionsBurstFiles(
-    event: TimelineEventRecord
-): readonly InstructionsBurstFile[] {
-    const raw = event.metadata["files"];
-    if (!Array.isArray(raw)) return [];
-    return raw.filter((item): item is InstructionsBurstFile => {
-        if (!item || typeof item !== "object") return false;
-        const candidate = item as Record<string, unknown>;
-        return (
-            typeof candidate["relPath"] === "string" &&
-            typeof candidate["createdAt"] === "string"
-        );
-    });
-}
-
 export function groupInstructionsBursts(
     events: readonly TimelineEventRecord[],
     options: GroupInstructionsBurstsOptions = {}

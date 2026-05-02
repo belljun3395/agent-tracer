@@ -10,14 +10,6 @@ function getRuntimeCapabilities(id: RuntimeAdapterId | string): RuntimeCapabilit
 }
 
 /**
- * Lists native skill discovery roots advertised by a runtime adapter.
- */
-function listNativeSkillPaths(id: RuntimeAdapterId | string): readonly string[] {
-    const capabilities = getRuntimeCapabilities(id);
-    return capabilities?.nativeSkillPaths ?? [];
-}
-
-/**
  * Retrieves the evidence coverage profile attached to a runtime adapter.
  */
 export function getRuntimeEvidenceProfile(id: RuntimeAdapterId | string): RuntimeEvidenceProfile | undefined {

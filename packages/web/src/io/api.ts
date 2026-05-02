@@ -1,6 +1,6 @@
-import type { EventId, RuleId, RuntimeSource, SessionId, TaskId } from "~domain/monitoring.js";
+import type { EventId, RuleId, RuntimeSource, TaskId } from "~domain/monitoring.js";
 import type { MonitoringTask, TimelineEventRecord } from "~domain/monitoring.js";
-import type { BackfillResult, RuleCreateInput, RuleRecord, RuleScope, RuleSource, RuleUpdateInput, RulesListResponse, TaskRulesResponse, VerdictCounts } from "~domain/rule.js";
+import type { BackfillResult, RuleCreateInput, RuleRecord, RuleScope, RuleSource, RuleUpdateInput, RulesListResponse, TaskRulesResponse } from "~domain/rule.js";
 import type { SearchResponse } from "~domain/search-contracts.js";
 import type { OverviewResponse, TaskDetailResponse, TasksResponse } from "~domain/task-query-contracts.js";
 const DEFAULT_REQUEST_TIMEOUT_MS = 30000;
@@ -222,13 +222,6 @@ export interface OpenInferenceTaskExport {
         readonly attributes: Record<string, unknown>;
     }[];
 }
-function fetchTaskOpenInference(taskId: TaskId): Promise<{
-    openinference: OpenInferenceTaskExport;
-}> {
-    return getJson<{
-        openinference: OpenInferenceTaskExport;
-    }>(`/api/v1/tasks/${taskId}/openinference`);
-}
 export function fetchSearchResults(query: string, taskId?: TaskId, options?: RequestOptions): Promise<SearchResponse> {
     const params = new URLSearchParams({ q: query });
     if (taskId) {
@@ -256,39 +249,6 @@ export async function updateEventDisplayTitle(eventId: EventId, displayTitle: st
 }
 export async function deleteTask(taskId: TaskId): Promise<void> {
     return deleteRequest(`/api/v1/tasks/${taskId}`);
-}
-export interface RuleActionPayload {
-    taskId: TaskId;
-    sessionId?: SessionId;
-    action: string;
-    title?: string;
-    body?: string;
-    ruleId: RuleId;
-    severity: string;
-    status: string;
-    source?: string;
-    policy?: "audit" | "warn" | "block" | "approval_required";
-    outcome?: "observed" | "warned" | "blocked" | "approval_requested" | "approved" | "rejected" | "bypassed";
-    metadata?: Record<string, unknown>;
-}
-async function postRuleAction(payload: RuleActionPayload): Promise<void> {
-    await postJson<{ ok?: boolean }>("/api/v1/events", {
-        events: [{
-            kind: "rule.logged",
-            taskId: payload.taskId,
-            ...(payload.sessionId ? { sessionId: payload.sessionId } : {}),
-            action: payload.action,
-            ...(payload.title ? { title: payload.title } : {}),
-            ...(payload.body ? { body: payload.body } : {}),
-            ruleId: payload.ruleId,
-            severity: payload.severity,
-            status: payload.status,
-            ...(payload.source ? { source: payload.source } : {}),
-            ...(payload.policy ? { policy: payload.policy } : {}),
-            ...(payload.outcome ? { outcome: payload.outcome } : {}),
-            ...(payload.metadata ? { metadata: payload.metadata } : {}),
-        }],
-    });
 }
 export interface TurnPartitionRecord {
     readonly taskId: TaskId;
@@ -340,9 +300,6 @@ export function fetchTaskRules(taskId: TaskId): Promise<TaskRulesResponse> {
     return getJson<TaskRulesResponse>(`/api/v1/tasks/${taskId}/rules`);
 }
 
-export function fetchVerdictCounts(taskId: TaskId): Promise<{ counts: VerdictCounts }> {
-    return getJson<{ counts: VerdictCounts }>(`/api/v1/tasks/${taskId}/verdict-counts`);
-}
 
 export async function createRule(payload: RuleCreateInput): Promise<RuleRecord> {
     const response = await postJson<{ rule: RuleRecord }>(`/api/v1/rules`, payload);
@@ -374,7 +331,4 @@ export function getMonitorWsUrl(): string {
     const wsUrl = new URL(baseUrl.replace(/^http/, "ws"));
     wsUrl.pathname = "/ws";
     return wsUrl.toString();
-}
-function createMonitorWebSocket(): WebSocket {
-    return new WebSocket(getMonitorWsUrl());
 }

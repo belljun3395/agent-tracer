@@ -1,39 +1,13 @@
-import { buildReusableTaskSnapshot } from "~domain/snapshot.js";
-import type { MonitoringTask, TimelineEventRecord, TimelineLane } from "~domain/monitoring.js";
+import type { MonitoringTask, TimelineEventRecord } from "~domain/monitoring.js";
 import { readRuleEnforcements } from "../ruleEnforcements.js";
 import type {
-    ExploredFileStat,
     RuleDecisionStat,
-    TagInsight,
-    TaskExtraction,
-    TaskProcessSection,
     TimelineFilterOptions
 } from "./types.js";
 import {
     extractMetadataString,
-    normalizeForDedup,
-    uniqueStrings
 } from "./helpers.js";
 
-function buildTaskExtraction(task: MonitoringTask | null | undefined, timeline: readonly TimelineEventRecord[], exploredFiles: readonly ExploredFileStat[]): TaskExtraction {
-    const objective = inferTaskObjective(task, timeline);
-    const sections = buildTaskProcessSections(timeline);
-    const validations = collectTaskValidations(timeline);
-    const files = exploredFiles.slice(0, 6).map((file) => file.path);
-    const snapshot = buildReusableTaskSnapshot({ objective, events: timeline });
-    const summary = snapshot.outcomeSummary ?? buildTaskSummary(timeline, sections, validations, files);
-    const brief = buildTaskBrief(objective, summary, sections, validations);
-    const processMarkdown = buildTaskProcessMarkdown(objective, summary, sections, validations, files);
-    return {
-        objective,
-        summary,
-        sections,
-        validations,
-        files,
-        brief,
-        processMarkdown
-    };
-}
 export function buildTaskDisplayTitle(task: MonitoringTask | null | undefined, timeline: readonly TimelineEventRecord[]): string {
     const precomputedDisplayTitle = normalizeSentence(task?.displayTitle);
     if (precomputedDisplayTitle) {
@@ -94,53 +68,6 @@ export function collectRecentRuleDecisions(timeline: readonly TimelineEventRecor
         .sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt))
         .slice(0, limit);
 }
-function buildTagInsights(timeline: readonly TimelineEventRecord[]): readonly TagInsight[] {
-    const tags = new Map<string, {
-        count: number;
-        lanes: Set<TimelineLane>;
-        ruleIds: Set<string>;
-        lastSeenAt: string;
-    }>();
-    for (const event of timeline) {
-        const eventRuleIds = collectEventRuleIds(event);
-        for (const tag of event.classification.tags) {
-            const existing = tags.get(tag);
-            if (!existing) {
-                tags.set(tag, {
-                    count: 1,
-                    lanes: new Set([event.lane]),
-                    ruleIds: new Set(eventRuleIds),
-                    lastSeenAt: event.createdAt
-                });
-                continue;
-            }
-            existing.count += 1;
-            existing.lanes.add(event.lane);
-            for (const ruleId of eventRuleIds) {
-                existing.ruleIds.add(ruleId);
-            }
-            existing.lastSeenAt = latestTimestamp(existing.lastSeenAt, event.createdAt);
-        }
-    }
-    return [...tags.entries()]
-        .map(([tag, value]) => ({
-        tag,
-        count: value.count,
-        lanes: [...value.lanes].sort(),
-        ruleIds: [...value.ruleIds].sort(),
-        lastSeenAt: value.lastSeenAt
-    }))
-        .sort((left, right) => {
-        if (right.count !== left.count) {
-            return right.count - left.count;
-        }
-        const timeDelta = Date.parse(right.lastSeenAt) - Date.parse(left.lastSeenAt);
-        if (timeDelta !== 0) {
-            return timeDelta;
-        }
-        return left.tag.localeCompare(right.tag);
-    });
-}
 export function filterTimelineEvents(timeline: readonly TimelineEventRecord[], options: TimelineFilterOptions): readonly TimelineEventRecord[] {
     return timeline.filter((event) => {
         if (!options.laneFilters[event.lane]) {
@@ -174,30 +101,6 @@ function collectEventRuleIds(event: TimelineEventRecord): readonly string[] {
         ruleIds.add(enforcement.ruleId);
     }
     return [...ruleIds];
-}
-function latestTimestamp(left: string, right: string): string {
-    return Date.parse(left) > Date.parse(right) ? left : right;
-}
-const TASK_EXTRACTION_LANES: readonly TimelineLane[] = [
-    "exploration",
-    "planning",
-    "coordination",
-    "implementation"
-];
-const TASK_EXTRACTION_LANE_TITLES: Readonly<Record<TimelineLane, string>> = {
-    user: "User Context",
-    questions: "Track question flow",
-    todos: "Track todo progress",
-    exploration: "Explore the codebase",
-    planning: "Plan the approach",
-    coordination: "Coordinate tools and agents",
-    implementation: "Implement the change",
-    rule: "Verify rule compliance",
-    background: "Observe background work",
-    telemetry: "API call telemetry"
-};
-function inferTaskObjective(task: MonitoringTask | null | undefined, timeline: readonly TimelineEventRecord[]): string {
-    return resolvePreferredTaskTitle(task, timeline) ?? "Reconstruct the selected task into a reusable process.";
 }
 const GENERIC_TASK_TITLE_PREFIXES = new Set([
     "agent",
@@ -284,173 +187,6 @@ function isAgentSessionBoilerplate(value: string): boolean {
     const normalized = normalizeTitleToken(value);
     return /^(claude code|claude|codex app-server|codex app server|codex cli|codex|agent|ai cli) session started\b/.test(normalized)
         || /^(claude code|claude|codex app-server|codex app server|codex cli|codex|agent|ai cli) - /.test(normalized);
-}
-function buildTaskProcessSections(timeline: readonly TimelineEventRecord[]): readonly TaskProcessSection[] {
-    return TASK_EXTRACTION_LANES
-        .map((lane) => {
-        const items = uniqueStrings(timeline
-            .filter((event) => event.lane === lane)
-            .map(describeProcessEvent)
-            .filter((value): value is string => Boolean(value))).slice(0, 3);
-        if (items.length === 0) {
-            return null;
-        }
-        return {
-            lane,
-            title: TASK_EXTRACTION_LANE_TITLES[lane],
-            items: items as readonly string[]
-        };
-    })
-        .filter((value): value is TaskProcessSection => value !== null);
-}
-function collectTaskValidations(timeline: readonly TimelineEventRecord[]): readonly string[] {
-    return uniqueStrings(timeline
-        .filter((event) => event.kind === "verification.logged" || event.kind === "rule.logged")
-        .map(describeValidationEvent)
-        .filter((value): value is string => Boolean(value))).slice(0, 5);
-}
-function buildTaskSummary(timeline: readonly TimelineEventRecord[], sections: readonly TaskProcessSection[], validations: readonly string[], files: readonly string[]): string {
-    const parts: string[] = [];
-    const firstUserMsg = timeline.find(e => e.kind === "user.message");
-    const originalRequest = firstUserMsg?.body ?? firstUserMsg?.title;
-    const normalizedOriginalRequest = normalizeSentence(originalRequest);
-    if (normalizedOriginalRequest) {
-        parts.push(`Original request: ${normalizedOriginalRequest}`);
-    }
-    const implCount = timeline.filter(e => e.lane === "implementation").length;
-    if (implCount > 0) {
-        parts.push(`${implCount} implementation steps`);
-    }
-    if (validations.length > 0) {
-        const failCount = timeline.filter(e => (e.kind === "verification.logged" && e.metadata["verificationStatus"] === "fail") ||
-            (e.kind === "rule.logged" && e.metadata["ruleStatus"] === "violation")).length;
-        const passCount = validations.length - failCount;
-        parts.push(failCount > 0
-            ? `Validation ${validations.length} runs (${passCount} passed, ${failCount} failed)`
-            : `Validation ${validations.length} runs passed`);
-    }
-    if (files.length > 0) {
-        parts.push(`${files.length} related files`);
-    }
-    if (parts.length === 0) {
-        const laneText = sections.map(s => s.lane).join(", ");
-        return laneText
-            ? `${timeline.filter(e => e.kind !== "file.changed").length} recorded events (${laneText}).`
-            : "Recorded task activity is available for extraction.";
-    }
-    return parts.join(". ") + ".";
-}
-function buildTaskBrief(objective: string, summary: string, sections: readonly TaskProcessSection[], validations: readonly string[]): string {
-    const lines = [
-        `Task: ${objective}`,
-        `Summary: ${summary}`
-    ];
-    if (sections.length > 0) {
-        lines.push("Process:");
-        for (const section of sections) {
-            for (const item of section.items) {
-                lines.push(`- ${TASK_EXTRACTION_LANE_TITLES[section.lane]}: ${item}`);
-            }
-        }
-    }
-    if (validations.length > 0) {
-        lines.push("Validation:");
-        for (const item of validations) {
-            lines.push(`- ${item}`);
-        }
-    }
-    return lines.join("\n");
-}
-function buildTaskProcessMarkdown(objective: string, summary: string, sections: readonly TaskProcessSection[], validations: readonly string[], files: readonly string[]): string {
-    const lines = [
-        "# Extracted Task",
-        "",
-        `## Objective`,
-        objective,
-        "",
-        "## Summary",
-        summary
-    ];
-    if (sections.length > 0) {
-        lines.push("", "## Process");
-        for (const section of sections) {
-            lines.push("", `### ${section.title}`);
-            for (const item of section.items) {
-                lines.push(`- ${item}`);
-            }
-        }
-    }
-    if (validations.length > 0) {
-        lines.push("", "## Validation");
-        for (const item of validations) {
-            lines.push(`- ${item}`);
-        }
-    }
-    if (files.length > 0) {
-        lines.push("", "## Related Files");
-        for (const filePath of files) {
-            lines.push(`- ${filePath}`);
-        }
-    }
-    return lines.join("\n");
-}
-export function describeProcessEvent(event: TimelineEventRecord): string | null {
-    if (event.kind === "file.changed" || event.kind === "task.complete" || event.kind === "task.error") {
-        return null;
-    }
-    const title = normalizeSentence(event.title);
-    const detail = primaryEventDetail(event);
-    if (!title && !detail) {
-        return null;
-    }
-    if (detail && title && normalizeForDedup(detail) !== normalizeForDedup(title)) {
-        return `${title}: ${detail}`;
-    }
-    return detail ?? title;
-}
-function describeValidationEvent(event: TimelineEventRecord): string | null {
-    if (event.kind === "verification.logged") {
-        const title = normalizeSentence(event.title) ?? "Verification step";
-        const result = normalizeSentence(extractMetadataString(event.metadata, "result")
-            ?? extractMetadataString(event.metadata, "verificationStatus")
-            ?? event.body);
-        return result ? `${title}: ${result}` : title;
-    }
-    if (event.kind === "rule.logged") {
-        const ruleId = extractMetadataString(event.metadata, "ruleId") ?? "rule";
-        const status = extractMetadataString(event.metadata, "ruleStatus") ?? "observed";
-        const severity = extractMetadataString(event.metadata, "severity");
-        return severity
-            ? `${ruleId} ${status} (${severity})`
-            : `${ruleId} ${status}`;
-    }
-    return null;
-}
-function primaryEventDetail(event: TimelineEventRecord): string | null {
-    const metadata = event.metadata;
-    const candidates = [
-        event.kind === "rule.logged"
-            ? [
-                extractMetadataString(metadata, "ruleId"),
-                extractMetadataString(metadata, "ruleStatus"),
-                extractMetadataString(metadata, "severity")
-            ].filter((value): value is string => Boolean(value)).join(" · ")
-            : undefined,
-        event.kind === "verification.logged"
-            ? extractMetadataString(metadata, "result")
-            : undefined,
-        extractMetadataString(metadata, "action"),
-        extractMetadataString(metadata, "command"),
-        extractMetadataString(metadata, "toolName"),
-        event.body
-    ];
-    for (const candidate of candidates) {
-        const normalized = normalizeSentence(candidate);
-        if (normalized) {
-            return normalized;
-        }
-    }
-    return null;
 }
 function normalizeSentence(value?: string): string | null {
     if (!value) {

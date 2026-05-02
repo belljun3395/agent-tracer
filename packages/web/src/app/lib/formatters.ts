@@ -21,28 +21,11 @@ export function formatDuration(ms: number): string {
     return `${hours}h ${minutes}m`;
 }
 
-function formatRate(rate: number): string {
-    if (!Number.isFinite(rate)) {
-        return "0%";
-    }
-    const percent = rate <= 1 ? rate * 100 : rate;
-    return Number.isInteger(percent) ? `${percent.toFixed(0)}%` : `${percent.toFixed(1)}%`;
-}
-
 export function formatCount(value: number): string {
     if (!Number.isFinite(value)) {
         return "0";
     }
     return value.toLocaleString();
-}
-
-function formatPhaseLabel(phase: string): string {
-    if (!phase) {
-        return "Unknown";
-    }
-    return phase
-        .replace(/[_-]+/g, " ")
-        .replace(/\b\w/g, (match) => match.toUpperCase());
 }
 
 export function formatEvidenceLevel(level: EvidenceLevel): string {

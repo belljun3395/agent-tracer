@@ -33,7 +33,7 @@ export const INGEST_EVENT_KINDS = [
     ...LIFECYCLE_EVENT_KINDS,
     ...TELEMETRY_EVENT_KINDS,
 ] as const;
-const INTERNAL_EVENT_KINDS = ["task.start", "task.complete", "task.error", "file.changed"] as const;
+const _INTERNAL_EVENT_KINDS = ["task.start", "task.complete", "task.error", "file.changed"] as const;
 
 export const EVENT_RELATION_TYPES = [
     "implements",
@@ -47,14 +47,10 @@ export const EVENT_RELATION_TYPES = [
     "caused_by",
     "relates_to",
 ] as const;
-const TODO_STATES = ["added", "in_progress", "completed", "cancelled"] as const;
-const QUESTION_PHASES = ["asked", "answered", "concluded"] as const;
-const AGENT_ACTIVITY_TYPES = ["agent_step", "mcp_call", "skill_use", "delegation", "handoff", "bookmark", "search"] as const;
-const ASYNC_TASK_STATUSES = ["pending", "running", "completed", "error", "cancelled", "interrupt"] as const;
 
 export type TimelineLane = (typeof EVENT_LANES)[number];
 export type IngestEventKind = (typeof INGEST_EVENT_KINDS)[number];
-export type LoggedEventKind = IngestEventKind | (typeof INTERNAL_EVENT_KINDS)[number];
+export type LoggedEventKind = IngestEventKind | (typeof _INTERNAL_EVENT_KINDS)[number];
 export type EventRelationType = (typeof EVENT_RELATION_TYPES)[number];
 
 export type LogEventTaskStatusUseCaseDto = "running" | "waiting" | "completed" | "errored";

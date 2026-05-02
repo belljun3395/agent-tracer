@@ -15,7 +15,6 @@ export interface IEmbeddingService {
 }
 
 const EMBEDDING_MODEL = "Xenova/all-MiniLM-L6-v2";
-const EMBEDDING_DIMS = 384;
 function resolveModelDir(): string {
     const moduleDir = path.dirname(fileURLToPath(import.meta.url));
     const candidates = [
