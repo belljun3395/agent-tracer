@@ -1,0 +1,47 @@
+{
+  "workspaces": {
+    "packages/server": {
+      "entry": [
+        "src/server.entry.ts",
+        "src/adapters/mcp/mcp.entry.ts"
+      ]
+    },
+    "packages/web": {
+      "entry": ["src/main.tsx"]
+    },
+    "packages/runtime": {
+      "entry": ["src/index.ts"]
+    }
+  },
+  "exclude": ["types"],
+  "ignoreExportsUsedInFile": true,
+  "ignore": [
+    "docs/**",
+    "packages/server/src/activity/event/domain/event.phase.ts",
+    "packages/server/src/activity/event/domain/model/event.phase.model.ts",
+    "packages/server/src/activity/event/domain/runtime/type/metadata.keys.type.ts",
+    "packages/server/src/activity/event/domain/type/event.metadata.type.ts",
+    "packages/server/src/activity/event/repository/event-store/event.time.ts",
+    "packages/server/src/adapters/http/shared/schemas/query.schema.ts",
+    "packages/server/src/governance/verification/application/outbound/tokens.ts",
+    "packages/server/src/governance/verification/domain/type/turn.evaluation.type.ts",
+    "packages/web/src/app/components/inspector/TurnChip.tsx",
+    "packages/web/src/app/components/ui/Textarea.tsx",
+    "packages/web/src/app/lib/explorationCategory.ts",
+    "packages/web/src/app/lib/text/truncate.ts",
+    "packages/web/src/app/lib/ui/useClipboardCopyState.ts",
+    "packages/web/src/io/storage.ts",
+    "packages/web/src/types/snapshot.ts"
+  ],
+  "ignoreDependencies": [
+    "zod",
+    "rxjs",
+    "yaml",
+    "eslint-plugin-n",
+    "mermaid",
+    "tsx",
+    "@vitest/coverage-v8",
+    "@types/supertest",
+    "supertest"
+  ]
+}
