@@ -3,7 +3,6 @@ import type { MonitoringTask } from "~work/task/domain/task.model.js";
 import type { TaskStatus, MonitoringTaskKind } from "~work/task/common/task.status.type.js";
 import { TaskNotFoundError } from "../common/task.errors.js";
 import { createTaskSlug } from "../common/task.slug.js";
-import { TERMINAL_TASK_STATUSES } from "../common/task.status.js";
 import { TaskEntity } from "../domain/task.entity.js";
 import { TaskRelations } from "../domain/task.relations.model.js";
 import { TaskRepository } from "../repository/task.repository.js";
@@ -105,23 +104,6 @@ export class TaskManagementService {
             this.notifier.publish({ type: "task.deleted", payload: { taskId: id } });
         }
         return { status: "deleted", deletedIds: allIds };
-    }
-
-    async deleteFinished(): Promise<{ count: number }> {
-        const finishedIds = await this.taskRepo.listIdsByStatuses(TERMINAL_TASK_STATUSES);
-        if (finishedIds.length === 0) return { count: 0 };
-
-        const all = new Set<string>();
-        for (const id of finishedIds) {
-            all.add(id);
-            for (const desc of await this.taskRepo.collectDescendantIds(id)) {
-                all.add(desc);
-            }
-        }
-        await this.taskRepo.deleteByIds([...all]);
-        const count = all.size;
-        this.notifier.publish({ type: "tasks.purged", payload: { count } });
-        return { count };
     }
 
     /** Internal upsert used by lifecycle service. Updates entity + relations + emits task.updated when applicable. */

@@ -206,30 +206,3 @@ describe("TaskManagementService.delete", () => {
     });
 });
 
-describe("TaskManagementService.deleteFinished", () => {
-    it("short-circuits when no finished tasks exist (count=0, no notification)", async () => {
-        const h = setup();
-        h.taskRepo.listIdsByStatuses.mockResolvedValue([]);
-
-        const result = await h.service.deleteFinished();
-
-        expect(result).toEqual({ count: 0 });
-        expect(h.taskRepo.deleteByIds).not.toHaveBeenCalled();
-        expect(h.notifier.publish).not.toHaveBeenCalled();
-    });
-
-    it("aggregates descendants and publishes a single tasks.purged notification", async () => {
-        const h = setup();
-        h.taskRepo.listIdsByStatuses.mockResolvedValue(["t-1", "t-2"]);
-        h.taskRepo.collectDescendantIds
-            .mockResolvedValueOnce(["t-1a"])
-            .mockResolvedValueOnce(["t-2a", "t-2b"]);
-
-        const result = await h.service.deleteFinished();
-
-        expect(result.count).toBe(5);
-        expect(h.notifier.calls).toEqual([
-            { type: "tasks.purged", payload: { count: 5 } },
-        ]);
-    });
-});
