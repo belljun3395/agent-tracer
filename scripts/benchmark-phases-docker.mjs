@@ -43,6 +43,16 @@ const phases = [
     buildRuntime: false,
     transport: "http",
   },
+  {
+    name: "phase2-3-bun-js-daemon",
+    description: "bun + compiled JS + UDS daemon (TO-BE)",
+    workdir: path.join(repoRoot, ".worktrees/phase2-3-bun-js-daemon"),
+    dockerfile: "Dockerfile.benchmark-runtime-bun",
+    buildRuntime: true,
+    runtime: "bun",
+    transport: "daemon",
+    socket: "/tmp/agent-tracer-phase2-3.sock",
+  },
 ];
 
 mkdirSync(outDir, { recursive: true });
