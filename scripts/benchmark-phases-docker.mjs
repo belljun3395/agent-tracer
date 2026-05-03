@@ -43,6 +43,15 @@ const phases = [
     buildRuntime: false,
     transport: "http",
   },
+  {
+    name: "phase2-bun-ts",
+    description: "bun + TypeScript + HTTP (TO-BE)",
+    workdir: path.join(repoRoot, ".worktrees/phase2-bun-ts"),
+    dockerfile: "Dockerfile.benchmark-runtime-bun",
+    buildRuntime: false,
+    runtime: "bun",
+    transport: "http",
+  },
 ];
 
 mkdirSync(outDir, { recursive: true });
