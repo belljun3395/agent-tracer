@@ -12,6 +12,8 @@
     }
   },
   "scripts": {
+    "build": "tsx --tsconfig tsconfig.json build.ts",
+    "prepublishOnly": "npm run build",
     "lint": "eslint . && npm run lint:types",
     "lint:fix": "eslint . --fix",
     "lint:types": "tsc -p tsconfig.json --noEmit",
@@ -20,6 +22,7 @@
   },
   "devDependencies": {
     "@vitest/coverage-v8": "^3.2.4",
+    "esbuild": "^0.25.12",
     "tsx": "^4.0.0",
     "vitest": "^3.0.0"
   }

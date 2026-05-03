@@ -9,5 +9,5 @@
       "~codex/*": ["src/codex/*"]
     }
   },
-  "include": ["src", "test", "*.config.ts"]
+  "include": ["src", "test", "build.ts", "*.config.ts"]
 }
