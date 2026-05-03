@@ -4,11 +4,23 @@ services:
       context: .
       dockerfile: Dockerfile.server
     ports:
-      - "3847:3847"
+      - "3847:3847"   # API
+      - "9464:9464"   # OTel Prometheus exporter (/metrics)
     volumes:
       - monitor-data:/app/.monitor
     environment:
       - NODE_ENV=production
+      - OTEL_SERVICE_NAME=agent-tracer-server
+      - OTEL_RESOURCE_ATTRIBUTES=deployment.environment=benchmark
+      # Opt in to the stable HTTP semantic conventions
+      # (http.server.request.duration in seconds) so the dashboard PromQL
+      # against `http_server_request_duration_*` resolves.
+      - OTEL_SEMCONV_STABILITY_OPT_IN=http
+    # Pin resource budget so AS-IS / TO-BE benchmarks compare apples to apples.
+    # See docs/guide/performance-plan.md §3.5.
+    cpus: 1.0
+    mem_limit: 512m
+    mem_reservation: 256m
 
   web:
     build:

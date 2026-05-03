@@ -23,5 +23,5 @@ COPY --from=builder /app/packages ./packages
 WORKDIR /app
 ENV NODE_ENV=production
 
-EXPOSE 3847
+EXPOSE 3847 9464
 CMD ["npm", "run", "start:server"]
