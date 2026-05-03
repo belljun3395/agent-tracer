@@ -43,6 +43,13 @@ const phases = [
     buildRuntime: false,
     transport: "http",
   },
+  {
+    name: "phase2-node-js",
+    description: "node + compiled JS + HTTP (TO-BE)",
+    workdir: path.join(repoRoot, ".worktrees/phase2-node-js"),
+    buildRuntime: true,
+    transport: "http",
+  },
 ];
 
 mkdirSync(outDir, { recursive: true });
