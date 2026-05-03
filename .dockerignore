@@ -8,3 +8,5 @@ packages/*/dist
 .claude
 npm-debug.log
 .DS_Store
+.worktrees
+observability/results

@@ -17,6 +17,7 @@
     "docs:dev": "vitepress dev docs --host 0.0.0.0 --port 5174",
     "docs:build": "vitepress build docs",
     "docs:preview": "vitepress preview docs --host 0.0.0.0 --port 4174",
+    "bench:hook": "node scripts/benchmark-hooks.mjs",
     "dev": "concurrently -k -n server,web \"npm run dev:server\" \"npm run dev:web\"",
     "dev:server": "NODE_OPTIONS=\"--conditions=development --import file://$(pwd)/scripts/register-swc.mjs\" SWC_NODE_PROJECT=packages/server/tsconfig.dev.json node --watch packages/server/src/server.entry.ts",
     "dev:web": "npm run dev --workspace @monitor/web -- --host 0.0.0.0",
