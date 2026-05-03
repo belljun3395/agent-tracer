@@ -43,6 +43,14 @@ const phases = [
     buildRuntime: false,
     transport: "http",
   },
+  {
+    name: "phase3",
+    description: "node + tsx + UDS daemon (TO-BE)",
+    workdir: path.join(repoRoot, ".worktrees/phase3-daemon-uds"),
+    buildRuntime: false,
+    transport: "daemon",
+    socket: "/tmp/agent-tracer-phase3.sock",
+  },
 ];
 
 mkdirSync(outDir, { recursive: true });
