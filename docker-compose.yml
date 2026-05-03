@@ -1,3 +1,5 @@
+name: agent-tracer-bench
+
 services:
   server:
     build:
@@ -31,5 +33,55 @@ services:
     depends_on:
       - server
 
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=7d
+      - --web.enable-lifecycle
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    depends_on:
+      - server
+
+  grafana:
+    image: grafana/grafana:11.3.0
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+      - GF_USERS_DEFAULT_THEME=light
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+
+  # Run on demand:
+  #   docker compose --profile bench run --rm k6
+  k6:
+    image: grafana/k6:0.54.0
+    profiles: ["bench"]
+    volumes:
+      - ./observability/k6:/scripts:ro
+    environment:
+      - MONITOR_BASE_URL=http://server:3847
+      - K6_DURATION=2m
+      - K6_RPS=200
+      - K6_BATCH_SIZE=5
+    command: run /scripts/ingest-events.js
+    depends_on:
+      - server
+
 volumes:
   monitor-data:
+  prometheus-data:
+  grafana-data:

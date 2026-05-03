@@ -1,0 +1,23 @@
+# Prometheus scrape config for Agent Tracer benchmarks.
+#
+# Scrapes the OTel Prometheus exporter exposed by the server container on
+# port 9464. The exporter publishes both auto-instrumented HTTP metrics
+# (from @opentelemetry/instrumentation-http) and custom counters/histograms
+# (ingest_events_total, ingest_batch_size).
+
+global:
+  scrape_interval: 5s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: agent-tracer-server
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["server:9464"]
+        labels:
+          service: agent-tracer-server
+          env: benchmark
+
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]

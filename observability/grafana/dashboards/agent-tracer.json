@@ -1,0 +1,145 @@
+{
+  "title": "Agent Tracer — Ingest Performance",
+  "uid": "agent-tracer-ingest",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "5s",
+  "time": { "from": "now-15m", "to": "now" },
+  "tags": ["agent-tracer", "performance"],
+  "timezone": "browser",
+  "templating": {
+    "list": [
+      {
+        "name": "route",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "Prometheus" },
+        "query": "label_values(http_server_request_duration_count, http_route)",
+        "refresh": 2,
+        "includeAll": true,
+        "multi": false
+      }
+    ]
+  },
+  "panels": [
+    {
+      "title": "Request rate (RPS)",
+      "type": "timeseries",
+      "id": 1,
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [
+        {
+          "expr": "sum by (http_route) (rate(http_server_request_duration_count[1m]))",
+          "legendFormat": "{{http_route}}"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "reqps" } }
+    },
+    {
+      "title": "Latency p50 / p95 / p99",
+      "type": "timeseries",
+      "id": 2,
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(http_server_request_duration_bucket{http_route=~\"$route\"}[1m]))) * 1000",
+          "legendFormat": "p50"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(http_server_request_duration_bucket{http_route=~\"$route\"}[1m]))) * 1000",
+          "legendFormat": "p95"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(http_server_request_duration_bucket{http_route=~\"$route\"}[1m]))) * 1000",
+          "legendFormat": "p99"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "ms" } }
+    },
+    {
+      "title": "5xx error rate",
+      "type": "timeseries",
+      "id": 3,
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [
+        {
+          "expr": "(sum(rate(http_server_request_duration_count{http_response_status_code=~\"5..\"}[1m])) or vector(0)) / clamp_min(sum(rate(http_server_request_duration_count[1m])), 0.0001)",
+          "legendFormat": "error rate"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1 } }
+    },
+    {
+      "title": "Estimated events/sec (batch=5)",
+      "type": "timeseries",
+      "id": 4,
+      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [
+        {
+          "expr": "sum(rate(http_server_request_duration_count{http_route=\"/ingest/v1/events\"}[1m])) * 5",
+          "legendFormat": "estimated events/sec"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "eps" } }
+    },
+    {
+      "title": "Configured ingest batch size",
+      "type": "timeseries",
+      "id": 5,
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 14 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [
+        {
+          "expr": "vector(5)",
+          "legendFormat": "batch size"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short" } }
+    },
+    {
+      "title": "Event loop lag p99 (s)",
+      "type": "timeseries",
+      "id": 6,
+      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 14 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [
+        {
+          "expr": "nodejs_eventloop_delay_p99",
+          "legendFormat": "p99"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    {
+      "title": "V8 heap used",
+      "type": "timeseries",
+      "id": 7,
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 20 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [
+        {
+          "expr": "v8js_memory_heap_used",
+          "legendFormat": "heap used"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "bytes" } }
+    },
+    {
+      "title": "Event loop utilization",
+      "type": "timeseries",
+      "id": 8,
+      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 20 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [
+        {
+          "expr": "nodejs_eventloop_utilization",
+          "legendFormat": "utilization"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "percentunit", "decimals": 2 } }
+    }
+  ]
+}

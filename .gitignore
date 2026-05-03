@@ -26,6 +26,7 @@ application.local.yaml
 .sisyphus/
 docs/.vitepress/dist
 .monitor/
+observability/results/
 .playwright-mcp/
 *.png
 .omx/
