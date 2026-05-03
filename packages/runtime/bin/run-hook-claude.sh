@@ -32,8 +32,21 @@ HOOK_FILE="${CLAUDE_PLUGIN_ROOT}/src/claude-code/hooks/${HOOK_NAME}.ts"
 TSCONFIG="${CLAUDE_PLUGIN_ROOT}/tsconfig.plugin.json"
 
 if [ ! -f "$HOOK_FILE" ]; then
-  echo "agent-tracer plugin: hook not found: $HOOK_FILE" >&2
-  exit 0
+  HOOK_BASENAME="${HOOK_NAME##*/}"
+  NESTED_HOOK_FILE="${CLAUDE_PLUGIN_ROOT}/src/claude-code/hooks/${HOOK_NAME}/${HOOK_BASENAME}.ts"
+  if [ -f "$NESTED_HOOK_FILE" ]; then
+    HOOK_FILE="$NESTED_HOOK_FILE"
+  else
+    echo "agent-tracer plugin: hook not found: $HOOK_FILE" >&2
+    exit 0
+  fi
+fi
+
+# When RUNTIME=bun, execute the TypeScript hook directly with bun.
+# Bun resolves ~shared/* / ~claude-code/* path aliases via the tsconfig.json
+# it finds by walking up from the hook file, and maps .js imports to .ts.
+if [ "${RUNTIME:-}" = "bun" ]; then
+  NODE_ENV="${NODE_ENV:-production}" exec bun "$HOOK_FILE"
 fi
 
 # Prefer the persistent data directory so tsx survives plugin updates.
