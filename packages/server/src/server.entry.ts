@@ -1,3 +1,6 @@
+// MUST be the first import — wires OTel auto-instrumentation before any
+// http/express modules are loaded by the rest of the app.
+import "./main/observability/otel.js";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { loadApplicationConfig, resolveMonitorDatabasePath, resolveMonitorHttpBaseUrl, resolveMonitorListenHost, resolveMonitorPort } from "~config/application-config.js";

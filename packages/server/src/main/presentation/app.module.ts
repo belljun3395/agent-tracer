@@ -10,6 +10,7 @@ import { TypeOrmDatabaseModule } from "./database/typeorm.database.module.js";
 import { GlobalExceptionFilter } from "./filters/zod-exception.filter.js";
 import { ApiResponseInterceptor } from "./interceptors/api-response.interceptor.js";
 import { RequestContextMiddleware } from "./middleware/request-context.middleware.js";
+import { IngestMetricsInterceptor } from "~main/observability/ingest.metrics.interceptor.js";
 
 export interface AppModuleOptions {
     readonly databasePath: string;
@@ -47,6 +48,10 @@ export class AppModule implements NestModule {
                 {
                     provide: APP_INTERCEPTOR,
                     useClass: ApiResponseInterceptor,
+                },
+                {
+                    provide: APP_INTERCEPTOR,
+                    useClass: IngestMetricsInterceptor,
                 },
             ],
         };
