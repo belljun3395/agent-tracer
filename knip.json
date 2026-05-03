@@ -17,6 +17,8 @@
   "ignoreExportsUsedInFile": true,
   "ignore": [
     "docs/**",
+    "observability/k6/**",
+    "scripts/benchmark-phases-docker.mjs",
     "packages/server/src/activity/event/domain/event.phase.ts",
     "packages/server/src/activity/event/domain/model/event.phase.model.ts",
     "packages/server/src/activity/event/domain/runtime/type/metadata.keys.type.ts",
