@@ -1,0 +1,29 @@
+FROM oven/bun:1-slim
+
+WORKDIR /app
+
+# Install bash for the hook runner shell script and the toolchain that
+# better-sqlite3 / native deps need at install time (node-gyp → python+gcc).
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends bash ca-certificates \
+       python3 make g++ \
+  && rm -rf /var/lib/apt/lists/*
+
+COPY package*.json ./
+COPY packages/server/package.json packages/server/
+COPY packages/runtime/package.json packages/runtime/
+COPY packages/web/package.json packages/web/
+
+# bun reads package-lock.json when bun.lockb is absent
+RUN bun install --frozen-lockfile
+
+COPY . .
+
+# bun runs TypeScript natively; for bun+js, build.ts uses esbuild (bundled with bun)
+ARG BUILD_RUNTIME=false
+RUN if [ "$BUILD_RUNTIME" = "true" ]; then \
+      cd packages/runtime && bun build.ts; \
+    fi
+
+ENV NODE_ENV=production
+CMD ["bun", "scripts/benchmark-hooks.mjs", "--hook", "StatusLine", "--iterations", "3", "--warmup", "1"]
