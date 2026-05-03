@@ -3,6 +3,7 @@ import {MonitorRequestError} from "~shared/errors/monitor.js";
 import {resolveIngestEndpoint} from "~shared/routing/ingest.routing.js";
 import {withTags} from "~shared/semantics/tags.js";
 import {resolveMonitorTransportConfig, type MonitorTransportConfig} from "~shared/config/env.js";
+import {enqueueDaemonMessage, localEnsureResult, shouldUseLocalDaemon} from "./local-daemon.js";
 
 export type {RuntimeSessionEnsureResult} from "~shared/transport/transport.type.js";
 
@@ -47,10 +48,26 @@ export interface MonitorTransport {
     readonly postTaggedEvents: (events: RuntimeIngestEvent[]) => Promise<void>;
 }
 
+export interface CreateMonitorTransportOptions {
+    readonly forceDirect?: boolean;
+}
+
 export function createMonitorTransport(
     config: MonitorTransportConfig = resolveMonitorTransportConfig(),
+    options: CreateMonitorTransportOptions = {},
 ): MonitorTransport {
     async function postJson<T = Record<string, unknown>>(pathname: string, body: unknown): Promise<T> {
+        if (!options.forceDirect && shouldUseLocalDaemon()) {
+            const localResult = pathname === "/ingest/v1/sessions/ensure" ? localEnsureResult(body) : undefined;
+            await enqueueDaemonMessage({
+                type: "postJson",
+                pathname,
+                body,
+                ...(localResult ? {localResult} : {}),
+            });
+            return (localResult ?? {}) as T;
+        }
+
         const response = await fetch(`${config.baseUrl}${pathname}`, {
             method: "POST",
             headers: {"Content-Type": "application/json"},
