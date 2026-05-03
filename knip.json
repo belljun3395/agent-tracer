@@ -10,7 +10,11 @@
       "entry": ["src/main.tsx"]
     },
     "packages/runtime": {
-      "entry": ["src/index.ts"]
+      "entry": [
+        "build.ts",
+        "src/claude-code/hooks/**/*.ts",
+        "src/codex/**/*.ts"
+      ]
     }
   },
   "exclude": ["types"],
@@ -19,6 +23,14 @@
     "docs/**",
     "observability/k6/**",
     "scripts/benchmark-phases-docker.mjs",
+    "packages/runtime/src/shared/config/env.ts",
+    "packages/runtime/src/shared/errors/rollout.ts",
+    "packages/runtime/src/shared/hook-runtime/validator.ts",
+    "packages/runtime/src/shared/hooks/claude/payloads.ts",
+    "packages/runtime/src/shared/transport/transport.ts",
+    "packages/server/src/main/seed.ts",
+    "scripts/benchmark-hooks.mjs",
+    "scripts/setup-external.mjs",
     "packages/server/src/activity/event/domain/event.phase.ts",
     "packages/server/src/activity/event/domain/model/event.phase.model.ts",
     "packages/server/src/activity/event/domain/runtime/type/metadata.keys.type.ts",
