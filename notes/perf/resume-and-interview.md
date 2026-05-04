@@ -101,15 +101,17 @@ packages/web/      React 19 + TanStack Query + Zustand
 | 지표 | AS-IS | 최종 (Phase 2+3) | Δ |
 |---|---:|---:|---:|
 | **Avg hook p99 (ms)** | **250.94** | **41.93** | **−83.3 %** |
-| SessionStart p99 | 336.41 | 42.49 | −87.4 % |
-| StatusLine p99 | 243.79 | 43.04 | −82.3 % |
-| PreToolUse p99 | 204.58 | 45.13 | −77.9 % |
-| UserPromptSubmit p99 | 197.40 | 39.16 | −80.2 % |
-| PostToolUse/Bash p99 | 272.52 | 39.85 | −85.4 % |
+| SessionStart p99 / p95 | 336.41 / ~310 | 42.49 / ~40 | ~−87 % |
+| StatusLine p99 / p95 | 243.79 / 217 | 43.04 / ~41 | ~−82 % |
+| PreToolUse p99 / p95 | 204.58 / 188 | 45.13 / ~43 | ~−77 % |
+| UserPromptSubmit p99 / p95 | 197.40 / 178 | 39.16 / ~37 | ~−80 % |
+| PostToolUse/Bash p99 / p95 | 272.52 / 234 | 39.85 / ~38 | ~−85 % |
 | CPU avg (%) | 97.13 | 80.69 | −16.4 pp |
 | Memory avg (MiB) | 65.30 | 43.80 | −32.9 % |
 | V8 heap (MiB) | 51.86 | 44.17 | −14.8 % |
-| **hook latency variance** | ~140 ms | **~6 ms** | **5배 평탄화** |
+| 5 hook p99 분포 폭 (max − min) | ~140 ms | **~6 ms** | 분포 평탄화 (메커니즘은 §5.4 Q14 참조) |
+
+> **표 읽는 주의**: p99은 iteration n=50 측정이라 사실상 max에 가깝다. p95이 더 robust한 통계지만 절대 차이가 비슷하므로 결론은 바뀌지 않는다. 다음 측정 round에서 iteration을 키울 예정.
 
 ### 3.2 단계별 기여도
 
@@ -121,13 +123,23 @@ packages/web/      React 19 + TanStack Query + Zustand
 | Phase 2 (bun JS) | bun + precompile | 43.73 | −83 % |
 | **Phase 2+3** | bun + precompile + UDS daemon | **41.93** | **−83.3 %** |
 
-### 3.3 측정 신뢰도
+> **주의 1**: 각 phase의 baseline은 250.94 ~ 264.96 ms 사이에서 ~14 ms 폭으로 변동. phase 내부의 AS-IS↔TO-BE 비교는 fair하지만 위 표의 절대값 횡단 비교는 baseline 정규화 안 함.
+> **주의 2**: phase2-bun-js(43.73)와 phase2-3(41.93)의 1.8 ms 차이는 같은 phase2-3 구성의 3 run avg가 41.93 / 47.99 / 59.29로 17 ms 폭의 jitter를 보였기 때문에 통계적으로 noise에 묻혀 있음. Phase 2+3을 권장한 진짜 이유는 latency가 아니라 운영 properties (server timeout 격리, batch chokepoint, connection churn 감소).
 
-- **3회 실행 후 median run의 artifact 사용** (외란 영향 분리)
+### 3.3 측정 신뢰도와 그 한계
+
+**한 것**:
+- 3회 실행 후 median run의 artifact 채택 (1회 outlier 영향 분리)
 - 동일 Docker resource limit (`--cpus=1.0 --memory=256m`)
-- Prometheus + OTel 서버 metric 동시 수집 (`up{job="agent-tracer-server"}==1` 게이트)
+- Prometheus + OTel 서버 metric 동시 수집 (`up{job="agent-tracer-server"}==1` 게이트로 측정 환경 검증)
 - 모든 측정에 hook failure 0 / server 5xx 0
 - 측정 artifact 모두 보존 (`observability/results/docker-phase-bench/`)
+
+**한계 (다음 round에서 보완 예정)**:
+- iteration n=50, run n=3은 작은 sample. 100 ms 단위 차이엔 의미 있지만 1–2 ms 단위 차이는 noise 안에 있음.
+- `--cpus=1.0`은 Docker CFS bandwidth의 soft cap이라 측정에서 CPU max가 105 %를 보임. hard limit은 아님.
+- baseline이 phase 측정마다 14 ms 폭으로 변동. 횡단 비교 시 정규화 부재.
+- Bun이 Node보다 빠른 것은 측정으로 확인했으나, **어느 요인 (JSC 엔진 / Bun core native / ESM resolver / GC / stdlib fast path)에서 얼마씩 기여했는지는 분리 측정 안 함**.
 
 ---
 
@@ -137,13 +149,13 @@ packages/web/      React 19 + TanStack Query + Zustand
 > Self-hosted Claude Code observability 도구 Agent Tracer의 hook 실행 경로를 `node + tsx + HTTP`에서 `bun + esbuild precompiled JS + UDS daemon` 구조로 재설계해 hook wall-clock p99 250.94 ms → 41.93 ms (−83.3 %), 메모리 사용 −33 % 달성.
 
 ### 4.2 두 줄
-> Claude Code hook의 critical-path latency를 줄이기 위해 (1) tsx 런타임 트랜스파일을 esbuild bundle precompile로 빌드 타임으로 이전, (2) HTTP transport를 long-lived UDS daemon으로 교체하는 두 단계 개선을 측정 기반 (3-run median, Docker resource-pinned)으로 검증. **hook p99 −83.3 %, 메모리 −33 %, p99 variance 5배 평탄화**.
+> Claude Code hook의 critical-path latency를 줄이기 위해 (1) tsx 런타임 트랜스파일을 esbuild bundle precompile로 빌드 타임으로 이전, (2) HTTP transport를 long-lived UDS daemon으로 교체하는 두 단계 개선을 측정 기반 (3-run median, Docker resource-pinned)으로 검증. **hook p99 −83.3 %, 메모리 −33 %, 5개 hook 사이의 p99 분포 폭 ~140 ms → ~6 ms로 평탄화**.
 
 ### 4.3 네 줄 (STAR)
 > **Situation**: Claude Code hook은 매 이벤트마다 새 프로세스로 실행되는 short-lived 구조라, `node + tsx`의 런타임 TypeScript transpile 비용이 매번 사용자 critical path에 100 ms+ 추가되고 있었음.
 > **Task**: 사용자가 체감하는 hook latency를 운영 환경에 추가 의존성을 강제하지 않으면서 줄이는 방법을 찾기.
-> **Action**: 56개 hook entry를 esbuild로 ESM bundle 사전 컴파일 + Bun runtime 자동 감지 fallback + long-lived daemon이 UDS 위에서 fire-and-forget으로 메시지 전달하는 구조 설계. 결정적 UUID v5 트릭으로 응답이 필요한 `/sessions/ensure`도 fire-and-forget화. 모든 단계에서 Docker resource-pinned harness로 3-run median 측정.
-> **Result**: hook p99 250.94 → 41.93 ms (−83.3 %), 메모리 65 → 44 MiB (−33 %), p99 variance 140 → 6 ms (5배 평탄화). hook failure 0, server 5xx 0.
+> **Action**: 56개 hook entry를 esbuild로 ESM bundle 사전 컴파일 + Bun runtime 자동 감지 fallback + long-lived daemon이 UDS 위에서 fire-and-forget으로 메시지 전달하는 구조 설계. server가 발급할 진짜 sessionId를 hook이 기다릴 수 없으므로, hook이 결정적 UUID v5 placeholder로 즉시 응답하고 daemon이 server-assigned ID와 사후 매핑/rewrite하는 fire-and-forget 트릭 추가. 모든 단계에서 Docker resource-pinned harness로 3-run median 측정.
+> **Result**: hook p99 250.94 → 41.93 ms (−83.3 %), 메모리 65 → 44 MiB (−33 %), 5개 hook 사이의 p99 분포 폭 ~140 → ~6 ms로 평탄화. hook failure 0, server 5xx 0.
 
 ### 4.4 6–7줄 (시스템 설계 강조 버전)
 > Claude Code 56개 hook entry의 cold-start 비용 분석을 위해 Docker resource-pinned 벤치마크 harness (cpus / mem 고정, Prometheus auto-discovery, 3-run median selector)를 직접 구축.
@@ -159,7 +171,7 @@ packages/web/      React 19 + TanStack Query + Zustand
 - esbuild bundle (precompile, alias, ESM, node target)
 - OpenTelemetry / Prometheus / Grafana / k6
 - Unix Domain Socket / IPC / fire-and-forget protocol
-- 결정적 UUID v5 (name-based)
+- 결정적 UUID v5 placeholder + post-hoc daemon ID rewrite
 - Docker resource-pinned benchmark, 3-run median
 - Critical path latency, p99 variance, cold start
 
@@ -207,7 +219,7 @@ hook은 매번 새 프로세스라 여러 내부 JS 파일을 하나하나 resol
 
 **Q9. Node와 Bun의 기술적 차이를 성능 관점에서 설명하세요.**
 
-엔진부터 다릅니다. Node는 V8(Chrome 계열), Bun은 JavaScriptCore(Safari 계열)입니다. V8은 long-running server에서 JIT warmup 후 throughput이 강력하고, JSC는 short-lived 환경에서 startup이 가벼운 쪽으로 진화했습니다. Hook은 명백히 후자입니다. 그리고 런타임 구현 언어도 다릅니다 — Node는 C++, Bun은 Zig. Bun은 표준 라이브러리 fast path를 native로 깔아놨고, allocator를 단계별로 다른 걸 쓰는 등 short-lived 작업에 유리합니다. 측정해보면 같은 컴파일 JS를 실행해도 hook p99이 78 → 44 ms로 약 44 % 빨랐습니다.
+표면적으로는 엔진이 다릅니다. Node는 V8 (Chrome 계열), Bun은 JavaScriptCore (Safari 계열)입니다. 일반적으로 알려진 차이는 V8이 long-running server의 JIT warmup 후 throughput에 강하고 JSC가 startup-friendly로 평가되는 정도입니다. 런타임 구현 언어도 Node는 C++, Bun은 Zig로 다릅니다. **다만 솔직히 말씀드리면, 우리가 측정한 "같은 컴파일 JS에서 78 ms → 44 ms (44% 단축)"는 Bun 런타임 전체가 Node 런타임 전체보다 빠르다는 것까지만 입증된 것이고, 그 차이가 JS 엔진(JSC vs V8) / 표준 라이브러리 (Bun native vs Node JS layer) / ESM resolver / GC 전략 중 어디에서 얼마씩 왔는지를 분리해 주는 micro-benchmark는 이번 작업에서 안 했습니다**. 면접에서 정확한 attribution을 묻는 거라면 "분리 측정 안 했고, 위의 일반 narrative와 plausibly 부합하는 수준"이 정직한 답입니다.
 
 **Q10. 그러면 Node 서버도 Bun으로 옮길 수 있나요?**
 
@@ -221,7 +233,13 @@ hook은 매번 새 프로세스라 여러 내부 JS 파일을 하나하나 resol
 
 **Q12. 결정적 UUID 트릭은 정확히 무엇이고 왜 필요했나요?**
 
-`/sessions/ensure`는 hook이 server에 "내 세션을 등록해줘, ID 받아갈게"하는 호출입니다. 응답 ID를 받아야 다음 이벤트에 그 ID를 붙일 수 있어서 fire-and-forget이 안 됩니다. 그래서 hook이 (runtimeSource, runtimeSessionId)에서 UUID v5 (SHA-1 namespace UUID)로 ID를 결정적으로 만들고, "이 ID로 server-side 등록 해줘"를 daemon에 enqueue하고 즉시 종료합니다. Server는 idempotent (`taskCreated: false` 응답 처리)라 같은 ID로 ensure가 여러 번 와도 OK. 이렇게 응답이 필요한 호출까지 fire-and-forget으로 만들었습니다.
+`/sessions/ensure`는 hook이 server에 "내 세션을 등록해줘, ID 받아갈게"하는 호출입니다. 응답 ID를 받아야 다음 이벤트에 그 ID를 붙일 수 있어서 fire-and-forget이 안 됩니다. 우리 트릭은 두 부분입니다.
+
+(1) **placeholder ID**: hook이 (runtimeSource, runtimeSessionId)에서 UUID v5 (SHA-1 name-based)로 결정적인 placeholder를 즉시 만들어 후속 이벤트에 사용하고, "이걸로 server에 ensure 해줘"를 daemon에 enqueue한 뒤 즉시 종료합니다.
+
+(2) **post-hoc rewrite**: 중요한 것은 **server는 client가 보낸 placeholder를 canonical로 받아들이지 않는다**는 점입니다. server `ensure.runtime.session.usecase.ts`는 항상 자체 `idGen.newUuid()`로 sessionId를 발급하고, idempotency는 (`runtimeSource`, `runtimeSessionId`) binding 키로 보장합니다. daemon이 server 응답을 받은 시점에 placeholder ↔ server-assigned ID 매핑을 메모리에 기록하고, 이후 hook 이벤트가 placeholder를 들고 오면 daemon이 server-assigned ID로 rewrite합니다. 그래서 daemon mapping table은 옵션이 아니라 **필수**입니다.
+
+이 트릭의 한계: placeholder 생성 → daemon이 server 응답 받기까지의 짧은 window에서 hook이 후속 이벤트를 보내면 mapping이 비어 있어 placeholder 그대로 server에 도달할 수 있습니다. 실측에서 hook 호출 간격이 충분해 race를 관측 못 했지만, burst 시나리오는 별도 검증이 필요한 부분으로 문서에 표시해 두었습니다.
 
 **Q13. daemon이 죽으면 어떻게 되나요?**
 
@@ -229,17 +247,35 @@ hook은 매번 새 프로세스라 여러 내부 JS 파일을 하나하나 resol
 
 **Q14. Phase 3 단독은 −12.5 %로 작은데 가치가 있나요?**
 
-Phase 3 단독 효과가 작은 건 hook의 bottleneck이 여전히 `node + tsx` cold start이기 때문입니다 (200 ms+). Phase 2와 결합하면 cold start floor가 30–40 ms로 낮아진 뒤에야 daemon의 transport 절약 (∼2 ms)과 variance 평탄화가 의미 있는 비중이 됩니다. Phase 2+3 결합본은 hook p99 variance를 32 ms → 6 ms로 5배 평탄화했습니다 — 사용자 체감 일관성이 큰 폭 개선됐습니다.
+Phase 3 단독은 hook의 bottleneck이 여전히 `node + tsx` cold start이기 때문에 효과가 작습니다 (200 ms+ 중 transport ~30 ms만 절약). Phase 2와 결합한 뒤의 추가 효과를 보면 avg p99 1.8 ms 단축 + 5개 hook의 p99 분포가 32 ms → 6 ms로 좁아짐인데, **avg 1.8 ms는 같은 phase2-3 구성의 3 run avg가 41.93 / 47.99 / 59.29로 17 ms 폭 jitter를 보이기 때문에 통계적으로 noise에 묻혀 있습니다**.
+
+분포 좁아짐의 메커니즘도 정확히는 "fastest hook이 ~13 ms 느려지고 slowest가 비슷하게 빨라진" 결과지, queue burst 흡수가 아닙니다 — 측정은 concurrency=1이라 burst가 없었습니다.
+
+**그래서 Phase 3의 정당화는 latency 표가 아니라 운영 properties로 가야 합니다**: hook이 server timeout/5xx에 직접 노출 안 됨, batch / disk-backed queue를 얹을 단일 chokepoint 확보, server connection churn 감소. 이게 "production-ready hook"의 의미이고, 면접에서 "1.8 ms 차이로 daemon을 정당화하나요?"가 들어오면 "latency만으로는 아니고, 위 운영 측면이 진짜 이유"로 답하는 게 정직합니다.
 
 ### 5.5 측정 / 방법론
 
 **Q15. 측정이 공정하다는 걸 어떻게 보장했나요?**
 
-다섯 가지로 보장했습니다. 첫째, 모든 phase를 동일한 Docker 자원 (`--cpus=1.0 --memory=256m`) 안에서 실행. 둘째, 각 phase 측정을 **3회 실행 후 avg phase p99의 median run을 채택** — 1회 측정의 outlier 영향 분리. 셋째, hook 외부 wall-clock으로 측정 (hook 내부 timer가 아님). 넷째, 모든 측정에 `failures: 0` / `server 5xx: 0` 검증 (빨리 실패해서 latency가 낮아진 게 아니라는 증거). 다섯째, Prometheus의 `up{job="agent-tracer-server"} == 1` 게이트를 측정 시작 전 통과하지 못하면 측정 자체가 실패하도록 harness에 포함.
+다섯 가지를 했고, 한계도 같이 말씀드리는 게 정직합니다.
+
+**한 것**:
+1. 모든 phase를 동일한 Docker 자원 (`--cpus=1.0 --memory=256m`) 안에서 실행
+2. 각 phase 측정을 3회 실행 후 avg phase p99의 median run을 채택
+3. hook 외부 wall-clock으로 측정 (hook 내부 timer가 아님)
+4. 모든 측정에 `failures: 0` / `server 5xx: 0` 검증 (빨리 실패해서 latency가 낮아진 게 아님을 보장)
+5. Prometheus의 `up{job="agent-tracer-server"} == 1` 게이트를 측정 시작 전 통과하지 못하면 측정 자체 실패
+
+**한계**:
+- iteration n=50, run n=3은 작은 표본입니다. 100ms 단위 차이는 의미 있지만, 1–2 ms 단위 차이 (예: phase2-bun-js 43.73 vs phase2-3 41.93)를 통계적으로 단정하기엔 부족합니다.
+- `--cpus=1.0`은 Docker CFS bandwidth의 soft cap이라 측정에서 CPU max가 105 %를 보이는 등 격리가 hard limit은 아닙니다.
+- baseline이 phase 측정마다 14 ms 폭으로 변동했습니다 (250.94 vs 264.96 등). phase별 절대 비교 시 분모가 다른 셈이라, **phase 내부의 AS-IS↔TO-BE 비교는 fair**하지만 phase 간 횡단 비교는 baseline 정규화가 없습니다.
+
+이 한계들은 다음 측정 round에서 iteration / run 수를 키워서 해결할 계획입니다.
 
 **Q16. 왜 p99을 봤나요? 평균만 보면 안 되나요?**
 
-사용자 체감 latency는 tail latency에 민감합니다. 평균 50 ms이라도 1 %의 호출이 500 ms로 튀면 사용자는 "이 도구는 가끔 멈춘다"고 느낍니다. 그래서 p50 / p95 / p99 / max를 모두 기록하고, 이력서엔 p99 개선을 강조했습니다. variance까지 같이 보면 일관성도 측정 가능합니다.
+사용자 체감 latency는 tail latency에 민감합니다. 다만 솔직히 한계도 있습니다 — **iteration 50으로 측정한 p99은 49.5번째 sample 정도이고 사실상 max에 가깝습니다**. 그래서 p99이 outlier 한 개에 휘둘릴 수 있고, p95이 더 robust한 통계입니다. 결과 JSON에는 p50/p95/p99/max를 모두 기록했고, 이력서에서 p99을 강조한 건 절대 차이가 컸기 때문이지 그게 가장 robust한 통계라서가 아닙니다. 다음 round에서 iteration을 늘리면 p99 신뢰도 자체가 올라갑니다.
 
 **Q17. 왜 `notes/perf/`에 두고 `docs/`에 안 뒀나요?**
 
@@ -269,9 +305,15 @@ UDS write 실패 → daemon spawn 시도 → 1초 polling 후에도 실패 → t
 
 현재 구조에선 큐가 메모리이므로 손실. 단, daemon은 SIGTERM / SIGINT 시 `gracefulShutdown`으로 큐를 drain하고 exit. 일반 종료 경로에선 손실 없음. SIGKILL이나 OOM kill은 손실 가능 — 이게 우려된다면 disk queue 도입.
 
-**Q23. p99 variance가 5배 평탄화됐다고 하는데 실제로 어떤 상황에서 차이가 나나요?**
+**Q23. "p99 분포 평탄화"가 실제로 어떤 시나리오에서 의미가 있나요?**
 
-여러 hook이 동시에 발생하는 burst 상황. 예를 들어 PreToolUse / PostToolUse가 짧은 시간에 연달아 호출될 때 HTTP transport에선 각 hook이 독립 connection을 만들어 server에 동시 도착하고 server queue에서 일부가 더 오래 기다림. UDS daemon은 단일 큐에서 순서대로 server keep-alive로 보내서 server queue 폭주가 안 일어남. 결과: 같은 burst에서 hook 간 latency 격차가 30 ms+에서 6 ms 이내로.
+먼저 정정해야 할 부분이 있습니다. **"variance 5배 평탄화"는 5개 hook (SessionStart / StatusLine / PreToolUse / UserPromptSubmit / PostToolUse) 사이의 p99 분포가 좁아진 것이지, run-to-run jitter가 줄어든 게 아닙니다**. 그리고 측정은 concurrency=1이라 burst가 없었습니다. 메커니즘은 "UDS write가 가장 빠른 hook에 ~13 ms floor를 추가하고, HTTP fetch tail이 가장 느린 hook에서 사라져서, 양쪽이 중간으로 모이는" 결과입니다.
+
+분포가 좁아지는 게 의미가 있는 시나리오:
+- **사용자 체감 일관성**: 어떤 hook이 호출돼도 비슷한 시간 안에 끝남. SessionStart가 PreToolUse보다 두 배 느린 비대칭이 사라짐.
+- **server connection churn**: 매 hook이 새 HTTP connection을 만들지 않음 → server 측 connection 관리 부담 감소.
+
+burst 시나리오 (concurrency > 1)에서 daemon의 queue가 backpressure로 작동할 가능성은 있지만, **이 측정에서는 검증 안 됐습니다**. 다음 measurement round에 burst 시나리오를 추가할 계획입니다.
 
 **Q24. 이 작업의 다음 단계로 무엇을 할 건가요?**
 
@@ -281,4 +323,4 @@ UDS write 실패 → daemon spawn 시도 → 1초 polling 후에도 실패 → t
 
 ## 6. 한 문장 결론 (면접에서 압축해 말할 때)
 
-> "Claude Code hook은 매 이벤트마다 새 프로세스로 뜨는 short-lived 구조라 사용자 critical path에 100 ms+ 의 cold start가 매번 붙어 있었습니다. esbuild로 hook을 사전 컴파일해서 런타임 TypeScript transpile을 빌드 타임으로 옮기고, Bun runtime을 자동 감지해서 startup이 가벼운 JSC를 쓰고, hook → server 통신을 long-lived UDS daemon + 결정적 UUID로 fire-and-forget화한 결과, hook p99을 250 ms → 42 ms로 −83.3 %, p99 variance를 5배 평탄화시켰습니다. 모든 단계는 Docker resource-pinned 3-run median으로 측정했고, hook failure / server 5xx 0을 유지하면서 달성한 수치입니다."
+> "Claude Code hook은 매 이벤트마다 새 프로세스로 뜨는 short-lived 구조라 사용자 critical path에 100 ms+ 의 cold start가 매번 붙어 있었습니다. esbuild로 hook을 사전 컴파일해서 런타임 TypeScript transpile을 빌드 타임으로 옮기고, Bun runtime을 자동 감지해서 더 가벼운 startup으로 실행하고, hook → server 통신을 long-lived UDS daemon + (placeholder UUID + daemon mapping)으로 fire-and-forget화한 결과, hook p99을 250 ms → 42 ms로 −83.3 %, 5개 hook 사이의 p99 분포 폭을 ~140 ms → ~6 ms로 좁혔습니다. 모든 단계는 Docker resource-pinned 3-run median으로 측정했고, hook failure / server 5xx 0을 유지하면서 달성한 수치입니다. 측정 한계 (n=50 / n=3 runs / Bun-Node attribution 분리 안 함)는 다음 round에서 보완 예정입니다."
