@@ -110,3 +110,4 @@ jitter를 보여서 1.8 ms 차이는 통계적으로 noise에 묻혀 있다**.
 - [`deep-dive-node-vs-bun.md`](deep-dive-node-vs-bun.md) — Node와 Bun의 일반적 차이 + 우리 측정의 attribution 한계
 - [`deep-dive-uds-daemon.md`](deep-dive-uds-daemon.md) — UDS daemon 구조, placeholder UUID + post-hoc daemon mapping 트릭, variance 평탄화 메커니즘
 - [`resume-and-interview.md`](resume-and-interview.md) — 프로젝트 소개 / 라이브러리 선택 이유 / 측정 수치 (한계 명시 포함) / 24개 예상 면접 질문과 답변
+- [`honest-review.md`](honest-review.md) — 본인 작업의 critical assessment. 측정 방법론의 약점, 인과관계 추론의 한계, 빠진 분석, 면접 위험도 표, 다음 round의 우선순위
