@@ -122,17 +122,17 @@ Claude Code (외부 프로세스)
 
 ### 3.1 tsx CLI 로드 비용이 매번 발생하는 이유
 
-`tsx`는 TypeScript transform + ESM loader를 wrapping한 CLI다. 내부적으로 (대략):
+`tsx`는 TypeScript transform + ESM loader를 wrapping한 CLI다. 정확한 내부 의존성은 tsx 버전마다 다르지만(이 프로젝트는 `tsx ^4`), 일반적으로 다음 같은 컴포넌트들을 포함한다:
 
 ```
 tsx/dist/cli.mjs
-  ├─ esbuild-wasm 또는 native esbuild 바이너리
-  ├─ chokidar (watch 모드용; CLI 모드에선 미사용이지만 require 그래프엔 있음)
-  ├─ source-map-support
-  └─ Node ESM loader hook 등록
+  ├─ TypeScript transform 엔진 (esbuild 기반)
+  ├─ Node ESM loader hook
+  ├─ tsconfig 로더
+  └─ source-map 처리
 ```
 
-이 모든 것이 **매 hook 호출마다** parse/evaluate된다. OS page cache가 데워져 디스크 I/O는 빨라지지만, **JS module parse + evaluate 비용은 프로세스마다 새로 발생**한다 — V8 caching 옵션 (`--use-bytecode-cache`)을 쓰지 않는 한.
+이 모든 것이 **매 hook 호출마다** parse/evaluate된다. OS page cache가 데워져 디스크 I/O는 빨라지지만, **JS module parse + evaluate 비용은 프로세스마다 새로 발생**한다 — V8 bytecode cache 같은 외부 도구를 따로 도입하지 않는 한.
 
 ### 3.2 tsconfig 파싱과 path alias 해석
 
@@ -377,3 +377,15 @@ Phase 2는 server ingest 알고리즘을 바꾸지 않는다. DB write, NestJS e
 ## 9. 한 줄 요약
 
 > **Claude Code hook은 "매 이벤트마다 새로 뜨는 short-lived 프로세스"이기 때문에, TypeScript runtime transpilation을 빌드 타임으로 옮긴 것만으로 hook latency가 70–80 % 줄어든다. 같은 코드를 단지 다른 시점에 변환했을 뿐이지만, "변환을 매번 하느냐 / 한 번만 하느냐"의 차이가 사용자 critical path에 들어 있는 hook에서는 결정적인 성능 차이를 만든다.**
+
+---
+
+## 10. 측정의 한계
+
+이 문서가 제시하는 "70–80% 단축" 수치는 다음 한계 위에 있다:
+
+- **iteration n=50 / run n=3** — p99이 사실상 max에 가까운 표본. 큰 차이(100ms 단위)에는 충분하지만 작은 차이(1–2ms)에는 부족.
+- **`--cpus=1.0` soft cap** — 측정에서 CPU max 105% 관측. hard limit이 아님.
+- **hook 내부 작업 비중에 따라 절감 비율이 달라질 수 있음** — `SessionStart`처럼 DB ensure가 있는 hook은 절감 비율이 작고 (336 → 102 ms = 70 %), `UserPromptSubmit`처럼 가벼운 hook은 더 큼 (197 → 50 ms = 75 %). hook 분포가 바뀌면 평균 절감 비율도 바뀜.
+
+이 한계들은 phase-summary.md의 종합 한계 섹션에 정리되어 있고, 다음 measurement round에서 보완 예정이다.
