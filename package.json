@@ -18,14 +18,17 @@
     "docs:build": "vitepress build docs",
     "docs:preview": "vitepress preview docs --host 0.0.0.0 --port 4174",
     "dev": "concurrently -k -n server,web \"npm run dev:server\" \"npm run dev:web\"",
-    "dev:server": "NODE_OPTIONS=\"--conditions=development --import @swc-node/register/esm-register\" SWC_NODE_PROJECT=packages/server/tsconfig.dev.json node --watch packages/server/src/server.entry.ts",
+    "dev:server": "NODE_OPTIONS=\"--conditions=development --import file://$(pwd)/scripts/register-swc.mjs\" SWC_NODE_PROJECT=packages/server/tsconfig.dev.json node --watch packages/server/src/server.entry.ts",
     "dev:web": "npm run dev --workspace @monitor/web -- --host 0.0.0.0",
-    "seed": "NODE_OPTIONS=\"--conditions=development --import @swc-node/register/esm-register\" SWC_NODE_PROJECT=packages/server/tsconfig.dev.json node packages/server/src/main/seed.ts",
+    "seed": "NODE_OPTIONS=\"--conditions=development --import file://$(pwd)/scripts/register-swc.mjs\" SWC_NODE_PROJECT=packages/server/tsconfig.dev.json node packages/server/src/main/seed.ts",
     "start:server": "node packages/server/dist/index.js",
     "codex:observe": "npm --prefix packages/runtime run codex:observe --",
     "setup:external": "node scripts/setup-external.mjs",
     "setup:statusline": "bash scripts/install-statusline.sh",
     "publish:all": "npm publish --workspace @monitor/server --access public"
+  },
+  "engines": {
+    "node": ">=25.0.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",

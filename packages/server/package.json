@@ -41,7 +41,7 @@
     "@swc/core": "^1.15.30",
     "@types/better-sqlite3": "^7.6.0",
     "@types/express": "^5.0.0",
-    "@types/node": "^22.0.0",
+    "@types/node": "^24.0.0",
     "@types/supertest": "^6.0.0",
     "@types/ws": "^8.0.0",
     "supertest": "^7.0.0",
