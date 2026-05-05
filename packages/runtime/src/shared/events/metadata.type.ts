@@ -37,6 +37,9 @@ export type TerminalCommandMetadata = RequiredEventMetadata & EventSemanticMetad
     readonly description?: string
     readonly toolUseId?: string
     readonly commandAnalysis?: CommandAnalysis
+    readonly timeoutMs?: number
+    readonly runInBackground?: boolean
+    readonly crossCheck?: CrossCheckMarker
 }
 
 export type ToolUsedMetadata = RequiredEventMetadata & EventSemanticMetadata & {
@@ -46,6 +49,24 @@ export type ToolUsedMetadata = RequiredEventMetadata & EventSemanticMetadata & {
     readonly toolInput?: Record<string, unknown>
     readonly webUrls?: readonly string[]
     readonly toolUseId?: string
+    // Read tool extras (offset/limit + totalLines from result)
+    readonly readOffset?: number
+    readonly readLimit?: number
+    // Glob/Grep tool extras
+    readonly searchPattern?: string
+    readonly searchPath?: string
+    readonly searchGlob?: string
+    readonly grepOutputMode?: "content" | "files_with_matches" | "count"
+    readonly grepCaseInsensitive?: boolean
+    readonly grepMultiline?: boolean
+    // WebSearch/WebFetch extras
+    readonly webQuery?: string
+    readonly webPrompt?: string
+    readonly webAllowedDomains?: readonly string[]
+    readonly webBlockedDomains?: readonly string[]
+    // Edit/Write extras
+    readonly editReplaceAll?: boolean
+    readonly crossCheck?: CrossCheckMarker
 }
 
 export type AgentActivityMetadata = RequiredEventMetadata & EventSemanticMetadata & {
@@ -53,10 +74,23 @@ export type AgentActivityMetadata = RequiredEventMetadata & EventSemanticMetadat
     readonly mcpServer?: string
     readonly mcpTool?: string
     readonly agentName?: string
+    readonly agentModel?: string
+    readonly agentRunInBackground?: boolean
     readonly skillName?: string
     readonly skillPath?: string
     readonly toolInput?: Record<string, unknown>
     readonly toolUseId?: string
+    readonly crossCheck?: CrossCheckMarker
+}
+
+/**
+ * Marker emitted when both a hook and the rollout observer surface the same
+ * Codex event (apply_patch / MCP / web_search). The server merges the two
+ * sources by `(kind, sessionId, dedupeKey)` instead of inserting duplicates.
+ */
+export interface CrossCheckMarker {
+    readonly source: "hook" | "rollout";
+    readonly dedupeKey: string;
 }
 
 export type ActionLoggedMetadata = RequiredEventMetadata & {
@@ -129,6 +163,44 @@ export type InstructionsLoadedMetadata = RequiredEventMetadata & {
     readonly relPath: string
     readonly loadReason: string
     readonly memoryType: string
+}
+
+export type UserPromptExpansionMetadata = RequiredEventMetadata & {
+    readonly expansionType: string
+    readonly commandName: string
+    readonly commandArgs?: string
+    readonly commandSource?: string
+    readonly expandedPromptSnippet?: string
+    readonly expandedPromptBytes?: number
+}
+
+export type FileChangedMetadata = RequiredEventMetadata & {
+    readonly filePath: string
+    readonly relPath?: string
+}
+
+export type WorktreeMetadata = RequiredEventMetadata & {
+    readonly worktreePath: string
+    readonly relPath?: string
+    readonly worktreeAction: "create" | "remove"
+}
+
+export type PermissionRequestMetadata = RequiredEventMetadata & {
+    readonly toolName: string
+    readonly toolUseId?: string
+    readonly toolInputSummary?: string
+    readonly suggestionCount?: number
+}
+
+export type SetupMetadata = RequiredEventMetadata & {
+    readonly trigger: string
+}
+
+export type MonitorMetadata = RequiredEventMetadata & EventSemanticMetadata & {
+    readonly toolName: string
+    readonly toolUseId?: string
+    readonly monitorScript?: string
+    readonly monitorDescription?: string
 }
 
 export type TokenUsageMetadata = RequiredEventMetadata & {

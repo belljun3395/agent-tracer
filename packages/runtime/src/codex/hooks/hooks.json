@@ -23,11 +23,21 @@
     ],
     "PreToolUse": [
       {
-        "matcher": "Bash",
+        "matcher": "Bash|apply_patch|Edit|Write",
         "hooks": [
           {
             "type": "command",
             "command": "/usr/bin/env bash \"$(git rev-parse --show-toplevel)/packages/runtime/src/codex/bin/run-hook.sh\" PreToolUse"
+          }
+        ]
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/usr/bin/env bash \"$(git rev-parse --show-toplevel)/packages/runtime/src/codex/bin/run-hook.sh\" PermissionRequest"
           }
         ]
       }
@@ -39,6 +49,24 @@
           {
             "type": "command",
             "command": "/usr/bin/env bash \"$(git rev-parse --show-toplevel)/packages/runtime/src/codex/bin/run-hook.sh\" PostToolUse/Bash"
+          }
+        ]
+      },
+      {
+        "matcher": "apply_patch|Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/usr/bin/env bash \"$(git rev-parse --show-toplevel)/packages/runtime/src/codex/bin/run-hook.sh\" PostToolUse/ApplyPatch"
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/usr/bin/env bash \"$(git rev-parse --show-toplevel)/packages/runtime/src/codex/bin/run-hook.sh\" PostToolUse/Mcp"
           }
         ]
       }

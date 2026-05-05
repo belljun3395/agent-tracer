@@ -11,12 +11,34 @@
         ]
       }
     ],
+    "Setup": [
+      {
+        "matcher": "init|maintenance",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh Setup"
+          }
+        ]
+      }
+    ],
     "UserPromptSubmit": [
       {
         "hooks": [
           {
             "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh UserPromptSubmit"
+          }
+        ]
+      }
+    ],
+    "UserPromptExpansion": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "async": true,
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh UserPromptExpansion"
           }
         ]
       }
@@ -31,312 +53,301 @@
         ]
       }
     ],
+    "PermissionRequest": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PermissionRequest"
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
       {
         "matcher": "Bash",
         "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostToolUse/Bash"
-          }
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostToolUse/Bash" }
+        ]
+      },
+      {
+        "matcher": "PowerShell",
+        "hooks": [
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostToolUse/PowerShell" }
+        ]
+      },
+      {
+        "matcher": "BashOutput",
+        "hooks": [
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostToolUse/BashOutput" }
+        ]
+      },
+      {
+        "matcher": "KillShell",
+        "hooks": [
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostToolUse/KillShell" }
+        ]
+      },
+      {
+        "matcher": "Monitor",
+        "hooks": [
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostToolUse/Monitor" }
         ]
       },
       {
         "matcher": "Edit",
         "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostToolUse/Edit"
-          }
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostToolUse/Edit" }
         ]
       },
       {
         "matcher": "Write",
         "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostToolUse/Write"
-          }
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostToolUse/Write" }
+        ]
+      },
+      {
+        "matcher": "NotebookEdit",
+        "hooks": [
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostToolUse/NotebookEdit" }
         ]
       },
       {
         "matcher": "Read",
         "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostToolUse/Read"
-          }
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostToolUse/Read" }
         ]
       },
       {
         "matcher": "Glob",
         "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostToolUse/Glob"
-          }
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostToolUse/Glob" }
         ]
       },
       {
         "matcher": "Grep",
         "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostToolUse/Grep"
-          }
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostToolUse/Grep" }
+        ]
+      },
+      {
+        "matcher": "LSP",
+        "hooks": [
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostToolUse/LSP" }
         ]
       },
       {
         "matcher": "WebFetch",
         "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostToolUse/WebFetch"
-          }
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostToolUse/WebFetch" }
         ]
       },
       {
         "matcher": "WebSearch",
         "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostToolUse/WebSearch"
-          }
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostToolUse/WebSearch" }
         ]
       },
       {
         "matcher": "Agent",
         "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostToolUse/Agent"
-          }
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostToolUse/Agent" }
         ]
       },
       {
         "matcher": "Skill",
         "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostToolUse/Skill"
-          }
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostToolUse/Skill" }
         ]
       },
       {
         "matcher": "TaskCreate",
         "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostToolUse/TaskCreate"
-          }
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostToolUse/TaskCreate" }
         ]
       },
       {
         "matcher": "TaskUpdate",
         "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostToolUse/TaskUpdate"
-          }
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostToolUse/TaskUpdate" }
         ]
       },
       {
         "matcher": "TodoWrite",
         "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostToolUse/TodoWrite"
-          }
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostToolUse/TodoWrite" }
         ]
       },
       {
         "matcher": "AskUserQuestion",
         "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostToolUse/AskUserQuestion"
-          }
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostToolUse/AskUserQuestion" }
         ]
       },
       {
         "matcher": "ExitPlanMode",
         "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostToolUse/ExitPlanMode"
-          }
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostToolUse/ExitPlanMode" }
+        ]
+      },
+      {
+        "matcher": "EnterPlanMode|EnterWorktree|ExitWorktree",
+        "hooks": [
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostToolUse/ModeChange" }
+        ]
+      },
+      {
+        "matcher": "CronCreate|CronDelete|CronList",
+        "hooks": [
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostToolUse/Cron" }
+        ]
+      },
+      {
+        "matcher": "ToolSearch",
+        "hooks": [
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostToolUse/ToolSearch" }
         ]
       },
       {
         "matcher": "mcp__.*",
         "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostToolUse/Mcp"
-          }
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostToolUse/Mcp" }
         ]
       }
     ],
     "PostToolUseFailure": [
       {
-        "matcher": "Bash|Edit|Write|Read|Glob|Grep|WebFetch|WebSearch|Agent|Skill|TaskCreate|TaskUpdate|TodoWrite|AskUserQuestion|ExitPlanMode|mcp__.*",
+        "matcher": "Bash|PowerShell|BashOutput|KillShell|Monitor|Edit|Write|NotebookEdit|Read|Glob|Grep|LSP|WebFetch|WebSearch|Agent|Skill|TaskCreate|TaskUpdate|TodoWrite|AskUserQuestion|ExitPlanMode|EnterPlanMode|EnterWorktree|ExitWorktree|CronCreate|CronDelete|CronList|ToolSearch|mcp__.*",
         "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostToolUseFailure"
-          }
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostToolUseFailure" }
         ]
       }
     ],
     "PostToolBatch": [
       {
         "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostToolBatch"
-          }
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostToolBatch" }
         ]
       }
     ],
     "PermissionDenied": [
       {
-        "matcher": "Bash|Edit|Write|Read|Glob|Grep|WebFetch|WebSearch|Agent|Skill|TaskCreate|TaskUpdate|TodoWrite|AskUserQuestion|ExitPlanMode|mcp__.*",
+        "matcher": "Bash|PowerShell|Edit|Write|NotebookEdit|Read|Glob|Grep|LSP|WebFetch|WebSearch|Agent|Skill|Monitor|TaskCreate|TaskUpdate|TodoWrite|AskUserQuestion|ExitPlanMode|EnterPlanMode|EnterWorktree|ExitWorktree|CronCreate|CronDelete|CronList|ToolSearch|mcp__.*",
         "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PermissionDenied"
-          }
-        ]
-      }
-    ],
-    "SubagentStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh SubagentStart"
-          }
-        ]
-      }
-    ],
-    "SubagentStop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh SubagentStop"
-          }
-        ]
-      }
-    ],
-    "TaskCreated": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh TaskCreated"
-          }
-        ]
-      }
-    ],
-    "TaskCompleted": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh TaskCompleted"
-          }
-        ]
-      }
-    ],
-    "PreCompact": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PreCompact"
-          }
-        ]
-      }
-    ],
-    "PostCompact": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostCompact"
-          }
-        ]
-      }
-    ],
-    "SessionEnd": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh SessionEnd"
-          }
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PermissionDenied" }
         ]
       }
     ],
     "InstructionsLoaded": [
       {
         "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh InstructionsLoaded"
-          }
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh InstructionsLoaded" }
         ]
       }
     ],
-    "Stop": [
+    "ConfigChange": [
       {
         "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh Stop"
-          }
-        ]
-      }
-    ],
-    "StopFailure": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh StopFailure"
-          }
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh ConfigChange" }
         ]
       }
     ],
     "CwdChanged": [
       {
         "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh CwdChanged"
-          }
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh CwdChanged" }
+        ]
+      }
+    ],
+    "FileChanged": [
+      {
+        "matcher": "CLAUDE.md|.env|.envrc|.claude/settings.json|.claude/settings.local.json",
+        "hooks": [
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh FileChanged" }
+        ]
+      }
+    ],
+    "WorktreeCreate": [
+      {
+        "hooks": [
+          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh WorktreeCreate" }
+        ]
+      }
+    ],
+    "WorktreeRemove": [
+      {
+        "hooks": [
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh WorktreeRemove" }
         ]
       }
     ],
     "Notification": [
       {
         "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh Notification"
-          }
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh Notification" }
         ]
       }
     ],
-    "ConfigChange": [
+    "PreCompact": [
       {
-        "matcher": "user_settings|project_settings|local_settings|policy_settings|skills",
         "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh ConfigChange"
-          }
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PreCompact" }
+        ]
+      }
+    ],
+    "PostCompact": [
+      {
+        "hooks": [
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh PostCompact" }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh SubagentStart" }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh SubagentStop" }
+        ]
+      }
+    ],
+    "TaskCreated": [
+      {
+        "hooks": [
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh TaskCreated" }
+        ]
+      }
+    ],
+    "TaskCompleted": [
+      {
+        "hooks": [
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh TaskCompleted" }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh Stop" }
+        ]
+      }
+    ],
+    "StopFailure": [
+      {
+        "hooks": [
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh StopFailure" }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook.sh SessionEnd" }
         ]
       }
     ]
