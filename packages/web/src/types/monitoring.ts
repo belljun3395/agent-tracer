@@ -45,6 +45,9 @@ export type MonitoringEventKind =
   | 'context.saved' | 'file.changed' | 'thought.logged' | 'user.message'
   | 'question.logged' | 'todo.logged' | 'assistant.response'
   | 'instructions.loaded' | 'context.snapshot' | 'token.usage'
+  | 'user.prompt.expansion' | 'permission.request'
+  | 'worktree.create' | 'worktree.remove' | 'setup.triggered'
+  | 'monitor.observed'
 
 export type MonitoringTaskKind = 'primary' | 'background'
 
