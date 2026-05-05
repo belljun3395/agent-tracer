@@ -18,7 +18,19 @@ npm run build
 npm run dev
 ```
 
-### Minimal setup path
+### Two install modes
+
+Pick one — they are independent and should not be combined.
+
+| Mode | Who it's for | Claude Code | Codex | Status line |
+|------|--------------|-------------|-------|-------------|
+| **A. Marketplace plugin** | Just want Claude Code observability, no clone needed | `/plugin install agent-tracer-monitor@agent-tracer` | not supported (no plugin surface yet) | `bash ~/.claude/plugins/marketplaces/agent-tracer/scripts/install-statusline.sh` |
+| **B. Local clone + `setup:external`** | Want Codex too, or want to hack on the runtime | `claude --plugin-dir <clone>/packages/runtime` (printed by the script) | `.codex/hooks.json` written into your target project | served by the plugin's `statusLine`; the wrapper script is unnecessary |
+
+Mode B is what the rest of this README assumes unless noted. Mode A users
+can stop after `/plugin install` + `install-statusline.sh`.
+
+### Minimal setup path (Mode B)
 
 1. **[Install and Run](docs/guide/install-and-run.md)** — clone the repo,
    install dependencies, start the monitor server and web dashboard, verify
@@ -29,21 +41,21 @@ npm run dev
 3. **[Codex Setup](docs/guide/codex-setup.md)** — use plain `codex` with the
    generated repo-local hooks and config.
 
-### Attach to external projects (optional)
+### Attach to external projects (Mode B, optional)
 
 If you want to use Agent Tracer with a project outside this repository, follow
 an additional step:
 
-3. **[External Project Setup](docs/guide/external-setup.md)** — run
+4. **[External Project Setup](docs/guide/external-setup.md)** — run
    `npm run setup:external` to generate `.claude/settings.json`, `.codex/config.toml`,
    and `.codex/hooks.json` in your target project.
 
-### Global status line (optional, recommended)
+### Global status line (Mode A only)
 
 Claude Code plugins can register hook events but **cannot** register a
-`statusLine` (it is a `settings.json`-only field). To get the
-`[monitor] ctx N% · 5h N% · $X` segment in *every* project, install the
-wrapper once globally:
+`statusLine` (it is a `settings.json`-only field). For Mode A
+(marketplace) installs, install the wrapper once globally to get the
+`[monitor] ctx N% · 5h N% · $X` segment in *every* project:
 
 ```bash
 # After installing the agent-tracer-monitor plugin via Claude Code
@@ -57,9 +69,13 @@ The script is idempotent and preserves any existing status line script
 Then add the printed `statusLine` block to `~/.claude/settings.json` and
 restart Claude Code.
 
+> Mode B users do not need this — `setup:external` registers a `statusLine`
+> via the plugin's own `hooks.json`, so the segment is rendered through
+> `--plugin-dir` automatically.
+
 > When running Claude Code inside the Agent Tracer repository itself,
 > `setup:external` is not needed. You can start with
-> `claude --plugin-dir packages/runtime/src/claude-code` directly.
+> `claude --plugin-dir packages/runtime` directly.
 
 Latest guide: https://belljun3395.github.io/agent-tracer/guide/
 
@@ -150,4 +166,4 @@ See `docs/guide/task-observability.md` for detailed contracts and API specs.
 |---------|------|------|
 | `@monitor/server` | `packages/server` | NestJS monitor server (HTTP + WebSocket + SQLite) with an MCP stdio adapter exposed through the `./mcp` subpath export |
 | `@monitor/web` | `packages/web` | React 19 dashboard |
-| `@monitor/runtime` | `packages/runtime` | Runtime adapters. Ships the Claude Code plugin at `packages/runtime/src/claude-code` (also mounted at `packages/runtime/` for marketplace installs) |
+| `@monitor/runtime` | `packages/runtime` | Runtime adapters. Plugin root is `packages/runtime/` (`.claude-plugin/plugin.json`). Hooks live at `hooks/hooks.json` + `bin/run-hook-claude.sh` (Claude) and `bin/run-hook-codex.sh` (Codex, hydrated from `hooks/hooks-codex.json` by `setup:external`). Hook source `.ts` files under `src/claude-code/hooks/` and `src/codex/hooks/`. |

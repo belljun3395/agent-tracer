@@ -24,13 +24,13 @@ Before following this page, make sure that:
 As a one-off from your target project:
 
 ```bash
-claude --plugin-dir /absolute/path/to/agent-tracer/packages/runtime/src/claude-code
+claude --plugin-dir /absolute/path/to/agent-tracer/packages/runtime
 ```
 
 As a shell alias:
 
 ```bash
-alias claude='claude --plugin-dir /absolute/path/to/agent-tracer/packages/runtime/src/claude-code'
+alias claude='claude --plugin-dir /absolute/path/to/agent-tracer/packages/runtime'
 ```
 
 ### Permanent install via marketplace
@@ -83,17 +83,18 @@ Expected result: `monitor` is listed and connected.
 
 ## 4. What the hooks do
 
-Hook scripts live under `packages/runtime/src/claude-code/hooks/`, registered through
-`packages/runtime/src/claude-code/hooks/hooks.json` and executed by
-`packages/runtime/src/claude-code/bin/run-hook.sh`. Each file name matches the Claude Code
-hook event name.
+The plugin root is `packages/runtime/` (where `.claude-plugin/plugin.json`
+lives). Claude Code auto-discovers `packages/runtime/hooks/hooks.json`, which
+points every event at `packages/runtime/bin/run-hook-claude.sh <HookName>`.
+The runner then resolves and executes the matching TypeScript file under
+`packages/runtime/src/claude-code/hooks/<HookName>.ts` via `tsx`. Each `.ts`
+file name matches the Claude Code hook event name.
 
-> Marketplace installs see the same files under a different root: the
-> marketplace entry in `.claude-plugin/marketplace.json` points to
-> `packages/runtime`, and `packages/runtime/hooks/hooks.json` +
-> `packages/runtime/bin/run-hook.sh` resolve the same `.ts` files in
-> `src/claude-code/hooks/` at runtime. Only the `--plugin-dir` variant targets
-> `src/claude-code` directly.
+> Both install modes (`--plugin-dir` and marketplace) point Claude Code at the
+> same plugin root `packages/runtime/`. The Codex runner shares the `bin/`
+> directory under the suffix `run-hook-codex.sh`, but Codex hooks are not
+> auto-discovered by the Claude plugin loader — they are written into the
+> target project's `.codex/hooks.json` by `setup:external`.
 
 ### Top-level hook files
 
@@ -274,7 +275,7 @@ If you are running Claude Code *inside* the Agent Tracer repo itself, you
 don't need `setup:external`. Just launch:
 
 ```bash
-claude --plugin-dir packages/runtime/src/claude-code
+claude --plugin-dir packages/runtime
 ```
 
 `.claude/settings.json` only declares `permissions`. The plugin's
@@ -284,9 +285,9 @@ to register the `monitor` MCP server as shown in section 3.
 ## 6. Hook debug log
 
 Hook scripts write a debug log to `${CLAUDE_PROJECT_DIR}/.claude/hooks.log`
-**only when `NODE_ENV=development`**. The plugin's `bin/run-hook.sh` exports
-`NODE_ENV=development` by default, so file logging is active whenever the
-plugin is loaded.
+**only when `NODE_ENV=development`**. The plugin's `bin/run-hook-claude.sh`
+exports `NODE_ENV=development` by default, so file logging is active whenever
+the plugin is loaded.
 
 | Environment | Logging |
 |-------------|---------|
@@ -320,7 +321,7 @@ call directly. A few of the most useful ones:
 2. `setup:external` has been run for the target project.
 3. `monitor` is registered in `claude mcp list`.
 4. Open the target project with
-   `claude --plugin-dir /absolute/path/to/agent-tracer/packages/runtime/src/claude-code` (or
+   `claude --plugin-dir /absolute/path/to/agent-tracer/packages/runtime` (or
    your alias).
 5. Perform one read or edit.
 6. Confirm a task appears in the dashboard at `http://127.0.0.1:5173`.

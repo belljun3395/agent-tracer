@@ -32,7 +32,7 @@ an additional step:
 
 > **Note:** When running Claude Code inside the Agent Tracer repository itself,
 > `setup:external` is not needed. You can start with
-> `claude --plugin-dir packages/runtime/src/claude-code` directly.
+> `claude --plugin-dir packages/runtime` directly.
 
 ### Other runtimes (manual HTTP/MCP)
 

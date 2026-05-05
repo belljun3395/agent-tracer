@@ -1,0 +1,24 @@
+{
+  "hooks": {
+    "SessionStart": [
+      { "matcher": "startup|resume", "hookName": "SessionStart" }
+    ],
+    "UserPromptSubmit": [
+      { "hookName": "UserPromptSubmit" }
+    ],
+    "PreToolUse": [
+      { "matcher": "Bash|apply_patch|Edit|Write", "hookName": "PreToolUse" }
+    ],
+    "PermissionRequest": [
+      { "hookName": "PermissionRequest" }
+    ],
+    "PostToolUse": [
+      { "matcher": "Bash", "hookName": "PostToolUse/Bash" },
+      { "matcher": "apply_patch|Edit|Write", "hookName": "PostToolUse/ApplyPatch" },
+      { "matcher": "mcp__.*", "hookName": "PostToolUse/Mcp" }
+    ],
+    "Stop": [
+      { "hookName": "Stop" }
+    ]
+  }
+}

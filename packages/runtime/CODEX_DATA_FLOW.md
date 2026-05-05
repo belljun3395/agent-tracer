@@ -14,7 +14,7 @@ Codex CLI                 Adapter (tsx)                   Monitor API
   hook fires
       │
       ▼
-  run-hook.sh ─────────── hooks/<handler>.ts
+  run-hook-codex.sh ──── hooks/<handler>.ts
                                │
                                ├─ stdin: JSON payload (from Codex)
                                │
@@ -598,8 +598,8 @@ src/codex/
 │   ├── telemetry.ts            # buildCodexContextSnapshotEvent, formatCodexStatusText
 │   ├── normalize.ts            # normalizeCodexAppServerNotification (app-server JSON-RPC)
 │   └── protocol.type.ts        # Codex app-server / rollout-compatible TypeScript types
-└── bin/
-    ├── run-hook.sh             # hook launcher (invoked by Codex for each hook event)
+└── bin/                        # at packages/runtime/bin/
+    ├── run-hook-codex.sh       # hook launcher (invoked by Codex for each hook event)
     └── run-observer.sh         # observer launcher (invoked by SessionStart hook)
 ```
 
