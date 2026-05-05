@@ -46,9 +46,15 @@ export const KIND = {
     taskComplete: "task.complete",
     taskError: "task.error",
     fileChanged: "file.changed",
+    userPromptExpansion: "user.prompt.expansion",
+    worktreeCreate: "worktree.create",
+    worktreeRemove: "worktree.remove",
+    permissionRequest: "permission.request",
+    setupTriggered: "setup.triggered",
+    monitorObserved: "monitor.observed",
 } as const;
 
-export const TOOL_ACTIVITY_EVENT_KINDS = [KIND.toolUsed, KIND.terminalCommand] as const;
+export const TOOL_ACTIVITY_EVENT_KINDS = [KIND.toolUsed, KIND.terminalCommand, KIND.monitorObserved] as const;
 const WORKFLOW_EVENT_KINDS = [
     KIND.planLogged,
     KIND.actionLogged,
@@ -57,6 +63,12 @@ const WORKFLOW_EVENT_KINDS = [
     KIND.thoughtLogged,
     KIND.contextSaved,
     KIND.contextSnapshot,
+    KIND.userPromptExpansion,
+    KIND.permissionRequest,
+    KIND.worktreeCreate,
+    KIND.worktreeRemove,
+    KIND.setupTriggered,
+    KIND.fileChanged,
 ] as const;
 const CONVERSATION_EVENT_KINDS = [KIND.userMessage, KIND.assistantResponse, KIND.questionLogged, KIND.todoLogged] as const;
 const COORDINATION_EVENT_KINDS = [KIND.agentActivityLogged] as const;
@@ -73,7 +85,7 @@ export const INGEST_EVENT_KINDS = [
 ] as const;
 
 export const TASK_LIFECYCLE_EVENT_KINDS = [KIND.taskStart, KIND.taskComplete, KIND.taskError] as const;
-export const INTERNAL_EVENT_KINDS = [...TASK_LIFECYCLE_EVENT_KINDS, KIND.fileChanged] as const;
+export const INTERNAL_EVENT_KINDS = [...TASK_LIFECYCLE_EVENT_KINDS] as const;
 export const MONITORING_EVENT_KINDS = [
     ...INGEST_EVENT_KINDS,
     ...INTERNAL_EVENT_KINDS,
