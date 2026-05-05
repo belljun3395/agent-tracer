@@ -6,14 +6,42 @@ This document organizes stdin payloads focusing on the Claude hook subset curren
 used by Agent Tracer.
 The `[Observed]` notation indicates parts where official spec and actual behavior differ.
 
-As of v0.3, Agent Tracer's Claude plugin handles **21 of the 28 official hook events**.
-Payload readers for every handled event live at
-`packages/runtime/src/shared/hooks/claude/payloads.ts` and are invoked by each hook
-via the shared `runHook()` wrapper at `packages/runtime/src/shared/hook-runtime/`.
+Agent Tracer's Claude plugin currently handles **27 of the 28 official hook
+events**. Payload readers for every handled event live at
+`packages/runtime/src/shared/hooks/claude/payloads.ts` and are invoked by
+each hook via the shared `runHook()` wrapper at
+`packages/runtime/src/shared/hook-runtime/`.
 
 Events currently in official docs but not yet handled by the plugin:
-`UserPromptExpansion`, `PermissionRequest`, `TeammateIdle`, `FileChanged`,
-`WorktreeCreate`, `WorktreeRemove`, `Elicitation`, `ElicitationResult`.
+`TeammateIdle` (experimental agent teams), `Elicitation`, `ElicitationResult`
+(MCP form input).
+
+## Privacy contract
+
+The plugin captures **action-side data only** — what the agent invoked, with
+which arguments — and never the **result body**. Specifically, every
+`PostToolUse` handler ignores `tool_response` entirely. No stdout, stderr,
+file content, web response body, MCP tool result, search result list, or
+grep snippet ever leaves the host. Tool inputs (commands, queries, prompts,
+file paths, offsets, glob filters, domain allowlists, etc.) are captured
+because they describe the agent's action.
+
+The same contract applies to the Codex adapter — see
+`packages/runtime/CODEX_DATA_FLOW.md`.
+
+## Async hooks
+
+Stateless event-emitting hooks (PostToolUse and its variants, PostToolBatch,
+PostToolUseFailure, Stop / StopFailure / SessionEnd, Notification,
+SubagentStop, TaskCreated / TaskCompleted, ConfigChange / CwdChanged /
+FileChanged, PreCompact / PostCompact, PermissionDenied, WorktreeRemove,
+UserPromptExpansion, InstructionsLoaded) are registered with `"async": true`
+in `hooks.json` so they fire-and-forget without blocking Claude Code's main
+loop.
+
+The remaining hooks stay synchronous because their effect must be observed
+before the next step proceeds: `PreToolUse`, `SessionStart`, `Setup`,
+`UserPromptSubmit`, `SubagentStart`, `PermissionRequest`, `WorktreeCreate`.
 
 ---
 
@@ -114,24 +142,37 @@ Reader: `readPreToolUse()`
 | Field | Type | Value |
 |-------|------|-------|
 | `hook_event_name` | string | `"PreToolUse"` |
-| `tool_name` | string | Tool name (`Bash`, `Edit`, `Write`, `Read`, `Glob`, `Grep`, `WebFetch`, `WebSearch`, `Agent`, `Skill`, `TaskCreate`, `TaskUpdate`, `TodoWrite`, `AskUserQuestion`, `ExitPlanMode`, `mcp__*`, etc.) |
+| `tool_name` | string | See "Supported tools" below |
 | `tool_input` | object | Per-tool input (see below) |
 | `tool_use_id` | string | Unique tool call ID |
 
 > **[Observed]** When tool is called inside subagent, `agent_id` and `agent_type` are additionally included.
 > This allows identifying which subagent made the call.
 
+**Supported tools** (each has a registered PostToolUse matcher):
+`Bash`, `PowerShell`, `BashOutput`, `KillShell`, `Monitor`, `Edit`, `Write`,
+`NotebookEdit`, `Read`, `Glob`, `Grep`, `LSP`, `WebFetch`, `WebSearch`,
+`Agent`, `Skill`, `TaskCreate`, `TaskUpdate`, `TodoWrite`, `AskUserQuestion`,
+`ExitPlanMode`, `EnterPlanMode`, `EnterWorktree`, `ExitWorktree`,
+`CronCreate`, `CronDelete`, `CronList`, `ToolSearch`, `mcp__*`.
+
 **tool_input structure (per tool):**
 
 ```
 Bash:            { command, description?, timeout?, run_in_background? }
+PowerShell:      { command, description?, run_in_background? }       # same shape as Bash
+BashOutput:      { bash_id, filter? }
+KillShell:       { bash_id }
+Monitor:         { command, description?, filter? }
 Edit:            { file_path, old_string, new_string, replace_all? }
 Write:           { file_path, content }
+NotebookEdit:    { notebook_path, cell_id?, new_source, edit_mode? }
 Read:            { file_path, offset?, limit? }
 Glob:            { pattern, path? }
 Grep:            { pattern, path?, glob?, output_mode?, "-i"?, multiline? }
-WebSearch:       { query }
-WebFetch:        { url, prompt? }
+LSP:             { operation, file_path?, line?, column?, symbol? }
+WebSearch:       { query, allowed_domains?, blocked_domains? }
+WebFetch:        { url, prompt }
 Agent:           { description?, prompt, subagent_type?, model?, run_in_background? }
 Skill:           { skill, args? }
 TaskCreate:      { task_subject, task_description? }
@@ -139,6 +180,13 @@ TaskUpdate:      { task_id, status }
 TodoWrite:       { todos: [{ content, status, priority }] }
 AskUserQuestion: { question, options? }
 ExitPlanMode:    { plan }
+EnterPlanMode:   {}
+EnterWorktree:   { path? }
+ExitWorktree:    {}
+CronCreate:      { schedule, prompt }
+CronDelete:      { id }
+CronList:        {}
+ToolSearch:      { query }
 mcp__*:          Varies by MCP server/tool
 ```
 
@@ -176,7 +224,7 @@ only. The derived fields are consumed by the web dashboard through
 
 The PostToolUse per-tool handlers share ops modules:
 `PostToolUse/{Read,Glob,Grep,WebFetch,WebSearch,AskUserQuestion,ExitPlanMode}.ts` → `_explore.ops.ts`;
-`PostToolUse/{Edit,Write}.ts` → `_file.ops.ts`;
+`PostToolUse/{Edit,Write,NotebookEdit}.ts` → `_file.ops.ts`;
 `PostToolUse/Agent.ts` → `_agent.ops.ts`;
 `PostToolUse/Skill.ts` → `_skill.ops.ts`;
 `PostToolUse/{TaskCreate,TaskUpdate,TodoWrite}.ts` → `_todo.ops.ts`.
@@ -184,10 +232,22 @@ Each ops module injects per-tool additional information into the `metadata` fiel
 
 | Tool | Additional Metadata | Description |
 |------|--------------------| ------------|
-| `WebSearch` | `metadata.webUrls: string[]` | Search query stored up to 300 chars. Displayed in Dashboard Exploration tab Web Lookups section |
-| `WebFetch` | `metadata.webUrls: string[]` | Fetched URL stored up to 300 chars |
-| All explore tools | `metadata.toolInput` | Original `tool_input` stored as JSON string (for debugging) |
+| `Bash` / `PowerShell` | `commandAnalysis`, `timeoutMs`, `runInBackground`, `filePaths` | Parsed shell structure (`steps`, `targets`, `effect`); file/path targets surfaced from analysis are promoted to event-level `filePaths` (so `cat foo.ts` appears alongside Read events) |
+| `BashOutput` / `KillShell` | `entityName: bash_id` | Background shell lifecycle |
+| `Monitor` | `monitorScript`, `monitorDescription` | Long-running watch — emits dedicated `monitor.observed` KIND |
+| `Read` | `readOffset`, `readLimit` | Captures requested line range |
+| `Grep` | `searchPattern`, `searchPath`, `searchGlob`, `grepOutputMode`, `grepCaseInsensitive`, `grepMultiline` | Full invocation parameters; `grepOutputMode` is the strongest signal of how thoroughly the agent investigated |
+| `Glob` | `searchPattern`, `searchPath` | |
+| `WebSearch` | `webQuery`, `webAllowedDomains`, `webBlockedDomains`, `webUrls` | Domain filters reveal the agent's intent boundaries |
+| `WebFetch` | `webQuery` (URL), `webPrompt`, `webUrls` | `webPrompt` records what the agent was looking for in the page |
+| `Edit` | `editReplaceAll` | Bulk-replace flag |
+| `Agent` | `agentName`, `agentModel`, `agentRunInBackground` | |
+| `LSP` | `subtypeKey: "grep_code"`, `operation: "lsp_<op>"` | Code-intelligence calls |
+| `Cron*` | `entityName: schedule\|id` | Scheduled prompt lifecycle |
+| `ToolSearch` | `entityName: query` | Deferred MCP tool discovery |
+| All explore tools | `toolInput` | Sanitised `tool_input` clone (for debugging) |
 | `mcp__*` | Per-tool custom fields | Unique metadata per MCP tool |
+| Codex `apply_patch` / `mcp__*` | `crossCheck: { source, dedupeKey }` | Marker for hook ↔ rollout cross-check; server merges duplicate emissions |
 
 These fields are **Agent Tracer's own extensions** not present in the official Claude Code hook payload spec.
 
@@ -207,8 +267,11 @@ Matchers: split per official tool — see [claude-setup.md](./claude-setup.md#po
 | `tool_response` | object | Tool execution result (varies per tool, can be large) |
 | `tool_use_id` | string | Unique tool call ID |
 
-> **[Observed]** `tool_response` can be very large, including full file contents in Read/Edit, etc.
-> Recommended to remove or truncate when logging.
+> **Privacy contract:** Agent Tracer's PostToolUse handlers **never read
+> `tool_response`**. Result bodies (stdout, stderr, file content, web
+> response, MCP result, search result list, grep snippets) are not
+> captured; only the agent's action (`tool_input`) and quantitative
+> wrappers (`commandAnalysis`, evidence reason) are stored.
 
 ---
 
@@ -408,6 +471,114 @@ Posts a `context.saved` event with `trigger: "cwd_changed"`.
 
 ---
 
+### FileChanged
+
+Trigger: When a watched file changes on disk
+Reader: `readFileChanged()`
+Matcher: literal pipe-separated filenames (NOT regex), defaults to
+`CLAUDE.md|.env|.envrc|.claude/settings.json|.claude/settings.local.json`
+
+| Field | Type | Value |
+|-------|------|-------|
+| `hook_event_name` | string | `"FileChanged"` |
+| `file_path` | string | Absolute path of the changed file |
+
+Posts a `file.changed` event in the `background` lane. Metadata: `filePath`, `relPath`.
+
+---
+
+### WorktreeCreate
+
+Trigger: When a worktree is being created via `--worktree` or
+`isolation: "worktree"`
+Reader: `readWorktree()`
+
+| Field | Type | Value |
+|-------|------|-------|
+| `hook_event_name` | string | `"WorktreeCreate"` |
+| `worktree_path` | string | Target worktree directory |
+
+Posts a `worktree.create` event in the `background` lane. Stays synchronous
+because the official handler may rely on stdout for path resolution; this
+plugin never writes stdout, so the default behaviour wins.
+
+---
+
+### WorktreeRemove
+
+Trigger: When a worktree is being removed (session exit / subagent finish)
+Reader: `readWorktree()`
+
+| Field | Type | Value |
+|-------|------|-------|
+| `hook_event_name` | string | `"WorktreeRemove"` |
+| `worktree_path` | string | Removed worktree directory |
+
+Posts a `worktree.remove` event in the `background` lane.
+
+---
+
+### PermissionRequest
+
+Trigger: When a permission dialog is about to show to the user
+Reader: `readPermissionRequest()`
+
+| Field | Type | Value |
+|-------|------|-------|
+| `hook_event_name` | string | `"PermissionRequest"` |
+| `tool_name` | string | Tool that triggered the dialog |
+| `tool_input` | object | Pending tool arguments |
+| `tool_use_id` | string? | Tool-call id |
+| `permission_suggestions` | array | Auto-suggested rules to add |
+
+Posts a `permission.request` event in the `coordination` lane. Metadata:
+`toolName`, `toolUseId`, `toolInputSummary` (capped string), `suggestionCount`.
+Always returns exit 0 — the plugin never overrides the user's choice.
+
+---
+
+### Setup
+
+Trigger: When Claude Code is invoked with `--init-only`, `--init -p`, or
+`--maintenance -p`
+Reader: `readSetup()`
+Matchers: `init|maintenance`
+
+| Field | Type | Value |
+|-------|------|-------|
+| `hook_event_name` | string | `"Setup"` |
+| `trigger` | string | `"init"` \| `"maintenance"` |
+
+Posts a `setup.triggered` event in the `planning` lane.
+
+---
+
+### UserPromptExpansion
+
+Trigger: When a user-typed slash command (or MCP prompt) expands into a
+full prompt before Claude processes it
+Reader: `readUserPromptExpansion()`
+
+| Field | Type | Value |
+|-------|------|-------|
+| `hook_event_name` | string | `"UserPromptExpansion"` |
+| `expansion_type` | string | `"slash_command"` \| `"mcp_prompt"` |
+| `command_name` | string | Slash command or MCP prompt name |
+| `command_args` | string? | Command arguments |
+| `command_source` | string? | Origin of the command |
+| `prompt` | string | Full expanded prompt text |
+
+Posts a `user.prompt.expansion` event in the `user` lane. Metadata:
+`expansionType`, `commandName`, `commandArgs`, `commandSource`,
+`expandedPromptSnippet` (first 2 KB of expanded prompt with `…` if
+truncated), `expandedPromptBytes` (utf-8 byte length of full prompt).
+
+> **Why this matters:** without this hook the tracer only sees `/foo` and
+> not what `/foo` actually told Claude to do — high-value verification
+> signal.
+
+---
+
 ### Notification
 
 Trigger: When Claude Code emits a notification to the user
@@ -491,9 +662,7 @@ Official documentation: https://developers.openai.com/codex/hooks
 
 Codex exposes 6 hook events: `SessionStart`, `PreToolUse`, `PermissionRequest`,
 `PostToolUse`, `UserPromptSubmit`, `Stop`. Agent Tracer has readers and
-handlers for all six, but `setup:external` registers five by default; add
-`PermissionRequest` to `.codex/hooks.json` manually if you want that optional
-observation-only event.
+handlers for all six, all registered in `packages/runtime/src/codex/hooks/hooks.json`.
 
 Readers live at `packages/runtime/src/shared/hooks/codex/payloads.ts`.
 
@@ -527,10 +696,43 @@ interface CodexToolContextBase extends CodexTurnContextBase {
 ### Per-event differences from Claude
 
 - `SessionStart` matchers: `startup|resume` only (no `clear|compact`).
-- `PreToolUse`, `PermissionRequest`, `PostToolUse` matcher: `Bash` only.
+- `PreToolUse` matcher: `Bash|apply_patch|Edit|Write` — guards every
+  matched PostToolUse event with an idempotent session ensure.
+- `PermissionRequest` matcher: open (no matcher).
+- `PostToolUse` matchers: `Bash` (separate handler), `apply_patch|Edit|Write`
+  (routes to `PostToolUse/ApplyPatch.ts`), and `mcp__.*`
+  (routes to `PostToolUse/Mcp.ts`).
 - `Stop` carries `stop_hook_active` (boolean) instead of Claude's `stop_reason`.
   Agent Tracer emits `stopReason: "stop_hook"` as a synthetic value since Codex
   does not expose a real reason.
+
+### Hook ↔ rollout cross-check (Codex)
+
+Codex's rollout JSONL stream and the official PostToolUse hooks both
+surface `apply_patch` and `mcp__*` events. The adapter attaches a
+`crossCheck: { source, dedupeKey }` marker to each emission — `"hook"`
+from the PostToolUse handler, `"rollout"` from the rollout observer
+(`packages/runtime/src/codex/app-server/observe.ts`). The server uses
+`(kind, sessionId, dedupeKey)` to merge the two within a 60-second
+window, so duplicates collapse into a single row.
+
+`dedupeKey` resolution (preferred → fallback):
+
+- `apply_patch`: `tool_use_id` ↔ `call_id` ; otherwise
+  `apply_patch:<primaryFilePath>:<patchInput.length>`.
+- `mcp__*`: `tool_use_id` ↔ `call_id` ; otherwise
+  `<tool_name>:<turn_id>`.
+
+`web_search_call` events still arrive only via the rollout observer
+(Codex has no web hook), but the marker is attached for forward-compat.
+
+### Codex privacy contract
+
+The Codex adapter follows the same privacy contract as the Claude plugin:
+PostToolUse handlers never read `tool_response`. The rollout observer
+parses `apply_patch.input` only to extract touched file paths from
+`*** Add File:` / `*** Update File:` / `*** Delete File:` / `*** Move to:`
+headers; the diff body itself is never stored.
 - `UserPromptSubmit` has no `cwd`/`transcript_path` guarantees — only
   `session_id`, `prompt`, `model`, `turn_id`.
 

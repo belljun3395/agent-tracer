@@ -41,6 +41,34 @@ The rollout observer is a long-running background process spawned once per sessi
 by `SessionStart`. It terminates on SIGINT or SIGTERM and is replaced if a stale
 instance is detected on the next session start.
 
+### Hook ↔ rollout cross-check
+
+Codex emits some events (apply_patch, MCP calls, web search) through both
+the official PostToolUse hook AND the rollout JSONL stream. The adapter
+hooks attach a `crossCheck` marker (`source: "hook"`) and the observer
+attaches the same marker with `source: "rollout"` plus a shared
+`dedupeKey` (`tool_use_id` ↔ `call_id`).
+
+The server uses `(kind, sessionId, dedupeKey)` to merge the two sources
+within a 60-second window — only one row is persisted, with metadata
+merged from both. The doubled emission acts as a verification of the
+verification: if hook and rollout disagree on an event the dashboard can
+surface that as a discrepancy.
+
+### Privacy contract
+
+The adapter captures **action-side data only** — what the agent invoked,
+with which arguments — and never the **result body**. Specifically:
+
+- Every PostToolUse hook ignores `tool_response`. No stdout, stderr,
+  file content, web response, MCP result, or search result list ever
+  leaves the host machine.
+- Tool inputs (commands, queries, prompts, file paths, patch headers,
+  MCP arguments) are captured because they describe the action.
+- The rollout observer reads `apply_patch.input` only to extract the
+  list of touched file paths from the patch headers — the diff body
+  itself is not stored.
+
 ---
 
 ## Data origin legend
@@ -219,14 +247,15 @@ POST /ingest/v1/sessions/end
 
 ### 4. PreToolUse → `hooks/PreToolUse.ts`
 
-Fires before every Bash tool call. Its sole job is to guarantee that a task and
-session exist in the monitor before PostToolUse/Bash tries to post against them,
-avoiding a race condition.
+Fires before every Bash, apply_patch, Edit, or Write tool call (matcher
+`Bash|apply_patch|Edit|Write`). Its sole job is to guarantee that a task
+and session exist in the monitor before the matching PostToolUse hook
+posts events, avoiding a race condition.
 
 **Codex provides [CX]:**
 ```
 session_id  — unique session identifier
-tool_name   — "Bash"
+tool_name   — matched tool
 ```
 
 **API call:**
@@ -237,27 +266,53 @@ POST /ingest/v1/sessions/ensure
   title             [GEN]  defaultTaskTitle()
 ```
 
-> This hook adds latency to every Bash command. The transport layer enforces a
-> 2-second HTTP timeout on the ensure call.
+> This hook adds latency to every matched tool call. The transport layer
+> enforces a 2-second HTTP timeout on the ensure call.
 
 ---
 
-### 5. PostToolUse: Bash → `hooks/PostToolUse/Bash.ts`
+### 5. PermissionRequest → `hooks/PermissionRequest.ts`
+
+Fires when Codex shows a permission dialog before running a sensitive tool.
+The handler is observation-only — never blocks. Registered alongside the
+matcher-set above.
 
 **Codex provides [CX]:**
 ```
-session_id             — unique session identifier
-tool_name              — "Bash"
-tool_input.command     — the shell command that ran
-tool_input.description — human-readable description (optional)
-tool_use_id            — stable tool invocation ID (optional)
+session_id   — unique session identifier
+tool_name    — tool that triggered the dialog
+tool_input   — pending arguments
+tool_use_id  — tool-call id (optional)
+description  — human-readable description (optional)
+```
+
+**API call:** posts a `permission.request` event identical in shape to the
+Claude `PermissionRequest` event (see `CLAUDE_DATA_FLOW.md`). The event
+carries `toolName`, `toolUseId`, and a capped `toolInputSummary`.
+
+---
+
+### 6. PostToolUse: Bash → `hooks/PostToolUse/Bash.ts`
+
+**Codex provides [CX]:**
+```
+session_id                   — unique session identifier
+tool_name                    — "Bash"
+tool_input.command           — the shell command that ran
+tool_input.description       — human-readable description (optional)
+tool_input.timeout           — timeout in ms                  (optional)
+tool_input.run_in_background — async execution flag            (optional)
+tool_use_id                  — stable tool invocation ID       (optional)
+tool_response                — IGNORED (privacy contract)
 ```
 
 **Adapter generates [GEN]:**
 ```
-title  — description || first 80 chars of command
-body   — "description\n\n$ command" (or just command if no description)
-lane   — inferred from command semantics
+title     — description || first 80 chars of command
+body      — "description\n\n$ command" (or just command if no description)
+lane      — inferred from command semantics
+filePaths — file/path targets surfaced from commandAnalysis (so `cat foo.ts`
+            shows up like a Read event)
 ```
 
 **API call:**
@@ -265,36 +320,137 @@ lane   — inferred from command semantics
 POST /ingest/v1/events  { kind: "terminal.command", … }
   taskId    [ENSURE]
   sessionId [ENSURE]
-  lane      [GEN]   "exploration" | "implementation"
+  lane      [GEN]   "exploration" | "implementation" | "rule"
+  title     [GEN]
+  body      [GEN]
+  filePaths [GEN]   command-analysis target paths (omitted if none)
+  metadata:
+    evidenceLevel   [GEN] "proven"
+    evidenceReason  [GEN] "Observed directly by the Codex PostToolUse/Bash hook."
+    subtypeKey      [GEN] "shell_probe" | "run_test" | "run_lint" | "run_build" | "verify" | "run_command"
+    subtypeLabel    [GEN] human-readable label for subtypeKey
+    subtypeGroup    [GEN] "shell" | "execution"
+    toolFamily      [GEN] "terminal"
+    operation       [GEN] "probe" | "execute"
+    entityType      [GEN] "command"
+    entityName      [GEN] first token of the command string
+    sourceTool      [GEN] "Bash"
+    tags            [GEN] normalised tag array
+    command         [CX]  tool_input.command
+    description     [CX]  tool_input.description       (omitted if absent)
+    timeoutMs       [CX]  tool_input.timeout           (omitted if absent)
+    runInBackground [CX]  tool_input.run_in_background (only when true)
+    commandAnalysis [GEN] structured analysis (steps, targets, effect, confidence)
+    toolUseId       [CX]  tool_use_id                  (omitted if absent)
+```
+
+---
+
+### 7. PostToolUse: apply_patch → `hooks/PostToolUse/ApplyPatch.ts`
+
+Direct hook coverage of Codex's diff-based file modification. The matcher
+in `hooks.json` is `apply_patch|Edit|Write` so the documented Codex aliases
+all flow into this handler.
+
+**Codex provides [CX]:**
+```
+session_id        — unique session identifier
+tool_name         — "apply_patch" (or alias "Edit" / "Write")
+tool_input.input  — multi-file patch in canonical format
+                    (`*** Add File:` / `*** Update File:` / `*** Delete File:` / `*** Move to:`)
+tool_use_id       — stable tool invocation ID (optional)
+tool_response     — IGNORED (privacy contract)
+```
+
+**Adapter generates [GEN]:**
+```
+filePaths — extracted from patch headers
+title     — "Apply patch: <basename>" (primary path) or "Apply patch"
+body      — "Patched N file(s): a.ts, b.ts, …" (max 3, then "…")
+dedupeKey — tool_use_id || `apply_patch:<primaryPath>:<patchInput.length>`
+```
+
+**API call:**
+```
+POST /ingest/v1/events  { kind: "tool.used", … }
+  taskId    [ENSURE]
+  sessionId [ENSURE]
+  lane      [GEN]   "implementation"
+  title     [GEN]
+  body      [GEN]
+  filePaths [GEN]   parsed from patch headers
+  metadata:
+    # … shared semantic block (inferFileToolSemantic) …
+    toolName    [GEN] "apply_patch"
+    filePath    [GEN] primary path (omitted if no headers)
+    relPath     [GEN] same as filePath
+    toolUseId   [CX]  tool_use_id                          (omitted if absent)
+    crossCheck  [GEN] { source: "hook", dedupeKey }
+```
+
+The rollout observer emits the same logical event with
+`crossCheck.source = "rollout"` and the same `dedupeKey`; server merges
+both into one row (see "Hook ↔ rollout cross-check" above).
+
+---
+
+### 8. PostToolUse: MCP → `hooks/PostToolUse/Mcp.ts`
+
+Direct hook coverage of Codex MCP tool calls. Matcher `mcp__.*`.
+Self-referential calls to the `agent-tracer` MCP server are skipped.
+
+**Codex provides [CX]:**
+```
+session_id      — unique session identifier
+tool_name       — "mcp__<server>__<tool>"
+tool_input      — MCP tool arguments
+tool_use_id     — stable tool invocation ID (optional)
+turn_id         — codex turn id              (optional)
+tool_response   — IGNORED (privacy contract)
+```
+
+**Adapter generates [GEN]:**
+```
+mcpServer — parsed from tool_name
+mcpTool   — parsed from tool_name
+title     — "MCP: <server>/<tool>"
+dedupeKey — tool_use_id || `<tool_name>:<turn_id>`
+```
+
+**API call:**
+```
+POST /ingest/v1/events  { kind: "agent.activity.logged", … }
+  taskId    [ENSURE]
+  sessionId [ENSURE]
+  lane      [GEN]   "coordination"
   title     [GEN]
   body      [GEN]
   metadata:
-    evidenceLevel  [GEN]  "proven"
-    evidenceReason [GEN]  "Observed directly by the Codex PostToolUse/Bash hook."
-    subtypeKey     [GEN]  "shell_probe" | "run_test" | "run_lint" | "run_build" | "verify" | "run_command"
-    subtypeLabel   [GEN]  human-readable label for subtypeKey
-    subtypeGroup   [GEN]  "shell" | "execution"
-    toolFamily     [GEN]  "terminal"
-    operation      [GEN]  "probe" | "execute"
-    entityType     [GEN]  "command"
-    entityName     [GEN]  first token of the command string
-    sourceTool     [GEN]  "Bash"
-    tags           [GEN]  normalised tag array (via withTags)
-    command        [CX]   tool_input.command
-    description    [CX]   tool_input.description  (omitted if absent)
-    toolUseId      [CX]   tool_use_id             (omitted if absent)
+    # … shared semantic block (inferMcpSemantic) …
+    activityType [GEN] "mcp_call"
+    mcpServer    [GEN] parsed server name
+    mcpTool      [GEN] parsed tool name
+    toolUseId    [CX]  tool_use_id                  (omitted if absent)
+    crossCheck   [GEN] { source: "hook", dedupeKey }
 ```
 
 ---
 
 ## Rollout observer
 
-### 6. Background observer → `app-server/observe.ts`
+### 9. Background observer → `app-server/observe.ts`
 
 The observer is a long-running Node process spawned by `SessionStart` via
-`run-observer.sh`. It tails the Codex rollout JSONL file and forwards token-usage,
-rate-limit, and non-Bash tool snapshots to the monitor. This is still the normal
-plain `codex` path; no app-server runner is required.
+`run-observer.sh`. It tails the Codex rollout JSONL file and forwards
+token-usage and rate-limit snapshots, plus a duplicate emission of
+apply_patch / MCP / web_search events for cross-checking against the
+direct PostToolUse hooks.
+
+Apply-patch and MCP events here are intentionally redundant with the
+PostToolUse hooks added above. The server uses the shared `crossCheck.dedupeKey`
+to merge them into a single row; the rollout copy is the authority for
+fields the hook does not see (e.g. raw `arguments`) and a fallback if the
+hook fails to fire.
 
 **Rollout JSONL path:**
 ```
@@ -378,13 +534,20 @@ POST /ingest/v1/events { kind: "tool.used", … }
   source     [GEN] "codex-rollout"
   toolName   [FILE] "apply_patch" | "web_search_call"
   filePaths  [FILE] parsed from patch headers when present
+  metadata.crossCheck [GEN] { source: "rollout", dedupeKey }   — pairs with hook event
 
 POST /ingest/v1/events { kind: "agent.activity.logged", … }
-  source      [GEN] "codex-rollout"
+  source       [GEN] "codex-rollout"
   activityType [GEN] "mcp_call"
-  mcpServer   [FILE] parsed from mcp__<server>__<tool>
-  mcpTool     [FILE] parsed from mcp__<server>__<tool>
+  mcpServer    [FILE] parsed from mcp__<server>__<tool>
+  mcpTool      [FILE] parsed from mcp__<server>__<tool>
+  metadata.crossCheck [GEN] { source: "rollout", dedupeKey }   — pairs with hook event
 ```
+
+> WebSearch events have no PostToolUse hook coverage yet (Codex's hook
+> surface doesn't list `WebSearch`), so they only arrive via the observer.
+> The `crossCheck` marker is still attached for forward-compat — if a
+> future Codex release adds the hook, no server change is needed.
 
 ---
 
@@ -407,7 +570,7 @@ src/codex/
 │   ├── paths.const.ts          # PROJECT_DIR, CODEX_RUNTIME_SOURCE
 │   ├── paths.ts                # defaultTaskTitle()
 │   ├── utils.ts                # isRecord, toTrimmedString, ellipsize, createMessageId, parseJsonLine
-│   ├── session.state.ts        # read/write latest-session.json and observer.json, isPidRunning
+│   ├── session.state.ts        # read/write latest-session.json + observer.json, isPidRunning
 │   └── observer.ts             # ensureObserverRunning (spawns run-observer.sh)
 ├── lib/
 │   ├── hook/
@@ -420,11 +583,14 @@ src/codex/
 ├── hooks/
 │   ├── SessionStart.ts
 │   ├── UserPromptSubmit.ts
-│   ├── PreToolUse.ts
+│   ├── PreToolUse.ts            # matcher: Bash|apply_patch|Edit|Write
+│   ├── PermissionRequest.ts     # observation-only permission dialogs
 │   ├── PostToolUse/
-│   │   └── Bash.ts
+│   │   ├── Bash.ts
+│   │   ├── ApplyPatch.ts        # matcher: apply_patch|Edit|Write
+│   │   └── Mcp.ts               # matcher: mcp__.*
 │   ├── Stop.ts
-│   └── hooks.json              # Codex hooks configuration
+│   └── hooks.json               # Codex hooks configuration
 ├── app-server/
 │   ├── observe.ts              # rollout observer entry point (long-running process)
 │   ├── rollout.ts              # resolveRolloutPath, readRolloutSessionMeta, tailRolloutEvents,
@@ -443,10 +609,11 @@ src/codex/
 |---|---|---|
 | Session start | supported | supported |
 | User prompt capture | supported | supported |
+| Permission dialog | supported | supported (PermissionRequest hook) |
 | Bash command capture | supported | supported |
-| File tool capture | supported | supported via rollout observer (`apply_patch`) |
-| MCP tool capture | supported | supported via rollout observer (`mcp__...`) |
-| Web tool capture | supported | supported via rollout observer (`web_search_call`) |
+| File tool capture | supported | supported via PostToolUse hook (`apply_patch` / `Edit` / `Write`) + rollout cross-check |
+| MCP tool capture | supported | supported via PostToolUse hook (`mcp__.*`) + rollout cross-check |
+| Web tool capture | supported | rollout observer only (no Codex hook for web tools) |
 | Token / context usage | supported | supported (via rollout observer) |
 | Rate-limit snapshot | supported | supported (via rollout observer) |
 | Instructions lifecycle | supported | not supported |
@@ -454,9 +621,11 @@ src/codex/
 | Subagent lifecycle | supported | not supported |
 | App-server notifications | N/A | normalizer ready, but plain `codex` path uses rollout observer |
 
-Current Codex hook coverage is intentionally narrower than Claude Code. File/MCP/web
-capture is implemented by tailing the rollout JSONL that plain `codex` already
-writes, not by widening the official Codex hook surface.
+Codex hook coverage now matches the documented surface
+(`Bash` + `apply_patch`/`Edit`/`Write` + `mcp__.*` + `PermissionRequest`).
+The rollout observer remains the source of truth for token-usage,
+rate-limit, and `web_search_call` events, and runs in parallel with the
+PostToolUse hooks for `apply_patch` / MCP as a cross-check.
 
 ---
 
@@ -465,4 +634,8 @@ writes, not by widening the official Codex hook surface.
 - Never writes to stdout (no `hookSpecificOutput`, no `additionalContext`)
 - Never exits with code 2 (never blocks Codex)
 - Never modifies tool input
+- Never reads `tool_response` — see the privacy contract above. Result
+  bodies (stdout, stderr, file content, MCP results, web responses) are
+  never collected. The observer reads `apply_patch.input` only to extract
+  touched file paths from patch headers; the diff body is not stored.
 - All monitoring is purely observational — Codex's behavior is unaffected
