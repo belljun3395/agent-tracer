@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { getEventEvidence } from "~domain/evidence.js";
 import { evidenceTone, formatEvidenceLevel } from "~app/lib/formatters.js";
 import { buildInspectorEventTitle } from "~app/lib/insights/extraction.js";
+import { formatToolInputExtras, formatCrossCheckMarker } from "~app/lib/insights/toolMetadata.js";
 import type { QuestionGroup, TodoGroup } from "~app/lib/insights/grouping.js";
 import type { TimelineConnector } from "~app/lib/timeline.js";
 import type { TimelineEventRecord } from "~domain/monitoring.js";
@@ -367,6 +368,18 @@ export function InspectorTab({
             {selectedEvent.kind === "terminal.command" && formatCommandAnalysis(selectedEvent.metadata["commandAnalysis"]) && (
                 <DetailSection label="Command Analysis" helpText="Parsed shell structure, command intent, targets, and effect inferred from the terminal command." mono value={formatCommandAnalysis(selectedEvent.metadata["commandAnalysis"]) ?? ""}/>
             )}
+            {(() => {
+                const extras = formatToolInputExtras(selectedEvent);
+                return extras ? (
+                    <DetailSection label="Tool Input Details" helpText="Additional invocation parameters captured from the PostToolUse payload (Read offset/limit, Grep output_mode, WebFetch prompt, etc.). Result content is intentionally never recorded." mono value={extras}/>
+                ) : null;
+            })()}
+            {(() => {
+                const marker = formatCrossCheckMarker(selectedEvent);
+                return marker ? (
+                    <DetailSection label="Cross-Check (hook ↔ rollout)" helpText="Codex emits the same logical event from both the PostToolUse hook and the rollout observer. Server merges them; this section shows where the observation came from." mono value={marker}/>
+                ) : null;
+            })()}
             {selectedEvent.kind === "token.usage" && (
                 <DetailSection label="Token Usage" helpText="Token accounting captured from runtime telemetry." mono value={formatTokenUsage(selectedEvent)}/>
             )}
