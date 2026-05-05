@@ -14,7 +14,7 @@ Claude Code                  Plugin (tsx)                  Monitor API
   event fires
       │
       ▼
-  run-hook.sh ──────────── hooks/<handler>.ts
+  run-hook-claude.sh ──── hooks/<handler>.ts
                                │
                                ├─ stdin: JSON payload (from Claude Code)
                                │

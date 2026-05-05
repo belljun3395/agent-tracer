@@ -49,14 +49,17 @@ The only required argument is `--target`. The script currently bootstraps:
    - creates or merges `target-project/.codex/config.toml`
    - creates or merges `target-project/.codex/hooks.json`
    - enables repo-local Codex hooks for plain `codex` usage
-   - registers `SessionStart`, `UserPromptSubmit`, `PreToolUse(Bash)`,
-     `PostToolUse(Bash)`, and `Stop`
+   - hydrates the manifest at `packages/runtime/hooks/hooks-codex.json`
+     into absolute-path commands. Currently registers `SessionStart`,
+     `UserPromptSubmit`, `PreToolUse(Bash|apply_patch|Edit|Write)`,
+     `PermissionRequest`, `PostToolUse(Bash)`,
+     `PostToolUse(apply_patch|Edit|Write)`, `PostToolUse(mcp__.*)`, and `Stop`.
 
 Expected output:
 
 ```text
-[claude] Plugin path: /absolute/path/to/agent-tracer/packages/runtime/src/claude-code
-[claude] Run Claude Code with: claude --plugin-dir /absolute/path/to/agent-tracer/packages/runtime/src/claude-code
+[claude] Plugin path: /absolute/path/to/agent-tracer/packages/runtime
+[claude] Run Claude Code with: claude --plugin-dir /absolute/path/to/agent-tracer/packages/runtime
 ```
 
 > The script also parses `--monitor-base-url`, `--source-repo`,

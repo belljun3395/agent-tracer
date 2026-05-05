@@ -22,8 +22,8 @@ npm install
 ```
 
 The repo is an npm workspaces monorepo. `npm install` hydrates every
-workspace under `packages/*`, including the Claude Code plugin at
-`packages/runtime/src/claude-code`.
+workspace under `packages/*`, including the Claude Code plugin
+(`packages/runtime/`, with hook source files under `packages/runtime/src/claude-code/`).
 
 ## 3. Build every package
 

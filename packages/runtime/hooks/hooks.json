@@ -1,7 +1,7 @@
 {
   "statusLine": {
     "type": "command",
-    "command": "${CLAUDE_PLUGIN_ROOT}/src/claude-code/bin/run-hook.sh StatusLine"
+    "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh StatusLine"
   },
   "hooks": {
     "SessionStart": [
@@ -10,7 +10,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/src/claude-code/bin/run-hook.sh SessionStart"
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh SessionStart"
           }
         ]
       }
@@ -21,7 +21,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/src/claude-code/bin/run-hook.sh Setup"
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh Setup"
           }
         ]
       }
@@ -31,7 +31,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/src/claude-code/bin/run-hook.sh UserPromptSubmit"
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh UserPromptSubmit"
           }
         ]
       }
@@ -42,7 +42,7 @@
           {
             "type": "command",
             "async": true,
-            "command": "${CLAUDE_PLUGIN_ROOT}/src/claude-code/bin/run-hook.sh UserPromptExpansion"
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh UserPromptExpansion"
           }
         ]
       }
@@ -52,7 +52,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/src/claude-code/bin/run-hook.sh PreToolUse"
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh PreToolUse"
           }
         ]
       }
@@ -62,7 +62,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/src/claude-code/bin/run-hook.sh PermissionRequest"
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh PermissionRequest"
           }
         ]
       }
@@ -71,151 +71,151 @@
       {
         "matcher": "Bash",
         "hooks": [
-          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/src/claude-code/bin/run-hook.sh PostToolUse/Bash" }
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh PostToolUse/Bash" }
         ]
       },
       {
         "matcher": "PowerShell",
         "hooks": [
-          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/src/claude-code/bin/run-hook.sh PostToolUse/PowerShell" }
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh PostToolUse/PowerShell" }
         ]
       },
       {
         "matcher": "BashOutput",
         "hooks": [
-          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/src/claude-code/bin/run-hook.sh PostToolUse/BashOutput" }
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh PostToolUse/BashOutput" }
         ]
       },
       {
         "matcher": "KillShell",
         "hooks": [
-          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/src/claude-code/bin/run-hook.sh PostToolUse/KillShell" }
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh PostToolUse/KillShell" }
         ]
       },
       {
         "matcher": "Monitor",
         "hooks": [
-          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/src/claude-code/bin/run-hook.sh PostToolUse/Monitor" }
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh PostToolUse/Monitor" }
         ]
       },
       {
         "matcher": "Edit",
         "hooks": [
-          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/src/claude-code/bin/run-hook.sh PostToolUse/Edit" }
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh PostToolUse/Edit" }
         ]
       },
       {
         "matcher": "Write",
         "hooks": [
-          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/src/claude-code/bin/run-hook.sh PostToolUse/Write" }
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh PostToolUse/Write" }
         ]
       },
       {
         "matcher": "NotebookEdit",
         "hooks": [
-          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/src/claude-code/bin/run-hook.sh PostToolUse/NotebookEdit" }
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh PostToolUse/NotebookEdit" }
         ]
       },
       {
         "matcher": "Read",
         "hooks": [
-          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/src/claude-code/bin/run-hook.sh PostToolUse/Read" }
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh PostToolUse/Read" }
         ]
       },
       {
         "matcher": "Glob",
         "hooks": [
-          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/src/claude-code/bin/run-hook.sh PostToolUse/Glob" }
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh PostToolUse/Glob" }
         ]
       },
       {
         "matcher": "Grep",
         "hooks": [
-          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/src/claude-code/bin/run-hook.sh PostToolUse/Grep" }
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh PostToolUse/Grep" }
         ]
       },
       {
         "matcher": "LSP",
         "hooks": [
-          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/src/claude-code/bin/run-hook.sh PostToolUse/LSP" }
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh PostToolUse/LSP" }
         ]
       },
       {
         "matcher": "WebFetch",
         "hooks": [
-          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/src/claude-code/bin/run-hook.sh PostToolUse/WebFetch" }
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh PostToolUse/WebFetch" }
         ]
       },
       {
         "matcher": "WebSearch",
         "hooks": [
-          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/src/claude-code/bin/run-hook.sh PostToolUse/WebSearch" }
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh PostToolUse/WebSearch" }
         ]
       },
       {
         "matcher": "Agent",
         "hooks": [
-          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/src/claude-code/bin/run-hook.sh PostToolUse/Agent" }
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh PostToolUse/Agent" }
         ]
       },
       {
         "matcher": "Skill",
         "hooks": [
-          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/src/claude-code/bin/run-hook.sh PostToolUse/Skill" }
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh PostToolUse/Skill" }
         ]
       },
       {
         "matcher": "TaskCreate",
         "hooks": [
-          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/src/claude-code/bin/run-hook.sh PostToolUse/TaskCreate" }
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh PostToolUse/TaskCreate" }
         ]
       },
       {
         "matcher": "TaskUpdate",
         "hooks": [
-          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/src/claude-code/bin/run-hook.sh PostToolUse/TaskUpdate" }
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh PostToolUse/TaskUpdate" }
         ]
       },
       {
         "matcher": "TodoWrite",
         "hooks": [
-          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/src/claude-code/bin/run-hook.sh PostToolUse/TodoWrite" }
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh PostToolUse/TodoWrite" }
         ]
       },
       {
         "matcher": "AskUserQuestion",
         "hooks": [
-          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/src/claude-code/bin/run-hook.sh PostToolUse/AskUserQuestion" }
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh PostToolUse/AskUserQuestion" }
         ]
       },
       {
         "matcher": "ExitPlanMode",
         "hooks": [
-          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/src/claude-code/bin/run-hook.sh PostToolUse/ExitPlanMode" }
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh PostToolUse/ExitPlanMode" }
         ]
       },
       {
         "matcher": "EnterPlanMode|EnterWorktree|ExitWorktree",
         "hooks": [
-          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/src/claude-code/bin/run-hook.sh PostToolUse/ModeChange" }
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh PostToolUse/ModeChange" }
         ]
       },
       {
         "matcher": "CronCreate|CronDelete|CronList",
         "hooks": [
-          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/src/claude-code/bin/run-hook.sh PostToolUse/Cron" }
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh PostToolUse/Cron" }
         ]
       },
       {
         "matcher": "ToolSearch",
         "hooks": [
-          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/src/claude-code/bin/run-hook.sh PostToolUse/ToolSearch" }
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh PostToolUse/ToolSearch" }
         ]
       },
       {
         "matcher": "mcp__.*",
         "hooks": [
-          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/src/claude-code/bin/run-hook.sh PostToolUse/Mcp" }
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh PostToolUse/Mcp" }
         ]
       }
     ],
@@ -223,14 +223,14 @@
       {
         "matcher": "Bash|PowerShell|BashOutput|KillShell|Monitor|Edit|Write|NotebookEdit|Read|Glob|Grep|LSP|WebFetch|WebSearch|Agent|Skill|TaskCreate|TaskUpdate|TodoWrite|AskUserQuestion|ExitPlanMode|EnterPlanMode|EnterWorktree|ExitWorktree|CronCreate|CronDelete|CronList|ToolSearch|mcp__.*",
         "hooks": [
-          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/src/claude-code/bin/run-hook.sh PostToolUseFailure" }
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh PostToolUseFailure" }
         ]
       }
     ],
     "PostToolBatch": [
       {
         "hooks": [
-          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/src/claude-code/bin/run-hook.sh PostToolBatch" }
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh PostToolBatch" }
         ]
       }
     ],
@@ -238,28 +238,28 @@
       {
         "matcher": "Bash|PowerShell|Edit|Write|NotebookEdit|Read|Glob|Grep|LSP|WebFetch|WebSearch|Agent|Skill|Monitor|TaskCreate|TaskUpdate|TodoWrite|AskUserQuestion|ExitPlanMode|EnterPlanMode|EnterWorktree|ExitWorktree|CronCreate|CronDelete|CronList|ToolSearch|mcp__.*",
         "hooks": [
-          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/src/claude-code/bin/run-hook.sh PermissionDenied" }
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh PermissionDenied" }
         ]
       }
     ],
     "InstructionsLoaded": [
       {
         "hooks": [
-          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/src/claude-code/bin/run-hook.sh InstructionsLoaded" }
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh InstructionsLoaded" }
         ]
       }
     ],
     "ConfigChange": [
       {
         "hooks": [
-          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/src/claude-code/bin/run-hook.sh ConfigChange" }
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh ConfigChange" }
         ]
       }
     ],
     "CwdChanged": [
       {
         "hooks": [
-          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/src/claude-code/bin/run-hook.sh CwdChanged" }
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh CwdChanged" }
         ]
       }
     ],
@@ -267,91 +267,91 @@
       {
         "matcher": "CLAUDE.md|.env|.envrc|.claude/settings.json|.claude/settings.local.json",
         "hooks": [
-          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/src/claude-code/bin/run-hook.sh FileChanged" }
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh FileChanged" }
         ]
       }
     ],
     "WorktreeCreate": [
       {
         "hooks": [
-          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/src/claude-code/bin/run-hook.sh WorktreeCreate" }
+          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh WorktreeCreate" }
         ]
       }
     ],
     "WorktreeRemove": [
       {
         "hooks": [
-          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/src/claude-code/bin/run-hook.sh WorktreeRemove" }
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh WorktreeRemove" }
         ]
       }
     ],
     "Notification": [
       {
         "hooks": [
-          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/src/claude-code/bin/run-hook.sh Notification" }
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh Notification" }
         ]
       }
     ],
     "PreCompact": [
       {
         "hooks": [
-          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/src/claude-code/bin/run-hook.sh PreCompact" }
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh PreCompact" }
         ]
       }
     ],
     "PostCompact": [
       {
         "hooks": [
-          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/src/claude-code/bin/run-hook.sh PostCompact" }
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh PostCompact" }
         ]
       }
     ],
     "SubagentStart": [
       {
         "hooks": [
-          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/src/claude-code/bin/run-hook.sh SubagentStart" }
+          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh SubagentStart" }
         ]
       }
     ],
     "SubagentStop": [
       {
         "hooks": [
-          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/src/claude-code/bin/run-hook.sh SubagentStop" }
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh SubagentStop" }
         ]
       }
     ],
     "TaskCreated": [
       {
         "hooks": [
-          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/src/claude-code/bin/run-hook.sh TaskCreated" }
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh TaskCreated" }
         ]
       }
     ],
     "TaskCompleted": [
       {
         "hooks": [
-          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/src/claude-code/bin/run-hook.sh TaskCompleted" }
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh TaskCompleted" }
         ]
       }
     ],
     "Stop": [
       {
         "hooks": [
-          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/src/claude-code/bin/run-hook.sh Stop" }
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh Stop" }
         ]
       }
     ],
     "StopFailure": [
       {
         "hooks": [
-          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/src/claude-code/bin/run-hook.sh StopFailure" }
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh StopFailure" }
         ]
       }
     ],
     "SessionEnd": [
       {
         "hooks": [
-          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/src/claude-code/bin/run-hook.sh SessionEnd" }
+          { "type": "command", "async": true, "command": "${CLAUDE_PLUGIN_ROOT}/bin/run-hook-claude.sh SessionEnd" }
         ]
       }
     ]

@@ -149,7 +149,7 @@ async function setupClaude({ targetDir, tracerRoot }) {
     }
   });
 
-  const pluginPath = path.join(tracerRoot, "packages", "runtime", "src", "claude-code");
+  const pluginPath = path.join(tracerRoot, "packages", "runtime");
   process.stdout.write(
     [
       "",
@@ -210,43 +210,40 @@ function escapeRegExp(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function buildCodexHookConfig({ tracerRoot, monitorBaseUrl }) {
-  const runHook = path.join(tracerRoot, "packages", "runtime", "src", "codex", "bin", "run-hook.sh");
+// Codex hook manifest is the single source of truth for which events fire which
+// hook scripts. setup-external.mjs hydrates each entry into a Codex `hooks.json`
+// command by joining the absolute path to run-hook-codex.sh with `MONITOR_BASE_URL`.
+// Manifest shape: { hooks: { <event>: [ { matcher?, hookName } ] } }
+async function buildCodexHookConfig({ tracerRoot, monitorBaseUrl }) {
+  const manifestPath = path.join(tracerRoot, "packages", "runtime", "hooks", "hooks-codex.json");
+  const manifest = await readJson(manifestPath, null);
+  if (!manifest || typeof manifest.hooks !== "object" || manifest.hooks === null) {
+    throw new Error(`Codex hook manifest missing or invalid: ${manifestPath}`);
+  }
+
+  const runHook = path.join(tracerRoot, "packages", "runtime", "bin", "run-hook-codex.sh");
   const monitoredHookCommand = (hookName) =>
     `MONITOR_BASE_URL=${shQuote(monitorBaseUrl)} /usr/bin/env bash ${shQuote(runHook)} ${shQuote(hookName)}`;
 
-  return {
-    hooks: {
-      SessionStart: [
-        {
-          matcher: "startup|resume",
-          hooks: [{ type: "command", command: monitoredHookCommand("SessionStart") }]
-        }
-      ],
-      UserPromptSubmit: [
-        {
-          hooks: [{ type: "command", command: monitoredHookCommand("UserPromptSubmit") }]
-        }
-      ],
-      PreToolUse: [
-        {
-          matcher: "Bash",
-          hooks: [{ type: "command", command: monitoredHookCommand("PreToolUse") }]
-        }
-      ],
-      PostToolUse: [
-        {
-          matcher: "Bash",
-          hooks: [{ type: "command", command: monitoredHookCommand("PostToolUse/Bash") }]
-        }
-      ],
-      Stop: [
-        {
-          hooks: [{ type: "command", command: monitoredHookCommand("Stop") }]
-        }
-      ]
+  const hooks = {};
+  for (const [eventName, entries] of Object.entries(manifest.hooks)) {
+    if (!Array.isArray(entries)) {
+      throw new Error(`Codex hook manifest entry "${eventName}" must be an array`);
     }
-  };
+    hooks[eventName] = entries.map((entry, index) => {
+      if (!entry || typeof entry.hookName !== "string" || !entry.hookName) {
+        throw new Error(`Codex hook manifest "${eventName}"[${index}] missing hookName`);
+      }
+      const group = {};
+      if (typeof entry.matcher === "string" && entry.matcher) {
+        group.matcher = entry.matcher;
+      }
+      group.hooks = [{ type: "command", command: monitoredHookCommand(entry.hookName) }];
+      return group;
+    });
+  }
+
+  return { hooks };
 }
 
 function mergeCodexHookConfig(existingConfig, generatedConfig) {
@@ -283,7 +280,7 @@ async function setupCodex({ targetDir, tracerRoot, monitorBaseUrl }) {
   const codexConfigPath = await writeCodexConfig({ targetDir });
 
   const existingHooks = await readJson(codexHooksPath, {});
-  const generatedHooks = buildCodexHookConfig({ tracerRoot, monitorBaseUrl });
+  const generatedHooks = await buildCodexHookConfig({ tracerRoot, monitorBaseUrl });
   const mergedHooks = mergeCodexHookConfig(existingHooks, generatedHooks);
   await writeJson(codexHooksPath, mergedHooks);
   await rm(path.join(codexDir, "agent-tracer"), { recursive: true, force: true });

@@ -30,7 +30,7 @@ set -euo pipefail
 CLAUDE_DIR="${HOME}/.claude"
 TARGET="${CLAUDE_DIR}/statusline-command.sh"
 ORIGINAL="${CLAUDE_DIR}/statusline-original.sh"
-RUNNER="${CLAUDE_DIR}/plugins/marketplaces/agent-tracer/packages/runtime/src/claude-code/bin/run-hook.sh"
+RUNNER="${CLAUDE_DIR}/plugins/marketplaces/agent-tracer/packages/runtime/bin/run-hook-claude.sh"
 MARKER="# AGENT_TRACER_STATUSLINE_WRAPPER v1"
 
 if [ ! -x "$RUNNER" ]; then
@@ -78,7 +78,7 @@ if [ -x "${HOME}/.claude/statusline-original.sh" ]; then
 fi
 
 monitor=""
-runner="${HOME}/.claude/plugins/marketplaces/agent-tracer/packages/runtime/src/claude-code/bin/run-hook.sh"
+runner="${HOME}/.claude/plugins/marketplaces/agent-tracer/packages/runtime/bin/run-hook-claude.sh"
 if [ -x "$runner" ]; then
   monitor=$(printf '%s' "$input" | "$runner" StatusLine 2>/dev/null || true)
 fi
