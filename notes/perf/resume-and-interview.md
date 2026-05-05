@@ -158,11 +158,11 @@ packages/web/      React 19 + TanStack Query + Zustand
 > **Result**: hook p99 229.67 → 34.28 ms (−85.4 %), 메모리 71 → 41 MiB (−42 %), mean±stddev 137.69 ± 8.30 ms (n=5)로 통계적 안정성 확보. hook failure 0, server 5xx 0. **자체 honest-review로 측정 한계 (concurrency=1, multi-user 시나리오 부재)와 다음 round 우선순위를 명시적으로 문서화**.
 
 ### 4.4 6–7줄 (시스템 설계 강조 버전)
-> Claude Code 56개 hook entry의 cold-start 비용 분석을 위해 Docker resource-pinned 벤치마크 harness (cpus / mem 고정, Prometheus auto-discovery, 3-run median selector)를 직접 구축.
-> tsx 런타임 트랜스파일이 hook 호출당 100 ms+를 차지함을 확인하고, esbuild bundle (`bundle: true`, `packages: external`, ESM, node20 target)로 빌드 타임 이전.
-> 같은 컴파일 JS 산출물을 Node와 Bun에서 모두 측정해 V8 vs JavaScriptCore의 startup 특성과 표준 라이브러리 fast path 차이를 정량화. 하나의 산출물로 두 런타임을 모두 지원하면서 Bun이 있으면 자동으로 빠른 경로를 타는 구조.
-> 마지막으로 hook → server 사이의 transport를 HTTP에서 long-lived UDS daemon + newline-delimited JSON으로 교체. 결정적 UUID v5로 응답 필요 호출까지 fire-and-forget화하고, daemon은 `~/.agent-tracer/daemon.sock` (chmod 0600)에 listen하며 idle 5분 후 자동 종료.
-> hook p99 250.94 → 41.93 ms (−83.3 %), p99 variance 140 → 6 ms로 평탄화. 모든 phase 분기와 측정 artifact를 git history에 보존 (perf/base · perf/phase2-* · perf/phase3-* · perf/phase2-3-* · perf/summary).
+> Claude Code 56개 hook entry의 cold-start 비용 분석을 위해 Docker resource-pinned 벤치마크 harness (cpus / mem 고정, Prometheus auto-discovery, n-run median selector)를 직접 구축.
+> tsx 런타임 트랜스파일이 hook 호출당 200 ms+를 차지함을 확인하고, esbuild bundle (`bundle: true`, `packages: external`, ESM, node20 target)로 빌드 타임 이전.
+> 같은 컴파일 JS 산출물을 Node와 Bun에서 모두 측정해 두 런타임의 startup 차이를 정량화 (node 77.70 ms / bun 34.28 ms, n=200 × 5 runs). 하나의 산출물로 두 런타임을 모두 지원하면서 Bun이 있으면 자동으로 빠른 경로를 타는 구조.
+> hook → server transport를 HTTP에서 long-lived UDS daemon + newline-delimited JSON으로 교체하는 Phase 3도 측정했으나, 단일 사용자 self-hosted에선 latency 우위가 통계적으로 없음을 확인 (Phase 2 단독 34.28 ≈ Phase 2+3 35.38, stddev 안 차이). daemon의 본질적 가치를 multi-user / SaaS 시나리오의 "사용자별 이벤트 broker"로 재정의.
+> hook p99 229.67 → 34.28 ms (−85.4 %), 메모리 71 → 41 MiB (−42 %), mean±stddev로 통계적 안정성 확인. **자체 honest-review로 측정 한계 (concurrency=1, multi-user 부재)와 다음 round 우선순위를 명시적으로 문서화한 것이 작업의 일부**. 모든 phase 분기와 측정 artifact를 git history에 보존.
 
 ### 4.5 키워드만 — JD 매칭용
 - TypeScript / Node.js / Bun
@@ -172,8 +172,8 @@ packages/web/      React 19 + TanStack Query + Zustand
 - OpenTelemetry / Prometheus / Grafana / k6
 - Unix Domain Socket / IPC / fire-and-forget protocol
 - 결정적 UUID v5 placeholder + post-hoc daemon ID rewrite
-- Docker resource-pinned benchmark, 3-run median
-- Critical path latency, p99 variance, cold start
+- Docker resource-pinned benchmark, n-run median, mean ± stddev
+- Critical path latency, p99 distribution, cold start
 
 ---
 
