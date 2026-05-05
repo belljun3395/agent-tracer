@@ -183,7 +183,9 @@ function buildContainerCommand(label, phase) {
   for (const hook of hooks) {
     parts.push(`${benchPrefix} --hook ${shellQuote(hook)} --iterations ${iterations} --warmup ${warmup} --concurrency ${concurrency} --label ${shellQuote(label)}`);
   }
-  parts.push("sleep 3");
+  // No trailing sleep — container exit happens after the last hook bench
+  // writes its summary file. The previous 'sleep 3' was a leftover safety
+  // buffer that just added 6s/run × runs × phases to total wall clock.
   return parts.join("; ");
 }
 
@@ -209,8 +211,10 @@ function readHookSummaries(copyDest, label) {
 }
 
 async function queryPrometheusForWindow(startTs, _endTs) {
-  // Wait 2 scrape cycles (5s each) so Prometheus has fresh post-benchmark data.
-  await sleep(10_000);
+  // Wait 1 scrape cycle (5s) so Prometheus has fresh post-benchmark data.
+  // Previously 10s; reduced after metric-discovery already verifies series
+  // existence at query time.
+  await sleep(5_000);
 
   // Query at the actual current time, not at the stale endTs+5 value.
   const queryAt = Date.now() / 1000;
