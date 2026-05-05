@@ -104,34 +104,45 @@ readers in `packages/runtime/src/shared/hooks/claude/payloads.ts`. The handler
 body stays thin — validation, stderr/file logging, and error swallowing all live
 in the shared wrapper so hooks never block Claude Code on implementation errors.
 
-As of v0.3 the plugin covers **21 of 28** official Claude hook events:
+The plugin covers **27 of 28** official Claude hook events:
 
-| File | Event | Responsibility |
-|------|-------|----------------|
-| `SessionStart.ts` | `SessionStart` | Ensure a runtime session, record clear/resume markers |
-| `SessionEnd.ts` | `SessionEnd` | Close the current runtime session only |
-| `UserPromptSubmit.ts` | `UserPromptSubmit` | Record the raw user prompt as `user.message` |
-| `InstructionsLoaded.ts` | `InstructionsLoaded` | Record CLAUDE.md / rule-file loads |
-| `PreToolUse.ts` | `PreToolUse` | Ensure a runtime session exists before a tool fires |
-| `PostToolUseFailure.ts` | `PostToolUseFailure` | Record failed tool activity |
-| `PostToolBatch.ts` | `PostToolBatch` | Record parallel tool-batch boundaries |
-| `PermissionDenied.ts` | `PermissionDenied` | Record auto-mode tool-call denials (`rule.logged`) |
-| `SubagentStart.ts` | `SubagentStart` | Register background subagent start |
-| `SubagentStop.ts` | `SubagentStop` | Register background subagent completion |
-| `TaskCreated.ts` | `TaskCreated` | Record native-task creation (`todo.logged`, state `added`) |
-| `TaskCompleted.ts` | `TaskCompleted` | Record native-task completion (`todo.logged`, state `completed`) |
-| `PreCompact.ts` | `PreCompact` | Record compaction checkpoint (planning lane) |
-| `PostCompact.ts` | `PostCompact` | Record compaction summary |
-| `Stop.ts` | `Stop` | Record assistant response and end the runtime session with `completeTask: false` |
-| `StopFailure.ts` | `StopFailure` | Record turn errors (rate_limit, billing_error, etc.) |
-| `CwdChanged.ts` | `CwdChanged` | Record working-directory transitions |
-| `Notification.ts` | `Notification` | Record permission_prompt / idle_prompt / auth_success / elicitation_dialog |
-| `ConfigChange.ts` | `ConfigChange` | Record settings-source changes (user/project/local/policy/skills) |
-| `StatusLine.ts` | `statusLine` | Post a `context.snapshot` per API refresh (context/rate-limit/cost/model) and render a status bar string |
+| File | Event | Responsibility | async |
+|------|-------|----------------|:-----:|
+| `SessionStart.ts` | `SessionStart` | Ensure a runtime session, record clear/resume markers | sync |
+| `Setup.ts` | `Setup` | Record `--init-only` / `--maintenance` triggers as `setup.triggered` | sync |
+| `SessionEnd.ts` | `SessionEnd` | Close the current runtime session only | ✓ |
+| `UserPromptSubmit.ts` | `UserPromptSubmit` | Record the raw user prompt as `user.message` | sync |
+| `UserPromptExpansion.ts` | `UserPromptExpansion` | Record slash / MCP-prompt expansion as `user.prompt.expansion` | ✓ |
+| `InstructionsLoaded.ts` | `InstructionsLoaded` | Record CLAUDE.md / rule-file loads | ✓ |
+| `PreToolUse.ts` | `PreToolUse` | Ensure a runtime session exists before a tool fires | sync |
+| `PermissionRequest.ts` | `PermissionRequest` | Record permission-dialog appearance (`permission.request`) | sync |
+| `PostToolUseFailure.ts` | `PostToolUseFailure` | Record failed tool activity | ✓ |
+| `PostToolBatch.ts` | `PostToolBatch` | Record parallel tool-batch boundaries | ✓ |
+| `PermissionDenied.ts` | `PermissionDenied` | Record auto-mode tool-call denials (`rule.logged`) | ✓ |
+| `SubagentStart.ts` | `SubagentStart` | Register background subagent start | sync |
+| `SubagentStop.ts` | `SubagentStop` | Register background subagent completion | ✓ |
+| `TaskCreated.ts` | `TaskCreated` | Record native-task creation (`todo.logged`, state `added`) | ✓ |
+| `TaskCompleted.ts` | `TaskCompleted` | Record native-task completion (`todo.logged`, state `completed`) | ✓ |
+| `PreCompact.ts` | `PreCompact` | Record compaction checkpoint (planning lane) | ✓ |
+| `PostCompact.ts` | `PostCompact` | Record compaction summary | ✓ |
+| `Stop.ts` | `Stop` | Record assistant response and end the runtime session with `completeTask: false` | ✓ |
+| `StopFailure.ts` | `StopFailure` | Record turn errors (rate_limit, billing_error, etc.) | ✓ |
+| `CwdChanged.ts` | `CwdChanged` | Record working-directory transitions | ✓ |
+| `FileChanged.ts` | `FileChanged` | Record changes to watched files (matcher: `CLAUDE.md\|.env\|.envrc\|.claude/settings.json\|.claude/settings.local.json`) | ✓ |
+| `WorktreeCreate.ts` | `WorktreeCreate` | Record worktree creation (`worktree.create`) | sync |
+| `WorktreeRemove.ts` | `WorktreeRemove` | Record worktree removal (`worktree.remove`) | ✓ |
+| `Notification.ts` | `Notification` | Record permission_prompt / idle_prompt / auth_success / elicitation_dialog | ✓ |
+| `ConfigChange.ts` | `ConfigChange` | Record settings-source changes (user/project/local/policy/skills) | ✓ |
+| `StatusLine.ts` | `statusLine` | Post a `context.snapshot` per API refresh (context/rate-limit/cost/model) and render a status bar string | (separate) |
 
-Not yet handled: `UserPromptExpansion`, `PermissionRequest`, `TeammateIdle`,
-`FileChanged`, `WorktreeCreate`, `WorktreeRemove`, `Elicitation`,
-`ElicitationResult`.
+Not yet handled: `TeammateIdle` (experimental agent teams), `Elicitation`,
+`ElicitationResult` (MCP form input).
+
+> **async column.** "✓" means the matching `hooks.json` entry registers
+> the handler with `"async": true`, so it fires-and-forgets. Sync handlers
+> run on the critical path because their effect must be observed before
+> the next step (session ensure, permission decision, worktree path
+> resolution, child-session linking).
 
 ### StatusLine setup
 
@@ -167,11 +178,17 @@ lane, subtype, toolFamily, and operation are derived **server-side** inside
 | Matcher | File | Shared ops module | `kind` |
 |---------|------|-------------------|--------|
 | `Bash` | `PostToolUse/Bash.ts` | (inline) | `terminal.command` |
+| `PowerShell` | `PostToolUse/PowerShell.ts` | (inline) | `terminal.command` |
+| `BashOutput` | `PostToolUse/BashOutput.ts` | (inline) | `tool.used` |
+| `KillShell` | `PostToolUse/KillShell.ts` | (inline) | `tool.used` |
+| `Monitor` | `PostToolUse/Monitor.ts` | (inline) | `monitor.observed` |
 | `Edit` | `PostToolUse/Edit.ts` | `_file.ops.ts` | `tool.used` |
 | `Write` | `PostToolUse/Write.ts` | `_file.ops.ts` | `tool.used` |
+| `NotebookEdit` | `PostToolUse/NotebookEdit.ts` | `_file.ops.ts` | `tool.used` |
 | `Read` | `PostToolUse/Read.ts` | `_explore.ops.ts` | `tool.used` |
 | `Glob` | `PostToolUse/Glob.ts` | `_explore.ops.ts` | `tool.used` |
 | `Grep` | `PostToolUse/Grep.ts` | `_explore.ops.ts` | `tool.used` |
+| `LSP` | `PostToolUse/LSP.ts` | (inline) | `tool.used` |
 | `WebFetch` | `PostToolUse/WebFetch.ts` | `_explore.ops.ts` | `tool.used` |
 | `WebSearch` | `PostToolUse/WebSearch.ts` | `_explore.ops.ts` | `tool.used` |
 | `Agent` | `PostToolUse/Agent.ts` | `_agent.ops.ts` | `agent.activity.logged` |
@@ -179,9 +196,24 @@ lane, subtype, toolFamily, and operation are derived **server-side** inside
 | `TaskCreate` | `PostToolUse/TaskCreate.ts` | `_todo.ops.ts` | `todo.logged` (batch) |
 | `TaskUpdate` | `PostToolUse/TaskUpdate.ts` | `_todo.ops.ts` | `todo.logged` (batch) |
 | `TodoWrite` | `PostToolUse/TodoWrite.ts` | `_todo.ops.ts` | `todo.logged` (batch) |
-| `AskUserQuestion` | `PostToolUse/AskUserQuestion.ts` | `_explore.ops.ts` | `tool.used` |
-| `ExitPlanMode` | `PostToolUse/ExitPlanMode.ts` | `_explore.ops.ts` | `tool.used` |
+| `AskUserQuestion` | `PostToolUse/AskUserQuestion.ts` | `_explore.ops.ts` | `tool.used` (`question.logged`) |
+| `ExitPlanMode` | `PostToolUse/ExitPlanMode.ts` | `_explore.ops.ts` | `plan.logged` |
+| `EnterPlanMode \| EnterWorktree \| ExitWorktree` | `PostToolUse/ModeChange.ts` | (inline) | `context.saved` |
+| `CronCreate \| CronDelete \| CronList` | `PostToolUse/Cron.ts` | (inline) | `agent.activity.logged` |
+| `ToolSearch` | `PostToolUse/ToolSearch.ts` | (inline) | `tool.used` |
 | `mcp__.*` | `PostToolUse/Mcp.ts` | (inline) | `agent.activity.logged` |
+
+All `PostToolUse` matchers above are registered with `"async": true` in
+`hooks.json` since the handler only emits an event — the agent's main
+loop never waits on them.
+
+**Privacy contract.** Every PostToolUse handler reads `tool_input` only
+and ignores `tool_response`. Result bodies (stdout/stderr, file contents,
+web pages, MCP results, search result lists, grep snippets) are never
+collected — only quantitative wrappers like `commandAnalysis`,
+`readOffset/limit`, `webPrompt`, `webAllowedDomains`, etc. survive into
+the ingest event. See `packages/runtime/CLAUDE_DATA_FLOW.md` for the
+per-tool metadata fields.
 
 > Pre-v0.3 the handlers were grouped behind non-official matcher-group files
 > (`File.ts`, `Explore.ts`, `Todo.ts`). They were replaced with the per-tool

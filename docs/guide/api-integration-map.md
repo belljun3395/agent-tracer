@@ -36,12 +36,15 @@ bound task.
 | API | Role | Claude Code plugin | Manual runtime |
 |-----|------|-------------------|-----------------|
 | `/ingest/v1/conversation` | Record user input | `UserPromptSubmit` | Required |
-| `/ingest/v1/workflow` | Planning lane snapshot | `SessionStart`, `PreCompact`, `PostCompact`, `PostToolBatch`, `CwdChanged`, `Notification`, `ConfigChange` | Optional |
+| `/ingest/v1/events` (`user.prompt.expansion`) | Record slash-command / MCP-prompt expansion | `UserPromptExpansion` | Optional |
+| `/ingest/v1/workflow` | Planning lane snapshot | `SessionStart`, `Setup`, `PreCompact`, `PostCompact`, `PostToolBatch`, `CwdChanged`, `Notification`, `ConfigChange` | Optional |
+| `/ingest/v1/events` (`file.changed`) | Record changes to watched files (CLAUDE.md, .env, settings) | `FileChanged` | Optional |
+| `/ingest/v1/events` (`worktree.create` / `worktree.remove`) | Record worktree lifecycle | `WorktreeCreate`, `WorktreeRemove` | Optional |
 | `/ingest/v1/workflow` | Record loaded instruction files | `InstructionsLoaded` | Optional |
 | `/ingest/v1/workflow` | Record structured planning step | MCP/manual only | Optional |
 | `/ingest/v1/workflow` | Record agent action before execution | MCP/manual only; `SubagentStart`, `SubagentStop` also route here | Optional |
 | `/ingest/v1/workflow` | Record verification step result | MCP/manual only | Optional |
-| `/ingest/v1/events` or `/ingest/v1/workflow` | Record rule-related events | `PermissionDenied`, optional Codex `PermissionRequest` | Optional |
+| `/ingest/v1/events` or `/ingest/v1/workflow` | Record rule-related events | `PermissionDenied`, `PermissionRequest` (Claude + Codex) | Optional |
 | `/ingest/v1/conversation` | Record question flow | MCP/manual only | Optional |
 | `/ingest/v1/workflow` | Record summarized reasoning | MCP/manual only | Optional |
 
@@ -52,16 +55,19 @@ Claude's PostToolUse matcher is one-per-official-tool (see
 
 | API | Role | Claude Code plugin | Manual runtime |
 |-----|------|-------------------|-----------------|
-| `/ingest/v1/tool-activity` | Record implementation action | `PostToolUse(Edit)`, `PostToolUse(Write)`, `PostToolUse(Read)`, `PostToolUse(Glob)`, `PostToolUse(Grep)`, `PostToolUse(WebFetch)`, `PostToolUse(WebSearch)`, `PostToolUse(AskUserQuestion)`, `PostToolUse(ExitPlanMode)`, `PostToolUseFailure` | Required |
+| `/ingest/v1/tool-activity` | Record implementation action | `PostToolUse(Edit)`, `PostToolUse(Write)`, `PostToolUse(NotebookEdit)`, `PostToolUse(Read)`, `PostToolUse(Glob)`, `PostToolUse(Grep)`, `PostToolUse(LSP)`, `PostToolUse(WebFetch)`, `PostToolUse(WebSearch)`, `PostToolUse(AskUserQuestion)`, `PostToolUse(ExitPlanMode)`, `PostToolUse(EnterPlanMode\|EnterWorktree\|ExitWorktree)`, `PostToolUse(BashOutput)`, `PostToolUse(KillShell)`, `PostToolUse(ToolSearch)`, `PostToolUseFailure` | Required |
 | `/ingest/v1/tool-activity` | Record file/web exploration | (covered by the per-tool handlers above sharing `_explore.ops.ts`) | Required |
-| `/ingest/v1/tool-activity` | Record terminal command execution | `PostToolUse(Bash)`, Codex `PostToolUse(Bash)` | Use if bash-family tools exist |
+| `/ingest/v1/tool-activity` | Record terminal command execution | `PostToolUse(Bash)`, `PostToolUse(PowerShell)`, Codex `PostToolUse(Bash)` | Use if bash-family tools exist |
+| `/ingest/v1/events` (`monitor.observed`) | Record long-running watch (Monitor tool) | `PostToolUse(Monitor)` | Optional |
+| `/ingest/v1/tool-activity` | Record Codex `apply_patch` (alias `Edit` / `Write`) | Codex `PostToolUse(apply_patch)` + rollout cross-check | Use for Codex |
 | `/ingest/v1/workflow` | Record todo state changes | `PostToolUse(TaskCreate)`, `PostToolUse(TaskUpdate)`, `PostToolUse(TodoWrite)`, `TaskCreated`, `TaskCompleted` | Use if todo tools exist |
+| `/ingest/v1/coordination` | Record cron schedule lifecycle | `PostToolUse(CronCreate\|CronDelete\|CronList)` | Optional |
 
 ## Agent/Background
 
 | API | Role | Claude Code plugin | Manual runtime |
 |-----|------|-------------------|-----------------|
-| `/ingest/v1/coordination` | Record delegation/skill/MCP calls | `PostToolUse(Agent)`, `PostToolUse(Skill)`, `PostToolUse(mcp__*)` | Use if subagent or skill concept exists |
+| `/ingest/v1/coordination` | Record delegation/skill/MCP calls | `PostToolUse(Agent)`, `PostToolUse(Skill)`, `PostToolUse(mcp__*)`; Codex `PostToolUse(mcp__*)` + rollout cross-check | Use if subagent or skill concept exists |
 | `/ingest/v1/coordination` | Background task state | `SubagentStart`, `SubagentStop` | Use if background execution exists |
 | `/ingest/v1/tasks/link` | Link parent-child tasks | When child runtime session is acquired | Use if background lineage exists |
 

@@ -32,6 +32,47 @@ maintains per-session FS caches — every handler re-calls
 > v0.2.0 those files are no longer read or written. Safe to delete any
 > existing copies.
 
+### Async hooks
+
+Stateless event-emitting hooks (PostToolUse and its variants, PostToolBatch,
+PostToolUseFailure, Stop / StopFailure / SessionEnd, Notification, SubagentStop,
+TaskCreated / TaskCompleted, ConfigChange / CwdChanged / FileChanged,
+PreCompact / PostCompact, PermissionDenied, WorktreeRemove, UserPromptExpansion,
+InstructionsLoaded) are registered with `"async": true` so they fire-and-forget
+without blocking Claude Code's main loop.
+
+Sync hooks remain on the critical path because their result must be observed
+before the next step proceeds:
+
+- `PreToolUse` — must complete `/ingest/v1/sessions/ensure` before any
+  PostToolUse handler can post against the resolved IDs.
+- `SessionStart`, `UserPromptSubmit`, `SubagentStart` — same idempotent ensure
+  ordering.
+- `PermissionRequest` — sits in the user's permission decision flow.
+- `WorktreeCreate` — the docs allow it to influence the chosen worktree path
+  via stdout; we never write to stdout but keep the hook synchronous so the
+  plugin doesn't accidentally race the official path resolution.
+- `Setup` — runs once during `--init-only` / `--maintenance` and is treated
+  the same as SessionStart for ordering.
+
+### Privacy contract
+
+The plugin captures **action-side data only** — what the agent invoked, with
+which arguments — and never the **result body**. Specifically:
+
+- Every `PostToolUse` handler ignores `tool_response` entirely. No stdout,
+  stderr, file content, web response body, MCP tool result, search result
+  list, or grep match snippet ever leaves the host machine.
+- Tool inputs (commands, queries, prompts, file paths, offsets, glob filters,
+  domain allowlists, etc.) are captured because they describe the agent's
+  action.
+- Counts, byte sizes, or exit codes are also not stored — even quantitative
+  summaries of result bodies were considered out of scope.
+
+Verification of "did the agent do what it claimed" is therefore based on the
+sequence of observed actions plus any `tool.failed` / `PostToolUseFailure`
+signal, not on inspection of result content.
+
 ---
 
 ## Data origin legend
@@ -292,16 +333,22 @@ POST /ingest/v1/sessions/ensure
 
 **Claude Code provides [CC]:**
 ```
-session_id             — unique session identifier
-tool_name              — "Bash"
-tool_input.command     — the shell command that ran
-tool_input.description — human-readable description (optional)
+session_id                   — unique session identifier
+tool_name                    — "Bash"
+tool_input.command           — the shell command that ran
+tool_input.description       — human-readable description (optional)
+tool_input.timeout           — timeout in ms                  (optional)
+tool_input.run_in_background — async execution flag            (optional)
+tool_response                — IGNORED (privacy contract)
 ```
 
 **Plugin generates [GEN]:**
 ```
-title     — description || first 80 chars of command
-body      — "description\n\n$ command" or just command
+title         — description || first 80 chars of command
+body          — "description\n\n$ command" or just command
+filePaths     — file/path targets surfaced from commandAnalysis (e.g. `cat foo.ts`
+                produces ["foo.ts"], so it appears in the same filePaths array
+                as a Read event)
 ```
 
 **API call:**
@@ -309,9 +356,10 @@ body      — "description\n\n$ command" or just command
 POST /ingest/v1/events  { kind: "terminal.command", … }
   taskId    [ENSURE]
   sessionId [ENSURE]
-  lane      [GEN]   "exploration" | "implementation"
+  lane      [GEN]   "exploration" | "implementation" | "rule"
   title     [GEN]
   body      [GEN]
+  filePaths [GEN]   command-analysis target paths (omitted if none)
   metadata:
     evidenceLevel  [GEN]  "proven"
     evidenceReason [GEN]  "Observed directly by the Bash PostToolUse hook."
@@ -324,28 +372,40 @@ POST /ingest/v1/events  { kind: "terminal.command", … }
     entityName     [GEN]  first token of the command string
     sourceTool     [GEN]  "Bash"
     tags           [GEN]  normalised tag array (via withTags)
-    command        [CC]   tool_input.command
-    description    [CC]   tool_input.description  (omitted if absent)
-    toolUseId      [CC]   tool_use_id             (omitted if absent)
+    command         [CC]  tool_input.command
+    description     [CC]  tool_input.description       (omitted if absent)
+    timeoutMs       [CC]  tool_input.timeout           (omitted if absent)
+    runInBackground [CC]  tool_input.run_in_background (only when true)
+    commandAnalysis [GEN] structured analysis (steps, targets, effect, confidence)
+    toolUseId       [CC]  tool_use_id                  (omitted if absent)
 ```
 
 ---
 
-### 8. PostToolUse: Edit | Write → `PostToolUse/File.ts`
+### 8. PostToolUse: Edit | Write | NotebookEdit → `PostToolUse/_file.ops.ts`
+
+`Edit.ts`, `Write.ts`, and `NotebookEdit.ts` are thin wrappers around the
+shared `postFileToolEvent` builder.
 
 **Claude Code provides [CC]:**
 ```
-session_id             — unique session identifier
-tool_name              — "Edit" | "Write"
-tool_input.file_path   — target file path
-tool_input.content     — (Write) full file content
-tool_input.old_string  — (Edit) text being replaced
-tool_input.new_string  — (Edit) replacement text
+session_id                  — unique session identifier
+tool_name                   — "Edit" | "Write" | "NotebookEdit"
+tool_input.file_path        — (Edit/Write) target file path
+tool_input.notebook_path    — (NotebookEdit) target notebook path
+tool_input.content          — (Write) full file content
+tool_input.old_string       — (Edit) text being replaced
+tool_input.new_string       — (Edit) replacement text
+tool_input.replace_all      — (Edit) bulk replace flag           (optional)
+tool_input.cell_id          — (NotebookEdit) cell id              (optional)
+tool_input.new_source       — (NotebookEdit) replacement source
+tool_input.edit_mode        — (NotebookEdit) edit mode            (optional)
+tool_response               — IGNORED (privacy contract)
 ```
 
 **Plugin generates [GEN]:**
 ```
-title    — "<toolName>: <filename>"  (basename of file_path)
+title    — "<toolName>: <filename>"  (basename of file_path / notebook_path)
 body     — "Modified <relPath>"
 relPath  — file_path relative to $CLAUDE_PROJECT_DIR
 ```
@@ -359,31 +419,52 @@ POST /ingest/v1/events  { kind: "tool.used", … }
   toolName  [CC]    tool_name
   title     [GEN]
   body      [GEN]
-  filePaths [CC]    [tool_input.file_path]
+  filePaths [CC]    [tool_input.file_path | tool_input.notebook_path]
   metadata:
     # … shared semantic block (inferFileToolSemantic) …
     # subtypeKey: "create_file" | "modify_file" | "apply_patch" | "rename_file" | "delete_file"
     # toolFamily: "file"  subtypeGroup: "file_ops"
-    filePath  [CC]  tool_input.file_path
-    relPath   [GEN] path relative to project root
-    toolUseId [CC]  tool_use_id  (omitted if absent)
+    filePath        [CC]  resolved file_path / notebook_path
+    relPath         [GEN] path relative to project root
+    editReplaceAll  [CC]  tool_input.replace_all  (Edit only, when true)
+    toolUseId       [CC]  tool_use_id             (omitted if absent)
 ```
 
 ---
 
-### 9. PostToolUse: Read | Glob | Grep | WebSearch | WebFetch → `PostToolUse/Explore.ts`
+### 9. PostToolUse: Read | Glob | Grep | WebSearch | WebFetch → `PostToolUse/_explore.ops.ts`
+
+`Read.ts`, `Glob.ts`, `Grep.ts`, `WebSearch.ts`, `WebFetch.ts` are thin
+wrappers around the shared `postExploreToolEvent` builder.
+`AskUserQuestion.ts` and `ExitPlanMode.ts` also enter the same dispatcher
+but route to product-level question/plan events instead.
 
 **Claude Code provides [CC]:**
 ```
-session_id    — unique session identifier
-tool_name     — "Read" | "Glob" | "Grep" | "WebSearch" | "WebFetch"
-tool_input    — tool-specific fields (file_path, pattern, query, url, …)
+session_id                            — unique session identifier
+tool_name                             — "Read" | "Glob" | "Grep" | "WebSearch" | "WebFetch"
+tool_input.file_path                  — (Read)  target path
+tool_input.offset                     — (Read)  start line                   (optional)
+tool_input.limit                      — (Read)  number of lines              (optional)
+tool_input.pattern                    — (Glob/Grep) glob pattern / regex
+tool_input.path                       — (Glob/Grep) directory to search       (optional)
+tool_input.glob                       — (Grep) filename filter                (optional)
+tool_input.output_mode                — (Grep) "content"|"files_with_matches"|"count"
+tool_input["-i"]                      — (Grep) case-insensitive flag          (optional)
+tool_input.multiline                  — (Grep) multiline flag                 (optional)
+tool_input.query                      — (WebSearch) query
+tool_input.allowed_domains            — (WebSearch) string[]                  (optional)
+tool_input.blocked_domains            — (WebSearch) string[]                  (optional)
+tool_input.url                        — (WebFetch) target URL
+tool_input.prompt                     — (WebFetch) extraction prompt
+tool_response                         — IGNORED (privacy contract)
 ```
 
 **Plugin generates [GEN]:**
 ```
-title    — tool-specific summary ("Read: filename", "Grep: pattern", …)
-body     — human description of the operation
+title — tool-specific summary ("Read: filename (lines 30–49)",
+        "Grep: pattern [content]", "WebFetch: url", …)
+body  — human description of the operation
 ```
 
 **API call:**
@@ -400,26 +481,43 @@ POST /ingest/v1/events  { kind: "tool.used", … }
     # … shared semantic block (inferExploreSemantic) …
     # subtypeKey: "read_file" | "glob_files" | "grep_code" | "web_fetch" | "web_search" | "list_files"
     # toolFamily: "explore"  subtypeGroup: "files" | "search" | "web"
-    toolInput  [CC]  stringified tool_input object
-    webUrls    [CC]  [url | query]  (only for WebFetch/WebSearch)
-    toolUseId  [CC]  tool_use_id  (omitted if absent)
+    toolInput            [CC] sanitised tool_input object
+    webUrls              [CC] [url | query]                (only for WebFetch/WebSearch)
+    readOffset           [CC] tool_input.offset            (Read)
+    readLimit            [CC] tool_input.limit             (Read)
+    searchPattern        [CC] tool_input.pattern           (Glob/Grep)
+    searchPath           [CC] tool_input.path              (Glob/Grep)
+    searchGlob           [CC] tool_input.glob              (Grep)
+    grepOutputMode       [CC] tool_input.output_mode       (Grep)
+    grepCaseInsensitive  [CC] tool_input["-i"]             (Grep, when true)
+    grepMultiline        [CC] tool_input.multiline         (Grep, when true)
+    webQuery             [CC] tool_input.query | url       (WebSearch/WebFetch)
+    webPrompt            [CC] tool_input.prompt            (WebFetch)
+    webAllowedDomains    [CC] tool_input.allowed_domains   (WebSearch)
+    webBlockedDomains    [CC] tool_input.blocked_domains   (WebSearch)
+    toolUseId            [CC] tool_use_id                  (omitted if absent)
 ```
 
 ---
 
-### 10. PostToolUse: Agent | Skill → `PostToolUse/Agent.ts`
+### 10. PostToolUse: Agent | Skill → `PostToolUse/_agent.ops.ts`
+
+`Agent.ts` and `Skill.ts` are thin wrappers around the shared
+`postAgentEvent` / `postSkillEvent` builders.
 
 **Claude Code provides [CC]:**
 ```
-session_id                 — unique session identifier
-tool_name                  — "Agent" | "Skill"
-tool_input.prompt          — (Agent) task description
-tool_input.description     — (Agent) short description
-tool_input.subagent_type   — (Agent) named agent type
+session_id                   — unique session identifier
+tool_name                    — "Agent" | "Skill"
+tool_input.prompt            — (Agent) task description
+tool_input.description       — (Agent) short description
+tool_input.subagent_type     — (Agent) named agent type
+tool_input.model             — (Agent) model override         (optional)
 tool_input.run_in_background — (Agent) async flag
-tool_input.skill           — (Skill) skill name
-tool_input.args            — (Skill) arguments
-tool_response              — (Agent, background) contains child session_id
+tool_input.skill             — (Skill) skill name
+tool_input.args              — (Skill) arguments
+tool_response                — (Agent, background) parsed for child session_id;
+                                otherwise IGNORED (privacy contract)
 ```
 
 **Plugin generates [GEN]:**
@@ -443,8 +541,10 @@ POST /ingest/v1/events  { kind: "agent.activity.logged", … }
   metadata:
     # … shared semantic block (inferAgentSemantic / inferSkillSemantic) …
     # subtypeKey: "delegation" | "skill_use"  toolFamily: "coordination"
-    toolInput  [CC]  stringified tool_input object
-    toolUseId  [CC]  tool_use_id               (omitted if absent)
+    toolInput              [CC] sanitised tool_input object
+    agentModel             [CC] tool_input.model              (Agent, optional)
+    agentRunInBackground   [CC] tool_input.run_in_background  (Agent, when true)
+    toolUseId              [CC] tool_use_id                   (omitted if absent)
 
 # Background agents only: create child runtime session with parent linkage
 POST /ingest/v1/sessions/ensure
@@ -454,6 +554,32 @@ POST /ingest/v1/sessions/ensure
   parentSessionId  [ENSURE] parent monitor session ID
   (no metadata object)
 ```
+
+---
+
+### 10b. PostToolUse — extended tool matchers
+
+Beyond the original Bash/file/explore/agent/MCP matchers, the plugin
+subscribes to additional Claude Code built-in tools. Most are thin
+specialised handlers reusing the existing semantic infrastructure; a few
+introduce new event KINDs.
+
+| Matcher | Handler | Event KIND | Lane | Notes |
+|---|---|---|---|---|
+| `LSP` | `LSP.ts` | `tool.used` (subtype `grep_code` w/ `lsp_*` operation) | `exploration` | Code intelligence (jump-to-def, find-references, type info). Higher-quality "agent really understood the code" signal than Read/Grep |
+| `Monitor` | `Monitor.ts` | `monitor.observed` (new) | `background` | Long-running watch script; emits a dedicated KIND so the dashboard can surface it as a standing watch |
+| `BashOutput` | `BashOutput.ts` | `tool.used` | `exploration` | Read incremental output of a background shell |
+| `KillShell` | `KillShell.ts` | `tool.used` | `implementation` | Terminate background shell |
+| `PowerShell` | `PowerShell.ts` | `terminal.command` | inferred | Same `inferCommandSemantic` as Bash, `sourceTool: "PowerShell"` |
+| `CronCreate` / `CronDelete` / `CronList` | `Cron.ts` | `agent.activity.logged` | `coordination` | Scheduled prompt lifecycle |
+| `EnterPlanMode` / `EnterWorktree` / `ExitWorktree` | `ModeChange.ts` | `context.saved` | `planning` / `background` | Mode transitions; metadata `trigger: "mode_change:<toolName>"` |
+| `ToolSearch` | `ToolSearch.ts` | `tool.used` (subtype `list_files`) | `exploration` | Deferred MCP tool discovery — captures the search query |
+
+All extended matchers honour the same privacy contract: `tool_response` is
+never read.
+
+The `PostToolUseFailure` matcher regex is widened to cover all of the above
+so failures of new tools are still recorded.
 
 ---
 
@@ -537,7 +663,9 @@ POST /ingest/v1/workflow
 
 ### 13. PostToolUseFailure (all matched tools) → `PostToolUseFailure.ts`
 
-Fires when any matched tool fails. Matcher: `Bash|Edit|Write|Agent|Skill|TaskCreate|TaskUpdate|TodoWrite|mcp__.*`
+Fires when any matched tool fails. Matcher widened to cover the extended
+matcher set:
+`Bash|PowerShell|BashOutput|KillShell|Monitor|Edit|Write|NotebookEdit|Read|Glob|Grep|LSP|WebFetch|WebSearch|Agent|Skill|TaskCreate|TaskUpdate|TodoWrite|AskUserQuestion|ExitPlanMode|EnterPlanMode|EnterWorktree|ExitWorktree|CronCreate|CronDelete|CronList|ToolSearch|mcp__.*`
 
 **Claude Code provides [CC]:**
 ```
@@ -632,6 +760,176 @@ registry file.
 
 ---
 
+## Extended lifecycle hooks
+
+These hooks were added to widen the verification surface beyond tool calls.
+
+### UserPromptExpansion → `UserPromptExpansion.ts`
+
+Fires when a user-typed slash command (or MCP prompt) expands into a full
+prompt before Claude processes it. Without this hook the tracer only sees
+`/foo` and not what `/foo` actually told Claude to do — high-value signal
+for verification.
+
+**Claude Code provides [CC]:**
+```
+session_id       — unique session identifier
+expansion_type   — "slash_command" | "mcp_prompt"
+command_name     — slash command or MCP prompt name
+command_args     — command arguments (optional)
+command_source   — origin of the command (optional)
+prompt           — full expanded prompt text
+```
+
+**Plugin generates [GEN]:**
+```
+title — "Slash: /<commandName> <args>"  (truncated to 200 chars)
+body  — first 2 KB of expanded prompt (truncated marker if larger)
+```
+
+**API call:**
+```
+POST /ingest/v1/events  { kind: "user.prompt.expansion", … }
+  taskId    [ENSURE]
+  sessionId [ENSURE]
+  lane      [GEN]   "user"
+  title     [GEN]
+  body      [GEN]
+  metadata:
+    evidenceLevel          [GEN] "proven"
+    evidenceReason         [GEN] "Observed directly by the UserPromptExpansion hook."
+    expansionType          [CC]  expansion_type
+    commandName            [CC]  command_name
+    commandArgs            [CC]  command_args   (omitted if absent)
+    commandSource          [CC]  command_source (omitted if absent)
+    expandedPromptSnippet  [GEN] first 2 KB of prompt (with "…" if truncated)
+    expandedPromptBytes    [GEN] utf-8 byte length of full prompt
+```
+
+---
+
+### PermissionRequest → `PermissionRequest.ts`
+
+Fires when a permission dialog is about to show to the user. Records that
+the agent attempted X and the user had to approve it. The handler always
+returns exit 0 with no JSON output — it never overrides the user's choice.
+
+**Claude Code provides [CC]:**
+```
+session_id              — unique session identifier
+tool_name               — tool that triggered the dialog
+tool_input              — JSON of the tool's pending arguments
+tool_use_id             — tool-call id (optional)
+permission_suggestions  — array of auto-suggested rules to add
+```
+
+**API call:**
+```
+POST /ingest/v1/events  { kind: "permission.request", … }
+  taskId    [ENSURE]
+  sessionId [ENSURE]
+  lane      [GEN]   "coordination"
+  title     [GEN]   "Permission requested: <toolName>"
+  body      [GEN]   first 400 chars of stringified tool_input
+  metadata:
+    evidenceLevel    [GEN] "proven"
+    evidenceReason   [GEN] "Observed directly by the PermissionRequest hook."
+    toolName         [CC]  tool_name
+    toolUseId        [CC]  tool_use_id          (omitted if absent)
+    toolInputSummary [GEN] capped tool_input string (omitted if empty)
+    suggestionCount  [CC]  permission_suggestions.length
+```
+
+---
+
+### FileChanged → `FileChanged.ts`
+
+Fires when a watched file changes on disk. Matcher in `hooks.json` uses
+literal pipe-separated filenames (NOT regex):
+`CLAUDE.md|.env|.envrc|.claude/settings.json|.claude/settings.local.json`.
+
+**Claude Code provides [CC]:**
+```
+session_id       — unique session identifier
+file_path        — path to the changed file
+```
+
+**API call:**
+```
+POST /ingest/v1/events  { kind: "file.changed", … }
+  taskId    [ENSURE]
+  sessionId [ENSURE]
+  lane      [GEN]   "background"
+  title     [GEN]   "File changed: <basename>"
+  body      [GEN]   relPath || file_path
+  filePaths [CC]    [file_path]
+  metadata:
+    evidenceLevel  [GEN] "proven"
+    evidenceReason [GEN] "Observed directly by the FileChanged hook."
+    filePath       [CC]  file_path
+    relPath        [GEN] file_path relative to project root  (omitted if equal)
+```
+
+---
+
+### WorktreeCreate / WorktreeRemove → `WorktreeCreate.ts` / `WorktreeRemove.ts`
+
+Fires when a worktree is created or removed (e.g. via `--worktree` or
+`isolation: "worktree"`). The handlers are purely observational — they do
+not write to stdout, so the official path resolution wins.
+
+**Claude Code provides [CC]:**
+```
+session_id       — unique session identifier
+worktree_path    — target / removed worktree directory
+```
+
+**API call:**
+```
+POST /ingest/v1/events  { kind: "worktree.create" | "worktree.remove", … }
+  taskId    [ENSURE]
+  sessionId [ENSURE]
+  lane      [GEN]   "background"
+  title     [GEN]   "Worktree <created|removed>: <basename>"
+  body      [GEN]   relPath || worktree_path
+  metadata:
+    evidenceLevel   [GEN] "proven"
+    evidenceReason  [GEN] "Observed directly by the WorktreeCreate|Remove hook."
+    worktreePath    [CC]  worktree_path
+    relPath         [GEN] relative to project root            (omitted if equal)
+    worktreeAction  [GEN] "create" | "remove"
+```
+
+---
+
+### Setup → `Setup.ts`
+
+Fires when Claude Code is invoked with `--init-only`, `--init -p`, or
+`--maintenance -p`. Captured as the "tracer first wired up to this project"
+timestamp.
+
+**Claude Code provides [CC]:**
+```
+session_id  — unique session identifier
+trigger     — "init" | "maintenance"
+```
+
+**API call:**
+```
+POST /ingest/v1/events  { kind: "setup.triggered", … }
+  taskId    [ENSURE]
+  sessionId [ENSURE]
+  lane      [GEN]   "planning"
+  title     [GEN]   "Setup: init" | "Setup: maintenance"
+  body      [GEN]   "Claude Code setup triggered (<trigger>)."
+  metadata:
+    evidenceLevel  [GEN] "proven"
+    evidenceReason [GEN] "Observed directly by the Setup hook."
+    trigger        [CC]  trigger
+```
+
+---
+
 ## Compaction lifecycle
 
 ### PreCompact / PostCompact → `PreCompact.ts` / `PostCompact.ts`
@@ -682,7 +980,7 @@ hooks/
 │   ├── paths.const.ts            # PROJECT_DIR, CLAUDE_RUNTIME_SOURCE, TRANSCRIPT_CURSOR_DIR
 │   ├── paths.ts                  # defaultTaskTitle, relativeProjectPath
 │   ├── payload.ts                # getToolInput, getSessionId, parseMcpToolName, …
-│   ├── utils.ts                  # isRecord, toTrimmedString, ellipsize, createMessageId, …
+│   ├── utils.ts                  # isRecord, toTrimmedString, toBoolean, ellipsize, createMessageId, …
 │   └── json-file.store.ts        # atomic JSON read/write/delete
 ├── lib/                          # infrastructure: I/O, logging, HTTP transport
 │   ├── hook/
@@ -693,25 +991,65 @@ hooks/
 ├── Agent/
 │   └── session.ts                # resolveEventSessionIds, resolveSubagentSessionIds, resolveBackgroundSessionIds
 ├── SessionStart.ts
+├── Setup.ts                      # init|maintenance triggers
 ├── UserPromptSubmit.ts
+├── UserPromptExpansion.ts        # /<slash> expansion capture
 ├── PreToolUse.ts
-├── PostToolUse/                  # one file per tool matcher; add new matchers here
+├── PermissionRequest.ts          # permission-dialog observation
+├── PostToolUse/                  # one file per tool matcher
+│   ├── _shared.ts                # runPostToolUseHook + postTaggedEvent helpers
 │   ├── Bash.ts
-│   ├── File.ts                   # Edit | Write
-│   ├── Explore.ts                # Read | Glob | Grep | WebSearch | WebFetch
-│   ├── Agent.ts                  # Agent | Skill
+│   ├── PowerShell.ts             # Windows shell — same semantic as Bash
+│   ├── BashOutput.ts             # background shell read
+│   ├── KillShell.ts              # background shell terminate
+│   ├── Monitor.ts                # long-running watch (kind: monitor.observed)
+│   ├── _file.ops.ts              # shared Edit|Write|NotebookEdit builder
+│   ├── Edit.ts
+│   ├── Write.ts
+│   ├── NotebookEdit.ts
+│   ├── Read.ts
+│   ├── Glob.ts
+│   ├── Grep.ts
+│   ├── LSP.ts                    # code-intel exploration
+│   ├── WebFetch.ts
+│   ├── WebSearch.ts
+│   ├── _explore.ops.ts           # shared Read|Glob|Grep|Web*|AskUserQuestion|ExitPlanMode builder
+│   ├── AskUserQuestion.ts
+│   ├── ExitPlanMode.ts
+│   ├── ModeChange.ts             # EnterPlanMode|EnterWorktree|ExitWorktree
+│   ├── _agent.ops.ts             # shared Agent|Skill builder
+│   ├── Agent.ts
+│   ├── Skill.ts
+│   ├── Cron.ts                   # CronCreate|CronDelete|CronList
+│   ├── ToolSearch.ts             # deferred tool discovery
 │   ├── Todo/
-│   │   ├── Todo.ts               # TaskCreate | TaskUpdate | TodoWrite
-│   │   └── todo.state.ts         # TodoWrite state tracking
+│   │   ├── todo.state.ts         # TodoWrite state tracking
+│   │   └── todo.state.type.ts
+│   ├── _todo.ops.ts              # shared TaskCreate|TaskUpdate|TodoWrite builder
+│   ├── TaskCreate.ts
+│   ├── TaskUpdate.ts
+│   ├── TodoWrite.ts
 │   └── Mcp.ts                    # mcp__.*
 ├── PostToolUseFailure.ts
+├── PostToolBatch.ts
+├── PermissionDenied.ts
 ├── SubagentStart.ts
 ├── SubagentStop.ts
 ├── InstructionsLoaded.ts
+├── ConfigChange.ts
+├── CwdChanged.ts
+├── FileChanged.ts                # watched-file disk change
+├── WorktreeCreate.ts
+├── WorktreeRemove.ts
+├── Notification.ts
 ├── PreCompact.ts
 ├── PostCompact.ts
-├── SessionEnd.ts
-└── Stop.ts
+├── TaskCreated.ts
+├── TaskCompleted.ts
+├── StatusLine.ts
+├── Stop.ts
+├── StopFailure.ts
+└── SessionEnd.ts
 ```
 
 > `util/` and `lib/` are excluded from `tsconfig.json` direct analysis
@@ -730,4 +1068,7 @@ hooks/
 - Never writes to stdout (no `hookSpecificOutput`, no `additionalContext`)
 - Never exits with code 2 (never blocks Claude Code)
 - Never modifies tool input (`updatedInput`)
+- Never reads `tool_response` — see the privacy contract above. Result
+  bodies (stdout, stderr, file content, web responses, MCP results, search
+  result lists, grep snippets) are never collected.
 - All monitoring is purely observational — Claude Code's behavior is unaffected

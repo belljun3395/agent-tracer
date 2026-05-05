@@ -51,29 +51,40 @@ hook command. No extra wrapper is required for the normal interactive path.
 
 ### What this captures today
 
-The default external setup registers five Codex hook events:
+The default external setup registers all six official Codex hook events:
 
 - `SessionStart` -> `context.saved`
 - `UserPromptSubmit` -> `user.message`
-- `PreToolUse` (`Bash` only) -> runtime-session-ensure (session guarantee)
-- `PostToolUse` (`Bash` only) -> `terminal.command`
+- `PreToolUse` (matcher `Bash|apply_patch|Edit|Write`) -> runtime-session-ensure (session guarantee)
+- `PostToolUse(Bash)` -> `terminal.command`
+- `PostToolUse(apply_patch|Edit|Write)` -> `tool.used` (handled by `PostToolUse/ApplyPatch.ts`)
+- `PostToolUse(mcp__.*)` -> `agent.activity.logged` (handled by `PostToolUse/Mcp.ts`)
+- `PermissionRequest` -> `permission.request`
 - `Stop` -> `assistant.response`
 
-`packages/runtime/src/codex/hooks/PermissionRequest.ts` also exists and records
-`rule.logged` for Bash permission requests, but `setup:external` does not add it
-to `.codex/hooks.json` by default. Add it manually only if you want that
-observation-only event; Agent Tracer never sets `decision.behavior`.
+The rollout observer also runs in parallel (spawned by `SessionStart`) and
+emits the same `apply_patch` / `mcp__*` events with a `crossCheck.source = "rollout"`
+marker so the server can merge the two sources by `dedupeKey`. WebSearch
+remains rollout-only (Codex has no web hook):
 
-Plus rollout-backed coverage (observer process):
-
-- rollout `response_item.custom_tool_call(apply_patch)` -> `tool.used`
-- rollout `response_item.function_call(mcp__...)` -> `agent.activity.logged`
+- rollout `response_item.custom_tool_call(apply_patch)` -> `tool.used` (cross-check)
+- rollout `response_item.function_call(mcp__...)` -> `agent.activity.logged` (cross-check)
 - rollout `response_item.web_search_call` -> `tool.used`
+- rollout `event_msg.token_count` / `turn_context` -> `context.snapshot`
 
 The hook handlers use the shared `runHook()` wrapper and the typed payload
 readers at `packages/runtime/src/shared/hooks/codex/payloads.ts`. Turn-scoped
 events capture the official `turn_id` and `model` fields when Codex includes
 them in the payload.
+
+### Privacy contract
+
+Every Codex PostToolUse handler reads `tool_input` only and ignores
+`tool_response`. The rollout observer parses `apply_patch.input` solely
+to extract touched file paths from the patch headers
+(`*** Add File:` / `*** Update File:` / `*** Delete File:` / `*** Move to:`);
+the diff body itself is never stored. No stdout, stderr, file content, web
+response, MCP result, or search result list ever leaves the host machine.
 
 ## 4. Current capture scope
 
@@ -83,11 +94,13 @@ Default events that can be captured:
 
 - `context.saved`
 - `user.message`
-- `terminal.command` (`Bash` only)
+- `terminal.command` (`Bash`)
 - `assistant.response`
-- `tool.used` (`apply_patch`, web search/fetch via rollout)
-- `agent.activity.logged` (MCP calls via rollout)
-- `rule.logged` only if the optional `PermissionRequest` hook is added manually
+- `tool.used` for `apply_patch` / `Edit` / `Write` aliases (PostToolUse hook + rollout cross-check)
+- `tool.used` for web search/fetch (rollout only — Codex has no web hook yet)
+- `agent.activity.logged` for MCP calls (PostToolUse hook + rollout cross-check)
+- `permission.request` for permission dialogs (PermissionRequest hook)
+- `context.snapshot` for token / rate-limit / turn telemetry (rollout observer)
 
 In other words, this stage focuses on capturing the baseline activity of users
 who run Codex normally with `codex`.
@@ -99,13 +112,18 @@ Verify the setup in this order:
 1. Run `codex` in the target project
 2. Submit one short prompt
 3. Trigger one Bash command
-4. Confirm the following events in the dashboard
+4. Optionally let Codex apply a patch and call an MCP tool
+5. Confirm the following events in the dashboard
    - `context.saved`
    - `user.message`
    - `terminal.command`
    - `assistant.response`
-   - `tool.used` if Codex used `apply_patch` or web search/fetch
-   - `agent.activity.logged` if Codex used an MCP tool
+   - `tool.used` if Codex used `apply_patch` or web search/fetch — for
+     `apply_patch` you should see one merged event (hook + rollout) with
+     `metadata.crossCheck.merged: true`
+   - `agent.activity.logged` if Codex used an MCP tool — also merged via
+     `crossCheck`
+   - `permission.request` if Codex hit a permission prompt
 
 ## 5. Context / model observer
 
