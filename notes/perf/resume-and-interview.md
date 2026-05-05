@@ -272,16 +272,14 @@ Agent Tracer가 self-hosted 단일 사용자 도구라면 적용 안 해도 됨 
 4. 모든 측정에 `failures: 0` / `server 5xx: 0` 검증 (빨리 실패해서 latency가 낮아진 게 아님을 보장)
 5. Prometheus의 `up{job="agent-tracer-server"} == 1` 게이트를 측정 시작 전 통과하지 못하면 측정 자체 실패
 
-**한계**:
-- iteration n=50, run n=3은 작은 표본입니다. 100ms 단위 차이는 의미 있지만, 1–2 ms 단위 차이 (예: phase2-bun-js 43.73 vs phase2-3 41.93)를 통계적으로 단정하기엔 부족합니다.
-- `--cpus=1.0`은 Docker CFS bandwidth의 soft cap이라 측정에서 CPU max가 105 %를 보이는 등 격리가 hard limit은 아닙니다.
-- baseline이 phase 측정마다 14 ms 폭으로 변동했습니다 (250.94 vs 264.96 등). phase별 절대 비교 시 분모가 다른 셈이라, **phase 내부의 AS-IS↔TO-BE 비교는 fair**하지만 phase 간 횡단 비교는 baseline 정규화가 없습니다.
-
-이 한계들은 다음 측정 round에서 iteration / run 수를 키워서 해결할 계획입니다.
+**한계 → 후속 round에서 어떻게 해결했나**:
+- 첫 round의 iteration n=50, run n=3은 작은 표본이었습니다. 1–2 ms 단위 차이 (예: phase2-bun-js 43.73 vs phase2-3 41.93 처럼 보였던 것)를 통계적으로 단정하기엔 부족했습니다. **후속 round에서 n=200 × 5 runs로 확대해 측정**했고, mean ± stddev로 안정성을 확인했습니다 (§3.1 표 참조). 그 결과 phase2-bun-js와 phase2-3의 latency 차이는 noise였음을 확인하고 권장 구성을 phase2-bun-js로 변경했습니다.
+- `--cpus=1.0`은 Docker CFS bandwidth의 soft cap이라 측정에서 CPU max가 ~105 %를 보이는 등 격리가 hard limit은 아닙니다. cgroup v2 hard limit은 다음 round 후보.
+- baseline이 phase 측정마다 ~14 ms 폭으로 변동 (sweep 첫 phase의 cold-cache 영향). phase 내부의 AS-IS↔TO-BE 비교는 fair, 횡단 비교는 normalize 안 됨.
 
 **Q16. 왜 p99을 봤나요? 평균만 보면 안 되나요?**
 
-사용자 체감 latency는 tail latency에 민감합니다. 다만 솔직히 한계도 있습니다 — **iteration 50으로 측정한 p99은 49.5번째 sample 정도이고 사실상 max에 가깝습니다**. 그래서 p99이 outlier 한 개에 휘둘릴 수 있고, p95이 더 robust한 통계입니다. 결과 JSON에는 p50/p95/p99/max를 모두 기록했고, 이력서에서 p99을 강조한 건 절대 차이가 컸기 때문이지 그게 가장 robust한 통계라서가 아닙니다. 다음 round에서 iteration을 늘리면 p99 신뢰도 자체가 올라갑니다.
+사용자 체감 latency는 tail latency에 민감합니다. 다만 솔직히 한계가 있었습니다 — **첫 round의 iteration 50으로 측정한 p99은 49.5번째 sample 정도이고 사실상 max에 가깝습니다**. 그래서 p99이 outlier 한 개에 휘둘릴 수 있고, p95이 더 robust한 통계입니다. 결과 JSON에는 p50/p95/p99/max를 모두 기록했고, 이력서에서 p99을 강조한 건 절대 차이가 컸기 때문이지 그게 가장 robust한 통계라서가 아닙니다. **후속 round에서 n=200으로 늘려 p99 신뢰도가 올라갔고** (제198 sample), 이전에 noise에 묻혀있던 1–2 ms 차이가 통계적으로 구별되는지도 확인 가능해졌습니다.
 
 **Q17. 왜 `notes/perf/`에 두고 `docs/`에 안 뒀나요?**
 
