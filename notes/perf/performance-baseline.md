@@ -4,29 +4,44 @@
 
 ## AS-IS Baseline
 
-> **Status: DONE** — 2026-05-03, Docker project `agent-tracer-bench`
+> **Status: DONE** — 2026-05-05 재측정 (n=200, 5 runs × 5 phases = 25 baseline 측정)
 >
 > ```bash
-> node scripts/benchmark-phases-docker.mjs \
->   --iterations 50 --warmup 10 --concurrency 1 \
->   --cpus 1.0 --memory 256m
+> bash scripts/run-all-phases.sh 5 200 20
 > ```
 
-환경: Docker project `agent-tracer-bench`, server `cpus: 1.0 / mem_limit: 512m`, 벤치마크 컨테이너 `--cpus=1.0 / --memory=256m`, 훅 × 50 iterations + 10 warmup, concurrency 1.
+환경: Docker project `agent-tracer-bench`, server `cpus: 1.0 / mem_limit: 512m`, 벤치마크 컨테이너 `--cpus=1.0 / --memory=256m`, 훅 × 200 iterations + 20 warmup, concurrency 1.
 
-### Hook Wall-Clock p99 (ms)
+### Hook Wall-Clock p99 (ms) — 가장 안정적인 baseline (phase2-3 sweep 5 runs median)
 
 | Variant | `SessionStart` | `StatusLine` | `PreToolUse` | `UserPromptSubmit` | `PostToolUse/Bash` | Avg p99 |
 |---|---:|---:|---:|---:|---:|---:|
-| node + tsx + HTTP | 252.97 | 248.31 | 298.32 | 697.52 | 918.01 | 483.03 |
+| node + tsx + HTTP | 251.4 | 242.7 | 203.9 | 204.9 | 245.6 | **229.67** |
 
-### Container Resource & Server
+### 5개 phase sweep 전체 baseline 분포
+
+n=200, 각 phase별 5 runs median 기준:
+
+| 측정 시점 (phase 순회) | Avg p99 baseline (ms) |
+|---|---:|
+| phase2-node-js | 287.54 |
+| phase2-bun-ts | 234.37 |
+| phase2-bun-js | 234.62 |
+| phase3-daemon-uds | 230.61 |
+| phase2-3-bun-js-daemon | 229.67 |
+| **mean ± stddev** | **243.36 ± 24.76** |
+
+> phase2-node-js 287.54는 sweep 첫 phase의 cold-cache 영향이 포함된 값.
+> 이후 4 phase는 230 ± 3 ms로 매우 일관됨.
+
+### Container Resource & Server (phase2-3 baseline 기준)
 
 | Variant | CPU avg/max (%) | Memory avg/max (MiB) | `/sessions/ensure` p99 (ms) | `/workflow` p99 (ms) | `/tool-activity` p99 (ms) | 5xx | Event loop p99 (s) | V8 heap (MiB) |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| node + tsx + HTTP | 96.42 / 105.61 | 65.37 / 103.60 | 13.75 | 9.98 | 45.00 | 0 | 0.01 | 45.28 |
+| node + tsx + HTTP | 99.93 / 103.46 | 71.43 / 106.90 | 9.89 | 9.91 | 9.97 | 0 | 0.02 | 52.13 |
 
-Artifact: `observability/results/docker-phase-bench/2026-05-03T15-38-26-395Z/`
+Sweep artifact: `observability/results/sweep-2026-05-05T02-40-03Z/`
+Median run artifacts (per-phase): 각 `*.log` 파일 끝의 `Median artifact:` 라인 참조.
 
 ---
 
