@@ -67,6 +67,13 @@ export const KIND = {
     instructionsLoaded: "instructions.loaded",
     tokenUsage: "token.usage",
     contextSnapshot: "context.snapshot",
+    userPromptExpansion: "user.prompt.expansion",
+    fileChanged: "file.changed",
+    worktreeCreate: "worktree.create",
+    worktreeRemove: "worktree.remove",
+    permissionRequest: "permission.request",
+    setupTriggered: "setup.triggered",
+    monitorObserved: "monitor.observed",
 } as const;
 
 export const INGEST_ENDPOINTS = {

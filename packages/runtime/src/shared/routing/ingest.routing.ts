@@ -1,7 +1,7 @@
 import { INGEST_ENDPOINTS, KIND } from "../events/kinds.const.js"
 import type { IngestEndpoint, RuntimeIngestEventKind } from "../events/kinds.type.js"
 
-export const TOOL_ACTIVITY_EVENT_KINDS = [KIND.toolUsed, KIND.terminalCommand] as const;
+export const TOOL_ACTIVITY_EVENT_KINDS = [KIND.toolUsed, KIND.terminalCommand, KIND.monitorObserved] as const;
 export const WORKFLOW_EVENT_KINDS = [
     KIND.planLogged,
     KIND.actionLogged,
@@ -11,9 +11,17 @@ export const WORKFLOW_EVENT_KINDS = [
     KIND.contextSaved,
     KIND.contextSnapshot,
 ] as const;
-export const CONVERSATION_EVENT_KINDS = [KIND.userMessage, KIND.assistantResponse, KIND.questionLogged, KIND.todoLogged] as const;
+export const CONVERSATION_EVENT_KINDS = [KIND.userMessage, KIND.assistantResponse, KIND.questionLogged, KIND.todoLogged, KIND.userPromptExpansion] as const;
 export const COORDINATION_EVENT_KINDS = [KIND.agentActivityLogged] as const;
-export const LIFECYCLE_EVENT_KINDS = [KIND.sessionEnded, KIND.instructionsLoaded] as const;
+export const LIFECYCLE_EVENT_KINDS = [
+    KIND.sessionEnded,
+    KIND.instructionsLoaded,
+    KIND.setupTriggered,
+    KIND.fileChanged,
+    KIND.worktreeCreate,
+    KIND.worktreeRemove,
+    KIND.permissionRequest,
+] as const;
 export const TELEMETRY_EVENT_KINDS = [KIND.tokenUsage] as const;
 export const RUNTIME_INGEST_EVENT_KINDS = [
     ...TOOL_ACTIVITY_EVENT_KINDS, ...WORKFLOW_EVENT_KINDS, ...CONVERSATION_EVENT_KINDS,

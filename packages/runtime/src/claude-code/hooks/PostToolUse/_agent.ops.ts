@@ -33,6 +33,7 @@ export async function postAgentEvent({payload, ids}: PostToolUseHandlerArgs): Pr
     const prompt = toTrimmedString(payload.toolInput["prompt"], 400);
     const runInBackground = toBoolean(payload.toolInput["run_in_background"]);
     const agentName = toTrimmedString(payload.toolInput["subagent_type"]);
+    const agentModel = toTrimmedString(payload.toolInput["model"]);
     const semantic = inferAgentSemantic(agentName || undefined, "Agent");
     const title = description ? `Agent: ${description.slice(0, 80)}` : "Agent dispatch";
 
@@ -43,6 +44,8 @@ export async function postAgentEvent({payload, ids}: PostToolUseHandlerArgs): Pr
         ...buildSemanticMetadata(semantic),
         activityType: "delegation",
         ...(agentName ? {agentName} : {}),
+        ...(agentModel ? {agentModel} : {}),
+        ...(runInBackground ? {agentRunInBackground: true} : {}),
     };
     await postTaggedEvent({
         kind: KIND.agentActivityLogged,

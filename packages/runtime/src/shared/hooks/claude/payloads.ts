@@ -141,6 +141,30 @@ export interface ConfigChangePayload extends ClaudeSessionContextBase {
     readonly configSource: string | undefined;
 }
 
+export interface UserPromptExpansionPayload extends ClaudeSessionContextBase {
+    readonly expansionType: string;
+    readonly commandName: string;
+    readonly commandArgs: string | undefined;
+    readonly commandSource: string | undefined;
+    readonly prompt: string | undefined;
+}
+
+export interface FileChangedPayload extends ClaudeSessionContextBase {
+    readonly filePath: string;
+}
+
+export interface WorktreePayload extends ClaudeSessionContextBase {
+    readonly worktreePath: string;
+}
+
+export interface PermissionRequestPayload extends ClaudeToolContextBase {
+    readonly suggestionCount: number;
+}
+
+export interface SetupPayload extends ClaudeSessionContextBase {
+    readonly trigger: string;
+}
+
 // -----------------------------------------------------------------------------
 // Readers
 // -----------------------------------------------------------------------------
@@ -491,6 +515,85 @@ export function readConfigChange(raw: JsonObject): ReaderResult<ConfigChangePayl
             payload: raw,
             ...readSessionBase(raw),
             configSource: readOptionalString(raw, "config_source"),
+        },
+    };
+}
+
+export function readUserPromptExpansion(raw: JsonObject): ReaderResult<UserPromptExpansionPayload> {
+    if (!readString(raw, "session_id")) {
+        return {ok: false, reason: "missing session_id"};
+    }
+    return {
+        ok: true,
+        value: {
+            payload: raw,
+            ...readSessionBase(raw),
+            expansionType: readString(raw, "expansion_type") || "slash_command",
+            commandName: readString(raw, "command_name"),
+            commandArgs: readOptionalString(raw, "command_args"),
+            commandSource: readOptionalString(raw, "command_source"),
+            prompt: readOptionalString(raw, "prompt"),
+        },
+    };
+}
+
+export function readFileChanged(raw: JsonObject): ReaderResult<FileChangedPayload> {
+    if (!readString(raw, "session_id")) {
+        return {ok: false, reason: "missing session_id"};
+    }
+    const filePath = readString(raw, "file_path");
+    if (!filePath) return {ok: false, reason: "missing file_path"};
+    return {
+        ok: true,
+        value: {
+            payload: raw,
+            ...readSessionBase(raw),
+            filePath,
+        },
+    };
+}
+
+export function readWorktree(raw: JsonObject): ReaderResult<WorktreePayload> {
+    if (!readString(raw, "session_id")) {
+        return {ok: false, reason: "missing session_id"};
+    }
+    const worktreePath = readString(raw, "worktree_path");
+    if (!worktreePath) return {ok: false, reason: "missing worktree_path"};
+    return {
+        ok: true,
+        value: {
+            payload: raw,
+            ...readSessionBase(raw),
+            worktreePath,
+        },
+    };
+}
+
+export function readPermissionRequest(raw: JsonObject): ReaderResult<PermissionRequestPayload> {
+    if (!readString(raw, "session_id")) {
+        return {ok: false, reason: "missing session_id"};
+    }
+    const suggestions = Array.isArray(raw["permission_suggestions"]) ? raw["permission_suggestions"] : [];
+    return {
+        ok: true,
+        value: {
+            payload: raw,
+            ...readToolBase(raw),
+            suggestionCount: suggestions.length,
+        },
+    };
+}
+
+export function readSetup(raw: JsonObject): ReaderResult<SetupPayload> {
+    if (!readString(raw, "session_id")) {
+        return {ok: false, reason: "missing session_id"};
+    }
+    return {
+        ok: true,
+        value: {
+            payload: raw,
+            ...readSessionBase(raw),
+            trigger: readString(raw, "trigger") || "init",
         },
     };
 }

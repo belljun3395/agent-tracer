@@ -258,6 +258,8 @@ function buildApplyPatchEvent(
 ): RuntimeIngestEvent {
     const primaryPath = payload.filePaths[0] ?? "";
     const semantic = inferFileToolSemantic("apply_patch", primaryPath || undefined);
+    const dedupeKey = payload.callId
+        || `apply_patch:${primaryPath}:${payload.input.length}`;
     return {
         kind: KIND.toolUsed,
         taskId: context.taskId,
@@ -276,6 +278,7 @@ function buildApplyPatchEvent(
             changeCount: payload.filePaths.length,
             patchLineCount: payload.input.split(/\r?\n/).length,
             ...(primaryPath ? { filePath: primaryPath, relPath: primaryPath } : {}),
+            crossCheck: { source: "rollout", dedupeKey },
         },
     };
 }
@@ -284,6 +287,8 @@ function buildMcpCallEvent(
     payload: Extract<RolloutEvent, { kind: "mcpCall" }>,
     context: RolloutObservedEventContext,
 ): RuntimeIngestEvent {
+    const dedupeKey = payload.callId
+        || `mcp__${payload.server}__${payload.tool}:${context.turnId ?? ""}`;
     return {
         kind: KIND.agentActivityLogged,
         taskId: context.taskId,
@@ -301,6 +306,7 @@ function buildMcpCallEvent(
             ...(payload.callId ? { toolUseId: payload.callId } : {}),
             ...(context.threadId ? { threadId: context.threadId } : {}),
             ...(context.turnId ? { turnId: context.turnId } : {}),
+            crossCheck: { source: "rollout", dedupeKey },
         },
     };
 }
