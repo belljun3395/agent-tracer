@@ -25,6 +25,7 @@ export type IngestEventsEventRelationType =
 export type LoggedEventKind =
     | "tool.used"
     | "terminal.command"
+    | "monitor.observed"
     | "plan.logged"
     | "action.logged"
     | "verification.logged"
@@ -40,13 +41,18 @@ export type LoggedEventKind =
     | "session.ended"
     | "instructions.loaded"
     | "token.usage"
+    | "user.prompt.expansion"
+    | "permission.request"
+    | "worktree.create"
+    | "worktree.remove"
+    | "setup.triggered"
     | "task.start"
     | "task.complete"
     | "task.error"
     | "file.changed";
 
 export interface IngestEventsBaseEventUseCaseIn {
-    readonly kind: Exclude<LoggedEventKind, "task.start" | "task.complete" | "task.error" | "file.changed">;
+    readonly kind: Exclude<LoggedEventKind, "task.start" | "task.complete" | "task.error">;
     readonly taskId: string;
     readonly sessionId?: string | undefined;
     readonly title?: string | undefined;
@@ -80,13 +86,22 @@ export type TodoLoggedUseCaseIn         = IngestEventsBaseEventUseCaseIn & { rea
 export type ThoughtLoggedUseCaseIn      = IngestEventsBaseEventUseCaseIn & { readonly kind: "thought.logged" }
 export type TokenUsageUseCaseIn         = IngestEventsBaseEventUseCaseIn & { readonly kind: "token.usage" }
 export type ContextSnapshotUseCaseIn    = IngestEventsBaseEventUseCaseIn & { readonly kind: "context.snapshot" }
+export type MonitorObservedUseCaseIn    = IngestEventsBaseEventUseCaseIn & { readonly kind: "monitor.observed" }
+export type UserPromptExpansionUseCaseIn = IngestEventsBaseEventUseCaseIn & { readonly kind: "user.prompt.expansion" }
+export type PermissionRequestUseCaseIn  = IngestEventsBaseEventUseCaseIn & { readonly kind: "permission.request" }
+export type WorktreeCreateUseCaseIn     = IngestEventsBaseEventUseCaseIn & { readonly kind: "worktree.create" }
+export type WorktreeRemoveUseCaseIn     = IngestEventsBaseEventUseCaseIn & { readonly kind: "worktree.remove" }
+export type SetupTriggeredUseCaseIn     = IngestEventsBaseEventUseCaseIn & { readonly kind: "setup.triggered" }
+export type FileChangedUseCaseIn        = IngestEventsBaseEventUseCaseIn & { readonly kind: "file.changed" }
 
 export type IngestEventsUseCaseEventDto =
     | ToolUsedUseCaseIn | TerminalCommandUseCaseIn | PlanLoggedUseCaseIn | ActionLoggedUseCaseIn
     | VerificationLoggedUseCaseIn | RuleLoggedUseCaseIn | ContextSavedUseCaseIn | InstructionsLoadedUseCaseIn
     | SessionEndedUseCaseIn | AgentActivityLoggedUseCaseIn | UserMessageUseCaseIn | AssistantResponseUseCaseIn
     | QuestionLoggedUseCaseIn | TodoLoggedUseCaseIn | ThoughtLoggedUseCaseIn | TokenUsageUseCaseIn
-    | ContextSnapshotUseCaseIn
+    | ContextSnapshotUseCaseIn | MonitorObservedUseCaseIn | UserPromptExpansionUseCaseIn
+    | PermissionRequestUseCaseIn | WorktreeCreateUseCaseIn | WorktreeRemoveUseCaseIn
+    | SetupTriggeredUseCaseIn | FileChangedUseCaseIn
 
 export interface IngestEventsUseCaseIn {
     readonly events: readonly IngestEventsUseCaseEventDto[]

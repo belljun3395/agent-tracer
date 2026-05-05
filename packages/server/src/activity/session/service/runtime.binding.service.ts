@@ -1,6 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { RuntimeBindingEntity } from "../domain/runtime.binding.entity.js";
 import type {
+    RuntimeBindingLatestForTask,
     RuntimeBindingSnapshot,
     RuntimeBindingUpsertInput,
 } from "../public/dto/runtime.binding.snapshot.dto.js";
@@ -37,6 +38,20 @@ export class RuntimeBindingService {
     ): Promise<string | null> {
         const entity = await this.repo.findByKey(runtimeSource, runtimeSessionId);
         return entity?.taskId ?? null;
+    }
+
+    /**
+     * Implements IRuntimeBindingLookup — returns the most recent
+     * (runtimeSource, runtimeSessionId) pair bound to the given task.
+     * Used by the task module to look up the latest runtime session for a task.
+     */
+    async findLatestByTaskId(taskId: string): Promise<RuntimeBindingLatestForTask | null> {
+        const entity = await this.repo.findLatestByTaskId(taskId);
+        if (!entity) return null;
+        return {
+            runtimeSource: entity.runtimeSource,
+            runtimeSessionId: entity.runtimeSessionId,
+        };
     }
 
     async upsert(input: RuntimeBindingUpsertInput): Promise<RuntimeBindingSnapshot> {

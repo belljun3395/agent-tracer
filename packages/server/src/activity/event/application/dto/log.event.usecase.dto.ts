@@ -11,7 +11,7 @@ export const EVENT_LANES = [
     "rule",
 ] as const;
 
-export const TOOL_ACTIVITY_EVENT_KINDS = ["tool.used", "terminal.command"] as const;
+export const TOOL_ACTIVITY_EVENT_KINDS = ["tool.used", "terminal.command", "monitor.observed"] as const;
 export const WORKFLOW_EVENT_KINDS = [
     "plan.logged",
     "action.logged",
@@ -20,6 +20,12 @@ export const WORKFLOW_EVENT_KINDS = [
     "thought.logged",
     "context.saved",
     "context.snapshot",
+    "user.prompt.expansion",
+    "permission.request",
+    "worktree.create",
+    "worktree.remove",
+    "setup.triggered",
+    "file.changed",
 ] as const;
 export const CONVERSATION_EVENT_KINDS = ["user.message", "assistant.response", "question.logged", "todo.logged"] as const;
 export const COORDINATION_EVENT_KINDS = ["agent.activity.logged"] as const;
@@ -33,7 +39,7 @@ export const INGEST_EVENT_KINDS = [
     ...LIFECYCLE_EVENT_KINDS,
     ...TELEMETRY_EVENT_KINDS,
 ] as const;
-const _INTERNAL_EVENT_KINDS = ["task.start", "task.complete", "task.error", "file.changed"] as const;
+const _INTERNAL_EVENT_KINDS = ["task.start", "task.complete", "task.error"] as const;
 
 export const EVENT_RELATION_TYPES = [
     "implements",

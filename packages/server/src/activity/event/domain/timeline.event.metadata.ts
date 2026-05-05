@@ -62,6 +62,11 @@ export const DERIVED_METADATA_KEYS: ReadonlySet<string> = new Set<string>([
     "tags",
 ]);
 
+// Tool-call extras (readOffset, grepOutputMode, webPrompt, commandAnalysis,
+// crossCheck, etc.) intentionally stay out of this set — they have no
+// dedicated column and live in extras_json so the inspector and web can
+// read them as raw metadata.
+
 export function readString(metadata: Record<string, unknown> | undefined, key: string): string | undefined {
     const value = metadata?.[key];
     return typeof value === "string" && value.trim() ? value : undefined;

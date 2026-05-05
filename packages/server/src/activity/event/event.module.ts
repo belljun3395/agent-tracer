@@ -4,6 +4,7 @@ import { EventCommandController } from "./api/event.command.controller.js";
 import { EventIngestController } from "./api/event.ingest.controller.js";
 import { SearchQueryController } from "./api/search.query.controller.js";
 import { TypedEventIngestController } from "./api/typed.event.ingest.controller.js";
+import { CrossCheckDedupeCache } from "./application/cross.check.dedupe.cache.js";
 import { IngestEventsUseCase } from "./application/ingest.events.usecase.js";
 import { LogEventUseCase } from "./application/log.event.usecase.js";
 import { SearchEventsUseCase } from "./application/search.events.usecase.js";
@@ -150,6 +151,7 @@ export class EventModule {
                 TimelineEventProjectionPublicAdapter,
                 DomainEventAppenderPublicAdapter,
                 // Use cases
+                CrossCheckDedupeCache,
                 LogEventUseCase,
                 IngestEventsUseCase,
                 SearchEventsUseCase,
