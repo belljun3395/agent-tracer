@@ -114,34 +114,48 @@ production-readiness 주장하려면 fault injection 측정 필요.
 
 ---
 
-## 5. 면접 위험도 별 4단계 (검토 시점)
+## 5. 면접 위험도 별 4단계 (n=200 × 5-runs 재측정 후 갱신)
 
-| 항목 | 위험도 | 어디서 깨지나 |
+| 항목 | 위험도 | 상태 |
 |---|---|---|
-| `--cpus=1.0`인데 CPU max 105 % | 🔴 high | "측정 격리 어떻게?" |
-| `n=50 + p99` 사용 | 🔴 high | "통계적 의미 있는 sample size?" |
-| Phase 2+3 권장 (1.8 ms 차이) | 🟡 medium | "n=3에 1.8 ms는 noise 아닌가?" — 현재 답: latency 아니라 운영 properties로 정당화 |
-| JSC vs V8 narrative | 🟡 medium | "출처는?" — 현재 답: plausible, 분리 측정 안 함 |
-| variance 평탄화 인과 설명 | 🟢 low | (이미 정정. concurrency=1 사실 반영) |
-| UUID v5 server idempotency | 🟢 low | (이미 정정. server 코드 확인 후 placeholder + post-hoc rewrite로 표현) |
-| baseline drift 정규화 부재 | 🟢 low | (이미 한계로 명시) |
-| daemon failure mode 측정 부재 | 🟢 low | 코드 인용은 있음. 측정 부재는 한계로 명시 |
+| `n=50 + p99` sample size | 🟢 resolved | n=200으로 재측정 완료. p99이 outlier에 휘둘리는 정도가 줄었고, 본 측정의 일부 결론(특히 Phase 2+3 vs Phase 2 best 관계)이 명확해짐 |
+| Phase 2+3 권장의 1.8 ms 차이 | 🟢 resolved | 재측정에서 phase2-3(35.38)이 phase2-bun-js(34.28)보다 약간 느린 것이 확인. 권장 구성 변경 + Phase 3 가치 재정의 (multi-user broker로) |
+| `--cpus=1.0`인데 CPU max ~105 % | 🟡 medium | 여전히 soft cap. cgroup v2 hard limit 도입은 다음 round 후보 |
+| Bun vs Node attribution | 🟡 medium | 측정으로는 "Bun 런타임 전체 > Node 런타임 전체"까지만. JSC / Bun core / ESM resolver / GC 분리 측정 안 함 |
+| **Multi-user 시나리오 부재** | 🔴 NEW high | 이번 측정의 새로 드러난 한계. Phase 3 가치를 못 잡는 환경에서 측정함. 다음 round의 핵심 |
+| variance 평탄화 인과 설명 | 🟢 resolved | concurrency=1 사실 반영 + n=200 재측정에서 분포 범위가 더 정밀하게 측정됨 |
+| UUID v5 server idempotency | 🟢 resolved | server 코드 확인 후 placeholder + post-hoc rewrite로 정정 |
+| baseline drift | 🟢 mostly resolved | sweep 5 baseline 측정의 mean±stddev로 표현. phase2-node-js가 sweep 첫 phase의 cold-cache outlier로 287 ms (다른 4 phase는 230 ± 3 ms로 안정) |
+| daemon failure mode 측정 부재 | 🟡 medium | 코드 fallback 있음. 정량화 (latency, recovery time, data loss rate)는 다음 round |
 
 ---
 
-## 6. 다음 measurement round의 우선순위
+## 6. n=200 재측정에서 새로 확인된 사실
 
-이 round에서 못 한 것 중 다음에 해야 할 것:
+이번 round에서 확정된 것:
 
-1. **iteration 200+ × runs 10+** + Welch's t-test로 phase 간 차이 유의미성 검정 (`Must do`)
-2. **runtime startup-only micro-bench** (`/dev/null` 출력만 하는 minimal hook) — Bun-Node attribution 분리 (`Must do`)
-3. **concurrency 4, 8, 16 시나리오** — daemon backpressure 효과 검증 (`Should do`)
-4. **daemon fault injection** (kill, hang, OOM) — production-readiness 정량화 (`Should do`)
-5. **payload size scaling** (1 KB, 10 KB, 100 KB) — UDS large message 영향 (`Nice to do`)
-6. **cgroup v2 hard cpu limit** — 측정 격리 강화 (`Nice to do`)
+1. **Phase 2 best (bun + 컴파일 JS)가 단독으로 −85.4 % 개선**. 이전 −82.7 %보다 약간 더 큰 개선.
+2. **Phase 2+3은 latency 우위 없음** (-84.6%). 이전 의심 → 확정.
+3. **Phase 3 단독 −13.7 %로 일관** (이전 -12.5%, 거의 같음). transport 절약 비중이 작은 건 안정적인 발견.
+4. **mean±stddev로 통계적 안정성 확인**: phase2-bun-ts (5.82), phase3 (3.61), phase2-3 (3.25)는 매우 안정. phase2-bun-js (8.30)도 안정. phase2-node-js (81.17)는 sweep 첫 phase cold-cache outlier 영향.
+
+이번 round에서 새로 보인 한계:
+- **Multi-user 시나리오 측정 부재가 결정적**: Phase 3는 단일 사용자 self-hosted에서는 쓸모 없는 게 데이터로 확인. 그러나 daemon = 사용자별 이벤트 broker로서의 가치는 multi-user 측정 없이는 정량화 불가. 이게 다음 round의 #1 우선순위.
+
+## 7. 다음 measurement round의 우선순위 (갱신)
+
+| 우선순위 | 항목 | 이유 |
+|---|---|---|
+| **#1 Must do** | concurrency 4 / 8 / 16 시나리오 | Phase 3의 본질적 가치 (server connection / TLS / batching) 측정. 단일 사용자 측정만으로는 결론 내릴 수 없음 |
+| **#2 Must do** | multi-host (혹은 host network simulation) | server-side connection churn 정량화. 단일 호스트 loopback으론 안 잡힘 |
+| **#3 Should do** | runtime startup-only micro-bench | Bun-Node attribution 분리 (JSC vs V8 vs stdlib vs GC) |
+| **#4 Should do** | daemon fault injection (kill, hang, OOM) | production-readiness 정량화 |
+| **#5 Should do** | TLS 활성 환경 측정 | TLS handshake amortization 효과 검증 (production 가정) |
+| **#6 Nice to do** | payload size scaling (1 KB, 10 KB, 100 KB) | UDS large message 영향 |
+| **#7 Nice to do** | cgroup v2 hard cpu limit | 측정 격리 강화 |
 
 ---
 
-## 7. 한 문장 결론
+## 8. 한 문장 결론 (n=200 재측정 후)
 
-> **수치 자체는 정직하지만 "왜"의 narrative가 측정 가능한 사실보다 멀리 나간 부분이 있었다. 1차 정정으로 narrative를 측정 한계 안으로 끌어들였고, 다음 measurement round의 우선순위가 명확해졌다. 면접에서 한계를 솔직히 인정하는 것이 narrative를 강하게 주장하는 것보다 시니어 평가에 유리하다.**
+> **이전 measurement round의 narrative를 재측정으로 검증·정정하는 과정에서 가장 큰 발견은 "Phase 3는 단일 사용자 self-hosted에서는 쓸모가 없다"였다. 이는 작업의 실패가 아니라 측정 환경의 한계를 정직히 드러낸 것이고, daemon의 진짜 가치는 multi-user 시나리오의 server-side scalability에 있다는 reframe을 만들어냈다. 다음 round에서 검증할 가설이 명확해졌고, 이력서/면접 자료의 narrative는 이번 측정으로 입증된 사실 안에서만 주장하도록 정리됨.**
