@@ -1,16 +1,18 @@
-# Deep Dive — Unix Domain Socket Daemon: Hook의 cold-start 바닥을 깎는 마지막 한 수
+# Deep Dive — Unix Domain Socket Daemon: 단일 사용자에선 무용, multi-user에서 본질
 
-> Phase 3는 hook 클라이언트와 server 사이의 transport를 HTTP에서 **로컬 daemon + UDS**로 교체했다. 단독으로는 -12.5 %로 효과가 작아 보이지만, Phase 2(컴파일 JS + bun)과 결합하면 hook latency floor를 추가로 깎고 무엇보다 **hook들 사이의 latency variance를 평탄화**한다.
+> Phase 3는 hook 클라이언트와 server 사이의 transport를 HTTP에서 **로컬 daemon + UDS**로 교체했다. **단일 사용자 self-hosted 시나리오 (이번 측정)에서는 latency 우위가 통계적으로 없음을 n=200 × 5 runs 측정으로 확인.** Phase 3의 본질적 가치는 hook과 server가 다른 머신에 있는 multi-user / SaaS 시나리오의 server-side scalability에 있다 (§8 참조).
 
-핵심 결과:
+핵심 결과 (n=200, median of 5 runs):
 
-| 구성 | Avg hook p99 | hook variance (max−min p99) |
-|---|---:|---:|
-| AS-IS (`node + tsx + HTTP`) | 250.94 ms | ~140 ms |
-| Phase 2 best (`bun + 컴파일 JS + HTTP`) | 43.73 ms | ~32 ms |
-| **Phase 2+3 (`bun + 컴파일 JS + UDS daemon`)** | **41.93 ms** | **~6 ms** |
+| 구성 | Median p99 | Mean ± stddev (n=5) | hook spread (5 hook p99 max−min) |
+|---|---:|---:|---:|
+| AS-IS (`node + tsx + HTTP`) | 229.67 ms | n/a | ~50 ms (251.4–203.9) |
+| Phase 2 best (`bun + 컴파일 JS + HTTP`) | **34.28 ms** | 137.69 ± 8.30 | ~20 ms (40.8–20.9) |
+| Phase 2+3 (`bun + 컴파일 JS + UDS daemon`) | 35.38 ms | 134.24 ± 3.25 | **~8 ms (40.2–32.3)** |
 
-이 문서는 daemon이 무엇을 하고, 왜 hook을 더 빠르게 만드는지, 그리고 long-running daemon이 short-lived hook 코드와 어떻게 안전하게 협업하도록 설계됐는지를 설명한다.
+**Phase 2+3 vs Phase 2 단독**: latency 차이는 stddev 안에 묻혀 있어 통계적으로 구별 안 됨. hook 분포는 좁아지지만 메커니즘은 §7.3에서 설명 (burst 흡수 아님).
+
+이 문서는 daemon이 무엇을 하고, 어디에서 가치가 있고 (multi-user — §8), 단일 사용자 측정에서는 왜 latency 우위가 안 보였는지를 설명한다.
 
 ---
 
@@ -408,44 +410,49 @@ function shouldUseLocalDaemon(env: NodeJS.ProcessEnv = process.env): boolean {
 
 | 지표 | AS-IS | Phase 3 | Δ |
 |---|---:|---:|---:|
-| Avg hook p99 | 245.07 ms | 214.37 ms | −12.5 % |
-| Memory avg | 64.70 MiB | 140.47 MiB | **+117 %** |
+| Avg hook p99 | 230.61 ms | 198.98 ms | −13.7 % |
+| Mean ± stddev (5 runs) | n/a | 214.95 ± 3.61 | — |
+| Memory avg | 67.09 MiB | 131.52 MiB | **+96 %** |
 
 이유:
 - Hook의 **bottleneck은 여전히 `node + tsx` cold start** (~200 ms+)
 - Daemon이 절약하는 건 transport 비용 (~30 ms 정도)
-- Daemon은 메모리에 상주 (140 MiB) — 비용이 얹힘
+- Daemon은 메모리에 상주 (132 MiB) — 비용이 얹힘
 
-**Phase 3는 Phase 2와 결합해야 진가가 나옴**. cold start floor가 30–40 ms로 낮아진 뒤에야 daemon의 "transport 절약 + variance 평탄화"가 의미 있는 비중이 됨.
+**Phase 3는 Phase 2와 결합해도 latency를 추가로 줄이지 않음** (다음 §7.2 참조).
+cold start floor가 30–40 ms로 낮아진 뒤에는 daemon의 transport 절약 (~2 ms 수준)이
+stddev 안에 묻혀버린다.
 
-### 7.2 Phase 2+3 결합
+### 7.2 Phase 2+3 결합 (n=200, median of 5 runs)
 
-| 구성 | Avg p99 | hook range (min–max p99 across 5 hooks) |
-|---|---:|---:|
-| Phase 2 best (`bun + JS + HTTP`) | 43.73 ms | 26.22–58.42 (~32 ms) |
-| **Phase 2+3 (`bun + JS + UDS`)** | **41.93 ms** | 39.16–45.13 (~6 ms) |
+| 구성 | Median p99 | Mean ± stddev (n=5) | hook range (min–max p99 across 5 hooks) |
+|---|---:|---:|---:|
+| Phase 2 best (`bun + JS + HTTP`) | **34.28 ms** | 137.69 ± 8.30 | 20.9–40.8 (~20 ms) |
+| Phase 2+3 (`bun + JS + UDS`) | 35.38 ms | 134.24 ± 3.25 | 32.3–40.2 (~8 ms) |
 
-**Avg 차이는 1.8 ms로 noise에 묻힐 수 있다** (다음 섹션 참조). 더 두드러지는 변화는 5개 hook의 p99 분포 — 좁은 범위로 모임.
+**Median 차이 1.10 ms / Mean 차이 3.45 ms** — 둘 다 stddev (8.30 vs 3.25) 안에 묻혀
+**latency에서 통계적으로 구별되지 않음**. 더 두드러지는 변화는 5개 hook의 p99 분포 —
+좁은 범위 (40→8 ms)로 모임.
 
-### 7.3 "variance 평탄화"의 정확한 메커니즘
+### 7.3 "분포 평탄화"의 정확한 메커니즘 (n=200 재측정)
 
 이 측정에서의 "variance"는 **5개 hook (SessionStart / StatusLine / PreToolUse / UserPromptSubmit / PostToolUse)의 p99이 서로 얼마나 다른가**를 가리킨다 (run-to-run jitter가 아니라 hook-to-hook spread). 측정은 `concurrency=1`이라서 동시 hook burst가 없고, 따라서 "queue burst 흡수"는 이 데이터에서는 일어날 수 없다.
 
-실제로 phase2-bun-js → phase2-3을 비교하면:
+실제로 phase2-bun-js → phase2-3을 비교하면 (n=200 median):
 
 | Hook | phase2-bun-js p99 | phase2-3 p99 | Δ |
 |---|---:|---:|---:|
-| SessionStart | 58.42 | 42.49 | **−15.93** |
-| StatusLine | 51.98 | 43.04 | −8.94 |
-| PreToolUse | 30.65 | 45.13 | **+14.48** |
-| UserPromptSubmit | 26.22 | 39.16 | **+12.94** |
-| PostToolUse/Bash | 51.37 | 39.85 | −11.52 |
+| SessionStart | 40.8 | 40.2 | −0.6 |
+| StatusLine | 39.4 | 34.9 | −4.5 |
+| PreToolUse | 31.6 | 33.0 | +1.4 |
+| UserPromptSubmit | 20.9 | 32.3 | **+11.4** |
+| PostToolUse/Bash | 38.8 | 36.4 | −2.4 |
 
-→ **빠른 hook은 느려지고 (UserPromptSubmit 26 → 39), 느린 hook은 빨라진 (SessionStart 58 → 42) 결과로 분포가 평탄화된다**. 즉:
+→ **빠른 hook(UserPromptSubmit 21 → 32)은 daemon write floor 때문에 느려지고, 느린/중간 hook은 거의 변화 없거나 약간 빨라짐**. 즉 (n=50 측정과 메커니즘 동일):
 
-- daemon UDS write에 **~13 ms 정도의 floor가 추가**된다 (가장 빠른 hook이 그만큼 느려짐).
-- HTTP fetch가 사라져서 **slowest hook의 transport 꼬리가 사라진다** (가장 느린 hook이 그만큼 빨라짐).
-- 평균은 비슷하고, 분포가 좁아진다.
+- daemon UDS write에 **~10 ms 정도의 floor가 추가**된다 (가장 빠른 UserPromptSubmit이 그만큼 느려짐).
+- 다른 hook들은 이미 그 floor 위에 있어서 거의 변화 없음.
+- 평균은 비슷하고, 분포가 좁아진다 (5개 hook이 32–40 ms 좁은 범위로 모임).
 
 #### 이 메커니즘에서 무엇이 좋은가
 
@@ -457,23 +464,14 @@ function shouldUseLocalDaemon(env: NodeJS.ProcessEnv = process.env): boolean {
 - **concurrency > 1 burst**: hook이 동시에 여러 개 떴을 때 daemon이 backpressure로 흡수해서 server queue spike를 줄여 줄 가능성. 가능성은 있지만 **이 문서의 측정은 concurrency=1이라 검증 안 됨**.
 - **server 응답이 느려질 때**: HTTP transport는 hook이 server timeout을 그대로 흡수. UDS daemon은 hook이 fire-and-forget이라 server timeout은 daemon만 부담. hook latency는 server 상태와 디커플링됨. 이것도 직접 측정 안 함.
 
-### 7.4 n=200 재측정에서 확인된 핵심: latency 우위 없음
+### 7.4 측정의 결론
 
-n=50 × 3 runs 측정에서는 phase2-3 (-83.3%) > phase2-bun-js (-82.7%)로
-보였지만, n=200 × 5 runs로 sample size를 늘린 재측정에서는:
+**단일 사용자 self-hosted 시나리오에서 daemon은 hook latency를 줄이지 않는다**:
+- Phase 2 단독 (34.28) ≈ Phase 2+3 (35.38), stddev 안 차이 (1.10 ms median, 3.45 ms mean)
+- Phase 3 단독 효과는 -13.7%로 작고 메모리 +96% 추가 비용
 
-| Variant | Avg p99 (median) | Mean ± stddev (n=5) |
-|---|---:|---:|
-| Phase 2 best (`bun + JS + HTTP`) | **34.28** ms | 137.69 ± 8.30 |
-| Phase 2+3 (`bun + JS + UDS`) | 35.38 ms | 134.24 ± 3.25 |
-
-**결합본이 단독보다 약간 느리거나 동등** (median 1.10 ms 차이, mean 3.45
-ms 차이). stddev (8.30, 3.25) 안에 묻혀 있어 두 구성은 **latency에서
-통계적으로 구별되지 않음**. 이전의 1.8 ms 우위 가설은 noise였음이 확인.
-
-이게 결정적으로 의미하는 건: **단일 사용자 self-hosted 시나리오에서
-daemon은 hook latency를 줄이지 않는다**. 그러면 daemon은 왜 쓰는가? 다음
-섹션에서 답한다.
+그러면 daemon은 왜 쓰는가? 다음 섹션에서 답한다 — **multi-user 시나리오의
+사용자별 이벤트 broker 역할**.
 
 ---
 
