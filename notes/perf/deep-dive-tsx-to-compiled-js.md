@@ -2,14 +2,16 @@
 
 > Agent Tracer Phase 2의 핵심 변경: Claude Code hook entry를 매 호출마다 `tsx`로 즉석 실행하는 구조에서, 빌드 시점에 `esbuild`로 `dist/claude-code/hooks/*.js`를 만들고 런타임에는 `node dist/...js` 또는 `bun dist/...js`를 실행하는 구조로 전환.
 
-핵심 결과 (median of 3 runs, Docker 1 vCPU/256 MiB 컨테이너):
+핵심 결과 (n=200, median of 5 runs, Docker 1 vCPU/256 MiB 컨테이너):
 
-| 변종 | Avg hook p99 | Δ vs AS-IS |
-|---|---:|---:|
-| AS-IS — `node + tsx + .ts` | 250.94 ms | 0 |
-| `node + 컴파일 JS` | 78.03 ms | **−70.5 %** |
-| `bun + .ts` (native TS) | 48.81 ms | −80.5 % |
-| `bun + 컴파일 JS` | 43.73 ms | **−82.7 %** |
+| 변종 | Median p99 | Mean ± stddev (n=5) | Δ vs AS-IS |
+|---|---:|---:|---:|
+| AS-IS — `node + tsx + .ts` | 229.67 ms | 243.36 ± 24.76 (sweep mean) | 0 |
+| `node + 컴파일 JS` | 77.70 ms | 209.27 ± 81.17* | **−73.0 %** |
+| `bun + .ts` (native TS) | 41.26 ms | 139.76 ± 5.82 | −82.4 % |
+| `bun + 컴파일 JS` | 34.28 ms | 137.69 ± 8.30 | **−85.4 %** |
+
+\* phase2-node-js의 큰 stddev는 sweep 첫 phase의 cold-cache outlier (run 1 score 350) 때문. 이후 phase들은 stddev 3–8 ms 수준.
 
 이 문서는 **왜** 이 차이가 나는지를 단계별로 설명한다. Bun과 Node의 런타임 차이는 [`deep-dive-node-vs-bun.md`](deep-dive-node-vs-bun.md)에서 별도로 다룬다.
 
@@ -341,22 +343,25 @@ Phase 2는 server ingest 알고리즘을 바꾸지 않는다. DB write, NestJS e
 - hook process wall-clock p50 / p95 / p99
 - failures (오류로 빨리 끝나서 latency가 낮아진 게 아닌지)
 
-### 8.2 우리 측정값 (median of 3 runs)
+### 8.2 우리 측정값 (n=200, median of 5 runs, 2026-05-05)
+
+각 phase 측정의 median run에서 추출한 per-hook p99:
 
 | 변종 | SessionStart p99 | StatusLine p99 | PreToolUse p99 | UserPromptSubmit p99 | PostToolUse/Bash p99 | Avg p99 |
 |---|---:|---:|---:|---:|---:|---:|
-| AS-IS (`node + tsx`) | 336.41 | 243.79 | 204.58 | 197.40 | 272.52 | **250.94** |
-| `node + 컴파일 JS` | 101.88 | 93.92 | 50.94 | 49.93 | 93.50 | **78.03** |
-| `bun + .ts` | 84.27 | 45.04 | 33.27 | 33.14 | 48.31 | **48.81** |
-| `bun + 컴파일 JS` | 58.42 | 51.98 | 30.65 | 26.22 | 51.37 | **43.73** |
+| AS-IS (phase2-3 sweep baseline) | 251.4 | 242.7 | 203.9 | 204.9 | 245.6 | **229.67** |
+| `node + 컴파일 JS` | 95.2 | 94.5 | 52.4 | 55.9 | 90.6 | **77.70** |
+| `bun + .ts` | 51.6 | 46.0 | 31.0 | 31.0 | 46.7 | **41.26** |
+| `bun + 컴파일 JS` | 40.8 | 39.4 | 31.6 | 20.9 | 38.8 | **34.28** |
 
 관찰:
-- **PreToolUse / UserPromptSubmit**이 가장 큰 단축 (200 → 50 ms 수준). 이 hook들은 payload가 작고 hook logic 자체가 가벼워서 startup 비중이 가장 컸음.
-- **SessionStart**는 단축 비율이 상대적으로 작음 (336 → 102 ms = 70 %, 다른 hook은 75–90 %). DB 초기 ensure 호출이 한 번 들어 있어 hook logic 비중이 더 큼.
+- **PreToolUse / UserPromptSubmit**이 가장 큰 단축 (200 → 21–52 ms 수준). 이 hook들은 payload가 작고 hook logic 자체가 가벼워서 startup 비중이 가장 컸음.
+- **SessionStart**는 단축 비율이 상대적으로 작음 (251 → 95 ms = 62 %, 다른 hook은 78–90 %). DB 초기 ensure 호출이 한 번 들어 있어 hook logic 비중이 더 큼.
+- AS-IS의 SessionStart 251.4 ms는 phase2-3 sweep 시점 baseline. phase2-node-js sweep 시점엔 257.6 → 95.2로 비율 비슷.
 
-### 8.3 남은 ~40 ms는 무엇인가
+### 8.3 남은 ~30 ms는 무엇인가
 
-`bun + compiled JS` 기준 p99 약 40 ms는 다음의 합:
+`bun + 컴파일 JS` 기준 p99 약 34 ms는 다음의 합 (대략 추정):
 
 | 단계 | 추정 비용 |
 |---|---|
@@ -365,27 +370,28 @@ Phase 2는 server ingest 알고리즘을 바꾸지 않는다. DB write, NestJS e
 | bun process bootstrap | ~10–15 ms |
 | JS bundle parse + evaluate | ~5–10 ms |
 | stdin read + JSON parse | ~3 ms |
-| business logic + UDS write (or HTTP fetch) | 5–10 ms |
+| business logic + HTTP fetch (loopback) | 5–10 ms |
 | process exit | ~1 ms |
 
-**Phase 2가 제거한 것**: "Node를 켠 뒤 TypeScript 실행 환경을 즉석으로 구성하는 비용" (약 100–200 ms).
+**Phase 2가 제거한 것**: "Node를 켠 뒤 TypeScript 실행 환경을 즉석으로 구성하는 비용" (약 150–200 ms).
 
-**Phase 2가 못 없앤 것**: process spawn + runtime bootstrap (약 20–30 ms). 이 floor는 Phase 3 daemon으로 가야 더 줄어든다 — `bun spawn 비용`을 IPC write 비용 (UDS 쓰기 ~1–3 ms)으로 대체.
+**Phase 2가 못 없앤 것**: process spawn + runtime bootstrap (약 20–30 ms). 이 floor는 본질적으로 매 hook이 새 프로세스로 뜨는 구조에서 오는 것. Phase 3 daemon은 단일 사용자 self-hosted에선 이 floor를 더 줄이지 못함을 측정으로 확인 (phase2-3 35.38 ms ≈ phase2-bun-js 34.28 ms).
 
 ---
 
 ## 9. 한 줄 요약
 
-> **Claude Code hook은 "매 이벤트마다 새로 뜨는 short-lived 프로세스"이기 때문에, TypeScript runtime transpilation을 빌드 타임으로 옮긴 것만으로 hook latency가 70–80 % 줄어든다. 같은 코드를 단지 다른 시점에 변환했을 뿐이지만, "변환을 매번 하느냐 / 한 번만 하느냐"의 차이가 사용자 critical path에 들어 있는 hook에서는 결정적인 성능 차이를 만든다.**
+> **Claude Code hook은 "매 이벤트마다 새로 뜨는 short-lived 프로세스"이기 때문에, TypeScript runtime transpilation을 빌드 타임으로 옮긴 것만으로 hook latency가 73–85 % 줄어든다. 같은 코드를 단지 다른 시점에 변환했을 뿐이지만, "변환을 매번 하느냐 / 한 번만 하느냐"의 차이가 사용자 critical path에 들어 있는 hook에서는 결정적인 성능 차이를 만든다.**
 
 ---
 
 ## 10. 측정의 한계
 
-이 문서가 제시하는 "70–80% 단축" 수치는 다음 한계 위에 있다:
+이 문서가 제시하는 "73–85 % 단축" 수치는 다음 한계 위에 있다:
 
-- **iteration n=50 / run n=3** — p99이 사실상 max에 가까운 표본. 큰 차이(100ms 단위)에는 충분하지만 작은 차이(1–2ms)에는 부족.
-- **`--cpus=1.0` soft cap** — 측정에서 CPU max 105% 관측. hard limit이 아님.
-- **hook 내부 작업 비중에 따라 절감 비율이 달라질 수 있음** — `SessionStart`처럼 DB ensure가 있는 hook은 절감 비율이 작고 (336 → 102 ms = 70 %), `UserPromptSubmit`처럼 가벼운 hook은 더 큼 (197 → 50 ms = 75 %). hook 분포가 바뀌면 평균 절감 비율도 바뀜.
+- **iteration n=200 / run n=5** — sample은 n=50보다 robust하지만 1–2 ms 단위 미세 차이는 여전히 stddev (3–8 ms) 안에 묻힘.
+- **`--cpus=1.0` soft cap** — 측정에서 CPU max ~105 % 관측. hard limit이 아님.
+- **hook 내부 작업 비중에 따라 절감 비율이 달라질 수 있음** — `SessionStart`처럼 DB ensure가 있는 hook은 절감 비율이 작고 (251 → 95 ms = 62 %), `UserPromptSubmit`처럼 가벼운 hook은 더 큼 (205 → 21 ms = 90 %). hook 분포가 바뀌면 평균 절감 비율도 바뀜.
+- **sweep 첫 phase의 cold-cache 영향**: phase2-node-js의 mean stddev (81.17)가 큰 이유. median run은 안정적이지만 mean으로 비교하면 첫 phase에 불리.
 
 이 한계들은 phase-summary.md의 종합 한계 섹션에 정리되어 있고, 다음 measurement round에서 보완 예정이다.
