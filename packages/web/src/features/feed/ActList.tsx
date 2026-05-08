@@ -93,8 +93,6 @@ export function ActList({ items }: ActListProps) {
             <ContextMark
               key={`ctx-${idx}`}
               percent={item.percent}
-              used={item.used}
-              limit={item.limit}
               model={item.model}
               modelChanged={item.modelChanged}
               deltaPct={item.deltaPct}

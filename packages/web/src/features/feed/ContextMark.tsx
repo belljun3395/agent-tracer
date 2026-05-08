@@ -1,9 +1,5 @@
-import { formatCompactCount } from "./lib/extract-metadata.js";
-
 interface ContextMarkProps {
   readonly percent: number;
-  readonly used: number;
-  readonly limit: number;
   readonly model: string | null;
   readonly modelChanged: boolean;
   readonly deltaPct: number;
@@ -21,8 +17,6 @@ interface ContextMarkProps {
  */
 export function ContextMark({
   percent,
-  used,
-  limit,
   model,
   modelChanged,
   deltaPct,
@@ -72,10 +66,6 @@ export function ContextMark({
             {deltaLabel}
           </span>
         )}
-        <span style={{ color: "var(--ink-tertiary)" }}>·</span>
-        <span style={{ color: "var(--ink-muted)" }}>
-          {formatCompactCount(used)} / {formatCompactCount(limit)}
-        </span>
         {model && (
           <>
             <span style={{ color: "var(--ink-tertiary)" }}>·</span>
