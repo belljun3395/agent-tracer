@@ -16,6 +16,7 @@ function event(
   id: string,
   kind: TimelineEventRecord["kind"],
   ms: number,
+  metadata: Record<string, unknown> = {},
 ): TimelineEventRecord {
   return {
     id: EventId(id),
@@ -23,7 +24,7 @@ function event(
     kind,
     lane: "user",
     title: id,
-    metadata: {},
+    metadata,
     classification: EMPTY_CLASSIFICATION,
     createdAt: new Date(ms).toISOString(),
   };
@@ -46,11 +47,13 @@ describe("buildFeed", () => {
   });
 
   it("converts context.saved events into compact time-marks", () => {
+    // `context.saved` is overloaded — only the compact hooks set
+    // metadata.compactPhase, which is the truth marker for compaction.
     const base = 1_000_000_000;
     const items = buildFeed(
       [
         event("a", "action.logged", base + 1000),
-        event("b", "context.saved", base + 2000),
+        event("b", "context.saved", base + 2000, { compactPhase: "before" }),
         event("c", "action.logged", base + 3000),
       ],
       base,

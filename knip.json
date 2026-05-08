@@ -1,22 +1,19 @@
 {
   "workspaces": {
-    "packages/server": {
-      "entry": [
-        "src/server.entry.ts",
-        "src/adapters/mcp/mcp.entry.ts"
-      ]
-    },
-    "packages/web": {
-      "entry": ["src/main.tsx"]
-    },
+    "packages/server": {},
+    "packages/web": {},
     "packages/runtime": {
-      "entry": ["src/index.ts"]
+      "entry": [
+        "src/claude-code/hooks/**/*.ts",
+        "src/codex/hooks/**/*.ts"
+      ]
     }
   },
-  "exclude": ["types"],
+  "exclude": ["types", "unresolved"],
   "ignoreExportsUsedInFile": true,
   "ignore": [
     "docs/**",
+    "scripts/register-swc.mjs",
     "packages/server/src/activity/event/domain/event.phase.ts",
     "packages/server/src/activity/event/domain/model/event.phase.model.ts",
     "packages/server/src/activity/event/domain/runtime/type/metadata.keys.type.ts",
@@ -35,6 +32,7 @@
     "eslint-plugin-n",
     "mermaid",
     "tsx",
+    "@swc-node/register",
     "@vitest/coverage-v8",
     "@types/supertest",
     "supertest"

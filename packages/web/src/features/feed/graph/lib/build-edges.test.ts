@@ -82,20 +82,26 @@ describe("buildFeedEdges", () => {
     ]);
   });
 
-  it("does NOT chain across turn boundaries", () => {
+  it("chains consecutive events even across turn boundaries", () => {
+    // Operators want continuity across turn boundaries; gating on turn
+    // membership left orphan nodes when events landed between turns.
     const edges = buildFeedEdges(
       [event("a", 100), event("b", 1500)],
       [turn(0, 0, 1000), turn(1, 1000, 2000)],
     );
-    expect(edges).toEqual([]);
+    expect(edges).toEqual([
+      { kind: "causal", fromEventId: "a", toEventId: "b" },
+    ]);
   });
 
-  it("does NOT chain when an event falls outside every turn", () => {
+  it("chains consecutive events even when they fall outside every turn", () => {
     const edges = buildFeedEdges(
       [event("a", 100), event("b", 200)],
       [turn(0, 500, 1000)], // both events predate the turn
     );
-    expect(edges).toEqual([]);
+    expect(edges).toEqual([
+      { kind: "causal", fromEventId: "a", toEventId: "b" },
+    ]);
   });
 
   it("dedupes when an explicit edge would also be a chain edge", () => {

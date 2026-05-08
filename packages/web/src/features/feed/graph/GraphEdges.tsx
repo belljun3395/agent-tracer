@@ -1,9 +1,9 @@
 import type { PositionedNode } from "./lib/layout.js";
 import type { FeedEdge } from "./lib/build-edges.js";
 import {
-  LANE_HEIGHT,
   LANE_LABEL_WIDTH,
   TRACK_LEFT_PADDING,
+  laneCenterY,
 } from "./lib/layout.js";
 
 interface GraphEdgesProps {
@@ -68,10 +68,4 @@ export function GraphEdges({ edges, nodes }: GraphEdgesProps) {
       })}
     </svg>
   );
-}
-
-function laneCenterY(laneIdx: number): number {
-  // Match LANE_HEIGHT × idx + LANE_HEIGHT/2 (in svg user units which are
-  // mapped to the lane band height through preserveAspectRatio="none").
-  return laneIdx * LANE_HEIGHT + LANE_HEIGHT / 2;
 }
