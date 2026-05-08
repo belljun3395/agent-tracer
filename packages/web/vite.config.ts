@@ -22,11 +22,14 @@ export default defineConfig(async ({ mode }) => {
         plugins,
         resolve: {
             alias: {
-                "~domain": resolve(PACKAGE_ROOT, "src/types"),
+                "~domain": resolve(PACKAGE_ROOT, "src/domain"),
                 "~io": resolve(PACKAGE_ROOT, "src/io"),
                 "~state": resolve(PACKAGE_ROOT, "src/state"),
                 "~app": resolve(PACKAGE_ROOT, "src/app"),
-                "~config": resolve(PACKAGE_ROOT, "src/config")
+                "~config": resolve(PACKAGE_ROOT, "src/config"),
+                "~ui": resolve(PACKAGE_ROOT, "src/ui"),
+                "~lib": resolve(PACKAGE_ROOT, "src/lib"),
+                "~features": resolve(PACKAGE_ROOT, "src/features")
             }
         },
         define: {
@@ -42,7 +45,16 @@ export default defineConfig(async ({ mode }) => {
                         if (!id.includes("node_modules")) {
                             return undefined;
                         }
-                        if (id.includes("react-dom") || id.includes("/react/") || id.includes("scheduler")) {
+                        // React + everything tightly coupled to React go in a
+                        // single chunk to avoid cyclic vendor↔react-vendor edges.
+                        if (
+                            id.includes("/react/") ||
+                            id.includes("/react-dom") ||
+                            id.includes("/react-router") ||
+                            id.includes("/scheduler") ||
+                            id.includes("@radix-ui/") ||
+                            id.includes("@tanstack/react-query")
+                        ) {
                             return "react-vendor";
                         }
                         if (id.includes("zustand")) {

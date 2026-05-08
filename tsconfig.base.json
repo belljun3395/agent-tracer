@@ -9,7 +9,7 @@
         "packages/server/src/server.entry.ts"
       ],
       "@monitor/web": [
-        "packages/web/src/app/main.tsx"
+        "packages/web/src/main.tsx"
       ],
       "@monitor/runtime/*": [
         "packages/runtime/src/*"
