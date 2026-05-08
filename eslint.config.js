@@ -41,11 +41,14 @@ const SERVER_ALIASES = {
   "~main": path.join(PROJECT_ROOT, "packages/server/src/main"),
 };
 const WEB_ALIASES = {
-  "~domain": path.join(PROJECT_ROOT, "packages/web/src/types"),
+  "~domain": path.join(PROJECT_ROOT, "packages/web/src/domain"),
   "~io": path.join(PROJECT_ROOT, "packages/web/src/io"),
   "~state": path.join(PROJECT_ROOT, "packages/web/src/state"),
   "~app": path.join(PROJECT_ROOT, "packages/web/src/app"),
   "~config": path.join(PROJECT_ROOT, "packages/web/src/config"),
+  "~ui": path.join(PROJECT_ROOT, "packages/web/src/ui"),
+  "~lib": path.join(PROJECT_ROOT, "packages/web/src/lib"),
+  "~features": path.join(PROJECT_ROOT, "packages/web/src/features"),
 };
 
 // server 의 모든 src 가 공통으로 받는 cross-package import 제한.
@@ -350,10 +353,10 @@ export default tseslint.config(
   // ── 5-b. web 내부 layered architecture ────────────────────────
   // domain/types → io → state → app. Alias import 로 ring 을 명시한다.
   {
-    files: ["packages/web/src/types/**/*.{ts,tsx}", "packages/web/src/types.ts"],
+    files: ["packages/web/src/domain/**/*.{ts,tsx}", "packages/web/src/domain.ts"],
     rules: {
       "no-restricted-imports": restrictedImports(
-        { group: ["~io/**", "~state/**", "../io/**", "../state/**"], message: "web domain/types must stay independent from io and state." }
+        { group: ["~io/**", "~state/**", "../io/**", "../state/**"], message: "web domain must stay independent from io and state." }
       )
     }
   },

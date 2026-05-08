@@ -55,10 +55,10 @@ module.exports = {
       to: { path: "^packages/(server|web)/src/" },
     },
     {
-      name: "web-types-no-io-or-state",
+      name: "web-domain-no-io-or-state",
       severity: "error",
-      comment: "web types/domain code must not import io or state.",
-      from: { path: "^packages/web/src/types(?:/|\\.ts$)" },
+      comment: "web domain code must not import io or state.",
+      from: { path: "^packages/web/src/domain(?:/|\\.ts$)" },
       to: { path: "^packages/web/src/(io|state)/" },
     },
     {

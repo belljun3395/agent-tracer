@@ -1,334 +1,340 @@
-import type { EventId, RuleId, RuntimeSource, TaskId } from "~domain/monitoring.js";
-import type { MonitoringTask, TimelineEventRecord } from "~domain/monitoring.js";
-import type { BackfillResult, RuleCreateInput, RuleRecord, RuleScope, RuleSource, RuleUpdateInput, RulesListResponse, TaskRulesResponse } from "~domain/rule.js";
+import type { MonitoringTask, TaskId } from "~domain/monitoring.js";
+import type { TaskOpenInferenceResponse } from "~domain/openinference.js";
+import type {
+  RuleCreateInput,
+  RuleRecord,
+  RuleUpdateInput,
+  RulesListResponse,
+  TaskRulesResponse,
+} from "~domain/rule.js";
 import type { SearchResponse } from "~domain/search-contracts.js";
-import type { OverviewResponse, TaskDetailResponse, TasksResponse } from "~domain/task-query-contracts.js";
-const DEFAULT_REQUEST_TIMEOUT_MS = 30000;
+import type {
+  TaskDetailResponse,
+  TasksResponse,
+} from "~domain/task-query-contracts.js";
+
+const DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
 
 function normalizeBaseUrl(value: string | undefined): string {
-    return value?.replace(/\/+$/g, "") ?? "";
+  return value?.replace(/\/+$/g, "") ?? "";
 }
-const API_BASE = normalizeBaseUrl((import.meta.env.VITE_MONITOR_BASE_URL as string | undefined)
-    ?? (import.meta.env.DEV
-        ? (import.meta.env.VITE_MONITOR_DEV_BASE_URL as string | undefined)
-        : undefined));
-const WS_BASE = normalizeBaseUrl((import.meta.env.VITE_MONITOR_WS_BASE_URL as string | undefined)
-    ?? (import.meta.env.DEV
-        ? (import.meta.env.VITE_MONITOR_DEV_WS_BASE_URL as string | undefined)
-        : undefined));
+
+const API_BASE = normalizeBaseUrl(
+  (import.meta.env.VITE_MONITOR_BASE_URL as string | undefined) ??
+    (import.meta.env.DEV
+      ? (import.meta.env.VITE_MONITOR_DEV_BASE_URL as string | undefined)
+      : undefined),
+);
+
+const WS_BASE = normalizeBaseUrl(
+  (import.meta.env.VITE_MONITOR_WS_BASE_URL as string | undefined) ??
+    (import.meta.env.DEV
+      ? (import.meta.env.VITE_MONITOR_DEV_WS_BASE_URL as string | undefined)
+      : undefined),
+);
+
 function resolveWebSocketBaseUrl(): string {
-    if (WS_BASE) {
-        return WS_BASE;
-    }
-    if (API_BASE) {
-        return API_BASE;
-    }
-    return window.location.origin;
+  if (WS_BASE) return WS_BASE;
+  if (API_BASE) return API_BASE;
+  return window.location.origin;
 }
+
 interface RequestOptions {
-    readonly signal?: AbortSignal;
-    readonly timeoutMs?: number;
+  readonly signal?: AbortSignal;
+  readonly timeoutMs?: number;
 }
 
 interface ApiSuccessEnvelope<T> {
-    readonly ok: true;
-    readonly data: T;
+  readonly ok: true;
+  readonly data: T;
 }
 
 interface ApiErrorEnvelope {
-    readonly ok: false;
-    readonly error: {
-        readonly code: string;
-        readonly message: string;
-        readonly details?: unknown;
-    };
+  readonly ok: false;
+  readonly error: {
+    readonly code: string;
+    readonly message: string;
+    readonly details?: unknown;
+  };
 }
 
 function createRequestSignal(options?: RequestOptions): {
-    readonly signal: AbortSignal | null;
-    readonly cleanup: () => void;
+  readonly signal: AbortSignal | null;
+  readonly cleanup: () => void;
 } {
-    const externalSignal = options?.signal;
-    const timeoutMs = options?.timeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
-    if (!externalSignal && timeoutMs <= 0) {
-        return {
-            signal: null,
-            cleanup: () => {
-                void 0;
-            }
-        };
+  const externalSignal = options?.signal;
+  const timeoutMs = options?.timeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
+  if (!externalSignal && timeoutMs <= 0) {
+    return { signal: null, cleanup: () => undefined };
+  }
+
+  const controller = new AbortController();
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  const abortFromExternal = (): void => {
+    controller.abort(externalSignal?.reason);
+  };
+
+  if (externalSignal) {
+    if (externalSignal.aborted) {
+      controller.abort(externalSignal.reason);
+    } else {
+      externalSignal.addEventListener("abort", abortFromExternal, { once: true });
     }
+  }
 
-    const controller = new AbortController();
-    let timeoutId: ReturnType<typeof setTimeout> | null = null;
-    const abortFromExternal = (): void => {
-        controller.abort(externalSignal?.reason);
-    };
+  if (timeoutMs > 0) {
+    timeoutId = setTimeout(() => {
+      controller.abort(
+        new DOMException(`Request timed out after ${timeoutMs}ms`, "TimeoutError"),
+      );
+    }, timeoutMs);
+  }
 
-    if (externalSignal) {
-        if (externalSignal.aborted) {
-            controller.abort(externalSignal.reason);
-        }
-        else {
-            externalSignal.addEventListener("abort", abortFromExternal, { once: true });
-        }
-    }
-
-    if (timeoutMs > 0) {
-        timeoutId = setTimeout(() => {
-            controller.abort(new DOMException(`Request timed out after ${timeoutMs}ms`, "TimeoutError"));
-        }, timeoutMs);
-    }
-
-    return {
-        signal: controller.signal,
-        cleanup: () => {
-            if (timeoutId !== null) {
-                clearTimeout(timeoutId);
-            }
-            if (externalSignal) {
-                externalSignal.removeEventListener("abort", abortFromExternal);
-            }
-        }
-    };
+  return {
+    signal: controller.signal,
+    cleanup: () => {
+      if (timeoutId !== null) clearTimeout(timeoutId);
+      if (externalSignal) externalSignal.removeEventListener("abort", abortFromExternal);
+    },
+  };
 }
 
-async function request(pathname: string, init?: RequestInit, options?: RequestOptions): Promise<Response> {
-    const { signal, cleanup } = createRequestSignal(options);
-    const requestInit: RequestInit = {
-        credentials: "include",
-        ...init,
-        ...(signal ? { signal } : {})
-    };
-    try {
-        return await fetch(`${API_BASE}${pathname}`, requestInit);
+async function request(
+  pathname: string,
+  init?: RequestInit,
+  options?: RequestOptions,
+): Promise<Response> {
+  const { signal, cleanup } = createRequestSignal(options);
+  const requestInit: RequestInit = {
+    credentials: "include",
+    ...init,
+    ...(signal ? { signal } : {}),
+  };
+  try {
+    return await fetch(`${API_BASE}${pathname}`, requestInit);
+  } catch (error) {
+    if (
+      signal?.aborted &&
+      signal.reason instanceof DOMException &&
+      signal.reason.name === "TimeoutError"
+    ) {
+      throw new Error(`Request timed out for ${pathname}`);
     }
-    catch (error) {
-        if (signal?.aborted && signal.reason instanceof DOMException && signal.reason.name === "TimeoutError") {
-            throw new Error(`Request timed out for ${pathname}`);
-        }
-        throw error;
-    }
-    finally {
-        cleanup();
-    }
+    throw error;
+  } finally {
+    cleanup();
+  }
 }
 
 async function getJson<T>(pathname: string, options?: RequestOptions): Promise<T> {
-    const response = await request(pathname, undefined, options);
-    if (!response.ok) {
-        throw await createResponseError(response, pathname, "GET");
-    }
-    return unwrapApiEnvelope<T>(await response.json());
-}
-async function patchJson<T>(pathname: string, body: unknown, options?: RequestOptions): Promise<T> {
-    const response = await request(pathname, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body)
-    }, options);
-    if (!response.ok) throw await createResponseError(response, pathname, "PATCH");
-    return unwrapApiEnvelope<T>(await response.json());
-}
-async function postJson<T>(pathname: string, body: unknown, options?: RequestOptions): Promise<T> {
-    const response = await request(pathname, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body)
-    }, options);
-    if (!response.ok) throw await createResponseError(response, pathname, "POST");
-    return unwrapApiEnvelope<T>(await response.json());
-}
-async function deleteRequest(pathname: string, options?: RequestOptions): Promise<void> {
-    const response = await request(pathname, { method: "DELETE" }, options);
-    if (!response.ok) throw await createResponseError(response, pathname, "DELETE");
-}
-async function putJson<T>(pathname: string, body: unknown, options?: RequestOptions): Promise<T> {
-    const response = await request(pathname, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body)
-    }, options);
-    if (!response.ok) throw await createResponseError(response, pathname, "PUT");
-    return unwrapApiEnvelope<T>(await response.json());
+  const response = await request(pathname, undefined, options);
+  if (!response.ok) {
+    throw await createResponseError(response, pathname, "GET");
+  }
+  return unwrapApiEnvelope<T>(await response.json());
 }
 
-async function createResponseError(response: Response, pathname: string, method: string): Promise<Error> {
-    const body = await readJsonBody(response);
-    const envelope = isApiErrorEnvelope(body) ? body : undefined;
-    const message = envelope?.error.message ?? `${method} ${pathname}: ${response.status}`;
-    const error = new Error(message) as Error & {
-        status?: number;
-        pathname?: string;
-        code?: string;
-        details?: unknown;
-    };
-    error.status = response.status;
-    error.pathname = pathname;
-    if (envelope) {
-        error.code = envelope.error.code;
-        error.details = envelope.error.details;
-    }
-    return error;
+async function deleteRequest<T>(
+  pathname: string,
+  options?: RequestOptions,
+): Promise<T> {
+  const response = await request(pathname, { method: "DELETE" }, options);
+  if (!response.ok) {
+    throw await createResponseError(response, pathname, "DELETE");
+  }
+  // The server returns `{ deleted: true }` directly (no envelope), but
+  // unwrapApiEnvelope handles both shapes safely.
+  return unwrapApiEnvelope<T>(await response.json());
+}
+
+async function postJson<T>(
+  pathname: string,
+  body?: unknown,
+  options?: RequestOptions,
+): Promise<T> {
+  const response = await request(
+    pathname,
+    {
+      method: "POST",
+      headers:
+        body !== undefined ? { "content-type": "application/json" } : {},
+      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+    },
+    options,
+  );
+  if (!response.ok) {
+    throw await createResponseError(response, pathname, "POST");
+  }
+  return unwrapApiEnvelope<T>(await response.json());
+}
+
+async function patchJson<T>(
+  pathname: string,
+  body: unknown,
+  options?: RequestOptions,
+): Promise<T> {
+  const response = await request(
+    pathname,
+    {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    },
+    options,
+  );
+  if (!response.ok) {
+    throw await createResponseError(response, pathname, "PATCH");
+  }
+  return unwrapApiEnvelope<T>(await response.json());
+}
+
+async function createResponseError(
+  response: Response,
+  pathname: string,
+  method: string,
+): Promise<Error> {
+  const body = await readJsonBody(response);
+  const envelope = isApiErrorEnvelope(body) ? body : undefined;
+  const message = envelope?.error.message ?? `${method} ${pathname}: ${response.status}`;
+  const error = new Error(message) as Error & {
+    status?: number;
+    pathname?: string;
+    code?: string;
+    details?: unknown;
+  };
+  error.status = response.status;
+  error.pathname = pathname;
+  if (envelope) {
+    error.code = envelope.error.code;
+    error.details = envelope.error.details;
+  }
+  return error;
 }
 
 async function readJsonBody(response: Response): Promise<unknown> {
-    try {
-        return await response.json() as unknown;
-    }
-    catch {
-        return undefined;
-    }
+  try {
+    return (await response.json()) as unknown;
+  } catch {
+    return undefined;
+  }
 }
 
 function unwrapApiEnvelope<T>(body: unknown): T {
-    if (isApiSuccessEnvelope<T>(body)) return body.data;
-    return body as T;
+  if (isApiSuccessEnvelope<T>(body)) return body.data;
+  return body as T;
 }
 
 function isApiSuccessEnvelope<T>(body: unknown): body is ApiSuccessEnvelope<T> {
-    return isRecord(body) && body["ok"] === true && "data" in body;
+  return isRecord(body) && body["ok"] === true && "data" in body;
 }
 
 function isApiErrorEnvelope(body: unknown): body is ApiErrorEnvelope {
-    return isRecord(body)
-        && body["ok"] === false
-        && isRecord(body["error"])
-        && typeof body["error"]["code"] === "string"
-        && typeof body["error"]["message"] === "string";
+  return (
+    isRecord(body) &&
+    body["ok"] === false &&
+    isRecord(body["error"]) &&
+    typeof body["error"]["code"] === "string" &&
+    typeof body["error"]["message"] === "string"
+  );
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-    return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-export function fetchOverview(): Promise<OverviewResponse> {
-    return getJson<OverviewResponse>("/api/v1/overview");
-}
-export function fetchTasks(): Promise<TasksResponse> {
-    return getJson<TasksResponse>("/api/v1/tasks");
-}
-export function fetchTaskDetail(taskId: TaskId): Promise<TaskDetailResponse> {
-    return getJson<TaskDetailResponse>(`/api/v1/tasks/${taskId}`);
-}
-export interface OpenInferenceTaskExport {
-    readonly taskId: TaskId;
-    readonly runtimeSource?: RuntimeSource;
-    readonly spans: readonly {
-        readonly spanId: EventId;
-        readonly parentSpanId?: EventId;
-        readonly name: string;
-        readonly kind: string;
-        readonly startTime: string;
-        readonly attributes: Record<string, unknown>;
-    }[];
-}
-export function fetchSearchResults(query: string, taskId?: TaskId, options?: RequestOptions): Promise<SearchResponse> {
-    const params = new URLSearchParams({ q: query });
-    if (taskId) {
-        params.set("taskId", taskId);
-    }
-    return getJson<SearchResponse>(`/api/v1/search?${params.toString()}`, options);
-}
-export async function updateTaskTitle(taskId: TaskId, title: string): Promise<MonitoringTask> {
-    const payload = await patchJson<{
-        task: MonitoringTask;
-    }>(`/api/v1/tasks/${taskId}`, { title });
-    return payload.task;
-}
-export async function updateTaskStatus(taskId: TaskId, status: MonitoringTask["status"]): Promise<MonitoringTask> {
-    const payload = await patchJson<{
-        task: MonitoringTask;
-    }>(`/api/v1/tasks/${taskId}`, { status });
-    return payload.task;
-}
-export async function updateEventDisplayTitle(eventId: EventId, displayTitle: string | null): Promise<TimelineEventRecord> {
-    const payload = await patchJson<{
-        event: TimelineEventRecord;
-    }>(`/api/v1/events/${eventId}`, { displayTitle });
-    return payload.event;
-}
-export async function deleteTask(taskId: TaskId): Promise<void> {
-    return deleteRequest(`/api/v1/tasks/${taskId}`);
-}
-export interface TurnPartitionRecord {
-    readonly taskId: TaskId;
-    readonly groups: ReadonlyArray<{
-        readonly id: string;
-        readonly from: number;
-        readonly to: number;
-        readonly label: string | null;
-        readonly visible: boolean;
-    }>;
-    readonly version: number;
-    readonly updatedAt: string;
-}
-export interface TurnPartitionUpsertPayload {
-    readonly groups: ReadonlyArray<{
-        readonly id: string;
-        readonly from: number;
-        readonly to: number;
-        readonly label?: string | null;
-        readonly visible: boolean;
-    }>;
-    readonly baseVersion?: number;
-}
-export function fetchTurnPartition(taskId: TaskId): Promise<TurnPartitionRecord> {
-    return getJson<TurnPartitionRecord>(`/api/v1/tasks/${taskId}/turn-partition`);
-}
-export function saveTurnPartition(taskId: TaskId, payload: TurnPartitionUpsertPayload): Promise<TurnPartitionRecord> {
-    return putJson<TurnPartitionRecord>(`/api/v1/tasks/${taskId}/turn-partition`, payload);
-}
-export async function resetTurnPartition(taskId: TaskId): Promise<void> {
-    await postJson<{ ok: boolean }>(`/api/v1/tasks/${taskId}/turn-partition/reset`, {});
-}
-export interface FetchRulesFilter {
-    readonly scope?: RuleScope;
-    readonly taskId?: TaskId;
-    readonly source?: RuleSource;
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-export function fetchRules(filter?: FetchRulesFilter): Promise<RulesListResponse> {
-    const params = new URLSearchParams();
-    if (filter?.scope) params.set("scope", filter.scope);
-    if (filter?.taskId) params.set("taskId", filter.taskId);
-    if (filter?.source) params.set("source", filter.source);
-    const qs = params.toString();
-    return getJson<RulesListResponse>(`/api/v1/rules${qs ? `?${qs}` : ""}`);
+// ── public surface ────────────────────────────────────────────────────
+
+export function fetchTasks(): Promise<TasksResponse> {
+  return getJson<TasksResponse>("/api/v1/tasks");
+}
+
+export function fetchTaskDetail(taskId: TaskId): Promise<TaskDetailResponse> {
+  return getJson<TaskDetailResponse>(`/api/v1/tasks/${taskId}`);
+}
+
+export function fetchTaskOpenInference(
+  taskId: TaskId,
+): Promise<TaskOpenInferenceResponse> {
+  return getJson<TaskOpenInferenceResponse>(
+    `/api/v1/tasks/${taskId}/openinference`,
+  );
+}
+
+export function fetchRules(): Promise<RulesListResponse> {
+  return getJson<RulesListResponse>("/api/v1/rules");
 }
 
 export function fetchTaskRules(taskId: TaskId): Promise<TaskRulesResponse> {
-    return getJson<TaskRulesResponse>(`/api/v1/tasks/${taskId}/rules`);
+  return getJson<TaskRulesResponse>(`/api/v1/tasks/${taskId}/rules`);
 }
 
-
-export async function createRule(payload: RuleCreateInput): Promise<RuleRecord> {
-    const response = await postJson<{ rule: RuleRecord }>(`/api/v1/rules`, payload);
-    return response.rule;
+export interface DeleteTaskResponse {
+  readonly deleted: boolean;
 }
 
-export async function updateRule(ruleId: RuleId, patch: RuleUpdateInput): Promise<{
-    rule: RuleRecord;
-    signatureChanged: boolean;
-}> {
-    return patchJson<{ rule: RuleRecord; signatureChanged: boolean }>(`/api/v1/rules/${ruleId}`, patch);
+export function deleteTask(taskId: TaskId): Promise<DeleteTaskResponse> {
+  return deleteRequest<DeleteTaskResponse>(`/api/v1/tasks/${taskId}`);
 }
 
-export async function deleteRule(ruleId: RuleId): Promise<void> {
-    await deleteRequest(`/api/v1/rules/${ruleId}`);
+export interface UpdateTaskBody {
+  readonly title?: string;
+  readonly status?: "running" | "waiting" | "completed" | "errored";
 }
 
-export async function promoteRule(ruleId: RuleId): Promise<RuleRecord> {
-    const response = await postJson<{ rule: RuleRecord }>(`/api/v1/rules/${ruleId}/promote`, {});
-    return response.rule;
+export interface UpdateTaskResponse {
+  readonly task: MonitoringTask;
 }
 
-export function reEvaluateRule(ruleId: RuleId): Promise<BackfillResult> {
-    return postJson<BackfillResult>(`/api/v1/rules/${ruleId}/re-evaluate`, {});
+export function updateTask(
+  taskId: TaskId,
+  body: UpdateTaskBody,
+): Promise<UpdateTaskResponse> {
+  return patchJson<UpdateTaskResponse>(`/api/v1/tasks/${taskId}`, body);
+}
+
+export interface DeleteRuleResponse {
+  readonly deleted: boolean;
+}
+
+export function deleteRule(ruleId: string): Promise<DeleteRuleResponse> {
+  return deleteRequest<DeleteRuleResponse>(`/api/v1/rules/${ruleId}`);
+}
+
+export function createRule(body: RuleCreateInput): Promise<RuleRecord> {
+  return postJson<RuleRecord>("/api/v1/rules", body);
+}
+
+export function updateRule(
+  ruleId: string,
+  body: RuleUpdateInput,
+): Promise<RuleRecord> {
+  return patchJson<RuleRecord>(`/api/v1/rules/${ruleId}`, body);
+}
+
+export function promoteRule(ruleId: string): Promise<unknown> {
+  return postJson<unknown>(`/api/v1/rules/${ruleId}/promote`);
+}
+
+export function reEvaluateRule(
+  ruleId: string,
+  body?: { readonly taskId?: TaskId },
+): Promise<unknown> {
+  return postJson<unknown>(`/api/v1/rules/${ruleId}/re-evaluate`, body);
+}
+
+export function fetchSearch(
+  query: string,
+  options?: { readonly taskId?: TaskId; readonly limit?: number },
+): Promise<SearchResponse> {
+  const params = new URLSearchParams({ query });
+  if (options?.taskId) params.set("taskId", options.taskId);
+  if (options?.limit !== undefined) params.set("limit", String(options.limit));
+  return getJson<SearchResponse>(`/api/v1/search?${params.toString()}`);
 }
 
 export function getMonitorWsUrl(): string {
-    const baseUrl = resolveWebSocketBaseUrl();
-    const wsUrl = new URL(baseUrl.replace(/^http/, "ws"));
-    wsUrl.pathname = "/ws";
-    return wsUrl.toString();
+  const baseUrl = resolveWebSocketBaseUrl();
+  const wsUrl = new URL(baseUrl.replace(/^http/, "ws"));
+  wsUrl.pathname = "/ws";
+  return wsUrl.toString();
 }

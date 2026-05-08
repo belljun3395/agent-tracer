@@ -1,64 +1,37 @@
-import type React from "react";
-import { createContext, useContext, useRef, type ReactNode } from "react";
+import { createContext, useContext, useState, type ReactNode } from "react";
 import { useStore } from "zustand";
 import {
-    createUiStore,
-    type EditStore,
-    type EditStoreState,
-    type SelectionStore,
-    type SelectionStoreState,
-    type UiStoreBundle
+  createUiStore,
+  type UiStore,
+  type UiStoreApi,
 } from "./createUiStore.js";
 
-const UiStoreContext = createContext<UiStoreBundle | null>(null);
+const UiStoreContext = createContext<UiStoreApi | null>(null);
 
-export interface UiStoreProviderProps {
-    readonly children: ReactNode;
-    /**
-     * Optional injected bundle. Primarily used in tests so each test can
-     * own its own fresh selection/edit stores without touching module
-     * state. In production the provider builds its own bundle once per
-     * mount.
-     */
-    readonly bundle?: UiStoreBundle;
+interface UiStoreProviderProps {
+  readonly children: ReactNode;
+  /**
+   * Optional injected store. Tests use this to supply a fresh non-persisted
+   * instance; in production the provider builds its own once per mount.
+   */
+  readonly store?: UiStoreApi;
 }
 
-export function UiStoreProvider({ children, bundle }: UiStoreProviderProps): React.JSX.Element {
-    const ref = useRef<UiStoreBundle | null>(null);
-    if (ref.current === null) {
-        ref.current = bundle ?? createUiStore();
-    }
-    return <UiStoreContext.Provider value={ref.current}>{children}</UiStoreContext.Provider>;
+export function UiStoreProvider({ children, store }: UiStoreProviderProps) {
+  const [instance] = useState<UiStoreApi>(() => store ?? createUiStore());
+  return (
+    <UiStoreContext.Provider value={instance}>{children}</UiStoreContext.Provider>
+  );
 }
 
-function useUiStore(): UiStoreBundle {
-    const ctx = useContext(UiStoreContext);
-    if (ctx === null) {
-        throw new Error(
-            "useSelectionStore/useEditStore must be used within <UiStoreProvider>."
-        );
-    }
-    return ctx;
-}
-
-/** Access the underlying selection store API (`.getState`, `.setState`, `.subscribe`). */
-export function useSelectionStoreApi(): SelectionStore {
-    return useUiStore().selection;
-}
-
-/** Access the underlying edit store API. */
-function useEditStoreApi(): EditStore {
-    return useUiStore().edit;
-}
-
-/** Subscribe to a slice of the selection store. */
-export function useSelectionStore<T>(selector: (state: SelectionStoreState) => T): T {
-    const store = useSelectionStoreApi();
-    return useStore(store, selector);
-}
-
-/** Subscribe to a slice of the edit store. */
-export function useEditStore<T>(selector: (state: EditStoreState) => T): T {
-    const store = useEditStoreApi();
-    return useStore(store, selector);
+/**
+ * Subscribe to a slice of the UI store. All UI state (selection, view,
+ * sidebar filter) is read through this hook.
+ */
+export function useUiStore<T>(selector: (state: UiStore) => T): T {
+  const ctx = useContext(UiStoreContext);
+  if (ctx === null) {
+    throw new Error("useUiStore must be used within <UiStoreProvider>");
+  }
+  return useStore(ctx, selector);
 }

@@ -25,13 +25,8 @@
     "packages/server/src/adapters/http/shared/schemas/query.schema.ts",
     "packages/server/src/governance/verification/application/outbound/tokens.ts",
     "packages/server/src/governance/verification/domain/type/turn.evaluation.type.ts",
-    "packages/web/src/app/components/inspector/TurnChip.tsx",
-    "packages/web/src/app/components/ui/Textarea.tsx",
-    "packages/web/src/app/lib/explorationCategory.ts",
-    "packages/web/src/app/lib/text/truncate.ts",
-    "packages/web/src/app/lib/ui/useClipboardCopyState.ts",
     "packages/web/src/io/storage.ts",
-    "packages/web/src/types/snapshot.ts"
+    "packages/web/src/domain/snapshot.ts"
   ],
   "ignoreDependencies": [
     "zod",

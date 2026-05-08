@@ -6,11 +6,14 @@
     "outDir": "dist",
     "baseUrl": ".",
     "paths": {
-      "~domain/*": ["src/types/*"],
+      "~domain/*": ["src/domain/*"],
       "~io/*": ["src/io/*"],
       "~state/*": ["src/state/*"],
       "~app/*": ["src/app/*"],
-      "~config/*": ["src/config/*"]
+      "~config/*": ["src/config/*"],
+      "~ui/*": ["src/ui/*"],
+      "~lib/*": ["src/lib/*"],
+      "~features/*": ["src/features/*"]
     }
   },
   "include": ["src", "*.config.ts"]
