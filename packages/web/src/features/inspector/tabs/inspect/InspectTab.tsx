@@ -12,7 +12,6 @@ import { EventBodySection } from "./EventBodySection.js";
 import { EventTags } from "./EventTags.js";
 import { RuleMatchesSection } from "./RuleMatchesSection.js";
 import { SubagentInsightSection } from "./SubagentInsightSection.js";
-import { FileActivitySection } from "./FileActivitySection.js";
 
 /**
  * Inspect tab body — finds the selected event in the cached task detail
@@ -58,7 +57,6 @@ export function InspectTab() {
       <EventTags event={event} />
       <RuleMatchesSection event={event} />
       {taskId && <SubagentInsightSection taskId={taskId} />}
-      {taskId && <FileActivitySection taskId={taskId} />}
     </div>
   );
 }

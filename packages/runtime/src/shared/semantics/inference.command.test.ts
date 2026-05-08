@@ -126,21 +126,38 @@ describe("inferCommandSemantic", () => {
         })
     })
 
-    describe("built-in keyword rule check", () => {
+    describe("rule keywords without configured patterns", () => {
         it.each(["rule", "policy", "guard", "constraint", "conformance"])(
-            "maps command containing keyword '%s' to rule lane",
+            "does NOT classify keyword '%s' as rule lane on its own",
             (keyword) => {
-                // Arrange
+                // Arrange — without an explicit rulePattern matching the
+                // command, plain keyword presence must NOT promote a
+                // command into the rule lane. Otherwise arbitrary text
+                // like `git commit -m "Add rules"` ends up looking like
+                // a compliance event when no rules are configured.
                 const command = `check ${keyword} settings`
 
                 // Act
                 const result = inferCommandSemantic(command)
 
-                // Assert
-                expect(result.lane).toBe("rule")
-                expect(result.metadata.subtypeKey).toBe("rule_check")
+                // Assert — falls through to the implementation default.
+                expect(result.lane).toBe("implementation")
+                expect(result.metadata.subtypeKey).toBe("run_command")
             }
         )
+
+        it("still respects rulePatterns when they explicitly mention the keyword", () => {
+            // Arrange — opt-in via rulePatterns is the supported route.
+            const command = "check policy settings"
+            const rulePatterns = ["check policy"]
+
+            // Act
+            const result = inferCommandSemantic(command, rulePatterns)
+
+            // Assert
+            expect(result.lane).toBe("rule")
+            expect(result.metadata.subtypeKey).toBe("rule_check")
+        })
     })
 
     describe("implementation fallback", () => {
