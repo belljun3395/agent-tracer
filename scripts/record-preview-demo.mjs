@@ -96,9 +96,11 @@ await sleep(800);
 await zoomOut.click().catch(() => undefined);
 await sleep(2200);
 
-// Scene 9 — highlight the verification node in the graph.
+// Scene 9 — highlight the verification node in the graph. Graph labels
+// are visually truncated; use the accessible name (full title) so the
+// click reliably lands on the VERI node.
 await page
-  .locator("text=Cart-tax suite green over 50 stress")
+  .getByRole("button", { name: /Cart-tax suite green over 50 stress repeats/ })
   .first()
   .click()
   .catch(() => undefined);

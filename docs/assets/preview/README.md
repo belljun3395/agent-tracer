@@ -25,16 +25,17 @@ MONITOR_BASE_URL=http://127.0.0.1:3947 node scripts/seed-preview.mjs
 # 3. Boot the dashboard pointed at the same server.
 MONITOR_PORT=3947 npm run dev:web -- --port 5273 --host 127.0.0.1 &
 
-# 4. Open http://127.0.0.1:5273/tasks/preview-task-checkout-tax and
-#    capture the four screenshots referenced from the top-level README.
+# 4. Capture the static screenshots — same Playwright flow as the video,
+#    just stops at the matching frames.
+PLAYWRIGHT_PATH=/tmp/agent-tracer-record/node_modules/playwright \
+  node scripts/snapshot-preview.mjs
 ```
 
 | File | Captured from |
 |------|---------------|
-| `dashboard-overview.png` | Default landing — task list + feed + inspector |
-| `feed-graph.png` | "Graph" view button — swimlane layout closeup |
-| `inspector.png` | Graph view with the verification node selected |
-| `feed-walkthrough.png` | Full-page feed view (capture with full-page mode) |
+| `dashboard-overview.png` | Feed view, fresh load, no event selected |
+| `feed-graph.png` | Graph view zoomed out one notch (swimlane reads at a glance) |
+| `inspector.png` | Graph view with the verification node selected + inspector populated |
 | `demo.webm` | Recorded by `scripts/record-preview-demo.mjs` (Playwright) |
 | `demo.gif` | `ffmpeg` conversion of `demo.webm` (used inline in README) |
 
