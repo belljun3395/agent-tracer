@@ -2,10 +2,8 @@ import { useMemo } from "react";
 import type { MonitoringTask, TimelineEventRecord } from "~domain/monitoring.js";
 import { useNowMs } from "~state/ui/useNowMs.js";
 import { formatDuration } from "./lib/format-time.js";
-import { formatCompactCount } from "./lib/extract-metadata.js";
 import { extractContextSnapshot } from "./lib/extract-context.js";
 import { buildContextTrajectory } from "./lib/extract-context-trajectory.js";
-import { buildTokenTotals } from "./lib/extract-token-totals.js";
 import { isContextCompactEvent } from "./lib/is-compact.js";
 import { ContextSparkline } from "./ContextSparkline.js";
 
@@ -21,11 +19,8 @@ interface MetricRailProps {
  *   Compacts : count of true PreCompact / PostCompact events (filtered
  *              by `metadata.compactPhase` to exclude the many other
  *              hooks that piggy-back on `kind: 'context.saved'`)
- *   Context  : latest context snapshot (used / limit) plus a
- *              sparkline of the trajectory across the task — shown
- *              only when the runtime emits snapshots with both fields
- *   Tokens   : total input + output across the task (sum of every
- *              event that carried token usage)
+ *   Context  : latest context-window utilisation as a percent, plus a
+ *              sparkline of the trajectory across the task
  *
  * Cells with no underlying data are hidden entirely — never render "—".
  */
@@ -39,7 +34,6 @@ export function MetricRail({ task, timeline }: MetricRailProps) {
     () => buildContextTrajectory(timeline),
     [timeline],
   );
-  const tokens = useMemo(() => buildTokenTotals(timeline), [timeline]);
 
   return (
     <div
@@ -52,7 +46,6 @@ export function MetricRail({ task, timeline }: MetricRailProps) {
         <Cell
           label="Context"
           value={`${ctx.percent}%`}
-          subtitle={`${formatCompactCount(ctx.used)} / ${formatCompactCount(ctx.limit)}`}
           chart={
             trajectory.length >= 2 ? (
               <ContextSparkline points={trajectory} width={120} height={26} />
@@ -65,17 +58,6 @@ export function MetricRail({ task, timeline }: MetricRailProps) {
               : {})}
         />
       )}
-      {tokens.sampleCount > 0 && (
-        <Cell
-          label="Tokens"
-          value={formatCompactCount(tokens.totalAll)}
-          subtitle={
-            tokens.totalIn > 0 || tokens.totalOut > 0
-              ? `${formatCompactCount(tokens.totalIn)} in / ${formatCompactCount(tokens.totalOut)} out`
-              : `${tokens.sampleCount} sample${tokens.sampleCount === 1 ? "" : "s"}`
-          }
-        />
-      )}
     </div>
   );
 }
@@ -83,12 +65,11 @@ export function MetricRail({ task, timeline }: MetricRailProps) {
 interface CellProps {
   readonly label: string;
   readonly value: string;
-  readonly subtitle?: string;
   readonly tone?: "warn" | "err";
   readonly chart?: React.ReactNode;
 }
 
-function Cell({ label, value, subtitle, tone, chart }: CellProps) {
+function Cell({ label, value, tone, chart }: CellProps) {
   const valueColor =
     tone === "err"
       ? "var(--err)"
@@ -122,17 +103,6 @@ function Cell({ label, value, subtitle, tone, chart }: CellProps) {
       >
         {value}
       </span>
-      {subtitle && (
-        <span
-          style={{
-            fontFamily: "var(--font-mono)",
-            fontSize: 10,
-            color: "var(--ink-tertiary)",
-          }}
-        >
-          {subtitle}
-        </span>
-      )}
       {chart && <div style={{ marginTop: 4 }}>{chart}</div>}
     </div>
   );

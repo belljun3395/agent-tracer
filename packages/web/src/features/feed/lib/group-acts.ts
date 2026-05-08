@@ -39,8 +39,6 @@ export type FeedItem =
   | {
       readonly kind: "context-mark";
       readonly percent: number;
-      readonly used: number;
-      readonly limit: number;
       readonly model: string | null;
       /** True when the model identity changed at this point. */
       readonly modelChanged: boolean;
@@ -105,8 +103,6 @@ export function buildFeed(
           items.push({
             kind: "context-mark",
             percent: snapshot.percent,
-            used: snapshot.used,
-            limit: snapshot.limit,
             model,
             modelChanged,
             deltaPct,
