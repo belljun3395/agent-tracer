@@ -17,6 +17,7 @@ import { GraphEdges } from "./GraphEdges.js";
 import { NowMarker } from "./NowMarker.js";
 import { CompactBand } from "./CompactBand.js";
 import { GraphLegend } from "./GraphLegend.js";
+import { GraphContextStrip } from "./GraphContextStrip.js";
 import {
   GRAPH_LANE_KEYS,
   LANE_HEIGHT,
@@ -246,6 +247,7 @@ export function GraphView({ events, turns = [], taskStatus }: GraphViewProps) {
               ))}
               <NowMarker nowMs={nowMs} range={range} />
             </div>
+            <GraphContextStrip events={events} range={range} />
             <GraphAxis
               ticks={ticks}
               leftOffset={LANE_LABEL_WIDTH + TRACK_LEFT_PADDING}

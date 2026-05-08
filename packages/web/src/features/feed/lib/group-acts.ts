@@ -5,6 +5,7 @@ import { classifyEvent, type ActVm } from "./act-classification.js";
 import { formatHHmmss } from "./format-time.js";
 import { findTurnAtMs } from "./find-turn-at.js";
 import { isContextCompactEvent } from "./is-compact.js";
+import { readContextSnapshot } from "./extract-context.js";
 
 /**
  * Time-marks split the vertical feed into bands; acts are the actual cards.
@@ -35,7 +36,30 @@ export type FeedItem =
       readonly verdict: VerdictStatus | null;
       readonly status: "open" | "closed";
     }
+  | {
+      readonly kind: "context-mark";
+      readonly percent: number;
+      readonly used: number;
+      readonly limit: number;
+      readonly model: string | null;
+      /** True when the model identity changed at this point. */
+      readonly modelChanged: boolean;
+      /** Signed delta from the last emitted mark, in percentage points. */
+      readonly deltaPct: number;
+    }
   | { readonly kind: "act"; readonly vm: ActVm };
+
+const CONTEXT_DELTA_THRESHOLD = 5;
+
+const MODEL_KEYS = ["modelId", "model_id", "model"] as const;
+
+function readModel(meta: Record<string, unknown>): string | null {
+  for (const key of MODEL_KEYS) {
+    const v = meta[key];
+    if (typeof v === "string" && v.trim().length > 0) return v.trim();
+  }
+  return null;
+}
 
 export function buildFeed(
   events: readonly TimelineEventRecord[],
@@ -56,7 +80,48 @@ export function buildFeed(
   }
 
   let lastTurnIndex: number | null = null;
+  let lastEmittedContextPct: number | null = null;
+  let lastEmittedModel: string | null = null;
   for (const event of sorted) {
+    // Context snapshots (model status, token usage) emit inline marks
+    // when they materially change the operator's view of the run —
+    // either the model rotated, or context % moved by ≥ threshold
+    // since the last mark we emitted. Otherwise they're ambient
+    // noise and the metric rail / sparkline already covers them.
+    if (event.kind === "context.snapshot") {
+      const snapshot = readContextSnapshot(event);
+      if (snapshot) {
+        const model = readModel(event.metadata);
+        const modelChanged =
+          model !== null && lastEmittedModel !== null && model !== lastEmittedModel;
+        const deltaPct =
+          lastEmittedContextPct === null
+            ? snapshot.percent
+            : snapshot.percent - lastEmittedContextPct;
+        const significantContext =
+          lastEmittedContextPct === null ||
+          Math.abs(deltaPct) >= CONTEXT_DELTA_THRESHOLD;
+        if (modelChanged || significantContext) {
+          items.push({
+            kind: "context-mark",
+            percent: snapshot.percent,
+            used: snapshot.used,
+            limit: snapshot.limit,
+            model,
+            modelChanged,
+            deltaPct,
+          });
+          lastEmittedContextPct = snapshot.percent;
+          if (model !== null) lastEmittedModel = model;
+        } else if (model !== null && lastEmittedModel === null) {
+          // Latch the first observed model so subsequent comparisons
+          // can detect a change, even if the context % was stable.
+          lastEmittedModel = model;
+        }
+      }
+      // Don't fall through to the ActCard render — the mark replaces it.
+      continue;
+    }
     if (isContextCompactEvent(event)) {
       // Collapse a run of consecutive compacts into one divider — without
       // this, an agent that auto-compacts 5× in a row floods the feed

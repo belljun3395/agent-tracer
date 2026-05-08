@@ -4,6 +4,7 @@ import type { FeedItem } from "./lib/group-acts.js";
 import { ActCard } from "./ActCard.js";
 import { TimeMark } from "./TimeMark.js";
 import { TurnMark } from "./TurnMark.js";
+import { ContextMark } from "./ContextMark.js";
 
 interface ActListProps {
   readonly items: readonly FeedItem[];
@@ -84,6 +85,19 @@ export function ActList({ items }: ActListProps) {
               turnIndex={item.turnIndex}
               verdict={item.verdict}
               status={item.status}
+            />
+          );
+        }
+        if (item.kind === "context-mark") {
+          return (
+            <ContextMark
+              key={`ctx-${idx}`}
+              percent={item.percent}
+              used={item.used}
+              limit={item.limit}
+              model={item.model}
+              modelChanged={item.modelChanged}
+              deltaPct={item.deltaPct}
             />
           );
         }
