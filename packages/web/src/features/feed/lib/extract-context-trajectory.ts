@@ -1,4 +1,5 @@
 import type { TimelineEventRecord } from "~domain/monitoring.js";
+import { readContextSnapshot } from "./extract-context.js";
 
 export interface TrajectoryPoint {
   readonly atMs: number;
@@ -7,14 +8,16 @@ export interface TrajectoryPoint {
   readonly percent: number;
 }
 
-const USED_KEYS = ["used_tokens", "usedTokens", "used", "tokens"];
-const LIMIT_KEYS = ["limit_tokens", "limitTokens", "limit", "context_limit"];
-
 /**
  * Time-ordered list of (used / limit / percent) samples — the data a
  * sparkline needs to render the context-window curve. Drops events
- * that don't expose both used and limit, so the resulting series only
- * contains points that can actually be plotted.
+ * that don't expose enough metadata to plot, so the resulting series
+ * only contains points that can actually be drawn.
+ *
+ * Reuses `readContextSnapshot` so the trajectory respects the same
+ * canonical-vs-fallback key precedence as the metric rail's "current"
+ * cell — keeps the two views from disagreeing about what counts as a
+ * valid snapshot.
  */
 export function buildContextTrajectory(
   events: readonly TimelineEventRecord[],
@@ -28,27 +31,10 @@ export function buildContextTrajectory(
     ) {
       continue;
     }
-    const used = readNumber(event.metadata, USED_KEYS);
-    const limit = readNumber(event.metadata, LIMIT_KEYS);
-    if (used === null || limit === null || limit <= 0) continue;
-    out.push({
-      atMs: Date.parse(event.createdAt),
-      used,
-      limit,
-      percent: (used / limit) * 100,
-    });
+    const snapshot = readContextSnapshot(event);
+    if (!snapshot) continue;
+    out.push(snapshot);
   }
   out.sort((a, b) => a.atMs - b.atMs);
   return out;
-}
-
-function readNumber(
-  meta: Record<string, unknown>,
-  keys: readonly string[],
-): number | null {
-  for (const key of keys) {
-    const v = meta[key];
-    if (typeof v === "number" && Number.isFinite(v) && v >= 0) return v;
-  }
-  return null;
 }
