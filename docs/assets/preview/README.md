@@ -36,6 +36,7 @@ MONITOR_PORT=3947 npm run dev:web -- --port 5273 --host 127.0.0.1 &
 | `inspector.png` | Graph view with the verification node selected |
 | `feed-walkthrough.png` | Full-page feed view (capture with full-page mode) |
 | `demo.webm` | Recorded by `scripts/record-preview-demo.mjs` (Playwright) |
+| `demo.gif` | `ffmpeg` conversion of `demo.webm` (used inline in README) |
 
 ## Re-recording the demo video
 
@@ -56,6 +57,16 @@ PLAYWRIGHT_PATH=/tmp/agent-tracer-record/node_modules/playwright \
 The script drives the dashboard through the same scripted mock task — feed
 → inspector → graph view → back to feed — and writes
 `docs/assets/preview/demo.webm`.
+
+GitHub's README HTML sanitizer drops `<video src="docs/...">` for relative
+paths (only `user-attachments.githubusercontent.com` URLs survive), so the
+README embeds a GIF rendition. Regenerate it after re-recording:
+
+```bash
+ffmpeg -y -i docs/assets/preview/demo.webm \
+  -vf "fps=12,scale=900:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=128[p];[s1][p]paletteuse=dither=bayer:bayer_scale=5" \
+  docs/assets/preview/demo.gif
+```
 
 ## Why mock data
 

@@ -48,20 +48,15 @@ with edges showing causal continuity across turns.
 </table>
 
 <p align="center">
-  <video src="docs/assets/preview/demo.webm"
-         poster="docs/assets/preview/feed-walkthrough.png"
-         width="900" controls muted playsinline>
-    Your browser doesn't render embedded video — open
-    <a href="docs/assets/preview/demo.webm">docs/assets/preview/demo.webm</a>
-    directly. A
-    <a href="docs/assets/preview/feed-walkthrough.png">static walkthrough</a>
-    is available too.
-  </video>
+  <img src="docs/assets/preview/demo.gif"
+       alt="Walkthrough: feed → inspector → swimlane graph and back"
+       width="900" />
 </p>
 
 <p align="center">
-  <em>Walkthrough recorded with Playwright against the same mock fixtures —
-  feed → inspector → swimlane graph and back.</em>
+  <em>Walkthrough recorded with Playwright against the same mock fixtures.
+  Higher-quality WebM source:
+  <a href="docs/assets/preview/demo.webm">docs/assets/preview/demo.webm</a>.</em>
 </p>
 
 ## Quick Start
