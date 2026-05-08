@@ -1,6 +1,6 @@
 {
   "name": "@monitor/runtime",
-  "version": "0.2.25",
+  "version": "0.2.26",
   "private": true,
   "description": "Agent Tracer runtime adapters — Claude Code, Codex, OpenCode.",
   "type": "module",
