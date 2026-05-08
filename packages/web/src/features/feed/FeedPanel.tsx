@@ -7,6 +7,7 @@ import { TaskHeader } from "./TaskHeader.js";
 import { ActList } from "./ActList.js";
 import { GraphView } from "./graph/index.js";
 import { OverviewView } from "./OverviewView.js";
+import { LaneFilter } from "./LaneFilter.js";
 import { buildFeed } from "./lib/group-acts.js";
 
 interface FeedPanelProps {
@@ -64,6 +65,12 @@ export function FeedPanel({ taskId }: FeedPanelProps) {
         timeline={data.timeline}
         {...(sessionId ? { sessionId } : {})}
       />
+      {(mainView === "feed" || mainView === "graph") &&
+        data.timeline.length > 0 && (
+          <div className="px-9 pb-2">
+            <LaneFilter />
+          </div>
+        )}
       {data.timeline.length === 0 ? (
         <div className="px-9">
           <EmptyView

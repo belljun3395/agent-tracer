@@ -1,5 +1,9 @@
 import { useUiStore } from "./UiStoreProvider.js";
-import type { InspectorTab, MainView } from "./slices/viewSlice.js";
+import type {
+  InspectorTab,
+  MainView,
+  VisibleLane,
+} from "./slices/viewSlice.js";
 import type { SearchScope, SidebarFilter } from "./slices/sidebarSlice.js";
 import type { Theme } from "./slices/themeSlice.js";
 import type { EventId, TaskId } from "~domain/monitoring.js";
@@ -42,6 +46,11 @@ export const useInspectorTab = (): InspectorTab =>
   useUiStore((s) => s.inspectorTab);
 
 export const useSetInspectorTab = () => useUiStore((s) => s.setInspectorTab);
+
+export const useVisibleLanes = (): readonly VisibleLane[] =>
+  useUiStore((s) => s.visibleLanes);
+export const useToggleVisibleLane = () =>
+  useUiStore((s) => s.toggleVisibleLane);
 
 // ── sidebar ───────────────────────────────────────────────────────────
 export const useSidebarFilter = (): SidebarFilter => useUiStore((s) => s.filter);

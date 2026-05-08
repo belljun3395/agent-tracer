@@ -1,4 +1,5 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
+import { useVisibleLanes } from "~state/ui/index.js";
 import type { FeedItem } from "./lib/group-acts.js";
 import { ActCard } from "./ActCard.js";
 import { TimeMark } from "./TimeMark.js";
@@ -26,20 +27,37 @@ interface ActListProps {
 export function ActList({ items }: ActListProps) {
   const tailRef = useRef<HTMLDivElement>(null);
   const lastLengthRef = useRef(0);
+  const visibleLanes = useVisibleLanes();
+  const visibleLaneSet = useMemo<ReadonlySet<string>>(
+    () => new Set(visibleLanes),
+    [visibleLanes],
+  );
+
+  // Drop acts whose lane is currently hidden by the lane filter. Time
+  // marks and turn marks stay — they're structural separators, not
+  // events, so hiding them would orphan the surrounding context.
+  const filtered = useMemo(
+    () =>
+      items.filter(
+        (item) =>
+          item.kind !== "act" || visibleLaneSet.has(item.vm.lane.key),
+      ),
+    [items, visibleLaneSet],
+  );
 
   useEffect(() => {
-    if (items.length === 0) return;
+    if (filtered.length === 0) return;
     // Only scroll when the list actually grew (or first mount). Avoids
     // hijacking the user when they manually scroll up to inspect history.
-    if (items.length === lastLengthRef.current) return;
-    const grew = items.length > lastLengthRef.current;
-    lastLengthRef.current = items.length;
+    if (filtered.length === lastLengthRef.current) return;
+    const grew = filtered.length > lastLengthRef.current;
+    lastLengthRef.current = filtered.length;
     if (!grew) return;
     tailRef.current?.scrollIntoView({
       behavior: "smooth",
       block: "end",
     });
-  }, [items.length]);
+  }, [filtered.length]);
 
   return (
     <div className="relative pb-20">
@@ -48,7 +66,7 @@ export function ActList({ items }: ActListProps) {
         className="absolute top-0 bottom-0 w-px"
         style={{ left: 78, background: "var(--hair)" }}
       />
-      {items.map((item, idx) => {
+      {filtered.map((item, idx) => {
         if (item.kind === "time-mark") {
           return (
             <TimeMark
