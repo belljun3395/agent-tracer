@@ -39,6 +39,10 @@ export default defineConfig({
     cleanUrls: true,
     lastUpdated: enableLastUpdated,
     appearance: true,
+    // `docs/assets/**` holds binary captures and per-folder how-to notes —
+    // none of it is intended to render as a docs page, and the README files
+    // inside reference the repo root, which vitepress can't resolve.
+    srcExclude: ["assets/**"],
     head: [
         ["meta", { name: "theme-color", content: "#b45309" }]
     ],
