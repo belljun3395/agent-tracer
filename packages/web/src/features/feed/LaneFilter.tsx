@@ -2,7 +2,11 @@ import {
   ALL_VISIBLE_LANES,
   type VisibleLane,
 } from "~state/ui/slices/viewSlice.js";
-import { useToggleVisibleLane, useVisibleLanes } from "~state/ui/index.js";
+import {
+  useSetVisibleLanes,
+  useToggleVisibleLane,
+  useVisibleLanes,
+} from "~state/ui/index.js";
 
 const LANE_LABEL: Readonly<Record<VisibleLane, string>> = {
   user: "USER",
@@ -36,7 +40,9 @@ const LANE_COLOR: Readonly<Record<VisibleLane, string>> = {
 export function LaneFilter() {
   const visible = useVisibleLanes();
   const toggle = useToggleVisibleLane();
+  const setVisibleLanes = useSetVisibleLanes();
   const visibleSet = new Set(visible);
+  const allOn = visible.length === ALL_VISIBLE_LANES.length;
 
   return (
     <div
@@ -56,6 +62,36 @@ export function LaneFilter() {
       >
         Lanes
       </span>
+      <button
+        type="button"
+        onClick={() => setVisibleLanes(ALL_VISIBLE_LANES)}
+        aria-pressed={allOn}
+        disabled={allOn}
+        title={allOn ? "All lanes already visible" : "Show every lane"}
+        style={{
+          padding: "2px 10px",
+          border: `1px solid ${allOn ? "var(--hair-strong)" : "var(--hair)"}`,
+          borderRadius: "var(--radius-pill)",
+          background: allOn ? "var(--s2)" : "transparent",
+          color: allOn ? "var(--ink)" : "var(--ink-muted)",
+          cursor: allOn ? "default" : "pointer",
+          opacity: allOn ? 1 : 0.85,
+          transition: "all 120ms",
+          textTransform: "uppercase",
+          letterSpacing: "0.06em",
+        }}
+      >
+        All
+      </button>
+      <span
+        aria-hidden
+        style={{
+          width: 1,
+          height: 14,
+          background: "var(--hair)",
+          marginInline: 2,
+        }}
+      />
       {ALL_VISIBLE_LANES.map((lane) => {
         const isOn = visibleSet.has(lane);
         return (

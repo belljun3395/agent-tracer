@@ -1,6 +1,10 @@
 import type { PositionedNode } from "./lib/layout.js";
 import type { FeedEdge } from "./lib/build-edges.js";
-import { LANE_HEIGHT, LANE_LABEL_WIDTH } from "./lib/layout.js";
+import {
+  LANE_HEIGHT,
+  LANE_LABEL_WIDTH,
+  TRACK_LEFT_PADDING,
+} from "./lib/layout.js";
 
 interface GraphEdgesProps {
   readonly edges: readonly FeedEdge[];
@@ -28,11 +32,11 @@ export function GraphEdges({ edges, nodes }: GraphEdgesProps) {
       className="absolute pointer-events-none"
       preserveAspectRatio="none"
       style={{
-        left: LANE_LABEL_WIDTH,
+        left: LANE_LABEL_WIDTH + TRACK_LEFT_PADDING,
         right: 0,
         top: 0,
         bottom: 0,
-        width: `calc(100% - ${LANE_LABEL_WIDTH}px)`,
+        width: `calc(100% - ${LANE_LABEL_WIDTH + TRACK_LEFT_PADDING}px)`,
         height: nodes.length > 0 ? "100%" : 0,
         zIndex: 1,
       }}

@@ -1,9 +1,11 @@
-import { laneThemeFor } from "~features/feed/lib/lane-theme.js";
-import {
-  GRAPH_LANE_KEYS,
-  LANE_HEIGHT,
-  LANE_LABEL_WIDTH,
-} from "./lib/layout.js";
+import { laneThemeFor, type LaneKey } from "~features/feed/lib/lane-theme.js";
+import { LANE_HEIGHT, LANE_LABEL_WIDTH } from "./lib/layout.js";
+
+interface GraphLanesProps {
+  /** Lane keys to render in order. Hidden lanes are absent — the row
+   * disappears entirely, and the canvas height shrinks to match. */
+  readonly lanes: readonly LaneKey[];
+}
 
 /**
  * Lane row backgrounds + sticky lane labels.
@@ -20,10 +22,10 @@ import {
  * above default node circles but below hovered labels (which surface
  * extra detail).
  */
-export function GraphLanes() {
+export function GraphLanes({ lanes }: GraphLanesProps) {
   return (
     <>
-      {GRAPH_LANE_KEYS.map((key, idx) => {
+      {lanes.map((key, idx) => {
         const theme = laneThemeForKey(key);
         return (
           <div

@@ -5,7 +5,7 @@ import {
   msToLeftPercent,
   type TimeRange,
 } from "./lib/time-range.js";
-import { LANE_LABEL_WIDTH } from "./lib/layout.js";
+import { trackLeftCss } from "./lib/layout.js";
 
 interface CompactBandProps {
   readonly events: readonly TimelineEventRecord[];
@@ -70,7 +70,7 @@ export function CompactBand({ events, range }: CompactBandProps) {
           aria-hidden
           className="absolute top-0 bottom-0 pointer-events-none"
           style={{
-            left: `calc(${LANE_LABEL_WIDTH}px + (100% - ${LANE_LABEL_WIDTH}px) * ${cluster.leftPercent / 100} - ${BAND_WIDTH / 2}px)`,
+            left: `calc(${trackLeftCss(cluster.leftPercent)} - ${BAND_WIDTH / 2}px)`,
             width: BAND_WIDTH,
             background: "color-mix(in srgb, var(--compact) 12%, transparent)",
             borderLeft: "1px dashed var(--compact)",

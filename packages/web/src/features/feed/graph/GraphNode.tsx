@@ -4,7 +4,7 @@ import {
   useSetSelectedEventId,
 } from "~state/ui/index.js";
 import type { PositionedNode } from "./lib/layout.js";
-import { LANE_HEIGHT, LANE_LABEL_WIDTH } from "./lib/layout.js";
+import { LANE_HEIGHT, trackLeftCss } from "./lib/layout.js";
 
 interface GraphNodeProps {
   readonly node: PositionedNode;
@@ -68,7 +68,7 @@ export function GraphNode({ node }: GraphNodeProps) {
       onBlur={() => setHovered(false)}
       className="absolute rounded-full transition-transform hover:scale-125"
       style={{
-        left: `calc(${LANE_LABEL_WIDTH}px + (100% - ${LANE_LABEL_WIDTH}px) * ${node.leftPercent / 100})`,
+        left: trackLeftCss(node.leftPercent),
         top,
         width: NODE_DIAMETER,
         height: NODE_DIAMETER,

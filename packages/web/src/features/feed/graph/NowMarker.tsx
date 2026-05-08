@@ -1,6 +1,6 @@
 import type { TimeRange } from "./lib/time-range.js";
 import { msToLeftPercent } from "./lib/time-range.js";
-import { LANE_LABEL_WIDTH } from "./lib/layout.js";
+import { trackLeftCss } from "./lib/layout.js";
 
 interface NowMarkerProps {
   readonly nowMs: number;
@@ -22,7 +22,7 @@ export function NowMarker({ nowMs, range }: NowMarkerProps) {
       aria-hidden
       className="absolute top-0 bottom-0 pointer-events-none"
       style={{
-        left: `calc(${LANE_LABEL_WIDTH}px + (100% - ${LANE_LABEL_WIDTH}px) * ${leftPercent / 100})`,
+        left: trackLeftCss(leftPercent),
         width: 1,
         background: "var(--ink)",
         zIndex: 6,

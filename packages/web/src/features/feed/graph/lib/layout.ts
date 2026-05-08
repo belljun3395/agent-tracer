@@ -7,9 +7,13 @@ import type { LaneKey } from "~features/feed/lib/lane-theme.js";
 import { msToLeftPercent, type TimeRange } from "./time-range.js";
 
 /**
- * Lane order on the graph — top-to-bottom. `bg` is omitted from the graph
+ * Canonical lane order on the graph — top-to-bottom. `bg` is omitted
  * (telemetry / background events would clutter the swimlane without
  * adding diagnostic value).
+ *
+ * The visible subset is filtered upstream via the lane-filter chip
+ * strip; `layoutGraphNodes` accepts the surviving slice so hidden
+ * lanes pack out completely instead of leaving an empty row.
  */
 export const GRAPH_LANE_KEYS: readonly LaneKey[] = [
   "user",
@@ -24,6 +28,17 @@ export const GRAPH_LANE_KEYS: readonly LaneKey[] = [
 export const LANE_HEIGHT = 60;
 export const AXIS_HEIGHT = 28;
 export const LANE_LABEL_WIDTH = 90;
+/**
+ * Horizontal breathing room between the sticky lane-label gutter and
+ * the first node on each lane. Without it, nodes whose `leftPercent`
+ * is near 0 land directly underneath the label and get visually
+ * clipped (their left half hides under the opaque sticky background).
+ *
+ * Applied symmetrically by all positioning consumers — nodes, edges,
+ * axis ticks, NOW marker, compact band — so the inner track always
+ * starts at `LANE_LABEL_WIDTH + TRACK_LEFT_PADDING`.
+ */
+export const TRACK_LEFT_PADDING = 16;
 
 /** Two nodes within this horizontal % of each other on the same lane are
  * considered colliding and get vertical stagger applied. Calibrated so
@@ -67,8 +82,13 @@ export interface PositionedNode {
 export function layoutGraphNodes(
   events: readonly TimelineEventRecord[],
   range: TimeRange,
+  laneKeys: readonly LaneKey[] = GRAPH_LANE_KEYS,
 ): readonly PositionedNode[] {
-  // 1. Initial positioning + lane filtering.
+  // 1. Initial positioning. Events on lanes outside `laneKeys` (either
+  //    `bg` or anything the user has hidden via the lane filter) drop
+  //    out completely — and `laneIdx` is computed against the supplied
+  //    array, so visible lanes pack contiguously without empty rows
+  //    where filtered-out lanes used to sit.
   const draft: Array<{
     id: string;
     leftPercent: number;
@@ -78,7 +98,7 @@ export function layoutGraphNodes(
   }> = [];
   for (const event of events) {
     const vm = classifyEvent(event, range.minMs);
-    const laneIdx = GRAPH_LANE_KEYS.indexOf(vm.lane.key);
+    const laneIdx = laneKeys.indexOf(vm.lane.key);
     if (laneIdx < 0) continue;
     const timeMs = Date.parse(event.createdAt);
     draft.push({
@@ -151,4 +171,28 @@ export function layoutGraphNodes(
 /** Vertical center (px) of the lane row at the given index. */
 export function laneCenterY(laneIdx: number): number {
   return laneIdx * LANE_HEIGHT + LANE_HEIGHT / 2;
+}
+
+/**
+ * CSS expression for the horizontal position of any timeline element
+ * (node, edge endpoint, axis tick, marker) at a given `leftPercent`.
+ *
+ * Centralised so adjusting the gutter width or padding updates every
+ * visual element in lockstep — and so first-on-the-track elements
+ * never end up underneath the sticky lane-label gutter.
+ */
+export function trackLeftCss(leftPercent: number): string {
+  const trackStartPx = LANE_LABEL_WIDTH + TRACK_LEFT_PADDING;
+  return `calc(${trackStartPx}px + (100% - ${trackStartPx}px) * ${leftPercent / 100})`;
+}
+
+/**
+ * Pixel-resolved twin of `trackLeftCss`. Used for inner-canvas math
+ * (e.g. anchoring the scrollLeft on selection focus) where we already
+ * know the inner element's width.
+ */
+export function trackLeftPx(leftPercent: number, innerWidth: number): number {
+  const trackStart = LANE_LABEL_WIDTH + TRACK_LEFT_PADDING;
+  const trackWidth = innerWidth - trackStart;
+  return trackStart + trackWidth * (leftPercent / 100);
 }
