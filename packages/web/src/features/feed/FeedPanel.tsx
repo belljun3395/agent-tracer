@@ -1,14 +1,22 @@
-import { useMemo } from "react";
+import { lazy, Suspense, useMemo } from "react";
 import type { TaskId } from "~domain/monitoring.js";
 import { useTaskDetailQuery } from "~state/server/queries.js";
 import { useMainView } from "~state/ui/index.js";
 import { EmptyView } from "~features/shell/index.js";
 import { TaskHeader } from "./TaskHeader.js";
 import { ActList } from "./ActList.js";
-import { GraphView } from "./graph/index.js";
-import { OverviewView } from "./OverviewView.js";
 import { LaneFilter } from "./LaneFilter.js";
 import { buildFeed } from "./lib/group-acts.js";
+
+// Feed is the default view — rendered eagerly. Graph and Overview are
+// gated behind the view toggle, so they ship as separate chunks and
+// only download when the user actually picks them.
+const GraphView = lazy(() =>
+  import("./graph/index.js").then((m) => ({ default: m.GraphView })),
+);
+const OverviewView = lazy(() =>
+  import("./OverviewView.js").then((m) => ({ default: m.OverviewView })),
+);
 
 interface FeedPanelProps {
   readonly taskId: TaskId;
@@ -80,13 +88,17 @@ export function FeedPanel({ taskId }: FeedPanelProps) {
           />
         </div>
       ) : mainView === "graph" ? (
-        <GraphView
-          events={data.timeline}
-          {...(data.turns ? { turns: data.turns } : {})}
-          taskStatus={data.task.status}
-        />
+        <Suspense fallback={null}>
+          <GraphView
+            events={data.timeline}
+            {...(data.turns ? { turns: data.turns } : {})}
+            taskStatus={data.task.status}
+          />
+        </Suspense>
       ) : mainView === "overview" ? (
-        <OverviewView taskId={taskId} timeline={data.timeline} />
+        <Suspense fallback={null}>
+          <OverviewView taskId={taskId} timeline={data.timeline} />
+        </Suspense>
       ) : (
         <div className="px-9">
           <ActList items={items} />

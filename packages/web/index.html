@@ -3,6 +3,14 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Internal operator dashboard — never crawl, never archive. -->
+    <meta name="robots" content="noindex,nofollow,noarchive" />
+    <!-- Don't leak the dashboard URL on outbound clicks. -->
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <!-- Lets the browser theme its own UI (scrollbars, autofill, date
+         pickers) appropriately while we drive everything else via
+         data-theme. -->
+    <meta name="color-scheme" content="dark light" />
     <title>Agent Tracer</title>
     <link rel="icon" type="image/svg+xml" href="/icons/activity.svg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
