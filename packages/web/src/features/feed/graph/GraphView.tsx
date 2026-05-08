@@ -8,7 +8,7 @@ import {
 } from "react";
 import type { TimelineEventRecord } from "~domain/monitoring.js";
 import type { TaskTurnSummary } from "~domain/task-query-contracts.js";
-import { useSelectedEventId } from "~state/ui/index.js";
+import { useSelectedEventId, useVisibleLanes } from "~state/ui/index.js";
 import { useNowMs } from "~state/ui/useNowMs.js";
 import { GraphLanes } from "./GraphLanes.js";
 import { GraphAxis } from "./GraphAxis.js";
@@ -65,12 +65,29 @@ export function GraphView({ events, turns = [], taskStatus }: GraphViewProps) {
     () => buildTimeRange(events, nowMs, { freezeAtLastEvent }),
     [events, nowMs, freezeAtLastEvent],
   );
-  const nodes = useMemo(() => layoutGraphNodes(events, range), [events, range]);
-  const ticks = useMemo(() => buildAxisTicks(range), [range]);
-  const edges = useMemo(
-    () => buildFeedEdges(events, turns),
-    [events, turns],
+  const visibleLanes = useVisibleLanes();
+  const visibleLaneSet = useMemo<ReadonlySet<string>>(
+    () => new Set(visibleLanes),
+    [visibleLanes],
   );
+  const allNodes = useMemo(() => layoutGraphNodes(events, range), [events, range]);
+  // Lane-filter the nodes; edges drop with both endpoints hidden so we
+  // never render a dangling line into empty space.
+  const nodes = useMemo(
+    () => allNodes.filter((n) => visibleLaneSet.has(n.vm.lane.key)),
+    [allNodes, visibleLaneSet],
+  );
+  const visibleNodeIds = useMemo<ReadonlySet<string>>(
+    () => new Set(nodes.map((n) => n.vm.event.id as unknown as string)),
+    [nodes],
+  );
+  const ticks = useMemo(() => buildAxisTicks(range), [range]);
+  const edges = useMemo(() => {
+    const all = buildFeedEdges(events, turns);
+    return all.filter(
+      (e) => visibleNodeIds.has(e.fromEventId) && visibleNodeIds.has(e.toEventId),
+    );
+  }, [events, turns, visibleNodeIds]);
 
   const selectedEventId = useSelectedEventId();
   const scrollRef = useRef<HTMLDivElement>(null);
