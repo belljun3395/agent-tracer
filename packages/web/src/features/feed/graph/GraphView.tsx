@@ -21,7 +21,9 @@ import {
   GRAPH_LANE_KEYS,
   LANE_HEIGHT,
   LANE_LABEL_WIDTH,
+  TRACK_LEFT_PADDING,
   layoutGraphNodes,
+  trackLeftPx,
 } from "./lib/layout.js";
 import { buildTimeRange } from "./lib/time-range.js";
 import { buildAxisTicks } from "./lib/ticks.js";
@@ -66,22 +68,23 @@ export function GraphView({ events, turns = [], taskStatus }: GraphViewProps) {
     [events, nowMs, freezeAtLastEvent],
   );
   const visibleLanes = useVisibleLanes();
-  const visibleLaneSet = useMemo<ReadonlySet<string>>(
-    () => new Set(visibleLanes),
+  // Intersect with canonical graph lane order so the row order is
+  // stable regardless of toggle insertion order in the slice.
+  const visibleLaneKeys = useMemo(
+    () => GRAPH_LANE_KEYS.filter((k) => visibleLanes.includes(k as never)),
     [visibleLanes],
   );
-  const allNodes = useMemo(() => layoutGraphNodes(events, range), [events, range]);
-  // Lane-filter the nodes; edges drop with both endpoints hidden so we
-  // never render a dangling line into empty space.
   const nodes = useMemo(
-    () => allNodes.filter((n) => visibleLaneSet.has(n.vm.lane.key)),
-    [allNodes, visibleLaneSet],
+    () => layoutGraphNodes(events, range, visibleLaneKeys),
+    [events, range, visibleLaneKeys],
   );
   const visibleNodeIds = useMemo<ReadonlySet<string>>(
     () => new Set(nodes.map((n) => n.vm.event.id as unknown as string)),
     [nodes],
   );
   const ticks = useMemo(() => buildAxisTicks(range), [range]);
+  // Edges drop when either endpoint sits on a hidden lane — keeps the
+  // SVG free of dangling lines that point at nothing.
   const edges = useMemo(() => {
     const all = buildFeedEdges(events, turns);
     return all.filter(
@@ -114,10 +117,7 @@ export function GraphView({ events, turns = [], taskStatus }: GraphViewProps) {
     requestAnimationFrame(() => {
       const inner = node.firstElementChild as HTMLElement | null;
       const innerWidth = inner?.scrollWidth ?? node.scrollWidth;
-      // Account for the sticky lane-label gutter — the time axis only
-      // occupies (innerWidth - LANE_LABEL_WIDTH).
-      const trackWidth = innerWidth - LANE_LABEL_WIDTH;
-      const targetX = LANE_LABEL_WIDTH + trackWidth * (leftPercent / 100);
+      const targetX = trackLeftPx(leftPercent, innerWidth);
       const viewport = node.clientWidth;
       // Center the node when possible; clamp to valid scroll range so
       // we don't overshoot at the edges.
@@ -203,7 +203,7 @@ export function GraphView({ events, turns = [], taskStatus }: GraphViewProps) {
     dragStateRef.current = null;
   };
 
-  const lanesHeight = GRAPH_LANE_KEYS.length * LANE_HEIGHT;
+  const lanesHeight = visibleLaneKeys.length * LANE_HEIGHT;
 
   return (
     <div className="px-9 pb-6">
@@ -238,7 +238,7 @@ export function GraphView({ events, turns = [], taskStatus }: GraphViewProps) {
             }}
           >
             <div className="relative" style={{ height: lanesHeight }}>
-              <GraphLanes />
+              <GraphLanes lanes={visibleLaneKeys} />
               <CompactBand events={events} range={range} />
               <GraphEdges edges={edges} nodes={nodes} />
               {nodes.map((node) => (
@@ -246,7 +246,10 @@ export function GraphView({ events, turns = [], taskStatus }: GraphViewProps) {
               ))}
               <NowMarker nowMs={nowMs} range={range} />
             </div>
-            <GraphAxis ticks={ticks} leftOffset={LANE_LABEL_WIDTH} />
+            <GraphAxis
+              ticks={ticks}
+              leftOffset={LANE_LABEL_WIDTH + TRACK_LEFT_PADDING}
+            />
           </div>
         </div>
         <GraphLegend />

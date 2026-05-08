@@ -51,6 +51,7 @@ export const useVisibleLanes = (): readonly VisibleLane[] =>
   useUiStore((s) => s.visibleLanes);
 export const useToggleVisibleLane = () =>
   useUiStore((s) => s.toggleVisibleLane);
+export const useSetVisibleLanes = () => useUiStore((s) => s.setVisibleLanes);
 
 // ── sidebar ───────────────────────────────────────────────────────────
 export const useSidebarFilter = (): SidebarFilter => useUiStore((s) => s.filter);
