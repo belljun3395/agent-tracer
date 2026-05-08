@@ -28,6 +28,7 @@ docs/.vitepress/dist
 .monitor/
 .playwright-mcp/
 *.png
+!docs/assets/preview/*.png
 .omx/
 .codex/*
 !.codex/agents/

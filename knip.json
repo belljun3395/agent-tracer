@@ -14,6 +14,8 @@
   "ignore": [
     "docs/**",
     "scripts/register-swc.mjs",
+    "scripts/seed-preview.mjs",
+    "scripts/record-preview-demo.mjs",
     "packages/server/src/activity/event/domain/event.phase.ts",
     "packages/server/src/activity/event/domain/model/event.phase.model.ts",
     "packages/server/src/activity/event/domain/runtime/type/metadata.keys.type.ts",
