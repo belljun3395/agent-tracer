@@ -8,103 +8,142 @@ import { useEffect } from "react";
 import { monitorQueryKeys } from "../server/queryKeys.js";
 
 export interface UseMonitorSocketOptions {
-    readonly url: string;
-    readonly selectedTaskId?: TaskId | null;
-    readonly onConnectionChange?: (connected: boolean) => void;
-    readonly onMessage?: (message: MonitorRealtimeMessage) => void;
+  readonly url: string;
+  readonly selectedTaskId?: TaskId | null;
+  readonly onConnectionChange?: (connected: boolean) => void;
+  readonly onMessage?: (message: MonitorRealtimeMessage) => void;
 }
 
 export function useMonitorSocket(options: UseMonitorSocketOptions): void {
-    const { url, selectedTaskId, onConnectionChange, onMessage } = options;
-    const queryClient = useQueryClient();
+  const { url, selectedTaskId, onConnectionChange, onMessage } = options;
+  const queryClient = useQueryClient();
 
-    useEffect(() => {
-        const socket = new MonitorSocket({ url });
-        let closed = false;
+  useEffect(() => {
+    const socket = new MonitorSocket({ url });
+    let closed = false;
 
-        const offConnection = socket.on("connectionChange", (connected) => {
-            if (!closed) {
-                onConnectionChange?.(connected);
-            }
-        });
-        const offMessage = socket.on("message", (raw) => {
-            if (closed) {
-                return;
-            }
-            const message = parseRealtimeMessage(raw);
-            if (!message) return;
-            applyMonitorRealtimeInvalidations(queryClient, message, selectedTaskId ?? null);
-            onMessage?.(message);
-        });
+    const offConnection = socket.on("connectionChange", (connected) => {
+      if (!closed) {
+        onConnectionChange?.(connected);
+      }
+    });
+    const offMessage = socket.on("message", (raw) => {
+      if (closed) {
+        return;
+      }
+      const message = parseRealtimeMessage(raw);
+      if (!message) return;
+      applyMonitorRealtimeInvalidations(
+        queryClient,
+        message,
+        selectedTaskId ?? null,
+      );
+      onMessage?.(message);
+    });
 
-        return () => {
-            closed = true;
-            offConnection();
-            offMessage();
-            socket.close();
-        };
-    }, [url, queryClient, selectedTaskId, onConnectionChange, onMessage]);
+    return () => {
+      closed = true;
+      offConnection();
+      offMessage();
+      socket.close();
+    };
+  }, [url, queryClient, selectedTaskId, onConnectionChange, onMessage]);
 }
 
+/**
+ * Mirror server-side state-changing events into React Query cache
+ * invalidations. Only keys that have at least one active consumer in
+ * v1.2 are refreshed — unused keys (overview, verdictCounts) used to
+ * be invalidated here too but those queries have no hook subscribers,
+ * so the work was wasted. If those return in a future round, re-add
+ * the invalidations alongside their hooks.
+ */
 function applyMonitorRealtimeInvalidations(
-    client: QueryClient,
-    message: MonitorRealtimeMessage,
-    selectedTaskId: TaskId | null
+  client: QueryClient,
+  message: MonitorRealtimeMessage,
+  selectedTaskId: TaskId | null,
 ): void {
-    switch (message.type) {
-        case "snapshot":
-        case "tasks.purged":
-            void client.invalidateQueries({ queryKey: ["monitor"] });
-            return;
-        case "task.started":
-        case "task.completed":
-        case "task.updated": {
-            void client.invalidateQueries({ queryKey: monitorQueryKeys.tasks() });
-            void client.invalidateQueries({ queryKey: monitorQueryKeys.overview() });
-            if (selectedTaskId && message.payload.id === selectedTaskId) {
-                void client.invalidateQueries({ queryKey: monitorQueryKeys.taskDetail(selectedTaskId) });
-            }
-            return;
-        }
-        case "task.deleted": {
-            void client.invalidateQueries({ queryKey: monitorQueryKeys.tasks() });
-            void client.invalidateQueries({ queryKey: monitorQueryKeys.overview() });
-            const deleted = TaskId(message.payload.taskId);
-            client.removeQueries({ queryKey: monitorQueryKeys.taskDetail(deleted) });
-            return;
-        }
-        case "event.logged":
-        case "event.updated": {
-            if (!selectedTaskId) return;
-            void client.invalidateQueries({ queryKey: monitorQueryKeys.taskDetail(selectedTaskId) });
-            return;
-        }
-        case "rule_enforcement.added": {
-            // Lane reclassification: refetch the affected task's timeline so
-            // the event appears in the rule lane.
-            const affected = TaskId(message.payload.taskId);
-            void client.invalidateQueries({ queryKey: monitorQueryKeys.taskDetail(affected) });
-            return;
-        }
-        case "verdict.updated": {
-            const affected = TaskId(message.payload.taskId);
-            void client.invalidateQueries({ queryKey: monitorQueryKeys.taskDetail(affected) });
-            void client.invalidateQueries({ queryKey: monitorQueryKeys.verdictCounts(affected) });
-            return;
-        }
-        case "rules.changed": {
-            void client.invalidateQueries({ queryKey: ["monitor", "rules"] });
-            if (message.payload.taskId) {
-                const affected = TaskId(message.payload.taskId);
-                void client.invalidateQueries({ queryKey: monitorQueryKeys.taskRules(affected) });
-                void client.invalidateQueries({ queryKey: monitorQueryKeys.taskDetail(affected) });
-            } else {
-                void client.invalidateQueries({ queryKey: ["monitor", "task"] });
-            }
-            return;
-        }
-        case "session.started":
-        case "session.ended":
-            return;
+  switch (message.type) {
+    case "snapshot":
+    case "tasks.purged":
+      void client.invalidateQueries({ queryKey: ["monitor"] });
+      return;
+    case "task.started":
+    case "task.completed":
+    case "task.updated": {
+      void client.invalidateQueries({ queryKey: monitorQueryKeys.tasks() });
+      if (selectedTaskId && message.payload.id === selectedTaskId) {
+        void client.invalidateQueries({
+          queryKey: monitorQueryKeys.taskDetail(selectedTaskId),
+        });
+      }
+      return;
     }
+    case "task.deleted": {
+      void client.invalidateQueries({ queryKey: monitorQueryKeys.tasks() });
+      const deleted = TaskId(message.payload.taskId);
+      client.removeQueries({
+        queryKey: monitorQueryKeys.taskDetail(deleted),
+      });
+      client.removeQueries({
+        queryKey: monitorQueryKeys.taskOpenInference(deleted),
+      });
+      client.removeQueries({
+        queryKey: monitorQueryKeys.taskRules(deleted),
+      });
+      return;
+    }
+    case "event.logged":
+    case "event.updated": {
+      if (!selectedTaskId) return;
+      // OpenInference export depends on the same timeline payload, so
+      // refresh both the detail (Feed) and the trace (Inspector → Trace).
+      void client.invalidateQueries({
+        queryKey: monitorQueryKeys.taskDetail(selectedTaskId),
+      });
+      void client.invalidateQueries({
+        queryKey: monitorQueryKeys.taskOpenInference(selectedTaskId),
+      });
+      return;
+    }
+    case "rule_enforcement.added": {
+      // Lane reclassification: refetch the affected task's timeline so
+      // the event appears in the rule lane.
+      const affected = TaskId(message.payload.taskId);
+      void client.invalidateQueries({
+        queryKey: monitorQueryKeys.taskDetail(affected),
+      });
+      void client.invalidateQueries({
+        queryKey: monitorQueryKeys.taskOpenInference(affected),
+      });
+      return;
+    }
+    case "verdict.updated": {
+      const affected = TaskId(message.payload.taskId);
+      void client.invalidateQueries({
+        queryKey: monitorQueryKeys.taskDetail(affected),
+      });
+      return;
+    }
+    case "rules.changed": {
+      void client.invalidateQueries({ queryKey: monitorQueryKeys.rules() });
+      if (message.payload.taskId) {
+        const affected = TaskId(message.payload.taskId);
+        void client.invalidateQueries({
+          queryKey: monitorQueryKeys.taskRules(affected),
+        });
+        void client.invalidateQueries({
+          queryKey: monitorQueryKeys.taskDetail(affected),
+        });
+      } else {
+        // Cross-task rule edits: every cached task's classification might
+        // shift, so blow the whole `task` namespace.
+        void client.invalidateQueries({ queryKey: ["monitor", "task"] });
+      }
+      return;
+    }
+    case "session.started":
+    case "session.ended":
+      return;
+  }
 }
