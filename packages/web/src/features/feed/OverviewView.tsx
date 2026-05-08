@@ -14,6 +14,10 @@ import {
   type SearchKind,
 } from "./lib/extract-search-activity.js";
 import { buildToolUsage } from "./lib/extract-tool-usage.js";
+import { buildTokenTotals } from "./lib/extract-token-totals.js";
+import { buildContextTrajectory } from "./lib/extract-context-trajectory.js";
+import { formatCompactCount } from "./lib/extract-metadata.js";
+import { ContextSparkline } from "./ContextSparkline.js";
 
 interface OverviewViewProps {
   readonly taskId: TaskId;
@@ -36,10 +40,11 @@ const SEARCH_KIND_LABEL: Readonly<Record<SearchKind, string>> = {
  * Task-scoped roll-up. Per-event Inspector views answer "what just happened",
  * Overview answers "what did this task as a whole do":
  *
- *   1. Files     — every path the agent read/wrote/mentioned
- *   2. Searches  — every grep/glob/web query, deduped + counted
- *   3. Tools     — subtype frequency leaderboard
- *   4. Rules     — fired vs dormant, with counts
+ *   1. Tokens    — total in/out + peak context % + trajectory sparkline
+ *   2. Files     — every path the agent read/wrote/mentioned
+ *   3. Searches  — every grep/glob/web query, deduped + counted
+ *   4. Tools     — subtype frequency leaderboard
+ *   5. Rules     — fired vs dormant, with counts
  *
  * Each section is independent; if the task hasn't done that thing yet,
  * the section unmounts entirely (no empty placeholders).
@@ -51,6 +56,11 @@ export function OverviewView({ taskId, timeline }: OverviewViewProps) {
   const files = useMemo(() => buildFileActivity(timeline), [timeline]);
   const searches = useMemo(() => buildSearchActivity(timeline), [timeline]);
   const tools = useMemo(() => buildToolUsage(timeline), [timeline]);
+  const tokens = useMemo(() => buildTokenTotals(timeline), [timeline]);
+  const trajectory = useMemo(
+    () => buildContextTrajectory(timeline),
+    [timeline],
+  );
   const ruleCounts = useMemo(() => countRuleMatches(timeline), [timeline]);
 
   const allRules = useMemo(() => {
@@ -63,7 +73,8 @@ export function OverviewView({ taskId, timeline }: OverviewViewProps) {
     files.length === 0 &&
     searches.length === 0 &&
     tools.length === 0 &&
-    allRules.length === 0;
+    allRules.length === 0 &&
+    tokens.sampleCount === 0;
 
   if (empty) {
     return (
@@ -90,6 +101,7 @@ export function OverviewView({ taskId, timeline }: OverviewViewProps) {
         gap: 24,
       }}
     >
+      <TokensCard totals={tokens} trajectory={trajectory} />
       <FilesCard rows={files} nowMs={nowMs} />
       <SearchesCard rows={searches} nowMs={nowMs} />
       <ToolsCard rows={tools} totalEvents={timeline.length} />
@@ -98,6 +110,108 @@ export function OverviewView({ taskId, timeline }: OverviewViewProps) {
         counts={ruleCounts}
         loading={rulesQ.isLoading}
       />
+    </div>
+  );
+}
+
+interface TokensCardProps {
+  readonly totals: ReturnType<typeof buildTokenTotals>;
+  readonly trajectory: ReturnType<typeof buildContextTrajectory>;
+}
+
+/**
+ * Headline numbers for tokens + a sparkline of the context-window
+ * trajectory. The card unmounts when there are zero token-bearing
+ * events AND no trajectory points, so tasks running on runtimes that
+ * don't report usage data won't see an empty card.
+ */
+function TokensCard({ totals, trajectory }: TokensCardProps) {
+  if (totals.sampleCount === 0 && trajectory.length === 0) return null;
+  const peak = totals.peakContextPercent;
+  const peakColor =
+    peak === null
+      ? "var(--ink)"
+      : peak >= 95
+        ? "var(--err)"
+        : peak >= 85
+          ? "var(--warn)"
+          : "var(--ink)";
+
+  return (
+    <Card title="Tokens" count={totals.sampleCount}>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr 1fr",
+          gap: 12,
+        }}
+      >
+        <Stat label="Total" value={formatCompactCount(totals.totalAll)} />
+        <Stat label="Input" value={formatCompactCount(totals.totalIn)} />
+        <Stat label="Output" value={formatCompactCount(totals.totalOut)} />
+      </div>
+      {peak !== null && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "baseline",
+            gap: 8,
+            fontFamily: "var(--font-mono)",
+            fontSize: 11,
+            color: "var(--ink-tertiary)",
+          }}
+        >
+          <span>Peak context</span>
+          <span style={{ color: peakColor, fontSize: 13, fontWeight: 500 }}>
+            {peak}%
+          </span>
+        </div>
+      )}
+      {trajectory.length >= 2 && (
+        <div>
+          <p
+            style={{
+              margin: "0 0 4px",
+              fontFamily: "var(--font-mono)",
+              fontSize: 10,
+              textTransform: "uppercase",
+              letterSpacing: "0.1em",
+              color: "var(--ink-tertiary)",
+            }}
+          >
+            Context trajectory
+          </p>
+          <ContextSparkline points={trajectory} width={420} height={48} />
+        </div>
+      )}
+    </Card>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex flex-col gap-0.5">
+      <span
+        style={{
+          fontFamily: "var(--font-mono)",
+          fontSize: 9.5,
+          textTransform: "uppercase",
+          letterSpacing: "0.1em",
+          color: "var(--ink-tertiary)",
+        }}
+      >
+        {label}
+      </span>
+      <span
+        style={{
+          fontSize: 16,
+          fontWeight: 500,
+          color: "var(--ink)",
+          fontVariantNumeric: "tabular-nums",
+        }}
+      >
+        {value}
+      </span>
     </div>
   );
 }
