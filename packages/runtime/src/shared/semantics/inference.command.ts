@@ -31,9 +31,12 @@ export function inferCommandSemantic(command: string, rulePatterns: readonly str
         return explorationResult(commandEntity, analysis)
     }
 
-    if (/\b(rule|policy|guard|constraint|conformance)\b/.test(normalized)) {
-        return ruleCheckResult(commandEntity, analysis)
-    }
+    // Intentionally no keyword-based fallback for the rule lane — the only
+    // signal is the user-configured `rulePatterns` checked at the top.
+    // The previous heuristic (match on /\b(rule|policy|guard|constraint|
+    // conformance)\b/) bucketed any command containing these words —
+    // including arbitrary `git commit -m "..."` messages — into the rule
+    // lane, which is misleading when no rules are configured at all.
 
     return {
         lane: "implementation",
