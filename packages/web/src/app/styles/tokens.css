@@ -1,214 +1,128 @@
-:root {
-  --bg: #F6F8FC;
-  --bg-2: #F0F3F8;        /* deprecated — use --bg-subtle */
-  --bg-subtle: #F0F3F8;
-  --surface: #ffffff;
-  --surface-2: #FAFBFD;
-  --border: #E0E6EF;
-  --border-1: #E0E6EF;
-  --border-2: #C9D3E1;    /* deprecated — use --border-strong */
-  --border-strong: #B8C4D3;
+/*
+ * Design tokens — v6 Operator.
+ *
+ * Layers (each layer maps to one CSS-variable family):
+ *   canvas / s1..s4    — page bg → elevated surfaces (low → high)
+ *   hair / hair-strong — separator borders (low / high contrast)
+ *   ink / ink-muted / ink-subtle / ink-tertiary — text emphasis ladder
+ *   primary            — single saturated accent (lavender)
+ *   ok / warn / err / compact — status semantics
+ *   ph-*               — lane phase colors. Used by features/feed/lib/lane-theme.ts
+ *
+ * Theme switching: <html data-theme="dark"> or "light", driven by
+ * `useThemeAttrSync` via the user's preference (slice "theme") and the
+ * OS-level `(prefers-color-scheme)`.
+ *
+ * NEVER reference these variables outside ui/* primitives or feature CSS.
+ * Components import them through ui/ wrappers.
+ */
 
-  --text-1: #121826;
-  --text-2: #586276;
-  --text-3: #858FA1;
+/* ── DARK (default — fires when no data-theme attr is set OR set to "dark") ── */
+:root,
+:root[data-theme="dark"] {
+  --canvas:        #010102;
+  --s1:            #0f1011;
+  --s2:            #141516;
+  --s3:            #18191a;
+  --s4:            #1d1e1f;
+  --hair:          #23252a;
+  --hair-strong:   #34343a;
 
-  --user: #be123c;
-  --user-bg: #fff1f2;
-  --user-border: #fecdd3;
+  --ink:           #f7f8f8;
+  --ink-muted:     #d0d6e0;
+  --ink-subtle:    #8a8f98;
+  --ink-tertiary:  #62666d;
 
-  --assistant: #155e75;
-  --assistant-bg: #f1fbfe;
-  --assistant-border: #b9e6f2;
+  --primary:       #5e6ad2;
+  --primary-hover: #828fff;
+  --primary-focus: #5e69d1;
+  --on-primary:    #ffffff;
 
-  --exploration: #0f8b8d;
-  --exploration-bg: #f0fbfb;
-  --exploration-border: #a7e3e4;
+  --ok:            #27a644;
+  --warn:          #caa14a;
+  --err:           #d35a4a;
+  --compact:       #caa14a;
 
-  --planning: #166534;
-  --planning-bg: #f1fbf4;
-  --planning-border: #b7e6c2;
+  --ph-user:       #f7f8f8;  /* USER  — white (chat bubble) */
+  --ph-plan:       #7e7fad;  /* PLAN  — violet */
+  --ph-expl:       #5e7fa3;  /* EXPL  — steel-blue */
+  --ph-impl:       #a37060;  /* IMPL  — orange-brown */
+  --ph-rule:       #caa14a;  /* RULE  — amber */
+  --ph-veri:       #5e9970;  /* VERI  — green (kind: 'verification.logged') */
+  --ph-coord:      #7a7fad;  /* COORD — purple */
 
-  --implementation: #6845B8;
-  --implementation-bg: #f5f3ff;
-  --implementation-border: #d9cffc;
+  color-scheme: dark;
+}
 
-  --rule: #c2410c;
-  --rule-bg: #fff7ed;
-  --rule-border: #fed7aa;
+/* ── LIGHT ──────────────────────────────────────────────────────────── */
+:root[data-theme="light"] {
+  /* Surfaces — bright canvas, four steps of subtle elevation */
+  --canvas:        #ffffff;
+  --s1:            #f7f8f9;
+  --s2:            #eeeff2;
+  --s3:            #e4e7eb;
+  --s4:            #d8dce2;
+  --hair:          #d8dce2;
+  --hair-strong:   #b8bdc7;
 
-  --questions: #b347c4;
-  --questions-bg: #fdf4ff;
-  --questions-border: #efc6f5;
+  /* Text — inverted emphasis ladder; ratios ≥ 4.5:1 against canvas */
+  --ink:           #0a0b0d;
+  --ink-muted:     #1f2127;
+  --ink-subtle:    #565b66;
+  --ink-tertiary:  #7d818a;
 
-  --todos: #265ccf;
-  --todos-bg: #eef5ff;
-  --todos-border: #c7dafd;
+  /* Accent — slightly darker so lavender stays legible on white */
+  --primary:       #4a55b8;
+  --primary-hover: #3d4998;
+  --primary-focus: #4a55b8;
+  --on-primary:    #ffffff;
 
-  --coordination: #7A5BC8;
-  --coordination-bg: #f5f3ff;
-  --coordination-border: #d7d1fb;
+  /* Status — saturated dark variants for AA contrast on light bg */
+  --ok:            #1e8a3d;
+  --warn:          #b08338;
+  --err:           #c14730;
+  --compact:       #b08338;
 
-  --background: #4C6EDB;
-  --background-bg: #eef1ff;
-  --background-border: #cad3fd;
+  /* Lane phase — same hues, lower lightness so they hold the same
+     semantic against a bright canvas */
+  --ph-user:       #0a0b0d;  /* USER  — near-black (white was the dark-only trick) */
+  --ph-plan:       #5b5d99;
+  --ph-expl:       #3d6790;
+  --ph-impl:       #875240;
+  --ph-rule:       #b08338;
+  --ph-veri:       #3a7a52;
+  --ph-coord:      #5e6395;
 
-  --telemetry: #b45309;
-  --telemetry-bg: #fffbeb;
-  --telemetry-border: #fde68a;
-
-  --ok: #0c8f61;
-  --ok-bg: #D9F7E9;
-  --done: #2B63DC;
-  --done-bg: #E3ECFF;
-  --err: #dc2626;
-  --err-bg: #fee2e2;
-  --warn: #B7791F;
-  --warn-bg: #FEF1D2;
-
-  --accent: #2F5BEA;
-  --accent-light: #EEF3FF;
-
-  --text-muted: var(--text-3);
-  --danger: var(--err);
-  --danger-bg: var(--err-bg);
-
-  --font-sans: "Fira Sans", system-ui, sans-serif;
-  --font-mono: "Fira Code", monospace;
-
-  /* Border radius scale — use these instead of magic numbers */
-  --radius-xs: 4px;
-  --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 10px;
-  --radius-xl: 12px;
-  --radius-2xl: 16px;
-  --shadow-1: 0 1px 2px rgba(17, 24, 38, 0.04), 0 6px 18px rgba(17, 24, 38, 0.025);
-  --shadow-2: 0 14px 34px rgba(17, 24, 38, 0.08), 0 2px 8px rgba(17, 24, 38, 0.035);
-
-  color: var(--text-1);
-  background: var(--bg);
   color-scheme: light;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    color-scheme: dark;
+/* ── Tokens shared by both themes ───────────────────────────────────── */
+:root {
+  --font-sans:     "Inter", -apple-system, system-ui, sans-serif;
+  --font-mono:     "JetBrains Mono", ui-monospace, monospace;
 
-    --bg:           #0B0F17;
-    --bg-2:         #111723;
-    --bg-subtle:    #161D2B;
-    --surface:      #121926;
-    --surface-2:    #182130;
-    --border:       #263145;
-    --border-1:     #263145;
-    --border-2:     #33415A;
-    --border-strong:#435373;
+  --radius-xs:     4px;
+  --radius-sm:     6px;
+  --radius-md:     8px;
+  --radius-lg:     12px;
+  --radius-pill:   9999px;
 
-    --text-1:       #EAF0FF;
-    --text-2:       #A7B3CA;
-    --text-3:       #67758F;
-
-    /* Lane colors — shift bg/border darker */
-    --user-bg:           #2A0A12;
-    --user-border:       #5C1526;
-
-    --assistant-bg:      #102230;
-    --assistant-border:  #28506A;
-
-    --exploration-bg:    #0F2427;
-    --exploration-border:#2A5A61;
-
-    --planning-bg:       #11271A;
-    --planning-border:   #2B5941;
-
-    --implementation-bg:  #1D1836;
-    --implementation-border: #4D4280;
-
-    --rule-bg:           #1c1008;
-    --rule-border:       #7c3500;
-
-    --questions-bg:      #28182E;
-    --questions-border:  #644477;
-
-    --todos-bg:          #13203A;
-    --todos-border:      #31508F;
-
-    --coordination-bg:   #1B1733;
-    --coordination-border: #524683;
-
-    --background-bg:     #141B39;
-    --background-border: #3A4B89;
-
-    --telemetry-bg:      #1c1400;
-    --telemetry-border:  #5c3800;
-
-    --ok-bg:        #0D2A1D;
-    --done-bg:      #15233F;
-    --err-bg:       #2A0808;
-    --warn-bg:      #302109;
-
-    --accent:       #6C8BFF;
-    --accent-light: #1E315E;
-  }
+  --dur-fast:      150ms;
+  --dur-base:      200ms;
+  --ease-out:      cubic-bezier(0.2, 0, 0, 1);
 }
 
-/* Explicit dark mode override (data-theme="dark" on <html>) */
-:root[data-theme="dark"] {
-  color-scheme: dark;
-
-  --bg:           #0B0F17;
-  --bg-2:         #111723;
-  --bg-subtle:    #161D2B;
-  --surface:      #121926;
-  --surface-2:    #182130;
-  --border:       #263145;
-  --border-1:     #263145;
-  --border-2:     #33415A;
-  --border-strong:#435373;
-
-  --text-1:       #EAF0FF;
-  --text-2:       #A7B3CA;
-  --text-3:       #67758F;
-
-  --user-bg:           #2A0A12;
-  --user-border:       #5C1526;
-
-  --assistant-bg:      #102230;
-  --assistant-border:  #28506A;
-
-  --exploration-bg:    #0F2427;
-  --exploration-border:#2A5A61;
-
-  --planning-bg:       #11271A;
-  --planning-border:   #2B5941;
-
-  --implementation-bg:  #1D1836;
-  --implementation-border: #4D4280;
-
-  --rule-bg:           #1c1008;
-  --rule-border:       #7c3500;
-
-  --questions-bg:      #28182E;
-  --questions-border:  #644477;
-
-  --todos-bg:          #13203A;
-  --todos-border:      #31508F;
-
-  --coordination-bg:   #1B1733;
-  --coordination-border: #524683;
-
-  --background-bg:     #141B39;
-  --background-border: #3A4B89;
-
-  --telemetry-bg:      #1c1400;
-  --telemetry-border:  #5c3800;
-
-  --ok-bg:        #0D2A1D;
-  --done-bg:      #15233F;
-  --err-bg:       #2A0808;
-  --warn-bg:      #302109;
-
-  --accent:       #6C8BFF;
-  --accent-light: #1E315E;
+/* Reusable keyframes (used across primitives — pulse for live indicators,
+   ping for radial expand, slidein for new feed acts) */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.4; }
+}
+@keyframes ping {
+  0%        { transform: scale(1); opacity: 0.45; }
+  80%, 100% { transform: scale(2.6); opacity: 0; }
+}
+@keyframes slidein {
+  from { transform: translateY(6px); opacity: 0; }
+  to   { transform: none; opacity: 1; }
 }
