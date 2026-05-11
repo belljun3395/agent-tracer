@@ -60,14 +60,9 @@ export function ActCard({ vm }: ActCardProps) {
       </div>
 
       <div className="relative min-w-0">
-        <span
-          aria-hidden
-          className="absolute -left-2.5 top-3 h-2 w-2 rounded-full"
-          style={{ background: vm.lane.cssColor }}
-        />
         <div
           className={cn(
-            "rounded-[var(--radius-md)] px-3.5 py-2.5 transition-colors",
+            "rounded-[var(--radius-md)] pl-3.5 pr-3.5 py-2.5 transition-colors relative overflow-hidden",
             "border border-[var(--hair)] hover:border-[var(--hair-strong)]",
           )}
           style={{
@@ -80,6 +75,14 @@ export function ActCard({ vm }: ActCardProps) {
             }),
           }}
         >
+          {/* Lane-colored left edge — replaces the previous floating dot
+              with a continuous stripe so the eye can group same-lane
+              cards vertically while scanning a long feed. */}
+          <span
+            aria-hidden
+            className="absolute left-0 top-0 bottom-0 w-[3px]"
+            style={{ background: vm.lane.cssColor, opacity: 0.85 }}
+          />
           <ActHeader vm={vm} />
           {vm.bodyText && (
             <div

@@ -5,21 +5,24 @@ interface ActHeaderProps {
 }
 
 /**
- * Top row of an act card — `LANE → tool name`, with an optional red
- * `viol` chip pushed to the right edge when the classifier flagged a
- * violation.
+ * Top row of an act card — `[LANE chip] · tool name`, with an optional
+ * red `viol` chip pushed to the right edge when the classifier flagged
+ * a violation. The lane chip now renders with a tinted background so
+ * the eye reads it as a category tag instead of a coloured word.
  */
 export function ActHeader({ vm }: ActHeaderProps) {
   return (
-    <div className="flex items-baseline gap-2 flex-wrap">
+    <div className="flex items-center gap-2 flex-wrap">
       <span
+        className="inline-flex items-center rounded-[var(--radius-xs)] px-1.5"
         style={{
           fontFamily: "var(--font-mono)",
-          fontSize: 10,
+          fontSize: 9.5,
           fontWeight: 600,
-          letterSpacing: "0.1em",
-          textTransform: "uppercase",
+          letterSpacing: "0.08em",
           color: vm.lane.cssColor,
+          background: `color-mix(in srgb, ${vm.lane.cssColor} 14%, transparent)`,
+          lineHeight: "16px",
         }}
       >
         {vm.lane.label}
@@ -27,17 +30,10 @@ export function ActHeader({ vm }: ActHeaderProps) {
       <span
         style={{
           fontFamily: "var(--font-mono)",
-          fontSize: 11,
-          color: "var(--hair-strong)",
-        }}
-      >
-        →
-      </span>
-      <span
-        style={{
-          fontFamily: "var(--font-mono)",
           fontSize: 11.5,
-          color: "var(--ink-muted)",
+          color: "var(--ink)",
+          fontWeight: 500,
+          letterSpacing: "-0.05px",
         }}
       >
         {vm.toolName}
