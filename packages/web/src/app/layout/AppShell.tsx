@@ -26,6 +26,7 @@ import { TopBar } from "~features/topbar/index.js";
 import { TaskListPanel } from "~features/task-list/index.js";
 import { InspectorPanel } from "~features/inspector/index.js";
 import { ResizeHandle } from "./ResizeHandle.js";
+import { ShortcutsOverlay } from "./ShortcutsOverlay.js";
 
 /**
  * Operator app shell — responsive across three viewport tiers:
@@ -110,6 +111,8 @@ export function AppShell() {
 
   if (viewport === "wide") {
     return (
+      <>
+      <ShortcutsOverlay />
       <div
         className="grid h-screen min-h-0 overflow-hidden"
         style={{
@@ -186,6 +189,7 @@ export function AppShell() {
             </aside>
           ))}
       </div>
+      </>
     );
   }
 
@@ -197,6 +201,8 @@ export function AppShell() {
   );
 
   return (
+    <>
+    <ShortcutsOverlay />
     <div
       className="grid h-screen min-h-0 overflow-hidden"
       style={{
@@ -261,6 +267,7 @@ export function AppShell() {
         </Drawer>
       )}
     </div>
+    </>
   );
 }
 

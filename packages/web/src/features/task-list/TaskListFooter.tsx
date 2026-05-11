@@ -1,10 +1,11 @@
 import { getMonitorWsUrl } from "~io/api.js";
+import { Tooltip } from "~ui/index.js";
 
 /**
- * Footer below the scrollable task list — shows the websocket host so the
- * user can confirm where the dashboard is connected. Connection status
- * itself is shown by the topbar's WsLivePill, so this stays purely
- * informational.
+ * Footer below the scrollable task list — shows the websocket host so
+ * the user can confirm where the dashboard is connected, plus a small
+ * keyboard-shortcut help affordance. Connection status itself lives in
+ * the topbar's WsLivePill.
  */
 export function TaskListFooter() {
   const host = safeHost(getMonitorWsUrl());
@@ -18,7 +19,31 @@ export function TaskListFooter() {
         color: "var(--ink-tertiary)",
       }}
     >
-      WS {host}
+      <span>WS {host}</span>
+      <Tooltip
+        content="Press ? anywhere for keyboard shortcuts (j/k navigate · / search · g rules · Esc clear)"
+        side="top"
+      >
+        <button
+          type="button"
+          aria-label="Keyboard shortcuts (press ? key)"
+          onClick={() => {
+            window.dispatchEvent(
+              new KeyboardEvent("keydown", { key: "?", bubbles: true }),
+            );
+          }}
+          className="ml-auto inline-flex items-center justify-center rounded-[var(--radius-xs)] h-4 w-4 hover:bg-[var(--s1)]"
+          style={{
+            border: "1px solid var(--hair)",
+            color: "var(--ink-tertiary)",
+            cursor: "help",
+            fontSize: 9,
+            lineHeight: 1,
+          }}
+        >
+          ?
+        </button>
+      </Tooltip>
     </div>
   );
 }

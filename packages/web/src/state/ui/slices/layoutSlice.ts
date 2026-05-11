@@ -28,12 +28,19 @@ export interface LayoutSlice {
    * — the user explicitly opts in by tapping the topbar toggle.
    */
   readonly inspectorDrawerOpen: boolean;
+  /**
+   * Keyboard-shortcut cheatsheet overlay. Triggered by the `?` key or
+   * the small `?` chip in the sidebar footer. Transient — no need to
+   * persist across reloads.
+   */
+  readonly shortcutsOpen: boolean;
   readonly setSidebarWidth: (width: number) => void;
   readonly setInspectorWidth: (width: number) => void;
   readonly setSidebarCollapsed: (collapsed: boolean) => void;
   readonly setInspectorCollapsed: (collapsed: boolean) => void;
   readonly setSidebarDrawerOpen: (open: boolean) => void;
   readonly setInspectorDrawerOpen: (open: boolean) => void;
+  readonly setShortcutsOpen: (open: boolean) => void;
 }
 
 /** Pixel width of the collapsed-panel rail (just an expand chevron). */
@@ -59,6 +66,7 @@ export function createLayoutSlice(set: SetState): LayoutSlice {
     inspectorCollapsed: false,
     sidebarDrawerOpen: false,
     inspectorDrawerOpen: false,
+    shortcutsOpen: false,
     setSidebarWidth: (width) =>
       set({ sidebarWidth: clamp(width, SIDEBAR_MIN, SIDEBAR_MAX) }),
     setInspectorWidth: (width) =>
@@ -67,6 +75,7 @@ export function createLayoutSlice(set: SetState): LayoutSlice {
     setInspectorCollapsed: (collapsed) => set({ inspectorCollapsed: collapsed }),
     setSidebarDrawerOpen: (open) => set({ sidebarDrawerOpen: open }),
     setInspectorDrawerOpen: (open) => set({ inspectorDrawerOpen: open }),
+    setShortcutsOpen: (open) => set({ shortcutsOpen: open }),
   };
 }
 

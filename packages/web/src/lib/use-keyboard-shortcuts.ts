@@ -1,6 +1,10 @@
 import { useEffect } from "react";
 import { useNavigate, type NavigateFunction } from "react-router-dom";
-import { useSelectedTaskId } from "~state/ui/index.js";
+import {
+  useSelectedTaskId,
+  useSetShortcutsOpen,
+  useShortcutsOpen,
+} from "~state/ui/index.js";
 import { useTaskList } from "~features/task-list/hooks/useTaskList.js";
 
 /**
@@ -23,6 +27,8 @@ export function useKeyboardShortcuts(): void {
   const navigate = useNavigate();
   const selectedTaskId = useSelectedTaskId();
   const { groups } = useTaskList();
+  const shortcutsOpen = useShortcutsOpen();
+  const setShortcutsOpen = useSetShortcutsOpen();
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
@@ -72,15 +78,13 @@ export function useKeyboardShortcuts(): void {
           return;
         case "?":
           event.preventDefault();
-          console.info(
-            "agent-tracer shortcuts: / search · j next · k prev · g rules · Esc clear",
-          );
+          setShortcutsOpen(!shortcutsOpen);
           return;
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [navigate, selectedTaskId, groups]);
+  }, [navigate, selectedTaskId, groups, shortcutsOpen, setShortcutsOpen]);
 }
 
 interface TaskRowVm {

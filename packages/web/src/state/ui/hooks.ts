@@ -35,6 +35,9 @@ export const useSetSidebarCollapsed = () =>
   useUiStore((s) => s.setSidebarCollapsed);
 export const useSetInspectorCollapsed = () =>
   useUiStore((s) => s.setInspectorCollapsed);
+export const useShortcutsOpen = (): boolean =>
+  useUiStore((s) => s.shortcutsOpen);
+export const useSetShortcutsOpen = () => useUiStore((s) => s.setShortcutsOpen);
 
 /*
  * Atom-level selectors. Each hook returns ONE primitive (or one action),
