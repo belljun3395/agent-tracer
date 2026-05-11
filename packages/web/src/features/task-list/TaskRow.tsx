@@ -39,7 +39,12 @@ const STATUS_TO_DOT: Record<MonitoringTask["status"], StatusKind> = {
  * Visual states stack:
  *   - hover    : bg-s1; trash-can affordance fades in (opacity-0 → 100)
  *   - active   : bg-s2 + hair border + 2px primary stripe at left edge
- *   - unread   : bolder title + small pulsing primary dot at left edge
+ *   - unread   : bolder title + primary-coloured timestamp on the right.
+ *                The previous left-edge dot+glow read as a notification
+ *                badge and competed with the status dot + hierarchy
+ *                guides; tying the signal to the timestamp keeps "new
+ *                activity" co-located with "when" and frees the left
+ *                column for the hierarchy.
  *   - subagent : depth>0, indented + connector elbow ("└─") drawn from
  *                the parent column, slightly smaller / dimmer title so
  *                the eye reads them as subordinate to the root task
@@ -132,23 +137,6 @@ export function TaskRow({
           style={{ background: "var(--primary)" }}
         />
       )}
-      {unread && !active && (
-        <Tooltip
-          content="New activity since you last opened this task"
-          side="right"
-        >
-          <span
-            role="img"
-            aria-label="Unread — new activity since last open"
-            className="absolute left-[3px] top-1/2 -translate-y-1/2 h-[5px] w-[5px] rounded-full"
-            style={{
-              background: "var(--primary)",
-              boxShadow:
-                "0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent)",
-            }}
-          />
-        </Tooltip>
-      )}
       {/* Hierarchy guides: a thin vertical line under each ancestor's
           indent column, plus a small elbow ("└") that hooks under the
           status dot on subagent rows. Pure decoration, aria-hidden. */}
@@ -238,12 +226,21 @@ export function TaskRow({
         >
           {task.displayTitle ?? task.title}
         </span>
-        <Tooltip content={formatAbsoluteHHmmss(task.updatedAt)} side="left">
+        <Tooltip
+          content={
+            unread && !active
+              ? `New activity since you last opened this task · ${formatAbsoluteHHmmss(task.updatedAt)}`
+              : formatAbsoluteHHmmss(task.updatedAt)
+          }
+          side="left"
+        >
           <span
             style={{
               fontFamily: "var(--font-mono)",
               fontSize: 10.5,
-              color: "var(--ink-subtle)",
+              color:
+                unread && !active ? "var(--primary)" : "var(--ink-subtle)",
+              fontWeight: unread && !active ? 600 : 400,
             }}
           >
             {formatRelativeShort(task.updatedAt, nowMs)}
