@@ -216,7 +216,11 @@ export function RuleForm({
         </Field>
       </Row>
 
-      <Field label="Trigger phrases" hint="One per line. Leave blank to match always.">
+      <SectionHeading
+        label="Trigger"
+        hint="When should this rule run? Leave both fields empty to match every event."
+      />
+      <Field label="Phrases" hint="One per line. Leave blank to match always.">
         <textarea
           value={form.triggerPhrases}
           onChange={(e) => setForm((s) => ({ ...s, triggerPhrases: e.target.value }))}
@@ -227,7 +231,7 @@ export function RuleForm({
         />
       </Field>
 
-      <Field label="Trigger on" hint="Restrict trigger matching to one side of the conversation.">
+      <Field label="Source" hint="Restrict trigger matching to one side of the conversation.">
         <select
           value={form.triggerOn}
           onChange={(e) =>
@@ -245,7 +249,11 @@ export function RuleForm({
         </select>
       </Field>
 
-      <Field label="Expect — tool name" hint="e.g. apply_patch, bash, write_file. Optional.">
+      <SectionHeading
+        label="Expectation"
+        hint="What should the agent do once triggered? Fill at least one — tool name, command match, or pattern."
+      />
+      <Field label="Tool name" hint="e.g. apply_patch, bash, write_file. Optional.">
         <input
           type="text"
           value={form.expectTool}
@@ -257,7 +265,7 @@ export function RuleForm({
       </Field>
 
       <Field
-        label="Expect — command matches"
+        label="Command matches"
         hint="Substrings expected in the tool's command. One per line."
       >
         <textarea
@@ -272,7 +280,7 @@ export function RuleForm({
         />
       </Field>
 
-      <Field label="Expect — pattern" hint="Regex, applied to the event payload. Optional.">
+      <Field label="Pattern" hint="Regex, applied to the event payload. Optional.">
         <input
           type="text"
           value={form.expectPattern}
@@ -341,6 +349,49 @@ interface FieldProps {
   readonly hint?: string;
   readonly required?: boolean;
   readonly children: React.ReactNode;
+}
+
+function SectionHeading({
+  label,
+  hint,
+}: {
+  readonly label: string;
+  readonly hint?: string;
+}) {
+  return (
+    <div
+      style={{
+        marginTop: 6,
+        paddingTop: 8,
+        borderTop: "1px solid var(--hair)",
+        display: "flex",
+        flexDirection: "column",
+        gap: 2,
+      }}
+    >
+      <span
+        style={{
+          fontSize: 12.5,
+          fontWeight: 600,
+          color: "var(--ink)",
+          letterSpacing: "-0.05px",
+        }}
+      >
+        {label}
+      </span>
+      {hint && (
+        <span
+          style={{
+            fontSize: 11,
+            color: "var(--ink-subtle)",
+            lineHeight: 1.4,
+          }}
+        >
+          {hint}
+        </span>
+      )}
+    </div>
+  );
 }
 
 function Field({ label, hint, required, children }: FieldProps) {
