@@ -5,60 +5,6 @@ This repository ships a Claude Code plugin-based event collection path and a
 Codex bootstrap path based on official hooks.
 The server and MCP layers are also open to manual HTTP/MCP clients.
 
-## Preview
-
-The dashboard renders a single agent run as a swimlane timeline — user prompts,
-plans, tool calls, verifications and rule checks each occupy their own lane,
-with edges showing causal continuity across turns.
-
-<p align="center">
-  <img src="docs/assets/preview/dashboard-overview.png"
-       alt="Agent Tracer dashboard — swimlane feed with task list and inspector"
-       width="900" />
-</p>
-
-<p align="center">
-  <em>Swimlane feed (center) · task list (left) · inspector (right). Captured
-  from a curated mock-data run; see
-  <a href="docs/assets/preview/README.md"><code>docs/assets/preview/README.md</code></a>
-  for how the fixtures are generated.</em>
-</p>
-
-<table>
-  <tr>
-    <td width="50%" valign="top">
-      <p align="center">
-        <img src="docs/assets/preview/feed-graph.png"
-             alt="Time-aligned swimlane graph with causal edges"
-             width="100%" />
-      </p>
-      <p align="center"><strong>Swimlane graph</strong> — events placed on a
-      shared time axis with edges connecting cause and effect.</p>
-    </td>
-    <td width="50%" valign="top">
-      <p align="center">
-        <img src="docs/assets/preview/inspector.png"
-             alt="Inspector panel showing event details, flow and health tabs"
-             width="100%" />
-      </p>
-      <p align="center"><strong>Inspector</strong> — per-event details, plus
-      Flow / Health tabs for trace coverage and verification verdicts.</p>
-    </td>
-  </tr>
-</table>
-
-<p align="center">
-  <img src="docs/assets/preview/demo.gif"
-       alt="Walkthrough: feed → inspector → swimlane graph and back"
-       width="900" />
-</p>
-
-<p align="center">
-  <em>Walkthrough recorded with Playwright against the same mock fixtures.
-  Higher-quality WebM source:
-  <a href="docs/assets/preview/demo.webm">docs/assets/preview/demo.webm</a>.</em>
-</p>
-
 ## Quick Start
 
 Agent Tracer currently supports:
