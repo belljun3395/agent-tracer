@@ -7,19 +7,32 @@ import { cn } from "~lib/cn.js";
 
 interface TaskListFiltersProps {
   readonly counts: Readonly<Record<SidebarFilter, number>>;
+  /**
+   * When every visible task shares the same `runtimeSource`, the panel
+   * passes it down so we can show a single subtle caption instead of
+   * the per-row tag. Omitted otherwise.
+   */
+  readonly uniformRuntime?: string;
 }
 
 /**
  * Four-pill row pinned under the search input. Each pill shows its label
  * + count; the active pill picks up `--s2` background. Counts come from
  * the `useTaskList` view-model so they're computed once per render tick.
+ *
+ * When every task in the list shares a runtime, a small "all `<runtime>`"
+ * caption is appended on the right and the per-row badge is suppressed
+ * (the panel passes `hideRuntimeBadge` down to each row).
  */
-export function TaskListFilters({ counts }: TaskListFiltersProps) {
+export function TaskListFilters({
+  counts,
+  uniformRuntime,
+}: TaskListFiltersProps) {
   const active = useSidebarFilter();
   const setFilter = useSetSidebarFilter();
 
   return (
-    <div className="flex gap-px px-2.5 pb-1.5 border-b border-[var(--hair)]">
+    <div className="flex items-center gap-px px-2.5 pb-1.5 border-b border-[var(--hair)]">
       <FilterPill
         label="All"
         count={counts.all}
@@ -47,6 +60,20 @@ export function TaskListFilters({ counts }: TaskListFiltersProps) {
         onClick={() => setFilter("done")}
         dot="ok"
       />
+      {uniformRuntime && (
+        <span
+          className="ml-auto pl-2 pr-0.5"
+          style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: 10,
+            color: "var(--ink-tertiary)",
+            letterSpacing: "0.02em",
+          }}
+          title={`Every task in this list is sourced from ${uniformRuntime}`}
+        >
+          all {uniformRuntime}
+        </span>
+      )}
     </div>
   );
 }

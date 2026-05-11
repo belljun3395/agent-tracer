@@ -9,7 +9,7 @@ import { useNowMs } from "~state/ui/useNowMs.js";
 import { useDeleteTaskMutation } from "~state/server/mutations.js";
 import { StatusDot, Badge, Tooltip, type StatusKind } from "~ui/index.js";
 import { cn } from "~lib/cn.js";
-import { formatRelativeShort } from "~lib/time.js";
+import { formatRelativeShort, formatAbsoluteHHmmss } from "~lib/time.js";
 
 interface TaskRowProps {
   readonly task: MonitoringTask;
@@ -20,6 +20,11 @@ interface TaskRowProps {
   readonly hasChildren: boolean;
   /** True when the user has collapsed this row's children. */
   readonly collapsed: boolean;
+  /**
+   * True when every visible task shares the same runtime source, so each
+   * row can suppress the redundant tag (rendered once in the header).
+   */
+  readonly hideRuntimeBadge: boolean;
 }
 
 const STATUS_TO_DOT: Record<MonitoringTask["status"], StatusKind> = {
@@ -32,7 +37,7 @@ const STATUS_TO_DOT: Record<MonitoringTask["status"], StatusKind> = {
 /**
  * Sidebar row — uses `<Link>` so cmd-click opens the task in a new tab.
  * Visual states stack:
- *   - hover    : bg-s1, trash-can affordance fades in
+ *   - hover    : bg-s1; trash-can affordance fades in (opacity-0 → 100)
  *   - active   : bg-s2 + hair border + 2px primary stripe at left edge
  *   - unread   : bolder title + small pulsing primary dot at left edge
  *
@@ -45,6 +50,7 @@ export function TaskRow({
   depth,
   hasChildren,
   collapsed,
+  hideRuntimeBadge,
 }: TaskRowProps) {
   const selectedTaskId = useSelectedTaskId();
   const nowMs = useNowMs(15_000);
@@ -94,7 +100,7 @@ export function TaskRow({
         isDeleting && "opacity-50 pointer-events-none",
       )}
       style={{
-        paddingLeft: 10 + depth * 14,
+        paddingLeft: 10 + depth * 20,
         paddingRight: 10,
       }}
     >
@@ -170,15 +176,17 @@ export function TaskRow({
         >
           {task.displayTitle ?? task.title}
         </span>
-        <span
-          style={{
-            fontFamily: "var(--font-mono)",
-            fontSize: 10.5,
-            color: "var(--ink-subtle)",
-          }}
-        >
-          {formatRelativeShort(task.updatedAt, nowMs)}
-        </span>
+        <Tooltip content={formatAbsoluteHHmmss(task.updatedAt)} side="left">
+          <span
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 10.5,
+              color: "var(--ink-subtle)",
+            }}
+          >
+            {formatRelativeShort(task.updatedAt, nowMs)}
+          </span>
+        </Tooltip>
         <Tooltip
           content={
             confirming
@@ -193,6 +201,15 @@ export function TaskRow({
             type="button"
             onClick={handleDelete}
             aria-label={confirming ? "Confirm delete" : "Delete task"}
+            // Hidden until the row is hovered, focused, or while a
+            // delete is in flight / armed — keeps the sidebar quiet
+            // when 10+ rows are visible.
+            className={cn(
+              "transition-opacity",
+              confirming || deleteFailed || isDeleting
+                ? "opacity-100"
+                : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100",
+            )}
             style={{
               display: "inline-flex",
               alignItems: "center",
@@ -219,26 +236,31 @@ export function TaskRow({
         </Tooltip>
       </div>
 
-      <div
-        className="flex items-center gap-2 flex-wrap"
-        style={{
-          fontFamily: "var(--font-mono)",
-          fontSize: 10.5,
-          color: "var(--ink-tertiary)",
-        }}
-      >
-        {task.runtimeSource && (
-          <span className="inline-flex items-center gap-1">
-            <span
-              aria-hidden
-              className="h-[5px] w-[5px] rounded-full"
-              style={{ background: "var(--primary)" }}
-            />
-            {task.runtimeSource}
-          </span>
-        )}
-        {task.status === "waiting" && <Badge variant="appr">await input</Badge>}
-      </div>
+      {(!hideRuntimeBadge && task.runtimeSource) ||
+      task.status === "waiting" ? (
+        <div
+          className="flex items-center gap-2 flex-wrap"
+          style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: 10.5,
+            color: "var(--ink-tertiary)",
+          }}
+        >
+          {!hideRuntimeBadge && task.runtimeSource && (
+            <span className="inline-flex items-center gap-1">
+              <span
+                aria-hidden
+                className="h-[5px] w-[5px] rounded-full"
+                style={{ background: "var(--primary)" }}
+              />
+              {task.runtimeSource}
+            </span>
+          )}
+          {task.status === "waiting" && (
+            <Badge variant="appr">await input</Badge>
+          )}
+        </div>
+      ) : null}
     </Link>
   );
 }

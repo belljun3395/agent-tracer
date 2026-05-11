@@ -29,6 +29,19 @@ export function formatRelativeShort(input: Date | string | number, nowMs: number
   return `${months}mo`;
 }
 
+/**
+ * Absolute timestamp formatted as `YYYY-MM-DD HH:MM:SS` in the local
+ * timezone. Used as the tooltip companion to the compact relative string —
+ * gives operators an unambiguous anchor when two rows show "11m".
+ */
+export function formatAbsoluteHHmmss(input: Date | string | number): string {
+  const ms = toMs(input);
+  if (!Number.isFinite(ms)) return "";
+  const d = new Date(ms);
+  const pad = (n: number) => n.toString().padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
 function toMs(input: Date | string | number): number {
   if (typeof input === "number") return input;
   if (typeof input === "string") return Date.parse(input);

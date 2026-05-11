@@ -5,6 +5,7 @@ import { useNowMs } from "~state/ui/useNowMs.js";
 import {
   useCollapsedParents,
   useLastSeenAt,
+  useSelectedTaskId,
   useSidebarFilter,
   useSidebarSearchQuery,
   type SidebarFilter,
@@ -39,6 +40,12 @@ export interface TaskListVm {
   readonly counts: Readonly<Record<SidebarFilter, number>>;
   readonly isLoading: boolean;
   readonly isError: boolean;
+  /**
+   * Non-null when every visible task shares the same `runtimeSource`,
+   * so the header can label the column once and rows can suppress the
+   * redundant per-row tag.
+   */
+  readonly uniformRuntime: string | null;
 }
 
 /**
@@ -58,6 +65,7 @@ export function useTaskList(): TaskListVm {
   const searchQuery = useSidebarSearchQuery();
   const lastSeenAt = useLastSeenAt();
   const collapsedParents = useCollapsedParents();
+  const selectedTaskId = useSelectedTaskId();
   const nowMs = useNowMs(15_000);
 
   const allTasks = data?.tasks ?? [];
@@ -75,14 +83,36 @@ export function useTaskList(): TaskListVm {
         label: g.label,
         rows: hierarchical.map((h) => ({
           task: h.task,
-          unread: isTaskUnread(h.task, lastSeenAt),
+          // The currently selected task is the one the user is actively
+          // viewing — keep it "read" even when fresh events stream in,
+          // otherwise every WS update re-arms the pulse dot.
+          unread:
+            h.task.id !== selectedTaskId &&
+            isTaskUnread(h.task, lastSeenAt),
           depth: h.depth,
           hasChildren: h.hasChildren,
           collapsed: collapsedSet.has(h.task.id),
         })),
       };
     });
-  }, [allTasks, filter, searchQuery, nowMs, lastSeenAt, collapsedParents]);
+  }, [
+    allTasks,
+    filter,
+    searchQuery,
+    nowMs,
+    lastSeenAt,
+    collapsedParents,
+    selectedTaskId,
+  ]);
 
-  return { groups, counts, isLoading, isError };
+  const uniformRuntime = useMemo(() => {
+    const first = allTasks[0]?.runtimeSource ?? null;
+    if (!first) return null;
+    for (const t of allTasks) {
+      if ((t.runtimeSource ?? null) !== first) return null;
+    }
+    return first;
+  }, [allTasks]);
+
+  return { groups, counts, isLoading, isError, uniformRuntime };
 }

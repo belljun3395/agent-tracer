@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatRelativeShort } from "./time.js";
+import { formatAbsoluteHHmmss, formatRelativeShort } from "./time.js";
 
 describe("formatRelativeShort", () => {
   const NOW = 1_000_000_000_000; // arbitrary anchor
@@ -30,5 +30,24 @@ describe("formatRelativeShort", () => {
 
   it("accepts Date instances", () => {
     expect(formatRelativeShort(new Date(NOW - 60_000), NOW)).toBe("1m");
+  });
+});
+
+describe("formatAbsoluteHHmmss", () => {
+  it("pads month, day, hour, minute, and second components", () => {
+    // Local-time formatting — anchor on a value with single-digit fields.
+    const d = new Date(2026, 0, 5, 7, 3, 9);
+    expect(formatAbsoluteHHmmss(d)).toBe("2026-01-05 07:03:09");
+  });
+
+  it("accepts ISO strings and number ms", () => {
+    const d = new Date(2026, 4, 11, 21, 23, 18);
+    expect(formatAbsoluteHHmmss(d.toISOString())).toBe(
+      formatAbsoluteHHmmss(d.getTime()),
+    );
+  });
+
+  it("returns empty string for un-parsable input", () => {
+    expect(formatAbsoluteHHmmss("not-a-date")).toBe("");
   });
 });

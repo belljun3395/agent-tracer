@@ -20,7 +20,7 @@ import { useTaskList } from "./hooks/useTaskList.js";
  * scrollable body switches.
  */
 export function TaskListPanel() {
-  const { groups, counts, isLoading, isError } = useTaskList();
+  const { groups, counts, isLoading, isError, uniformRuntime } = useTaskList();
   const rawQuery = useSidebarSearchQuery();
   const query = useDebouncedValue(rawQuery, 250);
   const isSearching = query.trim().length > 0;
@@ -29,7 +29,12 @@ export function TaskListPanel() {
     <div className="flex h-full flex-col min-h-0">
       <div className="pt-2.5">
         <TaskListHeader />
-        <TaskListFilters counts={counts} />
+        {!isSearching && (
+          <TaskListFilters
+            counts={counts}
+            {...(uniformRuntime ? { uniformRuntime } : {})}
+          />
+        )}
       </div>
 
       <ScrollArea className="flex-1 min-h-0">
@@ -56,6 +61,7 @@ export function TaskListPanel() {
                     depth={row.depth}
                     hasChildren={row.hasChildren}
                     collapsed={row.collapsed}
+                    hideRuntimeBadge={uniformRuntime !== null}
                   />
                 ))}
               </Fragment>
