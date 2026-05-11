@@ -1,4 +1,12 @@
-import { TaskId } from "~domain/monitoring.js";
+import {
+  TaskId,
+  type MonitoringTask,
+  type TimelineEventRecord,
+} from "~domain/monitoring.js";
+import type {
+  TaskDetailResponse,
+  TasksResponse,
+} from "~domain/task-query-contracts.js";
 import { parseRealtimeMessage } from "~io/realtime.js";
 import type { MonitorRealtimeMessage } from "~io/realtime.js";
 import { MonitorSocket } from "~io/websocket.js";
@@ -51,12 +59,26 @@ export function useMonitorSocket(options: UseMonitorSocketOptions): void {
 }
 
 /**
- * Mirror server-side state-changing events into React Query cache
- * invalidations. Only keys that have at least one active consumer in
- * v1.2 are refreshed — unused keys (overview, verdictCounts) used to
- * be invalidated here too but those queries have no hook subscribers,
- * so the work was wasted. If those return in a future round, re-add
- * the invalidations alongside their hooks.
+ * Mirror server-side state-changing events into React Query cache state.
+ *
+ * Most events come with the new/updated row in the WS payload, so we
+ * patch the cache directly via `setQueryData` instead of invalidating —
+ * an `event.logged` for a 400-span task used to trigger a full timeline
+ * refetch over HTTP for every keystroke from the agent. Patching keeps
+ * the WS event itself the only network cost.
+ *
+ * Plain invalidations are kept for:
+ *   - `snapshot` / `tasks.purged` (whole-cache reset)
+ *   - `rule_enforcement.added` / `verdict.updated` (server-side
+ *     classification changes the timeline content but the payload
+ *     doesn't carry the resulting row)
+ *
+ * Only keys that have at least one active consumer in v1.2 are refreshed
+ * — unused keys (overview, verdictCounts) used to be invalidated here
+ * too but those queries have no hook subscribers, so the work was
+ * wasted. React Query also short-circuits invalidations whose key has
+ * no active observer, so OpenInference refetches only fire when the
+ * Trace tab is mounted.
  */
 function applyMonitorRealtimeInvalidations(
   client: QueryClient,
@@ -71,17 +93,15 @@ function applyMonitorRealtimeInvalidations(
     case "task.started":
     case "task.completed":
     case "task.updated": {
-      void client.invalidateQueries({ queryKey: monitorQueryKeys.tasks() });
+      patchTasksCache(client, message.payload);
       if (selectedTaskId && message.payload.id === selectedTaskId) {
-        void client.invalidateQueries({
-          queryKey: monitorQueryKeys.taskDetail(selectedTaskId),
-        });
+        patchTaskDetailTask(client, selectedTaskId, message.payload);
       }
       return;
     }
     case "task.deleted": {
-      void client.invalidateQueries({ queryKey: monitorQueryKeys.tasks() });
       const deleted = TaskId(message.payload.taskId);
+      removeTaskFromCache(client, deleted);
       client.removeQueries({
         queryKey: monitorQueryKeys.taskDetail(deleted),
       });
@@ -96,11 +116,17 @@ function applyMonitorRealtimeInvalidations(
     case "event.logged":
     case "event.updated": {
       if (!selectedTaskId) return;
-      // OpenInference export depends on the same timeline payload, so
-      // refresh both the detail (Feed) and the trace (Inspector → Trace).
-      void client.invalidateQueries({
-        queryKey: monitorQueryKeys.taskDetail(selectedTaskId),
-      });
+      const event = message.payload;
+      if (event.taskId !== selectedTaskId) return;
+      patchTaskDetailTimeline(
+        client,
+        selectedTaskId,
+        event,
+        message.type === "event.logged" ? "append" : "replace",
+      );
+      // OpenInference is derived server-side from the same events, so
+      // we still need a refetch when it's actively observed. React Query
+      // skips the network call when no observer is mounted.
       void client.invalidateQueries({
         queryKey: monitorQueryKeys.taskOpenInference(selectedTaskId),
       });
@@ -108,7 +134,8 @@ function applyMonitorRealtimeInvalidations(
     }
     case "rule_enforcement.added": {
       // Lane reclassification: refetch the affected task's timeline so
-      // the event appears in the rule lane.
+      // the event appears in the rule lane. We don't have the rewritten
+      // event row in the payload, so this case still goes over HTTP.
       const affected = TaskId(message.payload.taskId);
       void client.invalidateQueries({
         queryKey: monitorQueryKeys.taskDetail(affected),
@@ -146,4 +173,78 @@ function applyMonitorRealtimeInvalidations(
     case "session.ended":
       return;
   }
+}
+
+function patchTasksCache(
+  client: QueryClient,
+  next: MonitoringTask,
+): void {
+  client.setQueryData<TasksResponse | undefined>(
+    monitorQueryKeys.tasks(),
+    (prev) => {
+      if (!prev) {
+        // No cached list yet — let the next subscriber fetch.
+        void client.invalidateQueries({ queryKey: monitorQueryKeys.tasks() });
+        return prev;
+      }
+      const idx = prev.tasks.findIndex((t) => t.id === next.id);
+      if (idx === -1) return { tasks: [next, ...prev.tasks] };
+      const tasks = prev.tasks.slice();
+      tasks[idx] = next;
+      return { tasks };
+    },
+  );
+}
+
+function removeTaskFromCache(client: QueryClient, taskId: TaskId): void {
+  client.setQueryData<TasksResponse | undefined>(
+    monitorQueryKeys.tasks(),
+    (prev) => {
+      if (!prev) return prev;
+      const tasks = prev.tasks.filter((t) => t.id !== taskId);
+      return tasks.length === prev.tasks.length ? prev : { tasks };
+    },
+  );
+}
+
+function patchTaskDetailTask(
+  client: QueryClient,
+  taskId: TaskId,
+  next: MonitoringTask,
+): void {
+  client.setQueryData<TaskDetailResponse | undefined>(
+    monitorQueryKeys.taskDetail(taskId),
+    (prev) => (prev ? { ...prev, task: next } : prev),
+  );
+}
+
+function patchTaskDetailTimeline(
+  client: QueryClient,
+  taskId: TaskId,
+  event: TimelineEventRecord,
+  mode: "append" | "replace",
+): void {
+  client.setQueryData<TaskDetailResponse | undefined>(
+    monitorQueryKeys.taskDetail(taskId),
+    (prev) => {
+      if (!prev) {
+        // No cached detail yet — fall back to invalidation so the next
+        // observer fetches.
+        void client.invalidateQueries({
+          queryKey: monitorQueryKeys.taskDetail(taskId),
+        });
+        return prev;
+      }
+      if (mode === "replace") {
+        const idx = prev.timeline.findIndex((e) => e.id === event.id);
+        if (idx === -1) return { ...prev, timeline: [...prev.timeline, event] };
+        const timeline = prev.timeline.slice();
+        timeline[idx] = event;
+        return { ...prev, timeline };
+      }
+      // append — deduplicate so retried sends don't double-render.
+      if (prev.timeline.some((e) => e.id === event.id)) return prev;
+      return { ...prev, timeline: [...prev.timeline, event] };
+    },
+  );
 }
