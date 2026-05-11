@@ -47,6 +47,7 @@ export interface SearchResults {
 
 const MIN_SEMANTIC_SCORE = 0.22;
 const SEARCH_EMBEDDING_BACKFILL_THRESHOLD = 200;
+const FTS_CANDIDATE_OVERSHOOT = 4;
 
 export async function searchEvents(
     manager: EntityManager,
@@ -56,24 +57,38 @@ export async function searchEvents(
 ): Promise<SearchResults> {
     const safeLimit = Math.max(1, Math.min(50, opts?.limit ?? 8));
     const taskId = opts?.taskId ?? null;
-    const taskDocuments = await loadSearchDocuments(manager, "task");
-    const eventDocuments = await loadSearchDocuments(manager, "event", taskId);
-
-    if (taskDocuments.length === 0 && eventDocuments.length === 0) {
-        return legacySearch(manager, query, opts);
-    }
 
     const normalizedQuery = normalizeSearchText(query);
     if (!normalizedQuery) {
         return { tasks: [], events: [] };
     }
 
+    // Step 1: narrow the candidate set via FTS5 MATCH. Without this we used to
+    // pull every search_documents row into JS (~2.8 MB at 7943 events) and
+    // score it with substring lookups. FTS5 returns ranked rowids from its
+    // inverted index in milliseconds.
+    const ftsQuery = buildFtsMatchQuery(normalizedQuery);
+    const candidateLimit = safeLimit * FTS_CANDIDATE_OVERSHOOT;
+    const [taskCandidates, eventCandidates] = await Promise.all([
+        loadFtsCandidates(manager, "task", ftsQuery, null, candidateLimit),
+        loadFtsCandidates(manager, "event", ftsQuery, taskId, candidateLimit),
+    ]);
+
+    if (taskCandidates.length === 0 && eventCandidates.length === 0) {
+        // Fall back to LIKE-based scan so users still find rows whose tokens
+        // don't survive the FTS tokenizer (single chars, exotic punctuation).
+        return legacySearch(manager, query, opts);
+    }
+
+    // Step 2: re-rank the smaller candidate set. Embedding-based semantic
+    // scoring only runs over candidates (instead of the entire corpus) so
+    // even when activated it stays bounded.
     let queryVector: Float32Array | null = null;
     if (embeddingService) {
         try {
             await Promise.all([
-                ensureSearchEmbeddings(manager, embeddingService, taskDocuments),
-                ensureSearchEmbeddings(manager, embeddingService, eventDocuments),
+                ensureSearchEmbeddings(manager, embeddingService, taskCandidates),
+                ensureSearchEmbeddings(manager, embeddingService, eventCandidates),
             ]);
             queryVector = await embeddingService.embed(query);
         }
@@ -82,13 +97,67 @@ export async function searchEvents(
         }
     }
 
-    const rankedTasks = rankSearchDocuments(taskDocuments, normalizedQuery, queryVector, safeLimit);
-    const rankedEvents = rankSearchDocuments(eventDocuments, normalizedQuery, queryVector, safeLimit);
+    const rankedTasks = rankSearchDocuments(taskCandidates, normalizedQuery, queryVector, safeLimit);
+    const rankedEvents = rankSearchDocuments(eventCandidates, normalizedQuery, queryVector, safeLimit);
 
     return {
         tasks: await hydrateTaskHits(manager, rankedTasks.map((row) => row.entity_id)),
         events: await hydrateEventHits(manager, rankedEvents.map((row) => row.entity_id)),
     };
+}
+
+async function loadFtsCandidates(
+    manager: EntityManager,
+    scope: SearchDocumentScope,
+    ftsQuery: string,
+    taskId: string | null,
+    limit: number,
+): Promise<readonly SearchDocumentRow[]> {
+    if (!ftsQuery) return [];
+
+    const params: unknown[] = [ftsQuery, scope];
+    let sql = `
+      select sd.scope, sd.entity_id, sd.task_id, sd.search_text, sd.embedding, sd.updated_at
+      from search_documents_fts fts
+      join search_documents sd on sd.rowid = fts.rowid
+      where fts.search_documents_fts match ?
+        and sd.scope = ?
+    `;
+    if (taskId && scope === "event") {
+        sql += ` and sd.task_id = ?`;
+        params.push(taskId);
+    }
+    sql += ` order by fts.rank limit ?`;
+    params.push(limit);
+
+    try {
+        return await manager.query<readonly SearchDocumentRow[]>(sql, params);
+    }
+    catch (error) {
+        logger.warn(`FTS5 match failed (${error instanceof Error ? error.message : String(error)}); returning empty candidates`);
+        return [];
+    }
+}
+
+/**
+ * Translate a user-typed query into an FTS5 MATCH expression. Each token is
+ * quoted (so reserved words like "AND" don't break the parser) and combined
+ * with OR so we cast a wide net — the JS rerank step decides actual ordering.
+ */
+function buildFtsMatchQuery(normalizedQuery: string): string {
+    const tokens = normalizedQuery
+        .split(/[^\p{L}\p{N}]+/u)
+        .map((token) => token.trim())
+        .filter((token) => token.length > 0);
+
+    if (tokens.length === 0) {
+        return quoteFtsToken(normalizedQuery);
+    }
+    return tokens.map(quoteFtsToken).join(" OR ");
+}
+
+function quoteFtsToken(token: string): string {
+    return `"${token.replace(/"/g, '""')}"`;
 }
 
 interface EventRefreshRow {
@@ -140,21 +209,6 @@ export async function refreshEventSearchDocument(manager: EntityManager, eventId
         }),
         updatedAt: row.created_at,
     });
-}
-
-async function loadSearchDocuments(
-    manager: EntityManager,
-    scope: SearchDocumentScope,
-    taskId?: string | null,
-): Promise<readonly SearchDocumentRow[]> {
-    const rows = await manager.query<readonly SearchDocumentRow[]>(
-        `select scope, entity_id, task_id, search_text, embedding, updated_at
-         from search_documents
-         where scope = ?
-           and (? is null or scope = 'task' or task_id = ?)`,
-        [scope, taskId ?? null, taskId ?? null],
-    );
-    return rows;
 }
 
 async function ensureSearchEmbeddings(
