@@ -19,6 +19,14 @@ export const useInspectorWidth = (): number =>
 export const useSetSidebarWidth = () => useUiStore((s) => s.setSidebarWidth);
 export const useSetInspectorWidth = () =>
   useUiStore((s) => s.setInspectorWidth);
+export const useSidebarDrawerOpen = (): boolean =>
+  useUiStore((s) => s.sidebarDrawerOpen);
+export const useInspectorDrawerOpen = (): boolean =>
+  useUiStore((s) => s.inspectorDrawerOpen);
+export const useSetSidebarDrawerOpen = () =>
+  useUiStore((s) => s.setSidebarDrawerOpen);
+export const useSetInspectorDrawerOpen = () =>
+  useUiStore((s) => s.setInspectorDrawerOpen);
 
 /*
  * Atom-level selectors. Each hook returns ONE primitive (or one action),

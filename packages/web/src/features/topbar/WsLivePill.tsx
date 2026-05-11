@@ -1,4 +1,4 @@
-import { Pill } from "~ui/index.js";
+import { Pill, Tooltip } from "~ui/index.js";
 import { useTasksQuery } from "~state/server/queries.js";
 
 interface WsLivePillProps {
@@ -6,18 +6,30 @@ interface WsLivePillProps {
 }
 
 /**
- * Tiny status pill — green dot + live task count when connected,
- * "Reconnecting…" while the websocket is down. The live count comes from
- * the cached tasks list, so this pill never triggers an extra fetch.
+ * Two adjacent pills instead of one — the connection state and the live
+ * task count are independent metrics, so we render them separately:
+ *
+ *   • WS pill   — connection-only ("WS" / "Reconnecting…")
+ *   • Live pill — count of running + waiting tasks (hidden when zero)
+ *
+ * The previous combined "WS · 11 live" pill conflated the two, leaving
+ * users to guess whether the number was message count or task count.
  */
 export function WsLivePill({ connected }: WsLivePillProps) {
   const { data } = useTasksQuery();
 
   if (!connected) {
     return (
-      <Pill tone="warn" dot pulse>
-        Reconnecting…
-      </Pill>
+      <Tooltip
+        content="The dashboard isn't receiving websocket events. Updates will resume once the monitor server comes back."
+        side="bottom"
+      >
+        <span>
+          <Pill tone="warn" dot pulse>
+            Reconnecting…
+          </Pill>
+        </span>
+      </Tooltip>
     );
   }
 
@@ -26,8 +38,27 @@ export function WsLivePill({ connected }: WsLivePillProps) {
       .length ?? 0;
 
   return (
-    <Pill tone="ok" dot pulse>
-      WS · {liveCount} live
-    </Pill>
+    <>
+      <Tooltip
+        content="Connected to the monitor websocket — task and event updates are streaming in real time."
+        side="bottom"
+      >
+        <span>
+          <Pill tone="ok" dot pulse>
+            WS
+          </Pill>
+        </span>
+      </Tooltip>
+      {liveCount > 0 && (
+        <Tooltip
+          content={`${liveCount} task${liveCount === 1 ? "" : "s"} currently running or waiting for input.`}
+          side="bottom"
+        >
+          <span>
+            <Pill tone="neutral">{liveCount} live</Pill>
+          </span>
+        </Tooltip>
+      )}
+    </>
   );
 }
