@@ -75,6 +75,7 @@ export function GraphContextStrip({ events, range }: GraphContextStripProps) {
       {/* Lane-label gutter mirror — keeps the strip's left column
           aligned with the lane-label column above. */}
       <div
+        title="Context-window utilisation across the task. Dashed lines mark warn (85%) and error (95%) thresholds. The strip at the bottom shows which model family was active."
         style={{
           position: "sticky",
           left: 0,
@@ -93,7 +94,7 @@ export function GraphContextStrip({ events, range }: GraphContextStripProps) {
           textTransform: "uppercase",
           color: "var(--ink-tertiary)",
           zIndex: 8,
-          pointerEvents: "none",
+          cursor: "help",
         }}
       >
         Context
