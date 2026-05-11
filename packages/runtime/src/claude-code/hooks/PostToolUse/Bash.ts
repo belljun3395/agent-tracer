@@ -13,15 +13,13 @@
  *   run_in_background boolean? — async execution flag
  *
  * This handler posts a /ingest/v1/events event with kind "terminal.command"
- * and attaches the runtime-derived lane + semantic metadata, plus any file
- * path targets surfaced by command-analysis (so `cat foo.ts` shows up in the
- * filePaths array just like a Read event).
- *
- * Privacy contract: tool_response is intentionally NOT captured. Only the
- * agent's action (command, description, target paths) is recorded.
+ * and attaches the runtime-derived lane + semantic metadata, the file path
+ * targets surfaced by command-analysis, and a head+tail capture of the
+ * Bash tool result (stdout/stderr/exitCode) so verifiers can reason about
+ * outcomes, not just intents.
  */
 import {toBoolean, toTrimmedString} from "~claude-code/hooks/util/utils.js";
-import {postTaggedEvent, runPostToolUseHook} from "./_shared.js";
+import {captureTerminalToolResponse, postTaggedEvent, runPostToolUseHook} from "./_shared.js";
 import { KIND } from "~shared/events/kinds.const.js";
 import type { TerminalCommandMetadata } from "~shared/events/metadata.type.js";
 import type { CommandAnalysis, CommandStep } from "~shared/semantics/command-analysis.js";
@@ -63,6 +61,7 @@ await runPostToolUseHook("Bash", async ({payload, ids}) => {
     const runInBackground = toBoolean(payload.toolInput["run_in_background"]);
     const {lane, metadata: semantic, analysis} = inferCommandSemantic(command);
     const filePaths = collectFileTargets(analysis);
+    const captured = captureTerminalToolResponse(payload.toolResponse);
 
     const metadata: TerminalCommandMetadata = {
         ...provenEvidence("Observed directly by the Bash PostToolUse hook."),
@@ -73,6 +72,7 @@ await runPostToolUseHook("Bash", async ({payload, ids}) => {
         ...(timeoutMs !== undefined ? {timeoutMs} : {}),
         ...(runInBackground ? {runInBackground: true} : {}),
         ...(payload.toolUseId ? {toolUseId: payload.toolUseId} : {}),
+        ...captured,
     };
     await postTaggedEvent({
         kind: KIND.terminalCommand,

@@ -325,12 +325,20 @@ function splitSequence(command: string): readonly SequencePart[] {
         updateShellState(state, char)
 
         if (!state.quote && state.parenDepth === 0 && command[index - 1] !== "\\") {
-            const operator = char === "&" && next === "&" ? "&&" : char === "|" && next === "|" ? "||" : char === ";" ? ";" : null
+            const operator = char === "&" && next === "&" ? "&&"
+                : char === "|" && next === "|" ? "||"
+                : char === ";" ? ";"
+                : char === "\n" ? ";"
+                : null
             if (operator) {
                 pushSequencePart(parts, current, pendingOperator)
                 current = ""
+                // Unquoted newlines act as statement separators in shells; surface
+                // them as ";" so multi-line commands don't collapse args from later
+                // statements (e.g. `head -40\necho "..."` was treating `echo` as a
+                // path argument to `head`).
                 pendingOperator = operator
-                if (operator !== ";") index += 1
+                if (char !== "\n" && operator !== ";") index += 1
                 continue
             }
         }
@@ -411,12 +419,15 @@ function extractRedirects(tokens: readonly string[]): { readonly tokens: readonl
         const next = tokens[index + 1]
         const attached = token.match(/^(2>>|2>|>>|>|<|&>)(.+)$/)
         if (attached) {
-            redirects.push({ operator: attached[1] ?? token, target: { type: "file", value: attached[2] ?? "" } })
+            const value = attached[2] ?? ""
+            if (value) {
+                redirects.push({ operator: attached[1] ?? token, target: redirectTarget(value) })
+            }
             continue
         }
         if (isRedirectOperator(token)) {
-            if (next) {
-                redirects.push({ operator: token, target: { type: "file", value: next } })
+            if (next && !isRedirectOperator(next)) {
+                redirects.push({ operator: token, target: redirectTarget(next) })
                 index += 1
             }
             continue
@@ -424,6 +435,18 @@ function extractRedirects(tokens: readonly string[]): { readonly tokens: readonl
         cleanTokens.push(token)
     }
     return { tokens: cleanTokens, redirects }
+}
+
+function redirectTarget(value: string): CommandTarget {
+    // `&1`, `&2`, `&-` are file descriptor references, and `/dev/null` and
+    // friends are device sinks — they would otherwise leak into event_files
+    // as fake file paths. A genuine redirect to a path (e.g. `> out.txt`)
+    // stays as "file" so write-target tracking still works.
+    if (/^&\d*-?$/.test(value)) return { type: "stream", value }
+    if (value === "/dev/null" || value === "/dev/stdin" || value === "/dev/stdout" || value === "/dev/stderr" || value === "/dev/tty") {
+        return { type: "stream", value }
+    }
+    return { type: "file", value }
 }
 
 function updateShellState(state: ShellState, char: string): void {

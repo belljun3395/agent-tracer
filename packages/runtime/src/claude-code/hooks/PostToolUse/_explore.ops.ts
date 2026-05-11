@@ -16,7 +16,7 @@ import * as path from "node:path";
 import {relativeProjectPath} from "~claude-code/hooks/util/paths.js";
 import {stringifyToolInput} from "~claude-code/hooks/util/payload.js";
 import {createMessageId, toBoolean, toTrimmedString} from "~claude-code/hooks/util/utils.js";
-import {postTaggedEvent} from "./_shared.js";
+import {captureToolResultBody, postTaggedEvent} from "./_shared.js";
 import type {PostToolUseHandlerArgs} from "./_shared.js";
 import { KIND } from "~shared/events/kinds.const.js";
 import { LANE } from "~shared/events/lanes.const.js";
@@ -142,6 +142,10 @@ export async function postExploreToolEvent(
         ...(queryOrUrl ? {queryOrUrl} : {}),
     });
 
+    const captured = captureToolResultBody(payload.toolResponse, {
+        matchCounter: (raw, text) => exploreMatchCount(toolName, raw, text),
+    });
+
     const metadata: ToolUsedMetadata = {
         ...buildSemanticMetadata(semantic),
         ...provenEvidence(`Observed directly by the ${toolName} PostToolUse hook.`),
@@ -150,6 +154,7 @@ export async function postExploreToolEvent(
         ...extras,
         ...(isWebTool && webQuery ? {webUrls: [webQuery]} : {}),
         ...(payload.toolUseId ? {toolUseId: payload.toolUseId} : {}),
+        ...captured,
     };
     await postTaggedEvent({
         kind: KIND.toolUsed,
@@ -161,6 +166,27 @@ export async function postExploreToolEvent(
         filePaths: filePaths.map((fp) => fp.slice(0, MAX_PATH_LENGTH)),
         metadata,
     });
+}
+
+function exploreMatchCount(toolName: ExploreTool, raw: unknown, text: string): number | undefined {
+    // "No match" signal is the most actionable Grep/Glob result, so a cheap
+    // count is worth more than the body itself for downstream preprocessing.
+    if (toolName === "Grep") {
+        // Modes: "content" → match lines; "files_with_matches" → path lines;
+        // "count" → "<path>:<n>" lines. All map to line-count of text.
+        if (!text.trim()) return 0;
+        return text.split("\n").filter((line) => line.length > 0).length;
+    }
+    if (toolName === "Glob") {
+        if (Array.isArray(raw)) return raw.length;
+        if (!text.trim()) return 0;
+        return text.split("\n").filter((line) => line.length > 0).length;
+    }
+    if (toolName === "WebSearch") {
+        if (Array.isArray(raw)) return raw.length;
+        return undefined;
+    }
+    return undefined;
 }
 
 async function postQuestionToolEvent({payload, ids}: PostToolUseHandlerArgs): Promise<void> {

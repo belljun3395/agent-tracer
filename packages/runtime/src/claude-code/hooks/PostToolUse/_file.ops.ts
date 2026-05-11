@@ -10,7 +10,7 @@
 import * as path from "node:path";
 import {relativeProjectPath} from "~claude-code/hooks/util/paths.js";
 import {toBoolean, toTrimmedString} from "~claude-code/hooks/util/utils.js";
-import {postTaggedEvent} from "./_shared.js";
+import {captureToolResultBody, postTaggedEvent} from "./_shared.js";
 import type {PostToolUseHandlerArgs} from "./_shared.js";
 import { KIND } from "~shared/events/kinds.const.js";
 import { LANE } from "~shared/events/lanes.const.js";
@@ -31,6 +31,8 @@ export async function postFileToolEvent({payload, ids}: PostToolUseHandlerArgs):
     const body = relPath ? `Modified ${relPath}` : `Used ${toolName}`;
     const editReplaceAll = toolName === "Edit" ? toBoolean(payload.toolInput["replace_all"]) : undefined;
 
+    const captured = captureToolResultBody(payload.toolResponse);
+
     const metadata: ToolUsedMetadata = {
         ...provenEvidence(`Observed directly by the ${toolName} PostToolUse hook.`),
         ...buildSemanticMetadata(semantic),
@@ -38,6 +40,7 @@ export async function postFileToolEvent({payload, ids}: PostToolUseHandlerArgs):
         ...(filePath ? {filePath, relPath} : {}),
         ...(editReplaceAll ? {editReplaceAll: true} : {}),
         ...(payload.toolUseId ? {toolUseId: payload.toolUseId} : {}),
+        ...captured,
     };
     await postTaggedEvent({
         kind: KIND.toolUsed,

@@ -74,4 +74,37 @@ describe("analyzeCommand", () => {
         expect(result.steps[0]?.redirects).toContainEqual({ operator: ">", target: { type: "file", value: "out.txt" } })
         expect(result.steps[0]?.targets).toContainEqual({ type: "file", value: "out.txt" })
     })
+
+    it("classifies device and fd redirects as streams (not file paths)", () => {
+        const result = analyzeCommand("ls -la 2>&1 > /dev/null")
+
+        const filePathValues = (result.steps[0]?.targets ?? [])
+            .filter((t) => t.type === "file" || t.type === "path" || t.type === "directory")
+            .map((t) => t.value)
+            .filter((v) => v !== ".")
+        expect(filePathValues).toEqual([])
+        expect(result.steps[0]?.redirects).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({ target: { type: "stream", value: "&1" } }),
+                expect.objectContaining({ target: { type: "stream", value: "/dev/null" } }),
+            ]),
+        )
+    })
+
+    it("splits multi-line commands at unquoted newlines", () => {
+        const result = analyzeCommand("ls packages/\nhead -40 README.md\necho \"---\"")
+
+        expect(result.steps.map((step) => step.commandName)).toEqual(["ls", "head", "echo"])
+        const headTargets = result.steps[1]?.targets.map((t) => t.value) ?? []
+        expect(headTargets).toContain("README.md")
+        expect(headTargets).not.toContain("echo")
+        expect(headTargets).not.toContain("\"---\"")
+    })
+
+    it("does not split newlines inside quoted strings", () => {
+        const result = analyzeCommand("echo 'line one\nline two'")
+
+        expect(result.steps).toHaveLength(1)
+        expect(result.steps[0]?.commandName).toBe("echo")
+    })
 })

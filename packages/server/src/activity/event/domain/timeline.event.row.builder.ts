@@ -203,13 +203,30 @@ function collectQuestionRow(input: TimelineEventInsertRequest): QuestionCurrentE
 }
 
 function collectTokenUsageRow(input: TimelineEventInsertRequest): EventTokenUsageEntity | undefined {
-    const inputTokens = readNumber(input.metadata, "inputTokens") ?? 0;
-    const outputTokens = readNumber(input.metadata, "outputTokens") ?? 0;
-    const cacheReadTokens = readNumber(input.metadata, "cacheReadTokens") ?? 0;
-    const cacheCreateTokens = readNumber(input.metadata, "cacheCreateTokens") ?? 0;
-    const costUsd = readNumber(input.metadata, "costUsd");
+    // First-class token.usage metadata keys win; context.snapshot's
+    // contextWindow* / lastTurn* keys are accepted as fallbacks so the
+    // Claude Code status-line stream populates event_token_usage even though
+    // no dedicated token.usage event is emitted yet.
+    const inputTokens = readNumber(input.metadata, "inputTokens")
+        ?? readNumber(input.metadata, "lastTurnInputTokens")
+        ?? readNumber(input.metadata, "contextWindowInputTokens")
+        ?? 0;
+    const outputTokens = readNumber(input.metadata, "outputTokens")
+        ?? readNumber(input.metadata, "lastTurnOutputTokens")
+        ?? readNumber(input.metadata, "contextWindowOutputTokens")
+        ?? 0;
+    const cacheReadTokens = readNumber(input.metadata, "cacheReadTokens")
+        ?? readNumber(input.metadata, "lastTurnCachedInputTokens")
+        ?? readNumber(input.metadata, "contextWindowCacheReadTokens")
+        ?? 0;
+    const cacheCreateTokens = readNumber(input.metadata, "cacheCreateTokens")
+        ?? readNumber(input.metadata, "contextWindowCacheCreationTokens")
+        ?? 0;
+    const costUsd = readNumber(input.metadata, "costUsd")
+        ?? readNumber(input.metadata, "costTotalUsd");
     const durationMs = readNumber(input.metadata, "durationMs");
-    const model = readString(input.metadata, "model");
+    const model = readString(input.metadata, "model")
+        ?? readString(input.metadata, "modelId");
     const promptId = readString(input.metadata, "promptId");
     const stopReason = readString(input.metadata, "stopReason") ?? readString(input.metadata, "stop_reason");
     const hasUsage = inputTokens > 0 || outputTokens > 0 || cacheReadTokens > 0 || cacheCreateTokens > 0

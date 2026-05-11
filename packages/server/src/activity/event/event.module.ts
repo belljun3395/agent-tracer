@@ -2,9 +2,14 @@ import { Module, type DynamicModule } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { EventCommandController } from "./api/event.command.controller.js";
 import { EventIngestController } from "./api/event.ingest.controller.js";
+import { PreprocessingHintsController } from "./api/preprocessing.hints.controller.js";
 import { SearchQueryController } from "./api/search.query.controller.js";
 import { TypedEventIngestController } from "./api/typed.event.ingest.controller.js";
 import { CrossCheckDedupeCache } from "./application/cross.check.dedupe.cache.js";
+import { CommandRepetitionDetector } from "./application/detectors/command.repetition.detector.js";
+import { ContextPressureDetector } from "./application/detectors/context.pressure.detector.js";
+import { DuplicateQuestionDetector } from "./application/detectors/duplicate.question.detector.js";
+import { GetPreprocessingHintsUseCase } from "./application/get.preprocessing.hints.usecase.js";
 import { IngestEventsUseCase } from "./application/ingest.events.usecase.js";
 import { LogEventUseCase } from "./application/log.event.usecase.js";
 import { SearchEventsUseCase } from "./application/search.events.usecase.js";
@@ -58,6 +63,7 @@ import { EventFileRepository } from "./repository/event.file.repository.js";
 import { EventRelationRepository } from "./repository/event.relation.repository.js";
 import { EventTagRepository } from "./repository/event.tag.repository.js";
 import { EventTokenUsageRepository } from "./repository/event.token.usage.repository.js";
+import { PreprocessingHintsRepository } from "./repository/preprocessing.hints.repository.js";
 import { QuestionCurrentRepository } from "./repository/question.current.repository.js";
 import { TimelineEventRepository } from "./repository/timeline.event.repository.js";
 import { TodoCurrentRepository } from "./repository/todo.current.repository.js";
@@ -113,7 +119,7 @@ export class EventModule {
                 databaseModule,
                 governanceModule,
             ],
-            controllers: [EventCommandController, EventIngestController, SearchQueryController, TypedEventIngestController],
+            controllers: [EventCommandController, EventIngestController, PreprocessingHintsController, SearchQueryController, TypedEventIngestController],
             providers: [
                 // Embedding service (local model)
                 {
@@ -129,6 +135,7 @@ export class EventModule {
                 TodoCurrentRepository,
                 QuestionCurrentRepository,
                 EventTokenUsageRepository,
+                PreprocessingHintsRepository,
                 // Services
                 TimelineEventStorageService,
                 TimelineEventService,
@@ -156,6 +163,11 @@ export class EventModule {
                 IngestEventsUseCase,
                 SearchEventsUseCase,
                 UpdateEventUseCase,
+                // Preprocessing-hint detectors + orchestrator
+                ContextPressureDetector,
+                DuplicateQuestionDetector,
+                CommandRepetitionDetector,
+                GetPreprocessingHintsUseCase,
                 // Public iservices
                 { provide: TIMELINE_EVENT_READ, useExisting: TimelineEventReadPublicAdapter },
                 { provide: TIMELINE_EVENT_WRITE, useExisting: TimelineEventWritePublicAdapter },

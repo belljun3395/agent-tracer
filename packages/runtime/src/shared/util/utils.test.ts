@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { createMessageId, ellipsize, isRecord, toTrimmedString } from "./utils.js"
+import { createMessageId, ellipsize, isRecord, toTrimmedString, truncateOutput } from "./utils.js"
 
 describe("isRecord", () => {
     it("returns true for plain objects", () => {
@@ -100,6 +100,29 @@ describe("ellipsize", () => {
     it("produces result with length equal to maxLength when truncated", () => {
         const result = ellipsize("abcdefghij", 5)
         expect(result.length).toBe(5)
+    })
+})
+
+describe("truncateOutput", () => {
+    it("returns the body unchanged when under the budget", () => {
+        const result = truncateOutput("short text", 100, 100)
+        expect(result).toEqual({ body: "short text", bytes: 10, truncated: false })
+    })
+
+    it("keeps head and tail when the body exceeds the budget", () => {
+        const body = "0123456789".repeat(20)
+        const result = truncateOutput(body, 5, 5)
+        expect(result.truncated).toBe(true)
+        expect(result.bytes).toBe(200)
+        expect(result.body.startsWith("01234")).toBe(true)
+        expect(result.body.endsWith("56789")).toBe(true)
+        expect(result.body).toContain("190 chars omitted")
+    })
+
+    it("counts UTF-8 bytes, not characters", () => {
+        const result = truncateOutput("한글", 10, 10)
+        expect(result.bytes).toBe(6)
+        expect(result.truncated).toBe(false)
     })
 })
 

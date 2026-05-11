@@ -40,6 +40,17 @@ export type TerminalCommandMetadata = RequiredEventMetadata & EventSemanticMetad
     readonly timeoutMs?: number
     readonly runInBackground?: boolean
     readonly crossCheck?: CrossCheckMarker
+    // Result capture (added when tool_response is available). Bodies are
+    // truncated head+tail style at TerminalOutputCap; full sizes are kept so
+    // downstream can tell something was clipped.
+    readonly exitCode?: number
+    readonly interrupted?: boolean
+    readonly stdout?: string
+    readonly stderr?: string
+    readonly stdoutBytes?: number
+    readonly stderrBytes?: number
+    readonly stdoutTruncated?: boolean
+    readonly stderrTruncated?: boolean
 }
 
 export type ToolUsedMetadata = RequiredEventMetadata & EventSemanticMetadata & {
@@ -67,6 +78,15 @@ export type ToolUsedMetadata = RequiredEventMetadata & EventSemanticMetadata & {
     // Edit/Write extras
     readonly editReplaceAll?: boolean
     readonly crossCheck?: CrossCheckMarker
+    // Result capture (filled when tool_response is available). Body is
+    // head+tail truncated; full byte size lets downstream tell what was clipped.
+    // `resultMatches` is a per-tool count where it can be derived cheaply
+    // (e.g. Grep match-line count, Glob file count) for "found nothing"
+    // signal detection without re-parsing the body.
+    readonly resultText?: string
+    readonly resultBytes?: number
+    readonly resultTruncated?: boolean
+    readonly resultMatches?: number
 }
 
 export type AgentActivityMetadata = RequiredEventMetadata & EventSemanticMetadata & {

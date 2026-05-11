@@ -22,6 +22,7 @@ import {createMessageId, ellipsize} from "~claude-code/hooks/util/utils.js";
 import {defaultTaskTitle} from "~claude-code/hooks/util/paths.js";
 import {claudeHookRuntime} from "~claude-code/hooks/lib/runtime.js";
 import {ensureRuntimeSession} from "~claude-code/hooks/lib/transport/transport.js";
+import {emitPreprocessingHints, fetchPreprocessingHints} from "~claude-code/hooks/lib/preprocessing-hints.js";
 import {readUserPromptSubmit} from "~shared/hooks/claude/payloads.js";
 import { runHook } from "~shared/hook-runtime/run-hook.js";
 import { KIND } from "~shared/events/kinds.const.js";
@@ -57,5 +58,11 @@ await runHook("UserPromptSubmit", {
             body: payload.prompt,
             metadata,
         });
+
+        // Surface preprocessing hints (context pressure, etc.) so Claude Code
+        // can take them into account before composing the next turn. Best
+        // effort — fetch failures are swallowed inside the helper.
+        const hints = await fetchPreprocessingHints(ids.taskId, {trigger: "user_prompt"});
+        emitPreprocessingHints("UserPromptSubmit", hints);
     },
 });

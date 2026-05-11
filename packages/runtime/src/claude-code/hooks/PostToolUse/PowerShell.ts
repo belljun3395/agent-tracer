@@ -7,7 +7,7 @@
  * own top-level await module under the file-name = matcher convention.
  */
 import {toBoolean, toTrimmedString} from "~claude-code/hooks/util/utils.js";
-import {postTaggedEvent, runPostToolUseHook} from "./_shared.js";
+import {captureTerminalToolResponse, postTaggedEvent, runPostToolUseHook} from "./_shared.js";
 import { KIND } from "~shared/events/kinds.const.js";
 import type { TerminalCommandMetadata } from "~shared/events/metadata.type.js";
 import {provenEvidence} from "~shared/semantics/evidence.js";
@@ -21,6 +21,7 @@ await runPostToolUseHook("PowerShell", async ({payload, ids}) => {
     const description = toTrimmedString(payload.toolInput["description"]);
     const runInBackground = toBoolean(payload.toolInput["run_in_background"]);
     const {lane, metadata: semantic, analysis} = inferCommandSemantic(command);
+    const captured = captureTerminalToolResponse(payload.toolResponse);
 
     const metadata: TerminalCommandMetadata = {
         ...provenEvidence("Observed directly by the PowerShell PostToolUse hook."),
@@ -30,6 +31,7 @@ await runPostToolUseHook("PowerShell", async ({payload, ids}) => {
         ...(description ? {description} : {}),
         ...(runInBackground ? {runInBackground: true} : {}),
         ...(payload.toolUseId ? {toolUseId: payload.toolUseId} : {}),
+        ...captured,
     };
     await postTaggedEvent({
         kind: KIND.terminalCommand,

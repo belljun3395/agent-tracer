@@ -31,3 +31,22 @@ export function ellipsize(value: string, maxLength: number): string {
 export function createMessageId(): string {
     return randomUUID();
 }
+
+/**
+ * Head+tail truncation for captured tool output. Keeps the first and last
+ * windows so a verifier can still tell what happened in long shell logs.
+ */
+export function truncateOutput(
+    text: string,
+    headChars: number,
+    tailChars: number,
+): {readonly body: string; readonly bytes: number; readonly truncated: boolean} {
+    const bytes = Buffer.byteLength(text, "utf8");
+    if (text.length <= headChars + tailChars) {
+        return {body: text, bytes, truncated: false};
+    }
+    const head = text.slice(0, headChars);
+    const tail = text.slice(text.length - tailChars);
+    const omitted = text.length - headChars - tailChars;
+    return {body: `${head}\n…[${omitted} chars omitted]…\n${tail}`, bytes, truncated: true};
+}
