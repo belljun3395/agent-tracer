@@ -28,6 +28,19 @@
 set -euo pipefail
 
 HOOK_NAME="${1:?hook name required}"
+
+# Self-locate the plugin root when invoked outside Claude Code's plugin hook
+# context — e.g. from the global statusLine wrapper installed by
+# scripts/install-statusline.sh, which Claude Code launches via the
+# settings.json `statusLine` field rather than the plugin hook surface.
+# In that path, CLAUDE_PLUGIN_ROOT is unset and `set -u` would otherwise
+# fail before we get a chance to dispatch.
+if [ -z "${CLAUDE_PLUGIN_ROOT:-}" ]; then
+  SELF_DIR="$(cd "$(dirname "$0")" && pwd -P)"
+  CLAUDE_PLUGIN_ROOT="$(cd "$SELF_DIR/.." && pwd -P)"
+  export CLAUDE_PLUGIN_ROOT
+fi
+
 HOOK_FILE="${CLAUDE_PLUGIN_ROOT}/src/claude-code/hooks/${HOOK_NAME}.ts"
 TSCONFIG="${CLAUDE_PLUGIN_ROOT}/tsconfig.plugin.json"
 
