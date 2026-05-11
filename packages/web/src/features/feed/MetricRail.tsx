@@ -37,18 +37,27 @@ export function MetricRail({ task, timeline }: MetricRailProps) {
 
   return (
     <div
-      className="flex items-stretch border-y border-[var(--hair)] my-3 py-2.5"
+      className="flex items-center gap-5 border-t border-[var(--hair)] mt-3 pt-2.5"
       style={{ background: "transparent" }}
     >
-      <Cell label="Active" value={formatDuration(elapsedMs)} />
-      <Cell label="Compacts" value={compactCount.toString()} />
+      <Cell
+        label="Active"
+        value={formatDuration(elapsedMs)}
+        title="Wall-clock time since the task's session started"
+      />
+      <Cell
+        label="Compacts"
+        value={compactCount.toString()}
+        title="Number of context-window compactions performed during this task"
+      />
       {ctx && (
         <Cell
           label="Context"
           value={`${ctx.percent}%`}
+          title="Most recent context-window utilisation reported by the status-line script"
           chart={
             trajectory.length >= 2 ? (
-              <ContextSparkline points={trajectory} width={120} height={26} />
+              <ContextSparkline points={trajectory} width={120} height={20} />
             ) : null
           }
           {...(ctx.percent >= 95
@@ -67,9 +76,15 @@ interface CellProps {
   readonly value: string;
   readonly tone?: "warn" | "err";
   readonly chart?: React.ReactNode;
+  readonly title?: string;
 }
 
-function Cell({ label, value, tone, chart }: CellProps) {
+/**
+ * Inline label + value pair. Renders as `LABEL value` on the same line so
+ * three stats fit in a single horizontal strip without the previous
+ * column-card layout's wasted vertical real estate.
+ */
+function Cell({ label, value, tone, chart, title }: CellProps) {
   const valueColor =
     tone === "err"
       ? "var(--err)"
@@ -77,13 +92,16 @@ function Cell({ label, value, tone, chart }: CellProps) {
         ? "var(--warn)"
         : "var(--ink)";
   return (
-    <div className="flex flex-col gap-0.5 px-4 flex-1 min-w-0 border-r border-[var(--hair)] last:border-r-0">
+    <div
+      className="inline-flex items-center gap-2"
+      title={title}
+    >
       <span
         style={{
           fontFamily: "var(--font-mono)",
-          fontSize: 9.5,
+          fontSize: 10,
           color: "var(--ink-tertiary)",
-          letterSpacing: "0.1em",
+          letterSpacing: "0.08em",
           textTransform: "uppercase",
         }}
       >
@@ -91,19 +109,17 @@ function Cell({ label, value, tone, chart }: CellProps) {
       </span>
       <span
         style={{
-          fontSize: 17,
-          fontWeight: 500,
+          fontSize: 13,
+          fontWeight: 600,
           color: valueColor,
-          letterSpacing: "-0.3px",
+          letterSpacing: "-0.1px",
           fontVariantNumeric: "tabular-nums",
           whiteSpace: "nowrap",
-          overflow: "hidden",
-          textOverflow: "ellipsis",
         }}
       >
         {value}
       </span>
-      {chart && <div style={{ marginTop: 4 }}>{chart}</div>}
+      {chart && <span className="ml-1">{chart}</span>}
     </div>
   );
 }

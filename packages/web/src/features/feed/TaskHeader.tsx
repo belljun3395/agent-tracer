@@ -5,7 +5,6 @@ import {
   useSetMainView,
   type MainView,
 } from "~state/ui/index.js";
-import { Pill } from "~ui/index.js";
 import { cn } from "~lib/cn.js";
 import { formatDuration, formatHHmm } from "./lib/format-time.js";
 import { extractLatestModel } from "./lib/extract-model.js";
@@ -21,13 +20,18 @@ interface TaskHeaderProps {
 }
 
 /**
- * Sticky header above the feed body.
+ * Sticky header above the feed body. Rebalanced after the audit so the
+ * most-important state lands first:
  *
- *   eyebrow       TASK <id> · <status pill ↓> · <runtime> · <model> · <session>
- *   h1 (editable) Task title with inline rename on click
- *   byline        project · files
- *   metric rail   Active · Compacts · Context %
- *   view toggle   Feed / Graph
+ *   row 1   h1 (editable) ← Status pill (prominent) ← View toggle
+ *   row 2   project path · files touched · started clock · active duration
+ *   row 3   metric rail (Active · Compacts · Context %)
+ *   eyebrow short task id surfaces on hover only (copyable)
+ *
+ * Hash IDs (`8370044f`), runtime tag, model, and session id were
+ * burying the live `Running` state in a long mono eyebrow line. Status
+ * now anchors the title row; the rest moves into a quieter byline or
+ * hover affordance.
  */
 export function TaskHeader({ task, timeline, sessionId }: TaskHeaderProps) {
   const nowMs = useNowMs(60_000);
@@ -40,54 +44,109 @@ export function TaskHeader({ task, timeline, sessionId }: TaskHeaderProps) {
 
   return (
     <div
-      className="sticky top-0 z-[5] px-9 pt-5 pb-3"
+      className="sticky top-0 z-[5] px-9 pt-5 pb-3 group"
       style={{
         background:
           "linear-gradient(to bottom, var(--canvas) 80%, transparent)",
         backdropFilter: "blur(4px)",
       }}
     >
-      <div
-        className="flex items-center gap-2 flex-wrap mb-2"
-        style={{
-          fontFamily: "var(--font-mono)",
-          fontSize: 10.5,
-          color: "var(--ink-tertiary)",
-          letterSpacing: "0.04em",
-        }}
-      >
-        <span style={{ color: "var(--ink-muted)" }}>TASK {shortId}</span>
-        <StatusPill task={task} />
-        {task.runtimeSource && (
-          <Pill tone="neutral">{task.runtimeSource}</Pill>
-        )}
-        {model && <Pill tone="neutral">{model}</Pill>}
-        {sessionId && <SessionIdPill sessionId={sessionId} />}
-        <span style={{ marginLeft: "auto", color: "var(--ink-tertiary)" }}>
-          started {startedClock} · {elapsed}
-        </span>
-      </div>
-
       <div className="flex items-start gap-3 flex-wrap">
-        <EditableTitle task={task} />
+        <div className="flex-1 min-w-0">
+          <EditableTitle task={task} />
+        </div>
+        <StatusPill task={task} />
         <ViewToggle />
       </div>
 
       <div
-        className="flex items-center gap-3 flex-wrap mt-2"
-        style={{ fontSize: 12.5, color: "var(--ink-subtle)" }}
+        className="flex items-center gap-2.5 flex-wrap mt-2"
+        style={{ fontSize: 12, color: "var(--ink-subtle)" }}
       >
-        <KvPair k="project" v={task.workspacePath ?? "agent-tracer"} />
+        <ByItem
+          label="Started"
+          value={startedClock}
+          mono
+          title={`Task started at ${startedClock} · running ${elapsed}`}
+        />
+        <Sep />
+        <ByItem label="Active" value={elapsed} mono />
         {filesTouched > 0 && (
           <>
             <Sep />
-            <KvPair k="files" v={`${filesTouched} touched`} />
+            <ByItem label="Files" value={`${filesTouched}`} mono />
           </>
         )}
+        {task.runtimeSource && (
+          <>
+            <Sep />
+            <ByItem label="Runtime" value={task.runtimeSource} mono />
+          </>
+        )}
+        {model && (
+          <>
+            <Sep />
+            <ByItem label="Model" value={model} mono />
+          </>
+        )}
+        {sessionId && (
+          <>
+            <Sep />
+            <SessionIdPill sessionId={sessionId} />
+          </>
+        )}
+        <span className="ml-auto inline-flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+          <ByItem label="ID" value={shortId} mono title={`Full task id: ${task.id}`} />
+        </span>
+      </div>
+
+      <div
+        className="mt-1"
+        style={{
+          fontSize: 11.5,
+          color: "var(--ink-tertiary)",
+          fontFamily: "var(--font-mono)",
+        }}
+        title={task.workspacePath}
+      >
+        {task.workspacePath ?? "agent-tracer"}
       </div>
 
       <MetricRail task={task} timeline={timeline} />
     </div>
+  );
+}
+
+interface ByItemProps {
+  readonly label: string;
+  readonly value: string;
+  readonly mono?: boolean;
+  readonly title?: string;
+}
+
+function ByItem({ label, value, mono, title }: ByItemProps) {
+  return (
+    <span className="inline-flex items-baseline gap-1.5" title={title}>
+      <span
+        style={{
+          fontSize: 10.5,
+          textTransform: "uppercase",
+          letterSpacing: "0.06em",
+          color: "var(--ink-tertiary)",
+        }}
+      >
+        {label}
+      </span>
+      <span
+        style={{
+          fontFamily: mono ? "var(--font-mono)" : "inherit",
+          fontSize: mono ? 11.5 : 12,
+          color: "var(--ink-muted)",
+        }}
+      >
+        {value}
+      </span>
+    </span>
   );
 }
 
@@ -153,23 +212,6 @@ function ToggleButton({ active, onClick, view, children }: ToggleButtonProps) {
     >
       {children}
     </button>
-  );
-}
-
-function KvPair({ k, v }: { k: string; v: string }) {
-  return (
-    <span>
-      <span style={{ color: "var(--ink-tertiary)", marginRight: 4 }}>{k}</span>
-      <span
-        style={{
-          fontFamily: "var(--font-mono)",
-          fontSize: 11.5,
-          color: "var(--ink-muted)",
-        }}
-      >
-        {v}
-      </span>
-    </span>
   );
 }
 
