@@ -12,14 +12,16 @@ describe("buildTagsFromMetadata", () => {
         expect(result).toContain("rule:no-console")
     })
 
-    it("generates status: tag from ruleStatus", () => {
+    it("generates rule-status: tag from ruleStatus", () => {
         const result = buildTagsFromMetadata({ ruleStatus: "passed" })
-        expect(result).toContain("status:passed")
+        expect(result).toContain("rule-status:passed")
+        expect(result.some((t) => t.startsWith("status:"))).toBe(false)
     })
 
-    it("generates status: tag from verificationStatus", () => {
+    it("generates verification: tag from verificationStatus", () => {
         const result = buildTagsFromMetadata({ verificationStatus: "verified" })
-        expect(result).toContain("status:verified")
+        expect(result).toContain("verification:verified")
+        expect(result.some((t) => t.startsWith("status:"))).toBe(false)
     })
 
     it("generates severity: tag from severity", () => {
@@ -38,10 +40,10 @@ describe("buildTagsFromMetadata", () => {
         expect(result).toContain("rule:my-rule-id")
     })
 
-    it("generates both coordination and activity: tag from activityType", () => {
+    it("generates activity: tag from activityType without a bare coordination marker", () => {
         const result = buildTagsFromMetadata({ activityType: "mcp_call" })
-        expect(result).toContain("coordination")
         expect(result).toContain("activity:mcp-call")
+        expect(result).not.toContain("coordination")
     })
 
     it("generates subtype: tag from subtypeKey", () => {
@@ -63,7 +65,7 @@ describe("buildTagsFromMetadata", () => {
         const result = buildTagsFromMetadata({ asyncTaskId: "task-123", asyncStatus: "running" })
         expect(result).toContain("async-task")
         expect(result).toContain("async:running")
-        expect(result).toContain("status:running")
+        expect(result.some((t) => t.startsWith("status:"))).toBe(false)
     })
 
     it("generates agent: and category: tags from async metadata", () => {
@@ -147,9 +149,9 @@ describe("buildTagsFromMetadata", () => {
     })
 
     it("returns deduplicated tags (no duplicates)", () => {
-        const result = buildTagsFromMetadata({ ruleStatus: "passed", verificationStatus: "passed" })
-        const statusTags = result.filter((t) => t === "status:passed")
-        expect(statusTags).toHaveLength(1)
+        const result = buildTagsFromMetadata({ compactSignals: ["low-tokens", "low-tokens", "Low Tokens"] })
+        const matches = result.filter((t) => t === "compact:low-tokens")
+        expect(matches).toHaveLength(1)
     })
 
     it("ignores non-string metadata values for string-based fields", () => {

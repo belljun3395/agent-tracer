@@ -28,16 +28,16 @@ export function buildTagsFromMetadata(meta: Record<string, unknown>): readonly s
     const bool = (key: string) => extractBool(meta, key);
 
     const ruleId = str("ruleId"); if (ruleId) add(`rule:${normalizeTag(ruleId)}`);
-    const ruleStatus = str("ruleStatus"); if (ruleStatus) add(`status:${normalizeTag(ruleStatus)}`);
-    const verificationStatus = str("verificationStatus"); if (verificationStatus) add(`status:${normalizeTag(verificationStatus)}`);
+    const ruleStatus = str("ruleStatus"); if (ruleStatus) add(`rule-status:${normalizeTag(ruleStatus)}`);
+    const verificationStatus = str("verificationStatus"); if (verificationStatus) add(`verification:${normalizeTag(verificationStatus)}`);
     const severity = str("severity"); if (severity) add(`severity:${normalizeTag(severity)}`);
     const rulePolicy = str("rulePolicy"); if (rulePolicy) add(`policy:${normalizeTag(rulePolicy)}`);
     const ruleOutcome = str("ruleOutcome"); if (ruleOutcome) add(`outcome:${normalizeTag(ruleOutcome)}`);
     const asyncTaskId = str("asyncTaskId"); if (asyncTaskId) add("async-task");
-    const asyncStatus = str("asyncStatus"); if (asyncStatus) { add(`async:${normalizeTag(asyncStatus)}`); add(`status:${normalizeTag(asyncStatus)}`); }
+    const asyncStatus = str("asyncStatus"); if (asyncStatus) add(`async:${normalizeTag(asyncStatus)}`);
     const asyncAgent = str("asyncAgent"); if (asyncAgent) add(`agent:${normalizeTag(asyncAgent)}`);
     const asyncCategory = str("asyncCategory"); if (asyncCategory) add(`category:${normalizeTag(asyncCategory)}`);
-    const activityType = str("activityType"); if (activityType) { add("coordination"); add(`activity:${normalizeTag(activityType)}`); }
+    const activityType = str("activityType"); if (activityType) add(`activity:${normalizeTag(activityType)}`);
     const subtypeKey = str("subtypeKey"); if (subtypeKey) add(`subtype:${normalizeTag(subtypeKey)}`);
     const subtypeGroup = str("subtypeGroup"); if (subtypeGroup) add(`subtype-group:${normalizeTag(subtypeGroup)}`);
     const entityType = str("entityType"); if (entityType) add(`entity:${normalizeTag(entityType)}`);
