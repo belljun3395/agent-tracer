@@ -263,7 +263,11 @@ export function GraphView({ events, turns = [], taskStatus }: GraphViewProps) {
             <div className="relative" style={{ height: lanesHeight }}>
               <GraphLanes lanes={visibleLaneKeys} />
               <CompactBand events={events} range={range} />
-              <GraphEdges edges={edges} nodes={nodes} />
+              <GraphEdges
+                edges={edges}
+                nodes={nodes}
+                visibleLaneCount={visibleLaneKeys.length}
+              />
               {nodes.map((node) => (
                 <GraphNode key={node.id} node={node} />
               ))}
