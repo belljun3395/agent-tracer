@@ -137,6 +137,22 @@ export function TaskRow({
           style={{ background: "var(--primary)" }}
         />
       )}
+      {/* Status-driven left-edge accent: `waiting` and `errored` rows
+          deserve more weight than a 7px status dot can carry — a thin
+          left stripe lets the eye spot "needs you" tasks while scanning
+          the whole sidebar. Only renders when the row is not also the
+          active route, so the active primary stripe wins on conflicts. */}
+      {!active && (task.status === "waiting" || task.status === "errored") && (
+        <span
+          aria-hidden
+          className="absolute -left-px top-2.5 bottom-2.5 w-[2px] rounded-sm"
+          style={{
+            background:
+              task.status === "errored" ? "var(--err)" : "var(--warn)",
+            opacity: 0.85,
+          }}
+        />
+      )}
       {/* Hierarchy guides: a thin vertical line under each ancestor's
           indent column, plus a small elbow ("└") that hooks under the
           status dot on subagent rows. Pure decoration, aria-hidden. */}
@@ -172,7 +188,7 @@ export function TaskRow({
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "auto auto minmax(0, 1fr) auto auto",
+          gridTemplateColumns: "auto auto minmax(0, 1fr) auto auto auto",
           alignItems: "center",
           columnGap: 8,
           marginBottom: 3,
@@ -216,7 +232,13 @@ export function TaskRow({
             // a glance — depth alone is too subtle.
             fontSize: isSubagent ? 12 : 13,
             fontWeight: unread ? 600 : isSubagent ? 400 : 500,
-            color: isSubagent ? "var(--ink-muted)" : "var(--ink)",
+            // `done` rows fade slightly so the eye prioritises live
+            // and waiting tasks while scanning the list.
+            color: isSubagent
+              ? "var(--ink-muted)"
+              : task.status === "completed"
+                ? "var(--ink-muted)"
+                : "var(--ink)",
             letterSpacing: "-0.1px",
             fontStyle: isSubagent ? "italic" : "normal",
             overflow: "hidden",
@@ -226,6 +248,9 @@ export function TaskRow({
         >
           {task.displayTitle ?? task.title}
         </span>
+        {task.status === "waiting" && (
+          <Badge variant="appr">await input</Badge>
+        )}
         <Tooltip
           content={
             unread && !active
@@ -295,8 +320,7 @@ export function TaskRow({
         </Tooltip>
       </div>
 
-      {(!hideRuntimeBadge && task.runtimeSource) ||
-      task.status === "waiting" ? (
+      {!hideRuntimeBadge && task.runtimeSource && (
         <div
           className="flex items-center gap-2 flex-wrap"
           style={{
@@ -305,21 +329,16 @@ export function TaskRow({
             color: "var(--ink-tertiary)",
           }}
         >
-          {!hideRuntimeBadge && task.runtimeSource && (
-            <span className="inline-flex items-center gap-1">
-              <span
-                aria-hidden
-                className="h-[5px] w-[5px] rounded-full"
-                style={{ background: "var(--primary)" }}
-              />
-              {task.runtimeSource}
-            </span>
-          )}
-          {task.status === "waiting" && (
-            <Badge variant="appr">await input</Badge>
-          )}
+          <span className="inline-flex items-center gap-1">
+            <span
+              aria-hidden
+              className="h-[5px] w-[5px] rounded-full"
+              style={{ background: "var(--primary)" }}
+            />
+            {task.runtimeSource}
+          </span>
         </div>
-      ) : null}
+      )}
     </Link>
   );
 }

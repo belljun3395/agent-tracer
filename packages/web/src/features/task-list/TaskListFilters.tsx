@@ -52,6 +52,7 @@ export function TaskListFilters({
         active={active === "attn"}
         onClick={() => setFilter("attn")}
         dot="err"
+        title="Needs you — tasks awaiting your input or stopped on an error"
       />
       <FilterPill
         label="Done"
@@ -84,14 +85,23 @@ interface FilterPillProps {
   readonly active: boolean;
   readonly onClick: () => void;
   readonly dot?: "primary" | "ok" | "err";
+  readonly title?: string;
 }
 
-function FilterPill({ label, count, active, onClick, dot }: FilterPillProps) {
+function FilterPill({
+  label,
+  count,
+  active,
+  onClick,
+  dot,
+  title,
+}: FilterPillProps) {
   return (
     <button
       type="button"
       onClick={onClick}
       aria-pressed={active}
+      title={title}
       className={cn(
         "inline-flex items-center gap-[5px] rounded-[var(--radius-sm)]",
         "px-[9px] py-[5px] text-[11.5px] font-medium",
