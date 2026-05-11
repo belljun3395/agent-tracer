@@ -16,6 +16,7 @@ import {
 import { useMonitorSocket } from "~state/realtime/useMonitorSocket.js";
 import { getMonitorWsUrl } from "~io/api.js";
 import { useViewport } from "~lib/use-viewport.js";
+import { useKeyboardShortcuts } from "~lib/use-keyboard-shortcuts.js";
 import { TopBar } from "~features/topbar/index.js";
 import { TaskListPanel } from "~features/task-list/index.js";
 import { InspectorPanel } from "~features/inspector/index.js";
@@ -41,6 +42,8 @@ export function AppShell() {
   useSyncSelectionFromRoute();
   // Apply <html data-theme="…"> from store + OS preference.
   useThemeAttrSync();
+  // / · j · k · g · Esc, registered once at the shell.
+  useKeyboardShortcuts();
 
   const selectedTaskId = useSelectedTaskId();
   const viewport = useViewport();

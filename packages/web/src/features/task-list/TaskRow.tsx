@@ -69,9 +69,10 @@ export function TaskRow({
     event.stopPropagation();
     if (!confirming) {
       setConfirming(true);
-      // Auto-cancel the confirm prompt after a short window so a stray
-      // hover doesn't leave the row armed forever.
-      window.setTimeout(() => setConfirming(false), 3500);
+      // Auto-cancel the confirm prompt after a 5-second window so a
+      // stray hover doesn't leave the row armed forever. The mouse-leave
+      // handler on the row also cancels — see `disarm` below.
+      window.setTimeout(() => setConfirming(false), 5000);
       return;
     }
     deleteMutation.mutate(task.id, {
@@ -84,6 +85,12 @@ export function TaskRow({
     });
   };
 
+  // Disarm when the cursor leaves the row so the user can't come back
+  // an hour later, miss-click the trash, and lose their task.
+  const disarm = () => {
+    if (confirming) setConfirming(false);
+  };
+
   const handleToggle = (event: ReactMouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
     event.stopPropagation();
@@ -93,6 +100,8 @@ export function TaskRow({
   return (
     <Link
       to={`/tasks/${task.id}`}
+      onMouseLeave={disarm}
+      onBlur={disarm}
       className={cn(
         "group relative block py-2 mb-px rounded-[var(--radius-sm)] border border-transparent",
         "hover:bg-[var(--s1)]",
