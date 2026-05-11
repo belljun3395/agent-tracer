@@ -21,13 +21,13 @@ export function GraphLegend() {
         <Swatch color="var(--err)" />
         Rule violation
       </Item>
-      <Item color="var(--ink-tertiary)">
-        <Line dashed={false} color="var(--ink-tertiary)" />
-        Causal edge
+      <Item color="var(--ink-muted)">
+        <Line dashed={false} color="var(--ink-muted)" />
+        Explicit parent
       </Item>
       <Item color="var(--ink-tertiary)">
         <Line dashed={true} color="var(--ink-tertiary)" />
-        Explicit parent
+        Cross-lane causal
       </Item>
       <Item color="var(--warn)">
         <span

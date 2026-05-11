@@ -74,30 +74,33 @@ export function GraphEdges({
         const y2 = laneCenterY(to.laneIdx) + to.yOffset;
         const midX = (x1 + x2) / 2;
         const d = `M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${x2} ${y2}`;
-        const dashed = edge.kind === "explicit";
+        const isExplicit = edge.kind === "explicit";
+        // Explicit edges (metadata-declared parents) carry the load-bearing
+        // causality signal — render them prominently with a terminal disc.
+        // Cross-lane causals are kept as background hints: light, no marker,
+        // dashed; they support the eye without competing with the nodes.
         return (
           <g key={`${edge.fromEventId}-${edge.toEventId}-${idx}`}>
             <path
               d={d}
               fill="none"
-              stroke="var(--ink-muted)"
-              strokeWidth={1.4}
+              stroke={isExplicit ? "var(--ink-muted)" : "var(--ink-tertiary)"}
+              strokeWidth={isExplicit ? 1.4 : 1}
               strokeLinecap="round"
-              strokeDasharray={dashed ? "3,3" : undefined}
-              opacity={dashed ? 0.85 : 0.7}
+              strokeDasharray={isExplicit ? undefined : "3,4"}
+              opacity={isExplicit ? 0.85 : 0.4}
               vectorEffect="non-scaling-stroke"
             />
-            {/* Solid disc at the destination so the edge clearly anchors
-                to its target node — without it, vertical edges look like
-                lines hanging in the lane gap between source and target. */}
-            <circle
-              cx={x2}
-              cy={y2}
-              r={1.8}
-              fill="var(--ink-muted)"
-              opacity={dashed ? 0.9 : 0.75}
-              vectorEffect="non-scaling-stroke"
-            />
+            {isExplicit && (
+              <circle
+                cx={x2}
+                cy={y2}
+                r={1.8}
+                fill="var(--ink-muted)"
+                opacity={0.9}
+                vectorEffect="non-scaling-stroke"
+              />
+            )}
           </g>
         );
       })}

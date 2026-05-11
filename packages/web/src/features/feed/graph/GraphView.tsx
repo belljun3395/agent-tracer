@@ -108,12 +108,27 @@ export function GraphView({ events, turns = [], taskStatus }: GraphViewProps) {
   const ticks = useMemo(() => buildAxisTicks(range), [range]);
   // Edges drop when either endpoint sits on a hidden lane — keeps the
   // SVG free of dangling lines that point at nothing.
+  //
+  // Causal edges (the chronological chain) are also dropped when both
+  // endpoints sit on the same lane. Same-lane chronology is already
+  // visible from the x-axis order — drawing flat horizontal lines on
+  // top of it turns a dense IMPL row into a bar-code of overlapping
+  // strokes. Explicit edges (metadata-declared parents) are always
+  // drawn — they're the load-bearing causality signal.
   const edges = useMemo(() => {
     const all = buildFeedEdges(events, turns);
-    return all.filter(
-      (e) => visibleNodeIds.has(e.fromEventId) && visibleNodeIds.has(e.toEventId),
-    );
-  }, [events, turns, visibleNodeIds]);
+    const byId = new Map(nodes.map((n) => [n.id, n]));
+    return all.filter((e) => {
+      if (!visibleNodeIds.has(e.fromEventId)) return false;
+      if (!visibleNodeIds.has(e.toEventId)) return false;
+      if (e.kind === "causal") {
+        const from = byId.get(e.fromEventId);
+        const to = byId.get(e.toEventId);
+        if (from && to && from.laneIdx === to.laneIdx) return false;
+      }
+      return true;
+    });
+  }, [events, turns, visibleNodeIds, nodes]);
 
   const selectedEventId = useSelectedEventId();
   const scrollRef = useRef<HTMLDivElement>(null);
