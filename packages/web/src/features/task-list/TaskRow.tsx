@@ -40,6 +40,9 @@ const STATUS_TO_DOT: Record<MonitoringTask["status"], StatusKind> = {
  *   - hover    : bg-s1; trash-can affordance fades in (opacity-0 → 100)
  *   - active   : bg-s2 + hair border + 2px primary stripe at left edge
  *   - unread   : bolder title + small pulsing primary dot at left edge
+ *   - subagent : depth>0, indented + connector elbow ("└─") drawn from
+ *                the parent column, slightly smaller / dimmer title so
+ *                the eye reads them as subordinate to the root task
  *
  * v1 hides the event/violation/approval counters because the tasks list
  * response doesn't carry those numbers yet (see plan v1 hide table).
@@ -97,6 +100,15 @@ export function TaskRow({
     toggleCollapsed(task.id);
   };
 
+  const isSubagent = depth > 0;
+  // Each ancestor's vertical guide sits at the center of its indent
+  // column — `paddingLeft` starts at 10 and steps 20 per depth, so the
+  // n-th ancestor guide lives at `10 + (n - 0.5) * 20` from the row's
+  // left edge. We draw guides only for depths > 0.
+  const guideXs: readonly number[] = isSubagent
+    ? Array.from({ length: depth }, (_, i) => 10 + (i + 0.5) * 20)
+    : [];
+
   return (
     <Link
       to={`/tasks/${task.id}`}
@@ -121,13 +133,50 @@ export function TaskRow({
         />
       )}
       {unread && !active && (
+        <Tooltip
+          content="New activity since you last opened this task"
+          side="right"
+        >
+          <span
+            role="img"
+            aria-label="Unread — new activity since last open"
+            className="absolute left-[3px] top-1/2 -translate-y-1/2 h-[5px] w-[5px] rounded-full"
+            style={{
+              background: "var(--primary)",
+              boxShadow:
+                "0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent)",
+            }}
+          />
+        </Tooltip>
+      )}
+      {/* Hierarchy guides: a thin vertical line under each ancestor's
+          indent column, plus a small elbow ("└") that hooks under the
+          status dot on subagent rows. Pure decoration, aria-hidden. */}
+      {guideXs.map((x, i) => (
+        <span
+          key={`guide-${i}`}
+          aria-hidden
+          className="absolute top-0 bottom-0 w-px"
+          style={{
+            left: x,
+            background:
+              i === guideXs.length - 1
+                ? "var(--hair-strong)"
+                : "var(--hair)",
+          }}
+        />
+      ))}
+      {isSubagent && (
         <span
           aria-hidden
-          className="absolute left-[3px] top-1/2 -translate-y-1/2 h-[5px] w-[5px] rounded-full"
+          className="absolute h-px"
           style={{
-            background: "var(--primary)",
-            boxShadow:
-              "0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent)",
+            // Elbow connects the rightmost vertical guide to the status
+            // dot column. Sits at row vertical center.
+            left: guideXs[guideXs.length - 1] ?? 0,
+            top: "50%",
+            width: 10,
+            background: "var(--hair-strong)",
           }}
         />
       )}
@@ -174,10 +223,14 @@ export function TaskRow({
         <span
           style={{
             minWidth: 0,
-            fontSize: 13,
-            fontWeight: unread ? 600 : 400,
-            color: "var(--ink)",
+            // Subagents render at a smaller, slightly dimmer style so
+            // the eye reads them as subordinate to their root task at
+            // a glance — depth alone is too subtle.
+            fontSize: isSubagent ? 12 : 13,
+            fontWeight: unread ? 600 : isSubagent ? 400 : 500,
+            color: isSubagent ? "var(--ink-muted)" : "var(--ink)",
             letterSpacing: "-0.1px",
+            fontStyle: isSubagent ? "italic" : "normal",
             overflow: "hidden",
             textOverflow: "ellipsis",
             whiteSpace: "nowrap",
