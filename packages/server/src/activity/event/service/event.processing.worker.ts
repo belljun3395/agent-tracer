@@ -8,7 +8,9 @@ import { CLOCK_PORT, VERIFICATION_POST_PROCESSOR_PORT } from "../application/out
 import type { IClock } from "../application/outbound/clock.port.js";
 import type { IVerificationPostProcessor } from "../application/outbound/verification.post.processor.port.js";
 
-const POLL_INTERVAL_MS = 250;
+const MIN_POLL_INTERVAL_MS = 250;
+const MAX_POLL_INTERVAL_MS = 2000;
+const IDLE_TICKS_BEFORE_BACKOFF = 10;
 const MAX_ATTEMPTS = 5;
 const BATCH_SIZE = 8;
 
@@ -20,6 +22,14 @@ const BATCH_SIZE = 8;
  * Concurrency: claims jobs one at a time via an atomic
  * `update ... where status='pending' and job_id=?` (only one worker wins
  * per row, so multi-instance deployment is safe).
+ *
+ * Retention: completed jobs are deleted on success so the queue table stays
+ * bounded. Permanently-failed rows (`status='failed'`, attempts hit MAX) are
+ * kept for inspection.
+ *
+ * Idle backoff: after 10 consecutive empty polls the interval doubles up to
+ * 2s. New ingest activity resets the interval to 250ms on the next non-empty
+ * tick.
  */
 @Injectable()
 export class EventProcessingWorker implements OnApplicationBootstrap, OnApplicationShutdown {
@@ -27,6 +37,8 @@ export class EventProcessingWorker implements OnApplicationBootstrap, OnApplicat
     private timer: NodeJS.Timeout | null = null;
     private running = false;
     private shuttingDown = false;
+    private idleTicks = 0;
+    private currentIntervalMs = MIN_POLL_INTERVAL_MS;
 
     constructor(
         @InjectRepository(EventProcessingJobEntity)
@@ -38,24 +50,27 @@ export class EventProcessingWorker implements OnApplicationBootstrap, OnApplicat
     ) {}
 
     onApplicationBootstrap(): void {
-        this.timer = setInterval(() => {
-            void this.tick();
-        }, POLL_INTERVAL_MS);
-        // Allow process to exit even if timer is alive (e.g. tests)
-        this.timer.unref();
+        this.scheduleNext();
     }
 
     async onApplicationShutdown(): Promise<void> {
         this.shuttingDown = true;
         if (this.timer) {
-            clearInterval(this.timer);
+            clearTimeout(this.timer);
             this.timer = null;
         }
-        // Wait briefly for any in-flight tick to finish
         const start = Date.now();
         while (this.running && Date.now() - start < 2000) {
             await new Promise((r) => setTimeout(r, 25));
         }
+    }
+
+    private scheduleNext(): void {
+        if (this.shuttingDown) return;
+        this.timer = setTimeout(() => {
+            void this.tick().finally(() => this.scheduleNext());
+        }, this.currentIntervalMs);
+        this.timer.unref();
     }
 
     private async tick(): Promise<void> {
@@ -67,6 +82,15 @@ export class EventProcessingWorker implements OnApplicationBootstrap, OnApplicat
                 order: { createdAt: "ASC" },
                 take: BATCH_SIZE,
             });
+            if (pending.length === 0) {
+                this.idleTicks++;
+                if (this.idleTicks >= IDLE_TICKS_BEFORE_BACKOFF) {
+                    this.currentIntervalMs = Math.min(this.currentIntervalMs * 2, MAX_POLL_INTERVAL_MS);
+                }
+                return;
+            }
+            this.idleTicks = 0;
+            this.currentIntervalMs = MIN_POLL_INTERVAL_MS;
             for (const job of pending) {
                 // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- mutated by onApplicationShutdown
                 if (this.shuttingDown) break;
@@ -99,7 +123,7 @@ export class EventProcessingWorker implements OnApplicationBootstrap, OnApplicat
         try {
             const event = await this.events.findById(job.eventId);
             if (!event) {
-                await this.markCompleted(job, "event missing — skipped");
+                await this.markCompleted(job);
                 return;
             }
 
@@ -114,25 +138,18 @@ export class EventProcessingWorker implements OnApplicationBootstrap, OnApplicat
                     await this.verification.onOtherEvent(event as unknown as TimelineEvent);
                     break;
                 default:
-                    await this.markCompleted(job, `unknown job_type: ${job.jobType}`);
+                    await this.markCompleted(job);
                     return;
             }
-            await this.markCompleted(job, null);
+            await this.markCompleted(job);
         }
         catch (err) {
             await this.markFailed(job, err);
         }
     }
 
-    private async markCompleted(job: EventProcessingJobEntity, note: string | null): Promise<void> {
-        await this.jobs.update(
-            { jobId: job.jobId },
-            {
-                status: "completed",
-                updatedAt: this.clock.nowIso(),
-                lastError: note,
-            },
-        );
+    private async markCompleted(job: EventProcessingJobEntity): Promise<void> {
+        await this.jobs.delete({ jobId: job.jobId });
     }
 
     private async markFailed(job: EventProcessingJobEntity, err: unknown): Promise<void> {
