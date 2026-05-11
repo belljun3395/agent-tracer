@@ -123,7 +123,7 @@ export function TraceTab() {
  * generic `UNKNOWN` span kind so we match by name instead.
  */
 function isTelemetryRow(row: SpanTreeRow): boolean {
-  const name = row.span.name ?? "";
+  const name = row.span.name;
   if (/^Context \d+% used$/.test(name)) return true;
   if (/^Notification:/.test(name)) return true;
   return false;

@@ -83,8 +83,7 @@ export function GraphView({ events, turns = [], taskStatus }: GraphViewProps) {
   const lanesWithNodes = useMemo(() => {
     const seen = new Set<string>();
     for (const e of events) {
-      const lane = e.classification?.lane;
-      if (lane) seen.add(lane);
+      seen.add(e.classification.lane);
     }
     return seen;
   }, [events]);

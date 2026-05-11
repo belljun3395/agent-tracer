@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, type NavigateFunction } from "react-router-dom";
 import { useSelectedTaskId } from "~state/ui/index.js";
 import { useTaskList } from "~features/task-list/hooks/useTaskList.js";
 
@@ -68,11 +68,10 @@ export function useKeyboardShortcuts(): void {
           return;
         case "g":
           event.preventDefault();
-          navigate("/rules");
+          void navigate("/rules");
           return;
         case "?":
           event.preventDefault();
-          // eslint-disable-next-line no-console
           console.info(
             "agent-tracer shortcuts: / search · j next · k prev · g rules · Esc clear",
           );
@@ -95,7 +94,7 @@ function moveSelection(
   groups: readonly TaskGroupVm[],
   selectedTaskId: string | null,
   direction: 1 | -1,
-  navigate: (path: string) => void,
+  navigate: NavigateFunction,
 ): void {
   const flat: readonly TaskRowVm[] = groups.flatMap((g) => g.rows);
   if (flat.length === 0) return;
@@ -109,7 +108,7 @@ function moveSelection(
     if (idx >= flat.length) idx = 0;
   }
   const next = flat[idx];
-  if (next) navigate(`/tasks/${next.task.id}`);
+  if (next) void navigate(`/tasks/${next.task.id}`);
 }
 
 function focusSidebarSearch(): void {

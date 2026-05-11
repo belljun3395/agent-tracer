@@ -85,9 +85,9 @@ export function AppShell() {
   const location = useLocation();
   useEffect(() => {
     if (viewport !== "wide" && sidebarDrawerOpen) setSidebarDrawerOpen(false);
-    // We deliberately depend on `pathname` only; opening the drawer
-    // shouldn't re-trigger the close.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // We deliberately depend on `pathname` only — including the drawer
+    // setter / state in deps would re-trigger the close on its own
+    // open transition.
   }, [location.pathname]);
 
   const showInspectorColumn = viewport === "wide" && selectedTaskId !== null;
