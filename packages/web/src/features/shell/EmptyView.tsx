@@ -1,7 +1,14 @@
+import type { ReactNode } from "react";
+
 interface EmptyViewProps {
   readonly eyebrow?: string;
   readonly title: string;
   readonly description?: string;
+  /**
+   * Optional recovery affordance (e.g., "Back to tasks" link in a 404
+   * empty state). Rendered under the description.
+   */
+  readonly action?: ReactNode;
 }
 
 /**
@@ -9,7 +16,12 @@ interface EmptyViewProps {
  * (e.g., `/tasks` with nothing selected) and as a fallback in panels that
  * need a soft "no data yet" message.
  */
-export function EmptyView({ eyebrow, title, description }: EmptyViewProps) {
+export function EmptyView({
+  eyebrow,
+  title,
+  description,
+  action,
+}: EmptyViewProps) {
   return (
     <div className="flex h-full items-center justify-center text-center">
       <div className="max-w-[440px] px-6">
@@ -50,6 +62,7 @@ export function EmptyView({ eyebrow, title, description }: EmptyViewProps) {
             {description}
           </p>
         )}
+        {action && <div className="mt-5">{action}</div>}
       </div>
     </div>
   );

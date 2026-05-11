@@ -58,6 +58,25 @@ interface ApiErrorEnvelope {
   };
 }
 
+/**
+ * Errors thrown by `getJson` / `postJson` / etc. carry the HTTP status and
+ * the server's envelope `code` so callers can branch on "the row really
+ * isn't there" (404 / `not_found`) versus "the monitor server is down or
+ * unreachable" (network failure / 5xx).
+ */
+export interface ApiRequestError extends Error {
+  status?: number;
+  pathname?: string;
+  code?: string;
+  details?: unknown;
+}
+
+export function isNotFoundError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const e = error as ApiRequestError;
+  return e.status === 404 || e.code === "not_found";
+}
+
 function createRequestSignal(options?: RequestOptions): {
   readonly signal: AbortSignal | null;
   readonly cleanup: () => void;

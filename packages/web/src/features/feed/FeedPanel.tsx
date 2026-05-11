@@ -1,7 +1,9 @@
 import { lazy, Suspense, useMemo } from "react";
+import { Link } from "react-router-dom";
 import type { TaskId } from "~domain/monitoring.js";
 import { useTaskDetailQuery } from "~state/server/queries.js";
 import { useMainView } from "~state/ui/index.js";
+import { isNotFoundError } from "~io/api.js";
 import { EmptyView } from "~features/shell/index.js";
 import { TaskHeader } from "./TaskHeader.js";
 import { ActList } from "./ActList.js";
@@ -33,7 +35,7 @@ interface FeedPanelProps {
  * shell never renders skeleton-style placeholders that look like real data.
  */
 export function FeedPanel({ taskId }: FeedPanelProps) {
-  const { data, isLoading, isError } = useTaskDetailQuery(taskId);
+  const { data, isLoading, isError, error } = useTaskDetailQuery(taskId);
   const mainView = useMainView();
 
   const items = useMemo(() => {
@@ -48,11 +50,38 @@ export function FeedPanel({ taskId }: FeedPanelProps) {
     return <EmptyView eyebrow="Loading" title="Fetching task timeline…" />;
   }
   if (isError || !data) {
+    // 404 / `not_found` means the task is gone (deleted in another tab,
+    // wrong id in the URL). Everything else (offline, 5xx) collapses
+    // into a "the server can't answer right now" message so we don't
+    // tell the user to "pick another task" when there's nothing wrong
+    // with their pick.
+    if (isNotFoundError(error)) {
+      return (
+        <EmptyView
+          eyebrow="404"
+          title="Task not found"
+          description="It may have been deleted in another tab, or the link points at a stale id."
+          action={
+            <Link
+              to="/tasks"
+              className="inline-flex items-center px-3 py-1.5 rounded-[var(--radius-xs)] border border-[var(--hair)]"
+              style={{
+                fontSize: 12.5,
+                color: "var(--ink)",
+                background: "var(--s1)",
+              }}
+            >
+              Back to tasks
+            </Link>
+          }
+        />
+      );
+    }
     return (
       <EmptyView
         eyebrow="Error"
         title="Couldn't load task"
-        description="Check the monitor server connection or pick another task from the sidebar."
+        description="The monitor server didn't respond — check that it's running on the configured port and try again."
       />
     );
   }
