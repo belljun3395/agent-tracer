@@ -69,12 +69,35 @@ export function GraphView({ events, turns = [], taskStatus }: GraphViewProps) {
     [events, nowMs, freezeAtLastEvent],
   );
   const visibleLanes = useVisibleLanes();
+  // Hide empty lanes by default — a quiet task with no `coord` or `veri`
+  // events shouldn't leave two blank rows eating vertical space. The
+  // toggle below lets operators force-show them when comparing two
+  // tasks.
+  const [hideEmptyLanes, setHideEmptyLanes] = useState(true);
   // Intersect with canonical graph lane order so the row order is
   // stable regardless of toggle insertion order in the slice.
-  const visibleLaneKeys = useMemo(
+  const visibleLaneKeysFromFilter = useMemo(
     () => GRAPH_LANE_KEYS.filter((k) => visibleLanes.includes(k as never)),
     [visibleLanes],
   );
+  const lanesWithNodes = useMemo(() => {
+    const seen = new Set<string>();
+    for (const e of events) {
+      const lane = e.classification?.lane;
+      if (lane) seen.add(lane);
+    }
+    return seen;
+  }, [events]);
+  const visibleLaneKeys = useMemo(() => {
+    if (!hideEmptyLanes) return visibleLaneKeysFromFilter;
+    // `veri` is a synthetic lane (no domain key), so always keep it
+    // when the filter allows — its nodes come from a different source.
+    return visibleLaneKeysFromFilter.filter(
+      (k) => k === "veri" || lanesWithNodes.has(domainLaneFor(k) ?? k),
+    );
+  }, [visibleLaneKeysFromFilter, hideEmptyLanes, lanesWithNodes]);
+  const hiddenEmptyCount =
+    visibleLaneKeysFromFilter.length - visibleLaneKeys.length;
   const nodes = useMemo(
     () => layoutGraphNodes(events, range, visibleLaneKeys),
     [events, range, visibleLaneKeys],
@@ -255,18 +278,49 @@ export function GraphView({ events, turns = [], taskStatus }: GraphViewProps) {
           </div>
         </div>
         <GraphLegend />
-        <ZoomControls zoom={zoom} onZoom={setZoom} />
+        <ZoomControls
+          zoom={zoom}
+          onZoom={setZoom}
+          hideEmptyLanes={hideEmptyLanes}
+          onToggleEmptyLanes={() => setHideEmptyLanes((v) => !v)}
+          hiddenEmptyCount={hiddenEmptyCount}
+        />
       </div>
     </div>
   );
 }
 
+/**
+ * Map a graph lane key back to the domain `lane` value stored on event
+ * classifications. `veri` is synthetic — it has no domain key.
+ */
+function domainLaneFor(key: string): string | null {
+  const m: Record<string, string> = {
+    user: "user",
+    plan: "planning",
+    expl: "exploration",
+    impl: "implementation",
+    rule: "rule",
+    coord: "coordination",
+  };
+  return m[key] ?? null;
+}
+
 interface ZoomControlsProps {
   readonly zoom: number;
   readonly onZoom: (next: number) => void;
+  readonly hideEmptyLanes: boolean;
+  readonly onToggleEmptyLanes: () => void;
+  readonly hiddenEmptyCount: number;
 }
 
-function ZoomControls({ zoom, onZoom }: ZoomControlsProps) {
+function ZoomControls({
+  zoom,
+  onZoom,
+  hideEmptyLanes,
+  onToggleEmptyLanes,
+  hiddenEmptyCount,
+}: ZoomControlsProps) {
   const setClamped = (next: number) => onZoom(clamp(next, MIN_ZOOM, MAX_ZOOM));
   return (
     <div
@@ -312,6 +366,27 @@ function ZoomControls({ zoom, onZoom }: ZoomControlsProps) {
       >
         reset
       </button>
+      {(hiddenEmptyCount > 0 || !hideEmptyLanes) && (
+        <button
+          type="button"
+          onClick={onToggleEmptyLanes}
+          aria-pressed={!hideEmptyLanes}
+          style={{
+            ...zoomBtnStyle,
+            width: "auto",
+            padding: "0 8px",
+            color: hideEmptyLanes ? "var(--ink-muted)" : "var(--ink)",
+            background: hideEmptyLanes ? "var(--s1)" : "var(--s2)",
+          }}
+          title={
+            hideEmptyLanes
+              ? `${hiddenEmptyCount} empty lane${hiddenEmptyCount === 1 ? "" : "s"} hidden`
+              : "Click to hide empty lanes"
+          }
+        >
+          {hideEmptyLanes ? `+${hiddenEmptyCount} empty lane${hiddenEmptyCount === 1 ? "" : "s"}` : "all lanes"}
+        </button>
+      )}
       <span style={{ marginLeft: "auto" }}>
         ⌘+wheel to zoom · drag to pan
       </span>

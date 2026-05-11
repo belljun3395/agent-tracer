@@ -18,6 +18,13 @@ import { buildToolUsage } from "./lib/extract-tool-usage.js";
 interface OverviewViewProps {
   readonly taskId: TaskId;
   readonly timeline: readonly TimelineEventRecord[];
+  /**
+   * The task's workspace root (absolute). When provided, file paths
+   * inside the Files card are rendered relative to it — the absolute
+   * `/Users/.../agent-tracer/packages/web/src/...` triplet was visual
+   * noise in the audit. The full path remains available on hover.
+   */
+  readonly workspacePath?: string;
 }
 
 const FILE_LIMIT = 30;
@@ -44,7 +51,11 @@ const SEARCH_KIND_LABEL: Readonly<Record<SearchKind, string>> = {
  * Each section is independent; if the task hasn't done that thing yet,
  * the section unmounts entirely (no empty placeholders).
  */
-export function OverviewView({ taskId, timeline }: OverviewViewProps) {
+export function OverviewView({
+  taskId,
+  timeline,
+  workspacePath,
+}: OverviewViewProps) {
   const nowMs = useNowMs(15_000);
   const rulesQ = useTaskRulesQuery(taskId);
 
@@ -90,7 +101,11 @@ export function OverviewView({ taskId, timeline }: OverviewViewProps) {
         gap: 24,
       }}
     >
-      <FilesCard rows={files} nowMs={nowMs} />
+      <FilesCard
+        rows={files}
+        nowMs={nowMs}
+        {...(workspacePath ? { workspacePath } : {})}
+      />
       <SearchesCard rows={searches} nowMs={nowMs} />
       <ToolsCard rows={tools} totalEvents={timeline.length} />
       <RulesCard
@@ -105,9 +120,10 @@ export function OverviewView({ taskId, timeline }: OverviewViewProps) {
 interface FilesCardProps {
   readonly rows: ReturnType<typeof buildFileActivity>;
   readonly nowMs: number;
+  readonly workspacePath?: string;
 }
 
-function FilesCard({ rows, nowMs }: FilesCardProps) {
+function FilesCard({ rows, nowMs, workspacePath }: FilesCardProps) {
   const [expanded, setExpanded] = useState(false);
   if (rows.length === 0) return null;
   const visible = expanded ? rows : rows.slice(0, FILE_LIMIT);
@@ -126,7 +142,7 @@ function FilesCard({ rows, nowMs }: FilesCardProps) {
               }}
               title={row.path}
             >
-              {row.path}
+              {relativizePath(row.path, workspacePath)}
             </span>
             <span
               className="shrink-0"
@@ -485,3 +501,24 @@ const mutedHint: React.CSSProperties = {
   fontSize: 11.5,
   color: "var(--ink-subtle)",
 };
+
+/**
+ * Strip the workspace root prefix so file paths render like a git-style
+ * relative path (`packages/web/...`) instead of the absolute triplet
+ * (`/Users/<user>/.../agent-tracer/packages/web/...`). The full path is
+ * still available via the row's `title` attribute, so the user can
+ * hover for the unambiguous version.
+ *
+ * Path is left untouched when:
+ *   - no workspace context is available
+ *   - the path doesn't sit under the workspace (different volume,
+ *     home-relative artefact, etc.)
+ *   - the path is already relative
+ */
+function relativizePath(path: string, workspacePath: string | undefined): string {
+  if (!workspacePath || !path.startsWith("/")) return path;
+  const prefix = workspacePath.endsWith("/")
+    ? workspacePath
+    : `${workspacePath}/`;
+  return path.startsWith(prefix) ? path.slice(prefix.length) : path;
+}

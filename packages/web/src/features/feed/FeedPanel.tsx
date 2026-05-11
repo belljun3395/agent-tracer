@@ -126,7 +126,13 @@ export function FeedPanel({ taskId }: FeedPanelProps) {
         </Suspense>
       ) : mainView === "overview" ? (
         <Suspense fallback={null}>
-          <OverviewView taskId={taskId} timeline={data.timeline} />
+          <OverviewView
+            taskId={taskId}
+            timeline={data.timeline}
+            {...(data.task.workspacePath
+              ? { workspacePath: data.task.workspacePath }
+              : {})}
+          />
         </Suspense>
       ) : (
         <div className="px-9">

@@ -161,7 +161,19 @@ export function RuleForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} style={{ padding: 16, display: "flex", flexDirection: "column", gap: 14 }}>
+    // The form footer sticks to the modal bottom so Save/Cancel stays
+    // visible even when Trigger phrases + Rationale push the body past
+    // the modal's 80vh ceiling. The `position: sticky` plays nicely
+    // with the Modal's `overflow: auto` panel — no nested-scroll trap.
+    <form
+      onSubmit={handleSubmit}
+      style={{
+        padding: "16px 16px 0",
+        display: "flex",
+        flexDirection: "column",
+        gap: 14,
+      }}
+    >
       <Field label="Name" required>
         <input
           type="text"
@@ -293,10 +305,19 @@ export function RuleForm({
 
       <footer
         style={{
+          position: "sticky",
+          bottom: 0,
+          // Span the modal's full width so the separator hits the panel
+          // edges instead of stopping at the form's padding.
+          marginLeft: -16,
+          marginRight: -16,
+          marginTop: 4,
+          padding: "12px 16px",
           display: "flex",
           justifyContent: "flex-end",
           gap: 8,
-          paddingTop: 4,
+          background: "var(--s1)",
+          borderTop: "1px solid var(--hair)",
         }}
       >
         <button

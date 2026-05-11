@@ -105,22 +105,45 @@ export function EditableTitle({ task }: EditableTitleProps) {
   return (
     <Tooltip content="Click to rename" side="bottom">
       <h1
-        className="flex-1 min-w-0 group cursor-text"
+        className="flex-1 min-w-0 group cursor-pointer rounded-[var(--radius-sm)] hover:bg-[var(--s1)]"
         style={{
           ...titleStyle,
           display: "flex",
           alignItems: "center",
           gap: 6,
+          padding: "2px 6px",
+          margin: "-2px -6px",
+          transition: "background 120ms",
         }}
         onClick={startEditing}
+        // Keyboard parity — Tab to the heading, Enter/Space to edit.
+        tabIndex={0}
+        role="button"
+        aria-label={`Edit task title: ${current}`}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            startEditing();
+          }
+        }}
       >
-        <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        <span
+          className="group-hover:underline"
+          style={{
+            minWidth: 0,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+            textUnderlineOffset: 3,
+            textDecorationColor: "var(--hair-strong)",
+          }}
+        >
           {current}
         </span>
         <span
           aria-hidden
           style={{
-            opacity: 0.4,
+            opacity: 0.55,
             color: "var(--ink-tertiary)",
             transition: "opacity 150ms",
           }}
