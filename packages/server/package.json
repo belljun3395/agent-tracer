@@ -21,8 +21,10 @@
     "start:mcp": "node ./dist/mcp.js",
     "test": "vitest run"
   },
+  "optionalDependencies": {
+    "@huggingface/transformers": "^3.8.1"
+  },
   "dependencies": {
-    "@huggingface/transformers": "^3.8.1",
     "@modelcontextprotocol/sdk": "^1.0.0",
     "@nestjs/common": "^11.1.18",
     "@nestjs/core": "^11.1.18",
