@@ -18,6 +18,16 @@ const LANE_LABEL: Readonly<Record<VisibleLane, string>> = {
   coord: "COORD",
 };
 
+const LANE_DESCRIPTION: Readonly<Record<VisibleLane, string>> = {
+  user: "User · prompts, replies, approvals",
+  plan: "Plan · reasoning, intent, decisions",
+  expl: "Explore · file reads, greps, listings",
+  impl: "Implement · file writes, shell commands, edits",
+  rule: "Rule · enforcement triggers and violations",
+  veri: "Verify · validation runs, tests, lint checks",
+  coord: "Coord · sub-agent spawns and hand-offs",
+};
+
 const LANE_COLOR: Readonly<Record<VisibleLane, string>> = {
   user: "var(--ph-user)",
   plan: "var(--ph-plan)",
@@ -100,6 +110,7 @@ export function LaneFilter() {
             type="button"
             onClick={() => toggle(lane)}
             aria-pressed={isOn}
+            title={LANE_DESCRIPTION[lane]}
             style={{
               display: "inline-flex",
               alignItems: "center",

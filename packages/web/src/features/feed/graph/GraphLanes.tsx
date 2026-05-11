@@ -39,6 +39,7 @@ export function GraphLanes({ lanes }: GraphLanesProps) {
             }}
           >
             <div
+              title={theme.description}
               style={{
                 position: "sticky",
                 left: 0,
@@ -52,7 +53,7 @@ export function GraphLanes({ lanes }: GraphLanesProps) {
                 background: "var(--s1)",
                 borderRight: "1px solid var(--hair)",
                 zIndex: 8,
-                pointerEvents: "none",
+                cursor: "help",
               }}
             >
               <span
@@ -88,27 +89,67 @@ export function GraphLanes({ lanes }: GraphLanesProps) {
 /**
  * Map LaneKey ↔ TimelineLane domain — `veri` doesn't exist on the
  * domain side, so we hardcode it. Keeps colors aligned with feed cards.
+ * Descriptions are the same plain-English copy the sidebar's lane
+ * filter uses — keep both in sync if the vocabulary shifts.
  */
-function laneThemeForKey(key: string): { label: string; color: string } {
+function laneThemeForKey(
+  key: string,
+): { label: string; color: string; description: string } {
   const map: Record<
     string,
-    { lane: Parameters<typeof laneThemeFor>[0] | null; veri: boolean }
+    {
+      lane: Parameters<typeof laneThemeFor>[0] | null;
+      veri: boolean;
+      description: string;
+    }
   > = {
-    user: { lane: "user", veri: false },
-    plan: { lane: "planning", veri: false },
-    expl: { lane: "exploration", veri: false },
-    impl: { lane: "implementation", veri: false },
-    rule: { lane: "rule", veri: false },
-    veri: { lane: null, veri: true },
-    coord: { lane: "coordination", veri: false },
+    user: {
+      lane: "user",
+      veri: false,
+      description: "User · prompts, replies, approvals",
+    },
+    plan: {
+      lane: "planning",
+      veri: false,
+      description: "Plan · reasoning, intent, decisions",
+    },
+    expl: {
+      lane: "exploration",
+      veri: false,
+      description: "Explore · file reads, greps, listings",
+    },
+    impl: {
+      lane: "implementation",
+      veri: false,
+      description: "Implement · file writes, shell commands, edits",
+    },
+    rule: {
+      lane: "rule",
+      veri: false,
+      description: "Rule · enforcement triggers and violations",
+    },
+    veri: {
+      lane: null,
+      veri: true,
+      description: "Verify · validation runs, tests, lint checks",
+    },
+    coord: {
+      lane: "coordination",
+      veri: false,
+      description: "Coord · sub-agent spawns and hand-offs",
+    },
   };
   const entry = map[key];
   if (entry?.veri) {
-    return { label: "VERI", color: "var(--ph-veri)" };
+    return { label: "VERI", color: "var(--ph-veri)", description: entry.description };
   }
   if (entry?.lane) {
     const t = laneThemeFor(entry.lane);
-    return { label: t.label, color: t.cssColor };
+    return { label: t.label, color: t.cssColor, description: entry.description };
   }
-  return { label: key.toUpperCase(), color: "var(--ink-tertiary)" };
+  return {
+    label: key.toUpperCase(),
+    color: "var(--ink-tertiary)",
+    description: "",
+  };
 }
