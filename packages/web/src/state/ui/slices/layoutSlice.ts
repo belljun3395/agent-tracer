@@ -11,6 +11,14 @@ export interface LayoutSlice {
   readonly sidebarWidth: number;
   readonly inspectorWidth: number;
   /**
+   * Explicit collapse on the `wide` viewport. When true, the panel
+   * shrinks to a narrow rail showing only an "expand" chevron — the
+   * resize handle and panel body don't render. Persisted so the
+   * operator's "give me more main canvas" choice survives a reload.
+   */
+  readonly sidebarCollapsed: boolean;
+  readonly inspectorCollapsed: boolean;
+  /**
    * Mobile drawer state for the sidebar. Closed by default so a fresh
    * mobile load doesn't bury the main pane behind the task list.
    */
@@ -22,9 +30,14 @@ export interface LayoutSlice {
   readonly inspectorDrawerOpen: boolean;
   readonly setSidebarWidth: (width: number) => void;
   readonly setInspectorWidth: (width: number) => void;
+  readonly setSidebarCollapsed: (collapsed: boolean) => void;
+  readonly setInspectorCollapsed: (collapsed: boolean) => void;
   readonly setSidebarDrawerOpen: (open: boolean) => void;
   readonly setInspectorDrawerOpen: (open: boolean) => void;
 }
+
+/** Pixel width of the collapsed-panel rail (just an expand chevron). */
+export const COLLAPSED_RAIL_WIDTH = 28;
 
 const DEFAULT_SIDEBAR_WIDTH = 280;
 const DEFAULT_INSPECTOR_WIDTH = 380;
@@ -42,12 +55,16 @@ export function createLayoutSlice(set: SetState): LayoutSlice {
   return {
     sidebarWidth: DEFAULT_SIDEBAR_WIDTH,
     inspectorWidth: DEFAULT_INSPECTOR_WIDTH,
+    sidebarCollapsed: false,
+    inspectorCollapsed: false,
     sidebarDrawerOpen: false,
     inspectorDrawerOpen: false,
     setSidebarWidth: (width) =>
       set({ sidebarWidth: clamp(width, SIDEBAR_MIN, SIDEBAR_MAX) }),
     setInspectorWidth: (width) =>
       set({ inspectorWidth: clamp(width, INSPECTOR_MIN, INSPECTOR_MAX) }),
+    setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
+    setInspectorCollapsed: (collapsed) => set({ inspectorCollapsed: collapsed }),
     setSidebarDrawerOpen: (open) => set({ sidebarDrawerOpen: open }),
     setInspectorDrawerOpen: (open) => set({ inspectorDrawerOpen: open }),
   };

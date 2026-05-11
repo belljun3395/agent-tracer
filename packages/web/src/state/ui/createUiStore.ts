@@ -74,6 +74,8 @@ export function createUiStore(options?: CreateUiStoreOptions): UiStoreApi {
           visibleLanes: state.visibleLanes,
           sidebarWidth: state.sidebarWidth,
           inspectorWidth: state.inspectorWidth,
+          sidebarCollapsed: state.sidebarCollapsed,
+          inspectorCollapsed: state.inspectorCollapsed,
           theme: state.theme,
         }),
       },
