@@ -1,83 +1,152 @@
+import { useEffect, useRef, useState } from "react";
 import { Tooltip } from "~ui/index.js";
 import { useSetTheme, useTheme, type Theme } from "~state/ui/index.js";
-import { cn } from "~lib/cn.js";
 
 /**
- * Three-segment theme toggle: dark / light / auto (auto = follow OS).
- *
- * Mirrors the Feed/Graph view-toggle pattern in TaskHeader — same
- * 6/24px height, same active treatment — so the topbar feels coherent.
+ * Single-button theme switcher with a popover. The previous three-segment
+ * dark/light/auto bar consumed three icon slots in an already crowded
+ * topbar; collapsing into one icon-button + popover matches the
+ * Linear / Notion / Vercel pattern and frees up horizontal space for
+ * the responsive drawer toggles next to it.
  */
 export function ThemeToggle() {
   const theme = useTheme();
   const setTheme = useSetTheme();
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onClick = (e: MouseEvent) => {
+      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("mousedown", onClick);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("mousedown", onClick);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const triggerIcon =
+    theme === "dark" ? <MoonIcon /> : theme === "light" ? <SunIcon /> : <MonitorIcon />;
+  const triggerLabel =
+    theme === "dark"
+      ? "Theme: dark"
+      : theme === "light"
+        ? "Theme: light"
+        : "Theme: follow system";
 
   return (
-    <div
-      className="inline-flex p-0.5 rounded-[var(--radius-sm)]"
-      style={{
-        background: "var(--s1)",
-        border: "1px solid var(--hair)",
-      }}
-    >
-      <Segment
-        active={theme === "dark"}
-        onClick={() => setTheme("dark")}
-        label="Dark"
-        ariaLabel="Use dark theme"
-      >
-        <MoonIcon />
-      </Segment>
-      <Segment
-        active={theme === "light"}
-        onClick={() => setTheme("light")}
-        label="Light"
-        ariaLabel="Use light theme"
-      >
-        <SunIcon />
-      </Segment>
-      <Tooltip content="Follow system preference" side="bottom">
-        <Segment
-          active={theme === "system"}
-          onClick={() => setTheme("system")}
-          label="Auto"
-          ariaLabel="Follow system color scheme"
+    <div className="relative" ref={rootRef}>
+      <Tooltip content="Change theme" side="bottom">
+        <button
+          type="button"
+          aria-label={triggerLabel}
+          aria-haspopup="menu"
+          aria-expanded={open}
+          onClick={() => setOpen((v) => !v)}
+          className="h-7 w-7 inline-flex items-center justify-center rounded-[var(--radius-sm)] hover:bg-[var(--s1)] transition-colors"
+          style={{
+            color: "var(--ink-muted)",
+            background: open ? "var(--s1)" : "transparent",
+          }}
         >
-          <MonitorIcon />
-        </Segment>
+          {triggerIcon}
+        </button>
       </Tooltip>
+      {open && (
+        <div
+          role="menu"
+          className="absolute right-0 top-[calc(100%+4px)] z-50 min-w-[148px] rounded-[var(--radius-sm)] py-1"
+          style={{
+            background: "var(--s1)",
+            border: "1px solid var(--hair)",
+            boxShadow: "0 8px 24px rgba(0,0,0,0.25)",
+          }}
+        >
+          <MenuItem
+            label="Light"
+            active={theme === "light"}
+            onSelect={() => {
+              setTheme("light");
+              setOpen(false);
+            }}
+            icon={<SunIcon />}
+          />
+          <MenuItem
+            label="Dark"
+            active={theme === "dark"}
+            onSelect={() => {
+              setTheme("dark");
+              setOpen(false);
+            }}
+            icon={<MoonIcon />}
+          />
+          <MenuItem
+            label="Follow system"
+            active={theme === "system"}
+            onSelect={() => {
+              setTheme("system");
+              setOpen(false);
+            }}
+            icon={<MonitorIcon />}
+          />
+        </div>
+      )}
     </div>
   );
 }
 
-interface SegmentProps {
-  readonly active: boolean;
-  readonly onClick: () => void;
+function MenuItem({
+  label,
+  active,
+  onSelect,
+  icon,
+}: {
   readonly label: string;
-  readonly ariaLabel: string;
-  readonly children: React.ReactNode;
-}
-
-function Segment({ active, onClick, label, ariaLabel, children }: SegmentProps) {
+  readonly active: boolean;
+  readonly onSelect: () => void;
+  readonly icon: React.ReactNode;
+}) {
   return (
     <button
       type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      aria-label={ariaLabel}
-      className={cn(
-        "h-6 w-7 rounded-[var(--radius-xs)] inline-flex items-center justify-center",
-        "transition-colors",
-      )}
+      role="menuitemradio"
+      aria-checked={active}
+      onClick={onSelect}
+      className="w-full flex items-center gap-2 px-2.5 h-7 text-left hover:bg-[var(--s2)]"
       style={{
-        background: active ? "var(--s3)" : "transparent",
-        color: active ? "var(--ink)" : "var(--ink-subtle)",
-        boxShadow: active ? "0 1px 0 0 var(--hair-strong)" : "none",
+        fontSize: 12.5,
+        color: active ? "var(--ink)" : "var(--ink-muted)",
+        background: active ? "var(--s2)" : "transparent",
       }}
-      title={label}
     >
-      {children}
+      <span style={{ color: "var(--ink-tertiary)" }}>{icon}</span>
+      <span className="flex-1">{label}</span>
+      {active && <CheckIcon />}
     </button>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="var(--primary)"
+      strokeWidth="2.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
   );
 }
 

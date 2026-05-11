@@ -45,7 +45,7 @@ function RulesButton() {
           background: active ? "var(--s1)" : "transparent",
         }}
       >
-        <ShieldIcon />
+        <ChecklistIcon />
         <span style={{ fontSize: 12, fontWeight: 500, letterSpacing: "-0.05px" }}>
           Rules
         </span>
@@ -69,7 +69,13 @@ function RulesButton() {
   );
 }
 
-function ShieldIcon() {
+/**
+ * Two short lines with check marks — reads as "a list of checks" which
+ * is what the rules surface enforces. The previous shield outline
+ * looked like a security badge with no obvious connection to
+ * "configurable behaviour rules".
+ */
+function ChecklistIcon() {
   return (
     <svg
       width="14"
@@ -78,8 +84,13 @@ function ShieldIcon() {
       fill="none"
       stroke="currentColor"
       strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
     >
-      <path d="M12 2L4 6v6c0 5 3.5 9 8 10 4.5-1 8-5 8-10V6z" />
+      <polyline points="3 7 5 9 9 5" />
+      <polyline points="3 17 5 19 9 15" />
+      <line x1="13" y1="7" x2="21" y2="7" />
+      <line x1="13" y1="17" x2="21" y2="17" />
     </svg>
   );
 }
