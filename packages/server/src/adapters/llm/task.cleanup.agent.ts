@@ -10,9 +10,13 @@ import {
     type CleanupSuggestion,
 } from "./task.cleanup.zod.js";
 
-const ALLOWED_TOOLS = ["Read", "Glob", "Grep"];
-const DEFAULT_MAX_TURNS = 8;
-const DEFAULT_MODEL = "claude-sonnet-4-6";
+// Cleanup is a single-shot "analyze this list and emit JSON" task — no
+// filesystem context needed. Keeping tools enabled (and an 8-turn budget)
+// let the model wander through the workspace and pushed a 37-task scan to
+// 2+ minutes. Drop both: one turn, zero tools, no exploration.
+const ALLOWED_TOOLS: readonly string[] = [];
+const DEFAULT_MAX_TURNS = 1;
+const DEFAULT_MODEL = "claude-haiku-4-5";
 
 export interface GenerateCleanupSuggestionsInput {
     readonly apiKey: string;
@@ -53,8 +57,8 @@ export class TaskCleanupAgent {
             options: {
                 cwd,
                 model,
-                allowedTools: ALLOWED_TOOLS,
-                tools: ALLOWED_TOOLS,
+                allowedTools: [...ALLOWED_TOOLS],
+                tools: [...ALLOWED_TOOLS],
                 maxTurns: DEFAULT_MAX_TURNS,
                 systemPrompt: SYSTEM_PROMPT,
                 env,
