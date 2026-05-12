@@ -1,4 +1,4 @@
-import { Controller, Get, NotFoundException, Param } from "@nestjs/common";
+import { BadRequestException, Controller, Get, NotFoundException, Param, Query } from "@nestjs/common";
 import { pathParamPipe } from "~adapters/http/shared/path-param.pipe.js";
 import { GetTaskLatestRuntimeSessionUseCase } from "../application/get.task.latest.runtime.session.usecase.js";
 import { GetTaskOpenInferenceUseCase } from "../application/get.task.open.inference.usecase.js";
@@ -6,6 +6,13 @@ import { GetTaskTimelineUseCase } from "../application/get.task.timeline.usecase
 import { GetTaskTurnsUseCase } from "../application/get.task.turns.usecase.js";
 import { GetTaskUseCase } from "../application/get.task.usecase.js";
 import { ListTasksUseCase } from "../application/list.tasks.usecase.js";
+import type { ListTasksArchivedScope } from "../application/dto/list.tasks.usecase.dto.js";
+
+const ARCHIVED_SCOPES: ReadonlySet<ListTasksArchivedScope> = new Set([
+    "active",
+    "archived",
+    "all",
+]);
 
 @Controller("api/v1/tasks")
 export class TaskQueryController {
@@ -19,8 +26,14 @@ export class TaskQueryController {
     ) {}
 
     @Get()
-    async listTasksEndpoint() {
-        return this.listTasks.execute({});
+    async listTasksEndpoint(@Query("archived") archivedParam?: string) {
+        const scope = archivedParam ?? "active";
+        if (!ARCHIVED_SCOPES.has(scope as ListTasksArchivedScope)) {
+            throw new BadRequestException(
+                `archived must be one of: active, archived, all`,
+            );
+        }
+        return this.listTasks.execute({ archived: scope as ListTasksArchivedScope });
     }
 
     @Get(":taskId/openinference")

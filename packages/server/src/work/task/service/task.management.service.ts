@@ -106,6 +106,52 @@ export class TaskManagementService {
         return { status: "deleted", deletedIds: allIds };
     }
 
+    async archive(
+        taskId: string,
+    ): Promise<{ status: "archived"; archivedIds: readonly string[]; archivedAt: string } | { status: "not_found" } | { status: "already_archived" }> {
+        const exists = await this.taskRepo.findById(taskId);
+        if (!exists) return { status: "not_found" };
+        if (exists.archivedAt) return { status: "already_archived" };
+
+        const descendants = await this.taskRepo.collectDescendantIds(taskId);
+        const allIds = [taskId, ...descendants];
+        const archivedAt = this.clock.nowIso();
+        for (const id of allIds) {
+            const entity = await this.taskRepo.findById(id);
+            if (!entity || entity.archivedAt) continue;
+            entity.archivedAt = archivedAt;
+            entity.updatedAt = archivedAt;
+            await this.taskRepo.save(entity);
+            const updated = await this.query.findById(id);
+            if (updated) this.notifier.publish({ type: "task.updated", payload: updated });
+        }
+        return { status: "archived", archivedIds: allIds, archivedAt };
+    }
+
+    async unarchive(
+        taskId: string,
+    ): Promise<{ status: "unarchived"; unarchivedIds: readonly string[] } | { status: "not_found" } | { status: "not_archived" }> {
+        const exists = await this.taskRepo.findById(taskId);
+        if (!exists) return { status: "not_found" };
+        if (!exists.archivedAt) return { status: "not_archived" };
+
+        const descendants = await this.taskRepo.collectDescendantIds(taskId);
+        const allIds = [taskId, ...descendants];
+        const now = this.clock.nowIso();
+        const unarchivedIds: string[] = [];
+        for (const id of allIds) {
+            const entity = await this.taskRepo.findById(id);
+            if (!entity || !entity.archivedAt) continue;
+            entity.archivedAt = null;
+            entity.updatedAt = now;
+            await this.taskRepo.save(entity);
+            unarchivedIds.push(id);
+            const updated = await this.query.findById(id);
+            if (updated) this.notifier.publish({ type: "task.updated", payload: updated });
+        }
+        return { status: "unarchived", unarchivedIds };
+    }
+
     /** Internal upsert used by lifecycle service. Updates entity + relations + emits task.updated when applicable. */
     async upsertFromDraft(input: {
         readonly id: string;

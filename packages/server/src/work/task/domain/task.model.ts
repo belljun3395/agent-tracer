@@ -19,4 +19,5 @@ export interface MonitoringTask extends MonitoringTaskInput {
     readonly lastSessionStartedAt?: string;
     readonly runtimeSource?: string;
     readonly taskKind?: MonitoringTaskKind;
+    readonly archivedAt?: string;
 }

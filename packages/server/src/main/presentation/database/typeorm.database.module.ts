@@ -12,6 +12,7 @@ import { PurgeCompletedJobs1700000007000 } from "~main/migrations/1700000007000-
 import { CreateSearchFts51700000008000 } from "~main/migrations/1700000008000-create-search-fts5.js";
 import { CreateAppSettingsSchema1700000009000 } from "~main/migrations/1700000009000-create-app-settings-schema.js";
 import { CreateTaskRuleGenerationJobsSchema1700000010000 } from "~main/migrations/1700000010000-create-task-rule-generation-jobs-schema.js";
+import { AddTasksArchivedAt1700000011000 } from "~main/migrations/1700000011000-add-tasks-archived-at.js";
 
 export interface TypeOrmDatabaseModuleOptions {
     readonly databasePath: string;
@@ -53,6 +54,7 @@ export class TypeOrmDatabaseModule {
                             CreateSearchFts51700000008000,
                             CreateAppSettingsSchema1700000009000,
                             CreateTaskRuleGenerationJobsSchema1700000010000,
+                            AddTasksArchivedAt1700000011000,
                         ],
                         migrationsRun: true,
                     }),

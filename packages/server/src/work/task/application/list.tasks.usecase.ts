@@ -6,7 +6,7 @@ import type { ListTasksUseCaseIn, ListTasksUseCaseOut } from "./dto/list.tasks.u
 export class ListTasksUseCase {
     constructor(private readonly query: TaskQueryService) {}
 
-    async execute(_input: ListTasksUseCaseIn): Promise<ListTasksUseCaseOut> {
-        return { tasks: await this.query.findAll() };
+    async execute(input: ListTasksUseCaseIn): Promise<ListTasksUseCaseOut> {
+        return { tasks: await this.query.findAll(input.archived ?? "active") };
     }
 }

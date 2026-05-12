@@ -1,4 +1,8 @@
-export type ListTasksUseCaseIn = Record<string, never>;
+export type ListTasksArchivedScope = "active" | "archived" | "all";
+
+export interface ListTasksUseCaseIn {
+    readonly archived?: ListTasksArchivedScope;
+}
 
 export type ListTasksTaskStatusUseCaseDto = "running" | "waiting" | "completed" | "errored";
 export type ListTasksTaskKindUseCaseDto = "primary" | "background";
@@ -18,6 +22,7 @@ export interface ListTasksTaskUseCaseDto {
     readonly parentTaskId?: string;
     readonly parentSessionId?: string;
     readonly backgroundTaskId?: string;
+    readonly archivedAt?: string;
 }
 
 export interface ListTasksUseCaseOut {

@@ -19,6 +19,20 @@ export class TaskRepository {
         return this.repo.find({ order: { updatedAt: "DESC" } });
     }
 
+    async findAllByArchivedScope(
+        scope: "active" | "archived" | "all",
+    ): Promise<TaskEntity[]> {
+        const qb = this.repo
+            .createQueryBuilder("t")
+            .orderBy("t.updated_at", "DESC");
+        if (scope === "active") {
+            qb.where("t.archived_at IS NULL");
+        } else if (scope === "archived") {
+            qb.where("t.archived_at IS NOT NULL");
+        }
+        return qb.getMany();
+    }
+
     async findByIds(ids: readonly string[]): Promise<TaskEntity[]> {
         if (ids.length === 0) return [];
         return this.repo.find({ where: { id: In([...ids]) } });

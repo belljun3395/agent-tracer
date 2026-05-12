@@ -21,6 +21,7 @@ export interface NotifiedTaskPayload {
     readonly parentTaskId?: string;
     readonly parentSessionId?: string;
     readonly backgroundTaskId?: string;
+    readonly archivedAt?: string;
 }
 
 export interface NotifiedSessionPayload {

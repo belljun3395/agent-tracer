@@ -34,6 +34,9 @@ export class TaskEntity {
     @Column({ name: "cli_source", type: "text", nullable: true })
     cliSource!: string | null;
 
+    @Column({ name: "archived_at", type: "text", nullable: true })
+    archivedAt!: string | null;
+
     /** Convenience accessor — runtime source is stored as cli_source historically. */
     get runtimeSource(): string | null {
         return this.cliSource?.trim() ?? null;

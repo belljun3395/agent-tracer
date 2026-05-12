@@ -25,6 +25,7 @@ function toBaseTask(entity: TaskEntity, relations: TaskRelationsSnapshot): Monit
         ...(relations.backgroundTaskId ? { backgroundTaskId: relations.backgroundTaskId } : {}),
         ...(entity.lastSessionStartedAt ? { lastSessionStartedAt: entity.lastSessionStartedAt } : {}),
         ...(entity.runtimeSource ? { runtimeSource: entity.runtimeSource } : {}),
+        ...(entity.archivedAt ? { archivedAt: entity.archivedAt } : {}),
     };
 }
 
@@ -48,8 +49,8 @@ export class TaskQueryService {
         return this.withDisplayTitle(toBaseTask(entity, relations.asSnapshot()));
     }
 
-    async findAll(): Promise<readonly MonitoringTask[]> {
-        const entities = await this.taskRepo.findAll();
+    async findAll(scope: "active" | "archived" | "all" = "active"): Promise<readonly MonitoringTask[]> {
+        const entities = await this.taskRepo.findAllByArchivedScope(scope);
         if (entities.length === 0) return [];
         return this.hydrate(entities);
     }
