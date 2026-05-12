@@ -97,10 +97,38 @@ export class EndRuntimeSessionUseCase {
                     sessionId: binding.monitorSessionId,
                     summary: input.summary ?? decision.summary,
                 });
+                if (task.taskKind === "primary" && hasRunningBackgroundChildren) {
+                    await this.cascadeCompleteBackgroundDescendants(binding.taskId);
+                }
                 return;
             }
             if (decision.action === "move_task_to_waiting") {
                 await this.setTaskStatus(binding.taskId, "waiting");
+            }
+        }
+    }
+
+    /**
+     * Walk descendants and finalize any running background tasks. Called when a
+     * primary task is being completed — its background subagents would otherwise
+     * stay "running" forever if their SubagentStop hook never fired (parent
+     * killed mid-flight, OS shutdown, network drop, etc.).
+     */
+    private async cascadeCompleteBackgroundDescendants(rootTaskId: string): Promise<void> {
+        const stack = [rootTaskId];
+        while (stack.length > 0) {
+            const parentId = stack.pop();
+            if (!parentId) continue;
+            const children = await this.tasks.findChildren(parentId);
+            for (const child of children) {
+                stack.push(child.id);
+                if (child.taskKind === "background" && child.status === "running") {
+                    await this.taskLifecycle.finalizeTask({
+                        taskId: child.id,
+                        summary: "Background task cascade-completed with parent",
+                        outcome: "completed",
+                    });
+                }
             }
         }
     }

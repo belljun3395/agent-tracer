@@ -54,6 +54,10 @@ export class RuntimeSessionEnd {
             return { action: "complete_task", summary: "Background task completed" };
         }
 
+        if (this.isSessionTerminatingReason()) {
+            return { action: "complete_task", summary: "Runtime session ended" };
+        }
+
         if (this.completeTask && this.canCompletePrimary()) {
             return { action: "complete_task", summary: "Runtime session ended" };
         }
@@ -63,6 +67,17 @@ export class RuntimeSessionEnd {
         }
 
         return { action: "leave_open" };
+    }
+
+    /**
+     * Reasons that mean the runtime is gone (user `/exit`, logout, OS shutdown,
+     * bypass disabled). A primary task can't keep running without its runtime,
+     * so these always complete regardless of the `completeTask` flag. Background
+     * descendants get cascade-completed by the EndRuntimeSessionUseCase.
+     */
+    private isSessionTerminatingReason(): boolean {
+        return this.completionReason === "explicit_exit"
+            || this.completionReason === "runtime_terminated";
     }
 
     private canCompletePrimary(): boolean {
@@ -76,8 +91,6 @@ export class RuntimeSessionEnd {
         if (this.completionReason === "assistant_turn_complete") {
             return !this.completeTask || this.hasRunningBackgroundDescendants;
         }
-        if (this.hasRunningBackgroundDescendants) return false;
-        if (this.completeTask) return false;
         return false;
     }
 }
