@@ -106,20 +106,24 @@ export function GraphView({ events, turns = [], taskStatus }: GraphViewProps) {
     [nodes],
   );
   const ticks = useMemo(() => buildAxisTicks(range), [range]);
-  // Edges drop when either endpoint sits on a hidden lane (no dangling
-  // lines pointing at nothing) AND when both endpoints sit on the same
-  // lane. Same-lane connections — causal or explicit — are already
-  // implied by the x-axis time order; drawing them as a horizontal
-  // line along the lane center stacks visually into a barcode of
-  // overlapping strokes whenever events bunch up. Cross-lane edges
-  // are the meaningful ones (PLAN → IMPL handoffs, subagent spawns).
+  // Edge visibility rules — all aimed at killing the "horizontal stroke
+  // crosses the canvas" noise:
   //
-  // Additionally: causal-chain edges (consecutive-in-time pairs) that
-  // span more than ~20% of the timeline read as long horizontal lines
-  // crossing the canvas — visual noise without a real causality claim.
-  // Drop those; keep explicit (metadata-declared) parents regardless of
-  // distance because they carry an intentional signal.
+  // 1) Both endpoints must be a visible node.
+  // 2) Same-lane edges (laneIdx match) are dropped — their order is
+  //    already implied by the time axis; drawing them as a line along
+  //    the lane center stacks into a barcode of overlapping strokes.
+  // 3) Cross-lane edges whose *rendered* y-pixel delta is below half a
+  //    lane are dropped. Collision-avoidance yOffset (±22px) can pull
+  //    nodes on adjacent lanes within a few pixels of each other; a
+  //    cubic Bezier between near-same-y endpoints degenerates into a
+  //    horizontal line. ~30px (half a lane) keeps legitimate cross-lane
+  //    curves while killing the noisy near-horizontal ones.
+  // 4) Long-distance causal-chain edges (consecutive-in-time but >20% of
+  //    the timeline apart horizontally) — dropped as visual noise.
+  //    Explicit (metadata-declared parent) edges keep regardless of x.
   const CAUSAL_MAX_X_SPAN = 20;
+  const MIN_EDGE_Y_PIXELS = 30;
   const edges = useMemo(() => {
     const all = buildFeedEdges(events, turns);
     const byId = new Map(nodes.map((n) => [n.id, n]));
@@ -128,8 +132,12 @@ export function GraphView({ events, turns = [], taskStatus }: GraphViewProps) {
       if (!visibleNodeIds.has(e.toEventId)) return false;
       const from = byId.get(e.fromEventId);
       const to = byId.get(e.toEventId);
-      if (from && to && from.laneIdx === to.laneIdx) return false;
-      if (e.kind === "causal" && from && to) {
+      if (!from || !to) return false;
+      if (from.laneIdx === to.laneIdx) return false;
+      const fromY = from.laneIdx * LANE_HEIGHT + from.yOffset;
+      const toY = to.laneIdx * LANE_HEIGHT + to.yOffset;
+      if (Math.abs(fromY - toY) < MIN_EDGE_Y_PIXELS) return false;
+      if (e.kind === "causal") {
         const xSpan = Math.abs(from.leftPercent - to.leftPercent);
         if (xSpan > CAUSAL_MAX_X_SPAN) return false;
       }
