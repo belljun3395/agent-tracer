@@ -11,7 +11,18 @@ export interface CleanupTaskSnapshot {
     readonly parentTaskId?: string;
 }
 
-export const SYSTEM_PROMPT = `You are a task-list janitor for Agent Tracer, an observability tool that records coding-agent sessions.
+export type CleanupLanguage = "auto" | "ko" | "en" | "ja" | "zh";
+
+const LANGUAGE_DIRECTIVES: Record<CleanupLanguage, string> = {
+    auto: "Reuse the dominant language of the task titles (Korean → Korean, English → English).",
+    ko: "Write every rationale in Korean (한국어). Translate technical terms naturally.",
+    en: "Write every rationale in English. Translate any non-English source text rather than echoing it.",
+    ja: "Write every rationale in Japanese (日本語). Translate technical terms naturally.",
+    zh: "Write every rationale in Simplified Chinese (简体中文). Translate technical terms naturally.",
+};
+
+export function buildSystemPrompt(language: CleanupLanguage): string {
+    return `You are a task-list janitor for Agent Tracer, an observability tool that records coding-agent sessions.
 
 You will see a snapshot of all *non-archived* tasks in the workspace. Hooks sometimes fail to mark tasks as done, so the list collects clutter — half-finished primaries, duplicate near-identical entries, abandoned subagents, trivial placeholder tasks ("test", "fix bug", "정리해줘").
 
@@ -34,10 +45,14 @@ Rules:
   - One suggestion per task — don't propose archiving the same task twice.
   - rationale: one sentence, under 500 chars, citing the specific signal (e.g. "duplicate of <id>", "no events in 14 days and status still running", "system-generated 'Session started' with no work").
 
+Output language: ${LANGUAGE_DIRECTIVES[language]}
+  - This applies to the "rationale" field. Task ids and the "kind" enum stay literal.
+
 Output STRICT JSON ONLY in this shape — no prose, no markdown, no backticks:
 { "suggestions": [
     { "kind": "archive", "taskId": "...", "rationale": "..." }
 ] }`;
+}
 
 export function buildUserPrompt(
     tasks: readonly CleanupTaskSnapshot[],

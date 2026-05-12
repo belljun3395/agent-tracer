@@ -1,8 +1,9 @@
 import { Injectable } from "@nestjs/common";
 import { query } from "@anthropic-ai/claude-agent-sdk";
 import {
-    SYSTEM_PROMPT,
+    buildSystemPrompt,
     buildUserPrompt,
+    type CleanupLanguage,
     type CleanupTaskSnapshot,
 } from "./task.cleanup.prompt.js";
 import {
@@ -23,6 +24,7 @@ export interface GenerateCleanupSuggestionsInput {
     readonly model?: string;
     readonly tasks: readonly CleanupTaskSnapshot[];
     readonly maxSuggestions: number;
+    readonly language?: CleanupLanguage;
 }
 
 export interface GenerateCleanupSuggestionsOutput {
@@ -38,6 +40,8 @@ export class TaskCleanupAgent {
         input: GenerateCleanupSuggestionsInput,
     ): Promise<GenerateCleanupSuggestionsOutput> {
         const model = input.model?.trim() || DEFAULT_MODEL;
+        const language: CleanupLanguage = input.language ?? "auto";
+        const systemPrompt = buildSystemPrompt(language);
         const userPrompt = buildUserPrompt(input.tasks, input.maxSuggestions);
         const cwd = process.cwd();
 
@@ -60,7 +64,7 @@ export class TaskCleanupAgent {
                 allowedTools: [...ALLOWED_TOOLS],
                 tools: [...ALLOWED_TOOLS],
                 maxTurns: DEFAULT_MAX_TURNS,
-                systemPrompt: SYSTEM_PROMPT,
+                systemPrompt,
                 env,
                 permissionMode: "bypassPermissions",
                 strictMcpConfig: true,

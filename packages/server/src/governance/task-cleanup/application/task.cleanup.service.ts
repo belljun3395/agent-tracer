@@ -1,7 +1,10 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
 import { TaskCleanupAgent } from "~adapters/llm/task.cleanup.agent.js";
-import type { CleanupTaskSnapshot } from "~adapters/llm/task.cleanup.prompt.js";
+import type {
+    CleanupLanguage,
+    CleanupTaskSnapshot,
+} from "~adapters/llm/task.cleanup.prompt.js";
 import { APP_SETTING_KEYS } from "~governance/settings/domain/app.setting.keys.js";
 import { AppSettingService } from "~governance/settings/application/app.setting.service.js";
 import type { ITaskSnapshotQuery } from "~work/task/public/iservice/task.snapshot.query.iservice.js";
@@ -12,6 +15,20 @@ import type { TaskCleanupJobEntity } from "../domain/task.cleanup.job.entity.js"
 
 const DEFAULT_MAX_SUGGESTIONS = 20;
 const MAX_SUGGESTIONS_HARD_CAP = 50;
+
+const SUPPORTED_LANGUAGES: ReadonlySet<CleanupLanguage> = new Set([
+    "auto",
+    "ko",
+    "en",
+    "ja",
+    "zh",
+]);
+
+function normalizeLanguage(raw: string | null): CleanupLanguage {
+    if (!raw) return "auto";
+    const trimmed = raw.trim().toLowerCase() as CleanupLanguage;
+    return SUPPORTED_LANGUAGES.has(trimmed) ? trimmed : "auto";
+}
 
 export class GenerationAlreadyInFlightError extends Error {
     constructor(public readonly jobId: string) {
@@ -91,6 +108,10 @@ export class TaskCleanupService {
                 APP_SETTING_KEYS.taskCleanupMaxSuggestions,
             );
             const maxSuggestions = clampMax(maxRaw);
+            const languageRaw = await this.settings.getRawValue(
+                APP_SETTING_KEYS.claudeOutputLanguage,
+            );
+            const language = normalizeLanguage(languageRaw);
 
             const tasks = await this.taskQuery.findAll("active");
             const snapshots: CleanupTaskSnapshot[] = tasks.map((t) => ({
@@ -113,6 +134,7 @@ export class TaskCleanupService {
                 ...(modelOverride ? { model: modelOverride } : {}),
                 tasks: snapshots,
                 maxSuggestions,
+                language,
             });
 
             const knownTaskIds = new Set(snapshots.map((s) => s.id));

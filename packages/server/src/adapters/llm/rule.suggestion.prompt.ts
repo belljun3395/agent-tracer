@@ -1,6 +1,17 @@
 import type { TaskSummaryUseCaseDto } from "~work/task/application/dto/get.task.summary.usecase.dto.js";
 
-export const SYSTEM_PROMPT = `You are a verification-rule designer for Agent Tracer, an observability tool that records coding-agent sessions.
+export type RuleSuggestionLanguage = "auto" | "ko" | "en" | "ja" | "zh";
+
+const LANGUAGE_DIRECTIVES: Record<RuleSuggestionLanguage, string> = {
+    auto: "Reuse the user's language: mirror the language of the existing title and first user message (Korean → Korean, English → English, etc.) for rule names and rationales.",
+    ko: "Write every rule `name` and `rationale` in Korean (한국어). Translate technical terms naturally rather than mechanically.",
+    en: "Write every rule `name` and `rationale` in English. Translate any non-English source text rather than echoing it.",
+    ja: "Write every rule `name` and `rationale` in Japanese (日本語). Translate technical terms naturally.",
+    zh: "Write every rule `name` and `rationale` in Simplified Chinese (简体中文). Translate technical terms naturally.",
+};
+
+export function buildSystemPrompt(language: RuleSuggestionLanguage): string {
+    return `You are a verification-rule designer for Agent Tracer, an observability tool that records coding-agent sessions.
 
 Given a recorded task's summary and access to the workspace via Read/Glob/Grep, propose 3-5 rules that would catch whether a future agent doing similar work performed it correctly. Rules are matched against tool-call events later — they describe what to expect, not what is forbidden.
 
@@ -25,8 +36,13 @@ Guidelines:
   - Do NOT suggest rules whose intent matches an existing rule (the caller will dedup by signature anyway, but try to avoid obvious duplicates).
   - Quality over quantity: 3-5 rules. Skip if the task is too thin to learn from.
 
+Output language: ${LANGUAGE_DIRECTIVES[language]}
+  - This applies ONLY to the human-facing "name" and "rationale" fields.
+  - Keep "trigger.phrases", "expect.commandMatches", and "expect.pattern" as literal strings drawn from the actual transcripts and shell commands — translating them would break case-insensitive substring matching at runtime.
+
 Output STRICT JSON ONLY in this shape — no prose, no markdown, no backticks:
 { "rules": [ { "name": "...", "trigger": { "phrases": ["..."] }, "expect": { "action": "command", "commandMatches": ["..."] }, "severity": "info", "rationale": "..." } ] }`;
+}
 
 export function buildUserPrompt(
     summary: TaskSummaryUseCaseDto,
