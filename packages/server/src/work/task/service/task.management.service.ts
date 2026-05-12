@@ -200,6 +200,19 @@ export class TaskManagementService {
         return hydrated;
     }
 
+    async updateSlug(taskId: string, slug: string): Promise<MonitoringTask | null> {
+        const entity = await this.taskRepo.findById(taskId);
+        if (!entity) return null;
+        const trimmed = slug.trim();
+        if (!trimmed || trimmed === entity.slug) return this.query.findById(taskId);
+        entity.slug = trimmed;
+        entity.updatedAt = this.clock.nowIso();
+        await this.taskRepo.save(entity);
+        const updated = await this.query.findById(taskId);
+        if (updated) this.notifier.publish({ type: "task.updated", payload: updated });
+        return updated;
+    }
+
     async updateStatus(taskId: string, status: TaskStatus, updatedAt: string): Promise<MonitoringTask | null> {
         const entity = await this.taskRepo.findById(taskId);
         if (!entity) return null;

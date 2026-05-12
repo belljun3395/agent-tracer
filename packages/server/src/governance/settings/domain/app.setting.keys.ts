@@ -2,6 +2,7 @@ export const APP_SETTING_KEYS = {
     anthropicApiKey: "anthropic.api_key",
     anthropicModel: "anthropic.model",
     ruleGenMaxRulesPerTask: "ruleGen.maxRulesPerTask",
+    taskCleanupMaxSuggestions: "taskCleanup.maxSuggestions",
 } as const;
 
 export const SENSITIVE_SETTING_KEYS: ReadonlySet<string> = new Set([
