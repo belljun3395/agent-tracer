@@ -2,11 +2,17 @@ import { create } from "zustand";
 
 export type ToastTone = "info" | "success" | "error";
 
+export interface ToastAction {
+  readonly label: string;
+  readonly onClick: () => void;
+}
+
 export interface Toast {
   readonly id: string;
   readonly tone: ToastTone;
   readonly title: string;
   readonly body?: string;
+  readonly action?: ToastAction;
   readonly createdAtMs: number;
 }
 
@@ -14,6 +20,7 @@ export interface ToastInput {
   readonly tone: ToastTone;
   readonly title: string;
   readonly body?: string;
+  readonly action?: ToastAction;
   /** Override auto-dismiss timeout in ms. Set to 0 to disable auto-dismiss. */
   readonly autoDismissMs?: number;
 }
@@ -43,6 +50,7 @@ export const useToastStore = create<ToastState>((set, get) => ({
       tone: input.tone,
       title: input.title,
       ...(input.body !== undefined ? { body: input.body } : {}),
+      ...(input.action !== undefined ? { action: input.action } : {}),
       createdAtMs: Date.now(),
     };
     set((s) => ({ toasts: [...s.toasts, toast] }));

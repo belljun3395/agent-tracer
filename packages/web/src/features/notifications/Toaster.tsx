@@ -16,7 +16,9 @@ export function Toaster() {
       style={{
         position: "fixed",
         right: 16,
-        bottom: 16,
+        // Sit just under the 48px TopBar so the toast never overlaps the
+        // brand/breadcrumbs row.
+        top: 56,
         display: "flex",
         flexDirection: "column",
         gap: 8,
@@ -87,6 +89,30 @@ function ToastCard({
           >
             {toast.body}
           </div>
+        )}
+        {toast.action && (
+          <button
+            type="button"
+            onClick={() => {
+              toast.action!.onClick();
+              onDismiss();
+            }}
+            style={{
+              marginTop: 8,
+              padding: "4px 8px",
+              fontFamily: "var(--font-sans)",
+              fontSize: 11.5,
+              fontWeight: 600,
+              color: accent,
+              background: "transparent",
+              border: `1px solid ${accent}`,
+              borderRadius: "var(--radius-xs)",
+              cursor: "pointer",
+              letterSpacing: "-0.05px",
+            }}
+          >
+            {toast.action.label}
+          </button>
         )}
       </div>
       <button
