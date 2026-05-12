@@ -121,6 +121,13 @@ export class TaskManagementService {
             if (!entity || entity.archivedAt) continue;
             entity.archivedAt = archivedAt;
             entity.updatedAt = archivedAt;
+            // Archive implies the user is done with the task. Flip
+            // running/waiting rows to completed so the lifecycle reflects
+            // that — errored rows keep their state since the error is the
+            // information the user wants to preserve.
+            if (entity.status === "running" || entity.status === "waiting") {
+                entity.status = "completed";
+            }
             await this.taskRepo.save(entity);
             const updated = await this.query.findById(id);
             if (updated) this.notifier.publish({ type: "task.updated", payload: updated });
