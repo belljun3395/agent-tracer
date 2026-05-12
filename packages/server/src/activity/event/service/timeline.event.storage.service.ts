@@ -138,7 +138,17 @@ export class TimelineEventStorageService {
     }
 
     /**
-     * Read-time lane override — events with rule_enforcements rows get lane=rule.
+     * Read-time projection of rule_enforcements onto timeline events. For every
+     * event that has at least one enforcement row, we:
+     *
+     *   • flip the lane (top-level and inside `classification`) to "rule"
+     *   • populate `classification.matches` so frontend consumers that count
+     *     or render matches (RulesTab match badge, InspectTab RuleMatchesSection)
+     *     see the firings without an extra fetch
+     *   • keep `metadata.ruleEnforcements` for callers that need matchKind
+     *     ("trigger" vs "expect-fulfilled"), which the EventClassificationMatch
+     *     shape doesn't carry
+     *
      * Cross-module read of rule_enforcements via raw query; will be replaced
      * with a rule-module outbound port when rule module migrates to TypeORM.
      */
@@ -168,6 +178,16 @@ export class TimelineEventStorageService {
             return {
                 ...e,
                 lane: "rule" as const,
+                classification: {
+                    ...e.classification,
+                    lane: "rule" as const,
+                    matches: ruleEnforcements.map((r) => ({
+                        ruleId: r.ruleId,
+                        score: 1,
+                        tags: [],
+                        reasons: [],
+                    })),
+                },
                 metadata: {
                     ...e.metadata,
                     ruleEnforcements,
