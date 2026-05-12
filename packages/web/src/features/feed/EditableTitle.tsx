@@ -135,11 +135,13 @@ export function EditableTitle({ task }: EditableTitleProps) {
     );
   }
 
+  const isSuggesting = suggestMutation.isPending;
+
   return (
     <div className="flex-1 min-w-0" style={{ position: "relative" }}>
       <Tooltip content="Click to rename" side="bottom">
         <h1
-          className="group cursor-pointer rounded-[var(--radius-sm)] hover:bg-[var(--s1)]"
+          className={`group rounded-[var(--radius-sm)] hover:bg-[var(--s1)] ${isSuggesting ? "" : "cursor-pointer"}`}
           style={{
             ...titleStyle,
             display: "flex",
@@ -148,13 +150,16 @@ export function EditableTitle({ task }: EditableTitleProps) {
             padding: "2px 6px",
             margin: "-2px -6px",
             transition: "background 120ms",
+            cursor: isSuggesting ? "wait" : "pointer",
           }}
-          onClick={startEditing}
+          onClick={isSuggesting ? undefined : startEditing}
           // Keyboard parity — Tab to the heading, Enter/Space to edit.
-          tabIndex={0}
+          tabIndex={isSuggesting ? -1 : 0}
           role="button"
+          aria-busy={isSuggesting}
           aria-label={`Edit task title: ${current}`}
           onKeyDown={(e) => {
+            if (isSuggesting) return;
             if (e.key === "Enter" || e.key === " ") {
               e.preventDefault();
               startEditing();
@@ -162,7 +167,7 @@ export function EditableTitle({ task }: EditableTitleProps) {
           }}
         >
           <span
-            className="group-hover:underline"
+            className={isSuggesting ? "" : "group-hover:underline"}
             style={{
               minWidth: 0,
               overflow: "hidden",
@@ -170,6 +175,8 @@ export function EditableTitle({ task }: EditableTitleProps) {
               whiteSpace: "nowrap",
               textUnderlineOffset: 3,
               textDecorationColor: "var(--hair-strong)",
+              opacity: isSuggesting ? 0.55 : 1,
+              transition: "opacity 150ms",
             }}
           >
             {current}
@@ -177,15 +184,23 @@ export function EditableTitle({ task }: EditableTitleProps) {
           <span
             aria-hidden
             style={{
-              opacity: 0.55,
+              opacity: isSuggesting ? 0 : 0.55,
               color: "var(--ink-tertiary)",
               transition: "opacity 150ms",
+              display: isSuggesting ? "none" : undefined,
             }}
             className="group-hover:opacity-100"
           >
             <PencilIcon />
           </span>
-          <Tooltip content="Suggest a better title with Claude" side="top">
+          <Tooltip
+            content={
+              isSuggesting
+                ? "Claude is reading the task summary…"
+                : "Suggest a better title with Claude"
+            }
+            side="top"
+          >
             <button
               ref={sparkleRef}
               type="button"
@@ -193,26 +208,39 @@ export function EditableTitle({ task }: EditableTitleProps) {
                 e.stopPropagation();
                 handleSuggest();
               }}
-              aria-label="Suggest title"
-              disabled={suggestMutation.isPending}
+              aria-label={isSuggesting ? "Suggesting title…" : "Suggest title"}
+              aria-busy={isSuggesting}
+              disabled={isSuggesting}
               style={{
                 display: "inline-flex",
                 alignItems: "center",
                 justifyContent: "center",
-                height: 22,
-                width: 22,
+                gap: 6,
+                height: 24,
+                padding: isSuggesting ? "0 10px" : 0,
+                width: isSuggesting ? "auto" : 24,
                 marginLeft: 2,
                 borderRadius: "var(--radius-xs)",
-                border: "1px solid var(--hair)",
-                background: "transparent",
-                color: "var(--ink-tertiary)",
-                cursor: suggestMutation.isPending ? "wait" : "pointer",
-                opacity: 0.55,
-                transition: "opacity 150ms",
+                border: `1px solid ${isSuggesting ? "var(--primary)" : "var(--hair)"}`,
+                background: isSuggesting
+                  ? "color-mix(in srgb, var(--primary) 14%, transparent)"
+                  : "transparent",
+                color: isSuggesting ? "var(--primary)" : "var(--ink-tertiary)",
+                cursor: isSuggesting ? "wait" : "pointer",
+                opacity: isSuggesting ? 1 : 0.55,
+                transition: "opacity 150ms, background 150ms, border-color 150ms",
+                fontSize: 11.5,
+                fontWeight: 500,
+                whiteSpace: "nowrap",
               }}
-              className="group-hover:opacity-100 hover:!opacity-100"
+              className={
+                isSuggesting
+                  ? ""
+                  : "group-hover:opacity-100 hover:!opacity-100"
+              }
             >
-              <SparkleIcon spinning={suggestMutation.isPending} />
+              <SparkleIcon spinning={isSuggesting} />
+              {isSuggesting && <span>Suggesting…</span>}
             </button>
           </Tooltip>
         </h1>
