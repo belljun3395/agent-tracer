@@ -1,6 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
 import { RuleSuggestionAgent } from "~adapters/llm/rule.suggestion.agent.js";
+import type { RuleSuggestionLanguage } from "~adapters/llm/rule.suggestion.prompt.js";
 import { GetTaskSummaryUseCase } from "~work/task/application/get.task.summary.usecase.js";
 import { ListRulesUseCase } from "~governance/rule/application/list.rules.usecase.js";
 import { RegisterSuggestionUseCase } from "~governance/rule/application/register.suggestion.usecase.js";
@@ -10,6 +11,20 @@ import { TaskRuleGenerationJobRepository } from "../repository/task.rule.generat
 import type { TaskRuleGenerationJobEntity } from "../domain/task.rule.generation.job.entity.js";
 
 const DEFAULT_MAX_RULES = 5;
+
+const SUPPORTED_LANGUAGES: ReadonlySet<RuleSuggestionLanguage> = new Set([
+    "auto",
+    "ko",
+    "en",
+    "ja",
+    "zh",
+]);
+
+function normalizeLanguage(raw: string | null): RuleSuggestionLanguage {
+    if (!raw) return "auto";
+    const trimmed = raw.trim().toLowerCase() as RuleSuggestionLanguage;
+    return SUPPORTED_LANGUAGES.has(trimmed) ? trimmed : "auto";
+}
 
 export class TaskNotFoundForGenerationError extends Error {
     constructor(public readonly taskId: string) {
@@ -101,6 +116,10 @@ export class TaskRuleGenerationService {
                 APP_SETTING_KEYS.ruleGenMaxRulesPerTask,
             );
             const maxRules = clampMaxRules(maxRulesRaw);
+            const languageRaw = await this.settings.getRawValue(
+                APP_SETTING_KEYS.claudeOutputLanguage,
+            );
+            const language = normalizeLanguage(languageRaw);
 
             const { summary } = await this.getTaskSummary.execute({ taskId });
             if (!summary) {
@@ -116,6 +135,7 @@ export class TaskRuleGenerationService {
                 summary,
                 existingRuleNames: existingNames,
                 maxRules,
+                language,
             });
 
             let rulesCreated = 0;
