@@ -48,7 +48,7 @@ function makeIdGen(sequence: readonly string[]): IIdGenerator & { newUuid: Mock;
 }
 
 function makeSessionAccess(): ISessionAccess & {
-    create: Mock; findById: Mock; findActiveByTaskId: Mock; updateStatus: Mock;
+    create: Mock; findById: Mock; findActiveByTaskId: Mock; countRunningByTaskId: Mock; updateStatus: Mock;
 } {
     return {
         create: vi.fn(async (req): Promise<SessionAccessRecord> => ({
@@ -60,6 +60,7 @@ function makeSessionAccess(): ISessionAccess & {
         })),
         findById: vi.fn(async () => null),
         findActiveByTaskId: vi.fn(async () => null),
+        countRunningByTaskId: vi.fn(async () => 0),
         updateStatus: vi.fn(async () => undefined),
     };
 }

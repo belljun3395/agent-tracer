@@ -29,6 +29,7 @@ export interface ISessionAccess {
     create(input: SessionCreateRequest): Promise<SessionAccessRecord>;
     findById(id: string): Promise<SessionAccessRecord | null>;
     findActiveByTaskId(taskId: string): Promise<SessionAccessRecord | null>;
+    countRunningByTaskId(taskId: string): Promise<number>;
     updateStatus(
         id: string,
         status: SessionAccessStatus,

@@ -31,6 +31,10 @@ export class SessionAccessAdapter implements ISessionAccess {
         return this.inner.findActiveByTaskId(taskId);
     }
 
+    async countRunningByTaskId(taskId: string): Promise<number> {
+        return this.inner.countRunningByTaskId(taskId);
+    }
+
     async updateStatus(
         id: string,
         status: SessionAccessStatus,

@@ -56,6 +56,21 @@ export class TaskRepository {
     }
 
     /**
+     * Tasks stuck in `running` with no recent updates. Used by the stale-task
+     * reaper to clean up after force-killed runtimes that never sent the
+     * SessionEnd hook.
+     */
+    async findRunningOlderThan(thresholdIso: string, limit: number): Promise<readonly TaskEntity[]> {
+        return this.repo
+            .createQueryBuilder("t")
+            .where("t.status = :status", { status: "running" })
+            .andWhere("t.updated_at < :threshold", { threshold: thresholdIso })
+            .orderBy("t.updated_at", "ASC")
+            .limit(limit)
+            .getMany();
+    }
+
+    /**
      * SQL-bound recursive descent over the task hierarchy via `parent`
      * relations. The relation kind is the only domain hook in this query —
      * the rest is plain CTE traversal.
