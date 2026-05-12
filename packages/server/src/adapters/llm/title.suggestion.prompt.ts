@@ -33,9 +33,6 @@ Output STRICT JSON ONLY in this shape — no prose, no markdown, no backticks:
 ] }`;
 }
 
-/** Kept as a const for callers that want the default ("auto") system prompt. */
-export const SYSTEM_PROMPT = buildSystemPrompt("auto");
-
 export function buildUserPrompt(summary: TaskSummaryUseCaseDto): string {
     const lines: string[] = [];
     lines.push(`Current title: ${summary.title}`);
