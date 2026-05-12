@@ -50,6 +50,7 @@ export type MonitoringEventKind =
   | 'monitor.observed'
 
 export type MonitoringTaskKind = 'primary' | 'background'
+export type MonitoringTaskOrigin = 'user' | 'server-sdk'
 
 export interface MonitoringTask {
   readonly id: TaskId
@@ -65,6 +66,14 @@ export interface MonitoringTask {
   readonly runtimeSource?: RuntimeSource
   readonly displayTitle?: string
   readonly archivedAt?: string
+  /**
+   * Who launched this task. `user` (default) means an end-user-driven session;
+   * `server-sdk` means the monitor server itself ran a Claude Agent SDK
+   * query (title suggestion, cleanup, recipe scan, rule generation). The
+   * sidebar uses this to partition the task list into the dedicated
+   * Subagent tasks view.
+   */
+  readonly origin?: MonitoringTaskOrigin
 }
 
 export interface MonitoringSession {

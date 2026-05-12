@@ -19,6 +19,7 @@ export class StartTaskUseCase {
             ...(input.parentTaskId !== undefined ? { parentTaskId: input.parentTaskId } : {}),
             ...(input.parentSessionId !== undefined ? { parentSessionId: input.parentSessionId } : {}),
             ...(input.backgroundTaskId !== undefined ? { backgroundTaskId: input.backgroundTaskId } : {}),
+            ...(input.origin !== undefined ? { origin: input.origin } : {}),
             ...(input.metadata !== undefined ? { metadata: input.metadata } : {}),
         });
         return result as unknown as StartTaskUseCaseOut;

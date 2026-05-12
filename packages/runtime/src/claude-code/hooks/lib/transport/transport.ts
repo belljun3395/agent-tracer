@@ -16,6 +16,10 @@ export const postTaggedEvents = claudeHookRuntime.transport.postTaggedEvents;
 /**
  * Calls `/ingest/v1/sessions/ensure` to create or resume a monitor session.
  * Accepts optional parent linking and a pre-assigned taskId via `opts`.
+ *
+ * MONITOR_TASK_ORIGIN env, if set to "server-sdk", flags the task as a
+ * server-initiated SDK job so the dashboard can route it to the dedicated
+ * Subagent view. This is only set by `@monitor/server`'s internal agents.
  */
 export async function ensureRuntimeSession(
     runtimeSessionId: string,
@@ -25,6 +29,7 @@ export async function ensureRuntimeSession(
     const transportConfig = resolveMonitorTransportConfig();
     const taskId = opts?.taskId ?? transportConfig.taskIdOverride;
     const effectiveTitle = transportConfig.taskTitleOverride ?? title;
+    const origin = transportConfig.taskOriginOverride;
     return postJson<RuntimeSessionEnsureResult>("/ingest/v1/sessions/ensure", {
         ...(taskId ? {taskId} : {}),
         runtimeSource: CLAUDE_RUNTIME_SOURCE,
@@ -33,6 +38,7 @@ export async function ensureRuntimeSession(
         workspacePath: PROJECT_DIR,
         ...(opts?.parentTaskId ? {parentTaskId: opts.parentTaskId} : {}),
         ...(opts?.parentSessionId ? {parentSessionId: opts.parentSessionId} : {}),
+        ...(origin ? {origin} : {}),
         ...(opts?.resume === false ? {resume: false} : {}),
     });
 }

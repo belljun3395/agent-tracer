@@ -17,6 +17,7 @@ import { CreateTaskCleanupSchema1700000012000 } from "~main/migrations/170000001
 import { CreateRecipeSchema1700000013000 } from "~main/migrations/1700000013000-create-recipe-schema.js";
 import { CreateRecipeApplicationsSchema1700000014000 } from "~main/migrations/1700000014000-create-recipe-applications-schema.js";
 import { CreateFileAffinitySchema1700000015000 } from "~main/migrations/1700000015000-create-file-affinity-schema.js";
+import { AddTasksOrigin1700000016000 } from "~main/migrations/1700000016000-add-tasks-origin.js";
 
 export interface TypeOrmDatabaseModuleOptions {
     readonly databasePath: string;
@@ -63,6 +64,7 @@ export class TypeOrmDatabaseModule {
                             CreateRecipeSchema1700000013000,
                             CreateRecipeApplicationsSchema1700000014000,
                             CreateFileAffinitySchema1700000015000,
+                            AddTasksOrigin1700000016000,
                         ],
                         migrationsRun: true,
                     }),

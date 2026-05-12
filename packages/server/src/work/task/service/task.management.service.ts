@@ -1,6 +1,10 @@
 import { Inject, Injectable } from "@nestjs/common";
 import type { MonitoringTask } from "~work/task/domain/task.model.js";
-import type { TaskStatus, MonitoringTaskKind } from "~work/task/common/task.status.type.js";
+import type {
+    TaskStatus,
+    MonitoringTaskKind,
+    TaskOrigin,
+} from "~work/task/common/task.status.type.js";
 import { TaskNotFoundError } from "../common/task.errors.js";
 import { createTaskSlug } from "../common/task.slug.js";
 import { TaskEntity } from "../domain/task.entity.js";
@@ -174,6 +178,7 @@ export class TaskManagementService {
         readonly parentTaskId?: string;
         readonly parentSessionId?: string;
         readonly backgroundTaskId?: string;
+        readonly origin?: TaskOrigin;
     }): Promise<MonitoringTask> {
         const existing = await this.taskRepo.findById(input.id);
         const entity = existing ?? new TaskEntity();
@@ -187,6 +192,13 @@ export class TaskManagementService {
         entity.lastSessionStartedAt = input.lastSessionStartedAt;
         entity.workspacePath = input.workspacePath ?? null;
         entity.cliSource = input.runtimeSource ?? entity.cliSource ?? null;
+        // Origin is set on creation and never demoted afterwards. A server-sdk
+        // task that resumes without the env still stays server-sdk.
+        if (!existing) {
+            entity.origin = input.origin ?? "user";
+        } else if (input.origin === "server-sdk" && existing.origin !== "server-sdk") {
+            entity.origin = "server-sdk";
+        }
         await this.taskRepo.save(entity);
 
         await this.syncRelations(input.id, {

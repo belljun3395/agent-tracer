@@ -44,6 +44,7 @@ export class RecipeScanAgent {
             ...process.env,
             ANTHROPIC_API_KEY: input.apiKey,
             MONITOR_TASK_TITLE: "Recipe Scan · Auto Cluster",
+            MONITOR_TASK_ORIGIN: "server-sdk",
         };
 
         const startedAt = Date.now();

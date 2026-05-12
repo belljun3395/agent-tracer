@@ -8,6 +8,7 @@ import { TaskGroupHeader } from "./TaskGroup.js";
 import { TaskRow } from "./TaskRow.js";
 import { TaskListFooter } from "./TaskListFooter.js";
 import { SearchResultsPanel } from "./SearchResultsPanel.js";
+import { SidebarViewSwitcher } from "./SidebarViewSwitcher.js";
 import { useTaskList } from "./hooks/useTaskList.js";
 
 /**
@@ -20,7 +21,8 @@ import { useTaskList } from "./hooks/useTaskList.js";
  * scrollable body switches.
  */
 export function TaskListPanel() {
-  const { groups, counts, isLoading, isError, uniformRuntime } = useTaskList();
+  const { groups, counts, subagentCount, isLoading, isError, uniformRuntime } =
+    useTaskList();
   const sharedRuntime = uniformRuntime;
   const rawQuery = useSidebarSearchQuery();
   const query = useDebouncedValue(rawQuery, 250);
@@ -28,7 +30,8 @@ export function TaskListPanel() {
 
   return (
     <div className="flex h-full flex-col min-h-0">
-      <div className="pt-2.5">
+      <div className="pt-2">
+        <SidebarViewSwitcher subagentCount={subagentCount} />
         <TaskListHeader />
         {!isSearching && <TaskListFilters counts={counts} />}
       </div>

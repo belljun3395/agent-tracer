@@ -1,5 +1,9 @@
 import { Column, Entity, Index, PrimaryColumn } from "typeorm";
-import type { MonitoringTaskKind, TaskStatus } from "~work/task/common/task.status.type.js";
+import type {
+    MonitoringTaskKind,
+    TaskOrigin,
+    TaskStatus,
+} from "~work/task/common/task.status.type.js";
 
 @Entity({ name: "tasks_current" })
 @Index("idx_tasks_current_updated", ["updatedAt"])
@@ -36,6 +40,15 @@ export class TaskEntity {
 
     @Column({ name: "archived_at", type: "text", nullable: true })
     archivedAt!: string | null;
+
+    /**
+     * Marks who created this task. `user` (default) means an end-user-driven
+     * Claude Code / Codex session; `server-sdk` means the server itself
+     * launched a Claude Agent SDK query for an internal job (title
+     * suggestion, task cleanup, recipe scan, rule generation).
+     */
+    @Column({ type: "text", default: "user" })
+    origin!: TaskOrigin;
 
     /** Convenience accessor — runtime source is stored as cli_source historically. */
     get runtimeSource(): string | null {

@@ -4,6 +4,7 @@ import {
   useDeleteAppSettingMutation,
   usePutAppSettingMutation,
 } from "~state/server/mutations.js";
+import { useDesktopNotifications } from "~features/notifications/useDesktopNotifications.js";
 
 const SETTING_KEYS = {
   apiKey: "anthropic.api_key",
@@ -410,6 +411,8 @@ export function SettingsPage() {
           )}
         </section>
 
+        <NotificationsSection />
+
         <section
           style={{
             border: "1px solid var(--hair)",
@@ -431,6 +434,64 @@ export function SettingsPage() {
         </section>
       </main>
     </div>
+  );
+}
+
+function NotificationsSection() {
+  const { enabled, permission, setEnabled } = useDesktopNotifications();
+  const supported = permission !== "unsupported";
+  const blockedByBrowser = permission === "denied";
+
+  return (
+    <section
+      style={{
+        border: "1px solid var(--hair)",
+        borderRadius: "var(--radius-md)",
+        background: "var(--canvas)",
+        padding: "20px 24px",
+      }}
+    >
+      <h2 style={{ fontSize: 15, fontWeight: 600, marginBottom: 4 }}>
+        Notifications
+      </h2>
+      <p style={{ color: "var(--ink-muted)", fontSize: 12.5, marginBottom: 20 }}>
+        In-app toasts are always on. The toggle below adds an OS-level
+        desktop alert when a server SDK job (title suggestion, task cleanup,
+        recipe scan, rule generation) finishes.
+      </p>
+      <Row
+        label="Desktop notifications"
+        help={
+          !supported
+            ? "Your browser does not expose the Notifications API."
+            : blockedByBrowser
+              ? "Permission was denied in the browser. Allow notifications for this origin in browser settings, then refresh."
+              : "Shown when the tab is in the background. In-app toasts stay enabled regardless."
+        }
+      >
+        <label
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 8,
+            cursor: supported && !blockedByBrowser ? "pointer" : "not-allowed",
+            opacity: supported && !blockedByBrowser ? 1 : 0.5,
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={enabled}
+            disabled={!supported || blockedByBrowser}
+            onChange={(e) => {
+              void setEnabled(e.target.checked);
+            }}
+          />
+          <span style={{ fontSize: 13, color: "var(--ink)" }}>
+            {enabled ? "Enabled" : "Disabled"}
+          </span>
+        </label>
+      </Row>
+    </section>
   );
 }
 

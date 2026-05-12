@@ -49,6 +49,7 @@ export class TaskCleanupAgent {
             ...process.env,
             ANTHROPIC_API_KEY: input.apiKey,
             MONITOR_TASK_TITLE: "Task Cleanup · Auto Suggest",
+            MONITOR_TASK_ORIGIN: "server-sdk",
         };
 
         const startedAt = Date.now();

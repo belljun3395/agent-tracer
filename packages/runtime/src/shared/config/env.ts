@@ -6,11 +6,14 @@
  * zero-runtime-dep design while making mocking trivial in tests.
  */
 
+export type MonitorTaskOrigin = "user" | "server-sdk";
+
 export interface MonitorTransportConfig {
     readonly baseUrl: string;
     readonly requestTimeoutMs: number;
     readonly taskIdOverride: string | undefined;
     readonly taskTitleOverride: string | undefined;
+    readonly taskOriginOverride: MonitorTaskOrigin | undefined;
 }
 
 export interface RuntimeLoggingConfig {
@@ -30,11 +33,15 @@ export function resolveMonitorTransportConfig(
 ): MonitorTransportConfig {
     const taskIdOverride = (env.MONITOR_TASK_ID ?? "").trim();
     const taskTitleOverride = (env.MONITOR_TASK_TITLE ?? "").trim();
+    const rawOrigin = (env.MONITOR_TASK_ORIGIN ?? "").trim();
+    const taskOriginOverride: MonitorTaskOrigin | undefined =
+        rawOrigin === "user" || rawOrigin === "server-sdk" ? rawOrigin : undefined;
     return {
         baseUrl: resolveMonitorBaseUrl(env),
         requestTimeoutMs: 2000,
         taskIdOverride: taskIdOverride || undefined,
         taskTitleOverride: taskTitleOverride || undefined,
+        taskOriginOverride,
     };
 }
 

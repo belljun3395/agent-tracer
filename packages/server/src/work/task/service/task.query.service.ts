@@ -19,6 +19,7 @@ function toBaseTask(entity: TaskEntity, relations: TaskRelationsSnapshot): Monit
         taskKind: entity.taskKind,
         createdAt: entity.createdAt,
         updatedAt: entity.updatedAt,
+        origin: entity.origin,
         ...(entity.workspacePath ? { workspacePath: entity.workspacePath } : {}),
         ...(relations.parentTaskId ? { parentTaskId: relations.parentTaskId } : {}),
         ...(relations.parentSessionId ? { parentSessionId: relations.parentSessionId } : {}),

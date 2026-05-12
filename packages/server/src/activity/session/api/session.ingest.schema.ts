@@ -13,6 +13,8 @@ const RUNTIME_SESSION_COMPLETION_REASONS = [
     "runtime_terminated",
 ] as const;
 
+const TASK_ORIGINS = ["user", "server-sdk"] as const;
+
 export const runtimeSessionEnsureSchema = z.object({
     taskId: z.string().optional(),
     runtimeSource: z.string().min(1),
@@ -21,6 +23,7 @@ export const runtimeSessionEnsureSchema = z.object({
     workspacePath: z.string().optional(),
     parentTaskId: z.string().optional(),
     parentSessionId: z.string().optional(),
+    origin: z.enum(TASK_ORIGINS).optional(),
     resume: z.boolean().optional(),
 });
 

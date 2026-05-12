@@ -25,6 +25,8 @@ import { useKeyboardShortcuts } from "~lib/use-keyboard-shortcuts.js";
 import { TopBar } from "~features/topbar/index.js";
 import { TaskListPanel } from "~features/task-list/index.js";
 import { InspectorPanel } from "~features/inspector/index.js";
+import { Toaster } from "~features/notifications/Toaster.js";
+import { useSdkJobToasts } from "~features/notifications/useSdkJobToasts.js";
 import { ResizeHandle } from "./ResizeHandle.js";
 import { ShortcutsOverlay } from "./ShortcutsOverlay.js";
 
@@ -54,11 +56,13 @@ export function AppShell() {
   const selectedTaskId = useSelectedTaskId();
   const viewport = useViewport();
   const [wsConnected, setWsConnected] = useState(false);
+  const onSdkJobMessage = useSdkJobToasts();
 
   useMonitorSocket({
     url: getMonitorWsUrl(),
     selectedTaskId,
     onConnectionChange: setWsConnected,
+    onMessage: onSdkJobMessage,
   });
 
   const sidebarWidth = useSidebarWidth();
@@ -113,6 +117,7 @@ export function AppShell() {
     return (
       <>
       <ShortcutsOverlay />
+      <Toaster />
       <div
         className="grid h-screen min-h-0 overflow-hidden"
         style={{
@@ -203,6 +208,7 @@ export function AppShell() {
   return (
     <>
     <ShortcutsOverlay />
+    <Toaster />
     <div
       className="grid h-screen min-h-0 overflow-hidden"
       style={{

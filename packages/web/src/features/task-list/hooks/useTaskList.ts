@@ -9,6 +9,7 @@ import {
   useShowArchived,
   useSidebarFilter,
   useSidebarSearchQuery,
+  useSidebarView,
   type SidebarFilter,
 } from "~state/ui/index.js";
 import {
@@ -47,6 +48,12 @@ export interface TaskListVm {
    * redundant per-row tag.
    */
   readonly uniformRuntime: string | null;
+  /**
+   * Count of server-SDK tasks across the full payload (independent of
+   * the current view) — surfaced next to the view switcher so users
+   * notice activity even when the Tasks view is selected.
+   */
+  readonly subagentCount: number;
 }
 
 /**
@@ -70,14 +77,30 @@ export function useTaskList(): TaskListVm {
   const lastSeenAt = useLastSeenAt();
   const collapsedParents = useCollapsedParents();
   const selectedTaskId = useSelectedTaskId();
+  const view = useSidebarView();
   const nowMs = useNowMs(15_000);
 
   const allTasks = data?.tasks ?? [];
 
-  const counts = useMemo(() => countByFilter(allTasks), [allTasks]);
+  // Partition once; counts + groups derive from the active partition.
+  // Tasks view excludes server-SDK rows so they only surface under the
+  // dedicated Subagent tasks view.
+  const viewTasks = useMemo<readonly MonitoringTask[]>(() => {
+    if (view === "subagents") {
+      return allTasks.filter((t) => t.origin === "server-sdk");
+    }
+    return allTasks.filter((t) => (t.origin ?? "user") !== "server-sdk");
+  }, [allTasks, view]);
+
+  const subagentCount = useMemo(
+    () => allTasks.filter((t) => t.origin === "server-sdk").length,
+    [allTasks],
+  );
+
+  const counts = useMemo(() => countByFilter(viewTasks), [viewTasks]);
 
   const groups = useMemo<readonly TaskGroupVm[]>(() => {
-    const filtered = filterTasks(allTasks, filter, searchQuery);
+    const filtered = filterTasks(viewTasks, filter, searchQuery);
     const grouped = groupTasksByTime(filtered, nowMs);
     const collapsedSet = new Set(collapsedParents);
     return grouped.map((g) => {
@@ -100,7 +123,7 @@ export function useTaskList(): TaskListVm {
       };
     });
   }, [
-    allTasks,
+    viewTasks,
     filter,
     searchQuery,
     nowMs,
@@ -110,13 +133,20 @@ export function useTaskList(): TaskListVm {
   ]);
 
   const uniformRuntime = useMemo(() => {
-    const first = allTasks[0]?.runtimeSource ?? null;
+    const first = viewTasks[0]?.runtimeSource ?? null;
     if (!first) return null;
-    for (const t of allTasks) {
+    for (const t of viewTasks) {
       if ((t.runtimeSource ?? null) !== first) return null;
     }
     return first;
-  }, [allTasks]);
+  }, [viewTasks]);
 
-  return { groups, counts, isLoading, isError, uniformRuntime };
+  return {
+    groups,
+    counts,
+    subagentCount,
+    isLoading,
+    isError,
+    uniformRuntime,
+  };
 }

@@ -4,6 +4,7 @@ export interface GetTaskUseCaseIn {
 
 export type GetTaskStatusUseCaseDto = "running" | "waiting" | "completed" | "errored";
 export type GetTaskKindUseCaseDto = "primary" | "background";
+export type GetTaskOriginUseCaseDto = "user" | "server-sdk";
 
 export interface GetTaskTaskUseCaseDto {
     readonly id: string;
@@ -20,6 +21,7 @@ export interface GetTaskTaskUseCaseDto {
     readonly parentTaskId?: string;
     readonly parentSessionId?: string;
     readonly backgroundTaskId?: string;
+    readonly origin?: GetTaskOriginUseCaseDto;
 }
 
 export interface GetTaskUseCaseOut {

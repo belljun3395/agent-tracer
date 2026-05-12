@@ -1,12 +1,14 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Inject, Injectable, Logger } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
 import { RuleSuggestionAgent } from "~adapters/llm/rule.suggestion.agent.js";
 import type { RuleSuggestionLanguage } from "~adapters/llm/rule.suggestion.prompt.js";
+import type { INotificationPublisher } from "~adapters/notifications/notification.publisher.port.js";
 import { GetTaskSummaryUseCase } from "~work/task/application/get.task.summary.usecase.js";
 import { ListRulesUseCase } from "~governance/rule/application/list.rules.usecase.js";
 import { RegisterSuggestionUseCase } from "~governance/rule/application/register.suggestion.usecase.js";
 import { APP_SETTING_KEYS } from "~governance/settings/domain/app.setting.keys.js";
 import { AppSettingService } from "~governance/settings/application/app.setting.service.js";
+import { NOTIFICATION_PUBLISHER_TOKEN } from "~main/presentation/database/database.provider.js";
 import { TaskRuleGenerationJobRepository } from "../repository/task.rule.generation.job.repository.js";
 import type { TaskRuleGenerationJobEntity } from "../domain/task.rule.generation.job.entity.js";
 
@@ -65,6 +67,8 @@ export class TaskRuleGenerationService {
         private readonly listRules: ListRulesUseCase,
         private readonly registerSuggestion: RegisterSuggestionUseCase,
         private readonly agent: RuleSuggestionAgent,
+        @Inject(NOTIFICATION_PUBLISHER_TOKEN)
+        private readonly notifier: INotificationPublisher,
     ) {}
 
     async enqueue(taskId: string): Promise<TaskRuleGenerationJobEntity> {
@@ -106,6 +110,15 @@ export class TaskRuleGenerationService {
      */
     async execute(job: TaskRuleGenerationJobEntity): Promise<void> {
         const taskId = job.taskId;
+        this.notifier.publish({
+            type: "sdk_job.updated",
+            payload: {
+                kind: "rule-generation",
+                status: "running",
+                jobId: job.id,
+                taskId,
+            },
+        });
         try {
             const apiKey = await this.settings.getAnthropicApiKey();
             if (!apiKey) {
@@ -170,6 +183,20 @@ export class TaskRuleGenerationService {
                 durationMs: output.durationMs,
                 completedAt: new Date().toISOString(),
             });
+            this.notifier.publish({
+                type: "sdk_job.updated",
+                payload: {
+                    kind: "rule-generation",
+                    status: "succeeded",
+                    jobId: job.id,
+                    taskId,
+                    summary:
+                        rulesCreated === 0
+                            ? "No new rules suggested"
+                            : `${rulesCreated} ${rulesCreated === 1 ? "rule" : "rules"} suggested`,
+                    durationMs: output.durationMs,
+                },
+            });
         } catch (err) {
             const message = err instanceof Error ? err.message : String(err);
             this.logger.warn(
@@ -184,6 +211,16 @@ export class TaskRuleGenerationService {
                 error: truncate(message, 1000),
                 attempts,
                 completedAt: new Date().toISOString(),
+            });
+            this.notifier.publish({
+                type: "sdk_job.updated",
+                payload: {
+                    kind: "rule-generation",
+                    status: "failed",
+                    jobId: job.id,
+                    taskId,
+                    error: truncate(message, 240),
+                },
             });
         }
     }
