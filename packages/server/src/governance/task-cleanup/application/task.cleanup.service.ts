@@ -127,36 +127,13 @@ export class TaskCleanupService {
                 const key = dedupKey(s.kind, s.taskId);
                 if (seen.has(key)) continue;
                 seen.add(key);
-                const taskSnap = snapshots.find((t) => t.id === s.taskId);
-                let currentValue: unknown = null;
-                let proposedValue: unknown = null;
-                switch (s.kind) {
-                    case "archive":
-                        currentValue = null;
-                        proposedValue = { archive: true };
-                        break;
-                    case "rename_title":
-                        currentValue = { title: taskSnap?.title ?? null };
-                        proposedValue = { title: s.proposedTitle };
-                        break;
-                    case "set_parent":
-                        if (!knownTaskIds.has(s.proposedParentTaskId)) continue;
-                        if (s.proposedParentTaskId === s.taskId) continue;
-                        currentValue = { parentTaskId: taskSnap?.parentTaskId ?? null };
-                        proposedValue = { parentTaskId: s.proposedParentTaskId };
-                        break;
-                    case "reslug":
-                        currentValue = { slug: taskSnap?.slug ?? null };
-                        proposedValue = { slug: s.proposedSlug };
-                        break;
-                }
                 rows.push({
                     id: randomUUID(),
                     jobId: job.id,
                     taskId: s.taskId,
                     kind: s.kind,
-                    currentValue: currentValue ? JSON.stringify(currentValue) : null,
-                    proposedValue: proposedValue ? JSON.stringify(proposedValue) : null,
+                    currentValue: null,
+                    proposedValue: JSON.stringify({ archive: true }),
                     rationale: s.rationale,
                     createdAt: now,
                 });

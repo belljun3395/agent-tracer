@@ -39,7 +39,9 @@ export function TaskListFilters({
   const setShowArchived = useSetShowArchived();
   const [cleanupOpen, setCleanupOpen] = useState(false);
   const cleanupSuggestions = useTaskCleanupSuggestionsQuery("pending");
-  const pendingCount = cleanupSuggestions.data?.suggestions.length ?? 0;
+  const pendingCount = (cleanupSuggestions.data?.suggestions ?? []).filter(
+    (s) => s.kind === "archive",
+  ).length;
 
   if (showArchived) {
     return (

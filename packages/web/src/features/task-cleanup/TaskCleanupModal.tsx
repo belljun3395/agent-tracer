@@ -34,6 +34,15 @@ export function TaskCleanupModal({ open, onClose }: TaskCleanupModalProps) {
     return map;
   }, [tasksQuery.data]);
 
+  // Cleanup scan now only emits archive suggestions. Older jobs may have
+  // left rename/set_parent/reslug rows around — filter them out so the
+  // panel stays focused on the archive review flow.
+  const archiveSuggestions = useMemo(
+    () =>
+      (suggestions.data?.suggestions ?? []).filter((s) => s.kind === "archive"),
+    [suggestions.data],
+  );
+
   const job = latestJob.data?.job ?? null;
   const isScanning = job?.status === "pending" || job?.status === "processing";
   const failureMessage =
@@ -47,8 +56,8 @@ export function TaskCleanupModal({ open, onClose }: TaskCleanupModalProps) {
     <Modal
       open={open}
       onClose={onClose}
-      title="Cleanup suggestions"
-      description="Claude reviews your task list and proposes archive / rename / hierarchy fixes. Each suggestion needs your approval before it applies."
+      title="Archive suggestions"
+      description="Claude scans your task list and flags duplicates, stale rows, and abandoned tasks worth archiving. Each suggestion needs your approval before it applies."
       maxWidth={620}
     >
       <div style={{ padding: "12px 16px" }}>
@@ -59,6 +68,7 @@ export function TaskCleanupModal({ open, onClose }: TaskCleanupModalProps) {
             justifyContent: "space-between",
             gap: 12,
             marginBottom: 12,
+            flexWrap: "wrap",
           }}
         >
           <button
@@ -95,7 +105,7 @@ export function TaskCleanupModal({ open, onClose }: TaskCleanupModalProps) {
             }}
           >
             {job
-              ? `Last scan ${formatRelativeShort(job.completedAt ?? job.createdAt, nowMs)} · ${job.suggestionsCreated} suggestions · ${job.tasksScanned} tasks`
+              ? `Last scan ${formatRelativeShort(job.completedAt ?? job.createdAt, nowMs)} · ${archiveSuggestions.length} archive suggestion${archiveSuggestions.length === 1 ? "" : "s"} · ${job.tasksScanned} tasks`
               : "No scan yet"}
           </span>
         </div>
@@ -108,13 +118,14 @@ export function TaskCleanupModal({ open, onClose }: TaskCleanupModalProps) {
               color: "var(--err)",
               fontSize: 12,
               marginBottom: 12,
+              wordBreak: "break-word",
             }}
           >
             {failureMessage}
           </div>
         )}
         <SuggestionList
-          suggestions={suggestions.data?.suggestions ?? []}
+          suggestions={archiveSuggestions}
           isLoading={suggestions.isLoading}
           taskTitleById={taskTitleById}
         />
@@ -140,27 +151,29 @@ function SuggestionList({
   if (suggestions.length === 0) {
     return (
       <p style={{ fontSize: 12, color: "var(--ink-subtle)" }}>
-        No pending suggestions. Run a scan to look for cleanup opportunities.
+        No archive suggestions pending. Run a scan to look for stale or duplicate tasks.
       </p>
     );
   }
   return (
-    <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: 8 }}>
-      {suggestions.map((s) => {
-        const parentTitle =
-          s.kind === "set_parent"
-            ? taskTitleById.get(readParentId(s.proposedValue) ?? "")
-            : undefined;
-        return (
-          <li key={s.id}>
-            <SuggestionRow
-              suggestion={s}
-              taskTitle={taskTitleById.get(s.taskId) ?? s.taskId}
-              {...(parentTitle ? { parentTaskTitle: parentTitle } : {})}
-            />
-          </li>
-        );
-      })}
+    <ul
+      style={{
+        listStyle: "none",
+        padding: 0,
+        margin: 0,
+        display: "grid",
+        gap: 8,
+        minWidth: 0,
+      }}
+    >
+      {suggestions.map((s) => (
+        <li key={s.id} style={{ minWidth: 0 }}>
+          <SuggestionRow
+            suggestion={s}
+            taskTitle={taskTitleById.get(s.taskId) ?? s.taskId}
+          />
+        </li>
+      ))}
     </ul>
   );
 }
@@ -168,11 +181,9 @@ function SuggestionList({
 function SuggestionRow({
   suggestion,
   taskTitle,
-  parentTaskTitle,
 }: {
   readonly suggestion: CleanupSuggestion;
   readonly taskTitle: string;
-  readonly parentTaskTitle?: string;
 }) {
   const accept = useAcceptCleanupSuggestionMutation();
   const dismiss = useDismissCleanupSuggestionMutation();
@@ -197,6 +208,7 @@ function SuggestionRow({
         borderRadius: "var(--radius-sm)",
         padding: "10px 12px",
         background: "var(--s2)",
+        minWidth: 0,
       }}
     >
       <div
@@ -205,9 +217,9 @@ function SuggestionRow({
           alignItems: "center",
           gap: 8,
           marginBottom: 4,
+          minWidth: 0,
         }}
       >
-        <KindBadge kind={suggestion.kind} />
         <span
           style={{
             fontSize: 12.5,
@@ -216,21 +228,35 @@ function SuggestionRow({
             overflow: "hidden",
             textOverflow: "ellipsis",
             whiteSpace: "nowrap",
+            minWidth: 0,
+            flex: 1,
           }}
           title={taskTitle}
         >
           {taskTitle}
         </span>
       </div>
-      <p style={{ margin: "0 0 6px", fontSize: 12, color: "var(--ink-subtle)" }}>
+      <p
+        style={{
+          margin: "0 0 6px",
+          fontSize: 12,
+          color: "var(--ink-subtle)",
+          overflowWrap: "anywhere",
+          wordBreak: "break-word",
+          lineHeight: 1.45,
+        }}
+      >
         {suggestion.rationale}
       </p>
-      <SuggestionDiff
-        suggestion={suggestion}
-        {...(parentTaskTitle ? { parentTaskTitle } : {})}
-      />
       {error && (
-        <p style={{ margin: "4px 0 0", fontSize: 11.5, color: "var(--err)" }}>
+        <p
+          style={{
+            margin: "4px 0 0",
+            fontSize: 11.5,
+            color: "var(--err)",
+            overflowWrap: "anywhere",
+          }}
+        >
           {error}
         </p>
       )}
@@ -273,113 +299,11 @@ function SuggestionRow({
             cursor: isBusy ? "not-allowed" : "pointer",
           }}
         >
-          Accept
+          Archive
         </button>
       </div>
     </div>
   );
-}
-
-function KindBadge({ kind }: { readonly kind: CleanupSuggestion["kind"] }) {
-  const label =
-    kind === "archive"
-      ? "Archive"
-      : kind === "rename_title"
-        ? "Rename"
-        : kind === "set_parent"
-          ? "Set parent"
-          : "Reslug";
-  return (
-    <span
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        padding: "1px 6px",
-        borderRadius: "var(--radius-xs)",
-        border: "1px solid var(--hair)",
-        fontSize: 10.5,
-        color: "var(--ink-subtle)",
-        textTransform: "uppercase",
-        letterSpacing: "0.02em",
-      }}
-    >
-      {label}
-    </span>
-  );
-}
-
-function SuggestionDiff({
-  suggestion,
-  parentTaskTitle,
-}: {
-  readonly suggestion: CleanupSuggestion;
-  readonly parentTaskTitle?: string;
-}) {
-  if (suggestion.kind === "archive") return null;
-  if (suggestion.kind === "rename_title") {
-    return (
-      <DiffLine
-        from={readField(suggestion.currentValue, "title")}
-        to={readField(suggestion.proposedValue, "title")}
-      />
-    );
-  }
-  if (suggestion.kind === "reslug") {
-    return (
-      <DiffLine
-        from={readField(suggestion.currentValue, "slug")}
-        to={readField(suggestion.proposedValue, "slug")}
-      />
-    );
-  }
-  if (suggestion.kind === "set_parent") {
-    return (
-      <DiffLine
-        from={readField(suggestion.currentValue, "parentTaskId") ?? "(none)"}
-        to={
-          parentTaskTitle ??
-          readField(suggestion.proposedValue, "parentTaskId") ??
-          "(unknown)"
-        }
-      />
-    );
-  }
-  return null;
-}
-
-function DiffLine({
-  from,
-  to,
-}: {
-  readonly from?: string | null;
-  readonly to?: string | null;
-}) {
-  return (
-    <div
-      style={{
-        fontFamily: "var(--font-mono)",
-        fontSize: 11.5,
-        color: "var(--ink-tertiary)",
-        background: "var(--s1)",
-        border: "1px solid var(--hair)",
-        borderRadius: "var(--radius-xs)",
-        padding: "4px 8px",
-      }}
-    >
-      <div style={{ color: "var(--err)" }}>− {from ?? "(empty)"}</div>
-      <div style={{ color: "var(--ok)" }}>+ {to ?? "(empty)"}</div>
-    </div>
-  );
-}
-
-function readField(value: unknown, field: string): string | null {
-  if (!value || typeof value !== "object") return null;
-  const v = (value as Record<string, unknown>)[field];
-  return typeof v === "string" ? v : null;
-}
-
-function readParentId(value: unknown): string | null {
-  return readField(value, "parentTaskId");
 }
 
 function readErrorMessage(err: unknown): string {
