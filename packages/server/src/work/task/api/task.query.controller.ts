@@ -6,11 +6,20 @@ import { GetTaskTimelineUseCase } from "../application/get.task.timeline.usecase
 import { GetTaskTurnsUseCase } from "../application/get.task.turns.usecase.js";
 import { GetTaskUseCase } from "../application/get.task.usecase.js";
 import { ListTasksUseCase } from "../application/list.tasks.usecase.js";
-import type { ListTasksArchivedScope } from "../application/dto/list.tasks.usecase.dto.js";
+import type {
+    ListTasksArchivedScope,
+    ListTasksOriginFilter,
+} from "../application/dto/list.tasks.usecase.dto.js";
 
 const ARCHIVED_SCOPES: ReadonlySet<ListTasksArchivedScope> = new Set([
     "active",
     "archived",
+    "all",
+]);
+
+const ORIGIN_FILTERS: ReadonlySet<ListTasksOriginFilter> = new Set([
+    "user",
+    "server-sdk",
     "all",
 ]);
 
@@ -26,14 +35,26 @@ export class TaskQueryController {
     ) {}
 
     @Get()
-    async listTasksEndpoint(@Query("archived") archivedParam?: string) {
+    async listTasksEndpoint(
+        @Query("archived") archivedParam?: string,
+        @Query("origin") originParam?: string,
+    ) {
         const scope = archivedParam ?? "active";
         if (!ARCHIVED_SCOPES.has(scope as ListTasksArchivedScope)) {
             throw new BadRequestException(
                 `archived must be one of: active, archived, all`,
             );
         }
-        return this.listTasks.execute({ archived: scope as ListTasksArchivedScope });
+        const origin = originParam ?? "all";
+        if (!ORIGIN_FILTERS.has(origin as ListTasksOriginFilter)) {
+            throw new BadRequestException(
+                `origin must be one of: user, server-sdk, all`,
+            );
+        }
+        return this.listTasks.execute({
+            archived: scope as ListTasksArchivedScope,
+            origin: origin as ListTasksOriginFilter,
+        });
     }
 
     @Get(":taskId/openinference")

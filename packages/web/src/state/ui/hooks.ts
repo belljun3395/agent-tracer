@@ -4,7 +4,11 @@ import type {
   MainView,
   VisibleLane,
 } from "./slices/viewSlice.js";
-import type { SearchScope, SidebarFilter } from "./slices/sidebarSlice.js";
+import type {
+  SearchScope,
+  SidebarFilter,
+  SidebarView,
+} from "./slices/sidebarSlice.js";
 import type { Theme } from "./slices/themeSlice.js";
 import type { EventId, TaskId } from "~domain/monitoring.js";
 
@@ -73,6 +77,8 @@ export const useToggleVisibleLane = () =>
 export const useSetVisibleLanes = () => useUiStore((s) => s.setVisibleLanes);
 
 // ── sidebar ───────────────────────────────────────────────────────────
+export const useSidebarView = (): SidebarView => useUiStore((s) => s.view);
+export const useSetSidebarView = () => useUiStore((s) => s.setView);
 export const useSidebarFilter = (): SidebarFilter => useUiStore((s) => s.filter);
 export const useSidebarSearchQuery = (): string =>
   useUiStore((s) => s.searchQuery);

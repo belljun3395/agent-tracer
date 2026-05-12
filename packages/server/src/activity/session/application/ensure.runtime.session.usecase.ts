@@ -117,6 +117,7 @@ export class EnsureRuntimeSessionUseCase {
                 ? { taskKind: "background" as const, parentTaskId: input.parentTaskId }
                 : {}),
             ...(input.parentSessionId ? { parentSessionId: input.parentSessionId } : {}),
+            ...(input.origin ? { origin: input.origin } : {}),
         });
         const taskId = result.task.id;
         const sessionId = result.sessionId!;

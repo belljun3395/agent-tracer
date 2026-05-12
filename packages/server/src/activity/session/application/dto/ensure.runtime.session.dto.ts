@@ -6,6 +6,7 @@ export interface EnsureRuntimeSessionIn {
     readonly workspacePath?: string;
     readonly parentTaskId?: string;
     readonly parentSessionId?: string;
+    readonly origin?: "user" | "server-sdk";
     readonly resume?: boolean;
 }
 

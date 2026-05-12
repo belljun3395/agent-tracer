@@ -1,12 +1,11 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
 import { TaskCleanupAgent } from "~adapters/llm/task.cleanup.agent.js";
-import type {
-    CleanupLanguage,
-    CleanupTaskSnapshot,
-} from "~adapters/llm/task.cleanup.prompt.js";
+import type { CleanupTaskSnapshot } from "~adapters/llm/task.cleanup.prompt.js";
+import type { INotificationPublisher } from "~adapters/notifications/notification.publisher.port.js";
 import { APP_SETTING_KEYS } from "~governance/settings/domain/app.setting.keys.js";
 import { AppSettingService } from "~governance/settings/application/app.setting.service.js";
+import { NOTIFICATION_PUBLISHER_TOKEN } from "~main/presentation/database/database.provider.js";
 import type { ITaskSnapshotQuery } from "~work/task/public/iservice/task.snapshot.query.iservice.js";
 import { TASK_SNAPSHOT_QUERY } from "~work/task/public/tokens.js";
 import { TaskCleanupJobRepository } from "../repository/task.cleanup.job.repository.js";
@@ -15,20 +14,6 @@ import type { TaskCleanupJobEntity } from "../domain/task.cleanup.job.entity.js"
 
 const DEFAULT_MAX_SUGGESTIONS = 20;
 const MAX_SUGGESTIONS_HARD_CAP = 50;
-
-const SUPPORTED_LANGUAGES: ReadonlySet<CleanupLanguage> = new Set([
-    "auto",
-    "ko",
-    "en",
-    "ja",
-    "zh",
-]);
-
-function normalizeLanguage(raw: string | null): CleanupLanguage {
-    if (!raw) return "auto";
-    const trimmed = raw.trim().toLowerCase() as CleanupLanguage;
-    return SUPPORTED_LANGUAGES.has(trimmed) ? trimmed : "auto";
-}
 
 export class GenerationAlreadyInFlightError extends Error {
     constructor(public readonly jobId: string) {
@@ -62,6 +47,8 @@ export class TaskCleanupService {
         @Inject(TASK_SNAPSHOT_QUERY)
         private readonly taskQuery: ITaskSnapshotQuery,
         private readonly agent: TaskCleanupAgent,
+        @Inject(NOTIFICATION_PUBLISHER_TOKEN)
+        private readonly notifier: INotificationPublisher,
     ) {}
 
     async enqueue(): Promise<TaskCleanupJobEntity> {
@@ -99,6 +86,14 @@ export class TaskCleanupService {
      * calling. Updates job status to completed/failed at the end.
      */
     async execute(job: TaskCleanupJobEntity): Promise<void> {
+        this.notifier.publish({
+            type: "sdk_job.updated",
+            payload: {
+                kind: "task-cleanup",
+                status: "running",
+                jobId: job.id,
+            },
+        });
         try {
             const apiKey = await this.settings.getAnthropicApiKey();
             if (!apiKey) throw new MissingApiKeyError();
@@ -108,10 +103,6 @@ export class TaskCleanupService {
                 APP_SETTING_KEYS.taskCleanupMaxSuggestions,
             );
             const maxSuggestions = clampMax(maxRaw);
-            const languageRaw = await this.settings.getRawValue(
-                APP_SETTING_KEYS.claudeOutputLanguage,
-            );
-            const language = normalizeLanguage(languageRaw);
 
             const tasks = await this.taskQuery.findAll("active");
             const snapshots: CleanupTaskSnapshot[] = tasks.map((t) => ({
@@ -134,7 +125,6 @@ export class TaskCleanupService {
                 ...(modelOverride ? { model: modelOverride } : {}),
                 tasks: snapshots,
                 maxSuggestions,
-                language,
             });
 
             const knownTaskIds = new Set(snapshots.map((s) => s.id));
@@ -170,6 +160,19 @@ export class TaskCleanupService {
                 durationMs: output.durationMs,
                 completedAt: new Date().toISOString(),
             });
+            this.notifier.publish({
+                type: "sdk_job.updated",
+                payload: {
+                    kind: "task-cleanup",
+                    status: "succeeded",
+                    jobId: job.id,
+                    summary:
+                        rows.length === 0
+                            ? `No cleanup suggestions for ${snapshots.length} tasks`
+                            : `${rows.length} cleanup ${rows.length === 1 ? "suggestion" : "suggestions"} for ${snapshots.length} tasks`,
+                    durationMs: output.durationMs,
+                },
+            });
         } catch (err) {
             const message = err instanceof Error ? err.message : String(err);
             this.logger.warn(
@@ -184,6 +187,15 @@ export class TaskCleanupService {
                 error: truncate(message, 1000),
                 attempts,
                 completedAt: new Date().toISOString(),
+            });
+            this.notifier.publish({
+                type: "sdk_job.updated",
+                payload: {
+                    kind: "task-cleanup",
+                    status: "failed",
+                    jobId: job.id,
+                    error: truncate(message, 240),
+                },
             });
         }
     }

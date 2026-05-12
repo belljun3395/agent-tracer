@@ -51,6 +51,7 @@ export class RuleSuggestionAgent {
             ...process.env,
             ANTHROPIC_API_KEY: input.apiKey,
             MONITOR_TASK_TITLE: generatedTitle,
+            MONITOR_TASK_ORIGIN: "server-sdk",
         };
 
         const startedAt = Date.now();

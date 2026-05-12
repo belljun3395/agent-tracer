@@ -2,8 +2,17 @@ import type { TaskId } from "~domain/monitoring.js";
 
 export type SidebarFilter = "all" | "live" | "attn" | "done";
 export type SearchScope = "all" | "this-task";
+/**
+ * Top-level partition of the task list.
+ *   - "tasks"     — user-driven runtime sessions (default)
+ *   - "subagents" — server-initiated Claude Agent SDK jobs (title
+ *                   suggestion, task cleanup, recipe scan, rule
+ *                   generation). Origin === "server-sdk".
+ */
+export type SidebarView = "tasks" | "subagents";
 
 export interface SidebarSlice {
+  readonly view: SidebarView;
   readonly filter: SidebarFilter;
   /** Free-text task title query — transient, not persisted. */
   readonly searchQuery: string;
@@ -34,6 +43,7 @@ export interface SidebarSlice {
    * mixing them with `live/attn/done` filters would be confusing.
    */
   readonly showArchived: boolean;
+  readonly setView: (view: SidebarView) => void;
   readonly setFilter: (filter: SidebarFilter) => void;
   readonly setSearchQuery: (query: string) => void;
   readonly setSearchScope: (scope: SearchScope) => void;
@@ -50,12 +60,14 @@ type SetState = (
 
 export function createSidebarSlice(set: SetState): SidebarSlice {
   return {
+    view: "tasks",
     filter: "all",
     searchQuery: "",
     searchScope: "all",
     lastSeenAt: {},
     collapsedParents: [],
     showArchived: false,
+    setView: (view) => set({ view }),
     setFilter: (filter) => set({ filter }),
     setShowArchived: (value) => set({ showArchived: value }),
     setSearchQuery: (searchQuery) => set({ searchQuery }),

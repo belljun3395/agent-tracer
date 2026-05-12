@@ -5,8 +5,10 @@ import type {
     RecipeOutputLanguage,
     RecipeTaskSnapshot,
 } from "~adapters/llm/recipe.scan.prompt.js";
+import type { INotificationPublisher } from "~adapters/notifications/notification.publisher.port.js";
 import { APP_SETTING_KEYS } from "~governance/settings/domain/app.setting.keys.js";
 import { AppSettingService } from "~governance/settings/application/app.setting.service.js";
+import { NOTIFICATION_PUBLISHER_TOKEN } from "~main/presentation/database/database.provider.js";
 import { GetTaskSummaryUseCase } from "~work/task/application/get.task.summary.usecase.js";
 import type { ITaskSnapshotQuery } from "~work/task/public/iservice/task.snapshot.query.iservice.js";
 import { TASK_SNAPSHOT_QUERY } from "~work/task/public/tokens.js";
@@ -68,6 +70,8 @@ export class RecipeScanService {
         private readonly taskQuery: ITaskSnapshotQuery,
         private readonly getTaskSummary: GetTaskSummaryUseCase,
         private readonly agent: RecipeScanAgent,
+        @Inject(NOTIFICATION_PUBLISHER_TOKEN)
+        private readonly notifier: INotificationPublisher,
     ) {}
 
     async enqueue(
@@ -110,6 +114,14 @@ export class RecipeScanService {
     }
 
     async execute(job: RecipeScanJobEntity): Promise<void> {
+        this.notifier.publish({
+            type: "sdk_job.updated",
+            payload: {
+                kind: "recipe-scan",
+                status: "running",
+                jobId: job.id,
+            },
+        });
         try {
             const apiKey = await this.settings.getAnthropicApiKey();
             if (!apiKey) throw new MissingApiKeyError();
@@ -156,6 +168,16 @@ export class RecipeScanService {
                     modelUsed: modelOverride?.trim() || "n/a",
                     durationMs: 0,
                     completedAt: new Date().toISOString(),
+                });
+                this.notifier.publish({
+                    type: "sdk_job.updated",
+                    payload: {
+                        kind: "recipe-scan",
+                        status: "succeeded",
+                        jobId: job.id,
+                        summary: "No tasks matched scan filters",
+                        durationMs: 0,
+                    },
                 });
                 return;
             }
@@ -230,6 +252,19 @@ export class RecipeScanService {
                 durationMs: output.durationMs,
                 completedAt: new Date().toISOString(),
             });
+            this.notifier.publish({
+                type: "sdk_job.updated",
+                payload: {
+                    kind: "recipe-scan",
+                    status: "succeeded",
+                    jobId: job.id,
+                    summary:
+                        rows.length === 0
+                            ? `No recipe candidates from ${snapshots.length} tasks`
+                            : `${rows.length} recipe ${rows.length === 1 ? "candidate" : "candidates"} from ${snapshots.length} tasks`,
+                    durationMs: output.durationMs,
+                },
+            });
         } catch (err) {
             const message = err instanceof Error ? err.message : String(err);
             this.logger.warn(
@@ -244,6 +279,15 @@ export class RecipeScanService {
                 error: truncate(message, 1000),
                 attempts,
                 completedAt: new Date().toISOString(),
+            });
+            this.notifier.publish({
+                type: "sdk_job.updated",
+                payload: {
+                    kind: "recipe-scan",
+                    status: "failed",
+                    jobId: job.id,
+                    error: truncate(message, 240),
+                },
             });
         }
     }

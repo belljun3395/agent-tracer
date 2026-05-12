@@ -1,5 +1,6 @@
 export type TaskStatus = "running" | "waiting" | "completed" | "errored";
 export type TaskKind = "primary" | "background";
+export type TaskOriginSnapshot = "user" | "server-sdk";
 
 export interface TaskSnapshot {
     readonly id: string;
@@ -16,6 +17,7 @@ export interface TaskSnapshot {
     readonly parentTaskId?: string;
     readonly parentSessionId?: string;
     readonly backgroundTaskId?: string;
+    readonly origin?: TaskOriginSnapshot;
 }
 
 export interface TaskUpsertInput {
@@ -32,6 +34,7 @@ export interface TaskUpsertInput {
     readonly parentSessionId?: string;
     readonly backgroundTaskId?: string;
     readonly runtimeSource?: string;
+    readonly origin?: TaskOriginSnapshot;
 }
 
 export interface TaskStartLifecycleInput {
@@ -44,6 +47,7 @@ export interface TaskStartLifecycleInput {
     readonly parentTaskId?: string;
     readonly parentSessionId?: string;
     readonly backgroundTaskId?: string;
+    readonly origin?: TaskOriginSnapshot;
     readonly metadata?: Record<string, unknown>;
 }
 

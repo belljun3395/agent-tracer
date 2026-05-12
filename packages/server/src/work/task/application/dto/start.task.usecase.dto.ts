@@ -1,4 +1,5 @@
 export type StartTaskKindUseCaseDto = "primary" | "background";
+export type StartTaskOriginUseCaseDto = "user" | "server-sdk";
 
 export interface StartTaskUseCaseIn {
     readonly taskId?: string;
@@ -10,6 +11,7 @@ export interface StartTaskUseCaseIn {
     readonly parentTaskId?: string;
     readonly parentSessionId?: string;
     readonly backgroundTaskId?: string;
+    readonly origin?: StartTaskOriginUseCaseDto;
     readonly metadata?: Record<string, unknown>;
 }
 
@@ -52,6 +54,7 @@ export interface StartTaskTaskUseCaseDto {
     readonly parentTaskId?: string;
     readonly parentSessionId?: string;
     readonly backgroundTaskId?: string;
+    readonly origin?: StartTaskOriginUseCaseDto;
 }
 
 export interface StartTaskUseCaseOut {

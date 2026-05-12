@@ -1,4 +1,8 @@
-import type { MonitoringTaskKind, TaskStatus } from "~work/task/common/task.status.type.js";
+import type {
+    MonitoringTaskKind,
+    TaskOrigin,
+    TaskStatus,
+} from "~work/task/common/task.status.type.js";
 
 export interface MonitoringTaskInput {
     readonly title: string;
@@ -7,6 +11,7 @@ export interface MonitoringTaskInput {
     readonly parentTaskId?: string;
     readonly parentSessionId?: string;
     readonly backgroundTaskId?: string;
+    readonly origin?: TaskOrigin;
 }
 
 export interface MonitoringTask extends MonitoringTaskInput {
@@ -20,4 +25,5 @@ export interface MonitoringTask extends MonitoringTaskInput {
     readonly runtimeSource?: string;
     readonly taskKind?: MonitoringTaskKind;
     readonly archivedAt?: string;
+    readonly origin?: TaskOrigin;
 }

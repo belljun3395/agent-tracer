@@ -65,6 +65,7 @@ export function createUiStore(options?: CreateUiStoreOptions): UiStoreApi {
          * are recomputed from URL or server state on next visit.
          */
         partialize: (state) => ({
+          view: state.view,
           filter: state.filter,
           searchScope: state.searchScope,
           lastSeenAt: state.lastSeenAt,

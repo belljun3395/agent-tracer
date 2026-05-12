@@ -1,5 +1,7 @@
 export const MONITORING_TASK_KINDS = ["primary", "background"] as const;
 
+export const TASK_ORIGINS = ["user", "server-sdk"] as const;
+
 export const TASK_STATUSES = ["running", "waiting", "completed", "errored"] as const;
 
 export const TASK_COMPLETION_REASONS = [

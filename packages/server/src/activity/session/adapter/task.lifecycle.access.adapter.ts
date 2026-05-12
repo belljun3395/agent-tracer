@@ -20,7 +20,16 @@ export class TaskLifecycleAccessAdapter implements ITaskLifecycleAccess {
     ) {}
 
     async startTask(input: StartTaskAccessInput): Promise<TaskLifecycleAccessResult> {
-        const result = await this.inner.startTask(input);
+        const result = await this.inner.startTask({
+            ...(input.taskId !== undefined ? { taskId: input.taskId } : {}),
+            title: input.title,
+            ...(input.workspacePath !== undefined ? { workspacePath: input.workspacePath } : {}),
+            ...(input.runtimeSource !== undefined ? { runtimeSource: input.runtimeSource } : {}),
+            ...(input.taskKind !== undefined ? { taskKind: input.taskKind } : {}),
+            ...(input.parentTaskId !== undefined ? { parentTaskId: input.parentTaskId } : {}),
+            ...(input.parentSessionId !== undefined ? { parentSessionId: input.parentSessionId } : {}),
+            ...(input.origin !== undefined ? { origin: input.origin } : {}),
+        });
         return {
             task: { id: result.task.id },
             ...(result.sessionId !== undefined ? { sessionId: result.sessionId } : {}),

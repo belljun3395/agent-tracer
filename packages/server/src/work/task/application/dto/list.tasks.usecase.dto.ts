@@ -1,11 +1,14 @@
 export type ListTasksArchivedScope = "active" | "archived" | "all";
+export type ListTasksOriginFilter = "user" | "server-sdk" | "all";
 
 export interface ListTasksUseCaseIn {
     readonly archived?: ListTasksArchivedScope;
+    readonly origin?: ListTasksOriginFilter;
 }
 
 export type ListTasksTaskStatusUseCaseDto = "running" | "waiting" | "completed" | "errored";
 export type ListTasksTaskKindUseCaseDto = "primary" | "background";
+export type ListTasksTaskOriginUseCaseDto = "user" | "server-sdk";
 
 export interface ListTasksTaskUseCaseDto {
     readonly id: string;
@@ -23,6 +26,7 @@ export interface ListTasksTaskUseCaseDto {
     readonly parentSessionId?: string;
     readonly backgroundTaskId?: string;
     readonly archivedAt?: string;
+    readonly origin?: ListTasksTaskOriginUseCaseDto;
 }
 
 export interface ListTasksUseCaseOut {

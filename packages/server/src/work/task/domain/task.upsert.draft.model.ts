@@ -1,5 +1,8 @@
 import type { MonitoringTask } from "~work/task/domain/task.model.js";
-import type { MonitoringTaskKind } from "~work/task/common/task.status.type.js";
+import type {
+    MonitoringTaskKind,
+    TaskOrigin,
+} from "~work/task/common/task.status.type.js";
 import { normalizeWorkspacePath } from "~work/task/domain/task.path.helpers.js";
 import { createTaskSlug } from "../common/task.slug.js";
 
@@ -14,6 +17,7 @@ export interface StartTaskDraftInput {
     readonly parentTaskId?: string;
     readonly parentSessionId?: string;
     readonly backgroundTaskId?: string;
+    readonly origin?: TaskOrigin;
 }
 
 export interface TaskUpsertDraftShape {
@@ -30,6 +34,7 @@ export interface TaskUpsertDraftShape {
     readonly parentSessionId?: string;
     readonly backgroundTaskId?: string;
     readonly runtimeSource?: string;
+    readonly origin?: TaskOrigin;
 }
 
 /**
@@ -51,6 +56,7 @@ export class TaskUpsertDraft {
     readonly parentSessionId?: string;
     readonly backgroundTaskId?: string;
     readonly runtimeSource?: string;
+    readonly origin?: TaskOrigin;
 
     private constructor(shape: TaskUpsertDraftShape) {
         this.id = shape.id;
@@ -66,6 +72,7 @@ export class TaskUpsertDraft {
         if (shape.parentSessionId !== undefined) this.parentSessionId = shape.parentSessionId;
         if (shape.backgroundTaskId !== undefined) this.backgroundTaskId = shape.backgroundTaskId;
         if (shape.runtimeSource !== undefined) this.runtimeSource = shape.runtimeSource;
+        if (shape.origin !== undefined) this.origin = shape.origin;
     }
 
     static from(input: StartTaskDraftInput): TaskUpsertDraft {
@@ -76,6 +83,9 @@ export class TaskUpsertDraft {
         const parentTaskId = input.parentTaskId ?? existing?.parentTaskId;
         const parentSessionId = input.parentSessionId ?? existing?.parentSessionId;
         const backgroundTaskId = input.backgroundTaskId ?? existing?.backgroundTaskId;
+        // Origin is sticky once a task is born; we never demote a server-sdk
+        // task back to user on resume, even if the env var goes missing.
+        const origin = existing?.origin ?? input.origin;
 
         return new TaskUpsertDraft({
             id: input.taskId,
@@ -91,6 +101,7 @@ export class TaskUpsertDraft {
             ...(backgroundTaskId ? { backgroundTaskId } : {}),
             ...(workspacePath ? { workspacePath } : {}),
             ...(runtimeSource ? { runtimeSource } : {}),
+            ...(origin ? { origin } : {}),
         });
     }
 
@@ -110,6 +121,7 @@ export class TaskUpsertDraft {
             ...(this.parentSessionId !== undefined ? { parentSessionId: this.parentSessionId } : {}),
             ...(this.backgroundTaskId !== undefined ? { backgroundTaskId: this.backgroundTaskId } : {}),
             ...(this.runtimeSource !== undefined ? { runtimeSource: this.runtimeSource } : {}),
+            ...(this.origin !== undefined ? { origin: this.origin } : {}),
         };
     }
 }

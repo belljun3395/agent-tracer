@@ -1,7 +1,10 @@
 import { Inject, Injectable } from "@nestjs/common";
 import type { MonitoringTask } from "~work/task/domain/task.model.js";
 import type { MonitoringEventKind } from "~activity/event/public/types/event.types.js";
-import type { MonitoringTaskKind } from "~work/task/common/task.status.type.js";
+import type {
+    MonitoringTaskKind,
+    TaskOrigin,
+} from "~work/task/common/task.status.type.js";
 import { createEventRecordDraft } from "~activity/event/public/helpers.js";
 import { TaskUpsertDraft } from "../domain/task.upsert.draft.model.js";
 import {
@@ -36,6 +39,7 @@ export interface StartTaskServiceInput {
     readonly parentTaskId?: string;
     readonly parentSessionId?: string;
     readonly backgroundTaskId?: string;
+    readonly origin?: TaskOrigin;
     readonly metadata?: Record<string, unknown>;
 }
 
@@ -89,6 +93,7 @@ export class TaskLifecycleService {
             ...(input.parentTaskId ? { parentTaskId: input.parentTaskId } : {}),
             ...(input.parentSessionId ? { parentSessionId: input.parentSessionId } : {}),
             ...(input.backgroundTaskId ? { backgroundTaskId: input.backgroundTaskId } : {}),
+            ...(input.origin ? { origin: input.origin } : {}),
         });
         const task = await this.management.upsertFromDraft(draft.toShape());
 

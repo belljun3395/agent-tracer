@@ -7,6 +7,12 @@ export class ListTasksUseCase {
     constructor(private readonly query: TaskQueryService) {}
 
     async execute(input: ListTasksUseCaseIn): Promise<ListTasksUseCaseOut> {
-        return { tasks: await this.query.findAll(input.archived ?? "active") };
+        const tasks = await this.query.findAll(input.archived ?? "active");
+        const originFilter = input.origin ?? "all";
+        if (originFilter === "all") return { tasks };
+        // Default to "user" for legacy rows where origin was never set so the
+        // tasks view doesn't silently lose them after the schema migration.
+        const filtered = tasks.filter((t) => (t.origin ?? "user") === originFilter);
+        return { tasks: filtered };
     }
 }

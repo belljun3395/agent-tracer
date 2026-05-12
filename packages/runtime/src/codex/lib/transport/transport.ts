@@ -2,6 +2,7 @@ import {CODEX_RUNTIME_SOURCE, PROJECT_DIR} from "~codex/util/paths.const.js";
 import {defaultTaskTitle} from "~codex/util/paths.js";
 import {codexHookRuntime} from "~codex/lib/runtime.js";
 import { readStdinJson } from "~shared/hook-runtime/stdin.js";
+import {resolveMonitorTransportConfig} from "~shared/config/env.js";
 import type {RuntimeSessionEnsureResult} from "~shared/hook-runtime/transport.js";
 
 export {readStdinJson};
@@ -19,10 +20,12 @@ export async function ensureRuntimeSession(
     runtimeSessionId: string,
     title: string = defaultTaskTitle(),
 ): Promise<RuntimeSessionEnsureResult> {
+    const origin = resolveMonitorTransportConfig().taskOriginOverride;
     return postJson<RuntimeSessionEnsureResult>("/ingest/v1/sessions/ensure", {
         runtimeSource: CODEX_RUNTIME_SOURCE,
         runtimeSessionId,
         title,
         workspacePath: PROJECT_DIR,
+        ...(origin ? {origin} : {}),
     });
 }
