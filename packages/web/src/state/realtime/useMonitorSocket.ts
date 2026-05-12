@@ -11,7 +11,7 @@ import { parseRealtimeMessage } from "~io/realtime.js";
 import type { MonitorRealtimeMessage } from "~io/realtime.js";
 import { MonitorSocket } from "~io/websocket.js";
 import { useQueryClient, type QueryClient } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 import { monitorQueryKeys } from "../server/queryKeys.js";
 
@@ -26,13 +26,30 @@ export function useMonitorSocket(options: UseMonitorSocketOptions): void {
   const { url, selectedTaskId, onConnectionChange, onMessage } = options;
   const queryClient = useQueryClient();
 
+  // Socket lifecycle is keyed on `url` alone. `selectedTaskId` flips on
+  // every task click; putting it (or the handler refs) into the dial
+  // effect's deps used to tear down the WS on every selection. The server
+  // then re-sent a `snapshot` and the client invalidated `["monitor"]`
+  // wholesale, while any events broadcast inside the disconnect window
+  // were dropped — there's no server-side replay buffer. We route the
+  // dynamic inputs through refs so callbacks always see the latest values
+  // without taking the socket down with them.
+  const selectedTaskIdRef = useRef<TaskId | null | undefined>(selectedTaskId);
+  const onConnectionChangeRef = useRef(onConnectionChange);
+  const onMessageRef = useRef(onMessage);
+  useEffect(() => {
+    selectedTaskIdRef.current = selectedTaskId;
+    onConnectionChangeRef.current = onConnectionChange;
+    onMessageRef.current = onMessage;
+  });
+
   useEffect(() => {
     const socket = new MonitorSocket({ url });
     let closed = false;
 
     const offConnection = socket.on("connectionChange", (connected) => {
       if (!closed) {
-        onConnectionChange?.(connected);
+        onConnectionChangeRef.current?.(connected);
       }
     });
     const offMessage = socket.on("message", (raw) => {
@@ -44,9 +61,9 @@ export function useMonitorSocket(options: UseMonitorSocketOptions): void {
       applyMonitorRealtimeInvalidations(
         queryClient,
         message,
-        selectedTaskId ?? null,
+        selectedTaskIdRef.current ?? null,
       );
-      onMessage?.(message);
+      onMessageRef.current?.(message);
     });
 
     return () => {
@@ -55,7 +72,7 @@ export function useMonitorSocket(options: UseMonitorSocketOptions): void {
       offMessage();
       socket.close();
     };
-  }, [url, queryClient, selectedTaskId, onConnectionChange, onMessage]);
+  }, [url, queryClient]);
 }
 
 /**
