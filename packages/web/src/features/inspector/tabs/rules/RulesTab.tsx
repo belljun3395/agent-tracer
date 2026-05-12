@@ -8,7 +8,10 @@ import {
   useTaskDetailQuery,
   useTaskRulesQuery,
 } from "~state/server/queries.js";
-import { useEnqueueGenerateRulesMutation } from "~state/server/mutations.js";
+import {
+  useEnqueueGenerateRulesMutation,
+  useReEvaluateRuleMutation,
+} from "~state/server/mutations.js";
 import { useSelectedTaskId } from "~state/ui/index.js";
 import { EmptyView } from "~features/shell/index.js";
 import { Modal } from "~ui/index.js";
@@ -33,8 +36,10 @@ export function RulesTab() {
   const taskId = useSelectedTaskId();
   const rulesQ = useTaskRulesQuery(taskId);
   const detailQ = useTaskDetailQuery(taskId);
+  const reEvalMutation = useReEvaluateRuleMutation();
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingRule, setEditingRule] = useState<RuleRecord | null>(null);
+  const [bulkReEvalPending, setBulkReEvalPending] = useState(false);
 
   const matchCounts = useMemo(() => {
     if (!detailQ.data) return {};
@@ -73,10 +78,27 @@ export function RulesTab() {
     setEditorOpen(false);
     setEditingRule(null);
   };
+  const handleReEvalAll = () => {
+    if (bulkReEvalPending || totalRules === 0) return;
+    setBulkReEvalPending(true);
+    void Promise.allSettled(
+      [...taskRules, ...globalRules].map((rule) =>
+        reEvalMutation.mutateAsync({
+          ruleId: rule.id,
+          ...(taskId ? { taskId } : {}),
+        }),
+      ),
+    ).finally(() => setBulkReEvalPending(false));
+  };
 
   return (
     <div className="px-4 py-4 flex flex-col gap-5">
-      <Header onCreate={handleCreate} />
+      <Header
+        onCreate={handleCreate}
+        onReEvalAll={handleReEvalAll}
+        bulkReEvalPending={bulkReEvalPending}
+        totalRules={totalRules}
+      />
 
       <GenerateRulesPanel
         taskId={taskId}
@@ -315,7 +337,20 @@ function GenerateRulesPanel({ taskId, taskStatus }: GenerateRulesPanelProps) {
   );
 }
 
-function Header({ onCreate }: { onCreate: () => void }) {
+interface HeaderProps {
+  readonly onCreate: () => void;
+  readonly onReEvalAll: () => void;
+  readonly bulkReEvalPending: boolean;
+  readonly totalRules: number;
+}
+
+function Header({
+  onCreate,
+  onReEvalAll,
+  bulkReEvalPending,
+  totalRules,
+}: HeaderProps) {
+  const reEvalDisabled = totalRules === 0 || bulkReEvalPending;
   return (
     <div className="flex items-center justify-between">
       <h3
@@ -329,25 +364,57 @@ function Header({ onCreate }: { onCreate: () => void }) {
       >
         Rules
       </h3>
-      <button
-        type="button"
-        onClick={onCreate}
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 4,
-          padding: "5px 10px",
-          fontSize: 12,
-          fontWeight: 500,
-          color: "var(--ink)",
-          background: "var(--s2)",
-          border: "1px solid var(--hair)",
-          borderRadius: "var(--radius-xs)",
-          cursor: "pointer",
-        }}
-      >
-        + Rule
-      </button>
+      <div className="flex items-center gap-1.5">
+        <button
+          type="button"
+          onClick={onReEvalAll}
+          disabled={reEvalDisabled}
+          title={
+            totalRules === 0
+              ? "No rules to re-evaluate"
+              : bulkReEvalPending
+                ? "Re-evaluating all rules…"
+                : "Re-evaluate every rule against this task"
+          }
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 4,
+            padding: "5px 10px",
+            fontSize: 12,
+            fontWeight: 500,
+            color: reEvalDisabled ? "var(--ink-tertiary)" : "var(--ink)",
+            background: reEvalDisabled ? "var(--s1)" : "var(--s2)",
+            border: "1px solid var(--hair)",
+            borderRadius: "var(--radius-xs)",
+            cursor: reEvalDisabled ? "not-allowed" : "pointer",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {bulkReEvalPending
+            ? "Re-evaluating…"
+            : `↻ Re-eval all${totalRules > 0 ? ` (${totalRules})` : ""}`}
+        </button>
+        <button
+          type="button"
+          onClick={onCreate}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 4,
+            padding: "5px 10px",
+            fontSize: 12,
+            fontWeight: 500,
+            color: "var(--ink)",
+            background: "var(--s2)",
+            border: "1px solid var(--hair)",
+            borderRadius: "var(--radius-xs)",
+            cursor: "pointer",
+          }}
+        >
+          + Rule
+        </button>
+      </div>
     </div>
   );
 }
