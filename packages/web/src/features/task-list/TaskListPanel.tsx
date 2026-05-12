@@ -21,6 +21,7 @@ import { useTaskList } from "./hooks/useTaskList.js";
  */
 export function TaskListPanel() {
   const { groups, counts, isLoading, isError, uniformRuntime } = useTaskList();
+  const sharedRuntime = uniformRuntime;
   const rawQuery = useSidebarSearchQuery();
   const query = useDebouncedValue(rawQuery, 250);
   const isSearching = query.trim().length > 0;
@@ -29,12 +30,7 @@ export function TaskListPanel() {
     <div className="flex h-full flex-col min-h-0">
       <div className="pt-2.5">
         <TaskListHeader />
-        {!isSearching && (
-          <TaskListFilters
-            counts={counts}
-            {...(uniformRuntime ? { uniformRuntime } : {})}
-          />
-        )}
+        {!isSearching && <TaskListFilters counts={counts} />}
       </div>
 
       <ScrollArea className="flex-1 min-h-0">
@@ -70,7 +66,9 @@ export function TaskListPanel() {
         )}
       </ScrollArea>
 
-      <TaskListFooter />
+      <TaskListFooter
+        {...(sharedRuntime ? { runtimeCaption: sharedRuntime } : {})}
+      />
     </div>
   );
 }
