@@ -1,9 +1,11 @@
 import {
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type KeyboardEvent,
 } from "react";
+import { createPortal } from "react-dom";
 import type { MonitoringTask } from "~domain/monitoring.js";
 import type { TitleSuggestion } from "~io/api.js";
 import {
@@ -35,6 +37,7 @@ export function EditableTitle({ task }: EditableTitleProps) {
   const [suggestions, setSuggestions] = useState<readonly TitleSuggestion[]>([]);
   const [suggestError, setSuggestError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const sparkleRef = useRef<HTMLButtonElement>(null);
   const current = task.displayTitle ?? task.title;
 
   const handleSuggest = () => {
@@ -184,6 +187,7 @@ export function EditableTitle({ task }: EditableTitleProps) {
           </span>
           <Tooltip content="Suggest a better title with Claude" side="top">
             <button
+              ref={sparkleRef}
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
@@ -215,6 +219,7 @@ export function EditableTitle({ task }: EditableTitleProps) {
       </Tooltip>
       {showSuggestions && (
         <SuggestionsPopover
+          anchorRef={sparkleRef}
           loading={suggestMutation.isPending}
           error={suggestError}
           suggestions={suggestions}
@@ -232,6 +237,7 @@ export function EditableTitle({ task }: EditableTitleProps) {
 }
 
 function SuggestionsPopover({
+  anchorRef,
   loading,
   error,
   suggestions,
@@ -239,6 +245,7 @@ function SuggestionsPopover({
   onApply,
   onClose,
 }: {
+  readonly anchorRef: { readonly current: HTMLElement | null };
   readonly loading: boolean;
   readonly error: string | null;
   readonly suggestions: readonly TitleSuggestion[];
@@ -246,16 +253,53 @@ function SuggestionsPopover({
   readonly onApply: (title: string) => void;
   readonly onClose: () => void;
 }) {
-  return (
+  // Render into document.body so the sticky header / scroll viewport can't
+  // clip us, and position via fixed coords measured from the anchor button.
+  const [coords, setCoords] = useState<{ top: number; left: number } | null>(
+    null,
+  );
+
+  useLayoutEffect(() => {
+    const reposition = () => {
+      const node = anchorRef.current;
+      if (!node) {
+        setCoords(null);
+        return;
+      }
+      const rect = node.getBoundingClientRect();
+      setCoords({
+        top: rect.bottom + 8,
+        left: rect.left,
+      });
+    };
+    reposition();
+    window.addEventListener("scroll", reposition, true);
+    window.addEventListener("resize", reposition);
+    return () => {
+      window.removeEventListener("scroll", reposition, true);
+      window.removeEventListener("resize", reposition);
+    };
+  }, [anchorRef]);
+
+  useEffect(() => {
+    const handleKey = (e: globalThis.KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [onClose]);
+
+  if (!coords) return null;
+
+  return createPortal(
     <div
       role="dialog"
       aria-label="Title suggestions"
       style={{
-        position: "absolute",
-        top: "100%",
-        left: 0,
-        marginTop: 8,
-        zIndex: 20,
+        position: "fixed",
+        top: coords.top,
+        left: coords.left,
+        zIndex: 1000,
         maxWidth: 520,
         minWidth: 320,
         background: "var(--s1)",
@@ -368,7 +412,8 @@ function SuggestionsPopover({
           </li>
         ))}
       </ul>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
