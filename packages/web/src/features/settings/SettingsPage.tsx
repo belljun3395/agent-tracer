@@ -9,12 +9,21 @@ const SETTING_KEYS = {
   apiKey: "anthropic.api_key",
   model: "anthropic.model",
   maxRulesPerTask: "ruleGen.maxRulesPerTask",
+  outputLanguage: "claude.outputLanguage",
 } as const;
 
 const MODEL_OPTIONS: ReadonlyArray<{ value: string; label: string }> = [
   { value: "claude-sonnet-4-6", label: "Claude Sonnet 4.6 (balanced)" },
   { value: "claude-haiku-4-5", label: "Claude Haiku 4.5 (fast / cheap)" },
   { value: "claude-opus-4-7", label: "Claude Opus 4.7 (most capable)" },
+];
+
+const LANGUAGE_OPTIONS: ReadonlyArray<{ value: string; label: string }> = [
+  { value: "auto", label: "Auto — match the source text" },
+  { value: "ko", label: "Korean (한국어)" },
+  { value: "en", label: "English" },
+  { value: "ja", label: "Japanese (日本語)" },
+  { value: "zh", label: "Simplified Chinese (简体中文)" },
 ];
 
 /**
@@ -42,11 +51,14 @@ export function SettingsPage() {
   const [apiKeyDraft, setApiKeyDraft] = useState("");
   const [modelDraft, setModelDraft] = useState("");
   const [maxRulesDraft, setMaxRulesDraft] = useState("");
+  const [languageDraft, setLanguageDraft] = useState("");
   const [feedback, setFeedback] = useState<string | null>(null);
 
   const apiKey = settingsMap.get(SETTING_KEYS.apiKey);
   const model = settingsMap.get(SETTING_KEYS.model);
   const maxRules = settingsMap.get(SETTING_KEYS.maxRulesPerTask);
+  const language = settingsMap.get(SETTING_KEYS.outputLanguage);
+  const currentLanguage = language?.masked ?? "auto";
 
   async function save(key: string, value: string, draftSetter: (v: string) => void) {
     if (!value.trim()) {
@@ -310,6 +322,74 @@ export function SettingsPage() {
                   style={{ color: "var(--ink-muted)", textDecoration: "underline" }}
                 >
                   Clear
+                </button>
+              )}
+            </div>
+          </Row>
+
+          <Row
+            label="Output language"
+            help="Applies to Claude-generated text (title suggestions, future summaries). 'Auto' mirrors the language of the source task."
+          >
+            <div className="flex items-center gap-2">
+              <select
+                value={languageDraft || currentLanguage}
+                onChange={(e) => setLanguageDraft(e.target.value)}
+                className="px-2 py-1 text-sm"
+                style={{
+                  border: "1px solid var(--hair)",
+                  borderRadius: "var(--radius-xs)",
+                  background: "var(--canvas)",
+                  color: "var(--ink)",
+                }}
+              >
+                {LANGUAGE_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                disabled={
+                  !languageDraft.trim() ||
+                  languageDraft === currentLanguage ||
+                  putMutation.isPending
+                }
+                onClick={() =>
+                  void save(
+                    SETTING_KEYS.outputLanguage,
+                    languageDraft,
+                    setLanguageDraft,
+                  )
+                }
+                className="px-3 py-1 text-sm"
+                style={{
+                  border: "1px solid var(--hair)",
+                  borderRadius: "var(--radius-xs)",
+                  background: "var(--canvas)",
+                  color: "var(--ink)",
+                  opacity:
+                    !languageDraft.trim() ||
+                    languageDraft === currentLanguage ||
+                    putMutation.isPending
+                      ? 0.5
+                      : 1,
+                }}
+              >
+                Save
+              </button>
+              {language && (
+                <button
+                  type="button"
+                  onClick={() => void remove(SETTING_KEYS.outputLanguage)}
+                  className="text-xs"
+                  style={{
+                    color: "var(--ink-muted)",
+                    textDecoration: "underline",
+                  }}
+                >
+                  Reset to auto
                 </button>
               )}
             </div>

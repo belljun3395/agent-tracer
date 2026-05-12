@@ -3,6 +3,12 @@ export const APP_SETTING_KEYS = {
     anthropicModel: "anthropic.model",
     ruleGenMaxRulesPerTask: "ruleGen.maxRulesPerTask",
     taskCleanupMaxSuggestions: "taskCleanup.maxSuggestions",
+    /**
+     * Output language for SDK-generated summaries (title suggestions, rule
+     * rationales, etc). Values: "auto" (default — mirrors source text), "ko",
+     * "en", "ja", "zh".
+     */
+    claudeOutputLanguage: "claude.outputLanguage",
 } as const;
 
 export const SENSITIVE_SETTING_KEYS: ReadonlySet<string> = new Set([

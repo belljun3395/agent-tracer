@@ -1,7 +1,11 @@
 import { Injectable } from "@nestjs/common";
 import { query } from "@anthropic-ai/claude-agent-sdk";
 import type { TaskSummaryUseCaseDto } from "~work/task/application/dto/get.task.summary.usecase.dto.js";
-import { SYSTEM_PROMPT, buildUserPrompt } from "./title.suggestion.prompt.js";
+import {
+    buildSystemPrompt,
+    buildUserPrompt,
+    type SuggestionLanguage,
+} from "./title.suggestion.prompt.js";
 import {
     titleSuggestionsListSchema,
     type TitleSuggestion,
@@ -13,6 +17,7 @@ export interface GenerateTitleSuggestionsInput {
     readonly apiKey: string;
     readonly model?: string;
     readonly summary: TaskSummaryUseCaseDto;
+    readonly language?: SuggestionLanguage;
 }
 
 export interface GenerateTitleSuggestionsOutput {
@@ -27,7 +32,9 @@ export class TitleSuggestionAgent {
         input: GenerateTitleSuggestionsInput,
     ): Promise<GenerateTitleSuggestionsOutput> {
         const model = input.model?.trim() || DEFAULT_MODEL;
+        const language: SuggestionLanguage = input.language ?? "auto";
         const userPrompt = buildUserPrompt(input.summary);
+        const systemPrompt = buildSystemPrompt(language);
 
         const env: Record<string, string | undefined> = {
             ...process.env,
@@ -48,7 +55,7 @@ export class TitleSuggestionAgent {
                 allowedTools: [],
                 tools: [],
                 maxTurns: 1,
-                systemPrompt: SYSTEM_PROMPT,
+                systemPrompt,
                 env,
                 permissionMode: "bypassPermissions",
                 strictMcpConfig: true,

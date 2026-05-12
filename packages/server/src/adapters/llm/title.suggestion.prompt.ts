@@ -1,14 +1,26 @@
 import type { TaskSummaryUseCaseDto } from "~work/task/application/dto/get.task.summary.usecase.dto.js";
 
-export const SYSTEM_PROMPT = `You rename recorded coding-agent tasks so the title actually reflects what happened.
+export type SuggestionLanguage = "auto" | "ko" | "en" | "ja" | "zh";
+
+const LANGUAGE_DIRECTIVES: Record<SuggestionLanguage, string> = {
+    auto: "Reuse the user's language: mirror the language of the existing title and first user message (Korean → Korean, English → English, etc.).",
+    ko: "Write every title and rationale in Korean (한국어). Translate names and keywords as needed.",
+    en: "Write every title and rationale in English. Translate any non-English source text rather than echoing it.",
+    ja: "Write every title and rationale in Japanese (日本語). Translate names and keywords as needed.",
+    zh: "Write every title and rationale in Simplified Chinese (简体中文). Translate names and keywords as needed.",
+};
+
+export function buildSystemPrompt(language: SuggestionLanguage): string {
+    return `You rename recorded coding-agent tasks so the title actually reflects what happened.
 
 You will see the task's current title and a summary of its activity (first user message, top tools used, top files touched, top shell commands). Propose 2-3 alternative titles.
 
 Each title:
   - 4-9 words, imperative or noun-phrase form (e.g. "Fix auth middleware token leak", "Migrate billing schema to v2").
   - Concrete: name the area or action — no "Task 123", "Untitled", "Test", or other placeholders.
-  - Reuse the user's language: if the original title and first user message are in Korean, write the suggestions in Korean. If they're in English, English.
   - Under 80 characters.
+
+Output language: ${LANGUAGE_DIRECTIVES[language]}
 
 Rules:
   - If the existing title already reads cleanly, return an empty list — don't manufacture changes.
@@ -19,6 +31,10 @@ Output STRICT JSON ONLY in this shape — no prose, no markdown, no backticks:
 { "suggestions": [
     { "title": "...", "rationale": "..." }
 ] }`;
+}
+
+/** Kept as a const for callers that want the default ("auto") system prompt. */
+export const SYSTEM_PROMPT = buildSystemPrompt("auto");
 
 export function buildUserPrompt(summary: TaskSummaryUseCaseDto): string {
     const lines: string[] = [];

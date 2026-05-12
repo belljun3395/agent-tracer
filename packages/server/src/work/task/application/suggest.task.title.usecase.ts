@@ -1,11 +1,27 @@
 import { Injectable } from "@nestjs/common";
 import { TitleSuggestionAgent } from "~adapters/llm/title.suggestion.agent.js";
+import type { SuggestionLanguage } from "~adapters/llm/title.suggestion.prompt.js";
+import { APP_SETTING_KEYS } from "~governance/settings/domain/app.setting.keys.js";
 import { AppSettingService } from "~governance/settings/application/app.setting.service.js";
 import { GetTaskSummaryUseCase } from "./get.task.summary.usecase.js";
 import type {
     SuggestTaskTitleUseCaseIn,
     SuggestTaskTitleUseCaseOut,
 } from "./dto/suggest.task.title.usecase.dto.js";
+
+const SUPPORTED_LANGUAGES: ReadonlySet<SuggestionLanguage> = new Set([
+    "auto",
+    "ko",
+    "en",
+    "ja",
+    "zh",
+]);
+
+function normalizeLanguage(raw: string | null): SuggestionLanguage {
+    if (!raw) return "auto";
+    const trimmed = raw.trim().toLowerCase() as SuggestionLanguage;
+    return SUPPORTED_LANGUAGES.has(trimmed) ? trimmed : "auto";
+}
 
 export class MissingApiKeyError extends Error {
     constructor() {
@@ -32,11 +48,16 @@ export class SuggestTaskTitleUseCase {
         const apiKey = await this.settings.getAnthropicApiKey();
         if (!apiKey) throw new MissingApiKeyError();
         const modelOverride = await this.settings.getAnthropicModel();
+        const languageRaw = await this.settings.getRawValue(
+            APP_SETTING_KEYS.claudeOutputLanguage,
+        );
+        const language = normalizeLanguage(languageRaw);
 
         const output = await this.agent.generate({
             apiKey,
             ...(modelOverride ? { model: modelOverride } : {}),
             summary,
+            language,
         });
 
         return {
