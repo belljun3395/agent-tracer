@@ -184,12 +184,14 @@ export function EditableTitle({ task }: EditableTitleProps) {
           <span
             aria-hidden
             style={{
-              opacity: isSuggesting ? 0 : 0.55,
               color: "var(--ink-tertiary)",
               transition: "opacity 150ms",
-              display: isSuggesting ? "none" : undefined,
             }}
-            className="group-hover:opacity-100"
+            className={
+              isSuggesting
+                ? "hidden"
+                : "hidden group-hover:inline-flex group-focus-within:inline-flex items-center"
+            }
           >
             <PencilIcon />
           </span>
@@ -212,7 +214,6 @@ export function EditableTitle({ task }: EditableTitleProps) {
               aria-busy={isSuggesting}
               disabled={isSuggesting}
               style={{
-                display: "inline-flex",
                 alignItems: "center",
                 justifyContent: "center",
                 gap: 6,
@@ -227,16 +228,15 @@ export function EditableTitle({ task }: EditableTitleProps) {
                   : "transparent",
                 color: isSuggesting ? "var(--primary)" : "var(--ink-tertiary)",
                 cursor: isSuggesting ? "wait" : "pointer",
-                opacity: isSuggesting ? 1 : 0.55,
-                transition: "opacity 150ms, background 150ms, border-color 150ms",
+                transition: "background 150ms, border-color 150ms",
                 fontSize: 11.5,
                 fontWeight: 500,
                 whiteSpace: "nowrap",
               }}
               className={
                 isSuggesting
-                  ? ""
-                  : "group-hover:opacity-100 hover:!opacity-100"
+                  ? "inline-flex"
+                  : "hidden group-hover:inline-flex group-focus-within:inline-flex hover:bg-[var(--s2)]"
               }
             >
               <SparkleIcon spinning={isSuggesting} />
