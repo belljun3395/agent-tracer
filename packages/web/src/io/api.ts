@@ -458,6 +458,95 @@ export function fetchLatestGenerateRulesJob(
   );
 }
 
+export type CleanupSuggestionKind =
+  | "archive"
+  | "rename_title"
+  | "set_parent"
+  | "reslug";
+
+export type CleanupSuggestionStatus =
+  | "pending"
+  | "accepted"
+  | "dismissed"
+  | "failed";
+
+export interface CleanupSuggestion {
+  readonly id: string;
+  readonly jobId: string;
+  readonly taskId: TaskId;
+  readonly kind: CleanupSuggestionKind;
+  readonly currentValue: unknown;
+  readonly proposedValue: unknown;
+  readonly rationale: string;
+  readonly status: CleanupSuggestionStatus;
+  readonly error?: string;
+  readonly createdAt: string;
+  readonly resolvedAt?: string;
+}
+
+export interface CleanupSuggestionsResponse {
+  readonly suggestions: readonly CleanupSuggestion[];
+}
+
+export interface TaskCleanupJobStatus {
+  readonly id: string;
+  readonly status: "pending" | "processing" | "completed" | "failed";
+  readonly attempts: number;
+  readonly error: string | null;
+  readonly suggestionsCreated: number;
+  readonly tasksScanned: number;
+  readonly modelUsed: string | null;
+  readonly durationMs: number | null;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+  readonly startedAt: string | null;
+  readonly completedAt: string | null;
+}
+
+export interface TaskCleanupJobEnqueueResponse {
+  readonly jobId: string;
+  readonly status: "pending" | "processing" | "completed" | "failed";
+  readonly createdAt: string;
+}
+
+export function enqueueTaskCleanupScan(): Promise<TaskCleanupJobEnqueueResponse> {
+  return postJson<TaskCleanupJobEnqueueResponse>(
+    `/api/v1/task-cleanup/jobs`,
+  );
+}
+
+export function fetchLatestTaskCleanupJob(): Promise<{
+  job: TaskCleanupJobStatus | null;
+}> {
+  return getJson<{ job: TaskCleanupJobStatus | null }>(
+    `/api/v1/task-cleanup/jobs/latest`,
+  );
+}
+
+export function fetchTaskCleanupSuggestions(
+  status: "pending" | "all" = "pending",
+): Promise<CleanupSuggestionsResponse> {
+  return getJson<CleanupSuggestionsResponse>(
+    `/api/v1/task-cleanup/suggestions?status=${status}`,
+  );
+}
+
+export function acceptTaskCleanupSuggestion(
+  suggestionId: string,
+): Promise<{ status: string }> {
+  return postJson<{ status: string }>(
+    `/api/v1/task-cleanup/suggestions/${encodeURIComponent(suggestionId)}/accept`,
+  );
+}
+
+export function dismissTaskCleanupSuggestion(
+  suggestionId: string,
+): Promise<{ status: string }> {
+  return postJson<{ status: string }>(
+    `/api/v1/task-cleanup/suggestions/${encodeURIComponent(suggestionId)}/dismiss`,
+  );
+}
+
 export interface AppSettingItem {
   readonly key: string;
   readonly maskedValue: string;

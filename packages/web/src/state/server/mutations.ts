@@ -6,13 +6,16 @@ import type {
 } from "~domain/task-query-contracts.js";
 import type { RuleCreateInput, RuleUpdateInput } from "~domain/rule.js";
 import {
+  acceptTaskCleanupSuggestion,
   archiveTask,
   createRule,
   demoteRule,
   deleteAppSetting,
   deleteRule,
   deleteTask,
+  dismissTaskCleanupSuggestion,
   enqueueGenerateRules,
+  enqueueTaskCleanupScan,
   promoteRule,
   putAppSetting,
   reEvaluateRule,
@@ -328,6 +331,49 @@ export function useReEvaluateRuleMutation() {
       } else {
         void queryClient.invalidateQueries({ queryKey: ["monitor", "task"] });
       }
+    },
+  });
+}
+
+export function useEnqueueTaskCleanupScanMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: enqueueTaskCleanupScan,
+    onSettled: () => {
+      void queryClient.invalidateQueries({
+        queryKey: monitorQueryKeys.taskCleanupLatestJob(),
+      });
+      void queryClient.invalidateQueries({
+        queryKey: monitorQueryKeys.taskCleanupSuggestionsPrefix(),
+      });
+    },
+  });
+}
+
+export function useAcceptCleanupSuggestionMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (suggestionId: string) => acceptTaskCleanupSuggestion(suggestionId),
+    onSettled: () => {
+      void queryClient.invalidateQueries({
+        queryKey: monitorQueryKeys.taskCleanupSuggestionsPrefix(),
+      });
+      // Applying a suggestion mutates the underlying task — refresh task lists too.
+      void queryClient.invalidateQueries({
+        queryKey: monitorQueryKeys.tasksPrefix(),
+      });
+    },
+  });
+}
+
+export function useDismissCleanupSuggestionMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (suggestionId: string) => dismissTaskCleanupSuggestion(suggestionId),
+    onSettled: () => {
+      void queryClient.invalidateQueries({
+        queryKey: monitorQueryKeys.taskCleanupSuggestionsPrefix(),
+      });
     },
   });
 }

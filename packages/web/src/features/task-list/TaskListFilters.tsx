@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   useSetShowArchived,
   useShowArchived,
@@ -6,6 +7,8 @@ import {
   type SidebarFilter,
 } from "~state/ui/index.js";
 import { cn } from "~lib/cn.js";
+import { TaskCleanupModal } from "~features/task-cleanup/TaskCleanupModal.js";
+import { useTaskCleanupSuggestionsQuery } from "~state/server/queries.js";
 
 interface TaskListFiltersProps {
   readonly counts: Readonly<Record<SidebarFilter, number>>;
@@ -34,31 +37,37 @@ export function TaskListFilters({
   const setFilter = useSetSidebarFilter();
   const showArchived = useShowArchived();
   const setShowArchived = useSetShowArchived();
+  const [cleanupOpen, setCleanupOpen] = useState(false);
+  const cleanupSuggestions = useTaskCleanupSuggestionsQuery("pending");
+  const pendingCount = cleanupSuggestions.data?.suggestions.length ?? 0;
 
   if (showArchived) {
     return (
-      <div
-        className="flex items-center justify-between gap-2 px-2.5 pb-1.5 border-b border-[var(--hair)]"
-        style={{ fontSize: 11.5 }}
-      >
-        <span
-          className="inline-flex items-center gap-1.5"
-          style={{ color: "var(--ink-subtle)" }}
+      <>
+        <div
+          className="flex items-center justify-between gap-2 px-2.5 pb-1.5 border-b border-[var(--hair)]"
+          style={{ fontSize: 11.5 }}
         >
-          <ArchiveGlyph />
-          <span>
-            Archived <span style={{ color: "var(--ink-tertiary)" }}>({counts.all})</span>
+          <span
+            className="inline-flex items-center gap-1.5"
+            style={{ color: "var(--ink-subtle)" }}
+          >
+            <ArchiveGlyph />
+            <span>
+              Archived <span style={{ color: "var(--ink-tertiary)" }}>({counts.all})</span>
+            </span>
           </span>
-        </span>
-        <button
-          type="button"
-          onClick={() => setShowArchived(false)}
-          className="rounded-[var(--radius-sm)] px-[9px] py-[5px] text-[11.5px] font-medium hover:bg-[var(--s1)]"
-          style={{ color: "var(--ink-subtle)" }}
-        >
-          Back to active
-        </button>
-      </div>
+          <button
+            type="button"
+            onClick={() => setShowArchived(false)}
+            className="rounded-[var(--radius-sm)] px-[9px] py-[5px] text-[11.5px] font-medium hover:bg-[var(--s1)]"
+            style={{ color: "var(--ink-subtle)" }}
+          >
+            Back to active
+          </button>
+        </div>
+        <TaskCleanupModal open={cleanupOpen} onClose={() => setCleanupOpen(false)} />
+      </>
     );
   }
 
@@ -108,8 +117,12 @@ export function TaskListFilters({
       )}
       <button
         type="button"
-        onClick={() => setShowArchived(true)}
-        title="Show archived tasks"
+        onClick={() => setCleanupOpen(true)}
+        title={
+          pendingCount > 0
+            ? `${pendingCount} cleanup suggestion${pendingCount === 1 ? "" : "s"} pending`
+            : "Open task cleanup"
+        }
         className={cn(
           "inline-flex items-center gap-[5px] rounded-[var(--radius-sm)]",
           "px-[9px] py-[5px] text-[11.5px] font-medium",
@@ -117,10 +130,53 @@ export function TaskListFilters({
           uniformRuntime ? "" : "ml-auto",
         )}
       >
+        <CleanupGlyph />
+        Cleanup
+        {pendingCount > 0 && (
+          <span
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 10,
+              color: "var(--primary)",
+            }}
+          >
+            {pendingCount}
+          </span>
+        )}
+      </button>
+      <button
+        type="button"
+        onClick={() => setShowArchived(true)}
+        title="Show archived tasks"
+        className={cn(
+          "inline-flex items-center gap-[5px] rounded-[var(--radius-sm)]",
+          "px-[9px] py-[5px] text-[11.5px] font-medium",
+          "text-[var(--ink-subtle)] hover:text-[var(--ink)]",
+        )}
+      >
         <ArchiveGlyph />
         Archived
       </button>
+      <TaskCleanupModal open={cleanupOpen} onClose={() => setCleanupOpen(false)} />
     </div>
+  );
+}
+
+function CleanupGlyph() {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M5 4l2 4 4 2-4 2-2 4-2-4-4-2 4-2zM17 13l1 2 2 1-2 1-1 2-1-2-2-1 2-1z" />
+    </svg>
   );
 }
 

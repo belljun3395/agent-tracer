@@ -9,16 +9,20 @@ import type {
 import {
   fetchAppSettings,
   fetchLatestGenerateRulesJob,
+  fetchLatestTaskCleanupJob,
   fetchRuleEvidence,
   fetchRules,
   fetchSearch,
+  fetchTaskCleanupSuggestions,
   fetchTaskDetail,
   fetchTaskOpenInference,
   fetchTaskRules,
   fetchTasks,
   type AppSettingsListResponse,
+  type CleanupSuggestionsResponse,
   type GenerateRulesJobStatus,
   type RuleEvidenceResponse,
+  type TaskCleanupJobStatus,
   type TasksArchivedScope,
 } from "~io/api.js";
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
@@ -152,6 +156,29 @@ export function useLatestGenerateRulesJobQuery(
       const status = q.state.data?.job?.status;
       return status === "pending" || status === "processing" ? 1500 : false;
     },
+  });
+}
+
+export function useLatestTaskCleanupJobQuery(
+  options?: { readonly enabled?: boolean },
+): UseQueryResult<{ job: TaskCleanupJobStatus | null }> {
+  return useQuery({
+    queryKey: monitorQueryKeys.taskCleanupLatestJob(),
+    queryFn: fetchLatestTaskCleanupJob,
+    enabled: options?.enabled ?? true,
+    refetchInterval: (q) => {
+      const status = q.state.data?.job?.status;
+      return status === "pending" || status === "processing" ? 1500 : false;
+    },
+  });
+}
+
+export function useTaskCleanupSuggestionsQuery(
+  status: "pending" | "all" = "pending",
+): UseQueryResult<CleanupSuggestionsResponse> {
+  return useQuery({
+    queryKey: monitorQueryKeys.taskCleanupSuggestions(status),
+    queryFn: () => fetchTaskCleanupSuggestions(status),
   });
 }
 

@@ -32,6 +32,12 @@ export const monitorQueryKeys = {
   settings: () => ["monitor", "settings"] as const,
   ruleEvidence: (taskId: TaskId, ruleId: string) =>
     ["monitor", "task", taskId, "rule", ruleId, "evidence"] as const,
+  taskCleanupSuggestions: (status: "pending" | "all" = "pending") =>
+    ["monitor", "task-cleanup", "suggestions", status] as const,
+  taskCleanupSuggestionsPrefix: () =>
+    ["monitor", "task-cleanup", "suggestions"] as const,
+  taskCleanupLatestJob: () =>
+    ["monitor", "task-cleanup", "job", "latest"] as const,
 } as const;
 
 export type MonitorQueryKey =
@@ -44,4 +50,6 @@ export type MonitorQueryKey =
   | ReturnType<typeof monitorQueryKeys.search>
   | ReturnType<typeof monitorQueryKeys.verdictCounts>
   | ReturnType<typeof monitorQueryKeys.settings>
-  | ReturnType<typeof monitorQueryKeys.ruleEvidence>;
+  | ReturnType<typeof monitorQueryKeys.ruleEvidence>
+  | ReturnType<typeof monitorQueryKeys.taskCleanupSuggestions>
+  | ReturnType<typeof monitorQueryKeys.taskCleanupLatestJob>;
