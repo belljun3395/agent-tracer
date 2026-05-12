@@ -113,6 +113,13 @@ export function GraphView({ events, turns = [], taskStatus }: GraphViewProps) {
   // line along the lane center stacks visually into a barcode of
   // overlapping strokes whenever events bunch up. Cross-lane edges
   // are the meaningful ones (PLAN → IMPL handoffs, subagent spawns).
+  //
+  // Additionally: causal-chain edges (consecutive-in-time pairs) that
+  // span more than ~20% of the timeline read as long horizontal lines
+  // crossing the canvas — visual noise without a real causality claim.
+  // Drop those; keep explicit (metadata-declared) parents regardless of
+  // distance because they carry an intentional signal.
+  const CAUSAL_MAX_X_SPAN = 20;
   const edges = useMemo(() => {
     const all = buildFeedEdges(events, turns);
     const byId = new Map(nodes.map((n) => [n.id, n]));
@@ -122,6 +129,10 @@ export function GraphView({ events, turns = [], taskStatus }: GraphViewProps) {
       const from = byId.get(e.fromEventId);
       const to = byId.get(e.toEventId);
       if (from && to && from.laneIdx === to.laneIdx) return false;
+      if (e.kind === "causal" && from && to) {
+        const xSpan = Math.abs(from.leftPercent - to.leftPercent);
+        if (xSpan > CAUSAL_MAX_X_SPAN) return false;
+      }
       return true;
     });
   }, [events, turns, visibleNodeIds, nodes]);

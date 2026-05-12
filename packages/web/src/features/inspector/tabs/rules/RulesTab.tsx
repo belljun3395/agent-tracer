@@ -1,16 +1,23 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import type { RuleRecord } from "~domain/rule.js";
 import type { TaskId } from "~domain/monitoring.js";
 import {
+  useAppSettingsQuery,
+  useLatestGenerateRulesJobQuery,
   useTaskDetailQuery,
   useTaskRulesQuery,
 } from "~state/server/queries.js";
+import { useEnqueueGenerateRulesMutation } from "~state/server/mutations.js";
 import { useSelectedTaskId } from "~state/ui/index.js";
 import { EmptyView } from "~features/shell/index.js";
 import { Modal } from "~ui/index.js";
+import { monitorQueryKeys } from "~state/server/queryKeys.js";
 import { countRuleMatches } from "./lib/rule-matches.js";
 import { RuleRow } from "./RuleRow.js";
 import { RuleForm } from "./RuleForm.js";
+
+const API_KEY_SETTING = "anthropic.api_key";
 
 /**
  * Rules tab — split into two sections:
@@ -71,6 +78,11 @@ export function RulesTab() {
     <div className="px-4 py-4 flex flex-col gap-5">
       <Header onCreate={handleCreate} />
 
+      <GenerateRulesPanel
+        taskId={taskId}
+        taskStatus={detailQ.data?.task.status ?? null}
+      />
+
       {totalRules === 0 ? (
         <EmptyView
           eyebrow="Empty"
@@ -115,6 +127,191 @@ export function RulesTab() {
           onClose={handleClose}
         />
       </Modal>
+    </div>
+  );
+}
+
+interface GenerateRulesPanelProps {
+  readonly taskId: TaskId;
+  readonly taskStatus: string | null;
+}
+
+function GenerateRulesPanel({ taskId, taskStatus }: GenerateRulesPanelProps) {
+  const queryClient = useQueryClient();
+  const settingsQ = useAppSettingsQuery();
+  const jobQ = useLatestGenerateRulesJobQuery(taskId);
+  const enqueueMutation = useEnqueueGenerateRulesMutation();
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const apiKeyConfigured = useMemo(() => {
+    return (settingsQ.data?.settings ?? []).some((s) => s.key === API_KEY_SETTING);
+  }, [settingsQ.data]);
+
+  const isTaskCompleted = taskStatus === "completed";
+  const settingsLoaded = !settingsQ.isLoading;
+  const job = jobQ.data?.job ?? null;
+  const isInFlight = job?.status === "pending" || job?.status === "processing";
+  const wasJustCompleted = job?.status === "completed";
+
+  useEffect(() => {
+    if (wasJustCompleted && (job?.rulesCreated ?? 0) > 0) {
+      void queryClient.invalidateQueries({
+        queryKey: monitorQueryKeys.taskRules(taskId),
+      });
+      void queryClient.invalidateQueries({ queryKey: monitorQueryKeys.rules() });
+    }
+  }, [wasJustCompleted, job?.rulesCreated, queryClient, taskId]);
+
+  const onGenerate = async () => {
+    setErrorMessage(null);
+    try {
+      await enqueueMutation.mutateAsync(taskId);
+      void jobQ.refetch();
+    } catch (err) {
+      setErrorMessage((err as Error).message);
+    }
+  };
+
+  // Button is disabled only when we know API key is missing or generation is
+  // already running. Task status is informational — generation works on
+  // in-progress tasks too, but the timeline may be incomplete (we surface
+  // that as a warning, not a hard block).
+  const disabled = !settingsLoaded || !apiKeyConfigured || isInFlight;
+  const blockingReason = !settingsLoaded
+    ? "Loading settings…"
+    : !apiKeyConfigured
+      ? "Configure an Anthropic API key in Settings to enable."
+      : isInFlight
+        ? "Generation already in progress."
+        : null;
+  const warningReason =
+    !blockingReason && !isTaskCompleted
+      ? `Task status is "${taskStatus ?? "unknown"}" — the timeline may be incomplete.`
+      : null;
+
+  return (
+    <div
+      style={{
+        border: "1px dashed var(--hair)",
+        borderRadius: "var(--radius-sm)",
+        padding: "12px",
+        background: "var(--s1)",
+      }}
+    >
+      <div className="flex items-start gap-2">
+        <div className="flex-1 min-w-0">
+          <p
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 10,
+              textTransform: "uppercase",
+              letterSpacing: "0.1em",
+              color: "var(--ink-tertiary)",
+              margin: 0,
+            }}
+          >
+            Auto-generate
+          </p>
+          <p
+            style={{
+              margin: "4px 0 0",
+              fontSize: 12,
+              color: "var(--ink-muted)",
+              lineHeight: 1.4,
+            }}
+          >
+            Run a Claude Agent SDK pass over this task's workspace and timeline
+            to propose verification rules. Generated rules are saved as
+            <code style={{ margin: "0 4px" }}>source=agent</code>
+            with
+            <code style={{ margin: "0 4px" }}>severity=info</code>.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => void onGenerate()}
+          disabled={disabled}
+          title={blockingReason ?? (warningReason ?? "")}
+          style={{
+            padding: "5px 10px",
+            fontSize: 12,
+            fontWeight: 500,
+            color: disabled ? "var(--ink-tertiary)" : "var(--canvas)",
+            background: disabled ? "var(--s2)" : "var(--ink)",
+            border: "1px solid var(--hair)",
+            borderRadius: "var(--radius-xs)",
+            cursor: disabled ? "not-allowed" : "pointer",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {isInFlight ? "Generating…" : "Generate rules"}
+        </button>
+      </div>
+      {blockingReason && (
+        <p
+          style={{
+            margin: "8px 0 0",
+            fontSize: 11,
+            color: "var(--ink-tertiary)",
+          }}
+        >
+          {blockingReason}
+          {!apiKeyConfigured && settingsLoaded && (
+            <>
+              {" "}
+              <a
+                href="/settings"
+                style={{ color: "var(--ink-muted)", textDecoration: "underline" }}
+              >
+                Open Settings →
+              </a>
+            </>
+          )}
+        </p>
+      )}
+      {warningReason && (
+        <p
+          style={{
+            margin: "8px 0 0",
+            fontSize: 11,
+            color: "var(--warn, #b58900)",
+          }}
+        >
+          ⚠ {warningReason}
+        </p>
+      )}
+      {job && (
+        <p
+          style={{
+            margin: "8px 0 0",
+            fontSize: 11,
+            color:
+              job.status === "failed"
+                ? "var(--danger, #ff8585)"
+                : "var(--ink-tertiary)",
+          }}
+        >
+          Last run: {job.status}
+          {job.status === "completed" &&
+            ` · ${job.rulesCreated} rules created (${
+              job.modelUsed ?? "model unknown"
+            }, ${
+              job.durationMs != null ? `${Math.round(job.durationMs / 100) / 10}s` : "n/a"
+            })`}
+          {job.status === "failed" && job.error && ` · ${job.error}`}
+        </p>
+      )}
+      {errorMessage && (
+        <p
+          style={{
+            margin: "8px 0 0",
+            fontSize: 11,
+            color: "var(--danger, #ff8585)",
+          }}
+        >
+          {errorMessage}
+        </p>
+      )}
     </div>
   );
 }

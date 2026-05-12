@@ -1,25 +1,28 @@
 import { Module, type DynamicModule } from "@nestjs/common";
 import { RuleModule } from "./rule/rule.module.js";
+import { RuleGenerationModule } from "./rule-generation/rule-generation.module.js";
+import { SettingsModule } from "./settings/settings.module.js";
 import { VerificationModule } from "./verification/verification.module.js";
 
 /**
- * Governance bounded context — composes the rule and verification
- * sub-packages into a single Nest module. Tight bidirectional coupling
- * (rule → verification iservices for invalidation; verification → rule
- * predicates/types) is now intra-module.
- *
- * Public surface continues to live under each sub-package's `public/` —
- * external modules import through `~governance/rule/public/...` /
- * `~governance/verification/public/...` directly.
+ * Governance bounded context — composes the rule, verification, settings,
+ * and rule-generation sub-packages into a single Nest module.
  */
 @Module({})
 export class GovernanceModule {
     static register(databaseModule: DynamicModule): DynamicModule {
         const verificationModule = VerificationModule.register(databaseModule);
         const ruleModule = RuleModule.register(databaseModule, verificationModule);
+        const settingsModule = SettingsModule.register(databaseModule);
+        const ruleGenerationModule = RuleGenerationModule.register(databaseModule);
         return {
             module: GovernanceModule,
-            imports: [verificationModule, ruleModule],
+            imports: [
+                verificationModule,
+                ruleModule,
+                settingsModule,
+                ruleGenerationModule,
+            ],
         };
     }
 }

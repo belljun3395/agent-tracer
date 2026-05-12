@@ -7,12 +7,16 @@ import type {
   TasksResponse,
 } from "~domain/task-query-contracts.js";
 import {
+  fetchAppSettings,
+  fetchLatestGenerateRulesJob,
   fetchRules,
   fetchSearch,
   fetchTaskDetail,
   fetchTaskOpenInference,
   fetchTaskRules,
   fetchTasks,
+  type AppSettingsListResponse,
+  type GenerateRulesJobStatus,
 } from "~io/api.js";
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 
@@ -93,6 +97,35 @@ export function useTaskRulesQuery(
  * Pass an already-debounced query string from the call-site — see
  * `useDebouncedValue`.
  */
+export function useAppSettingsQuery(): UseQueryResult<AppSettingsListResponse> {
+  return useQuery({
+    queryKey: monitorQueryKeys.settings(),
+    queryFn: fetchAppSettings,
+  });
+}
+
+export function useLatestGenerateRulesJobQuery(
+  taskId: TaskId | null,
+  options?: { readonly enabled?: boolean },
+): UseQueryResult<{ job: GenerateRulesJobStatus | null }> {
+  return useQuery({
+    queryKey: taskId
+      ? ["monitor", "task", taskId, "generate-rules-latest"]
+      : ["monitor", "task", "__disabled__", "generate-rules-latest"],
+    queryFn: () => {
+      if (!taskId) {
+        throw new Error("useLatestGenerateRulesJobQuery called without a taskId");
+      }
+      return fetchLatestGenerateRulesJob(taskId);
+    },
+    enabled: taskId !== null && (options?.enabled ?? true),
+    refetchInterval: (q) => {
+      const status = q.state.data?.job?.status;
+      return status === "pending" || status === "processing" ? 1500 : false;
+    },
+  });
+}
+
 export function useSearchQuery(
   query: string,
   options?: { readonly taskId?: TaskId; readonly limit?: number },

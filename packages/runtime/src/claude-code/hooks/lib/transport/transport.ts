@@ -24,11 +24,12 @@ export async function ensureRuntimeSession(
 ): Promise<RuntimeSessionEnsureResult> {
     const transportConfig = resolveMonitorTransportConfig();
     const taskId = opts?.taskId ?? transportConfig.taskIdOverride;
+    const effectiveTitle = transportConfig.taskTitleOverride ?? title;
     return postJson<RuntimeSessionEnsureResult>("/ingest/v1/sessions/ensure", {
         ...(taskId ? {taskId} : {}),
         runtimeSource: CLAUDE_RUNTIME_SOURCE,
         runtimeSessionId,
-        title,
+        title: effectiveTitle,
         workspacePath: PROJECT_DIR,
         ...(opts?.parentTaskId ? {parentTaskId: opts.parentTaskId} : {}),
         ...(opts?.parentSessionId ? {parentSessionId: opts.parentSessionId} : {}),

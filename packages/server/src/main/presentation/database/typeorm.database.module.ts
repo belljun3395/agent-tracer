@@ -10,6 +10,8 @@ import { CreateVerificationSchema1700000005000 } from "~main/migrations/17000000
 import { CreateTurnPartitionSchema1700000006000 } from "~main/migrations/1700000006000-create-turn-partition-schema.js";
 import { PurgeCompletedJobs1700000007000 } from "~main/migrations/1700000007000-purge-completed-jobs.js";
 import { CreateSearchFts51700000008000 } from "~main/migrations/1700000008000-create-search-fts5.js";
+import { CreateAppSettingsSchema1700000009000 } from "~main/migrations/1700000009000-create-app-settings-schema.js";
+import { CreateTaskRuleGenerationJobsSchema1700000010000 } from "~main/migrations/1700000010000-create-task-rule-generation-jobs-schema.js";
 
 export interface TypeOrmDatabaseModuleOptions {
     readonly databasePath: string;
@@ -49,6 +51,8 @@ export class TypeOrmDatabaseModule {
                             CreateTurnPartitionSchema1700000006000,
                             PurgeCompletedJobs1700000007000,
                             CreateSearchFts51700000008000,
+                            CreateAppSettingsSchema1700000009000,
+                            CreateTaskRuleGenerationJobsSchema1700000010000,
                         ],
                         migrationsRun: true,
                     }),

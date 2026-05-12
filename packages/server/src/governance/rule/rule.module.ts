@@ -2,6 +2,7 @@ import { Module, type DynamicModule } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { RULE_REPOSITORY_TOKEN } from "./public/tokens.js";
 import { RuleCommandController } from "./api/rule.command.controller.js";
+import { RuleIngestController } from "./api/rule.ingest.controller.js";
 import { RuleQueryController } from "./api/rule.query.controller.js";
 import { TaskRulesQueryController } from "./api/task.rules.query.controller.js";
 import { CreateRuleUseCase } from "./application/create.rule.usecase.js";
@@ -71,7 +72,12 @@ export class RuleModule {
                 databaseModule,
                 verificationModule,
             ],
-            controllers: [RuleCommandController, RuleQueryController, TaskRulesQueryController],
+            controllers: [
+                RuleCommandController,
+                RuleIngestController,
+                RuleQueryController,
+                TaskRulesQueryController,
+            ],
             providers: [
                 RuleRepository,
                 // Remap legacy RULE_REPOSITORY_TOKEN to the TypeORM repo so
@@ -110,7 +116,14 @@ export class RuleModule {
                 { provide: CLOCK_PORT, useExisting: SystemClockAdapter },
                 { provide: ID_GENERATOR_PORT, useExisting: CryptoIdGeneratorAdapter },
             ],
-            exports: [RULE_READ, RULE_WRITE, RULE_SIGNATURE_QUERY, RULE_REPOSITORY_TOKEN],
+            exports: [
+                RULE_READ,
+                RULE_WRITE,
+                RULE_SIGNATURE_QUERY,
+                RULE_REPOSITORY_TOKEN,
+                ListRulesUseCase,
+                RegisterSuggestionUseCase,
+            ],
         };
     }
 }

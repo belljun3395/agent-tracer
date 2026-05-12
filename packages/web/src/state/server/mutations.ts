@@ -7,15 +7,45 @@ import type {
 import type { RuleCreateInput, RuleUpdateInput } from "~domain/rule.js";
 import {
   createRule,
+  deleteAppSetting,
   deleteRule,
   deleteTask,
+  enqueueGenerateRules,
   promoteRule,
+  putAppSetting,
   reEvaluateRule,
   updateRule,
   updateTask,
   type UpdateTaskBody,
 } from "~io/api.js";
 import { monitorQueryKeys } from "./queryKeys.js";
+
+export function useEnqueueGenerateRulesMutation() {
+  return useMutation({
+    mutationFn: (taskId: TaskId) => enqueueGenerateRules(taskId),
+  });
+}
+
+export function usePutAppSettingMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ key, value }: { key: string; value: string }) =>
+      putAppSetting(key, value),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: monitorQueryKeys.settings() });
+    },
+  });
+}
+
+export function useDeleteAppSettingMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (key: string) => deleteAppSetting(key),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: monitorQueryKeys.settings() });
+    },
+  });
+}
 
 /**
  * Delete a task by id.

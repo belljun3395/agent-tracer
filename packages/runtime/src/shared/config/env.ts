@@ -10,6 +10,7 @@ export interface MonitorTransportConfig {
     readonly baseUrl: string;
     readonly requestTimeoutMs: number;
     readonly taskIdOverride: string | undefined;
+    readonly taskTitleOverride: string | undefined;
 }
 
 export interface RuntimeLoggingConfig {
@@ -28,10 +29,12 @@ export function resolveMonitorTransportConfig(
     env: NodeJS.ProcessEnv = process.env,
 ): MonitorTransportConfig {
     const taskIdOverride = (env.MONITOR_TASK_ID ?? "").trim();
+    const taskTitleOverride = (env.MONITOR_TASK_TITLE ?? "").trim();
     return {
         baseUrl: resolveMonitorBaseUrl(env),
         requestTimeoutMs: 2000,
         taskIdOverride: taskIdOverride || undefined,
+        taskTitleOverride: taskTitleOverride || undefined,
     };
 }
 

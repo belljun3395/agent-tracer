@@ -11,6 +11,7 @@ import { GetDefaultWorkspacePathUseCase } from "./application/get.default.worksp
 import { GetOverviewUseCase } from "./application/get.overview.usecase.js";
 import { GetTaskLatestRuntimeSessionUseCase } from "./application/get.task.latest.runtime.session.usecase.js";
 import { GetTaskOpenInferenceUseCase } from "./application/get.task.open.inference.usecase.js";
+import { GetTaskSummaryUseCase } from "./application/get.task.summary.usecase.js";
 import { GetTaskTimelineUseCase } from "./application/get.task.timeline.usecase.js";
 import { GetTaskTurnsUseCase } from "./application/get.task.turns.usecase.js";
 import { GetTaskUseCase } from "./application/get.task.usecase.js";
@@ -110,6 +111,7 @@ export class TaskModule {
                 ListTasksUseCase,
                 GetTaskUseCase,
                 GetTaskTimelineUseCase,
+                GetTaskSummaryUseCase,
                 GetTaskTurnsUseCase,
                 GetTaskLatestRuntimeSessionUseCase,
                 GetTaskOpenInferenceUseCase,
@@ -129,7 +131,12 @@ export class TaskModule {
                 { provide: CLOCK_PORT, useExisting: SystemClockAdapter },
                 { provide: ID_GENERATOR_PORT, useExisting: CryptoIdGeneratorAdapter },
             ],
-            exports: [TASK_LIFECYCLE, TASK_ACCESS, TASK_SNAPSHOT_QUERY],
+            exports: [
+                TASK_LIFECYCLE,
+                TASK_ACCESS,
+                TASK_SNAPSHOT_QUERY,
+                GetTaskSummaryUseCase,
+            ],
         };
     }
 }

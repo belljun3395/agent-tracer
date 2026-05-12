@@ -1,8 +1,11 @@
-import { Body, Controller, HttpCode, HttpStatus, Post } from "@nestjs/common";
+import { Body, Controller, Get, HttpCode, HttpStatus, NotFoundException, Param, Post } from "@nestjs/common";
+import { pathParamPipe } from "~adapters/http/shared/path-param.pipe.js";
 import { ZodValidationPipe } from "~adapters/http/shared/zod-validation.pipe.js";
 import { CompleteTaskUseCase } from "../application/complete.task.usecase.js";
 import { ErrorTaskUseCase } from "../application/error.task.usecase.js";
+import { GetTaskSummaryUseCase } from "../application/get.task.summary.usecase.js";
 import { LinkTaskUseCase } from "../application/link.task.usecase.js";
+import { ListTasksUseCase } from "../application/list.tasks.usecase.js";
 import { StartTaskUseCase } from "../application/start.task.usecase.js";
 import type { CompleteTaskUseCaseIn } from "../application/dto/complete.task.usecase.dto.js";
 import type { ErrorTaskUseCaseIn } from "../application/dto/error.task.usecase.dto.js";
@@ -22,6 +25,8 @@ export class TaskIngestController {
         private readonly completeTask: CompleteTaskUseCase,
         private readonly errorTask: ErrorTaskUseCase,
         private readonly linkTask: LinkTaskUseCase,
+        private readonly listTasks: ListTasksUseCase,
+        private readonly getTaskSummary: GetTaskSummaryUseCase,
     ) {}
 
     @Post("start")
@@ -47,5 +52,17 @@ export class TaskIngestController {
     @HttpCode(HttpStatus.OK)
     async taskError(@Body(new ZodValidationPipe(taskErrorSchema)) body: ErrorTaskUseCaseIn) {
         return this.errorTask.execute(body);
+    }
+
+    @Get()
+    async listTasksEndpoint() {
+        return this.listTasks.execute({});
+    }
+
+    @Get(":taskId/summary")
+    async taskSummary(@Param("taskId", pathParamPipe) taskId: string) {
+        const { summary } = await this.getTaskSummary.execute({ taskId });
+        if (!summary) throw new NotFoundException("Task not found");
+        return { summary };
     }
 }

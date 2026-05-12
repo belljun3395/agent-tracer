@@ -26,6 +26,7 @@ export const monitorQueryKeys = {
     ],
   verdictCounts: (taskId: TaskId) =>
     ["monitor", "task", taskId, "verdict-counts"] as const,
+  settings: () => ["monitor", "settings"] as const,
 } as const;
 
 export type MonitorQueryKey =
@@ -36,4 +37,5 @@ export type MonitorQueryKey =
   | ReturnType<typeof monitorQueryKeys.rules>
   | ReturnType<typeof monitorQueryKeys.taskRules>
   | ReturnType<typeof monitorQueryKeys.search>
-  | ReturnType<typeof monitorQueryKeys.verdictCounts>;
+  | ReturnType<typeof monitorQueryKeys.verdictCounts>
+  | ReturnType<typeof monitorQueryKeys.settings>;

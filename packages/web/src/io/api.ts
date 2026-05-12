@@ -351,6 +351,100 @@ export function fetchSearch(
   return getJson<SearchResponse>(`/api/v1/search?${params.toString()}`);
 }
 
+export interface GenerateRulesJobResponse {
+  readonly jobId: string;
+  readonly status: "pending" | "processing" | "completed" | "failed";
+  readonly taskId: string;
+  readonly createdAt: string;
+}
+
+export interface GenerateRulesJobStatus {
+  readonly id: string;
+  readonly status: "pending" | "processing" | "completed" | "failed";
+  readonly attempts: number;
+  readonly error: string | null;
+  readonly rulesCreated: number;
+  readonly modelUsed: string | null;
+  readonly durationMs: number | null;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+  readonly startedAt: string | null;
+  readonly completedAt: string | null;
+}
+
+export function enqueueGenerateRules(
+  taskId: TaskId,
+): Promise<GenerateRulesJobResponse> {
+  return postJson<GenerateRulesJobResponse>(
+    `/api/v1/tasks/${taskId}/generate-rules`,
+  );
+}
+
+export function fetchLatestGenerateRulesJob(
+  taskId: TaskId,
+): Promise<{ job: GenerateRulesJobStatus | null }> {
+  return getJson<{ job: GenerateRulesJobStatus | null }>(
+    `/api/v1/tasks/${taskId}/generate-rules/latest`,
+  );
+}
+
+export interface AppSettingItem {
+  readonly key: string;
+  readonly maskedValue: string;
+  readonly hasValue: true;
+  readonly updatedAt: string;
+}
+
+export interface AppSettingsListResponse {
+  readonly settings: readonly AppSettingItem[];
+}
+
+export interface AppSettingUpsertResponse {
+  readonly setting: AppSettingItem;
+}
+
+export function fetchAppSettings(): Promise<AppSettingsListResponse> {
+  return getJson<AppSettingsListResponse>("/api/v1/settings");
+}
+
+export function putAppSetting(
+  key: string,
+  value: string,
+): Promise<AppSettingUpsertResponse> {
+  return patchPut<AppSettingUpsertResponse>(
+    `/api/v1/settings/${encodeURIComponent(key)}`,
+    { value },
+  );
+}
+
+export function deleteAppSetting(
+  key: string,
+): Promise<{ readonly deleted: boolean; readonly key: string }> {
+  return deleteRequest<{ readonly deleted: boolean; readonly key: string }>(
+    `/api/v1/settings/${encodeURIComponent(key)}`,
+  );
+}
+
+async function patchPut<T>(
+  pathname: string,
+  body: unknown,
+  options?: RequestOptions,
+): Promise<T> {
+  const response = await request(
+    pathname,
+    {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    },
+    options,
+  );
+  if (!response.ok) {
+    throw await createResponseError(response, pathname, "PUT");
+  }
+  return unwrapApiEnvelope<T>(await response.json());
+}
+
 export function getMonitorWsUrl(): string {
   const baseUrl = resolveWebSocketBaseUrl();
   const wsUrl = new URL(baseUrl.replace(/^http/, "ws"));
