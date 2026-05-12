@@ -64,6 +64,7 @@ export interface MonitoringTask {
   readonly lastSessionStartedAt?: string
   readonly runtimeSource?: RuntimeSource
   readonly displayTitle?: string
+  readonly archivedAt?: string
 }
 
 export interface MonitoringSession {

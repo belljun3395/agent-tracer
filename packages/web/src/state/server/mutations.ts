@@ -6,6 +6,7 @@ import type {
 } from "~domain/task-query-contracts.js";
 import type { RuleCreateInput, RuleUpdateInput } from "~domain/rule.js";
 import {
+  archiveTask,
   createRule,
   demoteRule,
   deleteAppSetting,
@@ -15,6 +16,7 @@ import {
   promoteRule,
   putAppSetting,
   reEvaluateRule,
+  unarchiveTask,
   updateRule,
   updateTask,
   type UpdateTaskBody,
@@ -94,7 +96,78 @@ export function useDeleteTaskMutation() {
       }
     },
     onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey: monitorQueryKeys.tasks() });
+      void queryClient.invalidateQueries({
+        queryKey: monitorQueryKeys.tasksPrefix(),
+      });
+    },
+  });
+}
+
+/**
+ * Archive a task. Soft-hides it from the default tasks list; the row is
+ * preserved (unlike delete) and recoverable via useUnarchiveTaskMutation.
+ * Optimistically removes from the active-scope cache for snappy feedback.
+ */
+export function useArchiveTaskMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (taskId: TaskId) => archiveTask(taskId),
+    onMutate: async (taskId) => {
+      const key = monitorQueryKeys.tasks("active");
+      await queryClient.cancelQueries({ queryKey: key });
+      const previous = queryClient.getQueryData<TasksResponse>(key);
+      if (previous) {
+        queryClient.setQueryData<TasksResponse>(key, {
+          ...previous,
+          tasks: previous.tasks.filter((t) => t.id !== taskId),
+        });
+      }
+      return { previous };
+    },
+    onError: (_err, _taskId, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(
+          monitorQueryKeys.tasks("active"),
+          context.previous,
+        );
+      }
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({
+        queryKey: monitorQueryKeys.tasksPrefix(),
+      });
+    },
+  });
+}
+
+export function useUnarchiveTaskMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (taskId: TaskId) => unarchiveTask(taskId),
+    onMutate: async (taskId) => {
+      const key = monitorQueryKeys.tasks("archived");
+      await queryClient.cancelQueries({ queryKey: key });
+      const previous = queryClient.getQueryData<TasksResponse>(key);
+      if (previous) {
+        queryClient.setQueryData<TasksResponse>(key, {
+          ...previous,
+          tasks: previous.tasks.filter((t) => t.id !== taskId),
+        });
+      }
+      return { previous };
+    },
+    onError: (_err, _taskId, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(
+          monitorQueryKeys.tasks("archived"),
+          context.previous,
+        );
+      }
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({
+        queryKey: monitorQueryKeys.tasksPrefix(),
+      });
     },
   });
 }
@@ -156,7 +229,9 @@ export function useUpdateTaskMutation() {
       }
     },
     onSettled: (_data, _err, { taskId }) => {
-      void queryClient.invalidateQueries({ queryKey: monitorQueryKeys.tasks() });
+      void queryClient.invalidateQueries({
+        queryKey: monitorQueryKeys.tasksPrefix(),
+      });
       void queryClient.invalidateQueries({
         queryKey: monitorQueryKeys.taskDetail(taskId),
       });

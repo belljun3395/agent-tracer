@@ -263,8 +263,13 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 // ── public surface ────────────────────────────────────────────────────
 
-export function fetchTasks(): Promise<TasksResponse> {
-  return getJson<TasksResponse>("/api/v1/tasks");
+export type TasksArchivedScope = "active" | "archived" | "all";
+
+export function fetchTasks(
+  archived: TasksArchivedScope = "active",
+): Promise<TasksResponse> {
+  const qs = archived === "active" ? "" : `?archived=${archived}`;
+  return getJson<TasksResponse>(`/api/v1/tasks${qs}`);
 }
 
 export function fetchTaskDetail(taskId: TaskId): Promise<TaskDetailResponse> {
@@ -337,6 +342,27 @@ export interface DeleteTaskResponse {
 
 export function deleteTask(taskId: TaskId): Promise<DeleteTaskResponse> {
   return deleteRequest<DeleteTaskResponse>(`/api/v1/tasks/${taskId}`);
+}
+
+export interface ArchiveTaskResponse {
+  readonly archived: boolean;
+  readonly archivedIds: readonly TaskId[];
+  readonly archivedAt: string;
+}
+
+export interface UnarchiveTaskResponse {
+  readonly unarchived: boolean;
+  readonly unarchivedIds: readonly TaskId[];
+}
+
+export function archiveTask(taskId: TaskId): Promise<ArchiveTaskResponse> {
+  return postJson<ArchiveTaskResponse>(`/api/v1/tasks/${taskId}/archive`);
+}
+
+export function unarchiveTask(taskId: TaskId): Promise<UnarchiveTaskResponse> {
+  return deleteRequest<UnarchiveTaskResponse>(
+    `/api/v1/tasks/${taskId}/archive`,
+  );
 }
 
 export interface UpdateTaskBody {

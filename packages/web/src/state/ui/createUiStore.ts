@@ -69,6 +69,7 @@ export function createUiStore(options?: CreateUiStoreOptions): UiStoreApi {
           searchScope: state.searchScope,
           lastSeenAt: state.lastSeenAt,
           collapsedParents: state.collapsedParents,
+          showArchived: state.showArchived,
           mainView: state.mainView,
           inspectorTab: state.inspectorTab,
           visibleLanes: state.visibleLanes,

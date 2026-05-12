@@ -6,6 +6,7 @@ import {
   useCollapsedParents,
   useLastSeenAt,
   useSelectedTaskId,
+  useShowArchived,
   useSidebarFilter,
   useSidebarSearchQuery,
   type SidebarFilter,
@@ -60,7 +61,10 @@ export interface TaskListVm {
  *   4. Decorate each row with `unread`.
  */
 export function useTaskList(): TaskListVm {
-  const { data, isLoading, isError } = useTasksQuery();
+  const showArchived = useShowArchived();
+  const { data, isLoading, isError } = useTasksQuery(
+    showArchived ? "archived" : "active",
+  );
   const filter = useSidebarFilter();
   const searchQuery = useSidebarSearchQuery();
   const lastSeenAt = useLastSeenAt();

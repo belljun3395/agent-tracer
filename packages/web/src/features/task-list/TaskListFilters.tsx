@@ -1,4 +1,6 @@
 import {
+  useSetShowArchived,
+  useShowArchived,
   useSidebarFilter,
   useSetSidebarFilter,
   type SidebarFilter,
@@ -30,6 +32,35 @@ export function TaskListFilters({
 }: TaskListFiltersProps) {
   const active = useSidebarFilter();
   const setFilter = useSetSidebarFilter();
+  const showArchived = useShowArchived();
+  const setShowArchived = useSetShowArchived();
+
+  if (showArchived) {
+    return (
+      <div
+        className="flex items-center justify-between gap-2 px-2.5 pb-1.5 border-b border-[var(--hair)]"
+        style={{ fontSize: 11.5 }}
+      >
+        <span
+          className="inline-flex items-center gap-1.5"
+          style={{ color: "var(--ink-subtle)" }}
+        >
+          <ArchiveGlyph />
+          <span>
+            Archived <span style={{ color: "var(--ink-tertiary)" }}>({counts.all})</span>
+          </span>
+        </span>
+        <button
+          type="button"
+          onClick={() => setShowArchived(false)}
+          className="rounded-[var(--radius-sm)] px-[9px] py-[5px] text-[11.5px] font-medium hover:bg-[var(--s1)]"
+          style={{ color: "var(--ink-subtle)" }}
+        >
+          Back to active
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="flex items-center gap-px px-2.5 pb-1.5 border-b border-[var(--hair)]">
@@ -75,7 +106,39 @@ export function TaskListFilters({
           all {uniformRuntime}
         </span>
       )}
+      <button
+        type="button"
+        onClick={() => setShowArchived(true)}
+        title="Show archived tasks"
+        className={cn(
+          "inline-flex items-center gap-[5px] rounded-[var(--radius-sm)]",
+          "px-[9px] py-[5px] text-[11.5px] font-medium",
+          "text-[var(--ink-subtle)] hover:text-[var(--ink)]",
+          uniformRuntime ? "" : "ml-auto",
+        )}
+      >
+        <ArchiveGlyph />
+        Archived
+      </button>
     </div>
+  );
+}
+
+function ArchiveGlyph() {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M3 7h18v3H3zM5 10v9a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-9M10 14h4" />
+    </svg>
   );
 }
 

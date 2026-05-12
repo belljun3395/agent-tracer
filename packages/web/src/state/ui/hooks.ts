@@ -92,3 +92,5 @@ export const useSetSidebarSearchQuery = () =>
 export const useSetSidebarSearchScope = () =>
   useUiStore((s) => s.setSearchScope);
 export const useMarkTaskRead = () => useUiStore((s) => s.markTaskRead);
+export const useShowArchived = (): boolean => useUiStore((s) => s.showArchived);
+export const useSetShowArchived = () => useUiStore((s) => s.setShowArchived);

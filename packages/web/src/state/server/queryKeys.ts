@@ -9,7 +9,10 @@ import type { TaskId } from "~domain/monitoring.js";
  */
 export const monitorQueryKeys = {
   overview: () => ["monitor", "overview"] as const,
-  tasks: () => ["monitor", "tasks"] as const,
+  tasks: (archived: "active" | "archived" | "all" = "active") =>
+    ["monitor", "tasks", archived] as const,
+  /** Prefix that matches every tasks() variant — use for cross-scope invalidations. */
+  tasksPrefix: () => ["monitor", "tasks"] as const,
   taskDetail: (taskId: TaskId) => ["monitor", "task", taskId] as const,
   taskOpenInference: (taskId: TaskId) =>
     ["monitor", "task", taskId, "openinference"] as const,

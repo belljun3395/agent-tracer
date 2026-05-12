@@ -180,14 +180,36 @@ function patchTasksCache(
   next: MonitoringTask,
 ): void {
   client.setQueryData<TasksResponse | undefined>(
-    monitorQueryKeys.tasks(),
+    monitorQueryKeys.tasks("active"),
     (prev) => {
       if (!prev) {
-        // No cached list yet — let the next subscriber fetch.
-        void client.invalidateQueries({ queryKey: monitorQueryKeys.tasks() });
+        void client.invalidateQueries({ queryKey: monitorQueryKeys.tasksPrefix() });
         return prev;
       }
       const idx = prev.tasks.findIndex((t) => t.id === next.id);
+      if (next.archivedAt) {
+        if (idx === -1) return prev;
+        const tasks = prev.tasks.slice();
+        tasks.splice(idx, 1);
+        return { tasks };
+      }
+      if (idx === -1) return { tasks: [next, ...prev.tasks] };
+      const tasks = prev.tasks.slice();
+      tasks[idx] = next;
+      return { tasks };
+    },
+  );
+  client.setQueryData<TasksResponse | undefined>(
+    monitorQueryKeys.tasks("archived"),
+    (prev) => {
+      if (!prev) return prev;
+      const idx = prev.tasks.findIndex((t) => t.id === next.id);
+      if (!next.archivedAt) {
+        if (idx === -1) return prev;
+        const tasks = prev.tasks.slice();
+        tasks.splice(idx, 1);
+        return { tasks };
+      }
       if (idx === -1) return { tasks: [next, ...prev.tasks] };
       const tasks = prev.tasks.slice();
       tasks[idx] = next;
@@ -197,14 +219,16 @@ function patchTasksCache(
 }
 
 function removeTaskFromCache(client: QueryClient, taskId: TaskId): void {
-  client.setQueryData<TasksResponse | undefined>(
-    monitorQueryKeys.tasks(),
-    (prev) => {
-      if (!prev) return prev;
-      const tasks = prev.tasks.filter((t) => t.id !== taskId);
-      return tasks.length === prev.tasks.length ? prev : { tasks };
-    },
-  );
+  for (const scope of ["active", "archived", "all"] as const) {
+    client.setQueryData<TasksResponse | undefined>(
+      monitorQueryKeys.tasks(scope),
+      (prev) => {
+        if (!prev) return prev;
+        const tasks = prev.tasks.filter((t) => t.id !== taskId);
+        return tasks.length === prev.tasks.length ? prev : { tasks };
+      },
+    );
+  }
 }
 
 function patchTaskDetailTask(

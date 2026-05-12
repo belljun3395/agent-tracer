@@ -19,15 +19,18 @@ import {
   type AppSettingsListResponse,
   type GenerateRulesJobStatus,
   type RuleEvidenceResponse,
+  type TasksArchivedScope,
 } from "~io/api.js";
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 
 import { monitorQueryKeys } from "./queryKeys.js";
 
-export function useTasksQuery(): UseQueryResult<TasksResponse> {
+export function useTasksQuery(
+  archived: TasksArchivedScope = "active",
+): UseQueryResult<TasksResponse> {
   return useQuery({
-    queryKey: monitorQueryKeys.tasks(),
-    queryFn: fetchTasks,
+    queryKey: monitorQueryKeys.tasks(archived),
+    queryFn: () => fetchTasks(archived),
   });
 }
 

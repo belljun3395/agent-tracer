@@ -27,11 +27,19 @@ export interface SidebarSlice {
    * a reload of the dashboard.
    */
   readonly collapsedParents: readonly string[];
+  /**
+   * When true, the sidebar fetches archived tasks instead of active. Persisted
+   * so toggling off "Show archived" survives a reload. Mutually exclusive with
+   * the regular task list — archived tasks live in a separate cache scope so
+   * mixing them with `live/attn/done` filters would be confusing.
+   */
+  readonly showArchived: boolean;
   readonly setFilter: (filter: SidebarFilter) => void;
   readonly setSearchQuery: (query: string) => void;
   readonly setSearchScope: (scope: SearchScope) => void;
   readonly markTaskRead: (taskId: TaskId, atMs?: number) => void;
   readonly toggleCollapsedParent: (taskId: TaskId) => void;
+  readonly setShowArchived: (value: boolean) => void;
 }
 
 type SetState = (
@@ -47,7 +55,9 @@ export function createSidebarSlice(set: SetState): SidebarSlice {
     searchScope: "all",
     lastSeenAt: {},
     collapsedParents: [],
+    showArchived: false,
     setFilter: (filter) => set({ filter }),
+    setShowArchived: (value) => set({ showArchived: value }),
     setSearchQuery: (searchQuery) => set({ searchQuery }),
     setSearchScope: (searchScope) => set({ searchScope }),
     markTaskRead: (taskId, atMs) =>

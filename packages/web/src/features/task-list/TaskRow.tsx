@@ -6,7 +6,11 @@ import {
   useToggleCollapsedParent,
 } from "~state/ui/index.js";
 import { useNowMs } from "~state/ui/useNowMs.js";
-import { useDeleteTaskMutation } from "~state/server/mutations.js";
+import {
+  useArchiveTaskMutation,
+  useDeleteTaskMutation,
+  useUnarchiveTaskMutation,
+} from "~state/server/mutations.js";
 import { StatusDot, Badge, Tooltip, type StatusKind } from "~ui/index.js";
 import { cn } from "~lib/cn.js";
 import { formatRelativeShort, formatAbsoluteHHmmss } from "~lib/time.js";
@@ -64,12 +68,21 @@ export function TaskRow({
   const nowMs = useNowMs(15_000);
   const navigate = useNavigate();
   const deleteMutation = useDeleteTaskMutation();
+  const archiveMutation = useArchiveTaskMutation();
+  const unarchiveMutation = useUnarchiveTaskMutation();
   const toggleCollapsed = useToggleCollapsedParent();
   const [confirming, setConfirming] = useState(false);
   const active = selectedTaskId === task.id;
+  const isArchived = Boolean(task.archivedAt);
   const isDeleting = deleteMutation.isPending;
+  const isArchiving = archiveMutation.isPending;
+  const isUnarchiving = unarchiveMutation.isPending;
   const deleteFailed =
     deleteMutation.isError && deleteMutation.variables === task.id;
+  const archiveFailed =
+    archiveMutation.isError && archiveMutation.variables === task.id;
+  const unarchiveFailed =
+    unarchiveMutation.isError && unarchiveMutation.variables === task.id;
 
   const handleDelete = (event: ReactMouseEvent<HTMLButtonElement>) => {
     // Stop the click from bubbling to the surrounding <Link>.
@@ -91,6 +104,22 @@ export function TaskRow({
         if (active) void navigate("/tasks");
       },
     });
+  };
+
+  const handleArchive = (event: ReactMouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    archiveMutation.mutate(task.id, {
+      onSuccess: () => {
+        if (active) void navigate("/tasks");
+      },
+    });
+  };
+
+  const handleUnarchive = (event: ReactMouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    unarchiveMutation.mutate(task.id);
   };
 
   // Disarm when the cursor leaves the row so the user can't come back
@@ -123,7 +152,8 @@ export function TaskRow({
         "group relative block py-2 mb-px rounded-[var(--radius-sm)] border border-transparent",
         "hover:bg-[var(--s1)]",
         active && "bg-[var(--s2)] border-[var(--hair)]",
-        isDeleting && "opacity-50 pointer-events-none",
+        (isDeleting || isArchiving || isUnarchiving) &&
+          "opacity-50 pointer-events-none",
       )}
       style={{
         paddingLeft: 10 + depth * 20,
@@ -188,7 +218,7 @@ export function TaskRow({
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "auto auto minmax(0, 1fr) auto auto auto",
+          gridTemplateColumns: "auto auto minmax(0, 1fr) auto auto auto auto",
           alignItems: "center",
           columnGap: 8,
           marginBottom: 3,
@@ -270,6 +300,52 @@ export function TaskRow({
           >
             {formatRelativeShort(task.updatedAt, nowMs)}
           </span>
+        </Tooltip>
+        <Tooltip
+          content={
+            isArchived
+              ? unarchiveFailed
+                ? "Unarchive failed — try again"
+                : "Unarchive task"
+              : archiveFailed
+                ? "Archive failed — try again"
+                : "Archive task"
+          }
+          side="left"
+        >
+          <button
+            type="button"
+            onClick={isArchived ? handleUnarchive : handleArchive}
+            aria-label={isArchived ? "Unarchive task" : "Archive task"}
+            className={cn(
+              "transition-opacity",
+              archiveFailed || unarchiveFailed || isArchiving || isUnarchiving
+                ? "opacity-100"
+                : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100",
+            )}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              height: 22,
+              width: 22,
+              borderRadius: "var(--radius-xs)",
+              border: `1px solid ${
+                archiveFailed || unarchiveFailed
+                  ? "var(--err)"
+                  : "var(--hair)"
+              }`,
+              background: "transparent",
+              color:
+                archiveFailed || unarchiveFailed
+                  ? "var(--err)"
+                  : "var(--ink-muted)",
+              cursor: "pointer",
+              transition: "all 150ms",
+            }}
+          >
+            {isArchived ? <UnarchiveIcon /> : <ArchiveIcon />}
+          </button>
         </Tooltip>
         <Tooltip
           content={
@@ -374,6 +450,42 @@ function TrashIcon() {
       strokeLinejoin="round"
     >
       <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+    </svg>
+  );
+}
+
+function ArchiveIcon() {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M3 7h18v3H3zM5 10v9a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-9M10 14h4" />
+    </svg>
+  );
+}
+
+function UnarchiveIcon() {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M3 7h18v3H3zM5 10v9a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-9M12 18v-6M9 15l3-3 3 3" />
     </svg>
   );
 }
