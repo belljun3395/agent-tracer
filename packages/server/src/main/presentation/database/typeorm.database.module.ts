@@ -14,6 +14,9 @@ import { CreateAppSettingsSchema1700000009000 } from "~main/migrations/170000000
 import { CreateTaskRuleGenerationJobsSchema1700000010000 } from "~main/migrations/1700000010000-create-task-rule-generation-jobs-schema.js";
 import { AddTasksArchivedAt1700000011000 } from "~main/migrations/1700000011000-add-tasks-archived-at.js";
 import { CreateTaskCleanupSchema1700000012000 } from "~main/migrations/1700000012000-create-task-cleanup-schema.js";
+import { CreateRecipeSchema1700000013000 } from "~main/migrations/1700000013000-create-recipe-schema.js";
+import { CreateRecipeApplicationsSchema1700000014000 } from "~main/migrations/1700000014000-create-recipe-applications-schema.js";
+import { CreateFileAffinitySchema1700000015000 } from "~main/migrations/1700000015000-create-file-affinity-schema.js";
 
 export interface TypeOrmDatabaseModuleOptions {
     readonly databasePath: string;
@@ -57,6 +60,9 @@ export class TypeOrmDatabaseModule {
                             CreateTaskRuleGenerationJobsSchema1700000010000,
                             AddTasksArchivedAt1700000011000,
                             CreateTaskCleanupSchema1700000012000,
+                            CreateRecipeSchema1700000013000,
+                            CreateRecipeApplicationsSchema1700000014000,
+                            CreateFileAffinitySchema1700000015000,
                         ],
                         migrationsRun: true,
                     }),

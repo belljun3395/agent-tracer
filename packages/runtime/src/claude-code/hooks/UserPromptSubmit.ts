@@ -23,6 +23,7 @@ import {defaultTaskTitle} from "~claude-code/hooks/util/paths.js";
 import {claudeHookRuntime} from "~claude-code/hooks/lib/runtime.js";
 import {ensureRuntimeSession} from "~claude-code/hooks/lib/transport/transport.js";
 import {emitPreprocessingHints, fetchPreprocessingHints} from "~claude-code/hooks/lib/preprocessing-hints.js";
+import {emitRecipeContext, fetchRecipeMatches} from "~claude-code/hooks/lib/recipe-context.js";
 import {readUserPromptSubmit} from "~shared/hooks/claude/payloads.js";
 import { runHook } from "~shared/hook-runtime/run-hook.js";
 import { KIND } from "~shared/events/kinds.const.js";
@@ -63,6 +64,17 @@ await runHook("UserPromptSubmit", {
         // can take them into account before composing the next turn. Best
         // effort — fetch failures are swallowed inside the helper.
         const hints = await fetchPreprocessingHints(ids.taskId, {trigger: "user_prompt"});
-        emitPreprocessingHints("UserPromptSubmit", hints);
+        const emittedHints = emitPreprocessingHints("UserPromptSubmit", hints);
+
+        // Inject matching past-task recipes as additionalContext. Only one
+        // additionalContext block can be emitted per hook invocation — if
+        // preprocessing already wrote one, recipes are skipped this turn.
+        if (!emittedHints) {
+            const matches = await fetchRecipeMatches(payload.prompt, {
+                taskId: ids.taskId,
+                injectedVia: "auto",
+            });
+            emitRecipeContext("UserPromptSubmit", matches);
+        }
     },
 });

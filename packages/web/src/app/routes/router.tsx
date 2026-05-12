@@ -9,6 +9,7 @@ import NotFound from "./not-found.js";
 // bundle (form modal, severity chips, list page) shouldn't ride the
 // initial paint critical path.
 const RulesRoute = lazy(() => import("./rules-route.js"));
+const RecipesRoute = lazy(() => import("./recipes-route.js"));
 const SettingsRoute = lazy(() => import("./settings-route.js"));
 
 function withSuspense(Component: ComponentType, fallback: ReactNode = null) {
@@ -35,6 +36,7 @@ export const router = createBrowserRouter([
       { path: "tasks", element: <TasksRoute /> },
       { path: "tasks/:taskId", element: <TaskRoute /> },
       { path: "rules", element: withSuspense(RulesRoute) },
+      { path: "recipes", element: withSuspense(RecipesRoute) },
       { path: "settings", element: withSuspense(SettingsRoute) },
       { path: "*", element: <NotFound /> },
     ],

@@ -6,6 +6,7 @@ import type {
 } from "~domain/task-query-contracts.js";
 import type { RuleCreateInput, RuleUpdateInput } from "~domain/rule.js";
 import {
+  acceptRecipeCandidate,
   acceptTaskCleanupSuggestion,
   archiveTask,
   createRule,
@@ -13,16 +14,20 @@ import {
   deleteAppSetting,
   deleteRule,
   deleteTask,
+  dismissRecipeCandidate,
   dismissTaskCleanupSuggestion,
   enqueueGenerateRules,
+  enqueueRecipeScan,
   enqueueTaskCleanupScan,
   promoteRule,
   putAppSetting,
   reEvaluateRule,
+  retireRecipe,
   suggestTaskTitle,
   unarchiveTask,
   updateRule,
   updateTask,
+  type RecipeScanEnqueueInput,
   type UpdateTaskBody,
 } from "~io/api.js";
 import { monitorQueryKeys } from "./queryKeys.js";
@@ -382,5 +387,60 @@ export function useDismissCleanupSuggestionMutation() {
 export function useSuggestTaskTitleMutation() {
   return useMutation({
     mutationFn: (taskId: TaskId) => suggestTaskTitle(taskId),
+  });
+}
+
+export function useEnqueueRecipeScanMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input?: RecipeScanEnqueueInput) =>
+      enqueueRecipeScan(input ?? {}),
+    onSettled: () => {
+      void queryClient.invalidateQueries({
+        queryKey: monitorQueryKeys.recipeScanLatestJob(),
+      });
+      void queryClient.invalidateQueries({
+        queryKey: monitorQueryKeys.recipeCandidatesPrefix(),
+      });
+    },
+  });
+}
+
+export function useAcceptRecipeCandidateMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (candidateId: string) => acceptRecipeCandidate(candidateId),
+    onSettled: () => {
+      void queryClient.invalidateQueries({
+        queryKey: monitorQueryKeys.recipeCandidatesPrefix(),
+      });
+      void queryClient.invalidateQueries({
+        queryKey: monitorQueryKeys.recipesPrefix(),
+      });
+    },
+  });
+}
+
+export function useDismissRecipeCandidateMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (candidateId: string) => dismissRecipeCandidate(candidateId),
+    onSettled: () => {
+      void queryClient.invalidateQueries({
+        queryKey: monitorQueryKeys.recipeCandidatesPrefix(),
+      });
+    },
+  });
+}
+
+export function useRetireRecipeMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (recipeId: string) => retireRecipe(recipeId),
+    onSettled: () => {
+      void queryClient.invalidateQueries({
+        queryKey: monitorQueryKeys.recipesPrefix(),
+      });
+    },
   });
 }

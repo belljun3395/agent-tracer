@@ -4,6 +4,7 @@ import { MonitorClient } from "./client.js";
 import { registerAsyncLifecycleTools } from "~adapters/mcp/tools/async.lifecycle.js";
 import { registerConversationTools } from "~adapters/mcp/tools/conversation.js";
 import { registerEventLoggingTools } from "~adapters/mcp/tools/event.logging.js";
+import { registerRecipeTools } from "~adapters/mcp/tools/recipe.js";
 import { registerRuleTools } from "~adapters/mcp/tools/rule.js";
 import { registerTaskLifecycleTools } from "~adapters/mcp/tools/task.lifecycle.js";
 export function createMonitorMcpServer(client = new MonitorClient()): McpServer {
@@ -16,6 +17,7 @@ export function createMonitorMcpServer(client = new MonitorClient()): McpServer 
     registerEventLoggingTools(server, client);
     registerConversationTools(server, client);
     registerRuleTools(server, client);
+    registerRecipeTools(server, client);
     return server;
 }
 export async function startMonitorMcpServer(): Promise<void> {

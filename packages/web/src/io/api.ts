@@ -566,6 +566,163 @@ export function dismissTaskCleanupSuggestion(
   );
 }
 
+// ─── Recipes ────────────────────────────────────────────────────────────────
+
+export type RecipeFileRole = "read" | "write" | "both";
+
+export interface RecipeStep {
+  readonly order: number;
+  readonly action: string;
+  readonly rationale?: string;
+}
+
+export interface RecipeTouchedFile {
+  readonly path: string;
+  readonly role: RecipeFileRole;
+}
+
+export interface RecipeSlice {
+  readonly taskId: TaskId;
+  readonly eventIds: readonly string[];
+}
+
+export type RecipeCandidateStatus =
+  | "pending"
+  | "accepted"
+  | "dismissed"
+  | "failed";
+
+export interface RecipeCandidate {
+  readonly id: string;
+  readonly jobId: string;
+  readonly title: string;
+  readonly intent: string;
+  readonly description: string;
+  readonly summaryMd: string;
+  readonly steps: readonly RecipeStep[];
+  readonly touchedFiles: readonly RecipeTouchedFile[];
+  readonly contributingSlices: readonly RecipeSlice[];
+  readonly rationale: string;
+  readonly language: string | null;
+  readonly parentRecipeId: string | null;
+  readonly status: RecipeCandidateStatus;
+  readonly error: string | null;
+  readonly createdAt: string;
+  readonly resolvedAt: string | null;
+}
+
+export interface RecipeCandidatesResponse {
+  readonly candidates: readonly RecipeCandidate[];
+}
+
+export type RecipeStatus = "active" | "superseded" | "retired";
+
+export interface Recipe {
+  readonly id: string;
+  readonly sourceCandidateId: string | null;
+  readonly title: string;
+  readonly intent: string;
+  readonly description: string;
+  readonly summaryMd: string;
+  readonly steps: readonly RecipeStep[];
+  readonly touchedFiles: readonly RecipeTouchedFile[];
+  readonly contributingSlices: readonly RecipeSlice[];
+  readonly rev: number;
+  readonly parentRecipeId: string | null;
+  readonly status: RecipeStatus;
+  readonly appliedCount: number;
+  readonly successCount: number;
+  readonly language: string | null;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+export interface RecipesResponse {
+  readonly recipes: readonly Recipe[];
+}
+
+export interface RecipeScanJobStatus {
+  readonly id: string;
+  readonly status: "pending" | "processing" | "completed" | "failed";
+  readonly attempts: number;
+  readonly error: string | null;
+  readonly candidatesCreated: number;
+  readonly tasksScanned: number;
+  readonly language: string | null;
+  readonly modelUsed: string | null;
+  readonly durationMs: number | null;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+  readonly startedAt: string | null;
+  readonly completedAt: string | null;
+}
+
+export interface RecipeScanEnqueueInput {
+  readonly statusFilter?: "completed" | "active" | "all";
+  readonly since?: string;
+  readonly maxCandidates?: number;
+  readonly minEventCount?: number;
+  readonly archivedScope?: "active" | "archived" | "all";
+}
+
+export interface RecipeScanEnqueueResponse {
+  readonly jobId: string;
+  readonly status: "pending" | "processing" | "completed" | "failed";
+  readonly createdAt: string;
+}
+
+export function enqueueRecipeScan(
+  input: RecipeScanEnqueueInput = {},
+): Promise<RecipeScanEnqueueResponse> {
+  return postJson<RecipeScanEnqueueResponse>(`/api/v1/recipes/scan`, input);
+}
+
+export function fetchLatestRecipeScanJob(): Promise<{
+  job: RecipeScanJobStatus | null;
+}> {
+  return getJson<{ job: RecipeScanJobStatus | null }>(
+    `/api/v1/recipes/scan/jobs/latest`,
+  );
+}
+
+export function fetchRecipeCandidates(
+  status: "pending" | "all" = "pending",
+): Promise<RecipeCandidatesResponse> {
+  return getJson<RecipeCandidatesResponse>(
+    `/api/v1/recipes/candidates?status=${status}`,
+  );
+}
+
+export function acceptRecipeCandidate(
+  candidateId: string,
+): Promise<{ status: string; recipeId?: string }> {
+  return postJson<{ status: string; recipeId?: string }>(
+    `/api/v1/recipes/candidates/${encodeURIComponent(candidateId)}/accept`,
+  );
+}
+
+export function dismissRecipeCandidate(
+  candidateId: string,
+): Promise<{ status: string }> {
+  return postJson<{ status: string }>(
+    `/api/v1/recipes/candidates/${encodeURIComponent(candidateId)}/dismiss`,
+  );
+}
+
+export function fetchRecipes(
+  status: "active" | "superseded" | "retired" | "all" = "active",
+): Promise<RecipesResponse> {
+  return getJson<RecipesResponse>(`/api/v1/recipes?status=${status}`);
+}
+
+export function retireRecipe(
+  recipeId: string,
+): Promise<{ status: string }> {
+  return deleteRequest<{ status: string }>(
+    `/api/v1/recipes/${encodeURIComponent(recipeId)}`,
+  );
+}
+
 export interface AppSettingItem {
   readonly key: string;
   readonly maskedValue: string;

@@ -1,6 +1,6 @@
 import { useLocation, useNavigate } from "react-router-dom";
 import { Tooltip } from "~ui/index.js";
-import { useRulesQuery } from "~state/server/queries.js";
+import { useRecipesQuery, useRulesQuery } from "~state/server/queries.js";
 import { ThemeToggle } from "./ThemeToggle.js";
 
 /**
@@ -11,6 +11,7 @@ import { ThemeToggle } from "./ThemeToggle.js";
 export function TopActions() {
   return (
     <div className="flex items-center gap-2">
+      <RecipesButton />
       <RulesButton />
       <SettingsButton />
       <span
@@ -19,6 +20,68 @@ export function TopActions() {
       />
       <ThemeToggle />
     </div>
+  );
+}
+
+function RecipesButton() {
+  const { data, isLoading } = useRecipesQuery();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const count = data?.recipes.length ?? 0;
+  const active = location.pathname === "/recipes";
+  return (
+    <Tooltip content="Browse recipes" side="bottom">
+      <button
+        type="button"
+        onClick={() => void navigate("/recipes")}
+        aria-label="Browse recipes"
+        aria-current={active ? "page" : undefined}
+        className="h-7 px-2.5 inline-flex items-center gap-1.5 rounded-[var(--radius-sm)] hover:bg-[var(--s1)] transition-colors"
+        style={{
+          color: active ? "var(--ink)" : "var(--ink-muted)",
+          background: active ? "var(--s1)" : "transparent",
+        }}
+      >
+        <BookIcon />
+        <span style={{ fontSize: 12, fontWeight: 500, letterSpacing: "-0.05px" }}>
+          Recipes
+        </span>
+        <span
+          className="inline-flex items-center justify-center rounded-[var(--radius-pill)]"
+          style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: 10,
+            fontWeight: 600,
+            padding: "0 6px",
+            minWidth: 20,
+            background: count > 0 ? "var(--ink-tertiary)" : "var(--s1)",
+            color: count > 0 ? "#fff" : "var(--ink-tertiary)",
+            lineHeight: "16px",
+          }}
+        >
+          {isLoading ? "…" : count}
+        </span>
+      </button>
+    </Tooltip>
+  );
+}
+
+function BookIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+      <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+    </svg>
   );
 }
 

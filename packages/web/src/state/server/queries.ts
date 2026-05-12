@@ -9,7 +9,10 @@ import type {
 import {
   fetchAppSettings,
   fetchLatestGenerateRulesJob,
+  fetchLatestRecipeScanJob,
   fetchLatestTaskCleanupJob,
+  fetchRecipeCandidates,
+  fetchRecipes,
   fetchRuleEvidence,
   fetchRules,
   fetchSearch,
@@ -21,6 +24,9 @@ import {
   type AppSettingsListResponse,
   type CleanupSuggestionsResponse,
   type GenerateRulesJobStatus,
+  type RecipeCandidatesResponse,
+  type RecipeScanJobStatus,
+  type RecipesResponse,
   type RuleEvidenceResponse,
   type TaskCleanupJobStatus,
   type TasksArchivedScope,
@@ -179,6 +185,38 @@ export function useTaskCleanupSuggestionsQuery(
   return useQuery({
     queryKey: monitorQueryKeys.taskCleanupSuggestions(status),
     queryFn: () => fetchTaskCleanupSuggestions(status),
+  });
+}
+
+export function useLatestRecipeScanJobQuery(
+  options?: { readonly enabled?: boolean },
+): UseQueryResult<{ job: RecipeScanJobStatus | null }> {
+  return useQuery({
+    queryKey: monitorQueryKeys.recipeScanLatestJob(),
+    queryFn: fetchLatestRecipeScanJob,
+    enabled: options?.enabled ?? true,
+    refetchInterval: (q) => {
+      const status = q.state.data?.job?.status;
+      return status === "pending" || status === "processing" ? 1500 : false;
+    },
+  });
+}
+
+export function useRecipeCandidatesQuery(
+  status: "pending" | "all" = "pending",
+): UseQueryResult<RecipeCandidatesResponse> {
+  return useQuery({
+    queryKey: monitorQueryKeys.recipeCandidates(status),
+    queryFn: () => fetchRecipeCandidates(status),
+  });
+}
+
+export function useRecipesQuery(
+  status: "active" | "superseded" | "retired" | "all" = "active",
+): UseQueryResult<RecipesResponse> {
+  return useQuery({
+    queryKey: monitorQueryKeys.recipes(status),
+    queryFn: () => fetchRecipes(status),
   });
 }
 
