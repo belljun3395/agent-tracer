@@ -1,0 +1,524 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Agent Tracer — Rule Insights UI 설계안</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #161922;
+    --panel-2: #1d2230;
+    --panel-3: #232838;
+    --line: #2a2f3d;
+    --line-soft: #222633;
+    --ink: #e7ebf3;
+    --ink-dim: #a4adbf;
+    --ink-mute: #7a8197;
+    --accent: #ffb86b;
+    --accent-2: #7fd1ff;
+    --accent-3: #c4a7ff;
+    --good: #74e0a8;
+    --warn: #ffd166;
+    --bad: #ff8585;
+    --mono: ui-monospace, SFMono-Regular, "JetBrains Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { background: var(--bg); color: var(--ink); }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Inter", "Pretendard", "Apple SD Gothic Neo", sans-serif;
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 56px 28px 96px; }
+  header.hero {
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 32px;
+    margin-bottom: 40px;
+  }
+  .eyebrow { color: var(--ink-mute); font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; margin: 0 0 12px; }
+  header.hero h1 { margin: 0 0 12px; font-size: 32px; font-weight: 700; letter-spacing: -0.01em; line-height: 1.25; }
+  header.hero .lede { color: var(--ink-dim); font-size: 16px; max-width: 80ch; margin: 0 0 18px; }
+  .meta { display: flex; flex-wrap: wrap; gap: 10px; color: var(--ink-mute); font-size: 12px; }
+  .meta span { border: 1px solid var(--line); padding: 4px 10px; border-radius: 999px; background: var(--panel); }
+
+  h2 {
+    font-size: 24px;
+    letter-spacing: -0.01em;
+    margin: 56px 0 14px;
+    padding-top: 18px;
+    border-top: 1px solid var(--line);
+  }
+  h2 .num {
+    display: inline-block;
+    width: 30px; height: 30px; line-height: 30px;
+    text-align: center;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    font-size: 14px; color: var(--accent);
+    margin-right: 12px; font-weight: 600;
+  }
+  h3 { font-size: 17px; margin: 24px 0 8px; }
+  h4 { font-size: 13.5px; margin: 18px 0 6px; color: var(--ink-dim); letter-spacing: 0.04em; text-transform: uppercase; }
+  p { margin: 0 0 12px; color: var(--ink-dim); }
+  ul, ol { margin: 0 0 14px; padding-left: 22px; color: var(--ink-dim); }
+  li { margin: 4px 0; }
+  strong { color: var(--ink); font-weight: 600; }
+  em { color: var(--accent-2); font-style: normal; }
+  code {
+    font-family: var(--mono);
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 12.5px;
+    color: var(--accent-2);
+  }
+  pre {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 14px 16px;
+    overflow-x: auto;
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: var(--ink);
+    line-height: 1.6;
+  }
+  pre code { background: transparent; border: 0; padding: 0; color: inherit; }
+  pre .good { color: var(--good); }
+  pre .bad { color: var(--bad); }
+  pre .warn { color: var(--warn); }
+  pre .mute { color: var(--ink-mute); }
+  pre .accent { color: var(--accent-2); }
+  pre .num { color: var(--accent); }
+
+  .toc {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 20px 24px;
+    margin-bottom: 28px;
+  }
+  .toc .toc-title { font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-mute); margin-bottom: 12px; }
+  .toc ol { padding-left: 18px; margin: 0; }
+  .toc li { color: var(--ink); margin: 6px 0; }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 22px 24px;
+    margin: 16px 0;
+  }
+  .card.pick { border-left: 3px solid var(--good); }
+  .card.complement { border-left: 3px solid var(--accent-2); }
+  .card.later { border-left: 3px solid var(--accent-3); }
+  .card.future { border-left: 3px solid var(--ink-mute); }
+  .card .head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+  .card .head .badge {
+    font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
+    padding: 3px 9px; border-radius: 999px;
+    border: 1px solid var(--line);
+    background: var(--panel-2);
+  }
+  .card.pick .badge { color: var(--good); border-color: var(--good); }
+  .card.complement .badge { color: var(--accent-2); border-color: var(--accent-2); }
+  .card.later .badge { color: var(--accent-3); border-color: var(--accent-3); }
+  .card.future .badge { color: var(--ink-mute); border-color: var(--ink-mute); }
+  .card .title { font-size: 17px; font-weight: 600; }
+  .card .cost { color: var(--ink-mute); font-size: 12.5px; margin-left: auto; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0 18px;
+    font-size: 13.5px;
+  }
+  th, td {
+    text-align: left;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--line-soft);
+    color: var(--ink-dim);
+    vertical-align: top;
+  }
+  th {
+    color: var(--ink-mute);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-weight: 600;
+    background: var(--panel);
+    border-bottom: 1px solid var(--line);
+  }
+  td strong { color: var(--ink); }
+  td code { font-size: 12px; }
+
+  .callout {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--accent);
+    border-radius: 10px;
+    padding: 14px 18px;
+    margin: 16px 0;
+    color: var(--ink-dim);
+  }
+  .callout.good { border-left-color: var(--good); }
+  .callout.warn { border-left-color: var(--warn); }
+  .callout .title { color: var(--ink); font-weight: 600; margin-bottom: 4px; font-size: 13.5px; }
+
+  .priority {
+    display: grid;
+    grid-template-columns: 30px 1fr 90px;
+    gap: 6px 12px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 16px 18px;
+    align-items: center;
+  }
+  .priority .rank { font-weight: 700; font-size: 13px; }
+  .priority .rank-1 { color: var(--good); }
+  .priority .rank-2 { color: var(--accent-2); }
+  .priority .rank-3 { color: var(--accent-3); }
+  .priority .rank-4 { color: var(--warn); }
+  .priority .rank-5 { color: var(--ink-mute); }
+  .priority .item { color: var(--ink); font-size: 13.5px; }
+  .priority .item code { font-size: 12px; }
+  .priority .effort { color: var(--ink-mute); font-size: 12px; text-align: right; font-family: var(--mono); }
+
+  footer {
+    margin-top: 60px;
+    padding-top: 24px;
+    border-top: 1px solid var(--line);
+    color: var(--ink-mute);
+    font-size: 12px;
+  }
+  @media (max-width: 760px) {
+    header.hero h1 { font-size: 26px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <p class="eyebrow">Agent Tracer · Design Proposal</p>
+  <h1>Rule Insights UI — verdict & evidence 표면화 설계안</h1>
+  <p class="lede">
+    Rule 시스템과 verdict 인프라는 이미 데이터를 다 만들고 있는데, UI 가
+    그걸 <strong>graph/feed 의 lane 색</strong> 으로만 노출하고 있어서 사용자가
+    "에이전트가 제대로 일했나?" 라는 질문에 답하기 어려운 상태. 이 문서는 그 질문에
+    직접 답하는 6가지 UI 개선을 정리하고, 어느 순서로 만들지 결정합니다.
+  </p>
+  <div class="meta">
+    <span>대상: packages/web · packages/server (얇은 endpoint 추가 정도)</span>
+    <span>작성일: 2026-05-12</span>
+    <span>전제: rule-enhancement.html (생성 인프라) 구현 완료 후</span>
+  </div>
+</header>
+
+<nav class="toc">
+  <div class="toc-title">목차</div>
+  <ol>
+    <li><a href="#frame">A · 문제 정의 — 지금 무엇이 비어 있는가</a></li>
+    <li><a href="#evidence">1 · Per-rule Evidence (사용자 선택, 최우선)</a></li>
+    <li><a href="#scorecard">2 · Task Header Rule Scorecard</a></li>
+    <li><a href="#missed">3 · Missed 표시 + matchedBy 라벨</a></li>
+    <li><a href="#composition">4 · Activity Composition 위젯</a></li>
+    <li><a href="#hotspot">5 · Cross-task Rule Hotspot</a></li>
+    <li><a href="#overlay">6 · Timeline verdict overlay</a></li>
+    <li><a href="#priority">B · 우선순위 / 분량 추정</a></li>
+    <li><a href="#schema">C · 스키마 영향</a></li>
+    <li><a href="#open">D · 열린 질문</a></li>
+  </ol>
+</nav>
+
+<!-- ============================== -->
+<section id="frame">
+  <h2><span class="num">A</span>문제 정의 — 지금 무엇이 비어 있는가</h2>
+  <p>현재 상태:</p>
+  <ul>
+    <li>Rule 매칭 데이터는 <code>rule_enforcements (eventId, ruleId, matchKind)</code> 에 다 적힘</li>
+    <li>Verdict 도메인(<code>governance/verification</code>) 도 trigger/expect 매칭을 turn 단위로 집계</li>
+    <li>그런데 UI 는 <strong>그래프와 피드에서 lane 색만 바꿔서 표시</strong></li>
+  </ul>
+  <p>그 결과:</p>
+  <ul>
+    <li>"agent 가 lint 돌렸나?" — timeline 을 직접 스크롤해서 사용자가 머릿속으로 채점</li>
+    <li>"rule X 가 어떤 파일/명령을 근거로 봤나?" — graph 의 lane 변경 안에서 다른 이벤트들과 섞임</li>
+    <li>"내가 mention 한 파일 진짜 봤나?" — 비교 도구 없음</li>
+    <li>"rule 이 의도대로 작동하나?" — match 됐는지 안 됐는지 디버깅 단서 없음</li>
+  </ul>
+  <p><strong>핵심 진단</strong>: rule 인프라가 부족한 게 아니라, 이미 만들어진 신호의 <em>노출</em> 이 부족하다.</p>
+</section>
+
+<!-- ============================== -->
+<section id="evidence">
+  <h2><span class="num">1</span>Per-rule Evidence — Rules 탭 row 펼치기 <small style="color: var(--good); font-weight: normal; font-size: 13px; margin-left: 8px;">★ 사용자 선택 · 최우선</small></h2>
+
+  <div class="card pick">
+    <div class="head">
+      <span class="badge">Lead</span>
+      <span class="title">한 rule 이 "본" 모든 파일과 행위를 row 안에서 펼침</span>
+      <span class="cost">S+B (≈ 3일)</span>
+    </div>
+
+    <p>Inspector → Rules 탭의 각 rule row 를 클릭하면 펼침. 그 rule 의 <strong>증거 이벤트</strong> 가 Files / Actions / Missed 세 묶음으로 노출.</p>
+
+    <h4>스케치</h4>
+    <pre><code><span class="accent">[v]</span> Lint should be run                          fired <span class="num">3x</span>  <span class="good">v</span>
+    ─────────────────────────────────────────────────────
+    Files (0)
+      <span class="mute">(no file references)</span>
+
+    Actions (3)
+      <span class="accent">▶</span> Bash <span class="mute">·</span> npm run lint              14:23  trigger
+      <span class="accent">▶</span> Bash <span class="mute">·</span> npm run lint -- --fix     14:24  expect
+      <span class="accent">▶</span> Bash <span class="mute">·</span> pnpm lint                 14:31  expect
+
+<span class="accent">[v]</span> Read auth modules before editing             fired <span class="num">5x</span>  <span class="good">v</span>
+    ─────────────────────────────────────────────────────
+    Files (3)
+      📖 src/auth/login.ts          read 14:20  expect
+      📖 src/auth/utils.ts          read 14:21  expect
+      ✏️ src/auth/middleware.ts     edit 14:22  expect
+
+    Actions (5)
+      Read <span class="mute">·</span> 3x        Edit <span class="mute">·</span> 2x
+
+<span class="accent">[v]</span> Mention should be read                       fired <span class="num">2x</span>  <span class="warn">⚠</span> partial
+    ─────────────────────────────────────────────────────
+    Files (mentioned 4 <span class="mute">·</span> matched 2)
+      <span class="good">v</span> src/auth/login.ts         read 14:20
+      <span class="good">v</span> src/auth/utils.ts         read 14:21
+      <span class="bad">x</span> docs/auth-spec.md         <span class="bad">not seen</span>
+      <span class="bad">x</span> tests/auth.test.ts        <span class="bad">not seen</span></code></pre>
+
+    <h4>인터랙션</h4>
+    <ul>
+      <li>각 행 클릭 → timeline 의 해당 event 로 점프 + 잠깐 하이라이트</li>
+      <li>매 row 우측에 trigger/expect 표시 → 어느 쪽 조건으로 매치됐는지 즉시 보임</li>
+      <li>"Missed" 묶음 (mention 등) 은 같은 패널 안에 ✗ 로 함께 노출 — 따로 화면 안 옮겨도 됨</li>
+    </ul>
+
+    <h4>왜 이게 lead 인가</h4>
+    <ul>
+      <li>사용자가 직접 "이게 가장 좋다"고 합의함</li>
+      <li>새 페이지/탭 없음 — 이미 보고 있는 Rules 탭에서 그대로 펼침</li>
+      <li>"rule 의 근거 + 누락" 이 한 자리에 모임 → 디버깅과 검증을 동시에</li>
+    </ul>
+
+    <h4>데이터 / API</h4>
+    <ul>
+      <li>새 endpoint: <code>GET /api/v1/tasks/:taskId/rules/:ruleId/evidence</code></li>
+      <li>또는 기존 <code>useTaskRulesQuery</code> 의 응답에 evidence 를 함께 join — task 당 rule 수가 적으니 폭증 안 함</li>
+      <li>응답 shape: <code>{ triggers: [...], expects: [...] }</code> — 각 항목에 <code>eventId, kind, title, command?, filePath?, matchedBy</code></li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================== -->
+<section id="scorecard">
+  <h2><span class="num">2</span>Task Header Rule Scorecard</h2>
+
+  <div class="card complement">
+    <div class="head">
+      <span class="badge">Complement</span>
+      <span class="title">Task 화면 상단에 한 줄로 verdict 칩</span>
+      <span class="cost">S (≈ 1-2일)</span>
+    </div>
+
+    <p>한 task 의 전체 verdict 를 머리에 띠로 노출. 펼침 없이 바로 "이번 작업 잘 됐나" 가 답이 됨.</p>
+
+    <pre><code>┌──────────────────────────────────────────────────────────┐
+│ Rules: <span class="good">[v Lint]</span>  <span class="good">[v Test]</span>  <span class="bad">[x Typecheck]</span>  <span class="warn">[⚠ DB Migrate]</span> │
+│        <span class="good">2 verified</span> <span class="mute">·</span> <span class="bad">1 contradicted</span> <span class="mute">·</span> <span class="warn">1 unverifiable</span>     │
+└──────────────────────────────────────────────────────────┘</code></pre>
+
+    <ul>
+      <li>각 chip 클릭 → 해당 rule 의 evidence panel 펼치는 위치로 스크롤 (= ①과 자연스럽게 연결)</li>
+      <li>색상: 초록 ✓ / 빨강 ✗ / 노랑 ⚠</li>
+      <li>데이터는 verification 도메인의 verdict 가 이미 계산하고 있음 — endpoint 만 노출</li>
+    </ul>
+    <p><strong>①과 함께 만들면 시너지</strong>: scorecard (요약) → 칩 클릭 → evidence panel (드릴다운).</p>
+  </div>
+</section>
+
+<!-- ============================== -->
+<section id="missed">
+  <h2><span class="num">3</span>"Missed" 표시 + matchedBy 라벨</h2>
+
+  <div class="card complement">
+    <div class="head">
+      <span class="badge">Complement</span>
+      <span class="title">①의 자연스러운 확장 — rule 디버깅 정보</span>
+      <span class="cost">XS+M (≈ 2일)</span>
+    </div>
+
+    <h4>matchedBy 라벨 (XS)</h4>
+    <p>각 매치된 이벤트에 어떤 조건으로 매치됐는지 라벨 표시:</p>
+    <pre><code>▶ Bash · npm run lint  14:23  trigger        <span class="mute">[via commandMatch]</span>
+▶ Bash · pnpm lint     14:31  expect         <span class="mute">[via commandMatch]</span>
+📖 src/auth/login.ts   14:20  expect         <span class="mute">[via action=file-read]</span>
+📖 docs/notes.md       14:22  expect         <span class="mute">[via pattern]</span></code></pre>
+    <ul>
+      <li>rule 작성자가 "내 regex 오타 났나" 같은 디버깅 가능</li>
+      <li>구현: matching engine 이 이미 어떤 조건이 매치됐는지 알고 있음 — 그 정보만 응답에 추가</li>
+    </ul>
+
+    <h4>Missed 표시 (M)</h4>
+    <p>"trigger 는 매치됐는데 expect 가 같은 turn 안에서 매치 안 된 경우" 를 ✗ 로 같은 패널에 표시 (위 ① 예시의 "Mention should be read" 처럼). verdict 도메인의 contradicted 결과를 그대로 가져와 evidence 패널과 묶음.</p>
+  </div>
+</section>
+
+<!-- ============================== -->
+<section id="composition">
+  <h2><span class="num">4</span>Activity Composition 위젯</h2>
+
+  <div class="card later">
+    <div class="head">
+      <span class="badge">Later</span>
+      <span class="title">Rule 무관, 그냥 task 활동량 요약</span>
+      <span class="cost">M (≈ 2-3일)</span>
+    </div>
+
+    <pre><code>┌─ Activity ────────────────────────┐
+│ 📖 Read     ████████████ 12       │
+│ ✏️ Write    ████ 4                │
+│ ▶ Bash     ██████ 6               │
+│ 🌐 Web     ▏0                     │
+│                                   │
+│ Top files (by touches)            │
+│  src/auth/middleware.ts    ●●●    │
+│  package.json              ●●     │
+│  tests/auth.test.ts        ●      │
+└───────────────────────────────────┘</code></pre>
+
+    <ul>
+      <li>데이터는 우리가 만든 <code>monitor_get_task_summary</code> 가 이미 계산 (<code>toolCounts</code>, <code>topFiles</code>, <code>topCommands</code>)</li>
+      <li>Overview 탭에 위젯 추가만 하면 됨</li>
+      <li>"이번 작업이 read-heavy 였나 write-heavy 였나" PR 회고용</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================== -->
+<section id="hotspot">
+  <h2><span class="num">5</span>Cross-task Rule Hotspot — <code>/rules</code> 페이지 확장</h2>
+
+  <div class="card later">
+    <div class="head">
+      <span class="badge">Later</span>
+      <span class="title">여러 task 횡단 — 어떤 rule 이 자주 깨지나</span>
+      <span class="cost">M (≈ 3일)</span>
+    </div>
+
+    <pre><code>Rule                          Fired   <span class="good">Verified</span>   <span class="bad">Contradicted</span>   Rate
+─────────────────────────────────────────────────────────────────────
+Lint should be run             47      45          2            96%
+Test should be run             47      38          9            81%
+Migrate before edit            12      4           <span class="bad">8</span>            <span class="warn">33% ⚠</span></code></pre>
+
+    <ul>
+      <li>"내 agent 가 가장 자주 어기는 규칙" 이 즉시 보임</li>
+      <li>1인 도구의 진짜 매력 포인트 — 자기 워크플로우의 약점 데이터</li>
+      <li>충분히 task 가 쌓이고 ①~③ 가치 검증된 뒤에 만들기</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================== -->
+<section id="overlay">
+  <h2><span class="num">6</span>Timeline verdict overlay</h2>
+
+  <div class="card future">
+    <div class="head">
+      <span class="badge">Future</span>
+      <span class="title">Graph/Feed 노드에 ✓/✗ 배지</span>
+      <span class="cost">M+ (디자인 비용 큼)</span>
+    </div>
+
+    <pre><code><span class="mute">○</span> Read package.json           <span class="mute">← 일반</span>
+<span class="good">●v</span> Bash: npm run lint         <span class="mute">← rule "Lint" fulfilled</span>
+<span class="bad">●x</span> <span class="bad">(이 자리에 expected Bash 가 없었음)</span>  <span class="mute">← contradicted 표시</span></code></pre>
+
+    <p>지금 lane 색만 바꾸는 것보다 강한 신호지만, ①~③ 로 verdict 가 다른 곳에서 충분히 노출되면 후순위. 시각 디자인 복잡도가 큼.</p>
+  </div>
+</section>
+
+<!-- ============================== -->
+<section id="priority">
+  <h2><span class="num">B</span>우선순위 / 분량 추정</h2>
+
+  <div class="priority">
+    <div class="rank rank-1">①</div>
+    <div class="item"><strong>Per-rule Evidence panel</strong> (Rules 탭 row 펼치기) — 사용자 선택, 가장 직접적 가치</div>
+    <div class="effort">S+B</div>
+
+    <div class="rank rank-2">②</div>
+    <div class="item"><strong>Task Header Rule Scorecard</strong> — verdict 한 줄, ①과 자연스럽게 연결</div>
+    <div class="effort">S</div>
+
+    <div class="rank rank-3">③</div>
+    <div class="item"><strong>matchedBy 라벨</strong> + <strong>Missed 표시</strong> — ①의 확장</div>
+    <div class="effort">XS+M</div>
+
+    <div class="rank rank-4">④</div>
+    <div class="item"><strong>Activity Composition 위젯</strong> — Overview 탭, rule 무관 보너스</div>
+    <div class="effort">M</div>
+
+    <div class="rank rank-5">⑤</div>
+    <div class="item"><strong>Cross-task Rule Hotspot</strong> — <code>/rules</code> 확장, 데이터 쌓이고 나서</div>
+    <div class="effort">M</div>
+
+    <div class="rank rank-5">⑥</div>
+    <div class="item"><strong>Timeline verdict overlay</strong> — 시각 강화, 가장 마지막</div>
+    <div class="effort">M+</div>
+  </div>
+
+  <div class="callout good" style="margin-top: 18px;">
+    <div class="title">최소 출시 묶음 (MVP)</div>
+    <strong>① + ②</strong> 만으로도 "agent 가 일했나" 라는 질문의 답이 두 단계 — 요약 (scorecard) → 드릴다운 (evidence) — 으로 닫힘.
+    이 두 개만 합쳐 ≈ 4~5일. ③은 그 직후 자연스럽게 따라옴.
+  </div>
+</section>
+
+<!-- ============================== -->
+<section id="schema">
+  <h2><span class="num">C</span>스키마 영향</h2>
+  <table>
+    <thead><tr><th>대상</th><th>변경</th><th>이유</th></tr></thead>
+    <tbody>
+      <tr><td><code>rules</code></td><td>변경 없음</td><td>—</td></tr>
+      <tr><td><code>rule_enforcements</code></td><td>변경 없음</td><td>이미 (eventId, ruleId, matchKind) 가짐</td></tr>
+      <tr><td><code>verification</code> 도메인</td><td>변경 없음</td><td>verdict 이미 계산됨</td></tr>
+      <tr><td>새 REST endpoint</td><td><code>GET /api/v1/tasks/:id/rules/:ruleId/evidence</code></td><td>① 용</td></tr>
+      <tr><td>새 REST endpoint</td><td><code>GET /api/v1/tasks/:id/verdicts</code> (또는 기존 task detail 확장)</td><td>② 용</td></tr>
+      <tr><td>matching engine</td><td><code>matchedBy</code> 메타 노출 (이미 내부적으론 안다)</td><td>③ XS 부분</td></tr>
+    </tbody>
+  </table>
+  <p>전체적으로 <strong>새 테이블/마이그레이션 없음</strong>. 노출 작업이 핵심.</p>
+</section>
+
+<!-- ============================== -->
+<section id="open">
+  <h2><span class="num">D</span>열린 질문</h2>
+  <ol>
+    <li><strong>evidence 응답 크기</strong> — task 당 rule 수 × match 수가 폭증할 가능성. row 별 lazy fetch (펼침 시점에만) vs 처음부터 함께 — UX 와 비용의 트레이드오프. 일단 lazy 가 안전.</li>
+    <li><strong>matchedBy 라벨의 정확도</strong> — matching engine 이 "어느 조건으로 매치됐는가" 를 정확히 한 가지로 답할 수 있나, 아니면 여러 조건 동시 매치되는 경우가 있나. 후자라면 멀티 라벨 필요.</li>
+    <li><strong>"Mention should be read" 같은 multi-path rule</strong> — 현재 rule 모델은 한 pattern 만 들고 있어서 4개 mention 검증을 한 rule 로 표현 어려움. ①의 "Files (mentioned 4 · matched 2)" 스케치를 진짜로 하려면 verdict 가 turn 단위로 다중 path 를 추적해야. 별도 설계 필요할 수 있음 — 일단 ①은 단일 path rule 만 지원하고 시작.</li>
+    <li><strong>verdict 의 "unverifiable"</strong> — 현재 verdict 모델에 "trigger 가 안 일어났다" vs "expect 못 채웠다" 가 구분되는지. Scorecard 의 ⚠ 가 어떤 케이스를 의미할지 명확히.</li>
+  </ol>
+</section>
+
+<footer>
+  Agent Tracer · Rule Insights UI 설계안 · 2026-05-12<br/>
+  선결 조건: rule-enhancement.html (생성 인프라) 완료 · 다음 단계: ①+② MVP 묶음 합의 후 구현 착수
+</footer>
+
+</div>
+</body>
+</html>

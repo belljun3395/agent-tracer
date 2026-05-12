@@ -1,0 +1,701 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Agent Tracer — Hook 너머, Claude Code SDK 확장 제안</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #161922;
+    --panel-2: #1d2230;
+    --line: #2a2f3d;
+    --ink: #e7ebf3;
+    --ink-dim: #a4adbf;
+    --ink-mute: #7a8197;
+    --accent: #ffb86b;
+    --accent-2: #7fd1ff;
+    --good: #74e0a8;
+    --warn: #ffd166;
+    --bad: #ff8585;
+    --tier1: #ff8585;
+    --tier2: #ffb86b;
+    --tier3: #74e0a8;
+    --tier4: #7fd1ff;
+    --tier5: #c4a7ff;
+    --tier6: #ffd166;
+    --mono: ui-monospace, SFMono-Regular, "JetBrains Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { background: var(--bg); color: var(--ink); }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Inter", "Pretendard", "Apple SD Gothic Neo", sans-serif;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 56px 28px 96px; }
+  header.hero {
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 28px;
+    margin-bottom: 36px;
+  }
+  .eyebrow {
+    color: var(--ink-mute);
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  h1 {
+    font-size: 34px;
+    line-height: 1.18;
+    margin: 12px 0 10px;
+    letter-spacing: -0.02em;
+  }
+  h1 .sub { color: var(--ink-dim); font-weight: 500; }
+  .lede { color: var(--ink-dim); font-size: 16px; max-width: 720px; }
+  .meta {
+    margin-top: 18px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 14px;
+    color: var(--ink-mute);
+    font-size: 12px;
+  }
+  .meta code { font-family: var(--mono); color: var(--ink-dim); }
+
+  section { margin-top: 44px; }
+  section > h2 {
+    font-size: 20px;
+    letter-spacing: -0.01em;
+    margin: 0 0 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  section > h2 .num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px; height: 26px;
+    border-radius: 6px;
+    background: var(--panel-2);
+    color: var(--ink-dim);
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+  section > p.intro { color: var(--ink-dim); margin: 0 0 18px; max-width: 780px; }
+
+  /* Diagnosis grid */
+  .diag {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+  .diag .cell {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 14px 16px;
+  }
+  .diag h3 {
+    font-size: 13px;
+    margin: 0 0 8px;
+    color: var(--ink-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .diag ul { margin: 0; padding-left: 18px; }
+  .diag li { margin: 4px 0; color: var(--ink); font-size: 14px; }
+  .diag li b { color: var(--accent); font-weight: 600; }
+
+  /* Surface inventory bar */
+  .surfaces {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 8px;
+    margin: 8px 0 0;
+  }
+  .surface {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px 10px 12px;
+    font-size: 12px;
+  }
+  .surface .name { display: block; font-weight: 600; color: var(--ink); }
+  .surface .state {
+    display: inline-block;
+    margin-top: 6px;
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+  }
+  .surface .state.used { color: var(--good); border-color: rgba(116,224,168,0.3); }
+  .surface .state.unused { color: var(--warn); border-color: rgba(255,209,102,0.3); }
+  .surface .state.partial { color: var(--accent-2); border-color: rgba(127,209,255,0.3); }
+
+  /* Feature cards */
+  .tier-head {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    margin: 36px 0 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px dashed var(--line);
+  }
+  .tier-head .tag {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    background: var(--panel-2);
+  }
+  .tier-head h3 {
+    font-size: 18px;
+    margin: 0;
+    letter-spacing: -0.01em;
+  }
+  .tier-head .why { color: var(--ink-mute); font-size: 13px; margin-left: auto; max-width: 50%; text-align: right; }
+
+  .features { display: flex; flex-direction: column; gap: 14px; }
+  .feat {
+    border: 1px solid var(--line);
+    background: var(--panel);
+    border-radius: 12px;
+    padding: 18px 20px;
+    position: relative;
+    overflow: hidden;
+  }
+  .feat::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    background: var(--accent);
+  }
+  .feat.t1::before { background: var(--tier1); }
+  .feat.t2::before { background: var(--tier2); }
+  .feat.t3::before { background: var(--tier3); }
+  .feat.t4::before { background: var(--tier4); }
+  .feat.t5::before { background: var(--tier5); }
+  .feat.t6::before { background: var(--tier6); }
+
+  .feat header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    margin-bottom: 10px;
+  }
+  .feat h4 {
+    font-size: 16px;
+    margin: 0;
+    letter-spacing: -0.005em;
+  }
+  .feat .badges { display: flex; gap: 6px; flex-wrap: wrap; }
+  .badge {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    padding: 3px 7px;
+    border-radius: 4px;
+    background: var(--panel-2);
+    color: var(--ink-dim);
+    border: 1px solid var(--line);
+    white-space: nowrap;
+  }
+  .badge.sdk { color: var(--accent-2); border-color: rgba(127,209,255,0.3); }
+  .badge.plugin { color: var(--tier3); border-color: rgba(116,224,168,0.3); }
+  .badge.mcp { color: var(--tier5); border-color: rgba(196,167,255,0.3); }
+  .badge.hook { color: var(--accent); border-color: rgba(255,184,107,0.3); }
+  .badge.spec { color: var(--bad); border-color: rgba(255,133,133,0.3); }
+
+  .feat .row {
+    display: grid;
+    grid-template-columns: 110px 1fr;
+    gap: 10px 16px;
+    margin: 8px 0;
+    font-size: 14px;
+  }
+  .feat .row .k {
+    color: var(--ink-mute);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 10.5px;
+    padding-top: 3px;
+  }
+  .feat .row .v { color: var(--ink); }
+  .feat .row .v.dim { color: var(--ink-dim); }
+
+  pre.snippet {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin: 10px 0 0;
+    overflow-x: auto;
+    font-family: var(--mono);
+    font-size: 12.5px;
+    line-height: 1.55;
+    color: var(--ink-dim);
+  }
+  pre.snippet .kw { color: var(--accent); }
+  pre.snippet .str { color: var(--good); }
+  pre.snippet .com { color: var(--ink-mute); font-style: italic; }
+  pre.snippet .fn { color: var(--accent-2); }
+
+  /* Priority matrix */
+  .matrix {
+    display: grid;
+    grid-template-columns: 160px repeat(3, 1fr);
+    gap: 6px;
+    margin-top: 12px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 6px;
+  }
+  .matrix .cell {
+    padding: 10px 12px;
+    background: var(--panel-2);
+    border-radius: 6px;
+    font-size: 13px;
+  }
+  .matrix .cell.head {
+    background: transparent;
+    color: var(--ink-mute);
+    text-transform: uppercase;
+    font-size: 10.5px;
+    letter-spacing: 0.1em;
+    padding-bottom: 4px;
+  }
+  .matrix .cell.row-head { color: var(--ink-dim); font-weight: 600; }
+  .matrix .pill {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 2px 7px;
+    border-radius: 4px;
+    background: rgba(0,0,0,0.2);
+    margin: 2px 4px 2px 0;
+    color: var(--ink);
+  }
+  .matrix .pill.t1 { color: var(--tier1); }
+  .matrix .pill.t2 { color: var(--tier2); }
+  .matrix .pill.t3 { color: var(--tier3); }
+  .matrix .pill.t4 { color: var(--tier4); }
+  .matrix .pill.t5 { color: var(--tier5); }
+  .matrix .pill.t6 { color: var(--tier6); }
+
+  /* Closing */
+  .closing {
+    margin-top: 48px;
+    padding: 22px 24px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: linear-gradient(180deg, rgba(255,184,107,0.06), transparent);
+  }
+  .closing h2 { margin-top: 0; }
+  .closing ol { padding-left: 22px; color: var(--ink-dim); }
+  .closing ol li { margin: 6px 0; }
+  .closing ol li b { color: var(--ink); }
+
+  footer {
+    margin-top: 56px;
+    color: var(--ink-mute);
+    font-size: 12px;
+    text-align: center;
+  }
+  @media (max-width: 760px) {
+    .diag, .surfaces { grid-template-columns: 1fr 1fr; }
+    .matrix { grid-template-columns: 1fr; }
+    .matrix .cell.head:not(:first-child) { display: none; }
+    .tier-head .why { display: none; }
+    .feat .row { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <div class="eyebrow">Agent Tracer · Internal proposal</div>
+  <h1>Hook 너머로 — <span class="sub">Claude Code SDK를 활용한 모니터링 확장</span></h1>
+  <p class="lede">
+    현재 Agent Tracer는 <code>hooks</code> 한 가지 채널로만 데이터를 수집한다. 이미 모인 데이터(룰·이벤트·툴 사용·파일 흔적)는 풍부한데,
+    Claude Code 플러그인/SDK가 제공하는 다른 표면(서브에이전트·슬래시 커맨드·스킬·MCP·Agent SDK headless)을 함께 쓰면
+    “모니터링”에서 “관여(intervene) + 해석(judge) + 재현(replay)”까지 단계를 끌어올릴 수 있다.
+  </p>
+  <div class="meta">
+    <span>대상 저장소 <code>agent-tracer</code></span>
+    <span>현재 브랜치 <code>perf/display-title-cache</code></span>
+    <span>플러그인 v0.2.28 <code>packages/runtime/.claude-plugin/plugin.json</code></span>
+  </div>
+</header>
+
+<!-- 1. Diagnosis -->
+<section>
+  <h2><span class="num">1</span> 현재 구성과 사용/미사용 표면</h2>
+  <p class="intro">
+    플러그인 디렉터리에는 <code>plugin.json</code>과 <code>hooks/</code>만 있다. <code>commands/</code>, <code>agents/</code>, <code>skills/</code>,
+    플러그인 번들 MCP는 모두 비어 있다. 즉, 데이터는 받지만 “에이전트에게 되돌려주는 통로”가 거의 없다.
+  </p>
+
+  <div class="diag">
+    <div class="cell">
+      <h3>지금 잘 되고 있는 것</h3>
+      <ul>
+        <li>27/28 Claude hook 이벤트 수집 — <b>action-only privacy contract</b></li>
+        <li>SQLite 기반 타임라인 · turn · rule_enforcement 영속화</li>
+        <li>Rule 시스템: trigger phrases → expected actions (command/file/web)</li>
+        <li>MCP stdio 서버에 약 20개 <code>monitor_*</code> 툴 등록</li>
+        <li>WebSocket 실시간 + OpenInference export</li>
+      </ul>
+    </div>
+    <div class="cell">
+      <h3>오직 “관찰”만 — 행동 영향력 0</h3>
+      <ul>
+        <li>Rule 위반이 감지돼도 <b>에이전트가 모름</b>: 대시보드에만 표시</li>
+        <li>PreToolUse 훅에 <code>permissionDecision</code> 응답 없음 → 차단 불가</li>
+        <li>Stop 훅의 <code>decision:"block"</code> 활용 없음 → “덜 끝낸 작업” 강제 재진입 불가</li>
+        <li>MCP 툴이 있지만 플러그인에 <b>번들되지 않아서</b> 별도 설치 필요</li>
+        <li>“왜 이 파일을 열었지?”에 답할 추론 레이어가 없음</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="surfaces" style="margin-top:14px">
+    <div class="surface"><span class="name">Hooks</span><span class="state used">사용 중</span></div>
+    <div class="surface"><span class="name">StatusLine</span><span class="state used">사용 중</span></div>
+    <div class="surface"><span class="name">MCP server</span><span class="state partial">분리 설치</span></div>
+    <div class="surface"><span class="name">Subagents</span><span class="state unused">미사용</span></div>
+    <div class="surface"><span class="name">Slash commands</span><span class="state unused">미사용</span></div>
+    <div class="surface"><span class="name">Skills</span><span class="state unused">미사용</span></div>
+  </div>
+</section>
+
+<!-- 2. Reframe -->
+<section>
+  <h2><span class="num">2</span> 재정의 — “모니터”에서 “Closed-loop 관찰자”로</h2>
+  <p class="intro">
+    현재 데이터 흐름: <code>에이전트 → 훅 → 서버 → 대시보드 → 사용자</code>. 사용자만 시그널을 본다.<br/>
+    제안하는 흐름: <code>에이전트 ↔ 훅·MCP·서브에이전트 ↔ 서버(룰/판정) → (재투입) → 에이전트 + 사용자</code>.
+    이미 잡고 있는 “파일/명령/검색” 시그널을 에이전트에게 되돌려주거나, 별도 판단자 Claude를 띄워서
+    “정말 지시한 일을 했는가?”에 <b>구조화된 답</b>을 만들어낸다.
+  </p>
+</section>
+
+<!-- 3. Features -->
+<section>
+  <h2><span class="num">3</span> 추가 기능 제안 (Tier별)</h2>
+  <p class="intro">
+    각 Tier는 “모니터링의 위상”을 한 단계씩 올리는 묶음이다. 위쪽일수록 구현이 가볍고 가치 곡선이 가파르다.
+  </p>
+
+  <!-- Tier 1 -->
+  <div class="tier-head">
+    <span class="tag" style="color:var(--tier1)">TIER 1</span>
+    <h3>Rule을 “관찰”에서 “관여”로 — 훅의 미사용 응답 활용</h3>
+    <div class="why">현재 훅은 한 방향. JSON 응답으로 차단·재진입·맥락 주입까지 가능.</div>
+  </div>
+  <div class="features">
+
+    <article class="feat t1">
+      <header>
+        <h4>1.1 Rule-as-Guardrail (PreToolUse 차단)</h4>
+        <div class="badges"><span class="badge hook">PreToolUse</span><span class="badge">동기 훅</span></div>
+      </header>
+      <div class="row"><div class="k">문제</div><div class="v">Severity <code>block</code> 룰이 사실상 <code>warn</code>처럼 동작. 위반해도 도구는 실행됨.</div></div>
+      <div class="row"><div class="k">변경</div><div class="v">PreToolUse 훅이 서버 <code>/api/v1/rules/match</code>에 동기 조회 → 위반 시 <code>permissionDecision: "deny"</code> 반환.</div></div>
+      <div class="row"><div class="k">가치</div><div class="v dim">“커밋 메시지에 ‘fix’ 들어가면 typecheck부터”, “*.env 수정 금지” 같은 룰이 <b>실제 제어</b>가 된다. 대시보드는 “위반 시도” 로그로 격상.</div></div>
+      <pre class="snippet"><span class="com">// run-hook-claude.sh PreToolUse 응답</span>
+{
+  <span class="str">"permissionDecision"</span>: <span class="str">"deny"</span>,
+  <span class="str">"permissionDecisionReason"</span>: <span class="str">"Rule#42 violated: must run typecheck before Edit on packages/server"</span>,
+  <span class="str">"additionalContext"</span>: <span class="str">"Active rule: <id>. Run `npm run typecheck` first, then retry."</span>
+}</pre>
+    </article>
+
+    <article class="feat t1">
+      <header>
+        <h4>1.2 “덜 끝낸 작업” 재진입 (Stop 차단)</h4>
+        <div class="badges"><span class="badge hook">Stop</span></div>
+      </header>
+      <div class="row"><div class="k">문제</div><div class="v">사용자가 “테스트 추가해줘”라고 했는데 에이전트가 Write *.test.ts 없이 끝내도 시그널만 남음.</div></div>
+      <div class="row"><div class="k">변경</div><div class="v">Stop 훅이 현 turn의 expected-action 룰 통과 여부 확인 → 미충족 시 <code>{decision:"block", reason}</code>로 한 턴 더.</div></div>
+      <div class="row"><div class="k">가치</div><div class="v dim">기대-수행 갭을 <b>턴이 끝나기 전에</b> 닫는다. “말한 것을 진짜 했는가”에 대한 첫 자동 응답.</div></div>
+    </article>
+
+    <article class="feat t1">
+      <header>
+        <h4>1.3 PreToolUse <code>additionalContext</code>로 룰을 에이전트에게 “속삭이기”</h4>
+        <div class="badges"><span class="badge hook">PreToolUse</span><span class="badge">비차단</span></div>
+      </header>
+      <div class="row"><div class="k">변경</div><div class="v">차단까지 안 가도, 매 툴 호출 직전에 “현재 활성 룰 N개” 요약을 컨텍스트로 주입.</div></div>
+      <div class="row"><div class="k">가치</div><div class="v dim">에이전트가 <b>스스로</b> 룰을 인지하고 우회 시도/확인 멘트를 남긴다. 룰의 mental model이 사람·에이전트 양쪽에 공유됨.</div></div>
+    </article>
+  </div>
+
+  <!-- Tier 2 -->
+  <div class="tier-head">
+    <span class="tag" style="color:var(--tier2)">TIER 2</span>
+    <h3>플러그인을 “양방향”으로 — Commands / Subagent / MCP 번들</h3>
+    <div class="why">에이전트가 모니터에 직접 말 걸 수 있는 통로를 연다.</div>
+  </div>
+  <div class="features">
+
+    <article class="feat t2">
+      <header>
+        <h4>2.1 플러그인에 MCP 서버 번들</h4>
+        <div class="badges"><span class="badge mcp">MCP</span><span class="badge plugin">plugin.json</span></div>
+      </header>
+      <div class="row"><div class="k">현재</div><div class="v">서버에 약 20개 <code>monitor_*</code> 툴 이미 존재. 그러나 사용자가 별도 <code>claude mcp add</code> 해야 함.</div></div>
+      <div class="row"><div class="k">변경</div><div class="v"><code>plugin.json</code>에 <code>"mcpServers"</code> 추가 — 플러그인 설치 한 번으로 훅 + MCP 동시 활성.</div></div>
+      <div class="row"><div class="k">가치</div><div class="v dim">설치 마찰 0. 에이전트가 <code>monitor_thought</code>, <code>monitor_plan</code>, <code>monitor_question</code>을 자연스럽게 호출 → 사고 흐름이 훅 데이터와 같은 타임라인에 합쳐짐.</div></div>
+    </article>
+
+    <article class="feat t2">
+      <header>
+        <h4>2.2 슬래시 커맨드 묶음 <code>/agent-tracer:*</code></h4>
+        <div class="badges"><span class="badge plugin">commands/</span></div>
+      </header>
+      <div class="row"><div class="k">예시</div><div class="v">
+        <code>/agent-tracer:rules</code> — 활성 룰을 컨텍스트로 주입<br/>
+        <code>/agent-tracer:checkpoint &lt;label&gt;</code> — 타임라인 마커<br/>
+        <code>/agent-tracer:why &lt;file&gt;</code> — “왜 이 파일을 열었지?” 추론 (Tier 3과 연결)<br/>
+        <code>/agent-tracer:audit-me</code> — 현재 턴 트레이스 자기 감사<br/>
+        <code>/agent-tracer:rule "next time always…"</code> — 자연어 → 룰 변환 후 POST
+      </div></div>
+      <div class="row"><div class="k">가치</div><div class="v dim">사용자가 작업 중 <b>한 줄</b>로 모니터를 조작. 룰 등록 UX가 대시보드 클릭에서 CLI 한 줄로 단축.</div></div>
+    </article>
+
+    <article class="feat t2">
+      <header>
+        <h4>2.3 <code>auditor</code> 서브에이전트</h4>
+        <div class="badges"><span class="badge plugin">agents/</span></div>
+      </header>
+      <div class="row"><div class="k">정의</div><div class="v"><code>agents/auditor.md</code> — system prompt: “현 task의 timeline·rule을 읽고, expected action vs. observed tool 갭을 표 형태로 출력”.</div></div>
+      <div class="row"><div class="k">트리거</div><div class="v dim">메인 에이전트가 <code>Agent</code> 툴로 위임 → 독립 컨텍스트 윈도우에서 검증 → 결과를 turn에 첨부.</div></div>
+      <div class="row"><div class="k">가치</div><div class="v dim">메인 컨텍스트를 오염시키지 않으면서 “자기 검증” 단계를 강제. 사용자 개입 없이도 검증 결과가 timeline에 남음.</div></div>
+    </article>
+  </div>
+
+  <!-- Tier 3 -->
+  <div class="tier-head">
+    <span class="tag" style="color:var(--tier3)">TIER 3</span>
+    <h3>Agent SDK headless를 “판단자(Judge) 루프”로</h3>
+    <div class="why">현재 룰 매칭은 문자열 술어. SDK headless로 의미 기반 평가 추가.</div>
+  </div>
+  <div class="features">
+
+    <article class="feat t3">
+      <header>
+        <h4>3.1 룰 평가의 LLM 두 번째 티어</h4>
+        <div class="badges"><span class="badge sdk">@anthropic-ai/claude-agent-sdk</span><span class="badge">prompt caching</span></div>
+      </header>
+      <div class="row"><div class="k">현재</div><div class="v">RuleExpectation은 <code>commandMatches: string[]</code> / <code>pattern: string</code>의 정적 매칭.</div></div>
+      <div class="row"><div class="k">변경</div><div class="v">서버가 turn close 시 headless <code>query()</code>를 호출. 입력: 룰 NL 설명 + 그 턴의 timeline. 출력: <code>{verdict, evidenceEventIds[], rationale}</code>.</div></div>
+      <div class="row"><div class="k">캐싱</div><div class="v dim">시스템 프롬프트 + 룰 카탈로그에 <code>cache_control</code> 적용 → 턴마다 동일 토큰 prefix 재사용으로 비용 90%↓.</div></div>
+      <pre class="snippet"><span class="com">// packages/server/src/governance/verification/llm-judge.ts</span>
+<span class="kw">const</span> result = <span class="kw">await</span> <span class="fn">query</span>({
+  model: <span class="str">"claude-haiku-4-5-20251001"</span>, <span class="com">// 저렴·빠른 모델로 충분</span>
+  systemPrompt: [
+    { type: <span class="str">"text"</span>, text: JUDGE_SYS },
+    { type: <span class="str">"text"</span>, text: rulesCatalog, cache_control: { type: <span class="str">"ephemeral"</span> } }
+  ],
+  messages: [{ role: <span class="str">"user"</span>, content: <span class="fn">renderTimeline</span>(turn) }],
+  outputSchema: VerdictSchema
+});</pre>
+    </article>
+
+    <article class="feat t3">
+      <header>
+        <h4>3.2 이전 세션에서 룰 후보 자동 발굴</h4>
+        <div class="badges"><span class="badge sdk">headless</span><span class="badge">background job</span></div>
+      </header>
+      <div class="row"><div class="k">변경</div><div class="v">N개 과거 task를 묶어 “이 프로젝트에서 에이전트가 암묵적으로 지키거나 자주 어긴 규칙은?”을 판단자 Claude에 질문 → <b>후보 룰</b>로 UI 큐에 적재.</div></div>
+      <div class="row"><div class="k">가치</div><div class="v dim">“무엇을 검사해야 하는지조차 모르는” 초기 단계 사용자가 가장 답답해하는 부분을 자동화. 룰 시스템의 cold start 해결.</div></div>
+    </article>
+
+    <article class="feat t3">
+      <header>
+        <h4>3.3 “Plan vs. Execution” 일치도 점수</h4>
+        <div class="badges"><span class="badge hook">ExitPlanMode</span><span class="badge sdk">judge</span></div>
+      </header>
+      <div class="row"><div class="k">방법</div><div class="v">ExitPlanMode 시 캡처한 plan 텍스트와 그 이후 실행된 tool sequence를 judge에 던져 “plan_adherence 0-1 + 누락/이탈 항목”.</div></div>
+      <div class="row"><div class="k">가치</div><div class="v dim">“어떻게 동작하는지 확인하고 싶다”는 사용자의 원 목적에 가장 정직한 지표. 룰 없이도 의미 있는 신호 생성.</div></div>
+    </article>
+
+    <article class="feat t3">
+      <header>
+        <h4>3.4 트레이스 위에서 자연어 Q&amp;A — <code>/agent-tracer:ask</code></h4>
+        <div class="badges"><span class="badge sdk">conversational</span></div>
+      </header>
+      <div class="row"><div class="k">예시 질문</div><div class="v dim">“같은 파일을 몇 번 다시 읽었어?”, “grep 패턴이 의미 있게 좁혀졌어?”, “/packages/server 외부를 만진 적 있나?”</div></div>
+      <div class="row"><div class="k">구현</div><div class="v">대시보드 Inspector에 chat 입력. 백엔드는 headless <code>query()</code>에 직렬화된 timeline JSON을 컨텍스트로 주입. 새 질문마다 같은 cache prefix 재사용.</div></div>
+    </article>
+  </div>
+
+  <!-- Tier 4 -->
+  <div class="tier-head">
+    <span class="tag" style="color:var(--tier4)">TIER 4</span>
+    <h3>재현 가능성 — Fork·Replay·Diff</h3>
+    <div class="why">“그때 다르게 했으면?”을 검증 가능한 실험으로.</div>
+  </div>
+  <div class="features">
+
+    <article class="feat t4">
+      <header>
+        <h4>4.1 Session Fork — 임의 timeline 지점에서 분기</h4>
+        <div class="badges"><span class="badge sdk">resume</span><span class="badge spec">SDK 지원 확인</span></div>
+      </header>
+      <div class="row"><div class="k">전제</div><div class="v">훅이 모든 이벤트의 <code>transcript_path</code>를 보존. Agent SDK는 transcript 기반 resume을 지원.</div></div>
+      <div class="row"><div class="k">기능</div><div class="v dim">대시보드에서 임의 event ID를 “여기서 다시” → 새 task로 fork된 Claude 세션 자동 기동. 동일 MCP env + 다른 모델/룰로 재실행.</div></div>
+    </article>
+
+    <article class="feat t4">
+      <header>
+        <h4>4.2 Behavioral Diff — Sonnet vs. Opus 같은 입력에 대해</h4>
+        <div class="badges"><span class="badge sdk">headless</span><span class="badge">side-by-side</span></div>
+      </header>
+      <div class="row"><div class="k">가치</div><div class="v dim">사용자의 진짜 질문 — “이 에이전트가 잘 한 건가?” — 에 답하는 가장 직접적인 방법. tool 호출 sequence diff 시각화.</div></div>
+    </article>
+  </div>
+
+  <!-- Tier 5 -->
+  <div class="tier-head">
+    <span class="tag" style="color:var(--tier5)">TIER 5</span>
+    <h3>다른 SDK 사용자를 위한 “계측 라이브러리”</h3>
+    <div class="why">Claude Code 밖에서 SDK로 만든 에이전트도 같은 대시보드로 들어오게.</div>
+  </div>
+  <div class="features">
+
+    <article class="feat t5">
+      <header>
+        <h4>5.1 <code>@monitor/sdk-tracer</code> — Agent SDK wrapper</h4>
+        <div class="badges"><span class="badge sdk">@anthropic-ai/claude-agent-sdk</span></div>
+      </header>
+      <div class="row"><div class="k">현재</div><div class="v">Agent Tracer는 Claude Code(plugin) + Codex(hook) 두 런타임만 자동 어댑터. Custom SDK 앱은 수동 HTTP 호출 필요.</div></div>
+      <div class="row"><div class="k">변경</div><div class="v">SDK <code>query()</code>를 감싸는 얇은 wrapper 패키지 — tool_use / tool_result 이벤트를 가로채 동일 <code>/ingest/v1</code> 페이로드로 전송.</div></div>
+      <pre class="snippet"><span class="kw">import</span> { <span class="fn">tracedQuery</span> } <span class="kw">from</span> <span class="str">"@monitor/sdk-tracer"</span>;
+
+<span class="kw">for await</span> (<span class="kw">const</span> ev <span class="kw">of</span> <span class="fn">tracedQuery</span>({
+  task: { title: <span class="str">"refactor authentication"</span>, source: <span class="str">"sdk-app"</span> },
+  prompt, model: <span class="str">"claude-opus-4-7"</span>
+})) { <span class="com">/* 평소처럼 사용 */</span> }</pre>
+      <div class="row"><div class="k">가치</div><div class="v dim">대시보드 그대로 — 룰·Inspector·OpenInference export — 가 SDK로 만든 사내 봇에도 적용.</div></div>
+    </article>
+
+    <article class="feat t5">
+      <header>
+        <h4>5.2 Rule Pack 번들</h4>
+        <div class="badges"><span class="badge">defaults</span></div>
+      </header>
+      <div class="row"><div class="k">예시</div><div class="v dim">“커밋 메시지에 fix/feat/chore prefix 강제”, “Read 없는 Edit 차단”, “.env 수정 시 deny”, “npm install 후 typecheck 필수”.</div></div>
+      <div class="row"><div class="k">가치</div><div class="v dim">설치 직후 “빈 룰 페이지” 문제 해소 (UI audit에서 발견됨). 한 명령으로 활성화 → 첫 인상이 “룰이 실제로 일하는 도구”로.</div></div>
+    </article>
+  </div>
+
+  <!-- Tier 6 -->
+  <div class="tier-head">
+    <span class="tag" style="color:var(--tier6)">TIER 6</span>
+    <h3>표면 정돈 — 작지만 효과 큰 SDK 활용</h3>
+    <div class="why">큰 구조 변경 없이 사용자 체감 가치 증가.</div>
+  </div>
+  <div class="features">
+
+    <article class="feat t6">
+      <header>
+        <h4>6.1 StatusLine에 “룰 컴플라이언스”</h4>
+        <div class="badges"><span class="badge hook">StatusLine</span></div>
+      </header>
+      <div class="row"><div class="k">변경</div><div class="v">기존 <code>ctx N% · 5h N% · $X</code> 옆에 <code>rules 4/5 · 1⚠</code> 추가. 현 turn 룰 상태 1초마다 반영.</div></div>
+      <div class="row"><div class="k">가치</div><div class="v dim">대시보드 안 열고도 “지금 룰을 어기는 중”이 사용자 시야에 들어옴.</div></div>
+    </article>
+
+    <article class="feat t6">
+      <header>
+        <h4>6.2 Skills로 “트레이스-aware 구현”</h4>
+        <div class="badges"><span class="badge plugin">skills/</span></div>
+      </header>
+      <div class="row"><div class="k">정의</div><div class="v"><code>skills/trace-aware/SKILL.md</code> — “구현 전 active rule 조회 → 구현 후 monitor_verify 호출”을 표준화한 절차서.</div></div>
+      <div class="row"><div class="k">가치</div><div class="v dim">스킬 트리거 키워드(“implement”, “refactor” 등)에 자동 부착 → 에이전트가 모니터의 존재를 “원래 그런 것”처럼 흡수.</div></div>
+    </article>
+  </div>
+</section>
+
+<!-- 4. Priority matrix -->
+<section>
+  <h2><span class="num">4</span> 우선순위 매트릭스</h2>
+  <p class="intro">노력(MVP까지 걸리는 사람-일 추정) × 사용자에게 주는 “Aha 모먼트”의 강도.</p>
+  <div class="matrix">
+    <div class="cell head"></div>
+    <div class="cell head">High aha</div>
+    <div class="cell head">Mid aha</div>
+    <div class="cell head">Low aha</div>
+
+    <div class="cell row-head">≤ 1일</div>
+    <div class="cell">
+      <span class="pill t1">1.1 PreToolUse 차단</span>
+      <span class="pill t2">2.1 MCP 번들</span>
+      <span class="pill t6">6.1 StatusLine 룰</span>
+    </div>
+    <div class="cell">
+      <span class="pill t1">1.3 룰 속삭임</span>
+      <span class="pill t2">2.2 슬래시 커맨드</span>
+    </div>
+    <div class="cell"><span class="pill t5">5.2 Rule Pack</span></div>
+
+    <div class="cell row-head">2~5일</div>
+    <div class="cell">
+      <span class="pill t1">1.2 Stop 재진입</span>
+      <span class="pill t3">3.1 LLM judge</span>
+      <span class="pill t3">3.3 Plan adherence</span>
+    </div>
+    <div class="cell">
+      <span class="pill t2">2.3 auditor 서브에이전트</span>
+      <span class="pill t6">6.2 Skills</span>
+    </div>
+    <div class="cell"></div>
+
+    <div class="cell row-head">≥ 1주</div>
+    <div class="cell">
+      <span class="pill t3">3.4 트레이스 Q&amp;A</span>
+      <span class="pill t4">4.1 Session Fork</span>
+      <span class="pill t5">5.1 @monitor/sdk-tracer</span>
+    </div>
+    <div class="cell">
+      <span class="pill t3">3.2 룰 후보 발굴</span>
+      <span class="pill t4">4.2 Behavioral Diff</span>
+    </div>
+    <div class="cell"></div>
+  </div>
+</section>
+
+<!-- 5. Recommended path -->
+<div class="closing">
+  <h2>권장 진행 순서</h2>
+  <ol>
+    <li><b>2.1 MCP 번들</b> — 가장 싼 비용으로 가장 큰 “이미 만든 것의 활용도” 상승. 별도 설치 마찰 제거.</li>
+    <li><b>1.1 PreToolUse 차단</b> — 룰의 의미를 “관찰”에서 “관여”로 한 단계 격상. 데모 임팩트가 가장 큼.</li>
+    <li><b>3.1 LLM judge</b> — 정적 매칭의 한계를 깬다. Haiku + prompt caching이면 운영비도 견딜 만함.</li>
+    <li><b>3.3 Plan adherence</b> — “어떻게 동작하는지 확인”이라는 원 목적에 정확히 맞는 지표를 만들어낸다.</li>
+    <li><b>5.1 @monitor/sdk-tracer</b> — 사용자 베이스를 Claude Code 외부로 확장. 장기 가치 가장 큼.</li>
+  </ol>
+  <p style="margin:14px 0 0;color:var(--ink-mute);font-size:13px">
+    Tier 1·2는 기존 코드를 거의 안 건드린다 — <code>packages/runtime</code>에 디렉터리 추가와 hook 응답 JSON 한 줄 수준.
+    Tier 3 이후는 서버에 새 모듈(<code>governance/judge</code>)이 생기지만, 기존 rule 모듈의 인터페이스를 그대로 만족시키므로
+    Inspector/Rules 탭 UI는 손대지 않아도 자연스럽게 연결된다.
+  </p>
+</div>
+
+<footer>
+  Agent Tracer · Hook 너머의 SDK 확장 — 2026-05-12 · 작성: Claude (Opus 4.7)
+</footer>
+
+</div>
+</body>
+</html>

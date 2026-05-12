@@ -1,0 +1,948 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Tier 3 — Agent SDK headless를 “판단자(Judge) 루프”로</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #161922;
+    --panel-2: #1d2230;
+    --line: #2a2f3d;
+    --ink: #e7ebf3;
+    --ink-dim: #a4adbf;
+    --ink-mute: #7a8197;
+    --accent: #ffb86b;
+    --accent-2: #7fd1ff;
+    --good: #74e0a8;
+    --warn: #ffd166;
+    --bad: #ff8585;
+    --purple: #c4a7ff;
+    --mono: ui-monospace, SFMono-Regular, "JetBrains Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { background: var(--bg); color: var(--ink); }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Inter", "Pretendard", "Apple SD Gothic Neo", sans-serif;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 56px 28px 96px; }
+  header.hero { border-bottom: 1px solid var(--line); padding-bottom: 28px; margin-bottom: 36px; }
+  .eyebrow {
+    color: var(--good);
+    text-transform: uppercase; letter-spacing: 0.16em;
+    font-size: 11px; font-weight: 600;
+  }
+  h1 { font-size: 32px; line-height: 1.2; margin: 12px 0 10px; letter-spacing: -0.02em; }
+  h1 .sub { color: var(--ink-dim); font-weight: 500; }
+  .lede { color: var(--ink-dim); font-size: 16px; max-width: 760px; }
+  .meta {
+    margin-top: 18px; display: flex; flex-wrap: wrap; gap: 6px 14px;
+    color: var(--ink-mute); font-size: 12px;
+  }
+  .meta code { font-family: var(--mono); color: var(--ink-dim); }
+
+  section { margin-top: 44px; }
+  section > h2 {
+    font-size: 22px; letter-spacing: -0.01em; margin: 0 0 16px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  section > h2 .num {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 28px; height: 28px; border-radius: 6px;
+    background: var(--panel-2); color: var(--good);
+    font-family: var(--mono); font-size: 12px;
+  }
+  section > p.intro { color: var(--ink-dim); margin: 0 0 18px; max-width: 820px; }
+
+  /* TL;DR cards */
+  .tldr {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
+    margin: 12px 0 28px;
+  }
+  .tldr .card {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 10px; padding: 14px 16px;
+  }
+  .tldr .card .k { color: var(--ink-mute); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; }
+  .tldr .card .v { font-size: 22px; font-weight: 600; margin-top: 4px; color: var(--ink); font-family: var(--mono); }
+  .tldr .card .n { color: var(--ink-dim); font-size: 12px; margin-top: 4px; }
+
+  /* Use-case panel */
+  .uc {
+    border: 1px solid var(--line); background: var(--panel);
+    border-radius: 12px; padding: 18px 20px; margin-bottom: 14px;
+    position: relative; overflow: hidden;
+  }
+  .uc::before {
+    content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--good);
+  }
+  .uc.warn::before { background: var(--warn); }
+  .uc.bad::before { background: var(--bad); }
+  .uc.purple::before { background: var(--purple); }
+  .uc header {
+    display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px;
+  }
+  .uc header .id {
+    font-family: var(--mono); font-size: 11px; color: var(--ink-mute);
+    padding: 2px 7px; background: var(--panel-2); border-radius: 4px; border: 1px solid var(--line);
+  }
+  .uc header h4 { margin: 0; font-size: 16px; letter-spacing: -0.005em; }
+  .uc .scene { color: var(--ink-dim); font-size: 13.5px; margin: 0 0 12px; }
+  .uc .twocol { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .uc .col {
+    background: var(--panel-2); border: 1px solid var(--line);
+    border-radius: 8px; padding: 12px 14px;
+  }
+  .uc .col h5 {
+    margin: 0 0 8px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--ink-mute);
+  }
+  .uc .col .body { font-size: 13px; color: var(--ink); }
+  .uc .col .body code { font-family: var(--mono); font-size: 12px; color: var(--accent-2); }
+  .uc .verdict {
+    margin-top: 10px; padding: 10px 12px; border-radius: 6px;
+    background: rgba(116,224,168,0.08); border: 1px solid rgba(116,224,168,0.25);
+    color: var(--ink); font-size: 13px;
+  }
+  .uc .verdict.fail { background: rgba(255,133,133,0.08); border-color: rgba(255,133,133,0.25); }
+  .uc .verdict b { color: var(--good); font-family: var(--mono); }
+  .uc .verdict.fail b { color: var(--bad); }
+
+  pre.snippet {
+    background: var(--panel-2); border: 1px solid var(--line);
+    border-radius: 8px; padding: 12px 14px; margin: 10px 0 0;
+    overflow-x: auto; font-family: var(--mono); font-size: 12.5px;
+    line-height: 1.6; color: var(--ink-dim);
+  }
+  pre.snippet .kw { color: var(--accent); }
+  pre.snippet .str { color: var(--good); }
+  pre.snippet .com { color: var(--ink-mute); font-style: italic; }
+  pre.snippet .fn { color: var(--accent-2); }
+  pre.snippet .pr { color: var(--purple); }
+
+  /* Diagram frame */
+  .figure {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 12px; padding: 18px; margin: 12px 0;
+  }
+  .figure svg { display: block; width: 100%; height: auto; }
+  .figure .caption { color: var(--ink-mute); font-size: 12px; margin-top: 10px; text-align: center; }
+
+  /* Phases */
+  .phases { display: flex; flex-direction: column; gap: 12px; }
+  .phase {
+    border: 1px solid var(--line); border-radius: 10px;
+    background: var(--panel); padding: 14px 16px;
+    display: grid; grid-template-columns: 90px 1fr 110px; gap: 14px; align-items: center;
+  }
+  .phase .num {
+    font-family: var(--mono); font-size: 13px; color: var(--ink-mute);
+    padding: 6px 10px; background: var(--panel-2); border-radius: 6px;
+    text-align: center;
+  }
+  .phase h4 { margin: 0 0 4px; font-size: 14px; }
+  .phase p { margin: 0; font-size: 13px; color: var(--ink-dim); }
+  .phase .effort {
+    font-family: var(--mono); font-size: 12px; color: var(--good);
+    text-align: right;
+  }
+  .phase.opt .effort { color: var(--purple); }
+
+  /* Cost table */
+  .cost {
+    width: 100%; border-collapse: collapse; background: var(--panel);
+    border: 1px solid var(--line); border-radius: 10px; overflow: hidden;
+    font-size: 13px;
+  }
+  .cost th, .cost td {
+    padding: 10px 14px; text-align: left;
+    border-bottom: 1px solid var(--line);
+  }
+  .cost th { color: var(--ink-mute); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; }
+  .cost td { color: var(--ink); }
+  .cost tr:last-child td { border-bottom: none; }
+  .cost td code { font-family: var(--mono); color: var(--accent-2); }
+  .cost td.num { font-family: var(--mono); color: var(--good); text-align: right; }
+  .cost tr.tot td { background: rgba(116,224,168,0.06); font-weight: 600; }
+
+  /* Risks */
+  .risks { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .risk {
+    background: var(--panel); border: 1px solid var(--line);
+    border-left: 3px solid var(--warn); border-radius: 8px;
+    padding: 12px 14px;
+  }
+  .risk h5 { margin: 0 0 6px; font-size: 13px; color: var(--warn); }
+  .risk p { margin: 0; font-size: 13px; color: var(--ink-dim); }
+
+  footer { margin-top: 56px; color: var(--ink-mute); font-size: 12px; text-align: center; }
+
+  /* Schema box */
+  .schema {
+    background: var(--panel-2); border: 1px solid var(--line);
+    border-radius: 8px; padding: 14px 16px; margin: 8px 0;
+    font-family: var(--mono); font-size: 12.5px; color: var(--ink-dim);
+    line-height: 1.65; overflow-x: auto;
+  }
+  .schema .t { color: var(--accent-2); }
+  .schema .n { color: var(--good); }
+  .schema .c { color: var(--ink-mute); font-style: italic; }
+
+  @media (max-width: 760px) {
+    .tldr { grid-template-columns: 1fr 1fr; }
+    .uc .twocol { grid-template-columns: 1fr; }
+    .risks { grid-template-columns: 1fr; }
+    .phase { grid-template-columns: 70px 1fr; }
+    .phase .effort { grid-column: 2; text-align: left; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <div class="eyebrow">Agent Tracer · Tier 3 detailed design</div>
+  <h1>Agent SDK headless를 <span class="sub">“판단자(Judge) 루프”로</span></h1>
+  <p class="lede">
+    현재 룰 엔진은 문자열 술어(<code>commandMatches</code>, <code>pattern</code>)로만 평가한다.
+    이것이 잡지 못하는 것 — 의미적 trigger, 우회 동작, 누락된 단계, 트레이스 전반에 대한 NL 질의 — 을
+    <b>Haiku 4.5 headless 호출</b>로 보완한다. 정적 룰과 LLM judge는 <b>두 계층</b>으로 공존하며,
+    prompt caching으로 운영 비용을 100배 가까이 압축한다.
+  </p>
+  <div class="meta">
+    <span>대상 모듈 <code>packages/server/src/governance/</code></span>
+    <span>새 하위 모듈 <code>governance/judge/</code></span>
+    <span>주력 모델 <code>claude-haiku-4-5-20251001</code></span>
+    <span>SDK <code>@anthropic-ai/claude-agent-sdk</code></span>
+  </div>
+</header>
+
+<!-- TL;DR -->
+<section>
+  <h2><span class="num">0</span> TL;DR</h2>
+  <div class="tldr">
+    <div class="card">
+      <div class="k">새 판단자</div>
+      <div class="v">4</div>
+      <div class="n">Verdict · Plan · Discoverer · TraceQ&amp;A</div>
+    </div>
+    <div class="card">
+      <div class="k">예상 턴당 비용</div>
+      <div class="v">~$0.0002</div>
+      <div class="n">cache hit 90% 가정, Haiku</div>
+    </div>
+    <div class="card">
+      <div class="k">새 SQLite 테이블</div>
+      <div class="v">2</div>
+      <div class="n"><code>judge_verdicts</code>, <code>judge_cache_keys</code></div>
+    </div>
+    <div class="card">
+      <div class="k">MVP까지</div>
+      <div class="v">~5d</div>
+      <div class="n">Phase 1+2+3만으로 첫 데모 가능</div>
+    </div>
+  </div>
+</section>
+
+<!-- 1. Architecture -->
+<section>
+  <h2><span class="num">1</span> 전체 아키텍처</h2>
+  <p class="intro">
+    기존 룰 엔진의 “turn close” 시점을 트리거로 사용한다. <b>정적 매처가 먼저</b> 돌고, 결과에 관계없이
+    Judge 큐에 비동기로 작업을 넣어 LLM 평가를 덧붙인다. 두 결과는 같은 <code>rule_enforcements</code>의
+    형제 레코드 <code>judge_verdicts</code>로 저장되어 UI에서 비교 가능하다.
+  </p>
+
+  <div class="figure">
+    <svg viewBox="0 0 1080 460" role="img" aria-label="Judge loop architecture">
+      <defs>
+        <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <path d="M0,0 L10,5 L0,10 z" fill="#7a8197"/>
+        </marker>
+        <marker id="arrG" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <path d="M0,0 L10,5 L0,10 z" fill="#74e0a8"/>
+        </marker>
+      </defs>
+      <style>
+        .b { fill: #1d2230; stroke: #2a2f3d; }
+        .e { fill: #161922; stroke: #2a2f3d; }
+        .lbl { fill: #e7ebf3; font: 600 13px -apple-system, sans-serif; }
+        .sub { fill: #a4adbf; font: 12px -apple-system, sans-serif; }
+        .mute { fill: #7a8197; font: 11px -apple-system, sans-serif; }
+        .mono { fill: #7fd1ff; font: 11px ui-monospace, monospace; }
+        .arrow { stroke: #7a8197; stroke-width: 1.5; fill: none; }
+        .arrowG { stroke: #74e0a8; stroke-width: 1.8; fill: none; }
+        .arrowD { stroke: #7a8197; stroke-width: 1.5; fill: none; stroke-dasharray: 4 3; }
+      </style>
+
+      <!-- Existing block -->
+      <rect class="e" x="20" y="40" width="220" height="380" rx="10"/>
+      <text class="mute" x="30" y="58">기존 (existing)</text>
+      <rect class="b" x="40" y="80" width="180" height="56" rx="6"/>
+      <text class="lbl" x="130" y="105" text-anchor="middle">Turn Closer</text>
+      <text class="mute" x="130" y="122" text-anchor="middle">user.msg → assistant.resp</text>
+
+      <rect class="b" x="40" y="160" width="180" height="56" rx="6"/>
+      <text class="lbl" x="130" y="185" text-anchor="middle">Static Matcher</text>
+      <text class="mute" x="130" y="202" text-anchor="middle">phrase / pattern / command</text>
+
+      <rect class="b" x="40" y="240" width="180" height="56" rx="6"/>
+      <text class="lbl" x="130" y="265" text-anchor="middle">rule_enforcements</text>
+      <text class="mute" x="130" y="282" text-anchor="middle">기존 verdict 저장</text>
+
+      <rect class="b" x="40" y="330" width="180" height="56" rx="6"/>
+      <text class="lbl" x="130" y="355" text-anchor="middle">Timeline Repo</text>
+      <text class="mute" x="130" y="372" text-anchor="middle">lane 오버레이</text>
+
+      <!-- arrow inside existing -->
+      <path class="arrow" d="M130,136 L130,160" marker-end="url(#arr)"/>
+      <path class="arrow" d="M130,216 L130,240" marker-end="url(#arr)"/>
+      <path class="arrow" d="M130,296 L130,330" marker-end="url(#arr)"/>
+
+      <!-- New judge block -->
+      <rect class="e" x="290" y="40" width="500" height="380" rx="10" stroke="#74e0a8" stroke-opacity="0.4"/>
+      <text class="mute" x="300" y="58" fill="#74e0a8">신규 (governance/judge)</text>
+
+      <rect class="b" x="310" y="80" width="200" height="56" rx="6"/>
+      <text class="lbl" x="410" y="105" text-anchor="middle">JudgeQueue</text>
+      <text class="mute" x="410" y="122" text-anchor="middle">in-process · idempotent</text>
+
+      <rect class="b" x="540" y="80" width="230" height="56" rx="6"/>
+      <text class="lbl" x="655" y="105" text-anchor="middle">PromptCacheManager</text>
+      <text class="mute" x="655" y="122" text-anchor="middle">prefix 키 / TTL 추적</text>
+
+      <rect class="b" x="310" y="160" width="200" height="200" rx="6"/>
+      <text class="lbl" x="410" y="182" text-anchor="middle">JudgeWorker × N</text>
+      <text class="mute" x="410" y="200" text-anchor="middle">Bun worker_threads</text>
+      <line x1="320" y1="212" x2="500" y2="212" stroke="#2a2f3d"/>
+      <text class="mono" x="328" y="230">renderTimeline()</text>
+      <text class="mono" x="328" y="250">attachCacheBlocks()</text>
+      <text class="mono" x="328" y="270">SDK.query(...)</text>
+      <text class="mono" x="328" y="290">parseStructured()</text>
+      <text class="mono" x="328" y="310">writeVerdict()</text>
+      <text class="mono" x="328" y="330">publishWS()</text>
+      <text class="mute" x="410" y="350" text-anchor="middle">실패는 swallow + retry</text>
+
+      <rect class="b" x="540" y="160" width="230" height="56" rx="6"/>
+      <text class="lbl" x="655" y="185" text-anchor="middle">JudgeRepository</text>
+      <text class="mute" x="655" y="202" text-anchor="middle">judge_verdicts 테이블</text>
+
+      <rect class="b" x="540" y="240" width="230" height="56" rx="6"/>
+      <text class="lbl" x="655" y="265" text-anchor="middle">JudgeReader API</text>
+      <text class="mono" x="655" y="282" text-anchor="middle">/api/v1/judge/*</text>
+
+      <rect class="b" x="540" y="320" width="230" height="56" rx="6"/>
+      <text class="lbl" x="655" y="345" text-anchor="middle">WS Broadcaster</text>
+      <text class="mute" x="655" y="362" text-anchor="middle">verdict.updated 이벤트</text>
+
+      <!-- internal arrows -->
+      <path class="arrowG" d="M510,108 L540,108" marker-end="url(#arrG)"/>
+      <path class="arrow" d="M655,136 L655,160" marker-end="url(#arr)"/>
+      <path class="arrow" d="M510,260 L540,260" marker-end="url(#arr)"/>
+      <path class="arrow" d="M655,216 L655,240" marker-end="url(#arr)"/>
+      <path class="arrow" d="M655,296 L655,320" marker-end="url(#arr)"/>
+
+      <!-- external -->
+      <rect class="e" x="840" y="80" width="220" height="100" rx="10"/>
+      <text class="lbl" x="950" y="105" text-anchor="middle">Anthropic API</text>
+      <text class="mute" x="950" y="125" text-anchor="middle">/v1/messages</text>
+      <text class="mono" x="950" y="148" text-anchor="middle">claude-haiku-4-5</text>
+      <text class="mono" x="950" y="165" text-anchor="middle">cache_control: ephemeral</text>
+
+      <rect class="e" x="840" y="220" width="220" height="80" rx="10"/>
+      <text class="lbl" x="950" y="245" text-anchor="middle">Dashboard</text>
+      <text class="mute" x="950" y="263" text-anchor="middle">Inspector · Rules · Turns</text>
+      <text class="mute" x="950" y="280" text-anchor="middle">WS 구독</text>
+
+      <rect class="e" x="840" y="340" width="220" height="60" rx="10"/>
+      <text class="lbl" x="950" y="364" text-anchor="middle">사용자</text>
+      <text class="mute" x="950" y="382" text-anchor="middle">verdict + rationale 열람</text>
+
+      <!-- cross arrows -->
+      <path class="arrow" d="M240,108 L310,108" marker-end="url(#arr)"/>
+      <text class="mute" x="275" y="100" text-anchor="middle">enqueue</text>
+
+      <path class="arrowG" d="M510,260 L770,135" marker-end="url(#arrG)" />
+      <text class="mute" x="640" y="200">SDK.query()</text>
+
+      <path class="arrow" d="M840,135 L770,225" marker-end="url(#arr)"/>
+      <text class="mute" x="800" y="180">structured</text>
+
+      <path class="arrow" d="M770,348 L840,260" marker-end="url(#arr)"/>
+      <path class="arrow" d="M840,260 L950,260" marker-end="url(#arr)"/>
+      <path class="arrow" d="M950,300 L950,340" marker-end="url(#arr)"/>
+
+      <!-- bottom note -->
+      <text class="mute" x="540" y="412" text-anchor="middle" fill="#7a8197">
+        ⓘ 정적 매처와 LLM judge는 같은 turn에 대해 독립적으로 결과를 남기며, UI에서 “정적 vs LLM 불일치” 필터링 가능
+      </text>
+    </svg>
+    <div class="caption">그림 1. Judge loop는 기존 룰 엔진의 turn close에 비동기 piggyback 한다. 메인 경로(에이전트 동작)에 영향 없음.</div>
+  </div>
+</section>
+
+<!-- 2. Four judges -->
+<section>
+  <h2><span class="num">2</span> 네 종류의 Judge</h2>
+  <p class="intro">
+    하나의 <code>JudgeWorker</code>가 system prompt와 출력 스키마만 바꿔서 네 가지 작업을 수행한다.
+    공통: 같은 <b>timeline 렌더링 함수</b>, 같은 <b>prompt cache prefix</b>, 같은 <b>구조화 출력 검증</b>(Zod).
+  </p>
+
+  <div class="figure">
+    <svg viewBox="0 0 1080 420" role="img" aria-label="Four judges taxonomy">
+      <defs>
+        <marker id="arr2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <path d="M0,0 L10,5 L0,10 z" fill="#7a8197"/>
+        </marker>
+      </defs>
+      <style>
+        .jb { fill: #161922; stroke: #2a2f3d; }
+        .jh { font: 700 13px -apple-system, sans-serif; }
+        .js { font: 11px -apple-system, sans-serif; fill: #a4adbf; }
+        .jm { font: 11px ui-monospace, monospace; fill: #7fd1ff; }
+        .jt { font: 10px ui-monospace, monospace; fill: #7a8197; }
+      </style>
+
+      <!-- center -->
+      <rect class="jb" x="430" y="170" width="220" height="80" rx="10" stroke="#74e0a8" stroke-opacity="0.5"/>
+      <text class="jh" x="540" y="198" text-anchor="middle" fill="#74e0a8">JudgeWorker</text>
+      <text class="js" x="540" y="218" text-anchor="middle">render + cache + SDK + parse</text>
+      <text class="jt" x="540" y="234" text-anchor="middle">공통 파이프라인</text>
+
+      <!-- top-left: Verdict -->
+      <rect class="jb" x="40" y="40" width="320" height="120" rx="10"/>
+      <text class="jh" x="56" y="64" fill="#74e0a8">3.1 VerdictJudge</text>
+      <text class="js" x="56" y="84">trigger: turn.closed · rules.active</text>
+      <text class="js" x="56" y="100">in: 단일 rule + 해당 turn timeline</text>
+      <text class="jm" x="56" y="118">out: { verdict, evidence[], rationale }</text>
+      <text class="jt" x="56" y="138">cost / turn / rule: ~$0.0002 (cached)</text>
+      <text class="jt" x="56" y="152">대상 모델: Haiku 4.5</text>
+
+      <!-- top-right: Plan adherence -->
+      <rect class="jb" x="720" y="40" width="320" height="120" rx="10"/>
+      <text class="jh" x="736" y="64" fill="#ffb86b">3.3 PlanAdherenceJudge</text>
+      <text class="js" x="736" y="84">trigger: ExitPlanMode + 그 이후 Stop</text>
+      <text class="js" x="736" y="100">in: plan text + executed tool sequence</text>
+      <text class="jm" x="736" y="118">out: { score, missing[], deviated[] }</text>
+      <text class="jt" x="736" y="138">cost / plan: ~$0.0008</text>
+      <text class="jt" x="736" y="152">대상 모델: Haiku 4.5</text>
+
+      <!-- bottom-left: Discoverer -->
+      <rect class="jb" x="40" y="260" width="320" height="120" rx="10"/>
+      <text class="jh" x="56" y="284" fill="#c4a7ff">3.2 RuleDiscoverer</text>
+      <text class="js" x="56" y="304">trigger: nightly cron · per-project</text>
+      <text class="js" x="56" y="320">in: 최근 N (=20) tasks 요약 batch</text>
+      <text class="jm" x="56" y="338">out: candidateRules[] (검토 대기열)</text>
+      <text class="jt" x="56" y="358">cost / 야간 1회: ~$0.05</text>
+      <text class="jt" x="56" y="372">대상 모델: Sonnet 4.6 (정확도)</text>
+
+      <!-- bottom-right: TraceQA -->
+      <rect class="jb" x="720" y="260" width="320" height="120" rx="10"/>
+      <text class="jh" x="736" y="284" fill="#7fd1ff">3.4 TraceQAJudge</text>
+      <text class="js" x="736" y="304">trigger: 사용자 chat 입력 (Inspector)</text>
+      <text class="js" x="736" y="320">in: 전체 task timeline + NL 질문</text>
+      <text class="jm" x="736" y="338">out: { answer, citedEventIds[] }</text>
+      <text class="jt" x="736" y="358">cost / 질의: ~$0.002 (대화형)</text>
+      <text class="jt" x="736" y="372">대상 모델: Sonnet 4.6</text>
+
+      <!-- connectors -->
+      <path d="M360,100 L430,200" stroke="#7a8197" fill="none" marker-end="url(#arr2)"/>
+      <path d="M720,100 L650,200" stroke="#7a8197" fill="none" marker-end="url(#arr2)"/>
+      <path d="M360,320 L430,220" stroke="#7a8197" fill="none" marker-end="url(#arr2)"/>
+      <path d="M720,320 L650,220" stroke="#7a8197" fill="none" marker-end="url(#arr2)"/>
+    </svg>
+    <div class="caption">그림 2. 4종 Judge는 system prompt + output schema만 다른 한 워커의 변주.</div>
+  </div>
+</section>
+
+<!-- 3. Use cases -->
+<section>
+  <h2><span class="num">3</span> 구체적 유즈케이스 — 실패하는 정적 매칭, 성공하는 LLM</h2>
+  <p class="intro">아래 케이스는 모두 “현 정적 매처는 못 잡거나 잘못 잡는데, LLM judge면 깔끔히 풀린다”에 해당.</p>
+
+  <article class="uc">
+    <header>
+      <span class="id">UC-1</span>
+      <h4>의미적 trigger — 룰 단어가 안 박혔는데도 활성화돼야 하는 경우</h4>
+    </header>
+    <p class="scene">사용자가 “단위 테스트 좀 보강해줘”라고 했다. 룰의 <code>trigger.phrases</code>에는 <code>"add tests"</code>, <code>"add unit test"</code>만 등록되어 있다. 정적 매처는 trigger 매칭 실패 → 룰 비활성 → 검증 누락.</p>
+    <div class="twocol">
+      <div class="col">
+        <h5>정적 매처</h5>
+        <div class="body">trigger phrase 미일치 → <b>rule 비활성</b>. <br/>아무 verdict도 안 남김.</div>
+      </div>
+      <div class="col">
+        <h5>VerdictJudge</h5>
+        <div class="body">의미적 일치 판단 → rule 활성으로 확장. <br/>turn 종료 시 expectation 평가.</div>
+      </div>
+    </div>
+    <div class="verdict">결과: <b>fail</b> · evidence: <code>event_71b…(Write src/auth.ts, no test file written)</code> · rationale: “사용자가 테스트 보강을 요청했으나 *.test.ts 변경 없음.”</div>
+  </article>
+
+  <article class="uc warn">
+    <header>
+      <span class="id">UC-2</span>
+      <h4>우회 동작 — pattern은 통과하는데 실질적으로 위반</h4>
+    </header>
+    <p class="scene">룰: <code>pattern: "\\.env$"</code> 인 파일을 <code>Edit</code> 하지 말 것. 에이전트가 <code>cat .env &gt; .env.bak</code>으로 <b>다른 경로에 그대로 복사</b>한다. pattern 매처는 <code>.env</code>를 “읽기만” 했다고 봄 → 통과.</p>
+    <div class="twocol">
+      <div class="col">
+        <h5>정적 매처</h5>
+        <div class="body"><code>Edit</code>가 <code>.env</code>에 안 닿음 → <b>pass</b>. <br/>실제 위반을 못 잡음.</div>
+      </div>
+      <div class="col">
+        <h5>VerdictJudge (LLM)</h5>
+        <div class="body">timeline에서 “.env 내용이 다른 경로로 복사됨”을 의도 단위로 해석 → <b>fail</b>.</div>
+      </div>
+    </div>
+    <div class="verdict fail">결과: <b>fail</b> · evidence: <code>event_a4c…(Bash: cp .env .env.bak)</code> · rationale: “룰 의도는 .env 콘텐츠의 비밀 유지. 단순 경로 매칭 우회.”</div>
+  </article>
+
+  <article class="uc purple">
+    <header>
+      <span class="id">UC-3</span>
+      <h4>Plan vs. Execution — 계획에는 있는데 실제로 안 한 단계</h4>
+    </header>
+    <p class="scene">에이전트가 ExitPlanMode에서 4단계 plan을 제시했다: ① 스키마 마이그레이션, ② Service 메서드 추가, ③ <b>테스트 추가</b>, ④ docs 업데이트. 실행을 보면 ①, ②, ④만 수행. 사용자는 plan을 일일이 비교해야 알 수 있다.</p>
+    <div class="twocol">
+      <div class="col">
+        <h5>입력</h5>
+        <div class="body">plan(말풍선 4개) + 실제 tool sequence(Edit, Edit, Edit) + Stop.</div>
+      </div>
+      <div class="col">
+        <h5>PlanAdherenceJudge</h5>
+        <div class="body"><code>{ score: 0.66, missing: ["3. add tests"], deviated: [] }</code></div>
+      </div>
+    </div>
+    <div class="verdict fail">결과: <b>0.66</b> · 누락: “테스트 추가” · UI에 “plan adherence 66%” 메달과 함께 missing 단계 강조.</div>
+  </article>
+
+  <article class="uc">
+    <header>
+      <span class="id">UC-4</span>
+      <h4>암묵적 룰 발굴 — 사용자가 “뭘 검사해야 할지 모르겠는” 상태 해결</h4>
+    </header>
+    <p class="scene">초기 사용자의 가장 큰 마찰: 룰 페이지가 비어 있다. 무엇이 “기대 동작”인지 명시적으로 알지 못함. 이미 모인 20개 task에는 풍부한 정답 신호가 있다.</p>
+    <div class="twocol">
+      <div class="col">
+        <h5>RuleDiscoverer 입력</h5>
+        <div class="body">최근 20 task의 (prompt 요약 + tool sequence + 변경 파일 카테고리)</div>
+      </div>
+      <div class="col">
+        <h5>RuleDiscoverer 출력</h5>
+        <div class="body">5개 후보 룰 — UI 큐로 적재, 사람이 “채택/보류/거절”.</div>
+      </div>
+    </div>
+    <div class="verdict">예시 후보: <b>“fix 커밋 전 typecheck 누락 7/20”</b>, <b>“packages/server 수정 후 vitest 누락 5/20”</b>, <b>“docs/* 단독 변경 시 Read 다수 — 검증 룰 불필요”</b>.</div>
+  </article>
+
+  <article class="uc purple">
+    <header>
+      <span class="id">UC-5</span>
+      <h4>트레이스 Q&amp;A — “어떻게 동작했는지”를 자연어로 묻기</h4>
+    </header>
+    <p class="scene">사용자의 원 목적: “에이전트가 어떻게 동작하는지 확인.” 타임라인을 일일이 스크롤하는 대신 대화형으로 묻는다.</p>
+    <div class="twocol">
+      <div class="col">
+        <h5>질의 예시</h5>
+        <div class="body">
+          • “같은 파일을 두 번 이상 읽은 경우가 있어?”<br/>
+          • “grep 패턴이 의미 있게 좁혀졌나?”<br/>
+          • “계획에 없던 파일 수정은?”<br/>
+          • “이 turn에서 룰을 우회한 정황이 있어?”
+        </div>
+      </div>
+      <div class="col">
+        <h5>응답 (요약)</h5>
+        <div class="body">
+          <code>packages/server/src/work/task/repository/task.repository.ts</code>를 <b>3회 재독</b>(11:42, 11:48, 11:53). 첫 grep <code>"task"</code>는 너무 광범위 → 두 번째 <code>"completeTask"</code>로 좁힘. citation: <code>event_…</code>
+        </div>
+      </div>
+    </div>
+    <div class="verdict">UI: Inspector 하단에 chat 입력. 답변의 모든 citation은 timeline event를 클릭 가능한 칩으로 표시.</div>
+  </article>
+</section>
+
+<!-- 4. Sequence diagram -->
+<section>
+  <h2><span class="num">4</span> 시퀀스 — VerdictJudge 1회 실행</h2>
+  <p class="intro">turn close에서 dashboard 갱신까지의 시간축. 일반 케이스 800ms 이내, cache miss 케이스 2~3s.</p>
+
+  <div class="figure">
+    <svg viewBox="0 0 1080 440" role="img" aria-label="Sequence diagram">
+      <style>
+        .lane { fill: #1d2230; stroke: #2a2f3d; }
+        .lh { font: 600 12px -apple-system, sans-serif; fill: #e7ebf3; }
+        .lt { font: 11px -apple-system, sans-serif; fill: #a4adbf; }
+        .msg { font: 11px ui-monospace, monospace; fill: #e7ebf3; }
+        .tm { font: 10px ui-monospace, monospace; fill: #7a8197; }
+        .ar { stroke: #7fd1ff; stroke-width: 1.4; fill: none; }
+        .ar2 { stroke: #74e0a8; stroke-width: 1.4; fill: none; }
+        .ar3 { stroke: #ffb86b; stroke-width: 1.4; fill: none; }
+      </style>
+      <defs>
+        <marker id="aR" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <path d="M0,0 L10,5 L0,10 z" fill="#7fd1ff"/>
+        </marker>
+        <marker id="aG" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <path d="M0,0 L10,5 L0,10 z" fill="#74e0a8"/>
+        </marker>
+        <marker id="aO" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <path d="M0,0 L10,5 L0,10 z" fill="#ffb86b"/>
+        </marker>
+      </defs>
+
+      <!-- lanes -->
+      <g>
+        <rect class="lane" x="30" y="30" width="140" height="28" rx="6"/>
+        <text class="lh" x="100" y="49" text-anchor="middle">TurnCloser</text>
+        <line x1="100" y1="62" x2="100" y2="400" stroke="#2a2f3d"/>
+
+        <rect class="lane" x="190" y="30" width="140" height="28" rx="6"/>
+        <text class="lh" x="260" y="49" text-anchor="middle">JudgeQueue</text>
+        <line x1="260" y1="62" x2="260" y2="400" stroke="#2a2f3d"/>
+
+        <rect class="lane" x="350" y="30" width="140" height="28" rx="6"/>
+        <text class="lh" x="420" y="49" text-anchor="middle">JudgeWorker</text>
+        <line x1="420" y1="62" x2="420" y2="400" stroke="#2a2f3d"/>
+
+        <rect class="lane" x="510" y="30" width="140" height="28" rx="6"/>
+        <text class="lh" x="580" y="49" text-anchor="middle">CacheManager</text>
+        <line x1="580" y1="62" x2="580" y2="400" stroke="#2a2f3d"/>
+
+        <rect class="lane" x="670" y="30" width="140" height="28" rx="6"/>
+        <text class="lh" x="740" y="49" text-anchor="middle">Anthropic API</text>
+        <line x1="740" y1="62" x2="740" y2="400" stroke="#2a2f3d"/>
+
+        <rect class="lane" x="830" y="30" width="140" height="28" rx="6"/>
+        <text class="lh" x="900" y="49" text-anchor="middle">Repo + WS</text>
+        <line x1="900" y1="62" x2="900" y2="400" stroke="#2a2f3d"/>
+      </g>
+
+      <!-- messages -->
+      <text class="tm" x="20" y="92">t+0</text>
+      <path class="ar" d="M100,90 L260,90" marker-end="url(#aR)"/>
+      <text class="msg" x="180" y="84" text-anchor="middle">enqueue(turnId, activeRuleIds[])</text>
+
+      <text class="tm" x="20" y="128">t+5ms</text>
+      <path class="ar" d="M260,126 L420,126" marker-end="url(#aR)"/>
+      <text class="msg" x="340" y="120" text-anchor="middle">dequeue job</text>
+
+      <text class="tm" x="20" y="164">t+20ms</text>
+      <path class="ar2" d="M420,162 L580,162" marker-end="url(#aG)"/>
+      <text class="msg" x="500" y="156" text-anchor="middle">lookup(systemHash, ruleSetHash)</text>
+
+      <text class="tm" x="20" y="200">t+22ms</text>
+      <path class="ar2" d="M580,198 L420,198" marker-end="url(#aG)"/>
+      <text class="msg" x="500" y="192" text-anchor="middle">cache hit → cache_control attached</text>
+
+      <text class="tm" x="20" y="236">t+25ms</text>
+      <path class="ar3" d="M420,234 L740,234" marker-end="url(#aO)"/>
+      <text class="msg" x="580" y="228" text-anchor="middle">POST /v1/messages (Haiku, ~600 tok)</text>
+
+      <text class="tm" x="20" y="282">t+800ms</text>
+      <path class="ar3" d="M740,280 L420,280" marker-end="url(#aO)"/>
+      <text class="msg" x="580" y="274" text-anchor="middle">{ verdict:"fail", evidence:[...], rationale }</text>
+
+      <text class="tm" x="20" y="320">t+810ms</text>
+      <path class="ar" d="M420,318 L900,318" marker-end="url(#aR)"/>
+      <text class="msg" x="660" y="312" text-anchor="middle">writeVerdict(turnId, ruleId, ...)</text>
+
+      <text class="tm" x="20" y="356">t+815ms</text>
+      <path class="ar" d="M900,354 L420,354" marker-end="url(#aR)"/>
+      <text class="msg" x="660" y="348" text-anchor="middle">WS broadcast: verdict.updated</text>
+
+      <text class="tm" x="20" y="392">t+830ms</text>
+      <path class="ar" d="M420,390 L900,390" marker-end="url(#aR)"/>
+      <text class="msg" x="660" y="384" text-anchor="middle">Inspector re-renders rule badge</text>
+    </svg>
+    <div class="caption">그림 3. cache hit 케이스 — 평균 800ms. 메인 에이전트 경로와 분리되어 있으므로 사용자 체감 지연은 0.</div>
+  </div>
+</section>
+
+<!-- 5. Prompt cache strategy -->
+<section>
+  <h2><span class="num">5</span> 프롬프트 캐시 전략 — 운영비를 100배 압축하는 곳</h2>
+  <p class="intro">
+    Anthropic 캐시는 prefix 매칭. <b>변하지 않는 가장 큰 prefix를 가장 앞에</b> 배치하는 것이 핵심.
+    그 다음 “자주 같은 값”을 캐시 블록으로 둘러싸고, 마지막에 “이 호출에만 다른 값”을 둔다.
+  </p>
+
+  <div class="figure">
+    <svg viewBox="0 0 1080 260" role="img" aria-label="Prompt cache layout">
+      <style>
+        .blk { stroke: #2a2f3d; }
+        .l1 { fill: #233146; }
+        .l2 { fill: #2a3a2a; }
+        .l3 { fill: #3a3225; }
+        .l4 { fill: #3b2a2a; }
+        .lbl { font: 600 13px -apple-system, sans-serif; fill: #e7ebf3; }
+        .det { font: 11px ui-monospace, monospace; fill: #a4adbf; }
+        .ttl { font: 10px ui-monospace, monospace; fill: #74e0a8; }
+        .hit { font: 10px ui-monospace, monospace; fill: #74e0a8; }
+      </style>
+      <text class="lbl" x="40" y="40">한 요청의 메시지 배치 (왼쪽이 prefix)</text>
+
+      <rect class="blk l1" x="40" y="60" width="290" height="80" rx="6"/>
+      <text class="lbl" x="60" y="84">① 시스템 프롬프트</text>
+      <text class="det" x="60" y="104">JUDGE_SYS_PROMPT (불변)</text>
+      <text class="ttl" x="60" y="124">cache_control: ephemeral · hit 99%</text>
+
+      <rect class="blk l2" x="340" y="60" width="290" height="80" rx="6"/>
+      <text class="lbl" x="360" y="84">② 룰 카탈로그</text>
+      <text class="det" x="360" y="104">활성 룰 N개 JSON (시간당 거의 불변)</text>
+      <text class="ttl" x="360" y="124">cache_control: ephemeral · hit 95%</text>
+
+      <rect class="blk l3" x="640" y="60" width="290" height="80" rx="6"/>
+      <text class="lbl" x="660" y="84">③ 타임라인 prefix</text>
+      <text class="det" x="660" y="104">같은 task의 이전 turns (재호출 시 누적)</text>
+      <text class="ttl" x="660" y="124">cache_control: ephemeral · hit 60-80%</text>
+
+      <rect class="blk l4" x="940" y="60" width="100" height="80" rx="6"/>
+      <text class="lbl" x="950" y="84">④ Δ</text>
+      <text class="det" x="950" y="104">이번 turn</text>
+      <text class="det" x="950" y="124">+ 질의</text>
+
+      <!-- timeline below -->
+      <line x1="40" y1="180" x2="1040" y2="180" stroke="#2a2f3d"/>
+      <text class="det" x="40" y="200">호출 1</text>
+      <rect x="80" y="190" width="80" height="14" fill="#3b2a2a"/>
+      <text class="det" x="190" y="200">호출 2</text>
+      <rect x="240" y="190" width="80" height="14" fill="#3a3225"/>
+      <rect x="80" y="190" width="80" height="14" fill="rgba(255,255,255,0.04)"/>
+      <text class="det" x="350" y="200">호출 3</text>
+      <rect x="400" y="190" width="60" height="14" fill="#3b2a2a"/>
+      <rect x="80" y="190" width="320" height="14" fill="rgba(255,255,255,0.04)"/>
+      <text class="hit" x="80" y="234">↑ 호출이 누적될수록 캐시된 prefix가 길어진다.</text>
+
+    </svg>
+    <div class="caption">그림 4. 4단 캐시 레이아웃. ④만 매번 새로 보내고, ①②③은 같은 task 안에서 거의 항상 hit.</div>
+  </div>
+
+  <table class="cost">
+    <thead><tr><th>입력 구성</th><th>토큰 (대략)</th><th>cache hit 가정</th><th>실비용 / 호출</th></tr></thead>
+    <tbody>
+      <tr><td>① JUDGE_SYS_PROMPT</td><td class="num">800</td><td>99%</td><td class="num">$0.00001</td></tr>
+      <tr><td>② 룰 카탈로그 (활성 룰 평균 5개)</td><td class="num">1,200</td><td>95%</td><td class="num">$0.00006</td></tr>
+      <tr><td>③ task prefix (누적)</td><td class="num">2,000</td><td>70%</td><td class="num">$0.00018</td></tr>
+      <tr><td>④ 이번 turn + 질의</td><td class="num">400</td><td>0%</td><td class="num">$0.00040</td></tr>
+      <tr><td>출력 (verdict JSON)</td><td class="num">200</td><td>—</td><td class="num">$0.00100</td></tr>
+      <tr class="tot"><td>turn당 평균 (룰 1개)</td><td class="num">~4,600</td><td>—</td><td class="num">~$0.00165</td></tr>
+    </tbody>
+  </table>
+  <p style="font-size: 12.5px; color: var(--ink-mute); margin-top: 10px;">
+    ⓘ 단가는 Haiku 4.5 기준 추정. 캐시된 입력은 약 1/10. 룰이 3개라면 ④ 부분만 곱해진다(병렬 호출 가능, 출력만 늘어남).
+    하루 1,000 turn × 룰 3개 가정 시 <b>~$0.5 / day</b>. 운영 부담은 거의 없음.
+  </p>
+</section>
+
+<!-- 6. Data model -->
+<section>
+  <h2><span class="num">6</span> 데이터 모델</h2>
+  <p class="intro">기존 <code>rule_enforcements</code>를 손대지 않고, 형제 테이블로 추가. UI는 두 테이블의 union으로 verdict를 표현.</p>
+
+  <div class="schema">
+<span class="c">-- packages/server/db/migrations/20260520_judge.sql</span>
+<span class="t">CREATE TABLE</span> judge_verdicts (
+  id            <span class="t">TEXT</span> <span class="t">PRIMARY KEY</span>,
+  turn_id       <span class="t">TEXT</span> <span class="t">NOT NULL</span>,
+  task_id       <span class="t">TEXT</span> <span class="t">NOT NULL</span>,
+  judge_kind    <span class="t">TEXT</span> <span class="t">NOT NULL</span>,        <span class="c">-- verdict | plan | discoverer | trace_qa</span>
+  rule_id       <span class="t">TEXT</span>,                       <span class="c">-- verdict 전용</span>
+  verdict       <span class="t">TEXT</span> <span class="t">NOT NULL</span>,        <span class="c">-- pass | fail | inconclusive</span>
+  score         <span class="t">REAL</span>,                       <span class="c">-- plan 전용 (0.0-1.0)</span>
+  evidence_json <span class="t">TEXT</span> <span class="t">NOT NULL</span>,        <span class="c">-- citedEventIds + rationale</span>
+  model_id      <span class="t">TEXT</span> <span class="t">NOT NULL</span>,
+  input_tokens  <span class="t">INTEGER</span>,
+  output_tokens <span class="t">INTEGER</span>,
+  cache_hit_tokens <span class="t">INTEGER</span>,
+  latency_ms    <span class="t">INTEGER</span>,
+  created_at    <span class="t">INTEGER</span> <span class="t">NOT NULL</span>
+);
+<span class="t">CREATE INDEX</span> idx_jv_turn <span class="t">ON</span> judge_verdicts(turn_id);
+<span class="t">CREATE INDEX</span> idx_jv_task_kind <span class="t">ON</span> judge_verdicts(task_id, judge_kind);
+
+<span class="t">CREATE TABLE</span> judge_cache_keys (
+  key_hash      <span class="t">TEXT</span> <span class="t">PRIMARY KEY</span>,
+  block         <span class="t">TEXT</span> <span class="t">NOT NULL</span>,        <span class="c">-- system | rules | task_prefix</span>
+  scope_id      <span class="t">TEXT</span>,                       <span class="c">-- task_id for task_prefix</span>
+  first_seen_at <span class="t">INTEGER</span> <span class="t">NOT NULL</span>,
+  last_used_at  <span class="t">INTEGER</span> <span class="t">NOT NULL</span>
+);
+  </div>
+</section>
+
+<!-- 7. Implementation plan -->
+<section>
+  <h2><span class="num">7</span> 구현 계획 (Phase 단위)</h2>
+  <p class="intro">총 12 사람-일. <b>Phase 1-3</b> 만으로도 첫 데모 (UC-1, UC-2)를 보일 수 있어 ROI가 가장 높음.</p>
+
+  <div class="phases">
+    <div class="phase">
+      <div class="num">P0</div>
+      <div>
+        <h4>스캐폴딩</h4>
+        <p>NestJS 하위 모듈 <code>governance/judge</code>, SQLite 마이그레이션, Zod 출력 스키마, <code>JudgeKind</code> enum.</p>
+      </div>
+      <div class="effort">1 day</div>
+    </div>
+
+    <div class="phase">
+      <div class="num">P1</div>
+      <div>
+        <h4>VerdictJudge MVP (룰 1개, 캐시 없이)</h4>
+        <p>turn close 이벤트 hook → 활성 룰 fetch → Haiku 호출 → <code>judge_verdicts</code> insert → WS broadcast.</p>
+      </div>
+      <div class="effort">2 days</div>
+    </div>
+
+    <div class="phase">
+      <div class="num">P2</div>
+      <div>
+        <h4>Prompt cache 적용</h4>
+        <p>4-블록 레이아웃, <code>PromptCacheManager</code>, <code>judge_cache_keys</code> 기록, hit-rate 메트릭.</p>
+      </div>
+      <div class="effort">1 day</div>
+    </div>
+
+    <div class="phase">
+      <div class="num">P3</div>
+      <div>
+        <h4>UI 통합 — Rules 탭에 “LLM verdict 토글”</h4>
+        <p>같은 turn에 대해 정적 vs LLM 결과를 좌우로 표시. 불일치 필터, rationale 펼치기, citation 클릭.</p>
+      </div>
+      <div class="effort">1 day</div>
+    </div>
+
+    <div class="phase">
+      <div class="num">P4</div>
+      <div>
+        <h4>PlanAdherenceJudge</h4>
+        <p>ExitPlanMode + Stop 짝짓기 → plan 텍스트 추출 → executed sequence 직렬화 → score + missing/deviated 산출.</p>
+      </div>
+      <div class="effort">2 days</div>
+    </div>
+
+    <div class="phase">
+      <div class="num">P5</div>
+      <div>
+        <h4>RuleDiscoverer (야간 배치)</h4>
+        <p>Project별 cron, Sonnet 모델, 후보 룰 큐 UI(채택/보류/거절), 채택 시 자동 <code>POST /api/v1/rules</code>.</p>
+      </div>
+      <div class="effort">2 days</div>
+    </div>
+
+    <div class="phase">
+      <div class="num">P6</div>
+      <div>
+        <h4>TraceQAJudge — Inspector chat</h4>
+        <p>multi-turn 대화 상태 관리, citation 칩, “timeline에 강조 표시” 인터랙션.</p>
+      </div>
+      <div class="effort">3 days</div>
+    </div>
+
+    <div class="phase opt">
+      <div class="num">P7</div>
+      <div>
+        <h4>Backfill — 과거 turns 재평가</h4>
+        <p><code>POST /api/v1/rules/:id/re-evaluate</code>가 이미 존재. LLM judge도 같은 트리거로 backfill.</p>
+      </div>
+      <div class="effort">1 day · opt</div>
+    </div>
+  </div>
+</section>
+
+<!-- 8. API additions -->
+<section>
+  <h2><span class="num">8</span> 새 API 엔드포인트</h2>
+  <pre class="snippet"><span class="com">// 추가 (기존 /api/v1 라우트 패밀리에 합류)</span>
+<span class="kw">POST</span>  /api/v1/judge/turns/:turnId/run        <span class="com">// 명시적 재실행</span>
+<span class="kw">GET</span>   /api/v1/judge/verdicts?taskId=...      <span class="com">// 필터: kind, ruleId, verdict</span>
+<span class="kw">GET</span>   /api/v1/judge/verdicts/:id             <span class="com">// 단건 (rationale + evidence)</span>
+<span class="kw">POST</span>  /api/v1/judge/discover/:projectId      <span class="com">// 룰 발굴 트리거</span>
+<span class="kw">GET</span>   /api/v1/judge/candidates               <span class="com">// 후보 룰 큐</span>
+<span class="kw">POST</span>  /api/v1/judge/candidates/:id/accept    <span class="com">// 채택 → 실제 룰로 변환</span>
+<span class="kw">POST</span>  /api/v1/judge/ask                      <span class="com">// TraceQA 단발 / streaming</span></pre>
+</section>
+
+<!-- 9. Skeleton code -->
+<section>
+  <h2><span class="num">9</span> 핵심 코드 스켈레톤</h2>
+  <pre class="snippet"><span class="com">// packages/server/src/governance/judge/judge.worker.ts</span>
+<span class="kw">import</span> { <span class="fn">query</span> } <span class="kw">from</span> <span class="str">"@anthropic-ai/claude-agent-sdk"</span>;
+<span class="kw">import</span> { z } <span class="kw">from</span> <span class="str">"zod"</span>;
+
+<span class="kw">const</span> VerdictSchema = z.object({
+  verdict: z.enum([<span class="str">"pass"</span>, <span class="str">"fail"</span>, <span class="str">"inconclusive"</span>]),
+  evidenceEventIds: z.array(z.string()).max(<span class="pr">10</span>),
+  rationale: z.string().max(<span class="pr">500</span>)
+});
+
+<span class="kw">export async function</span> <span class="fn">runVerdictJudge</span>(job: VerdictJob): <span class="kw">Promise</span>&lt;Verdict&gt; {
+  <span class="kw">const</span> blocks = [
+    { type: <span class="str">"text"</span>, text: JUDGE_SYS,                      <span class="com">// ①</span>
+      cache_control: { type: <span class="str">"ephemeral"</span> } },
+    { type: <span class="str">"text"</span>, text: <span class="fn">renderRules</span>(job.activeRules),    <span class="com">// ②</span>
+      cache_control: { type: <span class="str">"ephemeral"</span> } },
+    { type: <span class="str">"text"</span>, text: <span class="fn">renderTaskPrefix</span>(job.taskId),    <span class="com">// ③</span>
+      cache_control: { type: <span class="str">"ephemeral"</span> } },
+    { type: <span class="str">"text"</span>, text: <span class="fn">renderTurn</span>(job.turn) }            <span class="com">// ④ Δ</span>
+  ];
+
+  <span class="kw">const</span> stream = <span class="fn">query</span>({
+    model: <span class="str">"claude-haiku-4-5-20251001"</span>,
+    systemPrompt: blocks,
+    messages: [{ role: <span class="str">"user"</span>, content: <span class="fn">renderQuestion</span>(job.rule) }],
+    outputSchema: VerdictSchema     <span class="com">// SDK가 검증된 JSON 강제</span>
+  });
+
+  <span class="kw">for await</span> (<span class="kw">const</span> ev <span class="kw">of</span> stream) {
+    <span class="kw">if</span> (ev.type === <span class="str">"result"</span>) <span class="kw">return</span> ev.output;
+  }
+  <span class="kw">throw new</span> Error(<span class="str">"judge: no result"</span>);
+}</pre>
+</section>
+
+<!-- 10. Risks -->
+<section>
+  <h2><span class="num">10</span> 리스크와 완화</h2>
+  <div class="risks">
+    <div class="risk">
+      <h5>LLM 변덕</h5>
+      <p>같은 입력에 다른 verdict. 완화: temperature 0 고정 + 정적 매처를 “1차”로 두고 LLM은 “2차 의견”. 두 결과 불일치 시 UI에서 명시.</p>
+    </div>
+    <div class="risk">
+      <h5>Privacy contract 침해</h5>
+      <p>timeline 렌더링이 tool_result body를 끌어오면 안 됨. 완화: <code>renderTimeline()</code>은 기존 read-only repo만 통해 데이터 접근 — body는 어차피 저장되지 않음.</p>
+    </div>
+    <div class="risk">
+      <h5>비용 폭주</h5>
+      <p>cache miss가 누적되면 ③ blob이 매번 신규. 완화: task별 daily token quota, hit-rate &lt;50% 시 알람, Discoverer는 야간 한정.</p>
+    </div>
+    <div class="risk">
+      <h5>응답 지연</h5>
+      <p>Anthropic API rate limit / 일시 장애. 완화: queue + 지수 backoff, “LLM verdict pending” 상태를 UI에서 명시, 24h 후에도 미도착이면 inconclusive.</p>
+    </div>
+    <div class="risk">
+      <h5>구조화 출력 위반</h5>
+      <p>SDK <code>outputSchema</code>가 reject할 때. 완화: 1회 재시도 → 그래도 실패면 inconclusive로 기록. metric 추적.</p>
+    </div>
+    <div class="risk">
+      <h5>Discoverer 환각</h5>
+      <p>존재하지 않는 패턴을 룰로 제안. 완화: <b>사람 채택 필수</b>(자동 활성 없음) + 후보에는 “근거 task 3개” 인용 강제.</p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  Agent Tracer · Tier 3 detailed design — 2026-05-12 · 작성: Claude (Opus 4.7)
+</footer>
+
+</div>
+</body>
+</html>

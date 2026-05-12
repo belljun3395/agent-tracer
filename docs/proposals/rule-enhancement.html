@@ -1,0 +1,881 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Agent Tracer — Rule 고도화 설계안 (v2)</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #161922;
+    --panel-2: #1d2230;
+    --panel-3: #232838;
+    --line: #2a2f3d;
+    --line-soft: #222633;
+    --ink: #e7ebf3;
+    --ink-dim: #a4adbf;
+    --ink-mute: #7a8197;
+    --accent: #ffb86b;
+    --accent-2: #7fd1ff;
+    --accent-3: #c4a7ff;
+    --good: #74e0a8;
+    --warn: #ffd166;
+    --bad: #ff8585;
+    --mono: ui-monospace, SFMono-Regular, "JetBrains Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { background: var(--bg); color: var(--ink); }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Inter", "Pretendard", "Apple SD Gothic Neo", sans-serif;
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 56px 28px 96px; }
+  header.hero {
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 32px;
+    margin-bottom: 40px;
+  }
+  .eyebrow { color: var(--ink-mute); font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; margin: 0 0 12px; }
+  header.hero h1 { margin: 0 0 12px; font-size: 32px; font-weight: 700; letter-spacing: -0.01em; line-height: 1.25; }
+  header.hero h1 .ver { font-size: 14px; vertical-align: middle; margin-left: 10px; padding: 4px 10px; background: var(--panel-2); border: 1px solid var(--accent); color: var(--accent); border-radius: 999px; letter-spacing: 0.08em; }
+  header.hero .lede { color: var(--ink-dim); font-size: 16px; max-width: 80ch; margin: 0 0 18px; }
+  .meta { display: flex; flex-wrap: wrap; gap: 10px; color: var(--ink-mute); font-size: 12px; }
+  .meta span { border: 1px solid var(--line); padding: 4px 10px; border-radius: 999px; background: var(--panel); }
+
+  h2 {
+    font-size: 24px;
+    letter-spacing: -0.01em;
+    margin: 56px 0 14px;
+    padding-top: 18px;
+    border-top: 1px solid var(--line);
+  }
+  h2 .num {
+    display: inline-block;
+    width: 30px; height: 30px; line-height: 30px;
+    text-align: center;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    font-size: 14px; color: var(--accent);
+    margin-right: 12px; font-weight: 600;
+  }
+  h3 { font-size: 17px; margin: 24px 0 8px; }
+  h4 { font-size: 13.5px; margin: 18px 0 6px; color: var(--ink-dim); letter-spacing: 0.04em; text-transform: uppercase; }
+  p { margin: 0 0 12px; color: var(--ink-dim); }
+  ul, ol { margin: 0 0 14px; padding-left: 22px; color: var(--ink-dim); }
+  li { margin: 4px 0; }
+  strong { color: var(--ink); font-weight: 600; }
+  em { color: var(--accent-2); font-style: normal; }
+  code {
+    font-family: var(--mono);
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 12.5px;
+    color: var(--accent-2);
+  }
+  a { color: var(--accent-2); text-decoration: none; border-bottom: 1px dotted var(--accent-2); }
+  a:hover { color: var(--accent); border-bottom-color: var(--accent); }
+
+  pre {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 14px 16px;
+    overflow-x: auto;
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: var(--ink);
+    line-height: 1.55;
+  }
+  pre code { background: transparent; border: 0; padding: 0; color: inherit; }
+  pre .com { color: var(--ink-mute); }
+  pre .kw  { color: var(--accent-3); }
+  pre .str { color: var(--good); }
+  pre .n   { color: var(--accent); }
+  pre .fn  { color: var(--accent-2); }
+  pre .role { color: var(--warn); }
+
+  .toc {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 20px 24px;
+    margin-bottom: 28px;
+  }
+  .toc .toc-title { font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-mute); margin-bottom: 12px; }
+  .toc ol { padding-left: 18px; margin: 0; }
+  .toc li { color: var(--ink); margin: 6px 0; }
+  .toc li a { border-bottom: none; }
+  .toc li a:hover { text-decoration: underline; }
+
+  /* Changelog banner */
+  .changelog {
+    background: linear-gradient(180deg, rgba(255, 184, 107, 0.06), rgba(255, 184, 107, 0));
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--accent);
+    border-radius: 12px;
+    padding: 18px 22px;
+    margin-bottom: 28px;
+  }
+  .changelog h3 { margin-top: 0; font-size: 14px; color: var(--accent); letter-spacing: 0.05em; text-transform: uppercase; }
+  .changelog .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .changelog .col { background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+  .changelog .col h4 { margin-top: 0; }
+  .changelog ul { margin-bottom: 0; }
+
+  .phase {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 22px 24px;
+    margin: 18px 0;
+  }
+  .phase.a { border-left: 3px solid var(--accent-2); }
+  .phase.b1 { border-left: 3px solid var(--accent-3); }
+  .phase.b2 { border-left: 3px solid var(--warn); }
+  .phase.c { border-left: 3px solid var(--good); }
+  .phase .head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+  .phase .head .badge {
+    font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
+    padding: 3px 9px; border-radius: 999px;
+    border: 1px solid var(--line);
+    background: var(--panel-2);
+  }
+  .phase.a .badge { color: var(--accent-2); border-color: var(--accent-2); }
+  .phase.b1 .badge { color: var(--accent-3); border-color: var(--accent-3); }
+  .phase.b2 .badge { color: var(--warn); border-color: var(--warn); }
+  .phase.c .badge { color: var(--good); border-color: var(--good); }
+  .phase .head .title { font-size: 17px; font-weight: 600; }
+  .phase .head .sub { font-size: 12.5px; color: var(--ink-mute); }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0 18px;
+    font-size: 13.5px;
+  }
+  th, td {
+    text-align: left;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--line-soft);
+    color: var(--ink-dim);
+    vertical-align: top;
+  }
+  th {
+    color: var(--ink-mute);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-weight: 600;
+    background: var(--panel);
+    border-bottom: 1px solid var(--line);
+  }
+  td strong { color: var(--ink); }
+  td code { font-size: 12px; }
+
+  .callout {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--accent);
+    border-radius: 10px;
+    padding: 14px 18px;
+    margin: 16px 0;
+    color: var(--ink-dim);
+  }
+  .callout.good   { border-left-color: var(--good); }
+  .callout.warn   { border-left-color: var(--warn); }
+  .callout.bad    { border-left-color: var(--bad); }
+  .callout .title { color: var(--ink); font-weight: 600; margin-bottom: 4px; font-size: 13.5px; }
+
+  .flow {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 14px 18px;
+    margin: 12px 0;
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: var(--ink);
+    line-height: 1.85;
+  }
+  .flow .step { color: var(--accent-2); }
+  .flow .arrow { color: var(--ink-mute); margin: 0 4px; }
+  .flow .meta { color: var(--ink-mute); }
+  .flow .actor-user { color: var(--good); }
+  .flow .actor-srv  { color: var(--accent-3); }
+  .flow .actor-sdk  { color: var(--warn); }
+
+  .strike { text-decoration: line-through; color: var(--ink-mute); }
+  .check { display: inline-block; width: 14px; height: 14px; line-height: 14px; text-align: center; background: var(--good); color: var(--bg); border-radius: 3px; font-size: 10px; margin-right: 6px; font-weight: 700; }
+  .x { display: inline-block; width: 14px; height: 14px; line-height: 14px; text-align: center; background: var(--bad); color: var(--bg); border-radius: 3px; font-size: 10px; margin-right: 6px; font-weight: 700; }
+
+  /* Comparison table for B1 vs B2 */
+  .compare {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin: 16px 0;
+  }
+  .compare .col {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 16px 18px;
+  }
+  .compare .col h4 { margin: 0 0 8px; font-size: 14px; color: var(--ink); text-transform: none; letter-spacing: 0; }
+  .compare .col.b1 { border-left: 3px solid var(--accent-3); }
+  .compare .col.b2 { border-left: 3px solid var(--warn); }
+
+  footer {
+    margin-top: 60px;
+    padding-top: 24px;
+    border-top: 1px solid var(--line);
+    color: var(--ink-mute);
+    font-size: 12px;
+  }
+  @media (max-width: 760px) {
+    .changelog .grid, .compare { grid-template-columns: 1fr; }
+    header.hero h1 { font-size: 26px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <p class="eyebrow">Agent Tracer · Design Proposal</p>
+  <h1>Rule 시스템 고도화 설계안 <span class="ver">v2 · 슬래시 명령 우선</span></h1>
+  <p class="lede">
+    v1 의 핵심 두 가지를 뒤집습니다. ① <strong>setup-time CLI 프롬프트는 폐기</strong> — 대신 Claude Code 슬래시 명령
+    <code>/setup-rules</code> 가 그 역할을 합니다 (파일 탐지 + <strong>짧은 설문</strong> 결합). ② Phase B 의 LLM 호출은 단순 API 가 아니라
+    <strong>Claude Agent SDK (도구 포함)</strong> 입니다 — 서버가 spawn 한 에이전트가
+    <code>task.workspacePath</code> 를 cwd 로 두고 사용자 로컬 파일을 Read/Glob/Grep 으로 직접 탐색합니다.
+  </p>
+  <div class="meta">
+    <span>대상: packages/runtime, packages/server, packages/web</span>
+    <span>작성일: 2026-05-12 (v2)</span>
+    <span>이전: v1 폐기 — CLI prompt + readline + seed file 경로 모두 제거</span>
+  </div>
+</header>
+
+<!-- ============================== -->
+<div class="changelog">
+  <h3>v1 → v2 변경 요약</h3>
+  <div class="grid">
+    <div class="col">
+      <h4 style="color: var(--bad);">v2 에서 제거된 것</h4>
+      <ul>
+        <li><span class="x">x</span><span class="strike"><code>scripts/setup-external.mjs</code> 인터랙티브 모드</span></li>
+        <li><span class="x">x</span><span class="strike"><code>node:readline/promises</code> 프롬프트</span></li>
+        <li><span class="x">x</span><span class="strike">환경 감지 모듈 (Node/Py/Rust/Go 자동 스캔 helper)</span></li>
+        <li><span class="x">x</span><span class="strike"><code>~/.agent-tracer/seed/</code> JSON fallback + <code>RuleSeedLoader</code></span></li>
+        <li><span class="x">x</span><span class="strike">서버 측 기본 rule 템플릿 카탈로그</span></li>
+      </ul>
+    </div>
+    <div class="col">
+      <h4 style="color: var(--good);">v2 에서 새로 들어온 것</h4>
+      <ul>
+        <li><span class="check">v</span><code>/setup-rules</code> Claude Code 슬래시 명령 (plugin · 파일 탐지 + 사용자 설문 결합)</li>
+        <li><span class="check">v</span><code>/generate-rules &lt;task-id&gt;</code> 슬래시 명령 (plugin, B의 무료 경로)</li>
+        <li><span class="check">v</span>새 MCP 툴 <code>monitor_create_rule</code>, <code>monitor_list_rules</code>, <code>monitor_get_task_timeline</code></li>
+        <li><span class="check">v</span>웹 버튼 + <strong>Claude Agent SDK 서버 호스팅</strong> (cwd=workspacePath, Read/Glob/Grep 도구)</li>
+        <li><span class="check">v</span>API key 저장은 Phase B-1 (웹) 사용 시에만 필요</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<nav class="toc">
+  <div class="toc-title">목차</div>
+  <ol>
+    <li><a href="#mental-model">A · 멘탈 모델: SDK Agent 가 무엇이며 어디서 도는가</a></li>
+    <li><a href="#assets">B · 재사용 자산 (변경 없음)</a></li>
+    <li><a href="#phase-a">Phase A · <code>/setup-rules</code> 슬래시 명령</a></li>
+    <li><a href="#phase-b1">Phase B-1 · 웹 버튼 + 서버 SDK Agent</a></li>
+    <li><a href="#phase-b2">Phase B-2 · <code>/generate-rules</code> 슬래시 명령 (무료 경로)</a></li>
+    <li><a href="#phase-c">Phase C · API key 설정 UI (B-1 전제)</a></li>
+    <li><a href="#mcp">C · 새 MCP 툴 명세</a></li>
+    <li><a href="#schema">D · 스키마 / 마이그레이션 영향</a></li>
+    <li><a href="#order">E · 구현 순서 및 분량 추정</a></li>
+    <li><a href="#risks">F · 리스크 / 열린 질문</a></li>
+  </ol>
+</nav>
+
+<!-- ============================== -->
+<section id="mental-model">
+  <h2><span class="num">A</span>멘탈 모델: SDK Agent 가 무엇이며 어디서 도는가</h2>
+
+  <p>v1 에서 "서버가 Anthropic API 를 부른다" 고 적어서 마치 stateless 호출처럼 읽혔던 부분을 명확히 합니다.</p>
+
+  <table>
+    <thead><tr><th>호출 방식</th><th>도구 (Read/Glob)</th><th>인증</th><th>어디서 도는가</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>Anthropic API 직호출</strong> <em>(v1 오해 소지)</em></td>
+        <td><span class="x">x</span> 없음 — 텍스트 in/out</td>
+        <td>API key 필요</td>
+        <td>호출자 프로세스 (stateless)</td>
+      </tr>
+      <tr>
+        <td><strong>Claude Agent SDK</strong> <em>(v2 선택)</em></td>
+        <td><span class="check">v</span> Read/Glob/Grep/Bash 내장</td>
+        <td>API key 필요</td>
+        <td>호출자 프로세스 내부에 에이전트 spawn — <code>cwd</code> 옵션으로 파일 접근 범위 지정</td>
+      </tr>
+      <tr>
+        <td><strong>Claude Code 슬래시 명령</strong></td>
+        <td><span class="check">v</span> Claude Code 본체 도구 그대로</td>
+        <td>Claude Code 가 이미 인증</td>
+        <td>사용자가 띄운 Claude Code 세션 안 (= 사용자 cwd)</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="callout good">
+    <div class="title">핵심 통찰</div>
+    Agent Tracer 의 모니터 서버는 <strong>사용자 본인 머신</strong> 에서 돕니다.
+    서버 프로세스가 SDK Agent 를 spawn 하면, 그 에이전트는 <em>같은 머신의 파일</em> 에 접근 가능.
+    <code>task.workspacePath</code> 를 cwd 로 넣으면 해당 프로젝트 디렉터리로 자연스럽게 스코프됨.
+    "원격 서버" 같은 게 아니라 그냥 <strong>로컬 monitor 데몬이 띄운 서브-에이전트</strong>.
+  </div>
+</section>
+
+<!-- ============================== -->
+<section id="assets">
+  <h2><span class="num">B</span>재사용 자산 (스키마 무변경 영역)</h2>
+  <p>Rule 도메인 자체는 v1 과 동일하게 손대지 않습니다.</p>
+  <ul>
+    <li><strong>Rule 스키마</strong>: <code>source=agent</code>, <code>severity=info</code>, <code>scope=global</code>, <code>signature</code> dedup 그대로</li>
+    <li><strong>Rule 매칭 엔진</strong>: 실시간 enforcement + backfill 그대로 — 슬래시 명령으로 만든 rule 도 자동 적용</li>
+    <li><strong>REST API</strong>: <code>POST /api/v1/rules</code>, <code>re-evaluate</code>, <code>promote</code> 그대로</li>
+    <li><strong>MCP 인프라</strong>: <code>packages/server/src/adapters/mcp/tools/</code> 에 이미 task/event/conversation 툴이 있으므로 같은 패턴으로 rule 툴만 추가</li>
+    <li><strong>Plugin 구조</strong>: <code>packages/runtime/.claude-plugin/plugin.json</code> 이 이미 존재 — <code>commands/</code> 디렉터리만 신설하면 됨</li>
+  </ul>
+</section>
+
+<!-- ============================== -->
+<section id="phase-a">
+  <h2><span class="num">1</span>Phase A · <code>/setup-rules</code> 슬래시 명령</h2>
+
+  <div class="phase a">
+    <div class="head">
+      <span class="badge">Phase A</span>
+      <span class="title">사용자가 Claude Code 안에서 <code>/setup-rules</code> 만 치면 끝</span>
+      <span class="sub">· API key 불필요 · 외부 의존성 무</span>
+    </div>
+
+    <h3>A-1. 파일 배치</h3>
+    <pre><code><span class="com">packages/runtime/.claude-plugin/
+├── plugin.json
+├── hooks/
+└── commands/                          <span class="kw">// 신규 디렉터리</span>
+    ├── setup-rules.md                 <span class="kw">// Phase A</span>
+    └── generate-rules.md              <span class="kw">// Phase B-2</span></span></code></pre>
+
+    <h3>A-2. <code>setup-rules.md</code> 프롬프트 본문 (요지)</h3>
+    <p style="margin-bottom: 4px;">파일 탐지는 "현재 <em>설정된 것</em>" 만 알려주고, 사용자가 "<em>중요하게 여기는 것</em>" 은 모름.
+    polyglot 프로젝트(예: <code>package.json</code> + <code>Cargo.toml</code> 공존), framework 별 관습,
+    "언제" 검증을 원하는지 같은 선호는 설문 없이는 추론 불가 → 짧은 설문 필수.</p>
+    <pre><code><span class="com">---
+description: Probe the project, survey the user, then seed personalized verification rules.
+allowed-tools: [Read, Glob, mcp__agent-tracer__monitor_list_rules, mcp__agent-tracer__monitor_create_rule]
+---</span>
+
+You are setting up Agent Tracer verification rules for the user's current project.
+File detection alone is shallow — it tells us what is <span class="kw">configured</span>, not what the user
+actually <span class="kw">cares about</span>. Combine filesystem probing with a short survey, then propose.
+
+<span class="role">Step 1 — Probe filesystem (silent).</span> Read candidates without showing raw output yet:
+  - <span class="str">package.json</span> → <span class="str">scripts.lint/test/typecheck/build</span>
+  - <span class="str">Cargo.toml</span>, <span class="str">pyproject.toml</span> (+ dev deps for ruff/black/pytest/mypy),
+    <span class="str">go.mod</span>, <span class="str">Makefile</span> (glob targets)
+  - <span class="str">tsconfig.json</span>, <span class="str">eslint.config.*</span>, <span class="str">biome.json</span>, <span class="str">.prettierrc*</span>
+Build a <span class="kw">detected</span> set in memory.
+
+<span class="role">Step 2 — Survey (conversational, &lt;= 4 questions).</span> Default-suggest from
+detected signals so the user just confirms quickly. After Q1, always offer the
+escape line: <span class="str">"Use detection only — skip survey"</span>.
+  Q1) "What language(s) do you primarily work in on this project?"
+       (suggest detected; user may correct, e.g., polyglot repo where only one lang matters)
+  Q2) "Main framework(s)? (e.g., React, Nest, Django, Spring, none)"
+  Q3) "When should I remind the agent to verify? Pick any:
+        (a) after every edit  (b) before committing  (c) after refactors  (d) custom"
+  Q4) "Any specific commands or patterns you ALWAYS want enforced?
+       (free text, or 'skip')"
+
+<span class="role">Step 3 — Synthesize.</span> Combine detected + survey into 3~7 rule candidates.
+Mapping examples:
+  - "after every edit" + scripts.lint   → triggerPhrases=[<span class="str">"edit","fix","implement","add"</span>]
+  - "before committing" + scripts.test  → triggerPhrases=[<span class="str">"commit","PR","push"</span>]
+  - framework=React + scripts.test      → expectCommandMatches=[<span class="str">"vitest","jest","playwright"</span>]
+  - language=Rust                       → expectCommandMatches=[<span class="str">"cargo test","cargo clippy"</span>]
+  - Q4 free text                        → 1 dedicated rule per pattern
+Encode survey context in each rule's <span class="str">rationale</span>
+(e.g. <span class="str">"TS + React, user picked: before commits"</span>).
+
+<span class="role">Step 4 — Dedup + Confirm.</span> Call <span class="fn">monitor_list_rules({ scope: "global" })</span>
+to skip already-existing rules (signature-equivalent). Present remaining candidates
+numbered, default-selected. User toggles.
+
+<span class="role">Step 5 — Create.</span> For each accepted, call <span class="fn">monitor_create_rule</span> with:
+  scope=<span class="str">"global"</span>, source=<span class="str">"agent"</span>, severity=<span class="str">"info"</span>,
+  rationale (carries survey context for future audit).
+
+<span class="role">Step 6 — Summarize.</span> List created rule IDs and remind the user they can edit/delete
+at <span class="str">http://127.0.0.1:5173/rules</span>.</code></pre>
+
+    <h3>A-3. 사용자 시나리오 (탐지 + 설문 결합)</h3>
+    <pre><code><span class="actor-user">user:</span> /setup-rules
+<span class="actor-srv">Claude:</span> Let me check your project briefly. <span class="meta">[reads package.json, tsconfig.json]</span>
+
+  <span class="role">Q1)</span> What language(s) do you primarily work in here?
+       (Detected: <span class="str">TypeScript</span> — confirm, correct, or type "skip survey")
+
+<span class="actor-user">user:</span> TypeScript
+
+<span class="actor-srv">Claude:</span> <span class="role">Q2)</span> Main framework(s)? (e.g., React, Nest, Django, none)
+
+<span class="actor-user">user:</span> React + Express
+
+<span class="actor-srv">Claude:</span> <span class="role">Q3)</span> When should the agent be reminded to verify?
+       (a) after every edit  (b) before committing  (c) after refactors  (d) custom
+
+<span class="actor-user">user:</span> b
+
+<span class="actor-srv">Claude:</span> <span class="role">Q4)</span> Any commands or patterns you ALWAYS want enforced?
+       (free text or 'skip')
+
+<span class="actor-user">user:</span> skip
+
+<span class="actor-srv">Claude:</span> Based on your answers I propose these rules (severity: info):
+
+  1) <span class="check">v</span> Lint before commits
+     triggers: [<span class="str">"commit","PR","push"</span>] · expects: <span class="str">npm run lint</span>
+     <span class="meta">rationale: TS + React/Express; user picked "before committing"</span>
+  2) <span class="check">v</span> Tests before commits
+     triggers: [<span class="str">"commit","PR","push"</span>] · expects: <span class="str">npm test / vitest</span>
+  3) <span class="check">v</span> Typecheck before commits
+     triggers: [<span class="str">"commit","PR","push"</span>] · expects: <span class="str">npm run typecheck</span>
+
+Accept all? (y / numbers / edit)
+
+<span class="actor-user">user:</span> y
+
+<span class="actor-srv">Claude:</span> Creating... <span class="meta">[monitor_create_rule x3]</span>
+  v rule_abc123, rule_def456, rule_ghi789
+Manage at http://127.0.0.1:5173/rules</code></pre>
+
+    <p><strong>같은 사용자, 다른 답변 → 다른 rule</strong>. 만약 Q3 에 <code>(a) after every edit</code>
+    를 골랐다면 triggerPhrases 가 <code>["edit","fix","implement"]</code> 로 잡혀
+    훨씬 자주 검증을 요구하는 rule 이 생성됨. 같은 프로젝트라도 사용자 워크플로우에 맞게 다르게 합성.</p>
+
+    <h3>A-4. 왜 슬래시 명령 한 개로 끝나는가</h3>
+    <ul>
+      <li><strong>환경 감지</strong>: Claude 가 Read/Glob 으로 직접 — 별도 detect 모듈 불필요</li>
+      <li><strong>설문 인터랙션</strong>: 자연어 대화 — readline / inquirer 의존성 불필요</li>
+      <li><strong>인증</strong>: Claude Code 가 이미 인증 — API key 불필요</li>
+      <li><strong>적용 즉시성</strong>: <code>monitor_create_rule</code> 이 REST 와 동일 서비스로 들어가 실시간 enforcement 즉시 반영</li>
+      <li><strong>개인화</strong>: 파일 탐지(현 설정) <em>+</em> 설문(사용자 선호) 결합 — polyglot 레포·freeform 워크플로우도 적절히 매핑. 같은 React 프로젝트라도 "TDD 지향" vs "PR 직전 일괄 검증" 사용자에게 다른 rule 셋이 나옴</li>
+      <li><strong>지속성</strong>: 설문 답변은 각 rule 의 <code>rationale</code> 에 기록 → 다음 <code>/setup-rules</code> 호출 시 dedup 으로 중복 안 만들고, <code>/rules</code> UI 에서 "왜 이 rule 이 있는지" 추적 가능</li>
+    </ul>
+
+    <div class="callout warn">
+      <div class="title">설문 길이 트레이드오프</div>
+      4문항이 처음엔 적정해 보여도 매번 호출하기엔 길 수 있음. 완화안:
+      ① Q1 직후 "skip survey" 단축 경로,
+      ② 두 번째 호출부터는 기존 rule 의 <code>rationale</code> 을 읽어 "이전 답변 유지하시겠어요?" 한 줄로 압축,
+      ③ 검증 후 사용자가 답변 변경을 원하면 <code>/setup-rules --resurvey</code> 같은 인자로 전체 재실행.
+    </div>
+  </div>
+</section>
+
+<!-- ============================== -->
+<section id="phase-b1">
+  <h2><span class="num">2</span>Phase B-1 · 웹 버튼 + 서버 SDK Agent</h2>
+
+  <div class="phase b1">
+    <div class="head">
+      <span class="badge">Phase B-1</span>
+      <span class="title">대시보드에서 회고적으로 — 한 번의 클릭</span>
+      <span class="sub">· API key 필요 · 서버가 SDK Agent spawn</span>
+    </div>
+
+    <h3>B1-1. UX 진입점</h3>
+    <ul>
+      <li><strong>위치</strong>: <code>packages/web/src/features/inspector/tabs/rules/RulesTab.tsx</code> 상단</li>
+      <li>버튼: <code>[ ✨ Generate rules from this task ]</code></li>
+      <li>활성 조건: <code>task.status === "completed"</code> 이고 <code>app_settings.anthropic.api_key</code> 설정됨</li>
+      <li>비활성 시 안내: "<em>Configure API key in Settings to enable</em>" / "<em>Available after task completes</em>"</li>
+    </ul>
+
+    <h3>B1-2. 백엔드 흐름</h3>
+    <div class="flow">
+      <span class="step">[1]</span> <span class="actor-user">user</span> clicks Generate <span class="arrow">→</span> <span class="actor-srv">POST /api/v1/tasks/:id/generate-rules</span><br/>
+      <span class="step">[2]</span> <span class="actor-srv">server</span> enqueue <code>task_rule_generation_jobs(taskId, pending)</code><br/>
+      <span class="step">[3]</span> <span class="actor-srv">RuleGenerationWorker.tick()</span> picks up <span class="arrow">→</span> load task + workspacePath + timeline summary<br/>
+      <span class="step">[4]</span> <span class="actor-srv">server</span> spawns <span class="actor-sdk">Claude Agent SDK</span><br/>
+      &nbsp;&nbsp;&nbsp;&nbsp;<span class="meta">└ options: { cwd: task.workspacePath, allowedTools: ["Read","Glob","Grep"], maxTurns: 8 }</span><br/>
+      <span class="step">[5]</span> <span class="actor-sdk">SDK Agent</span> explores workspace using its tools<br/>
+      <span class="step">[6]</span> <span class="actor-sdk">SDK Agent</span> returns structured JSON rules <span class="arrow">→</span> <span class="actor-srv">server</span> validates (Zod)<br/>
+      <span class="step">[7]</span> <span class="actor-srv">server</span> bulk-creates via <code>RuleCommandService.create()</code> <span class="meta">(source=agent, severity=info)</span><br/>
+      <span class="step">[8]</span> <span class="actor-srv">EventBroadcaster</span> emits <code>rules.generated</code> <span class="arrow">→</span> <span class="actor-user">web UI</span> 토스트 + RulesTab refetch
+    </div>
+
+    <h3>B1-3. SDK Agent 의 시스템 프롬프트 (요지)</h3>
+    <pre><code>You are a verification-rule designer for Agent Tracer.
+
+Goal: propose 3-5 rules that would catch whether a coding agent
+properly completed a task similar to the one summarized below.
+
+You may explore the codebase using Read, Glob, and Grep. Focus on
+config files (package.json, tsconfig, eslint, biome, etc.), test
+setup, and the files the task actually touched.
+
+After exploration, output strict JSON only:
+  { <span class="str">"rules"</span>: [{ name, expectTool, expectCommandMatches, severity, rationale }, ...] }
+
+Constraints:
+  - severity is always <span class="str">"info"</span>
+  - expectTool from {Bash, Read, Edit, Write, WebFetch, WebSearch}
+  - rationale &lt; 1 sentence
+  - max 5 rules
+  - do NOT propose rules that already exist (caller dedups by signature anyway, but try)</code></pre>
+
+    <h3>B1-4. 입력 컨텍스트 (caller → SDK Agent)</h3>
+    <ul>
+      <li><code>task.title</code> + 첫 <code>user.message</code> body (head/tail trim &lt; 2000자)</li>
+      <li>도구별 사용 통계 (e.g., <code>{ Read: 8, Edit: 3, Write: 1, Bash: 12 }</code>)</li>
+      <li>상위 5개 touched files (<code>event_files</code> 의 write_count desc)</li>
+      <li>상위 10개 Bash 명령 (중복 제거 후)</li>
+    </ul>
+    <p>워크스페이스 트리는 <em>caller 가 미리 넣지 않음</em> — SDK Agent 가 필요 시 Glob 으로 직접 탐색하도록 위임. (그게 SDK Agent 도입 이유.)</p>
+
+    <h3>B1-5. 인프라 추가 분량</h3>
+    <ul>
+      <li><strong>의존성</strong>: <code>@anthropic-ai/claude-agent-sdk</code> 1개 (server 패키지)</li>
+      <li><strong>새 모듈</strong>: <code>packages/server/src/governance/rule/generation/</code>
+        — <code>rule.generation.service.ts</code>, <code>rule.generation.worker.ts</code>, <code>rule.generation.controller.ts</code></li>
+      <li><strong>새 테이블</strong>: <code>task_rule_generation_jobs(id, task_id, status, attempts, error, started_at, completed_at)</code></li>
+      <li><strong>WS 이벤트</strong>: <code>rules.generated</code> 한 종류</li>
+    </ul>
+
+    <div class="callout warn">
+      <div class="title">실패 모드</div>
+      <ul style="margin-bottom: 0;">
+        <li>SDK Agent 가 JSON 외 텍스트를 뱉음 → Zod fail → 잡 status=failed, UI 토스트로 알림</li>
+        <li>cwd 가 더 이상 존재하지 않음 (workspacePath 가 지워진 프로젝트) → 즉시 실패, "workspace not found" 메시지</li>
+        <li>SDK 호출 timeout → 3회 backoff 재시도 후 실패</li>
+        <li>같은 task 잡 중복 요청 → 진행 중 잡 ID 반환 (enqueue 거부)</li>
+        <li>API key 만료/오류 → 잡 실패, Settings 페이지로 유도하는 토스트</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== -->
+<section id="phase-b2">
+  <h2><span class="num">3</span>Phase B-2 · <code>/generate-rules</code> 슬래시 명령</h2>
+
+  <div class="phase b2">
+    <div class="head">
+      <span class="badge">Phase B-2</span>
+      <span class="title">사용자가 Claude Code 에 있을 때의 무료 경로</span>
+      <span class="sub">· API key 불필요 · B-1 의 대안</span>
+    </div>
+
+    <h3>B2-1. 차이점</h3>
+    <div class="compare">
+      <div class="col b1">
+        <h4>B-1 (웹 버튼)</h4>
+        <ul>
+          <li>사용자가 Claude Code 를 안 띄워도 됨</li>
+          <li>"과거 task 회고" 가 자연스러움</li>
+          <li>API key 필요 (Phase C 의존)</li>
+          <li>SDK 의존성 + 잡 큐 + Settings UI 신규 인프라 다 필요</li>
+        </ul>
+      </div>
+      <div class="col b2">
+        <h4>B-2 (슬래시 명령)</h4>
+        <ul>
+          <li>사용자가 Claude Code 안에 있어야 함</li>
+          <li>"지금 작업 중인 흐름에서" 도 가능</li>
+          <li>Claude Code 인증 재사용 — API key 불필요</li>
+          <li>Plugin 파일 1개 + 기존 MCP 툴 재사용 — 인프라 추가 거의 없음</li>
+        </ul>
+      </div>
+    </div>
+
+    <h3>B2-2. 사용자 시나리오</h3>
+    <pre><code><span class="actor-user">user:</span> /generate-rules t_8f3c1d
+<span class="actor-srv">Claude:</span> Fetching task summary... <span class="meta">[monitor_get_task_timeline]</span>
+
+This task migrated auth middleware to JWT. The agent edited
+src/middleware/auth.ts and ran <span class="str">npm test</span> twice. I'll look at
+package.json and the test setup. <span class="meta">[Read package.json] [Glob tests/**]</span>
+
+Proposed rules (severity: info):
+  1) Test should be run after auth-related edits
+     — <span class="str">expectCommandMatches: ["npm test", "vitest"]</span>
+  2) Lint should be run before completing
+     — <span class="str">expectCommandMatches: ["npm run lint"]</span>
+  3) New middleware files should have matching tests
+     — <span class="str">expectPattern: "tests/middleware/.*\\.test\\.ts"</span>
+
+Accept all? (y/n/edit numbers)
+
+<span class="actor-user">user:</span> y
+
+<span class="actor-srv">Claude:</span> Created 3 rules. <span class="meta">[monitor_create_rule x3]</span></code></pre>
+
+    <h3>B2-3. 필요한 MCP 툴</h3>
+    <ul>
+      <li><code>monitor_list_tasks(limit?, status?)</code> — 사용자가 task-id 를 모를 때 최근 목록 표시</li>
+      <li><code>monitor_get_task_timeline(taskId)</code> — 도구 통계 + touched files + 첫 메시지 요약</li>
+      <li><code>monitor_create_rule(...)</code> — A 와 공용</li>
+      <li><code>monitor_list_rules({ scope, taskId })</code> — 중복 체크용, A 와 공용</li>
+    </ul>
+
+    <div class="callout">
+      <div class="title">권고</div>
+      B-1 과 B-2 는 <strong>경쟁이 아니라 보완</strong>. 둘 다 만들 가치 있음. 다만 <strong>구현은 B-2 가 먼저</strong> —
+      슬래시 명령은 plugin 파일 + 기존 MCP 패턴 재사용이라 비용이 거의 없음.
+      사용 데이터를 본 뒤 B-1 (웹 버튼) 의 ROI 판단.
+    </div>
+  </div>
+</section>
+
+<!-- ============================== -->
+<section id="phase-c">
+  <h2><span class="num">4</span>Phase C · API key 설정 UI (B-1 진행 시에만)</h2>
+
+  <div class="phase c">
+    <div class="head">
+      <span class="badge">Phase C</span>
+      <span class="title"><code>app_settings</code> 테이블 + <code>/settings</code> 페이지</span>
+      <span class="sub">· B-1 채택 시에만 필요</span>
+    </div>
+
+    <p>구조는 v1 과 동일. 다만 <strong>B-2 만 채택할 거면 Phase C 는 통째로 스킵 가능</strong>.</p>
+
+    <h3>C-1. 테이블</h3>
+    <pre><code><span class="com">// migrations/1700000005000-create-app-settings.ts</span>
+<span class="kw">CREATE TABLE</span> app_settings (
+  key         <span class="kw">TEXT PRIMARY KEY</span>,
+  value       <span class="kw">TEXT NOT NULL</span>,
+  updated_at  <span class="kw">INTEGER NOT NULL</span>
+);
+<span class="com">-- keys: anthropic.api_key, anthropic.model, ruleGen.maxRulesPerTask</span></code></pre>
+
+    <h3>C-2. UI</h3>
+    <ul>
+      <li>TopBar 우측 ⚙ → <code>/settings</code> 라우트</li>
+      <li>섹션 "Rule auto-generation": API key (password 입력, 마지막 4자만 노출),
+        model 선택 (sonnet-4-6 / haiku-4-5), "Test connection" 버튼</li>
+      <li>UI 워닝: "<em>Key is stored locally in your monitor DB.</em>"</li>
+    </ul>
+
+    <h3>C-3. 보안</h3>
+    <ul>
+      <li>평문 저장 — 1인 로컬 가정 (SQLite 파일 권한에 의존)</li>
+      <li>로그에 노출 방지: 기존 <code>RedactingLogger</code> 가 있다면 <code>anthropic.api_key</code> 키 자동 마스킹 추가</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================== -->
+<section id="mcp">
+  <h2><span class="num">C</span>새 MCP 툴 명세</h2>
+
+  <p>모두 <code>packages/server/src/adapters/mcp/tools/rule.ts</code> 한 파일에 모음.
+  기존 <code>conversation.ts</code>/<code>task.lifecycle.ts</code> 와 같은 패턴.</p>
+
+  <table>
+    <thead><tr><th>툴</th><th>입력</th><th>출력</th><th>사용처</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><code>monitor_create_rule</code></td>
+        <td>name, triggerPhrases?, triggerOn?, expectTool?, expectCommandMatches?, expectPattern?, scope, severity, rationale?</td>
+        <td><code>{ ruleId, dedupedFromExistingId? }</code></td>
+        <td>A, B-1 (선택), B-2</td>
+      </tr>
+      <tr>
+        <td><code>monitor_list_rules</code></td>
+        <td>scope?, taskId?, source?</td>
+        <td><code>{ rules: [...] }</code></td>
+        <td>A (중복 체크), B-2</td>
+      </tr>
+      <tr>
+        <td><code>monitor_get_task_timeline</code></td>
+        <td>taskId</td>
+        <td>summary: { title, firstUserMessage, toolCounts, topFiles, topCommands }</td>
+        <td>B-2 (B-1 은 서버 내부 호출로 동일 데이터 직접 액세스)</td>
+      </tr>
+      <tr>
+        <td><code>monitor_list_tasks</code></td>
+        <td>limit?, status?</td>
+        <td><code>{ tasks: [...] }</code></td>
+        <td>B-2 (task-id 미상 시 탐색)</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p><strong>등록</strong>: <code>packages/server/src/adapters/mcp/mcp.entry.ts</code> 에 4개 추가.
+  Plugin 측 <code>allowed-tools</code> 에는 <code>mcp__agent-tracer__monitor_*</code> 패턴으로 화이트리스트.</p>
+</section>
+
+<!-- ============================== -->
+<section id="schema">
+  <h2><span class="num">D</span>스키마 / 마이그레이션 영향</h2>
+  <table>
+    <thead><tr><th>대상</th><th>변경</th><th>필요 Phase</th></tr></thead>
+    <tbody>
+      <tr><td><code>rules</code> 테이블</td><td><span class="check">v</span> 변경 없음</td><td>—</td></tr>
+      <tr><td><code>app_settings</code> 테이블</td><td><span class="check">v</span> 신규</td><td>C (B-1 채택 시)</td></tr>
+      <tr><td><code>task_rule_generation_jobs</code> 테이블</td><td><span class="check">v</span> 신규</td><td>B-1</td></tr>
+      <tr><td>새 MCP 툴 4종</td><td><span class="check">v</span> tools/rule.ts 신규 파일</td><td>A, B-2 필수 / B-1 부분 사용</td></tr>
+      <tr><td>plugin <code>commands/</code> 디렉터리</td><td><span class="check">v</span> 신규</td><td>A, B-2</td></tr>
+      <tr><td>web <code>/settings</code> 라우트</td><td><span class="check">v</span> 신규</td><td>C (B-1 채택 시)</td></tr>
+      <tr><td><code>plugin.json</code></td><td>commands 디렉터리 인식 (Claude Code 가 자동 감지하면 무수정)</td><td>A, B-2</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ============================== -->
+<section id="order">
+  <h2><span class="num">E</span>구현 순서 및 분량 추정</h2>
+
+  <table>
+    <thead>
+      <tr><th>#</th><th>작업</th><th>패키지</th><th>분량</th><th>의존</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>1</td>
+        <td><code>monitor_create_rule</code> + <code>monitor_list_rules</code> MCP 툴</td>
+        <td><code>server/adapters/mcp/tools/rule.ts</code></td>
+        <td>S</td>
+        <td>—</td>
+      </tr>
+      <tr>
+        <td>2</td>
+        <td><code>/setup-rules</code> 슬래시 명령</td>
+        <td><code>runtime/.claude-plugin/commands/setup-rules.md</code></td>
+        <td>XS</td>
+        <td>1 필요</td>
+      </tr>
+      <tr>
+        <td colspan="5" style="background: var(--panel-3); color: var(--good); text-align: center; font-size: 12px; letter-spacing: 0.08em;">— Phase A 완료 (총 분량 S+XS) —</td>
+      </tr>
+      <tr>
+        <td>3</td>
+        <td><code>monitor_get_task_timeline</code> + <code>monitor_list_tasks</code> MCP 툴</td>
+        <td><code>server/adapters/mcp/tools/rule.ts</code></td>
+        <td>S</td>
+        <td>—</td>
+      </tr>
+      <tr>
+        <td>4</td>
+        <td><code>/generate-rules</code> 슬래시 명령</td>
+        <td><code>runtime/.claude-plugin/commands/generate-rules.md</code></td>
+        <td>XS</td>
+        <td>1, 3 필요</td>
+      </tr>
+      <tr>
+        <td colspan="5" style="background: var(--panel-3); color: var(--good); text-align: center; font-size: 12px; letter-spacing: 0.08em;">— Phase B-2 완료 (여기까지면 API key 없이 두 기능 모두 사용 가능) —</td>
+      </tr>
+      <tr>
+        <td>5</td>
+        <td><code>app_settings</code> 테이블 + CRUD</td>
+        <td><code>server/governance/settings/</code></td>
+        <td>S</td>
+        <td>—</td>
+      </tr>
+      <tr>
+        <td>6</td>
+        <td><code>/settings</code> 페이지 (API key 입력 + test)</td>
+        <td><code>web/features/settings/</code></td>
+        <td>M</td>
+        <td>5 필요</td>
+      </tr>
+      <tr>
+        <td>7</td>
+        <td>SDK Agent 어댑터 (<code>@anthropic-ai/claude-agent-sdk</code> 통합)</td>
+        <td><code>server/adapters/llm/</code></td>
+        <td>M</td>
+        <td>5 필요</td>
+      </tr>
+      <tr>
+        <td>8</td>
+        <td><code>task_rule_generation_jobs</code> 테이블 + worker</td>
+        <td><code>server/governance/rule/generation/</code></td>
+        <td>M</td>
+        <td>7 필요</td>
+      </tr>
+      <tr>
+        <td>9</td>
+        <td>웹 "Generate" 버튼 + WS 무효화</td>
+        <td><code>web/features/inspector/tabs/rules/</code></td>
+        <td>S</td>
+        <td>8 필요</td>
+      </tr>
+      <tr>
+        <td colspan="5" style="background: var(--panel-3); color: var(--good); text-align: center; font-size: 12px; letter-spacing: 0.08em;">— Phase B-1 + C 완료 —</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p><strong>최소 출시 경로 (A + B-2)</strong>: XS+S+S+XS ≈ 2~3일.
+  <strong>풀 출시 (A + B-1 + B-2 + C)</strong>: 합산 S 4 + M 3 + XS 2 ≈ 1.5주.</p>
+
+  <div class="callout good">
+    <div class="title">권장 출발</div>
+    <strong>1, 2 (Phase A) 부터 시작</strong> — 가장 작고, 즉시 가치 발생, 다른 모든 작업의 기반 인프라(MCP 툴) 깔림.
+  </div>
+</section>
+
+<!-- ============================== -->
+<section id="risks">
+  <h2><span class="num">F</span>리스크 / 열린 질문</h2>
+
+  <div class="callout warn">
+    <div class="title">리스크 1 · 슬래시 명령은 Claude Code 만 지원</div>
+    Codex 쪽 사용자에게는 안 보임. 본 설계는 "<em>우선 Claude Code 만 지원</em>" 결정 하에 진행.
+    Codex 지원이 필요해지면 그때 별도 진입점 (CLI prompt 부활 or Codex 의 자체 명령 시스템) 고려.
+  </div>
+
+  <div class="callout warn">
+    <div class="title">리스크 2 · MCP 툴이 잘못 호출되면 잘못된 rule 양산</div>
+    완화: ① <code>monitor_create_rule</code> 서비스 단에서 Zod 스키마 검증, ② <code>signature</code> dedup 기존 활용,
+    ③ 슬래시 명령 프롬프트에 "<em>create rules ONLY after explicit user confirmation</em>" 명시.
+  </div>
+
+  <div class="callout warn">
+    <div class="title">리스크 3 · SDK Agent 가 의도치 않은 파일 접근</div>
+    완화: <code>allowedTools: ["Read","Glob","Grep"]</code> 만 — Edit/Write/Bash 차단.
+    <code>cwd</code> 를 task.workspacePath 로 강제. <code>maxTurns: 8</code> 로 폭주 차단.
+  </div>
+
+  <h3>열린 질문</h3>
+  <ol>
+    <li><strong>Plugin <code>commands/</code> 디렉터리는 plugin.json 에 명시 필요한가, 자동 감지인가?</strong>
+      — Claude Code plugin 명세 재확인 필요. 자동 감지가 표준이면 plugin.json 무수정.</li>
+    <li><strong>B-1 의 "관련 파일" 정의</strong> — top 5 by write_count 만으로 충분한지, 또는 Edit 이벤트의 diff 까지 첨부할지.</li>
+    <li><strong>B-2 에서 사용자가 task-id 를 모를 때</strong> — 명령 인자 없이 호출하면
+      "최근 task 목록을 보여주고 고르게" 할지, 또는 "현재 세션의 task" 를 디폴트로 잡을지.
+      후자는 monitor MCP 가 현재 세션 ID 를 알아야 하는데 그게 가능한지 확인 필요.</li>
+    <li><strong>Phase B-1 우선순위</strong> — 사용 데이터를 보기 전엔 B-2 만 출시하고 B-1 보류해도 되는지 결정.</li>
+  </ol>
+</section>
+
+<footer>
+  Agent Tracer · Rule 시스템 고도화 설계안 v2 · 2026-05-12<br/>
+  v1 (CLI prompt 기반) 폐기 · v2 (슬래시 명령 우선) 채택 · 권장 출발점: Phase A (작업 1~2)
+</footer>
+
+</div>
+</body>
+</html>

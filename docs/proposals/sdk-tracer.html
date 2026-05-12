@@ -1,0 +1,1026 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Tier 5 — @monitor/sdk-tracer · 다른 SDK 사용자를 위한 계측 라이브러리</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #161922;
+    --panel-2: #1d2230;
+    --line: #2a2f3d;
+    --ink: #e7ebf3;
+    --ink-dim: #a4adbf;
+    --ink-mute: #7a8197;
+    --accent: #ffb86b;
+    --accent-2: #7fd1ff;
+    --good: #74e0a8;
+    --warn: #ffd166;
+    --bad: #ff8585;
+    --purple: #c4a7ff;
+    --mono: ui-monospace, SFMono-Regular, "JetBrains Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { background: var(--bg); color: var(--ink); }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Inter", "Pretendard", "Apple SD Gothic Neo", sans-serif;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 56px 28px 96px; }
+  header.hero { border-bottom: 1px solid var(--line); padding-bottom: 28px; margin-bottom: 36px; }
+  .eyebrow {
+    color: var(--purple); text-transform: uppercase; letter-spacing: 0.16em;
+    font-size: 11px; font-weight: 600;
+  }
+  h1 { font-size: 32px; line-height: 1.2; margin: 12px 0 10px; letter-spacing: -0.02em; }
+  h1 .sub { color: var(--ink-dim); font-weight: 500; }
+  .lede { color: var(--ink-dim); font-size: 16px; max-width: 760px; }
+  .meta { margin-top: 18px; display: flex; flex-wrap: wrap; gap: 6px 14px; color: var(--ink-mute); font-size: 12px; }
+  .meta code { font-family: var(--mono); color: var(--ink-dim); }
+
+  section { margin-top: 44px; }
+  section > h2 {
+    font-size: 22px; letter-spacing: -0.01em; margin: 0 0 16px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  section > h2 .num {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 28px; height: 28px; border-radius: 6px;
+    background: var(--panel-2); color: var(--purple);
+    font-family: var(--mono); font-size: 12px;
+  }
+  section > p.intro { color: var(--ink-dim); margin: 0 0 18px; max-width: 820px; }
+
+  .tldr {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
+    margin: 12px 0 28px;
+  }
+  .tldr .card {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 10px; padding: 14px 16px;
+  }
+  .tldr .card .k { color: var(--ink-mute); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; }
+  .tldr .card .v { font-size: 22px; font-weight: 600; margin-top: 4px; color: var(--ink); font-family: var(--mono); }
+  .tldr .card .n { color: var(--ink-dim); font-size: 12px; margin-top: 4px; }
+
+  /* Use case */
+  .uc {
+    border: 1px solid var(--line); background: var(--panel);
+    border-radius: 12px; padding: 18px 20px; margin-bottom: 14px;
+    position: relative; overflow: hidden;
+  }
+  .uc::before {
+    content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--purple);
+  }
+  .uc.b::before { background: var(--accent-2); }
+  .uc.g::before { background: var(--good); }
+  .uc.o::before { background: var(--accent); }
+  .uc header {
+    display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px;
+    flex-wrap: wrap;
+  }
+  .uc header .id {
+    font-family: var(--mono); font-size: 11px; color: var(--ink-mute);
+    padding: 2px 7px; background: var(--panel-2); border-radius: 4px; border: 1px solid var(--line);
+  }
+  .uc header h4 { margin: 0; font-size: 16px; letter-spacing: -0.005em; flex: 1; }
+  .uc header .badge {
+    font-family: var(--mono); font-size: 10.5px; padding: 2px 7px;
+    border-radius: 4px; background: var(--panel-2); color: var(--ink-dim);
+    border: 1px solid var(--line);
+  }
+  .uc .scene { color: var(--ink-dim); font-size: 13.5px; margin: 0 0 12px; }
+  .uc .twocol { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .uc .col {
+    background: var(--panel-2); border: 1px solid var(--line);
+    border-radius: 8px; padding: 12px 14px;
+  }
+  .uc .col h5 {
+    margin: 0 0 8px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--ink-mute);
+  }
+  .uc .col .body { font-size: 13px; color: var(--ink); }
+  .uc .col .body code { font-family: var(--mono); font-size: 12px; color: var(--accent-2); }
+
+  pre.snippet {
+    background: var(--panel-2); border: 1px solid var(--line);
+    border-radius: 8px; padding: 12px 14px; margin: 10px 0 0;
+    overflow-x: auto; font-family: var(--mono); font-size: 12.5px;
+    line-height: 1.6; color: var(--ink-dim);
+  }
+  pre.snippet .kw { color: var(--accent); }
+  pre.snippet .str { color: var(--good); }
+  pre.snippet .com { color: var(--ink-mute); font-style: italic; }
+  pre.snippet .fn { color: var(--accent-2); }
+  pre.snippet .pr { color: var(--purple); }
+  pre.snippet .tag { color: var(--bad); }
+
+  .figure {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 12px; padding: 18px; margin: 12px 0;
+  }
+  .figure svg { display: block; width: 100%; height: auto; }
+  .figure .caption { color: var(--ink-mute); font-size: 12px; margin-top: 10px; text-align: center; }
+
+  /* event table */
+  .evtbl {
+    width: 100%; border-collapse: collapse; background: var(--panel);
+    border: 1px solid var(--line); border-radius: 10px; overflow: hidden;
+    font-size: 13px;
+  }
+  .evtbl th, .evtbl td {
+    padding: 10px 14px; text-align: left;
+    border-bottom: 1px solid var(--line); vertical-align: top;
+  }
+  .evtbl th { color: var(--ink-mute); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; }
+  .evtbl td { color: var(--ink); }
+  .evtbl tr:last-child td { border-bottom: none; }
+  .evtbl td code { font-family: var(--mono); color: var(--accent-2); font-size: 12px; }
+  .evtbl td.action code { color: var(--good); }
+  .evtbl td.kept { color: var(--good); font-family: var(--mono); font-size: 12px; }
+  .evtbl td.dropped { color: var(--bad); font-family: var(--mono); font-size: 12px; }
+
+  /* phases */
+  .phases { display: flex; flex-direction: column; gap: 12px; }
+  .phase {
+    border: 1px solid var(--line); border-radius: 10px;
+    background: var(--panel); padding: 14px 16px;
+    display: grid; grid-template-columns: 90px 1fr 110px; gap: 14px; align-items: center;
+  }
+  .phase .num {
+    font-family: var(--mono); font-size: 13px; color: var(--ink-mute);
+    padding: 6px 10px; background: var(--panel-2); border-radius: 6px;
+    text-align: center;
+  }
+  .phase h4 { margin: 0 0 4px; font-size: 14px; }
+  .phase p { margin: 0; font-size: 13px; color: var(--ink-dim); }
+  .phase .effort {
+    font-family: var(--mono); font-size: 12px; color: var(--purple);
+    text-align: right;
+  }
+  .phase.opt .effort { color: var(--accent-2); }
+
+  /* file layout */
+  .filetree {
+    background: var(--panel-2); border: 1px solid var(--line);
+    border-radius: 8px; padding: 14px 16px; font-family: var(--mono);
+    font-size: 12.5px; line-height: 1.6; color: var(--ink-dim);
+  }
+  .filetree .d { color: var(--accent-2); }
+  .filetree .f { color: var(--ink); }
+  .filetree .c { color: var(--ink-mute); }
+
+  .risks { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .risk {
+    background: var(--panel); border: 1px solid var(--line);
+    border-left: 3px solid var(--warn); border-radius: 8px;
+    padding: 12px 14px;
+  }
+  .risk h5 { margin: 0 0 6px; font-size: 13px; color: var(--warn); }
+  .risk p { margin: 0; font-size: 13px; color: var(--ink-dim); }
+
+  /* Adopt steps */
+  .adopt {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
+  }
+  .adopt .step {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 10px; padding: 14px;
+    position: relative;
+  }
+  .adopt .step .n {
+    font-family: var(--mono); font-size: 11px; color: var(--purple);
+    background: var(--panel-2); border: 1px solid var(--line);
+    border-radius: 4px; padding: 2px 7px; display: inline-block; margin-bottom: 8px;
+  }
+  .adopt .step h5 { margin: 0 0 6px; font-size: 13px; }
+  .adopt .step p { margin: 0; font-size: 12px; color: var(--ink-dim); }
+  .adopt .step pre {
+    background: var(--bg); border: 1px solid var(--line);
+    border-radius: 6px; padding: 8px 10px; margin: 8px 0 0;
+    font-family: var(--mono); font-size: 11.5px; color: var(--ink);
+    white-space: pre-wrap; word-break: break-all;
+  }
+
+  footer { margin-top: 56px; color: var(--ink-mute); font-size: 12px; text-align: center; }
+
+  @media (max-width: 760px) {
+    .tldr, .adopt { grid-template-columns: 1fr 1fr; }
+    .uc .twocol { grid-template-columns: 1fr; }
+    .risks { grid-template-columns: 1fr; }
+    .phase { grid-template-columns: 70px 1fr; }
+    .phase .effort { grid-column: 2; text-align: left; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <div class="eyebrow">Agent Tracer · Tier 5 detailed design</div>
+  <h1>@monitor/sdk-tracer <span class="sub">— 다른 SDK 사용자를 위한 계측 라이브러리</span></h1>
+  <p class="lede">
+    Agent Tracer는 현재 <b>Claude Code 플러그인</b>과 <b>Codex hook 어댑터</b>만 자동 계측한다.
+    Anthropic <code>@anthropic-ai/claude-agent-sdk</code> 로 직접 만든 사내 봇·평가 하니스·고객 대상 AI 기능은
+    수동 HTTP 호출로만 합류할 수 있다. <b>@monitor/sdk-tracer</b>는 SDK의 <code>query()</code>를 얇게 감싸서
+    같은 privacy contract · 같은 ingest 페이로드 · 같은 대시보드 surface를 <b>한 줄 교체</b>로 가져가게 한다.
+  </p>
+  <div class="meta">
+    <span>새 패키지 <code>packages/sdk-tracer/</code></span>
+    <span>의존 <code>@anthropic-ai/claude-agent-sdk</code></span>
+    <span>대상 ingest <code>POST /ingest/v1/*</code></span>
+    <span>npm 공개 후보 <code>@monitor/sdk-tracer</code></span>
+  </div>
+</header>
+
+<!-- TL;DR -->
+<section>
+  <h2><span class="num">0</span> TL;DR</h2>
+  <div class="tldr">
+    <div class="card">
+      <div class="k">Public API</div>
+      <div class="v">2</div>
+      <div class="n"><code>tracedQuery</code>, <code>tracedSession</code></div>
+    </div>
+    <div class="card">
+      <div class="k">설치 후 변경</div>
+      <div class="v">1 line</div>
+      <div class="n"><code>import { tracedQuery }</code></div>
+    </div>
+    <div class="card">
+      <div class="k">대시보드 변경</div>
+      <div class="v">0</div>
+      <div class="n">기존 surface 그대로 재사용</div>
+    </div>
+    <div class="card">
+      <div class="k">MVP까지</div>
+      <div class="v">~5d</div>
+      <div class="n">Phase 1-4</div>
+    </div>
+  </div>
+</section>
+
+<!-- 1. Problem -->
+<section>
+  <h2><span class="num">1</span> 풀고 싶은 문제</h2>
+  <p class="intro">
+    Claude Code의 훅은 “사용자가 IDE에서 직접 쓰는 인터랙티브 세션”에만 붙는다. 그런데 실제 조직에서는 SDK를 통해
+    <b>훅이 닿지 않는 환경</b>에서도 Claude가 돌아간다 — 슬랙 봇, 야간 batch, CI 안의 코드 리뷰어, 고객 채팅에 임베드된
+    에이전트. 이들에 대해서도 “정확히 어떤 동작을 했나” “룰을 지켰나”를 같은 도구로 보고 싶다.
+  </p>
+  <p class="intro">
+    이 격차는 Agent Tracer의 가장 큰 채택 장벽이기도 하다. <b>Claude Code 한정 도구</b>로 보이면 SDK 기반
+    프로덕션 워크로드를 운영하는 팀은 다른 솔루션을 찾는다.
+  </p>
+</section>
+
+<!-- 2. Use cases -->
+<section>
+  <h2><span class="num">2</span> 유즈케이스</h2>
+  <p class="intro">각각의 케이스는 모두 “SDK 환경에서 Agent Tracer를 그대로 쓰고 싶다”를 다른 옷으로 입은 것.</p>
+
+  <article class="uc">
+    <header>
+      <span class="id">UC-A</span>
+      <h4>Slack 봇 — 사내 PM이 “요청 사항을 PR로 만들어줘”</h4>
+      <span class="badge">Long-lived process</span>
+    </header>
+    <p class="scene">Express + Slack Bolt 위에 <code>query()</code>로 짠 봇. 동일 channel-thread를 같은 session으로 묶어 멀티-턴 대화 유지. 운영 중 “왜 봇이 user repo의 잘못된 파일을 만졌지?”가 자주 발생.</p>
+    <div class="twocol">
+      <div class="col">
+        <h5>현재</h5>
+        <div class="body">로그를 grep으로 뒤짐. tool_use가 정형화돼 있지 않아 어떤 파일을 만졌는지 한눈에 모름.</div>
+      </div>
+      <div class="col">
+        <h5>tracedQuery 적용 후</h5>
+        <div class="body">슬랙 thread = task. 대시보드에 자동 등록. <b>룰 “.env 수정 금지”</b>가 Claude Code 세션과 동일하게 작동.</div>
+      </div>
+    </div>
+  </article>
+
+  <article class="uc b">
+    <header>
+      <span class="id">UC-B</span>
+      <h4>평가(eval) 하니스 — 한 프롬프트를 1,000번 돌려 모델 비교</h4>
+      <span class="badge">Batch</span>
+    </header>
+    <p class="scene">ML 팀이 nightly로 “refactor 100개 후보 prompt”를 <code>claude-haiku-4-5</code>와 <code>claude-sonnet-4-6</code>로 각각 돌린다. 한 모델이 다른 모델보다 “덜 파일을 만진” 케이스를 찾고 싶음.</p>
+    <div class="twocol">
+      <div class="col">
+        <h5>현재</h5>
+        <div class="body">결과 JSON을 별도 노트북에서 집계. 룰 위반/통과는 수동 분석.</div>
+      </div>
+      <div class="col">
+        <h5>tracedQuery 적용 후</h5>
+        <div class="body">매 평가 = 1 task. 같은 룰 세트 + Judge Loop가 자동 평가 → 모델 간 <b>verdict 분포 비교</b>가 대시보드 차트.</div>
+      </div>
+    </div>
+  </article>
+
+  <article class="uc g">
+    <header>
+      <span class="id">UC-C</span>
+      <h4>CI 안의 PR 리뷰어 — GitHub Action 컨테이너</h4>
+      <span class="badge">Ephemeral</span>
+    </header>
+    <p class="scene">PR 열릴 때 컨테이너 안에서 <code>query()</code>로 코드 리뷰 코멘트를 생성. 컨테이너는 분 단위로 사라지고, 로그는 휘발됨.</p>
+    <div class="twocol">
+      <div class="col">
+        <h5>현재</h5>
+        <div class="body">PR 코멘트만 남고 “리뷰어가 어떤 파일을 살펴봤는지”는 사라진다. 룰 적용 불가.</div>
+      </div>
+      <div class="col">
+        <h5>tracedQuery 적용 후</h5>
+        <div class="body">컨테이너에서 <code>MONITOR_BASE_URL</code>로 사내 모니터에 push. PR ID = task ID. 사후 “이 리뷰어가 PR 외 파일을 봤나?” 룰 검증.</div>
+      </div>
+    </div>
+  </article>
+
+  <article class="uc o">
+    <header>
+      <span class="id">UC-D</span>
+      <h4>고객 대상 인앱 에이전트 — Production observability</h4>
+      <span class="badge">Production</span>
+    </header>
+    <p class="scene">사용자 “내 데이터 분석 좀”에 응답하는 인앱 어시스턴트. 다수의 동시 세션, 각 세션은 분~시간 단위.</p>
+    <div class="twocol">
+      <div class="col">
+        <h5>현재</h5>
+        <div class="body">에러율과 latency만 APM에 있음. “어떤 query를 어떤 순서로 실행했는지”는 부분 노출.</div>
+      </div>
+      <div class="col">
+        <h5>tracedQuery 적용 후</h5>
+        <div class="body">user_id → task tag로 매핑. 룰: “고객 PII 컬럼을 평문 출력 금지”. 위반 시 PreToolUse 차단 로직과 동일한 의미의 사후 알람.</div>
+      </div>
+    </div>
+  </article>
+</section>
+
+<!-- 3. Architecture -->
+<section>
+  <h2><span class="num">3</span> 아키텍처</h2>
+  <p class="intro">
+    핵심 아이디어: 사용자는 평소처럼 SDK 메시지 스트림을 받는다. <b>tracer는 같은 스트림을 옆에서 한 번 더 듣고</b>
+    이벤트 변환기로 ingest payload를 만들어 모니터에 비동기 POST. 사용자 코드 입장에선 SDK가 똑같이 동작하고,
+    네트워크 실패 시에도 메인 에이전트는 절대 막히지 않는다.
+  </p>
+
+  <div class="figure">
+    <svg viewBox="0 0 1080 440" role="img" aria-label="SDK tracer architecture">
+      <defs>
+        <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <path d="M0,0 L10,5 L0,10 z" fill="#7a8197"/>
+        </marker>
+        <marker id="arP" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <path d="M0,0 L10,5 L0,10 z" fill="#c4a7ff"/>
+        </marker>
+      </defs>
+      <style>
+        .b { fill: #1d2230; stroke: #2a2f3d; }
+        .e { fill: #161922; stroke: #2a2f3d; }
+        .pp { fill: #161922; stroke: #c4a7ff; stroke-opacity: 0.5; }
+        .lbl { fill: #e7ebf3; font: 600 13px -apple-system, sans-serif; }
+        .mute { fill: #7a8197; font: 11px -apple-system, sans-serif; }
+        .mono { fill: #7fd1ff; font: 11px ui-monospace, monospace; }
+        .arrow { stroke: #7a8197; stroke-width: 1.5; fill: none; }
+        .arrowP { stroke: #c4a7ff; stroke-width: 1.6; fill: none; }
+        .arrowD { stroke: #7a8197; stroke-width: 1.4; fill: none; stroke-dasharray: 4 3; }
+      </style>
+
+      <!-- User app -->
+      <rect class="e" x="20" y="40" width="200" height="120" rx="10"/>
+      <text class="mute" x="30" y="58">사용자 코드</text>
+      <text class="lbl" x="120" y="90" text-anchor="middle">SDK App</text>
+      <text class="mute" x="120" y="110" text-anchor="middle">Slack bot · eval · CI · prod</text>
+      <text class="mono" x="120" y="135" text-anchor="middle">for await (ev of tracedQuery(...))</text>
+
+      <!-- tracer package -->
+      <rect class="pp" x="270" y="40" width="440" height="280" rx="10"/>
+      <text class="mute" x="284" y="58" fill="#c4a7ff">@monitor/sdk-tracer (in-process)</text>
+
+      <rect class="b" x="290" y="80" width="180" height="60" rx="6"/>
+      <text class="lbl" x="380" y="105" text-anchor="middle">tracedQuery()</text>
+      <text class="mute" x="380" y="122" text-anchor="middle">SDK passthrough + tap</text>
+
+      <rect class="b" x="510" y="80" width="180" height="60" rx="6"/>
+      <text class="lbl" x="600" y="105" text-anchor="middle">SessionBinder</text>
+      <text class="mute" x="600" y="122" text-anchor="middle">task / sessionId 관리</text>
+
+      <rect class="b" x="290" y="160" width="180" height="60" rx="6"/>
+      <text class="lbl" x="380" y="185" text-anchor="middle">EventTranslator</text>
+      <text class="mute" x="380" y="202" text-anchor="middle">SDK msg → ingest payload</text>
+
+      <rect class="b" x="510" y="160" width="180" height="60" rx="6"/>
+      <text class="lbl" x="600" y="185" text-anchor="middle">Redactor</text>
+      <text class="mute" x="600" y="202" text-anchor="middle">privacy contract 강제</text>
+
+      <rect class="b" x="290" y="240" width="180" height="60" rx="6"/>
+      <text class="lbl" x="380" y="265" text-anchor="middle">BatchTransport</text>
+      <text class="mute" x="380" y="282" text-anchor="middle">50ms 윈도 · 백오프</text>
+
+      <rect class="b" x="510" y="240" width="180" height="60" rx="6"/>
+      <text class="lbl" x="600" y="265" text-anchor="middle">CircuitBreaker</text>
+      <text class="mute" x="600" y="282" text-anchor="middle">실패 시 fail-open</text>
+
+      <!-- internal arrows -->
+      <path class="arrowP" d="M380,140 L380,160" marker-end="url(#arP)"/>
+      <path class="arrowP" d="M380,220 L380,240" marker-end="url(#arP)"/>
+      <path class="arrowP" d="M470,190 L510,190" marker-end="url(#arP)"/>
+      <path class="arrowP" d="M510,270 L470,270" marker-end="url(#arP)"/>
+
+      <!-- Anthropic SDK below the tracer -->
+      <rect class="e" x="270" y="340" width="440" height="60" rx="10"/>
+      <text class="lbl" x="490" y="365" text-anchor="middle">@anthropic-ai/claude-agent-sdk</text>
+      <text class="mute" x="490" y="383" text-anchor="middle">실제 모델 호출 — 변경 없음</text>
+
+      <!-- arrows to/from SDK -->
+      <path class="arrowD" d="M380,140 L380,340" marker-end="url(#ar)"/>
+      <path class="arrowD" d="M460,340 L460,140" marker-end="url(#ar)"/>
+      <text class="mute" x="395" y="245" text-anchor="start" >query(opts)</text>
+      <text class="mute" x="470" y="245" text-anchor="start">msg stream</text>
+
+      <!-- Monitor server -->
+      <rect class="e" x="780" y="80" width="260" height="100" rx="10"/>
+      <text class="lbl" x="910" y="105" text-anchor="middle">Monitor Server</text>
+      <text class="mute" x="910" y="125" text-anchor="middle">POST /ingest/v1/*</text>
+      <text class="mono" x="910" y="148" text-anchor="middle">conversation · tool-activity</text>
+      <text class="mono" x="910" y="165" text-anchor="middle">events · coordination</text>
+
+      <!-- Dashboard -->
+      <rect class="e" x="780" y="200" width="260" height="100" rx="10"/>
+      <text class="lbl" x="910" y="225" text-anchor="middle">Dashboard / Rules / Judge</text>
+      <text class="mute" x="910" y="245" text-anchor="middle">기존 surface 100% 재사용</text>
+      <text class="mute" x="910" y="265" text-anchor="middle">runtimeSource: <tspan fill="#7fd1ff">"sdk-app"</tspan></text>
+
+      <!-- cross arrows -->
+      <path class="arrow" d="M220,100 L290,100" marker-end="url(#ar)"/>
+      <text class="mute" x="255" y="92" text-anchor="middle">use</text>
+
+      <path class="arrowP" d="M690,270 L780,140" marker-end="url(#arP)"/>
+      <text class="mute" x="730" y="200" fill="#c4a7ff">batched POST</text>
+
+      <path class="arrow" d="M910,180 L910,200" marker-end="url(#ar)"/>
+
+      <!-- bottom note -->
+      <text class="mute" x="540" y="425" text-anchor="middle">
+        ⓘ tracer는 SDK 모듈 자체를 패치하지 않는다. <tspan fill="#c4a7ff">래퍼</tspan>일 뿐 — 사용자가 평소처럼 <tspan font-family="ui-monospace">query()</tspan>도 같이 쓸 수 있음.
+      </text>
+    </svg>
+    <div class="caption">그림 1. 사용자 코드는 SDK 메시지 스트림을 받는다(투명 전달). tracer는 옆에서 같은 스트림을 듣고 변환·전송한다.</div>
+  </div>
+</section>
+
+<!-- 4. Event translation table -->
+<section>
+  <h2><span class="num">4</span> 이벤트 변환 표 — SDK 메시지 → ingest payload</h2>
+  <p class="intro">
+    이 표가 핵심 산출물. SDK가 내는 모든 메시지 종류에 대해 “무엇을 보내고” “무엇을 버리는지”를 정의한다.
+    Codex 어댑터의 <code>action-only</code> 정책과 동일.
+  </p>
+
+  <table class="evtbl">
+    <thead>
+      <tr>
+        <th>SDK 메시지</th>
+        <th>매핑되는 ingest</th>
+        <th>전송하는 필드 (kept)</th>
+        <th>버리는 필드 (dropped)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>system.init</code></td>
+        <td class="action"><code>POST /ingest/v1/sessions/ensure</code> + <code>tasks/start</code></td>
+        <td class="kept">session_id, model, cwd, tools_available[]</td>
+        <td class="dropped">—</td>
+      </tr>
+      <tr>
+        <td><code>user</code> (text)</td>
+        <td class="action"><code>POST /ingest/v1/conversation</code> <code>{kind:"user.message"}</code></td>
+        <td class="kept">prompt 텍스트 (raw 캡처 ok)</td>
+        <td class="dropped">—</td>
+      </tr>
+      <tr>
+        <td><code>user</code> (tool_result)</td>
+        <td>— (서버 저장 안 함)</td>
+        <td class="kept">tool_use_id (상관관계용)</td>
+        <td class="dropped">result.content 전체</td>
+      </tr>
+      <tr>
+        <td><code>assistant</code> (text)</td>
+        <td class="action"><code>POST /ingest/v1/conversation</code> <code>{kind:"assistant.response"}</code></td>
+        <td class="kept">message text</td>
+        <td class="dropped">—</td>
+      </tr>
+      <tr>
+        <td><code>assistant</code> (thinking)</td>
+        <td class="action"><code>events</code> <code>{kind:"context.saved", lane:"planning"}</code></td>
+        <td class="kept">thinking 요약 (옵션)</td>
+        <td class="dropped">signature 등 내부 메타</td>
+      </tr>
+      <tr>
+        <td><code>tool_use</code> (Bash)</td>
+        <td class="action"><code>tool-activity</code> <code>{kind:"terminal.command"}</code></td>
+        <td class="kept">command, description, timeout</td>
+        <td class="dropped">env, stdin</td>
+      </tr>
+      <tr>
+        <td><code>tool_use</code> (Read/Edit/Write)</td>
+        <td class="action"><code>tool-activity</code> <code>{kind:"tool.used"}</code></td>
+        <td class="kept">file_path, offset/limit, edit count</td>
+        <td class="dropped">old_string, new_string 본문</td>
+      </tr>
+      <tr>
+        <td><code>tool_use</code> (Grep/Glob)</td>
+        <td class="action"><code>tool-activity</code> (exploration lane)</td>
+        <td class="kept">pattern, path, glob, output_mode</td>
+        <td class="dropped">matched line content</td>
+      </tr>
+      <tr>
+        <td><code>tool_use</code> (WebFetch/WebSearch)</td>
+        <td class="action"><code>tool-activity</code> (exploration lane)</td>
+        <td class="kept">url(s), query, allowed_domains</td>
+        <td class="dropped">response body 전체</td>
+      </tr>
+      <tr>
+        <td><code>tool_use</code> (mcp__*)</td>
+        <td class="action"><code>coordination</code></td>
+        <td class="kept">tool name, input keys</td>
+        <td class="dropped">민감 인자 (자동 마스킹)</td>
+      </tr>
+      <tr>
+        <td><code>tool_use</code> (Agent)</td>
+        <td class="action"><code>coordination</code> + <code>tasks/link</code></td>
+        <td class="kept">subagent_type, description</td>
+        <td class="dropped">subagent prompt 본문</td>
+      </tr>
+      <tr>
+        <td><code>result</code></td>
+        <td class="action"><code>sessions/end</code> + <code>telemetry</code></td>
+        <td class="kept">stop_reason, usage(token), latency, cost</td>
+        <td class="dropped">—</td>
+      </tr>
+    </tbody>
+  </table>
+  <p style="font-size: 12.5px; color: var(--ink-mute); margin-top: 10px;">
+    ⓘ “kept”는 기존 Claude Code 훅이 캡처하는 것과 같은 집합. 즉 SDK 경로에서도 <b>같은 데이터 모양</b>이 나오므로
+    Inspector / Rules / Judge 모두 별도 분기 없이 동작.
+  </p>
+</section>
+
+<!-- 5. Public API -->
+<section>
+  <h2><span class="num">5</span> Public API 디자인</h2>
+  <p class="intro">두 가지 진입점. <code>tracedQuery</code>는 1회용·짧은 호출에, <code>tracedSession</code>은 대화형·장기 세션에.</p>
+
+  <pre class="snippet"><span class="com">// packages/sdk-tracer/src/index.ts</span>
+<span class="kw">export</span> <span class="kw">interface</span> <span class="fn">TracedQueryOptions</span> <span class="kw">extends</span> SDKQueryOptions {
+  task?: {
+    id?: string;
+    title?: string;          <span class="com">// 기본: prompt 첫 80자</span>
+    source?: string;         <span class="com">// 기본: "sdk-app"</span>
+    tags?: Record&lt;string, string&gt;;
+    parentTaskId?: string;
+  };
+  monitor?: {
+    baseUrl?: string;        <span class="com">// 기본: env MONITOR_BASE_URL → http://127.0.0.1:3847</span>
+    apiKey?: string;
+    failureMode?: <span class="str">"silent"</span> | <span class="str">"throw"</span>;   <span class="com">// 기본 silent</span>
+    flushOnExit?: boolean;   <span class="com">// 기본 true</span>
+  };
+  ruleSync?: {
+    inject?: boolean;        <span class="com">// 활성 룰을 system prompt로 주입</span>
+    pollIntervalMs?: number;
+  };
+}
+
+<span class="kw">export</span> <span class="kw">async function*</span> <span class="fn">tracedQuery</span>(
+  opts: TracedQueryOptions
+): <span class="kw">AsyncGenerator</span>&lt;SDKMessage&gt; { <span class="com">/* yield 사용자에게, side-channel 전송 */</span> }
+
+<span class="kw">export</span> <span class="kw">class</span> <span class="fn">TracedSession</span> {
+  <span class="fn">send</span>(prompt: string): <span class="kw">AsyncGenerator</span>&lt;SDKMessage&gt;;
+  <span class="fn">checkpoint</span>(label: string): <span class="kw">Promise</span>&lt;<span class="kw">void</span>&gt;;
+  <span class="fn">end</span>(): <span class="kw">Promise</span>&lt;<span class="kw">void</span>&gt;;
+  <span class="kw">readonly</span> taskId: string;
+  <span class="kw">readonly</span> sessionId: string;
+}
+
+<span class="kw">export function</span> <span class="fn">tracedSession</span>(opts: TracedQueryOptions): TracedSession;</pre>
+</section>
+
+<!-- 6. Sequence flow -->
+<section>
+  <h2><span class="num">6</span> 시퀀스 — tracedQuery 한 번의 흐름</h2>
+  <div class="figure">
+    <svg viewBox="0 0 1080 460" role="img" aria-label="tracedQuery sequence">
+      <defs>
+        <marker id="aP" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <path d="M0,0 L10,5 L0,10 z" fill="#c4a7ff"/>
+        </marker>
+        <marker id="aB" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <path d="M0,0 L10,5 L0,10 z" fill="#7fd1ff"/>
+        </marker>
+        <marker id="aG" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <path d="M0,0 L10,5 L0,10 z" fill="#74e0a8"/>
+        </marker>
+      </defs>
+      <style>
+        .lane { fill: #1d2230; stroke: #2a2f3d; }
+        .lh { font: 600 12px -apple-system, sans-serif; fill: #e7ebf3; }
+        .msg { font: 11px ui-monospace, monospace; fill: #e7ebf3; }
+        .tm { font: 10px ui-monospace, monospace; fill: #7a8197; }
+        .aP { stroke: #c4a7ff; stroke-width: 1.4; fill: none; }
+        .aB { stroke: #7fd1ff; stroke-width: 1.4; fill: none; }
+        .aG { stroke: #74e0a8; stroke-width: 1.4; fill: none; }
+      </style>
+
+      <rect class="lane" x="30" y="30" width="130" height="28" rx="6"/>
+      <text class="lh" x="95" y="49" text-anchor="middle">App</text>
+      <line x1="95" y1="62" x2="95" y2="430" stroke="#2a2f3d"/>
+
+      <rect class="lane" x="180" y="30" width="130" height="28" rx="6"/>
+      <text class="lh" x="245" y="49" text-anchor="middle">tracedQuery</text>
+      <line x1="245" y1="62" x2="245" y2="430" stroke="#2a2f3d"/>
+
+      <rect class="lane" x="330" y="30" width="130" height="28" rx="6"/>
+      <text class="lh" x="395" y="49" text-anchor="middle">SDK query()</text>
+      <line x1="395" y1="62" x2="395" y2="430" stroke="#2a2f3d"/>
+
+      <rect class="lane" x="480" y="30" width="130" height="28" rx="6"/>
+      <text class="lh" x="545" y="49" text-anchor="middle">Translator</text>
+      <line x1="545" y1="62" x2="545" y2="430" stroke="#2a2f3d"/>
+
+      <rect class="lane" x="630" y="30" width="130" height="28" rx="6"/>
+      <text class="lh" x="695" y="49" text-anchor="middle">BatchTransport</text>
+      <line x1="695" y1="62" x2="695" y2="430" stroke="#2a2f3d"/>
+
+      <rect class="lane" x="780" y="30" width="130" height="28" rx="6"/>
+      <text class="lh" x="845" y="49" text-anchor="middle">Monitor /ingest</text>
+      <line x1="845" y1="62" x2="845" y2="430" stroke="#2a2f3d"/>
+
+      <rect class="lane" x="930" y="30" width="130" height="28" rx="6"/>
+      <text class="lh" x="995" y="49" text-anchor="middle">Anthropic API</text>
+      <line x1="995" y1="62" x2="995" y2="430" stroke="#2a2f3d"/>
+
+      <!-- 1. invoke -->
+      <text class="tm" x="20" y="92">①</text>
+      <path class="aP" d="M95,90 L245,90" marker-end="url(#aP)"/>
+      <text class="msg" x="170" y="84" text-anchor="middle">tracedQuery({task, prompt})</text>
+
+      <!-- 2. ensure session -->
+      <text class="tm" x="20" y="124">②</text>
+      <path class="aB" d="M245,122 L695,122" marker-end="url(#aB)"/>
+      <text class="msg" x="470" y="116" text-anchor="middle">enqueue: sessions/ensure + tasks/start</text>
+
+      <text class="tm" x="20" y="156">③</text>
+      <path class="aG" d="M695,154 L845,154" marker-end="url(#aG)"/>
+      <text class="msg" x="770" y="148" text-anchor="middle">POST (50ms 윈도 즉시 flush)</text>
+
+      <text class="tm" x="20" y="188">④</text>
+      <path class="aP" d="M245,186 L395,186" marker-end="url(#aP)"/>
+      <text class="msg" x="320" y="180" text-anchor="middle">opts 그대로 위임</text>
+
+      <text class="tm" x="20" y="220">⑤</text>
+      <path class="aG" d="M395,218 L995,218" marker-end="url(#aG)"/>
+      <text class="msg" x="695" y="212" text-anchor="middle">SDK가 모델 호출</text>
+
+      <text class="tm" x="20" y="252">⑥</text>
+      <path class="aG" d="M995,250 L395,250" marker-end="url(#aG)"/>
+      <text class="msg" x="695" y="244" text-anchor="middle">stream: user · assistant · tool_use ...</text>
+
+      <text class="tm" x="20" y="284">⑦</text>
+      <path class="aB" d="M395,282 L545,282" marker-end="url(#aB)"/>
+      <text class="msg" x="470" y="276" text-anchor="middle">tap each msg → translate</text>
+
+      <text class="tm" x="20" y="316">⑧</text>
+      <path class="aB" d="M545,314 L695,314" marker-end="url(#aB)"/>
+      <text class="msg" x="620" y="308" text-anchor="middle">enqueue ingest event</text>
+
+      <text class="tm" x="20" y="348">⑨</text>
+      <path class="aP" d="M395,346 L95,346" marker-end="url(#aP)"/>
+      <text class="msg" x="245" y="340" text-anchor="middle">tracedQuery yields msg to app (즉시)</text>
+
+      <text class="tm" x="20" y="380">⑩</text>
+      <path class="aG" d="M695,378 L845,378" marker-end="url(#aG)"/>
+      <text class="msg" x="770" y="372" text-anchor="middle">batch POST (50ms 마이크로배치)</text>
+
+      <text class="tm" x="20" y="412">⑪</text>
+      <path class="aP" d="M95,410 L245,410" marker-end="url(#aP)"/>
+      <text class="msg" x="170" y="404" text-anchor="middle">result.* 수신 → app 종료</text>
+    </svg>
+    <div class="caption">그림 2. ⑨가 ⑦⑧과 분리된 게 포인트 — 메시지는 <b>먼저 app에 yield</b>되고, 전송은 별도 마이크로배치 큐로 들어간다.</div>
+  </div>
+</section>
+
+<!-- 7. Failure isolation -->
+<section>
+  <h2><span class="num">7</span> 장애 격리 — 모니터가 죽어도 에이전트는 산다</h2>
+  <p class="intro">Production 채택의 마지노선은 “계측이 본체를 죽이지 않을 것”. <b>fail-open + circuit breaker + bounded queue</b> 3겹.</p>
+  <div class="figure">
+    <svg viewBox="0 0 1080 260" role="img" aria-label="Failure isolation">
+      <style>
+        .b { fill: #161922; stroke: #2a2f3d; }
+        .g { fill: #1d2a1d; stroke: #74e0a8; stroke-opacity: 0.5; }
+        .o { fill: #2a2a1d; stroke: #ffd166; stroke-opacity: 0.5; }
+        .r { fill: #2a1d1d; stroke: #ff8585; stroke-opacity: 0.5; }
+        .lbl { fill: #e7ebf3; font: 600 13px -apple-system, sans-serif; }
+        .mute { fill: #7a8197; font: 11px -apple-system, sans-serif; }
+        .arrow { stroke: #7a8197; stroke-width: 1.4; fill: none; }
+      </style>
+      <defs>
+        <marker id="aF" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <path d="M0,0 L10,5 L0,10 z" fill="#7a8197"/>
+        </marker>
+      </defs>
+
+      <rect class="g" x="40" y="40" width="240" height="180" rx="10"/>
+      <text class="lbl" x="160" y="68" text-anchor="middle" fill="#74e0a8">정상</text>
+      <text class="mute" x="160" y="92" text-anchor="middle">queue&lt;1000 · breaker=closed</text>
+      <text class="mute" x="160" y="112" text-anchor="middle">→ 50ms batch POST</text>
+      <text class="mute" x="160" y="132" text-anchor="middle">→ 200 OK</text>
+      <text class="mute" x="160" y="170" text-anchor="middle" font-size="11">에이전트 영향: 0</text>
+      <text class="mute" x="160" y="190" text-anchor="middle" font-size="11">메모리: ~수 MB</text>
+
+      <rect class="o" x="320" y="40" width="240" height="180" rx="10"/>
+      <text class="lbl" x="440" y="68" text-anchor="middle" fill="#ffd166">degrade</text>
+      <text class="mute" x="440" y="92" text-anchor="middle">5xx / timeout 누적</text>
+      <text class="mute" x="440" y="112" text-anchor="middle">→ exp backoff (200ms ... 16s)</text>
+      <text class="mute" x="440" y="132" text-anchor="middle">→ queue 적재</text>
+      <text class="mute" x="440" y="170" text-anchor="middle" font-size="11">에이전트 영향: 0</text>
+      <text class="mute" x="440" y="190" text-anchor="middle" font-size="11">메모리: queue grow</text>
+
+      <rect class="r" x="600" y="40" width="240" height="180" rx="10"/>
+      <text class="lbl" x="720" y="68" text-anchor="middle" fill="#ff8585">circuit open</text>
+      <text class="mute" x="720" y="92" text-anchor="middle">5회 연속 실패 / 큐 가득</text>
+      <text class="mute" x="720" y="112" text-anchor="middle">→ 신규 이벤트 drop</text>
+      <text class="mute" x="720" y="132" text-anchor="middle">→ stderr 경고 1회</text>
+      <text class="mute" x="720" y="170" text-anchor="middle" font-size="11">에이전트 영향: 0</text>
+      <text class="mute" x="720" y="190" text-anchor="middle" font-size="11">메모리: cap 도달 후 안정</text>
+
+      <rect class="b" x="880" y="40" width="160" height="180" rx="10"/>
+      <text class="lbl" x="960" y="68" text-anchor="middle">recovery</text>
+      <text class="mute" x="960" y="92" text-anchor="middle">probe 성공</text>
+      <text class="mute" x="960" y="112" text-anchor="middle">→ half-open</text>
+      <text class="mute" x="960" y="132" text-anchor="middle">→ closed</text>
+      <text class="mute" x="960" y="170" text-anchor="middle" font-size="11">drop된 구간 표시</text>
+
+      <path class="arrow" d="M280,130 L320,130" marker-end="url(#aF)"/>
+      <path class="arrow" d="M560,130 L600,130" marker-end="url(#aF)"/>
+      <path class="arrow" d="M840,130 L880,130" marker-end="url(#aF)"/>
+    </svg>
+    <div class="caption">그림 3. 4-상태 머신. 모든 상태에서 “사용자 SDK 호출의 latency 추가 = 0” 보장.</div>
+  </div>
+</section>
+
+<!-- 8. Adoption -->
+<section>
+  <h2><span class="num">8</span> 도입 — 4 스텝</h2>
+  <div class="adopt">
+    <div class="step">
+      <span class="n">STEP 1</span>
+      <h5>설치</h5>
+      <p>모니터 서버는 별도 실행(이미 있다면 skip).</p>
+      <pre>npm i @monitor/sdk-tracer
+@anthropic-ai/claude-agent-sdk</pre>
+    </div>
+    <div class="step">
+      <span class="n">STEP 2</span>
+      <h5>환경 변수</h5>
+      <p>도커 / k8s ENV에 한 줄.</p>
+      <pre>MONITOR_BASE_URL=
+http://monitor.internal:3847</pre>
+    </div>
+    <div class="step">
+      <span class="n">STEP 3</span>
+      <h5>임포트 교체</h5>
+      <p>모든 호출 사이트에서 한 줄.</p>
+      <pre>- import { query } from
+-   "@anthropic-ai/claude-agent-sdk"
++ import { tracedQuery as query }
++   from "@monitor/sdk-tracer"</pre>
+    </div>
+    <div class="step">
+      <span class="n">STEP 4</span>
+      <h5>task 메타데이터</h5>
+      <p>대시보드에서 보고 싶은 묶음 단위를 옵션으로.</p>
+      <pre>tracedQuery({
+  prompt,
+  task: { title, source:
+    "slack-bot", tags: { ch }}
+})</pre>
+    </div>
+  </div>
+</section>
+
+<!-- 9. Package layout -->
+<section>
+  <h2><span class="num">9</span> 패키지 레이아웃</h2>
+  <div class="filetree">
+<span class="d">packages/sdk-tracer/</span>
+├─ <span class="f">package.json</span>            <span class="c">// peer: @anthropic-ai/claude-agent-sdk</span>
+├─ <span class="f">README.md</span>
+├─ <span class="d">src/</span>
+│  ├─ <span class="f">index.ts</span>             <span class="c">// public API</span>
+│  ├─ <span class="d">adapter/</span>
+│  │  ├─ <span class="f">event-translator.ts</span>  <span class="c">// SDK msg → ingest event (4장 표)</span>
+│  │  ├─ <span class="f">redactor.ts</span>          <span class="c">// privacy contract 강제</span>
+│  │  ├─ <span class="f">session-binder.ts</span>    <span class="c">// task / sessionId 관리</span>
+│  │  └─ <span class="f">rule-sync.ts</span>         <span class="c">// 옵션: 활성 룰을 system prompt에 inject</span>
+│  ├─ <span class="d">transport/</span>
+│  │  ├─ <span class="f">batch-transport.ts</span>   <span class="c">// 50ms 윈도 micro-batch</span>
+│  │  ├─ <span class="f">circuit-breaker.ts</span>
+│  │  └─ <span class="f">bounded-queue.ts</span>     <span class="c">// 메모리 cap</span>
+│  └─ <span class="d">types/</span>
+│     ├─ <span class="f">sdk-messages.ts</span>      <span class="c">// SDK 타입 재export</span>
+│     └─ <span class="f">ingest-payloads.ts</span>   <span class="c">// 서버 스키마와 1:1</span>
+├─ <span class="d">test/</span>
+│  ├─ <span class="f">translator.spec.ts</span>      <span class="c">// 모든 SDK 메시지 종류별</span>
+│  ├─ <span class="f">redactor.spec.ts</span>        <span class="c">// privacy 누락 회귀 방지</span>
+│  └─ <span class="f">resilience.spec.ts</span>      <span class="c">// failure isolation</span>
+└─ <span class="d">examples/</span>
+   ├─ <span class="d">slack-bot/</span>
+   ├─ <span class="d">eval-batch/</span>
+   └─ <span class="d">ci-reviewer/</span>
+  </div>
+</section>
+
+<!-- 10. Implementation plan -->
+<section>
+  <h2><span class="num">10</span> 구현 계획 (Phase 단위)</h2>
+  <p class="intro">총 10~12 사람-일. Phase 1-4가 “한 줄 교체로 동작”까지 도달. Phase 5-7은 채택 후 가치를 키우는 옵션.</p>
+
+  <div class="phases">
+    <div class="phase">
+      <div class="num">P0</div>
+      <div>
+        <h4>패키지 스캐폴딩</h4>
+        <p>workspace 추가, tsup build, peer dep 설정, ingest 페이로드 타입을 서버에서 import 하도록 경로 별칭.</p>
+      </div>
+      <div class="effort">1 day</div>
+    </div>
+    <div class="phase">
+      <div class="num">P1</div>
+      <div>
+        <h4>EventTranslator</h4>
+        <p>4장 표의 12행을 함수로. 단위 테스트 — 각 SDK 메시지 fixture → 기대 ingest payload.</p>
+      </div>
+      <div class="effort">2 days</div>
+    </div>
+    <div class="phase">
+      <div class="num">P2</div>
+      <div>
+        <h4>Redactor + privacy 회귀 테스트</h4>
+        <p>tool_use 입력 화이트리스트, tool_result 통째 drop, snapshot 테스트로 “새 필드가 새어나오면 빨갛게”.</p>
+      </div>
+      <div class="effort">1 day</div>
+    </div>
+    <div class="phase">
+      <div class="num">P3</div>
+      <div>
+        <h4>BatchTransport + CircuitBreaker</h4>
+        <p>50ms 윈도 micro-batch, 지수 backoff, bounded queue, 종료 시 flush. resilience 테스트(모니터 down/지연/timeout).</p>
+      </div>
+      <div class="effort">1 day</div>
+    </div>
+    <div class="phase">
+      <div class="num">P4</div>
+      <div>
+        <h4>tracedQuery + tracedSession 공개 API</h4>
+        <p>async generator passthrough, sessionId 관리, exit hook으로 SIGTERM 처리.</p>
+      </div>
+      <div class="effort">1 day</div>
+    </div>
+    <div class="phase">
+      <div class="num">P5</div>
+      <div>
+        <h4>예제 3종</h4>
+        <p>Slack bot, eval batch, CI reviewer. README의 “이거 보고 따라하면 끝” 진입점.</p>
+      </div>
+      <div class="effort">2 days</div>
+    </div>
+    <div class="phase opt">
+      <div class="num">P6</div>
+      <div>
+        <h4>RuleSync — 활성 룰을 system prompt에 주입</h4>
+        <p>모니터의 <code>/api/v1/rules?source=human&amp;active=true</code>를 주기적 polling. NL 룰 텍스트를 system 블록으로 prepend. 에이전트가 룰을 인지한 채 동작.</p>
+      </div>
+      <div class="effort">2 days · opt</div>
+    </div>
+    <div class="phase opt">
+      <div class="num">P7</div>
+      <div>
+        <h4>OTEL bridge</h4>
+        <p><code>@opentelemetry/api</code>가 process에 있으면 같은 span을 OTEL로도 발행. 기존 APM과 양립.</p>
+      </div>
+      <div class="effort">2 days · opt</div>
+    </div>
+    <div class="phase opt">
+      <div class="num">P8</div>
+      <div>
+        <h4>npm 공개 + 버전 정책</h4>
+        <p>0.x → 1.0 게이트는 “4장 표 변경이 90일간 0건”. SDK 버전 매트릭스 README에 명시.</p>
+      </div>
+      <div class="effort">1 day · opt</div>
+    </div>
+  </div>
+</section>
+
+<!-- 11. Example code -->
+<section>
+  <h2><span class="num">11</span> 사용 예제</h2>
+
+  <p class="intro">UC-A · Slack 봇</p>
+  <pre class="snippet"><span class="kw">import</span> { App } <span class="kw">from</span> <span class="str">"@slack/bolt"</span>;
+<span class="kw">import</span> { tracedSession } <span class="kw">from</span> <span class="str">"@monitor/sdk-tracer"</span>;
+
+<span class="kw">const</span> bolt = <span class="kw">new</span> App({ token: env.SLACK_TOKEN, signingSecret: env.SLACK_SECRET });
+<span class="kw">const</span> sessions = <span class="kw">new</span> Map&lt;string, ReturnType&lt;typeof tracedSession&gt;&gt;();
+
+bolt.<span class="fn">message</span>(<span class="kw">async</span> ({ message, say }) =&gt; {
+  <span class="kw">const</span> key = message.thread_ts ?? message.ts;
+  <span class="kw">let</span> s = sessions.<span class="fn">get</span>(key);
+  <span class="kw">if</span> (!s) {
+    s = <span class="fn">tracedSession</span>({
+      task: { title: message.text.<span class="fn">slice</span>(<span class="pr">0</span>, <span class="pr">80</span>),
+              source: <span class="str">"slack-bot"</span>,
+              tags: { channel: message.channel, user: message.user } },
+      monitor: { failureMode: <span class="str">"silent"</span> }
+    });
+    sessions.<span class="fn">set</span>(key, s);
+  }
+  <span class="kw">for await</span> (<span class="kw">const</span> ev <span class="kw">of</span> s.<span class="fn">send</span>(message.text)) {
+    <span class="kw">if</span> (ev.type === <span class="str">"assistant"</span> &amp;&amp; ev.text) <span class="kw">await</span> <span class="fn">say</span>({ text: ev.text, thread_ts: key });
+  }
+});</pre>
+
+  <p class="intro" style="margin-top: 20px">UC-B · 모델 비교 eval batch</p>
+  <pre class="snippet"><span class="kw">import</span> { tracedQuery } <span class="kw">from</span> <span class="str">"@monitor/sdk-tracer"</span>;
+<span class="kw">import</span> { prompts } <span class="kw">from</span> <span class="str">"./fixtures.js"</span>;
+
+<span class="kw">for</span> (<span class="kw">const</span> model <span class="kw">of</span> [<span class="str">"claude-haiku-4-5-20251001"</span>, <span class="str">"claude-sonnet-4-6"</span>]) {
+  <span class="kw">for</span> (<span class="kw">const</span> p <span class="kw">of</span> prompts) {
+    <span class="kw">for await</span> (<span class="kw">const</span> _ <span class="kw">of</span> <span class="fn">tracedQuery</span>({
+      model, prompt: p.text,
+      task: { title: <span class="str">`eval ${model} #${p.id}`</span>, source: <span class="str">"eval-batch"</span>,
+              tags: { model, suite: p.suite } }
+    })) {}  <span class="com">// stream 소비만 — 결과는 대시보드에서 확인</span>
+  }
+}
+<span class="com">// 끝나면 Dashboard에서 source=eval-batch, tags.model로 grouping → verdict 분포 비교</span></pre>
+
+  <p class="intro" style="margin-top: 20px">UC-D · 실패 격리 (모니터가 죽어도 진행)</p>
+  <pre class="snippet"><span class="kw">for await</span> (<span class="kw">const</span> ev <span class="kw">of</span> <span class="fn">tracedQuery</span>({
+  prompt, task: { title, source: <span class="str">"prod-agent"</span>, tags: { user_id } },
+  monitor: {
+    baseUrl: env.MONITOR_BASE_URL,
+    failureMode: <span class="str">"silent"</span>,           <span class="com">// 절대 throw 하지 않음</span>
+    flushOnExit: <span class="kw">true</span>
+  }
+})) {
+  <span class="com">// 모니터 down 이어도 ev는 그대로 흐른다. circuit open 시 stderr에 1회만 경고.</span>
+  <span class="fn">handleUser</span>(ev);
+}</pre>
+</section>
+
+<!-- 12. Risks -->
+<section>
+  <h2><span class="num">12</span> 리스크와 완화</h2>
+  <div class="risks">
+    <div class="risk">
+      <h5>SDK 메시지 스키마 변화</h5>
+      <p>Anthropic이 SDK 메시지 모양을 바꾸면 translator가 깨짐. 완화: SDK 버전 매트릭스 + contract 테스트(실제 fixture 캡처). semver-major 표시.</p>
+    </div>
+    <div class="risk">
+      <h5>privacy 누락 회귀</h5>
+      <p>tool_use 새 종류 추가될 때 화이트리스트 미반영. 완화: snapshot 테스트로 “새 필드 등장 시 자동 빨강”. 기본 동작은 “모르면 drop”.</p>
+    </div>
+    <div class="risk">
+      <h5>SDK 호환성</h5>
+      <p>SDK 메이저 업그레이드 시 사용자가 둘을 동시에 올려야 함. 완화: peerDep으로 명시, 범위 좁힘, examples를 CI에서 실제 SDK 버전으로 빌드.</p>
+    </div>
+    <div class="risk">
+      <h5>대량 trace로 모니터 과부하</h5>
+      <p>UC-B처럼 1000건 동시 발생. 완화: 서버 측 ingest는 이미 batch + idle backoff(<code>perf/queue</code> 커밋). tracer는 50ms micro-batch로 1차 압축.</p>
+    </div>
+    <div class="risk">
+      <h5>인증 / 멀티 테넌시</h5>
+      <p>모니터는 현재 로컬 신뢰 모델. 사내/공용 배포 시 API key 필요. 완화: <code>monitor.apiKey</code> 옵션을 동시에 도입하고 서버 측 미들웨어 추가(별도 작업이지만 인터페이스는 미리).</p>
+    </div>
+    <div class="risk">
+      <h5>OpenInference / OTEL 이중 export</h5>
+      <p>OTEL bridge 활성 시 span 중복. 완화: tracer의 OTEL bridge는 opt-in이고, 서버 측 OpenInference export와 동일 trace_id 규약 사용해서 중복 검출 가능.</p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  Agent Tracer · Tier 5 detailed design — 2026-05-12 · 작성: Claude (Opus 4.7)
+</footer>
+
+</div>
+</body>
+</html>

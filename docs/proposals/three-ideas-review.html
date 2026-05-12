@@ -1,0 +1,750 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Agent Tracer — 3가지 신규 아이디어 4인 검토 보고서</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #161922;
+    --panel-2: #1d2230;
+    --panel-3: #232838;
+    --line: #2a2f3d;
+    --line-soft: #222633;
+    --ink: #e7ebf3;
+    --ink-dim: #a4adbf;
+    --ink-mute: #7a8197;
+    --accent: #ffb86b;
+    --accent-2: #7fd1ff;
+    --accent-3: #c4a7ff;
+    --good: #74e0a8;
+    --warn: #ffd166;
+    --bad: #ff8585;
+    --role-impl: #7fd1ff;
+    --role-case: #c4a7ff;
+    --role-docs: #74e0a8;
+    --role-via: #ffb86b;
+    --mono: ui-monospace, SFMono-Regular, "JetBrains Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { background: var(--bg); color: var(--ink); }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Inter", "Pretendard", "Apple SD Gothic Neo", sans-serif;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 56px 28px 96px; }
+
+  header.hero {
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 32px;
+    margin-bottom: 40px;
+  }
+  header.hero .eyebrow {
+    color: var(--ink-mute);
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin: 0 0 12px;
+  }
+  header.hero h1 {
+    margin: 0 0 12px;
+    font-size: 34px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    line-height: 1.25;
+  }
+  header.hero .lede {
+    color: var(--ink-dim);
+    font-size: 16px;
+    max-width: 78ch;
+    margin: 0 0 18px;
+  }
+  header.hero .meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    color: var(--ink-mute);
+    font-size: 12px;
+  }
+  header.hero .meta span {
+    border: 1px solid var(--line);
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: var(--panel);
+  }
+
+  h2 {
+    font-size: 24px;
+    letter-spacing: -0.01em;
+    margin: 56px 0 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--line);
+  }
+  h2 .num {
+    display: inline-block;
+    width: 30px;
+    height: 30px;
+    line-height: 30px;
+    text-align: center;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    font-size: 14px;
+    color: var(--accent);
+    margin-right: 12px;
+    font-weight: 600;
+  }
+  h3 { font-size: 17px; margin: 22px 0 8px; }
+  p { margin: 0 0 12px; color: var(--ink-dim); }
+  ul, ol { margin: 0 0 14px; padding-left: 22px; color: var(--ink-dim); }
+  li { margin: 4px 0; }
+  strong { color: var(--ink); font-weight: 600; }
+  code {
+    font-family: var(--mono);
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 12.5px;
+    color: var(--accent-2);
+  }
+  a { color: var(--accent-2); text-decoration: none; border-bottom: 1px dotted var(--accent-2); }
+  a:hover { color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* TOC */
+  .toc {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 20px 24px;
+    margin-bottom: 28px;
+  }
+  .toc .toc-title {
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    margin-bottom: 12px;
+  }
+  .toc ol { padding-left: 18px; margin: 0; }
+  .toc li { color: var(--ink); margin: 6px 0; }
+  .toc li a { border-bottom: none; }
+  .toc li a:hover { text-decoration: underline; }
+
+  /* Team card */
+  .team {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin: 18px 0 28px;
+  }
+  .team .card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 14px 16px;
+  }
+  .team .role {
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    margin-bottom: 4px;
+  }
+  .team .name { font-size: 14px; font-weight: 600; color: var(--ink); }
+  .team .desc { font-size: 12.5px; color: var(--ink-dim); margin-top: 6px; line-height: 1.5; }
+  .team .impl .role { color: var(--role-impl); }
+  .team .case .role { color: var(--role-case); }
+  .team .docs .role { color: var(--role-docs); }
+  .team .via .role { color: var(--role-via); }
+
+  /* Reviewer panel */
+  .reviewer {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 20px 22px;
+    margin: 14px 0;
+    position: relative;
+  }
+  .reviewer.impl { border-left: 3px solid var(--role-impl); }
+  .reviewer.case { border-left: 3px solid var(--role-case); }
+  .reviewer.docs { border-left: 3px solid var(--role-docs); }
+  .reviewer.via  { border-left: 3px solid var(--role-via); }
+
+  .reviewer .head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .reviewer .head .tag {
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 3px 9px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: var(--panel-2);
+  }
+  .reviewer.impl .tag { color: var(--role-impl); border-color: var(--role-impl); }
+  .reviewer.case .tag { color: var(--role-case); border-color: var(--role-case); }
+  .reviewer.docs .tag { color: var(--role-docs); border-color: var(--role-docs); }
+  .reviewer.via  .tag { color: var(--role-via);  border-color: var(--role-via); }
+  .reviewer .head .title { font-size: 15px; font-weight: 600; }
+
+  /* Verdict bar */
+  .verdict {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin: 18px 0 22px;
+  }
+  .verdict .cell {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 12px 14px;
+  }
+  .verdict .k { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-mute); margin-bottom: 4px; }
+  .verdict .v { font-size: 14px; color: var(--ink); font-weight: 600; }
+  .pill {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 600;
+    border: 1px solid var(--line);
+  }
+  .pill.good { color: var(--good); border-color: var(--good); }
+  .pill.warn { color: var(--warn); border-color: var(--warn); }
+  .pill.bad  { color: var(--bad);  border-color: var(--bad); }
+  .pill.neutral { color: var(--ink-dim); }
+
+  /* Tables */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0 18px;
+    font-size: 13.5px;
+  }
+  th, td {
+    text-align: left;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--line-soft);
+    color: var(--ink-dim);
+    vertical-align: top;
+  }
+  th {
+    color: var(--ink-mute);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-weight: 600;
+    background: var(--panel);
+    border-bottom: 1px solid var(--line);
+  }
+  td strong { color: var(--ink); }
+
+  /* Callout */
+  .callout {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--accent);
+    border-radius: 10px;
+    padding: 14px 18px;
+    margin: 16px 0;
+    color: var(--ink-dim);
+  }
+  .callout.good   { border-left-color: var(--good); }
+  .callout.warn   { border-left-color: var(--warn); }
+  .callout.bad    { border-left-color: var(--bad); }
+  .callout .title { color: var(--ink); font-weight: 600; margin-bottom: 4px; font-size: 13.5px; }
+
+  pre {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 14px 16px;
+    overflow-x: auto;
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: var(--ink);
+    line-height: 1.55;
+  }
+  pre code { background: transparent; border: 0; padding: 0; color: inherit; }
+
+  /* Final priority table */
+  .priority-row td:first-child { font-weight: 600; color: var(--ink); width: 38px; }
+  .priority-row.rank1 td:first-child { color: var(--good); }
+  .priority-row.rank2 td:first-child { color: var(--accent-2); }
+  .priority-row.rank3 td:first-child { color: var(--warn); }
+  .priority-row.rank4 td:first-child { color: var(--bad); }
+
+  footer {
+    margin-top: 60px;
+    padding-top: 24px;
+    border-top: 1px solid var(--line);
+    color: var(--ink-mute);
+    font-size: 12px;
+  }
+
+  @media (max-width: 760px) {
+    .team { grid-template-columns: repeat(2, 1fr); }
+    .verdict { grid-template-columns: repeat(2, 1fr); }
+    header.hero h1 { font-size: 26px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <p class="eyebrow">Agent Tracer · Proposal Review</p>
+  <h1>3가지 신규 아이디어 — 4인 팀 검토 보고서</h1>
+  <p class="lede">
+    사용자가 메모한 세 가지 아이디어 — <strong>파일 기반 지식 그래프</strong>,
+    <strong>수집 데이터의 가치 끌어올리기</strong>,
+    <strong>웹에서 대화 이어가기</strong> — 를 네 명의 역할별 검토자
+    (구현 / 사례 / 공식 문서 / 타당성) 가 각각 진단한 결과를 한 문서로 통합했습니다.
+  </p>
+  <div class="meta">
+    <span>대상 저장소: agent-tracer</span>
+    <span>작성일: 2026-05-12</span>
+    <span>검토 분량: 아이디어 3 × 검토자 4 = 12개 시각</span>
+  </div>
+</header>
+
+<nav class="toc">
+  <div class="toc-title">목차</div>
+  <ol>
+    <li><a href="#team">검토 팀 구성</a></li>
+    <li><a href="#idea1">아이디어 1 — 파일 확인/수정 기반 지식 그래프</a></li>
+    <li><a href="#idea2">아이디어 2 — 수집 데이터의 가치 끌어올리기</a></li>
+    <li><a href="#idea3">아이디어 3 — 웹에서 대화 이어가기</a></li>
+    <li><a href="#summary">종합 권장 우선순위</a></li>
+    <li><a href="#sources">참고 자료</a></li>
+  </ol>
+</nav>
+
+<!-- ============================================== -->
+<!-- TEAM                                            -->
+<!-- ============================================== -->
+<section id="team">
+  <h2><span class="num">A</span>검토 팀 구성</h2>
+  <p>네 역할을 병렬로 띄워 같은 아이디어를 동시에 다른 각도로 점검했습니다.
+  각 패널 좌측의 색 띠가 어느 검토자의 의견인지를 나타냅니다.</p>
+
+  <div class="team">
+    <div class="card impl">
+      <div class="role">● Implementation</div>
+      <div class="name">현재 구현 검토자</div>
+      <div class="desc">코드베이스를 실제로 읽고 이미 있는 인프라(스키마·이벤트·API·컴포넌트)와 부족한 부분을 파일 경로 단위로 확인.</div>
+    </div>
+    <div class="card case">
+      <div class="role">● Case Study</div>
+      <div class="name">사례 검색자</div>
+      <div class="desc">유사 도구(LangSmith, Langfuse, Omnara, GitNexus 등)의 실제 사례·공통 패턴·실패담을 외부 자료로 수집.</div>
+    </div>
+    <div class="card docs">
+      <div class="role">● Official Docs</div>
+      <div class="name">공식 문서 검토자</div>
+      <div class="desc">Claude Code hooks / Agent SDK / MCP / Codex 공식 문서에서 각 기능이 "공식 채널"로 어디까지 구현 가능한지 진단.</div>
+    </div>
+    <div class="card via">
+      <div class="role">● Viability</div>
+      <div class="name">타당성 검토자</div>
+      <div class="desc">1인 개발 / 로컬 도구라는 프로젝트 정체성 기준으로 use case, ROI, 함정, 우선순위를 비판적으로 평가.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================== -->
+<!-- IDEA 1                                           -->
+<!-- ============================================== -->
+<section id="idea1">
+  <h2><span class="num">1</span>파일 확인/수정 기반 지식 그래프</h2>
+  <p>Agent 가 read / edit / write 한 파일을 노드로, 도구 호출 흐름을 엣지로 그래프화하자는 아이디어.</p>
+
+  <div class="verdict">
+    <div class="cell"><div class="k">구현 진척</div><div class="v"><span class="pill good">스키마 80%</span></div></div>
+    <div class="cell"><div class="k">사례 활성도</div><div class="v"><span class="pill good">활발</span></div></div>
+    <div class="cell"><div class="k">공식 지원</div><div class="v"><span class="pill good">PostToolUse 가능</span></div></div>
+    <div class="cell"><div class="k">ROI</div><div class="v"><span class="pill warn">중간 · 사용 후 사장 위험</span></div></div>
+  </div>
+
+  <!-- Implementation -->
+  <div class="reviewer impl">
+    <div class="head"><span class="tag">Implementation</span><span class="title">스키마는 80% 준비, 관계 추론만 남았다</span></div>
+    <h3>이미 있는 것</h3>
+    <ul>
+      <li><strong>이벤트 수집</strong>: Read / Edit / Write PostToolUse 훅 구현됨
+        — <code>packages/runtime/src/claude-code/hooks/PostToolUse/{Read,Edit,Write}.ts</code></li>
+      <li><strong>DB 테이블 <code>event_files</code></strong>: 파일 경로 ↔ 이벤트 매핑 + <code>write_count</code>
+        — <code>packages/server/src/main/migrations/1700000003000</code> L36–45 (<code>idx_event_files_path</code> 인덱스 존재)</li>
+      <li><strong>DB 테이블 <code>event_relations</code></strong>: 이벤트 간 엣지 — <code>edge_kind</code>(parent/source/related),
+        <code>relation_type</code>(implements / revises / verifies / answers …) 컬럼 이미 존재 (L47–61)</li>
+      <li><strong>도메인 엔티티</strong>: <code>EventFileEntity</code>, <code>EventRelationEntity</code>
+        — <code>packages/server/src/activity/event/domain/</code></li>
+      <li><strong>UI</strong>: <code>GraphView</code> 컴포넌트(swimlane) — <code>packages/web/src/features/feed/graph/GraphView.tsx</code> L64+</li>
+    </ul>
+    <h3>부족한 것</h3>
+    <ul>
+      <li>Read → Edit → Write 의존 체인을 <em>자동</em>으로 추론하는 로직 (현재 <code>relation_type</code> 컬럼은 비어 있음)</li>
+      <li>파일 기준 역방향 추적용 그래프 쿼리 엔드포인트 (현재 timeline 기준만)</li>
+    </ul>
+    <h3>재사용 인프라</h3>
+    <ul>
+      <li><code>event_relations</code> 스키마 그대로 + <code>relation_type</code> 채우는 백필 job 하나면 됨</li>
+      <li><code>idx_event_files_path</code> 활용 → 파일 한 개로 모든 접근 이벤트 즉시 조회</li>
+    </ul>
+  </div>
+
+  <!-- Case study -->
+  <div class="reviewer case">
+    <div class="head"><span class="tag">Case Study</span><span class="title">2026년 현재 'AI 코딩용 KG'는 가장 뜨거운 영역 중 하나</span></div>
+    <ul>
+      <li><strong>code-review-graph</strong> — Claude Code 전용 로컬 KG. 데몬이 파일 변경 감시 → 점진 재구축. 리뷰 토큰 6.8× / 일상 작업 49× 절감 주장.</li>
+      <li><strong>GitNexus</strong> (MarkTechPost 2026-04-24) — MCP 네이티브 KG 엔진. 진입점에서 콜체인을 추적해 "processes" 노드 생성. Claude Code / Cursor 컨텍스트 주입용.</li>
+      <li><strong>Graphify / CodeGraphContext</strong> — Tree-sitter AST 기반. 코드 + DB 스키마 + 인프라 한 그래프.</li>
+    </ul>
+    <h3>공통 패턴</h3>
+    <ul>
+      <li>Tree-sitter 로 정적 AST 그래프 → MCP resource 로 agent 에 노출 → PostToolUse 로 재인덱싱 트리거.</li>
+      <li><strong>Agent Tracer 만의 차별점</strong>: 위 도구들은 모두 <em>정적 코드 그래프</em>. "실제 agent 의 read/edit 시퀀스 자체"를 엣지로 쓰는 사례는 GitNexus 외엔 거의 없음 → <strong>빈 영역</strong>.</li>
+    </ul>
+    <div class="callout warn">
+      <div class="title">함정 — "Stale graph"</div>
+      Karpathy 의 llm-wiki 메모: <em>"업데이트가 미해결 과제. 소스 하나 추가가 entity·timeline·index 에 전파되며 충돌 해소·중복·provenance 가 깨진다. lossy compression 으로 caveat·날짜·edge case 누락."</em>
+      → 그래프는 만드는 것보다 <strong>최신 상태로 유지</strong>가 진짜 비용.
+    </div>
+  </div>
+
+  <!-- Docs -->
+  <div class="reviewer docs">
+    <div class="head"><span class="tag">Official Docs</span><span class="title">PostToolUse hook 만으로 공식 채널 완결</span></div>
+    <ul>
+      <li><strong>Hook 이벤트</strong>: <code>PostToolUse</code> 가 정공법. <code>tool_input</code> 에 파일 경로, <code>tool_response</code> 에 성공 여부 포함.
+        대량 일괄 수집은 <code>SessionEnd</code>.</li>
+      <li><strong>회색 지대</strong>: <code>tool_response</code> 에는 실제 diff 가 안 옴.
+        보강안 → PostToolUse 훅에서 직접 <code>git diff</code> 를 부르거나 사전 스냅샷 비교.</li>
+    </ul>
+    <pre><code>"PostToolUse": [
+  { "matcher": "Edit|Write|Read",
+    "hooks": [{ "type": "http", "url": "localhost:3847/file-hook" }] }
+]</code></pre>
+    <p>이미 Agent Tracer 가 PostToolUse 를 쓰고 있어 hook payload 만 그래프 빌더로 fan-out 하면 됨.</p>
+  </div>
+
+  <!-- Viability -->
+  <div class="reviewer via">
+    <div class="head"><span class="tag">Viability</span><span class="title">"그래프"라는 형태가 진짜 가치인가에 의문</span></div>
+    <h3>Use case</h3>
+    <ul>
+      <li>세션 1개 안의 파일 리스트는 이미 task-list / inspector 로 충분 → <strong>같은 파일을 반복적으로 만지는 hotspot 발견</strong> 같은 cross-session 패턴에서만 의미 있음.</li>
+    </ul>
+    <h3>정체성 정합</h3>
+    <p>절반만 맞음. observer 본업의 자연스러운 확장이지만, force-directed 그래프 같은 화려한 시각화에 시간이 빨려나가는 신호가 됨.</p>
+    <h3>ROI / 함정</h3>
+    <ul>
+      <li>데이터 추출 <strong>S</strong>, 의미 있는 시각화/쿼리 <strong>L</strong>. 가치 <strong>중간</strong>.</li>
+      <li>그래프는 노드 100개 넘으면 사람이 못 읽음 → 결국 "표 + 필터"로 회귀.</li>
+    </ul>
+    <div class="callout">
+      <div class="title">권고 — 그래프 대신 hotspot 테이블로 시작</div>
+      <em>"파일 hotspot 테이블 + 관련 세션 링크"</em> 라는 작은 형태로 출발하고, 가치 검증된 후에 그래프 시각화로 확장.
+    </div>
+  </div>
+</section>
+
+<!-- ============================================== -->
+<!-- IDEA 2                                           -->
+<!-- ============================================== -->
+<section id="idea2">
+  <h2><span class="num">2</span>수집한 파일/검색 정보의 가치 끌어올리기</h2>
+  <p>원안은 다소 막연한 표현이라 네 검토자 모두 "구체화"가 먼저라는 데 동의. 데이터 기반은 풍부하므로 어떤 후보로 좁히느냐가 관건.</p>
+
+  <div class="verdict">
+    <div class="cell"><div class="k">데이터 기반</div><div class="v"><span class="pill good">매우 풍부</span></div></div>
+    <div class="cell"><div class="k">아이디어 명세</div><div class="v"><span class="pill bad">막연 — 좁히기 필수</span></div></div>
+    <div class="cell"><div class="k">사례</div><div class="v"><span class="pill good">Langfuse/LangSmith</span></div></div>
+    <div class="cell"><div class="k">ROI</div><div class="v"><span class="pill good">후보 A는 매우 높음</span></div></div>
+  </div>
+
+  <!-- Implementation -->
+  <div class="reviewer impl">
+    <div class="head"><span class="tag">Implementation</span><span class="title">FTS5 검색·태그·토큰 사용량까지 인프라가 사실상 완성</span></div>
+    <ul>
+      <li><strong>검색</strong>: FTS5 기반 <code>search_documents</code> 테이블 + <code>buildFtsMatchQuery</code>
+        — <code>packages/server/src/activity/event/repository/search/event.search.ts</code></li>
+      <li><strong>이벤트 메타</strong>: <code>tool_family</code>, <code>operation</code>, <code>entity_type</code>, <code>entity_name</code> 컬럼 존재 (1700000003000 L18–22)</li>
+      <li><strong><code>event_token_usage</code></strong> 테이블 — 토큰/비용 추적 스키마 완성 (L117–135)</li>
+      <li><strong><code>event_tags</code></strong> 테이블 — 분류/메타데이터 (L76–82)</li>
+      <li><strong>이벤트 sourcing 로그</strong>: <code>events</code> + <code>content_blobs</code> (L154–180) → trace replay 가능 기반</li>
+    </ul>
+    <h3>부족한 것</h3>
+    <ul>
+      <li>비용 / 성능 대시보드 (집계 view 와 UI)</li>
+      <li>user.message → assistant.response 자동 연결 / 엔티티 링킹</li>
+    </ul>
+  </div>
+
+  <!-- Case study -->
+  <div class="reviewer case">
+    <div class="head"><span class="tag">Case Study</span><span class="title">Langfuse Sessions / LangSmith 가 모범 답안</span></div>
+    <ul>
+      <li><strong>Langfuse Sessions</strong> — 여러 trace 를 session 으로 묶어 전체 대화 <em>replay</em>, user-level 토큰/비용 자동 집계, latency 병목 식별. OpenAI/Anthropic 단가 자동 계산.</li>
+      <li><strong>LangSmith</strong> — node-by-node state diff, agent execution graph, 신모델 대상 replay, SQL over traces. ($39/seat + $0.50/1k traces)</li>
+      <li><strong>Laminar / Phoenix / Helicone</strong> — 각각 payload size 과금, ML eval, 프록시 drop-in 으로 포지셔닝.</li>
+    </ul>
+    <div class="callout warn">
+      <div class="title">실무 함정</div>
+      Agent trace 는 span 수가 폭증해서 "trace 당 과금" 모델에서 비용이 빨리 터짐.
+      자동 단가 계산은 모델 등록이 안 된 신모델에서 NaN 처리되는 일이 흔함.
+      eval 점수가 noisy 해서 <em>"replay 보다는 trace + LLM-as-judge 에 의존하더라"</em> 가 후기.
+    </div>
+  </div>
+
+  <!-- Docs -->
+  <div class="reviewer docs">
+    <div class="head"><span class="tag">Official Docs</span><span class="title">MCP resource / Skill 동적 컨텍스트로 세션에 되먹임 가능</span></div>
+    <ul>
+      <li><strong>MCP 서버로 그래프/통계 노출</strong> — Claude 가 필요 시 <code>read_resource("knowledge-graph")</code> 식으로 조회. 가장 깨끗한 채널.</li>
+      <li><strong>Skill 의 동적 컨텍스트</strong> — <code>!`curl localhost:3847/...`</code> 문법으로 실시간 데이터 인라인.</li>
+      <li><strong>SessionStart 훅 <code>additionalContext</code></strong> — 세션 시작 시 1회 주입 가능.</li>
+      <li>제한: Hook 으로 진행 중 세션 프롬프트에 메시지 <em>주입</em>은 불가 (hook 은 리슨/차단 전용).</li>
+    </ul>
+  </div>
+
+  <!-- Viability -->
+  <div class="reviewer via">
+    <div class="head"><span class="tag">Viability</span><span class="title">원안은 만들지 말 것. 구체 후보 4개로 좁힘</span></div>
+    <p>원안 그대로는 명세가 없어 끝없이 pivot 됩니다. 동일 데이터로 만들 수 있는 구체 후보:</p>
+    <table>
+      <thead><tr><th>후보</th><th>한 줄 정의</th><th>난이도</th><th>가치</th><th>추천</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><strong>A. 세션 비용/토큰 breakdown</strong></td>
+          <td>모델별·tool별 토큰/시간 누적, 비싼 세션 top-N</td>
+          <td>S</td><td>높음</td>
+          <td><span class="pill good">강력 추천</span></td>
+        </tr>
+        <tr>
+          <td><strong>B. Tool 호출 anti-pattern 탐지</strong></td>
+          <td>"같은 grep 5회", "read 후 edit 없음", 무한 ls 루프</td>
+          <td>M</td><td>높음</td>
+          <td><span class="pill good">추천 · 기존 rules 모듈에 얹기</span></td>
+        </tr>
+        <tr>
+          <td><strong>C. Trace replay (read-only)</strong></td>
+          <td>과거 세션 timeline 스크럽/단계 재생</td>
+          <td>M</td><td>중간</td>
+          <td><span class="pill warn">차순위</span></td>
+        </tr>
+        <tr>
+          <td><strong>D. 세션 간 diff/비교 뷰</strong></td>
+          <td>비슷한 task 2개 세션의 tool 시퀀스 비교</td>
+          <td>M</td><td>중간</td>
+          <td><span class="pill warn">후순위</span></td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="callout good">
+      <div class="title">하나만 고른다면 — A. 비용 breakdown</div>
+      ① 데이터 이미 있음(<code>event_token_usage</code>) · ② 1인 개발자 본인에게 매일 가치 ("이번 달 얼마 썼나") · ③ 화면 1개로 끝남 · ④ A → B 순서로 자연 확장.
+    </div>
+  </div>
+</section>
+
+<!-- ============================================== -->
+<!-- IDEA 3                                           -->
+<!-- ============================================== -->
+<section id="idea3">
+  <h2><span class="num">3</span>필요시 웹에서 대화를 이어가는 기능</h2>
+  <p>로컬에서 진행 중인 agent 세션을 웹 UI에서 이어 받아 메시지를 보내거나 follow-up 하자는 아이디어. 네 검토자의 결론이 가장 갈렸음.</p>
+
+  <div class="verdict">
+    <div class="cell"><div class="k">인프라 진척</div><div class="v"><span class="pill good">95% — 거의 다 있음</span></div></div>
+    <div class="cell"><div class="k">시장 사례</div><div class="v"><span class="pill good">Anthropic 공식 출시</span></div></div>
+    <div class="cell"><div class="k">공식 채널</div><div class="v"><span class="pill warn">Agent SDK resume 필요</span></div></div>
+    <div class="cell"><div class="k">ROI</div><div class="v"><span class="pill bad">로컬 1인 도구엔 과대</span></div></div>
+  </div>
+
+  <!-- Implementation -->
+  <div class="reviewer impl">
+    <div class="head"><span class="tag">Implementation</span><span class="title">놀랍게도 인프라 95% 이미 완성 — 웹 입력 폼만 빠짐</span></div>
+    <ul>
+      <li><strong>이벤트 종류</strong>: <code>user.message</code>, <code>assistant.response</code> 정의됨
+        — <code>packages/runtime/src/shared/events/kinds.const.ts</code></li>
+      <li><strong>MCP 도구 완성</strong>: <code>monitor_user_message</code>, <code>monitor_assistant_response</code>
+        — <code>packages/server/src/adapters/mcp/tools/conversation.ts</code> L7–41. <code>captureMode (raw/derived)</code>, <code>phase (initial/follow_up)</code>, <code>messageId</code> 파라미터 이미 존재.</li>
+      <li><strong>WebSocket</strong>: <code>MonitorRealtimeMessage.type = "event.logged" / "event.updated"</code>
+        — <code>packages/web/src/io/realtime.ts</code> L27–61</li>
+      <li><strong>API</strong>: <code>EventCommandController</code> POST /api/v1/events 가 이벤트 쓰기 채널</li>
+      <li><strong>DB</strong>: <code>timeline_events_view</code> + <code>(task_id, created_at)</code> 인덱스 → 세션별 즉시 조회</li>
+    </ul>
+    <h3>부족한 것</h3>
+    <ul>
+      <li>웹 UI 메시지 입력/전송 폼 (현재 읽기 전용)</li>
+      <li>로컬 세션 ID 를 웹으로 "초대"하는 메커니즘 (deep link / QR)</li>
+      <li>웹에서 보낸 메시지를 로컬 런타임으로 콜백할 핸들러</li>
+    </ul>
+  </div>
+
+  <!-- Case study -->
+  <div class="reviewer case">
+    <div class="head"><span class="tag">Case Study</span><span class="title">Anthropic 이 2026-02 에 공식 출시 — 이미 카테고리화된 영역</span></div>
+    <ul>
+      <li><strong>Claude Code Remote Control</strong> (Anthropic, 2026-02-25) — 터미널 task 를 폰에서 이어받기. claude.ai/code + iOS 앱.</li>
+      <li><strong>Omnara</strong> (YC) — agent 는 로컬, 폰/웹이 제어. SSH/포트포워딩 없이 안전한 릴레이. 머신 오프라인 시 클라우드 fallback.</li>
+      <li><strong>CloudCLI / claudecodeui</strong> (OSS) — Claude Code · Cursor CLI · Codex 세션을 원격 webui 로 관리.</li>
+      <li><strong>Cursor 3 Agents Window</strong> — 로컬 ↔ 클라우드 핸드오프, 무거운 분석은 클라우드.</li>
+    </ul>
+    <h3>공통 패턴</h3>
+    <ul>
+      <li>로컬 agent 가 <em>단일 진실 원천</em>. 웹/모바일은 <strong>승인·스티어링·모니터링 UI</strong>.</li>
+      <li>destructive 명령에 대한 <strong>approval gate</strong> 가 보안 모델의 핵심.</li>
+    </ul>
+    <div class="callout bad">
+      <div class="title">DIY 함정</div>
+      "tmux + web bridge" 자가구축은 SSH 노출/세션 끊김/CORS 등으로 흔히 실패한다는 후기.
+      Anthropic 의 Remote Control 이 공식으로 나온 시점에서, 비슷한 걸 직접 빌드하는 것은 <strong>중복 투자</strong> 위험.
+    </div>
+  </div>
+
+  <!-- Docs -->
+  <div class="reviewer docs">
+    <div class="head"><span class="tag">Official Docs</span><span class="title">Agent SDK의 <code>resume</code> 옵션이 공식 경로</span></div>
+    <ul>
+      <li><strong>Claude Code 측</strong>: Agent SDK 의 <code>resume = session_id</code> 옵션이 정공법. 웹 백엔드가 SDK 를 부르고 세션 ID 로 이어받기.</li>
+      <li><strong>Hook 한계</strong>: hook 은 단방향(리슨 전용) 이라 진행 중 세션에 메시지 주입 불가.</li>
+      <li><strong>CLI 한계</strong>: <code>claude --headless</code> / <code>--programmatic</code> 모드는 아직 미지원 — Agent SDK 만 지원.</li>
+      <li><strong>Codex 측</strong>: <code>codex remote-control</code> 헤드리스 앱 서버 + WebSocket 원격 제어 공식 지원 (OpenAI 제품).</li>
+    </ul>
+  </div>
+
+  <!-- Viability -->
+  <div class="reviewer via">
+    <div class="head"><span class="tag">Viability</span><span class="title">가장 비싸고, 가장 안 쓰이게 될 가능성이 큰 항목</span></div>
+    <h3>Use case</h3>
+    <ul>
+      <li>"외출 중 휴대폰에서 진행 중인 agent 에 추가 지시" — 1인 개발자 + 로컬 도구 컨텍스트에서 use case 가 약함.</li>
+      <li>책상 앞에 있을 때 99% 작업하므로 "있긴 한데 안 씀"의 교과서가 될 위험.</li>
+    </ul>
+    <h3>정체성 정합</h3>
+    <p><strong>어긋남.</strong> observer → controller 로 정체성이 바뀜. 인증·터널링·세션 충돌·CORS·보안 모델까지 새로 설계해야 함.</p>
+    <h3>ROI</h3>
+    <p>난이도 <strong>XL</strong>, 가치 <strong>낮음~중간</strong>. 1인 프로젝트가 감당하기엔 surface area 가 과대.</p>
+    <div class="callout bad">
+      <div class="title">결론 — 만들지 않는 쪽 권고</div>
+      정 원하면 "<strong>읽기 전용 원격 모니터링</strong>"(현 대시보드를 ngrok 으로 노출)까지만.
+      쓰기/제어는 Anthropic 공식 Remote Control 에 위임.
+    </div>
+  </div>
+</section>
+
+<!-- ============================================== -->
+<!-- SUMMARY                                          -->
+<!-- ============================================== -->
+<section id="summary">
+  <h2><span class="num">★</span>종합 권장 우선순위</h2>
+  <p>네 검토자의 의견을 합치면 우선순위는 다음과 같이 수렴합니다.</p>
+
+  <table>
+    <thead>
+      <tr><th>순위</th><th>항목</th><th>형태</th><th>이유</th><th>한 줄 액션</th></tr>
+    </thead>
+    <tbody>
+      <tr class="priority-row rank1">
+        <td>1</td>
+        <td><strong>아이디어 2-A · 세션 비용/토큰 breakdown</strong></td>
+        <td>대시보드 한 화면</td>
+        <td>데이터 준비 완료(<code>event_token_usage</code>) · 본인이 매일 가치 · observer 정체성과 100% 정합</td>
+        <td>모델·tool별 누적 집계 view 와 top-N 페이지 추가</td>
+      </tr>
+      <tr class="priority-row rank2">
+        <td>2</td>
+        <td><strong>아이디어 2-B · Tool 호출 anti-pattern 탐지</strong></td>
+        <td>rules 확장</td>
+        <td>이미 있는 <code>rules</code> feature 위에 얹기 좋음 · observer 본업 직결</td>
+        <td>"같은 grep N회 반복", "read-without-edit" 등 룰 1~2개부터</td>
+      </tr>
+      <tr class="priority-row rank3">
+        <td>3</td>
+        <td><strong>아이디어 1 (축소판) · 파일 hotspot 테이블</strong></td>
+        <td>표 + 필터</td>
+        <td>그래프 시각화는 후순위. 먼저 "어떤 파일이 자주 만져졌나"만 노출해 가치 검증</td>
+        <td><code>event_files.write_count</code> 집계 → cross-session 정렬</td>
+      </tr>
+      <tr class="priority-row rank3">
+        <td>3+</td>
+        <td><strong>아이디어 1 (원안) · 풀 지식 그래프</strong></td>
+        <td>그래프 시각화</td>
+        <td>hotspot 테이블이 실제로 자주 열린다는 신호가 확인된 후에만 진행</td>
+        <td><code>relation_type</code> 백필 · GraphView 확장</td>
+      </tr>
+      <tr class="priority-row rank4">
+        <td>4</td>
+        <td><strong>아이디어 3 · 웹에서 대화 이어가기</strong></td>
+        <td>(권고: 보류)</td>
+        <td>Anthropic 공식 Remote Control 과 중복 · 1인 프로젝트엔 surface area 과대 · use case 약함</td>
+        <td>"읽기 전용 원격 대시보드 (ngrok)" 까지만 고려</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="callout">
+    <div class="title">핵심 원칙</div>
+    네 검토자의 의견이 공통적으로 가리키는 한 가지 원칙:
+    <strong>"monitor / observer 본업에서 벗어나는 순간(쓰기·제어·외부노출) 비용이 비선형으로 폭증한다."</strong>
+    아이디어 1·2 는 본업 안에서 확장, 아이디어 3 은 본업 밖으로 도약 — 그것이 우선순위의 본질입니다.
+  </div>
+</section>
+
+<!-- ============================================== -->
+<!-- SOURCES                                          -->
+<!-- ============================================== -->
+<section id="sources">
+  <h2><span class="num">§</span>참고 자료</h2>
+  <h3>공식 문서</h3>
+  <ul>
+    <li><a href="https://code.claude.com/docs/en/hooks.md">Claude Code Hooks Reference</a></li>
+    <li><a href="https://code.claude.com/docs/en/mcp-servers.md">Claude Code MCP Servers</a></li>
+    <li><a href="https://code.claude.com/docs/en/agent-sdk">Claude Agent SDK Overview</a></li>
+    <li><a href="https://code.claude.com/docs/en/remote-control">Claude Code Remote Control (2026-02-25)</a></li>
+    <li><a href="https://developers.openai.com/codex/cli">Codex CLI Remote Control</a></li>
+  </ul>
+  <h3>코드 지식 그래프 사례</h3>
+  <ul>
+    <li><a href="https://github.com/tirth8205/code-review-graph">code-review-graph</a></li>
+    <li><a href="https://www.marktechpost.com/2026/04/24/meet-gitnexus-an-open-source-mcp-native-knowledge-graph-engine-that-gives-claude-code-and-cursor-full-codebase-structural-awareness/">GitNexus 소개 (MarkTechPost 2026-04-24)</a></li>
+    <li><a href="https://github.com/safishamsi/graphify">Graphify</a></li>
+    <li><a href="https://github.com/CodeGraphContext/CodeGraphContext">CodeGraphContext</a></li>
+    <li><a href="https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f">Karpathy — llm-wiki 한계 (Stale graph)</a></li>
+  </ul>
+  <h3>LLM Observability 사례</h3>
+  <ul>
+    <li><a href="https://langfuse.com/docs/observability/features/sessions">Langfuse Sessions</a></li>
+    <li><a href="https://langfuse.com/docs/observability/features/token-and-cost-tracking">Langfuse Token & Cost</a></li>
+    <li><a href="https://www.digitalapplied.com/blog/agent-observability-platforms-langsmith-langfuse-arize-2026">LangSmith / Langfuse / Arize 2026 비교</a></li>
+    <li><a href="https://laminar.sh/article/langfuse-alternatives-2026">Laminar 비교</a></li>
+  </ul>
+  <h3>로컬 → 웹 핸드오프 사례</h3>
+  <ul>
+    <li><a href="https://www.omnara.com/">Omnara</a></li>
+    <li><a href="https://github.com/siteboon/claudecodeui">claudecodeui</a></li>
+    <li><a href="https://blog.imseankim.com/cursor-3-agents-window-multi-agent-cloud-handoff-design-mode-ai-coding-ide-2026/">Cursor 3 Agents Window</a></li>
+    <li><a href="https://www.nxcode.io/resources/news/claude-code-remote-control-mobile-terminal-handoff-guide-2026">NxCode — Remote Control 가이드 (DIY 함정 정리)</a></li>
+  </ul>
+</section>
+
+<footer>
+  Generated by Agent Tracer 4인 검토 팀 · 2026-05-12 · 다음 단계: 권장 1순위(세션 비용 breakdown)를 위한 설계 메모 작성.
+</footer>
+
+</div>
+</body>
+</html>
