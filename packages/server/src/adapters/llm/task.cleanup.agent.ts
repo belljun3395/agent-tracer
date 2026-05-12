@@ -82,7 +82,7 @@ export class TaskCleanupAgent {
                     resultText = msg.result;
                 } else {
                     errorSummary = `${msg.subtype}${
-                        msg.errors && msg.errors.length > 0
+                        msg.errors.length > 0
                             ? `: ${msg.errors.join("; ")}`
                             : ""
                     }`;

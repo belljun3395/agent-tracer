@@ -125,7 +125,7 @@ export class RuleCommandController {
         @Param("id", pathParamPipe) id: string,
         @Body() body: { taskId?: unknown },
     ) {
-        const taskId = typeof body?.taskId === "string" ? body.taskId.trim() : "";
+        const taskId = typeof body.taskId === "string" ? body.taskId.trim() : "";
         if (!taskId) {
             throw new BadRequestException("Demote requires a non-empty taskId in the body");
         }

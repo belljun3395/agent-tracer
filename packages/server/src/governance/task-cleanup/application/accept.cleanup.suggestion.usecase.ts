@@ -59,7 +59,9 @@ export class AcceptCleanupSuggestionUseCase {
         readonly kind: string;
         readonly proposedValue: string | null;
     }): Promise<void> {
-        const proposed = row.proposedValue ? JSON.parse(row.proposedValue) : null;
+        const proposed: unknown = row.proposedValue
+            ? JSON.parse(row.proposedValue)
+            : null;
         switch (row.kind) {
             case "archive": {
                 const result = await this.archiveTask.execute({ taskId: row.taskId });

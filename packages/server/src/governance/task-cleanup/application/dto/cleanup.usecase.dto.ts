@@ -1,4 +1,4 @@
-import type { TaskCleanupSuggestionKind } from "../../domain/task.cleanup.suggestion.entity.js";
+import type { TaskCleanupSuggestionKind } from "~governance/task-cleanup/domain/task.cleanup.suggestion.entity.js";
 
 export interface EnqueueCleanupScanUseCaseOut {
     readonly jobId: string;

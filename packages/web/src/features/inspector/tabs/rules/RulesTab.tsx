@@ -151,16 +151,15 @@ function GenerateRulesPanel({ taskId, taskStatus }: GenerateRulesPanelProps) {
   const settingsLoaded = !settingsQ.isLoading;
   const job = jobQ.data?.job ?? null;
   const isInFlight = job?.status === "pending" || job?.status === "processing";
-  const wasJustCompleted = job?.status === "completed";
 
   useEffect(() => {
-    if (wasJustCompleted && (job?.rulesCreated ?? 0) > 0) {
+    if (job?.status === "completed" && job.rulesCreated > 0) {
       void queryClient.invalidateQueries({
         queryKey: monitorQueryKeys.taskRules(taskId),
       });
       void queryClient.invalidateQueries({ queryKey: monitorQueryKeys.rules() });
     }
-  }, [wasJustCompleted, job?.rulesCreated, queryClient, taskId]);
+  }, [job?.status, job?.rulesCreated, queryClient, taskId]);
 
   const onGenerate = async () => {
     setErrorMessage(null);

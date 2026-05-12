@@ -86,7 +86,7 @@ class LocalEmbeddingService implements IEmbeddingService {
             pooling: "mean",
             normalize: true
         });
-        return new Float32Array(output.data as ArrayLike<number>);
+        return new Float32Array(output.data);
     }
 }
 export function createEmbeddingService(): IEmbeddingService | undefined {

@@ -102,9 +102,9 @@ function inferToolName(event: ProjectedTimelineEvent): string | null {
 }
 
 function collectFilePaths(event: ProjectedTimelineEvent): readonly string[] {
-    const paths = event.paths?.filePaths;
-    if (Array.isArray(paths) && paths.length > 0) return paths;
-    const primary = event.paths?.primaryPath;
+    const paths = event.paths.filePaths;
+    if (paths.length > 0) return paths;
+    const primary = event.paths.primaryPath;
     return primary ? [primary] : [];
 }
 
