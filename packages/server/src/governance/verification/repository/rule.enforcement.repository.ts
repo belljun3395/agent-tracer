@@ -59,6 +59,14 @@ export class RuleEnforcementRepository implements IRuleEnforcementRepository {
         return rows.map(mapEntity);
     }
 
+    async findByRuleId(ruleId: string): Promise<readonly RuleEnforcementRow[]> {
+        const rows = await this.repo.find({
+            where: { ruleId },
+            order: { decidedAt: "ASC" },
+        });
+        return rows.map(mapEntity);
+    }
+
     async deleteByRuleId(ruleId: string): Promise<void> {
         await this.repo.delete({ ruleId });
     }

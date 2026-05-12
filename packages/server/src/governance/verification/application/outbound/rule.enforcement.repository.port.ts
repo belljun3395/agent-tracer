@@ -24,6 +24,7 @@ export interface RuleEnforcementRow {
 export interface IRuleEnforcementRepository {
     findByEventId(eventId: string): Promise<readonly RuleEnforcementRow[]>;
     findByEventIds(eventIds: readonly string[]): Promise<readonly RuleEnforcementRow[]>;
+    findByRuleId(ruleId: string): Promise<readonly RuleEnforcementRow[]>;
     eventIdToRuleIds(eventIds: readonly string[]): Promise<ReadonlyMap<string, ReadonlySet<string>>>;
     insert(row: RuleEnforcementInsert): Promise<RuleEnforcementRow | null>;
     insertMany(rows: readonly RuleEnforcementInsert[]): Promise<readonly RuleEnforcementRow[]>;

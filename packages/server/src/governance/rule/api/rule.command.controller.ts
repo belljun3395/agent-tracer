@@ -14,6 +14,7 @@ import {
 import { InvalidRuleError, RuleNotFoundError } from "../common/errors.js";
 import { CreateRuleUseCase } from "../application/create.rule.usecase.js";
 import { DeleteRuleUseCase } from "../application/delete.rule.usecase.js";
+import { DemoteRuleToTaskUseCase } from "../application/demote.rule.to.task.usecase.js";
 import { PromoteRuleToGlobalUseCase } from "../application/promote.rule.to.global.usecase.js";
 import { ReEvaluateRuleUseCase } from "../application/re-evaluate.rule.usecase.js";
 import { UpdateRuleUseCase } from "../application/update.rule.usecase.js";
@@ -33,6 +34,7 @@ export class RuleCommandController {
         @Inject(UpdateRuleUseCase) private readonly updateRule: UpdateRuleUseCase,
         @Inject(DeleteRuleUseCase) private readonly deleteRule: DeleteRuleUseCase,
         @Inject(PromoteRuleToGlobalUseCase) private readonly promoteRule: PromoteRuleToGlobalUseCase,
+        @Inject(DemoteRuleToTaskUseCase) private readonly demoteRule: DemoteRuleToTaskUseCase,
         @Inject(ReEvaluateRuleUseCase) private readonly reEvaluateRule: ReEvaluateRuleUseCase,
     ) {}
 
@@ -110,6 +112,25 @@ export class RuleCommandController {
     async promote(@Param("id", pathParamPipe) id: string) {
         try {
             return await this.promoteRule.execute({ ruleId: id });
+        } catch (err) {
+            if (err instanceof RuleNotFoundError) throw new NotFoundException(err.message);
+            if (err instanceof InvalidRuleError) throw new BadRequestException(err.message);
+            throw err;
+        }
+    }
+
+    @Post(":id/demote")
+    @HttpCode(HttpStatus.OK)
+    async demote(
+        @Param("id", pathParamPipe) id: string,
+        @Body() body: { taskId?: unknown },
+    ) {
+        const taskId = typeof body?.taskId === "string" ? body.taskId.trim() : "";
+        if (!taskId) {
+            throw new BadRequestException("Demote requires a non-empty taskId in the body");
+        }
+        try {
+            return await this.demoteRule.execute({ ruleId: id, taskId });
         } catch (err) {
             if (err instanceof RuleNotFoundError) throw new NotFoundException(err.message);
             if (err instanceof InvalidRuleError) throw new BadRequestException(err.message);

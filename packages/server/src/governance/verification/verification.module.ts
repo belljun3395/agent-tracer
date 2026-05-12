@@ -10,18 +10,21 @@ import type { IVerdictRepository } from "~governance/verification/application/ou
 import type { ITimelineEventRead } from "~activity/event/public/iservice/timeline.event.read.iservice.js";
 import { TIMELINE_EVENT_READ } from "~activity/event/public/tokens.js";
 import { NOTIFICATION_PUBLISHER_TOKEN } from "~main/presentation/database/database.provider.js";
-import { RULE_REPOSITORY_TOKEN } from "~governance/rule/public/tokens.js";
+import type { IRuleRead } from "~governance/rule/public/iservice/rule.read.iservice.js";
+import { RULE_READ, RULE_REPOSITORY_TOKEN } from "~governance/rule/public/tokens.js";
 import {
     RULE_ENFORCEMENT_REPOSITORY_TOKEN,
     TURN_REPOSITORY_TOKEN,
     VERDICT_REPOSITORY_TOKEN,
 } from "./repository/tokens.js";
 import { TURN_QUERY_REPOSITORY_TOKEN } from "./public/tokens.js";
+import { RuleEvidenceQueryController } from "./api/rule.evidence.query.controller.js";
 import { VerificationBackfillPublicAdapter } from "./adapter/verification.backfill.public.adapter.js";
 import { VerdictCountPublicAdapter } from "./adapter/verdict.count.public.adapter.js";
 import { VerdictInvalidationPublicAdapter } from "./adapter/verdict.invalidation.public.adapter.js";
 import { VerificationPostProcessorPublicAdapter } from "./adapter/verification.post.processor.public.adapter.js";
 import { BackfillRuleEvaluationUseCase } from "./application/backfill.rule.evaluation.usecase.js";
+import { GetRuleEvidenceForTaskUseCase } from "./application/get.rule.evidence.usecase.js";
 import { GetVerdictCountsForTaskUseCase } from "./application/get.verdict.counts.for.task.usecase.js";
 import { RunTurnEvaluationUseCase } from "./application/run.turn.evaluation.usecase.js";
 import { RuleEnforcementEntity } from "./domain/rule.enforcement.entity.js";
@@ -123,6 +126,15 @@ const VERIFICATION_INTERNAL_PROVIDERS: Provider[] = [
             new GetVerdictCountsForTaskUseCase(turnQueryRepo),
         inject: [TURN_QUERY_REPOSITORY_TOKEN],
     },
+    {
+        provide: GetRuleEvidenceForTaskUseCase,
+        useFactory: (
+            enforcementRepo: IRuleEnforcementRepository,
+            eventRead: ITimelineEventRead,
+            ruleRead: IRuleRead,
+        ) => new GetRuleEvidenceForTaskUseCase(enforcementRepo, eventRead, ruleRead),
+        inject: [RULE_ENFORCEMENT_REPOSITORY_TOKEN, TIMELINE_EVENT_READ, RULE_READ],
+    },
 ];
 
 /**
@@ -155,6 +167,7 @@ export class VerificationModule {
                 ]),
                 databaseModule,
             ],
+            controllers: [RuleEvidenceQueryController],
             providers: [
                 // TypeORM-backed repositories
                 TurnRepository,

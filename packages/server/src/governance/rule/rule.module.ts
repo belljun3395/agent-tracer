@@ -20,6 +20,7 @@ import {
     VERDICT_COUNT_QUERY_PORT,
     VERIFICATION_INVALIDATION_PORT,
 } from "./application/outbound/tokens.js";
+import { DemoteRuleToTaskUseCase } from "./application/demote.rule.to.task.usecase.js";
 import { PromoteRuleToGlobalUseCase } from "./application/promote.rule.to.global.usecase.js";
 import { ReEvaluateRuleUseCase } from "./application/re-evaluate.rule.usecase.js";
 import { RegisterSuggestionUseCase } from "./application/register.suggestion.usecase.js";
@@ -101,6 +102,7 @@ export class RuleModule {
                 ListRulesUseCase,
                 ListRulesForTaskUseCase,
                 PromoteRuleToGlobalUseCase,
+                DemoteRuleToTaskUseCase,
                 RegisterSuggestionUseCase,
                 ReEvaluateRuleUseCase,
                 // Public iservices
