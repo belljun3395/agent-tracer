@@ -201,7 +201,14 @@ export function RuleForm({
             ))}
           </select>
         </Field>
-        <Field label="Scope">
+        <Field
+          label="Scope"
+          {...(isEdit
+            ? {
+                hint: "Locked in edit mode. Use Promote / Demote actions on the rule row to move between scopes.",
+              }
+            : {})}
+        >
           <select
             value={form.scope}
             onChange={(e) => setForm((s) => ({ ...s, scope: e.target.value as RuleScope }))}

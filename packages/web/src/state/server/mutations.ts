@@ -7,6 +7,7 @@ import type {
 import type { RuleCreateInput, RuleUpdateInput } from "~domain/rule.js";
 import {
   createRule,
+  demoteRule,
   deleteAppSetting,
   deleteRule,
   deleteTask,
@@ -19,6 +20,20 @@ import {
   type UpdateTaskBody,
 } from "~io/api.js";
 import { monitorQueryKeys } from "./queryKeys.js";
+
+export function useDemoteRuleMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ ruleId, taskId }: { ruleId: string; taskId: TaskId }) =>
+      demoteRule(ruleId, taskId),
+    onSuccess: (_data, vars) => {
+      void queryClient.invalidateQueries({ queryKey: monitorQueryKeys.rules() });
+      void queryClient.invalidateQueries({
+        queryKey: monitorQueryKeys.taskRules(vars.taskId),
+      });
+    },
+  });
+}
 
 export function useEnqueueGenerateRulesMutation() {
   return useMutation({

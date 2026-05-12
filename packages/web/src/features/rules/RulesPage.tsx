@@ -1,11 +1,14 @@
 import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import type { MonitoringTask, TaskId } from "~domain/monitoring.js";
 import type { RuleRecord, RuleScope, RuleSeverity } from "~domain/rule.js";
-import { useRulesQuery } from "~state/server/queries.js";
+import { useRulesQuery, useTasksQuery } from "~state/server/queries.js";
 import { Modal } from "~ui/index.js";
 import { RuleForm } from "~features/inspector/tabs/rules/RuleForm.js";
 import { RuleSeverityChip } from "~features/inspector/tabs/rules/RuleSeverityChip.js";
 import {
   useDeleteRuleMutation,
+  useDemoteRuleMutation,
   usePromoteRuleMutation,
 } from "~state/server/mutations.js";
 
@@ -36,6 +39,12 @@ const SEVERITY_OPTIONS: ReadonlyArray<{ readonly value: SeverityFilter; readonly
  */
 export function RulesPage() {
   const { data, isLoading, isError } = useRulesQuery();
+  const tasksQ = useTasksQuery();
+  const taskById = useMemo(() => {
+    const m = new Map<TaskId, MonitoringTask>();
+    for (const t of tasksQ.data?.tasks ?? []) m.set(t.id, t);
+    return m;
+  }, [tasksQ.data]);
   const [scope, setScope] = useState<ScopeFilter>("all");
   const [severity, setSeverity] = useState<SeverityFilter>("all");
   const [search, setSearch] = useState("");
@@ -155,7 +164,13 @@ export function RulesPage() {
           </p>
         )}
         {filtered.map((rule) => (
-          <RuleListItem key={rule.id} rule={rule} onEdit={handleEdit} />
+          <RuleListItem
+            key={rule.id}
+            rule={rule}
+            onEdit={handleEdit}
+            task={rule.taskId ? taskById.get(rule.taskId) ?? null : null}
+            tasks={tasksQ.data?.tasks ?? []}
+          />
         ))}
       </div>
 
@@ -182,13 +197,20 @@ export function RulesPage() {
 interface RuleListItemProps {
   readonly rule: RuleRecord;
   readonly onEdit: (rule: RuleRecord) => void;
+  readonly task: MonitoringTask | null;
+  readonly tasks: readonly MonitoringTask[];
 }
 
-function RuleListItem({ rule, onEdit }: RuleListItemProps) {
+function RuleListItem({ rule, onEdit, task, tasks }: RuleListItemProps) {
   const promoteMutation = usePromoteRuleMutation();
+  const demoteMutation = useDemoteRuleMutation();
   const deleteMutation = useDeleteRuleMutation();
   const [confirming, setConfirming] = useState(false);
-  const isPending = promoteMutation.isPending || deleteMutation.isPending;
+  const [demoteOpen, setDemoteOpen] = useState(false);
+  const isPending =
+    promoteMutation.isPending ||
+    demoteMutation.isPending ||
+    deleteMutation.isPending;
 
   const handleDelete = () => {
     if (!confirming) {
@@ -269,6 +291,12 @@ function RuleListItem({ rule, onEdit }: RuleListItemProps) {
             <span>{rule.trigger.phrases.length} trigger phrase{rule.trigger.phrases.length === 1 ? "" : "s"}</span>
           </>
         )}
+        {rule.scope === "task" && rule.taskId && (
+          <>
+            <span style={{ color: "var(--hair-strong)" }}>·</span>
+            <TaskBreadcrumb taskId={rule.taskId} task={task} />
+          </>
+        )}
       </div>
 
       {rule.rationale && (
@@ -303,6 +331,16 @@ function RuleListItem({ rule, onEdit }: RuleListItemProps) {
             Promote to global
           </button>
         )}
+        {rule.scope === "global" && (
+          <button
+            type="button"
+            onClick={() => setDemoteOpen(true)}
+            disabled={isPending}
+            style={ghostButtonStyle}
+          >
+            Demote to task…
+          </button>
+        )}
         <span className="flex-1" />
         <button
           type="button"
@@ -320,7 +358,156 @@ function RuleListItem({ rule, onEdit }: RuleListItemProps) {
           {confirming ? "Click again to confirm" : deleteMutation.isError ? "Retry delete" : "Delete"}
         </button>
       </div>
+
+      <Modal
+        open={demoteOpen}
+        onClose={() => setDemoteOpen(false)}
+        title="Demote rule to a task"
+        description="Pick the task this rule should apply to. The rule will become task-scoped; past verdicts under the old global scope are dropped."
+      >
+        <DemoteRuleForm
+          ruleId={rule.id}
+          tasks={tasks}
+          isPending={demoteMutation.isPending}
+          onCancel={() => setDemoteOpen(false)}
+          onSubmit={(taskId) => {
+            demoteMutation.mutate(
+              { ruleId: rule.id, taskId },
+              { onSuccess: () => setDemoteOpen(false) },
+            );
+          }}
+        />
+      </Modal>
     </article>
+  );
+}
+
+interface DemoteRuleFormProps {
+  readonly ruleId: string;
+  readonly tasks: readonly MonitoringTask[];
+  readonly isPending: boolean;
+  readonly onSubmit: (taskId: TaskId) => void;
+  readonly onCancel: () => void;
+}
+
+function DemoteRuleForm({
+  tasks,
+  isPending,
+  onSubmit,
+  onCancel,
+}: DemoteRuleFormProps) {
+  const [selected, setSelected] = useState<TaskId | "">("");
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (!selected) return;
+        onSubmit(selected);
+      }}
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: 12,
+        padding: "8px 0",
+      }}
+    >
+      <label
+        style={{
+          fontSize: 12,
+          color: "var(--ink-muted)",
+          display: "flex",
+          flexDirection: "column",
+          gap: 4,
+        }}
+      >
+        Target task
+        <select
+          value={selected}
+          onChange={(e) => setSelected(e.target.value as TaskId | "")}
+          style={{
+            padding: "6px 8px",
+            fontSize: 12.5,
+            color: "var(--ink)",
+            background: "var(--canvas)",
+            border: "1px solid var(--hair)",
+            borderRadius: "var(--radius-xs)",
+          }}
+        >
+          <option value="">— Select a task —</option>
+          {tasks.map((t) => (
+            <option key={t.id} value={t.id}>
+              {(t.displayTitle ?? t.title).slice(0, 80)}
+              {" · "}
+              {t.id.slice(0, 8)}
+            </option>
+          ))}
+        </select>
+      </label>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={isPending}
+          style={ghostButtonStyle}
+        >
+          Cancel
+        </button>
+        <span className="flex-1" />
+        <button
+          type="submit"
+          disabled={isPending || !selected}
+          style={{
+            ...primaryButtonStyle,
+            opacity: isPending || !selected ? 0.5 : 1,
+          }}
+        >
+          {isPending ? "Demoting…" : "Demote"}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function TaskBreadcrumb({
+  taskId,
+  task,
+}: {
+  taskId: TaskId;
+  task: MonitoringTask | null;
+}) {
+  const label = task
+    ? task.displayTitle ?? task.title
+    : `${taskId.slice(0, 8)}…`;
+  return (
+    <span style={{ display: "inline-flex", gap: 4, alignItems: "center" }}>
+      <span style={{ color: "var(--ink-tertiary)" }}>task ·</span>
+      <Link
+        to={`/tasks/${taskId}`}
+        title={task ? `Open ${task.title}` : `Open task ${taskId}`}
+        style={{
+          color: "var(--ink-muted)",
+          textDecoration: "underline",
+          textDecorationStyle: "dotted",
+          textUnderlineOffset: 2,
+          maxWidth: 240,
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+          display: "inline-block",
+          verticalAlign: "bottom",
+        }}
+      >
+        {label}
+      </Link>
+      {!task && (
+        <span
+          title="Task no longer exists or hasn't been loaded yet"
+          style={{ color: "var(--ink-tertiary)", fontSize: 10 }}
+        >
+          (missing)
+        </span>
+      )}
+    </span>
   );
 }
 

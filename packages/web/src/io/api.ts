@@ -287,6 +287,50 @@ export function fetchTaskRules(taskId: TaskId): Promise<TaskRulesResponse> {
   return getJson<TaskRulesResponse>(`/api/v1/tasks/${taskId}/rules`);
 }
 
+export type RuleMatchedBy =
+  | "action"
+  | "commandMatch"
+  | "pattern"
+  | "trigger-phrase";
+
+export interface RuleEvidenceEvent {
+  readonly eventId: string;
+  readonly kind: string;
+  readonly title: string;
+  readonly body?: string;
+  readonly command?: string;
+  readonly filePath?: string;
+  readonly toolName?: string;
+  readonly decidedAt: string;
+  readonly createdAt: string;
+  readonly matchKind: "trigger" | "expect-fulfilled";
+  readonly matchedBy: readonly RuleMatchedBy[];
+  readonly unfulfilled?: boolean;
+}
+
+export interface RuleEvidenceResponse {
+  readonly taskId: string;
+  readonly ruleId: string;
+  readonly triggers: readonly RuleEvidenceEvent[];
+  readonly expects: readonly RuleEvidenceEvent[];
+}
+
+export function demoteRule(
+  ruleId: string,
+  taskId: TaskId,
+): Promise<unknown> {
+  return postJson<unknown>(`/api/v1/rules/${ruleId}/demote`, { taskId });
+}
+
+export function fetchRuleEvidence(
+  taskId: TaskId,
+  ruleId: string,
+): Promise<RuleEvidenceResponse> {
+  return getJson<RuleEvidenceResponse>(
+    `/api/v1/tasks/${taskId}/rules/${encodeURIComponent(ruleId)}/evidence`,
+  );
+}
+
 export interface DeleteTaskResponse {
   readonly deleted: boolean;
 }

@@ -1,11 +1,15 @@
 import { useState, type MouseEvent } from "react";
 import type { RuleRecord } from "~domain/rule.js";
-import type { TaskId } from "~domain/monitoring.js";
+import type { EventId, TaskId } from "~domain/monitoring.js";
+import type { RuleEvidenceEvent, RuleMatchedBy } from "~io/api.js";
 import {
   useDeleteRuleMutation,
+  useDemoteRuleMutation,
   usePromoteRuleMutation,
   useReEvaluateRuleMutation,
 } from "~state/server/mutations.js";
+import { useRuleEvidenceQuery } from "~state/server/queries.js";
+import { useSetSelectedEventId } from "~state/ui/index.js";
 import { Tooltip } from "~ui/index.js";
 import { cn } from "~lib/cn.js";
 import { RuleSeverityChip } from "./RuleSeverityChip.js";
@@ -33,12 +37,19 @@ interface RuleRowProps {
 export function RuleRow({ rule, matchCount, contextTaskId, onEdit }: RuleRowProps) {
   const reEvalMutation = useReEvaluateRuleMutation();
   const promoteMutation = usePromoteRuleMutation();
+  const demoteMutation = useDemoteRuleMutation();
   const deleteMutation = useDeleteRuleMutation();
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const evidenceQ = useRuleEvidenceQuery(contextTaskId, rule.id, {
+    enabled: expanded && contextTaskId !== null,
+  });
+  const canExpand = contextTaskId !== null && matchCount > 0;
 
   const isPending =
     reEvalMutation.isPending ||
     promoteMutation.isPending ||
+    demoteMutation.isPending ||
     deleteMutation.isPending;
 
   const handleReEval = (e: MouseEvent<HTMLButtonElement>) => {
@@ -51,6 +62,11 @@ export function RuleRow({ rule, matchCount, contextTaskId, onEdit }: RuleRowProp
   const handlePromote = (e: MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
     promoteMutation.mutate(rule.id);
+  };
+  const handleDemote = (e: MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    if (!contextTaskId) return;
+    demoteMutation.mutate({ ruleId: rule.id, taskId: contextTaskId });
   };
   const handleDelete = (e: MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
@@ -65,6 +81,10 @@ export function RuleRow({ rule, matchCount, contextTaskId, onEdit }: RuleRowProp
     e.stopPropagation();
     onEdit(rule);
   };
+  const handleToggleExpand = () => {
+    if (!canExpand) return;
+    setExpanded((v) => !v);
+  };
 
   return (
     <div
@@ -77,7 +97,41 @@ export function RuleRow({ rule, matchCount, contextTaskId, onEdit }: RuleRowProp
         border: "1px solid var(--hair)",
       }}
     >
-      <div className="flex items-center gap-2 flex-wrap">
+      <button
+        type="button"
+        onClick={handleToggleExpand}
+        disabled={!canExpand}
+        aria-expanded={canExpand ? expanded : undefined}
+        aria-label={
+          canExpand
+            ? expanded
+              ? "Collapse rule evidence"
+              : "Expand rule evidence"
+            : undefined
+        }
+        className="flex items-center gap-2 flex-wrap w-full text-left"
+        style={{
+          background: "transparent",
+          padding: 0,
+          cursor: canExpand ? "pointer" : "default",
+        }}
+      >
+        {canExpand && (
+          <span
+            aria-hidden
+            style={{
+              display: "inline-block",
+              fontFamily: "var(--font-mono)",
+              fontSize: 9,
+              color: "var(--ink-tertiary)",
+              transform: expanded ? "rotate(90deg)" : "rotate(0deg)",
+              transition: "transform 120ms ease",
+              width: 10,
+            }}
+          >
+            ▶
+          </span>
+        )}
         <RuleSeverityChip severity={rule.severity} />
         <span
           className="flex-1 min-w-0 truncate"
@@ -91,7 +145,7 @@ export function RuleRow({ rule, matchCount, contextTaskId, onEdit }: RuleRowProp
           {rule.name}
         </span>
         <MatchBadge count={matchCount} />
-      </div>
+      </button>
 
       <div
         className="flex items-center gap-2 flex-wrap mt-1.5"
@@ -152,6 +206,17 @@ export function RuleRow({ rule, matchCount, contextTaskId, onEdit }: RuleRowProp
             </ActionButton>
           </Tooltip>
         )}
+        {rule.scope === "global" && contextTaskId !== null && (
+          <Tooltip content="Demote to this task" side="top">
+            <ActionButton
+              onClick={handleDemote}
+              disabled={isPending}
+              label="Demote"
+            >
+              <DownIcon />
+            </ActionButton>
+          </Tooltip>
+        )}
         <Tooltip content="Edit rule" side="top">
           <ActionButton onClick={handleEdit} disabled={isPending} label="Edit">
             <PencilIcon />
@@ -179,8 +244,327 @@ export function RuleRow({ rule, matchCount, contextTaskId, onEdit }: RuleRowProp
           </ActionButton>
         </Tooltip>
       </div>
+
+      {expanded && contextTaskId && (
+        <EvidencePanel
+          isLoading={evidenceQ.isLoading}
+          isError={evidenceQ.isError}
+          triggers={evidenceQ.data?.triggers ?? []}
+          expects={evidenceQ.data?.expects ?? []}
+        />
+      )}
     </div>
   );
+}
+
+interface EvidencePanelProps {
+  readonly isLoading: boolean;
+  readonly isError: boolean;
+  readonly triggers: readonly RuleEvidenceEvent[];
+  readonly expects: readonly RuleEvidenceEvent[];
+}
+
+function EvidencePanel({ isLoading, isError, triggers, expects }: EvidencePanelProps) {
+  const setSelectedEventId = useSetSelectedEventId();
+  const files = expects.filter((e) => e.filePath);
+  const actions = expects.filter((e) => !e.filePath);
+  const unfulfilled = triggers.filter((t) => t.unfulfilled);
+
+  const wrapStyle: React.CSSProperties = {
+    marginTop: 10,
+    paddingTop: 10,
+    borderTop: "1px dashed var(--hair)",
+  };
+
+  if (isLoading) {
+    return (
+      <div style={{ ...wrapStyle, fontSize: 11, color: "var(--ink-tertiary)" }}>
+        Loading evidence…
+      </div>
+    );
+  }
+  if (isError) {
+    return (
+      <div style={{ ...wrapStyle, fontSize: 11, color: "var(--err)" }}>
+        Couldn't load evidence for this rule.
+      </div>
+    );
+  }
+  if (triggers.length === 0 && expects.length === 0) {
+    return (
+      <div style={{ ...wrapStyle, fontSize: 11, color: "var(--ink-tertiary)" }}>
+        No matched events on this task yet.
+      </div>
+    );
+  }
+
+  return (
+    <div
+      style={{
+        ...wrapStyle,
+        display: "flex",
+        flexDirection: "column",
+        gap: 10,
+      }}
+    >
+      {unfulfilled.length > 0 && (
+        <div
+          style={{
+            fontSize: 11,
+            color: "var(--warn, #b58900)",
+            padding: "4px 8px",
+            border: "1px dashed var(--warn, #b58900)",
+            borderRadius: "var(--radius-xs)",
+            display: "flex",
+            gap: 6,
+            alignItems: "center",
+          }}
+        >
+          <span>⚠</span>
+          <span>
+            Trigger fired but no expected follow-up landed on this task.
+          </span>
+        </div>
+      )}
+      {triggers.length > 0 && (
+        <EvidenceSection
+          label="Triggers"
+          count={triggers.length}
+          events={triggers}
+          onJump={setSelectedEventId}
+        />
+      )}
+      {files.length > 0 && (
+        <EvidenceSection
+          label="Files"
+          count={files.length}
+          events={files}
+          onJump={setSelectedEventId}
+        />
+      )}
+      {actions.length > 0 && (
+        <EvidenceSection
+          label="Actions"
+          count={actions.length}
+          events={actions}
+          onJump={setSelectedEventId}
+        />
+      )}
+    </div>
+  );
+}
+
+interface EvidenceSectionProps {
+  readonly label: string;
+  readonly count: number;
+  readonly events: readonly RuleEvidenceEvent[];
+  readonly onJump: (eventId: EventId) => void;
+}
+
+function EvidenceSection({ label, count, events, onJump }: EvidenceSectionProps) {
+  return (
+    <div className="flex flex-col gap-1">
+      <div
+        style={{
+          fontFamily: "var(--font-mono)",
+          fontSize: 9.5,
+          textTransform: "uppercase",
+          letterSpacing: "0.08em",
+          color: "var(--ink-tertiary)",
+        }}
+      >
+        {label} ({count})
+      </div>
+      {events.map((ev) => (
+        <EvidenceRow key={`${label}-${ev.eventId}`} event={ev} onJump={onJump} />
+      ))}
+    </div>
+  );
+}
+
+function EvidenceRow({
+  event,
+  onJump,
+}: {
+  event: RuleEvidenceEvent;
+  onJump: (eventId: EventId) => void;
+}) {
+  const icon = pickIcon(event);
+  const primary = event.filePath ?? event.command ?? event.title;
+  const time = formatTime(event.createdAt);
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        onJump(event.eventId as EventId);
+      }}
+      className="text-left"
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 6,
+        padding: "3px 6px",
+        background: "transparent",
+        border: "1px solid transparent",
+        borderRadius: "var(--radius-xs)",
+        fontSize: 11.5,
+        color: "var(--ink)",
+        cursor: "pointer",
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.background = "var(--s2)";
+        e.currentTarget.style.borderColor = "var(--hair)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.background = "transparent";
+        e.currentTarget.style.borderColor = "transparent";
+      }}
+    >
+      <span style={{ width: 14, color: "var(--ink-tertiary)" }}>{icon}</span>
+      <span
+        style={{
+          flex: 1,
+          minWidth: 0,
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+          fontFamily:
+            event.filePath || event.command ? "var(--font-mono)" : undefined,
+          fontSize: event.filePath || event.command ? 11 : 11.5,
+        }}
+      >
+        {primary}
+      </span>
+      {event.toolName && (event.filePath || event.command) && (
+        <span
+          style={{
+            fontSize: 10,
+            color: "var(--ink-tertiary)",
+            fontFamily: "var(--font-mono)",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {event.toolName}
+        </span>
+      )}
+      <span
+        style={{
+          fontSize: 9.5,
+          color: "var(--ink-tertiary)",
+          fontFamily: "var(--font-mono)",
+          whiteSpace: "nowrap",
+        }}
+      >
+        {time}
+      </span>
+      {event.matchedBy.length > 0 && (
+        <MatchedByChips labels={event.matchedBy} matchKind={event.matchKind} />
+      )}
+      <span
+        style={{
+          fontSize: 9,
+          fontFamily: "var(--font-mono)",
+          textTransform: "uppercase",
+          letterSpacing: "0.05em",
+          padding: "1px 5px",
+          borderRadius: "var(--radius-xs)",
+          color: event.unfulfilled
+            ? "var(--warn, #b58900)"
+            : event.matchKind === "trigger"
+              ? "var(--primary-hover)"
+              : "var(--ink-tertiary)",
+          background: event.unfulfilled
+            ? "color-mix(in srgb, var(--warn, #b58900) 12%, transparent)"
+            : event.matchKind === "trigger"
+              ? "color-mix(in srgb, var(--primary) 18%, transparent)"
+              : "var(--s2)",
+        }}
+      >
+        {event.matchKind === "trigger"
+          ? event.unfulfilled
+            ? "trigger ⚠"
+            : "trigger"
+          : "expect"}
+      </span>
+    </button>
+  );
+}
+
+function MatchedByChips({
+  labels,
+  matchKind,
+}: {
+  labels: readonly RuleMatchedBy[];
+  matchKind: "trigger" | "expect-fulfilled";
+}) {
+  return (
+    <span style={{ display: "inline-flex", gap: 3 }}>
+      {labels.map((l) => (
+        <span
+          key={l}
+          title={
+            matchKind === "trigger"
+              ? "Matched a configured trigger phrase"
+              : `Matched the rule's ${l} condition`
+          }
+          style={{
+            fontSize: 9,
+            fontFamily: "var(--font-mono)",
+            color: "var(--ink-tertiary)",
+            padding: "1px 5px",
+            borderRadius: "var(--radius-xs)",
+            border: "1px solid var(--hair)",
+            background: "var(--canvas)",
+          }}
+        >
+          {labelShort(l)}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+function labelShort(l: RuleMatchedBy): string {
+  switch (l) {
+    case "action":
+      return "action";
+    case "commandMatch":
+      return "cmd";
+    case "pattern":
+      return "regex";
+    case "trigger-phrase":
+      return "phrase";
+  }
+}
+
+function pickIcon(ev: RuleEvidenceEvent): string {
+  if (ev.filePath) {
+    if (
+      ev.kind === "file.changed" ||
+      ev.toolName === "Edit" ||
+      ev.toolName === "Write"
+    ) {
+      return "✏️";
+    }
+    return "📖";
+  }
+  if (ev.command || ev.toolName === "Bash") return "▶";
+  if (ev.kind === "user.message") return "💬";
+  if (ev.kind === "assistant.response") return "🗨️";
+  if (ev.toolName === "WebFetch" || ev.toolName === "WebSearch") return "🌐";
+  return "•";
+}
+
+function formatTime(iso: string): string {
+  try {
+    const d = new Date(iso);
+    const hh = String(d.getHours()).padStart(2, "0");
+    const mm = String(d.getMinutes()).padStart(2, "0");
+    return `${hh}:${mm}`;
+  } catch {
+    return "";
+  }
 }
 
 interface ActionButtonProps {
@@ -309,6 +693,23 @@ function UpIcon() {
       strokeLinejoin="round"
     >
       <path d="M12 19V5M5 12l7-7 7 7" />
+    </svg>
+  );
+}
+
+function DownIcon() {
+  return (
+    <svg
+      width="13"
+      height="13"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M12 5v14M19 12l-7 7-7-7" />
     </svg>
   );
 }

@@ -9,6 +9,7 @@ import type {
 import {
   fetchAppSettings,
   fetchLatestGenerateRulesJob,
+  fetchRuleEvidence,
   fetchRules,
   fetchSearch,
   fetchTaskDetail,
@@ -17,6 +18,7 @@ import {
   fetchTasks,
   type AppSettingsListResponse,
   type GenerateRulesJobStatus,
+  type RuleEvidenceResponse,
 } from "~io/api.js";
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 
@@ -97,6 +99,30 @@ export function useTaskRulesQuery(
  * Pass an already-debounced query string from the call-site — see
  * `useDebouncedValue`.
  */
+export function useRuleEvidenceQuery(
+  taskId: TaskId | null,
+  ruleId: string | null,
+  options?: { readonly enabled?: boolean },
+): UseQueryResult<RuleEvidenceResponse> {
+  return useQuery({
+    queryKey:
+      taskId && ruleId
+        ? monitorQueryKeys.ruleEvidence(taskId, ruleId)
+        : monitorQueryKeys.ruleEvidence(
+            "__disabled__" as TaskId,
+            "__disabled__",
+          ),
+    queryFn: () => {
+      if (!taskId || !ruleId) {
+        throw new Error("useRuleEvidenceQuery called without taskId/ruleId");
+      }
+      return fetchRuleEvidence(taskId, ruleId);
+    },
+    enabled:
+      taskId !== null && ruleId !== null && (options?.enabled ?? true),
+  });
+}
+
 export function useAppSettingsQuery(): UseQueryResult<AppSettingsListResponse> {
   return useQuery({
     queryKey: monitorQueryKeys.settings(),
