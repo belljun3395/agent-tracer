@@ -1,10 +1,11 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Inject, Injectable, Logger } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
 import { TaskCleanupAgent } from "~adapters/llm/task.cleanup.agent.js";
 import type { CleanupTaskSnapshot } from "~adapters/llm/task.cleanup.prompt.js";
 import { APP_SETTING_KEYS } from "~governance/settings/domain/app.setting.keys.js";
 import { AppSettingService } from "~governance/settings/application/app.setting.service.js";
-import { TaskQueryService } from "~work/task/service/task.query.service.js";
+import type { ITaskSnapshotQuery } from "~work/task/public/iservice/task.snapshot.query.iservice.js";
+import { TASK_SNAPSHOT_QUERY } from "~work/task/public/tokens.js";
 import { TaskCleanupJobRepository } from "../repository/task.cleanup.job.repository.js";
 import { TaskCleanupSuggestionRepository } from "../repository/task.cleanup.suggestion.repository.js";
 import type { TaskCleanupJobEntity } from "../domain/task.cleanup.job.entity.js";
@@ -41,7 +42,8 @@ export class TaskCleanupService {
         private readonly jobs: TaskCleanupJobRepository,
         private readonly suggestions: TaskCleanupSuggestionRepository,
         private readonly settings: AppSettingService,
-        private readonly taskQuery: TaskQueryService,
+        @Inject(TASK_SNAPSHOT_QUERY)
+        private readonly taskQuery: ITaskSnapshotQuery,
         private readonly agent: TaskCleanupAgent,
     ) {}
 

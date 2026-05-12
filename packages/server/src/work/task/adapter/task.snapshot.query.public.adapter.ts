@@ -1,14 +1,19 @@
 import { Injectable } from "@nestjs/common";
 import { TaskQueryService } from "../service/task.query.service.js";
-import type { ITaskSnapshotQuery } from "../public/iservice/task.snapshot.query.iservice.js";
+import type {
+    ITaskSnapshotQuery,
+    TaskSnapshotArchivedScope,
+} from "../public/iservice/task.snapshot.query.iservice.js";
 import type { TaskSnapshot, TaskStatus } from "../public/dto/task.snapshot.dto.js";
 
 @Injectable()
 export class TaskSnapshotQueryPublicAdapter implements ITaskSnapshotQuery {
     constructor(private readonly query: TaskQueryService) {}
 
-    async findAll(): Promise<readonly TaskSnapshot[]> {
-        const tasks = await this.query.findAll();
+    async findAll(
+        scope: TaskSnapshotArchivedScope = "active",
+    ): Promise<readonly TaskSnapshot[]> {
+        const tasks = await this.query.findAll(scope);
         return tasks as readonly TaskSnapshot[];
     }
 

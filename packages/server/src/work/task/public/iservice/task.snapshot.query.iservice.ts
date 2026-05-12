@@ -5,8 +5,10 @@ import type { TaskSnapshot, TaskStatus } from "../dto/task.snapshot.dto.js";
  * and stats. Used by bootstrap (composition root) and not consumed by other
  * feature modules.
  */
+export type TaskSnapshotArchivedScope = "active" | "archived" | "all";
+
 export interface ITaskSnapshotQuery {
-    findAll(): Promise<readonly TaskSnapshot[]>;
+    findAll(scope?: TaskSnapshotArchivedScope): Promise<readonly TaskSnapshot[]>;
     listTaskStatuses(): Promise<readonly TaskStatus[]>;
     countTimelineEvents(): Promise<number>;
 }

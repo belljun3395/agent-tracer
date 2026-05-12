@@ -1,6 +1,9 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { Transactional } from "typeorm-transactional";
-import { TaskManagementService } from "~work/task/service/task.management.service.js";
+import { ArchiveTaskUseCase } from "~work/task/application/archive.task.usecase.js";
+import { LinkTaskUseCase } from "~work/task/application/link.task.usecase.js";
+import { ReslugTaskUseCase } from "~work/task/application/reslug.task.usecase.js";
+import { UpdateTaskUseCase } from "~work/task/application/update.task.usecase.js";
 import { TaskCleanupSuggestionRepository } from "../repository/task.cleanup.suggestion.repository.js";
 import type {
     AcceptCleanupSuggestionUseCaseIn,
@@ -13,7 +16,10 @@ export class AcceptCleanupSuggestionUseCase {
 
     constructor(
         private readonly suggestions: TaskCleanupSuggestionRepository,
-        private readonly management: TaskManagementService,
+        private readonly archiveTask: ArchiveTaskUseCase,
+        private readonly updateTask: UpdateTaskUseCase,
+        private readonly linkTask: LinkTaskUseCase,
+        private readonly reslugTask: ReslugTaskUseCase,
     ) {}
 
     @Transactional()
@@ -56,19 +62,16 @@ export class AcceptCleanupSuggestionUseCase {
         const proposed = row.proposedValue ? JSON.parse(row.proposedValue) : null;
         switch (row.kind) {
             case "archive": {
-                const result = await this.management.archive(row.taskId);
+                const result = await this.archiveTask.execute({ taskId: row.taskId });
                 if (result.status === "not_found") {
                     throw new Error("Task no longer exists");
-                }
-                if (result.status === "already_archived") {
-                    return;
                 }
                 return;
             }
             case "rename_title": {
                 const title = readStringField(proposed, "title");
                 if (!title) throw new Error("Missing proposed title");
-                const out = await this.management.update({
+                const out = await this.updateTask.execute({
                     taskId: row.taskId,
                     title,
                 });
@@ -81,7 +84,7 @@ export class AcceptCleanupSuggestionUseCase {
                 if (parentTaskId === row.taskId) {
                     throw new Error("Task cannot be its own parent");
                 }
-                await this.management.link({
+                await this.linkTask.execute({
                     taskId: row.taskId,
                     parentTaskId,
                 });
@@ -90,8 +93,13 @@ export class AcceptCleanupSuggestionUseCase {
             case "reslug": {
                 const slug = readStringField(proposed, "slug");
                 if (!slug) throw new Error("Missing proposed slug");
-                const out = await this.management.updateSlug(row.taskId, slug);
-                if (!out) throw new Error("Task no longer exists");
+                const out = await this.reslugTask.execute({
+                    taskId: row.taskId,
+                    slug,
+                });
+                if (out.status === "not_found") {
+                    throw new Error("Task no longer exists");
+                }
                 return;
             }
             default:

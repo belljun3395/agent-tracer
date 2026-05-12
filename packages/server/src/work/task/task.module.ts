@@ -7,6 +7,7 @@ import { TaskQueryController } from "./api/task.query.controller.js";
 import { ArchiveTaskUseCase } from "./application/archive.task.usecase.js";
 import { CompleteTaskUseCase } from "./application/complete.task.usecase.js";
 import { DeleteTaskUseCase } from "./application/delete.task.usecase.js";
+import { ReslugTaskUseCase } from "./application/reslug.task.usecase.js";
 import { UnarchiveTaskUseCase } from "./application/unarchive.task.usecase.js";
 import { ErrorTaskUseCase } from "./application/error.task.usecase.js";
 import { GetDefaultWorkspacePathUseCase } from "./application/get.default.workspace.path.usecase.js";
@@ -114,6 +115,7 @@ export class TaskModule {
                 DeleteTaskUseCase,
                 ArchiveTaskUseCase,
                 UnarchiveTaskUseCase,
+                ReslugTaskUseCase,
                 ListTasksUseCase,
                 GetTaskUseCase,
                 GetTaskTimelineUseCase,
@@ -142,6 +144,10 @@ export class TaskModule {
                 TASK_ACCESS,
                 TASK_SNAPSHOT_QUERY,
                 GetTaskSummaryUseCase,
+                ArchiveTaskUseCase,
+                UpdateTaskUseCase,
+                LinkTaskUseCase,
+                ReslugTaskUseCase,
             ],
         };
     }
