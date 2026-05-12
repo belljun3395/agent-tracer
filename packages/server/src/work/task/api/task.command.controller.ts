@@ -15,6 +15,10 @@ import { pathParamPipe } from "~adapters/http/shared/path-param.pipe.js";
 import { ZodValidationPipe } from "~adapters/http/shared/zod-validation.pipe.js";
 import { ArchiveTaskUseCase } from "../application/archive.task.usecase.js";
 import { DeleteTaskUseCase } from "../application/delete.task.usecase.js";
+import {
+    MissingApiKeyError,
+    SuggestTaskTitleUseCase,
+} from "../application/suggest.task.title.usecase.js";
 import { UnarchiveTaskUseCase } from "../application/unarchive.task.usecase.js";
 import { UpdateTaskUseCase } from "../application/update.task.usecase.js";
 import type { UpdateTaskUseCaseIn } from "../application/dto/update.task.usecase.dto.js";
@@ -27,6 +31,7 @@ export class TaskCommandController {
         private readonly deleteTask: DeleteTaskUseCase,
         private readonly archiveTask: ArchiveTaskUseCase,
         private readonly unarchiveTask: UnarchiveTaskUseCase,
+        private readonly suggestTitle: SuggestTaskTitleUseCase,
     ) {}
 
     @Patch(":taskId")
@@ -74,5 +79,33 @@ export class TaskCommandController {
             throw new BadRequestException("Task is not archived");
         }
         return { unarchived: true, unarchivedIds: result.unarchivedIds };
+    }
+
+    @Post(":taskId/suggest-title")
+    @HttpCode(HttpStatus.OK)
+    async suggestTitleEndpoint(
+        @Param("taskId", pathParamPipe) taskId: string,
+    ) {
+        try {
+            const result = await this.suggestTitle.execute({ taskId });
+            if (result.status === "not_found") {
+                throw new NotFoundException("Task not found");
+            }
+            if (result.status === "no_events") {
+                throw new BadRequestException(
+                    "Task has no events yet — nothing to summarize for a rename.",
+                );
+            }
+            return {
+                suggestions: result.suggestions ?? [],
+                modelUsed: result.modelUsed,
+                durationMs: result.durationMs,
+            };
+        } catch (err) {
+            if (err instanceof MissingApiKeyError) {
+                throw new BadRequestException(err.message);
+            }
+            throw err;
+        }
     }
 }

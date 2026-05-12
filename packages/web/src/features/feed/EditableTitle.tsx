@@ -5,7 +5,11 @@ import {
   type KeyboardEvent,
 } from "react";
 import type { MonitoringTask } from "~domain/monitoring.js";
-import { useUpdateTaskMutation } from "~state/server/mutations.js";
+import type { TitleSuggestion } from "~io/api.js";
+import {
+  useSuggestTaskTitleMutation,
+  useUpdateTaskMutation,
+} from "~state/server/mutations.js";
 import { Tooltip } from "~ui/index.js";
 
 interface EditableTitleProps {
@@ -24,10 +28,36 @@ interface EditableTitleProps {
  */
 export function EditableTitle({ task }: EditableTitleProps) {
   const mutation = useUpdateTaskMutation();
+  const suggestMutation = useSuggestTaskTitleMutation();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [suggestions, setSuggestions] = useState<readonly TitleSuggestion[]>([]);
+  const [suggestError, setSuggestError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const current = task.displayTitle ?? task.title;
+
+  const handleSuggest = () => {
+    setSuggestError(null);
+    setShowSuggestions(true);
+    suggestMutation.mutate(task.id, {
+      onSuccess: (data) => setSuggestions(data.suggestions),
+      onError: (err: unknown) =>
+        setSuggestError(err instanceof Error ? err.message : String(err)),
+    });
+  };
+
+  const applySuggestion = (title: string) => {
+    mutation.mutate(
+      { taskId: task.id, body: { title } },
+      {
+        onSettled: () => {
+          setShowSuggestions(false);
+          setSuggestions([]);
+        },
+      },
+    );
+  };
 
   useEffect(() => {
     if (editing) {
@@ -103,56 +133,242 @@ export function EditableTitle({ task }: EditableTitleProps) {
   }
 
   return (
-    <Tooltip content="Click to rename" side="bottom">
-      <h1
-        className="flex-1 min-w-0 group cursor-pointer rounded-[var(--radius-sm)] hover:bg-[var(--s1)]"
+    <div className="flex-1 min-w-0" style={{ position: "relative" }}>
+      <Tooltip content="Click to rename" side="bottom">
+        <h1
+          className="group cursor-pointer rounded-[var(--radius-sm)] hover:bg-[var(--s1)]"
+          style={{
+            ...titleStyle,
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            padding: "2px 6px",
+            margin: "-2px -6px",
+            transition: "background 120ms",
+          }}
+          onClick={startEditing}
+          // Keyboard parity — Tab to the heading, Enter/Space to edit.
+          tabIndex={0}
+          role="button"
+          aria-label={`Edit task title: ${current}`}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              startEditing();
+            }
+          }}
+        >
+          <span
+            className="group-hover:underline"
+            style={{
+              minWidth: 0,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              textUnderlineOffset: 3,
+              textDecorationColor: "var(--hair-strong)",
+            }}
+          >
+            {current}
+          </span>
+          <span
+            aria-hidden
+            style={{
+              opacity: 0.55,
+              color: "var(--ink-tertiary)",
+              transition: "opacity 150ms",
+            }}
+            className="group-hover:opacity-100"
+          >
+            <PencilIcon />
+          </span>
+          <Tooltip content="Suggest a better title with Claude" side="top">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleSuggest();
+              }}
+              aria-label="Suggest title"
+              disabled={suggestMutation.isPending}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                height: 22,
+                width: 22,
+                marginLeft: 2,
+                borderRadius: "var(--radius-xs)",
+                border: "1px solid var(--hair)",
+                background: "transparent",
+                color: "var(--ink-tertiary)",
+                cursor: suggestMutation.isPending ? "wait" : "pointer",
+                opacity: 0.55,
+                transition: "opacity 150ms",
+              }}
+              className="group-hover:opacity-100 hover:!opacity-100"
+            >
+              <SparkleIcon spinning={suggestMutation.isPending} />
+            </button>
+          </Tooltip>
+        </h1>
+      </Tooltip>
+      {showSuggestions && (
+        <SuggestionsPopover
+          loading={suggestMutation.isPending}
+          error={suggestError}
+          suggestions={suggestions}
+          currentTitle={current}
+          onApply={applySuggestion}
+          onClose={() => {
+            setShowSuggestions(false);
+            setSuggestions([]);
+            setSuggestError(null);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function SuggestionsPopover({
+  loading,
+  error,
+  suggestions,
+  currentTitle,
+  onApply,
+  onClose,
+}: {
+  readonly loading: boolean;
+  readonly error: string | null;
+  readonly suggestions: readonly TitleSuggestion[];
+  readonly currentTitle: string;
+  readonly onApply: (title: string) => void;
+  readonly onClose: () => void;
+}) {
+  return (
+    <div
+      role="dialog"
+      aria-label="Title suggestions"
+      style={{
+        position: "absolute",
+        top: "100%",
+        left: 0,
+        marginTop: 8,
+        zIndex: 20,
+        maxWidth: 520,
+        minWidth: 320,
+        background: "var(--s1)",
+        border: "1px solid var(--hair)",
+        borderRadius: "var(--radius-sm)",
+        boxShadow: "0 12px 32px -8px rgba(0,0,0,0.45)",
+        padding: 10,
+      }}
+    >
+      <div
         style={{
-          ...titleStyle,
           display: "flex",
           alignItems: "center",
-          gap: 6,
-          padding: "2px 6px",
-          margin: "-2px -6px",
-          transition: "background 120ms",
-        }}
-        onClick={startEditing}
-        // Keyboard parity — Tab to the heading, Enter/Space to edit.
-        tabIndex={0}
-        role="button"
-        aria-label={`Edit task title: ${current}`}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            startEditing();
-          }
+          justifyContent: "space-between",
+          marginBottom: 6,
         }}
       >
         <span
-          className="group-hover:underline"
           style={{
-            minWidth: 0,
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-            textUnderlineOffset: 3,
-            textDecorationColor: "var(--hair-strong)",
-          }}
-        >
-          {current}
-        </span>
-        <span
-          aria-hidden
-          style={{
-            opacity: 0.55,
+            fontSize: 11,
             color: "var(--ink-tertiary)",
-            transition: "opacity 150ms",
+            textTransform: "uppercase",
+            letterSpacing: "0.04em",
           }}
-          className="group-hover:opacity-100"
         >
-          <PencilIcon />
+          Suggested titles
         </span>
-      </h1>
-    </Tooltip>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close"
+          style={{
+            background: "transparent",
+            border: "none",
+            color: "var(--ink-tertiary)",
+            cursor: "pointer",
+            fontSize: 14,
+            lineHeight: 1,
+          }}
+        >
+          ×
+        </button>
+      </div>
+      {loading && (
+        <p style={{ margin: 0, fontSize: 12, color: "var(--ink-subtle)" }}>
+          Claude is reading the task summary…
+        </p>
+      )}
+      {error && (
+        <p
+          style={{
+            margin: 0,
+            fontSize: 12,
+            color: "var(--err)",
+            overflowWrap: "anywhere",
+          }}
+        >
+          {error}
+        </p>
+      )}
+      {!loading && !error && suggestions.length === 0 && (
+        <p style={{ margin: 0, fontSize: 12, color: "var(--ink-subtle)" }}>
+          The current title looks fine — Claude has no rename to suggest.
+        </p>
+      )}
+      <ul
+        style={{
+          listStyle: "none",
+          padding: 0,
+          margin: 0,
+          display: "grid",
+          gap: 6,
+        }}
+      >
+        {suggestions.map((s, i) => (
+          <li key={`${i}-${s.title}`} style={{ minWidth: 0 }}>
+            <button
+              type="button"
+              onClick={() => onApply(s.title)}
+              disabled={s.title === currentTitle}
+              style={{
+                display: "block",
+                width: "100%",
+                textAlign: "left",
+                padding: "6px 8px",
+                borderRadius: "var(--radius-xs)",
+                border: "1px solid var(--hair)",
+                background: "var(--s2)",
+                color: "var(--ink)",
+                cursor: s.title === currentTitle ? "default" : "pointer",
+                fontSize: 12.5,
+                fontWeight: 500,
+                lineHeight: 1.35,
+                overflowWrap: "anywhere",
+              }}
+            >
+              <div>{s.title}</div>
+              <div
+                style={{
+                  fontSize: 11,
+                  fontWeight: 400,
+                  color: "var(--ink-tertiary)",
+                  marginTop: 2,
+                  lineHeight: 1.4,
+                }}
+              >
+                {s.rationale}
+              </div>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
@@ -169,6 +385,29 @@ function PencilIcon() {
       strokeLinejoin="round"
     >
       <path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z" />
+    </svg>
+  );
+}
+
+function SparkleIcon({ spinning }: { readonly spinning: boolean }) {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      style={
+        spinning
+          ? { animation: "spin 0.9s linear infinite" }
+          : undefined
+      }
+    >
+      <path d="M5 4l2 4 4 2-4 2-2 4-2-4-4-2 4-2zM17 13l1 2 2 1-2 1-1 2-1-2-2-1 2-1z" />
     </svg>
   );
 }

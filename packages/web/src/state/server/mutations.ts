@@ -19,6 +19,7 @@ import {
   promoteRule,
   putAppSetting,
   reEvaluateRule,
+  suggestTaskTitle,
   unarchiveTask,
   updateRule,
   updateTask,
@@ -375,5 +376,11 @@ export function useDismissCleanupSuggestionMutation() {
         queryKey: monitorQueryKeys.taskCleanupSuggestionsPrefix(),
       });
     },
+  });
+}
+
+export function useSuggestTaskTitleMutation() {
+  return useMutation({
+    mutationFn: (taskId: TaskId) => suggestTaskTitle(taskId),
   });
 }

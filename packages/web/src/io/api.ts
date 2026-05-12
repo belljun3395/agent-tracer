@@ -365,6 +365,25 @@ export function unarchiveTask(taskId: TaskId): Promise<UnarchiveTaskResponse> {
   );
 }
 
+export interface TitleSuggestion {
+  readonly title: string;
+  readonly rationale: string;
+}
+
+export interface SuggestTitleResponse {
+  readonly suggestions: readonly TitleSuggestion[];
+  readonly modelUsed?: string;
+  readonly durationMs?: number;
+}
+
+export function suggestTaskTitle(
+  taskId: TaskId,
+): Promise<SuggestTitleResponse> {
+  return postJson<SuggestTitleResponse>(
+    `/api/v1/tasks/${taskId}/suggest-title`,
+  );
+}
+
 export interface UpdateTaskBody {
   readonly title?: string;
   readonly status?: "running" | "waiting" | "completed" | "errored";
