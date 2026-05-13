@@ -5,6 +5,22 @@ This repository ships a Claude Code plugin-based event collection path and a
 Codex bootstrap path based on official hooks.
 The server and MCP layers are also open to manual HTTP/MCP clients.
 
+## Preview
+
+A ~60s walkthrough of the dashboard driven by a synthetic "fix the flaky
+cart-tax test" run. The same mock task is used for every screenshot below
+so the visuals stay deterministic — no real agent traffic or PII.
+
+![Agent Tracer dashboard walkthrough](docs/assets/preview/demo.gif)
+
+| Capture | What it shows |
+|---------|---------------|
+| ![Feed view](docs/assets/preview/dashboard-overview.png) | **Feed view.** Per-task timeline of agent activity classified into lanes — `USER` prompts/replies, `PLAN` thoughts, `IMPL` edits, `RULE` terminal commands (e.g. `npm test`, `npm run lint`), `VERI` verification results. Top bar carries task status, workspace path, `Recipes` / `Rules` shortcuts, and the live WebSocket pill. |
+| ![Graph swimlane](docs/assets/preview/feed-graph.png) | **Graph view.** Same events laid out as a zoomable swimlane (one lane per kind) so causal flow between user prompts, planning, exploration, implementation and rule checks reads at a glance. Lane chips toggle visibility; the legend explains node/edge semantics (rule violations, explicit-parent vs cross-lane causal edges, PreCompact markers). |
+| ![Inspector](docs/assets/preview/inspector.png) | **Inspector.** Click any node and the right panel shows its full payload — kind, sequence, timestamp, body, file paths and metadata. The `Inspect / Rules / Trace` tabs surface event-level rule matches and the runtime trace lineage for the selected step. |
+
+To regenerate these assets see [docs/assets/preview/README.md](docs/assets/preview/README.md).
+
 ## Quick Start
 
 Agent Tracer currently supports:
