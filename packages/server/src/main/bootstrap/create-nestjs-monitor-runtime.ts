@@ -3,7 +3,7 @@ import { initializeTransactionalContext } from "typeorm-transactional";
 import type http from "node:http";
 import type express from "express";
 import { NestFactory } from "@nestjs/core";
-import { WebSocketServer } from "ws";
+import { WebSocketServer, type WebSocket } from "ws";
 
 initializeTransactionalContext();
 import { AppModule } from "../presentation/app.module.js";
@@ -59,6 +59,13 @@ export async function createNestMonitorRuntime(options: RuntimeOptions): Promise
     const taskSnapshots = nestApp.get<ITaskSnapshotQuery>(TASK_SNAPSHOT_QUERY);
     wss.on("connection", (ws) => {
         broadcaster.addClient(ws);
+        // Heartbeat liveness: ws does NOT auto-detect dead peers, so a client
+        // that vanishes without a clean close (laptop sleep, Wi-Fi drop) would
+        // otherwise linger in the registry forever. The interval below pings
+        // and reaps any socket that missed the previous pong.
+        const tracked = ws as WebSocket & { isAlive?: boolean };
+        tracked.isAlive = true;
+        ws.on("pong", () => { tracked.isAlive = true; });
         ws.on("close", () => broadcaster.removeClient(ws));
         // A ws socket that emits 'error' with no listener throws and crashes the
         // whole process (taking ingest down with it). Drop the client instead.
@@ -75,6 +82,23 @@ export async function createNestMonitorRuntime(options: RuntimeOptions): Promise
                 broadcaster.drop(ws);
             });
     });
+    const HEARTBEAT_MS = 30_000;
+    const heartbeat = setInterval(() => {
+        for (const client of broadcaster.connections) {
+            const tracked = client as WebSocket & { isAlive?: boolean };
+            if (tracked.isAlive === false) {
+                broadcaster.drop(client);
+                continue;
+            }
+            tracked.isAlive = false;
+            try {
+                client.ping();
+            } catch {
+                broadcaster.drop(client);
+            }
+        }
+    }, HEARTBEAT_MS);
+    heartbeat.unref();
     await nestApp.init();
     const taskLifecycle = nestApp.get<ITaskLifecycle>(TASK_LIFECYCLE);
     await reapStuckServerSdkTasks(taskSnapshots, taskLifecycle);
@@ -83,6 +107,7 @@ export async function createNestMonitorRuntime(options: RuntimeOptions): Promise
         server,
         wss,
         close: async () => {
+            clearInterval(heartbeat);
             await nestApp.close();
             await new Promise<void>((resolve) => {
                 wss.close(() => resolve());
