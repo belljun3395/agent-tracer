@@ -70,14 +70,20 @@ export class TaskRepository {
     }
 
     /**
-     * Tasks stuck in `running` with no recent updates. Used by the stale-task
-     * reaper to clean up after force-killed runtimes that never sent the
-     * SessionEnd hook.
+     * Generic — caller (domain/service) supplies which statuses are stale-eligible
+     * and the cutoff. Repository doesn't decide what counts as "running" / reapable.
+     * Used by the stale-task reaper to clean up after force-killed runtimes that
+     * never sent the SessionEnd hook.
      */
-    async findRunningOlderThan(thresholdIso: string, limit: number): Promise<readonly TaskEntity[]> {
+    async findByStatusesUpdatedBefore(
+        statuses: readonly TaskStatus[],
+        thresholdIso: string,
+        limit: number,
+    ): Promise<readonly TaskEntity[]> {
+        if (statuses.length === 0) return [];
         return this.repo
             .createQueryBuilder("t")
-            .where("t.status = :status", { status: "running" })
+            .where("t.status IN (:...statuses)", { statuses: [...statuses] })
             .andWhere("t.updated_at < :threshold", { threshold: thresholdIso })
             .orderBy("t.updated_at", "ASC")
             .limit(limit)

@@ -8,12 +8,17 @@ import {
 import { CLOCK_PORT, SESSION_ACCESS_PORT } from "../application/outbound/tokens.js";
 import type { IClock } from "../application/outbound/clock.port.js";
 import type { ISessionAccess } from "../application/outbound/session.access.port.js";
+import type { TaskStatus } from "../common/task.status.type.js";
 import { TaskRepository } from "../repository/task.repository.js";
 import { TaskLifecycleService } from "./task.lifecycle.service.js";
 
 const POLL_INTERVAL_MS = 60_000;
 const STALE_TTL_MS = 30 * 60_000;
 const BATCH_SIZE = 32;
+
+// Domain policy: which statuses are reap-eligible. `waiting` is intentionally
+// excluded (a valid steady state). Owned here, not baked into the repository.
+const REAPABLE_STATUSES: readonly TaskStatus[] = ["running"];
 
 /**
  * Finalizes tasks stuck in `running` with no active session. Covers cases
@@ -72,7 +77,7 @@ export class StaleTaskReaperService implements OnApplicationBootstrap, OnApplica
         this.running = true;
         try {
             const thresholdIso = new Date(this.clock.nowMs() - STALE_TTL_MS).toISOString();
-            const candidates = await this.tasks.findRunningOlderThan(thresholdIso, BATCH_SIZE);
+            const candidates = await this.tasks.findByStatusesUpdatedBefore(REAPABLE_STATUSES, thresholdIso, BATCH_SIZE);
             for (const task of candidates) {
                 // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- mutated by onApplicationShutdown
                 if (this.shuttingDown) break;

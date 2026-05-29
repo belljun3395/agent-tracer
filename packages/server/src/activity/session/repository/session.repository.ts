@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
+import type { SessionStatus } from "../public/dto/session.snapshot.dto.js";
 import { SessionEntity } from "../domain/session.entity.js";
 
 @Injectable()
@@ -21,15 +22,17 @@ export class SessionRepository {
         });
     }
 
-    async findActiveByTaskId(taskId: string): Promise<SessionEntity | null> {
+    // Generic — caller supplies the status. Repository doesn't decide which
+    // status counts as "active" / "running"; the service owns that.
+    async findLatestByTaskIdAndStatus(taskId: string, status: SessionStatus): Promise<SessionEntity | null> {
         return this.repo.findOne({
-            where: { taskId, status: "running" },
+            where: { taskId, status },
             order: { startedAt: "DESC" },
         });
     }
 
-    async countRunningByTaskId(taskId: string): Promise<number> {
-        return this.repo.count({ where: { taskId, status: "running" } });
+    async countByTaskIdAndStatus(taskId: string, status: SessionStatus): Promise<number> {
+        return this.repo.count({ where: { taskId, status } });
     }
 
     async save(entity: SessionEntity): Promise<SessionEntity> {
