@@ -1,6 +1,5 @@
 import { Module, type DynamicModule } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
-import { RecipeScanAgent } from "~adapters/llm/recipe.scan.agent.js";
 import { RecipeScanController } from "./api/recipe.scan.controller.js";
 import { AcceptRecipeCandidateUseCase } from "./application/accept.recipe.candidate.usecase.js";
 import { DismissRecipeCandidateUseCase } from "./application/dismiss.recipe.candidate.usecase.js";
@@ -46,7 +45,6 @@ export class RecipeModule {
                 FileAffinityRepository,
                 RecipeScanService,
                 RecipeScanWorker,
-                RecipeScanAgent,
                 RecipeMatchingService,
                 ListRecipeCandidatesUseCase,
                 AcceptRecipeCandidateUseCase,

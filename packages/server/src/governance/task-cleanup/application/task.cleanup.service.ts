@@ -58,7 +58,7 @@ export class TaskCleanupService {
         }
 
         const apiKey = await this.settings.getAnthropicApiKey();
-        if (!apiKey) {
+        if (this.agent.requiresLocalApiKey() && !apiKey) {
             throw new MissingApiKeyError();
         }
 
@@ -96,7 +96,7 @@ export class TaskCleanupService {
         });
         try {
             const apiKey = await this.settings.getAnthropicApiKey();
-            if (!apiKey) throw new MissingApiKeyError();
+            if (this.agent.requiresLocalApiKey() && !apiKey) throw new MissingApiKeyError();
 
             const modelOverride = await this.settings.getAnthropicModel();
             const maxRaw = await this.settings.getRawValue(
@@ -121,7 +121,7 @@ export class TaskCleanupService {
             }));
 
             const output = await this.agent.generate({
-                apiKey,
+                ...(apiKey ? { apiKey } : {}),
                 ...(modelOverride ? { model: modelOverride } : {}),
                 tasks: snapshots,
                 maxSuggestions,

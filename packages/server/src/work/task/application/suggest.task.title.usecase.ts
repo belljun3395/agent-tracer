@@ -50,7 +50,7 @@ export class SuggestTaskTitleUseCase {
         if (summary.eventCount === 0) return { status: "no_events" };
 
         const apiKey = await this.settings.getAnthropicApiKey();
-        if (!apiKey) throw new MissingApiKeyError();
+        if (this.agent.requiresLocalApiKey() && !apiKey) throw new MissingApiKeyError();
         const modelOverride = await this.settings.getAnthropicModel();
         const languageRaw = await this.settings.getRawValue(
             APP_SETTING_KEYS.claudeOutputLanguage,
@@ -68,7 +68,7 @@ export class SuggestTaskTitleUseCase {
 
         try {
             const output = await this.agent.generate({
-                apiKey,
+                ...(apiKey ? { apiKey } : {}),
                 ...(modelOverride ? { model: modelOverride } : {}),
                 summary,
                 language,

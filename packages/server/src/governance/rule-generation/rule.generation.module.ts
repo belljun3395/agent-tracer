@@ -1,6 +1,5 @@
 import { Module, type DynamicModule } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
-import { RuleSuggestionAgent } from "~adapters/llm/rule.suggestion.agent.js";
 import { TaskRuleGenerationController } from "./api/task.rule.generation.controller.js";
 import { TaskRuleGenerationService } from "./application/task.rule.generation.service.js";
 import { TaskRuleGenerationWorker } from "./application/task.rule.generation.worker.js";
@@ -22,7 +21,6 @@ export class RuleGenerationModule {
                 TaskRuleGenerationJobRepository,
                 TaskRuleGenerationService,
                 TaskRuleGenerationWorker,
-                RuleSuggestionAgent,
             ],
             exports: [TaskRuleGenerationService],
         };

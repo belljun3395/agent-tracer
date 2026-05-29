@@ -1,6 +1,5 @@
 import { Module, type DynamicModule } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
-import { TaskCleanupAgent } from "~adapters/llm/task.cleanup.agent.js";
 import { TaskCleanupController } from "./api/task.cleanup.controller.js";
 import { AcceptCleanupSuggestionUseCase } from "./application/accept.cleanup.suggestion.usecase.js";
 import { DismissCleanupSuggestionUseCase } from "./application/dismiss.cleanup.suggestion.usecase.js";
@@ -31,7 +30,6 @@ export class TaskCleanupModule {
                 TaskCleanupSuggestionRepository,
                 TaskCleanupService,
                 TaskCleanupWorker,
-                TaskCleanupAgent,
                 ListCleanupSuggestionsUseCase,
                 AcceptCleanupSuggestionUseCase,
                 DismissCleanupSuggestionUseCase,

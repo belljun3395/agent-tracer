@@ -1,7 +1,6 @@
-import { Injectable } from "@nestjs/common";
-import { query } from "@anthropic-ai/claude-agent-sdk";
-import { createAgentDeadline } from "./agent.deadline.js";
+import { Inject, Injectable } from "@nestjs/common";
 import type { TaskSummaryUseCaseDto } from "~work/task/application/dto/get.task.summary.usecase.dto.js";
+import { QUERY_RUNNER, type IQueryRunner } from "./query.runner.port.js";
 import {
     buildSystemPrompt,
     buildUserPrompt,
@@ -17,7 +16,8 @@ const DEFAULT_MAX_TURNS = 8;
 const DEFAULT_MODEL = "claude-sonnet-4-6";
 
 export interface GenerateRuleSuggestionsInput {
-    readonly apiKey: string;
+    /** Optional: omitted when a remote runner runs the SDK with its own local key. */
+    readonly apiKey?: string;
     readonly model?: string;
     readonly summary: TaskSummaryUseCaseDto;
     readonly existingRuleNames: readonly string[];
@@ -34,6 +34,14 @@ export interface GenerateRuleSuggestionsOutput {
 
 @Injectable()
 export class RuleSuggestionAgent {
+    constructor(
+        @Inject(QUERY_RUNNER) private readonly queryRunner: IQueryRunner,
+    ) {}
+
+    requiresLocalApiKey(): boolean {
+        return this.queryRunner.requiresLocalApiKey();
+    }
+
     async generate(
         input: GenerateRuleSuggestionsInput,
     ): Promise<GenerateRuleSuggestionsOutput> {
@@ -45,66 +53,27 @@ export class RuleSuggestionAgent {
             input.existingRuleNames,
             input.maxRules,
         );
-        const cwd = input.summary.workspacePath || process.cwd();
+        const cwd = input.summary.workspacePath;
 
         const generatedTitle = buildGeneratedTaskTitle(input.summary.title);
         const env: Record<string, string | undefined> = {
-            ...process.env,
-            ANTHROPIC_API_KEY: input.apiKey,
+            ...(input.apiKey ? { ANTHROPIC_API_KEY: input.apiKey } : {}),
             MONITOR_TASK_TITLE: generatedTitle,
             MONITOR_TASK_ORIGIN: "server-sdk",
         };
 
-        const startedAt = Date.now();
-        let collected = "";
-        let resultText = "";
-        let errorSummary: string | null = null;
-
         // Tool-using, up to 8 turns over the workspace; allow 300s before abort.
-        const deadline = createAgentDeadline(300_000);
-        const q = query({
+        const { rawOutput, durationMs, errorSummary } = await this.queryRunner.run({
+            label: "rule-suggestion",
             prompt: userPrompt,
-            options: {
-                abortController: deadline.controller,
-                cwd,
-                model,
-                allowedTools: ALLOWED_TOOLS,
-                tools: ALLOWED_TOOLS,
-                maxTurns: DEFAULT_MAX_TURNS,
-                systemPrompt,
-                env,
-                permissionMode: "bypassPermissions",
-                strictMcpConfig: true,
-                includePartialMessages: false,
-            },
+            systemPrompt,
+            allowedTools: ALLOWED_TOOLS,
+            ...(cwd ? { cwd } : {}),
+            model,
+            maxTurns: DEFAULT_MAX_TURNS,
+            deadlineMs: 300_000,
+            env,
         });
-
-        for await (const msg of q) {
-            if (msg.type === "assistant") {
-                for (const block of msg.message.content) {
-                    if (block.type === "text") {
-                        collected += block.text;
-                    }
-                }
-                continue;
-            }
-            if (msg.type === "result") {
-                if (msg.subtype === "success") {
-                    resultText = msg.result;
-                } else {
-                    errorSummary = `${msg.subtype}${
-                        msg.errors.length > 0
-                            ? `: ${msg.errors.join("; ")}`
-                            : ""
-                    }`;
-                }
-                break;
-            }
-        }
-
-        deadline.dispose();
-        const durationMs = Date.now() - startedAt;
-        const rawOutput = resultText || collected;
 
         if (errorSummary || !rawOutput) {
             throw new RuleSuggestionAgentError(
