@@ -10,6 +10,7 @@ import {
     cleanupSuggestionsListSchema,
     type CleanupSuggestion,
 } from "./task.cleanup.zod.js";
+import { parseJsonStrict } from "./parse.json.js";
 
 // Cleanup is a single-shot "analyze this list and emit JSON" task — no
 // filesystem context needed. Keeping tools enabled (and an 8-turn budget)
@@ -115,22 +116,5 @@ export class TaskCleanupAgentError extends Error {
     ) {
         super(message);
         this.name = "TaskCleanupAgentError";
-    }
-}
-
-function parseJsonStrict(raw: string): unknown {
-    const trimmed = raw.trim();
-    try {
-        return JSON.parse(trimmed);
-    } catch {
-        const fenceMatch = trimmed.match(/```(?:json)?\s*([\s\S]+?)\s*```/);
-        if (fenceMatch && fenceMatch[1]) {
-            try {
-                return JSON.parse(fenceMatch[1]);
-            } catch {
-                return null;
-            }
-        }
-        return null;
     }
 }
