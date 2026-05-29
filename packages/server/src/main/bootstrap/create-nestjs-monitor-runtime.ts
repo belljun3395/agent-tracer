@@ -1,6 +1,5 @@
 import "reflect-metadata";
 import { initializeTransactionalContext } from "typeorm-transactional";
-import type http from "node:http";
 import type express from "express";
 import { NestFactory } from "@nestjs/core";
 import type { NestExpressApplication } from "@nestjs/platform-express";
@@ -40,7 +39,7 @@ export async function createNestMonitorRuntime(options: RuntimeOptions): Promise
     nestApp.useBodyParser("urlencoded", { limit: "8mb", extended: true });
     const app = nestApp.getHttpAdapter().getInstance() as ReturnType<typeof express>;
     configureTrustedProxy(app);
-    const server = nestApp.getHttpServer() as http.Server;
+    const server = nestApp.getHttpServer();
     // Clients only ever send tiny control frames; cap inbound payloads far below
     // ws's 100 MiB default so a single oversized frame can't exhaust memory.
     const wss = new WebSocketServer({ noServer: true, maxPayload: 1 * 1024 * 1024 });
