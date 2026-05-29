@@ -25,9 +25,12 @@ export interface TypeOrmDatabaseModuleOptions {
 
 /**
  * TypeORM DataSource for module entities (subscribers, write-side projections).
- * Coexists with the raw better-sqlite3 client (SQLITE_DATABASE_CONTEXT_TOKEN)
- * on the same .db file. SQLite WAL mode (configured below) handles concurrent
- * connections; modules must not write to the same tables from both stacks.
+ * There is exactly ONE better-sqlite3 connection: the driver is fully
+ * synchronous and serializes every statement on the Node event loop. WAL mode
+ * (configured below) buys crash-durability and reduced fsync — NOT in-process
+ * reader/writer parallelism, since a single connection cannot run concurrently
+ * with itself. This is a single-instance, single-writer design; see
+ * docs/runtime-server-technical-review for the scaling boundary.
  *
  * The DataSource is registered with `typeorm-transactional` so any
  * `@Transactional()` method or `runInTransaction()` call automatically
@@ -104,6 +107,15 @@ export class TypeOrmDatabaseModule {
 async function applySqlitePragmas(dataSource: DataSource): Promise<void> {
     await dataSource.query("PRAGMA journal_mode = WAL");
     await dataSource.query("PRAGMA synchronous = NORMAL");
+    // Make the wait-on-lock window explicit rather than relying on the driver's
+    // implicit 5000ms default. A writer that meets a held lock waits up to this
+    // long instead of failing instantly with SQLITE_BUSY. Note: this does NOT
+    // cover write-after-read upgrades (SQLITE_BUSY_SNAPSHOT is returned
+    // immediately) — write paths should begin with an immediate transaction.
+    await dataSource.query("PRAGMA busy_timeout = 5000");
+    // Bound WAL growth: checkpoint roughly every 1000 pages (~4MB) so the -wal
+    // sidecar cannot grow without bound under sustained writes.
+    await dataSource.query("PRAGMA wal_autocheckpoint = 1000");
     await dataSource.query("PRAGMA cache_size = -65536");
     await dataSource.query("PRAGMA mmap_size = 268435456");
     await dataSource.query("PRAGMA temp_store = MEMORY");
