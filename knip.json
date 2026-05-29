@@ -17,6 +17,8 @@
     "scripts/seed-preview.mjs",
     "scripts/record-preview-demo.mjs",
     "scripts/snapshot-preview.mjs",
+    "packages/runtime/build.ts",
+    "packages/runtime/build/hook-discovery.ts",
     "packages/server/src/activity/event/domain/event.phase.ts",
     "packages/server/src/activity/event/domain/model/event.phase.model.ts",
     "packages/server/src/activity/event/domain/runtime/type/metadata.keys.type.ts",

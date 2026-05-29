@@ -239,7 +239,12 @@ export default tseslint.config(
       "**/node_modules/**",
       "**/*.d.ts",
       "**/*.d.ts.map",
-      "**/*.js.map"
+      "**/*.js.map",
+      // Standalone runtime build script — invoked directly (bun/tsx build.ts),
+      // not part of the TS project (outside tsconfig include), so the
+      // typed-lint project service can't resolve it.
+      "packages/runtime/build.ts",
+      "packages/runtime/build/**"
     ]
   },
 
