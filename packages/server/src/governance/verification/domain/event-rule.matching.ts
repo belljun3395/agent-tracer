@@ -6,6 +6,28 @@ import { inferToolCall } from "./tool-call.inference.js";
 
 export type RuleEventMatchKind = "trigger" | "expect-fulfilled";
 
+// Compile each user-supplied pattern once instead of per event×rule, and bound
+// the matched input length so a pathological pattern can't backtrack
+// catastrophically (ReDoS) over a long command/path. A non-global RegExp is
+// safe to cache and reuse via test() (no lastIndex state).
+const MAX_PATTERN_TARGET_LEN = 4096;
+const compiledPatternCache = new Map<string, RegExp | null>();
+
+function compilePattern(pattern: string): RegExp | null {
+    const cached = compiledPatternCache.get(pattern);
+    if (cached !== undefined) return cached;
+    let compiled: RegExp | null;
+    try {
+        compiled = new RegExp(pattern);
+    } catch {
+        compiled = null;
+    }
+    // Bound the cache so a flood of distinct (e.g. invalid) patterns can't grow it.
+    if (compiledPatternCache.size > 500) compiledPatternCache.clear();
+    compiledPatternCache.set(pattern, compiled);
+    return compiled;
+}
+
 /**
  * Returns the match kind(s) under which `event` matches `rule`. An event can
  * match both trigger and expect when a single recorded event satisfies both
@@ -53,13 +75,10 @@ function expectMatchesEvent(event: TimelineEvent, rule: Rule): boolean {
         if (!rule.expect.commandMatches.some((m) => cmd.includes(m.toLowerCase()))) return false;
     }
     if (rule.expect.pattern) {
-        try {
-            const re = new RegExp(rule.expect.pattern);
-            const target = tc.filePath ?? tc.command ?? "";
-            if (!re.test(target)) return false;
-        } catch {
-            return false;
-        }
+        const re = compilePattern(rule.expect.pattern);
+        if (!re) return false;
+        const target = (tc.filePath ?? tc.command ?? "").slice(0, MAX_PATTERN_TARGET_LEN);
+        if (!re.test(target)) return false;
     }
     return rule.expect.action !== undefined
         || (rule.expect.commandMatches !== undefined && rule.expect.commandMatches.length > 0)
