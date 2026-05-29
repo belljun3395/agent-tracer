@@ -1,6 +1,8 @@
-import { Inject, Injectable, Logger, type OnApplicationBootstrap, type OnApplicationShutdown } from "@nestjs/common";
+import { Inject, Injectable, Logger, type OnApplicationShutdown } from "@nestjs/common";
+import { Interval } from "@nestjs/schedule";
 import { InjectRepository } from "@nestjs/typeorm";
 import { LessThanOrEqual, Repository } from "typeorm";
+import { AdaptivePoll } from "~main/scheduling/adaptive-poll.js";
 import { EventProcessingJobEntity } from "~activity/event/domain/event-store/event.processing.job.entity.js";
 import { TimelineEventService } from "./timeline.event.service.js";
 import type { TimelineEvent } from "~activity/event/domain/model/timeline.event.model.js";
@@ -39,14 +41,15 @@ const RETRY_BACKOFF_MS = 5_000;
  * tick.
  */
 @Injectable()
-export class EventProcessingWorker implements OnApplicationBootstrap, OnApplicationShutdown {
+export class EventProcessingWorker implements OnApplicationShutdown {
     private readonly logger = new Logger(EventProcessingWorker.name);
-    private timer: NodeJS.Timeout | null = null;
     private running = false;
     private shuttingDown = false;
-    private idleTicks = 0;
-    private currentIntervalMs = MIN_POLL_INTERVAL_MS;
-    private drainImmediately = false;
+    private readonly poll = new AdaptivePoll(
+        MIN_POLL_INTERVAL_MS,
+        MAX_POLL_INTERVAL_MS,
+        IDLE_TICKS_BEFORE_BACKOFF,
+    );
 
     constructor(
         @InjectRepository(EventProcessingJobEntity)
@@ -57,70 +60,58 @@ export class EventProcessingWorker implements OnApplicationBootstrap, OnApplicat
         @Inject(CLOCK_PORT) private readonly clock: IClock,
     ) {}
 
-    onApplicationBootstrap(): void {
-        this.scheduleNext();
-    }
-
+    // ScheduleModule clears this interval on shutdown, but it does not await an
+    // in-flight tick — so we still flip `shuttingDown` and drain `running` here.
     async onApplicationShutdown(): Promise<void> {
         this.shuttingDown = true;
-        if (this.timer) {
-            clearTimeout(this.timer);
-            this.timer = null;
-        }
         const start = Date.now();
         while (this.running && Date.now() - start < 2000) {
             await new Promise((r) => setTimeout(r, 25));
         }
     }
 
-    private scheduleNext(): void {
-        if (this.shuttingDown) return;
-        // When the last tick drained a full batch there is probably more queued,
-        // so loop again with no delay instead of sleeping a poll interval — this
-        // decouples drain throughput from the poll cadence under burst.
-        const delay = this.drainImmediately ? 0 : this.currentIntervalMs;
-        this.drainImmediately = false;
-        this.timer = setTimeout(() => {
-            void this.tick().finally(() => this.scheduleNext());
-        }, delay);
-        this.timer.unref();
-    }
-
-    private async tick(): Promise<void> {
+    @Interval("event-processing-worker", MIN_POLL_INTERVAL_MS)
+    async tick(): Promise<void> {
         if (this.running || this.shuttingDown) return;
+        if (!this.poll.due(this.clock.nowMs())) return;
         this.running = true;
         try {
             await this.reapStuck();
-            // Fresh jobs (attempts 0) run immediately; failed/reclaimed jobs wait
-            // RETRY_BACKOFF_MS (their updatedAt is stamped on failure) so a poison
-            // job can't be re-fetched every tick. ISO timestamps sort lexically.
-            const readyBefore = new Date(this.clock.nowMs() - RETRY_BACKOFF_MS).toISOString();
-            const pending = await this.jobs.find({
-                where: [
-                    { status: "pending", attempts: 0 },
-                    { status: "pending", updatedAt: LessThanOrEqual(readyBefore) },
-                ],
-                order: { createdAt: "ASC" },
-                take: BATCH_SIZE,
-            });
-            if (pending.length === 0) {
-                this.idleTicks++;
-                if (this.idleTicks >= IDLE_TICKS_BEFORE_BACKOFF) {
-                    this.currentIntervalMs = Math.min(this.currentIntervalMs * 2, MAX_POLL_INTERVAL_MS);
-                }
-                return;
-            }
-            this.idleTicks = 0;
-            this.currentIntervalMs = MIN_POLL_INTERVAL_MS;
-            // A full batch likely means more is queued — drain again immediately.
-            if (pending.length >= BATCH_SIZE) this.drainImmediately = true;
-            for (const job of pending) {
+            // Drain every queued batch within this tick: a full batch likely means
+            // more is pending, so we loop again immediately instead of waiting a
+            // whole poll interval — this decouples drain throughput from the poll
+            // cadence under burst. Each iteration awaits I/O, so the event loop is
+            // never starved.
+            let workedAtAll = false;
+            for (;;) {
                 // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- mutated by onApplicationShutdown
                 if (this.shuttingDown) break;
-                const claimed = await this.claim(job.jobId);
-                if (!claimed) continue;
-                await this.process(claimed);
+                // Fresh jobs (attempts 0) run immediately; failed/reclaimed jobs wait
+                // RETRY_BACKOFF_MS (their updatedAt is stamped on failure) so a poison
+                // job can't be re-fetched every tick. ISO timestamps sort lexically.
+                const readyBefore = new Date(this.clock.nowMs() - RETRY_BACKOFF_MS).toISOString();
+                const pending = await this.jobs.find({
+                    where: [
+                        { status: "pending", attempts: 0 },
+                        { status: "pending", updatedAt: LessThanOrEqual(readyBefore) },
+                    ],
+                    order: { createdAt: "ASC" },
+                    take: BATCH_SIZE,
+                });
+                if (pending.length === 0) break;
+                workedAtAll = true;
+                for (const job of pending) {
+                    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- mutated by onApplicationShutdown
+                    if (this.shuttingDown) break;
+                    const claimed = await this.claim(job.jobId);
+                    if (!claimed) continue;
+                    await this.process(claimed);
+                }
+                // A partial batch means the queue is drained — stop until next tick.
+                if (pending.length < BATCH_SIZE) break;
             }
+            if (workedAtAll) this.poll.onWork();
+            else this.poll.onIdle(this.clock.nowMs());
         }
         catch (err) {
             this.logger.error("worker tick failed", err instanceof Error ? err.stack : String(err));

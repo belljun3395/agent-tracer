@@ -2,9 +2,9 @@ import {
     Inject,
     Injectable,
     Logger,
-    type OnApplicationBootstrap,
     type OnApplicationShutdown,
 } from "@nestjs/common";
+import { Interval } from "@nestjs/schedule";
 import { CLOCK_PORT, SESSION_ACCESS_PORT } from "../application/outbound/tokens.js";
 import type { IClock } from "../application/outbound/clock.port.js";
 import type { ISessionAccess } from "../application/outbound/session.access.port.js";
@@ -35,9 +35,8 @@ const REAPABLE_STATUSES: readonly TaskStatus[] = ["running"];
  * state (waiting on user input) and would surprise the user if cleaned up.
  */
 @Injectable()
-export class StaleTaskReaperService implements OnApplicationBootstrap, OnApplicationShutdown {
+export class StaleTaskReaperService implements OnApplicationShutdown {
     private readonly logger = new Logger(StaleTaskReaperService.name);
-    private timer: NodeJS.Timeout | null = null;
     private running = false;
     private shuttingDown = false;
 
@@ -48,31 +47,18 @@ export class StaleTaskReaperService implements OnApplicationBootstrap, OnApplica
         @Inject(CLOCK_PORT) private readonly clock: IClock,
     ) {}
 
-    onApplicationBootstrap(): void {
-        this.scheduleNext();
-    }
-
+    // ScheduleModule clears this interval on shutdown, but it does not await an
+    // in-flight tick — so we still flip `shuttingDown` and drain `running` here.
     async onApplicationShutdown(): Promise<void> {
         this.shuttingDown = true;
-        if (this.timer) {
-            clearTimeout(this.timer);
-            this.timer = null;
-        }
         const start = Date.now();
         while (this.running && Date.now() - start < 2000) {
             await new Promise((r) => setTimeout(r, 25));
         }
     }
 
-    private scheduleNext(): void {
-        if (this.shuttingDown) return;
-        this.timer = setTimeout(() => {
-            void this.tick().finally(() => this.scheduleNext());
-        }, POLL_INTERVAL_MS);
-        this.timer.unref();
-    }
-
-    private async tick(): Promise<void> {
+    @Interval("stale-task-reaper", POLL_INTERVAL_MS)
+    async tick(): Promise<void> {
         if (this.running || this.shuttingDown) return;
         this.running = true;
         try {
