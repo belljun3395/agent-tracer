@@ -46,6 +46,7 @@ export class EventProcessingWorker implements OnApplicationBootstrap, OnApplicat
     private shuttingDown = false;
     private idleTicks = 0;
     private currentIntervalMs = MIN_POLL_INTERVAL_MS;
+    private drainImmediately = false;
 
     constructor(
         @InjectRepository(EventProcessingJobEntity)
@@ -74,9 +75,14 @@ export class EventProcessingWorker implements OnApplicationBootstrap, OnApplicat
 
     private scheduleNext(): void {
         if (this.shuttingDown) return;
+        // When the last tick drained a full batch there is probably more queued,
+        // so loop again with no delay instead of sleeping a poll interval — this
+        // decouples drain throughput from the poll cadence under burst.
+        const delay = this.drainImmediately ? 0 : this.currentIntervalMs;
+        this.drainImmediately = false;
         this.timer = setTimeout(() => {
             void this.tick().finally(() => this.scheduleNext());
-        }, this.currentIntervalMs);
+        }, delay);
         this.timer.unref();
     }
 
@@ -106,6 +112,8 @@ export class EventProcessingWorker implements OnApplicationBootstrap, OnApplicat
             }
             this.idleTicks = 0;
             this.currentIntervalMs = MIN_POLL_INTERVAL_MS;
+            // A full batch likely means more is queued — drain again immediately.
+            if (pending.length >= BATCH_SIZE) this.drainImmediately = true;
             for (const job of pending) {
                 // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- mutated by onApplicationShutdown
                 if (this.shuttingDown) break;
