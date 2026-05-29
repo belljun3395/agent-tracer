@@ -2,6 +2,7 @@ import { Module, type DynamicModule, type MiddlewareConsumer, type NestModule } 
 import { APP_FILTER, APP_INTERCEPTOR } from "@nestjs/core";
 import type { INotificationPublisher } from "~adapters/notifications/notification.publisher.port.js";
 import { HealthController } from "~adapters/http/query/controllers/health/health.query.controller.js";
+import { LlmModule } from "~adapters/llm/llm.module.js";
 import { ActivityModule } from "~activity/activity.module.js";
 import { GovernanceModule } from "~governance/governance.module.js";
 import { WorkModule } from "~work/work.module.js";
@@ -34,6 +35,7 @@ export class AppModule implements NestModule {
             imports: [
                 typeOrmDatabaseModule,
                 databaseModule,
+                LlmModule,
                 governanceModule,
                 activityModule,
                 workModule,

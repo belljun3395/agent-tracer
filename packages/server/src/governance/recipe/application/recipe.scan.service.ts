@@ -83,7 +83,7 @@ export class RecipeScanService {
         }
 
         const apiKey = await this.settings.getAnthropicApiKey();
-        if (!apiKey) {
+        if (this.agent.requiresLocalApiKey() && !apiKey) {
             throw new MissingApiKeyError();
         }
 
@@ -124,7 +124,7 @@ export class RecipeScanService {
         });
         try {
             const apiKey = await this.settings.getAnthropicApiKey();
-            if (!apiKey) throw new MissingApiKeyError();
+            if (this.agent.requiresLocalApiKey() && !apiKey) throw new MissingApiKeyError();
 
             const modelOverride = await this.settings.getAnthropicModel();
             const filters = parseFilters(job.filtersJson);
@@ -183,7 +183,7 @@ export class RecipeScanService {
             }
 
             const output = await this.agent.generate({
-                apiKey,
+                ...(apiKey ? { apiKey } : {}),
                 ...(modelOverride ? { model: modelOverride } : {}),
                 tasks: snapshots,
                 maxCandidates: filters.maxCandidates,

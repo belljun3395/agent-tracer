@@ -1,6 +1,5 @@
-import { Injectable } from "@nestjs/common";
-import { query } from "@anthropic-ai/claude-agent-sdk";
-import { createAgentDeadline } from "./agent.deadline.js";
+import { Inject, Injectable } from "@nestjs/common";
+import { QUERY_RUNNER, type IQueryRunner } from "./query.runner.port.js";
 import {
     buildSystemPrompt,
     buildUserPrompt,
@@ -17,7 +16,8 @@ const DEFAULT_MAX_TURNS = 8;
 const DEFAULT_MODEL = "claude-sonnet-4-6";
 
 export interface GenerateRecipeCandidatesInput {
-    readonly apiKey: string;
+    /** Optional: omitted when a remote runner runs the SDK with its own local key. */
+    readonly apiKey?: string;
     readonly model?: string;
     readonly tasks: readonly RecipeTaskSnapshot[];
     readonly maxCandidates: number;
@@ -33,71 +33,38 @@ export interface GenerateRecipeCandidatesOutput {
 
 @Injectable()
 export class RecipeScanAgent {
+    constructor(
+        @Inject(QUERY_RUNNER) private readonly queryRunner: IQueryRunner,
+    ) {}
+
+    requiresLocalApiKey(): boolean {
+        return this.queryRunner.requiresLocalApiKey();
+    }
+
     async generate(
         input: GenerateRecipeCandidatesInput,
     ): Promise<GenerateRecipeCandidatesOutput> {
         const model = input.model?.trim() || DEFAULT_MODEL;
         const systemPrompt = buildSystemPrompt(input.language);
         const userPrompt = buildUserPrompt(input.tasks, input.maxCandidates);
-        const cwd = process.cwd();
 
         const env: Record<string, string | undefined> = {
-            ...process.env,
-            ANTHROPIC_API_KEY: input.apiKey,
+            ...(input.apiKey ? { ANTHROPIC_API_KEY: input.apiKey } : {}),
             MONITOR_TASK_TITLE: "Recipe Scan · Auto Cluster",
             MONITOR_TASK_ORIGIN: "server-sdk",
         };
 
-        const startedAt = Date.now();
-        let collected = "";
-        let resultText = "";
-        let errorSummary: string | null = null;
-
-        // Tool-using, up to 8 turns over the workspace; allow 300s before abort.
-        const deadline = createAgentDeadline(300_000);
-        const q = query({
+        // Tool-using, up to 8 turns; allow 300s before abort.
+        const { rawOutput, durationMs, errorSummary } = await this.queryRunner.run({
+            label: "recipe-scan",
             prompt: userPrompt,
-            options: {
-                abortController: deadline.controller,
-                cwd,
-                model,
-                allowedTools: ALLOWED_TOOLS,
-                tools: ALLOWED_TOOLS,
-                maxTurns: DEFAULT_MAX_TURNS,
-                systemPrompt,
-                env,
-                permissionMode: "bypassPermissions",
-                strictMcpConfig: true,
-                includePartialMessages: false,
-            },
+            systemPrompt,
+            allowedTools: ALLOWED_TOOLS,
+            model,
+            maxTurns: DEFAULT_MAX_TURNS,
+            deadlineMs: 300_000,
+            env,
         });
-
-        for await (const msg of q) {
-            if (msg.type === "assistant") {
-                for (const block of msg.message.content) {
-                    if (block.type === "text") {
-                        collected += block.text;
-                    }
-                }
-                continue;
-            }
-            if (msg.type === "result") {
-                if (msg.subtype === "success") {
-                    resultText = msg.result;
-                } else {
-                    errorSummary = `${msg.subtype}${
-                        msg.errors.length > 0
-                            ? `: ${msg.errors.join("; ")}`
-                            : ""
-                    }`;
-                }
-                break;
-            }
-        }
-
-        deadline.dispose();
-        const durationMs = Date.now() - startedAt;
-        const rawOutput = resultText || collected;
 
         if (errorSummary || !rawOutput) {
             throw new RecipeScanAgentError(

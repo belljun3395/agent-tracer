@@ -4,7 +4,6 @@ import { SystemQueryController } from "./api/system.query.controller.js";
 import { TaskCommandController } from "./api/task.command.controller.js";
 import { TaskIngestController } from "./api/task.ingest.controller.js";
 import { TaskQueryController } from "./api/task.query.controller.js";
-import { TitleSuggestionAgent } from "~adapters/llm/title.suggestion.agent.js";
 import { ArchiveTaskUseCase } from "./application/archive.task.usecase.js";
 import { CompleteTaskUseCase } from "./application/complete.task.usecase.js";
 import { DeleteTaskUseCase } from "./application/delete.task.usecase.js";
@@ -119,7 +118,6 @@ export class TaskModule {
                 UnarchiveTaskUseCase,
                 ReslugTaskUseCase,
                 SuggestTaskTitleUseCase,
-                TitleSuggestionAgent,
                 ListTasksUseCase,
                 GetTaskUseCase,
                 GetTaskTimelineUseCase,

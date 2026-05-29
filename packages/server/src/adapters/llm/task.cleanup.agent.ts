@@ -1,6 +1,5 @@
-import { Injectable } from "@nestjs/common";
-import { query } from "@anthropic-ai/claude-agent-sdk";
-import { createAgentDeadline } from "./agent.deadline.js";
+import { Inject, Injectable } from "@nestjs/common";
+import { QUERY_RUNNER, type IQueryRunner } from "./query.runner.port.js";
 import {
     buildSystemPrompt,
     buildUserPrompt,
@@ -21,7 +20,8 @@ const DEFAULT_MAX_TURNS = 1;
 const DEFAULT_MODEL = "claude-haiku-4-5";
 
 export interface GenerateCleanupSuggestionsInput {
-    readonly apiKey: string;
+    /** Optional: omitted when a remote runner runs the SDK with its own local key. */
+    readonly apiKey?: string;
     readonly model?: string;
     readonly tasks: readonly CleanupTaskSnapshot[];
     readonly maxSuggestions: number;
@@ -37,6 +37,14 @@ export interface GenerateCleanupSuggestionsOutput {
 
 @Injectable()
 export class TaskCleanupAgent {
+    constructor(
+        @Inject(QUERY_RUNNER) private readonly queryRunner: IQueryRunner,
+    ) {}
+
+    requiresLocalApiKey(): boolean {
+        return this.queryRunner.requiresLocalApiKey();
+    }
+
     async generate(
         input: GenerateCleanupSuggestionsInput,
     ): Promise<GenerateCleanupSuggestionsOutput> {
@@ -44,65 +52,24 @@ export class TaskCleanupAgent {
         const language: CleanupLanguage = input.language ?? "auto";
         const systemPrompt = buildSystemPrompt(language);
         const userPrompt = buildUserPrompt(input.tasks, input.maxSuggestions);
-        const cwd = process.cwd();
 
         const env: Record<string, string | undefined> = {
-            ...process.env,
-            ANTHROPIC_API_KEY: input.apiKey,
+            ...(input.apiKey ? { ANTHROPIC_API_KEY: input.apiKey } : {}),
             MONITOR_TASK_TITLE: "Task Cleanup · Auto Suggest",
             MONITOR_TASK_ORIGIN: "server-sdk",
         };
 
-        const startedAt = Date.now();
-        let collected = "";
-        let resultText = "";
-        let errorSummary: string | null = null;
-
-        // Single-turn Haiku one-shot; 120s is generous headroom over the deadline.
-        const deadline = createAgentDeadline(120_000);
-        const q = query({
+        // Single-turn Haiku one-shot, no workspace tools; 120s deadline headroom.
+        const { rawOutput, durationMs, errorSummary } = await this.queryRunner.run({
+            label: "task-cleanup",
             prompt: userPrompt,
-            options: {
-                abortController: deadline.controller,
-                cwd,
-                model,
-                allowedTools: [...ALLOWED_TOOLS],
-                tools: [...ALLOWED_TOOLS],
-                maxTurns: DEFAULT_MAX_TURNS,
-                systemPrompt,
-                env,
-                permissionMode: "bypassPermissions",
-                strictMcpConfig: true,
-                includePartialMessages: false,
-            },
+            systemPrompt,
+            allowedTools: ALLOWED_TOOLS,
+            model,
+            maxTurns: DEFAULT_MAX_TURNS,
+            deadlineMs: 120_000,
+            env,
         });
-
-        for await (const msg of q) {
-            if (msg.type === "assistant") {
-                for (const block of msg.message.content) {
-                    if (block.type === "text") {
-                        collected += block.text;
-                    }
-                }
-                continue;
-            }
-            if (msg.type === "result") {
-                if (msg.subtype === "success") {
-                    resultText = msg.result;
-                } else {
-                    errorSummary = `${msg.subtype}${
-                        msg.errors.length > 0
-                            ? `: ${msg.errors.join("; ")}`
-                            : ""
-                    }`;
-                }
-                break;
-            }
-        }
-
-        deadline.dispose();
-        const durationMs = Date.now() - startedAt;
-        const rawOutput = resultText || collected;
 
         if (errorSummary || !rawOutput) {
             throw new TaskCleanupAgentError(

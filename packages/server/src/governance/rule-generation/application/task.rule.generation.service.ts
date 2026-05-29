@@ -85,7 +85,7 @@ export class TaskRuleGenerationService {
         }
 
         const apiKey = await this.settings.getAnthropicApiKey();
-        if (!apiKey) {
+        if (this.agent.requiresLocalApiKey() && !apiKey) {
             throw new MissingApiKeyError();
         }
 
@@ -121,7 +121,7 @@ export class TaskRuleGenerationService {
         });
         try {
             const apiKey = await this.settings.getAnthropicApiKey();
-            if (!apiKey) {
+            if (this.agent.requiresLocalApiKey() && !apiKey) {
                 throw new MissingApiKeyError();
             }
             const modelOverride = await this.settings.getAnthropicModel();
@@ -143,7 +143,7 @@ export class TaskRuleGenerationService {
             const existingNames = existingRules.rules.map((r) => r.name);
 
             const output = await this.agent.generate({
-                apiKey,
+                ...(apiKey ? { apiKey } : {}),
                 ...(modelOverride ? { model: modelOverride } : {}),
                 summary,
                 existingRuleNames: existingNames,
