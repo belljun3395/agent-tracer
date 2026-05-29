@@ -46,7 +46,12 @@ export interface SearchResults {
 }
 
 const MIN_SEMANTIC_SCORE = 0.22;
-const SEARCH_EMBEDDING_BACKFILL_THRESHOLD = 200;
+// Cap how many missing embeddings a single search computes inline. Each embed()
+// is a synchronous ONNX inference on the event-loop thread plus an autocommit
+// write firing the FTS trigger, so the old "up to 200 per scope" backfill could
+// stall the whole server for ~400 inferences on a cold corpus. Warm a few per
+// search instead; the rest fill in over subsequent queries.
+const MAX_BACKFILL_PER_REQUEST = 8;
 const FTS_CANDIDATE_OVERSHOOT = 4;
 
 export async function searchEvents(
@@ -216,10 +221,12 @@ async function ensureSearchEmbeddings(
     embeddingService: IEmbeddingService,
     rows: readonly SearchDocumentRow[],
 ): Promise<void> {
-    if (rows.length === 0 || rows.length > SEARCH_EMBEDDING_BACKFILL_THRESHOLD) {
+    if (rows.length === 0) {
         return;
     }
+    let budget = MAX_BACKFILL_PER_REQUEST;
     for (const row of rows) {
+        if (budget <= 0) break;
         if (row.embedding || !row.search_text.trim()) {
             continue;
         }
@@ -233,6 +240,7 @@ async function ensureSearchEmbeddings(
                 [serialized, embeddingService.modelId, row.scope, row.entity_id],
             );
             (row as { embedding: string | null }).embedding = serialized;
+            budget -= 1;
         }
         catch (error) {
             if (isClosedDatabaseError(error)) {
