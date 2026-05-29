@@ -172,9 +172,11 @@ per-category logic lives in `_file.ops.ts`, `_explore.ops.ts`, `_agent.ops.ts`,
 `_skill.ops.ts`, `_todo.ops.ts`, and `_shared.ts` (the common read +
 resolve-session-ids wrapper).
 
-All handlers post to `POST /ingest/v1/events` with a `kind`-tagged envelope;
-lane, subtype, toolFamily, and operation are derived **server-side** inside
-`@monitor/server` at ingestion.
+All handlers post via `postTaggedEvent`, which routes each event by its `kind`
+(`resolveIngestEndpoint`) to one of six typed endpoints under `/ingest/v1`
+(`tool-activity`, `workflow`, `conversation`, `coordination`, `lifecycle`,
+`telemetry`). `lane` is set runtime-side; subtype, toolFamily, and operation are
+derived **server-side** inside `@monitor/server` at ingestion.
 
 | Matcher | File | Shared ops module | `kind` |
 |---------|------|-------------------|--------|
@@ -285,14 +287,17 @@ to register the `monitor` MCP server as shown in section 3.
 ## 6. Hook debug log
 
 Hook scripts write a debug log to `${CLAUDE_PROJECT_DIR}/.claude/hooks.log`
-**only when `NODE_ENV=development`**. The plugin's `bin/run-hook-claude.sh`
-exports `NODE_ENV=development` by default, so file logging is active whenever
-the plugin is loaded.
+**only when `NODE_ENV=development`**. File logging is **off by default**: the
+plugin's `bin/run-hook-claude.sh` prefers the precompiled hook under
+`dist/claude-code/hooks/` and runs it with `NODE_ENV` defaulting to
+`production`. Set `NODE_ENV=development` to enable `hooks.log`; only the
+uncompiled `tsx` fallback (used when no compiled `.js` exists) defaults to
+`development`.
 
 | Environment | Logging |
 |-------------|---------|
-| This repo (Claude Code with plugin) | enabled |
-| External project (Claude Code with plugin) | enabled |
+| This repo (Claude Code with plugin) | off unless `NODE_ENV=development` |
+| External project (Claude Code with plugin) | off unless `NODE_ENV=development` |
 | Direct MCP calls (no hooks involved) | not applicable |
 
 Clear the log:

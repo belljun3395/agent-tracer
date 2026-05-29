@@ -200,7 +200,7 @@ mcp__*:          Varies by MCP server/tool
 Shared semantic metadata consumed by the UI:
 
 ```typescript
-// Defined in packages/domain/src/interop/event-semantic.ts
+// Defined in packages/runtime/src/shared/events/metadata.type.ts (mirrored in packages/server/src/activity/event/domain/model/event.semantic.model.ts)
 interface EventSemanticMetadata {
   readonly subtypeKey: EventSubtypeKey;  // "read_file", "run_test", "mcp_call", ...
   readonly subtypeLabel?: string;        // UI-friendly label
@@ -214,11 +214,14 @@ interface EventSemanticMetadata {
 }
 ```
 
-This contract is derived **server-side** at ingestion inside
-`@monitor/server` (see the classification paths under
-`packages/server/src/application/events/`). The plugin sends raw payloads
-only. The derived fields are consumed by the web dashboard through
-`packages/web/src/app/lib/timeline.ts`.
+This contract is derived **runtime-side** by the plugin in
+`packages/runtime/src/shared/semantics/` (the `inference.*.ts` modules via
+`buildSemanticMetadata`) and injected into event `metadata` before sending;
+the server ingests these fields rather than deriving them. The derived
+fields are consumed by the web dashboard through
+`packages/web/src/features/feed/lib/` (`extract-metadata.ts`,
+`group-acts.ts`) and `packages/web/src/domain/` (`snapshot.ts`,
+`classification.ts`).
 
 ### Per-Tool Additional Metadata
 
@@ -335,10 +338,11 @@ Reader: `readSubagentStart()`
 |-------|------|-------|
 | `hook_event_name` | string | `"SubagentStart"` |
 | `agent_id` | string | Unique subagent ID |
-| `agent_type` | string | Subagent type name (alias: `subagent_type`, e.g., `"general-purpose"`) |
+| `subagent_type` | string | Subagent type name (required, e.g., `"general-purpose"`) |
 
 > **[Observed]** No `transcript_path`, `permission_mode`.
-> **[Observed]** Reader accepts either `subagent_type` or `agent_type`.
+> **[Observed]** The reader requires `subagent_type` (it does not fall back
+> to `agent_type`); `agent_type` is a separate generic session-context field.
 
 ---
 
@@ -352,14 +356,14 @@ Reader: `readSubagentStop()`
 |-------|------|-------|
 | `hook_event_name` | string | `"SubagentStop"` |
 | `agent_id` | string | Unique subagent ID |
-| `agent_type` | string | Subagent type name |
-| `stop_hook_active` | boolean | Whether stop hook is active |
-| `agent_transcript_path` | string | Subagent transcript path |
-| `last_assistant_message` | string | Full last response from subagent |
+| `subagent_type` | string | Subagent type name |
+| `last_assistant_message` | string | Full last response from subagent (read ad hoc) |
 | `stop_reason` | string? | Subagent termination reason |
 
+> The reader surfaces only `subagentType` and `stopReason` (plus the shared
+> session base); `last_assistant_message` is read ad hoc from the raw payload.
 > **[Observed]** When `/compact` is performed, a compact-specific subagent runs internally.
-> In this case, `agent_type` comes as **empty string `""`** (regular subagents have a type name).
+> In this case, `subagent_type` comes as **empty string `""`** (regular subagents have a type name).
 
 ---
 
@@ -836,7 +840,7 @@ return the same `(taskId, sessionId)` without creating duplicates.
 | Situation | Current | Recommended |
 |-----------|---------|------------|
 | `transcript_path` usage | Captured when present | Do not rely on, may be missing |
-| `agent_type` default | `\|\| "unknown"` | Preserve as `\|\| ""` to distinguish compact agents |
+| `subagent_type` (SubagentStart/Stop) | Reader requires it; returns `{ ok: false, reason: "missing subagent_type" }` when absent (no `\|\| "unknown"` defaulting) | An empty-string compact-agent type is therefore treated as missing |
 | `custom_instructions` empty | `\|\| ""` (already handled) | Keep current code |
 | `compact_summary` logging | - | Length limit required (several KB) |
 | `tool_response` logging | Redacted in hookLogPayload | Preserve |

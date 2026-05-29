@@ -1,8 +1,9 @@
 # SQLite Schema
 
-The Agent Tracer server uses SQLite as its OLTP store. New databases are
-created directly with the normalized schema described here. There is no
-legacy migration path before the first deployment; `runMigrations` is a no-op.
+The Agent Tracer server uses SQLite as its OLTP store. The schema is applied
+through TypeORM migrations — 16 migration classes run on boot with
+`migrationsRun: true` (and `synchronize: false`), bringing a fresh database up
+to the normalized schema described here.
 
 The schema has five major areas:
 
@@ -12,9 +13,11 @@ The schema has five major areas:
 - Shared search documents and embeddings, plus turn partitions.
 - Verification: rules, turns, verdicts, and rule enforcements.
 
-`PRAGMA foreign_keys = ON` is enabled before schema creation. Most child tables
-use `on delete cascade`; optional links that should survive parent deletion use
-`on delete set null`.
+Foreign keys are not enabled at runtime (`applySqlitePragmas` sets only
+`journal_mode`, `synchronous`, `busy_timeout`, `wal_autocheckpoint`,
+`cache_size`, `mmap_size`, and `temp_store`). The `on delete cascade` clauses on
+most child tables and the `on delete set null` clauses on optional links are
+therefore declarative only and are not enforced by SQLite at runtime.
 
 ## Table Overview
 
@@ -81,12 +84,12 @@ erDiagram
 
   SESSIONS_CURRENT {
     text id PK
-    text task_id FK
+    text task_id
     text status
   }
 
   TASKS_CURRENT ||--o{ TASK_RELATIONS : owns
-  TASKS_CURRENT ||--o{ SESSIONS_CURRENT : has
+  TASKS_CURRENT ||..o{ SESSIONS_CURRENT : has
 ```
 
 ### Diagram 2 — Timeline Events
@@ -358,7 +361,9 @@ create table if not exists tasks_current (
   created_at text not null,
   updated_at text not null,
   last_session_started_at text,
-  cli_source text
+  cli_source text,
+  archived_at text,
+  origin text not null default 'user'
 );
 
 create table if not exists task_relations (
@@ -388,6 +393,12 @@ Indexes:
 ```sql
 create index if not exists idx_tasks_current_updated
   on tasks_current(updated_at desc);
+
+create index if not exists idx_tasks_current_archived
+  on tasks_current(archived_at);
+
+create index if not exists idx_tasks_current_origin
+  on tasks_current(origin);
 
 create unique index if not exists idx_task_relations_task_related
   on task_relations(task_id, relation_kind, related_task_id)
@@ -610,6 +621,43 @@ create index if not exists idx_search_documents_scope_task_updated
   on search_documents(scope, task_id, updated_at desc);
 ```
 
+Lexical search is served by `search_documents_fts`, an external-content FTS5
+virtual table whose content lives in `search_documents.search_text`. It stores
+only the inverted index — no row duplication. Three `after`-triggers keep the
+index in sync with `search_documents`.
+
+```sql
+create virtual table if not exists search_documents_fts using fts5(
+  search_text,
+  content='search_documents',
+  content_rowid='rowid',
+  tokenize='unicode61 remove_diacritics 1'
+);
+
+create trigger if not exists trg_search_documents_ai
+after insert on search_documents begin
+  insert into search_documents_fts(rowid, search_text) values (new.rowid, new.search_text);
+end;
+
+create trigger if not exists trg_search_documents_ad
+after delete on search_documents begin
+  insert into search_documents_fts(search_documents_fts, rowid, search_text)
+  values('delete', old.rowid, old.search_text);
+end;
+
+create trigger if not exists trg_search_documents_au
+after update on search_documents begin
+  insert into search_documents_fts(search_documents_fts, rowid, search_text)
+  values('delete', old.rowid, old.search_text);
+  insert into search_documents_fts(rowid, search_text)
+  values(new.rowid, new.search_text);
+end;
+```
+
+The search endpoint `MATCH`es the FTS index (ranked by `fts.rank`) rather than
+loading every document into JS for substring scoring; `search_documents`
+remains the source of truth and supplies the embedding columns.
+
 ## Turn Partitions
 
 ```sql
@@ -626,7 +674,7 @@ create table if not exists turn_partitions_current (
 Verification rules evaluate `(user.message → assistant.response)` cycles
 ("turns") for fact-checking what the agent claimed against what it actually
 did. The evaluation workflow is implemented in
-`packages/server/src/application/verification/services/`.
+`packages/server/src/governance/verification/service/`.
 
 There are two evaluation surfaces:
 
@@ -756,8 +804,9 @@ create index if not exists idx_verdicts_rule on verdicts(rule_id);
 create index if not exists idx_verdicts_status on verdicts(status);
 ```
 
-- Written by `TurnEvaluator` at turn close (also by `BackfillUseCase` for
-  closed turns when a new rule is registered).
+- Written by `TurnEvaluationService` at turn close (also by
+  `BackfillRuleEvaluationUseCase` for closed turns when a new rule is
+  registered).
 - PK `(turn_id, rule_id)` makes evaluation idempotent — reruns UPSERT.
 - Detail columns (`matched_phrase`, `expected_pattern`, `*_tool_calls_json`)
   drive the UI's "why this verdict?" explanation.
@@ -784,8 +833,8 @@ create index if not exists idx_rule_enforcements_event on rule_enforcements(even
   an expect-fulfillment match (rule's expect tool/command/pattern hit). One
   event can have multiple rows (different rules, or both match kinds for one rule).
 - Inserted by `RuleEnforcementPostProcessor` per event, in real time (broadcast as
-  `rule_enforcement.added` over WebSocket), and by `BackfillUseCase` when a
-  newly registered rule is applied to existing closed or open turn events.
+  `rule_enforcement.added` over WebSocket), and by `BackfillRuleEvaluationUseCase`
+  when a newly registered rule is applied to existing closed or open turn events.
 
 ### Verification WebSocket Messages
 
@@ -826,12 +875,8 @@ Verification publishes these realtime messages:
 | `putContentBlob(input)` | Stores a blob in `content_blobs` |
 | `getContentBlob(sha256)` | Looks up a blob by hash |
 
-## Replay CLI
+## Replaying Events
 
-```bash
-tsx packages/server/src/main/replay-events.ts .monitor/monitor.sqlite <aggregate-id>
-```
-
-```bash
-tsx packages/server/src/main/replay-events.ts .monitor/monitor.sqlite <aggregate-id> <from-event-id>
-```
+There is no standalone replay CLI. To replay an aggregate's history, read it
+through the Event Store API's `readAggregate(aggregateId, from?)`, which returns
+the aggregate's events in chronological order (optionally from a given event id).

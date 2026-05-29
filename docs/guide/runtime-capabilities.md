@@ -1,8 +1,12 @@
 # Agent Tracer - Runtime Capabilities
 
-`packages/web/src/types/runtime-capabilities.defaults.ts` is the built-in
-capability registry for the dashboard. The table below summarizes the current
-code values as-is.
+There is no longer a built-in capability registry in the dashboard (the
+`packages/web/src/types/` family that once held it was removed in the
+operator-layout rebuild). The table below is a hand-maintained summary of how
+the two adapters behave; the adapter identifier strings themselves still live in
+the runtime (`claude-plugin` in
+`packages/runtime/src/claude-code/hooks/util/paths.const.ts`, `codex-cli` in
+`packages/runtime/src/codex/util/paths.const.ts`).
 
 | Adapter | Raw user prompt | Tool calls | Subagents/background | Native skill paths | Separate event stream | Session close policy |
 |---------|-----------------|------------|----------------------|--------------------|----------------------|----------------------|
@@ -10,7 +14,7 @@ code values as-is.
 | `codex-cli` | Yes (`UserPromptSubmit`) | Yes (`Bash` + `apply_patch|Edit|Write` + `mcp__.*` via PostToolUse hooks; web via rollout observer; cross-check merges hook ↔ rollout) | No | `.agents/skills` | Yes (`~/.codex/sessions`) | `primary-only` |
 
 Note: The `runtimeSource` in the server API schema is open as a string (`z.string`) for forward-compatibility.
-The table above is a list of "adapters currently registered in the built-in capability registry."
+The table above is a hand-maintained summary of the two adapters' `runtimeSource` behavior, not a generated view of a registry.
 
 Policy summary:
 
@@ -41,7 +45,7 @@ code or files would be unacceptable.
 
 | Runtime | Official hook events | Handled | Payload readers |
 |---------|----------------------|---------|-----------------|
-| Claude plugin | 28 | 27 (see [hook-payload-spec.md](./hook-payload-spec.md)) | `packages/runtime/src/shared/hooks/claude/payloads.ts` |
+| Claude plugin | 29 | 26 (see [hook-payload-spec.md](./hook-payload-spec.md)) | `packages/runtime/src/shared/hooks/claude/payloads.ts` |
 | Codex CLI | 6 | 6 (full surface: `SessionStart`, `UserPromptSubmit`, `PreToolUse`, `PermissionRequest`, `PostToolUse`, `Stop`) | `packages/runtime/src/shared/hooks/codex/payloads.ts` |
 
 Claude events not yet handled by the plugin: `TeammateIdle` (experimental

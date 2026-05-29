@@ -59,7 +59,7 @@ The default external setup registers all six official Codex hook events:
 - `PostToolUse(Bash)` -> `terminal.command`
 - `PostToolUse(apply_patch|Edit|Write)` -> `tool.used` (handled by `PostToolUse/ApplyPatch.ts`)
 - `PostToolUse(mcp__.*)` -> `agent.activity.logged` (handled by `PostToolUse/Mcp.ts`)
-- `PermissionRequest` -> `permission.request`
+- `PermissionRequest` -> `rule.logged` (`rulePolicy: codex_permission`, `ruleStatus: requested`)
 - `Stop` -> `assistant.response`
 
 The rollout observer also runs in parallel (spawned by `SessionStart`) and
@@ -99,7 +99,7 @@ Default events that can be captured:
 - `tool.used` for `apply_patch` / `Edit` / `Write` aliases (PostToolUse hook + rollout cross-check)
 - `tool.used` for web search/fetch (rollout only — Codex has no web hook yet)
 - `agent.activity.logged` for MCP calls (PostToolUse hook + rollout cross-check)
-- `permission.request` for permission dialogs (PermissionRequest hook)
+- `rule.logged` for permission dialogs (PermissionRequest hook, `rulePolicy: codex_permission`)
 - `context.snapshot` for token / rate-limit / turn telemetry (rollout observer)
 
 In other words, this stage focuses on capturing the baseline activity of users
@@ -123,7 +123,7 @@ Verify the setup in this order:
      `metadata.crossCheck.merged: true`
    - `agent.activity.logged` if Codex used an MCP tool — also merged via
      `crossCheck`
-   - `permission.request` if Codex hit a permission prompt
+   - `rule.logged` if Codex hit a permission prompt
 
 ## 5. Context / model observer
 
@@ -190,7 +190,6 @@ rate-limit telemetry are now populated in plain `codex` mode.
 
 - No dedicated `SessionEnd` hook mapping
 - No subagent hierarchy mapping in v1
-- `PermissionRequest` is implemented but not registered by `setup:external` by default
 - No hook-time interception for non-Bash tools
 - Non-Bash tool activity is observed after Codex writes rollout response items;
   it is not a pre-execution policy/interception hook.

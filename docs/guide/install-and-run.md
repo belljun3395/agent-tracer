@@ -7,8 +7,9 @@ target project.
 
 ## 1. Prerequisites
 
-- **Node.js 20+** — the workspaces use ES modules and `tsx` for local dev
-- **npm 10+** (ships with Node 20)
+- **Node.js 25+** (see `.nvmrc`) — the workspaces use ES modules and swc
+  (`@swc-node/register` via `scripts/register-swc.mjs`) for local dev
+- **npm 11+** (ships with Node 25)
 - **git** — to clone the repository
 - **Python 3** — only needed if you want to pretty-print JSON responses
   with the `python3 -m json.tool` examples below

@@ -8,7 +8,7 @@ runtimes should follow the same surface.
 Implementation basis:
 - Claude plugin hooks: `packages/runtime/src/claude-code/hooks/*.ts`
 - Codex hook adapter: `packages/runtime/src/codex/hooks/*.ts`
-- Public API surface: `packages/server/src/adapters/http/ingest/controllers/`
+- Public API surface: `packages/server/src/{activity/session,activity/event,work/task,governance/rule}/api/*.ingest.controller.ts`
 
 Related documentation:
 - [API integration map](./api-integration-map.md)
@@ -30,7 +30,7 @@ Related documentation:
 | `/ingest/v1/workflow` | Track todo lifecycle |
 | `/ingest/v1/tasks/link` | Link parent-child tasks |
 | `/ingest/v1/coordination` | Background task state |
-| `/ingest/v1/events` | Generic kind-tagged event ingest used by runtime hooks |
+| `/ingest/v1/events` | Generic kind-tagged batch event ingest for manual/generic clients (the runtime hooks route exclusively to the six typed `/ingest/v1/*` endpoints via `resolveIngestEndpoint()`) |
 | `/ingest/v1/lifecycle`, `/ingest/v1/telemetry` | Typed lifecycle and token-usage ingest |
 
 ## Claude Plugin Preprocessing Strategy
@@ -63,15 +63,16 @@ Related documentation:
   `Bash.ts`, `Edit.ts`, `Read.ts`, `Agent.ts`, `Skill.ts`, `TaskCreate.ts`,
   …). Shared per-category logic lives in `_file.ops.ts`,
   `_explore.ops.ts`, `_agent.ops.ts`, `_skill.ops.ts`, `_todo.ops.ts`.
-- Routes to the generic `/ingest/v1/events` endpoint from the hook runtime.
-  The typed endpoints (`/ingest/v1/tool-activity`, `/ingest/v1/coordination`,
-  `/ingest/v1/workflow`) remain available for manual clients.
+- Routes each tool event to its typed endpoint via `resolveIngestEndpoint()`
+  (e.g. `tool.used` / `terminal.command` → `/ingest/v1/tool-activity`); the
+  generic `/ingest/v1/events` endpoint is reserved for batch/manual clients.
 - MCP-format tools (`mcp__...`) are handled by the `Mcp.ts` category
   handler (the only grouped file, since `mcp__*` is a wildcard regex) and
   are converted to `activityType: "mcp_call"`.
 - Bash is semantically classified by command meaning with enriched semantic metadata.
-- `Agent` / `Skill` / subagent lifecycle is linked to `/ingest/v1/coordination`,
-  `/ingest/v1/tasks/link`, `/ingest/v1/coordination`.
+- `Agent` / `Skill` events post to `/ingest/v1/coordination` (`LANE.coordination`),
+  and subagent parent-child linking is done via `parentTaskId` / `parentSessionId`
+  on `/ingest/v1/sessions/ensure`.
 - Parallel tool fan-outs are bounded by `PostToolBatch` posting a
   `context.saved` marker (`trigger: "tool_batch_completed"`).
 - Tool-call auto-denials from `PermissionDenied` post a `rule.logged`

@@ -51,7 +51,7 @@ bound task.
 ## Tool Usage
 
 Claude's PostToolUse matcher is one-per-official-tool (see
-[claude-setup.md § PostToolUse](./claude-setup.md#postooluse--per-tool-subhandlers)):
+[claude-setup.md § PostToolUse](./claude-setup.md#posttooluse-per-tool-subhandlers)):
 
 | API | Role | Claude Code plugin | Manual runtime |
 |-----|------|-------------------|-----------------|

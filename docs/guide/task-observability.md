@@ -40,40 +40,38 @@ its inspector summaries from the timeline array.
 
 ## UI Surface
 
-The inspector currently exposes these tabs:
+The inspector right rail currently exposes these tabs:
 
 | Tab | Source |
 |-----|--------|
-| `Inspector` | Selected event details, evidence, relations, todos/questions tied to that event |
-| `Overview` | Whole-task summaries: runtime session, model/token summary, task flow, signals, subagents, verification cycles |
-| `Turns` | Server turn records plus editable turn partitions |
-| `Exploration` | File evidence, file activity, and web lookup summaries |
+| `Inspect` | Selected event details, evidence, relations, todos/questions tied to that event |
 | `Rules` | Active rules, rule matches, and links back into the timeline |
-| `Context` | Context snapshots and context/model timeline details |
+| `Trace` | Trace view of the task timeline |
 
-The timeline header also shows compact observability counters built in the web
-client: action count, coordination count, explored-file count, verification
-checks, violations, passes, and compaction count.
+`Overview` is a separate main-view toggle in the task header (feed/graph/overview),
+not an inspector tab.
+
+The task header also shows a compact metric strip (`MetricRail`) built in the
+web client with three cells: `Active` (session wall-clock duration), `Compacts`
+(compaction count), and `Context` (context-window utilisation).
 
 ## Derived Client Helpers
 
-Current UI derivation lives under `packages/web/src/app/lib/`:
+Current UI derivation lives under `packages/web/src/features/` and
+`packages/web/src/domain/`, with shared helpers in `packages/web/src/lib/`:
 
 | File | Role |
 |------|------|
-| `taskTimelineSummary.ts` | One entry point for explored files, compactions, observability counters, model summary, and rule decisions |
-| `insights/aggregation.ts` | Aggregates timeline events into counts and file/web/compact summaries |
-| `formatters.ts` | Shared format helpers such as `formatDuration`, `formatRate`, `formatCount`, and `formatPhaseLabel` |
-| `ruleEnforcements.ts` | Helpers for displaying rule enforcement overlays |
+| `features/feed/MetricRail.tsx` | Derives the header metric strip (Active, Compacts, Context utilization) from the timeline |
+| `domain/monitoring.ts` | Event-kind definitions (`action.logged`, `agent.activity.logged`, `verification.logged`, `rule.logged`, etc.) used across the feed |
+| `features/feed/lib/format-time.ts` | Shared format helpers such as `formatDuration` |
 
-`buildObservabilityStats()` currently counts:
+The header metrics are derived in `MetricRail` from the timeline:
 
-- `action.logged` as actions
-- `agent.activity.logged` as coordination activity
-- explored files from the exploration/file aggregation pass
-- `verification.logged` statuses as checks, passes, and violations
-- `rule.logged` statuses as checks, passes, and violations
-- compactions from compact-related timeline events
+- `Active` — wall-clock duration since the task's session started
+- `Compacts` — count of context-window compactions
+- `Context` — most recent context-window utilisation, with a sparkline of the
+  trajectory across the task
 
 ## Rule Lane Semantics
 
