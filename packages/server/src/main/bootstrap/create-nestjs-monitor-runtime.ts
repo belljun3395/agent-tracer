@@ -3,6 +3,7 @@ import { initializeTransactionalContext } from "typeorm-transactional";
 import type http from "node:http";
 import type express from "express";
 import { NestFactory } from "@nestjs/core";
+import type { NestExpressApplication } from "@nestjs/platform-express";
 import { WebSocketServer, type WebSocket } from "ws";
 
 initializeTransactionalContext();
@@ -28,7 +29,15 @@ export async function createNestMonitorRuntime(options: RuntimeOptions): Promise
     const broadcaster = new EventBroadcasterService();
     const osNotifier = new OsDesktopNotifier();
     const notifier = new LocalNotificationPublisher(broadcaster, osNotifier);
-    const nestApp = await NestFactory.create(AppModule.forRoot({ databasePath: options.databasePath, notifier }), { logger: ["error", "warn"] });
+    const nestApp = await NestFactory.create<NestExpressApplication>(
+        AppModule.forRoot({ databasePath: options.databasePath, notifier }),
+        { logger: ["error", "warn"] },
+    );
+    // Raise the body limit above Express's 100kb default: a 100-event batch with
+    // real tool output (Bash results, file contents) easily exceeds it and would
+    // otherwise be rejected at the parser.
+    nestApp.useBodyParser("json", { limit: "8mb" });
+    nestApp.useBodyParser("urlencoded", { limit: "8mb", extended: true });
     const app = nestApp.getHttpAdapter().getInstance() as ReturnType<typeof express>;
     configureTrustedProxy(app);
     const server = nestApp.getHttpServer() as http.Server;
