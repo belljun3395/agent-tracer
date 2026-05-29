@@ -41,12 +41,12 @@ export class SessionLifecycleService {
     }
 
     async findActiveByTaskId(taskId: string): Promise<SessionSnapshot | null> {
-        const entity = await this.repo.findActiveByTaskId(taskId);
+        const entity = await this.repo.findLatestByTaskIdAndStatus(taskId, "running");
         return entity ? entity.toSnapshot() : null;
     }
 
     async countRunningByTaskId(taskId: string): Promise<number> {
-        return this.repo.countRunningByTaskId(taskId);
+        return this.repo.countByTaskIdAndStatus(taskId, "running");
     }
 
     async updateStatus(
