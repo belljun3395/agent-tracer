@@ -95,6 +95,14 @@ export class TaskQueryService {
     }
 
     private async withDisplayTitle(task: MonitoringTask): Promise<MonitoringTask> {
+        // Skip the per-task timeline load entirely when the task's own metadata
+        // already yields a title (the common case). Loading every active task's
+        // full timeline here is the N+1 that stalls the dashboard snapshot.
+        const fromTaskOnly = new TaskDisplayTitle(task, []);
+        if (!fromTaskOnly.needsTimeline()) {
+            const displayTitle = fromTaskOnly.derive();
+            return displayTitle ? { ...task, displayTitle } : task;
+        }
         const timeline = await this.events.findByTaskId(task.id);
         const displayTitle = new TaskDisplayTitle(task, timeline as unknown as readonly TimelineEvent[]).derive();
         return displayTitle ? { ...task, displayTitle } : task;

@@ -23,6 +23,16 @@ export class TaskDisplayTitle {
         return this.resolvePreferred() ?? undefined;
     }
 
+    /**
+     * Whether deriving the title actually needs the event timeline. Returns
+     * false when the task's own metadata already yields a meaningful title,
+     * letting callers skip an expensive per-task timeline load (the common
+     * case in the dashboard snapshot, which otherwise N+1s every task).
+     */
+    needsTimeline(): boolean {
+        return this.meaningfulTitle() === null;
+    }
+
     private resolvePreferred(): string | null {
         return this.meaningfulTitle()
             ?? this.inferredFromTimeline()

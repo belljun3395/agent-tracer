@@ -67,6 +67,28 @@ export async function createNestMonitorRuntime(options: RuntimeOptions): Promise
         socket.destroy();
     });
     const taskSnapshots = nestApp.get<ITaskSnapshotQuery>(TASK_SNAPSHOT_QUERY);
+    // Snapshot cache + in-flight coalescing: building the initial snapshot scans
+    // every active task, so a reconnect storm (all dashboards reconnecting after
+    // a restart) would otherwise stampede the single SQLite connection with one
+    // full build per client. Share one build within a short window; live updates
+    // still arrive via fan-out, so a ~1s-stale initial snapshot is harmless.
+    type SnapshotPayload = Awaited<ReturnType<typeof createInitialSnapshot>>;
+    const SNAPSHOT_TTL_MS = 1000;
+    let snapshotCache: { at: number; payload: SnapshotPayload } | null = null;
+    let snapshotInFlight: Promise<SnapshotPayload> | null = null;
+    const getSnapshot = (): Promise<SnapshotPayload> => {
+        if (snapshotCache && Date.now() - snapshotCache.at < SNAPSHOT_TTL_MS) {
+            return Promise.resolve(snapshotCache.payload);
+        }
+        if (snapshotInFlight) return snapshotInFlight;
+        snapshotInFlight = createInitialSnapshot(taskSnapshots)
+            .then((payload) => {
+                snapshotCache = { at: Date.now(), payload };
+                return payload;
+            })
+            .finally(() => { snapshotInFlight = null; });
+        return snapshotInFlight;
+    };
     wss.on("connection", (ws) => {
         broadcaster.addClient(ws);
         // Heartbeat liveness: ws does NOT auto-detect dead peers, so a client
@@ -80,7 +102,7 @@ export async function createNestMonitorRuntime(options: RuntimeOptions): Promise
         // A ws socket that emits 'error' with no listener throws and crashes the
         // whole process (taking ingest down with it). Drop the client instead.
         ws.on("error", () => broadcaster.drop(ws));
-        void createInitialSnapshot(taskSnapshots)
+        void getSnapshot()
             .then((payload) => {
                 // The client may have given up during the (possibly slow) build.
                 if (ws.readyState !== 1) return;
