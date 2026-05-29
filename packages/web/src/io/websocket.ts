@@ -197,10 +197,14 @@ export class MonitorSocket {
         if (this.destroyed || this.reconnectTimer !== null) {
             return;
         }
-        const delay = Math.min(
+        const ceiling = Math.min(
             this.reconnectBaseMs * Math.pow(2, this.reconnectAttempts),
             this.reconnectMaxMs
         );
+        // Full jitter: pick a random delay in [0, ceiling] so clients that all
+        // dropped at once (server restart) don't reconnect in lockstep and
+        // stampede the server's per-connection snapshot build.
+        const delay = Math.random() * ceiling;
         this.reconnectAttempts += 1;
         this.reconnectTimer = setTimeout(() => {
             this.reconnectTimer = null;
