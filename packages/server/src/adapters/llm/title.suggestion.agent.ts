@@ -10,6 +10,7 @@ import {
     titleSuggestionsListSchema,
     type TitleSuggestion,
 } from "./title.suggestion.zod.js";
+import { parseJsonStrict } from "./parse.json.js";
 
 const DEFAULT_MODEL = "claude-haiku-4-5";
 
@@ -106,22 +107,5 @@ export class TitleSuggestionAgentError extends Error {
     ) {
         super(message);
         this.name = "TitleSuggestionAgentError";
-    }
-}
-
-function parseJsonStrict(raw: string): unknown {
-    const trimmed = raw.trim();
-    try {
-        return JSON.parse(trimmed);
-    } catch {
-        const fenceMatch = trimmed.match(/```(?:json)?\s*([\s\S]+?)\s*```/);
-        if (fenceMatch && fenceMatch[1]) {
-            try {
-                return JSON.parse(fenceMatch[1]);
-            } catch {
-                return null;
-            }
-        }
-        return null;
     }
 }

@@ -10,6 +10,7 @@ import {
     recipeCandidatesListSchema,
     type RecipeCandidatePayload,
 } from "./recipe.scan.zod.js";
+import { parseJsonStrict } from "./parse.json.js";
 
 const ALLOWED_TOOLS = ["Read", "Glob", "Grep"];
 const DEFAULT_MAX_TURNS = 8;
@@ -110,22 +111,5 @@ export class RecipeScanAgentError extends Error {
     ) {
         super(message);
         this.name = "RecipeScanAgentError";
-    }
-}
-
-function parseJsonStrict(raw: string): unknown {
-    const trimmed = raw.trim();
-    try {
-        return JSON.parse(trimmed);
-    } catch {
-        const fenceMatch = trimmed.match(/```(?:json)?\s*([\s\S]+?)\s*```/);
-        if (fenceMatch && fenceMatch[1]) {
-            try {
-                return JSON.parse(fenceMatch[1]);
-            } catch {
-                return null;
-            }
-        }
-        return null;
     }
 }

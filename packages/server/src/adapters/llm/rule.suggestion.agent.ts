@@ -10,6 +10,7 @@ import {
     ruleSuggestionsListSchema,
     type RuleSuggestion,
 } from "./rule.suggestion.zod.js";
+import { parseJsonStrict } from "./parse.json.js";
 
 const ALLOWED_TOOLS = ["Read", "Glob", "Grep"];
 const DEFAULT_MAX_TURNS = 8;
@@ -128,22 +129,4 @@ function buildGeneratedTaskTitle(parentTitle: string): string {
             ? trimmed
             : `${trimmed.slice(0, MAX_PARENT_TITLE_LENGTH - 1)}…`;
     return `${truncated} · Auto Rule Generate`;
-}
-
-function parseJsonStrict(raw: string): unknown {
-    const trimmed = raw.trim();
-    try {
-        return JSON.parse(trimmed);
-    } catch {
-        // Tolerate fenced code blocks if the model couldn't resist them.
-        const fenceMatch = trimmed.match(/```(?:json)?\s*([\s\S]+?)\s*```/);
-        if (fenceMatch && fenceMatch[1]) {
-            try {
-                return JSON.parse(fenceMatch[1]);
-            } catch {
-                return null;
-            }
-        }
-        return null;
-    }
 }
