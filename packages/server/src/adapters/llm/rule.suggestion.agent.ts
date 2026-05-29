@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { query } from "@anthropic-ai/claude-agent-sdk";
+import { createAgentDeadline } from "./agent.deadline.js";
 import type { TaskSummaryUseCaseDto } from "~work/task/application/dto/get.task.summary.usecase.dto.js";
 import {
     buildSystemPrompt,
@@ -59,9 +60,12 @@ export class RuleSuggestionAgent {
         let resultText = "";
         let errorSummary: string | null = null;
 
+        // Tool-using, up to 8 turns over the workspace; allow 300s before abort.
+        const deadline = createAgentDeadline(300_000);
         const q = query({
             prompt: userPrompt,
             options: {
+                abortController: deadline.controller,
                 cwd,
                 model,
                 allowedTools: ALLOWED_TOOLS,
@@ -98,6 +102,7 @@ export class RuleSuggestionAgent {
             }
         }
 
+        deadline.dispose();
         const durationMs = Date.now() - startedAt;
         const rawOutput = resultText || collected;
 

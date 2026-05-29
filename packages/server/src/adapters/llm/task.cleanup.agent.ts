@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { query } from "@anthropic-ai/claude-agent-sdk";
+import { createAgentDeadline } from "./agent.deadline.js";
 import {
     buildSystemPrompt,
     buildUserPrompt,
@@ -57,9 +58,12 @@ export class TaskCleanupAgent {
         let resultText = "";
         let errorSummary: string | null = null;
 
+        // Single-turn Haiku one-shot; 120s is generous headroom over the deadline.
+        const deadline = createAgentDeadline(120_000);
         const q = query({
             prompt: userPrompt,
             options: {
+                abortController: deadline.controller,
                 cwd,
                 model,
                 allowedTools: [...ALLOWED_TOOLS],
@@ -96,6 +100,7 @@ export class TaskCleanupAgent {
             }
         }
 
+        deadline.dispose();
         const durationMs = Date.now() - startedAt;
         const rawOutput = resultText || collected;
 
