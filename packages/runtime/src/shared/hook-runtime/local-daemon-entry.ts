@@ -68,7 +68,13 @@ function rewriteEventIds(event: unknown): unknown {
     if (!isRecord(event)) return event;
     const sessionId = typeof event.sessionId === "string" ? event.sessionId : undefined;
     const mapping = sessionId ? mappings.get(sessionId) : undefined;
-    if (!mapping) return event;
+    if (!mapping || !sessionId) return event;
+    // Touch on read so an active, long-streaming session is treated as
+    // most-recently-used and isn't evicted by churn of many newer short
+    // sessions (FIFO eviction would otherwise drop it past MAPPING_CAP and
+    // leave its later events with un-rewritten local placeholder IDs).
+    mappings.delete(sessionId);
+    mappings.set(sessionId, mapping);
     return {
         ...event,
         taskId: event.taskId === mapping.localTaskId ? mapping.taskId : event.taskId,
