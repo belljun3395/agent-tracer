@@ -13,6 +13,10 @@ const MAX_POLL_INTERVAL_MS = 2000;
 const IDLE_TICKS_BEFORE_BACKOFF = 10;
 const MAX_ATTEMPTS = 5;
 const BATCH_SIZE = 8;
+// A claimed job left in 'processing' longer than this — because the process
+// crashed between claim() and markCompleted/markFailed — is presumed orphaned
+// and reclaimed to 'pending' so its post-processing isn't lost forever.
+const PROCESSING_VISIBILITY_TIMEOUT_MS = 60_000;
 
 /**
  * Polls `event_processing_jobs` for pending rows and dispatches each to the
@@ -77,6 +81,7 @@ export class EventProcessingWorker implements OnApplicationBootstrap, OnApplicat
         if (this.running || this.shuttingDown) return;
         this.running = true;
         try {
+            await this.reapStuck();
             const pending = await this.jobs.find({
                 where: { status: "pending" },
                 order: { createdAt: "ASC" },
@@ -105,6 +110,24 @@ export class EventProcessingWorker implements OnApplicationBootstrap, OnApplicat
         finally {
             this.running = false;
         }
+    }
+
+    /**
+     * Reclaim jobs stuck in 'processing' past the visibility timeout (the
+     * process died between claim() and markCompleted/markFailed). Without this
+     * the worker — which only ever selects status='pending' — would never
+     * re-run them and the event's verification would be lost permanently.
+     * attempts is bumped so a job that repeatedly crashes the worker still
+     * reaches MAX_ATTEMPTS and is parked as 'failed' rather than looping.
+     */
+    private async reapStuck(): Promise<void> {
+        const threshold = new Date(this.clock.nowMs() - PROCESSING_VISIBILITY_TIMEOUT_MS).toISOString();
+        await this.jobs
+            .createQueryBuilder()
+            .update(EventProcessingJobEntity)
+            .set({ status: "pending", attempts: () => "attempts + 1", updatedAt: this.clock.nowIso() })
+            .where("status = :processing AND updated_at < :threshold", { processing: "processing", threshold })
+            .execute();
     }
 
     private async claim(jobId: string): Promise<EventProcessingJobEntity | null> {
