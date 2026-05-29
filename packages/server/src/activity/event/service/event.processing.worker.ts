@@ -1,6 +1,6 @@
 import { Inject, Injectable, Logger, type OnApplicationBootstrap, type OnApplicationShutdown } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { LessThanOrEqual, Repository } from "typeorm";
 import { EventProcessingJobEntity } from "~activity/event/domain/event-store/event.processing.job.entity.js";
 import { TimelineEventService } from "./timeline.event.service.js";
 import type { TimelineEvent } from "~activity/event/domain/model/timeline.event.model.js";
@@ -17,6 +17,9 @@ const BATCH_SIZE = 8;
 // crashed between claim() and markCompleted/markFailed — is presumed orphaned
 // and reclaimed to 'pending' so its post-processing isn't lost forever.
 const PROCESSING_VISIBILITY_TIMEOUT_MS = 60_000;
+// Minimum wait before a failed/reclaimed job is retried, so a poison job that
+// always throws can't hot-loop every poll tick and starve the connection.
+const RETRY_BACKOFF_MS = 5_000;
 
 /**
  * Polls `event_processing_jobs` for pending rows and dispatches each to the
@@ -82,8 +85,15 @@ export class EventProcessingWorker implements OnApplicationBootstrap, OnApplicat
         this.running = true;
         try {
             await this.reapStuck();
+            // Fresh jobs (attempts 0) run immediately; failed/reclaimed jobs wait
+            // RETRY_BACKOFF_MS (their updatedAt is stamped on failure) so a poison
+            // job can't be re-fetched every tick. ISO timestamps sort lexically.
+            const readyBefore = new Date(this.clock.nowMs() - RETRY_BACKOFF_MS).toISOString();
             const pending = await this.jobs.find({
-                where: { status: "pending" },
+                where: [
+                    { status: "pending", attempts: 0 },
+                    { status: "pending", updatedAt: LessThanOrEqual(readyBefore) },
+                ],
                 order: { createdAt: "ASC" },
                 take: BATCH_SIZE,
             });
