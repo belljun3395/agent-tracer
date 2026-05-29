@@ -35,10 +35,11 @@ const RUNTIME_ALIASES = {
 };
 const SERVER_ALIASES = {
   "~config": path.join(PROJECT_ROOT, "packages/server/src/config"),
-  "~domain": path.join(PROJECT_ROOT, "packages/server/src/domain"),
-  "~application": path.join(PROJECT_ROOT, "packages/server/src/application"),
   "~adapters": path.join(PROJECT_ROOT, "packages/server/src/adapters"),
   "~main": path.join(PROJECT_ROOT, "packages/server/src/main"),
+  "~activity": path.join(PROJECT_ROOT, "packages/server/src/activity"),
+  "~work": path.join(PROJECT_ROOT, "packages/server/src/work"),
+  "~governance": path.join(PROJECT_ROOT, "packages/server/src/governance"),
 };
 const WEB_ALIASES = {
   "~domain": path.join(PROJECT_ROOT, "packages/web/src/domain"),
@@ -52,10 +53,11 @@ const WEB_ALIASES = {
 };
 
 // server 의 모든 src 가 공통으로 받는 cross-package import 제한.
-// layer 룰 블록에서도 함께 펼쳐야 (flat config 에서 같은 rule 은 머지가 아니라 override)
-// domain/classification/application 파일들이 이 제한을 잃지 않는다.
+// layer 룰 블록(adapters 등)에서도 함께 펼쳐야 (flat config 에서 같은 rule 은 머지가 아니라 override)
+// 해당 layer 파일들이 이 제한을 잃지 않는다.
+// 모듈 내부 layer 의존(domain↑ 금지, usecase→repository 직접 금지 등)은
+// bounded-context 마이그레이션 이후 dep-cruiser(.dependency-cruiser.cjs)가 소유한다.
 const SERVER_CROSS_PACKAGE_PATTERNS = [
-  { group: ["**/application/ports/*.js"], message: "Import application ports from the ports barrel." },
   { group: ["@monitor/web", "@monitor/runtime"], message: "server must not import from web or runtime packages." },
 ];
 
@@ -315,36 +317,10 @@ export default tseslint.config(
     }
   },
 
-  // ── 5. server 내부 layered architecture ───────────────────────
-  // domain → classification → application → adapters → main.
-  // 각 layer 룰은 cross-package 패턴을 함께 펼쳐 둔다 (flat config override 회피).
-  {
-    files: ["packages/server/src/domain/**/*.{ts,tsx}"],
-    rules: {
-      "no-restricted-imports": restrictedImports(
-        ...SERVER_CROSS_PACKAGE_PATTERNS,
-        { group: ["../classification/**", "../application/**", "../adapters/**", "../main/**", "~application/**", "~adapters/**", "~main/**"], message: "domain is the innermost layer — no upward imports." }
-      )
-    }
-  },
-  {
-    files: ["packages/server/src/classification/**/*.{ts,tsx}"],
-    rules: {
-      "no-restricted-imports": restrictedImports(
-        ...SERVER_CROSS_PACKAGE_PATTERNS,
-        { group: ["../application/**", "../adapters/**", "../main/**", "~application/**", "~adapters/**", "~main/**"], message: "classification depends only on domain." }
-      )
-    }
-  },
-  {
-    files: ["packages/server/src/application/**/*.{ts,tsx}"],
-    rules: {
-      "no-restricted-imports": restrictedImports(
-        ...SERVER_CROSS_PACKAGE_PATTERNS,
-        { group: ["../adapters/**", "../main/**", "~adapters/**", "~main/**"], message: "application depends only on domain and classification." }
-      )
-    }
-  },
+  // ── 5. server platform layer 경계 ─────────────────────────────
+  // bounded-context(activity/work/governance) 내부 layer 의존은 dep-cruiser 가 소유한다
+  // (.dependency-cruiser.cjs 의 <module>-* 규칙). eslint 는 platform 코드의 cross-package
+  // 제한과, adapters → main 금지만 enforce 한다. (flat config override 회피 위해 패턴 spread)
   {
     files: ["packages/server/src/adapters/**/*.{ts,tsx}"],
     rules: {
@@ -437,20 +413,19 @@ export default tseslint.config(
   },
 
   // 7-b) NestJS DI 한계 — type erasure 로 인한 광범위 no-unsafe-* false positive.
-  //      적용 범위: application + bootstrap/presentation/seed + index +
-  //      NestJS 데코레이터를 직접 쓰는 모든 adapter (controllers, realtime, mcp, ai).
-  //      `require-await: off` 는 application service 의 pass-through async (port 위임)
-  //      와 SQLite 스타일 API 통일성을 동일 사유로 묶기 위함.
+  //      적용 범위: server.entry + bootstrap/presentation(main) +
+  //      NestJS 데코레이터를 직접 쓰는 adapter (controllers, realtime, mcp, llm).
+  //      `require-await: off` 는 SQLite 스타일 pass-through async API 통일성을 위함.
+  //      bounded-context usecase/service(activity/work/governance) 는 완화 없이 baseline 을
+  //      그대로 통과하므로 여기 포함하지 않는다.
   {
     files: [
       "packages/server/src/server.entry.ts",
-      "packages/server/src/application/**/*.{ts,tsx}",
       "packages/server/src/main/**/*.{ts,tsx}",
-      "packages/server/src/domain/workflow/workflow-context.ts",
       "packages/server/src/adapters/http/**/controllers/**/*.{ts,tsx}",
       "packages/server/src/adapters/realtime/**/*.{ts,tsx}",
       "packages/server/src/adapters/mcp/**/*.{ts,tsx}",
-      "packages/server/src/adapters/ai/**/*.{ts,tsx}"
+      "packages/server/src/adapters/llm/**/*.{ts,tsx}"
     ],
     rules: {
       "@typescript-eslint/require-await": "off",
