@@ -16,8 +16,8 @@ import { RegisterSuggestionUseCase } from "../application/register.suggestion.us
 import {
     ruleSuggestionIngestSchema,
     rulesListIngestQuerySchema,
-    type RuleSuggestionIngestBody,
-    type RulesListIngestQuery,
+    RuleSuggestionIngestDto,
+    RulesListIngestQueryDto,
 } from "./rule.ingest.schema.js";
 
 @Controller("ingest/v1/rules")
@@ -32,7 +32,7 @@ export class RuleIngestController {
     @HttpCode(HttpStatus.OK)
     async suggest(
         @Body(new ZodValidationPipe(ruleSuggestionIngestSchema))
-        body: RuleSuggestionIngestBody,
+        body: RuleSuggestionIngestDto,
     ) {
         try {
             return await this.registerSuggestion.execute({
@@ -66,7 +66,7 @@ export class RuleIngestController {
     @Get()
     async list(
         @Query(new ZodValidationPipe(rulesListIngestQuerySchema))
-        query: RulesListIngestQuery,
+        query: RulesListIngestQueryDto,
     ) {
         return this.listRules.execute({
             ...(query.scope ? { scope: query.scope } : {}),

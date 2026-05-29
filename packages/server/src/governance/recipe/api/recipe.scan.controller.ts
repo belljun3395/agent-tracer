@@ -14,6 +14,7 @@ import {
 } from "@nestjs/common";
 import { pathParamPipe } from "~adapters/http/shared/path-param.pipe.js";
 import { ZodValidationPipe } from "~adapters/http/shared/zod-validation.pipe.js";
+import { createZodDto } from "nestjs-zod";
 import { z } from "zod";
 import { AcceptRecipeCandidateUseCase } from "../application/accept.recipe.candidate.usecase.js";
 import { DismissRecipeCandidateUseCase } from "../application/dismiss.recipe.candidate.usecase.js";
@@ -41,7 +42,8 @@ const enqueueBodySchema = z
     })
     .strict();
 
-type EnqueueBody = z.infer<typeof enqueueBodySchema>;
+/** Swagger/OpenAPI request DTO; validation still runs through {@link enqueueBodySchema}. */
+class EnqueueDto extends createZodDto(enqueueBodySchema) {}
 
 const matchBodySchema = z
     .object({
@@ -53,7 +55,8 @@ const matchBodySchema = z
     })
     .strict();
 
-type MatchBody = z.infer<typeof matchBodySchema>;
+/** Swagger/OpenAPI request DTO; validation still runs through {@link matchBodySchema}. */
+class MatchDto extends createZodDto(matchBodySchema) {}
 
 function clampSmallInt(
     raw: string | undefined,
@@ -83,7 +86,7 @@ export class RecipeScanController {
     @Post("scan")
     @HttpCode(HttpStatus.ACCEPTED)
     async enqueue(
-        @Body(new ZodValidationPipe(enqueueBodySchema)) body: EnqueueBody,
+        @Body(new ZodValidationPipe(enqueueBodySchema)) body: EnqueueDto,
     ) {
         try {
             const job = await this.service.enqueue({
@@ -218,7 +221,7 @@ export class RecipeScanController {
     @Post("match")
     @HttpCode(HttpStatus.OK)
     async match(
-        @Body(new ZodValidationPipe(matchBodySchema)) body: MatchBody,
+        @Body(new ZodValidationPipe(matchBodySchema)) body: MatchDto,
     ) {
         const matches = await this.matching.match({
             prompt: body.prompt,

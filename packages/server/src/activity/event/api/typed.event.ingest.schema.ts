@@ -1,3 +1,4 @@
+import { createZodDto } from "nestjs-zod";
 import { z } from "zod";
 import { CONVERSATION_EVENT_KINDS, COORDINATION_EVENT_KINDS, EVENT_RELATION_TYPES, LIFECYCLE_EVENT_KINDS, TELEMETRY_EVENT_KINDS, EVENT_LANES, TOOL_ACTIVITY_EVENT_KINDS, WORKFLOW_EVENT_KINDS } from "../application/dto/log.event.usecase.dto.js";
 
@@ -74,6 +75,19 @@ export const conversationBatchSchema = z.object({ events: z.array(conversationEv
 export const coordinationBatchSchema = z.object({ events: z.array(coordinationEventSchema).min(1).max(100) });
 export const lifecycleBatchSchema = z.object({ events: z.array(lifecycleEventSchema).min(1).max(100) });
 export const telemetryBatchSchema = z.object({ events: z.array(telemetryEventSchema).min(1).max(100) });
+
+/** Swagger/OpenAPI request DTO; validation still runs through {@link toolActivityBatchSchema}. */
+export class ToolActivityBatchDto extends createZodDto(toolActivityBatchSchema) {}
+/** Swagger/OpenAPI request DTO; validation still runs through {@link workflowBatchSchema}. */
+export class WorkflowBatchDto extends createZodDto(workflowBatchSchema) {}
+/** Swagger/OpenAPI request DTO; validation still runs through {@link conversationBatchSchema}. */
+export class ConversationBatchDto extends createZodDto(conversationBatchSchema) {}
+/** Swagger/OpenAPI request DTO; validation still runs through {@link coordinationBatchSchema}. */
+export class CoordinationBatchDto extends createZodDto(coordinationBatchSchema) {}
+/** Swagger/OpenAPI request DTO; validation still runs through {@link lifecycleBatchSchema}. */
+export class LifecycleBatchDto extends createZodDto(lifecycleBatchSchema) {}
+/** Swagger/OpenAPI request DTO; validation still runs through {@link telemetryBatchSchema}. */
+export class TelemetryBatchDto extends createZodDto(telemetryBatchSchema) {}
 
 export type ToolActivityIngestEvent = z.infer<typeof toolActivityEventSchema>;
 export type WorkflowIngestEvent = z.infer<typeof workflowEventSchema>;

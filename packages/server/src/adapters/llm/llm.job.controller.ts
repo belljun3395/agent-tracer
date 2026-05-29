@@ -1,4 +1,5 @@
 import { Body, Controller, HttpCode, HttpStatus, Param, Post } from "@nestjs/common";
+import { createZodDto } from "nestjs-zod";
 import { z } from "zod";
 import { ZodValidationPipe } from "~adapters/http/shared/zod-validation.pipe.js";
 import { LlmJobBroker } from "./llm.job.broker.js";
@@ -11,7 +12,8 @@ const resultBodySchema = z
     })
     .strict();
 
-type ResultBody = z.infer<typeof resultBodySchema>;
+/** Swagger/OpenAPI request DTO; validation still runs through {@link resultBodySchema}. */
+class ResultDto extends createZodDto(resultBodySchema) {}
 
 /**
  * Runtime-facing pull surface for LLM agent jobs. The local runtime daemon
@@ -33,7 +35,7 @@ export class LlmJobController {
     @HttpCode(HttpStatus.OK)
     submit(
         @Param("id") id: string,
-        @Body(new ZodValidationPipe(resultBodySchema)) body: ResultBody,
+        @Body(new ZodValidationPipe(resultBodySchema)) body: ResultDto,
     ): { delivered: boolean } {
         const delivered = body.ok
             ? this.broker.resolve(id, body.output)

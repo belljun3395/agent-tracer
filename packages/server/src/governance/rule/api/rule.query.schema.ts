@@ -1,3 +1,4 @@
+import { createZodDto } from "nestjs-zod";
 import { z } from "zod";
 import { RULE_SCOPES, RULE_SOURCES } from "../domain/const/rule.const.js";
 
@@ -8,3 +9,6 @@ export const rulesListQuerySchema = z.object({
 });
 
 export type RulesListQuery = z.infer<typeof rulesListQuerySchema>;
+
+/** Swagger/OpenAPI request DTO; validation still runs through {@link rulesListQuerySchema}. */
+export class RulesListQueryDto extends createZodDto(rulesListQuerySchema) {}

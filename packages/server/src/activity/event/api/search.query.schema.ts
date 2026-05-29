@@ -1,3 +1,4 @@
+import { createZodDto } from "nestjs-zod";
 import { z } from "zod";
 
 export const searchQuerySchema = z.object({
@@ -13,3 +14,6 @@ export const searchQuerySchema = z.object({
     ...(taskId !== undefined ? { taskId } : {}),
     ...(limit !== undefined ? { limit } : {}),
 }));
+
+/** Swagger/OpenAPI request DTO; validation still runs through {@link searchQuerySchema}. */
+export class SearchQueryDto extends createZodDto(searchQuerySchema) {}

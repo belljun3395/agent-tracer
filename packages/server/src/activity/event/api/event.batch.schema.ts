@@ -1,3 +1,4 @@
+import { createZodDto } from "nestjs-zod";
 import { z } from "zod";
 import { EVENT_LANES, EVENT_RELATION_TYPES, INGEST_EVENT_KINDS } from "../application/dto/log.event.usecase.dto.js";
 
@@ -22,3 +23,8 @@ const eventBatchItemSchema = z.object({
 export const eventBatchSchema = z.object({
     events: z.array(eventBatchItemSchema).min(1).max(100),
 });
+
+/** Swagger/OpenAPI request DTO; validation still runs through {@link eventBatchSchema}. */
+export class EventBatchDto extends createZodDto(eventBatchSchema) {}
+/** Swagger/OpenAPI request DTO (ingest alias); validation still runs through {@link eventBatchSchema}. */
+export class IngestEventsBatchDto extends createZodDto(eventBatchSchema) {}

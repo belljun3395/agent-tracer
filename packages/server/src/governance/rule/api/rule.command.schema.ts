@@ -1,3 +1,4 @@
+import { createZodDto } from "nestjs-zod";
 import { z } from "zod";
 import { RULE_EXPECTED_ACTIONS, RULE_SCOPES, RULE_SEVERITIES, RULE_TRIGGER_SOURCES } from "../domain/const/rule.const.js";
 
@@ -52,6 +53,9 @@ export const ruleCreateSchema = z
 
 export type RuleCreateBody = z.infer<typeof ruleCreateSchema>;
 
+/** Swagger/OpenAPI request DTO; validation still runs through {@link ruleCreateSchema}. */
+export class RuleCreateDto extends createZodDto(ruleCreateSchema) {}
+
 const expectPatchSchema = z.object({
     tool: z.enum(RULE_EXPECTED_ACTIONS).nullable().optional(),
     commandMatches: z.array(z.string().trim().min(1)).nullable().optional(),
@@ -79,3 +83,6 @@ export const ruleUpdateSchema = z
     );
 
 export type RuleUpdateBody = z.infer<typeof ruleUpdateSchema>;
+
+/** Swagger/OpenAPI request DTO; validation still runs through {@link ruleUpdateSchema}. */
+export class RuleUpdateDto extends createZodDto(ruleUpdateSchema) {}

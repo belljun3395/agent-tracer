@@ -1,3 +1,4 @@
+import { createZodDto } from "nestjs-zod";
 import { z } from "zod";
 
 export const preprocessingHintsBodySchema = z.object({
@@ -8,3 +9,6 @@ export const preprocessingHintsBodySchema = z.object({
 });
 
 export type PreprocessingHintsBody = z.infer<typeof preprocessingHintsBodySchema>;
+
+/** Swagger/OpenAPI request DTO; validation still runs through {@link preprocessingHintsBodySchema}. */
+export class PreprocessingHintsDto extends createZodDto(preprocessingHintsBodySchema) {}

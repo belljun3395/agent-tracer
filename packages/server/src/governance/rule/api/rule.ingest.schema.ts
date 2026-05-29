@@ -1,3 +1,4 @@
+import { createZodDto } from "nestjs-zod";
 import { z } from "zod";
 import {
     RULE_EXPECTED_ACTIONS,
@@ -59,6 +60,9 @@ export const ruleSuggestionIngestSchema = z
 
 export type RuleSuggestionIngestBody = z.infer<typeof ruleSuggestionIngestSchema>;
 
+/** Swagger/OpenAPI request DTO; validation still runs through {@link ruleSuggestionIngestSchema}. */
+export class RuleSuggestionIngestDto extends createZodDto(ruleSuggestionIngestSchema) {}
+
 export const rulesListIngestQuerySchema = z.object({
     scope: z.enum(RULE_SCOPES).optional(),
     taskId: z.string().trim().min(1).optional(),
@@ -66,3 +70,6 @@ export const rulesListIngestQuerySchema = z.object({
 });
 
 export type RulesListIngestQuery = z.infer<typeof rulesListIngestQuerySchema>;
+
+/** Swagger/OpenAPI request DTO; validation still runs through {@link rulesListIngestQuerySchema}. */
+export class RulesListIngestQueryDto extends createZodDto(rulesListIngestQuerySchema) {}

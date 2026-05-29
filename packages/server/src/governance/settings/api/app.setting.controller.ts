@@ -16,7 +16,7 @@ import {
     InvalidSettingValueError,
     UnsupportedSettingKeyError,
 } from "../application/app.setting.service.js";
-import { settingPutSchema, type SettingPutBody } from "./app.setting.schema.js";
+import { settingPutSchema, SettingPutDto } from "./app.setting.schema.js";
 
 @Controller("api/v1/settings")
 export class AppSettingController {
@@ -31,7 +31,7 @@ export class AppSettingController {
     @HttpCode(HttpStatus.OK)
     async setKey(
         @Param("key") key: string,
-        @Body(new ZodValidationPipe(settingPutSchema)) body: SettingPutBody,
+        @Body(new ZodValidationPipe(settingPutSchema)) body: SettingPutDto,
     ) {
         try {
             return { setting: await this.settings.set(key, body.value) };

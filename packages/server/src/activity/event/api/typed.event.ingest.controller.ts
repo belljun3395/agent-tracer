@@ -1,15 +1,20 @@
 import { Body, Controller, HttpCode, HttpStatus, Post } from "@nestjs/common";
-import type { z } from "zod";
 import { ZodValidationPipe } from "~adapters/http/shared/zod-validation.pipe.js";
 import { IngestEventsUseCase } from "../application/ingest.events.usecase.js";
 import type { IngestEventsUseCaseEventDto, IngestEventsUseCaseIn } from "../application/dto/ingest.events.usecase.dto.js";
 import {
     conversationBatchSchema,
+    ConversationBatchDto,
     coordinationBatchSchema,
+    CoordinationBatchDto,
     lifecycleBatchSchema,
+    LifecycleBatchDto,
     telemetryBatchSchema,
+    TelemetryBatchDto,
     toolActivityBatchSchema,
+    ToolActivityBatchDto,
     workflowBatchSchema,
+    WorkflowBatchDto,
     type ConversationIngestEvent,
     type CoordinationIngestEvent,
     type LifecycleIngestEvent,
@@ -23,8 +28,6 @@ type TypedEvent =
     | ConversationIngestEvent
     | CoordinationIngestEvent
     | LifecycleIngestEvent;
-type ToolActivityBatchBody = z.infer<typeof toolActivityBatchSchema>;
-type TelemetryBatchBody = z.infer<typeof telemetryBatchSchema>;
 type TypedBatchBody = { readonly events: readonly TypedEvent[] };
 
 @Controller("ingest/v1")
@@ -35,7 +38,7 @@ export class TypedEventIngestController {
     @HttpCode(HttpStatus.OK)
     async ingestToolActivity(
         @Body(new ZodValidationPipe(toolActivityBatchSchema, "Invalid request body"))
-        body: ToolActivityBatchBody,
+        body: ToolActivityBatchDto,
     ) {
         const input = { events: [...body.events] as readonly IngestEventsUseCaseEventDto[] } satisfies IngestEventsUseCaseIn;
         return this.ingestEvents.execute(input);
@@ -45,7 +48,7 @@ export class TypedEventIngestController {
     @HttpCode(HttpStatus.OK)
     async ingestWorkflow(
         @Body(new ZodValidationPipe(workflowBatchSchema, "Invalid request body"))
-        body: TypedBatchBody,
+        body: WorkflowBatchDto,
     ) {
         return this.handleBatch(body);
     }
@@ -54,7 +57,7 @@ export class TypedEventIngestController {
     @HttpCode(HttpStatus.OK)
     async ingestConversation(
         @Body(new ZodValidationPipe(conversationBatchSchema, "Invalid request body"))
-        body: TypedBatchBody,
+        body: ConversationBatchDto,
     ) {
         return this.handleBatch(body);
     }
@@ -63,7 +66,7 @@ export class TypedEventIngestController {
     @HttpCode(HttpStatus.OK)
     async ingestCoordination(
         @Body(new ZodValidationPipe(coordinationBatchSchema, "Invalid request body"))
-        body: TypedBatchBody,
+        body: CoordinationBatchDto,
     ) {
         return this.handleBatch(body);
     }
@@ -72,7 +75,7 @@ export class TypedEventIngestController {
     @HttpCode(HttpStatus.OK)
     async ingestLifecycle(
         @Body(new ZodValidationPipe(lifecycleBatchSchema, "Invalid request body"))
-        body: TypedBatchBody,
+        body: LifecycleBatchDto,
     ) {
         return this.handleBatch(body);
     }
@@ -81,7 +84,7 @@ export class TypedEventIngestController {
     @HttpCode(HttpStatus.OK)
     async ingestTelemetry(
         @Body(new ZodValidationPipe(telemetryBatchSchema, "Invalid request body"))
-        body: TelemetryBatchBody,
+        body: TelemetryBatchDto,
     ) {
         const events = body.events.map((event): IngestEventsUseCaseEventDto => ({
             kind: "token.usage",

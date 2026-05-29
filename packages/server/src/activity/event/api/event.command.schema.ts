@@ -1,3 +1,4 @@
+import { createZodDto } from "nestjs-zod";
 import { z } from "zod";
 
 export const eventPatchSchema = z.object({
@@ -5,3 +6,6 @@ export const eventPatchSchema = z.object({
 }).refine((data) => data.displayTitle !== undefined, {
     message: "At least one field must be provided",
 });
+
+/** Swagger/OpenAPI request DTO; validation still runs through {@link eventPatchSchema}. */
+export class EventPatchDto extends createZodDto(eventPatchSchema) {}

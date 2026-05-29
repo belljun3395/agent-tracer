@@ -21,8 +21,8 @@ import { UpdateRuleUseCase } from "../application/update.rule.usecase.js";
 import {
     ruleCreateSchema,
     ruleUpdateSchema,
-    type RuleCreateBody,
-    type RuleUpdateBody,
+    RuleCreateDto,
+    RuleUpdateDto,
 } from "./rule.command.schema.js";
 import { pathParamPipe } from "~adapters/http/shared/path-param.pipe.js";
 import { ZodValidationPipe } from "~adapters/http/shared/zod-validation.pipe.js";
@@ -40,7 +40,7 @@ export class RuleCommandController {
 
     @Post()
     @HttpCode(HttpStatus.CREATED)
-    async create(@Body(new ZodValidationPipe(ruleCreateSchema)) body: RuleCreateBody) {
+    async create(@Body(new ZodValidationPipe(ruleCreateSchema)) body: RuleCreateDto) {
         try {
             return await this.createRule.execute({
                 name: body.name,
@@ -67,7 +67,7 @@ export class RuleCommandController {
     @Patch(":id")
     async update(
         @Param("id", pathParamPipe) id: string,
-        @Body(new ZodValidationPipe(ruleUpdateSchema)) body: RuleUpdateBody,
+        @Body(new ZodValidationPipe(ruleUpdateSchema)) body: RuleUpdateDto,
     ) {
         try {
             const expectPatch = body.expect

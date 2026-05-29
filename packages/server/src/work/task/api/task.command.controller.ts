@@ -22,7 +22,7 @@ import {
 import { UnarchiveTaskUseCase } from "../application/unarchive.task.usecase.js";
 import { UpdateTaskUseCase } from "../application/update.task.usecase.js";
 import type { UpdateTaskUseCaseIn } from "../application/dto/update.task.usecase.dto.js";
-import { taskPatchSchema } from "./task.command.schema.js";
+import { TaskPatchDto, taskPatchSchema } from "./task.command.schema.js";
 
 @Controller("api/v1/tasks")
 export class TaskCommandController {
@@ -37,7 +37,7 @@ export class TaskCommandController {
     @Patch(":taskId")
     async patchTask(
         @Param("taskId", pathParamPipe) taskId: string,
-        @Body(new ZodValidationPipe(taskPatchSchema)) body: Omit<UpdateTaskUseCaseIn, "taskId">,
+        @Body(new ZodValidationPipe(taskPatchSchema)) body: TaskPatchDto,
     ) {
         const patchInput: UpdateTaskUseCaseIn = {
             taskId,
