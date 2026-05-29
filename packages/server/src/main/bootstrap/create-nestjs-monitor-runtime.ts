@@ -60,9 +60,20 @@ export async function createNestMonitorRuntime(options: RuntimeOptions): Promise
     wss.on("connection", (ws) => {
         broadcaster.addClient(ws);
         ws.on("close", () => broadcaster.removeClient(ws));
-        void createInitialSnapshot(taskSnapshots).then((payload) => {
-            ws.send(JSON.stringify({ type: "snapshot", payload }));
-        });
+        // A ws socket that emits 'error' with no listener throws and crashes the
+        // whole process (taking ingest down with it). Drop the client instead.
+        ws.on("error", () => broadcaster.drop(ws));
+        void createInitialSnapshot(taskSnapshots)
+            .then((payload) => {
+                // The client may have given up during the (possibly slow) build.
+                if (ws.readyState !== 1) return;
+                ws.send(JSON.stringify({ type: "snapshot", payload }));
+            })
+            .catch((err) => {
+                const message = err instanceof Error ? err.message : String(err);
+                process.stderr.write(`[nestjs-server] initial snapshot failed: ${message}\n`);
+                broadcaster.drop(ws);
+            });
     });
     await nestApp.init();
     const taskLifecycle = nestApp.get<ITaskLifecycle>(TASK_LIFECYCLE);
