@@ -1,6 +1,8 @@
 monitor:
   protocol: http
-  listenHost: 0.0.0.0
+  # Loopback by default — a local single-user tool should not be reachable from
+  # the network. Containers/exposed deployments set MONITOR_LISTEN_HOST=0.0.0.0.
+  listenHost: 127.0.0.1
   publicHost: 127.0.0.1
   port: 3847
   databasePath: .monitor/monitor.sqlite

@@ -32,23 +32,33 @@ export async function createNestMonitorRuntime(options: RuntimeOptions): Promise
     const app = nestApp.getHttpAdapter().getInstance() as ReturnType<typeof express>;
     configureTrustedProxy(app);
     const server = nestApp.getHttpServer() as http.Server;
-    const wss = new WebSocketServer({ noServer: true });
+    // Clients only ever send tiny control frames; cap inbound payloads far below
+    // ws's 100 MiB default so a single oversized frame can't exhaust memory.
+    const wss = new WebSocketServer({ noServer: true, maxPayload: 1 * 1024 * 1024 });
     server.on("upgrade", (request, socket, head) => {
         const requestUrl = request.url ?? "/";
         const { pathname } = new URL(requestUrl, "http://localhost");
         const context = createUpgradeRequestContext(request);
         const userAgentHeader = request.headers["user-agent"];
         const userAgent = Array.isArray(userAgentHeader) ? userAgentHeader[0] : userAgentHeader;
+        const originHeader = request.headers["origin"];
+        const origin = Array.isArray(originHeader) ? originHeader[0] : originHeader;
         assignRequestContext(request as RequestContextIncomingMessage, context);
+        // Browsers do NOT enforce same-origin for WebSocket, so without a check
+        // any page the user visits could open /ws and read the live event stream
+        // (task titles, workspace paths). Allow native clients (no Origin header,
+        // e.g. the runtime daemon) and loopback origins; gate everything else
+        // behind an explicit opt-in for intentionally-exposed deployments.
+        const accepted = pathname === "/ws" && isWsOriginAllowed(origin);
         logHttpUpgrade({
             type: "http_upgrade",
             requestId: context.requestId,
             path: pathname,
-            accepted: pathname === "/ws",
+            accepted,
             clientIp: context.clientIp,
             ...(userAgent ? { userAgent } : {}),
         });
-        if (pathname === "/ws") {
+        if (accepted) {
             wss.handleUpgrade(request, socket, head, (ws) => {
                 wss.emit("connection", ws, request);
             });
@@ -114,6 +124,24 @@ export async function createNestMonitorRuntime(options: RuntimeOptions): Promise
             });
         }
     };
+}
+
+/**
+ * WebSocket upgrade origin policy. Native clients (the runtime daemon, curl)
+ * send no Origin header and are always allowed; browser connections are
+ * restricted to loopback origins to block cross-site WebSocket hijacking.
+ * Set MONITOR_WS_ALLOW_ANY_ORIGIN=1 for an intentionally network-exposed
+ * dashboard served from a non-loopback host.
+ */
+function isWsOriginAllowed(origin: string | undefined): boolean {
+    if (process.env.MONITOR_WS_ALLOW_ANY_ORIGIN === "1") return true;
+    if (!origin) return true;
+    try {
+        const host = new URL(origin).hostname;
+        return host === "localhost" || host === "127.0.0.1" || host === "::1";
+    } catch {
+        return false;
+    }
 }
 
 /**

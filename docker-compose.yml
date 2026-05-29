@@ -9,6 +9,9 @@ services:
       - monitor-data:/app/.monitor
     environment:
       - NODE_ENV=production
+      # Bind all interfaces inside the container so the published port is
+      # reachable from the host (the app defaults to loopback-only).
+      - MONITOR_LISTEN_HOST=0.0.0.0
 
   web:
     build:

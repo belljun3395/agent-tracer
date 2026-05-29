@@ -29,7 +29,7 @@ export interface ApplicationConfig {
 const DEFAULT_APPLICATION_CONFIG: ApplicationConfig = Object.freeze({
     monitor: {
         protocol: "http" as const,
-        listenHost: "0.0.0.0",
+        listenHost: "127.0.0.1",
         publicHost: "127.0.0.1",
         port: 3847,
         databasePath: ".monitor/monitor.sqlite",
