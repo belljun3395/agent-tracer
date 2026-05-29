@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { In, Repository } from "typeorm";
+import { runInTransaction } from "typeorm-transactional";
 import type {
     IRuleEnforcementRepository,
     RuleEnforcementInsert,
@@ -31,9 +32,11 @@ export class RuleEnforcementRepository implements IRuleEnforcementRepository {
     async insertMany(rows: readonly RuleEnforcementInsert[]): Promise<readonly RuleEnforcementRow[]> {
         if (rows.length === 0) return [];
         const inserted: RuleEnforcementRow[] = [];
-        await this.repo.manager.transaction(async (manager) => {
+        // Route through runInTransaction (not the raw manager.transaction) so it
+        // shares the single serialized write path on the one SQLite connection.
+        await runInTransaction(async () => {
             for (const row of rows) {
-                const result = await manager
+                const result = await this.repo
                     .createQueryBuilder()
                     .insert()
                     .into(RuleEnforcementEntity)

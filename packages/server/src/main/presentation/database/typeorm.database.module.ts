@@ -2,6 +2,7 @@ import { Module, type DynamicModule } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { DataSource } from "typeorm";
 import { addTransactionalDataSource } from "typeorm-transactional";
+import { serializeDataSourceWrites } from "./write-serializer.js";
 import { CreateTaskSchema1700000001000 } from "~main/migrations/1700000001000-create-task-schema.js";
 import { CreateSessionSchema1700000002000 } from "~main/migrations/1700000002000-create-session-schema.js";
 import { CreateEventSchema1700000003000 } from "~main/migrations/1700000003000-create-event-schema.js";
@@ -77,7 +78,10 @@ export class TypeOrmDatabaseModule {
                         }
                         const dataSource = await new DataSource(config).initialize();
                         await applySqlitePragmas(dataSource);
-                        return addTransactionalDataSource(dataSource);
+                        // Serialize top-level transactions on the single SQLite
+                        // connection (wrap AFTER the transactional patch so it
+                        // wraps the funnel typeorm-transactional actually calls).
+                        return serializeDataSourceWrites(addTransactionalDataSource(dataSource));
                     },
                 }),
             ],
