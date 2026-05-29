@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { Transactional } from "typeorm-transactional";
+import { Transactional, runOnTransactionCommit } from "typeorm-transactional";
 import { KIND } from "~activity/event/domain/common/const/event.kind.const.js";
 import { createEventRecordDraft, normalizeFilePaths } from "~activity/event/domain/event.recording.js";
 import { deriveFileChangeEventInputs, shouldApplyLoggedEventTaskStatusEffect } from "~activity/event/domain/event.recording.js";
@@ -130,7 +130,11 @@ export class LogEventUseCase {
             await this.tasks.updateStatus(task.id, desiredStatus, updatedAt);
             const updatedTask = await this.tasks.findById(task.id);
             if (updatedTask) {
-                this.notifier.publish({ type: "task.updated", payload: updatedTask as never });
+                // Defer until the transaction commits so a rollback can't leave
+                // dashboards showing a status change that never persisted.
+                runOnTransactionCommit(() => {
+                    this.notifier.publish({ type: "task.updated", payload: updatedTask as never });
+                });
                 return { task: updatedTask as never, ...(sessionId ? { sessionId } : {}), events: allEvents } as LogEventUseCaseOut;
             }
         }
@@ -145,7 +149,11 @@ export class LogEventUseCase {
             ...record,
         } as never);
         const event = persisted as unknown as TimelineEvent;
-        this.notifier.publish({ type: "event.logged", payload: projectTimelineEvent(event) as never });
+        // Broadcast only after the surrounding transaction commits, so a
+        // rolled-back event never reaches dashboards as a phantom row.
+        runOnTransactionCommit(() => {
+            this.notifier.publish({ type: "event.logged", payload: projectTimelineEvent(event) as never });
+        });
 
         const jobType: PostProcessingJobType =
             event.kind === KIND.userMessage
