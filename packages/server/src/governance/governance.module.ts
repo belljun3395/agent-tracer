@@ -1,9 +1,9 @@
 import { Module, type DynamicModule } from "@nestjs/common";
 import { RecipeModule } from "./recipe/recipe.module.js";
 import { RuleModule } from "./rule/rule.module.js";
-import { RuleGenerationModule } from "./rule-generation/rule-generation.module.js";
+import { RuleGenerationModule } from "./rule-generation/rule.generation.module.js";
 import { SettingsModule } from "./settings/settings.module.js";
-import { TaskCleanupModule } from "./task-cleanup/task-cleanup.module.js";
+import { TaskCleanupModule } from "./task-cleanup/task.cleanup.module.js";
 import { VerificationModule } from "./verification/verification.module.js";
 
 /**

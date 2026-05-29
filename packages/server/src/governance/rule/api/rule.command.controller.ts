@@ -16,7 +16,7 @@ import { CreateRuleUseCase } from "../application/create.rule.usecase.js";
 import { DeleteRuleUseCase } from "../application/delete.rule.usecase.js";
 import { DemoteRuleToTaskUseCase } from "../application/demote.rule.to.task.usecase.js";
 import { PromoteRuleToGlobalUseCase } from "../application/promote.rule.to.global.usecase.js";
-import { ReEvaluateRuleUseCase } from "../application/re-evaluate.rule.usecase.js";
+import { ReEvaluateRuleUseCase } from "../application/reevaluate.rule.usecase.js";
 import { UpdateRuleUseCase } from "../application/update.rule.usecase.js";
 import {
     ruleCreateSchema,

@@ -1,7 +1,7 @@
 import type { TimelineEvent } from "~activity/event/public/types/event.types.js";
 import { KIND } from "~activity/event/public/types/event.const.js";
-import { matchEventAgainstRule } from "~governance/verification/domain/event-rule.matching.js";
-import type { NotificationPublisherPort } from "~adapters/notifications/notification.publisher.port.js";
+import { matchEventAgainstRule } from "~governance/verification/domain/event.rule.matching.js";
+import type { INotificationPublisher } from "~adapters/notifications/notification.publisher.port.js";
 import type { IRuleAccess } from "~governance/verification/application/outbound/rule.access.port.js";
 import type {
     IRuleEnforcementRepository,
@@ -27,7 +27,7 @@ export class RuleEnforcementPostProcessor {
         private readonly ruleRepo: IRuleAccess,
         private readonly turnRepo: ITurnRepository,
         private readonly enforcementRepo: IRuleEnforcementRepository,
-        private readonly notifier: NotificationPublisherPort,
+        private readonly notifier: INotificationPublisher,
         private readonly now: () => string = () => new Date().toISOString(),
     ) {}
 

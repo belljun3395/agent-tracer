@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { KIND } from "~activity/event/public/types/event.const.js";
 import type { TimelineEvent } from "~activity/event/public/types/event.types.js";
-import { inferToolCall } from "~governance/verification/domain/tool-call.inference.js";
-import type { NotificationPublisherPort } from "~adapters/notifications/notification.publisher.port.js";
+import { inferToolCall } from "~governance/verification/domain/tool.call.inference.js";
+import type { INotificationPublisher } from "~adapters/notifications/notification.publisher.port.js";
 import type { ITimelineEventAccess } from "~governance/verification/application/outbound/timeline.event.access.port.js";
 import type { ITurnRepository } from "~governance/verification/application/outbound/turn.repository.port.js";
 import type { TurnEvaluationService } from "./turn.evaluation.service.js";
@@ -20,7 +20,7 @@ export class TurnLifecyclePostProcessor {
         private readonly eventRepo: ITimelineEventAccess,
         private readonly turnRepo: ITurnRepository,
         private readonly turnEvaluation: TurnEvaluationService,
-        private readonly notifier: NotificationPublisherPort,
+        private readonly notifier: INotificationPublisher,
     ) {}
 
     async processLoggedEvent(event: TimelineEvent): Promise<void> {
