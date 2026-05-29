@@ -1,6 +1,8 @@
 import { Module, type DynamicModule, type MiddlewareConsumer, type NestModule } from "@nestjs/common";
 import { APP_FILTER, APP_INTERCEPTOR } from "@nestjs/core";
+import { ScheduleModule } from "@nestjs/schedule";
 import type { INotificationPublisher } from "~adapters/notifications/notification.publisher.port.js";
+import { AppConfigModule } from "~config/app-config.module.js";
 import { HealthController } from "~adapters/http/query/controllers/health/health.query.controller.js";
 import { LlmModule } from "~adapters/llm/llm.module.js";
 import { ActivityModule } from "~activity/activity.module.js";
@@ -13,7 +15,6 @@ import { ApiResponseInterceptor } from "./interceptors/api-response.interceptor.
 import { RequestContextMiddleware } from "./middleware/request-context.middleware.js";
 
 export interface AppModuleOptions {
-    readonly databasePath: string;
     readonly notifier?: INotificationPublisher;
 }
 
@@ -25,7 +26,7 @@ export class AppModule implements NestModule {
 
     static forRoot(options: AppModuleOptions): DynamicModule {
         const databaseModule = DatabaseModule.forRoot(options);
-        const typeOrmDatabaseModule = TypeOrmDatabaseModule.forRoot({ databasePath: options.databasePath });
+        const typeOrmDatabaseModule = TypeOrmDatabaseModule.forRoot();
         const governanceModule = GovernanceModule.register(databaseModule);
         const activityModule = ActivityModule.register(databaseModule, governanceModule);
         const workModule = WorkModule.register(databaseModule);
@@ -33,6 +34,8 @@ export class AppModule implements NestModule {
         return {
             module: AppModule,
             imports: [
+                AppConfigModule,
+                ScheduleModule.forRoot(),
                 typeOrmDatabaseModule,
                 databaseModule,
                 LlmModule,

@@ -4,10 +4,8 @@ import type { INotificationPublisher } from "~adapters/notifications/notificatio
 export const NOTIFICATION_PUBLISHER_TOKEN = "NOTIFICATION_PUBLISHER";
 
 export function DatabaseProviders(options: {
-    databasePath: string;
     notifier?: INotificationPublisher;
 }): Provider[] {
-    void options;
     const noopNotifier: INotificationPublisher = { publish: () => { } };
 
     return [

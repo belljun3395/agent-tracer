@@ -7,6 +7,8 @@ import { WebSocketServer, type WebSocket } from "ws";
 
 initializeTransactionalContext();
 import { AppModule } from "../presentation/app.module.js";
+import { setupSwagger } from "../presentation/swagger.js";
+import { AppConfigService } from "~config/app-config.service.js";
 import { EventBroadcasterService } from "~adapters/realtime/ws/event.broadcaster.service.js";
 import { LocalNotificationPublisher } from "~adapters/notifications/publishers/local.notification.publisher.js";
 import { OsDesktopNotifier } from "~adapters/notifications/os.desktop.notifier.js";
@@ -22,16 +24,27 @@ import type { ITaskLifecycle } from "~work/task/public/iservice/task.lifecycle.i
 import type { ITaskSnapshotQuery } from "~work/task/public/iservice/task.snapshot.query.iservice.js";
 import type { TaskSnapshot } from "~work/task/public/dto/task.snapshot.dto.js";
 import { TASK_LIFECYCLE, TASK_SNAPSHOT_QUERY } from "~work/task/public/tokens.js";
-import type { RuntimeOptions, MonitorRuntime } from "./runtime.type.js";
+import type { MonitorRuntime } from "./runtime.type.js";
 
-export async function createNestMonitorRuntime(options: RuntimeOptions): Promise<MonitorRuntime> {
+export async function createNestMonitorRuntime(): Promise<MonitorRuntime> {
     const broadcaster = new EventBroadcasterService();
     const osNotifier = new OsDesktopNotifier();
     const notifier = new LocalNotificationPublisher(broadcaster, osNotifier);
     const nestApp = await NestFactory.create<NestExpressApplication>(
-        AppModule.forRoot({ databasePath: options.databasePath, notifier }),
+        AppModule.forRoot({ notifier }),
         { logger: ["error", "warn"] },
     );
+    // Resolved once from the DI-managed config so the listen address and startup
+    // banner come from the same source the rest of the app reads (no second
+    // loadApplicationConfig() in the entrypoint).
+    const appConfig = nestApp.get(AppConfigService);
+    const listen = {
+        host: appConfig.resolveListenHost(),
+        port: appConfig.resolvePort(),
+        publicBaseUrl: appConfig.resolveHttpBaseUrl(),
+        databasePath: appConfig.resolveDatabasePath(),
+    };
+    setupSwagger(nestApp);
     // Raise the body limit above Express's 100kb default: a 100-event batch with
     // real tool output (Bash results, file contents) easily exceeds it and would
     // otherwise be rejected at the parser.
@@ -146,6 +159,7 @@ export async function createNestMonitorRuntime(options: RuntimeOptions): Promise
         app,
         server,
         wss,
+        listen,
         close: async () => {
             clearInterval(heartbeat);
             await nestApp.close();

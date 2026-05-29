@@ -1,0 +1,59 @@
+import { Injectable } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import {
+    type ApplicationConfig,
+    resolveMonitorDatabasePath,
+    resolveMonitorHttpBaseUrl,
+    resolveMonitorListenHost,
+    resolveMonitorPort,
+} from "./application-config.js";
+
+/** DI key under which the loaded {@link ApplicationConfig} is registered. */
+export const APP_CONFIG_NAMESPACE = "app";
+
+/**
+ * Typed accessor over `@nestjs/config`'s {@link ConfigService}. The raw config
+ * is loaded once (YAML + env merge + zod validation) by {@link AppConfigModule}
+ * and stored under the {@link APP_CONFIG_NAMESPACE} key; this service exposes it
+ * with types plus the env-aware resolvers (absolute DB path, public base URL).
+ */
+@Injectable()
+export class AppConfigService {
+    constructor(private readonly config: ConfigService) {}
+
+    get application(): ApplicationConfig {
+        const app = this.config.get<ApplicationConfig>(APP_CONFIG_NAMESPACE);
+        if (!app) {
+            throw new Error("Application config was not loaded — is AppConfigModule imported?");
+        }
+        return app;
+    }
+
+    get monitor(): ApplicationConfig["monitor"] {
+        return this.application.monitor;
+    }
+
+    get web(): ApplicationConfig["web"] {
+        return this.application.web;
+    }
+
+    get externalSetup(): ApplicationConfig["externalSetup"] {
+        return this.application.externalSetup;
+    }
+
+    resolveListenHost(): string {
+        return resolveMonitorListenHost(this.application);
+    }
+
+    resolvePort(): number {
+        return resolveMonitorPort(this.application);
+    }
+
+    resolveDatabasePath(cwd: string = process.cwd()): string {
+        return resolveMonitorDatabasePath(this.application, { cwd });
+    }
+
+    resolveHttpBaseUrl(): string {
+        return resolveMonitorHttpBaseUrl(this.application);
+    }
+}

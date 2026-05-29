@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse } from "yaml";
+import { z } from "zod";
 
 const PACKAGE_ROOT = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(PACKAGE_ROOT, "../../../..");
@@ -25,6 +26,30 @@ export interface ApplicationConfig {
         readonly sourceRepo: string;
     };
 }
+
+/**
+ * Defensive schema for the normalized config. `loadApplicationConfig` already
+ * coerces and fills defaults, so this guards against a future loader change (or
+ * a hand-edited cache) producing a structurally-invalid object — it is run by
+ * the `@nestjs/config` loader so a malformed config fails fast at boot.
+ */
+export const applicationConfigSchema = z.object({
+    monitor: z.object({
+        protocol: z.enum(["http", "https"]),
+        listenHost: z.string().min(1),
+        publicHost: z.string().min(1),
+        port: z.number().int().positive().max(65535),
+        databasePath: z.string().min(1),
+    }),
+    web: z.object({
+        apiBaseUrl: z.string(),
+        wsBaseUrl: z.string(),
+    }),
+    externalSetup: z.object({
+        monitorBaseUrl: z.string(),
+        sourceRepo: z.string().min(1),
+    }),
+});
 
 const DEFAULT_APPLICATION_CONFIG: ApplicationConfig = Object.freeze({
     monitor: {

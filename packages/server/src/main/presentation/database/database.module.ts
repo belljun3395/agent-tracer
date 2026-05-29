@@ -6,7 +6,6 @@ import {
 } from "./database.provider.js";
 
 export interface DatabaseModuleOptions {
-    readonly databasePath: string;
     readonly notifier?: INotificationPublisher;
 }
 

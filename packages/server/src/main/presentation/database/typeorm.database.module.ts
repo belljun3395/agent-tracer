@@ -2,6 +2,7 @@ import { Module, type DynamicModule } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { DataSource } from "typeorm";
 import { addTransactionalDataSource } from "typeorm-transactional";
+import { AppConfigService } from "~config/app-config.service.js";
 import { serializeDataSourceWrites } from "./write-serializer.js";
 import { CreateTaskSchema1700000001000 } from "~main/migrations/1700000001000-create-task-schema.js";
 import { CreateSessionSchema1700000002000 } from "~main/migrations/1700000002000-create-session-schema.js";
@@ -20,10 +21,6 @@ import { CreateRecipeApplicationsSchema1700000014000 } from "~main/migrations/17
 import { CreateFileAffinitySchema1700000015000 } from "~main/migrations/1700000015000-create-file-affinity-schema.js";
 import { AddTasksOrigin1700000016000 } from "~main/migrations/1700000016000-add-tasks-origin.js";
 
-export interface TypeOrmDatabaseModuleOptions {
-    readonly databasePath: string;
-}
-
 /**
  * TypeORM DataSource for module entities (subscribers, write-side projections).
  * There is exactly ONE better-sqlite3 connection: the driver is fully
@@ -41,14 +38,15 @@ export interface TypeOrmDatabaseModuleOptions {
  */
 @Module({})
 export class TypeOrmDatabaseModule {
-    static forRoot(options: TypeOrmDatabaseModuleOptions): DynamicModule {
+    static forRoot(): DynamicModule {
         return {
             module: TypeOrmDatabaseModule,
             imports: [
                 TypeOrmModule.forRootAsync({
-                    useFactory: () => ({
+                    inject: [AppConfigService],
+                    useFactory: (appConfig: AppConfigService) => ({
                         type: "better-sqlite3",
-                        database: options.databasePath,
+                        database: appConfig.resolveDatabasePath(),
                         autoLoadEntities: true,
                         synchronize: false,
                         logging: false,
