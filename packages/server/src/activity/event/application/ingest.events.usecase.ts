@@ -1,5 +1,4 @@
 import { Injectable } from "@nestjs/common";
-import { Transactional } from "typeorm-transactional";
 import { LogEventUseCase } from "./log.event.usecase.js";
 import type { IngestEventsUseCaseIn, IngestEventsUseCaseOut } from "./dto/ingest.events.usecase.dto.js";
 
@@ -7,7 +6,12 @@ import type { IngestEventsUseCaseIn, IngestEventsUseCaseOut } from "./dto/ingest
 export class IngestEventsUseCase {
     constructor(private readonly logEvent: LogEventUseCase) {}
 
-    @Transactional()
+    // NOT @Transactional: each event is logged in its OWN transaction (LogEvent
+    // is @Transactional) so a single failed event rolls back only itself and the
+    // accepted/rejected split is truthful. Wrapping the whole batch in one
+    // transaction made a mid-batch failure either poison every prior event or
+    // commit a half-written failed one. Events are awaited sequentially, so the
+    // per-event transactions are serialized on the single SQLite connection.
     async execute(input: IngestEventsUseCaseIn): Promise<IngestEventsUseCaseOut> {
         const accepted: IngestEventsUseCaseOut["accepted"][number][] = [];
         const rejected: IngestEventsUseCaseOut["rejected"][number][] = [];
