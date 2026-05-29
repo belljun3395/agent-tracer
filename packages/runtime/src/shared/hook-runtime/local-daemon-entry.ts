@@ -19,6 +19,11 @@ interface IdMapping {
 
 const MAPPING_CAP = 1024;
 const IDLE_SHUTDOWN_MS = 5 * 60 * 1000;
+// Cap the in-memory backlog so a sustained monitor outage (every POST timing
+// out) can't grow the queue without bound and OOM the daemon. Oldest messages
+// are dropped first; loss is acceptable for a best-effort local tool, but it
+// must be observable in daemon.log rather than silent.
+const MAX_QUEUE = 10_000;
 
 const layout = resolveDaemonHomeLayout();
 const direct = createMonitorTransport(resolveMonitorTransportConfig(), {forceDirect: true});
@@ -27,6 +32,7 @@ const queue: DaemonMessage[] = [];
 let processing = false;
 let lastActivityAt = Date.now();
 let shuttingDown = false;
+let droppedCount = 0;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -112,6 +118,15 @@ function enqueue(message: DaemonMessage): void {
             taskId: local.taskId,
             sessionId: local.sessionId,
         });
+    }
+    if (queue.length >= MAX_QUEUE) {
+        queue.shift();
+        droppedCount += 1;
+        if (droppedCount === 1 || droppedCount % 1000 === 0) {
+            process.stderr.write(
+                `[agent-tracer-daemon] queue full (cap=${MAX_QUEUE}) — dropped ${droppedCount} oldest message(s); monitor likely unreachable\n`,
+            );
+        }
     }
     queue.push(message);
     void drain();
