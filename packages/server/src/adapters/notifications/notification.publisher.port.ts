@@ -9,12 +9,9 @@ import type {
     VerdictUpdatedNotificationPayloadPortDto,
 } from "./dto/monitor.notification.port.dto.js";
 
-export interface NotificationPublisherPort {
+export interface INotificationPublisher {
     publish(notification: MonitorNotificationPortDto): void;
 }
-
-/** Canonical alias — same shape, used pervasively across modules. */
-export type INotificationPublisher = NotificationPublisherPort;
 
 export type MonitorNotification = MonitorNotificationPortDto;
 export type EventNotificationPayload = EventNotificationPayloadPortDto;

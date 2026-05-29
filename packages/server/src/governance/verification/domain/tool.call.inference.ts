@@ -1,5 +1,5 @@
 import type { EvaluateTurnToolCall } from "./turn.evaluation.js";
-import { normalizeVerificationToolName } from "./tool-action.matching.js";
+import { normalizeVerificationToolName } from "./tool.action.matching.js";
 
 /**
  * Infer a tool-call shape from a timeline event for verification evaluation.

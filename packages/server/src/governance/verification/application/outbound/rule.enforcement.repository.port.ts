@@ -1,4 +1,4 @@
-import type { RuleEventMatchKind } from "~governance/verification/domain/event-rule.matching.js";
+import type { RuleEventMatchKind } from "~governance/verification/domain/event.rule.matching.js";
 
 /**
  * Legacy IRuleEnforcementRepository contract — self-contained for the SQLite

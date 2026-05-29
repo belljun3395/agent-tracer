@@ -1,8 +1,8 @@
 import { KIND } from "~activity/event/public/types/event.const.js";
 import type { TimelineEvent } from "~activity/event/public/types/event.types.js";
 import type { Rule } from "~governance/rule/public/types/rule.types.js";
-import { verificationToolMatchesExpectedAction } from "./tool-action.matching.js";
-import { inferToolCall } from "./tool-call.inference.js";
+import { verificationToolMatchesExpectedAction } from "./tool.action.matching.js";
+import { inferToolCall } from "./tool.call.inference.js";
 
 export type RuleEventMatchKind = "trigger" | "expect-fulfilled";
 

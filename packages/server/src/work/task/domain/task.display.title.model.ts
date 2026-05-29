@@ -6,7 +6,7 @@ import {
     GENERIC_TASK_TITLE_PREFIX_SPLIT_PATTERN,
     MAX_TASK_TITLE_LENGTH,
     TRAILING_SESSION_SUFFIX_PATTERN,
-} from "../common/task.display-title.const.js";
+} from "../common/task.display.title.const.js";
 
 /**
  * Domain model — derives the display title for a task from the task's

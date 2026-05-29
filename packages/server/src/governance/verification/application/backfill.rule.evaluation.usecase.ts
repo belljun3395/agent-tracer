@@ -1,12 +1,12 @@
-import { matchEventAgainstRule } from "~governance/verification/domain/event-rule.matching.js";
+import { matchEventAgainstRule } from "~governance/verification/domain/event.rule.matching.js";
 import { Transactional } from "typeorm-transactional";
-import { inferToolCall } from "~governance/verification/domain/tool-call.inference.js";
+import { inferToolCall } from "~governance/verification/domain/tool.call.inference.js";
 import type { TurnVerdict } from "~governance/verification/domain/model/verdict.model.js";
 import { evaluateTurn } from "~governance/verification/domain/turn.evaluation.js";
 import type { EvaluateTurnToolCall } from "~governance/verification/domain/turn.evaluation.js";
 import { aggregateVerdict } from "~governance/verification/domain/verdict.js";
 import type { TimelineEvent } from "~activity/event/public/types/event.types.js";
-import type { NotificationPublisherPort } from "~adapters/notifications/notification.publisher.port.js";
+import type { INotificationPublisher } from "~adapters/notifications/notification.publisher.port.js";
 import type { ITimelineEventAccess } from "~governance/verification/application/outbound/timeline.event.access.port.js";
 import type {
     IRuleEnforcementRepository,
@@ -32,7 +32,7 @@ export interface BackfillRuleEvaluationDeps {
     readonly verdictRepo: IVerdictRepository;
     readonly eventRepo: ITimelineEventAccess;
     readonly enforcementRepo: IRuleEnforcementRepository;
-    readonly notifier: NotificationPublisherPort;
+    readonly notifier: INotificationPublisher;
     readonly now: () => string;
     readonly newVerdictId: () => string;
 }

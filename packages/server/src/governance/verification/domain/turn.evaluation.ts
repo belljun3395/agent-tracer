@@ -1,6 +1,6 @@
 import type { Rule } from "~governance/rule/public/types/rule.types.js";
 import { isCommandExpectedAction } from "~governance/rule/public/predicates.js";
-import { verificationToolMatchesExpectedAction } from "./tool-action.matching.js";
+import { verificationToolMatchesExpectedAction } from "./tool.action.matching.js";
 import type { TurnVerdict, VerdictStatus } from "./model/verdict.model.js";
 
 export interface EvaluateTurnToolCall {
