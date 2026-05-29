@@ -184,20 +184,13 @@ async function gracefulShutdown(signal: string): Promise<void> {
 
 ensureDaemonHome(layout);
 
-const alreadyRunning = await probeExistingDaemon(layout.socketPath);
-if (alreadyRunning) {
-    process.stderr.write(`[agent-tracer-daemon] already running at ${layout.socketPath} — exiting\n`);
-    process.exit(0);
-}
-
-try {
-    fs.unlinkSync(layout.socketPath);
-} catch {
-    // absent socket is fine
-}
-
 const server = net.createServer(parseLines);
-server.listen(layout.socketPath, () => {
+
+function listenOnSocket(): void {
+    server.listen({ path: layout.socketPath, exclusive: true });
+}
+
+server.on("listening", () => {
     try {
         fs.chmodSync(layout.socketPath, DAEMON_SOCKET_MODE);
     } catch {
@@ -206,10 +199,35 @@ server.listen(layout.socketPath, () => {
     process.stderr.write(`[agent-tracer-daemon] listening at ${layout.socketPath} (pid=${process.pid})\n`);
 });
 
+let reclaimAttempted = false;
 server.on("error", (err) => {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === "EADDRINUSE" && !reclaimAttempted) {
+        reclaimAttempted = true;
+        // The path is taken: either a live daemon (yield to it) or a stale
+        // socket left by a crashed one. NEVER unlink a socket that is actually
+        // being served (that was the old spawn-race bug where a losing daemon
+        // deleted the winner's socket) — only reclaim it once a probe confirms
+        // nothing is listening.
+        void probeExistingDaemon(layout.socketPath).then((alive) => {
+            if (alive) {
+                process.stderr.write(`[agent-tracer-daemon] already running at ${layout.socketPath} — exiting\n`);
+                process.exit(0);
+            }
+            try {
+                fs.unlinkSync(layout.socketPath);
+            } catch {
+                // already gone
+            }
+            listenOnSocket();
+        });
+        return;
+    }
     process.stderr.write(`[agent-tracer-daemon] server error: ${String(err)}\n`);
     process.exit(1);
 });
+
+listenOnSocket();
 
 const idleTimer = setInterval(() => {
     if (shuttingDown) return;
