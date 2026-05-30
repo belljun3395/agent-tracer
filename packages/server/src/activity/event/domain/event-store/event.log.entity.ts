@@ -1,10 +1,12 @@
 import { Column, Entity, PrimaryColumn } from "typeorm";
 
 /**
- * Event-store @Entity for the shared `events` table. Used by event module's
- * EventStoreService and by other modules' subscribers (each maps the same
- * table from its own `@Entity` class — TypeORM treats them independently so
- * each module owns its mapping).
+ * The single shared-kernel @Entity for the `events` table (event-sourcing log).
+ *
+ * This is the ONE mapping of the table: the event module's EventStoreService
+ * and the session / task subscribers all import this same class. A single
+ * class (rather than one per module) is required so TypeORM derives the schema
+ * once under `synchronize` — three classes on the same table would collide.
  */
 @Entity({ name: "events" })
 export class EventLogEntity {

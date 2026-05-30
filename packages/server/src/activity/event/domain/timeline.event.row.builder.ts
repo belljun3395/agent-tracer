@@ -146,21 +146,19 @@ function collectAsyncRef(input: TimelineEventInsertRequest): EventAsyncRefEntity
 }
 
 function collectTagRows(input: TimelineEventInsertRequest): readonly EventTagEntity[] {
-    const tags = new Map<string, EventTagEntity["source"]>();
+    const tags = new Set<string>();
     for (const tag of readTags(input.metadata["tags"])) {
-        tags.set(tag, "metadata");
+        tags.add(tag);
     }
     for (const tag of input.classification.tags) {
         const trimmed = tag.trim();
         if (!trimmed) continue;
-        const existing = tags.get(trimmed);
-        tags.set(trimmed, existing && existing !== "classification" ? "multiple" : "classification");
+        tags.add(trimmed);
     }
-    return [...tags.entries()].map(([tag, source]) => {
+    return [...tags].map((tag) => {
         const row = new EventTagEntity();
         row.eventId = input.id;
         row.tag = tag;
-        row.source = source;
         return row;
     });
 }

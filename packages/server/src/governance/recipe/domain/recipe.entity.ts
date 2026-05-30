@@ -2,6 +2,11 @@ import { Column, Entity, Index, PrimaryColumn } from "typeorm";
 
 export type RecipeStatus = "active" | "superseded" | "retired";
 
+/** Auto-retirement policy thresholds (pure domain constants). */
+const MIN_APPLIED_FOR_FAILURE = 5;
+const MIN_SUCCESS_RATE = 0.3;
+const STALE_AGE_MS = 14 * 24 * 60 * 60 * 1000;
+
 @Entity({ name: "recipes_current" })
 @Index("idx_recipes_current_status", ["status", "updatedAt"])
 export class RecipeEntity {
@@ -55,4 +60,25 @@ export class RecipeEntity {
 
     @Column({ name: "updated_at", type: "text" })
     updatedAt!: string;
+
+    /** Success ratio in [0, 1]; 0 when the recipe has never been applied. */
+    successRate(): number {
+        return this.appliedCount > 0 ? this.successCount / this.appliedCount : 0;
+    }
+
+    /**
+     * Auto-retirement policy. An active recipe should be retired when it
+     * either fails too often (applied >= 5 times with a success rate below
+     * 30%) or has gone stale (never applied and older than 14 days).
+     * Non-active recipes are never retired by this policy.
+     */
+    shouldRetire(nowIso: string): boolean {
+        if (this.status !== "active") return false;
+        const ageMs = Date.parse(nowIso) - Date.parse(this.createdAt);
+        const failsByFailure =
+            this.appliedCount >= MIN_APPLIED_FOR_FAILURE &&
+            this.successRate() < MIN_SUCCESS_RATE;
+        const failsByStaleness = this.appliedCount === 0 && ageMs > STALE_AGE_MS;
+        return failsByFailure || failsByStaleness;
+    }
 }

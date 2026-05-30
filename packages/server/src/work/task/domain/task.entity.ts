@@ -54,4 +54,29 @@ export class TaskEntity {
     get runtimeSource(): string | null {
         return this.cliSource?.trim() ?? null;
     }
+
+    /** Whether this task has been archived. */
+    isArchived(): boolean {
+        return this.archivedAt != null;
+    }
+
+    /**
+     * Archives the task at the given instant. Archiving implies the user is
+     * done with the task, so a running/waiting task is flipped to completed;
+     * an errored task keeps its status because the error is the information
+     * worth preserving.
+     */
+    archive(nowIso: string): void {
+        this.archivedAt = nowIso;
+        this.updatedAt = nowIso;
+        if (this.status === "running" || this.status === "waiting") {
+            this.status = "completed";
+        }
+    }
+
+    /** Reverses {@link archive}. The lifecycle status is left untouched. */
+    unarchive(nowIso: string): void {
+        this.archivedAt = null;
+        this.updatedAt = nowIso;
+    }
 }

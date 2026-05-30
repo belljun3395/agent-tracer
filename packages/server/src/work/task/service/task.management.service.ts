@@ -115,23 +115,15 @@ export class TaskManagementService {
     ): Promise<{ status: "archived"; archivedIds: readonly string[]; archivedAt: string } | { status: "not_found" } | { status: "already_archived" }> {
         const exists = await this.taskRepo.findById(taskId);
         if (!exists) return { status: "not_found" };
-        if (exists.archivedAt) return { status: "already_archived" };
+        if (exists.isArchived()) return { status: "already_archived" };
 
         const descendants = await this.taskRepo.collectDescendantIds(taskId);
         const allIds = [taskId, ...descendants];
         const archivedAt = this.clock.nowIso();
         for (const id of allIds) {
             const entity = await this.taskRepo.findById(id);
-            if (!entity || entity.archivedAt) continue;
-            entity.archivedAt = archivedAt;
-            entity.updatedAt = archivedAt;
-            // Archive implies the user is done with the task. Flip
-            // running/waiting rows to completed so the lifecycle reflects
-            // that — errored rows keep their state since the error is the
-            // information the user wants to preserve.
-            if (entity.status === "running" || entity.status === "waiting") {
-                entity.status = "completed";
-            }
+            if (!entity || entity.isArchived()) continue;
+            entity.archive(archivedAt);
             await this.taskRepo.save(entity);
             const updated = await this.query.findById(id);
             if (updated) this.notifier.publish({ type: "task.updated", payload: updated });
@@ -144,7 +136,7 @@ export class TaskManagementService {
     ): Promise<{ status: "unarchived"; unarchivedIds: readonly string[] } | { status: "not_found" } | { status: "not_archived" }> {
         const exists = await this.taskRepo.findById(taskId);
         if (!exists) return { status: "not_found" };
-        if (!exists.archivedAt) return { status: "not_archived" };
+        if (!exists.isArchived()) return { status: "not_archived" };
 
         const descendants = await this.taskRepo.collectDescendantIds(taskId);
         const allIds = [taskId, ...descendants];
@@ -152,9 +144,8 @@ export class TaskManagementService {
         const unarchivedIds: string[] = [];
         for (const id of allIds) {
             const entity = await this.taskRepo.findById(id);
-            if (!entity || !entity.archivedAt) continue;
-            entity.archivedAt = null;
-            entity.updatedAt = now;
+            if (!entity || !entity.isArchived()) continue;
+            entity.unarchive(now);
             await this.taskRepo.save(entity);
             unarchivedIds.push(id);
             const updated = await this.query.findById(id);

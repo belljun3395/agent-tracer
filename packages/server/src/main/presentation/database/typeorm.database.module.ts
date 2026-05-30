@@ -4,22 +4,6 @@ import { DataSource } from "typeorm";
 import { addTransactionalDataSource } from "typeorm-transactional";
 import { AppConfigService } from "~config/app-config.service.js";
 import { serializeDataSourceWrites } from "./write-serializer.js";
-import { CreateTaskSchema1700000001000 } from "~main/migrations/1700000001000-create-task-schema.js";
-import { CreateSessionSchema1700000002000 } from "~main/migrations/1700000002000-create-session-schema.js";
-import { CreateEventSchema1700000003000 } from "~main/migrations/1700000003000-create-event-schema.js";
-import { CreateRuleSchema1700000004000 } from "~main/migrations/1700000004000-create-rule-schema.js";
-import { CreateVerificationSchema1700000005000 } from "~main/migrations/1700000005000-create-verification-schema.js";
-import { CreateTurnPartitionSchema1700000006000 } from "~main/migrations/1700000006000-create-turn-partition-schema.js";
-import { PurgeCompletedJobs1700000007000 } from "~main/migrations/1700000007000-purge-completed-jobs.js";
-import { CreateSearchFts51700000008000 } from "~main/migrations/1700000008000-create-search-fts5.js";
-import { CreateAppSettingsSchema1700000009000 } from "~main/migrations/1700000009000-create-app-settings-schema.js";
-import { CreateTaskRuleGenerationJobsSchema1700000010000 } from "~main/migrations/1700000010000-create-task-rule-generation-jobs-schema.js";
-import { AddTasksArchivedAt1700000011000 } from "~main/migrations/1700000011000-add-tasks-archived-at.js";
-import { CreateTaskCleanupSchema1700000012000 } from "~main/migrations/1700000012000-create-task-cleanup-schema.js";
-import { CreateRecipeSchema1700000013000 } from "~main/migrations/1700000013000-create-recipe-schema.js";
-import { CreateRecipeApplicationsSchema1700000014000 } from "~main/migrations/1700000014000-create-recipe-applications-schema.js";
-import { CreateFileAffinitySchema1700000015000 } from "~main/migrations/1700000015000-create-file-affinity-schema.js";
-import { AddTasksOrigin1700000016000 } from "~main/migrations/1700000016000-add-tasks-origin.js";
 
 /**
  * TypeORM DataSource for module entities (subscribers, write-side projections).
@@ -48,27 +32,12 @@ export class TypeOrmDatabaseModule {
                         type: "better-sqlite3",
                         database: appConfig.resolveDatabasePath(),
                         autoLoadEntities: true,
-                        synchronize: false,
+                        // Fresh-start model: the schema is derived directly from
+                        // the @Entity classes — there are no migrations. Any DDL
+                        // that cannot be expressed as an entity (the FTS5 search
+                        // index) is ensured idempotently in dataSourceFactory.
+                        synchronize: true,
                         logging: false,
-                        migrations: [
-                            CreateTaskSchema1700000001000,
-                            CreateSessionSchema1700000002000,
-                            CreateEventSchema1700000003000,
-                            CreateRuleSchema1700000004000,
-                            CreateVerificationSchema1700000005000,
-                            CreateTurnPartitionSchema1700000006000,
-                            PurgeCompletedJobs1700000007000,
-                            CreateSearchFts51700000008000,
-                            CreateAppSettingsSchema1700000009000,
-                            CreateTaskRuleGenerationJobsSchema1700000010000,
-                            AddTasksArchivedAt1700000011000,
-                            CreateTaskCleanupSchema1700000012000,
-                            CreateRecipeSchema1700000013000,
-                            CreateRecipeApplicationsSchema1700000014000,
-                            CreateFileAffinitySchema1700000015000,
-                            AddTasksOrigin1700000016000,
-                        ],
-                        migrationsRun: true,
                     }),
                     dataSourceFactory: async (config) => {
                         if (!config) {
@@ -76,6 +45,7 @@ export class TypeOrmDatabaseModule {
                         }
                         const dataSource = await new DataSource(config).initialize();
                         await applySqlitePragmas(dataSource);
+                        await ensureSearchFtsSchema(dataSource);
                         // Serialize top-level transactions on the single SQLite
                         // connection (wrap AFTER the transactional patch so it
                         // wraps the funnel typeorm-transactional actually calls).
@@ -106,6 +76,57 @@ export class TypeOrmDatabaseModule {
  * Override the pragmas at runtime via env var if needed (rarely useful in
  * practice; documented in docs/guide/perf-tuning.md).
  */
+/**
+ * Ensure the FTS5 search index exists. This is the one piece of schema that
+ * cannot be derived from an @Entity (a virtual table + sync triggers), so it
+ * is created idempotently at boot instead of via a migration. Runs after
+ * `synchronize` has created the `search_documents` source table.
+ *
+ * `search_documents_fts` is an external-content FTS5 table over
+ * `search_documents.search_text`; the AFTER INSERT/UPDATE/DELETE triggers keep
+ * the inverted index in sync. The search endpoint MATCHes this index instead
+ * of loading every document into JS for substring scoring.
+ */
+async function ensureSearchFtsSchema(dataSource: DataSource): Promise<void> {
+    await dataSource.query(`
+        create virtual table if not exists search_documents_fts using fts5(
+            search_text,
+            content='search_documents',
+            content_rowid='rowid',
+            tokenize='unicode61 remove_diacritics 1'
+        )
+    `);
+    await dataSource.query(`
+        insert into search_documents_fts(rowid, search_text)
+        select rowid, search_text from search_documents
+        where not exists (
+            select 1 from search_documents_fts f where f.rowid = search_documents.rowid
+        )
+    `);
+    await dataSource.query(`
+        create trigger if not exists trg_search_documents_ai
+        after insert on search_documents begin
+            insert into search_documents_fts(rowid, search_text) values (new.rowid, new.search_text);
+        end
+    `);
+    await dataSource.query(`
+        create trigger if not exists trg_search_documents_ad
+        after delete on search_documents begin
+            insert into search_documents_fts(search_documents_fts, rowid, search_text)
+            values('delete', old.rowid, old.search_text);
+        end
+    `);
+    await dataSource.query(`
+        create trigger if not exists trg_search_documents_au
+        after update on search_documents begin
+            insert into search_documents_fts(search_documents_fts, rowid, search_text)
+            values('delete', old.rowid, old.search_text);
+            insert into search_documents_fts(rowid, search_text)
+            values(new.rowid, new.search_text);
+        end
+    `);
+}
+
 async function applySqlitePragmas(dataSource: DataSource): Promise<void> {
     await dataSource.query("PRAGMA journal_mode = WAL");
     await dataSource.query("PRAGMA synchronous = NORMAL");

@@ -16,7 +16,7 @@ export class DismissRecipeCandidateUseCase {
     ): Promise<DismissRecipeCandidateUseCaseOut> {
         const row = await this.candidates.findById(input.candidateId);
         if (!row) return { status: "not_found" };
-        if (row.status !== "pending") return { status: "not_pending" };
+        if (!row.isPending()) return { status: "not_pending" };
         await this.candidates.markResolved({
             id: row.id,
             status: "dismissed",

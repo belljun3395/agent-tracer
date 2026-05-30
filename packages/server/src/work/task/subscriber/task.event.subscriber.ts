@@ -13,7 +13,7 @@ import { TaskRelationEntity } from "../domain/task.relation.entity.js";
 import { CLOCK_PORT, ID_GENERATOR_PORT } from "../application/outbound/tokens.js";
 import type { IClock } from "../application/outbound/clock.port.js";
 import type { IIdGenerator } from "../application/outbound/id.generator.port.js";
-import { TaskEventLogEntity } from "./event.log.entity.js";
+import { EventLogEntity } from "~activity/event/domain/event-store/event.log.entity.js";
 
 interface DomainEventDraft {
     readonly eventType: string;
@@ -44,7 +44,7 @@ export class TaskEntitySubscriber implements EntitySubscriberInterface<TaskEntit
 
     async afterInsert(event: InsertEvent<TaskEntity>): Promise<void> {
         const task = event.entity;
-        const repo = event.manager.getRepository(TaskEventLogEntity);
+        const repo = event.manager.getRepository(EventLogEntity);
         await this.appendEvent(repo, {
             eventType: "task.created",
             eventTime: this.eventTimeFromIso(task.createdAt),
@@ -64,7 +64,7 @@ export class TaskEntitySubscriber implements EntitySubscriberInterface<TaskEntit
         const before = event.databaseEntity;
         const after = event.entity as TaskEntity | undefined;
         if (!after) return;
-        const repo = event.manager.getRepository(TaskEventLogEntity);
+        const repo = event.manager.getRepository(EventLogEntity);
         const eventTime = this.eventTimeFromIso(after.updatedAt);
 
         if (before.title !== after.title) {
@@ -101,7 +101,7 @@ export class TaskEntitySubscriber implements EntitySubscriberInterface<TaskEntit
     }
 
     private async appendEvent(
-        repo: Repository<TaskEventLogEntity>,
+        repo: Repository<EventLogEntity>,
         draft: DomainEventDraft,
     ): Promise<void> {
         await repo.insert({
@@ -141,7 +141,7 @@ export class TaskRelationEntitySubscriber implements EntitySubscriberInterface<T
 
     async afterInsert(event: InsertEvent<TaskRelationEntity>): Promise<void> {
         const relation = event.entity;
-        const repo = event.manager.getRepository(TaskEventLogEntity);
+        const repo = event.manager.getRepository(EventLogEntity);
         const payload = relationToPayload(relation, undefined);
         if (!payload) return;
         const eventTime = this.clock.nowMs();
@@ -164,7 +164,7 @@ export class TaskRelationEntitySubscriber implements EntitySubscriberInterface<T
         const before = event.databaseEntity;
         const after = event.entity as TaskRelationEntity | undefined;
         if (!after) return;
-        const repo = event.manager.getRepository(TaskEventLogEntity);
+        const repo = event.manager.getRepository(EventLogEntity);
         const payload = relationToPayload(after, before);
         if (!payload) return;
         const eventTime = this.clock.nowMs();

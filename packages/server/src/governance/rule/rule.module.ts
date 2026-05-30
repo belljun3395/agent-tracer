@@ -17,7 +17,6 @@ import {
     ID_GENERATOR_PORT,
     NOTIFICATION_PUBLISHER_PORT,
     RULE_PERSISTENCE_PORT,
-    VERDICT_COUNT_QUERY_PORT,
     VERIFICATION_INVALIDATION_PORT,
 } from "./application/outbound/tokens.js";
 import { DemoteRuleToTaskUseCase } from "./application/demote.rule.to.task.usecase.js";
@@ -32,7 +31,6 @@ import { SystemClockAdapter } from "./adapter/system.clock.adapter.js";
 import { RuleReadPublicAdapter } from "./adapter/rule.read.public.adapter.js";
 import { RuleSignatureQueryPublicAdapter } from "./adapter/rule.signature.query.public.adapter.js";
 import { RuleWritePublicAdapter } from "./adapter/rule.write.public.adapter.js";
-import { VerdictCountQueryAdapter } from "./adapter/verdict.count.query.adapter.js";
 import { VerificationInvalidationAdapter } from "./adapter/verification.invalidation.adapter.js";
 import { RuleEntity } from "./domain/rule.entity.js";
 import {
@@ -60,7 +58,6 @@ import { RuleRepository } from "./repository/rule.repository.js";
  *   - NOTIFICATION_PUBLISHER_PORT    ← shared transport
  *   - BACKFILL_TRIGGER_PORT          ← verification.public IVerificationBackfill
  *   - VERIFICATION_INVALIDATION_PORT ← verification.public IVerdictInvalidation
- *   - VERDICT_COUNT_QUERY_PORT       ← verification.public IVerdictCount
  */
 @Module({})
 export class RuleModule {
@@ -87,7 +84,6 @@ export class RuleModule {
                 // Outbound adapters
                 BackfillTriggerAdapter,
                 RuleNotificationPublisherAdapter,
-                VerdictCountQueryAdapter,
                 VerificationInvalidationAdapter,
                 SystemClockAdapter,
                 CryptoIdGeneratorAdapter,
@@ -114,7 +110,6 @@ export class RuleModule {
                 { provide: NOTIFICATION_PUBLISHER_PORT, useExisting: RuleNotificationPublisherAdapter },
                 { provide: BACKFILL_TRIGGER_PORT, useExisting: BackfillTriggerAdapter },
                 { provide: VERIFICATION_INVALIDATION_PORT, useExisting: VerificationInvalidationAdapter },
-                { provide: VERDICT_COUNT_QUERY_PORT, useExisting: VerdictCountQueryAdapter },
                 { provide: CLOCK_PORT, useExisting: SystemClockAdapter },
                 { provide: ID_GENERATOR_PORT, useExisting: CryptoIdGeneratorAdapter },
             ],

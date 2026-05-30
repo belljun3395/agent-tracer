@@ -8,7 +8,7 @@ import {
     type Repository,
     type UpdateEvent,
 } from "typeorm";
-import { EventLogEntity } from "../domain/event.log.entity.js";
+import { EventLogEntity } from "~activity/event/domain/event-store/event.log.entity.js";
 import { RuntimeBindingEntity } from "../domain/runtime.binding.entity.js";
 import { SessionEntity } from "../domain/session.entity.js";
 import { CLOCK_PORT, ID_GENERATOR_PORT } from "../application/outbound/tokens.js";

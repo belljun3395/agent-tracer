@@ -1,79 +1,47 @@
-import {
-    Injectable,
-    Logger,
-    type OnApplicationShutdown,
-} from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { Interval } from "@nestjs/schedule";
-import { AdaptivePoll } from "~main/scheduling/adaptive-poll.js";
+import { BaseJobWorker } from "~main/scheduling/base-job-worker.js";
+import { TaskCleanupJobEntity } from "../domain/task.cleanup.job.entity.js";
 import { TaskCleanupJobRepository } from "../repository/task.cleanup.job.repository.js";
 import { TaskCleanupService } from "./task.cleanup.service.js";
 
 const MIN_POLL_INTERVAL_MS = 500;
 const MAX_POLL_INTERVAL_MS = 5000;
 const IDLE_TICKS_BEFORE_BACKOFF = 10;
+// Batch=1 — each scan touches every task, so running two in parallel would
+// just waste API calls.
 const BATCH_SIZE = 1;
 
-/**
- * Polls `task_cleanup_jobs` for pending rows and dispatches them to the
- * cleanup service. Mirrors the rule-generation worker pattern but with
- * batch=1 since each scan touches every task — running two in parallel
- * would just waste API calls.
- */
+/** Polls `task_cleanup_jobs` for pending rows and dispatches them. */
 @Injectable()
-export class TaskCleanupWorker implements OnApplicationShutdown {
-    private readonly logger = new Logger(TaskCleanupWorker.name);
-    private running = false;
-    private shuttingDown = false;
-    private readonly poll = new AdaptivePoll(
-        MIN_POLL_INTERVAL_MS,
-        MAX_POLL_INTERVAL_MS,
-        IDLE_TICKS_BEFORE_BACKOFF,
-    );
+export class TaskCleanupWorker extends BaseJobWorker<TaskCleanupJobEntity> {
+    protected readonly logger = new Logger(TaskCleanupWorker.name);
 
     constructor(
         private readonly jobs: TaskCleanupJobRepository,
         private readonly service: TaskCleanupService,
-    ) {}
-
-    // ScheduleModule clears this interval on shutdown, but it does not await an
-    // in-flight tick — so we still flip `shuttingDown` and drain `running` here.
-    async onApplicationShutdown(): Promise<void> {
-        this.shuttingDown = true;
-        const start = Date.now();
-        while (this.running && Date.now() - start < 30_000) {
-            await new Promise((r) => setTimeout(r, 100));
-        }
+    ) {
+        super(BATCH_SIZE, MIN_POLL_INTERVAL_MS, MAX_POLL_INTERVAL_MS, IDLE_TICKS_BEFORE_BACKOFF);
     }
 
     @Interval("task-cleanup-worker", MIN_POLL_INTERVAL_MS)
     async tick(): Promise<void> {
-        if (this.running || this.shuttingDown) return;
-        if (!this.poll.due(Date.now())) return;
-        this.running = true;
-        try {
-            const pending = await this.jobs.findPending(BATCH_SIZE);
-            if (pending.length === 0) {
-                this.poll.onIdle(Date.now());
-                return;
-            }
-            this.poll.onWork();
-            for (const job of pending) {
-                // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- mutated by onApplicationShutdown
-                if (this.shuttingDown) break;
-                const claimed = await this.jobs.claim(
-                    job.id,
-                    new Date().toISOString(),
-                );
-                if (!claimed) continue;
-                this.logger.log(`Starting task cleanup scan: jobId=${claimed.id}`);
-                await this.service.execute(claimed);
-            }
-        } catch (err) {
-            this.logger.warn(
-                `Worker tick failed: ${err instanceof Error ? err.message : String(err)}`,
-            );
-        } finally {
-            this.running = false;
-        }
+        await this.runTick();
+    }
+
+    protected findPending(limit: number): Promise<readonly TaskCleanupJobEntity[]> {
+        return this.jobs.findPending(limit);
+    }
+
+    protected claim(jobId: string, startedAt: string): Promise<TaskCleanupJobEntity | null> {
+        return this.jobs.claim(jobId, startedAt);
+    }
+
+    protected process(job: TaskCleanupJobEntity): Promise<void> {
+        return this.service.execute(job);
+    }
+
+    protected describe(job: TaskCleanupJobEntity): string {
+        return `task cleanup scan: jobId=${job.id}`;
     }
 }

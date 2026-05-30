@@ -28,7 +28,7 @@ export class AcceptCleanupSuggestionUseCase {
     ): Promise<AcceptCleanupSuggestionUseCaseOut> {
         const row = await this.suggestions.findById(input.suggestionId);
         if (!row) return { status: "not_found" };
-        if (row.status !== "pending") return { status: "not_pending" };
+        if (!row.isPending()) return { status: "not_pending" };
 
         try {
             await this.applySuggestion(row);

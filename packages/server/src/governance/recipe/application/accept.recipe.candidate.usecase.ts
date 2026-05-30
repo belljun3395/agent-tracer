@@ -24,7 +24,7 @@ export class AcceptRecipeCandidateUseCase {
     ): Promise<AcceptRecipeCandidateUseCaseOut> {
         const row = await this.candidates.findById(input.candidateId);
         if (!row) return { status: "not_found" };
-        if (row.status !== "pending") return { status: "not_pending" };
+        if (!row.isPending()) return { status: "not_pending" };
 
         const now = new Date().toISOString();
 

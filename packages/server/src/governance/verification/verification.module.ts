@@ -20,12 +20,10 @@ import {
 import { TURN_QUERY_REPOSITORY_TOKEN } from "./public/tokens.js";
 import { RuleEvidenceQueryController } from "./api/rule.evidence.query.controller.js";
 import { VerificationBackfillPublicAdapter } from "./adapter/verification.backfill.public.adapter.js";
-import { VerdictCountPublicAdapter } from "./adapter/verdict.count.public.adapter.js";
 import { VerdictInvalidationPublicAdapter } from "./adapter/verdict.invalidation.public.adapter.js";
 import { VerificationPostProcessorPublicAdapter } from "./adapter/verification.post.processor.public.adapter.js";
 import { BackfillRuleEvaluationUseCase } from "./application/backfill.rule.evaluation.usecase.js";
 import { GetRuleEvidenceForTaskUseCase } from "./application/get.rule.evidence.usecase.js";
-import { GetVerdictCountsForTaskUseCase } from "./application/get.verdict.counts.for.task.usecase.js";
 import { RunTurnEvaluationUseCase } from "./application/run.turn.evaluation.usecase.js";
 import { RuleEnforcementEntity } from "./domain/rule.enforcement.entity.js";
 import { TurnEntity } from "./domain/turn.entity.js";
@@ -34,7 +32,6 @@ import { VerdictEntity } from "./domain/verdict.entity.js";
 import {
     VERIFICATION_BACKFILL,
     VERIFICATION_POST_PROCESSOR,
-    VERIFICATION_VERDICT_COUNT,
     VERIFICATION_VERDICT_INVALIDATION,
 } from "./public/tokens.js";
 import { RuleEnforcementRepository } from "./repository/rule.enforcement.repository.js";
@@ -121,12 +118,6 @@ const VERIFICATION_INTERNAL_PROVIDERS: Provider[] = [
         ],
     },
     {
-        provide: GetVerdictCountsForTaskUseCase,
-        useFactory: (turnQueryRepo: ITurnQueryRepository) =>
-            new GetVerdictCountsForTaskUseCase(turnQueryRepo),
-        inject: [TURN_QUERY_REPOSITORY_TOKEN],
-    },
-    {
         provide: GetRuleEvidenceForTaskUseCase,
         useFactory: (
             enforcementRepo: IRuleEnforcementRepository,
@@ -148,7 +139,6 @@ const VERIFICATION_INTERNAL_PROVIDERS: Provider[] = [
  *
  * Public surface:
  *   - VERIFICATION_BACKFILL              ← VerificationBackfillPublicAdapter
- *   - VERIFICATION_VERDICT_COUNT         ← VerdictCountPublicAdapter
  *   - VERIFICATION_POST_PROCESSOR        ← VerificationPostProcessorPublicAdapter
  *   - VERIFICATION_VERDICT_INVALIDATION  ← VerdictInvalidationPublicAdapter
  */
@@ -184,18 +174,15 @@ export class VerificationModule {
                 ...VERIFICATION_INTERNAL_PROVIDERS,
                 // Public adapters
                 VerificationBackfillPublicAdapter,
-                VerdictCountPublicAdapter,
                 VerdictInvalidationPublicAdapter,
                 VerificationPostProcessorPublicAdapter,
                 // Public iservice bindings
                 { provide: VERIFICATION_BACKFILL, useExisting: VerificationBackfillPublicAdapter },
-                { provide: VERIFICATION_VERDICT_COUNT, useExisting: VerdictCountPublicAdapter },
                 { provide: VERIFICATION_VERDICT_INVALIDATION, useExisting: VerdictInvalidationPublicAdapter },
                 { provide: VERIFICATION_POST_PROCESSOR, useExisting: VerificationPostProcessorPublicAdapter },
             ],
             exports: [
                 VERIFICATION_BACKFILL,
-                VERIFICATION_VERDICT_COUNT,
                 VERIFICATION_VERDICT_INVALIDATION,
                 VERIFICATION_POST_PROCESSOR,
                 // Cross-module-consumed token (task module reaches via public surface).

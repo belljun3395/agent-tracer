@@ -1,4 +1,4 @@
-import { Column, Entity, Index, PrimaryColumn } from "typeorm";
+import { Entity, Index, PrimaryColumn } from "typeorm";
 
 @Entity({ name: "event_tags" })
 @Index("idx_event_tags_tag", ["tag"])
@@ -8,7 +8,4 @@ export class EventTagEntity {
 
     @PrimaryColumn({ type: "text" })
     tag!: string;
-
-    @Column({ type: "text", default: "metadata" })
-    source!: "metadata" | "classification" | "multiple";
 }

@@ -20,6 +20,7 @@ import { RecipeRepository } from "../repository/recipe.repository.js";
 import { RecipeScanJobRepository } from "../repository/recipe.scan.job.repository.js";
 import type { RecipeScanJobEntity } from "../domain/recipe.scan.job.entity.js";
 import type { RecipeEntity } from "../domain/recipe.entity.js";
+import { pickBestParent } from "../domain/recipe.parentage.js";
 import type {
     EnqueueRecipeScanInput,
     RecipeScanFiltersSnapshot,
@@ -310,26 +311,12 @@ export class RecipeScanService {
         active: readonly RecipeEntity[],
         nowIso: string,
     ): Promise<void> {
-        const nowMs = Date.parse(nowIso);
-        const STALE_AGE_MS = 14 * 24 * 60 * 60 * 1000;
-        const MIN_APPLIED_FOR_FAILURE = 5;
-        const MIN_SUCCESS_RATE = 0.3;
-
         for (const r of active) {
-            const successRate =
-                r.appliedCount > 0 ? r.successCount / r.appliedCount : 0;
-            const ageMs = nowMs - Date.parse(r.createdAt);
-            const failsByFailure =
-                r.appliedCount >= MIN_APPLIED_FOR_FAILURE &&
-                successRate < MIN_SUCCESS_RATE;
-            const failsByStaleness =
-                r.appliedCount === 0 && ageMs > STALE_AGE_MS;
-            if (failsByFailure || failsByStaleness) {
-                await this.recipes.setStatus(r.id, "retired", nowIso);
-                this.logger.log(
-                    `Auto-retired recipe ${r.id} (applied=${r.appliedCount}, success=${r.successCount}, age_ms=${ageMs})`,
-                );
-            }
+            if (!r.shouldRetire(nowIso)) continue;
+            await this.recipes.setStatus(r.id, "retired", nowIso);
+            this.logger.log(
+                `Auto-retired recipe ${r.id} (applied=${r.appliedCount}, success=${r.successCount})`,
+            );
         }
     }
 }
@@ -348,35 +335,6 @@ function extractTaskIds(slicesJson: string): Set<string> {
         // ignore — corrupt slice json just yields an empty set
     }
     return out;
-}
-
-const PARENT_OVERLAP_THRESHOLD = 0.5;
-
-function pickBestParent(
-    candidateTaskIds: ReadonlySet<string>,
-    actives: readonly {
-        readonly recipe: RecipeEntity;
-        readonly taskIds: ReadonlySet<string>;
-    }[],
-): RecipeEntity | null {
-    let bestRecipe: RecipeEntity | null = null;
-    let bestRatio = PARENT_OVERLAP_THRESHOLD;
-    for (const { recipe, taskIds } of actives) {
-        if (taskIds.size === 0) continue;
-        let overlap = 0;
-        for (const id of candidateTaskIds) {
-            if (taskIds.has(id)) overlap += 1;
-        }
-        if (overlap === 0) continue;
-        // Jaccard overlap.
-        const denom = candidateTaskIds.size + taskIds.size - overlap;
-        const ratio = denom > 0 ? overlap / denom : 0;
-        if (ratio > bestRatio) {
-            bestRatio = ratio;
-            bestRecipe = recipe;
-        }
-    }
-    return bestRecipe;
 }
 
 function normalizeFilters(

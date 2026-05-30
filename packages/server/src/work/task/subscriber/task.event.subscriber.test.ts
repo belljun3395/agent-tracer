@@ -3,7 +3,7 @@ import type { Mock } from "vitest";
 import { DataSource } from "typeorm";
 import { TaskEntity } from "../domain/task.entity.js";
 import { TaskRelationEntity } from "../domain/task.relation.entity.js";
-import { TaskEventLogEntity } from "./event.log.entity.js";
+import { EventLogEntity } from "~activity/event/domain/event-store/event.log.entity.js";
 import {
     TaskEntitySubscriber,
     TaskRelationEntitySubscriber,
@@ -41,7 +41,7 @@ describe("TaskEntitySubscriber (in-memory DataSource)", () => {
         ds = new DataSource({
             type: "better-sqlite3",
             database: ":memory:",
-            entities: [TaskEntity, TaskRelationEntity, TaskEventLogEntity],
+            entities: [TaskEntity, TaskRelationEntity, EventLogEntity],
             synchronize: true,
         });
         await ds.initialize();
@@ -74,7 +74,7 @@ describe("TaskEntitySubscriber (in-memory DataSource)", () => {
 
     it("on TaskEntity insert — appends a 'task.created' row using injected Clock + IIdGenerator", async () => {
         const repo = ds.getRepository(TaskEntity);
-        const eventsRepo = ds.getRepository(TaskEventLogEntity);
+        const eventsRepo = ds.getRepository(EventLogEntity);
 
         await repo.save(makeTask());
 
@@ -97,7 +97,7 @@ describe("TaskEntitySubscriber (in-memory DataSource)", () => {
 
     it("on TaskEntity title change — appends 'task.renamed' with from/to payload", async () => {
         const repo = ds.getRepository(TaskEntity);
-        const eventsRepo = ds.getRepository(TaskEventLogEntity);
+        const eventsRepo = ds.getRepository(EventLogEntity);
         const t = await repo.save(makeTask());
         idGen.newUlid.mockClear();
 
@@ -115,7 +115,7 @@ describe("TaskEntitySubscriber (in-memory DataSource)", () => {
 
     it("on TaskEntity status change — appends 'task.status_changed' with from/to payload", async () => {
         const repo = ds.getRepository(TaskEntity);
-        const eventsRepo = ds.getRepository(TaskEventLogEntity);
+        const eventsRepo = ds.getRepository(EventLogEntity);
         const t = await repo.save(makeTask());
 
         t.status = "completed";
@@ -130,7 +130,7 @@ describe("TaskEntitySubscriber (in-memory DataSource)", () => {
 
     it("uses Clock.nowMs() as fallback when entity.createdAt is missing/invalid", async () => {
         const repo = ds.getRepository(TaskEntity);
-        const eventsRepo = ds.getRepository(TaskEventLogEntity);
+        const eventsRepo = ds.getRepository(EventLogEntity);
         // synchronize=true creates the column NOT NULL — but we can simulate via direct insert with empty string
         const t = makeTask({ createdAt: "not-a-date" });
         await repo.save(t);
@@ -142,7 +142,7 @@ describe("TaskEntitySubscriber (in-memory DataSource)", () => {
     it("on TaskRelationEntity insert with parent — appends 'task.hierarchy_changed' using the clock", async () => {
         const taskRepo = ds.getRepository(TaskEntity);
         const relRepo = ds.getRepository(TaskRelationEntity);
-        const eventsRepo = ds.getRepository(TaskEventLogEntity);
+        const eventsRepo = ds.getRepository(EventLogEntity);
         // create the parent and child first so the FK references resolve
         await taskRepo.save(makeTask({ id: "parent" }));
         await taskRepo.save(makeTask({ id: "child" }));

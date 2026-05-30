@@ -51,4 +51,14 @@ export class TaskCleanupSuggestionEntity {
 
     @Column({ name: "resolved_at", type: "text", nullable: true })
     resolvedAt!: string | null;
+
+    /** Awaiting a human decision — the only state from which it can be accepted/dismissed. */
+    isPending(): boolean {
+        return this.status === "pending";
+    }
+
+    /** Reached a terminal state (accepted / dismissed / failed). */
+    isResolved(): boolean {
+        return this.status !== "pending";
+    }
 }

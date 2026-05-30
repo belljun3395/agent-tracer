@@ -53,7 +53,7 @@ import { StaleTaskReaperService } from "./service/stale.task.reaper.service.js";
 import { TaskLifecycleService } from "./service/task.lifecycle.service.js";
 import { TaskManagementService } from "./service/task.management.service.js";
 import { TaskQueryService } from "./service/task.query.service.js";
-import { TaskEventLogEntity } from "./subscriber/event.log.entity.js";
+import { EventLogEntity } from "~activity/event/domain/event-store/event.log.entity.js";
 import {
     TaskEntitySubscriber,
     TaskRelationEntitySubscriber,
@@ -80,7 +80,7 @@ export class TaskModule {
             module: TaskModule,
             global: true,
             imports: [
-                TypeOrmModule.forFeature([TaskEntity, TaskRelationEntity, TaskEventLogEntity]),
+                TypeOrmModule.forFeature([TaskEntity, TaskRelationEntity, EventLogEntity]),
                 databaseModule,
             ],
             controllers: [TaskCommandController, TaskIngestController, TaskQueryController, SystemQueryController],
