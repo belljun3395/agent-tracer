@@ -1,8 +1,8 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { Interval } from "@nestjs/schedule";
 import { BaseJobWorker } from "~main/scheduling/base-job-worker.js";
-import { RecipeScanJobEntity } from "../domain/recipe.scan.job.entity.js";
-import { RecipeScanJobRepository } from "../repository/recipe.scan.job.repository.js";
+import { GovernanceJobEntity } from "~governance/job/governance.job.entity.js";
+import { GovernanceJobRepository } from "~governance/job/governance.job.repository.js";
 import { RecipeScanService } from "./recipe.scan.service.js";
 
 const MIN_POLL_INTERVAL_MS = 500;
@@ -12,13 +12,13 @@ const IDLE_TICKS_BEFORE_BACKOFF = 10;
 // just wastes API calls.
 const BATCH_SIZE = 1;
 
-/** Polls `recipe_scan_jobs` for pending rows and dispatches them. */
+/** Polls governance_jobs (jobType=recipe_scan) for pending rows and dispatches them. */
 @Injectable()
-export class RecipeScanWorker extends BaseJobWorker<RecipeScanJobEntity> {
+export class RecipeScanWorker extends BaseJobWorker<GovernanceJobEntity> {
     protected readonly logger = new Logger(RecipeScanWorker.name);
 
     constructor(
-        private readonly jobs: RecipeScanJobRepository,
+        private readonly jobs: GovernanceJobRepository,
         private readonly service: RecipeScanService,
     ) {
         super(BATCH_SIZE, MIN_POLL_INTERVAL_MS, MAX_POLL_INTERVAL_MS, IDLE_TICKS_BEFORE_BACKOFF);
@@ -29,19 +29,19 @@ export class RecipeScanWorker extends BaseJobWorker<RecipeScanJobEntity> {
         await this.runTick();
     }
 
-    protected findPending(limit: number): Promise<readonly RecipeScanJobEntity[]> {
-        return this.jobs.findPending(limit);
+    protected findPending(limit: number): Promise<readonly GovernanceJobEntity[]> {
+        return this.jobs.findPending("recipe_scan", limit);
     }
 
-    protected claim(jobId: string, startedAt: string): Promise<RecipeScanJobEntity | null> {
+    protected claim(jobId: string, startedAt: string): Promise<GovernanceJobEntity | null> {
         return this.jobs.claim(jobId, startedAt);
     }
 
-    protected process(job: RecipeScanJobEntity): Promise<void> {
+    protected process(job: GovernanceJobEntity): Promise<void> {
         return this.service.execute(job);
     }
 
-    protected describe(job: RecipeScanJobEntity): string {
+    protected describe(job: GovernanceJobEntity): string {
         return `recipe scan: jobId=${job.id}`;
     }
 }

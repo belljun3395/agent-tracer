@@ -64,7 +64,7 @@ export class TaskRuleGenerationController {
                 status: job.status,
                 attempts: job.attempts,
                 error: job.error,
-                rulesCreated: job.rulesCreated,
+                rulesCreated: job.rulesCreated ?? 0,
                 modelUsed: job.modelUsed,
                 durationMs: job.durationMs,
                 createdAt: job.createdAt,

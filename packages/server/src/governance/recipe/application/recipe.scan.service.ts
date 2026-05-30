@@ -17,8 +17,8 @@ import {
     type InsertRecipeCandidateRow,
 } from "../repository/recipe.candidate.repository.js";
 import { RecipeRepository } from "../repository/recipe.repository.js";
-import { RecipeScanJobRepository } from "../repository/recipe.scan.job.repository.js";
-import type { RecipeScanJobEntity } from "../domain/recipe.scan.job.entity.js";
+import { GovernanceJobRepository } from "~governance/job/governance.job.repository.js";
+import type { GovernanceJobEntity } from "~governance/job/governance.job.entity.js";
 import type { RecipeEntity } from "../domain/recipe.entity.js";
 import { extractTaskIdsFromSlices, pickBestParent } from "../domain/recipe.parentage.js";
 import {
@@ -55,7 +55,7 @@ export class RecipeScanService {
     private readonly logger = new Logger(RecipeScanService.name);
 
     constructor(
-        private readonly jobs: RecipeScanJobRepository,
+        private readonly jobs: GovernanceJobRepository,
         private readonly candidates: RecipeCandidateRepository,
         private readonly recipes: RecipeRepository,
         private readonly settings: AppSettingService,
@@ -69,8 +69,8 @@ export class RecipeScanService {
 
     async enqueue(
         input: EnqueueRecipeScanInput = {},
-    ): Promise<RecipeScanJobEntity> {
-        const existing = await this.jobs.findActive();
+    ): Promise<GovernanceJobEntity> {
+        const existing = await this.jobs.findActive("recipe_scan");
         if (existing) {
             throw new RecipeScanAlreadyInFlightError(existing.id);
         }
@@ -92,21 +92,22 @@ export class RecipeScanService {
         const language = await this.resolveLanguage();
         return this.jobs.insert({
             id: randomUUID(),
+            jobType: "recipe_scan",
             filtersJson: JSON.stringify(filters),
             language,
             createdAt: new Date().toISOString(),
         });
     }
 
-    async findLatest(): Promise<RecipeScanJobEntity | null> {
-        return this.jobs.findLatest();
+    async findLatest(): Promise<GovernanceJobEntity | null> {
+        return this.jobs.findLatest("recipe_scan");
     }
 
-    async findById(id: string): Promise<RecipeScanJobEntity | null> {
+    async findById(id: string): Promise<GovernanceJobEntity | null> {
         return this.jobs.findById(id);
     }
 
-    async execute(job: RecipeScanJobEntity): Promise<void> {
+    async execute(job: GovernanceJobEntity): Promise<void> {
         this.notifier.publish({
             type: "sdk_job.updated",
             payload: {
@@ -120,7 +121,7 @@ export class RecipeScanService {
             if (this.agent.requiresLocalApiKey() && !apiKey) throw new MissingApiKeyError();
 
             const modelOverride = await this.settings.getAnthropicModel();
-            const filters = parseRecipeScanFilters(job.filtersJson);
+            const filters = parseRecipeScanFilters(job.filtersJson ?? "{}");
             const language = normalizeRecipeLanguage(job.language);
 
             const allTasks = await this.taskQuery.findAll(filters.archivedScope);

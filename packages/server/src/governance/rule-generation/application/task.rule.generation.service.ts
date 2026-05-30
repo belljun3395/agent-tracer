@@ -8,8 +8,8 @@ import { RegisterSuggestionUseCase } from "~governance/rule/application/register
 import { APP_SETTING_KEYS } from "~governance/settings/domain/app.setting.keys.js";
 import { AppSettingService } from "~governance/settings/application/app.setting.service.js";
 import { NOTIFICATION_PUBLISHER_TOKEN } from "~main/presentation/database/database.provider.js";
-import { TaskRuleGenerationJobRepository } from "../repository/task.rule.generation.job.repository.js";
-import type { TaskRuleGenerationJobEntity } from "../domain/task.rule.generation.job.entity.js";
+import { GovernanceJobRepository } from "~governance/job/governance.job.repository.js";
+import type { GovernanceJobEntity } from "~governance/job/governance.job.entity.js";
 import {
     clampMaxRules,
     normalizeRuleSuggestionLanguage,
@@ -48,7 +48,7 @@ export class TaskRuleGenerationService {
     private readonly logger = new Logger(TaskRuleGenerationService.name);
 
     constructor(
-        private readonly jobs: TaskRuleGenerationJobRepository,
+        private readonly jobs: GovernanceJobRepository,
         private readonly settings: AppSettingService,
         private readonly getTaskSummary: GetTaskSummaryUseCase,
         private readonly listRules: ListRulesUseCase,
@@ -58,7 +58,7 @@ export class TaskRuleGenerationService {
         private readonly notifier: INotificationPublisher,
     ) {}
 
-    async enqueue(taskId: string): Promise<TaskRuleGenerationJobEntity> {
+    async enqueue(taskId: string): Promise<GovernanceJobEntity> {
         const { summary } = await this.getTaskSummary.execute({ taskId });
         if (!summary) {
             throw new TaskNotFoundForGenerationError(taskId);
@@ -66,7 +66,7 @@ export class TaskRuleGenerationService {
         if (summary.eventCount === 0) {
             throw new TaskHasNoEventsError(taskId);
         }
-        const existing = await this.jobs.findActiveForTask(taskId);
+        const existing = await this.jobs.findActiveForTask("rule_generation", taskId);
         if (existing) {
             throw new GenerationAlreadyInFlightError(existing.id);
         }
@@ -78,16 +78,17 @@ export class TaskRuleGenerationService {
 
         return this.jobs.insert({
             id: randomUUID(),
+            jobType: "rule_generation",
             taskId,
             createdAt: new Date().toISOString(),
         });
     }
 
-    async findLatest(taskId: string): Promise<TaskRuleGenerationJobEntity | null> {
-        return this.jobs.findLatestForTask(taskId);
+    async findLatest(taskId: string): Promise<GovernanceJobEntity | null> {
+        return this.jobs.findLatestForTask("rule_generation", taskId);
     }
 
-    async findById(id: string): Promise<TaskRuleGenerationJobEntity | null> {
+    async findById(id: string): Promise<GovernanceJobEntity | null> {
         return this.jobs.findById(id);
     }
 
@@ -95,8 +96,19 @@ export class TaskRuleGenerationService {
      * Execute one claimed job. Caller is responsible for atomic claim before
      * calling. Updates job status to completed/failed at the end.
      */
-    async execute(job: TaskRuleGenerationJobEntity): Promise<void> {
+    async execute(job: GovernanceJobEntity): Promise<void> {
         const taskId = job.taskId;
+        if (!taskId) {
+            // rule_generation jobs always carry a taskId; a missing one is a
+            // corrupt row — fail it rather than crash the worker.
+            await this.jobs.markFailed({
+                id: job.id,
+                error: "rule generation job is missing a taskId",
+                attempts: job.attempts,
+                completedAt: new Date().toISOString(),
+            });
+            return;
+        }
         this.notifier.publish({
             type: "sdk_job.updated",
             payload: {

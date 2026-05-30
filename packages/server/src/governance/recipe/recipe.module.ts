@@ -13,12 +13,12 @@ import { FileAffinityEntity } from "./domain/file.affinity.entity.js";
 import { RecipeApplicationEntity } from "./domain/recipe.application.entity.js";
 import { RecipeCandidateEntity } from "./domain/recipe.candidate.entity.js";
 import { RecipeEntity } from "./domain/recipe.entity.js";
-import { RecipeScanJobEntity } from "./domain/recipe.scan.job.entity.js";
 import { FileAffinityRepository } from "./repository/file.affinity.repository.js";
 import { RecipeApplicationRepository } from "./repository/recipe.application.repository.js";
 import { RecipeCandidateRepository } from "./repository/recipe.candidate.repository.js";
 import { RecipeRepository } from "./repository/recipe.repository.js";
-import { RecipeScanJobRepository } from "./repository/recipe.scan.job.repository.js";
+import { GovernanceJobEntity } from "~governance/job/governance.job.entity.js";
+import { GovernanceJobRepository } from "~governance/job/governance.job.repository.js";
 
 @Module({})
 export class RecipeModule {
@@ -28,7 +28,7 @@ export class RecipeModule {
             global: true,
             imports: [
                 TypeOrmModule.forFeature([
-                    RecipeScanJobEntity,
+                    GovernanceJobEntity,
                     RecipeCandidateEntity,
                     RecipeEntity,
                     RecipeApplicationEntity,
@@ -38,7 +38,7 @@ export class RecipeModule {
             ],
             controllers: [RecipeScanController],
             providers: [
-                RecipeScanJobRepository,
+                GovernanceJobRepository,
                 RecipeCandidateRepository,
                 RecipeRepository,
                 RecipeApplicationRepository,

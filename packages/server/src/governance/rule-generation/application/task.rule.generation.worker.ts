@@ -1,8 +1,8 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { Interval } from "@nestjs/schedule";
 import { BaseJobWorker } from "~main/scheduling/base-job-worker.js";
-import { TaskRuleGenerationJobEntity } from "../domain/task.rule.generation.job.entity.js";
-import { TaskRuleGenerationJobRepository } from "../repository/task.rule.generation.job.repository.js";
+import { GovernanceJobEntity } from "~governance/job/governance.job.entity.js";
+import { GovernanceJobRepository } from "~governance/job/governance.job.repository.js";
 import { TaskRuleGenerationService } from "./task.rule.generation.service.js";
 
 const MIN_POLL_INTERVAL_MS = 500;
@@ -12,13 +12,13 @@ const IDLE_TICKS_BEFORE_BACKOFF = 10;
 // and infrequent, so a couple can run back-to-back.
 const BATCH_SIZE = 2;
 
-/** Polls `task_rule_generation_jobs` for pending rows and dispatches them. */
+/** Polls governance_jobs (jobType=rule_generation) for pending rows and dispatches them. */
 @Injectable()
-export class TaskRuleGenerationWorker extends BaseJobWorker<TaskRuleGenerationJobEntity> {
+export class TaskRuleGenerationWorker extends BaseJobWorker<GovernanceJobEntity> {
     protected readonly logger = new Logger(TaskRuleGenerationWorker.name);
 
     constructor(
-        private readonly jobs: TaskRuleGenerationJobRepository,
+        private readonly jobs: GovernanceJobRepository,
         private readonly service: TaskRuleGenerationService,
     ) {
         super(BATCH_SIZE, MIN_POLL_INTERVAL_MS, MAX_POLL_INTERVAL_MS, IDLE_TICKS_BEFORE_BACKOFF);
@@ -29,19 +29,19 @@ export class TaskRuleGenerationWorker extends BaseJobWorker<TaskRuleGenerationJo
         await this.runTick();
     }
 
-    protected findPending(limit: number): Promise<readonly TaskRuleGenerationJobEntity[]> {
-        return this.jobs.findPending(limit);
+    protected findPending(limit: number): Promise<readonly GovernanceJobEntity[]> {
+        return this.jobs.findPending("rule_generation", limit);
     }
 
-    protected claim(jobId: string, startedAt: string): Promise<TaskRuleGenerationJobEntity | null> {
+    protected claim(jobId: string, startedAt: string): Promise<GovernanceJobEntity | null> {
         return this.jobs.claim(jobId, startedAt);
     }
 
-    protected process(job: TaskRuleGenerationJobEntity): Promise<void> {
+    protected process(job: GovernanceJobEntity): Promise<void> {
         return this.service.execute(job);
     }
 
-    protected describe(job: TaskRuleGenerationJobEntity): string {
+    protected describe(job: GovernanceJobEntity): string {
         return `rule generation: jobId=${job.id} taskId=${job.taskId}`;
     }
 }

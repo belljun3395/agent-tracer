@@ -3,8 +3,8 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 import { TaskRuleGenerationController } from "./api/task.rule.generation.controller.js";
 import { TaskRuleGenerationService } from "./application/task.rule.generation.service.js";
 import { TaskRuleGenerationWorker } from "./application/task.rule.generation.worker.js";
-import { TaskRuleGenerationJobEntity } from "./domain/task.rule.generation.job.entity.js";
-import { TaskRuleGenerationJobRepository } from "./repository/task.rule.generation.job.repository.js";
+import { GovernanceJobEntity } from "~governance/job/governance.job.entity.js";
+import { GovernanceJobRepository } from "~governance/job/governance.job.repository.js";
 
 @Module({})
 export class RuleGenerationModule {
@@ -13,12 +13,12 @@ export class RuleGenerationModule {
             module: RuleGenerationModule,
             global: true,
             imports: [
-                TypeOrmModule.forFeature([TaskRuleGenerationJobEntity]),
+                TypeOrmModule.forFeature([GovernanceJobEntity]),
                 databaseModule,
             ],
             controllers: [TaskRuleGenerationController],
             providers: [
-                TaskRuleGenerationJobRepository,
+                GovernanceJobRepository,
                 TaskRuleGenerationService,
                 TaskRuleGenerationWorker,
             ],

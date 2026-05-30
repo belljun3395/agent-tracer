@@ -8,9 +8,9 @@ import { AppSettingService } from "~governance/settings/application/app.setting.
 import { NOTIFICATION_PUBLISHER_TOKEN } from "~main/presentation/database/database.provider.js";
 import type { ITaskSnapshotQuery } from "~work/task/public/iservice/task.snapshot.query.iservice.js";
 import { TASK_SNAPSHOT_QUERY } from "~work/task/public/tokens.js";
-import { TaskCleanupJobRepository } from "../repository/task.cleanup.job.repository.js";
+import { GovernanceJobRepository } from "~governance/job/governance.job.repository.js";
 import { TaskCleanupSuggestionRepository } from "../repository/task.cleanup.suggestion.repository.js";
-import type { TaskCleanupJobEntity } from "../domain/task.cleanup.job.entity.js";
+import type { GovernanceJobEntity } from "~governance/job/governance.job.entity.js";
 import { dedupeByKindAndTask } from "../domain/task.cleanup.dedup.js";
 
 const DEFAULT_MAX_SUGGESTIONS = 20;
@@ -42,7 +42,7 @@ export class TaskCleanupService {
     private readonly logger = new Logger(TaskCleanupService.name);
 
     constructor(
-        private readonly jobs: TaskCleanupJobRepository,
+        private readonly jobs: GovernanceJobRepository,
         private readonly suggestions: TaskCleanupSuggestionRepository,
         private readonly settings: AppSettingService,
         @Inject(TASK_SNAPSHOT_QUERY)
@@ -52,8 +52,8 @@ export class TaskCleanupService {
         private readonly notifier: INotificationPublisher,
     ) {}
 
-    async enqueue(): Promise<TaskCleanupJobEntity> {
-        const existing = await this.jobs.findActive();
+    async enqueue(): Promise<GovernanceJobEntity> {
+        const existing = await this.jobs.findActive("task_cleanup");
         if (existing) {
             throw new GenerationAlreadyInFlightError(existing.id);
         }
@@ -70,15 +70,16 @@ export class TaskCleanupService {
 
         return this.jobs.insert({
             id: randomUUID(),
+            jobType: "task_cleanup",
             createdAt: new Date().toISOString(),
         });
     }
 
-    async findLatest(): Promise<TaskCleanupJobEntity | null> {
-        return this.jobs.findLatest();
+    async findLatest(): Promise<GovernanceJobEntity | null> {
+        return this.jobs.findLatest("task_cleanup");
     }
 
-    async findById(id: string): Promise<TaskCleanupJobEntity | null> {
+    async findById(id: string): Promise<GovernanceJobEntity | null> {
         return this.jobs.findById(id);
     }
 
@@ -86,7 +87,7 @@ export class TaskCleanupService {
      * Execute one claimed job. Caller is responsible for atomic claim before
      * calling. Updates job status to completed/failed at the end.
      */
-    async execute(job: TaskCleanupJobEntity): Promise<void> {
+    async execute(job: GovernanceJobEntity): Promise<void> {
         this.notifier.publish({
             type: "sdk_job.updated",
             payload: {

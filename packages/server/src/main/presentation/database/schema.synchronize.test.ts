@@ -14,15 +14,13 @@ import { TimelineEventEntity } from "~activity/event/domain/timeline.event.entit
 import { TodoCurrentEntity } from "~activity/event/domain/todo.current.entity.js";
 import { RuntimeBindingEntity } from "~activity/session/domain/runtime.binding.entity.js";
 import { SessionEntity } from "~activity/session/domain/session.entity.js";
+import { GovernanceJobEntity } from "~governance/job/governance.job.entity.js";
 import { FileAffinityEntity } from "~governance/recipe/domain/file.affinity.entity.js";
 import { RecipeApplicationEntity } from "~governance/recipe/domain/recipe.application.entity.js";
 import { RecipeCandidateEntity } from "~governance/recipe/domain/recipe.candidate.entity.js";
 import { RecipeEntity } from "~governance/recipe/domain/recipe.entity.js";
-import { RecipeScanJobEntity } from "~governance/recipe/domain/recipe.scan.job.entity.js";
-import { TaskRuleGenerationJobEntity } from "~governance/rule-generation/domain/task.rule.generation.job.entity.js";
 import { RuleEntity } from "~governance/rule/domain/rule.entity.js";
 import { AppSettingEntity } from "~governance/settings/domain/app.setting.entity.js";
-import { TaskCleanupJobEntity } from "~governance/task-cleanup/domain/task.cleanup.job.entity.js";
 import { TaskCleanupSuggestionEntity } from "~governance/task-cleanup/domain/task.cleanup.suggestion.entity.js";
 import { RuleEnforcementEntity } from "~governance/verification/domain/rule.enforcement.entity.js";
 import { TurnEntity } from "~governance/verification/domain/turn.entity.js";
@@ -54,15 +52,13 @@ const ALL_ENTITIES = [
     TodoCurrentEntity,
     RuntimeBindingEntity,
     SessionEntity,
+    GovernanceJobEntity,
     FileAffinityEntity,
     RecipeApplicationEntity,
     RecipeCandidateEntity,
     RecipeEntity,
-    RecipeScanJobEntity,
-    TaskRuleGenerationJobEntity,
     RuleEntity,
     AppSettingEntity,
-    TaskCleanupJobEntity,
     TaskCleanupSuggestionEntity,
     RuleEnforcementEntity,
     TurnEntity,

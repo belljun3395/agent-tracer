@@ -6,10 +6,10 @@ import { DismissCleanupSuggestionUseCase } from "./application/dismiss.cleanup.s
 import { ListCleanupSuggestionsUseCase } from "./application/list.cleanup.suggestions.usecase.js";
 import { TaskCleanupService } from "./application/task.cleanup.service.js";
 import { TaskCleanupWorker } from "./application/task.cleanup.worker.js";
-import { TaskCleanupJobEntity } from "./domain/task.cleanup.job.entity.js";
 import { TaskCleanupSuggestionEntity } from "./domain/task.cleanup.suggestion.entity.js";
-import { TaskCleanupJobRepository } from "./repository/task.cleanup.job.repository.js";
 import { TaskCleanupSuggestionRepository } from "./repository/task.cleanup.suggestion.repository.js";
+import { GovernanceJobEntity } from "~governance/job/governance.job.entity.js";
+import { GovernanceJobRepository } from "~governance/job/governance.job.repository.js";
 
 @Module({})
 export class TaskCleanupModule {
@@ -19,14 +19,14 @@ export class TaskCleanupModule {
             global: true,
             imports: [
                 TypeOrmModule.forFeature([
-                    TaskCleanupJobEntity,
+                    GovernanceJobEntity,
                     TaskCleanupSuggestionEntity,
                 ]),
                 databaseModule,
             ],
             controllers: [TaskCleanupController],
             providers: [
-                TaskCleanupJobRepository,
+                GovernanceJobRepository,
                 TaskCleanupSuggestionRepository,
                 TaskCleanupService,
                 TaskCleanupWorker,
