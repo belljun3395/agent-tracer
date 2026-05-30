@@ -11,6 +11,7 @@ import { TASK_SNAPSHOT_QUERY } from "~work/task/public/tokens.js";
 import { TaskCleanupJobRepository } from "../repository/task.cleanup.job.repository.js";
 import { TaskCleanupSuggestionRepository } from "../repository/task.cleanup.suggestion.repository.js";
 import type { TaskCleanupJobEntity } from "../domain/task.cleanup.job.entity.js";
+import { dedupeByKindAndTask } from "../domain/task.cleanup.dedup.js";
 
 const DEFAULT_MAX_SUGGESTIONS = 20;
 const MAX_SUGGESTIONS_HARD_CAP = 50;
@@ -128,18 +129,9 @@ export class TaskCleanupService {
             });
 
             const knownTaskIds = new Set(snapshots.map((s) => s.id));
-            const dedupKey = (kind: string, taskId: string) => `${kind}::${taskId}`;
-            const seen = new Set<string>();
             const now = new Date().toISOString();
-            const rows: Parameters<
-                TaskCleanupSuggestionRepository["insertMany"]
-            >[0][number][] = [];
-            for (const s of output.suggestions) {
-                if (!knownTaskIds.has(s.taskId)) continue;
-                const key = dedupKey(s.kind, s.taskId);
-                if (seen.has(key)) continue;
-                seen.add(key);
-                rows.push({
+            const rows = dedupeByKindAndTask(output.suggestions, knownTaskIds).map(
+                (s) => ({
                     id: randomUUID(),
                     jobId: job.id,
                     taskId: s.taskId,
@@ -148,8 +140,8 @@ export class TaskCleanupService {
                     proposedValue: JSON.stringify({ archive: true }),
                     rationale: s.rationale,
                     createdAt: now,
-                });
-            }
+                }),
+            );
             await this.suggestions.insertMany(rows);
 
             await this.jobs.markCompleted({

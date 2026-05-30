@@ -1,7 +1,6 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
 import { RuleSuggestionAgent } from "~adapters/llm/rule.suggestion.agent.js";
-import type { RuleSuggestionLanguage } from "~adapters/llm/rule.suggestion.prompt.js";
 import type { INotificationPublisher } from "~adapters/notifications/notification.publisher.port.js";
 import { GetTaskSummaryUseCase } from "~work/task/application/get.task.summary.usecase.js";
 import { ListRulesUseCase } from "~governance/rule/application/list.rules.usecase.js";
@@ -11,22 +10,10 @@ import { AppSettingService } from "~governance/settings/application/app.setting.
 import { NOTIFICATION_PUBLISHER_TOKEN } from "~main/presentation/database/database.provider.js";
 import { TaskRuleGenerationJobRepository } from "../repository/task.rule.generation.job.repository.js";
 import type { TaskRuleGenerationJobEntity } from "../domain/task.rule.generation.job.entity.js";
-
-const DEFAULT_MAX_RULES = 5;
-
-const SUPPORTED_LANGUAGES: ReadonlySet<RuleSuggestionLanguage> = new Set([
-    "auto",
-    "ko",
-    "en",
-    "ja",
-    "zh",
-]);
-
-function normalizeLanguage(raw: string | null): RuleSuggestionLanguage {
-    if (!raw) return "auto";
-    const trimmed = raw.trim().toLowerCase() as RuleSuggestionLanguage;
-    return SUPPORTED_LANGUAGES.has(trimmed) ? trimmed : "auto";
-}
+import {
+    clampMaxRules,
+    normalizeRuleSuggestionLanguage,
+} from "../domain/task.rule.generation.params.js";
 
 export class TaskNotFoundForGenerationError extends Error {
     constructor(public readonly taskId: string) {
@@ -132,7 +119,7 @@ export class TaskRuleGenerationService {
             const languageRaw = await this.settings.getRawValue(
                 APP_SETTING_KEYS.claudeOutputLanguage,
             );
-            const language = normalizeLanguage(languageRaw);
+            const language = normalizeRuleSuggestionLanguage(languageRaw);
 
             const { summary } = await this.getTaskSummary.execute({ taskId });
             if (!summary) {
@@ -224,13 +211,6 @@ export class TaskRuleGenerationService {
             });
         }
     }
-}
-
-function clampMaxRules(raw: string | null): number {
-    if (!raw) return DEFAULT_MAX_RULES;
-    const n = Number.parseInt(raw, 10);
-    if (!Number.isFinite(n) || n <= 0) return DEFAULT_MAX_RULES;
-    return Math.min(Math.max(n, 1), 20);
 }
 
 function truncate(s: string, n: number): string {

@@ -20,22 +20,14 @@ import { RecipeRepository } from "../repository/recipe.repository.js";
 import { RecipeScanJobRepository } from "../repository/recipe.scan.job.repository.js";
 import type { RecipeScanJobEntity } from "../domain/recipe.scan.job.entity.js";
 import type { RecipeEntity } from "../domain/recipe.entity.js";
-import { pickBestParent } from "../domain/recipe.parentage.js";
-import type {
-    EnqueueRecipeScanInput,
-    RecipeScanFiltersSnapshot,
-} from "./dto/recipe.scan.dto.js";
-
-const DEFAULT_MAX_CANDIDATES = 10;
-const MAX_CANDIDATES_HARD_CAP = 30;
-const DEFAULT_MIN_EVENT_COUNT = 1;
-const SUPPORTED_LANGUAGES: ReadonlySet<RecipeOutputLanguage> = new Set([
-    "auto",
-    "ko",
-    "en",
-    "ja",
-    "zh",
-]);
+import { extractTaskIdsFromSlices, pickBestParent } from "../domain/recipe.parentage.js";
+import {
+    applyRecipeScanFilters,
+    normalizeRecipeLanguage,
+    normalizeRecipeScanFilters,
+    parseRecipeScanFilters,
+} from "../domain/recipe.scan.filters.js";
+import type { EnqueueRecipeScanInput } from "./dto/recipe.scan.dto.js";
 
 export class RecipeScanAlreadyInFlightError extends Error {
     constructor(public readonly jobId: string) {
@@ -88,11 +80,11 @@ export class RecipeScanService {
             throw new MissingApiKeyError();
         }
 
-        const filters = normalizeFilters(input);
+        const filters = normalizeRecipeScanFilters(input);
         // Validate there's at least one task matching before opening a job —
         // mirrors task-cleanup's NoTasksToScanError preflight.
         const tasks = await this.taskQuery.findAll(filters.archivedScope);
-        const filtered = applyFilters(tasks, filters);
+        const filtered = applyRecipeScanFilters(tasks, filters);
         if (filtered.length === 0) {
             throw new NoTasksToScanError();
         }
@@ -128,11 +120,11 @@ export class RecipeScanService {
             if (this.agent.requiresLocalApiKey() && !apiKey) throw new MissingApiKeyError();
 
             const modelOverride = await this.settings.getAnthropicModel();
-            const filters = parseFilters(job.filtersJson);
-            const language = normalizeLanguage(job.language);
+            const filters = parseRecipeScanFilters(job.filtersJson);
+            const language = normalizeRecipeLanguage(job.language);
 
             const allTasks = await this.taskQuery.findAll(filters.archivedScope);
-            const filtered = applyFilters(allTasks, filters);
+            const filtered = applyRecipeScanFilters(allTasks, filters);
 
             const snapshots: RecipeTaskSnapshot[] = [];
             for (const t of filtered) {
@@ -201,7 +193,7 @@ export class RecipeScanService {
             const activeRecipes = await this.recipes.listByStatus("active");
             const activeRecipeTaskIds = activeRecipes.map((r) => ({
                 recipe: r,
-                taskIds: extractTaskIds(r.contributingSlicesJson),
+                taskIds: extractTaskIdsFromSlices(r.contributingSlicesJson),
             }));
 
             for (const recipe of output.recipes) {
@@ -297,7 +289,7 @@ export class RecipeScanService {
         const raw = await this.settings.getRawValue(
             APP_SETTING_KEYS.claudeOutputLanguage,
         );
-        return normalizeLanguage(raw);
+        return normalizeRecipeLanguage(raw);
     }
 
     /**
@@ -319,89 +311,6 @@ export class RecipeScanService {
             );
         }
     }
-}
-
-function extractTaskIds(slicesJson: string): Set<string> {
-    const out = new Set<string>();
-    try {
-        const parsed = JSON.parse(slicesJson) as unknown;
-        if (!Array.isArray(parsed)) return out;
-        for (const item of parsed) {
-            if (!item || typeof item !== "object") continue;
-            const rec = item as Record<string, unknown>;
-            if (typeof rec.taskId === "string") out.add(rec.taskId);
-        }
-    } catch {
-        // ignore — corrupt slice json just yields an empty set
-    }
-    return out;
-}
-
-function normalizeFilters(
-    input: EnqueueRecipeScanInput,
-): RecipeScanFiltersSnapshot {
-    return {
-        statusFilter: input.statusFilter ?? "completed",
-        since: input.since ?? null,
-        maxCandidates: clampMaxCandidates(input.maxCandidates),
-        minEventCount: clampMinEventCount(input.minEventCount),
-        archivedScope: input.archivedScope ?? "active",
-    };
-}
-
-function parseFilters(raw: string): RecipeScanFiltersSnapshot {
-    try {
-        const parsed = JSON.parse(raw) as Partial<RecipeScanFiltersSnapshot>;
-        return {
-            statusFilter: parsed.statusFilter ?? "completed",
-            since: parsed.since ?? null,
-            maxCandidates: clampMaxCandidates(parsed.maxCandidates),
-            minEventCount: clampMinEventCount(parsed.minEventCount),
-            archivedScope: parsed.archivedScope ?? "active",
-        };
-    } catch {
-        return normalizeFilters({});
-    }
-}
-
-function clampMaxCandidates(raw: unknown): number {
-    const n = typeof raw === "number" ? raw : Number.parseInt(String(raw), 10);
-    if (!Number.isFinite(n) || n <= 0) return DEFAULT_MAX_CANDIDATES;
-    return Math.min(Math.max(Math.floor(n), 1), MAX_CANDIDATES_HARD_CAP);
-}
-
-function clampMinEventCount(raw: unknown): number {
-    const n = typeof raw === "number" ? raw : Number.parseInt(String(raw), 10);
-    if (!Number.isFinite(n) || n <= 0) return DEFAULT_MIN_EVENT_COUNT;
-    return Math.max(Math.floor(n), 1);
-}
-
-function applyFilters<T extends { readonly status: string; readonly updatedAt: string }>(
-    tasks: readonly T[],
-    filters: RecipeScanFiltersSnapshot,
-): readonly T[] {
-    return tasks.filter((t) => {
-        if (filters.statusFilter !== "all") {
-            if (filters.statusFilter === "completed" && t.status !== "completed") {
-                return false;
-            }
-            if (
-                filters.statusFilter === "active" &&
-                t.status !== "running" &&
-                t.status !== "waiting"
-            ) {
-                return false;
-            }
-        }
-        if (filters.since && t.updatedAt < filters.since) return false;
-        return true;
-    });
-}
-
-function normalizeLanguage(raw: string | null): RecipeOutputLanguage {
-    if (!raw) return "auto";
-    const trimmed = raw.trim().toLowerCase() as RecipeOutputLanguage;
-    return SUPPORTED_LANGUAGES.has(trimmed) ? trimmed : "auto";
 }
 
 function truncate(s: string, n: number): string {

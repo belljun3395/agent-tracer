@@ -1,6 +1,27 @@
 import type { RecipeEntity } from "./recipe.entity.js";
 
 /**
+ * Extract the set of contributing task ids from a recipe's
+ * `contributing_slices_json` (array of `{ taskId, eventIds }`). Corrupt JSON
+ * yields an empty set rather than throwing.
+ */
+export function extractTaskIdsFromSlices(slicesJson: string): Set<string> {
+    const out = new Set<string>();
+    try {
+        const parsed = JSON.parse(slicesJson) as unknown;
+        if (!Array.isArray(parsed)) return out;
+        for (const item of parsed) {
+            if (!item || typeof item !== "object") continue;
+            const rec = item as Record<string, unknown>;
+            if (typeof rec.taskId === "string") out.add(rec.taskId);
+        }
+    } catch {
+        // ignore — corrupt slice json just yields an empty set
+    }
+    return out;
+}
+
+/**
  * Minimum Jaccard overlap between a candidate's contributing tasks and an
  * existing recipe's tasks before the candidate is treated as a re-write
  * (child) of that recipe rather than a brand-new recipe.

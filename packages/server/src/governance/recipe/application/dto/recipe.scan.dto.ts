@@ -1,6 +1,9 @@
 import type { TaskSnapshotArchivedScope } from "~work/task/public/iservice/task.snapshot.query.iservice.js";
+import type { RecipeScanStatusFilter } from "~governance/recipe/domain/recipe.scan.filters.js";
 
-export type RecipeScanStatusFilter = "completed" | "active" | "all";
+// Filter value-object types live in the domain layer; re-exported here so
+// existing application/controller imports keep resolving.
+export type { RecipeScanStatusFilter, RecipeScanFiltersSnapshot } from "~governance/recipe/domain/recipe.scan.filters.js";
 
 export interface EnqueueRecipeScanInput {
     /**
@@ -18,12 +21,4 @@ export interface EnqueueRecipeScanInput {
     readonly minEventCount?: number;
     /** Archive scope passed to TaskSnapshotQuery. Default "active" (non-archived). */
     readonly archivedScope?: TaskSnapshotArchivedScope;
-}
-
-export interface RecipeScanFiltersSnapshot {
-    readonly statusFilter: RecipeScanStatusFilter;
-    readonly since: string | null;
-    readonly maxCandidates: number;
-    readonly minEventCount: number;
-    readonly archivedScope: TaskSnapshotArchivedScope;
 }
