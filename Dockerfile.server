@@ -6,22 +6,27 @@ COPY packages/server/package.json packages/server/
 COPY packages/runtime/package.json packages/runtime/
 COPY packages/web/package.json packages/web/
 
-# Optional: Install build tools if native modules like better-sqlite3 need them
 RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
 RUN npm ci
 
 COPY . .
 RUN npm run build --workspace=@monitor/server
 
-FROM node:25-slim
+# 최종 이미지로 넘기기 전에 devDependencies + optional(onnxruntime 등) 제거
+RUN npm prune --omit=dev --omit=optional
 
-WORKDIR /app
-COPY --from=builder /app/package*.json ./
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/packages ./packages
+FROM node:25-slim
 
 WORKDIR /app
 ENV NODE_ENV=production
 
+# 프로덕션 node_modules (devDep·optional 제거된 상태)
+COPY --from=builder /app/node_modules ./node_modules
+# ESM 모듈 타입 해석에 필요한 package.json 파일들
+COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/packages/server/package.json ./packages/server/package.json
+# 빌드 결과물만 복사 (web·runtime 소스 제외)
+COPY --from=builder /app/packages/server/dist ./packages/server/dist
+
 EXPOSE 3847
-CMD ["npm", "run", "start:server"]
+CMD ["node", "packages/server/dist/index.js"]
