@@ -32,7 +32,7 @@ export function aggregateVerdict(
     return worst;
 }
 
-export function tallyVerdicts(
+function tallyVerdicts(
     statuses: ReadonlyArray<string | null | undefined>,
 ): VerdictTally {
     const tally: VerdictTally = { verified: 0, unverifiable: 0, contradicted: 0 };
