@@ -1,5 +1,8 @@
 import { Module, type DynamicModule } from "@nestjs/common";
 import type { INotificationPublisher } from "~adapters/notifications/notification.publisher.port.js";
+import { CLOCK_PORT, ID_GENERATOR_PORT } from "~shared/clock.js";
+import { SystemClockAdapter } from "~shared/system.clock.adapter.js";
+import { CryptoIdGeneratorAdapter } from "~shared/crypto.id.generator.adapter.js";
 import {
     DatabaseProviders,
     NOTIFICATION_PUBLISHER_TOKEN,
@@ -14,8 +17,14 @@ export class DatabaseModule {
     static forRoot(options: DatabaseModuleOptions): DynamicModule {
         return {
             module: DatabaseModule,
-            providers: DatabaseProviders(options),
-            exports: [NOTIFICATION_PUBLISHER_TOKEN],
+            providers: [
+                ...DatabaseProviders(options),
+                SystemClockAdapter,
+                CryptoIdGeneratorAdapter,
+                { provide: CLOCK_PORT, useExisting: SystemClockAdapter },
+                { provide: ID_GENERATOR_PORT, useExisting: CryptoIdGeneratorAdapter },
+            ],
+            exports: [NOTIFICATION_PUBLISHER_TOKEN, CLOCK_PORT, ID_GENERATOR_PORT],
         };
     }
 }

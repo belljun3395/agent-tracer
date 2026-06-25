@@ -24,20 +24,16 @@ import { ListTasksUseCase } from "./application/list.tasks.usecase.js";
 import { StartTaskUseCase } from "./application/start.task.usecase.js";
 import { UpdateTaskUseCase } from "./application/update.task.usecase.js";
 import {
-    CLOCK_PORT,
     EVENT_PROJECTION_ACCESS_PORT,
-    ID_GENERATOR_PORT,
     NOTIFICATION_PUBLISHER_PORT,
     RUNTIME_BINDING_ACCESS_PORT,
     SESSION_ACCESS_PORT,
     TIMELINE_EVENT_ACCESS_PORT,
     TURN_QUERY_ACCESS_PORT,
 } from "./application/outbound/tokens.js";
-import { CryptoIdGeneratorAdapter } from "./adapter/crypto.id.generator.adapter.js";
 import { EventProjectionAccessAdapter } from "./adapter/event.projection.access.adapter.js";
 import { RuntimeBindingAccessAdapter } from "./adapter/runtime.binding.access.adapter.js";
 import { SessionAccessAdapter } from "./adapter/session.access.adapter.js";
-import { SystemClockAdapter } from "./adapter/system.clock.adapter.js";
 import { TaskAccessPublicAdapter } from "./adapter/task.access.public.adapter.js";
 import { TaskNotificationPublisherAdapter } from "./adapter/task.notification.publisher.adapter.js";
 import { TimelineEventAccessAdapter } from "./adapter/timeline.event.access.adapter.js";
@@ -99,8 +95,6 @@ export class TaskModule {
                 TurnQueryAccessAdapter,
                 TaskNotificationPublisherAdapter,
                 EventProjectionAccessAdapter,
-                SystemClockAdapter,
-                CryptoIdGeneratorAdapter,
                 // Public adapters
                 TaskAccessPublicAdapter,
                 // Use cases
@@ -134,8 +128,6 @@ export class TaskModule {
                 { provide: TURN_QUERY_ACCESS_PORT, useExisting: TurnQueryAccessAdapter },
                 { provide: NOTIFICATION_PUBLISHER_PORT, useExisting: TaskNotificationPublisherAdapter },
                 { provide: EVENT_PROJECTION_ACCESS_PORT, useExisting: EventProjectionAccessAdapter },
-                { provide: CLOCK_PORT, useExisting: SystemClockAdapter },
-                { provide: ID_GENERATOR_PORT, useExisting: CryptoIdGeneratorAdapter },
             ],
             exports: [
                 TASK_LIFECYCLE,

@@ -1,8 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { generateUlid } from "../repository/event-store/ulid.js";
-import { CLOCK_PORT } from "../application/outbound/tokens.js";
-import type { IClock } from "../application/outbound/clock.port.js";
-import type { IIdGenerator } from "../application/outbound/id.generator.port.js";
+import { CLOCK_PORT } from "./clock.js";
+import type { IClock, IIdGenerator } from "./clock.js";
+import { generateUlid } from "./ulid.js";
 
 @Injectable()
 export class CryptoIdGeneratorAdapter implements IIdGenerator {

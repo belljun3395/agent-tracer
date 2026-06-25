@@ -11,7 +11,8 @@
       "~main/*": ["src/main/*"],
       "~activity/*": ["src/activity/*"],
       "~work/*": ["src/work/*"],
-      "~governance/*": ["src/governance/*"]
+      "~governance/*": ["src/governance/*"],
+      "~shared/*": ["src/shared/*"]
     }
   },
   "include": ["src", "*.config.ts", "vitest.setup.ts"]

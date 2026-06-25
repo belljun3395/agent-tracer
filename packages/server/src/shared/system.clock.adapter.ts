@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import type { IClock } from "../application/outbound/clock.port.js";
+import type { IClock } from "./clock.js";
 
 @Injectable()
 export class SystemClockAdapter implements IClock {
