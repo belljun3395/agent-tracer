@@ -1,6 +1,7 @@
 import { Module, type DynamicModule } from "@nestjs/common";
 import { RecipeModule } from "./recipe/recipe.module.js";
 import { RuleModule } from "./rule/rule.module.js";
+import { RuleBackfillModule } from "./rule-backfill/rule.backfill.module.js";
 import { RuleGenerationModule } from "./rule-generation/rule.generation.module.js";
 import { SettingsModule } from "./settings/settings.module.js";
 import { TaskCleanupModule } from "./task-cleanup/task.cleanup.module.js";
@@ -16,6 +17,7 @@ export class GovernanceModule {
         const verificationModule = VerificationModule.register(databaseModule);
         const ruleModule = RuleModule.register(databaseModule, verificationModule);
         const settingsModule = SettingsModule.register(databaseModule);
+        const ruleBackfillModule = RuleBackfillModule.register(databaseModule, verificationModule);
         const ruleGenerationModule = RuleGenerationModule.register(databaseModule);
         const taskCleanupModule = TaskCleanupModule.register(databaseModule);
         const recipeModule = RecipeModule.register(databaseModule);
@@ -25,6 +27,7 @@ export class GovernanceModule {
                 verificationModule,
                 ruleModule,
                 settingsModule,
+                ruleBackfillModule,
                 ruleGenerationModule,
                 taskCleanupModule,
                 recipeModule,

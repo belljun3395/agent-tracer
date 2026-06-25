@@ -3,6 +3,7 @@ import { Column, Entity, Index, PrimaryColumn } from "typeorm";
 export type GovernanceJobType =
     | "recipe_scan"
     | "rule_generation"
+    | "rule_backfill"
     | "task_cleanup";
 
 export type GovernanceJobStatus =
@@ -41,6 +42,10 @@ export class GovernanceJobEntity {
     @Column({ name: "task_id", type: "text", nullable: true })
     taskId!: string | null;
 
+    /** rule_backfill: the rule to re-evaluate across its scope. */
+    @Column({ name: "rule_id", type: "text", nullable: true })
+    ruleId!: string | null;
+
     /** recipe_scan: JSON snapshot of the scan filters. */
     @Column({ name: "filters_json", type: "text", nullable: true })
     filtersJson!: string | null;
@@ -60,6 +65,10 @@ export class GovernanceJobEntity {
     /** task_cleanup result. */
     @Column({ name: "suggestions_created", type: "integer", nullable: true })
     suggestionsCreated!: number | null;
+
+    /** rule_backfill result. */
+    @Column({ name: "verdicts_created", type: "integer", nullable: true })
+    verdictsCreated!: number | null;
 
     /** recipe_scan + task_cleanup result. */
     @Column({ name: "tasks_scanned", type: "integer", nullable: true })

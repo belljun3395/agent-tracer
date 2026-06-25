@@ -21,7 +21,6 @@ import {
 } from "./application/outbound/tokens.js";
 import { DemoteRuleToTaskUseCase } from "./application/demote.rule.to.task.usecase.js";
 import { PromoteRuleToGlobalUseCase } from "./application/promote.rule.to.global.usecase.js";
-import { ReEvaluateRuleUseCase } from "./application/reevaluate.rule.usecase.js";
 import { RegisterSuggestionUseCase } from "./application/register.suggestion.usecase.js";
 import { UpdateRuleUseCase } from "./application/update.rule.usecase.js";
 import { BackfillTriggerAdapter } from "./adapter/backfill.trigger.adapter.js";
@@ -100,7 +99,6 @@ export class RuleModule {
                 PromoteRuleToGlobalUseCase,
                 DemoteRuleToTaskUseCase,
                 RegisterSuggestionUseCase,
-                ReEvaluateRuleUseCase,
                 // Public iservices
                 { provide: RULE_READ, useExisting: RuleReadPublicAdapter },
                 { provide: RULE_WRITE, useExisting: RuleWritePublicAdapter },
@@ -120,6 +118,9 @@ export class RuleModule {
                 RULE_REPOSITORY_TOKEN,
                 ListRulesUseCase,
                 RegisterSuggestionUseCase,
+                // Consumed by the rule-backfill module's worker to load a rule
+                // before running its re-evaluation sweep.
+                RULE_PERSISTENCE_PORT,
             ],
         };
     }

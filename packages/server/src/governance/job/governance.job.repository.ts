@@ -24,6 +24,7 @@ export class GovernanceJobRepository {
         jobType: GovernanceJobType;
         createdAt: string;
         taskId?: string | null;
+        ruleId?: string | null;
         filtersJson?: string | null;
         language?: string | null;
     }): Promise<GovernanceJobEntity> {
@@ -34,11 +35,13 @@ export class GovernanceJobRepository {
             attempts: 0,
             error: null,
             taskId: input.taskId ?? null,
+            ruleId: input.ruleId ?? null,
             filtersJson: input.filtersJson ?? null,
             language: input.language ?? null,
             candidatesCreated: null,
             rulesCreated: null,
             suggestionsCreated: null,
+            verdictsCreated: null,
             tasksScanned: null,
             modelUsed: null,
             durationMs: null,
@@ -73,6 +76,21 @@ export class GovernanceJobRepository {
             .createQueryBuilder("job")
             .where("job.jobType = :jobType", { jobType })
             .andWhere("job.taskId = :taskId", { taskId })
+            .andWhere("job.status IN (:...statuses)", {
+                statuses: ["pending", "processing"],
+            })
+            .orderBy("job.createdAt", "DESC")
+            .getOne();
+    }
+
+    findActiveForRule(
+        jobType: GovernanceJobType,
+        ruleId: string,
+    ): Promise<GovernanceJobEntity | null> {
+        return this.repo
+            .createQueryBuilder("job")
+            .where("job.jobType = :jobType", { jobType })
+            .andWhere("job.ruleId = :ruleId", { ruleId })
             .andWhere("job.status IN (:...statuses)", {
                 statuses: ["pending", "processing"],
             })
@@ -137,6 +155,7 @@ export class GovernanceJobRepository {
         candidatesCreated?: number;
         rulesCreated?: number;
         suggestionsCreated?: number;
+        verdictsCreated?: number;
         tasksScanned?: number;
     }): Promise<void> {
         await this.repo.update(
@@ -151,6 +170,9 @@ export class GovernanceJobRepository {
                     : {}),
                 ...(input.suggestionsCreated !== undefined
                     ? { suggestionsCreated: input.suggestionsCreated }
+                    : {}),
+                ...(input.verdictsCreated !== undefined
+                    ? { verdictsCreated: input.verdictsCreated }
                     : {}),
                 ...(input.tasksScanned !== undefined
                     ? { tasksScanned: input.tasksScanned }

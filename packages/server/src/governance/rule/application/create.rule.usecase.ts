@@ -1,5 +1,5 @@
-import { Transactional } from "typeorm-transactional";
-import { Inject, Injectable } from "@nestjs/common";
+import { Transactional, runOnTransactionCommit } from "typeorm-transactional";
+import { Inject, Injectable, Logger } from "@nestjs/common";
 import { isRuleExpectMeaningful } from "~governance/rule/domain/rule.js";
 import { computeRuleSignature } from "~governance/rule/domain/rule.signature.js";
 import {
@@ -27,6 +27,8 @@ export type { CreateRuleUseCaseIn as CreateRuleInput } from "./dto/create.rule.u
  */
 @Injectable()
 export class CreateRuleUseCase {
+    private readonly logger = new Logger(CreateRuleUseCase.name);
+
     constructor(
         @Inject(RULE_PERSISTENCE_PORT) private readonly ruleRepo: IRulePersistence,
         @Inject(NOTIFICATION_PUBLISHER_PORT) private readonly notifier: IRuleNotificationPublisher,
@@ -68,8 +70,23 @@ export class CreateRuleUseCase {
             },
         });
 
-        // Fire-and-forget backfill — don't block create on historical evaluation.
-        void this.backfill.trigger({ rule: created });
+        // Backfill must run as its OWN top-level transaction, AFTER this one
+        // commits. Triggering it inline runs it inside the write-serializer's
+        // holds-lock async context, so the serializer mistakes it for a nested
+        // savepoint and lets it run detached (it is not awaited); this
+        // transaction then commits out from under it, destroying the savepoint
+        // it expects ("no such savepoint: typeorm_1") and crashing the process
+        // via an unhandled rejection. Deferring to commit gives backfill a clean
+        // context + the FIFO write lock; a rollback skips it entirely.
+        runOnTransactionCommit(() => {
+            void this.backfill.trigger({ rule: created }).catch((err: unknown) => {
+                this.logger.error(
+                    `Backfill failed for rule ${created.id}: ${
+                        err instanceof Error ? err.message : String(err)
+                    }`,
+                );
+            });
+        });
 
         return { rule: mapRule(created) };
     }

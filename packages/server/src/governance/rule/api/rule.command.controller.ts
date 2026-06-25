@@ -16,7 +16,6 @@ import { CreateRuleUseCase } from "../application/create.rule.usecase.js";
 import { DeleteRuleUseCase } from "../application/delete.rule.usecase.js";
 import { DemoteRuleToTaskUseCase } from "../application/demote.rule.to.task.usecase.js";
 import { PromoteRuleToGlobalUseCase } from "../application/promote.rule.to.global.usecase.js";
-import { ReEvaluateRuleUseCase } from "../application/reevaluate.rule.usecase.js";
 import { UpdateRuleUseCase } from "../application/update.rule.usecase.js";
 import {
     ruleCreateSchema,
@@ -35,7 +34,6 @@ export class RuleCommandController {
         @Inject(DeleteRuleUseCase) private readonly deleteRule: DeleteRuleUseCase,
         @Inject(PromoteRuleToGlobalUseCase) private readonly promoteRule: PromoteRuleToGlobalUseCase,
         @Inject(DemoteRuleToTaskUseCase) private readonly demoteRule: DemoteRuleToTaskUseCase,
-        @Inject(ReEvaluateRuleUseCase) private readonly reEvaluateRule: ReEvaluateRuleUseCase,
     ) {}
 
     @Post()
@@ -134,17 +132,6 @@ export class RuleCommandController {
         } catch (err) {
             if (err instanceof RuleNotFoundError) throw new NotFoundException(err.message);
             if (err instanceof InvalidRuleError) throw new BadRequestException(err.message);
-            throw err;
-        }
-    }
-
-    @Post(":id/re-evaluate")
-    @HttpCode(HttpStatus.OK)
-    async reEvaluate(@Param("id", pathParamPipe) id: string) {
-        try {
-            return await this.reEvaluateRule.execute({ ruleId: id });
-        } catch (err) {
-            if (err instanceof RuleNotFoundError) throw new NotFoundException(err.message);
             throw err;
         }
     }
