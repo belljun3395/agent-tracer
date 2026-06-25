@@ -121,7 +121,7 @@ export class LogEventUseCase {
             this.dedupe.remember(input.kind, sessionId, marker.dedupeKey, primaryEvent.id);
         }
 
-        const desiredStatus = input.taskEffects?.taskStatus as IEventTaskAccess extends never ? never : ("running" | "waiting" | "completed" | "errored" | undefined);
+        const desiredStatus = input.taskEffects?.taskStatus;
         if (
             desiredStatus !== undefined &&
             shouldApplyLoggedEventTaskStatusEffect({ currentStatus: task.status, desiredStatus })
