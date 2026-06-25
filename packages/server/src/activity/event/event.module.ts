@@ -35,7 +35,6 @@ import { EventSearchIndexAdapter } from "./adapter/event.search.index.adapter.js
 import { EventStoreAppenderAdapter } from "./adapter/event.store.appender.adapter.js";
 import { EventTaskAccessAdapter } from "./adapter/task.access.adapter.js";
 import { TimelineEventProjectionPublicAdapter } from "./adapter/timeline.event.projection.public.adapter.js";
-import { TimelineEventReadPublicAdapter } from "./adapter/timeline.event.read.public.adapter.js";
 import { TimelineEventWritePublicAdapter } from "./adapter/timeline.event.write.public.adapter.js";
 import { VerificationPostProcessorAdapter } from "./adapter/verification.post.processor.adapter.js";
 import { EventAsyncRefEntity } from "./domain/event.async.ref.entity.js";
@@ -153,7 +152,6 @@ export class EventModule {
                 SystemClockAdapter,
                 CryptoIdGeneratorAdapter,
                 // Public adapters
-                TimelineEventReadPublicAdapter,
                 TimelineEventWritePublicAdapter,
                 TimelineEventProjectionPublicAdapter,
                 DomainEventAppenderPublicAdapter,
@@ -169,7 +167,7 @@ export class EventModule {
                 CommandRepetitionDetector,
                 GetPreprocessingHintsUseCase,
                 // Public iservices
-                { provide: TIMELINE_EVENT_READ, useExisting: TimelineEventReadPublicAdapter },
+                { provide: TIMELINE_EVENT_READ, useExisting: TimelineEventService },
                 { provide: TIMELINE_EVENT_WRITE, useExisting: TimelineEventWritePublicAdapter },
                 { provide: TIMELINE_EVENT_PROJECTION, useExisting: TimelineEventProjectionPublicAdapter },
                 { provide: DOMAIN_EVENT_APPENDER, useExisting: DomainEventAppenderPublicAdapter },

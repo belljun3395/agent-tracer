@@ -27,9 +27,6 @@ import { BackfillTriggerAdapter } from "./adapter/backfill.trigger.adapter.js";
 import { CryptoIdGeneratorAdapter } from "./adapter/crypto.id.generator.adapter.js";
 import { RuleNotificationPublisherAdapter } from "./adapter/notification.publisher.adapter.js";
 import { SystemClockAdapter } from "./adapter/system.clock.adapter.js";
-import { RuleReadPublicAdapter } from "./adapter/rule.read.public.adapter.js";
-import { RuleSignatureQueryPublicAdapter } from "./adapter/rule.signature.query.public.adapter.js";
-import { RuleWritePublicAdapter } from "./adapter/rule.write.public.adapter.js";
 import { VerificationInvalidationAdapter } from "./adapter/verification.invalidation.adapter.js";
 import { RuleEntity } from "./domain/rule.entity.js";
 import {
@@ -86,10 +83,6 @@ export class RuleModule {
                 VerificationInvalidationAdapter,
                 SystemClockAdapter,
                 CryptoIdGeneratorAdapter,
-                // Public adapters
-                RuleReadPublicAdapter,
-                RuleSignatureQueryPublicAdapter,
-                RuleWritePublicAdapter,
                 // Use cases
                 CreateRuleUseCase,
                 UpdateRuleUseCase,
@@ -99,10 +92,10 @@ export class RuleModule {
                 PromoteRuleToGlobalUseCase,
                 DemoteRuleToTaskUseCase,
                 RegisterSuggestionUseCase,
-                // Public iservices
-                { provide: RULE_READ, useExisting: RuleReadPublicAdapter },
-                { provide: RULE_WRITE, useExisting: RuleWritePublicAdapter },
-                { provide: RULE_SIGNATURE_QUERY, useExisting: RuleSignatureQueryPublicAdapter },
+                // Public iservices — bound directly to RuleRepository (structurally compatible)
+                { provide: RULE_READ, useExisting: RuleRepository },
+                { provide: RULE_WRITE, useExisting: RuleRepository },
+                { provide: RULE_SIGNATURE_QUERY, useExisting: RuleRepository },
                 // Outbound bindings
                 { provide: RULE_PERSISTENCE_PORT, useExisting: RuleRepository },
                 { provide: NOTIFICATION_PUBLISHER_PORT, useExisting: RuleNotificationPublisherAdapter },

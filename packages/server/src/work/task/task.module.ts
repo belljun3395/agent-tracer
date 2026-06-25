@@ -39,13 +39,11 @@ import { RuntimeBindingAccessAdapter } from "./adapter/runtime.binding.access.ad
 import { SessionAccessAdapter } from "./adapter/session.access.adapter.js";
 import { SystemClockAdapter } from "./adapter/system.clock.adapter.js";
 import { TaskAccessPublicAdapter } from "./adapter/task.access.public.adapter.js";
-import { TaskLifecyclePublicAdapter } from "./adapter/task.lifecycle.public.adapter.js";
 import { TaskNotificationPublisherAdapter } from "./adapter/task.notification.publisher.adapter.js";
 import { TimelineEventAccessAdapter } from "./adapter/timeline.event.access.adapter.js";
 import { TurnQueryAccessAdapter } from "./adapter/turn.query.access.adapter.js";
 import { TaskEntity } from "./domain/task.entity.js";
 import { TaskRelationEntity } from "./domain/task.relation.entity.js";
-import { TaskSnapshotQueryPublicAdapter } from "./adapter/task.snapshot.query.public.adapter.js";
 import { TASK_ACCESS, TASK_LIFECYCLE, TASK_SNAPSHOT_QUERY } from "./public/tokens.js";
 import { TaskRelationRepository } from "./repository/task.relation.repository.js";
 import { TaskRepository } from "./repository/task.repository.js";
@@ -105,8 +103,6 @@ export class TaskModule {
                 CryptoIdGeneratorAdapter,
                 // Public adapters
                 TaskAccessPublicAdapter,
-                TaskLifecyclePublicAdapter,
-                TaskSnapshotQueryPublicAdapter,
                 // Use cases
                 StartTaskUseCase,
                 CompleteTaskUseCase,
@@ -128,9 +124,9 @@ export class TaskModule {
                 GetOverviewUseCase,
                 GetDefaultWorkspacePathUseCase,
                 // Public iservices
-                { provide: TASK_LIFECYCLE, useExisting: TaskLifecyclePublicAdapter },
+                { provide: TASK_LIFECYCLE, useExisting: TaskLifecycleService },
                 { provide: TASK_ACCESS, useExisting: TaskAccessPublicAdapter },
-                { provide: TASK_SNAPSHOT_QUERY, useExisting: TaskSnapshotQueryPublicAdapter },
+                { provide: TASK_SNAPSHOT_QUERY, useExisting: TaskQueryService },
                 // Outbound ports
                 { provide: SESSION_ACCESS_PORT, useExisting: SessionAccessAdapter },
                 { provide: RUNTIME_BINDING_ACCESS_PORT, useExisting: RuntimeBindingAccessAdapter },
