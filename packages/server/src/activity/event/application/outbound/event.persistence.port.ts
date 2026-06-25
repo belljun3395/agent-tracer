@@ -1,34 +1,25 @@
+import type { MonitoringEventKind, TimelineLane } from "~activity/event/domain/common/const/event.kind.const.js";
+import type { EventClassificationMatch } from "~activity/event/domain/model/timeline.event.model.js";
+
 /**
  * Outbound port for timeline event persistence. Self-contained.
  * Adapter wraps the legacy SqliteEventRepository today; will be replaced
  * by a TypeORM-backed implementation once the schema is migrated.
  */
 
-export type EventLane =
-    | "user"
-    | "exploration"
-    | "implementation"
-    | "planning"
-    | "questions"
-    | "todos"
-    | "coordination"
-    | "background"
-    | "telemetry"
-    | "rule";
-
 export interface PersistedTimelineEvent {
     readonly id: string;
     readonly taskId: string;
     readonly sessionId?: string;
-    readonly kind: string;
-    readonly lane: EventLane;
+    readonly kind: MonitoringEventKind;
+    readonly lane: TimelineLane;
     readonly title: string;
     readonly body?: string;
     readonly metadata: Record<string, unknown>;
     readonly classification: {
-        readonly lane: EventLane;
+        readonly lane: TimelineLane;
         readonly tags: readonly string[];
-        readonly matches: readonly unknown[];
+        readonly matches: readonly EventClassificationMatch[];
     };
     readonly createdAt: string;
 }
@@ -37,15 +28,15 @@ export interface TimelineEventInsertRequest {
     readonly id: string;
     readonly taskId: string;
     readonly sessionId?: string;
-    readonly kind: string;
-    readonly lane: EventLane;
+    readonly kind: MonitoringEventKind;
+    readonly lane: TimelineLane;
     readonly title: string;
     readonly body?: string;
     readonly metadata: Record<string, unknown>;
     readonly classification: {
-        readonly lane: EventLane;
+        readonly lane: TimelineLane;
         readonly tags: readonly string[];
-        readonly matches: readonly unknown[];
+        readonly matches: readonly EventClassificationMatch[];
     };
     readonly createdAt: string;
 }

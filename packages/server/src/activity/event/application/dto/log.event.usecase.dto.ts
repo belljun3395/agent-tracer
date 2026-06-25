@@ -94,7 +94,7 @@ export interface LogEventUseCaseIn {
     readonly relationLabel?: string | undefined;
     readonly relationExplanation?: string | undefined;
     readonly createdAt?: string | undefined;
-    readonly taskEffects?: { readonly taskStatus?: string | undefined } | undefined;
+    readonly taskEffects?: { readonly taskStatus?: LogEventTaskStatusUseCaseDto | undefined } | undefined;
 }
 
 export interface LogEventUseCaseOut {

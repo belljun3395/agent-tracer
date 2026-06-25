@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { In, Repository } from "typeorm";
-import type { TaskStatus } from "~work/task/common/task.status.type.js";
+import type { TaskStatus } from "~work/task/common/task.status.const.js";
 import { TaskEntity } from "../domain/task.entity.js";
 
 @Injectable()

@@ -1,6 +1,6 @@
 import { EVENT_SUBTYPE_KEYS } from "~activity/event/domain/runtime/const/event.subtype.keys.const.js";
 import { SERVER_SUBTYPE_KEYS } from "./const/subtype.registry.const.js";
-import type { AllEventSubtypeKey, SubtypeRegistryEntry } from "./type/subtype.registry.type.js";
+import type { AllEventSubtypeKey, SubtypeRegistryEntry } from "./const/subtype.registry.const.js";
 
 const SERVER_SUBTYPE_KEY_SET = new Set<string>(SERVER_SUBTYPE_KEYS);
 const PROTOCOL_SUBTYPE_KEY_SET = new Set<string>(EVENT_SUBTYPE_KEYS);

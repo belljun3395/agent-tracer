@@ -52,3 +52,5 @@ export const META = {
     model: "model",
     promptId: "promptId",
 } as const;
+
+export type MetaKey = (typeof META)[keyof typeof META];

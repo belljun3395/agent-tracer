@@ -1,4 +1,4 @@
-import type { MonitoringEventKind, TimelineLane } from "~activity/event/domain/common/type/event.kind.type.js";
+import type { MonitoringEventKind, TimelineLane } from "~activity/event/domain/common/const/event.kind.const.js";
 
 export interface EventClassificationReason {
     readonly kind: "keyword" | "action-prefix" | "action-keyword";

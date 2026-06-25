@@ -1,5 +1,5 @@
-import type { EventSubtypeGroup, EventToolFamily } from "~activity/event/domain/runtime/type/event.subtype.keys.type.js";
-import type { AllEventSubtypeKey } from "~activity/event/domain/common/type/subtype.registry.type.js";
+import type { EventSubtypeGroup, EventToolFamily } from "~activity/event/domain/runtime/const/event.subtype.keys.const.js";
+import type { AllEventSubtypeKey } from "~activity/event/domain/common/const/subtype.registry.const.js";
 
 export interface EventSemanticMetadata {
     readonly subtypeKey: AllEventSubtypeKey;

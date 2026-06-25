@@ -20,7 +20,7 @@ function makeRequest(
     return {
         id: "evt-1",
         taskId: "task-1",
-        kind: "tool.activity",
+        kind: "tool.used",
         lane: "implementation",
         title: "제목",
         metadata,

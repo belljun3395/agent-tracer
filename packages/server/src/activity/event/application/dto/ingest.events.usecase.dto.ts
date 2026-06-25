@@ -66,7 +66,7 @@ export interface IngestEventsBaseEventUseCaseIn {
     readonly relationLabel?: string | undefined;
     readonly relationExplanation?: string | undefined;
     readonly createdAt?: string | undefined;
-    readonly taskEffects?: { readonly taskStatus?: string | undefined } | undefined;
+    readonly taskEffects?: { readonly taskStatus?: "running" | "waiting" | "completed" | "errored" | undefined } | undefined;
 }
 
 export type ToolUsedUseCaseIn           = IngestEventsBaseEventUseCaseIn & { readonly kind: "tool.used" }

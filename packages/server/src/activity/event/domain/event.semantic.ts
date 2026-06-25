@@ -2,12 +2,12 @@ import {
     isAllEventSubtypeKey,
     SUBTYPE_REGISTRY,
 } from "~activity/event/domain/common/subtype.registry.js";
-import type { AllEventSubtypeKey } from "~activity/event/domain/common/type/subtype.registry.type.js";
+import type { AllEventSubtypeKey } from "~activity/event/domain/common/const/subtype.registry.const.js";
 import {
     isKnownEventSubtypeGroup,
     isKnownEventToolFamily,
 } from "~activity/event/domain/runtime/event.subtype.keys.js";
-import type { EventSubtypeGroup } from "~activity/event/domain/runtime/type/event.subtype.keys.type.js";
+import type { EventSubtypeGroup } from "~activity/event/domain/runtime/const/event.subtype.keys.const.js";
 import { isCoordinationLane, isExplorationLane, isImplementationLane } from "./event.predicates.js";
 import { META } from "~activity/event/domain/runtime/const/metadata.keys.const.js";
 import { readString } from "./event.metadata.js";

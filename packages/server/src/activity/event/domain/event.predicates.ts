@@ -5,7 +5,7 @@ import {
     TASK_LIFECYCLE_EVENT_KINDS,
     TOOL_ACTIVITY_EVENT_KINDS,
 } from "~activity/event/domain/common/const/event.kind.const.js";
-import type { MonitoringEventKind, TimelineLane } from "~activity/event/domain/common/type/event.kind.type.js";
+import type { MonitoringEventKind, TimelineLane } from "~activity/event/domain/common/const/event.kind.const.js";
 
 // --- Lane predicates ---
 

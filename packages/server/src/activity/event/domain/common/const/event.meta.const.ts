@@ -18,3 +18,7 @@ export const EVENT_RELATION_TYPES = [
 ] as const;
 
 export const AGENT_ACTIVITY_TYPES = ["agent_step", "mcp_call", "skill_use", "delegation", "handoff", "bookmark", "search"] as const;
+
+export type EvidenceLevel = (typeof EVIDENCE_LEVELS)[number];
+export type EventRelationType = (typeof EVENT_RELATION_TYPES)[number];
+export type AgentActivityType = (typeof AGENT_ACTIVITY_TYPES)[number];

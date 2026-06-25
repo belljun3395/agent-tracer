@@ -6,6 +6,6 @@ export type {
     MonitoringTaskKind,
     TaskStatus,
     TaskCompletionReason,
-} from "~work/task/common/task.status.type.js";
+} from "~work/task/common/task.status.const.js";
 
 export type { MonitoringTask, MonitoringTaskInput } from "~work/task/domain/task.model.js";

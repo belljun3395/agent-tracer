@@ -1,5 +1,5 @@
 import { TASK_STATUSES } from "./task.status.const.js";
-import type { TaskStatus } from "./task.status.type.js";
+import type { TaskStatus } from "./task.status.const.js";
 
 const TASK_STATUS_SET = new Set<string>(TASK_STATUSES);
 

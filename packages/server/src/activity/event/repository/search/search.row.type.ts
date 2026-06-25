@@ -1,4 +1,4 @@
-import type { MonitoringEventKind, TimelineLane } from "~activity/event/domain/common/type/event.kind.type.js";
+import type { MonitoringEventKind, TimelineLane } from "~activity/event/domain/common/const/event.kind.const.js";
 import type { TaskStatus } from "~work/task/public/types/task.types.js";
 import type { SearchDocumentScope } from "./search.documents.js";
 

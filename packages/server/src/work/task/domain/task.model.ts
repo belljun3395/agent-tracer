@@ -2,7 +2,7 @@ import type {
     MonitoringTaskKind,
     TaskOrigin,
     TaskStatus,
-} from "~work/task/common/task.status.type.js";
+} from "~work/task/common/task.status.const.js";
 
 export interface MonitoringTaskInput {
     readonly title: string;

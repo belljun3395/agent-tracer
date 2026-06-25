@@ -17,7 +17,7 @@ const baseEventSchema = z.object({
     relationLabel: z.string().min(1).optional(),
     relationExplanation: z.string().min(1).optional(),
     createdAt: z.string().optional(),
-    taskEffects: z.object({ taskStatus: z.string().optional() }).optional(),
+    taskEffects: z.object({ taskStatus: z.enum(["running", "waiting", "completed", "errored"]).optional() }).optional(),
 });
 
 const toolActivityEventSchema = baseEventSchema.extend({

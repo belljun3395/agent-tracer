@@ -4,7 +4,7 @@ import type {
     TaskStatus,
     MonitoringTaskKind,
     TaskOrigin,
-} from "~work/task/common/task.status.type.js";
+} from "~work/task/common/task.status.const.js";
 import { TaskNotFoundError } from "../common/task.errors.js";
 import { createTaskSlug } from "../common/task.slug.js";
 import { TaskEntity } from "../domain/task.entity.js";

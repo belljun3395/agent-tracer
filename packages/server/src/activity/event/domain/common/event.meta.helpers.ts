@@ -1,5 +1,5 @@
 import { EVENT_RELATION_TYPES } from "./const/event.meta.const.js";
-import type { EventRelationType } from "./type/event.meta.type.js";
+import type { EventRelationType } from "./const/event.meta.const.js";
 
 const EVENT_RELATION_TYPE_SET = new Set<string>(EVENT_RELATION_TYPES);
 

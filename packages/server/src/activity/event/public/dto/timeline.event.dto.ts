@@ -1,4 +1,5 @@
-import type { MonitoringEventKind, TimelineLane } from "~activity/event/domain/common/type/event.kind.type.js";
+import type { MonitoringEventKind, TimelineLane } from "~activity/event/domain/common/const/event.kind.const.js";
+import type { EventClassificationMatch } from "~activity/event/domain/model/timeline.event.model.js";
 
 /**
  * Snapshot DTO for a timeline event as exposed to other modules.
@@ -8,7 +9,7 @@ import type { MonitoringEventKind, TimelineLane } from "~activity/event/domain/c
 export interface TimelineEventClassification {
     readonly lane: TimelineLane;
     readonly tags: readonly string[];
-    readonly matches: readonly unknown[];
+    readonly matches: readonly EventClassificationMatch[];
 }
 
 export interface TimelineEventSnapshot {

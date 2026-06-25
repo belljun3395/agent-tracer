@@ -1,3 +1,6 @@
+import type { MonitoringEventKind, TimelineLane } from "~activity/event/domain/common/const/event.kind.const.js";
+import type { EventClassificationMatch } from "~activity/event/domain/model/timeline.event.model.js";
+
 /**
  * Public iservice — verification post-processing of timeline events as they
  * are logged. Consumed by the event module's verification post processor
@@ -11,15 +14,15 @@ export interface VerificationPostProcessorEvent {
     readonly id: string;
     readonly taskId: string;
     readonly sessionId?: string;
-    readonly kind: string;
-    readonly lane: string;
+    readonly kind: MonitoringEventKind;
+    readonly lane: TimelineLane;
     readonly title: string;
     readonly body?: string;
     readonly metadata: Record<string, unknown>;
     readonly classification: {
-        readonly lane: string;
+        readonly lane: TimelineLane;
         readonly tags: readonly string[];
-        readonly matches: readonly unknown[];
+        readonly matches: readonly EventClassificationMatch[];
     };
     readonly createdAt: string;
 }

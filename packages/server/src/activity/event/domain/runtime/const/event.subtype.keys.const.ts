@@ -24,3 +24,7 @@ export const EVENT_SUBTYPE_KEYS = [
 
 export const EVENT_SUBTYPE_GROUPS = ["files", "search", "web", "shell", "file_ops", "execution", "coordination"] as const;
 export const EVENT_TOOL_FAMILIES = ["explore", "file", "terminal", "coordination"] as const;
+
+export type EventSubtypeKey = (typeof EVENT_SUBTYPE_KEYS)[number];
+export type EventSubtypeGroup = (typeof EVENT_SUBTYPE_GROUPS)[number];
+export type EventToolFamily = (typeof EVENT_TOOL_FAMILIES)[number];

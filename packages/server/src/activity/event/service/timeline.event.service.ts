@@ -8,7 +8,7 @@ import type {
 import type { TimelineEventSnapshot } from "../public/dto/timeline.event.dto.js";
 
 function toSnapshot(event: PersistedTimelineEvent): TimelineEventSnapshot {
-    return event as unknown as TimelineEventSnapshot;
+    return event;
 }
 
 /**

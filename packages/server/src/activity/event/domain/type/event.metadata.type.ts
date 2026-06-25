@@ -1,10 +1,10 @@
 import type {
     EventSubtypeGroup,
     EventToolFamily,
-} from "~activity/event/domain/runtime/type/event.subtype.keys.type.js";
-import type { AllEventSubtypeKey } from "~activity/event/domain/common/type/subtype.registry.type.js";
-import type { TodoState } from "~activity/event/domain/common/type/event.kind.type.js";
-import type { EvidenceLevel } from "~activity/event/domain/common/type/event.meta.type.js";
+} from "~activity/event/domain/runtime/const/event.subtype.keys.const.js";
+import type { AllEventSubtypeKey } from "~activity/event/domain/common/const/subtype.registry.const.js";
+import type { TodoState } from "~activity/event/domain/common/const/event.kind.const.js";
+import type { EvidenceLevel } from "~activity/event/domain/common/const/event.meta.const.js";
 
 export interface BaseEventMetadata {
     readonly subtypeKey?: AllEventSubtypeKey;

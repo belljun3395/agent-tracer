@@ -1,5 +1,5 @@
 import type { TimelineEvent } from "~activity/event/domain/model/timeline.event.model.js";
-import type { MonitoringEventKind } from "~activity/event/domain/common/type/event.kind.type.js";
+import type { MonitoringEventKind } from "~activity/event/domain/common/const/event.kind.const.js";
 import { normalizeLane } from "~activity/event/domain/event.lane.js";
 import { parseJsonField } from "./event.json.js";
 import type { EventFileEntity } from "./event.file.entity.js";

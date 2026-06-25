@@ -2,7 +2,7 @@ import type { MonitoringTask } from "~work/task/domain/task.model.js";
 import type {
     MonitoringTaskKind,
     TaskOrigin,
-} from "~work/task/common/task.status.type.js";
+} from "~work/task/common/task.status.const.js";
 import { normalizeWorkspacePath } from "~work/task/domain/task.path.helpers.js";
 import { createTaskSlug } from "../common/task.slug.js";
 

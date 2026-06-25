@@ -19,16 +19,16 @@ export class VerificationPostProcessorPublicAdapter implements IVerificationPost
     ) {}
 
     async onUserMessage(event: VerificationPostProcessorEvent): Promise<void> {
-        await this.turnLifecycle.processLoggedEvent(event as never);
-        await this.ruleEnforcement.processLoggedEvent(event as never);
+        await this.turnLifecycle.processLoggedEvent(event);
+        await this.ruleEnforcement.processLoggedEvent(event);
     }
 
     async onAssistantResponse(event: VerificationPostProcessorEvent): Promise<void> {
-        await this.ruleEnforcement.processLoggedEvent(event as never);
-        await this.turnLifecycle.processLoggedEvent(event as never);
+        await this.ruleEnforcement.processLoggedEvent(event);
+        await this.turnLifecycle.processLoggedEvent(event);
     }
 
     async onOtherEvent(event: VerificationPostProcessorEvent): Promise<void> {
-        await this.ruleEnforcement.processLoggedEvent(event as never);
+        await this.ruleEnforcement.processLoggedEvent(event);
     }
 }

@@ -12,3 +12,8 @@ export const TASK_COMPLETION_REASONS = [
 ] as const;
 
 export const ASYNC_TASK_STATUSES = ["pending", "running", "completed", "error", "cancelled", "interrupt"] as const;
+
+export type MonitoringTaskKind = (typeof MONITORING_TASK_KINDS)[number];
+export type TaskOrigin = (typeof TASK_ORIGINS)[number];
+export type TaskStatus = (typeof TASK_STATUSES)[number];
+export type TaskCompletionReason = (typeof TASK_COMPLETION_REASONS)[number];

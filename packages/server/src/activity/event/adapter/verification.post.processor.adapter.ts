@@ -21,14 +21,14 @@ export class VerificationPostProcessorAdapter implements IVerificationPostProces
     ) {}
 
     onUserMessage(event: PostProcessableEvent): Promise<void> {
-        return this.inner.onUserMessage(event as never);
+        return this.inner.onUserMessage(event);
     }
 
     onAssistantResponse(event: PostProcessableEvent): Promise<void> {
-        return this.inner.onAssistantResponse(event as never);
+        return this.inner.onAssistantResponse(event);
     }
 
     onOtherEvent(event: PostProcessableEvent): Promise<void> {
-        return this.inner.onOtherEvent(event as never);
+        return this.inner.onOtherEvent(event);
     }
 }

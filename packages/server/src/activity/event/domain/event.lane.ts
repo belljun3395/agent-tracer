@@ -1,5 +1,5 @@
 import { isTimelineLane } from "./common/event.kind.js";
-import type { TimelineLane } from "./common/type/event.kind.type.js";
+import type { TimelineLane } from "./common/const/event.kind.const.js";
 
 /**
  * Normalize an arbitrary lane string (incoming from ingest sources or stored

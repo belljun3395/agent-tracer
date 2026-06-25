@@ -8,13 +8,13 @@ export type {
     IngestEventKind,
     MonitoringEventKind,
     TodoState,
-} from "~activity/event/domain/common/type/event.kind.type.js";
+} from "~activity/event/domain/common/const/event.kind.const.js";
 
 export type {
     EvidenceLevel,
     EventRelationType,
     AgentActivityType,
-} from "~activity/event/domain/common/type/event.meta.type.js";
+} from "~activity/event/domain/common/const/event.meta.const.js";
 
 export type {
     TimelineEvent,

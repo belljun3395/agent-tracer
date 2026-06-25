@@ -3,7 +3,7 @@ import type {
     MonitoringTaskKind,
     TaskOrigin,
     TaskStatus,
-} from "~work/task/common/task.status.type.js";
+} from "~work/task/common/task.status.const.js";
 
 @Entity({ name: "tasks_current" })
 @Index("idx_tasks_current_updated", ["updatedAt"])

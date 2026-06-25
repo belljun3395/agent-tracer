@@ -8,7 +8,7 @@ import { Interval } from "@nestjs/schedule";
 import { CLOCK_PORT, SESSION_ACCESS_PORT } from "../application/outbound/tokens.js";
 import type { IClock } from "../application/outbound/clock.port.js";
 import type { ISessionAccess } from "../application/outbound/session.access.port.js";
-import type { TaskStatus } from "../common/task.status.type.js";
+import type { TaskStatus } from "../common/task.status.const.js";
 import { TaskRepository } from "../repository/task.repository.js";
 import { TaskLifecycleService } from "./task.lifecycle.service.js";
 

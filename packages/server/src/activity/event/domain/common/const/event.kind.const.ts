@@ -93,3 +93,8 @@ export const MONITORING_EVENT_KINDS = [
 
 export const TODO_STATES = ["added", "in_progress", "completed", "cancelled"] as const;
 export const QUESTION_PHASES = ["asked", "answered", "concluded"] as const;
+
+export type TimelineLane = (typeof EVENT_LANES)[number];
+export type IngestEventKind = (typeof INGEST_EVENT_KINDS)[number];
+export type MonitoringEventKind = (typeof MONITORING_EVENT_KINDS)[number];
+export type TodoState = (typeof TODO_STATES)[number];

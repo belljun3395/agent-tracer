@@ -4,7 +4,7 @@ import type { MonitoringEventKind } from "~activity/event/public/types/event.typ
 import type {
     MonitoringTaskKind,
     TaskOrigin,
-} from "~work/task/common/task.status.type.js";
+} from "~work/task/common/task.status.const.js";
 import { createEventRecordDraft } from "~activity/event/public/helpers.js";
 import { TaskUpsertDraft } from "../domain/task.upsert.draft.model.js";
 import {

@@ -1,5 +1,5 @@
-import type { MonitoringEventKind, TimelineLane } from "~activity/event/domain/common/type/event.kind.type.js";
-import type { EventRelationType } from "~activity/event/domain/common/type/event.meta.type.js";
+import type { MonitoringEventKind, TimelineLane } from "~activity/event/domain/common/const/event.kind.const.js";
+import type { EventRelationType } from "~activity/event/domain/common/const/event.meta.const.js";
 import type { EventClassification } from "./timeline.event.model.js";
 
 export interface EventRecordingInput {

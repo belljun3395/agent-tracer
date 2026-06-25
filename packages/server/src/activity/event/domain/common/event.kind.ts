@@ -1,7 +1,7 @@
 import {
     EVENT_LANES,
 } from "./const/event.kind.const.js";
-import type { TimelineLane } from "./type/event.kind.type.js";
+import type { TimelineLane } from "./const/event.kind.const.js";
 
 const TIMELINE_LANE_SET = new Set<string>(EVENT_LANES);
 
