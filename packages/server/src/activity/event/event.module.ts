@@ -59,25 +59,15 @@ import { TimelineEventService } from "./service/timeline.event.service.js";
 import { TimelineEventStorageService } from "./service/timeline.event.storage.service.js";
 
 /**
- * Event module — owns timeline events.
+ * 이벤트 모듈 — 타임라인 이벤트를 소유한다.
  *
- * Persistence: TypeORM-backed entities for the timeline_events_view table and
- * its 6 derived tables (event_files, event_relations, event_async_refs,
- * event_tags, todos_current, questions_current, event_token_usage). Search
- * (FTS5) and the domain-event store are still served by legacy adapters and
- * accessed via dedicated outbound ports.
+ * 영속성: timeline_events_view 테이블과 파생 테이블(event_files, event_relations,
+ * event_async_refs, event_tags, todos_current, questions_current,
+ * event_token_usage)을 TypeORM 엔티티로 직접 기록한다.
  *
- * Public surface:
- *   - TIMELINE_EVENT_READ        ← TimelineEventReadPublicAdapter
- *   - TIMELINE_EVENT_PROJECTION  ← TimelineEventProjectionPublicAdapter
- *
- * Outbound surface:
- *   - EVENT_PERSISTENCE_PORT          ← TypeORM TimelineEventStorageService
- *   - EVENT_SEARCH_INDEX_PORT         ← legacy FTS adapter
- *   - EVENT_STORE_APPENDER_PORT       ← legacy event-sourcing adapter
- *   - TASK_ACCESS_PORT                ← task.public ITaskAccess
- *   - NOTIFICATION_PUBLISHER_PORT     ← shared transport
- *   - VERIFICATION_POST_PROCESSOR_PORT ← legacy verification post-processors
+ * 공개 표면: TIMELINE_EVENT_READ / TIMELINE_EVENT_WRITE / TIMELINE_EVENT_PROJECTION.
+ * 아웃바운드: EVENT_PERSISTENCE_PORT, EVENT_SEARCH_INDEX_PORT, TASK_ACCESS_PORT,
+ * NOTIFICATION_PUBLISHER_PORT, VERIFICATION_POST_PROCESSOR_PORT.
  */
 @Module({})
 export class EventModule {
