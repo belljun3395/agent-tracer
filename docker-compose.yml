@@ -1,17 +1,83 @@
 services:
+  # ---- 인프라 (NestJS + Postgres + OpenSearch + Redis 만 사용) ----
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-monitor}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-monitor}
+      POSTGRES_DB: ${POSTGRES_DB:-monitor}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-monitor} -d ${POSTGRES_DB:-monitor}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  opensearch:
+    image: opensearchproject/opensearch:2.17.1
+    environment:
+      - discovery.type=single-node
+      # 로컬/단일 노드 용도: 보안 플러그인 비활성(클라우드는 별도 관리형 OpenSearch 권장).
+      - plugins.security.disabled=true
+      - bootstrap.memory_lock=true
+      - "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    ports:
+      - "9200:9200"
+    volumes:
+      - opensearch-data:/usr/share/opensearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "no", "--save", ""]
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  # ---- 애플리케이션 ----
   server:
     build:
       context: .
       dockerfile: Dockerfile.server
     ports:
       - "3847:3847"
-    volumes:
-      - monitor-data:/app/.monitor
     environment:
       - NODE_ENV=production
-      # Bind all interfaces inside the container so the published port is
-      # reachable from the host (the app defaults to loopback-only).
+      - MONITOR_PROFILE=prd
+      # 컨테이너 안에서 모든 인터페이스 바인딩(앱 기본은 loopback).
       - MONITOR_LISTEN_HOST=0.0.0.0
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=${POSTGRES_USER:-monitor}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-monitor}
+      - POSTGRES_DB=${POSTGRES_DB:-monitor}
+      - OPENSEARCH_NODE=http://opensearch:9200
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      opensearch:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
   web:
     build:
@@ -23,4 +89,5 @@ services:
       - server
 
 volumes:
-  monitor-data:
+  postgres-data:
+  opensearch-data:

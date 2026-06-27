@@ -9,13 +9,29 @@ const REPO_ROOT = path.resolve(PACKAGE_ROOT, "../../../..");
 const APPLICATION_YAML_PATH = path.join(REPO_ROOT, "application.yaml");
 const APPLICATION_LOCAL_YAML_PATH = path.join(REPO_ROOT, "application.local.yaml");
 
+export type AppProfile = "local" | "prd";
+
 export interface ApplicationConfig {
+    readonly profile: AppProfile;
     readonly monitor: {
         readonly protocol: "http" | "https";
         readonly listenHost: string;
         readonly publicHost: string;
         readonly port: number;
         readonly databasePath: string;
+    };
+    readonly postgres: {
+        readonly host: string;
+        readonly port: number;
+        readonly username: string;
+        readonly password: string;
+        readonly database: string;
+    };
+    readonly opensearch: {
+        readonly node: string;
+    };
+    readonly redis: {
+        readonly url: string;
     };
     readonly web: {
         readonly apiBaseUrl: string;
@@ -34,12 +50,26 @@ export interface ApplicationConfig {
  * the `@nestjs/config` loader so a malformed config fails fast at boot.
  */
 export const applicationConfigSchema = z.object({
+    profile: z.enum(["local", "prd"]),
     monitor: z.object({
         protocol: z.enum(["http", "https"]),
         listenHost: z.string().min(1),
         publicHost: z.string().min(1),
         port: z.number().int().positive().max(65535),
         databasePath: z.string().min(1),
+    }),
+    postgres: z.object({
+        host: z.string().min(1),
+        port: z.number().int().positive().max(65535),
+        username: z.string().min(1),
+        password: z.string(),
+        database: z.string().min(1),
+    }),
+    opensearch: z.object({
+        node: z.string().min(1),
+    }),
+    redis: z.object({
+        url: z.string().min(1),
     }),
     web: z.object({
         apiBaseUrl: z.string(),
@@ -52,6 +82,7 @@ export const applicationConfigSchema = z.object({
 });
 
 const DEFAULT_APPLICATION_CONFIG: ApplicationConfig = Object.freeze({
+    profile: "local" as const,
     monitor: {
         protocol: "http" as const,
         listenHost: "127.0.0.1",
@@ -59,6 +90,15 @@ const DEFAULT_APPLICATION_CONFIG: ApplicationConfig = Object.freeze({
         port: 3847,
         databasePath: ".monitor/monitor.sqlite",
     },
+    postgres: {
+        host: "127.0.0.1",
+        port: 5432,
+        username: "monitor",
+        password: "monitor",
+        database: "monitor",
+    },
+    opensearch: { node: "http://127.0.0.1:9200" },
+    redis: { url: "redis://127.0.0.1:6379" },
     web: { apiBaseUrl: "", wsBaseUrl: "" },
     externalSetup: {
         monitorBaseUrl: "",
@@ -111,19 +151,42 @@ function normalizeBaseUrl(value: unknown): string {
     return normalized ? normalized.replace(/\/+$/g, "") : "";
 }
 
+function normalizeProfile(value: unknown, fallback: AppProfile = "local"): AppProfile {
+    const normalized = trimString(value).toLowerCase();
+    return normalized === "local" || normalized === "prd" ? normalized : fallback;
+}
+
 function normalizeApplicationConfig(input: unknown): ApplicationConfig {
     const merged = deepMerge(DEFAULT_APPLICATION_CONFIG, input ?? {}) as Record<string, unknown>;
     const monitor = isPlainObject(merged["monitor"]) ? merged["monitor"] : {};
+    const postgres = isPlainObject(merged["postgres"]) ? merged["postgres"] : {};
+    const opensearch = isPlainObject(merged["opensearch"]) ? merged["opensearch"] : {};
+    const redis = isPlainObject(merged["redis"]) ? merged["redis"] : {};
     const web = isPlainObject(merged["web"]) ? merged["web"] : {};
     const externalSetup = isPlainObject(merged["externalSetup"]) ? merged["externalSetup"] : {};
+    const defaults = DEFAULT_APPLICATION_CONFIG;
 
     return {
+        profile: normalizeProfile(merged["profile"], defaults.profile),
         monitor: {
             protocol: normalizeProtocol(monitor["protocol"], DEFAULT_APPLICATION_CONFIG.monitor.protocol),
             listenHost: trimString(monitor["listenHost"]) || DEFAULT_APPLICATION_CONFIG.monitor.listenHost,
             publicHost: trimString(monitor["publicHost"]) || DEFAULT_APPLICATION_CONFIG.monitor.publicHost,
             port: normalizePort(monitor["port"], DEFAULT_APPLICATION_CONFIG.monitor.port),
             databasePath: trimString(monitor["databasePath"]) || DEFAULT_APPLICATION_CONFIG.monitor.databasePath,
+        },
+        postgres: {
+            host: trimString(postgres["host"]) || defaults.postgres.host,
+            port: normalizePort(postgres["port"], defaults.postgres.port),
+            username: trimString(postgres["username"]) || defaults.postgres.username,
+            password: typeof postgres["password"] === "string" ? postgres["password"] : defaults.postgres.password,
+            database: trimString(postgres["database"]) || defaults.postgres.database,
+        },
+        opensearch: {
+            node: normalizeBaseUrl(opensearch["node"]) || defaults.opensearch.node,
+        },
+        redis: {
+            url: trimString(redis["url"]) || defaults.redis.url,
         },
         web: {
             apiBaseUrl: normalizeBaseUrl(web["apiBaseUrl"]),
@@ -143,11 +206,15 @@ export function loadApplicationConfig(options: { env?: NodeJS.ProcessEnv } = {})
         readYamlFile(APPLICATION_LOCAL_YAML_PATH),
     ) as Record<string, unknown>;
     const monitor = isPlainObject(yamlConfig["monitor"]) ? yamlConfig["monitor"] : {};
+    const postgres = isPlainObject(yamlConfig["postgres"]) ? yamlConfig["postgres"] : {};
+    const opensearch = isPlainObject(yamlConfig["opensearch"]) ? yamlConfig["opensearch"] : {};
+    const redis = isPlainObject(yamlConfig["redis"]) ? yamlConfig["redis"] : {};
     const web = isPlainObject(yamlConfig["web"]) ? yamlConfig["web"] : {};
     const externalSetup = isPlainObject(yamlConfig["externalSetup"]) ? yamlConfig["externalSetup"] : {};
 
     return normalizeApplicationConfig({
         ...yamlConfig,
+        ...(trimString(env["MONITOR_PROFILE"]) ? { profile: env["MONITOR_PROFILE"] } : {}),
         monitor: {
             ...monitor,
             ...(trimString(env["MONITOR_PROTOCOL"]) ? { protocol: env["MONITOR_PROTOCOL"] } : {}),
@@ -155,6 +222,22 @@ export function loadApplicationConfig(options: { env?: NodeJS.ProcessEnv } = {})
             ...(trimString(env["MONITOR_PUBLIC_HOST"]) ? { publicHost: env["MONITOR_PUBLIC_HOST"] } : {}),
             ...(trimString(env["MONITOR_PORT"]) ? { port: env["MONITOR_PORT"] } : {}),
             ...(trimString(env["MONITOR_DATABASE_PATH"]) ? { databasePath: env["MONITOR_DATABASE_PATH"] } : {}),
+        },
+        postgres: {
+            ...postgres,
+            ...(trimString(env["POSTGRES_HOST"]) ? { host: env["POSTGRES_HOST"] } : {}),
+            ...(trimString(env["POSTGRES_PORT"]) ? { port: env["POSTGRES_PORT"] } : {}),
+            ...(trimString(env["POSTGRES_USER"]) ? { username: env["POSTGRES_USER"] } : {}),
+            ...(env["POSTGRES_PASSWORD"] !== undefined ? { password: env["POSTGRES_PASSWORD"] } : {}),
+            ...(trimString(env["POSTGRES_DB"]) ? { database: env["POSTGRES_DB"] } : {}),
+        },
+        opensearch: {
+            ...opensearch,
+            ...(trimString(env["OPENSEARCH_NODE"]) ? { node: env["OPENSEARCH_NODE"] } : {}),
+        },
+        redis: {
+            ...redis,
+            ...(trimString(env["REDIS_URL"]) ? { url: env["REDIS_URL"] } : {}),
         },
         web: {
             ...web,

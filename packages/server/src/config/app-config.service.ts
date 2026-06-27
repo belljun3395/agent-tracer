@@ -29,8 +29,24 @@ export class AppConfigService {
         return app;
     }
 
+    get profile(): ApplicationConfig["profile"] {
+        return this.application.profile;
+    }
+
     get monitor(): ApplicationConfig["monitor"] {
         return this.application.monitor;
+    }
+
+    get postgres(): ApplicationConfig["postgres"] {
+        return this.application.postgres;
+    }
+
+    get opensearch(): ApplicationConfig["opensearch"] {
+        return this.application.opensearch;
+    }
+
+    get redis(): ApplicationConfig["redis"] {
+        return this.application.redis;
     }
 
     get web(): ApplicationConfig["web"] {

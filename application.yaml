@@ -1,11 +1,28 @@
+# 실행 프로파일: local | prd (env MONITOR_PROFILE 로 오버라이드).
+profile: local
+
 monitor:
   protocol: http
-  # Loopback by default — a local single-user tool should not be reachable from
-  # the network. Containers/exposed deployments set MONITOR_LISTEN_HOST=0.0.0.0.
+  # 기본은 loopback. 컨테이너/노출 배포는 MONITOR_LISTEN_HOST=0.0.0.0.
   listenHost: 127.0.0.1
   publicHost: 127.0.0.1
   port: 3847
-  databasePath: .monitor/monitor.sqlite
+
+# 주 저장소.
+postgres:
+  host: 127.0.0.1
+  port: 5432
+  username: monitor
+  password: monitor
+  database: monitor
+
+# 검색 엔진.
+opensearch:
+  node: http://127.0.0.1:9200
+
+# WS pub/sub 및 휘발성 공유 상태.
+redis:
+  url: redis://127.0.0.1:6379
 
 web:
   apiBaseUrl: ""

@@ -5,6 +5,7 @@ import { APP_CONFIG_NAMESPACE, AppConfigService } from "./app-config.service.js"
 import { applicationConfigSchema } from "./application-config.js";
 
 const FIXTURE = applicationConfigSchema.parse({
+    profile: "prd",
     monitor: {
         protocol: "http",
         listenHost: "127.0.0.1",
@@ -12,6 +13,15 @@ const FIXTURE = applicationConfigSchema.parse({
         port: 4100,
         databasePath: "/var/lib/monitor.sqlite",
     },
+    postgres: {
+        host: "db.example.test",
+        port: 5432,
+        username: "monitor",
+        password: "secret",
+        database: "monitor",
+    },
+    opensearch: { node: "http://search.example.test:9200" },
+    redis: { url: "redis://cache.example.test:6379" },
     web: { apiBaseUrl: "https://api.example.test", wsBaseUrl: "wss://api.example.test" },
     externalSetup: { monitorBaseUrl: "", sourceRepo: "owner/repo" },
 });
