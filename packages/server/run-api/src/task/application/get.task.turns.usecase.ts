@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { TURN_QUERY_ACCESS_PORT } from "./outbound/tokens.js";
+import { TURN_QUERY_REPOSITORY_TOKEN } from "../public/tokens.js";
 import type { ITurnQueryAccess } from "./outbound/turn.query.access.port.js";
 import type {
     GetTaskTurnsUseCaseIn,
@@ -11,7 +11,7 @@ import type {
 @Injectable()
 export class GetTaskTurnsUseCase {
     constructor(
-        @Inject(TURN_QUERY_ACCESS_PORT) private readonly turns: ITurnQueryAccess,
+        @Inject(TURN_QUERY_REPOSITORY_TOKEN) private readonly turns: ITurnQueryAccess,
     ) {}
 
     async execute(input: GetTaskTurnsUseCaseIn): Promise<GetTaskTurnsUseCaseOut> {

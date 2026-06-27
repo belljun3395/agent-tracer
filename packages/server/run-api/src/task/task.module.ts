@@ -43,13 +43,11 @@ import {
     NOTIFICATION_PUBLISHER_PORT,
     RUNTIME_BINDING_ACCESS_PORT,
     SESSION_ACCESS_PORT,
-    TURN_QUERY_ACCESS_PORT,
 } from "./application/outbound/tokens.js";
 import { RuntimeBindingAccessAdapter } from "./adapter/runtime.binding.access.adapter.js";
 import { SessionAccessAdapter } from "./adapter/session.access.adapter.js";
 import { TaskAccessPublicAdapter } from "./adapter/task.access.public.adapter.js";
 import { TaskNotificationPublisherAdapter } from "./adapter/task.notification.publisher.adapter.js";
-import { TurnQueryAccessAdapter } from "./adapter/turn.query.access.adapter.js";
 import { TaskEntity } from "./domain/task.entity.js";
 import { TaskRelationEntity } from "./domain/task.relation.entity.js";
 import { TASK_ACCESS, TASK_LIFECYCLE, TASK_SNAPSHOT_QUERY } from "./public/tokens.js";
@@ -85,7 +83,6 @@ export class TaskModule {
 
                 SessionAccessAdapter,
                 RuntimeBindingAccessAdapter,
-                TurnQueryAccessAdapter,
                 TaskNotificationPublisherAdapter,
 
                 TaskAccessPublicAdapter,
@@ -130,7 +127,6 @@ export class TaskModule {
 
                 { provide: SESSION_ACCESS_PORT, useExisting: SessionAccessAdapter },
                 { provide: RUNTIME_BINDING_ACCESS_PORT, useExisting: RuntimeBindingAccessAdapter },
-                { provide: TURN_QUERY_ACCESS_PORT, useExisting: TurnQueryAccessAdapter },
                 { provide: NOTIFICATION_PUBLISHER_PORT, useExisting: TaskNotificationPublisherAdapter },
             ],
             exports: [
