@@ -9,7 +9,7 @@ import type { ITurnRepository } from "@monitor/governance/verification/applicati
 import type { IVerdictRepository } from "@monitor/governance/verification/application/outbound/verdict.repository.port.js";
 import type { ITimelineEventRead } from "@monitor/activity/event/public/iservice/timeline.event.read.iservice.js";
 import { TIMELINE_EVENT_READ } from "@monitor/activity/event/public/tokens.js";
-import { NOTIFICATION_PUBLISHER_TOKEN } from "~main/presentation/database/database.provider.js";
+import { NOTIFICATION_PUBLISHER_TOKEN } from "@monitor/contracts/notifications/notification.publisher.port.js";
 import type { IRuleRead } from "@monitor/governance/rule/public/iservice/rule.read.iservice.js";
 import { RULE_READ, RULE_REPOSITORY_TOKEN } from "@monitor/governance/rule/public/tokens.js";
 import {

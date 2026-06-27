@@ -8,7 +8,7 @@ import { ListRulesUseCase } from "@monitor/governance/rule/application/list.rule
 import { RegisterSuggestionUseCase } from "@monitor/governance/rule/application/register.suggestion.usecase.js";
 import { APP_SETTING_KEYS } from "@monitor/governance/settings/domain/app.setting.keys.js";
 import { AppSettingService } from "@monitor/governance/settings/application/app.setting.service.js";
-import { NOTIFICATION_PUBLISHER_TOKEN } from "~main/presentation/database/database.provider.js";
+import { NOTIFICATION_PUBLISHER_TOKEN } from "@monitor/contracts/notifications/notification.publisher.port.js";
 import { GovernanceJobRepository } from "@monitor/governance/job/governance.job.repository.js";
 import type { GovernanceJobEntity } from "@monitor/governance/job/governance.job.entity.js";
 import {

@@ -1,6 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
 import type { INotificationPublisher } from "@monitor/contracts/notifications/notification.publisher.port.js";
-import { NOTIFICATION_PUBLISHER_TOKEN } from "~main/presentation/database/database.provider.js";
+import { NOTIFICATION_PUBLISHER_TOKEN } from "@monitor/contracts/notifications/notification.publisher.port.js";
 import type {
     IRuleNotificationPublisher,
     RuleOutboundNotification,
