@@ -16,23 +16,21 @@ const POLL_INTERVAL_MS = 60_000;
 const STALE_TTL_MS = 30 * 60_000;
 const BATCH_SIZE = 32;
 
-// Domain policy: which statuses are reap-eligible. `waiting` is intentionally
-// excluded (a valid steady state). Owned here, not baked into the repository.
+// 회수(reap) 대상 상태 정책. `waiting`은 정상 정지 상태라 일부러 제외한다.
+// 리포지토리가 아니라 도메인 정책으로 여기서 소유한다.
 const REAPABLE_STATUSES: readonly TaskStatus[] = ["running"];
 
 /**
- * Finalizes tasks stuck in `running` with no active session. Covers cases
- * where the runtime was force-killed (SIGKILL, OS crash, network drop) and
- * the SessionEnd hook never fired — without this, those tasks would stay
- * "running" forever in the sidebar.
+ * 활성 세션 없이 `running`에 갇힌 태스크를 종료 처리한다. 런타임이 강제 종료
+ * (SIGKILL, OS 크래시, 네트워크 끊김)되어 SessionEnd 훅이 발화하지 못한 경우를
+ * 다룬다 — 없으면 그런 태스크가 사이드바에 영영 "running"으로 남는다.
  *
- * Safety: only acts when `updated_at` is older than {@link STALE_TTL_MS}
- * AND `countRunningByTaskId` returns 0. The TTL gates against false positives
- * during the brief window between task creation and the first session row
- * being committed.
+ * 안전장치: `updated_at`이 STALE_TTL_MS보다 오래됐고 동시에 countRunningByTaskId가
+ * 0일 때만 동작한다. TTL은 태스크 생성 직후 첫 세션 행이 커밋되기 전 짧은 구간에서
+ * 발생할 오탐을 막는다.
  *
- * `waiting` tasks are intentionally not reaped — they are a valid steady
- * state (waiting on user input) and would surprise the user if cleaned up.
+ * `waiting` 태스크는 일부러 회수하지 않는다 — 사용자 입력 대기라는 정상 상태라
+ * 정리하면 사용자가 놀란다.
  */
 @Injectable()
 export class StaleTaskReaperService implements OnApplicationShutdown {
@@ -47,8 +45,8 @@ export class StaleTaskReaperService implements OnApplicationShutdown {
         @Inject(CLOCK_PORT) private readonly clock: IClock,
     ) {}
 
-    // ScheduleModule clears this interval on shutdown, but it does not await an
-    // in-flight tick — so we still flip `shuttingDown` and drain `running` here.
+    // ScheduleModule은 종료 시 인터벌을 정리하지만 진행 중인 tick을 기다리지는
+    // 않는다 — 그래서 여기서 shuttingDown을 켜고 running이 끝나길 드레인한다.
     async onApplicationShutdown(): Promise<void> {
         this.shuttingDown = true;
         const start = Date.now();

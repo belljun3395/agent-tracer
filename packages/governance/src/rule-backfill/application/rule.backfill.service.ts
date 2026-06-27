@@ -15,16 +15,9 @@ export class RuleNotFoundForBackfillError extends Error {
 }
 
 /**
- * Owns the `rule_backfill` governance job: enqueue (called by the HTTP
- * re-evaluate endpoint) and execute (called by {@link RuleBackfillWorker}
- * after an atomic claim).
- *
- * Re-evaluation used to run the heavy backfill inline inside the request's
- * `@Transactional()`. That held the single SQLite write connection for the
- * whole sweep and — when fired without `await` — let a detached transaction
- * commit out from under the serializer's savepoints. Routing it through this
- * outbox makes the request return immediately while the worker runs the
- * backfill later as its OWN top-level transaction.
+ * `rule_backfill` 거버넌스 잡을 소유한다: enqueue(재평가 HTTP 엔드포인트가 호출)와
+ * execute(잡을 원자적으로 claim 한 뒤 백필 실행). 한 룰에 대해 닫힌 턴들을
+ * 변경된 룰로 다시 평가한다.
  */
 @Injectable()
 export class RuleBackfillService {
@@ -37,10 +30,9 @@ export class RuleBackfillService {
     ) {}
 
     /**
-     * Queue a backfill for `ruleId`. Validates the rule exists up front so the
-     * caller gets a 404 instead of a silently failing job. Idempotent: if a
-     * backfill for this rule is already pending/processing, returns it instead
-     * of piling on a duplicate sweep.
+     * `ruleId`에 대한 백필을 큐에 넣는다. 룰 존재를 먼저 검증해 호출자가 조용히
+     * 실패하는 잡 대신 404를 받게 한다. 멱등: 이미 pending/processing 백필이 있으면
+     * 중복 스윕을 쌓지 않고 그것을 반환한다.
      */
     async enqueue(ruleId: string): Promise<GovernanceJobEntity> {
         const rule = await this.rules.findById(ruleId);
@@ -84,8 +76,8 @@ export class RuleBackfillService {
         try {
             const rule = await this.rules.findById(ruleId);
             if (!rule) {
-                // Rule was deleted between enqueue and processing — nothing to
-                // backfill. Treat as a no-op success rather than a failure.
+                // enqueue와 처리 사이에 룰이 삭제됨 — 백필할 대상이 없다.
+                // 실패가 아니라 no-op 성공으로 처리한다.
                 await this.jobs.markCompleted({
                     id: job.id,
                     verdictsCreated: 0,

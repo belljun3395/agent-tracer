@@ -3,7 +3,7 @@ import type { MonitoringTask } from "@monitor/work/task/public/types/task.types.
 import type { SessionSnapshot } from "@monitor/activity/session/public/dto/session.snapshot.dto.js";
 import type { NOTIFICATION_TYPE } from "./notification.type.const.js";
 
-/** 타임라인 이벤트 알림 페이로드 = 캐노니컬 프로젝션(중복 선언 제거). */
+/** 타임라인 이벤트 알림 페이로드. */
 export type EventNotificationPayloadPortDto = TimelineEventProjection;
 
 export interface RuleEnforcementNotificationPayloadPortDto {

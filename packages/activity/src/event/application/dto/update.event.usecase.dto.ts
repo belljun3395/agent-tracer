@@ -5,5 +5,4 @@ export interface UpdateEventUseCaseIn {
     readonly displayTitle?: string | null;
 }
 
-/** 업데이트 결과는 캐노니컬 프로젝션(중복 선언 제거). */
 export type UpdateEventUseCaseOut = TimelineEventProjection | null;
