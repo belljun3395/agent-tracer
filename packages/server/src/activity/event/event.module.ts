@@ -23,7 +23,6 @@ import {
 } from "./application/outbound/tokens.js";
 import { EventNotificationPublisherAdapter } from "./adapter/notification.publisher.adapter.js";
 import { EventPersistenceAdapter } from "./adapter/event.persistence.adapter.js";
-import { EventSearchIndexAdapter } from "./adapter/event.search.index.adapter.js";
 import { EventTaskAccessAdapter } from "./adapter/task.access.adapter.js";
 import { TimelineEventProjectionPublicAdapter } from "./adapter/timeline.event.projection.public.adapter.js";
 import { TimelineEventWritePublicAdapter } from "./adapter/timeline.event.write.public.adapter.js";
@@ -41,9 +40,12 @@ import {
     TIMELINE_EVENT_READ,
     TIMELINE_EVENT_WRITE,
 } from "./public/tokens.js";
-import { createEmbeddingService } from "./repository/embedding/embedding.service.js";
-import type { IEmbeddingService } from "./repository/embedding/embedding.service.js";
-import { EMBEDDING_SERVICE_TOKEN } from "./repository/embedding/tokens.js";
+import { Client } from "@opensearch-project/opensearch";
+import { AppConfigService } from "~config/app-config.service.js";
+import {
+    OPENSEARCH_CLIENT,
+    OpenSearchEventIndex,
+} from "./repository/search/opensearch.event.index.js";
 import { EventAsyncRefRepository } from "./repository/event.async.ref.repository.js";
 import { EventFileRepository } from "./repository/event.file.repository.js";
 import { EventRelationRepository } from "./repository/event.relation.repository.js";
@@ -53,8 +55,6 @@ import { PreprocessingHintsRepository } from "./repository/preprocessing.hints.r
 import { QuestionCurrentRepository } from "./repository/question.current.repository.js";
 import { TimelineEventRepository } from "./repository/timeline.event.repository.js";
 import { TodoCurrentRepository } from "./repository/todo.current.repository.js";
-import { SearchBackfillService } from "./repository/search/search.backfill.service.js";
-import { SearchDocumentEntity } from "./domain/search/search.document.entity.js";
 import { TimelineEventService } from "./service/timeline.event.service.js";
 import { TimelineEventStorageService } from "./service/timeline.event.storage.service.js";
 
@@ -85,18 +85,20 @@ export class EventModule {
                     TodoCurrentEntity,
                     QuestionCurrentEntity,
                     EventTokenUsageEntity,
-                    SearchDocumentEntity,
                 ]),
                 databaseModule,
                 governanceModule,
             ],
             controllers: [EventCommandController, EventIngestController, PreprocessingHintsController, SearchQueryController, TypedEventIngestController],
             providers: [
-                // Embedding service (local model)
+                // OpenSearch 클라이언트
                 {
-                    provide: EMBEDDING_SERVICE_TOKEN,
-                    useFactory: (): IEmbeddingService | null => createEmbeddingService() ?? null,
+                    provide: OPENSEARCH_CLIENT,
+                    inject: [AppConfigService],
+                    useFactory: (config: AppConfigService): Client =>
+                        new Client({ node: config.opensearch.node }),
                 },
+                OpenSearchEventIndex,
                 // Repositories
                 TimelineEventRepository,
                 EventFileRepository,
@@ -110,10 +112,8 @@ export class EventModule {
                 // Services
                 TimelineEventStorageService,
                 TimelineEventService,
-                SearchBackfillService,
                 // Outbound adapters
                 EventPersistenceAdapter,
-                EventSearchIndexAdapter,
                 EventTaskAccessAdapter,
                 EventNotificationPublisherAdapter,
                 VerificationPostProcessorAdapter,
@@ -137,7 +137,7 @@ export class EventModule {
                 { provide: TIMELINE_EVENT_PROJECTION, useExisting: TimelineEventProjectionPublicAdapter },
                 // Outbound bindings
                 { provide: EVENT_PERSISTENCE_PORT, useExisting: EventPersistenceAdapter },
-                { provide: EVENT_SEARCH_INDEX_PORT, useExisting: EventSearchIndexAdapter },
+                { provide: EVENT_SEARCH_INDEX_PORT, useExisting: OpenSearchEventIndex },
                 { provide: TASK_ACCESS_PORT, useExisting: EventTaskAccessAdapter },
                 { provide: NOTIFICATION_PUBLISHER_PORT, useExisting: EventNotificationPublisherAdapter },
                 { provide: VERIFICATION_POST_PROCESSOR_PORT, useExisting: VerificationPostProcessorAdapter },
