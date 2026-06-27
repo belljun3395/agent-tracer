@@ -422,7 +422,9 @@ module.exports = {
     },
   ],
   options: {
-    doNotFollow: { path: "node_modules" },
+    // 빌드 산출물(Vite 번들 등)은 소스 아키텍처가 아니므로 검사에서 제외한다.
+    doNotFollow: { path: "node_modules|dist|build|coverage" },
+    exclude: { path: "(^|/)(dist|build|coverage)/" },
     tsConfig: { fileName: "tsconfig.base.json" },
     enhancedResolveOptions: {
       exportsFields: ["exports"],
