@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { NOTIFICATION_TYPE } from "@monitor/contracts/notifications/notification.type.const.js";
+import { NOTIFICATION_TYPE } from "@monitor/shared/contracts/notifications/notification.type.const.js";
 import type { MonitoringTask } from "@monitor/work/task/domain/task.model.js";
 import type { MonitoringEventKind } from "@monitor/activity/event/public/types/event.types.js";
 import type {

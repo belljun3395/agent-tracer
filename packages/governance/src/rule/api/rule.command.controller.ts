@@ -23,8 +23,8 @@ import {
     RuleCreateDto,
     RuleUpdateDto,
 } from "./rule.command.schema.js";
-import { pathParamPipe } from "@monitor/contracts/http/path-param.pipe.js";
-import { ZodValidationPipe } from "@monitor/contracts/http/zod-validation.pipe.js";
+import { pathParamPipe } from "@monitor/shared/contracts/http/path-param.pipe.js";
+import { ZodValidationPipe } from "@monitor/shared/contracts/http/zod-validation.pipe.js";
 
 @Controller("api/v1/rules")
 export class RuleCommandController {

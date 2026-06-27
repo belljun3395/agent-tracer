@@ -1,8 +1,8 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { ASYNC_TASK_STATUSES } from "@monitor/work/task/public/types/task.const.js";
-import type { MonitorClient } from "@monitor/mcp/client.js";
-import { toToolResponse } from "@monitor/mcp/result.js";
+import type { MonitorClient } from "@monitor/shared/mcp/client.js";
+import { toToolResponse } from "@monitor/shared/mcp/result.js";
 export function registerAsyncLifecycleTools(server: McpServer, client: MonitorClient): void {
     server.registerTool("monitor_async_task", {
         title: "Monitor Async Task",

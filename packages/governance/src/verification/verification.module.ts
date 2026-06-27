@@ -1,7 +1,7 @@
 import { Module, type DynamicModule, type Provider } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { randomUUID } from "node:crypto";
-import type { INotificationPublisher } from "@monitor/contracts/notifications/notification.publisher.port.js";
+import type { INotificationPublisher } from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
 import type { IRuleAccess } from "@monitor/governance/verification/application/outbound/rule.access.port.js";
 import type { IRuleEnforcementRepository } from "@monitor/governance/verification/application/outbound/rule.enforcement.repository.port.js";
 import type { ITurnQueryRepository } from "@monitor/governance/verification/application/outbound/turn.query.repository.port.js";
@@ -9,7 +9,7 @@ import type { ITurnRepository } from "@monitor/governance/verification/applicati
 import type { IVerdictRepository } from "@monitor/governance/verification/application/outbound/verdict.repository.port.js";
 import type { ITimelineEventRead } from "@monitor/activity/event/public/iservice/timeline.event.read.iservice.js";
 import { TIMELINE_EVENT_READ } from "@monitor/activity/event/public/tokens.js";
-import { NOTIFICATION_PUBLISHER_TOKEN } from "@monitor/contracts/notifications/notification.publisher.port.js";
+import { NOTIFICATION_PUBLISHER_TOKEN } from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
 import type { IRuleRead } from "@monitor/governance/rule/public/iservice/rule.read.iservice.js";
 import { RULE_READ, RULE_REPOSITORY_TOKEN } from "@monitor/governance/rule/public/tokens.js";
 import {

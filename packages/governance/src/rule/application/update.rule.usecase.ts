@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { NOTIFICATION_TYPE } from "@monitor/contracts/notifications/notification.type.const.js";
+import { NOTIFICATION_TYPE } from "@monitor/shared/contracts/notifications/notification.type.const.js";
 import { Transactional } from "typeorm-transactional";
 import { isRuleExpectMeaningful } from "@monitor/governance/rule/domain/rule.js";
 import { computeRuleSignature } from "@monitor/governance/rule/domain/rule.signature.js";

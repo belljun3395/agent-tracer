@@ -2,7 +2,7 @@ import { type Provider } from "@nestjs/common";
 import {
     NOTIFICATION_PUBLISHER_TOKEN,
     type INotificationPublisher,
-} from "@monitor/contracts/notifications/notification.publisher.port.js";
+} from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
 
 export { NOTIFICATION_PUBLISHER_TOKEN };
 

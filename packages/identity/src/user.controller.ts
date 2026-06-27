@@ -1,7 +1,7 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Inject, Post } from "@nestjs/common";
 import { createZodDto } from "nestjs-zod";
 import { z } from "zod";
-import { ZodValidationPipe } from "@monitor/contracts/http/zod-validation.pipe.js";
+import { ZodValidationPipe } from "@monitor/shared/contracts/http/zod-validation.pipe.js";
 import { GetCurrentUserUseCase } from "./get.current.user.usecase.js";
 import { OnboardUserUseCase } from "./onboard.user.usecase.js";
 

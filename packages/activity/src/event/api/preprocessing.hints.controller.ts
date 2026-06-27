@@ -1,5 +1,5 @@
 import { Body, Controller, HttpCode, HttpStatus, Inject, Param, Post } from "@nestjs/common";
-import { ZodValidationPipe } from "@monitor/contracts/http/zod-validation.pipe.js";
+import { ZodValidationPipe } from "@monitor/shared/contracts/http/zod-validation.pipe.js";
 import { GetPreprocessingHintsUseCase } from "../application/get.preprocessing.hints.usecase.js";
 import type { GetPreprocessingHintsUseCaseOut } from "../application/dto/preprocessing.hints.dto.js";
 import { preprocessingHintsBodySchema, PreprocessingHintsDto } from "./preprocessing.hints.schema.js";

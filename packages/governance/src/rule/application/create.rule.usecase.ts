@@ -1,5 +1,5 @@
 import { Transactional, runOnTransactionCommit } from "typeorm-transactional";
-import { NOTIFICATION_TYPE } from "@monitor/contracts/notifications/notification.type.const.js";
+import { NOTIFICATION_TYPE } from "@monitor/shared/contracts/notifications/notification.type.const.js";
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import { isRuleExpectMeaningful } from "@monitor/governance/rule/domain/rule.js";
 import { computeRuleSignature } from "@monitor/governance/rule/domain/rule.signature.js";

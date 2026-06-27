@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Mock } from "vitest";
-import { CryptoIdGeneratorAdapter } from "@monitor/shared-kernel/crypto.id.generator.adapter.js";
-import type { IClock } from "@monitor/shared-kernel/clock.js";
+import { CryptoIdGeneratorAdapter } from "@monitor/shared/kernel/crypto.id.generator.adapter.js";
+import type { IClock } from "@monitor/shared/kernel/clock.js";
 
 const FROZEN_MS = 1_777_000_000_000; // 2026-04-29 around
 

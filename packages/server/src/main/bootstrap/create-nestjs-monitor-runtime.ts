@@ -11,7 +11,7 @@ import { AppModule } from "../presentation/app.module.js";
 import { setupSwagger } from "../presentation/swagger.js";
 import { AppConfigService } from "~config/app-config.service.js";
 import { loadApplicationConfig } from "~config/application-config.js";
-import { runWithUser, DEFAULT_USER_ID } from "@monitor/shared-kernel/user/user.context.js";
+import { runWithUser, DEFAULT_USER_ID } from "@monitor/shared/kernel/user/user.context.js";
 import { EventBroadcasterService } from "@monitor/ws-gateway/ws/event.broadcaster.service.js";
 import { RedisNotificationPublisher } from "@monitor/ws-gateway/redis.notification.publisher.js";
 import { RedisFanoutSubscriber } from "@monitor/ws-gateway/redis.fanout.subscriber.js";

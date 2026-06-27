@@ -19,8 +19,8 @@ import { RecipeRepository } from "./repository/recipe.repository.js";
 import { GovernanceJobEntity } from "@monitor/governance/job/governance.job.entity.js";
 import { GovernanceJobRepository } from "@monitor/governance/job/governance.job.repository.js";
 import { RecipeScanAgent } from "./application/recipe.scan.agent.js";
-import { LocalQueryRunner } from "@monitor/llm/local.query.runner.js";
-import { QUERY_RUNNER } from "@monitor/llm/query.runner.port.js";
+import { LocalQueryRunner } from "@monitor/shared/llm/local.query.runner.js";
+import { QUERY_RUNNER } from "@monitor/shared/llm/query.runner.port.js";
 
 @Module({})
 export class RecipeModule {

@@ -1,5 +1,5 @@
 import type { TimelineEventProjection } from "@monitor/activity/event/public/dto/timeline.event.dto.js";
-import type { NOTIFICATION_TYPE } from "@monitor/contracts/notifications/notification.type.const.js";
+import type { NOTIFICATION_TYPE } from "@monitor/shared/contracts/notifications/notification.type.const.js";
 import type { SessionSnapshot } from "@monitor/activity/session/public/dto/session.snapshot.dto.js";
 import type { MonitoringTask } from "@monitor/work/task/domain/task.model.js";
 

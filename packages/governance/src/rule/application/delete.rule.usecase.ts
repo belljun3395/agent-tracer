@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { NOTIFICATION_TYPE } from "@monitor/contracts/notifications/notification.type.const.js";
+import { NOTIFICATION_TYPE } from "@monitor/shared/contracts/notifications/notification.type.const.js";
 import { Transactional } from "typeorm-transactional";
 import { CLOCK_PORT, NOTIFICATION_PUBLISHER_PORT, RULE_PERSISTENCE_PORT } from "./outbound/tokens.js";
 import type { IClock } from "./outbound/clock.port.js";

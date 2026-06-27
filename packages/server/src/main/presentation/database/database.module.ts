@@ -1,9 +1,9 @@
 import { Module, type DynamicModule } from "@nestjs/common";
 import { Client } from "@opensearch-project/opensearch";
-import type { INotificationPublisher } from "@monitor/contracts/notifications/notification.publisher.port.js";
-import { CLOCK_PORT, ID_GENERATOR_PORT } from "@monitor/shared-kernel/clock.js";
-import { SystemClockAdapter } from "@monitor/shared-kernel/system.clock.adapter.js";
-import { CryptoIdGeneratorAdapter } from "@monitor/shared-kernel/crypto.id.generator.adapter.js";
+import type { INotificationPublisher } from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
+import { CLOCK_PORT, ID_GENERATOR_PORT } from "@monitor/shared/kernel/clock.js";
+import { SystemClockAdapter } from "@monitor/shared/kernel/system.clock.adapter.js";
+import { CryptoIdGeneratorAdapter } from "@monitor/shared/kernel/crypto.id.generator.adapter.js";
 import { OPENSEARCH_CLIENT } from "@monitor/activity/event/repository/search/opensearch.event.index.js";
 import { AppConfigService } from "~config/app-config.service.js";
 import {

@@ -1,5 +1,5 @@
 import { Controller, Get, Inject, Param } from "@nestjs/common";
-import { pathParamPipe } from "@monitor/contracts/http/path-param.pipe.js";
+import { pathParamPipe } from "@monitor/shared/contracts/http/path-param.pipe.js";
 import { GetRuleEvidenceForTaskUseCase } from "../application/get.rule.evidence.usecase.js";
 
 @Controller("api/v1/tasks/:taskId/rules/:ruleId")

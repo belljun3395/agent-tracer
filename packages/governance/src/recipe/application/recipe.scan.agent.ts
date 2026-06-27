@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { QUERY_RUNNER, type IQueryRunner } from "@monitor/llm/query.runner.port.js";
+import { QUERY_RUNNER, type IQueryRunner } from "@monitor/shared/llm/query.runner.port.js";
 import {
     buildSystemPrompt,
     buildUserPrompt,
@@ -10,7 +10,7 @@ import {
     recipeCandidatesListSchema,
     type RecipeCandidatePayload,
 } from "./recipe.scan.zod.js";
-import { parseJsonStrict } from "@monitor/llm/parse.json.js";
+import { parseJsonStrict } from "@monitor/shared/llm/parse.json.js";
 
 const ALLOWED_TOOLS = ["Read", "Glob", "Grep"];
 const DEFAULT_MAX_TURNS = 8;

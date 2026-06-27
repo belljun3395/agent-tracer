@@ -1,4 +1,4 @@
-import type { NOTIFICATION_TYPE } from "@monitor/contracts/notifications/notification.type.const.js";
+import type { NOTIFICATION_TYPE } from "@monitor/shared/contracts/notifications/notification.type.const.js";
 /**
  * Outbound port. Self-contained — no imports from outside this file.
  * Adapter (session/adapter/session.notification.publisher.adapter.ts)

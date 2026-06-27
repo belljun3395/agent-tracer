@@ -1,14 +1,14 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
-import { NOTIFICATION_TYPE } from "@monitor/contracts/notifications/notification.type.const.js";
+import { NOTIFICATION_TYPE } from "@monitor/shared/contracts/notifications/notification.type.const.js";
 import { randomUUID } from "node:crypto";
 import { RuleSuggestionAgent } from "./rule.suggestion.agent.js";
-import type { INotificationPublisher } from "@monitor/contracts/notifications/notification.publisher.port.js";
+import type { INotificationPublisher } from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
 import { GetTaskSummaryUseCase } from "@monitor/work/task/application/get.task.summary.usecase.js";
 import { ListRulesUseCase } from "@monitor/governance/rule/application/list.rules.usecase.js";
 import { RegisterSuggestionUseCase } from "@monitor/governance/rule/application/register.suggestion.usecase.js";
 import { APP_SETTING_KEYS } from "@monitor/governance/settings/domain/app.setting.keys.js";
 import { AppSettingService } from "@monitor/governance/settings/application/app.setting.service.js";
-import { NOTIFICATION_PUBLISHER_TOKEN } from "@monitor/contracts/notifications/notification.publisher.port.js";
+import { NOTIFICATION_PUBLISHER_TOKEN } from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
 import { GovernanceJobRepository } from "@monitor/governance/job/governance.job.repository.js";
 import type { GovernanceJobEntity } from "@monitor/governance/job/governance.job.entity.js";
 import {

@@ -9,7 +9,7 @@ import {
     Post,
     Query,
 } from "@nestjs/common";
-import { ZodValidationPipe } from "@monitor/contracts/http/zod-validation.pipe.js";
+import { ZodValidationPipe } from "@monitor/shared/contracts/http/zod-validation.pipe.js";
 import { InvalidRuleError } from "../common/errors.js";
 import { ListRulesUseCase } from "../application/list.rules.usecase.js";
 import { RegisterSuggestionUseCase } from "../application/register.suggestion.usecase.js";

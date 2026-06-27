@@ -10,7 +10,7 @@ import {
     Param,
     Put,
 } from "@nestjs/common";
-import { ZodValidationPipe } from "@monitor/contracts/http/zod-validation.pipe.js";
+import { ZodValidationPipe } from "@monitor/shared/contracts/http/zod-validation.pipe.js";
 import {
     AppSettingService,
     InvalidSettingValueError,

@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { QUERY_RUNNER, type IQueryRunner } from "@monitor/llm/query.runner.port.js";
+import { QUERY_RUNNER, type IQueryRunner } from "@monitor/shared/llm/query.runner.port.js";
 import {
     buildSystemPrompt,
     buildUserPrompt,
@@ -10,7 +10,7 @@ import {
     cleanupSuggestionsListSchema,
     type CleanupSuggestion,
 } from "./task.cleanup.zod.js";
-import { parseJsonStrict } from "@monitor/llm/parse.json.js";
+import { parseJsonStrict } from "@monitor/shared/llm/parse.json.js";
 
 // Cleanup is a single-shot "analyze this list and emit JSON" task — no
 // filesystem context needed. Keeping tools enabled (and an 8-turn budget)

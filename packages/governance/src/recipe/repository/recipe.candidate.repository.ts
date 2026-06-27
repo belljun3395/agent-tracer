@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
-import { currentUserId } from "@monitor/shared-kernel/user/user.context.js";
+import { currentUserId } from "@monitor/shared/kernel/user/user.context.js";
 import {
     RecipeCandidateEntity,
     type RecipeCandidateStatus,

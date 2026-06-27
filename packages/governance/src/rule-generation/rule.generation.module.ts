@@ -5,8 +5,8 @@ import { TaskRuleGenerationService } from "./application/task.rule.generation.se
 import { GovernanceJobEntity } from "@monitor/governance/job/governance.job.entity.js";
 import { GovernanceJobRepository } from "@monitor/governance/job/governance.job.repository.js";
 import { RuleSuggestionAgent } from "./application/rule.suggestion.agent.js";
-import { LocalQueryRunner } from "@monitor/llm/local.query.runner.js";
-import { QUERY_RUNNER } from "@monitor/llm/query.runner.port.js";
+import { LocalQueryRunner } from "@monitor/shared/llm/local.query.runner.js";
+import { QUERY_RUNNER } from "@monitor/shared/llm/query.runner.port.js";
 
 @Module({})
 export class RuleGenerationModule {

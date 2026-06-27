@@ -5,11 +5,8 @@
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "paths": {
-      "@monitor/shared-kernel/*": [
-        "packages/shared-kernel/src/*"
-      ],
-      "@monitor/contracts/*": [
-        "packages/contracts/src/*"
+      "@monitor/shared/*": [
+        "packages/shared/src/*"
       ],
       "@monitor/activity/*": [
         "packages/activity/src/*"
@@ -23,17 +20,11 @@
       "~config/*": [
         "packages/server/src/config/*"
       ],
-      "@monitor/llm/*": [
-        "packages/llm/src/*"
-      ],
       "@monitor/identity/*": [
         "packages/identity/src/*"
       ],
       "@monitor/ws-gateway/*": [
         "packages/ws-gateway/src/*"
-      ],
-      "@monitor/mcp/*": [
-        "packages/mcp/src/*"
       ],
       "~adapters/*": [
         "packages/server/src/adapters/*"

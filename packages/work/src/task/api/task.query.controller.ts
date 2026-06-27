@@ -1,5 +1,5 @@
 import { BadRequestException, Controller, Get, NotFoundException, Param, Query } from "@nestjs/common";
-import { pathParamPipe } from "@monitor/contracts/http/path-param.pipe.js";
+import { pathParamPipe } from "@monitor/shared/contracts/http/path-param.pipe.js";
 import { GetTaskLatestRuntimeSessionUseCase } from "../application/get.task.latest.runtime.session.usecase.js";
 import { GetTaskOpenInferenceUseCase } from "../application/get.task.open.inference.usecase.js";
 import { GetTaskTimelineUseCase } from "../application/get.task.timeline.usecase.js";

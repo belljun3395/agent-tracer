@@ -3,8 +3,8 @@ import { z } from "zod";
 import { QUESTION_PHASES, TODO_STATES } from "@monitor/activity/event/public/types/event.const.js";
 import type { TimelineLane } from "@monitor/activity/event/public/types/event.types.js";
 import { AGENT_ACTIVITY_TYPES, EVENT_RELATION_TYPES } from "@monitor/activity/event/public/types/event.const.js";
-import type { MonitorClient } from "@monitor/mcp/client.js";
-import { toToolResponse } from "@monitor/mcp/result.js";
+import type { MonitorClient } from "@monitor/shared/mcp/client.js";
+import { toToolResponse } from "@monitor/shared/mcp/result.js";
 
 const IMPLEMENTATION_ONLY_LANES = ["implementation"] as const satisfies readonly TimelineLane[];
 const SAVE_CONTEXT_LANES = ["user", "exploration", "planning", "implementation"] as const satisfies readonly TimelineLane[];

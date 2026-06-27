@@ -7,7 +7,7 @@ import {
     Param,
     Post,
 } from "@nestjs/common";
-import { pathParamPipe } from "@monitor/contracts/http/path-param.pipe.js";
+import { pathParamPipe } from "@monitor/shared/contracts/http/path-param.pipe.js";
 import {
     RuleBackfillService,
     RuleNotFoundForBackfillError,

@@ -10,8 +10,8 @@ import {
     Patch,
     Post,
 } from "@nestjs/common";
-import { pathParamPipe } from "@monitor/contracts/http/path-param.pipe.js";
-import { ZodValidationPipe } from "@monitor/contracts/http/zod-validation.pipe.js";
+import { pathParamPipe } from "@monitor/shared/contracts/http/path-param.pipe.js";
+import { ZodValidationPipe } from "@monitor/shared/contracts/http/zod-validation.pipe.js";
 import { ArchiveTaskUseCase } from "../application/archive.task.usecase.js";
 import { DeleteTaskUseCase } from "../application/delete.task.usecase.js";
 import {

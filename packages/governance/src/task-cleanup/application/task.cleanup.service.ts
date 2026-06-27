@@ -1,12 +1,12 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
-import { NOTIFICATION_TYPE } from "@monitor/contracts/notifications/notification.type.const.js";
+import { NOTIFICATION_TYPE } from "@monitor/shared/contracts/notifications/notification.type.const.js";
 import { randomUUID } from "node:crypto";
 import { TaskCleanupAgent } from "./task.cleanup.agent.js";
 import type { CleanupTaskSnapshot } from "./task.cleanup.prompt.js";
-import type { INotificationPublisher } from "@monitor/contracts/notifications/notification.publisher.port.js";
+import type { INotificationPublisher } from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
 import { APP_SETTING_KEYS } from "@monitor/governance/settings/domain/app.setting.keys.js";
 import { AppSettingService } from "@monitor/governance/settings/application/app.setting.service.js";
-import { NOTIFICATION_PUBLISHER_TOKEN } from "@monitor/contracts/notifications/notification.publisher.port.js";
+import { NOTIFICATION_PUBLISHER_TOKEN } from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
 import type { ITaskSnapshotQuery } from "@monitor/work/task/public/iservice/task.snapshot.query.iservice.js";
 import { TASK_SNAPSHOT_QUERY } from "@monitor/work/task/public/tokens.js";
 import { GovernanceJobRepository } from "@monitor/governance/job/governance.job.repository.js";
