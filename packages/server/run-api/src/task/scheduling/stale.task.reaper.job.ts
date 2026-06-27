@@ -11,7 +11,7 @@ import type { IClock } from "../application/outbound/clock.port.js";
 import type { ISessionLifecycle } from "@monitor/run-api/session/public/iservice/session.lifecycle.iservice.js";
 import type { TaskStatus } from "../common/task.status.const.js";
 import { TaskRepository } from "../repository/task.repository.js";
-import { TaskLifecycleService } from "./task.lifecycle.service.js";
+import { TaskLifecycleService } from "../service/task.lifecycle.service.js";
 
 const POLL_INTERVAL_MS = 60_000;
 const STALE_TTL_MS = 30 * 60_000;
@@ -21,8 +21,8 @@ const BATCH_SIZE = 32;
 const REAPABLE_STATUSES: readonly TaskStatus[] = ["running"];
 
 @Injectable()
-export class StaleTaskReaperService implements OnApplicationShutdown {
-    private readonly logger = new Logger(StaleTaskReaperService.name);
+export class StaleTaskReaperJob implements OnApplicationShutdown {
+    private readonly logger = new Logger(StaleTaskReaperJob.name);
     private running = false;
     private shuttingDown = false;
 

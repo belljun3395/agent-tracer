@@ -3,12 +3,12 @@ import {
     RUNNING_TASK_STATUS,
     SERVER_SDK_TASK_ORIGIN,
 } from "../common/task.status.const.js";
-import { TaskQueryService } from "./task.query.service.js";
-import { TaskLifecycleService } from "./task.lifecycle.service.js";
+import { TaskQueryService } from "../service/task.query.service.js";
+import { TaskLifecycleService } from "../service/task.lifecycle.service.js";
 
 @Injectable()
-export class StuckServerSdkTaskReaperService implements OnApplicationBootstrap {
-    private readonly logger = new Logger(StuckServerSdkTaskReaperService.name);
+export class StuckServerSdkTaskReaperJob implements OnApplicationBootstrap {
+    private readonly logger = new Logger(StuckServerSdkTaskReaperJob.name);
 
     constructor(
         private readonly tasks: TaskQueryService,

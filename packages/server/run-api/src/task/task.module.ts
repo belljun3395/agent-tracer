@@ -47,8 +47,8 @@ import { TaskRelationEntity } from "./domain/task.relation.entity.js";
 import { TASK_ACCESS, TASK_LIFECYCLE, TASK_SNAPSHOT_QUERY } from "./public/tokens.js";
 import { TaskRelationRepository } from "./repository/task.relation.repository.js";
 import { TaskRepository } from "./repository/task.repository.js";
-import { StaleTaskReaperService } from "./service/stale.task.reaper.service.js";
-import { StuckServerSdkTaskReaperService } from "./service/stuck.server.sdk.task.reaper.service.js";
+import { StaleTaskReaperJob } from "./scheduling/stale.task.reaper.job.js";
+import { StuckServerSdkTaskReaperJob } from "./scheduling/stuck.server.sdk.task.reaper.job.js";
 import { TaskLifecycleService } from "./service/task.lifecycle.service.js";
 import { TaskManagementService } from "./service/task.management.service.js";
 import { TaskQueryService } from "./service/task.query.service.js";
@@ -70,8 +70,8 @@ export class TaskModule {
                 TaskQueryService,
                 TaskManagementService,
                 TaskLifecycleService,
-                StaleTaskReaperService,
-                StuckServerSdkTaskReaperService,
+                StaleTaskReaperJob,
+                StuckServerSdkTaskReaperJob,
 
                 EventRecordedTaskEffectSubscriber,
 
