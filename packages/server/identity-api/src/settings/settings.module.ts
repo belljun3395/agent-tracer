@@ -4,6 +4,7 @@ import { AppSettingController } from "./api/app.setting.controller.js";
 import { AppSettingService } from "./application/app.setting.service.js";
 import { AppSettingEntity } from "./domain/app.setting.entity.js";
 import { AppSettingRepository } from "./repository/app.setting.repository.js";
+import { APP_SETTINGS } from "./public/tokens.js";
 
 @Module({})
 export class SettingsModule {
@@ -12,8 +13,12 @@ export class SettingsModule {
             module: SettingsModule,
             imports: [TypeOrmModule.forFeature([AppSettingEntity]), databaseModule],
             controllers: [AppSettingController],
-            providers: [AppSettingRepository, AppSettingService],
-            exports: [AppSettingService],
+            providers: [
+                AppSettingRepository,
+                AppSettingService,
+                { provide: APP_SETTINGS, useExisting: AppSettingService },
+            ],
+            exports: [APP_SETTINGS],
         };
     }
 }

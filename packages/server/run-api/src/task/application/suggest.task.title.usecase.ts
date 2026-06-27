@@ -5,7 +5,8 @@ import { TitleSuggestionAgent } from "../agent/title.suggestion.agent.js";
 import type { SuggestionLanguage } from "../agent/title.suggestion.prompt.js";
 import type { INotificationPublisher } from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
 import { APP_SETTING_KEYS } from "@monitor/identity-api/settings/domain/app.setting.keys.js";
-import { AppSettingService } from "@monitor/identity-api/settings/application/app.setting.service.js";
+import { APP_SETTINGS } from "@monitor/identity-api/settings/public/tokens.js";
+import type { IAppSettings } from "@monitor/identity-api/settings/public/iservice/app.settings.iservice.js";
 import { NOTIFICATION_PUBLISHER_TOKEN } from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
 import { TaskHasNoEventsError, TaskNotFoundError } from "../common/task.errors.js";
 import { GetTaskSummaryUseCase } from "./get.task.summary.usecase.js";
@@ -29,7 +30,7 @@ export class MissingApiKeyError extends Error {
 export class SuggestTaskTitleUseCase {
     constructor(
         private readonly getSummary: GetTaskSummaryUseCase,
-        private readonly settings: AppSettingService,
+        @Inject(APP_SETTINGS) private readonly settings: IAppSettings,
         private readonly agent: TitleSuggestionAgent,
         @Inject(NOTIFICATION_PUBLISHER_TOKEN)
         private readonly notifier: INotificationPublisher,

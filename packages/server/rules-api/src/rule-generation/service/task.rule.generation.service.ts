@@ -7,7 +7,8 @@ import { GetTaskSummaryUseCase } from "@monitor/run-api/task/application/get.tas
 import { ListRulesUseCase } from "@monitor/rules-api/rule/application/list.rules.usecase.js";
 import { RegisterSuggestionUseCase } from "@monitor/rules-api/rule/application/register.suggestion.usecase.js";
 import { APP_SETTING_KEYS } from "@monitor/identity-api/settings/domain/app.setting.keys.js";
-import { AppSettingService } from "@monitor/identity-api/settings/application/app.setting.service.js";
+import { APP_SETTINGS } from "@monitor/identity-api/settings/public/tokens.js";
+import type { IAppSettings } from "@monitor/identity-api/settings/public/iservice/app.settings.iservice.js";
 import { NOTIFICATION_PUBLISHER_TOKEN } from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
 import { RuleJobRepository } from "../../job/rule.job.repository.js";
 import type { RuleJobEntity } from "../../job/rule.job.entity.js";
@@ -50,7 +51,7 @@ export class TaskRuleGenerationService {
 
     constructor(
         private readonly jobs: RuleJobRepository,
-        private readonly settings: AppSettingService,
+        @Inject(APP_SETTINGS) private readonly settings: IAppSettings,
         private readonly getTaskSummary: GetTaskSummaryUseCase,
         private readonly listRules: ListRulesUseCase,
         private readonly registerSuggestion: RegisterSuggestionUseCase,

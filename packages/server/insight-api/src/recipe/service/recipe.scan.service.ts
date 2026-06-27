@@ -8,7 +8,8 @@ import type {
 } from "../agent/recipe.scan.prompt.js";
 import type { INotificationPublisher } from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
 import { APP_SETTING_KEYS } from "@monitor/identity-api/settings/domain/app.setting.keys.js";
-import { AppSettingService } from "@monitor/identity-api/settings/application/app.setting.service.js";
+import { APP_SETTINGS } from "@monitor/identity-api/settings/public/tokens.js";
+import type { IAppSettings } from "@monitor/identity-api/settings/public/iservice/app.settings.iservice.js";
 import { NOTIFICATION_PUBLISHER_TOKEN } from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
 import { GetTaskSummaryUseCase } from "@monitor/run-api/task/application/get.task.summary.usecase.js";
 import type { ITaskSnapshotQuery } from "@monitor/run-api/task/public/iservice/task.snapshot.query.iservice.js";
@@ -59,7 +60,7 @@ export class RecipeScanService {
         private readonly jobs: InsightJobRepository,
         private readonly candidates: RecipeCandidateRepository,
         private readonly recipes: RecipeRepository,
-        private readonly settings: AppSettingService,
+        @Inject(APP_SETTINGS) private readonly settings: IAppSettings,
         @Inject(TASK_SNAPSHOT_QUERY)
         private readonly taskQuery: ITaskSnapshotQuery,
         private readonly getTaskSummary: GetTaskSummaryUseCase,

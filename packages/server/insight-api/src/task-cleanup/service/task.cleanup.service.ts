@@ -5,7 +5,8 @@ import { TaskCleanupAgent } from "../agent/task.cleanup.agent.js";
 import type { CleanupTaskSnapshot } from "../agent/task.cleanup.prompt.js";
 import type { INotificationPublisher } from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
 import { APP_SETTING_KEYS } from "@monitor/identity-api/settings/domain/app.setting.keys.js";
-import { AppSettingService } from "@monitor/identity-api/settings/application/app.setting.service.js";
+import { APP_SETTINGS } from "@monitor/identity-api/settings/public/tokens.js";
+import type { IAppSettings } from "@monitor/identity-api/settings/public/iservice/app.settings.iservice.js";
 import { NOTIFICATION_PUBLISHER_TOKEN } from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
 import type { ITaskSnapshotQuery } from "@monitor/run-api/task/public/iservice/task.snapshot.query.iservice.js";
 import { TASK_SNAPSHOT_QUERY } from "@monitor/run-api/task/public/tokens.js";
@@ -45,7 +46,7 @@ export class TaskCleanupService {
     constructor(
         private readonly jobs: InsightJobRepository,
         private readonly suggestions: TaskCleanupSuggestionRepository,
-        private readonly settings: AppSettingService,
+        @Inject(APP_SETTINGS) private readonly settings: IAppSettings,
         @Inject(TASK_SNAPSHOT_QUERY)
         private readonly taskQuery: ITaskSnapshotQuery,
         private readonly agent: TaskCleanupAgent,
