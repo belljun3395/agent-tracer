@@ -7,8 +7,8 @@ import {
     RULE_SOURCES,
     RULE_TRIGGER_SOURCES,
 } from "@monitor/governance/rule/domain/const/rule.const.js";
-import type { MonitorClient } from "../client.js";
-import { toToolResponse } from "../result.js";
+import type { MonitorClient } from "@monitor/mcp/client.js";
+import { toToolResponse } from "@monitor/mcp/result.js";
 
 export function registerRuleTools(server: McpServer, client: MonitorClient): void {
     server.registerTool(

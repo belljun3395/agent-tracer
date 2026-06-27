@@ -1,8 +1,8 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { MONITORING_TASK_KINDS, TASK_COMPLETION_REASONS } from "@monitor/work/task/public/types/task.const.js";
-import type { MonitorClient } from "../client.js";
-import { toToolResponse } from "../result.js";
+import type { MonitorClient } from "@monitor/mcp/client.js";
+import { toToolResponse } from "@monitor/mcp/result.js";
 export function registerTaskLifecycleTools(server: McpServer, client: MonitorClient): void {
     server.registerTool("monitor_task_start", {
         title: "Monitor Task Start",

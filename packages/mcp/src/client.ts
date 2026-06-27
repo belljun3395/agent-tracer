@@ -1,4 +1,15 @@
-import { loadApplicationConfig, resolveMonitorHttpBaseUrl } from "~config/application-config.js";
+/**
+ * 모니터 API base URL 을 환경변수에서 직접 해석한다. MCP 서버는 모니터와 별개로
+ * 기동되는 프로세스라 자체 env(MONITOR_BASE_URL 또는 protocol/host/port)로 설정한다.
+ */
+function resolveBaseUrlFromEnv(env: NodeJS.ProcessEnv = process.env): string {
+    const explicit = env["MONITOR_BASE_URL"]?.trim();
+    if (explicit) return explicit;
+    const protocol = env["MONITOR_PROTOCOL"]?.trim() || "http";
+    const host = env["MONITOR_PUBLIC_HOST"]?.trim() || "127.0.0.1";
+    const port = env["MONITOR_PORT"]?.trim() || "3847";
+    return `${protocol}://${host}:${port}`;
+}
 const FETCH_TIMEOUT_MS = 5000;
 const MAX_RETRIES = 3;
 const RETRY_DELAYS_MS: readonly [
@@ -62,7 +73,7 @@ export interface SafePostResult {
 }
 export class MonitorClient {
     readonly baseUrl: string;
-    constructor(baseUrl = resolveMonitorHttpBaseUrl(loadApplicationConfig(), process.env)) {
+    constructor(baseUrl = resolveBaseUrlFromEnv()) {
         this.baseUrl = baseUrl.replace(/\/+$/g, "");
     }
     private async request(method: "GET" | "POST", endpoint: string, payload?: unknown): Promise<SafePostResult> {

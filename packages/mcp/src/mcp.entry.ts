@@ -1,12 +1,12 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { MonitorClient } from "./client.js";
-import { registerAsyncLifecycleTools } from "@monitor/mcp/tools/async.lifecycle.js";
-import { registerConversationTools } from "@monitor/mcp/tools/conversation.js";
-import { registerEventLoggingTools } from "@monitor/mcp/tools/event.logging.js";
-import { registerRecipeTools } from "@monitor/mcp/tools/recipe.js";
-import { registerRuleTools } from "@monitor/mcp/tools/rule.js";
-import { registerTaskLifecycleTools } from "@monitor/mcp/tools/task.lifecycle.js";
+import { registerAsyncLifecycleTools } from "@monitor/work/task/mcp/async.lifecycle.js";
+import { registerConversationTools } from "@monitor/activity/event/mcp/conversation.js";
+import { registerEventLoggingTools } from "@monitor/activity/event/mcp/event.logging.js";
+import { registerRecipeTools } from "@monitor/governance/recipe/mcp/recipe.js";
+import { registerRuleTools } from "@monitor/governance/rule/mcp/rule.js";
+import { registerTaskLifecycleTools } from "@monitor/work/task/mcp/task.lifecycle.js";
 export function createMonitorMcpServer(client = new MonitorClient()): McpServer {
     const server = new McpServer({
         name: "monitor-server",

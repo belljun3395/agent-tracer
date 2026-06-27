@@ -1,7 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import type { MonitorClient } from "../client.js";
-import { toToolResponse } from "../result.js";
+import type { MonitorClient } from "@monitor/mcp/client.js";
+import { toToolResponse } from "@monitor/mcp/result.js";
 
 export function registerRecipeTools(
     server: McpServer,
