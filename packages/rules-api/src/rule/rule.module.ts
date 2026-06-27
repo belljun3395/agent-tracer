@@ -1,9 +1,8 @@
 import { Module, type DynamicModule } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { RULE_REPOSITORY_TOKEN } from "./public/tokens.js";
-import { RuleCommandController } from "./api/rule.command.controller.js";
+import { RuleController } from "./api/rule.controller.js";
 import { RuleIngestController } from "./api/rule.ingest.controller.js";
-import { RuleQueryController } from "./api/rule.query.controller.js";
 import { TaskRulesQueryController } from "./api/task.rules.query.controller.js";
 import { CreateRuleUseCase } from "./application/create.rule.usecase.js";
 import { DeleteRuleUseCase } from "./application/delete.rule.usecase.js";
@@ -61,9 +60,8 @@ export class RuleModule {
                 databaseModule,
             ],
             controllers: [
-                RuleCommandController,
+                RuleController,
                 RuleIngestController,
-                RuleQueryController,
                 TaskRulesQueryController,
             ],
             providers: [

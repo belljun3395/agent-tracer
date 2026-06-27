@@ -1,17 +1,25 @@
-import { Body, Controller, NotFoundException, Param, Patch } from "@nestjs/common";
+import { Body, Controller, Get, Inject, NotFoundException, Param, Patch, Query } from "@nestjs/common";
 import { pathParamPipe } from "@monitor/shared/contracts/http/path-param.pipe.js";
 import { ZodValidationPipe } from "@monitor/shared/contracts/http/zod-validation.pipe.js";
+import { SearchEventsUseCase } from "../application/search.events.usecase.js";
 import { UpdateEventUseCase } from "../application/update.event.usecase.js";
+import { searchQuerySchema, SearchQueryDto } from "./search.query.schema.js";
 import { eventPatchSchema, EventPatchDto } from "./event.command.schema.js";
 
-// Event mutation that isn't ingest. Recording goes through the typed ingest
-// plane (ingest/v1/{tool-activity,workflow,...}); this only patches an
-// already-recorded event.
+// Event query (full-text search) + mutation (patch) under api/v1/events.
+// Recording goes through the typed ingest plane (ingest/v1/*); task search lives
+// in work; the web fans out to both for combined search results.
 @Controller("api/v1/events")
-export class EventCommandController {
+export class EventController {
     constructor(
+        @Inject(SearchEventsUseCase) private readonly searchEvents: SearchEventsUseCase,
         private readonly updateEvent: UpdateEventUseCase,
     ) {}
+
+    @Get("search")
+    async search(@Query(new ZodValidationPipe(searchQuerySchema)) query: SearchQueryDto) {
+        return this.searchEvents.execute(query);
+    }
 
     @Patch(":eventId")
     async patchEvent(

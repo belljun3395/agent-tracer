@@ -3,6 +3,7 @@ import {
     Body,
     Controller,
     Delete,
+    Get,
     HttpCode,
     HttpStatus,
     Inject,
@@ -10,8 +11,11 @@ import {
     Param,
     Patch,
     Post,
+    Query,
 } from "@nestjs/common";
 import { InvalidRuleError, RuleNotFoundError } from "../common/errors.js";
+import { ListRulesUseCase } from "../application/list.rules.usecase.js";
+import { rulesListQuerySchema, RulesListQueryDto } from "./rule.query.schema.js";
 import { CreateRuleUseCase } from "../application/create.rule.usecase.js";
 import { DeleteRuleUseCase } from "../application/delete.rule.usecase.js";
 import { DemoteRuleToTaskUseCase } from "../application/demote.rule.to.task.usecase.js";
@@ -27,14 +31,24 @@ import { pathParamPipe } from "@monitor/shared/contracts/http/path-param.pipe.js
 import { ZodValidationPipe } from "@monitor/shared/contracts/http/zod-validation.pipe.js";
 
 @Controller("api/v1/rules")
-export class RuleCommandController {
+export class RuleController {
     constructor(
+        @Inject(ListRulesUseCase) private readonly listRules: ListRulesUseCase,
         @Inject(CreateRuleUseCase) private readonly createRule: CreateRuleUseCase,
         @Inject(UpdateRuleUseCase) private readonly updateRule: UpdateRuleUseCase,
         @Inject(DeleteRuleUseCase) private readonly deleteRule: DeleteRuleUseCase,
         @Inject(PromoteRuleToGlobalUseCase) private readonly promoteRule: PromoteRuleToGlobalUseCase,
         @Inject(DemoteRuleToTaskUseCase) private readonly demoteRule: DemoteRuleToTaskUseCase,
     ) {}
+
+    @Get()
+    async list(@Query(new ZodValidationPipe(rulesListQuerySchema)) query: RulesListQueryDto) {
+        return this.listRules.execute({
+            ...(query.scope ? { scope: query.scope } : {}),
+            ...(query.taskId ? { taskId: query.taskId } : {}),
+            ...(query.source ? { source: query.source } : {}),
+        });
+    }
 
     @Post()
     @HttpCode(HttpStatus.CREATED)

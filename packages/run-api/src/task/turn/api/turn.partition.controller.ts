@@ -1,6 +1,7 @@
-import { Body, Controller, HttpCode, HttpStatus, Inject, Param, Post, Put } from "@nestjs/common";
+import { Body, Controller, Get, HttpCode, HttpStatus, Inject, Param, Post, Put } from "@nestjs/common";
 import { pathParamPipe } from "@monitor/shared/contracts/http/path-param.pipe.js";
 import { ZodValidationPipe } from "@monitor/shared/contracts/http/zod-validation.pipe.js";
+import { GetTurnPartitionUseCase } from "../application/get.turn.partition.usecase.js";
 import { ResetTurnPartitionUseCase } from "../application/reset.turn.partition.usecase.js";
 import { UpsertTurnPartitionUseCase } from "../application/upsert.turn.partition.usecase.js";
 import {
@@ -9,11 +10,17 @@ import {
 } from "./turn.partition.command.schema.js";
 
 @Controller("api/v1/tasks/:id/turn-partition")
-export class TurnPartitionCommandController {
+export class TurnPartitionController {
     constructor(
+        @Inject(GetTurnPartitionUseCase) private readonly getTurnPartition: GetTurnPartitionUseCase,
         @Inject(UpsertTurnPartitionUseCase) private readonly upsert: UpsertTurnPartitionUseCase,
         @Inject(ResetTurnPartitionUseCase) private readonly reset: ResetTurnPartitionUseCase,
     ) {}
+
+    @Get()
+    async get(@Param("id", pathParamPipe) taskId: string) {
+        return this.getTurnPartition.execute({ taskId });
+    }
 
     @Put()
     @HttpCode(HttpStatus.OK)

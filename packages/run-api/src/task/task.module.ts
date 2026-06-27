@@ -2,8 +2,7 @@ import { Module, type DynamicModule } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 // Turn-partition — folded into task as its own slice under ./turn/ (rich domain
 // preserved; only the separate NestJS module was collapsed into TaskModule).
-import { TurnPartitionCommandController } from "./turn/api/turn.partition.command.controller.js";
-import { TurnPartitionQueryController } from "./turn/api/turn.partition.query.controller.js";
+import { TurnPartitionController } from "./turn/api/turn.partition.controller.js";
 import { TurnPartitionRepository } from "./turn/repository/turn.partition.repository.js";
 import { TaskAccessAdapter as TurnTaskAccessAdapter } from "./turn/adapter/task.access.adapter.js";
 import { TimelineEventAccessAdapter as TurnTimelineEventAccessAdapter } from "./turn/adapter/timeline.event.access.adapter.js";
@@ -16,9 +15,8 @@ import {
     TIMELINE_EVENT_ACCESS_PORT as TURN_TIMELINE_EVENT_ACCESS_PORT,
 } from "./turn/application/outbound/tokens.js";
 import { SystemQueryController } from "./api/system.query.controller.js";
-import { TaskCommandController } from "./api/task.command.controller.js";
+import { TaskController } from "./api/task.controller.js";
 import { TaskIngestController } from "./api/task.ingest.controller.js";
-import { TaskQueryController } from "./api/task.query.controller.js";
 import { ArchiveTaskUseCase } from "./application/archive.task.usecase.js";
 import { CompleteTaskUseCase } from "./application/complete.task.usecase.js";
 import { DeleteTaskUseCase } from "./application/delete.task.usecase.js";
@@ -92,7 +90,7 @@ export class TaskModule {
                 TypeOrmModule.forFeature([TaskEntity, TaskRelationEntity, TurnPartitionEntity]),
                 databaseModule,
             ],
-            controllers: [TaskCommandController, TaskIngestController, TaskQueryController, SystemQueryController, TurnPartitionCommandController, TurnPartitionQueryController],
+            controllers: [TaskController, TaskIngestController, SystemQueryController, TurnPartitionController],
             providers: [
                 TaskRepository,
                 TaskRelationRepository,

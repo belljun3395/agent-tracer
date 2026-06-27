@@ -1,8 +1,7 @@
 import { Module, type DynamicModule } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
-import { EventCommandController } from "./api/event.command.controller.js";
+import { EventController } from "./api/event.controller.js";
 import { PreprocessingHintsController } from "./api/preprocessing.hints.controller.js";
-import { SearchQueryController } from "./api/search.query.controller.js";
 import { TypedEventIngestController } from "./api/typed.event.ingest.controller.js";
 import { CrossCheckDedupeCache } from "./application/cross.check.dedupe.cache.js";
 import { CommandRepetitionDetector } from "./application/detectors/command.repetition.detector.js";
@@ -56,7 +55,7 @@ export class EventModule {
                 ]),
                 databaseModule,
             ],
-            controllers: [EventCommandController, PreprocessingHintsController, SearchQueryController, TypedEventIngestController],
+            controllers: [EventController, PreprocessingHintsController, TypedEventIngestController],
             providers: [
                 // 검색: Postgres pg_trgm (별도 인덱스/dual-write 없음)
                 PgEventSearch,
