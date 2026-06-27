@@ -17,7 +17,7 @@ import {
     TaskHasNoEventsError,
     TaskNotFoundForGenerationError,
     TaskRuleGenerationService,
-} from "../application/task.rule.generation.service.js";
+} from "../service/task.rule.generation.service.js";
 
 @Controller("api/v1/rules/generate")
 export class TaskRuleGenerationController {
