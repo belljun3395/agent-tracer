@@ -1,3 +1,5 @@
+import type { TurnPartition } from "../../domain/turn.partition.model.js";
+
 export interface TurnGroupUseCaseDto {
     readonly id: string;
     readonly from: number;
@@ -10,4 +12,4 @@ export interface UpsertTurnPartitionUseCaseIn {
     readonly groups: readonly TurnGroupUseCaseDto[];
     readonly baseVersion?: number;
 }
-export type UpsertTurnPartitionUseCaseOut = unknown;
+export type UpsertTurnPartitionUseCaseOut = TurnPartition;

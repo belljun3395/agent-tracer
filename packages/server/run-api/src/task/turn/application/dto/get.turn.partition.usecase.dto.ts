@@ -1,2 +1,4 @@
+import type { TurnPartition } from "../../domain/turn.partition.model.js";
+
 export interface GetTurnPartitionUseCaseIn { readonly taskId: string }
-export type GetTurnPartitionUseCaseOut = unknown;
+export type GetTurnPartitionUseCaseOut = TurnPartition;
