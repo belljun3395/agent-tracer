@@ -70,14 +70,8 @@ export class CreateRuleUseCase {
             },
         });
 
-        // Backfill must run as its OWN top-level transaction, AFTER this one
-        // commits. Triggering it inline runs it inside the write-serializer's
-        // holds-lock async context, so the serializer mistakes it for a nested
-        // savepoint and lets it run detached (it is not awaited); this
-        // transaction then commits out from under it, destroying the savepoint
-        // it expects ("no such savepoint: typeorm_1") and crashing the process
-        // via an unhandled rejection. Deferring to commit gives backfill a clean
-        // context + the FIFO write lock; a rollback skips it entirely.
+        // 백필은 이 트랜잭션이 커밋된 뒤 별도 최상위 트랜잭션으로 실행한다.
+        // 롤백되면 실행되지 않는다.
         runOnTransactionCommit(() => {
             void this.backfill.trigger({ rule: created }).catch((err: unknown) => {
                 this.logger.error(
