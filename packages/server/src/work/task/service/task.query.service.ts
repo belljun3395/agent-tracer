@@ -1,4 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
+import { currentUserId } from "~shared/user/user.context.js";
 import type { MonitoringTask } from "~work/task/domain/task.model.js";
 import type { TaskStatus } from "~work/task/common/task.status.const.js";
 import type { TimelineEvent } from "~activity/event/public/types/event.types.js";
@@ -45,13 +46,13 @@ export class TaskQueryService {
 
     async findById(id: string): Promise<MonitoringTask | null> {
         const entity = await this.taskRepo.findById(id);
-        if (!entity) return null;
+        if (!entity || entity.userId !== currentUserId()) return null;
         const relations = TaskRelations.fromEntities(await this.relationRepo.findByTaskId(id));
         return this.withDisplayTitle(toBaseTask(entity, relations.asSnapshot()));
     }
 
     async findAll(scope: "active" | "archived" | "all" = "active"): Promise<readonly MonitoringTask[]> {
-        const entities = await this.taskRepo.findAllByArchivedScope(scope);
+        const entities = await this.taskRepo.findAllByArchivedScope(scope, currentUserId());
         if (entities.length === 0) return [];
         return this.hydrate(entities);
     }
@@ -59,13 +60,14 @@ export class TaskQueryService {
     async findChildren(parentTaskId: string): Promise<readonly MonitoringTask[]> {
         const childIds = await this.relationRepo.findChildrenIdsOfParent(parentTaskId);
         if (childIds.length === 0) return [];
-        const entities = await this.taskRepo.findByIds(childIds);
+        const userId = currentUserId();
+        const entities = (await this.taskRepo.findByIds(childIds)).filter((e) => e.userId === userId);
         entities.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
         return this.hydrate(entities);
     }
 
     async listTaskStatuses(): Promise<readonly TaskStatus[]> {
-        return this.taskRepo.listAllStatuses();
+        return this.taskRepo.listAllStatuses(currentUserId());
     }
 
     async countTimelineEvents(): Promise<number> {

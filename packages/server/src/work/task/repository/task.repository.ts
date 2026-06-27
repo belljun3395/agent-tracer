@@ -21,14 +21,16 @@ export class TaskRepository {
 
     async findAllByArchivedScope(
         scope: "active" | "archived" | "all",
+        userId: string,
     ): Promise<TaskEntity[]> {
         const qb = this.repo
             .createQueryBuilder("t")
+            .where("t.user_id = :userId", { userId })
             .orderBy("t.updated_at", "DESC");
         if (scope === "active") {
-            qb.where("t.archived_at IS NULL");
+            qb.andWhere("t.archived_at IS NULL");
         } else if (scope === "archived") {
-            qb.where("t.archived_at IS NOT NULL");
+            qb.andWhere("t.archived_at IS NOT NULL");
         }
         return qb.getMany();
     }
@@ -47,10 +49,11 @@ export class TaskRepository {
         await this.repo.delete({ id: In([...ids]) });
     }
 
-    async listAllStatuses(): Promise<readonly TaskStatus[]> {
+    async listAllStatuses(userId: string): Promise<readonly TaskStatus[]> {
         const rows = await this.repo
             .createQueryBuilder("t")
             .select("t.status", "status")
+            .where("t.user_id = :userId", { userId })
             .getRawMany<{ status: TaskStatus }>();
         return rows.map((row) => row.status);
     }
