@@ -17,6 +17,6 @@ export class TaskNotificationPublisherAdapter implements ITaskNotificationPublis
     ) {}
 
     publish(notification: TaskOutboundNotification): void {
-        this.inner.publish(notification as never);
+        this.inner.publish(notification);
     }
 }

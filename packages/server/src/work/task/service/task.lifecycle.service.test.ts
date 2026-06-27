@@ -9,11 +9,9 @@ import type {
     ISessionAccess,
     SessionAccessRecord,
 } from "../application/outbound/session.access.port.js";
-import type {
-    ITimelineEventAccess,
-    TimelineEventInsertInput,
-    TimelineEventRecord,
-} from "../application/outbound/timeline.event.access.port.js";
+import type { ITimelineEventAccess } from "../application/outbound/timeline.event.access.port.js";
+import type { TimelineEventWriteInput } from "~activity/event/public/iservice/timeline.event.write.iservice.js";
+import type { TimelineEventSnapshot } from "~activity/event/public/dto/timeline.event.dto.js";
 import type {
     IEventProjectionAccess,
     ProjectedTimelineEvent,
@@ -67,16 +65,17 @@ function makeSessionAccess(): ISessionAccess & {
 
 function makeTimelineEvents(): ITimelineEventAccess & { insert: Mock; findByTaskId: Mock; findById: Mock; countAll: Mock } {
     return {
-        insert: vi.fn(async (input: TimelineEventInsertInput): Promise<TimelineEventRecord> => ({
+        insert: vi.fn(async (input: TimelineEventWriteInput): Promise<TimelineEventSnapshot> => ({
             id: input.id,
             taskId: input.taskId,
-            kind: input.kind,
-            lane: input.lane,
+            kind: input.kind as TimelineEventSnapshot["kind"],
+            lane: input.lane as TimelineEventSnapshot["lane"],
+            title: input.title,
+            metadata: input.metadata,
+            classification: input.classification as TimelineEventSnapshot["classification"],
             createdAt: input.createdAt,
             ...(input.sessionId ? { sessionId: input.sessionId } : {}),
-            ...(input.title ? { title: input.title } : {}),
             ...(input.body ? { body: input.body } : {}),
-            ...(input.metadata ? { metadata: input.metadata } : {}),
         })),
         findByTaskId: vi.fn(async () => []),
         findById: vi.fn(async () => null),

@@ -16,6 +16,6 @@ export class GetTaskTimelineUseCase {
 
     async execute(input: GetTaskTimelineUseCaseIn): Promise<GetTaskTimelineUseCaseOut> {
         const timeline = await this.events.findByTaskId(input.taskId);
-        return { timeline: timeline.map((event) => this.projection.project(event as never)) as never };
+        return { timeline: timeline.map((event) => this.projection.project(event)) };
     }
 }

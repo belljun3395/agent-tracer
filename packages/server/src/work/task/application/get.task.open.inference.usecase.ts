@@ -1,5 +1,4 @@
 import { Inject, Injectable } from "@nestjs/common";
-import type { TimelineEvent } from "~activity/event/public/types/event.types.js";
 import { TaskQueryService } from "../service/task.query.service.js";
 import { TaskOpenInferenceExport } from "../domain/task.openinference.export.model.js";
 import { TIMELINE_EVENT_ACCESS_PORT } from "./outbound/tokens.js";
@@ -20,7 +19,7 @@ export class GetTaskOpenInferenceUseCase {
         const task = await this.query.findById(input.taskId);
         if (!task) return undefined;
         const timeline = await this.events.findByTaskId(input.taskId);
-        const exported = new TaskOpenInferenceExport(task, timeline as unknown as readonly TimelineEvent[]).toRecord();
+        const exported = new TaskOpenInferenceExport(task, timeline).toRecord();
         return { openinference: exported };
     }
 }

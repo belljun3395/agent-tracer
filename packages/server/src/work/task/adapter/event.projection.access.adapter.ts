@@ -18,6 +18,6 @@ export class EventProjectionAccessAdapter implements IEventProjectionAccess {
     ) {}
 
     project(event: ProjectableTimelineEvent): ProjectedTimelineEvent {
-        return this.inner.project(event as never) as unknown as ProjectedTimelineEvent;
+        return this.inner.project(event);
     }
 }

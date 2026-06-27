@@ -1,12 +1,9 @@
 import { Inject, Injectable } from "@nestjs/common";
 import type { ITimelineEventRead } from "~activity/event/public/iservice/timeline.event.read.iservice.js";
-import type { ITimelineEventWrite } from "~activity/event/public/iservice/timeline.event.write.iservice.js";
+import type { ITimelineEventWrite, TimelineEventWriteInput } from "~activity/event/public/iservice/timeline.event.write.iservice.js";
+import type { TimelineEventSnapshot } from "~activity/event/public/dto/timeline.event.dto.js";
 import { TIMELINE_EVENT_READ, TIMELINE_EVENT_WRITE } from "~activity/event/public/tokens.js";
-import type {
-    ITimelineEventAccess,
-    TimelineEventInsertInput,
-    TimelineEventRecord,
-} from "../application/outbound/timeline.event.access.port.js";
+import type { ITimelineEventAccess } from "../application/outbound/timeline.event.access.port.js";
 
 /**
  * Outbound adapter — bridges event module's public ITimelineEventRead +
@@ -22,19 +19,16 @@ export class TimelineEventAccessAdapter implements ITimelineEventAccess {
         @Inject(TIMELINE_EVENT_WRITE) private readonly write: ITimelineEventWrite,
     ) {}
 
-    async insert(input: TimelineEventInsertInput): Promise<TimelineEventRecord> {
-        const record = await this.write.insert(input as never);
-        return record as unknown as TimelineEventRecord;
+    insert(input: TimelineEventWriteInput): Promise<TimelineEventSnapshot> {
+        return this.write.insert(input);
     }
 
-    async findByTaskId(taskId: string): Promise<readonly TimelineEventRecord[]> {
-        const records = await this.read.findByTaskId(taskId);
-        return records as unknown as readonly TimelineEventRecord[];
+    findByTaskId(taskId: string): Promise<readonly TimelineEventSnapshot[]> {
+        return this.read.findByTaskId(taskId);
     }
 
-    async findById(id: string): Promise<TimelineEventRecord | null> {
-        const record = await this.read.findById(id);
-        return (record as unknown as TimelineEventRecord | null) ?? null;
+    findById(id: string): Promise<TimelineEventSnapshot | null> {
+        return this.read.findById(id);
     }
 
     countAll(): Promise<number> {

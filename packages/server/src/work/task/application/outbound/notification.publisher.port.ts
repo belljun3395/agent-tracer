@@ -1,62 +1,20 @@
+import type { TimelineEventProjection } from "~activity/event/public/dto/timeline.event.dto.js";
+import type { SessionSnapshot } from "~activity/session/public/dto/session.snapshot.dto.js";
+import type { MonitoringTask } from "~work/task/domain/task.model.js";
+
 /**
- * Outbound port for task module notifications. Self-contained.
- * Adapter forwards to the shared transport.
+ * 태스크 모듈이 발행하는 알림. 페이로드는 캐노니컬 타입(태스크/세션/프로젝션)을
+ * 그대로 사용해 공유 알림 타입과 캐스트 없이 정렬된다.
  */
-
-export type NotifiedTaskStatus = "running" | "waiting" | "completed" | "errored";
-export type NotifiedTaskKind = "primary" | "background";
-
-export interface NotifiedTaskPayload {
-    readonly id: string;
-    readonly title: string;
-    readonly slug: string;
-    readonly status: NotifiedTaskStatus;
-    readonly taskKind?: NotifiedTaskKind;
-    readonly createdAt: string;
-    readonly updatedAt: string;
-    readonly lastSessionStartedAt?: string;
-    readonly workspacePath?: string;
-    readonly runtimeSource?: string;
-    readonly displayTitle?: string;
-    readonly parentTaskId?: string;
-    readonly parentSessionId?: string;
-    readonly backgroundTaskId?: string;
-    readonly archivedAt?: string;
-}
-
-export interface NotifiedSessionPayload {
-    readonly id: string;
-    readonly taskId: string;
-    readonly status: "running" | "completed" | "errored";
-    readonly startedAt: string;
-    readonly endedAt?: string;
-    readonly summary?: string;
-}
-
-export interface NotifiedEventPayload {
-    readonly id: string;
-    readonly taskId: string;
-    readonly sessionId?: string;
-    readonly kind: string;
-    readonly lane: string;
-    readonly title: string;
-    readonly body?: string;
-    readonly metadata: Record<string, unknown>;
-    readonly classification: { readonly lane: string; readonly tags: readonly string[]; readonly matches: readonly unknown[] };
-    readonly createdAt: string;
-    readonly paths: { readonly filePaths: readonly string[]; readonly mentionedPaths: readonly string[]; readonly primaryPath?: string };
-    readonly semantic?: { readonly subtypeKey: string; readonly subtypeLabel: string; readonly subtypeGroup?: string; readonly entityType?: string; readonly entityName?: string };
-}
-
 export type TaskOutboundNotification =
-    | { readonly type: "task.started"; readonly payload: NotifiedTaskPayload }
-    | { readonly type: "task.completed"; readonly payload: NotifiedTaskPayload }
-    | { readonly type: "task.updated"; readonly payload: NotifiedTaskPayload }
+    | { readonly type: "task.started"; readonly payload: MonitoringTask }
+    | { readonly type: "task.completed"; readonly payload: MonitoringTask }
+    | { readonly type: "task.updated"; readonly payload: MonitoringTask }
     | { readonly type: "task.deleted"; readonly payload: { readonly taskId: string } }
     | { readonly type: "tasks.purged"; readonly payload: { readonly count: number } }
-    | { readonly type: "session.started"; readonly payload: NotifiedSessionPayload }
-    | { readonly type: "session.ended"; readonly payload: NotifiedSessionPayload }
-    | { readonly type: "event.logged"; readonly payload: NotifiedEventPayload };
+    | { readonly type: "session.started"; readonly payload: SessionSnapshot }
+    | { readonly type: "session.ended"; readonly payload: SessionSnapshot }
+    | { readonly type: "event.logged"; readonly payload: TimelineEventProjection };
 
 export interface ITaskNotificationPublisher {
     publish(notification: TaskOutboundNotification): void;
