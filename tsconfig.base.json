@@ -14,9 +14,6 @@
       "@monitor/work-api/*": [
         "packages/work-api/src/*"
       ],
-      "@monitor/governance-api/*": [
-        "packages/governance-api/src/*"
-      ],
       "@monitor/rules-api/*": [
         "packages/rules-api/src/*"
       ],

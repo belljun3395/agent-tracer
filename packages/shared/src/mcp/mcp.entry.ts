@@ -4,8 +4,8 @@ import { MonitorClient } from "./client.js";
 import { registerAsyncLifecycleTools } from "@monitor/work-api/task/mcp/async.lifecycle.js";
 import { registerConversationTools } from "@monitor/activity-api/event/mcp/conversation.js";
 import { registerEventLoggingTools } from "@monitor/activity-api/event/mcp/event.logging.js";
-import { registerRecipeTools } from "@monitor/governance-api/recipe/mcp/recipe.js";
-import { registerRuleTools } from "@monitor/governance-api/rule/mcp/rule.js";
+import { registerRecipeTools } from "@monitor/insight-api/recipe/mcp/recipe.js";
+import { registerRuleTools } from "@monitor/rules-api/rule/mcp/rule.js";
 import { registerTaskLifecycleTools } from "@monitor/work-api/task/mcp/task.lifecycle.js";
 export function createMonitorMcpServer(client = new MonitorClient()): McpServer {
     const server = new McpServer({
