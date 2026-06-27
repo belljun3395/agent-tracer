@@ -4,7 +4,7 @@ import type {
     TimelineEvent,
 } from "~activity/event/domain/model/timeline.event.model.js";
 
-/** Outbound port for timeline event persistence. */
+/** 타임라인 이벤트 영속성 아웃바운드 포트. */
 
 export type PersistedTimelineEvent = TimelineEvent;
 

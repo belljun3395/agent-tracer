@@ -1,9 +1,9 @@
 /**
- * Outbound port — trigger a verification backfill for a single rule.
- * The rule module fires this after create / update / re-evaluate so the
- * verification module re-evaluates closed turns against the changed rule.
+ * 아웃바운드 포트 — 단일 룰에 대한 verification 백필을 트리거한다.
+ * 룰 모듈이 생성/수정/재평가 후 호출하면, verification 모듈이 변경된 룰로
+ * 닫힌 턴들을 재평가한다.
  *
- * The rule payload is the module's own public Rule contract.
+ * 룰 페이로드는 룰 모듈 자신의 public Rule 계약을 그대로 사용한다.
  */
 import type { Rule } from "~governance/rule/public/types/rule.types.js";
 
