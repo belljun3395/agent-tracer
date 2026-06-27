@@ -80,7 +80,7 @@ const VERIFICATION_INTERNAL_PROVIDERS: Provider[] = [
             turnRepo: ITurnRepository,
             turnEvaluation: TurnEvaluationService,
             notifier: INotificationPublisher,
-        ) => new TurnLifecyclePostProcessor(eventRepo as never, turnRepo, turnEvaluation, notifier),
+        ) => new TurnLifecyclePostProcessor(eventRepo, turnRepo, turnEvaluation, notifier),
         inject: [
             TIMELINE_EVENT_READ,
             TURN_REPOSITORY_TOKEN,
@@ -102,7 +102,7 @@ const VERIFICATION_INTERNAL_PROVIDERS: Provider[] = [
                 turnRepo,
                 turnSource: turnQueryRepo,
                 verdictRepo,
-                eventRepo: eventRepo as never,
+                eventRepo,
                 enforcementRepo,
                 notifier,
                 now: () => new Date().toISOString(),

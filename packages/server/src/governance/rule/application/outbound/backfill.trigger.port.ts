@@ -3,28 +3,12 @@
  * The rule module fires this after create / update / re-evaluate so the
  * verification module re-evaluates closed turns against the changed rule.
  *
- * Self-contained — adapter wraps verification.public IVerificationBackfill.
+ * The rule payload is the module's own public Rule contract.
  */
+import type { Rule } from "~governance/rule/public/types/rule.types.js";
 
 export interface BackfillTriggerInput {
-    readonly rule: {
-        readonly id: string;
-        readonly name: string;
-        readonly trigger?: { readonly phrases: readonly string[] };
-        readonly triggerOn?: string;
-        readonly expect: {
-            readonly action?: string;
-            readonly commandMatches?: readonly string[];
-            readonly pattern?: string;
-        };
-        readonly scope: "global" | "task";
-        readonly taskId?: string;
-        readonly source: string;
-        readonly severity: string;
-        readonly rationale?: string;
-        readonly signature: string;
-        readonly createdAt: string;
-    };
+    readonly rule: Rule;
 }
 
 export interface BackfillTriggerResult {

@@ -176,8 +176,8 @@ export class TaskLifecycleService {
         const event = await this.events.insert({
             id: this.idGen.newUuid(),
             ...record,
-        } as never);
-        this.notifier.publish({ type: "event.logged", payload: this.projection.project(event as never) as never });
-        return { task: finalTask, ...(sessionId ? { sessionId } : {}), events: [{ id: event.id, kind: event.kind as MonitoringEventKind }] };
+        });
+        this.notifier.publish({ type: "event.logged", payload: this.projection.project(event) });
+        return { task: finalTask, ...(sessionId ? { sessionId } : {}), events: [{ id: event.id, kind: event.kind }] };
     }
 }

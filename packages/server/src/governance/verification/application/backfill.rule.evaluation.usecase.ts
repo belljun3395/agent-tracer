@@ -17,8 +17,8 @@ import type { ITurnRepository } from "~governance/verification/application/outbo
 import type { IVerdictRepository } from "~governance/verification/application/outbound/verdict.repository.port.js";
 
 
+import type { Rule } from "~governance/rule/public/types/rule.types.js";
 import type {
-    BackfillRuleEvaluationRuleUseCaseDto,
     BackfillRuleEvaluationUseCaseIn,
     BackfillRuleEvaluationUseCaseOut,
 } from "./dto/backfill.rule.evaluation.usecase.dto.js";
@@ -186,7 +186,7 @@ export class BackfillRuleEvaluationUseCase {
 
 function listTurnsForRuleScope(
     turnSource: BackfillTurnSource,
-    rule: BackfillRuleEvaluationRuleUseCaseDto,
+    rule: Rule,
 ): Promise<ReadonlyArray<BackfillTurnRow>> {
     return rule.scope === "task" && rule.taskId
         ? turnSource.listTurnsForTaskBackfill(rule.taskId)
@@ -218,7 +218,7 @@ function inferTurnToolCalls(events: readonly TimelineEvent[]): readonly Evaluate
 
 function buildEnforcementInserts(
     events: readonly TimelineEvent[],
-    rule: BackfillRuleEvaluationRuleUseCaseDto,
+    rule: Rule,
     decidedAt: string,
 ): readonly RuleEnforcementInsert[] {
     const inserts: RuleEnforcementInsert[] = [];

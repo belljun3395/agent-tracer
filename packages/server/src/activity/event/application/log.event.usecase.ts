@@ -141,11 +141,10 @@ export class LogEventUseCase {
 
     private async insertEvent(input: EventRecordingInput): Promise<TimelineEvent> {
         const record = createEventRecordDraft(input);
-        const persisted = await this.events.insert({
+        const event = await this.events.insert({
             id: this.idGen.newUuid(),
             ...record,
-        } as never);
-        const event = persisted as unknown as TimelineEvent;
+        });
         // Broadcast only after the surrounding transaction commits, so a
         // rolled-back event never reaches dashboards as a phantom row.
         runOnTransactionCommit(() => {

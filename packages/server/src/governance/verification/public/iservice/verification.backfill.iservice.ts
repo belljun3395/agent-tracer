@@ -3,25 +3,9 @@
  * Consumed by the rule module after create/update/re-evaluate so closed
  * turns get evaluated against the new/changed rule.
  */
+import type { Rule } from "~governance/rule/public/types/rule.types.js";
 
-export interface VerificationBackfillRule {
-    readonly id: string;
-    readonly name: string;
-    readonly trigger?: { readonly phrases: readonly string[] };
-    readonly triggerOn?: string;
-    readonly expect: {
-        readonly action?: string;
-        readonly commandMatches?: readonly string[];
-        readonly pattern?: string;
-    };
-    readonly scope: "global" | "task";
-    readonly taskId?: string;
-    readonly source: string;
-    readonly severity: string;
-    readonly rationale?: string;
-    readonly signature: string;
-    readonly createdAt: string;
-}
+export type VerificationBackfillRule = Rule;
 
 export interface VerificationBackfillResult {
     readonly turnsConsidered: number;

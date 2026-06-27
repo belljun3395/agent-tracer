@@ -14,7 +14,7 @@ export class VerificationBackfillPublicAdapter implements IVerificationBackfill 
     ) {}
 
     async backfill(rule: VerificationBackfillRule): Promise<VerificationBackfillResult> {
-        const result = await this.inner.execute({ rule: rule as never });
+        const result = await this.inner.execute({ rule });
         return {
             turnsConsidered: result.turnsConsidered,
             turnsEvaluated: result.turnsEvaluated,

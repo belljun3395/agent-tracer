@@ -24,8 +24,7 @@ export class TurnQueryAccessAdapter implements ITurnQueryAccess {
         @Inject(TURN_QUERY_REPOSITORY_TOKEN) private readonly inner: TurnSummaryQuerySource,
     ) {}
 
-    async listTurnSummariesForTask(taskId: string): Promise<readonly TurnSummaryAccessRecord[]> {
-        const summaries = await this.inner.listTurnSummariesForTask(taskId);
-        return summaries as unknown as readonly TurnSummaryAccessRecord[];
+    listTurnSummariesForTask(taskId: string): Promise<readonly TurnSummaryAccessRecord[]> {
+        return this.inner.listTurnSummariesForTask(taskId);
     }
 }
