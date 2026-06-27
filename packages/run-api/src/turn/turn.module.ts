@@ -15,7 +15,7 @@ import { TurnPartitionEntity } from "./domain/turn.partition.entity.js";
 import { TurnPartitionRepository } from "./repository/turn.partition.repository.js";
 
 /**
- * Turn-partition module — owns the turn_partitions_current table.
+ * Turn-partition module — owns the turn_partitions table.
  *
  * Persistence: TypeORM-backed TurnPartitionEntity + thin repository.
  *

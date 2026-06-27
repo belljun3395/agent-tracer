@@ -93,7 +93,7 @@ export class OpenSearchEventIndex implements IEventSearchIndex, OnModuleInit {
     async refresh(eventId: string): Promise<void> {
         const rows = await this.dataSource.query<readonly EventRow[]>(
             `select id, user_id, task_id, kind, lane, title, body, created_at
-             from timeline_events_view where id = $1`,
+             from timeline_events where id = $1`,
             [eventId],
         );
         const row = rows[0];
@@ -197,7 +197,7 @@ export class OpenSearchEventIndex implements IEventSearchIndex, OnModuleInit {
         if (unique.length === 0) return new Map();
         const placeholders = unique.map((_, i) => `$${i + 1}`).join(", ");
         const rows = await this.dataSource.query<readonly { id: string; title: string }[]>(
-            `select id, title from tasks_current where id in (${placeholders})`,
+            `select id, title from tasks where id in (${placeholders})`,
             unique,
         );
         return new Map(rows.map((row) => [row.id, row.title] as const));
@@ -207,7 +207,7 @@ export class OpenSearchEventIndex implements IEventSearchIndex, OnModuleInit {
         const pattern = `%${query.trim()}%`;
         const rows = await this.dataSource.query<readonly TaskRow[]>(
             `select id, title, workspace_path, status, updated_at
-             from tasks_current
+             from tasks
              where user_id = $1
                and (title ilike $2 or coalesce(workspace_path, '') ilike $2)
              order by updated_at desc

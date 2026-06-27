@@ -5,9 +5,9 @@ import { zodJsonbTransformer } from "./jsonb.column.js";
 const metadataSchema = z.record(z.string(), z.unknown());
 const tagsSchema = z.array(z.string());
 
-@Entity({ name: "timeline_events_view" })
+@Entity({ name: "timeline_events" })
 @Index("idx_timeline_events_user_created", ["userId", "createdAt"])
-@Index("idx_timeline_events_view_task_created", ["taskId", "createdAt"])
+@Index("idx_timeline_events_task_created", ["taskId", "createdAt"])
 @Index("idx_timeline_events_subtype_group", ["subtypeGroup", "createdAt"])
 @Index("idx_timeline_events_tool_family", ["toolFamily"])
 @Index("idx_timeline_events_lane_created", ["lane", "createdAt"])

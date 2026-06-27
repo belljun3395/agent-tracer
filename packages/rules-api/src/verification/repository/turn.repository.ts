@@ -73,7 +73,7 @@ export class TurnRepository implements ITurnRepository {
     async findEventsForTurn(turnId: string): Promise<readonly string[]> {
         const rows = await this.eventRepo
             .createQueryBuilder("te")
-            .innerJoin("timeline_events_view", "e", "e.id = te.event_id")
+            .innerJoin("timeline_events", "e", "e.id = te.event_id")
             .where("te.turn_id = :turnId", { turnId })
             .orderBy("e.created_at", "ASC")
             .select("te.event_id", "eventId")

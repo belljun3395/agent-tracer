@@ -7,8 +7,8 @@ const MIN_APPLIED_FOR_FAILURE = 5;
 const MIN_SUCCESS_RATE = 0.3;
 const STALE_AGE_MS = 14 * 24 * 60 * 60 * 1000;
 
-@Entity({ name: "recipes_current" })
-@Index("idx_recipes_current_user_status", ["userId", "status", "updatedAt"])
+@Entity({ name: "recipes" })
+@Index("idx_recipes_user_status", ["userId", "status", "updatedAt"])
 export class RecipeEntity {
     @PrimaryColumn({ type: "text" })
     id!: string;

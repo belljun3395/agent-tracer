@@ -1,6 +1,6 @@
 import { Column, Entity, Index, PrimaryColumn } from "typeorm";
 
-@Entity({ name: "questions_current" })
+@Entity({ name: "questions" })
 @Index("idx_questions_task_phase", ["taskId", "phase"])
 export class QuestionCurrentEntity {
     @PrimaryColumn({ type: "text" })

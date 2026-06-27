@@ -39,8 +39,8 @@ import { TimelineEventStorageService } from "./service/timeline.event.storage.se
 /**
  * 이벤트 모듈 — 타임라인 이벤트를 소유한다.
  *
- * 영속성: timeline_events_view 테이블과 파생 테이블(event_files, event_relations,
- * event_async_refs, event_tags, todos_current, questions_current,
+ * 영속성: timeline_events 테이블과 파생 테이블(event_files, event_relations,
+ * event_async_refs, event_tags, todos, questions,
  * event_token_usage)을 TypeORM 엔티티로 직접 기록한다.
  *
  * 공개 표면: TIMELINE_EVENT_READ / TIMELINE_EVENT_WRITE / TIMELINE_EVENT_PROJECTION.

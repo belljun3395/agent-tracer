@@ -5,8 +5,8 @@ import type {
     TaskStatus,
 } from "@monitor/run-api/task/common/task.status.const.js";
 
-@Entity({ name: "tasks_current" })
-@Index("idx_tasks_current_user_updated", ["userId", "updatedAt"])
+@Entity({ name: "tasks" })
+@Index("idx_tasks_user_updated", ["userId", "updatedAt"])
 export class TaskEntity {
     @PrimaryColumn({ type: "text" })
     id!: string;

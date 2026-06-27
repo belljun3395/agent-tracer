@@ -1,7 +1,7 @@
 import { Column, Entity, PrimaryColumn } from "typeorm";
 import type { RuntimeBindingSnapshot } from "../public/dto/runtime.binding.snapshot.dto.js";
 
-@Entity({ name: "runtime_bindings_current" })
+@Entity({ name: "runtime_bindings" })
 export class RuntimeBindingEntity {
     @PrimaryColumn({ name: "runtime_source", type: "text" })
     runtimeSource!: string;

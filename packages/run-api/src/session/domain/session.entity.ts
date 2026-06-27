@@ -1,9 +1,9 @@
 import { Column, Entity, Index, PrimaryColumn } from "typeorm";
 import type { SessionSnapshot, SessionStatus } from "../public/dto/session.snapshot.dto.js";
 
-@Entity({ name: "sessions_current" })
-@Index("idx_sessions_current_task_started", ["taskId", "startedAt"])
-@Index("idx_sessions_current_task_status_started", ["taskId", "status", "startedAt"])
+@Entity({ name: "sessions" })
+@Index("idx_sessions_task_started", ["taskId", "startedAt"])
+@Index("idx_sessions_task_status_started", ["taskId", "status", "startedAt"])
 export class SessionEntity {
     @PrimaryColumn({ type: "text" })
     id!: string;

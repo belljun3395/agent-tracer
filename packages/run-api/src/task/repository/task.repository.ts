@@ -101,7 +101,7 @@ export class TaskRepository {
     async collectDescendantIds(taskId: string): Promise<readonly string[]> {
         const rows = await this.repo.query<readonly { id: string }[]>(
             `with recursive task_tree(id) as (
-               select id from tasks_current where id = $1
+               select id from tasks where id = $1
                union all
                select relation.task_id
                from task_relations relation

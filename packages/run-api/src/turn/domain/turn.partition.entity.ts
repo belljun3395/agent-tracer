@@ -1,6 +1,6 @@
 import { Column, Entity, PrimaryColumn } from "typeorm";
 
-@Entity({ name: "turn_partitions_current" })
+@Entity({ name: "turn_partitions" })
 export class TurnPartitionEntity {
     @PrimaryColumn({ name: "task_id", type: "text" })
     taskId!: string;
