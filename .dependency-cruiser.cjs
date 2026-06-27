@@ -19,10 +19,10 @@ module.exports = {
       to: { path: "^packages/(run-api|rules-api|insight-api)/src/" },
     },
     {
-      name: "work-below-rules-insight",
-      severity: "warn",
+      name: "run-below-rules-insight",
+      severity: "error",
       comment:
-        "work (run) sits below rules/insight. Residual: task/adapter/turn.query.access.adapter consumes rules' TURN_QUERY_REPOSITORY_TOKEN — relocate that token to work to clear this.",
+        "run sits below rules/insight in the DAG — it must not import them. Turn-query data that task needs is provided by rules via a task-owned token (TURN_QUERY_REPOSITORY_TOKEN lives in run-api/task/public).",
       from: { path: "^packages/run-api/src/" },
       to: { path: "^packages/(rules-api|insight-api)/src/" },
     },
