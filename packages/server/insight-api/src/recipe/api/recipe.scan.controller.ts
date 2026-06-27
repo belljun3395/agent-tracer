@@ -21,8 +21,8 @@ import { DismissRecipeCandidateUseCase } from "../application/dismiss.recipe.can
 import { ListRecipeCandidatesUseCase } from "../application/list.recipe.candidates.usecase.js";
 import { ListRecipesUseCase } from "../application/list.recipes.usecase.js";
 import { RecipeMatchingService } from "../application/recipe.matching.service.js";
-import { FileAffinityRepository } from "../repository/file.affinity.repository.js";
-import { RecipeApplicationRepository } from "../repository/recipe.application.repository.js";
+import { ListFileAffinityUseCase } from "../application/list.file.affinity.usecase.js";
+import { ListRecipeApplicationsUseCase } from "../application/list.recipe.applications.usecase.js";
 import { RetireRecipeUseCase } from "../application/retire.recipe.usecase.js";
 import {
     MissingApiKeyError,
@@ -84,8 +84,8 @@ export class RecipeScanController {
         private readonly listRecipes: ListRecipesUseCase,
         private readonly retireRecipe: RetireRecipeUseCase,
         private readonly matching: RecipeMatchingService,
-        private readonly applications: RecipeApplicationRepository,
-        private readonly fileAffinity: FileAffinityRepository,
+        private readonly listApplicationsUseCase: ListRecipeApplicationsUseCase,
+        private readonly fileAffinityUseCase: ListFileAffinityUseCase,
     ) {}
 
     @Post("scan")
@@ -228,31 +228,13 @@ export class RecipeScanController {
         @Query("path") pathParam?: string,
     ) {
         if (pathParam) {
-            const rows = await this.fileAffinity.listIntentsForFile(pathParam);
-            return {
-                file: pathParam,
-                intents: rows.map((r) => ({
-                    intentLabel: r.intentLabel,
-                    role: r.role,
-                    openCount: r.openCount,
-                    lastSeenAt: r.lastSeenAt,
-                })),
-            };
+            return this.fileAffinityUseCase.listIntentsForFile(pathParam);
         }
         if (!intent) {
             throw new BadRequestException("intent or path query param required");
         }
         const limit = clampSmallInt(limitParam, 10, 50);
-        const rows = await this.fileAffinity.listByIntent(intent, limit);
-        return {
-            intent,
-            files: rows.map((r) => ({
-                filePath: r.filePath,
-                role: r.role,
-                openCount: r.openCount,
-                lastSeenAt: r.lastSeenAt,
-            })),
-        };
+        return this.fileAffinityUseCase.listByIntent(intent, limit);
     }
 
     @Get("applications")
@@ -260,18 +242,6 @@ export class RecipeScanController {
         if (!taskIdParam) {
             throw new BadRequestException("taskId query param required");
         }
-        const rows = await this.applications.listByTaskId(taskIdParam);
-        return {
-            applications: rows.map((r) => ({
-                id: r.id,
-                recipeId: r.recipeId,
-                targetTaskId: r.targetTaskId,
-                injectedVia: r.injectedVia,
-                score: r.score,
-                outcome: r.outcome,
-                createdAt: r.createdAt,
-                resolvedAt: r.resolvedAt,
-            })),
-        };
+        return this.listApplicationsUseCase.execute(taskIdParam);
     }
 }

@@ -8,6 +8,8 @@ import { ListRecipesUseCase } from "./application/list.recipes.usecase.js";
 import { RecipeMatchingService } from "./application/recipe.matching.service.js";
 import { RecipeScanService } from "./application/recipe.scan.service.js";
 import { RetireRecipeUseCase } from "./application/retire.recipe.usecase.js";
+import { ListRecipeApplicationsUseCase } from "./application/list.recipe.applications.usecase.js";
+import { ListFileAffinityUseCase } from "./application/list.file.affinity.usecase.js";
 import { FileAffinityEntity } from "./domain/file.affinity.entity.js";
 import { RecipeApplicationEntity } from "./domain/recipe.application.entity.js";
 import { RecipeCandidateEntity } from "./domain/recipe.candidate.entity.js";
@@ -51,6 +53,8 @@ export class RecipeModule {
                 DismissRecipeCandidateUseCase,
                 ListRecipesUseCase,
                 RetireRecipeUseCase,
+                ListRecipeApplicationsUseCase,
+                ListFileAffinityUseCase,
 
                 RecipeScanAgent,
                 LocalQueryRunner,
