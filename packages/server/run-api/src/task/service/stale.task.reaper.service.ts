@@ -5,9 +5,10 @@ import {
     type OnApplicationShutdown,
 } from "@nestjs/common";
 import { Interval } from "@nestjs/schedule";
-import { CLOCK_PORT, SESSION_ACCESS_PORT } from "../application/outbound/tokens.js";
+import { CLOCK_PORT } from "../application/outbound/tokens.js";
+import { SESSION_LIFECYCLE } from "@monitor/run-api/session/public/tokens.js";
 import type { IClock } from "../application/outbound/clock.port.js";
-import type { ISessionAccess } from "../application/outbound/session.access.port.js";
+import type { ISessionLifecycle } from "@monitor/run-api/session/public/iservice/session.lifecycle.iservice.js";
 import type { TaskStatus } from "../common/task.status.const.js";
 import { TaskRepository } from "../repository/task.repository.js";
 import { TaskLifecycleService } from "./task.lifecycle.service.js";
@@ -28,7 +29,7 @@ export class StaleTaskReaperService implements OnApplicationShutdown {
     constructor(
         private readonly tasks: TaskRepository,
         private readonly lifecycle: TaskLifecycleService,
-        @Inject(SESSION_ACCESS_PORT) private readonly sessions: ISessionAccess,
+        @Inject(SESSION_LIFECYCLE) private readonly sessions: ISessionLifecycle,
         @Inject(CLOCK_PORT) private readonly clock: IClock,
     ) {}
 

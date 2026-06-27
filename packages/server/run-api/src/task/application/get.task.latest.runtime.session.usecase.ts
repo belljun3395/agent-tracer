@@ -1,6 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { RUNTIME_BINDING_ACCESS_PORT } from "./outbound/tokens.js";
-import type { IRuntimeBindingAccess } from "./outbound/runtime.binding.access.port.js";
+import { RUNTIME_BINDING_LOOKUP } from "@monitor/run-api/session/public/tokens.js";
+import type { IRuntimeBindingLookup } from "@monitor/run-api/session/public/iservice/runtime.binding.lookup.iservice.js";
 import type {
     GetTaskLatestRuntimeSessionUseCaseIn,
     GetTaskLatestRuntimeSessionUseCaseOut,
@@ -9,7 +9,7 @@ import type {
 @Injectable()
 export class GetTaskLatestRuntimeSessionUseCase {
     constructor(
-        @Inject(RUNTIME_BINDING_ACCESS_PORT) private readonly runtimeBindings: IRuntimeBindingAccess,
+        @Inject(RUNTIME_BINDING_LOOKUP) private readonly runtimeBindings: IRuntimeBindingLookup,
     ) {}
 
     async execute(input: GetTaskLatestRuntimeSessionUseCaseIn): Promise<GetTaskLatestRuntimeSessionUseCaseOut> {

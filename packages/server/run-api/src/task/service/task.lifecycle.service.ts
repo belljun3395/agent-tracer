@@ -19,15 +19,15 @@ import {
     CLOCK_PORT,
     ID_GENERATOR_PORT,
     NOTIFICATION_PUBLISHER_PORT,
-    SESSION_ACCESS_PORT,
 } from "../application/outbound/tokens.js";
+import { SESSION_LIFECYCLE } from "@monitor/run-api/session/public/tokens.js";
 import {
     TIMELINE_EVENT_PROJECTION,
     TIMELINE_EVENT_WRITE,
 } from "@monitor/timeline-api/event/public/tokens.js";
 import type { IClock } from "../application/outbound/clock.port.js";
 import type { IIdGenerator } from "../application/outbound/id.generator.port.js";
-import type { ISessionAccess } from "../application/outbound/session.access.port.js";
+import type { ISessionLifecycle } from "@monitor/run-api/session/public/iservice/session.lifecycle.iservice.js";
 import type { ITimelineEventWrite } from "@monitor/timeline-api/event/public/iservice/timeline.event.write.iservice.js";
 import type { ITimelineEventProjection } from "@monitor/timeline-api/event/public/iservice/timeline.event.projection.iservice.js";
 import type { ITaskNotificationPublisher } from "../application/outbound/notification.publisher.port.js";
@@ -71,7 +71,7 @@ export class TaskLifecycleService {
     constructor(
         private readonly query: TaskQueryService,
         private readonly management: TaskManagementService,
-        @Inject(SESSION_ACCESS_PORT) private readonly sessions: ISessionAccess,
+        @Inject(SESSION_LIFECYCLE) private readonly sessions: ISessionLifecycle,
         @Inject(TIMELINE_EVENT_WRITE) private readonly events: ITimelineEventWrite,
         @Inject(TIMELINE_EVENT_PROJECTION) private readonly projection: ITimelineEventProjection,
         @Inject(NOTIFICATION_PUBLISHER_PORT) private readonly notifier: ITaskNotificationPublisher,

@@ -39,13 +39,7 @@ import { ListTasksUseCase } from "./application/list.tasks.usecase.js";
 import { SearchTasksUseCase } from "./application/search.tasks.usecase.js";
 import { StartTaskUseCase } from "./application/start.task.usecase.js";
 import { UpdateTaskUseCase } from "./application/update.task.usecase.js";
-import {
-    NOTIFICATION_PUBLISHER_PORT,
-    RUNTIME_BINDING_ACCESS_PORT,
-    SESSION_ACCESS_PORT,
-} from "./application/outbound/tokens.js";
-import { RuntimeBindingAccessAdapter } from "./adapter/runtime.binding.access.adapter.js";
-import { SessionAccessAdapter } from "./adapter/session.access.adapter.js";
+import { NOTIFICATION_PUBLISHER_PORT } from "./application/outbound/tokens.js";
 import { TaskAccessPublicAdapter } from "./adapter/task.access.public.adapter.js";
 import { TaskNotificationPublisherAdapter } from "./adapter/task.notification.publisher.adapter.js";
 import { TaskEntity } from "./domain/task.entity.js";
@@ -81,8 +75,6 @@ export class TaskModule {
 
                 EventRecordedTaskEffectSubscriber,
 
-                SessionAccessAdapter,
-                RuntimeBindingAccessAdapter,
                 TaskNotificationPublisherAdapter,
 
                 TaskAccessPublicAdapter,
@@ -125,8 +117,6 @@ export class TaskModule {
                 { provide: TASK_ACCESS, useExisting: TaskAccessPublicAdapter },
                 { provide: TASK_SNAPSHOT_QUERY, useExisting: TaskQueryService },
 
-                { provide: SESSION_ACCESS_PORT, useExisting: SessionAccessAdapter },
-                { provide: RUNTIME_BINDING_ACCESS_PORT, useExisting: RuntimeBindingAccessAdapter },
                 { provide: NOTIFICATION_PUBLISHER_PORT, useExisting: TaskNotificationPublisherAdapter },
             ],
             exports: [

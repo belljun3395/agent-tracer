@@ -5,10 +5,8 @@ import type { TaskQueryService } from "./task.query.service.js";
 import type { TaskManagementService } from "./task.management.service.js";
 import type { IClock } from "../application/outbound/clock.port.js";
 import type { IIdGenerator } from "../application/outbound/id.generator.port.js";
-import type {
-    ISessionAccess,
-    SessionAccessRecord,
-} from "../application/outbound/session.access.port.js";
+import type { ISessionLifecycle } from "@monitor/run-api/session/public/iservice/session.lifecycle.iservice.js";
+import type { SessionSnapshot } from "@monitor/run-api/session/public/dto/session.snapshot.dto.js";
 import type {
     ITimelineEventWrite,
     TimelineEventWriteInput,
@@ -47,11 +45,11 @@ function makeIdGen(sequence: readonly string[]): IIdGenerator & { newUuid: Mock;
     };
 }
 
-function makeSessionAccess(): ISessionAccess & {
-    create: Mock; findById: Mock; findActiveByTaskId: Mock; countRunningByTaskId: Mock; updateStatus: Mock;
+function makeSessionAccess(): ISessionLifecycle & {
+    create: Mock; findById: Mock; findByTaskId: Mock; findActiveByTaskId: Mock; countRunningByTaskId: Mock; updateStatus: Mock;
 } {
     return {
-        create: vi.fn(async (req): Promise<SessionAccessRecord> => ({
+        create: vi.fn(async (req): Promise<SessionSnapshot> => ({
             id: req.id,
             taskId: req.taskId,
             status: req.status,
@@ -59,6 +57,7 @@ function makeSessionAccess(): ISessionAccess & {
             ...(req.summary ? { summary: req.summary } : {}),
         })),
         findById: vi.fn(async () => null),
+        findByTaskId: vi.fn(async () => []),
         findActiveByTaskId: vi.fn(async () => null),
         countRunningByTaskId: vi.fn(async () => 0),
         updateStatus: vi.fn(async () => undefined),
