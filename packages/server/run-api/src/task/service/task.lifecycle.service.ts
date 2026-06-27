@@ -17,17 +17,19 @@ import { TaskQueryService } from "./task.query.service.js";
 import { TaskManagementService } from "./task.management.service.js";
 import {
     CLOCK_PORT,
-    EVENT_PROJECTION_ACCESS_PORT,
     ID_GENERATOR_PORT,
     NOTIFICATION_PUBLISHER_PORT,
     SESSION_ACCESS_PORT,
-    TIMELINE_EVENT_ACCESS_PORT,
 } from "../application/outbound/tokens.js";
+import {
+    TIMELINE_EVENT_PROJECTION,
+    TIMELINE_EVENT_WRITE,
+} from "@monitor/timeline-api/event/public/tokens.js";
 import type { IClock } from "../application/outbound/clock.port.js";
 import type { IIdGenerator } from "../application/outbound/id.generator.port.js";
 import type { ISessionAccess } from "../application/outbound/session.access.port.js";
-import type { ITimelineEventAccess } from "../application/outbound/timeline.event.access.port.js";
-import type { IEventProjectionAccess } from "../application/outbound/event.projection.access.port.js";
+import type { ITimelineEventWrite } from "@monitor/timeline-api/event/public/iservice/timeline.event.write.iservice.js";
+import type { ITimelineEventProjection } from "@monitor/timeline-api/event/public/iservice/timeline.event.projection.iservice.js";
 import type { ITaskNotificationPublisher } from "../application/outbound/notification.publisher.port.js";
 
 export interface StartTaskServiceInput {
@@ -70,8 +72,8 @@ export class TaskLifecycleService {
         private readonly query: TaskQueryService,
         private readonly management: TaskManagementService,
         @Inject(SESSION_ACCESS_PORT) private readonly sessions: ISessionAccess,
-        @Inject(TIMELINE_EVENT_ACCESS_PORT) private readonly events: ITimelineEventAccess,
-        @Inject(EVENT_PROJECTION_ACCESS_PORT) private readonly projection: IEventProjectionAccess,
+        @Inject(TIMELINE_EVENT_WRITE) private readonly events: ITimelineEventWrite,
+        @Inject(TIMELINE_EVENT_PROJECTION) private readonly projection: ITimelineEventProjection,
         @Inject(NOTIFICATION_PUBLISHER_PORT) private readonly notifier: ITaskNotificationPublisher,
         @Inject(CLOCK_PORT) private readonly clock: IClock,
         @Inject(ID_GENERATOR_PORT) private readonly idGen: IIdGenerator,

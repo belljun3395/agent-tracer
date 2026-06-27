@@ -9,7 +9,7 @@ import type {
     TaskSummaryFileDto,
     TaskSummaryToolCountDto,
 } from "./dto/get.task.summary.usecase.dto.js";
-import type { ProjectedTimelineEvent } from "./outbound/event.projection.access.port.js";
+import type { TimelineEventProjection } from "@monitor/timeline-api/event/public/dto/timeline.event.dto.js";
 
 const MAX_TOP_FILES = 5;
 const MAX_TOP_COMMANDS = 10;
@@ -97,7 +97,7 @@ export class GetTaskSummaryUseCase {
     }
 }
 
-function inferToolName(event: ProjectedTimelineEvent): string | null {
+function inferToolName(event: TimelineEventProjection): string | null {
     const explicit = readString(event.metadata, "toolName")
         ?? readString(event.metadata, "sourceTool");
     // 명시 도구명이 있으면 이벤트 kind보다 우선한다.
@@ -107,7 +107,7 @@ function inferToolName(event: ProjectedTimelineEvent): string | null {
     return null;
 }
 
-function collectFilePaths(event: ProjectedTimelineEvent): readonly string[] {
+function collectFilePaths(event: TimelineEventProjection): readonly string[] {
     const paths = event.paths.filePaths;
     // 여러 파일 경로가 있으면 대표 경로보다 전체 목록을 우선한다.
     if (paths.length > 0) return paths;

@@ -7,8 +7,8 @@ import { TaskEntity } from "../domain/task.entity.js";
 import { TaskRelations, type TaskRelationsSnapshot } from "../domain/task.relations.model.js";
 import { TaskRepository } from "../repository/task.repository.js";
 import { TaskRelationRepository } from "../repository/task.relation.repository.js";
-import { TIMELINE_EVENT_ACCESS_PORT } from "../application/outbound/tokens.js";
-import type { ITimelineEventAccess } from "../application/outbound/timeline.event.access.port.js";
+import { TIMELINE_EVENT_READ } from "@monitor/timeline-api/event/public/tokens.js";
+import type { ITimelineEventRead } from "@monitor/timeline-api/event/public/iservice/timeline.event.read.iservice.js";
 import { tallyTaskStatuses } from "../common/task.status.helpers.js";
 import type { DashboardSnapshot } from "../public/dto/task.snapshot.dto.js";
 
@@ -37,7 +37,7 @@ export class TaskQueryService {
     constructor(
         private readonly taskRepo: TaskRepository,
         private readonly relationRepo: TaskRelationRepository,
-        @Inject(TIMELINE_EVENT_ACCESS_PORT) private readonly events: ITimelineEventAccess,
+        @Inject(TIMELINE_EVENT_READ) private readonly events: ITimelineEventRead,
     ) {}
 
     async findById(id: string): Promise<MonitoringTask | null> {

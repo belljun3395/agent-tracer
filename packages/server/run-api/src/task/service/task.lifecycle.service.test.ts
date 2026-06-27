@@ -9,13 +9,15 @@ import type {
     ISessionAccess,
     SessionAccessRecord,
 } from "../application/outbound/session.access.port.js";
-import type { ITimelineEventAccess } from "../application/outbound/timeline.event.access.port.js";
-import type { TimelineEventWriteInput } from "@monitor/timeline-api/event/public/iservice/timeline.event.write.iservice.js";
-import type { TimelineEventSnapshot } from "@monitor/timeline-api/event/public/dto/timeline.event.dto.js";
 import type {
-    IEventProjectionAccess,
-    ProjectedTimelineEvent,
-} from "../application/outbound/event.projection.access.port.js";
+    ITimelineEventWrite,
+    TimelineEventWriteInput,
+} from "@monitor/timeline-api/event/public/iservice/timeline.event.write.iservice.js";
+import type { ITimelineEventProjection } from "@monitor/timeline-api/event/public/iservice/timeline.event.projection.iservice.js";
+import type {
+    TimelineEventProjection,
+    TimelineEventSnapshot,
+} from "@monitor/timeline-api/event/public/dto/timeline.event.dto.js";
 import type {
     ITaskNotificationPublisher,
     TaskOutboundNotification,
@@ -63,7 +65,7 @@ function makeSessionAccess(): ISessionAccess & {
     };
 }
 
-function makeTimelineEvents(): ITimelineEventAccess & { insert: Mock; findByTaskId: Mock; findById: Mock; countAll: Mock } {
+function makeTimelineEvents(): ITimelineEventWrite & { insert: Mock; findByTaskId: Mock; findById: Mock; countAll: Mock } {
     return {
         insert: vi.fn(async (input: TimelineEventWriteInput): Promise<TimelineEventSnapshot> => ({
             id: input.id,
@@ -83,9 +85,9 @@ function makeTimelineEvents(): ITimelineEventAccess & { insert: Mock; findByTask
     };
 }
 
-function makeProjection(): IEventProjectionAccess & { project: Mock } {
+function makeProjection(): ITimelineEventProjection & { project: Mock } {
     return {
-        project: vi.fn((e): ProjectedTimelineEvent => ({
+        project: vi.fn((e): TimelineEventProjection => ({
             id: e.id,
             taskId: e.taskId,
             kind: e.kind,
