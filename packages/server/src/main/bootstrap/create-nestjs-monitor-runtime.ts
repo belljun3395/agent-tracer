@@ -38,11 +38,12 @@ export async function createNestMonitorRuntime(): Promise<MonitorRuntime> {
     // banner come from the same source the rest of the app reads (no second
     // loadApplicationConfig() in the entrypoint).
     const appConfig = nestApp.get(AppConfigService);
+    const pg = appConfig.postgres;
     const listen = {
         host: appConfig.resolveListenHost(),
         port: appConfig.resolvePort(),
         publicBaseUrl: appConfig.resolveHttpBaseUrl(),
-        databasePath: appConfig.resolveDatabasePath(),
+        database: `postgres://${pg.host}:${pg.port}/${pg.database}`,
     };
     setupSwagger(nestApp);
     // Raise the body limit above Express's 100kb default: a 100-event batch with

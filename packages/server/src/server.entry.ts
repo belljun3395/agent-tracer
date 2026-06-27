@@ -7,10 +7,10 @@ const modulePath = fileURLToPath(import.meta.url);
 if (entryPath === modulePath) {
     const { createNestMonitorRuntime } = await import("./main/bootstrap/create-nestjs-monitor-runtime.js");
     const runtime = await createNestMonitorRuntime();
-    const { host, port, publicBaseUrl, databasePath } = runtime.listen;
+    const { host, port, publicBaseUrl, database } = runtime.listen;
     runtime.server.listen(port, host, () => {
         // CLI startup banner — written to stdout regardless of NestJS log level.
         process.stdout.write(`[nestjs-server] listening on ${publicBaseUrl}\n`);
-        process.stdout.write(`[nestjs-server] database: ${databasePath}\n`);
+        process.stdout.write(`[nestjs-server] database: ${database}\n`);
     });
 }

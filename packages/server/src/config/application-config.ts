@@ -18,7 +18,6 @@ export interface ApplicationConfig {
         readonly listenHost: string;
         readonly publicHost: string;
         readonly port: number;
-        readonly databasePath: string;
     };
     readonly postgres: {
         readonly host: string;
@@ -56,7 +55,6 @@ export const applicationConfigSchema = z.object({
         listenHost: z.string().min(1),
         publicHost: z.string().min(1),
         port: z.number().int().positive().max(65535),
-        databasePath: z.string().min(1),
     }),
     postgres: z.object({
         host: z.string().min(1),
@@ -88,7 +86,6 @@ const DEFAULT_APPLICATION_CONFIG: ApplicationConfig = Object.freeze({
         listenHost: "127.0.0.1",
         publicHost: "127.0.0.1",
         port: 3847,
-        databasePath: ".monitor/monitor.sqlite",
     },
     postgres: {
         host: "127.0.0.1",
@@ -173,7 +170,6 @@ function normalizeApplicationConfig(input: unknown): ApplicationConfig {
             listenHost: trimString(monitor["listenHost"]) || DEFAULT_APPLICATION_CONFIG.monitor.listenHost,
             publicHost: trimString(monitor["publicHost"]) || DEFAULT_APPLICATION_CONFIG.monitor.publicHost,
             port: normalizePort(monitor["port"], DEFAULT_APPLICATION_CONFIG.monitor.port),
-            databasePath: trimString(monitor["databasePath"]) || DEFAULT_APPLICATION_CONFIG.monitor.databasePath,
         },
         postgres: {
             host: trimString(postgres["host"]) || defaults.postgres.host,
@@ -221,7 +217,6 @@ export function loadApplicationConfig(options: { env?: NodeJS.ProcessEnv } = {})
             ...(trimString(env["MONITOR_LISTEN_HOST"]) ? { listenHost: env["MONITOR_LISTEN_HOST"] } : {}),
             ...(trimString(env["MONITOR_PUBLIC_HOST"]) ? { publicHost: env["MONITOR_PUBLIC_HOST"] } : {}),
             ...(trimString(env["MONITOR_PORT"]) ? { port: env["MONITOR_PORT"] } : {}),
-            ...(trimString(env["MONITOR_DATABASE_PATH"]) ? { databasePath: env["MONITOR_DATABASE_PATH"] } : {}),
         },
         postgres: {
             ...postgres,
@@ -266,12 +261,6 @@ function resolveMonitorPublicHost(config: ApplicationConfig, env: NodeJS.Process
 
 export function resolveMonitorPort(config: ApplicationConfig, env: NodeJS.ProcessEnv = process.env): number {
     return normalizePort(env["MONITOR_PORT"], config.monitor.port);
-}
-
-export function resolveMonitorDatabasePath(config: ApplicationConfig, options: { cwd?: string; env?: NodeJS.ProcessEnv } = {}): string {
-    const { cwd = process.cwd(), env = process.env } = options;
-    const databasePath = trimString(env["MONITOR_DATABASE_PATH"]) || config.monitor.databasePath;
-    return path.isAbsolute(databasePath) ? databasePath : path.resolve(cwd, databasePath);
 }
 
 export function resolveMonitorHttpBaseUrl(config: ApplicationConfig, env: NodeJS.ProcessEnv = process.env): string {

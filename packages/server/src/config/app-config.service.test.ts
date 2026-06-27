@@ -11,7 +11,6 @@ const FIXTURE = applicationConfigSchema.parse({
         listenHost: "127.0.0.1",
         publicHost: "example.test",
         port: 4100,
-        databasePath: "/var/lib/monitor.sqlite",
     },
     postgres: {
         host: "db.example.test",
@@ -44,8 +43,7 @@ describe("AppConfigService", () => {
         expect(config.monitor.publicHost).toBe("example.test");
         expect(config.web.apiBaseUrl).toBe("https://api.example.test");
         expect(config.externalSetup.sourceRepo).toBe("owner/repo");
-        // An absolute databasePath is returned untouched (no cwd resolution).
-        expect(config.resolveDatabasePath("/ignored")).toBe("/var/lib/monitor.sqlite");
+        expect(config.postgres.database).toBe("monitor");
 
         await moduleRef.close();
     });

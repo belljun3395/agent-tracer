@@ -2,7 +2,6 @@ import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import {
     type ApplicationConfig,
-    resolveMonitorDatabasePath,
     resolveMonitorHttpBaseUrl,
     resolveMonitorListenHost,
     resolveMonitorPort,
@@ -63,10 +62,6 @@ export class AppConfigService {
 
     resolvePort(): number {
         return resolveMonitorPort(this.application);
-    }
-
-    resolveDatabasePath(cwd: string = process.cwd()): string {
-        return resolveMonitorDatabasePath(this.application, { cwd });
     }
 
     resolveHttpBaseUrl(): string {

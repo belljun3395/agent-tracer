@@ -11,7 +11,7 @@ export interface MonitorRuntime {
         readonly host: string;
         readonly port: number;
         readonly publicBaseUrl: string;
-        readonly databasePath: string;
+        readonly database: string;
     };
     readonly close: () => Promise<void>;
 }
