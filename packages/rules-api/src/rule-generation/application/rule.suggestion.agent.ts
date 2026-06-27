@@ -1,6 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
 import type { TaskSummaryUseCaseDto } from "@monitor/run-api/task/application/dto/get.task.summary.usecase.dto.js";
-import { QUERY_RUNNER, type IQueryRunner } from "@monitor/shared/llm/query.runner.port.js";
+import { QUERY_RUNNER, type IQueryRunner, type AgentQueryUsage } from "@monitor/shared/llm/query.runner.port.js";
 import {
     buildSystemPrompt,
     buildUserPrompt,
@@ -38,6 +38,9 @@ export interface GenerateRuleSuggestionsOutput {
     readonly rawOutput: string;
     readonly modelUsed: string;
     readonly durationMs: number;
+    readonly costUsd: number | null;
+    readonly numTurns: number | null;
+    readonly usage: AgentQueryUsage | null;
 }
 
 @Injectable()
@@ -73,7 +76,7 @@ export class RuleSuggestionAgent {
 
         // Tool-using, up to 8 turns over the workspace; allow 300s before abort.
         // Structured output: the SDK enforces the schema and retries violations.
-        const { rawOutput, structuredOutput, durationMs, errorSummary } = await this.queryRunner.run({
+        const { rawOutput, structuredOutput, durationMs, errorSummary, costUsd, numTurns, usage } = await this.queryRunner.run({
             label: "rule-suggestion",
             prompt: userPrompt,
             systemPrompt,
@@ -122,6 +125,9 @@ export class RuleSuggestionAgent {
             rawOutput,
             modelUsed: model,
             durationMs,
+            costUsd,
+            numTurns,
+            usage,
         };
     }
 }

@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { QUERY_RUNNER, type IQueryRunner } from "@monitor/shared/llm/query.runner.port.js";
+import { QUERY_RUNNER, type IQueryRunner, type AgentQueryUsage } from "@monitor/shared/llm/query.runner.port.js";
 import {
     buildSystemPrompt,
     buildUserPrompt,
@@ -39,6 +39,9 @@ export interface GenerateCleanupSuggestionsOutput {
     readonly rawOutput: string;
     readonly modelUsed: string;
     readonly durationMs: number;
+    readonly costUsd: number | null;
+    readonly numTurns: number | null;
+    readonly usage: AgentQueryUsage | null;
 }
 
 @Injectable()
@@ -67,7 +70,7 @@ export class TaskCleanupAgent {
 
         // Single-turn Haiku one-shot, no workspace tools; 120s deadline headroom.
         // Structured output: the SDK enforces the schema and retries violations.
-        const { rawOutput, structuredOutput, durationMs, errorSummary } = await this.queryRunner.run({
+        const { rawOutput, structuredOutput, durationMs, errorSummary, costUsd, numTurns, usage } = await this.queryRunner.run({
             label: "task-cleanup",
             prompt: userPrompt,
             systemPrompt,
@@ -110,6 +113,9 @@ export class TaskCleanupAgent {
             rawOutput,
             modelUsed: model,
             durationMs,
+            costUsd,
+            numTurns,
+            usage,
         };
     }
 }
