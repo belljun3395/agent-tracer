@@ -14,7 +14,6 @@ import {
     BACKFILL_TRIGGER_PORT,
     NOTIFICATION_PUBLISHER_PORT,
     RULE_PERSISTENCE_PORT,
-    VERIFICATION_INVALIDATION_PORT,
 } from "./application/outbound/tokens.js";
 import { DemoteRuleToTaskUseCase } from "./application/demote.rule.to.task.usecase.js";
 import { PromoteRuleToGlobalUseCase } from "./application/promote.rule.to.global.usecase.js";
@@ -22,7 +21,6 @@ import { RegisterSuggestionUseCase } from "./application/register.suggestion.use
 import { UpdateRuleUseCase } from "./application/update.rule.usecase.js";
 import { BackfillTriggerAdapter } from "./adapter/backfill.trigger.adapter.js";
 import { RuleNotificationPublisherAdapter } from "./adapter/notification.publisher.adapter.js";
-import { VerificationInvalidationAdapter } from "./adapter/verification.invalidation.adapter.js";
 import { RuleEntity } from "./domain/rule.entity.js";
 import {
     RULE_READ,
@@ -52,7 +50,6 @@ export class RuleModule {
 
                 BackfillTriggerAdapter,
                 RuleNotificationPublisherAdapter,
-                VerificationInvalidationAdapter,
 
                 CreateRuleUseCase,
                 UpdateRuleUseCase,
@@ -70,7 +67,6 @@ export class RuleModule {
                 { provide: RULE_PERSISTENCE_PORT, useExisting: RuleRepository },
                 { provide: NOTIFICATION_PUBLISHER_PORT, useExisting: RuleNotificationPublisherAdapter },
                 { provide: BACKFILL_TRIGGER_PORT, useExisting: BackfillTriggerAdapter },
-                { provide: VERIFICATION_INVALIDATION_PORT, useExisting: VerificationInvalidationAdapter },
             ],
             exports: [
                 RULE_READ,

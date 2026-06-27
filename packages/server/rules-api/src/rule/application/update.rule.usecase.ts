@@ -7,15 +7,15 @@ import type { RuleExpectInput } from "@monitor/rules-api/rule/domain/type/rule.e
 import {
     NOTIFICATION_PUBLISHER_PORT,
     RULE_PERSISTENCE_PORT,
-    VERIFICATION_INVALIDATION_PORT,
 } from "./outbound/tokens.js";
+import { VERIFICATION_VERDICT_INVALIDATION } from "@monitor/rules-api/verification/public/tokens.js";
 import type {
     IRulePersistence,
     RulePersistenceRecord,
     RulePersistenceUpdateInput,
 } from "./outbound/rule.persistence.port.js";
 import type { IRuleNotificationPublisher } from "./outbound/notification.publisher.port.js";
-import type { IVerificationInvalidation } from "./outbound/verification.invalidation.port.js";
+import type { IVerdictInvalidation } from "@monitor/rules-api/verification/public/iservice/verdict.invalidation.iservice.js";
 import type { UpdateRuleUseCaseIn, UpdateRuleUseCaseOut } from "./dto/update.rule.usecase.dto.js";
 import { mapRule } from "./dto/rule.dto.mapper.js";
 import { InvalidRuleError, RuleNotFoundError } from "../common/errors.js";
@@ -28,7 +28,7 @@ export type { UpdateRuleUseCaseOut as UpdateRuleResult } from "./dto/update.rule
 export class UpdateRuleUseCase {
     constructor(
         @Inject(RULE_PERSISTENCE_PORT) private readonly ruleRepo: IRulePersistence,
-        @Inject(VERIFICATION_INVALIDATION_PORT) private readonly invalidation: IVerificationInvalidation,
+        @Inject(VERIFICATION_VERDICT_INVALIDATION) private readonly invalidation: IVerdictInvalidation,
         @Inject(NOTIFICATION_PUBLISHER_PORT) private readonly notifier: IRuleNotificationPublisher,
     ) {}
 
