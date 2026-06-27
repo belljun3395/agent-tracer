@@ -30,18 +30,18 @@ describe("analyzeCommand", () => {
     })
 
     it("extracts npm workspace test intent", () => {
-        const result = analyzeCommand("npm --workspace @monitor/server test")
+        const result = analyzeCommand("npm --workspace @monitor/api-gateway test")
 
         expect(result.steps[0]?.commandName).toBe("npm")
         expect(result.steps[0]?.operation).toBe("run_test")
-        expect(result.steps[0]?.workspace).toBe("@monitor/server")
+        expect(result.steps[0]?.workspace).toBe("@monitor/api-gateway")
         expect(result.steps[0]?.scriptName).toBe("test")
-        expect(result.steps[0]?.targets).toContainEqual({ type: "workspace", value: "@monitor/server" })
+        expect(result.steps[0]?.targets).toContainEqual({ type: "workspace", value: "@monitor/api-gateway" })
         expect(result.overallEffect).toBe("execute_check")
     })
 
     it("represents pipelines and sequences separately", () => {
-        const result = analyzeCommand("rg foo packages | head -20 && npm --workspace @monitor/server test")
+        const result = analyzeCommand("rg foo packages | head -20 && npm --workspace @monitor/api-gateway test")
 
         expect(result.structure).toBe("compound")
         expect(result.steps).toHaveLength(2)

@@ -8,32 +8,32 @@
       "@monitor/shared/*": [
         "packages/shared/src/*"
       ],
-      "@monitor/activity/*": [
-        "packages/activity/src/*"
+      "@monitor/activity-api/*": [
+        "packages/activity-api/src/*"
       ],
-      "@monitor/work/*": [
-        "packages/work/src/*"
+      "@monitor/work-api/*": [
+        "packages/work-api/src/*"
       ],
-      "@monitor/governance/*": [
-        "packages/governance/src/*"
+      "@monitor/governance-api/*": [
+        "packages/governance-api/src/*"
       ],
       "~config/*": [
-        "packages/server/src/config/*"
+        "packages/api-gateway/src/config/*"
       ],
-      "@monitor/identity/*": [
-        "packages/identity/src/*"
+      "@monitor/identity-api/*": [
+        "packages/identity-api/src/*"
       ],
       "@monitor/ws-gateway/*": [
         "packages/ws-gateway/src/*"
       ],
       "~adapters/*": [
-        "packages/server/src/adapters/*"
+        "packages/api-gateway/src/adapters/*"
       ],
       "~main/*": [
-        "packages/server/src/main/*"
+        "packages/api-gateway/src/main/*"
       ],
-      "@monitor/server": [
-        "packages/server/src/server.entry.ts"
+      "@monitor/api-gateway": [
+        "packages/api-gateway/src/gateway.entry.ts"
       ],
       "@monitor/web": [
         "packages/web/src/main.tsx"

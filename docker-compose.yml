@@ -57,7 +57,7 @@ services:
   server:
     build:
       context: .
-      dockerfile: Dockerfile.server
+      dockerfile: Dockerfile.api-gateway
     ports:
       - "3847:3847"
     environment:

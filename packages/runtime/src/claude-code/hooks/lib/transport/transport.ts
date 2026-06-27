@@ -19,7 +19,7 @@ export const postTaggedEvents = claudeHookRuntime.transport.postTaggedEvents;
  *
  * MONITOR_TASK_ORIGIN env, if set to "server-sdk", flags the task as a
  * server-initiated SDK job so the dashboard can route it to the dedicated
- * Subagent view. This is only set by `@monitor/server`'s internal agents.
+ * Subagent view. This is only set by `@monitor/api-gateway`'s internal agents.
  */
 export async function ensureRuntimeSession(
     runtimeSessionId: string,

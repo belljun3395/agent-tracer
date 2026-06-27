@@ -1,0 +1,21 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "baseUrl": ".",
+    "paths": {
+      "~config/*": ["src/config/*"],
+      "~adapters/*": ["src/adapters/*"],
+      "~main/*": ["src/main/*"],
+      "@monitor/shared/*": ["../shared/src/*"],
+      "@monitor/activity-api/*": ["../activity-api/src/*"],
+      "@monitor/work-api/*": ["../work-api/src/*"],
+      "@monitor/governance-api/*": ["../governance-api/src/*"],
+      "@monitor/identity-api/*": ["../identity-api/src/*"],
+      "@monitor/ws-gateway/*": ["../ws-gateway/src/*"]
+    }
+  },
+  "include": ["src", "*.config.ts", "vitest.setup.ts"]
+}

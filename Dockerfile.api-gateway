@@ -1,0 +1,38 @@
+FROM node:25-slim AS builder
+
+WORKDIR /app
+COPY package*.json ./
+COPY packages/api-gateway/package.json packages/api-gateway/
+COPY packages/shared/package.json packages/shared/
+COPY packages/activity-api/package.json packages/activity-api/
+COPY packages/work-api/package.json packages/work-api/
+COPY packages/governance-api/package.json packages/governance-api/
+COPY packages/identity-api/package.json packages/identity-api/
+COPY packages/ws-gateway/package.json packages/ws-gateway/
+COPY packages/runtime/package.json packages/runtime/
+COPY packages/web/package.json packages/web/
+
+RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
+RUN npm ci
+
+COPY . .
+RUN npm run build --workspace=@monitor/api-gateway
+
+# 최종 이미지로 넘기기 전에 devDependencies + optional(onnxruntime 등) 제거
+RUN npm prune --omit=dev --omit=optional
+
+FROM node:25-slim
+
+WORKDIR /app
+ENV NODE_ENV=production
+
+# 프로덕션 node_modules (devDep·optional 제거된 상태)
+COPY --from=builder /app/node_modules ./node_modules
+# ESM 모듈 타입 해석에 필요한 package.json 파일들
+COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/packages/api-gateway/package.json ./packages/api-gateway/package.json
+# 빌드 결과물만 복사 (web·runtime 소스 제외)
+COPY --from=builder /app/packages/api-gateway/dist ./packages/api-gateway/dist
+
+EXPOSE 3847
+CMD ["node", "packages/api-gateway/dist/index.js"]

@@ -215,7 +215,7 @@ describe("inferCommandSemantic", () => {
 
         it("returns command analysis with semantic inference", () => {
             // Arrange
-            const command = "rg foo packages | head -20 && npm --workspace @monitor/server test"
+            const command = "rg foo packages | head -20 && npm --workspace @monitor/api-gateway test"
 
             // Act
             const result = inferCommandSemantic(command)
