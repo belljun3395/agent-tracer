@@ -1,12 +1,16 @@
 import { Column, Entity, Index, PrimaryColumn } from "typeorm";
 
 @Entity({ name: "rules" })
-@Index("idx_rules_scope_active", ["scope"])
+@Index("idx_rules_user_scope", ["userId", "scope"])
 @Index("idx_rules_task_active", ["taskId"])
-@Index("idx_rules_signature", ["signature"])
+@Index("idx_rules_signature", ["userId", "signature"])
 export class RuleEntity {
     @PrimaryColumn({ type: "text" })
     id!: string;
+
+    /** 이 룰을 소유한 사용자. */
+    @Column({ name: "user_id", type: "text", default: "local" })
+    userId!: string;
 
     @Column({ type: "text" })
     name!: string;

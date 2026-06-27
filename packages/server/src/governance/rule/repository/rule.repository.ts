@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { IsNull, Repository, type FindOptionsWhere } from "typeorm";
+import { currentUserId } from "~shared/user/user.context.js";
 import { normalizeRuleExpectedAction } from "../domain/rule.expected.action.js";
 import { RuleEntity } from "../domain/rule.entity.js";
 import type {
@@ -23,12 +24,12 @@ export class RuleRepository implements IRulePersistence {
     ) {}
 
     async findById(id: string): Promise<RulePersistenceRecord | null> {
-        const row = await this.repo.findOne({ where: { id, deletedAt: IsNull() } });
+        const row = await this.repo.findOne({ where: { id, userId: currentUserId(), deletedAt: IsNull() } });
         return row ? mapRow(row) : null;
     }
 
     async findBySignature(signature: string): Promise<RulePersistenceRecord | null> {
-        const row = await this.repo.findOne({ where: { signature, deletedAt: IsNull() } });
+        const row = await this.repo.findOne({ where: { signature, userId: currentUserId(), deletedAt: IsNull() } });
         return row ? mapRow(row) : null;
     }
 
@@ -36,6 +37,7 @@ export class RuleRepository implements IRulePersistence {
         const rows = await this.repo
             .createQueryBuilder("r")
             .where("r.deleted_at IS NULL")
+            .andWhere("r.user_id = :userId", { userId: currentUserId() })
             .andWhere("(r.scope = 'global' OR (r.scope = 'task' AND r.task_id = :taskId))", { taskId })
             .orderBy("r.created_at", "ASC")
             .getMany();
@@ -43,7 +45,7 @@ export class RuleRepository implements IRulePersistence {
     }
 
     async list(filter?: RulePersistenceListFilter): Promise<readonly RulePersistenceRecord[]> {
-        const where: FindOptionsWhere<RuleEntity> = { deletedAt: IsNull() };
+        const where: FindOptionsWhere<RuleEntity> = { userId: currentUserId(), deletedAt: IsNull() };
         if (filter?.scope) where.scope = filter.scope;
         if (filter?.taskId) where.taskId = filter.taskId;
         if (filter?.source) where.source = filter.source;
@@ -54,6 +56,7 @@ export class RuleRepository implements IRulePersistence {
     async insert(input: RulePersistenceInsertInput): Promise<RulePersistenceRecord> {
         const entity = new RuleEntity();
         entity.id = input.id;
+        entity.userId = currentUserId();
         entity.name = input.name;
         entity.triggerPhrasesJson = input.trigger ? JSON.stringify(input.trigger.phrases) : null;
         entity.triggerOn = input.triggerOn ?? null;
@@ -100,7 +103,7 @@ export class RuleRepository implements IRulePersistence {
             .createQueryBuilder()
             .update(RuleEntity)
             .set(values)
-            .where("id = :id AND deleted_at IS NULL", { id })
+            .where("id = :id AND user_id = :userId AND deleted_at IS NULL", { id, userId: currentUserId() })
             .execute();
         if (!result.affected || result.affected === 0) return null;
         return this.findById(id);
@@ -111,7 +114,7 @@ export class RuleRepository implements IRulePersistence {
             .createQueryBuilder()
             .update(RuleEntity)
             .set({ deletedAt })
-            .where("id = :id AND deleted_at IS NULL", { id })
+            .where("id = :id AND user_id = :userId AND deleted_at IS NULL", { id, userId: currentUserId() })
             .execute();
         return Boolean(result.affected && result.affected > 0);
     }
