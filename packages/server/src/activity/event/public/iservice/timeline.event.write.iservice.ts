@@ -1,19 +1,16 @@
-import type { TimelineEventSnapshot } from "../dto/timeline.event.dto.js";
+import type { MonitoringEventKind, TimelineLane } from "~activity/event/domain/common/const/event.kind.const.js";
+import type { TimelineEventClassification, TimelineEventSnapshot } from "../dto/timeline.event.dto.js";
 
 export interface TimelineEventWriteInput {
     readonly id: string;
     readonly taskId: string;
     readonly sessionId?: string;
-    readonly kind: string;
-    readonly lane: string;
+    readonly kind: MonitoringEventKind;
+    readonly lane: TimelineLane;
     readonly title: string;
     readonly body?: string;
     readonly metadata: Record<string, unknown>;
-    readonly classification: {
-        readonly lane: string;
-        readonly tags: readonly string[];
-        readonly matches: readonly unknown[];
-    };
+    readonly classification: TimelineEventClassification;
     readonly createdAt: string;
 }
 

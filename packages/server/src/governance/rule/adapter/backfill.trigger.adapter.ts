@@ -18,7 +18,7 @@ export class BackfillTriggerAdapter implements IBackfillTrigger {
     ) {}
 
     async trigger(input: BackfillTriggerInput): Promise<BackfillTriggerResult> {
-        const result = await this.inner.backfill(input.rule as never);
+        const result = await this.inner.backfill(input.rule);
         return {
             turnsConsidered: result.turnsConsidered,
             turnsEvaluated: result.turnsEvaluated,

@@ -1,19 +1,10 @@
+import type { MonitorNotification } from "~adapters/notifications/notification.publisher.port.js";
+
 /**
- * Outbound port — broadcast rule lifecycle changes (created/updated/deleted).
- * Self-contained.
+ * 아웃바운드 포트 — 룰 변경(created/updated/deleted/promoted) 브로드캐스트.
+ * 공유 알림 타입의 rules.changed 변형을 그대로 사용해 캐스트 없이 정렬된다.
  */
-
-export interface RulesChangedNotification {
-    readonly type: "rules.changed";
-    readonly payload: {
-        readonly ruleId: string;
-        readonly change: "created" | "updated" | "deleted";
-        readonly scope: "global" | "task";
-        readonly taskId?: string;
-    };
-}
-
-export type RuleOutboundNotification = RulesChangedNotification;
+export type RuleOutboundNotification = Extract<MonitorNotification, { type: "rules.changed" }>;
 
 export interface IRuleNotificationPublisher {
     publish(notification: RuleOutboundNotification): void;

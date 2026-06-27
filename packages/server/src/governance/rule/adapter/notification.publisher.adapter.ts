@@ -13,6 +13,6 @@ export class RuleNotificationPublisherAdapter implements IRuleNotificationPublis
     ) {}
 
     publish(notification: RuleOutboundNotification): void {
-        this.inner.publish(notification as never);
+        this.inner.publish(notification);
     }
 }

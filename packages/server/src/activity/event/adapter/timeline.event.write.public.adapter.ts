@@ -20,7 +20,6 @@ export class TimelineEventWritePublicAdapter implements ITimelineEventWrite {
     ) {}
 
     async insert(input: TimelineEventWriteInput): Promise<TimelineEventSnapshot> {
-        const event = await this.persistence.insert(input as never);
-        return event as unknown as TimelineEventSnapshot;
+        return this.persistence.insert(input);
     }
 }
