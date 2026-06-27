@@ -12,8 +12,9 @@ import {
 } from "./title.suggestion.zod.js";
 import { parseJsonStrict } from "@monitor/shared/llm/parse.json.js";
 import { zodToOutputSchema } from "@monitor/shared/llm/output.schema.js";
+import { CLAUDE_MODEL } from "@monitor/shared/llm/models.js";
 
-const DEFAULT_MODEL = "claude-haiku-4-5";
+const DEFAULT_MODEL = CLAUDE_MODEL.haiku;
 
 // JSON Schema for the SDK's structured-output mode; zod re-validates afterward.
 const TITLE_OUTPUT_SCHEMA = zodToOutputSchema(titleSuggestionsListSchema);

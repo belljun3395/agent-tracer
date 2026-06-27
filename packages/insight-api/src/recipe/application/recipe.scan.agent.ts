@@ -12,10 +12,11 @@ import {
 } from "./recipe.scan.zod.js";
 import { parseJsonStrict } from "@monitor/shared/llm/parse.json.js";
 import { zodToOutputSchema } from "@monitor/shared/llm/output.schema.js";
+import { CLAUDE_MODEL } from "@monitor/shared/llm/models.js";
 
 const ALLOWED_TOOLS = ["Read", "Glob", "Grep"];
 const DEFAULT_MAX_TURNS = 8;
-const DEFAULT_MODEL = "claude-sonnet-4-6";
+const DEFAULT_MODEL = CLAUDE_MODEL.sonnet;
 
 // JSON Schema for the SDK's structured-output mode; zod still runs afterward to
 // apply array defaults (steps/touched_files/eventIds → []).

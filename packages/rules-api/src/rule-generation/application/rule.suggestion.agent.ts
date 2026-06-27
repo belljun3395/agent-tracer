@@ -12,10 +12,11 @@ import {
 } from "./rule.suggestion.zod.js";
 import { parseJsonStrict } from "@monitor/shared/llm/parse.json.js";
 import { zodToOutputSchema } from "@monitor/shared/llm/output.schema.js";
+import { CLAUDE_MODEL } from "@monitor/shared/llm/models.js";
 
 const ALLOWED_TOOLS = ["Read", "Glob", "Grep"];
 const DEFAULT_MAX_TURNS = 8;
-const DEFAULT_MODEL = "claude-sonnet-4-6";
+const DEFAULT_MODEL = CLAUDE_MODEL.sonnet;
 
 // JSON Schema handed to the SDK's structured-output mode. The zod schema's
 // cross-field .superRefine() can't be expressed in JSON Schema, so it is dropped
