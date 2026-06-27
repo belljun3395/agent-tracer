@@ -64,10 +64,9 @@ export class AcceptCleanupSuggestionUseCase {
             : null;
         switch (row.kind) {
             case "archive": {
-                const result = await this.archiveTask.execute({ taskId: row.taskId });
-                if (result.status === "not_found") {
-                    throw new Error("Task no longer exists");
-                }
+                // 태스크가 없으면 archive 가 TaskNotFoundError 를 던지고, 상위에서
+                // apply_failed 로 처리된다.
+                await this.archiveTask.execute({ taskId: row.taskId });
                 return;
             }
             case "rename_title": {

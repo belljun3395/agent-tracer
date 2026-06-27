@@ -3,9 +3,8 @@ export interface ArchiveTaskUseCaseIn {
 }
 
 export interface ArchiveTaskUseCaseOut {
-    readonly status: "archived" | "not_found" | "already_archived";
-    readonly archivedIds?: readonly string[];
-    readonly archivedAt?: string;
+    readonly archivedIds: readonly string[];
+    readonly archivedAt: string;
 }
 
 export interface UnarchiveTaskUseCaseIn {
@@ -13,6 +12,5 @@ export interface UnarchiveTaskUseCaseIn {
 }
 
 export interface UnarchiveTaskUseCaseOut {
-    readonly status: "unarchived" | "not_found" | "not_archived";
-    readonly unarchivedIds?: readonly string[];
+    readonly unarchivedIds: readonly string[];
 }

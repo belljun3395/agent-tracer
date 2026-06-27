@@ -3,6 +3,12 @@ import { Catch, HttpException, HttpStatus, Injectable, Logger } from "@nestjs/co
 import { ZodError } from "zod";
 import type { Response } from "express";
 import { TaskNotFoundError, TurnPartitionVersionMismatchError } from "~work/turn/public/errors.js";
+import {
+    TaskAlreadyArchivedError,
+    TaskHasNoEventsError,
+    TaskNotArchivedError,
+    TaskNotFoundError as TaskCommandNotFoundError,
+} from "~work/task/public/errors.js";
 import { InvalidRuleError, RuleNotFoundError } from "~governance/rule/public/errors.js";
 import { createApiErrorEnvelope, isApiErrorEnvelope } from "~adapters/http/shared/api-response-envelope.js";
 
@@ -32,9 +38,23 @@ export class GlobalExceptionFilter implements ExceptionFilter<unknown> {
             return;
         }
 
-        if (exception instanceof TaskNotFoundError) {
+        if (exception instanceof TaskNotFoundError || exception instanceof TaskCommandNotFoundError) {
             response.status(HttpStatus.NOT_FOUND).json(
                 createApiErrorEnvelope("not_found", exception.message),
+            );
+            return;
+        }
+
+        if (exception instanceof TaskAlreadyArchivedError) {
+            response.status(HttpStatus.CONFLICT).json(
+                createApiErrorEnvelope("conflict", exception.message),
+            );
+            return;
+        }
+
+        if (exception instanceof TaskNotArchivedError || exception instanceof TaskHasNoEventsError) {
+            response.status(HttpStatus.BAD_REQUEST).json(
+                createApiErrorEnvelope("bad_request", exception.message),
             );
             return;
         }

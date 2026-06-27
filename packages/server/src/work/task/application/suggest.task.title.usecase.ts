@@ -5,6 +5,7 @@ import type { INotificationPublisher } from "~adapters/notifications/notificatio
 import { APP_SETTING_KEYS } from "~governance/settings/domain/app.setting.keys.js";
 import { AppSettingService } from "~governance/settings/application/app.setting.service.js";
 import { NOTIFICATION_PUBLISHER_TOKEN } from "~main/presentation/database/database.provider.js";
+import { TaskHasNoEventsError, TaskNotFoundError } from "../common/task.errors.js";
 import { GetTaskSummaryUseCase } from "./get.task.summary.usecase.js";
 import type {
     SuggestTaskTitleUseCaseIn,
@@ -46,8 +47,8 @@ export class SuggestTaskTitleUseCase {
         input: SuggestTaskTitleUseCaseIn,
     ): Promise<SuggestTaskTitleUseCaseOut> {
         const { summary } = await this.getSummary.execute({ taskId: input.taskId });
-        if (!summary) return { status: "not_found" };
-        if (summary.eventCount === 0) return { status: "no_events" };
+        if (!summary) throw new TaskNotFoundError(input.taskId);
+        if (summary.eventCount === 0) throw new TaskHasNoEventsError(input.taskId);
 
         const apiKey = await this.settings.getAnthropicApiKey();
         if (this.agent.requiresLocalApiKey() && !apiKey) throw new MissingApiKeyError();
@@ -92,7 +93,6 @@ export class SuggestTaskTitleUseCase {
             });
 
             return {
-                status: "ok",
                 suggestions,
                 modelUsed: output.modelUsed,
                 durationMs: output.durationMs,

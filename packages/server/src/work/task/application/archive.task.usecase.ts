@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { Transactional } from "typeorm-transactional";
+import { TaskAlreadyArchivedError, TaskNotFoundError } from "../common/task.errors.js";
 import { TaskManagementService } from "../service/task.management.service.js";
 import type {
     ArchiveTaskUseCaseIn,
@@ -13,13 +14,8 @@ export class ArchiveTaskUseCase {
     @Transactional()
     async execute(input: ArchiveTaskUseCaseIn): Promise<ArchiveTaskUseCaseOut> {
         const result = await this.management.archive(input.taskId);
-        if (result.status === "archived") {
-            return {
-                status: result.status,
-                archivedIds: result.archivedIds,
-                archivedAt: result.archivedAt,
-            };
-        }
-        return { status: result.status };
+        if (result.status === "not_found") throw new TaskNotFoundError(input.taskId);
+        if (result.status === "already_archived") throw new TaskAlreadyArchivedError(input.taskId);
+        return { archivedIds: result.archivedIds, archivedAt: result.archivedAt };
     }
 }

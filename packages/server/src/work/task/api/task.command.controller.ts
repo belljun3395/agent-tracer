@@ -1,7 +1,6 @@
 import {
     BadRequestException,
     Body,
-    ConflictException,
     Controller,
     Delete,
     HttpCode,
@@ -51,8 +50,7 @@ export class TaskCommandController {
 
     @Delete(":taskId")
     async deleteTaskEndpoint(@Param("taskId", pathParamPipe) taskId: string) {
-        const result = await this.deleteTask.execute({ taskId });
-        if (result.status === "not_found") throw new NotFoundException("Task not found");
+        await this.deleteTask.execute({ taskId });
         return { deleted: true };
     }
 
@@ -60,10 +58,6 @@ export class TaskCommandController {
     @HttpCode(HttpStatus.OK)
     async archiveTaskEndpoint(@Param("taskId", pathParamPipe) taskId: string) {
         const result = await this.archiveTask.execute({ taskId });
-        if (result.status === "not_found") throw new NotFoundException("Task not found");
-        if (result.status === "already_archived") {
-            throw new ConflictException("Task is already archived");
-        }
         return {
             archived: true,
             archivedIds: result.archivedIds,
@@ -74,10 +68,6 @@ export class TaskCommandController {
     @Delete(":taskId/archive")
     async unarchiveTaskEndpoint(@Param("taskId", pathParamPipe) taskId: string) {
         const result = await this.unarchiveTask.execute({ taskId });
-        if (result.status === "not_found") throw new NotFoundException("Task not found");
-        if (result.status === "not_archived") {
-            throw new BadRequestException("Task is not archived");
-        }
         return { unarchived: true, unarchivedIds: result.unarchivedIds };
     }
 
@@ -87,20 +77,7 @@ export class TaskCommandController {
         @Param("taskId", pathParamPipe) taskId: string,
     ) {
         try {
-            const result = await this.suggestTitle.execute({ taskId });
-            if (result.status === "not_found") {
-                throw new NotFoundException("Task not found");
-            }
-            if (result.status === "no_events") {
-                throw new BadRequestException(
-                    "Task has no events yet — nothing to summarize for a rename.",
-                );
-            }
-            return {
-                suggestions: result.suggestions ?? [],
-                modelUsed: result.modelUsed,
-                durationMs: result.durationMs,
-            };
+            return await this.suggestTitle.execute({ taskId });
         } catch (err) {
             if (err instanceof MissingApiKeyError) {
                 throw new BadRequestException(err.message);
