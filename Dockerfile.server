@@ -6,6 +6,7 @@ COPY packages/server/package.json packages/server/
 COPY packages/shared-kernel/package.json packages/shared-kernel/
 COPY packages/contracts/package.json packages/contracts/
 COPY packages/activity/package.json packages/activity/
+COPY packages/work/package.json packages/work/
 COPY packages/runtime/package.json packages/runtime/
 COPY packages/web/package.json packages/web/
 

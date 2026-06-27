@@ -7,7 +7,7 @@ import { HealthController } from "~adapters/http/query/controllers/health/health
 import { LlmModule } from "~adapters/llm/llm.module.js";
 import { ActivityModule } from "@monitor/activity/activity.module.js";
 import { GovernanceModule } from "~governance/governance.module.js";
-import { WorkModule } from "~work/work.module.js";
+import { WorkModule } from "@monitor/work/work.module.js";
 import { IdentityModule } from "~identity/identity.module.js";
 import { DatabaseModule } from "./database/database.module.js";
 import { TypeOrmDatabaseModule } from "./database/typeorm.database.module.js";

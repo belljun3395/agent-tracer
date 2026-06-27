@@ -2,13 +2,13 @@ import type { ExceptionFilter, ArgumentsHost } from "@nestjs/common";
 import { Catch, HttpException, HttpStatus, Injectable, Logger } from "@nestjs/common";
 import { ZodError } from "zod";
 import type { Response } from "express";
-import { TaskNotFoundError, TurnPartitionVersionMismatchError } from "~work/turn/public/errors.js";
+import { TaskNotFoundError, TurnPartitionVersionMismatchError } from "@monitor/work/turn/public/errors.js";
 import {
     TaskAlreadyArchivedError,
     TaskHasNoEventsError,
     TaskNotArchivedError,
     TaskNotFoundError as TaskCommandNotFoundError,
-} from "~work/task/public/errors.js";
+} from "@monitor/work/task/public/errors.js";
 import { InvalidRuleError, RuleNotFoundError } from "~governance/rule/public/errors.js";
 import { createApiErrorEnvelope, isApiErrorEnvelope } from "@monitor/contracts/http/api-response-envelope.js";
 

@@ -1,6 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
-import type { ITaskAccess as ITaskAccessPublic } from "~work/task/public/iservice/task.access.iservice.js";
-import { TASK_ACCESS } from "~work/task/public/tokens.js";
+import type { ITaskAccess as ITaskAccessPublic } from "@monitor/work/task/public/iservice/task.access.iservice.js";
+import { TASK_ACCESS } from "@monitor/work/task/public/tokens.js";
 import type {
     ITaskAccess,
     TaskAccessRecord,

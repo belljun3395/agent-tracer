@@ -1,6 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
-import type { ITaskLifecycle } from "~work/task/public/iservice/task.lifecycle.iservice.js";
-import { TASK_LIFECYCLE } from "~work/task/public/tokens.js";
+import type { ITaskLifecycle } from "@monitor/work/task/public/iservice/task.lifecycle.iservice.js";
+import { TASK_LIFECYCLE } from "@monitor/work/task/public/tokens.js";
 import type {
     FinalizeTaskAccessInput,
     ITaskLifecycleAccess,

@@ -1,6 +1,6 @@
 import type { TimelineEventProjection } from "@monitor/activity/event/public/dto/timeline.event.dto.js";
 import type { NOTIFICATION_TYPE } from "@monitor/contracts/notifications/notification.type.const.js";
-import type { MonitoringTask } from "~work/task/public/types/task.types.js";
+import type { MonitoringTask } from "@monitor/work/task/public/types/task.types.js";
 
 /**
  * 이벤트 모듈이 발행하는 알림. 페이로드는 캐노니컬 타입(프로젝션/태스크)을 그대로

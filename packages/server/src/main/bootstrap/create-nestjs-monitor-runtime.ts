@@ -22,11 +22,11 @@ import {
     logHttpUpgrade,
     type RequestContextIncomingMessage,
 } from "../presentation/middleware/request-context.js";
-import { tallyTaskStatuses } from "~work/task/public/helpers.js";
-import type { ITaskLifecycle } from "~work/task/public/iservice/task.lifecycle.iservice.js";
-import type { ITaskSnapshotQuery } from "~work/task/public/iservice/task.snapshot.query.iservice.js";
-import type { TaskSnapshot } from "~work/task/public/dto/task.snapshot.dto.js";
-import { TASK_LIFECYCLE, TASK_SNAPSHOT_QUERY } from "~work/task/public/tokens.js";
+import { tallyTaskStatuses } from "@monitor/work/task/public/helpers.js";
+import type { ITaskLifecycle } from "@monitor/work/task/public/iservice/task.lifecycle.iservice.js";
+import type { ITaskSnapshotQuery } from "@monitor/work/task/public/iservice/task.snapshot.query.iservice.js";
+import type { TaskSnapshot } from "@monitor/work/task/public/dto/task.snapshot.dto.js";
+import { TASK_LIFECYCLE, TASK_SNAPSHOT_QUERY } from "@monitor/work/task/public/tokens.js";
 import type { MonitorRuntime } from "./runtime.type.js";
 
 export async function createNestMonitorRuntime(): Promise<MonitorRuntime> {

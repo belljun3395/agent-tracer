@@ -1,4 +1,4 @@
-import type { TaskSummaryUseCaseDto } from "~work/task/application/dto/get.task.summary.usecase.dto.js";
+import type { TaskSummaryUseCaseDto } from "@monitor/work/task/application/dto/get.task.summary.usecase.dto.js";
 
 export type RuleSuggestionLanguage = "auto" | "ko" | "en" | "ja" | "zh";
 

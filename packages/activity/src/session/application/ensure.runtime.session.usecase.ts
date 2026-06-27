@@ -1,7 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { NOTIFICATION_TYPE } from "@monitor/contracts/notifications/notification.type.const.js";
 import { Transactional } from "typeorm-transactional";
-import { normalizeWorkspacePath } from "~work/task/public/helpers.js";
+import { normalizeWorkspacePath } from "@monitor/work/task/public/helpers.js";
 import { SessionLifecycleService } from "../service/session.lifecycle.service.js";
 import { RuntimeBindingService } from "../service/runtime.binding.service.js";
 import {

@@ -3,7 +3,7 @@ import { NOTIFICATION_TYPE } from "@monitor/contracts/notifications/notification
 import { randomUUID } from "node:crypto";
 import { RuleSuggestionAgent } from "~adapters/llm/rule.suggestion.agent.js";
 import type { INotificationPublisher } from "@monitor/contracts/notifications/notification.publisher.port.js";
-import { GetTaskSummaryUseCase } from "~work/task/application/get.task.summary.usecase.js";
+import { GetTaskSummaryUseCase } from "@monitor/work/task/application/get.task.summary.usecase.js";
 import { ListRulesUseCase } from "~governance/rule/application/list.rules.usecase.js";
 import { RegisterSuggestionUseCase } from "~governance/rule/application/register.suggestion.usecase.js";
 import { APP_SETTING_KEYS } from "~governance/settings/domain/app.setting.keys.js";

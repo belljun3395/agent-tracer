@@ -1,4 +1,4 @@
-import type { TaskSnapshotArchivedScope } from "~work/task/public/iservice/task.snapshot.query.iservice.js";
+import type { TaskSnapshotArchivedScope } from "@monitor/work/task/public/iservice/task.snapshot.query.iservice.js";
 import type { RecipeScanStatusFilter } from "~governance/recipe/domain/recipe.scan.filters.js";
 
 // Filter value-object types live in the domain layer; re-exported here so

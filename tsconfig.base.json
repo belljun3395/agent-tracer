@@ -14,8 +14,8 @@
       "@monitor/activity/*": [
         "packages/activity/src/*"
       ],
-      "~work/*": [
-        "packages/server/src/work/*"
+      "@monitor/work/*": [
+        "packages/work/src/*"
       ],
       "~governance/*": [
         "packages/server/src/governance/*"
