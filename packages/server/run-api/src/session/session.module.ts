@@ -5,11 +5,9 @@ import { EndRuntimeSessionUseCase } from "./application/end.runtime.session.usec
 import { EnsureRuntimeSessionUseCase } from "./application/ensure.runtime.session.usecase.js";
 import {
     NOTIFICATION_PUBLISHER_PORT,
-    TASK_ACCESS_PORT,
     TASK_LIFECYCLE_ACCESS_PORT,
 } from "./application/outbound/tokens.js";
 import { SessionNotificationPublisherAdapter } from "./adapter/session.notification.publisher.adapter.js";
-import { TaskAccessAdapter } from "./adapter/task.access.adapter.js";
 import { TaskLifecycleAccessAdapter } from "./adapter/task.lifecycle.access.adapter.js";
 import { RuntimeBindingEntity } from "./domain/runtime.binding.entity.js";
 import { SessionEntity } from "./domain/session.entity.js";
@@ -37,7 +35,6 @@ export class SessionModule {
                 RuntimeBindingRepository,
                 SessionLifecycleService,
                 RuntimeBindingService,
-                TaskAccessAdapter,
                 TaskLifecycleAccessAdapter,
                 SessionNotificationPublisherAdapter,
                 EnsureRuntimeSessionUseCase,
@@ -46,7 +43,6 @@ export class SessionModule {
                 { provide: SESSION_LIFECYCLE, useExisting: SessionLifecycleService },
                 { provide: RUNTIME_BINDING_LOOKUP, useExisting: RuntimeBindingService },
 
-                { provide: TASK_ACCESS_PORT, useExisting: TaskAccessAdapter },
                 { provide: TASK_LIFECYCLE_ACCESS_PORT, useExisting: TaskLifecycleAccessAdapter },
                 { provide: NOTIFICATION_PUBLISHER_PORT, useExisting: SessionNotificationPublisherAdapter },
             ],

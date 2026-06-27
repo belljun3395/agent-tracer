@@ -7,16 +7,13 @@ import { RuntimeBindingService } from "../service/runtime.binding.service.js";
 import {
     CLOCK_PORT,
     NOTIFICATION_PUBLISHER_PORT,
-    TASK_ACCESS_PORT,
     TASK_LIFECYCLE_ACCESS_PORT,
 } from "./outbound/tokens.js";
+import { TASK_ACCESS } from "@monitor/run-api/task/public/tokens.js";
 import type { IClock } from "./outbound/clock.port.js";
 import type { ISessionNotificationPublisher } from "./outbound/notification.publisher.port.js";
-import type {
-    ITaskAccess,
-    TaskAccessRecord,
-    TaskAccessStatus,
-} from "./outbound/task.access.port.js";
+import type { ITaskAccess } from "@monitor/run-api/task/public/iservice/task.access.iservice.js";
+import type { TaskSnapshot, TaskStatus } from "@monitor/run-api/task/public/dto/task.snapshot.dto.js";
 import type { ITaskLifecycleAccess } from "./outbound/task.lifecycle.access.port.js";
 import type { EndRuntimeSessionIn } from "./dto/end.runtime.session.dto.js";
 
@@ -31,7 +28,7 @@ export class EndRuntimeSessionUseCase {
     constructor(
         private readonly sessions: SessionLifecycleService,
         private readonly runtimeBindings: RuntimeBindingService,
-        @Inject(TASK_ACCESS_PORT) private readonly tasks: ITaskAccess,
+        @Inject(TASK_ACCESS) private readonly tasks: ITaskAccess,
         @Inject(TASK_LIFECYCLE_ACCESS_PORT) private readonly taskLifecycle: ITaskLifecycleAccess,
         @Inject(NOTIFICATION_PUBLISHER_PORT) private readonly notifier: ISessionNotificationPublisher,
         @Inject(CLOCK_PORT) private readonly clock: IClock,
@@ -145,7 +142,7 @@ export class EndRuntimeSessionUseCase {
         return false;
     }
 
-    private async setTaskStatus(taskId: string, status: TaskAccessStatus): Promise<TaskAccessRecord> {
+    private async setTaskStatus(taskId: string, status: TaskStatus): Promise<TaskSnapshot> {
         const updatedAt = this.clock.nowIso();
         await this.tasks.updateStatus(taskId, status, updatedAt);
         const task = await this.tasks.findById(taskId);
