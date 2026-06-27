@@ -44,6 +44,48 @@ interface RequestOptions {
   readonly timeoutMs?: number;
 }
 
+// ── 멀티유저 신원 ──────────────────────────────────────────────────────
+// 최초 사용 시 이메일로 온보딩해 받은 userId 를 보관하고, 이후 모든 요청에
+// X-User-Id 헤더로 실어 보낸다.
+const USER_ID_STORAGE_KEY = "monitor.userId";
+
+function readStoredUserId(): string | null {
+  try {
+    return window.localStorage.getItem(USER_ID_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+let currentUserId: string | null = readStoredUserId();
+
+export function getUserId(): string | null {
+  return currentUserId;
+}
+
+export function setUserId(userId: string): void {
+  currentUserId = userId;
+  try {
+    window.localStorage.setItem(USER_ID_STORAGE_KEY, userId);
+  } catch {
+    // 저장 실패해도 메모리 값으로 이번 세션은 동작한다.
+  }
+}
+
+export interface OnboardingResult {
+  readonly userId: string;
+  readonly email: string;
+}
+
+/** 이메일로 온보딩하고 받은 userId 를 보관한다. */
+export async function onboardUser(email: string): Promise<OnboardingResult> {
+  const result = await postJson<OnboardingResult>("/api/v1/users/onboarding", {
+    email,
+  });
+  setUserId(result.userId);
+  return result;
+}
+
 interface ApiSuccessEnvelope<T> {
   readonly ok: true;
   readonly data: T;
@@ -124,9 +166,12 @@ async function request(
   options?: RequestOptions,
 ): Promise<Response> {
   const { signal, cleanup } = createRequestSignal(options);
+  const headers = new Headers(init?.headers);
+  if (currentUserId) headers.set("X-User-Id", currentUserId);
   const requestInit: RequestInit = {
     credentials: "include",
     ...init,
+    headers,
     ...(signal ? { signal } : {}),
   };
   try {
@@ -784,5 +829,7 @@ export function getMonitorWsUrl(): string {
   const baseUrl = resolveWebSocketBaseUrl();
   const wsUrl = new URL(baseUrl.replace(/^http/, "ws"));
   wsUrl.pathname = "/ws";
+  // 브라우저 WS 는 커스텀 헤더를 못 보내므로 userId 를 쿼리로 전달한다.
+  if (currentUserId) wsUrl.searchParams.set("userId", currentUserId);
   return wsUrl.toString();
 }
