@@ -1,19 +1,22 @@
-import { Body, Controller, HttpCode, HttpStatus, Inject, Param, Post } from "@nestjs/common";
+import { Body, Controller, HttpCode, HttpStatus, Inject, Post, Query } from "@nestjs/common";
 import { ZodValidationPipe } from "@monitor/shared/contracts/http/zod-validation.pipe.js";
+import { pathParamPipe } from "@monitor/shared/contracts/http/path-param.pipe.js";
 import { GetPreprocessingHintsUseCase } from "../application/get.preprocessing.hints.usecase.js";
 import type { GetPreprocessingHintsUseCaseOut } from "../application/dto/preprocessing.hints.dto.js";
 import { preprocessingHintsBodySchema, PreprocessingHintsDto } from "./preprocessing.hints.schema.js";
 
-@Controller("api/v1/tasks")
+// Timeline's preprocessing-hints — served under the events namespace (taskId in
+// query) so /tasks stays run-owned.
+@Controller("api/v1/events")
 export class PreprocessingHintsController {
     constructor(
         @Inject(GetPreprocessingHintsUseCase) private readonly getHints: GetPreprocessingHintsUseCase,
     ) {}
 
-    @Post(":taskId/preprocessing-hints")
+    @Post("preprocessing-hints")
     @HttpCode(HttpStatus.OK)
     async preprocessingHints(
-        @Param("taskId") taskId: string,
+        @Query("taskId", pathParamPipe) taskId: string,
         @Body(new ZodValidationPipe(preprocessingHintsBodySchema)) body: PreprocessingHintsDto,
     ): Promise<GetPreprocessingHintsUseCaseOut> {
         return this.getHints.execute({

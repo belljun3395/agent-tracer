@@ -1,7 +1,6 @@
 import { Module, type DynamicModule } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { EventCommandController } from "./api/event.command.controller.js";
-import { EventIngestController } from "./api/event.ingest.controller.js";
 import { PreprocessingHintsController } from "./api/preprocessing.hints.controller.js";
 import { SearchQueryController } from "./api/search.query.controller.js";
 import { TypedEventIngestController } from "./api/typed.event.ingest.controller.js";
@@ -59,7 +58,7 @@ export class EventModule {
                 ]),
                 databaseModule,
             ],
-            controllers: [EventCommandController, EventIngestController, PreprocessingHintsController, SearchQueryController, TypedEventIngestController],
+            controllers: [EventCommandController, PreprocessingHintsController, SearchQueryController, TypedEventIngestController],
             providers: [
                 // OpenSearch 클라이언트(OPENSEARCH_CLIENT)는 databaseModule 가 제공한다.
                 OpenSearchEventIndex,

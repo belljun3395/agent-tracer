@@ -1,26 +1,17 @@
-import { Body, Controller, HttpCode, HttpStatus, NotFoundException, Param, Patch, Post } from "@nestjs/common";
+import { Body, Controller, NotFoundException, Param, Patch } from "@nestjs/common";
 import { pathParamPipe } from "@monitor/shared/contracts/http/path-param.pipe.js";
 import { ZodValidationPipe } from "@monitor/shared/contracts/http/zod-validation.pipe.js";
-import { IngestEventsUseCase } from "../application/ingest.events.usecase.js";
 import { UpdateEventUseCase } from "../application/update.event.usecase.js";
 import { eventPatchSchema, EventPatchDto } from "./event.command.schema.js";
-import { eventBatchSchema, EventBatchDto } from "./event.batch.schema.js";
 
+// Event mutation that isn't ingest. Recording goes through the typed ingest
+// plane (ingest/v1/{tool-activity,workflow,...}); this only patches an
+// already-recorded event.
 @Controller("api/v1/events")
 export class EventCommandController {
     constructor(
-        private readonly ingestEvents: IngestEventsUseCase,
         private readonly updateEvent: UpdateEventUseCase,
     ) {}
-
-    @Post()
-    @HttpCode(HttpStatus.OK)
-    async ingestEventsEndpoint(
-        @Body(new ZodValidationPipe(eventBatchSchema, "Invalid request body"))
-        body: EventBatchDto,
-    ) {
-        return this.ingestEvents.execute({ events: body.events });
-    }
 
     @Patch(":eventId")
     async patchEvent(

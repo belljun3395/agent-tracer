@@ -44,7 +44,7 @@ export async function fetchPreprocessingHints(
     if (!taskId) return [];
     try {
         const response = await postJson<PreprocessingHintsResponse>(
-            `/api/v1/tasks/${encodeURIComponent(taskId)}/preprocessing-hints`,
+            `/api/v1/events/preprocessing-hints?taskId=${encodeURIComponent(taskId)}`,
             request,
         );
         const hints = response.hints;
