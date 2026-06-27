@@ -1,4 +1,9 @@
 import { Column, Entity, Index, PrimaryColumn } from "typeorm";
+import { z } from "zod";
+import { zodJsonbTransformer } from "./jsonb.column.js";
+
+const metadataSchema = z.record(z.string(), z.unknown());
+const tagsSchema = z.array(z.string());
 
 @Entity({ name: "timeline_events_view" })
 @Index("idx_timeline_events_view_task_created", ["taskId", "createdAt"])
@@ -60,9 +65,17 @@ export class TimelineEventEntity {
     @Column({ name: "evidence_level", type: "text", nullable: true })
     evidenceLevel!: string | null;
 
-    @Column({ name: "extras_json", type: "text", default: "{}" })
-    extrasJson!: string;
+    /** 정규화된 전체 metadata. */
+    @Column({ type: "jsonb", default: {}, transformer: zodJsonbTransformer(metadataSchema) })
+    metadata!: Record<string, unknown>;
+
+    /** classification.tags 로 노출되는 태그 목록. */
+    @Column({ type: "jsonb", default: [], transformer: zodJsonbTransformer(tagsSchema) })
+    tags!: string[];
 
     @Column({ name: "created_at", type: "text" })
     createdAt!: string;
+
+    /** 쓰기 시 build→hydrate 중간 표현(비영속). */
+    extrasJson?: string;
 }

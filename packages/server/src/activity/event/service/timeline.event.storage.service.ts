@@ -1,53 +1,31 @@
 import { Injectable } from "@nestjs/common";
 import { DataSource } from "typeorm";
-import { runInTransaction } from "typeorm-transactional";
+import type { MonitoringEventKind } from "~activity/event/domain/common/const/event.kind.const.js";
+import { normalizeLane } from "~activity/event/domain/event.lane.js";
 import type { TimelineEvent } from "~activity/event/domain/model/timeline.event.model.js";
 import {
     buildDerivedTableInserts,
     buildTimelineEventEntity,
 } from "../domain/timeline.event.row.builder.js";
-import {
-    emptySupplements,
-    hydrateTimelineEvent,
-    indexSupplementsByEventId,
-} from "../domain/timeline.event.hydrator.js";
-import type { TimelineEventEntity } from "../domain/timeline.event.entity.js";
+import { hydrateTimelineEvent } from "../domain/timeline.event.hydrator.js";
+import { TimelineEventEntity } from "../domain/timeline.event.entity.js";
 import type { TimelineEventInsertRequest } from "../application/outbound/event.persistence.port.js";
 import { TimelineEventRepository } from "../repository/timeline.event.repository.js";
-import { EventFileRepository } from "../repository/event.file.repository.js";
-import { EventRelationRepository } from "../repository/event.relation.repository.js";
-import { EventAsyncRefRepository } from "../repository/event.async.ref.repository.js";
-import { EventTagRepository } from "../repository/event.tag.repository.js";
-import { TodoCurrentRepository } from "../repository/todo.current.repository.js";
-import { QuestionCurrentRepository } from "../repository/question.current.repository.js";
-import { EventTokenUsageRepository } from "../repository/event.token.usage.repository.js";
 
 /**
- * Internal service — owns the multi-table write/read flow for timeline events.
- * Sync derived tables on write, hydrate them back on read. Stays inside event
- * module so the persistence concern doesn't leak.
+ * 타임라인 이벤트의 읽기/쓰기를 담당하는 내부 서비스. 이벤트는 단일 행으로
+ * 저장한다 — 쓰기 시점에 metadata 를 정규화해 jsonb 컬럼에 담고, 읽을 때는 그
+ * 행을 그대로 매핑한다(조인/하이드레이트 없음).
  */
 @Injectable()
 export class TimelineEventStorageService {
     constructor(
         private readonly timelineEvents: TimelineEventRepository,
-        private readonly files: EventFileRepository,
-        private readonly relations: EventRelationRepository,
-        private readonly asyncRefs: EventAsyncRefRepository,
-        private readonly tags: EventTagRepository,
-        private readonly todos: TodoCurrentRepository,
-        private readonly questions: QuestionCurrentRepository,
-        private readonly tokenUsage: EventTokenUsageRepository,
         private readonly dataSource: DataSource,
     ) {}
 
     async insert(input: TimelineEventInsertRequest): Promise<TimelineEvent> {
-        const entity = buildTimelineEventEntity(input);
-        const derived = buildDerivedTableInserts(input);
-        await runInTransaction(async () => {
-            await this.timelineEvents.save(entity);
-            await this.syncDerivedTables(input.id, derived);
-        });
+        await this.timelineEvents.save(this.buildRow(input));
         const loaded = await this.findById(input.id);
         if (!loaded) {
             throw new Error(`Failed to reload inserted timeline event ${input.id}`);
@@ -58,99 +36,51 @@ export class TimelineEventStorageService {
     async updateMetadata(eventId: string, metadata: Record<string, unknown>): Promise<TimelineEvent | null> {
         const existing = await this.findById(eventId);
         if (!existing) return null;
-
-        const refreshed = {
-            ...existing,
-            metadata,
-        } as unknown as TimelineEventInsertRequest;
-        const entity = buildTimelineEventEntity(refreshed);
-        const derived = buildDerivedTableInserts(refreshed);
-
-        await runInTransaction(async () => {
-            await this.timelineEvents.updateExtras(eventId, {
-                subtypeKey: entity.subtypeKey,
-                subtypeLabel: entity.subtypeLabel,
-                subtypeGroup: entity.subtypeGroup,
-                toolFamily: entity.toolFamily,
-                operation: entity.operation,
-                sourceTool: entity.sourceTool,
-                toolName: entity.toolName,
-                entityType: entity.entityType,
-                entityName: entity.entityName,
-                displayTitle: entity.displayTitle,
-                evidenceLevel: entity.evidenceLevel,
-                extrasJson: entity.extrasJson,
-            });
-            await this.syncDerivedTables(eventId, derived);
-        });
-
+        const refreshed: TimelineEventInsertRequest = { ...existing, metadata };
+        await this.timelineEvents.save(this.buildRow(refreshed));
         return this.findById(eventId);
     }
 
     async findById(id: string): Promise<TimelineEvent | null> {
         const row = await this.timelineEvents.findById(id);
         if (!row) return null;
-        const supplements = await this.loadSupplements([id]);
-        const hydrated = hydrateTimelineEvent(row, supplements.get(id) ?? emptySupplements());
-        return (await this.applyRuleLaneOverride([hydrated]))[0] ?? hydrated;
+        const [event] = await this.applyRuleLaneOverride([this.toEvent(row)]);
+        return event ?? null;
     }
 
     async findByTaskId(taskId: string): Promise<readonly TimelineEvent[]> {
         const rows = await this.timelineEvents.findByTaskIdOrdered(taskId);
-        return this.hydrateRows(rows);
+        return this.applyRuleLaneOverride(rows.map((row) => this.toEvent(row)));
     }
 
-    private async hydrateRows(rows: readonly TimelineEventEntity[]): Promise<readonly TimelineEvent[]> {
-        if (rows.length === 0) return [];
-        const supplements = await this.loadSupplements(rows.map((r) => r.id));
-        const hydrated = rows.map((row) => hydrateTimelineEvent(row, supplements.get(row.id) ?? emptySupplements()));
-        return this.applyRuleLaneOverride(hydrated);
+    /** 입력을 정규화해 단일 이벤트 행으로 만든다(파생 필드는 jsonb metadata/tags 에 흡수). */
+    private buildRow(input: TimelineEventInsertRequest): TimelineEventEntity {
+        const entity = buildTimelineEventEntity(input);
+        const hydrated = hydrateTimelineEvent(entity, buildDerivedTableInserts(input));
+        entity.metadata = hydrated.metadata;
+        entity.tags = [...hydrated.classification.tags];
+        return entity;
     }
 
-    private async syncDerivedTables(eventId: string, derived: ReturnType<typeof buildDerivedTableInserts>): Promise<void> {
-        await Promise.all([
-            this.files.deleteByEventId(eventId),
-            this.relations.deleteByEventId(eventId),
-            this.asyncRefs.deleteByEventId(eventId),
-            this.tags.deleteByEventId(eventId),
-            this.tokenUsage.deleteByEventId(eventId),
-        ]);
-        await this.files.insertMany(derived.files);
-        await this.relations.insertManyIgnoreDuplicates(derived.relations);
-        if (derived.asyncRef) await this.asyncRefs.insert(derived.asyncRef);
-        await this.tags.insertMany(derived.tags);
-        if (derived.todo) await this.todos.upsert(derived.todo);
-        if (derived.question) await this.questions.upsert(derived.question);
-        if (derived.tokenUsage) await this.tokenUsage.insert(derived.tokenUsage);
-    }
-
-    private async loadSupplements(eventIds: readonly string[]) {
-        const [files, relations, asyncRefs, tags, todos, questions, tokenUsages] = await Promise.all([
-            this.files.findByEventIds(eventIds),
-            this.relations.findByEventIds(eventIds),
-            this.asyncRefs.findByEventIds(eventIds),
-            this.tags.findByEventIds(eventIds),
-            this.todos.findByLastEventIds(eventIds),
-            this.questions.findByLastEventIds(eventIds),
-            this.tokenUsage.findByEventIds(eventIds),
-        ]);
-        return indexSupplementsByEventId(eventIds, files, relations, asyncRefs, tags, todos, questions, tokenUsages);
+    private toEvent(row: TimelineEventEntity): TimelineEvent {
+        const lane = normalizeLane(row.lane);
+        return {
+            id: row.id,
+            taskId: row.taskId,
+            kind: row.kind as MonitoringEventKind,
+            lane,
+            title: row.title,
+            metadata: row.metadata,
+            classification: { lane, tags: row.tags, matches: [] },
+            createdAt: row.createdAt,
+            ...(row.sessionId ? { sessionId: row.sessionId } : {}),
+            ...(row.body ? { body: row.body } : {}),
+        };
     }
 
     /**
-     * Read-time projection of rule_enforcements onto timeline events. For every
-     * event that has at least one enforcement row, we:
-     *
-     *   • flip the lane (top-level and inside `classification`) to "rule"
-     *   • populate `classification.matches` so frontend consumers that count
-     *     or render matches (RulesTab match badge, InspectTab RuleMatchesSection)
-     *     see the firings without an extra fetch
-     *   • keep `metadata.ruleEnforcements` for callers that need matchKind
-     *     ("trigger" vs "expect-fulfilled"), which the EventClassificationMatch
-     *     shape doesn't carry
-     *
-     * Cross-module read of rule_enforcements via raw query; will be replaced
-     * with a rule-module outbound port when rule module migrates to TypeORM.
+     * 읽기 시점에 rule_enforcements 를 타임라인 이벤트에 투영한다. enforcement 가
+     * 있는 이벤트는 lane 을 "rule" 로 바꾸고 classification.matches 를 채운다.
      */
     private async applyRuleLaneOverride<T extends TimelineEvent>(
         events: readonly T[],

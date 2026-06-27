@@ -27,14 +27,7 @@ import { EventTaskAccessAdapter } from "./adapter/task.access.adapter.js";
 import { TimelineEventProjectionPublicAdapter } from "./adapter/timeline.event.projection.public.adapter.js";
 import { TimelineEventWritePublicAdapter } from "./adapter/timeline.event.write.public.adapter.js";
 import { VerificationPostProcessorAdapter } from "./adapter/verification.post.processor.adapter.js";
-import { EventAsyncRefEntity } from "./domain/event.async.ref.entity.js";
-import { EventFileEntity } from "./domain/event.file.entity.js";
-import { EventRelationEntity } from "./domain/event.relation.entity.js";
-import { EventTagEntity } from "./domain/event.tag.entity.js";
-import { EventTokenUsageEntity } from "./domain/event.token.usage.entity.js";
-import { QuestionCurrentEntity } from "./domain/question.current.entity.js";
 import { TimelineEventEntity } from "./domain/timeline.event.entity.js";
-import { TodoCurrentEntity } from "./domain/todo.current.entity.js";
 import {
     TIMELINE_EVENT_PROJECTION,
     TIMELINE_EVENT_READ,
@@ -46,15 +39,8 @@ import {
     OPENSEARCH_CLIENT,
     OpenSearchEventIndex,
 } from "./repository/search/opensearch.event.index.js";
-import { EventAsyncRefRepository } from "./repository/event.async.ref.repository.js";
-import { EventFileRepository } from "./repository/event.file.repository.js";
-import { EventRelationRepository } from "./repository/event.relation.repository.js";
-import { EventTagRepository } from "./repository/event.tag.repository.js";
-import { EventTokenUsageRepository } from "./repository/event.token.usage.repository.js";
 import { PreprocessingHintsRepository } from "./repository/preprocessing.hints.repository.js";
-import { QuestionCurrentRepository } from "./repository/question.current.repository.js";
 import { TimelineEventRepository } from "./repository/timeline.event.repository.js";
-import { TodoCurrentRepository } from "./repository/todo.current.repository.js";
 import { TimelineEventService } from "./service/timeline.event.service.js";
 import { TimelineEventStorageService } from "./service/timeline.event.storage.service.js";
 
@@ -78,13 +64,6 @@ export class EventModule {
             imports: [
                 TypeOrmModule.forFeature([
                     TimelineEventEntity,
-                    EventFileEntity,
-                    EventRelationEntity,
-                    EventAsyncRefEntity,
-                    EventTagEntity,
-                    TodoCurrentEntity,
-                    QuestionCurrentEntity,
-                    EventTokenUsageEntity,
                 ]),
                 databaseModule,
                 governanceModule,
@@ -101,13 +80,6 @@ export class EventModule {
                 OpenSearchEventIndex,
                 // Repositories
                 TimelineEventRepository,
-                EventFileRepository,
-                EventRelationRepository,
-                EventAsyncRefRepository,
-                EventTagRepository,
-                TodoCurrentRepository,
-                QuestionCurrentRepository,
-                EventTokenUsageRepository,
                 PreprocessingHintsRepository,
                 // Services
                 TimelineEventStorageService,

@@ -26,8 +26,4 @@ export class TimelineEventRepository {
     save(entity: TimelineEventEntity): Promise<TimelineEventEntity> {
         return this.repo.save(entity);
     }
-
-    async updateExtras(id: string, fields: Partial<TimelineEventEntity>): Promise<void> {
-        await this.repo.update({ id }, fields);
-    }
 }
