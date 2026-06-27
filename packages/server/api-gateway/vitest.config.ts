@@ -39,6 +39,7 @@ export default defineConfig({
             "../rules-api/src/**/*.test.ts",
             "../insight-api/src/**/*.test.ts",
             "../identity-api/src/**/*.test.ts",
+            "../ws-gateway/src/**/*.test.ts",
         ],
     },
 });
