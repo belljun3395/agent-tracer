@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { KIND } from "~activity/event/public/types/event.const.js";
+import { KIND } from "@monitor/activity/event/public/types/event.const.js";
 import { TaskQueryService } from "../service/task.query.service.js";
 import { GetTaskTimelineUseCase } from "./get.task.timeline.usecase.js";
 import type {

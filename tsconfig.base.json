@@ -11,11 +11,26 @@
       "@monitor/contracts/*": [
         "packages/contracts/src/*"
       ],
-      "~activity/*": [
-        "packages/server/src/activity/*"
+      "@monitor/activity/*": [
+        "packages/activity/src/*"
       ],
       "~work/*": [
         "packages/server/src/work/*"
+      ],
+      "~governance/*": [
+        "packages/server/src/governance/*"
+      ],
+      "~config/*": [
+        "packages/server/src/config/*"
+      ],
+      "~adapters/*": [
+        "packages/server/src/adapters/*"
+      ],
+      "~main/*": [
+        "packages/server/src/main/*"
+      ],
+      "~identity/*": [
+        "packages/server/src/identity/*"
       ],
       "@monitor/server": [
         "packages/server/src/server.entry.ts"

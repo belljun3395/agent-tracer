@@ -7,12 +7,12 @@ export default defineConfig({
         alias: {
             "~adapters": resolve(__dirname, "src/adapters"),
             "~main": resolve(__dirname, "src/main"),
-            "~activity": resolve(__dirname, "src/activity"),
             "~work": resolve(__dirname, "src/work"),
             "~governance": resolve(__dirname, "src/governance"),
             "~config": resolve(__dirname, "src/config"),
             "@monitor/shared-kernel": resolve(__dirname, "../shared-kernel/src"),
             "@monitor/contracts": resolve(__dirname, "../contracts/src"),
+            "@monitor/activity": resolve(__dirname, "../activity/src"),
         },
     },
     plugins: [

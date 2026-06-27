@@ -6,7 +6,7 @@ import {
     resolveTurnPartition,
     validatePartition,
 } from "./turn.partition.js";
-import type { TimelineEvent } from "~activity/event/public/types/event.types.js";
+import type { TimelineEvent } from "@monitor/activity/event/public/types/event.types.js";
 import type { TurnPartition } from "./turn.partition.model.js";
 
 function userMessage(id: string, createdAt: string): TimelineEvent {

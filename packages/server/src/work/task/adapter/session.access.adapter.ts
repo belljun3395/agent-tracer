@@ -1,6 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { SESSION_LIFECYCLE } from "~activity/session/public/tokens.js";
-import type { ISessionLifecycle } from "~activity/session/public/iservice/session.lifecycle.iservice.js";
+import { SESSION_LIFECYCLE } from "@monitor/activity/session/public/tokens.js";
+import type { ISessionLifecycle } from "@monitor/activity/session/public/iservice/session.lifecycle.iservice.js";
 import type {
     ISessionAccess,
     SessionAccessRecord,

@@ -1,5 +1,5 @@
-import { KIND, LANE } from "~activity/event/public/types/event.const.js";
-import type { EventRecordingInput } from "~activity/event/public/types/event.types.js";
+import { KIND, LANE } from "@monitor/activity/event/public/types/event.const.js";
+import type { EventRecordingInput } from "@monitor/activity/event/public/types/event.types.js";
 import type { MonitoringTask } from "~work/task/domain/task.model.js";
 
 export interface StartTaskEventDraftInput {

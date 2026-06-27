@@ -1,5 +1,5 @@
-import type { TimelineEventWriteInput } from "~activity/event/public/iservice/timeline.event.write.iservice.js";
-import type { TimelineEventSnapshot } from "~activity/event/public/dto/timeline.event.dto.js";
+import type { TimelineEventWriteInput } from "@monitor/activity/event/public/iservice/timeline.event.write.iservice.js";
+import type { TimelineEventSnapshot } from "@monitor/activity/event/public/dto/timeline.event.dto.js";
 
 /**
  * 아웃바운드 포트 — 타임라인 이벤트 읽기/쓰기. 캐노니컬 이벤트 public 타입을 그대로

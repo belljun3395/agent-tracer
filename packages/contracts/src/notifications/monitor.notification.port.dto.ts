@@ -1,6 +1,6 @@
-import type { TimelineEventProjection } from "~activity/event/public/dto/timeline.event.dto.js";
+import type { TimelineEventProjection } from "@monitor/activity/event/public/dto/timeline.event.dto.js";
 import type { MonitoringTask } from "~work/task/public/types/task.types.js";
-import type { SessionSnapshot } from "~activity/session/public/dto/session.snapshot.dto.js";
+import type { SessionSnapshot } from "@monitor/activity/session/public/dto/session.snapshot.dto.js";
 import type { NOTIFICATION_TYPE } from "./notification.type.const.js";
 
 /** 타임라인 이벤트 알림 페이로드 = 캐노니컬 프로젝션(중복 선언 제거). */

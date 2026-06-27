@@ -1,7 +1,7 @@
 import type {
     TimelineEventProjection,
     TimelineEventSnapshot,
-} from "~activity/event/public/dto/timeline.event.dto.js";
+} from "@monitor/activity/event/public/dto/timeline.event.dto.js";
 
 /**
  * 아웃바운드 포트 — 타임라인 이벤트를 WS 알림용 프로젝션으로 변환한다.

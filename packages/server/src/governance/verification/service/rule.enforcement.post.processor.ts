@@ -1,6 +1,6 @@
-import type { TimelineEvent } from "~activity/event/public/types/event.types.js";
+import type { TimelineEvent } from "@monitor/activity/event/public/types/event.types.js";
 import { NOTIFICATION_TYPE } from "@monitor/contracts/notifications/notification.type.const.js";
-import { KIND } from "~activity/event/public/types/event.const.js";
+import { KIND } from "@monitor/activity/event/public/types/event.const.js";
 import { matchEventAgainstRule } from "~governance/verification/domain/event.rule.matching.js";
 import type { INotificationPublisher } from "@monitor/contracts/notifications/notification.publisher.port.js";
 import type { IRuleAccess } from "~governance/verification/application/outbound/rule.access.port.js";

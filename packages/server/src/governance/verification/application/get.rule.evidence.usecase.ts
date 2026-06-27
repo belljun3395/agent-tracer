@@ -1,5 +1,5 @@
-import type { ITimelineEventRead } from "~activity/event/public/iservice/timeline.event.read.iservice.js";
-import type { TimelineEventSnapshot } from "~activity/event/public/dto/timeline.event.dto.js";
+import type { ITimelineEventRead } from "@monitor/activity/event/public/iservice/timeline.event.read.iservice.js";
+import type { TimelineEventSnapshot } from "@monitor/activity/event/public/dto/timeline.event.dto.js";
 import type { IRuleRead } from "~governance/rule/public/iservice/rule.read.iservice.js";
 import type { RuleSnapshot } from "~governance/rule/public/dto/rule.snapshot.dto.js";
 import type { IRuleEnforcementRepository } from "./outbound/rule.enforcement.repository.port.js";

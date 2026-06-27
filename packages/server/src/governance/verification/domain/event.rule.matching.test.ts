@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Rule } from "~governance/rule/public/types/rule.types.js";
-import type { TimelineEvent } from "~activity/event/public/types/event.types.js";
+import type { TimelineEvent } from "@monitor/activity/event/public/types/event.types.js";
 import { matchEventAgainstRule } from "./event.rule.matching.js";
 
 const NOW = "2026-04-29T10:00:00.000Z";

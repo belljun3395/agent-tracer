@@ -1,8 +1,8 @@
 import { Inject, Injectable } from "@nestjs/common";
-import type { ITimelineEventRead } from "~activity/event/public/iservice/timeline.event.read.iservice.js";
-import type { ITimelineEventWrite, TimelineEventWriteInput } from "~activity/event/public/iservice/timeline.event.write.iservice.js";
-import type { TimelineEventSnapshot } from "~activity/event/public/dto/timeline.event.dto.js";
-import { TIMELINE_EVENT_READ, TIMELINE_EVENT_WRITE } from "~activity/event/public/tokens.js";
+import type { ITimelineEventRead } from "@monitor/activity/event/public/iservice/timeline.event.read.iservice.js";
+import type { ITimelineEventWrite, TimelineEventWriteInput } from "@monitor/activity/event/public/iservice/timeline.event.write.iservice.js";
+import type { TimelineEventSnapshot } from "@monitor/activity/event/public/dto/timeline.event.dto.js";
+import { TIMELINE_EVENT_READ, TIMELINE_EVENT_WRITE } from "@monitor/activity/event/public/tokens.js";
 import type { ITimelineEventAccess } from "../application/outbound/timeline.event.access.port.js";
 
 /**

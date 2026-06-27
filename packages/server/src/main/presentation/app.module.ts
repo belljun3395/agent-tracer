@@ -5,7 +5,7 @@ import type { INotificationPublisher } from "@monitor/contracts/notifications/no
 import { AppConfigModule } from "~config/app-config.module.js";
 import { HealthController } from "~adapters/http/query/controllers/health/health.query.controller.js";
 import { LlmModule } from "~adapters/llm/llm.module.js";
-import { ActivityModule } from "~activity/activity.module.js";
+import { ActivityModule } from "@monitor/activity/activity.module.js";
 import { GovernanceModule } from "~governance/governance.module.js";
 import { WorkModule } from "~work/work.module.js";
 import { IdentityModule } from "~identity/identity.module.js";

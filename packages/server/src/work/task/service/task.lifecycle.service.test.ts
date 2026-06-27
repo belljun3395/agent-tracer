@@ -10,8 +10,8 @@ import type {
     SessionAccessRecord,
 } from "../application/outbound/session.access.port.js";
 import type { ITimelineEventAccess } from "../application/outbound/timeline.event.access.port.js";
-import type { TimelineEventWriteInput } from "~activity/event/public/iservice/timeline.event.write.iservice.js";
-import type { TimelineEventSnapshot } from "~activity/event/public/dto/timeline.event.dto.js";
+import type { TimelineEventWriteInput } from "@monitor/activity/event/public/iservice/timeline.event.write.iservice.js";
+import type { TimelineEventSnapshot } from "@monitor/activity/event/public/dto/timeline.event.dto.js";
 import type {
     IEventProjectionAccess,
     ProjectedTimelineEvent,

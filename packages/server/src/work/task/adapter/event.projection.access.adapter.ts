@@ -1,6 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
-import type { ITimelineEventProjection } from "~activity/event/public/iservice/timeline.event.projection.iservice.js";
-import { TIMELINE_EVENT_PROJECTION } from "~activity/event/public/tokens.js";
+import type { ITimelineEventProjection } from "@monitor/activity/event/public/iservice/timeline.event.projection.iservice.js";
+import { TIMELINE_EVENT_PROJECTION } from "@monitor/activity/event/public/tokens.js";
 import type {
     IEventProjectionAccess,
     ProjectableTimelineEvent,

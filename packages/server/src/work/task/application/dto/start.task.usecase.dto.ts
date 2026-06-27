@@ -1,6 +1,6 @@
 import type { MonitoringTask } from "~work/task/domain/task.model.js";
 import type { MonitoringTaskKind, TaskOrigin } from "~work/task/common/task.status.const.js";
-import type { MonitoringEventKind } from "~activity/event/public/types/event.types.js";
+import type { MonitoringEventKind } from "@monitor/activity/event/public/types/event.types.js";
 
 export interface StartTaskUseCaseIn {
     readonly taskId?: string;

@@ -1,6 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
-import type { ITimelineEventRead } from "~activity/event/public/iservice/timeline.event.read.iservice.js";
-import { TIMELINE_EVENT_READ } from "~activity/event/public/tokens.js";
+import type { ITimelineEventRead } from "@monitor/activity/event/public/iservice/timeline.event.read.iservice.js";
+import { TIMELINE_EVENT_READ } from "@monitor/activity/event/public/tokens.js";
 import type {
     ITimelineEventAccess,
     TimelineEventAccessRecord,

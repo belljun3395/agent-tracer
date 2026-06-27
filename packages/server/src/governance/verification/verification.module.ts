@@ -7,8 +7,8 @@ import type { IRuleEnforcementRepository } from "~governance/verification/applic
 import type { ITurnQueryRepository } from "~governance/verification/application/outbound/turn.query.repository.port.js";
 import type { ITurnRepository } from "~governance/verification/application/outbound/turn.repository.port.js";
 import type { IVerdictRepository } from "~governance/verification/application/outbound/verdict.repository.port.js";
-import type { ITimelineEventRead } from "~activity/event/public/iservice/timeline.event.read.iservice.js";
-import { TIMELINE_EVENT_READ } from "~activity/event/public/tokens.js";
+import type { ITimelineEventRead } from "@monitor/activity/event/public/iservice/timeline.event.read.iservice.js";
+import { TIMELINE_EVENT_READ } from "@monitor/activity/event/public/tokens.js";
 import { NOTIFICATION_PUBLISHER_TOKEN } from "~main/presentation/database/database.provider.js";
 import type { IRuleRead } from "~governance/rule/public/iservice/rule.read.iservice.js";
 import { RULE_READ, RULE_REPOSITORY_TOKEN } from "~governance/rule/public/tokens.js";

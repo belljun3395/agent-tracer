@@ -1,5 +1,5 @@
-import { isUserMessageEvent } from "~activity/event/public/predicates.js";
-import type { TimelineEvent } from "~activity/event/public/types/event.types.js";
+import { isUserMessageEvent } from "@monitor/activity/event/public/predicates.js";
+import type { TimelineEvent } from "@monitor/activity/event/public/types/event.types.js";
 import type { TurnSegment } from "./turn.segment.model.js";
 
 const REQUEST_PREVIEW_LIMIT = 120;

@@ -1,5 +1,5 @@
-import type { MonitoringEventKind, TimelineLane } from "~activity/event/domain/common/const/event.kind.const.js";
-import type { EventClassificationMatch } from "~activity/event/domain/model/timeline.event.model.js";
+import type { MonitoringEventKind, TimelineLane } from "@monitor/activity/event/domain/common/const/event.kind.const.js";
+import type { EventClassificationMatch } from "@monitor/activity/event/domain/model/timeline.event.model.js";
 
 /**
  * Public iservice — verification post-processing of timeline events as they
