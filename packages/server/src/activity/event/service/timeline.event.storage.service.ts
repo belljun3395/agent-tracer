@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { DataSource } from "typeorm";
 import { currentUserId } from "~shared/user/user.context.js";
-import type { MonitoringEventKind } from "~activity/event/domain/common/const/event.kind.const.js";
+import { LANE, type MonitoringEventKind } from "~activity/event/domain/common/const/event.kind.const.js";
 import { normalizeLane } from "~activity/event/domain/event.lane.js";
 import type { TimelineEvent } from "~activity/event/domain/model/timeline.event.model.js";
 import {
@@ -109,10 +109,10 @@ export class TimelineEventStorageService {
             if (!ruleEnforcements) return e;
             return {
                 ...e,
-                lane: "rule" as const,
+                lane: LANE.rule,
                 classification: {
                     ...e.classification,
-                    lane: "rule" as const,
+                    lane: LANE.rule,
                     matches: ruleEnforcements.map((r) => ({
                         ruleId: r.ruleId,
                         score: 1,
@@ -123,7 +123,7 @@ export class TimelineEventStorageService {
                 metadata: {
                     ...e.metadata,
                     ruleEnforcements,
-                    ...(e.lane === "rule" ? {} : { originalLane: e.lane }),
+                    ...(e.lane === LANE.rule ? {} : { originalLane: e.lane }),
                 },
             } as T;
         });

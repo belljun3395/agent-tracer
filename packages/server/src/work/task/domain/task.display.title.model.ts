@@ -1,6 +1,7 @@
 import type { MonitoringTask } from "~work/task/domain/task.model.js";
 import type { TimelineEvent } from "~activity/event/public/types/event.types.js";
 import { isInternalEvent, isTaskLifecycleEvent, isUserLane } from "~activity/event/public/predicates.js";
+import { KIND } from "~activity/event/public/types/event.const.js";
 import {
     GENERIC_TASK_TITLE_PREFIXES,
     GENERIC_TASK_TITLE_PREFIX_SPLIT_PATTERN,
@@ -57,7 +58,7 @@ export class TaskDisplayTitle {
         const userGoal = this.timeline.find((event) => isUserLane(event.lane)
             && !isTaskLifecycleEvent(event)
             && event.body)?.body;
-        const startSummary = this.timeline.find((event) => event.kind === "task.start" && event.body)?.body;
+        const startSummary = this.timeline.find((event) => event.kind === KIND.taskStart && event.body)?.body;
         const firstMeaningful = this.timeline.find((event) => !isInternalEvent(event));
         return [userGoal, startSummary, firstMeaningful?.body, firstMeaningful?.title];
     }

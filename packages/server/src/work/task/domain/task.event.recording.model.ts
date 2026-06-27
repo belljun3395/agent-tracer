@@ -1,3 +1,4 @@
+import { KIND, LANE } from "~activity/event/public/types/event.const.js";
 import type { EventRecordingInput } from "~activity/event/public/types/event.types.js";
 import type { MonitoringTask } from "~work/task/domain/task.model.js";
 
@@ -39,8 +40,8 @@ export class TaskStartRecording {
         return {
             taskId: this.input.task.id,
             sessionId: this.input.sessionId,
-            kind: "task.start",
-            lane: "user",
+            kind: KIND.taskStart,
+            lane: LANE.user,
             title: this.input.title,
             metadata,
             ...(this.input.summary ? { body: this.input.summary } : {}),
@@ -57,8 +58,8 @@ export class TaskFinalizationRecording {
         const body = this.input.outcome === "errored" ? this.input.errorMessage : this.input.summary;
         return {
             taskId: this.input.taskId,
-            kind: this.input.outcome === "completed" ? "task.complete" : "task.error",
-            lane: "user",
+            kind: this.input.outcome === "completed" ? KIND.taskComplete : KIND.taskError,
+            lane: LANE.user,
             title: this.input.outcome === "completed" ? "Task completed" : "Task errored",
             ...(this.input.sessionId ? { sessionId: this.input.sessionId } : {}),
             ...(body ? { body } : {}),

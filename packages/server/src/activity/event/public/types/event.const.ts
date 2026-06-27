@@ -3,15 +3,9 @@
  */
 export {
     KIND,
-    
-    
-    
-    
+    LANE,
     TODO_STATES,
     QUESTION_PHASES,
-    
-    
-    
 } from "~activity/event/domain/common/const/event.kind.const.js";
 
 export {

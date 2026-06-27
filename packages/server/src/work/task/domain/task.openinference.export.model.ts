@@ -10,6 +10,7 @@ import {
 import type { TimelineEvent } from "~activity/event/public/types/event.types.js";
 import type { MonitoringTask } from "~work/task/domain/task.model.js";
 import { META } from "~activity/event/public/types/metadata.keys.js";
+import { KIND } from "~activity/event/public/types/event.const.js";
 
 export type OpenInferenceSpanKind = "AGENT" | "CHAIN" | "TOOL" | "LLM" | "RETRIEVER" | "UNKNOWN";
 
@@ -94,7 +95,7 @@ function classifySpanKind(event: TimelineEvent): OpenInferenceSpanKind {
     if (isAgentActivityLoggedEvent(event)) return "AGENT";
     if (isExplorationLane(event.lane)) return "RETRIEVER";
     if (isPlanningLane(event.lane) || isImplementationLane(event.lane)
-        || event.kind === "plan.logged" || event.kind === "action.logged") {
+        || event.kind === KIND.planLogged || event.kind === KIND.actionLogged) {
         return "CHAIN";
     }
     return "UNKNOWN";

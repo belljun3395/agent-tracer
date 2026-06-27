@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { KIND } from "~activity/event/public/types/event.const.js";
 import { TaskQueryService } from "../service/task.query.service.js";
 import { GetTaskTimelineUseCase } from "./get.task.timeline.usecase.js";
 import type {
@@ -35,7 +36,7 @@ export class GetTaskSummaryUseCase {
         let firstUserMessage: { title: string; body?: string } | undefined;
 
         for (const event of events) {
-            if (!firstUserMessage && event.kind === "user.message") {
+            if (!firstUserMessage && event.kind === KIND.userMessage) {
                 firstUserMessage = {
                     title: truncate(event.title, 200),
                     ...(event.body
@@ -96,8 +97,8 @@ function inferToolName(event: ProjectedTimelineEvent): string | null {
     const explicit = readString(event.metadata, "toolName")
         ?? readString(event.metadata, "sourceTool");
     if (explicit) return explicit;
-    if (event.kind === "terminal.command") return "Bash";
-    if (event.kind === "tool.used") return readString(event.metadata, "tool") ?? null;
+    if (event.kind === KIND.terminalCommand) return "Bash";
+    if (event.kind === KIND.toolUsed) return readString(event.metadata, "tool") ?? null;
     return null;
 }
 
