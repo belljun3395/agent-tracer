@@ -1,7 +1,6 @@
 import type { TimelineEvent } from "./model/timeline.event.model.js";
 import { isBackgroundLane, isExplorationLane } from "./event.predicates.js";
 import { KIND } from "@monitor/activity-api/event/domain/common/const/event.kind.const.js";
-import type { TaskStatus } from "@monitor/shared/task/task.status.const.js";
 import type { EventRecordingInput, EventRecordDraft } from "./model/event.recording.model.js";
 import type { EventClassification } from "./model/timeline.event.model.js";
 
@@ -67,12 +66,4 @@ export function deriveFileChangeEventInputs(input: {
         metadata: { sourceKind: input.sourceEvent.kind, sourceEventId: input.sourceEvent.id },
         ...(input.sessionId ? { sessionId: input.sessionId } : {}),
     }));
-}
-
-export function shouldApplyLoggedEventTaskStatusEffect(input: {
-    readonly currentStatus: TaskStatus;
-    readonly desiredStatus: TaskStatus;
-}): boolean {
-    return input.desiredStatus !== input.currentStatus &&
-        input.currentStatus !== "completed";
 }

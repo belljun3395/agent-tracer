@@ -22,6 +22,7 @@ import { RuleEvidenceQueryController } from "./api/rule.evidence.query.controlle
 import { VerificationBackfillPublicAdapter } from "./adapter/verification.backfill.public.adapter.js";
 import { VerdictInvalidationPublicAdapter } from "./adapter/verdict.invalidation.public.adapter.js";
 import { VerificationPostProcessorPublicAdapter } from "./adapter/verification.post.processor.public.adapter.js";
+import { EventRecordedVerificationSubscriber } from "./subscriber/event.recorded.verification.subscriber.js";
 import { BackfillRuleEvaluationUseCase } from "./application/backfill.rule.evaluation.usecase.js";
 import { GetRuleEvidenceForTaskUseCase } from "./application/get.rule.evidence.usecase.js";
 import { RunTurnEvaluationUseCase } from "./application/run.turn.evaluation.usecase.js";
@@ -175,6 +176,8 @@ export class VerificationModule {
                 VerificationBackfillPublicAdapter,
                 VerdictInvalidationPublicAdapter,
                 VerificationPostProcessorPublicAdapter,
+                // Subscribes to timeline's event.recorded → runs verification
+                EventRecordedVerificationSubscriber,
                 // Public iservice bindings
                 { provide: VERIFICATION_BACKFILL, useExisting: VerificationBackfillPublicAdapter },
                 { provide: VERIFICATION_VERDICT_INVALIDATION, useExisting: VerdictInvalidationPublicAdapter },

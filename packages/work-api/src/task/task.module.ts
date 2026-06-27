@@ -51,6 +51,7 @@ import { StuckServerSdkTaskReaperService } from "./service/stuck.server.sdk.task
 import { TaskLifecycleService } from "./service/task.lifecycle.service.js";
 import { TaskManagementService } from "./service/task.management.service.js";
 import { TaskQueryService } from "./service/task.query.service.js";
+import { EventRecordedTaskEffectSubscriber } from "./subscriber/event.recorded.task.effect.subscriber.js";
 
 /**
  * Task module — owns TaskEntity, TaskRelationEntity.
@@ -84,6 +85,8 @@ export class TaskModule {
                 TaskLifecycleService,
                 StaleTaskReaperService,
                 StuckServerSdkTaskReaperService,
+                // Subscribes to timeline's event.recorded → applies task-status effect
+                EventRecordedTaskEffectSubscriber,
                 // Outbound adapters
                 SessionAccessAdapter,
                 RuntimeBindingAccessAdapter,

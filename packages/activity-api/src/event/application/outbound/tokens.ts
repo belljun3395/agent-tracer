@@ -2,8 +2,6 @@
  * DI tokens for the event module's outbound dependencies.
  */
 export const EVENT_PERSISTENCE_PORT = "EVENT_PERSISTENCE_PORT";
-export const TASK_ACCESS_PORT = "EVENT_TASK_ACCESS_PORT";
 export const NOTIFICATION_PUBLISHER_PORT = "EVENT_NOTIFICATION_PUBLISHER_PORT";
-export const VERIFICATION_POST_PROCESSOR_PORT = "EVENT_VERIFICATION_POST_PROCESSOR_PORT";
 export const EVENT_SEARCH_INDEX_PORT = "EVENT_SEARCH_INDEX_PORT";
 export { CLOCK_PORT, ID_GENERATOR_PORT } from "@monitor/shared/kernel/clock.js";

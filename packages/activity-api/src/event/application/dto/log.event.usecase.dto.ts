@@ -60,24 +60,6 @@ export type LoggedEventKind = IngestEventKind | (typeof _INTERNAL_EVENT_KINDS)[n
 export type EventRelationType = (typeof EVENT_RELATION_TYPES)[number];
 
 export type LogEventTaskStatusUseCaseDto = "running" | "waiting" | "completed" | "errored";
-export type LogEventTaskKindUseCaseDto = "primary" | "background";
-
-export interface LogEventTaskUseCaseDto {
-    readonly id: string;
-    readonly slug: string;
-    readonly title: string;
-    readonly displayTitle?: string;
-    readonly workspacePath?: string;
-    readonly status: LogEventTaskStatusUseCaseDto;
-    readonly createdAt: string;
-    readonly updatedAt: string;
-    readonly lastSessionStartedAt?: string;
-    readonly runtimeSource?: string;
-    readonly taskKind?: LogEventTaskKindUseCaseDto;
-    readonly parentTaskId?: string;
-    readonly parentSessionId?: string;
-    readonly backgroundTaskId?: string;
-}
 
 export interface LogEventUseCaseIn {
     readonly kind: IngestEventKind;
@@ -98,7 +80,6 @@ export interface LogEventUseCaseIn {
 }
 
 export interface LogEventUseCaseOut {
-    readonly task: LogEventTaskUseCaseDto;
     readonly sessionId?: string;
     readonly events: readonly { readonly id: string; readonly kind: LoggedEventKind }[];
 }

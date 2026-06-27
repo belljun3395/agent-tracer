@@ -1,25 +1,19 @@
 import { Inject, Injectable } from "@nestjs/common";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 import { NOTIFICATION_TYPE } from "@monitor/shared/contracts/notifications/notification.type.const.js";
 import { Transactional, runOnTransactionCommit } from "typeorm-transactional";
-import { KIND } from "@monitor/activity-api/event/domain/common/const/event.kind.const.js";
 import { createEventRecordDraft, normalizeFilePaths } from "@monitor/activity-api/event/domain/event.recording.js";
-import { deriveFileChangeEventInputs, shouldApplyLoggedEventTaskStatusEffect } from "@monitor/activity-api/event/domain/event.recording.js";
+import { deriveFileChangeEventInputs } from "@monitor/activity-api/event/domain/event.recording.js";
 import type { TimelineEvent } from "@monitor/activity-api/event/domain/model/timeline.event.model.js";
 import { TimelineEventService } from "../service/timeline.event.service.js";
 import { projectTimelineEvent } from "../domain/timeline.event.projection.model.js";
 import { CrossCheckDedupeCache } from "./cross.check.dedupe.cache.js";
-import {
-    CLOCK_PORT,
-    ID_GENERATOR_PORT,
-    NOTIFICATION_PUBLISHER_PORT,
-    TASK_ACCESS_PORT,
-    VERIFICATION_POST_PROCESSOR_PORT,
-} from "./outbound/tokens.js";
-import type { IClock } from "./outbound/clock.port.js";
+import { ID_GENERATOR_PORT, NOTIFICATION_PUBLISHER_PORT } from "./outbound/tokens.js";
 import type { IIdGenerator } from "./outbound/id.generator.port.js";
 import type { IEventNotificationPublisher } from "./outbound/notification.publisher.port.js";
-import type { IVerificationPostProcessor } from "./outbound/verification.post.processor.port.js";
-import type { IEventTaskAccess } from "./outbound/task.access.port.js";
+import { EVENT_RECORDED } from "../public/events/event.recorded.js";
+import type { EventRecordedPayload } from "../public/events/event.recorded.js";
+import type { TimelineEventSnapshot } from "../public/dto/timeline.event.dto.js";
 import type { LogEventUseCaseIn, LogEventUseCaseOut } from "./dto/log.event.usecase.dto.js";
 
 interface CrossCheckMarker {
@@ -38,11 +32,19 @@ function readCrossCheckMarker(metadata: Record<string, unknown> | undefined): Cr
     return { source, dedupeKey };
 }
 
-class TaskNotFoundError extends Error {
-    constructor(taskId: string) {
-        super(`Task not found: ${taskId}`);
-        this.name = "TaskNotFoundError";
-    }
+function toEventSnapshot(e: TimelineEvent): TimelineEventSnapshot {
+    return {
+        id: e.id,
+        taskId: e.taskId,
+        ...(e.sessionId ? { sessionId: e.sessionId } : {}),
+        kind: e.kind,
+        lane: e.lane,
+        title: e.title,
+        ...(e.body ? { body: e.body } : {}),
+        metadata: e.metadata,
+        classification: e.classification,
+        createdAt: e.createdAt,
+    };
 }
 
 type EventRecordingInput = Parameters<typeof createEventRecordDraft>[0];
@@ -51,19 +53,14 @@ type EventRecordingInput = Parameters<typeof createEventRecordDraft>[0];
 export class LogEventUseCase {
     constructor(
         private readonly events: TimelineEventService,
-        @Inject(TASK_ACCESS_PORT) private readonly tasks: IEventTaskAccess,
         @Inject(NOTIFICATION_PUBLISHER_PORT) private readonly notifier: IEventNotificationPublisher,
-        @Inject(VERIFICATION_POST_PROCESSOR_PORT) private readonly verification: IVerificationPostProcessor,
-        @Inject(CLOCK_PORT) private readonly clock: IClock,
         @Inject(ID_GENERATOR_PORT) private readonly idGen: IIdGenerator,
         private readonly dedupe: CrossCheckDedupeCache,
+        private readonly eventBus: EventEmitter2,
     ) {}
 
     @Transactional()
     async execute(input: LogEventUseCaseIn): Promise<LogEventUseCaseOut> {
-        const task = await this.tasks.findById(input.taskId);
-        if (!task) throw new TaskNotFoundError(input.taskId);
-
         // Cross-check between Codex hook + rollout: if both emit the same
         // logical event within the dedupe TTL, merge metadata into the first
         // one rather than inserting a duplicate row.
@@ -77,7 +74,6 @@ export class LogEventUseCase {
                 });
                 if (merged) {
                     return {
-                        task,
                         ...(input.sessionId ? { sessionId: input.sessionId } : {}),
                         events: [{ id: existingId, kind: input.kind }],
                     };
@@ -112,32 +108,30 @@ export class LogEventUseCase {
             derivedEvents.push(await this.insertEvent(eventInput));
         }
 
-        const allEvents = [primaryEvent, ...derivedEvents].map((e) => ({ id: e.id, kind: e.kind }));
+        const recorded = [primaryEvent, ...derivedEvents];
+        const allEvents = recorded.map((e) => ({ id: e.id, kind: e.kind }));
         const sessionId = input.sessionId;
 
         if (marker) {
             this.dedupe.remember(input.kind, sessionId, marker.dedupeKey, primaryEvent.id);
         }
 
-        const desiredStatus = input.taskEffects?.taskStatus;
-        if (
-            desiredStatus !== undefined &&
-            shouldApplyLoggedEventTaskStatusEffect({ currentStatus: task.status, desiredStatus })
-        ) {
-            const updatedAt = this.clock.nowIso();
-            await this.tasks.updateStatus(task.id, desiredStatus, updatedAt);
-            const updatedTask = await this.tasks.findById(task.id);
-            if (updatedTask) {
-                // Defer until the transaction commits so a rollback can't leave
-                // dashboards showing a status change that never persisted.
-                runOnTransactionCommit(() => {
-                    this.notifier.publish({ type: NOTIFICATION_TYPE.taskUpdated, payload: updatedTask });
-                });
-                return { task: updatedTask, ...(sessionId ? { sessionId } : {}), events: allEvents };
-            }
-        }
+        // Emit the recorded fact; `work` applies the task-status effect and
+        // `rules` runs verification. emitAsync runs subscribers inside this
+        // transaction (suppressErrors:false), so a subscriber throw rolls the
+        // event insert back — preserving the previous atomic semantics while
+        // keeping timeline a leaf that commands no one.
+        const payload: EventRecordedPayload = {
+            events: recorded.map(toEventSnapshot),
+            taskId: input.taskId,
+            ...(sessionId ? { sessionId } : {}),
+            ...(input.taskEffects?.taskStatus !== undefined
+                ? { taskEffects: { taskStatus: input.taskEffects.taskStatus } }
+                : {}),
+        };
+        await this.eventBus.emitAsync(EVENT_RECORDED, payload);
 
-        return { task, ...(sessionId ? { sessionId } : {}), events: allEvents };
+        return { ...(sessionId ? { sessionId } : {}), events: allEvents };
     }
 
     private async insertEvent(input: EventRecordingInput): Promise<TimelineEvent> {
@@ -151,17 +145,6 @@ export class LogEventUseCase {
         runOnTransactionCommit(() => {
             this.notifier.publish({ type: NOTIFICATION_TYPE.eventLogged, payload: projectTimelineEvent(event) });
         });
-
-        // 후처리(턴 개폐 + 룰 평가 + enforcement)를 같은 요청 트랜잭션 안에서 동기 실행한다.
-        // 실패하면 이벤트 insert도 함께 롤백된다.
-        if (event.kind === KIND.userMessage) {
-            await this.verification.onUserMessage(event);
-        } else if (event.kind === KIND.assistantResponse) {
-            await this.verification.onAssistantResponse(event);
-        } else {
-            await this.verification.onOtherEvent(event);
-        }
-
         return event;
     }
 }

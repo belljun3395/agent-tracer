@@ -1,6 +1,7 @@
 import { Module, type DynamicModule, type MiddlewareConsumer, type NestModule } from "@nestjs/common";
 import { APP_FILTER, APP_INTERCEPTOR } from "@nestjs/core";
 import { ScheduleModule } from "@nestjs/schedule";
+import { EventEmitterModule } from "@nestjs/event-emitter";
 import type { INotificationPublisher } from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
 import { AppConfigModule } from "~config/app-config.module.js";
 import { HealthController } from "~adapters/http/query/controllers/health/health.query.controller.js";
@@ -69,6 +70,7 @@ export class AppModule implements NestModule {
             imports: [
                 AppConfigModule,
                 ScheduleModule.forRoot(),
+                EventEmitterModule.forRoot(),
                 typeOrmDatabaseModule,
                 databaseModule,
                 IdentityModule,

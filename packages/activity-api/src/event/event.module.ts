@@ -18,15 +18,11 @@ import {
     EVENT_PERSISTENCE_PORT,
     EVENT_SEARCH_INDEX_PORT,
     NOTIFICATION_PUBLISHER_PORT,
-    TASK_ACCESS_PORT,
-    VERIFICATION_POST_PROCESSOR_PORT,
 } from "./application/outbound/tokens.js";
 import { EventNotificationPublisherAdapter } from "./adapter/notification.publisher.adapter.js";
 import { EventPersistenceAdapter } from "./adapter/event.persistence.adapter.js";
-import { EventTaskAccessAdapter } from "./adapter/task.access.adapter.js";
 import { TimelineEventProjectionPublicAdapter } from "./adapter/timeline.event.projection.public.adapter.js";
 import { TimelineEventWritePublicAdapter } from "./adapter/timeline.event.write.public.adapter.js";
-import { VerificationPostProcessorAdapter } from "./adapter/verification.post.processor.adapter.js";
 import { TimelineEventEntity } from "./domain/timeline.event.entity.js";
 import {
     TIMELINE_EVENT_PROJECTION,
@@ -49,8 +45,8 @@ import { TimelineEventStorageService } from "./service/timeline.event.storage.se
  * event_token_usage)을 TypeORM 엔티티로 직접 기록한다.
  *
  * 공개 표면: TIMELINE_EVENT_READ / TIMELINE_EVENT_WRITE / TIMELINE_EVENT_PROJECTION.
- * 아웃바운드: EVENT_PERSISTENCE_PORT, EVENT_SEARCH_INDEX_PORT, TASK_ACCESS_PORT,
- * NOTIFICATION_PUBLISHER_PORT, VERIFICATION_POST_PROCESSOR_PORT.
+ * 아웃바운드: EVENT_PERSISTENCE_PORT, EVENT_SEARCH_INDEX_PORT, NOTIFICATION_PUBLISHER_PORT.
+ * task-status 효과와 verification은 timeline이 event.recorded 발행 후 work/rules가 구독.
  */
 @Module({})
 export class EventModule {
@@ -75,9 +71,7 @@ export class EventModule {
                 TimelineEventService,
                 // Outbound adapters
                 EventPersistenceAdapter,
-                EventTaskAccessAdapter,
                 EventNotificationPublisherAdapter,
-                VerificationPostProcessorAdapter,
                 // Public adapters
                 TimelineEventWritePublicAdapter,
                 TimelineEventProjectionPublicAdapter,
@@ -99,9 +93,7 @@ export class EventModule {
                 // Outbound bindings
                 { provide: EVENT_PERSISTENCE_PORT, useExisting: EventPersistenceAdapter },
                 { provide: EVENT_SEARCH_INDEX_PORT, useExisting: OpenSearchEventIndex },
-                { provide: TASK_ACCESS_PORT, useExisting: EventTaskAccessAdapter },
                 { provide: NOTIFICATION_PUBLISHER_PORT, useExisting: EventNotificationPublisherAdapter },
-                { provide: VERIFICATION_POST_PROCESSOR_PORT, useExisting: VerificationPostProcessorAdapter },
             ],
             exports: [
                 TIMELINE_EVENT_READ,
