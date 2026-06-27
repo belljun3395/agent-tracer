@@ -2,7 +2,14 @@ FROM node:25-alpine AS builder
 
 WORKDIR /app
 COPY package*.json ./
-COPY packages/server/package.json packages/server/
+COPY packages/server/api-gateway/package.json packages/server/api-gateway/
+COPY packages/server/shared/package.json packages/server/shared/
+COPY packages/server/timeline-api/package.json packages/server/timeline-api/
+COPY packages/server/run-api/package.json packages/server/run-api/
+COPY packages/server/rules-api/package.json packages/server/rules-api/
+COPY packages/server/insight-api/package.json packages/server/insight-api/
+COPY packages/server/identity-api/package.json packages/server/identity-api/
+COPY packages/server/ws-gateway/package.json packages/server/ws-gateway/
 COPY packages/runtime/package.json packages/runtime/
 COPY packages/web/package.json packages/web/
 

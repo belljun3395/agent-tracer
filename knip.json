@@ -1,6 +1,6 @@
 {
   "workspaces": {
-    "packages/api-gateway": {},
+    "packages/server/api-gateway": {},
     "packages/web": {},
     "packages/runtime": {
       "entry": [

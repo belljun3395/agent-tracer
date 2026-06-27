@@ -6,37 +6,37 @@
     "moduleResolution": "Bundler",
     "paths": {
       "@monitor/shared/*": [
-        "packages/shared/src/*"
+        "packages/server/shared/src/*"
       ],
       "@monitor/timeline-api/*": [
-        "packages/timeline-api/src/*"
+        "packages/server/timeline-api/src/*"
       ],
       "@monitor/run-api/*": [
-        "packages/run-api/src/*"
+        "packages/server/run-api/src/*"
       ],
       "@monitor/rules-api/*": [
-        "packages/rules-api/src/*"
+        "packages/server/rules-api/src/*"
       ],
       "@monitor/insight-api/*": [
-        "packages/insight-api/src/*"
+        "packages/server/insight-api/src/*"
       ],
       "~config/*": [
-        "packages/api-gateway/src/config/*"
+        "packages/server/api-gateway/src/config/*"
       ],
       "@monitor/identity-api/*": [
-        "packages/identity-api/src/*"
+        "packages/server/identity-api/src/*"
       ],
       "@monitor/ws-gateway/*": [
-        "packages/ws-gateway/src/*"
+        "packages/server/ws-gateway/src/*"
       ],
       "~adapters/*": [
-        "packages/api-gateway/src/adapters/*"
+        "packages/server/api-gateway/src/adapters/*"
       ],
       "~main/*": [
-        "packages/api-gateway/src/main/*"
+        "packages/server/api-gateway/src/main/*"
       ],
       "@monitor/api-gateway": [
-        "packages/api-gateway/src/gateway.entry.ts"
+        "packages/server/api-gateway/src/gateway.entry.ts"
       ],
       "@monitor/web": [
         "packages/web/src/main.tsx"
