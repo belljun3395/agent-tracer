@@ -5,7 +5,7 @@ import type { INotificationPublisher } from "@monitor/shared/contracts/notificat
 import { AppConfigModule } from "~config/app-config.module.js";
 import { HealthController } from "~adapters/http/query/controllers/health/health.query.controller.js";
 import { EventModule } from "@monitor/activity-api/event/event.module.js";
-import { SessionModule } from "@monitor/activity-api/session/session.module.js";
+import { SessionModule } from "@monitor/work-api/session/session.module.js";
 import { TaskModule } from "@monitor/work-api/task/task.module.js";
 import { TurnModule } from "@monitor/work-api/turn/turn.module.js";
 import { VerificationModule } from "@monitor/governance-api/verification/verification.module.js";

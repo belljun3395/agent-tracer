@@ -1,6 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { RUNTIME_BINDING_LOOKUP } from "@monitor/activity-api/session/public/tokens.js";
-import type { IRuntimeBindingLookup } from "@monitor/activity-api/session/public/iservice/runtime.binding.lookup.iservice.js";
+import { RUNTIME_BINDING_LOOKUP } from "@monitor/work-api/session/public/tokens.js";
+import type { IRuntimeBindingLookup } from "@monitor/work-api/session/public/iservice/runtime.binding.lookup.iservice.js";
 import type {
     IRuntimeBindingAccess,
     RuntimeBindingAccessRecord,
