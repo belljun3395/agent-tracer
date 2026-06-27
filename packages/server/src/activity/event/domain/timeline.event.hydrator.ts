@@ -66,54 +66,6 @@ export function hydrateTimelineEvent(row: TimelineEventEntity, supplements: Hydr
     };
 }
 
-export function indexSupplementsByEventId(
-    eventIds: readonly string[],
-    files: readonly EventFileEntity[],
-    relations: readonly EventRelationEntity[],
-    asyncRefs: readonly EventAsyncRefEntity[],
-    tags: readonly EventTagEntity[],
-    todos: readonly TodoCurrentEntity[],
-    questions: readonly QuestionCurrentEntity[],
-    tokenUsages: readonly EventTokenUsageEntity[],
-): Map<string, HydrationSupplements> {
-    const map = new Map<string, MutableSupplements>();
-    for (const id of eventIds) map.set(id, mutable());
-    for (const f of files) map.get(f.eventId)?.files.push(f);
-    for (const r of relations) map.get(r.eventId)?.relations.push(r);
-    for (const a of asyncRefs) {
-        const s = map.get(a.eventId);
-        if (s) s.asyncRef = a;
-    }
-    for (const t of tags) map.get(t.eventId)?.tags.push(t);
-    for (const todo of todos) {
-        const s = todo.lastEventId ? map.get(todo.lastEventId) : undefined;
-        if (s) s.todo = todo;
-    }
-    for (const q of questions) {
-        const s = q.lastEventId ? map.get(q.lastEventId) : undefined;
-        if (s) s.question = q;
-    }
-    for (const u of tokenUsages) {
-        const s = map.get(u.eventId);
-        if (s) s.tokenUsage = u;
-    }
-    return map as unknown as Map<string, HydrationSupplements>;
-}
-
-interface MutableSupplements {
-    files: EventFileEntity[];
-    relations: EventRelationEntity[];
-    asyncRef?: EventAsyncRefEntity;
-    tags: EventTagEntity[];
-    todo?: TodoCurrentEntity;
-    question?: QuestionCurrentEntity;
-    tokenUsage?: EventTokenUsageEntity;
-}
-
-function mutable(): MutableSupplements {
-    return { files: [], relations: [], tags: [] };
-}
-
 function applyFileMetadata(metadata: Record<string, unknown>, files: readonly EventFileEntity[]): void {
     if (files.length === 0) return;
     const filePaths = [...new Set(files.map((file) => file.filePath))];

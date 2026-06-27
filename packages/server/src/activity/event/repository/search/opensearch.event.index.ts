@@ -7,7 +7,7 @@ import type {
     EventSearchIndexQueryOptions,
     EventSearchIndexResults,
     IEventSearchIndex,
-} from "../../application/outbound/event.search.index.port.js";
+} from "~activity/event/application/outbound/event.search.index.port.js";
 
 export const OPENSEARCH_CLIENT = "OPENSEARCH_CLIENT";
 
@@ -161,7 +161,7 @@ export class OpenSearchEventIndex implements IEventSearchIndex, OnModuleInit {
                     },
                 },
             });
-            const rawHits = response.body?.hits?.hits ?? [];
+            const rawHits = response.body.hits.hits;
             parsed = rawHits.flatMap((rawHit) => {
                 const hit = rawHit as { _id?: string; _source?: IndexedEvent };
                 if (!hit._id || !hit._source) return [];

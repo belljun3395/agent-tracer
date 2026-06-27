@@ -1,4 +1,4 @@
-import type { TimelineEventProjection } from "../../public/dto/timeline.event.dto.js";
+import type { TimelineEventProjection } from "~activity/event/public/dto/timeline.event.dto.js";
 import type { MonitoringTask } from "~work/task/public/types/task.types.js";
 
 /**

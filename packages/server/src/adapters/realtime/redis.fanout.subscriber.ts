@@ -24,7 +24,7 @@ export class RedisFanoutSubscriber {
             } catch {
                 return;
             }
-            if (envelope.userId && envelope.notification) {
+            if (envelope.userId) {
                 this.broadcaster.fanout(envelope.userId, envelope.notification);
             }
         });
