@@ -29,6 +29,12 @@
       "@monitor/identity/*": [
         "packages/identity/src/*"
       ],
+      "@monitor/ws-gateway/*": [
+        "packages/ws-gateway/src/*"
+      ],
+      "@monitor/mcp/*": [
+        "packages/mcp/src/*"
+      ],
       "~adapters/*": [
         "packages/server/src/adapters/*"
       ],

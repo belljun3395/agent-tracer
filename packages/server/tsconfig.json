@@ -15,7 +15,9 @@
       "@monitor/governance/*": ["../governance/src/*"],
       "@monitor/config/*": ["../config/src/*"],
       "@monitor/llm/*": ["../llm/src/*"],
-      "@monitor/identity/*": ["../identity/src/*"]
+      "@monitor/identity/*": ["../identity/src/*"],
+      "@monitor/ws-gateway/*": ["../ws-gateway/src/*"],
+      "@monitor/mcp/*": ["../mcp/src/*"]
     }
   },
   "include": ["src", "*.config.ts", "vitest.setup.ts"]

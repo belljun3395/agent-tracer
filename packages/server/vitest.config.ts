@@ -15,6 +15,8 @@ export default defineConfig({
             "@monitor/config": resolve(__dirname, "../config/src"),
             "@monitor/llm": resolve(__dirname, "../llm/src"),
             "@monitor/identity": resolve(__dirname, "../identity/src"),
+            "@monitor/ws-gateway": resolve(__dirname, "../ws-gateway/src"),
+            "@monitor/mcp": resolve(__dirname, "../mcp/src"),
         },
     },
     plugins: [

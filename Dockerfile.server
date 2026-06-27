@@ -11,6 +11,8 @@ COPY packages/governance/package.json packages/governance/
 COPY packages/config/package.json packages/config/
 COPY packages/llm/package.json packages/llm/
 COPY packages/identity/package.json packages/identity/
+COPY packages/ws-gateway/package.json packages/ws-gateway/
+COPY packages/mcp/package.json packages/mcp/
 COPY packages/runtime/package.json packages/runtime/
 COPY packages/web/package.json packages/web/
 
