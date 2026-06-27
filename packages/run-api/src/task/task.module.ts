@@ -23,7 +23,7 @@ import { DeleteTaskUseCase } from "./application/delete.task.usecase.js";
 import { ReslugTaskUseCase } from "./application/reslug.task.usecase.js";
 import { SuggestTaskTitleUseCase } from "./application/suggest.task.title.usecase.js";
 import { TitleSuggestionAgent } from "./application/title.suggestion.agent.js";
-import { LocalQueryRunner } from "@monitor/shared/llm/local.query.runner.js";
+import { MessagesQueryRunner } from "@monitor/shared/llm/messages.query.runner.js";
 import { QUERY_RUNNER } from "@monitor/shared/llm/query.runner.port.js";
 import { UnarchiveTaskUseCase } from "./application/unarchive.task.usecase.js";
 import { ErrorTaskUseCase } from "./application/error.task.usecase.js";
@@ -121,10 +121,10 @@ export class TaskModule {
                 UnarchiveTaskUseCase,
                 ReslugTaskUseCase,
                 SuggestTaskTitleUseCase,
-                // 제목 제안 LLM 에이전트 + Claude SDK 쿼리 러너
+                // 제목 제안 LLM 에이전트 + Messages API 쿼리 러너 (1-shot, 워크스페이스 불필요)
                 TitleSuggestionAgent,
-                LocalQueryRunner,
-                { provide: QUERY_RUNNER, useExisting: LocalQueryRunner },
+                MessagesQueryRunner,
+                { provide: QUERY_RUNNER, useExisting: MessagesQueryRunner },
                 ListTasksUseCase,
                 SearchTasksUseCase,
                 GetTaskUseCase,

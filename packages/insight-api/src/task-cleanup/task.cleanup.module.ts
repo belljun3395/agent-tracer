@@ -10,7 +10,7 @@ import { TaskCleanupSuggestionRepository } from "./repository/task.cleanup.sugge
 import { InsightJobEntity } from "../job/insight.job.entity.js";
 import { InsightJobRepository } from "../job/insight.job.repository.js";
 import { TaskCleanupAgent } from "./application/task.cleanup.agent.js";
-import { LocalQueryRunner } from "@monitor/shared/llm/local.query.runner.js";
+import { MessagesQueryRunner } from "@monitor/shared/llm/messages.query.runner.js";
 import { QUERY_RUNNER } from "@monitor/shared/llm/query.runner.port.js";
 
 @Module({})
@@ -33,10 +33,10 @@ export class TaskCleanupModule {
                 ListCleanupSuggestionsUseCase,
                 AcceptCleanupSuggestionUseCase,
                 DismissCleanupSuggestionUseCase,
-                // 태스크 정리 LLM 에이전트 + Claude SDK 쿼리 러너
+                // 태스크 정리 LLM 에이전트 + Messages API 쿼리 러너 (1-shot, 워크스페이스 불필요)
                 TaskCleanupAgent,
-                LocalQueryRunner,
-                { provide: QUERY_RUNNER, useExisting: LocalQueryRunner },
+                MessagesQueryRunner,
+                { provide: QUERY_RUNNER, useExisting: MessagesQueryRunner },
             ],
             exports: [TaskCleanupService],
         };
