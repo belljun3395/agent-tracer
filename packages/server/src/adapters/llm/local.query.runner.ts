@@ -4,13 +4,7 @@ import { createAgentDeadline } from "./agent.deadline.js";
 import type { AgentQueryRequest, AgentQueryResult, IQueryRunner } from "./query.runner.port.js";
 
 /**
- * Runs a Claude Agent SDK `query()` in the server process. Correct for the
- * single-machine deployment where the server is co-located with the workspace.
- * For a cloud server, bind QUERY_RUNNER to {@link RemoteQueryRunner} instead.
- *
- * NOTE: the query loop below is mirrored by the runtime's
- * `~shared/llm/agent.query.runner.ts` (server and runtime can't share code
- * across the dep-cruiser boundary). Keep the two in sync.
+ * Claude Agent SDK `query()` 를 서버 프로세스 안에서 실행한다.
  */
 @Injectable()
 export class LocalQueryRunner implements IQueryRunner {

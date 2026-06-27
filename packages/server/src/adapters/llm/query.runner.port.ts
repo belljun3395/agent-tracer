@@ -1,15 +1,7 @@
 /**
- * Boundary for a single Claude Agent SDK `query()` execution — the only part of
- * an agent that must run where the workspace lives. Agents (prompt building +
- * zod parsing + orchestration) stay on the server; they delegate just the
- * query call to this port.
- *
- * - Local / single process (default): {@link LocalQueryRunner} runs `query()`
- *   in-process, where the server is co-located with the workspace.
- * - Cloud (server remote, runtime local): {@link RemoteQueryRunner} dispatches
- *   the request to the local runtime daemon, which runs `query()` next to the
- *   workspace (the SDK's Read/Glob/Grep read the local filesystem via `cwd`).
- *   The Anthropic API key is never forwarded — the runtime supplies its own.
+ * Claude Agent SDK `query()` 한 번의 실행 경계. 에이전트(프롬프트 작성 + zod 파싱)는
+ * 서버에 남고, 쿼리 실행만 이 포트에 위임한다. {@link LocalQueryRunner}가 서버
+ * 프로세스 안에서 실행한다.
  */
 export interface AgentQueryRequest {
     /** Short label for logging/observability, e.g. "rule-suggestion". */
@@ -37,11 +29,7 @@ export interface AgentQueryResult {
 }
 
 export interface IQueryRunner {
-    /**
-     * Whether the server must supply the Anthropic API key. True for the
-     * in-process runner; false for the remote runner (the runtime holds its
-     * own local key). Agents expose this so consumers can gate their key check.
-     */
+    /** 서버가 Anthropic API 키를 직접 공급해야 하는지 여부. */
     requiresLocalApiKey(): boolean;
     run(request: AgentQueryRequest): Promise<AgentQueryResult>;
 }

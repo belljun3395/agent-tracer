@@ -4,44 +4,22 @@ import { TaskCleanupAgent } from "./task.cleanup.agent.js";
 import { TitleSuggestionAgent } from "./title.suggestion.agent.js";
 import { RecipeScanAgent } from "./recipe.scan.agent.js";
 import { LocalQueryRunner } from "./local.query.runner.js";
-import { RemoteQueryRunner } from "./remote.query.runner.js";
-import { LlmJobBroker } from "./llm.job.broker.js";
-import { LlmJobController } from "./llm.job.controller.js";
-import { QUERY_RUNNER, type IQueryRunner } from "./query.runner.port.js";
+import { QUERY_RUNNER } from "./query.runner.port.js";
 
 /**
- * Single home for LLM agents and their query runner. The four Claude Agent SDK
- * agents (prompt building + zod parsing) live here and delegate just the
- * `query()` execution to QUERY_RUNNER. Global so feature modules can inject the
- * agents without an explicit import. The agents are the seam consumers; the
- * query runner is internal to this module.
- *
- * Execution is chosen by MONITOR_LLM_RUNNER:
- *  - unset / "local" (default): {@link LocalQueryRunner} runs `query()` in the
- *    server process — correct when co-located with the workspace.
- *  - "remote": {@link RemoteQueryRunner} dispatches each query through
- *    {@link LlmJobBroker}; the local runtime daemon pulls it via
- *    {@link LlmJobController}, runs `query()` next to the workspace, posts back.
+ * Claude Agent SDK 에이전트(프롬프트 작성 + zod 파싱)와 쿼리 러너의 단일 모듈.
+ * 에이전트는 `query()` 실행만 QUERY_RUNNER 에 위임하며, 러너는 서버 프로세스 안에서
+ * 인라인으로 실행한다. Global 이라 기능 모듈이 별도 import 없이 에이전트를 주입한다.
  */
 @Global()
 @Module({
-    controllers: [LlmJobController],
     providers: [
         RuleSuggestionAgent,
         TaskCleanupAgent,
         TitleSuggestionAgent,
         RecipeScanAgent,
-        LlmJobBroker,
         LocalQueryRunner,
-        RemoteQueryRunner,
-        {
-            provide: QUERY_RUNNER,
-            useFactory: (local: LocalQueryRunner, remote: RemoteQueryRunner): IQueryRunner =>
-                (process.env["MONITOR_LLM_RUNNER"] ?? "local").trim().toLowerCase() === "remote"
-                    ? remote
-                    : local,
-            inject: [LocalQueryRunner, RemoteQueryRunner],
-        },
+        { provide: QUERY_RUNNER, useExisting: LocalQueryRunner },
     ],
     exports: [RuleSuggestionAgent, TaskCleanupAgent, TitleSuggestionAgent, RecipeScanAgent],
 })
