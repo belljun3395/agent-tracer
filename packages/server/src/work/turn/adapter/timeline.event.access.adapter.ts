@@ -17,7 +17,6 @@ export class TimelineEventAccessAdapter implements ITimelineEventAccess {
     ) {}
 
     async findByTaskId(taskId: string): Promise<readonly TimelineEventAccessRecord[]> {
-        const events = await this.inner.findByTaskId(taskId);
-        return events as unknown as readonly TimelineEventAccessRecord[];
+        return this.inner.findByTaskId(taskId);
     }
 }

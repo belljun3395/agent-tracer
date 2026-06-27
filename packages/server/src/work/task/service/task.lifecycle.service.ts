@@ -127,7 +127,7 @@ export class TaskLifecycleService {
                 ...record,
             });
             this.notifier.publish({ type: "event.logged", payload: this.projection.project(event) });
-            return { task, sessionId, events: [{ id: event.id, kind: event.kind as MonitoringEventKind }] };
+            return { task, sessionId, events: [{ id: event.id, kind: event.kind }] };
         }
         return { task, sessionId, events: [] };
     }

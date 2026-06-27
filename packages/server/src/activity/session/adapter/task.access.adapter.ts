@@ -20,18 +20,15 @@ export class TaskAccessAdapter implements ITaskAccess {
     ) {}
 
     async findById(id: string): Promise<TaskAccessRecord | null> {
-        const result = await this.inner.findById(id);
-        return result as TaskAccessRecord | null;
+        return this.inner.findById(id);
     }
 
     async findChildren(parentId: string): Promise<readonly TaskAccessRecord[]> {
-        const result = await this.inner.findChildren(parentId);
-        return result as unknown as readonly TaskAccessRecord[];
+        return this.inner.findChildren(parentId);
     }
 
     async upsert(input: TaskAccessUpsertInput): Promise<TaskAccessRecord> {
-        const result = await this.inner.upsert(input);
-        return result as TaskAccessRecord;
+        return this.inner.upsert(input);
     }
 
     updateStatus(

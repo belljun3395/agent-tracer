@@ -1,5 +1,6 @@
-export type StartTaskKindUseCaseDto = "primary" | "background";
-export type StartTaskOriginUseCaseDto = "user" | "server-sdk";
+import type { MonitoringTask } from "~work/task/domain/task.model.js";
+import type { MonitoringTaskKind, TaskOrigin } from "~work/task/common/task.status.const.js";
+import type { MonitoringEventKind } from "~activity/event/public/types/event.types.js";
 
 export interface StartTaskUseCaseIn {
     readonly taskId?: string;
@@ -7,58 +8,16 @@ export interface StartTaskUseCaseIn {
     readonly workspacePath?: string;
     readonly runtimeSource?: string;
     readonly summary?: string;
-    readonly taskKind?: StartTaskKindUseCaseDto;
+    readonly taskKind?: MonitoringTaskKind;
     readonly parentTaskId?: string;
     readonly parentSessionId?: string;
     readonly backgroundTaskId?: string;
-    readonly origin?: StartTaskOriginUseCaseDto;
+    readonly origin?: TaskOrigin;
     readonly metadata?: Record<string, unknown>;
 }
 
-export type StartTaskStatusUseCaseDto = "running" | "waiting" | "completed" | "errored";
-export type StartTaskEventKindUseCaseDto =
-    | "tool.used"
-    | "terminal.command"
-    | "plan.logged"
-    | "action.logged"
-    | "verification.logged"
-    | "rule.logged"
-    | "thought.logged"
-    | "context.saved"
-    | "context.snapshot"
-    | "user.message"
-    | "assistant.response"
-    | "question.logged"
-    | "todo.logged"
-    | "agent.activity.logged"
-    | "session.ended"
-    | "instructions.loaded"
-    | "token.usage"
-    | "task.start"
-    | "task.complete"
-    | "task.error"
-    | "file.changed";
-
-export interface StartTaskTaskUseCaseDto {
-    readonly id: string;
-    readonly slug: string;
-    readonly title: string;
-    readonly displayTitle?: string;
-    readonly workspacePath?: string;
-    readonly status: StartTaskStatusUseCaseDto;
-    readonly createdAt: string;
-    readonly updatedAt: string;
-    readonly lastSessionStartedAt?: string;
-    readonly runtimeSource?: string;
-    readonly taskKind?: StartTaskKindUseCaseDto;
-    readonly parentTaskId?: string;
-    readonly parentSessionId?: string;
-    readonly backgroundTaskId?: string;
-    readonly origin?: StartTaskOriginUseCaseDto;
-}
-
 export interface StartTaskUseCaseOut {
-    readonly task: StartTaskTaskUseCaseDto;
+    readonly task: MonitoringTask;
     readonly sessionId?: string;
-    readonly events: readonly { readonly id: string; readonly kind: StartTaskEventKindUseCaseDto }[];
+    readonly events: readonly { readonly id: string; readonly kind: MonitoringEventKind }[];
 }

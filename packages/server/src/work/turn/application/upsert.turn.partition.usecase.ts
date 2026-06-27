@@ -1,6 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { Transactional } from "typeorm-transactional";
-import type { TimelineEvent } from "~activity/event/public/types/event.types.js";
 import { countNonPreludeTurns, createTurnPartitionUpdate, validatePartition } from "../domain/turn.partition.js";
 import { TurnPartitionRepository } from "../repository/turn.partition.repository.js";
 import {
@@ -32,7 +31,7 @@ export class UpsertTurnPartitionUseCase {
         if (!task) throw new TaskNotFoundError(input.taskId);
 
         const events = await this.events.findByTaskId(input.taskId);
-        const totalTurns = countNonPreludeTurns(events as unknown as readonly TimelineEvent[]);
+        const totalTurns = countNonPreludeTurns(events);
 
         const existing = await this.turnPartitions.get(input.taskId);
         if (

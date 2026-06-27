@@ -1,5 +1,4 @@
 import { Injectable } from "@nestjs/common";
-import type { TimelineEvent } from "~activity/event/domain/model/timeline.event.model.js";
 import { TimelineEventProjector } from "../domain/timeline.event.projection.model.js";
 import type {
     TimelineEventProjection,
@@ -15,6 +14,6 @@ import type { ITimelineEventProjection } from "../public/iservice/timeline.event
 @Injectable()
 export class TimelineEventProjectionPublicAdapter implements ITimelineEventProjection {
     project(event: TimelineEventSnapshot): TimelineEventProjection {
-        return new TimelineEventProjector(event as unknown as TimelineEvent).project();
+        return new TimelineEventProjector(event).project();
     }
 }

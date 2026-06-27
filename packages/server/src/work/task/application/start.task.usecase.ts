@@ -22,6 +22,6 @@ export class StartTaskUseCase {
             ...(input.origin !== undefined ? { origin: input.origin } : {}),
             ...(input.metadata !== undefined ? { metadata: input.metadata } : {}),
         });
-        return result as unknown as StartTaskUseCaseOut;
+        return result;
     }
 }

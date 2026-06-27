@@ -24,29 +24,26 @@ export class EventPersistenceAdapter implements IEventPersistence {
     ) {}
 
     async findById(id: string): Promise<PersistedTimelineEvent | null> {
-        const event = await this.storage.findById(id);
-        return event as unknown as PersistedTimelineEvent | null;
+        return this.storage.findById(id);
     }
 
     async findByTaskId(taskId: string): Promise<readonly PersistedTimelineEvent[]> {
-        const events = await this.storage.findByTaskId(taskId);
-        return events as unknown as readonly PersistedTimelineEvent[];
+        return this.storage.findByTaskId(taskId);
     }
 
     async insert(input: TimelineEventInsertRequest): Promise<PersistedTimelineEvent> {
         const event = await this.storage.insert(input);
         await this.searchIndex.refresh(input.id);
-        return event as unknown as PersistedTimelineEvent;
+        return event;
     }
 
     async updateMetadata(eventId: string, metadata: Record<string, unknown>): Promise<PersistedTimelineEvent | null> {
         const event = await this.storage.updateMetadata(eventId, metadata);
         if (event) await this.searchIndex.refresh(eventId);
-        return event as unknown as PersistedTimelineEvent | null;
+        return event;
     }
 
     async search(query: string, options: EventSearchOptions): Promise<EventSearchResults> {
-        const result = await this.searchIndex.search(query, options);
-        return result as unknown as EventSearchResults;
+        return this.searchIndex.search(query, options);
     }
 }

@@ -16,6 +16,6 @@ export class CompleteTaskUseCase {
             ...(input.metadata !== undefined ? { metadata: input.metadata } : {}),
             outcome: "completed",
         });
-        return result as unknown as CompleteTaskUseCaseOut;
+        return result;
     }
 }

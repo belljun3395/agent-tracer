@@ -17,6 +17,6 @@ export class ErrorTaskUseCase {
             errorMessage: input.errorMessage,
             outcome: "errored",
         });
-        return result as unknown as ErrorTaskUseCaseOut;
+        return result;
     }
 }

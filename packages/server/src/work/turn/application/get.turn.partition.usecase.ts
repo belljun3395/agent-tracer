@@ -1,6 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { resolveTurnPartition } from "../domain/turn.partition.js";
-import type { TimelineEvent } from "~activity/event/public/types/event.types.js";
 import { TurnPartitionRepository } from "../repository/turn.partition.repository.js";
 import { CLOCK_PORT, ID_GENERATOR_PORT, TASK_ACCESS_PORT, TIMELINE_EVENT_ACCESS_PORT } from "./outbound/tokens.js";
 import type { IClock } from "./outbound/clock.port.js";
@@ -32,7 +31,7 @@ export class GetTurnPartitionUseCase {
             {
                 taskId: input.taskId,
                 stored,
-                events: events as unknown as readonly TimelineEvent[],
+                events,
                 fallbackUpdatedAt: this.clock.nowIso(),
             },
             () => `tg-${this.idGen.newUuid()}`,

@@ -1,28 +1,12 @@
 import type { MonitoringEventKind, TimelineLane } from "~activity/event/domain/common/const/event.kind.const.js";
-import type { EventClassificationMatch } from "~activity/event/domain/model/timeline.event.model.js";
+import type {
+    EventClassificationMatch,
+    TimelineEvent,
+} from "~activity/event/domain/model/timeline.event.model.js";
 
-/**
- * Outbound port for timeline event persistence. Self-contained.
- * Adapter wraps the legacy SqliteEventRepository today; will be replaced
- * by a TypeORM-backed implementation once the schema is migrated.
- */
+/** Outbound port for timeline event persistence. */
 
-export interface PersistedTimelineEvent {
-    readonly id: string;
-    readonly taskId: string;
-    readonly sessionId?: string;
-    readonly kind: MonitoringEventKind;
-    readonly lane: TimelineLane;
-    readonly title: string;
-    readonly body?: string;
-    readonly metadata: Record<string, unknown>;
-    readonly classification: {
-        readonly lane: TimelineLane;
-        readonly tags: readonly string[];
-        readonly matches: readonly EventClassificationMatch[];
-    };
-    readonly createdAt: string;
-}
+export type PersistedTimelineEvent = TimelineEvent;
 
 export interface TimelineEventInsertRequest {
     readonly id: string;
