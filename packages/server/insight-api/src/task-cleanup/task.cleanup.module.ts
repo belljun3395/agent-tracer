@@ -4,7 +4,7 @@ import { TaskCleanupController } from "./api/task.cleanup.controller.js";
 import { AcceptCleanupSuggestionUseCase } from "./application/accept.cleanup.suggestion.usecase.js";
 import { DismissCleanupSuggestionUseCase } from "./application/dismiss.cleanup.suggestion.usecase.js";
 import { ListCleanupSuggestionsUseCase } from "./application/list.cleanup.suggestions.usecase.js";
-import { TaskCleanupService } from "./application/task.cleanup.service.js";
+import { TaskCleanupService } from "./service/task.cleanup.service.js";
 import { TaskCleanupSuggestionEntity } from "./domain/task.cleanup.suggestion.entity.js";
 import { TaskCleanupSuggestionRepository } from "./repository/task.cleanup.suggestion.repository.js";
 import { InsightJobEntity } from "../job/insight.job.entity.js";

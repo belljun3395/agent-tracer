@@ -20,7 +20,7 @@ import {
     MissingApiKeyError,
     NoTasksToScanError,
     TaskCleanupService,
-} from "../application/task.cleanup.service.js";
+} from "../service/task.cleanup.service.js";
 import { parseCleanupSuggestionStatusFilter } from "./cleanup.query.filters.js";
 
 @Controller("api/v1/task-cleanup")
