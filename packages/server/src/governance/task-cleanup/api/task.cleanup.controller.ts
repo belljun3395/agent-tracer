@@ -40,7 +40,7 @@ export class TaskCleanupController {
     @HttpCode(HttpStatus.ACCEPTED)
     async enqueue() {
         try {
-            const job = await this.service.enqueue();
+            const job = await this.service.run();
             return {
                 jobId: job.id,
                 status: job.status,

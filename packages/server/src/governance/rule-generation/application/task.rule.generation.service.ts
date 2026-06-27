@@ -84,6 +84,14 @@ export class TaskRuleGenerationService {
         });
     }
 
+    /** API 요청 안에서 룰 생성을 동기 실행하고 완료된 잡을 반환한다. */
+    async run(taskId: string): Promise<GovernanceJobEntity> {
+        const job = await this.enqueue(taskId);
+        await this.execute(job);
+        const completed = await this.findById(job.id);
+        return completed ?? job;
+    }
+
     async findLatest(taskId: string): Promise<GovernanceJobEntity | null> {
         return this.jobs.findLatestForTask("rule_generation", taskId);
     }

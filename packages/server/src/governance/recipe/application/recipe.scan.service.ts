@@ -99,6 +99,14 @@ export class RecipeScanService {
         });
     }
 
+    /** API 요청 안에서 레시피 스캔을 동기 실행하고 완료된 잡을 반환한다. */
+    async run(input: EnqueueRecipeScanInput = {}): Promise<GovernanceJobEntity> {
+        const job = await this.enqueue(input);
+        await this.execute(job);
+        const completed = await this.findById(job.id);
+        return completed ?? job;
+    }
+
     async findLatest(): Promise<GovernanceJobEntity | null> {
         return this.jobs.findLatest("recipe_scan");
     }

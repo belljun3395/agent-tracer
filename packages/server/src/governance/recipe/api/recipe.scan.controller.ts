@@ -89,7 +89,7 @@ export class RecipeScanController {
         @Body(new ZodValidationPipe(enqueueBodySchema)) body: EnqueueDto,
     ) {
         try {
-            const job = await this.service.enqueue({
+            const job = await this.service.run({
                 ...(body.statusFilter ? { statusFilter: body.statusFilter } : {}),
                 ...(body.since ? { since: body.since } : {}),
                 ...(body.maxCandidates !== undefined

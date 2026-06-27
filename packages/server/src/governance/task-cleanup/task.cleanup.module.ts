@@ -5,7 +5,6 @@ import { AcceptCleanupSuggestionUseCase } from "./application/accept.cleanup.sug
 import { DismissCleanupSuggestionUseCase } from "./application/dismiss.cleanup.suggestion.usecase.js";
 import { ListCleanupSuggestionsUseCase } from "./application/list.cleanup.suggestions.usecase.js";
 import { TaskCleanupService } from "./application/task.cleanup.service.js";
-import { TaskCleanupWorker } from "./application/task.cleanup.worker.js";
 import { TaskCleanupSuggestionEntity } from "./domain/task.cleanup.suggestion.entity.js";
 import { TaskCleanupSuggestionRepository } from "./repository/task.cleanup.suggestion.repository.js";
 import { GovernanceJobEntity } from "~governance/job/governance.job.entity.js";
@@ -29,7 +28,6 @@ export class TaskCleanupModule {
                 GovernanceJobRepository,
                 TaskCleanupSuggestionRepository,
                 TaskCleanupService,
-                TaskCleanupWorker,
                 ListCleanupSuggestionsUseCase,
                 AcceptCleanupSuggestionUseCase,
                 DismissCleanupSuggestionUseCase,

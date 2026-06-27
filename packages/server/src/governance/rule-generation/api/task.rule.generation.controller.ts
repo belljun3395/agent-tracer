@@ -30,7 +30,7 @@ export class TaskRuleGenerationController {
     @HttpCode(HttpStatus.ACCEPTED)
     async enqueue(@Param("taskId", pathParamPipe) taskId: string) {
         try {
-            const job = await this.service.enqueue(taskId);
+            const job = await this.service.run(taskId);
             return {
                 jobId: job.id,
                 status: job.status,

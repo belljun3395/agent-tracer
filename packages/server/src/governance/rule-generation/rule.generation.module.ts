@@ -2,7 +2,6 @@ import { Module, type DynamicModule } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { TaskRuleGenerationController } from "./api/task.rule.generation.controller.js";
 import { TaskRuleGenerationService } from "./application/task.rule.generation.service.js";
-import { TaskRuleGenerationWorker } from "./application/task.rule.generation.worker.js";
 import { GovernanceJobEntity } from "~governance/job/governance.job.entity.js";
 import { GovernanceJobRepository } from "~governance/job/governance.job.repository.js";
 
@@ -20,7 +19,6 @@ export class RuleGenerationModule {
             providers: [
                 GovernanceJobRepository,
                 TaskRuleGenerationService,
-                TaskRuleGenerationWorker,
             ],
             exports: [TaskRuleGenerationService],
         };

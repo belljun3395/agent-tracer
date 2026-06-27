@@ -7,7 +7,6 @@ import { ListRecipeCandidatesUseCase } from "./application/list.recipe.candidate
 import { ListRecipesUseCase } from "./application/list.recipes.usecase.js";
 import { RecipeMatchingService } from "./application/recipe.matching.service.js";
 import { RecipeScanService } from "./application/recipe.scan.service.js";
-import { RecipeScanWorker } from "./application/recipe.scan.worker.js";
 import { RetireRecipeUseCase } from "./application/retire.recipe.usecase.js";
 import { FileAffinityEntity } from "./domain/file.affinity.entity.js";
 import { RecipeApplicationEntity } from "./domain/recipe.application.entity.js";
@@ -44,7 +43,6 @@ export class RecipeModule {
                 RecipeApplicationRepository,
                 FileAffinityRepository,
                 RecipeScanService,
-                RecipeScanWorker,
                 RecipeMatchingService,
                 ListRecipeCandidatesUseCase,
                 AcceptRecipeCandidateUseCase,
