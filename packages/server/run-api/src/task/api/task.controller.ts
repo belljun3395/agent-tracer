@@ -30,14 +30,11 @@ import {
 import { UnarchiveTaskUseCase } from "../application/unarchive.task.usecase.js";
 import { UpdateTaskUseCase } from "../application/update.task.usecase.js";
 import type { UpdateTaskUseCaseIn } from "../application/dto/update.task.usecase.dto.js";
-import type {
-    ListTasksArchivedScope,
-    ListTasksOriginFilter,
-} from "../application/dto/list.tasks.usecase.dto.js";
 import { TaskPatchDto, taskPatchSchema } from "./task.command.schema.js";
-
-const ARCHIVED_SCOPES: ReadonlySet<ListTasksArchivedScope> = new Set(["active", "archived", "all"]);
-const ORIGIN_FILTERS: ReadonlySet<ListTasksOriginFilter> = new Set(["user", "server-sdk", "all"]);
+import {
+    parseListTasksArchivedScope,
+    parseListTasksOriginFilter,
+} from "./task.query.filters.js";
 
 @Controller("api/v1/tasks")
 export class TaskController {
@@ -75,19 +72,9 @@ export class TaskController {
         @Query("archived") archivedParam?: string,
         @Query("origin") originParam?: string,
     ) {
-        const scope = archivedParam ?? "active";
-        if (!ARCHIVED_SCOPES.has(scope as ListTasksArchivedScope)) {
-            // archived 필터는 목록 범위를 결정하므로 허용된 값만 받는다.
-            throw new BadRequestException(`archived must be one of: active, archived, all`);
-        }
-        const origin = originParam ?? "all";
-        if (!ORIGIN_FILTERS.has(origin as ListTasksOriginFilter)) {
-            // origin 필터는 사용자/서버 작업 분리를 결정하므로 허용된 값만 받는다.
-            throw new BadRequestException(`origin must be one of: user, server-sdk, all`);
-        }
         return this.listTasks.execute({
-            archived: scope as ListTasksArchivedScope,
-            origin: origin as ListTasksOriginFilter,
+            archived: parseListTasksArchivedScope(archivedParam),
+            origin: parseListTasksOriginFilter(originParam),
         });
     }
 

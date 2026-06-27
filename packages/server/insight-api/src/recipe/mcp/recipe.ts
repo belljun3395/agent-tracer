@@ -2,6 +2,13 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { MonitorClient } from "@monitor/shared/mcp/client.js";
 import { toToolResponse } from "@monitor/shared/mcp/result.js";
+import {
+    RECIPE_SCAN_ARCHIVED_SCOPES,
+    RECIPE_SCAN_STATUS_FILTERS,
+} from "../domain/recipe.scan.filters.js";
+import { RECIPE_STATUSES } from "../domain/recipe.entity.js";
+
+const RECIPE_MCP_STATUS_FILTERS = [...RECIPE_STATUSES, "all"] as const;
 
 export function registerRecipeTools(
     server: McpServer,
@@ -18,7 +25,7 @@ export function registerRecipeTools(
                 "the user, or to dedup before suggesting new recipes.",
             inputSchema: {
                 status: z
-                    .enum(["active", "superseded", "retired", "all"])
+                    .enum(RECIPE_MCP_STATUS_FILTERS)
                     .optional(),
             },
         },
@@ -83,13 +90,13 @@ export function registerRecipeTools(
                 "few seconds to see results.",
             inputSchema: {
                 statusFilter: z
-                    .enum(["completed", "active", "all"])
+                    .enum(RECIPE_SCAN_STATUS_FILTERS)
                     .optional(),
                 since: z.string().datetime({ offset: true }).optional(),
                 maxCandidates: z.number().int().min(1).max(30).optional(),
                 minEventCount: z.number().int().min(1).max(1000).optional(),
                 archivedScope: z
-                    .enum(["active", "archived", "all"])
+                    .enum(RECIPE_SCAN_ARCHIVED_SCOPES)
                     .optional(),
             },
         },

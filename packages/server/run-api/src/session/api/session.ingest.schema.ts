@@ -1,13 +1,8 @@
 import { z } from "zod";
-
-const RUNTIME_SESSION_COMPLETION_REASONS = [
-    "idle",
-    "assistant_turn_complete",
-    "explicit_exit",
-    "runtime_terminated",
-] as const;
-
-const TASK_ORIGINS = ["user", "server-sdk"] as const;
+import {
+    TASK_COMPLETION_REASONS,
+    TASK_ORIGINS,
+} from "@monitor/run-api/task/common/task.status.const.js";
 
 export const runtimeSessionEnsureSchema = z.object({
     taskId: z.string().optional(),
@@ -26,6 +21,6 @@ export const runtimeSessionEndSchema = z.object({
     runtimeSessionId: z.string().min(1),
     summary: z.string().optional(),
     completeTask: z.boolean().optional(),
-    completionReason: z.enum(RUNTIME_SESSION_COMPLETION_REASONS).optional(),
+    completionReason: z.enum(TASK_COMPLETION_REASONS).optional(),
     backgroundCompletions: z.array(z.string().min(1)).optional(),
 });

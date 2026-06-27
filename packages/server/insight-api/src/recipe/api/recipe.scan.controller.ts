@@ -30,15 +30,22 @@ import {
     RecipeScanAlreadyInFlightError,
     RecipeScanService,
 } from "../application/recipe.scan.service.js";
-import type { RecipeCandidateStatusFilter } from "../application/dto/recipe.usecase.dto.js";
+import {
+    RECIPE_SCAN_ARCHIVED_SCOPES,
+    RECIPE_SCAN_STATUS_FILTERS,
+} from "../domain/recipe.scan.filters.js";
+import {
+    parseRecipeCandidateStatusFilter,
+    parseRecipeStatusFilter,
+} from "./recipe.query.filters.js";
 
 const enqueueBodySchema = z
     .object({
-        statusFilter: z.enum(["completed", "active", "all"]).optional(),
+        statusFilter: z.enum(RECIPE_SCAN_STATUS_FILTERS).optional(),
         since: z.string().datetime({ offset: true }).optional(),
         maxCandidates: z.number().int().min(1).max(30).optional(),
         minEventCount: z.number().int().min(1).max(1000).optional(),
-        archivedScope: z.enum(["active", "archived", "all"]).optional(),
+        archivedScope: z.enum(RECIPE_SCAN_ARCHIVED_SCOPES).optional(),
     })
     .strict();
 
@@ -145,14 +152,9 @@ export class RecipeScanController {
 
     @Get("candidates")
     async candidates(@Query("status") statusParam?: string) {
-        let status: RecipeCandidateStatusFilter = "pending";
-        if (statusParam !== undefined) {
-            if (statusParam !== "pending" && statusParam !== "all") {
-                throw new BadRequestException("status must be 'pending' or 'all'");
-            }
-            status = statusParam;
-        }
-        return this.listCandidates.execute({ status });
+        return this.listCandidates.execute({
+            status: parseRecipeCandidateStatusFilter(statusParam),
+        });
     }
 
     @Post("candidates/:candidateId/accept")
@@ -187,21 +189,9 @@ export class RecipeScanController {
 
     @Get()
     async list(@Query("status") statusParam?: string) {
-        let status: "active" | "superseded" | "retired" | "all" = "active";
-        if (statusParam !== undefined) {
-            if (
-                statusParam !== "active" &&
-                statusParam !== "superseded" &&
-                statusParam !== "retired" &&
-                statusParam !== "all"
-            ) {
-                throw new BadRequestException(
-                    "status must be 'active', 'superseded', 'retired', or 'all'",
-                );
-            }
-            status = statusParam;
-        }
-        return this.listRecipes.execute({ status });
+        return this.listRecipes.execute({
+            status: parseRecipeStatusFilter(statusParam),
+        });
     }
 
     @Delete(":recipeId")

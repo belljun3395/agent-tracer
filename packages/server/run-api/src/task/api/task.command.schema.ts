@@ -1,7 +1,6 @@
 import { createZodDto } from "nestjs-zod";
 import { z } from "zod";
-
-const TASK_STATUSES = ["running", "waiting", "completed", "errored"] as const;
+import { TASK_STATUSES } from "../common/task.status.const.js";
 
 export const taskPatchSchema = z.object({
     title: z.string().trim().min(1).optional(),

@@ -21,7 +21,7 @@ import {
     NoTasksToScanError,
     TaskCleanupService,
 } from "../application/task.cleanup.service.js";
-import type { CleanupSuggestionStatusFilter } from "../application/dto/cleanup.usecase.dto.js";
+import { parseCleanupSuggestionStatusFilter } from "./cleanup.query.filters.js";
 
 @Controller("api/v1/task-cleanup")
 export class TaskCleanupController {
@@ -87,14 +87,9 @@ export class TaskCleanupController {
 
     @Get("suggestions")
     async list(@Query("status") statusParam?: string) {
-        let status: CleanupSuggestionStatusFilter = "pending";
-        if (statusParam !== undefined) {
-            if (statusParam !== "pending" && statusParam !== "all") {
-                throw new BadRequestException("status must be 'pending' or 'all'");
-            }
-            status = statusParam;
-        }
-        return this.listSuggestions.execute({ status });
+        return this.listSuggestions.execute({
+            status: parseCleanupSuggestionStatusFilter(statusParam),
+        });
     }
 
     @Post("suggestions/:suggestionId/accept")
