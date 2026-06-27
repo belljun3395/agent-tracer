@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { RecipeRepository } from "../repository/recipe.repository.js";
-import { recipeToDto } from "./recipe.dto.mapper.js";
+import { recipeToDto } from "./dto/recipe.dto.mapper.js";
 import type {
     ListRecipesUseCaseIn,
     ListRecipesUseCaseOut,

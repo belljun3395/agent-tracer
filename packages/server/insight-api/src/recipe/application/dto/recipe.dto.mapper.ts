@@ -1,12 +1,12 @@
-import type { RecipeCandidateEntity } from "../domain/recipe.candidate.entity.js";
-import type { RecipeEntity } from "../domain/recipe.entity.js";
+import type { RecipeCandidateEntity } from "../../domain/recipe.candidate.entity.js";
+import type { RecipeEntity } from "../../domain/recipe.entity.js";
 import type {
     RecipeCandidateDto,
     RecipeDto,
     RecipeSliceDto,
     RecipeStepDto,
     RecipeTouchedFileDto,
-} from "./dto/recipe.usecase.dto.js";
+} from "./recipe.usecase.dto.js";
 
 export function candidateToDto(
     row: RecipeCandidateEntity,
