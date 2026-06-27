@@ -76,10 +76,10 @@ export class LogEventUseCase {
                 });
                 if (merged) {
                     return {
-                        task: task as never,
+                        task,
                         ...(input.sessionId ? { sessionId: input.sessionId } : {}),
                         events: [{ id: existingId, kind: input.kind }],
-                    } as LogEventUseCaseOut;
+                    };
                 }
             }
         }
@@ -130,13 +130,13 @@ export class LogEventUseCase {
                 // Defer until the transaction commits so a rollback can't leave
                 // dashboards showing a status change that never persisted.
                 runOnTransactionCommit(() => {
-                    this.notifier.publish({ type: "task.updated", payload: updatedTask as never });
+                    this.notifier.publish({ type: "task.updated", payload: updatedTask });
                 });
-                return { task: updatedTask as never, ...(sessionId ? { sessionId } : {}), events: allEvents } as LogEventUseCaseOut;
+                return { task: updatedTask, ...(sessionId ? { sessionId } : {}), events: allEvents };
             }
         }
 
-        return { task: task as never, ...(sessionId ? { sessionId } : {}), events: allEvents } as LogEventUseCaseOut;
+        return { task, ...(sessionId ? { sessionId } : {}), events: allEvents };
     }
 
     private async insertEvent(input: EventRecordingInput): Promise<TimelineEvent> {
@@ -149,7 +149,7 @@ export class LogEventUseCase {
         // Broadcast only after the surrounding transaction commits, so a
         // rolled-back event never reaches dashboards as a phantom row.
         runOnTransactionCommit(() => {
-            this.notifier.publish({ type: "event.logged", payload: projectTimelineEvent(event) as never });
+            this.notifier.publish({ type: "event.logged", payload: projectTimelineEvent(event) });
         });
 
         // 후처리(턴 개폐 + 룰 평가 + enforcement)를 같은 요청 트랜잭션 안에서 동기 실행한다.

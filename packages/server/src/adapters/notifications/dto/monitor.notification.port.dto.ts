@@ -1,55 +1,9 @@
-import type { MonitoringEventKind, TimelineLane } from "~activity/event/public/types/event.types.js";
+import type { TimelineEventProjection } from "~activity/event/public/dto/timeline.event.dto.js";
 import type { MonitoringTask } from "~work/task/public/types/task.types.js";
 import type { SessionSnapshot } from "~activity/session/public/dto/session.snapshot.dto.js";
 
-export interface EventNotificationClassificationReasonPortDto {
-    readonly kind: "keyword" | "action-prefix" | "action-keyword";
-    readonly value: string;
-}
-
-export interface EventNotificationClassificationMatchPortDto {
-    readonly ruleId: string;
-    readonly source?: "action-registry";
-    readonly score: number;
-    readonly lane?: TimelineLane;
-    readonly tags: readonly string[];
-    readonly reasons: readonly EventNotificationClassificationReasonPortDto[];
-}
-
-export interface EventNotificationClassificationPortDto {
-    readonly lane: TimelineLane;
-    readonly tags: readonly string[];
-    readonly matches: readonly EventNotificationClassificationMatchPortDto[];
-}
-
-export interface EventNotificationSemanticPortDto {
-    readonly subtypeKey: string;
-    readonly subtypeLabel: string;
-    readonly subtypeGroup?: string;
-    readonly entityType?: string;
-    readonly entityName?: string;
-}
-
-export interface EventNotificationPathsPortDto {
-    readonly primaryPath?: string;
-    readonly filePaths: readonly string[];
-    readonly mentionedPaths: readonly string[];
-}
-
-export interface EventNotificationPayloadPortDto {
-    readonly id: string;
-    readonly taskId: string;
-    readonly sessionId?: string;
-    readonly kind: MonitoringEventKind;
-    readonly lane: TimelineLane;
-    readonly title: string;
-    readonly body?: string;
-    readonly metadata: Record<string, unknown>;
-    readonly classification: EventNotificationClassificationPortDto;
-    readonly createdAt: string;
-    readonly semantic?: EventNotificationSemanticPortDto;
-    readonly paths: EventNotificationPathsPortDto;
-}
+/** 타임라인 이벤트 알림 페이로드 = 캐노니컬 프로젝션(중복 선언 제거). */
+export type EventNotificationPayloadPortDto = TimelineEventProjection;
 
 export interface RuleEnforcementNotificationPayloadPortDto {
     readonly eventId: string;

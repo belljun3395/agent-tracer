@@ -14,6 +14,6 @@ export class EventNotificationPublisherAdapter implements IEventNotificationPubl
     ) {}
 
     publish(notification: EventOutboundNotification): void {
-        this.inner.publish(notification as never);
+        this.inner.publish(notification);
     }
 }
