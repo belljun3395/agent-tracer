@@ -6,10 +6,14 @@ import type {
 } from "~work/task/common/task.status.const.js";
 
 @Entity({ name: "tasks_current" })
-@Index("idx_tasks_current_updated", ["updatedAt"])
+@Index("idx_tasks_current_user_updated", ["userId", "updatedAt"])
 export class TaskEntity {
     @PrimaryColumn({ type: "text" })
     id!: string;
+
+    /** 이 태스크를 소유한 사용자. */
+    @Column({ name: "user_id", type: "text", default: "local" })
+    userId!: string;
 
     @Column({ type: "text" })
     title!: string;

@@ -5,6 +5,7 @@ import type {
     MonitoringTaskKind,
     TaskOrigin,
 } from "~work/task/common/task.status.const.js";
+import { currentUserId } from "~shared/user/user.context.js";
 import { TaskNotFoundError } from "../common/task.errors.js";
 import { createTaskSlug } from "../common/task.slug.js";
 import { TaskEntity } from "../domain/task.entity.js";
@@ -187,6 +188,7 @@ export class TaskManagementService {
         // task that resumes without the env still stays server-sdk.
         if (!existing) {
             entity.origin = input.origin ?? "user";
+            entity.userId = currentUserId();
         } else if (input.origin === "server-sdk" && existing.origin !== "server-sdk") {
             entity.origin = "server-sdk";
         }
