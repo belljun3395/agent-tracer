@@ -18,7 +18,7 @@ import { RecipeCandidateRepository } from "./repository/recipe.candidate.reposit
 import { RecipeRepository } from "./repository/recipe.repository.js";
 import { InsightJobEntity } from "../job/insight.job.entity.js";
 import { InsightJobRepository } from "../job/insight.job.repository.js";
-import { RecipeScanAgent } from "./application/recipe.scan.agent.js";
+import { RecipeScanAgent } from "./agent/recipe.scan.agent.js";
 import { LocalQueryRunner } from "@monitor/shared/llm/local.query.runner.js";
 import { QUERY_RUNNER } from "@monitor/shared/llm/query.runner.port.js";
 

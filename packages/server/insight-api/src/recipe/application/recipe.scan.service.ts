@@ -1,11 +1,11 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import { NOTIFICATION_TYPE } from "@monitor/shared/contracts/notifications/notification.type.const.js";
 import { randomUUID } from "node:crypto";
-import { RecipeScanAgent } from "./recipe.scan.agent.js";
+import { RecipeScanAgent } from "../agent/recipe.scan.agent.js";
 import type {
     RecipeOutputLanguage,
     RecipeTaskSnapshot,
-} from "./recipe.scan.prompt.js";
+} from "../agent/recipe.scan.prompt.js";
 import type { INotificationPublisher } from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
 import { APP_SETTING_KEYS } from "@monitor/identity-api/settings/domain/app.setting.keys.js";
 import { AppSettingService } from "@monitor/identity-api/settings/application/app.setting.service.js";
