@@ -1,6 +1,7 @@
 import "reflect-metadata";
 import { initializeTransactionalContext } from "typeorm-transactional";
 import type express from "express";
+import { createClient } from "redis";
 import { NestFactory } from "@nestjs/core";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import { WebSocketServer, type WebSocket } from "ws";
@@ -9,9 +10,11 @@ initializeTransactionalContext();
 import { AppModule } from "../presentation/app.module.js";
 import { setupSwagger } from "../presentation/swagger.js";
 import { AppConfigService } from "~config/app-config.service.js";
+import { loadApplicationConfig } from "~config/application-config.js";
+import { runWithUser, DEFAULT_USER_ID } from "~shared/user/user.context.js";
 import { EventBroadcasterService } from "~adapters/realtime/ws/event.broadcaster.service.js";
-import { LocalNotificationPublisher } from "~adapters/notifications/publishers/local.notification.publisher.js";
-import { OsDesktopNotifier } from "~adapters/notifications/os.desktop.notifier.js";
+import { RedisNotificationPublisher } from "~adapters/realtime/redis.notification.publisher.js";
+import { RedisFanoutSubscriber } from "~adapters/realtime/redis.fanout.subscriber.js";
 import {
     assignRequestContext,
     configureTrustedProxy,
@@ -27,9 +30,16 @@ import { TASK_LIFECYCLE, TASK_SNAPSHOT_QUERY } from "~work/task/public/tokens.js
 import type { MonitorRuntime } from "./runtime.type.js";
 
 export async function createNestMonitorRuntime(): Promise<MonitorRuntime> {
+    // 알림은 Redis pub/sub 으로 흐른다: 발행자는 대상 userId 와 함께 채널에 publish 하고,
+    // 구독자가 이 파드의 해당 사용자 소켓으로 fan-out 한다(멀티파드/무상태).
+    const redisUrl = loadApplicationConfig().redis.url;
+    const redisPublisher = createClient({ url: redisUrl });
+    const redisSubscriber = redisPublisher.duplicate();
+    await redisPublisher.connect();
+    await redisSubscriber.connect();
     const broadcaster = new EventBroadcasterService();
-    const osNotifier = new OsDesktopNotifier();
-    const notifier = new LocalNotificationPublisher(broadcaster, osNotifier);
+    const notifier = new RedisNotificationPublisher(redisPublisher);
+    await new RedisFanoutSubscriber(redisSubscriber, broadcaster).start();
     const nestApp = await NestFactory.create<NestExpressApplication>(
         AppModule.forRoot({ notifier }),
         { logger: ["error", "warn"] },
@@ -89,30 +99,11 @@ export async function createNestMonitorRuntime(): Promise<MonitorRuntime> {
         socket.destroy();
     });
     const taskSnapshots = nestApp.get<ITaskSnapshotQuery>(TASK_SNAPSHOT_QUERY);
-    // Snapshot cache + in-flight coalescing: building the initial snapshot scans
-    // every active task, so a reconnect storm (all dashboards reconnecting after
-    // a restart) would otherwise stampede the single SQLite connection with one
-    // full build per client. Share one build within a short window; live updates
-    // still arrive via fan-out, so a ~1s-stale initial snapshot is harmless.
-    type SnapshotPayload = Awaited<ReturnType<typeof createInitialSnapshot>>;
-    const SNAPSHOT_TTL_MS = 1000;
-    let snapshotCache: { at: number; payload: SnapshotPayload } | null = null;
-    let snapshotInFlight: Promise<SnapshotPayload> | null = null;
-    const getSnapshot = (): Promise<SnapshotPayload> => {
-        if (snapshotCache && Date.now() - snapshotCache.at < SNAPSHOT_TTL_MS) {
-            return Promise.resolve(snapshotCache.payload);
-        }
-        if (snapshotInFlight) return snapshotInFlight;
-        snapshotInFlight = createInitialSnapshot(taskSnapshots)
-            .then((payload) => {
-                snapshotCache = { at: Date.now(), payload };
-                return payload;
-            })
-            .finally(() => { snapshotInFlight = null; });
-        return snapshotInFlight;
-    };
-    wss.on("connection", (ws) => {
-        broadcaster.addClient(ws);
+    // 연결마다 그 사용자 범위(runWithUser)에서 초기 스냅샷을 만든다. 공유 캐시는
+    // 두지 않는다(사용자별 데이터 + 무상태). 라이브 업데이트는 fan-out 으로 온다.
+    wss.on("connection", (ws, request) => {
+        const userId = extractWsUserId(request.url);
+        broadcaster.addClient(ws, userId);
         // Heartbeat liveness: ws does NOT auto-detect dead peers, so a client
         // that vanishes without a clean close (laptop sleep, Wi-Fi drop) would
         // otherwise linger in the registry forever. The interval below pings
@@ -124,9 +115,8 @@ export async function createNestMonitorRuntime(): Promise<MonitorRuntime> {
         // A ws socket that emits 'error' with no listener throws and crashes the
         // whole process (taking ingest down with it). Drop the client instead.
         ws.on("error", () => broadcaster.drop(ws));
-        void getSnapshot()
+        void runWithUser(userId, () => createInitialSnapshot(taskSnapshots))
             .then((payload) => {
-                // The client may have given up during the (possibly slow) build.
                 if (ws.readyState !== 1) return;
                 ws.send(JSON.stringify({ type: "snapshot", payload }));
             })
@@ -164,6 +154,8 @@ export async function createNestMonitorRuntime(): Promise<MonitorRuntime> {
         close: async () => {
             clearInterval(heartbeat);
             await nestApp.close();
+            await redisSubscriber.quit().catch(() => undefined);
+            await redisPublisher.quit().catch(() => undefined);
             await new Promise<void>((resolve) => {
                 wss.close(() => resolve());
             });
@@ -178,6 +170,16 @@ export async function createNestMonitorRuntime(): Promise<MonitorRuntime> {
  * Set MONITOR_WS_ALLOW_ANY_ORIGIN=1 for an intentionally network-exposed
  * dashboard served from a non-loopback host.
  */
+/** WS 연결 URL 쿼리에서 userId 를 추출한다(없으면 기본 사용자). */
+function extractWsUserId(url: string | undefined): string {
+    try {
+        const parsed = new URL(url ?? "/", "http://localhost");
+        return parsed.searchParams.get("userId")?.trim() || DEFAULT_USER_ID;
+    } catch {
+        return DEFAULT_USER_ID;
+    }
+}
+
 function isWsOriginAllowed(origin: string | undefined): boolean {
     if (process.env.MONITOR_WS_ALLOW_ANY_ORIGIN === "1") return true;
     if (!origin) return true;

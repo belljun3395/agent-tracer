@@ -1,61 +1,63 @@
 import type WebSocket from "ws";
 import type { MonitorNotification } from "~adapters/notifications/notification.publisher.port.js";
-import type { IBroadcastFanout } from "./broadcast.fanout.port.js";
+
+const WS_OPEN = 1;
+const MAX_BUFFERED_BYTES = 8 * 1024 * 1024; // 8 MiB — 드레인 못 하는 클라이언트는 끊는다.
+
+type TrackedSocket = WebSocket & { monitorUserId?: string };
 
 /**
- * Local WS connection registry + fan-out. Implements only IBroadcastFanout;
- * does NOT decide *whether* a notification should be broadcast — that lives
- * with whichever NotificationPublisher impl wires up to call fanout().
- *
- * Single-instance deployment: LocalNotificationPublisher.publish() calls
- *   fanout() directly.
- * Multi-instance deployment: NOT supported today — the registry below is an
- *   in-process Set, so a second instance never sees this instance's clients.
- *   Going multi-instance requires a shared channel (e.g. a Redis publisher +
- *   per-instance subscriber that calls fanout()) AND moving off the local
- *   SQLite file. See docs/runtime-server-technical-review.
- *
- * Fault isolation: a single misbehaving client must never abort delivery to
- * the rest or bubble an exception into the ingest/transaction path that called
- * publish(). Every send is therefore guarded, and slow clients that let their
- * send buffer grow past MAX_BUFFERED_BYTES are dropped (terminated) rather than
- * accumulating unbounded memory server-side.
+ * 이 인스턴스(파드)에 연결된 WS 클라이언트 레지스트리 + 사용자별 fan-out.
+ * 클라이언트는 userId 로 그룹화되며, fanout(userId, ...) 은 해당 사용자의 소켓에만
+ * 전송한다. 파드 간 라우팅은 Redis 구독자가 이 fanout 을 호출해 처리한다(무상태:
+ * 이 레지스트리는 이 파드가 실제로 들고 있는 소켓만 담는다).
  */
-const WS_OPEN = 1;
-const MAX_BUFFERED_BYTES = 8 * 1024 * 1024; // 8 MiB — drop a client that can't drain
+export class EventBroadcasterService {
+    private readonly all = new Set<TrackedSocket>();
+    private readonly byUser = new Map<string, Set<TrackedSocket>>();
 
-export class EventBroadcasterService implements IBroadcastFanout {
-    private readonly clients = new Set<WebSocket>();
-
-    addClient(ws: WebSocket): void {
-        this.clients.add(ws);
+    addClient(ws: WebSocket, userId: string): void {
+        const tracked = ws as TrackedSocket;
+        tracked.monitorUserId = userId;
+        this.all.add(tracked);
+        const set = this.byUser.get(userId) ?? new Set<TrackedSocket>();
+        set.add(tracked);
+        this.byUser.set(userId, set);
     }
 
     removeClient(ws: WebSocket): void {
-        this.clients.delete(ws);
+        const tracked = ws as TrackedSocket;
+        this.all.delete(tracked);
+        const userId = tracked.monitorUserId;
+        if (userId === undefined) return;
+        const set = this.byUser.get(userId);
+        if (!set) return;
+        set.delete(tracked);
+        if (set.size === 0) this.byUser.delete(userId);
     }
 
-    /** Connected clients (read-only) — used by the heartbeat reaper. */
+    /** 하트비트 reaper 용 — 이 파드의 전체 연결. */
     get connections(): ReadonlySet<WebSocket> {
-        return this.clients;
+        return this.all;
     }
 
-    /** Drop a client and force-close its socket (slow/dead/errored). */
+    /** 느리거나 죽은/에러난 소켓을 끊는다. */
     drop(ws: WebSocket): void {
-        this.clients.delete(ws);
+        this.removeClient(ws);
         try {
             ws.terminate();
         } catch {
-            // already closed — nothing to do
+            // 이미 닫힘 — 무시
         }
     }
 
-    fanout(notification: MonitorNotification): void {
+    /** 특정 사용자의 이 파드 소켓에만 전송한다. */
+    fanout(userId: string, notification: MonitorNotification): void {
+        const clients = this.byUser.get(userId);
+        if (!clients || clients.size === 0) return;
         const msg = JSON.stringify({ type: notification.type, payload: notification.payload });
-        for (const client of this.clients) {
+        for (const client of clients) {
             if (client.readyState !== WS_OPEN) continue;
-            // Backpressure: a client that cannot keep up accumulates frames in
-            // ws's internal send buffer. Drop it instead of growing the heap.
             if (client.bufferedAmount > MAX_BUFFERED_BYTES) {
                 this.drop(client);
                 continue;
@@ -63,9 +65,6 @@ export class EventBroadcasterService implements IBroadcastFanout {
             try {
                 client.send(msg);
             } catch {
-                // send() can throw synchronously (e.g. socket racing a close).
-                // Isolate the failure so it neither aborts the fan-out loop nor
-                // propagates into the ingest/transaction path that called us.
                 this.drop(client);
             }
         }
