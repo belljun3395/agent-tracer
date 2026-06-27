@@ -57,9 +57,16 @@ export class RuleBackfillService {
         });
     }
 
+    /** API 요청 안에서 재평가를 동기 실행하고 완료된 잡을 반환한다. */
+    async run(ruleId: string): Promise<GovernanceJobEntity> {
+        const job = await this.enqueue(ruleId);
+        await this.execute(job);
+        const completed = await this.jobs.findById(job.id);
+        return completed ?? job;
+    }
+
     /**
-     * Execute one claimed job. Caller (the worker) is responsible for the
-     * atomic claim. Always transitions the job to completed/failed.
+     * 잡 하나를 실행하고 항상 completed/failed 로 전이시킨다.
      */
     async execute(job: GovernanceJobEntity): Promise<void> {
         const ruleId = job.ruleId;

@@ -2,7 +2,6 @@ import { Module, type DynamicModule } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { RuleBackfillController } from "./api/rule.backfill.controller.js";
 import { RuleBackfillService } from "./application/rule.backfill.service.js";
-import { RuleBackfillWorker } from "./application/rule.backfill.worker.js";
 import { GovernanceJobEntity } from "~governance/job/governance.job.entity.js";
 import { GovernanceJobRepository } from "~governance/job/governance.job.repository.js";
 
@@ -32,7 +31,6 @@ export class RuleBackfillModule {
             providers: [
                 GovernanceJobRepository,
                 RuleBackfillService,
-                RuleBackfillWorker,
             ],
             exports: [RuleBackfillService],
         };

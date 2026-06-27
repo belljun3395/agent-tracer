@@ -14,10 +14,8 @@ import {
 } from "../application/rule.backfill.service.js";
 
 /**
- * Re-evaluate endpoint. Enqueues a `rule_backfill` job and returns immediately
- * (202) — the {@link RuleBackfillWorker} runs the sweep asynchronously, and the
- * dashboard picks up the new verdicts over the WebSocket `verdict.updated`
- * stream the backfill use-case emits per turn.
+ * 룰 재평가 엔드포인트. 같은 요청 안에서 재평가 스윕을 실행하고 완료된 잡을
+ * 반환한다. 새 verdict 는 WebSocket `verdict.updated` 스트림으로도 전달된다.
  */
 @Controller("api/v1/rules")
 export class RuleBackfillController {
@@ -29,7 +27,7 @@ export class RuleBackfillController {
     @HttpCode(HttpStatus.ACCEPTED)
     async reEvaluate(@Param("id", pathParamPipe) id: string) {
         try {
-            const job = await this.service.enqueue(id);
+            const job = await this.service.run(id);
             return {
                 jobId: job.id,
                 status: job.status,
