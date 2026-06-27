@@ -20,11 +20,15 @@ export type GovernanceJobStatus =
  * readable and the worker/repository/lifecycle can be shared.
  */
 @Entity({ name: "governance_jobs" })
-@Index("idx_governance_jobs_type_status", ["jobType", "status", "createdAt"])
+@Index("idx_governance_jobs_user_type_status", ["userId", "jobType", "status", "createdAt"])
 @Index("idx_governance_jobs_task", ["taskId", "createdAt"])
 export class GovernanceJobEntity {
     @PrimaryColumn({ type: "text" })
     id!: string;
+
+    /** 이 잡을 실행한 사용자. */
+    @Column({ name: "user_id", type: "text", default: "local" })
+    userId!: string;
 
     @Column({ name: "job_type", type: "text" })
     jobType!: GovernanceJobType;

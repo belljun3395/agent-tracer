@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
+import { currentUserId } from "~shared/user/user.context.js";
 import {
     GovernanceJobEntity,
     type GovernanceJobType,
@@ -30,6 +31,7 @@ export class GovernanceJobRepository {
     }): Promise<GovernanceJobEntity> {
         const entity = this.repo.create({
             id: input.id,
+            userId: currentUserId(),
             jobType: input.jobType,
             status: "pending",
             attempts: 0,
@@ -61,6 +63,7 @@ export class GovernanceJobRepository {
         return this.repo
             .createQueryBuilder("job")
             .where("job.jobType = :jobType", { jobType })
+            .andWhere("job.userId = :userId", { userId: currentUserId() })
             .andWhere("job.status IN (:...statuses)", {
                 statuses: ["pending", "processing"],
             })
@@ -75,6 +78,7 @@ export class GovernanceJobRepository {
         return this.repo
             .createQueryBuilder("job")
             .where("job.jobType = :jobType", { jobType })
+            .andWhere("job.userId = :userId", { userId: currentUserId() })
             .andWhere("job.taskId = :taskId", { taskId })
             .andWhere("job.status IN (:...statuses)", {
                 statuses: ["pending", "processing"],
@@ -90,6 +94,7 @@ export class GovernanceJobRepository {
         return this.repo
             .createQueryBuilder("job")
             .where("job.jobType = :jobType", { jobType })
+            .andWhere("job.userId = :userId", { userId: currentUserId() })
             .andWhere("job.ruleId = :ruleId", { ruleId })
             .andWhere("job.status IN (:...statuses)", {
                 statuses: ["pending", "processing"],
@@ -102,6 +107,7 @@ export class GovernanceJobRepository {
         return this.repo
             .createQueryBuilder("job")
             .where("job.jobType = :jobType", { jobType })
+            .andWhere("job.userId = :userId", { userId: currentUserId() })
             .orderBy("job.createdAt", "DESC")
             .getOne();
     }
@@ -113,6 +119,7 @@ export class GovernanceJobRepository {
         return this.repo
             .createQueryBuilder("job")
             .where("job.jobType = :jobType", { jobType })
+            .andWhere("job.userId = :userId", { userId: currentUserId() })
             .andWhere("job.taskId = :taskId", { taskId })
             .orderBy("job.createdAt", "DESC")
             .getOne();
@@ -125,6 +132,7 @@ export class GovernanceJobRepository {
         return this.repo
             .createQueryBuilder("job")
             .where("job.jobType = :jobType", { jobType })
+            .andWhere("job.userId = :userId", { userId: currentUserId() })
             .andWhere("job.status = :status", { status: "pending" })
             .orderBy("job.createdAt", "ASC")
             .limit(limit)
