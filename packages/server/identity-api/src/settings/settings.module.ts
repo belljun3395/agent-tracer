@@ -1,7 +1,7 @@
 import { Module, type DynamicModule } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { AppSettingController } from "./api/app.setting.controller.js";
-import { AppSettingService } from "./application/app.setting.service.js";
+import { AppSettingService } from "./service/app.setting.service.js";
 import { AppSettingEntity } from "./domain/app.setting.entity.js";
 import { AppSettingRepository } from "./repository/app.setting.repository.js";
 import { APP_SETTINGS } from "./public/tokens.js";

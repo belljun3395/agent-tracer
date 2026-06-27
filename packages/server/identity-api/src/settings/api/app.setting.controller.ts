@@ -15,7 +15,7 @@ import {
     AppSettingService,
     InvalidSettingValueError,
     UnsupportedSettingKeyError,
-} from "../application/app.setting.service.js";
+} from "../service/app.setting.service.js";
 import { settingPutSchema, SettingPutDto } from "./app.setting.schema.js";
 
 @Controller("api/v1/settings")
