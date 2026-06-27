@@ -26,9 +26,6 @@ export interface ApplicationConfig {
         readonly password: string;
         readonly database: string;
     };
-    readonly opensearch: {
-        readonly node: string;
-    };
     readonly redis: {
         readonly url: string;
     };
@@ -63,9 +60,6 @@ export const applicationConfigSchema = z.object({
         password: z.string(),
         database: z.string().min(1),
     }),
-    opensearch: z.object({
-        node: z.string().min(1),
-    }),
     redis: z.object({
         url: z.string().min(1),
     }),
@@ -94,7 +88,6 @@ const DEFAULT_APPLICATION_CONFIG: ApplicationConfig = Object.freeze({
         password: "monitor",
         database: "monitor",
     },
-    opensearch: { node: "http://127.0.0.1:9200" },
     redis: { url: "redis://127.0.0.1:6379" },
     web: { apiBaseUrl: "", wsBaseUrl: "" },
     externalSetup: {
@@ -157,7 +150,6 @@ function normalizeApplicationConfig(input: unknown): ApplicationConfig {
     const merged = deepMerge(DEFAULT_APPLICATION_CONFIG, input ?? {}) as Record<string, unknown>;
     const monitor = isPlainObject(merged["monitor"]) ? merged["monitor"] : {};
     const postgres = isPlainObject(merged["postgres"]) ? merged["postgres"] : {};
-    const opensearch = isPlainObject(merged["opensearch"]) ? merged["opensearch"] : {};
     const redis = isPlainObject(merged["redis"]) ? merged["redis"] : {};
     const web = isPlainObject(merged["web"]) ? merged["web"] : {};
     const externalSetup = isPlainObject(merged["externalSetup"]) ? merged["externalSetup"] : {};
@@ -177,9 +169,6 @@ function normalizeApplicationConfig(input: unknown): ApplicationConfig {
             username: trimString(postgres["username"]) || defaults.postgres.username,
             password: typeof postgres["password"] === "string" ? postgres["password"] : defaults.postgres.password,
             database: trimString(postgres["database"]) || defaults.postgres.database,
-        },
-        opensearch: {
-            node: normalizeBaseUrl(opensearch["node"]) || defaults.opensearch.node,
         },
         redis: {
             url: trimString(redis["url"]) || defaults.redis.url,
@@ -203,7 +192,6 @@ export function loadApplicationConfig(options: { env?: NodeJS.ProcessEnv } = {})
     ) as Record<string, unknown>;
     const monitor = isPlainObject(yamlConfig["monitor"]) ? yamlConfig["monitor"] : {};
     const postgres = isPlainObject(yamlConfig["postgres"]) ? yamlConfig["postgres"] : {};
-    const opensearch = isPlainObject(yamlConfig["opensearch"]) ? yamlConfig["opensearch"] : {};
     const redis = isPlainObject(yamlConfig["redis"]) ? yamlConfig["redis"] : {};
     const web = isPlainObject(yamlConfig["web"]) ? yamlConfig["web"] : {};
     const externalSetup = isPlainObject(yamlConfig["externalSetup"]) ? yamlConfig["externalSetup"] : {};
@@ -225,10 +213,6 @@ export function loadApplicationConfig(options: { env?: NodeJS.ProcessEnv } = {})
             ...(trimString(env["POSTGRES_USER"]) ? { username: env["POSTGRES_USER"] } : {}),
             ...(env["POSTGRES_PASSWORD"] !== undefined ? { password: env["POSTGRES_PASSWORD"] } : {}),
             ...(trimString(env["POSTGRES_DB"]) ? { database: env["POSTGRES_DB"] } : {}),
-        },
-        opensearch: {
-            ...opensearch,
-            ...(trimString(env["OPENSEARCH_NODE"]) ? { node: env["OPENSEARCH_NODE"] } : {}),
         },
         redis: {
             ...redis,

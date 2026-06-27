@@ -19,7 +19,6 @@ const FIXTURE = applicationConfigSchema.parse({
         password: "secret",
         database: "monitor",
     },
-    opensearch: { node: "http://search.example.test:9200" },
     redis: { url: "redis://cache.example.test:6379" },
     web: { apiBaseUrl: "https://api.example.test", wsBaseUrl: "wss://api.example.test" },
     externalSetup: { monitorBaseUrl: "", sourceRepo: "owner/repo" },

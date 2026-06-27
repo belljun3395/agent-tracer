@@ -40,10 +40,6 @@ export class AppConfigService {
         return this.application.postgres;
     }
 
-    get opensearch(): ApplicationConfig["opensearch"] {
-        return this.application.opensearch;
-    }
-
     get redis(): ApplicationConfig["redis"] {
         return this.application.redis;
     }
