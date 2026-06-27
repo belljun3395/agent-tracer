@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { NOTIFICATION_TYPE } from "~adapters/notifications/dto/notification.type.const.js";
 import { KIND } from "~activity/event/public/types/event.const.js";
 import type { TimelineEvent } from "~activity/event/public/types/event.types.js";
 import { inferToolCall } from "~governance/verification/domain/tool.call.inference.js";
@@ -100,7 +101,7 @@ export class TurnLifecyclePostProcessor {
         const updated = await this.turnRepo.findById(turnId);
         if (updated) {
             this.notifier.publish({
-                type: "verdict.updated",
+                type: NOTIFICATION_TYPE.verdictUpdated,
                 payload: {
                     turnId: updated.id,
                     sessionId: updated.sessionId,

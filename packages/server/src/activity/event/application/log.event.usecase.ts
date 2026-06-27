@@ -1,4 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
+import { NOTIFICATION_TYPE } from "~adapters/notifications/dto/notification.type.const.js";
 import { Transactional, runOnTransactionCommit } from "typeorm-transactional";
 import { KIND } from "~activity/event/domain/common/const/event.kind.const.js";
 import { createEventRecordDraft, normalizeFilePaths } from "~activity/event/domain/event.recording.js";
@@ -130,7 +131,7 @@ export class LogEventUseCase {
                 // Defer until the transaction commits so a rollback can't leave
                 // dashboards showing a status change that never persisted.
                 runOnTransactionCommit(() => {
-                    this.notifier.publish({ type: "task.updated", payload: updatedTask });
+                    this.notifier.publish({ type: NOTIFICATION_TYPE.taskUpdated, payload: updatedTask });
                 });
                 return { task: updatedTask, ...(sessionId ? { sessionId } : {}), events: allEvents };
             }
@@ -148,7 +149,7 @@ export class LogEventUseCase {
         // Broadcast only after the surrounding transaction commits, so a
         // rolled-back event never reaches dashboards as a phantom row.
         runOnTransactionCommit(() => {
-            this.notifier.publish({ type: "event.logged", payload: projectTimelineEvent(event) });
+            this.notifier.publish({ type: NOTIFICATION_TYPE.eventLogged, payload: projectTimelineEvent(event) });
         });
 
         // 후처리(턴 개폐 + 룰 평가 + enforcement)를 같은 요청 트랜잭션 안에서 동기 실행한다.

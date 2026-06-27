@@ -1,4 +1,5 @@
 import { matchEventAgainstRule } from "~governance/verification/domain/event.rule.matching.js";
+import { NOTIFICATION_TYPE } from "~adapters/notifications/dto/notification.type.const.js";
 import { Transactional } from "typeorm-transactional";
 import { inferToolCall } from "~governance/verification/domain/tool.call.inference.js";
 import type { TurnVerdict } from "~governance/verification/domain/model/verdict.model.js";
@@ -84,7 +85,7 @@ export class BackfillRuleEvaluationUseCase {
                 const event = events.find((candidate) => candidate.id === row.eventId);
                 if (!event) continue;
                 notifier.publish({
-                    type: "rule_enforcement.added",
+                    type: NOTIFICATION_TYPE.ruleEnforcementAdded,
                     payload: {
                         eventId: row.eventId,
                         ruleId: row.ruleId,
@@ -131,7 +132,7 @@ export class BackfillRuleEvaluationUseCase {
                 const updated = await turnRepo.findById(turn.id);
                 if (updated) {
                     notifier.publish({
-                        type: "verdict.updated",
+                        type: NOTIFICATION_TYPE.verdictUpdated,
                         payload: {
                             turnId: updated.id,
                             sessionId: updated.sessionId,

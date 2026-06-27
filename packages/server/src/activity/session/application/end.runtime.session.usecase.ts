@@ -1,4 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
+import { NOTIFICATION_TYPE } from "~adapters/notifications/dto/notification.type.const.js";
 import { Transactional } from "typeorm-transactional";
 import { isTerminalTaskStatus, RuntimeSessionEnd } from "../domain/runtime.session.end.model.js";
 import { SessionLifecycleService } from "../service/session.lifecycle.service.js";
@@ -70,7 +71,7 @@ export class EndRuntimeSessionUseCase {
         const endedAt = this.clock.nowIso();
         await this.sessions.updateStatus(binding.monitorSessionId, "completed", endedAt, input.summary);
         this.notifier.publish({
-            type: "session.ended",
+            type: NOTIFICATION_TYPE.sessionEnded,
             payload: { ...session, status: "completed" as const, endedAt },
         });
         await this.runtimeBindings.clearSession(input.runtimeSource, input.runtimeSessionId);
@@ -152,7 +153,7 @@ export class EndRuntimeSessionUseCase {
         await this.tasks.updateStatus(taskId, status, updatedAt);
         const task = await this.tasks.findById(taskId);
         if (!task) throw new Error(`Task not found: ${taskId}`);
-        this.notifier.publish({ type: "task.updated", payload: task });
+        this.notifier.publish({ type: NOTIFICATION_TYPE.taskUpdated, payload: task });
         return task;
     }
 

@@ -1,4 +1,5 @@
 import { Transactional, runOnTransactionCommit } from "typeorm-transactional";
+import { NOTIFICATION_TYPE } from "~adapters/notifications/dto/notification.type.const.js";
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import { isRuleExpectMeaningful } from "~governance/rule/domain/rule.js";
 import { computeRuleSignature } from "~governance/rule/domain/rule.signature.js";
@@ -61,7 +62,7 @@ export class CreateRuleUseCase {
         });
 
         this.notifier.publish({
-            type: "rules.changed",
+            type: NOTIFICATION_TYPE.rulesChanged,
             payload: {
                 ruleId: created.id,
                 change: "created",

@@ -1,4 +1,5 @@
 import type { TimelineEventProjection } from "~activity/event/public/dto/timeline.event.dto.js";
+import type { NOTIFICATION_TYPE } from "~adapters/notifications/dto/notification.type.const.js";
 import type { SessionSnapshot } from "~activity/session/public/dto/session.snapshot.dto.js";
 import type { MonitoringTask } from "~work/task/domain/task.model.js";
 
@@ -7,14 +8,14 @@ import type { MonitoringTask } from "~work/task/domain/task.model.js";
  * 그대로 사용해 공유 알림 타입과 캐스트 없이 정렬된다.
  */
 export type TaskOutboundNotification =
-    | { readonly type: "task.started"; readonly payload: MonitoringTask }
-    | { readonly type: "task.completed"; readonly payload: MonitoringTask }
-    | { readonly type: "task.updated"; readonly payload: MonitoringTask }
-    | { readonly type: "task.deleted"; readonly payload: { readonly taskId: string } }
-    | { readonly type: "tasks.purged"; readonly payload: { readonly count: number } }
-    | { readonly type: "session.started"; readonly payload: SessionSnapshot }
-    | { readonly type: "session.ended"; readonly payload: SessionSnapshot }
-    | { readonly type: "event.logged"; readonly payload: TimelineEventProjection };
+    | { readonly type: typeof NOTIFICATION_TYPE.taskStarted; readonly payload: MonitoringTask }
+    | { readonly type: typeof NOTIFICATION_TYPE.taskCompleted; readonly payload: MonitoringTask }
+    | { readonly type: typeof NOTIFICATION_TYPE.taskUpdated; readonly payload: MonitoringTask }
+    | { readonly type: typeof NOTIFICATION_TYPE.taskDeleted; readonly payload: { readonly taskId: string } }
+    | { readonly type: typeof NOTIFICATION_TYPE.tasksPurged; readonly payload: { readonly count: number } }
+    | { readonly type: typeof NOTIFICATION_TYPE.sessionStarted; readonly payload: SessionSnapshot }
+    | { readonly type: typeof NOTIFICATION_TYPE.sessionEnded; readonly payload: SessionSnapshot }
+    | { readonly type: typeof NOTIFICATION_TYPE.eventLogged; readonly payload: TimelineEventProjection };
 
 export interface ITaskNotificationPublisher {
     publish(notification: TaskOutboundNotification): void;

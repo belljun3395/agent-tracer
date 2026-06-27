@@ -1,4 +1,5 @@
 import type { TimelineEventProjection } from "~activity/event/public/dto/timeline.event.dto.js";
+import type { NOTIFICATION_TYPE } from "~adapters/notifications/dto/notification.type.const.js";
 import type { MonitoringTask } from "~work/task/public/types/task.types.js";
 
 /**
@@ -6,9 +7,9 @@ import type { MonitoringTask } from "~work/task/public/types/task.types.js";
  * 사용해 공유 알림 타입과 캐스트 없이 정렬된다.
  */
 export type EventOutboundNotification =
-    | { readonly type: "event.logged"; readonly payload: TimelineEventProjection }
-    | { readonly type: "event.updated"; readonly payload: TimelineEventProjection }
-    | { readonly type: "task.updated"; readonly payload: MonitoringTask };
+    | { readonly type: typeof NOTIFICATION_TYPE.eventLogged; readonly payload: TimelineEventProjection }
+    | { readonly type: typeof NOTIFICATION_TYPE.eventUpdated; readonly payload: TimelineEventProjection }
+    | { readonly type: typeof NOTIFICATION_TYPE.taskUpdated; readonly payload: MonitoringTask };
 
 export interface IEventNotificationPublisher {
     publish(notification: EventOutboundNotification): void;

@@ -1,4 +1,5 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
+import { NOTIFICATION_TYPE } from "~adapters/notifications/dto/notification.type.const.js";
 import { randomUUID } from "node:crypto";
 import { RecipeScanAgent } from "~adapters/llm/recipe.scan.agent.js";
 import type {
@@ -117,7 +118,7 @@ export class RecipeScanService {
 
     async execute(job: GovernanceJobEntity): Promise<void> {
         this.notifier.publish({
-            type: "sdk_job.updated",
+            type: NOTIFICATION_TYPE.sdkJobUpdated,
             payload: {
                 kind: "recipe-scan",
                 status: "running",
@@ -172,7 +173,7 @@ export class RecipeScanService {
                     completedAt: new Date().toISOString(),
                 });
                 this.notifier.publish({
-                    type: "sdk_job.updated",
+                    type: NOTIFICATION_TYPE.sdkJobUpdated,
                     payload: {
                         kind: "recipe-scan",
                         status: "succeeded",
@@ -255,7 +256,7 @@ export class RecipeScanService {
                 completedAt: new Date().toISOString(),
             });
             this.notifier.publish({
-                type: "sdk_job.updated",
+                type: NOTIFICATION_TYPE.sdkJobUpdated,
                 payload: {
                     kind: "recipe-scan",
                     status: "succeeded",
@@ -283,7 +284,7 @@ export class RecipeScanService {
                 completedAt: new Date().toISOString(),
             });
             this.notifier.publish({
-                type: "sdk_job.updated",
+                type: NOTIFICATION_TYPE.sdkJobUpdated,
                 payload: {
                     kind: "recipe-scan",
                     status: "failed",

@@ -1,6 +1,7 @@
 import type { TimelineEventProjection } from "~activity/event/public/dto/timeline.event.dto.js";
 import type { MonitoringTask } from "~work/task/public/types/task.types.js";
 import type { SessionSnapshot } from "~activity/session/public/dto/session.snapshot.dto.js";
+import type { NOTIFICATION_TYPE } from "./notification.type.const.js";
 
 /** 타임라인 이벤트 알림 페이로드 = 캐노니컬 프로젝션(중복 선언 제거). */
 export type EventNotificationPayloadPortDto = TimelineEventProjection;
@@ -61,46 +62,46 @@ export interface SdkJobUpdatedNotificationPayloadPortDto {
 }
 
 export type MonitorNotificationPortDto = {
-    readonly type: "task.started";
+    readonly type: typeof NOTIFICATION_TYPE.taskStarted;
     readonly payload: MonitoringTask;
 } | {
-    readonly type: "task.completed";
+    readonly type: typeof NOTIFICATION_TYPE.taskCompleted;
     readonly payload: MonitoringTask;
 } | {
-    readonly type: "task.updated";
+    readonly type: typeof NOTIFICATION_TYPE.taskUpdated;
     readonly payload: MonitoringTask;
 } | {
-    readonly type: "task.deleted";
+    readonly type: typeof NOTIFICATION_TYPE.taskDeleted;
     readonly payload: {
         taskId: string;
     };
 } | {
-    readonly type: "session.started";
+    readonly type: typeof NOTIFICATION_TYPE.sessionStarted;
     readonly payload: SessionSnapshot;
 } | {
-    readonly type: "session.ended";
+    readonly type: typeof NOTIFICATION_TYPE.sessionEnded;
     readonly payload: SessionSnapshot;
 } | {
-    readonly type: "event.logged";
+    readonly type: typeof NOTIFICATION_TYPE.eventLogged;
     readonly payload: EventNotificationPayloadPortDto;
 } | {
-    readonly type: "event.updated";
+    readonly type: typeof NOTIFICATION_TYPE.eventUpdated;
     readonly payload: EventNotificationPayloadPortDto;
 } | {
-    readonly type: "tasks.purged";
+    readonly type: typeof NOTIFICATION_TYPE.tasksPurged;
     readonly payload: {
         count: number;
     };
 } | {
-    readonly type: "rule_enforcement.added";
+    readonly type: typeof NOTIFICATION_TYPE.ruleEnforcementAdded;
     readonly payload: RuleEnforcementNotificationPayloadPortDto;
 } | {
-    readonly type: "verdict.updated";
+    readonly type: typeof NOTIFICATION_TYPE.verdictUpdated;
     readonly payload: VerdictUpdatedNotificationPayloadPortDto;
 } | {
-    readonly type: "rules.changed";
+    readonly type: typeof NOTIFICATION_TYPE.rulesChanged;
     readonly payload: RulesChangedNotificationPayloadPortDto;
 } | {
-    readonly type: "sdk_job.updated";
+    readonly type: typeof NOTIFICATION_TYPE.sdkJobUpdated;
     readonly payload: SdkJobUpdatedNotificationPayloadPortDto;
 };

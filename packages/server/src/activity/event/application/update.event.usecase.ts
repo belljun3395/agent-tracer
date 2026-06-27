@@ -1,4 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
+import { NOTIFICATION_TYPE } from "~adapters/notifications/dto/notification.type.const.js";
 import { Transactional } from "typeorm-transactional";
 import { resolveDisplayTitleMetadataUpdate } from "~activity/event/domain/event.metadata.js";
 import { TimelineEventService } from "../service/timeline.event.service.js";
@@ -29,7 +30,7 @@ export class UpdateEventUseCase {
         const updated = await this.events.updateMetadata(event.id, metadataUpdate.metadata);
         if (!updated) return null;
         const projected = projectTimelineEvent(updated);
-        this.notifier.publish({ type: "event.updated", payload: projected });
+        this.notifier.publish({ type: NOTIFICATION_TYPE.eventUpdated, payload: projected });
         return projected;
     }
 }

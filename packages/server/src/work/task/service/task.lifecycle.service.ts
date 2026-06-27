@@ -1,4 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
+import { NOTIFICATION_TYPE } from "~adapters/notifications/dto/notification.type.const.js";
 import type { MonitoringTask } from "~work/task/domain/task.model.js";
 import type { MonitoringEventKind } from "~activity/event/public/types/event.types.js";
 import type {
@@ -106,10 +107,10 @@ export class TaskLifecycleService {
         });
 
         if (existingTask && (existingTask.status !== "running" || existingTask.runtimeSource !== task.runtimeSource)) {
-            this.notifier.publish({ type: "task.updated", payload: task });
+            this.notifier.publish({ type: NOTIFICATION_TYPE.taskUpdated, payload: task });
         }
-        this.notifier.publish({ type: "task.started", payload: task });
-        this.notifier.publish({ type: "session.started", payload: session });
+        this.notifier.publish({ type: NOTIFICATION_TYPE.taskStarted, payload: task });
+        this.notifier.publish({ type: NOTIFICATION_TYPE.sessionStarted, payload: session });
 
         if (!existingTask) {
             const recording = new TaskStartRecording({
@@ -126,7 +127,7 @@ export class TaskLifecycleService {
                 id: this.idGen.newUuid(),
                 ...record,
             });
-            this.notifier.publish({ type: "event.logged", payload: this.projection.project(event) });
+            this.notifier.publish({ type: NOTIFICATION_TYPE.eventLogged, payload: this.projection.project(event) });
             return { task, sessionId, events: [{ id: event.id, kind: event.kind }] };
         }
         return { task, sessionId, events: [] };
@@ -145,7 +146,7 @@ export class TaskLifecycleService {
             await this.sessions.updateStatus(sessionId, status, endedAt, input.summary);
             if (previousSession) {
                 this.notifier.publish({
-                    type: "session.ended",
+                    type: NOTIFICATION_TYPE.sessionEnded,
                     payload: { ...previousSession, status, endedAt },
                 });
             }
@@ -159,8 +160,8 @@ export class TaskLifecycleService {
         const finalTask = (await this.query.findById(input.taskId)) ?? task;
         this.notifier.publish(
             status === "completed"
-                ? { type: "task.completed", payload: finalTask }
-                : { type: "task.updated", payload: finalTask },
+                ? { type: NOTIFICATION_TYPE.taskCompleted, payload: finalTask }
+                : { type: NOTIFICATION_TYPE.taskUpdated, payload: finalTask },
         );
 
         const recording = new TaskFinalizationRecording({
@@ -177,7 +178,7 @@ export class TaskLifecycleService {
             id: this.idGen.newUuid(),
             ...record,
         });
-        this.notifier.publish({ type: "event.logged", payload: this.projection.project(event) });
+        this.notifier.publish({ type: NOTIFICATION_TYPE.eventLogged, payload: this.projection.project(event) });
         return { task: finalTask, ...(sessionId ? { sessionId } : {}), events: [{ id: event.id, kind: event.kind }] };
     }
 }

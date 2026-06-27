@@ -1,3 +1,4 @@
+import type { NOTIFICATION_TYPE } from "~adapters/notifications/dto/notification.type.const.js";
 /**
  * Outbound port. Self-contained — no imports from outside this file.
  * Adapter (session/adapter/session.notification.publisher.adapter.ts)
@@ -33,9 +34,9 @@ export interface NotifiedTaskPayload {
 }
 
 export type SessionOutboundNotification =
-    | { readonly type: "session.started"; readonly payload: NotifiedSessionPayload }
-    | { readonly type: "session.ended"; readonly payload: NotifiedSessionPayload }
-    | { readonly type: "task.updated"; readonly payload: NotifiedTaskPayload };
+    | { readonly type: typeof NOTIFICATION_TYPE.sessionStarted; readonly payload: NotifiedSessionPayload }
+    | { readonly type: typeof NOTIFICATION_TYPE.sessionEnded; readonly payload: NotifiedSessionPayload }
+    | { readonly type: typeof NOTIFICATION_TYPE.taskUpdated; readonly payload: NotifiedTaskPayload };
 
 export interface ISessionNotificationPublisher {
     publish(notification: SessionOutboundNotification): void;

@@ -1,4 +1,5 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
+import { NOTIFICATION_TYPE } from "~adapters/notifications/dto/notification.type.const.js";
 import { randomUUID } from "node:crypto";
 import { RuleSuggestionAgent } from "~adapters/llm/rule.suggestion.agent.js";
 import type { INotificationPublisher } from "~adapters/notifications/notification.publisher.port.js";
@@ -118,7 +119,7 @@ export class TaskRuleGenerationService {
             return;
         }
         this.notifier.publish({
-            type: "sdk_job.updated",
+            type: NOTIFICATION_TYPE.sdkJobUpdated,
             payload: {
                 kind: "rule-generation",
                 status: "running",
@@ -191,7 +192,7 @@ export class TaskRuleGenerationService {
                 completedAt: new Date().toISOString(),
             });
             this.notifier.publish({
-                type: "sdk_job.updated",
+                type: NOTIFICATION_TYPE.sdkJobUpdated,
                 payload: {
                     kind: "rule-generation",
                     status: "succeeded",
@@ -220,7 +221,7 @@ export class TaskRuleGenerationService {
                 completedAt: new Date().toISOString(),
             });
             this.notifier.publish({
-                type: "sdk_job.updated",
+                type: NOTIFICATION_TYPE.sdkJobUpdated,
                 payload: {
                     kind: "rule-generation",
                     status: "failed",

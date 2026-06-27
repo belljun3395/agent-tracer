@@ -1,4 +1,5 @@
 import type { TimelineEvent } from "~activity/event/public/types/event.types.js";
+import { NOTIFICATION_TYPE } from "~adapters/notifications/dto/notification.type.const.js";
 import { KIND } from "~activity/event/public/types/event.const.js";
 import { matchEventAgainstRule } from "~governance/verification/domain/event.rule.matching.js";
 import type { INotificationPublisher } from "~adapters/notifications/notification.publisher.port.js";
@@ -59,7 +60,7 @@ export class RuleEnforcementPostProcessor {
 
         for (const ins of inserted) {
             this.notifier.publish({
-                type: "rule_enforcement.added",
+                type: NOTIFICATION_TYPE.ruleEnforcementAdded,
                 payload: {
                     eventId: ins.eventId,
                     ruleId: ins.ruleId,

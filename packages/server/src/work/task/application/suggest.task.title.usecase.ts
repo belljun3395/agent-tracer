@@ -1,4 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
+import { NOTIFICATION_TYPE } from "~adapters/notifications/dto/notification.type.const.js";
 import { TitleSuggestionAgent } from "~adapters/llm/title.suggestion.agent.js";
 import type { SuggestionLanguage } from "~adapters/llm/title.suggestion.prompt.js";
 import type { INotificationPublisher } from "~adapters/notifications/notification.publisher.port.js";
@@ -59,7 +60,7 @@ export class SuggestTaskTitleUseCase {
         const language = normalizeLanguage(languageRaw);
 
         this.notifier.publish({
-            type: "sdk_job.updated",
+            type: NOTIFICATION_TYPE.sdkJobUpdated,
             payload: {
                 kind: "title-suggestion",
                 status: "running",
@@ -79,7 +80,7 @@ export class SuggestTaskTitleUseCase {
                 (s) => s.title.trim() !== summary.title.trim(),
             );
             this.notifier.publish({
-                type: "sdk_job.updated",
+                type: NOTIFICATION_TYPE.sdkJobUpdated,
                 payload: {
                     kind: "title-suggestion",
                     status: "succeeded",
@@ -100,7 +101,7 @@ export class SuggestTaskTitleUseCase {
         } catch (err) {
             const message = err instanceof Error ? err.message : String(err);
             this.notifier.publish({
-                type: "sdk_job.updated",
+                type: NOTIFICATION_TYPE.sdkJobUpdated,
                 payload: {
                     kind: "title-suggestion",
                     status: "failed",

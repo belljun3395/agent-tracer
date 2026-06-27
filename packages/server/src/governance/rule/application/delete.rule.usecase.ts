@@ -1,4 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
+import { NOTIFICATION_TYPE } from "~adapters/notifications/dto/notification.type.const.js";
 import { Transactional } from "typeorm-transactional";
 import { CLOCK_PORT, NOTIFICATION_PUBLISHER_PORT, RULE_PERSISTENCE_PORT } from "./outbound/tokens.js";
 import type { IClock } from "./outbound/clock.port.js";
@@ -26,7 +27,7 @@ export class DeleteRuleUseCase {
         const ok = await this.ruleRepo.softDelete(id, this.clock.nowIso());
         if (!ok) throw new RuleNotFoundError(id);
         this.notifier.publish({
-            type: "rules.changed",
+            type: NOTIFICATION_TYPE.rulesChanged,
             payload: {
                 ruleId: id,
                 change: "deleted",

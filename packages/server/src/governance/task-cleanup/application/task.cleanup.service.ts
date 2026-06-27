@@ -1,4 +1,5 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
+import { NOTIFICATION_TYPE } from "~adapters/notifications/dto/notification.type.const.js";
 import { randomUUID } from "node:crypto";
 import { TaskCleanupAgent } from "~adapters/llm/task.cleanup.agent.js";
 import type { CleanupTaskSnapshot } from "~adapters/llm/task.cleanup.prompt.js";
@@ -97,7 +98,7 @@ export class TaskCleanupService {
      */
     async execute(job: GovernanceJobEntity): Promise<void> {
         this.notifier.publish({
-            type: "sdk_job.updated",
+            type: NOTIFICATION_TYPE.sdkJobUpdated,
             payload: {
                 kind: "task-cleanup",
                 status: "running",
@@ -162,7 +163,7 @@ export class TaskCleanupService {
                 completedAt: new Date().toISOString(),
             });
             this.notifier.publish({
-                type: "sdk_job.updated",
+                type: NOTIFICATION_TYPE.sdkJobUpdated,
                 payload: {
                     kind: "task-cleanup",
                     status: "succeeded",
@@ -190,7 +191,7 @@ export class TaskCleanupService {
                 completedAt: new Date().toISOString(),
             });
             this.notifier.publish({
-                type: "sdk_job.updated",
+                type: NOTIFICATION_TYPE.sdkJobUpdated,
                 payload: {
                     kind: "task-cleanup",
                     status: "failed",

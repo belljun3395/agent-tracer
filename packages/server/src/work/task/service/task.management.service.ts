@@ -1,4 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
+import { NOTIFICATION_TYPE } from "~adapters/notifications/dto/notification.type.const.js";
 import type { MonitoringTask } from "~work/task/domain/task.model.js";
 import type {
     TaskStatus,
@@ -65,7 +66,7 @@ export class TaskManagementService {
 
         const updated = await this.query.findById(input.taskId);
         if (updated) {
-            this.notifier.publish({ type: "task.updated", payload: updated });
+            this.notifier.publish({ type: NOTIFICATION_TYPE.taskUpdated, payload: updated });
         }
         return updated;
     }
@@ -93,7 +94,7 @@ export class TaskManagementService {
 
         const updated = await this.query.findById(input.taskId);
         if (!updated) throw new TaskNotFoundError(input.taskId);
-        this.notifier.publish({ type: "task.updated", payload: updated });
+        this.notifier.publish({ type: NOTIFICATION_TYPE.taskUpdated, payload: updated });
         return updated;
     }
 
@@ -106,7 +107,7 @@ export class TaskManagementService {
         await this.taskRepo.deleteByIds(allIds);
 
         for (const id of allIds) {
-            this.notifier.publish({ type: "task.deleted", payload: { taskId: id } });
+            this.notifier.publish({ type: NOTIFICATION_TYPE.taskDeleted, payload: { taskId: id } });
         }
         return { status: "deleted", deletedIds: allIds };
     }
@@ -127,7 +128,7 @@ export class TaskManagementService {
             entity.archive(archivedAt);
             await this.taskRepo.save(entity);
             const updated = await this.query.findById(id);
-            if (updated) this.notifier.publish({ type: "task.updated", payload: updated });
+            if (updated) this.notifier.publish({ type: NOTIFICATION_TYPE.taskUpdated, payload: updated });
         }
         return { status: "archived", archivedIds: allIds, archivedAt };
     }
@@ -150,7 +151,7 @@ export class TaskManagementService {
             await this.taskRepo.save(entity);
             unarchivedIds.push(id);
             const updated = await this.query.findById(id);
-            if (updated) this.notifier.publish({ type: "task.updated", payload: updated });
+            if (updated) this.notifier.publish({ type: NOTIFICATION_TYPE.taskUpdated, payload: updated });
         }
         return { status: "unarchived", unarchivedIds };
     }
@@ -214,7 +215,7 @@ export class TaskManagementService {
         entity.updatedAt = this.clock.nowIso();
         await this.taskRepo.save(entity);
         const updated = await this.query.findById(taskId);
-        if (updated) this.notifier.publish({ type: "task.updated", payload: updated });
+        if (updated) this.notifier.publish({ type: NOTIFICATION_TYPE.taskUpdated, payload: updated });
         return updated;
     }
 

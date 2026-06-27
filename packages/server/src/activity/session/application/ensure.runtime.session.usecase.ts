@@ -1,4 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
+import { NOTIFICATION_TYPE } from "~adapters/notifications/dto/notification.type.const.js";
 import { Transactional } from "typeorm-transactional";
 import { normalizeWorkspacePath } from "~work/task/public/helpers.js";
 import { SessionLifecycleService } from "../service/session.lifecycle.service.js";
@@ -83,7 +84,7 @@ export class EnsureRuntimeSessionUseCase {
                     lastSessionStartedAt: startedAt,
                     runtimeSource: input.runtimeSource,
                 });
-                this.notifier.publish({ type: "task.updated", payload: resumedTask });
+                this.notifier.publish({ type: NOTIFICATION_TYPE.taskUpdated, payload: resumedTask });
             }
 
             const session = await this.sessions.create({
@@ -92,7 +93,7 @@ export class EnsureRuntimeSessionUseCase {
                 status: "running",
                 startedAt,
             });
-            this.notifier.publish({ type: "session.started", payload: session });
+            this.notifier.publish({ type: NOTIFICATION_TYPE.sessionStarted, payload: session });
             await this.runtimeBindings.upsert({
                 runtimeSource: input.runtimeSource,
                 runtimeSessionId: input.runtimeSessionId,
