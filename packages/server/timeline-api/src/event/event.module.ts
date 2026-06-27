@@ -3,7 +3,7 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 import { EventController } from "./api/event.controller.js";
 import { PreprocessingHintsController } from "./api/preprocessing.hints.controller.js";
 import { TypedEventIngestController } from "./api/typed.event.ingest.controller.js";
-import { CrossCheckDedupeCache } from "./application/cross.check.dedupe.cache.js";
+import { CrossCheckDedupeCache } from "./common/cross.check.dedupe.cache.js";
 import { CommandRepetitionDetector } from "./application/detectors/command.repetition.detector.js";
 import { ContextPressureDetector } from "./application/detectors/context.pressure.detector.js";
 import { DuplicateQuestionDetector } from "./application/detectors/duplicate.question.detector.js";

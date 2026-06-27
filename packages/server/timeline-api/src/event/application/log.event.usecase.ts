@@ -7,7 +7,7 @@ import { deriveFileChangeEventInputs } from "@monitor/timeline-api/event/domain/
 import type { TimelineEvent } from "@monitor/timeline-api/event/domain/model/timeline.event.model.js";
 import { TimelineEventService } from "../service/timeline.event.service.js";
 import { projectTimelineEvent } from "../domain/timeline.event.projection.model.js";
-import { CrossCheckDedupeCache } from "./cross.check.dedupe.cache.js";
+import { CrossCheckDedupeCache } from "../common/cross.check.dedupe.cache.js";
 import { ID_GENERATOR_PORT, NOTIFICATION_PUBLISHER_PORT } from "./outbound/tokens.js";
 import type { IIdGenerator } from "./outbound/id.generator.port.js";
 import type { IEventNotificationPublisher } from "./outbound/notification.publisher.port.js";
