@@ -1,5 +1,5 @@
-import type { MonitorNotification } from "~adapters/notifications/notification.publisher.port.js";
-import type { NOTIFICATION_TYPE } from "~adapters/notifications/dto/notification.type.const.js";
+import type { MonitorNotification } from "@monitor/contracts/notifications/notification.publisher.port.js";
+import type { NOTIFICATION_TYPE } from "@monitor/contracts/notifications/notification.type.const.js";
 
 /**
  * 아웃바운드 포트 — 룰 변경(created/updated/deleted/promoted) 브로드캐스트.

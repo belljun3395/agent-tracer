@@ -10,7 +10,7 @@ import {
     Get,
     Inject,
 } from "@nestjs/common";
-import { pathParamPipe } from "~adapters/http/shared/path-param.pipe.js";
+import { pathParamPipe } from "@monitor/contracts/http/path-param.pipe.js";
 import {
     GenerationAlreadyInFlightError,
     MissingApiKeyError,

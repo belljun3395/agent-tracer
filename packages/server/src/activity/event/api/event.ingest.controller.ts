@@ -1,5 +1,5 @@
 import { Body, Controller, HttpCode, HttpStatus, Post } from "@nestjs/common";
-import { ZodValidationPipe } from "~adapters/http/shared/zod-validation.pipe.js";
+import { ZodValidationPipe } from "@monitor/contracts/http/zod-validation.pipe.js";
 import { IngestEventsUseCase } from "../application/ingest.events.usecase.js";
 import { eventBatchSchema as ingestEventsBatchSchema, IngestEventsBatchDto } from "./event.batch.schema.js";
 

@@ -2,7 +2,7 @@ import { currentUserId } from "@monitor/shared-kernel/user/user.context.js";
 import type {
     INotificationPublisher,
     MonitorNotification,
-} from "~adapters/notifications/notification.publisher.port.js";
+} from "@monitor/contracts/notifications/notification.publisher.port.js";
 
 /** 모든 인스턴스가 구독하는 알림 채널. 메시지는 대상 userId 를 함께 싣는다. */
 export const NOTIFICATION_CHANNEL = "monitor:notifications";

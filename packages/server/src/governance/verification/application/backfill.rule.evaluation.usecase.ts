@@ -1,5 +1,5 @@
 import { matchEventAgainstRule } from "~governance/verification/domain/event.rule.matching.js";
-import { NOTIFICATION_TYPE } from "~adapters/notifications/dto/notification.type.const.js";
+import { NOTIFICATION_TYPE } from "@monitor/contracts/notifications/notification.type.const.js";
 import { Transactional } from "typeorm-transactional";
 import { inferToolCall } from "~governance/verification/domain/tool.call.inference.js";
 import type { TurnVerdict } from "~governance/verification/domain/model/verdict.model.js";
@@ -7,7 +7,7 @@ import { evaluateTurn } from "~governance/verification/domain/turn.evaluation.js
 import type { EvaluateTurnToolCall } from "~governance/verification/domain/turn.evaluation.js";
 import { aggregateVerdict } from "~governance/verification/domain/verdict.js";
 import type { TimelineEvent } from "~activity/event/public/types/event.types.js";
-import type { INotificationPublisher } from "~adapters/notifications/notification.publisher.port.js";
+import type { INotificationPublisher } from "@monitor/contracts/notifications/notification.publisher.port.js";
 import type { ITimelineEventAccess } from "~governance/verification/application/outbound/timeline.event.access.port.js";
 import type {
     IRuleEnforcementRepository,

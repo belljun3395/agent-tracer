@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { NOTIFICATION_TYPE } from "~adapters/notifications/dto/notification.type.const.js";
+import { NOTIFICATION_TYPE } from "@monitor/contracts/notifications/notification.type.const.js";
 import { Transactional } from "typeorm-transactional";
 import { isTerminalTaskStatus, RuntimeSessionEnd } from "../domain/runtime.session.end.model.js";
 import { SessionLifecycleService } from "../service/session.lifecycle.service.js";

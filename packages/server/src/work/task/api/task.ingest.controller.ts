@@ -1,6 +1,6 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, NotFoundException, Param, Post } from "@nestjs/common";
-import { pathParamPipe } from "~adapters/http/shared/path-param.pipe.js";
-import { ZodValidationPipe } from "~adapters/http/shared/zod-validation.pipe.js";
+import { pathParamPipe } from "@monitor/contracts/http/path-param.pipe.js";
+import { ZodValidationPipe } from "@monitor/contracts/http/zod-validation.pipe.js";
 import { CompleteTaskUseCase } from "../application/complete.task.usecase.js";
 import { ErrorTaskUseCase } from "../application/error.task.usecase.js";
 import { GetTaskSummaryUseCase } from "../application/get.task.summary.usecase.js";

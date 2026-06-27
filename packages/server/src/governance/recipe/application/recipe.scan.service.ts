@@ -1,12 +1,12 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
-import { NOTIFICATION_TYPE } from "~adapters/notifications/dto/notification.type.const.js";
+import { NOTIFICATION_TYPE } from "@monitor/contracts/notifications/notification.type.const.js";
 import { randomUUID } from "node:crypto";
 import { RecipeScanAgent } from "~adapters/llm/recipe.scan.agent.js";
 import type {
     RecipeOutputLanguage,
     RecipeTaskSnapshot,
 } from "~adapters/llm/recipe.scan.prompt.js";
-import type { INotificationPublisher } from "~adapters/notifications/notification.publisher.port.js";
+import type { INotificationPublisher } from "@monitor/contracts/notifications/notification.publisher.port.js";
 import { APP_SETTING_KEYS } from "~governance/settings/domain/app.setting.keys.js";
 import { AppSettingService } from "~governance/settings/application/app.setting.service.js";
 import { NOTIFICATION_PUBLISHER_TOKEN } from "~main/presentation/database/database.provider.js";

@@ -11,7 +11,7 @@ import {
     Post,
     Query,
 } from "@nestjs/common";
-import { pathParamPipe } from "~adapters/http/shared/path-param.pipe.js";
+import { pathParamPipe } from "@monitor/contracts/http/path-param.pipe.js";
 import { AcceptCleanupSuggestionUseCase } from "../application/accept.cleanup.suggestion.usecase.js";
 import { DismissCleanupSuggestionUseCase } from "../application/dismiss.cleanup.suggestion.usecase.js";
 import { ListCleanupSuggestionsUseCase } from "../application/list.cleanup.suggestions.usecase.js";

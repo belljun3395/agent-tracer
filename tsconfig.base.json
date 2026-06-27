@@ -8,6 +8,15 @@
       "@monitor/shared-kernel/*": [
         "packages/shared-kernel/src/*"
       ],
+      "@monitor/contracts/*": [
+        "packages/contracts/src/*"
+      ],
+      "~activity/*": [
+        "packages/server/src/activity/*"
+      ],
+      "~work/*": [
+        "packages/server/src/work/*"
+      ],
       "@monitor/server": [
         "packages/server/src/server.entry.ts"
       ],

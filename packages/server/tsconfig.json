@@ -13,7 +13,8 @@
       "~work/*": ["src/work/*"],
       "~governance/*": ["src/governance/*"],
       "~identity/*": ["src/identity/*"],
-      "@monitor/shared-kernel/*": ["../shared-kernel/src/*"]
+      "@monitor/shared-kernel/*": ["../shared-kernel/src/*"],
+      "@monitor/contracts/*": ["../contracts/src/*"]
     }
   },
   "include": ["src", "*.config.ts", "vitest.setup.ts"]

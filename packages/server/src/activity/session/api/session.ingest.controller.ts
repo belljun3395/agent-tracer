@@ -1,5 +1,5 @@
 import { Body, Controller, HttpCode, HttpStatus, Post } from "@nestjs/common";
-import { ZodValidationPipe } from "~adapters/http/shared/zod-validation.pipe.js";
+import { ZodValidationPipe } from "@monitor/contracts/http/zod-validation.pipe.js";
 import type { EndRuntimeSessionIn } from "../application/dto/end.runtime.session.dto.js";
 import type { EnsureRuntimeSessionIn } from "../application/dto/ensure.runtime.session.dto.js";
 import { EndRuntimeSessionUseCase } from "../application/end.runtime.session.usecase.js";

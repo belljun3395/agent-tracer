@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { NOTIFICATION_TYPE } from "~adapters/notifications/dto/notification.type.const.js";
+import { NOTIFICATION_TYPE } from "@monitor/contracts/notifications/notification.type.const.js";
 import { Transactional, runOnTransactionCommit } from "typeorm-transactional";
 import { KIND } from "~activity/event/domain/common/const/event.kind.const.js";
 import { createEventRecordDraft, normalizeFilePaths } from "~activity/event/domain/event.recording.js";

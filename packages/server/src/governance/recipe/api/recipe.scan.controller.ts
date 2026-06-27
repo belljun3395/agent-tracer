@@ -12,8 +12,8 @@ import {
     Post,
     Query,
 } from "@nestjs/common";
-import { pathParamPipe } from "~adapters/http/shared/path-param.pipe.js";
-import { ZodValidationPipe } from "~adapters/http/shared/zod-validation.pipe.js";
+import { pathParamPipe } from "@monitor/contracts/http/path-param.pipe.js";
+import { ZodValidationPipe } from "@monitor/contracts/http/zod-validation.pipe.js";
 import { createZodDto } from "nestjs-zod";
 import { z } from "zod";
 import { AcceptRecipeCandidateUseCase } from "../application/accept.recipe.candidate.usecase.js";

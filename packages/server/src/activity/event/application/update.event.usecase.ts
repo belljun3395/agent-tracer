@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { NOTIFICATION_TYPE } from "~adapters/notifications/dto/notification.type.const.js";
+import { NOTIFICATION_TYPE } from "@monitor/contracts/notifications/notification.type.const.js";
 import { Transactional } from "typeorm-transactional";
 import { resolveDisplayTitleMetadataUpdate } from "~activity/event/domain/event.metadata.js";
 import { TimelineEventService } from "../service/timeline.event.service.js";

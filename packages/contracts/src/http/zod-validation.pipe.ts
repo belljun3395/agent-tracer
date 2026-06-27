@@ -3,7 +3,7 @@ import type { ZodError, ZodType, ZodTypeDef } from "zod";
 import {
     createApiErrorEnvelope,
     type ApiErrorEnvelope,
-} from "~adapters/http/shared/api-response-envelope.js";
+} from "./api-response-envelope.js";
 
 function createValidationErrorBody(error: ZodError, message = "Invalid request"): ApiErrorEnvelope {
     return createApiErrorEnvelope("validation_error", message, error.format());

@@ -1,7 +1,10 @@
 import { type Provider } from "@nestjs/common";
-import type { INotificationPublisher } from "~adapters/notifications/notification.publisher.port.js";
+import {
+    NOTIFICATION_PUBLISHER_TOKEN,
+    type INotificationPublisher,
+} from "@monitor/contracts/notifications/notification.publisher.port.js";
 
-export const NOTIFICATION_PUBLISHER_TOKEN = "NOTIFICATION_PUBLISHER";
+export { NOTIFICATION_PUBLISHER_TOKEN };
 
 export function DatabaseProviders(options: {
     notifier?: INotificationPublisher;

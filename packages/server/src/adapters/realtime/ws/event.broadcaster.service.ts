@@ -1,5 +1,5 @@
 import type WebSocket from "ws";
-import type { MonitorNotification } from "~adapters/notifications/notification.publisher.port.js";
+import type { MonitorNotification } from "@monitor/contracts/notifications/notification.publisher.port.js";
 
 const WS_OPEN = 1;
 const MAX_BUFFERED_BYTES = 8 * 1024 * 1024; // 8 MiB — 드레인 못 하는 클라이언트는 끊는다.

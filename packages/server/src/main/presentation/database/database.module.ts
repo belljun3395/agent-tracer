@@ -1,5 +1,5 @@
 import { Module, type DynamicModule } from "@nestjs/common";
-import type { INotificationPublisher } from "~adapters/notifications/notification.publisher.port.js";
+import type { INotificationPublisher } from "@monitor/contracts/notifications/notification.publisher.port.js";
 import { CLOCK_PORT, ID_GENERATOR_PORT } from "@monitor/shared-kernel/clock.js";
 import { SystemClockAdapter } from "@monitor/shared-kernel/system.clock.adapter.js";
 import { CryptoIdGeneratorAdapter } from "@monitor/shared-kernel/crypto.id.generator.adapter.js";

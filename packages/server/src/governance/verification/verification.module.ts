@@ -1,7 +1,7 @@
 import { Module, type DynamicModule, type Provider } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { randomUUID } from "node:crypto";
-import type { INotificationPublisher } from "~adapters/notifications/notification.publisher.port.js";
+import type { INotificationPublisher } from "@monitor/contracts/notifications/notification.publisher.port.js";
 import type { IRuleAccess } from "~governance/verification/application/outbound/rule.access.port.js";
 import type { IRuleEnforcementRepository } from "~governance/verification/application/outbound/rule.enforcement.repository.port.js";
 import type { ITurnQueryRepository } from "~governance/verification/application/outbound/turn.query.repository.port.js";

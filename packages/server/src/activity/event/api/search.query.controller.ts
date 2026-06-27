@@ -1,6 +1,6 @@
 import { Controller, Get, Inject, Query } from "@nestjs/common";
 import { SearchEventsUseCase } from "../application/search.events.usecase.js";
-import { ZodValidationPipe } from "~adapters/http/shared/zod-validation.pipe.js";
+import { ZodValidationPipe } from "@monitor/contracts/http/zod-validation.pipe.js";
 import { searchQuerySchema, SearchQueryDto } from "./search.query.schema.js";
 
 @Controller("api/v1")

@@ -1,6 +1,6 @@
 import { Body, Controller, HttpCode, HttpStatus, NotFoundException, Param, Patch, Post } from "@nestjs/common";
-import { pathParamPipe } from "~adapters/http/shared/path-param.pipe.js";
-import { ZodValidationPipe } from "~adapters/http/shared/zod-validation.pipe.js";
+import { pathParamPipe } from "@monitor/contracts/http/path-param.pipe.js";
+import { ZodValidationPipe } from "@monitor/contracts/http/zod-validation.pipe.js";
 import { IngestEventsUseCase } from "../application/ingest.events.usecase.js";
 import { UpdateEventUseCase } from "../application/update.event.usecase.js";
 import { eventPatchSchema, EventPatchDto } from "./event.command.schema.js";

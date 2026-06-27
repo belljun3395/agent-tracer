@@ -1,9 +1,9 @@
 import { randomUUID } from "node:crypto";
-import { NOTIFICATION_TYPE } from "~adapters/notifications/dto/notification.type.const.js";
+import { NOTIFICATION_TYPE } from "@monitor/contracts/notifications/notification.type.const.js";
 import { KIND } from "~activity/event/public/types/event.const.js";
 import type { TimelineEvent } from "~activity/event/public/types/event.types.js";
 import { inferToolCall } from "~governance/verification/domain/tool.call.inference.js";
-import type { INotificationPublisher } from "~adapters/notifications/notification.publisher.port.js";
+import type { INotificationPublisher } from "@monitor/contracts/notifications/notification.publisher.port.js";
 import type { ITimelineEventAccess } from "~governance/verification/application/outbound/timeline.event.access.port.js";
 import type { ITurnRepository } from "~governance/verification/application/outbound/turn.repository.port.js";
 import type { TurnEvaluationService } from "./turn.evaluation.service.js";
