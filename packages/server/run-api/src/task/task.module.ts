@@ -21,7 +21,7 @@ import { CompleteTaskUseCase } from "./application/complete.task.usecase.js";
 import { DeleteTaskUseCase } from "./application/delete.task.usecase.js";
 import { ReslugTaskUseCase } from "./application/reslug.task.usecase.js";
 import { SuggestTaskTitleUseCase } from "./application/suggest.task.title.usecase.js";
-import { TitleSuggestionAgent } from "./application/title.suggestion.agent.js";
+import { TitleSuggestionAgent } from "./agent/title.suggestion.agent.js";
 import { MessagesQueryRunner } from "@monitor/shared/llm/messages.query.runner.js";
 import { QUERY_RUNNER } from "@monitor/shared/llm/query.runner.port.js";
 import { UnarchiveTaskUseCase } from "./application/unarchive.task.usecase.js";

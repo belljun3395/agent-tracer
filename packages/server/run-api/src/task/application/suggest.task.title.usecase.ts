@@ -1,8 +1,8 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { NOTIFICATION_TYPE } from "@monitor/shared/contracts/notifications/notification.type.const.js";
 import { normalizeOutputLanguage } from "@monitor/shared/llm/output.language.js";
-import { TitleSuggestionAgent } from "./title.suggestion.agent.js";
-import type { SuggestionLanguage } from "./title.suggestion.prompt.js";
+import { TitleSuggestionAgent } from "../agent/title.suggestion.agent.js";
+import type { SuggestionLanguage } from "../agent/title.suggestion.prompt.js";
 import type { INotificationPublisher } from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
 import { APP_SETTING_KEYS } from "@monitor/identity-api/settings/domain/app.setting.keys.js";
 import { AppSettingService } from "@monitor/identity-api/settings/application/app.setting.service.js";
