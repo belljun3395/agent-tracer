@@ -6,7 +6,7 @@ import type {
     MonitoringTaskKind,
     TaskOrigin,
 } from "~work/task/common/task.status.const.js";
-import { currentUserId } from "~shared/user/user.context.js";
+import { currentUserId } from "@monitor/shared-kernel/user/user.context.js";
 import { TaskNotFoundError } from "../common/task.errors.js";
 import { createTaskSlug } from "../common/task.slug.js";
 import { TaskEntity } from "../domain/task.entity.js";

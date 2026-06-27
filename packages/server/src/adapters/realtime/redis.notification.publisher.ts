@@ -1,4 +1,4 @@
-import { currentUserId } from "~shared/user/user.context.js";
+import { currentUserId } from "@monitor/shared-kernel/user/user.context.js";
 import type {
     INotificationPublisher,
     MonitorNotification,

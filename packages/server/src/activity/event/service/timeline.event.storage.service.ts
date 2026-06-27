@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { DataSource } from "typeorm";
-import { currentUserId } from "~shared/user/user.context.js";
+import { currentUserId } from "@monitor/shared-kernel/user/user.context.js";
 import { LANE, type MonitoringEventKind } from "~activity/event/domain/common/const/event.kind.const.js";
 import { normalizeLane } from "~activity/event/domain/event.lane.js";
 import type { TimelineEvent } from "~activity/event/domain/model/timeline.event.model.js";

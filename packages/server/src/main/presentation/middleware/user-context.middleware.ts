@@ -1,7 +1,7 @@
 import { Injectable, type NestMiddleware } from "@nestjs/common";
 import type { NextFunction, Request, Response } from "express";
-import { DEFAULT_USER_ID, runWithUser } from "~shared/user/user.context.js";
-import { deriveUserId } from "~shared/user/user.identity.js";
+import { DEFAULT_USER_ID, runWithUser } from "@monitor/shared-kernel/user/user.context.js";
+import { deriveUserId } from "@monitor/shared-kernel/user/user.identity.js";
 
 /**
  * 요청에서 사용자를 식별해 ALS 범위로 나머지 처리를 감싼다. `X-User-Id` 가 있으면

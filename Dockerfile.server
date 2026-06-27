@@ -3,6 +3,7 @@ FROM node:25-slim AS builder
 WORKDIR /app
 COPY package*.json ./
 COPY packages/server/package.json packages/server/
+COPY packages/shared-kernel/package.json packages/shared-kernel/
 COPY packages/runtime/package.json packages/runtime/
 COPY packages/web/package.json packages/web/
 

@@ -11,7 +11,7 @@ export default defineConfig({
             "~work": resolve(__dirname, "src/work"),
             "~governance": resolve(__dirname, "src/governance"),
             "~config": resolve(__dirname, "src/config"),
-            "~shared": resolve(__dirname, "src/shared"),
+            "@monitor/shared-kernel": resolve(__dirname, "../shared-kernel/src"),
         },
     },
     plugins: [

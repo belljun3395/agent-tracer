@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { currentUserId } from "~shared/user/user.context.js";
+import { currentUserId } from "@monitor/shared-kernel/user/user.context.js";
 import type { MonitoringTask } from "~work/task/domain/task.model.js";
 import type { TaskStatus } from "~work/task/common/task.status.const.js";
 import { TaskDisplayTitle } from "../domain/task.display.title.model.js";
