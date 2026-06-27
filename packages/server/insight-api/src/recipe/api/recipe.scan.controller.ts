@@ -20,7 +20,7 @@ import { AcceptRecipeCandidateUseCase } from "../application/accept.recipe.candi
 import { DismissRecipeCandidateUseCase } from "../application/dismiss.recipe.candidate.usecase.js";
 import { ListRecipeCandidatesUseCase } from "../application/list.recipe.candidates.usecase.js";
 import { ListRecipesUseCase } from "../application/list.recipes.usecase.js";
-import { RecipeMatchingService } from "../application/recipe.matching.service.js";
+import { RecipeMatchingService } from "../service/recipe.matching.service.js";
 import { ListFileAffinityUseCase } from "../application/list.file.affinity.usecase.js";
 import { ListRecipeApplicationsUseCase } from "../application/list.recipe.applications.usecase.js";
 import { RetireRecipeUseCase } from "../application/retire.recipe.usecase.js";
@@ -29,7 +29,7 @@ import {
     NoTasksToScanError,
     RecipeScanAlreadyInFlightError,
     RecipeScanService,
-} from "../application/recipe.scan.service.js";
+} from "../service/recipe.scan.service.js";
 import {
     RECIPE_SCAN_ARCHIVED_SCOPES,
     RECIPE_SCAN_STATUS_FILTERS,

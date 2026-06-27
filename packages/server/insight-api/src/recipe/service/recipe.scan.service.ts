@@ -28,7 +28,7 @@ import {
     normalizeRecipeScanFilters,
     parseRecipeScanFilters,
 } from "../domain/recipe.scan.filters.js";
-import type { EnqueueRecipeScanInput } from "./dto/recipe.scan.dto.js";
+import type { EnqueueRecipeScanInput } from "../application/dto/recipe.scan.dto.js";
 
 export class RecipeScanAlreadyInFlightError extends Error {
     constructor(public readonly jobId: string) {
