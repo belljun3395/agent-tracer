@@ -68,9 +68,13 @@ export function createMonitorTransport(
             return (localResult ?? {}) as T;
         }
 
+        const email = process.env["MONITOR_USER_EMAIL"]?.trim();
         const response = await fetch(`${config.baseUrl}${pathname}`, {
             method: "POST",
-            headers: {"Content-Type": "application/json"},
+            headers: {
+                "Content-Type": "application/json",
+                ...(email ? {"X-User-Email": email} : {}),
+            },
             body: JSON.stringify(body),
             signal: AbortSignal.timeout(config.requestTimeoutMs),
         });

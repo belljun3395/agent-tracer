@@ -40,13 +40,22 @@ export async function readStdinJson(): Promise<Record<string, unknown>> {
 }
 
 /**
+ * 멀티유저 환경에서 이 런타임이 어느 사용자인지 알리는 헤더.
+ * MONITOR_USER_EMAIL 이 설정돼 있으면 서버가 이를 안정적 userId 로 변환한다.
+ */
+export function monitorUserHeader(): Record<string, string> {
+    const email = process.env["MONITOR_USER_EMAIL"]?.trim();
+    return email ? {"X-User-Email": email} : {};
+}
+
+/**
  * POSTs a JSON body to the monitor API at the resolved base URL.
  * Enforces a 2-second timeout. Throws on network error or non-2xx response.
  */
 export async function postJson<T = Record<string, unknown>>(pathname: string, body: unknown): Promise<T> {
     const response = await fetch(`${resolveApiBase()}${pathname}`, {
         method: "POST",
-        headers: {"Content-Type": "application/json"},
+        headers: {"Content-Type": "application/json", ...monitorUserHeader()},
         body: JSON.stringify(body),
         signal: AbortSignal.timeout(2000),
     });
