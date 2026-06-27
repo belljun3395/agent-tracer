@@ -36,6 +36,12 @@ export class RuleJobRepository {
             verdictsCreated: null,
             modelUsed: null,
             durationMs: null,
+            costUsd: null,
+            inputTokens: null,
+            outputTokens: null,
+            cacheReadTokens: null,
+            cacheCreationTokens: null,
+            numTurns: null,
             createdAt: input.createdAt,
             updatedAt: input.createdAt,
             startedAt: null,
@@ -100,6 +106,14 @@ export class RuleJobRepository {
         completedAt: string;
         rulesCreated?: number;
         verdictsCreated?: number;
+        costUsd?: number | null;
+        numTurns?: number | null;
+        usage?: {
+            readonly inputTokens: number;
+            readonly outputTokens: number;
+            readonly cacheReadTokens: number;
+            readonly cacheCreationTokens: number;
+        } | null;
     }): Promise<void> {
         await this.repo.update(
             { id: input.id },
@@ -113,6 +127,12 @@ export class RuleJobRepository {
                     : {}),
                 modelUsed: input.modelUsed,
                 durationMs: input.durationMs,
+                costUsd: input.costUsd ?? null,
+                numTurns: input.numTurns ?? null,
+                inputTokens: input.usage?.inputTokens ?? null,
+                outputTokens: input.usage?.outputTokens ?? null,
+                cacheReadTokens: input.usage?.cacheReadTokens ?? null,
+                cacheCreationTokens: input.usage?.cacheCreationTokens ?? null,
                 completedAt: input.completedAt,
                 updatedAt: input.completedAt,
             },

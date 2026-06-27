@@ -59,6 +59,26 @@ export class InsightJobEntity {
     @Column({ name: "duration_ms", type: "integer", nullable: true })
     durationMs!: number | null;
 
+    /** LLM run cost in USD. Null for the Messages API runner (no cost reported)
+     * and non-LLM jobs (rule_backfill). */
+    @Column({ name: "cost_usd", type: "double precision", nullable: true })
+    costUsd!: number | null;
+
+    @Column({ name: "input_tokens", type: "integer", nullable: true })
+    inputTokens!: number | null;
+
+    @Column({ name: "output_tokens", type: "integer", nullable: true })
+    outputTokens!: number | null;
+
+    @Column({ name: "cache_read_tokens", type: "integer", nullable: true })
+    cacheReadTokens!: number | null;
+
+    @Column({ name: "cache_creation_tokens", type: "integer", nullable: true })
+    cacheCreationTokens!: number | null;
+
+    @Column({ name: "num_turns", type: "integer", nullable: true })
+    numTurns!: number | null;
+
     @Column({ name: "created_at", type: "text" })
     createdAt!: string;
 

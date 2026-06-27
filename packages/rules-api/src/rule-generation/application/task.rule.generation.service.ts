@@ -189,6 +189,9 @@ export class TaskRuleGenerationService {
                 rulesCreated,
                 modelUsed: output.modelUsed,
                 durationMs: output.durationMs,
+                costUsd: output.costUsd,
+                numTurns: output.numTurns,
+                usage: output.usage,
                 completedAt: new Date().toISOString(),
             });
             this.notifier.publish({
