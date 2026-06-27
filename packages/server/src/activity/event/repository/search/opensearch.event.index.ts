@@ -1,6 +1,7 @@
 import { Inject, Injectable, Logger, type OnModuleInit } from "@nestjs/common";
 import { Client } from "@opensearch-project/opensearch";
 import { DataSource } from "typeorm";
+import { currentUserId } from "~shared/user/user.context.js";
 import { normalizeLane } from "~activity/event/domain/event.lane.js";
 import type {
     EventSearchIndexQueryOptions,
@@ -16,6 +17,7 @@ const DEFAULT_LIMIT = 8;
 
 interface EventRow {
     readonly id: string;
+    readonly user_id: string;
     readonly task_id: string;
     readonly kind: string;
     readonly lane: string;
@@ -33,6 +35,7 @@ interface TaskRow {
 }
 
 interface IndexedEvent {
+    readonly userId: string;
     readonly taskId: string;
     readonly kind: string;
     readonly lane: string;
@@ -72,6 +75,7 @@ export class OpenSearchEventIndex implements IEventSearchIndex, OnModuleInit {
             body: {
                 mappings: {
                     properties: {
+                        userId: { type: "keyword" },
                         taskId: { type: "keyword" },
                         kind: { type: "keyword" },
                         lane: { type: "keyword" },
@@ -87,7 +91,7 @@ export class OpenSearchEventIndex implements IEventSearchIndex, OnModuleInit {
 
     async refresh(eventId: string): Promise<void> {
         const rows = await this.dataSource.query<readonly EventRow[]>(
-            `select id, task_id, kind, lane, title, body, created_at
+            `select id, user_id, task_id, kind, lane, title, body, created_at
              from timeline_events_view where id = $1`,
             [eventId],
         );
@@ -104,6 +108,7 @@ export class OpenSearchEventIndex implements IEventSearchIndex, OnModuleInit {
             id: row.id,
             refresh: true,
             body: {
+                userId: row.user_id,
                 taskId: row.task_id,
                 kind: row.kind,
                 lane: row.lane,
@@ -117,9 +122,10 @@ export class OpenSearchEventIndex implements IEventSearchIndex, OnModuleInit {
 
     async search(query: string, options: EventSearchIndexQueryOptions): Promise<EventSearchIndexResults> {
         const limit = Math.max(1, Math.min(MAX_LIMIT, options.limit ?? DEFAULT_LIMIT));
+        const userId = currentUserId();
         const [events, tasks] = await Promise.all([
-            this.searchEvents(query, options.taskId, limit),
-            this.searchTasks(query, limit),
+            this.searchEvents(query, options.taskId, limit, userId),
+            this.searchTasks(query, limit, userId),
         ]);
         return { tasks, events, bookmarks: [] };
     }
@@ -128,6 +134,7 @@ export class OpenSearchEventIndex implements IEventSearchIndex, OnModuleInit {
         query: string,
         taskId: string | undefined,
         limit: number,
+        userId: string,
     ): Promise<readonly unknown[]> {
         let parsed: readonly OsHit[] = [];
         try {
@@ -146,7 +153,10 @@ export class OpenSearchEventIndex implements IEventSearchIndex, OnModuleInit {
                                     },
                                 },
                             ],
-                            filter: taskId ? [{ term: { taskId } }] : [],
+                            filter: [
+                                { term: { userId } },
+                                ...(taskId ? [{ term: { taskId } }] : []),
+                            ],
                         },
                     },
                 },
@@ -192,15 +202,16 @@ export class OpenSearchEventIndex implements IEventSearchIndex, OnModuleInit {
         return new Map(rows.map((row) => [row.id, row.title] as const));
     }
 
-    private async searchTasks(query: string, limit: number): Promise<readonly unknown[]> {
+    private async searchTasks(query: string, limit: number, userId: string): Promise<readonly unknown[]> {
         const pattern = `%${query.trim()}%`;
         const rows = await this.dataSource.query<readonly TaskRow[]>(
             `select id, title, workspace_path, status, updated_at
              from tasks_current
-             where title ilike $1 or coalesce(workspace_path, '') ilike $1
+             where user_id = $1
+               and (title ilike $2 or coalesce(workspace_path, '') ilike $2)
              order by updated_at desc
-             limit $2`,
-            [pattern, limit],
+             limit $3`,
+            [userId, pattern, limit],
         );
         return rows.map((row) => ({
             id: row.id,

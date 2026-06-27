@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { DataSource } from "typeorm";
+import { currentUserId } from "~shared/user/user.context.js";
 import type { MonitoringEventKind } from "~activity/event/domain/common/const/event.kind.const.js";
 import { normalizeLane } from "~activity/event/domain/event.lane.js";
 import type { TimelineEvent } from "~activity/event/domain/model/timeline.event.model.js";
@@ -57,6 +58,7 @@ export class TimelineEventStorageService {
     private buildRow(input: TimelineEventInsertRequest): TimelineEventEntity {
         const entity = buildTimelineEventEntity(input);
         const hydrated = hydrateTimelineEvent(entity, buildDerivedTableInserts(input));
+        entity.userId = currentUserId();
         entity.metadata = hydrated.metadata;
         entity.tags = [...hydrated.classification.tags];
         return entity;

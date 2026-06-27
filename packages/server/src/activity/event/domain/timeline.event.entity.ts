@@ -6,6 +6,7 @@ const metadataSchema = z.record(z.string(), z.unknown());
 const tagsSchema = z.array(z.string());
 
 @Entity({ name: "timeline_events_view" })
+@Index("idx_timeline_events_user_created", ["userId", "createdAt"])
 @Index("idx_timeline_events_view_task_created", ["taskId", "createdAt"])
 @Index("idx_timeline_events_subtype_group", ["subtypeGroup", "createdAt"])
 @Index("idx_timeline_events_tool_family", ["toolFamily"])
@@ -13,6 +14,10 @@ const tagsSchema = z.array(z.string());
 export class TimelineEventEntity {
     @PrimaryColumn({ type: "text" })
     id!: string;
+
+    /** 이 이벤트를 소유한 사용자(태스크 소유자와 동일). */
+    @Column({ name: "user_id", type: "text", default: "local" })
+    userId!: string;
 
     @Column({ name: "task_id", type: "text" })
     taskId!: string;
