@@ -97,25 +97,31 @@ export async function createNestMonitorRuntime(): Promise<MonitorRuntime> {
 // WebSocket은 Origin 없는 런타임 클라이언트를 허용하고, 브라우저는 로컬 출처만 허용한다.
 function isWsOriginAllowed(origin: string | undefined): boolean {
     if (process.env.MONITOR_WS_ALLOW_ANY_ORIGIN === "1") return true;
-    if (!origin) return true;
-    try {
-        const host = new URL(origin).hostname;
-        return host === "localhost" || host === "127.0.0.1" || host === "::1";
-    } catch {
-        return false;
-    }
+    return isLocalOriginAllowed(origin);
 }
 
 // HTTP도 WebSocket과 같은 출처 정책을 적용한다.
 function isHttpOriginAllowed(origin: string | undefined): boolean {
     if (process.env.MONITOR_CORS_ALLOW_ANY_ORIGIN === "1") return true;
+    return isLocalOriginAllowed(origin);
+}
+
+export function isLocalOriginAllowed(origin: string | undefined): boolean {
     if (!origin) return true;
     try {
         const host = new URL(origin).hostname;
-        return host === "localhost" || host === "127.0.0.1" || host === "::1";
+        return isLoopbackHost(host);
     } catch {
         return false;
     }
+}
+
+function isLoopbackHost(host: string): boolean {
+    const normalized = host.toLowerCase();
+    return normalized === "localhost"
+        || normalized === "127.0.0.1"
+        || normalized === "::1"
+        || normalized === "[::1]";
 }
 
 // userId가 없거나 URL을 파싱할 수 없으면 기본 사용자 범위로 연결한다.
