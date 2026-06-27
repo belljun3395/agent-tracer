@@ -2,7 +2,26 @@ import { Column, Entity, Index, PrimaryColumn } from "typeorm";
 
 export type InsightJobType = "recipe_scan" | "task_cleanup";
 
-export type InsightJobStatus = "pending" | "processing" | "completed" | "failed";
+export const INSIGHT_JOB_STATUS = {
+    pending: "pending",
+    processing: "processing",
+    completed: "completed",
+    failed: "failed",
+} as const;
+
+export const INSIGHT_JOB_STATUSES = [
+    INSIGHT_JOB_STATUS.pending,
+    INSIGHT_JOB_STATUS.processing,
+    INSIGHT_JOB_STATUS.completed,
+    INSIGHT_JOB_STATUS.failed,
+] as const;
+
+export const ACTIVE_INSIGHT_JOB_STATUSES = [
+    INSIGHT_JOB_STATUS.pending,
+    INSIGHT_JOB_STATUS.processing,
+] as const;
+
+export type InsightJobStatus = (typeof INSIGHT_JOB_STATUSES)[number];
 
 @Entity({ name: "insight_jobs" })
 @Index("idx_insight_jobs_user_type_status", ["userId", "jobType", "status", "createdAt"])

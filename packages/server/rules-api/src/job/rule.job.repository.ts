@@ -2,7 +2,12 @@ import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { currentUserId } from "@monitor/shared/kernel/user/user.context.js";
-import { RuleJobEntity, type RuleJobType } from "./rule.job.entity.js";
+import {
+    ACTIVE_RULE_JOB_STATUSES,
+    RULE_JOB_STATUS,
+    RuleJobEntity,
+    type RuleJobType,
+} from "./rule.job.entity.js";
 
 @Injectable()
 export class RuleJobRepository {
@@ -22,7 +27,7 @@ export class RuleJobRepository {
             id: input.id,
             userId: currentUserId(),
             jobType: input.jobType,
-            status: "pending",
+            status: RULE_JOB_STATUS.pending,
             attempts: 0,
             error: null,
             taskId: input.taskId ?? null,
@@ -59,7 +64,7 @@ export class RuleJobRepository {
             .andWhere("job.userId = :userId", { userId: currentUserId() })
             .andWhere("job.taskId = :taskId", { taskId })
             .andWhere("job.status IN (:...statuses)", {
-                statuses: ["pending", "processing"],
+                statuses: ACTIVE_RULE_JOB_STATUSES,
             })
             .orderBy("job.createdAt", "DESC")
             .getOne();
@@ -75,7 +80,7 @@ export class RuleJobRepository {
             .andWhere("job.userId = :userId", { userId: currentUserId() })
             .andWhere("job.ruleId = :ruleId", { ruleId })
             .andWhere("job.status IN (:...statuses)", {
-                statuses: ["pending", "processing"],
+                statuses: ACTIVE_RULE_JOB_STATUSES,
             })
             .orderBy("job.createdAt", "DESC")
             .getOne();
@@ -113,7 +118,7 @@ export class RuleJobRepository {
         await this.repo.update(
             { id: input.id },
             {
-                status: "completed",
+                status: RULE_JOB_STATUS.completed,
                 ...(input.rulesCreated !== undefined
                     ? { rulesCreated: input.rulesCreated }
                     : {}),
@@ -143,7 +148,7 @@ export class RuleJobRepository {
         await this.repo.update(
             { id: input.id },
             {
-                status: "failed",
+                status: RULE_JOB_STATUS.failed,
                 error: input.error,
                 attempts: input.attempts,
                 completedAt: input.completedAt,

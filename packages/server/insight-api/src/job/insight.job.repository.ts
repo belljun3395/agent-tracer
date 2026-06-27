@@ -2,7 +2,12 @@ import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { currentUserId } from "@monitor/shared/kernel/user/user.context.js";
-import { InsightJobEntity, type InsightJobType } from "./insight.job.entity.js";
+import {
+    ACTIVE_INSIGHT_JOB_STATUSES,
+    INSIGHT_JOB_STATUS,
+    InsightJobEntity,
+    type InsightJobType,
+} from "./insight.job.entity.js";
 
 @Injectable()
 export class InsightJobRepository {
@@ -22,7 +27,7 @@ export class InsightJobRepository {
             id: input.id,
             userId: currentUserId(),
             jobType: input.jobType,
-            status: "pending",
+            status: INSIGHT_JOB_STATUS.pending,
             attempts: 0,
             error: null,
             filtersJson: input.filtersJson ?? null,
@@ -56,7 +61,7 @@ export class InsightJobRepository {
             .where("job.jobType = :jobType", { jobType })
             .andWhere("job.userId = :userId", { userId: currentUserId() })
             .andWhere("job.status IN (:...statuses)", {
-                statuses: ["pending", "processing"],
+                statuses: ACTIVE_INSIGHT_JOB_STATUSES,
             })
             .orderBy("job.createdAt", "DESC")
             .getOne();
@@ -91,7 +96,7 @@ export class InsightJobRepository {
         await this.repo.update(
             { id: input.id },
             {
-                status: "completed",
+                status: INSIGHT_JOB_STATUS.completed,
                 ...(input.candidatesCreated !== undefined
                     ? { candidatesCreated: input.candidatesCreated }
                     : {}),
@@ -124,7 +129,7 @@ export class InsightJobRepository {
         await this.repo.update(
             { id: input.id },
             {
-                status: "failed",
+                status: INSIGHT_JOB_STATUS.failed,
                 error: input.error,
                 attempts: input.attempts,
                 completedAt: input.completedAt,

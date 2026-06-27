@@ -2,7 +2,26 @@ import { Column, Entity, Index, PrimaryColumn } from "typeorm";
 
 export type RuleJobType = "rule_generation" | "rule_backfill";
 
-export type RuleJobStatus = "pending" | "processing" | "completed" | "failed";
+export const RULE_JOB_STATUS = {
+    pending: "pending",
+    processing: "processing",
+    completed: "completed",
+    failed: "failed",
+} as const;
+
+export const RULE_JOB_STATUSES = [
+    RULE_JOB_STATUS.pending,
+    RULE_JOB_STATUS.processing,
+    RULE_JOB_STATUS.completed,
+    RULE_JOB_STATUS.failed,
+] as const;
+
+export const ACTIVE_RULE_JOB_STATUSES = [
+    RULE_JOB_STATUS.pending,
+    RULE_JOB_STATUS.processing,
+] as const;
+
+export type RuleJobStatus = (typeof RULE_JOB_STATUSES)[number];
 
 @Entity({ name: "rule_jobs" })
 @Index("idx_rule_jobs_user_type_status", ["userId", "jobType", "status", "createdAt"])
