@@ -9,11 +9,6 @@ import {
     localEnsureResult,
     resolveDaemonHomeLayout,
 } from "./local-daemon.js";
-import {
-    type LlmJobWorkerHandle,
-    shouldRunLlmJobWorker,
-    startLlmJobWorker,
-} from "~shared/llm/llm.job.worker.js";
 
 interface IdMapping {
     readonly localTaskId: string;
@@ -38,7 +33,6 @@ let processing = false;
 let lastActivityAt = Date.now();
 let shuttingDown = false;
 let droppedCount = 0;
-let llmWorker: LlmJobWorkerHandle | null = null;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -182,7 +176,6 @@ async function probeExistingDaemon(socketPath: string): Promise<boolean> {
 async function gracefulShutdown(signal: string): Promise<void> {
     if (shuttingDown) return;
     shuttingDown = true;
-    llmWorker?.stop();
     process.stderr.write(`[agent-tracer-daemon] ${signal} — draining ${queue.length} queued messages\n`);
     server.close();
     await drain();
@@ -204,15 +197,6 @@ server.on("listening", () => {
         // best-effort: unix domain socket should already be mode 0755 on POSIX
     }
     process.stderr.write(`[agent-tracer-daemon] listening at ${layout.socketPath} (pid=${process.pid})\n`);
-    // When the server runs in remote mode, this daemon doubles as the LLM job
-    // worker: it pulls agent query jobs and runs the SDK next to the workspace.
-    if (shouldRunLlmJobWorker() && !llmWorker) {
-        llmWorker = startLlmJobWorker({
-            postJson: direct.postJson,
-            log: (message) => process.stderr.write(`[agent-tracer-daemon] ${message}\n`),
-        });
-        process.stderr.write(`[agent-tracer-daemon] LLM job worker started (MONITOR_LLM_RUNNER=remote)\n`);
-    }
 });
 
 let reclaimAttempted = false;
@@ -247,9 +231,6 @@ listenOnSocket();
 
 const idleTimer = setInterval(() => {
     if (shuttingDown) return;
-    // Stay resident while acting as the LLM job worker — jobs arrive on the
-    // server's schedule, not from local hook traffic.
-    if (llmWorker) return;
     if (queue.length > 0 || processing) {
         lastActivityAt = Date.now();
         return;
