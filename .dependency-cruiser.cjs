@@ -2,6 +2,44 @@
 /** @type {import("dependency-cruiser").IConfiguration} */
 module.exports = {
   forbidden: [
+    // ── Cross-context DAG (rules/insight → work → timeline(activity)) ──────
+    {
+      name: "no-circular",
+      severity: "error",
+      comment: "No circular dependencies — the context split is a DAG.",
+      from: {},
+      to: { circular: true },
+    },
+    {
+      name: "timeline-is-leaf",
+      severity: "error",
+      comment:
+        "timeline (activity-api) is the foundation leaf — must not import work/rules/insight. Cross-context reactions go through the event.recorded subscription (work/rules depend on timeline, never the reverse).",
+      from: { path: "^packages/activity-api/src/" },
+      to: { path: "^packages/(work-api|rules-api|insight-api)/src/" },
+    },
+    {
+      name: "work-below-rules-insight",
+      severity: "warn",
+      comment:
+        "work (run) sits below rules/insight. Residual: task/adapter/turn.query.access.adapter consumes rules' TURN_QUERY_REPOSITORY_TOKEN — relocate that token to work to clear this.",
+      from: { path: "^packages/work-api/src/" },
+      to: { path: "^packages/(rules-api|insight-api)/src/" },
+    },
+    {
+      name: "rules-no-insight",
+      severity: "error",
+      comment: "rules and insight are sibling top contexts — neither imports the other.",
+      from: { path: "^packages/rules-api/src/" },
+      to: { path: "^packages/insight-api/src/" },
+    },
+    {
+      name: "insight-no-rules",
+      severity: "error",
+      comment: "rules and insight are sibling top contexts — neither imports the other.",
+      from: { path: "^packages/insight-api/src/" },
+      to: { path: "^packages/rules-api/src/" },
+    },
     {
       name: "server-domain-is-inner-ring",
       severity: "error",
