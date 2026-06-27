@@ -1,4 +1,6 @@
-export type RecipeOutputLanguage = "auto" | "ko" | "en" | "ja" | "zh";
+import type { OutputLanguage } from "@monitor/shared/llm/output.language.js";
+
+export type RecipeOutputLanguage = OutputLanguage;
 
 const LANGUAGE_DIRECTIVES: Record<RecipeOutputLanguage, string> = {
     auto: "Reuse the dominant language of the input tasks (Korean → Korean, English → English).",

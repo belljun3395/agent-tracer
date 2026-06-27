@@ -1,6 +1,7 @@
+import type { OutputLanguage } from "@monitor/shared/llm/output.language.js";
 import type { TaskSummaryUseCaseDto } from "@monitor/run-api/task/application/dto/get.task.summary.usecase.dto.js";
 
-export type SuggestionLanguage = "auto" | "ko" | "en" | "ja" | "zh";
+export type SuggestionLanguage = OutputLanguage;
 
 const LANGUAGE_DIRECTIVES: Record<SuggestionLanguage, string> = {
     auto: "Reuse the user's language: mirror the language of the existing title and first user message (Korean → Korean, English → English, etc.).",

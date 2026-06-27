@@ -1,3 +1,4 @@
+import { normalizeOutputLanguage } from "@monitor/shared/llm/output.language.js";
 import type { RecipeOutputLanguage } from "../application/recipe.scan.prompt.js";
 import type { TaskSnapshotArchivedScope } from "@monitor/run-api/task/public/iservice/task.snapshot.query.iservice.js";
 
@@ -15,13 +16,11 @@ export const DEFAULT_MAX_CANDIDATES = 10;
 export const MAX_CANDIDATES_HARD_CAP = 30;
 export const DEFAULT_MIN_EVENT_COUNT = 1;
 
-const SUPPORTED_LANGUAGES: ReadonlySet<RecipeOutputLanguage> = new Set([
-    "auto",
-    "ko",
-    "en",
-    "ja",
-    "zh",
-]);
+export const RECIPE_SCAN_STATUS_FILTERS = ["completed", "active", "all"] as const satisfies readonly RecipeScanStatusFilter[];
+export const RECIPE_SCAN_ARCHIVED_SCOPES = ["active", "archived", "all"] as const satisfies readonly TaskSnapshotArchivedScope[];
+
+const RECIPE_SCAN_STATUS_FILTER_SET: ReadonlySet<string> = new Set(RECIPE_SCAN_STATUS_FILTERS);
+const RECIPE_SCAN_ARCHIVED_SCOPE_SET: ReadonlySet<string> = new Set(RECIPE_SCAN_ARCHIVED_SCOPES);
 
 export function clampMaxCandidates(raw: unknown): number {
     const n = typeof raw === "number" ? raw : Number.parseInt(String(raw), 10);
@@ -38,25 +37,25 @@ export function clampMinEventCount(raw: unknown): number {
 }
 
 export function normalizeRecipeScanFilters(input: {
-    readonly statusFilter?: RecipeScanStatusFilter;
-    readonly since?: string | null;
-    readonly maxCandidates?: number;
-    readonly minEventCount?: number;
-    readonly archivedScope?: TaskSnapshotArchivedScope;
+    readonly statusFilter?: unknown;
+    readonly since?: unknown;
+    readonly maxCandidates?: unknown;
+    readonly minEventCount?: unknown;
+    readonly archivedScope?: unknown;
 }): RecipeScanFiltersSnapshot {
     return {
-        statusFilter: input.statusFilter ?? "completed",
-        since: input.since ?? null,
+        statusFilter: normalizeRecipeScanStatusFilter(input.statusFilter),
+        since: typeof input.since === "string" ? input.since : null,
         maxCandidates: clampMaxCandidates(input.maxCandidates),
         minEventCount: clampMinEventCount(input.minEventCount),
-        archivedScope: input.archivedScope ?? "active",
+        archivedScope: normalizeArchivedScope(input.archivedScope),
     };
 }
 
 export function parseRecipeScanFilters(raw: string): RecipeScanFiltersSnapshot {
     try {
-        const parsed = JSON.parse(raw) as Partial<RecipeScanFiltersSnapshot>;
-        return normalizeRecipeScanFilters(parsed);
+        const parsed: unknown = JSON.parse(raw);
+        return normalizeRecipeScanFilters(isRecord(parsed) ? parsed : {});
     } catch {
         // 저장된 필터가 깨졌으면 잡을 실패시키지 않고 기본 스캔 정책으로 실행한다.
         return normalizeRecipeScanFilters({});
@@ -87,8 +86,29 @@ export function applyRecipeScanFilters<
 }
 
 export function normalizeRecipeLanguage(raw: string | null): RecipeOutputLanguage {
-    // 지원하지 않는 언어 값은 입력 텍스트를 따르는 auto로 되돌린다.
-    if (!raw) return "auto";
-    const trimmed = raw.trim().toLowerCase() as RecipeOutputLanguage;
-    return SUPPORTED_LANGUAGES.has(trimmed) ? trimmed : "auto";
+    return normalizeOutputLanguage(raw);
+}
+
+function normalizeRecipeScanStatusFilter(value: unknown): RecipeScanStatusFilter {
+    return typeof value === "string" && isRecipeScanStatusFilter(value)
+        ? value
+        : "completed";
+}
+
+function normalizeArchivedScope(value: unknown): TaskSnapshotArchivedScope {
+    return typeof value === "string" && isRecipeScanArchivedScope(value)
+        ? value
+        : "active";
+}
+
+function isRecipeScanStatusFilter(value: string): value is RecipeScanStatusFilter {
+    return RECIPE_SCAN_STATUS_FILTER_SET.has(value);
+}
+
+function isRecipeScanArchivedScope(value: string): value is TaskSnapshotArchivedScope {
+    return RECIPE_SCAN_ARCHIVED_SCOPE_SET.has(value);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
 }

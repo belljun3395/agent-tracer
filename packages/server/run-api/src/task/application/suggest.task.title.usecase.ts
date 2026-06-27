@@ -1,5 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { NOTIFICATION_TYPE } from "@monitor/shared/contracts/notifications/notification.type.const.js";
+import { normalizeOutputLanguage } from "@monitor/shared/llm/output.language.js";
 import { TitleSuggestionAgent } from "./title.suggestion.agent.js";
 import type { SuggestionLanguage } from "./title.suggestion.prompt.js";
 import type { INotificationPublisher } from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
@@ -13,18 +14,8 @@ import type {
     SuggestTaskTitleUseCaseOut,
 } from "./dto/suggest.task.title.usecase.dto.js";
 
-const SUPPORTED_LANGUAGES: ReadonlySet<SuggestionLanguage> = new Set([
-    "auto",
-    "ko",
-    "en",
-    "ja",
-    "zh",
-]);
-
 function normalizeLanguage(raw: string | null): SuggestionLanguage {
-    if (!raw) return "auto";
-    const trimmed = raw.trim().toLowerCase() as SuggestionLanguage;
-    return SUPPORTED_LANGUAGES.has(trimmed) ? trimmed : "auto";
+    return normalizeOutputLanguage(raw);
 }
 
 export class MissingApiKeyError extends Error {

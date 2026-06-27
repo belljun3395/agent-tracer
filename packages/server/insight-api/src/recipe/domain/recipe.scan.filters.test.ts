@@ -5,6 +5,7 @@ import {
     clampMinEventCount,
     normalizeRecipeLanguage,
     normalizeRecipeScanFilters,
+    parseRecipeScanFilters,
 } from "./recipe.scan.filters.js";
 
 describe("clampMaxCandidates — 후보 상한 보정", () => {
@@ -42,6 +43,26 @@ describe("normalizeRecipeScanFilters — 필터 기본값 적용", () => {
         expect(f.maxCandidates).toBe(10);
         expect(f.minEventCount).toBe(1);
         expect(f.archivedScope).toBe("active");
+    });
+});
+
+describe("parseRecipeScanFilters — 저장 필터 파싱", () => {
+    it("저장된 필터 값이 허용 범위를 벗어나면 기본값으로 보정한다", () => {
+        const parsed = parseRecipeScanFilters(JSON.stringify({
+            statusFilter: "everything",
+            archivedScope: "deleted",
+            maxCandidates: "99",
+            minEventCount: "nope",
+            since: 123,
+        }));
+
+        expect(parsed).toEqual({
+            statusFilter: "completed",
+            since: null,
+            maxCandidates: 30,
+            minEventCount: 1,
+            archivedScope: "active",
+        });
     });
 });
 
