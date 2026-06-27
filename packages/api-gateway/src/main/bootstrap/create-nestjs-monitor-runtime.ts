@@ -1,6 +1,7 @@
 import "reflect-metadata";
 import { initializeTransactionalContext } from "typeorm-transactional";
 import type express from "express";
+import helmet from "helmet";
 import { NestFactory } from "@nestjs/core";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 
@@ -34,6 +35,18 @@ export async function createNestMonitorRuntime(): Promise<MonitorRuntime> {
         AppModule.forRoot({ notifier: wsGateway.notifier }),
         { logger: ["error", "warn"] },
     );
+    // Security headers on every response. CSP is disabled because this gateway
+    // serves the Swagger UI (inline scripts/styles) and no other HTML — the rest
+    // of helmet's defaults (HSTS, X-Content-Type-Options, frameguard, …) apply.
+    nestApp.use(helmet({ contentSecurityPolicy: false }));
+    // CORS. Same-origin requests and native clients (no Origin header, e.g. the
+    // runtime daemon / curl) are always allowed; browser origins are restricted
+    // to loopback for local dashboards. Set MONITOR_CORS_ALLOW_ANY_ORIGIN=1 for
+    // an intentionally network-exposed UI. Mirrors the WS upgrade origin policy.
+    nestApp.enableCors({
+        origin: (origin, callback) => callback(null, isHttpOriginAllowed(origin)),
+        credentials: true,
+    });
     // Resolved once from the DI-managed config so the listen address and startup
     // banner come from the same source the rest of the app reads.
     const appConfig = nestApp.get(AppConfigService);
@@ -103,6 +116,23 @@ export async function createNestMonitorRuntime(): Promise<MonitorRuntime> {
  */
 function isWsOriginAllowed(origin: string | undefined): boolean {
     if (process.env.MONITOR_WS_ALLOW_ANY_ORIGIN === "1") return true;
+    if (!origin) return true;
+    try {
+        const host = new URL(origin).hostname;
+        return host === "localhost" || host === "127.0.0.1" || host === "::1";
+    } catch {
+        return false;
+    }
+}
+
+/**
+ * HTTP CORS origin policy. Mirrors the WS upgrade policy: same-origin requests
+ * and native clients (no Origin header) are always allowed; browser origins are
+ * restricted to loopback unless MONITOR_CORS_ALLOW_ANY_ORIGIN=1 opts a
+ * network-exposed deployment into reflecting any origin.
+ */
+function isHttpOriginAllowed(origin: string | undefined): boolean {
+    if (process.env.MONITOR_CORS_ALLOW_ANY_ORIGIN === "1") return true;
     if (!origin) return true;
     try {
         const host = new URL(origin).hostname;

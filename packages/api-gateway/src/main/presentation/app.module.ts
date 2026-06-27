@@ -1,7 +1,8 @@
-import { Module, type DynamicModule, type MiddlewareConsumer, type NestModule } from "@nestjs/common";
-import { APP_FILTER, APP_INTERCEPTOR } from "@nestjs/core";
+import { Module, type DynamicModule, type ExecutionContext, type MiddlewareConsumer, type NestModule } from "@nestjs/common";
+import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from "@nestjs/core";
 import { ScheduleModule } from "@nestjs/schedule";
 import { EventEmitterModule } from "@nestjs/event-emitter";
+import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 import type { INotificationPublisher } from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
 import { AppConfigModule } from "~config/app-config.module.js";
 import { HealthController } from "~adapters/http/query/controllers/health/health.query.controller.js";
@@ -68,6 +69,17 @@ export class AppModule implements NestModule {
                 AppConfigModule,
                 ScheduleModule.forRoot(),
                 EventEmitterModule.forRoot(),
+                // Per-IP rate limit on the api/v1 surface. The /ingest/ routes are
+                // skipped: the runtime daemon streams one request per event batch,
+                // so throttling them would drop telemetry. Client IP is resolved
+                // through the trusted-proxy config so the limit is per real client.
+                ThrottlerModule.forRoot({
+                    throttlers: [{ ttl: 60_000, limit: 300 }],
+                    skipIf: (context: ExecutionContext) => {
+                        const request = context.switchToHttp().getRequest<{ url?: string }>();
+                        return typeof request.url === "string" && request.url.startsWith("/ingest/");
+                    },
+                }),
                 typeOrmDatabaseModule,
                 databaseModule,
                 IdentityModule,
@@ -91,6 +103,10 @@ export class AppModule implements NestModule {
                 {
                     provide: APP_INTERCEPTOR,
                     useClass: ApiResponseInterceptor,
+                },
+                {
+                    provide: APP_GUARD,
+                    useClass: ThrottlerGuard,
                 },
             ],
         };
