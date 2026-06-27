@@ -11,6 +11,7 @@ import type {
 
 const STRUCTURED_TOOL_NAME = "emit_result";
 const DEFAULT_MAX_OUTPUT_TOKENS = 4096;
+const MAX_API_RETRIES = 3;
 
 /**
  * Runs a single-shot, no-workspace agent query against the Anthropic Messages
@@ -31,7 +32,13 @@ export class MessagesQueryRunner implements IQueryRunner {
     async run(request: AgentQueryRequest): Promise<AgentQueryResult> {
         const startedAt = Date.now();
         const apiKey = request.env["ANTHROPIC_API_KEY"] ?? process.env["ANTHROPIC_API_KEY"];
-        const client = new Anthropic(apiKey ? { apiKey } : {});
+        // The SDK client already retries transient errors (429 / 5xx / network) with
+        // exponential backoff + jitter; configure it explicitly rather than hand-rolling
+        // a backoff loop (which would double-retry on top of the SDK's own).
+        const client = new Anthropic({
+            maxRetries: MAX_API_RETRIES,
+            ...(apiKey ? { apiKey } : {}),
+        });
         const deadline = createAgentDeadline(request.deadlineMs);
 
         const tools: Anthropic.Messages.Tool[] | undefined = request.outputSchema

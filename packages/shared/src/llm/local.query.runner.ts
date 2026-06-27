@@ -60,6 +60,10 @@ export class LocalQueryRunner implements IQueryRunner {
                 // the explicit additions (MONITOR_TASK_*, and the key in local mode).
                 env: { ...process.env, ...request.env },
                 permissionMode: "bypassPermissions",
+                // Required companion to bypassPermissions in the 0.2.x SDK — without it
+                // the CLI won't actually bypass and the workspace tools (Read/Glob/Grep)
+                // would stall on permission prompts.
+                allowDangerouslySkipPermissions: true,
                 strictMcpConfig: true,
                 includePartialMessages: false,
             },
