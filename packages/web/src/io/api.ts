@@ -334,7 +334,7 @@ export function fetchRules(): Promise<RulesListResponse> {
 }
 
 export function fetchTaskRules(taskId: TaskId): Promise<TaskRulesResponse> {
-  return getJson<TaskRulesResponse>(`/api/v1/tasks/${taskId}/rules`);
+  return getJson<TaskRulesResponse>(`/api/v1/rules/for-task?taskId=${taskId}`);
 }
 
 export type RuleMatchedBy =
@@ -377,7 +377,7 @@ export function fetchRuleEvidence(
   ruleId: string,
 ): Promise<RuleEvidenceResponse> {
   return getJson<RuleEvidenceResponse>(
-    `/api/v1/tasks/${taskId}/rules/${encodeURIComponent(ruleId)}/evidence`,
+    `/api/v1/rules/${encodeURIComponent(ruleId)}/evidence?taskId=${taskId}`,
   );
 }
 
@@ -510,7 +510,7 @@ export function enqueueGenerateRules(
   taskId: TaskId,
 ): Promise<GenerateRulesJobResponse> {
   return postJson<GenerateRulesJobResponse>(
-    `/api/v1/tasks/${taskId}/generate-rules`,
+    `/api/v1/rules/generate?taskId=${taskId}`,
   );
 }
 
@@ -518,7 +518,7 @@ export function fetchLatestGenerateRulesJob(
   taskId: TaskId,
 ): Promise<{ job: GenerateRulesJobStatus | null }> {
   return getJson<{ job: GenerateRulesJobStatus | null }>(
-    `/api/v1/tasks/${taskId}/generate-rules/latest`,
+    `/api/v1/rules/generate/latest?taskId=${taskId}`,
   );
 }
 

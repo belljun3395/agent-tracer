@@ -5,7 +5,7 @@ import {
     HttpCode,
     HttpStatus,
     NotFoundException,
-    Param,
+    Query,
     Post,
     Get,
     Inject,
@@ -19,7 +19,7 @@ import {
     TaskRuleGenerationService,
 } from "../application/task.rule.generation.service.js";
 
-@Controller("api/v1/tasks/:taskId/generate-rules")
+@Controller("api/v1/rules/generate")
 export class TaskRuleGenerationController {
     constructor(
         @Inject(TaskRuleGenerationService)
@@ -28,7 +28,7 @@ export class TaskRuleGenerationController {
 
     @Post()
     @HttpCode(HttpStatus.ACCEPTED)
-    async enqueue(@Param("taskId", pathParamPipe) taskId: string) {
+    async enqueue(@Query("taskId", pathParamPipe) taskId: string) {
         try {
             const job = await this.service.run(taskId);
             return {
@@ -55,7 +55,7 @@ export class TaskRuleGenerationController {
     }
 
     @Get("latest")
-    async latest(@Param("taskId", pathParamPipe) taskId: string) {
+    async latest(@Query("taskId", pathParamPipe) taskId: string) {
         const job = await this.service.findLatest(taskId);
         if (!job) return { job: null };
         return {

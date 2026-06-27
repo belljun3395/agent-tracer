@@ -1,15 +1,17 @@
-import { Controller, Get, Inject, Param } from "@nestjs/common";
+import { Controller, Get, Inject, Query } from "@nestjs/common";
 import { ListRulesForTaskUseCase } from "../application/list.rules.usecase.js";
 import { pathParamPipe } from "@monitor/shared/contracts/http/path-param.pipe.js";
 
-@Controller("api/v1/tasks/:id")
+// Lists a task's rules (task-scoped + applicable global) under the rules
+// namespace — moved off /tasks/:id/rules so /tasks stays run-owned.
+@Controller("api/v1/rules")
 export class TaskRulesQueryController {
     constructor(
         @Inject(ListRulesForTaskUseCase) private readonly listRulesForTask: ListRulesForTaskUseCase,
     ) {}
 
-    @Get("rules")
-    async listRules(@Param("id", pathParamPipe) taskId: string) {
+    @Get("for-task")
+    async listRules(@Query("taskId", pathParamPipe) taskId: string) {
         return this.listRulesForTask.execute({ taskId });
     }
 }

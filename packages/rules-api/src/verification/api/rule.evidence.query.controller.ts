@@ -1,8 +1,10 @@
-import { Controller, Get, Inject, Param } from "@nestjs/common";
+import { Controller, Get, Inject, Param, Query } from "@nestjs/common";
 import { pathParamPipe } from "@monitor/shared/contracts/http/path-param.pipe.js";
 import { GetRuleEvidenceForTaskUseCase } from "../application/get.rule.evidence.usecase.js";
 
-@Controller("api/v1/tasks/:taskId/rules/:ruleId")
+// Rule evidence for a task — served under the rules namespace (ruleId in path,
+// taskId in query) so /tasks stays run-owned.
+@Controller("api/v1/rules/:ruleId")
 export class RuleEvidenceQueryController {
     constructor(
         @Inject(GetRuleEvidenceForTaskUseCase)
@@ -11,8 +13,8 @@ export class RuleEvidenceQueryController {
 
     @Get("evidence")
     async evidence(
-        @Param("taskId", pathParamPipe) taskId: string,
         @Param("ruleId", pathParamPipe) ruleId: string,
+        @Query("taskId", pathParamPipe) taskId: string,
     ) {
         return this.getEvidence.execute({ taskId, ruleId });
     }
