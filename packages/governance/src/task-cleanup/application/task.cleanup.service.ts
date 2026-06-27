@@ -1,8 +1,8 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import { NOTIFICATION_TYPE } from "@monitor/contracts/notifications/notification.type.const.js";
 import { randomUUID } from "node:crypto";
-import { TaskCleanupAgent } from "@monitor/llm/task.cleanup.agent.js";
-import type { CleanupTaskSnapshot } from "@monitor/llm/task.cleanup.prompt.js";
+import { TaskCleanupAgent } from "./task.cleanup.agent.js";
+import type { CleanupTaskSnapshot } from "./task.cleanup.prompt.js";
 import type { INotificationPublisher } from "@monitor/contracts/notifications/notification.publisher.port.js";
 import { APP_SETTING_KEYS } from "@monitor/governance/settings/domain/app.setting.keys.js";
 import { AppSettingService } from "@monitor/governance/settings/application/app.setting.service.js";

@@ -4,6 +4,9 @@ import { TaskRuleGenerationController } from "./api/task.rule.generation.control
 import { TaskRuleGenerationService } from "./application/task.rule.generation.service.js";
 import { GovernanceJobEntity } from "@monitor/governance/job/governance.job.entity.js";
 import { GovernanceJobRepository } from "@monitor/governance/job/governance.job.repository.js";
+import { RuleSuggestionAgent } from "./application/rule.suggestion.agent.js";
+import { LocalQueryRunner } from "@monitor/llm/local.query.runner.js";
+import { QUERY_RUNNER } from "@monitor/llm/query.runner.port.js";
 
 @Module({})
 export class RuleGenerationModule {
@@ -18,6 +21,10 @@ export class RuleGenerationModule {
             providers: [
                 GovernanceJobRepository,
                 TaskRuleGenerationService,
+                // 룰 생성 LLM 에이전트 + Claude SDK 쿼리 러너
+                RuleSuggestionAgent,
+                LocalQueryRunner,
+                { provide: QUERY_RUNNER, useExisting: LocalQueryRunner },
             ],
             exports: [TaskRuleGenerationService],
         };

@@ -1,35 +1,39 @@
 import { Inject, Injectable } from "@nestjs/common";
-import type { TaskSummaryUseCaseDto } from "@monitor/work/task/application/dto/get.task.summary.usecase.dto.js";
-import { QUERY_RUNNER, type IQueryRunner } from "./query.runner.port.js";
+import { QUERY_RUNNER, type IQueryRunner } from "@monitor/llm/query.runner.port.js";
 import {
     buildSystemPrompt,
     buildUserPrompt,
-    type SuggestionLanguage,
-} from "./title.suggestion.prompt.js";
+    type RecipeOutputLanguage,
+    type RecipeTaskSnapshot,
+} from "./recipe.scan.prompt.js";
 import {
-    titleSuggestionsListSchema,
-    type TitleSuggestion,
-} from "./title.suggestion.zod.js";
-import { parseJsonStrict } from "./parse.json.js";
+    recipeCandidatesListSchema,
+    type RecipeCandidatePayload,
+} from "./recipe.scan.zod.js";
+import { parseJsonStrict } from "@monitor/llm/parse.json.js";
 
-const DEFAULT_MODEL = "claude-haiku-4-5";
+const ALLOWED_TOOLS = ["Read", "Glob", "Grep"];
+const DEFAULT_MAX_TURNS = 8;
+const DEFAULT_MODEL = "claude-sonnet-4-6";
 
-export interface GenerateTitleSuggestionsInput {
+export interface GenerateRecipeCandidatesInput {
     /** Optional: omitted when a remote runner runs the SDK with its own local key. */
     readonly apiKey?: string;
     readonly model?: string;
-    readonly summary: TaskSummaryUseCaseDto;
-    readonly language?: SuggestionLanguage;
+    readonly tasks: readonly RecipeTaskSnapshot[];
+    readonly maxCandidates: number;
+    readonly language: RecipeOutputLanguage;
 }
 
-export interface GenerateTitleSuggestionsOutput {
-    readonly suggestions: readonly TitleSuggestion[];
+export interface GenerateRecipeCandidatesOutput {
+    readonly recipes: readonly RecipeCandidatePayload[];
+    readonly rawOutput: string;
     readonly modelUsed: string;
     readonly durationMs: number;
 }
 
 @Injectable()
-export class TitleSuggestionAgent {
+export class RecipeScanAgent {
     constructor(
         @Inject(QUERY_RUNNER) private readonly queryRunner: IQueryRunner,
     ) {}
@@ -39,33 +43,32 @@ export class TitleSuggestionAgent {
     }
 
     async generate(
-        input: GenerateTitleSuggestionsInput,
-    ): Promise<GenerateTitleSuggestionsOutput> {
+        input: GenerateRecipeCandidatesInput,
+    ): Promise<GenerateRecipeCandidatesOutput> {
         const model = input.model?.trim() || DEFAULT_MODEL;
-        const language: SuggestionLanguage = input.language ?? "auto";
-        const userPrompt = buildUserPrompt(input.summary);
-        const systemPrompt = buildSystemPrompt(language);
+        const systemPrompt = buildSystemPrompt(input.language);
+        const userPrompt = buildUserPrompt(input.tasks, input.maxCandidates);
 
         const env: Record<string, string | undefined> = {
             ...(input.apiKey ? { ANTHROPIC_API_KEY: input.apiKey } : {}),
-            MONITOR_TASK_TITLE: "Title Suggestion · Auto Rename",
+            MONITOR_TASK_TITLE: "Recipe Scan · Auto Cluster",
             MONITOR_TASK_ORIGIN: "server-sdk",
         };
 
-        // Single-turn Haiku one-shot, no workspace tools; 120s deadline headroom.
+        // Tool-using, up to 8 turns; allow 300s before abort.
         const { rawOutput, durationMs, errorSummary } = await this.queryRunner.run({
-            label: "title-suggestion",
+            label: "recipe-scan",
             prompt: userPrompt,
             systemPrompt,
-            allowedTools: [],
+            allowedTools: ALLOWED_TOOLS,
             model,
-            maxTurns: 1,
-            deadlineMs: 120_000,
+            maxTurns: DEFAULT_MAX_TURNS,
+            deadlineMs: 300_000,
             env,
         });
 
         if (errorSummary || !rawOutput) {
-            throw new TitleSuggestionAgentError(
+            throw new RecipeScanAgentError(
                 "SDK_AGENT_FAILED",
                 `Claude Agent SDK returned an error${
                     errorSummary ? `: ${errorSummary}` : ""
@@ -75,29 +78,30 @@ export class TitleSuggestionAgent {
 
         const json = parseJsonStrict(rawOutput);
         if (json === null) {
-            throw new TitleSuggestionAgentError(
+            throw new RecipeScanAgentError(
                 "OUTPUT_NOT_JSON",
                 "Agent output was not parseable JSON",
             );
         }
 
-        const parsed = titleSuggestionsListSchema.safeParse(json);
+        const parsed = recipeCandidatesListSchema.safeParse(json);
         if (!parsed.success) {
-            throw new TitleSuggestionAgentError(
+            throw new RecipeScanAgentError(
                 "OUTPUT_SCHEMA_INVALID",
                 `Agent output failed schema validation: ${parsed.error.message}`,
             );
         }
 
         return {
-            suggestions: parsed.data.suggestions,
+            recipes: parsed.data.recipes.slice(0, input.maxCandidates),
+            rawOutput,
             modelUsed: model,
             durationMs,
         };
     }
 }
 
-export class TitleSuggestionAgentError extends Error {
+export class RecipeScanAgentError extends Error {
     constructor(
         public readonly code:
             | "SDK_AGENT_FAILED"
@@ -106,6 +110,6 @@ export class TitleSuggestionAgentError extends Error {
         message: string,
     ) {
         super(message);
-        this.name = "TitleSuggestionAgentError";
+        this.name = "RecipeScanAgentError";
     }
 }

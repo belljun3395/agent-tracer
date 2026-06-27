@@ -1,4 +1,4 @@
-import type { RuleSuggestionLanguage } from "@monitor/llm/rule.suggestion.prompt.js";
+import type { RuleSuggestionLanguage } from "../application/rule.suggestion.prompt.js";
 
 export const DEFAULT_MAX_RULES = 5;
 const MAX_RULES_HARD_CAP = 20;

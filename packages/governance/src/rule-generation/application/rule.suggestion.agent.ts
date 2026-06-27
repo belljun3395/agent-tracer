@@ -1,6 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
 import type { TaskSummaryUseCaseDto } from "@monitor/work/task/application/dto/get.task.summary.usecase.dto.js";
-import { QUERY_RUNNER, type IQueryRunner } from "./query.runner.port.js";
+import { QUERY_RUNNER, type IQueryRunner } from "@monitor/llm/query.runner.port.js";
 import {
     buildSystemPrompt,
     buildUserPrompt,
@@ -10,7 +10,7 @@ import {
     ruleSuggestionsListSchema,
     type RuleSuggestion,
 } from "./rule.suggestion.zod.js";
-import { parseJsonStrict } from "./parse.json.js";
+import { parseJsonStrict } from "@monitor/llm/parse.json.js";
 
 const ALLOWED_TOOLS = ["Read", "Glob", "Grep"];
 const DEFAULT_MAX_TURNS = 8;

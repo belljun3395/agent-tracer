@@ -9,6 +9,9 @@ import { TaskCleanupSuggestionEntity } from "./domain/task.cleanup.suggestion.en
 import { TaskCleanupSuggestionRepository } from "./repository/task.cleanup.suggestion.repository.js";
 import { GovernanceJobEntity } from "@monitor/governance/job/governance.job.entity.js";
 import { GovernanceJobRepository } from "@monitor/governance/job/governance.job.repository.js";
+import { TaskCleanupAgent } from "./application/task.cleanup.agent.js";
+import { LocalQueryRunner } from "@monitor/llm/local.query.runner.js";
+import { QUERY_RUNNER } from "@monitor/llm/query.runner.port.js";
 
 @Module({})
 export class TaskCleanupModule {
@@ -30,6 +33,10 @@ export class TaskCleanupModule {
                 ListCleanupSuggestionsUseCase,
                 AcceptCleanupSuggestionUseCase,
                 DismissCleanupSuggestionUseCase,
+                // 태스크 정리 LLM 에이전트 + Claude SDK 쿼리 러너
+                TaskCleanupAgent,
+                LocalQueryRunner,
+                { provide: QUERY_RUNNER, useExisting: LocalQueryRunner },
             ],
             exports: [TaskCleanupService],
         };

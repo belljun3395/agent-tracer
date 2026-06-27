@@ -1,4 +1,4 @@
-import type { RecipeOutputLanguage } from "@monitor/llm/recipe.scan.prompt.js";
+import type { RecipeOutputLanguage } from "../application/recipe.scan.prompt.js";
 import type { TaskSnapshotArchivedScope } from "@monitor/work/task/public/iservice/task.snapshot.query.iservice.js";
 
 export type RecipeScanStatusFilter = "completed" | "active" | "all";

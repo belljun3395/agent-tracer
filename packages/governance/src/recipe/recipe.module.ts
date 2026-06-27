@@ -18,6 +18,9 @@ import { RecipeCandidateRepository } from "./repository/recipe.candidate.reposit
 import { RecipeRepository } from "./repository/recipe.repository.js";
 import { GovernanceJobEntity } from "@monitor/governance/job/governance.job.entity.js";
 import { GovernanceJobRepository } from "@monitor/governance/job/governance.job.repository.js";
+import { RecipeScanAgent } from "./application/recipe.scan.agent.js";
+import { LocalQueryRunner } from "@monitor/llm/local.query.runner.js";
+import { QUERY_RUNNER } from "@monitor/llm/query.runner.port.js";
 
 @Module({})
 export class RecipeModule {
@@ -48,6 +51,10 @@ export class RecipeModule {
                 DismissRecipeCandidateUseCase,
                 ListRecipesUseCase,
                 RetireRecipeUseCase,
+                // 레시피 스캔 LLM 에이전트 + Claude SDK 쿼리 러너
+                RecipeScanAgent,
+                LocalQueryRunner,
+                { provide: QUERY_RUNNER, useExisting: LocalQueryRunner },
             ],
             exports: [RecipeScanService, RecipeRepository, RecipeMatchingService],
         };

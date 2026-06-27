@@ -4,7 +4,6 @@ import { ScheduleModule } from "@nestjs/schedule";
 import type { INotificationPublisher } from "@monitor/contracts/notifications/notification.publisher.port.js";
 import { AppConfigModule } from "~config/app-config.module.js";
 import { HealthController } from "~adapters/http/query/controllers/health/health.query.controller.js";
-import { LlmModule } from "@monitor/llm/llm.module.js";
 import { EventModule } from "@monitor/activity/event/event.module.js";
 import { SessionModule } from "@monitor/activity/session/session.module.js";
 import { TaskModule } from "@monitor/work/task/task.module.js";
@@ -56,14 +55,14 @@ export class AppModule implements NestModule {
 
         event.imports!.push(task, verification);
         session.imports!.push(task);
-        task.imports!.push(event, session, settings, verification, LlmModule);
+        task.imports!.push(event, session, settings, verification);
         turn.imports!.push(event, task);
         verification.imports!.push(event, rule);
         rule.imports!.push(verification);
         ruleBackfill.imports!.push(rule, verification);
-        ruleGeneration.imports!.push(rule, settings, task, LlmModule);
-        taskCleanup.imports!.push(settings, task, LlmModule);
-        recipe.imports!.push(settings, task, LlmModule);
+        ruleGeneration.imports!.push(rule, settings, task);
+        taskCleanup.imports!.push(settings, task);
+        recipe.imports!.push(settings, task);
 
         return {
             module: AppModule,
@@ -72,7 +71,6 @@ export class AppModule implements NestModule {
                 ScheduleModule.forRoot(),
                 typeOrmDatabaseModule,
                 databaseModule,
-                LlmModule,
                 IdentityModule,
                 event,
                 session,
