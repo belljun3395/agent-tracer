@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import type { TaskSummaryUseCaseDto } from "@monitor/work-api/task/application/dto/get.task.summary.usecase.dto.js";
+import type { TaskSummaryUseCaseDto } from "@monitor/run-api/task/application/dto/get.task.summary.usecase.dto.js";
 import { QUERY_RUNNER, type IQueryRunner } from "@monitor/shared/llm/query.runner.port.js";
 import {
     buildSystemPrompt,

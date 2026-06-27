@@ -6,7 +6,7 @@ import type { TurnVerdict } from "@monitor/rules-api/verification/domain/model/v
 import { evaluateTurn } from "@monitor/rules-api/verification/domain/turn.evaluation.js";
 import type { EvaluateTurnToolCall } from "@monitor/rules-api/verification/domain/turn.evaluation.js";
 import { aggregateVerdict } from "@monitor/rules-api/verification/domain/verdict.js";
-import type { TimelineEvent } from "@monitor/activity-api/event/public/types/event.types.js";
+import type { TimelineEvent } from "@monitor/timeline-api/event/public/types/event.types.js";
 import type { INotificationPublisher } from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
 import type { ITimelineEventAccess } from "@monitor/rules-api/verification/application/outbound/timeline.event.access.port.js";
 import type {

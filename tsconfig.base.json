@@ -8,11 +8,11 @@
       "@monitor/shared/*": [
         "packages/shared/src/*"
       ],
-      "@monitor/activity-api/*": [
-        "packages/activity-api/src/*"
+      "@monitor/timeline-api/*": [
+        "packages/timeline-api/src/*"
       ],
-      "@monitor/work-api/*": [
-        "packages/work-api/src/*"
+      "@monitor/run-api/*": [
+        "packages/run-api/src/*"
       ],
       "@monitor/rules-api/*": [
         "packages/rules-api/src/*"

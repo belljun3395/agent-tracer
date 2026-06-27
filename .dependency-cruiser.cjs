@@ -14,16 +14,16 @@ module.exports = {
       name: "timeline-is-leaf",
       severity: "error",
       comment:
-        "timeline (activity-api) is the foundation leaf — must not import work/rules/insight. Cross-context reactions go through the event.recorded subscription (work/rules depend on timeline, never the reverse).",
-      from: { path: "^packages/activity-api/src/" },
-      to: { path: "^packages/(work-api|rules-api|insight-api)/src/" },
+        "timeline (timeline-api) is the foundation leaf — must not import work/rules/insight. Cross-context reactions go through the event.recorded subscription (work/rules depend on timeline, never the reverse).",
+      from: { path: "^packages/timeline-api/src/" },
+      to: { path: "^packages/(run-api|rules-api|insight-api)/src/" },
     },
     {
       name: "work-below-rules-insight",
       severity: "warn",
       comment:
         "work (run) sits below rules/insight. Residual: task/adapter/turn.query.access.adapter consumes rules' TURN_QUERY_REPOSITORY_TOKEN — relocate that token to work to clear this.",
-      from: { path: "^packages/work-api/src/" },
+      from: { path: "^packages/run-api/src/" },
       to: { path: "^packages/(rules-api|insight-api)/src/" },
     },
     {

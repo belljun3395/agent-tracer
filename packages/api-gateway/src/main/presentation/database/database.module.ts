@@ -4,7 +4,7 @@ import type { INotificationPublisher } from "@monitor/shared/contracts/notificat
 import { CLOCK_PORT, ID_GENERATOR_PORT } from "@monitor/shared/kernel/clock.js";
 import { SystemClockAdapter } from "@monitor/shared/kernel/system.clock.adapter.js";
 import { CryptoIdGeneratorAdapter } from "@monitor/shared/kernel/crypto.id.generator.adapter.js";
-import { OPENSEARCH_CLIENT } from "@monitor/activity-api/event/public/tokens.js";
+import { OPENSEARCH_CLIENT } from "@monitor/timeline-api/event/public/tokens.js";
 import { AppConfigService } from "~config/app-config.service.js";
 import {
     DatabaseProviders,

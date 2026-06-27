@@ -1,5 +1,5 @@
-import type { ITimelineEventRead } from "@monitor/activity-api/event/public/iservice/timeline.event.read.iservice.js";
-import type { TimelineEventSnapshot } from "@monitor/activity-api/event/public/dto/timeline.event.dto.js";
+import type { ITimelineEventRead } from "@monitor/timeline-api/event/public/iservice/timeline.event.read.iservice.js";
+import type { TimelineEventSnapshot } from "@monitor/timeline-api/event/public/dto/timeline.event.dto.js";
 import type { IRuleRead } from "@monitor/rules-api/rule/public/iservice/rule.read.iservice.js";
 import type { RuleSnapshot } from "@monitor/rules-api/rule/public/dto/rule.snapshot.dto.js";
 import type { IRuleEnforcementRepository } from "./outbound/rule.enforcement.repository.port.js";

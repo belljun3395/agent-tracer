@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { NOTIFICATION_TYPE } from "@monitor/shared/contracts/notifications/notification.type.const.js";
-import { KIND } from "@monitor/activity-api/event/public/types/event.const.js";
-import type { TimelineEvent } from "@monitor/activity-api/event/public/types/event.types.js";
+import { KIND } from "@monitor/timeline-api/event/public/types/event.const.js";
+import type { TimelineEvent } from "@monitor/timeline-api/event/public/types/event.types.js";
 import { inferToolCall } from "@monitor/rules-api/verification/domain/tool.call.inference.js";
 import type { INotificationPublisher } from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
 import type { ITimelineEventAccess } from "@monitor/rules-api/verification/application/outbound/timeline.event.access.port.js";

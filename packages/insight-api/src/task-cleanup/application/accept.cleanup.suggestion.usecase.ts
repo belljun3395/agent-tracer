@@ -1,9 +1,9 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { Transactional } from "typeorm-transactional";
-import { ArchiveTaskUseCase } from "@monitor/work-api/task/application/archive.task.usecase.js";
-import { LinkTaskUseCase } from "@monitor/work-api/task/application/link.task.usecase.js";
-import { ReslugTaskUseCase } from "@monitor/work-api/task/application/reslug.task.usecase.js";
-import { UpdateTaskUseCase } from "@monitor/work-api/task/application/update.task.usecase.js";
+import { ArchiveTaskUseCase } from "@monitor/run-api/task/application/archive.task.usecase.js";
+import { LinkTaskUseCase } from "@monitor/run-api/task/application/link.task.usecase.js";
+import { ReslugTaskUseCase } from "@monitor/run-api/task/application/reslug.task.usecase.js";
+import { UpdateTaskUseCase } from "@monitor/run-api/task/application/update.task.usecase.js";
 import { TaskCleanupSuggestionRepository } from "../repository/task.cleanup.suggestion.repository.js";
 import type {
     AcceptCleanupSuggestionUseCaseIn,
