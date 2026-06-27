@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { currentUserId } from "@monitor/shared/kernel/user/user.context.js";
-import { UserRepository } from "./user.repository.js";
+import { UserRepository } from "../repository/user.repository.js";
 
 export interface CurrentUserResult {
     readonly userId: string;

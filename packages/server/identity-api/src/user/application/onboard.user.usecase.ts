@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { deriveUserId } from "@monitor/shared/kernel/user/user.identity.js";
-import { UserRepository } from "./user.repository.js";
+import { UserRepository } from "../repository/user.repository.js";
 
 export interface OnboardUserResult {
     readonly userId: string;

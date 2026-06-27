@@ -2,8 +2,8 @@ import { Body, Controller, Get, HttpCode, HttpStatus, Inject, Post } from "@nest
 import { createZodDto } from "nestjs-zod";
 import { z } from "zod";
 import { ZodValidationPipe } from "@monitor/shared/contracts/http/zod-validation.pipe.js";
-import { GetCurrentUserUseCase } from "./get.current.user.usecase.js";
-import { OnboardUserUseCase } from "./onboard.user.usecase.js";
+import { GetCurrentUserUseCase } from "../application/get.current.user.usecase.js";
+import { OnboardUserUseCase } from "../application/onboard.user.usecase.js";
 
 const onboardingSchema = z.object({
     email: z.string().trim().email(),
