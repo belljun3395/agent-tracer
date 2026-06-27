@@ -6,6 +6,7 @@ import { GetTaskTimelineUseCase } from "../application/get.task.timeline.usecase
 import { GetTaskTurnsUseCase } from "../application/get.task.turns.usecase.js";
 import { GetTaskUseCase } from "../application/get.task.usecase.js";
 import { ListTasksUseCase } from "../application/list.tasks.usecase.js";
+import { SearchTasksUseCase } from "../application/search.tasks.usecase.js";
 import type {
     ListTasksArchivedScope,
     ListTasksOriginFilter,
@@ -32,7 +33,23 @@ export class TaskQueryController {
         private readonly getTaskTurns: GetTaskTurnsUseCase,
         private readonly getTaskLatestRuntimeSession: GetTaskLatestRuntimeSessionUseCase,
         private readonly getTaskOpenInference: GetTaskOpenInferenceUseCase,
+        private readonly searchTasks: SearchTasksUseCase,
     ) {}
+
+    // Declared before the :taskId routes so /tasks/search isn't captured as an id.
+    @Get("search")
+    async searchTasksEndpoint(
+        @Query("query") queryParam?: string,
+        @Query("limit") limitParam?: string,
+    ) {
+        const query = (queryParam ?? "").trim();
+        if (!query) return { tasks: [] };
+        const limit = limitParam ? Number(limitParam) : undefined;
+        return this.searchTasks.execute({
+            query,
+            ...(limit !== undefined && Number.isFinite(limit) ? { limit } : {}),
+        });
+    }
 
     @Get()
     async listTasksEndpoint(

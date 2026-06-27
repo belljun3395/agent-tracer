@@ -28,9 +28,7 @@ import {
     TIMELINE_EVENT_READ,
     TIMELINE_EVENT_WRITE,
 } from "./public/tokens.js";
-import {
-    OpenSearchEventIndex,
-} from "./repository/search/opensearch.event.index.js";
+import { PgEventSearch } from "./repository/search/pg.event.search.js";
 import { PreprocessingHintsRepository } from "./repository/preprocessing.hints.repository.js";
 import { TimelineEventRepository } from "./repository/timeline.event.repository.js";
 import { TimelineEventService } from "./service/timeline.event.service.js";
@@ -60,8 +58,8 @@ export class EventModule {
             ],
             controllers: [EventCommandController, PreprocessingHintsController, SearchQueryController, TypedEventIngestController],
             providers: [
-                // OpenSearch 클라이언트(OPENSEARCH_CLIENT)는 databaseModule 가 제공한다.
-                OpenSearchEventIndex,
+                // 검색: Postgres pg_trgm (별도 인덱스/dual-write 없음)
+                PgEventSearch,
                 // Repositories
                 TimelineEventRepository,
                 PreprocessingHintsRepository,
@@ -91,7 +89,7 @@ export class EventModule {
                 { provide: TIMELINE_EVENT_PROJECTION, useExisting: TimelineEventProjectionPublicAdapter },
                 // Outbound bindings
                 { provide: EVENT_PERSISTENCE_PORT, useExisting: EventPersistenceAdapter },
-                { provide: EVENT_SEARCH_INDEX_PORT, useExisting: OpenSearchEventIndex },
+                { provide: EVENT_SEARCH_INDEX_PORT, useExisting: PgEventSearch },
                 { provide: NOTIFICATION_PUBLISHER_PORT, useExisting: EventNotificationPublisherAdapter },
             ],
             exports: [

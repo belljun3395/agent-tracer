@@ -52,6 +52,11 @@ export class TaskQueryService {
         return this.withDisplayTitle(toBaseTask(entity, relations.asSnapshot()));
     }
 
+    /** Full-text task search for the current user (pg_trgm ILIKE). */
+    async searchTasks(query: string, limit: number): Promise<readonly TaskEntity[]> {
+        return this.taskRepo.searchByText(currentUserId(), query, limit);
+    }
+
     async findAll(scope: "active" | "archived" | "all" = "active"): Promise<readonly MonitoringTask[]> {
         const entities = await this.taskRepo.findAllByArchivedScope(scope, currentUserId());
         if (entities.length === 0) return [];

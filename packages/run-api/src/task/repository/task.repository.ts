@@ -15,6 +15,18 @@ export class TaskRepository {
         return this.repo.findOne({ where: { id } });
     }
 
+    /** pg_trgm-backed ILIKE search over a user's task titles + workspace paths. */
+    async searchByText(userId: string, query: string, limit: number): Promise<TaskEntity[]> {
+        const pattern = `%${query}%`;
+        return this.repo
+            .createQueryBuilder("t")
+            .where("t.user_id = :userId", { userId })
+            .andWhere("(t.title ILIKE :pattern OR COALESCE(t.workspace_path, '') ILIKE :pattern)", { pattern })
+            .orderBy("t.updated_at", "DESC")
+            .limit(limit)
+            .getMany();
+    }
+
     async findAll(): Promise<TaskEntity[]> {
         return this.repo.find({ order: { updatedAt: "DESC" } });
     }

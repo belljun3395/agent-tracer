@@ -31,9 +31,7 @@ export interface EventSearchOptions {
 }
 
 export interface EventSearchResults {
-    readonly tasks: readonly unknown[];
     readonly events: readonly unknown[];
-    readonly bookmarks: readonly unknown[];
 }
 
 export interface IEventPersistence {

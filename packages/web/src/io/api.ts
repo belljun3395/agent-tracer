@@ -475,14 +475,27 @@ export function reEvaluateRule(
   return postJson<unknown>(`/api/v1/rules/${ruleId}/re-evaluate`, body);
 }
 
-export function fetchSearch(
+export async function fetchSearch(
   query: string,
   options?: { readonly taskId?: TaskId; readonly limit?: number },
 ): Promise<SearchResponse> {
   const params = new URLSearchParams({ query });
   if (options?.taskId) params.set("taskId", options.taskId);
   if (options?.limit !== undefined) params.set("limit", String(options.limit));
-  return getJson<SearchResponse>(`/api/v1/search?${params.toString()}`);
+  const qs = params.toString();
+  // Fan out to the two context-owned endpoints (timeline events + work tasks)
+  // and merge. Each context searches only its own table, so timeline stays a
+  // leaf; the web is the edge that combines for display. Event hits' taskTitle
+  // is filled from the matched tasks when available (else left blank).
+  const [eventsRes, tasksRes] = await Promise.all([
+    getJson<{ readonly events: SearchResponse["events"] }>(`/api/v1/events/search?${qs}`),
+    getJson<{ readonly tasks: SearchResponse["tasks"] }>(`/api/v1/tasks/search?${qs}`),
+  ]);
+  const titleByTaskId = new Map(tasksRes.tasks.map((t) => [t.taskId, t.title] as const));
+  const events = eventsRes.events.map((e) =>
+    e.taskTitle ? e : { ...e, taskTitle: titleByTaskId.get(e.taskId) ?? "" },
+  );
+  return { tasks: tasksRes.tasks, events };
 }
 
 export interface GenerateRulesJobResponse {

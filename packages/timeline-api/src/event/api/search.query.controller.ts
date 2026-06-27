@@ -3,7 +3,9 @@ import { SearchEventsUseCase } from "../application/search.events.usecase.js";
 import { ZodValidationPipe } from "@monitor/shared/contracts/http/zod-validation.pipe.js";
 import { searchQuerySchema, SearchQueryDto } from "./search.query.schema.js";
 
-@Controller("api/v1")
+// Event full-text search under the events namespace. Task search is a separate
+// endpoint owned by work (/api/v1/tasks/search); the web fans out to both.
+@Controller("api/v1/events")
 export class SearchQueryController {
     constructor(@Inject(SearchEventsUseCase) private readonly searchEvents: SearchEventsUseCase) {}
 

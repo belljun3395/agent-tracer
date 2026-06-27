@@ -1,10 +1,9 @@
 /**
- * Outbound port — FTS / search-document index side effects.
- * Self-contained: no external imports.
+ * Outbound port — event full-text search. Self-contained: no external imports.
  *
- * Adapter today: thin wrapper over the legacy sqlite search helpers, sharing
- * the same SQLite database file as TypeORM (WAL mode). Will be replaced when
- * the search tier is migrated.
+ * Backed by Postgres pg_trgm ILIKE over timeline_events (no separate index, no
+ * dual-write). Events only — task search is owned by work; the web fans out to
+ * both and merges.
  */
 
 export interface EventSearchIndexQueryOptions {
@@ -13,12 +12,9 @@ export interface EventSearchIndexQueryOptions {
 }
 
 export interface EventSearchIndexResults {
-    readonly tasks: readonly unknown[];
     readonly events: readonly unknown[];
-    readonly bookmarks: readonly unknown[];
 }
 
 export interface IEventSearchIndex {
-    refresh(eventId: string): Promise<void>;
     search(query: string, options: EventSearchIndexQueryOptions): Promise<EventSearchIndexResults>;
 }

@@ -24,6 +24,7 @@ import { GetTaskTurnsUseCase } from "./application/get.task.turns.usecase.js";
 import { GetTaskUseCase } from "./application/get.task.usecase.js";
 import { LinkTaskUseCase } from "./application/link.task.usecase.js";
 import { ListTasksUseCase } from "./application/list.tasks.usecase.js";
+import { SearchTasksUseCase } from "./application/search.tasks.usecase.js";
 import { StartTaskUseCase } from "./application/start.task.usecase.js";
 import { UpdateTaskUseCase } from "./application/update.task.usecase.js";
 import {
@@ -112,6 +113,7 @@ export class TaskModule {
                 LocalQueryRunner,
                 { provide: QUERY_RUNNER, useExisting: LocalQueryRunner },
                 ListTasksUseCase,
+                SearchTasksUseCase,
                 GetTaskUseCase,
                 GetTaskTimelineUseCase,
                 GetTaskSummaryUseCase,

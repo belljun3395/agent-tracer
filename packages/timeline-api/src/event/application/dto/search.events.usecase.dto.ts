@@ -63,6 +63,5 @@ export interface SearchEventsEventHitUseCaseDto {
 }
 
 export interface SearchEventsUseCaseOut {
-    readonly tasks: readonly SearchEventsTaskHitUseCaseDto[];
     readonly events: readonly SearchEventsEventHitUseCaseDto[];
 }

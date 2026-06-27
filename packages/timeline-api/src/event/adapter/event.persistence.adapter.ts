@@ -32,15 +32,12 @@ export class EventPersistenceAdapter implements IEventPersistence {
     }
 
     async insert(input: TimelineEventInsertRequest): Promise<PersistedTimelineEvent> {
-        const event = await this.storage.insert(input);
-        await this.searchIndex.refresh(input.id);
-        return event;
+        // No dual-write: PG search reads timeline_events directly.
+        return this.storage.insert(input);
     }
 
     async updateMetadata(eventId: string, metadata: Record<string, unknown>): Promise<PersistedTimelineEvent | null> {
-        const event = await this.storage.updateMetadata(eventId, metadata);
-        if (event) await this.searchIndex.refresh(eventId);
-        return event;
+        return this.storage.updateMetadata(eventId, metadata);
     }
 
     async search(query: string, options: EventSearchOptions): Promise<EventSearchResults> {
