@@ -1,28 +1,20 @@
 import { Column, Entity, Index, PrimaryColumn } from "typeorm";
 
-export type GovernanceJobType =
-    | "recipe_scan"
-    | "rule_generation"
-    | "rule_backfill"
-    | "task_cleanup";
+export type RuleJobType = "rule_generation" | "rule_backfill";
 
-export type GovernanceJobStatus =
-    | "pending"
-    | "processing"
-    | "completed"
-    | "failed";
+export type RuleJobStatus = "pending" | "processing" | "completed" | "failed";
 
 /**
- * Unified outbox row for the asynchronous LLM-backed governance jobs
- * (recipe scan, rule generation, task cleanup). The three used to be separate
- * near-identical tables; they are merged here behind a `jobType` discriminator.
- * Type-specific fields are kept as typed nullable columns so each job stays
- * readable and the worker/repository/lifecycle can be shared.
+ * Outbox row for the rules context's asynchronous LLM-backed jobs:
+ * rule generation (from a task) and rule backfill (re-evaluating a rule across
+ * its scope). The two share one `rule_jobs` table behind a `jobType`
+ * discriminator; type-specific fields are typed nullable columns so each job
+ * stays readable and the repository/lifecycle stays shared.
  */
-@Entity({ name: "governance_jobs" })
-@Index("idx_governance_jobs_user_type_status", ["userId", "jobType", "status", "createdAt"])
-@Index("idx_governance_jobs_task", ["taskId", "createdAt"])
-export class GovernanceJobEntity {
+@Entity({ name: "rule_jobs" })
+@Index("idx_rule_jobs_user_type_status", ["userId", "jobType", "status", "createdAt"])
+@Index("idx_rule_jobs_task", ["taskId", "createdAt"])
+export class RuleJobEntity {
     @PrimaryColumn({ type: "text" })
     id!: string;
 
@@ -31,10 +23,10 @@ export class GovernanceJobEntity {
     userId!: string;
 
     @Column({ name: "job_type", type: "text" })
-    jobType!: GovernanceJobType;
+    jobType!: RuleJobType;
 
     @Column({ type: "text" })
-    status!: GovernanceJobStatus;
+    status!: RuleJobStatus;
 
     @Column({ type: "integer", default: 0 })
     attempts!: number;
@@ -50,33 +42,13 @@ export class GovernanceJobEntity {
     @Column({ name: "rule_id", type: "text", nullable: true })
     ruleId!: string | null;
 
-    /** recipe_scan: JSON snapshot of the scan filters. */
-    @Column({ name: "filters_json", type: "text", nullable: true })
-    filtersJson!: string | null;
-
-    /** recipe_scan: output language override. */
-    @Column({ type: "text", nullable: true })
-    language!: string | null;
-
-    /** recipe_scan result. */
-    @Column({ name: "candidates_created", type: "integer", nullable: true })
-    candidatesCreated!: number | null;
-
     /** rule_generation result. */
     @Column({ name: "rules_created", type: "integer", nullable: true })
     rulesCreated!: number | null;
 
-    /** task_cleanup result. */
-    @Column({ name: "suggestions_created", type: "integer", nullable: true })
-    suggestionsCreated!: number | null;
-
     /** rule_backfill result. */
     @Column({ name: "verdicts_created", type: "integer", nullable: true })
     verdictsCreated!: number | null;
-
-    /** recipe_scan + task_cleanup result. */
-    @Column({ name: "tasks_scanned", type: "integer", nullable: true })
-    tasksScanned!: number | null;
 
     @Column({ name: "model_used", type: "text", nullable: true })
     modelUsed!: string | null;

@@ -7,8 +7,8 @@ import { ListCleanupSuggestionsUseCase } from "./application/list.cleanup.sugges
 import { TaskCleanupService } from "./application/task.cleanup.service.js";
 import { TaskCleanupSuggestionEntity } from "./domain/task.cleanup.suggestion.entity.js";
 import { TaskCleanupSuggestionRepository } from "./repository/task.cleanup.suggestion.repository.js";
-import { GovernanceJobEntity } from "@monitor/jobs-api/governance.job.entity.js";
-import { GovernanceJobRepository } from "@monitor/jobs-api/governance.job.repository.js";
+import { InsightJobEntity } from "../job/insight.job.entity.js";
+import { InsightJobRepository } from "../job/insight.job.repository.js";
 import { TaskCleanupAgent } from "./application/task.cleanup.agent.js";
 import { LocalQueryRunner } from "@monitor/shared/llm/local.query.runner.js";
 import { QUERY_RUNNER } from "@monitor/shared/llm/query.runner.port.js";
@@ -20,14 +20,14 @@ export class TaskCleanupModule {
             module: TaskCleanupModule,
             imports: [
                 TypeOrmModule.forFeature([
-                    GovernanceJobEntity,
+                    InsightJobEntity,
                     TaskCleanupSuggestionEntity,
                 ]),
                 databaseModule,
             ],
             controllers: [TaskCleanupController],
             providers: [
-                GovernanceJobRepository,
+                InsightJobRepository,
                 TaskCleanupSuggestionRepository,
                 TaskCleanupService,
                 ListCleanupSuggestionsUseCase,

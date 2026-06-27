@@ -2,8 +2,8 @@ import { Module, type DynamicModule } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { TaskRuleGenerationController } from "./api/task.rule.generation.controller.js";
 import { TaskRuleGenerationService } from "./application/task.rule.generation.service.js";
-import { GovernanceJobEntity } from "@monitor/jobs-api/governance.job.entity.js";
-import { GovernanceJobRepository } from "@monitor/jobs-api/governance.job.repository.js";
+import { RuleJobEntity } from "../job/rule.job.entity.js";
+import { RuleJobRepository } from "../job/rule.job.repository.js";
 import { RuleSuggestionAgent } from "./application/rule.suggestion.agent.js";
 import { LocalQueryRunner } from "@monitor/shared/llm/local.query.runner.js";
 import { QUERY_RUNNER } from "@monitor/shared/llm/query.runner.port.js";
@@ -14,12 +14,12 @@ export class RuleGenerationModule {
         return {
             module: RuleGenerationModule,
             imports: [
-                TypeOrmModule.forFeature([GovernanceJobEntity]),
+                TypeOrmModule.forFeature([RuleJobEntity]),
                 databaseModule,
             ],
             controllers: [TaskRuleGenerationController],
             providers: [
-                GovernanceJobRepository,
+                RuleJobRepository,
                 TaskRuleGenerationService,
                 // 룰 생성 LLM 에이전트 + Claude SDK 쿼리 러너
                 RuleSuggestionAgent,

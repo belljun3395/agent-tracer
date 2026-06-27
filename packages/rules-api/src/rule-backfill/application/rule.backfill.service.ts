@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
-import { GovernanceJobRepository } from "@monitor/jobs-api/governance.job.repository.js";
-import type { GovernanceJobEntity } from "@monitor/jobs-api/governance.job.entity.js";
+import { RuleJobRepository } from "../../job/rule.job.repository.js";
+import type { RuleJobEntity } from "../../job/rule.job.entity.js";
 import { RULE_PERSISTENCE_PORT } from "@monitor/rules-api/rule/application/outbound/tokens.js";
 import type { IRulePersistence } from "@monitor/rules-api/rule/application/outbound/rule.persistence.port.js";
 import { VERIFICATION_BACKFILL } from "@monitor/rules-api/verification/public/tokens.js";
@@ -24,7 +24,7 @@ export class RuleBackfillService {
     private readonly logger = new Logger(RuleBackfillService.name);
 
     constructor(
-        private readonly jobs: GovernanceJobRepository,
+        private readonly jobs: RuleJobRepository,
         @Inject(RULE_PERSISTENCE_PORT) private readonly rules: IRulePersistence,
         @Inject(VERIFICATION_BACKFILL) private readonly backfill: IVerificationBackfill,
     ) {}
@@ -34,7 +34,7 @@ export class RuleBackfillService {
      * 실패하는 잡 대신 404를 받게 한다. 멱등: 이미 pending/processing 백필이 있으면
      * 중복 스윕을 쌓지 않고 그것을 반환한다.
      */
-    async enqueue(ruleId: string): Promise<GovernanceJobEntity> {
+    async enqueue(ruleId: string): Promise<RuleJobEntity> {
         const rule = await this.rules.findById(ruleId);
         if (!rule) throw new RuleNotFoundForBackfillError(ruleId);
 
@@ -50,7 +50,7 @@ export class RuleBackfillService {
     }
 
     /** API 요청 안에서 재평가를 동기 실행하고 완료된 잡을 반환한다. */
-    async run(ruleId: string): Promise<GovernanceJobEntity> {
+    async run(ruleId: string): Promise<RuleJobEntity> {
         const job = await this.enqueue(ruleId);
         await this.execute(job);
         const completed = await this.jobs.findById(job.id);
@@ -60,7 +60,7 @@ export class RuleBackfillService {
     /**
      * 잡 하나를 실행하고 항상 completed/failed 로 전이시킨다.
      */
-    async execute(job: GovernanceJobEntity): Promise<void> {
+    async execute(job: RuleJobEntity): Promise<void> {
         const ruleId = job.ruleId;
         if (!ruleId) {
             await this.jobs.markFailed({

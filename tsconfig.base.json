@@ -20,9 +20,6 @@
       "@monitor/insight-api/*": [
         "packages/insight-api/src/*"
       ],
-      "@monitor/jobs-api/*": [
-        "packages/jobs-api/src/*"
-      ],
       "~config/*": [
         "packages/api-gateway/src/config/*"
       ],

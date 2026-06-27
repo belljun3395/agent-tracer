@@ -18,8 +18,8 @@ import {
     type InsertRecipeCandidateRow,
 } from "../repository/recipe.candidate.repository.js";
 import { RecipeRepository } from "../repository/recipe.repository.js";
-import { GovernanceJobRepository } from "@monitor/jobs-api/governance.job.repository.js";
-import type { GovernanceJobEntity } from "@monitor/jobs-api/governance.job.entity.js";
+import { InsightJobRepository } from "../../job/insight.job.repository.js";
+import type { InsightJobEntity } from "../../job/insight.job.entity.js";
 import type { RecipeEntity } from "../domain/recipe.entity.js";
 import { extractTaskIdsFromSlices, pickBestParent } from "../domain/recipe.parentage.js";
 import {
@@ -56,7 +56,7 @@ export class RecipeScanService {
     private readonly logger = new Logger(RecipeScanService.name);
 
     constructor(
-        private readonly jobs: GovernanceJobRepository,
+        private readonly jobs: InsightJobRepository,
         private readonly candidates: RecipeCandidateRepository,
         private readonly recipes: RecipeRepository,
         private readonly settings: AppSettingService,
@@ -70,7 +70,7 @@ export class RecipeScanService {
 
     async enqueue(
         input: EnqueueRecipeScanInput = {},
-    ): Promise<GovernanceJobEntity> {
+    ): Promise<InsightJobEntity> {
         const existing = await this.jobs.findActive("recipe_scan");
         if (existing) {
             throw new RecipeScanAlreadyInFlightError(existing.id);
@@ -101,22 +101,22 @@ export class RecipeScanService {
     }
 
     /** API 요청 안에서 레시피 스캔을 동기 실행하고 완료된 잡을 반환한다. */
-    async run(input: EnqueueRecipeScanInput = {}): Promise<GovernanceJobEntity> {
+    async run(input: EnqueueRecipeScanInput = {}): Promise<InsightJobEntity> {
         const job = await this.enqueue(input);
         await this.execute(job);
         const completed = await this.findById(job.id);
         return completed ?? job;
     }
 
-    async findLatest(): Promise<GovernanceJobEntity | null> {
+    async findLatest(): Promise<InsightJobEntity | null> {
         return this.jobs.findLatest("recipe_scan");
     }
 
-    async findById(id: string): Promise<GovernanceJobEntity | null> {
+    async findById(id: string): Promise<InsightJobEntity | null> {
         return this.jobs.findById(id);
     }
 
-    async execute(job: GovernanceJobEntity): Promise<void> {
+    async execute(job: InsightJobEntity): Promise<void> {
         this.notifier.publish({
             type: NOTIFICATION_TYPE.sdkJobUpdated,
             payload: {
