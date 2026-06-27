@@ -20,17 +20,20 @@
       "@monitor/governance/*": [
         "packages/governance/src/*"
       ],
-      "~config/*": [
-        "packages/server/src/config/*"
+      "@monitor/config/*": [
+        "packages/config/src/*"
+      ],
+      "@monitor/llm/*": [
+        "packages/llm/src/*"
+      ],
+      "@monitor/identity/*": [
+        "packages/identity/src/*"
       ],
       "~adapters/*": [
         "packages/server/src/adapters/*"
       ],
       "~main/*": [
         "packages/server/src/main/*"
-      ],
-      "~identity/*": [
-        "packages/server/src/identity/*"
       ],
       "@monitor/server": [
         "packages/server/src/server.entry.ts"

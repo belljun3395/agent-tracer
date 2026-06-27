@@ -34,7 +34,7 @@ import {
     TIMELINE_EVENT_WRITE,
 } from "./public/tokens.js";
 import { Client } from "@opensearch-project/opensearch";
-import { AppConfigService } from "~config/app-config.service.js";
+import { AppConfigService } from "@monitor/config/app-config.service.js";
 import {
     OPENSEARCH_CLIENT,
     OpenSearchEventIndex,

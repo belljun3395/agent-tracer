@@ -8,6 +8,9 @@ COPY packages/contracts/package.json packages/contracts/
 COPY packages/activity/package.json packages/activity/
 COPY packages/work/package.json packages/work/
 COPY packages/governance/package.json packages/governance/
+COPY packages/config/package.json packages/config/
+COPY packages/llm/package.json packages/llm/
+COPY packages/identity/package.json packages/identity/
 COPY packages/runtime/package.json packages/runtime/
 COPY packages/web/package.json packages/web/
 

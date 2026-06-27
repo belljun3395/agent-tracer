@@ -2,9 +2,9 @@ import { Module, type DynamicModule, type MiddlewareConsumer, type NestModule } 
 import { APP_FILTER, APP_INTERCEPTOR } from "@nestjs/core";
 import { ScheduleModule } from "@nestjs/schedule";
 import type { INotificationPublisher } from "@monitor/contracts/notifications/notification.publisher.port.js";
-import { AppConfigModule } from "~config/app-config.module.js";
+import { AppConfigModule } from "@monitor/config/app-config.module.js";
 import { HealthController } from "~adapters/http/query/controllers/health/health.query.controller.js";
-import { LlmModule } from "~adapters/llm/llm.module.js";
+import { LlmModule } from "@monitor/llm/llm.module.js";
 import { EventModule } from "@monitor/activity/event/event.module.js";
 import { SessionModule } from "@monitor/activity/session/session.module.js";
 import { TaskModule } from "@monitor/work/task/task.module.js";
@@ -16,7 +16,7 @@ import { RuleBackfillModule } from "@monitor/governance/rule-backfill/rule.backf
 import { RuleGenerationModule } from "@monitor/governance/rule-generation/rule.generation.module.js";
 import { TaskCleanupModule } from "@monitor/governance/task-cleanup/task.cleanup.module.js";
 import { RecipeModule } from "@monitor/governance/recipe/recipe.module.js";
-import { IdentityModule } from "~identity/identity.module.js";
+import { IdentityModule } from "@monitor/identity/identity.module.js";
 import { DatabaseModule } from "./database/database.module.js";
 import { TypeOrmDatabaseModule } from "./database/typeorm.database.module.js";
 import { GlobalExceptionFilter } from "./filters/zod-exception.filter.js";

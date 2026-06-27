@@ -6,15 +6,16 @@
     "emitDecoratorMetadata": true,
     "baseUrl": ".",
     "paths": {
-      "~config/*": ["src/config/*"],
       "~adapters/*": ["src/adapters/*"],
       "~main/*": ["src/main/*"],
-      "~identity/*": ["src/identity/*"],
       "@monitor/shared-kernel/*": ["../shared-kernel/src/*"],
       "@monitor/contracts/*": ["../contracts/src/*"],
       "@monitor/activity/*": ["../activity/src/*"],
       "@monitor/work/*": ["../work/src/*"],
-      "@monitor/governance/*": ["../governance/src/*"]
+      "@monitor/governance/*": ["../governance/src/*"],
+      "@monitor/config/*": ["../config/src/*"],
+      "@monitor/llm/*": ["../llm/src/*"],
+      "@monitor/identity/*": ["../identity/src/*"]
     }
   },
   "include": ["src", "*.config.ts", "vitest.setup.ts"]
