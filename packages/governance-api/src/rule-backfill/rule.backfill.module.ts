@@ -2,8 +2,8 @@ import { Module, type DynamicModule } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { RuleBackfillController } from "./api/rule.backfill.controller.js";
 import { RuleBackfillService } from "./application/rule.backfill.service.js";
-import { GovernanceJobEntity } from "@monitor/governance-api/job/governance.job.entity.js";
-import { GovernanceJobRepository } from "@monitor/governance-api/job/governance.job.repository.js";
+import { GovernanceJobEntity } from "@monitor/jobs-api/governance.job.entity.js";
+import { GovernanceJobRepository } from "@monitor/jobs-api/governance.job.repository.js";
 
 /**
  * Rule backfill module — owns the `rule_backfill` governance job that runs a

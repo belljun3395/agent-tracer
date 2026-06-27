@@ -13,6 +13,9 @@
       "@monitor/activity-api/*": ["../activity-api/src/*"],
       "@monitor/work-api/*": ["../work-api/src/*"],
       "@monitor/governance-api/*": ["../governance-api/src/*"],
+      "@monitor/rules-api/*": ["../rules-api/src/*"],
+      "@monitor/insight-api/*": ["../insight-api/src/*"],
+      "@monitor/jobs-api/*": ["../jobs-api/src/*"],
       "@monitor/identity-api/*": ["../identity-api/src/*"],
       "@monitor/ws-gateway/*": ["../ws-gateway/src/*"]
     }

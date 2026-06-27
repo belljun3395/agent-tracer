@@ -18,8 +18,8 @@ import {
     type InsertRecipeCandidateRow,
 } from "../repository/recipe.candidate.repository.js";
 import { RecipeRepository } from "../repository/recipe.repository.js";
-import { GovernanceJobRepository } from "@monitor/governance-api/job/governance.job.repository.js";
-import type { GovernanceJobEntity } from "@monitor/governance-api/job/governance.job.entity.js";
+import { GovernanceJobRepository } from "@monitor/jobs-api/governance.job.repository.js";
+import type { GovernanceJobEntity } from "@monitor/jobs-api/governance.job.entity.js";
 import type { RecipeEntity } from "../domain/recipe.entity.js";
 import { extractTaskIdsFromSlices, pickBestParent } from "../domain/recipe.parentage.js";
 import {

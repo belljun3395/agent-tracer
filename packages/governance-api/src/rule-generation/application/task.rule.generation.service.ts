@@ -9,8 +9,8 @@ import { RegisterSuggestionUseCase } from "@monitor/governance-api/rule/applicat
 import { APP_SETTING_KEYS } from "@monitor/identity-api/settings/domain/app.setting.keys.js";
 import { AppSettingService } from "@monitor/identity-api/settings/application/app.setting.service.js";
 import { NOTIFICATION_PUBLISHER_TOKEN } from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
-import { GovernanceJobRepository } from "@monitor/governance-api/job/governance.job.repository.js";
-import type { GovernanceJobEntity } from "@monitor/governance-api/job/governance.job.entity.js";
+import { GovernanceJobRepository } from "@monitor/jobs-api/governance.job.repository.js";
+import type { GovernanceJobEntity } from "@monitor/jobs-api/governance.job.entity.js";
 import {
     clampMaxRules,
     normalizeRuleSuggestionLanguage,

@@ -16,8 +16,8 @@ import { FileAffinityRepository } from "./repository/file.affinity.repository.js
 import { RecipeApplicationRepository } from "./repository/recipe.application.repository.js";
 import { RecipeCandidateRepository } from "./repository/recipe.candidate.repository.js";
 import { RecipeRepository } from "./repository/recipe.repository.js";
-import { GovernanceJobEntity } from "@monitor/governance-api/job/governance.job.entity.js";
-import { GovernanceJobRepository } from "@monitor/governance-api/job/governance.job.repository.js";
+import { GovernanceJobEntity } from "@monitor/jobs-api/governance.job.entity.js";
+import { GovernanceJobRepository } from "@monitor/jobs-api/governance.job.repository.js";
 import { RecipeScanAgent } from "./application/recipe.scan.agent.js";
 import { LocalQueryRunner } from "@monitor/shared/llm/local.query.runner.js";
 import { QUERY_RUNNER } from "@monitor/shared/llm/query.runner.port.js";

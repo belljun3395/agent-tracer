@@ -9,9 +9,9 @@ import { AppSettingService } from "@monitor/identity-api/settings/application/ap
 import { NOTIFICATION_PUBLISHER_TOKEN } from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
 import type { ITaskSnapshotQuery } from "@monitor/work-api/task/public/iservice/task.snapshot.query.iservice.js";
 import { TASK_SNAPSHOT_QUERY } from "@monitor/work-api/task/public/tokens.js";
-import { GovernanceJobRepository } from "@monitor/governance-api/job/governance.job.repository.js";
+import { GovernanceJobRepository } from "@monitor/jobs-api/governance.job.repository.js";
 import { TaskCleanupSuggestionRepository } from "../repository/task.cleanup.suggestion.repository.js";
-import type { GovernanceJobEntity } from "@monitor/governance-api/job/governance.job.entity.js";
+import type { GovernanceJobEntity } from "@monitor/jobs-api/governance.job.entity.js";
 import { dedupeByKindAndTask } from "../domain/task.cleanup.dedup.js";
 
 const DEFAULT_MAX_SUGGESTIONS = 20;
