@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { PreprocessingHintsRepository } from "@monitor/timeline-api/event/repository/preprocessing.hints.repository.js";
+import { parseJsonRecord } from "@monitor/timeline-api/event/domain/event.json.js";
 import type { PreprocessingHint } from "../dto/preprocessing.hints.dto.js";
 
 const USED_PCT_WARNING = 80;
@@ -17,12 +18,7 @@ export class ContextPressureDetector {
         const ageMs = Date.now() - Date.parse(snapshot.createdAt);
         if (Number.isFinite(ageMs) && ageMs > SNAPSHOT_FRESHNESS_MS) return [];
 
-        let extras: Record<string, unknown>;
-        try {
-            extras = JSON.parse(snapshot.extrasJson) as Record<string, unknown>;
-        } catch {
-            return [];
-        }
+        const extras = parseJsonRecord(snapshot.extrasJson);
 
         const hints: PreprocessingHint[] = [];
         const usedPct = readNumber(extras, "contextWindowUsedPct");

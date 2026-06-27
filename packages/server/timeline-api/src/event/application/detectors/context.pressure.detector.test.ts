@@ -28,6 +28,13 @@ function buildSnapshot(extras: Record<string, unknown>, createdAt = new Date().t
     } as TimelineEventEntity;
 }
 
+function buildSnapshotWithRawExtras(extrasJson: string): TimelineEventEntity {
+    return {
+        ...buildSnapshot({}),
+        extrasJson,
+    };
+}
+
 describe("ContextPressureDetector", () => {
     let repo: { findLatestContextSnapshot: ReturnType<typeof vi.fn> };
     let detector: ContextPressureDetector;
@@ -52,6 +59,12 @@ describe("ContextPressureDetector", () => {
 
     it("returns no hints below threshold", async () => {
         repo.findLatestContextSnapshot.mockResolvedValue(buildSnapshot({ contextWindowUsedPct: 50 }));
+        const hints = await detector.detect("task-1");
+        expect(hints).toEqual([]);
+    });
+
+    it("returns no hints when snapshot extras JSON is not an object", async () => {
+        repo.findLatestContextSnapshot.mockResolvedValue(buildSnapshotWithRawExtras("null"));
         const hints = await detector.detect("task-1");
         expect(hints).toEqual([]);
     });

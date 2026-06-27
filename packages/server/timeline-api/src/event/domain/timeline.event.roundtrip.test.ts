@@ -141,4 +141,13 @@ describe("타임라인 이벤트 build→hydrate 라운드트립", () => {
             model: "claude",
         });
     });
+
+    it("extrasJson이 객체가 아니면 빈 metadata로 복원한다", () => {
+        const row = buildTimelineEventEntity(makeRequest({ customField: "kept" }));
+        row.extrasJson = "null";
+
+        const event = hydrateTimelineEvent(row, buildDerivedTableInserts(makeRequest({})));
+
+        expect(event.metadata).toEqual({});
+    });
 });

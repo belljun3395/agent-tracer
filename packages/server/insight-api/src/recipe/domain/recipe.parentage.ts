@@ -3,7 +3,7 @@ import type { RecipeEntity } from "./recipe.entity.js";
 export function extractTaskIdsFromSlices(slicesJson: string): Set<string> {
     const out = new Set<string>();
     try {
-        const parsed = JSON.parse(slicesJson) as unknown;
+        const parsed: unknown = JSON.parse(slicesJson);
         if (!Array.isArray(parsed)) return out;
         for (const item of parsed) {
             if (!item || typeof item !== "object") continue;

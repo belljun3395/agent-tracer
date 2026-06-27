@@ -68,12 +68,23 @@ function mapEntity(row: VerdictEntity): TurnVerdict {
             ...(row.matchedPhrase !== null ? { matchedPhrase: row.matchedPhrase } : {}),
             ...(row.expectedPattern !== null ? { expectedPattern: row.expectedPattern } : {}),
             actualToolCalls: row.actualToolCallsJson
-                ? (JSON.parse(row.actualToolCallsJson) as string[])
+                ? parseStringArray(row.actualToolCallsJson)
                 : [],
             ...(row.matchedToolCallsJson !== null
-                ? { matchedToolCalls: JSON.parse(row.matchedToolCallsJson) as string[] }
+                ? { matchedToolCalls: parseStringArray(row.matchedToolCallsJson) }
                 : {}),
         },
         evaluatedAt: row.evaluatedAt,
     };
+}
+
+function parseStringArray(raw: string): string[] {
+    try {
+        const parsed: unknown = JSON.parse(raw);
+        return Array.isArray(parsed)
+            ? parsed.filter((item): item is string => typeof item === "string")
+            : [];
+    } catch {
+        return [];
+    }
 }

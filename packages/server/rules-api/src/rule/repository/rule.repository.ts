@@ -122,7 +122,7 @@ function mapRow(row: RuleEntity): RulePersistenceRecord {
         id: row.id,
         name: row.name,
         ...(row.triggerPhrasesJson
-            ? { trigger: { phrases: JSON.parse(row.triggerPhrasesJson) as readonly string[] } }
+            ? { trigger: { phrases: parseStringArray(row.triggerPhrasesJson) } }
             : {}),
         ...(row.triggerOn === "user" || row.triggerOn === "assistant"
             ? { triggerOn: row.triggerOn }
@@ -130,7 +130,7 @@ function mapRow(row: RuleEntity): RulePersistenceRecord {
         expect: {
             ...(action !== null ? { action } : {}),
             ...(row.expectCommandMatchesJson !== null
-                ? { commandMatches: JSON.parse(row.expectCommandMatchesJson) as readonly string[] }
+                ? { commandMatches: parseStringArray(row.expectCommandMatchesJson) }
                 : {}),
             ...(row.expectPattern !== null ? { pattern: row.expectPattern } : {}),
         },
@@ -142,4 +142,15 @@ function mapRow(row: RuleEntity): RulePersistenceRecord {
         signature: row.signature,
         createdAt: row.createdAt,
     };
+}
+
+function parseStringArray(raw: string): readonly string[] {
+    try {
+        const parsed: unknown = JSON.parse(raw);
+        return Array.isArray(parsed)
+            ? parsed.filter((item): item is string => typeof item === "string")
+            : [];
+    } catch {
+        return [];
+    }
 }

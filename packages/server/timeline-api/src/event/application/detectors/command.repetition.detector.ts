@@ -104,10 +104,15 @@ export class CommandRepetitionDetector {
 function parseExtras(json: string | null | undefined): Record<string, unknown> | null {
     if (!json) return null;
     try {
-        return JSON.parse(json) as Record<string, unknown>;
+        const parsed: unknown = JSON.parse(json);
+        return isRecord(parsed) ? parsed : null;
     } catch {
         return null;
     }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function collectFileTargets(analysis: unknown): readonly string[] {

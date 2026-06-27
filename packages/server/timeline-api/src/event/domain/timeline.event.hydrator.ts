@@ -1,7 +1,7 @@
 import type { TimelineEvent } from "@monitor/timeline-api/event/domain/model/timeline.event.model.js";
 import type { MonitoringEventKind } from "@monitor/timeline-api/event/domain/common/const/event.kind.const.js";
 import { normalizeLane } from "@monitor/timeline-api/event/domain/event.lane.js";
-import { parseJsonField } from "./event.json.js";
+import { parseJsonRecord } from "./event.json.js";
 import type { EventFileEntity } from "./event.file.entity.js";
 import type { EventRelationEntity } from "./event.relation.entity.js";
 import type { EventAsyncRefEntity } from "./event.async.ref.entity.js";
@@ -26,7 +26,7 @@ export function emptySupplements(): HydrationSupplements {
 }
 
 export function hydrateTimelineEvent(row: TimelineEventEntity, supplements: HydrationSupplements): TimelineEvent {
-    const metadata = parseJsonField<Record<string, unknown>>(row.extrasJson || "{}");
+    const metadata = parseJsonRecord(row.extrasJson || "{}");
     addString(metadata, "subtypeKey", row.subtypeKey);
     addString(metadata, "subtypeLabel", row.subtypeLabel);
     addString(metadata, "subtypeGroup", row.subtypeGroup);
