@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { query } from "@anthropic-ai/claude-agent-sdk";
 import { createAgentDeadline } from "./agent.deadline.js";
+import { logAgentQuery } from "./query.log.js";
 import type {
     AgentQueryRequest,
     AgentQueryResult,
@@ -95,7 +96,7 @@ export class LocalQueryRunner implements IQueryRunner {
             deadline.dispose();
         }
 
-        return {
+        const result: AgentQueryResult = {
             rawOutput: resultText || collected,
             structuredOutput,
             durationMs: Date.now() - startedAt,
@@ -105,6 +106,8 @@ export class LocalQueryRunner implements IQueryRunner {
             errorSummary,
             errorSubtype,
         };
+        logAgentQuery(request.label, request.model, result);
+        return result;
     }
 }
 

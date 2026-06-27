@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import Anthropic from "@anthropic-ai/sdk";
 import { createAgentDeadline } from "./agent.deadline.js";
+import { logAgentQuery } from "./query.log.js";
 import type {
     AgentQueryRequest,
     AgentQueryResult,
@@ -74,7 +75,7 @@ export class MessagesQueryRunner implements IQueryRunner {
                 }
             }
 
-            return {
+            const result: AgentQueryResult = {
                 rawOutput: text,
                 structuredOutput,
                 durationMs: Date.now() - startedAt,
@@ -84,8 +85,10 @@ export class MessagesQueryRunner implements IQueryRunner {
                 errorSummary: null,
                 errorSubtype: null,
             };
+            logAgentQuery(request.label, request.model, result);
+            return result;
         } catch (err) {
-            return {
+            const result: AgentQueryResult = {
                 rawOutput: "",
                 structuredOutput: null,
                 durationMs: Date.now() - startedAt,
@@ -95,6 +98,8 @@ export class MessagesQueryRunner implements IQueryRunner {
                 errorSummary: err instanceof Error ? err.message : String(err),
                 errorSubtype: "messages_api_error",
             };
+            logAgentQuery(request.label, request.model, result);
+            return result;
         } finally {
             deadline.dispose();
         }
