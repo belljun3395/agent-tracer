@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Logger, type OnModuleInit } from "@nestjs/common";
 import { DataSource } from "typeorm";
 import { currentUserId } from "@monitor/shared/kernel/user/user.context.js";
 import { normalizeLane } from "@monitor/timeline-api/event/domain/event.lane.js";
@@ -29,8 +29,33 @@ interface EventRow {
  * Task search lives in work (`/api/v1/tasks/search`).
  */
 @Injectable()
-export class PgEventSearch implements IEventSearchIndex {
+export class PgEventSearch implements IEventSearchIndex, OnModuleInit {
+    private readonly logger = new Logger(PgEventSearch.name);
+
     constructor(private readonly dataSource: DataSource) {}
+
+    /**
+     * Ensure pg_trgm + the GIN index that makes the ILIKE event search fast.
+     * Idempotent (IF NOT EXISTS), run on boot since synchronize:true doesn't
+     * manage extensions or expression indexes.
+     */
+    async onModuleInit(): Promise<void> {
+        try {
+            await this.dataSource.query("CREATE EXTENSION IF NOT EXISTS pg_trgm");
+            await this.dataSource.query(
+                `CREATE INDEX IF NOT EXISTS idx_timeline_events_title_trgm
+                 ON timeline_events USING gin (title gin_trgm_ops)`,
+            );
+            await this.dataSource.query(
+                `CREATE INDEX IF NOT EXISTS idx_timeline_events_body_trgm
+                 ON timeline_events USING gin (body gin_trgm_ops)`,
+            );
+        } catch (error) {
+            this.logger.warn(
+                `pg_trgm index bootstrap skipped: ${error instanceof Error ? error.message : String(error)}`,
+            );
+        }
+    }
 
     async search(query: string, options: EventSearchIndexQueryOptions): Promise<EventSearchIndexResults> {
         const trimmed = query.trim();

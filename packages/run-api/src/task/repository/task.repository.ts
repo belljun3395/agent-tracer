@@ -1,15 +1,31 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Logger, type OnModuleInit } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { In, Repository } from "typeorm";
 import type { TaskStatus } from "@monitor/run-api/task/common/task.status.const.js";
 import { TaskEntity } from "../domain/task.entity.js";
 
 @Injectable()
-export class TaskRepository {
+export class TaskRepository implements OnModuleInit {
+    private readonly logger = new Logger(TaskRepository.name);
+
     constructor(
         @InjectRepository(TaskEntity)
         private readonly repo: Repository<TaskEntity>,
     ) {}
+
+    /** pg_trgm + GIN index for the ILIKE task search (idempotent, run on boot). */
+    async onModuleInit(): Promise<void> {
+        try {
+            await this.repo.manager.query("CREATE EXTENSION IF NOT EXISTS pg_trgm");
+            await this.repo.manager.query(
+                `CREATE INDEX IF NOT EXISTS idx_tasks_title_trgm ON tasks USING gin (title gin_trgm_ops)`,
+            );
+        } catch (error) {
+            this.logger.warn(
+                `tasks pg_trgm index bootstrap skipped: ${error instanceof Error ? error.message : String(error)}`,
+            );
+        }
+    }
 
     async findById(id: string): Promise<TaskEntity | null> {
         return this.repo.findOne({ where: { id } });
