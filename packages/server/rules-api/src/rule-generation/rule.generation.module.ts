@@ -4,7 +4,7 @@ import { TaskRuleGenerationController } from "./api/task.rule.generation.control
 import { TaskRuleGenerationService } from "./application/task.rule.generation.service.js";
 import { RuleJobEntity } from "../job/rule.job.entity.js";
 import { RuleJobRepository } from "../job/rule.job.repository.js";
-import { RuleSuggestionAgent } from "./application/rule.suggestion.agent.js";
+import { RuleSuggestionAgent } from "./agent/rule.suggestion.agent.js";
 import { LocalQueryRunner } from "@monitor/shared/llm/local.query.runner.js";
 import { QUERY_RUNNER } from "@monitor/shared/llm/query.runner.port.js";
 

@@ -1,5 +1,5 @@
 import { normalizeOutputLanguage } from "@monitor/shared/llm/output.language.js";
-import type { RuleSuggestionLanguage } from "../application/rule.suggestion.prompt.js";
+import type { RuleSuggestionLanguage } from "../agent/rule.suggestion.prompt.js";
 
 export const DEFAULT_MAX_RULES = 5;
 const MAX_RULES_HARD_CAP = 20;

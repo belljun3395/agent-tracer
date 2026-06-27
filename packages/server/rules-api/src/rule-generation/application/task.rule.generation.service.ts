@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import { NOTIFICATION_TYPE } from "@monitor/shared/contracts/notifications/notification.type.const.js";
 import { randomUUID } from "node:crypto";
-import { RuleSuggestionAgent } from "./rule.suggestion.agent.js";
+import { RuleSuggestionAgent } from "../agent/rule.suggestion.agent.js";
 import type { INotificationPublisher } from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
 import { GetTaskSummaryUseCase } from "@monitor/run-api/task/application/get.task.summary.usecase.js";
 import { ListRulesUseCase } from "@monitor/rules-api/rule/application/list.rules.usecase.js";
