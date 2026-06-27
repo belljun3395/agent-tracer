@@ -11,10 +11,16 @@ import {
     type RuleSuggestion,
 } from "./rule.suggestion.zod.js";
 import { parseJsonStrict } from "@monitor/shared/llm/parse.json.js";
+import { zodToOutputSchema } from "@monitor/shared/llm/output.schema.js";
 
 const ALLOWED_TOOLS = ["Read", "Glob", "Grep"];
 const DEFAULT_MAX_TURNS = 8;
 const DEFAULT_MODEL = "claude-sonnet-4-6";
+
+// JSON Schema handed to the SDK's structured-output mode. The zod schema's
+// cross-field .superRefine() can't be expressed in JSON Schema, so it is dropped
+// here and re-checked by safeParse below — but the shape is enforced up front.
+const RULE_OUTPUT_SCHEMA = zodToOutputSchema(ruleSuggestionsListSchema);
 
 export interface GenerateRuleSuggestionsInput {
     /** Optional: omitted when a remote runner runs the SDK with its own local key. */
@@ -48,11 +54,12 @@ export class RuleSuggestionAgent {
     ): Promise<GenerateRuleSuggestionsOutput> {
         const model = input.model?.trim() || DEFAULT_MODEL;
         const language: RuleSuggestionLanguage = input.language ?? "auto";
-        const systemPrompt = buildSystemPrompt(language);
+        const systemPrompt = buildSystemPrompt();
         const userPrompt = buildUserPrompt(
             input.summary,
             input.existingRuleNames,
             input.maxRules,
+            language,
         );
         const cwd = input.summary.workspacePath;
 
@@ -64,19 +71,25 @@ export class RuleSuggestionAgent {
         };
 
         // Tool-using, up to 8 turns over the workspace; allow 300s before abort.
-        const { rawOutput, durationMs, errorSummary } = await this.queryRunner.run({
+        // Structured output: the SDK enforces the schema and retries violations.
+        const { rawOutput, structuredOutput, durationMs, errorSummary } = await this.queryRunner.run({
             label: "rule-suggestion",
             prompt: userPrompt,
             systemPrompt,
+            // Tool-using workspace agent: run on the preset scaffolding, with a
+            // cache-stable prefix (dynamic sections stripped) for prompt caching.
+            useClaudeCodePreset: true,
+            excludeDynamicSections: true,
             allowedTools: ALLOWED_TOOLS,
             ...(cwd ? { cwd } : {}),
             model,
             maxTurns: DEFAULT_MAX_TURNS,
             deadlineMs: 300_000,
             env,
+            outputSchema: RULE_OUTPUT_SCHEMA,
         });
 
-        if (errorSummary || !rawOutput) {
+        if (errorSummary || (!rawOutput && structuredOutput === null)) {
             throw new RuleSuggestionAgentError(
                 "SDK_AGENT_FAILED",
                 `Claude Agent SDK returned an error${
@@ -85,8 +98,10 @@ export class RuleSuggestionAgent {
             );
         }
 
-        const json = parseJsonStrict(rawOutput);
-        if (json === null) {
+        // Prefer the SDK's structured output; fall back to parsing the text for
+        // resilience (e.g. if a model/runner returns the answer as plain text).
+        const json = structuredOutput ?? parseJsonStrict(rawOutput);
+        if (json === null || json === undefined) {
             throw new RuleSuggestionAgentError(
                 "OUTPUT_NOT_JSON",
                 "Agent output was not parseable JSON",

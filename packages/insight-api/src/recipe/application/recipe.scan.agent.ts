@@ -11,10 +11,15 @@ import {
     type RecipeCandidatePayload,
 } from "./recipe.scan.zod.js";
 import { parseJsonStrict } from "@monitor/shared/llm/parse.json.js";
+import { zodToOutputSchema } from "@monitor/shared/llm/output.schema.js";
 
 const ALLOWED_TOOLS = ["Read", "Glob", "Grep"];
 const DEFAULT_MAX_TURNS = 8;
 const DEFAULT_MODEL = "claude-sonnet-4-6";
+
+// JSON Schema for the SDK's structured-output mode; zod still runs afterward to
+// apply array defaults (steps/touched_files/eventIds → []).
+const RECIPE_OUTPUT_SCHEMA = zodToOutputSchema(recipeCandidatesListSchema);
 
 export interface GenerateRecipeCandidatesInput {
     /** Optional: omitted when a remote runner runs the SDK with its own local key. */
@@ -46,8 +51,8 @@ export class RecipeScanAgent {
         input: GenerateRecipeCandidatesInput,
     ): Promise<GenerateRecipeCandidatesOutput> {
         const model = input.model?.trim() || DEFAULT_MODEL;
-        const systemPrompt = buildSystemPrompt(input.language);
-        const userPrompt = buildUserPrompt(input.tasks, input.maxCandidates);
+        const systemPrompt = buildSystemPrompt();
+        const userPrompt = buildUserPrompt(input.tasks, input.maxCandidates, input.language);
 
         const env: Record<string, string | undefined> = {
             ...(input.apiKey ? { ANTHROPIC_API_KEY: input.apiKey } : {}),
@@ -56,18 +61,23 @@ export class RecipeScanAgent {
         };
 
         // Tool-using, up to 8 turns; allow 300s before abort.
-        const { rawOutput, durationMs, errorSummary } = await this.queryRunner.run({
+        // Structured output: the SDK enforces the schema and retries violations.
+        const { rawOutput, structuredOutput, durationMs, errorSummary } = await this.queryRunner.run({
             label: "recipe-scan",
             prompt: userPrompt,
             systemPrompt,
+            // Tool-using workspace agent: preset scaffolding + cache-stable prefix.
+            useClaudeCodePreset: true,
+            excludeDynamicSections: true,
             allowedTools: ALLOWED_TOOLS,
             model,
             maxTurns: DEFAULT_MAX_TURNS,
             deadlineMs: 300_000,
             env,
+            outputSchema: RECIPE_OUTPUT_SCHEMA,
         });
 
-        if (errorSummary || !rawOutput) {
+        if (errorSummary || (!rawOutput && structuredOutput === null)) {
             throw new RecipeScanAgentError(
                 "SDK_AGENT_FAILED",
                 `Claude Agent SDK returned an error${
@@ -76,8 +86,9 @@ export class RecipeScanAgent {
             );
         }
 
-        const json = parseJsonStrict(rawOutput);
-        if (json === null) {
+        // Prefer the SDK's structured output; fall back to text parsing.
+        const json = structuredOutput ?? parseJsonStrict(rawOutput);
+        if (json === null || json === undefined) {
             throw new RecipeScanAgentError(
                 "OUTPUT_NOT_JSON",
                 "Agent output was not parseable JSON",

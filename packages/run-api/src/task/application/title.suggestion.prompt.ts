@@ -27,10 +27,7 @@ Rules:
   - Don't repeat the existing title.
   - rationale: one short sentence per suggestion explaining what evidence drove it (under 200 chars).
 
-Output STRICT JSON ONLY in this shape — no prose, no markdown, no backticks:
-{ "suggestions": [
-    { "title": "...", "rationale": "..." }
-] }`;
+Return the suggestions as structured output conforming to the provided schema.`;
 }
 
 export function buildUserPrompt(summary: TaskSummaryUseCaseDto): string {
@@ -72,6 +69,6 @@ export function buildUserPrompt(summary: TaskSummaryUseCaseDto): string {
         }
     }
     lines.push("");
-    lines.push("Propose 2-3 alternative titles. Output JSON only.");
+    lines.push("Propose 2-3 alternative titles.");
     return lines.join("\n");
 }

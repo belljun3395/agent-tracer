@@ -11,8 +11,12 @@ import {
     type TitleSuggestion,
 } from "./title.suggestion.zod.js";
 import { parseJsonStrict } from "@monitor/shared/llm/parse.json.js";
+import { zodToOutputSchema } from "@monitor/shared/llm/output.schema.js";
 
 const DEFAULT_MODEL = "claude-haiku-4-5";
+
+// JSON Schema for the SDK's structured-output mode; zod re-validates afterward.
+const TITLE_OUTPUT_SCHEMA = zodToOutputSchema(titleSuggestionsListSchema);
 
 export interface GenerateTitleSuggestionsInput {
     /** Optional: omitted when a remote runner runs the SDK with its own local key. */
@@ -53,7 +57,8 @@ export class TitleSuggestionAgent {
         };
 
         // Single-turn Haiku one-shot, no workspace tools; 120s deadline headroom.
-        const { rawOutput, durationMs, errorSummary } = await this.queryRunner.run({
+        // Structured output: the SDK enforces the schema and retries violations.
+        const { rawOutput, structuredOutput, durationMs, errorSummary } = await this.queryRunner.run({
             label: "title-suggestion",
             prompt: userPrompt,
             systemPrompt,
@@ -62,9 +67,10 @@ export class TitleSuggestionAgent {
             maxTurns: 1,
             deadlineMs: 120_000,
             env,
+            outputSchema: TITLE_OUTPUT_SCHEMA,
         });
 
-        if (errorSummary || !rawOutput) {
+        if (errorSummary || (!rawOutput && structuredOutput === null)) {
             throw new TitleSuggestionAgentError(
                 "SDK_AGENT_FAILED",
                 `Claude Agent SDK returned an error${
@@ -73,8 +79,9 @@ export class TitleSuggestionAgent {
             );
         }
 
-        const json = parseJsonStrict(rawOutput);
-        if (json === null) {
+        // Prefer the SDK's structured output; fall back to text parsing.
+        const json = structuredOutput ?? parseJsonStrict(rawOutput);
+        if (json === null || json === undefined) {
             throw new TitleSuggestionAgentError(
                 "OUTPUT_NOT_JSON",
                 "Agent output was not parseable JSON",

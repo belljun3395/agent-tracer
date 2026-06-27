@@ -48,10 +48,7 @@ Rules:
 Output language: ${LANGUAGE_DIRECTIVES[language]}
   - This applies to the "rationale" field. Task ids and the "kind" enum stay literal.
 
-Output STRICT JSON ONLY in this shape — no prose, no markdown, no backticks:
-{ "suggestions": [
-    { "kind": "archive", "taskId": "...", "rationale": "..." }
-] }`;
+Return the suggestions as structured output conforming to the provided schema.`;
 }
 
 export function buildUserPrompt(
@@ -79,7 +76,7 @@ export function buildUserPrompt(
         lines.push("");
     }
     lines.push(
-        `Propose up to ${maxSuggestions} archive suggestions. Output JSON only.`,
+        `Propose up to ${maxSuggestions} archive suggestions.`,
     );
     return lines.join("\n");
 }

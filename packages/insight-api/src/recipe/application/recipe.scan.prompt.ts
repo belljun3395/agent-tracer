@@ -26,7 +26,7 @@ export interface RecipeTaskSnapshot {
     readonly topCommands: readonly { readonly command: string; readonly count: number }[];
 }
 
-export function buildSystemPrompt(language: RecipeOutputLanguage): string {
+export function buildSystemPrompt(): string {
     return `You distill recorded coding-agent tasks into reusable "recipes" — high-level descriptions of how a kind of work tends to get done in this codebase. A future agent encountering a similar task can read the recipe and act faster.
 
 You will see a batch of completed/active tasks with their tool usage, files touched, and the first user message. Cluster tasks that share an intent and emit one recipe per cluster.
@@ -49,26 +49,13 @@ Rules:
   - Do NOT create a recipe whose only content is "the agent ran some tools" — pattern must be observable from the evidence.
   - Identifiers (file paths, tool names, commands) MUST be preserved verbatim even when prose is translated.
 
-Output language: ${LANGUAGE_DIRECTIVES[language]}
-
-Output STRICT JSON ONLY in this shape — no prose, no markdown, no backticks:
-{ "recipes": [
-    {
-      "title": "...",
-      "intent": "...",
-      "description": "...",
-      "summary_md": "...",
-      "steps": [{ "order": 1, "action": "...", "rationale": "..." }],
-      "touched_files": [{ "path": "src/...", "role": "write" }],
-      "contributing_slices": [{ "taskId": "...", "eventIds": [] }],
-      "rationale": "..."
-    }
-] }`;
+Return the recipes as structured output conforming to the provided schema.`;
 }
 
 export function buildUserPrompt(
     tasks: readonly RecipeTaskSnapshot[],
     maxCandidates: number,
+    language: RecipeOutputLanguage,
 ): string {
     const lines: string[] = [];
     lines.push(`Candidate tasks (${tasks.length} total):`);
@@ -110,8 +97,10 @@ export function buildUserPrompt(
         }
         lines.push("");
     }
+    lines.push(`Output language: ${LANGUAGE_DIRECTIVES[language]}`);
+    lines.push("");
     lines.push(
-        `Cluster these tasks into up to ${maxCandidates} recipes. Output JSON only.`,
+        `Cluster these tasks into up to ${maxCandidates} recipes.`,
     );
     return lines.join("\n");
 }

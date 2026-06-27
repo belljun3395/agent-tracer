@@ -11,6 +11,7 @@ import {
     type CleanupSuggestion,
 } from "./task.cleanup.zod.js";
 import { parseJsonStrict } from "@monitor/shared/llm/parse.json.js";
+import { zodToOutputSchema } from "@monitor/shared/llm/output.schema.js";
 
 // Cleanup is a single-shot "analyze this list and emit JSON" task — no
 // filesystem context needed. Keeping tools enabled (and an 8-turn budget)
@@ -19,6 +20,9 @@ import { parseJsonStrict } from "@monitor/shared/llm/parse.json.js";
 const ALLOWED_TOOLS: readonly string[] = [];
 const DEFAULT_MAX_TURNS = 1;
 const DEFAULT_MODEL = "claude-haiku-4-5";
+
+// JSON Schema for the SDK's structured-output mode; zod re-validates afterward.
+const CLEANUP_OUTPUT_SCHEMA = zodToOutputSchema(cleanupSuggestionsListSchema);
 
 export interface GenerateCleanupSuggestionsInput {
     /** Optional: omitted when a remote runner runs the SDK with its own local key. */
@@ -61,7 +65,8 @@ export class TaskCleanupAgent {
         };
 
         // Single-turn Haiku one-shot, no workspace tools; 120s deadline headroom.
-        const { rawOutput, durationMs, errorSummary } = await this.queryRunner.run({
+        // Structured output: the SDK enforces the schema and retries violations.
+        const { rawOutput, structuredOutput, durationMs, errorSummary } = await this.queryRunner.run({
             label: "task-cleanup",
             prompt: userPrompt,
             systemPrompt,
@@ -70,9 +75,10 @@ export class TaskCleanupAgent {
             maxTurns: DEFAULT_MAX_TURNS,
             deadlineMs: 120_000,
             env,
+            outputSchema: CLEANUP_OUTPUT_SCHEMA,
         });
 
-        if (errorSummary || !rawOutput) {
+        if (errorSummary || (!rawOutput && structuredOutput === null)) {
             throw new TaskCleanupAgentError(
                 "SDK_AGENT_FAILED",
                 `Claude Agent SDK returned an error${
@@ -81,8 +87,9 @@ export class TaskCleanupAgent {
             );
         }
 
-        const json = parseJsonStrict(rawOutput);
-        if (json === null) {
+        // Prefer the SDK's structured output; fall back to text parsing.
+        const json = structuredOutput ?? parseJsonStrict(rawOutput);
+        if (json === null || json === undefined) {
             throw new TaskCleanupAgentError(
                 "OUTPUT_NOT_JSON",
                 "Agent output was not parseable JSON",
