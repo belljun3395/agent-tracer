@@ -17,23 +17,18 @@ import { UpdateEventUseCase } from "./application/update.event.usecase.js";
 import {
     EVENT_PERSISTENCE_PORT,
     EVENT_SEARCH_INDEX_PORT,
-    EVENT_STORE_APPENDER_PORT,
     NOTIFICATION_PUBLISHER_PORT,
     TASK_ACCESS_PORT,
     VERIFICATION_POST_PROCESSOR_PORT,
 } from "./application/outbound/tokens.js";
-import { DomainEventAppenderPublicAdapter } from "./adapter/domain.event.appender.public.adapter.js";
 import { EventNotificationPublisherAdapter } from "./adapter/notification.publisher.adapter.js";
 import { EventPersistenceAdapter } from "./adapter/event.persistence.adapter.js";
 import { EventSearchIndexAdapter } from "./adapter/event.search.index.adapter.js";
-import { EventStoreAppenderAdapter } from "./adapter/event.store.appender.adapter.js";
 import { EventTaskAccessAdapter } from "./adapter/task.access.adapter.js";
 import { TimelineEventProjectionPublicAdapter } from "./adapter/timeline.event.projection.public.adapter.js";
 import { TimelineEventWritePublicAdapter } from "./adapter/timeline.event.write.public.adapter.js";
 import { VerificationPostProcessorAdapter } from "./adapter/verification.post.processor.adapter.js";
 import { EventAsyncRefEntity } from "./domain/event.async.ref.entity.js";
-import { ContentBlobEntity } from "./domain/event-store/content.blob.entity.js";
-import { EventLogEntity } from "./domain/event-store/event.log.entity.js";
 import { EventFileEntity } from "./domain/event.file.entity.js";
 import { EventRelationEntity } from "./domain/event.relation.entity.js";
 import { EventTagEntity } from "./domain/event.tag.entity.js";
@@ -42,7 +37,6 @@ import { QuestionCurrentEntity } from "./domain/question.current.entity.js";
 import { TimelineEventEntity } from "./domain/timeline.event.entity.js";
 import { TodoCurrentEntity } from "./domain/todo.current.entity.js";
 import {
-    DOMAIN_EVENT_APPENDER,
     TIMELINE_EVENT_PROJECTION,
     TIMELINE_EVENT_READ,
     TIMELINE_EVENT_WRITE,
@@ -59,7 +53,6 @@ import { PreprocessingHintsRepository } from "./repository/preprocessing.hints.r
 import { QuestionCurrentRepository } from "./repository/question.current.repository.js";
 import { TimelineEventRepository } from "./repository/timeline.event.repository.js";
 import { TodoCurrentRepository } from "./repository/todo.current.repository.js";
-import { EventStoreService } from "./repository/event-store/event.store.service.js";
 import { SearchBackfillService } from "./repository/search/search.backfill.service.js";
 import { SearchDocumentEntity } from "./domain/search/search.document.entity.js";
 import { TimelineEventService } from "./service/timeline.event.service.js";
@@ -102,8 +95,6 @@ export class EventModule {
                     TodoCurrentEntity,
                     QuestionCurrentEntity,
                     EventTokenUsageEntity,
-                    EventLogEntity,
-                    ContentBlobEntity,
                     SearchDocumentEntity,
                 ]),
                 databaseModule,
@@ -129,19 +120,16 @@ export class EventModule {
                 // Services
                 TimelineEventStorageService,
                 TimelineEventService,
-                EventStoreService,
                 SearchBackfillService,
                 // Outbound adapters
                 EventPersistenceAdapter,
                 EventSearchIndexAdapter,
-                EventStoreAppenderAdapter,
                 EventTaskAccessAdapter,
                 EventNotificationPublisherAdapter,
                 VerificationPostProcessorAdapter,
                 // Public adapters
                 TimelineEventWritePublicAdapter,
                 TimelineEventProjectionPublicAdapter,
-                DomainEventAppenderPublicAdapter,
                 // Use cases
                 CrossCheckDedupeCache,
                 LogEventUseCase,
@@ -157,11 +145,9 @@ export class EventModule {
                 { provide: TIMELINE_EVENT_READ, useExisting: TimelineEventService },
                 { provide: TIMELINE_EVENT_WRITE, useExisting: TimelineEventWritePublicAdapter },
                 { provide: TIMELINE_EVENT_PROJECTION, useExisting: TimelineEventProjectionPublicAdapter },
-                { provide: DOMAIN_EVENT_APPENDER, useExisting: DomainEventAppenderPublicAdapter },
                 // Outbound bindings
                 { provide: EVENT_PERSISTENCE_PORT, useExisting: EventPersistenceAdapter },
                 { provide: EVENT_SEARCH_INDEX_PORT, useExisting: EventSearchIndexAdapter },
-                { provide: EVENT_STORE_APPENDER_PORT, useExisting: EventStoreAppenderAdapter },
                 { provide: TASK_ACCESS_PORT, useExisting: EventTaskAccessAdapter },
                 { provide: NOTIFICATION_PUBLISHER_PORT, useExisting: EventNotificationPublisherAdapter },
                 { provide: VERIFICATION_POST_PROCESSOR_PORT, useExisting: VerificationPostProcessorAdapter },
@@ -170,7 +156,6 @@ export class EventModule {
                 TIMELINE_EVENT_READ,
                 TIMELINE_EVENT_WRITE,
                 TIMELINE_EVENT_PROJECTION,
-                DOMAIN_EVENT_APPENDER,
             ],
         };
     }

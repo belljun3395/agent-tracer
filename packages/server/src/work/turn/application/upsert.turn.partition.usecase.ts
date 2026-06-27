@@ -5,14 +5,12 @@ import { countNonPreludeTurns, createTurnPartitionUpdate, validatePartition } fr
 import { TurnPartitionRepository } from "../repository/turn.partition.repository.js";
 import {
     CLOCK_PORT,
-    EVENT_STORE_APPENDER_PORT,
     TASK_ACCESS_PORT,
     TIMELINE_EVENT_ACCESS_PORT,
 } from "./outbound/tokens.js";
 import type { IClock } from "./outbound/clock.port.js";
 import type { ITaskAccess } from "./outbound/task.access.port.js";
 import type { ITimelineEventAccess } from "./outbound/timeline.event.access.port.js";
-import type { IEventStoreAppender } from "./outbound/event.store.appender.port.js";
 import type {
     UpsertTurnPartitionUseCaseIn,
     UpsertTurnPartitionUseCaseOut,
@@ -25,7 +23,6 @@ export class UpsertTurnPartitionUseCase {
         @Inject(TASK_ACCESS_PORT) private readonly tasks: ITaskAccess,
         @Inject(TIMELINE_EVENT_ACCESS_PORT) private readonly events: ITimelineEventAccess,
         private readonly turnPartitions: TurnPartitionRepository,
-        @Inject(EVENT_STORE_APPENDER_PORT) private readonly eventStore: IEventStoreAppender,
         @Inject(CLOCK_PORT) private readonly clock: IClock,
     ) {}
 
@@ -55,13 +52,6 @@ export class UpsertTurnPartitionUseCase {
         });
         validatePartition(partition, totalTurns);
         await this.turnPartitions.upsert(partition);
-        await this.eventStore.append({
-            type: "turn.partition_updated",
-            taskId: partition.taskId,
-            updatedAt: partition.updatedAt,
-            version: partition.version,
-            groups: partition.groups.map((g) => ({ ...g })),
-        });
         return partition;
     }
 }

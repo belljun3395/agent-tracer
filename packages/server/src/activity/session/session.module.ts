@@ -11,7 +11,6 @@ import {
 import { SessionNotificationPublisherAdapter } from "./adapter/session.notification.publisher.adapter.js";
 import { TaskAccessAdapter } from "./adapter/task.access.adapter.js";
 import { TaskLifecycleAccessAdapter } from "./adapter/task.lifecycle.access.adapter.js";
-import { EventLogEntity } from "~activity/event/domain/event-store/event.log.entity.js";
 import { RuntimeBindingEntity } from "./domain/runtime.binding.entity.js";
 import { SessionEntity } from "./domain/session.entity.js";
 import {
@@ -22,10 +21,6 @@ import { RuntimeBindingRepository } from "./repository/runtime.binding.repositor
 import { SessionRepository } from "./repository/session.repository.js";
 import { RuntimeBindingService } from "./service/runtime.binding.service.js";
 import { SessionLifecycleService } from "./service/session.lifecycle.service.js";
-import {
-    RuntimeBindingEntitySubscriber,
-    SessionEntitySubscriber,
-} from "./subscriber/session.event.subscriber.js";
 
 /**
  * Session module — owns SessionEntity, RuntimeBindingEntity, EventLogEntity.
@@ -49,7 +44,7 @@ export class SessionModule {
             module: SessionModule,
             global: true,
             imports: [
-                TypeOrmModule.forFeature([SessionEntity, RuntimeBindingEntity, EventLogEntity]),
+                TypeOrmModule.forFeature([SessionEntity, RuntimeBindingEntity]),
                 databaseModule,
             ],
             controllers: [SessionIngestController],
@@ -61,8 +56,6 @@ export class SessionModule {
                 TaskAccessAdapter,
                 TaskLifecycleAccessAdapter,
                 SessionNotificationPublisherAdapter,
-                SessionEntitySubscriber,
-                RuntimeBindingEntitySubscriber,
                 EnsureRuntimeSessionUseCase,
                 EndRuntimeSessionUseCase,
                 // Public iservices — narrow contract is enforced by the interface; the

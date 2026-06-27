@@ -1,11 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { TimelineEventStorageService } from "../service/timeline.event.storage.service.js";
-import {
-    EVENT_SEARCH_INDEX_PORT,
-    EVENT_STORE_APPENDER_PORT,
-} from "../application/outbound/tokens.js";
+import { EVENT_SEARCH_INDEX_PORT } from "../application/outbound/tokens.js";
 import type { IEventSearchIndex } from "../application/outbound/event.search.index.port.js";
-import type { IEventStoreAppender } from "../application/outbound/event.store.appender.port.js";
 import type {
     EventSearchOptions,
     EventSearchResults,
@@ -25,7 +21,6 @@ export class EventPersistenceAdapter implements IEventPersistence {
     constructor(
         private readonly storage: TimelineEventStorageService,
         @Inject(EVENT_SEARCH_INDEX_PORT) private readonly searchIndex: IEventSearchIndex,
-        @Inject(EVENT_STORE_APPENDER_PORT) private readonly eventStore: IEventStoreAppender,
     ) {}
 
     async findById(id: string): Promise<PersistedTimelineEvent | null> {
@@ -40,7 +35,6 @@ export class EventPersistenceAdapter implements IEventPersistence {
 
     async insert(input: TimelineEventInsertRequest): Promise<PersistedTimelineEvent> {
         const event = await this.storage.insert(input);
-        await this.eventStore.append(input);
         await this.searchIndex.refresh(input.id);
         return event as unknown as PersistedTimelineEvent;
     }

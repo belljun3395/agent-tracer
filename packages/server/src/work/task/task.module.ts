@@ -47,11 +47,6 @@ import { StaleTaskReaperService } from "./service/stale.task.reaper.service.js";
 import { TaskLifecycleService } from "./service/task.lifecycle.service.js";
 import { TaskManagementService } from "./service/task.management.service.js";
 import { TaskQueryService } from "./service/task.query.service.js";
-import { EventLogEntity } from "~activity/event/domain/event-store/event.log.entity.js";
-import {
-    TaskEntitySubscriber,
-    TaskRelationEntitySubscriber,
-} from "./subscriber/task.event.subscriber.js";
 
 /**
  * Task module — owns TaskEntity, TaskRelationEntity.
@@ -74,7 +69,7 @@ export class TaskModule {
             module: TaskModule,
             global: true,
             imports: [
-                TypeOrmModule.forFeature([TaskEntity, TaskRelationEntity, EventLogEntity]),
+                TypeOrmModule.forFeature([TaskEntity, TaskRelationEntity]),
                 databaseModule,
             ],
             controllers: [TaskCommandController, TaskIngestController, TaskQueryController, SystemQueryController],
@@ -85,9 +80,6 @@ export class TaskModule {
                 TaskManagementService,
                 TaskLifecycleService,
                 StaleTaskReaperService,
-                // Entity subscribers — emit task.created/renamed/status_changed/hierarchy_changed
-                TaskEntitySubscriber,
-                TaskRelationEntitySubscriber,
                 // Outbound adapters
                 SessionAccessAdapter,
                 RuntimeBindingAccessAdapter,
