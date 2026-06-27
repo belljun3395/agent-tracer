@@ -11,16 +11,13 @@ import {
     CLOCK_PORT,
     ID_GENERATOR_PORT,
     NOTIFICATION_PUBLISHER_PORT,
-    POST_PROCESSING_QUEUE_PORT,
     TASK_ACCESS_PORT,
+    VERIFICATION_POST_PROCESSOR_PORT,
 } from "./outbound/tokens.js";
 import type { IClock } from "./outbound/clock.port.js";
 import type { IIdGenerator } from "./outbound/id.generator.port.js";
 import type { IEventNotificationPublisher } from "./outbound/notification.publisher.port.js";
-import type {
-    IPostProcessingQueue,
-    PostProcessingJobType,
-} from "./outbound/post.processing.queue.port.js";
+import type { IVerificationPostProcessor } from "./outbound/verification.post.processor.port.js";
 import type { IEventTaskAccess } from "./outbound/task.access.port.js";
 import type { LogEventUseCaseIn, LogEventUseCaseOut } from "./dto/log.event.usecase.dto.js";
 
@@ -55,7 +52,7 @@ export class LogEventUseCase {
         private readonly events: TimelineEventService,
         @Inject(TASK_ACCESS_PORT) private readonly tasks: IEventTaskAccess,
         @Inject(NOTIFICATION_PUBLISHER_PORT) private readonly notifier: IEventNotificationPublisher,
-        @Inject(POST_PROCESSING_QUEUE_PORT) private readonly queue: IPostProcessingQueue,
+        @Inject(VERIFICATION_POST_PROCESSOR_PORT) private readonly verification: IVerificationPostProcessor,
         @Inject(CLOCK_PORT) private readonly clock: IClock,
         @Inject(ID_GENERATOR_PORT) private readonly idGen: IIdGenerator,
         private readonly dedupe: CrossCheckDedupeCache,
@@ -155,16 +152,15 @@ export class LogEventUseCase {
             this.notifier.publish({ type: "event.logged", payload: projectTimelineEvent(event) as never });
         });
 
-        const jobType: PostProcessingJobType =
-            event.kind === KIND.userMessage
-                ? "verification.user_message"
-                : event.kind === KIND.assistantResponse
-                    ? "verification.assistant_response"
-                    : "verification.other_event";
-        // Enqueue participates in the surrounding @Transactional() — outbox-style.
-        // A failure here MUST roll back the event insert so we never lose post-processing
-        // for an event that was committed.
-        await this.queue.enqueue({ eventId: event.id, jobType });
+        // 후처리(턴 개폐 + 룰 평가 + enforcement)를 같은 요청 트랜잭션 안에서 동기 실행한다.
+        // 실패하면 이벤트 insert도 함께 롤백된다.
+        if (event.kind === KIND.userMessage) {
+            await this.verification.onUserMessage(event);
+        } else if (event.kind === KIND.assistantResponse) {
+            await this.verification.onAssistantResponse(event);
+        } else {
+            await this.verification.onOtherEvent(event);
+        }
 
         return event;
     }
