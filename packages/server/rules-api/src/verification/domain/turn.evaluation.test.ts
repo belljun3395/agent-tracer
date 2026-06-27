@@ -55,6 +55,12 @@ describe("evaluateTurn — 턴 단위 룰 평가", () => {
         expect(verdict?.detail.matchedToolCalls).toEqual(["npm test -- --run"]);
     });
 
+    it("commandMatches는 정규식이 아니라 리터럴 부분 문자열로 판정한다", () => {
+        const r = rule({ expect: { action: "command", commandMatches: ["test("] } });
+        const verdict = evaluateOne(r, { toolCalls: [bash("npm run test(unit)")] });
+        expect(verdict?.status).toBe("verified");
+    });
+
     it("기대한 명령이 실행되지 않았으면 contradicted", () => {
         const r = rule({ expect: { action: "command", commandMatches: ["npm test"] } });
         const verdict = evaluateOne(r, { toolCalls: [bash("ls -la")] });
@@ -67,10 +73,10 @@ describe("evaluateTurn — 턴 단위 룰 평가", () => {
         expect(verdict?.status).toBe("contradicted");
     });
 
-    it("정규식이 잘못된 commandMatches는 unverifiable", () => {
+    it("정규식 메타문자가 있는 commandMatches도 리터럴 문자열로 매칭한다", () => {
         const r = rule({ expect: { action: "command", commandMatches: ["("] } });
-        const verdict = evaluateOne(r, { toolCalls: [bash("npm test")] });
-        expect(verdict?.status).toBe("unverifiable");
+        const verdict = evaluateOne(r, { toolCalls: [bash("npm run test(unit)")] });
+        expect(verdict?.status).toBe("verified");
     });
 
     it("pattern이 파일 경로에 매칭되면 verified", () => {
