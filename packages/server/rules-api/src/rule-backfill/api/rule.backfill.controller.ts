@@ -11,7 +11,7 @@ import { pathParamPipe } from "@monitor/shared/contracts/http/path-param.pipe.js
 import {
     RuleBackfillService,
     RuleNotFoundForBackfillError,
-} from "../application/rule.backfill.service.js";
+} from "../service/rule.backfill.service.js";
 
 @Controller("api/v1/rules")
 export class RuleBackfillController {
