@@ -8,6 +8,7 @@ import { LlmModule } from "~adapters/llm/llm.module.js";
 import { ActivityModule } from "~activity/activity.module.js";
 import { GovernanceModule } from "~governance/governance.module.js";
 import { WorkModule } from "~work/work.module.js";
+import { IdentityModule } from "~identity/identity.module.js";
 import { DatabaseModule } from "./database/database.module.js";
 import { TypeOrmDatabaseModule } from "./database/typeorm.database.module.js";
 import { GlobalExceptionFilter } from "./filters/zod-exception.filter.js";
@@ -40,6 +41,7 @@ export class AppModule implements NestModule {
                 typeOrmDatabaseModule,
                 databaseModule,
                 LlmModule,
+                IdentityModule,
                 governanceModule,
                 activityModule,
                 workModule,

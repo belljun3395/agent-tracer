@@ -12,6 +12,7 @@
       "~activity/*": ["src/activity/*"],
       "~work/*": ["src/work/*"],
       "~governance/*": ["src/governance/*"],
+      "~identity/*": ["src/identity/*"],
       "~shared/*": ["src/shared/*"]
     }
   },
