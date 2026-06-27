@@ -1,5 +1,20 @@
 import { Module, type DynamicModule } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
+// Turn-partition — folded into task as its own slice under ./turn/ (rich domain
+// preserved; only the separate NestJS module was collapsed into TaskModule).
+import { TurnPartitionCommandController } from "./turn/api/turn.partition.command.controller.js";
+import { TurnPartitionQueryController } from "./turn/api/turn.partition.query.controller.js";
+import { TurnPartitionRepository } from "./turn/repository/turn.partition.repository.js";
+import { TaskAccessAdapter as TurnTaskAccessAdapter } from "./turn/adapter/task.access.adapter.js";
+import { TimelineEventAccessAdapter as TurnTimelineEventAccessAdapter } from "./turn/adapter/timeline.event.access.adapter.js";
+import { GetTurnPartitionUseCase } from "./turn/application/get.turn.partition.usecase.js";
+import { UpsertTurnPartitionUseCase } from "./turn/application/upsert.turn.partition.usecase.js";
+import { ResetTurnPartitionUseCase } from "./turn/application/reset.turn.partition.usecase.js";
+import { TurnPartitionEntity } from "./turn/domain/turn.partition.entity.js";
+import {
+    TASK_ACCESS_PORT as TURN_TASK_ACCESS_PORT,
+    TIMELINE_EVENT_ACCESS_PORT as TURN_TIMELINE_EVENT_ACCESS_PORT,
+} from "./turn/application/outbound/tokens.js";
 import { SystemQueryController } from "./api/system.query.controller.js";
 import { TaskCommandController } from "./api/task.command.controller.js";
 import { TaskIngestController } from "./api/task.ingest.controller.js";
@@ -74,10 +89,10 @@ export class TaskModule {
         return {
             module: TaskModule,
             imports: [
-                TypeOrmModule.forFeature([TaskEntity, TaskRelationEntity]),
+                TypeOrmModule.forFeature([TaskEntity, TaskRelationEntity, TurnPartitionEntity]),
                 databaseModule,
             ],
-            controllers: [TaskCommandController, TaskIngestController, TaskQueryController, SystemQueryController],
+            controllers: [TaskCommandController, TaskIngestController, TaskQueryController, SystemQueryController, TurnPartitionCommandController, TurnPartitionQueryController],
             providers: [
                 TaskRepository,
                 TaskRelationRepository,
@@ -122,6 +137,15 @@ export class TaskModule {
                 GetTaskOpenInferenceUseCase,
                 GetOverviewUseCase,
                 GetDefaultWorkspacePathUseCase,
+                // Turn-partition slice (folded from TurnModule)
+                TurnPartitionRepository,
+                TurnTaskAccessAdapter,
+                TurnTimelineEventAccessAdapter,
+                GetTurnPartitionUseCase,
+                UpsertTurnPartitionUseCase,
+                ResetTurnPartitionUseCase,
+                { provide: TURN_TASK_ACCESS_PORT, useExisting: TurnTaskAccessAdapter },
+                { provide: TURN_TIMELINE_EVENT_ACCESS_PORT, useExisting: TurnTimelineEventAccessAdapter },
                 // Public iservices
                 { provide: TASK_LIFECYCLE, useExisting: TaskLifecycleService },
                 { provide: TASK_ACCESS, useExisting: TaskAccessPublicAdapter },

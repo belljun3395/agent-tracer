@@ -8,7 +8,6 @@ import { HealthController } from "~adapters/http/query/controllers/health/health
 import { EventModule } from "@monitor/timeline-api/event/event.module.js";
 import { SessionModule } from "@monitor/run-api/session/session.module.js";
 import { TaskModule } from "@monitor/run-api/task/task.module.js";
-import { TurnModule } from "@monitor/run-api/turn/turn.module.js";
 import { VerificationModule } from "@monitor/rules-api/verification/verification.module.js";
 import { RuleModule } from "@monitor/rules-api/rule/rule.module.js";
 import { SettingsModule } from "@monitor/identity-api/settings/settings.module.js";
@@ -45,7 +44,6 @@ export class AppModule implements NestModule {
         const event = EventModule.register(databaseModule);
         const session = SessionModule.register(databaseModule);
         const task = TaskModule.register(databaseModule);
-        const turn = TurnModule.register(databaseModule);
         const verification = VerificationModule.register(databaseModule);
         const rule = RuleModule.register(databaseModule);
         const settings = SettingsModule.register(databaseModule);
@@ -57,7 +55,6 @@ export class AppModule implements NestModule {
         event.imports!.push(task, verification);
         session.imports!.push(task);
         task.imports!.push(event, session, settings, verification);
-        turn.imports!.push(event, task);
         verification.imports!.push(event, rule);
         rule.imports!.push(verification);
         ruleBackfill.imports!.push(rule, verification);
@@ -77,7 +74,6 @@ export class AppModule implements NestModule {
                 event,
                 session,
                 task,
-                turn,
                 verification,
                 rule,
                 settings,
