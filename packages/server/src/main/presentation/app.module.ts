@@ -13,6 +13,7 @@ import { TypeOrmDatabaseModule } from "./database/typeorm.database.module.js";
 import { GlobalExceptionFilter } from "./filters/zod-exception.filter.js";
 import { ApiResponseInterceptor } from "./interceptors/api-response.interceptor.js";
 import { RequestContextMiddleware } from "./middleware/request-context.middleware.js";
+import { UserContextMiddleware } from "./middleware/user-context.middleware.js";
 
 export interface AppModuleOptions {
     readonly notifier?: INotificationPublisher;
@@ -21,7 +22,7 @@ export interface AppModuleOptions {
 @Module({})
 export class AppModule implements NestModule {
     configure(consumer: MiddlewareConsumer): void {
-        consumer.apply(RequestContextMiddleware).forRoutes("*");
+        consumer.apply(UserContextMiddleware, RequestContextMiddleware).forRoutes("*");
     }
 
     static forRoot(options: AppModuleOptions): DynamicModule {
