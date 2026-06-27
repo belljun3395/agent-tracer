@@ -6,7 +6,7 @@ import { AppConfigModule } from "~config/app-config.module.js";
 import { HealthController } from "~adapters/http/query/controllers/health/health.query.controller.js";
 import { LlmModule } from "~adapters/llm/llm.module.js";
 import { ActivityModule } from "@monitor/activity/activity.module.js";
-import { GovernanceModule } from "~governance/governance.module.js";
+import { GovernanceModule } from "@monitor/governance/governance.module.js";
 import { WorkModule } from "@monitor/work/work.module.js";
 import { IdentityModule } from "~identity/identity.module.js";
 import { DatabaseModule } from "./database/database.module.js";

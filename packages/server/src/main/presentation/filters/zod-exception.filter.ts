@@ -9,7 +9,7 @@ import {
     TaskNotArchivedError,
     TaskNotFoundError as TaskCommandNotFoundError,
 } from "@monitor/work/task/public/errors.js";
-import { InvalidRuleError, RuleNotFoundError } from "~governance/rule/public/errors.js";
+import { InvalidRuleError, RuleNotFoundError } from "@monitor/governance/rule/public/errors.js";
 import { createApiErrorEnvelope, isApiErrorEnvelope } from "@monitor/contracts/http/api-response-envelope.js";
 
 const INTERNAL_SERVER_ERROR_BODY = createApiErrorEnvelope("internal_server_error", "Internal server error");

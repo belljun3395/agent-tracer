@@ -1,8 +1,8 @@
 import { Inject, Injectable } from "@nestjs/common";
 import type {
     IVerificationPostProcessor as IVerificationPostProcessorPublic,
-} from "~governance/verification/public/iservice/verification.post.processor.iservice.js";
-import { VERIFICATION_POST_PROCESSOR } from "~governance/verification/public/tokens.js";
+} from "@monitor/governance/verification/public/iservice/verification.post.processor.iservice.js";
+import { VERIFICATION_POST_PROCESSOR } from "@monitor/governance/verification/public/tokens.js";
 import type {
     IVerificationPostProcessor,
     PostProcessableEvent,

@@ -17,8 +17,8 @@
       "@monitor/work/*": [
         "packages/work/src/*"
       ],
-      "~governance/*": [
-        "packages/server/src/governance/*"
+      "@monitor/governance/*": [
+        "packages/governance/src/*"
       ],
       "~config/*": [
         "packages/server/src/config/*"

@@ -6,7 +6,7 @@ import {
     RULE_SEVERITIES,
     RULE_SOURCES,
     RULE_TRIGGER_SOURCES,
-} from "~governance/rule/domain/const/rule.const.js";
+} from "@monitor/governance/rule/domain/const/rule.const.js";
 import type { MonitorClient } from "../client.js";
 import { toToolResponse } from "../result.js";
 
