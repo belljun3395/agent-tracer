@@ -2,7 +2,7 @@ import { Module, type DynamicModule, type MiddlewareConsumer, type NestModule } 
 import { APP_FILTER, APP_INTERCEPTOR } from "@nestjs/core";
 import { ScheduleModule } from "@nestjs/schedule";
 import type { INotificationPublisher } from "@monitor/contracts/notifications/notification.publisher.port.js";
-import { AppConfigModule } from "@monitor/config/app-config.module.js";
+import { AppConfigModule } from "~config/app-config.module.js";
 import { HealthController } from "~adapters/http/query/controllers/health/health.query.controller.js";
 import { LlmModule } from "@monitor/llm/llm.module.js";
 import { EventModule } from "@monitor/activity/event/event.module.js";

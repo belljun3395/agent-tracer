@@ -6,6 +6,7 @@
     "emitDecoratorMetadata": true,
     "baseUrl": ".",
     "paths": {
+      "~config/*": ["src/config/*"],
       "~adapters/*": ["src/adapters/*"],
       "~main/*": ["src/main/*"],
       "@monitor/shared-kernel/*": ["../shared-kernel/src/*"],
@@ -13,7 +14,6 @@
       "@monitor/activity/*": ["../activity/src/*"],
       "@monitor/work/*": ["../work/src/*"],
       "@monitor/governance/*": ["../governance/src/*"],
-      "@monitor/config/*": ["../config/src/*"],
       "@monitor/llm/*": ["../llm/src/*"],
       "@monitor/identity/*": ["../identity/src/*"],
       "@monitor/ws-gateway/*": ["../ws-gateway/src/*"],

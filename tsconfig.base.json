@@ -20,8 +20,8 @@
       "@monitor/governance/*": [
         "packages/governance/src/*"
       ],
-      "@monitor/config/*": [
-        "packages/config/src/*"
+      "~config/*": [
+        "packages/server/src/config/*"
       ],
       "@monitor/llm/*": [
         "packages/llm/src/*"

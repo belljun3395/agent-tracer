@@ -33,10 +33,7 @@ import {
     TIMELINE_EVENT_READ,
     TIMELINE_EVENT_WRITE,
 } from "./public/tokens.js";
-import { Client } from "@opensearch-project/opensearch";
-import { AppConfigService } from "@monitor/config/app-config.service.js";
 import {
-    OPENSEARCH_CLIENT,
     OpenSearchEventIndex,
 } from "./repository/search/opensearch.event.index.js";
 import { PreprocessingHintsRepository } from "./repository/preprocessing.hints.repository.js";
@@ -68,13 +65,7 @@ export class EventModule {
             ],
             controllers: [EventCommandController, EventIngestController, PreprocessingHintsController, SearchQueryController, TypedEventIngestController],
             providers: [
-                // OpenSearch 클라이언트
-                {
-                    provide: OPENSEARCH_CLIENT,
-                    inject: [AppConfigService],
-                    useFactory: (config: AppConfigService): Client =>
-                        new Client({ node: config.opensearch.node }),
-                },
+                // OpenSearch 클라이언트(OPENSEARCH_CLIENT)는 databaseModule 가 제공한다.
                 OpenSearchEventIndex,
                 // Repositories
                 TimelineEventRepository,
