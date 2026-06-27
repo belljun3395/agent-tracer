@@ -6,8 +6,8 @@ import type { INotificationPublisher } from "@monitor/shared/contracts/notificat
 import { GetTaskSummaryUseCase } from "@monitor/work-api/task/application/get.task.summary.usecase.js";
 import { ListRulesUseCase } from "@monitor/governance-api/rule/application/list.rules.usecase.js";
 import { RegisterSuggestionUseCase } from "@monitor/governance-api/rule/application/register.suggestion.usecase.js";
-import { APP_SETTING_KEYS } from "@monitor/config/domain/app.setting.keys.js";
-import { AppSettingService } from "@monitor/config/application/app.setting.service.js";
+import { APP_SETTING_KEYS } from "@monitor/identity-api/settings/domain/app.setting.keys.js";
+import { AppSettingService } from "@monitor/identity-api/settings/application/app.setting.service.js";
 import { NOTIFICATION_PUBLISHER_TOKEN } from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
 import { GovernanceJobRepository } from "@monitor/governance-api/job/governance.job.repository.js";
 import type { GovernanceJobEntity } from "@monitor/governance-api/job/governance.job.entity.js";

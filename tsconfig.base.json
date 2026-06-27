@@ -17,9 +17,6 @@
       "@monitor/governance-api/*": [
         "packages/governance-api/src/*"
       ],
-      "@monitor/config/*": [
-        "packages/config/src/*"
-      ],
       "~config/*": [
         "packages/api-gateway/src/config/*"
       ],

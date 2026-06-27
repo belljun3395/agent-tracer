@@ -10,7 +10,7 @@ import { TaskModule } from "@monitor/work-api/task/task.module.js";
 import { TurnModule } from "@monitor/work-api/turn/turn.module.js";
 import { VerificationModule } from "@monitor/governance-api/verification/verification.module.js";
 import { RuleModule } from "@monitor/governance-api/rule/rule.module.js";
-import { SettingsModule } from "@monitor/config/settings.module.js";
+import { SettingsModule } from "@monitor/identity-api/settings/settings.module.js";
 import { RuleBackfillModule } from "@monitor/governance-api/rule-backfill/rule.backfill.module.js";
 import { RuleGenerationModule } from "@monitor/governance-api/rule-generation/rule.generation.module.js";
 import { TaskCleanupModule } from "@monitor/governance-api/task-cleanup/task.cleanup.module.js";

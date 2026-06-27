@@ -13,7 +13,6 @@
       "@monitor/activity-api/*": ["../activity-api/src/*"],
       "@monitor/work-api/*": ["../work-api/src/*"],
       "@monitor/governance-api/*": ["../governance-api/src/*"],
-      "@monitor/config/*": ["../config/src/*"],
       "@monitor/identity-api/*": ["../identity-api/src/*"],
       "@monitor/ws-gateway/*": ["../ws-gateway/src/*"]
     }

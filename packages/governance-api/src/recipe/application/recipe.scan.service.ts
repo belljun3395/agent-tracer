@@ -7,8 +7,8 @@ import type {
     RecipeTaskSnapshot,
 } from "./recipe.scan.prompt.js";
 import type { INotificationPublisher } from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
-import { APP_SETTING_KEYS } from "@monitor/config/domain/app.setting.keys.js";
-import { AppSettingService } from "@monitor/config/application/app.setting.service.js";
+import { APP_SETTING_KEYS } from "@monitor/identity-api/settings/domain/app.setting.keys.js";
+import { AppSettingService } from "@monitor/identity-api/settings/application/app.setting.service.js";
 import { NOTIFICATION_PUBLISHER_TOKEN } from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
 import { GetTaskSummaryUseCase } from "@monitor/work-api/task/application/get.task.summary.usecase.js";
 import type { ITaskSnapshotQuery } from "@monitor/work-api/task/public/iservice/task.snapshot.query.iservice.js";

@@ -3,8 +3,8 @@ import { NOTIFICATION_TYPE } from "@monitor/shared/contracts/notifications/notif
 import { TitleSuggestionAgent } from "./title.suggestion.agent.js";
 import type { SuggestionLanguage } from "./title.suggestion.prompt.js";
 import type { INotificationPublisher } from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
-import { APP_SETTING_KEYS } from "@monitor/config/domain/app.setting.keys.js";
-import { AppSettingService } from "@monitor/config/application/app.setting.service.js";
+import { APP_SETTING_KEYS } from "@monitor/identity-api/settings/domain/app.setting.keys.js";
+import { AppSettingService } from "@monitor/identity-api/settings/application/app.setting.service.js";
 import { NOTIFICATION_PUBLISHER_TOKEN } from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
 import { TaskHasNoEventsError, TaskNotFoundError } from "../common/task.errors.js";
 import { GetTaskSummaryUseCase } from "./get.task.summary.usecase.js";
