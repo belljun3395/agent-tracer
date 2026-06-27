@@ -31,7 +31,6 @@ export class TurnModule {
     static register(databaseModule: DynamicModule): DynamicModule {
         return {
             module: TurnModule,
-            global: true,
             imports: [
                 TypeOrmModule.forFeature([TurnPartitionEntity]),
                 databaseModule,

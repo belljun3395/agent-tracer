@@ -5,9 +5,17 @@ import type { INotificationPublisher } from "@monitor/contracts/notifications/no
 import { AppConfigModule } from "~config/app-config.module.js";
 import { HealthController } from "~adapters/http/query/controllers/health/health.query.controller.js";
 import { LlmModule } from "~adapters/llm/llm.module.js";
-import { ActivityModule } from "@monitor/activity/activity.module.js";
-import { GovernanceModule } from "@monitor/governance/governance.module.js";
-import { WorkModule } from "@monitor/work/work.module.js";
+import { EventModule } from "@monitor/activity/event/event.module.js";
+import { SessionModule } from "@monitor/activity/session/session.module.js";
+import { TaskModule } from "@monitor/work/task/task.module.js";
+import { TurnModule } from "@monitor/work/turn/turn.module.js";
+import { VerificationModule } from "@monitor/governance/verification/verification.module.js";
+import { RuleModule } from "@monitor/governance/rule/rule.module.js";
+import { SettingsModule } from "@monitor/governance/settings/settings.module.js";
+import { RuleBackfillModule } from "@monitor/governance/rule-backfill/rule.backfill.module.js";
+import { RuleGenerationModule } from "@monitor/governance/rule-generation/rule.generation.module.js";
+import { TaskCleanupModule } from "@monitor/governance/task-cleanup/task.cleanup.module.js";
+import { RecipeModule } from "@monitor/governance/recipe/recipe.module.js";
 import { IdentityModule } from "~identity/identity.module.js";
 import { DatabaseModule } from "./database/database.module.js";
 import { TypeOrmDatabaseModule } from "./database/typeorm.database.module.js";
@@ -29,9 +37,33 @@ export class AppModule implements NestModule {
     static forRoot(options: AppModuleOptions): DynamicModule {
         const databaseModule = DatabaseModule.forRoot(options);
         const typeOrmDatabaseModule = TypeOrmDatabaseModule.forRoot();
-        const governanceModule = GovernanceModule.register(databaseModule);
-        const activityModule = ActivityModule.register(databaseModule, governanceModule);
-        const workModule = WorkModule.register(databaseModule);
+
+        // 각 바운디드 컨텍스트 모듈을 인스턴스로 만든 뒤, 토큰을 주입받는 쪽이
+        // 제공하는 쪽을 명시적으로 import 하도록 의존을 연결한다. 이미 생성된
+        // 인스턴스끼리 연결하므로 모듈 간 순환(event↔task, event↔verification,
+        // verification↔rule, task↔session)도 forwardRef 없이 해소된다.
+        const event = EventModule.register(databaseModule);
+        const session = SessionModule.register(databaseModule);
+        const task = TaskModule.register(databaseModule);
+        const turn = TurnModule.register(databaseModule);
+        const verification = VerificationModule.register(databaseModule);
+        const rule = RuleModule.register(databaseModule);
+        const settings = SettingsModule.register(databaseModule);
+        const ruleBackfill = RuleBackfillModule.register(databaseModule);
+        const ruleGeneration = RuleGenerationModule.register(databaseModule);
+        const taskCleanup = TaskCleanupModule.register(databaseModule);
+        const recipe = RecipeModule.register(databaseModule);
+
+        event.imports!.push(task, verification);
+        session.imports!.push(task);
+        task.imports!.push(event, session, settings, verification, LlmModule);
+        turn.imports!.push(event, task);
+        verification.imports!.push(event, rule);
+        rule.imports!.push(verification);
+        ruleBackfill.imports!.push(rule, verification);
+        ruleGeneration.imports!.push(rule, settings, task, LlmModule);
+        taskCleanup.imports!.push(settings, task, LlmModule);
+        recipe.imports!.push(settings, task, LlmModule);
 
         return {
             module: AppModule,
@@ -42,9 +74,17 @@ export class AppModule implements NestModule {
                 databaseModule,
                 LlmModule,
                 IdentityModule,
-                governanceModule,
-                activityModule,
-                workModule,
+                event,
+                session,
+                task,
+                turn,
+                verification,
+                rule,
+                settings,
+                ruleBackfill,
+                ruleGeneration,
+                taskCleanup,
+                recipe,
             ],
             controllers: [HealthController],
             providers: [

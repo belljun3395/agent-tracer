@@ -10,7 +10,6 @@ export class RuleGenerationModule {
     static register(databaseModule: DynamicModule): DynamicModule {
         return {
             module: RuleGenerationModule,
-            global: true,
             imports: [
                 TypeOrmModule.forFeature([GovernanceJobEntity]),
                 databaseModule,

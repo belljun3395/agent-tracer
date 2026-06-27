@@ -24,7 +24,6 @@ export class RecipeModule {
     static register(databaseModule: DynamicModule): DynamicModule {
         return {
             module: RecipeModule,
-            global: true,
             imports: [
                 TypeOrmModule.forFeature([
                     GovernanceJobEntity,

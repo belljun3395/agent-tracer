@@ -53,14 +53,12 @@ import { RuleRepository } from "./repository/rule.repository.js";
  */
 @Module({})
 export class RuleModule {
-    static register(databaseModule: DynamicModule, verificationModule: DynamicModule): DynamicModule {
+    static register(databaseModule: DynamicModule): DynamicModule {
         return {
             module: RuleModule,
-            global: true,
             imports: [
                 TypeOrmModule.forFeature([RuleEntity]),
                 databaseModule,
-                verificationModule,
             ],
             controllers: [
                 RuleCommandController,

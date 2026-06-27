@@ -15,17 +15,12 @@ import { GovernanceJobRepository } from "@monitor/governance/job/governance.job.
  */
 @Module({})
 export class RuleBackfillModule {
-    static register(
-        databaseModule: DynamicModule,
-        verificationModule: DynamicModule,
-    ): DynamicModule {
+    static register(databaseModule: DynamicModule): DynamicModule {
         return {
             module: RuleBackfillModule,
-            global: true,
             imports: [
                 TypeOrmModule.forFeature([GovernanceJobEntity]),
                 databaseModule,
-                verificationModule,
             ],
             controllers: [RuleBackfillController],
             providers: [

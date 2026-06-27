@@ -147,7 +147,6 @@ export class VerificationModule {
     static register(databaseModule: DynamicModule): DynamicModule {
         return {
             module: VerificationModule,
-            global: true,
             imports: [
                 TypeOrmModule.forFeature([
                     TurnEntity,

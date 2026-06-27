@@ -15,7 +15,6 @@ export class TaskCleanupModule {
     static register(databaseModule: DynamicModule): DynamicModule {
         return {
             module: TaskCleanupModule,
-            global: true,
             imports: [
                 TypeOrmModule.forFeature([
                     GovernanceJobEntity,

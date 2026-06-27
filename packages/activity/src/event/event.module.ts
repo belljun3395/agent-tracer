@@ -57,16 +57,14 @@ import { TimelineEventStorageService } from "./service/timeline.event.storage.se
  */
 @Module({})
 export class EventModule {
-    static register(databaseModule: DynamicModule, governanceModule: DynamicModule): DynamicModule {
+    static register(databaseModule: DynamicModule): DynamicModule {
         return {
             module: EventModule,
-            global: true,
             imports: [
                 TypeOrmModule.forFeature([
                     TimelineEventEntity,
                 ]),
                 databaseModule,
-                governanceModule,
             ],
             controllers: [EventCommandController, EventIngestController, PreprocessingHintsController, SearchQueryController, TypedEventIngestController],
             providers: [

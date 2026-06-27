@@ -10,7 +10,6 @@ export class SettingsModule {
     static register(databaseModule: DynamicModule): DynamicModule {
         return {
             module: SettingsModule,
-            global: true,
             imports: [TypeOrmModule.forFeature([AppSettingEntity]), databaseModule],
             controllers: [AppSettingController],
             providers: [AppSettingRepository, AppSettingService],
