@@ -7,10 +7,6 @@ import {
     normalizeRecipeScanFilters,
 } from "./recipe.scan.filters.js";
 
-/**
- * 레시피 스캔 필터(값 객체) 비즈니스 로직 테스트.
- * 메서드명은 영어, 표시명은 한글.
- */
 describe("clampMaxCandidates — 후보 상한 보정", () => {
     it("유효하지 않은 값이면 기본값 10을 쓴다", () => {
         expect(clampMaxCandidates(0)).toBe(10);

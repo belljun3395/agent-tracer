@@ -56,16 +56,19 @@ export class TaskCleanupService {
     async enqueue(): Promise<InsightJobEntity> {
         const existing = await this.jobs.findActive("task_cleanup");
         if (existing) {
+            // 정리 스캔은 워크스페이스 단위 결과라 동시에 하나만 실행한다.
             throw new GenerationAlreadyInFlightError(existing.id);
         }
 
         const apiKey = await this.settings.getAnthropicApiKey();
         if (this.agent.requiresLocalApiKey() && !apiKey) {
+            // 로컬 실행기가 API 키를 직접 써야 하면 잡을 만들기 전에 거부한다.
             throw new MissingApiKeyError();
         }
 
         const tasks = await this.taskQuery.findAll("active");
         if (tasks.length === 0) {
+            // 활성 태스크가 없으면 생성할 정리 제안도 없다.
             throw new NoTasksToScanError();
         }
 
@@ -76,7 +79,6 @@ export class TaskCleanupService {
         });
     }
 
-    /** API 요청 안에서 정리 스캔을 동기 실행하고 완료된 잡을 반환한다. */
     async run(): Promise<InsightJobEntity> {
         const job = await this.enqueue();
         await this.execute(job);
@@ -92,10 +94,6 @@ export class TaskCleanupService {
         return this.jobs.findById(id);
     }
 
-    /**
-     * Execute one claimed job. Caller is responsible for atomic claim before
-     * calling. Updates job status to completed/failed at the end.
-     */
     async execute(job: InsightJobEntity): Promise<void> {
         this.notifier.publish({
             type: NOTIFICATION_TYPE.sdkJobUpdated,
@@ -107,6 +105,7 @@ export class TaskCleanupService {
         });
         try {
             const apiKey = await this.settings.getAnthropicApiKey();
+            // 실행 시점에도 키를 다시 확인해 오래된 pending 잡이 잘못 실행되지 않게 한다.
             if (this.agent.requiresLocalApiKey() && !apiKey) throw new MissingApiKeyError();
 
             const modelOverride = await this.settings.getAnthropicModel();

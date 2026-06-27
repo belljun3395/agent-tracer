@@ -1,13 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { RecipeEntity } from "./recipe.entity.js";
 
-/**
- * RecipeEntity 비즈니스 로직 테스트.
- *
- * 메서드 이름은 영어(successRate / shouldRetire)지만, 테스트 표시명(describe/it)은
- * 한글로 작성해 콘솔에서 비즈니스 규칙을 그대로 읽을 수 있게 한다.
- * (전체 표시명은 `npx vitest run --reporter=verbose` 로 확인)
- */
 function makeRecipe(overrides: Partial<RecipeEntity> = {}): RecipeEntity {
     return Object.assign(new RecipeEntity(), {
         id: "r1",

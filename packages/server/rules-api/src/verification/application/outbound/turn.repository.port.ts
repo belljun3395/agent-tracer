@@ -1,8 +1,4 @@
-/**
- * Legacy ITurnRepository contract — kept self-contained for the SQLite
- * adapter and the verification module's factory bindings until the
- * verification persistence tier moves to TypeORM-owned entities.
- */
+
 
 export type TurnStatus = "open" | "closed";
 export type TurnAggregateVerdict = "verified" | "unverifiable" | "contradicted" | null;

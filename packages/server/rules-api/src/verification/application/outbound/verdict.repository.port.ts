@@ -1,10 +1,5 @@
 import type { TurnVerdict, VerdictStatus } from "@monitor/rules-api/verification/domain/model/verdict.model.js";
 
-/**
- * Legacy IVerdictRepository contract — self-contained for the SQLite adapter
- * and verification module factory bindings.
- */
-
 export type VerdictStatusPort = VerdictStatus;
 
 export interface VerdictUpsertInput {

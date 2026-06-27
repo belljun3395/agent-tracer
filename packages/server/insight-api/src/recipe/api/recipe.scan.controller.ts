@@ -42,7 +42,6 @@ const enqueueBodySchema = z
     })
     .strict();
 
-/** Swagger/OpenAPI request DTO; validation still runs through {@link enqueueBodySchema}. */
 class EnqueueDto extends createZodDto(enqueueBodySchema) {}
 
 const matchBodySchema = z
@@ -55,7 +54,6 @@ const matchBodySchema = z
     })
     .strict();
 
-/** Swagger/OpenAPI request DTO; validation still runs through {@link matchBodySchema}. */
 class MatchDto extends createZodDto(matchBodySchema) {}
 
 function clampSmallInt(

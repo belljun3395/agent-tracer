@@ -6,11 +6,6 @@ import type {
 } from "../public/dto/timeline.event.dto.js";
 import type { ITimelineEventProjection } from "../public/iservice/timeline.event.projection.iservice.js";
 
-/**
- * Public adapter — implements ITimelineEventProjection by running the
- * internal TimelineEventProjector domain model. Other modules that need to
- * publish event.logged / event.updated payloads consume this iservice.
- */
 @Injectable()
 export class TimelineEventProjectionPublicAdapter implements ITimelineEventProjection {
     project(event: TimelineEventSnapshot): TimelineEventProjection {

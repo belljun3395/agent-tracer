@@ -37,11 +37,6 @@ export interface TaskUpsertDraftShape {
     readonly origin?: TaskOrigin;
 }
 
-/**
- * Domain model for "task is being upserted at the start of a runtime session".
- * Resolves defaults (existing task / runtime source / kind / hierarchy) and
- * normalises the workspace path. Use {@link TaskUpsertDraft.from} to build.
- */
 export class TaskUpsertDraft {
     readonly id: string;
     readonly title: string;
@@ -83,8 +78,8 @@ export class TaskUpsertDraft {
         const parentTaskId = input.parentTaskId ?? existing?.parentTaskId;
         const parentSessionId = input.parentSessionId ?? existing?.parentSessionId;
         const backgroundTaskId = input.backgroundTaskId ?? existing?.backgroundTaskId;
-        // Origin is sticky once a task is born; we never demote a server-sdk
-        // task back to user on resume, even if the env var goes missing.
+
+        // origin은 생성 이후 낮추지 않아 server-sdk 태스크가 재개 중 user 태스크로 바뀌지 않는다.
         const origin = existing?.origin ?? input.origin;
 
         return new TaskUpsertDraft({
@@ -105,7 +100,6 @@ export class TaskUpsertDraft {
         });
     }
 
-    /** Plain object representation for repository upsert calls. */
     toShape(): TaskUpsertDraftShape {
         return {
             id: this.id,

@@ -156,7 +156,7 @@ describe("resolveTurnPartition", () => {
         ];
         const stored: TurnPartition = {
             taskId: "t-1",
-            // wrong: only covers 1 turn but events have 2
+
             groups: [{ id: "tg-stale", from: 1, to: 1, label: null, visible: true }],
             version: 5,
             updatedAt: "2026-04-29T09:00:00.000Z",

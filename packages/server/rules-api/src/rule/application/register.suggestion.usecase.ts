@@ -17,11 +17,6 @@ export type {
 export type { RegisterSuggestionUseCaseIn as RegisterSuggestionInput } from "./dto/register.suggestion.usecase.dto.js";
 export type { RegisterSuggestionUseCaseOut as RegisterSuggestionResult } from "./dto/register.suggestion.usecase.dto.js";
 
-/**
- * Idempotent registration of an agent-suggested rule. If a non-deleted
- * rule with the same signature already exists, returns it without
- * inserting a duplicate.
- */
 @Injectable()
 export class RegisterSuggestionUseCase {
     constructor(

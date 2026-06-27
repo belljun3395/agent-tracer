@@ -156,7 +156,6 @@ export class TaskManagementService {
         return { status: "unarchived", unarchivedIds };
     }
 
-    /** Internal upsert used by lifecycle service. Updates entity + relations + emits task.updated when applicable. */
     async upsertFromDraft(input: {
         readonly id: string;
         readonly title: string;
@@ -185,12 +184,13 @@ export class TaskManagementService {
         entity.lastSessionStartedAt = input.lastSessionStartedAt;
         entity.workspacePath = input.workspacePath ?? null;
         entity.cliSource = input.runtimeSource ?? entity.cliSource ?? null;
-        // Origin is set on creation and never demoted afterwards. A server-sdk
-        // task that resumes without the env still stays server-sdk.
+
         if (!existing) {
+            // 새 태스크는 현재 사용자 범위에 귀속하고 origin 기본값을 user로 둔다.
             entity.origin = input.origin ?? "user";
             entity.userId = currentUserId();
         } else if (input.origin === "server-sdk" && existing.origin !== "server-sdk") {
+            // server-sdk로 승격된 태스크는 이후 재개에서 user로 낮추지 않는다.
             entity.origin = "server-sdk";
         }
         await this.taskRepo.save(entity);
@@ -210,6 +210,7 @@ export class TaskManagementService {
         const entity = await this.taskRepo.findById(taskId);
         if (!entity) return null;
         const trimmed = slug.trim();
+        // 빈 slug나 기존 slug와 같은 값은 저장하지 않고 현재 상태만 반환한다.
         if (!trimmed || trimmed === entity.slug) return this.query.findById(taskId);
         entity.slug = trimmed;
         entity.updatedAt = this.clock.nowIso();
@@ -228,7 +229,6 @@ export class TaskManagementService {
         return this.query.findById(taskId);
     }
 
-    /** Apply a relation snapshot edit to the persisted relation rows. */
     private async syncRelations(
         taskId: string,
         input: { readonly parentTaskId?: string | null; readonly parentSessionId?: string | null; readonly backgroundTaskId?: string | null },

@@ -18,7 +18,6 @@ const SEMANTIC_METADATA_KEYS = [
     "evidenceLevel",
 ] as const;
 
-/** Keys whose values live in dedicated columns/tables — excluded from extras_json. */
 export const DERIVED_METADATA_KEYS: ReadonlySet<string> = new Set<string>([
     ...SEMANTIC_METADATA_KEYS,
     "filePath",
@@ -61,11 +60,6 @@ export const DERIVED_METADATA_KEYS: ReadonlySet<string> = new Set<string>([
     "stop_reason",
     "tags",
 ]);
-
-// Tool-call extras (readOffset, grepOutputMode, webPrompt, commandAnalysis,
-// crossCheck, etc.) intentionally stay out of this set — they have no
-// dedicated column and live in extras_json so the inspector and web can
-// read them as raw metadata.
 
 export function readString(metadata: Record<string, unknown> | undefined, key: string): string | undefined {
     const value = metadata?.[key];

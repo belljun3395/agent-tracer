@@ -3,11 +3,6 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { In, Repository } from "typeorm";
 import { TaskRelationEntity, type TaskRelationKind } from "../domain/task.relation.entity.js";
 
-/**
- * Plain CRUD over task_relations rows. Domain semantics (which relation_kind
- * means what, how to project rows into a snapshot) live in TaskRelations
- * domain model — not here.
- */
 @Injectable()
 export class TaskRelationRepository {
     constructor(

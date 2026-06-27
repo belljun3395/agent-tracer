@@ -8,10 +8,6 @@ import type {
     TaskUpsertInput,
 } from "../public/dto/task.snapshot.dto.js";
 
-/**
- * Public adapter — implements ITaskAccess by delegating to internal services.
- * Maps internal MonitoringTask shape to TaskSnapshot (structurally equivalent).
- */
 @Injectable()
 export class TaskAccessPublicAdapter implements ITaskAccess {
     constructor(

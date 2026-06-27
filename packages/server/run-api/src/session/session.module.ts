@@ -22,21 +22,6 @@ import { SessionRepository } from "./repository/session.repository.js";
 import { RuntimeBindingService } from "./service/runtime.binding.service.js";
 import { SessionLifecycleService } from "./service/session.lifecycle.service.js";
 
-/**
- * Session module — owns SessionEntity, RuntimeBindingEntity, EventLogEntity.
- *
- * Layer dependencies (inner → outer):
- *   domain → repository → service → application(usecase) → api(controller)
- *
- * Public surface (offered to other modules):
- *   - SESSION_LIFECYCLE       ← SessionLifecycleService
- *   - RUNTIME_BINDING_LOOKUP  ← RuntimeBindingService (narrowed by IRuntimeBindingLookup interface)
- *
- * Outbound surface (consumed from other modules; only adapters touch externals):
- *   - TASK_ACCESS_PORT             ← TaskAccessAdapter
- *   - TASK_LIFECYCLE_ACCESS_PORT   ← TaskLifecycleAccessAdapter
- *   - NOTIFICATION_PUBLISHER_PORT  ← SessionNotificationPublisherAdapter
- */
 @Module({})
 export class SessionModule {
     static register(databaseModule: DynamicModule): DynamicModule {
@@ -57,11 +42,10 @@ export class SessionModule {
                 SessionNotificationPublisherAdapter,
                 EnsureRuntimeSessionUseCase,
                 EndRuntimeSessionUseCase,
-                // Public iservices — narrow contract is enforced by the interface; the
-                // service satisfies it structurally so no separate adapter is needed.
+
                 { provide: SESSION_LIFECYCLE, useExisting: SessionLifecycleService },
                 { provide: RUNTIME_BINDING_LOOKUP, useExisting: RuntimeBindingService },
-                // Outbound ports — adapter wraps the external module / transport.
+
                 { provide: TASK_ACCESS_PORT, useExisting: TaskAccessAdapter },
                 { provide: TASK_LIFECYCLE_ACCESS_PORT, useExisting: TaskLifecycleAccessAdapter },
                 { provide: NOTIFICATION_PUBLISHER_PORT, useExisting: SessionNotificationPublisherAdapter },

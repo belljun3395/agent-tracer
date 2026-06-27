@@ -22,8 +22,6 @@ export class SessionRepository {
         });
     }
 
-    // Generic — caller supplies the status. Repository doesn't decide which
-    // status counts as "active" / "running"; the service owns that.
     async findLatestByTaskIdAndStatus(taskId: string, status: SessionStatus): Promise<SessionEntity | null> {
         return this.repo.findOne({
             where: { taskId, status },

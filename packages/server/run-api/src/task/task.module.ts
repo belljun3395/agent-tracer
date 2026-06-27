@@ -1,7 +1,6 @@
 import { Module, type DynamicModule } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
-// Turn-partition — folded into task as its own slice under ./turn/ (rich domain
-// preserved; only the separate NestJS module was collapsed into TaskModule).
+
 import { TurnPartitionController } from "./turn/api/turn.partition.controller.js";
 import { TurnPartitionRepository } from "./turn/repository/turn.partition.repository.js";
 import { TaskAccessAdapter as TurnTaskAccessAdapter } from "./turn/adapter/task.access.adapter.js";
@@ -67,20 +66,6 @@ import { TaskManagementService } from "./service/task.management.service.js";
 import { TaskQueryService } from "./service/task.query.service.js";
 import { EventRecordedTaskEffectSubscriber } from "./subscriber/event.recorded.task.effect.subscriber.js";
 
-/**
- * Task module — owns TaskEntity, TaskRelationEntity.
- *
- * Public surface:
- *   - TASK_LIFECYCLE  (ITaskLifecycle) — for session module's outbound port
- *   - TASK_ACCESS     (ITaskAccess)    — for session module's outbound port
- *
- * Outbound surface (consumed via adapters):
- *   - SESSION_ACCESS_PORT          → SessionAccessAdapter wraps SESSION_LIFECYCLE
- *   - RUNTIME_BINDING_ACCESS_PORT  → RuntimeBindingAccessAdapter wraps RUNTIME_BINDING_LOOKUP
- *   - TIMELINE_EVENT_ACCESS_PORT   → wraps legacy IEventRepository
- *   - TURN_QUERY_ACCESS_PORT       → wraps legacy TurnSummaryQueryPort
- *   - NOTIFICATION_PUBLISHER_PORT  → wraps shared NOTIFICATION_PUBLISHER_TOKEN
- */
 @Module({})
 export class TaskModule {
     static register(databaseModule: DynamicModule): DynamicModule {
@@ -99,18 +84,18 @@ export class TaskModule {
                 TaskLifecycleService,
                 StaleTaskReaperService,
                 StuckServerSdkTaskReaperService,
-                // Subscribes to timeline's event.recorded → applies task-status effect
+
                 EventRecordedTaskEffectSubscriber,
-                // Outbound adapters
+
                 SessionAccessAdapter,
                 RuntimeBindingAccessAdapter,
                 TimelineEventAccessAdapter,
                 TurnQueryAccessAdapter,
                 TaskNotificationPublisherAdapter,
                 EventProjectionAccessAdapter,
-                // Public adapters
+
                 TaskAccessPublicAdapter,
-                // Use cases
+
                 StartTaskUseCase,
                 CompleteTaskUseCase,
                 ErrorTaskUseCase,
@@ -121,7 +106,7 @@ export class TaskModule {
                 UnarchiveTaskUseCase,
                 ReslugTaskUseCase,
                 SuggestTaskTitleUseCase,
-                // 제목 제안 LLM 에이전트 + Messages API 쿼리 러너 (1-shot, 워크스페이스 불필요)
+
                 TitleSuggestionAgent,
                 MessagesQueryRunner,
                 { provide: QUERY_RUNNER, useExisting: MessagesQueryRunner },
@@ -135,7 +120,7 @@ export class TaskModule {
                 GetTaskOpenInferenceUseCase,
                 GetOverviewUseCase,
                 GetDefaultWorkspacePathUseCase,
-                // Turn-partition slice (folded from TurnModule)
+
                 TurnPartitionRepository,
                 TurnTaskAccessAdapter,
                 TurnTimelineEventAccessAdapter,
@@ -144,11 +129,11 @@ export class TaskModule {
                 ResetTurnPartitionUseCase,
                 { provide: TURN_TASK_ACCESS_PORT, useExisting: TurnTaskAccessAdapter },
                 { provide: TURN_TIMELINE_EVENT_ACCESS_PORT, useExisting: TurnTimelineEventAccessAdapter },
-                // Public iservices
+
                 { provide: TASK_LIFECYCLE, useExisting: TaskLifecycleService },
                 { provide: TASK_ACCESS, useExisting: TaskAccessPublicAdapter },
                 { provide: TASK_SNAPSHOT_QUERY, useExisting: TaskQueryService },
-                // Outbound ports
+
                 { provide: SESSION_ACCESS_PORT, useExisting: SessionAccessAdapter },
                 { provide: RUNTIME_BINDING_ACCESS_PORT, useExisting: RuntimeBindingAccessAdapter },
                 { provide: TIMELINE_EVENT_ACCESS_PORT, useExisting: TimelineEventAccessAdapter },

@@ -8,14 +8,6 @@ import type { ITimelineEventAccess } from "@monitor/rules-api/verification/appli
 import type { ITurnRepository } from "@monitor/rules-api/verification/application/outbound/turn.repository.port.js";
 import type { TurnEvaluationService } from "./turn.evaluation.service.js";
 
-/**
- * Reacts to user.message / assistant.response (and session.ended for force
- * close). Opens turns on user.message, force-closes any prior open turn,
- * and runs evaluation on assistant.response.
- *
- * Per-event matching against rules (lane reclassification) lives in
- * RuleEnforcementPostProcessor, not here.
- */
 export class TurnLifecyclePostProcessor {
     constructor(
         private readonly eventRepo: ITimelineEventAccess,
@@ -36,7 +28,6 @@ export class TurnLifecyclePostProcessor {
         }
     }
 
-    /** Force-close any open turn for this session (called on session.ended). */
     async forceCloseSession(sessionId: string, endedAt: string): Promise<void> {
         const open = await this.turnRepo.findOpenBySessionId(sessionId);
         if (!open) return;
@@ -46,7 +37,6 @@ export class TurnLifecyclePostProcessor {
     private async handleUserMessage(event: TimelineEvent): Promise<void> {
         const sessionId = event.sessionId!;
 
-        // Force-close any prior open turn for this session.
         const prior = await this.turnRepo.findOpenBySessionId(sessionId);
         if (prior) {
             await this.runEvaluationForOpenTurn(prior.id, event.taskId);
@@ -72,9 +62,7 @@ export class TurnLifecyclePostProcessor {
         const sessionId = event.sessionId!;
         const open = await this.turnRepo.findOpenBySessionId(sessionId);
         if (!open) {
-            // assistant.response without a prior user.message — synthesize a
-            // turn so verification still applies. (Edge case; agents can speak
-            // first.)
+
             const turnIndex = await this.turnRepo.countBySessionId(sessionId);
             const turnId = randomUUID();
             await this.turnRepo.insert({
@@ -113,11 +101,6 @@ export class TurnLifecyclePostProcessor {
         }
     }
 
-    /**
-     * Used when force-closing an orphaned open turn. We still run evaluation
-     * with whatever assistant text exists (last assistant.response in the
-     * collected events, or empty).
-     */
     private async runEvaluationForOpenTurn(turnId: string, taskId: string): Promise<void> {
         const eventIds = await this.turnRepo.findEventsForTurn(turnId);
         if (eventIds.length === 0) return;

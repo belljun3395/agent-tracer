@@ -22,10 +22,6 @@ import { InvalidRuleError } from "../common/errors.js";
 export type { CreateRuleUseCaseIn, CreateRuleUseCaseOut } from "./dto/create.rule.usecase.dto.js";
 export type { CreateRuleUseCaseIn as CreateRuleInput } from "./dto/create.rule.usecase.dto.js";
 
-/**
- * Creates a rule, returns the usecase DTO, and kicks off Backfill so
- * the new rule applies to past closed turns immediately.
- */
 @Injectable()
 export class CreateRuleUseCase {
     private readonly logger = new Logger(CreateRuleUseCase.name);
@@ -71,8 +67,7 @@ export class CreateRuleUseCase {
             },
         });
 
-        // 백필은 이 트랜잭션이 커밋된 뒤 별도 최상위 트랜잭션으로 실행한다.
-        // 롤백되면 실행되지 않는다.
+        // 룰 저장이 커밋된 뒤에만 기존 턴 재평가를 시작한다.
         runOnTransactionCommit(() => {
             void this.backfill.trigger({ rule: created }).catch((err: unknown) => {
                 this.logger.error(
@@ -89,18 +84,23 @@ export class CreateRuleUseCase {
 
 function validate(input: CreateRuleUseCaseIn): void {
     if (input.name.trim() === "") {
+        // 빈 이름은 목록과 알림에서 식별할 수 없으므로 허용하지 않는다.
         throw new InvalidRuleError("Rule name must not be empty");
     }
     if (input.trigger && input.trigger.phrases.length === 0) {
+        // 트리거를 쓰는 룰은 최소 한 문구가 있어야 한다.
         throw new InvalidRuleError("Trigger phrases must not be empty when trigger is provided");
     }
     if (!isRuleExpectMeaningful(input.expect)) {
+        // action, pattern, commandMatches 중 하나는 있어야 검증할 수 있다.
         throw new InvalidRuleError("Rule expect must include at least one of action, pattern, or commandMatches");
     }
     if (input.scope === "task" && !input.taskId) {
+        // task 스코프 룰은 적용 대상을 고정해야 한다.
         throw new InvalidRuleError("Task-scoped rules must have a taskId");
     }
     if (input.scope === "global" && input.taskId) {
+        // global 룰은 특정 태스크에 묶이지 않아야 한다.
         throw new InvalidRuleError("Global rules must not have a taskId");
     }
 }

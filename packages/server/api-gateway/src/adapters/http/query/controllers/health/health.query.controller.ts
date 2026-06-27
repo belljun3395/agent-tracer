@@ -8,28 +8,13 @@ import { NoEnvelope } from "@monitor/shared/contracts/http/no-envelope.decorator
 export class HealthController {
     constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
 
-    /**
-     * Liveness — is the process up? Deliberately checks no dependencies: a
-     * transient Postgres/Redis blip must NOT make the orchestrator kill an
-     * otherwise-healthy pod (that would turn a recoverable outage into a
-     * crash loop). Use this for the liveness probe.
-     */
+    // liveness는 프로세스 생존만 판단해 일시적 의존성 장애로 재시작되지 않게 한다.
     @Get()
     health() {
         return { ok: true };
     }
 
-    /**
-     * Readiness — is it safe to route traffic here? Verifies the Postgres
-     * connection, since a dead pool is the worst case (every read/write fails).
-     * Returns 503 on failure so the load balancer drains this pod until the
-     * dependency recovers, then routes again once it reports ready. Use this
-     * for the readiness probe.
-     *
-     * Only Postgres is checked today because it is the one client in the DI
-     * container; Redis (owned by ws-gateway) and OpenSearch (owned by
-     * timeline-api) can be folded in once they are exposed as providers.
-     */
+    // readiness는 요청을 받을 수 있는지 판단하므로 Postgres 연결까지 확인한다.
     @Get("ready")
     async ready(): Promise<{ readonly ok: true; readonly checks: Record<string, "up"> }> {
         const checks: Record<string, "up" | "down"> = {};

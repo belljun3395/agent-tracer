@@ -39,6 +39,7 @@ export class UpsertTurnPartitionUseCase {
             && existing !== null
             && existing.version !== input.baseVersion
         ) {
+            // 클라이언트가 본 버전과 저장 버전이 다르면 덮어쓰기를 막는다.
             throw new TurnPartitionVersionMismatchError(input.baseVersion, existing.version);
         }
 

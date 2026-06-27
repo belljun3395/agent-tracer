@@ -29,11 +29,9 @@ export class TaskCleanupSuggestionEntity {
     @Column({ type: "text" })
     kind!: TaskCleanupSuggestionKind;
 
-    /** JSON-serialized snapshot of the current value (or null for inferred fields). */
     @Column({ name: "current_value", type: "text", nullable: true })
     currentValue!: string | null;
 
-    /** JSON-serialized proposed value (e.g. {"title": "New title"} or {"parentTaskId": "abc"}). */
     @Column({ name: "proposed_value", type: "text", nullable: true })
     proposedValue!: string | null;
 
@@ -52,12 +50,10 @@ export class TaskCleanupSuggestionEntity {
     @Column({ name: "resolved_at", type: "text", nullable: true })
     resolvedAt!: string | null;
 
-    /** Awaiting a human decision — the only state from which it can be accepted/dismissed. */
     isPending(): boolean {
         return this.status === "pending";
     }
 
-    /** Reached a terminal state (accepted / dismissed / failed). */
     isResolved(): boolean {
         return this.status !== "pending";
     }

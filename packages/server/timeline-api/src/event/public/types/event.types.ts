@@ -1,8 +1,4 @@
-/**
- * Public event-domain types — re-exports for cross-module consumers
- * (task, turn-partition, verification, mcp tools, notification dto).
- * Pure interfaces / string-union types with no behavior.
- */
+
 export type {
     TimelineLane,
     IngestEventKind,

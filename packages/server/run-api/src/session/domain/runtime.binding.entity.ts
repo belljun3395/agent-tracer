@@ -21,7 +21,6 @@ export class RuntimeBindingEntity {
     @Column({ name: "updated_at", type: "text" })
     updatedAt!: string;
 
-    /** Project this entity to the public snapshot DTO. */
     toSnapshot(): RuntimeBindingSnapshot {
         return {
             runtimeSource: this.runtimeSource.trim(),

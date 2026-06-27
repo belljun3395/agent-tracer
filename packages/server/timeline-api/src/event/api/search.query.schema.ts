@@ -15,5 +15,4 @@ export const searchQuerySchema = z.object({
     ...(limit !== undefined ? { limit } : {}),
 }));
 
-/** Swagger/OpenAPI request DTO; validation still runs through {@link searchQuerySchema}. */
 export class SearchQueryDto extends createZodDto(searchQuerySchema) {}

@@ -1,7 +1,4 @@
-/**
- * Outbound port — rule persistence. Self-contained (no external imports).
- * Adapter today wraps the legacy SqliteRuleRepository.
- */
+
 
 export type RulePersistenceScope = "global" | "task";
 export type RulePersistenceSeverity = "info" | "warn" | "block";

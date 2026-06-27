@@ -1,10 +1,4 @@
-/**
- * Preprocessing hints emitted by the monitor when a runtime hook (UserPromptSubmit
- * or PreToolUse) asks for context-aware suggestions before Claude Code processes
- * the next turn. Hooks call this with the current `trigger` and any tool-specific
- * payload; the server inspects recent timeline events for the task and returns
- * actionable hints that the hook forwards via `hookSpecificOutput.additionalContext`.
- */
+
 export type PreprocessingHintTrigger = "user_prompt" | "pre_tool";
 
 export type PreprocessingHintType =

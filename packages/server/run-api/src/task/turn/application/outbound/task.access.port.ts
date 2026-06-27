@@ -1,6 +1,4 @@
-/**
- * Outbound port — verify the task exists. Self-contained.
- */
+
 
 export interface TaskAccessRecord {
     readonly id: string;

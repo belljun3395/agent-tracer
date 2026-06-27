@@ -10,19 +10,6 @@ import type {
 } from "@monitor/rules-api/verification/application/outbound/rule.enforcement.repository.port.js";
 import type { ITurnRepository } from "@monitor/rules-api/verification/application/outbound/turn.repository.port.js";
 
-
-
-
-/**
- * Per-event matcher: when a new event arrives while a turn is open,
- * checks the event against active rules and writes rule_enforcements rows
- * for any matches. Each match is broadcast immediately as
- * `rule_enforcement.added` so the client can reclassify the event lane in
- * real time.
- *
- * Verdicts (the per-turn definitive result) are NOT computed here — that
- * happens at turn close in TurnLifecyclePostProcessor.
- */
 export class RuleEnforcementPostProcessor {
     constructor(
         private readonly ruleRepo: IRuleAccess,

@@ -11,10 +11,6 @@ function toSnapshot(event: PersistedTimelineEvent): TimelineEventSnapshot {
     return event;
 }
 
-/**
- * Internal service for timeline event read + write. Composes the persistence
- * outbound port. Used by usecases and by the public read iservice adapter.
- */
 @Injectable()
 export class TimelineEventService {
     constructor(
@@ -41,9 +37,8 @@ export class TimelineEventService {
         return event ? toSnapshot(event) : null;
     }
 
-    /** Counted across the events table — used by overview / stats queries. */
     countAll(): Promise<number> {
-        // Persistence port doesn't expose count; would-be migration target.
+
         return Promise.resolve(0);
     }
 }

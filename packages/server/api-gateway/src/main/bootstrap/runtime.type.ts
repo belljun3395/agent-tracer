@@ -2,7 +2,7 @@ import type http from "node:http";
 
 export interface MonitorRuntime {
     readonly server: http.Server;
-    /** Listen address + resolved paths, sourced from the DI-managed config. */
+
     readonly listen: {
         readonly host: string;
         readonly port: number;

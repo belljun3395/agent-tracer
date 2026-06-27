@@ -2,8 +2,6 @@ import { Controller, Get, Inject, Param, Query } from "@nestjs/common";
 import { pathParamPipe } from "@monitor/shared/contracts/http/path-param.pipe.js";
 import { GetRuleEvidenceForTaskUseCase } from "../application/get.rule.evidence.usecase.js";
 
-// Rule evidence for a task — served under the rules namespace (ruleId in path,
-// taskId in query) so /tasks stays run-owned.
 @Controller("api/v1/rules/:ruleId")
 export class RuleEvidenceQueryController {
     constructor(

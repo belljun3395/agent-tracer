@@ -1,8 +1,4 @@
-/**
- * Outbound port. Self-contained — no imports from outside this file.
- * Adapter (session/adapter/task.lifecycle.access.adapter.ts) bridges
- * external module types into these local definitions.
- */
+
 
 export type TaskLifecycleAccessKind = "primary" | "background";
 export type TaskLifecycleAccessOutcome = "completed" | "errored";
@@ -26,7 +22,6 @@ export interface FinalizeTaskAccessInput {
     readonly outcome: TaskLifecycleAccessOutcome;
 }
 
-/** Narrow projection — session reads only what it needs from the result. */
 export interface TaskLifecycleAccessTaskRef {
     readonly id: string;
 }

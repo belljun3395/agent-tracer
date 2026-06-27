@@ -201,10 +201,7 @@ function collectQuestionRow(input: TimelineEventInsertRequest): QuestionCurrentE
 }
 
 function collectTokenUsageRow(input: TimelineEventInsertRequest): EventTokenUsageEntity | undefined {
-    // First-class token.usage metadata keys win; context.snapshot's
-    // contextWindow* / lastTurn* keys are accepted as fallbacks so the
-    // Claude Code status-line stream populates event_token_usage even though
-    // no dedicated token.usage event is emitted yet.
+    // 명시 token.usage가 없으면 status-line context snapshot 값을 대체값으로 사용한다.
     const inputTokens = readNumber(input.metadata, "inputTokens")
         ?? readNumber(input.metadata, "lastTurnInputTokens")
         ?? readNumber(input.metadata, "contextWindowInputTokens")

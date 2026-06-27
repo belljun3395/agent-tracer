@@ -38,10 +38,7 @@ export class AppModule implements NestModule {
         const databaseModule = DatabaseModule.forRoot(options);
         const typeOrmDatabaseModule = TypeOrmDatabaseModule.forRoot();
 
-        // 각 바운디드 컨텍스트 모듈을 인스턴스로 만든 뒤, 토큰을 주입받는 쪽이
-        // 제공하는 쪽을 명시적으로 import 하도록 의존을 연결한다. 이미 생성된
-        // 인스턴스끼리 연결하므로 모듈 간 순환(event↔task, event↔verification,
-        // verification↔rule, task↔session)도 forwardRef 없이 해소된다.
+        // 순환 의존은 이미 만든 동적 모듈끼리 import를 연결해 forwardRef 없이 해소한다.
         const event = EventModule.register(databaseModule);
         const session = SessionModule.register(databaseModule);
         const task = TaskModule.register(databaseModule);
@@ -69,10 +66,8 @@ export class AppModule implements NestModule {
                 AppConfigModule,
                 ScheduleModule.forRoot(),
                 EventEmitterModule.forRoot(),
-                // Per-IP rate limit on the api/v1 surface. The /ingest/ routes are
-                // skipped: the runtime daemon streams one request per event batch,
-                // so throttling them would drop telemetry. Client IP is resolved
-                // through the trusted-proxy config so the limit is per real client.
+
+                // ingest 요청은 런타임 이벤트 스트림이므로 일반 API 요청 제한에서 제외한다.
                 ThrottlerModule.forRoot({
                     throttlers: [{ ttl: 60_000, limit: 300 }],
                     skipIf: (context: ExecutionContext) => {

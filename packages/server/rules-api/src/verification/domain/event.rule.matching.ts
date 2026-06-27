@@ -6,10 +6,6 @@ import { inferToolCall } from "./tool.call.inference.js";
 
 export type RuleEventMatchKind = "trigger" | "expect-fulfilled";
 
-// Compile each user-supplied pattern once instead of per event×rule, and bound
-// the matched input length so a pathological pattern can't backtrack
-// catastrophically (ReDoS) over a long command/path. A non-global RegExp is
-// safe to cache and reuse via test() (no lastIndex state).
 const MAX_PATTERN_TARGET_LEN = 4096;
 const compiledPatternCache = new Map<string, RegExp | null>();
 
@@ -22,17 +18,13 @@ function compilePattern(pattern: string): RegExp | null {
     } catch {
         compiled = null;
     }
-    // Bound the cache so a flood of distinct (e.g. invalid) patterns can't grow it.
+
+    // 서로 다른 패턴이 과도하게 들어오면 캐시를 비워 메모리 증가를 막는다.
     if (compiledPatternCache.size > 500) compiledPatternCache.clear();
     compiledPatternCache.set(pattern, compiled);
     return compiled;
 }
 
-/**
- * Returns the match kind(s) under which `event` matches `rule`. An event can
- * match both trigger and expect when a single recorded event satisfies both
- * sides of the rule contract.
- */
 export function matchEventAgainstRule(
     event: TimelineEvent,
     rule: Rule,
@@ -40,9 +32,11 @@ export function matchEventAgainstRule(
     const matchKinds: RuleEventMatchKind[] = [];
 
     if (rule.trigger && triggerMatchesEvent(event, rule)) {
+        // 이벤트 본문이 룰의 트리거 문구와 발화자 조건을 만족하면 trigger로 기록한다.
         matchKinds.push("trigger");
     }
     if (expectMatchesEvent(event, rule)) {
+        // 도구 호출이 룰의 기대 액션/명령/패턴 조건을 만족하면 expect-fulfilled로 기록한다.
         matchKinds.push("expect-fulfilled");
     }
     return matchKinds;
@@ -51,6 +45,7 @@ export function matchEventAgainstRule(
 function triggerMatchesEvent(event: TimelineEvent, rule: Rule): boolean {
     if (!rule.trigger || rule.trigger.phrases.length === 0) return false;
     const triggerOn = rule.triggerOn;
+    // triggerOn이 지정된 룰은 해당 발화자 이벤트에서만 트리거된다.
     if (triggerOn === "user" && event.kind !== KIND.userMessage) return false;
     if (triggerOn === "assistant" && event.kind !== KIND.assistantResponse) return false;
     if (!triggerOn && event.kind !== KIND.userMessage && event.kind !== KIND.assistantResponse) return false;
@@ -63,6 +58,7 @@ function triggerMatchesEvent(event: TimelineEvent, rule: Rule): boolean {
 function expectMatchesEvent(event: TimelineEvent, rule: Rule): boolean {
     const tc = inferToolCall(event);
     if (!tc) return false;
+    // action이 지정되면 해당 도구 계열이 아니면 기대 충족으로 보지 않는다.
     if (
         rule.expect.action &&
         !verificationToolMatchesExpectedAction(tc.tool, rule.expect.action)
@@ -70,11 +66,13 @@ function expectMatchesEvent(event: TimelineEvent, rule: Rule): boolean {
         return false;
     }
     if (rule.expect.commandMatches && rule.expect.commandMatches.length > 0) {
+        // commandMatches가 있으면 실제 명령 문자열에 지정 문구가 포함되어야 한다.
         const cmd = (tc.command ?? "").toLowerCase();
         if (!cmd) return false;
         if (!rule.expect.commandMatches.some((m) => cmd.includes(m.toLowerCase()))) return false;
     }
     if (rule.expect.pattern) {
+        // pattern은 파일 경로나 명령 문자열 중 사용 가능한 값에 적용한다.
         const re = compilePattern(rule.expect.pattern);
         if (!re) return false;
         const target = (tc.filePath ?? tc.command ?? "").slice(0, MAX_PATTERN_TARGET_LEN);

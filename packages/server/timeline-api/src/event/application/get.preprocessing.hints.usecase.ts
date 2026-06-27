@@ -17,10 +17,7 @@ export class GetPreprocessingHintsUseCase {
     ) {}
 
     async execute(input: GetPreprocessingHintsUseCaseIn): Promise<GetPreprocessingHintsUseCaseOut> {
-        // Run every applicable detector and merge results. Context pressure
-        // fires for both triggers; tool-specific detectors gate on toolName so
-        // hooks can call this endpoint with a single shape regardless of where
-        // they fired.
+
         const hints: PreprocessingHint[] = [];
         const pressure = await this.contextPressure.detect(input.taskId);
         hints.push(...pressure);

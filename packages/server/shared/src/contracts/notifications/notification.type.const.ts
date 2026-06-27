@@ -1,7 +1,4 @@
-/**
- * WS/SSE 알림 판별 태그. 발행 측은 문자열 리터럴 대신 이 상수를 사용하고,
- * MonitorNotificationPortDto 유니온도 이 값으로 각 분기를 정의한다.
- */
+
 export const NOTIFICATION_TYPE = {
     taskStarted: "task.started",
     taskCompleted: "task.completed",

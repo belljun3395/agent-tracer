@@ -13,11 +13,6 @@ import { TimelineEventEntity } from "../domain/timeline.event.entity.js";
 import type { TimelineEventInsertRequest } from "../application/outbound/event.persistence.port.js";
 import { TimelineEventRepository } from "../repository/timeline.event.repository.js";
 
-/**
- * 타임라인 이벤트의 읽기/쓰기를 담당하는 내부 서비스. 이벤트는 단일 행으로
- * 저장한다 — 쓰기 시점에 metadata 를 정규화해 jsonb 컬럼에 담고, 읽을 때는 그
- * 행을 그대로 매핑한다(조인/하이드레이트 없음).
- */
 @Injectable()
 export class TimelineEventStorageService {
     constructor(
@@ -54,8 +49,8 @@ export class TimelineEventStorageService {
         return this.applyRuleLaneOverride(rows.map((row) => this.toEvent(row)));
     }
 
-    /** 입력을 정규화해 단일 이벤트 행으로 만든다(파생 필드는 jsonb metadata/tags 에 흡수). */
     private buildRow(input: TimelineEventInsertRequest): TimelineEventEntity {
+        // 저장 직전 파생 테이블 표현을 다시 구성해 메타데이터와 태그를 정규화한다.
         const entity = buildTimelineEventEntity(input);
         const hydrated = hydrateTimelineEvent(entity, buildDerivedTableInserts(input));
         entity.userId = currentUserId();
@@ -80,10 +75,6 @@ export class TimelineEventStorageService {
         };
     }
 
-    /**
-     * 읽기 시점에 rule_enforcements 를 타임라인 이벤트에 투영한다. enforcement 가
-     * 있는 이벤트는 lane 을 "rule" 로 바꾸고 classification.matches 를 채운다.
-     */
     private async applyRuleLaneOverride<T extends TimelineEvent>(
         events: readonly T[],
     ): Promise<readonly T[]> {
@@ -98,6 +89,7 @@ export class TimelineEventStorageService {
             ids,
         );
         if (rows.length === 0) return events;
+        // 룰 강제 결과가 있는 이벤트는 읽기 모델에서 룰 레인으로 보여준다.
         const byEvent = new Map<string, Array<{ ruleId: string; matchKind: string }>>();
         for (const row of rows) {
             const list = byEvent.get(row.event_id) ?? [];

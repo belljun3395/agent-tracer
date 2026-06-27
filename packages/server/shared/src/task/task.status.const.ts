@@ -18,7 +18,6 @@ export type TaskOrigin = (typeof TASK_ORIGINS)[number];
 export type TaskStatus = (typeof TASK_STATUSES)[number];
 export type TaskCompletionReason = (typeof TASK_COMPLETION_REASONS)[number];
 
-/** Origin tag for tasks spawned by the monitor's own server-SDK agents. */
 export const SERVER_SDK_TASK_ORIGIN: TaskOrigin = "server-sdk";
-/** In-progress task status. */
+
 export const RUNNING_TASK_STATUS: TaskStatus = "running";

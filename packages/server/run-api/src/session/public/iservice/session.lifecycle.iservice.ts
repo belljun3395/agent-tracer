@@ -4,9 +4,6 @@ import type {
     SessionStatus,
 } from "../dto/session.snapshot.dto.js";
 
-/**
- * Public iservice exposing session lifecycle operations to other modules.
- */
 export interface ISessionLifecycle {
     create(input: SessionCreateInput): Promise<SessionSnapshot>;
     findById(id: string): Promise<SessionSnapshot | null>;

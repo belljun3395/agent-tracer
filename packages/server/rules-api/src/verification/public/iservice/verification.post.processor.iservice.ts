@@ -1,15 +1,6 @@
 import type { MonitoringEventKind, TimelineLane } from "@monitor/timeline-api/event/domain/common/const/event.kind.const.js";
 import type { EventClassificationMatch } from "@monitor/timeline-api/event/domain/model/timeline.event.model.js";
 
-/**
- * Public iservice — verification post-processing of timeline events as they
- * are logged. Consumed by the event module's verification post processor
- * adapter, which fans out to RuleEnforcementPostProcessor and
- * TurnLifecyclePostProcessor.
- *
- * The shapes are kept structural so callers don't depend on internal types.
- */
-
 export interface VerificationPostProcessorEvent {
     readonly id: string;
     readonly taskId: string;

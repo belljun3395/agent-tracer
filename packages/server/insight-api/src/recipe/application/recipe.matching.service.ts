@@ -45,7 +45,7 @@ export interface RecipeMatchInput {
     readonly targetTaskId?: string;
     readonly limit?: number;
     readonly injectedVia?: RecipeApplicationInjectedVia;
-    /** If true, do not persist applications (preview only). */
+
     readonly dryRun?: boolean;
 }
 
@@ -112,21 +112,18 @@ export class RecipeMatchingService {
         return out;
     }
 
-    /**
-     * Mark every open application for a task with the given outcome and bump
-     * success_count on the underlying recipes. Called from task lifecycle
-     * subscribers.
-     */
     async resolveApplicationsForTask(
         targetTaskId: string,
         outcome: "completed" | "abandoned" | "superseded",
     ): Promise<void> {
         const open = await this.applications.listOpenByTaskId(targetTaskId);
+        // 열린 적용 이력이 없으면 레시피 성과를 바꿀 대상이 없다.
         if (open.length === 0) return;
         const now = new Date().toISOString();
         for (const app of open) {
             await this.applications.setOutcome(app.id, outcome, now);
             if (outcome === "completed") {
+                // 실제 완료된 태스크만 레시피 성공 횟수로 인정한다.
                 await this.recipes.incrementSuccessCount(app.recipeId, now);
             }
         }
@@ -134,6 +131,7 @@ export class RecipeMatchingService {
 }
 
 function clampLimit(raw: number | undefined): number {
+    // 잘못된 limit은 기본값으로 돌리고, 과도한 limit은 상한으로 자른다.
     if (!raw || !Number.isFinite(raw) || raw <= 0) return DEFAULT_LIMIT;
     return Math.min(Math.floor(raw), MAX_LIMIT);
 }
@@ -149,18 +147,16 @@ function tokenize(text: string): Set<string> {
 }
 
 function scoreRecipe(recipe: RecipeEntity, queryTokens: Set<string>): number {
-    // Pre-build the recipe's token bag from intent/description/title plus a
-    // small slice of summary. We don't precompute these — list sizes are
-    // expected in the low hundreds at most.
     const bag = tokenize(
         `${recipe.title} ${recipe.intent} ${recipe.description} ${recipe.summaryMd.slice(0, 600)}`,
     );
+    // 레시피 텍스트나 질의와의 교집합이 없으면 매칭 후보에서 제외한다.
     if (bag.size === 0) return 0;
     let overlap = 0;
     for (const tok of queryTokens) {
         if (bag.has(tok)) overlap += 1;
     }
     if (overlap === 0) return 0;
-    // Jaccard-ish: overlap divided by sqrt(|q| * |r|).
+
     return overlap / Math.sqrt(queryTokens.size * bag.size);
 }

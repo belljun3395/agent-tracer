@@ -62,18 +62,22 @@ export class TaskRuleGenerationService {
     async enqueue(taskId: string): Promise<RuleJobEntity> {
         const { summary } = await this.getTaskSummary.execute({ taskId });
         if (!summary) {
+            // 태스크가 없으면 생성 잡을 만들지 않고 요청을 실패시킨다.
             throw new TaskNotFoundForGenerationError(taskId);
         }
         if (summary.eventCount === 0) {
+            // 이벤트가 없는 태스크는 학습할 규칙 근거가 없으므로 생성하지 않는다.
             throw new TaskHasNoEventsError(taskId);
         }
         const existing = await this.jobs.findActiveForTask("rule_generation", taskId);
         if (existing) {
+            // 같은 태스크의 생성 잡은 동시에 하나만 허용한다.
             throw new GenerationAlreadyInFlightError(existing.id);
         }
 
         const apiKey = await this.settings.getAnthropicApiKey();
         if (this.agent.requiresLocalApiKey() && !apiKey) {
+            // 로컬 실행기가 API 키를 직접 써야 하면 잡을 만들기 전에 거부한다.
             throw new MissingApiKeyError();
         }
 
@@ -85,7 +89,6 @@ export class TaskRuleGenerationService {
         });
     }
 
-    /** API 요청 안에서 룰 생성을 동기 실행하고 완료된 잡을 반환한다. */
     async run(taskId: string): Promise<RuleJobEntity> {
         const job = await this.enqueue(taskId);
         await this.execute(job);
@@ -101,15 +104,10 @@ export class TaskRuleGenerationService {
         return this.jobs.findById(id);
     }
 
-    /**
-     * Execute one claimed job. Caller is responsible for atomic claim before
-     * calling. Updates job status to completed/failed at the end.
-     */
     async execute(job: RuleJobEntity): Promise<void> {
         const taskId = job.taskId;
         if (!taskId) {
-            // rule_generation jobs always carry a taskId; a missing one is a
-            // corrupt row — fail it rather than crash the worker.
+            // taskId가 없는 rule_generation 잡은 복구할 대상이 없어 실패로 닫는다.
             await this.jobs.markFailed({
                 id: job.id,
                 error: "rule generation job is missing a taskId",
@@ -130,6 +128,7 @@ export class TaskRuleGenerationService {
         try {
             const apiKey = await this.settings.getAnthropicApiKey();
             if (this.agent.requiresLocalApiKey() && !apiKey) {
+                // 실행 시점에도 키를 다시 확인해 오래된 pending 잡이 잘못 실행되지 않게 한다.
                 throw new MissingApiKeyError();
             }
             const modelOverride = await this.settings.getAnthropicModel();
@@ -144,6 +143,7 @@ export class TaskRuleGenerationService {
 
             const { summary } = await this.getTaskSummary.execute({ taskId });
             if (!summary) {
+                // enqueue 이후 태스크가 삭제되면 잡을 실패로 닫는다.
                 throw new TaskNotFoundForGenerationError(taskId);
             }
 

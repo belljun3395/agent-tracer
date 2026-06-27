@@ -4,8 +4,6 @@ import type {
     TimelineEvent,
 } from "@monitor/timeline-api/event/domain/model/timeline.event.model.js";
 
-/** 타임라인 이벤트 영속성 아웃바운드 포트. */
-
 export type PersistedTimelineEvent = TimelineEvent;
 
 export interface TimelineEventInsertRequest {

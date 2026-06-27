@@ -25,6 +25,7 @@ export class GetTaskSummaryUseCase {
 
     async execute(input: GetTaskSummaryUseCaseIn): Promise<GetTaskSummaryUseCaseOut> {
         const task = await this.query.findById(input.taskId);
+        // 대상 태스크가 없으면 요약도 없다는 응답으로 정리한다.
         if (!task) return { summary: null };
 
         const timelineResult = await this.getTimeline.execute({ taskId: task.id });
@@ -37,6 +38,7 @@ export class GetTaskSummaryUseCase {
 
         for (const event of events) {
             if (!firstUserMessage && event.kind === KIND.userMessage) {
+                // 최초 사용자 메시지는 룰/레시피 생성의 의도 근거로 한 번만 보존한다.
                 firstUserMessage = {
                     title: truncate(event.title, 200),
                     ...(event.body
@@ -47,6 +49,7 @@ export class GetTaskSummaryUseCase {
 
             const tool = inferToolName(event);
             if (tool) {
+                // 도구명은 사용 빈도순 요약을 만들기 위해 카운트한다.
                 toolCounts.set(tool, (toolCounts.get(tool) ?? 0) + 1);
             }
 
@@ -56,6 +59,7 @@ export class GetTaskSummaryUseCase {
 
             const command = readString(event.metadata, "command");
             if (command) {
+                // 명령 문자열은 길이를 제한해 요약 데이터가 과도하게 커지지 않게 한다.
                 const normalized = truncate(command.trim(), MAX_COMMAND_TEXT_LENGTH);
                 commandCounts.set(normalized, (commandCounts.get(normalized) ?? 0) + 1);
             }
@@ -96,6 +100,7 @@ export class GetTaskSummaryUseCase {
 function inferToolName(event: ProjectedTimelineEvent): string | null {
     const explicit = readString(event.metadata, "toolName")
         ?? readString(event.metadata, "sourceTool");
+    // 명시 도구명이 있으면 이벤트 kind보다 우선한다.
     if (explicit) return explicit;
     if (event.kind === KIND.terminalCommand) return "Bash";
     if (event.kind === KIND.toolUsed) return readString(event.metadata, "tool") ?? null;
@@ -104,6 +109,7 @@ function inferToolName(event: ProjectedTimelineEvent): string | null {
 
 function collectFilePaths(event: ProjectedTimelineEvent): readonly string[] {
     const paths = event.paths.filePaths;
+    // 여러 파일 경로가 있으면 대표 경로보다 전체 목록을 우선한다.
     if (paths.length > 0) return paths;
     const primary = event.paths.primaryPath;
     return primary ? [primary] : [];
@@ -115,6 +121,7 @@ function readString(meta: Record<string, unknown>, key: string): string | undefi
 }
 
 function truncate(text: string, max: number): string {
+    // 상한 이하면 원문을 유지하고, 넘는 텍스트만 잘라 요약 데이터 크기를 제한한다.
     if (text.length <= max) return text;
     return text.slice(0, max) + "...";
 }

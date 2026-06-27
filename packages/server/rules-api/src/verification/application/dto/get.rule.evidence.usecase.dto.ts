@@ -19,11 +19,7 @@ export interface RuleEvidenceEventDto {
     readonly createdAt: string;
     readonly matchKind: RuleEnforcementMatchKind;
     readonly matchedBy: readonly RuleMatchedBy[];
-    /**
-     * Set on trigger rows when no expect-fulfilled enforcement landed on this
-     * task. Surfaces the "agent triggered but didn't follow through" case
-     * directly in the same panel.
-     */
+
     readonly unfulfilled?: boolean;
 }
 

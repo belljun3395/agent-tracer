@@ -16,11 +16,10 @@ import { CLAUDE_MODEL } from "@monitor/shared/llm/models.js";
 
 const DEFAULT_MODEL = CLAUDE_MODEL.haiku;
 
-// JSON Schema for the SDK's structured-output mode; zod re-validates afterward.
 const TITLE_OUTPUT_SCHEMA = zodToOutputSchema(titleSuggestionsListSchema);
 
 export interface GenerateTitleSuggestionsInput {
-    /** Optional: omitted when a remote runner runs the SDK with its own local key. */
+
     readonly apiKey?: string;
     readonly model?: string;
     readonly summary: TaskSummaryUseCaseDto;
@@ -60,8 +59,6 @@ export class TitleSuggestionAgent {
             MONITOR_TASK_ORIGIN: "server-sdk",
         };
 
-        // Single-turn Haiku one-shot, no workspace tools; 120s deadline headroom.
-        // Structured output: the SDK enforces the schema and retries violations.
         const { rawOutput, structuredOutput, durationMs, errorSummary, costUsd, numTurns, usage } = await this.queryRunner.run({
             label: "title-suggestion",
             prompt: userPrompt,
@@ -83,7 +80,6 @@ export class TitleSuggestionAgent {
             );
         }
 
-        // Prefer the SDK's structured output; fall back to text parsing.
         const json = structuredOutput ?? parseJsonStrict(rawOutput);
         if (json === null || json === undefined) {
             throw new TitleSuggestionAgentError(

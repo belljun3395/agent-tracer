@@ -22,10 +22,6 @@ export interface SearchTasksUseCaseOut {
 const MAX_LIMIT = 50;
 const DEFAULT_LIMIT = 8;
 
-/**
- * Task full-text search (pg_trgm ILIKE). Work owns task search; timeline owns
- * event search. The web fans out to both and merges.
- */
 @Injectable()
 export class SearchTasksUseCase {
     constructor(private readonly query: TaskQueryService) {}

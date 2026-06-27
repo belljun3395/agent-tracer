@@ -33,7 +33,7 @@ export class TaskCleanupModule {
                 ListCleanupSuggestionsUseCase,
                 AcceptCleanupSuggestionUseCase,
                 DismissCleanupSuggestionUseCase,
-                // 태스크 정리 LLM 에이전트 + Messages API 쿼리 러너 (1-shot, 워크스페이스 불필요)
+
                 TaskCleanupAgent,
                 MessagesQueryRunner,
                 { provide: QUERY_RUNNER, useExisting: MessagesQueryRunner },

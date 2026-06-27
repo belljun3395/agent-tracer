@@ -25,16 +25,15 @@ export class GlobalExceptionFilter implements ExceptionFilter<unknown> {
         const response = ctx.getResponse<Response>();
 
         if (exception instanceof HttpException) {
+            // Nest 예외는 기존 status를 유지하되 응답 본문만 공통 API 포맷으로 맞춘다.
             const status = exception.getStatus();
             const body = exception.getResponse();
             response.status(status).json(normalizeHttpExceptionBody(status, body));
             return;
         }
 
-        // Any domain module's error declares its own HTTP status + envelope
-        // code (and optional details). The filter maps it generically, so a
-        // new domain error needs no change here.
         if (exception instanceof DomainError) {
+            // 도메인 예외는 각 예외가 선언한 HTTP status와 code를 그대로 노출한다.
             response.status(exception.httpStatus).json(
                 createApiErrorEnvelope(exception.code, exception.message, exception.details),
             );
@@ -42,6 +41,7 @@ export class GlobalExceptionFilter implements ExceptionFilter<unknown> {
         }
 
         if (exception instanceof ZodError) {
+            // Zod 검증 실패는 클라이언트 입력 문제로 고정해 400을 반환한다.
             response.status(HttpStatus.BAD_REQUEST).json(
                 createApiErrorEnvelope("validation_error", "Invalid request", exception.format()),
             );
@@ -50,6 +50,7 @@ export class GlobalExceptionFilter implements ExceptionFilter<unknown> {
 
         const status = getStatusFromError(exception);
         if (status >= 500) {
+            // 서버 오류는 내부 메시지를 숨기고 로그에만 상세를 남긴다.
             this.logger.error(
                 `Unhandled exception (${status})`,
                 exception instanceof Error ? exception.stack : String(exception),
@@ -64,6 +65,7 @@ export class GlobalExceptionFilter implements ExceptionFilter<unknown> {
 }
 
 function normalizeHttpExceptionBody(status: number, body: string | object): unknown {
+    // 이미 공통 포맷이면 중복 포장을 하지 않는다.
     if (isApiErrorEnvelope(body)) return body;
 
     const message = getMessageFromHttpExceptionBody(body);
@@ -81,6 +83,7 @@ function getStatusFromError(error: unknown): number {
                 status?: unknown;
                 statusCode?: unknown;
             }).status;
+        // 외부 예외가 유효한 HTTP status를 갖고 있으면 그 값을 따른다.
         if (typeof candidate === "number" && Number.isInteger(candidate) && candidate >= 400 && candidate < 600) {
             return candidate;
         }

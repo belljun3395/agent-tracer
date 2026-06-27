@@ -129,20 +129,6 @@ const VERIFICATION_INTERNAL_PROVIDERS: Provider[] = [
     },
 ];
 
-/**
- * Verification module — owns turn evaluation, verdicts, and rule enforcement.
- *
- * Persistence: TypeORM-backed entities (TurnEntity, TurnEventEntity,
- * VerdictEntity, RuleEnforcementEntity) with thin repositories. The legacy
- * DI tokens (TURN_REPOSITORY_TOKEN etc.) are remapped here to the new
- * TypeORM repos so existing factory bindings keep working without rewriting
- * the (legacy) post-processors and usecases.
- *
- * Public surface:
- *   - VERIFICATION_BACKFILL              ← VerificationBackfillPublicAdapter
- *   - VERIFICATION_POST_PROCESSOR        ← VerificationPostProcessorPublicAdapter
- *   - VERIFICATION_VERDICT_INVALIDATION  ← VerdictInvalidationPublicAdapter
- */
 @Module({})
 export class VerificationModule {
     static register(databaseModule: DynamicModule): DynamicModule {
@@ -159,26 +145,24 @@ export class VerificationModule {
             ],
             controllers: [RuleEvidenceQueryController],
             providers: [
-                // TypeORM-backed repositories
+
                 TurnRepository,
                 TurnQueryRepository,
                 VerdictRepository,
                 RuleEnforcementRepository,
-                // Remap legacy DI tokens to the TypeORM repos so internal factory
-                // bindings (TurnEvaluationService, post-processors, usecases) keep
-                // working unchanged. This shadows the legacy DatabaseModule providers.
+
                 { provide: TURN_REPOSITORY_TOKEN, useExisting: TurnRepository },
                 { provide: TURN_QUERY_REPOSITORY_TOKEN, useExisting: TurnQueryRepository },
                 { provide: VERDICT_REPOSITORY_TOKEN, useExisting: VerdictRepository },
                 { provide: RULE_ENFORCEMENT_REPOSITORY_TOKEN, useExisting: RuleEnforcementRepository },
                 ...VERIFICATION_INTERNAL_PROVIDERS,
-                // Public adapters
+
                 VerificationBackfillPublicAdapter,
                 VerdictInvalidationPublicAdapter,
                 VerificationPostProcessorPublicAdapter,
-                // Subscribes to timeline's event.recorded → runs verification
+
                 EventRecordedVerificationSubscriber,
-                // Public iservice bindings
+
                 { provide: VERIFICATION_BACKFILL, useExisting: VerificationBackfillPublicAdapter },
                 { provide: VERIFICATION_VERDICT_INVALIDATION, useExisting: VerdictInvalidationPublicAdapter },
                 { provide: VERIFICATION_POST_PROCESSOR, useExisting: VerificationPostProcessorPublicAdapter },
@@ -187,9 +171,9 @@ export class VerificationModule {
                 VERIFICATION_BACKFILL,
                 VERIFICATION_VERDICT_INVALIDATION,
                 VERIFICATION_POST_PROCESSOR,
-                // Cross-module-consumed token (task module reaches via public surface).
+
                 TURN_QUERY_REPOSITORY_TOKEN,
-                // Re-exported services for legacy consumers
+
                 RunTurnEvaluationUseCase,
                 TurnLifecyclePostProcessor,
                 RuleEnforcementPostProcessor,

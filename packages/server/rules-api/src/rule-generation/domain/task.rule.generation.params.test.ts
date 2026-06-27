@@ -4,10 +4,6 @@ import {
     normalizeRuleSuggestionLanguage,
 } from "./task.rule.generation.params.js";
 
-/**
- * 규칙 생성 파라미터 비즈니스 로직 테스트.
- * 메서드명은 영어, 표시명은 한글.
- */
 describe("clampMaxRules — 최대 규칙 수 보정", () => {
     it("값이 없거나 유효하지 않으면 기본값 5를 쓴다", () => {
         expect(clampMaxRules(null)).toBe(5);

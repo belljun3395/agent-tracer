@@ -13,7 +13,6 @@ export class TaskRepository implements OnModuleInit {
         private readonly repo: Repository<TaskEntity>,
     ) {}
 
-    /** pg_trgm + GIN index for the ILIKE task search (idempotent, run on boot). */
     async onModuleInit(): Promise<void> {
         try {
             await this.repo.manager.query("CREATE EXTENSION IF NOT EXISTS pg_trgm");
@@ -31,7 +30,6 @@ export class TaskRepository implements OnModuleInit {
         return this.repo.findOne({ where: { id } });
     }
 
-    /** pg_trgm-backed ILIKE search over a user's task titles + workspace paths. */
     async searchByText(userId: string, query: string, limit: number): Promise<TaskEntity[]> {
         const pattern = `%${query}%`;
         return this.repo
@@ -86,10 +84,6 @@ export class TaskRepository implements OnModuleInit {
         return rows.map((row) => row.status);
     }
 
-    /**
-     * Generic — caller (domain/service) supplies the status set. Repository
-     * doesn't decide which statuses count as "finished" / "running" / etc.
-     */
     async listIdsByStatuses(statuses: readonly TaskStatus[]): Promise<readonly string[]> {
         if (statuses.length === 0) return [];
         const rows = await this.repo
@@ -100,12 +94,6 @@ export class TaskRepository implements OnModuleInit {
         return rows.map((row) => row.id);
     }
 
-    /**
-     * Generic — caller (domain/service) supplies which statuses are stale-eligible
-     * and the cutoff. Repository doesn't decide what counts as "running" / reapable.
-     * Used by the stale-task reaper to clean up after force-killed runtimes that
-     * never sent the SessionEnd hook.
-     */
     async findByStatusesUpdatedBefore(
         statuses: readonly TaskStatus[],
         thresholdIso: string,
@@ -121,11 +109,6 @@ export class TaskRepository implements OnModuleInit {
             .getMany();
     }
 
-    /**
-     * SQL-bound recursive descent over the task hierarchy via `parent`
-     * relations. The relation kind is the only domain hook in this query —
-     * the rest is plain CTE traversal.
-     */
     async collectDescendantIds(taskId: string): Promise<readonly string[]> {
         const rows = await this.repo.query<readonly { id: string }[]>(
             `with recursive task_tree(id) as (

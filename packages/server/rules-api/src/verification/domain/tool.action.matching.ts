@@ -4,13 +4,6 @@ import {
     normalizeRuleExpectedAction,
 } from "@monitor/rules-api/rule/public/predicates.js";
 
-/**
- * Verification-side helpers — apply rule's canonical tool-name mapping during
- * turn evaluation. The actual mapping rules live in the rule module (exposed
- * via @monitor/rules-api/rule/public/) because they describe rule semantics (which tool
- * corresponds to which expected action).
- */
-
 export function normalizeVerificationToolName(tool: string): string {
     return canonicalizeToolName(tool);
 }

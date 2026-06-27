@@ -5,8 +5,6 @@ import { GetPreprocessingHintsUseCase } from "../application/get.preprocessing.h
 import type { GetPreprocessingHintsUseCaseOut } from "../application/dto/preprocessing.hints.dto.js";
 import { preprocessingHintsBodySchema, PreprocessingHintsDto } from "./preprocessing.hints.schema.js";
 
-// Timeline's preprocessing-hints — served under the events namespace (taskId in
-// query) so /tasks stays run-owned.
 @Controller("api/v1/events")
 export class PreprocessingHintsController {
     constructor(

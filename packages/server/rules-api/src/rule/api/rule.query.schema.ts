@@ -10,5 +10,4 @@ export const rulesListQuerySchema = z.object({
 
 export type RulesListQuery = z.infer<typeof rulesListQuerySchema>;
 
-/** Swagger/OpenAPI request DTO; validation still runs through {@link rulesListQuerySchema}. */
 export class RulesListQueryDto extends createZodDto(rulesListQuerySchema) {}

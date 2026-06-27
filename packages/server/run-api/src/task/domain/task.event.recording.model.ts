@@ -22,7 +22,6 @@ export interface FinalizeTaskEventDraftInput {
     readonly createdAt?: string;
 }
 
-/** Domain model for the timeline-event recording payload of a task.start event. */
 export class TaskStartRecording {
     constructor(private readonly input: StartTaskEventDraftInput) {}
 
@@ -50,7 +49,6 @@ export class TaskStartRecording {
     }
 }
 
-/** Domain model for the timeline-event recording payload of a task finalization (complete / error). */
 export class TaskFinalizationRecording {
     constructor(private readonly input: FinalizeTaskEventDraftInput) {}
 

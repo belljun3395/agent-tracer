@@ -31,25 +31,6 @@ import {
 } from "./public/tokens.js";
 import { RuleRepository } from "./repository/rule.repository.js";
 
-/**
- * Rule module — owns RuleEntity (rules table).
- *
- * Persistence: TypeORM-backed RuleRepository implementing IRulePersistence.
- * RULE_REPOSITORY_TOKEN is remapped here to RuleRepository so legacy
- * factory bindings (verification module's TurnEvaluationService and
- * RuleEnforcementPostProcessor) keep working without changes.
- *
- * Public surface (consumed by verification + UI):
- *   - RULE_READ              ← RuleReadPublicAdapter
- *   - RULE_WRITE             ← RuleWritePublicAdapter
- *   - RULE_SIGNATURE_QUERY   ← RuleSignatureQueryPublicAdapter
- *
- * Outbound surface:
- *   - RULE_PERSISTENCE_PORT          ← TypeORM RuleRepository
- *   - NOTIFICATION_PUBLISHER_PORT    ← shared transport
- *   - BACKFILL_TRIGGER_PORT          ← verification.public IVerificationBackfill
- *   - VERIFICATION_INVALIDATION_PORT ← verification.public IVerdictInvalidation
- */
 @Module({})
 export class RuleModule {
     static register(databaseModule: DynamicModule): DynamicModule {
@@ -66,14 +47,13 @@ export class RuleModule {
             ],
             providers: [
                 RuleRepository,
-                // Remap legacy RULE_REPOSITORY_TOKEN to the TypeORM repo so
-                // verification module's factory bindings receive the new repo.
+
                 { provide: RULE_REPOSITORY_TOKEN, useExisting: RuleRepository },
-                // Outbound adapters
+
                 BackfillTriggerAdapter,
                 RuleNotificationPublisherAdapter,
                 VerificationInvalidationAdapter,
-                // Use cases
+
                 CreateRuleUseCase,
                 UpdateRuleUseCase,
                 DeleteRuleUseCase,
@@ -82,11 +62,11 @@ export class RuleModule {
                 PromoteRuleToGlobalUseCase,
                 DemoteRuleToTaskUseCase,
                 RegisterSuggestionUseCase,
-                // Public iservices — bound directly to RuleRepository (structurally compatible)
+
                 { provide: RULE_READ, useExisting: RuleRepository },
                 { provide: RULE_WRITE, useExisting: RuleRepository },
                 { provide: RULE_SIGNATURE_QUERY, useExisting: RuleRepository },
-                // Outbound bindings
+
                 { provide: RULE_PERSISTENCE_PORT, useExisting: RuleRepository },
                 { provide: NOTIFICATION_PUBLISHER_PORT, useExisting: RuleNotificationPublisherAdapter },
                 { provide: BACKFILL_TRIGGER_PORT, useExisting: BackfillTriggerAdapter },
@@ -99,8 +79,7 @@ export class RuleModule {
                 RULE_REPOSITORY_TOKEN,
                 ListRulesUseCase,
                 RegisterSuggestionUseCase,
-                // Consumed by the rule-backfill module's worker to load a rule
-                // before running its re-evaluation sweep.
+
                 RULE_PERSISTENCE_PORT,
             ],
         };

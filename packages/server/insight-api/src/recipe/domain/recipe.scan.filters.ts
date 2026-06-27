@@ -3,7 +3,6 @@ import type { TaskSnapshotArchivedScope } from "@monitor/run-api/task/public/ise
 
 export type RecipeScanStatusFilter = "completed" | "active" | "all";
 
-/** Normalized, clamped snapshot of the filters a recipe scan runs with. */
 export interface RecipeScanFiltersSnapshot {
     readonly statusFilter: RecipeScanStatusFilter;
     readonly since: string | null;
@@ -24,21 +23,20 @@ const SUPPORTED_LANGUAGES: ReadonlySet<RecipeOutputLanguage> = new Set([
     "zh",
 ]);
 
-/** Clamp the requested candidate cap into [1, hard-cap], defaulting when invalid. */
 export function clampMaxCandidates(raw: unknown): number {
     const n = typeof raw === "number" ? raw : Number.parseInt(String(raw), 10);
+    // 후보 수 입력이 잘못되면 기본값으로 되돌리고, 과도한 요청은 절대 상한으로 자른다.
     if (!Number.isFinite(n) || n <= 0) return DEFAULT_MAX_CANDIDATES;
     return Math.min(Math.max(Math.floor(n), 1), MAX_CANDIDATES_HARD_CAP);
 }
 
-/** Clamp the minimum event count to >= 1, defaulting when invalid. */
 export function clampMinEventCount(raw: unknown): number {
     const n = typeof raw === "number" ? raw : Number.parseInt(String(raw), 10);
+    // 최소 이벤트 수는 1 미만으로 내려가지 않게 해 빈 근거 태스크를 제외한다.
     if (!Number.isFinite(n) || n <= 0) return DEFAULT_MIN_EVENT_COUNT;
     return Math.max(Math.floor(n), 1);
 }
 
-/** Apply request input + defaults to produce a normalized filters snapshot. */
 export function normalizeRecipeScanFilters(input: {
     readonly statusFilter?: RecipeScanStatusFilter;
     readonly since?: string | null;
@@ -55,22 +53,22 @@ export function normalizeRecipeScanFilters(input: {
     };
 }
 
-/** Parse a persisted filters JSON snapshot, falling back to defaults on bad input. */
 export function parseRecipeScanFilters(raw: string): RecipeScanFiltersSnapshot {
     try {
         const parsed = JSON.parse(raw) as Partial<RecipeScanFiltersSnapshot>;
         return normalizeRecipeScanFilters(parsed);
     } catch {
+        // 저장된 필터가 깨졌으면 잡을 실패시키지 않고 기본 스캔 정책으로 실행한다.
         return normalizeRecipeScanFilters({});
     }
 }
 
-/** Keep only the tasks that satisfy the scan's status + since filters. */
 export function applyRecipeScanFilters<
     T extends { readonly status: string; readonly updatedAt: string },
 >(tasks: readonly T[], filters: RecipeScanFiltersSnapshot): readonly T[] {
     return tasks.filter((t) => {
         if (filters.statusFilter !== "all") {
+            // completed 스캔은 완료된 작업만, active 스캔은 진행/대기 작업만 남긴다.
             if (filters.statusFilter === "completed" && t.status !== "completed") {
                 return false;
             }
@@ -82,13 +80,14 @@ export function applyRecipeScanFilters<
                 return false;
             }
         }
+        // since가 있으면 그 시점 이후 갱신된 태스크만 스캔한다.
         if (filters.since && t.updatedAt < filters.since) return false;
         return true;
     });
 }
 
-/** Normalize a raw language setting to a supported recipe output language. */
 export function normalizeRecipeLanguage(raw: string | null): RecipeOutputLanguage {
+    // 지원하지 않는 언어 값은 입력 텍스트를 따르는 auto로 되돌린다.
     if (!raw) return "auto";
     const trimmed = raw.trim().toLowerCase() as RecipeOutputLanguage;
     return SUPPORTED_LANGUAGES.has(trimmed) ? trimmed : "auto";

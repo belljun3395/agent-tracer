@@ -1,21 +1,6 @@
 import type { EvaluateTurnToolCall } from "./turn.evaluation.js";
 import { normalizeVerificationToolName } from "./tool.action.matching.js";
 
-/**
- * Infer a tool-call shape from a timeline event for verification evaluation.
- *
- * Two paths:
- *   1. Explicit `metadata.toolName` (set by tool.used / agent.activity.logged
- *      ingest paths) — used as-is.
- *   2. Kind-based fallback for events whose metadata predates the toolName
- *      field. The Bash PostToolUse hook records `terminal.command` events
- *      with `command` but no `toolName`; without this fallback the
- *      evaluator would see zero Bash calls and mark every "ran tests"
- *      claim as contradicted.
- *
- * Returns `null` for events that cannot be mapped to a tool call (most
- * non-tool events: context.snapshot, user.message, assistant.response, etc.)
- */
 export function inferToolCall(event: {
     readonly kind: string;
     readonly metadata: Record<string, unknown>;
@@ -28,7 +13,7 @@ export function inferToolCall(event: {
     if (semanticTool) {
         return buildToolCall(semanticTool, event.metadata);
     }
-    // Kind-based fallback: terminal.command is emitted by the Bash hook.
+
     if (event.kind === "terminal.command") {
         return buildToolCall("Bash", event.metadata);
     }

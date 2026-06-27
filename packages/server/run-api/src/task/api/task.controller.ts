@@ -39,8 +39,6 @@ import { TaskPatchDto, taskPatchSchema } from "./task.command.schema.js";
 const ARCHIVED_SCOPES: ReadonlySet<ListTasksArchivedScope> = new Set(["active", "archived", "all"]);
 const ORIGIN_FILTERS: ReadonlySet<ListTasksOriginFilter> = new Set(["user", "server-sdk", "all"]);
 
-// Single task controller (command + query) under api/v1/tasks. Static routes
-// (search) are declared before the :taskId param routes so they aren't captured.
 @Controller("api/v1/tasks")
 export class TaskController {
     constructor(
@@ -79,10 +77,12 @@ export class TaskController {
     ) {
         const scope = archivedParam ?? "active";
         if (!ARCHIVED_SCOPES.has(scope as ListTasksArchivedScope)) {
+            // archived 필터는 목록 범위를 결정하므로 허용된 값만 받는다.
             throw new BadRequestException(`archived must be one of: active, archived, all`);
         }
         const origin = originParam ?? "all";
         if (!ORIGIN_FILTERS.has(origin as ListTasksOriginFilter)) {
+            // origin 필터는 사용자/서버 작업 분리를 결정하므로 허용된 값만 받는다.
             throw new BadRequestException(`origin must be one of: user, server-sdk, all`);
         }
         return this.listTasks.execute({

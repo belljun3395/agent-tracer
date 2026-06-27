@@ -11,13 +11,6 @@ import { CLOCK_PORT, NOTIFICATION_PUBLISHER_PORT } from "../application/outbound
 import type { IClock } from "../application/outbound/clock.port.js";
 import type { ITaskNotificationPublisher } from "../application/outbound/notification.publisher.port.js";
 
-/**
- * Applies a recorded event's task-status effect. Subscribes to timeline's
- * `event.recorded` (a downward dependency on timeline's public contract) so
- * timeline no longer commands work. Runs inside the recording transaction via
- * `emitAsync`; the taskUpdated notification is deferred to commit so a rollback
- * can't surface a phantom status change.
- */
 @Injectable()
 export class EventRecordedTaskEffectSubscriber {
     constructor(
@@ -30,14 +23,17 @@ export class EventRecordedTaskEffectSubscriber {
     @OnEvent(EVENT_RECORDED, { suppressErrors: false })
     async onEventRecorded(payload: EventRecordedPayload): Promise<void> {
         const desiredStatus = payload.taskEffects?.taskStatus;
+        // 이벤트가 상태 효과를 선언하지 않으면 태스크 상태를 바꾸지 않는다.
         if (desiredStatus === undefined) return;
 
         const task = await this.query.findById(payload.taskId);
         if (!task) return;
+        // 완료 태스크 보호와 중복 갱신 방지는 도메인 정책에 맡긴다.
         if (!shouldApplyLoggedEventTaskStatusEffect({ currentStatus: task.status, desiredStatus })) return;
 
         const updated = await this.management.updateStatus(payload.taskId, desiredStatus, this.clock.nowIso());
         if (updated) {
+            // 트랜잭션이 커밋된 상태 변경만 대시보드에 알린다.
             runOnTransactionCommit(() => {
                 this.notifier.publish({ type: NOTIFICATION_TYPE.taskUpdated, payload: updated });
             });

@@ -3,7 +3,6 @@ import type { MonitoringTask } from "@monitor/run-api/task/public/types/task.typ
 import type { SessionSnapshot } from "@monitor/run-api/session/public/dto/session.snapshot.dto.js";
 import type { NOTIFICATION_TYPE } from "./notification.type.const.js";
 
-/** 타임라인 이벤트 알림 페이로드. */
 export type EventNotificationPayloadPortDto = TimelineEventProjection;
 
 export interface RuleEnforcementNotificationPayloadPortDto {
@@ -25,7 +24,7 @@ export interface VerdictUpdatedNotificationPayloadPortDto {
 export interface RulesChangedNotificationPayloadPortDto {
     readonly ruleId: string;
     readonly change: "created" | "updated" | "deleted" | "promoted";
-    /** scope of the rule at the time of change. */
+
     readonly scope: "global" | "task";
     readonly taskId?: string;
 }
@@ -38,26 +37,18 @@ export type SdkJobKind =
 
 export type SdkJobStatus = "running" | "succeeded" | "failed";
 
-/**
- * Lifecycle event for one of the server-initiated Claude Agent SDK jobs
- * (title suggestions, task cleanup, recipe scan, rule generation).
- *
- * `running` fires when the server kicks off the SDK query so the dashboard
- * can show a pending state. `succeeded` / `failed` are terminal — payload
- * includes `summary` (succeeded) or `error` (failed) for the toast body.
- */
 export interface SdkJobUpdatedNotificationPayloadPortDto {
     readonly kind: SdkJobKind;
     readonly status: SdkJobStatus;
-    /** Task id the job was scoped to, when applicable (title, rule-gen). */
+
     readonly taskId?: string;
-    /** Server-side job id for async jobs (cleanup, recipe-scan, rule-gen). */
+
     readonly jobId?: string;
-    /** Short success line for the toast — e.g. "5 suggestions" or "Renamed to '…'". */
+
     readonly summary?: string;
-    /** Single-line failure message — already user-safe. */
+
     readonly error?: string;
-    /** Wall-clock duration (ms) — surfaced when the job finished. */
+
     readonly durationMs?: number;
 }
 

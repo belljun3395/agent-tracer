@@ -1,8 +1,4 @@
-/**
- * Self-contained DTO for rule data exposed to other modules.
- * Mirrors the internal Rule shape so consumers don't depend on
- * @monitor/rules-api/rule/domain internals.
- */
+
 
 export type RuleSnapshotScope = "global" | "task";
 export type RuleSnapshotSeverity = "info" | "warn" | "block";

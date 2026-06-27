@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { RecipeCandidateEntity } from "./recipe.candidate.entity.js";
 
-/**
- * RecipeCandidateEntity 제안 상태(lifecycle) 비즈니스 로직 테스트.
- * 메서드명은 영어(isPending/isResolved), 표시명은 한글.
- */
 function makeCandidate(status: RecipeCandidateEntity["status"]): RecipeCandidateEntity {
     return Object.assign(new RecipeCandidateEntity(), { status });
 }

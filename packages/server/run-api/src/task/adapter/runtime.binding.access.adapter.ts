@@ -6,10 +6,6 @@ import type {
     RuntimeBindingAccessRecord,
 } from "../application/outbound/runtime.binding.access.port.js";
 
-/**
- * Outbound adapter — bridges session module's public IRuntimeBindingLookup
- * to the task-local IRuntimeBindingAccess port.
- */
 @Injectable()
 export class RuntimeBindingAccessAdapter implements IRuntimeBindingAccess {
     constructor(

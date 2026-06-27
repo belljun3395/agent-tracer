@@ -61,13 +61,11 @@ export class LogEventUseCase {
 
     @Transactional()
     async execute(input: LogEventUseCaseIn): Promise<LogEventUseCaseOut> {
-        // Cross-check between Codex hook + rollout: if both emit the same
-        // logical event within the dedupe TTL, merge metadata into the first
-        // one rather than inserting a duplicate row.
         const marker = readCrossCheckMarker(input.metadata);
         if (marker) {
             const existingId = this.dedupe.lookup(input.kind, input.sessionId, marker.dedupeKey);
             if (existingId) {
+                // 같은 세션의 cross-check 중복 이벤트는 새 행 대신 기존 이벤트 metadata에 병합한다.
                 const merged = await this.events.updateMetadata(existingId, {
                     ...(input.metadata ?? {}),
                     crossCheck: { ...marker, mergedFrom: marker.source, merged: true },
@@ -113,14 +111,10 @@ export class LogEventUseCase {
         const sessionId = input.sessionId;
 
         if (marker) {
+            // 다음 cross-check 중복이 같은 이벤트를 재사용하도록 대표 이벤트를 기억한다.
             this.dedupe.remember(input.kind, sessionId, marker.dedupeKey, primaryEvent.id);
         }
 
-        // Emit the recorded fact; `work` applies the task-status effect and
-        // `rules` runs verification. emitAsync runs subscribers inside this
-        // transaction (suppressErrors:false), so a subscriber throw rolls the
-        // event insert back — preserving the previous atomic semantics while
-        // keeping timeline a leaf that commands no one.
         const payload: EventRecordedPayload = {
             events: recorded.map(toEventSnapshot),
             taskId: input.taskId,
@@ -129,6 +123,7 @@ export class LogEventUseCase {
                 ? { taskEffects: { taskStatus: input.taskEffects.taskStatus } }
                 : {}),
         };
+        // 구독자의 상태 변경이 실패하면 이벤트 저장도 같이 롤백되도록 같은 트랜잭션 안에서 실행한다.
         await this.eventBus.emitAsync(EVENT_RECORDED, payload);
 
         return { ...(sessionId ? { sessionId } : {}), events: allEvents };
@@ -140,8 +135,8 @@ export class LogEventUseCase {
             id: this.idGen.newUuid(),
             ...record,
         });
-        // Broadcast only after the surrounding transaction commits, so a
-        // rolled-back event never reaches dashboards as a phantom row.
+
+        // 커밋된 이벤트만 대시보드로 보내 가짜 행을 만들지 않는다.
         runOnTransactionCommit(() => {
             this.notifier.publish({ type: NOTIFICATION_TYPE.eventLogged, payload: projectTimelineEvent(event) });
         });

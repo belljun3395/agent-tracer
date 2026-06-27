@@ -4,18 +4,9 @@ import type { TurnSegment } from "./turn.segment.model.js";
 
 const REQUEST_PREVIEW_LIMIT = 120;
 
-/**
- * Groups events into conversation turns using user.message as the boundary.
- *
- * Rules:
- * - Each user.message starts a new turn (turnIndex = 1, 2, 3, …).
- * - Events preceding the first user.message collapse into a prelude segment
- *   with turnIndex = 0 and isPrelude = true.
- * - If no user.message exists, all events form a single prelude segment with
- *   turnIndex = 1 (to keep numbering stable for single-turn callers).
- */
 export function segmentEventsByTurn(events: readonly TimelineEvent[]): readonly TurnSegment[] {
     if (events.length === 0) {
+        // 이벤트가 없으면 턴도 만들지 않는다.
         return [];
     }
 
@@ -24,6 +15,7 @@ export function segmentEventsByTurn(events: readonly TimelineEvent[]): readonly 
         .filter((index) => index >= 0);
 
     if (boundaryIndices.length === 0) {
+        // 사용자 메시지가 없으면 전체 이벤트를 prelude로 묶어 실제 턴에서 제외한다.
         const bucket = [...events];
         return [
             {
@@ -41,6 +33,7 @@ export function segmentEventsByTurn(events: readonly TimelineEvent[]): readonly 
     const firstBoundary = boundaryIndices[0]!;
 
     if (firstBoundary > 0) {
+        // 첫 사용자 요청 전 이벤트는 대화 턴이 아니라 prelude로 분리한다.
         const preludeEvents = events.slice(0, firstBoundary);
         segments.push({
             turnIndex: 0,
@@ -77,9 +70,11 @@ function renderRequestPreview(event: TimelineEvent): string | null {
     const source = event.body ?? event.title;
     const normalized = source.replace(/\s+/g, " ").trim();
     if (!normalized) {
+        // 표시할 요청 텍스트가 없으면 미리보기를 비워 둔다.
         return null;
     }
     if (normalized.length <= REQUEST_PREVIEW_LIMIT) {
+        // 짧은 요청은 잘라내지 않고 그대로 표시한다.
         return normalized;
     }
     return `${normalized.slice(0, REQUEST_PREVIEW_LIMIT - 1).trimEnd()}…`;

@@ -51,7 +51,7 @@ export class RecipeModule {
                 DismissRecipeCandidateUseCase,
                 ListRecipesUseCase,
                 RetireRecipeUseCase,
-                // 레시피 스캔 LLM 에이전트 + Claude SDK 쿼리 러너
+
                 RecipeScanAgent,
                 LocalQueryRunner,
                 { provide: QUERY_RUNNER, useExisting: LocalQueryRunner },

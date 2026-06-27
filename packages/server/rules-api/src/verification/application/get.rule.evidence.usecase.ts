@@ -10,19 +10,6 @@ import type {
     RuleMatchedBy,
 } from "./dto/get.rule.evidence.usecase.dto.js";
 
-/**
- * Reads `rule_enforcements` for a rule, intersects with events of the given
- * task, and returns evidence rows grouped by matchKind (trigger / expect).
- *
- * Each row carries `matchedBy` — the rule conditions that fired
- * ("action" / "commandMatch" / "pattern" / "trigger-phrase"). Since the
- * matching engine ANDs all expect conditions, the label set equals the set
- * of conditions configured on the rule. Useful for spotting too-loose or
- * too-tight matchers at a glance.
- *
- * Triggers without a corresponding expect on this task get `unfulfilled: true`
- * so the UI can render a ⚠ "agent triggered but didn't follow through".
- */
 export class GetRuleEvidenceForTaskUseCase {
     constructor(
         private readonly enforcementRepo: IRuleEnforcementRepository,
@@ -64,7 +51,7 @@ export class GetRuleEvidenceForTaskUseCase {
 
         for (const enf of enforcements) {
             const ev = byId.get(enf.eventId);
-            if (!ev) continue; // enforcement event not in this task — skip
+            if (!ev) continue;
             const dto: RuleEvidenceEventDto = {
                 eventId: ev.id,
                 kind: ev.kind,
@@ -89,10 +76,6 @@ export class GetRuleEvidenceForTaskUseCase {
         triggers.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
         expects.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 
-        // Mark triggers as unfulfilled when no expect landed after them.
-        // Simple heuristic: any expect existing on the task means the rule
-        // "fulfilled" globally. Per-turn fulfillment would require the
-        // verdict layer — defer until we surface verdicts inline.
         const anyExpectsFulfilled = expects.length > 0;
         const triggersFinal = triggers.map((t) =>
             anyExpectsFulfilled ? t : { ...t, unfulfilled: true },

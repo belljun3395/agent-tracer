@@ -1,11 +1,5 @@
 import { z } from "zod";
 
-/**
- * Reasons a runtime session can end. Declared locally so the session module's
- * inbound contract isn't coupled to task module's domain types — even though
- * the values currently match the legacy task-domain enum, future evolution
- * should be driven by session module's own needs.
- */
 const RUNTIME_SESSION_COMPLETION_REASONS = [
     "idle",
     "assistant_turn_complete",

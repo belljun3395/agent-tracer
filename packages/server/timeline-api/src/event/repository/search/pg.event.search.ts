@@ -21,24 +21,12 @@ interface EventRow {
     readonly created_at: string;
 }
 
-/**
- * Postgres event search (pg_trgm-backed ILIKE over timeline_events). Queries the
- * source table directly — no separate index, no dual-write. timeline stays a
- * leaf: it searches only its own events and never reads the tasks table, so the
- * hit's taskTitle is left blank for the web (which owns task data) to fill.
- * Task search lives in work (`/api/v1/tasks/search`).
- */
 @Injectable()
 export class PgEventSearch implements IEventSearchIndex, OnModuleInit {
     private readonly logger = new Logger(PgEventSearch.name);
 
     constructor(private readonly dataSource: DataSource) {}
 
-    /**
-     * Ensure pg_trgm + the GIN index that makes the ILIKE event search fast.
-     * Idempotent (IF NOT EXISTS), run on boot since synchronize:true doesn't
-     * manage extensions or expression indexes.
-     */
     async onModuleInit(): Promise<void> {
         try {
             await this.dataSource.query("CREATE EXTENSION IF NOT EXISTS pg_trgm");

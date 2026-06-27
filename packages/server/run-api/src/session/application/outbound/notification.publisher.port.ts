@@ -1,9 +1,4 @@
 import type { NOTIFICATION_TYPE } from "@monitor/shared/contracts/notifications/notification.type.const.js";
-/**
- * Outbound port. Self-contained — no imports from outside this file.
- * Adapter (session/adapter/session.notification.publisher.adapter.ts)
- * bridges external transport types into these local definitions.
- */
 
 export type NotifiedSessionStatus = "running" | "completed" | "errored";
 

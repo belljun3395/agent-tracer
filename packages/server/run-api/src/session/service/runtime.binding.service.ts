@@ -9,14 +9,6 @@ import { CLOCK_PORT } from "../application/outbound/tokens.js";
 import type { IClock } from "../application/outbound/clock.port.js";
 import { RuntimeBindingRepository } from "../repository/runtime.binding.repository.js";
 
-/**
- * Service for runtime binding management.
- *
- * Used internally by session usecases. Also bound to the public
- * RUNTIME_BINDING_LOOKUP token — external consumers see only the narrow
- * IRuntimeBindingLookup interface (findLatestByTaskId), even though this
- * service has more methods.
- */
 @Injectable()
 export class RuntimeBindingService {
     constructor(
@@ -40,11 +32,6 @@ export class RuntimeBindingService {
         return entity?.taskId ?? null;
     }
 
-    /**
-     * Implements IRuntimeBindingLookup — returns the most recent
-     * (runtimeSource, runtimeSessionId) pair bound to the given task.
-     * Used by the task module to look up the latest runtime session for a task.
-     */
     async findLatestByTaskId(taskId: string): Promise<RuntimeBindingLatestForTask | null> {
         const entity = await this.repo.findLatestByTaskId(taskId);
         if (!entity) return null;

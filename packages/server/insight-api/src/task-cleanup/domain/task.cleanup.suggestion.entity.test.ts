@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { TaskCleanupSuggestionEntity } from "./task.cleanup.suggestion.entity.js";
 
-/**
- * TaskCleanupSuggestionEntity 제안 상태(lifecycle) 비즈니스 로직 테스트.
- * 메서드명은 영어(isPending/isResolved), 표시명은 한글.
- */
 function makeSuggestion(status: TaskCleanupSuggestionEntity["status"]): TaskCleanupSuggestionEntity {
     return Object.assign(new TaskCleanupSuggestionEntity(), { status });
 }

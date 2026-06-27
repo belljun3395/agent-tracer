@@ -1,11 +1,6 @@
 import type { MonitoringEventKind, TimelineLane } from "@monitor/timeline-api/event/domain/common/const/event.kind.const.js";
 import type { EventClassificationMatch } from "@monitor/timeline-api/event/domain/model/timeline.event.model.js";
 
-/**
- * Snapshot DTO for a timeline event as exposed to other modules.
- * Mirrors the internal TimelineEvent shape — kept here so consumers depend
- * on event.public, not on @monitor/timeline-api/event/domain/* internals.
- */
 export interface TimelineEventClassification {
     readonly lane: TimelineLane;
     readonly tags: readonly string[];
@@ -25,7 +20,6 @@ export interface TimelineEventSnapshot {
     readonly createdAt: string;
 }
 
-/** Wire-format projection of a timeline event (used in WS / SSE notifications). */
 export interface TimelineEventProjection {
     readonly id: string;
     readonly taskId: string;

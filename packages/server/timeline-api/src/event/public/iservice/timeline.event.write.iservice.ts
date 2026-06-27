@@ -14,12 +14,6 @@ export interface TimelineEventWriteInput {
     readonly createdAt: string;
 }
 
-/**
- * Public iservice — write access to timeline events.
- * Consumed by other modules (e.g. task) that need to insert lifecycle events.
- * Calls go through the event module's TypeORM storage + FTS refresh + event-store
- * append, so all writers see the same atomic side effects.
- */
 export interface ITimelineEventWrite {
     insert(input: TimelineEventWriteInput): Promise<TimelineEventSnapshot>;
 }

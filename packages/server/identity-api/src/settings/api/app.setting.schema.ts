@@ -7,5 +7,4 @@ export const settingPutSchema = z.object({
 
 export type SettingPutBody = z.infer<typeof settingPutSchema>;
 
-/** Swagger/OpenAPI request DTO; validation still runs through {@link settingPutSchema}. */
 export class SettingPutDto extends createZodDto(settingPutSchema) {}

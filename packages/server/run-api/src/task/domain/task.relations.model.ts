@@ -18,15 +18,6 @@ const EMPTY_SNAPSHOT: TaskRelationsSnapshot = {
     backgroundTaskId: null,
 };
 
-/**
- * Domain model — encapsulates the rules for projecting raw TaskRelationEntity
- * rows into a snapshot, and for translating snapshot edits into the (kind,
- * targetField) entity tuples that need to be persisted.
- *
- * Repositories return raw entity arrays; this model owns the meaning of each
- * relation_kind value (parent / spawned_by_session / background) and which
- * column carries the related id.
- */
 export class TaskRelations {
     private constructor(private readonly snapshot: TaskRelationsSnapshot) {}
 
@@ -42,11 +33,6 @@ export class TaskRelations {
         return new TaskRelations(snapshot);
     }
 
-    /**
-     * Group rows by task id and produce one TaskRelations per id. `taskIds`
-     * provides the seed set so callers receive an entry for every requested
-     * id, even when a task has no relations.
-     */
     static groupByTaskId(
         taskIds: readonly string[],
         entities: readonly TaskRelationEntity[],
@@ -68,11 +54,6 @@ export class TaskRelations {
         return this.snapshot;
     }
 
-    /**
-     * Translate a snapshot edit into the (kind, related_task_id, session_id)
-     * tuples that need to be upserted. Each entry can be passed to a
-     * repository's syncRelation(kind, relatedId, sessionId) for that taskId.
-     */
     static toSyncTuples(
         input: TaskRelationsAssignInput,
     ): readonly { readonly kind: TaskRelationKind; readonly relatedTaskId: string | null; readonly sessionId: string | null }[] {

@@ -39,12 +39,6 @@ export interface ApplicationConfig {
     };
 }
 
-/**
- * Defensive schema for the normalized config. `loadApplicationConfig` already
- * coerces and fills defaults, so this guards against a future loader change (or
- * a hand-edited cache) producing a structurally-invalid object — it is run by
- * the `@nestjs/config` loader so a malformed config fails fast at boot.
- */
 export const applicationConfigSchema = z.object({
     profile: z.enum(["local", "prd"]),
     monitor: z.object({

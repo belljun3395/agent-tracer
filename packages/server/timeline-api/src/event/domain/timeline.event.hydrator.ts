@@ -25,7 +25,6 @@ export function emptySupplements(): HydrationSupplements {
     return { files: [], relations: [], tags: [] };
 }
 
-/** Pure: combine main row with derived-table supplements into a TimelineEvent. */
 export function hydrateTimelineEvent(row: TimelineEventEntity, supplements: HydrationSupplements): TimelineEvent {
     const metadata = parseJsonField<Record<string, unknown>>(row.extrasJson || "{}");
     addString(metadata, "subtypeKey", row.subtypeKey);
@@ -142,5 +141,4 @@ function addString(metadata: Record<string, unknown>, key: string, value: string
     if (value) metadata[key] = value;
 }
 
-/** Type alias for use by callers. */
 export type HydratedTimelineEvent = TimelineEvent;

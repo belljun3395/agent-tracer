@@ -15,14 +15,6 @@ export type {
     DemoteRuleToTaskUseCaseOut,
 } from "./dto/demote.rule.to.task.usecase.dto.js";
 
-/**
- * Demote a global rule back to a task-scoped rule. Mirror of
- * PromoteRuleToGlobalUseCase: soft-delete the global rule (keeps any past
- * verdicts for audit), create a fresh task-scoped rule with the same
- * trigger/expect via CreateRuleUseCase. Backfill fires automatically inside
- * CreateRuleUseCase so the new rule lights up immediately for past turns of
- * the chosen task.
- */
 @Injectable()
 export class DemoteRuleToTaskUseCase {
     constructor(
@@ -36,9 +28,11 @@ export class DemoteRuleToTaskUseCase {
         const existing = await this.ruleRepo.findById(input.ruleId);
         if (!existing) throw new RuleNotFoundError(input.ruleId);
         if (existing.scope !== "global") {
+            // task 룰은 이미 특정 태스크에 묶여 있으므로 demote 대상이 아니다.
             throw new InvalidRuleError("Only global rules can be demoted");
         }
         if (!input.taskId.trim()) {
+            // demote는 새 task 스코프를 만들 대상 태스크가 필요하다.
             throw new InvalidRuleError("Demote requires a target taskId");
         }
         await this.deleteRule.execute(input.ruleId);

@@ -7,10 +7,6 @@ import type {
     ProjectedTimelineEvent,
 } from "../application/outbound/event.projection.access.port.js";
 
-/**
- * Outbound adapter — bridges event module's public ITimelineEventProjection
- * to the task-local IEventProjectionAccess port.
- */
 @Injectable()
 export class EventProjectionAccessAdapter implements IEventProjectionAccess {
     constructor(

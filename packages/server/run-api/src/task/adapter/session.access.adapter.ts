@@ -8,10 +8,6 @@ import type {
     SessionCreateRequest,
 } from "../application/outbound/session.access.port.js";
 
-/**
- * Outbound adapter — bridges session module's public ISessionLifecycle to
- * the task-local ISessionAccess port.
- */
 @Injectable()
 export class SessionAccessAdapter implements ISessionAccess {
     constructor(

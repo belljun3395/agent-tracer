@@ -7,13 +7,6 @@ import type {
 } from "../public/dto/session.snapshot.dto.js";
 import { SessionRepository } from "../repository/session.repository.js";
 
-/**
- * Service for session lifecycle operations.
- *
- * Used internally by session usecases AND directly bound to the public
- * SESSION_LIFECYCLE token (it satisfies ISessionLifecycle structurally).
- * Returns SessionSnapshot DTOs so callers don't depend on the TypeORM entity.
- */
 @Injectable()
 export class SessionLifecycleService {
     constructor(private readonly repo: SessionRepository) {}

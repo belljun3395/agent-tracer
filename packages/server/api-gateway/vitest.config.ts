@@ -30,7 +30,7 @@ export default defineConfig({
     test: {
         passWithNoTests: true,
         setupFiles: ["./vitest.setup.ts"],
-        // server src + 백엔드 워크스페이스 패키지의 테스트를 함께 수행한다(web/runtime 제외).
+
         include: [
             "src/**/*.test.ts",
             "../shared/src/**/*.test.ts",

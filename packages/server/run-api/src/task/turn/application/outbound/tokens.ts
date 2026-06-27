@@ -1,6 +1,4 @@
-/**
- * DI tokens for the turn-partition module's outbound dependencies.
- */
+
 export const TASK_ACCESS_PORT = "TURN_PARTITION_TASK_ACCESS_PORT";
 export const TIMELINE_EVENT_ACCESS_PORT = "TURN_PARTITION_TIMELINE_EVENT_ACCESS_PORT";
 export { CLOCK_PORT, ID_GENERATOR_PORT } from "@monitor/shared/kernel/clock.js";

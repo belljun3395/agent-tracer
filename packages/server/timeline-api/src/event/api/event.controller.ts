@@ -6,9 +6,6 @@ import { UpdateEventUseCase } from "../application/update.event.usecase.js";
 import { searchQuerySchema, SearchQueryDto } from "./search.query.schema.js";
 import { eventPatchSchema, EventPatchDto } from "./event.command.schema.js";
 
-// Event query (full-text search) + mutation (patch) under api/v1/events.
-// Recording goes through the typed ingest plane (ingest/v1/*); task search lives
-// in work; the web fans out to both for combined search results.
 @Controller("api/v1/events")
 export class EventController {
     constructor(

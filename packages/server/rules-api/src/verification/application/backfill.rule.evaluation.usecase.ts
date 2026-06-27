@@ -17,7 +17,6 @@ import type { ITurnQueryRepository, BackfillTurnRow as BackfillTurnPortRow } fro
 import type { ITurnRepository } from "@monitor/rules-api/verification/application/outbound/turn.repository.port.js";
 import type { IVerdictRepository } from "@monitor/rules-api/verification/application/outbound/verdict.repository.port.js";
 
-
 import type { Rule } from "@monitor/rules-api/rule/public/types/rule.types.js";
 import type {
     BackfillRuleEvaluationUseCaseIn,
@@ -38,24 +37,6 @@ export interface BackfillRuleEvaluationDeps {
     readonly newVerdictId: () => string;
 }
 
-/**
- * Re-evaluates a newly active rule against existing turns within its scope.
- *
- * For each candidate turn:
- *   1. Reclassify already-recorded events by writing rule_enforcements rows.
- *      This applies to both closed turns and currently open turns.
- *   2. For closed turns only, run the pure evaluator with rules=[rule].
- *      Existing verdicts are upserted so manual re-evaluate repairs stale
- *      verdicts after matcher changes.
- *   3. Persist any emitted verdict, bump rules_evaluated_count by 1 for
- *      newly evaluated rules, and
- *      recompute aggregate_verdict from the full verdict set.
- *
- * Step 1's idempotency lets the caller invoke backfill multiple times
- * (e.g. on every approve) without double-counting. Step 3 reads all
- * verdicts after insert, so the aggregate stays correct even if the new
- * rule is one of many already evaluated against this turn.
- */
 export class BackfillRuleEvaluationUseCase {
     constructor(private readonly deps: BackfillRuleEvaluationDeps) {}
 

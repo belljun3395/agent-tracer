@@ -4,13 +4,6 @@ import { DataSource } from "typeorm";
 import { addTransactionalDataSource } from "typeorm-transactional";
 import { AppConfigService } from "~config/app-config.service.js";
 
-/**
- * Postgres DataSource for all module entities. The schema is derived from the
- * @Entity classes at boot (`synchronize`). Registered with `typeorm-transactional`
- * so `@Transactional()` / `runInTransaction()` propagate the EntityManager
- * through AsyncLocalStorage — injected `Repository<T>` instances join the
- * transaction without an explicit `manager` argument.
- */
 @Module({})
 export class TypeOrmDatabaseModule {
     static forRoot(): DynamicModule {

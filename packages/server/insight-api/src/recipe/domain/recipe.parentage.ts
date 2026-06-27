@@ -1,10 +1,5 @@
 import type { RecipeEntity } from "./recipe.entity.js";
 
-/**
- * Extract the set of contributing task ids from a recipe's
- * `contributing_slices_json` (array of `{ taskId, eventIds }`). Corrupt JSON
- * yields an empty set rather than throwing.
- */
 export function extractTaskIdsFromSlices(slicesJson: string): Set<string> {
     const out = new Set<string>();
     try {
@@ -16,26 +11,18 @@ export function extractTaskIdsFromSlices(slicesJson: string): Set<string> {
             if (typeof rec.taskId === "string") out.add(rec.taskId);
         }
     } catch {
-        // ignore — corrupt slice json just yields an empty set
+        // 깨진 slice JSON은 부모 연결 근거가 없는 것으로 본다.
     }
     return out;
 }
 
-/**
- * Minimum Jaccard overlap between a candidate's contributing tasks and an
- * existing recipe's tasks before the candidate is treated as a re-write
- * (child) of that recipe rather than a brand-new recipe.
- */
 export const PARENT_OVERLAP_THRESHOLD = 0.5;
 
-/**
- * Jaccard overlap (|A ∩ B| / |A ∪ B|) between two task-id sets. 0 when either
- * set is empty.
- */
 export function jaccardOverlap(
     a: ReadonlySet<string>,
     b: ReadonlySet<string>,
 ): number {
+    // 한쪽이라도 근거 태스크가 없으면 부모-자식 관계로 보지 않는다.
     if (a.size === 0 || b.size === 0) return 0;
     let intersection = 0;
     for (const id of a) {
@@ -46,11 +33,6 @@ export function jaccardOverlap(
     return union > 0 ? intersection / union : 0;
 }
 
-/**
- * Pick the active recipe whose contributing tasks overlap a candidate's the
- * most — the candidate's parent for revision tracking. Returns null when no
- * active recipe overlaps above {@link PARENT_OVERLAP_THRESHOLD}.
- */
 export function pickBestParent(
     candidateTaskIds: ReadonlySet<string>,
     actives: readonly {
@@ -63,6 +45,7 @@ export function pickBestParent(
     for (const { recipe, taskIds } of actives) {
         const ratio = jaccardOverlap(candidateTaskIds, taskIds);
         if (ratio > bestRatio) {
+            // 임계값을 넘는 후보 중 태스크 겹침이 가장 큰 active 레시피를 부모로 선택한다.
             bestRatio = ratio;
             bestRecipe = recipe;
         }

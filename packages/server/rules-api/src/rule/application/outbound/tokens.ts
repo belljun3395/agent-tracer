@@ -1,6 +1,4 @@
-/**
- * DI tokens for the rule module's outbound dependencies.
- */
+
 export const RULE_PERSISTENCE_PORT = "RULE_PERSISTENCE_PORT";
 export const NOTIFICATION_PUBLISHER_PORT = "RULE_NOTIFICATION_PUBLISHER_PORT";
 export const BACKFILL_TRIGGER_PORT = "RULE_BACKFILL_TRIGGER_PORT";

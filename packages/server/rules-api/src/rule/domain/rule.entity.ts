@@ -8,7 +8,6 @@ export class RuleEntity {
     @PrimaryColumn({ type: "text" })
     id!: string;
 
-    /** 이 룰을 소유한 사용자. */
     @Column({ name: "user_id", type: "text", default: "local" })
     userId!: string;
 

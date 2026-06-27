@@ -15,7 +15,6 @@ export class TimelineEventEntity {
     @PrimaryColumn({ type: "text" })
     id!: string;
 
-    /** 이 이벤트를 소유한 사용자(태스크 소유자와 동일). */
     @Column({ name: "user_id", type: "text", default: "local" })
     userId!: string;
 
@@ -70,17 +69,14 @@ export class TimelineEventEntity {
     @Column({ name: "evidence_level", type: "text", nullable: true })
     evidenceLevel!: string | null;
 
-    /** 정규화된 전체 metadata. */
     @Column({ type: "jsonb", default: {}, transformer: zodJsonbTransformer(metadataSchema) })
     metadata!: Record<string, unknown>;
 
-    /** classification.tags 로 노출되는 태그 목록. */
     @Column({ type: "jsonb", default: [], transformer: zodJsonbTransformer(tagsSchema) })
     tags!: string[];
 
     @Column({ name: "created_at", type: "text" })
     createdAt!: string;
 
-    /** 쓰기 시 build→hydrate 중간 표현(비영속). */
     extrasJson?: string;
 }

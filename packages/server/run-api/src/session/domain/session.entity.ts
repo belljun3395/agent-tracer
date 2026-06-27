@@ -23,14 +23,12 @@ export class SessionEntity {
     @Column({ name: "ended_at", type: "text", nullable: true })
     endedAt!: string | null;
 
-    /** Domain method - records that the session has ended. */
     end(at: string, status: Exclude<SessionStatus, "running">, summary?: string): void {
         this.status = status;
         this.endedAt = at;
         if (summary !== undefined) this.summary = summary;
     }
 
-    /** Project this entity to the public snapshot DTO. */
     toSnapshot(): SessionSnapshot {
         return {
             id: this.id,

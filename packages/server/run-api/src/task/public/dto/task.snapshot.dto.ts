@@ -2,7 +2,6 @@ export type TaskStatus = "running" | "waiting" | "completed" | "errored";
 export type TaskKind = "primary" | "background";
 export type TaskOriginSnapshot = "user" | "server-sdk";
 
-/** Aggregate counts shown on the dashboard header. */
 export interface DashboardSnapshotStats {
     readonly totalTasks: number;
     readonly runningTasks: number;
@@ -12,7 +11,6 @@ export interface DashboardSnapshotStats {
     readonly totalEvents: number;
 }
 
-/** Initial payload pushed to a dashboard WS client on connect. */
 export interface DashboardSnapshot {
     readonly stats: DashboardSnapshotStats;
     readonly tasks: readonly TaskSnapshot[];

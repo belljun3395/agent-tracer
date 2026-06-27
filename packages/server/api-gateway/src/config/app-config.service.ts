@@ -7,15 +7,8 @@ import {
     resolveMonitorPort,
 } from "./application-config.js";
 
-/** DI key under which the loaded {@link ApplicationConfig} is registered. */
 export const APP_CONFIG_NAMESPACE = "app";
 
-/**
- * Typed accessor over `@nestjs/config`'s {@link ConfigService}. The raw config
- * is loaded once (YAML + env merge + zod validation) by {@link AppConfigModule}
- * and stored under the {@link APP_CONFIG_NAMESPACE} key; this service exposes it
- * with types plus the env-aware resolvers (absolute DB path, public base URL).
- */
 @Injectable()
 export class AppConfigService {
     constructor(private readonly config: ConfigService) {}

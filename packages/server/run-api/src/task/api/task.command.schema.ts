@@ -9,5 +9,5 @@ export const taskPatchSchema = z.object({
 }).refine((data) => data.title !== undefined || data.status !== undefined, {
     message: "At least one of title or status must be provided",
 });
-/** Swagger/OpenAPI request DTO; validation still runs through {@link taskPatchSchema}. */
+
 export class TaskPatchDto extends createZodDto(taskPatchSchema) {}

@@ -1,6 +1,4 @@
-/**
- * Public event-domain constants — re-exports for cross-module consumers.
- */
+
 export {
     KIND,
     LANE,
@@ -9,7 +7,7 @@ export {
 } from "@monitor/timeline-api/event/domain/common/const/event.kind.const.js";
 
 export {
-    
+
     EVENT_RELATION_TYPES,
     AGENT_ACTIVITY_TYPES,
     USER_MESSAGE_CAPTURE_MODES,

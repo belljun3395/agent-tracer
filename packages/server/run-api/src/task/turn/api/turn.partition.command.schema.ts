@@ -15,5 +15,5 @@ export const turnPartitionUpsertSchema = z.object({
 });
 
 export type TurnPartitionUpsertBody = z.infer<typeof turnPartitionUpsertSchema>;
-/** Swagger/OpenAPI request DTO; validation still runs through {@link turnPartitionUpsertSchema}. */
+
 export class TurnPartitionUpsertDto extends createZodDto(turnPartitionUpsertSchema) {}

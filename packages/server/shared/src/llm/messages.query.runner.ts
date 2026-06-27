@@ -13,16 +13,6 @@ const STRUCTURED_TOOL_NAME = "emit_result";
 const DEFAULT_MAX_OUTPUT_TOKENS = 4096;
 const MAX_API_RETRIES = 3;
 
-/**
- * Runs a single-shot, no-workspace agent query against the Anthropic Messages
- * API — far lighter than spawning the Claude Agent SDK CLI for a one-turn
- * generation. Structured output is obtained by forcing a tool call whose
- * `input_schema` is the request's outputSchema, then reading the tool input.
- *
- * Workspace fields (cwd, allowedTools, maxTurns, preset flags) don't apply to a
- * plain completion and are ignored. Bind this to QUERY_RUNNER for 1-shot agents
- * (title, cleanup); keep {@link LocalQueryRunner} for tool-using workspace ones.
- */
 @Injectable()
 export class MessagesQueryRunner implements IQueryRunner {
     requiresLocalApiKey(): boolean {
@@ -32,9 +22,7 @@ export class MessagesQueryRunner implements IQueryRunner {
     async run(request: AgentQueryRequest): Promise<AgentQueryResult> {
         const startedAt = Date.now();
         const apiKey = request.env["ANTHROPIC_API_KEY"] ?? process.env["ANTHROPIC_API_KEY"];
-        // The SDK client already retries transient errors (429 / 5xx / network) with
-        // exponential backoff + jitter; configure it explicitly rather than hand-rolling
-        // a backoff loop (which would double-retry on top of the SDK's own).
+
         const client = new Anthropic({
             maxRetries: MAX_API_RETRIES,
             ...(apiKey ? { apiKey } : {}),

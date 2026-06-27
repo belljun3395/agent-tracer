@@ -1,8 +1,4 @@
-/**
- * Public rule type surface — re-exports from rule's domain so cross-module
- * consumers (e.g. verification) don't reach into @monitor/rules-api/rule/domain/. These are
- * pure interfaces / string-union types with no behavior.
- */
+
 export type {
     RuleScope,
     RuleSeverity,

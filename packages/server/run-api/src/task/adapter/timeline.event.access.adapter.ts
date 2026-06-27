@@ -5,13 +5,6 @@ import type { TimelineEventSnapshot } from "@monitor/timeline-api/event/public/d
 import { TIMELINE_EVENT_READ, TIMELINE_EVENT_WRITE } from "@monitor/timeline-api/event/public/tokens.js";
 import type { ITimelineEventAccess } from "../application/outbound/timeline.event.access.port.js";
 
-/**
- * Outbound adapter — bridges event module's public ITimelineEventRead +
- * ITimelineEventWrite to the task-local ITimelineEventAccess port. This is
- * the only path task module takes for timeline event reads/writes; it does
- * NOT touch the legacy IEventRepository, so all writes flow through the
- * event module's TypeORM storage.
- */
 @Injectable()
 export class TimelineEventAccessAdapter implements ITimelineEventAccess {
     constructor(

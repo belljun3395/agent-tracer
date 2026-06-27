@@ -6,19 +6,6 @@ import {
 import { TaskQueryService } from "./task.query.service.js";
 import { TaskLifecycleService } from "./task.lifecycle.service.js";
 
-/**
- * Boot-time reaper for server-SDK tasks (Title Suggestion, Task Cleanup, Recipe
- * Scan, Rule Generation). Each spawns a short-lived Claude subprocess; if the
- * monitor is killed mid-run the SessionEnd hook never fires and the task row
- * stays `running` forever, which misleads the dashboard stats and blocks the
- * matching `findActiveForTask` lookups in the rule-gen / cleanup repositories.
- *
- * Runs once on startup as a module lifecycle hook (NOT orchestrated by the
- * gateway). Only server-SDK rows are eligible, so user-driven sessions that are
- * actually resuming elsewhere are left alone. Lives inside the task module so it
- * travels with the domain when split into its own service — each service fires
- * its own `OnApplicationBootstrap`.
- */
 @Injectable()
 export class StuckServerSdkTaskReaperService implements OnApplicationBootstrap {
     private readonly logger = new Logger(StuckServerSdkTaskReaperService.name);

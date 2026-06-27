@@ -1,13 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { TaskEntity } from "./task.entity.js";
 
-/**
- * TaskEntity 비즈니스 로직 테스트.
- *
- * 메서드 이름은 영어(isArchived / archive / unarchive)지만, 테스트 표시명은
- * 한글로 작성해 보관(archive) 상태머신 규칙을 콘솔에서 그대로 읽을 수 있게 한다.
- * (전체 표시명은 `npx vitest run --reporter=verbose` 로 확인)
- */
 function makeTask(overrides: Partial<TaskEntity> = {}): TaskEntity {
     return Object.assign(new TaskEntity(), {
         id: "t1",

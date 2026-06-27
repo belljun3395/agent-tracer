@@ -1,14 +1,10 @@
 import type { TaskStatus } from "@monitor/shared/task/task.status.const.js";
 
-/**
- * Whether a logged event's declared task-status effect should be applied.
- * Owned by work (task) — moved here from the event module when timeline became
- * a leaf: deciding what a recorded event does to a task is a task concern.
- */
 export function shouldApplyLoggedEventTaskStatusEffect(input: {
     readonly currentStatus: TaskStatus;
     readonly desiredStatus: TaskStatus;
 }): boolean {
+    // 완료된 태스크는 이벤트 효과로 되돌리지 않고, 실제 상태가 달라질 때만 갱신한다.
     return input.desiredStatus !== input.currentStatus &&
         input.currentStatus !== "completed";
 }

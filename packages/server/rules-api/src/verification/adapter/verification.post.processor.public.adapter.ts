@@ -6,11 +6,6 @@ import type {
     VerificationPostProcessorEvent,
 } from "../public/iservice/verification.post.processor.iservice.js";
 
-/**
- * Public adapter — implements IVerificationPostProcessor by fanning out to
- * RuleEnforcementPostProcessor (per-event) and TurnLifecyclePostProcessor
- * (open/close turn lifecycle).
- */
 @Injectable()
 export class VerificationPostProcessorPublicAdapter implements IVerificationPostProcessor {
     constructor(

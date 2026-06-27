@@ -24,13 +24,6 @@ export type { UpdateRuleUseCaseIn, UpdateRuleUseCaseOut } from "./dto/update.rul
 export type { UpdateRuleUseCaseIn as UpdateRuleInput } from "./dto/update.rule.usecase.dto.js";
 export type { UpdateRuleUseCaseOut as UpdateRuleResult } from "./dto/update.rule.usecase.dto.js";
 
-/**
- * Update flow:
- *  1. Compute the projected signature (from patched + current fields).
- *  2. If signature changed → INVALIDATE: delete verdicts + enforcements
- *     for this rule, leave next backfill to user (Re-evaluate button).
- *  3. If signature unchanged → metadata-only update; verdicts kept.
- */
 @Injectable()
 export class UpdateRuleUseCase {
     constructor(
@@ -42,6 +35,7 @@ export class UpdateRuleUseCase {
     @Transactional()
     async execute(input: UpdateRuleUseCaseIn): Promise<UpdateRuleUseCaseOut> {
         if (!hasAnyField(input)) {
+            // 변경 필드가 없으면 룰 의미가 그대로라 업데이트를 거부한다.
             throw new InvalidRuleError("At least one field must be provided to update");
         }
 
@@ -51,12 +45,15 @@ export class UpdateRuleUseCase {
         const projectedTrigger = projectTrigger(current.trigger, input.trigger);
         const projectedExpect = projectExpect(current.expect, input.expect);
         if (!isRuleExpectMeaningful(projectedExpect)) {
+            // 업데이트 후에도 기대 조건이 하나 이상 남아야 평가 가능한 룰이다.
             throw new InvalidRuleError("Rule expect must include at least one of action, pattern, or commandMatches after update");
         }
         if (input.trigger != null && input.trigger.phrases.length === 0) {
+            // 트리거를 유지하려면 최소 한 문구가 있어야 한다.
             throw new InvalidRuleError("Trigger phrases must not be empty when trigger is provided");
         }
         if (input.name !== undefined && input.name.trim() === "") {
+            // 빈 이름은 목록과 알림에서 식별할 수 없으므로 허용하지 않는다.
             throw new InvalidRuleError("Rule name must not be empty");
         }
 
@@ -85,6 +82,7 @@ export class UpdateRuleUseCase {
         if (!updated) throw new RuleNotFoundError(input.id);
 
         if (signatureChanged) {
+            // 트리거/기대 조건이 바뀌면 이전 verdict/enforcement는 더 이상 유효하지 않다.
             await this.invalidation.deleteVerdictsByRuleId(input.id);
             await this.invalidation.deleteEnforcementsByRuleId(input.id);
         }
@@ -118,6 +116,7 @@ function normalizeOptionalText(value: string | null): string | null {
     if (value === null) return null;
     const trimmed = value.trim();
     if (trimmed === "") {
+        // rationale을 보낸 경우에는 실제 설명 텍스트가 있어야 한다.
         throw new InvalidRuleError("Rule rationale must not be empty when provided");
     }
     return trimmed;
@@ -127,6 +126,7 @@ function projectTrigger(
     current: { readonly phrases: readonly string[] } | undefined,
     patch: UpdateRuleUseCaseIn["trigger"],
 ): { readonly phrases: readonly string[] } | undefined {
+    // undefined는 기존 유지, null은 트리거 제거, 객체는 새 트리거로 교체한다.
     if (patch === undefined) return current;
     if (patch === null) return undefined;
     return patch;
@@ -141,6 +141,7 @@ function projectExpect(
     let pattern: string | undefined = current.pattern;
 
     if (patch !== undefined) {
+        // expect 패치는 필드별로 null이면 제거, 값이면 교체한다.
         if (patch.action !== undefined) action = patch.action === null ? undefined : patch.action;
         if (patch.commandMatches !== undefined) {
             commandMatches = patch.commandMatches === null ? undefined : patch.commandMatches;

@@ -79,11 +79,6 @@ export function canonicalizeToolName(tool: string): string {
     return TOOL_NAME_ALIASES.get(trimmed.toLowerCase()) ?? trimmed;
 }
 
-/**
- * Normalize a stored value (either a canonical action like "command" or a
- * legacy tool name like "Bash") into the canonical RuleExpectedAction.
- * Returns null when no mapping applies.
- */
 export function normalizeRuleExpectedAction(value: string): RuleExpectedAction | null {
     const trimmed = value.trim();
     if (isRuleExpectedAction(trimmed)) return trimmed;

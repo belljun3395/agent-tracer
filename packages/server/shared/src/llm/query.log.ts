@@ -3,13 +3,6 @@ import type { AgentQueryResult } from "./query.runner.port.js";
 
 const logger = new Logger("AgentQuery");
 
-/**
- * Emit one structured line summarizing a completed agent query. The cost / token /
- * turn metrics the runner captures from the SDK result message would otherwise
- * dead-end here; logging them is the lightweight surface for an observability
- * product to see what its own agents cost. (costUsd is "n/a" for the Messages
- * API runner, which doesn't report a cost.)
- */
 export function logAgentQuery(label: string, model: string, result: AgentQueryResult): void {
     const u = result.usage;
     const tokens = u

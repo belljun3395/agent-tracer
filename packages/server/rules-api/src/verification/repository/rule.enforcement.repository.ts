@@ -32,8 +32,7 @@ export class RuleEnforcementRepository implements IRuleEnforcementRepository {
     async insertMany(rows: readonly RuleEnforcementInsert[]): Promise<readonly RuleEnforcementRow[]> {
         if (rows.length === 0) return [];
         const inserted: RuleEnforcementRow[] = [];
-        // Route through runInTransaction (not the raw manager.transaction) so it
-        // shares the single serialized write path on the one SQLite connection.
+
         await runInTransaction(async () => {
             for (const row of rows) {
                 const result = await this.repo

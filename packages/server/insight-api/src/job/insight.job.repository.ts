@@ -4,11 +4,6 @@ import { Repository } from "typeorm";
 import { currentUserId } from "@monitor/shared/kernel/user/user.context.js";
 import { InsightJobEntity, type InsightJobType } from "./insight.job.entity.js";
 
-/**
- * Repository for the insight context's `insight_jobs` outbox. Both insight job
- * types (recipe scan / task cleanup) go through this one repository, scoped by
- * `jobType`.
- */
 @Injectable()
 export class InsightJobRepository {
     constructor(

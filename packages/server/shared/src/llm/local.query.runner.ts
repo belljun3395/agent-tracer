@@ -9,9 +9,6 @@ import type {
     IQueryRunner,
 } from "./query.runner.port.js";
 
-/**
- * Claude Agent SDK `query()` 를 서버 프로세스 안에서 실행한다.
- */
 @Injectable()
 export class LocalQueryRunner implements IQueryRunner {
     requiresLocalApiKey(): boolean {
@@ -31,8 +28,7 @@ export class LocalQueryRunner implements IQueryRunner {
 
         const deadline = createAgentDeadline(request.deadlineMs);
         const tools = [...request.allowedTools];
-        // Preset mode appends our rules onto Claude Code's tool-use scaffolding;
-        // excludeDynamicSections keeps the cacheable prefix stable across workspaces.
+
         const systemPrompt = request.useClaudeCodePreset
             ? {
                   type: "preset" as const,
@@ -51,18 +47,14 @@ export class LocalQueryRunner implements IQueryRunner {
                 tools,
                 maxTurns: request.maxTurns,
                 systemPrompt,
-                // Structured-output mode: let the SDK enforce/retry the schema instead
-                // of asking the prompt for JSON and parsing the text ourselves.
+
                 ...(request.outputSchema
                     ? { outputFormat: { type: "json_schema" as const, schema: request.outputSchema } }
                     : {}),
-                // Merge the server process env locally; the request only carries
-                // the explicit additions (MONITOR_TASK_*, and the key in local mode).
+
                 env: { ...process.env, ...request.env },
                 permissionMode: "bypassPermissions",
-                // Required companion to bypassPermissions in the 0.2.x SDK — without it
-                // the CLI won't actually bypass and the workspace tools (Read/Glob/Grep)
-                // would stall on permission prompts.
+
                 allowDangerouslySkipPermissions: true,
                 strictMcpConfig: true,
                 includePartialMessages: false,
@@ -80,7 +72,7 @@ export class LocalQueryRunner implements IQueryRunner {
                     continue;
                 }
                 if (msg.type === "result") {
-                    // Cost/usage/turns ride on both success and error result messages.
+
                     numTurns = msg.num_turns;
                     costUsd = msg.total_cost_usd;
                     usage = toUsage(msg.usage);

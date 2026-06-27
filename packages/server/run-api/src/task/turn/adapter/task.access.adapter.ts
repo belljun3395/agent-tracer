@@ -3,10 +3,6 @@ import type { ITaskAccess as ITaskAccessPublic } from "@monitor/run-api/task/pub
 import { TASK_ACCESS } from "@monitor/run-api/task/public/tokens.js";
 import type { ITaskAccess, TaskAccessRecord } from "../application/outbound/task.access.port.js";
 
-/**
- * Outbound adapter — bridges task module's public ITaskAccess to the
- * turn-partition-local task port (only `findById` is needed).
- */
 @Injectable()
 export class TaskAccessAdapter implements ITaskAccess {
     constructor(

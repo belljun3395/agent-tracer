@@ -14,11 +14,11 @@ export class UserRepository {
         return this.repo.findOne({ where: { userId } });
     }
 
-    /** 첫 온보딩 시에만 기록한다(이미 있으면 이메일만 최신화). 멱등. */
     async upsert(userId: string, email: string, createdAt: string): Promise<UserEntity> {
         const existing = await this.repo.findOne({ where: { userId } });
         if (existing) {
             if (existing.email !== email) {
+                // 같은 userId가 새 이메일로 온보딩되면 식별자는 유지하고 이메일만 최신화한다.
                 existing.email = email;
                 return this.repo.save(existing);
             }

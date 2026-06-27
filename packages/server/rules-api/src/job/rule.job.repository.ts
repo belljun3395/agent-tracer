@@ -4,11 +4,6 @@ import { Repository } from "typeorm";
 import { currentUserId } from "@monitor/shared/kernel/user/user.context.js";
 import { RuleJobEntity, type RuleJobType } from "./rule.job.entity.js";
 
-/**
- * Repository for the rules context's `rule_jobs` outbox. Both rule job types
- * (rule generation / rule backfill) go through this one repository, scoped by
- * `jobType`.
- */
 @Injectable()
 export class RuleJobRepository {
     constructor(

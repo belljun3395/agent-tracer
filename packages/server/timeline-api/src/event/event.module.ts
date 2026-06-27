@@ -33,17 +33,6 @@ import { TimelineEventRepository } from "./repository/timeline.event.repository.
 import { TimelineEventService } from "./service/timeline.event.service.js";
 import { TimelineEventStorageService } from "./service/timeline.event.storage.service.js";
 
-/**
- * 이벤트 모듈 — 타임라인 이벤트를 소유한다.
- *
- * 영속성: timeline_events 테이블과 파생 테이블(event_files, event_relations,
- * event_async_refs, event_tags, todos, questions,
- * event_token_usage)을 TypeORM 엔티티로 직접 기록한다.
- *
- * 공개 표면: TIMELINE_EVENT_READ / TIMELINE_EVENT_WRITE / TIMELINE_EVENT_PROJECTION.
- * 아웃바운드: EVENT_PERSISTENCE_PORT, EVENT_SEARCH_INDEX_PORT, NOTIFICATION_PUBLISHER_PORT.
- * task-status 효과와 verification은 timeline이 event.recorded 발행 후 work/rules가 구독.
- */
 @Module({})
 export class EventModule {
     static register(databaseModule: DynamicModule): DynamicModule {
@@ -57,36 +46,36 @@ export class EventModule {
             ],
             controllers: [EventController, PreprocessingHintsController, TypedEventIngestController],
             providers: [
-                // 검색: Postgres pg_trgm (별도 인덱스/dual-write 없음)
+
                 PgEventSearch,
-                // Repositories
+
                 TimelineEventRepository,
                 PreprocessingHintsRepository,
-                // Services
+
                 TimelineEventStorageService,
                 TimelineEventService,
-                // Outbound adapters
+
                 EventPersistenceAdapter,
                 EventNotificationPublisherAdapter,
-                // Public adapters
+
                 TimelineEventWritePublicAdapter,
                 TimelineEventProjectionPublicAdapter,
-                // Use cases
+
                 CrossCheckDedupeCache,
                 LogEventUseCase,
                 IngestEventsUseCase,
                 SearchEventsUseCase,
                 UpdateEventUseCase,
-                // Preprocessing-hint detectors + orchestrator
+
                 ContextPressureDetector,
                 DuplicateQuestionDetector,
                 CommandRepetitionDetector,
                 GetPreprocessingHintsUseCase,
-                // Public iservices
+
                 { provide: TIMELINE_EVENT_READ, useExisting: TimelineEventService },
                 { provide: TIMELINE_EVENT_WRITE, useExisting: TimelineEventWritePublicAdapter },
                 { provide: TIMELINE_EVENT_PROJECTION, useExisting: TimelineEventProjectionPublicAdapter },
-                // Outbound bindings
+
                 { provide: EVENT_PERSISTENCE_PORT, useExisting: EventPersistenceAdapter },
                 { provide: EVENT_SEARCH_INDEX_PORT, useExisting: PgEventSearch },
                 { provide: NOTIFICATION_PUBLISHER_PORT, useExisting: EventNotificationPublisherAdapter },

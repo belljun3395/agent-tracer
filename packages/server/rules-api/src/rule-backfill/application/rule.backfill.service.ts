@@ -14,11 +14,6 @@ export class RuleNotFoundForBackfillError extends Error {
     }
 }
 
-/**
- * `rule_backfill` 거버넌스 잡을 소유한다: enqueue(재평가 HTTP 엔드포인트가 호출)와
- * execute(잡을 원자적으로 claim 한 뒤 백필 실행). 한 룰에 대해 닫힌 턴들을
- * 변경된 룰로 다시 평가한다.
- */
 @Injectable()
 export class RuleBackfillService {
     private readonly logger = new Logger(RuleBackfillService.name);
@@ -29,16 +24,12 @@ export class RuleBackfillService {
         @Inject(VERIFICATION_BACKFILL) private readonly backfill: IVerificationBackfill,
     ) {}
 
-    /**
-     * `ruleId`에 대한 백필을 큐에 넣는다. 룰 존재를 먼저 검증해 호출자가 조용히
-     * 실패하는 잡 대신 404를 받게 한다. 멱등: 이미 pending/processing 백필이 있으면
-     * 중복 스윕을 쌓지 않고 그것을 반환한다.
-     */
     async enqueue(ruleId: string): Promise<RuleJobEntity> {
         const rule = await this.rules.findById(ruleId);
         if (!rule) throw new RuleNotFoundForBackfillError(ruleId);
 
         const existing = await this.jobs.findActiveForRule("rule_backfill", ruleId);
+        // 같은 룰의 백필은 동시에 하나만 두고 기존 진행 잡을 재사용한다.
         if (existing) return existing;
 
         return this.jobs.insert({
@@ -49,7 +40,6 @@ export class RuleBackfillService {
         });
     }
 
-    /** API 요청 안에서 재평가를 동기 실행하고 완료된 잡을 반환한다. */
     async run(ruleId: string): Promise<RuleJobEntity> {
         const job = await this.enqueue(ruleId);
         await this.execute(job);
@@ -57,12 +47,10 @@ export class RuleBackfillService {
         return completed ?? job;
     }
 
-    /**
-     * 잡 하나를 실행하고 항상 completed/failed 로 전이시킨다.
-     */
     async execute(job: RuleJobEntity): Promise<void> {
         const ruleId = job.ruleId;
         if (!ruleId) {
+            // ruleId가 없는 백필 잡은 재평가 대상을 알 수 없어 실패로 닫는다.
             await this.jobs.markFailed({
                 id: job.id,
                 error: "rule_backfill job is missing a ruleId",
@@ -76,8 +64,7 @@ export class RuleBackfillService {
         try {
             const rule = await this.rules.findById(ruleId);
             if (!rule) {
-                // enqueue와 처리 사이에 룰이 삭제됨 — 백필할 대상이 없다.
-                // 실패가 아니라 no-op 성공으로 처리한다.
+                // enqueue 이후 룰이 삭제되면 재평가할 대상이 없으므로 빈 성공으로 닫는다.
                 await this.jobs.markCompleted({
                     id: job.id,
                     verdictsCreated: 0,

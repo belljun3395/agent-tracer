@@ -7,11 +7,6 @@ import {
 } from "../repository/tokens.js";
 import type { IVerdictInvalidation } from "../public/iservice/verdict.invalidation.iservice.js";
 
-/**
- * Public adapter — implements IVerdictInvalidation by clearing verdicts and
- * rule_enforcements for a given rule. Wraps the legacy repos until the
- * verification persistence tier moves to TypeORM.
- */
 @Injectable()
 export class VerdictInvalidationPublicAdapter implements IVerdictInvalidation {
     constructor(

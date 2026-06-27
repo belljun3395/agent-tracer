@@ -25,6 +25,7 @@ export const ruleCreateSchema = z
     })
     .superRefine((value, ctx) => {
         if (value.scope === "task" && !value.taskId) {
+            // task 스코프 룰은 적용 대상 taskId가 있어야 한다.
             ctx.addIssue({
                 code: z.ZodIssueCode.custom,
                 message: "Task-scoped rules require taskId",
@@ -32,6 +33,7 @@ export const ruleCreateSchema = z
             });
         }
         if (value.scope === "global" && value.taskId) {
+            // global 룰은 특정 태스크에 묶이면 안 된다.
             ctx.addIssue({
                 code: z.ZodIssueCode.custom,
                 message: "Global rules must not have taskId",
@@ -43,6 +45,7 @@ export const ruleCreateSchema = z
             !value.expect.pattern &&
             !(value.expect.commandMatches && value.expect.commandMatches.length > 0)
         ) {
+            // 기대 조건이 하나도 없으면 평가할 기준이 없어 요청을 거부한다.
             ctx.addIssue({
                 code: z.ZodIssueCode.custom,
                 message: "expect must include at least one of action, pattern, or commandMatches",
@@ -53,7 +56,6 @@ export const ruleCreateSchema = z
 
 export type RuleCreateBody = z.infer<typeof ruleCreateSchema>;
 
-/** Swagger/OpenAPI request DTO; validation still runs through {@link ruleCreateSchema}. */
 export class RuleCreateDto extends createZodDto(ruleCreateSchema) {}
 
 const expectPatchSchema = z.object({
@@ -84,5 +86,4 @@ export const ruleUpdateSchema = z
 
 export type RuleUpdateBody = z.infer<typeof ruleUpdateSchema>;
 
-/** Swagger/OpenAPI request DTO; validation still runs through {@link ruleUpdateSchema}. */
 export class RuleUpdateDto extends createZodDto(ruleUpdateSchema) {}

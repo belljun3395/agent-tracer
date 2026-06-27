@@ -6,9 +6,6 @@ import type { IRuleAccess } from "@monitor/rules-api/verification/application/ou
 import type { ITurnRepository } from "@monitor/rules-api/verification/application/outbound/turn.repository.port.js";
 import type { IVerdictRepository } from "@monitor/rules-api/verification/application/outbound/verdict.repository.port.js";
 
-
-
-
 export interface TurnEvaluationToolCall {
     readonly tool: string;
     readonly command?: string;
@@ -29,10 +26,6 @@ export interface TurnEvaluationResult {
     readonly verdictCount: number;
 }
 
-/**
- * Coordinates rule lookup, pure turn evaluation, verdict persistence, and
- * turn aggregate updates.
- */
 export class TurnEvaluationService {
     constructor(
         private readonly ruleRepo: IRuleAccess,

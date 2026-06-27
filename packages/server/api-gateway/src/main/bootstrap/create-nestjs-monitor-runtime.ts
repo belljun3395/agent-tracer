@@ -24,10 +24,6 @@ import { TASK_SNAPSHOT_QUERY } from "@monitor/run-api/task/public/tokens.js";
 import type { MonitorRuntime } from "./runtime.type.js";
 
 export async function createNestMonitorRuntime(): Promise<MonitorRuntime> {
-    // 알림은 Redis pub/sub 으로 흐른다: 발행자는 대상 userId 와 함께 채널에 publish 하고,
-    // 구독자가 이 파드의 해당 사용자 소켓으로 fan-out 한다(멀티파드/무상태). WS edge와
-    // Redis 수명주기는 ws-gateway 의 WsGateway 가 소유한다. notifier 는 Nest 앱 생성
-    // 전에 만들어져 NOTIFICATION_PUBLISHER 로 주입된다.
     const redisUrl = loadApplicationConfig().redis.url;
     const wsGateway = await WsGateway.create(redisUrl);
 
@@ -35,20 +31,16 @@ export async function createNestMonitorRuntime(): Promise<MonitorRuntime> {
         AppModule.forRoot({ notifier: wsGateway.notifier }),
         { logger: ["error", "warn"] },
     );
-    // Security headers on every response. CSP is disabled because this gateway
-    // serves the Swagger UI (inline scripts/styles) and no other HTML — the rest
-    // of helmet's defaults (HSTS, X-Content-Type-Options, frameguard, …) apply.
+
+    // Swagger UI만 HTML을 제공하므로 CSP는 끄고 나머지 보안 헤더는 유지한다.
     nestApp.use(helmet({ contentSecurityPolicy: false }));
-    // CORS. Same-origin requests and native clients (no Origin header, e.g. the
-    // runtime daemon / curl) are always allowed; browser origins are restricted
-    // to loopback for local dashboards. Set MONITOR_CORS_ALLOW_ANY_ORIGIN=1 for
-    // an intentionally network-exposed UI. Mirrors the WS upgrade origin policy.
+
+    // 브라우저 출처는 로컬 대시보드로 제한하고, Origin 없는 네이티브 클라이언트는 허용한다.
     nestApp.enableCors({
         origin: (origin, callback) => callback(null, isHttpOriginAllowed(origin)),
         credentials: true,
     });
-    // Resolved once from the DI-managed config so the listen address and startup
-    // banner come from the same source the rest of the app reads.
+
     const appConfig = nestApp.get(AppConfigService);
     const pg = appConfig.postgres;
     const listen = {
@@ -58,9 +50,8 @@ export async function createNestMonitorRuntime(): Promise<MonitorRuntime> {
         database: `postgres://${pg.host}:${pg.port}/${pg.database}`,
     };
     setupSwagger(nestApp);
-    // Raise the body limit above Express's 100kb default: a 100-event batch with
-    // real tool output (Bash results, file contents) easily exceeds it and would
-    // otherwise be rejected at the parser.
+
+    // 이벤트 배치에는 도구 출력이 포함되므로 기본 100kb보다 큰 본문을 허용한다.
     nestApp.useBodyParser("json", { limit: "8mb" });
     nestApp.useBodyParser("urlencoded", { limit: "8mb", extended: true });
     const app = nestApp.getHttpAdapter().getInstance() as ReturnType<typeof express>;
@@ -69,10 +60,7 @@ export async function createNestMonitorRuntime(): Promise<MonitorRuntime> {
 
     const taskSnapshots = nestApp.get<ITaskSnapshotQuery>(TASK_SNAPSHOT_QUERY);
     wsGateway.attach(server, {
-        // Browsers do NOT enforce same-origin for WebSocket, so without a check
-        // any page the user visits could open /ws and read the live event stream
-        // (task titles, workspace paths). Allow native clients (no Origin header)
-        // and loopback origins; gate everything else behind an explicit opt-in.
+        // WebSocket은 브라우저 동일 출처 정책이 적용되지 않으므로 업그레이드에서 직접 차단한다.
         acceptUpgrade: (pathname, request) =>
             pathname === "/ws" && isWsOriginAllowed(headerValue(request.headers["origin"])),
         onUpgradeAttempt: (request, pathname, accepted) => {
@@ -89,13 +77,12 @@ export async function createNestMonitorRuntime(): Promise<MonitorRuntime> {
             });
         },
         resolveUserId: extractWsUserId,
-        // 연결마다 그 사용자 범위(runWithUser)에서 초기 스냅샷을 만든다(사용자별 데이터
-        // + 무상태). 라이브 업데이트는 fan-out 으로 온다.
+
+        // 초기 스냅샷은 연결에서 해석한 사용자 범위 안에서만 만든다.
         buildSnapshot: (userId) => runWithUser(userId, () => taskSnapshots.buildDashboardSnapshot()),
         onError: (message) => process.stderr.write(`[nestjs-server] ${message}\n`),
     });
 
-    // OnApplicationBootstrap 훅(예: task 모듈의 server-sdk reaper)이 여기서 발화한다.
     await nestApp.init();
     return {
         server,
@@ -107,13 +94,7 @@ export async function createNestMonitorRuntime(): Promise<MonitorRuntime> {
     };
 }
 
-/**
- * WebSocket upgrade origin policy. Native clients (the runtime daemon, curl)
- * send no Origin header and are always allowed; browser connections are
- * restricted to loopback origins to block cross-site WebSocket hijacking.
- * Set MONITOR_WS_ALLOW_ANY_ORIGIN=1 for an intentionally network-exposed
- * dashboard served from a non-loopback host.
- */
+// WebSocket은 Origin 없는 런타임 클라이언트를 허용하고, 브라우저는 로컬 출처만 허용한다.
 function isWsOriginAllowed(origin: string | undefined): boolean {
     if (process.env.MONITOR_WS_ALLOW_ANY_ORIGIN === "1") return true;
     if (!origin) return true;
@@ -125,12 +106,7 @@ function isWsOriginAllowed(origin: string | undefined): boolean {
     }
 }
 
-/**
- * HTTP CORS origin policy. Mirrors the WS upgrade policy: same-origin requests
- * and native clients (no Origin header) are always allowed; browser origins are
- * restricted to loopback unless MONITOR_CORS_ALLOW_ANY_ORIGIN=1 opts a
- * network-exposed deployment into reflecting any origin.
- */
+// HTTP도 WebSocket과 같은 출처 정책을 적용한다.
 function isHttpOriginAllowed(origin: string | undefined): boolean {
     if (process.env.MONITOR_CORS_ALLOW_ANY_ORIGIN === "1") return true;
     if (!origin) return true;
@@ -142,7 +118,7 @@ function isHttpOriginAllowed(origin: string | undefined): boolean {
     }
 }
 
-/** WS 연결 URL 쿼리에서 userId 를 추출한다(없으면 기본 사용자). */
+// userId가 없거나 URL을 파싱할 수 없으면 기본 사용자 범위로 연결한다.
 function extractWsUserId(url: string | undefined): string {
     try {
         const parsed = new URL(url ?? "/", "http://localhost");

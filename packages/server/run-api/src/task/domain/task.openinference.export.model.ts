@@ -48,11 +48,6 @@ const OI_ATTRS = {
     filePaths: "file.paths",
 } as const;
 
-/**
- * Domain model — projects a task and its timeline of events into the
- * OpenInference span export format. Encapsulates the rules for span kind
- * classification and attribute mapping in one place.
- */
 export class TaskOpenInferenceExport {
     constructor(
         private readonly task: MonitoringTask,

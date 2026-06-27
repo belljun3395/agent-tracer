@@ -1,10 +1,6 @@
 import type { TurnAggregateVerdict, TurnStatus } from "./turn.repository.port.js";
 import type { VerdictStatus } from "@monitor/rules-api/verification/domain/model/verdict.model.js";
 
-/**
- * Legacy ITurnQueryRepository contract — self-contained.
- */
-
 export interface BackfillTurnRow {
     readonly id: string;
     readonly sessionId: string;

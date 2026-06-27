@@ -6,11 +6,6 @@ import type {
     SessionOutboundNotification,
 } from "../application/outbound/notification.publisher.port.js";
 
-/**
- * Outbound adapter — forwards session-local notifications to the shared
- * transport-level INotificationPublisher. SessionOutboundNotification is
- * a structural subset of MonitorNotificationPortDto, so the cast is safe.
- */
 @Injectable()
 export class SessionNotificationPublisherAdapter implements ISessionNotificationPublisher {
     constructor(

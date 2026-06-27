@@ -7,11 +7,6 @@ import type { IRulePersistence } from "./outbound/rule.persistence.port.js";
 import type { IRuleNotificationPublisher } from "./outbound/notification.publisher.port.js";
 import { RuleNotFoundError } from "../common/errors.js";
 
-/**
- * Soft delete: sets `deleted_at`. Verdicts and enforcements are preserved
- * as audit trail. The rule disappears from active list / evaluation but
- * past results remain referenced by deleted_at + name.
- */
 @Injectable()
 export class DeleteRuleUseCase {
     constructor(

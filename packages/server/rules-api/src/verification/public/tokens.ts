@@ -1,6 +1,4 @@
-/**
- * DI tokens for cross-module access to the verification module.
- */
+
 export const VERIFICATION_BACKFILL = "VERIFICATION_BACKFILL";
 export const VERIFICATION_POST_PROCESSOR = "VERIFICATION_POST_PROCESSOR";
 export const VERIFICATION_VERDICT_INVALIDATION = "VERIFICATION_VERDICT_INVALIDATION";

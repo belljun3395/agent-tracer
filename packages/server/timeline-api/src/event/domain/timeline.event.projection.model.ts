@@ -3,11 +3,6 @@ import { resolveSemanticView } from "@monitor/timeline-api/event/domain/event.se
 import { resolveTimelineEventPaths } from "@monitor/timeline-api/event/domain/timeline.event.paths.js";
 import type { TimelineEventProjection } from "../public/dto/timeline.event.dto.js";
 
-/**
- * Domain model — projects an internal TimelineEvent into the wire-format
- * TimelineEventProjection. Encapsulates the semantic-view + path-resolution
- * rules in one place. Used by WS notifications, event.logged payloads, etc.
- */
 export class TimelineEventProjector {
     constructor(private readonly event: TimelineEvent) {}
 
@@ -44,7 +39,6 @@ export class TimelineEventProjector {
     }
 }
 
-/** Convenience for callers that just want to project once. */
 export function projectTimelineEvent(event: TimelineEvent): TimelineEventProjection {
     return new TimelineEventProjector(event).project();
 }

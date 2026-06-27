@@ -1,6 +1,5 @@
-// Task status vocabulary now lives in @monitor/shared — neutral cross-context
-// vocabulary consumed by run/rules/insight + notification contracts. Re-exported
-// here so run-api internals keep importing from their own common/ barrel.
+
+
 export {
     MONITORING_TASK_KINDS,
     TASK_ORIGINS,

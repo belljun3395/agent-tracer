@@ -40,8 +40,9 @@ export class EndRuntimeSessionUseCase {
     @Transactional()
     async execute(input: EndRuntimeSessionIn): Promise<void> {
         const binding = await this.runtimeBindings.findActive(input.runtimeSource, input.runtimeSessionId);
-        // No active binding: clean up the historical association if the caller asked to.
+
         if (!binding) {
+            // 활성 세션이 없어도 완료 요청이면 과거 바인딩의 태스크를 닫는다.
             if (input.completeTask === true) {
                 const taskId = await this.runtimeBindings.findTaskId(input.runtimeSource, input.runtimeSessionId);
                 if (taskId) {
@@ -56,8 +57,9 @@ export class EndRuntimeSessionUseCase {
         }
 
         const session = await this.sessions.findById(binding.monitorSessionId);
-        // Stale binding: the session is already gone or ended.
+
         if (!session || session.status !== "running") {
+            // stale 바인딩은 세션 상태를 신뢰하지 않고 연결만 정리한다.
             await this.runtimeBindings.clearSession(input.runtimeSource, input.runtimeSessionId);
             if (input.completeTask === true) {
                 await this.completeTaskIfIncomplete({
@@ -99,6 +101,7 @@ export class EndRuntimeSessionUseCase {
                     summary: input.summary ?? decision.summary,
                 });
                 if (task.taskKind === "primary" && hasRunningBackgroundChildren) {
+                    // primary가 명시적으로 끝나면 남은 background도 완료로 수렴시킨다.
                     await this.cascadeCompleteBackgroundDescendants(binding.taskId);
                 }
                 return;
@@ -109,12 +112,6 @@ export class EndRuntimeSessionUseCase {
         }
     }
 
-    /**
-     * Walk descendants and finalize any running background tasks. Called when a
-     * primary task is being completed — its background subagents would otherwise
-     * stay "running" forever if their SubagentStop hook never fired (parent
-     * killed mid-flight, OS shutdown, network drop, etc.).
-     */
     private async cascadeCompleteBackgroundDescendants(rootTaskId: string): Promise<void> {
         const stack = [rootTaskId];
         while (stack.length > 0) {

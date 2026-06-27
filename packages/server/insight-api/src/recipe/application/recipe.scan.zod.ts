@@ -13,12 +13,6 @@ export const recipeTouchedFileSchema = z.object({
     role: recipeFileRoleSchema,
 });
 
-/**
- * A slice is a contiguous portion of a single task that contributed to the
- * recipe. `eventIds: []` means "the whole task" — used by the P1 first-cut
- * extractor before per-event slicing is wired up. When eventIds is non-empty,
- * the server validates each id exists within the task before persisting.
- */
 export const recipeSliceSchema = z.object({
     taskId: z.string().trim().min(1),
     eventIds: z.array(z.string().trim().min(1)).max(200).default([]),

@@ -3,12 +3,6 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { TimelineEventEntity } from "../domain/timeline.event.entity.js";
 
-/**
- * Read-side queries for preprocessing-hint detectors. Kept narrow on purpose:
- * each method returns just enough rows for one detector. We bypass the
- * existing repository methods because preprocessing wants recency-bounded
- * slices ("last 30 events") rather than full task timelines.
- */
 @Injectable()
 export class PreprocessingHintsRepository {
     constructor(

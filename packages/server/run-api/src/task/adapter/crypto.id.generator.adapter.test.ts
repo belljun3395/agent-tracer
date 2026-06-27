@@ -3,7 +3,7 @@ import type { Mock } from "vitest";
 import { CryptoIdGeneratorAdapter } from "@monitor/shared/kernel/crypto.id.generator.adapter.js";
 import type { IClock } from "@monitor/shared/kernel/clock.js";
 
-const FROZEN_MS = 1_777_000_000_000; // 2026-04-29 around
+const FROZEN_MS = 1_777_000_000_000;
 
 function makeClock(): IClock & { nowMs: Mock; nowIso: Mock } {
     return {
@@ -55,9 +55,8 @@ describe("CryptoIdGeneratorAdapter.newUlid", () => {
         const a = adapter.newUlid(FROZEN_MS);
         const b = adapter.newUlid(FROZEN_MS);
 
-        // ULID = 10-char time prefix + 16-char random suffix.
         expect(a.slice(0, 10)).toBe(b.slice(0, 10));
-        // Suffix should differ (random)
+
         expect(a.slice(10)).not.toBe(b.slice(10));
     });
 

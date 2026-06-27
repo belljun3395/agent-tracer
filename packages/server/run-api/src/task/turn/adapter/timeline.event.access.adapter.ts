@@ -6,10 +6,6 @@ import type {
     TimelineEventAccessRecord,
 } from "../application/outbound/timeline.event.access.port.js";
 
-/**
- * Outbound adapter — bridges event module's public ITimelineEventRead to the
- * turn-partition-local timeline event port.
- */
 @Injectable()
 export class TimelineEventAccessAdapter implements ITimelineEventAccess {
     constructor(

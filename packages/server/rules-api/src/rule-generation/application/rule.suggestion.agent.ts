@@ -18,13 +18,10 @@ const ALLOWED_TOOLS = ["Read", "Glob", "Grep"];
 const DEFAULT_MAX_TURNS = 8;
 const DEFAULT_MODEL = CLAUDE_MODEL.sonnet;
 
-// JSON Schema handed to the SDK's structured-output mode. The zod schema's
-// cross-field .superRefine() can't be expressed in JSON Schema, so it is dropped
-// here and re-checked by safeParse below — but the shape is enforced up front.
 const RULE_OUTPUT_SCHEMA = zodToOutputSchema(ruleSuggestionsListSchema);
 
 export interface GenerateRuleSuggestionsInput {
-    /** Optional: omitted when a remote runner runs the SDK with its own local key. */
+
     readonly apiKey?: string;
     readonly model?: string;
     readonly summary: TaskSummaryUseCaseDto;
@@ -74,14 +71,11 @@ export class RuleSuggestionAgent {
             MONITOR_TASK_ORIGIN: "server-sdk",
         };
 
-        // Tool-using, up to 8 turns over the workspace; allow 300s before abort.
-        // Structured output: the SDK enforces the schema and retries violations.
         const { rawOutput, structuredOutput, durationMs, errorSummary, costUsd, numTurns, usage } = await this.queryRunner.run({
             label: "rule-suggestion",
             prompt: userPrompt,
             systemPrompt,
-            // Tool-using workspace agent: run on the preset scaffolding, with a
-            // cache-stable prefix (dynamic sections stripped) for prompt caching.
+
             useClaudeCodePreset: true,
             excludeDynamicSections: true,
             allowedTools: ALLOWED_TOOLS,
@@ -102,8 +96,6 @@ export class RuleSuggestionAgent {
             );
         }
 
-        // Prefer the SDK's structured output; fall back to parsing the text for
-        // resilience (e.g. if a model/runner returns the answer as plain text).
         const json = structuredOutput ?? parseJsonStrict(rawOutput);
         if (json === null || json === undefined) {
             throw new RuleSuggestionAgentError(

@@ -10,12 +10,6 @@ import type {
     TimelineEventInsertRequest,
 } from "../application/outbound/event.persistence.port.js";
 
-/**
- * Outbound adapter — implements IEventPersistence by composing the TypeORM
- * storage service for table writes/reads with two side-effect ports for
- * search-document refresh and domain-event sourcing. The search query path
- * still goes through the legacy FTS helpers (via IEventSearchIndex).
- */
 @Injectable()
 export class EventPersistenceAdapter implements IEventPersistence {
     constructor(
@@ -32,7 +26,7 @@ export class EventPersistenceAdapter implements IEventPersistence {
     }
 
     async insert(input: TimelineEventInsertRequest): Promise<PersistedTimelineEvent> {
-        // No dual-write: PG search reads timeline_events directly.
+
         return this.storage.insert(input);
     }
 

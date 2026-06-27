@@ -2,7 +2,6 @@ import { Column, Entity, Index, PrimaryColumn } from "typeorm";
 
 export type RecipeStatus = "active" | "superseded" | "retired";
 
-/** Auto-retirement policy thresholds (pure domain constants). */
 const MIN_APPLIED_FOR_FAILURE = 5;
 const MIN_SUCCESS_RATE = 0.3;
 const STALE_AGE_MS = 14 * 24 * 60 * 60 * 1000;
@@ -13,7 +12,6 @@ export class RecipeEntity {
     @PrimaryColumn({ type: "text" })
     id!: string;
 
-    /** 이 레시피를 소유한 사용자. */
     @Column({ name: "user_id", type: "text", default: "local" })
     userId!: string;
 
@@ -65,20 +63,15 @@ export class RecipeEntity {
     @Column({ name: "updated_at", type: "text" })
     updatedAt!: string;
 
-    /** Success ratio in [0, 1]; 0 when the recipe has never been applied. */
     successRate(): number {
         return this.appliedCount > 0 ? this.successCount / this.appliedCount : 0;
     }
 
-    /**
-     * Auto-retirement policy. An active recipe should be retired when it
-     * either fails too often (applied >= 5 times with a success rate below
-     * 30%) or has gone stale (never applied and older than 14 days).
-     * Non-active recipes are never retired by this policy.
-     */
     shouldRetire(nowIso: string): boolean {
+        // active 레시피만 자동 폐기 대상이며, 이미 superseded/retired인 항목은 건드리지 않는다.
         if (this.status !== "active") return false;
         const ageMs = Date.parse(nowIso) - Date.parse(this.createdAt);
+        // 충분히 적용됐는데 성공률이 낮거나, 한 번도 쓰이지 않은 채 오래된 레시피를 폐기한다.
         const failsByFailure =
             this.appliedCount >= MIN_APPLIED_FOR_FAILURE &&
             this.successRate() < MIN_SUCCESS_RATE;

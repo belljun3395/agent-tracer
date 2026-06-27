@@ -12,10 +12,6 @@ import type {
     RulePersistenceUpdateInput,
 } from "../application/outbound/rule.persistence.port.js";
 
-/**
- * TypeORM-backed rule repository. Implements IRulePersistence directly —
- * no legacy bridge.
- */
 @Injectable()
 export class RuleRepository implements IRulePersistence {
     constructor(

@@ -1,5 +1,4 @@
-// Metadata field names written by the runtime and read by the server.
-// These are the keys inside TimelineEvent.metadata / ingest payloads.
+
 
 export const META = {
     subtypeKey: "subtypeKey",

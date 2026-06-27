@@ -39,7 +39,7 @@ export class EnsureRuntimeSessionUseCase {
             ? normalizeWorkspacePath(input.workspacePath)
             : undefined;
 
-        // Active binding: this runtime session is already attached to an open monitor session.
+        // 이미 실행 중인 바인딩은 새 세션을 만들지 않고 기존 monitor 세션으로 고정한다.
         const binding = await this.runtimeBindings.findActive(input.runtimeSource, input.runtimeSessionId);
         if (binding) {
             const session = await this.sessions.findById(binding.monitorSessionId);
@@ -58,8 +58,8 @@ export class EnsureRuntimeSessionUseCase {
         const existingTaskId = await this.runtimeBindings.findTaskId(input.runtimeSource, input.runtimeSessionId);
         if (existingTaskId) {
             const task = await this.tasks.findById(existingTaskId);
-            // Historical binding only: read-only callers attach to the latest session
-            // without reopening the task.
+
+            // 읽기 전용 재연결은 태스크를 running으로 되돌리지 않고 마지막 세션을 반환한다.
             if (input.resume === false) {
                 const sessions = await this.sessions.findByTaskId(existingTaskId);
                 const latest = [...sessions].sort((a, b) => b.startedAt.localeCompare(a.startedAt))[0];
@@ -72,7 +72,8 @@ export class EnsureRuntimeSessionUseCase {
                     };
                 }
             }
-            // Resume path: keep the task association, generate a fresh session id.
+
+            // 재개는 기존 태스크 관계를 유지하고 새 monitor 세션만 붙인다.
             const sessionId = this.idGen.newUuid();
             const startedAt = this.clock.nowIso();
             if (task && (task.status !== "running" || task.runtimeSource !== input.runtimeSource)) {
@@ -108,7 +109,7 @@ export class EnsureRuntimeSessionUseCase {
             };
         }
 
-        // First sighting: create both the task and its initial monitor session.
+        // 처음 본 런타임 세션은 태스크와 monitor 세션을 함께 생성한다.
         const result = await this.taskLifecycle.startTask({
             ...(input.taskId ? { taskId: input.taskId } : {}),
             title: input.title,

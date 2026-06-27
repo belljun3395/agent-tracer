@@ -254,7 +254,7 @@ describe("TaskLifecycleService.startTask", () => {
             });
 
             expect(result.task.id).toBe("explicit-task");
-            // sessionId still uses idGen
+
             expect(harness.idGen.newUuid).toHaveBeenCalled();
         });
     });

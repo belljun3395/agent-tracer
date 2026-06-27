@@ -6,9 +6,6 @@ import type {
     TaskOutboundNotification,
 } from "../application/outbound/notification.publisher.port.js";
 
-/**
- * Outbound adapter — forwards task notifications to the shared transport.
- */
 @Injectable()
 export class TaskNotificationPublisherAdapter implements ITaskNotificationPublisher {
     constructor(

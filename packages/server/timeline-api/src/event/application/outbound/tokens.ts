@@ -1,6 +1,4 @@
-/**
- * DI tokens for the event module's outbound dependencies.
- */
+
 export const EVENT_PERSISTENCE_PORT = "EVENT_PERSISTENCE_PORT";
 export const NOTIFICATION_PUBLISHER_PORT = "EVENT_NOTIFICATION_PUBLISHER_PORT";
 export const EVENT_SEARCH_INDEX_PORT = "EVENT_SEARCH_INDEX_PORT";

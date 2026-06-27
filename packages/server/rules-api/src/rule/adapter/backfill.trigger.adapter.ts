@@ -7,10 +7,6 @@ import type {
     IBackfillTrigger,
 } from "../application/outbound/backfill.trigger.port.js";
 
-/**
- * Outbound adapter — bridges the rule module's IBackfillTrigger port to the
- * verification module's public IVerificationBackfill iservice.
- */
 @Injectable()
 export class BackfillTriggerAdapter implements IBackfillTrigger {
     constructor(

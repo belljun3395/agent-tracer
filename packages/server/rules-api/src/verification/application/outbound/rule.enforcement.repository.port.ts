@@ -1,10 +1,5 @@
 import type { RuleEventMatchKind } from "@monitor/rules-api/verification/domain/event.rule.matching.js";
 
-/**
- * Legacy IRuleEnforcementRepository contract — self-contained for the SQLite
- * adapter and verification module factory bindings.
- */
-
 export type RuleEnforcementMatchKind = RuleEventMatchKind;
 
 export interface RuleEnforcementInsert {

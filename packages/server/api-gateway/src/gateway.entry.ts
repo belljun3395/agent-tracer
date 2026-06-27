@@ -9,29 +9,18 @@ if (entryPath === modulePath) {
     const runtime = await createNestMonitorRuntime();
     const { host, port, publicBaseUrl, database } = runtime.listen;
     runtime.server.listen(port, host, () => {
-        // CLI startup banner — written to stdout regardless of NestJS log level.
         process.stdout.write(`[nestjs-server] listening on ${publicBaseUrl}\n`);
         process.stdout.write(`[nestjs-server] database: ${database}\n`);
     });
 
-    // Graceful shutdown. Without this, Node's default SIGTERM behaviour is to
-    // exit immediately, so on a deploy / scale-down in-flight HTTP requests are
-    // cut mid-response, WS clients get a TCP reset instead of a close frame, and
-    // the Redis/Postgres connections are never drained. `runtime.close()` already
-    // composes the full teardown (nestApp.close() drains the HTTP server and
-    // fires the DI shutdown hooks; wsGateway.close() quits Redis and closes the
-    // socket server) — we just need to trigger it on the orchestrator's signal.
-    //
-    // Signals are handled here (rather than via Nest's enableShutdownHooks) so
-    // the externally-owned WsGateway is torn down in the same path as the Nest
-    // app; enableShutdownHooks would only close the DI container.
+    // 종료 신호를 받으면 HTTP, WS, Redis/Postgres 연결을 같은 경로로 닫아 요청 중단을 줄인다.
     let shuttingDown = false;
     const shutdown = async (signal: NodeJS.Signals): Promise<void> => {
         if (shuttingDown) return;
         shuttingDown = true;
         process.stdout.write(`[nestjs-server] ${signal} received — shutting down\n`);
-        // Safety net: if a connection hangs and close() stalls, force-exit before
-        // the orchestrator escalates to SIGKILL (K8s default grace is 30s).
+
+        // 종료가 멈추면 오케스트레이터의 강제 종료보다 먼저 프로세스를 확정 종료한다.
         const forceExit = setTimeout(() => {
             process.stderr.write("[nestjs-server] graceful shutdown timed out — forcing exit\n");
             process.exit(1);

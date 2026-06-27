@@ -14,19 +14,14 @@ import { parseJsonStrict } from "@monitor/shared/llm/parse.json.js";
 import { zodToOutputSchema } from "@monitor/shared/llm/output.schema.js";
 import { CLAUDE_MODEL } from "@monitor/shared/llm/models.js";
 
-// Cleanup is a single-shot "analyze this list and emit JSON" task — no
-// filesystem context needed. Keeping tools enabled (and an 8-turn budget)
-// let the model wander through the workspace and pushed a 37-task scan to
-// 2+ minutes. Drop both: one turn, zero tools, no exploration.
 const ALLOWED_TOOLS: readonly string[] = [];
 const DEFAULT_MAX_TURNS = 1;
 const DEFAULT_MODEL = CLAUDE_MODEL.haiku;
 
-// JSON Schema for the SDK's structured-output mode; zod re-validates afterward.
 const CLEANUP_OUTPUT_SCHEMA = zodToOutputSchema(cleanupSuggestionsListSchema);
 
 export interface GenerateCleanupSuggestionsInput {
-    /** Optional: omitted when a remote runner runs the SDK with its own local key. */
+
     readonly apiKey?: string;
     readonly model?: string;
     readonly tasks: readonly CleanupTaskSnapshot[];
@@ -68,8 +63,6 @@ export class TaskCleanupAgent {
             MONITOR_TASK_ORIGIN: "server-sdk",
         };
 
-        // Single-turn Haiku one-shot, no workspace tools; 120s deadline headroom.
-        // Structured output: the SDK enforces the schema and retries violations.
         const { rawOutput, structuredOutput, durationMs, errorSummary, costUsd, numTurns, usage } = await this.queryRunner.run({
             label: "task-cleanup",
             prompt: userPrompt,
@@ -91,7 +84,6 @@ export class TaskCleanupAgent {
             );
         }
 
-        // Prefer the SDK's structured output; fall back to text parsing.
         const json = structuredOutput ?? parseJsonStrict(rawOutput);
         if (json === null || json === undefined) {
             throw new TaskCleanupAgentError(

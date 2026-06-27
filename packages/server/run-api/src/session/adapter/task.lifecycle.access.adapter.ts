@@ -8,11 +8,6 @@ import type {
     TaskLifecycleAccessResult,
 } from "../application/outbound/task.lifecycle.access.port.js";
 
-/**
- * Outbound adapter — bridges task module's public ITaskLifecycle to the
- * session-local ITaskLifecycleAccess port. Narrows the result to the fields
- * session actually consumes (just task.id + sessionId).
- */
 @Injectable()
 export class TaskLifecycleAccessAdapter implements ITaskLifecycleAccess {
     constructor(

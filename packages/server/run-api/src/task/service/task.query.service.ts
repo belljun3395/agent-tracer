@@ -32,11 +32,6 @@ function toBaseTask(entity: TaskEntity, relations: TaskRelationsSnapshot): Monit
     };
 }
 
-/**
- * Read-only task service. Hydrates entity + relations and adds derived display title.
- * Repository returns raw entities; this service composes them with the
- * TaskRelations / TaskDisplayTitle domain models.
- */
 @Injectable()
 export class TaskQueryService {
     constructor(
@@ -52,7 +47,6 @@ export class TaskQueryService {
         return this.withDisplayTitle(toBaseTask(entity, relations.asSnapshot()));
     }
 
-    /** Full-text task search for the current user (pg_trgm ILIKE). */
     async searchTasks(query: string, limit: number): Promise<readonly TaskEntity[]> {
         return this.taskRepo.searchByText(currentUserId(), query, limit);
     }
@@ -80,12 +74,6 @@ export class TaskQueryService {
         return this.events.countAll();
     }
 
-    /**
-     * Assembles the dashboard's initial snapshot in one call (status tally +
-     * total events + active task list), scoped to the current user. This is the
-     * read-composition the server bootstrap used to do inline before pushing
-     * the WS initial payload.
-     */
     async buildDashboardSnapshot(): Promise<DashboardSnapshot> {
         const [statuses, totalEvents, tasks] = await Promise.all([
             this.listTaskStatuses(),
@@ -98,7 +86,6 @@ export class TaskQueryService {
         };
     }
 
-    /** Allow management/lifecycle services to fetch the raw entity for mutation. */
     async findEntity(id: string): Promise<{ entity: TaskEntity; relations: TaskRelationsSnapshot } | null> {
         const entity = await this.taskRepo.findById(id);
         if (!entity) return null;
@@ -121,14 +108,12 @@ export class TaskQueryService {
     }
 
     private async withDisplayTitle(task: MonitoringTask): Promise<MonitoringTask> {
-        // Skip the per-task timeline load entirely when the task's own metadata
-        // already yields a title (the common case). Loading every active task's
-        // full timeline here is the N+1 that stalls the dashboard snapshot.
         const fromTaskOnly = new TaskDisplayTitle(task, []);
         if (!fromTaskOnly.needsTimeline()) {
             const displayTitle = fromTaskOnly.derive();
             return displayTitle ? { ...task, displayTitle } : task;
         }
+        // 태스크 자체 정보로 제목을 만들 수 없을 때만 타임라인을 읽어 N+1 비용을 제한한다.
         const timeline = await this.events.findByTaskId(task.id);
         const displayTitle = new TaskDisplayTitle(task, timeline).derive();
         return displayTitle ? { ...task, displayTitle } : task;

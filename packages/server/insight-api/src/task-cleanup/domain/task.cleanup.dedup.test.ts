@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { dedupeByKindAndTask } from "./task.cleanup.dedup.js";
 
-/**
- * 태스크 정리 제안 dedup 비즈니스 로직 테스트.
- * 메서드명은 영어, 표시명은 한글.
- */
 describe("dedupeByKindAndTask — 제안 중복/무효 제거", () => {
     const known = new Set(["t1", "t2"]);
 

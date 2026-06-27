@@ -8,11 +8,6 @@ import type {
     TaskAccessUpsertInput,
 } from "../application/outbound/task.access.port.js";
 
-/**
- * Outbound adapter — bridges task module's public ITaskAccess to the
- * session-local ITaskAccess port. Only place inside session that imports
- * from another module (and only via that module's public/ surface).
- */
 @Injectable()
 export class TaskAccessAdapter implements ITaskAccess {
     constructor(

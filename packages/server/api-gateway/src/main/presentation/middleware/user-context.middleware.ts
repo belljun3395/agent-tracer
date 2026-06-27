@@ -3,10 +3,6 @@ import type { NextFunction, Request, Response } from "express";
 import { DEFAULT_USER_ID, runWithUser } from "@monitor/shared/kernel/user/user.context.js";
 import { deriveUserId } from "@monitor/shared/kernel/user/user.identity.js";
 
-/**
- * 요청에서 사용자를 식별해 ALS 범위로 나머지 처리를 감싼다. `X-User-Id` 가 있으면
- * 그대로, 없고 `X-User-Email` 이 있으면 deriveUserId 로 변환, 둘 다 없으면 기본 사용자.
- */
 @Injectable()
 export class UserContextMiddleware implements NestMiddleware {
     use(request: Request, _response: Response, next: NextFunction): void {

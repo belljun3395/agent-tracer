@@ -1,8 +1,4 @@
-/**
- * Outbound port. Self-contained — no imports from outside this file.
- * Adapter (session/adapter/task.access.adapter.ts) is the only place that
- * bridges external module types into these local definitions.
- */
+
 
 export type TaskAccessStatus =
     | "running"

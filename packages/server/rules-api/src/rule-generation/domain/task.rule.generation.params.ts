@@ -11,14 +11,12 @@ const SUPPORTED_LANGUAGES: ReadonlySet<RuleSuggestionLanguage> = new Set([
     "zh",
 ]);
 
-/** Normalize a raw language setting to a supported rule-suggestion language. */
 export function normalizeRuleSuggestionLanguage(raw: string | null): RuleSuggestionLanguage {
     if (!raw) return "auto";
     const trimmed = raw.trim().toLowerCase() as RuleSuggestionLanguage;
     return SUPPORTED_LANGUAGES.has(trimmed) ? trimmed : "auto";
 }
 
-/** Clamp the requested rule cap into [1, 20], defaulting when invalid. */
 export function clampMaxRules(raw: string | null): number {
     if (!raw) return DEFAULT_MAX_RULES;
     const n = Number.parseInt(raw, 10);

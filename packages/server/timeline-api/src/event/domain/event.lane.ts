@@ -1,11 +1,6 @@
 import { isTimelineLane } from "./common/event.kind.js";
 import type { TimelineLane } from "./common/const/event.kind.const.js";
 
-/**
- * Normalize an arbitrary lane string (incoming from ingest sources or stored
- * rows) into the canonical TimelineLane. Falls back to "user" when no mapping
- * applies.
- */
 export function normalizeLane(raw: string): TimelineLane {
     switch (raw) {
         case "file":

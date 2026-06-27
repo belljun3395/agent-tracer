@@ -73,20 +73,22 @@ export class RecipeScanService {
     ): Promise<InsightJobEntity> {
         const existing = await this.jobs.findActive("recipe_scan");
         if (existing) {
+            // 레시피 스캔은 전체 태스크 집합을 읽으므로 동시에 하나만 허용한다.
             throw new RecipeScanAlreadyInFlightError(existing.id);
         }
 
         const apiKey = await this.settings.getAnthropicApiKey();
         if (this.agent.requiresLocalApiKey() && !apiKey) {
+            // 로컬 실행기가 API 키를 직접 써야 하면 잡을 만들기 전에 거부한다.
             throw new MissingApiKeyError();
         }
 
         const filters = normalizeRecipeScanFilters(input);
-        // Validate there's at least one task matching before opening a job —
-        // mirrors task-cleanup's NoTasksToScanError preflight.
+
         const tasks = await this.taskQuery.findAll(filters.archivedScope);
         const filtered = applyRecipeScanFilters(tasks, filters);
         if (filtered.length === 0) {
+            // 필터를 통과한 태스크가 없으면 LLM 스캔 결과도 만들 수 없다.
             throw new NoTasksToScanError();
         }
 
@@ -100,7 +102,6 @@ export class RecipeScanService {
         });
     }
 
-    /** API 요청 안에서 레시피 스캔을 동기 실행하고 완료된 잡을 반환한다. */
     async run(input: EnqueueRecipeScanInput = {}): Promise<InsightJobEntity> {
         const job = await this.enqueue(input);
         await this.execute(job);
@@ -127,6 +128,7 @@ export class RecipeScanService {
         });
         try {
             const apiKey = await this.settings.getAnthropicApiKey();
+            // 실행 시점에도 키를 다시 확인해 오래된 pending 잡이 잘못 실행되지 않게 한다.
             if (this.agent.requiresLocalApiKey() && !apiKey) throw new MissingApiKeyError();
 
             const modelOverride = await this.settings.getAnthropicModel();
@@ -141,6 +143,7 @@ export class RecipeScanService {
                 const { summary } = await this.getTaskSummary.execute({
                     taskId: t.id,
                 });
+                // 요약이 없거나 이벤트 수가 기준보다 적으면 학습할 패턴이 부족해 제외한다.
                 if (!summary) continue;
                 if (summary.eventCount < filters.minEventCount) continue;
                 snapshots.push({
@@ -164,6 +167,7 @@ export class RecipeScanService {
             }
 
             if (snapshots.length === 0) {
+                // enqueue 이후 조건이 바뀐 경우 실패가 아니라 빈 성공으로 기록한다.
                 await this.jobs.markCompleted({
                     id: job.id,
                     candidatesCreated: 0,
@@ -197,9 +201,6 @@ export class RecipeScanService {
             const now = new Date().toISOString();
             const rows: InsertRecipeCandidateRow[] = [];
 
-            // For parent-linking we need every active recipe + its task ids.
-            // O(active recipes) for the whole scan — bounded since a workspace
-            // usually has at most dozens of active recipes.
             const activeRecipes = await this.recipes.listByStatus("active");
             const activeRecipeTaskIds = activeRecipes.map((r) => ({
                 recipe: r,
@@ -210,6 +211,7 @@ export class RecipeScanService {
                 const validSlices = recipe.contributing_slices.filter((slice) =>
                     knownTaskIds.has(slice.taskId),
                 );
+                // 현재 스캔 대상 밖의 slice만 있는 후보는 적용 근거가 없으므로 버린다.
                 if (validSlices.length === 0) continue;
 
                 const candidateTaskIds = new Set(
@@ -243,8 +245,7 @@ export class RecipeScanService {
             }
             await this.candidates.insertMany(rows);
 
-            // Best-effort retire policy: prune underperforming active recipes
-            // at the end of every scan. Never blocks scan completion.
+            // 스캔 완료 후 성과가 낮거나 오래 미사용된 active 레시피를 가능한 범위에서 정리한다.
             await this.runRetirePolicy(activeRecipes, now);
 
             await this.jobs.markCompleted({
@@ -305,13 +306,6 @@ export class RecipeScanService {
         return normalizeRecipeLanguage(raw);
     }
 
-    /**
-     * Retire policy — runs after every successful scan.
-     *
-     * A recipe is retired when:
-     *   - applied_count >= 5 AND success_rate < 0.3 (failing too often)
-     *   - or applied_count == 0 AND age > 14 days (nobody used it)
-     */
     private async runRetirePolicy(
         active: readonly RecipeEntity[],
         nowIso: string,

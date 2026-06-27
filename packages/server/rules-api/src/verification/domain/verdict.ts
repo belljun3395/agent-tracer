@@ -13,12 +13,6 @@ function isVerdictStatus(value: unknown): value is VerdictStatus {
     return typeof value === "string" && VERDICT_STATUS_SET.has(value);
 }
 
-/**
- * Picks the worst verdict status. Priority order is
- * contradicted > unverifiable > verified. Returns null when there are no
- * recognized statuses. Accepts raw strings/null/undefined to ease use from
- * persistence rows where the column is typed as `string | null`.
- */
 export function aggregateVerdict(
     statuses: ReadonlyArray<string | null | undefined>,
 ): VerdictStatus | null {

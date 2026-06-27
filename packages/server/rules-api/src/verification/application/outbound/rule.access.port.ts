@@ -1,8 +1,4 @@
-/**
- * Verification module's outbound contract for reading rules during turn
- * evaluation. Self-contained — bound at runtime to the rule module's
- * RuleRepository via RULE_REPOSITORY_TOKEN remap.
- */
+
 
 export type RuleAccessScope = "global" | "task";
 export type RuleAccessSeverity = "info" | "warn" | "block";

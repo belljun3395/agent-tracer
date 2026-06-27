@@ -21,7 +21,7 @@ export class RuleGenerationModule {
             providers: [
                 RuleJobRepository,
                 TaskRuleGenerationService,
-                // 룰 생성 LLM 에이전트 + Claude SDK 쿼리 러너
+
                 RuleSuggestionAgent,
                 LocalQueryRunner,
                 { provide: QUERY_RUNNER, useExisting: LocalQueryRunner },

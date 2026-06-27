@@ -1,10 +1,4 @@
-/**
- * Outbound port. Self-contained.
- *
- * What task module needs from session module:
- *   - create a runtime session for a new task
- *   - find / update session status when finalizing a task
- */
+
 
 export type SessionAccessStatus = "running" | "completed" | "errored";
 

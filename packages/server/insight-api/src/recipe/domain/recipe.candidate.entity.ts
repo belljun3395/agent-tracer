@@ -13,7 +13,6 @@ export class RecipeCandidateEntity {
     @PrimaryColumn({ type: "text" })
     id!: string;
 
-    /** 이 후보를 소유한 사용자. */
     @Column({ name: "user_id", type: "text", default: "local" })
     userId!: string;
 
@@ -32,18 +31,12 @@ export class RecipeCandidateEntity {
     @Column({ name: "summary_md", type: "text" })
     summaryMd!: string;
 
-    /** JSON array of {order, action, rationale?}. */
     @Column({ name: "steps_json", type: "text", default: "[]" })
     stepsJson!: string;
 
-    /** JSON array of {path, role: 'read'|'write'|'both'}. */
     @Column({ name: "touched_files_json", type: "text", default: "[]" })
     touchedFilesJson!: string;
 
-    /**
-     * JSON array of {taskId, eventIds: string[]}. `eventIds: []` means
-     * "whole task" — the slice spans every event in that task.
-     */
     @Column({ name: "contributing_slices_json", type: "text" })
     contributingSlicesJson!: string;
 
@@ -53,10 +46,6 @@ export class RecipeCandidateEntity {
     @Column({ type: "text", nullable: true })
     language!: string | null;
 
-    /**
-     * If this candidate is a re-write of an existing active recipe, the
-     * parent's id. Surface as a "compare" card during review.
-     */
     @Column({ name: "parent_recipe_id", type: "text", nullable: true })
     parentRecipeId!: string | null;
 
@@ -72,12 +61,10 @@ export class RecipeCandidateEntity {
     @Column({ name: "resolved_at", type: "text", nullable: true })
     resolvedAt!: string | null;
 
-    /** Awaiting a human decision — the only state from which it can be accepted/dismissed. */
     isPending(): boolean {
         return this.status === "pending";
     }
 
-    /** Reached a terminal state (accepted / dismissed / failed). */
     isResolved(): boolean {
         return this.status !== "pending";
     }

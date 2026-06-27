@@ -7,12 +7,6 @@ import type {
 } from "../public/iservice/timeline.event.write.iservice.js";
 import type { TimelineEventSnapshot } from "../public/dto/timeline.event.dto.js";
 
-/**
- * Public adapter — implements ITimelineEventWrite by delegating to the
- * EVENT_PERSISTENCE_PORT (TimelineEventStorageService + FTS refresh +
- * event-store append). All cross-module timeline event writes flow through
- * this adapter so the side effects stay consistent with module-internal writes.
- */
 @Injectable()
 export class TimelineEventWritePublicAdapter implements ITimelineEventWrite {
     constructor(

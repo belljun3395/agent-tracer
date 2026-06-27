@@ -2,8 +2,6 @@ import { Controller, Get, Inject, Query } from "@nestjs/common";
 import { ListRulesForTaskUseCase } from "../application/list.rules.usecase.js";
 import { pathParamPipe } from "@monitor/shared/contracts/http/path-param.pipe.js";
 
-// Lists a task's rules (task-scoped + applicable global) under the rules
-// namespace — moved off /tasks/:id/rules so /tasks stays run-owned.
 @Controller("api/v1/rules")
 export class TaskRulesQueryController {
     constructor(

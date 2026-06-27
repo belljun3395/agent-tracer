@@ -1,6 +1,4 @@
-/**
- * DI tokens for the verification module's outbound dependencies.
- */
+
 export const RULE_ACCESS_PORT = "VERIFICATION_RULE_ACCESS_PORT";
 export const TIMELINE_EVENT_ACCESS_PORT = "VERIFICATION_TIMELINE_EVENT_ACCESS_PORT";
 export const NOTIFICATION_PUBLISHER_PORT = "VERIFICATION_NOTIFICATION_PUBLISHER_PORT";

@@ -6,13 +6,6 @@ import {
 } from "./timeline.event.row.builder.js";
 import { hydrateTimelineEvent } from "./timeline.event.hydrator.js";
 
-/**
- * 타임라인 이벤트 build → hydrate 라운드트립 골든 테스트.
- *
- * 빌더(metadata → 메인 행 + 파생 7테이블)와 하이드레이터(행 → metadata)는 서로
- * 거울 관계지만 변환이 달라, 이 경로의 동작을 고정해 키 드리프트와 write-only 컬럼
- * (과거 EventTagEntity.source 같은) 재발을 막는다. 표시명은 한글.
- */
 function makeRequest(
     metadata: Record<string, unknown>,
     classificationTags: readonly string[] = [],

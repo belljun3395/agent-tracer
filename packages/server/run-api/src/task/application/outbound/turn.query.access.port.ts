@@ -1,7 +1,4 @@
-/**
- * Outbound port for turn (verification) read access. Self-contained.
- * Adapter wraps legacy TurnSummaryQueryPort until the verification module is split.
- */
+
 
 export interface TurnSummaryAccessRecord {
     readonly id: string;

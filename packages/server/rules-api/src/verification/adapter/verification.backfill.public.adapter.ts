@@ -6,7 +6,6 @@ import type {
     VerificationBackfillRule,
 } from "../public/iservice/verification.backfill.iservice.js";
 
-/** Public adapter — implements IVerificationBackfill via the internal usecase. */
 @Injectable()
 export class VerificationBackfillPublicAdapter implements IVerificationBackfill {
     constructor(

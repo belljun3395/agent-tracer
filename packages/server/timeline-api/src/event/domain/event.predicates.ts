@@ -7,16 +7,12 @@ import {
 } from "@monitor/timeline-api/event/domain/common/const/event.kind.const.js";
 import type { MonitoringEventKind, TimelineLane } from "@monitor/timeline-api/event/domain/common/const/event.kind.const.js";
 
-// --- Lane predicates ---
-
 export function isExplorationLane(lane: TimelineLane): boolean { return lane === LANE.exploration; }
 export function isImplementationLane(lane: TimelineLane): boolean { return lane === LANE.implementation; }
 export function isPlanningLane(lane: TimelineLane): boolean { return lane === LANE.planning; }
 export function isCoordinationLane(lane: TimelineLane): boolean { return lane === LANE.coordination; }
 export function isBackgroundLane(lane: TimelineLane): boolean { return lane === LANE.background; }
 export function isUserLane(lane: TimelineLane): boolean { return lane === LANE.user; }
-
-// --- Event kind group guards ---
 
 type WithKind = { readonly kind: MonitoringEventKind };
 
@@ -32,7 +28,6 @@ export function isLlmInteractionEvent(e: WithKind): boolean {
     return e.kind === KIND.assistantResponse || e.kind === KIND.userMessage;
 }
 
-// --- Individual kind type guards ---
 export function isUserMessageEvent<T extends WithKind>(e: T): e is T & { kind: typeof KIND.userMessage } {
     return e.kind === KIND.userMessage;
 }

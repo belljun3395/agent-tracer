@@ -3,10 +3,6 @@ import type { IVerdictInvalidation } from "@monitor/rules-api/verification/publi
 import { VERIFICATION_VERDICT_INVALIDATION } from "@monitor/rules-api/verification/public/tokens.js";
 import type { IVerificationInvalidation } from "../application/outbound/verification.invalidation.port.js";
 
-/**
- * Outbound adapter — wraps the verification module's public
- * IVerdictInvalidation iservice to satisfy the rule-side port.
- */
 @Injectable()
 export class VerificationInvalidationAdapter implements IVerificationInvalidation {
     constructor(

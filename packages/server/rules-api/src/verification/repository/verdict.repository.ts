@@ -31,7 +31,7 @@ export class VerdictRepository implements IVerdictRepository {
             : null;
         entity.evaluatedAt = input.evaluatedAt;
         const saved = await this.repo.save(entity);
-        // The DB has a composite PK; carry the in-memory id from the input.
+
         return { ...mapEntity(saved), id: input.id };
     }
 

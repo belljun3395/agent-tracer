@@ -7,5 +7,4 @@ export const eventPatchSchema = z.object({
     message: "At least one field must be provided",
 });
 
-/** Swagger/OpenAPI request DTO; validation still runs through {@link eventPatchSchema}. */
 export class EventPatchDto extends createZodDto(eventPatchSchema) {}

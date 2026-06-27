@@ -5,19 +5,10 @@ import type {
     TurnSummaryAccessRecord,
 } from "../application/outbound/turn.query.access.port.js";
 
-/**
- * Structural shape consumed via TURN_QUERY_REPOSITORY_TOKEN. Self-contained so
- * task does not import verification's internal contracts.
- */
 interface TurnSummaryQuerySource {
     listTurnSummariesForTask(taskId: string): Promise<readonly TurnSummaryAccessRecord[]>;
 }
 
-/**
- * Outbound adapter — bridges legacy TurnSummaryQueryPort to the task-local
- * ITurnQueryAccess port. Retarget to verification module's public iservice
- * when that module is split out.
- */
 @Injectable()
 export class TurnQueryAccessAdapter implements ITurnQueryAccess {
     constructor(
