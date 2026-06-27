@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { KIND } from "@monitor/timeline-api/event/public/types/event.const.js";
-import { TaskQueryService } from "../service/task.query.service.js";
+import { TaskReadService } from "../service/task.read.service.js";
 import { GetTaskTimelineUseCase } from "./get.task.timeline.usecase.js";
 import type {
     GetTaskSummaryUseCaseIn,
@@ -19,7 +19,7 @@ const MAX_COMMAND_TEXT_LENGTH = 200;
 @Injectable()
 export class GetTaskSummaryUseCase {
     constructor(
-        private readonly query: TaskQueryService,
+        private readonly query: TaskReadService,
         private readonly getTimeline: GetTaskTimelineUseCase,
     ) {}
 

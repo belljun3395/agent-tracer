@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Mock } from "vitest";
 import { TaskManagementService } from "./task.management.service.js";
-import type { TaskQueryService } from "./task.query.service.js";
+import type { TaskReadService } from "./task.read.service.js";
 import type { TaskRepository } from "../repository/task.repository.js";
 import type { TaskRelationRepository } from "../repository/task.relation.repository.js";
 import type { IClock } from "../application/outbound/clock.port.js";
@@ -57,7 +57,7 @@ interface Harness {
     service: TaskManagementService;
     taskRepo: TaskRepository & { findById: Mock; save: Mock; deleteByIds: Mock; collectDescendantIds: Mock; listIdsByStatuses: Mock };
     relationRepo: TaskRelationRepository & { syncRelation: Mock };
-    query: TaskQueryService & { findById: Mock };
+    query: TaskReadService & { findById: Mock };
     notifier: { publish: Mock; calls: TaskOutboundNotification[] };
     clock: ReturnType<typeof makeClock>;
 }
@@ -75,7 +75,7 @@ function setup(opts: { clock?: IClock & { nowIso: Mock; nowMs: Mock } } = {}): H
     } as unknown as TaskRelationRepository & { syncRelation: Mock };
     const query = {
         findById: vi.fn(),
-    } as unknown as TaskQueryService & { findById: Mock };
+    } as unknown as TaskReadService & { findById: Mock };
     const calls: TaskOutboundNotification[] = [];
     const notifier = {
         publish: vi.fn((n: TaskOutboundNotification) => { calls.push(n); }),

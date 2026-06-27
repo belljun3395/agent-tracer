@@ -51,7 +51,7 @@ import { StaleTaskReaperJob } from "./scheduling/stale.task.reaper.job.js";
 import { StuckServerSdkTaskReaperJob } from "./scheduling/stuck.server.sdk.task.reaper.job.js";
 import { TaskLifecycleService } from "./service/task.lifecycle.service.js";
 import { TaskManagementService } from "./service/task.management.service.js";
-import { TaskQueryService } from "./service/task.query.service.js";
+import { TaskReadService } from "./service/task.read.service.js";
 import { EventRecordedTaskEffectSubscriber } from "./subscriber/event.recorded.task.effect.subscriber.js";
 
 @Module({})
@@ -67,7 +67,7 @@ export class TaskModule {
             providers: [
                 TaskRepository,
                 TaskRelationRepository,
-                TaskQueryService,
+                TaskReadService,
                 TaskManagementService,
                 TaskLifecycleService,
                 StaleTaskReaperJob,
@@ -115,7 +115,7 @@ export class TaskModule {
 
                 { provide: TASK_LIFECYCLE, useExisting: TaskLifecycleService },
                 { provide: TASK_ACCESS, useExisting: TaskAccessPublicAdapter },
-                { provide: TASK_SNAPSHOT_QUERY, useExisting: TaskQueryService },
+                { provide: TASK_SNAPSHOT_QUERY, useExisting: TaskReadService },
 
                 { provide: NOTIFICATION_PUBLISHER_PORT, useExisting: TaskNotificationPublisherAdapter },
             ],

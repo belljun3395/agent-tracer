@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { TaskQueryService } from "../service/task.query.service.js";
+import { TaskReadService } from "../service/task.read.service.js";
 import { TaskOpenInferenceExport } from "../domain/task.openinference.export.model.js";
 import { TIMELINE_EVENT_READ } from "@monitor/timeline-api/event/public/tokens.js";
 import type { ITimelineEventRead } from "@monitor/timeline-api/event/public/iservice/timeline.event.read.iservice.js";
@@ -11,7 +11,7 @@ import type {
 @Injectable()
 export class GetTaskOpenInferenceUseCase {
     constructor(
-        private readonly query: TaskQueryService,
+        private readonly query: TaskReadService,
         @Inject(TIMELINE_EVENT_READ) private readonly events: ITimelineEventRead,
     ) {}
 

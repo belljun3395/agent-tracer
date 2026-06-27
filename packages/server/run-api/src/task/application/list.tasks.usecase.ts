@@ -1,10 +1,10 @@
 import { Injectable } from "@nestjs/common";
-import { TaskQueryService } from "../service/task.query.service.js";
+import { TaskReadService } from "../service/task.read.service.js";
 import type { ListTasksUseCaseIn, ListTasksUseCaseOut } from "./dto/list.tasks.usecase.dto.js";
 
 @Injectable()
 export class ListTasksUseCase {
-    constructor(private readonly query: TaskQueryService) {}
+    constructor(private readonly query: TaskReadService) {}
 
     async execute(input: ListTasksUseCaseIn): Promise<ListTasksUseCaseOut> {
         const tasks = await this.query.findAll(input.archived ?? "active");

@@ -13,7 +13,7 @@ import { TaskEntity } from "../domain/task.entity.js";
 import { TaskRelations } from "../domain/task.relations.model.js";
 import { TaskRepository } from "../repository/task.repository.js";
 import { TaskRelationRepository } from "../repository/task.relation.repository.js";
-import { TaskQueryService } from "./task.query.service.js";
+import { TaskReadService } from "./task.read.service.js";
 import { CLOCK_PORT, NOTIFICATION_PUBLISHER_PORT } from "../application/outbound/tokens.js";
 import type { IClock } from "../application/outbound/clock.port.js";
 import type { ITaskNotificationPublisher } from "../application/outbound/notification.publisher.port.js";
@@ -38,7 +38,7 @@ export class TaskManagementService {
     constructor(
         private readonly taskRepo: TaskRepository,
         private readonly relationRepo: TaskRelationRepository,
-        private readonly query: TaskQueryService,
+        private readonly query: TaskReadService,
         @Inject(NOTIFICATION_PUBLISHER_PORT) private readonly notifier: ITaskNotificationPublisher,
         @Inject(CLOCK_PORT) private readonly clock: IClock,
     ) {}

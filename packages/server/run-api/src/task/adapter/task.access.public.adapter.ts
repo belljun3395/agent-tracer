@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { TaskQueryService } from "../service/task.query.service.js";
+import { TaskReadService } from "../service/task.read.service.js";
 import { TaskManagementService } from "../service/task.management.service.js";
 import type { ITaskAccess } from "../public/iservice/task.access.iservice.js";
 import type {
@@ -11,7 +11,7 @@ import type {
 @Injectable()
 export class TaskAccessPublicAdapter implements ITaskAccess {
     constructor(
-        private readonly query: TaskQueryService,
+        private readonly query: TaskReadService,
         private readonly management: TaskManagementService,
     ) {}
 

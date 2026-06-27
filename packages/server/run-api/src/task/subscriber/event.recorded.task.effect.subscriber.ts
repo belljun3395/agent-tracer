@@ -5,7 +5,7 @@ import { NOTIFICATION_TYPE } from "@monitor/shared/contracts/notifications/notif
 import { EVENT_RECORDED } from "@monitor/timeline-api/event/public/events/event.recorded.js";
 import type { EventRecordedPayload } from "@monitor/timeline-api/event/public/events/event.recorded.js";
 import { shouldApplyLoggedEventTaskStatusEffect } from "../domain/task.status.effect.js";
-import { TaskQueryService } from "../service/task.query.service.js";
+import { TaskReadService } from "../service/task.read.service.js";
 import { TaskManagementService } from "../service/task.management.service.js";
 import { CLOCK_PORT, NOTIFICATION_PUBLISHER_PORT } from "../application/outbound/tokens.js";
 import type { IClock } from "../application/outbound/clock.port.js";
@@ -14,7 +14,7 @@ import type { ITaskNotificationPublisher } from "../application/outbound/notific
 @Injectable()
 export class EventRecordedTaskEffectSubscriber {
     constructor(
-        private readonly query: TaskQueryService,
+        private readonly query: TaskReadService,
         private readonly management: TaskManagementService,
         @Inject(NOTIFICATION_PUBLISHER_PORT) private readonly notifier: ITaskNotificationPublisher,
         @Inject(CLOCK_PORT) private readonly clock: IClock,

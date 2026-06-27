@@ -13,7 +13,7 @@ import {
     TaskStartRecording,
 } from "../domain/task.event.recording.model.js";
 import { TaskNotFoundError } from "../common/task.errors.js";
-import { TaskQueryService } from "./task.query.service.js";
+import { TaskReadService } from "./task.read.service.js";
 import { TaskManagementService } from "./task.management.service.js";
 import {
     CLOCK_PORT,
@@ -69,7 +69,7 @@ export interface TaskLifecycleResult {
 @Injectable()
 export class TaskLifecycleService {
     constructor(
-        private readonly query: TaskQueryService,
+        private readonly query: TaskReadService,
         private readonly management: TaskManagementService,
         @Inject(SESSION_LIFECYCLE) private readonly sessions: ISessionLifecycle,
         @Inject(TIMELINE_EVENT_WRITE) private readonly events: ITimelineEventWrite,

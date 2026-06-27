@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Mock } from "vitest";
 import { TaskLifecycleService } from "./task.lifecycle.service.js";
-import type { TaskQueryService } from "./task.query.service.js";
+import type { TaskReadService } from "./task.read.service.js";
 import type { TaskManagementService } from "./task.management.service.js";
 import type { IClock } from "../application/outbound/clock.port.js";
 import type { IIdGenerator } from "../application/outbound/id.generator.port.js";
@@ -110,7 +110,7 @@ function makeNotifier(): ITaskNotificationPublisher & { publish: Mock; calls: Ta
 
 interface Harness {
     service: TaskLifecycleService;
-    query: TaskQueryService & { findById: Mock };
+    query: TaskReadService & { findById: Mock };
     management: TaskManagementService & { upsertFromDraft: Mock; updateStatus: Mock };
     sessions: ReturnType<typeof makeSessionAccess>;
     events: ReturnType<typeof makeTimelineEvents>;
@@ -129,7 +129,7 @@ function setup(opts: {
 } = {}): Harness {
     const query = {
         findById: vi.fn(async () => opts.findByIdReturns ?? null),
-    } as unknown as TaskQueryService & { findById: Mock };
+    } as unknown as TaskReadService & { findById: Mock };
 
     const management = {
         upsertFromDraft: vi.fn(async () => opts.upsertReturns ?? defaultTask("t-1")),

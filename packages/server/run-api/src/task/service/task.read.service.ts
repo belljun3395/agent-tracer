@@ -33,7 +33,7 @@ function toBaseTask(entity: TaskEntity, relations: TaskRelationsSnapshot): Monit
 }
 
 @Injectable()
-export class TaskQueryService {
+export class TaskReadService {
     constructor(
         private readonly taskRepo: TaskRepository,
         private readonly relationRepo: TaskRelationRepository,

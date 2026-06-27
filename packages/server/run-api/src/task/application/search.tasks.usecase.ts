@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { TaskQueryService } from "../service/task.query.service.js";
+import { TaskReadService } from "../service/task.read.service.js";
 
 export interface TaskSearchHit {
     readonly id: string;
@@ -24,7 +24,7 @@ const DEFAULT_LIMIT = 8;
 
 @Injectable()
 export class SearchTasksUseCase {
-    constructor(private readonly query: TaskQueryService) {}
+    constructor(private readonly query: TaskReadService) {}
 
     async execute(input: SearchTasksUseCaseIn): Promise<SearchTasksUseCaseOut> {
         const q = input.query.trim();
