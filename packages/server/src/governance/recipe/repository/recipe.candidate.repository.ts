@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
+import { currentUserId } from "~shared/user/user.context.js";
 import {
     RecipeCandidateEntity,
     type RecipeCandidateStatus,
@@ -31,9 +32,11 @@ export class RecipeCandidateRepository {
 
     async insertMany(rows: readonly InsertRecipeCandidateRow[]): Promise<void> {
         if (rows.length === 0) return;
+        const userId = currentUserId();
         const entities = rows.map((r) =>
             this.repo.create({
                 id: r.id,
+                userId,
                 jobId: r.jobId,
                 title: r.title,
                 intent: r.intent,
@@ -55,7 +58,7 @@ export class RecipeCandidateRepository {
     }
 
     async findById(id: string): Promise<RecipeCandidateEntity | null> {
-        return this.repo.findOne({ where: { id } });
+        return this.repo.findOne({ where: { id, userId: currentUserId() } });
     }
 
     async listByStatus(
@@ -63,7 +66,8 @@ export class RecipeCandidateRepository {
     ): Promise<readonly RecipeCandidateEntity[]> {
         return this.repo
             .createQueryBuilder("c")
-            .where("c.status = :status", { status })
+            .where("c.user_id = :userId", { userId: currentUserId() })
+            .andWhere("c.status = :status", { status })
             .orderBy("c.createdAt", "DESC")
             .getMany();
     }
@@ -71,6 +75,7 @@ export class RecipeCandidateRepository {
     async listAll(): Promise<readonly RecipeCandidateEntity[]> {
         return this.repo
             .createQueryBuilder("c")
+            .where("c.user_id = :userId", { userId: currentUserId() })
             .orderBy("c.createdAt", "DESC")
             .getMany();
     }
@@ -82,7 +87,7 @@ export class RecipeCandidateRepository {
         error?: string | null;
     }): Promise<void> {
         await this.repo.update(
-            { id: input.id },
+            { id: input.id, userId: currentUserId() },
             {
                 status: input.status,
                 resolvedAt: input.resolvedAt,

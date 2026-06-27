@@ -7,11 +7,15 @@ export type RecipeCandidateStatus =
     | "failed";
 
 @Entity({ name: "recipe_candidates" })
-@Index("idx_recipe_candidates_status", ["status", "createdAt"])
+@Index("idx_recipe_candidates_user_status", ["userId", "status", "createdAt"])
 @Index("idx_recipe_candidates_job", ["jobId"])
 export class RecipeCandidateEntity {
     @PrimaryColumn({ type: "text" })
     id!: string;
+
+    /** 이 후보를 소유한 사용자. */
+    @Column({ name: "user_id", type: "text", default: "local" })
+    userId!: string;
 
     @Column({ name: "job_id", type: "text" })
     jobId!: string;

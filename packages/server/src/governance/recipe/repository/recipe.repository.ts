@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
+import { currentUserId } from "~shared/user/user.context.js";
 import { RecipeEntity, type RecipeStatus } from "../domain/recipe.entity.js";
 
 export interface InsertRecipeRow {
@@ -29,6 +30,7 @@ export class RecipeRepository {
     async insert(row: InsertRecipeRow): Promise<RecipeEntity> {
         const entity = this.repo.create({
             id: row.id,
+            userId: currentUserId(),
             sourceCandidateId: row.sourceCandidateId,
             title: row.title,
             intent: row.intent,
@@ -50,7 +52,7 @@ export class RecipeRepository {
     }
 
     async findById(id: string): Promise<RecipeEntity | null> {
-        return this.repo.findOne({ where: { id } });
+        return this.repo.findOne({ where: { id, userId: currentUserId() } });
     }
 
     async listByStatus(
@@ -58,7 +60,8 @@ export class RecipeRepository {
     ): Promise<readonly RecipeEntity[]> {
         return this.repo
             .createQueryBuilder("r")
-            .where("r.status = :status", { status })
+            .where("r.user_id = :userId", { userId: currentUserId() })
+            .andWhere("r.status = :status", { status })
             .orderBy("r.updatedAt", "DESC")
             .getMany();
     }
@@ -66,6 +69,7 @@ export class RecipeRepository {
     async listAll(): Promise<readonly RecipeEntity[]> {
         return this.repo
             .createQueryBuilder("r")
+            .where("r.user_id = :userId", { userId: currentUserId() })
             .orderBy("r.updatedAt", "DESC")
             .getMany();
     }
@@ -75,7 +79,7 @@ export class RecipeRepository {
         status: RecipeStatus,
         updatedAt: string,
     ): Promise<boolean> {
-        const result = await this.repo.update({ id }, { status, updatedAt });
+        const result = await this.repo.update({ id, userId: currentUserId() }, { status, updatedAt });
         return (result.affected ?? 0) > 0;
     }
 

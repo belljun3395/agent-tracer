@@ -8,10 +8,14 @@ const MIN_SUCCESS_RATE = 0.3;
 const STALE_AGE_MS = 14 * 24 * 60 * 60 * 1000;
 
 @Entity({ name: "recipes_current" })
-@Index("idx_recipes_current_status", ["status", "updatedAt"])
+@Index("idx_recipes_current_user_status", ["userId", "status", "updatedAt"])
 export class RecipeEntity {
     @PrimaryColumn({ type: "text" })
     id!: string;
+
+    /** 이 레시피를 소유한 사용자. */
+    @Column({ name: "user_id", type: "text", default: "local" })
+    userId!: string;
 
     @Column({ name: "source_candidate_id", type: "text", nullable: true })
     sourceCandidateId!: string | null;
