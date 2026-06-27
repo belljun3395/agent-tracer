@@ -21,7 +21,8 @@ services:
     environment:
       - discovery.type=single-node
       # 로컬/단일 노드 용도: 보안 플러그인 비활성(클라우드는 별도 관리형 OpenSearch 권장).
-      - plugins.security.disabled=true
+      - DISABLE_SECURITY_PLUGIN=true
+      - DISABLE_INSTALL_DEMO_CONFIG=true
       - bootstrap.memory_lock=true
       - "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m"
     ulimits:

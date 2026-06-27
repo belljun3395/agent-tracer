@@ -157,7 +157,7 @@ export class TimelineEventStorageService {
     ): Promise<readonly T[]> {
         if (events.length === 0) return events;
         const ids = events.map((e) => e.id);
-        const placeholders = ids.map(() => "?").join(", ");
+        const placeholders = ids.map((_, i) => `$${i + 1}`).join(", ");
         const rows = await this.dataSource.query<readonly { event_id: string; rule_id: string; match_kind: string }[]>(
             `select event_id, rule_id, match_kind
              from rule_enforcements
