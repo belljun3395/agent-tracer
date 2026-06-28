@@ -1,3 +1,4 @@
+import { KIND } from "@monitor/timeline-api/event/public/types/event.const.js";
 import type { EvaluateTurnToolCall } from "./turn.evaluation.policy.js";
 import { normalizeVerificationToolName } from "./tool.action.matching.policy.js";
 
@@ -14,7 +15,7 @@ export function inferToolCall(event: {
         return buildToolCall(semanticTool, event.metadata);
     }
 
-    if (event.kind === "terminal.command") {
+    if (event.kind === KIND.terminalCommand) {
         return buildToolCall("Bash", event.metadata);
     }
     return null;
@@ -56,7 +57,7 @@ function inferSemanticTool(kind: string, metadata: Record<string, unknown>): str
     if (toolFamily === "terminal") return "command";
     if (toolFamily === "file") return operation === "observe" || operation === "read" ? "file-read" : "file-write";
     if (toolFamily === "web") return "web";
-    return kind === "terminal.command" ? "command" : null;
+    return kind === KIND.terminalCommand ? "command" : null;
 }
 
 function readString(metadata: Record<string, unknown>, key: string): string | undefined {

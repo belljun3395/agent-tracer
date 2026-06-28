@@ -1,4 +1,5 @@
 import type { ITimelineEventRead } from "@monitor/timeline-api/event/public/iservice/timeline.event.read.iservice.js";
+import { KIND } from "@monitor/timeline-api/event/public/types/event.const.js";
 import type { TimelineEventSnapshot } from "@monitor/timeline-api/event/public/dto/timeline.event.dto.js";
 import type { IRuleRead } from "@monitor/rules-api/rule/public/iservice/rule.read.iservice.js";
 import type { RuleSnapshot } from "@monitor/rules-api/rule/public/dto/rule.snapshot.dto.js";
@@ -117,7 +118,7 @@ function readToolName(ev: TimelineEventSnapshot): string | undefined {
     const explicit =
         readString(ev.metadata, "toolName") ?? readString(ev.metadata, "sourceTool");
     if (explicit) return explicit;
-    if (ev.kind === "terminal.command") return "Bash";
+    if (ev.kind === KIND.terminalCommand) return "Bash";
     return undefined;
 }
 
