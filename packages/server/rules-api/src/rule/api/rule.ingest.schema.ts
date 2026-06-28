@@ -7,7 +7,7 @@ import {
     RULE_SOURCES,
     RULE_TRIGGER_SOURCES,
 } from "../domain/const/rule.const.js";
-import { checkRuleInvariants } from "../domain/rule.invariants.js";
+import { checkRuleInvariants } from "../domain/rule.invariants.policy.js";
 
 const triggerSchema = z.object({
     phrases: z.array(z.string().trim().min(1)).min(1),

@@ -1,4 +1,4 @@
-import type { RuleExpectation, RuleTrigger } from "./rule.expectation.model.js";
+import type { RuleExpectation, RuleTrigger } from "./rule.expectation.type.js";
 import type {
     RuleScope,
     RuleSeverity,

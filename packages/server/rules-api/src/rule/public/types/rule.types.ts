@@ -9,6 +9,6 @@ export type {
 export type {
     RuleTrigger,
     RuleExpectation,
-} from "@monitor/rules-api/rule/domain/model/rule.expectation.model.js";
+} from "@monitor/rules-api/rule/domain/type/rule.expectation.type.js";
 
-export type { Rule } from "@monitor/rules-api/rule/domain/model/rule.model.js";
+export type { Rule } from "@monitor/rules-api/rule/domain/type/rule.type.js";

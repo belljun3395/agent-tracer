@@ -1,7 +1,7 @@
 import { createZodDto } from "nestjs-zod";
 import { z } from "zod";
 import { RULE_EXPECTED_ACTIONS, RULE_SCOPES, RULE_SEVERITIES, RULE_TRIGGER_SOURCES } from "../domain/const/rule.const.js";
-import { checkRuleInvariants } from "../domain/rule.invariants.js";
+import { checkRuleInvariants } from "../domain/rule.invariants.policy.js";
 import type { RuleExpectInput } from "../domain/type/rule.expectation.input.js";
 
 const triggerSchema = z.object({

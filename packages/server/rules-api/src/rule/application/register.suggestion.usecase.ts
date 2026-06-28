@@ -1,6 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { Transactional } from "typeorm-transactional";
-import { computeRuleSignature } from "@monitor/rules-api/rule/domain/rule.signature.js";
+import { computeRuleSignature } from "@monitor/rules-api/rule/domain/rule.signature.policy.js";
 import { RULE_PERSISTENCE_PORT } from "./outbound/tokens.js";
 import type { IRulePersistence } from "./outbound/rule.persistence.port.js";
 import { CreateRuleUseCase } from "./create.rule.usecase.js";

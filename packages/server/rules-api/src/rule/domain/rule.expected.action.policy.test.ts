@@ -4,7 +4,7 @@ import {
     isCommandExpectedAction,
     isRuleExpectedAction,
     normalizeRuleExpectedAction,
-} from "./rule.expected.action.js";
+} from "./rule.expected.action.policy.js";
 
 describe("canonicalizeToolName — 도구명 표준화", () => {
     it("별칭을 표준 도구명으로 매핑한다(대소문자/구분자 무시)", () => {

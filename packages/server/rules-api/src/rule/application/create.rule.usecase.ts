@@ -1,8 +1,8 @@
 import { Transactional, runOnTransactionCommit } from "typeorm-transactional";
 import { NOTIFICATION_TYPE } from "@monitor/shared/contracts/notifications/notification.type.const.js";
 import { Inject, Injectable, Logger } from "@nestjs/common";
-import { checkRuleInvariants } from "@monitor/rules-api/rule/domain/rule.invariants.js";
-import { computeRuleSignature } from "@monitor/rules-api/rule/domain/rule.signature.js";
+import { checkRuleInvariants } from "@monitor/rules-api/rule/domain/rule.invariants.policy.js";
+import { computeRuleSignature } from "@monitor/rules-api/rule/domain/rule.signature.policy.js";
 import {
     BACKFILL_TRIGGER_PORT,
     CLOCK_PORT,

@@ -1,8 +1,8 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { NOTIFICATION_TYPE } from "@monitor/shared/contracts/notifications/notification.type.const.js";
 import { Transactional } from "typeorm-transactional";
-import { isRuleExpectMeaningful } from "@monitor/rules-api/rule/domain/rule.js";
-import { computeRuleSignature } from "@monitor/rules-api/rule/domain/rule.signature.js";
+import { isRuleExpectMeaningful } from "@monitor/rules-api/rule/domain/rule.expect.policy.js";
+import { computeRuleSignature } from "@monitor/rules-api/rule/domain/rule.signature.policy.js";
 import type { RuleExpectInput } from "@monitor/rules-api/rule/domain/type/rule.expectation.input.js";
 import {
     NOTIFICATION_PUBLISHER_PORT,

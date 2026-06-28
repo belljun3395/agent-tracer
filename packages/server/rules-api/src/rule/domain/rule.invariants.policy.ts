@@ -1,6 +1,6 @@
 import type { RuleScope } from "./type/rule.value.type.js";
 import type { RuleExpectInput } from "./type/rule.expectation.input.js";
-import { isRuleExpectMeaningful } from "./rule.js";
+import { isRuleExpectMeaningful } from "./rule.expect.policy.js";
 
 export interface RuleInvariantTarget {
     readonly scope: RuleScope;

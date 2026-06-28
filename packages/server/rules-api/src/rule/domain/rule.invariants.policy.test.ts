@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkRuleInvariants } from "./rule.invariants.js";
+import { checkRuleInvariants } from "./rule.invariants.policy.js";
 
 describe("checkRuleInvariants", () => {
     it("requires a taskId for task scope", () => {

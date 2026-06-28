@@ -2,7 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { IsNull, Repository, type FindOptionsWhere } from "typeorm";
 import { currentUserId } from "@monitor/shared/kernel/user/user.context.js";
-import { normalizeRuleExpectedAction } from "../domain/rule.expected.action.js";
+import { normalizeRuleExpectedAction } from "../domain/rule.expected.action.policy.js";
 import { RuleEntity } from "../domain/rule.entity.js";
 import type {
     IRulePersistence,

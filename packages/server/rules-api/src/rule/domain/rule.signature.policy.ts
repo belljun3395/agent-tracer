@@ -1,4 +1,4 @@
-import type { RuleTrigger } from "./model/rule.expectation.model.js";
+import type { RuleTrigger } from "./type/rule.expectation.type.js";
 import type { RuleExpectInput } from "./type/rule.expectation.input.js";
 
 export function computeRuleSignature(rule: {
