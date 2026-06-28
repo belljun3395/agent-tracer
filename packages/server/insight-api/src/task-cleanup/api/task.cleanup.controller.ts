@@ -15,19 +15,22 @@ import { pathParamPipe } from "@monitor/shared/contracts/http/path-param.pipe.js
 import { AcceptCleanupSuggestionUseCase } from "../application/accept.cleanup.suggestion.usecase.js";
 import { DismissCleanupSuggestionUseCase } from "../application/dismiss.cleanup.suggestion.usecase.js";
 import { ListCleanupSuggestionsUseCase } from "../application/list.cleanup.suggestions.usecase.js";
+import { EnqueueTaskCleanupUseCase } from "../application/enqueue.task.cleanup.usecase.js";
+import { GetLatestTaskCleanupUseCase } from "../application/get.latest.task.cleanup.usecase.js";
 import {
     GenerationAlreadyInFlightError,
     MissingApiKeyError,
     NoTasksToScanError,
-    TaskCleanupService,
 } from "../service/task.cleanup.service.js";
 import { parseCleanupSuggestionStatusFilter } from "./cleanup.query.filters.js";
 
 @Controller("api/v1/task-cleanup")
 export class TaskCleanupController {
     constructor(
-        @Inject(TaskCleanupService)
-        private readonly service: TaskCleanupService,
+        @Inject(EnqueueTaskCleanupUseCase)
+        private readonly enqueueCleanup: EnqueueTaskCleanupUseCase,
+        @Inject(GetLatestTaskCleanupUseCase)
+        private readonly getLatestCleanup: GetLatestTaskCleanupUseCase,
         @Inject(ListCleanupSuggestionsUseCase)
         private readonly listSuggestions: ListCleanupSuggestionsUseCase,
         @Inject(AcceptCleanupSuggestionUseCase)
@@ -40,12 +43,7 @@ export class TaskCleanupController {
     @HttpCode(HttpStatus.ACCEPTED)
     async enqueue() {
         try {
-            const job = await this.service.run();
-            return {
-                jobId: job.id,
-                status: job.status,
-                createdAt: job.createdAt,
-            };
+            return await this.enqueueCleanup.execute();
         } catch (err) {
             if (err instanceof GenerationAlreadyInFlightError) {
                 throw new ConflictException({
@@ -65,24 +63,7 @@ export class TaskCleanupController {
 
     @Get("jobs/latest")
     async latest() {
-        const job = await this.service.findLatest();
-        if (!job) return { job: null };
-        return {
-            job: {
-                id: job.id,
-                status: job.status,
-                attempts: job.attempts,
-                error: job.error,
-                suggestionsCreated: job.suggestionsCreated ?? 0,
-                tasksScanned: job.tasksScanned ?? 0,
-                modelUsed: job.modelUsed,
-                durationMs: job.durationMs,
-                createdAt: job.createdAt,
-                updatedAt: job.updatedAt,
-                startedAt: job.startedAt,
-                completedAt: job.completedAt,
-            },
-        };
+        return this.getLatestCleanup.execute();
     }
 
     @Get("suggestions")
