@@ -12,19 +12,25 @@ import {
 } from "@nestjs/common";
 import { ZodValidationPipe } from "@monitor/shared/contracts/http/zod-validation.pipe.js";
 import {
-    AppSettingService,
     InvalidSettingValueError,
     UnsupportedSettingKeyError,
 } from "../service/app.setting.service.js";
+import { ListAppSettingsUseCase } from "../application/list.app.settings.usecase.js";
+import { SetAppSettingUseCase } from "../application/set.app.setting.usecase.js";
+import { DeleteAppSettingUseCase } from "../application/delete.app.setting.usecase.js";
 import { settingPutSchema, SettingPutDto } from "./app.setting.schema.js";
 
 @Controller("api/v1/settings")
 export class AppSettingController {
-    constructor(private readonly settings: AppSettingService) {}
+    constructor(
+        private readonly listSettings: ListAppSettingsUseCase,
+        private readonly setSetting: SetAppSettingUseCase,
+        private readonly deleteSetting: DeleteAppSettingUseCase,
+    ) {}
 
     @Get()
     async list() {
-        return { settings: await this.settings.listMasked() };
+        return this.listSettings.execute();
     }
 
     @Put(":key")
@@ -34,7 +40,7 @@ export class AppSettingController {
         @Body(new ZodValidationPipe(settingPutSchema)) body: SettingPutDto,
     ) {
         try {
-            return { setting: await this.settings.set(key, body.value) };
+            return await this.setSetting.execute({ key, value: body.value });
         } catch (err) {
             if (err instanceof UnsupportedSettingKeyError) {
                 throw new BadRequestException(err.message);
@@ -50,7 +56,7 @@ export class AppSettingController {
     @HttpCode(HttpStatus.OK)
     async deleteKey(@Param("key") key: string) {
         try {
-            const deleted = await this.settings.delete(key);
+            const deleted = await this.deleteSetting.execute(key);
             if (!deleted) throw new NotFoundException(`Setting not set: ${key}`);
             return { deleted: true, key };
         } catch (err) {
