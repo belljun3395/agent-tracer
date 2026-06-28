@@ -4,6 +4,7 @@ import { RULE_PERSISTENCE_PORT } from "./outbound/tokens.js";
 import type { IRulePersistence } from "./outbound/rule.persistence.port.js";
 import { CreateRuleUseCase } from "./create.rule.usecase.js";
 import { DeleteRuleUseCase } from "./delete.rule.usecase.js";
+import { RULE_SCOPE } from "../domain/const/rule.const.js";
 import type {
     DemoteRuleToTaskUseCaseIn,
     DemoteRuleToTaskUseCaseOut,
@@ -27,7 +28,7 @@ export class DemoteRuleToTaskUseCase {
     async execute(input: DemoteRuleToTaskUseCaseIn): Promise<DemoteRuleToTaskUseCaseOut> {
         const existing = await this.ruleRepo.findById(input.ruleId);
         if (!existing) throw new RuleNotFoundError(input.ruleId);
-        if (existing.scope !== "global") {
+        if (existing.scope !== RULE_SCOPE.global) {
             // task 룰은 이미 특정 태스크에 묶여 있으므로 demote 대상이 아니다.
             throw new InvalidRuleError("Only global rules can be demoted");
         }

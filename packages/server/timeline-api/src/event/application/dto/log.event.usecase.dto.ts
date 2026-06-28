@@ -5,6 +5,18 @@ import type {
 } from "@monitor/timeline-api/event/domain/common/const/event.kind.const.js";
 import type { EventRelationType } from "@monitor/timeline-api/event/domain/common/const/event.meta.const.js";
 
+// 도메인 어휘를 application 경계에서 노출해 api/스키마가 도메인 const를 직접 의존하지 않게 한다.
+export {
+    EVENT_LANES,
+    TOOL_ACTIVITY_EVENT_KINDS,
+    WORKFLOW_EVENT_KINDS,
+    CONVERSATION_EVENT_KINDS,
+    COORDINATION_EVENT_KINDS,
+    LIFECYCLE_EVENT_KINDS,
+    TELEMETRY_EVENT_KINDS,
+} from "@monitor/timeline-api/event/domain/common/const/event.kind.const.js";
+export { EVENT_RELATION_TYPES } from "@monitor/timeline-api/event/domain/common/const/event.meta.const.js";
+
 // 영속되는 내부 kind까지 포함한 로깅 결과 kind.
 export type LoggedEventKind = MonitoringEventKind;
 

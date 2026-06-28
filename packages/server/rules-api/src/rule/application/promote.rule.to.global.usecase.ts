@@ -4,6 +4,7 @@ import { RULE_PERSISTENCE_PORT } from "./outbound/tokens.js";
 import type { IRulePersistence } from "./outbound/rule.persistence.port.js";
 import { CreateRuleUseCase } from "./create.rule.usecase.js";
 import { DeleteRuleUseCase } from "./delete.rule.usecase.js";
+import { RULE_SCOPE } from "../domain/const/rule.const.js";
 import type {
     PromoteRuleToGlobalUseCaseIn,
     PromoteRuleToGlobalUseCaseOut,
@@ -27,7 +28,7 @@ export class PromoteRuleToGlobalUseCase {
     async execute(input: PromoteRuleToGlobalUseCaseIn): Promise<PromoteRuleToGlobalUseCaseOut> {
         const existing = await this.ruleRepo.findById(input.ruleId);
         if (!existing) throw new RuleNotFoundError(input.ruleId);
-        if (existing.scope !== "task") {
+        if (existing.scope !== RULE_SCOPE.task) {
             // global 룰은 이미 전체 범위에 적용되므로 promote 대상이 아니다.
             throw new InvalidRuleError("Only task-scoped rules can be promoted");
         }

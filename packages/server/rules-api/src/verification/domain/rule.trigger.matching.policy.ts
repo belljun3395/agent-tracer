@@ -1,3 +1,4 @@
+import { RULE_TRIGGER_SOURCE } from "@monitor/rules-api/rule/domain/const/rule.const.js";
 import type { Rule } from "@monitor/rules-api/rule/public/types/rule.types.js";
 
 export interface TriggerCandidate {
@@ -30,10 +31,10 @@ const NEGATION_MARKERS: readonly string[] = [
 const NEGATION_LOOKBACK = 20;
 
 function triggerOnAllows(triggerOn: Rule["triggerOn"], speaker: TriggerCandidate["speaker"]): boolean {
-    if (triggerOn === "user") return speaker === "user";
-    if (triggerOn === "assistant") return speaker === "assistant";
+    if (triggerOn === RULE_TRIGGER_SOURCE.user) return speaker === RULE_TRIGGER_SOURCE.user;
+    if (triggerOn === RULE_TRIGGER_SOURCE.assistant) return speaker === RULE_TRIGGER_SOURCE.assistant;
     // triggerOn이 없으면 사용자/어시스턴트 발화만 본다.
-    return speaker === "user" || speaker === "assistant";
+    return speaker === RULE_TRIGGER_SOURCE.user || speaker === RULE_TRIGGER_SOURCE.assistant;
 }
 
 function findPhraseMatch(text: string, phrases: readonly string[]): TriggerMatch | null {

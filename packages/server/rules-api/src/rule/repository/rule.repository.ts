@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { IsNull, Repository, type FindOptionsWhere } from "typeorm";
 import { currentUserId } from "@monitor/shared/kernel/user/user.context.js";
+import { RULE_TRIGGER_SOURCE } from "../domain/const/rule.const.js";
 import { normalizeRuleExpectedAction } from "../domain/rule.expected.action.policy.js";
 import { RuleEntity } from "../domain/rule.entity.js";
 import type {
@@ -124,7 +125,7 @@ function mapRow(row: RuleEntity): RulePersistenceRecord {
         ...(row.triggerPhrasesJson
             ? { trigger: { phrases: parseStringArray(row.triggerPhrasesJson) } }
             : {}),
-        ...(row.triggerOn === "user" || row.triggerOn === "assistant"
+        ...(row.triggerOn === RULE_TRIGGER_SOURCE.user || row.triggerOn === RULE_TRIGGER_SOURCE.assistant
             ? { triggerOn: row.triggerOn }
             : {}),
         expect: {

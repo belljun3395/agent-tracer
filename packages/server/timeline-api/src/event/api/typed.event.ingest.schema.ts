@@ -4,12 +4,12 @@ import {
     CONVERSATION_EVENT_KINDS,
     COORDINATION_EVENT_KINDS,
     EVENT_LANES,
+    EVENT_RELATION_TYPES,
     LIFECYCLE_EVENT_KINDS,
     TELEMETRY_EVENT_KINDS,
     TOOL_ACTIVITY_EVENT_KINDS,
     WORKFLOW_EVENT_KINDS,
-} from "@monitor/timeline-api/event/domain/common/const/event.kind.const.js";
-import { EVENT_RELATION_TYPES } from "@monitor/timeline-api/event/domain/common/const/event.meta.const.js";
+} from "../application/dto/log.event.usecase.dto.js";
 
 const baseEventSchema = z.object({
     kind: z.string().min(1),
