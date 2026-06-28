@@ -1,63 +1,12 @@
-export const EVENT_LANES = [
-    "user",
-    "exploration",
-    "planning",
-    "implementation",
-    "questions",
-    "todos",
-    "background",
-    "coordination",
-    "telemetry",
-    "rule",
-] as const;
+import type {
+    IngestEventKind,
+    MonitoringEventKind,
+    TimelineLane,
+} from "@monitor/timeline-api/event/domain/common/const/event.kind.const.js";
+import type { EventRelationType } from "@monitor/timeline-api/event/domain/common/const/event.meta.const.js";
 
-export const TOOL_ACTIVITY_EVENT_KINDS = ["tool.used", "terminal.command", "monitor.observed"] as const;
-export const WORKFLOW_EVENT_KINDS = [
-    "plan.logged",
-    "action.logged",
-    "verification.logged",
-    "rule.logged",
-    "thought.logged",
-    "context.saved",
-    "context.snapshot",
-    "user.prompt.expansion",
-    "permission.request",
-    "worktree.create",
-    "worktree.remove",
-    "setup.triggered",
-    "file.changed",
-] as const;
-export const CONVERSATION_EVENT_KINDS = ["user.message", "assistant.response", "question.logged", "todo.logged"] as const;
-export const COORDINATION_EVENT_KINDS = ["agent.activity.logged"] as const;
-export const LIFECYCLE_EVENT_KINDS = ["session.ended", "instructions.loaded"] as const;
-export const TELEMETRY_EVENT_KINDS = ["token.usage"] as const;
-export const INGEST_EVENT_KINDS = [
-    ...TOOL_ACTIVITY_EVENT_KINDS,
-    ...WORKFLOW_EVENT_KINDS,
-    ...CONVERSATION_EVENT_KINDS,
-    ...COORDINATION_EVENT_KINDS,
-    ...LIFECYCLE_EVENT_KINDS,
-    ...TELEMETRY_EVENT_KINDS,
-] as const;
-const _INTERNAL_EVENT_KINDS = ["task.start", "task.complete", "task.error"] as const;
-
-export const EVENT_RELATION_TYPES = [
-    "implements",
-    "revises",
-    "verifies",
-    "answers",
-    "delegates",
-    "returns",
-    "completes",
-    "blocks",
-    "caused_by",
-    "relates_to",
-] as const;
-
-export type TimelineLane = (typeof EVENT_LANES)[number];
-export type IngestEventKind = (typeof INGEST_EVENT_KINDS)[number];
-export type LoggedEventKind = IngestEventKind | (typeof _INTERNAL_EVENT_KINDS)[number];
-export type EventRelationType = (typeof EVENT_RELATION_TYPES)[number];
+// 영속되는 내부 kind까지 포함한 로깅 결과 kind.
+export type LoggedEventKind = MonitoringEventKind;
 
 export type LogEventTaskStatusUseCaseDto = "running" | "waiting" | "completed" | "errored";
 

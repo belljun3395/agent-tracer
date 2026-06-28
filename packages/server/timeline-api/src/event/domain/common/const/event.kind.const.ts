@@ -58,7 +58,7 @@ export const KIND = {
 export const TERMINAL_COMMAND_TOOL_NAME = "Bash";
 
 export const TOOL_ACTIVITY_EVENT_KINDS = [KIND.toolUsed, KIND.terminalCommand, KIND.monitorObserved] as const;
-const WORKFLOW_EVENT_KINDS = [
+export const WORKFLOW_EVENT_KINDS = [
     KIND.planLogged,
     KIND.actionLogged,
     KIND.verificationLogged,
@@ -73,10 +73,10 @@ const WORKFLOW_EVENT_KINDS = [
     KIND.setupTriggered,
     KIND.fileChanged,
 ] as const;
-const CONVERSATION_EVENT_KINDS = [KIND.userMessage, KIND.assistantResponse, KIND.questionLogged, KIND.todoLogged] as const;
-const COORDINATION_EVENT_KINDS = [KIND.agentActivityLogged] as const;
-const LIFECYCLE_EVENT_KINDS = [KIND.sessionEnded, KIND.instructionsLoaded] as const;
-const TELEMETRY_EVENT_KINDS = [KIND.tokenUsage] as const;
+export const CONVERSATION_EVENT_KINDS = [KIND.userMessage, KIND.assistantResponse, KIND.questionLogged, KIND.todoLogged] as const;
+export const COORDINATION_EVENT_KINDS = [KIND.agentActivityLogged] as const;
+export const LIFECYCLE_EVENT_KINDS = [KIND.sessionEnded, KIND.instructionsLoaded] as const;
+export const TELEMETRY_EVENT_KINDS = [KIND.tokenUsage] as const;
 
 export const INGEST_EVENT_KINDS = [
     ...TOOL_ACTIVITY_EVENT_KINDS,

@@ -1,6 +1,15 @@
 import { createZodDto } from "nestjs-zod";
 import { z } from "zod";
-import { CONVERSATION_EVENT_KINDS, COORDINATION_EVENT_KINDS, EVENT_RELATION_TYPES, LIFECYCLE_EVENT_KINDS, TELEMETRY_EVENT_KINDS, EVENT_LANES, TOOL_ACTIVITY_EVENT_KINDS, WORKFLOW_EVENT_KINDS } from "../application/dto/log.event.usecase.dto.js";
+import {
+    CONVERSATION_EVENT_KINDS,
+    COORDINATION_EVENT_KINDS,
+    EVENT_LANES,
+    LIFECYCLE_EVENT_KINDS,
+    TELEMETRY_EVENT_KINDS,
+    TOOL_ACTIVITY_EVENT_KINDS,
+    WORKFLOW_EVENT_KINDS,
+} from "@monitor/timeline-api/event/domain/common/const/event.kind.const.js";
+import { EVENT_RELATION_TYPES } from "@monitor/timeline-api/event/domain/common/const/event.meta.const.js";
 
 const baseEventSchema = z.object({
     kind: z.string().min(1),
