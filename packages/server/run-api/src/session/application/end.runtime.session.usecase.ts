@@ -13,7 +13,8 @@ import { TASK_ACCESS } from "@monitor/run-api/task/public/tokens.js";
 import type { IClock } from "./outbound/clock.port.js";
 import type { ISessionNotificationPublisher } from "./outbound/notification.publisher.port.js";
 import type { ITaskAccess } from "@monitor/run-api/task/public/iservice/task.access.iservice.js";
-import type { TaskSnapshot, TaskStatus } from "@monitor/run-api/task/public/dto/task.snapshot.dto.js";
+import type { MonitoringTask } from "@monitor/run-api/task/public/types/task.types.js";
+import type { TaskStatus } from "@monitor/run-api/task/public/dto/task.snapshot.dto.js";
 import type { ITaskLifecycleAccess } from "./outbound/task.lifecycle.access.port.js";
 import type { EndRuntimeSessionIn } from "./dto/end.runtime.session.dto.js";
 
@@ -142,7 +143,7 @@ export class EndRuntimeSessionUseCase {
         return false;
     }
 
-    private async setTaskStatus(taskId: string, status: TaskStatus): Promise<TaskSnapshot> {
+    private async setTaskStatus(taskId: string, status: TaskStatus): Promise<MonitoringTask> {
         const updatedAt = this.clock.nowIso();
         await this.tasks.updateStatus(taskId, status, updatedAt);
         const task = await this.tasks.findById(taskId);
