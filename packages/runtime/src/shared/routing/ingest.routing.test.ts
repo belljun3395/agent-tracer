@@ -56,6 +56,19 @@ describe("resolveIngestEndpoint", () => {
         expect(resolveIngestEndpoint(KIND.sessionEnded)).toBe("/ingest/v1/lifecycle")
     })
 
+    // 서버가 workflow 그룹으로 수용하는 kind들 — lifecycle/conversation으로 보내면 400 드롭됨.
+    it("routes fileChanged to workflow endpoint", () => {
+        expect(resolveIngestEndpoint(KIND.fileChanged)).toBe("/ingest/v1/workflow")
+    })
+
+    it("routes permissionRequest to workflow endpoint", () => {
+        expect(resolveIngestEndpoint(KIND.permissionRequest)).toBe("/ingest/v1/workflow")
+    })
+
+    it("routes userPromptExpansion to workflow endpoint", () => {
+        expect(resolveIngestEndpoint(KIND.userPromptExpansion)).toBe("/ingest/v1/workflow")
+    })
+
     it("routes tokenUsage to telemetry endpoint", () => {
         expect(resolveIngestEndpoint(KIND.tokenUsage)).toBe("/ingest/v1/telemetry")
     })
