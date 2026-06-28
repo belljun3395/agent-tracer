@@ -55,7 +55,7 @@ function snapshot(overrides: Partial<MonitoringTask> = {}): MonitoringTask {
 
 interface Harness {
     service: TaskManagementService;
-    taskRepo: TaskRepository & { findById: Mock; save: Mock; deleteByIds: Mock; collectDescendantIds: Mock; listIdsByStatuses: Mock };
+    taskRepo: TaskRepository & { findById: Mock; findOwned: Mock; save: Mock; deleteByIds: Mock; collectDescendantIds: Mock; listIdsByStatuses: Mock };
     relationRepo: TaskRelationRepository & { syncRelation: Mock };
     query: TaskReadService & { findById: Mock };
     notifier: { publish: Mock; calls: TaskOutboundNotification[] };
@@ -65,11 +65,12 @@ interface Harness {
 function setup(opts: { clock?: IClock & { nowIso: Mock; nowMs: Mock } } = {}): Harness {
     const taskRepo = {
         findById: vi.fn(),
+        findOwned: vi.fn(),
         save: vi.fn(async (e: TaskEntity) => e),
         deleteByIds: vi.fn(async () => undefined),
         collectDescendantIds: vi.fn(async () => []),
         listIdsByStatuses: vi.fn(async () => []),
-    } as unknown as TaskRepository & { findById: Mock; save: Mock; deleteByIds: Mock; collectDescendantIds: Mock; listIdsByStatuses: Mock };
+    } as unknown as TaskRepository & { findById: Mock; findOwned: Mock; save: Mock; deleteByIds: Mock; collectDescendantIds: Mock; listIdsByStatuses: Mock };
     const relationRepo = {
         syncRelation: vi.fn(async () => undefined),
     } as unknown as TaskRelationRepository & { syncRelation: Mock };
@@ -119,7 +120,7 @@ describe("TaskManagementService.update", () => {
         h.query.findById
             .mockResolvedValueOnce(current)
             .mockResolvedValueOnce({ ...current, title: "Brand new!", slug: "brand-new", updatedAt: NOW_ISO });
-        h.taskRepo.findById.mockResolvedValue(ent);
+        h.taskRepo.findOwned.mockResolvedValue(ent);
 
         await h.service.update({ taskId: "t-1", title: "Brand new!" });
 
@@ -137,7 +138,7 @@ describe("TaskManagementService.update", () => {
         h.query.findById
             .mockResolvedValueOnce(current)
             .mockResolvedValueOnce({ ...current, status: "completed", updatedAt: NOW_ISO });
-        h.taskRepo.findById.mockResolvedValue(entity({ status: "running" }));
+        h.taskRepo.findOwned.mockResolvedValue(entity({ status: "running" }));
 
         await h.service.update({ taskId: "t-1", status: "completed" });
 
@@ -150,7 +151,7 @@ describe("TaskManagementService.update", () => {
 describe("TaskManagementService.link", () => {
     it("throws TaskNotFoundError when entity is missing", async () => {
         const h = setup();
-        h.taskRepo.findById.mockResolvedValue(null);
+        h.taskRepo.findOwned.mockResolvedValue(null);
 
         await expect(h.service.link({ taskId: "missing" })).rejects.toBeInstanceOf(TaskNotFoundError);
         expect(h.clock.nowIso).not.toHaveBeenCalled();
@@ -159,7 +160,7 @@ describe("TaskManagementService.link", () => {
     it("updates title/taskKind/relations + stamps updatedAt with IClock + publishes task.updated", async () => {
         const h = setup();
         const ent = entity();
-        h.taskRepo.findById.mockResolvedValue(ent);
+        h.taskRepo.findOwned.mockResolvedValue(ent);
         h.query.findById.mockResolvedValue(snapshot({ title: "Linked!", updatedAt: NOW_ISO }));
 
         await h.service.link({
@@ -181,7 +182,7 @@ describe("TaskManagementService.link", () => {
 describe("TaskManagementService.delete", () => {
     it("returns not_found when task is absent (no notifications)", async () => {
         const h = setup();
-        h.taskRepo.findById.mockResolvedValue(null);
+        h.taskRepo.findOwned.mockResolvedValue(null);
 
         const result = await h.service.delete("missing");
 
@@ -191,18 +192,29 @@ describe("TaskManagementService.delete", () => {
 
     it("deletes the task and its descendants, publishing task.deleted for each id", async () => {
         const h = setup();
-        h.taskRepo.findById.mockResolvedValue(entity());
+        h.taskRepo.findOwned.mockResolvedValue(entity());
         h.taskRepo.collectDescendantIds.mockResolvedValue(["t-2", "t-3"]);
 
         const result = await h.service.delete("t-1");
 
-        expect(h.taskRepo.deleteByIds).toHaveBeenCalledWith(["t-1", "t-2", "t-3"]);
+        expect(h.taskRepo.deleteByIds).toHaveBeenCalledWith(["t-1", "t-2", "t-3"], "local");
         expect(result).toEqual({ status: "deleted", deletedIds: ["t-1", "t-2", "t-3"] });
         expect(h.notifier.calls.map((c) => c.type)).toEqual([
             "task.deleted",
             "task.deleted",
             "task.deleted",
         ]);
+    });
+
+    it("scopes to the current owner: another user's task is not_found and never deleted", async () => {
+        const h = setup();
+        h.taskRepo.findOwned.mockResolvedValue(null);
+
+        const result = await h.service.delete("t-other");
+
+        expect(result).toEqual({ status: "not_found" });
+        expect(h.taskRepo.findOwned).toHaveBeenCalledWith("t-other", "local");
+        expect(h.taskRepo.deleteByIds).not.toHaveBeenCalled();
     });
 });
 

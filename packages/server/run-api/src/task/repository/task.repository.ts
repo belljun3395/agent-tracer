@@ -30,6 +30,10 @@ export class TaskRepository implements OnModuleInit {
         return this.repo.findOne({ where: { id } });
     }
 
+    async findOwned(id: string, ownerId: string): Promise<TaskEntity | null> {
+        return this.repo.findOne({ where: { id, userId: ownerId } });
+    }
+
     async searchByText(userId: string, query: string, limit: number): Promise<TaskEntity[]> {
         const pattern = `%${query}%`;
         return this.repo
@@ -70,9 +74,9 @@ export class TaskRepository implements OnModuleInit {
         return this.repo.save(entity);
     }
 
-    async deleteByIds(ids: readonly string[]): Promise<void> {
+    async deleteByIds(ids: readonly string[], ownerId: string): Promise<void> {
         if (ids.length === 0) return;
-        await this.repo.delete({ id: In([...ids]) });
+        await this.repo.delete({ id: In([...ids]), userId: ownerId });
     }
 
     async listAllStatuses(userId: string): Promise<readonly TaskStatus[]> {

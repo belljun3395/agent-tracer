@@ -52,7 +52,7 @@ export class TaskManagementService {
         const hasNewStatus = input.status !== undefined && input.status !== task.status;
         if (!hasNewTitle && !hasNewStatus) return task;
 
-        const entity = await this.taskRepo.findById(input.taskId);
+        const entity = await this.taskRepo.findOwned(input.taskId, currentUserId());
         if (!entity) return null;
         if (hasNewTitle) {
             entity.title = titleUpdate;
@@ -72,7 +72,7 @@ export class TaskManagementService {
     }
 
     async link(input: TaskLinkInput): Promise<MonitoringTask> {
-        const entity = await this.taskRepo.findById(input.taskId);
+        const entity = await this.taskRepo.findOwned(input.taskId, currentUserId());
         if (!entity) throw new TaskNotFoundError(input.taskId);
 
         const titleTrimmed = input.title?.trim();
@@ -99,12 +99,13 @@ export class TaskManagementService {
     }
 
     async delete(taskId: string): Promise<{ status: "deleted"; deletedIds: readonly string[] } | { status: "not_found" }> {
-        const exists = await this.taskRepo.findById(taskId);
+        const ownerId = currentUserId();
+        const exists = await this.taskRepo.findOwned(taskId, ownerId);
         if (!exists) return { status: "not_found" };
 
         const descendants = await this.taskRepo.collectDescendantIds(taskId);
         const allIds = [taskId, ...descendants];
-        await this.taskRepo.deleteByIds(allIds);
+        await this.taskRepo.deleteByIds(allIds, ownerId);
 
         for (const id of allIds) {
             this.notifier.publish({ type: NOTIFICATION_TYPE.taskDeleted, payload: { taskId: id } });
@@ -115,7 +116,8 @@ export class TaskManagementService {
     async archive(
         taskId: string,
     ): Promise<{ status: "archived"; archivedIds: readonly string[]; archivedAt: string } | { status: "not_found" } | { status: "already_archived" }> {
-        const exists = await this.taskRepo.findById(taskId);
+        const ownerId = currentUserId();
+        const exists = await this.taskRepo.findOwned(taskId, ownerId);
         if (!exists) return { status: "not_found" };
         if (exists.isArchived()) return { status: "already_archived" };
 
@@ -123,7 +125,7 @@ export class TaskManagementService {
         const allIds = [taskId, ...descendants];
         const archivedAt = this.clock.nowIso();
         for (const id of allIds) {
-            const entity = await this.taskRepo.findById(id);
+            const entity = await this.taskRepo.findOwned(id, ownerId);
             if (!entity || entity.isArchived()) continue;
             entity.archive(archivedAt);
             await this.taskRepo.save(entity);
@@ -136,7 +138,8 @@ export class TaskManagementService {
     async unarchive(
         taskId: string,
     ): Promise<{ status: "unarchived"; unarchivedIds: readonly string[] } | { status: "not_found" } | { status: "not_archived" }> {
-        const exists = await this.taskRepo.findById(taskId);
+        const ownerId = currentUserId();
+        const exists = await this.taskRepo.findOwned(taskId, ownerId);
         if (!exists) return { status: "not_found" };
         if (!exists.isArchived()) return { status: "not_archived" };
 
@@ -145,7 +148,7 @@ export class TaskManagementService {
         const now = this.clock.nowIso();
         const unarchivedIds: string[] = [];
         for (const id of allIds) {
-            const entity = await this.taskRepo.findById(id);
+            const entity = await this.taskRepo.findOwned(id, ownerId);
             if (!entity || !entity.isArchived()) continue;
             entity.unarchive(now);
             await this.taskRepo.save(entity);
@@ -172,7 +175,7 @@ export class TaskManagementService {
         readonly backgroundTaskId?: string;
         readonly origin?: TaskOrigin;
     }): Promise<MonitoringTask> {
-        const existing = await this.taskRepo.findById(input.id);
+        const existing = await this.taskRepo.findOwned(input.id, currentUserId());
         const entity = existing ?? new TaskEntity();
         entity.id = input.id;
         entity.title = input.title;
@@ -207,7 +210,7 @@ export class TaskManagementService {
     }
 
     async updateSlug(taskId: string, slug: string): Promise<MonitoringTask | null> {
-        const entity = await this.taskRepo.findById(taskId);
+        const entity = await this.taskRepo.findOwned(taskId, currentUserId());
         if (!entity) return null;
         const trimmed = slug.trim();
         // 빈 slug나 기존 slug와 같은 값은 저장하지 않고 현재 상태만 반환한다.
@@ -221,7 +224,7 @@ export class TaskManagementService {
     }
 
     async updateStatus(taskId: string, status: TaskStatus, updatedAt: string): Promise<MonitoringTask | null> {
-        const entity = await this.taskRepo.findById(taskId);
+        const entity = await this.taskRepo.findOwned(taskId, currentUserId());
         if (!entity) return null;
         entity.status = status;
         entity.updatedAt = updatedAt;
