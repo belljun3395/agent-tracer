@@ -20,4 +20,17 @@ export type TaskCompletionReason = (typeof TASK_COMPLETION_REASONS)[number];
 
 export const SERVER_SDK_TASK_ORIGIN: TaskOrigin = "server-sdk";
 
-export const RUNNING_TASK_STATUS: TaskStatus = "running";
+export const RUNNING_TASK_STATUS = "running" as const satisfies TaskStatus;
+export const WAITING_TASK_STATUS = "waiting" as const satisfies TaskStatus;
+export const COMPLETED_TASK_STATUS = "completed" as const satisfies TaskStatus;
+export const ERRORED_TASK_STATUS = "errored" as const satisfies TaskStatus;
+
+// running/waiting는 아직 진행 중인 상태.
+export function isActiveTaskStatus(status: TaskStatus): boolean {
+    return status === RUNNING_TASK_STATUS || status === WAITING_TASK_STATUS;
+}
+
+// completed/errored는 더 이상 바뀌지 않는 종료 상태.
+export function isTerminalTaskStatus(status: TaskStatus): boolean {
+    return status === COMPLETED_TASK_STATUS || status === ERRORED_TASK_STATUS;
+}

@@ -1,3 +1,4 @@
+import { RUNNING_TASK_STATUS } from "@monitor/shared/task/task.status.const.js";
 import type {
     MonitoringTaskKind,
     TaskCompletionReason,
@@ -37,7 +38,7 @@ export class RuntimeSessionEnd {
 
     // 마지막 실행 세션이 끝났을 때 태스크를 완료, 대기, 유지 중 하나로 수렴시킨다.
     decide(): RuntimeSessionEndDecision {
-        if (this.taskStatus !== "running") return { action: "leave_open" };
+        if (this.taskStatus !== RUNNING_TASK_STATUS) return { action: "leave_open" };
         if (this.runningSessionCount !== 0) return { action: "leave_open" };
 
         if (this.taskKind === "background") {
@@ -78,8 +79,4 @@ export class RuntimeSessionEnd {
         }
         return false;
     }
-}
-
-export function isTerminalTaskStatus(status: TaskStatus): boolean {
-    return status === "completed" || status === "errored";
 }

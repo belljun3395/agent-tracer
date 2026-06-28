@@ -2,6 +2,7 @@ import { Inject, Injectable } from "@nestjs/common";
 import { NOTIFICATION_TYPE } from "@monitor/shared/contracts/notifications/notification.type.const.js";
 import type { MonitoringTask } from "@monitor/run-api/task/domain/type/task.type.js";
 import type { MonitoringEventKind } from "@monitor/timeline-api/event/public/types/event.types.js";
+import { RUNNING_TASK_STATUS } from "@monitor/run-api/task/common/task.status.const.js";
 import type {
     MonitoringTaskKind,
     TaskOrigin,
@@ -108,7 +109,7 @@ export class TaskLifecycleService {
             ...(input.summary ? { summary: input.summary } : {}),
         });
 
-        if (existingTask && (existingTask.status !== "running" || existingTask.runtimeSource !== task.runtimeSource)) {
+        if (existingTask && (existingTask.status !== RUNNING_TASK_STATUS || existingTask.runtimeSource !== task.runtimeSource)) {
             this.notifier.publish({ type: NOTIFICATION_TYPE.taskUpdated, payload: task });
         }
         this.notifier.publish({ type: NOTIFICATION_TYPE.taskStarted, payload: task });

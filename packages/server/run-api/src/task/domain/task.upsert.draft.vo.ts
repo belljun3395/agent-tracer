@@ -1,4 +1,5 @@
 import type { MonitoringTask } from "@monitor/run-api/task/domain/type/task.type.js";
+import { RUNNING_TASK_STATUS } from "@monitor/run-api/task/common/task.status.const.js";
 import type {
     MonitoringTaskKind,
     TaskOrigin,
@@ -86,7 +87,7 @@ export class TaskUpsertDraft {
             id: input.taskId,
             title: input.title,
             slug: createTaskSlug({ title: input.title }),
-            status: "running",
+            status: RUNNING_TASK_STATUS,
             taskKind,
             createdAt: existing?.createdAt ?? input.startedAt,
             updatedAt: input.startedAt,

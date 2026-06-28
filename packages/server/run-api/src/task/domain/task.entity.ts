@@ -1,4 +1,5 @@
 import { Column, Entity, Index, PrimaryColumn } from "typeorm";
+import { COMPLETED_TASK_STATUS, isActiveTaskStatus } from "@monitor/run-api/task/common/task.status.const.js";
 import type {
     MonitoringTaskKind,
     TaskOrigin,
@@ -59,8 +60,8 @@ export class TaskEntity {
     archive(nowIso: string): void {
         this.archivedAt = nowIso;
         this.updatedAt = nowIso;
-        if (this.status === "running" || this.status === "waiting") {
-            this.status = "completed";
+        if (isActiveTaskStatus(this.status)) {
+            this.status = COMPLETED_TASK_STATUS;
         }
     }
 

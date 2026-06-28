@@ -1,5 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { NOTIFICATION_TYPE } from "@monitor/shared/contracts/notifications/notification.type.const.js";
+import { RUNNING_TASK_STATUS } from "@monitor/shared/task/task.status.const.js";
 import { Transactional } from "typeorm-transactional";
 import { normalizeWorkspacePath } from "@monitor/run-api/task/public/helpers.js";
 import { SessionLifecycleService } from "../service/session.lifecycle.service.js";
@@ -76,11 +77,11 @@ export class EnsureRuntimeSessionUseCase {
             // 재개는 기존 태스크 관계를 유지하고 새 monitor 세션만 붙인다.
             const sessionId = this.idGen.newUuid();
             const startedAt = this.clock.nowIso();
-            if (task && (task.status !== "running" || task.runtimeSource !== input.runtimeSource)) {
+            if (task && (task.status !== RUNNING_TASK_STATUS || task.runtimeSource !== input.runtimeSource)) {
                 const resumedTask = await this.tasks.upsert({
                     ...task,
                     taskKind: task.taskKind ?? "primary",
-                    status: "running",
+                    status: RUNNING_TASK_STATUS,
                     updatedAt: startedAt,
                     lastSessionStartedAt: startedAt,
                     runtimeSource: input.runtimeSource,

@@ -1,7 +1,8 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { NOTIFICATION_TYPE } from "@monitor/shared/contracts/notifications/notification.type.const.js";
 import { Transactional } from "typeorm-transactional";
-import { isTerminalTaskStatus, RuntimeSessionEnd } from "../domain/runtime.session.end.policy.js";
+import { isTerminalTaskStatus, RUNNING_TASK_STATUS } from "@monitor/shared/task/task.status.const.js";
+import { RuntimeSessionEnd } from "../domain/runtime.session.end.policy.js";
 import { SessionLifecycleService } from "../service/session.lifecycle.service.js";
 import { RuntimeBindingService } from "../service/runtime.binding.service.js";
 import {
@@ -118,7 +119,7 @@ export class EndRuntimeSessionUseCase {
             const children = await this.tasks.findChildren(parentId);
             for (const child of children) {
                 stack.push(child.id);
-                if (child.taskKind === "background" && child.status === "running") {
+                if (child.taskKind === "background" && child.status === RUNNING_TASK_STATUS) {
                     await this.taskLifecycle.finalizeTask({
                         taskId: child.id,
                         summary: "Background task cascade-completed with parent",
@@ -136,7 +137,7 @@ export class EndRuntimeSessionUseCase {
             if (!parentId) continue;
             const children = await this.tasks.findChildren(parentId);
             for (const child of children) {
-                if (child.taskKind === "background" && child.status === "running") return true;
+                if (child.taskKind === "background" && child.status === RUNNING_TASK_STATUS) return true;
                 stack.push(child.id);
             }
         }
@@ -167,7 +168,7 @@ export class EndRuntimeSessionUseCase {
         if (!ids?.length) return;
         for (const bgTaskId of ids) {
             const bgTask = await this.tasks.findById(bgTaskId);
-            if (bgTask?.status === "running") {
+            if (bgTask?.status === RUNNING_TASK_STATUS) {
                 await this.taskLifecycle.finalizeTask({
                     taskId: bgTask.id,
                     summary: "Background task completed",
