@@ -10,8 +10,8 @@ import { APP_SETTING_KEYS } from "@monitor/identity-api/settings/domain/app.sett
 import { APP_SETTINGS } from "@monitor/identity-api/settings/public/tokens.js";
 import type { IAppSettings } from "@monitor/identity-api/settings/public/iservice/app.settings.iservice.js";
 import { NOTIFICATION_PUBLISHER_TOKEN } from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
-import { RuleJobRepository } from "../../job/rule.job.repository.js";
-import type { RuleJobEntity } from "../../job/rule.job.entity.js";
+import { RuleJobRepository } from "../../../job/rule.job.repository.js";
+import type { RuleJobEntity } from "../../../job/rule.job.entity.js";
 import {
     clampMaxRules,
     normalizeRuleSuggestionLanguage,

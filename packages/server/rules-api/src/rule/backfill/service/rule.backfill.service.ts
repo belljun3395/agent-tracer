@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
-import { RuleJobRepository } from "../../job/rule.job.repository.js";
-import type { RuleJobEntity } from "../../job/rule.job.entity.js";
+import { RuleJobRepository } from "../../../job/rule.job.repository.js";
+import type { RuleJobEntity } from "../../../job/rule.job.entity.js";
 import { RULE_PERSISTENCE_PORT } from "@monitor/rules-api/rule/application/outbound/tokens.js";
 import type { IRulePersistence } from "@monitor/rules-api/rule/application/outbound/rule.persistence.port.js";
 import { VERIFICATION_BACKFILL } from "@monitor/rules-api/verification/public/tokens.js";
