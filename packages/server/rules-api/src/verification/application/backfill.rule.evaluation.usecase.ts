@@ -1,11 +1,11 @@
-import { matchEventAgainstRule } from "@monitor/rules-api/verification/domain/event.rule.matching.js";
+import { matchEventAgainstRule } from "@monitor/rules-api/verification/domain/event.rule.matching.policy.js";
 import { NOTIFICATION_TYPE } from "@monitor/shared/contracts/notifications/notification.type.const.js";
 import { Transactional } from "typeorm-transactional";
-import { inferToolCall } from "@monitor/rules-api/verification/domain/tool.call.inference.js";
-import type { TurnVerdict } from "@monitor/rules-api/verification/domain/model/verdict.model.js";
-import { evaluateTurn } from "@monitor/rules-api/verification/domain/turn.evaluation.js";
-import type { EvaluateTurnToolCall } from "@monitor/rules-api/verification/domain/turn.evaluation.js";
-import { aggregateVerdict } from "@monitor/rules-api/verification/domain/verdict.js";
+import { inferToolCall } from "@monitor/rules-api/verification/domain/tool.call.inference.policy.js";
+import type { TurnVerdict } from "@monitor/rules-api/verification/domain/type/verdict.type.js";
+import { evaluateTurn } from "@monitor/rules-api/verification/domain/turn.evaluation.policy.js";
+import type { EvaluateTurnToolCall } from "@monitor/rules-api/verification/domain/turn.evaluation.policy.js";
+import { aggregateVerdict } from "@monitor/rules-api/verification/domain/verdict.policy.js";
 import type { TimelineEvent } from "@monitor/timeline-api/event/public/types/event.types.js";
 import type { INotificationPublisher } from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
 import type { ITimelineEventAccess } from "@monitor/rules-api/verification/application/outbound/timeline.event.access.port.js";

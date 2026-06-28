@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { aggregateVerdict } from "./verdict.js";
+import { aggregateVerdict } from "./verdict.policy.js";
 
 describe("aggregateVerdict — 턴 집계 판정", () => {
     it("가장 나쁜 판정을 고른다: contradicted > unverifiable > verified", () => {

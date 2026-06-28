@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
-import type { TurnVerdict } from "@monitor/rules-api/verification/domain/model/verdict.model.js";
-import { evaluateTurn } from "@monitor/rules-api/verification/domain/turn.evaluation.js";
-import { aggregateVerdict } from "@monitor/rules-api/verification/domain/verdict.js";
+import type { TurnVerdict } from "@monitor/rules-api/verification/domain/type/verdict.type.js";
+import { evaluateTurn } from "@monitor/rules-api/verification/domain/turn.evaluation.policy.js";
+import { aggregateVerdict } from "@monitor/rules-api/verification/domain/verdict.policy.js";
 import type { IRuleAccess } from "@monitor/rules-api/verification/application/outbound/rule.access.port.js";
 import type { ITurnRepository } from "@monitor/rules-api/verification/application/outbound/turn.repository.port.js";
 import type { IVerdictRepository } from "@monitor/rules-api/verification/application/outbound/verdict.repository.port.js";

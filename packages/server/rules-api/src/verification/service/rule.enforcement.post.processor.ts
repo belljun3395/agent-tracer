@@ -1,7 +1,7 @@
 import type { TimelineEvent } from "@monitor/timeline-api/event/public/types/event.types.js";
 import { NOTIFICATION_TYPE } from "@monitor/shared/contracts/notifications/notification.type.const.js";
 import { KIND } from "@monitor/timeline-api/event/public/types/event.const.js";
-import { matchEventAgainstRule } from "@monitor/rules-api/verification/domain/event.rule.matching.js";
+import { matchEventAgainstRule } from "@monitor/rules-api/verification/domain/event.rule.matching.policy.js";
 import type { INotificationPublisher } from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
 import type { IRuleAccess } from "@monitor/rules-api/verification/application/outbound/rule.access.port.js";
 import type {

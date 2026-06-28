@@ -1,4 +1,4 @@
-import type { RuleEventMatchKind } from "@monitor/rules-api/verification/domain/event.rule.matching.js";
+import type { RuleEventMatchKind } from "@monitor/rules-api/verification/domain/event.rule.matching.policy.js";
 
 export type RuleEnforcementMatchKind = RuleEventMatchKind;
 

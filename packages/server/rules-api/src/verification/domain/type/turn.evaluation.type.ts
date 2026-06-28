@@ -1,5 +1,5 @@
 import type { Rule } from "@monitor/rules-api/rule/public/types/rule.types.js";
-import type { TurnVerdict } from "../model/verdict.model.js";
+import type { TurnVerdict } from "../type/verdict.type.js";
 
 export interface EvaluateTurnToolCall {
     readonly tool: string;

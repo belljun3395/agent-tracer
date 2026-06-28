@@ -6,7 +6,7 @@ import type {
     ITurnQueryRepository,
     TaskTurnSummaryRow,
 } from "@monitor/rules-api/verification/application/outbound/turn.query.repository.port.js";
-import type { VerdictStatus } from "@monitor/rules-api/verification/domain/model/verdict.model.js";
+import type { VerdictStatus } from "@monitor/rules-api/verification/domain/type/verdict.type.js";
 import { TurnEntity } from "../domain/turn.entity.js";
 import { VerdictEntity } from "../domain/verdict.entity.js";
 

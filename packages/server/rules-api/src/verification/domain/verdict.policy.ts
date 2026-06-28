@@ -1,5 +1,5 @@
 import { VERDICT_STATUSES } from "./const/verdict.const.js";
-import type { VerdictStatus } from "./model/verdict.model.js";
+import type { VerdictStatus } from "./type/verdict.type.js";
 
 const VERDICT_PRIORITY: Record<VerdictStatus, number> = {
     contradicted: 3,

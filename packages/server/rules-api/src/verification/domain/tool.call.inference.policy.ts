@@ -1,5 +1,5 @@
-import type { EvaluateTurnToolCall } from "./turn.evaluation.js";
-import { normalizeVerificationToolName } from "./tool.action.matching.js";
+import type { EvaluateTurnToolCall } from "./turn.evaluation.policy.js";
+import { normalizeVerificationToolName } from "./tool.action.matching.policy.js";
 
 export function inferToolCall(event: {
     readonly kind: string;

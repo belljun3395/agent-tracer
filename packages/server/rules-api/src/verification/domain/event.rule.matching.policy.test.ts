@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Rule } from "@monitor/rules-api/rule/public/types/rule.types.js";
 import type { TimelineEvent } from "@monitor/timeline-api/event/public/types/event.types.js";
-import { matchEventAgainstRule } from "./event.rule.matching.js";
+import { matchEventAgainstRule } from "./event.rule.matching.policy.js";
 
 const NOW = "2026-04-29T10:00:00.000Z";
 

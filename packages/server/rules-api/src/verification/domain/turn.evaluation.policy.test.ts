@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Rule } from "@monitor/rules-api/rule/public/types/rule.types.js";
-import { evaluateTurn } from "./turn.evaluation.js";
-import type { EvaluateTurnInput, EvaluateTurnToolCall } from "./turn.evaluation.js";
+import { evaluateTurn } from "./turn.evaluation.policy.js";
+import type { EvaluateTurnInput, EvaluateTurnToolCall } from "./turn.evaluation.policy.js";
 
 const NOW = "2026-04-29T10:00:00.000Z";
 

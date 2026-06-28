@@ -5,7 +5,7 @@ import type {
     IVerdictRepository,
     VerdictUpsertInput,
 } from "@monitor/rules-api/verification/application/outbound/verdict.repository.port.js";
-import type { TurnVerdict, VerdictStatus } from "@monitor/rules-api/verification/domain/model/verdict.model.js";
+import type { TurnVerdict, VerdictStatus } from "@monitor/rules-api/verification/domain/type/verdict.type.js";
 import { TurnEntity } from "../domain/turn.entity.js";
 import { VerdictEntity } from "../domain/verdict.entity.js";
 

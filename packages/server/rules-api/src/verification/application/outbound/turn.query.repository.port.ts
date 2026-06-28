@@ -1,5 +1,5 @@
 import type { TurnAggregateVerdict, TurnStatus } from "./turn.repository.port.js";
-import type { VerdictStatus } from "@monitor/rules-api/verification/domain/model/verdict.model.js";
+import type { VerdictStatus } from "@monitor/rules-api/verification/domain/type/verdict.type.js";
 
 export interface BackfillTurnRow {
     readonly id: string;

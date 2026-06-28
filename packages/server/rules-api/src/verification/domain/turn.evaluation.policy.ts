@@ -1,9 +1,9 @@
 import type { Rule } from "@monitor/rules-api/rule/public/types/rule.types.js";
 import { isCommandExpectedAction } from "@monitor/rules-api/rule/public/predicates.js";
 import { VERDICT_STATUS } from "./const/verdict.const.js";
-import { verificationToolMatchesExpectedAction } from "./tool.action.matching.js";
-import { matchRuleTrigger, type TriggerMatch } from "./rule.trigger.matching.js";
-import type { TurnVerdict, VerdictStatus } from "./model/verdict.model.js";
+import { verificationToolMatchesExpectedAction } from "./tool.action.matching.policy.js";
+import { matchRuleTrigger, type TriggerMatch } from "./rule.trigger.matching.policy.js";
+import type { TurnVerdict, VerdictStatus } from "./type/verdict.type.js";
 
 export interface EvaluateTurnToolCall {
     readonly tool: string;

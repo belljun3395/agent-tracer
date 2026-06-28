@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { inferToolCall } from "./tool.call.inference.js";
+import { inferToolCall } from "./tool.call.inference.policy.js";
 
 describe("inferToolCall — 이벤트에서 도구 호출 추론", () => {
     it("metadata.toolName이 있으면 표준화해 사용하고 command/filePath를 싣는다", () => {

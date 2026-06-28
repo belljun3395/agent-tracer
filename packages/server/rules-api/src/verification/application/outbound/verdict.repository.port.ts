@@ -1,4 +1,4 @@
-import type { TurnVerdict, VerdictStatus } from "@monitor/rules-api/verification/domain/model/verdict.model.js";
+import type { TurnVerdict, VerdictStatus } from "@monitor/rules-api/verification/domain/type/verdict.type.js";
 
 export type VerdictStatusPort = VerdictStatus;
 
