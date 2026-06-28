@@ -1,9 +1,9 @@
-import type { MonitoringTask } from "@monitor/run-api/task/domain/task.model.js";
+import type { MonitoringTask } from "@monitor/run-api/task/domain/type/task.type.js";
 import type {
     MonitoringTaskKind,
     TaskOrigin,
 } from "@monitor/run-api/task/common/task.status.const.js";
-import { normalizeWorkspacePath } from "@monitor/run-api/task/domain/task.path.helpers.js";
+import { normalizeWorkspacePath } from "@monitor/run-api/task/domain/task.path.policy.js";
 import { createTaskSlug } from "../common/task.slug.js";
 
 export interface StartTaskDraftInput {

@@ -20,7 +20,7 @@ import type {
     ITaskNotificationPublisher,
     TaskOutboundNotification,
 } from "../application/outbound/notification.publisher.port.js";
-import type { MonitoringTask } from "../domain/task.model.js";
+import type { MonitoringTask } from "../domain/type/task.type.js";
 import { TaskNotFoundError } from "../common/task.errors.js";
 
 const FROZEN_ISO = "2026-04-29T10:00:00.000Z";

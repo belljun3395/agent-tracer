@@ -1,7 +1,7 @@
 import type { TimelineEventProjection } from "@monitor/timeline-api/event/public/dto/timeline.event.dto.js";
 import type { NOTIFICATION_TYPE } from "@monitor/shared/contracts/notifications/notification.type.const.js";
 import type { SessionSnapshot } from "@monitor/run-api/session/public/dto/session.snapshot.dto.js";
-import type { MonitoringTask } from "@monitor/run-api/task/domain/task.model.js";
+import type { MonitoringTask } from "@monitor/run-api/task/domain/type/task.type.js";
 
 export type TaskOutboundNotification =
     | { readonly type: typeof NOTIFICATION_TYPE.taskStarted; readonly payload: MonitoringTask }

@@ -1,10 +1,10 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { currentUserId } from "@monitor/shared/kernel/user/user.context.js";
-import type { MonitoringTask } from "@monitor/run-api/task/domain/task.model.js";
+import type { MonitoringTask } from "@monitor/run-api/task/domain/type/task.type.js";
 import type { TaskStatus } from "@monitor/run-api/task/common/task.status.const.js";
-import { TaskDisplayTitle } from "../domain/task.display.title.model.js";
+import { TaskDisplayTitle } from "../domain/task.display.title.vo.js";
 import { TaskEntity } from "../domain/task.entity.js";
-import { TaskRelations, type TaskRelationsSnapshot } from "../domain/task.relations.model.js";
+import { TaskRelations, type TaskRelationsSnapshot } from "../domain/task.relations.vo.js";
 import { TaskRepository } from "../repository/task.repository.js";
 import { TaskRelationRepository } from "../repository/task.relation.repository.js";
 import { TIMELINE_EVENT_READ } from "@monitor/timeline-api/event/public/tokens.js";

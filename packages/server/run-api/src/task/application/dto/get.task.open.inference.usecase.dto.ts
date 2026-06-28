@@ -1,4 +1,4 @@
-import type { OpenInferenceTaskExport } from "@monitor/run-api/task/domain/task.openinference.export.model.js";
+import type { OpenInferenceTaskExport } from "@monitor/run-api/task/domain/task.openinference.export.vo.js";
 
 export interface GetTaskOpenInferenceUseCaseIn {
     readonly taskId: string;

@@ -1,4 +1,4 @@
-import type { MonitoringTask } from "@monitor/run-api/task/domain/task.model.js";
+import type { MonitoringTask } from "@monitor/run-api/task/domain/type/task.type.js";
 import type { MonitoringEventKind } from "@monitor/timeline-api/event/public/types/event.types.js";
 
 export interface CompleteTaskUseCaseIn {

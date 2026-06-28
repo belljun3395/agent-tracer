@@ -1,17 +1,17 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { NOTIFICATION_TYPE } from "@monitor/shared/contracts/notifications/notification.type.const.js";
-import type { MonitoringTask } from "@monitor/run-api/task/domain/task.model.js";
+import type { MonitoringTask } from "@monitor/run-api/task/domain/type/task.type.js";
 import type { MonitoringEventKind } from "@monitor/timeline-api/event/public/types/event.types.js";
 import type {
     MonitoringTaskKind,
     TaskOrigin,
 } from "@monitor/run-api/task/common/task.status.const.js";
 import { createEventRecordDraft } from "@monitor/timeline-api/event/public/helpers.js";
-import { TaskUpsertDraft } from "../domain/task.upsert.draft.model.js";
+import { TaskUpsertDraft } from "../domain/task.upsert.draft.vo.js";
 import {
     TaskFinalizationRecording,
     TaskStartRecording,
-} from "../domain/task.event.recording.model.js";
+} from "../domain/task.event.recording.vo.js";
 import { TaskNotFoundError } from "../common/task.errors.js";
 import { TaskReadService } from "./task.read.service.js";
 import { TaskManagementService } from "./task.management.service.js";

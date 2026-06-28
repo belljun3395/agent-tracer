@@ -1,6 +1,6 @@
 import { KIND, LANE } from "@monitor/timeline-api/event/public/types/event.const.js";
 import type { EventRecordingInput } from "@monitor/timeline-api/event/public/types/event.types.js";
-import type { MonitoringTask } from "@monitor/run-api/task/domain/task.model.js";
+import type { MonitoringTask } from "@monitor/run-api/task/domain/type/task.type.js";
 
 export interface StartTaskEventDraftInput {
     readonly task: MonitoringTask;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { TaskUpsertDraft } from "./task.upsert.draft.model.js";
-import type { MonitoringTask } from "./task.model.js";
+import { TaskUpsertDraft } from "./task.upsert.draft.vo.js";
+import type { MonitoringTask } from "./type/task.type.js";
 
 const STARTED_AT = "2026-04-29T10:00:00.000Z";
 

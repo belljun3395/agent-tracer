@@ -1,4 +1,4 @@
-import type { MonitoringTask } from "@monitor/run-api/task/domain/task.model.js";
+import type { MonitoringTask } from "@monitor/run-api/task/domain/type/task.type.js";
 import type { TimelineEvent } from "@monitor/timeline-api/event/public/types/event.types.js";
 import { isInternalEvent, isTaskLifecycleEvent, isUserLane } from "@monitor/timeline-api/event/public/predicates.js";
 import { KIND } from "@monitor/timeline-api/event/public/types/event.const.js";

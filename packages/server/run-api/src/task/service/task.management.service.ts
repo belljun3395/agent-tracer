@@ -1,6 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { NOTIFICATION_TYPE } from "@monitor/shared/contracts/notifications/notification.type.const.js";
-import type { MonitoringTask } from "@monitor/run-api/task/domain/task.model.js";
+import type { MonitoringTask } from "@monitor/run-api/task/domain/type/task.type.js";
 import type {
     TaskStatus,
     MonitoringTaskKind,
@@ -10,7 +10,7 @@ import { currentUserId } from "@monitor/shared/kernel/user/user.context.js";
 import { TaskNotFoundError } from "../common/task.errors.js";
 import { createTaskSlug } from "../common/task.slug.js";
 import { TaskEntity } from "../domain/task.entity.js";
-import { TaskRelations } from "../domain/task.relations.model.js";
+import { TaskRelations } from "../domain/task.relations.vo.js";
 import { TaskRepository } from "../repository/task.repository.js";
 import { TaskRelationRepository } from "../repository/task.relation.repository.js";
 import { TaskReadService } from "./task.read.service.js";

@@ -4,7 +4,7 @@ import { runOnTransactionCommit } from "typeorm-transactional";
 import { NOTIFICATION_TYPE } from "@monitor/shared/contracts/notifications/notification.type.const.js";
 import { EVENT_RECORDED } from "@monitor/timeline-api/event/public/events/event.recorded.js";
 import type { EventRecordedPayload } from "@monitor/timeline-api/event/public/events/event.recorded.js";
-import { shouldApplyLoggedEventTaskStatusEffect } from "../domain/task.status.effect.js";
+import { shouldApplyLoggedEventTaskStatusEffect } from "../domain/task.status.effect.policy.js";
 import { TaskReadService } from "../service/task.read.service.js";
 import { TaskManagementService } from "../service/task.management.service.js";
 import { CLOCK_PORT, NOTIFICATION_PUBLISHER_PORT } from "../application/outbound/tokens.js";

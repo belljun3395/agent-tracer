@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { TaskRelations } from "./task.relations.model.js";
+import { TaskRelations } from "./task.relations.vo.js";
 import type { TaskRelationEntity } from "./task.relation.entity.js";
 
 function entity(partial: Partial<TaskRelationEntity> & Pick<TaskRelationEntity, "taskId" | "relationKind">): TaskRelationEntity {

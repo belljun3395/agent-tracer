@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
     TaskFinalizationRecording,
     TaskStartRecording,
-} from "./task.event.recording.model.js";
-import type { MonitoringTask } from "./task.model.js";
+} from "./task.event.recording.vo.js";
+import type { MonitoringTask } from "./type/task.type.js";
 
 const baseTask: MonitoringTask = {
     id: "t-1",
