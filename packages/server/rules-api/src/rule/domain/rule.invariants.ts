@@ -13,7 +13,7 @@ export interface RuleInvariantViolation {
     readonly path: "taskId" | "expect";
 }
 
-// 룰 생성의 도메인 불변식 단일 출처. API 스키마(addIssue)와 use case(throw)가 같은 결과를 쓴다.
+// 룰 생성의 도메인 불변식.
 export function checkRuleInvariants(target: RuleInvariantTarget): readonly RuleInvariantViolation[] {
     const violations: RuleInvariantViolation[] = [];
     if (target.scope === "task" && !target.taskId) {

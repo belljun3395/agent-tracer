@@ -44,7 +44,7 @@ export function matchEventAgainstRule(
 }
 
 function triggerMatchesEvent(event: TimelineEvent, rule: Rule): boolean {
-    // 이벤트는 단일 메시지이므로 kind로 발화자를 정하고, enforcement은 negation을 따로 보지 않는다.
+    // 이벤트는 단일 메시지라 kind로 발화자를 정한다.
     const speaker = event.kind === KIND.userMessage
         ? "user"
         : event.kind === KIND.assistantResponse

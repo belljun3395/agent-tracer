@@ -47,8 +47,7 @@ interface EventFileValue {
     readonly writeCount: number;
 }
 
-// 이벤트 metadata 값 객체. 원시 metadata를 한 번 정규화해 저장 표현(blob·tags·컬럼)을 만든다.
-// 과거 row.builder + hydrator 왕복(파생 엔티티 7개)을 단방향으로 흡수한 결과다.
+// 원시 metadata를 한 번 정규화해 저장 표현(blob·tags·인덱스 컬럼)을 만드는 값 객체.
 export class EventMetadata {
     private constructor(
         readonly metadata: Record<string, unknown>,
@@ -70,7 +69,7 @@ export class EventMetadata {
             addString(metadata, key, columns[key]);
         }
 
-        // 적용 순서는 과거 hydrate 순서를 따른다(durationMs 등 덮어쓰기 순서 보존).
+        // durationMs처럼 뒤 facet이 앞 값을 덮을 수 있어 적용 순서를 고정한다.
         applyFiles(metadata, raw);
         applyRelations(metadata, raw);
         applyAsync(metadata, raw);

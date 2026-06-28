@@ -53,8 +53,7 @@ function isNegated(text: string, matchIndex: number): boolean {
     return NEGATION_MARKERS.some((marker) => window.includes(marker));
 }
 
-// 룰 트리거 문구가 어느 발화 후보에 나타나는지 판정하는 단일 출처.
-// turn 평가와 event enforcement가 모두 이 함수를 쓰되, negation 적용 여부만 옵션으로 고른다.
+// 룰 트리거 문구가 어느 발화 후보에 나타나는지 판정한다.
 export function matchRuleTrigger(
     rule: Rule,
     candidates: readonly TriggerCandidate[],
