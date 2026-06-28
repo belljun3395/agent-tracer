@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { KIND } from "@monitor/timeline-api/event/public/types/event.const.js";
+import { KIND, TERMINAL_COMMAND_TOOL_NAME } from "@monitor/timeline-api/event/public/types/event.const.js";
 import { TaskReadService } from "../service/task.read.service.js";
 import { GetTaskTimelineUseCase } from "./get.task.timeline.usecase.js";
 import type {
@@ -102,7 +102,7 @@ function inferToolName(event: TimelineEventProjection): string | null {
         ?? readString(event.metadata, "sourceTool");
     // 명시 도구명이 있으면 이벤트 kind보다 우선한다.
     if (explicit) return explicit;
-    if (event.kind === KIND.terminalCommand) return "Bash";
+    if (event.kind === KIND.terminalCommand) return TERMINAL_COMMAND_TOOL_NAME;
     if (event.kind === KIND.toolUsed) return readString(event.metadata, "tool") ?? null;
     return null;
 }

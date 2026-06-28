@@ -1,4 +1,4 @@
-import { KIND } from "@monitor/timeline-api/event/public/types/event.const.js";
+import { KIND, TERMINAL_COMMAND_TOOL_NAME } from "@monitor/timeline-api/event/public/types/event.const.js";
 import type { EvaluateTurnToolCall } from "./turn.evaluation.policy.js";
 import { normalizeVerificationToolName } from "./tool.action.matching.policy.js";
 
@@ -16,7 +16,7 @@ export function inferToolCall(event: {
     }
 
     if (event.kind === KIND.terminalCommand) {
-        return buildToolCall("Bash", event.metadata);
+        return buildToolCall(TERMINAL_COMMAND_TOOL_NAME, event.metadata);
     }
     return null;
 }

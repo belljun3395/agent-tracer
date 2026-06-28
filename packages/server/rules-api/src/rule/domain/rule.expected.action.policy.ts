@@ -1,4 +1,4 @@
-import { RULE_EXPECTED_ACTIONS } from "./const/rule.const.js";
+import { RULE_EXPECTED_ACTION, RULE_EXPECTED_ACTIONS } from "./const/rule.const.js";
 import type { RuleExpectedAction } from "./type/rule.value.type.js";
 
 const RULE_EXPECTED_ACTION_SET: ReadonlySet<string> = new Set(RULE_EXPECTED_ACTIONS);
@@ -54,16 +54,16 @@ const TOOL_NAME_ALIASES = new Map<string, string>([
 ]);
 
 const ACTION_BY_TOOL = new Map<string, RuleExpectedAction>([
-    ["Bash", "command"],
-    ["Read", "file-read"],
-    ["Grep", "file-read"],
-    ["Glob", "file-read"],
-    ["LS", "file-read"],
-    ["Edit", "file-write"],
-    ["MultiEdit", "file-write"],
-    ["Write", "file-write"],
-    ["WebFetch", "web"],
-    ["WebSearch", "web"],
+    ["Bash", RULE_EXPECTED_ACTION.command],
+    ["Read", RULE_EXPECTED_ACTION.fileRead],
+    ["Grep", RULE_EXPECTED_ACTION.fileRead],
+    ["Glob", RULE_EXPECTED_ACTION.fileRead],
+    ["LS", RULE_EXPECTED_ACTION.fileRead],
+    ["Edit", RULE_EXPECTED_ACTION.fileWrite],
+    ["MultiEdit", RULE_EXPECTED_ACTION.fileWrite],
+    ["Write", RULE_EXPECTED_ACTION.fileWrite],
+    ["WebFetch", RULE_EXPECTED_ACTION.web],
+    ["WebSearch", RULE_EXPECTED_ACTION.web],
 ]);
 
 export function isRuleExpectedAction(value: unknown): value is RuleExpectedAction {
@@ -71,7 +71,7 @@ export function isRuleExpectedAction(value: unknown): value is RuleExpectedActio
 }
 
 export function isCommandExpectedAction(action: RuleExpectedAction): boolean {
-    return action === "command";
+    return action === RULE_EXPECTED_ACTION.command;
 }
 
 export function canonicalizeToolName(tool: string): string {

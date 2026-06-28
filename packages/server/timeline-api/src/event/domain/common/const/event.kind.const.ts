@@ -54,6 +54,9 @@ export const KIND = {
     monitorObserved: "monitor.observed",
 } as const;
 
+// terminal.command 이벤트를 낸 도구의 정규 이름.
+export const TERMINAL_COMMAND_TOOL_NAME = "Bash";
+
 export const TOOL_ACTIVITY_EVENT_KINDS = [KIND.toolUsed, KIND.terminalCommand, KIND.monitorObserved] as const;
 const WORKFLOW_EVENT_KINDS = [
     KIND.planLogged,

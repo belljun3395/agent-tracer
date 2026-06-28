@@ -1,6 +1,7 @@
 export {
     KIND,
     LANE,
+    TERMINAL_COMMAND_TOOL_NAME,
     TODO_STATES,
     QUESTION_PHASES,
 } from "@monitor/timeline-api/event/domain/common/const/event.kind.const.js";
