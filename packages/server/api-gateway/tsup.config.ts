@@ -2,7 +2,7 @@ import { defineConfig } from "tsup";
 export default defineConfig({
     entry: {
         index: "src/gateway.entry.ts",
-        mcp: "../shared/src/mcp/mcp.entry.ts",
+        mcp: "src/mcp/mcp.entry.ts",
     },
     format: ["esm"],
     dts: true,

@@ -1,6 +1,6 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { MonitorClient } from "./client.js";
+import { MonitorClient } from "@monitor/shared/mcp/client.js";
 import { registerAsyncLifecycleTools } from "@monitor/run-api/task/mcp/async.lifecycle.js";
 import { registerConversationTools } from "@monitor/timeline-api/event/mcp/conversation.js";
 import { registerEventLoggingTools } from "@monitor/timeline-api/event/mcp/event.logging.js";
