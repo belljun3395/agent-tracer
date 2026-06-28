@@ -1,5 +1,5 @@
 import { matchEventAgainstRule } from "@monitor/rules-api/verification/domain/event.rule.matching.policy.js";
-import { RULE_SCOPE } from "@monitor/rules-api/rule/domain/const/rule.const.js";
+import { isTaskScopedRule } from "@monitor/rules-api/rule/public/predicates.js";
 import { NOTIFICATION_TYPE } from "@monitor/shared/contracts/notifications/notification.type.const.js";
 import { Transactional } from "typeorm-transactional";
 import { inferToolCall } from "@monitor/rules-api/verification/domain/tool.call.inference.policy.js";
@@ -171,7 +171,7 @@ function listTurnsForRuleScope(
     turnSource: BackfillTurnSource,
     rule: Rule,
 ): Promise<ReadonlyArray<BackfillTurnRow>> {
-    return rule.scope === RULE_SCOPE.task && rule.taskId
+    return isTaskScopedRule(rule)
         ? turnSource.listTurnsForTaskBackfill(rule.taskId)
         : turnSource.listAllTurnsForBackfill();
 }

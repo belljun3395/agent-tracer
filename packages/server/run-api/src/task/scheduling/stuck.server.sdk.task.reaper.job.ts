@@ -1,8 +1,5 @@
 import { Injectable, Logger, type OnApplicationBootstrap } from "@nestjs/common";
-import {
-    RUNNING_TASK_STATUS,
-    SERVER_SDK_TASK_ORIGIN,
-} from "../common/task.status.const.js";
+import { isRunningServerSdkTask } from "../domain/task.predicates.policy.js";
 import { TaskReadService } from "../service/task.read.service.js";
 import { TaskLifecycleService } from "../service/task.lifecycle.service.js";
 
@@ -17,9 +14,7 @@ export class StuckServerSdkTaskReaperJob implements OnApplicationBootstrap {
 
     async onApplicationBootstrap(): Promise<void> {
         const active = await this.tasks.findAll("active");
-        const stuck = active.filter(
-            (t) => t.origin === SERVER_SDK_TASK_ORIGIN && t.status === RUNNING_TASK_STATUS,
-        );
+        const stuck = active.filter(isRunningServerSdkTask);
         if (stuck.length === 0) return;
         for (const task of stuck) {
             try {

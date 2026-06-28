@@ -1,4 +1,8 @@
 export const MONITORING_TASK_KINDS = ["primary", "background"] as const;
+export const MONITORING_TASK_KIND = {
+    primary: "primary",
+    background: "background",
+} as const satisfies Record<string, (typeof MONITORING_TASK_KINDS)[number]>;
 
 export const TASK_ORIGINS = ["user", "server-sdk"] as const;
 

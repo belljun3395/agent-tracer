@@ -1,7 +1,13 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { NOTIFICATION_TYPE } from "@monitor/shared/contracts/notifications/notification.type.const.js";
 import { Transactional } from "typeorm-transactional";
-import { isTerminalTaskStatus, RUNNING_TASK_STATUS } from "@monitor/shared/task/task.status.const.js";
+import { MONITORING_TASK_KIND } from "@monitor/run-api/task/common/task.status.const.js";
+import {
+    isPrimaryTask,
+    isRunningBackgroundTask,
+    isTaskRunning,
+    isTaskTerminal,
+} from "@monitor/run-api/task/domain/task.predicates.policy.js";
 import { RuntimeSessionEnd } from "../domain/runtime.session.end.policy.js";
 import { SessionLifecycleService } from "../service/session.lifecycle.service.js";
 import { RuntimeBindingService } from "../service/runtime.binding.service.js";
@@ -79,13 +85,13 @@ export class EndRuntimeSessionUseCase {
         await this.completeBgTasks(input.backgroundCompletions);
 
         const task = await this.tasks.findById(binding.taskId);
-        const hasRunningBackgroundChildren = task?.taskKind === "primary"
+        const hasRunningBackgroundChildren = task != null && isPrimaryTask(task)
             ? await this.hasRunningBackgroundDescendants(binding.taskId)
             : false;
 
         if (task) {
             const sessionEnd = new RuntimeSessionEnd({
-                taskKind: task.taskKind ?? "primary",
+                taskKind: task.taskKind ?? MONITORING_TASK_KIND.primary,
                 taskStatus: task.status,
                 completeTask: input.completeTask ?? false,
                 runningSessionCount: await this.sessions.countRunningByTaskId(binding.taskId),
@@ -99,7 +105,7 @@ export class EndRuntimeSessionUseCase {
                     sessionId: binding.monitorSessionId,
                     summary: input.summary ?? decision.summary,
                 });
-                if (task.taskKind === "primary" && hasRunningBackgroundChildren) {
+                if (isPrimaryTask(task) && hasRunningBackgroundChildren) {
                     // primary가 명시적으로 끝나면 남은 background도 완료로 수렴시킨다.
                     await this.cascadeCompleteBackgroundDescendants(binding.taskId);
                 }
@@ -119,7 +125,7 @@ export class EndRuntimeSessionUseCase {
             const children = await this.tasks.findChildren(parentId);
             for (const child of children) {
                 stack.push(child.id);
-                if (child.taskKind === "background" && child.status === RUNNING_TASK_STATUS) {
+                if (isRunningBackgroundTask(child)) {
                     await this.taskLifecycle.finalizeTask({
                         taskId: child.id,
                         summary: "Background task cascade-completed with parent",
@@ -137,7 +143,7 @@ export class EndRuntimeSessionUseCase {
             if (!parentId) continue;
             const children = await this.tasks.findChildren(parentId);
             for (const child of children) {
-                if (child.taskKind === "background" && child.status === RUNNING_TASK_STATUS) return true;
+                if (isRunningBackgroundTask(child)) return true;
                 stack.push(child.id);
             }
         }
@@ -155,7 +161,7 @@ export class EndRuntimeSessionUseCase {
 
     private async completeTaskIfIncomplete(input: SessionTaskCompletionInput): Promise<void> {
         const task = await this.tasks.findById(input.taskId);
-        if (!task || isTerminalTaskStatus(task.status)) return;
+        if (!task || isTaskTerminal(task)) return;
         await this.taskLifecycle.finalizeTask({
             taskId: input.taskId,
             ...(input.sessionId !== undefined ? { sessionId: input.sessionId } : {}),
@@ -168,7 +174,7 @@ export class EndRuntimeSessionUseCase {
         if (!ids?.length) return;
         for (const bgTaskId of ids) {
             const bgTask = await this.tasks.findById(bgTaskId);
-            if (bgTask?.status === RUNNING_TASK_STATUS) {
+            if (bgTask != null && isTaskRunning(bgTask)) {
                 await this.taskLifecycle.finalizeTask({
                     taskId: bgTask.id,
                     summary: "Background task completed",
