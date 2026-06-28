@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dedupeByKindAndTask } from "./task.cleanup.dedup.js";
+import { dedupeByKindAndTask } from "./task.cleanup.dedup.policy.js";
 
 describe("dedupeByKindAndTask — 제안 중복/무효 제거", () => {
     const known = new Set(["t1", "t2"]);

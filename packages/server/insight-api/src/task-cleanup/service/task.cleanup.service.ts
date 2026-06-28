@@ -14,7 +14,7 @@ import { TASK_SNAPSHOT_QUERY } from "@monitor/run-api/task/public/tokens.js";
 import { InsightJobRepository } from "../../job/insight.job.repository.js";
 import { TaskCleanupSuggestionRepository } from "../repository/task.cleanup.suggestion.repository.js";
 import type { InsightJobEntity } from "../../job/insight.job.entity.js";
-import { dedupeByKindAndTask } from "../domain/task.cleanup.dedup.js";
+import { dedupeByKindAndTask } from "../domain/task.cleanup.dedup.policy.js";
 
 const DEFAULT_MAX_SUGGESTIONS = 20;
 const MAX_SUGGESTIONS_HARD_CAP = 50;
