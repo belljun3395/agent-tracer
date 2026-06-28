@@ -3,6 +3,7 @@ import type { TimelineEvent } from "@monitor/timeline-api/event/public/types/eve
 import type { Rule } from "@monitor/rules-api/rule/public/types/rule.types.js";
 import { verificationToolMatchesExpectedAction } from "./tool.action.matching.js";
 import { inferToolCall } from "./tool.call.inference.js";
+import { matchRuleTrigger } from "./rule.trigger.matching.js";
 
 export type RuleEventMatchKind = "trigger" | "expect-fulfilled";
 
@@ -43,16 +44,17 @@ export function matchEventAgainstRule(
 }
 
 function triggerMatchesEvent(event: TimelineEvent, rule: Rule): boolean {
-    if (!rule.trigger || rule.trigger.phrases.length === 0) return false;
-    const triggerOn = rule.triggerOn;
-    // triggerOn이 지정된 룰은 해당 발화자 이벤트에서만 트리거된다.
-    if (triggerOn === "user" && event.kind !== KIND.userMessage) return false;
-    if (triggerOn === "assistant" && event.kind !== KIND.assistantResponse) return false;
-    if (!triggerOn && event.kind !== KIND.userMessage && event.kind !== KIND.assistantResponse) return false;
-
-    const text = `${event.title}\n${event.body ?? ""}`.toLowerCase();
-    if (!text.trim()) return false;
-    return rule.trigger.phrases.some((phrase) => text.includes(phrase.toLowerCase()));
+    // 이벤트는 단일 메시지이므로 kind로 발화자를 정하고, enforcement은 negation을 따로 보지 않는다.
+    const speaker = event.kind === KIND.userMessage
+        ? "user"
+        : event.kind === KIND.assistantResponse
+            ? "assistant"
+            : "other";
+    return matchRuleTrigger(
+        rule,
+        [{ speaker, text: `${event.title}\n${event.body ?? ""}` }],
+        { negationAware: false },
+    ) !== null;
 }
 
 function expectMatchesEvent(event: TimelineEvent, rule: Rule): boolean {

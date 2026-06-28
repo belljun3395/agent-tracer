@@ -2,6 +2,7 @@ import type { Rule } from "@monitor/rules-api/rule/public/types/rule.types.js";
 import { isCommandExpectedAction } from "@monitor/rules-api/rule/public/predicates.js";
 import { VERDICT_STATUS } from "./const/verdict.const.js";
 import { verificationToolMatchesExpectedAction } from "./tool.action.matching.js";
+import { matchRuleTrigger, type TriggerMatch } from "./rule.trigger.matching.js";
 import type { TurnVerdict, VerdictStatus } from "./model/verdict.model.js";
 
 export interface EvaluateTurnToolCall {
@@ -29,41 +30,6 @@ interface ExpectationEvaluation {
     readonly actualToolCalls: string[];
     readonly expectedPattern?: string;
     readonly matchedToolCalls?: string[];
-}
-
-const NEGATION_MARKERS: readonly string[] = [
-    "did not ",
-    "didn't ",
-    "not ",
-    "haven't ",
-    "have not ",
-    "never ",
-    "no ",
-    "couldn't ",
-    "could not ",
-];
-
-const NEGATION_LOOKBACK = 20;
-
-function findTriggerMatch(
-    text: string,
-    phrases: readonly string[],
-): { phrase: string; index: number } | null {
-    const lower = text.toLowerCase();
-    for (const phrase of phrases) {
-        const needle = phrase.toLowerCase();
-        const idx = lower.indexOf(needle);
-        if (idx !== -1) {
-            return { phrase, index: idx };
-        }
-    }
-    return null;
-}
-
-function isNegated(text: string, matchIndex: number): boolean {
-    const start = Math.max(0, matchIndex - NEGATION_LOOKBACK);
-    const window = text.slice(start, matchIndex).toLowerCase();
-    return NEGATION_MARKERS.some((marker) => window.includes(marker));
 }
 
 function compilePattern(pattern: string): RegExp | null {
@@ -230,23 +196,16 @@ function evaluateRule(
 function findRuleTriggerMatch(
     rule: Rule,
     input: EvaluateTurnInput,
-): { phrase: string; index: number } | null {
-    if (rule.trigger === undefined) return null;
-    // triggerOn이 있으면 지정된 발화자만 보고, 없으면 사용자/어시스턴트 발화를 모두 본다.
-    const sources = rule.triggerOn === "user"
-        ? [input.userMessageText ?? ""]
-        : rule.triggerOn === "assistant"
-            ? [input.assistantText]
-            : [input.userMessageText ?? "", input.assistantText];
-
-    for (const source of sources) {
-        const triggerMatch = findTriggerMatch(source, rule.trigger.phrases);
-        if (triggerMatch === null) continue;
-        // 부정 표현 바로 뒤의 문구는 사용자가 요구한 트리거로 보지 않는다.
-        if (isNegated(source, triggerMatch.index)) continue;
-        return triggerMatch;
-    }
-    return null;
+): TriggerMatch | null {
+    // turn 평가는 부정 표현 뒤의 문구를 트리거에서 제외한다(negationAware).
+    return matchRuleTrigger(
+        rule,
+        [
+            { speaker: "user", text: input.userMessageText ?? "" },
+            { speaker: "assistant", text: input.assistantText },
+        ],
+        { negationAware: true },
+    );
 }
 
 export function evaluateTurn(input: EvaluateTurnInput): EvaluateTurnResult {
