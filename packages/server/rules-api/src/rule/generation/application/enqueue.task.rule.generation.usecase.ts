@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { TaskRuleGenerationService } from "../service/task.rule.generation.service.js";
 
-/** task 규칙 생성 작업을 enqueue한다(컨트롤러가 service를 직접 알지 않도록). */
+/** task 규칙 생성 작업을 enqueue한다. */
 @Injectable()
 export class EnqueueTaskRuleGenerationUseCase {
     constructor(private readonly service: TaskRuleGenerationService) {}

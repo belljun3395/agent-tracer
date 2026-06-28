@@ -5,10 +5,7 @@ import { LinkTaskUseCase } from "./link.task.usecase.js";
 import { ReslugTaskUseCase } from "./reslug.task.usecase.js";
 import { UpdateTaskUseCase } from "./update.task.usecase.js";
 
-/**
- * TASK_MAINTENANCE 발행 계약 구현. 트랜잭션·도메인 에러를 가진 use case에 위임하므로
- * (service 직접 호출 어댑터가 아니라) use case를 묶는 application 레이어 facade로 둔다.
- */
+/** TASK_MAINTENANCE 발행 계약 구현. */
 @Injectable()
 export class TaskMaintenanceFacade implements ITaskMaintenance {
     constructor(

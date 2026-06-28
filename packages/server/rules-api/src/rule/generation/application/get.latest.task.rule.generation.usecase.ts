@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { TaskRuleGenerationService } from "../service/task.rule.generation.service.js";
 
-/** task별 최근 규칙 생성 작업 상태를 조회한다(컨트롤러가 service를 직접 알지 않도록). */
+/** task별 최근 규칙 생성 작업 상태를 조회한다. */
 @Injectable()
 export class GetLatestTaskRuleGenerationUseCase {
     constructor(private readonly service: TaskRuleGenerationService) {}

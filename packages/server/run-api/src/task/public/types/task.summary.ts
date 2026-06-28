@@ -1,5 +1,4 @@
-// task가 외부에 발행하는 요약 뷰 타입(published language). 소비자(insight·rules)는
-// task/application 내부 dto가 아니라 이 타입에 의존한다.
+// task 요약 발행 뷰 타입.
 
 export interface TaskSummaryToolCount {
     readonly tool: string;

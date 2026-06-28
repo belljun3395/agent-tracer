@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { RecipeScanService } from "../service/recipe.scan.service.js";
 
-/** 최근 recipe scan 작업 상태를 조회한다(컨트롤러가 service를 직접 알지 않도록). */
+/** 최근 recipe scan 작업 상태를 조회한다. */
 @Injectable()
 export class GetLatestRecipeScanUseCase {
     constructor(private readonly service: RecipeScanService) {}

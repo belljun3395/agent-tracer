@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { RecipeApplicationRepository } from "../repository/recipe.application.repository.js";
 
-/** taskId로 적용된 recipe application 목록을 조회한다(컨트롤러가 repository를 직접 알지 않도록). */
+/** taskId로 적용된 recipe application 목록을 조회한다. */
 @Injectable()
 export class ListRecipeApplicationsUseCase {
     constructor(private readonly applications: RecipeApplicationRepository) {}

@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { TaskCleanupService } from "../service/task.cleanup.service.js";
 
-/** 최근 task 정리 작업 상태를 조회한다(컨트롤러가 service를 직접 알지 않도록). */
+/** 최근 task 정리 작업 상태를 조회한다. */
 @Injectable()
 export class GetLatestTaskCleanupUseCase {
     constructor(private readonly service: TaskCleanupService) {}

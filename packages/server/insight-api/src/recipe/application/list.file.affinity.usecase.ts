@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { FileAffinityRepository } from "../repository/file.affinity.repository.js";
 
-/** file-affinity 조회(파일별 intent / intent별 파일). 컨트롤러가 repository를 직접 알지 않도록 감싼다. */
+/** file-affinity 조회(파일별 intent / intent별 파일). */
 @Injectable()
 export class ListFileAffinityUseCase {
     constructor(private readonly fileAffinity: FileAffinityRepository) {}
