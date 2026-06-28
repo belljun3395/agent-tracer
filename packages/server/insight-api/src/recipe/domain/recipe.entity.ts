@@ -67,6 +67,10 @@ export class RecipeEntity {
         return this.appliedCount > 0 ? this.successCount / this.appliedCount : 0;
     }
 
+    isRetired(): boolean {
+        return this.status === RECIPE_STATUS.retired;
+    }
+
     shouldRetire(nowIso: string): boolean {
         // active 레시피만 자동 폐기 대상이며, 이미 superseded/retired인 항목은 건드리지 않는다.
         if (this.status !== RECIPE_STATUS.active) return false;

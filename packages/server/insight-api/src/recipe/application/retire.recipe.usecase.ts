@@ -16,7 +16,7 @@ export class RetireRecipeUseCase {
     ): Promise<RetireRecipeUseCaseOut> {
         const row = await this.recipes.findById(input.recipeId);
         if (!row) return { status: "not_found" };
-        if (row.status === "retired") return { status: "already_retired" };
+        if (row.isRetired()) return { status: "already_retired" };
         const ok = await this.recipes.setStatus(
             row.id,
             "retired",
