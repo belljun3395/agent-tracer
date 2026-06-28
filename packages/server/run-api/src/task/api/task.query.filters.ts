@@ -3,8 +3,9 @@ import type {
     ListTasksArchivedScope,
     ListTasksOriginFilter,
 } from "../application/dto/list.tasks.usecase.dto.js";
+import { ARCHIVED_SCOPES } from "../public/iservice/task.snapshot.query.iservice.js";
 
-export const LIST_TASKS_ARCHIVED_SCOPES = ["active", "archived", "all"] as const satisfies readonly ListTasksArchivedScope[];
+export const LIST_TASKS_ARCHIVED_SCOPES = ARCHIVED_SCOPES satisfies readonly ListTasksArchivedScope[];
 export const LIST_TASKS_ORIGIN_FILTERS = ["user", "server-sdk", "all"] as const satisfies readonly ListTasksOriginFilter[];
 
 const ARCHIVED_SCOPE_SET: ReadonlySet<string> = new Set(LIST_TASKS_ARCHIVED_SCOPES);

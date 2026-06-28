@@ -1,6 +1,7 @@
 import type { DashboardSnapshot, TaskSnapshot, TaskStatus } from "../dto/task.snapshot.dto.js";
 
-export type TaskSnapshotArchivedScope = "active" | "archived" | "all";
+export const ARCHIVED_SCOPES = ["active", "archived", "all"] as const;
+export type TaskSnapshotArchivedScope = (typeof ARCHIVED_SCOPES)[number];
 
 export interface ITaskSnapshotQuery {
     findAll(scope?: TaskSnapshotArchivedScope): Promise<readonly TaskSnapshot[]>;

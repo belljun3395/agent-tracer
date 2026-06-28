@@ -1,5 +1,6 @@
 import { normalizeOutputLanguage } from "@monitor/shared/llm/output.language.js";
 import type { RecipeOutputLanguage } from "../agent/recipe.scan.prompt.js";
+import { ARCHIVED_SCOPES } from "@monitor/run-api/task/public/iservice/task.snapshot.query.iservice.js";
 import type { TaskSnapshotArchivedScope } from "@monitor/run-api/task/public/iservice/task.snapshot.query.iservice.js";
 
 export type RecipeScanStatusFilter = "completed" | "active" | "all";
@@ -17,7 +18,7 @@ export const MAX_CANDIDATES_HARD_CAP = 30;
 export const DEFAULT_MIN_EVENT_COUNT = 1;
 
 export const RECIPE_SCAN_STATUS_FILTERS = ["completed", "active", "all"] as const satisfies readonly RecipeScanStatusFilter[];
-export const RECIPE_SCAN_ARCHIVED_SCOPES = ["active", "archived", "all"] as const satisfies readonly TaskSnapshotArchivedScope[];
+export const RECIPE_SCAN_ARCHIVED_SCOPES = ARCHIVED_SCOPES satisfies readonly TaskSnapshotArchivedScope[];
 
 const RECIPE_SCAN_STATUS_FILTER_SET: ReadonlySet<string> = new Set(RECIPE_SCAN_STATUS_FILTERS);
 const RECIPE_SCAN_ARCHIVED_SCOPE_SET: ReadonlySet<string> = new Set(RECIPE_SCAN_ARCHIVED_SCOPES);
