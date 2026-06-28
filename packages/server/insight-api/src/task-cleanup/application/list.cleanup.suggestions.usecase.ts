@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { currentUserId } from "@monitor/shared/kernel/user/user.context.js";
 import { TaskCleanupSuggestionRepository } from "../repository/task.cleanup.suggestion.repository.js";
 import type {
     CleanupSuggestionDto,
@@ -14,11 +15,12 @@ export class ListCleanupSuggestionsUseCase {
     async execute(
         input: ListCleanupSuggestionsUseCaseIn,
     ): Promise<ListCleanupSuggestionsUseCaseOut> {
+        const userId = currentUserId();
         const scope = input.status ?? "pending";
         const rows =
             scope === "pending"
-                ? await this.suggestions.listByStatus("pending")
-                : await this.suggestions.listAll();
+                ? await this.suggestions.listByStatus("pending", userId)
+                : await this.suggestions.listAll(userId);
         return { suggestions: rows.map(toDto) };
     }
 }

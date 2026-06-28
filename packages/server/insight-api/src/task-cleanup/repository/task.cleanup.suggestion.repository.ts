@@ -16,6 +16,7 @@ export class TaskCleanupSuggestionRepository {
 
     async insertMany(rows: readonly {
         id: string;
+        userId: string;
         jobId: string;
         taskId: string;
         kind: TaskCleanupSuggestionKind;
@@ -28,6 +29,7 @@ export class TaskCleanupSuggestionRepository {
         const entities = rows.map((r) =>
             this.repo.create({
                 id: r.id,
+                userId: r.userId,
                 jobId: r.jobId,
                 taskId: r.taskId,
                 kind: r.kind,
@@ -43,35 +45,39 @@ export class TaskCleanupSuggestionRepository {
         await this.repo.save(entities);
     }
 
-    async findById(id: string): Promise<TaskCleanupSuggestionEntity | null> {
-        return this.repo.findOne({ where: { id } });
+    async findOwned(id: string, userId: string): Promise<TaskCleanupSuggestionEntity | null> {
+        return this.repo.findOne({ where: { id, userId } });
     }
 
     async listByStatus(
         status: TaskCleanupSuggestionStatus,
+        userId: string,
     ): Promise<readonly TaskCleanupSuggestionEntity[]> {
         return this.repo
             .createQueryBuilder("s")
-            .where("s.status = :status", { status })
+            .where("s.userId = :userId", { userId })
+            .andWhere("s.status = :status", { status })
             .orderBy("s.createdAt", "DESC")
             .getMany();
     }
 
-    async listAll(): Promise<readonly TaskCleanupSuggestionEntity[]> {
+    async listAll(userId: string): Promise<readonly TaskCleanupSuggestionEntity[]> {
         return this.repo
             .createQueryBuilder("s")
+            .where("s.userId = :userId", { userId })
             .orderBy("s.createdAt", "DESC")
             .getMany();
     }
 
     async markResolved(input: {
         id: string;
+        userId: string;
         status: Exclude<TaskCleanupSuggestionStatus, "pending">;
         resolvedAt: string;
         error?: string | null;
     }): Promise<void> {
         await this.repo.update(
-            { id: input.id },
+            { id: input.id, userId: input.userId },
             {
                 status: input.status,
                 resolvedAt: input.resolvedAt,

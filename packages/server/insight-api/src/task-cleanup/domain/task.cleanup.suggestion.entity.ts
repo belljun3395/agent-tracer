@@ -13,12 +13,15 @@ export type TaskCleanupSuggestionStatus =
     | "failed";
 
 @Entity({ name: "task_cleanup_suggestions" })
-@Index("idx_task_cleanup_sugg_status", ["status", "createdAt"])
+@Index("idx_task_cleanup_sugg_status", ["userId", "status", "createdAt"])
 @Index("idx_task_cleanup_sugg_job", ["jobId"])
 @Index("idx_task_cleanup_sugg_task", ["taskId"])
 export class TaskCleanupSuggestionEntity {
     @PrimaryColumn({ type: "text" })
     id!: string;
+
+    @Column({ name: "user_id", type: "text", default: "local" })
+    userId!: string;
 
     @Column({ name: "job_id", type: "text" })
     jobId!: string;

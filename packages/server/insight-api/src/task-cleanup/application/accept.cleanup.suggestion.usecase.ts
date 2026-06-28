@@ -1,5 +1,6 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import { Transactional } from "typeorm-transactional";
+import { currentUserId } from "@monitor/shared/kernel/user/user.context.js";
 import type { ITaskMaintenance } from "@monitor/run-api/task/public/iservice/task.maintenance.iservice.js";
 import { TASK_MAINTENANCE } from "@monitor/run-api/task/public/tokens.js";
 import { TaskCleanupSuggestionRepository } from "../repository/task.cleanup.suggestion.repository.js";
@@ -21,7 +22,8 @@ export class AcceptCleanupSuggestionUseCase {
     async execute(
         input: AcceptCleanupSuggestionUseCaseIn,
     ): Promise<AcceptCleanupSuggestionUseCaseOut> {
-        const row = await this.suggestions.findById(input.suggestionId);
+        const userId = currentUserId();
+        const row = await this.suggestions.findOwned(input.suggestionId, userId);
         // 존재하지 않는 제안은 적용 대상이 아니므로 not_found로 끝낸다.
         if (!row) return { status: "not_found" };
         // 이미 처리된 제안은 재적용하지 않아 상태 변경을 한 번만 허용한다.
@@ -37,6 +39,7 @@ export class AcceptCleanupSuggestionUseCase {
             );
             await this.suggestions.markResolved({
                 id: row.id,
+                userId,
                 status: "failed",
                 resolvedAt: new Date().toISOString(),
                 error: truncate(message, 500),
@@ -46,6 +49,7 @@ export class AcceptCleanupSuggestionUseCase {
 
         await this.suggestions.markResolved({
             id: row.id,
+            userId,
             status: "accepted",
             resolvedAt: new Date().toISOString(),
         });

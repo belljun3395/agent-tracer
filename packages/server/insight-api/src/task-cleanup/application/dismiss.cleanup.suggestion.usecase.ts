@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { Transactional } from "typeorm-transactional";
+import { currentUserId } from "@monitor/shared/kernel/user/user.context.js";
 import { TaskCleanupSuggestionRepository } from "../repository/task.cleanup.suggestion.repository.js";
 import type {
     DismissCleanupSuggestionUseCaseIn,
@@ -16,11 +17,13 @@ export class DismissCleanupSuggestionUseCase {
     async execute(
         input: DismissCleanupSuggestionUseCaseIn,
     ): Promise<DismissCleanupSuggestionUseCaseOut> {
-        const row = await this.suggestions.findById(input.suggestionId);
+        const userId = currentUserId();
+        const row = await this.suggestions.findOwned(input.suggestionId, userId);
         if (!row) return { status: "not_found" };
         if (!row.isPending()) return { status: "not_pending" };
         await this.suggestions.markResolved({
             id: row.id,
+            userId,
             status: "dismissed",
             resolvedAt: new Date().toISOString(),
         });

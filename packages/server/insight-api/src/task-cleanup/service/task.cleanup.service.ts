@@ -1,5 +1,6 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import { NOTIFICATION_TYPE } from "@monitor/shared/contracts/notifications/notification.type.const.js";
+import { currentUserId } from "@monitor/shared/kernel/user/user.context.js";
 import { randomUUID } from "node:crypto";
 import { TaskCleanupAgent } from "../agent/task.cleanup.agent.js";
 import type { CleanupTaskSnapshot } from "../agent/task.cleanup.prompt.js";
@@ -140,9 +141,11 @@ export class TaskCleanupService {
 
             const knownTaskIds = new Set(snapshots.map((s) => s.id));
             const now = new Date().toISOString();
+            const ownerId = currentUserId();
             const rows = dedupeByKindAndTask(output.suggestions, knownTaskIds).map(
                 (s) => ({
                     id: randomUUID(),
+                    userId: ownerId,
                     jobId: job.id,
                     taskId: s.taskId,
                     kind: s.kind,
