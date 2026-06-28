@@ -38,14 +38,14 @@ export class TimelineEventStorageService {
     }
 
     async findById(id: string): Promise<TimelineEvent | null> {
-        const row = await this.timelineEvents.findById(id);
+        const row = await this.timelineEvents.findOwned(id, currentUserId());
         if (!row) return null;
         const [event] = await this.applyRuleLaneOverride([this.toEvent(row)]);
         return event ?? null;
     }
 
     async findByTaskId(taskId: string): Promise<readonly TimelineEvent[]> {
-        const rows = await this.timelineEvents.findByTaskIdOrdered(taskId);
+        const rows = await this.timelineEvents.findByTaskIdOrdered(taskId, currentUserId());
         return this.applyRuleLaneOverride(rows.map((row) => this.toEvent(row)));
     }
 

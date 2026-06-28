@@ -10,8 +10,8 @@ export class TimelineEventRepository {
         private readonly repo: Repository<TimelineEventEntity>,
     ) {}
 
-    findById(id: string): Promise<TimelineEventEntity | null> {
-        return this.repo.findOne({ where: { id } });
+    findOwned(id: string, userId: string): Promise<TimelineEventEntity | null> {
+        return this.repo.findOne({ where: { id, userId } });
     }
 
     findByIds(ids: readonly string[]): Promise<TimelineEventEntity[]> {
@@ -19,8 +19,8 @@ export class TimelineEventRepository {
         return this.repo.find({ where: { id: In([...ids]) } });
     }
 
-    findByTaskIdOrdered(taskId: string): Promise<TimelineEventEntity[]> {
-        return this.repo.find({ where: { taskId }, order: { createdAt: "ASC" } });
+    findByTaskIdOrdered(taskId: string, userId: string): Promise<TimelineEventEntity[]> {
+        return this.repo.find({ where: { taskId, userId }, order: { createdAt: "ASC" } });
     }
 
     save(entity: TimelineEventEntity): Promise<TimelineEventEntity> {
