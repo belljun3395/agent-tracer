@@ -34,7 +34,7 @@ import {
 import {
     RECIPE_SCAN_ARCHIVED_SCOPES,
     RECIPE_SCAN_STATUS_FILTERS,
-} from "../domain/recipe.scan.filters.js";
+} from "../domain/recipe.scan.filters.policy.js";
 import {
     parseRecipeCandidateStatusFilter,
     parseRecipeStatusFilter,

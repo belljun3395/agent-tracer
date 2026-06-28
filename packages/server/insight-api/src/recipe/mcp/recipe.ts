@@ -5,7 +5,7 @@ import { toToolResponse } from "@monitor/shared/mcp/result.js";
 import {
     RECIPE_SCAN_ARCHIVED_SCOPES,
     RECIPE_SCAN_STATUS_FILTERS,
-} from "../domain/recipe.scan.filters.js";
+} from "../domain/recipe.scan.filters.policy.js";
 import { RECIPE_STATUSES } from "../domain/recipe.entity.js";
 
 const RECIPE_MCP_STATUS_FILTERS = [...RECIPE_STATUSES, "all"] as const;

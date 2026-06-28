@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { RecipeEntity } from "./recipe.entity.js";
-import { jaccardOverlap, pickBestParent } from "./recipe.parentage.js";
+import { jaccardOverlap, pickBestParent } from "./recipe.parentage.policy.js";
 
 function recipe(id: string): RecipeEntity {
     return Object.assign(new RecipeEntity(), { id });

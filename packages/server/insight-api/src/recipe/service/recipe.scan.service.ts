@@ -22,13 +22,13 @@ import { RecipeRepository } from "../repository/recipe.repository.js";
 import { InsightJobRepository } from "../../job/insight.job.repository.js";
 import type { InsightJobEntity } from "../../job/insight.job.entity.js";
 import type { RecipeEntity } from "../domain/recipe.entity.js";
-import { extractTaskIdsFromSlices, pickBestParent } from "../domain/recipe.parentage.js";
+import { extractTaskIdsFromSlices, pickBestParent } from "../domain/recipe.parentage.policy.js";
 import {
     applyRecipeScanFilters,
     normalizeRecipeLanguage,
     normalizeRecipeScanFilters,
     parseRecipeScanFilters,
-} from "../domain/recipe.scan.filters.js";
+} from "../domain/recipe.scan.filters.policy.js";
 import type { EnqueueRecipeScanInput } from "../application/dto/recipe.scan.dto.js";
 
 export class RecipeScanAlreadyInFlightError extends Error {

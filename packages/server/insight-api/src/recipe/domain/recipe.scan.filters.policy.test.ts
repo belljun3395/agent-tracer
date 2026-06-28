@@ -6,7 +6,7 @@ import {
     normalizeRecipeLanguage,
     normalizeRecipeScanFilters,
     parseRecipeScanFilters,
-} from "./recipe.scan.filters.js";
+} from "./recipe.scan.filters.policy.js";
 
 describe("clampMaxCandidates — 후보 상한 보정", () => {
     it("유효하지 않은 값이면 기본값 10을 쓴다", () => {
