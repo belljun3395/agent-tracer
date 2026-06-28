@@ -2,7 +2,6 @@ import {
     MONITORING_TASK_KIND,
     RUNNING_TASK_STATUS,
     SERVER_SDK_TASK_ORIGIN,
-    isActiveTaskStatus,
     isTerminalTaskStatus,
 } from "@monitor/run-api/task/common/task.status.const.js";
 import type { MonitoringTaskKind, TaskOrigin, TaskStatus } from "@monitor/run-api/task/common/task.status.const.js";
@@ -18,15 +17,11 @@ export function isTaskRunning(task: TaskJudgment): boolean {
     return task.status === RUNNING_TASK_STATUS;
 }
 
-export function isTaskActive(task: TaskJudgment): boolean {
-    return isActiveTaskStatus(task.status);
-}
-
 export function isTaskTerminal(task: TaskJudgment): boolean {
     return isTerminalTaskStatus(task.status);
 }
 
-export function isBackgroundTask(task: TaskJudgment): boolean {
+function isBackgroundTask(task: TaskJudgment): boolean {
     return task.taskKind === MONITORING_TASK_KIND.background;
 }
 
