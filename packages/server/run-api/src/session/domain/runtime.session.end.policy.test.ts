@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { RuntimeSessionEnd, type RuntimeSessionEndProps } from "./runtime.session.end.model.js";
+import { RuntimeSessionEnd, type RuntimeSessionEndProps } from "./runtime.session.end.policy.js";
 
 function makeEnd(overrides: Partial<RuntimeSessionEndProps> = {}): RuntimeSessionEnd {
     return new RuntimeSessionEnd({
