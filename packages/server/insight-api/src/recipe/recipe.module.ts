@@ -10,6 +10,9 @@ import { RecipeScanService } from "./service/recipe.scan.service.js";
 import { RetireRecipeUseCase } from "./application/retire.recipe.usecase.js";
 import { ListRecipeApplicationsUseCase } from "./application/list.recipe.applications.usecase.js";
 import { ListFileAffinityUseCase } from "./application/list.file.affinity.usecase.js";
+import { EnqueueRecipeScanUseCase } from "./application/enqueue.recipe.scan.usecase.js";
+import { GetLatestRecipeScanUseCase } from "./application/get.latest.recipe.scan.usecase.js";
+import { MatchRecipeUseCase } from "./application/match.recipe.usecase.js";
 import { FileAffinityEntity } from "./domain/file.affinity.entity.js";
 import { RecipeApplicationEntity } from "./domain/recipe.application.entity.js";
 import { RecipeCandidateEntity } from "./domain/recipe.candidate.entity.js";
@@ -48,6 +51,9 @@ export class RecipeModule {
                 FileAffinityRepository,
                 RecipeScanService,
                 RecipeMatchingService,
+                EnqueueRecipeScanUseCase,
+                GetLatestRecipeScanUseCase,
+                MatchRecipeUseCase,
                 ListRecipeCandidatesUseCase,
                 AcceptRecipeCandidateUseCase,
                 DismissRecipeCandidateUseCase,
@@ -60,7 +66,7 @@ export class RecipeModule {
                 LocalQueryRunner,
                 { provide: QUERY_RUNNER, useExisting: LocalQueryRunner },
             ],
-            exports: [RecipeScanService, RecipeRepository, RecipeMatchingService],
+            exports: [RecipeRepository],
         };
     }
 }

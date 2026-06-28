@@ -20,15 +20,16 @@ import { AcceptRecipeCandidateUseCase } from "../application/accept.recipe.candi
 import { DismissRecipeCandidateUseCase } from "../application/dismiss.recipe.candidate.usecase.js";
 import { ListRecipeCandidatesUseCase } from "../application/list.recipe.candidates.usecase.js";
 import { ListRecipesUseCase } from "../application/list.recipes.usecase.js";
-import { RecipeMatchingService } from "../service/recipe.matching.service.js";
 import { ListFileAffinityUseCase } from "../application/list.file.affinity.usecase.js";
 import { ListRecipeApplicationsUseCase } from "../application/list.recipe.applications.usecase.js";
 import { RetireRecipeUseCase } from "../application/retire.recipe.usecase.js";
+import { EnqueueRecipeScanUseCase } from "../application/enqueue.recipe.scan.usecase.js";
+import { GetLatestRecipeScanUseCase } from "../application/get.latest.recipe.scan.usecase.js";
+import { MatchRecipeUseCase } from "../application/match.recipe.usecase.js";
 import {
     MissingApiKeyError,
     NoTasksToScanError,
     RecipeScanAlreadyInFlightError,
-    RecipeScanService,
 } from "../service/recipe.scan.service.js";
 import {
     RECIPE_SCAN_ARCHIVED_SCOPES,
@@ -77,13 +78,14 @@ function clampSmallInt(
 @Controller("api/v1/recipes")
 export class RecipeScanController {
     constructor(
-        private readonly service: RecipeScanService,
+        private readonly enqueueScan: EnqueueRecipeScanUseCase,
+        private readonly getLatestScan: GetLatestRecipeScanUseCase,
+        private readonly matchRecipe: MatchRecipeUseCase,
         private readonly listCandidates: ListRecipeCandidatesUseCase,
         private readonly acceptCandidate: AcceptRecipeCandidateUseCase,
         private readonly dismissCandidate: DismissRecipeCandidateUseCase,
         private readonly listRecipes: ListRecipesUseCase,
         private readonly retireRecipe: RetireRecipeUseCase,
-        private readonly matching: RecipeMatchingService,
         private readonly listApplicationsUseCase: ListRecipeApplicationsUseCase,
         private readonly fileAffinityUseCase: ListFileAffinityUseCase,
     ) {}
@@ -94,7 +96,7 @@ export class RecipeScanController {
         @Body(new ZodValidationPipe(enqueueBodySchema)) body: EnqueueDto,
     ) {
         try {
-            const job = await this.service.run({
+            return await this.enqueueScan.execute({
                 ...(body.statusFilter ? { statusFilter: body.statusFilter } : {}),
                 ...(body.since ? { since: body.since } : {}),
                 ...(body.maxCandidates !== undefined
@@ -105,11 +107,6 @@ export class RecipeScanController {
                     : {}),
                 ...(body.archivedScope ? { archivedScope: body.archivedScope } : {}),
             });
-            return {
-                jobId: job.id,
-                status: job.status,
-                createdAt: job.createdAt,
-            };
         } catch (err) {
             if (err instanceof RecipeScanAlreadyInFlightError) {
                 throw new ConflictException({
@@ -129,25 +126,7 @@ export class RecipeScanController {
 
     @Get("scan/jobs/latest")
     async latest() {
-        const job = await this.service.findLatest();
-        if (!job) return { job: null };
-        return {
-            job: {
-                id: job.id,
-                status: job.status,
-                attempts: job.attempts,
-                error: job.error,
-                candidatesCreated: job.candidatesCreated ?? 0,
-                tasksScanned: job.tasksScanned ?? 0,
-                language: job.language,
-                modelUsed: job.modelUsed,
-                durationMs: job.durationMs,
-                createdAt: job.createdAt,
-                updatedAt: job.updatedAt,
-                startedAt: job.startedAt,
-                completedAt: job.completedAt,
-            },
-        };
+        return this.getLatestScan.execute();
     }
 
     @Get("candidates")
@@ -211,14 +190,13 @@ export class RecipeScanController {
     async match(
         @Body(new ZodValidationPipe(matchBodySchema)) body: MatchDto,
     ) {
-        const matches = await this.matching.match({
+        return this.matchRecipe.execute({
             prompt: body.prompt,
             ...(body.taskId ? { targetTaskId: body.taskId } : {}),
             ...(body.limit !== undefined ? { limit: body.limit } : {}),
             ...(body.injectedVia ? { injectedVia: body.injectedVia } : {}),
             ...(body.dryRun !== undefined ? { dryRun: body.dryRun } : {}),
         });
-        return { matches };
     }
 
     @Get("file-affinity")
