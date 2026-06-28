@@ -1,6 +1,8 @@
 import { INGEST_ENDPOINTS, KIND } from "../events/kinds.const.js"
 import type { IngestEndpoint, RuntimeIngestEventKind } from "../events/kinds.type.js"
 
+// 각 그룹은 서버 ingest 엔드포인트가 수용하는 kind 집합과 일치해야 한다
+// (packages/server/timeline-api/.../event.kind.const.ts). 어긋나면 해당 kind가 400으로 드롭된다.
 export const TOOL_ACTIVITY_EVENT_KINDS = [KIND.toolUsed, KIND.terminalCommand, KIND.monitorObserved] as const;
 export const WORKFLOW_EVENT_KINDS = [
     KIND.planLogged,
@@ -10,18 +12,16 @@ export const WORKFLOW_EVENT_KINDS = [
     KIND.thoughtLogged,
     KIND.contextSaved,
     KIND.contextSnapshot,
-] as const;
-export const CONVERSATION_EVENT_KINDS = [KIND.userMessage, KIND.assistantResponse, KIND.questionLogged, KIND.todoLogged, KIND.userPromptExpansion] as const;
-export const COORDINATION_EVENT_KINDS = [KIND.agentActivityLogged] as const;
-export const LIFECYCLE_EVENT_KINDS = [
-    KIND.sessionEnded,
-    KIND.instructionsLoaded,
-    KIND.setupTriggered,
-    KIND.fileChanged,
+    KIND.userPromptExpansion,
+    KIND.permissionRequest,
     KIND.worktreeCreate,
     KIND.worktreeRemove,
-    KIND.permissionRequest,
+    KIND.setupTriggered,
+    KIND.fileChanged,
 ] as const;
+export const CONVERSATION_EVENT_KINDS = [KIND.userMessage, KIND.assistantResponse, KIND.questionLogged, KIND.todoLogged] as const;
+export const COORDINATION_EVENT_KINDS = [KIND.agentActivityLogged] as const;
+export const LIFECYCLE_EVENT_KINDS = [KIND.sessionEnded, KIND.instructionsLoaded] as const;
 export const TELEMETRY_EVENT_KINDS = [KIND.tokenUsage] as const;
 export const RUNTIME_INGEST_EVENT_KINDS = [
     ...TOOL_ACTIVITY_EVENT_KINDS, ...WORKFLOW_EVENT_KINDS, ...CONVERSATION_EVENT_KINDS,
