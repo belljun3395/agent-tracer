@@ -1,7 +1,7 @@
 import { normalizeFilePath } from "@monitor/timeline-api/event/domain/paths.js";
-import { isUserMessageEvent } from "./event.predicates.js";
+import { isUserMessageEvent } from "./event.predicates.policy.js";
 import { META } from "@monitor/timeline-api/event/domain/runtime/const/metadata.keys.const.js";
-import { readStringArray } from "./event.metadata.js";
+import { readStringArray } from "./event.metadata.policy.js";
 import type { TimelineEvent } from "./model/timeline.event.model.js";
 import type { TimelineEventPaths } from "./model/timeline.event.paths.model.js";
 

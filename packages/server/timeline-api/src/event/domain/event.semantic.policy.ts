@@ -9,7 +9,7 @@ import {
 } from "@monitor/timeline-api/event/domain/runtime/event.subtype.keys.js";
 import type { EventSubtypeGroup } from "@monitor/timeline-api/event/domain/runtime/const/event.subtype.keys.const.js";
 import { META } from "@monitor/timeline-api/event/domain/runtime/const/metadata.keys.const.js";
-import { readString } from "./event.metadata.js";
+import { readString } from "./event.metadata.policy.js";
 import type { EventSemanticMetadata, EventSemanticSummary } from "./model/event.semantic.model.js";
 import type { TimelineEvent } from "./model/timeline.event.model.js";
 

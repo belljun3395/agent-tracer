@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { PreprocessingHintsRepository } from "@monitor/timeline-api/event/repository/preprocessing.hints.repository.js";
-import { parseJsonRecord } from "@monitor/timeline-api/event/domain/event.json.js";
+import { parseJsonRecord } from "@monitor/timeline-api/event/domain/event.json.policy.js";
 import type { PreprocessingHint } from "../dto/preprocessing.hints.dto.js";
 
 const USED_PCT_WARNING = 80;

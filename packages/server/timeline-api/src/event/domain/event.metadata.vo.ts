@@ -9,7 +9,7 @@ import {
     readString,
     readStringArray,
     readTags,
-} from "./timeline.event.metadata.js";
+} from "./timeline.event.metadata.policy.js";
 
 // 메인 행에 별도 컬럼으로 저장되는 분류/도구 식별자.
 export interface TimelineEventColumns {

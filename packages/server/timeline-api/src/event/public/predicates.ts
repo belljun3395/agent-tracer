@@ -15,4 +15,4 @@ export {
 
     isAgentActivityLoggedEvent,
 
-} from "@monitor/timeline-api/event/domain/event.predicates.js";
+} from "@monitor/timeline-api/event/domain/event.predicates.policy.js";

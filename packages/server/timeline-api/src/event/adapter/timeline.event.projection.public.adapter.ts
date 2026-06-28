@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { TimelineEventProjector } from "../domain/timeline.event.projection.model.js";
+import { TimelineEventProjector } from "../domain/timeline.event.projection.policy.js";
 import type {
     TimelineEventProjection,
     TimelineEventSnapshot,

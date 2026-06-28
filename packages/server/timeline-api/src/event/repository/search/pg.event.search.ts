@@ -1,7 +1,7 @@
 import { Injectable, Logger, type OnModuleInit } from "@nestjs/common";
 import { DataSource } from "typeorm";
 import { currentUserId } from "@monitor/shared/kernel/user/user.context.js";
-import { normalizeLane } from "@monitor/timeline-api/event/domain/event.lane.js";
+import { normalizeLane } from "@monitor/timeline-api/event/domain/event.lane.policy.js";
 import type {
     EventSearchIndexQueryOptions,
     EventSearchIndexResults,

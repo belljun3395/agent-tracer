@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { LANE } from "./common/const/event.kind.const.js";
-import { resolveSemanticView } from "./event.semantic.js";
+import { resolveSemanticView } from "./event.semantic.policy.js";
 import type { TimelineEvent } from "./model/timeline.event.model.js";
 
 function event(overrides: Partial<TimelineEvent>): TimelineEvent {

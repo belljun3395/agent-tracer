@@ -1,9 +1,9 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { NOTIFICATION_TYPE } from "@monitor/shared/contracts/notifications/notification.type.const.js";
 import { Transactional } from "typeorm-transactional";
-import { resolveDisplayTitleMetadataUpdate } from "@monitor/timeline-api/event/domain/event.metadata.js";
+import { resolveDisplayTitleMetadataUpdate } from "@monitor/timeline-api/event/domain/event.metadata.policy.js";
 import { TimelineEventService } from "../service/timeline.event.service.js";
-import { projectTimelineEvent } from "../domain/timeline.event.projection.model.js";
+import { projectTimelineEvent } from "../domain/timeline.event.projection.policy.js";
 import { NOTIFICATION_PUBLISHER_PORT } from "./outbound/tokens.js";
 import type { IEventNotificationPublisher } from "./outbound/notification.publisher.port.js";
 import type {

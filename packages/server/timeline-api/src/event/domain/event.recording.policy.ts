@@ -1,5 +1,5 @@
 import type { TimelineEvent } from "./model/timeline.event.model.js";
-import { isBackgroundLane, isExplorationLane } from "./event.predicates.js";
+import { isBackgroundLane, isExplorationLane } from "./event.predicates.policy.js";
 import { KIND } from "@monitor/timeline-api/event/domain/common/const/event.kind.const.js";
 import type { EventRecordingInput, EventRecordDraft } from "./model/event.recording.model.js";
 import type { EventClassification } from "./model/timeline.event.model.js";

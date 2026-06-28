@@ -1,5 +1,5 @@
 import { KIND } from "@monitor/timeline-api/event/domain/common/const/event.kind.const.js";
-import { readString } from "./event.metadata.js";
+import { readString } from "./event.metadata.policy.js";
 import type { MonitoringPhaseBucket } from "./model/event.phase.model.js";
 import type { TimelineEvent } from "./model/timeline.event.model.js";
 
