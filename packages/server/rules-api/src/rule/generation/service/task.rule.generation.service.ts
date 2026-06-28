@@ -16,7 +16,7 @@ import type { RuleJobEntity } from "../../../job/rule.job.entity.js";
 import {
     clampMaxRules,
     normalizeRuleSuggestionLanguage,
-} from "../domain/task.rule.generation.params.js";
+} from "../domain/task.rule.generation.params.policy.js";
 
 export class TaskNotFoundForGenerationError extends Error {
     constructor(public readonly taskId: string) {

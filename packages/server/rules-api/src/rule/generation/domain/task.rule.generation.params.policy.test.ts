@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
     clampMaxRules,
     normalizeRuleSuggestionLanguage,
-} from "./task.rule.generation.params.js";
+} from "./task.rule.generation.params.policy.js";
 
 describe("clampMaxRules — 최대 규칙 수 보정", () => {
     it("값이 없거나 유효하지 않으면 기본값 5를 쓴다", () => {
