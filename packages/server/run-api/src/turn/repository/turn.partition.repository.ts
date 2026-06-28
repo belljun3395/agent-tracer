@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
-import type { TurnGroup, TurnPartition } from "../domain/turn.partition.model.js";
+import type { TurnGroup, TurnPartition } from "../domain/type/turn.partition.type.js";
 import { TurnPartitionEntity } from "../domain/turn.partition.entity.js";
 
 @Injectable()

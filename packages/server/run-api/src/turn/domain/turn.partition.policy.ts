@@ -1,11 +1,11 @@
 import type { TimelineEvent } from "@monitor/timeline-api/event/public/types/event.types.js";
-import { segmentEventsByTurn } from "./segments.js";
+import { segmentEventsByTurn } from "./segments.policy.js";
 import type {
     ResolveTurnPartitionInput,
     TurnGroup,
     TurnPartition,
     TurnPartitionUpdateInput,
-} from "./turn.partition.model.js";
+} from "./type/turn.partition.type.js";
 
 export type GroupIdFactory = () => string;
 

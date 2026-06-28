@@ -9,7 +9,7 @@ import type {
     TimelineEventAccessRecord,
 } from "./outbound/timeline.event.access.port.js";
 import type { TurnPartitionRepository } from "../repository/turn.partition.repository.js";
-import type { TurnPartition } from "../domain/turn.partition.model.js";
+import type { TurnPartition } from "../domain/type/turn.partition.type.js";
 import { TaskNotFoundError } from "../common/turn.partition.errors.js";
 
 const NOW_ISO = "2026-04-29T10:00:00.000Z";

@@ -1,6 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { Transactional } from "typeorm-transactional";
-import { countNonPreludeTurns, createTurnPartitionUpdate, validatePartition } from "../domain/turn.partition.js";
+import { countNonPreludeTurns, createTurnPartitionUpdate, validatePartition } from "../domain/turn.partition.policy.js";
 import { TurnPartitionRepository } from "../repository/turn.partition.repository.js";
 import {
     CLOCK_PORT,

@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { resolveTurnPartition } from "../domain/turn.partition.js";
+import { resolveTurnPartition } from "../domain/turn.partition.policy.js";
 import { TurnPartitionRepository } from "../repository/turn.partition.repository.js";
 import { CLOCK_PORT, ID_GENERATOR_PORT, TASK_ACCESS_PORT, TIMELINE_EVENT_ACCESS_PORT } from "./outbound/tokens.js";
 import type { IClock } from "./outbound/clock.port.js";

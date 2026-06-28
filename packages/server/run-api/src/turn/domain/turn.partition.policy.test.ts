@@ -5,9 +5,9 @@ import {
     createTurnPartitionUpdate,
     resolveTurnPartition,
     validatePartition,
-} from "./turn.partition.js";
+} from "./turn.partition.policy.js";
 import type { TimelineEvent } from "@monitor/timeline-api/event/public/types/event.types.js";
-import type { TurnPartition } from "./turn.partition.model.js";
+import type { TurnPartition } from "./type/turn.partition.type.js";
 
 function userMessage(id: string, createdAt: string): TimelineEvent {
     return {

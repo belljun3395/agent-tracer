@@ -1,6 +1,6 @@
 import { isUserMessageEvent } from "@monitor/timeline-api/event/public/predicates.js";
 import type { TimelineEvent } from "@monitor/timeline-api/event/public/types/event.types.js";
-import type { TurnSegment } from "./turn.segment.model.js";
+import type { TurnSegment } from "./type/turn.segment.type.js";
 
 const REQUEST_PREVIEW_LIMIT = 120;
 

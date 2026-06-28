@@ -1,4 +1,4 @@
-import type { TurnPartition } from "../../domain/turn.partition.model.js";
+import type { TurnPartition } from "../../domain/type/turn.partition.type.js";
 
 export interface TurnGroupUseCaseDto {
     readonly id: string;
