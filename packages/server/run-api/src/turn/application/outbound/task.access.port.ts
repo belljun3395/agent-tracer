@@ -1,5 +1,3 @@
-
-
 export interface TaskAccessRecord {
     readonly id: string;
 }

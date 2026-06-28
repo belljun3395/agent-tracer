@@ -1,5 +1,3 @@
-
-
 export interface TurnSummaryAccessRecord {
     readonly id: string;
     readonly taskId: string;

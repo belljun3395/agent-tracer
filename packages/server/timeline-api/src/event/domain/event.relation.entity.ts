@@ -1,4 +1,3 @@
-
 export class EventRelationEntity {
     eventId!: string;
 

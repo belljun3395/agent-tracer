@@ -1,4 +1,3 @@
-
 export type PreprocessingHintTrigger = "user_prompt" | "pre_tool";
 
 export type PreprocessingHintType =

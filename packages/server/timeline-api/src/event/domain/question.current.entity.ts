@@ -1,4 +1,3 @@
-
 export class QuestionCurrentEntity {
     id!: string;
 

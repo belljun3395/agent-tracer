@@ -1,4 +1,3 @@
-
 export class TodoCurrentEntity {
     id!: string;
 

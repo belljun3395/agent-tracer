@@ -1,4 +1,3 @@
-
 export interface AgentDeadline {
     readonly controller: AbortController;
     readonly dispose: () => void;

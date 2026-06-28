@@ -1,4 +1,3 @@
-
 export type {
     RuleScope,
     RuleSeverity,

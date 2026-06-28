@@ -1,5 +1,3 @@
-
-
 export type RulePersistenceScope = "global" | "task";
 export type RulePersistenceSeverity = "info" | "warn" | "block";
 export type RulePersistenceSource = "human" | "agent";

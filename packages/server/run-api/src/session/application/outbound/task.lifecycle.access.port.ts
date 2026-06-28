@@ -1,5 +1,3 @@
-
-
 export type TaskLifecycleAccessKind = "primary" | "background";
 export type TaskLifecycleAccessOutcome = "completed" | "errored";
 export type TaskLifecycleAccessOrigin = "user" | "server-sdk";

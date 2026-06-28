@@ -1,4 +1,3 @@
-
 export const NOTIFICATION_TYPE = {
     taskStarted: "task.started",
     taskCompleted: "task.completed",

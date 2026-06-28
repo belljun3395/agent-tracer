@@ -1,5 +1,3 @@
-
-
 import { EVENT_SUBTYPE_GROUPS, EVENT_TOOL_FAMILIES } from "./const/event.subtype.keys.const.js";
 import type { EventSubtypeGroup, EventToolFamily } from "./const/event.subtype.keys.const.js";
 

@@ -1,4 +1,3 @@
-
 export interface AgentQueryRequest {
 
     readonly label: string;

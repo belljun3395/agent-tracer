@@ -1,5 +1,3 @@
-
-
 export type TurnStatus = "open" | "closed";
 export type TurnAggregateVerdict = "verified" | "unverifiable" | "contradicted" | null;
 

@@ -1,4 +1,3 @@
-
 export const CLOCK_PORT = "CLOCK_PORT" as const;
 export const ID_GENERATOR_PORT = "ID_GENERATOR_PORT" as const;
 

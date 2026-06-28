@@ -1,5 +1,3 @@
-
-
 export type RuleAccessScope = "global" | "task";
 export type RuleAccessSeverity = "info" | "warn" | "block";
 export type RuleAccessSource = "human" | "agent";

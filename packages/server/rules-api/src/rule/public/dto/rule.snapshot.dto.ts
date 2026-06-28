@@ -1,5 +1,3 @@
-
-
 export type RuleSnapshotScope = "global" | "task";
 export type RuleSnapshotSeverity = "info" | "warn" | "block";
 export type RuleSnapshotSource = "human" | "agent";

@@ -1,5 +1,3 @@
-
-
 export const META = {
     subtypeKey: "subtypeKey",
     subtypeLabel: "subtypeLabel",

@@ -1,5 +1,3 @@
-
-
 export interface EventSearchIndexQueryOptions {
     readonly taskId?: string;
     readonly limit?: number;
