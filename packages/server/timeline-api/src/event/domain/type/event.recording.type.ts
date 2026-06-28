@@ -1,6 +1,6 @@
 import type { MonitoringEventKind, TimelineLane } from "@monitor/timeline-api/event/domain/common/const/event.kind.const.js";
 import type { EventRelationType } from "@monitor/timeline-api/event/domain/common/const/event.meta.const.js";
-import type { EventClassification } from "./timeline.event.model.js";
+import type { EventClassification } from "./timeline.event.type.js";
 
 export interface EventRecordingInput {
     readonly kind: MonitoringEventKind;

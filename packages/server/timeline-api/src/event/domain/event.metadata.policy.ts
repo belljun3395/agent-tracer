@@ -1,5 +1,5 @@
 import { META } from "@monitor/timeline-api/event/domain/runtime/const/metadata.keys.const.js";
-import type { DisplayTitleMetadataUpdate } from "./model/event.metadata.model.js";
+import type { DisplayTitleMetadataUpdate } from "./type/event.metadata.update.type.js";
 
 type UnknownMetadata = Record<string, unknown> | undefined;
 

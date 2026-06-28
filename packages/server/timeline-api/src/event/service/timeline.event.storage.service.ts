@@ -3,7 +3,7 @@ import { DataSource } from "typeorm";
 import { currentUserId } from "@monitor/shared/kernel/user/user.context.js";
 import { LANE, type MonitoringEventKind } from "@monitor/timeline-api/event/domain/common/const/event.kind.const.js";
 import { normalizeLane } from "@monitor/timeline-api/event/domain/event.lane.policy.js";
-import type { TimelineEvent } from "@monitor/timeline-api/event/domain/model/timeline.event.model.js";
+import type { TimelineEvent } from "@monitor/timeline-api/event/domain/type/timeline.event.type.js";
 import { EventMetadata } from "../domain/event.metadata.vo.js";
 import { TimelineEventEntity } from "../domain/timeline.event.entity.js";
 import type { TimelineEventInsertRequest } from "../application/outbound/event.persistence.port.js";

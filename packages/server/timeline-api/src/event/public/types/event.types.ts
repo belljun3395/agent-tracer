@@ -16,8 +16,8 @@ export type {
     EventClassification,
     EventClassificationMatch,
     EventClassificationReason,
-} from "@monitor/timeline-api/event/domain/model/timeline.event.model.js";
+} from "@monitor/timeline-api/event/domain/type/timeline.event.type.js";
 
 export type {
     EventRecordingInput,
-} from "@monitor/timeline-api/event/domain/model/event.recording.model.js";
+} from "@monitor/timeline-api/event/domain/type/event.recording.type.js";

@@ -2,7 +2,7 @@ import type { MonitoringEventKind, TimelineLane } from "@monitor/timeline-api/ev
 import type {
     EventClassificationMatch,
     TimelineEvent,
-} from "@monitor/timeline-api/event/domain/model/timeline.event.model.js";
+} from "@monitor/timeline-api/event/domain/type/timeline.event.type.js";
 
 export type PersistedTimelineEvent = TimelineEvent;
 

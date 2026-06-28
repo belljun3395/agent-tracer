@@ -10,8 +10,8 @@ import {
 import type { EventSubtypeGroup } from "@monitor/timeline-api/event/domain/runtime/const/event.subtype.keys.const.js";
 import { META } from "@monitor/timeline-api/event/domain/runtime/const/metadata.keys.const.js";
 import { readString } from "./event.metadata.policy.js";
-import type { EventSemanticMetadata, EventSemanticSummary } from "./model/event.semantic.model.js";
-import type { TimelineEvent } from "./model/timeline.event.model.js";
+import type { EventSemanticMetadata, EventSemanticSummary } from "./type/event.semantic.type.js";
+import type { TimelineEvent } from "./type/timeline.event.type.js";
 
 export function resolveSemanticView(event: TimelineEvent): EventSemanticSummary | undefined {
     const semantic = resolveSemanticFromMetadata(event.metadata);

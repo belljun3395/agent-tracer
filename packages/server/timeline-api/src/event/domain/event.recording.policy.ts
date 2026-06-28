@@ -1,8 +1,8 @@
-import type { TimelineEvent } from "./model/timeline.event.model.js";
+import type { TimelineEvent } from "./type/timeline.event.type.js";
 import { isBackgroundLane, isExplorationLane } from "./event.predicates.policy.js";
 import { KIND } from "@monitor/timeline-api/event/domain/common/const/event.kind.const.js";
-import type { EventRecordingInput, EventRecordDraft } from "./model/event.recording.model.js";
-import type { EventClassification } from "./model/timeline.event.model.js";
+import type { EventRecordingInput, EventRecordDraft } from "./type/event.recording.type.js";
+import type { EventClassification } from "./type/timeline.event.type.js";
 
 const MAX_DERIVED_FILE_EVENTS = 15;
 

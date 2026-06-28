@@ -1,7 +1,7 @@
 import { KIND } from "@monitor/timeline-api/event/domain/common/const/event.kind.const.js";
 import { readString } from "./event.metadata.policy.js";
-import type { MonitoringPhaseBucket } from "./model/event.phase.model.js";
-import type { TimelineEvent } from "./model/timeline.event.model.js";
+import type { MonitoringPhaseBucket } from "./type/event.phase.type.js";
+import type { TimelineEvent } from "./type/timeline.event.type.js";
 
 export function phaseForEvent(event: TimelineEvent): MonitoringPhaseBucket {
     switch (event.kind) {

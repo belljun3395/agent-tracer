@@ -4,7 +4,7 @@ import { NOTIFICATION_TYPE } from "@monitor/shared/contracts/notifications/notif
 import { Transactional, runOnTransactionCommit } from "typeorm-transactional";
 import { createEventRecordDraft, normalizeFilePaths } from "@monitor/timeline-api/event/domain/event.recording.policy.js";
 import { deriveFileChangeEventInputs } from "@monitor/timeline-api/event/domain/event.recording.policy.js";
-import type { TimelineEvent } from "@monitor/timeline-api/event/domain/model/timeline.event.model.js";
+import type { TimelineEvent } from "@monitor/timeline-api/event/domain/type/timeline.event.type.js";
 import { TimelineEventService } from "../service/timeline.event.service.js";
 import { projectTimelineEvent } from "../domain/timeline.event.projection.policy.js";
 import { CrossCheckDedupeCache } from "../common/cross.check.dedupe.cache.js";
