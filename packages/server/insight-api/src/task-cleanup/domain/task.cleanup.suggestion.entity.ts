@@ -1,16 +1,9 @@
 import { Column, Entity, Index, PrimaryColumn } from "typeorm";
-
-export type TaskCleanupSuggestionKind =
-    | "archive"
-    | "rename_title"
-    | "set_parent"
-    | "reslug";
-
-export type TaskCleanupSuggestionStatus =
-    | "pending"
-    | "accepted"
-    | "dismissed"
-    | "failed";
+import { CLEANUP_SUGGESTION_STATUS } from "./const/task.cleanup.const.js";
+import type {
+    TaskCleanupSuggestionKind,
+    TaskCleanupSuggestionStatus,
+} from "./const/task.cleanup.const.js";
 
 @Entity({ name: "task_cleanup_suggestions" })
 @Index("idx_task_cleanup_sugg_status", ["userId", "status", "createdAt"])
@@ -54,10 +47,10 @@ export class TaskCleanupSuggestionEntity {
     resolvedAt!: string | null;
 
     isPending(): boolean {
-        return this.status === "pending";
+        return this.status === CLEANUP_SUGGESTION_STATUS.pending;
     }
 
     isResolved(): boolean {
-        return this.status !== "pending";
+        return this.status !== CLEANUP_SUGGESTION_STATUS.pending;
     }
 }

@@ -1,10 +1,6 @@
 import { Column, Entity, Index, PrimaryColumn } from "typeorm";
-
-export type RecipeCandidateStatus =
-    | "pending"
-    | "accepted"
-    | "dismissed"
-    | "failed";
+import { RECIPE_CANDIDATE_STATUS } from "./const/recipe.const.js";
+import type { RecipeCandidateStatus } from "./const/recipe.const.js";
 
 @Entity({ name: "recipe_candidates" })
 @Index("idx_recipe_candidates_user_status", ["userId", "status", "createdAt"])
@@ -62,10 +58,10 @@ export class RecipeCandidateEntity {
     resolvedAt!: string | null;
 
     isPending(): boolean {
-        return this.status === "pending";
+        return this.status === RECIPE_CANDIDATE_STATUS.pending;
     }
 
     isResolved(): boolean {
-        return this.status !== "pending";
+        return this.status !== RECIPE_CANDIDATE_STATUS.pending;
     }
 }

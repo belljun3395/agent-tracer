@@ -1,11 +1,11 @@
 import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
-import {
-    TaskCleanupSuggestionEntity,
-    type TaskCleanupSuggestionKind,
-    type TaskCleanupSuggestionStatus,
-} from "../domain/task.cleanup.suggestion.entity.js";
+import { TaskCleanupSuggestionEntity } from "../domain/task.cleanup.suggestion.entity.js";
+import type {
+    TaskCleanupSuggestionKind,
+    TaskCleanupSuggestionStatus,
+} from "../domain/const/task.cleanup.const.js";
 
 @Injectable()
 export class TaskCleanupSuggestionRepository {

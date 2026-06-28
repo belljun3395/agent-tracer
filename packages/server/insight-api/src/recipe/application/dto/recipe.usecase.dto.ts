@@ -1,4 +1,4 @@
-import type { RecipeCandidateStatus } from "@monitor/insight-api/recipe/domain/recipe.candidate.entity.js";
+import type { RecipeCandidateStatus } from "@monitor/insight-api/recipe/domain/const/recipe.const.js";
 import type { RecipeStatus } from "@monitor/insight-api/recipe/domain/const/recipe.const.js";
 
 export type RecipeCandidateStatusFilter = "pending" | "all";

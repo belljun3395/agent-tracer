@@ -1,4 +1,4 @@
-import type { TaskCleanupSuggestionKind } from "@monitor/insight-api/task-cleanup/domain/task.cleanup.suggestion.entity.js";
+import type { TaskCleanupSuggestionKind } from "@monitor/insight-api/task-cleanup/domain/const/task.cleanup.const.js";
 
 export type CleanupSuggestionStatusFilter = "pending" | "all";
 

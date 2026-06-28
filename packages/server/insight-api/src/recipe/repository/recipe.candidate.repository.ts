@@ -2,10 +2,8 @@ import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { currentUserId } from "@monitor/shared/kernel/user/user.context.js";
-import {
-    RecipeCandidateEntity,
-    type RecipeCandidateStatus,
-} from "../domain/recipe.candidate.entity.js";
+import { RecipeCandidateEntity } from "../domain/recipe.candidate.entity.js";
+import type { RecipeCandidateStatus } from "../domain/const/recipe.const.js";
 
 export interface InsertRecipeCandidateRow {
     readonly id: string;
