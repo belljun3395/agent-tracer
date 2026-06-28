@@ -7,6 +7,7 @@ import {
     RULE_SOURCES,
     RULE_TRIGGER_SOURCES,
 } from "../domain/const/rule.const.js";
+import { checkRuleInvariants } from "../domain/rule.invariants.js";
 
 const triggerSchema = z.object({
     phrases: z.array(z.string().trim().min(1)).min(1),
@@ -30,34 +31,8 @@ export const ruleSuggestionIngestSchema = z
         rationale: z.string().trim().min(1).optional(),
     })
     .superRefine((value, ctx) => {
-        if (value.scope === "task" && !value.taskId) {
-            // task 스코프 룰은 적용 대상 taskId가 있어야 한다.
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                message: "Task-scoped rules require taskId",
-                path: ["taskId"],
-            });
-        }
-        if (value.scope === "global" && value.taskId) {
-            // global 룰은 특정 태스크에 묶이면 안 된다.
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                message: "Global rules must not have taskId",
-                path: ["taskId"],
-            });
-        }
-        const expect = value.expect;
-        if (
-            !expect.action &&
-            !expect.pattern &&
-            !(expect.commandMatches && expect.commandMatches.length > 0)
-        ) {
-            // 기대 조건이 하나도 없으면 평가할 기준이 없어 요청을 거부한다.
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                message: "expect must include at least one of action, pattern, or commandMatches",
-                path: ["expect"],
-            });
+        for (const violation of checkRuleInvariants({ scope: value.scope, taskId: value.taskId, expect: value.expect })) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: violation.message, path: [violation.path] });
         }
     });
 

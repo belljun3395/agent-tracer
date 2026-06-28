@@ -1,7 +1,7 @@
 import { Transactional, runOnTransactionCommit } from "typeorm-transactional";
 import { NOTIFICATION_TYPE } from "@monitor/shared/contracts/notifications/notification.type.const.js";
 import { Inject, Injectable, Logger } from "@nestjs/common";
-import { isRuleExpectMeaningful } from "@monitor/rules-api/rule/domain/rule.js";
+import { checkRuleInvariants } from "@monitor/rules-api/rule/domain/rule.invariants.js";
 import { computeRuleSignature } from "@monitor/rules-api/rule/domain/rule.signature.js";
 import {
     BACKFILL_TRIGGER_PORT,
@@ -91,16 +91,12 @@ function validate(input: CreateRuleUseCaseIn): void {
         // 트리거를 쓰는 룰은 최소 한 문구가 있어야 한다.
         throw new InvalidRuleError("Trigger phrases must not be empty when trigger is provided");
     }
-    if (!isRuleExpectMeaningful(input.expect)) {
-        // action, pattern, commandMatches 중 하나는 있어야 검증할 수 있다.
-        throw new InvalidRuleError("Rule expect must include at least one of action, pattern, or commandMatches");
-    }
-    if (input.scope === "task" && !input.taskId) {
-        // task 스코프 룰은 적용 대상을 고정해야 한다.
-        throw new InvalidRuleError("Task-scoped rules must have a taskId");
-    }
-    if (input.scope === "global" && input.taskId) {
-        // global 룰은 특정 태스크에 묶이지 않아야 한다.
-        throw new InvalidRuleError("Global rules must not have a taskId");
+    const [violation] = checkRuleInvariants({
+        scope: input.scope,
+        ...(input.taskId !== undefined ? { taskId: input.taskId } : {}),
+        expect: input.expect,
+    });
+    if (violation) {
+        throw new InvalidRuleError(violation.message);
     }
 }

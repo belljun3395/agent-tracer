@@ -1,6 +1,8 @@
 import { createZodDto } from "nestjs-zod";
 import { z } from "zod";
 import { RULE_EXPECTED_ACTIONS, RULE_SCOPES, RULE_SEVERITIES, RULE_TRIGGER_SOURCES } from "../domain/const/rule.const.js";
+import { checkRuleInvariants } from "../domain/rule.invariants.js";
+import type { RuleExpectInput } from "../domain/type/rule.expectation.input.js";
 
 const triggerSchema = z.object({
     phrases: z.array(z.string().trim().min(1)).min(1),
@@ -24,33 +26,14 @@ export const ruleCreateSchema = z
         rationale: z.string().trim().min(1).optional(),
     })
     .superRefine((value, ctx) => {
-        if (value.scope === "task" && !value.taskId) {
-            // task 스코프 룰은 적용 대상 taskId가 있어야 한다.
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                message: "Task-scoped rules require taskId",
-                path: ["taskId"],
-            });
-        }
-        if (value.scope === "global" && value.taskId) {
-            // global 룰은 특정 태스크에 묶이면 안 된다.
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                message: "Global rules must not have taskId",
-                path: ["taskId"],
-            });
-        }
-        if (
-            !value.expect.tool &&
-            !value.expect.pattern &&
-            !(value.expect.commandMatches && value.expect.commandMatches.length > 0)
-        ) {
-            // 기대 조건이 하나도 없으면 평가할 기준이 없어 요청을 거부한다.
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                message: "expect must include at least one of action, pattern, or commandMatches",
-                path: ["expect"],
-            });
+        // 입력 body의 expect.tool은 도메인 expect.action에 대응한다.
+        const expect: RuleExpectInput = {
+            ...(value.expect.tool !== undefined ? { action: value.expect.tool } : {}),
+            ...(value.expect.commandMatches !== undefined ? { commandMatches: value.expect.commandMatches } : {}),
+            ...(value.expect.pattern !== undefined ? { pattern: value.expect.pattern } : {}),
+        };
+        for (const violation of checkRuleInvariants({ scope: value.scope, taskId: value.taskId, expect })) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: violation.message, path: [violation.path] });
         }
     });
 
