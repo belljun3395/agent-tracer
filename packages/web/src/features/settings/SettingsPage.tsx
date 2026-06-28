@@ -4,6 +4,12 @@ import {
   useDeleteAppSettingMutation,
   usePutAppSettingMutation,
 } from "~state/server/mutations.js";
+import {
+  clearUserIdentity,
+  getUserEmail,
+  getUserId,
+  onboardUser,
+} from "~io/api.js";
 const SETTING_KEYS = {
   apiKey: "anthropic.api_key",
   model: "anthropic.model",
@@ -112,6 +118,8 @@ export function SettingsPage() {
       </header>
 
       <main className="px-9 py-6 flex flex-col gap-6 max-w-3xl">
+        <IdentitySection />
+
         <section
           style={{
             border: "1px solid var(--hair)",
@@ -478,6 +486,267 @@ function Row({
         )}
       </div>
       {children}
+    </div>
+  );
+}
+
+/**
+ * User identity — who this browser is attributed to. Default is the local
+ * single user (`local`), which needs no setup. Setting an email onboards a
+ * distinct user so this browser's tasks/events are grouped separately and can
+ * be matched to Claude Code hook events (via MONITOR_USER_EMAIL).
+ *
+ * The identity lives in this browser's localStorage (not the monitor DB), so
+ * changing it swaps the X-User-Id header and realtime stream — we reload after
+ * a change to drop any data cached under the old identity.
+ */
+function IdentitySection() {
+  const userId = getUserId();
+  const email = getUserEmail();
+  const isLocal = userId === null;
+
+  const [draft, setDraft] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function onboard() {
+    const trimmed = draft.trim();
+    if (!trimmed) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      await onboardUser(trimmed);
+      window.location.reload();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to set identity.");
+      setSubmitting(false);
+    }
+  }
+
+  function reset() {
+    if (
+      !window.confirm(
+        "Switch back to the local user? This browser's identity will be cleared.",
+      )
+    ) {
+      return;
+    }
+    clearUserIdentity();
+    window.location.reload();
+  }
+
+  return (
+    <section
+      style={{
+        border: "1px solid var(--hair)",
+        borderRadius: "var(--radius-md)",
+        background: "var(--canvas)",
+        padding: "20px 24px",
+      }}
+    >
+      <h2 style={{ fontSize: 15, fontWeight: 600, marginBottom: 4 }}>
+        User identity
+      </h2>
+      <p style={{ color: "var(--ink-muted)", fontSize: 12.5, marginBottom: 20 }}>
+        Tasks and events are grouped per user. By default this runs as the{" "}
+        <code>local</code> user — no setup needed. Set an email to separate this
+        browser's activity and attribute Claude Code hook events to the same
+        user.
+      </p>
+
+      <Row
+        label="Current identity"
+        help="Stored in this browser only. Changing it reloads the page."
+      >
+        <div className="flex items-center gap-2 flex-wrap">
+          {isLocal ? (
+            <>
+              <code
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 12,
+                  padding: "4px 8px",
+                  background: "var(--s1)",
+                  borderRadius: "var(--radius-xs)",
+                }}
+              >
+                local
+              </code>
+              <span style={{ color: "var(--ink-tertiary)", fontSize: 11 }}>
+                default — no email set
+              </span>
+            </>
+          ) : (
+            <>
+              <code
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 12,
+                  padding: "4px 8px",
+                  background: "var(--s1)",
+                  borderRadius: "var(--radius-xs)",
+                }}
+              >
+                {email ?? userId}
+              </code>
+              <span
+                style={{
+                  color: "var(--ink-tertiary)",
+                  fontSize: 11,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                id {userId}
+              </span>
+              <button
+                type="button"
+                onClick={reset}
+                className="text-xs"
+                style={{ color: "var(--ink-muted)", textDecoration: "underline" }}
+              >
+                Reset to local
+              </button>
+            </>
+          )}
+        </div>
+
+        <div className="flex gap-2 mt-2">
+          <input
+            type="email"
+            placeholder="you@example.com"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            spellCheck={false}
+            autoComplete="off"
+            onKeyDown={(e) => {
+              if (e.key === "Enter") void onboard();
+            }}
+            className="flex-1 px-3 py-1.5 text-sm"
+            style={{
+              border: "1px solid var(--hair)",
+              borderRadius: "var(--radius-xs)",
+              background: "var(--canvas)",
+              color: "var(--ink)",
+              fontFamily: "var(--font-mono)",
+            }}
+          />
+          <button
+            type="button"
+            disabled={!draft.trim() || submitting}
+            onClick={() => void onboard()}
+            className="px-3 py-1.5 text-sm"
+            style={{
+              border: "1px solid var(--hair)",
+              borderRadius: "var(--radius-xs)",
+              background: "var(--ink)",
+              color: "var(--canvas)",
+              cursor: !draft.trim() || submitting ? "not-allowed" : "pointer",
+              opacity: !draft.trim() || submitting ? 0.5 : 1,
+            }}
+          >
+            {submitting ? "Saving…" : isLocal ? "Set" : "Change"}
+          </button>
+        </div>
+        {error && (
+          <p style={{ color: "var(--danger, #ff8585)", fontSize: 12, marginTop: 8 }}>
+            {error}
+          </p>
+        )}
+      </Row>
+
+      {!isLocal && email && <HookSetupNote email={email} />}
+    </section>
+  );
+}
+
+/**
+ * Claude Code hook events default to the `local` user unless MONITOR_USER_EMAIL
+ * is set in the Claude Code environment. Show the snippet so hook activity is
+ * attributed to the same email as this browser.
+ */
+function HookSetupNote({ email }: { readonly email: string }) {
+  const [copied, setCopied] = useState(false);
+  const snippet = [
+    "// ~/.claude/settings.json",
+    "{",
+    '  "env": {',
+    `    "MONITOR_USER_EMAIL": "${email}"`,
+    "  }",
+    "}",
+  ].join("\n");
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(snippet);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      setCopied(false);
+    }
+  }
+
+  return (
+    <div
+      style={{
+        marginTop: 16,
+        paddingTop: 16,
+        borderTop: "1px solid var(--hair-soft, var(--hair))",
+      }}
+    >
+      <label
+        style={{
+          fontSize: 12.5,
+          fontWeight: 500,
+          color: "var(--ink)",
+          letterSpacing: "-0.01em",
+        }}
+      >
+        Connect Claude Code hooks
+      </label>
+      <p
+        style={{
+          fontSize: 11.5,
+          color: "var(--ink-tertiary)",
+          marginTop: 2,
+          marginBottom: 8,
+        }}
+      >
+        Add this to the Claude Code environment so hook events are attributed to{" "}
+        <b>{email}</b>. Without it, hook activity is recorded as the{" "}
+        <code>local</code> user.
+      </p>
+      <pre
+        style={{
+          background: "var(--s1)",
+          color: "var(--ink)",
+          padding: "12px",
+          borderRadius: "var(--radius-xs)",
+          fontSize: 11.5,
+          fontFamily: "var(--font-mono)",
+          overflowX: "auto",
+          margin: 0,
+        }}
+      >
+        {snippet}
+      </pre>
+      <div className="flex items-center gap-3 mt-2">
+        <button
+          type="button"
+          onClick={() => void copy()}
+          className="px-3 py-1 text-xs"
+          style={{
+            border: "1px solid var(--hair)",
+            borderRadius: "var(--radius-xs)",
+            background: "var(--canvas)",
+            color: "var(--ink)",
+          }}
+        >
+          {copied ? "Copied ✓" : "Copy snippet"}
+        </button>
+        <span style={{ fontSize: 11, color: "var(--ink-tertiary)" }}>
+          or shell: <code>export MONITOR_USER_EMAIL="{email}"</code>
+        </span>
+      </div>
     </div>
   );
 }

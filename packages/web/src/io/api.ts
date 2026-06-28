@@ -45,30 +45,65 @@ interface RequestOptions {
 }
 
 // ── 멀티유저 신원 ──────────────────────────────────────────────────────
-// 최초 사용 시 이메일로 온보딩해 받은 userId 를 보관하고, 이후 모든 요청에
-// X-User-Id 헤더로 실어 보낸다.
-const USER_ID_STORAGE_KEY = "monitor.userId";
+// 기본은 로컬 단독 사용자(`local`). 별도 설정 없이 바로 동작한다. 이메일로
+// 온보딩하면 받은 userId/이메일을 보관하고 이후 모든 요청에 X-User-Id 헤더로
+// 실어 보낸다. 신원이 없으면 헤더를 보내지 않으며 서버가 `local` 로 집계한다.
+const LOCAL_USER_ID = "local";
 
-function readStoredUserId(): string | null {
+const USER_ID_STORAGE_KEY = "monitor.userId";
+const USER_EMAIL_STORAGE_KEY = "monitor.userEmail";
+
+function readStored(key: string): string | null {
   try {
-    return window.localStorage.getItem(USER_ID_STORAGE_KEY);
+    return window.localStorage.getItem(key);
   } catch {
     return null;
   }
 }
 
-let currentUserId: string | null = readStoredUserId();
+// 빈 값이나 `local` 은 신원 미설정(= 로컬 기본)으로 본다.
+function normalizeStoredUserId(value: string | null): string | null {
+  const trimmed = value?.trim();
+  return trimmed && trimmed !== LOCAL_USER_ID ? trimmed : null;
+}
 
+let currentUserId: string | null = normalizeStoredUserId(
+  readStored(USER_ID_STORAGE_KEY),
+);
+let currentUserEmail: string | null = currentUserId
+  ? readStored(USER_EMAIL_STORAGE_KEY)
+  : null;
+
+/** 현재 신원의 userId. 로컬 기본(미설정)이면 null. */
 export function getUserId(): string | null {
   return currentUserId;
 }
 
-export function setUserId(userId: string): void {
+/** 현재 신원의 이메일. 로컬 기본(미설정)이면 null. */
+export function getUserEmail(): string | null {
+  return currentUserEmail;
+}
+
+function setUserIdentity(userId: string, email: string): void {
   currentUserId = userId;
+  currentUserEmail = email;
   try {
     window.localStorage.setItem(USER_ID_STORAGE_KEY, userId);
+    window.localStorage.setItem(USER_EMAIL_STORAGE_KEY, email);
   } catch {
     // 저장 실패해도 메모리 값으로 이번 세션은 동작한다.
+  }
+}
+
+/** 신원을 비워 로컬 단독 사용자로 되돌린다. */
+export function clearUserIdentity(): void {
+  currentUserId = null;
+  currentUserEmail = null;
+  try {
+    window.localStorage.removeItem(USER_ID_STORAGE_KEY);
+    window.localStorage.removeItem(USER_EMAIL_STORAGE_KEY);
+  } catch {
+    // 삭제 실패는 무시한다 — 메모리 값은 이미 비웠다.
   }
 }
 
@@ -77,12 +112,12 @@ export interface OnboardingResult {
   readonly email: string;
 }
 
-/** 이메일로 온보딩하고 받은 userId 를 보관한다. */
+/** 이메일로 온보딩하고 받은 userId/이메일을 보관한다. */
 export async function onboardUser(email: string): Promise<OnboardingResult> {
   const result = await postJson<OnboardingResult>("/api/v1/users/onboarding", {
     email,
   });
-  setUserId(result.userId);
+  setUserIdentity(result.userId, result.email);
   return result;
 }
 
