@@ -8,7 +8,6 @@ import {
     Query,
     Post,
     Get,
-    Inject,
 } from "@nestjs/common";
 import { pathParamPipe } from "@monitor/shared/contracts/http/path-param.pipe.js";
 import {
@@ -16,27 +15,22 @@ import {
     MissingApiKeyError,
     TaskHasNoEventsError,
     TaskNotFoundForGenerationError,
-    TaskRuleGenerationService,
 } from "../service/task.rule.generation.service.js";
+import { EnqueueTaskRuleGenerationUseCase } from "../application/enqueue.task.rule.generation.usecase.js";
+import { GetLatestTaskRuleGenerationUseCase } from "../application/get.latest.task.rule.generation.usecase.js";
 
 @Controller("api/v1/rules/generate")
 export class TaskRuleGenerationController {
     constructor(
-        @Inject(TaskRuleGenerationService)
-        private readonly service: TaskRuleGenerationService,
+        private readonly enqueueGeneration: EnqueueTaskRuleGenerationUseCase,
+        private readonly getLatestGeneration: GetLatestTaskRuleGenerationUseCase,
     ) {}
 
     @Post()
     @HttpCode(HttpStatus.ACCEPTED)
     async enqueue(@Query("taskId", pathParamPipe) taskId: string) {
         try {
-            const job = await this.service.run(taskId);
-            return {
-                jobId: job.id,
-                status: job.status,
-                taskId: job.taskId,
-                createdAt: job.createdAt,
-            };
+            return await this.enqueueGeneration.execute(taskId);
         } catch (err) {
             if (err instanceof TaskNotFoundForGenerationError) {
                 throw new NotFoundException(err.message);
@@ -56,22 +50,6 @@ export class TaskRuleGenerationController {
 
     @Get("latest")
     async latest(@Query("taskId", pathParamPipe) taskId: string) {
-        const job = await this.service.findLatest(taskId);
-        if (!job) return { job: null };
-        return {
-            job: {
-                id: job.id,
-                status: job.status,
-                attempts: job.attempts,
-                error: job.error,
-                rulesCreated: job.rulesCreated ?? 0,
-                modelUsed: job.modelUsed,
-                durationMs: job.durationMs,
-                createdAt: job.createdAt,
-                updatedAt: job.updatedAt,
-                startedAt: job.startedAt,
-                completedAt: job.completedAt,
-            },
-        };
+        return this.getLatestGeneration.execute(taskId);
     }
 }
