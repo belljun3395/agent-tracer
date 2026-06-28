@@ -4,11 +4,7 @@ import { currentUserId } from "@monitor/shared/kernel/user/user.context.js";
 import { LANE, type MonitoringEventKind } from "@monitor/timeline-api/event/domain/common/const/event.kind.const.js";
 import { normalizeLane } from "@monitor/timeline-api/event/domain/event.lane.js";
 import type { TimelineEvent } from "@monitor/timeline-api/event/domain/model/timeline.event.model.js";
-import {
-    buildDerivedTableInserts,
-    buildTimelineEventEntity,
-} from "../domain/timeline.event.row.builder.js";
-import { hydrateTimelineEvent } from "../domain/timeline.event.hydrator.js";
+import { EventMetadata } from "../domain/event.metadata.vo.js";
 import { TimelineEventEntity } from "../domain/timeline.event.entity.js";
 import type { TimelineEventInsertRequest } from "../application/outbound/event.persistence.port.js";
 import { TimelineEventRepository } from "../repository/timeline.event.repository.js";
@@ -50,12 +46,31 @@ export class TimelineEventStorageService {
     }
 
     private buildRow(input: TimelineEventInsertRequest): TimelineEventEntity {
-        // 저장 직전 파생 테이블 표현을 다시 구성해 메타데이터와 태그를 정규화한다.
-        const entity = buildTimelineEventEntity(input);
-        const hydrated = hydrateTimelineEvent(entity, buildDerivedTableInserts(input));
+        // 저장 직전 metadata를 한 번 정규화해 blob·tags·인덱스 컬럼으로 만든다.
+        const normalized = EventMetadata.normalize(input);
+        const entity = new TimelineEventEntity();
+        entity.id = input.id;
+        entity.taskId = input.taskId;
+        entity.sessionId = input.sessionId ?? null;
+        entity.kind = input.kind;
+        entity.lane = input.lane;
+        entity.title = input.title;
+        entity.body = input.body ?? null;
+        entity.subtypeKey = normalized.columns.subtypeKey;
+        entity.subtypeLabel = normalized.columns.subtypeLabel;
+        entity.subtypeGroup = normalized.columns.subtypeGroup;
+        entity.toolFamily = normalized.columns.toolFamily;
+        entity.operation = normalized.columns.operation;
+        entity.sourceTool = normalized.columns.sourceTool;
+        entity.toolName = normalized.columns.toolName;
+        entity.entityType = normalized.columns.entityType;
+        entity.entityName = normalized.columns.entityName;
+        entity.displayTitle = normalized.columns.displayTitle;
+        entity.evidenceLevel = normalized.columns.evidenceLevel;
         entity.userId = currentUserId();
-        entity.metadata = hydrated.metadata;
-        entity.tags = [...hydrated.classification.tags];
+        entity.metadata = normalized.metadata;
+        entity.tags = [...normalized.tags];
+        entity.createdAt = input.createdAt;
         return entity;
     }
 
