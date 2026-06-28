@@ -1,4 +1,5 @@
 import type { TimelineEventInsertRequest } from "../application/outbound/event.persistence.port.js";
+import { extractCommandAnalysisPaths } from "./command.analysis.policy.js";
 import {
     DERIVED_METADATA_KEYS,
     normalizeQuestionPhase,
@@ -136,43 +137,6 @@ function collectEventFiles(metadata: Record<string, unknown>): readonly EventFil
         addFile(filePath, "command_analysis", 0);
     }
     return [...files.values()];
-}
-
-function extractCommandAnalysisPaths(value: unknown): readonly string[] {
-    if (!value || typeof value !== "object") return [];
-    const steps = (value as { readonly steps?: unknown }).steps;
-    if (!Array.isArray(steps)) return [];
-    const paths: string[] = [];
-    for (const step of flattenCommandSteps(steps)) {
-        const targets = Array.isArray(step.targets) ? step.targets : [];
-        for (const targetValue of targets) {
-            if (!targetValue || typeof targetValue !== "object") continue;
-            const target = targetValue as { readonly type?: unknown; readonly value?: unknown };
-            if (target.type !== "file" && target.type !== "directory" && target.type !== "path") continue;
-            if (typeof target.value === "string" && target.value.trim()) {
-                paths.push(target.value);
-            }
-        }
-    }
-    return paths;
-}
-
-interface CommandStepLike {
-    readonly targets?: unknown;
-    readonly pipeline?: unknown;
-}
-
-function flattenCommandSteps(values: readonly unknown[]): readonly CommandStepLike[] {
-    const flattened: CommandStepLike[] = [];
-    for (const value of values) {
-        if (!value || typeof value !== "object") continue;
-        const step = value as CommandStepLike;
-        flattened.push(step);
-        if (Array.isArray(step.pipeline)) {
-            flattened.push(...flattenCommandSteps(step.pipeline));
-        }
-    }
-    return flattened;
 }
 
 function applyRelations(metadata: Record<string, unknown>, raw: Record<string, unknown>): void {

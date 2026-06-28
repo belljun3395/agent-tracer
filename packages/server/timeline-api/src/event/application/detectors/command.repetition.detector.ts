@@ -1,23 +1,11 @@
 import { Injectable } from "@nestjs/common";
 import { PreprocessingHintsRepository } from "@monitor/timeline-api/event/repository/preprocessing.hints.repository.js";
+import { extractCommandAnalysisPaths } from "@monitor/timeline-api/event/domain/command.analysis.policy.js";
 import type { PreprocessingHint } from "../dto/preprocessing.hints.dto.js";
 
 const COMMAND_LOOKBACK = 20;
 const REPETITION_THRESHOLD = 3;
 const RECENT_WINDOW_MS = 10 * 60 * 1000;
-
-interface CommandTargetLike {
-    readonly type?: unknown;
-    readonly value?: unknown;
-}
-
-interface CommandStepLike {
-    readonly commandName?: unknown;
-    readonly operation?: unknown;
-    readonly effect?: unknown;
-    readonly targets?: unknown;
-    readonly pipeline?: unknown;
-}
 
 interface CommandAnalysisLike {
     readonly steps?: unknown;
@@ -50,7 +38,7 @@ export class CommandRepetitionDetector {
             if (priorCommand.trim() === normalized) sameCommand += 1;
 
             const analysis = extras["commandAnalysis"];
-            const targets = collectFileTargets(analysis);
+            const targets = extractCommandAnalysisPaths(analysis);
             for (const target of targets) {
                 targetCounts.set(target, (targetCounts.get(target) ?? 0) + 1);
             }
@@ -113,34 +101,6 @@ function parseExtras(json: string | null | undefined): Record<string, unknown> |
 
 function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function collectFileTargets(analysis: unknown): readonly string[] {
-    if (!analysis || typeof analysis !== "object") return [];
-    const steps = (analysis as CommandAnalysisLike).steps;
-    if (!Array.isArray(steps)) return [];
-    const paths: string[] = [];
-    for (const step of flattenSteps(steps)) {
-        const targets = Array.isArray(step.targets) ? step.targets : [];
-        for (const targetValue of targets) {
-            if (!targetValue || typeof targetValue !== "object") continue;
-            const target = targetValue as CommandTargetLike;
-            if (target.type !== "file" && target.type !== "path") continue;
-            if (typeof target.value === "string" && target.value.trim()) paths.push(target.value);
-        }
-    }
-    return paths;
-}
-
-function flattenSteps(values: readonly unknown[]): readonly CommandStepLike[] {
-    const out: CommandStepLike[] = [];
-    for (const value of values) {
-        if (!value || typeof value !== "object") continue;
-        const step = value as CommandStepLike;
-        out.push(step);
-        if (Array.isArray(step.pipeline)) out.push(...flattenSteps(step.pipeline));
-    }
-    return out;
 }
 
 function containsTarget(command: string, target: string): boolean {

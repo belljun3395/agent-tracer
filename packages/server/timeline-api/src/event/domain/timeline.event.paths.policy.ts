@@ -1,21 +1,10 @@
 import { normalizeFilePath } from "@monitor/timeline-api/event/domain/paths.js";
 import { isUserMessageEvent } from "./event.predicates.policy.js";
+import { commandTargetPath, flattenCommandSteps } from "./command.analysis.policy.js";
 import { META } from "@monitor/timeline-api/event/domain/runtime/const/metadata.keys.const.js";
 import { readStringArray } from "./event.metadata.policy.js";
 import type { TimelineEvent } from "./type/timeline.event.type.js";
 import type { TimelineEventPaths } from "./type/timeline.event.paths.type.js";
-
-interface CommandTargetLike {
-    readonly type?: unknown;
-    readonly value?: unknown;
-}
-
-interface CommandStepLike {
-    readonly operation?: unknown;
-    readonly effect?: unknown;
-    readonly targets?: unknown;
-    readonly pipeline?: unknown;
-}
 
 const COMMAND_PATH_OPERATIONS = new Set([
     "read_file",
@@ -56,27 +45,11 @@ function extractCommandAnalysisFilePaths(event: TimelineEvent): readonly string[
         const targets = Array.isArray(step.targets) ? step.targets : [];
         for (const targetValue of targets) {
             if (!targetValue || typeof targetValue !== "object") continue;
-            const target = targetValue as CommandTargetLike;
-            if (target.type !== "file" && target.type !== "directory" && target.type !== "path") continue;
-            if (typeof target.value === "string" && target.value.length > 0) {
-                paths.push(target.value);
-            }
+            const path = commandTargetPath(targetValue);
+            if (path) paths.push(path);
         }
     }
     return paths;
-}
-
-function flattenCommandSteps(values: readonly unknown[]): readonly CommandStepLike[] {
-    const flattened: CommandStepLike[] = [];
-    for (const value of values) {
-        if (!value || typeof value !== "object") continue;
-        const step = value as CommandStepLike;
-        flattened.push(step);
-        if (Array.isArray(step.pipeline)) {
-            flattened.push(...flattenCommandSteps(step.pipeline));
-        }
-    }
-    return flattened;
 }
 
 function uniquePaths(paths: readonly string[]): readonly string[] {
