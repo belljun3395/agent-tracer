@@ -1,5 +1,6 @@
 import { matchEventAgainstRule } from "@monitor/rules-api/verification/domain/event.rule.matching.policy.js";
 import { isTaskScopedRule } from "@monitor/rules-api/rule/public/predicates.js";
+import { isOpenTurn } from "@monitor/rules-api/verification/domain/turn.status.const.js";
 import { NOTIFICATION_TYPE } from "@monitor/shared/contracts/notifications/notification.type.const.js";
 import { Transactional } from "typeorm-transactional";
 import { inferToolCall } from "@monitor/rules-api/verification/domain/tool.call.inference.policy.js";
@@ -78,7 +79,7 @@ export class BackfillRuleEvaluationUseCase {
                 });
             }
 
-            if (turn.status === "open") {
+            if (isOpenTurn(turn)) {
                 evaluated += 1;
                 continue;
             }

@@ -1,4 +1,5 @@
-export type TurnStatus = "open" | "closed";
+import type { TurnStatus } from "@monitor/rules-api/verification/domain/turn.status.const.js";
+export type { TurnStatus };
 export type TurnAggregateVerdict = "verified" | "unverifiable" | "contradicted" | null;
 
 export interface TurnInsertInput {

@@ -2,6 +2,7 @@ import { Inject, Injectable } from "@nestjs/common";
 import { NOTIFICATION_TYPE } from "@monitor/shared/contracts/notifications/notification.type.const.js";
 import { Transactional } from "typeorm-transactional";
 import { MONITORING_TASK_KIND } from "@monitor/run-api/task/common/task.status.const.js";
+import { isRunningSession } from "../domain/session.predicates.policy.js";
 import {
     isPrimaryTask,
     isRunningBackgroundTask,
@@ -63,7 +64,7 @@ export class EndRuntimeSessionUseCase {
 
         const session = await this.sessions.findById(binding.monitorSessionId);
 
-        if (!session || session.status !== "running") {
+        if (!session || !isRunningSession(session)) {
             // stale 바인딩은 세션 상태를 신뢰하지 않고 연결만 정리한다.
             await this.runtimeBindings.clearSession(input.runtimeSource, input.runtimeSessionId);
             if (input.completeTask === true) {

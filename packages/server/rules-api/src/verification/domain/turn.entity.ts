@@ -1,4 +1,5 @@
 import { Column, Entity, Index, PrimaryColumn } from "typeorm";
+import type { TurnStatus } from "./turn.status.const.js";
 
 @Entity({ name: "turns" })
 @Index("idx_turns_session_index", ["sessionId", "turnIndex"], { unique: true })
@@ -18,7 +19,7 @@ export class TurnEntity {
     turnIndex!: number;
 
     @Column({ type: "text" })
-    status!: "open" | "closed";
+    status!: TurnStatus;
 
     @Column({ name: "started_at", type: "text" })
     startedAt!: string;

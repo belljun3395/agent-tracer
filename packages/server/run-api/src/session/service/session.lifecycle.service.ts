@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { SessionEntity } from "../domain/session.entity.js";
+import { RUNNING_SESSION_STATUS } from "../domain/session.predicates.policy.js";
 import type {
     SessionCreateInput,
     SessionSnapshot,
@@ -34,12 +35,12 @@ export class SessionLifecycleService {
     }
 
     async findActiveByTaskId(taskId: string): Promise<SessionSnapshot | null> {
-        const entity = await this.repo.findLatestByTaskIdAndStatus(taskId, "running");
+        const entity = await this.repo.findLatestByTaskIdAndStatus(taskId, RUNNING_SESSION_STATUS);
         return entity ? entity.toSnapshot() : null;
     }
 
     async countRunningByTaskId(taskId: string): Promise<number> {
-        return this.repo.countByTaskIdAndStatus(taskId, "running");
+        return this.repo.countByTaskIdAndStatus(taskId, RUNNING_SESSION_STATUS);
     }
 
     async updateStatus(
@@ -50,7 +51,7 @@ export class SessionLifecycleService {
     ): Promise<void> {
         const entity = await this.repo.findById(id);
         if (!entity) return;
-        if (status === "running") {
+        if (status === RUNNING_SESSION_STATUS) {
             entity.status = status;
             entity.endedAt = null;
             if (summary !== undefined) entity.summary = summary;

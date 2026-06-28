@@ -2,6 +2,7 @@ import { Inject, Injectable } from "@nestjs/common";
 import { NOTIFICATION_TYPE } from "@monitor/shared/contracts/notifications/notification.type.const.js";
 import { MONITORING_TASK_KIND, RUNNING_TASK_STATUS } from "@monitor/run-api/task/common/task.status.const.js";
 import { isTaskRunning } from "@monitor/run-api/task/domain/task.predicates.policy.js";
+import { isRunningSession } from "../domain/session.predicates.policy.js";
 import { Transactional } from "typeorm-transactional";
 import { normalizeWorkspacePath } from "@monitor/run-api/task/public/helpers.js";
 import { SessionLifecycleService } from "../service/session.lifecycle.service.js";
@@ -45,7 +46,7 @@ export class EnsureRuntimeSessionUseCase {
         const binding = await this.runtimeBindings.findActive(input.runtimeSource, input.runtimeSessionId);
         if (binding) {
             const session = await this.sessions.findById(binding.monitorSessionId);
-            if (!session || session.status !== "running") {
+            if (!session || !isRunningSession(session)) {
                 await this.runtimeBindings.clearSession(input.runtimeSource, input.runtimeSessionId);
             } else {
                 return {
