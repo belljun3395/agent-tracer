@@ -3,6 +3,8 @@ import type {
     CleanupSuggestionStatusFilter,
 } from "./cleanup.usecase.dto.js";
 
+export type { CleanupSuggestionDto };
+
 export interface ListCleanupSuggestionsUseCaseIn {
     readonly status?: CleanupSuggestionStatusFilter;
 }
