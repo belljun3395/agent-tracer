@@ -1,9 +1,7 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Inject, Injectable, Logger } from "@nestjs/common";
 import { Transactional } from "typeorm-transactional";
-import { ArchiveTaskUseCase } from "@monitor/run-api/task/application/archive.task.usecase.js";
-import { LinkTaskUseCase } from "@monitor/run-api/task/application/link.task.usecase.js";
-import { ReslugTaskUseCase } from "@monitor/run-api/task/application/reslug.task.usecase.js";
-import { UpdateTaskUseCase } from "@monitor/run-api/task/application/update.task.usecase.js";
+import type { ITaskMaintenance } from "@monitor/run-api/task/public/iservice/task.maintenance.iservice.js";
+import { TASK_MAINTENANCE } from "@monitor/run-api/task/public/tokens.js";
 import { TaskCleanupSuggestionRepository } from "../repository/task.cleanup.suggestion.repository.js";
 import type {
     AcceptCleanupSuggestionUseCaseIn,
@@ -16,10 +14,7 @@ export class AcceptCleanupSuggestionUseCase {
 
     constructor(
         private readonly suggestions: TaskCleanupSuggestionRepository,
-        private readonly archiveTask: ArchiveTaskUseCase,
-        private readonly updateTask: UpdateTaskUseCase,
-        private readonly linkTask: LinkTaskUseCase,
-        private readonly reslugTask: ReslugTaskUseCase,
+        @Inject(TASK_MAINTENANCE) private readonly tasks: ITaskMaintenance,
     ) {}
 
     @Transactional()
@@ -67,18 +62,15 @@ export class AcceptCleanupSuggestionUseCase {
             : null;
         switch (row.kind) {
             case "archive": {
-                await this.archiveTask.execute({ taskId: row.taskId });
+                await this.tasks.archive(row.taskId);
                 return;
             }
             case "rename_title": {
                 const title = readStringField(proposed, "title");
                 // 새 제목이 없으면 태스크 상태를 바꾸지 않고 제안을 실패 처리한다.
                 if (!title) throw new Error("Missing proposed title");
-                const out = await this.updateTask.execute({
-                    taskId: row.taskId,
-                    title,
-                });
-                if (!out) throw new Error("Task no longer exists");
+                const ok = await this.tasks.rename(row.taskId, title);
+                if (!ok) throw new Error("Task no longer exists");
                 return;
             }
             case "set_parent": {
@@ -88,20 +80,14 @@ export class AcceptCleanupSuggestionUseCase {
                 if (parentTaskId === row.taskId) {
                     throw new Error("Task cannot be its own parent");
                 }
-                await this.linkTask.execute({
-                    taskId: row.taskId,
-                    parentTaskId,
-                });
+                await this.tasks.link(row.taskId, parentTaskId);
                 return;
             }
             case "reslug": {
                 const slug = readStringField(proposed, "slug");
                 // slug가 없으면 공개 경로를 바꿀 기준이 없으므로 적용하지 않는다.
                 if (!slug) throw new Error("Missing proposed slug");
-                const out = await this.reslugTask.execute({
-                    taskId: row.taskId,
-                    slug,
-                });
+                const out = await this.tasks.reslug(row.taskId, slug);
                 if (out.status === "not_found") {
                     throw new Error("Task no longer exists");
                 }

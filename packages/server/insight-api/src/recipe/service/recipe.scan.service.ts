@@ -11,9 +11,9 @@ import { APP_SETTING_KEYS } from "@monitor/identity-api/settings/domain/app.sett
 import { APP_SETTINGS } from "@monitor/identity-api/settings/public/tokens.js";
 import type { IAppSettings } from "@monitor/identity-api/settings/public/iservice/app.settings.iservice.js";
 import { NOTIFICATION_PUBLISHER_TOKEN } from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
-import { GetTaskSummaryUseCase } from "@monitor/run-api/task/application/get.task.summary.usecase.js";
 import type { ITaskSnapshotQuery } from "@monitor/run-api/task/public/iservice/task.snapshot.query.iservice.js";
-import { TASK_SNAPSHOT_QUERY } from "@monitor/run-api/task/public/tokens.js";
+import type { ITaskSummary } from "@monitor/run-api/task/public/iservice/task.summary.iservice.js";
+import { TASK_SNAPSHOT_QUERY, TASK_SUMMARY } from "@monitor/run-api/task/public/tokens.js";
 import {
     RecipeCandidateRepository,
     type InsertRecipeCandidateRow,
@@ -63,7 +63,8 @@ export class RecipeScanService {
         @Inject(APP_SETTINGS) private readonly settings: IAppSettings,
         @Inject(TASK_SNAPSHOT_QUERY)
         private readonly taskQuery: ITaskSnapshotQuery,
-        private readonly getTaskSummary: GetTaskSummaryUseCase,
+        @Inject(TASK_SUMMARY)
+        private readonly taskSummary: ITaskSummary,
         private readonly agent: RecipeScanAgent,
         @Inject(NOTIFICATION_PUBLISHER_TOKEN)
         private readonly notifier: INotificationPublisher,
@@ -141,7 +142,7 @@ export class RecipeScanService {
 
             const snapshots: RecipeTaskSnapshot[] = [];
             for (const t of filtered) {
-                const { summary } = await this.getTaskSummary.execute({
+                const { summary } = await this.taskSummary.execute({
                     taskId: t.id,
                 });
                 // 요약이 없거나 이벤트 수가 기준보다 적으면 학습할 패턴이 부족해 제외한다.

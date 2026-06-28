@@ -3,7 +3,8 @@ import { NOTIFICATION_TYPE } from "@monitor/shared/contracts/notifications/notif
 import { randomUUID } from "node:crypto";
 import { RuleSuggestionAgent } from "../agent/rule.suggestion.agent.js";
 import type { INotificationPublisher } from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
-import { GetTaskSummaryUseCase } from "@monitor/run-api/task/application/get.task.summary.usecase.js";
+import type { ITaskSummary } from "@monitor/run-api/task/public/iservice/task.summary.iservice.js";
+import { TASK_SUMMARY } from "@monitor/run-api/task/public/tokens.js";
 import { ListRulesUseCase } from "@monitor/rules-api/rule/application/list.rules.usecase.js";
 import { RegisterSuggestionUseCase } from "@monitor/rules-api/rule/application/register.suggestion.usecase.js";
 import { APP_SETTING_KEYS } from "@monitor/identity-api/settings/domain/app.setting.keys.js";
@@ -52,7 +53,7 @@ export class TaskRuleGenerationService {
     constructor(
         private readonly jobs: RuleJobRepository,
         @Inject(APP_SETTINGS) private readonly settings: IAppSettings,
-        private readonly getTaskSummary: GetTaskSummaryUseCase,
+        @Inject(TASK_SUMMARY) private readonly taskSummary: ITaskSummary,
         private readonly listRules: ListRulesUseCase,
         private readonly registerSuggestion: RegisterSuggestionUseCase,
         private readonly agent: RuleSuggestionAgent,
@@ -61,7 +62,7 @@ export class TaskRuleGenerationService {
     ) {}
 
     async enqueue(taskId: string): Promise<RuleJobEntity> {
-        const { summary } = await this.getTaskSummary.execute({ taskId });
+        const { summary } = await this.taskSummary.execute({ taskId });
         if (!summary) {
             // 태스크가 없으면 생성 잡을 만들지 않고 요청을 실패시킨다.
             throw new TaskNotFoundForGenerationError(taskId);
@@ -142,7 +143,7 @@ export class TaskRuleGenerationService {
             );
             const language = normalizeRuleSuggestionLanguage(languageRaw);
 
-            const { summary } = await this.getTaskSummary.execute({ taskId });
+            const { summary } = await this.taskSummary.execute({ taskId });
             if (!summary) {
                 // enqueue 이후 태스크가 삭제되면 잡을 실패로 닫는다.
                 throw new TaskNotFoundForGenerationError(taskId);

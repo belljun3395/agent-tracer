@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import type { TaskSummaryUseCaseDto } from "@monitor/run-api/task/application/dto/get.task.summary.usecase.dto.js";
+import type { TaskSummary } from "@monitor/run-api/task/public/types/task.summary.js";
 import { QUERY_RUNNER, type IQueryRunner, type AgentQueryUsage } from "@monitor/shared/llm/query.runner.port.js";
 import {
     buildSystemPrompt,
@@ -24,7 +24,7 @@ export interface GenerateRuleSuggestionsInput {
 
     readonly apiKey?: string;
     readonly model?: string;
-    readonly summary: TaskSummaryUseCaseDto;
+    readonly summary: TaskSummary;
     readonly existingRuleNames: readonly string[];
     readonly maxRules: number;
     readonly language?: RuleSuggestionLanguage;

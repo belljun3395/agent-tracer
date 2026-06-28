@@ -1,5 +1,5 @@
 import type { OutputLanguage } from "@monitor/shared/llm/output.language.js";
-import type { TaskSummaryUseCaseDto } from "@monitor/run-api/task/application/dto/get.task.summary.usecase.dto.js";
+import type { TaskSummary } from "@monitor/run-api/task/public/types/task.summary.js";
 
 export type RuleSuggestionLanguage = OutputLanguage;
 
@@ -41,7 +41,7 @@ Return the rules as structured output conforming to the provided schema.`;
 }
 
 export function buildUserPrompt(
-    summary: TaskSummaryUseCaseDto,
+    summary: TaskSummary,
     existingRuleNames: readonly string[],
     maxRules: number,
     language: RuleSuggestionLanguage,

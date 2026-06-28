@@ -32,7 +32,14 @@ import { TaskAccessPublicAdapter } from "./adapter/task.access.public.adapter.js
 import { TaskNotificationPublisherAdapter } from "./adapter/task.notification.publisher.adapter.js";
 import { TaskEntity } from "./domain/task.entity.js";
 import { TaskRelationEntity } from "./domain/task.relation.entity.js";
-import { TASK_ACCESS, TASK_LIFECYCLE, TASK_SNAPSHOT_QUERY } from "./public/tokens.js";
+import {
+    TASK_ACCESS,
+    TASK_LIFECYCLE,
+    TASK_MAINTENANCE,
+    TASK_SNAPSHOT_QUERY,
+    TASK_SUMMARY,
+} from "./public/tokens.js";
+import { TaskMaintenanceFacade } from "./application/task.maintenance.facade.js";
 import { TaskRelationRepository } from "./repository/task.relation.repository.js";
 import { TaskRepository } from "./repository/task.repository.js";
 import { StaleTaskReaperJob } from "./scheduling/stale.task.reaper.job.js";
@@ -92,9 +99,13 @@ export class TaskModule {
                 GetOverviewUseCase,
                 GetDefaultWorkspacePathUseCase,
 
+                TaskMaintenanceFacade,
+
                 { provide: TASK_LIFECYCLE, useExisting: TaskLifecycleService },
                 { provide: TASK_ACCESS, useExisting: TaskAccessPublicAdapter },
                 { provide: TASK_SNAPSHOT_QUERY, useExisting: TaskReadService },
+                { provide: TASK_SUMMARY, useExisting: GetTaskSummaryUseCase },
+                { provide: TASK_MAINTENANCE, useExisting: TaskMaintenanceFacade },
 
                 { provide: NOTIFICATION_PUBLISHER_PORT, useExisting: TaskNotificationPublisherAdapter },
             ],
@@ -102,11 +113,8 @@ export class TaskModule {
                 TASK_LIFECYCLE,
                 TASK_ACCESS,
                 TASK_SNAPSHOT_QUERY,
-                GetTaskSummaryUseCase,
-                ArchiveTaskUseCase,
-                UpdateTaskUseCase,
-                LinkTaskUseCase,
-                ReslugTaskUseCase,
+                TASK_SUMMARY,
+                TASK_MAINTENANCE,
             ],
         };
     }
