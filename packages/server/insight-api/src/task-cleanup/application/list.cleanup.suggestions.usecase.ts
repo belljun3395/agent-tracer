@@ -4,7 +4,7 @@ import type {
     CleanupSuggestionDto,
     ListCleanupSuggestionsUseCaseIn,
     ListCleanupSuggestionsUseCaseOut,
-} from "./dto/cleanup.usecase.dto.js";
+} from "./dto/list.cleanup.suggestions.usecase.dto.js";
 import type { TaskCleanupSuggestionEntity } from "../domain/task.cleanup.suggestion.entity.js";
 
 @Injectable()

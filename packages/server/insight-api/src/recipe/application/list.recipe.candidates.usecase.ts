@@ -4,7 +4,7 @@ import { candidateToDto } from "./dto/recipe.dto.mapper.js";
 import type {
     ListRecipeCandidatesUseCaseIn,
     ListRecipeCandidatesUseCaseOut,
-} from "./dto/recipe.usecase.dto.js";
+} from "./dto/list.recipe.candidates.usecase.dto.js";
 
 @Injectable()
 export class ListRecipeCandidatesUseCase {

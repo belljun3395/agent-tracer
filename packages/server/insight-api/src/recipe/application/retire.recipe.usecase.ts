@@ -4,7 +4,7 @@ import { RecipeRepository } from "../repository/recipe.repository.js";
 import type {
     RetireRecipeUseCaseIn,
     RetireRecipeUseCaseOut,
-} from "./dto/recipe.usecase.dto.js";
+} from "./dto/retire.recipe.usecase.dto.js";
 
 @Injectable()
 export class RetireRecipeUseCase {

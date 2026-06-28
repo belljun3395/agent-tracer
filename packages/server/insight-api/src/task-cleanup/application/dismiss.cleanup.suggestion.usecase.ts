@@ -4,7 +4,7 @@ import { TaskCleanupSuggestionRepository } from "../repository/task.cleanup.sugg
 import type {
     DismissCleanupSuggestionUseCaseIn,
     DismissCleanupSuggestionUseCaseOut,
-} from "./dto/cleanup.usecase.dto.js";
+} from "./dto/dismiss.cleanup.suggestion.usecase.dto.js";
 
 @Injectable()
 export class DismissCleanupSuggestionUseCase {

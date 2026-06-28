@@ -8,7 +8,7 @@ import { TaskCleanupSuggestionRepository } from "../repository/task.cleanup.sugg
 import type {
     AcceptCleanupSuggestionUseCaseIn,
     AcceptCleanupSuggestionUseCaseOut,
-} from "./dto/cleanup.usecase.dto.js";
+} from "./dto/accept.cleanup.suggestion.usecase.dto.js";
 
 @Injectable()
 export class AcceptCleanupSuggestionUseCase {

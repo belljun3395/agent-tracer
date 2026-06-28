@@ -1,9 +1,7 @@
 import { BadRequestException } from "@nestjs/common";
 import { RECIPE_STATUSES } from "../domain/recipe.entity.js";
-import type {
-    RecipeCandidateStatusFilter,
-    ListRecipesUseCaseIn,
-} from "../application/dto/recipe.usecase.dto.js";
+import type { RecipeCandidateStatusFilter } from "../application/dto/recipe.usecase.dto.js";
+import type { ListRecipesUseCaseIn } from "../application/dto/list.recipes.usecase.dto.js";
 
 type RecipeStatusFilter = NonNullable<ListRecipesUseCaseIn["status"]>;
 

@@ -8,7 +8,7 @@ import { RecipeRepository } from "../repository/recipe.repository.js";
 import type {
     AcceptRecipeCandidateUseCaseIn,
     AcceptRecipeCandidateUseCaseOut,
-} from "./dto/recipe.usecase.dto.js";
+} from "./dto/accept.recipe.candidate.usecase.dto.js";
 
 @Injectable()
 export class AcceptRecipeCandidateUseCase {
