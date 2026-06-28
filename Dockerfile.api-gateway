@@ -1,6 +1,14 @@
-FROM node:25-slim AS builder
+FROM node:25-slim
 
 WORKDIR /app
+ENV NODE_ENV=production
+# 워크스페이스 패키지는 소스(TS)로만 export 되므로(exports "./*": "./src/*"),
+# 게이트웨이를 dev 와 동일하게 swc-node 로더로 소스에서 직접 실행한다.
+# (esbuild 번들은 NestJS 의 emitDecoratorMetadata 를 지원하지 않아 DI 가 깨진다)
+ENV SWC_NODE_PROJECT=packages/server/api-gateway/tsconfig.dev.json
+
+RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
+
 COPY package*.json ./
 COPY packages/server/api-gateway/package.json packages/server/api-gateway/
 COPY packages/server/shared/package.json packages/server/shared/
@@ -13,27 +21,12 @@ COPY packages/server/ws-gateway/package.json packages/server/ws-gateway/
 COPY packages/runtime/package.json packages/runtime/
 COPY packages/web/package.json packages/web/
 
-RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
-RUN npm ci
+# swc-node 로더(@swc-node/register, @swc/core)가 런타임에 필요하므로 dev 의존성도 설치한다.
+# NODE_ENV=production 이면 npm 이 dev 를 생략하므로 --include=dev 를 명시한다.
+# optional 도 포함한다: swc-node 가 쓰는 oxc-resolver 의 플랫폼 네이티브 바인딩이 optionalDependency 다.
+RUN npm ci --include=dev
 
 COPY . .
-RUN npm run build --workspace=@monitor/api-gateway
-
-# 최종 이미지로 넘기기 전에 devDependencies + optional(onnxruntime 등) 제거
-RUN npm prune --omit=dev --omit=optional
-
-FROM node:25-slim
-
-WORKDIR /app
-ENV NODE_ENV=production
-
-# 프로덕션 node_modules (devDep·optional 제거된 상태)
-COPY --from=builder /app/node_modules ./node_modules
-# ESM 모듈 타입 해석에 필요한 package.json 파일들
-COPY --from=builder /app/package.json ./package.json
-COPY --from=builder /app/packages/server/api-gateway/package.json ./packages/server/api-gateway/package.json
-# 빌드 결과물만 복사 (web·runtime 소스 제외)
-COPY --from=builder /app/packages/server/api-gateway/dist ./packages/server/api-gateway/dist
 
 EXPOSE 3847
-CMD ["node", "packages/server/api-gateway/dist/index.js"]
+CMD ["node", "--conditions=development", "--import", "file:///app/scripts/register-swc.mjs", "packages/server/api-gateway/src/gateway.entry.ts"]
