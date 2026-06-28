@@ -6,7 +6,7 @@ import {
     RECIPE_SCAN_ARCHIVED_SCOPES,
     RECIPE_SCAN_STATUS_FILTERS,
 } from "../domain/recipe.scan.filters.policy.js";
-import { RECIPE_STATUSES } from "../domain/recipe.entity.js";
+import { RECIPE_STATUSES } from "../domain/const/recipe.const.js";
 
 const RECIPE_MCP_STATUS_FILTERS = [...RECIPE_STATUSES, "all"] as const;
 

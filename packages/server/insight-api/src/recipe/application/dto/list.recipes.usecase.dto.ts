@@ -1,4 +1,4 @@
-import type { RecipeStatus } from "@monitor/insight-api/recipe/domain/recipe.entity.js";
+import type { RecipeStatus } from "@monitor/insight-api/recipe/domain/const/recipe.const.js";
 import type { RecipeDto } from "./recipe.usecase.dto.js";
 
 export interface ListRecipesUseCaseIn {

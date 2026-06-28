@@ -1,18 +1,6 @@
 import { Column, Entity, Index, PrimaryColumn } from "typeorm";
-
-export const RECIPE_STATUS = {
-    active: "active",
-    superseded: "superseded",
-    retired: "retired",
-} as const;
-
-export const RECIPE_STATUSES = [
-    RECIPE_STATUS.active,
-    RECIPE_STATUS.superseded,
-    RECIPE_STATUS.retired,
-] as const;
-
-export type RecipeStatus = (typeof RECIPE_STATUSES)[number];
+import { RECIPE_STATUS } from "./const/recipe.const.js";
+import type { RecipeStatus } from "./const/recipe.const.js";
 
 const MIN_APPLIED_FOR_FAILURE = 5;
 const MIN_SUCCESS_RATE = 0.3;
@@ -81,7 +69,7 @@ export class RecipeEntity {
 
     shouldRetire(nowIso: string): boolean {
         // active 레시피만 자동 폐기 대상이며, 이미 superseded/retired인 항목은 건드리지 않는다.
-        if (this.status !== "active") return false;
+        if (this.status !== RECIPE_STATUS.active) return false;
         const ageMs = Date.parse(nowIso) - Date.parse(this.createdAt);
         // 충분히 적용됐는데 성공률이 낮거나, 한 번도 쓰이지 않은 채 오래된 레시피를 폐기한다.
         const failsByFailure =
