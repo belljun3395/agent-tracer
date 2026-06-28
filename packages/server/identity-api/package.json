@@ -5,5 +5,13 @@
     "type": "module",
     "exports": {
         "./*": "./src/*"
+    },
+    "dependencies": {
+        "@monitor/shared": "*",
+        "@nestjs/common": "^11.1.18",
+        "@nestjs/typeorm": "^11.0.1",
+        "nestjs-zod": "^5.4.0",
+        "typeorm": "^0.3.28",
+        "zod": "^3.0.0"
     }
 }

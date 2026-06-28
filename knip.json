@@ -1,6 +1,8 @@
 {
   "workspaces": {
-    "packages/server/api-gateway": {},
+    "packages/server/api-gateway": {
+      "ignoreDependencies": ["ws"]
+    },
     "packages/web": {},
     "packages/runtime": {
       "entry": [

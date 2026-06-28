@@ -5,5 +5,14 @@
     "type": "module",
     "exports": {
         "./*": "./src/*"
+    },
+    "dependencies": {
+        "@monitor/shared": "*",
+        "redis": "^5.12.1",
+        "ws": "^8.0.0"
+    },
+    "devDependencies": {
+        "@types/ws": "^8.0.0",
+        "vitest": "^3.0.0"
     }
 }
