@@ -3,6 +3,11 @@
     "version": "0.0.0",
     "private": true,
     "type": "module",
+    "scripts": {
+        "lint": "eslint . && npm run lint:types",
+        "lint:types": "tsc -p tsconfig.json --noEmit",
+        "lint:fix": "eslint . --fix"
+    },
     "exports": {
         "./*": "./src/*"
     },
