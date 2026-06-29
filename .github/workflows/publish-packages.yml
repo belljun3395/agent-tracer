@@ -53,14 +53,14 @@ jobs:
         run: npm run build --workspaces --if-present
 
       - name: Verify publish payloads
-        run: npm pack --workspace @monitor/server --dry-run
+        run: npm pack --workspace @monitor/api-gateway --dry-run
 
       - name: Publish packages
         env:
           DRY_RUN: ${{ github.event.inputs.dryRun }}
         run: |
           if [[ "$DRY_RUN" == "true" ]]; then
-            npm publish --workspace @monitor/server --access public --dry-run
+            npm publish --workspace @monitor/api-gateway --access public --dry-run
           else
             npm run publish:all
           fi
