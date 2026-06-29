@@ -31,7 +31,8 @@ services:
   server:
     build:
       context: .
-      dockerfile: Dockerfile.api-gateway
+      dockerfile: Dockerfile
+      target: gateway
     ports:
       - "3847:3847"
     environment:
@@ -54,7 +55,8 @@ services:
   web:
     build:
       context: .
-      dockerfile: Dockerfile.web
+      dockerfile: Dockerfile
+      target: web
     ports:
       - "5173:80"
     depends_on:

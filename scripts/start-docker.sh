@@ -9,8 +9,17 @@ echo "🚀 Agent Tracer Docker 환경을 시작합니다..."
 # Mac 등 특정 환경의 buildx 권한 꼬임 방지
 rm -rf ~/.docker/buildx/activity/* 2>/dev/null || true
 
-# 빌드 및 백그라운드 실행
-docker compose up -d --build
+# 로컬 단일 플랫폼 이미지에는 provenance/SBOM 매니페스트가 불필요 → export 오버헤드 제거
+export BUILDX_NO_DEFAULT_ATTESTATIONS=1
+
+# 기본은 변경분만 빌드(레이어 캐시) 후 기동한다.
+# 코드/의존성이 안 바뀐 게 확실하면 빌드를 건너뛰어 즉시 기동: ./scripts/start-docker.sh --no-build
+if [ "$1" = "--no-build" ]; then
+  docker compose up -d
+else
+  docker compose build
+  docker compose up -d
+fi
 
 echo ""
 echo "✅ 실행 완료!"
