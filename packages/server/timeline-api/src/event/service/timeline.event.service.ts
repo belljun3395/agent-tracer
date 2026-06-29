@@ -38,7 +38,6 @@ export class TimelineEventService {
     }
 
     countAll(): Promise<number> {
-
-        return Promise.resolve(0);
+        return this.persistence.countAll();
     }
 }

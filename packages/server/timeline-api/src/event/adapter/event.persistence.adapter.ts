@@ -34,6 +34,10 @@ export class EventPersistenceAdapter implements IEventPersistence {
         return this.storage.updateMetadata(eventId, metadata);
     }
 
+    async countAll(): Promise<number> {
+        return this.storage.countAll();
+    }
+
     async search(query: string, options: EventSearchOptions): Promise<EventSearchResults> {
         return this.searchIndex.search(query, options);
     }

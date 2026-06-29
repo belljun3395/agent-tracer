@@ -23,6 +23,10 @@ export class TimelineEventRepository {
         return this.repo.find({ where: { taskId, userId }, order: { createdAt: "ASC" } });
     }
 
+    countByUser(userId: string): Promise<number> {
+        return this.repo.count({ where: { userId } });
+    }
+
     save(entity: TimelineEventEntity): Promise<TimelineEventEntity> {
         return this.repo.save(entity);
     }

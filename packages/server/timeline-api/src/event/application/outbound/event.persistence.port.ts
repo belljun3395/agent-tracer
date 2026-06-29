@@ -37,5 +37,6 @@ export interface IEventPersistence {
     findByTaskId(taskId: string): Promise<readonly PersistedTimelineEvent[]>;
     insert(input: TimelineEventInsertRequest): Promise<PersistedTimelineEvent>;
     updateMetadata(eventId: string, metadata: Record<string, unknown>): Promise<PersistedTimelineEvent | null>;
+    countAll(): Promise<number>;
     search(query: string, options: EventSearchOptions): Promise<EventSearchResults>;
 }
