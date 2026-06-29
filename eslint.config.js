@@ -33,13 +33,12 @@ const RUNTIME_ALIASES = {
   "~claude-code": path.join(PROJECT_ROOT, "packages/runtime/src/claude-code"),
   "~codex": path.join(PROJECT_ROOT, "packages/runtime/src/codex"),
 };
+// api-gateway(합성 루트)만 ~alias 를 쓴다. 하위 컨텍스트 패키지(timeline-api/run-api/…)는
+// 패키지 간 import 를 @monitor/* bare specifier 로, 모듈 내부는 상대 경로로 한다.
 const SERVER_ALIASES = {
-  "~config": path.join(PROJECT_ROOT, "packages/server/src/config"),
-  "~adapters": path.join(PROJECT_ROOT, "packages/server/src/adapters"),
-  "~main": path.join(PROJECT_ROOT, "packages/server/src/main"),
-  "~activity": path.join(PROJECT_ROOT, "packages/server/src/activity"),
-  "~work": path.join(PROJECT_ROOT, "packages/server/src/work"),
-  "~governance": path.join(PROJECT_ROOT, "packages/server/src/governance"),
+  "~config": path.join(PROJECT_ROOT, "packages/server/api-gateway/src/config"),
+  "~adapters": path.join(PROJECT_ROOT, "packages/server/api-gateway/src/adapters"),
+  "~main": path.join(PROJECT_ROOT, "packages/server/api-gateway/src/main"),
 };
 const WEB_ALIASES = {
   "~domain": path.join(PROJECT_ROOT, "packages/web/src/domain"),
@@ -293,9 +292,9 @@ export default tseslint.config(
     files: ["**/*.{ts,tsx,js,jsx}"],
     rules: { "no-restricted-imports": restrictedImports() }
   },
-  // server: web/runtime 직접 import 금지
+  // server: web/runtime 직접 import 금지 (모든 server 패키지)
   {
-    files: ["packages/server/src/**/*.{ts,tsx}"],
+    files: ["packages/server/*/src/**/*.{ts,tsx}"],
     rules: { "no-restricted-imports": restrictedImports(...SERVER_CROSS_PACKAGE_PATTERNS) }
   },
   // web: server/runtime 직접 import 금지
@@ -317,12 +316,13 @@ export default tseslint.config(
     }
   },
 
-  // ── 5. server platform layer 경계 ─────────────────────────────
-  // bounded-context(activity/work/governance) 내부 layer 의존은 dep-cruiser 가 소유한다
-  // (.dependency-cruiser.cjs 의 <module>-* 규칙). eslint 는 platform 코드의 cross-package
-  // 제한과, adapters → main 금지만 enforce 한다. (flat config override 회피 위해 패턴 spread)
+  // ── 5. api-gateway adapters 경계 ──────────────────────────────
+  // 컨텍스트 패키지(timeline-api/run-api/rules-api/insight-api) 내부 layer 의존은
+  // dep-cruiser 가 소유한다(.dependency-cruiser.cjs 의 <module>-* 규칙). eslint 는
+  // 합성 루트(api-gateway) adapters 의 cross-package 제한과 adapters → main 금지만
+  // enforce 한다. (flat config override 회피 위해 패턴 spread)
   {
-    files: ["packages/server/src/adapters/**/*.{ts,tsx}"],
+    files: ["packages/server/api-gateway/src/adapters/**/*.{ts,tsx}"],
     rules: {
       "no-restricted-imports": restrictedImports(
         ...SERVER_CROSS_PACKAGE_PATTERNS,
@@ -376,13 +376,22 @@ export default tseslint.config(
       "local/prefer-barrel-index": ["error", { aliases: RUNTIME_ALIASES }]
     }
   },
+  // 모든 server 패키지: .js 확장자 + barrel index 강제 (alias 무관, 상대경로도 검사)
   {
-    files: ["packages/server/src/**/*.{ts,tsx}"],
+    files: ["packages/server/*/src/**/*.{ts,tsx}"],
     plugins: { local: localPlugin },
     rules: {
       "local/require-js-extension": "error",
-      "local/no-deep-relative-import": ["error", { aliases: SERVER_ALIASES }],
       "local/prefer-barrel-index": ["error", { aliases: SERVER_ALIASES }]
+    }
+  },
+  // no-deep-relative-import 는 ~alias 를 가진 api-gateway 에만 적용한다.
+  // 컨텍스트 패키지는 모듈 내부 상대 import(../../domain 등)를 정상 패턴으로 쓰므로 제외.
+  {
+    files: ["packages/server/api-gateway/src/**/*.{ts,tsx}"],
+    plugins: { local: localPlugin },
+    rules: {
+      "local/no-deep-relative-import": ["error", { aliases: SERVER_ALIASES }]
     }
   },
   {
@@ -398,34 +407,20 @@ export default tseslint.config(
   // ── 7. RELAXATIONS — 외부 라이브러리/프레임워크 한계 우회 ──────
   // 모든 항목은 사유와 함께 명시. runtime 에는 어떤 완화도 적용되지 않는다.
 
-  // 7-a) Drizzle SQLite — 중첩 generic proxy 타입에서 no-unsafe-* false positive 폭증
-  {
-    files: ["packages/server/src/adapters/persistence/sqlite/**/*.{ts,tsx}"],
-    rules: {
-      "@typescript-eslint/require-await": "off",
-      "@typescript-eslint/no-unsafe-assignment": "off",
-      "@typescript-eslint/no-unsafe-member-access": "off",
-      "@typescript-eslint/no-unsafe-call": "off",
-      "@typescript-eslint/no-unsafe-argument": "off",
-      "@typescript-eslint/no-unsafe-return": "off",
-      "@typescript-eslint/no-redundant-type-constituents": "off"
-    }
-  },
-
-  // 7-b) NestJS DI 한계 — type erasure 로 인한 광범위 no-unsafe-* false positive.
-  //      적용 범위: server.entry + bootstrap/presentation(main) +
-  //      NestJS 데코레이터를 직접 쓰는 adapter (controllers, realtime, mcp, llm).
-  //      `require-await: off` 는 SQLite 스타일 pass-through async API 통일성을 위함.
-  //      bounded-context usecase/service(activity/work/governance) 는 완화 없이 baseline 을
-  //      그대로 통과하므로 여기 포함하지 않는다.
+  // 7-a) NestJS DI 한계 — type erasure 로 인한 광범위 no-unsafe-* false positive.
+  //      적용 범위: api-gateway 합성 루트(gateway.entry + main + mcp) +
+  //      NestJS 데코레이터를 직접 쓰는 컨텍스트 코드 (controllers, mcp, ws-gateway, llm runner).
+  //      `require-await: off` 는 pass-through async API 통일성을 위함.
+  //      컨텍스트 usecase/service 는 완화 없이 baseline 을 그대로 통과하므로 포함하지 않는다.
   {
     files: [
-      "packages/server/src/server.entry.ts",
-      "packages/server/src/main/**/*.{ts,tsx}",
-      "packages/server/src/adapters/http/**/controllers/**/*.{ts,tsx}",
-      "packages/server/src/adapters/realtime/**/*.{ts,tsx}",
-      "packages/server/src/adapters/mcp/**/*.{ts,tsx}",
-      "packages/server/src/adapters/llm/**/*.{ts,tsx}"
+      "packages/server/api-gateway/src/gateway.entry.ts",
+      "packages/server/api-gateway/src/main/**/*.{ts,tsx}",
+      "packages/server/api-gateway/src/mcp/**/*.{ts,tsx}",
+      "packages/server/*/src/**/api/**/*.controller.{ts,tsx}",
+      "packages/server/*/src/**/mcp/**/*.{ts,tsx}",
+      "packages/server/ws-gateway/src/**/*.{ts,tsx}",
+      "packages/server/shared/src/llm/**/*.{ts,tsx}"
     ],
     rules: {
       "@typescript-eslint/require-await": "off",
@@ -438,18 +433,12 @@ export default tseslint.config(
     }
   },
 
-  // 7-c) NestJS DI — controller 는 service 클래스를 런타임 값(토큰)으로 받아야 하므로
-  //      type-only import 강제를 끈다. 모든 controller 디렉토리에 일괄 적용해
+  // 7-b) NestJS DI — controller 는 service 클래스를 런타임 값(토큰)으로 받아야 하므로
+  //      type-only import 강제를 끈다. 모든 controller 에 일괄 적용해
   //      신규 controller 작성 시 동일 footgun 을 방지한다.
   {
-    files: ["packages/server/src/adapters/http/**/controllers/**/*.{ts,tsx}"],
+    files: ["packages/server/*/src/**/api/**/*.controller.{ts,tsx}"],
     rules: { "@typescript-eslint/consistent-type-imports": "off" }
-  },
-
-  // 7-d) test/persistence — raw row 검증
-  {
-    files: ["packages/server/test/persistence/**/*.{ts,tsx}"],
-    rules: { "@typescript-eslint/no-unsafe-return": "off" }
   },
 
   // ── 8. 모든 test 파일 ─────────────────────────────────────────
