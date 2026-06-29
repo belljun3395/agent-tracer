@@ -1,5 +1,10 @@
 node_modules
 dist
+# Ship the compiled Claude Code hooks: the plugin is distributed via git-subdir
+# (raw clone, no build step on install), so dist must be committed or hooks fall
+# back to `npx tsx` on the .ts source (network-dependent, flaky bootstrap).
+!packages/runtime/dist/
+!packages/runtime/dist/**
 coverage
 *.log
 .DS_Store

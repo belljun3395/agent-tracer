@@ -56,6 +56,23 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
+      # The plugin ships via git-subdir (raw clone, no build on install), so the
+      # compiled hooks under packages/runtime/dist must be committed. Rebuild
+      # them here on every release so dist never drifts from source.
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Claude Code hook bundles
+        run: npm run build --workspace @monitor/runtime
+        env:
+          RUNTIME_BUILD_SOURCEMAP: "off"
+
       - name: Detect manual version bump
         id: detect
         run: |
@@ -122,18 +139,22 @@ jobs:
 
       - name: Commit and push bump
         id: commit
-        if: steps.detect.outputs.manual_bump == 'false'
         env:
+          MANUAL_BUMP: ${{ steps.detect.outputs.manual_bump }}
+          CURRENT: ${{ steps.detect.outputs.current }}
           NEW_VERSION: ${{ steps.bump.outputs.new_version }}
         run: |
           set -euo pipefail
-          git add packages/runtime/.claude-plugin/plugin.json packages/runtime/package.json
+          if [ "$MANUAL_BUMP" = "true" ]; then VERSION="$CURRENT"; else VERSION="$NEW_VERSION"; fi
+          # Stage the rebuilt dist alongside any version bump. On a manual bump
+          # the version files are already committed, so only dist changes land.
+          git add packages/runtime/dist packages/runtime/.claude-plugin/plugin.json packages/runtime/package.json
           if git diff --cached --quiet; then
-            echo "::warning::No changes to commit after bump — skipping push."
+            echo "::warning::Nothing to commit (no dist change, no bump) — skipping push."
             echo "pushed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          git commit -m "chore(claude-plugin): release v${NEW_VERSION} [skip ci]"
+          git commit -m "chore(claude-plugin): release v${VERSION} [skip ci]"
           git push origin HEAD:main
           echo "pushed=true" >> "$GITHUB_OUTPUT"
 
