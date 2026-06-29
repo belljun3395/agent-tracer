@@ -1,4 +1,4 @@
-interface CommandTargetLike {
+export interface CommandTargetLike {
     readonly type?: unknown;
     readonly value?: unknown;
 }

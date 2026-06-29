@@ -1,6 +1,7 @@
 import { normalizeFilePath } from "@monitor/timeline-api/event/domain/paths.js";
 import { isUserMessageEvent } from "./event.predicates.policy.js";
 import { commandTargetPath, flattenCommandSteps } from "./command.analysis.policy.js";
+import type { CommandTargetLike } from "./command.analysis.policy.js";
 import { META } from "@monitor/timeline-api/event/domain/runtime/const/metadata.keys.const.js";
 import { readStringArray } from "./event.metadata.policy.js";
 import type { TimelineEvent } from "./type/timeline.event.type.js";
@@ -45,7 +46,7 @@ function extractCommandAnalysisFilePaths(event: TimelineEvent): readonly string[
         const targets = Array.isArray(step.targets) ? step.targets : [];
         for (const targetValue of targets) {
             if (!targetValue || typeof targetValue !== "object") continue;
-            const path = commandTargetPath(targetValue);
+            const path = commandTargetPath(targetValue as CommandTargetLike);
             if (path) paths.push(path);
         }
     }
