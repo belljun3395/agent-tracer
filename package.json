@@ -16,9 +16,8 @@
     "lint:unused:fix": "knip --fix --fix-type exports,files",
     "lint:deps": "depcruise --config .dependency-cruiser.cjs packages",
     "test": "npm run test --workspaces --if-present",
-    "docs:dev": "vitepress dev docs --host 0.0.0.0 --port 5174",
-    "docs:build": "vitepress build docs",
-    "docs:preview": "vitepress preview docs --host 0.0.0.0 --port 4174",
+    "infra:up": "docker compose up -d postgres redis",
+    "infra:down": "docker compose down",
     "dev": "concurrently -k -n gateway,web \"npm run dev:gateway\" \"npm run dev:web\"",
     "dev:gateway": "NODE_OPTIONS=\"--conditions=development --import file://$(pwd)/scripts/register-swc.mjs\" SWC_NODE_PROJECT=packages/server/api-gateway/tsconfig.dev.json node --watch packages/server/api-gateway/src/gateway.entry.ts",
     "dev:web": "npm run dev --workspace @monitor/web -- --host 0.0.0.0",
@@ -40,10 +39,8 @@
     "eslint-plugin-n": "^17.24.0",
     "globals": "^15.0.0",
     "knip": "^5.0.0",
-    "mermaid": "^11.12.0",
     "tsx": "^4.0.0",
     "typescript": "^5.0.0",
-    "typescript-eslint": "^8.0.0",
-    "vitepress": "^2.0.0-alpha.17"
+    "typescript-eslint": "^8.0.0"
   }
 }

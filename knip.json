@@ -14,7 +14,6 @@
   "exclude": ["types", "unresolved"],
   "ignoreExportsUsedInFile": true,
   "ignore": [
-    "docs/**",
     "scripts/register-swc.mjs",
     "scripts/seed-preview.mjs",
     "scripts/record-preview-demo.mjs",
@@ -28,7 +27,6 @@
     "rxjs",
     "yaml",
     "eslint-plugin-n",
-    "mermaid",
     "tsx",
     "@swc-node/register",
     "@vitest/coverage-v8",

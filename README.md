@@ -5,22 +5,6 @@ This repository ships a Claude Code plugin-based event collection path and a
 Codex bootstrap path based on official hooks.
 The server and MCP layers are also open to manual HTTP/MCP clients.
 
-## Preview
-
-A ~60s walkthrough of the dashboard driven by a synthetic "fix the flaky
-cart-tax test" run. The same mock task is used for every screenshot below
-so the visuals stay deterministic — no real agent traffic or PII.
-
-![Agent Tracer dashboard walkthrough](docs/assets/preview/demo.gif)
-
-| Capture | What it shows |
-|---------|---------------|
-| ![Feed view](docs/assets/preview/dashboard-overview.png) | **Feed view.** Per-task timeline of agent activity classified into lanes — `USER` prompts/replies, `PLAN` thoughts, `IMPL` edits, `RULE` terminal commands (e.g. `npm test`, `npm run lint`), `VERI` verification results. Top bar carries task status, workspace path, `Recipes` / `Rules` shortcuts, and the live WebSocket pill. |
-| ![Graph swimlane](docs/assets/preview/feed-graph.png) | **Graph view.** Same events laid out as a zoomable swimlane (one lane per kind) so causal flow between user prompts, planning, exploration, implementation and rule checks reads at a glance. Lane chips toggle visibility; the legend explains node/edge semantics (rule violations, explicit-parent vs cross-lane causal edges, PreCompact markers). |
-| ![Inspector](docs/assets/preview/inspector.png) | **Inspector.** Click any node and the right panel shows its full payload — kind, sequence, timestamp, body, file paths and metadata. The `Inspect / Rules / Trace` tabs surface event-level rule matches and the runtime trace lineage for the selected step. |
-
-To regenerate these assets see [docs/assets/preview/README.md](docs/assets/preview/README.md).
-
 ## Quick Start
 
 Agent Tracer currently supports:
@@ -28,9 +12,17 @@ Agent Tracer currently supports:
 - Claude Code via plugin
 - Codex via generated repo-local hooks and repo-local config
 
+**Prerequisites:** Node.js 25+ and npm 11+ (see `.nvmrc`), Docker (for the
+bundled Postgres + Redis), and `git`.
+
+The monitor server needs **Postgres** (primary store) and **Redis** (WebSocket
+pub/sub) running before `npm run dev`. The repo ships a `docker-compose.yml`
+with both; `npm run infra:up` starts them in the background.
+
 ```bash
 npm install
 npm run build
+npm run infra:up   # start Postgres + Redis (requires Docker)
 npm run dev
 ```
 
@@ -48,23 +40,34 @@ can stop after `/plugin install` + `install-statusline.sh`.
 
 ### Minimal setup path (Mode B)
 
-1. **[Install and Run](docs/guide/install-and-run.md)** — clone the repo,
-   install dependencies, start the monitor server and web dashboard, verify
-   the installation.
-2. **[Claude Code Setup](docs/guide/claude-setup.md)** — load the plugin and
-   register the MCP server. Claude Code integration is complete after these
-   two steps.
-3. **[Codex Setup](docs/guide/codex-setup.md)** — use plain `codex` with the
-   generated repo-local hooks and config.
+1. Clone the repo, then `npm install`, `npm run build`, `npm run infra:up`,
+   `npm run dev` (see [Running this repository locally](#running-this-repository-locally)).
+   Verify with `curl -sf http://127.0.0.1:3847/health` and open
+   http://127.0.0.1:5173.
+2. **Claude Code.** Load the plugin, then register the MCP server separately —
+   the plugin only wires hooks; the `monitor` MCP server is added on its own and
+   needs a prior `npm run build` so `dist/mcp.js` exists:
 
-### Attach to external projects (Mode B, optional)
+   ```bash
+   claude --plugin-dir packages/runtime
+   claude mcp add monitor \
+     -e MONITOR_BASE_URL=http://127.0.0.1:3847 \
+     node "$(pwd)/packages/server/api-gateway/dist/mcp.js"
+   ```
 
-If you want to use Agent Tracer with a project outside this repository, follow
-an additional step:
+   Check with `claude mcp list` — `monitor` should be listed and connected.
+3. **Codex.** Codex has no plugin surface, so generate the repo-local hooks
+   first, then run Codex:
 
-4. **[External Project Setup](docs/guide/external-setup.md)** — run
-   `npm run setup:external` to generate `.claude/settings.json`, `.codex/config.toml`,
-   and `.codex/hooks.json` in your target project.
+   ```bash
+   npm run setup:external -- --target "$(pwd)"
+   codex
+   ```
+
+To attach Agent Tracer to a project **outside** this repository, run
+`npm run setup:external -- --target /absolute/path/to/your-project`; it writes
+`.claude/settings.json`, `.codex/config.toml`, and `.codex/hooks.json` (and
+prints the `claude --plugin-dir` command) into that project.
 
 ### Global status line (Mode A only)
 
@@ -93,54 +96,23 @@ restart Claude Code.
 > `setup:external` is not needed. You can start with
 > `claude --plugin-dir packages/runtime` directly.
 
-Latest guide: https://belljun3395.github.io/agent-tracer/guide/
-
 ## Running this repository locally
 
 ```bash
 npm install
 npm run build
+npm run infra:up   # start Postgres + Redis (requires Docker)
 npm run dev
 ```
 
 - Dashboard: http://127.0.0.1:5173
 - Monitor server: http://127.0.0.1:3847
 
-## Guide map
+Stop the infra containers with `npm run infra:down` when you're done.
 
-| Purpose | Document |
-|---------|----------|
-| Local installation and running | [docs/guide/install-and-run.md](docs/guide/install-and-run.md) |
-| Claude Code plugin setup | [docs/guide/claude-setup.md](docs/guide/claude-setup.md) |
-| Codex setup | [docs/guide/codex-setup.md](docs/guide/codex-setup.md) |
-| External project setup (optional) | [docs/guide/external-setup.md](docs/guide/external-setup.md) |
-| Runtime capabilities reference | [docs/guide/runtime-capabilities.md](docs/guide/runtime-capabilities.md) |
+## NPM release
 
-## Documentation site
-
-To view Markdown under `docs/` as a paginated documentation site, use the
-VitePress entrypoint:
-
-```bash
-npm run docs:dev
-```
-
-- Default URL: `http://127.0.0.1:5174`
-- Home: `docs/index.md`
-- Guide section: `docs/guide/*`
-
-### GitHub Pages deployment
-
-- Workflow: `.github/workflows/deploy-docs.yml`
-- First-time setup: select `GitHub Actions` in your repository settings
-  under `Settings > Pages > Build and deployment > Source`.
-- After setup, any documentation changes pushed to `main` are automatically
-  deployed to GitHub Pages.
-- Current deployment URL: `https://belljun3395.github.io/agent-tracer/`
-
-### NPM release
-
-- Publish: `npm run publish:all` (publishes `@monitor/server` to npm with
+- Publish: `npm run publish:all` (publishes `@monitor/api-gateway` to npm with
   public access; other workspaces are currently private).
 - Manual GitHub Actions run:
   - Select `Run workflow` in `.github/workflows/publish-packages.yml`
@@ -160,9 +132,6 @@ designate as mandatory checks (e.g. `npm run lint`, `npm run typecheck`).
 - Patterns can be **global** (apply to all tasks) or **task-scoped**
 - Matching `terminal.command` events are reclassified to the `rule` lane server-side at ingest
 
-See [API integration map § Rule Commands](docs/guide/api-integration-map.md#rule-commands) for
-the REST endpoints.
-
 ## Thought-Flow Observability
 
 The dashboard now displays diagnostic information alongside event timelines:
@@ -174,12 +143,11 @@ The dashboard now displays diagnostic information alongside event timelines:
 - Inspector `Health` tab: trace link coverage, action-registry gaps,
   question/todo closure rates, coordination/background activity, runtime lineage
 
-See `docs/guide/task-observability.md` for detailed contracts and API specs.
-
 ## Packages
 
 | Package | Path | Role |
 |---------|------|------|
-| `@monitor/server` | `packages/server` | NestJS monitor server (HTTP + WebSocket + SQLite) with an MCP stdio adapter exposed through the `./mcp` subpath export |
+| `@monitor/api-gateway` | `packages/server/api-gateway` | NestJS composition root (HTTP + WebSocket) backed by Postgres + Redis. Builds two entrypoints via `tsup`: `dist/index.js` (server) and `dist/mcp.js` (MCP stdio adapter). Composes the `*-api` domain packages below. |
+| `@monitor/{identity,run,rules,insight,timeline}-api`, `@monitor/ws-gateway`, `@monitor/shared` | `packages/server/*` | Domain + infrastructure packages consumed by the gateway |
 | `@monitor/web` | `packages/web` | React 19 dashboard |
 | `@monitor/runtime` | `packages/runtime` | Runtime adapters. Plugin root is `packages/runtime/` (`.claude-plugin/plugin.json`). Hooks live at `hooks/hooks.json` + `bin/run-hook-claude.sh` (Claude) and `bin/run-hook-codex.sh` (Codex, hydrated from `hooks/hooks-codex.json` by `setup:external`). Hook source `.ts` files under `src/claude-code/hooks/` and `src/codex/hooks/`. |
