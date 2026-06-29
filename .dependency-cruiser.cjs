@@ -302,39 +302,39 @@ module.exports = {
       to: { path: "^packages/server/run-api/src/task/(service|repository|application|adapter|api|subscriber)/" },
     },
 
-    // ── turn-partition (run-api/src/task/turn) ─────
+    // ── turn (run-api/src/turn) — usecase가 repository 직접 호출(service layer 없음) ─────
     {
-      name: "turn-partition-domain-no-upward",
+      name: "turn-domain-no-upward",
       severity: "error",
-      from: { path: "^packages/server/run-api/src/task/turn/domain/" },
-      to: { path: "^packages/server/run-api/src/task/turn/(repository|service|application|adapter|api|subscriber|public|common)/" },
+      from: { path: "^packages/server/run-api/src/turn/domain/" },
+      to: { path: "^packages/server/run-api/src/turn/(repository|service|application|adapter|api|subscriber|public|common)/" },
     },
     {
-      name: "turn-partition-repository-only-domain",
+      name: "turn-repository-only-domain",
       severity: "error",
-      from: { path: "^packages/server/run-api/src/task/turn/repository/" },
-      to: { path: "^packages/server/run-api/src/task/turn/(service|application|adapter|api|subscriber)/" },
+      from: { path: "^packages/server/run-api/src/turn/repository/" },
+      to: { path: "^packages/server/run-api/src/turn/(service|application|adapter|api|subscriber)/" },
     },
     {
-      name: "turn-partition-usecase-no-upper-layers",
+      name: "turn-usecase-no-upper-layers",
       severity: "error",
-      from: { path: "^packages/server/run-api/src/task/turn/application/" },
-      to: { path: "^packages/server/run-api/src/task/turn/(adapter|api|subscriber)/" },
+      from: { path: "^packages/server/run-api/src/turn/application/" },
+      to: { path: "^packages/server/run-api/src/turn/(adapter|api|subscriber)/" },
     },
     {
-      name: "turn-partition-api-only-application",
+      name: "turn-api-only-application",
       severity: "error",
       comment: "api는 application + domain (const/type) 만 — service/repository/adapter 는 금지",
-      from: { path: "^packages/server/run-api/src/task/turn/api/" },
-      to: { path: "^packages/server/run-api/src/task/turn/(service|repository|adapter|subscriber)/" },
+      from: { path: "^packages/server/run-api/src/turn/api/" },
+      to: { path: "^packages/server/run-api/src/turn/(service|repository|adapter|subscriber)/" },
     },
     {
-      name: "turn-partition-adapter-no-application-internals",
+      name: "turn-adapter-no-application-internals",
       severity: "error",
-      from: { path: "^packages/server/run-api/src/task/turn/adapter/" },
+      from: { path: "^packages/server/run-api/src/turn/adapter/" },
       to: {
-        path: "^packages/server/run-api/src/task/turn/(application|api|subscriber)/",
-        pathNot: "^packages/server/run-api/src/task/turn/application/outbound/",
+        path: "^packages/server/run-api/src/turn/(application|api|subscriber)/",
+        pathNot: "^packages/server/run-api/src/turn/application/outbound/",
       },
     },
 
