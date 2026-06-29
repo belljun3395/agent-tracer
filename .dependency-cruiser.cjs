@@ -420,6 +420,141 @@ module.exports = {
       from: { path: "^packages/server/rules-api/src/verification/public/" },
       to: { path: "^packages/server/rules-api/src/verification/(service|repository|application|adapter|api|subscriber)/" },
     },
+
+    // ── recipe (insight-api/src/recipe) — agent/mcp는 보조(미가드). usecase가 repository 직접 호출 ─────
+    {
+      name: "recipe-domain-no-upward",
+      severity: "error",
+      from: { path: "^packages/server/insight-api/src/recipe/domain/" },
+      to: { path: "^packages/server/insight-api/src/recipe/(repository|service|application|api)/" },
+    },
+    {
+      name: "recipe-repository-only-domain",
+      severity: "error",
+      from: { path: "^packages/server/insight-api/src/recipe/repository/" },
+      to: { path: "^packages/server/insight-api/src/recipe/(service|application|api)/" },
+    },
+    {
+      name: "recipe-service-no-upper-layers",
+      severity: "error",
+      from: { path: "^packages/server/insight-api/src/recipe/service/" },
+      to: { path: "^packages/server/insight-api/src/recipe/(application|api)/" },
+    },
+    {
+      name: "recipe-usecase-no-upper-layers",
+      severity: "error",
+      from: { path: "^packages/server/insight-api/src/recipe/application/" },
+      to: { path: "^packages/server/insight-api/src/recipe/api/" },
+    },
+    {
+      name: "recipe-api-only-application",
+      severity: "error",
+      comment: "api는 application + domain(const/type) 만 — service/repository 직접 금지",
+      from: { path: "^packages/server/insight-api/src/recipe/api/" },
+      to: { path: "^packages/server/insight-api/src/recipe/(service|repository)/" },
+    },
+
+    // ── task-cleanup (insight-api/src/task-cleanup) — agent 보조(미가드). usecase가 repository 직접 호출 ─────
+    {
+      name: "task-cleanup-domain-no-upward",
+      severity: "error",
+      from: { path: "^packages/server/insight-api/src/task-cleanup/domain/" },
+      to: { path: "^packages/server/insight-api/src/task-cleanup/(repository|service|application|api)/" },
+    },
+    {
+      name: "task-cleanup-repository-only-domain",
+      severity: "error",
+      from: { path: "^packages/server/insight-api/src/task-cleanup/repository/" },
+      to: { path: "^packages/server/insight-api/src/task-cleanup/(service|application|api)/" },
+    },
+    {
+      name: "task-cleanup-service-no-upper-layers",
+      severity: "error",
+      from: { path: "^packages/server/insight-api/src/task-cleanup/service/" },
+      to: { path: "^packages/server/insight-api/src/task-cleanup/(application|api)/" },
+    },
+    {
+      name: "task-cleanup-usecase-no-upper-layers",
+      severity: "error",
+      from: { path: "^packages/server/insight-api/src/task-cleanup/application/" },
+      to: { path: "^packages/server/insight-api/src/task-cleanup/api/" },
+    },
+    {
+      name: "task-cleanup-api-only-application",
+      severity: "error",
+      from: { path: "^packages/server/insight-api/src/task-cleanup/api/" },
+      to: { path: "^packages/server/insight-api/src/task-cleanup/(service|repository)/" },
+    },
+
+    // ── settings (identity-api/src/settings) — usecase는 service만 경유(full ring) ─────
+    {
+      name: "settings-domain-no-upward",
+      severity: "error",
+      from: { path: "^packages/server/identity-api/src/settings/domain/" },
+      to: { path: "^packages/server/identity-api/src/settings/(repository|service|application|api|public)/" },
+    },
+    {
+      name: "settings-repository-only-domain",
+      severity: "error",
+      from: { path: "^packages/server/identity-api/src/settings/repository/" },
+      to: { path: "^packages/server/identity-api/src/settings/(service|application|api)/" },
+    },
+    {
+      name: "settings-service-no-upper-layers",
+      severity: "error",
+      from: { path: "^packages/server/identity-api/src/settings/service/" },
+      to: { path: "^packages/server/identity-api/src/settings/(application|api)/" },
+    },
+    {
+      name: "settings-usecase-no-direct-repository",
+      severity: "error",
+      from: { path: "^packages/server/identity-api/src/settings/application/" },
+      to: { path: "^packages/server/identity-api/src/settings/repository/" },
+    },
+    {
+      name: "settings-usecase-no-upper-layers",
+      severity: "error",
+      from: { path: "^packages/server/identity-api/src/settings/application/" },
+      to: { path: "^packages/server/identity-api/src/settings/api/" },
+    },
+    {
+      name: "settings-api-only-application",
+      severity: "error",
+      from: { path: "^packages/server/identity-api/src/settings/api/" },
+      to: { path: "^packages/server/identity-api/src/settings/(service|repository)/" },
+    },
+    {
+      name: "settings-public-only-domain-types",
+      severity: "error",
+      from: { path: "^packages/server/identity-api/src/settings/public/" },
+      to: { path: "^packages/server/identity-api/src/settings/(service|repository|application|api)/" },
+    },
+
+    // ── user (identity-api/src/user) — service layer 없음(usecase가 repository 직접 호출) ─────
+    {
+      name: "user-domain-no-upward",
+      severity: "error",
+      from: { path: "^packages/server/identity-api/src/user/domain/" },
+      to: { path: "^packages/server/identity-api/src/user/(repository|application|api)/" },
+    },
+    {
+      name: "user-repository-only-domain",
+      severity: "error",
+      from: { path: "^packages/server/identity-api/src/user/repository/" },
+      to: { path: "^packages/server/identity-api/src/user/(application|api)/" },
+    },
+    {
+      name: "user-usecase-no-upper-layers",
+      severity: "error",
+      from: { path: "^packages/server/identity-api/src/user/application/" },
+      to: { path: "^packages/server/identity-api/src/user/api/" },
+    },
+    {
+      name: "user-api-only-application",
+      severity: "error",
+      from: { path: "^packages/server/identity-api/src/user/api/" },
+      to: { path: "^packages/server/identity-api/src/user/repository/" },
+    },
   ],
   options: {
     // 빌드 산출물(Vite 번들 등)은 소스 아키텍처가 아니므로 검사에서 제외한다.
