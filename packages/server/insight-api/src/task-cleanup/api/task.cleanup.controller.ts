@@ -21,7 +21,7 @@ import {
     GenerationAlreadyInFlightError,
     MissingApiKeyError,
     NoTasksToScanError,
-} from "../service/task.cleanup.service.js";
+} from "../domain/task.cleanup.errors.js";
 import { parseCleanupSuggestionStatusFilter } from "./cleanup.query.filters.js";
 
 @Controller("api/v1/task-cleanup")

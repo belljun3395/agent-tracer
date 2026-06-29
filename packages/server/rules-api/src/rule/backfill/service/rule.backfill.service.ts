@@ -6,13 +6,7 @@ import { RULE_PERSISTENCE_PORT } from "@monitor/rules-api/rule/application/outbo
 import type { IRulePersistence } from "@monitor/rules-api/rule/application/outbound/rule.persistence.port.js";
 import { VERIFICATION_BACKFILL } from "@monitor/rules-api/verification/public/tokens.js";
 import type { IVerificationBackfill } from "@monitor/rules-api/verification/public/iservice/verification.backfill.iservice.js";
-
-export class RuleNotFoundForBackfillError extends Error {
-    constructor(public readonly ruleId: string) {
-        super(`Rule not found: ${ruleId}`);
-        this.name = "RuleNotFoundForBackfillError";
-    }
-}
+import { RuleNotFoundForBackfillError } from "../domain/rule.backfill.errors.js";
 
 @Injectable()
 export class RuleBackfillService {

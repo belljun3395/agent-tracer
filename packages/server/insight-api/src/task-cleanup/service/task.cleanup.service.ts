@@ -15,30 +15,14 @@ import { InsightJobRepository } from "../../job/insight.job.repository.js";
 import { TaskCleanupSuggestionRepository } from "../repository/task.cleanup.suggestion.repository.js";
 import type { InsightJobEntity } from "../../job/insight.job.entity.js";
 import { dedupeByKindAndTask } from "../domain/task.cleanup.dedup.policy.js";
+import {
+    GenerationAlreadyInFlightError,
+    MissingApiKeyError,
+    NoTasksToScanError,
+} from "../domain/task.cleanup.errors.js";
 
 const DEFAULT_MAX_SUGGESTIONS = 20;
 const MAX_SUGGESTIONS_HARD_CAP = 50;
-
-export class GenerationAlreadyInFlightError extends Error {
-    constructor(public readonly jobId: string) {
-        super(`A cleanup scan is already in flight (jobId=${jobId}).`);
-        this.name = "GenerationAlreadyInFlightError";
-    }
-}
-
-export class MissingApiKeyError extends Error {
-    constructor() {
-        super("No Anthropic API key configured. Set anthropic.api_key in Settings.");
-        this.name = "MissingApiKeyError";
-    }
-}
-
-export class NoTasksToScanError extends Error {
-    constructor() {
-        super("No active tasks to scan.");
-        this.name = "NoTasksToScanError";
-    }
-}
 
 @Injectable()
 export class TaskCleanupService {

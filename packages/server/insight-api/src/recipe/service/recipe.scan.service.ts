@@ -2,6 +2,11 @@ import { Inject, Injectable, Logger } from "@nestjs/common";
 import { NOTIFICATION_TYPE } from "@monitor/shared/contracts/notifications/notification.type.const.js";
 import { randomUUID } from "node:crypto";
 import { RecipeScanAgent } from "../agent/recipe.scan.agent.js";
+import {
+    MissingApiKeyError,
+    NoTasksToScanError,
+    RecipeScanAlreadyInFlightError,
+} from "../domain/recipe.scan.errors.js";
 import type {
     RecipeOutputLanguage,
     RecipeTaskSnapshot,
@@ -30,27 +35,6 @@ import {
     parseRecipeScanFilters,
 } from "../domain/recipe.scan.filters.policy.js";
 import type { EnqueueRecipeScanInput } from "../application/dto/recipe.scan.dto.js";
-
-export class RecipeScanAlreadyInFlightError extends Error {
-    constructor(public readonly jobId: string) {
-        super(`A recipe scan is already in flight (jobId=${jobId}).`);
-        this.name = "RecipeScanAlreadyInFlightError";
-    }
-}
-
-export class MissingApiKeyError extends Error {
-    constructor() {
-        super("No Anthropic API key configured. Set anthropic.api_key in Settings.");
-        this.name = "MissingApiKeyError";
-    }
-}
-
-export class NoTasksToScanError extends Error {
-    constructor() {
-        super("No tasks match the scan filters.");
-        this.name = "NoTasksToScanError";
-    }
-}
 
 @Injectable()
 export class RecipeScanService {

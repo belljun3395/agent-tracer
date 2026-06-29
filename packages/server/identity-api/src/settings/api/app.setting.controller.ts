@@ -14,7 +14,7 @@ import { ZodValidationPipe } from "@monitor/shared/contracts/http/zod-validation
 import {
     InvalidSettingValueError,
     UnsupportedSettingKeyError,
-} from "../service/app.setting.service.js";
+} from "../domain/app.setting.errors.js";
 import { ListAppSettingsUseCase } from "../application/list.app.settings.usecase.js";
 import { SetAppSettingUseCase } from "../application/set.app.setting.usecase.js";
 import { DeleteAppSettingUseCase } from "../application/delete.app.setting.usecase.js";

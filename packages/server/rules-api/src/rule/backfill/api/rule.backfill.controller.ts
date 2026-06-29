@@ -7,7 +7,7 @@ import {
     Post,
 } from "@nestjs/common";
 import { pathParamPipe } from "@monitor/shared/contracts/http/path-param.pipe.js";
-import { RuleNotFoundForBackfillError } from "../service/rule.backfill.service.js";
+import { RuleNotFoundForBackfillError } from "../domain/rule.backfill.errors.js";
 import { EnqueueRuleBackfillUseCase } from "../application/enqueue.rule.backfill.usecase.js";
 
 @Controller("api/v1/rules")

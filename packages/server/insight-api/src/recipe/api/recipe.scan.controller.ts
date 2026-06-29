@@ -30,7 +30,7 @@ import {
     MissingApiKeyError,
     NoTasksToScanError,
     RecipeScanAlreadyInFlightError,
-} from "../service/recipe.scan.service.js";
+} from "../domain/recipe.scan.errors.js";
 import {
     RECIPE_SCAN_ARCHIVED_SCOPES,
     RECIPE_SCAN_STATUS_FILTERS,

@@ -5,6 +5,10 @@ import {
     isSettingKeySupported,
     maskSensitiveValue,
 } from "../domain/app.setting.keys.js";
+import {
+    InvalidSettingValueError,
+    UnsupportedSettingKeyError,
+} from "../domain/app.setting.errors.js";
 
 export interface AppSettingItem {
     readonly key: string;
@@ -68,19 +72,5 @@ export class AppSettingService {
             throw new UnsupportedSettingKeyError(key);
         }
         return this.repo.delete(key);
-    }
-}
-
-export class UnsupportedSettingKeyError extends Error {
-    constructor(public readonly key: string) {
-        super(`Unsupported setting key: ${key}`);
-        this.name = "UnsupportedSettingKeyError";
-    }
-}
-
-export class InvalidSettingValueError extends Error {
-    constructor(public readonly key: string, message: string) {
-        super(message);
-        this.name = "InvalidSettingValueError";
     }
 }

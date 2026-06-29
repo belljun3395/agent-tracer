@@ -15,7 +15,7 @@ import {
     MissingApiKeyError,
     TaskHasNoEventsError,
     TaskNotFoundForGenerationError,
-} from "../service/task.rule.generation.service.js";
+} from "../domain/task.rule.generation.errors.js";
 import { EnqueueTaskRuleGenerationUseCase } from "../application/enqueue.task.rule.generation.usecase.js";
 import { GetLatestTaskRuleGenerationUseCase } from "../application/get.latest.task.rule.generation.usecase.js";
 
