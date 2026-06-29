@@ -8,6 +8,10 @@ export default defineConfig({
     dts: true,
     clean: true,
     tsconfig: "tsconfig.json",
+    // Workspace packages are published as TS source (exports map to ./src/*),
+    // so they must be bundled — otherwise the built entry imports
+    // @monitor/*/src/*.js paths that do not exist at runtime.
+    noExternal: [/^@monitor\//],
     external: [
         "@huggingface/transformers",
         "express",
