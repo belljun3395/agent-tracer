@@ -3,6 +3,7 @@ import { NOTIFICATION_TYPE } from "@monitor/shared/contracts/notifications/notif
 import { randomUUID } from "node:crypto";
 import {
     RuleSuggestionAgent,
+    type GenerateRuleSuggestionsInput,
     type GenerateRuleSuggestionsOutput,
 } from "../agent/rule.suggestion.agent.js";
 import type { INotificationPublisher } from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
@@ -109,85 +110,10 @@ export class TaskRuleGenerationService {
             },
         });
         try {
-            const apiKey = await this.settings.getAnthropicApiKey();
-            if (this.agent.requiresLocalApiKey() && !apiKey) {
-                // 실행 시점에도 키를 다시 확인해 오래된 pending 잡이 잘못 실행되지 않게 한다.
-                throw new MissingApiKeyError();
-            }
-            const modelOverride = await this.settings.getAnthropicModel();
-            const maxRulesRaw = await this.settings.getRawValue(
-                APP_SETTING_KEYS.ruleGenMaxRulesPerTask,
-            );
-            const maxRules = clampMaxRules(maxRulesRaw);
-            const languageRaw = await this.settings.getRawValue(
-                APP_SETTING_KEYS.claudeOutputLanguage,
-            );
-            const language = normalizeRuleSuggestionLanguage(languageRaw);
-
-            const { summary } = await this.taskSummary.execute({ taskId });
-            if (!summary) {
-                // enqueue 이후 태스크가 삭제되면 잡을 실패로 닫는다.
-                throw new TaskNotFoundForGenerationError(taskId);
-            }
-
-            const existingRules = await this.listRules.execute({ scope: "global" });
-            const existingNames = existingRules.rules.map((r) => r.name);
-
-            // 저장된 응답이 있으면 호출을 건너뛰고, 없으면 호출 후 저장한다.
-            let output: GenerateRuleSuggestionsOutput;
-            if (job.llmOutputJson) {
-                output = JSON.parse(job.llmOutputJson) as GenerateRuleSuggestionsOutput;
-            } else {
-                output = await this.agent.generate({
-                    ...(apiKey ? { apiKey } : {}),
-                    ...(modelOverride ? { model: modelOverride } : {}),
-                    summary,
-                    existingRuleNames: existingNames,
-                    maxRules,
-                    language,
-                });
-                await this.jobs.saveLlmOutput(
-                    job.id,
-                    JSON.stringify(output),
-                    new Date().toISOString(),
-                );
-            }
-
-            let rulesCreated = 0;
-            for (const proposal of output.rules) {
-                const result = await this.registerSuggestion.execute({
-                    name: proposal.name,
-                    ...(proposal.trigger ? { trigger: proposal.trigger } : {}),
-                    ...(proposal.triggerOn ? { triggerOn: proposal.triggerOn } : {}),
-                    expect: {
-                        ...(proposal.expect.action !== undefined
-                            ? { action: proposal.expect.action }
-                            : {}),
-                        ...(proposal.expect.commandMatches !== undefined
-                            ? { commandMatches: [...proposal.expect.commandMatches] }
-                            : {}),
-                        ...(proposal.expect.pattern !== undefined
-                            ? { pattern: proposal.expect.pattern }
-                            : {}),
-                    },
-                    scope: "task",
-                    taskId,
-                    severity: "info",
-                    rationale: proposal.rationale,
-                });
-                if (result.created) rulesCreated++;
-            }
-
-            await this.jobs.markCompleted({
-                id: job.id,
-                rulesCreated,
-                modelUsed: output.modelUsed,
-                durationMs: output.durationMs,
-                costUsd: output.costUsd,
-                numTurns: output.numTurns,
-                usage: output.usage,
-                completedAt: new Date().toISOString(),
-            });
+            const input = await this.loadGenerationInput(taskId);
+            const output = await this.runInference(job, input);
+            const rulesCreated = await this.applyProposals(taskId, output);
+            await this.completeGeneration(job.id, output, rulesCreated);
             this.notifier.publish({
                 type: NOTIFICATION_TYPE.sdkJobUpdated,
                 payload: {
@@ -228,6 +154,107 @@ export class TaskRuleGenerationService {
                 },
             });
         }
+    }
+
+    // 컨텍스트를 모아 LLM 입력을 만든다. Temporal 활동에서도 직접 호출한다.
+    async loadGenerationInput(taskId: string): Promise<GenerateRuleSuggestionsInput> {
+        const apiKey = await this.settings.getAnthropicApiKey();
+        if (this.agent.requiresLocalApiKey() && !apiKey) {
+            throw new MissingApiKeyError();
+        }
+        const modelOverride = await this.settings.getAnthropicModel();
+        const maxRulesRaw = await this.settings.getRawValue(
+            APP_SETTING_KEYS.ruleGenMaxRulesPerTask,
+        );
+        const maxRules = clampMaxRules(maxRulesRaw);
+        const languageRaw = await this.settings.getRawValue(
+            APP_SETTING_KEYS.claudeOutputLanguage,
+        );
+        const language = normalizeRuleSuggestionLanguage(languageRaw);
+
+        const { summary } = await this.taskSummary.execute({ taskId });
+        if (!summary) {
+            throw new TaskNotFoundForGenerationError(taskId);
+        }
+
+        const existingRules = await this.listRules.execute({ scope: "global" });
+        const existingNames = existingRules.rules.map((r) => r.name);
+
+        return {
+            ...(apiKey ? { apiKey } : {}),
+            ...(modelOverride ? { model: modelOverride } : {}),
+            summary,
+            existingRuleNames: existingNames,
+            maxRules,
+            language,
+        };
+    }
+
+    // 저장된 응답이 있으면 호출을 건너뛰고, 없으면 호출 후 저장한다.
+    async runInference(
+        job: RuleJobEntity,
+        input: GenerateRuleSuggestionsInput,
+    ): Promise<GenerateRuleSuggestionsOutput> {
+        if (job.llmOutputJson) {
+            return JSON.parse(job.llmOutputJson) as GenerateRuleSuggestionsOutput;
+        }
+        const output = await this.agent.generate(input);
+        await this.jobs.saveLlmOutput(
+            job.id,
+            JSON.stringify(output),
+            new Date().toISOString(),
+        );
+        return output;
+    }
+
+    // 제안된 규칙을 등록하고 새로 생성된 수를 돌려준다.
+    async applyProposals(
+        taskId: string,
+        output: GenerateRuleSuggestionsOutput,
+    ): Promise<number> {
+        let rulesCreated = 0;
+        for (const proposal of output.rules) {
+            const result = await this.registerSuggestion.execute({
+                name: proposal.name,
+                ...(proposal.trigger ? { trigger: proposal.trigger } : {}),
+                ...(proposal.triggerOn ? { triggerOn: proposal.triggerOn } : {}),
+                expect: {
+                    ...(proposal.expect.action !== undefined
+                        ? { action: proposal.expect.action }
+                        : {}),
+                    ...(proposal.expect.commandMatches !== undefined
+                        ? { commandMatches: [...proposal.expect.commandMatches] }
+                        : {}),
+                    ...(proposal.expect.pattern !== undefined
+                        ? { pattern: proposal.expect.pattern }
+                        : {}),
+                },
+                scope: "task",
+                taskId,
+                severity: "info",
+                rationale: proposal.rationale,
+            });
+            if (result.created) rulesCreated++;
+        }
+        return rulesCreated;
+    }
+
+    // 결과 카운트와 텔레메트리를 기록하고 잡을 완료로 닫는다.
+    async completeGeneration(
+        jobId: string,
+        output: GenerateRuleSuggestionsOutput,
+        rulesCreated: number,
+    ): Promise<void> {
+        await this.jobs.markCompleted({
+            id: jobId,
+            rulesCreated,
+            modelUsed: output.modelUsed,
+            durationMs: output.durationMs,
+            costUsd: output.costUsd,
+            numTurns: output.numTurns,
+            usage: output.usage,
+            completedAt: new Date().toISOString(),
+        });
     }
 }
 
