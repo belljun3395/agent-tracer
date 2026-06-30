@@ -1,5 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
+import { Context } from "@temporalio/activity";
 import { NOTIFICATION_TYPE } from "@monitor/shared/contracts/notifications/notification.type.const.js";
 import { NOTIFICATION_PUBLISHER_TOKEN } from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
 import type { INotificationPublisher } from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
@@ -88,11 +89,15 @@ export class TaskCleanupActivity {
             return 0;
         }
 
+        const info = Context.current().info;
+        const idempotencyKey = `${info.workflowExecution?.workflowId ?? "wf"}-${info.activityId}`;
+
         const output = await this.agent.generate({
             ...(apiKey ? { apiKey } : {}),
             ...(modelOverride ? { model: modelOverride } : {}),
             tasks: snapshots,
             maxSuggestions,
+            idempotencyKey,
         });
 
         await this.jobs.saveLlmOutput(
@@ -178,11 +183,9 @@ export class TaskCleanupActivity {
     }
 
     async failTaskCleanup(jobId: string, error: string): Promise<void> {
-        const attempts = await this.jobs.incrementAttempts(jobId, new Date().toISOString());
-        await this.jobs.markFailed({
+        await this.jobs.incrementAndMarkFailed({
             id: jobId,
             error: truncate(error, 1000),
-            attempts,
             completedAt: new Date().toISOString(),
         });
         this.notifier.publish({

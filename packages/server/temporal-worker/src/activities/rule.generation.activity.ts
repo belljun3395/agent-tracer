@@ -1,4 +1,5 @@
 import { Injectable, Inject } from "@nestjs/common";
+import { Context } from "@temporalio/activity";
 import type {
     RuleSuggestionAgent,
     GenerateRuleSuggestionsInput,
@@ -66,7 +67,9 @@ export class RuleGenerationActivity {
                 taskId: job.taskId,
             },
         });
-        const input = await this.loadGenerationInput(job.taskId);
+        const info = Context.current().info;
+        const idempotencyKey = `${info.workflowExecution?.workflowId ?? "wf"}-${info.activityId}`;
+        const input = await this.loadGenerationInput(job.taskId, idempotencyKey);
         await this.runInference(job, input);
     }
 
@@ -116,14 +119,9 @@ export class RuleGenerationActivity {
 
     async failRuleGeneration(jobId: string, error: string): Promise<void> {
         const job = await this.jobs.findById(jobId);
-        const attempts = await this.jobs.incrementAttempts(
-            jobId,
-            new Date().toISOString(),
-        );
-        await this.jobs.markFailed({
+        await this.jobs.incrementAndMarkFailed({
             id: jobId,
             error: truncate(error, 1000),
-            attempts,
             completedAt: new Date().toISOString(),
         });
         this.notifier.publish({
@@ -149,6 +147,7 @@ export class RuleGenerationActivity {
 
     private async loadGenerationInput(
         taskId: string,
+        idempotencyKey?: string,
     ): Promise<GenerateRuleSuggestionsInput> {
         const apiKey = await this.settings.getAnthropicApiKey();
         if (this.agent.requiresLocalApiKey() && !apiKey) {
@@ -179,6 +178,7 @@ export class RuleGenerationActivity {
             existingRuleNames: existingNames,
             maxRules,
             language,
+            ...(idempotencyKey ? { idempotencyKey } : {}),
         };
     }
 

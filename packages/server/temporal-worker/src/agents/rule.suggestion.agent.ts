@@ -26,6 +26,7 @@ export interface GenerateRuleSuggestionsInput {
     readonly existingRuleNames: readonly string[];
     readonly maxRules: number;
     readonly language?: RuleSuggestionLanguage;
+    readonly idempotencyKey?: string;
 }
 
 export interface GenerateRuleSuggestionsOutput {
@@ -80,6 +81,7 @@ export class RuleSuggestionAgent {
             deadlineMs: 300_000,
             env,
             outputSchema: RULE_OUTPUT_SCHEMA,
+            ...(input.idempotencyKey ? { idempotencyKey: input.idempotencyKey } : {}),
         });
 
         if (errorSummary || (!rawOutput && structuredOutput === null)) {

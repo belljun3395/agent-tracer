@@ -1,5 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
+import { Context } from "@temporalio/activity";
 import { NOTIFICATION_TYPE } from "@monitor/shared/contracts/notifications/notification.type.const.js";
 import { NOTIFICATION_PUBLISHER_TOKEN } from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
 import type { INotificationPublisher } from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
@@ -41,13 +42,15 @@ export class RecipeScanActivity {
 
     toActivities(): {
         runRecipeScan: (jobId: string) => Promise<number>;
-        applyRecipeScan: (jobId: string) => Promise<number>;
+        insertRecipeCandidates: (jobId: string) => Promise<number>;
+        retireStaleRecipes: () => Promise<void>;
         completeRecipeScan: (jobId: string, candidatesCreated: number, tasksScanned: number) => Promise<void>;
         failRecipeScan: (jobId: string, error: string) => Promise<void>;
     } {
         return {
             runRecipeScan: (jobId) => this.runRecipeScan(jobId),
-            applyRecipeScan: (jobId) => this.applyRecipeScan(jobId),
+            insertRecipeCandidates: (jobId) => this.insertRecipeCandidates(jobId),
+            retireStaleRecipes: () => this.retireStaleRecipes(),
             completeRecipeScan: (jobId, candidatesCreated, tasksScanned) =>
                 this.completeRecipeScan(jobId, candidatesCreated, tasksScanned),
             failRecipeScan: (jobId, error) => this.failRecipeScan(jobId, error),
@@ -106,12 +109,16 @@ export class RecipeScanActivity {
             return 0;
         }
 
+        const info = Context.current().info;
+        const idempotencyKey = `${info.workflowExecution?.workflowId ?? "wf"}-${info.activityId}`;
+
         const output = await this.agent.generate({
             ...(apiKey ? { apiKey } : {}),
             ...(modelOverride ? { model: modelOverride } : {}),
             tasks: snapshots,
             maxCandidates: filters.maxCandidates,
             language,
+            idempotencyKey,
         });
 
         await this.jobs.saveLlmOutput(
@@ -123,15 +130,14 @@ export class RecipeScanActivity {
         return tasksScanned;
     }
 
-    // apply 단계: 저장된 응답으로 후보를 등록하고 레시피 은퇴 정책을 실행한다.
-    async applyRecipeScan(jobId: string): Promise<number> {
+    // insert 단계: 저장된 LLM 응답으로 후보를 등록한다. 재시도 시 중복 삽입을 건너뛴다.
+    async insertRecipeCandidates(jobId: string): Promise<number> {
         const job = await this.loadJob(jobId);
         if (!job.llmOutputJson) throw new Error(`memoized LLM output missing for job ${jobId}`);
 
         const memo = JSON.parse(job.llmOutputJson) as GenerateRecipeCandidatesOutput & { tasksScanned: number };
         if (memo.recipes.length === 0) return 0;
 
-        // 재시도 안전: 이미 삽입된 후보가 있으면 중복 삽입을 건너뛴다.
         const alreadyInserted = await this.candidates.countByJobId(jobId);
         if (alreadyInserted > 0) return alreadyInserted;
 
@@ -173,9 +179,13 @@ export class RecipeScanActivity {
         }
 
         await this.candidates.insertMany(rows);
-        await this.runRetirePolicy(activeRecipes, now);
-
         return rows.length;
+    }
+
+    // retire 단계: 만료된 레시피를 은퇴 처리한다. insertRecipeCandidates와 독립 재시도된다.
+    async retireStaleRecipes(): Promise<void> {
+        const activeRecipes = await this.recipes.listByStatus("active");
+        await this.runRetirePolicy(activeRecipes, new Date().toISOString());
     }
 
     // complete 단계: 통계 기록 후 완료 알림. 재시도 시 멱등.
@@ -218,11 +228,9 @@ export class RecipeScanActivity {
     }
 
     async failRecipeScan(jobId: string, error: string): Promise<void> {
-        const attempts = await this.jobs.incrementAttempts(jobId, new Date().toISOString());
-        await this.jobs.markFailed({
+        await this.jobs.incrementAndMarkFailed({
             id: jobId,
             error: truncate(error, 1000),
-            attempts,
             completedAt: new Date().toISOString(),
         });
         this.notifier.publish({

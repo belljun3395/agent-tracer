@@ -153,4 +153,22 @@ export class InsightJobRepository {
         await this.repo.update({ id }, { attempts: next, updatedAt });
         return next;
     }
+
+    async incrementAndMarkFailed(input: {
+        id: string;
+        error: string;
+        completedAt: string;
+    }): Promise<void> {
+        await this.repo.manager.transaction(async (em) => {
+            const job = await em.findOne(InsightJobEntity, { where: { id: input.id } });
+            const attempts = (job?.attempts ?? 0) + 1;
+            await em.update(InsightJobEntity, { id: input.id }, {
+                status: JOB_STATUS.failed,
+                error: input.error,
+                attempts,
+                completedAt: input.completedAt,
+                updatedAt: input.completedAt,
+            });
+        });
+    }
 }

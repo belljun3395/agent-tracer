@@ -26,6 +26,7 @@ export interface GenerateRecipeCandidatesInput {
     readonly tasks: readonly RecipeTaskSnapshot[];
     readonly maxCandidates: number;
     readonly language: RecipeOutputLanguage;
+    readonly idempotencyKey?: string;
 }
 
 export interface GenerateRecipeCandidatesOutput {
@@ -73,6 +74,7 @@ export class RecipeScanAgent {
             deadlineMs: 300_000,
             env,
             outputSchema: RECIPE_OUTPUT_SCHEMA,
+            ...(input.idempotencyKey ? { idempotencyKey: input.idempotencyKey } : {}),
         });
 
         if (errorSummary || (!rawOutput && structuredOutput === null)) {

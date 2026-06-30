@@ -26,6 +26,7 @@ export interface GenerateCleanupSuggestionsInput {
     readonly tasks: readonly CleanupTaskSnapshot[];
     readonly maxSuggestions: number;
     readonly language?: CleanupLanguage;
+    readonly idempotencyKey?: string;
 }
 
 export interface GenerateCleanupSuggestionsOutput {
@@ -72,6 +73,7 @@ export class TaskCleanupAgent {
             deadlineMs: 120_000,
             env,
             outputSchema: CLEANUP_OUTPUT_SCHEMA,
+            ...(input.idempotencyKey ? { idempotencyKey: input.idempotencyKey } : {}),
         });
 
         if (errorSummary || (!rawOutput && structuredOutput === null)) {
