@@ -1,0 +1,25 @@
+{
+    "name": "@monitor/temporal-worker",
+    "version": "0.0.0",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "lint": "eslint . && npm run lint:types",
+        "lint:types": "tsc -p tsconfig.json --noEmit",
+        "lint:fix": "eslint . --fix"
+    },
+    "exports": {
+        "./*": "./src/*"
+    },
+    "dependencies": {
+        "@monitor/api-gateway": "*",
+        "@monitor/rules-api": "*",
+        "@monitor/shared": "*",
+        "@nestjs/common": "^11.1.18",
+        "@nestjs/core": "^11.1.18",
+        "@temporalio/activity": "^1.18.1",
+        "@temporalio/client": "^1.18.1",
+        "@temporalio/worker": "^1.18.1",
+        "@temporalio/workflow": "^1.18.1"
+    }
+}
