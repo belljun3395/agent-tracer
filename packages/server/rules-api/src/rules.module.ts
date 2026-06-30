@@ -4,8 +4,6 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 // ── cross-api tokens ──────────────────────────────────────────────────────────
 import { NOTIFICATION_PUBLISHER_TOKEN } from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
 import { TIMELINE_EVENT_READ } from "@monitor/timeline-api/public/event/tokens.js";
-import { TASK_SUMMARY } from "@monitor/run-api/public/task/tokens.js";
-import { TURN_QUERY_REPOSITORY_TOKEN } from "@monitor/run-api/public/task/tokens.js";
 
 // ── entities ──────────────────────────────────────────────────────────────────
 import { RuleEntity } from "./domain/rule/rule.entity.js";
@@ -56,15 +54,16 @@ import { GetLatestTaskRuleGenerationUseCase } from "./application/generation/get
 import { RuleController } from "./api/rule/rule.controller.js";
 import { TaskRulesQueryController } from "./api/rule/task.rules.query.controller.js";
 import { RuleEvidenceQueryController } from "./api/verification/rule.evidence.query.controller.js";
+import { TaskTurnsQueryController } from "./api/verification/task.turns.query.controller.js";
 import { RuleBackfillController } from "./api/backfill/rule.backfill.controller.js";
 import { TaskRuleGenerationController } from "./api/generation/task.rule.generation.controller.js";
+import { GetTaskTurnsUseCase } from "./application/verification/get.task.turns.usecase.js";
 
 // ── subscriber ────────────────────────────────────────────────────────────────
 import { EventRecordedVerificationSubscriber } from "./subscriber/verification/event.recorded.verification.subscriber.js";
 
 import type { ITimelineEventRead } from "@monitor/timeline-api/public/event/iservice/timeline.event.read.iservice.js";
 import type { INotificationPublisher } from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
-import type { ITaskSummary } from "@monitor/run-api/public/task/iservice/task.summary.iservice.js";
 
 const VERIFICATION_PROVIDERS: Provider[] = [
     TurnRepository,
@@ -121,7 +120,7 @@ const VERIFICATION_PROVIDERS: Provider[] = [
     },
     VerificationPostProcessorPublicAdapter,
     EventRecordedVerificationSubscriber,
-    { provide: TURN_QUERY_REPOSITORY_TOKEN, useExisting: TurnQueryRepository },
+    GetTaskTurnsUseCase,
 ];
 
 @Module({})
@@ -144,6 +143,7 @@ export class RulesModule {
                 RuleController,
                 TaskRulesQueryController,
                 RuleEvidenceQueryController,
+                TaskTurnsQueryController,
                 RuleBackfillController,
                 TaskRuleGenerationController,
             ],
@@ -170,9 +170,9 @@ export class RulesModule {
                 // ── generation ──
                 {
                     provide: TaskRuleGenerationService,
-                    useFactory: (jobs: RuleJobRepository, taskSummary: ITaskSummary) =>
-                        new TaskRuleGenerationService(jobs, taskSummary),
-                    inject: [RuleJobRepository, TASK_SUMMARY],
+                    useFactory: (jobs: RuleJobRepository, events: ITimelineEventRead) =>
+                        new TaskRuleGenerationService(jobs, events),
+                    inject: [RuleJobRepository, TIMELINE_EVENT_READ],
                 },
                 EnqueueTaskRuleGenerationUseCase,
                 GetLatestTaskRuleGenerationUseCase,
@@ -183,7 +183,6 @@ export class RulesModule {
                 RegisterSuggestionUseCase,
 
                 // verification cross-api
-                TURN_QUERY_REPOSITORY_TOKEN,
                 RunTurnEvaluationUseCase,
                 TurnEvaluationService,
                 BackfillRuleEvaluationUseCase,

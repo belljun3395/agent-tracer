@@ -10,6 +10,7 @@ import type {
 import type { SearchResponse } from "~domain/search-contracts.js";
 import type {
   TaskDetailResponse,
+  TaskTurnsResponse,
   TasksResponse,
 } from "~domain/task-query-contracts.js";
 
@@ -354,6 +355,10 @@ export function fetchTasks(
 
 export function fetchTaskDetail(taskId: TaskId): Promise<TaskDetailResponse> {
   return getJson<TaskDetailResponse>(`/api/v1/tasks/${taskId}`);
+}
+
+export function fetchTaskTurns(taskId: TaskId): Promise<TaskTurnsResponse> {
+  return getJson<TaskTurnsResponse>(`/api/v1/tasks/${taskId}/turns`);
 }
 
 export function fetchTaskOpenInference(

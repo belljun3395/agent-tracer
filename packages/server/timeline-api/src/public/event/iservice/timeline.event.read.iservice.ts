@@ -5,4 +5,5 @@ export interface ITimelineEventRead {
     findByTaskId(taskId: string): Promise<readonly TimelineEventSnapshot[]>;
     findByTaskIds(taskIds: readonly string[]): Promise<readonly TimelineEventSnapshot[]>;
     countAll(): Promise<number>;
+    countByTaskId(taskId: string): Promise<number>;
 }

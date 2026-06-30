@@ -18,7 +18,6 @@ import { DeleteTaskUseCase } from "../../application/task/delete.task.usecase.js
 import { GetTaskLatestRuntimeSessionUseCase } from "../../application/task/get.task.latest.runtime.session.usecase.js";
 import { GetTaskOpenInferenceUseCase } from "../../application/task/get.task.open.inference.usecase.js";
 import { GetTaskTimelineUseCase } from "../../application/task/get.task.timeline.usecase.js";
-import { GetTaskTurnsUseCase } from "../../application/task/get.task.turns.usecase.js";
 import { GetTaskUseCase } from "../../application/task/get.task.usecase.js";
 import { ListTasksUseCase } from "../../application/task/list.tasks.usecase.js";
 import { SearchTasksUseCase } from "../../application/task/search.tasks.usecase.js";
@@ -39,7 +38,6 @@ export class TaskController {
         private readonly searchTasks: SearchTasksUseCase,
         private readonly getTask: GetTaskUseCase,
         private readonly getTaskTimeline: GetTaskTimelineUseCase,
-        private readonly getTaskTurns: GetTaskTurnsUseCase,
         private readonly getTaskLatestRuntimeSession: GetTaskLatestRuntimeSessionUseCase,
         private readonly getTaskOpenInference: GetTaskOpenInferenceUseCase,
         private readonly updateTask: UpdateTaskUseCase,
@@ -85,15 +83,13 @@ export class TaskController {
     async getTaskEndpoint(@Param("taskId", pathParamPipe) taskId: string) {
         const { task } = await this.getTask.execute({ taskId });
         if (!task) throw new NotFoundException("Task not found");
-        const [timeline, turns, runtimeSession] = await Promise.all([
+        const [timeline, runtimeSession] = await Promise.all([
             this.getTaskTimeline.execute({ taskId: task.id }),
-            this.getTaskTurns.execute({ taskId: task.id }),
             this.getTaskLatestRuntimeSession.execute({ taskId: task.id }),
         ]);
         return {
             task,
             timeline: timeline.timeline,
-            turns: turns.turns,
             ...(runtimeSession.runtimeSession ? {
                 runtimeSessionId: runtimeSession.runtimeSession.runtimeSessionId,
                 runtimeSource: runtimeSession.runtimeSession.runtimeSource,

@@ -13,8 +13,8 @@ export function buildHttpFeatureModules(databaseModule: DynamicModule): DynamicM
     const settings = SettingsModule.register(databaseModule);
     const insight = InsightModule.register(databaseModule);
 
-    run.imports!.push(event, settings, rules);
-    rules.imports!.push(event, run);
+    run.imports!.push(event, settings);
+    rules.imports!.push(event);
     insight.imports!.push(settings, run);
 
     return [event, run, rules, settings, insight];
@@ -28,8 +28,8 @@ export function buildWorkerFeatureModules(databaseModule: DynamicModule): Dynami
     const settings = SettingsModule.register(databaseModule);
     const insight = InsightModule.register(databaseModule);
 
-    run.imports!.push(event, settings, rules);
-    rules.imports!.push(event, run);
+    run.imports!.push(event, settings);
+    rules.imports!.push(event);
     insight.imports!.push(settings, run);
 
     return [event, run, rules, settings, insight];

@@ -20,6 +20,7 @@ import {
   fetchTaskDetail,
   fetchTaskOpenInference,
   fetchTaskRules,
+  fetchTaskTurns,
   fetchTasks,
   type AppSettingsListResponse,
   type CleanupSuggestionsResponse,
@@ -51,11 +52,16 @@ export function useTaskDetailQuery(
     queryKey: taskId
       ? monitorQueryKeys.taskDetail(taskId)
       : monitorQueryKeys.taskDetail("__disabled__" as TaskId),
-    queryFn: () => {
+    queryFn: async () => {
       if (!taskId) {
         throw new Error("useTaskDetailQuery called without a taskId");
       }
-      return fetchTaskDetail(taskId);
+      // task 상세(run-api)와 turns(rules-api)는 별도 엔드포인트라 병렬로 받아 합친다.
+      const [detail, turns] = await Promise.all([
+        fetchTaskDetail(taskId),
+        fetchTaskTurns(taskId),
+      ]);
+      return { ...detail, turns: turns.turns };
     },
     enabled: taskId !== null,
   });

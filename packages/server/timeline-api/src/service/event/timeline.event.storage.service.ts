@@ -53,6 +53,10 @@ export class TimelineEventStorageService {
         return this.timelineEvents.countByUser(currentUserId());
     }
 
+    countByTaskId(taskId: string): Promise<number> {
+        return this.timelineEvents.countByTaskIdAndUser(taskId, currentUserId());
+    }
+
     private buildRow(input: TimelineEventInsertRequest): TimelineEventEntity {
         // 저장 직전 metadata를 한 번 정규화해 blob·tags·인덱스 컬럼으로 만든다.
         const normalized = EventMetadata.normalize(input);

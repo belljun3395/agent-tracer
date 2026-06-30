@@ -49,6 +49,10 @@ export interface TaskDetailResponse {
   readonly runtimeSource?: RuntimeSource
 }
 
+export interface TaskTurnsResponse {
+  readonly turns: readonly TaskTurnSummary[]
+}
+
 export interface TaskTurnSummary {
   readonly id: string
   readonly sessionId: RuntimeSessionId | string

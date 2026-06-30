@@ -26,7 +26,6 @@ import { GetTaskLatestRuntimeSessionUseCase } from "./application/task/get.task.
 import { GetTaskOpenInferenceUseCase } from "./application/task/get.task.open.inference.usecase.js";
 import { GetTaskSummaryUseCase } from "./application/task/get.task.summary.usecase.js";
 import { GetTaskTimelineUseCase } from "./application/task/get.task.timeline.usecase.js";
-import { GetTaskTurnsUseCase } from "./application/task/get.task.turns.usecase.js";
 import { GetTaskUseCase } from "./application/task/get.task.usecase.js";
 import { LinkTaskUseCase } from "./application/task/link.task.usecase.js";
 import { ListTasksUseCase } from "./application/task/list.tasks.usecase.js";
@@ -121,7 +120,6 @@ export class RunModule {
                 GetTaskUseCase,
                 GetTaskTimelineUseCase,
                 GetTaskSummaryUseCase,
-                GetTaskTurnsUseCase,
                 GetTaskLatestRuntimeSessionUseCase,
                 GetTaskOpenInferenceUseCase,
                 GetOverviewUseCase,
