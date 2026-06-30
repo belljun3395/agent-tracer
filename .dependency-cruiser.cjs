@@ -40,6 +40,14 @@ module.exports = {
       from: { path: "^packages/server/insight-api/src/" },
       to: { path: "^packages/server/rules-api/src/" },
     },
+    {
+      name: "rules-no-run",
+      severity: "error",
+      comment:
+        "rules and run are independent siblings (both depend only on timeline). Turn data lives in rules; run exposes its own /tasks/:id without turns.",
+      from: { path: "^packages/server/rules-api/src/" },
+      to: { path: "^packages/server/run-api/src/" },
+    },
 
     // ── Package umbrella boundaries (server / runtime / web) ──────────────
     {
@@ -116,374 +124,68 @@ module.exports = {
       to: { path: "@monitor/[^/]+/(src|dist)/" },
     },
 
-    // ── Feature-module layered rules (inner -> outer ring) ────────────────
-    // Layer order: domain -> repository -> service -> application(usecase) -> api(controller).
-    // adapter wraps service to implement public ports; public exposes contracts;
-    // application/outbound declares what the module needs from outside.
-    // Cross-package access is governed by the DAG rules above; these guard each
-    // feature's internal ring within its owning package. (Cross-package domain
-    // models/consts/ports are shared directly by design, so there is no
-    // feature-level "external-only-via-public" rule.)
-
-    // ── event (timeline-api/src/event) ─────
+    // ── Layer-first ring (timeline-api / run-api / rules-api / insight-api) ──────
+    // Inner→outer: domain → repository → service → application(usecase) → api(controller).
+    // adapter implements outbound ports + public iservices; public exposes contracts;
+    // application/<domain>/outbound declares what the module needs from outside.
+    // $1 backreferences the owning package so each rule guards one package's ring.
+    // (identity-api keeps its own domain-first rules below; cross-package access is
+    //  governed by the DAG rules above. Domain models/consts/ports are shared across
+    //  packages directly by design.)
     {
-      name: "event-domain-no-upward",
+      name: "layer-domain-no-upward",
       severity: "error",
-      comment: "event/domain은 가장 안쪽 — 다른 layer import 금지",
-      from: { path: "^packages/server/timeline-api/src/event/domain/" },
-      to: { path: "^packages/server/timeline-api/src/event/(repository|service|application|adapter|api|subscriber|public|common)/" },
+      comment: "domain은 가장 안쪽 — 바깥 레이어 import 금지",
+      from: { path: "^packages/server/(timeline-api|run-api|rules-api|insight-api)/src/domain/" },
+      to: { path: "^packages/server/$1/src/(repository|service|application|adapter|api|subscriber|scheduling|common|public)/" },
     },
     {
-      name: "event-repository-only-domain",
+      name: "layer-repository-only-domain",
       severity: "error",
-      comment: "repository may also import application/outbound contract.",
-      from: { path: "^packages/server/timeline-api/src/event/repository/" },
+      comment: "repository는 domain + application/<domain>/outbound 계약만",
+      from: { path: "^packages/server/(timeline-api|run-api|rules-api|insight-api)/src/repository/" },
       to: {
-        path: "^packages/server/timeline-api/src/event/(service|application|adapter|api|subscriber)/",
-        pathNot: "^packages/server/timeline-api/src/event/application/outbound/",
+        path: "^packages/server/$1/src/(service|application|adapter|api|subscriber|scheduling)/",
+        pathNot: "^packages/server/$1/src/application/[^/]+/outbound/",
       },
     },
     {
-      name: "event-service-no-upper-layers",
+      name: "layer-service-no-upper",
       severity: "error",
-      from: { path: "^packages/server/timeline-api/src/event/service/" },
+      from: { path: "^packages/server/(timeline-api|run-api|rules-api|insight-api)/src/service/" },
       to: {
-        path: "^packages/server/timeline-api/src/event/(application|adapter|api|subscriber)/",
-        pathNot: "^packages/server/timeline-api/src/event/application/outbound/",
+        path: "^packages/server/$1/src/(application|adapter|api|subscriber|scheduling)/",
+        pathNot: "^packages/server/$1/src/application/[^/]+/outbound/",
       },
     },
     {
-      name: "event-usecase-no-direct-repository",
+      name: "layer-usecase-no-upper",
       severity: "error",
-      from: { path: "^packages/server/timeline-api/src/event/application/" },
-      to: { path: "^packages/server/timeline-api/src/event/repository/" },
+      from: { path: "^packages/server/(timeline-api|run-api|rules-api|insight-api)/src/application/" },
+      to: { path: "^packages/server/$1/src/(adapter|api|subscriber|scheduling)/" },
     },
     {
-      name: "event-usecase-no-upper-layers",
+      name: "layer-api-only-application",
       severity: "error",
-      from: { path: "^packages/server/timeline-api/src/event/application/" },
-      to: { path: "^packages/server/timeline-api/src/event/(adapter|api|subscriber)/" },
+      comment: "controller는 application + domain(const/type)만 — service/repository/adapter 금지",
+      from: { path: "^packages/server/(timeline-api|run-api|rules-api|insight-api)/src/api/" },
+      to: { path: "^packages/server/$1/src/(service|repository|adapter|subscriber|scheduling)/" },
     },
     {
-      name: "event-api-only-application",
+      name: "layer-adapter-no-app-internals",
       severity: "error",
-      comment: "controller는 usecase만 호출",
-      from: { path: "^packages/server/timeline-api/src/event/api/" },
-      to: { path: "^packages/server/timeline-api/src/event/(service|repository|domain|adapter|subscriber)/" },
-    },
-    {
-      name: "event-adapter-no-application-internals",
-      severity: "error",
-      from: { path: "^packages/server/timeline-api/src/event/adapter/" },
+      from: { path: "^packages/server/(timeline-api|run-api|rules-api|insight-api)/src/adapter/" },
       to: {
-        path: "^packages/server/timeline-api/src/event/(application|api|subscriber)/",
-        pathNot: "^packages/server/timeline-api/src/event/application/outbound/",
+        path: "^packages/server/$1/src/(application|api|subscriber|scheduling)/",
+        pathNot: "^packages/server/$1/src/application/[^/]+/outbound/",
       },
     },
     {
-      name: "event-public-only-domain-types",
+      name: "layer-public-only-contracts",
       severity: "error",
-      from: { path: "^packages/server/timeline-api/src/event/public/" },
-      to: { path: "^packages/server/timeline-api/src/event/(service|repository|application|adapter|api|subscriber)/" },
-    },
-
-    // ── session (run-api/src/session) ─────
-    {
-      name: "session-domain-no-upward",
-      severity: "error",
-      from: { path: "^packages/server/run-api/src/session/domain/" },
-      to: { path: "^packages/server/run-api/src/session/(repository|service|application|adapter|api|subscriber|public)/" },
-    },
-    {
-      name: "session-repository-only-domain",
-      severity: "error",
-      from: { path: "^packages/server/run-api/src/session/repository/" },
-      to: { path: "^packages/server/run-api/src/session/(service|application|adapter|api|subscriber)/" },
-    },
-    {
-      name: "session-service-no-upper-layers",
-      severity: "error",
-      from: { path: "^packages/server/run-api/src/session/service/" },
-      to: {
-        path: "^packages/server/run-api/src/session/(application|adapter|api|subscriber)/",
-        pathNot: "^packages/server/run-api/src/session/application/outbound/",
-      },
-    },
-    {
-      name: "session-usecase-no-direct-repository",
-      severity: "error",
-      from: { path: "^packages/server/run-api/src/session/application/" },
-      to: { path: "^packages/server/run-api/src/session/repository/" },
-    },
-    {
-      name: "session-usecase-no-upper-layers",
-      severity: "error",
-      from: { path: "^packages/server/run-api/src/session/application/" },
-      to: { path: "^packages/server/run-api/src/session/(adapter|api|subscriber)/" },
-    },
-    {
-      name: "session-api-only-application",
-      severity: "error",
-      from: { path: "^packages/server/run-api/src/session/api/" },
-      to: { path: "^packages/server/run-api/src/session/(service|repository|domain|adapter|subscriber)/" },
-    },
-    {
-      name: "session-adapter-no-application-internals",
-      severity: "error",
-      from: { path: "^packages/server/run-api/src/session/adapter/" },
-      to: {
-        path: "^packages/server/run-api/src/session/(application|api|subscriber)/",
-        pathNot: "^packages/server/run-api/src/session/application/outbound/",
-      },
-    },
-    {
-      name: "session-public-only-domain-types",
-      severity: "error",
-      from: { path: "^packages/server/run-api/src/session/public/" },
-      to: { path: "^packages/server/run-api/src/session/(service|repository|application|adapter|api|subscriber)/" },
-    },
-
-    // ── task (run-api/src/task) ─────
-    {
-      name: "task-domain-no-upward",
-      severity: "error",
-      comment: "task/domain은 가장 안쪽 — 다른 layer import 금지",
-      from: { path: "^packages/server/run-api/src/task/domain/" },
-      to: { path: "^packages/server/run-api/src/task/(repository|service|application|adapter|api|subscriber|public)/" },
-    },
-    {
-      name: "task-repository-only-domain",
-      severity: "error",
-      from: { path: "^packages/server/run-api/src/task/repository/" },
-      to: { path: "^packages/server/run-api/src/task/(service|application|adapter|api|subscriber)/" },
-    },
-    {
-      name: "task-service-no-upper-layers",
-      severity: "error",
-      from: { path: "^packages/server/run-api/src/task/service/" },
-      to: {
-        path: "^packages/server/run-api/src/task/(application|adapter|api|subscriber)/",
-        pathNot: "^packages/server/run-api/src/task/application/outbound/",
-      },
-    },
-    {
-      name: "task-usecase-no-direct-repository",
-      severity: "error",
-      comment: "usecase는 service를 거쳐 repository에 접근",
-      from: { path: "^packages/server/run-api/src/task/application/" },
-      to: { path: "^packages/server/run-api/src/task/repository/" },
-    },
-    {
-      name: "task-usecase-no-upper-layers",
-      severity: "error",
-      from: { path: "^packages/server/run-api/src/task/application/" },
-      to: { path: "^packages/server/run-api/src/task/(adapter|api|subscriber)/" },
-    },
-    {
-      name: "task-api-only-application",
-      severity: "error",
-      comment: "controller는 usecase만 호출",
-      from: { path: "^packages/server/run-api/src/task/api/" },
-      to: { path: "^packages/server/run-api/src/task/(service|repository|domain|adapter|subscriber)/" },
-    },
-    {
-      name: "task-adapter-no-application-internals",
-      severity: "error",
-      from: { path: "^packages/server/run-api/src/task/adapter/" },
-      to: {
-        path: "^packages/server/run-api/src/task/(application|api|subscriber)/",
-        pathNot: "^packages/server/run-api/src/task/application/outbound/",
-      },
-    },
-    {
-      name: "task-public-only-domain-types",
-      severity: "error",
-      from: { path: "^packages/server/run-api/src/task/public/" },
-      to: { path: "^packages/server/run-api/src/task/(service|repository|application|adapter|api|subscriber)/" },
-    },
-
-    // ── turn (run-api/src/turn) — usecase가 repository 직접 호출(service layer 없음) ─────
-    {
-      name: "turn-domain-no-upward",
-      severity: "error",
-      from: { path: "^packages/server/run-api/src/turn/domain/" },
-      to: { path: "^packages/server/run-api/src/turn/(repository|service|application|adapter|api|subscriber|public|common)/" },
-    },
-    {
-      name: "turn-repository-only-domain",
-      severity: "error",
-      from: { path: "^packages/server/run-api/src/turn/repository/" },
-      to: { path: "^packages/server/run-api/src/turn/(service|application|adapter|api|subscriber)/" },
-    },
-    {
-      name: "turn-usecase-no-upper-layers",
-      severity: "error",
-      from: { path: "^packages/server/run-api/src/turn/application/" },
-      to: { path: "^packages/server/run-api/src/turn/(adapter|api|subscriber)/" },
-    },
-    {
-      name: "turn-api-only-application",
-      severity: "error",
-      comment: "api는 application + domain (const/type) 만 — service/repository/adapter 는 금지",
-      from: { path: "^packages/server/run-api/src/turn/api/" },
-      to: { path: "^packages/server/run-api/src/turn/(service|repository|adapter|subscriber)/" },
-    },
-    {
-      name: "turn-adapter-no-application-internals",
-      severity: "error",
-      from: { path: "^packages/server/run-api/src/turn/adapter/" },
-      to: {
-        path: "^packages/server/run-api/src/turn/(application|api|subscriber)/",
-        pathNot: "^packages/server/run-api/src/turn/application/outbound/",
-      },
-    },
-
-    // ── rule (rules-api/src/rule) ─────
-    {
-      name: "rule-domain-no-upward",
-      severity: "error",
-      from: { path: "^packages/server/rules-api/src/rule/domain/" },
-      to: { path: "^packages/server/rules-api/src/rule/(repository|service|application|adapter|api|subscriber|public|common)/" },
-    },
-    {
-      name: "rule-repository-only-domain",
-      severity: "error",
-      from: { path: "^packages/server/rules-api/src/rule/repository/" },
-      to: { path: "^packages/server/rules-api/src/rule/(service|application|adapter|api|subscriber)/" },
-    },
-    {
-      name: "rule-usecase-no-direct-repository",
-      severity: "error",
-      from: { path: "^packages/server/rules-api/src/rule/application/" },
-      to: { path: "^packages/server/rules-api/src/rule/repository/" },
-    },
-    {
-      name: "rule-usecase-no-upper-layers",
-      severity: "error",
-      from: { path: "^packages/server/rules-api/src/rule/application/" },
-      to: { path: "^packages/server/rules-api/src/rule/(adapter|api|subscriber)/" },
-    },
-    {
-      name: "rule-api-only-application",
-      severity: "error",
-      comment: "api는 application + domain (const/type) 만 — service/repository/adapter는 금지",
-      from: { path: "^packages/server/rules-api/src/rule/api/" },
-      to: { path: "^packages/server/rules-api/src/rule/(service|repository|adapter|subscriber)/" },
-    },
-    {
-      name: "rule-adapter-no-application-internals",
-      severity: "error",
-      from: { path: "^packages/server/rules-api/src/rule/adapter/" },
-      to: {
-        path: "^packages/server/rules-api/src/rule/(application|api|subscriber)/",
-        pathNot: "^packages/server/rules-api/src/rule/application/outbound/",
-      },
-    },
-    {
-      name: "rule-public-only-domain-types",
-      severity: "error",
-      from: { path: "^packages/server/rules-api/src/rule/public/" },
-      to: { path: "^packages/server/rules-api/src/rule/(service|repository|application|adapter|api|subscriber)/" },
-    },
-
-    // ── verification (rules-api/src/verification) ─────
-    {
-      name: "verification-domain-no-upward",
-      severity: "error",
-      from: { path: "^packages/server/rules-api/src/verification/domain/" },
-      to: { path: "^packages/server/rules-api/src/verification/(repository|service|application|adapter|api|subscriber|public|common)/" },
-    },
-    {
-      name: "verification-service-no-upper-layers",
-      severity: "error",
-      from: { path: "^packages/server/rules-api/src/verification/service/" },
-      to: {
-        path: "^packages/server/rules-api/src/verification/(application|adapter|api|subscriber)/",
-        pathNot: "^packages/server/rules-api/src/verification/application/outbound/",
-      },
-    },
-    {
-      name: "verification-usecase-no-upper-layers",
-      severity: "error",
-      from: { path: "^packages/server/rules-api/src/verification/application/" },
-      to: { path: "^packages/server/rules-api/src/verification/(adapter|api|subscriber)/" },
-    },
-    {
-      name: "verification-adapter-no-application-internals",
-      severity: "error",
-      from: { path: "^packages/server/rules-api/src/verification/adapter/" },
-      to: { path: "^packages/server/rules-api/src/verification/(api|subscriber)/" },
-    },
-    {
-      name: "verification-public-only-domain-types",
-      severity: "error",
-      from: { path: "^packages/server/rules-api/src/verification/public/" },
-      to: { path: "^packages/server/rules-api/src/verification/(service|repository|application|adapter|api|subscriber)/" },
-    },
-
-    // ── recipe (insight-api/src/recipe) — agent/mcp는 보조(미가드). usecase가 repository 직접 호출 ─────
-    {
-      name: "recipe-domain-no-upward",
-      severity: "error",
-      from: { path: "^packages/server/insight-api/src/recipe/domain/" },
-      to: { path: "^packages/server/insight-api/src/recipe/(repository|service|application|api)/" },
-    },
-    {
-      name: "recipe-repository-only-domain",
-      severity: "error",
-      from: { path: "^packages/server/insight-api/src/recipe/repository/" },
-      to: { path: "^packages/server/insight-api/src/recipe/(service|application|api)/" },
-    },
-    {
-      name: "recipe-service-no-upper-layers",
-      severity: "error",
-      from: { path: "^packages/server/insight-api/src/recipe/service/" },
-      to: { path: "^packages/server/insight-api/src/recipe/(application|api)/" },
-    },
-    {
-      name: "recipe-usecase-no-upper-layers",
-      severity: "error",
-      from: { path: "^packages/server/insight-api/src/recipe/application/" },
-      to: { path: "^packages/server/insight-api/src/recipe/api/" },
-    },
-    {
-      name: "recipe-api-only-application",
-      severity: "error",
-      comment: "api는 application + domain(const/type) 만 — service/repository 직접 금지",
-      from: { path: "^packages/server/insight-api/src/recipe/api/" },
-      to: { path: "^packages/server/insight-api/src/recipe/(service|repository)/" },
-    },
-
-    // ── task-cleanup (insight-api/src/task-cleanup) — agent 보조(미가드). usecase가 repository 직접 호출 ─────
-    {
-      name: "task-cleanup-domain-no-upward",
-      severity: "error",
-      from: { path: "^packages/server/insight-api/src/task-cleanup/domain/" },
-      to: { path: "^packages/server/insight-api/src/task-cleanup/(repository|service|application|api)/" },
-    },
-    {
-      name: "task-cleanup-repository-only-domain",
-      severity: "error",
-      from: { path: "^packages/server/insight-api/src/task-cleanup/repository/" },
-      to: { path: "^packages/server/insight-api/src/task-cleanup/(service|application|api)/" },
-    },
-    {
-      name: "task-cleanup-service-no-upper-layers",
-      severity: "error",
-      from: { path: "^packages/server/insight-api/src/task-cleanup/service/" },
-      to: { path: "^packages/server/insight-api/src/task-cleanup/(application|api)/" },
-    },
-    {
-      name: "task-cleanup-usecase-no-upper-layers",
-      severity: "error",
-      from: { path: "^packages/server/insight-api/src/task-cleanup/application/" },
-      to: { path: "^packages/server/insight-api/src/task-cleanup/api/" },
-    },
-    {
-      name: "task-cleanup-api-only-application",
-      severity: "error",
-      from: { path: "^packages/server/insight-api/src/task-cleanup/api/" },
-      to: { path: "^packages/server/insight-api/src/task-cleanup/(service|repository)/" },
+      comment: "public은 도메인 타입/계약만 — 구현 레이어 import 금지",
+      from: { path: "^packages/server/(timeline-api|run-api|rules-api|insight-api)/src/public/" },
+      to: { path: "^packages/server/$1/src/(repository|service|application|adapter|api|subscriber|scheduling)/" },
     },
 
     // ── settings (identity-api/src/settings) — usecase는 service만 경유(full ring) ─────
