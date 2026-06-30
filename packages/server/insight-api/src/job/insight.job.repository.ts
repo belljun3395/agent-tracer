@@ -55,7 +55,6 @@ export class InsightJobRepository {
         return this.repo.findOne({ where: { id } });
     }
 
-    // LLM 응답을 저장해 재실행이 같은 호출을 다시 하지 않게 한다.
     async saveLlmOutput(
         id: string,
         llmOutputJson: string,

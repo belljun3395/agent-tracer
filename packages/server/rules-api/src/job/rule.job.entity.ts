@@ -61,7 +61,6 @@ export class RuleJobEntity {
     @Column({ name: "num_turns", type: "integer", nullable: true })
     numTurns!: number | null;
 
-    // 저장된 LLM 응답이 있으면 재실행이 호출을 건너뛴다.
     @Column({ name: "llm_output_json", type: "text", nullable: true })
     llmOutputJson!: string | null;
 
