@@ -1,8 +1,10 @@
 import "reflect-metadata";
 import { initializeTransactionalContext } from "typeorm-transactional";
+import { createClient } from "redis";
 import { NestFactory } from "@nestjs/core";
 import { NativeConnection, Worker } from "@temporalio/worker";
 import { AppModule } from "@monitor/api-gateway/app-module";
+import { RedisNotificationPublisher } from "@monitor/ws-gateway/redis.notification.publisher.js";
 import { TaskRuleGenerationService } from "@monitor/rules-api/rule/generation/service/task.rule.generation.service.js";
 import { SuggestTaskTitleUseCase } from "@monitor/run-api/task/application/suggest.task.title.usecase.js";
 import { createRuleGenerationActivities } from "./activities/rule-generation.activities.js";
@@ -14,9 +16,18 @@ process.env["MONITOR_ROLE"] = "worker";
 initializeTransactionalContext();
 
 async function main(): Promise<void> {
-    const app = await NestFactory.createApplicationContext(AppModule.forRoot({}), {
-        logger: ["error", "warn"],
+    // 진행 알림을 게이트웨이 WS 구독자에게 전하려고 같은 Redis 채널로 발행한다.
+    const redisUrl = process.env["REDIS_URL"] ?? "redis://localhost:6379";
+    const redis = createClient({ url: redisUrl });
+    await redis.connect();
+    const notifier = new RedisNotificationPublisher({
+        publish: (channel, message) => redis.publish(channel, message),
     });
+
+    const app = await NestFactory.createApplicationContext(
+        AppModule.forRoot({ notifier }),
+        { logger: ["error", "warn"] },
+    );
     const ruleGeneration = app.get(TaskRuleGenerationService, { strict: false });
     const titleSuggestion = app.get(SuggestTaskTitleUseCase, { strict: false });
 
@@ -28,7 +39,7 @@ async function main(): Promise<void> {
         taskQueue: LLM_JOB_TASK_QUEUE,
         workflowsPath: new URL("./workflows/index.js", import.meta.url).pathname,
         activities: {
-            ...createRuleGenerationActivities(ruleGeneration),
+            ...createRuleGenerationActivities(ruleGeneration, notifier),
             ...createTitleSuggestionActivities(titleSuggestion),
         },
     });
@@ -39,6 +50,7 @@ async function main(): Promise<void> {
     await worker.run();
     await app.close();
     await connection.close();
+    await redis.quit();
 }
 
 main().catch((err: unknown) => {

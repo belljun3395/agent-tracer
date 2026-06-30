@@ -256,6 +256,20 @@ export class TaskRuleGenerationService {
             completedAt: new Date().toISOString(),
         });
     }
+
+    // 워커에서 재시도가 모두 소진된 잡을 실패로 닫는다.
+    async markGenerationFailed(jobId: string, error: string): Promise<void> {
+        const attempts = await this.jobs.incrementAttempts(
+            jobId,
+            new Date().toISOString(),
+        );
+        await this.jobs.markFailed({
+            id: jobId,
+            error: truncate(error, 1000),
+            attempts,
+            completedAt: new Date().toISOString(),
+        });
+    }
 }
 
 function truncate(s: string, n: number): string {

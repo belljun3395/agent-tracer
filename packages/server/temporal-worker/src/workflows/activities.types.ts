@@ -5,6 +5,7 @@ import type { SuggestTaskTitleUseCaseOut } from "@monitor/run-api/task/applicati
 export interface RuleGenerationActivities {
     generateRuleProposals(jobId: string): Promise<void>;
     applyRuleProposals(jobId: string): Promise<number>;
+    failRuleGeneration(jobId: string, error: string): Promise<void>;
 }
 
 export interface TitleSuggestionActivities {
