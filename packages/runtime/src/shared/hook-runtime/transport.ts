@@ -3,6 +3,7 @@ import {MonitorRequestError} from "~shared/errors/monitor.js";
 import {resolveIngestEndpoint} from "~shared/routing/ingest.routing.js";
 import {withTags} from "~shared/semantics/tags.js";
 import {resolveMonitorTransportConfig, type MonitorTransportConfig} from "~shared/config/env.js";
+import {ensureEventId} from "~shared/util/ulid.js";
 import {enqueueDaemonMessage, localEnsureResult, shouldUseLocalDaemon} from "./local-daemon.js";
 
 export type {RuntimeSessionEnsureResult} from "~shared/transport/transport.type.js";
@@ -98,9 +99,10 @@ export function createMonitorTransport(
     async function postEvent(events: RuntimeIngestEvent[]): Promise<void> {
         const groups = new Map<string, RuntimeIngestEvent[]>();
         for (const event of events) {
-            const endpoint = resolveIngestEndpoint(event.kind);
+            const stamped = ensureEventId(event);
+            const endpoint = resolveIngestEndpoint(stamped.kind);
             const group = groups.get(endpoint) ?? [];
-            group.push(event);
+            group.push(stamped);
             groups.set(endpoint, group);
         }
         await Promise.all(

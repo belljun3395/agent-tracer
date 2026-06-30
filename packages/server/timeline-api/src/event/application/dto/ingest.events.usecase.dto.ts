@@ -52,6 +52,7 @@ export type LoggedEventKind =
     | "file.changed";
 
 export interface IngestEventsBaseEventUseCaseIn {
+    readonly id: string;
     readonly kind: Exclude<LoggedEventKind, "task.start" | "task.complete" | "task.error">;
     readonly taskId: string;
     readonly sessionId?: string | undefined;

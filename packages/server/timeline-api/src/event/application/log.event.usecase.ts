@@ -8,8 +8,7 @@ import type { TimelineEvent } from "@monitor/timeline-api/event/domain/type/time
 import { TimelineEventService } from "../service/timeline.event.service.js";
 import { projectTimelineEvent } from "../domain/timeline.event.projection.policy.js";
 import { CrossCheckDedupeCache } from "../common/cross.check.dedupe.cache.js";
-import { ID_GENERATOR_PORT, NOTIFICATION_PUBLISHER_PORT } from "./outbound/tokens.js";
-import type { IIdGenerator } from "./outbound/id.generator.port.js";
+import { NOTIFICATION_PUBLISHER_PORT } from "./outbound/tokens.js";
 import type { IEventNotificationPublisher } from "./outbound/notification.publisher.port.js";
 import { EVENT_RECORDED } from "../public/events/event.recorded.js";
 import type { EventRecordedPayload } from "../public/events/event.recorded.js";
@@ -54,13 +53,21 @@ export class LogEventUseCase {
     constructor(
         private readonly events: TimelineEventService,
         @Inject(NOTIFICATION_PUBLISHER_PORT) private readonly notifier: IEventNotificationPublisher,
-        @Inject(ID_GENERATOR_PORT) private readonly idGen: IIdGenerator,
         private readonly dedupe: CrossCheckDedupeCache,
         private readonly eventBus: EventEmitter2,
     ) {}
 
     @Transactional()
     async execute(input: LogEventUseCaseIn): Promise<LogEventUseCaseOut> {
+        // 멱등: 같은 id가 이미 기록됐으면 재파생·재발행 없이 그대로 반환(재시도·재전달).
+        const existing = await this.events.findById(input.id);
+        if (existing) {
+            return {
+                ...(input.sessionId ? { sessionId: input.sessionId } : {}),
+                events: [{ id: existing.id, kind: existing.kind }],
+            };
+        }
+
         const marker = readCrossCheckMarker(input.metadata);
         if (marker) {
             const existingId = this.dedupe.lookup(input.kind, input.sessionId, marker.dedupeKey);
@@ -80,7 +87,7 @@ export class LogEventUseCase {
         }
 
         const filePaths = normalizeFilePaths(input.filePaths);
-        const primaryEvent = await this.insertEvent({
+        const primaryEvent = await this.insertEvent(input.id, {
             taskId: input.taskId,
             kind: input.kind,
             lane: input.lane,
@@ -98,12 +105,14 @@ export class LogEventUseCase {
         });
 
         const derivedEvents: TimelineEvent[] = [];
-        for (const eventInput of deriveFileChangeEventInputs({
+        const derivedInputs = deriveFileChangeEventInputs({
             sourceEvent: primaryEvent,
             filePaths,
             ...(input.sessionId ? { sessionId: input.sessionId } : {}),
-        })) {
-            derivedEvents.push(await this.insertEvent(eventInput));
+        });
+        // 파생 이벤트 id는 부모 id 기반으로 결정적 → 재처리해도 같은 id라 멱등.
+        for (let i = 0; i < derivedInputs.length; i++) {
+            derivedEvents.push(await this.insertEvent(`${primaryEvent.id}#file#${i}`, derivedInputs[i]!));
         }
 
         const recorded = [primaryEvent, ...derivedEvents];
@@ -129,10 +138,10 @@ export class LogEventUseCase {
         return { ...(sessionId ? { sessionId } : {}), events: allEvents };
     }
 
-    private async insertEvent(input: EventRecordingInput): Promise<TimelineEvent> {
+    private async insertEvent(id: string, input: EventRecordingInput): Promise<TimelineEvent> {
         const record = createEventRecordDraft(input);
         const event = await this.events.insert({
-            id: this.idGen.newUuid(),
+            id,
             ...record,
         });
 

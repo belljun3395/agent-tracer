@@ -12,6 +12,7 @@ import {
 } from "../application/dto/log.event.usecase.dto.js";
 
 const baseEventSchema = z.object({
+    id: z.string().min(1),
     kind: z.string().min(1),
     taskId: z.string().min(1),
     sessionId: z.string().min(1).optional(),
@@ -56,6 +57,7 @@ const telemetryValuesSchema = z.object({
 });
 
 const telemetryEventSchema = z.object({
+    id: z.string().min(1),
     kind: z.enum(TELEMETRY_EVENT_KINDS).optional(),
     taskId: z.string().min(1),
     sessionId: z.string().min(1).optional(),
@@ -71,6 +73,7 @@ const telemetryEventSchema = z.object({
 }).transform((event) => {
     const values = event.metadata ?? telemetryValuesSchema.parse(event);
     return {
+        id: event.id,
         kind: TELEMETRY_EVENT_KINDS[0],
         taskId: event.taskId,
         ...(event.sessionId !== undefined ? { sessionId: event.sessionId } : {}),

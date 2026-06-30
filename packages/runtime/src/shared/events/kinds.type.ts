@@ -33,6 +33,7 @@ export type RuntimeIngestEventKind = (typeof KIND)[keyof typeof KIND];
 export type IngestEndpoint = typeof INGEST_ENDPOINTS[keyof typeof INGEST_ENDPOINTS];
 
 export interface RuntimeIngestEvent {
+    readonly id?: string;
     readonly kind: RuntimeIngestEventKind;
     readonly taskId: string;
     readonly sessionId?: string;

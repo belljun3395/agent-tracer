@@ -87,6 +87,7 @@ export class TypedEventIngestController {
         body: TelemetryBatchDto,
     ) {
         const events = body.events.map((event): IngestEventsUseCaseEventDto => ({
+            id: event.id,
             kind: "token.usage",
             taskId: event.taskId,
             lane: "telemetry",

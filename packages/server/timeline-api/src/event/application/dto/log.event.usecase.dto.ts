@@ -23,6 +23,7 @@ export type LoggedEventKind = MonitoringEventKind;
 export type LogEventTaskStatusUseCaseDto = "running" | "waiting" | "completed" | "errored";
 
 export interface LogEventUseCaseIn {
+    readonly id: string;
     readonly kind: IngestEventKind;
     readonly taskId: string;
     readonly sessionId?: string | undefined;

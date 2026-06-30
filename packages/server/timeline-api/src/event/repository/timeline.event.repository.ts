@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { In, Repository } from "typeorm";
+import { In, Repository, type QueryDeepPartialEntity } from "typeorm";
 import { TimelineEventEntity } from "../domain/timeline.event.entity.js";
 
 @Injectable()
@@ -29,5 +29,15 @@ export class TimelineEventRepository {
 
     save(entity: TimelineEventEntity): Promise<TimelineEventEntity> {
         return this.repo.save(entity);
+    }
+
+    // 멱등 ingest: 같은 id가 이미 있으면 조용히 무시(ON CONFLICT DO NOTHING).
+    async insertIgnoreConflict(entity: TimelineEventEntity): Promise<void> {
+        await this.repo
+            .createQueryBuilder()
+            .insert()
+            .values(entity as QueryDeepPartialEntity<TimelineEventEntity>)
+            .orIgnore()
+            .execute();
     }
 }

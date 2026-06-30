@@ -17,12 +17,10 @@ export class TimelineEventStorageService {
     ) {}
 
     async insert(input: TimelineEventInsertRequest): Promise<TimelineEvent> {
-        await this.timelineEvents.save(this.buildRow(input));
-        const loaded = await this.findById(input.id);
-        if (!loaded) {
-            throw new Error(`Failed to reload inserted timeline event ${input.id}`);
-        }
-        return loaded;
+        const row = this.buildRow(input);
+        await this.timelineEvents.insertIgnoreConflict(row);
+        // 새 이벤트는 룰 레인 오버라이드가 아직 없으므로 재조회 없이 그대로 구성한다.
+        return this.toEvent(row);
     }
 
     async updateMetadata(eventId: string, metadata: Record<string, unknown>): Promise<TimelineEvent | null> {
