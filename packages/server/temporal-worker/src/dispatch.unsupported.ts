@@ -19,12 +19,10 @@ import {
 const MESSAGE = "temporal-worker executes jobs; it does not dispatch them.";
 
 // 워커는 제출측 유스케이스를 부팅하지만 실제 dispatch는 게이트웨이만 한다.
-// 호출되면 결선 오류이므로 즉시 실패시킨다.
+// RuleGeneration은 로컬 플러그인이 처리하므로 여기서도 noop이 맞다.
 @Injectable()
 export class UnsupportedRuleGenerationDispatcher implements IRuleGenerationDispatcher {
-    dispatch(): Promise<never> {
-        throw new Error(MESSAGE);
-    }
+    async dispatch(): Promise<void> {}
 }
 
 @Injectable()

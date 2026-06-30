@@ -9,6 +9,8 @@ import type { IAppSettings } from "@monitor/identity-api/settings/public/iservic
 import { TASK_SNAPSHOT_QUERY, TASK_SUMMARY } from "@monitor/run-api/public/task/tokens.js";
 import type { ITaskSnapshotQuery } from "@monitor/run-api/public/task/iservice/task.snapshot.query.iservice.js";
 import type { ITaskSummary } from "@monitor/run-api/public/task/iservice/task.summary.iservice.js";
+import { TIMELINE_EVENT_READ } from "@monitor/timeline-api/public/event/tokens.js";
+import type { ITimelineEventRead } from "@monitor/timeline-api/public/event/iservice/timeline.event.read.iservice.js";
 import { JOB_STATUS } from "@monitor/shared/job/job.status.const.js";
 import { InsightJobRepository } from "@monitor/insight-api/repository/job/insight.job.repository.js";
 import { RecipeCandidateRepository } from "@monitor/insight-api/repository/recipe/recipe.candidate.repository.js";
@@ -17,7 +19,6 @@ import { RecipeRepository } from "@monitor/insight-api/repository/recipe/recipe.
 import type { RecipeEntity } from "@monitor/insight-api/domain/recipe/recipe.entity.js";
 import {
     parseRecipeScanFilters,
-    applyRecipeScanFilters,
     normalizeRecipeLanguage,
 } from "@monitor/insight-api/domain/recipe/recipe.scan.filters.policy.js";
 import {
@@ -26,7 +27,7 @@ import {
 } from "@monitor/insight-api/domain/recipe/recipe.parentage.policy.js";
 import { RecipeScanAgent } from "../agents/recipe.scan.agent.js";
 import type { GenerateRecipeCandidatesOutput } from "../agents/recipe.scan.agent.js";
-import type { RecipeTaskSnapshot } from "../agents/recipe.scan.prompt.js";
+import { buildRecipeScanTools } from "../agent-tools/recipe.scan.tools.js";
 import { MissingApiKeyError } from "../activity.errors.js";
 
 @Injectable()
@@ -38,6 +39,7 @@ export class RecipeScanActivity {
         @Inject(APP_SETTINGS) private readonly settings: IAppSettings,
         @Inject(TASK_SNAPSHOT_QUERY) private readonly taskQuery: ITaskSnapshotQuery,
         @Inject(TASK_SUMMARY) private readonly taskSummary: ITaskSummary,
+        @Inject(TIMELINE_EVENT_READ) private readonly eventRead: ITimelineEventRead,
         private readonly agent: RecipeScanAgent,
         @Inject(NOTIFICATION_PUBLISHER_TOKEN) private readonly notifier: INotificationPublisher,
     ) {}
@@ -79,40 +81,8 @@ export class RecipeScanActivity {
         const filters = parseRecipeScanFilters(job.filtersJson ?? "{}");
         const language = normalizeRecipeLanguage(job.language);
 
-        const allTasks = await this.taskQuery.findAll(filters.archivedScope);
-        const filtered = applyRecipeScanFilters(allTasks, filters);
-        const taskKindById = new Map(filtered.map((t) => [t.id, t.taskKind ?? "primary"]));
-
-        // 필터를 통과한 태스크의 요약을 한 번에 조회한다(태스크별 직렬 조회 N+1 회피).
-        const { summaries } = await this.taskSummary.executeBatch({ taskIds: filtered.map((t) => t.id) });
-
-        const snapshots: RecipeTaskSnapshot[] = [];
-        for (const summary of summaries) {
-            if (summary.eventCount < filters.minEventCount) continue;
-            snapshots.push({
-                id: summary.id,
-                title: summary.title,
-                status: summary.status,
-                taskKind: taskKindById.get(summary.id) ?? "primary",
-                ...(summary.workspacePath ? { workspacePath: summary.workspacePath } : {}),
-                createdAt: summary.createdAt,
-                updatedAt: summary.updatedAt,
-                ...(summary.firstUserMessage ? { firstUserMessage: summary.firstUserMessage } : {}),
-                eventCount: summary.eventCount,
-                toolCounts: summary.toolCounts,
-                topFiles: summary.topFiles,
-                topCommands: summary.topCommands,
-            });
-        }
-
-        const tasksScanned = snapshots.length;
-
-        if (tasksScanned === 0) {
-            // 필터를 통과한 스냅샷이 없으면 빈 결과를 저장하고 종료한다.
-            const emptyMemo = { recipes: [], modelUsed: "n/a", durationMs: 0, costUsd: null, numTurns: null, usage: null, tasksScanned: 0 };
-            await this.jobs.saveLlmOutput(jobId, JSON.stringify(emptyMemo), new Date().toISOString());
-            return 0;
-        }
+        // 에이전트가 필요한 태스크를 자율적으로 조회한다. 사전에 전체를 로드하지 않는다.
+        const toolServer = buildRecipeScanTools(this.taskQuery, this.taskSummary, this.eventRead);
 
         const ctx = Context.current();
         const idempotencyKey = `${ctx.info.workflowExecution?.workflowId ?? "wf"}-${ctx.info.activityId}`;
@@ -123,15 +93,19 @@ export class RecipeScanActivity {
             output = await this.agent.generate({
                 ...(apiKey ? { apiKey } : {}),
                 ...(modelOverride ? { model: modelOverride } : {}),
-                tasks: snapshots,
                 maxCandidates: filters.maxCandidates,
                 language,
+                archivedScope: filters.archivedScope,
+                minEventCount: filters.minEventCount,
                 idempotencyKey,
                 abortSignal: ctx.cancellationSignal,
+                toolServer,
             });
         } finally {
             clearInterval(hb);
         }
+
+        const tasksScanned = 0; // 에이전트가 직접 조회하므로 사전 집계 불필요
 
         await this.jobs.saveLlmOutput(
             jobId,

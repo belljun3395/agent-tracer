@@ -49,6 +49,8 @@ import { EnqueueRuleBackfillUseCase } from "./application/backfill/enqueue.rule.
 // ── use cases: generation ─────────────────────────────────────────────────────
 import { EnqueueTaskRuleGenerationUseCase } from "./application/generation/enqueue.task.rule.generation.usecase.js";
 import { GetLatestTaskRuleGenerationUseCase } from "./application/generation/get.latest.task.rule.generation.usecase.js";
+import { ReportRuleProposalsUseCase } from "./application/generation/report.rule.proposals.usecase.js";
+import { FailRuleGenerationUseCase } from "./application/generation/fail.rule.generation.usecase.js";
 
 // ── controllers ───────────────────────────────────────────────────────────────
 import { RuleController } from "./api/rule/rule.controller.js";
@@ -176,6 +178,8 @@ export class RulesModule {
                 },
                 EnqueueTaskRuleGenerationUseCase,
                 GetLatestTaskRuleGenerationUseCase,
+                ReportRuleProposalsUseCase,
+                FailRuleGenerationUseCase,
             ],
             exports: [
                 // rule cross-api

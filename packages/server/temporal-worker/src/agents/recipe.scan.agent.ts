@@ -1,10 +1,10 @@
-import { Inject, Injectable } from "@nestjs/common";
-import { QUERY_RUNNER, type IQueryRunner, type AgentQueryUsage } from "@monitor/shared/llm/query.runner.port.js";
+import { Injectable } from "@nestjs/common";
+import type { McpSdkServerConfigWithInstance } from "@anthropic-ai/claude-agent-sdk";
+import type { IQueryRunner, AgentQueryUsage } from "@monitor/shared/llm/query.runner.port.js";
 import {
     buildSystemPrompt,
     buildUserPrompt,
     type RecipeOutputLanguage,
-    type RecipeTaskSnapshot,
 } from "./recipe.scan.prompt.js";
 import {
     recipeCandidatesListSchema,
@@ -13,19 +13,23 @@ import {
 import { parseJsonStrict } from "@monitor/shared/llm/parse.json.js";
 import { zodToOutputSchema } from "@monitor/shared/llm/output.schema.js";
 import { CLAUDE_MODEL } from "@monitor/shared/llm/models.js";
+import { RECIPE_SCAN_MCP_SERVER_NAME, RECIPE_SCAN_MCP_TOOLS } from "../agent-tools/recipe.scan.tools.js";
 
 const DEFAULT_MODEL = CLAUDE_MODEL.sonnet;
+const DEFAULT_MAX_TURNS = 15;
 
 const RECIPE_OUTPUT_SCHEMA = zodToOutputSchema(recipeCandidatesListSchema);
 
 export interface GenerateRecipeCandidatesInput {
     readonly apiKey?: string;
     readonly model?: string;
-    readonly tasks: readonly RecipeTaskSnapshot[];
     readonly maxCandidates: number;
     readonly language: RecipeOutputLanguage;
+    readonly archivedScope: string;
+    readonly minEventCount: number;
     readonly idempotencyKey?: string;
     readonly abortSignal?: AbortSignal;
+    readonly toolServer?: McpSdkServerConfigWithInstance;
 }
 
 export interface GenerateRecipeCandidatesOutput {
@@ -40,9 +44,7 @@ export interface GenerateRecipeCandidatesOutput {
 
 @Injectable()
 export class RecipeScanAgent {
-    constructor(
-        @Inject(QUERY_RUNNER) private readonly queryRunner: IQueryRunner,
-    ) {}
+    constructor(private readonly queryRunner: IQueryRunner) {}
 
     requiresLocalApiKey(): boolean {
         return this.queryRunner.requiresLocalApiKey();
@@ -53,7 +55,14 @@ export class RecipeScanAgent {
     ): Promise<GenerateRecipeCandidatesOutput> {
         const model = input.model?.trim() || DEFAULT_MODEL;
         const systemPrompt = buildSystemPrompt();
-        const userPrompt = buildUserPrompt(input.tasks, input.maxCandidates, input.language);
+        const userPrompt = buildUserPrompt(
+            input.maxCandidates,
+            input.language,
+            input.archivedScope,
+            input.minEventCount,
+        );
+
+        const mcpTools = input.toolServer ? [...RECIPE_SCAN_MCP_TOOLS] : [];
 
         const env: Record<string, string | undefined> = {
             ...(input.apiKey ? { ANTHROPIC_API_KEY: input.apiKey } : {}),
@@ -65,9 +74,10 @@ export class RecipeScanAgent {
             label: "recipe-scan",
             prompt: userPrompt,
             systemPrompt,
-            allowedTools: [],
+            allowedTools: mcpTools,
+            ...(input.toolServer ? { mcpServers: { [RECIPE_SCAN_MCP_SERVER_NAME]: input.toolServer } } : {}),
             model,
-            maxTurns: 1,
+            maxTurns: DEFAULT_MAX_TURNS,
             deadlineMs: 300_000,
             env,
             outputSchema: RECIPE_OUTPUT_SCHEMA,

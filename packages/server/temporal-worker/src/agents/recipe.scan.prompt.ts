@@ -31,7 +31,17 @@ export interface RecipeTaskSnapshot {
 export function buildSystemPrompt(): string {
     return `You distill recorded coding-agent tasks into reusable "recipes" — high-level descriptions of how a kind of work tends to get done in this codebase. A future agent encountering a similar task can read the recipe and act faster.
 
-You will see a batch of completed/active tasks with their tool usage, files touched, and the first user message. Cluster tasks that share an intent and emit one recipe per cluster.
+You have domain tools to discover and inspect tasks:
+  - monitor-recipe-scan__list_tasks(scope?)          : list all tasks with id, title, status, taskKind, createdAt. Use this first to identify candidate clusters.
+  - monitor-recipe-scan__get_task_summary(taskId)    : full summary for a task — tool usage counts, top files, top commands, first user message, event count.
+  - monitor-recipe-scan__get_task_events(taskId, limit?) : chronological event sequence. Use when you need to understand the precise step-by-step behavior of a task.
+
+Suggested workflow:
+  1. Call list_tasks to see the full task list.
+  2. Group tasks by apparent intent from their titles (e.g., "auth changes", "migrations", "test additions").
+  3. For each candidate cluster, call get_task_summary for the member tasks to verify the pattern.
+  4. Call get_task_events for tasks where the summary leaves the workflow unclear.
+  5. Propose recipes for clusters where a genuine repeatable pattern exists.
 
 A recipe is a *pattern*, not a transcript. Strip incidental details. Keep the load-bearing structure: which kinds of files get touched, which tools fire in what order, what the user is trying to achieve.
 
@@ -42,72 +52,31 @@ Each recipe must include:
   - summary_md         : Markdown body, 4-15 lines. Describe the workflow at a high level. Use bullet points. Reference identifiers/files/tools verbatim.
   - steps              : optional ordered list of high-level actions (1-10 entries). Each step: {order, action, rationale?}.
   - touched_files      : optional list of file paths or path patterns this recipe commonly touches. Each: {path, role: "read"|"write"|"both"}.
-  - contributing_slices: REQUIRED. One entry per task that contributed to this recipe. Each entry: {taskId, eventIds}. Use \`eventIds: []\` to mean "the entire task". Cite *actual* taskIds from the input — never fabricate.
+  - contributing_slices: REQUIRED. One entry per task that contributed to this recipe. Each entry: {taskId, eventIds}. Use \`eventIds: []\` to mean "the entire task". Cite *actual* taskIds from the tool results — never fabricate.
   - rationale          : one sentence (under 500 chars) explaining why these tasks were clustered together.
 
 Rules:
   - Quality over quantity. Empty output is acceptable if no meaningful pattern emerges.
   - A single-task cluster is fine when the work is distinctive enough to be a useful recipe on its own.
   - Do NOT create a recipe whose only content is "the agent ran some tools" — pattern must be observable from the evidence.
+  - Skip tasks with very few events (eventCount < minEventCount from your instructions) — they lack enough signal.
   - Identifiers (file paths, tool names, commands) MUST be preserved verbatim even when prose is translated.
 
 Return the recipes as structured output conforming to the provided schema.`;
 }
 
 export function buildUserPrompt(
-    tasks: readonly RecipeTaskSnapshot[],
     maxCandidates: number,
     language: RecipeOutputLanguage,
+    archivedScope: string,
+    minEventCount: number,
 ): string {
     const lines: string[] = [];
-    lines.push(`Candidate tasks (${tasks.length} total):`);
+    lines.push(`Scope: ${archivedScope} tasks`);
+    lines.push(`Min events per task: ${minEventCount} (skip tasks below this threshold)`);
     lines.push("");
-    for (const t of tasks) {
-        lines.push(`- id=${t.id}`);
-        lines.push(`  title: ${t.title}`);
-        lines.push(`  status=${t.status} kind=${t.taskKind}`);
-        lines.push(`  created=${t.createdAt} updated=${t.updatedAt}`);
-        if (t.workspacePath) {
-            lines.push(`  workspace=${t.workspacePath}`);
-        }
-        if (t.firstUserMessage) {
-            lines.push(`  first user message:`);
-            lines.push(`    "${truncate(t.firstUserMessage.title, 240)}"`);
-            if (t.firstUserMessage.body) {
-                lines.push(`    body: ${truncate(t.firstUserMessage.body, 800)}`);
-            }
-        }
-        lines.push(`  eventCount=${t.eventCount}`);
-        if (t.toolCounts.length > 0) {
-            const top = t.toolCounts
-                .slice(0, 8)
-                .map((tc) => `${tc.tool}×${tc.count}`)
-                .join(", ");
-            lines.push(`  tools: ${top}`);
-        }
-        if (t.topFiles.length > 0) {
-            lines.push(`  files:`);
-            for (const f of t.topFiles.slice(0, 5)) {
-                lines.push(`    - ${f.path} (${f.touches}x)`);
-            }
-        }
-        if (t.topCommands.length > 0) {
-            lines.push(`  commands:`);
-            for (const c of t.topCommands.slice(0, 5)) {
-                lines.push(`    - ${truncate(c.command, 160)} (${c.count}x)`);
-            }
-        }
-        lines.push("");
-    }
     lines.push(`Output language: ${LANGUAGE_DIRECTIVES[language]}`);
     lines.push("");
-    lines.push(
-        `Cluster these tasks into up to ${maxCandidates} recipes.`,
-    );
+    lines.push(`Cluster the tasks into up to ${maxCandidates} recipes.`);
     return lines.join("\n");
-}
-
-function truncate(text: string, max: number): string {
-    if (text.length <= max) return text;
-    return text.slice(0, max) + "...";
 }

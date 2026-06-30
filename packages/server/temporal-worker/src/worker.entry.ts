@@ -5,7 +5,6 @@ import { NestFactory } from "@nestjs/core";
 import { NativeConnection, Worker } from "@temporalio/worker";
 import { WorkerRootModule } from "./worker.root.module.js";
 import { RedisNotificationPublisher } from "@monitor/shared/contracts/notifications/redis.notification.publisher.js";
-import { RuleGenerationActivity } from "./activities/rule.generation.activity.js";
 import { TitleSuggestionActivity } from "./activities/title.suggestion.activity.js";
 import { RecipeScanActivity } from "./activities/recipe.scan.activity.js";
 import { TaskCleanupActivity } from "./activities/task.cleanup.activity.js";
@@ -29,7 +28,6 @@ async function main(): Promise<void> {
         { logger: ["error", "warn"] },
     );
 
-    const ruleGeneration = app.get(RuleGenerationActivity);
     const titleSuggestion = app.get(TitleSuggestionActivity);
     const recipeScan = app.get(RecipeScanActivity);
     const taskCleanup = app.get(TaskCleanupActivity);
@@ -47,7 +45,6 @@ async function main(): Promise<void> {
         taskQueue: LLM_JOB_QUEUE,
         workflowsPath,
         activities: {
-            ...ruleGeneration.toActivities(),
             ...titleSuggestion.toActivities(),
             ...recipeScan.toActivities(),
             ...taskCleanup.toActivities(),
