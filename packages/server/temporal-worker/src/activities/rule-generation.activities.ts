@@ -8,7 +8,6 @@ import type { RuleGenerationActivities } from "../workflows/activities.types.js"
 
 // 활동이 호출하는 서비스 표면. TaskRuleGenerationService가 구조적으로 만족한다.
 export interface RuleGenerationServicePort {
-    enqueue(taskId: string): Promise<RuleJobEntity>;
     findById(id: string): Promise<RuleJobEntity | null>;
     loadGenerationInput(taskId: string): Promise<GenerateRuleSuggestionsInput>;
     runInference(
@@ -30,11 +29,6 @@ export function createRuleGenerationActivities(
     service: RuleGenerationServicePort,
 ): RuleGenerationActivities {
     return {
-        async enqueueRuleGeneration(taskId: string): Promise<{ jobId: string }> {
-            const job = await service.enqueue(taskId);
-            return { jobId: job.id };
-        },
-
         // LLM을 호출하고 응답을 잡에 저장한다. 재시도는 저장된 응답으로 호출을 건너뛴다.
         async generateRuleProposals(jobId: string): Promise<void> {
             const job = await loadJob(service, jobId);

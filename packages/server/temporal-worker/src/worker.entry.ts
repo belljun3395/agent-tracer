@@ -5,7 +5,7 @@ import { NativeConnection, Worker } from "@temporalio/worker";
 import { AppModule } from "@monitor/api-gateway/app-module";
 import { TaskRuleGenerationService } from "@monitor/rules-api/rule/generation/service/task.rule.generation.service.js";
 import { createRuleGenerationActivities } from "./activities/rule-generation.activities.js";
-import { LLM_JOB_TASK_QUEUE } from "./shared/task-queue.js";
+import { LLM_JOB_TASK_QUEUE } from "@monitor/shared/temporal/temporal.const.js";
 
 // 리퍼 등 게이트웨이 전용 스케줄러가 워커에서 돌지 않게 한다.
 process.env["MONITOR_ROLE"] = "worker";
