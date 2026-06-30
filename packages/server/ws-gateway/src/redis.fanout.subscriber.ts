@@ -1,6 +1,6 @@
 import type { EventBroadcasterService } from "./ws/event.broadcaster.service.js";
 import { NOTIFICATION_TYPE } from "@monitor/shared/contracts/notifications/notification.type.const.js";
-import { NOTIFICATION_CHANNEL, type NotificationEnvelope } from "./redis.notification.publisher.js";
+import { NOTIFICATION_CHANNEL, type NotificationEnvelope } from "@monitor/shared/contracts/notifications/redis.notification.publisher.js";
 
 export interface RedisSubscriberClient {
     subscribe(channel: string, listener: (message: string) => void): Promise<void>;

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { NOTIFICATION_TYPE } from "@monitor/shared/contracts/notifications/notification.type.const.js";
-import { NOTIFICATION_CHANNEL } from "./redis.notification.publisher.js";
+import { NOTIFICATION_CHANNEL } from "@monitor/shared/contracts/notifications/redis.notification.publisher.js";
 import { RedisFanoutSubscriber, type RedisSubscriberClient } from "./redis.fanout.subscriber.js";
 import type { EventBroadcasterService } from "./ws/event.broadcaster.service.js";
 

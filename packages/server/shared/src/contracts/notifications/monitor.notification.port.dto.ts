@@ -1,9 +1,70 @@
-import type { TimelineEventProjection } from "@monitor/timeline-api/event/public/dto/timeline.event.dto.js";
-import type { MonitoringTask } from "@monitor/run-api/task/public/types/task.types.js";
-import type { SessionSnapshot } from "@monitor/run-api/session/public/dto/session.snapshot.dto.js";
 import type { NOTIFICATION_TYPE } from "./notification.type.const.js";
 
-export type EventNotificationPayloadPortDto = TimelineEventProjection;
+export interface NotificationTaskPayload {
+    readonly id: string;
+    readonly slug: string;
+    readonly title: string;
+    readonly displayTitle?: string;
+    readonly status: string;
+    readonly workspacePath?: string;
+    readonly taskKind?: string;
+    readonly parentTaskId?: string;
+    readonly parentSessionId?: string;
+    readonly backgroundTaskId?: string;
+    readonly origin?: string;
+    readonly createdAt: string;
+    readonly updatedAt: string;
+    readonly lastSessionStartedAt?: string;
+    readonly runtimeSource?: string;
+    readonly archivedAt?: string;
+}
+
+export interface NotificationSessionPayload {
+    readonly id: string;
+    readonly taskId: string;
+    readonly status: string;
+    readonly startedAt: string;
+    readonly endedAt?: string;
+    readonly summary?: string;
+}
+
+export interface NotificationEventPayload {
+    readonly id: string;
+    readonly taskId: string;
+    readonly sessionId?: string;
+    readonly kind: string;
+    readonly lane: string;
+    readonly title: string;
+    readonly body?: string;
+    readonly metadata: Record<string, unknown>;
+    readonly classification: {
+        readonly lane: string;
+        readonly tags: readonly string[];
+        readonly matches: ReadonlyArray<{
+            readonly ruleId: string;
+            readonly source?: string;
+            readonly score: number;
+            readonly lane?: string;
+            readonly tags: readonly string[];
+            readonly reasons: ReadonlyArray<{ readonly kind: string; readonly value: string }>;
+        }>;
+    };
+    readonly createdAt: string;
+    readonly semantic?: {
+        readonly subtypeKey: string;
+        readonly subtypeLabel: string;
+        readonly subtypeGroup?: string;
+        readonly entityType?: string;
+        readonly entityName?: string;
+    };
+    readonly paths: {
+        readonly primaryPath?: string;
+        readonly filePaths: readonly string[];
+        readonly mentionedPaths: readonly string[];
+    };
+}
+
+export type EventNotificationPayloadPortDto = NotificationEventPayload;
 
 export interface RuleEnforcementNotificationPayloadPortDto {
     readonly eventId: string;
@@ -54,13 +115,13 @@ export interface SdkJobUpdatedNotificationPayloadPortDto {
 
 export type MonitorNotificationPortDto = {
     readonly type: typeof NOTIFICATION_TYPE.taskStarted;
-    readonly payload: MonitoringTask;
+    readonly payload: NotificationTaskPayload;
 } | {
     readonly type: typeof NOTIFICATION_TYPE.taskCompleted;
-    readonly payload: MonitoringTask;
+    readonly payload: NotificationTaskPayload;
 } | {
     readonly type: typeof NOTIFICATION_TYPE.taskUpdated;
-    readonly payload: MonitoringTask;
+    readonly payload: NotificationTaskPayload;
 } | {
     readonly type: typeof NOTIFICATION_TYPE.taskDeleted;
     readonly payload: {
@@ -68,10 +129,10 @@ export type MonitorNotificationPortDto = {
     };
 } | {
     readonly type: typeof NOTIFICATION_TYPE.sessionStarted;
-    readonly payload: SessionSnapshot;
+    readonly payload: NotificationSessionPayload;
 } | {
     readonly type: typeof NOTIFICATION_TYPE.sessionEnded;
-    readonly payload: SessionSnapshot;
+    readonly payload: NotificationSessionPayload;
 } | {
     readonly type: typeof NOTIFICATION_TYPE.eventLogged;
     readonly payload: EventNotificationPayloadPortDto;

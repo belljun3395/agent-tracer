@@ -12,7 +12,6 @@ import {
 import { pathParamPipe } from "@monitor/shared/contracts/http/path-param.pipe.js";
 import {
     GenerationAlreadyInFlightError,
-    MissingApiKeyError,
     TaskHasNoEventsError,
     TaskNotFoundForGenerationError,
 } from "../domain/task.rule.generation.errors.js";
@@ -40,9 +39,6 @@ export class TaskRuleGenerationController {
             }
             if (err instanceof GenerationAlreadyInFlightError) {
                 throw new ConflictException({ message: err.message, jobId: err.jobId });
-            }
-            if (err instanceof MissingApiKeyError) {
-                throw new BadRequestException(err.message);
             }
             throw err;
         }

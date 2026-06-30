@@ -4,7 +4,7 @@ import { createClient } from "redis";
 import { NestFactory } from "@nestjs/core";
 import { NativeConnection, Worker } from "@temporalio/worker";
 import { WorkerRootModule } from "./worker.root.module.js";
-import { RedisNotificationPublisher } from "@monitor/ws-gateway/redis.notification.publisher.js";
+import { RedisNotificationPublisher } from "@monitor/shared/contracts/notifications/redis.notification.publisher.js";
 import { RuleGenerationActivity } from "./activities/rule.generation.activity.js";
 import { TitleSuggestionActivity } from "./activities/title.suggestion.activity.js";
 import { RecipeScanActivity } from "./activities/recipe.scan.activity.js";

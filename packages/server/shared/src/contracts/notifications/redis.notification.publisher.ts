@@ -2,7 +2,7 @@ import { currentUserId } from "@monitor/shared/kernel/user/user.context.js";
 import type {
     INotificationPublisher,
     MonitorNotification,
-} from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
+} from "./notification.publisher.port.js";
 
 export const NOTIFICATION_CHANNEL = "monitor:notifications";
 

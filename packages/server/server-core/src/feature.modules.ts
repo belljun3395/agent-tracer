@@ -11,9 +11,8 @@ import { RuleGenerationModule } from "@monitor/rules-api/rule/generation/rule.ge
 import { TaskCleanupModule } from "@monitor/insight-api/task-cleanup/task.cleanup.module.js";
 import { RecipeModule } from "@monitor/insight-api/recipe/recipe.module.js";
 
-// 피처 모듈을 등록하고 컨텍스트 간 import를 연결한다(forwardRef 없이 순환 해소).
-// HTTP 앱과 워커가 같은 도메인 그래프를 공유하도록 조립을 한 곳에 둔다.
-export function buildFeatureModules(databaseModule: DynamicModule): DynamicModule[] {
+// HTTP 앱 전용: 모든 피처 모듈을 조립한다.
+export function buildHttpFeatureModules(databaseModule: DynamicModule): DynamicModule[] {
     const event = EventModule.register(databaseModule);
     const session = SessionModule.register(databaseModule);
     const task = TaskModule.register(databaseModule);
@@ -33,21 +32,33 @@ export function buildFeatureModules(databaseModule: DynamicModule): DynamicModul
     verification.imports!.push(event, rule);
     rule.imports!.push(verification);
     ruleBackfill.imports!.push(rule, verification);
-    ruleGeneration.imports!.push(rule, settings, task);
+    ruleGeneration.imports!.push(rule, task);
     taskCleanup.imports!.push(settings, task);
     recipe.imports!.push(settings, task);
 
-    return [
-        event,
-        session,
-        task,
-        turn,
-        verification,
-        rule,
-        settings,
-        ruleBackfill,
-        ruleGeneration,
-        taskCleanup,
-        recipe,
-    ];
+    return [event, session, task, turn, verification, rule, settings, ruleBackfill, ruleGeneration, taskCleanup, recipe];
+}
+
+// 워커 전용: Turn·RuleBackfill은 워커 액티비티에서 사용하지 않으므로 제외한다.
+export function buildWorkerFeatureModules(databaseModule: DynamicModule): DynamicModule[] {
+    const event = EventModule.register(databaseModule);
+    const session = SessionModule.register(databaseModule);
+    const task = TaskModule.register(databaseModule);
+    const verification = VerificationModule.register(databaseModule);
+    const rule = RuleModule.register(databaseModule);
+    const settings = SettingsModule.register(databaseModule);
+    const ruleGeneration = RuleGenerationModule.register(databaseModule);
+    const taskCleanup = TaskCleanupModule.register(databaseModule);
+    const recipe = RecipeModule.register(databaseModule);
+
+    event.imports!.push(task, verification);
+    session.imports!.push(task);
+    task.imports!.push(event, session, settings, verification);
+    verification.imports!.push(event, rule);
+    rule.imports!.push(verification);
+    ruleGeneration.imports!.push(rule, task);
+    taskCleanup.imports!.push(settings, task);
+    recipe.imports!.push(settings, task);
+
+    return [event, session, task, verification, rule, settings, ruleGeneration, taskCleanup, recipe];
 }

@@ -1,6 +1,11 @@
 import { Module, type DynamicModule } from "@nestjs/common";
-import { WorkerModule } from "@monitor/server-core/worker.module.js";
+import { EventEmitterModule } from "@nestjs/event-emitter";
+import { AppConfigModule } from "@monitor/server-core/config/app.config.module.js";
+import { DatabaseModule } from "@monitor/server-core/database/database.module.js";
+import { TypeOrmDatabaseModule } from "@monitor/server-core/database/typeorm.database.module.js";
+import { buildWorkerFeatureModules } from "@monitor/server-core/feature.modules.js";
 import type { ServerModuleOptions } from "@monitor/server-core/server.module.options.js";
+import { IdentityModule } from "@monitor/identity-api/identity.module.js";
 import { LocalQueryRunner } from "@monitor/shared/llm/local.query.runner.js";
 import { MessagesQueryRunner } from "@monitor/shared/llm/messages.query.runner.js";
 import { WorkerDispatchModule } from "./dispatch.unsupported.js";
@@ -13,13 +18,25 @@ import { TitleSuggestionActivity } from "./activities/title.suggestion.activity.
 import { RecipeScanActivity } from "./activities/recipe.scan.activity.js";
 import { TaskCleanupActivity } from "./activities/task.cleanup.activity.js";
 
-// 워커 합성 루트: 도메인 그래프 + 에이전트·액티비티 + 실행 전용 디스패처 바인딩.
+// 워커 조립 루트: 인프라 + 워커 전용 도메인 그래프 + 에이전트·액티비티를 직접 조립한다.
+// 액티비티는 buildWorkerFeatureModules가 제공하는 도메인 모듈 exports에서 직접 주입받는다.
 @Module({})
 export class WorkerRootModule {
     static forRoot(options: ServerModuleOptions): DynamicModule {
+        const databaseModule = DatabaseModule.forRoot(options);
+        const typeOrmDatabaseModule = TypeOrmDatabaseModule.forRoot();
+
         return {
             module: WorkerRootModule,
-            imports: [WorkerModule.forRoot(options), WorkerDispatchModule],
+            imports: [
+                AppConfigModule,
+                EventEmitterModule.forRoot(),
+                typeOrmDatabaseModule,
+                databaseModule,
+                IdentityModule,
+                ...buildWorkerFeatureModules(databaseModule),
+                WorkerDispatchModule,
+            ],
             providers: [
                 {
                     provide: RuleSuggestionAgent,

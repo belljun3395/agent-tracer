@@ -3,7 +3,7 @@ import { createClient } from "redis";
 import { WebSocketServer, type WebSocket } from "ws";
 import type { INotificationPublisher } from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
 import { EventBroadcasterService } from "./event.broadcaster.service.js";
-import { RedisNotificationPublisher } from "../redis.notification.publisher.js";
+import { RedisNotificationPublisher } from "@monitor/shared/contracts/notifications/redis.notification.publisher.js";
 import { RedisFanoutSubscriber } from "../redis.fanout.subscriber.js";
 
 const WS_OPEN = 1;

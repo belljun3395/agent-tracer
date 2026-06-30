@@ -6,7 +6,7 @@ import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 import { AppConfigModule } from "@monitor/server-core/config/app.config.module.js";
 import { DatabaseModule } from "@monitor/server-core/database/database.module.js";
 import { TypeOrmDatabaseModule } from "@monitor/server-core/database/typeorm.database.module.js";
-import { buildFeatureModules } from "@monitor/server-core/feature.modules.js";
+import { buildHttpFeatureModules } from "@monitor/server-core/feature.modules.js";
 import type { ServerModuleOptions } from "@monitor/server-core/server.module.options.js";
 import { HealthController } from "~adapters/http/query/controllers/health/health.query.controller.js";
 import { TemporalDispatchModule } from "~adapters/temporal/temporal.dispatch.module.js";
@@ -45,7 +45,7 @@ export class AppModule implements NestModule {
                 databaseModule,
                 TemporalDispatchModule,
                 IdentityModule,
-                ...buildFeatureModules(databaseModule),
+                ...buildHttpFeatureModules(databaseModule),
             ],
             controllers: [HealthController],
             providers: [
