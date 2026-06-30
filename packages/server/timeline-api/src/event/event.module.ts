@@ -10,7 +10,6 @@ import { ContextPressureDetector } from "./application/detectors/context.pressur
 import { DuplicateQuestionDetector } from "./application/detectors/duplicate.question.detector.js";
 import { GetPreprocessingHintsUseCase } from "./application/get.preprocessing.hints.usecase.js";
 import { IngestEventsUseCase } from "./application/ingest.events.usecase.js";
-import { LogEventUseCase } from "./application/log.event.usecase.js";
 import { SearchEventsUseCase } from "./application/search.events.usecase.js";
 import { UpdateEventUseCase } from "./application/update.event.usecase.js";
 import {
@@ -31,6 +30,7 @@ import {
 import { PgEventSearch } from "./repository/search/pg.event.search.js";
 import { PreprocessingHintsRepository } from "./repository/preprocessing.hints.repository.js";
 import { TimelineEventRepository } from "./repository/timeline.event.repository.js";
+import { EventRecordingService } from "./service/event.recording.service.js";
 import { TimelineEventService } from "./service/timeline.event.service.js";
 import { TimelineEventStorageService } from "./service/timeline.event.storage.service.js";
 
@@ -63,7 +63,7 @@ export class EventModule {
                 TimelineEventProjectionPublicAdapter,
 
                 CrossCheckDedupeCache,
-                LogEventUseCase,
+                EventRecordingService,
                 IngestEventsUseCase,
                 SearchEventsUseCase,
                 UpdateEventUseCase,

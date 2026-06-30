@@ -2,18 +2,17 @@ import { Inject, Injectable } from "@nestjs/common";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { NOTIFICATION_TYPE } from "@monitor/shared/contracts/notifications/notification.type.const.js";
 import { Transactional, runOnTransactionCommit } from "typeorm-transactional";
-import { createEventRecordDraft, normalizeFilePaths } from "@monitor/timeline-api/event/domain/event.recording.policy.js";
-import { deriveFileChangeEventInputs } from "@monitor/timeline-api/event/domain/event.recording.policy.js";
+import { createEventRecordDraft, normalizeFilePaths, deriveFileChangeEventInputs } from "@monitor/timeline-api/event/domain/event.recording.policy.js";
 import type { TimelineEvent } from "@monitor/timeline-api/event/domain/type/timeline.event.type.js";
-import { TimelineEventService } from "../service/timeline.event.service.js";
+import { TimelineEventService } from "./timeline.event.service.js";
 import { projectTimelineEvent } from "../domain/timeline.event.projection.policy.js";
 import { CrossCheckDedupeCache } from "../common/cross.check.dedupe.cache.js";
-import { NOTIFICATION_PUBLISHER_PORT } from "./outbound/tokens.js";
-import type { IEventNotificationPublisher } from "./outbound/notification.publisher.port.js";
+import { NOTIFICATION_PUBLISHER_PORT } from "../application/outbound/tokens.js";
+import type { IEventNotificationPublisher } from "../application/outbound/notification.publisher.port.js";
 import { EVENT_RECORDED } from "../public/events/event.recorded.js";
 import type { EventRecordedPayload } from "../public/events/event.recorded.js";
 import type { TimelineEventSnapshot } from "../public/dto/timeline.event.dto.js";
-import type { LogEventUseCaseIn, LogEventUseCaseOut } from "./dto/log.event.usecase.dto.js";
+import type { EventRecordingIn, EventRecordingOut } from "../application/dto/event.recording.dto.js";
 
 interface CrossCheckMarker {
     readonly source: "hook" | "rollout";
@@ -46,10 +45,10 @@ function toEventSnapshot(e: TimelineEvent): TimelineEventSnapshot {
     };
 }
 
-type EventRecordingInput = Parameters<typeof createEventRecordDraft>[0];
+type EventRecordDraftInput = Parameters<typeof createEventRecordDraft>[0];
 
 @Injectable()
-export class LogEventUseCase {
+export class EventRecordingService {
     constructor(
         private readonly events: TimelineEventService,
         @Inject(NOTIFICATION_PUBLISHER_PORT) private readonly notifier: IEventNotificationPublisher,
@@ -58,7 +57,7 @@ export class LogEventUseCase {
     ) {}
 
     @Transactional()
-    async execute(input: LogEventUseCaseIn): Promise<LogEventUseCaseOut> {
+    async record(input: EventRecordingIn): Promise<EventRecordingOut> {
         // 멱등: 같은 id가 이미 기록됐으면 재파생·재발행 없이 그대로 반환(재시도·재전달).
         const existing = await this.events.findById(input.id);
         if (existing) {
@@ -138,7 +137,7 @@ export class LogEventUseCase {
         return { ...(sessionId ? { sessionId } : {}), events: allEvents };
     }
 
-    private async insertEvent(id: string, input: EventRecordingInput): Promise<TimelineEvent> {
+    private async insertEvent(id: string, input: EventRecordDraftInput): Promise<TimelineEvent> {
         const record = createEventRecordDraft(input);
         const event = await this.events.insert({
             id,

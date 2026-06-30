@@ -9,7 +9,7 @@ import {
     TELEMETRY_EVENT_KINDS,
     TOOL_ACTIVITY_EVENT_KINDS,
     WORKFLOW_EVENT_KINDS,
-} from "../application/dto/log.event.usecase.dto.js";
+} from "../application/dto/event.recording.dto.js";
 
 const baseEventSchema = z.object({
     id: z.string().min(1),

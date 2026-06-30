@@ -18,12 +18,11 @@ export {
 } from "@monitor/timeline-api/event/domain/common/const/event.kind.const.js";
 export { EVENT_RELATION_TYPES } from "@monitor/timeline-api/event/domain/common/const/event.meta.const.js";
 
-// 영속되는 내부 kind까지 포함한 로깅 결과 kind.
-export type LoggedEventKind = MonitoringEventKind;
+export type RecordedEventKind = MonitoringEventKind;
 
-export type LogEventTaskStatusUseCaseDto = "running" | "waiting" | "completed" | "errored";
+export type EventRecordingTaskStatusDto = "running" | "waiting" | "completed" | "errored";
 
-export interface LogEventUseCaseIn {
+export interface EventRecordingIn {
     readonly id: string;
     readonly kind: IngestEventKind;
     readonly taskId: string;
@@ -39,10 +38,10 @@ export interface LogEventUseCaseIn {
     readonly relationLabel?: string | undefined;
     readonly relationExplanation?: string | undefined;
     readonly createdAt?: string | undefined;
-    readonly taskEffects?: { readonly taskStatus?: LogEventTaskStatusUseCaseDto | undefined } | undefined;
+    readonly taskEffects?: { readonly taskStatus?: EventRecordingTaskStatusDto | undefined } | undefined;
 }
 
-export interface LogEventUseCaseOut {
+export interface EventRecordingOut {
     readonly sessionId?: string;
-    readonly events: readonly { readonly id: string; readonly kind: LoggedEventKind }[];
+    readonly events: readonly { readonly id: string; readonly kind: RecordedEventKind }[];
 }

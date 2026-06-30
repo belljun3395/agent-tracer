@@ -1,6 +1,6 @@
 import { createZodDto } from "nestjs-zod";
 import { z } from "zod";
-import { EVENT_LANES, EVENT_RELATION_TYPES, INGEST_EVENT_KINDS } from "../application/dto/log.event.usecase.dto.js";
+import { EVENT_LANES, EVENT_RELATION_TYPES, INGEST_EVENT_KINDS } from "../application/dto/event.recording.dto.js";
 
 // 혼합 kind를 받는 범용 ingest 입구. id는 선택(서버 엣지에서 ULID 스탬프)이다.
 const eventBatchItemSchema = z.object({
