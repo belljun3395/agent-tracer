@@ -3,21 +3,17 @@ import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from "@nestjs/core";
 import { ScheduleModule } from "@nestjs/schedule";
 import { EventEmitterModule } from "@nestjs/event-emitter";
 import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
-import type { INotificationPublisher } from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
-import { AppConfigModule } from "~config/app-config.module.js";
+import { AppConfigModule } from "@monitor/server-core/config/app-config.module.js";
+import { DatabaseModule } from "@monitor/server-core/database/database.module.js";
+import { TypeOrmDatabaseModule } from "@monitor/server-core/database/typeorm.database.module.js";
+import { buildFeatureModules } from "@monitor/server-core/feature-modules.js";
+import type { ServerModuleOptions } from "@monitor/server-core/server-module-options.js";
 import { HealthController } from "~adapters/http/query/controllers/health/health.query.controller.js";
 import { IdentityModule } from "@monitor/identity-api/identity.module.js";
-import { DatabaseModule } from "./database/database.module.js";
-import { TypeOrmDatabaseModule } from "./database/typeorm.database.module.js";
-import { buildFeatureModules } from "./feature-modules.js";
 import { GlobalExceptionFilter } from "./filters/zod-exception.filter.js";
 import { ApiResponseInterceptor } from "./interceptors/api-response.interceptor.js";
 import { RequestContextMiddleware } from "./middleware/request-context.middleware.js";
 import { UserContextMiddleware } from "./middleware/user-context.middleware.js";
-
-export interface AppModuleOptions {
-    readonly notifier?: INotificationPublisher;
-}
 
 @Module({})
 export class AppModule implements NestModule {
@@ -25,7 +21,7 @@ export class AppModule implements NestModule {
         consumer.apply(UserContextMiddleware, RequestContextMiddleware).forRoutes("*");
     }
 
-    static forRoot(options: AppModuleOptions): DynamicModule {
+    static forRoot(options: ServerModuleOptions): DynamicModule {
         const databaseModule = DatabaseModule.forRoot(options);
         const typeOrmDatabaseModule = TypeOrmDatabaseModule.forRoot();
 

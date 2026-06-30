@@ -6,9 +6,9 @@
     "emitDecoratorMetadata": true,
     "baseUrl": ".",
     "paths": {
-      "~config/*": ["src/config/*"],
       "~adapters/*": ["src/adapters/*"],
       "~main/*": ["src/main/*"],
+      "@monitor/server-core/*": ["../server-core/src/*"],
       "@monitor/shared/*": ["../shared/src/*"],
       "@monitor/timeline-api/*": ["../timeline-api/src/*"],
       "@monitor/run-api/*": ["../run-api/src/*"],

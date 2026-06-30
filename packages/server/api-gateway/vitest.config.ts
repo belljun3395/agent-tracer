@@ -7,7 +7,7 @@ export default defineConfig({
         alias: {
             "~adapters": resolve(__dirname, "src/adapters"),
             "~main": resolve(__dirname, "src/main"),
-            "~config": resolve(__dirname, "src/config"),
+            "@monitor/server-core": resolve(__dirname, "../server-core/src"),
             "@monitor/shared": resolve(__dirname, "../shared/src"),
             "@monitor/timeline-api": resolve(__dirname, "../timeline-api/src"),
             "@monitor/run-api": resolve(__dirname, "../run-api/src"),
@@ -40,6 +40,7 @@ export default defineConfig({
             "../insight-api/src/**/*.test.ts",
             "../identity-api/src/**/*.test.ts",
             "../ws-gateway/src/**/*.test.ts",
+            "../server-core/src/**/*.test.ts",
         ],
     },
 });

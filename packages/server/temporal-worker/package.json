@@ -14,9 +14,9 @@
         "./*": "./src/*"
     },
     "dependencies": {
-        "@monitor/api-gateway": "*",
         "@monitor/rules-api": "*",
         "@monitor/run-api": "*",
+        "@monitor/server-core": "*",
         "@monitor/shared": "*",
         "@monitor/ws-gateway": "*",
         "@nestjs/common": "^11.1.18",

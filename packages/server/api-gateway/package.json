@@ -7,14 +7,6 @@
     ".": {
       "development": "./src/gateway.entry.ts",
       "default": "./dist/index.js"
-    },
-    "./app-module": {
-      "development": "./src/main/presentation/app.module.ts",
-      "default": "./dist/index.js"
-    },
-    "./worker-module": {
-      "development": "./src/main/presentation/worker.module.ts",
-      "default": "./dist/index.js"
     }
   },
   "scripts": {
@@ -31,11 +23,11 @@
     "@monitor/insight-api": "*",
     "@monitor/rules-api": "*",
     "@monitor/run-api": "*",
+    "@monitor/server-core": "*",
     "@monitor/shared": "*",
     "@monitor/timeline-api": "*",
     "@monitor/ws-gateway": "*",
     "@nestjs/common": "^11.1.18",
-    "@nestjs/config": "^4.0.4",
     "@nestjs/core": "^11.1.18",
     "@nestjs/event-emitter": "^3.1.0",
     "@nestjs/platform-express": "^11.1.18",
@@ -43,7 +35,6 @@
     "@nestjs/swagger": "^11.4.4",
     "@nestjs/throttler": "^6.4.0",
     "@nestjs/typeorm": "^11.0.1",
-    "@temporalio/client": "^1.18.1",
     "express": "^5.0.0",
     "helmet": "^8.0.0",
     "nestjs-zod": "^5.4.0",
@@ -57,7 +48,6 @@
     "zod": "^3.0.0"
   },
   "devDependencies": {
-    "@nestjs/testing": "^11.1.18",
     "@swc/core": "^1.15.30",
     "@types/express": "^5.0.0",
     "@types/node": "^24.0.0",

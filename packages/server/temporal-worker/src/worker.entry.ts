@@ -3,7 +3,7 @@ import { initializeTransactionalContext } from "typeorm-transactional";
 import { createClient } from "redis";
 import { NestFactory } from "@nestjs/core";
 import { NativeConnection, Worker } from "@temporalio/worker";
-import { WorkerModule } from "@monitor/api-gateway/worker-module";
+import { WorkerModule } from "@monitor/server-core/worker.module.js";
 import { RedisNotificationPublisher } from "@monitor/ws-gateway/redis.notification.publisher.js";
 import { TaskRuleGenerationService } from "@monitor/rules-api/rule/generation/service/task.rule.generation.service.js";
 import { SuggestTaskTitleUseCase } from "@monitor/run-api/task/application/suggest.task.title.usecase.js";
