@@ -30,7 +30,7 @@ type TypedEvent =
     | LifecycleIngestEvent;
 type TypedBatchBody = { readonly events: readonly TypedEvent[] };
 
-@Controller("ingest/v1")
+@Controller("ingest/v1/timeline")
 export class TypedEventIngestController {
     constructor(private readonly ingestEvents: IngestEventsUseCase) {}
 

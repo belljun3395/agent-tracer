@@ -12,7 +12,7 @@
  *   timeout          number?  — timeout in ms
  *   run_in_background boolean? — async execution flag
  *
- * This handler posts a /ingest/v1/events event with kind "terminal.command"
+ * This handler emits a "terminal.command" event (routed to the timeline ingest endpoint)
  * and attaches the runtime-derived lane + semantic metadata, the file path
  * targets surfaced by command-analysis, and a head+tail capture of the
  * Bash tool result (stdout/stderr/exitCode) so verifiers can reason about

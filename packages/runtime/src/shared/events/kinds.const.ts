@@ -77,10 +77,10 @@ export const KIND = {
 } as const;
 
 export const INGEST_ENDPOINTS = {
-    toolActivity: "/ingest/v1/tool-activity",
-    workflow: "/ingest/v1/workflow",
-    conversation: "/ingest/v1/conversation",
-    coordination: "/ingest/v1/coordination",
-    lifecycle: "/ingest/v1/lifecycle",
-    telemetry: "/ingest/v1/telemetry",
+    toolActivity: "/ingest/v1/timeline/tool-activity",
+    workflow: "/ingest/v1/timeline/workflow",
+    conversation: "/ingest/v1/timeline/conversation",
+    coordination: "/ingest/v1/timeline/coordination",
+    lifecycle: "/ingest/v1/timeline/lifecycle",
+    telemetry: "/ingest/v1/timeline/telemetry",
 } as const;
