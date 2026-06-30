@@ -1,8 +1,8 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
 import { NOTIFICATION_TYPE } from "@monitor/shared/contracts/notifications/notification.type.const.js";
-import { KIND } from "@monitor/timeline-api/event/public/types/event.const.js";
-import type { TimelineEvent } from "@monitor/timeline-api/event/public/types/event.types.js";
+import { KIND } from "@monitor/timeline-api/public/types/event.const.js";
+import type { TimelineEvent } from "@monitor/timeline-api/public/types/event.types.js";
 import { matchEventAgainstRule } from "@monitor/rules-api/verification/domain/event.rule.matching.policy.js";
 import { inferToolCall } from "@monitor/rules-api/verification/domain/tool.call.inference.policy.js";
 import type { INotificationPublisher } from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
@@ -13,7 +13,7 @@ import type {
     RuleEnforcementInsert,
 } from "@monitor/rules-api/verification/application/outbound/rule.enforcement.repository.port.js";
 import type { ITurnRepository } from "@monitor/rules-api/verification/application/outbound/turn.repository.port.js";
-import type { ITimelineEventRead } from "@monitor/timeline-api/event/public/iservice/timeline.event.read.iservice.js";
+import type { ITimelineEventRead } from "@monitor/timeline-api/public/iservice/timeline.event.read.iservice.js";
 import type {
     IVerificationPostProcessor,
     VerificationPostProcessorEvent,
@@ -21,7 +21,7 @@ import type {
 import { TurnEvaluationService } from "../service/turn.evaluation.service.js";
 import { RULE_REPOSITORY_TOKEN } from "@monitor/rules-api/rule/public/tokens.js";
 import { RULE_ENFORCEMENT_REPOSITORY_TOKEN, TURN_REPOSITORY_TOKEN } from "../repository/tokens.js";
-import { TIMELINE_EVENT_READ } from "@monitor/timeline-api/event/public/tokens.js";
+import { TIMELINE_EVENT_READ } from "@monitor/timeline-api/public/tokens.js";
 
 @Injectable()
 export class VerificationPostProcessorPublicAdapter implements IVerificationPostProcessor {

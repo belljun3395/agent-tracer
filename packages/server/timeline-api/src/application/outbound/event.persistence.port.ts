@@ -1,0 +1,42 @@
+import type { MonitoringEventKind, TimelineLane } from "@monitor/timeline-api/domain/common/const/event.kind.const.js";
+import type {
+    EventClassificationMatch,
+    TimelineEvent,
+} from "@monitor/timeline-api/domain/type/timeline.event.type.js";
+
+export type PersistedTimelineEvent = TimelineEvent;
+
+export interface TimelineEventInsertRequest {
+    readonly id: string;
+    readonly taskId: string;
+    readonly sessionId?: string;
+    readonly kind: MonitoringEventKind;
+    readonly lane: TimelineLane;
+    readonly title: string;
+    readonly body?: string;
+    readonly metadata: Record<string, unknown>;
+    readonly classification: {
+        readonly lane: TimelineLane;
+        readonly tags: readonly string[];
+        readonly matches: readonly EventClassificationMatch[];
+    };
+    readonly createdAt: string;
+}
+
+export interface EventSearchOptions {
+    readonly taskId?: string;
+    readonly limit?: number;
+}
+
+export interface EventSearchResults {
+    readonly events: readonly unknown[];
+}
+
+export interface IEventPersistence {
+    findById(id: string): Promise<PersistedTimelineEvent | null>;
+    findByTaskId(taskId: string): Promise<readonly PersistedTimelineEvent[]>;
+    insert(input: TimelineEventInsertRequest): Promise<PersistedTimelineEvent>;
+    updateMetadata(eventId: string, metadata: Record<string, unknown>): Promise<PersistedTimelineEvent | null>;
+    countAll(): Promise<number>;
+    search(query: string, options: EventSearchOptions): Promise<EventSearchResults>;
+}

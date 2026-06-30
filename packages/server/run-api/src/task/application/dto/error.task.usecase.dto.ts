@@ -1,5 +1,5 @@
 import type { MonitoringTask } from "@monitor/run-api/task/domain/type/task.type.js";
-import type { MonitoringEventKind } from "@monitor/timeline-api/event/public/types/event.types.js";
+import type { MonitoringEventKind } from "@monitor/timeline-api/public/types/event.types.js";
 
 export interface ErrorTaskUseCaseIn {
     readonly taskId: string;

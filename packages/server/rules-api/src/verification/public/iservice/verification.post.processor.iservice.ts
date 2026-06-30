@@ -1,5 +1,5 @@
-import type { MonitoringEventKind, TimelineLane } from "@monitor/timeline-api/event/domain/common/const/event.kind.const.js";
-import type { EventClassificationMatch } from "@monitor/timeline-api/event/domain/type/timeline.event.type.js";
+import type { MonitoringEventKind, TimelineLane } from "@monitor/timeline-api/domain/common/const/event.kind.const.js";
+import type { EventClassificationMatch } from "@monitor/timeline-api/domain/type/timeline.event.type.js";
 
 export interface VerificationPostProcessorEvent {
     readonly id: string;

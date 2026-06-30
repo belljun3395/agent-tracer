@@ -1,8 +1,8 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { TaskReadService } from "../service/task.read.service.js";
 import { TaskOpenInferenceExport } from "../domain/task.openinference.export.vo.js";
-import { TIMELINE_EVENT_READ } from "@monitor/timeline-api/event/public/tokens.js";
-import type { ITimelineEventRead } from "@monitor/timeline-api/event/public/iservice/timeline.event.read.iservice.js";
+import { TIMELINE_EVENT_READ } from "@monitor/timeline-api/public/tokens.js";
+import type { ITimelineEventRead } from "@monitor/timeline-api/public/iservice/timeline.event.read.iservice.js";
 import type {
     GetTaskOpenInferenceUseCaseIn,
     GetTaskOpenInferenceUseCaseOut,

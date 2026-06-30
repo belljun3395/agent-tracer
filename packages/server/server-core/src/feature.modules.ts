@@ -1,5 +1,5 @@
 import { type DynamicModule } from "@nestjs/common";
-import { EventModule } from "@monitor/timeline-api/event/event.module.js";
+import { EventModule } from "@monitor/timeline-api/event.module.js";
 import { SessionModule } from "@monitor/run-api/session/session.module.js";
 import { TaskModule } from "@monitor/run-api/task/task.module.js";
 import { TurnModule } from "@monitor/run-api/turn/turn.module.js";

@@ -7,8 +7,8 @@ import { TaskEntity } from "../domain/task.entity.js";
 import { TaskRelations, type TaskRelationsSnapshot } from "../domain/task.relations.vo.js";
 import { TaskRepository } from "../repository/task.repository.js";
 import { TaskRelationRepository } from "../repository/task.relation.repository.js";
-import { TIMELINE_EVENT_READ } from "@monitor/timeline-api/event/public/tokens.js";
-import type { ITimelineEventRead } from "@monitor/timeline-api/event/public/iservice/timeline.event.read.iservice.js";
+import { TIMELINE_EVENT_READ } from "@monitor/timeline-api/public/tokens.js";
+import type { ITimelineEventRead } from "@monitor/timeline-api/public/iservice/timeline.event.read.iservice.js";
 import { tallyTaskStatuses } from "../common/task.status.helpers.js";
 import type { DashboardSnapshot } from "../public/dto/task.snapshot.dto.js";
 

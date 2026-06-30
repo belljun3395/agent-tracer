@@ -1,4 +1,4 @@
-import { readFilePaths, readString } from "@monitor/timeline-api/event/public/helpers.js";
+import { readFilePaths, readString } from "@monitor/timeline-api/public/helpers.js";
 import {
     isAgentActivityLoggedEvent,
     isExplorationLane,
@@ -6,11 +6,11 @@ import {
     isLlmInteractionEvent,
     isPlanningLane,
     isToolActivityEvent,
-} from "@monitor/timeline-api/event/public/predicates.js";
-import type { TimelineEvent } from "@monitor/timeline-api/event/public/types/event.types.js";
+} from "@monitor/timeline-api/public/predicates.js";
+import type { TimelineEvent } from "@monitor/timeline-api/public/types/event.types.js";
 import type { MonitoringTask } from "@monitor/run-api/task/domain/type/task.type.js";
-import { META } from "@monitor/timeline-api/event/public/types/metadata.keys.js";
-import { KIND } from "@monitor/timeline-api/event/public/types/event.const.js";
+import { META } from "@monitor/timeline-api/public/types/metadata.keys.js";
+import { KIND } from "@monitor/timeline-api/public/types/event.const.js";
 
 export type OpenInferenceSpanKind = "AGENT" | "CHAIN" | "TOOL" | "LLM" | "RETRIEVER" | "UNKNOWN";
 

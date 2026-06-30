@@ -1,4 +1,4 @@
-import type { TimelineEvent } from "@monitor/timeline-api/event/public/types/event.types.js";
+import type { TimelineEvent } from "@monitor/timeline-api/public/types/event.types.js";
 import { segmentEventsByTurn } from "./segments.policy.js";
 import type {
     ResolveTurnPartitionInput,

@@ -1,13 +1,13 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { NOTIFICATION_TYPE } from "@monitor/shared/contracts/notifications/notification.type.const.js";
 import type { MonitoringTask } from "@monitor/run-api/task/domain/type/task.type.js";
-import type { MonitoringEventKind } from "@monitor/timeline-api/event/public/types/event.types.js";
+import type { MonitoringEventKind } from "@monitor/timeline-api/public/types/event.types.js";
 import { isTaskRunning } from "../domain/task.predicates.policy.js";
 import type {
     MonitoringTaskKind,
     TaskOrigin,
 } from "@monitor/run-api/task/common/task.status.const.js";
-import { createEventRecordDraft } from "@monitor/timeline-api/event/public/helpers.js";
+import { createEventRecordDraft } from "@monitor/timeline-api/public/helpers.js";
 import { TaskUpsertDraft } from "../domain/task.upsert.draft.vo.js";
 import {
     TaskFinalizationRecording,
@@ -25,12 +25,12 @@ import { SESSION_LIFECYCLE } from "@monitor/run-api/session/public/tokens.js";
 import {
     TIMELINE_EVENT_PROJECTION,
     TIMELINE_EVENT_WRITE,
-} from "@monitor/timeline-api/event/public/tokens.js";
+} from "@monitor/timeline-api/public/tokens.js";
 import type { IClock } from "../application/outbound/clock.port.js";
 import type { IIdGenerator } from "../application/outbound/id.generator.port.js";
 import type { ISessionLifecycle } from "@monitor/run-api/session/public/iservice/session.lifecycle.iservice.js";
-import type { ITimelineEventWrite } from "@monitor/timeline-api/event/public/iservice/timeline.event.write.iservice.js";
-import type { ITimelineEventProjection } from "@monitor/timeline-api/event/public/iservice/timeline.event.projection.iservice.js";
+import type { ITimelineEventWrite } from "@monitor/timeline-api/public/iservice/timeline.event.write.iservice.js";
+import type { ITimelineEventProjection } from "@monitor/timeline-api/public/iservice/timeline.event.projection.iservice.js";
 import type { ITaskNotificationPublisher } from "../application/outbound/notification.publisher.port.js";
 
 export interface StartTaskServiceInput {

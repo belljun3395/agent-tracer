@@ -1,4 +1,4 @@
-import { KIND, TERMINAL_COMMAND_TOOL_NAME } from "@monitor/timeline-api/event/public/types/event.const.js";
+import { KIND, TERMINAL_COMMAND_TOOL_NAME } from "@monitor/timeline-api/public/types/event.const.js";
 import type { EvaluateTurnToolCall } from "./turn.evaluation.policy.js";
 import { normalizeVerificationToolName } from "./tool.action.matching.policy.js";
 

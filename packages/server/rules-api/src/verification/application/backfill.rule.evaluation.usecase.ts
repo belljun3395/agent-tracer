@@ -8,9 +8,9 @@ import type { TurnVerdict } from "@monitor/rules-api/verification/domain/type/ve
 import { evaluateTurn } from "@monitor/rules-api/verification/domain/turn.evaluation.policy.js";
 import type { EvaluateTurnToolCall } from "@monitor/rules-api/verification/domain/turn.evaluation.policy.js";
 import { aggregateVerdict } from "@monitor/rules-api/verification/domain/verdict.policy.js";
-import type { TimelineEvent } from "@monitor/timeline-api/event/public/types/event.types.js";
+import type { TimelineEvent } from "@monitor/timeline-api/public/types/event.types.js";
 import type { INotificationPublisher } from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
-import type { ITimelineEventRead } from "@monitor/timeline-api/event/public/iservice/timeline.event.read.iservice.js";
+import type { ITimelineEventRead } from "@monitor/timeline-api/public/iservice/timeline.event.read.iservice.js";
 import type {
     IRuleEnforcementRepository,
     RuleEnforcementInsert,

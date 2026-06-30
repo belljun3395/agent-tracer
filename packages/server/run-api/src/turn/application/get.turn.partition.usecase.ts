@@ -3,11 +3,11 @@ import { resolveTurnPartition } from "../domain/turn.partition.policy.js";
 import { TurnPartitionRepository } from "../repository/turn.partition.repository.js";
 import { CLOCK_PORT, ID_GENERATOR_PORT } from "./outbound/tokens.js";
 import { TASK_ACCESS } from "@monitor/run-api/task/public/tokens.js";
-import { TIMELINE_EVENT_READ } from "@monitor/timeline-api/event/public/tokens.js";
+import { TIMELINE_EVENT_READ } from "@monitor/timeline-api/public/tokens.js";
 import type { IClock } from "./outbound/clock.port.js";
 import type { IIdGenerator } from "./outbound/id.generator.port.js";
 import type { ITaskAccess } from "@monitor/run-api/task/public/iservice/task.access.iservice.js";
-import type { ITimelineEventRead } from "@monitor/timeline-api/event/public/iservice/timeline.event.read.iservice.js";
+import type { ITimelineEventRead } from "@monitor/timeline-api/public/iservice/timeline.event.read.iservice.js";
 import type {
     GetTurnPartitionUseCaseIn,
     GetTurnPartitionUseCaseOut,

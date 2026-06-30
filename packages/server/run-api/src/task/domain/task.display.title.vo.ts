@@ -1,7 +1,7 @@
 import type { MonitoringTask } from "@monitor/run-api/task/domain/type/task.type.js";
-import type { TimelineEvent } from "@monitor/timeline-api/event/public/types/event.types.js";
-import { isInternalEvent, isTaskLifecycleEvent, isUserLane } from "@monitor/timeline-api/event/public/predicates.js";
-import { KIND } from "@monitor/timeline-api/event/public/types/event.const.js";
+import type { TimelineEvent } from "@monitor/timeline-api/public/types/event.types.js";
+import { isInternalEvent, isTaskLifecycleEvent, isUserLane } from "@monitor/timeline-api/public/predicates.js";
+import { KIND } from "@monitor/timeline-api/public/types/event.const.js";
 import {
     GENERIC_TASK_TITLE_PREFIXES,
     GENERIC_TASK_TITLE_PREFIX_SPLIT_PATTERN,
