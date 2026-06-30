@@ -63,7 +63,7 @@ export class RecipeScanActivity {
 
         if (job.llmOutputJson) {
             const saved = JSON.parse(job.llmOutputJson) as GenerateRecipeCandidatesOutput & { tasksScanned: number };
-            return saved.tasksScanned ?? 0;
+            return saved.tasksScanned;
         }
 
         this.notifier.publish({

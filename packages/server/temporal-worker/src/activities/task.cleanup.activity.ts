@@ -53,7 +53,7 @@ export class TaskCleanupActivity {
 
         if (job.llmOutputJson) {
             const saved = JSON.parse(job.llmOutputJson) as GenerateCleanupSuggestionsOutput & { tasksScanned: number };
-            return saved.tasksScanned ?? 0;
+            return saved.tasksScanned;
         }
 
         this.notifier.publish({
