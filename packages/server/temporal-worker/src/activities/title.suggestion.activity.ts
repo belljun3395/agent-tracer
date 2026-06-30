@@ -4,7 +4,7 @@ import { NOTIFICATION_TYPE } from "@monitor/shared/contracts/notifications/notif
 import { NOTIFICATION_PUBLISHER_TOKEN } from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
 import { normalizeOutputLanguage } from "@monitor/shared/llm/output.language.js";
 import type { INotificationPublisher } from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
-import type { TitleSuggestionAgent } from "../agents/title.suggestion.agent.js";
+import { TitleSuggestionAgent } from "../agents/title.suggestion.agent.js";
 import type { SuggestionLanguage } from "../agents/title.suggestion.prompt.js";
 import { APP_SETTING_KEYS } from "@monitor/identity-api/settings/domain/app.setting.keys.js";
 import { APP_SETTINGS } from "@monitor/identity-api/settings/public/tokens.js";
