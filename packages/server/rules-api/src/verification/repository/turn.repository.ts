@@ -75,7 +75,7 @@ export class TurnRepository implements ITurnRepository {
             .createQueryBuilder("te")
             .innerJoin("timeline_events", "e", "e.id = te.event_id")
             .where("te.turn_id = :turnId", { turnId })
-            .orderBy("e.created_at", "ASC")
+            .orderBy("e.seq", "ASC")
             .select("te.event_id", "eventId")
             .getRawMany<{ eventId: string }>();
         return rows.map((row) => row.eventId);

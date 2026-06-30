@@ -1,4 +1,4 @@
-import { Column, Entity, Index, PrimaryColumn } from "typeorm";
+import { Column, Entity, Generated, Index, PrimaryColumn } from "typeorm";
 import { z } from "zod";
 import { zodJsonbTransformer } from "./jsonb.column.js";
 
@@ -11,9 +11,15 @@ const tagsSchema = z.array(z.string());
 @Index("idx_timeline_events_subtype_group", ["subtypeGroup", "createdAt"])
 @Index("idx_timeline_events_tool_family", ["toolFamily"])
 @Index("idx_timeline_events_lane_created", ["lane", "createdAt"])
+@Index("idx_timeline_events_task_seq", ["taskId", "seq"])
 export class TimelineEventEntity {
     @PrimaryColumn({ type: "text" })
     id!: string;
+
+    // 서버 할당 단조 시퀀스. 인과 순서의 기준이며 클라 벽시계(createdAt)는 표시용.
+    @Column({ name: "seq", type: "bigint" })
+    @Generated("increment")
+    seq!: string;
 
     @Column({ name: "user_id", type: "text", default: "local" })
     userId!: string;

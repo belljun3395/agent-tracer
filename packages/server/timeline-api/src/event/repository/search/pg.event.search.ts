@@ -57,7 +57,7 @@ export class PgEventSearch implements IEventSearchIndex, OnModuleInit {
              where user_id = $1
                and ($2::text is null or task_id = $2)
                and (title ilike $3 or coalesce(body, '') ilike $3 or kind ilike $3 or lane ilike $3)
-             order by created_at desc
+             order by created_at desc, seq desc
              limit $4`,
             [userId, options.taskId ?? null, pattern, limit],
         );
