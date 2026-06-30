@@ -308,6 +308,44 @@ function resolveRuntimeLoggingConfig(env = process.env) {
   };
 }
 
+// src/shared/util/ulid.ts
+import { randomBytes } from "node:crypto";
+var ENCODING = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+function encodeTime(timeMs) {
+  let value = Math.floor(timeMs);
+  let output = "";
+  for (let i = 0; i < 10; i++) {
+    output = ENCODING[value % 32] + output;
+    value = Math.floor(value / 32);
+  }
+  return output;
+}
+function encodeRandom() {
+  const bytes = randomBytes(10);
+  let bits = 0;
+  let bitLength = 0;
+  let output = "";
+  for (const byte of bytes) {
+    bits = bits << 8 | byte;
+    bitLength += 8;
+    while (bitLength >= 5 && output.length < 16) {
+      const index = bits >> bitLength - 5 & 31;
+      output += ENCODING[index];
+      bitLength -= 5;
+    }
+  }
+  while (output.length < 16) {
+    output += ENCODING[randomBytes(1)[0] & 31];
+  }
+  return output;
+}
+function generateUlid(timeMs = Date.now()) {
+  return `${encodeTime(timeMs)}${encodeRandom()}`;
+}
+function ensureEventId(event) {
+  return event.id ? event : { ...event, id: generateUlid() };
+}
+
 // src/shared/hook-runtime/local-daemon.ts
 import * as crypto from "node:crypto";
 import * as fs2 from "node:fs";
@@ -531,9 +569,10 @@ function createMonitorTransport(config = resolveMonitorTransportConfig(), option
   async function postEvent2(events) {
     const groups = /* @__PURE__ */ new Map();
     for (const event of events) {
-      const endpoint = resolveIngestEndpoint(event.kind);
+      const stamped = ensureEventId(event);
+      const endpoint = resolveIngestEndpoint(stamped.kind);
       const group = groups.get(endpoint) ?? [];
-      group.push(event);
+      group.push(stamped);
       groups.set(endpoint, group);
     }
     await Promise.all(
