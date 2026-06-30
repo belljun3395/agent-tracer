@@ -42,6 +42,7 @@ export class InsightJobRepository {
             cacheReadTokens: null,
             cacheCreationTokens: null,
             numTurns: null,
+            llmOutputJson: null,
             createdAt: input.createdAt,
             updatedAt: input.createdAt,
             startedAt: null,
@@ -52,6 +53,15 @@ export class InsightJobRepository {
 
     findById(id: string): Promise<InsightJobEntity | null> {
         return this.repo.findOne({ where: { id } });
+    }
+
+    // LLM 응답을 저장해 재실행이 같은 호출을 다시 하지 않게 한다.
+    async saveLlmOutput(
+        id: string,
+        llmOutputJson: string,
+        updatedAt: string,
+    ): Promise<void> {
+        await this.repo.update({ id }, { llmOutputJson, updatedAt });
     }
 
     findActive(jobType: InsightJobType): Promise<InsightJobEntity | null> {
