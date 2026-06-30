@@ -18,6 +18,8 @@
     "test": "npm run test --workspaces --if-present",
     "infra:up": "docker compose up -d postgres redis",
     "infra:down": "docker compose down",
+    "temporal:up": "docker compose --profile temporal up -d temporal temporal-ui",
+    "temporal:down": "docker compose --profile temporal down",
     "dev": "concurrently -k -n gateway,web \"npm run dev:gateway\" \"npm run dev:web\"",
     "dev:gateway": "NODE_OPTIONS=\"--conditions=development --import file://$(pwd)/scripts/register-swc.mjs\" SWC_NODE_PROJECT=packages/server/api-gateway/tsconfig.dev.json node --watch packages/server/api-gateway/src/gateway.entry.ts",
     "dev:web": "npm run dev --workspace @monitor/web -- --host 0.0.0.0",
