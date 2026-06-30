@@ -2,7 +2,7 @@ import { Module, type DynamicModule } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { DataSource } from "typeorm";
 import { addTransactionalDataSource } from "typeorm-transactional";
-import { AppConfigService } from "../config/app-config.service.js";
+import { AppConfigService } from "../config/app.config.service.js";
 
 @Module({})
 export class TypeOrmDatabaseModule {

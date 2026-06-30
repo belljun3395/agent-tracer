@@ -8,8 +8,8 @@ import type { NestExpressApplication } from "@nestjs/platform-express";
 initializeTransactionalContext();
 import { AppModule } from "../presentation/app.module.js";
 import { setupSwagger } from "../presentation/swagger.js";
-import { AppConfigService } from "@monitor/server-core/config/app-config.service.js";
-import { loadApplicationConfig } from "@monitor/server-core/config/application-config.js";
+import { AppConfigService } from "@monitor/server-core/config/app.config.service.js";
+import { loadApplicationConfig } from "@monitor/server-core/config/application.config.js";
 import { runWithUser, DEFAULT_USER_ID } from "@monitor/shared/kernel/user/user.context.js";
 import { WsGateway } from "@monitor/ws-gateway/ws/ws.gateway.js";
 import {

@@ -7,7 +7,7 @@ import { TITLE_SUGGESTION_DISPATCHER } from "@monitor/run-api/task/application/o
 import { TemporalClientProvider } from "../temporal/temporal.client.provider.js";
 import { TemporalRuleGenerationDispatcher } from "../temporal/temporal.rule.generation.dispatcher.js";
 import { TemporalTitleSuggestionDispatcher } from "../temporal/temporal.title.suggestion.dispatcher.js";
-import type { ServerModuleOptions } from "../server-module-options.js";
+import type { ServerModuleOptions } from "../server.module.options.js";
 import {
     DatabaseProviders,
     NOTIFICATION_PUBLISHER_TOKEN,

@@ -5,7 +5,7 @@ import {
     resolveMonitorHttpBaseUrl,
     resolveMonitorListenHost,
     resolveMonitorPort,
-} from "./application-config.js";
+} from "./application.config.js";
 
 export const APP_CONFIG_NAMESPACE = "app";
 

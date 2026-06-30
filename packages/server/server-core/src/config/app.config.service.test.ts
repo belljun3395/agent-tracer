@@ -1,8 +1,8 @@
 import { ConfigModule } from "@nestjs/config";
 import { Test } from "@nestjs/testing";
 import { describe, expect, it } from "vitest";
-import { APP_CONFIG_NAMESPACE, AppConfigService } from "./app-config.service.js";
-import { applicationConfigSchema } from "./application-config.js";
+import { APP_CONFIG_NAMESPACE, AppConfigService } from "./app.config.service.js";
+import { applicationConfigSchema } from "./application.config.js";
 
 const FIXTURE = applicationConfigSchema.parse({
     profile: "prd",
