@@ -28,6 +28,9 @@ export class MessagesQueryRunner implements IQueryRunner {
             ...(apiKey ? { apiKey } : {}),
         });
         const deadline = createAgentDeadline(request.deadlineMs);
+        if (request.parentSignal) {
+            request.parentSignal.addEventListener("abort", () => deadline.controller.abort(), { once: true });
+        }
 
         const tools: Anthropic.Messages.Tool[] | undefined = request.outputSchema
             ? [
