@@ -10,7 +10,7 @@ import type {
 } from "./query.runner.port.js";
 
 @Injectable()
-export class LocalQueryRunner implements IQueryRunner {
+export class AgentQueryRunner implements IQueryRunner {
     requiresLocalApiKey(): boolean {
         return true;
     }
@@ -45,6 +45,7 @@ export class LocalQueryRunner implements IQueryRunner {
             options: {
                 abortController: deadline.controller,
                 ...(request.cwd ? { cwd: request.cwd } : {}),
+                ...(request.mcpServers ? { mcpServers: request.mcpServers } : {}),
                 model: request.model,
                 allowedTools: tools,
                 tools,

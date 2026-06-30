@@ -1,5 +1,7 @@
+import type { McpSdkServerConfigWithInstance } from "@anthropic-ai/claude-agent-sdk";
 import type { TaskSummary } from "@monitor/run-api/public/task/task.summary.js";
 import type { IQueryRunner, AgentQueryUsage } from "@monitor/shared/llm/query.runner.port.js";
+import { RULE_GEN_MCP_SERVER_NAME, RULE_GEN_MCP_TOOLS } from "../agent-tools/rule.generation.tools.js";
 import {
     buildSystemPrompt,
     buildUserPrompt,
@@ -28,6 +30,7 @@ export interface GenerateRuleSuggestionsInput {
     readonly language?: RuleSuggestionLanguage;
     readonly idempotencyKey?: string;
     readonly abortSignal?: AbortSignal;
+    readonly toolServer?: McpSdkServerConfigWithInstance;
 }
 
 export interface GenerateRuleSuggestionsOutput {
@@ -68,6 +71,7 @@ export class RuleSuggestionAgent {
             MONITOR_TASK_ORIGIN: "server-sdk",
         };
 
+        const mcpTools = input.toolServer ? [...RULE_GEN_MCP_TOOLS] : [];
         const { rawOutput, structuredOutput, durationMs, errorSummary, costUsd, numTurns, usage } = await this.queryRunner.run({
             label: "rule-suggestion",
             prompt: userPrompt,
@@ -75,8 +79,9 @@ export class RuleSuggestionAgent {
 
             useClaudeCodePreset: true,
             excludeDynamicSections: true,
-            allowedTools: ALLOWED_TOOLS,
+            allowedTools: [...ALLOWED_TOOLS, ...mcpTools],
             ...(cwd ? { cwd } : {}),
+            ...(input.toolServer ? { mcpServers: { [RULE_GEN_MCP_SERVER_NAME]: input.toolServer } } : {}),
             model,
             maxTurns: DEFAULT_MAX_TURNS,
             deadlineMs: 300_000,

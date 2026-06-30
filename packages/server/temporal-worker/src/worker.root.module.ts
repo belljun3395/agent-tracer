@@ -6,7 +6,7 @@ import { TypeOrmDatabaseModule } from "@monitor/server-core/database/typeorm.dat
 import { buildWorkerFeatureModules } from "@monitor/server-core/feature.modules.js";
 import type { ServerModuleOptions } from "@monitor/server-core/server.module.options.js";
 import { IdentityModule } from "@monitor/identity-api/identity.module.js";
-import { LocalQueryRunner } from "@monitor/shared/llm/local.query.runner.js";
+import { AgentQueryRunner } from "@monitor/shared/llm/agent.query.runner.js";
 import { MessagesQueryRunner } from "@monitor/shared/llm/messages.query.runner.js";
 import { WorkerDispatchModule } from "./dispatch.unsupported.js";
 import { RuleSuggestionAgent } from "./agents/rule.suggestion.agent.js";
@@ -40,7 +40,7 @@ export class WorkerRootModule {
             providers: [
                 {
                     provide: RuleSuggestionAgent,
-                    useFactory: () => new RuleSuggestionAgent(new LocalQueryRunner()),
+                    useFactory: () => new RuleSuggestionAgent(new AgentQueryRunner()),
                 },
                 {
                     provide: TitleSuggestionAgent,
@@ -48,7 +48,7 @@ export class WorkerRootModule {
                 },
                 {
                     provide: RecipeScanAgent,
-                    useFactory: () => new RecipeScanAgent(new LocalQueryRunner()),
+                    useFactory: () => new RecipeScanAgent(new MessagesQueryRunner()),
                 },
                 {
                     provide: TaskCleanupAgent,

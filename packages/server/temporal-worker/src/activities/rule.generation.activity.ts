@@ -2,6 +2,7 @@ import { Injectable, Inject } from "@nestjs/common";
 import { Context } from "@temporalio/activity";
 import { RuleSuggestionAgent } from "../agents/rule.suggestion.agent.js";
 import type { GenerateRuleSuggestionsInput, GenerateRuleSuggestionsOutput } from "../agents/rule.suggestion.agent.js";
+import { buildRuleGenerationTools } from "../agent-tools/rule.generation.tools.js";
 import { JOB_STATUS } from "@monitor/shared/job/job.status.const.js";
 import { APP_SETTINGS } from "@monitor/identity-api/settings/public/tokens.js";
 import { TASK_SUMMARY } from "@monitor/run-api/public/task/tokens.js";
@@ -23,6 +24,8 @@ import {
     MissingApiKeyError,
     TaskNotFoundForGenerationError,
 } from "@monitor/rules-api/domain/generation/task.rule.generation.errors.js";
+import { TIMELINE_EVENT_READ } from "@monitor/timeline-api/public/event/tokens.js";
+import type { ITimelineEventRead } from "@monitor/timeline-api/public/event/iservice/timeline.event.read.iservice.js";
 
 @Injectable()
 export class RuleGenerationActivity {
@@ -34,6 +37,7 @@ export class RuleGenerationActivity {
         private readonly registerSuggestion: RegisterSuggestionUseCase,
         private readonly agent: RuleSuggestionAgent,
         @Inject(NOTIFICATION_PUBLISHER_TOKEN) private readonly notifier: INotificationPublisher,
+        @Inject(TIMELINE_EVENT_READ) private readonly eventRead: ITimelineEventRead,
     ) {}
 
     toActivities(): {
@@ -67,9 +71,10 @@ export class RuleGenerationActivity {
         const info = Context.current().info;
         const idempotencyKey = `${info.workflowExecution?.workflowId ?? "wf"}-${info.activityId}`;
         const input = await this.loadGenerationInput(job.taskId, idempotencyKey);
+        const toolServer = buildRuleGenerationTools(this.taskSummary, this.eventRead, this.listRules);
         const hb = setInterval(() => Context.current().heartbeat(), 15_000);
         try {
-            await this.runInference(job, { ...input, abortSignal: Context.current().cancellationSignal });
+            await this.runInference(job, { ...input, abortSignal: Context.current().cancellationSignal, toolServer });
         } finally {
             clearInterval(hb);
         }

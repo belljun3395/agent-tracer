@@ -14,8 +14,6 @@ import { parseJsonStrict } from "@monitor/shared/llm/parse.json.js";
 import { zodToOutputSchema } from "@monitor/shared/llm/output.schema.js";
 import { CLAUDE_MODEL } from "@monitor/shared/llm/models.js";
 
-const ALLOWED_TOOLS = ["Read", "Glob", "Grep"];
-const DEFAULT_MAX_TURNS = 8;
 const DEFAULT_MODEL = CLAUDE_MODEL.sonnet;
 
 const RECIPE_OUTPUT_SCHEMA = zodToOutputSchema(recipeCandidatesListSchema);
@@ -67,11 +65,9 @@ export class RecipeScanAgent {
             label: "recipe-scan",
             prompt: userPrompt,
             systemPrompt,
-            useClaudeCodePreset: true,
-            excludeDynamicSections: true,
-            allowedTools: ALLOWED_TOOLS,
+            allowedTools: [],
             model,
-            maxTurns: DEFAULT_MAX_TURNS,
+            maxTurns: 1,
             deadlineMs: 300_000,
             env,
             outputSchema: RECIPE_OUTPUT_SCHEMA,

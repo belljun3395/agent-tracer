@@ -1,3 +1,5 @@
+import type { McpSdkServerConfigWithInstance } from "@anthropic-ai/claude-agent-sdk";
+
 export interface AgentQueryRequest {
 
     readonly label: string;
@@ -22,6 +24,7 @@ export interface AgentQueryRequest {
 
     readonly idempotencyKey?: string;
     readonly parentSignal?: AbortSignal;
+    readonly mcpServers?: Record<string, McpSdkServerConfigWithInstance>;
 }
 
 export interface AgentQueryUsage {
