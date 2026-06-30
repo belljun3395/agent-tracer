@@ -15,11 +15,12 @@ export class TemporalTitleSuggestionDispatcher implements ITitleSuggestionDispat
     // execute는 워크플로 완료까지 기다려 제안 결과를 그대로 돌려준다.
     async dispatch(taskId: string): Promise<SuggestTaskTitleUseCaseOut> {
         const client = await this.clients.get();
-        const result = await client.workflow.execute(TITLE_SUGGESTION_WORKFLOW, {
+        return client.workflow.execute<
+            (taskId: string) => Promise<SuggestTaskTitleUseCaseOut>
+        >(TITLE_SUGGESTION_WORKFLOW, {
             taskQueue: LLM_JOB_TASK_QUEUE,
             workflowId: `title-suggestion-${taskId}-${randomUUID()}`,
             args: [taskId],
         });
-        return result as SuggestTaskTitleUseCaseOut;
     }
 }
