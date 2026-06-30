@@ -371,9 +371,9 @@ var init_transport = __esm({
   }
 });
 
-// src/shared/rule-generation/agent.ts
-var agent_exports = {};
-__export(agent_exports, {
+// src/shared/rule-generation/runner.ts
+var runner_exports = {};
+__export(runner_exports, {
   runRuleGeneration: () => runRuleGeneration
 });
 function buildOutputSchema() {
@@ -583,8 +583,8 @@ Propose up to ${maxRules} rules for task ${opts.taskId}.`;
   });
 }
 var MCP_SERVER_NAME, LANGUAGE_DIRECTIVES;
-var init_agent = __esm({
-  "src/shared/rule-generation/agent.ts"() {
+var init_runner = __esm({
+  "src/shared/rule-generation/runner.ts"() {
     "use strict";
     init_env();
     init_transport();
@@ -1164,6 +1164,6 @@ async function triggerRuleGeneration(taskId, workspacePath) {
     }
   }
   if (!jobId) return;
-  const { runRuleGeneration: runRuleGeneration2 } = await Promise.resolve().then(() => (init_agent(), agent_exports));
+  const { runRuleGeneration: runRuleGeneration2 } = await Promise.resolve().then(() => (init_runner(), runner_exports));
   await runRuleGeneration2({ taskId, jobId, workspacePath });
 }

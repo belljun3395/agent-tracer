@@ -24,7 +24,7 @@
  * "clear" events are intentionally skipped because SessionStart handles them
  * via the matching "clear" matcher immediately after.
  */
-import {CLAUDE_RUNTIME_SOURCE, PROJECT_DIR} from "~claude-code/hooks/util/paths.const.js";
+import {CLAUDE_RUNTIME_SOURCE} from "~claude-code/hooks/util/paths.const.js";
 import {claudeHookRuntime} from "~claude-code/hooks/lib/runtime.js";
 import {ensureRuntimeSession, postJson} from "~claude-code/hooks/lib/transport/transport.js";
 import {readSessionEnd} from "~shared/hooks/claude/payloads.js";
@@ -86,31 +86,5 @@ await runHook("SessionEnd", {
 
         deleteTodoState(payload.sessionId);
 
-        if (reason === "prompt_input_exit") {
-            void triggerRuleGeneration(ids.taskId, payload.cwd ?? PROJECT_DIR).catch(() => {});
-        }
     },
 });
-
-async function triggerRuleGeneration(taskId: string, workspacePath: string): Promise<void> {
-    let jobId: string | undefined;
-    try {
-        const resp = await postJson<{ jobId?: string }>(`/api/v1/rules/generate?taskId=${encodeURIComponent(taskId)}`, {});
-        jobId = resp.jobId;
-    } catch {
-        // 409 Conflict: a pending job already exists — fetch its id and proceed
-        const { resolveMonitorBaseUrl } = await import("~shared/config/env.js");
-        const { monitorUserHeader } = await import("~shared/transport/transport.js");
-        const resp = await fetch(
-            `${resolveMonitorBaseUrl()}/api/v1/rules/generate/latest?taskId=${encodeURIComponent(taskId)}`,
-            { headers: monitorUserHeader(), signal: AbortSignal.timeout(2000) },
-        );
-        if (resp.ok) {
-            const data = await resp.json() as { data?: { job?: { id?: string } } };
-            jobId = data?.data?.job?.id;
-        }
-    }
-    if (!jobId) return;
-    const { runRuleGeneration } = await import("~shared/rule-generation/agent.js");
-    await runRuleGeneration({ taskId, jobId, workspacePath });
-}
