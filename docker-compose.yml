@@ -88,6 +88,7 @@ services:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-monitor}
       - POSTGRES_DB=${POSTGRES_DB:-monitor}
       - REDIS_URL=redis://redis:6379
+      - TEMPORAL_ADDRESS=temporal:7233
     depends_on:
       postgres:
         condition: service_healthy
