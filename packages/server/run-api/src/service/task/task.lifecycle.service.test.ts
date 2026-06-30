@@ -10,12 +10,12 @@ import type { SessionSnapshot } from "@monitor/run-api/domain/session/dto/sessio
 import type {
     ITimelineEventWrite,
     TimelineEventWriteInput,
-} from "@monitor/timeline-api/public/iservice/timeline.event.write.iservice.js";
-import type { ITimelineEventProjection } from "@monitor/timeline-api/public/iservice/timeline.event.projection.iservice.js";
+} from "@monitor/timeline-api/public/event/iservice/timeline.event.write.iservice.js";
+import type { ITimelineEventProjection } from "@monitor/timeline-api/public/event/iservice/timeline.event.projection.iservice.js";
 import type {
     TimelineEventProjection,
     TimelineEventSnapshot,
-} from "@monitor/timeline-api/public/dto/timeline.event.dto.js";
+} from "@monitor/timeline-api/public/event/dto/timeline.event.dto.js";
 import type {
     ITaskNotificationPublisher,
     TaskOutboundNotification,

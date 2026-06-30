@@ -1,34 +1,34 @@
 import { Module, type DynamicModule } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
-import { EventController } from "./api/event.controller.js";
-import { EventIngestController } from "./api/event.ingest.controller.js";
-import { PreprocessingHintsController } from "./api/preprocessing.hints.controller.js";
-import { TypedEventIngestController } from "./api/typed.event.ingest.controller.js";
-import { CrossCheckDedupeCache } from "./common/cross.check.dedupe.cache.js";
-import { CommandRepetitionDetector } from "./application/detectors/command.repetition.detector.js";
-import { ContextPressureDetector } from "./application/detectors/context.pressure.detector.js";
-import { DuplicateQuestionDetector } from "./application/detectors/duplicate.question.detector.js";
-import { GetPreprocessingHintsUseCase } from "./application/get.preprocessing.hints.usecase.js";
-import { IngestEventsUseCase } from "./application/ingest.events.usecase.js";
-import { SearchEventsUseCase } from "./application/search.events.usecase.js";
-import { UpdateEventUseCase } from "./application/update.event.usecase.js";
+import { EventController } from "@monitor/timeline-api/api/event/event.controller.js";
+import { EventIngestController } from "@monitor/timeline-api/api/event/event.ingest.controller.js";
+import { PreprocessingHintsController } from "@monitor/timeline-api/api/event/preprocessing.hints.controller.js";
+import { TypedEventIngestController } from "@monitor/timeline-api/api/event/typed.event.ingest.controller.js";
+import { CrossCheckDedupeCache } from "@monitor/timeline-api/common/event/cross.check.dedupe.cache.js";
+import { CommandRepetitionDetector } from "@monitor/timeline-api/application/event/detectors/command.repetition.detector.js";
+import { ContextPressureDetector } from "@monitor/timeline-api/application/event/detectors/context.pressure.detector.js";
+import { DuplicateQuestionDetector } from "@monitor/timeline-api/application/event/detectors/duplicate.question.detector.js";
+import { GetPreprocessingHintsUseCase } from "@monitor/timeline-api/application/event/get.preprocessing.hints.usecase.js";
+import { IngestEventsUseCase } from "@monitor/timeline-api/application/event/ingest.events.usecase.js";
+import { SearchEventsUseCase } from "@monitor/timeline-api/application/event/search.events.usecase.js";
+import { UpdateEventUseCase } from "@monitor/timeline-api/application/event/update.event.usecase.js";
 import {
     EVENT_SEARCH_INDEX_PORT,
     NOTIFICATION_PUBLISHER_PORT,
-} from "./application/outbound/tokens.js";
-import { EventNotificationPublisherAdapter } from "./adapter/notification.publisher.adapter.js";
-import { TimelineEventProjectionPublicAdapter } from "./adapter/timeline.event.projection.public.adapter.js";
-import { TimelineEventEntity } from "./domain/timeline.event.entity.js";
+} from "@monitor/timeline-api/application/event/outbound/tokens.js";
+import { EventNotificationPublisherAdapter } from "@monitor/timeline-api/adapter/event/notification.publisher.adapter.js";
+import { TimelineEventProjectionPublicAdapter } from "@monitor/timeline-api/adapter/event/timeline.event.projection.public.adapter.js";
+import { TimelineEventEntity } from "@monitor/timeline-api/domain/event/timeline.event.entity.js";
 import {
     TIMELINE_EVENT_PROJECTION,
     TIMELINE_EVENT_READ,
     TIMELINE_EVENT_WRITE,
-} from "./public/tokens.js";
-import { PgEventSearch } from "./repository/search/pg.event.search.js";
-import { PreprocessingHintsRepository } from "./repository/preprocessing.hints.repository.js";
-import { TimelineEventRepository } from "./repository/timeline.event.repository.js";
-import { EventRecordingService } from "./service/event.recording.service.js";
-import { TimelineEventStorageService } from "./service/timeline.event.storage.service.js";
+} from "@monitor/timeline-api/public/event/tokens.js";
+import { PgEventSearch } from "@monitor/timeline-api/repository/event/search/pg.event.search.js";
+import { PreprocessingHintsRepository } from "@monitor/timeline-api/repository/event/preprocessing.hints.repository.js";
+import { TimelineEventRepository } from "@monitor/timeline-api/repository/event/timeline.event.repository.js";
+import { EventRecordingService } from "@monitor/timeline-api/service/event/event.recording.service.js";
+import { TimelineEventStorageService } from "@monitor/timeline-api/service/event/timeline.event.storage.service.js";
 
 @Module({})
 export class EventModule {

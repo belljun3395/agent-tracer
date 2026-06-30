@@ -3,10 +3,10 @@ import { TaskAccessPublicAdapter } from "../../adapter/task/task.access.public.a
 import { resolveTurnPartition } from "../../domain/turn/turn.partition.policy.js";
 import { TurnPartitionRepository } from "../../repository/turn/turn.partition.repository.js";
 import { CLOCK_PORT, ID_GENERATOR_PORT } from "./outbound/tokens.js";
-import { TIMELINE_EVENT_READ } from "@monitor/timeline-api/public/tokens.js";
+import { TIMELINE_EVENT_READ } from "@monitor/timeline-api/public/event/tokens.js";
 import type { IClock } from "./outbound/clock.port.js";
 import type { IIdGenerator } from "./outbound/id.generator.port.js";
-import type { ITimelineEventRead } from "@monitor/timeline-api/public/iservice/timeline.event.read.iservice.js";
+import type { ITimelineEventRead } from "@monitor/timeline-api/public/event/iservice/timeline.event.read.iservice.js";
 import type {
     GetTurnPartitionUseCaseIn,
     GetTurnPartitionUseCaseOut,

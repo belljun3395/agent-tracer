@@ -1,4 +1,4 @@
-import type { TimelineEvent } from "@monitor/timeline-api/public/types/event.types.js";
+import type { TimelineEvent } from "@monitor/timeline-api/public/event/types/event.types.js";
 
 export interface TurnGroup {
     readonly id: string;

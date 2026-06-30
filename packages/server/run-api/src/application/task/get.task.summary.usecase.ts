@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { KIND, TERMINAL_COMMAND_TOOL_NAME } from "@monitor/timeline-api/public/types/event.const.js";
+import { KIND, TERMINAL_COMMAND_TOOL_NAME } from "@monitor/timeline-api/public/event/types/event.const.js";
 import { TaskReadService } from "../../service/task/task.read.service.js";
 import { GetTaskTimelineUseCase } from "./get.task.timeline.usecase.js";
 import type {
@@ -9,7 +9,7 @@ import type {
     TaskSummaryFileDto,
     TaskSummaryToolCountDto,
 } from "./dto/get.task.summary.usecase.dto.js";
-import type { TimelineEventProjection } from "@monitor/timeline-api/public/dto/timeline.event.dto.js";
+import type { TimelineEventProjection } from "@monitor/timeline-api/public/event/dto/timeline.event.dto.js";
 
 const MAX_TOP_FILES = 5;
 const MAX_TOP_COMMANDS = 10;

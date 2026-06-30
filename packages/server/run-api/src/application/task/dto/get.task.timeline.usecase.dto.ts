@@ -1,4 +1,4 @@
-import type { TimelineEventProjection } from "@monitor/timeline-api/public/dto/timeline.event.dto.js";
+import type { TimelineEventProjection } from "@monitor/timeline-api/public/event/dto/timeline.event.dto.js";
 
 export interface GetTaskTimelineUseCaseIn {
     readonly taskId: string;

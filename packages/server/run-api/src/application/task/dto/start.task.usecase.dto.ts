@@ -1,6 +1,6 @@
 import type { MonitoringTask } from "@monitor/run-api/domain/task/type/task.type.js";
 import type { MonitoringTaskKind, TaskOrigin } from "@monitor/run-api/domain/task/task.status.const.js";
-import type { MonitoringEventKind } from "@monitor/timeline-api/public/types/event.types.js";
+import type { MonitoringEventKind } from "@monitor/timeline-api/public/event/types/event.types.js";
 
 export interface StartTaskUseCaseIn {
     readonly taskId?: string;

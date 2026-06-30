@@ -1,4 +1,4 @@
-import type { TimelineEventProjection } from "@monitor/timeline-api/public/dto/timeline.event.dto.js";
+import type { TimelineEventProjection } from "@monitor/timeline-api/public/event/dto/timeline.event.dto.js";
 import type { NOTIFICATION_TYPE } from "@monitor/shared/contracts/notifications/notification.type.const.js";
 import type { SessionSnapshot } from "@monitor/run-api/domain/session/dto/session.snapshot.dto.js";
 import type { MonitoringTask } from "@monitor/run-api/domain/task/type/task.type.js";

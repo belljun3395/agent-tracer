@@ -1,4 +1,4 @@
-import type { MonitoringEventKind, TimelineLane, EventClassificationMatch } from "@monitor/timeline-api/public/types/event.types.js";
+import type { MonitoringEventKind, TimelineLane, EventClassificationMatch } from "@monitor/timeline-api/public/event/types/event.types.js";
 
 export interface VerificationPostProcessorEvent {
     readonly id: string;

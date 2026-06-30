@@ -3,7 +3,7 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 
 // ── cross-api tokens ──────────────────────────────────────────────────────────
 import { NOTIFICATION_PUBLISHER_TOKEN } from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
-import { TIMELINE_EVENT_READ } from "@monitor/timeline-api/public/tokens.js";
+import { TIMELINE_EVENT_READ } from "@monitor/timeline-api/public/event/tokens.js";
 import { TASK_SUMMARY } from "@monitor/run-api/public/task/tokens.js";
 import { TURN_QUERY_REPOSITORY_TOKEN } from "@monitor/run-api/public/task/tokens.js";
 
@@ -63,7 +63,7 @@ import { TaskRuleGenerationController } from "./api/generation/task.rule.generat
 // ── subscriber ────────────────────────────────────────────────────────────────
 import { EventRecordedVerificationSubscriber } from "./subscriber/verification/event.recorded.verification.subscriber.js";
 
-import type { ITimelineEventRead } from "@monitor/timeline-api/public/iservice/timeline.event.read.iservice.js";
+import type { ITimelineEventRead } from "@monitor/timeline-api/public/event/iservice/timeline.event.read.iservice.js";
 import type { INotificationPublisher } from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
 import type { ITaskSummary } from "@monitor/run-api/public/task/iservice/task.summary.iservice.js";
 

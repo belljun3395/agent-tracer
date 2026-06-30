@@ -2,9 +2,9 @@ import { Inject, Injectable } from "@nestjs/common";
 import {
     TIMELINE_EVENT_PROJECTION,
     TIMELINE_EVENT_READ,
-} from "@monitor/timeline-api/public/tokens.js";
-import type { ITimelineEventRead } from "@monitor/timeline-api/public/iservice/timeline.event.read.iservice.js";
-import type { ITimelineEventProjection } from "@monitor/timeline-api/public/iservice/timeline.event.projection.iservice.js";
+} from "@monitor/timeline-api/public/event/tokens.js";
+import type { ITimelineEventRead } from "@monitor/timeline-api/public/event/iservice/timeline.event.read.iservice.js";
+import type { ITimelineEventProjection } from "@monitor/timeline-api/public/event/iservice/timeline.event.projection.iservice.js";
 import type {
     GetTaskTimelineUseCaseIn,
     GetTaskTimelineUseCaseOut,

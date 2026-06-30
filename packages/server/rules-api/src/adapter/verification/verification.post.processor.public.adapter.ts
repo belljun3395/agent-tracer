@@ -1,8 +1,8 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
 import { NOTIFICATION_TYPE } from "@monitor/shared/contracts/notifications/notification.type.const.js";
-import { KIND } from "@monitor/timeline-api/public/types/event.const.js";
-import type { TimelineEvent } from "@monitor/timeline-api/public/types/event.types.js";
+import { KIND } from "@monitor/timeline-api/public/event/types/event.const.js";
+import type { TimelineEvent } from "@monitor/timeline-api/public/event/types/event.types.js";
 import { matchEventAgainstRule } from "@monitor/rules-api/domain/verification/event.rule.matching.policy.js";
 import { inferToolCall } from "@monitor/rules-api/domain/verification/tool.call.inference.policy.js";
 import type { INotificationPublisher } from "@monitor/shared/contracts/notifications/notification.publisher.port.js";
@@ -10,13 +10,13 @@ import { NOTIFICATION_PUBLISHER_TOKEN } from "@monitor/shared/contracts/notifica
 import type {
     RuleEnforcementInsert,
 } from "@monitor/rules-api/application/verification/outbound/rule.enforcement.repository.port.js";
-import type { ITimelineEventRead } from "@monitor/timeline-api/public/iservice/timeline.event.read.iservice.js";
+import type { ITimelineEventRead } from "@monitor/timeline-api/public/event/iservice/timeline.event.read.iservice.js";
 import type { VerificationPostProcessorEvent } from "../../domain/verification/verification.post.processor.event.js";
 import { TurnEvaluationService } from "../../service/verification/turn.evaluation.service.js";
 import { RuleRepository } from "../../repository/rule/rule.repository.js";
 import { TurnRepository } from "../../repository/verification/turn.repository.js";
 import { RuleEnforcementRepository } from "../../repository/verification/rule.enforcement.repository.js";
-import { TIMELINE_EVENT_READ } from "@monitor/timeline-api/public/tokens.js";
+import { TIMELINE_EVENT_READ } from "@monitor/timeline-api/public/event/tokens.js";
 
 @Injectable()
 export class VerificationPostProcessorPublicAdapter {

@@ -1,8 +1,8 @@
 import { Injectable } from "@nestjs/common";
 import { OnEvent } from "@nestjs/event-emitter";
-import { EVENT_RECORDED } from "@monitor/timeline-api/public/events/event.recorded.js";
-import type { EventRecordedPayload } from "@monitor/timeline-api/public/events/event.recorded.js";
-import { KIND } from "@monitor/timeline-api/public/types/event.const.js";
+import { EVENT_RECORDED } from "@monitor/timeline-api/public/event/events/event.recorded.js";
+import type { EventRecordedPayload } from "@monitor/timeline-api/public/event/events/event.recorded.js";
+import { KIND } from "@monitor/timeline-api/public/event/types/event.const.js";
 import { VerificationPostProcessorPublicAdapter } from "../../adapter/verification/verification.post.processor.public.adapter.js";
 
 @Injectable()

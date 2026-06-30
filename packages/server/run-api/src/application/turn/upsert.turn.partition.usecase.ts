@@ -4,9 +4,9 @@ import { Transactional } from "typeorm-transactional";
 import { countNonPreludeTurns, createTurnPartitionUpdate, validatePartition } from "../../domain/turn/turn.partition.policy.js";
 import { TurnPartitionRepository } from "../../repository/turn/turn.partition.repository.js";
 import { CLOCK_PORT } from "./outbound/tokens.js";
-import { TIMELINE_EVENT_READ } from "@monitor/timeline-api/public/tokens.js";
+import { TIMELINE_EVENT_READ } from "@monitor/timeline-api/public/event/tokens.js";
 import type { IClock } from "./outbound/clock.port.js";
-import type { ITimelineEventRead } from "@monitor/timeline-api/public/iservice/timeline.event.read.iservice.js";
+import type { ITimelineEventRead } from "@monitor/timeline-api/public/event/iservice/timeline.event.read.iservice.js";
 import type {
     UpsertTurnPartitionUseCaseIn,
     UpsertTurnPartitionUseCaseOut,

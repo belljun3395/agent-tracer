@@ -1,13 +1,13 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { NOTIFICATION_TYPE } from "@monitor/shared/contracts/notifications/notification.type.const.js";
 import type { MonitoringTask } from "@monitor/run-api/domain/task/type/task.type.js";
-import type { MonitoringEventKind } from "@monitor/timeline-api/public/types/event.types.js";
+import type { MonitoringEventKind } from "@monitor/timeline-api/public/event/types/event.types.js";
 import { isTaskRunning } from "../../domain/task/task.predicates.policy.js";
 import type {
     MonitoringTaskKind,
     TaskOrigin,
 } from "@monitor/run-api/domain/task/task.status.const.js";
-import { createEventRecordDraft } from "@monitor/timeline-api/public/helpers.js";
+import { createEventRecordDraft } from "@monitor/timeline-api/public/event/helpers.js";
 import { TaskUpsertDraft } from "../../domain/task/task.upsert.draft.vo.js";
 import {
     TaskFinalizationRecording,
@@ -25,11 +25,11 @@ import {
 import {
     TIMELINE_EVENT_PROJECTION,
     TIMELINE_EVENT_WRITE,
-} from "@monitor/timeline-api/public/tokens.js";
+} from "@monitor/timeline-api/public/event/tokens.js";
 import type { IClock } from "../../application/task/outbound/clock.port.js";
 import type { IIdGenerator } from "../../application/task/outbound/id.generator.port.js";
-import type { ITimelineEventWrite } from "@monitor/timeline-api/public/iservice/timeline.event.write.iservice.js";
-import type { ITimelineEventProjection } from "@monitor/timeline-api/public/iservice/timeline.event.projection.iservice.js";
+import type { ITimelineEventWrite } from "@monitor/timeline-api/public/event/iservice/timeline.event.write.iservice.js";
+import type { ITimelineEventProjection } from "@monitor/timeline-api/public/event/iservice/timeline.event.projection.iservice.js";
 import type { ITaskNotificationPublisher } from "../../application/task/outbound/notification.publisher.port.js";
 
 export interface StartTaskServiceInput {
