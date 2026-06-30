@@ -6,8 +6,8 @@ import { TurnModule } from "@monitor/run-api/turn/turn.module.js";
 import { VerificationModule } from "@monitor/rules-api/verification/verification.module.js";
 import { RuleModule } from "@monitor/rules-api/rule/rule.module.js";
 import { SettingsModule } from "@monitor/identity-api/settings/settings.module.js";
-import { RuleBackfillModule } from "@monitor/rules-api/rule/backfill/rule.backfill.module.js";
-import { RuleGenerationModule } from "@monitor/rules-api/rule/generation/rule.generation.module.js";
+import { RuleBackfillModule } from "@monitor/rules-api/backfill/rule.backfill.module.js";
+import { RuleGenerationModule } from "@monitor/rules-api/generation/rule.generation.module.js";
 import { TaskCleanupModule } from "@monitor/insight-api/task-cleanup/task.cleanup.module.js";
 import { RecipeModule } from "@monitor/insight-api/recipe/recipe.module.js";
 

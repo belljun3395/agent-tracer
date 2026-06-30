@@ -10,16 +10,11 @@ import {
     ListRulesForTaskUseCase,
     ListRulesUseCase,
 } from "./application/list.rules.usecase.js";
-import {
-    BACKFILL_TRIGGER_PORT,
-    NOTIFICATION_PUBLISHER_PORT,
-    RULE_PERSISTENCE_PORT,
-} from "./application/outbound/tokens.js";
+import { NOTIFICATION_PUBLISHER_PORT, RULE_PERSISTENCE_PORT } from "./application/outbound/tokens.js";
 import { DemoteRuleToTaskUseCase } from "./application/demote.rule.to.task.usecase.js";
 import { PromoteRuleToGlobalUseCase } from "./application/promote.rule.to.global.usecase.js";
 import { RegisterSuggestionUseCase } from "./application/register.suggestion.usecase.js";
 import { UpdateRuleUseCase } from "./application/update.rule.usecase.js";
-import { BackfillTriggerAdapter } from "./adapter/backfill.trigger.adapter.js";
 import { RuleNotificationPublisherAdapter } from "./adapter/notification.publisher.adapter.js";
 import { RuleEntity } from "./domain/rule.entity.js";
 import {
@@ -48,7 +43,6 @@ export class RuleModule {
 
                 { provide: RULE_REPOSITORY_TOKEN, useExisting: RuleRepository },
 
-                BackfillTriggerAdapter,
                 RuleNotificationPublisherAdapter,
 
                 CreateRuleUseCase,
@@ -66,7 +60,6 @@ export class RuleModule {
 
                 { provide: RULE_PERSISTENCE_PORT, useExisting: RuleRepository },
                 { provide: NOTIFICATION_PUBLISHER_PORT, useExisting: RuleNotificationPublisherAdapter },
-                { provide: BACKFILL_TRIGGER_PORT, useExisting: BackfillTriggerAdapter },
             ],
             exports: [
                 RULE_READ,

@@ -21,11 +21,11 @@ import type { RuleJobEntity } from "@monitor/rules-api/job/rule.job.entity.js";
 import {
     clampMaxRules,
     normalizeRuleSuggestionLanguage,
-} from "@monitor/rules-api/rule/generation/domain/task.rule.generation.params.policy.js";
+} from "@monitor/rules-api/generation/domain/task.rule.generation.params.policy.js";
 import {
     MissingApiKeyError,
     TaskNotFoundForGenerationError,
-} from "@monitor/rules-api/rule/generation/domain/task.rule.generation.errors.js";
+} from "@monitor/rules-api/generation/domain/task.rule.generation.errors.js";
 
 @Injectable()
 export class RuleGenerationActivity {

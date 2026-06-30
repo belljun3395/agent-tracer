@@ -1,11 +1,10 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
-import { RuleJobRepository } from "../../../job/rule.job.repository.js";
-import type { RuleJobEntity } from "../../../job/rule.job.entity.js";
+import { RuleJobRepository } from "../../job/rule.job.repository.js";
+import type { RuleJobEntity } from "../../job/rule.job.entity.js";
 import { RULE_PERSISTENCE_PORT } from "@monitor/rules-api/rule/application/outbound/tokens.js";
 import type { IRulePersistence } from "@monitor/rules-api/rule/application/outbound/rule.persistence.port.js";
-import { VERIFICATION_BACKFILL } from "@monitor/rules-api/verification/public/tokens.js";
-import type { IVerificationBackfill } from "@monitor/rules-api/verification/public/iservice/verification.backfill.iservice.js";
+import { BackfillRuleEvaluationUseCase } from "@monitor/rules-api/verification/application/backfill.rule.evaluation.usecase.js";
 import { RuleNotFoundForBackfillError } from "../domain/rule.backfill.errors.js";
 
 @Injectable()
@@ -15,7 +14,7 @@ export class RuleBackfillService {
     constructor(
         private readonly jobs: RuleJobRepository,
         @Inject(RULE_PERSISTENCE_PORT) private readonly rules: IRulePersistence,
-        @Inject(VERIFICATION_BACKFILL) private readonly backfill: IVerificationBackfill,
+        private readonly backfill: BackfillRuleEvaluationUseCase,
     ) {}
 
     async enqueue(ruleId: string): Promise<RuleJobEntity> {
@@ -69,7 +68,7 @@ export class RuleBackfillService {
                 return;
             }
 
-            const result = await this.backfill.backfill(rule);
+            const result = await this.backfill.execute({ rule });
 
             await this.jobs.markCompleted({
                 id: job.id,
